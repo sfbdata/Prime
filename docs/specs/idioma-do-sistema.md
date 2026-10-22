@@ -589,6 +589,52 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   idioma do destinatário, não o da requisição (entrega E do §5, com o locale de quem lê, §4), o que pede o idioma
   gravado no perfil de quem recebe na hora de montar a mensagem; fica para a entrega dos e-mails.
 
+### 21.1 Entrada (registration/ e security/) (9b, 22/10)
+
+- **Escopo:** `security/login.html.twig` (cartão, tarja, segurança e privacidade, modal da senha por código e do
+  cadastro, véu da conta nova, rodapé, suporte e as ferramentas SÓ MASTER), `security/entrando.html.twig` (véu depois do
+  login), `registration/confirm.html.twig`, `_fundo_auth.html.twig` (sem texto: entra na lista só como guarda) e
+  `auth/entrada.js`. Bloco `entrada` do catálogo, 127 chaves (`login` 21, `link` 7, `seguranca` 24, `modal` 17,
+  `abrindo` 1, `suporte` 16, `entrando` 4, `registration` 6, `js` 31). A régua de força do `entrada.js` usa as
+  `auth.js.forca.*` do §21, sem chave repetida.
+- **JS nas páginas sem o base:** o login e o véu não usam o `base.html.twig`, então trazem o próprio
+  `{{ catalogo_js(...) }}` e o `bj-traducao.js` (sem defer), como o `mapa_mundo` da P3: o login entrega `entrada.js` e
+  `auth.js.forca` antes do `entrada.js` (que roda com defer); o véu entrega `entrada.js.saudacao` antes do script
+  inline. A saudação ("Bom dia, Ana!") é a mesma chave nos dois (`com_nome: '{saudacao}, {nome}!'`, `sem_nome`).
+  O `LoginTelaTest::testScriptEEstiloProprios` passou a aceitar o bloco `type="application/json"` (dado, o navegador
+  não executa), como o `testCsp` do painel na P3.
+- **Sem mudança visível:** o HTML do login anônimo, com `?abrir=senha`, com erro de credencial, com a conta a confirmar
+  (aviso e botão de reenviar) e do Master logado (links, editor de link, quem recebe o suporte), do véu com nome (com
+  `&`, `<b>`, apóstrofo e acento) e sem nome e dos blocos do `registration/confirm` foi comparado antes e depois, com os
+  tokens CSRF normalizados: mudaram só o `<script data-bj-t>` e a linha do `bj-traducao.js` (e, no véu, o corpo do
+  script inline, que passou a ler o catálogo). Os três modais (senha por código, cadastro, suporte) estão no mesmo HTML
+  e entraram na comparação. O texto que o `entrada.js` escreve foi comparado num DOM falso, HEAD contra o novo, em 223
+  registros por rodada e em três horas do dia (manhã, tarde e noite): validação do login, olho da senha, os três passos
+  da senha com as falhas do servidor e da rede, a régua nas cinco forças, o cadastro com cada recusa, a confirmação do
+  e-mail com reenvio, o véu da conta nova, os links do Master (título, editar, mostrar e ocultar, endereço inválido,
+  falha e gravação) e o suporte (os quatro assuntos, recusas, falha e envio), iguais letra a letra, incluindo os corpos
+  dos POST e sem nenhuma chave faltando. O script inline do véu foi comparado do mesmo jeito, nas três horas, com e sem
+  nome.
+- **Assuntos do suporte:** são dado, o servidor compara o português (`EnviarMensagemSuporteInput::ASSUNTOS`): o
+  `data-assunto` e o corpo do POST continuam o português, e só o rótulo do chip sai do catálogo
+  (`entrada.suporte.assunto.*`). O texto que o chip escreve na mensagem passou a ser o rótulo do chip (`textContent`), e
+  não o valor; em português é o mesmo.
+- **Termo Master:** "SÓ MASTER" e "QUEM RECEBE AS MENSAGENS DE SUPORTE · SÓ MASTER VÊ" recebem `termos.master` por
+  `{papel}`, em `|upper`, como no §8.
+- **Textos de segurança:** os do desenho 10 que o dono confirmou (tarja, selo do cartão e a janela de segurança e
+  privacidade, inclusive "Criptografia de ponta a ponta") entraram com o texto idêntico.
+- **Permitidos (8):** `BlueJus` (alt do logo), `https://` (placeholder do editor de link), o nome da classe lida por
+  `constant()` (`App\\Auth\\Service\\ContaAConfirmar`), `Não consigo entrar` e `Outro assunto` (os valores de assunto que
+  o detector lê; o JS compara o segundo), `Content-Type`, `CapsLock` e `Escape`.
+- **Ficou de fora:** o texto que vem do PHP: as quatro frases da tarja (`SecurityController::FRASES`), o erro de login
+  (`security` do Symfony e `ContaAConfirmar::mensagemDeLogin`), os textos da `ContaAConfirmar` no passo "Confirme seu
+  e-mail", o rótulo dos links do rodapé e o texto de quem recebe o suporte (`PaginaDeEntrada`), os flashes e as
+  respostas dos endpoints (`erro`, `mensagem`, `texto`). O assunto do `mailto:` do encarregado
+  (`Encarregado de dados (LGPD)`, dentro do `href`) e o `lang="pt-BR"` fixo das duas páginas.
+  `registration/index.html.twig` não entrou: é o esqueleto do `make:controller` em inglês ("Hello
+  RegistrationController!") e nenhum controller o renderiza (o `registration/confirm` também não tem quem o renderize);
+  **para decidir:** apagar os dois.
+
 ## 22. Extração do Kanban e do que faltava em Tarefa (f6, 21/10)
 
 Bloco `kanban` do catálogo, 70 chaves: 56 do Twig (`comum`, `index`, `modal_criar`, `mural`, `modal_checklist`,

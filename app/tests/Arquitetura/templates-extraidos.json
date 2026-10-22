@@ -613,6 +613,28 @@
         ]
     },
 
+    "entrada": {
+        "templates": [
+            "security/login.html.twig",
+            "security/entrando.html.twig",
+            "registration/confirm.html.twig",
+            "_fundo_auth.html.twig"
+        ],
+        "js": [
+            "auth/entrada.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "https://",
+            "App\\\\Auth\\\\Service\\\\ContaAConfirmar",
+            "Não consigo entrar",
+            "Outro assunto",
+            "Content-Type",
+            "CapsLock",
+            "Escape"
+        ]
+    },
+
     "djen": {
         "templates": [
             "djen/index.html.twig",

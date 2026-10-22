@@ -11,13 +11,15 @@
 {% set ehMaster = pagina.ehMaster %}
 {% set erroLogin = error ? error.messageKey|trans(error.messageData, 'security') : (a_confirmar ?? '') %}
 {% set ContaAConfirmar = 'App\\Auth\\Service\\ContaAConfirmar' %}
+{# Os assuntos são dado (o servidor compara o português, EnviarMensagemSuporteInput::ASSUNTOS); só o rótulo é do catálogo. #}
+{% set assuntosDoSuporte = {'Não consigo entrar': 'entrada.suporte.assunto.nao_consigo_entrar'|trans, 'Esqueci a senha': 'entrada.suporte.assunto.esqueci_a_senha'|trans, 'Criar conta': 'entrada.suporte.assunto.criar_conta'|trans, 'Outro assunto': 'entrada.suporte.assunto.outro'|trans} %}
 <!DOCTYPE html>
 <html lang="pt-BR" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
-    <title>Entrar | BlueJus</title>
+    <title>{{ 'entrada.login.titulo_pagina'|trans }}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
@@ -45,11 +47,11 @@
 
     {# ------------------------------------------------------------------ tarja ---- #}
     <header class="lg-tarja">
-        <span class="lg-tarja__logo"><img src="/images/logo/bluejus-logo-branco-completo.png" alt="BlueJus · sistema de gestão jurídica e de arquivos"></span>
+        <span class="lg-tarja__logo"><img src="/images/logo/bluejus-logo-branco-completo.png" alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
         <span class="lg-tarja__div" aria-hidden="true"></span>
         {# Frase do dia: o servidor escolhe; cada palavra entra com lgPal, 0,9 s + i × 0,07 s, como no desenho. #}
         <span class="lg-frase" id="lgFrase">{% for p in frase|split(' ') %}<span class="lg-pal" style="animation-delay:{{ '%.2F'|format(0.9 + loop.index0 * 0.07) }}s">{{ p }}{{ loop.last ? '' : ' ' }}</span>{% endfor %}</span>
-        <button type="button" class="lg-tarja__seg" data-seg-abrir title="Como protegemos os seus dados"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i><b>Conexão segura</b><span class="lg-ponto">·</span><span class="lg-cripto">Criptografia de ponta a ponta</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+        <button type="button" class="lg-tarja__seg" data-seg-abrir title="{{ 'entrada.login.como_protegemos'|trans }}"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i><b>{{ 'entrada.login.conexao_segura'|trans }}</b><span class="lg-ponto">·</span><span class="lg-cripto">{{ 'entrada.login.criptografia'|trans }}</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
     </header>
 
     {# -------------------------------------------------------------------- céu ---- #}
@@ -68,17 +70,17 @@
         <div class="lg-cartao-caixa" id="lgCartao">
             <form class="lg-cartao" id="lgForm" method="post" action="{{ path('app_login') }}" novalidate>
                 <div class="lg-cartao__topo">
-                    <span class="lg-cartao__logo"><img src="/images/logo/bluejus-logo-cor-completo.png" alt="BlueJus · sistema de gestão jurídica e de arquivos"></span>
-                    <h1 class="lg-cartao__titulo">Bem-vindo de volta</h1>
-                    <div class="lg-cartao__sub">Acesse sua conta para continuar</div>
+                    <span class="lg-cartao__logo"><img src="/images/logo/bluejus-logo-cor-completo.png" alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
+                    <h1 class="lg-cartao__titulo">{{ 'entrada.login.bem_vindo'|trans }}</h1>
+                    <div class="lg-cartao__sub">{{ 'entrada.login.acesse'|trans }}</div>
                 </div>
                 <div class="lg-cartao__corpo">
-                    <label class="lg-rotulo">E-mail<input class="lg-entrada" id="lgEmail" name="email" type="email" value="{{ last_username }}" placeholder="nome@escritorio.com.br" autocomplete="username" inputmode="email" spellcheck="false" autocapitalize="none"{% if error %} aria-invalid="true"{% endif %}></label>
-                    <label class="lg-rotulo">Senha<span class="lg-senha"><input class="lg-entrada" id="lgSenha" name="password" type="password" autocomplete="current-password"{% if error %} aria-invalid="true" autofocus{% endif %}><button type="button" class="lg-olho" id="lgOlho" title="Mostrar senha" aria-label="Mostrar senha" aria-pressed="false"><i class="bi bi-eye" aria-hidden="true"></i></button></span></label>
-                    <div class="lg-caps" id="lgCaps" role="status" aria-live="polite" hidden><i class="bi bi-capslock-fill" aria-hidden="true"></i> Caps Lock está ativado.</div>
+                    <label class="lg-rotulo">{{ 'entrada.login.email'|trans }}<input class="lg-entrada" id="lgEmail" name="email" type="email" value="{{ last_username }}" placeholder="{{ 'entrada.login.email_exemplo'|trans }}" autocomplete="username" inputmode="email" spellcheck="false" autocapitalize="none"{% if error %} aria-invalid="true"{% endif %}></label>
+                    <label class="lg-rotulo">{{ 'entrada.login.senha'|trans }}<span class="lg-senha"><input class="lg-entrada" id="lgSenha" name="password" type="password" autocomplete="current-password"{% if error %} aria-invalid="true" autofocus{% endif %}><button type="button" class="lg-olho" id="lgOlho" title="{{ 'entrada.login.mostrar_senha'|trans }}" aria-label="{{ 'entrada.login.mostrar_senha'|trans }}" aria-pressed="false"><i class="bi bi-eye" aria-hidden="true"></i></button></span></label>
+                    <div class="lg-caps" id="lgCaps" role="status" aria-live="polite" hidden><i class="bi bi-capslock-fill" aria-hidden="true"></i> {{ 'entrada.login.caps_lock'|trans }}</div>
                     <div class="lg-linha">
-                        <label class="lg-manter"><input type="checkbox" name="_remember_me" id="lgManter">Manter conectado</label>
-                        <a href="{{ path('auth_senha_esqueci') }}" id="lgEsqueci">Esqueceu a senha?</a>
+                        <label class="lg-manter"><input type="checkbox" name="_remember_me" id="lgManter">{{ 'entrada.login.manter_conectado'|trans }}</label>
+                        <a href="{{ path('auth_senha_esqueci') }}" id="lgEsqueci">{{ 'entrada.login.esqueceu'|trans }}</a>
                     </div>
                     <div class="lg-erro" id="lgErro" role="alert"{% if erroLogin == '' %} hidden{% endif %}>{{ erroLogin }}</div>
                     {# Conta a confirmar (spec cadastro-exige-confirmacao): o botão envia o form #lgReenvio, fora deste form. #}
@@ -86,11 +88,11 @@
                         <button type="submit" class="lg-reenviar" id="lgReenviar" form="lgReenvio"><i class="bi bi-envelope-arrow-up" aria-hidden="true"></i>{{ constant(ContaAConfirmar ~ '::BOTAO_REENVIAR') }}</button>
                     {% endif %}
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-                    <button type="submit" class="lg-entrar" id="lgEntrar"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Entrar</button>
+                    <button type="submit" class="lg-entrar" id="lgEntrar"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>{{ 'entrada.login.entrar'|trans }}</button>
 
-                    <button type="button" class="lg-selo" data-seg-abrir><span class="lg-selo__icone" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span><span class="lg-selo__texto"><b>Criptografia de ponta a ponta</b><span>O BlueJus não tem acesso aos seus arquivos nem ao conteúdo das pastas.</span></span><i class="bi bi-chevron-down lg-selo__seta" aria-hidden="true"></i></button>
+                    <button type="button" class="lg-selo" data-seg-abrir><span class="lg-selo__icone" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span><span class="lg-selo__texto"><b>{{ 'entrada.login.criptografia'|trans }}</b><span>{{ 'entrada.login.selo_texto'|trans }}</span></span><i class="bi bi-chevron-down lg-selo__seta" aria-hidden="true"></i></button>
 
-                    <div class="lg-semconta">Não tem conta? <a href="{{ path('auth_cadastro') }}" id="lgCriar">Criar minha conta e escritório</a></div>
+                    <div class="lg-semconta">{{ 'entrada.login.sem_conta'|trans }} <a href="{{ path('auth_cadastro') }}" id="lgCriar">{{ 'entrada.login.criar_conta'|trans }}</a></div>
                 </div>
             </form>
             {% if a_confirmar %}
@@ -106,16 +108,16 @@
         <div id="lgLk" hidden>
             <div class="lg-lk-fundo" data-lk-fechar></div>
             <div class="lg-lk" id="lgLkCaixa" role="dialog" aria-labelledby="lgLkTit">
-                <div class="lg-lk__topo"><i class="bi bi-link-45deg" id="lgLkIc" aria-hidden="true"></i><span id="lgLkTit">Editar link</span><span class="lg-mola"></span><span class="lg-lk__master">SÓ MASTER</span></div>
+                <div class="lg-lk__topo"><i class="bi bi-link-45deg" id="lgLkIc" aria-hidden="true"></i><span id="lgLkTit">{{ 'entrada.link.titulo'|trans }}</span><span class="lg-mola"></span><span class="lg-lk__master">{{ 'entrada.link.so_master'|trans({papel: 'termos.master'|trans|upper}) }}</span></div>
                 <form class="lg-lk__corpo" id="lgLkForm" novalidate>
-                    <input class="lg-lk__entrada" id="lgLkVal" placeholder="https://" aria-label="Endereço do link" autocomplete="off">
+                    <input class="lg-lk__entrada" id="lgLkVal" placeholder="https://" aria-label="{{ 'entrada.link.endereco'|trans }}" autocomplete="off">
                     <div class="lg-lk__erro" id="lgLkErro" role="alert" hidden></div>
                     <div class="lg-lk__botoes">
-                        <button type="submit" class="lg-lk__salvar">Salvar</button>
-                        <button type="button" class="lg-lk__btn" data-lk="abrir">Abrir</button>
-                        <button type="button" class="lg-lk__btn" data-lk="restaurar">Restaurar</button>
+                        <button type="submit" class="lg-lk__salvar">{{ 'entrada.link.salvar'|trans }}</button>
+                        <button type="button" class="lg-lk__btn" data-lk="abrir">{{ 'entrada.link.abrir'|trans }}</button>
+                        <button type="button" class="lg-lk__btn" data-lk="restaurar">{{ 'entrada.link.restaurar'|trans }}</button>
                         <span class="lg-mola"></span>
-                        <button type="button" class="lg-lk__ocultar" id="lgLkOcultar" data-lk="ocultar">Ocultar do rodapé</button>
+                        <button type="button" class="lg-lk__ocultar" id="lgLkOcultar" data-lk="ocultar">{{ 'entrada.link.ocultar'|trans }}</button>
                     </div>
                 </form>
             </div>
@@ -126,38 +128,38 @@
     <div id="lgSeg" hidden>
         <div class="lg-fundo lg-seg-fundo" data-seg-fechar></div>
         <div class="lg-centro lg-seg-centro">
-            <div class="lg-seg" role="dialog" aria-modal="true" aria-label="Segurança e privacidade">
+            <div class="lg-seg" role="dialog" aria-modal="true" aria-label="{{ 'entrada.seguranca.rotulo'|trans }}">
                 <div class="lg-seg__topo">
-                    <button type="button" class="lg-seg__x" data-seg-fechar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                    <button type="button" class="lg-seg__x" data-seg-fechar aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                     <img class="lg-seg__logo" src="/images/logo/bluejus-logo-branco-completo.png" alt="BlueJus">
-                    <div class="lg-seg__tag"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i>SEGURANÇA E PRIVACIDADE</div>
-                    <div class="lg-seg__titulo">O sigilo do seu escritório começa aqui.</div>
-                    <div class="lg-seg__lead">Advocacia é confiança. O BlueJus foi construído para que as informações dos seus clientes fiquem só com quem tem direito a elas: você e a equipe que você autorizar.</div>
+                    <div class="lg-seg__tag"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i>{{ 'entrada.seguranca.tag'|trans }}</div>
+                    <div class="lg-seg__titulo">{{ 'entrada.seguranca.titulo'|trans }}</div>
+                    <div class="lg-seg__lead">{{ 'entrada.seguranca.lead'|trans }}</div>
                 </div>
                 <div class="lg-seg__corpo">
-                    <div class="lg-seg__item"><span class="lg-seg__item-icone" aria-hidden="true"><i class="bi bi-lock-fill"></i></span><span><b>Criptografia de ponta a ponta</b><span class="lg-seg__item-texto">Documentos, registros e conversas são cifrados antes de sair do seu aparelho e só são abertos por quem o escritório autorizou. Nem a equipe BlueJus tem acesso ao conteúdo das suas pastas.</span></span></div>
-                    <div class="lg-seg__item"><span class="lg-seg__item-icone" aria-hidden="true"><i class="bi bi-incognito"></i></span><span><b>Nenhum terceiro vê os seus dados</b><span class="lg-seg__item-texto">Não vendemos, não compartilhamos e não usamos as informações do escritório para publicidade. Cada conta fica isolada das demais.</span></span></div>
-                    <div class="lg-seg__item"><span class="lg-seg__item-icone" aria-hidden="true"><i class="bi bi-person-lock"></i></span><span><b>Você controla quem acessa</b><span class="lg-seg__item-texto">O usuário primário define permissões, oculta abas e tranca pastas sigilosas. Cada acesso e alteração fica registrado com data, hora e autor.</span></span></div>
-                    <div class="lg-seg__item"><span class="lg-seg__item-icone" aria-hidden="true"><i class="bi bi-globe2"></i></span><span><b>Conexão protegida</b><span class="lg-seg__item-texto">Todo o tráfego usa HTTPS com certificado válido, e as sessões de aparelhos sem uso são encerradas automaticamente.</span></span></div>
+                    <div class="lg-seg__item"><span class="lg-seg__item-icone" aria-hidden="true"><i class="bi bi-lock-fill"></i></span><span><b>{{ 'entrada.login.criptografia'|trans }}</b><span class="lg-seg__item-texto">{{ 'entrada.seguranca.criptografia_texto'|trans }}</span></span></div>
+                    <div class="lg-seg__item"><span class="lg-seg__item-icone" aria-hidden="true"><i class="bi bi-incognito"></i></span><span><b>{{ 'entrada.seguranca.terceiros'|trans }}</b><span class="lg-seg__item-texto">{{ 'entrada.seguranca.terceiros_texto'|trans }}</span></span></div>
+                    <div class="lg-seg__item"><span class="lg-seg__item-icone" aria-hidden="true"><i class="bi bi-person-lock"></i></span><span><b>{{ 'entrada.seguranca.controle'|trans }}</b><span class="lg-seg__item-texto">{{ 'entrada.seguranca.controle_texto'|trans }}</span></span></div>
+                    <div class="lg-seg__item"><span class="lg-seg__item-icone" aria-hidden="true"><i class="bi bi-globe2"></i></span><span><b>{{ 'entrada.seguranca.conexao'|trans }}</b><span class="lg-seg__item-texto">{{ 'entrada.seguranca.conexao_texto'|trans }}</span></span></div>
                     <div class="lg-lgpd">
-                        <div class="lg-lgpd__titulo"><i class="bi bi-patch-check-fill" aria-hidden="true"></i>Em conformidade com a LGPD (Lei nº 13.709/2018)</div>
+                        <div class="lg-lgpd__titulo"><i class="bi bi-patch-check-fill" aria-hidden="true"></i>{{ 'entrada.seguranca.lgpd.titulo'|trans }}</div>
                         <div class="lg-lgpd__grade">
-                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> O escritório é o controlador; o BlueJus atua como operador.</span>
-                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> Dados usados só para prestar o serviço contratado.</span>
-                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> Direitos do titular: acesso, correção, portabilidade e exclusão.</span>
-                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> Incidentes comunicados ao escritório e à ANPD.</span>
-                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> Encarregado de dados (DPO) disponível.</span>
-                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> Exportação completa dos seus dados quando quiser.</span>
+                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> {{ 'entrada.seguranca.lgpd.controlador'|trans }}</span>
+                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> {{ 'entrada.seguranca.lgpd.finalidade'|trans }}</span>
+                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> {{ 'entrada.seguranca.lgpd.direitos'|trans }}</span>
+                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> {{ 'entrada.seguranca.lgpd.incidentes'|trans }}</span>
+                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> {{ 'entrada.seguranca.lgpd.encarregado'|trans }}</span>
+                            <span><i class="bi bi-check2 lg-ok" aria-hidden="true"></i> {{ 'entrada.seguranca.lgpd.exportacao'|trans }}</span>
                         </div>
                     </div>
                     <div class="lg-cresce">
-                        <div class="lg-cresce__texto"><b>Segurança que ajuda o escritório a crescer</b><span>Mostrar ao cliente que os dados dele estão protegidos é diferencial na hora de fechar contrato. Com o BlueJus você atende a LGPD e transmite profissionalismo desde o primeiro atendimento.</span></div>
-                        <button type="button" class="lg-cresce__btn" data-seg-fechar><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Entrar com segurança</button>
+                        <div class="lg-cresce__texto"><b>{{ 'entrada.seguranca.cresce'|trans }}</b><span>{{ 'entrada.seguranca.cresce_texto'|trans }}</span></div>
+                        <button type="button" class="lg-cresce__btn" data-seg-fechar><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>{{ 'entrada.seguranca.entrar'|trans }}</button>
                     </div>
                     <div class="lg-seg__links">
-                        <a href="{{ priv_href }}" target="_blank" rel="noopener">Política de privacidade</a>
-                        <a href="{{ termos_href }}" target="_blank" rel="noopener">Termos de uso</a>
-                        <a href="mailto:bluejus.86@gmail.com?subject=Encarregado%20de%20dados%20(LGPD)">Falar com o encarregado de dados</a>
+                        <a href="{{ priv_href }}" target="_blank" rel="noopener">{{ 'entrada.seguranca.privacidade'|trans }}</a>
+                        <a href="{{ termos_href }}" target="_blank" rel="noopener">{{ 'entrada.seguranca.termos'|trans }}</a>
+                        <a href="mailto:bluejus.86@gmail.com?subject=Encarregado%20de%20dados%20(LGPD)">{{ 'entrada.seguranca.falar_com_encarregado'|trans }}</a>
                     </div>
                 </div>
             </div>
@@ -170,31 +172,31 @@
         <div class="lg-centro lg-md-centro">
             <div class="lg-md" role="dialog" aria-modal="true" aria-labelledby="lgMdTit">
                 <div class="lg-md__topo">
-                    <div class="lg-md__barra"><img src="/images/logo/bluejus-logo-branco-completo.png" alt="BlueJus"><span class="lg-mola"></span><button type="button" class="lg-md__x" data-md-fechar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+                    <div class="lg-md__barra"><img src="/images/logo/bluejus-logo-branco-completo.png" alt="BlueJus"><span class="lg-mola"></span><button type="button" class="lg-md__x" data-md-fechar aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
                     <div class="lg-md__titulo" id="lgMdTit"><i class="bi" id="lgMdIc" aria-hidden="true"></i><span id="lgMdTitTxt"></span></div>
                 </div>
                 <form class="lg-md__corpo" id="lgMdForm" novalidate>
                     <div class="lg-md__passo" data-passo="rs1" hidden>
-                        <div class="lg-md__texto">Informe o e-mail da sua conta. Enviaremos um código de 6 números para criar uma nova senha.</div>
-                        <label class="lg-md__rotulo">E-mail<input class="lg-md__entrada" id="lgRsEmail" type="email" placeholder="nome@escritorio.com.br" autocomplete="username"></label>
+                        <div class="lg-md__texto">{{ 'entrada.modal.recuperar_texto'|trans }}</div>
+                        <label class="lg-md__rotulo">{{ 'entrada.login.email'|trans }}<input class="lg-md__entrada" id="lgRsEmail" type="email" placeholder="{{ 'entrada.login.email_exemplo'|trans }}" autocomplete="username"></label>
                     </div>
                     <div class="lg-md__passo" data-passo="rs2" hidden>
-                        <div class="lg-md__texto">Enviamos o código para <b id="lgRsEmailMostra"></b>. Ele vale por 15 minutos.</div>
-                        <label class="lg-md__rotulo">Código<input class="lg-md__entrada" id="lgRsCod" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code"></label>
-                        <label class="lg-md__rotulo">Nova senha<input class="lg-md__entrada" id="lgRsNova" type="password" placeholder="Mínimo de 8 caracteres" autocomplete="new-password"></label>
+                        <div class="lg-md__texto">{{ 'entrada.modal.enviamos_antes'|trans }} <b id="lgRsEmailMostra"></b>{{ 'entrada.modal.enviamos_depois'|trans }}</div>
+                        <label class="lg-md__rotulo">{{ 'entrada.modal.codigo'|trans }}<input class="lg-md__entrada" id="lgRsCod" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code"></label>
+                        <label class="lg-md__rotulo">{{ 'entrada.modal.nova_senha'|trans }}<input class="lg-md__entrada" id="lgRsNova" type="password" placeholder="{{ 'entrada.modal.minimo'|trans }}" autocomplete="new-password"></label>
                         <div class="lg-forca" data-forca="lgRsNova"><span class="lg-forca__trilho"><span class="lg-forca__barra"></span></span><span class="lg-forca__txt"></span></div>
-                        <label class="lg-md__rotulo">Confirmar nova senha<input class="lg-md__entrada" id="lgRsConf" type="password" autocomplete="new-password"></label>
-                        <a href="#" class="lg-md__reenviar" id="lgRsReenviar">Reenviar código</a>
+                        <label class="lg-md__rotulo">{{ 'entrada.modal.confirmar_nova'|trans }}<input class="lg-md__entrada" id="lgRsConf" type="password" autocomplete="new-password"></label>
+                        <a href="#" class="lg-md__reenviar" id="lgRsReenviar">{{ 'entrada.modal.reenviar_codigo'|trans }}</a>
                     </div>
                     <div class="lg-md__passo" data-passo="rs3" hidden>
-                        <div class="lg-pronto"><span class="lg-pronto__icone" aria-hidden="true"><i class="bi bi-check2-circle"></i></span><b>Senha alterada</b><div class="lg-pronto__texto">Entre com a nova senha. Por segurança, as outras sessões foram encerradas.</div></div>
+                        <div class="lg-pronto"><span class="lg-pronto__icone" aria-hidden="true"><i class="bi bi-check2-circle"></i></span><b>{{ 'entrada.modal.senha_alterada'|trans }}</b><div class="lg-pronto__texto">{{ 'entrada.modal.senha_alterada_texto'|trans }}</div></div>
                     </div>
                     <div class="lg-md__passo" data-passo="cad" hidden>
-                        <div class="lg-md__texto">Crie seu escritório digital em 1 minuto. Você entra como usuário primário e depois convida a sua equipe.</div>
-                        <label class="lg-md__rotulo">Seu nome completo<input class="lg-md__entrada" id="lgCdNome" type="text" autocomplete="name"></label>
-                        <label class="lg-md__rotulo">Nome do escritório<input class="lg-md__entrada" id="lgCdEsc" type="text" placeholder="Ex.: Silva Advogados Associados" autocomplete="organization"></label>
-                        <label class="lg-md__rotulo">E-mail<input class="lg-md__entrada" id="lgCdEmail" type="email" placeholder="nome@escritorio.com.br" autocomplete="email"></label>
-                        <label class="lg-aceite"><input type="checkbox" id="lgCdAceite"><span>Li e aceito os <a href="{{ termos_href }}" target="_blank" rel="noopener">Termos de uso</a> e a <a href="{{ priv_href }}" target="_blank" rel="noopener">Política de privacidade</a>.</span></label>
+                        <div class="lg-md__texto">{{ 'entrada.modal.cadastro_texto'|trans }}</div>
+                        <label class="lg-md__rotulo">{{ 'entrada.modal.nome_completo'|trans }}<input class="lg-md__entrada" id="lgCdNome" type="text" autocomplete="name"></label>
+                        <label class="lg-md__rotulo">{{ 'entrada.modal.escritorio'|trans }}<input class="lg-md__entrada" id="lgCdEsc" type="text" placeholder="{{ 'entrada.modal.escritorio_exemplo'|trans }}" autocomplete="organization"></label>
+                        <label class="lg-md__rotulo">{{ 'entrada.login.email'|trans }}<input class="lg-md__entrada" id="lgCdEmail" type="email" placeholder="{{ 'entrada.login.email_exemplo'|trans }}" autocomplete="email"></label>
+                        <label class="lg-aceite"><input type="checkbox" id="lgCdAceite"><span>{{ 'entrada.modal.li_e_aceito_os'|trans }} <a href="{{ termos_href }}" target="_blank" rel="noopener">{{ 'entrada.seguranca.termos'|trans }}</a> {{ 'entrada.modal.e_a'|trans }} <a href="{{ priv_href }}" target="_blank" rel="noopener">{{ 'entrada.seguranca.privacidade'|trans }}</a>.</span></label>
                     </div>
                     {# Depois do cadastro: a conta só entra com o e-mail confirmado (spec cadastro-exige-confirmacao). #}
                     <div class="lg-md__passo" data-passo="conf" data-titulo="{{ constant(ContaAConfirmar ~ '::TITULO') }}" data-botao="{{ constant(ContaAConfirmar ~ '::BOTAO_REENVIAR') }}" hidden>
@@ -204,7 +206,7 @@
                     </div>
                     <div class="lg-md__erro" id="lgMdErro" role="alert" hidden><i class="bi bi-exclamation-circle" aria-hidden="true"></i> <span id="lgMdErroTxt"></span></div>
                     <button type="submit" class="lg-md__acao" id="lgMdAcao"><i class="bi" id="lgMdBtnIc" aria-hidden="true"></i><span id="lgMdBtnTxt"></span></button>
-                    <div class="lg-md__jatem" data-passo="cad" hidden>Já tem conta? <a href="#" data-md-fechar>Entrar</a></div>
+                    <div class="lg-md__jatem" data-passo="cad" hidden>{{ 'entrada.modal.ja_tem_conta'|trans }} <a href="#" data-md-fechar>{{ 'entrada.login.entrar'|trans }}</a></div>
                     <div class="lg-md__jatem" data-passo="conf" hidden><a href="#" data-md-fechar>{{ constant(ContaAConfirmar ~ '::LINK_LOGIN') }}</a></div>
                 </form>
             </div>
@@ -214,18 +216,18 @@
     {# ---------------------------------------------- véu da conta recém-criada ---- #}
     <div class="lg-veu" id="lgVeu" hidden>
         <span class="lg-veu__anel"><img src="/images/logo/bluejus-simbolo-branco.png" alt=""></span>
-        <div class="lg-veu__textos"><div class="lg-veu__titulo" id="lgVeuTit"></div><div class="lg-veu__sub">Abrindo o seu escritório digital…</div></div>
+        <div class="lg-veu__textos"><div class="lg-veu__titulo" id="lgVeuTit"></div><div class="lg-veu__sub">{{ 'entrada.abrindo'|trans }}</div></div>
         <div class="lg-veu__trilho"><div class="lg-veu__barra"></div></div>
     </div>
 
     {# ----------------------------------------------------------------- rodapé ---- #}
     <footer class="lg-rodape">
-        <span>© {{ 'now'|date('Y') }} BlueJus</span><span>·</span>
+        <span>{{ 'entrada.login.direitos'|trans({ano: 'now'|date('Y')}) }}</span><span>·</span>
         <span class="lg-links" id="lgLinks">
             {%- for l in pagina.links -%}
                 {%- if not loop.first and not (l.icone != '' and pagina.links[loop.index0 - 1].icone != '') -%}<span>·</span>{%- endif -%}
                 {%- set href = l.url matches '{^https?://}i' ? l.url : '#' -%}
-                <a href="{{ href }}" target="_blank" rel="noopener" data-chave="{{ l.chave }}" class="{{ l.icone != '' ? 'lg-link--icone' : 'lg-link--texto' }}" title="{{ l.rotulo }}{{ ehMaster ? ' · botão direito para editar' : '' }}"{% if l.icone != '' %} aria-label="{{ l.rotulo }}"{% endif %}>
+                <a href="{{ href }}" target="_blank" rel="noopener" data-chave="{{ l.chave }}" class="{{ l.icone != '' ? 'lg-link--icone' : 'lg-link--texto' }}" title="{{ ehMaster ? 'entrada.login.link_do_master'|trans({rotulo: l.rotulo}) : l.rotulo }}"{% if l.icone != '' %} aria-label="{{ l.rotulo }}"{% endif %}>
                     {%- if l.icone != '' %}<i class="bi {{ l.icone }}" aria-hidden="true"></i>{% else %}{{ l.rotulo }}{% endif -%}
                 </a>
             {%- endfor -%}
@@ -233,18 +235,18 @@
         <span class="lg-mola"></span>
 
         {# ------------------------------------------------------------- suporte ---- #}
-        <div class="lg-sup" id="lgSup" role="dialog" aria-label="Falar com suporte" hidden>
+        <div class="lg-sup" id="lgSup" role="dialog" aria-label="{{ 'entrada.suporte.falar'|trans }}" hidden>
             <div class="lg-sup__topo">
                 <span class="lg-sup__avatar" aria-hidden="true"><i class="bi bi-headset"></i></span>
-                <span class="lg-sup__cab"><b>Suporte BlueJus</b><span>Sua mensagem vai direto para a equipe</span></span>
+                <span class="lg-sup__cab"><b>{{ 'entrada.suporte.titulo'|trans }}</b><span>{{ 'entrada.suporte.subtitulo'|trans }}</span></span>
                 {% if ehMaster %}
-                    <button type="button" class="lg-sup__icbtn" id="lgDlgTg" title="Quem recebe o suporte" aria-expanded="false"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                    <button type="button" class="lg-sup__icbtn" id="lgDlgTg" title="{{ 'entrada.suporte.quem_recebe'|trans }}" aria-expanded="false"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
                 {% endif %}
-                <button type="button" class="lg-sup__icbtn" id="lgSupFechar" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <button type="button" class="lg-sup__icbtn" id="lgSupFechar" aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
             {% if ehMaster %}
                 <div class="lg-dlg" id="lgDlg" hidden>
-                    <div class="lg-dlg__titulo">QUEM RECEBE AS MENSAGENS DE SUPORTE · SÓ MASTER VÊ</div>
+                    <div class="lg-dlg__titulo">{{ 'entrada.suporte.quem_recebe_titulo'|trans({papel: 'termos.master'|trans|upper}) }}</div>
                     <div class="lg-dlg__lista">
                         {% for d in pagina.destinatarios %}
                             <button type="button" class="lg-dlg__op{{ d.escolhido ? ' lg-on' : '' }}" data-user-id="{{ d.id }}" aria-pressed="{{ d.escolhido ? 'true' : 'false' }}"><i class="bi {{ d.escolhido ? 'bi-check-circle-fill' : 'bi-circle' }}" aria-hidden="true"></i><span class="lg-dlg__nome">{{ d.nome }}</span><span class="lg-dlg__cargo">{{ d.cargo }}</span></button>
@@ -255,27 +257,30 @@
             {% endif %}
             <div class="lg-sup__ok" id="lgSupOk" hidden>
                 <span class="lg-sup__ok-icone" aria-hidden="true"><i class="bi bi-check2-circle"></i></span>
-                <b>Mensagem enviada</b>
-                <div class="lg-sup__ok-texto">A equipe BlueJus recebeu no chat e vai responder no e-mail <span id="lgSupOkEmail"></span>.</div>
+                <b>{{ 'entrada.suporte.enviada'|trans }}</b>
+                <div class="lg-sup__ok-texto">{{ 'entrada.suporte.enviada_texto'|trans }} <span id="lgSupOkEmail"></span>.</div>
             </div>
             <form class="lg-sup__form" id="lgSupForm" novalidate>
-                <input class="lg-sup__entrada" id="lgSupNome" placeholder="Seu nome" aria-label="Seu nome" autocomplete="name">
-                <input class="lg-sup__entrada" id="lgSupEmail" type="email" placeholder="E-mail para resposta" aria-label="E-mail para resposta" autocomplete="email">
+                <input class="lg-sup__entrada" id="lgSupNome" placeholder="{{ 'entrada.suporte.seu_nome'|trans }}" aria-label="{{ 'entrada.suporte.seu_nome'|trans }}" autocomplete="name">
+                <input class="lg-sup__entrada" id="lgSupEmail" type="email" placeholder="{{ 'entrada.suporte.email_resposta'|trans }}" aria-label="{{ 'entrada.suporte.email_resposta'|trans }}" autocomplete="email">
                 <div class="lg-pote" aria-hidden="true"><input name="site" id="lgSupSite" tabindex="-1" autocomplete="off"></div>
                 <div class="lg-sup__chips">
-                    {% for assunto in ['Não consigo entrar', 'Esqueci a senha', 'Criar conta', 'Outro assunto'] %}
-                        <button type="button" class="lg-chip" data-assunto="{{ assunto }}" aria-pressed="false">{{ assunto }}</button>
+                    {% for assunto, rotulo in assuntosDoSuporte %}
+                        <button type="button" class="lg-chip" data-assunto="{{ assunto }}" aria-pressed="false">{{ rotulo }}</button>
                     {% endfor %}
                 </div>
-                <textarea class="lg-sup__msg" id="lgSupMsg" rows="3" placeholder="Como podemos ajudar?" aria-label="Como podemos ajudar?"></textarea>
+                <textarea class="lg-sup__msg" id="lgSupMsg" rows="3" placeholder="{{ 'entrada.suporte.como_ajudar'|trans }}" aria-label="{{ 'entrada.suporte.como_ajudar'|trans }}"></textarea>
                 <div class="lg-sup__erro" id="lgSupErro" role="alert" hidden></div>
-                <button type="submit" class="lg-sup__enviar" id="lgSupEnviar"><i class="bi bi-send" aria-hidden="true"></i>Enviar para o suporte</button>
-                <div class="lg-sup__aviso"><i class="bi bi-lock" aria-hidden="true"></i> Não envie senhas nem dados de clientes por aqui.</div>
+                <button type="submit" class="lg-sup__enviar" id="lgSupEnviar"><i class="bi bi-send" aria-hidden="true"></i>{{ 'entrada.suporte.enviar'|trans }}</button>
+                <div class="lg-sup__aviso"><i class="bi bi-lock" aria-hidden="true"></i> {{ 'entrada.suporte.aviso'|trans }}</div>
             </form>
         </div>
-        <button type="button" class="lg-sup-btn" id="lgSupBtn" aria-label="Falar com suporte" aria-expanded="false"><span class="lg-sup-btn__texto">Falar com suporte</span><span class="lg-sup-btn__icone" aria-hidden="true"><i class="bi bi-chat-dots-fill"></i></span></button>
+        <button type="button" class="lg-sup-btn" id="lgSupBtn" aria-label="{{ 'entrada.suporte.falar'|trans }}" aria-expanded="false"><span class="lg-sup-btn__texto">{{ 'entrada.suporte.falar'|trans }}</span><span class="lg-sup-btn__icone" aria-hidden="true"><i class="bi bi-chat-dots-fill"></i></span></button>
     </footer>
 </div>
+{# Textos do entrada.js: a página não usa o base, por isso traz o próprio bj-traducao.js. #}
+{{ catalogo_js('entrada.js', 'auth.js.forca') }}
+<script src="{{ asset('js/bj-traducao.js') }}"></script>
 <script src="{{ asset('js/auth/entrada.js') }}" defer></script>
 </body>
 </html>
