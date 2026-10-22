@@ -51,7 +51,10 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $c = self::funcao('confirmarPs');
         self::assertStringContainsString("var azul = o.variante === 'azul';", $c);
         self::assertStringContainsString("caixa.classList.toggle('is-azul', azul);", $c, 'a classe sai também no perigo — a janela é reaproveitada');
-        self::assertStringContainsString("o.rotulo || (azul ? 'Confirmar' : 'Excluir')", $c);
+        self::assertStringContainsString("o.rotulo || (azul ? BJ_T.t('comum.js.dialogos.confirmar') : BJ_T.t('comum.js.dialogos.excluir'))", $c);
+        $cat = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        self::assertSame('Confirmar', $cat['confirmar']);
+        self::assertSame('Excluir', $cat['excluir']);
         self::assertStringContainsString("o.icone || (azul ? 'bi-check2' : 'bi-trash3')", $c);
     }
 
@@ -61,8 +64,11 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $f = self::funcao('opcoesDaMensagem');
         self::assertStringContainsString("var i = t.indexOf('\\n');", $f);
         self::assertStringContainsString('var temTitulo = i > 0 && i < 90;', $f);
-        self::assertStringContainsString("(perigo ? 'Confirmar exclusão' : 'Confirmar')", $f);
-        self::assertStringContainsString("rotulo: 'Confirmar',", $f);
+        self::assertStringContainsString("(perigo ? BJ_T.t('comum.js.dialogos.confirmar_exclusao') : BJ_T.t('comum.js.dialogos.confirmar'))", $f);
+        self::assertStringContainsString("rotulo: BJ_T.t('comum.js.dialogos.confirmar'),", $f);
+        $cat = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        self::assertSame('Confirmar exclusão', $cat['confirmar_exclusao']);
+        self::assertSame('Confirmar', $cat['confirmar']);
         self::assertStringContainsString("icone: perigo ? 'bi-exclamation-triangle' : 'bi-check2',", $f);
         self::assertStringContainsString("variante: perigo ? 'perigo' : 'azul'", $f);
 
@@ -161,24 +167,57 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
      */
     public static function perguntas(): iterable
     {
-        yield 'duplicar pasta — azul (dc L.4511)' => ['templates/pasta/_cabecalho.html.twig', "data-ps-cf=\"{{ 'Duplicar a pasta ' ~ pasta.nup"];
+        yield 'duplicar pasta — azul (dc L.4511)' => ['templates/pasta/_cabecalho.html.twig', "data-ps-cf=\"{{ 'pasta_cabecalho.cabecalho.menu.duplicar_confirmar'|trans({nup: pasta.nup}) }}\""];
         yield 'restaurar pasta — azul (convenção do dc)' => ['templates/pasta/_cabecalho.html.twig', "variante: 'azul'"];
-        yield 'alterar número — azul (dc L.4416)' => ['templates/pasta/show.html.twig', "mensagem: 'Alterar número da pasta\\nAlterar o número da pasta de '"];
+        yield 'alterar número — azul (dc L.4416)' => ['templates/pasta/show.html.twig', "mensagem: BJ_T.t('pasta_show.js.editar.numero_titulo') + '\\n' + BJ_T.t('pasta_show.js.editar.numero_pergunta'"];
         yield 'desvincular processo — vermelho (dc L.3031)' => ['templates/pasta/show.html.twig', 'await window.confirmarUIPs(perguntaDesv, true)'];
         yield 'administrativo sem processo — azul (dc L.6878)' => ['public/js/pasta-processo.js', "window.confirmarUIPs(BJ_T.t('pasta_processo.js.administrativa_titulo') + '\\n' + texto.replace(/\\s*\\n\\s*/g, ' '), false)"];
         yield 'corrigir valor — azul (dc L.3563)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', 'await window.confirmarUIPs(pergunta, false)'];
-        yield 'excluir lançamento — vermelho (dc L.3573)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', "await window.confirmarUIPs('Excluir lançamento\\n' + perguntaEx, true)"];
+        yield 'excluir lançamento — vermelho (dc L.3573)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', "await window.confirmarUIPs(BJ_T.t('pasta_financeiro.js.excluir_lancamento_titulo') + '\\n' + perguntaEx, true)"];
         yield 'excluir comentário do Financeiro — vermelho "Excluir" (dc comExcluir)' => ['templates/pasta/_financeiro_obs_script.html.twig', 'await window.confirmarPs({ titulo: partesObs[0]'];
         yield 'excluir arquivo do Financeiro — vermelho (dc L.6839)' => ['templates/pasta/_financeiro.html.twig', 'await window.confirmarUIPs(perguntaArq, true)'];
-        yield 'excluir meta — vermelho' => ['templates/pasta/_metas.html.twig', 'data-ps-cf="Excluir esta meta? Esta ação não pode ser desfeita." data-ps-cf-perigo'];
-        yield 'excluir item do checklist — vermelho' => ['public/js/pasta-checklist.js', "perguntar('Excluir este item do checklist?', true)"];
-        yield 'substituir modelo do checklist — vermelho (apaga os itens do modelo)' => ['public/js/pasta-checklist.js', "perguntar('Substituir modelo\\nJá existe o modelo \"' + data.nome"];
-        yield 'excluir modelo do checklist — vermelho' => ['public/js/pasta-checklist.js', "perguntar('Excluir o modelo \"' + nome + '\"? Os checklists já aplicados nas pastas não mudam.', true)"];
+        yield 'excluir meta — vermelho' => ['templates/pasta/_metas.html.twig', "data-ps-cf=\"{{ 'pasta_documentos.metas.excluir_confirmar'|trans }}\" data-ps-cf-perigo"];
+        yield 'excluir item do checklist — vermelho' => ['public/js/pasta-checklist.js', "perguntar(BJ_T.t('pasta_scripts.js.checklist.excluir_item_pergunta'), true)"];
+        yield 'substituir modelo do checklist — vermelho (apaga os itens do modelo)' => ['public/js/pasta-checklist.js', "perguntar(BJ_T.t('pasta_scripts.js.checklist.substituir_pergunta', { nome: data.nome }), true)"];
+        yield 'excluir modelo do checklist — vermelho' => ['public/js/pasta-checklist.js', "perguntar(BJ_T.t('pasta_scripts.js.checklist.excluir_modelo_pergunta', { nome: nome }), true)"];
         yield 'excluir documentos/pastas (lote) — vermelho (dc L.5144)' => ['public/js/pasta-explorador.js', 'window.confirmarUIPs(pergunta, true)'];
         yield 'excluir análise da IA no Push — vermelho (dc L.5351)' => ['public/js/pasta-ia-push.js', 'await window.confirmarUIPs(confirmar, true, voltar)'];
         yield 'excluir análise da IA no drawer — vermelho (dc L.5351)' => ['public/js/pasta-ia-agentes.js', 'await window.confirmarUIPs(confirmar, true, voltar)'];
         yield 'excluir nota técnica — vermelho (dc L.5603)' => ['public/js/nota-tecnica.js', "var pergunta = 'Excluir esta nota técnica?';"];
-        yield 'excluir arquivo do Financeiro — texto do dc com o nome (L.6839)' => ['templates/pasta/_financeiro.html.twig', "'Excluir o arquivo \"' + nomeArq + '\" do Financeiro?'"];
+        yield 'excluir arquivo do Financeiro — texto do dc com o nome (L.6839)' => ['templates/pasta/_financeiro.html.twig', "BJ_T.t('pasta_financeiro.js.excluir_arquivo_nome', { nome: nomeArq })"];
+    }
+
+    #[TestDox('Financeiro: o título "Excluir lançamento" e a frase do arquivo com o nome são os do desenho, no catálogo')]
+    public function testTextosDoFinanceiroNoCatalogo(): void
+    {
+        // Desde a extração do Financeiro (idioma-do-sistema) o texto mora no catálogo: o script tem a chave, o catálogo o texto do desenho.
+        $js = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_financeiro']['js'];
+        self::assertSame('Excluir lançamento', $js['excluir_lancamento_titulo']);
+        self::assertSame('Excluir o arquivo "{nome}" do Financeiro?', $js['excluir_arquivo_nome']);
+    }
+
+    #[TestDox('Checklist: as três perguntas (item, substituir e excluir modelo) moram no catálogo, com o texto de antes')]
+    public function testPerguntasDoChecklistNoCatalogo(): void
+    {
+        $checklist = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_scripts']['js']['checklist'];
+        self::assertSame('Excluir este item do checklist?', $checklist['excluir_item_pergunta']);
+        self::assertSame("Substituir modelo\nJá existe o modelo \"{nome}\". Substituir os itens dele pelo checklist desta pasta?", $checklist['substituir_pergunta']);
+        self::assertSame('Excluir o modelo "{nome}"? Os checklists já aplicados nas pastas não mudam.', $checklist['excluir_modelo_pergunta']);
+    }
+
+    #[TestDox('Metas: a pergunta de excluir meta mora no catálogo, com o texto de antes')]
+    public function testPerguntaDeExcluirMetaNoCatalogo(): void
+    {
+        $metas = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_documentos']['metas'];
+        self::assertSame('Excluir esta meta? Esta ação não pode ser desfeita.', $metas['excluir_confirmar']);
+    }
+
+    #[TestDox('Editar dados: a pergunta de alterar o número mora no catálogo, com o texto de antes')]
+    public function testPerguntaDeAlterarNumeroNoCatalogo(): void
+    {
+        $editar = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['editar'];
+        self::assertSame('Alterar número da pasta', $editar['numero_titulo']);
+        self::assertSame('Alterar o número da pasta de {antes} para {depois}? Links e referências antigas passam a apontar para o novo número.', $editar['numero_pergunta']);
     }
 
     #[DataProvider('perguntas')]
@@ -194,6 +233,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $catalogo = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml');
 
         self::assertSame('Marcar como administrativo', $catalogo['pasta_processo']['js']['administrativa_titulo']);
+        self::assertSame('Duplicar a pasta {nup}? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.', $catalogo['pasta_cabecalho']['cabecalho']['menu']['duplicar_confirmar']);
     }
 
     /** @return iterable<string, array{string}> */

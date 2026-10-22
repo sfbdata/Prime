@@ -37,8 +37,15 @@ final class RenderizadorDeBlocos
         return implode('', array_map($this->bloco(...), $blocos)) . '<tr><td style="height:14px;"></td></tr>';
     }
 
-    /** O modo simples (dc L.484-485, L.499-500): parágrafos, itens com o visto e o botão. @param list<string> $itens */
-    public function simples(string $corpo, array $itens, string $cta, string $link): string
+    /**
+     * O modo simples (dc L.484-485, L.499-500): parágrafos, itens com o visto e o botão. Com a imagem da F3i (dc 21.10
+     * L596), ela vem numa linha própria logo depois do cabeçalho, com 540 px e cantos de 6 px, e o espaço de cima do
+     * texto cai de 28 para 18 px. `$imagem` é o endereço público absoluto que o sistema montou (nunca o que a tela
+     * mandou); o alt é o título, escapado como o título (o `{nome}` é trocado pelo montador).
+     *
+     * @param list<string> $itens
+     */
+    public function simples(string $corpo, array $itens, string $cta, string $link, ?string $imagem = null, string $alt = ''): string
     {
         $paragrafos = implode('', array_map(
             static fn (string $p): string => '<p style="margin:0 0 14px;font:15px/1.6 ' . self::FONTE . ';color:#34505f;">' . self::quebras(self::e($p)) . '</p>',
@@ -51,7 +58,9 @@ final class RenderizadorDeBlocos
         $tabela = $linhas === '' ? '' : '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 18px;">' . $linhas . '</table>';
         $botao = $cta === '' ? '' : '<tr><td align="center" style="padding:6px 30px 30px;"><a' . $this->href($link) . ' style="display:inline-block;background:#0a6fa0;color:#ffffff;font:bold 15px ' . self::FONTE . ';text-decoration:none;padding:14px 26px;border-radius:4px;">' . self::fixo($cta) . '</a></td></tr>';
 
-        return '<tr><td style="padding:28px 30px 8px;">' . $paragrafos . $tabela . '</td></tr>' . $botao;
+        $figura = $imagem === null ? '' : '<tr><td style="padding:24px 30px 0;"><img src="' . self::fixo($imagem) . '" alt="' . self::e($alt) . '" width="540" style="display:block;width:100%;max-width:540px;height:auto;border:0;border-radius:6px;"></td></tr>';
+
+        return $figura . '<tr><td style="padding:' . ($imagem === null ? '28' : '18') . 'px 30px 8px;">' . $paragrafos . $tabela . '</td></tr>' . $botao;
     }
 
     /** A URL de uma chave do dc ou de um endereço http(s); null quando não serve (o botão sai sem link). */

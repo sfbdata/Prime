@@ -1004,29 +1004,80 @@
     /* ── Colunas da tabela (dc `colVis`, `colItens`, `colCsv`) ─────────── */
     var COLUNAS = [['nup', BJ_T.t('expediente.js.lista.coluna.nup')], ['cliente', BJ_T.t('expediente.js.lista.coluna.cliente')], ['reu', BJ_T.t('expediente.js.lista.coluna.reu')], ['acao', BJ_T.t('expediente.js.lista.coluna.acao')], ['prio', BJ_T.t('expediente.js.lista.coluna.prio')], ['resp', BJ_T.t('expediente.js.lista.coluna.resp')], ['metas', BJ_T.t('expediente.js.lista.coluna.metas')], ['marc', BJ_T.t('expediente.js.lista.coluna.marc')], ['sit', BJ_T.t('expediente.js.lista.coluna.sit')]];
     var ESSENCIAIS = { nup: true, cliente: true, reu: false, acao: true, prio: false, resp: true, metas: false, marc: false, sit: true };
-    /* Ajuste só de quem escolheu (dc `colKey`: conta + usuário), não do navegador. A chave antiga, sem usuário,
-       ainda vale como ponto de partida de quem não gravou na nova. */
-    var CHAVE_COLUNAS_ANTIGA = 'expediente_colunas';
-    function chaveColunas() {
-        var t = document.getElementById('tabelaPastas');
+    /* Ajuste só de quem escolheu (dc `colKey`: conta + usuário), guardado no SERVIDOR por escritório e usuário:
+       a tabela traz o ajuste em `data-colunas` (`null` = padrão) e a gravação é POST em `data-url-colunas`, com o
+       token da Lista no cabeçalho. A chave local da conta e do usuário (`data-chave-colunas`) só serve para trazer,
+       uma vez, o ajuste antigo deste navegador para o servidor; depois é apagada. */
+    var PREFIXO_COLUNAS_LOCAL = 'expediente_colunas:';
+    var colunasEmVoo = null;
+    var filaColunas = Promise.resolve(); // um POST por vez, na ordem dos cliques: o servidor fica com o último
+    var trazendoAjusteLocal = false;
+    function tabelaDaLista() { return document.getElementById('tabelaPastas'); }
+    function chaveColunasLocal() {
+        var t = tabelaDaLista();
         var dono = t ? t.getAttribute('data-chave-colunas') : '';
 
-        return dono ? CHAVE_COLUNAS_ANTIGA + ':' + dono : CHAVE_COLUNAS_ANTIGA;
+        return dono ? PREFIXO_COLUNAS_LOCAL + dono : '';
     }
-    function colunasVisiveis() {
-        var v = {};
-        try { v = JSON.parse(localStorage.getItem(chaveColunas()) || localStorage.getItem(CHAVE_COLUNAS_ANTIGA) || '{}') || {}; } catch (x) { v = {}; }
+    function mapaCompleto(v) {
         var out = {};
         COLUNAS.forEach(function (c) { out[c[0]] = v[c[0]] !== false; });
         out.nup = true;
         return out;
     }
-    function gravarColunas(v) {
-        try {
-            // Restaurar grava o padrão (e não apaga): apagar faria a chave antiga voltar a valer.
-            localStorage.setItem(chaveColunas(), JSON.stringify(v || {}));
-        } catch (x) { /* só não lembra */ }
+    /* O que vale agora: o que acabou de ser escolhido (enquanto o POST não volta) ou o que o servidor mandou. */
+    function colunasSalvas() {
+        if (colunasEmVoo) { return colunasEmVoo.mapa; }
+        var t = tabelaDaLista();
+        if (!t) { return null; }
+        var v = null;
+        try { v = JSON.parse(t.dataset.colunas || 'null'); } catch (x) { v = null; }
+        return v && typeof v === 'object' ? v : null;
+    }
+    function colunasVisiveis() {
+        return mapaCompleto(colunasSalvas() || {});
+    }
+    /* `null` volta ao padrão (o servidor apaga o ajuste). Sem conexão, avisa e a tela fica como a pessoa deixou. */
+    function gravarColunas(v, silencioso) {
+        var t = tabelaDaLista();
+        var mapa = v ? mapaCompleto(v) : null;
+        var pedido = { mapa: mapa };
+        colunasEmVoo = pedido;
+        if (t) { t.dataset.colunas = JSON.stringify(mapa); }
         aplicarColunas();
+        if (!t || !t.getAttribute('data-url-colunas')) { colunasEmVoo = null; return Promise.resolve(false); }
+
+        filaColunas = filaColunas.then(function () {
+            return fetch(t.getAttribute('data-url-colunas'), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', 'X-CSRF-Token': t.getAttribute('data-csrf-lista') || '' },
+                body: JSON.stringify({ colunas: mapa })
+            }).then(function (r) { return r.ok; }, function () { return false; });
+        });
+
+        return filaColunas.then(function (ok) {
+            if (colunasEmVoo === pedido) { colunasEmVoo = null; }
+            if (!ok && !silencioso) { aviso(BJ_T.t('expediente.js.lista.colunas.falha_gravar')); }
+            return ok;
+        });
+    }
+    function esquecerAjusteLocal(chave) {
+        try { localStorage.removeItem(chave); } catch (x) { /* nada a apagar */ }
+    }
+    /* Migração única: servidor sem ajuste e este navegador com o ajuste da PRÓPRIA pessoa → grava no servidor e
+       apaga a chave local. A chave antiga sem usuário não é lida (era de quem usou o navegador antes). */
+    function trazerAjusteLocal() {
+        var chave = chaveColunasLocal();
+        if (trazendoAjusteLocal || !chave) { return; }
+        if (colunasSalvas() !== null) { esquecerAjusteLocal(chave); return; } // o servidor já manda: a cópia local sobra
+        var local = null;
+        try { local = JSON.parse(localStorage.getItem(chave) || 'null'); } catch (x) { local = null; }
+        if (!local || typeof local !== 'object' || Array.isArray(local)) { esquecerAjusteLocal(chave); return; }
+        trazendoAjusteLocal = true;
+        gravarColunas(local, true).then(function (ok) {
+            trazendoAjusteLocal = false;
+            if (ok) { esquecerAjusteLocal(chave); }
+        });
     }
     function aplicarColunas() {
         var v = colunasVisiveis();
@@ -1064,7 +1115,7 @@
         lista.push('-');
         lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.mostrar_todas'), icone: 'bi-eye', manter: true, acao: function () { gravarColunas({}); menuColunas(botao, x, y); } });
         lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.essenciais'), icone: 'bi-funnel', manter: true, acao: function () { gravarColunas(ESSENCIAIS); menuColunas(botao, x, y); } });
-        lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.restaurar'), icone: 'bi-arrow-counterclockwise', acao: function () { gravarColunas(null); } });
+        lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.restaurar'), icone: 'bi-arrow-counterclockwise', acao: function () { esquecerAjusteLocal(chaveColunasLocal()); gravarColunas(null); } });
         lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.exportar_csv'), icone: 'bi-filetype-csv', acao: function () { window.location.href = urlCsv(botao); } });
         // Subfrase do dc (L.288): o ajuste é por usuário.
         window.ExpMenu.abrir(BJ_T.t('expediente.js.lista.colunas.titulo', {n: n}), lista, x, y, botao, 'colunas',
@@ -1156,7 +1207,7 @@
 
     /* Reaplica depois de cada desenho do painel (servidor, filtro, página, marcador). */
     var agendado = 0;
-    function aplicar() { agendado = 0; pintarCampos(); aplicarColunas(); }
+    function aplicar() { agendado = 0; pintarCampos(); trazerAjusteLocal(); aplicarColunas(); }
     function agendar() { if (!agendado) { agendado = window.requestAnimationFrame(aplicar); } }
     new MutationObserver(agendar).observe(document.body, { childList: true, subtree: true });
     document.addEventListener('change', agendar, true);

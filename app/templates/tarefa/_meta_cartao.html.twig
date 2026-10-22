@@ -16,11 +16,6 @@
         <div class="mm-meta-topo">
             {% set numPasta = painel.numeroNaPasta(meta.id) %}
             <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}">{% if numPasta %}<span class="mm-meta-num" title="{{ 'metas.cartao.num_na_pasta_dica'|trans({numero: numPasta ~ '', nup: meta.pasta.nup ~ ''}) }}">{{ numPasta }}.</span>{% endif %}{{ meta.titulo }}</a>{{ include('tarefa/_numero_global.html.twig', {numero: meta.numero, local: numPasta}) }}
-            {% if meta.pasta.prioridade.value != 'normal' %}
-                <span class="mm-prioridade tom-{{ meta.pasta.prioridade.value == 'urgente' ? 'danger' : 'warn' }}">
-                    <i class="bi bi-flag-fill"></i>{{ meta.pasta.prioridadeLabel }}
-                </span>
-            {% endif %}
         </div>
 
         <div class="mm-meta-linha2">
@@ -53,10 +48,25 @@
                 </span>
             {% endif %}
         </div>
+
+        {# Etapa da pasta (desenho 22/10, dc L95): "i/T · Etapa" e, enquanto não concluída, a próxima com o setor.
+           Etapa fora da sequência do tipo de demanda (consultoria em Acompanhamento) mostra só o nome. #}
+        {% set et = painel.etapaDaMeta(meta) %}
+        {% set nomeDaEtapa = et.nome ?? et.etapa.rotulo|trans %}
+        <div class="mm-meta-etapa">
+            <span class="mm-meta-etapa-chip" title="{{ 'metas.cartao.etapa_dica'|trans }}">
+                <i class="bi {{ et.etapa.icone }}" aria-hidden="true"></i>{{ et.posicao ? 'metas.cartao.etapa'|trans({posicao: et.posicao, total: et.total, etapa: nomeDaEtapa}) : nomeDaEtapa }}
+            </span>
+            {% if et.proxima %}
+                <span class="mm-meta-etapa-proximo">
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>{{ 'metas.cartao.proximo'|trans({etapa: et.nomeDaProxima ?? et.proxima.rotulo|trans, setor: et.proxima.setor|trans}) }}
+                </span>
+            {% endif %}
+        </div>
     </div>
 
     <div class="mm-meta-lado">
-        <span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span>
+        <span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo|trans }}</span>
         <span class="mm-meta-datas">
             {{ 'metas.cartao.criada_em'|trans({data: meta.dataCriacao|data}) }}
         </span>

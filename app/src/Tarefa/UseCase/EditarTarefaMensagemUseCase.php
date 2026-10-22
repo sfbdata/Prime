@@ -17,6 +17,11 @@ final class EditarTarefaMensagemUseCase
 
     public function executar(TarefaMensagem $mensagem, string $conteudo): void
     {
+        // Despacho registrado (com código, D1) é o que foi conferido: não se edita. Mensagem antiga continua editável.
+        if (!$mensagem->podeSerEditado()) {
+            throw new \InvalidArgumentException('Despacho registrado não pode ser editado.');
+        }
+
         // Vem do editor rico (HTML): limpo ANTES de persistir. Texto puro atravessa intacto.
         $conteudo = $this->sanitizador->limpar(trim($conteudo)) ?? '';
 

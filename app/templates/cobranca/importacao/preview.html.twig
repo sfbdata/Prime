@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cobranças · {{ confirmado ? 'Importado' : 'Prévia' }} · {{ carteiraNome }}{% endblock %}
+{% block title %}{{ confirmado ? 'cobranca_carteira.previa.titulo_pagina_importado'|trans({carteira: carteiraNome}) : 'cobranca_carteira.previa.titulo_pagina_previa'|trans({carteira: carteiraNome}) }}{% endblock %}
 
 {% block body %}
 <div class="cobrancas-page">
@@ -12,7 +12,7 @@
             </a>
             <h1 class="m-0 d-flex align-items-center gap-2">
                 <i class="bi {{ confirmado ? 'bi-check-circle text-success' : 'bi-eye' }}"></i>
-                {{ confirmado ? 'Importação concluída' : 'Prévia da importação' }}
+                {{ confirmado ? 'cobranca_carteira.previa.concluida'|trans : 'cobranca_carteira.previa.titulo'|trans }}
             </h1>
         </div>
         <div class="text-muted">
@@ -27,7 +27,7 @@
         {% if not confirmado %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle me-1"></i>
-            Esta é uma <strong>prévia</strong>. Nada foi gravado ainda. Confira os números e confirme para importar de verdade.
+            {{ 'cobranca_carteira.previa.aviso.inicio'|trans }} <strong>{{ 'cobranca_carteira.previa.aviso.previa'|trans }}</strong>{{ 'cobranca_carteira.previa.aviso.fim'|trans }}
         </div>
         {% endif %}
 
@@ -35,24 +35,24 @@
         <div class="caso-header mb-3">
             <div class="caso-metrics">
                 <div class="caso-metric">
-                    <div class="caso-metric-label">{{ confirmado ? 'Obrigações importadas' : 'Serão importadas' }}</div>
+                    <div class="caso-metric-label">{{ confirmado ? 'cobranca_carteira.previa.obrigacoes_importadas'|trans : 'cobranca_carteira.previa.serao_importadas'|trans }}</div>
                     <div class="caso-metric-valor text-success">{{ resultado.totalImportadas }}</div>
                 </div>
                 <div class="caso-metric">
-                    <div class="caso-metric-label">{{ confirmado ? 'Atualizadas' : 'Serão atualizadas' }}</div>
+                    <div class="caso-metric-label">{{ confirmado ? 'cobranca_carteira.previa.atualizadas'|trans : 'cobranca_carteira.previa.serao_atualizadas'|trans }}</div>
                     <div class="caso-metric-valor">{{ resultado.totalAtualizadas }}</div>
                 </div>
                 <div class="caso-metric">
-                    <div class="caso-metric-label">Rejeitadas</div>
-                    <div class="caso-metric-valor {{ resultado.totalRejeitadas > 0 ? 'text-danger' : '' }}">{{ resultado.totalRejeitadas }}</div>
+                    <div class="caso-metric-label">{{ 'cobranca_carteira.previa.rejeitadas'|trans }}</div>
+                    <div class="caso-metric-valor {{ 0 < resultado.totalRejeitadas ? 'text-danger' : '' }}">{{ resultado.totalRejeitadas }}</div>
                 </div>
                 <div class="caso-metric">
-                    <div class="caso-metric-label">Ignoradas</div>
+                    <div class="caso-metric-label">{{ 'cobranca_carteira.previa.ignoradas'|trans }}</div>
                     <div class="caso-metric-valor text-muted">{{ resultado.linhasIgnoradas }}</div>
                 </div>
             </div>
             <div class="text-muted small mt-2">
-                Novos: {{ resultado.objetosCriados }} objeto(s) · {{ resultado.pessoasCriadas }} pessoa(s) · {{ resultado.casosCriados }} caso(s).
+                {{ 'cobranca_carteira.previa.novos'|trans({objetos: resultado.objetosCriados ~ '', pessoas: resultado.pessoasCriadas ~ '', casos: resultado.casosCriados ~ ''}) }}
             </div>
         </div>
 
@@ -68,15 +68,13 @@
         <div class="alert alert-warning d-flex gap-2 align-items-start" role="alert">
             <i class="bi bi-receipt-cutoff mt-1"></i>
             <div>
-                <strong>Dívida que nunca teve boleto</strong>: {{ sem_boleto }} obrigação(ões)
-                ({{ resultado.totalSemBoleto }} {{ confirmado ? 'criada(s)' : 'a criar' }},
-                {{ resultado.totalSemBoletoAtualizadas }} atualizada(s)), somando
-                <strong>R$ {{ (resultado.centavosSemBoleto / 100)|number_format(2, ',', '.') }}</strong>
-                de principal e encargos.
+                {% set paramsSemBoleto = {total: sem_boleto ~ '', novas: resultado.totalSemBoleto ~ '', atualizadas: resultado.totalSemBoletoAtualizadas ~ ''} %}
+                <strong>{{ 'cobranca_carteira.previa.sem_boleto.titulo'|trans }}</strong>{{ confirmado ? 'cobranca_carteira.previa.sem_boleto.resumo_criadas'|trans(paramsSemBoleto) : 'cobranca_carteira.previa.sem_boleto.resumo_a_criar'|trans(paramsSemBoleto) }}
+                <strong>{{ 'cobranca_carteira.previa.sem_boleto.valor'|trans({valor: (resultado.centavosSemBoleto / 100)|number_format(2, ',', '.')}) }}</strong>
+                {{ 'cobranca_carteira.previa.sem_boleto.de_principal'|trans }}
                 <div class="small mt-1">
-                    São lançamentos antigos que a contabilidade nunca emitiu em boleto. Entram pela chave
-                    substituta <code>SNN:&lt;vencimento&gt;</code>, e o valor acima é o da planilha.
-                    Em obrigação que já existia, o valor lançado é preservado.
+                    {{ 'cobranca_carteira.previa.sem_boleto.nota'|trans }}
+                    <code>{{ 'cobranca_carteira.previa.sem_boleto.chave'|trans }}</code>{{ 'cobranca_carteira.previa.sem_boleto.nota_fim'|trans }}
                 </div>
             </div>
         </div>
@@ -91,30 +89,29 @@
         {% if resultado.referenciasReutilizadas|length > 0 %}
         <div class="alert alert-warning">
             <i class="bi bi-123 me-1"></i>
-            <strong>Nosso Número reutilizado</strong> em {{ resultado.referenciasReutilizadas|length }} boleto(s):
-            a contábil repetiu um número que já existe neste caso, mas em <strong>outra competência</strong>:
-            é <strong>outra dívida</strong>, e {{ confirmado ? 'nasceu separada' : 'vai nascer separada' }},
-            sem sobrescrever a anterior. Confira se é mesmo cobrança nova.
-            <div class="small mt-1">Nossos Números: {{ resultado.referenciasReutilizadas|join(', ') }}.</div>
+            <strong>{{ 'cobranca_carteira.previa.reutilizado.titulo'|trans }}</strong> {{ 'cobranca_carteira.previa.reutilizado.em'|trans({total: resultado.referenciasReutilizadas|length ~ ''}) }}
+            <strong>{{ 'cobranca_carteira.previa.reutilizado.outra_competencia'|trans }}</strong>{{ 'cobranca_carteira.previa.reutilizado.e'|trans }}
+            <strong>{{ 'cobranca_carteira.previa.reutilizado.outra_divida'|trans }}</strong>{{ confirmado ? 'cobranca_carteira.previa.reutilizado.nasceu'|trans : 'cobranca_carteira.previa.reutilizado.vai_nascer'|trans }}
+            <div class="small mt-1">{{ 'cobranca_carteira.previa.nossos_numeros'|trans({lista: resultado.referenciasReutilizadas|join(', ')}) }}</div>
         </div>
         {% endif %}
 
         {% if resultado.vencimentosAlterados|length > 0 %}
         <div class="alert alert-info">
             <i class="bi bi-calendar-event me-1"></i>
-            <strong>Vencimento alterado</strong> em {{ resultado.vencimentosAlterados|length }} boleto(s):
-            mesma dívida (mesma competência) com data nova no relatório, o padrão do <strong>boleto reemitido</strong>.
-            O vencimento lançado <strong>não é sobrescrito</strong>; só os encargos são recalculados.
-            <div class="small mt-1">Nossos Números: {{ resultado.vencimentosAlterados|join(', ') }}.</div>
+            <strong>{{ 'cobranca_carteira.previa.vencimento.titulo'|trans }}</strong> {{ 'cobranca_carteira.previa.vencimento.em'|trans({total: resultado.vencimentosAlterados|length ~ ''}) }}
+            <strong>{{ 'cobranca_carteira.previa.vencimento.reemitido'|trans }}</strong>{{ 'cobranca_carteira.previa.vencimento.lancado'|trans }}
+            <strong>{{ 'cobranca_carteira.previa.vencimento.nao_sobrescrito'|trans }}</strong>{{ 'cobranca_carteira.previa.vencimento.fim'|trans }}
+            <div class="small mt-1">{{ 'cobranca_carteira.previa.nossos_numeros'|trans({lista: resultado.vencimentosAlterados|join(', ')}) }}</div>
         </div>
         {% endif %}
 
         {% if resultado.sacadosDivergentes|length > 0 %}
         <div class="alert alert-info">
             <i class="bi bi-people me-1"></i>
-            <strong>Sacado divergente</strong> em {{ resultado.sacadosDivergentes|length }} objeto(s): o devedor do relatório difere da pessoa cobrada atual do caso.
-            Uma nova pessoa foi vinculada, mas a <strong>pessoa cobrada não foi trocada automaticamente</strong> (decisão do gestor).
-            Objetos: {{ resultado.sacadosDivergentes|join(', ') }}.
+            <strong>{{ 'cobranca_carteira.previa.sacado.titulo'|trans }}</strong> {{ 'cobranca_carteira.previa.sacado.em'|trans({total: resultado.sacadosDivergentes|length ~ ''}) }}
+            <strong>{{ 'cobranca_carteira.previa.sacado.nao_trocada'|trans }}</strong> {{ 'cobranca_carteira.previa.sacado.decisao'|trans }}
+            {{ 'cobranca_carteira.previa.sacado.objetos'|trans({lista: resultado.sacadosDivergentes|join(', ')}) }}
         </div>
         {% endif %}
 
@@ -122,11 +119,11 @@
             {# ── Rejeitadas ────────────────────────────────────── #}
             <div class="col-lg-6">
                 <div class="card cobranca-card h-100">
-                    <div class="card-header fw-semibold"><i class="bi bi-x-octagon me-1 text-danger"></i>Rejeitadas ({{ resultado.totalRejeitadas }})</div>
+                    <div class="card-header fw-semibold"><i class="bi bi-x-octagon me-1 text-danger"></i>{{ 'cobranca_carteira.previa.rejeitadas_total'|trans({total: resultado.totalRejeitadas ~ ''}) }}</div>
                     <div class="table-responsive">
                         {% if resultado.rejeitadas|length > 0 %}
                         <table class="table mb-0 small">
-                            <thead><tr><th class="ps-3">Referência</th><th>Motivo</th></tr></thead>
+                            <thead><tr><th class="ps-3">{{ 'cobranca_carteira.previa.referencia'|trans }}</th><th>{{ 'cobranca_carteira.previa.motivo'|trans }}</th></tr></thead>
                             <tbody>
                                 {% for linha in resultado.rejeitadas %}
                                 <tr>
@@ -137,7 +134,7 @@
                             </tbody>
                         </table>
                         {% else %}
-                        <div class="cobranca-empty py-3"><p class="empty-title mb-0">Nenhuma linha rejeitada.</p></div>
+                        <div class="cobranca-empty py-3"><p class="empty-title mb-0">{{ 'cobranca_carteira.previa.nenhuma_rejeitada'|trans }}</p></div>
                         {% endif %}
                     </div>
                 </div>
@@ -146,15 +143,15 @@
             {# ── Importadas / Atualizadas ──────────────────────── #}
             <div class="col-lg-6">
                 <div class="card cobranca-card h-100">
-                    <div class="card-header fw-semibold"><i class="bi bi-list-check me-1"></i>Boletos</div>
+                    <div class="card-header fw-semibold"><i class="bi bi-list-check me-1"></i>{{ 'cobranca_carteira.previa.boletos'|trans }}</div>
                     <div class="card-body">
                         <div class="mb-2">
-                            <span class="badge text-bg-success">{{ confirmado ? 'Importadas' : 'A importar' }}</span>
-                            <span class="small text-muted">{{ resultado.obrigacoesCriadas|length > 0 ? (resultado.obrigacoesCriadas|join(', ')) : 'Nenhuma' }}</span>
+                            <span class="badge text-bg-success">{{ confirmado ? 'cobranca_carteira.previa.importadas'|trans : 'cobranca_carteira.previa.a_importar'|trans }}</span>
+                            <span class="small text-muted">{{ resultado.obrigacoesCriadas|length > 0 ? (resultado.obrigacoesCriadas|join(', ')) : 'cobranca_carteira.previa.nenhuma'|trans }}</span>
                         </div>
                         <div>
-                            <span class="badge text-bg-secondary">{{ confirmado ? 'Atualizadas' : 'A atualizar' }}</span>
-                            <span class="small text-muted">{{ resultado.obrigacoesAtualizadas|length > 0 ? (resultado.obrigacoesAtualizadas|join(', ')) : 'Nenhuma' }}</span>
+                            <span class="badge text-bg-secondary">{{ confirmado ? 'cobranca_carteira.previa.atualizadas'|trans : 'cobranca_carteira.previa.a_atualizar'|trans }}</span>
+                            <span class="small text-muted">{{ resultado.obrigacoesAtualizadas|length > 0 ? (resultado.obrigacoesAtualizadas|join(', ')) : 'cobranca_carteira.previa.nenhuma'|trans }}</span>
                         </div>
                     </div>
                 </div>
@@ -164,13 +161,13 @@
         {# ── Ações ─────────────────────────────────────────────── #}
         <div class="d-flex justify-content-end gap-2 mt-3">
             {% if confirmado %}
-                <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Concluir</a>
+                <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>{{ 'cobranca_carteira.previa.concluir'|trans }}</a>
             {% else %}
-                <a href="{{ path('cobranca_importacao_upload', {id: carteiraId}) }}" class="btn btn-outline-secondary">Trocar arquivo</a>
+                <a href="{{ path('cobranca_importacao_upload', {id: carteiraId}) }}" class="btn btn-outline-secondary">{{ 'cobranca_carteira.previa.trocar_arquivo'|trans }}</a>
                 {% if resultado.totalImportadas > 0 or resultado.totalAtualizadas > 0 %}
                 <form method="POST" action="{{ path('cobranca_importacao_confirmar', {id: carteiraId}) }}" class="d-inline">
                     <input type="hidden" name="_token" value="{{ csrf_token('importar_confirmar_' ~ carteiraId) }}">
-                    <button type="submit" class="btn btn-success"><i class="bi bi-database-check me-1"></i>Confirmar importação</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-database-check me-1"></i>{{ 'cobranca_carteira.previa.confirmar'|trans }}</button>
                 </form>
                 {% endif %}
             {% endif %}

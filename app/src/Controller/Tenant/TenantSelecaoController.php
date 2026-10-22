@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class TenantSelecaoController extends AbstractController
 {
@@ -25,6 +26,7 @@ final class TenantSelecaoController extends AbstractController
         private readonly InvitationRepository $invitationRepository,
         private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
         private readonly \App\Tenant\Repository\EquipeDoEscritorioRepository $equipe,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route('/escritorio/selecionar', name: 'tenant_selecionar', methods: ['GET', 'POST'])]
@@ -37,7 +39,7 @@ final class TenantSelecaoController extends AbstractController
 
             $tenantId = $request->request->getInt('tenant_id');
             if ($tenantId <= 0) {
-                $this->addFlash('danger', 'Selecione um escritório válido.');
+                $this->addFlash('danger', $this->tradutor->trans('escritorio.flash.selecione_valido'));
 
                 return $this->redirectToRoute('tenant_selecionar');
             }
@@ -45,7 +47,7 @@ final class TenantSelecaoController extends AbstractController
             try {
                 $this->tenantContext->setCurrentTenant($tenantId);
             } catch (\Throwable) {
-                $this->addFlash('danger', 'Você não tem acesso a este escritório.');
+                $this->addFlash('danger', $this->tradutor->trans('escritorio.flash.sem_acesso'));
 
                 return $this->redirectToRoute('tenant_selecionar');
             }

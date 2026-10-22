@@ -121,7 +121,9 @@
 <div class="pastas-tabela-wrap card">
     <div class="card-body table-responsive p-0">
         <table class="table table-hover mb-0" id="tabelaPastas" data-csrf-lista="{{ csrfLista ?? '' }}" data-sou-admin="{{ (souAdministrador ?? false) ? '1' : '0' }}"
-               data-chave-colunas="{{ (current_tenant() ? current_tenant().id : 0) ~ ':' ~ (app.user ? app.user.id : 0) }}">
+               data-chave-colunas="{{ (current_tenant() ? current_tenant().id : 0) ~ ':' ~ (app.user ? app.user.id : 0) }}"
+               data-colunas="{{ (colunasSalvas ?? null)|json_encode|e('html_attr') }}"
+               data-url-colunas="{{ path('expediente_colunas_gravar') }}">
             <colgroup>
                 <col data-col="nup"><col data-col="cliente"><col data-col="reu"><col data-col="acao"><col data-col="prio">
                 <col data-col="resp"><col data-col="metas"><col data-col="marc"><col data-col="sit">

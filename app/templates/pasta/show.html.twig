@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Pasta {{ pasta.nup }}{% endblock %}
+{% block title %}{{ 'pasta_show.titulo'|trans({nup: pasta.nup}) }}{% endblock %}
 
 {% block body_class %}ps-body{% endblock %}
 
@@ -232,7 +232,7 @@
            drawer) e a faixa de processo/ação/responsável (subiu para o
            cabeçalho, que é comum a todas as abas). #}
         {% if primeiraAba is null %}
-            <div class="ps-abas-nenhuma" role="status"><i class="bi bi-eye-slash" aria-hidden="true"></i><span>Nenhuma aba disponível para você nesta pasta.</span></div>
+            <div class="ps-abas-nenhuma" role="status"><i class="bi bi-eye-slash" aria-hidden="true"></i><span>{{ 'pasta_show.abas.nenhuma'|trans }}</span></div>
         {% endif %}
         {% if 'dados' not in abasOcultas %}
         <div class="tab-pane fade{{ primeiraAba == 'dados' ? ' show active' }}" id="dados" role="tabpanel" aria-labelledby="dados-tab">
@@ -322,18 +322,18 @@
 
                                 <div class="ps-trilho">
                                     <section class="ps-card ps-registro-pasta" data-trilho="registro-pasta">
-                                        <h2>Registro da pasta</h2>
+                                        <h2>{{ 'pasta_show.registro.titulo'|trans }}</h2>
                                         <div class="ps-registro-pasta-campos">
                                             <div>
-                                                <div class="ps-rotulo">Criada em</div>
+                                                <div class="ps-rotulo">{{ 'pasta_show.registro.criada_em'|trans }}</div>
                                                 <div class="ps-registro-pasta-valor ps-num">{{ pasta.criadoEm|date('d/m/Y H:i') }}</div>
                                             </div>
                                             <div>
-                                                <div class="ps-rotulo">Modificada em</div>
-                                                <div class="ps-registro-pasta-valor ps-num">{% if pasta.modificadoEm %}{# N9 (dc L.6431): "hoje, 26/08/2026 14:58" no dia. #}{% if pasta.modificadoEm|date('Y-m-d') == 'now'|date('Y-m-d') %}hoje, {% endif %}{{ pasta.modificadoEm|date('d/m/Y H:i') }}{% else %}<span class="ps-dado--vazio">Sem registro</span>{% endif %}</div>
+                                                <div class="ps-rotulo">{{ 'pasta_show.registro.modificada_em'|trans }}</div>
+                                                <div class="ps-registro-pasta-valor ps-num">{% if pasta.modificadoEm %}{# N9 (dc L.6431): "hoje, 26/08/2026 14:58" no dia. #}{% if pasta.modificadoEm|date('Y-m-d') == 'now'|date('Y-m-d') %}{{ 'pasta_show.registro.hoje'|trans }} {% endif %}{{ pasta.modificadoEm|data_hora }}{% else %}<span class="ps-dado--vazio">{{ 'pasta_show.registro.sem_registro'|trans }}</span>{% endif %}</div>
                                             </div>
                                             <div>
-                                                <div class="ps-rotulo">Criada por</div>
+                                                <div class="ps-rotulo">{{ 'pasta_show.registro.criada_por'|trans }}</div>
                                                 {% if pasta.criadoPor %}
                                                     {% set partesCriador = (pasta.criadoPor.fullName ?? '')|trim|split(' ')|filter(p => p is not empty) %}
                                                     <div class="ps-registro-pasta-pessoa">
@@ -341,15 +341,15 @@
                                                         <span class="ps-registro-pasta-valor">{{ pasta.criadoPor.fullName }}</span>
                                                     </div>
                                                 {% else %}
-                                                    <div class="ps-registro-pasta-valor ps-dado--vazio">Não informado</div>
+                                                    <div class="ps-registro-pasta-valor ps-dado--vazio">{{ 'pasta_show.registro.nao_informado'|trans }}</div>
                                                 {% endif %}
                                             </div>
                                         </div>
                                         <div class="ps-registro-pasta-div"></div>
                                         {# Abre o MESMO drawer do historico do menu ⋮ (pasta-show.js escuta `data-ps-historico`). #}
                                         <button type="button" class="ps-btn ps-btn--suave ps-btn--largo" data-ps-historico
-                                                title="Histórico do sistema">
-                                            <i class="bi bi-clock-history"></i><span>Ver histórico do sistema</span>
+                                                title="{{ 'pasta_show.registro.historico_dica'|trans }}">
+                                            <i class="bi bi-clock-history"></i><span>{{ 'pasta_show.registro.ver_historico'|trans }}</span>
                                         </button>
                                     </section>
 
@@ -416,93 +416,93 @@
                 <div class="ps-np-cab">
                     <i class="bi bi-cash-coin ps-np-cab-icone" aria-hidden="true"></i>
                     <div class="ps-np-cab-textos">
-                        <div class="ps-np-titulo" id="modalNovoPagamentoLabel">Adicionar pagamento</div>
-                        <div class="ps-np-sub">Valor da causa <span class="js-np-causa">{{ financeiro.valorCausaFormatado }}</span> · cálculo automático</div>
+                        <div class="ps-np-titulo" id="modalNovoPagamentoLabel">{{ 'pasta_show.pagamento.titulo'|trans }}</div>
+                        <div class="ps-np-sub">{{ 'pasta_show.pagamento.valor_da_causa'|trans }} <span class="js-np-causa">{{ financeiro.valorCausaFormatado }}</span> {{ 'pasta_show.pagamento.calculo_automatico'|trans }}</div>
                     </div>
-                    <button type="button" class="ps-np-fechar" data-bs-dismiss="modal" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                    <button type="button" class="ps-np-fechar" data-bs-dismiss="modal" title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
                 </div>
 
                 <div class="ps-np-corpo">
                     <div class="ps-np-bloco">
-                        <span class="ps-np-rotulo">Tipo</span>
-                        <div class="ps-np-tipos" role="group" aria-label="Tipo do pagamento">
+                        <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.tipo'|trans }}</span>
+                        <div class="ps-np-tipos" role="group" aria-label="{{ 'pasta_show.pagamento.tipo_rotulo'|trans }}">
                             <button type="button" class="ps-np-tipo is-ativo" data-tipo="contrato" aria-pressed="true"
-                                    data-nota="Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros."
-                                    title="Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros."><i class="bi bi-file-earmark-text"></i>Contratuais</button>
+                                    data-nota="{{ 'pasta_show.pagamento.nota_contratuais'|trans }}"
+                                    title="{{ 'pasta_show.pagamento.nota_contratuais'|trans }}"><i class="bi bi-file-earmark-text"></i>{{ 'pasta_show.pagamento.contratuais'|trans }}</button>
                             <button type="button" class="ps-np-tipo" data-tipo="exito" aria-pressed="false" disabled
-                                    title="Participação no proveito econômico: % sobre o valor da causa, recebido só se houver resultado. Ainda não disponível."><i class="bi bi-trophy"></i>Êxito</button>
+                                    title="{{ 'pasta_show.pagamento.nota_exito'|trans }}"><i class="bi bi-trophy"></i>{{ 'pasta_show.pagamento.exito'|trans }}</button>
                             <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false" disabled
-                                    title="Fixada pelo juízo, em regra entre 10% e 20% (art. 85 CPC). Ainda não disponível."><i class="bi bi-bank"></i>Sucumbência</button>
+                                    title="{{ 'pasta_show.pagamento.nota_sucumbencia'|trans }}"><i class="bi bi-bank"></i>{{ 'pasta_show.pagamento.sucumbencia'|trans }}</button>
                             <button type="button" class="ps-np-tipo" data-tipo="custas" aria-pressed="false"
-                                    data-nota="Custas e despesas adiantadas a reembolsar pelo cliente."
-                                    title="Custas e despesas adiantadas a reembolsar pelo cliente."><i class="bi bi-receipt"></i>Custas</button>
+                                    data-nota="{{ 'pasta_show.pagamento.nota_custas'|trans }}"
+                                    title="{{ 'pasta_show.pagamento.nota_custas'|trans }}"><i class="bi bi-receipt"></i>{{ 'pasta_show.pagamento.custas'|trans }}</button>
                         </div>
-                        <span class="ps-np-nota js-np-tipo-nota">Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros.</span>
+                        <span class="ps-np-nota js-np-tipo-nota">{{ 'pasta_show.pagamento.nota_contratuais'|trans }}</span>
                     </div>
 
                     <div class="ps-np-grade">
                         <div class="ps-np-campo">
-                            <span class="ps-np-rotulo">Base do valor</span>
-                            <div class="ps-np-seg" role="group" aria-label="Base do valor">
-                                <button type="button" class="ps-np-seg-op is-ativo" data-base="valor" aria-pressed="true">Valor fixo</button>
-                                <button type="button" class="ps-np-seg-op" data-base="pct" aria-pressed="false">% da causa</button>
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.base'|trans }}</span>
+                            <div class="ps-np-seg" role="group" aria-label="{{ 'pasta_show.pagamento.base'|trans }}">
+                                <button type="button" class="ps-np-seg-op is-ativo" data-base="valor" aria-pressed="true">{{ 'pasta_show.pagamento.valor_fixo'|trans }}</button>
+                                <button type="button" class="ps-np-seg-op" data-base="pct" aria-pressed="false">{{ 'pasta_show.pagamento.pct_da_causa'|trans }}</button>
                             </div>
                         </div>
                         <label class="ps-np-campo js-np-campo-total">
-                            <span class="ps-np-rotulo">Valor total (R$)</span>
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.valor_total'|trans }}</span>
                             <input type="text" class="ps-np-input" name="total" inputmode="decimal" maxlength="20" placeholder="0,00" autocomplete="off">
                         </label>
                         <label class="ps-np-campo js-np-campo-pct" hidden>
-                            <span class="ps-np-rotulo">% do valor da causa</span>
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.pct_do_valor'|trans }}</span>
                             <input type="text" class="ps-np-input" name="percentual" inputmode="decimal" maxlength="8" value="20" autocomplete="off">
                         </label>
                         <label class="ps-np-campo">
-                            <span class="ps-np-rotulo">Entrada (R$)</span>
-                            <input type="text" class="ps-np-input" name="entrada" inputmode="decimal" maxlength="20" placeholder="opcional" autocomplete="off">
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.entrada'|trans }}</span>
+                            <input type="text" class="ps-np-input" name="entrada" inputmode="decimal" maxlength="20" placeholder="{{ 'pasta_show.pagamento.opcional'|trans }}" autocomplete="off">
                         </label>
                         <label class="ps-np-campo">
-                            <span class="ps-np-rotulo">Parcelas</span>
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.parcelas'|trans }}</span>
                             <input type="number" class="ps-np-input" name="parcelas" min="1" max="60" step="1" value="1">
                         </label>
                         <label class="ps-np-campo">
-                            <span class="ps-np-rotulo">1º vencimento</span>
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.primeiro_vencimento'|trans }}</span>
                             <input type="date" class="ps-np-input" name="vencimento">
                         </label>
                         <div class="ps-np-campo">
-                            <span class="ps-np-rotulo">Juros</span>
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.juros'|trans }}</span>
                             <div class="ps-np-juros">
-                                <div class="ps-np-seg" role="group" aria-label="Juros">
-                                    <button type="button" class="ps-np-seg-op is-ativo" data-juros="0" aria-pressed="true">Sem juros</button>
-                                    <button type="button" class="ps-np-seg-op" data-juros="1" aria-pressed="false">Com juros</button>
+                                <div class="ps-np-seg" role="group" aria-label="{{ 'pasta_show.pagamento.juros'|trans }}">
+                                    <button type="button" class="ps-np-seg-op is-ativo" data-juros="0" aria-pressed="true">{{ 'pasta_show.pagamento.sem_juros'|trans }}</button>
+                                    <button type="button" class="ps-np-seg-op" data-juros="1" aria-pressed="false">{{ 'pasta_show.pagamento.com_juros'|trans }}</button>
                                 </div>
                                 <input type="text" class="ps-np-input ps-np-taxa" name="taxa" inputmode="decimal" maxlength="7" value="1"
-                                       aria-label="Juros ao mês (%)" title="Juros ao mês (%)" autocomplete="off" hidden>
+                                       aria-label="{{ 'pasta_show.pagamento.juros_ao_mes'|trans }}" title="{{ 'pasta_show.pagamento.juros_ao_mes'|trans }}" autocomplete="off" hidden>
                             </div>
                         </div>
                     </div>
 
                     <label class="ps-np-campo ps-np-descricao">
-                        <span class="ps-np-rotulo">Descrição <span class="ps-np-opcional">(opcional)</span></span>
+                        <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.descricao'|trans }} <span class="ps-np-opcional">{{ 'pasta_show.pagamento.opcional_parenteses'|trans }}</span></span>
                         <input type="text" class="ps-np-input" name="descricao" maxlength="110" autocomplete="off"
-                               placeholder="Ex.: Honorários do contrato de março">
+                               placeholder="{{ 'pasta_show.pagamento.descricao_exemplo'|trans }}">
                     </label>
 
                     <div class="ps-np-previa" aria-live="polite">
                         <div class="ps-np-previa-cab">
-                            <span class="ps-np-rotulo">Prévia</span>
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.previa'|trans }}</span>
                             <span class="ps-cab-espaco"></span>
                             <span class="ps-np-previa-resumo js-np-resumo"></span>
                         </div>
                         <div class="ps-np-previa-linhas js-np-linhas"></div>
                         <div class="ps-np-previa-mais js-np-mais" hidden></div>
                         <div class="ps-np-previa-erro js-np-erro" hidden></div>
-                        <div class="ps-np-previa-vazio js-np-vazio">Preencha o valor para ver as parcelas calculadas.</div>
+                        <div class="ps-np-previa-vazio js-np-vazio">{{ 'pasta_show.pagamento.previa_vazia'|trans }}</div>
                     </div>
                 </div>
 
                 <div class="ps-np-rodape">
-                    <button type="button" class="ps-np-cancelar" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="ps-np-gerar" id="btnSalvarPagamento" disabled>Adicionar</button>
+                    <button type="button" class="ps-np-cancelar" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
+                    <button type="submit" class="ps-np-gerar" id="btnSalvarPagamento" disabled>{{ 'pasta_show.pagamento.adicionar'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -549,11 +549,11 @@
 <div class="modal fade pex-modal" id="pexDestinoModal" tabindex="-1" aria-labelledby="pexDestinoTitulo" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title" id="pexDestinoTitulo"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-header"><h5 class="modal-title" id="pexDestinoTitulo"><i class="bi bi-folder-symlink me-1"></i> {{ 'pasta_show.documento.mover_para'|trans }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'pasta_show.fechar'|trans }}"></button></div>
             <div class="modal-body">
-                <div class="pex-dest-arvore" id="pexDestinoArvore" role="listbox" aria-label="Pasta de destino"></div>
+                <div class="pex-dest-arvore" id="pexDestinoArvore" role="listbox" aria-label="{{ 'pasta_show.documento.pasta_de_destino'|trans }}"></div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="pexDestinoConfirmar" disabled>Mover</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button><button type="button" class="btn btn-primary" id="pexDestinoConfirmar" disabled>{{ 'pasta_show.documento.mover'|trans }}</button></div>
         </div>
     </div>
 </div>
@@ -568,20 +568,20 @@
             <form method="post" action="" id="pexEditarForm">
                 <input type="hidden" name="_token" value="" id="pexEditarToken">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="pexEditarTitulo"><i class="bi bi-pencil me-1"></i> Editar documento</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <h5 class="modal-title" id="pexEditarTitulo"><i class="bi bi-pencil me-1"></i> {{ 'pasta_show.documento.editar'|trans }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'pasta_show.fechar'|trans }}"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label" for="pexEditarNomeBase">Nome do arquivo</label>
+                        <label class="form-label" for="pexEditarNomeBase">{{ 'pasta_show.documento.nome_do_arquivo'|trans }}</label>
                         <div class="input-group">
                             <input type="text" name="nomeBase" id="pexEditarNomeBase" class="form-control" value="" maxlength="250" required>
                             <span class="input-group-text text-muted" id="pexEditarExt"></span>
                         </div>
-                        <div class="form-text">A extensão <strong id="pexEditarExtTexto"></strong> é preservada automaticamente.</div>
+                        <div class="form-text">{{ 'pasta_show.documento.extensao_a'|trans }} <strong id="pexEditarExtTexto"></strong> {{ 'pasta_show.documento.extensao_preservada'|trans }}</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="pexEditarCategoria">Tipo de documento</label>
+                        <label class="form-label" for="pexEditarCategoria">{{ 'pasta_show.documento.tipo'|trans }}</label>
                         <select name="categoria" id="pexEditarCategoria" class="form-select" required>
                             {% for valor, texto in documentTypeOptions %}
                                 <option value="{{ valor }}">{{ texto }}</option>
@@ -589,17 +589,17 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="pexEditarDescricao">Descrição</label>
-                        <input type="text" name="descricao" id="pexEditarDescricao" class="form-control" value="" maxlength="500" placeholder="Descrição (opcional)">
+                        <label class="form-label" for="pexEditarDescricao">{{ 'pasta_show.documento.descricao'|trans }}</label>
+                        <input type="text" name="descricao" id="pexEditarDescricao" class="form-control" value="" maxlength="500" placeholder="{{ 'pasta_show.documento.descricao_opcional'|trans }}">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="pexEditarNumero">Número (opcional)</label>
-                        <input type="text" name="numero" id="pexEditarNumero" class="form-control" value="" maxlength="255" placeholder="Número">
+                        <label class="form-label" for="pexEditarNumero">{{ 'pasta_show.documento.numero_opcional'|trans }}</label>
+                        <input type="text" name="numero" id="pexEditarNumero" class="form-control" value="" maxlength="255" placeholder="{{ 'pasta_show.documento.numero'|trans }}">
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Salvar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> {{ 'pasta_show.salvar'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -612,7 +612,7 @@
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalAdicionarClienteLabel">
-                    <i class="bi bi-person-plus me-1"></i> Adicionar Cliente
+                    <i class="bi bi-person-plus me-1"></i> {{ 'pasta_show.cliente.titulo'|trans }}
                 </h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
@@ -629,22 +629,22 @@
 
                     {# — Passo 1: escolha do tipo — #}
                     <div id="passoEscolhaTipo">
-                        <p class="text-muted small mb-3">Selecione o tipo de cliente para continuar:</p>
+                        <p class="text-muted small mb-3">{{ 'pasta_show.cliente.escolha_tipo'|trans }}</p>
                         <div class="d-flex gap-3">
                             <button type="button" class="btn btn-outline-primary flex-fill py-3" id="btnEscolherPF">
                                 <i class="bi bi-person fs-4 d-block mb-1"></i>
-                                Pessoa Física
+                                {{ 'pasta_show.cliente.pf'|trans }}
                             </button>
                             <button type="button" class="btn btn-outline-primary flex-fill py-3" id="btnEscolherPJ">
                                 <i class="bi bi-building fs-4 d-block mb-1"></i>
-                                Pessoa Jurídica
+                                {{ 'pasta_show.cliente.pj'|trans }}
                             </button>
                         </div>
 
                         {# — Divisor — #}
                         <div class="d-flex align-items-center gap-2 my-4">
                             <hr class="flex-fill m-0">
-                            <span class="text-muted small px-1 text-nowrap">ou selecione um cliente já cadastrado</span>
+                            <span class="text-muted small px-1 text-nowrap">{{ 'pasta_show.cliente.ou_selecione'|trans }}</span>
                             <hr class="flex-fill m-0">
                         </div>
 
@@ -657,7 +657,7 @@
                                 <input type="text"
                                        id="buscaClienteExistente"
                                        class="form-control border-start-0 ps-0"
-                                       placeholder="Buscar por nome, CPF ou CNPJ…"
+                                       placeholder="{{ 'pasta_show.cliente.buscar'|trans }}"
                                        autocomplete="off">
                                 <span class="input-group-text bg-body border-start-0 d-none" id="buscaClienteSpinner">
                                     <span class="spinner-border spinner-border-sm text-secondary" role="status"></span>
@@ -687,7 +687,7 @@
                             <button type="button" class="btn btn-sm btn-link p-0 text-secondary" id="btnVoltarPF">
                                 <i class="bi bi-arrow-left"></i>
                             </button>
-                            <span class="fw-semibold"><i class="bi bi-person me-1"></i> Pessoa Física</span>
+                            <span class="fw-semibold"><i class="bi bi-person me-1"></i> {{ 'pasta_show.cliente.pf'|trans }}</span>
                         </div>
 
                         {# Abas PF #}
@@ -696,21 +696,21 @@
                                 <button class="nav-link active py-1 px-3" id="pf-dados-tab"
                                         data-bs-toggle="tab" data-bs-target="#pf-dados"
                                         type="button" role="tab">
-                                    Dados Pessoais
+                                    {{ 'pasta_show.cliente.dados_pessoais'|trans }}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link py-1 px-3" id="pf-contato-tab"
                                         data-bs-toggle="tab" data-bs-target="#pf-contato"
                                         type="button" role="tab">
-                                    Contato
+                                    {{ 'pasta_show.cliente.contato'|trans }}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link py-1 px-3" id="pf-endereco-tab"
                                         data-bs-toggle="tab" data-bs-target="#pf-endereco"
                                         type="button" role="tab">
-                                    Endereço
+                                    {{ 'pasta_show.cliente.endereco'|trans }}
                                 </button>
                             </li>
                         </ul>
@@ -720,7 +720,7 @@
                             <div class="tab-pane fade show active" id="pf-dados" role="tabpanel">
                                 <div class="row g-2">
                                     <div class="col-12">
-                                        <label class="form-label form-label-sm mb-1">Nome Completo <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.nome_completo'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="nomeCompleto" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-6">
@@ -728,22 +728,22 @@
                                         <input type="text" name="cpf" class="form-control form-control-sm" placeholder="000.000.000-00">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Data de Nascimento</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.data_nascimento'|trans }}</label>
                                         <input type="date" name="dataNascimento" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Estado Civil</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.estado_civil'|trans }}</label>
                                         <select name="estadoCivil" class="form-select form-select-sm">
-                                            <option value="">Selecione</option>
-                                            <option value="SOLTEIRO">Solteiro(a)</option>
-                                            <option value="CASADO">Casado(a)</option>
-                                            <option value="DIVORCIADO">Divorciado(a)</option>
-                                            <option value="VIUVO">Viúvo(a)</option>
-                                            <option value="UNIAO_ESTAVEL">União estável</option>
+                                            <option value="">{{ 'pasta_show.cliente.selecione'|trans }}</option>
+                                            <option value="SOLTEIRO">{{ 'pasta_show.cliente.solteiro'|trans }}</option>
+                                            <option value="CASADO">{{ 'pasta_show.cliente.casado'|trans }}</option>
+                                            <option value="DIVORCIADO">{{ 'pasta_show.cliente.divorciado'|trans }}</option>
+                                            <option value="VIUVO">{{ 'pasta_show.cliente.viuvo'|trans }}</option>
+                                            <option value="UNIAO_ESTAVEL">{{ 'pasta_show.cliente.uniao_estavel'|trans }}</option>
                                         </select>
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Profissão</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.profissao'|trans }}</label>
                                         <input type="text" name="profissao" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-5">
@@ -751,11 +751,11 @@
                                         <input type="text" name="rg" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-7">
-                                        <label class="form-label form-label-sm mb-1">Órgão Expedidor <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.orgao_expedidor'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="rgOrgaoExpedidor" class="form-control form-control-sm" placeholder="SSP/SP">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Data de Emissão do RG</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.data_emissao_rg'|trans }}</label>
                                         <input type="date" name="rgDataEmissao" class="form-control form-control-sm">
                                     </div>
                                 </div>
@@ -765,15 +765,15 @@
                             <div class="tab-pane fade" id="pf-contato" role="tabpanel">
                                 <div class="row g-2">
                                     <div class="col-12">
-                                        <label class="form-label form-label-sm mb-1">E-mail <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.email'|trans }} <span class="text-danger">*</span></label>
                                         <input type="email" name="email" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Celular</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.celular'|trans }}</label>
                                         <input type="tel" name="telefoneCelular" class="form-control form-control-sm" placeholder="(00) 90000-0000">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Telefone Fixo</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.telefone_fixo'|trans }}</label>
                                         <input type="tel" name="telefoneFixo" class="form-control form-control-sm" placeholder="(00) 0000-0000">
                                     </div>
                                 </div>
@@ -787,15 +787,15 @@
                                         <input type="text" name="cep" class="form-control form-control-sm" placeholder="00000-000">
                                     </div>
                                     <div class="col-8">
-                                        <label class="form-label form-label-sm mb-1">Endereço <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.endereco'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="endereco" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Complemento</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.complemento'|trans }}</label>
                                         <input type="text" name="complemento" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-4">
-                                        <label class="form-label form-label-sm mb-1">Cidade <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.cidade'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="cidade" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-2">
@@ -814,7 +814,7 @@
                             <button type="button" class="btn btn-sm btn-link p-0 text-secondary" id="btnVoltarPJ">
                                 <i class="bi bi-arrow-left"></i>
                             </button>
-                            <span class="fw-semibold"><i class="bi bi-building me-1"></i> Pessoa Jurídica</span>
+                            <span class="fw-semibold"><i class="bi bi-building me-1"></i> {{ 'pasta_show.cliente.pj'|trans }}</span>
                         </div>
 
                         {# Abas PJ #}
@@ -823,21 +823,21 @@
                                 <button class="nav-link active py-1 px-3" id="pj-empresa-tab"
                                         data-bs-toggle="tab" data-bs-target="#pj-empresa"
                                         type="button" role="tab">
-                                    Dados da Empresa
+                                    {{ 'pasta_show.cliente.dados_empresa'|trans }}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link py-1 px-3" id="pj-representante-tab"
                                         data-bs-toggle="tab" data-bs-target="#pj-representante"
                                         type="button" role="tab">
-                                    Representante Legal
+                                    {{ 'pasta_show.cliente.representante_legal'|trans }}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link py-1 px-3" id="pj-contato-tab"
                                         data-bs-toggle="tab" data-bs-target="#pj-contato"
                                         type="button" role="tab">
-                                    Contato
+                                    {{ 'pasta_show.cliente.contato'|trans }}
                                 </button>
                             </li>
                         </ul>
@@ -847,11 +847,11 @@
                             <div class="tab-pane fade show active" id="pj-empresa" role="tabpanel">
                                 <div class="row g-2">
                                     <div class="col-12">
-                                        <label class="form-label form-label-sm mb-1">Razão Social <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.razao_social'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="razaoSocial" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-12">
-                                        <label class="form-label form-label-sm mb-1">Nome Fantasia</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.nome_fantasia'|trans }}</label>
                                         <input type="text" name="nomeFantasia" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-12">
@@ -859,15 +859,15 @@
                                         <input type="text" name="cnpj" class="form-control form-control-sm" placeholder="00.000.000/0000-00">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Inscrição Estadual</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.inscricao_estadual'|trans }}</label>
                                         <input type="text" name="inscricaoEstadual" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Inscrição Municipal</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.inscricao_municipal'|trans }}</label>
                                         <input type="text" name="inscricaoMunicipal" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-12">
-                                        <label class="form-label form-label-sm mb-1">Endereço da Sede <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.endereco_sede'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="enderecSede" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-4">
@@ -875,15 +875,15 @@
                                         <input type="text" name="cep" class="form-control form-control-sm" placeholder="00000-000">
                                     </div>
                                     <div class="col-8">
-                                        <label class="form-label form-label-sm mb-1">Endereço <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.endereco'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="endereco" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Complemento</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.complemento'|trans }}</label>
                                         <input type="text" name="complemento" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-4">
-                                        <label class="form-label form-label-sm mb-1">Cidade <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.cidade'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="cidade" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-2">
@@ -897,7 +897,7 @@
                             <div class="tab-pane fade" id="pj-representante" role="tabpanel">
                                 <div class="row g-2">
                                     <div class="col-12">
-                                        <label class="form-label form-label-sm mb-1">Nome <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.nome'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="representanteLegal" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-6">
@@ -909,7 +909,7 @@
                                         <input type="text" name="representanteRg" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-12">
-                                        <label class="form-label form-label-sm mb-1">Cargo <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.cargo'|trans }} <span class="text-danger">*</span></label>
                                         <input type="text" name="representanteCargo" class="form-control form-control-sm">
                                     </div>
                                 </div>
@@ -919,15 +919,15 @@
                             <div class="tab-pane fade" id="pj-contato" role="tabpanel">
                                 <div class="row g-2">
                                     <div class="col-12">
-                                        <label class="form-label form-label-sm mb-1">E-mail <span class="text-danger">*</span></label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.email'|trans }} <span class="text-danger">*</span></label>
                                         <input type="email" name="email" class="form-control form-control-sm">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Celular</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.celular'|trans }}</label>
                                         <input type="tel" name="telefoneCelular" class="form-control form-control-sm" placeholder="(00) 90000-0000">
                                     </div>
                                     <div class="col-6">
-                                        <label class="form-label form-label-sm mb-1">Telefone Fixo</label>
+                                        <label class="form-label form-label-sm mb-1">{{ 'pasta_show.cliente.telefone_fixo'|trans }}</label>
                                         <input type="tel" name="telefoneFixo" class="form-control form-control-sm" placeholder="(00) 0000-0000">
                                     </div>
                                 </div>
@@ -939,25 +939,28 @@
                 </div>{# /modal-body #}
 
                 <div class="modal-footer py-2" id="footerFormCliente" style="display:none!important;">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
                     <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> Salvar Cliente
+                        <i class="bi bi-check-lg me-1"></i> {{ 'pasta_show.cliente.salvar'|trans }}
                     </button>
                 </div>
                 <div class="modal-footer py-2 d-none" id="footerVincularCliente">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
                     <button type="button" class="btn btn-success btn-sm" id="btnConfirmarVincular">
-                        <i class="bi bi-link-45deg me-1"></i> <span class="btn-label">Vincular Cliente</span>
+                        <i class="bi bi-link-45deg me-1"></i> <span class="btn-label">{{ 'pasta_show.cliente.vincular'|trans }}</span>
                     </button>
                 </div>
                 <div class="modal-footer py-2" id="footerEscolhaTipo">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+{# O catálogo dos scripts inline do show. Eles rodam antes do bj-traducao.js (fim do corpo do base): só pedem
+   texto dentro de funções, na hora do uso. #}
+{{ catalogo_js('pasta_show.js') }}
 <script>
 (function () {
     'use strict';
@@ -1176,7 +1179,7 @@
             nome.textContent = nomeSolto;
             const selo = document.createElement('span');
             selo.className = 'ps-selo ps-selo--tranquilo';
-            selo.textContent = 'não vinculado';
+            selo.textContent = BJ_T.t('pasta_show.js.cliente.nao_vinculado');
             div.append(icone, nome, selo);
             return div;
         }
@@ -1184,10 +1187,10 @@
         div.className = 'ps-vazio';
         const titulo = document.createElement('div');
         titulo.className = 'ps-vazio-titulo';
-        titulo.textContent = 'Nenhum cliente vinculado';
+        titulo.textContent = BJ_T.t('pasta_show.js.cliente.nenhum_vinculado');
         const nota = document.createElement('div');
         nota.className = 'ps-vazio-nota';
-        nota.textContent = 'Vincule o cliente para calcular a média por CPF.';
+        nota.textContent = BJ_T.t('pasta_show.js.cliente.vincule_para_media');
         div.append(icone, titulo, nota);
         return div;
     }
@@ -1260,7 +1263,7 @@
             });
 
             if (!resp.ok) {
-                let msgErro = 'Erro ao salvar cliente.';
+                let msgErro = BJ_T.t('pasta_show.js.cliente.erro_salvar');
                 try {
                     const dados = await resp.json();
                     msgErro = dados.erro ?? msgErro;
@@ -1275,9 +1278,9 @@
                 return;
             }
 
-            mostrarErro('Cliente salvo, mas não foi possível atualizar a lista.');
+            mostrarErro(BJ_T.t('pasta_show.js.cliente.salvo_sem_lista'));
         } catch (err) {
-            mostrarErro('Erro de comunicação. Tente novamente.');
+            mostrarErro(BJ_T.t('pasta_show.js.cliente.erro_comunicacao'));
             console.error('[formNovoCliente]', err);
         } finally {
             btnSalvar.disabled = false;
@@ -1292,8 +1295,8 @@
             footerVincular.classList.remove('d-none');
             footerEscolha.classList.add('d-none');
             const label = clientesSelecionados.length === 1
-                ? 'Vincular 1 Cliente'
-                : `Vincular ${clientesSelecionados.length} Clientes`;
+                ? BJ_T.t('pasta_show.js.cliente.vincular_um')
+                : BJ_T.t('pasta_show.js.cliente.vincular_varios', {n: clientesSelecionados.length});
             btnConfirmarVincular.querySelector('span.btn-label') && (btnConfirmarVincular.querySelector('span.btn-label').textContent = label);
         } else {
             footerVincular.classList.add('d-none');
@@ -1308,7 +1311,7 @@
         chip.innerHTML = `
             <i class="bi ${cliente.tipo === 'PF' ? 'bi-person' : 'bi-building'} me-1"></i>
             ${escHtml(cliente.nome)}
-            <button type="button" class="btn-close btn-close-sm ms-1" style="font-size:.55rem;" title="Remover" aria-label="Remover ${escHtml(cliente.nome)}"></button>`;
+            <button type="button" class="btn-close btn-close-sm ms-1" style="font-size:.55rem;" title="${escHtml(BJ_T.t('pasta_show.js.cliente.remover'))}" aria-label="${escHtml(BJ_T.t('pasta_show.js.cliente.remover_nome', {nome: cliente.nome}))}"></button>`;
         chip.querySelector('.btn-close').addEventListener('click', () => removerSelecionado(cliente.id));
         return chip;
     }
@@ -1367,7 +1370,7 @@
             listaResultados.innerHTML = '';
 
             if (dados.length === 0) {
-                listaResultados.innerHTML = '<li class="list-group-item text-muted small py-2">Nenhum cliente encontrado.</li>';
+                listaResultados.innerHTML = '<li class="list-group-item text-muted small py-2">' + escHtml(BJ_T.t('pasta_show.js.cliente.nenhum_encontrado')) + '</li>';
             } else {
                 dados.forEach(c => {
                     const jaSelecionado = clientesSelecionados.some(s => s.id === c.id);
@@ -1434,7 +1437,7 @@
             const marca = document.createElement('span');
             marca.className = 'btn btn-xs btn-primary disabled js-cliente-principal-estrela';
             marca.dataset.clienteId = clienteId;
-            marca.title = 'Cliente principal desta pasta. A Média por CPF é dele. Clique na estrela de outro para trocar';
+            marca.title = BJ_T.t('pasta_show.js.cliente.principal_dica');
             marca.innerHTML = '<i class="bi bi-star-fill"></i>';
             return marca;
         }
@@ -1445,7 +1448,7 @@
         form.className = 'js-ajax-cliente-principal m-0';
         form.innerHTML = '<input type="hidden" name="_token" value="' + tokenMarcar + '">'
             + '<button type="submit" class="btn btn-xs btn-outline-secondary"'
-            + ' title="Tornar cliente principal (a Média por CPF passa a ser dele)"><i class="bi bi-star"></i></button>';
+            + ' title="' + escHtml(BJ_T.t('pasta_show.js.cliente.tornar_principal')) + '"><i class="bi bi-star"></i></button>';
         return form;
     }
 
@@ -1480,7 +1483,7 @@
             if (ehNovo && nome && !selo) {
                 const novoSelo = document.createElement('span');
                 novoSelo.className = 'ps-selo-principal';
-                novoSelo.textContent = 'Principal';
+                novoSelo.textContent = BJ_T.t('pasta_show.js.cliente.principal');
                 nome.appendChild(novoSelo);
             } else if (!ehNovo && selo) {
                 selo.remove();
@@ -1558,7 +1561,7 @@
 
                 if (!resp.ok) {
                     const dados = await resp.json().catch(() => ({}));
-                    (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao desvincular cliente.');
+                    (window.avisarErroPs || window.alert)(dados.erro ?? BJ_T.t('pasta_show.js.cliente.erro_desvincular'));
                     return;
                 }
 
@@ -1574,7 +1577,7 @@
                     return;
                 }
 
-                (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao desvincular cliente.');
+                (window.avisarErroPs || window.alert)(dados.erro ?? BJ_T.t('pasta_show.js.cliente.erro_desvincular'));
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -1599,7 +1602,7 @@
 
                 const dados = await resp.json().catch(() => ({}));
                 if (!resp.ok || !dados.sucesso) {
-                    (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao definir o cliente principal.');
+                    (window.avisarErroPs || window.alert)(dados.erro ?? BJ_T.t('pasta_show.js.cliente.erro_principal'));
                     return;
                 }
 
@@ -1609,7 +1612,7 @@
                 // Sem este catch, queda de rede reabilitava o botão em silêncio e o usuário
                 // achava que tinha marcado. A rejeição não tratada não aparece na tela.
                 console.error('[clientePrincipal]', err);
-                (window.avisarErroPs || window.alert)('Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.');
+                (window.avisarErroPs || window.alert)(BJ_T.t('pasta_show.js.cliente.erro_comunicacao_marcacao'));
                 return;
             } finally {
                 if (button) {
@@ -1623,7 +1626,7 @@
             // Texto do desenho (procMenu, dc L.2932) vem no `data-confirmar` do form, com o
             // número do processo e a pasta; o genérico só se o atributo faltar. E7: na janela da
             // tela, vermelha como no dc (`confirmarUI(…, true)`, L.3031) — o envio já foi segurado acima.
-            const perguntaDesv = form.dataset.confirmar || 'Desvincular o processo desta pasta?';
+            const perguntaDesv = form.dataset.confirmar || BJ_T.t('pasta_show.js.processo.desvincular_pergunta');
             const desvincular = window.confirmarUIPs ? await window.confirmarUIPs(perguntaDesv, true) : confirm(perguntaDesv);
             if (!desvincular) {
                 return;
@@ -1642,7 +1645,7 @@
 
                 if (!resp.ok) {
                     const dados = await resp.json().catch(() => ({}));
-                    (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao desvincular processo.');
+                    (window.avisarErroPs || window.alert)(dados.erro ?? BJ_T.t('pasta_show.js.processo.erro_desvincular'));
                     return;
                 }
 
@@ -1652,7 +1655,7 @@
                     return;
                 }
 
-                (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao desvincular processo.');
+                (window.avisarErroPs || window.alert)(dados.erro ?? BJ_T.t('pasta_show.js.processo.erro_desvincular'));
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -1680,7 +1683,7 @@
                     return;
                 }
 
-                (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao definir o processo principal.');
+                (window.avisarErroPs || window.alert)(dados.erro ?? BJ_T.t('pasta_show.js.processo.erro_principal'));
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -1714,7 +1717,7 @@
 
                 if (!resp.ok) {
                     const dados = await resp.json().catch(() => ({}));
-                    erros.push(dados.erro ?? `Erro ao vincular "${cliente.nome}".`);
+                    erros.push(dados.erro ?? BJ_T.t('pasta_show.js.cliente.erro_vincular', {nome: cliente.nome}));
                     continue;
                 }
 
@@ -1722,10 +1725,10 @@
                 if (dados.sucesso && appendClienteRow(dados.html, dados.principal, dados.total)) {
                     vinculados.push(cliente.id);
                 } else {
-                    erros.push(`"${cliente.nome}" vinculado, mas não foi possível atualizar a lista.`);
+                    erros.push(BJ_T.t('pasta_show.js.cliente.vinculado_sem_lista', {nome: cliente.nome}));
                 }
             } catch (_) {
-                erros.push(`Erro de comunicação ao vincular "${cliente.nome}".`);
+                erros.push(BJ_T.t('pasta_show.js.cliente.erro_comunicacao_vincular', {nome: cliente.nome}));
             }
         }
 
@@ -1761,10 +1764,10 @@
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalVincularProcessoLabel">
-                    <i class="bi bi-briefcase me-1"></i> <span id="mp-titulo-texto">Vincular processo</span>
+                    <i class="bi bi-briefcase me-1"></i> <span id="mp-titulo-texto">{{ 'pasta_show.processo.vincular'|trans }}</span>
                 </h6>
                 {# Desenho N:292: X branco num quadrado translúcido (pasta-apensados.css). #}
-                <button type="button" class="mp-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="mp-fechar" data-bs-dismiss="modal" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             <form method="POST" id="formVincularProcesso"
                   action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
@@ -1774,7 +1777,7 @@
                 <input type="hidden" name="modo" id="mp-modo" value="principal">
                 <div class="modal-body py-3">
                     <label class="mp-apenso-tipo" id="mp-apenso-tipo" hidden>
-                        <span class="mp-apenso-tipo-rotulo">Tipo de apenso <span class="mp-apenso-obrig">*</span></span>
+                        <span class="mp-apenso-tipo-rotulo">{{ 'pasta_show.processo.tipo_apenso'|trans }} <span class="mp-apenso-obrig">*</span></span>
                         <select name="tipo_apenso" id="mp-tipoApenso" class="mp-apenso-select" disabled>
                             {% for tipoApenso in enum_cases('App\\Pasta\\Entity\\TipoDeApenso') %}
                                 <option value="{{ tipoApenso.value }}"{{ loop.first ? ' selected' : '' }}>{{ tipoApenso.rotulo }}</option>
@@ -1783,20 +1786,20 @@
                     </label>
 
                     {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ #}
-                    <div class="btn-group w-100 mb-3 mp-abas" role="group" aria-label="Modo de vínculo de processo">
+                    <div class="btn-group w-100 mb-3 mp-abas" role="group" aria-label="{{ 'pasta_show.processo.modo_rotulo'|trans }}">
                         <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-existente" autocomplete="off" checked>
-                        <label class="btn btn-outline-primary btn-sm" for="mp-modo-existente"><i class="bi bi-search me-1"></i> Buscar processo existente</label>
+                        <label class="btn btn-outline-primary btn-sm" for="mp-modo-existente"><i class="bi bi-search me-1"></i> {{ 'pasta_show.processo.buscar_existente'|trans }}</label>
                         <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-novo" autocomplete="off">
-                        <label class="btn btn-outline-primary btn-sm" for="mp-modo-novo"><i class="bi bi-plus-lg me-1"></i> Cadastrar novo (CNJ)</label>
+                        <label class="btn btn-outline-primary btn-sm" for="mp-modo-novo"><i class="bi bi-plus-lg me-1"></i> {{ 'pasta_show.processo.cadastrar_novo'|trans }}</label>
                     </div>
 
                     {# MODO: buscar processo já cadastrado #}
                     <div id="modal-modo-existente">
                         <label for="mp-processoExistente" class="form-label">
-                            Processo já cadastrado <span class="text-danger">*</span>
+                            {{ 'pasta_show.processo.ja_cadastrado'|trans }} <span class="text-danger">*</span>
                         </label>
                         <select id="mp-processoExistente" name="processo_id" class="form-select" style="width:100%"></select>
-                        <div class="form-text">Busque por número, classe, assunto ou tribunal e selecione um processo do escritório.</div>
+                        <div class="form-text">{{ 'pasta_show.processo.busque_dica'|trans }}</div>
                     </div>
 
                     {# MODO: cadastrar novo processo via CNJ #}
@@ -1805,13 +1808,13 @@
                     {# Abas do formulário de processo #}
                     <div class="processo-modal-tabs d-flex border-bottom mb-0">
                         <button type="button" class="processo-modal-tab active" data-modal-tab="modal-proc-info">
-                            <i class="bi bi-info-circle me-1"></i> Informações
+                            <i class="bi bi-info-circle me-1"></i> {{ 'pasta_show.processo.aba_informacoes'|trans }}
                         </button>
                         <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-partes">
-                            <i class="bi bi-people me-1"></i> Partes
+                            <i class="bi bi-people me-1"></i> {{ 'pasta_show.processo.aba_partes'|trans }}
                         </button>
                         <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-movimentacoes">
-                            <i class="bi bi-clock-history me-1"></i> Movimentações
+                            <i class="bi bi-clock-history me-1"></i> {{ 'pasta_show.processo.aba_movimentacoes'|trans }}
                         </button>
                     </div>
 
@@ -1820,88 +1823,88 @@
                         <div class="row g-3">
                             <div class="col-md-8">
                                 <label for="mp-numeroProcesso" class="form-label">
-                                    Número do processo <span class="text-danger">*</span>
+                                    {{ 'pasta_show.processo.numero'|trans }} <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="mp-numeroProcesso" name="numeroProcesso" class="form-control"
-                                       placeholder="Ex.: 1234567-89.2024.1.23.4567" required>
-                                <div class="form-text">Formato: NNNNNNN-DD.AAAA.J.TT.OOOO</div>
+                                       placeholder="{{ 'pasta_show.processo.numero_exemplo'|trans }}" required>
+                                <div class="form-text">{{ 'pasta_show.processo.numero_formato'|trans }}</div>
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
                                 <button id="mp-btn-datajud" type="button" class="btn btn-info w-100"
-                                        data-bs-toggle="tooltip" title="Busca o processo na base de dados do CNJ">
-                                    <i class="bi bi-search me-1"></i> Buscar no CNJ
+                                        data-bs-toggle="tooltip" title="{{ 'pasta_show.processo.buscar_cnj_dica'|trans }}">
+                                    <i class="bi bi-search me-1"></i> {{ 'pasta_show.processo.buscar_cnj'|trans }}
                                 </button>
                             </div>
                             {# Desenho N:315: confirmação depois da busca (o JS preenche o número). #}
                             <div class="col-12 d-none" id="mp-cnj-ok">
-                                <span class="text-success small"><i class="bi bi-check2"></i> Dados localizados · <span data-mp-cnj-movs>0</span> movimentação(ões)</span>
+                                <span class="text-success small"><i class="bi bi-check2"></i> {{ 'pasta_show.processo.dados_localizados'|trans }} <span data-mp-cnj-movs>0</span> {{ 'pasta_show.processo.movimentacoes_contagem'|trans }}</span>
                             </div>
                             <div class="col-md-6">
                                 <label for="mp-siglaTribunal" class="form-label">
-                                    Tribunal
+                                    {{ 'pasta_show.processo.tribunal'|trans }}
                                 </label>
                                 <input type="text" id="mp-siglaTribunal" name="siglaTribunal" class="form-control"
-                                       readonly placeholder="Detectado pelo número do processo">
-                                <div class="form-text">Preenchido automaticamente pelo número do processo.</div>
+                                       readonly placeholder="{{ 'pasta_show.processo.tribunal_placeholder'|trans }}">
+                                <div class="form-text">{{ 'pasta_show.processo.tribunal_dica'|trans }}</div>
                             </div>
                             <div class="col-md-6">
                                 <label for="mp-orgaoJulgador" class="form-label">
-                                    Órgão julgador <span class="text-danger">*</span>
+                                    {{ 'pasta_show.processo.orgao_julgador'|trans }} <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="mp-orgaoJulgador" name="orgaoJulgador" class="form-control" required>
                             </div>
                             <div class="col-md-6">
                                 <label for="mp-classeProcessual" class="form-label">
-                                    Classe processual <span class="text-danger">*</span>
+                                    {{ 'pasta_show.processo.classe'|trans }} <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="mp-classeProcessual" name="classeProcessual" class="form-control" required>
                             </div>
                             <div class="col-md-6">
                                 <label for="mp-assuntoProcessual" class="form-label">
-                                    Assunto processual <span class="text-danger">*</span>
+                                    {{ 'pasta_show.processo.assunto'|trans }} <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="mp-assuntoProcessual" name="assuntoProcessual" class="form-control" required>
                             </div>
                             <div class="col-md-4">
-                                <label for="mp-situacaoProcesso" class="form-label">Situação <span class="text-danger">*</span></label>
+                                <label for="mp-situacaoProcesso" class="form-label">{{ 'pasta_show.processo.situacao'|trans }} <span class="text-danger">*</span></label>
                                 <select id="mp-situacaoProcesso" name="situacaoProcesso" class="form-select" required>
                                     {# Opções do desenho 02 (P5d); o código gravado tem rótulo em SituacaoProcessoRotulo. #}
-                                    <option value="EM_ANDAMENTO" selected>Em andamento</option>
-                                    <option value="SUSPENSO">Suspenso</option>
-                                    <option value="ARQUIVADO">Arquivado</option>
-                                    <option value="BAIXADO">Baixado</option>
-                                    <option value="TRANSITADO_EM_JULGADO">Transitado em julgado</option>
+                                    <option value="EM_ANDAMENTO" selected>{{ 'pasta_show.processo.situacao_em_andamento'|trans }}</option>
+                                    <option value="SUSPENSO">{{ 'pasta_show.processo.situacao_suspenso'|trans }}</option>
+                                    <option value="ARQUIVADO">{{ 'pasta_show.processo.situacao_arquivado'|trans }}</option>
+                                    <option value="BAIXADO">{{ 'pasta_show.processo.situacao_baixado'|trans }}</option>
+                                    <option value="TRANSITADO_EM_JULGADO">{{ 'pasta_show.processo.situacao_transitado'|trans }}</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label for="mp-instancia" class="form-label">Instância <span class="text-danger">*</span></label>
+                                <label for="mp-instancia" class="form-label">{{ 'pasta_show.processo.instancia'|trans }} <span class="text-danger">*</span></label>
                                 <select id="mp-instancia" name="instancia" class="form-select" required>
-                                    <option value="G1" selected>G1 - Primeira Instância</option>
-                                    <option value="G2">G2 - Segunda Instância</option>
-                                    <option value="TR">Turma Recursal</option>
-                                    <option value="ST">Tribunal Superior</option>
+                                    <option value="G1" selected>{{ 'pasta_show.processo.instancia_g1'|trans }}</option>
+                                    <option value="G2">{{ 'pasta_show.processo.instancia_g2'|trans }}</option>
+                                    <option value="TR">{{ 'pasta_show.processo.instancia_tr'|trans }}</option>
+                                    <option value="ST">{{ 'pasta_show.processo.instancia_st'|trans }}</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label for="mp-dataDistribuicao" class="form-label">Data de distribuição</label>
+                                <label for="mp-dataDistribuicao" class="form-label">{{ 'pasta_show.processo.data_distribuicao'|trans }}</label>
                                 <input type="date" id="mp-dataDistribuicao" name="dataDistribuicao" class="form-control">
                             </div>
                             {# Desenho N:322-327 (P5d): gravados como dados MANUAIS do processo (selo "manual" no cartão). #}
                             <div class="col-md-4">
-                                <label for="mp-valorCausa" class="form-label">Valor da causa</label>
+                                <label for="mp-valorCausa" class="form-label">{{ 'pasta_show.processo.valor_causa'|trans }}</label>
                                 <input type="text" id="mp-valorCausa" name="valorCausa" class="form-control" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off" maxlength="22">
                             </div>
                             <div class="col-md-8">
-                                <label for="mp-jurisdicao" class="form-label">Jurisdição</label>
-                                <input type="text" id="mp-jurisdicao" name="jurisdicao" class="form-control" placeholder="Ex.: Brasília · Fórum Des. Joaquim Sousa Neto" maxlength="255">
+                                <label for="mp-jurisdicao" class="form-label">{{ 'pasta_show.processo.jurisdicao'|trans }}</label>
+                                <input type="text" id="mp-jurisdicao" name="jurisdicao" class="form-control" placeholder="{{ 'pasta_show.processo.jurisdicao_exemplo'|trans }}" maxlength="255">
                             </div>
-                            {% for flag in [['segredo', 'Segredo de justiça?'], ['digital', 'Juízo 100% digital?'], ['gratuita', 'Justiça gratuita?'], ['tutela', 'Tutela/liminar?'], ['prioridade', 'Prioridade?']] %}
+                            {% for flag in [['segredo', 'pasta_show.processo.flag_segredo'], ['digital', 'pasta_show.processo.flag_digital'], ['gratuita', 'pasta_show.processo.flag_gratuita'], ['tutela', 'pasta_show.processo.flag_tutela'], ['prioridade', 'pasta_show.processo.flag_prioridade']] %}
                                 <div class="col-md">
-                                    <label for="mp-flag-{{ flag[0] }}" class="form-label">{{ flag[1] }}</label>
+                                    <label for="mp-flag-{{ flag[0] }}" class="form-label">{{ flag[1]|trans }}</label>
                                     <select id="mp-flag-{{ flag[0] }}" name="{{ flag[0] }}" class="form-select">
-                                        <option value="" selected>Não informado</option>
-                                        <option value="1">Sim</option>
-                                        <option value="0">Não</option>
+                                        <option value="" selected>{{ 'pasta_show.processo.nao_informado'|trans }}</option>
+                                        <option value="1">{{ 'pasta_show.processo.sim'|trans }}</option>
+                                        <option value="0">{{ 'pasta_show.processo.nao'|trans }}</option>
                                     </select>
                                 </div>
                             {% endfor %}
@@ -1912,38 +1915,38 @@
                     <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-partes">
                         <div class="d-flex justify-content-end mb-2">
                             <button type="button" id="mp-btn-add-parte" class="btn btn-sm btn-warning">
-                                <i class="bi bi-plus-lg me-1"></i> Adicionar parte
+                                <i class="bi bi-plus-lg me-1"></i> {{ 'pasta_show.processo.adicionar_parte'|trans }}
                             </button>
                         </div>
                         <div id="mp-partesContainer">
                             <div class="mp-parte-row card mb-2 p-3" style="position: relative;">
                                 <div class="row g-2">
                                     <div class="col-md-3">
-                                        <label class="form-label">Tipo</label>
+                                        <label class="form-label">{{ 'pasta_show.processo.tipo'|trans }}</label>
                                         <select name="partes[0][tipo]" class="form-select">
-                                            <option value="PARTE">Parte</option>
-                                            <option value="ADVOGADO">Advogado</option>
-                                            <option value="TERCEIRO">Terceiro interessado</option>
-                                            <option value="MINISTERIO_PUBLICO">Ministério Público</option>
-                                            <option value="PERITO">Perito</option>
+                                            <option value="PARTE">{{ 'pasta_show.processo.parte_parte'|trans }}</option>
+                                            <option value="ADVOGADO">{{ 'pasta_show.processo.parte_advogado'|trans }}</option>
+                                            <option value="TERCEIRO">{{ 'pasta_show.processo.parte_terceiro'|trans }}</option>
+                                            <option value="MINISTERIO_PUBLICO">{{ 'pasta_show.processo.parte_mp'|trans }}</option>
+                                            <option value="PERITO">{{ 'pasta_show.processo.parte_perito'|trans }}</option>
                                         </select>
                                     </div>
                                     <div class="col-md-5">
-                                        <label class="form-label">Nome</label>
-                                        <input type="text" name="partes[0][nome]" class="form-control" placeholder="Nome da parte">
+                                        <label class="form-label">{{ 'pasta_show.processo.nome'|trans }}</label>
+                                        <input type="text" name="partes[0][nome]" class="form-control" placeholder="{{ 'pasta_show.processo.nome_da_parte'|trans }}">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Documento</label>
-                                        <input type="text" name="partes[0][documento]" class="form-control" placeholder="CPF/CNPJ">
+                                        <label class="form-label">{{ 'pasta_show.processo.documento'|trans }}</label>
+                                        <input type="text" name="partes[0][documento]" class="form-control" placeholder="{{ 'pasta_show.processo.documento_placeholder'|trans }}">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Papel</label>
-                                        <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                                        <label class="form-label">{{ 'pasta_show.processo.papel'|trans }}</label>
+                                        <input type="text" name="partes[0][papel]" class="form-control" placeholder="{{ 'pasta_show.processo.papel_placeholder'|trans }}">
                                     </div>
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover linha"><i class="bi bi-trash"></i></button>
+                                        title="{{ 'pasta_show.processo.remover_linha'|trans }}"><i class="bi bi-trash"></i></button>
                             </div>
                         </div>
                     </div>{# fim tab-modal-proc-partes #}
@@ -1952,43 +1955,43 @@
                     <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-movimentacoes">
                         <div class="d-flex justify-content-end mb-2">
                             <button type="button" id="mp-btn-add-movimentacao" class="btn btn-sm btn-info">
-                                <i class="bi bi-plus-lg me-1"></i> Adicionar movimentação
+                                <i class="bi bi-plus-lg me-1"></i> {{ 'pasta_show.processo.adicionar_movimentacao'|trans }}
                             </button>
                         </div>
                         <div id="mp-movimentacoesContainer">
                             <div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
                                 <div class="row g-2">
                                     <div class="col-md-3">
-                                        <label class="form-label">Data</label>
+                                        <label class="form-label">{{ 'pasta_show.processo.data'|trans }}</label>
                                         <input type="date" name="movimentacoes[0][dataMovimentacao]" class="form-control">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label">Descrição</label>
-                                        <input type="text" name="movimentacoes[0][descricao]" class="form-control" placeholder="Descrição da movimentação">
+                                        <label class="form-label">{{ 'pasta_show.processo.descricao'|trans }}</label>
+                                        <input type="text" name="movimentacoes[0][descricao]" class="form-control" placeholder="{{ 'pasta_show.processo.descricao_movimentacao'|trans }}">
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Tipo</label>
-                                        <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="Tipo de movimento">
+                                        <label class="form-label">{{ 'pasta_show.processo.tipo'|trans }}</label>
+                                        <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="{{ 'pasta_show.processo.tipo_movimento'|trans }}">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Órgão</label>
-                                        <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
+                                        <label class="form-label">{{ 'pasta_show.processo.orgao'|trans }}</label>
+                                        <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="{{ 'pasta_show.processo.orgao'|trans }}">
                                     </div>
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover linha"><i class="bi bi-trash"></i></button>
+                                        title="{{ 'pasta_show.processo.remover_linha'|trans }}"><i class="bi bi-trash"></i></button>
                             </div>
                         </div>
-                        <p class="small text-muted mb-0">"Buscar no CNJ" (aba Informações) importa as movimentações do PJe e dos diários oficiais. Depois de vinculado, o Push processual passa a monitorar o processo.</p>
+                        <p class="small text-muted mb-0">{{ 'pasta_show.processo.movimentacoes_nota'|trans }}</p>
                     </div>{# fim tab-modal-proc-movimentacoes #}
 
                     {# Modal de carregamento DataJud (interno ao modal de processo) #}
                     <div id="mp-loadingOverlay" class="d-none text-center py-3">
                         <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Buscando…</span>
+                            <span class="visually-hidden">{{ 'pasta_show.processo.buscando'|trans }}</span>
                         </div>
-                        <p class="mt-2 mb-0 small">Buscando…</p>
+                        <p class="mt-2 mb-0 small">{{ 'pasta_show.processo.buscando'|trans }}</p>
                     </div>
 
                     </div>{# fim modal-modo-novo #}
@@ -1998,9 +2001,9 @@
                     <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
                 </div>
                 <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
                     <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> <span id="mp-salvar-texto">Vincular processo</span>
+                        <i class="bi bi-check-lg me-1"></i> <span id="mp-salvar-texto">{{ 'pasta_show.processo.vincular'|trans }}</span>
                     </button>
                 </div>
             </form>
@@ -2021,16 +2024,16 @@
                 <h5 class="modal-title" id="previewDocModalLabel">
                     <i class="bi bi-eye me-1"></i> <span id="previewDocNome"></span>
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'pasta_show.fechar'|trans }}"></button>
             </div>
             <div class="modal-body p-0 d-flex align-items-center justify-content-center" style="min-height: 70vh;">
                 <div id="previewDocConteudo" class="w-100 h-100"></div>
             </div>
             <div class="modal-footer">
                 <a id="previewDocDownload" href="#" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-download me-1"></i> Baixar
+                    <i class="bi bi-download me-1"></i> {{ 'pasta_show.preview.baixar'|trans }}
                 </a>
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
             </div>
         </div>
     </div>
@@ -2263,8 +2266,9 @@
     }
 
     function textoDoDuplicado(nomeEnviado, d, pastaAtualId) {
-        const onde = String(d.pastaId) === String(pastaAtualId) ? 'nesta pasta' : 'na pasta ' + d.pastaNup;
-        return '«' + nomeEnviado + '» tem o mesmo conteúdo de «' + d.titulo + '» ' + onde + '.';
+        return String(d.pastaId) === String(pastaAtualId)
+            ? BJ_T.t('pasta_show.js.upload.duplicado_nesta', {nome: nomeEnviado, titulo: d.titulo})
+            : BJ_T.t('pasta_show.js.upload.duplicado_na_pasta', {nome: nomeEnviado, titulo: d.titulo, nup: d.pastaNup});
     }
 
     function renderizarAvisoDeDuplicados() {
@@ -2285,7 +2289,7 @@
                 const a = document.createElement('a');
                 a.href = urlTpl.replace('__ID__', encodeURIComponent(it.pastaId));
                 a.className = 'ms-1';
-                a.textContent = 'Abrir pasta ' + it.pastaNup;
+                a.textContent = BJ_T.t('pasta_show.js.upload.abrir_pasta', {nup: it.pastaNup});
                 li.appendChild(a);
             }
             lista.appendChild(li);
@@ -2348,10 +2352,10 @@
                     registrarDuplicados(file.name, data.duplicadoDe);
                     resolve(data);
                 } else {
-                    reject(new Error((data && data.error) ? data.error : 'Erro ao enviar o arquivo.'));
+                    reject(new Error((data && data.error) ? data.error : BJ_T.t('pasta_show.js.upload.erro_enviar')));
                 }
             });
-            xhr.addEventListener('error', function () { reject(new Error('Erro de comunicação.')); });
+            xhr.addEventListener('error', function () { reject(new Error(BJ_T.t('pasta_show.js.upload.erro_comunicacao'))); });
             xhr.send(fd);
         });
     };
@@ -2385,11 +2389,11 @@
             reduzir: reduzir,
             onProgress: function (pct) {
                 bar.style.width = pct + '%';
-                status.textContent = 'Enviando… ' + pct + '%';
+                status.textContent = BJ_T.t('pasta_show.js.upload.enviando', {pct: pct});
             },
             onComprimindo: function () {
                 bar.style.width = '100%';
-                status.textContent = reduzir ? 'Comprimindo…' : 'Processando…';
+                status.textContent = reduzir ? BJ_T.t('pasta_show.js.upload.comprimindo') : BJ_T.t('pasta_show.js.upload.processando');
             }
         }).then(function (data) {
             const c = data.compressao;
@@ -2397,23 +2401,24 @@
             if (c && c.comprimido) {
                 bar.classList.add('bg-success');
                 status.className = 'anexo-status text-success d-block mt-1';
-                status.textContent = 'Reduzido de ' + formatBytesPeca(c.tamanhoOriginal)
-                    + ' para ' + formatBytesPeca(c.tamanhoFinal) + '.'
-                    + (c.eraAssinado ? ' Atenção: PDF assinado. A assinatura pode ter sido invalidada.' : '');
+                status.textContent = BJ_T.t('pasta_show.js.upload.reduzido', {de: formatBytesPeca(c.tamanhoOriginal), para: formatBytesPeca(c.tamanhoFinal)})
+                    + (c.eraAssinado ? ' ' + BJ_T.t('pasta_show.js.upload.pdf_assinado') : '');
             } else if (reduzir) {
                 bar.classList.add('bg-warning');
                 status.className = 'anexo-status text-warning-emphasis d-block mt-1';
-                status.textContent = 'Não foi possível reduzir. Enviado no tamanho original.';
+                status.textContent = BJ_T.t('pasta_show.js.upload.nao_reduziu');
             } else {
                 bar.classList.add('bg-success');
                 status.className = 'anexo-status text-success d-block mt-1';
-                status.textContent = 'Enviado.';
+                status.textContent = BJ_T.t('pasta_show.js.upload.enviado');
             }
             if (Array.isArray(data.duplicadoDe) && data.duplicadoDe.length > 0) {
                 const dup = document.createElement('small');
                 dup.className = 'd-block mt-1 text-warning-emphasis';
-                dup.textContent = 'Já existe arquivo idêntico: ' + data.duplicadoDe.map(function (d) {
-                    return '«' + d.titulo + '» (' + (String(d.pastaId) === String(PASTA_ID_UPLOAD) ? 'nesta pasta' : 'pasta ' + d.pastaNup) + ')';
+                dup.textContent = BJ_T.t('pasta_show.js.upload.ja_existe') + ' ' + data.duplicadoDe.map(function (d) {
+                    return String(d.pastaId) === String(PASTA_ID_UPLOAD)
+                        ? BJ_T.t('pasta_show.js.upload.identico_nesta', {titulo: d.titulo})
+                        : BJ_T.t('pasta_show.js.upload.identico_pasta', {titulo: d.titulo, nup: d.pastaNup});
                 }).join('; ') + '.';
                 status.insertAdjacentElement('afterend', dup);
             }
@@ -2492,7 +2497,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlEnviar   = '{{ path("pasta_enviar_mensagem", {id: pasta.id}) }}';
     const urlEditarTpl  = '{{ path("pasta_editar_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
     const urlExcluirTpl = '{{ path("pasta_excluir_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
-    const ROTULO_ORFA      = 'Resposta a uma mensagem excluída';
+    // Pedido na hora do uso: o script roda antes do bj-traducao.js (fim do corpo do base).
+    function rotuloOrfa() { return BJ_T.t('pasta_show.js.registro.orfa'); }
 
     /* PAS-034: a janela e o aviso da tela (pasta-dialogos.js), no lugar do confirm/alert. */
     function avisarErroReg(msg) {
@@ -2501,14 +2507,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* "Excluir o comentário de NOME?" com a data e o trecho (dc L.5906 `comExcluir`). */
     function confirmarExclusaoReg(cartao) {
-        const autor = (cartao && cartao.querySelector('.ps-anotacao-autor') || {}).textContent || 'colaborador';
+        const autor = (cartao && cartao.querySelector('.ps-anotacao-autor') || {}).textContent || BJ_T.t('pasta_show.js.registro.colaborador');
         const data  = cartao ? cartao.querySelector('.ps-anotacao-data') : null;
         const corpo = cartao ? cartao.querySelector('.pasta-msg-conteudo .ql-editor') : null;
         const txt   = (corpo ? corpo.innerText : '').replace(/\s+/g, ' ').trim();
         const opcoes = {
-            titulo: 'Excluir o comentário de ' + autor.trim() + '?',
-            texto: (data && data.title ? data.title + ' · ' : '') + '"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')
-                + '". Ele some para toda a equipe e a exclusão fica registrada no histórico.',
+            titulo: BJ_T.t('pasta_show.js.registro.excluir_titulo', {autor: autor.trim()}),
+            texto: (data && data.title ? data.title + ' · ' : '')
+                + BJ_T.t('pasta_show.js.registro.excluir_texto', {trecho: txt.slice(0, 140) + (txt.length > 140 ? '…' : '')}),
         };
         return window.confirmarPs ? confirmarPs(opcoes) : Promise.resolve(confirm(opcoes.titulo));
     }
@@ -2551,7 +2557,7 @@ document.addEventListener('DOMContentLoaded', function () {
         icone.className = 'bi bi-reply-fill';
         icone.setAttribute('aria-hidden', 'true');
         const para = document.createElement('span');
-        para.textContent = 'Respondendo a ' + (botao.dataset.respostaNome || 'Autor desconhecido');
+        para.textContent = BJ_T.t('pasta_show.js.registro.respondendo_a', {nome: botao.dataset.respostaNome || BJ_T.t('pasta_show.js.registro.autor_desconhecido')});
         faixa.appendChild(icone);
         faixa.appendChild(para);
 
@@ -2559,7 +2565,7 @@ document.addEventListener('DOMContentLoaded', function () {
         campo.className = 'ps-resp-caixa-campo';
         campo.rows = 2;
         campo.maxLength = 5000;
-        campo.placeholder = 'Escreva a resposta…';
+        campo.placeholder = BJ_T.t('pasta_show.js.registro.escreva_resposta');
         campo.setAttribute('aria-label', para.textContent);
 
         const erro = document.createElement('div');
@@ -2569,7 +2575,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cancelar = document.createElement('button');
         cancelar.type = 'button';
         cancelar.className = 'ps-resp-caixa-cancelar';
-        cancelar.textContent = 'Cancelar';
+        cancelar.textContent = BJ_T.t('pasta_show.js.cancelar');
 
         const enviar = document.createElement('button');
         enviar.type = 'button';
@@ -2579,7 +2585,7 @@ document.addEventListener('DOMContentLoaded', function () {
         iEnviar.className = 'bi bi-send';
         iEnviar.setAttribute('aria-hidden', 'true');
         enviar.appendChild(iEnviar);
-        enviar.appendChild(document.createTextNode('Responder'));
+        enviar.appendChild(document.createTextNode(BJ_T.t('pasta_show.js.registro.responder')));
 
         const acoes = document.createElement('div');
         acoes.className = 'ps-resp-caixa-acoes';
@@ -2615,7 +2621,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const resp = await fetch(urlEnviar, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const data = await resp.json();
                 if (!resp.ok) {
-                    erro.textContent = data.erro ?? 'Erro ao enviar a resposta.';
+                    erro.textContent = data.erro ?? BJ_T.t('pasta_show.js.registro.erro_resposta');
                     erro.hidden = false;
                     enviar.disabled = false;
                     return;
@@ -2625,7 +2631,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (vazioMsg) { vazioMsg.remove(); }
                 if (countBadge && conta) { countBadge.textContent = parseInt(countBadge.textContent || '0', 10) + 1; }
             } catch (_) {
-                erro.textContent = 'Erro de rede. Tente novamente.';
+                erro.textContent = BJ_T.t('pasta_show.js.erro_rede_tente');
                 erro.hidden = false;
                 enviar.disabled = false;
             }
@@ -2656,8 +2662,6 @@ document.addEventListener('DOMContentLoaded', function () {
        motivo na dica (o `comPerm` do desenho, sem a frase do usuário primário, que
        aqui não tem a exceção — como o Financeiro). */
     const menuReg = document.getElementById('psRegMenu');
-    const REG_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.';
-    const REG_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.';
     let regAberto = null; // { cartao, gatilho }
 
     function fecharMenuReg(devolverFoco) {
@@ -2706,17 +2710,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const resto = minutosRestantesReg(cartao);
         const pode  = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0;
-        const motivo = cartao.dataset.doAutor === '1' ? REG_MOTIVO_PRAZO : REG_MOTIVO_AUTOR;
+        const motivo = cartao.dataset.doAutor === '1' ? BJ_T.t('pasta_show.js.registro.motivo_prazo') : BJ_T.t('pasta_show.js.registro.motivo_autor');
         const editar  = menuReg.querySelector('.js-reg-editar');
         const excluir = menuReg.querySelector('.js-reg-excluir');
         if (!editar || !excluir) {
             // lápide: sem itens de escrita para pintar
         } else if (pode) {
-            pintarItemReg(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', '');
-            pintarItemReg(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', '');
+            pintarItemReg(editar, true, BJ_T.t('pasta_show.js.registro.menu_editar', {min: resto}), 'bi-pencil', '');
+            pintarItemReg(excluir, true, BJ_T.t('pasta_show.js.registro.menu_excluir', {min: resto}), 'bi-trash3', '');
         } else {
-            pintarItemReg(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);
-            pintarItemReg(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);
+            pintarItemReg(editar, false, BJ_T.t('pasta_show.js.registro.menu_editar_bloqueado'), 'bi-lock', motivo);
+            pintarItemReg(excluir, false, BJ_T.t('pasta_show.js.registro.menu_excluir_bloqueado'), 'bi-lock', motivo);
         }
 
         menuReg.hidden = false;
@@ -2756,11 +2760,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (texto && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(texto).then(
-                function () { avisar('Texto copiado'); },
-                function () { avisar('Não foi possível copiar'); }
+                function () { avisar(BJ_T.t('pasta_show.js.registro.copiado')); },
+                function () { avisar(BJ_T.t('pasta_show.js.registro.nao_copiou')); }
             );
         } else {
-            avisar('Não foi possível copiar');
+            avisar(BJ_T.t('pasta_show.js.registro.nao_copiou'));
         }
     }
 
@@ -2854,7 +2858,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 const nota = document.createElement('span');
                 nota.className = 'ps-compositor-nota';
-                nota.textContent = 'Visível para a equipe';
+                nota.textContent = BJ_T.t('pasta_show.js.registro.visivel_equipe');
 
                 const espaco = document.createElement('span');
                 espaco.className = 'ps-cab-espaco';
@@ -2862,12 +2866,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 const btnCancelar = document.createElement('button');
                 btnCancelar.type = 'button';
                 btnCancelar.className = 'ps-anotacao-edicao-cancelar';
-                btnCancelar.textContent = 'Cancelar';
+                btnCancelar.textContent = BJ_T.t('pasta_show.js.cancelar');
 
                 const btnSalvar = document.createElement('button');
                 btnSalvar.type = 'button';
                 btnSalvar.className = 'ps-btn ps-btn--primario';
-                btnSalvar.textContent = 'Salvar';
+                btnSalvar.textContent = BJ_T.t('pasta_show.js.salvar');
 
                 const rodape = document.createElement('div');
                 rodape.className = 'ps-anotacao-edicao-rodape';
@@ -2908,7 +2912,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const vazio = window.EditorRico
                         ? EditorRico.estaVazio(textareaEd)
                         : textareaEd.value.trim() === '';
-                    if (vazio) { avisarErroReg('A mensagem não pode ser vazia.'); return; }
+                    if (vazio) { avisarErroReg(BJ_T.t('pasta_show.js.registro.vazia')); return; }
 
                     btnSalvar.disabled = true;
                     const fd = new FormData();
@@ -2931,11 +2935,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             area.remove();
                             conteudoDiv.classList.remove('d-none');
                         } else {
-                            avisarErroReg(data.erro ?? 'Erro ao editar.');
+                            avisarErroReg(data.erro ?? BJ_T.t('pasta_show.js.registro.erro_editar'));
                             btnSalvar.disabled = false;
                         }
                     } catch (_) {
-                        avisarErroReg('Erro de rede.');
+                        avisarErroReg(BJ_T.t('pasta_show.js.erro_rede'));
                         btnSalvar.disabled = false;
                     }
                 });
@@ -2974,7 +2978,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 minhas.classList.add('ps-respostas--orfa');
                                 minhas.removeAttribute('data-resposta-de');
                                 minhas.querySelectorAll(':scope > .ps-anotacao--resposta > .ps-anotacao-resposta-rot > span').forEach(function (rot) {
-                                    rot.textContent = ROTULO_ORFA;
+                                    rot.textContent = rotuloOrfa();
                                 });
                                 /* Sem a raiz, responder a uma órfã liga a ela mesma (o servidor faz igual). */
                                 minhas.querySelectorAll(':scope > .ps-anotacao').forEach(function (orfa) {
@@ -3005,10 +3009,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     } else {
                         const data = await resp.json();
-                        avisarErroReg(data.erro ?? 'Erro ao excluir.');
+                        avisarErroReg(data.erro ?? BJ_T.t('pasta_show.js.registro.erro_excluir'));
                     }
                 } catch (_) {
-                    avisarErroReg('Erro de rede.');
+                    avisarErroReg(BJ_T.t('pasta_show.js.erro_rede'));
                 }
             }
         });
@@ -3022,13 +3026,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!topo) { return; }
         const marca = document.createElement('span');
         marca.className = 'ps-anotacao-editado pasta-msg-editado';
-        marca.textContent = 'editado';
+        marca.textContent = BJ_T.t('pasta_show.js.registro.editado');
         /* PAS-033: a mesma dica do Twig — a hora de publicação sai do title da hora do cartão
            ("dd/mm/aaaa HH:MM"); a edição é agora. */
         const publicado = ((item.querySelector('.ps-anotacao-data') || {}).title || '').slice(-5);
         const agora = new Date();
-        marca.title = (publicado ? 'Publicado às ' + publicado + ' · ' : '') + 'última edição '
-            + agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        marca.title = (publicado ? BJ_T.t('pasta_show.js.registro.publicado_as', {hora: publicado}) + ' · ' : '')
+            + BJ_T.t('pasta_show.js.registro.ultima_edicao', {data: BJFormato.data(agora), hora: BJFormato.hora(agora)});
         if (autor && autor.nextSibling) { topo.insertBefore(marca, autor.nextSibling); } else { topo.appendChild(marca); }
     }
 
@@ -3045,12 +3049,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const conteudo = textarea.value.trim();
         if (conteudo === '') {
-            mostrarErro('A mensagem não pode ser vazia.');
+            mostrarErro(BJ_T.t('pasta_show.js.registro.vazia'));
             return;
         }
 
         btnEnviar.disabled = true;
-        btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
+        btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> ' + esc(BJ_T.t('pasta_show.js.registro.enviando'));
         if (window.EditorRico) { EditorRico.marcarEnvio(textarea, true); }
         esconderErro();
 
@@ -3067,7 +3071,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const data = await resp.json();
 
             if (!resp.ok) {
-                mostrarErro(data.erro ?? 'Erro ao enviar mensagem.');
+                mostrarErro(data.erro ?? BJ_T.t('pasta_show.js.registro.erro_enviar'));
                 return;
             }
 
@@ -3081,10 +3085,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 countBadge.textContent = parseInt(countBadge.textContent || '0', 10) + 1;
             }
         } catch (_) {
-            mostrarErro('Erro de rede. Tente novamente.');
+            mostrarErro(BJ_T.t('pasta_show.js.erro_rede_tente'));
         } finally {
             // O rótulo volta ao do desenho e ao de antes do envio: só o texto "Enviar" (EDT-022).
-            btnEnviar.textContent = 'Enviar';
+            btnEnviar.textContent = BJ_T.t('pasta_show.js.registro.enviar');
             // O editor decide: depois de enviar ele está vazio, e vazio o Enviar fica apagado (EDT-021).
             if (window.EditorRico) { EditorRico.marcarEnvio(textarea, false); } else { btnEnviar.disabled = false; }
         }
@@ -3129,7 +3133,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const faixa = ehResposta
-            ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? 'Resposta a ' + data.respostaANome : ROTULO_ORFA)}</span></div>`
+            ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? BJ_T.t('pasta_show.js.registro.resposta_a', {nome: data.respostaANome}) : rotuloOrfa())}</span></div>`
             : '';
         const alvoId   = ehResposta ? data.respostaA : data.id;
         const alvoNome = ehResposta ? (data.respostaANome ?? '') : (data.autorNome ?? '');
@@ -3139,7 +3143,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const encaminharPasta = Number(list.dataset.encaminharPasta || 0);
         const btnEncaminhar   = encaminharPasta
             ? `<button type="button" class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
-                        title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                        title="${esc(BJ_T.t('pasta_show.js.registro.encaminhar'))}" aria-label="${esc(BJ_T.t('pasta_show.js.registro.encaminhar'))}"
                         data-encaminhar-pasta="${encaminharPasta}"
                         data-encaminhar-tipo="registro_dados"
                         data-encaminhar-id="${Number(data.id)}">
@@ -3159,11 +3163,11 @@ document.addEventListener('DOMContentLoaded', function () {
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
             <div class="ps-anotacao-topo">
                 <span class="ps-avatar ps-avatar--24">${data.autorFotoUrl ? `<img src="${esc(data.autorFotoUrl)}" alt="">` : esc(iniciaisDe(data.autorNome))}</span>
-                <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
+                <span class="ps-anotacao-autor">${esc(data.autorNome ?? BJ_T.t('pasta_show.js.registro.autor_desconhecido'))}</span>
                 <span class="ps-cab-espaco"></span>
                 <span class="ps-anotacao-acoes">
                     <button type="button" class="ps-anotacao-acao btn-editar-msg-pasta"
-                            title="Editável por mais {{ comentario_janela_minutos() }} minutos" aria-label="Editar registro"
+                            title="${esc(BJ_T.t('pasta_show.js.registro.editavel', { minutos: {{ comentario_janela_minutos() }} }))}" aria-label="${esc(BJ_T.t('pasta_show.js.registro.editar'))}"
                             data-msg-id="${data.id}"
                             data-conteudo="${esc(data.conteudo)}"
                             data-csrf="${esc(data.csrfEditar ?? '')}"
@@ -3171,7 +3175,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button type="button" hidden class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
-                            title="Excluir registro" aria-label="Excluir registro"
+                            title="${esc(BJ_T.t('pasta_show.js.registro.excluir'))}" aria-label="${esc(BJ_T.t('pasta_show.js.registro.excluir'))}"
                             data-msg-id="${data.id}"
                             data-csrf="${esc(data.csrfExcluir ?? '')}"
                             data-url="${esc(urlExcluir)}">
@@ -3179,15 +3183,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     </button>
                 </span>
                 <button type="button" class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-msg-pasta"
-                        title="Responder" aria-label="Responder"
+                        title="${esc(BJ_T.t('pasta_show.js.registro.responder'))}" aria-label="${esc(BJ_T.t('pasta_show.js.registro.responder'))}"
                         data-resposta-a="${esc(alvoId)}"
-                        data-resposta-nome="${esc(alvoNome || 'Autor desconhecido')}"${ehResposta ? ` data-resposta-autor-id="{{ app.user ? app.user.id : '' }}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"` : ''}>
+                        data-resposta-nome="${esc(alvoNome || BJ_T.t('pasta_show.js.registro.autor_desconhecido'))}"${ehResposta ? ` data-resposta-autor-id="{{ app.user ? app.user.id : '' }}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"` : ''}>
                     <i class="bi bi-reply-fill"></i>
                 </button>
                 ${btnEncaminhar}
                 <span class="ps-anotacao-data ps-num" title="${dataHora}">${horaRotulo}</span>
-                <button type="button" class="ps-reg-menu-btn js-reg-menu" title="Mais ações do registro"
-                        aria-label="Mais ações do registro" aria-haspopup="menu" aria-expanded="false"
+                <button type="button" class="ps-reg-menu-btn js-reg-menu" title="${esc(BJ_T.t('pasta_show.js.registro.mais_acoes'))}"
+                        aria-label="${esc(BJ_T.t('pasta_show.js.registro.mais_acoes'))}" aria-haspopup="menu" aria-expanded="false"
                         aria-controls="psRegMenu">
                     <i class="bi bi-three-dots-vertical"></i>
                 </button>
@@ -3350,7 +3354,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!$('#mp-processoExistente').hasClass('select2-hidden-accessible')) {
                 $('#mp-processoExistente').select2({
                     width: '100%',
-                    placeholder: 'Digite número, classe, assunto ou tribunal…',
+                    placeholder: BJ_T.t('pasta_show.js.processo.select_placeholder'),
                     allowClear: true,
                     dropdownParent: $('#modalVincularProcesso'),
                     dropdownCssClass: 'mp-proc-dropdown',
@@ -3363,9 +3367,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         processResults: function (data) { return { results: data.results || [] }; }
                     },
                     language: {
-                        noResults: function () { return 'Nenhum processo encontrado. Use "Cadastrar novo (CNJ)".'; },
-                        searching: function () { return 'Buscando…'; },
-                        inputTooShort: function () { return 'Digite ao menos 2 caracteres'; }
+                        noResults: function () { return BJ_T.t('pasta_show.js.processo.nenhum_encontrado'); },
+                        searching: function () { return BJ_T.t('pasta_show.js.processo.buscando'); },
+                        inputTooShort: function () { return BJ_T.t('pasta_show.js.processo.digite_dois'); }
                     }
                 });
             }
@@ -3397,7 +3401,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var selExistente = document.getElementById('mp-processoExistente');
             if (!selExistente.value) {
                 feedbackEl.className = 'alert alert-warning mt-3';
-                feedbackEl.textContent = 'Selecione um processo para vincular.';
+                feedbackEl.textContent = BJ_T.t('pasta_show.js.processo.selecione');
                 return;
             }
         }
@@ -3423,10 +3427,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             feedbackEl.className = 'alert alert-danger mt-3';
-            feedbackEl.textContent = dados.erro ?? 'Erro ao vincular processo.';
+            feedbackEl.textContent = dados.erro ?? BJ_T.t('pasta_show.js.processo.erro_vincular');
         } catch (_) {
             feedbackEl.className = 'alert alert-danger mt-3';
-            feedbackEl.textContent = 'Erro de comunicação. Tente novamente.';
+            feedbackEl.textContent = BJ_T.t('pasta_show.js.processo.erro_comunicacao');
         } finally {
             btnSalvar.disabled = false;
             if (icone) icone.className = 'bi bi-check-lg me-1';
@@ -3461,31 +3465,31 @@ document.addEventListener('DOMContentLoaded', function () {
         return `<div class="mp-parte-row card mb-2 p-3" style="position: relative;">
             <div class="row g-2">
                 <div class="col-md-3">
-                    <label class="form-label">Tipo</label>
+                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.tipo'))}</label>
                     <select name="partes[${idx}][tipo]" class="form-select">
-                        <option value="PARTE">Parte</option>
-                        <option value="ADVOGADO">Advogado</option>
-                        <option value="TERCEIRO">Terceiro interessado</option>
-                        <option value="MINISTERIO_PUBLICO">Ministério Público</option>
-                        <option value="PERITO">Perito</option>
+                        <option value="PARTE">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_parte'))}</option>
+                        <option value="ADVOGADO">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_advogado'))}</option>
+                        <option value="TERCEIRO">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_terceiro'))}</option>
+                        <option value="MINISTERIO_PUBLICO">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_mp'))}</option>
+                        <option value="PERITO">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_perito'))}</option>
                     </select>
                 </div>
                 <div class="col-md-5">
-                    <label class="form-label">Nome</label>
-                    <input type="text" name="partes[${idx}][nome]" class="form-control" placeholder="Nome da parte">
+                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.nome'))}</label>
+                    <input type="text" name="partes[${idx}][nome]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.nome_da_parte'))}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Documento</label>
-                    <input type="text" name="partes[${idx}][documento]" class="form-control" placeholder="CPF/CNPJ">
+                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.documento'))}</label>
+                    <input type="text" name="partes[${idx}][documento]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.documento_placeholder'))}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Papel</label>
-                    <input type="text" name="partes[${idx}][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.papel'))}</label>
+                    <input type="text" name="partes[${idx}][papel]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.papel_placeholder'))}">
                 </div>
             </div>
             <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                     style="display: none; position: absolute; top: 8px; right: 12px;"
-                    title="Remover linha"><i class="bi bi-trash"></i></button>
+                    title="${mpEsc(BJ_T.t('pasta_show.js.processo.remover_linha'))}"><i class="bi bi-trash"></i></button>
         </div>`;
     }
 
@@ -3493,25 +3497,25 @@ document.addEventListener('DOMContentLoaded', function () {
         return `<div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
             <div class="row g-2">
                 <div class="col-md-3">
-                    <label class="form-label">Data</label>
+                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.data'))}</label>
                     <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Descrição</label>
-                    <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" placeholder="Descrição da movimentação">
+                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.descricao'))}</label>
+                    <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.descricao_movimentacao'))}">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Tipo</label>
-                    <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" placeholder="Tipo de movimento">
+                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.tipo'))}</label>
+                    <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.tipo_movimento'))}">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label">Órgão</label>
-                    <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" placeholder="Órgão">
+                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.orgao'))}</label>
+                    <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.orgao'))}">
                 </div>
             </div>
             <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                     style="display: none; position: absolute; top: 8px; right: 12px;"
-                    title="Remover linha"><i class="bi bi-trash"></i></button>
+                    title="${mpEsc(BJ_T.t('pasta_show.js.processo.remover_linha'))}"><i class="bi bi-trash"></i></button>
         </div>`;
     }
 
@@ -3591,7 +3595,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Desenho (P5d): o número inteiro (20 dígitos) antes de buscar.
         if (numeroProcesso.replace(/\D/g, '').length !== 20) {
             feedbackEl.className = 'alert alert-warning mt-3';
-            feedbackEl.textContent = 'Informe o número completo no formato NNNNNNN-DD.AAAA.J.TT.OOOO.';
+            feedbackEl.textContent = BJ_T.t('pasta_show.js.processo.numero_completo');
             return;
         }
 
@@ -3613,8 +3617,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 // 404: o texto do desenho e, depois, o motivo do servidor (dígito verificador, atraso da base,
                 // segredo ou arquivado), que ajuda a achar número mal digitado.
                 feedbackEl.textContent = response.status === 404
-                    ? 'Processo não localizado no CNJ/diário. Preencha os dados manualmente.' + (data.error ? ' ' + data.error : '')
-                    : (data.error || data.erro || data.mensagem || 'Erro ao buscar processo no CNJ/DataJud.'); // erro/mensagem: barreiras da pasta
+                    ? BJ_T.t('pasta_show.js.processo.nao_localizado') + (data.error ? ' ' + data.error : '')
+                    : (data.error || data.erro || data.mensagem || BJ_T.t('pasta_show.js.processo.erro_buscar_cnj')); // erro/mensagem: barreiras da pasta
                 return;
             }
 
@@ -3633,24 +3637,24 @@ document.addEventListener('DOMContentLoaded', function () {
             partesList.forEach(function (parte, idx) {
                 partesContainer.insertAdjacentHTML('beforeend', `<div class="mp-parte-row card mb-2 p-3" style="position: relative;">
                     <div class="row g-2">
-                        <div class="col-md-3"><label class="form-label">Tipo</label>
+                        <div class="col-md-3"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.tipo'))}</label>
                             <select name="partes[${idx}][tipo]" class="form-select">
-                                <option value="PARTE" ${(parte.tipo||'')==='PARTE'?'selected':''}>Parte</option>
-                                <option value="ADVOGADO" ${(parte.tipo||'')==='ADVOGADO'?'selected':''}>Advogado</option>
-                                <option value="TERCEIRO" ${(parte.tipo||'')==='TERCEIRO'?'selected':''}>Terceiro interessado</option>
-                                <option value="MINISTERIO_PUBLICO" ${(parte.tipo||'')==='MINISTERIO_PUBLICO'?'selected':''}>Ministério Público</option>
-                                <option value="PERITO" ${(parte.tipo||'')==='PERITO'?'selected':''}>Perito</option>
+                                <option value="PARTE" ${(parte.tipo||'')==='PARTE'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_parte'))}</option>
+                                <option value="ADVOGADO" ${(parte.tipo||'')==='ADVOGADO'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_advogado'))}</option>
+                                <option value="TERCEIRO" ${(parte.tipo||'')==='TERCEIRO'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_terceiro'))}</option>
+                                <option value="MINISTERIO_PUBLICO" ${(parte.tipo||'')==='MINISTERIO_PUBLICO'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_mp'))}</option>
+                                <option value="PERITO" ${(parte.tipo||'')==='PERITO'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_perito'))}</option>
                             </select></div>
-                        <div class="col-md-5"><label class="form-label">Nome</label>
-                            <input type="text" name="partes[${idx}][nome]" class="form-control" value="${mpEsc(parte.nome)}" placeholder="Nome da parte"></div>
-                        <div class="col-md-2"><label class="form-label">Documento</label>
-                            <input type="text" name="partes[${idx}][documento]" class="form-control" value="${mpEsc(parte.documento)}" placeholder="CPF/CNPJ"></div>
-                        <div class="col-md-2"><label class="form-label">Papel</label>
-                            <input type="text" name="partes[${idx}][papel]" class="form-control" value="${mpEsc(parte.papel)}" placeholder="Polo ativo/passivo"></div>
+                        <div class="col-md-5"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.nome'))}</label>
+                            <input type="text" name="partes[${idx}][nome]" class="form-control" value="${mpEsc(parte.nome)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.nome_da_parte'))}"></div>
+                        <div class="col-md-2"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.documento'))}</label>
+                            <input type="text" name="partes[${idx}][documento]" class="form-control" value="${mpEsc(parte.documento)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.documento_placeholder'))}"></div>
+                        <div class="col-md-2"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.papel'))}</label>
+                            <input type="text" name="partes[${idx}][papel]" class="form-control" value="${mpEsc(parte.papel)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.papel_placeholder'))}"></div>
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                             style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                            title="Remover linha"><i class="bi bi-trash"></i></button>
+                            title="${mpEsc(BJ_T.t('pasta_show.js.processo.remover_linha'))}"><i class="bi bi-trash"></i></button>
                 </div>`);
             });
 
@@ -3660,18 +3664,18 @@ document.addEventListener('DOMContentLoaded', function () {
             movsList.forEach(function (mov, idx) {
                 movContainer.insertAdjacentHTML('beforeend', `<div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
                     <div class="row g-2">
-                        <div class="col-md-3"><label class="form-label">Data</label>
+                        <div class="col-md-3"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.data'))}</label>
                             <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control" value="${mpEsc(mov.dataMovimentacao)}"></div>
-                        <div class="col-md-4"><label class="form-label">Descrição</label>
-                            <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" value="${mpEsc(mov.descricao)}" placeholder="Descrição da movimentação"></div>
-                        <div class="col-md-3"><label class="form-label">Tipo</label>
-                            <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mpEsc(mov.tipo)}" placeholder="Tipo de movimento"></div>
-                        <div class="col-md-2"><label class="form-label">Órgão</label>
-                            <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mpEsc(mov.orgao)}" placeholder="Órgão"></div>
+                        <div class="col-md-4"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.descricao'))}</label>
+                            <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" value="${mpEsc(mov.descricao)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.descricao_movimentacao'))}"></div>
+                        <div class="col-md-3"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.tipo'))}</label>
+                            <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mpEsc(mov.tipo)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.tipo_movimento'))}"></div>
+                        <div class="col-md-2"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.orgao'))}</label>
+                            <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mpEsc(mov.orgao)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.orgao'))}"></div>
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                             style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                            title="Remover linha"><i class="bi bi-trash"></i></button>
+                            title="${mpEsc(BJ_T.t('pasta_show.js.processo.remover_linha'))}"><i class="bi bi-trash"></i></button>
                 </div>`);
             });
 
@@ -3687,7 +3691,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) {
             loadingEl.classList.add('d-none');
             feedbackEl.className = 'alert alert-danger mt-3';
-            feedbackEl.textContent = 'Erro ao buscar processo no CNJ/DataJud. Tente novamente em instantes.';
+            feedbackEl.textContent = BJ_T.t('pasta_show.js.processo.erro_buscar_cnj_tente');
         }
     });
 
@@ -3752,7 +3756,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="ps-modal-pasta-cab">
                 <span class="ps-modal-pasta-cab-icone" aria-hidden="true"><i class="bi bi-folder2-open"></i></span>
                 <div class="ps-modal-pasta-cab-corpo">
-                    <h2 class="ps-modal-pasta-titulo" id="modalEditarPastaLabel"><span class="visually-hidden">Editar dados da </span>Pasta {{ pasta.nup }}</h2>
+                    <h2 class="ps-modal-pasta-titulo" id="modalEditarPastaLabel"><span class="visually-hidden">{{ 'pasta_show.editar.editar_dados_da'|trans }} </span>{{ 'pasta_show.titulo'|trans({nup: pasta.nup}) }}</h2>
                     {# PAS-020 (dc L.567, `pe.stTxt`): a pílula de estado fica na linha do subtítulo —
                        "Dados da pasta" (verde) ou "Alterações não salvas" (âmbar); o script abaixo
                        a alterna comparando o formulário com o que veio do servidor. #}
@@ -3764,16 +3768,16 @@ document.addEventListener('DOMContentLoaded', function () {
                                 {%- if editDocumento -%}{{ editDocumento|documento_br_rotulo }} {{ editDocumento|documento_br }}{%- endif -%}
                             </span>
                         {% endif %}
-                        <span class="ps-pe-estado" data-pe-estado><span class="ps-pe-estado-ponto" aria-hidden="true"></span><span data-pe-estado-txt>Dados da pasta</span></span>
+                        <span class="ps-pe-estado" data-pe-estado><span class="ps-pe-estado-ponto" aria-hidden="true"></span><span data-pe-estado-txt>{{ 'pasta_show.editar.dados_da_pasta'|trans }}</span></span>
                     </div>
                 </div>
-                <button type="button" class="ps-modal-pasta-fechar" data-bs-dismiss="modal" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="ps-modal-pasta-fechar" data-bs-dismiss="modal" title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
-            <nav class="ps-modal-pasta-abas" aria-label="Atalhos da pasta">
-                <button type="button" class="ps-modal-pasta-aba is-ativa" aria-current="true"><i class="bi bi-folder2" aria-hidden="true"></i>Dados da pasta</button>
-                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="cliente" title="Fechar e abrir o cadastro do cliente"><i class="bi bi-person" aria-hidden="true"></i>Cliente</button>
-                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="processo" title="Fechar e ir à aba Processo"><i class="bi bi-bank" aria-hidden="true"></i>Processo</button>
-                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="historico" title="Fechar e abrir o histórico"><i class="bi bi-clock-history" aria-hidden="true"></i>Histórico</button>
+            <nav class="ps-modal-pasta-abas" aria-label="{{ 'pasta_show.editar.atalhos'|trans }}">
+                <button type="button" class="ps-modal-pasta-aba is-ativa" aria-current="true"><i class="bi bi-folder2" aria-hidden="true"></i>{{ 'pasta_show.editar.dados_da_pasta'|trans }}</button>
+                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="cliente" title="{{ 'pasta_show.editar.ir_cliente_dica'|trans }}"><i class="bi bi-person" aria-hidden="true"></i>{{ 'pasta_show.editar.aba_cliente'|trans }}</button>
+                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="processo" title="{{ 'pasta_show.editar.ir_processo_dica'|trans }}"><i class="bi bi-bank" aria-hidden="true"></i>{{ 'pasta_show.editar.aba_processo'|trans }}</button>
+                <button type="button" class="ps-modal-pasta-aba js-pe-ir" data-pe-ir="historico" title="{{ 'pasta_show.editar.ir_historico_dica'|trans }}"><i class="bi bi-clock-history" aria-hidden="true"></i>{{ 'pasta_show.editar.aba_historico'|trans }}</button>
             </nav>
             <form method="post" action="{{ path('pasta_edit', {id: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('edit_pasta_' ~ pasta.id) }}">
@@ -3781,7 +3785,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     <div class="ps-modal-pasta-linha">
                         <div class="ps-modal-pasta-campo">
-                            <label for="edit_nup" class="ps-modal-pasta-rotulo">Número da pasta<span class="ps-modal-pasta-obrig" aria-hidden="true"> *</span></label>
+                            <label for="edit_nup" class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.numero'|trans }}<span class="ps-modal-pasta-obrig" aria-hidden="true"> *</span></label>
                             <input type="text" id="edit_nup" name="nup"
                                    class="form-control"
                                    value="{{ pasta.nup }}" required autocomplete="off">
@@ -3796,7 +3800,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         {% set identificadorDerivado = identificador_pasta(pasta) %}
                         {% set derivadoDaCobranca = identificadorDerivado is not null and identificadorDerivado != pasta.nomeCliente %}
                         <div class="ps-modal-pasta-campo ps-modal-pasta-campo--2">
-                            <label {% if not derivadoDaCobranca %}for="edit_nome_cliente" {% endif %}class="ps-modal-pasta-rotulo">Nome do cliente</label>
+                            <label {% if not derivadoDaCobranca %}for="edit_nome_cliente" {% endif %}class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.nome_cliente'|trans }}</label>
                             {% if derivadoDaCobranca %}
                                 {# Pasta judicializada pela cobrança: o identificador é MONTADO do credor da
                                    carteira + a pessoa cobrada, e por isso não se edita aqui. Campo que
@@ -3805,8 +3809,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                    AUSENTE como "não mexe", então nada é apagado. #}
                                 <p class="form-control bg-body-secondary mb-1" style="height:auto;">{{ identificadorDerivado }}</p>
                                 <div class="form-text text-muted">
-                                    Montado a partir do credor da carteira e do responsável cobrado.
-                                    Para mudar, altere o <strong>cadastro do cliente</strong> ou o responsável do caso.
+                                    {{ 'pasta_show.editar.montado'|trans }}
+                                    {{ 'pasta_show.editar.para_mudar'|trans }} <strong>{{ 'pasta_show.editar.cadastro_do_cliente'|trans }}</strong> {{ 'pasta_show.editar.ou_responsavel'|trans }}
                                 </div>
                             {% else %}
                             <input type="text" id="edit_nome_cliente" name="nome_cliente"
@@ -3821,7 +3825,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         </span>
                                     {% endfor %}
                                 </div>
-                                <div class="form-text text-muted">Clientes cadastrados da pasta. Para alterá-los, use a seção de Clientes na aba Dados.</div>
+                                <div class="form-text text-muted">{{ 'pasta_show.editar.clientes_dica'|trans }}</div>
                             {% endif %}
                         </div>
                     </div>
@@ -3835,24 +3839,24 @@ document.addEventListener('DOMContentLoaded', function () {
                            daqui vai no POST do formulário. O nome é relido do chip do cabeçalho ao
                            abrir, porque a troca pode ter acontecido depois da carga. #}
                         <div class="ps-modal-pasta-campo">
-                            <span class="ps-modal-pasta-rotulo" id="editRespRotulo">Responsável</span>
+                            <span class="ps-modal-pasta-rotulo" id="editRespRotulo">{{ 'pasta_show.editar.responsavel'|trans }}</span>
                             <div class="ps-pe-resp" role="group" aria-labelledby="editRespRotulo">
-                                <span class="ps-pe-resp-nome" data-pe-resp-nome>{{ pasta.responsavel ? pasta.responsavel.fullName : 'Sem responsável' }}</span>
+                                <span class="ps-pe-resp-nome" data-pe-resp-nome>{{ pasta.responsavel ? pasta.responsavel.fullName : 'pasta_show.editar.sem_responsavel'|trans }}</span>
                                 {% if podeEditarPasta and not pasta.estaExcluida %}
-                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="responsavel">Trocar</button>
+                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="responsavel">{{ 'pasta_show.editar.trocar'|trans }}</button>
                                 {% endif %}
                             </div>
                         </div>
 
                         <div class="ps-modal-pasta-campo">
-                            <label for="edit_nome_acao" class="ps-modal-pasta-rotulo">Ação</label>
+                            <label for="edit_nome_acao" class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.acao'|trans }}</label>
                             <input type="text" id="edit_nome_acao" name="nome_acao"
                                    class="form-control"
                                    value="{{ pasta.nomeAcao }}" autocomplete="off">
                         </div>
 
                         <div class="ps-modal-pasta-campo">
-                            <label for="edit_situacao" class="ps-modal-pasta-rotulo">Situação</label>
+                            <label for="edit_situacao" class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.situacao'|trans }}</label>
                             <select id="edit_situacao" name="situacao" class="form-select">
                                 {% for valor, rotuloSituacao in constant('App\\Pasta\\Entity\\Pasta::ROTULOS_SITUACAO') %}
                                     <option value="{{ valor }}" {{ pasta.situacao == valor ? 'selected' : '' }}>{{ rotuloSituacao }}</option>
@@ -3865,16 +3869,16 @@ document.addEventListener('DOMContentLoaded', function () {
                        Aqui só o que a tela sabe sozinha (número vazio); número repetido e o resto
                        continuam com o servidor, que responde no flash de sempre. #}
                     <div class="ps-pe-pendencias" role="alert" data-pe-pendencias hidden>
-                        <span class="ps-pe-pendencias-rot">Pendências</span>
+                        <span class="ps-pe-pendencias-rot">{{ 'pasta_show.editar.pendencias'|trans }}</span>
                         <span class="ps-pe-pendencias-linha"><i class="bi bi-x-circle-fill" aria-hidden="true"></i><span data-pe-pendencias-txt></span></span>
                     </div>
 
                 </div>
                 <div class="ps-modal-pasta-rodape">
-                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-bs-dismiss="modal">Fechar</button>
-                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--cadastro js-pe-ir" data-pe-ir="cliente"><i class="bi bi-person-vcard" aria-hidden="true"></i>Cadastro do cliente</button>
+                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
+                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--cadastro js-pe-ir" data-pe-ir="cliente"><i class="bi bi-person-vcard" aria-hidden="true"></i>{{ 'pasta_show.editar.cadastro_cliente_botao'|trans }}</button>
                     <button type="submit" class="ps-modal-pasta-btn ps-modal-pasta-btn--salvar">
-                        <i class="bi bi-check2"></i>Salvar
+                        <i class="bi bi-check2"></i>{{ 'pasta_show.salvar'|trans }}
                     </button>
                 </div>
             </form>
@@ -3916,10 +3920,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function conferir() {
         var mudou = serializar() !== foto;
-        var erro = nup && nup.value.trim() === '' ? 'Informe o número da pasta.' : '';
+        var erro = nup && nup.value.trim() === '' ? BJ_T.t('pasta_show.js.editar.informe_numero') : '';
         if (estado) {
             estado.classList.toggle('is-alterado', mudou);
-            estadoTxt.textContent = mudou ? 'Alterações não salvas' : 'Dados da pasta';
+            estadoTxt.textContent = mudou ? BJ_T.t('pasta_show.js.editar.nao_salvas') : BJ_T.t('pasta_show.js.editar.dados_da_pasta');
         }
         if (pendencias) {
             pendencias.hidden = !(mudou && erro);
@@ -3927,7 +3931,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (salvar) {
             salvar.disabled = !(mudou && !erro);
-            salvar.title = !mudou ? 'Nenhuma alteração para salvar' : (erro || '');
+            salvar.title = !mudou ? BJ_T.t('pasta_show.js.editar.nenhuma_alteracao') : (erro || '');
         }
     }
     if (form) {
@@ -3948,7 +3952,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (depois === '' || depois === antes) { return null; }
 
             return {
-                mensagem: 'Alterar número da pasta\nAlterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.',
+                mensagem: BJ_T.t('pasta_show.js.editar.numero_titulo') + '\n' + BJ_T.t('pasta_show.js.editar.numero_pergunta', {antes: antes, depois: depois}),
                 perigo: false
             };
         };
@@ -4016,9 +4020,9 @@ document.addEventListener('DOMContentLoaded', function () {
            está, com as alterações. */
         if (!window.confirmarPs) { return; }
         window.confirmarPs({
-            titulo: 'Descartar as alterações?',
-            texto: 'As alterações não salvas dos dados da pasta serão perdidas.',
-            rotulo: 'Descartar',
+            titulo: BJ_T.t('pasta_show.js.editar.descartar_titulo'),
+            texto: BJ_T.t('pasta_show.js.editar.descartar_texto'),
+            rotulo: BJ_T.t('pasta_show.js.editar.descartar'),
             icone: 'bi-x-circle'
         }).then(function (sim) {
             if (!sim) { return; }
@@ -4056,7 +4060,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data.sucesso) {
-                    (window.avisarErroPs || window.alert)(data.erro || 'Erro ao alterar situação.');
+                    (window.avisarErroPs || window.alert)(data.erro || BJ_T.t('pasta_show.js.cabecalho.erro_situacao'));
                     emAndamento  = false;
                     btn.disabled = false;
                     return;
@@ -4064,7 +4068,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 window.location.reload();
             })
             .catch(function () {
-                (window.avisarErroPs || window.alert)('Erro de comunicação com o servidor.');
+                (window.avisarErroPs || window.alert)(BJ_T.t('pasta_show.js.cabecalho.erro_comunicacao'));
                 emAndamento  = false;
                 btn.disabled = false;
             });
@@ -4089,7 +4093,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: fd,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
-                if (!res.ok) { (window.avisarErroPs || window.alert)('Erro ao alterar prioridade.'); return; }
+                if (!res.ok) { (window.avisarErroPs || window.alert)(BJ_T.t('pasta_show.js.cabecalho.erro_prioridade')); return; }
 
                 var json = await res.json();
                 tog.className = 'ps-prio ps-prio--' + optBtn.dataset.valor + ' pasta-prioridade-btn';
@@ -4107,7 +4111,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (painel) { painel.classList.remove('is-aberto'); }
                 tog.setAttribute('aria-expanded', 'false');
             } catch (e) {
-                (window.avisarErroPs || window.alert)('Erro ao alterar prioridade.');
+                (window.avisarErroPs || window.alert)(BJ_T.t('pasta_show.js.cabecalho.erro_prioridade'));
             }
         });
     });
@@ -4279,18 +4283,18 @@ document.addEventListener('DOMContentLoaded', function () {
      data-bs-backdrop="false" data-bs-focus="false">
     <div class="modal-dialog modal-dialog-centered ps-modal-meta">
         <div class="modal-content">
-            <div class="ps-modal-meta-cab" data-ps-nm-alca title="Arraste para mover · duplo clique recolhe">
+            <div class="ps-modal-meta-cab" data-ps-nm-alca title="{{ 'pasta_show.meta.alca_dica'|trans }}">
                 <i class="bi bi-grip-vertical ps-modal-meta-alca" aria-hidden="true"></i>
                 <i class="bi bi-list-check ps-modal-meta-icone" aria-hidden="true"></i>
-                <h2 class="ps-modal-meta-titulo" id="modalCriarTarefaLabel">Nova meta</h2>
+                <h2 class="ps-modal-meta-titulo" id="modalCriarTarefaLabel">{{ 'pasta_show.meta.titulo'|trans }}</h2>
                 {# C6-PMC-02: o NUP é anulável; sem ele a faixa sairia só "Pasta ". O "#id" é o
                    mesmo recurso de _processos_vinculados.html.twig (`?:` também pega o NUP vazio). #}
-                <span class="ps-modal-meta-pasta">Pasta {{ pasta.nup ?: ('#' ~ pasta.id) }}</span>
+                <span class="ps-modal-meta-pasta">{{ 'pasta_show.titulo'|trans({nup: pasta.nup ?: ('#' ~ pasta.id)}) }}</span>
                 <button type="button" class="ps-modal-meta-cab-btn" data-ps-nm-recolher
-                        aria-label="Recolher (continue vendo a lista)" title="Recolher (continue vendo a lista)">
+                        aria-label="{{ 'pasta_show.meta.recolher'|trans }}" title="{{ 'pasta_show.meta.recolher'|trans }}">
                     <i class="bi bi-dash-lg" aria-hidden="true"></i>
                 </button>
-                <button type="button" class="ps-modal-meta-cab-btn" data-bs-dismiss="modal" aria-label="Fechar" title="Fechar (Esc)">
+                <button type="button" class="ps-modal-meta-cab-btn" data-bs-dismiss="modal" aria-label="{{ 'pasta_show.fechar'|trans }}" title="{{ 'pasta_show.meta.fechar_esc'|trans }}">
                     <i class="bi bi-x-lg" aria-hidden="true"></i>
                 </button>
             </div>
@@ -4302,19 +4306,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div id="tarefaErroMsg" class="alert alert-danger d-none py-2 small"></div>
 
                     <div class="ps-nm-campo-bloco">
-                        <label for="tarefaTitulo" class="ps-nm-rotulo">Título <span class="ps-nm-obrig">*</span></label>
+                        <label for="tarefaTitulo" class="ps-nm-rotulo">{{ 'pasta_show.meta.titulo_campo'|trans }} <span class="ps-nm-obrig">*</span></label>
                         <input type="text" id="tarefaTitulo" name="titulo"
                                class="form-control ps-nm-campo" maxlength="255" required
-                               placeholder="Resumo objetivo da meta">
+                               placeholder="{{ 'pasta_show.meta.titulo_placeholder'|trans }}">
                     </div>
 
                     {# PMC-039: o contador do desenho (`nm.descCont`) contra o limite que o servidor
                        aplica hoje (5000). O 600 do desenho mudaria a regra — é decisão (C). #}
                     <div class="ps-nm-campo-bloco">
-                        <label for="tarefaDescricao" class="ps-nm-rotulo">Descrição <span class="ps-nm-obrig">*</span><span class="ps-nm-rotulo-espaco"></span><span class="ps-nm-contador" id="tarefaDescricaoContador" data-ps-nm-contador="tarefaDescricao">0/5000</span></label>
+                        <label for="tarefaDescricao" class="ps-nm-rotulo">{{ 'pasta_show.meta.descricao'|trans }} <span class="ps-nm-obrig">*</span><span class="ps-nm-rotulo-espaco"></span><span class="ps-nm-contador" id="tarefaDescricaoContador" data-ps-nm-contador="tarefaDescricao">0/5000</span></label>
                         <textarea id="tarefaDescricao" name="descricao"
                                   class="form-control ps-nm-campo ps-nm-campo--texto" rows="3" required maxlength="5000"
-                                  placeholder="Descreva o que precisa ser feito…"></textarea>
+                                  placeholder="{{ 'pasta_show.meta.descricao_placeholder'|trans }}"></textarea>
                     </div>
 
                     {# Atalhos de prazo e o texto do dia (desenho 1.2.3): só PREENCHEM o
@@ -4323,7 +4327,7 @@ document.addEventListener('DOMContentLoaded', function () {
                        metas abertas da própria pasta, já renderizadas na aba; não
                        bloqueia o envio. Comportamento em /js/pasta-metas.js. #}
                     <div class="ps-nm-campo-bloco ps-nm-prazo">
-                        <label for="tarefaPrazo" class="ps-nm-rotulo">Prazo</label>
+                        <label for="tarefaPrazo" class="ps-nm-rotulo">{{ 'pasta_show.meta.prazo'|trans }}</label>
                         {# PMC-040 (dc L.81-112, `nm.cal`): o campo do desenho é um botão "dd/mm/aaaa" com o
                            calendário próprio (mês, dias, Hoje, Limpar e a legenda). O <input type="date">
                            continua sendo o campo ENVIADO (id, name e valor ISO são contrato com o servidor,
@@ -4332,39 +4336,39 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="ps-nm-prazo-linha">
                             <button type="button" class="ps-nm-cal-campo" data-ps-nm-cal-campo
                                     aria-haspopup="dialog" aria-expanded="false" aria-controls="tarefaPrazoCalendario"
-                                    aria-label="Escolher prazo">
-                                <span class="ps-nm-cal-txt" data-ps-nm-cal-txt>dd/mm/aaaa</span>
+                                    aria-label="{{ 'pasta_show.meta.escolher_prazo'|trans }}">
+                                <span class="ps-nm-cal-txt" data-ps-nm-cal-txt>{{ 'pasta_show.meta.data_vazia'|trans }}</span>
                                 <i class="bi bi-calendar3" aria-hidden="true"></i>
                             </button>
                             <input type="date" id="tarefaPrazo" name="prazo" class="form-control ps-nm-campo visually-hidden"
                                    tabindex="-1" aria-hidden="true">
-                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="hoje">Hoje</button>
-                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="amanha">Amanhã</button>
-                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis5">+5 úteis</button>
-                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis15">+15 úteis</button>
+                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="hoje">{{ 'pasta_show.meta.hoje'|trans }}</button>
+                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="amanha">{{ 'pasta_show.meta.amanha'|trans }}</button>
+                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis5">{{ 'pasta_show.meta.uteis5'|trans }}</button>
+                            <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis15">{{ 'pasta_show.meta.uteis15'|trans }}</button>
                         </div>
-                        <div class="ps-nm-cal" id="tarefaPrazoCalendario" role="dialog" aria-label="Escolher prazo" data-ps-nm-cal hidden>
+                        <div class="ps-nm-cal" id="tarefaPrazoCalendario" role="dialog" aria-label="{{ 'pasta_show.meta.escolher_prazo'|trans }}" data-ps-nm-cal hidden>
                             <div class="ps-nm-cal-cab">
-                                <button type="button" class="ps-nm-cal-nav" data-ps-nm-cal-ant aria-label="Mês anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                                <button type="button" class="ps-nm-cal-nav" data-ps-nm-cal-ant aria-label="{{ 'pasta_show.meta.mes_anterior'|trans }}"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
                                 <span class="ps-nm-cal-mes" data-ps-nm-cal-mes aria-live="polite"></span>
-                                <button type="button" class="ps-nm-cal-nav" data-ps-nm-cal-prox aria-label="Próximo mês"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+                                <button type="button" class="ps-nm-cal-nav" data-ps-nm-cal-prox aria-label="{{ 'pasta_show.meta.proximo_mes'|trans }}"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
                             </div>
                             <div class="ps-nm-cal-semana" aria-hidden="true">
-                                <span class="is-fds">D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span class="is-fds">S</span>
+                                <span class="is-fds">{{ 'pasta_show.meta.sem_dom'|trans }}</span><span>{{ 'pasta_show.meta.sem_seg'|trans }}</span><span>{{ 'pasta_show.meta.sem_ter'|trans }}</span><span>{{ 'pasta_show.meta.sem_qua'|trans }}</span><span>{{ 'pasta_show.meta.sem_qui'|trans }}</span><span>{{ 'pasta_show.meta.sem_sex'|trans }}</span><span class="is-fds">{{ 'pasta_show.meta.sem_sab'|trans }}</span>
                             </div>
                             <div class="ps-nm-cal-dias" data-ps-nm-cal-dias></div>
                             <div class="ps-nm-cal-rodape">
-                                <button type="button" class="ps-nm-cal-hoje" data-ps-nm-cal-hoje>Hoje</button>
-                                <button type="button" class="ps-nm-cal-limpar" data-ps-nm-cal-limpar>Limpar</button>
+                                <button type="button" class="ps-nm-cal-hoje" data-ps-nm-cal-hoje>{{ 'pasta_show.meta.hoje'|trans }}</button>
+                                <button type="button" class="ps-nm-cal-limpar" data-ps-nm-cal-limpar>{{ 'pasta_show.meta.limpar'|trans }}</button>
                                 <span class="ps-nm-rotulo-espaco"></span>
-                                <span class="ps-nm-cal-legenda">Fim de semana em cinza</span>
+                                <span class="ps-nm-cal-legenda">{{ 'pasta_show.meta.legenda_fds'|trans }}</span>
                             </div>
                         </div>
-                        <div id="tarefaPrazoInfo" class="ps-nm-prazo-info" aria-live="polite">Escolha a data limite.</div>
+                        <div id="tarefaPrazoInfo" class="ps-nm-prazo-info" aria-live="polite">{{ 'pasta_show.meta.escolha_data'|trans }}</div>
                         <div id="tarefaTituloRepetido" class="ps-nm-dup" role="status" hidden>
                             <i class="bi bi-files" aria-hidden="true"></i>
                             <span class="ps-nm-dup-tx"></span>
-                            <button type="button" class="ps-nm-dup-abrir">Abrir meta existente</button>
+                            <button type="button" class="ps-nm-dup-abrir">{{ 'pasta_show.meta.abrir_existente'|trans }}</button>
                         </div>
                     </div>
 
@@ -4378,20 +4382,20 @@ document.addEventListener('DOMContentLoaded', function () {
                        Responsáveis seguem opcionais (o "*" do desenho é D-META). Comportamento em
                        /js/pasta-dialogos.js (`seletorDeResponsaveis`). #}
                     <div class="ps-nm-campo-bloco ps-nm-resp" data-ps-nm-resp>
-                        <span class="ps-nm-rotulo" id="tarefaResponsavelRotulo">Responsáveis</span>
+                        <span class="ps-nm-rotulo" id="tarefaResponsavelRotulo">{{ 'pasta_show.meta.responsaveis'|trans }}</span>
                         <div class="ps-nm-resp-campo" role="button" tabindex="0"
                              aria-labelledby="tarefaResponsavelRotulo" aria-haspopup="listbox"
                              aria-expanded="false" aria-controls="tarefaResponsavelLista" data-ps-nm-resp-campo>
                             <span class="ps-nm-resp-chips" data-ps-nm-resp-chips></span>
-                            <span class="ps-nm-resp-vazio" data-ps-nm-resp-vazio><i class="bi bi-person-plus" aria-hidden="true"></i>Selecionar responsáveis</span>
+                            <span class="ps-nm-resp-vazio" data-ps-nm-resp-vazio><i class="bi bi-person-plus" aria-hidden="true"></i>{{ 'pasta_show.meta.selecionar_responsaveis'|trans }}</span>
                             <span class="ps-nm-rotulo-espaco"></span>
                             <i class="bi bi-chevron-down ps-nm-resp-seta" aria-hidden="true"></i>
                         </div>
-                        <div class="ps-nm-dica">Selecione um ou mais responsáveis pela meta.</div>
+                        <div class="ps-nm-dica">{{ 'pasta_show.meta.responsaveis_dica'|trans }}</div>
                         <div class="ps-nm-resp-lista" id="tarefaResponsavelLista" data-ps-nm-resp-lista hidden>
                             <div class="ps-nm-resp-busca">
                                 <i class="bi bi-search" aria-hidden="true"></i>
-                                <input type="text" placeholder="Filtrar…" aria-label="Filtrar responsáveis"
+                                <input type="text" placeholder="{{ 'pasta_show.meta.filtrar'|trans }}" aria-label="{{ 'pasta_show.meta.filtrar_responsaveis'|trans }}"
                                        autocomplete="off" spellcheck="false" data-ps-nm-resp-busca>
                             </div>
                             <div class="ps-nm-resp-opcoes" role="listbox" aria-multiselectable="true" aria-labelledby="tarefaResponsavelRotulo">
@@ -4403,10 +4407,10 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <i class="bi bi-check-circle-fill ps-nm-resp-opcao-ok" aria-hidden="true"></i>
                                     </button>
                                 {% endfor %}
-                                <div class="ps-nm-resp-nada" data-ps-nm-resp-nada hidden>Ninguém encontrado</div>
+                                <div class="ps-nm-resp-nada" data-ps-nm-resp-nada hidden>{{ 'pasta_show.meta.ninguem'|trans }}</div>
                             </div>
                             <div class="ps-nm-resp-rodape">
-                                <button type="button" class="ps-nm-resp-concluir" data-ps-nm-resp-concluir>Concluir</button>
+                                <button type="button" class="ps-nm-resp-concluir" data-ps-nm-resp-concluir>{{ 'pasta_show.meta.concluir'|trans }}</button>
                             </div>
                         </div>
                         <select id="tarefaResponsavel" name="responsaveis[]" class="visually-hidden" multiple
@@ -4419,10 +4423,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 </div>
                 <div class="modal-footer ps-modal-meta-rodape">
-                    <button type="button" class="ps-modal-meta-btn ps-modal-meta-btn--cancelar" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="ps-modal-meta-btn ps-modal-meta-btn--cancelar" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
                     <button type="submit" id="btnEnviarTarefa" class="ps-modal-meta-btn ps-modal-meta-btn--criar"
-                            title="Criar meta e notificar os responsáveis">
-                        <i class="bi bi-send" aria-hidden="true"></i>Criar meta
+                            title="{{ 'pasta_show.meta.criar_dica'|trans }}">
+                        <i class="bi bi-send" aria-hidden="true"></i>{{ 'pasta_show.meta.criar'|trans }}
                     </button>
                 </div>
             </form>
@@ -4435,7 +4439,12 @@ document.addEventListener('DOMContentLoaded', function () {
     var form = document.getElementById('formCriarTarefa');
     if (!form) return;
     // O rótulo do desenho volta depois de um erro (o "Enviando…" o substitui durante o envio).
-    var ROTULO_CRIAR = '<i class="bi bi-send" aria-hidden="true"></i>Criar meta';
+    // O texto vem do catálogo na hora do uso (o script roda antes do bj-traducao.js) e entra como texto.
+    function rotular(btn, html, texto) {
+        btn.innerHTML = html;
+        btn.appendChild(document.createTextNode(texto));
+    }
+    var ICONE_CRIAR = '<i class="bi bi-send" aria-hidden="true"></i>';
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -4443,7 +4452,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var btn = document.getElementById('btnEnviarTarefa');
         var erroBox = document.getElementById('tarefaErroMsg');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando…';
+        rotular(btn, '<span class="spinner-border spinner-border-sm me-1"></span>', BJ_T.t('pasta_show.js.meta.enviando'));
         erroBox.classList.add('d-none');
 
         var data = new FormData(form);
@@ -4459,23 +4468,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 // PMC-044: fica na pasta, aba Metas, com a meta nova realçada (destino do servidor).
                 window.location.href = res.data.destino;
             } else {
-                erroBox.textContent = res.data.erro || res.data.mensagem || 'Erro ao criar meta.';
+                erroBox.textContent = res.data.erro || res.data.mensagem || BJ_T.t('pasta_show.js.meta.erro_criar');
                 erroBox.classList.remove('d-none');
                 btn.disabled = false;
-                btn.innerHTML = ROTULO_CRIAR;
+                rotular(btn, ICONE_CRIAR, BJ_T.t('pasta_show.js.meta.criar'));
             }
         })
         .catch(function () {
-            erroBox.textContent = 'Erro de comunicação. Tente novamente.';
+            erroBox.textContent = BJ_T.t('pasta_show.js.erro_comunicacao_tente');
             erroBox.classList.remove('d-none');
             btn.disabled = false;
-            btn.innerHTML = ROTULO_CRIAR;
+            rotular(btn, ICONE_CRIAR, BJ_T.t('pasta_show.js.meta.criar'));
         });
     });
 }());
 </script>
 {# Filtros da aba Metas + atalhos de prazo e aviso de título repetido
    do modal acima. Depois do modal e da aba: o script lê os dois no carregamento. #}
+{{ catalogo_js('pasta_scripts.js') }}
 <script src="/js/pasta-metas.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
 {# Checklist de documentação (marcar, editar, excluir, reordenar, modelos, selo, barra): lê os

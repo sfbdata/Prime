@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\Controller;
 
+use App\Comercial\Campanha\PreparadorDeImagemDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\ModeloSalvoOutput;
@@ -14,6 +15,7 @@ use App\Comercial\UseCase\ConfirmarCampanhaUseCase;
 use App\Comercial\UseCase\ContarPublicosUseCase;
 use App\Comercial\UseCase\CriarModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\DuplicarModeloDeCampanhaUseCase;
+use App\Comercial\UseCase\EnviarImagemDaCampanhaUseCase;
 use App\Comercial\UseCase\EnviarTesteDaCampanhaUseCase;
 use App\Comercial\UseCase\ExcluirModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\ImportarModeloHtmlUseCase;
@@ -23,6 +25,7 @@ use App\Comercial\UseCase\SalvarComoMeuModeloUseCase;
 use App\Comercial\UseCase\SalvarModeloDeCampanhaUseCase;
 use App\Entity\Auth\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,6 +43,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class CampanhaDoMasterController extends AbstractController
 {
     private const CSRF_INVALIDO = 'Token CSRF inválido. Recarregue a página.';
+    public const SEM_IMAGEM = 'Escolha uma imagem JPG ou PNG.';
 
     #[Route('/master/comercial/modelos', name: 'master_comercial_modelos', methods: ['GET'])]
     public function modelos(ListarModelosDeCampanhaUseCase $listar): JsonResponse
@@ -115,6 +119,32 @@ final class CampanhaDoMasterController extends AbstractController
 
             return new JsonResponse(['id' => $saida->id, 'total' => $saida->total, 'mensagem' => $saida->mensagem]);
         });
+    }
+
+    /**
+     * "Adicionar imagem" / "Trocar imagem" do modo simples (dc 21.10 L274, L659; spec §12, F3i): multipart com o campo
+     * `imagem`, o mesmo CSRF no header. Devolve `{token, url}` (a URL absoluta do endereço público). O arquivo maior que
+     * 1 MB é recusado antes de ser lido.
+     */
+    #[Route('/master/comercial/imagens', name: 'master_comercial_imagem_enviar', methods: ['POST'])]
+    public function enviarImagem(Request $request, EnviarImagemDaCampanhaUseCase $enviar): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(ComercialDoMasterController::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return new JsonResponse(['erro' => self::CSRF_INVALIDO], Response::HTTP_FORBIDDEN);
+        }
+        try {
+            $arquivo = $request->files->get('imagem');
+            if (!$arquivo instanceof UploadedFile || !$arquivo->isValid()) {
+                throw new CampanhaRecusada(self::SEM_IMAGEM);
+            }
+            if ((int) $arquivo->getSize() > PreparadorDeImagemDaCampanha::LIMITE_EM_BYTES) {
+                throw new CampanhaRecusada(PreparadorDeImagemDaCampanha::GRANDE_DEMAIS);
+            }
+
+            return new JsonResponse($enviar->executar((string) file_get_contents($arquivo->getPathname()), $this->master())->paraArray());
+        } catch (CampanhaRecusada $e) {
+            return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
     }
 
     /**

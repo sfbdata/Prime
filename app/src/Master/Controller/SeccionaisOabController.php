@@ -6,21 +6,25 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Master\DTO\AdicionarSubsecaoNaSeccionalInput;
+use App\Master\DTO\DefinirVisibilidadeDaSeccionalInput;
 use App\Master\DTO\EditarSedeDaSeccionalInput;
 use App\Master\DTO\RegistrarDivulgacaoNaSeccionalInput;
 use App\Master\DTO\RemoverSubsecaoDaSeccionalInput;
 use App\Master\DTO\SalvarNotaDaSeccionalInput;
-use App\Master\Enum\TipoDeDivulgacao;
+use App\Master\Enum\StatusDaDivulgacao;
 use App\Master\Exception\RecusaDaSeccional;
 use App\Master\Exception\SeccionalNaoEncontrada;
 use App\Master\Exception\SeccionalRecusada;
 use App\Master\Exception\SubsecaoNaoEncontrada;
 use App\Master\Service\LocalizacaoDaPessoa;
 use App\Master\UseCase\AdicionarSubsecaoNaSeccionalUseCase;
+use App\Master\UseCase\DefinirVisibilidadeDaSeccionalUseCase;
 use App\Master\UseCase\EditarSedeDaSeccionalUseCase;
 use App\Master\UseCase\ListarSeccionaisUseCase;
+use App\Master\UseCase\MostrarTodasAsSeccionaisUseCase;
 use App\Master\UseCase\RegistrarDivulgacaoNaSeccionalUseCase;
 use App\Master\UseCase\RemoverSubsecaoDaSeccionalUseCase;
+use App\Master\UseCase\SalvarNotaDaCidadeOabUseCase;
 use App\Master\UseCase\SalvarNotaDaSeccionalUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -43,10 +47,14 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * traz também as subseções e a nota de cada UF e os moldes das URLs de subseção e de nota; os três POST (adicionar
  * subseção, remover subseção, salvar nota) seguem o mesmo contrato dos de cima.
  *
+ * Desenho 05 inteiro (conferência de 21/10/2026): a divulgação grava a marca da UF (status, cor e data); o botão
+ * direito no chip mostra ou oculta no mapa (o corpo leva o estado desejado) e "Mostrar todas" volta todas (POST de plataforma, como os outros);
+ * a nota leva a cidade quando é a da janela de uma cidade.
+ *
  * Idioma (spec idioma-do-sistema, P2a da b5): a resposta e a recusa do próprio controller saem do catálogo
  * (master.seccionais.*) no idioma da requisição. P2b: a recusa dos UseCases (SeccionalRecusada, SeccionalNaoEncontrada,
  * SubsecaoNaoEncontrada) também, pela chave e pelos parâmetros que a exceção leva ({@see RecusaDaSeccional}); e o rótulo
- * do tipo de divulgação (lista e resposta), pela chave do TipoDeDivulgacao.
+ * do status da divulgação (lista e resposta), pela chave do StatusDaDivulgacao.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class SeccionaisOabController extends AbstractController
@@ -61,7 +69,7 @@ final class SeccionaisOabController extends AbstractController
     public function listar(ListarSeccionaisUseCase $listar, CsrfTokenManagerInterface $csrf): JsonResponse
     {
         return $this->json([
-            'seccionais' => array_map($this->traduzirDivulgacoes(...), $listar->executar()),
+            'seccionais' => array_map($this->traduzirMarca(...), $listar->executar()),
             'token'      => $csrf->getToken(self::CSRF)->getValue(),
             // Molde da URL de editar a sede (o painel troca XX pela UF): o bloco `urls` do painel leva só o GET.
             'urlSede'    => $this->generateUrl('master_seccional_sede', ['uf' => 'XX']),
@@ -69,6 +77,9 @@ final class SeccionaisOabController extends AbstractController
             'urlSubsecoes'       => $this->generateUrl('master_seccional_subsecao_adicionar', ['uf' => 'XX']),
             'urlSubsecaoRemover' => $this->generateUrl('master_seccional_subsecao_remover', ['uf' => 'XX', 'id' => 0]),
             'urlNota'            => $this->generateUrl('master_seccional_nota', ['uf' => 'XX']),
+            // Filtro de seccionais visíveis: alternar uma (XX é a UF) e mostrar todas.
+            'urlVisibilidade' => $this->generateUrl('master_seccional_visibilidade', ['uf' => 'XX']),
+            'urlMostrarTodas' => $this->generateUrl('master_seccionais_mostrar_todas'),
         ]);
     }
 
@@ -93,11 +104,16 @@ final class SeccionaisOabController extends AbstractController
     }
 
     #[Route('/master/seccionais/{uf}/nota', name: 'master_seccional_nota', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
-    public function salvarNota(string $uf, Request $request, SalvarNotaDaSeccionalUseCase $salvar): JsonResponse
+    public function salvarNota(string $uf, Request $request, SalvarNotaDaSeccionalUseCase $doEstado, SalvarNotaDaCidadeOabUseCase $daCidade): JsonResponse
     {
-        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $salvar): string {
+        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $doEstado, $daCidade): string {
             $input = SalvarNotaDaSeccionalInput::doJson($this->ator(), $uf, $corpo);
-            $seccional = $salvar->executar($input);
+            if ($input->cidade !== null) {
+                $capital = $daCidade->executar($input);
+
+                return $this->tradutor->trans($input->texto === null ? 'master.seccionais.nota_cidade_apagada' : 'master.seccionais.nota_cidade_salva', ['cidade' => $capital]);
+            }
+            $seccional = $doEstado->executar($input);
 
             return $this->tradutor->trans($input->texto === null ? 'master.seccionais.nota_apagada' : 'master.seccionais.nota_salva', ['seccional' => $seccional->getNome()]);
         });
@@ -117,16 +133,40 @@ final class SeccionaisOabController extends AbstractController
     public function divulgar(string $uf, Request $request, RegistrarDivulgacaoNaSeccionalUseCase $registrar): JsonResponse
     {
         return $this->gravar($uf, $request, function (array $corpo) use ($uf, $registrar): string {
-            $divulgacao = $registrar->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
+            $seccional = $registrar->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
 
-            return $this->tradutor->trans('master.seccionais.divulgacao_registrada', ['seccional' => $divulgacao->getSeccional()->getNome(), 'tipo' => $this->tradutor->trans($divulgacao->getTipo()->chave())]);
+            return $this->tradutor->trans('master.seccionais.divulgacao_registrada', ['seccional' => $seccional->getNome(), 'status' => $this->tradutor->trans($seccional->getMarcaStatus()?->chave() ?? '')]);
         });
     }
 
-    /** @param callable(array<mixed>): string $acao */
-    private function gravar(string $uf, Request $request, callable $acao): JsonResponse
+    #[Route('/master/seccionais/{uf}/visibilidade', name: 'master_seccional_visibilidade', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
+    public function definirVisibilidade(string $uf, Request $request, DefinirVisibilidadeDaSeccionalUseCase $definir): JsonResponse
     {
-        if (!in_array($uf, LocalizacaoDaPessoa::UFS, true)) {
+        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $definir): string {
+            $seccional = $definir->executar(DefinirVisibilidadeDaSeccionalInput::doJson($this->ator(), $uf, $corpo));
+
+            return $this->tradutor->trans($seccional->isVisivel() ? 'master.seccionais.visivel' : 'master.seccionais.oculta', ['seccional' => $seccional->getNome()]);
+        });
+    }
+
+    #[Route('/master/seccionais/mostrar-todas', name: 'master_seccionais_mostrar_todas', methods: ['POST'])]
+    public function mostrarTodas(Request $request, MostrarTodasAsSeccionaisUseCase $mostrar): JsonResponse
+    {
+        return $this->gravar(null, $request, function () use ($mostrar): string {
+            $mostrar->executar();
+
+            return $this->tradutor->trans('master.seccionais.todas_visiveis');
+        });
+    }
+
+    /**
+     * `$uf` nulo é a ação sem UF ("Mostrar todas").
+     *
+     * @param callable(array<mixed>): string $acao
+     */
+    private function gravar(?string $uf, Request $request, callable $acao): JsonResponse
+    {
+        if ($uf !== null && !in_array($uf, LocalizacaoDaPessoa::UFS, true)) {
             return $this->json(['erro' => $this->tradutor->trans('master.seccionais.nao_encontrada')], Response::HTTP_NOT_FOUND);
         }
 
@@ -149,32 +189,20 @@ final class SeccionaisOabController extends AbstractController
     }
 
     /**
-     * O rótulo do tipo da última divulgação e das últimas cinco, no idioma da requisição (o UseCase manda o português).
+     * O rótulo do status da marca, no idioma da requisição (o UseCase manda o português).
      *
-     * @template T of array{ultima: ?array{tipo: string, rotulo: string, data: string}, ultimas: list<array{tipo: string, rotulo: string, data: string, autor: ?string, nota: ?string}>}
+     * @param array<string, mixed> $seccional
      *
-     * @param T $seccional
-     *
-     * @return T
+     * @return array<string, mixed>
      */
-    private function traduzirDivulgacoes(array $seccional): array
+    private function traduzirMarca(array $seccional): array
     {
-        if ($seccional['ultima'] !== null) {
-            $seccional['ultima']['rotulo'] = $this->rotuloDoTipo($seccional['ultima']['tipo'], $seccional['ultima']['rotulo']);
-        }
-        foreach ($seccional['ultimas'] as $i => $divulgacao) {
-            $seccional['ultimas'][$i]['rotulo'] = $this->rotuloDoTipo($divulgacao['tipo'], $divulgacao['rotulo']);
+        $status = is_array($seccional['marca'] ?? null) ? StatusDaDivulgacao::tryFrom((string) $seccional['marca']['status']) : null;
+        if ($status !== null) {
+            $seccional['marca']['rotulo'] = $this->tradutor->trans($status->chave());
         }
 
         return $seccional;
-    }
-
-    /** Tipo desconhecido (dado antigo) fica com o rótulo que veio. */
-    private function rotuloDoTipo(string $tipo, string $rotulo): string
-    {
-        $conhecido = TipoDeDivulgacao::tryFrom($tipo);
-
-        return $conhecido === null ? $rotulo : $this->tradutor->trans($conhecido->chave());
     }
 
     private function ator(): ?User

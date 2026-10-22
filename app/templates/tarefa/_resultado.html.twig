@@ -38,35 +38,18 @@
             {{ include('tarefa/_metas_lista.html.twig') }}
         {% else %}
             {# Cada grupo é um cartão próprio (dc L83-85), empilhados com 12px entre eles. A classe
-               `mm-grupo-<chave>` dá ao grupo a cor dele (ponto e faixa das linhas). #}
+               `mm-grupo-<chave>` dá ao grupo a cor dele (ponto e faixa das linhas). Todos abertos e sem
+               nota, Concluídas inclusive (desenho 04, P:154 e P:163; dono 21/10). #}
             {% for grupo in painel.grupos %}
-                <section class="mm-grupo mm-grupo-{{ grupo.chave }}" aria-label="{{ grupo.rotulo }}">
-                    {% if grupo.recolhido %}
-                        <button class="mm-grupo-cabeca" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#grupo-{{ grupo.chave }}"
-                                aria-expanded="false" aria-controls="grupo-{{ grupo.chave }}">
-                            <span class="mm-dot" style="background: var(--mm-grupo-cor, var(--mm-{{ grupo.tom }}-dot, var(--mm-cinza-dot)))"></span>
-                            <span class="mm-grupo-nome">{{ grupo.rotulo }}</span>
-                            <span class="mm-grupo-contagem">{{ grupo.total }}</span>
-                            {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
-                            <i class="bi bi-chevron-right mm-grupo-seta"></i>
-                        </button>
-                        <div class="collapse" id="grupo-{{ grupo.chave }}">
-                            {% for meta in grupo.metas %}
-                                {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="mm-grupo-cabeca">
-                            <span class="mm-dot" style="background: var(--mm-grupo-cor, var(--mm-{{ grupo.tom }}-dot, var(--mm-cinza-dot)))"></span>
-                            <span class="mm-grupo-nome">{{ grupo.rotulo }}</span>
-                            <span class="mm-grupo-contagem">{{ grupo.total }}</span>
-                            {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
-                        </div>
-                        {% for meta in grupo.metas %}
-                            {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
-                        {% endfor %}
-                    {% endif %}
+                <section class="mm-grupo mm-grupo-{{ grupo.chave }}" aria-label="{{ grupo.rotulo|trans }}">
+                    <div class="mm-grupo-cabeca">
+                        <span class="mm-dot" style="background: var(--mm-grupo-cor, var(--mm-cinza-dot))"></span>
+                        <span class="mm-grupo-nome">{{ grupo.rotulo|trans }}</span>
+                        <span class="mm-grupo-contagem">{{ grupo.total }}</span>
+                    </div>
+                    {% for meta in grupo.metas %}
+                        {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
+                    {% endfor %}
                 </section>
             {% endfor %}
         {% endif %}
@@ -95,7 +78,7 @@
                     {% for fatia in painel.fatiasDoAndamento %}
                         <span class="mm-fatia tom-{{ fatia.tom }}">
                             <span class="mm-dot"></span>
-                            {{ fatia.total }} {{ fatia.rotulo }}
+                            {{ fatia.chave|trans({total: fatia.total ~ ''}) }}
                         </span>
                     {% endfor %}
                 </div>
@@ -111,9 +94,9 @@
                 </div>
                 {% for meta in atencao %}
                     {% set info = meta.prazoInfo %}
-                    {# Item de largura inteira (dc L122). Abre a página da META, não a pasta do desenho
-                       (decisão do dono de 14/10, checklist §16). #}
-                    <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-atencao-item">
+                    {# Item de largura inteira (dc L122). Abre a pasta no Expediente, como no desenho de 22/10
+                       (04 L236; spec minhas-metas-esteira-2210, L1). #}
+                    <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-atencao-item">
                         <i class="bi bi-exclamation-triangle-fill mm-atencao-icone" aria-hidden="true"></i>
                         <span class="mm-atencao-texto">
                             {# "Título · Pasta NNN" (dc `atencao`): a pasta da meta atrasada sem abrir nada. #}

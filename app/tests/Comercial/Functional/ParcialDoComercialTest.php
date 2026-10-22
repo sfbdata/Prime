@@ -84,7 +84,7 @@ final class ParcialDoComercialTest extends KernelTestCase
     #[TestDox('F3a: a Central vem antes das Automações, com o cabeçalho do dc 21.10 (L251) e o botão "Descadastrados (N)"')]
     public function testPosicaoECabecalho(): void
     {
-        self::assertSame(['mc-cp-titulo', 'mc-auto-titulo', 'relatorio'], $this->doc->filter('[data-mc] > section')->each(static fn (Crawler $c): string => $c->attr('data-mc-relatorio') !== null ? 'relatorio' : (string) $c->attr('aria-labelledby')));
+        self::assertSame(['mc-cp-titulo', 'mc-auto-titulo', 'mc-dt-titulo', 'relatorio'], $this->doc->filter('[data-mc] > section')->each(static fn (Crawler $c): string => $c->attr('data-mc-relatorio') !== null ? 'relatorio' : (string) $c->attr('aria-labelledby')));
         self::assertSame(1, $this->doc->filter('section.mc-cp > .mc-cabeca > i.bi-megaphone')->count());
         self::assertSame(['Central de envios · nova campanha'], $this->textos('section.mc-cp > .mc-cabeca > b'));
         self::assertSame(['Descadastrados (0)'], $this->textos('section.mc-cp > .mc-cabeca > button.mc-cp-descad'));
@@ -126,7 +126,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame('.html,.htm', $this->doc->filter('.mc-cp-acoes > label > input[type="file"]')->attr('accept'));
     }
 
-    #[TestDox('F3a: Selo e Nome na prévia entre Assunto e Título (dc 21.10 L270); os 10 emojis no texto simples (L274), sem a imagem (com o dono)')]
+    #[TestDox('F3a: Selo e Nome na prévia entre Assunto e Título (dc 21.10 L270); os 10 emojis no texto simples (L274), depois da imagem (F3i)')]
     public function testSeloNomeEEmojis(): void
     {
         $editor = '.mc-cp-grade > .mc-cp-editor';
@@ -138,7 +138,23 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertStringStartsWith('ASSUNTO', $this->doc->filter($editor . ' > *')->eq($par - 1)->text());
         self::assertStringStartsWith('TÍTULO', $this->doc->filter($editor . ' > *')->eq($par + 1)->text());
         self::assertSame(['⚖️', '📅', '✅', '📌', '🎉', '💼', '📈', '🔒', '👉', '🙏'], $this->textos($editor . ' > [data-mc-cp-simples] > .mc-cp-emojis > .mc-cp-emoji'));
-        self::assertSame(0, $this->doc->filter('input[type="file"][accept="image/*"]')->count(), 'a imagem do modo simples está com o dono');
+        self::assertSame(1, $this->doc->filter($editor . ' > [data-mc-cp-simples] > .mc-cp-emojis > label.mc-cp-img > input[type="file"][accept="image/jpeg,image/png"]')->count());
+    }
+
+    #[TestDox('F3i: na linha do "Inserir:" (dc 21.10 L274), "Adicionar imagem" com o arquivo escondido, o "Remover" (escondido sem imagem), o traço e os emojis, nessa ordem')]
+    public function testImagemDoModoSimples(): void
+    {
+        $linha = '.mc-cp-editor > [data-mc-cp-simples] > .mc-cp-emojis';
+        $filhos = $this->doc->filter($linha . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));
+        self::assertSame(['mc-cp-img', 'mc-cp-img-rm', 'mc-cp-emojis-sep', 'mc-cp-emojis-rot'], \array_slice($filhos, 0, 4));
+        self::assertSame(['Adicionar imagem'], $this->textos($linha . ' > label.mc-cp-img > [data-mc-cp-img-txt]'));
+        self::assertSame(1, $this->doc->filter($linha . ' > label.mc-cp-img > i.bi-image')->count());
+        $arquivo = $this->doc->filter($linha . ' > label.mc-cp-img > input[type="file"][data-mc-cp-img-arquivo]');
+        self::assertSame(['image/jpeg,image/png', 'mc-cp-arquivo'], [$arquivo->attr('accept'), $arquivo->attr('class')]);
+        $remover = $this->doc->filter($linha . ' > button.mc-cp-img-rm[data-mc-cp-img-rm]');
+        self::assertSame(['Remover', 'Remover imagem', ''], [trim($remover->text()), $remover->attr('title'), $remover->attr('hidden')]);
+        self::assertSame(1, $this->doc->filter($linha . ' > button.mc-cp-img-rm > i.bi-x-circle')->count());
+        self::assertSame('/master/comercial/imagens', $this->doc->filter('section.mc-cp[data-mc-campanha]')->attr('data-url-imagem'));
     }
 
     #[TestDox('Os campos da mensagem (L.242-247) com os rótulos e as dicas literais')]
@@ -171,7 +187,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame(['leads', 'prim', 'sec', 'todos', 'csv', 'indiv'], $this->doc->filter($botoes)->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-cp-publico')));
         self::assertSame(['Base de contatos', 'Usuários primários', 'Usuários secundários', 'Todos os cadastrados', 'Importar lista (CSV)', 'Individual'], $this->textos($botoes . ' > .mc-cp-publico-texto > .mc-cp-publico-rot'));
         self::assertSame([
-            'Inscritos pela página de vagas e campanhas', 'Quem abriu conta, em todas as contas', 'Convidados de todas as contas',
+            'Contatos que autorizaram campanhas', 'Quem abriu conta, em todas as contas', 'Convidados de todas as contas',
             'Primários e secundários', 'Planilha com e-mail e nome', 'Digite um ou mais e-mails',
         ], $this->textos($botoes . ' > .mc-cp-publico-texto > .mc-cp-publico-desc'));
         self::assertSame(['bi-person-lines-fill', 'bi-person-badge', 'bi-people', 'bi-buildings', 'bi-filetype-csv', 'bi-person'], $this->doc->filter($botoes . ' > i')->each(static fn (Crawler $c): string => trim(str_replace('bi ', '', (string) $c->attr('class')))));
@@ -231,12 +247,14 @@ final class ParcialDoComercialTest extends KernelTestCase
         return (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/css/master-comercial.css');
     }
 
-    #[TestDox('Sem script inline (CSP do /master): o bloco traz o próprio arquivo de JS')]
+    #[TestDox('Sem script inline (CSP do /master): o bloco traz o próprio arquivo de JS; o catálogo do idioma é dado (application/json), não script')]
     public function testSemScriptInline(): void
     {
         // O catálogo do JS (`catalogo_js`, spec idioma-do-sistema §8) é <script type="application/json">: dado, não código.
         $scripts = $this->doc->filter('script:not([type="application/json"])');
         self::assertSame(0, $scripts->reduce(static fn (Crawler $s): bool => $s->attr('src') === null)->count());
+        // O catálogo comercial.js da seção (o do Relatório, comercial_relatorio.js, vem no parcial dele).
+        self::assertSame(1, $this->doc->filter('script[type="application/json"][data-bj-t]')->reduce(static fn (Crawler $s): bool => str_contains($s->text(), '"comercial.js.'))->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-campanha.js"]')->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-relatorio.js"]')->count());
     }

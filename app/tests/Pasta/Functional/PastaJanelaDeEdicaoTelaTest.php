@@ -15,6 +15,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * A tela pergunta a janela de editar/excluir ao MESMO serviço que os UseCases usam
@@ -128,9 +129,22 @@ final class PastaJanelaDeEdicaoTelaTest extends JusPrimeWebTestCase
         $html = (string) $client->getResponse()->getContent();
 
         // Financeiro carrega o rótulo; o Registro (PAS-037) e Detalhes (C6-PAS-03) levam os minutos
-        // na dica do lápis.
-        self::assertSame(1, substr_count($html, '>· 15 min</span>'));
-        self::assertSame(1, substr_count($html, 'title="Editável por mais 15 minutos" aria-label="Editar registro"'));
-        self::assertSame(1, substr_count($html, 'title="Editável por mais 15 minutos" aria-label="Editar observação"'));
+        // na dica do lápis. Desde a extração do Financeiro (idioma-do-sistema) o rótulo e a dica vêm do
+        // catálogo do JS: a página leva a chave com os minutos do servidor, o catálogo o texto.
+        self::assertSame(1, substr_count($html, "BJ_T.t('pasta_financeiro.js.janela', { minutos: 15 })"));
+        self::assertSame(1, substr_count($html, "BJ_T.t('pasta_financeiro.js.janela_dica', { minutos: 15 })"));
+        $js = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_financeiro']['js'];
+        self::assertSame('· {minutos} min', $js['janela']);
+        self::assertSame('Edição e exclusão liberadas por mais {minutos} min', $js['janela_dica']);
+        // Registro (idioma, §20.8): a dica do lápis do cartão montado no JS vem do catálogo, com os minutos do servidor.
+        self::assertSame(1, substr_count($html, "title=\"\${esc(BJ_T.t('pasta_show.js.registro.editavel', { minutos: 15 }))}\" aria-label=\"\${esc(BJ_T.t('pasta_show.js.registro.editar'))}\""));
+        $registro = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['registro'];
+        self::assertSame('Editável por mais {minutos} minutos', $registro['editavel']);
+        self::assertSame('Editar registro', $registro['editar']);
+        // Detalhes (idioma, §20.6): a dica do lápis da observação também vem do catálogo do JS, com os minutos do servidor.
+        self::assertSame(1, substr_count($html, "title=\"\${esc(editavelDica(15))}\" aria-label=\"\${esc(BJ_T.t('pasta_detalhes.js.editar'))}\""));
+        $detalhes = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        self::assertSame('Editável por mais {minutos} minutos', $detalhes['editavel_varios']);
+        self::assertSame('Editar observação', $detalhes['editar']);
     }
 }

@@ -44,6 +44,8 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *
      *  - `ImportarRelatorioInput` — assinatura dos primeiros bytes do upload ainda temporário,
      *    antes de ele virar arquivo persistido;
+     *  - `CampanhaDoMasterController` (F3i, 21/10) — lê a imagem que o Master envia do upload ainda temporário, com
+     *    teto de 1 MB checado antes; o UseCase confere e regrava pelo GD e só então grava por chave no armazenamento;
      *  - `ArmazenamentoLocal` — é o backend: é aqui que a leitura por chave vira disco;
      *  - `MapearAcervoCommand`, `ParsearAcervoCommand` — leem arquivos do operador (JSON e
      *    planilhas do acervo), fora do armazenamento;
@@ -57,6 +59,7 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      */
     private const QUEM_LE_CRU = [
         'src/Cobranca/DTO/ImportarRelatorioInput.php',
+        'src/Comercial/Controller/CampanhaDoMasterController.php',
         'src/Command/MapearAcervoCommand.php',
         'src/Command/ParsearAcervoCommand.php',
         'src/Master/Controller/FontesPublicasController.php',

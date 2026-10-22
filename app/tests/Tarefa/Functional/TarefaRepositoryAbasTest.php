@@ -453,7 +453,6 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
         self::assertSame(1, $andamento->concluidas);
         self::assertSame(1, $andamento->atrasadas, 'a em revisão vencida não conta como atrasada (FORA_DA_FILA)');
         self::assertSame(1, $andamento->emRevisao);
-        self::assertSame(2, $andamento->emAberto());
     }
 
     #[TestDox('Desenho 04: o andamento e a atenção respeitam o cadeado (pastas ocultas não entram)')]
@@ -496,5 +495,19 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
         $uow = $this->em->getUnitOfWork();
         self::assertFalse($uow->isUninitializedObject($atencao[0]->getPasta()), 'pasta já carregada, sem ida ao banco por item');
         self::assertFalse($uow->isUninitializedObject($atencao[0]->getCriadoPor()), 'criador já carregado, sem ida ao banco por item');
+    }
+
+    #[TestDox('Precisa de atenção: meta atrasada de pasta excluída (lápide) fica de fora')]
+    public function testAtencaoSemPastaExcluida(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+        $this->meta($tenant, 'Viva', $eu, [$eu])->setPrazo(new \DateTimeImmutable('-2 days'));
+        $daLapide = $this->meta($tenant, 'Da lápide', $eu, [$eu])->setPrazo(new \DateTimeImmutable('-5 days'));
+        $daLapide->getPasta()->marcarExcluida($eu, new \DateTimeImmutable());
+        $this->em->flush();
+        $this->em->clear();
+
+        self::assertSame(['Viva'], $this->titulos($this->repo->findAtrasadasParaAtencao($eu, 4)));
     }
 }

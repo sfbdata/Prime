@@ -1,0 +1,399 @@
+/* Bloco DESPACHO e despachos na linha do tempo da meta (desenho 04B de 22/10, L57-71 e L161).
+   Templates: tarefa/_despacho_formulario.html.twig e tarefa/_despacho.html.twig. Valores do desenho em token;
+   o tema escuro troca só as cores. Cantos de 3px, como no desenho. */
+:root {
+    --despacho-borda: #d3dde4;
+    --despacho-borda-leve: #e1e8ed;
+    --despacho-divisa: #eef2f5;
+    --despacho-fundo-cabeca: #f7f9fb;
+    --despacho-fundo: #fff;
+    --despacho-azul: #0a6fa0;
+    --despacho-azul-escuro: #0b5f86;
+    --despacho-azul-fundo: #e5f1f7;
+    --despacho-titulo: #12242f;
+    --despacho-texto: #34505f;
+    --despacho-texto-2: #4a6373;
+    --despacho-suave: #5b7383;
+    --despacho-mudo: #7a8e9b;
+    --despacho-apagado: #9aabb7;
+    --despacho-chip-borda: #dfe7ed;
+    --despacho-vencido: #a3232b;
+    --despacho-verde: #1e7b45;
+    --despacho-verde-fundo: #f6fbf8;
+    --despacho-verde-texto: #2f4a3a;
+}
+
+[data-bs-theme="dark"] {
+    --despacho-borda: var(--bs-border-color);
+    --despacho-borda-leve: var(--bs-border-color);
+    --despacho-divisa: var(--bs-border-color-translucent);
+    --despacho-fundo-cabeca: var(--bs-tertiary-bg);
+    --despacho-fundo: var(--bs-body-bg);
+    --despacho-azul-fundo: rgba(10, 111, 160, .2);
+    --despacho-titulo: var(--bs-emphasis-color);
+    --despacho-texto: var(--bs-body-color);
+    --despacho-texto-2: var(--bs-body-color);
+    --despacho-suave: var(--bs-secondary-color);
+    --despacho-mudo: var(--bs-secondary-color);
+    --despacho-apagado: var(--bs-secondary-color);
+    --despacho-chip-borda: var(--bs-border-color);
+    --despacho-vencido: #e0737a;
+    --despacho-verde-fundo: rgba(30, 123, 69, .15);
+    --despacho-verde-texto: var(--bs-body-color);
+}
+
+/* ── Cabeçalho do card: "DESPACHO" (L57) ── */
+.despacho-titulo {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    color: var(--despacho-titulo);
+}
+
+/* ── Formulário (L58-66) ── */
+.despacho-bloco form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.despacho-linha {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.despacho-acoes {
+    gap: 8px;
+}
+
+.despacho-rotulo,
+.despacho-prazo {
+    font-size: 11.5px;
+    color: var(--despacho-mudo);
+}
+
+.despacho-chip {
+    height: 24px;
+    padding: 0 9px;
+    border: 1px solid var(--despacho-chip-borda);
+    border-radius: 3px;
+    background: var(--despacho-fundo);
+    color: var(--despacho-suave);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.despacho-chip[aria-pressed="true"] {
+    border-color: var(--despacho-azul);
+    background: var(--despacho-azul-fundo);
+    color: var(--despacho-azul);
+}
+
+.despacho-prazo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.despacho-prazo input[type="date"] {
+    height: 26px;
+    border: 1px solid var(--despacho-borda);
+    border-radius: 3px;
+    padding: 0 6px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--despacho-texto);
+    background: var(--despacho-fundo);
+    cursor: pointer;
+}
+
+.despacho-texto-campo {
+    width: 100%;
+    border: 1px solid var(--despacho-borda);
+    border-radius: 3px;
+    padding: 10px 11px;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.despacho-anexo {
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--despacho-borda);
+    border-radius: 3px;
+    background: var(--despacho-fundo);
+    color: var(--despacho-texto);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 260px;
+    margin: 0;
+}
+
+.despacho-anexo span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.despacho-contador {
+    font-size: 11.5px;
+    color: var(--despacho-apagado);
+}
+
+.despacho-botao {
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--despacho-borda);
+    border-radius: 3px;
+    background: var(--despacho-fundo);
+    color: var(--despacho-texto);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.despacho-botao:hover {
+    border-color: var(--despacho-azul);
+    color: var(--despacho-azul);
+}
+
+.despacho-botao--principal {
+    border: none;
+    background: var(--despacho-azul);
+    color: #fff;
+    font-weight: 700;
+}
+
+.despacho-botao--principal:hover {
+    background: var(--despacho-azul-escuro);
+    color: #fff;
+}
+
+/* ── Item da linha do tempo (L71, L127): o tom (cor e fundo do tipo) vem do modificador ── */
+.despacho-item {
+    --despacho-tom: var(--despacho-azul);
+    --despacho-tom-fundo: var(--despacho-azul-fundo);
+    display: flex;
+    gap: 12px;
+}
+
+/* Envio para revisão e devolução: âmbar. */
+.despacho-item--ambar {
+    --despacho-tom: #9a5b00;
+    --despacho-tom-fundo: #fff4d6;
+}
+
+/* Prazo e responsáveis alterados: roxo. */
+.despacho-item--roxo {
+    --despacho-tom: #5b3f9e;
+    --despacho-tom-fundo: #efeaf8;
+}
+
+/* Etapa e meta concluídas: verde. */
+.despacho-item--verde {
+    --despacho-tom: #1e7b45;
+    --despacho-tom-fundo: #e9f6ee;
+}
+
+/* Demais eventos da auditoria (criada, atualizada, reaberta): cinza. */
+.despacho-item--cinza {
+    --despacho-tom: var(--despacho-suave);
+    --despacho-tom-fundo: var(--despacho-fundo-cabeca);
+}
+
+.despacho-marca {
+    width: 30px;
+    flex: none;
+}
+
+.despacho-icone {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--despacho-tom-fundo);
+    color: var(--despacho-tom);
+    border: 2px solid var(--despacho-fundo);
+    box-shadow: 0 0 0 1px var(--despacho-tom);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+}
+
+.despacho-cartao {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 12px;
+    border: 1px solid var(--despacho-borda-leve);
+    border-left: 3px solid var(--despacho-tom);
+    border-radius: 3px;
+    background: var(--despacho-fundo);
+    overflow: hidden;
+}
+
+.despacho-cabeca {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 7px 12px;
+    background: var(--despacho-fundo-cabeca);
+    border-bottom: 1px solid var(--despacho-divisa);
+}
+
+.despacho-numero {
+    font-size: 11.5px;
+    letter-spacing: .8px;
+    color: var(--despacho-titulo);
+}
+
+.despacho-tipo {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--despacho-tom);
+}
+
+.despacho-recente {
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: var(--despacho-azul);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+}
+
+.despacho-em {
+    font-size: 11.5px;
+    color: var(--despacho-mudo);
+}
+
+.despacho-corpo {
+    padding: 9px 12px;
+}
+
+.despacho-quem {
+    font-size: 12.5px;
+    color: var(--despacho-texto-2);
+    margin-bottom: 4px;
+}
+
+.despacho-quem b {
+    color: var(--despacho-titulo);
+}
+
+.despacho-texto {
+    font-size: 13.5px;
+    color: var(--despacho-texto);
+    line-height: 1.5;
+}
+
+.despacho-texto .ql-editor {
+    padding: 0;
+}
+
+.despacho-local {
+    margin-top: 14px;
+    text-align: right;
+    font-size: 13px;
+    color: var(--despacho-texto);
+}
+
+.despacho-registro {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--despacho-divisa);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--despacho-suave);
+}
+
+.despacho-registro .bi-patch-check {
+    color: var(--despacho-azul);
+}
+
+.despacho-registro b {
+    color: var(--despacho-titulo);
+}
+
+.despacho-certidao {
+    margin-top: 8px;
+    padding: 7px 10px;
+    border-left: 2px solid var(--despacho-verde);
+    background: var(--despacho-verde-fundo);
+    font-size: 12.5px;
+    color: var(--despacho-verde-texto);
+    line-height: 1.45;
+}
+
+.despacho-certidao .bi-patch-check {
+    color: var(--despacho-verde);
+}
+
+.despacho-rodape {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: var(--despacho-apagado);
+}
+
+.despacho-cumprir {
+    color: var(--despacho-mudo);
+}
+
+.despacho-cumprir--vencido {
+    color: var(--despacho-vencido);
+}
+
+.despacho-certificar {
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--despacho-azul);
+    font: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.despacho-certificar:hover {
+    text-decoration: underline;
+}
+
+/* ── Lista da linha do tempo (L69-70): sem rolagem própria; vazia, o aviso do desenho ── */
+.despacho-lista {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 8px;
+}
+
+.despacho-vazio {
+    padding: 26px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--despacho-mudo);
+}
+
+.despacho-vazio .bi {
+    display: block;
+    font-size: 26px;
+    color: #b7c6d1;
+    margin-bottom: 6px;
+}

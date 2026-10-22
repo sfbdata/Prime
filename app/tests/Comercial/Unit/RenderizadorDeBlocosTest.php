@@ -60,6 +60,21 @@ final class RenderizadorDeBlocosTest extends TestCase
         self::assertSame($esperado, $this->um($bloco));
     }
 
+    #[TestDox('F3i (dc 21.10 L596): a imagem do simples numa linha própria antes dos parágrafos, 540 px, cantos de 6 px, alt = título escapado; o texto cai de 28 para 18 px')]
+    public function testSimplesComImagem(): void
+    {
+        $sem = $this->renderizador()->simples('Olá', [], '', '');
+        $com = $this->renderizador()->simples('Olá', [], '', '', 'https://app.bluejus.test/e/i/' . str_repeat('a', 32) . '.jpg?x="1"', '{nome}, <veja> "isto"');
+
+        self::assertStringStartsWith('<tr><td style="padding:28px 30px 8px;"><p ', $sem);
+        self::assertStringNotContainsString('<img', $sem);
+        self::assertStringStartsWith(
+            '<tr><td style="padding:24px 30px 0;"><img src="https://app.bluejus.test/e/i/' . str_repeat('a', 32) . '.jpg?x=&quot;1&quot;" alt="{nome}, &lt;veja&gt; &quot;isto&quot;" width="540" style="display:block;width:100%;max-width:540px;height:auto;border:0;border-radius:6px;"></td></tr>'
+            . '<tr><td style="padding:18px 30px 8px;"><p style="margin:0 0 14px;',
+            $com,
+        );
+    }
+
     #[TestDox('O texto é escapado como o e() do dc (& < > ") e nenhuma marcação passa')]
     public function testEscape(): void
     {

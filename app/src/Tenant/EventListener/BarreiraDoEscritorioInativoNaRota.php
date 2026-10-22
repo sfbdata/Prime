@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 
 /**
@@ -36,6 +37,9 @@ use Twig\Environment;
 final class BarreiraDoEscritorioInativoNaRota
 {
     public const ROTULO = 'Escritório indisponível';
+
+    /** A chave do ROTULO no catálogo (o português do catálogo é o mesmo texto, spec idioma-do-sistema §27). */
+    public const CHAVE_DO_ROTULO = 'escritorio.indisponivel.titulo';
 
     /** Rotas em que o `{id}` do caminho é o próprio escritório (R2). */
     public const ROTAS_COM_ID_DO_ESCRITORIO = [
@@ -60,6 +64,7 @@ final class BarreiraDoEscritorioInativoNaRota
         private readonly UserTenantRepository $vinculos,
         private readonly RegraDosMasters $regraDosMasters,
         private readonly Environment $twig,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -110,7 +115,7 @@ final class BarreiraDoEscritorioInativoNaRota
         }
 
         return new Response($this->twig->render('tenant/escritorio_indisponivel.html.twig', [
-            'titulo'   => self::ROTULO,
+            'titulo'   => $this->tradutor->trans(self::CHAVE_DO_ROTULO),
             'mensagem' => $mensagem,
         ]), Response::HTTP_FORBIDDEN);
     }

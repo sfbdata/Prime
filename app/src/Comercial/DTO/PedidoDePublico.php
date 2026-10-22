@@ -15,6 +15,9 @@ use App\Comercial\Exception\CampanhaRecusada;
  * `modo` é a Central de onde veio o pedido (F3h, dc 05 VS 21.10.26 L627-645): `com` (seção Comercial, tudo) ou
  * `venda` (seção Indicações: só a Base de contatos, o CSV e o Individual, e o filtro só com a busca e o Estado). O
  * servidor recusa o que a tela da venda não mostra, para a tela não ser a única barreira.
+ *
+ * `modelo` é a chave do modelo em edição (spec §11): com `vagas`, a Base de contatos inclui quem autorizou os alertas
+ * de vagas. Na contagem vem do campo `modelo` do JSON; no "Enviar campanha", da mensagem ({@see PedidoDeCampanha}).
  */
 final class PedidoDePublico
 {
@@ -30,6 +33,7 @@ final class PedidoDePublico
         public readonly array $informados = [],
         public readonly FiltroDoPublico $filtro = new FiltroDoPublico(),
         public readonly string $modo = self::MODO_COMERCIAL,
+        public readonly string $modelo = '',
     ) {
         if (!\array_key_exists($publico, PublicosDaCampanha::ROTULOS)) {
             throw new CampanhaRecusada('Público inválido.');
@@ -50,8 +54,11 @@ final class PedidoDePublico
         return $this->modo === self::MODO_VENDA;
     }
 
-    /** @param array<mixed> $dados */
-    public static function deArray(array $dados): self
+    /**
+     * @param array<mixed> $dados
+     * @param ?string      $modelo a chave do modelo, quando quem chama já a tem (o `modelo` do envio é o objeto inteiro)
+     */
+    public static function deArray(array $dados, ?string $modelo = null): self
     {
         $publico = \is_string($dados['publico'] ?? null) ? $dados['publico'] : 'leads';
 
@@ -66,7 +73,13 @@ final class PedidoDePublico
             'csv' => ListaInformada::doCsv(self::texto($dados['csv'] ?? '')),
             'indiv' => ListaInformada::doIndividual(self::texto($dados['individual'] ?? '')),
             default => [],
-        }, FiltroDoPublico::deArray($filtro), \is_string($modo) ? $modo : throw new CampanhaRecusada('Pedido inválido.'));
+        }, FiltroDoPublico::deArray($filtro), \is_string($modo) ? $modo : throw new CampanhaRecusada('Pedido inválido.'), $modelo ?? self::modelo($dados['modelo'] ?? ''));
+    }
+
+    /** A chave do modelo na contagem: texto curto; outro tipo vale como nenhum modelo. */
+    private static function modelo(mixed $valor): string
+    {
+        return \is_string($valor) ? mb_substr($valor, 0, 40) : '';
     }
 
     private static function texto(mixed $valor): string

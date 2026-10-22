@@ -14,24 +14,24 @@
 {% set layout = layout|default('padrao') %}
 {% set rodape %}
 <tr><td style="background:#f7f9fb;border-top:1px solid #e6edf2;padding:18px 30px;font:12px/1.6 Arial,Helvetica,sans-serif;color:#7a8e9b;" class="rodape-legal">
-{% if escritorio %}Enviado por {{ escritorio }} por meio do BlueJus.<br>{% endif %}
-BlueJus Gestão e Tecnologia LTDA · CNPJ 66.803.163/0001-10 · Brasília/DF<br>
+{% if escritorio %}{{ 'emails.comercial.layout.enviado_por'|trans({escritorio: escritorio}) }}<br>{% endif %}
+{{ 'emails.comercial.layout.razao_social'|trans }}<br>
 {% if motivoDoEnvio is defined and motivoDoEnvio %}
 {{ motivoDoEnvio }}
 {% elseif escritorio %}
 {% elseif tipo == 'lista' %}
-Você recebeu este e-mail porque se cadastrou no BlueJus ou autorizou o envio de novidades.
+{{ 'emails.comercial.layout.motivo_lista'|trans }}
 {% else %}
-Você recebeu este e-mail por causa da sua conta no BlueJus.
+{{ 'emails.comercial.layout.motivo_conta'|trans }}
 {% endif %}
 {% if tipo == 'lista' %}
-<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>Não quero mais receber</a>.
+<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>{{ 'emails.comercial.layout.descadastro_lista'|trans }}</a>.
 {% elseif escritorio %}
-<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>Não quero mais receber e-mails de {{ escritorio }}</a>.
+<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>{{ 'emails.comercial.layout.descadastro_escritorio'|trans({escritorio: escritorio}) }}</a>.
 {% else %}
-<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>Não quero receber novidades do BlueJus</a>.
+<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>{{ 'emails.comercial.layout.descadastro_plataforma'|trans }}</a>.
 {% endif %}
-<br><a href="{{ linkPolitica }}" style="color:#0a6fa0;" data-politica>Política de Privacidade</a>
+<br><a href="{{ linkPolitica }}" style="color:#0a6fa0;" data-politica>{{ 'emails.comercial.layout.politica'|trans }}</a>
 </td></tr>
 {% endset %}
 <!doctype html>

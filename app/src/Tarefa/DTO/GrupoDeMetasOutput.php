@@ -7,7 +7,7 @@ namespace App\Tarefa\DTO;
 use App\Entity\Tarefa\Tarefa;
 
 /**
- * Um bloco da lista de "Minhas Metas" — "Atrasadas", "Próximos 7 dias", "Concluídas"…
+ * Um bloco da lista de "Minhas Metas": "Atrasadas", "Vencem em 7 dias", "Concluídas"…
  *
  * O agrupamento vive aqui, e não no Twig, porque é regra de negócio: qual meta é urgente e
  * quem já entregou o que estava com ele. Enquanto morava em `|filter` dentro do template não
@@ -16,16 +16,16 @@ use App\Entity\Tarefa\Tarefa;
 final class GrupoDeMetasOutput
 {
     /**
+     * @param string   $rotulo chave do catálogo (`metas.grupos.*`); o Twig aplica `|trans`
      * @param Tarefa[] $metas
-     * @param string   $tom  papel visual do bloco: danger, warn, cinza, accent ou ok
+     * @param string   $tom    papel visual da linha: danger, warn, cinza, accent ou ok (a cor do grupo
+     *                         vem da classe `mm-grupo-<chave>` no CSS)
      */
     public function __construct(
         public readonly string $chave,
         public readonly string $rotulo,
         public readonly string $tom,
         public readonly array $metas,
-        public readonly bool $recolhido = false,
-        public readonly ?string $nota = null,
     ) {
     }
 

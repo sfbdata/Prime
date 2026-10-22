@@ -418,6 +418,77 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame('List-Unsubscribe=One-Click', $email->getHeaders()->get('List-Unsubscribe-Post')?->getBodyAsString());
     }
 
+    #[TestDox('Modelo vagas (§11): a recorrente resolve a Base de contatos pelo modelo_chave; cada destino sai pela lista dele (descadastro, List-Unsubscribe e Carteiro)')]
+    public function testModeloDeVagasLevaAListaDoDestino(): void
+    {
+        $marca = uniqid();
+        [$lead, $dupla, $vaga, $saiu] = ["lead.$marca@exemplo.com", "dupla.$marca@exemplo.com", "vaga.$marca@exemplo.com", "saiu.$marca@exemplo.com"];
+        foreach ([['comercial_campanhas', $lead], ['comercial_campanhas', $dupla], ['vagas_alerta', $dupla], ['vagas_alerta', $vaga], ['vagas_alerta', $saiu]] as [$lista, $email]) {
+            $this->conexao->insert('comercial_confirmacao_endereco', ['lista' => $lista, 'email' => $email, 'pedido_em' => '2026-10-01 10:00:00', 'confirmado_em' => '2026-10-01 10:05:00', 'tenant_id' => null]);
+        }
+        $c = static::getContainer();
+        $mensagem = MensagemDaCampanha::deArray((array) (new \App\Comercial\Campanha\ModelosDeCampanha())->fixo('vagas'));
+        $agora = new \DateTimeImmutable();
+        $leads = ['publico' => 'leads', 'parametros' => null, 'estado' => 'recorrente', 'frequencia' => 'semanal', 'agendada_para' => $agora->modify('-1 minute'), 'proxima' => $agora->modify('-1 minute')];
+        $vagas = $this->campanha([], $leads + ['modelo_chave' => 'vagas', 'conteudo' => $c->get(ComposicaoDaCampanha::class)->congelar($mensagem)]);
+        $convite = $this->campanha([], $leads);
+
+        $expansor = $this->expansor();
+        $expansor->materializarDevidas($agora);
+        $nossos = fn (int $id): array => array_values(array_filter(
+            $this->conexao->fetchAllAssociative('SELECT email, lista FROM comercial_campanha_destino WHERE campanha_id = ? ORDER BY id', [$id]),
+            static fn (array $l): bool => str_contains((string) $l['email'], $marca),
+        ));
+
+        self::assertSame([
+            ['email' => $lead, 'lista' => 'comercial_campanhas'], ['email' => $dupla, 'lista' => 'comercial_campanhas'],
+            ['email' => $vaga, 'lista' => 'vagas_alerta'], ['email' => $saiu, 'lista' => 'vagas_alerta'],
+        ], $nossos($vagas));
+        self::assertSame([['email' => $lead, 'lista' => 'comercial_campanhas'], ['email' => $dupla, 'lista' => 'comercial_campanhas']], $nossos($convite), 'outro modelo não traz vagas_alerta');
+
+        // Sai de vagas_alerta entre a materialização e o envio: o Carteiro confere a lista do destino.
+        $c->get(DescadastroDeEmailInterface::class)->descadastrar(null, $saiu, PublicosDaCampanha::LISTA_DE_VAGAS, 'teste');
+        $this->conexao->executeStatement("UPDATE comercial_campanha SET estado = 'cancelada' WHERE id = ?", [$convite]);
+        $expansor->liberarLote($agora);
+        $envios = $this->conexao->fetchAllAssociativeIndexed('SELECT destinatario, id, lista, situacao FROM comercial_envio WHERE origem = ?', ['campanha:' . $vagas]);
+        self::assertSame(['vagas_alerta', 'enfileirado'], [$envios[$vaga]['lista'], $envios[$vaga]['situacao']]);
+        self::assertSame(['vagas_alerta', 'bloqueado_descadastro'], [$envios[$saiu]['lista'], $envios[$saiu]['situacao']]);
+        self::assertSame('comercial_campanhas', $envios[$dupla]['lista']);
+
+        $c->set(ChaveDasCampanhas::class, new ChaveDasCampanhas(true));
+        $c->get(EnviarEmailHandler::class)(new EnviarEmail((int) $envios[$vaga]['id']));
+        $email = self::getMailerMessage();
+        self::assertNotNull($email);
+        $link = $c->get(DescadastroDeEmailInterface::class)->gerarLink(null, $vaga, PublicosDaCampanha::LISTA_DE_VAGAS);
+        self::assertSame('<' . $link . '>', $email->getHeaders()->get('List-Unsubscribe')?->getBodyAsString());
+        self::assertStringContainsString(htmlspecialchars($link, ENT_QUOTES), (string) $email->getHtmlBody(), 'o link de descadastro do corpo é o da lista de vagas');
+    }
+
+    #[TestDox('Modelo vagas gravado sem a âncora (campanha antiga): a execução não alcança quem só autorizou vagas_alerta')]
+    public function testVagasSemAncoraNaoAlcancaAListaDeVagas(): void
+    {
+        $marca = uniqid();
+        [$lead, $vaga] = ["lead.$marca@exemplo.com", "vaga.$marca@exemplo.com"];
+        foreach ([['comercial_campanhas', $lead], ['vagas_alerta', $vaga]] as [$lista, $email]) {
+            $this->conexao->insert('comercial_confirmacao_endereco', ['lista' => $lista, 'email' => $email, 'pedido_em' => '2026-10-01 10:00:00', 'confirmado_em' => '2026-10-01 10:05:00', 'tenant_id' => null]);
+        }
+        $agora = new \DateTimeImmutable();
+        $semAncora = MensagemDaCampanha::deArray(['chave' => 'vagas', 'nome' => 'Vagas antiga', 'modo' => 'blocos', 'assunto' => 'Vagas', 'selo' => '', 'titulo' => 'Vagas', 'blocos' => [['t' => 'texto', 'a' => 'Olá']]]);
+        $id = $this->campanha([], [
+            'publico' => 'leads', 'parametros' => null, 'estado' => 'recorrente', 'frequencia' => 'semanal',
+            'agendada_para' => $agora->modify('-1 minute'), 'proxima' => $agora->modify('-1 minute'),
+            'modelo_chave' => 'vagas', 'modo' => 'blocos', 'conteudo' => static::getContainer()->get(ComposicaoDaCampanha::class)->congelar($semAncora),
+        ]);
+
+        $this->expansor()->materializarDevidas($agora);
+
+        $emails = array_values(array_filter(
+            array_map('strval', $this->conexao->fetchFirstColumn('SELECT email FROM comercial_campanha_destino WHERE campanha_id = ? ORDER BY id', [$id])),
+            static fn (string $e): bool => str_contains($e, $marca),
+        ));
+        self::assertSame([$lead], $emails);
+    }
+
     #[TestDox('cancelarNaFilaDaOrigem: só o enfileirado vira cancelado; o enviando (já com o worker) não é tocado')]
     public function testCancelarSoOEnfileirado(): void
     {
@@ -523,6 +594,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
             new ChaveDasCampanhas($ligada),
             new NullLogger(),
             $teto,
+            $c->get(\App\Comercial\Campanha\ImagensDaCampanha::class),
         );
     }
 

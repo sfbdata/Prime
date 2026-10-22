@@ -40,6 +40,13 @@ class DestinoDaCampanha
     #[ORM\Column(length: 180, nullable: true)]
     private ?string $nome = null;
 
+    /**
+     * A lista de consentimento pela qual o destinatário entrou (spec §11): decide o link de descadastro, o
+     * List-Unsubscribe e a checagem do Carteiro. `vagas_alerta` só no modelo `vagas`.
+     */
+    #[ORM\Column(length: 40, options: ['default' => 'comercial_campanhas'])]
+    private string $lista = 'comercial_campanhas';
+
     /** O registro em `comercial_envio` (sem FK: a purga dos envios não pode soltar um destino para sair de novo). */
     #[ORM\Column(name: 'envio_id', type: 'integer', nullable: true)]
     private ?int $envioId = null;

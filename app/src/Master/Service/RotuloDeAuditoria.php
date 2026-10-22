@@ -12,6 +12,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Master\Entity\DivulgacaoNaSeccional;
+use App\Master\Entity\NotaDaCidadeOab;
 use App\Master\Entity\NotaDaSeccional;
 use App\Master\Entity\RecursoEstado;
 use App\Master\Entity\SeccionalOab;
@@ -63,6 +64,10 @@ final class RotuloDeAuditoria
         'nota'           => 'nota',
         'tipo'           => 'tipo',
         'data'           => 'data',
+        'visivel'        => 'visibilidade no mapa',
+        'marcaCor'       => 'cor da marca',
+        'marcaStatus'    => 'status da divulgação',
+        'marcaEm'        => 'data da divulgação',
     ];
 
     private const ENTIDADE = [
@@ -77,6 +82,7 @@ final class RotuloDeAuditoria
         DivulgacaoNaSeccional::class => ['Divulgação registrada na seccional', 'Divulgação na seccional alterada', 'Divulgação na seccional removida'],
         SubsecaoOab::class          => ['Subseção da OAB adicionada', 'Subseção da OAB alterada', 'Subseção da OAB removida'],
         NotaDaSeccional::class      => ['Nota da seccional gravada', 'Nota da seccional alterada', 'Nota da seccional apagada'],
+        NotaDaCidadeOab::class      => ['Nota da cidade gravada', 'Nota da cidade alterada', 'Nota da cidade apagada'],
     ];
 
     /**
@@ -314,7 +320,7 @@ final class RotuloDeAuditoria
     {
         $diff = self::diff($mudancas);
         // Carimbos técnicos (quando e por quem): não são o que mudou. `atualizadoEm`/`atualizadoPor` são da SeccionalOab;
-        // `atualizadaEm`/`atualizadaPor`, da NotaDaSeccional.
+        // `atualizadaEm`/`atualizadaPor`, da NotaDaSeccional e da NotaDaCidadeOab.
         unset($diff['updatedAt'], $diff['lastLoginAt'], $diff['atualizadoEm'], $diff['atualizadoPor'], $diff['atualizadaEm'], $diff['atualizadaPor']);
 
         return array_map('strval', array_keys($diff));

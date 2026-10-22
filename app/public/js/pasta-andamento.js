@@ -29,25 +29,25 @@
         })
             .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
             .then(function (res) {
-                if (!res.ok) { avisar(res.j.erro || 'Não foi possível mudar a fase'); return; }
+                if (!res.ok) { avisar(res.j.erro || BJ_T.t('pasta_avisos.js.andamento_erro')); return; }
                 window.location.reload();
-            }, function () { avisar('Falha de conexão. Tente de novo.'); });
+            }, function () { avisar(BJ_T.t('pasta_avisos.js.andamento_sem_conexao')); });
     }
 
     function perguntar(i, semPular, motivo) {
         var pergunta;
         if (i === ultima && atual === ultima) {
-            pergunta = { titulo: 'Reativar pasta', texto: 'A pasta está finalizada. Reativar abre duas novas etapas: "Em andamento" (reativada) e um novo "Finalizada". O histórico anterior é mantido.', rotulo: 'Reativar', icone: 'bi-arrow-repeat', variante: 'azul' };
+            pergunta = { titulo: BJ_T.t('pasta_avisos.js.andamento_reativar_titulo'), texto: BJ_T.t('pasta_avisos.js.andamento_reativar_texto'), rotulo: BJ_T.t('pasta_avisos.js.andamento_reativar'), icone: 'bi-arrow-repeat', variante: 'azul' };
         } else {
             if (i === atual) { return; }
             var fin = i === ultima;
             var pulam = semPular ? 0 : i - atual - 1;
             pergunta = {
-                titulo: fin ? 'Finalizar pasta' : (i > atual ? 'Avançar fase da pasta' : 'Voltar fase da pasta'),
-                texto: (pulam > 0 ? 'Atenção: ' + pulam + ' fase(s) intermediária(s) ficarão marcadas em vermelho como puladas. ' : '')
-                    + (fin ? 'Marcar a pasta como finalizada? Depois, se precisar, clique em "Finalizada" para reativar.'
-                        : 'Mudar de "' + nomeDa(atual) + '" para "' + nomeDa(i) + '"? A mudança fica registrada no Registro dos expedientes com data e hora.'),
-                rotulo: fin ? 'Finalizar' : (i > atual ? 'Avançar' : 'Voltar'),
+                titulo: fin ? BJ_T.t('pasta_avisos.js.andamento_finalizar_titulo') : (i > atual ? BJ_T.t('pasta_avisos.js.andamento_avancar_titulo') : BJ_T.t('pasta_avisos.js.andamento_voltar_titulo')),
+                texto: (pulam > 0 ? BJ_T.t('pasta_avisos.js.andamento_pulam', { total: pulam }) + ' ' : '')
+                    + (fin ? BJ_T.t('pasta_avisos.js.andamento_finalizar_texto')
+                        : BJ_T.t('pasta_avisos.js.andamento_mudar_texto', { de: nomeDa(atual), para: nomeDa(i) })),
+                rotulo: fin ? BJ_T.t('pasta_avisos.js.andamento_finalizar') : (i > atual ? BJ_T.t('pasta_avisos.js.andamento_avancar') : BJ_T.t('pasta_avisos.js.andamento_voltar')),
                 icone: fin ? 'bi-flag-fill' : (i > atual ? 'bi-arrow-right' : 'bi-arrow-left'),
                 variante: 'azul'
             };
@@ -83,7 +83,7 @@
         faixa.hidden = !s;
         if (!s) { return; }
         faixa.querySelector('.js-and-sug-ic').className = 'bi ' + s.icone + ' js-and-sug-ic';
-        faixa.querySelector('.js-and-sug-titulo').textContent = 'Avançar para "' + s.nome + '"?';
+        faixa.querySelector('.js-and-sug-titulo').textContent = BJ_T.t('pasta_avisos.js.andamento_sugestao', { fase: s.nome });
         faixa.querySelector('.js-and-sug-motivo').textContent = s.motivo;
         faixa._s = s;
     }

@@ -8,7 +8,7 @@ use App\Entity\Auth\User;
 
 /**
  * Pedido de adicionar o endereço de uma subseção (POST /master/seccionais/{uf}/subsecoes, JSON
- * `{nome, endereco, telefone?}`), vindo da janela da OAB. `doJson()` só apara: texto vazio vira nulo. Obrigatório
+ * `{cidade, nome?, endereco, telefone?}`), vindo da janela da OAB. `doJson()` só apara: texto vazio vira nulo. Obrigatório
  * e tamanho são regras do {@see \App\Master\UseCase\AdicionarSubsecaoNaSeccionalUseCase}.
  */
 final readonly class AdicionarSubsecaoNaSeccionalInput
@@ -17,6 +17,7 @@ final readonly class AdicionarSubsecaoNaSeccionalInput
         /** Quem adiciona: o Master (ROLE_SUPER_ADMIN, exigido no controller). */
         public ?User $ator,
         public string $uf,
+        public ?string $cidade = null,
         public ?string $nome = null,
         public ?string $endereco = null,
         public ?string $telefone = null,
@@ -26,7 +27,7 @@ final readonly class AdicionarSubsecaoNaSeccionalInput
     /** @param array<mixed> $corpo */
     public static function doJson(?User $ator, string $uf, array $corpo): self
     {
-        return new self($ator, $uf, self::texto($corpo['nome'] ?? null), self::texto($corpo['endereco'] ?? null), self::texto($corpo['telefone'] ?? null));
+        return new self($ator, $uf, self::texto($corpo['cidade'] ?? null), self::texto($corpo['nome'] ?? null), self::texto($corpo['endereco'] ?? null), self::texto($corpo['telefone'] ?? null));
     }
 
     private static function texto(mixed $valor): ?string

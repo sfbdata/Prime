@@ -39,6 +39,6 @@
     {% for a in saida.analises %}
         {{ include('inteligencia/_analise_cartao_agente.html.twig', {a: a, pastaId: pastaId, podeVerMotivoTecnico: podeVerMotivoTecnico, hojeIa: hojeIa, iaPodeCriarTarefa: iaPodeCriarTarefa}, with_context = false) }}
     {% else %}
-        <p class="ia-ag-vazio" data-ia-vazio>Nenhuma análise deste agente ainda.</p>
+        <p class="ia-ag-vazio" data-ia-vazio>{{ 'inteligencia.lista.vazia_agente'|trans }}</p>
     {% endfor %}
 </div>

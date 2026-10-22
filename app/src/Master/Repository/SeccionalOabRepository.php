@@ -34,18 +34,19 @@ class SeccionalOabRepository extends ServiceEntityRepository
     }
 
     /**
-     * Pessoas inscritas em cada seccional ("N usuários" do cartão da sede): inscrição principal OU
-     * suplementar em `inscricao_oab`, uma pessoa conta uma vez por UF (COUNT DISTINCT). Só conta quem o
-     * painel chama de pessoa: `user` ativo com ao menos um vínculo ativo em escritório fora da quarentena
-     * (o mesmo recorte de PainelMasterRepository::vinculosAtivos()). Qualquer situação da inscrição
-     * conta (DONO: só a ativa ou todas). SQL direto: atravessa todos os escritórios, sem filtro do ORM.
+     * Inscrições de usuários do BlueJus em cada seccional (número da linha da tabela de UFs no modo OAB e o
+     * "N inscrição(ões) de usuários do BlueJus" do cartão, desenho 05 L898 e L903): cada linha de `inscricao_oab`,
+     * principal ou suplementar, conta uma vez. Só conta inscrição de quem o painel chama de pessoa: `user` ativo com
+     * ao menos um vínculo ativo em escritório fora da quarentena (o recorte de PainelMasterRepository::vinculosAtivos()).
+     * A tabela não guarda a situação da inscrição na OAB, então qualquer status de conferência conta (padrão adotado,
+     * a confirmar com o dono). SQL direto: atravessa todos os escritórios, sem filtro do ORM.
      *
-     * @return array<string, int> UF => pessoas
+     * @return array<string, int> UF => inscrições
      */
-    public function usuariosPorUf(): array
+    public function inscricoesPorUf(): array
     {
         $linhas = $this->getEntityManager()->getConnection()->fetchAllKeyValue(
-            'SELECT io.uf, COUNT(DISTINCT io.user_id)
+            'SELECT io.uf, COUNT(*)
                FROM inscricao_oab io
                JOIN "user" u ON u.id = io.user_id AND u.is_active = TRUE
               WHERE EXISTS (SELECT 1 FROM user_tenant ut
@@ -63,5 +64,15 @@ class SeccionalOabRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    /** @param list<SeccionalOab> $seccionais grava todas num flush só ("Mostrar todas"). */
+    public function salvarTodas(array $seccionais): void
+    {
+        foreach ($seccionais as $seccional) {
+            $this->getEntityManager()->persist($seccional);
+        }
+
+        $this->getEntityManager()->flush();
     }
 }
