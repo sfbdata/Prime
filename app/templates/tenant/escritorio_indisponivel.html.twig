@@ -23,7 +23,7 @@
     <main class="esc-indisponivel" role="alert" data-escritorio-indisponivel>
         <h1>{{ titulo }}</h1>
         <p class="js-escritorio-indisponivel-mensagem">{{ mensagem }}</p>
-        <a href="{{ path('tenant_selecionar') }}">Selecionar outro escritório</a>
+        <a href="{{ path('tenant_selecionar') }}">{{ 'escritorio.indisponivel.outro'|trans }}</a>
     </main>
 </body>
 </html>

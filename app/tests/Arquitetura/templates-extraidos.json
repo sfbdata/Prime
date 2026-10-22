@@ -541,5 +541,23 @@
         "permitidos": [
             "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
         ]
+    },
+
+    "escritorio": {
+        "templates": [
+            "tenant/index.html.twig",
+            "tenant/new.html.twig",
+            "tenant/criar.html.twig",
+            "tenant/show.html.twig",
+            "tenant/edit.html.twig",
+            "tenant/_form.html.twig",
+            "tenant/_delete_form.html.twig",
+            "tenant/selecionar.html.twig",
+            "tenant/escritorio_indisponivel.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "· BlueJus"
+        ]
     }
 }
