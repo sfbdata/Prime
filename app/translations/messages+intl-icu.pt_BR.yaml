@@ -5136,6 +5136,77 @@ auth:
             boa: Boa
             forte: Forte
 
+# ---- Push Processual: publicações, OABs monitoradas e publicação (djen/index, oabs, show)
+djen:
+    comum:
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        avulsa: Avulsa
+        tribunal: Tribunal
+        tipo: Tipo
+        processo: Processo
+        orgao: Órgão
+        meio: Meio
+        acoes: Ações
+    index:
+        titulo_pagina: 'Push Processual | Publicações'
+        titulo: 'Push Processual: Publicações'
+        processos_monitorados: Processos monitorados
+        cadastrar_processo: Cadastrar processo
+        sincronizar: Sincronizar agora
+        filtros: Filtros
+        busca: Busca
+        busca_placeholder: Nº processo, tribunal, tipo...
+        todos: Todos
+        todas: Todas
+        diario: Diário
+        edital: Edital
+        vinculo: Vínculo
+        vinculadas: Vinculadas
+        avulsas: Avulsas
+        de: De
+        ate: Até
+        filtrar: Filtrar
+        limpar: Limpar
+        data: Data
+        vinculada: Vinculada
+        ver: Ver
+        vazio: 'Nenhuma publicação encontrada. Cadastre uma OAB ou um processo e clique em "Sincronizar agora".'
+        paginacao: '{total} publicação(ões) · página {pagina} de {paginas}'
+        anterior: Anterior
+        proxima: Próxima
+    oabs:
+        titulo_pagina: 'Push Processual | OABs monitoradas'
+        titulo: OABs monitoradas
+        voltar: Voltar às publicações
+        adicionar_oab: Adicionar OAB
+        adicionar: Adicionar
+        oab: OAB
+        apelido: Apelido
+        status: Status
+        desde: Desde
+        ativa: Ativa
+        pausada: Pausada
+        pausar: Pausar
+        reativar: Reativar
+        remover_confirmar: Remover esta OAB do monitoramento?
+        vazio: Nenhuma OAB monitorada ainda. Adicione uma acima para captar as publicações.
+    show:
+        titulo_pagina: 'Push Processual | Publicação'
+        titulo: 'Push Processual: Publicação'
+        voltar: Voltar
+        voltar_publicacoes: Voltar para as publicações
+        disponibilizacao: Disponibilização
+        ver_processo: Ver processo
+        classe: Classe
+        captada_pela_oab: Captada pela OAB
+        destinatarios: Destinatários
+        nome: Nome
+        polo: Polo
+        teor: Teor da comunicação
+        inteiro_teor: Inteiro teor na origem
+        sem_teor: Sem teor textual disponível.
+
 # ---- Feriados e folgas do escritório (feriado/index, new, edit, _form)
 feriado:
     comum:

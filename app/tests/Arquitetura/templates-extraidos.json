@@ -568,6 +568,15 @@
         ]
     },
 
+    "djen": {
+        "templates": [
+            "djen/index.html.twig",
+            "djen/oabs.html.twig",
+            "djen/show.html.twig"
+        ],
+        "permitidos": []
+    },
+
     "feriado": {
         "templates": [
             "feriado/index.html.twig",
