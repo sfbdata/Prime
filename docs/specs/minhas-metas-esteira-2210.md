@@ -210,6 +210,13 @@ Regra do dono: tudo que está no desenho entra. Arrastar meta entre caixas NÃO 
 - L7. Cmd+Enter no Mac, junto do Ctrl+Enter (04B L144). Despachar só com anexo, sem texto (04B L145).
 - L8. "Enviar para revisão" sem texto grava "Meta enviada para revisão do autor." e avisa o autor (04B L146).
 
+Convenções desta parte: "desde o envio para revisão" conta do envio mais recente gravado (o dc usa o último evento
+de qualquer tipo, que mudaria com uma troca de prazo); sem envio gravado (metas antigas), da última alteração. Os
+"N dias" são períodos de 24h, como no dc. "Alterar" do prazo só para o criador (D3). "Devolver" fica dentro do
+formulário até a Fase 3 levá-lo para a lateral (04B L81). **Decisão do dono (22/10):** a lateral termina em DETALHES;
+"Voltar à Pasta" sai (o voltar é a seta e a trilha) e "Excluir meta" deixa de existir nas telas de Metas (Minhas Metas
+e página da meta), porque o desenho não tem a opção em lugar nenhum.
+
 **Fase 2b**
 - L9. Extrato: Demanda no topo; cada despacho numerado com natureza, quem → para, Cumprir até, Ciente, certidão;
   "Emitido em"; aviso "Permita pop-ups para gerar o extrato." se bloqueado (04B L150).
