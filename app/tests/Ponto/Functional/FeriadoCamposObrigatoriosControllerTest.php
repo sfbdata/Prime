@@ -19,12 +19,13 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Formulário de feriado com a data vazia: antes estourava TypeError em Feriado::setData(null)
- * (erro 500). Agora volta 422 com o erro no campo Data e nada é gravado.
+ * Campos obrigatórios do formulário de feriado (data e nome). Vazios, antes estouravam TypeError
+ * em Feriado::setData(null) ou Feriado::setNome(null) (erro 500). Agora voltam 422 com o erro no
+ * campo e nada é gravado; com dados válidos, novo e editar continuam gravando.
  */
 #[CoversClass(FeriadoController::class)]
 #[CoversClass(FeriadoType::class)]
-final class FeriadoDataVaziaControllerTest extends JusPrimeWebTestCase
+final class FeriadoCamposObrigatoriosControllerTest extends JusPrimeWebTestCase
 {
     #[TestDox('Novo feriado com a data vazia volta 422 com o erro no campo e não grava')]
     public function testNovoComDataVaziaNaoGrava(): void
@@ -147,6 +148,37 @@ final class FeriadoDataVaziaControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($salvo);
         self::assertSame('Natal', $salvo->getNome());
         self::assertSame('2026-12-25', $salvo->getData()?->format('Y-m-d'));
+    }
+
+    #[TestDox('Editar feriado com dados válidos grava o nome e a data novos e redireciona')]
+    public function testEditarComDadosValidosGrava(): void
+    {
+        [$client, $tenant] = $this->prepararAdminLogado();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $feriado = new Feriado();
+        $feriado->setTenant($tenant);
+        $feriado->setNome('Natal');
+        $feriado->setData(new \DateTime('2026-12-25'));
+        $feriado->setRecorrente(true);
+        $em->persist($feriado);
+        $em->flush();
+        $id = $feriado->getId();
+
+        $crawler = $client->request('GET', '/tenant/' . $tenant->getId() . '/feriados/' . $id . '/editar');
+        $form = $crawler->filter('form[name="feriado"]')->form([
+            'feriado[nome]' => 'Véspera de Ano Novo',
+            'feriado[data]' => '2026-12-31',
+        ]);
+        $client->submit($form);
+
+        self::assertResponseRedirects('/tenant/' . $tenant->getId() . '/feriados');
+
+        $em->clear();
+        $salvo = $this->repositorio()->find($id);
+        self::assertNotNull($salvo);
+        self::assertSame('Véspera de Ano Novo', $salvo->getNome());
+        self::assertSame('2026-12-31', $salvo->getData()?->format('Y-m-d'));
     }
 
     /** @return array{0: KernelBrowser, 1: Tenant} */
