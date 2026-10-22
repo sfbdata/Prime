@@ -960,13 +960,13 @@ expediente:
                 nota: Pastas com comentário, meta, prazo ou ação registrada nos últimos 10 dias (cada pasta conta uma vez)
             findou:
                 nome: Prazo findou nos últimos 10 dias sem resposta
-                nota: Um prazo (registrado na pasta ou de meta) venceu nos últimos 10 dias e não houve nenhuma ação na pasta depois da data
+                nota: Um prazo (registrado na pasta, do Push processual ou de meta) venceu nos últimos 10 dias e não houve nenhuma ação na pasta depois da data
             aud:
                 nome: Audiência
-                nota: Pastas com audiência marcada (hoje ou futura), registrada em Próximos prazos da pasta
+                nota: Pastas com audiência marcada (hoje ou futura), registrada em Próximos prazos da pasta ou lida do Push processual
             prazo:
                 nome: Expediente com prazo
-                nota: 'Pastas com prazo em aberto de hoje em diante: registrado na pasta ou de meta'
+                nota: 'Pastas com prazo em aberto de hoje em diante: registrado na pasta, do Push processual ou de meta'
             metas:
                 nome: Metas não respondidas
                 nota: Pastas com meta aberta ainda sem resposta ou conclusão
@@ -4873,5 +4873,12 @@ cobranca_pessoa:
         carregando: Carregando…
         erro_cadastro: não foi possível carregar
         erro_detalhe: Não foi possível carregar o detalhe. Tente de novo.
+
+# ---- Pasta, aba Dados: "Próximos prazos" do trilho (pasta/_dados_trilho)
+pasta_dados:
+    prazos:
+        origem_push: Push processual
+        selo_push: prazo calculado, confira
+        selo_push_dica: 'Contado da publicação no DJEN, em dias úteis pelo calendário da UF do escritório. Não considera feriado municipal ou da comarca, suspensão de expediente do tribunal, prazo em dobro nem intimação fora do DJEN.'
 
 # ---- fim

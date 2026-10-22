@@ -988,7 +988,8 @@ class PastaRepository extends ServiceEntityRepository
      *
      * - aud: audiência registrada na pasta, não cumprida, de hoje em diante.
      * - protocolar: pasta ativa, não administrativa, que ainda não passou pela fase Protocolo do andamento.
-     * Prazo = meta com prazo ou prazo/audiência registrado à mão. O prazo calculado do Push ainda não existe.
+     * Prazo = meta com prazo ou linha do `pasta_prazo` de qualquer origem: registrado à mão, lido dos registros ou
+     * calculado do Push processual (origem `push`, docs/specs/prazo-do-push.md), todos pelo mesmo caminho.
      */
     private function aplicarFiltroDoExpediente(QueryBuilder $qb, string $filtro): void
     {

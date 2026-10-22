@@ -60,13 +60,15 @@
                 ? tarefaDoPrazo.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id)
                 : [] %}
             {% set chave = prazo.prazoId ? 'm' ~ prazo.prazoId : prazo.tarefaId %}
+            {# Calculado do Push (docs/specs/prazo-do-push.md): a origem e o selo "confira" vêm do catálogo. #}
+            {% set metaDoPrazo = prazo.push ? prazo.meta ~ ' · ' ~ 'pasta_dados.prazos.origem_push'|trans : prazo.meta %}
             <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}"{% if prazo.prazoId and prazo.manual %} data-prazo-manual="{{ prazo.prazoId }}"{% endif %}>
                 <span class="ps-pip ps-pip--{{ prazo.tom }}"></span>
                 <div class="ps-linha-corpo">
                     <div class="ps-linha-titulo">
                         {% if prazo.tarefaId %}<a href="{{ path('tarefa_show', {id: prazo.tarefaId}) }}">{{ prazo.titulo }}</a>{% else %}{{ prazo.titulo }}{% endif %}
                     </div>
-                    <div class="ps-linha-meta">{{ prazo.meta }}</div>
+                    <div class="ps-linha-meta">{{ metaDoPrazo }}{% if prazo.push %} <span class="ps-prazo-calculado" title="{{ 'pasta_dados.prazos.selo_push_dica'|trans }}">{{ 'pasta_dados.prazos.selo_push'|trans }}</span>{% endif %}</div>
                 </div>
                 <span class="ps-selo ps-selo--{{ prazo.tom }}">{{ prazo.selo }}</span>
                 <div class="ps-pop-wrap ps-prazo-mais-wrap">
@@ -124,7 +126,7 @@
                             </button>
                         {% endif %}
                         <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
-                                data-ps-copiar="{{ (prazo.titulo ~ ' · ' ~ prazo.selo ~ ' · ' ~ prazo.meta ~ ' · Pasta ' ~ pasta.nup)|e('html_attr') }}"
+                                data-ps-copiar="{{ (prazo.titulo ~ ' · ' ~ prazo.selo ~ ' · ' ~ metaDoPrazo ~ ' · Pasta ' ~ pasta.nup)|e('html_attr') }}"
                                 data-ps-copiado="Prazo copiado">
                             <i class="bi bi-clipboard"></i><span>Copiar</span>
                         </button>

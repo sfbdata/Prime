@@ -1790,6 +1790,8 @@ span.ps-situacao-pill { cursor: default; }
 .ps-page .ps-linha-titulo a:not(.btn):not(.ps-btn) { color: inherit; }
 .ps-page .ps-linha-titulo a:not(.btn):not(.ps-btn):hover { color: var(--ps-accent); text-decoration: none; }
 .ps-linha-meta { font-size: 12px; color: var(--ps-label); margin-top: 2px; }
+/* Selo "prazo calculado, confira" do prazo do Push (docs/specs/prazo-do-push.md). */
+.ps-prazo-calculado { display: inline-block; font-size: 10.5px; color: var(--ps-warn-text); background: var(--ps-warn-bg); border: 1px solid var(--ps-warn-border); border-radius: 3px; padding: 0 5px; white-space: nowrap; }
 
 .ps-pip { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
 /* O tom do pip e o mesmo TEXTO do selo ao lado, como no desenho: vermelho ate 2
