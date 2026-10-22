@@ -178,4 +178,39 @@ final class VincularProcessoJanelaTelaTest extends JusPrimeWebTestCase
             self::assertSame($sigla, $doJs((string) $numero), $numero);
         }
     }
+
+    #[TestDox('Buscar no CNJ: um title só, com o texto do catálogo, e nenhum atributo solto')]
+    public function testDicaDoBuscarNoCnj(): void
+    {
+        $botao = $this->janela()->filter('#mp-btn-datajud');
+        self::assertCount(1, $botao);
+        self::assertSame('Busca o processo na base de dados do CNJ', $botao->attr('title'));
+        $node = $botao->getNode(0);
+        self::assertInstanceOf(\DOMElement::class, $node);
+        $nomes = [];
+        foreach ($node->attributes as $atributo) {
+            $nomes[] = $atributo->nodeName;
+        }
+        sort($nomes);
+        self::assertSame(['class', 'id', 'title', 'type'], $nomes);
+    }
+
+    #[TestDox('Sem d-none do Bootstrap na janela: cadastro novo, confirmação do CNJ e aviso começam com hidden')]
+    public function testEscondidosPeloHidden(): void
+    {
+        $janela = $this->janela();
+        self::assertCount(0, $janela->filter('.d-none'));
+        foreach (['#modal-modo-novo', '#mp-cnj-ok', '#mp-feedbackAlerta', '#mp-busca-sel', '#mp-busca-lista'] as $parte) {
+            self::assertNotNull($janela->filter($parte)->attr('hidden'), $parte);
+        }
+    }
+
+    #[TestDox('Abas com papel de aba: role="tab" e aria-selected nas abas Buscar/Cadastrar e nas sub-abas')]
+    public function testAbasComRoleTab(): void
+    {
+        $janela = $this->janela();
+        self::assertSame(['true', 'false'], $janela->filter('.mp-abas[role="tablist"] > button.mp-aba[role="tab"]')->each(static fn (Crawler $b): string => (string) $b->attr('aria-selected')));
+        self::assertSame(['true', 'false', 'false'], $janela->filter('.processo-modal-tabs[role="tablist"] > button.processo-modal-tab[role="tab"]')->each(static fn (Crawler $b): string => (string) $b->attr('aria-selected')));
+        self::assertCount(0, $janela->filter('[aria-pressed]'));
+    }
 }

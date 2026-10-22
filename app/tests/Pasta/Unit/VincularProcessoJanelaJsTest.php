@@ -129,7 +129,7 @@ final class VincularProcessoJanelaJsTest extends TestCase
         self::assertStringNotContainsString('minimumInputLength', $js);
         self::assertStringContainsString("buscaInput.addEventListener('focus', function () { buscaQuer = true; mpBuscar(true); });", $js);
         self::assertStringContainsString("buscaInput.addEventListener('input', function () { buscaQuer = true; mpBuscar(false); });", $js);
-        foreach (["e.key === 'ArrowDown'", "e.key === 'ArrowUp'", "e.key === 'Enter'", "e.key === 'Escape'"] as $tecla) {
+        foreach (["e.key === 'ArrowDown'", "e.key === 'ArrowUp'", "e.key === 'Enter'"] as $tecla) {
             self::assertStringContainsString($tecla, $js);
         }
         self::assertStringContainsString('.slice(0, 8)', $this->funcao('mpBuscar'));
@@ -195,5 +195,42 @@ final class VincularProcessoJanelaJsTest extends TestCase
         $twig = (string) file_get_contents(self::TEMPLATE);
         self::assertStringContainsString('.ps-aviso { animation: psAvisoEntra .25s both; }', $twig);
         self::assertStringContainsString('@keyframes psAvisoEntra { from { opacity: 0; transform: translate3d(-50%, 10px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }', $twig);
+    }
+
+    #[TestDox('Esc como o desenho (pvVals.tecla, N:3151): um Esc fecha a janela inteira, mesmo com a lista aberta')]
+    public function testEscFechaAJanelaInteira(): void
+    {
+        $teclado = $this->trecho("buscaInput.addEventListener('keydown'", "document.getElementById('mp-busca-trocar')");
+        self::assertStringNotContainsString('Escape', $teclado, 'a busca não segura o Esc');
+        self::assertStringNotContainsString('stopPropagation', $teclado);
+        self::assertStringNotContainsString('Bootstrap', $teclado);
+        self::assertStringContainsString("if (e.key === 'Escape' && !modalEl.hidden) mpFechar();", $this->script());
+        self::assertStringContainsString('mpFecharLista();', $this->funcao('mpLimpar'), 'fechar a janela fecha a lista');
+    }
+
+    #[TestDox('Sem d-none do Bootstrap: as partes da janela ligam e desligam pelo atributo hidden')]
+    public function testPartesPeloHidden(): void
+    {
+        $js = $this->script();
+        self::assertStringNotContainsString('d-none', $js);
+        self::assertStringContainsString("document.getElementById('modal-modo-novo').hidden = !ehNovo;", $js);
+        self::assertStringContainsString("document.getElementById('modal-modo-existente').hidden = ehNovo;", $js);
+        self::assertStringContainsString('cnjOk.hidden = false;', $js);
+        self::assertStringContainsString('feedbackEl.hidden      = !texto;', $this->funcao('mpAtualizarAviso'));
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/pasta-apensados.css');
+        self::assertStringContainsString('#modalVincularProcesso [hidden] { display: none !important; }', $css);
+    }
+
+    #[TestDox('Acessibilidade: abas com aria-selected atualizado; foco volta ao ⋮ quando o item do menu sumiu; sem prisão de foco')]
+    public function testAcessibilidade(): void
+    {
+        self::assertStringContainsString("aba.setAttribute('aria-selected', ativa ? 'true' : 'false');", $this->funcao('mpAplicarModo'));
+        self::assertStringContainsString("t.setAttribute('aria-selected', ativa ? 'true' : 'false');", $this->funcao('mpIrSubaba'));
+
+        $destino = $this->funcao('mpDestinoDoFoco');
+        self::assertStringContainsString('if (gatilho.getClientRects().length) return gatilho;', $destino);
+        self::assertStringContainsString('[data-ps-pop="\' + id + \'"], [aria-controls="\' + id + \'"]', $destino);
+        self::assertStringContainsString('var destino = mpDestinoDoFoco(mpGatilho);', $this->funcao('mpFechar'));
+        self::assertStringNotContainsString("'Tab'", $this->script(), 'sem prisão de foco');
     }
 }

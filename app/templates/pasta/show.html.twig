@@ -1788,9 +1788,9 @@
                     </label>
 
                     {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ (N:295, `tabSt` N:3136) #}
-                    <div class="mp-abas" role="group" aria-label="{{ 'pasta_show.processo.modo_rotulo'|trans }}">
-                        <button type="button" class="mp-aba is-ativa" id="mp-modo-existente" data-vp-modo="existente" aria-pressed="true"><i class="bi bi-search"></i>{{ 'pasta_show.processo.buscar_existente'|trans }}</button>
-                        <button type="button" class="mp-aba" id="mp-modo-novo" data-vp-modo="novo" aria-pressed="false"><i class="bi bi-plus-lg"></i>{{ 'pasta_show.processo.cadastrar_novo'|trans }}</button>
+                    <div class="mp-abas" role="tablist" aria-label="{{ 'pasta_show.processo.modo_rotulo'|trans }}">
+                        <button type="button" class="mp-aba is-ativa" id="mp-modo-existente" data-vp-modo="existente" role="tab" aria-selected="true"><i class="bi bi-search"></i>{{ 'pasta_show.processo.buscar_existente'|trans }}</button>
+                        <button type="button" class="mp-aba" id="mp-modo-novo" data-vp-modo="novo" role="tab" aria-selected="false"><i class="bi bi-plus-lg"></i>{{ 'pasta_show.processo.cadastrar_novo'|trans }}</button>
                     </div>
 
                     {# MODO: buscar processo já cadastrado (N:296-304). A lista abre ao focar, com até 8 processos do
@@ -1814,17 +1814,17 @@
                     </div>
 
                     {# MODO: cadastrar novo processo via CNJ (N:306-345) #}
-                    <div id="modal-modo-novo" class="mp-novo d-none">
+                    <div id="modal-modo-novo" class="mp-novo" hidden>
 
                     {# Sub-abas do formulário de processo (N:306, `subSt` N:3137) #}
                     <div class="processo-modal-tabs" role="tablist">
-                        <button type="button" class="processo-modal-tab active" data-modal-tab="modal-proc-info">
+                        <button type="button" class="processo-modal-tab active" data-modal-tab="modal-proc-info" role="tab" aria-selected="true">
                             <i class="bi bi-info-circle"></i> {{ 'pasta_show.processo.aba_informacoes'|trans }}
                         </button>
-                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-partes">
+                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-partes" role="tab" aria-selected="false">
                             <i class="bi bi-people"></i> {{ 'pasta_show.processo.aba_partes'|trans }}
                         </button>
-                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-movimentacoes">
+                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-movimentacoes" role="tab" aria-selected="false">
                             <i class="bi bi-clock-history"></i> {{ 'pasta_show.processo.aba_movimentacoes'|trans }}
                         </button>
                     </div>
@@ -1841,10 +1841,10 @@
                             {# N:310: o botão alinhado ao input (padding-top 20px) e, embaixo, "Dados localizados". #}
                             <div class="mp-cnj mp-col-2">
                                 <button id="mp-btn-datajud" type="button" class="mp-cnj-btn"
-                                        title=""{{ 'pasta_show.processo.buscar_cnj_dica'|trans }}">
+                                        title="{{ 'pasta_show.processo.buscar_cnj_dica'|trans }}">
                                     <i class="bi bi-search"></i><span id="mp-cnj-texto">{{ 'pasta_show.processo.buscar_cnj'|trans }}</span>
                                 </button>
-                                <span class="mp-cnj-ok d-none" id="mp-cnj-ok"><i class="bi bi-check2"></i> {{ 'pasta_show.processo.dados_localizados'|trans }} <span data-mp-cnj-movs>0</span> {{ 'pasta_show.processo.movimentacoes_contagem'|trans }}</span>
+                                <span class="mp-cnj-ok" id="mp-cnj-ok" hidden><i class="bi bi-check2"></i> {{ 'pasta_show.processo.dados_localizados'|trans }} <span data-mp-cnj-movs>0</span> {{ 'pasta_show.processo.movimentacoes_contagem'|trans }}</span>
                             </div>
                             <label class="mp-campo mp-col-3" for="mp-siglaTribunal">
                                 <span class="mp-rotulo">{{ 'pasta_show.processo.tribunal'|trans }}</span>
@@ -1985,7 +1985,7 @@
 
                     {# Fora do bloco "Cadastrar novo": o aviso "Selecione um processo para vincular." (desenho
                        N:347, `pvVals.aviso`) também aparece na aba "Buscar processo existente". #}
-                    <div id="mp-feedbackAlerta" class="d-none" role="status"></div>
+                    <div id="mp-feedbackAlerta" class="mp-aviso" role="status" hidden></div>
                 </div>
                 <div class="vp-rodape">
                     <button type="button" class="vp-btn vp-btn--cancelar" data-vp-fechar>{{ 'pasta_show.cancelar'|trans }}</button>
@@ -3324,7 +3324,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!texto) {
             texto = mpModoNovo() ? mpCnjNada : (campoProcesso.value ? '' : T('selecione'));
         }
-        feedbackEl.className   = texto ? 'mp-aviso' + (erro ? ' mp-aviso--erro' : '') : 'd-none';
+        feedbackEl.className   = 'mp-aviso' + (erro ? ' mp-aviso--erro' : '');
+        feedbackEl.hidden      = !texto;
         feedbackEl.textContent = texto;
     }
 
@@ -3351,8 +3352,24 @@ document.addEventListener('DOMContentLoaded', function () {
         if (modalEl.hidden) return;
         modalEl.hidden = true;
         mpLimpar();
-        if (mpGatilho && document.contains(mpGatilho)) mpGatilho.focus();
+        var destino = mpDestinoDoFoco(mpGatilho);
+        if (destino) destino.focus();
         mpGatilho = null;
+    }
+
+    /* O foco volta ao botão que abriu. Se ele sumiu (item do menu ⋮, fechado junto), volta ao botão que abre
+       aquele menu (`data-ps-pop` ou `aria-controls` com o id do menu). Sem prisão de foco: o desenho não tem. */
+    function mpDestinoDoFoco(gatilho) {
+        if (!gatilho || !document.contains(gatilho)) return null;
+        if (gatilho.getClientRects().length) return gatilho;
+        var menu = gatilho.parentElement ? gatilho.parentElement.closest('[id]') : null;
+        while (menu) {
+            var id = CSS.escape(menu.id);
+            var abre = document.querySelector('[data-ps-pop="' + id + '"], [aria-controls="' + id + '"]');
+            if (abre && abre.getClientRects().length) return abre;
+            menu = menu.parentElement ? menu.parentElement.closest('[id]') : null;
+        }
+        return null;
     }
 
     document.addEventListener('click', function (e) {
@@ -3369,7 +3386,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ── Sub-abas do cadastro novo ── */
     function mpIrSubaba(nome) {
-        modalEl.querySelectorAll('.processo-modal-tab').forEach(function (t) { t.classList.toggle('active', t.dataset.modalTab === nome); });
+        modalEl.querySelectorAll('.processo-modal-tab').forEach(function (t) {
+            var ativa = t.dataset.modalTab === nome;
+            t.classList.toggle('active', ativa);
+            t.setAttribute('aria-selected', ativa ? 'true' : 'false');
+        });
         modalEl.querySelectorAll('.processo-modal-tab-content').forEach(function (c) { c.classList.toggle('active', c.id === 'tab-' + nome); });
     }
     modalEl.querySelectorAll('.processo-modal-tab').forEach(function (tab) {
@@ -3383,10 +3404,10 @@ document.addEventListener('DOMContentLoaded', function () {
         modalEl.querySelectorAll('.mp-aba').forEach(function (aba) {
             var ativa = aba.dataset.vpModo === mpModo;
             aba.classList.toggle('is-ativa', ativa);
-            aba.setAttribute('aria-pressed', ativa ? 'true' : 'false');
+            aba.setAttribute('aria-selected', ativa ? 'true' : 'false');
         });
-        document.getElementById('modal-modo-existente').classList.toggle('d-none', ehNovo);
-        document.getElementById('modal-modo-novo').classList.toggle('d-none', !ehNovo);
+        document.getElementById('modal-modo-existente').hidden = ehNovo;
+        document.getElementById('modal-modo-novo').hidden = !ehNovo;
         campoProcesso.disabled = ehNovo; // não submete processo_id no modo novo
         mpErro = '';
         mpAtualizarAviso();
@@ -3519,13 +3540,9 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (e.key === 'Enter') {
             e.preventDefault(); // Enter escolhe o item; não envia a janela
             if (aberta && buscaAtivo >= 0 && buscaItens[buscaAtivo]) mpSelecionar(buscaItens[buscaAtivo]);
-        } else if (e.key === 'Escape' && aberta) {
-            // Esc fecha só a lista; com ela fechada, o Esc fecha a janela (Bootstrap).
-            e.preventDefault();
-            e.stopPropagation();
-            buscaQuer = false;
-            mpFecharLista();
         }
+        // Esc não para aqui: como no desenho (`pvVals.tecla`, N:3151), um Esc fecha a janela inteira, mesmo com
+        // a lista aberta (o keydown do documento chama mpFechar, que também fecha a lista).
     });
     document.getElementById('mp-busca-trocar').addEventListener('click', function () {
         mpLimparSelecao();
@@ -3624,7 +3641,7 @@ document.addEventListener('DOMContentLoaded', function () {
     numeroEl.addEventListener('input', function () {
         numeroEl.value = mpProcMask(numeroEl.value);
         document.getElementById('mp-siglaTribunal').value = mpProcTrib(numeroEl.value);
-        cnjOk.classList.add('d-none');
+        cnjOk.hidden = true;
         if (mpCnjNada) { mpCnjNada = ''; mpAtualizarAviso(); }
     });
 
@@ -3640,7 +3657,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (mpCnjBuscando) return;
         var numeroProcesso = mpProcMask(numeroEl.value);
         numeroEl.value = numeroProcesso;
-        cnjOk.classList.add('d-none');
+        cnjOk.hidden = true;
         mpCnjNada = '';
         // Número incompleto: erro vermelho (desenho `erro`, N:4523).
         if (!NUM_CNJ.test(numeroProcesso)) {
@@ -3684,7 +3701,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Desenho N:315: "Dados localizados · N movimentação(ões)".
             cnjOk.querySelector('[data-mp-cnj-movs]').textContent = String((pd.movimentacoes || []).length);
-            cnjOk.classList.remove('d-none');
+            cnjOk.hidden = false;
         } catch (e) {
             mpDefinirErro(T('erro_buscar_cnj_tente'));
         } finally {
@@ -3761,7 +3778,7 @@ document.addEventListener('DOMContentLoaded', function () {
         form.reset();
         mpProxIdx = 0;
         mpPreencherLinhas([], []);
-        cnjOk.classList.add('d-none'); // a confirmação da busca é desta abertura
+        cnjOk.hidden = true; // a confirmação da busca é desta abertura
         mpCnjNada = '';
         mpCnjEstado(false);
         mpIrSubaba('modal-proc-info');
