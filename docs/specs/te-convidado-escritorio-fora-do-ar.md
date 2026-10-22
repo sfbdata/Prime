@@ -12,9 +12,9 @@
 - Origem: achado da 0d no #155 (barreira para escritório suspenso nas rotas `/tenant/{id}`). O Convidado não tem
   escritório na URL (`PREFIXO_SEM_ESCRITORIO`) e a barreira não o pega. Proposta aprovada pelo coordenador em
   20/10 (itens 1 a 5), com os itens 6 e 7 acrescentados por decisão dele (reversível).
-- **Para o dono** (pacote do coordenador): (i) a Central continua agindo nas demandas do escritório fora do ar
-  (recomendação: sim, é ela quem encerra); (ii) excluído em quarentena perde a leitura e o suspenso mantém
-  (recomendação). Até a resposta, a leitura fica para os dois.
+- **Respostas do dono (22/10):** (i) a Central continua agindo nas demandas do escritório fora do ar: sim. (ii) Excluído
+  em quarentena: o Convidado perde também a leitura; suspenso: mantém a leitura. O (ii) entrou na branch
+  `te-convidado-excluido-sem-leitura`, depois do #157.
 
 ## 1. Antes
 
@@ -40,8 +40,11 @@ do #125 (conta ativa com pedido de exclusão pendente) entra nessa regra quando 
    o escritório da demanda está fora do ar. A `PoliticaDaDemanda` trata a marca como a pré-visualização do
    Master (`Contexto::somenteLeitura()`): sem botões, sem conversar, sem andamento ou checklist, sem anexar e sem
    apagar mensagem. A política continua pura; quem consulta a situação é o localizador.
-2. **O que continua**: ver a demanda, o chat, o histórico e baixar documento (pergunta (ii) com o dono);
-   marcar como lida e as marcações pessoais (só do próprio usuário, não mexem na demanda).
+2. **O que continua no suspenso**: ver a demanda, o chat, o histórico e baixar documento; marcar como lida e as
+   marcações pessoais (só do próprio usuário, não mexem na demanda). **No excluído, nem a leitura** (resposta (ii) do
+   dono, 22/10): o `LocalizadorDeDemanda` ignora o convite de demanda de escritório excluído
+   (`SituacaoDaConta::excluida`), e a demanda responde 404 e some do painel do Convidado, como se não houvesse convite.
+   Reativado, o acesso volta.
 3. **Aviso na tela**: no lugar dos botões, "Esta demanda está pausada. Fale com a Central." Sem nome nem
    situação do escritório (o #155 evita esse vazamento para quem é de fora). As recusas do servidor seguem com a
    mensagem de cada ação, que já é neutra.
@@ -49,7 +52,7 @@ do #125 (conta ativa com pedido de exclusão pendente) entra nessa regra quando 
    indisponível", sem formulário), nos três caminhos (abrir, criar a conta e aceitar logado), pela regra única
    `ConviteDisponivel` (convite aceitável e escritório no ar). Nenhum caminho grava o aceite nem cria a conta
    (revisão da b5, B1: o criar-conta gravava o aceite antes da recusa). Quem já tinha aceito e volta ao link também
-   vê "indisponível" e segue lendo a demanda (a leitura está com o dono, (ii)).
+   vê "indisponível"; segue lendo a demanda no suspenso e perde a leitura no excluído (item 2).
 5. **Vagas** (item 6): vaga de escritório fora do ar sai da lista e do detalhe do externo, do link público
    `/vagas-juridicas/{token}` (`abertasEntre`) e do e-mail da campanha (`abertas`), e recusa candidatura ("Vaga
    indisponível"). Quem já se candidatou continua abrindo a vaga por "Minhas candidaturas" (só leitura). Vaga da
@@ -88,7 +91,7 @@ barrado pela sessão (`TenantContextValidatorListener::barreiraDaConta`); currí
   conversar, andamento, anexar, apagar; ver e baixar continuam).
 - Functional: Convidado com permissões completas numa demanda em execução, escritório suspenso: mensagem,
   andamento, checklist, documento e as três ações dão recusa; o detalhe abre com `pausada` e `botoes` vazio; o
-  download continua; marcar lida continua. Reativado, volta a agir. Excluído: o mesmo. A Central segue agindo.
+  download continua; marcar lida continua. Reativado, volta a agir. Excluído: a demanda é 404 (detalhe, download, lida, mensagem) e some do painel; reativado, volta. A Central segue agindo.
 - Functional: aceitar convite de demanda de escritório fora do ar é recusado.
 - Functional: vaga de escritório suspenso some da lista do externo e recusa candidatura; quem já se candidatou
   abre a vaga.

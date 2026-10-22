@@ -17,6 +17,12 @@ final class SituacaoDaConta
 {
     public function foraDoAr(Tenant $conta): bool
     {
-        return $conta->isActive() !== true || $conta->getExcluidoEm() !== null;
+        return $conta->isActive() !== true || $this->excluida($conta);
+    }
+
+    /** Excluída e em quarentena (`excluidoEm` preenchido): fora do ar e, para quem é de fora, nem para leitura. */
+    public function excluida(Tenant $conta): bool
+    {
+        return $conta->getExcluidoEm() !== null;
     }
 }
