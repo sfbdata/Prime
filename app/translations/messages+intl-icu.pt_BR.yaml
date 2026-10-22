@@ -8033,6 +8033,13 @@ pasta_scripts:
             menu_copiar_link: Copiar link
             menu_visualizar: Visualizar
             atalho_espaco: Espaço
+            atalho_ctrl_v: Ctrl+V
+            atalho_ctrl_a: Ctrl+A
+            atalho_ctrl_x: Ctrl+X
+            atalho_ctrl_c: Ctrl+C
+            atalho_del: Del
+            atalho_enter: Enter
+            atalho_f2: F2
             menu_copiar_caminho: Copiar caminho
             menu_renomear: Renomear
             menu_editar: Editar…

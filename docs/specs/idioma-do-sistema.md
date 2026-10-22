@@ -1064,7 +1064,7 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
 ### 20.9 Scripts do explorador, do checklist e das metas
 
 - **Escopo:** os JS `pasta-explorador.js`, `pasta-checklist.js` e `pasta-metas.js`, que o §20.4 deixou de fora. Bloco de
-  topo `pasta_scripts` do catálogo, só com `pasta_scripts.js.*`: 312 chaves (`explorador` 255, `checklist` 37,
+  topo `pasta_scripts` do catálogo, só com `pasta_scripts.js.*`: 319 chaves (`explorador` 262, `checklist` 37,
   `metas` 20). Área `pasta_scripts` no `templates-extraidos.json`, com `templates` vazio.
 - **Catálogo do JS:** os três são carregados pelo `pasta/show.html.twig` sem `defer` (o das metas e o do checklist no
   corpo, o do explorador no bloco `javascripts`). A única mudança no show é a linha
@@ -1083,9 +1083,10 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   "(nome diferente)", o "(pastas não são copiadas)", as pastas do .zip) ou uma chave que embrulha a outra
   (`prazo_fim_de_semana`, `ignorados_*`, `lix_excluido_por`, `lix_restaurado_na_raiz`). O " e " da contagem de
   exclusão virou `lista_e` (`{a} e {b}`). O "(s)" de "selecionado(s)" e "arquivo(s)" ficou como está, como no §8. Os
-  espaços antes do rótulo dos botões da lixeira (depois do ícone) ficaram no JS. Nos permitidos: as teclas, os
-  atalhos mostrados no menu (`Ctrl+A`, `Ctrl+C`, `Ctrl+V`, `Ctrl+X`, `Del`), os cabeçalhos HTTP, o `Files` do
-  arrastar e as quatro mensagens do checklist que só vão ao `console.error`.
+  espaços antes do rótulo dos botões da lixeira (depois do ícone) ficaram no JS. Os atalhos mostrados no menu de
+  contexto viraram `atalho_*` (`Ctrl+A`, `Ctrl+C`, `Ctrl+V`, `Ctrl+X`, `Del`, `Enter`, `F2`, `Espaço`). Nos permitidos:
+  as teclas do `keydown`, os cabeçalhos HTTP, o `Files` do arrastar e as quatro mensagens do checklist que só vão ao
+  `console.error`.
 - **Ficou de fora:** as mensagens `erro`/`mensagem` que o servidor devolve no JSON (o JS só tem o texto de reserva);
   o `toLocaleDateString('pt-BR')` do prazo da meta e os `toLocaleString('pt-BR')` do explorador (data, número e
   tamanho com unidade fixa); e os rótulos dos filtros de tipo, que o explorador lê do HTML (`pasta_documentos`).

@@ -1952,8 +1952,8 @@
         if (!alvo) {
             return [
                 op(BJ_T.t('pasta_scripts.js.explorador.menu_nova_pasta'), 'bi-folder-plus', novaPastaInline, { escrita: true }),
-                op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true }),
-                op(BJ_T.t('pasta_scripts.js.explorador.menu_selecionar_tudo'), 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', colarAqui, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_v'), desabilitado: !areaDeTransferencia, escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_selecionar_tudo'), 'bi-check2-all', selecionarTudo, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_a') }),
                 SEP,
             ].concat([['nome', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_nome')], ['data', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_data')], ['tamanho', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_tamanho')], ['tipo', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_tipo')]].map(function (par) {
                 return op(par[1], classificar.chave === par[0] ? 'bi-check2' : 'bi-sort-down', function () { if (classificar.chave !== par[0]) classificarPor(par[0]); });
@@ -1970,21 +1970,21 @@
             const arqs = sel.filter(ehArquivo);
             return [op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip_n', { n: sel.length }), 'bi-file-earmark-zip', function () { baixarZip(sel); })].concat(arqs.length ? [op(arqs.length < sel.length ? BJ_T.t('pasta_scripts.js.explorador.menu_copiar_links_n', { n: arqs.length }) : BJ_T.t('pasta_scripts.js.explorador.menu_copiar_links'), 'bi-link-45deg', function () { copiarLinks(arqs); })] : [], [
                 SEP,
-                op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar(sel); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_x'), escrita: true }),
                 opCopiar(sel),
             ], [
                 op(BJ_T.t('pasta_scripts.js.explorador.menu_mover_para'), 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true }),
                 op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_caminhos'), 'bi-signpost', function () { copiarCaminhos(sel); }),
                 opFavorito(sel),
                 SEP,
-                op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir_n', { n: sel.length }), 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true, escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir_n', { n: sel.length }), 'bi-trash3', function () { excluirItens(sel); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_del'), perigo: true, escrita: true }),
                 SEP,
                 op(BJ_T.t('pasta_scripts.js.explorador.menu_propriedades'), 'bi-info-square', mostrarPainel),
             ]);
         }
         const ehPasta = alvo.tipo === 'pasta';
         const a = alvo.dado;
-        return [op(BJ_T.t('pasta_scripts.js.explorador.menu_abrir'), ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right', function () { abrirItem(alvo); }, { atalho: 'Enter' })]
+        return [op(BJ_T.t('pasta_scripts.js.explorador.menu_abrir'), ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right', function () { abrirItem(alvo); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_enter') })]
             .concat(ehPasta ? [
                 op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip'), 'bi-download', function () { baixarZip([alvo]); }),
                 // DOC-120: a subpasta também tem link (o nível, por `?pex=`).
@@ -1996,10 +1996,10 @@
             ])
             .concat([
                 SEP,
-                op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar([alvo]); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_x'), escrita: true }),
             ])
             .concat([opCopiar([alvo])])
-            .concat(ehPasta ? [op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })] : [])
+            .concat(ehPasta ? [op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_v'), desabilitado: !areaDeTransferencia, escrita: true })] : [])
             .concat([
                 // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
                 op(BJ_T.t('pasta_scripts.js.explorador.menu_mover_para'), 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true }),
@@ -2009,11 +2009,11 @@
             .concat([
                 opFavorito([alvo]),
                 SEP,
-                op(BJ_T.t('pasta_scripts.js.explorador.menu_renomear'), 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_renomear'), 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_f2'), escrita: true }),
             ])
             .concat(ehPasta ? [] : [op(BJ_T.t('pasta_scripts.js.explorador.menu_editar'), 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })])
             .concat([
-                op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir'), 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir'), 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_del'), perigo: true, escrita: true }),
                 SEP,
                 op(BJ_T.t('pasta_scripts.js.explorador.menu_propriedades'), 'bi-info-square', mostrarPainel),
             ]);
@@ -2036,7 +2036,7 @@
     const COPIAR_SO_PASTAS = BJ_T.t('pasta_scripts.js.explorador.copiar_so_pastas');
     function opCopiar(itens) {
         const soPastas = !itens.some(ehArquivo);
-        return op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar'), 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });
+        return op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar'), 'bi-copy', function () { copiar(itens); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_c'), desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });
     }
     // Rótulos e ícones do desenho (dc L4820): desmarcado mostra a estrela cheia, marcado a vazia.
     // Com vários, "Tirar" só quando TODOS já são favoritos; senão marca os que faltam.

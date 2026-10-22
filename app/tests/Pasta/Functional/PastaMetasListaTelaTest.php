@@ -204,6 +204,12 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         self::assertNotFalse($posTraducao);
         self::assertLessThan($posMetas, $posCatalogo, 'o catálogo vem antes do pasta-metas.js');
         self::assertLessThan($posTraducao, $posMetas, 'o pasta-metas.js roda antes do bj-traducao.js: só pede texto depois do parse');
+        // O pasta-explorador.js pede texto já no parse (TIPOS, COLUNAS_ROTULO, SELO_SUGESTAO, COPIAR_SO_PASTAS,
+        // AVISO_LIXEIRA): só funciona vindo DEPOIS do bj-traducao.js e do catálogo.
+        $posExplorador = strpos($html, '<script src="/js/pasta-explorador.js"></script>');
+        self::assertNotFalse($posExplorador);
+        self::assertLessThan($posExplorador, $posTraducao, 'o pasta-explorador.js vem depois do bj-traducao.js');
+        self::assertLessThan($posExplorador, $posCatalogo, 'o pasta-explorador.js vem depois do catálogo pasta_scripts.js');
     }
 
     #[TestDox('numeração local "1." "2." pela ordem de criação na pasta — o id global do sistema não aparece')]

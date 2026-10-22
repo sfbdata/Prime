@@ -174,8 +174,8 @@ final class PastaExploradorZipCopiarTest extends TestCase
         self::assertLessThan($move, $copia, 'a cópia desvia antes do mover-lote');
         self::assertStringNotContainsString('areaDeTransferencia = null', $this->funcao('copiarLote'), 'a cópia cola quantas vezes se quiser');
         $js = $this->js();
-        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", $js);
-        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", $js);
+        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', colarAqui, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_v'), desabilitado: !areaDeTransferencia, escrita: true })", $js);
+        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_v'), desabilitado: !areaDeTransferencia, escrita: true })", $js);
         self::assertTextoDoScript('Colar', 'explorador.menu_colar', $js);
         self::assertStringContainsString("if (ctrl && baixa === 'v') { if (areaDeTransferencia) { e.preventDefault(); colarAqui(); } return; }", $js);
     }
@@ -218,14 +218,14 @@ final class PastaExploradorZipCopiarTest extends TestCase
         $zipN = strpos($menu, "return [op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip_n', { n: sel.length }), 'bi-file-earmark-zip', function () { baixarZip(sel); })]", $multi);
         self::assertNotFalse($zipN, 'primeiro item do menu de vários');
         self::assertLessThan(strpos($menu, "op(arqs.length < sel.length ? BJ_T.t('pasta_scripts.js.explorador.menu_copiar_links_n', { n: arqs.length })", $multi), $zipN);
-        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true }),\n                opCopiar(sel),", $menu);
+        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar(sel); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_x'), escrita: true }),\n                opCopiar(sel),", $menu);
         self::assertStringNotContainsString('arqs.length ? [op(\'Copiar\'', $menu, 'o Copiar não some sem arquivo');
         // A pasta: "Baixar como .zip" no lugar do Baixar, e (DOC-120) o "Copiar link" do nível logo depois.
         self::assertStringContainsString(".concat(ehPasta ? [\n                op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip'), 'bi-download', function () { baixarZip([alvo]); }),\n                // DOC-120: a subpasta também tem link (o nível, por `?pex=`).\n                op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_link'), 'bi-link-45deg', function () { copiarLinks([alvo]); }),\n            ] : [", $menu);
         self::assertStringContainsString(".concat([opCopiar([alvo])])", $menu, 'pasta e arquivo: o Copiar está sempre lá');
         $opCopiar = $this->funcao('opCopiar');
         self::assertStringContainsString('const soPastas = !itens.some(ehArquivo);', $opCopiar);
-        self::assertStringContainsString("return op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar'), 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });", $opCopiar);
+        self::assertStringContainsString("return op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar'), 'bi-copy', function () { copiar(itens); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_c'), desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });", $opCopiar);
         self::assertStringContainsString("const COPIAR_SO_PASTAS = BJ_T.t('pasta_scripts.js.explorador.copiar_so_pastas');", $this->js());
         self::assertTextoDoScript('Pastas não são copiadas', 'explorador.copiar_so_pastas', $this->js());
         self::assertTextoDoScript('Copiar', 'explorador.menu_copiar', $this->js());
