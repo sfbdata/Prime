@@ -560,5 +560,18 @@
         "permitidos": [
             "https://drive.google.com/drive/folders/…"
         ]
+    },
+
+    "raiz": {
+        "templates": [
+            "_fundo_auth.html.twig",
+            "_oab_status.html.twig",
+            "_recurso_faixa_master.html.twig",
+            "layout_peticionar.html.twig"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "| BlueJus"
+        ]
     }
 }

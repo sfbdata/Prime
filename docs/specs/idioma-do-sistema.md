@@ -574,3 +574,31 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   ano (feriado fixo)", "O nome é obrigatório."); os flashes do `FeriadoController` e do `DriveConexaoController`
   (inclusive a mensagem de exceção do `DefinirRootFolderDriveUseCase` repassada em flash) e as mensagens dos 403/404,
   como na §18; o `|date('d/m')` acima.
+
+### 24.2 Templates da raiz (7d, 21/10)
+
+- **Escopo:** os quatro templates soltos na raiz de `templates/`: `_fundo_auth` (fundo do login e da redefinição de
+  senha), `_oab_status` (chip de status da OAB, usado na fila de OAB do Master), `_recurso_faixa_master` (faixa do
+  Master numa tela desligada, incluída pelo base, pelo `layout_peticionar` e pelo `push_compartilhado/show`) e
+  `layout_peticionar` (o layout próprio do Peticionar, que não herda o base). 15 chaves novas: `oab_status` (4),
+  `peticionar` (10, em `peticionar.cabecalho.*` e `peticionar.processo.*`, antes do `# ---- termos`) e
+  `moldura.faixa_master.aviso` (1, dentro do bloco `moldura`, sem repetir a chave de topo). O cabeçalho do Peticionar
+  repete o do base e reaproveita 9 chaves que já existiam com o mesmo rótulo e sentido (`moldura.notificacoes.rotulo`,
+  `contagem_sufixo`, `nenhuma`, `ver_todas`; `moldura.cabecalho.tela_cheia` e `menu_usuario`;
+  `menu.usuario.dropdown.meu_perfil`, `privacidade` e `sair`). O `_fundo_auth` só tem CSS e comentário: nenhuma
+  chave, mas entra na lista para o guarda pegar texto novo. Área `raiz` no `templates-extraidos.json`, com "BlueJus"
+  e o "| BlueJus" do `<title>` do Peticionar nos permitidos. Nenhum dos quatro tem script inline, então o
+  `layout_peticionar` não precisou do `catalogo_js` nem do `bj-traducao.js`.
+- **Sem mudança visível:** o HTML de 10 telas (redefinir senha com token válido e com token inválido; a fila de OAB do
+  Master com inscrições confirmada, divergente e não verificada, nos filtros "todas" e padrão, e vazia; Minhas Metas
+  como Master com a tela ligada e desligada, isto é, com a faixa; o link público do Push com a tela `pushpub`
+  desligada, com a faixa; o Peticionar de uma pasta vazia e de uma com cliente, nome da ação e processo com partes e
+  todos os campos do cartão) foi gravado antes e depois e comparado com tokens e ids normalizados: 7 telas saíram
+  iguais e as outras 3 diferem só nos ids das inscrições (nos `action` dos formulários), no token CSRF e no minuto da
+  marca-d'água do link público (o relógio).
+- **Formatos:** a data de distribuição do cartão do processo (`|date('d/m/Y')`) virou `|data` (só aparece quando há
+  data, então o `|date(null)` não entra em jogo).
+  O "X" entre os polos do processo também virou chave (`peticionar.processo.contra`).
+- **Ficou para depois:** o estado "Sem OAB" do chip não apareceu na foto (a fila só lista inscrições, que sempre têm
+  status); a chave existe e a troca é a mesma das outras três. O `pasta/peticionar.html.twig` (o conteúdo do Peticionar) e os outros templates que
+  incluem estes quatro ficam para a extração das áreas deles.
