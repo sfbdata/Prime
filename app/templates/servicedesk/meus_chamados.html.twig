@@ -1,13 +1,13 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Meus Chamados{% endblock %}
+{% block title %}{{ 'servicedesk.comum.meus_chamados'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0"><i class="bi bi-ticket-detailed me-2"></i>Meus Chamados</h1>
+        <h1 class="m-0"><i class="bi bi-ticket-detailed me-2"></i>{{ 'servicedesk.comum.meus_chamados'|trans }}</h1>
         <a href="{{ path('servicedesk_novo') }}" class="btn btn-success">
-            <i class="bi bi-plus-lg me-1"></i> Abrir Chamado
+            <i class="bi bi-plus-lg me-1"></i> {{ 'servicedesk.comum.abrir_chamado'|trans }}
         </a>
     </div>
 </section>
@@ -20,7 +20,7 @@
                 <div class="info-box">
                     <span class="info-box-icon text-bg-warning"><i class="bi bi-inbox"></i></span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Abertos</span>
+                        <span class="info-box-text">{{ 'servicedesk.comum.abertos'|trans }}</span>
                         <span class="info-box-number">{{ chamados|filter(c => c.status == 'aberto')|length }}</span>
                     </div>
                 </div>
@@ -29,7 +29,7 @@
                 <div class="info-box">
                     <span class="info-box-icon text-bg-primary"><i class="bi bi-gear-wide-connected"></i></span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Em Andamento</span>
+                        <span class="info-box-text">{{ 'servicedesk.comum.em_andamento'|trans }}</span>
                         <span class="info-box-number">{{ chamados|filter(c => c.status == 'em_andamento')|length }}</span>
                     </div>
                 </div>
@@ -38,7 +38,7 @@
                 <div class="info-box">
                     <span class="info-box-icon text-bg-success"><i class="bi bi-check-circle"></i></span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Resolvidos</span>
+                        <span class="info-box-text">{{ 'servicedesk.comum.resolvidos'|trans }}</span>
                         <span class="info-box-number">{{ chamados|filter(c => c.status == 'resolvido')|length }}</span>
                     </div>
                 </div>
@@ -47,7 +47,7 @@
                 <div class="info-box">
                     <span class="info-box-icon text-bg-secondary"><i class="bi bi-archive"></i></span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Fechados</span>
+                        <span class="info-box-text">{{ 'servicedesk.comum.fechados'|trans }}</span>
                         <span class="info-box-number">{{ chamados|filter(c => c.status == 'fechado')|length }}</span>
                     </div>
                 </div>
@@ -62,13 +62,13 @@
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Título</th>
-                            <th>Categoria</th>
-                            <th>Prioridade</th>
-                            <th>Status</th>
-                            <th>Aberto em</th>
-                            <th>Última atualização</th>
-                            <th>Ações</th>
+                            <th>{{ 'servicedesk.comum.titulo'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.categoria'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.prioridade'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.status'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.aberto_em'|trans }}</th>
+                            <th>{{ 'servicedesk.meus_chamados.ultima_atualizacao'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.acoes'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -92,16 +92,16 @@
                                 </span>
                             </td>
                             <td>
-                                <small>{{ chamado.criadoEm|date('d/m/Y H:i') }}</small>
+                                <small>{{ chamado.criadoEm|data_hora }}</small>
                             </td>
                             <td>
-                                <small>{{ chamado.atualizadoEm ? chamado.atualizadoEm|date('d/m/Y H:i') : '-' }}</small>
+                                <small>{{ chamado.atualizadoEm ? chamado.atualizadoEm|data_hora : '-' }}</small>
                             </td>
                             <td>
                                 <a href="{{ path('servicedesk_show', {id: chamado.id}) }}"
                                    class="btn-action btn-action-view"
-                                   title="Visualizar chamado"
-                                   aria-label="Visualizar chamado">
+                                   title="{{ 'servicedesk.comum.visualizar_chamado'|trans }}"
+                                   aria-label="{{ 'servicedesk.comum.visualizar_chamado'|trans }}">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>
@@ -112,10 +112,10 @@
                 {% else %}
                 <div class="p-5 text-center">
                     <i class="bi bi-ticket display-1 text-muted"></i>
-                    <h4 class="mt-3 text-muted">Você ainda não abriu nenhum chamado</h4>
-                    <p class="text-muted">Precisa de ajuda com algo? Abra um chamado e nossa equipe de TI irá auxiliá-lo.</p>
+                    <h4 class="mt-3 text-muted">{{ 'servicedesk.meus_chamados.vazio_titulo'|trans }}</h4>
+                    <p class="text-muted">{{ 'servicedesk.meus_chamados.vazio_texto'|trans }}</p>
                     <a href="{{ path('servicedesk_novo') }}" class="btn btn-primary mt-2">
-                        <i class="bi bi-plus-lg me-1"></i> Abrir meu primeiro chamado
+                        <i class="bi bi-plus-lg me-1"></i> {{ 'servicedesk.meus_chamados.primeiro_chamado'|trans }}
                     </a>
                 </div>
                 {% endif %}

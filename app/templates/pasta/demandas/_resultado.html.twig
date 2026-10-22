@@ -7,7 +7,7 @@
 
 <div class="demandas-resultado-head">
     <div class="demandas-count">
-        <i class="bi bi-list-ul"></i> <strong>{{ total }}</strong>&nbsp;demanda(s) encontrada(s)
+        <i class="bi bi-list-ul"></i> <strong>{{ total }}</strong>&nbsp;{{ 'pasta_lista.resultado.encontradas'|trans }}
     </div>
     {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
 </div>
@@ -19,12 +19,12 @@
             <table class="table mb-0" id="tabelaDemandas">
                 <thead>
                     <tr>
-                        <th class="sortable ps-3{{ filtros.ordenar == 'nup' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="nup" style="width:90px"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="sortable{{ filtros.ordenar == 'cliente' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="cliente"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="sortable col-acao-tabela{{ filtros.ordenar == 'acao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="acao"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="sortable{{ filtros.ordenar == 'prioridade' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="prioridade" style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Metas</th>
-                        <th class="col-data-tabela" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod.</th>
+                        <th class="sortable ps-3{{ filtros.ordenar == 'nup' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="nup" style="width:90px"><i class="bi bi-upc me-1"></i>{{ 'pasta_lista.nup'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable{{ filtros.ordenar == 'cliente' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="cliente"><i class="bi bi-person me-1"></i>{{ 'pasta_lista.cliente'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable col-acao-tabela{{ filtros.ordenar == 'acao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="acao"><i class="bi bi-briefcase me-1"></i>{{ 'pasta_lista.acao'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable{{ filtros.ordenar == 'prioridade' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="prioridade" style="width:95px;"><i class="bi bi-flag-fill me-1"></i>{{ 'pasta_lista.prioridade'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>{{ 'pasta_lista.metas'|trans }}</th>
+                        <th class="col-data-tabela" style="width:95px"><i class="bi bi-clock-history me-1"></i>{{ 'pasta_lista.resultado.modificada'|trans }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -44,15 +44,16 @@
                                 {% if pasta.clientes|length == 1 %}
                                     {{ pasta.clientes[0].nomeExibicao }}
                                 {% else %}
+                                    {% set nomesClientes = pasta.clientes|map(c => c.nomeExibicao)|join('||') %}
                                     <span class="clientes-resumo"
                                           data-bs-placement="right"
-                                          data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
+                                          data-clientes="{{ nomesClientes }}">
                                         {{ pasta.clientes[0].nomeExibicao }}&hellip;
                                         <span class="badge text-bg-secondary ms-1" style="font-size:.65rem;">+{{ pasta.clientes|length - 1 }}</span>
                                     </span>
                                 {% endif %}
                             {% else %}
-                                <span class="text-muted">Não informado</span>
+                                <span class="text-muted">{{ 'pasta_lista.nao_informado'|trans }}</span>
                             {% endif %}
                         </td>
                         <td class="col-acao-tabela align-middle">
@@ -61,7 +62,7 @@
                             {% elseif pasta.nomeAcao %}
                                 {{ pasta.nomeAcao }}
                             {% else %}
-                                <span class="text-muted">Não informado</span>
+                                <span class="text-muted">{{ 'pasta_lista.nao_informado'|trans }}</span>
                             {% endif %}
                         </td>
                         <td class="align-middle">
@@ -75,19 +76,19 @@
                             {% if totalTarefas > 0 %}
                                 {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
                                 <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
-                                   class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
-                                   title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
+                                   class="badge {{ temRevisao ? 'text-bg-warning' : (0 < tarefasAtivas|length ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                                   title="{{ 'pasta_lista.metas_resumo'|trans({total: totalTarefas ~ '', ativas: tarefasAtivas|length ~ ''}) }}">
                                     <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
                                 </a>
                             {% else %}
-                                <span class="text-muted" style="font-size:.8rem;">Nenhuma</span>
+                                <span class="text-muted" style="font-size:.8rem;">{{ 'pasta_lista.resultado.nenhuma'|trans }}</span>
                             {% endif %}
                         </td>
                         <td class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
-                            {% if dias is null %}Sem registro
-                            {% elseif dias == 0 %}Hoje
-                            {% elseif dias == 1 %}1 dia atrás
-                            {% else %}{{ dias }}d atrás{% endif %}
+                            {% if dias is null %}{{ 'pasta_lista.resultado.sem_registro'|trans }}
+                            {% elseif dias == 0 %}{{ 'pasta_lista.hoje'|trans }}
+                            {% elseif dias == 1 %}{{ 'pasta_lista.resultado.um_dia'|trans }}
+                            {% else %}{{ 'pasta_lista.resultado.dias'|trans({dias: dias ~ ''}) }}{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -123,7 +124,7 @@
                         {% elseif pasta.nomeCliente %}
                             {{ pasta.nomeCliente }}
                         {% else %}
-                            <span class="text-muted">Não informado</span>
+                            <span class="text-muted">{{ 'pasta_lista.nao_informado'|trans }}</span>
                         {% endif %}
                     </span>
                 </div>
@@ -139,14 +140,14 @@
                 <div class="pasta-card-row">
                     <span class="pasta-card-label"><i class="bi bi-clock-history"></i></span>
                     <span class="pasta-card-value text-muted" style="font-size:.8rem;">
-                        {% if dias is null %}Sem registro{% elseif dias == 0 %}Hoje{% elseif dias == 1 %}1 dia atrás{% else %}{{ dias }}d atrás{% endif %}
+                        {% if dias is null %}{{ 'pasta_lista.resultado.sem_registro'|trans }}{% elseif dias == 0 %}{{ 'pasta_lista.hoje'|trans }}{% elseif dias == 1 %}{{ 'pasta_lista.resultado.um_dia'|trans }}{% else %}{{ 'pasta_lista.resultado.dias'|trans({dias: dias ~ ''}) }}{% endif %}
                     </span>
                 </div>
             </div>
 
             <div class="pasta-card-footer">
                 <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation()">
-                    <i class="bi bi-eye me-1"></i>Ver
+                    <i class="bi bi-eye me-1"></i>{{ 'pasta_lista.resultado.ver'|trans }}
                 </a>
             </div>
         </div>
@@ -157,11 +158,11 @@
         <div class="demandas-empty">
             <div class="empty-ico"><i class="bi bi-inbox"></i></div>
             {% if temFiltro %}
-                <p class="empty-title">Nenhuma demanda encontrada</p>
-                <p class="text-muted small mb-0">Tente ajustar ou limpar os filtros aplicados.</p>
+                <p class="empty-title">{{ 'pasta_lista.resultado.vazio_filtro_titulo'|trans }}</p>
+                <p class="text-muted small mb-0">{{ 'pasta_lista.resultado.vazio_filtro_texto'|trans }}</p>
             {% else %}
-                <p class="empty-title">Tudo em dia por aqui</p>
-                <p class="text-muted small mb-0">Você não possui demandas no momento.</p>
+                <p class="empty-title">{{ 'pasta_lista.resultado.vazio_titulo'|trans }}</p>
+                <p class="text-muted small mb-0">{{ 'pasta_lista.resultado.vazio_texto'|trans }}</p>
             {% endif %}
         </div>
     </div>

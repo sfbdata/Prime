@@ -21,10 +21,10 @@
         <input type="hidden" name="por_pagina" value="{{ pagination.per_page ?? '' }}">
         <div class="pasta-filtros-linha">
             {# dc L.144: a dica da busca diz o que ela procura. #}
-            <div class="pasta-filtros-busca" data-tip="Buscar por número da pasta, nome do cliente, ação ou número do processo">
+            <div class="pasta-filtros-busca" data-tip="{{ 'pasta_lista.filtros.busca_dica'|trans }}">
                 <i class="bi bi-search"></i>
                 <input type="text" name="busca" class="form-control form-control-sm js-pasta-busca"
-                       placeholder="Buscar pasta, cliente, ação ou processo"
+                       placeholder="{{ 'pasta_lista.filtros.busca_placeholder'|trans }}"
                        autocomplete="off" value="{{ filters.busca ?? '' }}">
             </div>
 
@@ -32,11 +32,11 @@
 
             {# Responsável e Prioridade com a cara de botão do desenho (dc L.102-108, AUD-09): seta pequena e, na
                prioridade, a bandeira na cor do valor. Seguem <select> nativos (teclado e leitor de tela de graça). #}
-            <span class="exp-filtro exp-filtro--resp" role="button" tabindex="0" aria-haspopup="dialog" data-tip="Filtrar pelo responsável da pasta">
+            <span class="exp-filtro exp-filtro--resp" role="button" tabindex="0" aria-haspopup="dialog" data-tip="{{ 'pasta_lista.filtros.responsavel_dica'|trans }}">
             <select name="responsavel" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
-                    data-rotulo="Responsável" aria-label="Filtrar por responsável" tabindex="-1">
-                <option value="">Responsável</option>
-                <option value="sem" {% if filters.responsavel == 'sem' %}selected{% endif %}>Sem responsável</option>
+                    data-rotulo="{{ 'pasta_lista.filtros.responsavel'|trans }}" aria-label="{{ 'pasta_lista.filtros.responsavel_rotulo'|trans }}" tabindex="-1">
+                <option value="">{{ 'pasta_lista.filtros.responsavel'|trans }}</option>
+                <option value="sem" {% if filters.responsavel == 'sem' %}selected{% endif %}>{{ 'pasta_lista.filtros.sem_responsavel'|trans }}</option>
                 {# dc L.146-148 e L.652 (`avBg`): com foto, o avatar do menu e do botão é a foto; sem, as iniciais. #}
                 {% set fotosDoFiltro = fotosResponsaveis|default({}) %}
                 {% for usuario in responsaveis %}
@@ -47,35 +47,35 @@
             <i class="bi bi-chevron-down exp-filtro-seta" aria-hidden="true"></i>
             </span>
 
-            <span class="exp-filtro exp-filtro--prio" data-valor="{{ filters.prioridade ?? '' }}" role="button" tabindex="0" aria-haspopup="dialog" data-tip="Prioridade: Normal, Alta ou Urgente">
+            <span class="exp-filtro exp-filtro--prio" data-valor="{{ filters.prioridade ?? '' }}" role="button" tabindex="0" aria-haspopup="dialog" data-tip="{{ 'pasta_lista.filtros.prioridade_dica'|trans }}">
             <i class="bi bi-flag-fill exp-filtro-bandeira" aria-hidden="true"></i>
             <select name="prioridade" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
-                    data-rotulo="Prioridade" aria-label="Filtrar por prioridade" tabindex="-1">
-                <option value="">Prioridade</option>
-                <option value="normal" {% if filters.prioridade == 'normal' %}selected{% endif %}>Normal</option>
-                <option value="prioridade" {% if filters.prioridade == 'prioridade' %}selected{% endif %}>Alta</option>
-                <option value="urgente" {% if filters.prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
+                    data-rotulo="{{ 'pasta_lista.prioridade'|trans }}" aria-label="{{ 'pasta_lista.filtros.prioridade_rotulo'|trans }}" tabindex="-1">
+                <option value="">{{ 'pasta_lista.prioridade'|trans }}</option>
+                <option value="normal" {% if filters.prioridade == 'normal' %}selected{% endif %}>{{ 'pasta_lista.filtros.normal'|trans }}</option>
+                <option value="prioridade" {% if filters.prioridade == 'prioridade' %}selected{% endif %}>{{ 'pasta_lista.filtros.alta'|trans }}</option>
+                <option value="urgente" {% if filters.prioridade == 'urgente' %}selected{% endif %}>{{ 'pasta_lista.filtros.urgente'|trans }}</option>
             </select>
             <i class="bi bi-chevron-down exp-filtro-seta" aria-hidden="true"></i>
             </span>
 
-            <div class="pasta-filtros-periodo" data-tip="Período de abertura da pasta">
+            <div class="pasta-filtros-periodo" data-tip="{{ 'pasta_lista.filtros.periodo_dica'|trans }}">
                 <span class="pasta-data-campo">
                     <input type="date" name="data_de" class="form-control form-control-sm js-pasta-filtro"
-                           data-rotulo="De" aria-label="Aberta a partir de" value="{{ filters.data_de ?? '' }}">
+                           data-rotulo="{{ 'pasta_lista.filtros.de'|trans }}" aria-label="{{ 'pasta_lista.filtros.de_rotulo'|trans }}" value="{{ filters.data_de ?? '' }}">
                     <button type="button" class="pasta-data-btn js-abrir-calendario" tabindex="-1"
-                            aria-label="Abrir calendário"><i class="bi bi-calendar3"></i></button>
+                            aria-label="{{ 'pasta_lista.filtros.abrir_calendario'|trans }}"><i class="bi bi-calendar3"></i></button>
                 </span>
-                <span class="pasta-filtros-periodo-sep" aria-hidden="true">a</span>
+                <span class="pasta-filtros-periodo-sep" aria-hidden="true">{{ 'pasta_lista.filtros.periodo_sep'|trans }}</span>
                 <span class="pasta-data-campo">
                     <input type="date" name="data_ate" class="form-control form-control-sm js-pasta-filtro"
-                           data-rotulo="Até" aria-label="Aberta até" value="{{ filters.data_ate ?? '' }}">
+                           data-rotulo="{{ 'pasta_lista.filtros.ate'|trans }}" aria-label="{{ 'pasta_lista.filtros.ate_rotulo'|trans }}" value="{{ filters.data_ate ?? '' }}">
                     <button type="button" class="pasta-data-btn js-abrir-calendario" tabindex="-1"
-                            aria-label="Abrir calendário"><i class="bi bi-calendar3"></i></button>
+                            aria-label="{{ 'pasta_lista.filtros.abrir_calendario'|trans }}"><i class="bi bi-calendar3"></i></button>
                 </span>
             </div>
             {# "Limpar todos os filtros" em ícone (dc L.149): só aparece com algum filtro (expediente-lista.js). #}
-            <button type="button" class="exp-limpar js-pasta-limpar" data-tip="Limpar todos os filtros" aria-label="Limpar todos os filtros" hidden>
+            <button type="button" class="exp-limpar js-pasta-limpar" data-tip="{{ 'pasta_lista.filtros.limpar'|trans }}" aria-label="{{ 'pasta_lista.filtros.limpar'|trans }}" hidden>
                 <i class="bi bi-x-circle" aria-hidden="true"></i>
             </button>
         </div>

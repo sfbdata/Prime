@@ -181,7 +181,8 @@
             "tarefa/_meta_cartao.html.twig",
             "tarefa/_resultado.html.twig",
             "tarefa/equipe.html.twig",
-            "tarefa/_numero_global.html.twig"
+            "tarefa/_numero_global.html.twig",
+            "tarefa/show.html.twig"
         ],
         "js": [],
         "permitidos": []
@@ -556,6 +557,37 @@
         ]
     },
 
+    "escritorio": {
+        "templates": [
+            "tenant/index.html.twig",
+            "tenant/new.html.twig",
+            "tenant/criar.html.twig",
+            "tenant/show.html.twig",
+            "tenant/edit.html.twig",
+            "tenant/_form.html.twig",
+            "tenant/_delete_form.html.twig",
+            "tenant/selecionar.html.twig",
+            "tenant/escritorio_indisponivel.html.twig",
+            "tenant/users.html.twig",
+            "tenant/edit_user_role.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "· BlueJus"
+        ]
+    },
+
+    "kanban": {
+        "templates": [
+            "kanban/index.html.twig",
+            "kanban/board.html.twig",
+            "kanban/_partials/_card_mini.html.twig",
+            "kanban/_partials/_card_modal_body.html.twig",
+            "kanban/_partials/_comentario.html.twig"
+        ],
+        "permitidos": []
+    },
+
     "auth": {
         "templates": [
             "auth/meus_convites.html.twig",
@@ -579,6 +611,15 @@
             "App\\\\Auth\\\\Controller\\\\CadastroController::CSRF_CRIAR_SENHA",
             "App\\\\Auth\\\\UseCase\\\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR"
         ]
+    },
+
+    "djen": {
+        "templates": [
+            "djen/index.html.twig",
+            "djen/oabs.html.twig",
+            "djen/show.html.twig"
+        ],
+        "permitidos": []
     },
 
     "feriado": {
@@ -620,6 +661,211 @@
             "Enter",
             "Escape",
             "ArrowDown"
+        ]
+    },
+
+    "raiz": {
+        "templates": [
+            "_fundo_auth.html.twig",
+            "_oab_status.html.twig",
+            "_recurso_faixa_master.html.twig",
+            "layout_peticionar.html.twig"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "| BlueJus"
+        ]
+    },
+
+    "pasta_avisos": {
+        "templates": [
+            "pasta/_abas_ocultas.html.twig",
+            "pasta/_andamento.html.twig",
+            "pasta/_aviso_duplicada_conteudo.html.twig",
+            "pasta/_aviso_duplicada_modal.html.twig",
+            "pasta/_cadeado_faixa.html.twig",
+            "pasta/_cadeado_icone.html.twig",
+            "pasta/_cadeado_menu.html.twig",
+            "pasta/_cadeado_modal.html.twig",
+            "pasta/_cadeado_pedidos.html.twig",
+            "pasta/confirmar_duplicada.html.twig",
+            "pasta/trancada.html.twig",
+            "pasta/zip_recusado.html.twig"
+        ],
+        "js": [
+            "pasta-abas-ocultas.js",
+            "pasta-andamento.js",
+            "pasta-cadeado.js",
+            "pasta-cadeado-pedidos.js"
+        ],
+        "permitidos": [
+            "ps-body",
+            "· BlueJus",
+            "Accept",
+            "Content-Type",
+            "ContextMenu",
+            "Escape",
+            "Enter",
+            "ArrowDown",
+            "ArrowUp",
+            "Tab"
+        ]
+    },
+
+    "pasta_resp": {
+        "templates": [
+            "pasta/_historico_drawer.html.twig",
+            "pasta/_impressao_modal.html.twig",
+            "pasta/_pontos_relatorio.html.twig",
+            "pasta/_resp_chip.html.twig",
+            "pasta/_resp_estilo.html.twig",
+            "pasta/_resp_menu.html.twig",
+            "pasta/_resp_script.html.twig",
+            "pasta/_timeline_inteligente.html.twig",
+            "pasta/resumo_impressao.html.twig"
+        ],
+        "js": [
+            "pasta-impressao.js",
+            "pasta-timeline.js"
+        ],
+        "permitidos": [
+            "BLUEJUS",
+            "BlueJus",
+            "App\\\\Pasta\\\\DTO\\\\PastaFinanceiroOutput::SEM_DADO",
+            "Accept",
+            "AbortError",
+            "Escape"
+        ]
+    },
+
+    "publicas": {
+        "templates": [
+            "comercial/confirmacao/confirmado.html.twig",
+            "comercial/confirmacao/confirmar.html.twig",
+            "comercial/confirmacao/vencido.html.twig",
+            "email_descadastro/confirmado.html.twig",
+            "email_descadastro/confirmar.html.twig",
+            "indicacao/_janela.html.twig",
+            "invitation/index.html.twig"
+        ],
+        "js": [
+            "indicacao.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "WhatsApp",
+            "Content-Type"
+        ]
+    },
+
+    "trabalho_externo": {
+        "templates": [
+            "trabalho_externo/convite.html.twig",
+            "trabalho_externo/curriculo_documento.html.twig",
+            "trabalho_externo/index.html.twig",
+            "trabalho_externo/sem_acesso.html.twig",
+            "trabalho_externo/vagas_publicas.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "te-body",
+            "App\\\\Auth\\\\UseCase\\\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR"
+        ]
+    },
+
+    "central": {
+        "templates": [
+            "central/_flutuante.html.twig",
+            "central/_janela.html.twig",
+            "central/index.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "App\\\\Central\\\\Entity\\\\Mensagem::TAMANHO_MAXIMO"
+        ]
+    },
+
+    "servicedesk": {
+        "templates": [
+            "servicedesk/index.html.twig",
+            "servicedesk/meus_chamados.html.twig",
+            "servicedesk/novo.html.twig",
+            "servicedesk/show.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "pasta_lista": {
+        "templates": [
+            "pasta/index.html.twig",
+            "pasta/_tabela.html.twig",
+            "pasta/_card.html.twig",
+            "pasta/_cliente_linha.html.twig",
+            "pasta/_filtros.html.twig",
+            "pasta/_filtro_situacao.html.twig",
+            "pasta/demandas.html.twig",
+            "pasta/demandas/_resultado.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "aria-sort=\"\""
+        ]
+    },
+
+    "inteligencia": {
+        "templates": [
+            "inteligencia/_agentes_drawer.html.twig",
+            "inteligencia/_agentes_painel.html.twig",
+            "inteligencia/_comando_secao.html.twig",
+            "inteligencia/_documentos_indice.html.twig",
+            "inteligencia/_analise_cartao_agente.html.twig",
+            "inteligencia/_analises_agente.html.twig",
+            "inteligencia/_analises_comando.html.twig",
+            "inteligencia/_analises_push.html.twig",
+            "inteligencia/_conversa.html.twig",
+            "inteligencia/_conversa_rodape.html.twig",
+            "inteligencia/_auditoria.html.twig",
+            "inteligencia/admin/configuracao.html.twig"
+        ],
+        "js": [
+            "pasta-ia-agentes.js",
+            "pasta-ia-conversa.js",
+            "pasta-ia-push.js"
+        ],
+        "permitidos": [
+            "BlueJus IA",
+            "BLUEJUS IA",
+            "App\\\\Inteligencia\\\\Enum\\\\SecaoDoContexto",
+            "Escape",
+            "Enter",
+            "ArrowRight",
+            "ArrowLeft",
+            "Home",
+            "End"
+        ]
+    },
+
+    "pasta_documentos": {
+        "templates": [
+            "pasta/_dados_anotacoes.html.twig",
+            "pasta/_documentos_checklist.html.twig",
+            "pasta/_documentos_explorador.html.twig",
+            "pasta/_documentos_sugeridos.html.twig",
+            "pasta/_metas.html.twig"
+        ],
+        "js": [
+            "pasta-documentos-sugeridos.js",
+            "pasta-explorador-visor.js"
+        ],
+        "permitidos": [
+            "App\\\\Pasta\\\\Entity\\\\MotivoDesativacaoChecklist",
+            "App\\\\Tarefa\\\\UseCase\\\\RenomearMetaUseCase::TAMANHO_MAXIMO",
+            "Escape",
+            "Tab",
+            "ArrowLeft",
+            "ArrowRight"
         ]
     },
 
