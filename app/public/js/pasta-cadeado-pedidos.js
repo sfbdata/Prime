@@ -24,11 +24,11 @@
         }).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (dados) { return { ok: r.ok, dados: dados }; });
         }).then(function (r) {
-            avisar(r.dados.mensagem || (r.ok ? 'Pedido decidido' : 'Não foi possível decidir o pedido'));
+            avisar(r.dados.mensagem || (r.ok ? BJ_T.t('pasta_avisos.js.pedidos_decidido') : BJ_T.t('pasta_avisos.js.pedidos_falhou')));
             if (!r.ok) { return; }
             if (pedido) { pedido.remove(); }
             if (faixa && !faixa.querySelector('.js-cadeado-pedido')) { faixa.remove(); }
-        }, function () { avisar('Falha de conexão ao decidir o pedido'); });
+        }, function () { avisar(BJ_T.t('pasta_avisos.js.pedidos_sem_conexao')); });
     });
 
     // Chegou pelo aviso do pedido (`#cadeado-pedidos`): a faixa já está na tela; só rola até ela.
