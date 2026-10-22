@@ -3402,7 +3402,8 @@ escritorio:
         nao_informado: Não informado
         nenhum: Nenhum
         # Contagem dos acessos específicos no botão que abre a lista (sempre 1 ou mais). "items" é o texto de hoje.
-        itens: '{n, plural, one {# item} other {# items}}'
+        # {qtd} é o número já como texto: o # do ICU agruparia o milhar ("1.000"), e a tela mostra "1000".
+        itens: '{n, plural, one {{qtd} item} other {{qtd} items}}'
         ver_dica: Visualizar
         ver: Ver
         editar: Editar

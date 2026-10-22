@@ -64,7 +64,7 @@
                                             data-bs-target="#accesses-{{ user.id }}"
                                             aria-expanded="false">
                                             <i class="bi bi-unlock me-1"></i>
-                                            {{ 'escritorio.usuarios.itens'|trans({n: userAccesses|length}) }}
+                                            {{ 'escritorio.usuarios.itens'|trans({n: userAccesses|length, qtd: userAccesses|length ~ ''}) }}
                                         </button>
                                         <div class="collapse mt-2" id="accesses-{{ user.id }}">
                                             <ul class="list-unstyled mb-0 small">
