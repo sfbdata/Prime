@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * `public/js/pasta-impressao.js` lido como FOLHA (não há navegador no PHPUnit): o que se prova é
@@ -161,7 +162,9 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringContainsString('n.cloneNode(true)', $bloco, 'o HTML já sanitizado pelo servidor, copiado nó a nó');
         self::assertStringContainsString("[item.getAttribute('data-autor'), item.getAttribute('data-quando'), item.getAttribute('data-tipo')]", $bloco);
         self::assertStringContainsString(".join(' · ')", $bloco);
-        self::assertStringContainsString("abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo, pdf: pdf })", $bloco);
+        self::assertStringContainsString("abrir({ secao: 'moldura', titulo: BJ_T.t('pasta_resp.js.impressao.registro_titulo'), autor: linha, corpo: corpo, pdf: pdf })", $bloco);
+        self::assertSame('Registro do expediente', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_resp']['js']['impressao']['registro_titulo']);
+        self::assertStringContainsString("{{ catalogo_js('pasta_resp.js.impressao') }}", (string) file_get_contents(self::MODAL), 'o parcial que carrega o script entrega o catálogo dele');
     }
 
     #[TestDox('EDT-003: na observação de Detalhes o cartão é o ancestral do item; a API registro(item, cartao) segue para um menu único da lista')]

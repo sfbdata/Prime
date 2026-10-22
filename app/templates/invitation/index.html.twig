@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Convite de Usuário{% endblock %}
+{% block title %}{{ 'publicas.convite.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0">Convite de Usuário</h1>
+        <h1 class="m-0">{{ 'publicas.convite.titulo'|trans }}</h1>
     </div>
 </section>
 
@@ -15,20 +15,20 @@
             <div class="col-lg-6 col-md-8">
                 <div class="card card-primary card-outline">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-envelope-plus me-1"></i> Enviar Convite</h3>
+                        <h3 class="card-title"><i class="bi bi-envelope-plus me-1"></i> {{ 'publicas.convite.enviar'|trans }}</h3>
                     </div>
                     <div class="card-body">
                         {{ form_start(form) }}
 
                         <div class="mb-3">
                             {{ form_label(form.fullName, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
-                            {{ form_widget(form.fullName, {'attr': {'class': 'form-control', 'placeholder': 'Digite o nome completo'}}) }}
+                            {{ form_widget(form.fullName, {'attr': {'class': 'form-control', 'placeholder': 'publicas.convite.placeholder_nome'|trans}}) }}
                             {{ form_errors(form.fullName) }}
                         </div>
 
                         <div class="mb-3">
                             {{ form_label(form.email, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
-                            {{ form_widget(form.email, {'attr': {'class': 'form-control', 'placeholder': 'Digite o e-mail'}}) }}
+                            {{ form_widget(form.email, {'attr': {'class': 'form-control', 'placeholder': 'publicas.convite.placeholder_email'|trans}}) }}
                             {{ form_errors(form.email) }}
                         </div>
 
@@ -40,7 +40,7 @@
 
                         <div class="d-flex gap-2 mt-4">
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-send me-1"></i> Enviar Convite
+                                <i class="bi bi-send me-1"></i> {{ 'publicas.convite.enviar'|trans }}
                             </button>
                         </div>
 
