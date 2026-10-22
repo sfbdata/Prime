@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: alteracao
 ---
 ## Changelog
 - Minhas Metas e a página da meta ficam iguais aos desenhos 04 e 04B de 22/10, com os componentes do desenho no lugar dos do Bootstrap/AdminLTE (spec `docs/specs/minhas-metas-esteira-2210.md`, "Estado da frente"):
