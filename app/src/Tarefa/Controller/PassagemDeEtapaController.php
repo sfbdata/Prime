@@ -15,8 +15,10 @@ use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Exception\PassagemRecusadaException;
 use App\Tarefa\Service\AcessoAMeta;
 use App\Tarefa\Service\QuemCuidaDaMeta;
+use App\Tarefa\UseCase\AprenderComAMetaUseCase;
 use App\Tarefa\UseCase\DevolverMetaUseCase;
 use App\Tarefa\UseCase\MontarEtapaDaMetaUseCase;
+use App\Tarefa\UseCase\MontarSugestoesDaMetaUseCase;
 use App\Tarefa\UseCase\PassarEtapaDaMetaUseCase;
 use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -45,7 +47,7 @@ final class PassagemDeEtapaController extends AbstractController
     }
 
     #[Route('/{id}/passagem', name: 'tarefa_passagem', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function dados(Tarefa $tarefa, MontarEtapaDaMetaUseCase $useCase, QuemCuidaDaMeta $quemCuida, CsrfTokenManagerInterface $csrf): JsonResponse
+    public function dados(Tarefa $tarefa, MontarEtapaDaMetaUseCase $useCase, QuemCuidaDaMeta $quemCuida, CsrfTokenManagerInterface $csrf, MontarSugestoesDaMetaUseCase $sugestoes): JsonResponse
     {
         [$usuario, $tenant] = $this->acesso($tarefa);
         if (!$quemCuida->ehResponsavelOuCriador($tarefa, $usuario)) {
@@ -58,11 +60,13 @@ final class PassagemDeEtapaController extends AbstractController
         return $this->json($useCase->dadosDoModal($tarefa, $tenant, new \DateTimeImmutable()) + [
             'url'   => $this->generateUrl('tarefa_passar', ['id' => $tarefa->getId()]),
             'token' => $csrf->getToken('passar_etapa_' . $tarefa->getId())->getValue(),
+            // "Você costuma pedir" (04B L99, Fase 4): só as linhas da própria pessoa, por etapa destino.
+            'costumaPedir' => (object) $sugestoes->pedidos($usuario, $tenant),
         ]);
     }
 
     #[Route('/{id}/passar', name: 'tarefa_passar', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function passar(Tarefa $tarefa, Request $request, PassarEtapaDaMetaUseCase $useCase, ColaboradoresAtribuiveis $atribuiveis): JsonResponse
+    public function passar(Tarefa $tarefa, Request $request, PassarEtapaDaMetaUseCase $useCase, ColaboradoresAtribuiveis $atribuiveis, AprenderComAMetaUseCase $aprender): JsonResponse
     {
         [$usuario, $tenant] = $this->acesso($tarefa);
         $this->exigirCsrf('passar_etapa_' . $tarefa->getId(), $request);
@@ -84,6 +88,8 @@ final class PassagemDeEtapaController extends AbstractController
         } catch (PassagemRecusadaException|DespachoRecusadoException $e) {
             return $this->erro($e);
         }
+        // Aprendizado das pendências (Fase 4): depois da passagem gravada, pela etapa destino.
+        $aprender->dasPendencias($usuario, $tenant, $feito->destino, $input->pendencias);
 
         return $this->json(['ok' => true, 'proxima' => $feito->proxima, 'pasta' => $feito->pasta, 'novaMeta' => $feito->novaMetaId]);
     }

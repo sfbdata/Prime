@@ -400,6 +400,7 @@ input[type="range"].img-slider {
                 {chave: 'perfil.notificacoes', icone: 'bi-bell', rotulo: 'perfil.preferencias.notificacoes_rotulo'|trans, sub: 'perfil.preferencias.notificacoes_sub'|trans},
                 {chave: 'perfil.sons', icone: 'bi-volume-up', rotulo: 'perfil.preferencias.sons_rotulo'|trans, sub: 'perfil.preferencias.sons_sub'|trans},
                 {chave: 'perfil.resumo_email', icone: 'bi-envelope', rotulo: 'perfil.preferencias.resumo_email_rotulo'|trans, sub: 'perfil.preferencias.resumo_email_sub'|trans},
+                {chave: 'perfil.sugestoes_despachos', icone: 'bi-lightbulb', rotulo: 'perfil.preferencias.sugestoes_despachos_rotulo'|trans, sub: 'perfil.preferencias.sugestoes_despachos_sub'|trans},
             ] %}
                 <button type="button" class="mp-pref" role="switch" aria-checked="{{ preferencias[p.chave] ? 'true' : 'false' }}" data-mp-pref="{{ p.chave }}">
                     <i class="bi {{ p.icone }}"></i>
@@ -407,6 +408,16 @@ input[type="range"].img-slider {
                     <span class="mp-chave" aria-hidden="true"><span></span></span>
                 </button>
             {% endfor %}
+            {# D4 de Minhas Metas (Fase 4): o desenho 07 não tem; a linha segue a do "Idioma do sistema" (linha inteira
+               clicável, com a seta). Confirmação do navegador (data-confirmar, menu-usuario.js) e CSRF. #}
+            <form method="post" action="{{ path('app_profile_aprendizado_apagar') }}" class="mp-pref-form" data-confirmar="{{ 'perfil.preferencias.apagar_aprendizado_confirmar'|trans }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('apagar_aprendizado') }}">
+                <button type="submit" class="mp-pref" data-mp-apagar-aprendizado>
+                    <i class="bi bi-eraser"></i>
+                    <span class="mp-pref-texto"><span>{{ 'perfil.preferencias.apagar_aprendizado_rotulo'|trans }}</span><small>{{ 'perfil.preferencias.apagar_aprendizado_sub'|trans }}</small></span>
+                    <i class="bi bi-chevron-right mp-pref-seta"></i>
+                </button>
+            </form>
         </div>
     </section>
 

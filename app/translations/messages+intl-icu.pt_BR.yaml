@@ -317,6 +317,11 @@ perfil:
         sons_sub: Toque ao receber mensagem ou alerta
         resumo_email_rotulo: Resumo diário por e-mail
         resumo_email_sub: Prazos e metas do dia, às 8h
+        sugestoes_despachos_rotulo: Sugestões a partir dos meus despachos
+        sugestoes_despachos_sub: Frases, natureza e prazo usual nas metas, só para você
+        apagar_aprendizado_rotulo: Apagar o que foi aprendido
+        apagar_aprendizado_sub: Os despachos e as pendências guardados neste escritório
+        apagar_aprendizado_confirmar: Apagar tudo o que foi aprendido com seus despachos neste escritório? As sugestões começam do zero.
     seguranca:
         titulo: Segurança
         sub: Senha de acesso à sua conta
@@ -1487,6 +1492,10 @@ metas:
         anexar: Anexar arquivo
         despachar: Despachar
         enviar_para_revisao: Enviar para revisão
+        aprendizado:
+            dica_etapa: Aprendido com seus despachos nesta etapa
+            dica_etapa_prazo: 'Aprendido com seus despachos nesta etapa · prazo usual: {n} dias úteis'
+            dica_geral: Sugestões dos seus despachos anteriores
         natureza:
             ciencia: Para ciência
             providencia: Para providência
@@ -1547,6 +1556,7 @@ metas:
             um_dia_util: 1 dia útil
             dias_uteis: '{n} dias úteis'
             contador: '{n} / 5.000'
+            vezes: '{n}x'
     etapa:
         comercial:
             nome: Comercial
@@ -1613,6 +1623,7 @@ metas:
             pendencias: PENDÊNCIAS PARA O PRÓXIMO SETOR
             pendencias_placeholder: 'Uma por linha: falta procuração, comprovante de residência...'
             pendencias_placeholder_meta: Uma por linha
+            costuma_pedir: 'Você costuma pedir:'
             feito: O QUE FOI FEITO
             feito_placeholder: Resumo para o registro da pasta
             menu_dica: Escolher outra etapa (saltar)

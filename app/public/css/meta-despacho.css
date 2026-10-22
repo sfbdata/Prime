@@ -21,6 +21,7 @@
     --despacho-verde: #1e7b45;
     --despacho-verde-fundo: #f6fbf8;
     --despacho-verde-texto: #2f4a3a;
+    --despacho-sugestao-hover: #f5f8fa;
 }
 
 [data-bs-theme="dark"] {
@@ -40,6 +41,7 @@
     --despacho-vencido: #e0737a;
     --despacho-verde-fundo: rgba(30, 123, 69, .15);
     --despacho-verde-texto: var(--bs-body-color);
+    --despacho-sugestao-hover: var(--bs-tertiary-bg);
 }
 
 /* ── Cabeçalho do card: "DESPACHO" (L57) ── */
@@ -48,6 +50,64 @@
     font-weight: bold;
     letter-spacing: .3px;
     color: var(--despacho-titulo);
+}
+
+/* ── Sugestões do aprendizado (L61): dica cinza, frases com o traço à esquerda que fica azul no hover ── */
+.despacho-sugestoes {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: -2px;
+}
+
+.despacho-sugestoes[hidden] {
+    display: none;
+}
+
+.despacho-sugestoes-dica {
+    font-size: 11px;
+    color: var(--despacho-apagado);
+}
+
+.despacho-sugestoes-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.despacho-sugestoes-lista > .despacho-sugestao {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    border: none;
+    border-left: 2px solid var(--despacho-chip-borda);
+    background: transparent;
+    padding: 3px 8px;
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--despacho-texto-2);
+    cursor: pointer;
+}
+
+.despacho-sugestoes-lista > .despacho-sugestao:hover {
+    border-left-color: var(--despacho-azul);
+    background: var(--despacho-sugestao-hover);
+    color: var(--despacho-titulo);
+}
+
+.despacho-sugestao > .despacho-sugestao-texto {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.despacho-sugestao > .despacho-sugestao-vezes {
+    font-size: 11px;
+    color: var(--despacho-apagado);
 }
 
 /* Classes próprias no lugar do flex-grow-1 e do d-none do Bootstrap: o espaço que empurra o resto para a direita e o

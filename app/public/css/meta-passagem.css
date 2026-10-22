@@ -926,3 +926,43 @@
     margin-right: 6px;
 }
 
+
+/* ── "Você costuma pedir:" (04B L99, Fase 4): dica cinza e as linhas como "+ linha"; a que já está no campo fica azul ── */
+.mp-costuma {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+    margin-top: -4px;
+}
+
+.mp-costuma[hidden] {
+    display: none;
+}
+
+.mp-costuma > .mp-costuma-dica {
+    font-size: 11px;
+    color: var(--mp-apagado);
+}
+
+.mp-costuma > .mp-costuma-lista {
+    display: contents;
+}
+
+.mp-costuma-lista > .mp-costuma-pedido {
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid var(--mp-borda-leve);
+    border-radius: 3px;
+    background: var(--mp-fundo);
+    color: var(--mp-suave);
+    font: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.mp-costuma-lista > .mp-costuma-pedido.is-ja {
+    border-color: #0a6fa0;
+    background: var(--mp-hover);
+    color: #0a6fa0;
+}

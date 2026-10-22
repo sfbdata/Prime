@@ -100,6 +100,7 @@ final class PassarEtapaDaMetaUseCase
             $destino === null ? null : $this->nomes->nome($escritorio, $destino),
             self::pasta($meta),
             $nova?->getId(),
+            $destino,
         );
     }
 

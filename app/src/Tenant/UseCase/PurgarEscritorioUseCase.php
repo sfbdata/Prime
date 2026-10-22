@@ -280,6 +280,9 @@ final class PurgarEscritorioUseCase
         ['tarefa_numeracao', 'tenant_id = :tenant'],
         // Caixas da esteira de Minhas Metas (nome e avisados): os avisados caem por CASCADE da caixa.
         ['tarefa_caixa_esteira', 'tenant_id = :tenant'],
+        // Aprendizado de Minhas Metas (Fase 4): por usuário e escritório, FK de tenant NO ACTION, nada o referencia.
+        ['tarefa_aprendizado_despacho', 'tenant_id = :tenant'],
+        ['tarefa_aprendizado_pendencia', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],

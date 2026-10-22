@@ -27,6 +27,8 @@ use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\UseCase\DarCienciaDosDespachosUseCase;
 use App\Tarefa\UseCase\DespacharNaMetaUseCase;
 use App\Tarefa\UseCase\MontarDespachosDaMetaUseCase;
+use App\Tarefa\UseCase\MontarSugestoesDaMetaUseCase;
+use App\Tarefa\UseCase\AprenderComAMetaUseCase;
 use App\Tarefa\UseCase\MontarEtapaDaMetaUseCase;
 use App\Tarefa\UseCase\MontarLinhaDoTempoDaMetaUseCase;
 use App\Tarefa\UseCase\MontarSituacaoDaMetaUseCase;
@@ -253,7 +255,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, AtualizarPrazoTarefaUseCase $prazoUseCase, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao, MontarLinhaDoTempoDaMetaUseCase $linhaDoTempo, MontarEtapaDaMetaUseCase $etapa): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, AtualizarPrazoTarefaUseCase $prazoUseCase, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao, MontarLinhaDoTempoDaMetaUseCase $linhaDoTempo, MontarEtapaDaMetaUseCase $etapa, MontarSugestoesDaMetaUseCase $sugestoes): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -275,6 +277,7 @@ final class TarefaController extends AbstractController
             'tarefa'         => $tarefa,
             'linhaDoTempo'   => $linhaDoTempo->executar($timelineItems, $despachosDaMeta),
             'despachos'      => $despachosDaMeta,
+            'sugestoes'      => $sugestoes->doDespacho($tarefa, $usuario, $tenant, $agora->setTime(0, 0)),
             'situacao'       => $situacao->executar($tarefa, $tenant, $agora),
             'etapa'          => $etapa->executar($tarefa, $usuario, $tenant),
             'usuarioAtual'   => $usuario,
@@ -372,7 +375,7 @@ final class TarefaController extends AbstractController
      * Responsável envia → Para Revisão. Gestor devolve → Pendente.
      */
     #[Route('/{id}/mensagem', name: 'tarefa_mensagem', methods: ['POST'])]
-    public function mensagem(Tarefa $tarefa, Request $request, DespacharNaMetaUseCase $useCase, ValidatorInterface $validator): Response
+    public function mensagem(Tarefa $tarefa, Request $request, DespacharNaMetaUseCase $useCase, ValidatorInterface $validator, AprenderComAMetaUseCase $aprender): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -395,6 +398,8 @@ final class TarefaController extends AbstractController
         try {
             // O anexo vai aos documentos da pasta pela regra de chaves (C4); recusado, nada fica.
             $useCase->executar($tarefa, $usuario, $tenant, $input, $anexo instanceof UploadedFile && $anexo->isValid() ? $anexo : null);
+            // Aprendizado (Fase 4): só depois do despacho gravado, e só se a pessoa não desligou no Meu Perfil (D4).
+            $aprender->doDespacho($tarefa, $usuario, $tenant, $input, new \DateTimeImmutable('today'));
         } catch (DespachoRecusadoException $e) {
             $this->addFlash('danger', $e->getMessage());
         }

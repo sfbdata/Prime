@@ -227,6 +227,22 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('false', $this->abrir($this->primario)->filter('.mp-prefs > button[data-mp-pref="perfil.sons"]')->attr('aria-checked'));
     }
 
+    #[TestDox('aprendizado das metas (D4): a chave ligada por padrão e, logo depois, a linha "Apagar o que foi aprendido" com confirmação e token')]
+    public function testAprendizadoDasMetas(): void
+    {
+        $tela = $this->abrir($this->primario);
+
+        $chave = $tela->filter('.mp-prefs > button.mp-pref[role="switch"][data-mp-pref="perfil.sugestoes_despachos"]');
+        self::assertSame('true', $chave->attr('aria-checked'));
+        self::assertSame('Sugestões a partir dos meus despachos', $chave->filter('.mp-pref-texto > span')->text());
+        $form = $tela->filter('.mp-prefs > button[data-mp-pref="perfil.sugestoes_despachos"] + form.mp-pref-form');
+        self::assertCount(1, $form);
+        self::assertSame('/perfil/aprendizado/apagar', $form->attr('action'));
+        self::assertNotSame('', (string) $form->attr('data-confirmar'));
+        self::assertCount(1, $form->filter('form.mp-pref-form > input[type="hidden"][name="_token"]'));
+        self::assertSame('Apagar o que foi aprendido', $form->filter('form.mp-pref-form > button.mp-pref[data-mp-apagar-aprendizado] > .mp-pref-texto > span')->text());
+    }
+
     #[TestDox('Resumo diário: o descadastro do rodapé desliga a chave; religar pelo Meu Perfil reativa só o resumo, mesmo com "todos"')]
     public function testResumoDiarioSegueODescadastro(): void
     {
