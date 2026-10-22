@@ -543,6 +543,25 @@
         ]
     },
 
+    "feriado": {
+        "templates": [
+            "feriado/index.html.twig",
+            "feriado/new.html.twig",
+            "feriado/edit.html.twig",
+            "feriado/_form.html.twig"
+        ],
+        "permitidos": []
+    },
+
+    "sync": {
+        "templates": [
+            "sync/drive_conexao.html.twig"
+        ],
+        "permitidos": [
+            "https://drive.google.com/drive/folders/…"
+        ]
+    },
+
     "trabalho_externo": {
         "templates": [
             "trabalho_externo/convite.html.twig",
