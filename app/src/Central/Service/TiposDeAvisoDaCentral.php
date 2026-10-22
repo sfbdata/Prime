@@ -13,6 +13,7 @@ use App\Pasta\Service\AvisoDoChecklist;
 use App\Pasta\UseCase\EnviarRelatorioPastasParadasUseCase;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
+use App\Tarefa\UseCase\LembrarMetaUseCase;
 use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
 use App\Master\UseCase\ResponderNaCentralUseCase;
 
@@ -58,12 +59,21 @@ final class TiposDeAvisoDaCentral
         Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => ['grupo' => 'atencao', 'rotulo' => 'Pedido de informações', 'icone' => 'bi-question-circle', 'cor' => self::AMBAR, 'nivel' => 2],
     ];
 
+    /**
+     * Metas, fora do `match` para ele caber no limite de linhas. O "Lembrar" da página da meta (desenho 04B L133:
+     * `notificar({ tipo: 'lembrete', … })`) não tem par no `TIPOS` do bluejus-central.js: entra no grupo Metas, com o
+     * sino do botão e o âmbar de "aguardando".
+     */
+    private const DAS_METAS = [
+        LembrarMetaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'metas', 'rotulo' => 'Lembrete', 'icone' => 'bi-bell', 'cor' => self::AMBAR, 'nivel' => 2],
+    ];
+
     /** @return array{grupo: ?string, rotulo: string, icone: string, cor: string, nivel: int} */
     public function para(string $tipo): array
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
         $tipo = strtolower($tipo);
-        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? null;
+        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? null;
         if ($doMapa !== null) {
             return $doMapa;
         }

@@ -14,6 +14,9 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class TarefaMensagemRepository extends ServiceEntityRepository
 {
+    /** Classe de trava (primeiro argumento de pg_advisory_xact_lock): o Lembrar de uma meta (4717 é a numeração). */
+    public const CLASSE_TRAVA_DO_LEMBRETE = 4718;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, TarefaMensagem::class);
@@ -33,21 +36,24 @@ class TarefaMensagemRepository extends ServiceEntityRepository
         $this->getEntityManager()->flush();
     }
 
-    /** Roda os passos numa transação só: se o código não puder ser gravado, o despacho e a troca de status voltam. */
-    public function emTransacao(\Closure $passos): mixed
+    /**
+     * Roda o trabalho numa transação do EntityManager (o `flush` sai no fim) com a trava do Lembrar da meta: dois
+     * pedidos simultâneos para a mesma meta passam um depois do outro, e o segundo já lê o aviso que o primeiro gravou
+     * (o limite de um por hora não estoura por corrida). A trava é advisory por meta e cai no COMMIT.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $trabalho
+     *
+     * @return T
+     */
+    public function emTransacaoTravadaPelaMeta(int $metaId, \Closure $trabalho): mixed
     {
-        $conexao = $this->getEntityManager()->getConnection();
-        $conexao->beginTransaction();
-        try {
-            $resultado = $passos();
-            $conexao->commit();
-        } catch (\Throwable $e) {
-            $conexao->rollBack();
+        return $this->getEntityManager()->wrapInTransaction(function () use ($metaId, $trabalho): mixed {
+            $this->getEntityManager()->getConnection()->executeStatement('SELECT pg_advisory_xact_lock(?, ?)', [self::CLASSE_TRAVA_DO_LEMBRETE, $metaId]);
 
-            throw $e;
-        }
-
-        return $resultado;
+            return $trabalho();
+        });
     }
 
     /**

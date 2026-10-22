@@ -397,3 +397,72 @@
     color: #b7c6d1;
     margin-bottom: 6px;
 }
+
+/* ── Fase 2b ── */
+
+/* Cabeçalho "DESPACHO" com o Extrato à direita (L57). O clearfix do AdminLTE (::after) viraria item do flex. */
+.despacho-cabeca-bloco {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.despacho-cabeca-bloco::after {
+    display: none;
+}
+
+.despacho-extrato {
+    margin-left: auto;
+    height: 28px;
+    padding: 0 9px;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--despacho-suave);
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+}
+
+.despacho-extrato:hover,
+.despacho-extrato:focus-visible {
+    background: var(--despacho-divisa);
+    color: var(--despacho-azul);
+}
+
+/* "quem → para" (L161) */
+.despacho-quem .bi-arrow-right {
+    color: var(--despacho-texto-2);
+}
+
+/* @menção no texto do despacho: o mesmo destaque do Registro da pasta. */
+.despacho-texto .ps-mencao {
+    font-weight: 700;
+    color: var(--despacho-azul);
+}
+
+/* Anexo juntado à pasta (L161): clipe, nome e "· juntado à pasta" */
+.despacho-juntado {
+    font-size: 12.5px;
+    color: var(--despacho-azul);
+    margin-top: 4px;
+}
+
+.despacho-juntado a {
+    color: inherit;
+}
+
+.despacho-juntado-onde {
+    color: var(--despacho-apagado);
+}
+
+/* Lista do @ (a mesma do Registro da pasta, pasta-show.css), para o campo do despacho. */
+.ps-mencao-lista { position: fixed; z-index: 1080; width: 280px; max-height: 300px; overflow: auto; padding: 4px; background: #fff; border-radius: 4px; box-shadow: 0 10px 30px rgba(10,40,60,.22), 0 0 0 1px #dbe4ea; font-family: Arial, Helvetica, sans-serif; }
+.ps-mencao-lista-cab { padding: 6px 8px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; color: #7b93a2; text-transform: uppercase; }
+.ps-mencao-opcao { display: flex; align-items: center; gap: 9px; width: 100%; padding: 6px 8px; border: none; border-radius: 3px; text-align: left; cursor: pointer; font-family: inherit; background: transparent; }
+.ps-mencao-opcao[aria-selected="true"] { background: #e5f1f7; }
+.ps-mencao-avatar { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #0d80a3, #0a5f86); background-size: cover; background-position: center; }
+.ps-mencao-textos { display: flex; flex-direction: column; min-width: 0; }
+.ps-mencao-nome { font-size: 13px; font-weight: 700; color: #12242f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-mencao-cargo { font-size: 11px; color: #6b8291; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

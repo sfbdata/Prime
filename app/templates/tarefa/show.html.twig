@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="{{ asset('css/meta-detalhe.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
+<script src="{{ asset('js/pasta-mencoes.js') }}" defer></script>
 <script src="{{ asset('js/meta-despacho.js') }}" defer></script>
 
 
@@ -40,6 +41,12 @@
             {% endfor %}
         {% endfor %}
 
+        {# O aviso (toast) do desenho (04B L176) depois do Lembrar (L133). Vem na URL, não em flash: o base.html.twig
+           consome todos os flashes como alerta. O meta-despacho.js tira o parâmetro da barra de endereço. #}
+        {% if app.request.query.get('lembrete') == 'enviado' %}
+            <div class="meta-toast" role="status" data-meta-toast><i class="bi bi-check-circle"></i>{{ 'metas.detalhe.aguardando.lembrete_enviado'|trans }}</div>
+        {% endif %}
+
         <div class="card card-primary card-outline">
             <div class="card-header">
                 {# Título da meta (desenho 04B L49); o selo de status saiu porque repete o painel de situação. #}
@@ -64,9 +71,12 @@
                         </div>
 
                         <div class="card mt-4" id="tarefa-timeline-card">
-                            <div class="card-header">
-                                {# Bloco DESPACHO do desenho 04B (L57); o Extrato é da Fase 2b. #}
+                            <div class="card-header despacho-cabeca-bloco">
+                                {# Bloco DESPACHO do desenho 04B (L57), com o Extrato à direita (L150): a folha abre em janela
+                                   nova e já pede a impressão; sem JS, o link abre a folha do mesmo jeito. #}
                                 <h3 class="card-title mb-0 despacho-titulo">{{ 'metas.detalhe.despacho_titulo'|trans }}</h3>
+                                <a href="{{ path('tarefa_extrato', {id: tarefa.id}) }}" target="_blank" rel="noopener" class="despacho-extrato" data-extrato
+                                   title="{{ 'metas.despacho.extrato_dica'|trans }}"><i class="bi bi-printer"></i>{{ 'metas.despacho.extrato'|trans }}</a>
                             </div>
 
                             {# Campo do despacho + ação (desenho 04B L58-66; C10 a C12), sempre visível, também na

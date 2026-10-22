@@ -11,6 +11,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\DTO\CertificarCumprimentoInput;
 use App\Tarefa\Exception\CertidaoRecusadaException;
+use App\Tarefa\Service\AcessoAMeta;
 use App\Tarefa\UseCase\CertificarCumprimentoUseCase;
 use App\Tarefa\UseCase\ValidarRegistroDoDespachoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -24,7 +25,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * `minhas-metas-esteira-2210.md`, C13 e C15). O Despachar continua na rota `tarefa_mensagem` do `TarefaController`.
  *
  * Guarda: escritório da sessão e módulo `tarefas`, como as demais rotas da meta. Despacho de outro escritório é
- * 404 (403 confirmaria que o id existe em algum lugar); quem pode certificar é regra do UseCase.
+ * 404 (403 confirmaria que o id existe em algum lugar); no certificar, a guarda da meta ({@see AcessoAMeta}: pasta
+ * oculta pelo cadeado também é 404). Quem pode certificar é regra do UseCase.
  */
 #[Route('/tarefas')]
 final class DespachoDaMetaController extends AbstractController
@@ -32,6 +34,7 @@ final class DespachoDaMetaController extends AbstractController
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
+        private readonly AcessoAMeta $acessoAMeta,
     ) {
     }
 
@@ -43,6 +46,8 @@ final class DespachoDaMetaController extends AbstractController
         if ($meta === null || $despacho->getTenant()?->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException('Despacho não encontrado.');
         }
+        // A guarda da meta (SEC-013 e o cadeado da pasta: pasta oculta para quem certifica é 404).
+        $this->acessoAMeta->exigir($meta, $tenant, $usuario);
         if (!$this->isCsrfTokenValid('certificar_despacho_' . $despacho->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }

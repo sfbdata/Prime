@@ -9,36 +9,52 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Cargo;
+use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Repository\TarefaMensagemRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Tarefa\DTO\DespacharNaMetaInput;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tarefa\Exception\DespachoRecusadoException;
+use App\Tarefa\Service\AnexoDoDespacho;
 use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
 use App\Tarefa\Service\TextoDoDespacho;
+use App\Tarefa\Service\TransacaoDoDespacho;
 use App\Tarefa\UseCase\DespacharNaMetaUseCase;
+use App\Tests\Processo\Unit\CriaResolucaoDeMencoesDaNota;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 #[CoversClass(DespacharNaMetaUseCase::class)]
 #[Group('tarefa')]
 final class DespacharNaMetaUseCaseTest extends TestCase
 {
+    use CriaResolucaoDeMencoesDaNota;
     use CriaSanitizadorTextoRico;
 
+    /** O escritório da sessão, com o nome que o trait das menções espera. */
+    private Tenant $tenant;
     private Tenant $escritorio;
+    private Pasta $pasta;
+    private AnexoDoDespacho&MockObject $anexos;
     private User $autor;
     private Tarefa $meta;
     private TarefaMensagemRepository&MockObject $mensagens;
     private NotificacaoService&MockObject $notificacoes;
     private SorteioDeCodigoDoDespacho&MockObject $sorteio;
+    /** @var TransacaoDoDespacho&object{naFalha: list<ChaveDeArquivo>|null} */
+    private TransacaoDoDespacho $transacao;
 
     protected function setUp(): void
     {
@@ -49,10 +65,50 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         $this->meta->setDescricao('...');
         $this->meta->setTenant($this->escritorio);
         $this->meta->setStatus(Tarefa::STATUS_PENDENTE);
+        $this->pasta = self::comId((new Pasta())->setNup('2026.0042')->setTenant($this->escritorio), 40);
+        $this->meta->setPasta($this->pasta);
+        self::comId($this->meta, 30);
+        $this->meta->numerar(12);
+        $this->tenant = $this->escritorio;
+        $this->montarMencoes();
+        $this->anexos = $this->createMock(AnexoDoDespacho::class);
         $this->mensagens = $this->createMock(TarefaMensagemRepository::class);
         $this->notificacoes = $this->createMock(NotificacaoService::class);
         $this->sorteio = $this->createMock(SorteioDeCodigoDoDespacho::class);
-        $this->mensagens->method('emTransacao')->willReturnCallback(static fn (\Closure $passos): mixed => $passos());
+        $this->transacao = new class () implements TransacaoDoDespacho {
+            /** @var list<ChaveDeArquivo>|null as chaves que a transação recebeu na falha; null se não falhou */
+            public ?array $naFalha = null;
+
+            public function executar(\Closure $passos, \Closure $arquivosNovos): mixed
+            {
+                try {
+                    return $passos();
+                } catch (\Throwable $e) {
+                    $this->naFalha = $arquivosNovos();
+
+                    throw $e;
+                }
+            }
+        };
+    }
+
+    /** Uma chave de documento da pasta, como a que o upload entrega a `$aoGravar`. */
+    private static function chaveGravada(): ChaveDeArquivo
+    {
+        return ChavesDePasta::documentoPorNome(7, str_repeat('a', 32) . '.pdf');
+    }
+
+    /** O dublê do anexo grava (entrega a chave) e depois devolve o documento ou falha. */
+    private function anexoGrava(PastaDocumento|\Throwable $resultado): void
+    {
+        $this->anexos->method('juntar')->willReturnCallback(static function (Tarefa $m, UploadedFile $a, User $u, Tenant $t, \Closure $aoGravar) use ($resultado): PastaDocumento {
+            $aoGravar(self::chaveGravada());
+            if ($resultado instanceof \Throwable) {
+                throw $resultado;
+            }
+
+            return $resultado;
+        });
     }
 
     /** O repositório de verdade grava o código por UPDATE condicional; aqui, código "ocupado" devolve false. */
@@ -128,16 +184,124 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input(''));
     }
 
-    #[TestDox('Só anexo: grava "[Arquivo anexado]" com o caminho, como antes')]
+    #[TestDox('Só anexo: grava "[Arquivo anexado]" e o anexo entra nos documentos da pasta (C4); a mensagem guarda o documento')]
     public function testSoAnexo(): void
     {
         $this->sorteio->method('sortear')->willReturn('1234.5678');
         $this->codigosOcupados();
+        $arquivo = $this->arquivo();
+        $this->anexos->expects(self::once())->method('juntar')
+            ->with($this->identicalTo($this->meta), $this->identicalTo($arquivo), $this->identicalTo($this->autor), $this->identicalTo($this->escritorio))
+            ->willReturn(self::comId(new PastaDocumento(), 55));
 
-        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('')->comAnexo('/uploads/tarefas/chat/a.pdf'));
+        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input(''), $arquivo);
+
+        self::assertNull($this->transacao->naFalha, 'a transação não falhou');
 
         self::assertSame('[Arquivo anexado]', $this->unicoDespacho()->getMensagem());
-        self::assertSame('/uploads/tarefas/chat/a.pdf', $this->unicoDespacho()->getArquivoAnexo());
+        self::assertSame(55, $this->unicoDespacho()->getDocumentoJuntadoId());
+        self::assertSame('1234.5678', $this->unicoDespacho()->getCodigo());
+    }
+
+    #[TestDox('Anexo recusado pela regra dos documentos (tipo ou tamanho): recusa, nada gravado, status intacto')]
+    public function testAnexoRecusado(): void
+    {
+        $this->anexos->method('juntar')->willThrowException(new \InvalidArgumentException('Tipo de arquivo não permitido: application/x-dosexec.'));
+        $this->mensagens->expects(self::never())->method('salvar');
+        $this->notificacoes->expects(self::never())->method(self::anything());
+
+        try {
+            $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Segue.', 'enviar'), $this->arquivo());
+            self::fail('Devia recusar o anexo.');
+        } catch (DespachoRecusadoException $e) {
+            self::assertSame('Tipo de arquivo não permitido: application/x-dosexec. Nada foi gravado.', $e->getMessage());
+        }
+        self::assertCount(0, $this->meta->getMensagens());
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->meta->getStatus());
+        self::assertSame([], $this->transacao->naFalha, 'recusado antes de gravar: não há arquivo novo');
+    }
+
+    #[TestDox('A transação volta depois do anexo gravado (sem código livre): a chave do arquivo chega à transação, que decide o destino')]
+    public function testFalhaDepoisDoAnexoEntregaAChave(): void
+    {
+        $this->anexoGrava(self::comId(new PastaDocumento(), 55));
+        $this->sorteio->method('sortear')->willReturn('1111.1111');
+        $this->codigosOcupados('1111.1111');
+
+        try {
+            $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Segue.'), $this->arquivo());
+            self::fail('Devia recusar sem código livre.');
+        } catch (DespachoRecusadoException $e) {
+            self::assertEquals(DespachoRecusadoException::semCodigoLivre(), $e);
+        }
+        self::assertEquals([self::chaveGravada()], $this->transacao->naFalha);
+    }
+
+    #[TestDox('Falha dentro do upload depois de gravar o arquivo: a chave já chegou à transação e a falha original sobe')]
+    public function testFalhaDentroDoUploadEntregaAChave(): void
+    {
+        $falha = new \RuntimeException('flush do documento falhou');
+        $this->anexoGrava($falha);
+        $this->mensagens->expects(self::never())->method('salvar');
+
+        try {
+            $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Segue.'), $this->arquivo());
+            self::fail('Devia subir a falha do upload.');
+        } catch (\RuntimeException $e) {
+            self::assertSame($falha, $e, 'a falha original não é trocada');
+        }
+        self::assertEquals([self::chaveGravada()], $this->transacao->naFalha);
+    }
+
+    #[TestDox('@menção válida (C3): o rótulo vira o nome do banco e o mencionado que vê a pasta é avisado na Central')]
+    public function testMencaoAvisaNaCentral(): void
+    {
+        $rui = $this->pessoa(2, 'Rui Prado');
+        $this->colegasDoEscritorio([$this->autor, $rui]);
+        $this->acessoAPasta(40, [2 => true]);
+        $avisos = $this->capturarAvisos();
+        $this->despachoGanhaId(99);
+
+        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Veja @[Rui](user:2), por favor.'));
+
+        self::assertMatchesRegularExpression('/(@|&#64;)\[Rui Prado\]\(user:2\)/', $this->unicoDespacho()->getMensagem(), 'o rótulo digitado vira o nome do banco');
+        self::assertCount(1, $avisos);
+        self::assertSame($rui, $avisos[0]['usuario']);
+        self::assertSame(Notificacao::TIPO_PASTA_MENCAO_REGISTRO, $avisos[0]['tipo']);
+        self::assertSame('Ana mencionou você na Pasta 2026.0042 · Meta #12', $avisos[0]['titulo']);
+        self::assertSame('Veja @Rui Prado, por favor.', $avisos[0]['texto']);
+        self::assertStringEndsWith('#despacho-99', (string) $avisos[0]['notificacao']->getUrl());
+    }
+
+    #[TestDox('@menção de quem não é colega deste escritório vira texto comum, sem aviso; quem não vê a pasta não é avisado')]
+    public function testMencaoInvalidaOuSemAcesso(): void
+    {
+        $semAcesso = $this->pessoa(3, 'Lia Mota');
+        $this->colegasDoEscritorio([$this->autor, $semAcesso]);
+        $this->acessoAPasta(40, [3 => false]);
+        $avisos = $this->capturarAvisos();
+        $this->despachoGanhaId(99);
+
+        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Para @[Estranho](user:77) e @[Lia](user:3).'));
+
+        $texto = $this->unicoDespacho()->getMensagem();
+        self::assertStringNotContainsString('user:77', $texto);
+        self::assertMatchesRegularExpression('/(@|&#64;)Estranho e/', $texto, 'id de fora do escritório perde a marcação');
+        self::assertMatchesRegularExpression('/(@|&#64;)\[Lia Mota\]\(user:3\)/', $texto);
+        self::assertCount(0, $avisos);
+    }
+
+    #[TestDox('Quem se menciona a si mesmo não recebe aviso')]
+    public function testAutoMencaoNaoAvisa(): void
+    {
+        $this->colegasDoEscritorio([$this->autor]);
+        $this->acessoAPasta(40, [1 => true]);
+        $avisos = $this->capturarAvisos();
+        $this->despachoGanhaId(99);
+
+        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Eu, @[Ana](user:1).'));
+
+        self::assertCount(0, $avisos);
     }
 
     #[TestDox('Enviar para revisão: muda o status, avisa e não leva natureza nem prazo (desenho L146)')]
@@ -180,10 +344,12 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         $this->sorteio->method('sortear')->willReturn('1234.5678');
         $this->codigosOcupados();
 
-        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('', 'enviar')->comAnexo('/uploads/tarefas/chat/a.pdf'));
+        $this->anexos->method('juntar')->willReturn(self::comId(new PastaDocumento(), 56));
+
+        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('', 'enviar'), $this->arquivo());
 
         self::assertSame('<p>Meta enviada para revisão do autor.</p>', $this->unicoDespacho()->getMensagem());
-        self::assertSame('/uploads/tarefas/chat/a.pdf', $this->unicoDespacho()->getArquivoAnexo());
+        self::assertSame(56, $this->unicoDespacho()->getDocumentoJuntadoId());
     }
 
     /** @return iterable<string, array{string, string, DespachoRecusadoException}> */
@@ -264,7 +430,29 @@ final class DespacharNaMetaUseCaseTest extends TestCase
             $this->sorteio,
             $this->notificacoes,
             $vinculos,
+            $this->resolucao,
+            $this->anexos,
+            $this->transacao,
         );
+    }
+
+    /** Um upload qualquer: quem o lê é o `AnexoDoDespacho` (dublê); aqui só passa adiante. */
+    private function arquivo(): UploadedFile
+    {
+        $caminho = tempnam(sys_get_temp_dir(), 'desp');
+        file_put_contents($caminho, '%PDF-1.4');
+
+        return new UploadedFile($caminho, 'peticao.pdf', 'application/pdf', null, true);
+    }
+
+    /** O repositório de verdade dá o id no flush; o link do aviso (`#despacho-<id>`) precisa dele. */
+    private function despachoGanhaId(int $id): void
+    {
+        $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
+        $this->mensagens->method('salvar')->willReturnCallback(static function (TarefaMensagem $d) use ($id): void {
+            self::comId($d, $id);
+        });
     }
 
     private function input(string $texto, string $acao = '', ?string $natureza = null, ?string $prazo = null): DespacharNaMetaInput

@@ -417,3 +417,44 @@
 .meta-concluir:hover {
     background: #0b5f86;
 }
+
+/* ── "Lembrar" da faixa Aguardando (L50): borda da faixa, fundo branco, cor do tom ── */
+.meta-lembrar-form {
+    margin: 0;
+}
+
+.meta-lembrar {
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--meta-borda);
+    border-radius: 3px;
+    background: var(--meta-fundo);
+    color: var(--meta-tom);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ── Aviso (toast) do desenho (L176): embaixo, no centro, fundo escuro, ícone verde ── */
+.meta-toast {
+    position: fixed;
+    z-index: 9500;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    background: #12242f;
+    color: #fff;
+    font-size: 13.5px;
+    padding: 10px 16px;
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+}
+
+.meta-toast .bi {
+    color: #7fe0a8;
+    margin-right: 6px;
+}

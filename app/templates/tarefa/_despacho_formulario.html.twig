@@ -31,10 +31,14 @@
             </label>
         </div>
 
-        <textarea name="mensagem" id="tarefaMensagemConteudo"
-                  class="form-control despacho-texto-campo"
-                  rows="3" maxlength="5000"
-                  placeholder="{{ 'metas.despacho.placeholder'|trans }}"></textarea>
+        {# @menção (C3): o mesmo pasta-mencoes.js do Registro da pasta, no campo simples (`data-mencoes-simples`); a
+           lista vem dos colegas que veem a pasta da meta. #}
+        <div class="despacho-campo" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: tarefa.pasta.id}) }}">
+            <textarea name="mensagem" id="tarefaMensagemConteudo"
+                      class="form-control despacho-texto-campo"
+                      rows="3" maxlength="5000" data-mencoes-simples
+                      placeholder="{{ 'metas.despacho.placeholder'|trans }}"></textarea>
+        </div>
 
         <div class="despacho-linha despacho-acoes">
             <label class="despacho-anexo">

@@ -188,7 +188,8 @@
             "tarefa/_meta_aguardando.html.twig",
             "tarefa/_meta_situacao.html.twig",
             "tarefa/_meta_detalhes.html.twig",
-            "tarefa/registro.html.twig"
+            "tarefa/registro.html.twig",
+            "tarefa/extrato.html.twig"
         ],
         "js": ["meta-despacho.js"],
         "permitidos": ["Enter"]

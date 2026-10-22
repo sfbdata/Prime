@@ -21,6 +21,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'uniq_tarefa_mensagem_tenant_codigo', columns: ['tenant_id', 'codigo'])]
 class TarefaMensagem implements Auditavel, TenantAware
 {
+    /** Prefixo da referência ao documento da pasta em `arquivoAnexo` (C4): `pasta_documento:<id>`. */
+    public const PREFIXO_DOCUMENTO_DA_PASTA = 'pasta_documento:';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -269,10 +272,33 @@ class TarefaMensagem implements Auditavel, TenantAware
         return $this->registradoPorCargo;
     }
 
-    /** Despacho registrado (com código) não se edita; mensagem antiga, sem código, continua editável. */
+    /** Despacho registrado (com código) e lembrete não se editam; mensagem antiga, sem código, continua editável. */
     public function podeSerEditado(): bool
     {
-        return $this->codigo === null;
+        return $this->codigo === null && $this->acao !== AcaoDoDespacho::Lembrete;
+    }
+
+    /**
+     * Anexo do despacho juntado aos documentos da pasta (C4, desenho 04B L145): a mensagem guarda só a referência ao
+     * documento, no lugar do caminho que as mensagens antigas guardam. O arquivo é do documento, pela regra de chaves.
+     */
+    public function juntarDocumentoDaPasta(int $documentoId): self
+    {
+        $this->arquivoAnexo = self::PREFIXO_DOCUMENTO_DA_PASTA . $documentoId;
+
+        return $this;
+    }
+
+    /** O id do documento da pasta juntado por este despacho; nulo na mensagem sem anexo ou com anexo antigo. */
+    public function getDocumentoJuntadoId(): ?int
+    {
+        $anexo = (string) $this->arquivoAnexo;
+        if (!str_starts_with($anexo, self::PREFIXO_DOCUMENTO_DA_PASTA)) {
+            return null;
+        }
+        $id = substr($anexo, strlen(self::PREFIXO_DOCUMENTO_DA_PASTA));
+
+        return ctype_digit($id) ? (int) $id : null;
     }
 
     public function getCientePor(): ?User

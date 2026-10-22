@@ -15,6 +15,10 @@ namespace App\Tarefa\DTO;
  * O número ("DESPACHO N") e o "MAIS RECENTE" valem para o histórico inteiro e moram no
  * `ItemDaLinhaDoTempoOutput`. `codigo` nulo é mensagem de antes da Fase 2a: sem linha de local e data nem linha de registro (D1), e editável.
  * `registradoPor` e `cargo` são os do registro, congelados no momento do despacho.
+ *
+ * `para` são as pessoas mencionadas com @ (C3), pelo nome curto do desenho (L161: as duas primeiras palavras), para
+ * o "quem → para". `anexoNome`/`anexoDocumentoId` são do anexo juntado aos documentos da pasta (C4, "nome · juntado à
+ * pasta"); anexo antigo, no caminho de `uploads/tarefas`, deixa os dois nulos e segue no `TimelineItemDTO`.
  */
 final class DespachoNaLinhaDoTempoOutput
 {
@@ -36,6 +40,10 @@ final class DespachoNaLinhaDoTempoOutput
         public readonly ?string $certificadoPor,
         public readonly ?\DateTimeImmutable $certificadoEm,
         public readonly bool $podeCertificar,
+        /** @var list<string> */
+        public readonly array $para = [],
+        public readonly ?string $anexoNome = null,
+        public readonly ?int $anexoDocumentoId = null,
     ) {
     }
 }

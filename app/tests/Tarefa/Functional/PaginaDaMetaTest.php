@@ -84,7 +84,7 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
         self::assertSame('RPRui Prado', self::texto($faixa->filter('.meta-aguardando-pessoas > .meta-aguardando-pessoa')));
         self::assertSame('hoje', self::texto($faixa->filter('.meta-aguardando > .meta-aguardando-tempo > b.meta-aguardando-dias')));
         self::assertSame('com a demanda', self::texto($faixa->filter('.meta-aguardando-tempo > .meta-aguardando-desde')));
-        self::assertCount(0, $faixa->filter('button'), 'o Lembrar é da Fase 2b');
+        self::assertSame('Lembrar', self::texto($faixa->filter('.meta-aguardando > form.meta-lembrar-form > button.meta-lembrar')), 'o Lembrar da Fase 2b fecha a faixa (L50)');
     }
 
     #[TestDox('L2 e L8: enviar para revisão sem texto grava a mensagem do desenho e a faixa passa a aguardar o criador')]

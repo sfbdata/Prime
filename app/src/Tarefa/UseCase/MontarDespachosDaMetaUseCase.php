@@ -8,7 +8,10 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Service\DiasUteisDoEscritorio;
+use App\Pasta\Service\MencoesDoRegistro;
 use App\Tarefa\DTO\DespachoNaLinhaDoTempoOutput;
 use App\Tarefa\DTO\DespachosDaMetaOutput;
 use App\Tarefa\DTO\FormularioDoDespachoOutput;
@@ -23,6 +26,9 @@ use App\Tarefa\Service\QuemCuidaDaMeta;
  * Prazo padrão: 5 dias úteis depois de hoje pela regra do escritório (C1, C12), com a UF do escritório. A lista
  * de dias não úteis cobre {@see JANELA_EM_DIAS} dias, para o navegador recontar o "N dias úteis" pela mesma regra.
  * A numeração ("DESPACHO N") é do histórico inteiro, no `MontarLinhaDoTempoDaMetaUseCase`.
+ *
+ * "quem → para" (L161) sai das @menções do texto (C3); o anexo juntado à pasta (C4) é lido numa consulta só, presa
+ * ao escritório e à pasta da meta.
  */
 final class MontarDespachosDaMetaUseCase
 {
@@ -32,6 +38,7 @@ final class MontarDespachosDaMetaUseCase
     public function __construct(
         private readonly DiasUteisDoEscritorio $diasUteis,
         private readonly QuemCuidaDaMeta $quemCuida,
+        private readonly PastaDocumentoRepository $documentos,
     ) {
     }
 
@@ -40,10 +47,11 @@ final class MontarDespachosDaMetaUseCase
         $hoje = $hoje->setTime(0, 0);
         $podeCertificar = $this->quemCuida->ehResponsavelOuCriador($meta, $quemVe);
         $despachos = $meta->getMensagens()->toArray();
+        $juntados = $this->juntados($meta, $escritorio, $despachos);
 
         $linhas = [];
         foreach ($despachos as $despacho) {
-            $linhas[(int) $despacho->getId()] = $this->linha($despacho, $escritorio, $hoje, $podeCertificar);
+            $linhas[(int) $despacho->getId()] = $this->linha($despacho, $escritorio, $hoje, $podeCertificar, $juntados[(int) $despacho->getDocumentoJuntadoId()] ?? null);
         }
 
         return new DespachosDaMetaOutput($this->formulario($escritorio, $hoje), $linhas);
@@ -65,7 +73,28 @@ final class MontarDespachosDaMetaUseCase
         );
     }
 
-    private function linha(TarefaMensagem $d, Tenant $escritorio, \DateTimeImmutable $hoje, bool $podeCertificar): DespachoNaLinhaDoTempoOutput
+    /**
+     * Os documentos juntados pelos despachos desta meta, por id (C4): só os do escritório e da pasta da meta.
+     *
+     * @param list<TarefaMensagem> $despachos
+     *
+     * @return array<int, PastaDocumento>
+     */
+    private function juntados(Tarefa $meta, Tenant $escritorio, array $despachos): array
+    {
+        $ids = array_values(array_filter(array_map(static fn (TarefaMensagem $d): ?int => $d->getDocumentoJuntadoId(), $despachos)));
+        if ($ids === []) {
+            return [];
+        }
+        $porId = [];
+        foreach ($this->documentos->findBy(['id' => $ids, 'tenant' => $escritorio, 'pasta' => $meta->getPasta()]) as $documento) {
+            $porId[(int) $documento->getId()] = $documento;
+        }
+
+        return $porId;
+    }
+
+    private function linha(TarefaMensagem $d, Tenant $escritorio, \DateTimeImmutable $hoje, bool $podeCertificar, ?PastaDocumento $juntado): DespachoNaLinhaDoTempoOutput
     {
         $prazo = $d->temCertidao() ? null : $d->getPrazoCumprimento();
         $cidade = trim((string) $escritorio->getCidade());
@@ -88,7 +117,30 @@ final class MontarDespachosDaMetaUseCase
             certificadoPor: $d->getCertificadoPor()?->getFullName(),
             certificadoEm: $d->getCertificadoEm(),
             podeCertificar: $podeCertificar && $d->getAcao() === AcaoDoDespacho::Despacho && !$d->temCertidao(),
+            para: self::mencionados($d->getMensagem()),
+            anexoNome: $juntado?->getNomeOriginal(),
+            anexoDocumentoId: $juntado?->getId(),
         );
+    }
+
+    /**
+     * Os mencionados do texto (C3), na ordem e sem repetir, pelo nome curto do desenho (L161: as duas primeiras
+     * palavras, com a inicial maiúscula). O rótulo do token é o nome do banco, gravado no envio.
+     *
+     * @return list<string>
+     */
+    private static function mencionados(string $texto): array
+    {
+        if (preg_match_all(MencoesDoRegistro::PADRAO, $texto, $achados, \PREG_SET_ORDER) === false) {
+            return [];
+        }
+        $nomes = [];
+        foreach ($achados as $achado) {
+            $palavras = preg_split('/\s+/u', mb_convert_case(html_entity_decode($achado[1], \ENT_QUOTES | \ENT_HTML5, 'UTF-8'), MB_CASE_TITLE), -1, \PREG_SPLIT_NO_EMPTY) ?: [];
+            $nomes[(int) $achado[2]] = implode(' ', array_slice($palavras, 0, 2));
+        }
+
+        return array_values($nomes);
     }
 
     private static function primeiroNome(?User $pessoa): ?string

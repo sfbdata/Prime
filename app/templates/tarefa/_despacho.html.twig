@@ -4,7 +4,9 @@
     ou evento, é um cartão "DESPACHO N · tipo"; `l.tom` dá a cor. Só o despacho (`d`) tem registro, anexo, prazo,
     ciência e certidão. Registro (D1): "Registrado por NOME (Cargo) em ... · Cód. XXXX.XXXX", com o código ligado à
     página de validação. Mensagem antiga (sem código) fica sem a linha de local e data e sem a de registro, e é a
-    única que se edita.
+    única que se edita (o lembrete, também sem código, não se edita).
+    Fase 2b: "quem → para" com os mencionados (L161), a @menção como destaque (`registro_texto`, nunca o token cru)
+    e o anexo juntado aos documentos da pasta como "nome · juntado à pasta" (L161); anexo antigo segue no chip.
 #}
 {% set item = l.item %}
 {% set d = l.despacho %}
@@ -17,7 +19,7 @@
             {% if l.maisRecente %}<span class="despacho-recente">{{ 'metas.despacho.mais_recente'|trans }}</span>{% endif %}
             <span class="flex-grow-1"></span>
             {# Despacho registrado (com código) não se edita; só a mensagem antiga, do próprio autor. #}
-            {% if d and d.codigo is null and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
+            {% if d and d.codigo is null and d.acao != 'lembrete' and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
                 <button type="button"
                         class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg"
                         title="{{ 'metas.detalhe.editar_mensagem'|trans }}"
@@ -41,10 +43,10 @@
                 {# Texto do sistema (auditoria): segue escapado. #}
                 {% if item.detalhe %}<div class="despacho-texto">{{ item.detalhe|nl2br }}</div>{% endif %}
             {% else %}
-            <div class="despacho-quem"><b>{{ d.autor }}</b></div>
+            <div class="despacho-quem"><b>{{ d.autor }}</b>{% if d.para %} <i class="bi bi-arrow-right"></i> <b class="despacho-para">{{ d.para|join(', ') }}</b>{% endif %}</div>
             {% if item.detalhe %}
                 <div class="tarefa-msg-conteudo despacho-texto" id="tarefa-msg-conteudo-{{ item.mensagemId }}">
-                    <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
+                    <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|registro_texto }}</span></span>
                 </div>
             {% endif %}
 
@@ -58,7 +60,13 @@
                 </div>
             {% endif %}
 
-            {% if item.arquivoAnexo %}
+            {% if d.anexoNome %}
+                <div class="despacho-juntado">
+                    <i class="bi bi-paperclip"></i>
+                    <a href="{{ path('pasta_documento_view', {id: d.anexoDocumentoId}) }}" target="_blank" rel="noopener">{{ d.anexoNome }}</a>
+                    <span class="despacho-juntado-onde">· {{ 'metas.despacho.juntado_a_pasta'|trans }}</span>
+                </div>
+            {% elseif item.arquivoAnexo and item.arquivoAnexo starts with '/' %}
                 {% set ext      = item.arquivoAnexo|split('.')|last|lower %}
                 {% set mimeMap  = {
                     'pdf':  'application/pdf',

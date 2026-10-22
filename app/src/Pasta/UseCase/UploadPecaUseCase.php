@@ -42,6 +42,12 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * Falha na contagem → NULL, o upload segue (`app:documentos:calcular-hash --paginas` preenche).
  * `enviadoPor` é quem está logado; NULL nos caminhos sem usuário (importação, Drive).
  *
+ * ## Arquivo novo dentro de transação maior
+ *
+ * `aoGravar` (opcional) recebe a chave assim que o arquivo é gravado, antes de qualquer outro passo que possa
+ * falhar. É assim que o despacho da meta entrega a chave à `TransacaoComArquivoNovo`, que só apaga o arquivo quando
+ * o COMMIT comprovadamente não aconteceu.
+ *
  * ## Tipo pelo conteúdo (DOC-115)
  *
  * O tipo é o que o finfo lê no conteúdo (`getMimeType()`), nunca a extensão do nome: executável ou
@@ -124,6 +130,7 @@ final class UploadPecaUseCase
         private readonly ContadorDePaginasDePdf $contadorDePaginas,
     ) {}
 
+    /** @param (\Closure(\App\Shared\Armazenamento\ChaveDeArquivo): void)|null $aoGravar recebe a chave logo depois da gravação */
     public function executar(
         Pasta $pasta,
         ?PastaSecao $secao,
@@ -134,6 +141,7 @@ final class UploadPecaUseCase
         Tenant $tenant,
         bool $reduzirTamanho = false,
         ?User $enviadoPor = null,
+        ?\Closure $aoGravar = null,
     ): ResultadoUploadPeca {
         if ($secao !== null && $secao->getTenant() !== $tenant) {
             throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
@@ -183,6 +191,8 @@ final class UploadPecaUseCase
 
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
+        // A chave vai já agora para quem roda o upload numa transação maior: se algo falhar daqui em diante, ele decide.
+        $aoGravar?->__invoke($armazenado->chave);
 
         // D30: sem compressão, o tamanho gravado é o que o storage mediu ao gravar.
         $compressao = ResultadoCompressao::naoComprimido($armazenado->tamanhoBytes);

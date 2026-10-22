@@ -12,8 +12,8 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * `texto` chega já normalizado ({@see \App\Tarefa\Service\TextoDoDespacho::normalizar()}): o limite de 5.000 conta o
  * texto puro que a pessoa escreveu, não o HTML guardado. `acao` é a do ciclo de vida da meta: vazia (Despachar),
- * `enviar` (Enviar para revisão) ou `devolver`. O anexo entra depois da validação ({@see comAnexo()}), para um
- * despacho recusado não deixar arquivo para trás.
+ * `enviar` (Enviar para revisão) ou `devolver`. O anexo não passa por aqui: vai à parte para o
+ * `DespacharNaMetaUseCase`, que o junta aos documentos da pasta dentro da transação do despacho (C4).
  */
 final class DespacharNaMetaInput
 {
@@ -30,7 +30,6 @@ final class DespacharNaMetaInput
         #[Assert\Date(message: 'Prazo inválido.')]
         public readonly ?string $prazo = null,
         public readonly \DateTimeImmutable $hoje = new \DateTimeImmutable('today'),
-        public readonly ?string $arquivoAnexo = null,
     ) {
     }
 
@@ -61,10 +60,5 @@ final class DespacharNaMetaInput
     public function naturezaEscolhida(): ?NaturezaDoDespacho
     {
         return NaturezaDoDespacho::tryFrom((string) $this->natureza);
-    }
-
-    public function comAnexo(?string $caminho): self
-    {
-        return new self($this->texto, $this->acao, $this->natureza, $this->prazo, $this->hoje, $caminho);
     }
 }

@@ -8,15 +8,21 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Repository\TarefaMensagemRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Tarefa\DTO\DespachoRegistradoOutput;
 use App\Tarefa\DTO\DespacharNaMetaInput;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Exception\DespachoRecusadoException;
+use App\Tarefa\Service\AnexoDoDespacho;
 use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
 use App\Tarefa\Service\TextoDoDespacho;
+use App\Tarefa\Service\TransacaoDoDespacho;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * Despachar na meta (desenho 04B de 22/10, L57-66 e L145; spec `minhas-metas-esteira-2210.md`, Fase 2a).
@@ -34,8 +40,17 @@ use App\Tarefa\Service\TextoDoDespacho;
  * "Enviar para revisão" só vale na meta pendente e "Devolver" só na em revisão; fora disso, recusa sem gravar. Na
  * meta concluída, o despacho entra como registro, sem mudar o status.
  *
- * Tudo numa transação: o despacho é gravado, e o código é gravado depois, com até 3 sorteios contra a colisão no
- * índice único. Sem código livre, nada fica (nem a troca de status); quem enviou o anexo apaga o arquivo.
+ * @menção (C3): o texto chega com os tokens `@[Nome](user:ID)` do `pasta-mencoes.js`; o mesmo mecanismo do Registro
+ * da pasta confere cada id contra os colegas ativos do escritório, troca o rótulo pelo nome do banco e avisa na
+ * Central quem vê a pasta da meta.
+ *
+ * Anexo (C4): entra nos documentos da pasta pela regra de chaves ({@see AnexoDoDespacho}); a mensagem guarda só a
+ * referência ao documento. Tipo ou tamanho recusado: nada é gravado.
+ *
+ * Tudo numa transação ({@see TransacaoDoDespacho}, a `TransacaoComArquivoNovo` da casa): o anexo e o despacho são
+ * gravados, e o código é gravado depois, com até 3 sorteios contra a colisão no índice único. Sem código livre, nada
+ * fica (nem a troca de status). O arquivo do anexo só sai do storage quando o COMMIT comprovadamente não aconteceu;
+ * COMMIT de resultado incerto preserva o arquivo (o documento pode ter ficado apontando para ele).
  */
 final class DespacharNaMetaUseCase
 {
@@ -51,48 +66,87 @@ final class DespacharNaMetaUseCase
         private readonly SorteioDeCodigoDoDespacho $sorteio,
         private readonly NotificacaoService $notificacoes,
         private readonly UserTenantRepository $vinculos,
+        private readonly ResolucaoDeMencoesDoRegistro $mencoes,
+        private readonly AnexoDoDespacho $anexos,
+        private readonly TransacaoDoDespacho $transacao,
     ) {
     }
 
-    public function executar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input): DespachoRegistradoOutput
+    public function executar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, ?UploadedFile $anexo = null): DespachoRegistradoOutput
     {
         if ($meta->getTenant()?->getId() !== $escritorio->getId()) {
             throw DespachoRecusadoException::foraDoEscritorio();
         }
-        $temConteudo = $input->texto !== '' || $input->arquivoAnexo !== null;
-        if (!$temConteudo && $input->acao === '') {
+        if ($input->texto === '' && $anexo === null && $input->acao === '') {
             throw DespachoRecusadoException::semConteudo();
         }
         self::exigirStatusDaAcao($meta, $input->acao);
 
+        /** @var \ArrayObject<int, ChaveDeArquivo> $gravados chaves do anexo, preenchidas assim que o arquivo é gravado */
+        $gravados = new \ArrayObject();
         /** @var array{0: ?TarefaMensagem, 1: bool, 2: bool} $feito */
-        $feito = $this->mensagens->emTransacao(function () use ($meta, $autor, $escritorio, $input, $temConteudo): array {
-            [$enviada, $devolvida] = $this->mudarStatus($meta, $input->acao);
-            $despacho = $temConteudo || $enviada ? $this->registrar($meta, $autor, $escritorio, $input, self::acao($enviada, $devolvida)) : null;
-            $this->mensagens->confirmar();
-            if ($despacho !== null) {
-                $this->gravarCodigo($despacho);
-            }
-
-            return [$despacho, $enviada, $devolvida];
-        });
+        $feito = $this->transacao->executar(
+            fn (): array => $this->gravar($meta, $autor, $escritorio, $input, $anexo, $gravados),
+            static fn (): array => array_values($gravados->getArrayCopy()),
+        );
         $this->avisar($meta, $feito[1], $feito[2]);
 
         return new DespachoRegistradoOutput($feito[0]?->getCodigo(), $feito[1], $feito[2]);
     }
 
-    private function registrar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, AcaoDoDespacho $acao): TarefaMensagem
+    /**
+     * Os passos dentro da transação. A chave do anexo vai para `$gravados` assim que o arquivo é gravado (mesmo que o
+     * upload falhe depois), para a transação decidir o destino dele se o COMMIT não acontecer.
+     *
+     * @param \ArrayObject<int, ChaveDeArquivo> $gravados
+     *
+     * @return array{0: ?TarefaMensagem, 1: bool, 2: bool}
+     */
+    private function gravar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, ?UploadedFile $anexo, \ArrayObject $gravados): array
     {
-        $despacho = new TarefaMensagem();
-        $despacho->setUsuario($autor);
-        $despacho->setTenant($escritorio);
-        $despacho->setMensagem(match (true) {
+        $documento = $anexo === null ? null : $this->juntar($meta, $anexo, $autor, $escritorio, $gravados);
+        [$enviada, $devolvida] = $this->mudarStatus($meta, $input->acao);
+        $despacho = null;
+        $mencionados = [];
+        if ($input->texto !== '' || $documento !== null || $enviada) {
+            [$despacho, $mencionados] = $this->registrar($meta, $autor, $escritorio, $input, self::acao($enviada, $devolvida), $documento);
+        }
+        $this->mensagens->confirmar();
+        if ($despacho !== null) {
+            $this->gravarCodigo($despacho);
+        }
+        if ($despacho !== null && $mencionados !== []) {
+            $this->mencoes->notificarNoDespacho($mencionados, $despacho, $meta, $autor, $escritorio);
+            $this->mensagens->confirmar();
+        }
+
+        return [$despacho, $enviada, $devolvida];
+    }
+
+    /** @param \ArrayObject<int, ChaveDeArquivo> $gravados */
+    private function juntar(Tarefa $meta, UploadedFile $anexo, User $autor, Tenant $escritorio, \ArrayObject $gravados): PastaDocumento
+    {
+        try {
+            return $this->anexos->juntar($meta, $anexo, $autor, $escritorio, static function (ChaveDeArquivo $chave) use ($gravados): void {
+                $gravados->append($chave);
+            });
+        } catch (\InvalidArgumentException $e) {
+            throw DespachoRecusadoException::anexoRecusado($e->getMessage());
+        }
+    }
+
+    /** @return array{0: TarefaMensagem, 1: list<User>} o despacho e os mencionados válidos (C3) */
+    private function registrar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, AcaoDoDespacho $acao, ?PastaDocumento $documento): array
+    {
+        [$texto, $mencionados] = $this->mencoes->resolver(match (true) {
             $input->texto !== ''           => $this->textoDoDespacho->paraHtml($input->texto),
             $acao === AcaoDoDespacho::Envio => $this->textoDoDespacho->paraHtml(self::ENVIO_SEM_TEXTO),
             default                        => '[Arquivo anexado]',
-        });
-        $despacho->setArquivoAnexo($input->arquivoAnexo);
-        $despacho->setAcao($acao);
+        }, $escritorio);
+        $despacho = (new TarefaMensagem())->setUsuario($autor)->setTenant($escritorio)->setMensagem($texto)->setAcao($acao);
+        if ($documento !== null) {
+            $despacho->juntarDocumentoDaPasta((int) $documento->getId());
+        }
         if ($acao !== AcaoDoDespacho::Envio) {
             $despacho->setNatureza($input->naturezaEscolhida());
             $despacho->setPrazoCumprimento($input->prazoComoData());
@@ -104,7 +158,7 @@ final class DespacharNaMetaUseCase
         $meta->addMensagem($despacho);
         $this->mensagens->salvar($despacho);
 
-        return $despacho;
+        return [$despacho, $mencionados];
     }
 
     /** Sorteia e grava; colidiu no índice único, sorteia de novo (C13). Sem código livre, a transação inteira volta. */

@@ -4,7 +4,11 @@
    - Prazo: "N dias úteis" recontado a cada troca de data pela lista de dias não úteis que o servidor manda
      (data-nao-uteis, regra do escritório com feriados); fora da lista, conta só o fim de semana.
    - Contador "N / 5.000", nome do anexo, Ctrl+Enter (Cmd+Enter no Mac) = Despachar e os botões de ação.
-   - Certificar cumprimento: o modal recebe o endereço e o token do despacho clicado e começa com "Certifico que ". */
+   - Certificar cumprimento: o modal recebe o endereço e o token do despacho clicado e começa com "Certifico que ".
+   - @menção (C3): o pasta-mencoes.js liga a lista ao campo; ao enviar, cada "@Nome" escolhido vira o token
+     `@[Nome](user:ID)` (PastaMencoes.paraEnvio), que o servidor confere.
+   - Extrato (L57, L150): abre a folha em janela nova; se o navegador bloquear, avisa "Permita pop-ups para gerar o
+     extrato.". O aviso (toast) do desenho (L176) também mostra o "Lembrete enviado no Chat I.A." que volta na URL. */
 (function () {
   'use strict';
 
@@ -99,6 +103,7 @@
       /* Despachar pede texto ou anexo; só com anexo, sem texto, vale (04B L145). */
       var temAnexo = !!(anexo && anexo.files && anexo.files.length);
       if (valor === '' && campo.value.trim() === '' && !temAnexo) return;
+      if (window.PastaMencoes) campo.value = PastaMencoes.paraEnvio(campo, campo.value);
       acao.value = valor;
       form.submit();
     }
@@ -131,8 +136,50 @@
     });
   }
 
+  /* O toast do desenho (L176): embaixo, no centro, some em 3 segundos. */
+  function avisar(texto) {
+    var aviso = document.createElement('div');
+    aviso.className = 'meta-toast';
+    aviso.setAttribute('role', 'status');
+    var icone = document.createElement('i');
+    icone.className = 'bi bi-check-circle';
+    aviso.appendChild(icone);
+    aviso.appendChild(document.createTextNode(texto));
+    document.body.appendChild(aviso);
+    setTimeout(function () { aviso.remove(); }, 3000);
+  }
+
+  function iniciarAvisos() {
+    document.querySelectorAll('[data-meta-toast]').forEach(function (aviso) {
+      setTimeout(function () { aviso.remove(); }, 3000);
+    });
+    /* O aviso do Lembrar vem na URL (?lembrete=enviado): sai da barra para não voltar ao recarregar. */
+    if (window.URL && window.history && history.replaceState && /[?&]lembrete=/.test(location.search)) {
+      var url = new URL(location.href);
+      url.searchParams.delete('lembrete');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+  }
+
+  function iniciarExtrato() {
+    document.querySelectorAll('a[data-extrato]').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        /* Sem 'noopener' nas opções: com ele o window.open devolve null mesmo quando abre. */
+        var janela = window.open(link.href, '_blank');
+        if (!janela) {
+          avisar(BJ_T.t('metas.detalhe.js.permita_popups'));
+          return;
+        }
+        janela.opener = null;
+      });
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     iniciarCertidao();
+    iniciarAvisos();
+    iniciarExtrato();
     var form = document.querySelector('form[data-despacho]');
     if (!form) return;
     var campo = form.querySelector('#tarefaMensagemConteudo');

@@ -65,18 +65,40 @@ final class MontarSituacaoDaMetaUseCase
 
     private static function aguardando(Tarefa $meta, bool $emRevisao, bool $atrasada, \DateTimeImmutable $agora): ?AguardandoNaMetaOutput
     {
-        $quem = $emRevisao ? array_filter([$meta->getCriadoPor()]) : $meta->getResponsaveis()->toArray();
+        $quem = self::quemAguarda($meta);
         if ($quem === []) {
             return null;
         }
-        $desde = $emRevisao ? self::envioParaRevisao($meta) : $meta->getDataCriacao()->setTime(0, 0);
 
         return new AguardandoNaMetaOutput(
             emRevisao: $emRevisao,
-            pessoas: array_values(array_map(self::pessoa(...), $quem)),
-            dias: max(0, intdiv($agora->getTimestamp() - $desde->getTimestamp(), 86400)),
+            pessoas: array_map(self::pessoa(...), $quem),
+            dias: self::diasAguardando($meta, $agora),
             atrasada: $atrasada,
         );
+    }
+
+    /**
+     * Com quem a meta está (L131): em revisão, o criador; senão, os responsáveis. É também a quem o Lembrar avisa.
+     *
+     * @return list<User>
+     */
+    public static function quemAguarda(Tarefa $meta): array
+    {
+        if ($meta->getStatus() !== Tarefa::STATUS_EM_REVISAO) {
+            return array_values($meta->getResponsaveis()->toArray());
+        }
+        $criador = $meta->getCriadoPor();
+
+        return $criador === null ? [] : [$criador];
+    }
+
+    /** Os "N dias" da faixa: períodos de 24h desde o envio para revisão, ou desde a criação (à 00:00). */
+    public static function diasAguardando(Tarefa $meta, \DateTimeImmutable $agora): int
+    {
+        $desde = $meta->getStatus() === Tarefa::STATUS_EM_REVISAO ? self::envioParaRevisao($meta) : $meta->getDataCriacao()->setTime(0, 0);
+
+        return max(0, intdiv($agora->getTimestamp() - $desde->getTimestamp(), 86400));
     }
 
     /** O envio para revisão mais recente (despacho com ação `envio`); sem ele, a última alteração da meta. */

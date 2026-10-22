@@ -1448,6 +1448,9 @@ metas:
             dias: '{n, plural, one {# dia} other {# dias}}'
             com_a_demanda: com a demanda
             desde_o_envio: desde o envio para revisão
+            lembrar: Lembrar
+            lembrar_dica: Enviar lembrete no Chat I.A
+            lembrete_enviado: Lembrete enviado no Chat I.A.
         situacao:
             pendente: Pendente
             revisao: Aguardando revisão
@@ -1511,12 +1514,16 @@ metas:
             erro_rede: Erro de rede. Tente novamente.
             acompanhando: Acompanhando
             acompanhar: Acompanhar
+            permita_popups: Permita pop-ups para gerar o extrato.
     despacho:
         natureza_rotulo: Natureza
         prazo_rotulo: Prazo
         prazo_dica: Prazo para cumprimento
         dias_uteis: '{n, plural, one {# dia útil} other {# dias úteis}}'
-        placeholder: Escreva o despacho.
+        placeholder: Escreva o despacho. Digite @ para marcar alguém da equipe.
+        juntado_a_pasta: juntado à pasta
+        extrato: Extrato
+        extrato_dica: Imprimir ou salvar a tramitação em PDF
         contador: '{n} / 5.000'
         anexar: Anexar arquivo
         despachar: Despachar
@@ -1566,6 +1573,15 @@ metas:
             abrir_meta: Abrir a meta
             nao_encontrado_titulo: Registro não encontrado
             nao_encontrado: 'Nenhum despacho deste escritório tem o código {codigo}.'
+        extrato_folha:
+            titulo: Extrato de tramitação
+            cabeca: 'Meta #{numero} · {titulo} · Pasta {pasta}'
+            emitido_em: 'Emitido em {quando}'
+            demanda: DEMANDA
+            demanda_quem: '{data} · {autor}'
+            cumprir_ate: 'Cumprir até {data}'
+            ciente: 'Ciente: {nome}'
+            certidao: '{texto} · {nome}, {quando}'
         js:
             um_dia_util: 1 dia útil
             dias_uteis: '{n} dias úteis'

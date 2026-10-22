@@ -1,7 +1,8 @@
 {#
     Faixa "AGUARDANDO DESPACHO DE" / "AGUARDANDO REVISÃO DE" (desenho 04B de 22/10, L50 e L131-132; spec L2).
     Recebe `situacao` (SituacaoDaMetaOutput). Some na meta concluída e na meta sem ninguém a esperar.
-    O botão "Lembrar" do desenho é da Fase 2b.
+    "Lembrar" (L50, L133): avisa na Central quem está com a meta, grava o lembrete no histórico e volta com o aviso
+    "Lembrete enviado no Chat I.A.". Formulário simples (POST com CSRF), sem depender de JS.
 #}
 {% set a = situacao.aguardando %}
 {% if a %}
@@ -18,5 +19,9 @@
             <b class="meta-aguardando-dias">{{ a.dias == 0 ? 'metas.detalhe.aguardando.hoje'|trans : 'metas.detalhe.aguardando.dias'|trans({n: a.dias}) }}</b>
             <span class="meta-aguardando-desde">{{ (a.emRevisao ? 'metas.detalhe.aguardando.desde_o_envio' : 'metas.detalhe.aguardando.com_a_demanda')|trans }}</span>
         </div>
+        <form method="post" action="{{ path('tarefa_lembrar', {id: tarefa.id}) }}" class="meta-lembrar-form">
+            <input type="hidden" name="_token" value="{{ csrf_token('lembrar_meta_' ~ tarefa.id) }}">
+            <button type="submit" class="meta-lembrar" title="{{ 'metas.detalhe.aguardando.lembrar_dica'|trans }}"><i class="bi bi-bell"></i>{{ 'metas.detalhe.aguardando.lembrar'|trans }}</button>
+        </form>
     </div>
 {% endif %}
