@@ -21,6 +21,8 @@ use Symfony\Component\Yaml\Yaml;
  */
 final class PastaExploradorCaixaSelecaoTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS   = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS  = __DIR__ . '/../../../public/css/pasta-explorador.css';
     private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
@@ -71,7 +73,8 @@ final class PastaExploradorCaixaSelecaoTest extends TestCase
     public function testCaixaDaLinha(): void
     {
         $caixa = $this->funcao('caixaDeSelecao');
-        self::assertStringContainsString("h('input', { type: 'checkbox', class: 'pex-chk-in', tabindex: '-1', 'aria-label': 'Selecionar ' + nome, draggable: 'false' });", $caixa);
+        self::assertStringContainsString("h('input', { type: 'checkbox', class: 'pex-chk-in', tabindex: '-1', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.selecionar', { nome: nome }), draggable: 'false' });", $caixa);
+        self::assertTextoDoScript('Selecionar {nome}', 'explorador.selecionar', $caixa);
         self::assertStringContainsString('input.checked = !!on;', $caixa);
         self::assertStringContainsString("h('span', { class: 'pex-chk-caixa', 'aria-hidden': 'true' })", $caixa, 'quem desenha é o span; o input é o alvo');
         self::assertStringNotContainsString('innerHTML', $caixa, 'o nome entra por setAttribute, nunca por HTML');
@@ -245,8 +248,8 @@ final class PastaExploradorCaixaSelecaoTest extends TestCase
         foreach (["case 'baixar':   baixarSelecao(sel); break;", "case 'copiar':   copiar(sel); break;", "case 'excluir':  excluirItens(sel); break;"] as $acao) {
             self::assertStringContainsString($acao, $js);
         }
-        self::assertStringContainsString("op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })", $js);
-        self::assertStringContainsString("op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }", $js);
+        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip_n', { n: sel.length }), 'bi-file-earmark-zip', function () { baixarZip(sel); })", $js);
+        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir_n', { n: sel.length }), 'bi-trash3', function () { excluirItens(sel); }", $js);
         // Nenhum outro conjunto de "marcados" no explorador além da limpeza (que tem lista própria).
         self::assertSame(1, substr_count($js, 'const selecao = new Set();'));
         self::assertStringNotContainsString('marcadosPelaCaixa', $js);

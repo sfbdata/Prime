@@ -180,6 +180,30 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($vazio->attr('hidden'));
         self::assertSame('Nenhuma meta neste filtro', trim($vazio->filter('.ps-vazio-titulo')->text()));
         self::assertCount(1, $crawler->filter('script[src="/js/pasta-metas.js"]'), 'quem filtra é o pasta-metas.js');
+
+        // O catálogo dos três scripts (spec idioma-do-sistema §20.9) vem na página, antes do pasta-metas.js, com o
+        // texto em português. O bj-traducao.js vem no fim do base, DEPOIS dos scripts sem defer do corpo: por isso
+        // eles só pedem texto em evento ou no DOMContentLoaded, nunca no parse.
+        $html     = (string) $client->getResponse()->getContent();
+        $catalogo = null;
+        foreach ($crawler->filter('script[data-bj-t]') as $no) {
+            $dados = json_decode((string) $no->textContent, true, 512, \JSON_THROW_ON_ERROR);
+            if (isset($dados['pasta_scripts.js.metas.criar_e_notificar'])) {
+                $catalogo = $dados;
+            }
+        }
+        self::assertIsArray($catalogo, 'o catalogo_js(pasta_scripts.js) está na página');
+        self::assertSame('Criar meta e notificar os responsáveis', $catalogo['pasta_scripts.js.metas.criar_e_notificar']);
+        self::assertSame('Marcar como concluído', $catalogo['pasta_scripts.js.checklist.marcar_concluido']);
+        self::assertSame('Mais ações', $catalogo['pasta_scripts.js.explorador.mais_acoes']);
+        $posCatalogo = strpos($html, '"pasta_scripts.js.metas.criar_e_notificar"');
+        $posMetas    = strpos($html, '<script src="/js/pasta-metas.js"></script>');
+        $posTraducao = strpos($html, '/js/bj-traducao.js');
+        self::assertNotFalse($posCatalogo);
+        self::assertNotFalse($posMetas);
+        self::assertNotFalse($posTraducao);
+        self::assertLessThan($posMetas, $posCatalogo, 'o catálogo vem antes do pasta-metas.js');
+        self::assertLessThan($posTraducao, $posMetas, 'o pasta-metas.js roda antes do bj-traducao.js: só pede texto depois do parse');
     }
 
     #[TestDox('numeração local "1." "2." pela ordem de criação na pasta — o id global do sistema não aparece')]

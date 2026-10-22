@@ -1004,5 +1004,40 @@
             "Enter",
             "Files"
         ]
+    },
+
+    "pasta_scripts": {
+        "templates": [],
+        "js": [
+            "pasta-explorador.js",
+            "pasta-checklist.js",
+            "pasta-metas.js"
+        ],
+        "permitidos": [
+            "Accept",
+            "Content-Type",
+            "Files",
+            "Escape",
+            "Enter",
+            "Tab",
+            "Backspace",
+            "Delete",
+            "Home",
+            "End",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowUp",
+            "ContextMenu",
+            "Spacebar",
+            "Ctrl+A",
+            "Ctrl+C",
+            "Ctrl+V",
+            "Ctrl+X",
+            "Del",
+            "Erro no toggle:",
+            "Erro ao reordenar:",
+            "Erro ao editar item:",
+            "Erro ao excluir item:"
+        ]
     }
 }

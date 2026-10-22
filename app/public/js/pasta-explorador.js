@@ -235,7 +235,7 @@
        existe no desenho: entra entre Tipo e Tamanho, desligada, com limites próprios. ---- */
     const COLUNAS_PAD = { ord: ['nome', 'tipo', 'cat', 'tam', 'data'], w: { tipo: 150, cat: 140, tam: 90, data: 110 } };
     const COLUNAS_LIM = { tipo: [80, 360], cat: [80, 300], tam: [60, 200], data: [80, 240] };
-    const COLUNAS_ROTULO = { nome: 'Nome', tipo: 'Tipo', cat: 'Categoria', tam: 'Tamanho', data: 'Modificado' };
+    const COLUNAS_ROTULO = { nome: BJ_T.t('pasta_scripts.js.explorador.col_nome'), tipo: BJ_T.t('pasta_scripts.js.explorador.col_tipo'), cat: BJ_T.t('pasta_scripts.js.explorador.col_cat'), tam: BJ_T.t('pasta_scripts.js.explorador.col_tam'), data: BJ_T.t('pasta_scripts.js.explorador.col_data') };
     const COLUNA_CLASSIFICAR = { nome: 'nome', tipo: 'tipo', cat: 'categoria', tam: 'tamanho', data: 'data' };
 
     /* ---- Tipo de documento (dc `TIPOS_DOC` + `expGrupo`, L3082-3087). ---- */
@@ -358,7 +358,13 @@
         return n;
     }
     function icone(classes) { return h('i', { class: 'bi ' + classes, 'aria-hidden': 'true' }); }
-    function pluralizar(n, singular, plural) { return n + ' ' + (n === 1 ? singular : plural); }
+    // Singular e plural são duas chaves, escolhidas pelo mesmo `n === 1` de antes (spec idioma-do-sistema §20.9).
+    function qtdArquivos(n) { return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.qtd_arquivo_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.qtd_arquivo_varios', { n: n }); }
+    function qtdPastas(n) { return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.qtd_pasta_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.qtd_pasta_varios', { n: n }); }
+    function qtdSubpastas(n) { return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.qtd_subpasta_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.qtd_subpasta_varios', { n: n }); }
+    function qtdItens(n) { return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.qtd_item_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.qtd_item_varios', { n: n }); }
+    function qtdResultados(n) { return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.qtd_resultado_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.qtd_resultado_varios', { n: n }); }
+    function qtdFavoritos(n) { return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.qtd_favorito_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.qtd_favorito_varios', { n: n }); }
     function formatarBytes(b) {
         b = Number(b) || 0;
         if (b <= 0) return '0 B';
@@ -415,51 +421,51 @@
     /* ---- Tipo pela extensão (dc `expTipo`, L4675-4680): rótulo, ícone e cor. ---- */
     const TIPO_ALIAS = { DOCM: 'DOCX', DOTX: 'DOCX', XLSM: 'XLSX', XLS: 'XLSX', XLSB: 'XLSX', JPEG: 'JPG', JFIF: 'JPG', WEBP: 'PNG', GIF: 'PNG', BMP: 'PNG', SVG: 'PNG' };
     const TIPOS = {
-        PDF:  ['bi-file-earmark-pdf-fill',   'pdf',    'Documento PDF'],
-        DOCX: ['bi-file-earmark-word-fill',  'word',   'Documento do Word'],
-        DOC:  ['bi-file-earmark-word-fill',  'word',   'Documento do Word'],
-        ODT:  ['bi-file-earmark-word-fill',  'word',   'Documento ODT'],
-        RTF:  ['bi-file-earmark-richtext-fill', 'word', 'Documento RTF'],
-        TXT:  ['bi-file-earmark-text-fill',  'txt',    'Texto'],
-        XLSX: ['bi-file-earmark-excel-fill', 'excel',  'Planilha do Excel'],
-        CSV:  ['bi-filetype-csv',            'excel',  'Planilha CSV'],
-        ODS:  ['bi-file-earmark-spreadsheet-fill', 'excel', 'Planilha ODS'],
-        PPTX: ['bi-file-earmark-slides-fill', 'slides', 'Apresentação'],
-        PPT:  ['bi-file-earmark-slides-fill', 'slides', 'Apresentação'],
-        ODP:  ['bi-file-earmark-slides-fill', 'slides', 'Apresentação'],
-        ZIP:  ['bi-file-earmark-zip-fill',   'zip',    'Pasta compactada'],
-        RAR:  ['bi-file-earmark-zip-fill',   'zip',    'Pasta compactada'],
-        '7Z': ['bi-file-earmark-zip-fill',   'zip',    'Pasta compactada'],
-        JPG:  ['bi-file-earmark-image-fill', 'img',    'Imagem JPEG'],
-        PNG:  ['bi-file-earmark-image-fill', 'img',    'Imagem PNG'],
-        TIF:  ['bi-file-earmark-image-fill', 'img',    'Imagem TIFF'],
-        TIFF: ['bi-file-earmark-image-fill', 'img',    'Imagem TIFF'],
-        HEIC: ['bi-file-earmark-image-fill', 'img',    'Imagem HEIC'],
-        MP3:  ['bi-file-earmark-music-fill', 'midia',  'Áudio'],
-        WAV:  ['bi-file-earmark-music-fill', 'midia',  'Áudio'],
-        OGG:  ['bi-file-earmark-music-fill', 'midia',  'Áudio'],
-        OPUS: ['bi-file-earmark-music-fill', 'midia',  'Áudio (WhatsApp)'],
-        M4A:  ['bi-file-earmark-music-fill', 'midia',  'Áudio'],
-        MP4:  ['bi-file-earmark-play-fill',  'midia',  'Vídeo'],
-        MOV:  ['bi-file-earmark-play-fill',  'midia',  'Vídeo'],
-        WEBM: ['bi-file-earmark-play-fill',  'midia',  'Vídeo'],
-        EML:  ['bi-envelope-paper-fill',     'email',  'E-mail'],
-        MSG:  ['bi-envelope-paper-fill',     'email',  'E-mail do Outlook'],
-        P7S:  ['bi-patch-check-fill',        'assin',  'Assinatura digital'],
-        P7M:  ['bi-patch-check-fill',        'assin',  'Documento assinado'],
-        JSON: ['bi-filetype-json',           'txt',    'Arquivo JSON'],
-        XML:  ['bi-filetype-xml',            'txt',    'Arquivo XML'],
-        HTML: ['bi-filetype-html',           'txt',    'Página HTML'],
-        KML:  ['bi-geo-alt-fill',            'txt',    'Mapa KML'],
+        PDF:  ['bi-file-earmark-pdf-fill',   'pdf',    BJ_T.t('pasta_scripts.js.explorador.tipo_pdf')],
+        DOCX: ['bi-file-earmark-word-fill',  'word',   BJ_T.t('pasta_scripts.js.explorador.tipo_word')],
+        DOC:  ['bi-file-earmark-word-fill',  'word',   BJ_T.t('pasta_scripts.js.explorador.tipo_word')],
+        ODT:  ['bi-file-earmark-word-fill',  'word',   BJ_T.t('pasta_scripts.js.explorador.tipo_odt')],
+        RTF:  ['bi-file-earmark-richtext-fill', 'word', BJ_T.t('pasta_scripts.js.explorador.tipo_rtf')],
+        TXT:  ['bi-file-earmark-text-fill',  'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_texto')],
+        XLSX: ['bi-file-earmark-excel-fill', 'excel',  BJ_T.t('pasta_scripts.js.explorador.tipo_excel')],
+        CSV:  ['bi-filetype-csv',            'excel',  BJ_T.t('pasta_scripts.js.explorador.tipo_csv')],
+        ODS:  ['bi-file-earmark-spreadsheet-fill', 'excel', BJ_T.t('pasta_scripts.js.explorador.tipo_ods')],
+        PPTX: ['bi-file-earmark-slides-fill', 'slides', BJ_T.t('pasta_scripts.js.explorador.tipo_apresentacao')],
+        PPT:  ['bi-file-earmark-slides-fill', 'slides', BJ_T.t('pasta_scripts.js.explorador.tipo_apresentacao')],
+        ODP:  ['bi-file-earmark-slides-fill', 'slides', BJ_T.t('pasta_scripts.js.explorador.tipo_apresentacao')],
+        ZIP:  ['bi-file-earmark-zip-fill',   'zip',    BJ_T.t('pasta_scripts.js.explorador.tipo_compactada')],
+        RAR:  ['bi-file-earmark-zip-fill',   'zip',    BJ_T.t('pasta_scripts.js.explorador.tipo_compactada')],
+        '7Z': ['bi-file-earmark-zip-fill',   'zip',    BJ_T.t('pasta_scripts.js.explorador.tipo_compactada')],
+        JPG:  ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_jpeg')],
+        PNG:  ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_png')],
+        TIF:  ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_tiff')],
+        TIFF: ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_tiff')],
+        HEIC: ['bi-file-earmark-image-fill', 'img',    BJ_T.t('pasta_scripts.js.explorador.tipo_heic')],
+        MP3:  ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio')],
+        WAV:  ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio')],
+        OGG:  ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio')],
+        OPUS: ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio_whatsapp')],
+        M4A:  ['bi-file-earmark-music-fill', 'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_audio')],
+        MP4:  ['bi-file-earmark-play-fill',  'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_video')],
+        MOV:  ['bi-file-earmark-play-fill',  'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_video')],
+        WEBM: ['bi-file-earmark-play-fill',  'midia',  BJ_T.t('pasta_scripts.js.explorador.tipo_video')],
+        EML:  ['bi-envelope-paper-fill',     'email',  BJ_T.t('pasta_scripts.js.explorador.tipo_email')],
+        MSG:  ['bi-envelope-paper-fill',     'email',  BJ_T.t('pasta_scripts.js.explorador.tipo_email_outlook')],
+        P7S:  ['bi-patch-check-fill',        'assin',  BJ_T.t('pasta_scripts.js.explorador.tipo_assinatura')],
+        P7M:  ['bi-patch-check-fill',        'assin',  BJ_T.t('pasta_scripts.js.explorador.tipo_assinado')],
+        JSON: ['bi-filetype-json',           'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_json')],
+        XML:  ['bi-filetype-xml',            'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_xml')],
+        HTML: ['bi-filetype-html',           'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_html')],
+        KML:  ['bi-geo-alt-fill',            'txt',    BJ_T.t('pasta_scripts.js.explorador.tipo_kml')],
     };
     function tipoDe(nome) {
         const ext = extensaoDe(nome).toUpperCase();
         if (TIPOS[ext]) return TIPOS[ext];
         const alias = TIPO_ALIAS[ext];
-        if (alias && TIPOS[alias]) { const b = TIPOS[alias]; return [b[0], b[1], b[2] + ' (' + ext + ')']; }
-        return ['bi-file-earmark-fill', 'outro', ext ? 'Arquivo ' + ext : 'Arquivo'];
+        if (alias && TIPOS[alias]) { const b = TIPOS[alias]; return [b[0], b[1], BJ_T.t('pasta_scripts.js.explorador.tipo_com_extensao', { tipo: b[2], ext: ext })]; }
+        return ['bi-file-earmark-fill', 'outro', ext ? BJ_T.t('pasta_scripts.js.explorador.tipo_arquivo_ext', { ext: ext }) : BJ_T.t('pasta_scripts.js.explorador.tipo_arquivo')];
     }
-    const TIPO_PASTA = ['bi-folder-fill', 'pasta', 'Pasta de arquivos'];
+    const TIPO_PASTA = ['bi-folder-fill', 'pasta', BJ_T.t('pasta_scripts.js.explorador.tipo_pasta')];
 
     /* ---- Ícone "estilo Office" (dc `FI` + `fi()`, L3055-3070): [classe de cor, sigla do selo].
        Extensão fora do mapa: cinza com as 3 primeiras letras, como o desenho. ---- */
@@ -532,7 +538,7 @@
     function paiDe(id) { const p = pastaPorId(id); return p && p.paiId != null ? Number(p.paiId) : null; }
     function pastaAtualId() { return caminho.length ? caminho[caminho.length - 1] : null; }
     function nomePasta(id) { const p = pastaPorId(id); return p ? p.nome : ''; }
-    function nomeDoLocal(id) { return id == null ? 'Documentos' : nomePasta(id); }
+    function nomeDoLocal(id) { return id == null ? BJ_T.t('pasta_scripts.js.explorador.documentos') : nomePasta(id); }
 
     function cadeiaAte(id) {
         const cadeia = [];
@@ -542,8 +548,8 @@
         return cadeia;
     }
     function caminhoLegivel(id) {
-        if (id == null) return 'Documentos';
-        return ['Documentos'].concat(cadeiaAte(id).map(nomePasta)).join(' › ');
+        if (id == null) return BJ_T.t('pasta_scripts.js.explorador.documentos');
+        return [BJ_T.t('pasta_scripts.js.explorador.documentos')].concat(cadeiaAte(id).map(nomePasta)).join(' › ');
     }
     function descendentes(id, profundidade) {
         profundidade = profundidade || 0;
@@ -691,7 +697,7 @@
 
         // Busca: contagem (dc L4838) e vazio próprio (dc L2185).
         if (buscando) {
-            el.buscaInfo.textContent = pluralizar(itens.length, 'resultado', 'resultados') + ' para "' + busca.trim() + '"';
+            el.buscaInfo.textContent = BJ_T.t('pasta_scripts.js.explorador.busca_info', { resultados: qtdResultados(itens.length), busca: busca.trim() });
             el.buscaInfo.hidden = false;
         } else {
             el.buscaInfo.hidden = true;
@@ -700,14 +706,14 @@
             el.vazioIcone.className = 'bi ' + (buscando ? 'bi-search' : 'bi-folder2-open');
             el.vazio.classList.toggle('pex-vazio--busca', buscando);
             el.vazioTexto.textContent = buscando
-                ? 'Nenhum arquivo ou pasta com esse nome.'
+                ? BJ_T.t('pasta_scripts.js.explorador.vazio_busca')
                 : (filtroTipo !== 'todos'
                     // O desenho é omisso: subindo pela trilha com o filtro ativo, uma pasta sem
                     // nada do tipo não pode parecer vazia — o chip "Mostrando somente" fica logo acima.
-                    ? 'Nenhum item do tipo ' + rotuloFiltro(filtroTipo) + (caminho.length ? ' nesta pasta.' : ' aqui.')
+                    ? (caminho.length ? BJ_T.t('pasta_scripts.js.explorador.vazio_filtro_pasta', { tipo: rotuloFiltro(filtroTipo) }) : BJ_T.t('pasta_scripts.js.explorador.vazio_filtro_raiz', { tipo: rotuloFiltro(filtroTipo) }))
                     // DOC-118: só leitura não recebe convite para arrastar, colar nem anexar.
-                    : (!cfg.podeEditar ? (caminho.length ? 'Pasta vazia.' : 'Nenhum arquivo ainda.')
-                        : (caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.')));
+                    : (!cfg.podeEditar ? (caminho.length ? BJ_T.t('pasta_scripts.js.explorador.vazio_pasta') : BJ_T.t('pasta_scripts.js.explorador.vazio_raiz'))
+                        : (caminho.length ? BJ_T.t('pasta_scripts.js.explorador.vazio_pasta_editar') : BJ_T.t('pasta_scripts.js.explorador.vazio_raiz_editar'))));
             el.vazio.hidden = false;
         } else {
             el.vazio.hidden = true;
@@ -730,7 +736,7 @@
         let colCat = el.cabecalho.querySelector('.pex-col-cat');
         if (colunas.categoria && !colCat) {
             colCat = h('div', { class: 'pex-col pex-col-cat', 'aria-sort': 'none' }, [
-                h('button', { type: 'button', 'data-pex-classificar': 'categoria' }, [h('span', { text: 'Categoria' }), h('i', { class: 'bi pex-seta', 'aria-hidden': 'true' })]),
+                h('button', { type: 'button', 'data-pex-classificar': 'categoria' }, [h('span', { text: BJ_T.t('pasta_scripts.js.explorador.col_cat') }), h('i', { class: 'bi pex-seta', 'aria-hidden': 'true' })]),
             ]);
             el.cabecalho.insertBefore(colCat, el.cabecalho.querySelector('.pex-col-acoes'));
         } else if (!colunas.categoria && colCat) {
@@ -745,10 +751,10 @@
             if (!col) return;
             col.dataset.pexCol = k;
             const btn = col.querySelector('[data-pex-classificar]');
-            if (btn) btn.title = 'Clique para classificar · arraste para mover a coluna';
+            if (btn) btn.title = BJ_T.t('pasta_scripts.js.explorador.dica_classificar');
             let alca = col.querySelector('.pex-alca');
             if (!alca) {
-                alca = h('span', { class: 'pex-alca', title: 'Arraste para ajustar a largura · clique duplo para voltar ao padrão', 'aria-hidden': 'true' }, [h('span', { class: 'pex-alca-linha' })]);
+                alca = h('span', { class: 'pex-alca', title: BJ_T.t('pasta_scripts.js.explorador.dica_alca'), 'aria-hidden': 'true' }, [h('span', { class: 'pex-alca-linha' })]);
                 col.appendChild(alca);
             }
             alca.hidden = i === vis.length - 1;
@@ -768,7 +774,7 @@
         if (buscando || caminho.length === 0) { el.trilha.hidden = true; return; }
         el.trilha.hidden = false;
         el.trilhaNiveis.textContent = '';
-        el.trilhaNiveis.appendChild(h('button', { type: 'button', class: 'pex-nivel', 'data-pex-nivel': '-1', text: 'Documentos', title: 'Documentos' }));
+        el.trilhaNiveis.appendChild(h('button', { type: 'button', class: 'pex-nivel', 'data-pex-nivel': '-1', text: BJ_T.t('pasta_scripts.js.explorador.documentos'), title: BJ_T.t('pasta_scripts.js.explorador.documentos') }));
         caminho.forEach(function (id, i) {
             const atual = i === caminho.length - 1;
             el.trilhaNiveis.appendChild(h('i', { class: 'bi bi-chevron-right pex-trilha-sep', 'aria-hidden': 'true' }));
@@ -790,13 +796,14 @@
         if (atual == null) {
             const nArq = arquivos.filter(function (a) { return a.secaoId == null; }).length;
             const nPas = pastas.filter(function (p) { return p.paiId == null; }).length;
-            el.rodape.textContent = pluralizar(nArq, 'arquivo', 'arquivos') + ' e ' + pluralizar(nPas, 'pasta', 'pastas')
-                + ' · ' + totalArquivos + ' no total, contando subpastas';
+            el.rodape.textContent = BJ_T.t('pasta_scripts.js.explorador.rodape_raiz', { arquivos: qtdArquivos(nArq), pastas: qtdPastas(nPas), total: totalArquivos });
             return;
         }
         const nItens = pastas.filter(function (p) { return Number(p.paiId) === atual; }).length
             + arquivos.filter(function (a) { return Number(a.secaoId) === atual; }).length;
-        el.rodape.textContent = nomePasta(atual) + ' · ' + (nItens ? pluralizar(nItens, 'item', 'itens') + ' nesta pasta' : 'vazia');
+        el.rodape.textContent = nItens
+            ? BJ_T.t('pasta_scripts.js.explorador.rodape_pasta', { nome: nomePasta(atual), itens: qtdItens(nItens) })
+            : BJ_T.t('pasta_scripts.js.explorador.rodape_pasta_vazia', { nome: nomePasta(atual) });
     }
 
     function renderizarMenus() {
@@ -845,8 +852,8 @@
             frag.appendChild(h('div', { class: 'pex-ordem-linha' }, [
                 h('span', { class: 'pex-ordem-n', text: String(i + 1) }),
                 h('span', { class: 'pex-ordem-rotulo', text: COLUNAS_ROTULO[k] }),
-                h('button', { type: 'button', class: 'pex-ordem-seta', 'data-pex-mover-de': String(i), 'data-pex-mover-para': String(i - 1), disabled: i === 0, title: 'Mover para a esquerda', 'aria-label': 'Mover ' + COLUNAS_ROTULO[k] + ' para a esquerda' }, [icone('bi-arrow-left')]),
-                h('button', { type: 'button', class: 'pex-ordem-seta', 'data-pex-mover-de': String(i), 'data-pex-mover-para': String(i + 1), disabled: i === vis.length - 1, title: 'Mover para a direita', 'aria-label': 'Mover ' + COLUNAS_ROTULO[k] + ' para a direita' }, [icone('bi-arrow-right')]),
+                h('button', { type: 'button', class: 'pex-ordem-seta', 'data-pex-mover-de': String(i), 'data-pex-mover-para': String(i - 1), disabled: i === 0, title: BJ_T.t('pasta_scripts.js.explorador.mover_esquerda'), 'aria-label': BJ_T.t('pasta_scripts.js.explorador.mover_coluna_esquerda', { coluna: COLUNAS_ROTULO[k] }) }, [icone('bi-arrow-left')]),
+                h('button', { type: 'button', class: 'pex-ordem-seta', 'data-pex-mover-de': String(i), 'data-pex-mover-para': String(i + 1), disabled: i === vis.length - 1, title: BJ_T.t('pasta_scripts.js.explorador.mover_direita'), 'aria-label': BJ_T.t('pasta_scripts.js.explorador.mover_coluna_direita', { coluna: COLUNAS_ROTULO[k] }) }, [icone('bi-arrow-right')]),
             ]));
         });
         el.ordemColunas.textContent = '';
@@ -886,9 +893,9 @@
     }
     // Conteúdo de pasta como o desenho mostra no sub (dc L4706): "22 arquivos" / "Vazia".
     function conteudoPasta(c) {
-        if (c.arquivos > 0) return pluralizar(c.arquivos, 'arquivo', 'arquivos');
-        if (c.subpastas > 0) return pluralizar(c.subpastas, 'subpasta', 'subpastas');
-        return 'Vazia';
+        if (c.arquivos > 0) return qtdArquivos(c.arquivos);
+        if (c.subpastas > 0) return qtdSubpastas(c.subpastas);
+        return BJ_T.t('pasta_scripts.js.explorador.vazia');
     }
     function numeroDescricao(a) {
         return (a.numero ? 'Nº ' + a.numero : '') + (a.numero && a.descricao ? ' · ' : '') + (a.descricao || '');
@@ -925,7 +932,7 @@
             celulas.push(nome);
             if (lado) celulas.push(lado);
         }
-        celulas.push(h('span', { class: 'pex-cel pex-cel-acoes' }, [botaoMenu(ehPasta ? 'Ações da pasta' : 'Ações do arquivo')]));
+        celulas.push(h('span', { class: 'pex-cel pex-cel-acoes' }, [botaoMenu(ehPasta ? BJ_T.t('pasta_scripts.js.explorador.acoes_pasta') : BJ_T.t('pasta_scripts.js.explorador.acoes_arquivo'))]));
         if (on) attrs.class += ' pex-item--sel';
         attrs.id = idDaLinha(chaveDaLinha);
         attrs.role = 'option';
@@ -940,7 +947,7 @@
        inteira (16px no mouse, 32px no toque); quem desenha é o .pex-chk-caixa, pelo CSS.
        `tabindex="-1"`: sem uma parada de Tab por linha dentro do listbox (como a estrela). */
     function caixaDeSelecao(on, nome) {
-        const input = h('input', { type: 'checkbox', class: 'pex-chk-in', tabindex: '-1', 'aria-label': 'Selecionar ' + nome, draggable: 'false' });
+        const input = h('input', { type: 'checkbox', class: 'pex-chk-in', tabindex: '-1', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.selecionar', { nome: nome }), draggable: 'false' });
         input.checked = !!on;
         return h('span', { class: 'pex-chk' }, [input, h('span', { class: 'pex-chk-caixa', 'aria-hidden': 'true' })]);
     }
@@ -952,7 +959,7 @@
        teclado o favorito é o item do menu de contexto (Shift+F10 / tecla Menu na seleção).
        Com pedido em voo: `aria-busy` e a classe `pex-fav--voo` (opacidade), sem aceitar clique. */
     function botaoFavorito(on, emVoo) {
-        const b = h('button', { type: 'button', class: 'pex-fav', 'aria-label': 'Favorito', tabindex: '-1', draggable: 'false' }, [icone('bi-star')]);
+        const b = h('button', { type: 'button', class: 'pex-fav', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.favorito'), tabindex: '-1', draggable: 'false' }, [icone('bi-star')]);
         pintarEstrela(b, on, emVoo);
         return b;
     }
@@ -961,7 +968,7 @@
         b.classList.toggle('pex-fav--voo', !!emVoo);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
         if (emVoo) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
-        b.title = on ? 'Tirar dos favoritos' : 'Marcar como favorito';
+        b.title = on ? BJ_T.t('pasta_scripts.js.explorador.tirar_favorito') : BJ_T.t('pasta_scripts.js.explorador.marcar_favorito');
         b.firstChild.className = 'bi ' + (on ? 'bi-star-fill' : 'bi-star');
     }
     // Repinta a estrela que já está na tela (sem refazer a lista): o "em voo" liga e desliga
@@ -974,7 +981,7 @@
 
     // ⋮ (S-1): só aparece no toque, pelo CSS; abre o MESMO menu de contexto do botão direito.
     function botaoMenu(rotulo) {
-        return h('button', { type: 'button', class: 'pex-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': rotulo, title: 'Mais ações' }, [icone('bi-three-dots-vertical')]);
+        return h('button', { type: 'button', class: 'pex-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': rotulo, title: BJ_T.t('pasta_scripts.js.explorador.mais_acoes') }, [icone('bi-three-dots-vertical')]);
     }
 
     function linhaPasta(p, buscando) {
@@ -987,8 +994,8 @@
             'data-pex-subpastas': String(contagem.subpastas),
             'data-pex-arquivos': String(contagem.arquivos),
             tabindex: '0',
-            title: p.nome + ' · ' + pluralizar(contagem.arquivos, 'arquivo', 'arquivos'),
-            'aria-label': 'Pasta ' + p.nome,
+            title: p.nome + ' · ' + qtdArquivos(contagem.arquivos),
+            'aria-label': BJ_T.t('pasta_scripts.js.explorador.rotulo_pasta', { nome: p.nome }),
             draggable: usaSortable() ? null : 'true',
         }, true, h('span', { class: 'pex-nome' }, nomeComRealce(p.nome, buscando)), sub, null, {
             tipo: h('span', { class: 'pex-cel pex-cel-tipo', text: TIPO_PASTA[2] }),
@@ -1070,26 +1077,26 @@
         if (it.tipo === 'pasta') {
             const c = contarArvore(d.id);
             const partes = [];
-            if (c.arquivos > 0) partes.push(pluralizar(c.arquivos, 'arquivo', 'arquivos'));
-            if (c.subpastas > 0) partes.push(pluralizar(c.subpastas, 'subpasta', 'subpastas'));
+            if (c.arquivos > 0) partes.push(qtdArquivos(c.arquivos));
+            if (c.subpastas > 0) partes.push(qtdSubpastas(c.subpastas));
             return [
-                ['Tipo', TIPO_PASTA[2]],
-                ['Conteúdo', partes.length ? partes.join(' · ') : 'Vazia'],
-                ['Local', caminhoLegivel(d.paiId == null ? null : Number(d.paiId))],
+                [BJ_T.t('pasta_scripts.js.explorador.col_tipo'), TIPO_PASTA[2]],
+                [BJ_T.t('pasta_scripts.js.explorador.prop_conteudo'), partes.length ? partes.join(' · ') : BJ_T.t('pasta_scripts.js.explorador.vazia')],
+                [BJ_T.t('pasta_scripts.js.explorador.prop_local'), caminhoLegivel(d.paiId == null ? null : Number(d.paiId))],
             ];
         }
         return [
-            ['Tipo', tipoDe(d.nome)[2]],
-            ['Categoria', d.categoriaRotulo || ''],
-            ['Tamanho', formatarBytes(d.tamanho)],
-            ['Modificado', formatarDataHora(dataModificacao(d))],
-            ['Adicionado em', d.modificadoEm ? formatarDataHora(d.carregadoEm) : ''],
-            ['Páginas', d.paginas != null ? formatarInteiro(d.paginas) : ''],
-            ['Enviado por', d.enviadoPor || ''],
-            ['Número', d.numero || ''],
-            ['Descrição', d.descricao || ''],
-            ['Nome parecido', nomeParecidoTexto(d)],
-            ['Local', caminhoLegivel(d.secaoId == null ? null : Number(d.secaoId))],
+            [BJ_T.t('pasta_scripts.js.explorador.col_tipo'), tipoDe(d.nome)[2]],
+            [BJ_T.t('pasta_scripts.js.explorador.col_cat'), d.categoriaRotulo || ''],
+            [BJ_T.t('pasta_scripts.js.explorador.col_tam'), formatarBytes(d.tamanho)],
+            [BJ_T.t('pasta_scripts.js.explorador.col_data'), formatarDataHora(dataModificacao(d))],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_adicionado'), d.modificadoEm ? formatarDataHora(d.carregadoEm) : ''],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_paginas'), d.paginas != null ? formatarInteiro(d.paginas) : ''],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_enviado_por'), d.enviadoPor || ''],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_numero'), d.numero || ''],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_descricao'), d.descricao || ''],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_nome_parecido'), nomeParecidoTexto(d)],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_local'), caminhoLegivel(d.secaoId == null ? null : Number(d.secaoId))],
         ].filter(function (p) { return p[1] !== ''; });
     }
     function somaDasPaginas(sel) {
@@ -1099,11 +1106,11 @@
     function propriedadesDaSelecao(sel) {
         const paginas = somaDasPaginas(sel);
         const props = [
-            ['Pastas', String(sel.filter(ehPastaItem).length)],
-            ['Arquivos', String(sel.filter(ehArquivo).length)],
-            ['Tamanho dos arquivos', formatarBytes(somaDosArquivos(sel))],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_pastas'), String(sel.filter(ehPastaItem).length)],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_arquivos'), String(sel.filter(ehArquivo).length)],
+            [BJ_T.t('pasta_scripts.js.explorador.prop_tamanho_arquivos'), formatarBytes(somaDosArquivos(sel))],
         ];
-        if (paginas !== null) props.push(['Páginas', formatarInteiro(paginas)]);
+        if (paginas !== null) props.push([BJ_T.t('pasta_scripts.js.explorador.prop_paginas'), formatarInteiro(paginas)]);
         return props;
     }
     function renderizarPainel() {
@@ -1120,7 +1127,7 @@
         const frag = document.createDocumentFragment();
         if (multi) {
             frag.appendChild(h('span', { class: 'pex-painel-ico' }, [icone('bi-stack')]));
-            frag.appendChild(h('span', { class: 'pex-painel-nome', text: sel.length + ' itens selecionados' }));
+            frag.appendChild(h('span', { class: 'pex-painel-nome', text: BJ_T.t('pasta_scripts.js.explorador.painel_selecionados', { n: sel.length }) }));
             frag.appendChild(h('dl', { class: 'pex-painel-props' }, propriedadesDaSelecao(sel).map(function (p) {
                 return h('div', { class: 'pex-painel-prop' }, [h('dt', { text: p[0] }), h('dd', { text: p[1] })]);
             })));
@@ -1146,7 +1153,7 @@
     const LIMPEZA = Array.isArray(dados.limpeza) ? dados.limpeza : [];
     const REGRAS_LIMPEZA = ['identico', 'vazio', 'copia_processo', 'muito_grande'];
     // dc L4747 (`sugRot`): o selo da linha para cada regra que não é a do idêntico.
-    const SELO_SUGESTAO = { vazio: 'Vazio', copia_processo: 'Ver no PJe', muito_grande: 'Muito grande' };
+    const SELO_SUGESTAO = { vazio: BJ_T.t('pasta_scripts.js.explorador.selo_vazio'), copia_processo: BJ_T.t('pasta_scripts.js.explorador.selo_copia_processo'), muito_grande: BJ_T.t('pasta_scripts.js.explorador.selo_muito_grande') };
     const PAGINAS_DA_COPIA = 100;     // SugestoesDeLimpeza::PAGINAS_DA_COPIA
     // Os ids da faixa (só da raiz) e a regra de cada um, como o servidor mandou.
     const regraDaFaixa = {};
@@ -1183,28 +1190,32 @@
         const outros = copiasIdenticas(a);
         if (!outros.length) return null;
         const fica = maisAntigo(outros.concat([a]));
-        const titulo = 'Conteúdo idêntico a: ' + outros.map(function (x) { return x.nome; }).join(', ')
-            + (fica === a ? '. Este é o mais antigo (sugerido manter).' : '. Sugestão: manter "' + fica.nome + '".');
-        return h('span', { class: 'pex-selo pex-selo--identico', title: titulo }, [icone('bi-files'), 'Idêntico']);
+        const nomes = outros.map(function (x) { return x.nome; }).join(', ');
+        const titulo = fica === a
+            ? BJ_T.t('pasta_scripts.js.explorador.identico_este_fica', { nomes: nomes })
+            : BJ_T.t('pasta_scripts.js.explorador.identico_outro_fica', { nomes: nomes, fica: fica.nome });
+        return h('span', { class: 'pex-selo pex-selo--identico', title: titulo }, [icone('bi-files'), BJ_T.t('pasta_scripts.js.explorador.selo_identico')]);
     }
     function seloSugestao(a) {
         const regra = regraDe(a);
         if (!SELO_SUGESTAO[regra]) return null;
-        return h('span', { class: 'pex-selo pex-selo--sugestao', title: 'Sugestão para ganhar espaço: ' + motivoDaLimpeza(a, regra) }, [icone('bi-trash3'), SELO_SUGESTAO[regra]]);
+        return h('span', { class: 'pex-selo pex-selo--sugestao', title: BJ_T.t('pasta_scripts.js.explorador.selo_sugestao_titulo', { motivo: motivoDaLimpeza(a, regra) }) }, [icone('bi-trash3'), SELO_SUGESTAO[regra]]);
     }
     // dc `motivo` (L4692-4696), com o que o sistema sabe de verdade.
     function motivoDaLimpeza(a, regra) {
         switch (regra) {
             case 'identico': {
                 const fica = maisAntigo(copiasIdenticas(a).concat([a]));
-                return 'Conteúdo idêntico a "' + fica.nome + '"' + (fica.nome !== a.nome ? ' (nome diferente)' : '') + '. Fica o mais antigo.';
+                return fica.nome !== a.nome
+                    ? BJ_T.t('pasta_scripts.js.explorador.motivo_identico_outro_nome', { nome: fica.nome })
+                    : BJ_T.t('pasta_scripts.js.explorador.motivo_identico', { nome: fica.nome });
             }
-            case 'vazio': return 'Arquivo vazio (0 KB): não tem conteúdo.';
+            case 'vazio': return BJ_T.t('pasta_scripts.js.explorador.motivo_vazio');
             case 'copia_processo':
                 return a.paginas != null && a.paginas > PAGINAS_DA_COPIA
-                    ? 'Cópia do processo com ' + a.paginas + ' páginas: os autos ficam disponíveis no PJe, sem ocupar espaço aqui. Guarde só as peças importantes.'
-                    : 'Cópia do processo muito grande (' + formatarBytes(a.tamanho) + '): os autos ficam disponíveis no PJe.';
-            case 'muito_grande': return 'Arquivo muito grande (' + formatarBytes(a.tamanho) + '). Confira se precisa ficar na pasta.';
+                    ? BJ_T.t('pasta_scripts.js.explorador.motivo_copia_paginas', { paginas: a.paginas })
+                    : BJ_T.t('pasta_scripts.js.explorador.motivo_copia_grande', { tamanho: formatarBytes(a.tamanho) });
+            case 'muito_grande': return BJ_T.t('pasta_scripts.js.explorador.motivo_muito_grande', { tamanho: formatarBytes(a.tamanho) });
         }
         return '';
     }
@@ -1212,7 +1223,7 @@
     function nomeParecidoTexto(a) {
         const p = a.nomeParecidoCom;
         const outro = p ? arquivoPorId(p.id) : null;
-        return outro ? outro.nome + ' (' + p.percentual + '% parecido; confira se é o mesmo documento)' : '';
+        return outro ? BJ_T.t('pasta_scripts.js.explorador.nome_parecido', { nome: outro.nome, percentual: p.percentual }) : '';
     }
     /* As sugestões da faixa que ainda valem, na ordem das regras do desenho: só ids que o servidor
        pôs na faixa E que continuam na raiz — o Revisar nunca lista nem exclui item fora da vista. */
@@ -1233,10 +1244,10 @@
     // dc L4946 ("2 cópias idênticas, 1 vazio…") — o mesmo de SugestoesDeLimpeza::rotulo().
     function rotuloDaRegra(regra, n) {
         switch (regra) {
-            case 'identico':       return n + (n === 1 ? ' cópia idêntica' : ' cópias idênticas');
-            case 'vazio':          return n + (n === 1 ? ' vazio' : ' vazios');
-            case 'copia_processo': return n + (n === 1 ? ' cópia do processo' : ' cópias do processo');
-            case 'muito_grande':   return n + (n === 1 ? ' muito grande' : ' muito grandes');
+            case 'identico':       return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.regra_identico_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.regra_identico_varios', { n: n });
+            case 'vazio':          return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.regra_vazio_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.regra_vazio_varios', { n: n });
+            case 'copia_processo': return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.regra_copia_processo_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.regra_copia_processo_varios', { n: n });
+            case 'muito_grande':   return n === 1 ? BJ_T.t('pasta_scripts.js.explorador.regra_muito_grande_um', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.regra_muito_grande_varios', { n: n });
         }
         return '';
     }
@@ -1257,8 +1268,8 @@
             const n = sug.filter(function (x) { return x.regra === regra; }).length;
             if (n) partes.push(rotuloDaRegra(regra, n));
         });
-        el.limpezaTexto.textContent = 'Ganhe espaço: ' + partes.join(', ') + ' · libera cerca de ' + formatarBytes(somaDaLimpeza(sug));
-        el.limpezaRevisar.textContent = limpezaAberta ? 'Fechar' : 'Revisar';
+        el.limpezaTexto.textContent = BJ_T.t('pasta_scripts.js.explorador.limpeza_texto', { regras: partes.join(', '), tamanho: formatarBytes(somaDaLimpeza(sug)) });
+        el.limpezaRevisar.textContent = limpezaAberta ? BJ_T.t('pasta_scripts.js.explorador.fechar') : BJ_T.t('pasta_scripts.js.explorador.revisar');
         el.limpezaRevisar.setAttribute('aria-expanded', limpezaAberta ? 'true' : 'false');
         el.limpezaLista.hidden = !limpezaAberta;
         if (!limpezaAberta) return;
@@ -1280,7 +1291,7 @@
         el.limpezaItens.textContent = '';
         el.limpezaItens.appendChild(frag);
         const marcados = sug.filter(function (x) { return !limpezaDesmarcados.has(x.a.id); });
-        el.limpezaExcluir.textContent = 'Excluir ' + marcados.length + ' selecionado(s) · ' + formatarBytes(somaDaLimpeza(marcados));
+        el.limpezaExcluir.textContent = BJ_T.t('pasta_scripts.js.explorador.limpeza_excluir', { n: marcados.length, tamanho: formatarBytes(somaDaLimpeza(marcados)) });
         el.limpezaExcluir.disabled = marcados.length === 0;
     }
     if (el.limpeza) {
@@ -1310,8 +1321,8 @@
                 return { tipo: 'arquivo', id: x.a.id, nome: x.a.nome, dado: x.a };
             });
             excluirItens(itens, function () { limpezaAberta = false; limpezaDesmarcados = new Set(); }, {
-                confirmacao: 'Excluir ' + itens.length + ' arquivo(s) sugerido(s)? Você pode desfazer logo em seguida.',
-                aviso: itens.length + ' arquivo(s) excluído(s) · ' + formatarBytes(somaDaLimpeza(marcados)) + ' liberados',
+                confirmacao: BJ_T.t('pasta_scripts.js.explorador.limpeza_confirmacao', { n: itens.length }),
+                aviso: BJ_T.t('pasta_scripts.js.explorador.limpeza_aviso', { n: itens.length, tamanho: formatarBytes(somaDaLimpeza(marcados)) }),
             });
         });
     }
@@ -1417,7 +1428,8 @@
         el.selecao.hidden = sel.length === 0;
         if (!sel.length) return;
         const soma = somaDosArquivos(sel);
-        el.selecaoTexto.textContent = (sel.length === 1 ? '1 selecionado' : sel.length + ' selecionados') + (soma ? ' · ' + formatarBytes(soma) : '');
+        const contagem = sel.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.selecao_um') : BJ_T.t('pasta_scripts.js.explorador.selecao_varios', { n: sel.length });
+        el.selecaoTexto.textContent = soma ? BJ_T.t('pasta_scripts.js.explorador.selecao_com_tamanho', { contagem: contagem, tamanho: formatarBytes(soma) }) : contagem;
         const baixar = el.selecao.querySelector('[data-pex-sel="baixar"]');
         const copiar = el.selecao.querySelector('[data-pex-sel="copiar"]');
         const renomear = el.selecao.querySelector('[data-pex-sel="renomear"]');
@@ -1426,8 +1438,8 @@
             const direto = sel.length === 1 && sel[0].tipo === 'arquivo';
             const rotulo = baixar.querySelector('span');
             baixar.hidden = false;
-            if (rotulo) rotulo.textContent = sel.length > 1 ? 'Baixar ' + sel.length + ' itens (.zip)' : (direto ? 'Baixar' : 'Baixar (.zip)');
-            baixar.title = direto ? 'Baixar o arquivo' : 'Baixar tudo que está selecionado em um arquivo .zip';
+            if (rotulo) rotulo.textContent = sel.length > 1 ? BJ_T.t('pasta_scripts.js.explorador.baixar_itens_zip', { n: sel.length }) : (direto ? BJ_T.t('pasta_scripts.js.explorador.baixar') : BJ_T.t('pasta_scripts.js.explorador.baixar_zip'));
+            baixar.title = direto ? BJ_T.t('pasta_scripts.js.explorador.baixar_arquivo') : BJ_T.t('pasta_scripts.js.explorador.baixar_tudo_zip');
         }
         // Copiar fica no lugar do desenho; só pastas → desabilitado (o servidor não copia pastas, D6).
         if (copiar) {
@@ -1435,7 +1447,7 @@
             copiar.hidden = false;
             copiar.disabled = soPastas;
             copiar.setAttribute('aria-disabled', soPastas ? 'true' : 'false');
-            copiar.title = soPastas ? COPIAR_SO_PASTAS : 'Copiar (Ctrl+C)';
+            copiar.title = soPastas ? COPIAR_SO_PASTAS : BJ_T.t('pasta_scripts.js.explorador.copiar_atalho');
         }
         if (renomear) renomear.hidden = sel.length !== 1;
     }
@@ -1939,15 +1951,15 @@
         const multi = !!alvo && sel.length > 1 && selecao.has(chaveDe(alvo));
         if (!alvo) {
             return [
-                op('Nova pasta', 'bi-folder-plus', novaPastaInline, { escrita: true }),
-                op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true }),
-                op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_nova_pasta'), 'bi-folder-plus', novaPastaInline, { escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_selecionar_tudo'), 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' }),
                 SEP,
-            ].concat([['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']].map(function (par) {
+            ].concat([['nome', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_nome')], ['data', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_data')], ['tamanho', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_tamanho')], ['tipo', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_tipo')]].map(function (par) {
                 return op(par[1], classificar.chave === par[0] ? 'bi-check2' : 'bi-sort-down', function () { if (classificar.chave !== par[0]) classificarPor(par[0]); });
             }), [
                 SEP,
-                op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes', 'bi-layout-sidebar-reverse', alternarPainel),
+                op(painel ? BJ_T.t('pasta_scripts.js.explorador.menu_ocultar_painel') : BJ_T.t('pasta_scripts.js.explorador.menu_mostrar_painel'), 'bi-layout-sidebar-reverse', alternarPainel),
             ], veLixeira() ? [
                 // L7: a lixeira da pasta (o desenho é omisso — ver "lixeira" abaixo).
                 SEP,
@@ -1956,54 +1968,54 @@
         }
         if (multi) {
             const arqs = sel.filter(ehArquivo);
-            return [op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })].concat(arqs.length ? [op('Copiar links' + (arqs.length < sel.length ? ' (' + arqs.length + ')' : ''), 'bi-link-45deg', function () { copiarLinks(arqs); })] : [], [
+            return [op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip_n', { n: sel.length }), 'bi-file-earmark-zip', function () { baixarZip(sel); })].concat(arqs.length ? [op(arqs.length < sel.length ? BJ_T.t('pasta_scripts.js.explorador.menu_copiar_links_n', { n: arqs.length }) : BJ_T.t('pasta_scripts.js.explorador.menu_copiar_links'), 'bi-link-45deg', function () { copiarLinks(arqs); })] : [], [
                 SEP,
-                op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true }),
                 opCopiar(sel),
             ], [
-                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true }),
-                op('Copiar caminhos', 'bi-signpost', function () { copiarCaminhos(sel); }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_mover_para'), 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_caminhos'), 'bi-signpost', function () { copiarCaminhos(sel); }),
                 opFavorito(sel),
                 SEP,
-                op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true, escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir_n', { n: sel.length }), 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true, escrita: true }),
                 SEP,
-                op('Propriedades', 'bi-info-square', mostrarPainel),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_propriedades'), 'bi-info-square', mostrarPainel),
             ]);
         }
         const ehPasta = alvo.tipo === 'pasta';
         const a = alvo.dado;
-        return [op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right', function () { abrirItem(alvo); }, { atalho: 'Enter' })]
+        return [op(BJ_T.t('pasta_scripts.js.explorador.menu_abrir'), ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right', function () { abrirItem(alvo); }, { atalho: 'Enter' })]
             .concat(ehPasta ? [
-                op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip'), 'bi-download', function () { baixarZip([alvo]); }),
                 // DOC-120: a subpasta também tem link (o nível, por `?pex=`).
-                op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_link'), 'bi-link-45deg', function () { copiarLinks([alvo]); }),
             ] : [
-                op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' }),
-                op('Baixar', 'bi-download', function () { baixar(a); }),
-                op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_visualizar'), 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_espaco') }),
+                op(BJ_T.t('pasta_scripts.js.explorador.baixar'), 'bi-download', function () { baixar(a); }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_link'), 'bi-link-45deg', function () { copiarLinks([alvo]); }),
             ])
             .concat([
                 SEP,
-                op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true }),
             ])
             .concat([opCopiar([alvo])])
-            .concat(ehPasta ? [op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })] : [])
+            .concat(ehPasta ? [op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })] : [])
             .concat([
                 // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
-                op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true }),
-                op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_mover_para'), 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_caminho'), 'bi-signpost', function () { copiarCaminhos([alvo]); }),
             ])
             .concat(opEncaminhar(alvo))
             .concat([
                 opFavorito([alvo]),
                 SEP,
-                op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_renomear'), 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true }),
             ])
-            .concat(ehPasta ? [] : [op('Editar…', 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })])
+            .concat(ehPasta ? [] : [op(BJ_T.t('pasta_scripts.js.explorador.menu_editar'), 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })])
             .concat([
-                op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true }),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir'), 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true }),
                 SEP,
-                op('Propriedades', 'bi-info-square', mostrarPainel),
+                op(BJ_T.t('pasta_scripts.js.explorador.menu_propriedades'), 'bi-info-square', mostrarPainel),
             ]);
     }
     /* "Encaminhar via Chat I.A" (desenho 02 VS 18.10.26, D:5071; spec encaminhar-via-chat-ia §3 e §4.1). Só aparece com a
@@ -2016,21 +2028,21 @@
         const id = Number(alvo && alvo.id);
         if (cfg.pastaExcluida || !window.BJCentral || !Number.isInteger(pasta) || pasta <= 0 || !Number.isInteger(id) || id <= 0) return [];
         const tipo = alvo.tipo === 'pasta' ? 'secao' : 'documento';
-        return [op('Encaminhar via Chat I.A', 'bi-send', function () {
+        return [op(BJ_T.t('pasta_scripts.js.explorador.menu_encaminhar'), 'bi-send', function () {
             document.dispatchEvent(new CustomEvent('bj-central:despachar', { detail: { pastaId: pasta, tipo: tipo, itemId: id } }));
         }, { classe: 'js-explorador-encaminhar' })];
     }
     // Copiar (dc L4803/L4817): sem arquivo no alvo, o item continua no lugar, desabilitado.
-    const COPIAR_SO_PASTAS = 'Pastas não são copiadas';
+    const COPIAR_SO_PASTAS = BJ_T.t('pasta_scripts.js.explorador.copiar_so_pastas');
     function opCopiar(itens) {
         const soPastas = !itens.some(ehArquivo);
-        return op('Copiar', 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });
+        return op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar'), 'bi-copy', function () { copiar(itens); }, { atalho: 'Ctrl+C', desabilitado: soPastas, titulo: soPastas ? COPIAR_SO_PASTAS : '', escrita: true });
     }
     // Rótulos e ícones do desenho (dc L4820): desmarcado mostra a estrela cheia, marcado a vazia.
     // Com vários, "Tirar" só quando TODOS já são favoritos; senão marca os que faltam.
     function opFavorito(itens) {
         const todos = itens.length > 0 && itens.every(ehFavorito);
-        const rotulo = todos ? 'Tirar dos favoritos' : (itens.length > 1 ? 'Marcar como favoritos' : 'Marcar como favorito');
+        const rotulo = todos ? BJ_T.t('pasta_scripts.js.explorador.tirar_favorito') : (itens.length > 1 ? BJ_T.t('pasta_scripts.js.explorador.marcar_favoritos') : BJ_T.t('pasta_scripts.js.explorador.marcar_favorito'));
         return op(rotulo, todos ? 'bi-star' : 'bi-star-fill', function () { alternarFavoritos(itens, !todos); });
     }
     function abrirMenu(x, y, alvo) {
@@ -2158,7 +2170,7 @@
         toastDesfazerAcao = null;
         if (el.toastDesfazer) el.toastDesfazer.hidden = true;
     }
-    function toastErro(texto) { toast(texto || 'Algo deu errado.', true); }
+    function toastErro(texto) { toast(texto || BJ_T.t('pasta_scripts.js.explorador.algo_errado'), true); }
     if (el.toastDesfazer) {
         // Um clique só: o botão trava até a resposta (o toast seguinte o destrava ou esconde).
         el.toastDesfazer.addEventListener('click', function () {
@@ -2172,7 +2184,7 @@
     }
 
     // ------------------------------------------------------- ações do L5 ----
-    function rotuloDe(itens) { return itens.length === 1 ? itens[0].nome : itens.length + ' itens'; }
+    function rotuloDe(itens) { return itens.length === 1 ? itens[0].nome : BJ_T.t('pasta_scripts.js.explorador.n_itens', { n: itens.length }); }
     function localDe(it) {
         const v = it.tipo === 'pasta' ? it.dado.paiId : it.dado.secaoId;
         return v == null ? null : Number(v);
@@ -2196,24 +2208,24 @@
             .concat(itens.filter(ehPastaItem).map(function (it) { return linkDaSubpasta(it.id); }));
         if (!links.length) return;
         copiarTexto(links.join('\n')).then(function (ok) {
-            if (ok) toast(links.length === 1 ? 'Link copiado' : 'Links copiados'); else toastErro('Não foi possível copiar.');
+            if (ok) toast(links.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.link_copiado') : BJ_T.t('pasta_scripts.js.explorador.links_copiados')); else toastErro(BJ_T.t('pasta_scripts.js.explorador.erro_copiar'));
         });
     }
     // "Copiar caminho" (DOC-38): "BlueJus › Pasta <n> › Documentos › … › nome".
     function caminhoDe(it) {
-        return 'BlueJus › Pasta ' + cfg.pastaRotulo + ' › ' + caminhoLegivel(localDe(it)) + ' › ' + it.nome;
+        return BJ_T.t('pasta_scripts.js.explorador.caminho_copiado', { pasta: cfg.pastaRotulo, local: caminhoLegivel(localDe(it)), nome: it.nome });
     }
     function copiarCaminhos(itens) {
         if (!itens.length) return;
         copiarTexto(itens.map(caminhoDe).join('\n')).then(function (ok) {
-            if (ok) toast(itens.length === 1 ? 'Caminho copiado' : 'Caminhos copiados'); else toastErro('Não foi possível copiar.');
+            if (ok) toast(itens.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.caminho_copiado_aviso') : BJ_T.t('pasta_scripts.js.explorador.caminhos_copiados_aviso')); else toastErro(BJ_T.t('pasta_scripts.js.explorador.erro_copiar'));
         });
     }
     // Recortar (Ctrl+X): só memória; Colar move pelo mover-lote.
     function recortar(itens) {
         if (!itens.length) return;
         areaDeTransferencia = { op: 'recortar', chaves: itens.map(chaveDe) };
-        toast('Recortado: ' + rotuloDe(itens));
+        toast(BJ_T.t('pasta_scripts.js.explorador.recortado', { rotulo: rotuloDe(itens) }));
     }
     /* Copiar (Ctrl+C, L8/D6; dc `clip('copiar')`): só memória, e só ARQUIVOS — o servidor não
        copia pastas (422). Pasta na seleção fica de fora e o toast diz; sem arquivo nenhum, nada é
@@ -2221,9 +2233,9 @@
     function copiar(itens) {
         if (!itens.length) return;
         const arqs = itens.filter(ehArquivo);
-        if (!arqs.length) { toast('Pastas não são copiadas: selecione arquivos.'); return; }
+        if (!arqs.length) { toast(BJ_T.t('pasta_scripts.js.explorador.copiar_sem_arquivo')); return; }
         areaDeTransferencia = { op: 'copiar', chaves: arqs.map(chaveDe) };
-        toast('Copiado: ' + rotuloDe(arqs) + (arqs.length < itens.length ? ' (pastas não são copiadas)' : ''));
+        toast(arqs.length < itens.length ? BJ_T.t('pasta_scripts.js.explorador.copiado_sem_pastas', { rotulo: rotuloDe(arqs) }) : BJ_T.t('pasta_scripts.js.explorador.copiado', { rotulo: rotuloDe(arqs) }));
     }
     function chaveExiste(k) {
         const partes = k.split(':');
@@ -2241,7 +2253,7 @@
     function colarEm(destinoId) {
         if (!areaDeTransferencia) return;
         const chaves = areaDeTransferencia.chaves.filter(function (k) { return k !== 'pasta:' + destinoId && chaveExiste(k); });
-        if (!chaves.length) { areaDeTransferencia = null; toast('Nada para colar'); return; }
+        if (!chaves.length) { areaDeTransferencia = null; toast(BJ_T.t('pasta_scripts.js.explorador.nada_para_colar')); return; }
         if (areaDeTransferencia.op === 'copiar') { copiarLote(chaves, destinoId); return; }
         moverLote(chaves, destinoId).then(function (ok) { if (ok) areaDeTransferencia = null; });
     }
@@ -2270,7 +2282,7 @@
     }
     function acimaDoTeto(n) {
         if (n <= TETO_LOTE) return false;
-        toastErro('Seleção acima do limite de ' + TETO_LOTE.toLocaleString('pt-BR') + ' itens por ação. Selecione menos itens.');
+        toastErro(BJ_T.t('pasta_scripts.js.explorador.acima_do_teto', { teto: TETO_LOTE.toLocaleString('pt-BR') }));
         return true;
     }
 
@@ -2290,9 +2302,9 @@
             const local = d ? (partes[0] === 'pasta' ? d.paiId : d.secaoId) : undefined;
             return (local == null ? null : Number(local)) === destinoId;
         });
-        if (jaLa) { toast('Os itens já estão nesta pasta'); return Promise.resolve(false); }
+        if (jaLa) { toast(BJ_T.t('pasta_scripts.js.explorador.ja_nesta_pasta')); return Promise.resolve(false); }
         if (destinoId != null && lote.secoes.some(function (id) { return id === destinoId || descendentes(id).indexOf(destinoId) !== -1; })) {
-            toastErro('Uma pasta não pode ir para dentro dela mesma.');
+            toastErro(BJ_T.t('pasta_scripts.js.explorador.pasta_dentro_dela'));
             return Promise.resolve(false);
         }
         // Pelos dados em memória, não pela tela: depois de Recortar, o usuário pode ter navegado.
@@ -2302,14 +2314,14 @@
             return d ? d.nome : '';
         }).filter(Boolean);
         return postJson(cfg.urlMoverLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes, destinoId: destinoId }).then(function (res) {
-            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao mover.');
+            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.falha_mover'));
             lote.documentos.forEach(function (id) { const a = arquivoPorId(id); if (a) a.secaoId = destinoId; });
             lote.secoes.forEach(function (id) { const p = pastaPorId(id); if (p) p.paiId = destinoId; });
             limparSelecao(true);
             renderizar();
-            toast((n === 1 ? '"' + (nomes[0] || '1 item') + '" movido' : n + ' itens movidos') + ' para ' + nomeDoLocal(destinoId));
+            toast(n === 1 ? BJ_T.t('pasta_scripts.js.explorador.movido_um', { nome: nomes[0] || BJ_T.t('pasta_scripts.js.explorador.um_item'), local: nomeDoLocal(destinoId) }) : BJ_T.t('pasta_scripts.js.explorador.movidos_varios', { n: n, local: nomeDoLocal(destinoId) }));
             return true;
-        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });
+        }).catch(function (err) { toastErro(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao')); return false; });
     }
 
     // Bytes legíveis no padrão da mensagem do servidor (SelecaoAcimaDoTetoException).
@@ -2323,7 +2335,7 @@
     // O teto de bytes (1 GB) do .zip e da cópia, com a mensagem do servidor.
     function acimaDoTetoDeBytes(bytes) {
         if (bytes <= TETO_BYTES) return false;
-        toastErro('A seleção soma ' + bytesDoTeto(bytes) + '; o limite por ação é ' + bytesDoTeto(TETO_BYTES) + '.');
+        toastErro(BJ_T.t('pasta_scripts.js.explorador.acima_do_teto_bytes', { soma: bytesDoTeto(bytes), teto: bytesDoTeto(TETO_BYTES) }));
         return true;
     }
 
@@ -2335,28 +2347,28 @@
         destinoId = destinoId == null ? null : Number(destinoId);
         const ids = separarChaves(chaves).documentos;
         const origem = ids.map(arquivoPorId).filter(Boolean);
-        if (!origem.length) { toast('Nada para colar'); return Promise.resolve(false); }
+        if (!origem.length) { toast(BJ_T.t('pasta_scripts.js.explorador.nada_para_colar')); return Promise.resolve(false); }
         if (acimaDoTeto(origem.length) || acimaDoTetoDeBytes(somaDeBytes(origem))) return Promise.resolve(false);
-        if (!cfg.urlCopiar || !cfg.csrfLote) { toastErro('Copiar indisponível nesta pasta.'); return Promise.resolve(false); }
+        if (!cfg.urlCopiar || !cfg.csrfLote) { toastErro(BJ_T.t('pasta_scripts.js.explorador.copiar_indisponivel')); return Promise.resolve(false); }
         return postJson(cfg.urlCopiar, { _token: cfg.csrfLote, documentos: ids, destinoId: destinoId }).then(function (res) {
-            if (!res.ok || !res.j.ok || !Array.isArray(res.j.copiados)) throw new Error((res.j && res.j.erro) || 'Falha ao copiar.');
+            if (!res.ok || !res.j.ok || !Array.isArray(res.j.copiados)) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.falha_copiar'));
             const novos = [];
             res.j.copiados.forEach(function (d) {
                 if (inserirArquivoEnviado({ documento: d })) novos.push('arquivo:' + Number(d.id));
             });
             // Resposta fora da forma (servidor antigo): a lista é relida, como na lixeira.
-            if (novos.length < res.j.copiados.length) { recarregarDocumentos('Itens copiados. Atualizando a lista…'); return true; }
+            if (novos.length < res.j.copiados.length) { recarregarDocumentos(BJ_T.t('pasta_scripts.js.explorador.copiados_atualizando')); return true; }
             limparSelecao(true);
             renderizar();
-            const rotulo = origem.length === 1 ? origem[0].nome : origem.length + ' itens';
+            const rotulo = origem.length === 1 ? origem[0].nome : BJ_T.t('pasta_scripts.js.explorador.n_itens', { n: origem.length });
             if (destinoId === pastaAtualId()) {
                 definirSelecao(novos, { ancora: novos[0], foco: novos[novos.length - 1] });
-                toast('Colado: ' + rotulo);
+                toast(BJ_T.t('pasta_scripts.js.explorador.colado', { rotulo: rotulo }));
             } else {
-                toast(rotulo + (origem.length === 1 ? ' copiado' : ' copiados') + ' para ' + nomeDoLocal(destinoId));
+                toast(origem.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.copiado_para_um', { rotulo: rotulo, local: nomeDoLocal(destinoId) }) : BJ_T.t('pasta_scripts.js.explorador.copiado_para_varios', { rotulo: rotulo, local: nomeDoLocal(destinoId) }));
             }
             return true;
-        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });
+        }).catch(function (err) { toastErro(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao')); return false; });
     }
 
     /* Baixar (dc `barra`/`baixar`, L4845): um arquivo baixa direto pelo link de sempre; uma pasta
@@ -2385,13 +2397,13 @@
         if (!lote.documentos.length && !lote.secoes.length) return false;
         if (acimaDoTeto(lote.documentos.length + lote.secoes.length)) return false;
         const lista = arquivosDoZip(lote);
-        if (!lista.length) { toastErro('A seleção não tem arquivos para baixar.'); return false; }
+        if (!lista.length) { toastErro(BJ_T.t('pasta_scripts.js.explorador.zip_sem_arquivos')); return false; }
         if (lista.length > TETO_ZIP_ARQUIVOS) {
-            toastErro('A seleção tem ' + formatarInteiro(lista.length) + ' arquivos; o limite por .zip é ' + formatarInteiro(TETO_ZIP_ARQUIVOS) + '.');
+            toastErro(BJ_T.t('pasta_scripts.js.explorador.zip_acima_do_teto', { n: formatarInteiro(lista.length), teto: formatarInteiro(TETO_ZIP_ARQUIVOS) }));
             return false;
         }
         if (acimaDoTetoDeBytes(somaDeBytes(lista))) return false;
-        if (!cfg.urlZip || !cfg.csrfLote) { toastErro('Download em .zip indisponível nesta pasta.'); return false; }
+        if (!cfg.urlZip || !cfg.csrfLote) { toastErro(BJ_T.t('pasta_scripts.js.explorador.zip_indisponivel')); return false; }
         const formZip = h('form', { method: 'post', action: cfg.urlZip, target: '_blank', hidden: true });
         const campo = function (nome, valor) {
             const input = h('input', { type: 'hidden', name: nome });
@@ -2407,7 +2419,7 @@
         formZip.submit();
         formZip.remove();
         // dc l.3754 (DOC-116): o 1º aviso só diz o que a TELA sabe — quantos itens foram pedidos.
-        toast('Preparando ' + pluralizar(itens.length, 'item', 'itens') + ' para download…');
+        toast(BJ_T.t('pasta_scripts.js.explorador.zip_preparando', { itens: qtdItens(itens.length) }));
         aguardarConfirmacaoDoZip(confirmacao);
         return true;
     }
@@ -2437,7 +2449,7 @@
             if (!c) { if (Date.now() < ate) setTimeout(olhar, ZIP_CONFIRMACAO_MS); return; }
             const nArq = Number(c.arquivos) || 0, nPas = Number(c.pastas) || 0;
             if (!c.nome) return;
-            toast('Baixando ' + c.nome + ' · ' + pluralizar(nArq, 'arquivo', 'arquivos') + (nPas ? ', ' + pluralizar(nPas, 'pasta', 'pastas') : ''));
+            toast(nPas ? BJ_T.t('pasta_scripts.js.explorador.zip_baixando_com_pastas', { nome: c.nome, arquivos: qtdArquivos(nArq), pastas: qtdPastas(nPas) }) : BJ_T.t('pasta_scripts.js.explorador.zip_baixando', { nome: c.nome, arquivos: qtdArquivos(nArq) }));
         };
         setTimeout(olhar, ZIP_CONFIRMACAO_MS);
     }
@@ -2456,7 +2468,7 @@
         });
         if (!alvos.length) return Promise.resolve(false);
         if (acimaDoTeto(alvos.length)) return Promise.resolve(false);
-        if (!cfg.urlFavorito || !cfg.csrfFavorito) { toastErro('Favoritos indisponíveis nesta pasta.'); return Promise.resolve(false); }
+        if (!cfg.urlFavorito || !cfg.csrfFavorito) { toastErro(BJ_T.t('pasta_scripts.js.explorador.favoritos_indisponiveis')); return Promise.resolve(false); }
         // A hora de antes volta no rollback; a de agora é provisória até o servidor responder.
         const horaAntes = new Map();
         const agora = horaLocalIso();
@@ -2469,10 +2481,10 @@
         alvos.forEach(repintarEstrela);
         renderizarFavoritos(opts);
         // Textos do desenho (dc L4442); com vários, a mesma frase no plural.
-        const nome = alvos.length === 1 ? '"' + alvos[0].nome + '"' : alvos.length + ' itens';
+        const um = alvos.length === 1;
         toast(marcar
-            ? '★ ' + nome + (alvos.length === 1 ? ' foi para o topo da lista' : ' foram para o topo da lista')
-            : nome + (alvos.length === 1 ? ' saiu dos favoritos' : ' saíram dos favoritos'));
+            ? (um ? BJ_T.t('pasta_scripts.js.explorador.favorito_topo_um', { nome: alvos[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.favorito_topo_varios', { n: alvos.length }))
+            : (um ? BJ_T.t('pasta_scripts.js.explorador.favorito_saiu_um', { nome: alvos[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.favorito_saiu_varios', { n: alvos.length })));
 
         const fila = alvos.slice();
         const falhas = [];
@@ -2506,8 +2518,10 @@
             if (falhas.length || divergiu) renderizarFavoritos(opts);
             if (falhas.length) {
                 toastErro(falhas.length === 1 && alvos.length === 1
-                    ? (ultimoErro || 'Não foi possível atualizar o favorito.') + ' "' + falhas[0].nome + '" voltou como estava.'
-                    : 'Não foi possível atualizar ' + pluralizar(falhas.length, 'favorito', 'favoritos') + ' de ' + alvos.length + (falhas.length === 1 ? '; esse voltou como estava.' : '; esses voltaram como estavam.'));
+                    ? BJ_T.t('pasta_scripts.js.explorador.favorito_falha_um', { erro: ultimoErro || BJ_T.t('pasta_scripts.js.explorador.favorito_falha_padrao'), nome: falhas[0].nome })
+                    : (falhas.length === 1
+                        ? BJ_T.t('pasta_scripts.js.explorador.favorito_falha_varios_um', { favoritos: qtdFavoritos(falhas.length), total: alvos.length })
+                        : BJ_T.t('pasta_scripts.js.explorador.favorito_falha_varios', { favoritos: qtdFavoritos(falhas.length), total: alvos.length })));
             }
             return falhas.length === 0;
         });
@@ -2519,9 +2533,9 @@
             alvoId: it.dado.id,
             marcado: marcar,
         }).then(function (res) {
-            if (!res.ok || !res.j || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao atualizar o favorito.');
+            if (!res.ok || !res.j || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.falha_favorito'));
             return { marcado: res.j.marcado === true, favoritoEm: typeof res.j.favoritoEm === 'string' ? res.j.favoritoEm : null };
-        }, function () { throw new Error('Erro de comunicação.'); });
+        }, function () { throw new Error(BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao')); });
     }
     // Hora local no MESMO formato do servidor (`Y-m-d\TH:i:s`): provisória, só até a resposta.
     function horaLocalIso() {
@@ -2559,20 +2573,22 @@
     // Aviso montado com a contagem da árvore (D3): o número tem de existir ANTES do clique.
     // Desde o L7 a exclusão vai para a LIXEIRA, e o aviso diz isso. Sem prazo: a lixeira não tem purga
     // automática (decisão D-DOC-RET de 07/10) e o prazo de retenção ainda não foi decidido.
-    const AVISO_LIXEIRA = ' Os itens vão para a lixeira e podem ser restaurados.';
+    const AVISO_LIXEIRA = BJ_T.t('pasta_scripts.js.explorador.aviso_lixeira');
+    // "N subpastas e M arquivos": no máximo duas partes, ligadas pelo "e" do catálogo.
+    function juntarComE(partes) { return partes.length > 1 ? BJ_T.t('pasta_scripts.js.explorador.lista_e', { a: partes[0], b: partes[1] }) : (partes[0] || ''); }
     function avisoExclusao(p) {
         const c = contarArvore(p.id);
         if (c.subpastas === 0 && c.arquivos === 0) {
-            return 'A pasta "' + p.nome + '" está vazia. Excluir mesmo assim?' + AVISO_LIXEIRA;
+            return BJ_T.t('pasta_scripts.js.explorador.excluir_pasta_vazia', { nome: p.nome, lixeira: AVISO_LIXEIRA });
         }
         const partes = [];
-        if (c.subpastas > 0) partes.push(pluralizar(c.subpastas, 'subpasta', 'subpastas'));
-        if (c.arquivos > 0) partes.push(pluralizar(c.arquivos, 'arquivo', 'arquivos'));
-        return 'Excluir a pasta "' + p.nome + '" e todo o conteúdo dela? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;
+        if (c.subpastas > 0) partes.push(qtdSubpastas(c.subpastas));
+        if (c.arquivos > 0) partes.push(qtdArquivos(c.arquivos));
+        return BJ_T.t('pasta_scripts.js.explorador.excluir_pasta', { nome: p.nome, conteudo: juntarComE(partes), lixeira: AVISO_LIXEIRA });
     }
     function avisoExclusaoDoLote(itens) {
         if (itens.length === 1) {
-            return itens[0].tipo === 'pasta' ? avisoExclusao(itens[0].dado) : 'Excluir "' + itens[0].nome + '"?' + AVISO_LIXEIRA;
+            return itens[0].tipo === 'pasta' ? avisoExclusao(itens[0].dado) : BJ_T.t('pasta_scripts.js.explorador.excluir_arquivo', { nome: itens[0].nome, lixeira: AVISO_LIXEIRA });
         }
         let subpastas = 0, arquivosN = 0;
         itens.forEach(function (it) {
@@ -2582,9 +2598,9 @@
             arquivosN += c.arquivos;
         });
         const partes = [];
-        if (subpastas > 0) partes.push(pluralizar(subpastas, 'pasta', 'pastas'));
-        if (arquivosN > 0) partes.push(pluralizar(arquivosN, 'arquivo', 'arquivos'));
-        return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;
+        if (subpastas > 0) partes.push(qtdPastas(subpastas));
+        if (arquivosN > 0) partes.push(qtdArquivos(arquivosN));
+        return BJ_T.t('pasta_scripts.js.explorador.excluir_lote', { n: itens.length, conteudo: juntarComE(partes), lixeira: AVISO_LIXEIRA });
     }
     /* Excluir (DOC-57): um, vários ou pasta — sempre pelo excluir-lote. A confirmação (janela da tela desde a E7) fica até o
        Samuel decidir (S-3). Desde o L7 o servidor manda para a LIXEIRA e devolve `lixeira: true`
@@ -2605,7 +2621,7 @@
         resposta.then(function (sim) { if (sim) excluirConfirmado(); });
         function excluirConfirmado() {
             postJson(cfg.urlExcluirLote, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
-                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao excluir.');
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.falha_excluir'));
                 // O back leva a ÁRVORE de cada pasta (mesmo carimbo): tira as filhas e os arquivos delas.
                 let subarvore = [];
                 lote.secoes.forEach(function (id) { subarvore = subarvore.concat([id], descendentes(id)); });
@@ -2622,10 +2638,10 @@
                 if (aoExcluir) aoExcluir();
                 if (caminho.some(function (id) { return subarvore.indexOf(id) !== -1; })) voltarRaiz(); else renderizar();
                 invalidarContagemDaLixeira();
-                const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');
+                const texto = t.aviso || (itens.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.excluido_um', { nome: itens[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.excluidos_varios', { n: itens.length }));
                 const desfazer = desfazerDe(res.j, saiu, itens.length);
                 toast(texto, false, desfazer);
-            }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); });
+            }).catch(function (err) { toastErro(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao')); });
         }
     }
 
@@ -2647,7 +2663,7 @@
         const meuToast = toastSeq;
         const aindaEMeu = function () { return toastSeq === meuToast; };
         postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: ids.documentos, secoes: ids.secoes }).then(function (res) {
-            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Não foi possível desfazer.');
+            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.erro_desfazer'));
             invalidarContagemDaLixeira();
             const r = res.j.restaurados || {};
             // Confere com a resposta: o servidor diz quantos arquivos e pastas voltaram e quantos
@@ -2658,14 +2674,14 @@
                 && Number(res.j.paraARaiz || 0) === 0
                 && saiu.pastas.every(function (p) { return !pastaPorId(p.id); })
                 && saiu.arquivos.every(function (a) { return !arquivoPorId(a.id); });
-            if (!bate) { recarregarDocumentos('Itens restaurados. Atualizando a lista…'); return; }
+            if (!bate) { recarregarDocumentos(BJ_T.t('pasta_scripts.js.explorador.restaurados_atualizando')); return; }
             saiu.pastas.forEach(function (p) { pastas.push(p); });
             saiu.arquivos.forEach(function (a) { arquivos.push(a); totalArquivos++; });
             renderizar();
-            if (aindaEMeu()) toast(nChaves > 1 ? nChaves + ' itens restaurados' : 'Restaurado');
+            if (aindaEMeu()) toast(nChaves > 1 ? BJ_T.t('pasta_scripts.js.explorador.restaurados_varios', { n: nChaves }) : BJ_T.t('pasta_scripts.js.explorador.restaurado'));
         }).catch(function (err) {
             // O erro sempre aparece, mesmo sobre um toast mais novo: os itens ficaram na lixeira.
-            toastErro(err.message || 'Erro de comunicação.');
+            toastErro(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao'));
         });
     }
     // A tela não tem como montar um item a partir da lixeira (faltam URLs e tokens): recarrega
@@ -2694,7 +2710,7 @@
     let lixeiraOcupada = false;
 
     function podeEscreverNaLixeira() { return !cfg.pastaExcluida && !!cfg.urlRestaurar && !!cfg.csrfLote; }
-    function rotuloLixeira() { return lixeiraContagem == null ? 'Lixeira' : 'Lixeira (' + formatarInteiro(lixeiraContagem) + ')'; }
+    function rotuloLixeira() { return lixeiraContagem == null ? BJ_T.t('pasta_scripts.js.explorador.lixeira') : BJ_T.t('pasta_scripts.js.explorador.lixeira_n', { n: formatarInteiro(lixeiraContagem) }); }
     function chaveDaLixeira(it) { return (it.tipo === 'pasta' ? 'pasta' : 'arquivo') + ':' + Number(it.id); }
     function invalidarContagemDaLixeira() {
         lixeiraContagem = null;
@@ -2706,7 +2722,7 @@
     }
     function lerLixeira() {
         return fetch(cfg.urlLixeira, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(lerResposta).then(function (res) {
-            if (!res.ok || !res.j.ok || !Array.isArray(res.j.itens)) throw new Error((res.j && res.j.erro) || 'Não foi possível abrir a lixeira.');
+            if (!res.ok || !res.j.ok || !Array.isArray(res.j.itens)) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.lix_erro_abrir'));
             lixeiraContagem = res.j.itens.length;
             renderizarContagemDaLixeira();
             return res.j.itens;
@@ -2720,19 +2736,19 @@
 
     function montarModalDaLixeira() {
         if (lixeiraModal) return lixeiraModal;
-        const lista        = h('ul', { class: 'pex-lix-lista', 'aria-label': 'Itens na lixeira' });
-        const vazio        = h('div', { class: 'pex-lix-vazio', hidden: true }, [icone('bi-trash3'), h('span', { text: 'A lixeira está vazia.' })]);
+        const lista        = h('ul', { class: 'pex-lix-lista', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.lix_itens') });
+        const vazio        = h('div', { class: 'pex-lix-vazio', hidden: true }, [icone('bi-trash3'), h('span', { text: BJ_T.t('pasta_scripts.js.explorador.lix_vazia') })]);
         const aviso        = h('p', { class: 'pex-lix-aviso', role: 'status', 'aria-live': 'polite', hidden: true });
-        const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: 'Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.' })]);
-        const somenteVer   = h('p', { class: 'pex-lix-nota pex-lix-nota--lapide', hidden: !cfg.pastaExcluida }, [icone('bi-lock'), h('span', { text: 'Esta pasta está excluída: restaure a pasta para restaurar os documentos dela.' })]);
-        const restaurarSel = h('button', { type: 'button', class: 'btn btn-primary', id: 'pexLixeiraRestaurarSel', disabled: true, hidden: !podeEscreverNaLixeira() }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' Restaurar selecionados' })]);
-        const fechar       = h('button', { type: 'button', class: 'btn btn-outline-secondary', 'data-bs-dismiss': 'modal', text: 'Fechar' });
+        const nota         = h('p', { class: 'pex-lix-nota' }, [icone('bi-clock-history'), h('span', { text: BJ_T.t('pasta_scripts.js.explorador.lix_nota') })]);
+        const somenteVer   = h('p', { class: 'pex-lix-nota pex-lix-nota--lapide', hidden: !cfg.pastaExcluida }, [icone('bi-lock'), h('span', { text: BJ_T.t('pasta_scripts.js.explorador.lix_lapide') })]);
+        const restaurarSel = h('button', { type: 'button', class: 'btn btn-primary', id: 'pexLixeiraRestaurarSel', disabled: true, hidden: !podeEscreverNaLixeira() }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados') })]);
+        const fechar       = h('button', { type: 'button', class: 'btn btn-outline-secondary', 'data-bs-dismiss': 'modal', text: BJ_T.t('pasta_scripts.js.explorador.fechar') });
         const raizModal = h('div', { class: 'modal fade pex-modal pex-lix', id: 'pexLixeiraModal', tabindex: '-1', 'aria-labelledby': 'pexLixeiraTitulo', 'aria-hidden': 'true' }, [
             h('div', { class: 'modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg' }, [
                 h('div', { class: 'modal-content' }, [
                     h('div', { class: 'modal-header' }, [
-                        h('h5', { class: 'modal-title', id: 'pexLixeiraTitulo' }, [icone('bi-trash3 me-1'), h('span', { text: ' Lixeira' })]),
-                        h('button', { type: 'button', class: 'btn-close', 'data-bs-dismiss': 'modal', 'aria-label': 'Fechar' }),
+                        h('h5', { class: 'modal-title', id: 'pexLixeiraTitulo' }, [icone('bi-trash3 me-1'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lixeira') })]),
+                        h('button', { type: 'button', class: 'btn-close', 'data-bs-dismiss': 'modal', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.fechar') }),
                     ]),
                     h('div', { class: 'modal-body' }, [nota, somenteVer, aviso, vazio, lista]),
                     h('div', { class: 'modal-footer' }, [fechar, restaurarSel]),
@@ -2758,7 +2774,7 @@
             restaurarDaLixeira(Array.from(lixeiraMarcados));
         });
         raizModal.addEventListener('hidden.bs.modal', function () {
-            if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos('Atualizando a lista de documentos…'); return; }
+            if (lixeiraRestaurou) { lixeiraRestaurou = false; recarregarDocumentos(BJ_T.t('pasta_scripts.js.explorador.atualizando_documentos')); return; }
             // O foco volta a quem abriu (o Bootstrap não devolve); o item de menu já sumiu.
             const volta = lixeiraFocoDeVolta;
             lixeiraFocoDeVolta = null;
@@ -2782,7 +2798,7 @@
         lixeiraMarcados.clear();
         m.lista.textContent = '';
         m.vazio.hidden = true;
-        avisarNaLixeira('Carregando…');
+        avisarNaLixeira(BJ_T.t('pasta_scripts.js.explorador.carregando'));
         atualizarBotaoRestaurarSelecionados();
         if (m.bs) m.bs.show();
         recarregarLixeira();
@@ -2792,7 +2808,7 @@
             lixeiraItens = itens;
             avisarNaLixeira('');
             renderizarLixeira();
-        }).catch(function (err) { avisarNaLixeira(err.message || 'Erro de comunicação.', true); });
+        }).catch(function (err) { avisarNaLixeira(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao'), true); });
     }
     function avisarNaLixeira(texto, erro) {
         if (!lixeiraModal) return;
@@ -2805,7 +2821,7 @@
         const n = lixeiraMarcados.size;
         const b = lixeiraModal.restaurarSel;
         b.disabled = lixeiraOcupada || n === 0 || !podeEscreverNaLixeira();
-        b.lastChild.textContent = n ? ' Restaurar selecionados (' + n + ')' : ' Restaurar selecionados';
+        b.lastChild.textContent = ' ' + (n ? BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados_n', { n: n }) : BJ_T.t('pasta_scripts.js.explorador.lix_restaurar_selecionados'));
     }
 
     /* Agrupamento: o item excluído dentro de uma pasta que TAMBÉM está na lixeira fica embaixo
@@ -2854,10 +2870,11 @@
         const partes = [ehPasta ? TIPO_PASTA[2] : tipoDe(it.nome)[2]];
         if (!ehPasta && it.tamanho != null) partes.push(formatarBytes(it.tamanho));
         const dataExclusao = formatarDataHora(it.excluidoEm);
-        const quando = (dataExclusao ? 'Excluído em ' + dataExclusao : 'Excluído (data sem registro)') + (it.excluidoPor && it.excluidoPor.nome ? ' por ' + it.excluidoPor.nome : '');
+        const excluido = dataExclusao ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_em', { data: dataExclusao }) : BJ_T.t('pasta_scripts.js.explorador.lix_excluido_sem_data');
+        const quando = it.excluidoPor && it.excluidoPor.nome ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_por', { quando: excluido, nome: it.excluidoPor.nome }) : excluido;
         const origem = junto
-            ? 'Excluído junto com a pasta "' + pai.nome + '"'
-            : (pai ? 'Estava em "' + pai.nome + '", que também está na lixeira' : 'Local original: ' + (it.caminho || 'Raiz'));
+            ? BJ_T.t('pasta_scripts.js.explorador.lix_junto_com', { nome: pai.nome })
+            : (pai ? BJ_T.t('pasta_scripts.js.explorador.lix_pai_na_lixeira', { nome: pai.nome }) : BJ_T.t('pasta_scripts.js.explorador.lix_local_original', { local: it.caminho || BJ_T.t('pasta_scripts.js.explorador.raiz') }));
         const nomeId = 'pex-lix-' + chave.replace(':', '-');
         return h('li', { class: 'pex-lix-item' + (nivel ? ' pex-lix-item--dentro' : ''), style: '--pex-lix-nivel:' + Math.min(nivel, 6), 'data-pex-lix-item': chave }, [
             escrever ? h('input', { type: 'checkbox', class: 'form-check-input pex-lix-marcar', 'data-pex-lix': chave, 'aria-labelledby': nomeId, checked: lixeiraMarcados.has(chave) }) : null,
@@ -2871,9 +2888,9 @@
                 type: 'button',
                 class: 'btn btn-sm btn-outline-primary pex-lix-restaurar',
                 'data-pex-lix-restaurar': chave,
-                title: pai ? 'Sozinho, volta para a raiz da pasta: a pasta de origem está na lixeira' : 'Volta para: ' + (it.caminho || 'Raiz'),
+                title: pai ? BJ_T.t('pasta_scripts.js.explorador.lix_volta_raiz') : BJ_T.t('pasta_scripts.js.explorador.lix_volta_para', { local: it.caminho || BJ_T.t('pasta_scripts.js.explorador.raiz') }),
                 disabled: lixeiraOcupada,
-            }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' Restaurar' })]) : null,
+            }, [icone('bi-arrow-counterclockwise'), h('span', { text: ' ' + BJ_T.t('pasta_scripts.js.explorador.lix_restaurar') })]) : null,
         ]);
     }
     function restaurarDaLixeira(chaves) {
@@ -2883,21 +2900,20 @@
         lixeiraOcupada = true;
         lixeiraModal.lista.querySelectorAll('button[data-pex-lix-restaurar]').forEach(function (b) { b.disabled = true; });
         atualizarBotaoRestaurarSelecionados();
-        avisarNaLixeira('Restaurando…');
+        avisarNaLixeira(BJ_T.t('pasta_scripts.js.explorador.restaurando'));
         postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes }).then(function (res) {
-            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Não foi possível restaurar.');
+            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.lix_erro_restaurar'));
             lixeiraRestaurou = true;
             const r = res.j.restaurados || {};
             const n = (Number(r.documentos) || 0) + (Number(r.secoes) || 0);
             const naRaiz = Number(res.j.paraARaiz) || 0;
             chaves.forEach(function (k) { lixeiraMarcados.delete(k); });
-            avisarNaLixeira((n === 1 ? '1 item restaurado' : formatarInteiro(n) + ' itens restaurados')
-                + (naRaiz ? ' (' + formatarInteiro(naRaiz) + ' na raiz da pasta: a pasta de origem continua na lixeira)' : '')
-                + '. A lista de documentos é atualizada ao fechar.');
+            const restaurados = n === 1 ? BJ_T.t('pasta_scripts.js.explorador.lix_restaurado_um') : BJ_T.t('pasta_scripts.js.explorador.lix_restaurados_varios', { n: formatarInteiro(n) });
+            avisarNaLixeira(BJ_T.t('pasta_scripts.js.explorador.lix_restaurado_fim', { texto: naRaiz ? BJ_T.t('pasta_scripts.js.explorador.lix_restaurado_na_raiz', { texto: restaurados, n: formatarInteiro(naRaiz) }) : restaurados }));
             invalidarContagemDaLixeira();
             return lerLixeira().then(function (itens) { lixeiraItens = itens; });
         }).catch(function (err) {
-            avisarNaLixeira(err.message || 'Erro de comunicação.', true);
+            avisarNaLixeira(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao'), true);
         }).then(function () {
             lixeiraOcupada = false;
             Array.from(lixeiraMarcados).forEach(function (k) {
@@ -2922,7 +2938,7 @@
         itens.filter(ehPastaItem).forEach(function (it) { proibidos = proibidos.concat([it.id], descendentes(it.id)); });
         const locais = [];
         itens.forEach(function (it) { const l = localDe(it); if (locais.indexOf(l) === -1) locais.push(l); });
-        pedirDestino(itens.length === 1 ? 'Mover "' + itens[0].nome + '" para' : 'Mover ' + itens.length + ' itens para', {
+        pedirDestino(itens.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.mover_um_para', { nome: itens[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.mover_varios_para', { n: itens.length }), {
             proibidos: proibidos,
             atual: locais.length === 1 ? locais[0] : null,
             semAtual: locais.length !== 1,
@@ -2947,7 +2963,7 @@
         const arquivo = it.tipo === 'arquivo';
         const ext = arquivo ? extensaoDe(it.nome) : '';
         const valor = arquivo ? nomeSemExtensao(it.nome) : it.nome;
-        const input = h('input', { type: 'text', class: 'pex-ren', 'aria-label': arquivo ? 'Novo nome do arquivo' : 'Nome da pasta', maxlength: '250', autocomplete: 'off', spellcheck: 'false' });
+        const input = h('input', { type: 'text', class: 'pex-ren', 'aria-label': arquivo ? BJ_T.t('pasta_scripts.js.explorador.ren_nome_arquivo') : BJ_T.t('pasta_scripts.js.explorador.ren_nome_pasta'), maxlength: '250', autocomplete: 'off', spellcheck: 'false' });
         input.value = valor;
         const wrap = h('span', { class: 'pex-ren-wrap' }, [input, ext ? h('span', { class: 'pex-ren-ext', text: '.' + ext }) : null]);
         nomeEl.hidden = true;
@@ -2989,7 +3005,7 @@
         } else if (r.it.tipo === 'pasta') {
             const p = r.it.dado;
             pedido = postForm(p.urlRenomear, { _token: p.csrfRenomear, nome: v }).then(function (res) {
-                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Falha ao renomear.');
+                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.falha_renomear'));
                 p.nome = res.j.nome;
             });
         } else {
@@ -2997,7 +3013,7 @@
             pedido = postForm(cfg.urlEditarDocTpl.replace('__ID__', a.id), {
                 _token: a.csrfEditar, nomeBase: v, categoria: a.categoria || '', descricao: a.descricao || '', numero: a.numero || '',
             }).then(function (res) {
-                if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || 'Falha ao renomear.');
+                if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.falha_renomear'));
                 mesclarDocumento(a, res.j.documento);
             });
         }
@@ -3006,7 +3022,7 @@
             renderizar();
             liberarRenderAdiado();
         }).catch(function (err) {
-            toastErro(err.message || 'Erro de comunicação.');
+            toastErro(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao'));
             if (renomeando === r) { r.salvando = false; r.input.disabled = false; cancelarRenomear(); }
         });
     }
@@ -3022,7 +3038,7 @@
         if (normalizar(busca) !== '') aplicarBusca('');      // a linha nova vai no nível aberto
         if (filtroTipo !== 'todos' && filtroTipo !== 'pastas') definirFiltro('todos');
         cancelarRenomear();
-        const nome = nomeLivre('Nova pasta');
+        const nome = nomeLivre(BJ_T.t('pasta_scripts.js.explorador.menu_nova_pasta'));
         const temp = { id: 0, nome: nome, paiId: pastaAtualId(), ordem: 0, subpastas: 0, arquivos: 0 };
         const linha = linhaPasta(temp, false);
         linha.dataset.pexTemp = '';
@@ -3037,7 +3053,7 @@
         const campos = { _token: cfg.csrfCriarSecao, nome: nome };
         if (caminho.length) campos.paiId = String(pastaAtualId());
         return postForm(cfg.urlCriarSecao, campos).then(function (res) {
-            if (!res.ok || !res.j.id) throw new Error((res.j && res.j.erro) || 'Falha ao criar a pasta.');
+            if (!res.ok || !res.j.id) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.falha_criar_pasta'));
             pastas.push({
                 id: Number(res.j.id),
                 nome: res.j.nome,
@@ -3364,7 +3380,7 @@
         document.getElementById('pexEditarToken').value = a.csrfEditar || '';
         document.getElementById('pexEditarNomeBase').value = nomeSemExtensao(a.nome);
         document.getElementById('pexEditarExt').textContent = ext ? '.' + ext : '';
-        document.getElementById('pexEditarExtTexto').textContent = ext ? '.' + ext : '(sem extensão)';
+        document.getElementById('pexEditarExtTexto').textContent = ext ? '.' + ext : BJ_T.t('pasta_scripts.js.explorador.sem_extensao');
         const sel = document.getElementById('pexEditarCategoria');
         if (sel) sel.value = a.categoria || '';
         document.getElementById('pexEditarDescricao').value = a.descricao || '';
@@ -3379,12 +3395,12 @@
             const botao = editarForm.querySelector('[type="submit"]');
             if (botao) botao.disabled = true;
             postFormData(editarForm.action, new FormData(editarForm)).then(function (res) {
-                if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || 'Falha ao salvar.');
+                if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_scripts.js.explorador.falha_salvar'));
                 mesclarDocumento(a, res.j.documento);
                 bootstrap.Modal.getOrCreateInstance(editarModalEl).hide();
                 renderizar();
-                toast('Documento atualizado: ' + a.nome);
-            }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); }).then(function () { if (botao) botao.disabled = false; });
+                toast(BJ_T.t('pasta_scripts.js.explorador.documento_atualizado', { nome: a.nome }));
+            }).catch(function (err) { toastErro(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao')); }).then(function () { if (botao) botao.disabled = false; });
         });
     }
 
@@ -3419,11 +3435,11 @@
                     'aria-selected': 'false',
                     'data-pex-destino': id == null ? '' : String(id),
                     disabled: ehAtual || proibido,
-                    title: proibido ? 'Uma pasta não pode ir para dentro dela mesma' : (ehAtual ? 'Já está aqui' : nome),
+                    title: proibido ? BJ_T.t('pasta_scripts.js.explorador.destino_proibido') : (ehAtual ? BJ_T.t('pasta_scripts.js.explorador.destino_ja_aqui') : nome),
                     style: 'padding-left:' + (10 + profundidade * 18) + 'px',
-                }, [icone(ico), h('span', { text: nome }), ehAtual ? h('small', { text: 'atual' }) : null]);
+                }, [icone(ico), h('span', { text: nome }), ehAtual ? h('small', { text: BJ_T.t('pasta_scripts.js.explorador.destino_atual') }) : null]);
             };
-            destinoArvore.appendChild(itemDestino(null, 'Documentos (raiz da pasta)', 0, 'bi-house-door'));
+            destinoArvore.appendChild(itemDestino(null, BJ_T.t('pasta_scripts.js.explorador.destino_raiz'), 0, 'bi-house-door'));
             const montar = function (paiId, profundidade) {
                 if (profundidade > 100) return;
                 pastas.filter(function (p) { return (p.paiId == null ? null : Number(p.paiId)) === paiId; })
@@ -3505,7 +3521,7 @@
         return true;
     }
     function enviarArquivos(lista) {
-        if (typeof window.enviarArquivoComProgresso !== 'function') { toastErro('Upload indisponível.'); return; }
+        if (typeof window.enviarArquivoComProgresso !== 'function') { toastErro(BJ_T.t('pasta_scripts.js.explorador.upload_indisponivel')); return; }
         const destino = pastaAtualId();
         let i = 0, houveErro = false, precisaReload = false;
         const novos = [];
@@ -3513,7 +3529,7 @@
         el.uploadBar.hidden = false;
 
         function concluir() {
-            el.uploadCont.textContent = houveErro ? 'Concluído com erros' : 'Concluído';
+            el.uploadCont.textContent = houveErro ? BJ_T.t('pasta_scripts.js.explorador.upload_concluido_erros') : BJ_T.t('pasta_scripts.js.explorador.upload_concluido');
             if (precisaReload) {
                 gravarCaminho();
                 setTimeout(function () {
@@ -3526,7 +3542,7 @@
                 limparSelecao(true);
                 renderizar();
                 definirSelecao(novos, { ancora: novos[0], foco: novos[novos.length - 1] });
-                toast(novos.length === 1 ? 'Anexado: ' + (arquivoPorId(novos[0].split(':')[1]) || {}).nome : novos.length + ' arquivos anexados');
+                toast(novos.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.anexado_um', { nome: (arquivoPorId(novos[0].split(':')[1]) || {}).nome }) : BJ_T.t('pasta_scripts.js.explorador.anexados_varios', { n: novos.length }));
             }
             uploadTimer = setTimeout(function () { el.uploadBar.hidden = true; }, houveErro ? 6000 : 1200);
         }
@@ -3557,7 +3573,7 @@
                 houveErro = true;
                 el.uploadProg.classList.add('bg-danger');
                 el.uploadNome.textContent = '✗ ' + file.name + ': ' + err.message;
-                toastErro('Falha ao anexar "' + file.name + '": ' + err.message);
+                toastErro(BJ_T.t('pasta_scripts.js.explorador.falha_anexar', { nome: file.name, erro: err.message }));
             }).then(function () { i++; proximo(); });
         }
         proximo();
