@@ -13,6 +13,7 @@ use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\DesfazerReaberturaRecusadoException;
@@ -26,6 +27,7 @@ use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Tarefa\UseCase\GravarMetaNovaUseCase;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
+use App\Tarefa\UseCase\MontarEsteiraDaPastaUseCase;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
@@ -67,24 +69,16 @@ final class TarefaController extends AbstractController
      * atalhos que apontam para uma aba já filtrada, e o usuário precisa poder guardar o link.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
-    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, AcessoAPasta $acessoAPasta): Response
+    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, MontarEsteiraDaPastaUseCase $esteira, AcessoAPasta $acessoAPasta): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
 
-        // Prioridade da meta (desenho 04); valor fora do enum (o antigo `prioridade` da pasta) vira vazio.
-        $prioridade = PrioridadeDaMeta::tryFrom((string) $request->query->get('prioridade', ''));
-
-        $filtros = [
-            // Sem `status`: o desenho 04 (P:69-80) não tem o filtro Status (dono, 21/10).
-            'busca'      => trim((string) $request->query->get('busca', '')),
-            'prioridade' => $prioridade === null ? '' : $prioridade->value,
-            'prazo'      => (string) $request->query->get('prazo', ''),
-        ];
-
-        $aba        = AbaMetas::deQueryString($request->query->get('aba'));
+        $filtros     = $this->filtrosDeMinhasMetas($request);
+        $aba         = AbaMetas::deQueryString($request->query->get('aba'));
         $soAListagem = $request->isXmlHttpRequest();
+        $ocultas     = $acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId());
 
         $dados = [
             'painel'  => $useCase->executar(
@@ -95,7 +89,8 @@ final class TarefaController extends AbstractController
                 // Na recarga parcial só o fragmento da lista é redesenhado; calcular as
                 // contagens do topo ali seria pagar 8 consultas por tecla digitada na busca.
                 $soAListagem,
-                $acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId()),
+                $ocultas,
+                $tenant,
             ),
             'filtros' => $filtros,
         ];
@@ -104,7 +99,27 @@ final class TarefaController extends AbstractController
             return $this->render('tarefa/_resultado.html.twig', $dados);
         }
 
+        // A esteira é GERAL DO ESCRITÓRIO (desenho 04 de 22/10) e fica fora do fragmento que o filtro recarrega.
+        $dados['esteira'] = $esteira->executar($usuario, $tenant, new \DateTimeImmutable('today'), $ocultas);
+
         return $this->render('tarefa/minhas.html.twig', $dados);
+    }
+
+    /** @return array{busca: string, prioridade: string, prazo: string, etapa: string} */
+    private function filtrosDeMinhasMetas(Request $request): array
+    {
+        // Prioridade da meta (desenho 04); valor fora do enum (o antigo `prioridade` da pasta) vira vazio.
+        $prioridade = PrioridadeDaMeta::tryFrom((string) $request->query->get('prioridade', ''));
+        // Caixa da esteira clicada ("Só a etapa X", desenho 04 de 22/10); valor fora do enum vira vazio.
+        $etapa = EtapaDaPasta::tryFrom((string) $request->query->get('etapa', ''));
+
+        return [
+            // Sem `status`: o desenho 04 (P:69-80) não tem o filtro Status (dono, 21/10).
+            'busca'      => trim((string) $request->query->get('busca', '')),
+            'prioridade' => $prioridade === null ? '' : $prioridade->value,
+            'prazo'      => (string) $request->query->get('prazo', ''),
+            'etapa'      => $etapa === null ? '' : $etapa->value,
+        ];
     }
 
     /**

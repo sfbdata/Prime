@@ -7,7 +7,18 @@ CLAUDE.md, tratado como MÉDIO porque mexe no modelo da meta, em prazo e em text
 ## Estado da frente
 
 - 22/10: inventário do desenho e do código feito (seções 1 e 2). Nada implementado ainda.
-- Próximo passo: Fase 1 (seção 4), depois das decisões D1 a D4 da seção 3.
+- 22/10: o dono decidiu D1 a D4 (repassado pelo coordenador, bluejus-72). Migration da Fase 1: 149900.
+- Em andamento: Fase 1 (seção 4).
+
+### Decisões do dono (22/10)
+
+- **D1 = (b).** O despacho mostra "Registrado por FULANO (Cargo) em DD/MM/AAAA às HH:MM · Cód. X", e o código é conferível
+  por um link de validação. Não se escreve "assinado eletronicamente".
+- **D2 = proposta.** Configura caixa o usuário primário e quem administra perfis.
+- **D3 = proposta.** Concluir e passar adiante: responsável da etapa ou criador. Devolver: só o responsável. Prazo: só o
+  criador, como hoje.
+- **D4 = proposta.** Chave "Sugestões a partir dos meus despachos" no Meu Perfil, por usuário e ligada por padrão,
+  com o botão "Apagar o que foi aprendido".
 
 ## 1. O que o desenho de 22/10 traz de novo
 

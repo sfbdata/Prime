@@ -6,9 +6,11 @@ namespace App\Tarefa\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tenant\Tenant;
 use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\DTO\MinhasMetasOutput;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Repository\CaixaDaEsteiraRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Service\AgrupadorDeMetas;
 
@@ -29,6 +31,10 @@ use App\Tarefa\Service\AgrupadorDeMetas;
  * **Cadeado** (spec pasta-cadeado D3): meta de pasta oculta pelo cadeado para o usuário (`$pastasOcultas`,
  * de `AcessoAPasta::idsOcultosPara()`) não entra na lista, nas contagens das abas, nos KPIs nem no trilho.
  *
+ * **Esteira** (desenho 04 de 22/10): com o filtro `etapa` (clique numa caixa) e o `$escritorio`, a lista é a das
+ * metas abertas daquela caixa de toda a equipe, no lugar do papel da aba. O nome que o escritório deu a cada
+ * etapa (`CaixaDaEsteira`) vai junto, para o chip "i/8 · Etapa" da linha usar o mesmo nome da esteira.
+ *
  * **Erros:** não lança. Aba desconhecida cai no padrão (`Sou responsável`) — é uma tela de
  * leitura, e derrubar a página por um parâmetro estranho na URL seria pior que ignorá-lo.
  */
@@ -39,6 +45,7 @@ final class ListarMinhasMetasUseCase
     public function __construct(
         private readonly TarefaRepository $repository,
         private readonly AgrupadorDeMetas $agrupador,
+        private readonly ?CaixaDaEsteiraRepository $caixas = null,
     ) {
     }
 
@@ -48,6 +55,7 @@ final class ListarMinhasMetasUseCase
      *                           redesenhado, então as 8 contagens dele seriam calculadas e
      *                           jogadas fora — a cada tecla digitada na busca.
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
+     * @param Tenant|null $escritorio  o escritório da sessão; sem ele não há filtro por etapa nem nomes da esteira
      */
     public function executar(
         User $usuario,
@@ -56,8 +64,9 @@ final class ListarMinhasMetasUseCase
         bool $modoLista = false,
         bool $soAListagem = false,
         array $pastasOcultas = [],
+        ?Tenant $escritorio = null,
     ): MinhasMetasOutput {
-        $metas = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros, $pastasOcultas);
+        $metas = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros, $pastasOcultas, $escritorio);
 
         $ids        = array_map(static fn (Tarefa $m): int => (int) $m->getId(), $metas);
         $marcadores = $this->repository->carregarMarcadoresDaLista($usuario, $ids);
@@ -78,6 +87,24 @@ final class ListarMinhasMetasUseCase
             // dois não dependem de `$soAListagem`: só o modo lista, que não desenha trilho, os dispensa.
             andamento: $modoLista ? new AndamentoDasMetasOutput() : $this->repository->contarAndamento($usuario, $pastasOcultas),
             atencao: $modoLista ? [] : $this->repository->findAtrasadasParaAtencao($usuario, MinhasMetasOutput::TETO_ATENCAO, $pastasOcultas),
+            nomesDasEtapas: $this->nomesDasEtapas($escritorio),
         );
+    }
+
+    /** @return array<string, string> valor de `EtapaDaPasta` → nome dado pelo escritório (só as renomeadas) */
+    private function nomesDasEtapas(?Tenant $escritorio): array
+    {
+        if ($escritorio === null || $this->caixas === null) {
+            return [];
+        }
+
+        $nomes = [];
+        foreach ($this->caixas->configuradasDoEscritorio($escritorio) as $etapa => $caixa) {
+            if ($caixa->getNomeDaEtapa() !== null) {
+                $nomes[$etapa] = $caixa->getNomeDaEtapa();
+            }
+        }
+
+        return $nomes;
     }
 }
