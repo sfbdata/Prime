@@ -70,6 +70,19 @@
         ]
     },
 
+    "processo": {
+        "templates": [
+            "processo/index.html.twig",
+            "processo/_resultado.html.twig",
+            "processo/new.html.twig",
+            "processo/show.html.twig",
+            "processo/_notas_tecnicas.html.twig",
+            "processo/_nota_tecnica_item.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
     "comercial": {
         "templates": [
             "master/_comercial.html.twig",
