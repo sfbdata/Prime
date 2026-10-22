@@ -51,6 +51,7 @@ final class SedeCoordenadasValidacaoControllerTest extends JusPrimeWebTestCase
         yield 'raio abaixo de 10'        => [['raioPermitido' => '5'], 'Raio permitido deve estar entre 10 e 500 metros.'];
         yield 'raio acima de 500'        => [['raioPermitido' => '600'], 'Raio permitido deve estar entre 10 e 500 metros.'];
         yield 'raio não numérico'        => [['raioPermitido' => 'abc'], 'Raio permitido deve ser um número.'];
+        yield 'raio fracionado'          => [['raioPermitido' => '10.5'], 'Raio permitido deve ser um número inteiro de metros.'];
     }
 
     /** @param array<string, string> $alteracoes */

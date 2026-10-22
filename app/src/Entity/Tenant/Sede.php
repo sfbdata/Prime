@@ -78,9 +78,10 @@ class Sede implements Auditavel
         return $this->raioPermitido;
     }
 
-    public function setRaioPermitido(int $raioPermitido): static
+    /** O form entrega o número como veio (10.5); a validação do SedeType recusa o fracionado antes de gravar. */
+    public function setRaioPermitido(int|float $raioPermitido): static
     {
-        $this->raioPermitido = $raioPermitido;
+        $this->raioPermitido = (int) $raioPermitido;
         return $this;
     }
 

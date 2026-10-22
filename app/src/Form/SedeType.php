@@ -45,6 +45,8 @@ class SedeType extends AbstractType
                 'attr' => ['min' => 10, 'max' => 500, 'step' => 10],
                 'constraints' => [
                     new Assert\Range(min: 10, max: 500, notInRangeMessage: 'Raio permitido deve estar entre 10 e 500 metros.'),
+                    // A coluna é inteira: sem isto, 10.5 virava 10 em silêncio (conversão implícita do setter).
+                    new Assert\DivisibleBy(value: 1, message: 'Raio permitido deve ser um número inteiro de metros.'),
                 ],
             ])
         ;
