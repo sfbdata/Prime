@@ -322,7 +322,7 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrir($pasta);
         $cab     = $crawler->filter('#processoTabContent > .ps-processos > .ps-card-cab');
 
-        $botoes = $cab->filter('button[data-bs-target="#modalVincularProcesso"]');
+        $botoes = $cab->filter('button[data-vp-abrir][aria-controls="modalVincularProcesso"]');
         self::assertCount(2, $botoes);
         self::assertSame('apenso', $botoes->eq(1)->attr('data-vincular-modo'));
         self::assertStringContainsString('Vincular apensado', $botoes->eq(1)->text());
@@ -353,7 +353,7 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         $form = $this->abrir($pasta)->filter('#modalVincularProcesso form#formVincularProcesso');
 
         self::assertSame('principal', $form->filter('input#mp-modo[name="modo"]')->attr('value'));
-        $bloco = $form->filter('.modal-body > label#mp-apenso-tipo');
+        $bloco = $form->filter('.vp-corpo > label#mp-apenso-tipo');
         self::assertNotNull($bloco->attr('hidden'));
         $select = $bloco->filter('select#mp-tipoApenso[name="tipo_apenso"]');
         self::assertNotNull($select->attr('disabled'));
@@ -364,7 +364,7 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         self::assertSame('embargos', $select->filter('option[selected]')->attr('value'));
     }
 
-    #[TestDox('Modal no desenho de 18/10 (N:289-354): cabeçalho com título e X próprios, abas .mp-abas, aviso fora do "Cadastrar novo", rodapé e CSS com escopo no modal')]
+    #[TestDox('Janela do desenho de 18/10 (N:289-354), não o modal do Bootstrap: cabeçalho com título e X, abas .mp-abas, aviso fora do "Cadastrar novo", rodapé e CSS com escopo na janela')]
     public function testModalNoDesenho(): void
     {
         [$user, $tenant] = $this->criarAdmin();
@@ -372,28 +372,30 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $user, $tenant);
 
         $crawler = $this->abrir($pasta);
-        $modal   = $crawler->filter('#modalVincularProcesso .modal-content');
+        // A janela do desenho, não o modal do Bootstrap: sobreposição > caixa > cabeçalho, form (corpo e rodapé).
+        $modal   = $crawler->filter('#modalVincularProcesso.vp-sobre[hidden] > .vp-caixa[role="dialog"]');
+        self::assertCount(1, $modal);
+        self::assertCount(0, $crawler->filter('#modalVincularProcesso.modal, #modalVincularProcesso .modal-dialog'));
 
-        self::assertSame('Vincular processo', trim($modal->filter('.modal-header > .modal-title > #mp-titulo-texto')->text()));
-        self::assertCount(1, $modal->filter('.modal-header > .modal-title > i.bi-briefcase'));
-        self::assertCount(1, $modal->filter('.modal-header > button.mp-fechar[data-bs-dismiss="modal"] > i.bi-x-lg'));
-        self::assertCount(0, $modal->filter('.modal-header .btn-close'));
-        $abas = $modal->filter('.modal-body > .btn-group.mp-abas');
+        self::assertSame('Vincular processo', trim($modal->filter('.vp-cab > b.vp-titulo > #mp-titulo-texto')->text()));
+        self::assertCount(1, $modal->filter('.vp-cab > i.bi-briefcase + b.vp-titulo + button.mp-fechar[data-vp-fechar] > i.bi-x-lg'));
+        $abas = $modal->filter('.vp-form > .vp-corpo > .mp-abas');
         self::assertCount(1, $abas);
-        self::assertSame(['Buscar processo existente', 'Cadastrar novo (CNJ)'], $abas->filter('label.btn')->each(static fn (Crawler $l): string => trim($l->text())));
-        self::assertCount(1, $modal->filter('.modal-body > #mp-feedbackAlerta'), 'o aviso aparece também na aba "Buscar processo existente"');
+        self::assertSame(['Buscar processo existente', 'Cadastrar novo (CNJ)'], $abas->filter('.mp-abas > button.mp-aba')->each(static fn (Crawler $l): string => trim($l->text())));
+        self::assertCount(0, $modal->filter('.btn'), 'sem botões do Bootstrap');
+        self::assertCount(1, $modal->filter('.vp-corpo > #mp-feedbackAlerta'), 'o aviso aparece também na aba "Buscar processo existente"');
         self::assertCount(0, $modal->filter('#modal-modo-novo #mp-feedbackAlerta'));
-        self::assertSame('Cancelar', trim($modal->filter('.modal-footer > .btn-secondary[data-bs-dismiss="modal"]')->text()));
-        self::assertSame('Vincular processo', trim($modal->filter('.modal-footer > button[type="submit"].btn-primary #mp-salvar-texto')->text()));
+        self::assertSame('Cancelar', trim($modal->filter('.vp-rodape > button.vp-btn--cancelar[data-vp-fechar]')->text()));
+        self::assertSame('Vincular processo', trim($modal->filter('.vp-rodape > button[type="submit"].vp-btn--ok #mp-salvar-texto')->text()));
         self::assertCount(1, $crawler->filter('link[href*="css/pasta-apensados.css"]'));
 
         $css = (string) file_get_contents(__DIR__ . '/../../../public/css/pasta-apensados.css');
         foreach ([
-            '#modalVincularProcesso .modal-header {',
+            '#modalVincularProcesso .vp-cab {',
             'background: #0a6fa0; color: #fff;',
-            '#modalVincularProcesso .mp-abas > .btn-check:checked + .btn { background: #0a6fa0; color: #fff; }',
-            '#modalVincularProcesso .modal-footer .btn-secondary { padding: 0 16px; background: #eef2f5; color: #34505f; }',
-            '#modalVincularProcesso #mp-feedbackAlerta.alert-warning { background: #fff7e6; color: #7a5200;',
+            '#modalVincularProcesso .mp-aba.is-ativa { background: #0a6fa0; color: #fff; }',
+            '#modalVincularProcesso .vp-btn--cancelar { padding: 0 16px; background: #eef2f5; color: #34505f; }',
+            '#modalVincularProcesso .mp-aviso { padding: 10px 12px; border-radius: 4px; font-size: 13px; background: #fff7e6; color: #7a5200;',
         ] as $regra) {
             self::assertStringContainsString($regra, $css);
         }

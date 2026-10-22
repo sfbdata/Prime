@@ -37,20 +37,22 @@ final class VincularProcessoJanelaTelaTest extends JusPrimeWebTestCase
         return $crawler->filter('#modalVincularProcesso');
     }
 
-    #[TestDox('Moldura: diálogo sem modal-xl, cabeçalho título + fechar, rodapé Cancelar e depois Vincular com bi-check2')]
+    #[TestDox('Moldura do desenho (N:290-351): sobreposição > caixa, cabeçalho ícone + título + fechar, rodapé Cancelar e depois Vincular com bi-check2')]
     public function testMoldura(): void
     {
         $janela = $this->janela();
 
-        self::assertCount(1, $janela->filter('#modalVincularProcesso > .modal-dialog.modal-dialog-centered:not(.modal-xl)'));
-        $cab = $janela->filter('.modal-content > .modal-header');
-        self::assertCount(1, $cab->filter('.modal-header > .modal-title + button.mp-fechar[data-bs-dismiss="modal"]'));
-        self::assertCount(0, $cab->filter('.modal-title > i.me-1'), 'o gap de 10px vem do CSS');
+        self::assertSame('vp-sobre', $janela->attr('class'));
+        self::assertNotNull($janela->attr('hidden'), 'fechada até um [data-vp-abrir] abrir');
+        $caixa = $janela->filter('#modalVincularProcesso > .vp-caixa[role="dialog"][aria-modal="true"][aria-labelledby="modalVincularProcessoLabel"]');
+        self::assertCount(1, $caixa);
+        self::assertCount(1, $caixa->filter('.vp-caixa > .vp-cab > i.bi-briefcase + b.vp-titulo#modalVincularProcessoLabel + button.mp-fechar[data-vp-fechar]'));
+        self::assertCount(1, $caixa->filter('.vp-caixa > .vp-cab + form#formVincularProcesso.vp-form > .vp-corpo + .vp-rodape'));
 
-        $rodape = $janela->filter('form#formVincularProcesso > .modal-footer');
+        $rodape = $caixa->filter('form#formVincularProcesso > .vp-rodape');
         self::assertSame(['Cancelar', 'Vincular processo'], $rodape->children()->each(static fn (Crawler $b): string => trim($b->text())));
-        self::assertCount(1, $rodape->filter('.modal-footer > button.btn-secondary[data-bs-dismiss="modal"] + button[type="submit"].btn-primary > i.bi-check2'));
-        self::assertCount(0, $janela->filter('.bi-check-lg'));
+        self::assertCount(1, $rodape->filter('.vp-rodape > button.vp-btn.vp-btn--cancelar[data-vp-fechar] + button[type="submit"].vp-btn.vp-btn--ok > i.bi-check2'));
+        self::assertCount(0, $janela->filter('.bi-check-lg, .btn, .modal-header, .modal-body, .modal-footer, [data-bs-dismiss], [data-bs-toggle]'), 'nada do Bootstrap');
     }
 
     #[TestDox('Sem validação do navegador: form novalidate e nenhum required (o "Preencha: ..." é no clique)')]
@@ -66,7 +68,7 @@ final class VincularProcessoJanelaTelaTest extends JusPrimeWebTestCase
     public function testBuscaDeProcesso(): void
     {
         $janela = $this->janela();
-        $bloco  = $janela->filter('.modal-body > #modal-modo-existente');
+        $bloco  = $janela->filter('.vp-corpo > #modal-modo-existente');
 
         self::assertCount(1, $bloco->filter('#modal-modo-existente > label.mp-rotulo[for="mp-busca-input"] > .mp-obrig'));
         self::assertCount(1, $bloco->filter('#modal-modo-existente > input[type="hidden"]#mp-processoExistente[name="processo_id"]'));
@@ -76,13 +78,13 @@ final class VincularProcessoJanelaTelaTest extends JusPrimeWebTestCase
         self::assertSame('Digite número, classe, assunto ou tribunal…', $bloco->filter('#mp-busca-input')->attr('placeholder'));
         self::assertCount(1, $bloco->filter('#modal-modo-existente > .mp-busca-caixa + span.mp-dica-busca'));
         self::assertCount(0, $janela->filter('select#mp-processoExistente'), 'sem o Select2');
-        self::assertCount(1, $janela->filter('.modal-body > .btn-group.mp-abas:not(.mb-3)'));
+        self::assertCount(1, $janela->filter('.vp-corpo > .mp-abas > button.mp-aba.is-ativa#mp-modo-existente[data-vp-modo="existente"] + button.mp-aba#mp-modo-novo[data-vp-modo="novo"]'));
     }
 
     #[TestDox('Cadastrar novo: sub-abas; grade com número (4), botão do CNJ (2) com o "Dados localizados" embaixo e tribunal só leitura')]
     public function testCadastroNovo(): void
     {
-        $novo = $this->janela()->filter('.modal-body > #modal-modo-novo');
+        $novo = $this->janela()->filter('.vp-corpo > #modal-modo-novo');
 
         self::assertSame(
             ['Informações', 'Partes', 'Movimentações'],
@@ -122,15 +124,17 @@ final class VincularProcessoJanelaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $novo->filter('#tab-modal-proc-movimentacoes > #mp-movimentacoesContainer + p.mp-nota'));
     }
 
-    #[TestDox('CSS com os tokens do desenho: 860px, fundo de trás, campos, grade, sub-abas, botões, linhas, aviso e par escuro')]
+    #[TestDox('CSS com os tokens do desenho: sobreposição, caixa de 860px, campos, grade, sub-abas, botões, linhas, aviso e par escuro')]
     public function testCssDoDesenho(): void
     {
         $css = (string) file_get_contents(self::CSS);
 
         foreach ([
-            '#modalVincularProcesso .modal-dialog { max-width: min(860px, calc(100% - 32px));',
-            'body.mp-vinc-aberto > .modal-backdrop { --bs-backdrop-bg: rgb(16, 36, 48); --bs-backdrop-opacity: .32;',
-            '#modalVincularProcesso .modal-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; }',
+            '.vp-sobre { position: fixed; inset: 0; z-index: 2147483400; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(16, 36, 48, .32); }',
+            '#modalVincularProcesso .vp-caixa { width: min(860px, 100%); max-height: calc(100vh - 32px);',
+            '#modalVincularProcesso .vp-corpo { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; overflow: auto;',
+            '#modalVincularProcesso .vp-rodape { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid #eef2f5; background: #fafcfd; }',
+            '#modalVincularProcesso .vp-btn--ok:focus-visible { background: #085a83; }',
             '#modalVincularProcesso .mp-rotulo { margin: 0; white-space: nowrap; font-size: 12.5px; font-weight: 700; color: #34505f; }',
             '#modalVincularProcesso .mp-obrig { color: #c0392b; }',
             "height: 34px;\n    box-sizing: border-box;\n    width: 100%;\n    border: 1px solid #d3dde4;\n    border-radius: 4px;\n    padding: 0 10px;",
@@ -151,7 +155,7 @@ final class VincularProcessoJanelaTelaTest extends JusPrimeWebTestCase
             '#modalVincularProcesso .mp-busca-num { font-size: 13.5px; font-weight: 700; color: #0a6fa0;',
             '#modalVincularProcesso .mp-busca-sub { font-size: 12px;',
             '    height: 38px;',
-            '#modalVincularProcesso #mp-feedbackAlerta.alert-danger { background: #fdeceb; color: #a3232b; border: 1px solid #f2c9c6; }',
+            '#modalVincularProcesso .mp-aviso--erro { background: #fdeceb; color: #a3232b; border: 1px solid #f2c9c6; }',
             '[data-bs-theme="dark"] #modalVincularProcesso .mp-ctrl { background: var(--bs-body-bg);',
             '[data-bs-theme="dark"] #modalVincularProcesso .mp-linha { background: var(--bs-tertiary-bg);',
         ] as $regra) {

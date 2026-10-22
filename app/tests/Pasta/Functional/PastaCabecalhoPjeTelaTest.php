@@ -150,7 +150,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrir($client, $pasta);
 
         $celula = $crawler->filter('[data-trilho="processo"] > [data-campo="processo"]');
-        self::assertCount(1, $celula->filter('button.ps-link-btn[data-bs-target="#modalVincularProcesso"]'));
+        self::assertCount(1, $celula->filter('button.ps-link-btn[data-vp-abrir][aria-controls="modalVincularProcesso"]'));
         self::assertCount(0, $celula->filter('.ps-chip-vinc'));
         self::assertCount(0, $crawler->filter('[data-trilho="processo"] a[href="#"]'), 'nenhum link morto na faixa');
     }

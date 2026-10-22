@@ -78,46 +78,39 @@
 }
 .ps-push-proc.is-ativo { background: #0a6fa0; color: #fff; }
 
-/* Modal "Vincular processo / Vincular apensado" (#modalVincularProcesso), desenho N:289-354 e `pvVals`
-   N:3135-3151. Escopo no id do modal: nada aqui vale fora dele. */
-#modalVincularProcesso .modal-content { border: none; border-radius: 4px; overflow: hidden; box-shadow: 0 18px 50px rgba(16,42,58,.22); }
+/* Janela "Vincular processo / Vincular apensado" (#modalVincularProcesso): a do desenho, não o modal do Bootstrap.
+   N:289-354 e `pvVals` N:3135-3151. Escopo no id da janela: nada aqui vale fora dela. */
+/* Sobreposição (N:290): fixa, fundo rgba(16,36,48,.32), caixa centrada com 16px de folga. */
+.vp-sobre { position: fixed; inset: 0; z-index: 2147483400; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(16, 36, 48, .32); }
+.vp-sobre[hidden] { display: none; }
+/* Caixa (N:291): min(860px, 100%), até a altura da tela, cantos 4 e sombra do desenho. */
+#modalVincularProcesso .vp-caixa { width: min(860px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border-radius: 4px; box-shadow: 0 18px 50px rgba(16, 42, 58, .22); overflow: hidden; color: #12242f; }
 /* Cabeçalho azul, ícone e título brancos (N:292). */
-#modalVincularProcesso .modal-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #0a6fa0; color: #fff; border-bottom: none; }
-#modalVincularProcesso .modal-title { flex: 1; display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 700; color: #fff; }
-#modalVincularProcesso .modal-title .bi { color: #fff; }
+#modalVincularProcesso .vp-cab { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #0a6fa0; color: #fff; }
+#modalVincularProcesso .vp-titulo { flex: 1; font-size: 15px; font-weight: 700; color: #fff; }
 .mp-fechar { width: 30px; height: 30px; flex-shrink: 0; border: none; border-radius: 4px; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .mp-fechar:hover, .mp-fechar:focus-visible { background: rgba(255,255,255,.28); }
+/* O form leva corpo e rodapé: só o corpo rola (N:293, overflow auto). */
+#modalVincularProcesso .vp-form { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; margin: 0; }
+#modalVincularProcesso .vp-corpo { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; overflow: auto; min-height: 0; }
 /* Abas "Buscar processo existente" / "Cadastrar novo (CNJ)" (N:295, `tabSt` N:3136). */
 #modalVincularProcesso .mp-abas { display: flex; border: 1px solid #0a6fa0; border-radius: 4px; overflow: hidden; }
-#modalVincularProcesso .mp-abas > .btn { flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0; border: none; border-radius: 0; font-family: inherit; font-size: 13.5px; font-weight: 700; background: #fff; color: #0a6fa0; box-shadow: none; transition: background .15s, color .15s; }
-#modalVincularProcesso .mp-abas > .btn .bi { margin: 0 !important; }
-#modalVincularProcesso .mp-abas > .btn-check:checked + .btn { background: #0a6fa0; color: #fff; }
-#modalVincularProcesso .mp-abas > .btn-check:focus-visible + .btn { outline: 2px solid #0a6fa0; outline-offset: -4px; }
+#modalVincularProcesso .mp-aba { flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: background .15s, color .15s; background: #fff; color: #0a6fa0; }
+#modalVincularProcesso .mp-aba.is-ativa { background: #0a6fa0; color: #fff; }
+#modalVincularProcesso .mp-aba:focus-visible { outline: 2px solid #0a6fa0; outline-offset: -4px; }
 /* Aviso amarelo e erro vermelho (`avisoSt`, N:3148). */
-#modalVincularProcesso #mp-feedbackAlerta.alert { margin: 0; padding: 10px 12px; border-radius: 4px; font-size: 13px; }
-#modalVincularProcesso #mp-feedbackAlerta.alert-warning { background: #fff7e6; color: #7a5200; border: 1px solid #f1e2bf; }
-#modalVincularProcesso #mp-feedbackAlerta.alert-danger { background: #fdeceb; color: #a3232b; border: 1px solid #f2c9c6; }
+#modalVincularProcesso .mp-aviso { padding: 10px 12px; border-radius: 4px; font-size: 13px; background: #fff7e6; color: #7a5200; border: 1px solid #f1e2bf; }
+#modalVincularProcesso .mp-aviso--erro { background: #fdeceb; color: #a3232b; border: 1px solid #f2c9c6; }
 /* Rodapé: Cancelar cinza-claro e o botão principal azul (N:351). */
-#modalVincularProcesso .modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid #eef2f5; background: #fafcfd; }
-#modalVincularProcesso .modal-footer > * { margin: 0; }
-#modalVincularProcesso .modal-footer .btn { height: 36px; display: inline-flex; align-items: center; gap: 7px; border: none; border-radius: 4px; font-family: inherit; font-size: 13.5px; font-weight: 700; }
-#modalVincularProcesso .modal-footer .btn .bi { margin: 0 !important; }
-#modalVincularProcesso .modal-footer .btn-secondary { padding: 0 16px; background: #eef2f5; color: #34505f; }
-#modalVincularProcesso .modal-footer .btn-secondary:hover { background: #e3e9ee; color: #34505f; }
-#modalVincularProcesso .modal-footer .btn-primary { padding: 0 18px; background: #0a6fa0; color: #fff; }
-#modalVincularProcesso .modal-footer .btn-primary:hover { background: #085a83; color: #fff; }
-
-/* Janela de min(860px, 100%) com 16px de folga e o fundo de trás do desenho (N:290-291). O fundo é só desta
-   janela: o show põe `mp-vinc-aberto` no body enquanto ela está aberta. */
-#modalVincularProcesso { --bs-modal-margin: 16px; --bs-modal-width: 860px; }
-#modalVincularProcesso .modal-dialog { max-width: min(860px, calc(100% - 32px)); margin-left: auto; margin-right: auto; }
-body.mp-vinc-aberto > .modal-backdrop { --bs-backdrop-bg: rgb(16, 36, 48); --bs-backdrop-opacity: .32; background-color: rgb(16, 36, 48); }
-body.mp-vinc-aberto > .modal-backdrop.show { opacity: .32; }
-/* Corpo: coluna com gap 12 entre "Tipo de apenso", abas, conteúdo e aviso (N:293). */
-#modalVincularProcesso .modal-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; }
+#modalVincularProcesso .vp-rodape { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid #eef2f5; background: #fafcfd; }
+#modalVincularProcesso .vp-btn { height: 36px; border: none; border-radius: 4px; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+#modalVincularProcesso .vp-btn--cancelar { padding: 0 16px; background: #eef2f5; color: #34505f; }
+#modalVincularProcesso .vp-btn--cancelar:hover, #modalVincularProcesso .vp-btn--cancelar:focus-visible { background: #e3e9ee; }
+#modalVincularProcesso .vp-btn--ok { padding: 0 18px; display: inline-flex; align-items: center; gap: 7px; background: #0a6fa0; color: #fff; }
+#modalVincularProcesso .vp-btn--ok:hover, #modalVincularProcesso .vp-btn--ok:focus-visible { background: #085a83; }
+#modalVincularProcesso .vp-btn--ok:disabled { cursor: progress; }
 #modalVincularProcesso .mp-novo,
 #modalVincularProcesso .processo-modal-tab-content.active { display: flex; flex-direction: column; gap: 12px; }
-#modalVincularProcesso .mp-novo.d-none { display: none !important; }
 
 /* Campo: rótulo 12.5px/700 #34505f sobre o controle, gap 5 (N:294-327). */
 #modalVincularProcesso .mp-campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin: 0; font-size: 12.5px; font-weight: 700; color: #34505f; }
@@ -299,9 +292,12 @@ body.mp-vinc-aberto > .modal-backdrop.show { opacity: .32; }
 [data-bs-theme="dark"] .ps-cab-apensado .ps-dado-sub { color: var(--bs-secondary-color); }
 [data-bs-theme="dark"] .mp-apenso-tipo { color: var(--bs-body-color); }
 [data-bs-theme="dark"] .mp-apenso-select { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
-[data-bs-theme="dark"] #modalVincularProcesso .mp-abas > .btn-check:not(:checked) + .btn { background: var(--bs-body-bg); color: #6fb6dc; }
-[data-bs-theme="dark"] #modalVincularProcesso .modal-footer { background: var(--bs-tertiary-bg); border-top-color: var(--bs-border-color); }
-[data-bs-theme="dark"] #modalVincularProcesso .modal-footer .btn-secondary { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .vp-caixa { background: var(--bs-body-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-aba:not(.is-ativa) { background: var(--bs-body-bg); color: #6fb6dc; }
+[data-bs-theme="dark"] #modalVincularProcesso .vp-rodape { background: var(--bs-tertiary-bg); border-top-color: var(--bs-border-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .vp-btn--cancelar { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-aviso { background: rgba(241, 226, 191, .12); color: #f1d69a; border-color: rgba(241, 226, 191, .3); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-aviso--erro { background: rgba(242, 201, 198, .12); color: #ff8a80; border-color: rgba(242, 201, 198, .3); }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-campo,
 [data-bs-theme="dark"] #modalVincularProcesso .mp-rotulo { color: var(--bs-body-color); }
 [data-bs-theme="dark"] #modalVincularProcesso .mp-ctrl { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }

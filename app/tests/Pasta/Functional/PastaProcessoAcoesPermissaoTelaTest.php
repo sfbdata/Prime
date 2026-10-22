@@ -59,7 +59,7 @@ final class PastaProcessoAcoesPermissaoTelaTest extends JusPrimeWebTestCase
             'administrativo'  => $secao->filter('.ps-card-cab > form.js-pasta-administrativa')->count(),
             'menuCabecalho'   => $secao->filter('.ps-card-cab > [aria-controls^="psProcHdMenu"]')->count()
                 + $secao->filter('[id^="psProcHdMenu"]')->count(),
-            'vincular'        => $secao->filter('.ps-card-cab > [data-bs-target="#modalVincularProcesso"]')->count(),
+            'vincular'        => $secao->filter('.ps-card-cab > [data-vp-abrir][aria-controls="modalVincularProcesso"]')->count(),
             'tornarPrincipal' => $secao->filter('.ps-processo-menu > form.js-ajax-processo-principal')->count(),
             // P4f: no apensado (o segundo vínculo), o ⋮ desvincula pelo form do apensado.
             'desvincular'     => $secao->filter('.ps-processo-menu > form.js-ajax-desvincular-processo, .ps-processo-menu > form.js-desvincular-apensado')->count(),

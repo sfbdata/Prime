@@ -240,7 +240,7 @@
                     {% endif %}
                     {% if podeEditarPasta %}
                     <button type="button" class="ps-pop-item" role="menuitem"
-                            data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
+                            data-vp-abrir aria-haspopup="dialog" aria-controls="modalVincularProcesso">
                         <i class="bi bi-link-45deg"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.vincular_processo'|trans }}</span>
                     </button>
                     <button type="button" class="ps-pop-item" role="menuitem" id="psMenuTrocarResponsavel">

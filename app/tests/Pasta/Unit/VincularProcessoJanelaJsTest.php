@@ -145,4 +145,28 @@ final class VincularProcessoJanelaJsTest extends TestCase
         }
         self::assertStringContainsString('campoProcesso.value = String(p.id);', $this->funcao('mpSelecionar'));
     }
+
+    #[TestDox('Janela do desenho, sem o modal do Bootstrap: abre pelos [data-vp-abrir], fecha no X/Cancelar, no clique fora e no Esc, e limpa ao fechar')]
+    public function testAbrirEFechar(): void
+    {
+        $js = $this->script();
+        self::assertStringNotContainsString('bootstrap.Modal', $js);
+        self::assertStringNotContainsString('bs.modal', $js);
+        self::assertStringContainsString("e.target.closest('[data-vp-abrir]')", $js);
+        self::assertStringContainsString("if (e.target === modalEl || e.target.closest('[data-vp-fechar]')) mpFechar();", $js, 'clique fora (`fechar` na sobreposição, `parar` na caixa)');
+        self::assertStringContainsString("if (e.key === 'Escape' && !modalEl.hidden) mpFechar();", $js);
+
+        $abrir = $this->funcao('mpAbrir');
+        self::assertStringContainsString("new CustomEvent('vp:abrir', { detail: { gatilho: mpGatilho } })", $abrir);
+        self::assertStringContainsString('modalEl.hidden = false;', $abrir);
+        self::assertStringContainsString('buscaInput.focus();', $abrir, 'o autofocus do desenho na busca');
+
+        $fechar = $this->funcao('mpFechar');
+        self::assertStringContainsString('modalEl.hidden = true;', $fechar);
+        self::assertStringContainsString('mpLimpar();', $fechar);
+        self::assertStringContainsString('form.reset();', $this->funcao('mpLimpar'));
+        // O aviso é o do desenho (`avisoSt`), sem o alert do Bootstrap.
+        self::assertStringContainsString("'mp-aviso' + (erro ? ' mp-aviso--erro' : '')", $this->funcao('mpAtualizarAviso'));
+        self::assertStringNotContainsString("'alert ", $js);
+    }
 }

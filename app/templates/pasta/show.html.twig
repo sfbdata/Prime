@@ -1758,27 +1758,26 @@
 }());
 </script>
 
-{# Modal: Vincular Processo. Desenho 02 de 18/10 (N:289-354, estados `pvVals` N:3135-3151): janela de
-   min(860px, 100%), fundo de trás próprio e medidas em pasta-apensados.css. #}
-<div class="modal fade" id="modalVincularProcesso" tabindex="-1" aria-labelledby="modalVincularProcessoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h6 class="modal-title" id="modalVincularProcessoLabel">
-                    <i class="bi bi-briefcase"></i> <span id="mp-titulo-texto">{{ 'pasta_show.processo.vincular'|trans }}</span>
-                </h6>
-                {# Desenho N:292: X branco num quadrado translúcido (pasta-apensados.css). #}
-                <button type="button" class="mp-fechar" data-bs-dismiss="modal" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+{# Janela "Vincular processo": a do desenho 02 de 18/10 (N:289-354, estados `pvVals` N:3135-3151), não o modal
+   do Bootstrap. Sobreposição própria (N:290), caixa de min(860px, 100%) (N:291), cabeçalho (N:292), corpo (N:293)
+   e rodapé (N:351). Abre pelos botões `[data-vp-abrir]`; fecha no X, no Cancelar, no clique fora e no Esc. #}
+<div class="vp-sobre" id="modalVincularProcesso" hidden>
+        <div class="vp-caixa" role="dialog" aria-modal="true" aria-labelledby="modalVincularProcessoLabel">
+            <div class="vp-cab">
+                <i class="bi bi-briefcase" aria-hidden="true"></i>
+                <b class="vp-titulo" id="modalVincularProcessoLabel"><span id="mp-titulo-texto">{{ 'pasta_show.processo.vincular'|trans }}</span></b>
+                {# Desenho N:292: X branco num quadrado translúcido. #}
+                <button type="button" class="mp-fechar" data-vp-fechar aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             {# novalidate: os obrigatórios são conferidos no clique ("Preencha: ...", desenho `procSalvarVinc`), sem o
                balão do navegador; o servidor confere de novo. #}
-            <form method="POST" id="formVincularProcesso" novalidate
+            <form method="POST" id="formVincularProcesso" class="vp-form" novalidate
                   action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('vincular_processo_' ~ pasta.id) }}">
                 {# P4f: o mesmo modal vincula APENSADO (`modo=apenso`); pasta-apensado.js troca o modo pelo
                    botão que abriu e mostra o "Tipo de apenso" (desenho N:294, padrão Embargos). #}
                 <input type="hidden" name="modo" id="mp-modo" value="principal">
-                <div class="modal-body">
+                <div class="vp-corpo">
                     <label class="mp-apenso-tipo" id="mp-apenso-tipo" hidden>
                         <span class="mp-apenso-tipo-rotulo">{{ 'pasta_show.processo.tipo_apenso'|trans }} <span class="mp-apenso-obrig">*</span></span>
                         <select name="tipo_apenso" id="mp-tipoApenso" class="mp-apenso-select" disabled>
@@ -1788,12 +1787,10 @@
                         </select>
                     </label>
 
-                    {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ (N:295) #}
-                    <div class="btn-group w-100 mp-abas" role="group" aria-label="{{ 'pasta_show.processo.modo_rotulo'|trans }}">
-                        <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-existente" autocomplete="off" checked>
-                        <label class="btn btn-outline-primary" for="mp-modo-existente"><i class="bi bi-search"></i> {{ 'pasta_show.processo.buscar_existente'|trans }}</label>
-                        <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-novo" autocomplete="off">
-                        <label class="btn btn-outline-primary" for="mp-modo-novo"><i class="bi bi-plus-lg"></i> {{ 'pasta_show.processo.cadastrar_novo'|trans }}</label>
+                    {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ (N:295, `tabSt` N:3136) #}
+                    <div class="mp-abas" role="group" aria-label="{{ 'pasta_show.processo.modo_rotulo'|trans }}">
+                        <button type="button" class="mp-aba is-ativa" id="mp-modo-existente" data-vp-modo="existente" aria-pressed="true"><i class="bi bi-search"></i>{{ 'pasta_show.processo.buscar_existente'|trans }}</button>
+                        <button type="button" class="mp-aba" id="mp-modo-novo" data-vp-modo="novo" aria-pressed="false"><i class="bi bi-plus-lg"></i>{{ 'pasta_show.processo.cadastrar_novo'|trans }}</button>
                     </div>
 
                     {# MODO: buscar processo já cadastrado (N:296-304). A lista abre ao focar, com até 8 processos do
@@ -1844,7 +1841,7 @@
                             {# N:310: o botão alinhado ao input (padding-top 20px) e, embaixo, "Dados localizados". #}
                             <div class="mp-cnj mp-col-2">
                                 <button id="mp-btn-datajud" type="button" class="mp-cnj-btn"
-                                        data-bs-toggle="tooltip" title="{{ 'pasta_show.processo.buscar_cnj_dica'|trans }}">
+                                        title=""{{ 'pasta_show.processo.buscar_cnj_dica'|trans }}">
                                     <i class="bi bi-search"></i><span id="mp-cnj-texto">{{ 'pasta_show.processo.buscar_cnj'|trans }}</span>
                                 </button>
                                 <span class="mp-cnj-ok d-none" id="mp-cnj-ok"><i class="bi bi-check2"></i> {{ 'pasta_show.processo.dados_localizados'|trans }} <span data-mp-cnj-movs>0</span> {{ 'pasta_show.processo.movimentacoes_contagem'|trans }}</span>
@@ -1990,15 +1987,12 @@
                        N:347, `pvVals.aviso`) também aparece na aba "Buscar processo existente". #}
                     <div id="mp-feedbackAlerta" class="d-none" role="status"></div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check2"></i> <span id="mp-salvar-texto">{{ 'pasta_show.processo.vincular'|trans }}</span>
-                    </button>
+                <div class="vp-rodape">
+                    <button type="button" class="vp-btn vp-btn--cancelar" data-vp-fechar>{{ 'pasta_show.cancelar'|trans }}</button>
+                    <button type="submit" class="vp-btn vp-btn--ok"><i class="bi bi-check2"></i><span id="mp-salvar-texto">{{ 'pasta_show.processo.vincular'|trans }}</span></button>
                 </div>
             </form>
         </div>
-    </div>
 </div>
 
 {# P4f: modo apenso do modal acima, X do apensado e a dica da pílula da aba Dados. #}
@@ -3309,17 +3303,17 @@ document.addEventListener('DOMContentLoaded', function () {
         return /^\d{20}$/.test(String(numero || '')) ? mpProcMask(numero) : String(numero || '');
     }
 
-    function mpModoNovo() { return document.getElementById('mp-modo-novo').checked; }
+    var mpModo = 'existente';
+    function mpModoNovo() { return mpModo === 'novo'; }
 
     /* ── Aviso (N:347, `avisoSt` N:3148) ── */
     function mpAtualizarAviso() {
         var texto = mpErro;
-        var tipo  = 'danger';
+        var erro  = !!texto;
         if (!texto) {
-            tipo  = 'warning';
             texto = mpModoNovo() ? mpCnjNada : (campoProcesso.value ? '' : T('selecione'));
         }
-        feedbackEl.className   = texto ? 'alert alert-' + tipo : 'd-none';
+        feedbackEl.className   = texto ? 'mp-aviso' + (erro ? ' mp-aviso--erro' : '') : 'd-none';
         feedbackEl.textContent = texto;
     }
 
@@ -3329,11 +3323,38 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('input', function () { if (mpErro) mpDefinirErro(''); });
     form.addEventListener('change', function () { if (mpErro) mpDefinirErro(''); });
 
-    /* ── Fundo de trás só desta janela (N:290: rgba(16,36,48,.32)) ── */
-    modalEl.addEventListener('show.bs.modal', function () {
-        document.body.classList.add('mp-vinc-aberto');
+    /* ── Abrir e fechar (desenho N:290-291: `fechar` no clique fora, `parar` na caixa, Esc em `tecla`) ── */
+    var mpGatilho = null;
+
+    function mpAbrir(gatilho) {
+        mpGatilho = gatilho || null;
+        // pasta-apensado.js escuta para pôr o modo apenso (o botão "Vincular apensado" tem data-vincular-modo).
+        modalEl.dispatchEvent(new CustomEvent('vp:abrir', { detail: { gatilho: mpGatilho } }));
+        modalEl.hidden = false;
         mpAtualizarAviso();
+        // `autofocus` do desenho no campo de busca (N:299).
+        buscaInput.focus();
+    }
+
+    function mpFechar() {
+        if (modalEl.hidden) return;
+        modalEl.hidden = true;
+        mpLimpar();
+        if (mpGatilho && document.contains(mpGatilho)) mpGatilho.focus();
+        mpGatilho = null;
+    }
+
+    document.addEventListener('click', function (e) {
+        var gatilho = e.target.closest('[data-vp-abrir]');
+        if (gatilho) { e.preventDefault(); mpAbrir(gatilho); }
     });
+    modalEl.addEventListener('click', function (e) {
+        if (e.target === modalEl || e.target.closest('[data-vp-fechar]')) mpFechar();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modalEl.hidden) mpFechar();
+    });
+    window.mpVincularProcesso = { abrir: mpAbrir, fechar: mpFechar };
 
     /* ── Sub-abas do cadastro novo ── */
     function mpIrSubaba(nome) {
@@ -3347,14 +3368,21 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ── Modo (buscar existente x cadastrar novo) ── */
     function mpAplicarModo(modo) {
         var ehNovo = (modo === 'novo');
+        mpModo = ehNovo ? 'novo' : 'existente';
+        modalEl.querySelectorAll('.mp-aba').forEach(function (aba) {
+            var ativa = aba.dataset.vpModo === mpModo;
+            aba.classList.toggle('is-ativa', ativa);
+            aba.setAttribute('aria-pressed', ativa ? 'true' : 'false');
+        });
         document.getElementById('modal-modo-existente').classList.toggle('d-none', ehNovo);
         document.getElementById('modal-modo-novo').classList.toggle('d-none', !ehNovo);
         campoProcesso.disabled = ehNovo; // não submete processo_id no modo novo
         mpErro = '';
         mpAtualizarAviso();
     }
-    document.getElementById('mp-modo-existente').addEventListener('change', function () { mpAplicarModo('existente'); });
-    document.getElementById('mp-modo-novo').addEventListener('change', function () { mpAplicarModo('novo'); });
+    modalEl.querySelectorAll('.mp-aba').forEach(function (aba) {
+        aba.addEventListener('click', function () { mpAplicarModo(aba.dataset.vpModo); });
+    });
 
     /* ── Busca de processo existente (N:299-302, `pvVals.cat`) ── */
     var buscaInput  = document.getElementById('mp-busca-input');
@@ -3701,7 +3729,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Desenho N:4564: o aviso do processo principal (o do apensado é do pasta-apensado.js).
                     else if (principal) { window.avisarPs(T('vinculado_aviso')); }
                 }
-                bootstrap.Modal.getInstance(modalEl)?.hide();
+                mpFechar();
                 return;
             }
 
@@ -3715,8 +3743,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     /* ── Fechar a janela limpa o formulário ── */
-    modalEl.addEventListener('hidden.bs.modal', function () {
-        document.body.classList.remove('mp-vinc-aberto');
+    function mpLimpar() {
         form.reset();
         mpProxIdx = 0;
         mpPreencherLinhas([], []);
@@ -3725,12 +3752,11 @@ document.addEventListener('DOMContentLoaded', function () {
         mpCnjEstado(false);
         mpIrSubaba('modal-proc-info');
         document.getElementById('mp-siglaTribunal').value = '';
-        document.getElementById('mp-modo-existente').checked = true;
         buscaQuer = false;
         mpFecharLista();
         mpLimparSelecao();
         mpAplicarModo('existente');
-    });
+    }
 
     mpAplicarModo('existente');
     mpUpdateRemoveButtons();

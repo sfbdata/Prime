@@ -82,7 +82,7 @@
         {% else %}
             <p class="ps-dado ps-dado--vazio">{{ 'pasta_cabecalho.topo.nenhum_processo'|trans }}
                 {% if podeEditarPasta %}
-                <button type="button" class="ps-link-btn ps-link-btn--vincular" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">{{ 'pasta_cabecalho.topo.vincular'|trans }}</button>
+                <button type="button" class="ps-link-btn ps-link-btn--vincular" data-vp-abrir aria-haspopup="dialog" aria-controls="modalVincularProcesso">{{ 'pasta_cabecalho.topo.vincular'|trans }}</button>
                 {% endif %}
             </p>
         {% endif %}
