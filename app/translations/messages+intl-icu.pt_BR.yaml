@@ -733,6 +733,7 @@ processo:
         menu_titulo: 'Nota técnica · {autor}'
         responder: Responder com outra nota
         copiar: Copiar texto
+        encaminhar: Encaminhar via Chat I.A
         edicao_liberada: 'Edição liberada por mais {minutos} min'
         editar_min: 'Editar · {minutos} min'
         exclusao_liberada: 'Exclusão liberada por mais {minutos} min'

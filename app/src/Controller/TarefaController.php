@@ -42,6 +42,7 @@ use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\Service\AcessoAMeta;
+use App\Tarefa\Service\AcessoAoModuloTarefas;
 use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
@@ -72,6 +73,7 @@ final class TarefaController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly NotificacaoService $notificacaoService,
         private readonly AcessoAMeta $acessoAMeta,
+        private readonly AcessoAoModuloTarefas $moduloTarefas,
     ) {
     }
 
@@ -619,7 +621,7 @@ final class TarefaController extends AbstractController
         if ($tenant === null) {
             throw $this->createAccessDeniedException('Sem tenant selecionado.');
         }
-        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'tarefas')) {
+        if (!$this->moduloTarefas->pode($user, $tenant)) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Tarefas.');
         }
 

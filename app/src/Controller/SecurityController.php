@@ -65,6 +65,12 @@ final class SecurityController extends AbstractController
             return null;
         }
 
+        // Marcador neutro do cadastro de um e-mail que já tem conta: o mesmo aviso da conta nova, com o e-mail digitado.
+        $neutro = $contaAConfirmar->neutroNaSessao($request->getSession());
+        if ($neutro !== null) {
+            return ContaAConfirmar::mensagemDeLogin($neutro['email']);
+        }
+
         $id = $contaAConfirmar->idNaSessao($request->getSession());
         $conta = $id === null ? null : $userRepository->find($id);
         if (!$conta instanceof User || $conta->isEmailConfirmado()) {

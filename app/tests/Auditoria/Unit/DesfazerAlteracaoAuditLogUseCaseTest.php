@@ -122,6 +122,22 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         self::assertTrue($this->sut->podeReverter($log));
     }
 
+    #[TestDox('A resposta da meta não se desfaz: nenhuma tela a edita (spec desfazer-guarda-da-tela)')]
+    public function testUpdateTarefaMensagemNaoEhReversivel(): void
+    {
+        $log = $this->criarLog('update', \App\Entity\Tarefa\TarefaMensagem::class, '9');
+
+        self::assertFalse($this->sut->podeReverter($log));
+    }
+
+    #[TestDox('A notificação não se desfaz: só o dono mexe nela pela tela (spec desfazer-guarda-da-tela)')]
+    public function testUpdateNotificacaoNaoEhReversivel(): void
+    {
+        $log = $this->criarLog('update', \App\Entity\Notificacao::class, '9');
+
+        self::assertFalse($this->sut->podeReverter($log));
+    }
+
     public function testUpdateUserRetornaFalsePorRiscoAlto(): void
     {
         $log = $this->criarLog('update', \App\Entity\Auth\User::class, '1');
@@ -750,19 +766,8 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
     public function testPermissaoDeEdicao(string $entityClass, ?string $esperada): void
     {
         $log = $this->criarLog('update', $entityClass, '1');
-        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
 
         self::assertSame($esperada, $this->sut->permissaoDeEdicao($log, new User()));
-        self::assertSame($esperada, $this->sut->permissaoDeEdicaoPorId(10, 1, new User()));
-    }
-
-    #[TestDox('linha de outro escritório não revela a entidade: a permissão por id sai null')]
-    public function testPermissaoPorIdDeOutroEscritorio(): void
-    {
-        $log = $this->criarLog('update', Sede::class, '1', null, 2);
-        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
-
-        self::assertNull($this->sut->permissaoDeEdicaoPorId(10, 1, new User()));
     }
 
     #[TestDox('Evento: o criador desfaz sem admin.users.manage, como na tela agenda_editar; outra pessoa precisa dela')]

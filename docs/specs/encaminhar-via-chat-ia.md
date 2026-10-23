@@ -37,6 +37,11 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   `PastaDocumento`). Dispara `bj-central:despachar` com `{pastaId, tipo, itemId}` numéricos; classe
   `js-explorador-encaminhar`. Some sem `window.BJCentral` e na lápide; item na lixeira não está na lista. O só leitor
   também vê o item (basta ver a pasta; o servidor confere). A nota técnica do PR4d fica para outra fatia.
+- **23/10, nota técnica (PMC-018):** branch `nota-tecnica-chat-ia`. O item "Encaminhar via Chat I.A" (`bi-send`) no ⋮
+  da nota técnica (D:5659, depois de "Copiar texto", antes do separador), na aba Processo e no teor do Push. Reaproveita
+  `js-encaminhar`/`pasta-encaminhar.js` com tipo `nota_tecnica` (o desenho usa `push`; o enum da spec e
+  `TipoDeItemEncaminhado::NotaTecnica` mandam, e o `central.js` mostra como `push`). Some sem a Central, na lápide e
+  em nota sem pasta; o só leitor vê o item.
 - **20/10, PR4b implementado (em revisão):** branch `encaminhar-metas`, empilhada sobre `encaminhar-responsaveis`
   (#128). O item "Encaminhar via Chat I.A" (`bi-send`) no ⋮ da meta da aba Metas (D:3737, tipo `meta`: depois de
   "Editar nome", porque "Duplicar" não existe, e antes de "Copiar link"), no ⋮ do prazo do trilho "Próximos prazos"

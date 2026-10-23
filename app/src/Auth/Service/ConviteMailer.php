@@ -22,11 +22,12 @@ final class ConviteMailer
     ) {
     }
 
-    public function enviarConvitePlataforma(Invitation $invitation): void
+    /** O token puro vem do caso de uso que o gerou (`ConviteEmitido`): o banco só tem o hash. */
+    public function enviarConvitePlataforma(Invitation $invitation, #[\SensitiveParameter] string $token): void
     {
         $link = $this->urlGenerator->generate(
             'auth_aceite_convite',
-            ['token' => $invitation->getToken()],
+            ['token' => $token],
             UrlGeneratorInterface::ABSOLUTE_URL,
         );
 
@@ -50,11 +51,12 @@ final class ConviteMailer
         }
     }
 
-    public function enviarConviteEscritorio(Invitation $invitation): void
+    /** O token puro vem do caso de uso que o gerou (`ConviteEmitido`): o banco só tem o hash. */
+    public function enviarConviteEscritorio(Invitation $invitation, #[\SensitiveParameter] string $token): void
     {
         $link = $this->urlGenerator->generate(
             'auth_aceite_convite',
-            ['token' => $invitation->getToken()],
+            ['token' => $token],
             UrlGeneratorInterface::ABSOLUTE_URL,
         );
 

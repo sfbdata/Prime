@@ -52,4 +52,27 @@ final class TetoDoReenvioDeConfirmacao
 
         return null;
     }
+
+    /**
+     * A mesma regra sobre instantes guardados fora do banco (timestamps): o marcador neutro do cadastro de um e-mail
+     * que já tem conta (`ContaAConfirmar::guardarNeutro`) recusa no mesmo clique em que a conta nova recusaria.
+     *
+     * @param list<int> $instantes
+     */
+    public function recusaPelosInstantes(array $instantes): ?string
+    {
+        $agora = $this->relogio->now();
+        $desdeODia = $agora->modify(self::JANELA_DIARIA)->getTimestamp();
+        $desdeOIntervalo = $agora->modify(self::INTERVALO)->getTimestamp();
+
+        if (count(array_filter($instantes, static fn (int $t): bool => $t >= $desdeODia)) >= self::TETO_DIARIO) {
+            return self::TETO_DIARIO_ATINGIDO;
+        }
+
+        if (array_filter($instantes, static fn (int $t): bool => $t >= $desdeOIntervalo) !== []) {
+            return self::AGUARDE;
+        }
+
+        return null;
+    }
 }

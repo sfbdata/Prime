@@ -35,7 +35,7 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
         $client->request('GET', '/convites/' . $convite->getId());
 
         self::assertResponseIsSuccessful();
-        self::assertStringNotContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString($this->tokenDe($convite), (string) $client->getResponse()->getContent());
         self::assertSelectorExists(sprintf('form[action="/convites/%d/aceitar"]', $convite->getId()));
         self::assertSelectorExists(sprintf('form[action="/convites/%d/recusar"]', $convite->getId()));
     }
@@ -171,10 +171,10 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $convite = $this->convite('nova_' . uniqid() . '@adv.com');
 
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
 
         self::assertResponseIsSuccessful();
-        self::assertSame('/convite/' . $convite->getToken() . '/criar-conta', $crawler->filter('form[method="post"]')->attr('action'));
+        self::assertSame('/convite/' . $this->tokenDe($convite) . '/criar-conta', $crawler->filter('form[method="post"]')->attr('action'));
     }
 
     #[TestDox('O link público, aberto pela própria pessoa logada, segue aceitando pelo token')]
@@ -185,9 +185,9 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
         $convite = $this->convite($user->getEmail());
         $this->logarComTenant($client, $user, $meu);
 
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
         self::assertResponseIsSuccessful();
-        $form = $crawler->filter(sprintf('form[action="/convite/%s/aceitar"]', $convite->getToken()));
+        $form = $crawler->filter(sprintf('form[action="/convite/%s/aceitar"]', $this->tokenDe($convite)));
         $client->request('POST', (string) $form->attr('action'), ['_token' => (string) $form->filter('input[name="_token"]')->attr('value')]);
 
         self::assertResponseRedirects('/');
@@ -242,15 +242,25 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
         return [$user, $meu];
     }
 
+    /** @var array<int, string> o token puro de cada convite criado aqui: o banco só tem o hash */
+    private array $tokens = [];
+
+    private function tokenDe(Invitation $convite): string
+    {
+        return $this->tokens[spl_object_id($convite)];
+    }
+
     private function convite(string $email, string $tipo = Invitation::TIPO_ESCRITORIO): Invitation
     {
         $em     = static::getContainer()->get(EntityManagerInterface::class);
         $tenant = (new Tenant())->setName('Escritório que convida ' . uniqid());
         $em->persist($tenant);
-        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(32)), type: $tipo, expiresAt: new \DateTimeImmutable('+7 days'));
+        $token   = bin2hex(random_bytes(32));
+        $convite = new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: $tipo, expiresAt: new \DateTimeImmutable('+7 days'));
         if ($tipo === Invitation::TIPO_ESCRITORIO) {
             $convite->setTenant($tenant);
         }
+        $this->tokens[spl_object_id($convite)] = $token;
         $em->persist($convite);
         $em->flush();
 

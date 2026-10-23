@@ -79,7 +79,7 @@ final class PrincipalNosFluxosDeCadastroTest extends KernelTestCase
         $token   = bin2hex(random_bytes(16));
         $convite = new Invitation(
             email: 'convidado_' . uniqid() . '@adv.com',
-            token: $token,
+            tokenHash: Invitation::hashDoToken($token),
             type: 'platform',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
