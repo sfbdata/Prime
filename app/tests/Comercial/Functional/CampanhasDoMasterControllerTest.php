@@ -82,7 +82,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contar('comercial_campanha'));
     }
 
-    #[TestDox('Confirmar: nasce na fila com a cópia do conteúdo, audita camp_conf só com {publico, frequencia, total} e acorda o expansor; nada sai')]
+    #[TestDox('Confirmar: nasce na fila com a cópia do conteúdo, audita camp_conf só com {publico, frequencia, total}; nada sai (o expansor a pega na volta do minuto)')]
     public function testConfirmar(): void
     {
         $client = $this->clienteMaster();
@@ -103,7 +103,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contar('comercial_envio'), 'nada sai no confirmar');
         $fila = static::getContainer()->get('messenger.transport.comercial');
         \assert($fila instanceof InMemoryTransport);
-        self::assertCount(1, array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof ExpandirCampanhas));
+        self::assertCount(0, array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof ExpandirCampanhas), 'quem dispara o expansor é o schedule cadeias');
     }
 
     #[TestDox('F3g: a escolha "Confirmação de leitura" do pedido fica gravada na campanha')]

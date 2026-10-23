@@ -9,6 +9,7 @@ use App\Agenda\Exception\PermissoesDoGoogleRecusadasException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\UseCase\ConectarGoogleAgendaUseCase;
 use App\Agenda\UseCase\DesconectarGoogleAgendaUseCase;
+use App\Agenda\UseCase\DispensarAvisoDoGoogleUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
@@ -46,6 +47,7 @@ final class GoogleAgendaController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly LoggerInterface $logger,
         private readonly RateLimiterFactoryInterface $agendaGoogleLimiter,
+        private readonly DispensarAvisoDoGoogleUseCase $dispensarAviso,
     ) {
     }
 
@@ -117,6 +119,20 @@ final class GoogleAgendaController extends AbstractController
         } catch (GoogleAgendaException $e) {
             return $this->json(['erro' => $e->getMessage()], 409);
         }
+
+        return $this->json(['ok' => true]);
+    }
+
+    /**
+     * "Não mostrar esta mensagem novamente" da janela que orienta a conectar (spec docs/specs/agenda-aviso-google.md).
+     * Sem id e sem corpo: grava só para quem está logado, no escritório da sessão.
+     */
+    #[Route('/agenda/google/aviso/dispensar', name: 'app_agenda_google_aviso_dispensar', methods: ['POST'])]
+    public function dispensarAviso(Request $request): JsonResponse
+    {
+        [$eu, $tenant] = $this->exigirAgenda();
+        $this->validarCsrfAjax($request);
+        $this->dispensarAviso->executar($tenant, $eu);
 
         return $this->json(['ok' => true]);
     }

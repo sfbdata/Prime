@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\TrabalhoExterno\Functional;
 
+use App\Entity\Audit\AuditLog;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\TrabalhoExterno\Controller\DemandaExternaController;
 use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
 use App\TrabalhoExterno\UseCase\MarcarDemandasEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\MarcarMensagensEmLoteUseCase;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -171,6 +176,39 @@ final class MarcacoesDoTrabalhoExternoTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $colega, $escritorio);
         $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens/$id/apagar");
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Edição sem prazo: o primário do escritório dono apaga a mensagem alheia (opção ligada), auditado; desligada, 403')]
+    public function testPrimarioDoDonoApaga(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $escritorio = $this->criarTenant();
+        $solicitante = $this->criarUsuario($escritorio);
+        $primario = $this->criarUsuario($escritorio, nome: 'Paula Primária');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->getRepository(UserTenant::class)->findOneBy(['user' => $primario, 'tenant' => $escritorio])?->getTenantRole()?->setIsSystem(true);
+        $em->flush();
+
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $codigo = $this->solicitar($client, self::solicitacaoValida())['codigo'];
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'Uma']);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'Outra']);
+        $ids = array_column($this->mensagens($client, $codigo), 'id', 'txt');
+
+        $this->logarComTenant($client, $primario, $escritorio);
+        $uma = array_values(array_filter($this->mensagens($client, $codigo), static fn (array $m): bool => $m['id'] === $ids['Uma']))[0];
+        self::assertTrue($uma['podeApagar']);
+        self::assertSame('EXCLUSIVO DO PRIMÁRIO', $uma['seloSemPrazo']);
+        self::assertSame('Apagar para todos', $uma['apagarDica'], 'pelo poder não há prazo de 60 min na dica');
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens/{$ids['Uma']}/apagar");
+        self::assertResponseIsSuccessful();
+        $linha = $em->getRepository(AuditLog::class)->findOneBy(['action' => 'sp_excluir', 'entityId' => (string) $ids['Uma']]);
+        self::assertSame($primario->getId(), $linha?->getActorUserId());
+
+        DesligaEdicaoSemPrazo::no($em, $em->find(Tenant::class, $escritorio->getId()) ?? $escritorio, static::getContainer());
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens/{$ids['Outra']}/apagar");
         self::assertResponseStatusCodeSame(403);
     }
 

@@ -966,3 +966,24 @@
     background: var(--mp-hover);
     color: #0a6fa0;
 }
+
+/* Meta com despacho registrado (decisão do dono, 23/10): a caixa de ciência da janela de exclusão, na aba Metas da pasta.
+   O botão de excluir é o `.mp-confirmar` no vermelho de perigo da casa. */
+.ps-meta-excluir-despacho .mp-modal-corpo > .ps-meta-despacho-ciente {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--mp-texto);
+    cursor: pointer;
+}
+
+.ps-meta-despacho-ciente > input {
+    width: 16px;
+    height: 16px;
+    accent-color: #0a6fa0;
+}
+
+.ps-meta-excluir-despacho .mp-modal-pe > .ps-meta-despacho-excluir {
+    background: #a3232b;
+}

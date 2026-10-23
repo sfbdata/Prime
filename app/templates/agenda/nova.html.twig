@@ -44,6 +44,8 @@
      data-google="{{ google }}"
      data-url-google-conectar="{{ google != 'indisponivel' ? path('app_agenda_google_conectar') : '' }}"
      data-url-google-desconectar="{{ path('app_agenda_google_desconectar') }}"
+     data-google-aviso="{{ googleAviso ? '1' : '0' }}"
+     data-url-google-aviso-dispensar="{{ path('app_agenda_google_aviso_dispensar') }}"
      data-escritorio="{{ escritorio }}">
 
     <div class="ag-topo">

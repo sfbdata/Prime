@@ -18,8 +18,11 @@ use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\UseCase\DesfazerQualificacaoContatoUseCase;
 use App\Cobranca\UseCase\RegistrarQualificacaoContatoUseCase;
+use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Repository\AuditLogRepository;
+use App\Tests\Tenant\Support\CriaPoderSemPrazo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -40,6 +43,8 @@ use Symfony\Component\Clock\MockClock;
 #[CoversClass(DesfazerQualificacaoContatoUseCase::class)]
 final class QualificacaoContatoUseCaseTest extends TestCase
 {
+    use CriaPoderSemPrazo;
+
     /** Momento em que a qualificação foi registrada; as janelas do desfazer contam daqui. */
     private const REGISTRO = '2026-07-27 14:00:00';
 
@@ -305,11 +310,50 @@ final class QualificacaoContatoUseCaseTest extends TestCase
         $this->desfazer('2026-07-27 14:01:00')->executar(5, $this->tenant, $this->autor);
     }
 
+    #[Test]
+    #[TestDox('Edição sem prazo: o Master desfaz a qualificação alheia depois dos 5 minutos, e isso entra na auditoria')]
+    public function masterDesfazForaDaJanela(): void
+    {
+        $evento = $this->qualificacao();
+        $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($evento);
+        $this->eventoRepository->method('ultimaQualificacaoDoCaso')->willReturn($evento);
+        $this->eventoRepository->expects($this->once())->method('remover')->with($evento, true);
+        $trilha = $this->createMock(AuditLogRepository::class);
+        $trilha->expects($this->once())->method('registrar')->with($this->callback(
+            static fn (AuditLog $l): bool => $l->getAction() === 'sp_excluir' && $l->getEntityId() === '5' && ($l->getChanges()['papel'] ?? null) === 'Master',
+        ));
+
+        $this->desfazer('2026-07-30 09:00:00', trilha: $trilha)->executar(5, $this->tenant, $this->master());
+    }
+
+    #[Test]
+    #[TestDox('Edição sem prazo: "só a mais recente" vale também para o Master')]
+    public function masterNaoDesfazAPenultima(): void
+    {
+        $penultima = $this->qualificacao();
+        $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($penultima);
+        $this->eventoRepository->method('ultimaQualificacaoDoCaso')->willReturn($this->qualificacao(idEvento: 6, ocorridoEm: '2026-07-27 14:01:00'));
+        $this->eventoRepository->expects($this->never())->method('remover');
+
+        $this->expectException(QualificacaoNaoDesfazivelException::class);
+        $this->desfazer('2026-07-30 09:00:00')->executar(5, $this->tenant, $this->master());
+    }
+
     // -------------------------------------------------------------------------------- apoio
 
-    private function desfazer(string $agora): DesfazerQualificacaoContatoUseCase
+    private function desfazer(string $agora, ?AuditLogRepository $trilha = null): DesfazerQualificacaoContatoUseCase
     {
-        return new DesfazerQualificacaoContatoUseCase($this->eventoRepository, $this->relogio($agora));
+        $poder = $this->poderSemPrazo();
+
+        return new DesfazerQualificacaoContatoUseCase($this->eventoRepository, $this->relogio($agora), $poder, $this->auditoriaSemPrazo($poder, $trilha));
+    }
+
+    private function master(): User
+    {
+        $master = (new User())->setRoles(['ROLE_SUPER_ADMIN']);
+        $this->definirId($master, 50);
+
+        return $master;
     }
 
     private function caso(): CasoCobranca

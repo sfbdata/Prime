@@ -107,7 +107,14 @@ touch nginx/maintenance/maintenance.on
 # imagem mudou — o php. nginx e db ficam intactos, então não há "conexão recusada" e
 # o app co-hospedado (grupojusprime.tech) não sofre blip.
 echo "🐳 Subindo containers (recria só o php)..."
-$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --remove-orphans
+# SEM_AGENDADOR=1 (o deploy-automatico.sh achou tarefa do sistema ativa no crontab do host): sobe tudo
+# menos o agendador, que nem chega a nascer, para nenhuma tarefa rodar duas vezes (cron + agendador).
+ESCALA_AGENDADOR=()
+if [[ "${SEM_AGENDADOR:-0}" == 1 ]]; then
+  ESCALA_AGENDADOR=(--scale scheduler=0)
+  echo "⚠️  Agendador NÃO sobe neste deploy (tarefas ainda no crontab do host)."
+fi
+$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --remove-orphans ${ESCALA_AGENDADOR[@]+"${ESCALA_AGENDADOR[@]}"}
 
 # ─── Reconecta o nginx à rede do sistema co-hospedado (condomínio) ───
 # Em deploys normais o nginx NÃO é recriado (config inalterada), então este passo só
