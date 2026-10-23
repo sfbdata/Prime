@@ -73,6 +73,11 @@ final class TenantContextValidatorListener
         'indicacao_janela',
         'indicacao_email',
         'indicacao_canal',
+        // Janela "Como devemos tratar você?" (spec genero-no-cadastro): aparece também para quem está sem escritório
+        // (a seleção de escritório com o layout, o Convidado do Trabalho Externo). Grava só o gênero do próprio
+        // usuário (getUser()), dado da pessoa, sem tenant.
+        'app_profile_genero',
+        'app_profile_genero_fechar',
     ];
 
     /**

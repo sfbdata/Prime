@@ -12,6 +12,8 @@ Risco ALTO (identidade User). Pedido do dono (23/10/2026, via coordenador). Prop
   (`/perfil/genero` e `/perfil/genero/fechar`, CSRF `perfil_genero`; o X guarda a marca na sessão). Dr./Dra. por
   `TratamentoDeAdvogado` (código `dr`/`dra`; o texto vem do catálogo `metas.esteira.tratamento_*`). Suíte completa
   da frente verde e `scripts/qa.sh` limpo. Falta: revisão (`/review`), smoke do dono e PR.
+- 23/10: correções da revisão do 7951dd895 (D2 e a consequência do legado na D1), com testes sem escritório na
+  sessão (vários escritórios sem seleção, Convidado do Trabalho Externo e Master no painel).
 
 ## O que já existe
 
@@ -58,6 +60,12 @@ se der para gravar o gênero no perfil já na criação da conta; a 150500 só s
   (0 registros em produção e no saas_ux em 23/10). Se aparecer, conta como NÃO preenchido: a janela aparece, o
   Dr./Dra. não sai e o Meu Perfil mostra o campo vazio. Formulários e janela recusam `nao_informado` com "Informe o
   gênero.".
+  Consequência aceita: quem tem o legado e salva o Meu Perfil (por qualquer motivo) passa a ter o gênero nulo, porque
+  o campo abre vazio. Pela D1 os dois querem dizer "não preenchido", e há 0 registros; o código não trata à parte.
+- **D2 (revisão, 23/10): a janela funciona sem escritório na sessão.** Os POSTs `app_profile_genero` e
+  `app_profile_genero_fechar` estão nas rotas ignoradas do `TenantContextValidatorListener` (só usam o usuário logado),
+  e o JS só dá por sucesso a resposta 2xx sem redirecionamento com `{ok: true}`; senão a janela fica, com "Não foi
+  possível salvar. Tente de novo.". Com o aviso de espaço aberto, a janela entra logo abaixo dele, sem cobrir.
 
 ## Testes
 

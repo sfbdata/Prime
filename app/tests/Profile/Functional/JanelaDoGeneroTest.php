@@ -184,6 +184,63 @@ final class JanelaDoGeneroTest extends JusPrimeWebTestCase
         self::assertSame(Genero::Feminino, $this->generoDe($user));
     }
 
+    #[TestDox('Sem escritório na sessão (mais de um escritório, nada escolhido): salvar grava e fechar marca a sessão, sem desvio para a seleção')]
+    public function testSemEscritorioNaSessao(): void
+    {
+        $user  = $this->usuario(null);
+        $outro = (new Tenant())->setName('Outro Escritório ' . uniqid());
+        $this->em->persist($outro);
+        $this->em->persist(new UserTenant($user, $outro));
+        $this->em->flush();
+
+        $this->provarSalvarEFecharSemEscritorio($user);
+    }
+
+    #[TestDox('Convidado do Trabalho Externo (conta sem escritório): salvar grava e fechar marca a sessão')]
+    public function testConvidadoSemEscritorio(): void
+    {
+        $user = (new User())->setEmail(uniqid('convidado_') . '@test.com')->setFullName('Convidado Externo')->setRoles(['ROLE_USER'])->setPassword('x');
+        $user->setIsActive(true);
+        $this->em->persist($user);
+        $this->em->flush();
+
+        $this->provarSalvarEFecharSemEscritorio($user);
+    }
+
+    #[TestDox('Master com escritório e sem seleção: salvar grava e fechar marca a sessão')]
+    public function testMasterSemSelecao(): void
+    {
+        $user = $this->usuario(null);
+        $user->setRoles(['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $this->em->flush();
+
+        // Com um escritório só, a seleção escolheria por ele: o Master fica no painel dele, sem escritório na sessão.
+        $this->provarSalvarEFecharSemEscritorio($user, '/master');
+    }
+
+    /** Login sem escritório na sessão; o token vem da janela de uma tela com o layout (a seleção ou o painel). */
+    private function provarSalvarEFecharSemEscritorio(User $user, string $tela = '/escritorio/selecionar'): void
+    {
+        $this->client->loginUser($user);
+        $this->marcarTermosAceitos($this->client);
+        $crawler = $this->client->request('GET', $tela);
+        self::assertResponseIsSuccessful();
+        $token = (string) $crawler->filter('[data-janela-genero] input[name="_token"]')->attr('value');
+
+        $this->postar('/perfil/genero/fechar', ['_token' => $token]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['ok' => true], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertNull($this->client->getRequest()->getSession()->get('current_tenant_id'));
+        $this->client->request('GET', $tela);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('[data-janela-genero]', 'fechada nesta sessão');
+
+        $this->postar('/perfil/genero', ['genero' => 'feminino', '_token' => $token]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['ok' => true, 'genero' => 'feminino'], json_decode((string) $this->client->getResponse()->getContent(), true));
+        self::assertSame(Genero::Feminino, $this->generoDe($user));
+    }
+
     private function abrir(User $user, bool $logar = true): Crawler
     {
         if ($logar) {
