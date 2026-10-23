@@ -40,7 +40,11 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * inutilizável e quem clica no link de confirmação cria a senha (CriarSenhaPeloLinkUseCase). Assim um terceiro que
  * cadastra o e-mail de outra pessoa não entra com a senha que escolheu.
  *
- * Validação na ordem e com os textos do desenho: \InvalidArgumentException; e-mail já usado: \DomainException.
+ * Validação na ordem e com os textos do desenho: \InvalidArgumentException.
+ *
+ * E-mail que já tem conta (achado de auditoria interna F14; spec `seguranca-a-convites.md`, raiz E): o cadastro não
+ * diz que a conta existe. Nada é gravado, a dona da conta recebe um e-mail avisando que já tem conta e apontando o
+ * "Esqueci a senha", e o caso de uso devolve null; o controller responde igual ao e-mail novo.
  */
 final class CriarContaEEscritorioUseCase
 {
@@ -48,7 +52,6 @@ final class CriarContaEEscritorioUseCase
     public const ERRO_ESCRITORIO = 'Informe o nome do escritório.';
     public const ERRO_EMAIL = 'Informe um e-mail válido.';
     public const ERRO_ACEITE = 'É preciso aceitar os Termos e a Política de privacidade.';
-    public const ERRO_EMAIL_EXISTENTE = 'Já existe uma conta com este e-mail. Faça login para criar o escritório por dentro.';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -65,15 +68,28 @@ final class CriarContaEEscritorioUseCase
     ) {
     }
 
-    public function executar(CriarContaEEscritorioInput $input, string $ip, ?string $userAgent): ContaCriadaOutput
+    /** O e-mail como o cadastro grava e responde: sem espaços nas pontas e em minúsculas. */
+    public static function normalizarEmail(string $email): string
+    {
+        return mb_strtolower(trim($email));
+    }
+
+    /** @return ContaCriadaOutput|null null quando o e-mail já tinha conta (nada gravado; a dona recebe o aviso) */
+    public function executar(CriarContaEEscritorioInput $input, string $ip, ?string $userAgent): ?ContaCriadaOutput
     {
         self::validar($input);
-        $email = mb_strtolower(trim($input->email));
+        $email = self::normalizarEmail($input->email);
 
         // Ignora a caixa: o UNIQUE do banco é case-sensitive e deixaria nascer uma segunda conta que só difere em
         // maiúsculas, indistinguível dali em diante.
-        if ($this->userRepository->encontrarPorEmailIgnorandoCaixa($email) !== []) {
-            throw new \DomainException(self::ERRO_EMAIL_EXISTENTE);
+        $existentes = $this->userRepository->encontrarPorEmailIgnorandoCaixa($email);
+        if ($existentes !== []) {
+            // O mesmo hash de senha do caminho novo, jogado fora: a resposta não sai muito mais rápido que a de
+            // quem cria a conta. A dona da conta recebe o aviso, como a conta nova recebe a confirmação.
+            $this->senhaInutilizavel(new User());
+            $this->avisarContaExistente($existentes[0]);
+
+            return null;
         }
 
         $token = bin2hex(random_bytes(32));
@@ -83,8 +99,9 @@ final class CriarContaEEscritorioUseCase
                 fn (): ContaCriadaOutput => $this->criar($input, $email, $token, $ip, $userAgent),
             );
         } catch (UniqueConstraintViolationException) {
-            // Corrida: outro cadastro do mesmo e-mail gravou entre o SELECT e o INSERT.
-            throw new \DomainException(self::ERRO_EMAIL_EXISTENTE);
+            // Corrida: outro cadastro do mesmo e-mail gravou entre o SELECT e o INSERT. A mesma resposta do e-mail que
+            // já tem conta; sem o aviso, porque o outro cadastro já mandou a confirmação para a mesma caixa.
+            return null;
         }
 
         $this->enviarConfirmacao($conta->user, $token);
@@ -212,6 +229,19 @@ final class CriarContaEEscritorioUseCase
             $this->cadastroMailer->enviarConfirmacaoDeEmail($user, $token);
         } catch (\Throwable $e) {
             $this->logger->error('Falha ao enviar o e-mail de confirmação da conta criada pelo cadastro.', [
+                'exception' => $e,
+                'userId' => $user->getId(),
+            ]);
+        }
+    }
+
+    /** Falha no envio só vai para o log: a resposta do cadastro é a mesma de qualquer jeito. */
+    private function avisarContaExistente(User $user): void
+    {
+        try {
+            $this->cadastroMailer->enviarAvisoDeContaExistente($user);
+        } catch (\Throwable $e) {
+            $this->logger->error('Falha ao enviar o aviso de conta existente do cadastro.', [
                 'exception' => $e,
                 'userId' => $user->getId(),
             ]);

@@ -14,7 +14,8 @@ descreve o defeito e a correção; não descreve como o defeito seria explorado.
 - 23/10: PR 2 (raízes B e C, com a migration `Version20261020150500`) implementado na branch `seguranca-a-hash`,
   empilhada sobre a `seguranca-a-convites`, com commit local e sem push. Migration aplicada no banco da frente.
   Falta a revisão e, depois do merge, aplicar a migration no dev (`scripts/migrar-dev.sh`).
-- Raiz E: decisão pendente com o dono.
+- 23/10: raiz E decidida pelo dono (mensagem única no cadastro e aviso por e-mail a quem já tem conta) e
+  implementada no PR 2, num commit próprio.
 
 ## Por que
 
@@ -30,7 +31,7 @@ O link do convite (`/convite/{token}`) é a prova de que a pessoa é dona da cai
 | D | F3 | O e-mail do convite vai para um `onclick` e não é validado na criação | PR 1 |
 | B | F15, F16 | O token fica no banco em texto puro | PR 2 |
 | C | F10 | O token entra na trilha de auditoria | PR 2 |
-| E | F14 | O cadastro público diz se o e-mail já tem conta | Decisão do dono |
+| E | F14 | O cadastro público diz se o e-mail já tem conta | PR 2 |
 
 ## Raiz A (PR 1)
 
@@ -121,10 +122,31 @@ repositório busca por ele, o `ConviteMailer` lê `getToken()` da entidade e o r
   (`DesfazerAlteracaoAuditLogUseCase`) só desfaz `update` de uma lista fechada de entidades, sem a `Invitation`, e
   nunca recria entidade a partir do log: não há caminho que recrie um convite sem o token.
 
-## Raiz E (decisão pendente com o dono)
+## Raiz E (PR 2, decisão do dono de 23/10)
 
-O cadastro público diz, pela mensagem, se o e-mail já tem conta (achado F14). Tirar isso muda o texto que o cliente
-vê no cadastro; fica registrado até o dono decidir.
+### Antes
+
+`POST /cadastro/criar` com um e-mail que já tem conta responde 422 com "Já existe uma conta com este e-mail..." e o
+e-mail novo responde 200 `{ok, confirmar, email}`: a resposta diz se a conta existe.
+
+### Depois
+
+- **E1.** A mesma resposta nos dois casos: 200 com `{"ok": true, "confirmar": true, "email": <e-mail normalizado>}`.
+  O modal mostra o mesmo texto ("Se o e-mail ... puder ser usado, você receberá as instruções nele...",
+  `ContaAConfirmar::TEXTO_ENVIAMOS_ANTES|DEPOIS`). A constante `ERRO_EMAIL_EXISTENTE` sai. A validação dos campos
+  (422) continua igual, porque não depende de conta nenhuma.
+- **E2.** `CriarContaEEscritorioUseCase` devolve `null` quando o e-mail já tem conta: nada é gravado e a dona da conta
+  recebe `CadastroMailer::enviarAvisoDeContaExistente()` (template `auth/cadastro/email_conta_existente.html.twig`,
+  no padrão do e-mail de confirmação), que avisa que já há conta e leva ao "Esqueci a senha"
+  (`auth_senha_esqueci`). Falha no envio só vai para o log. Para o tempo de resposta não destoar tanto, o caminho
+  calcula e descarta um hash de senha, como o caminho novo. A corrida no UNIQUE também devolve `null`, sem aviso
+  (o outro cadastro já mandou a confirmação para a mesma caixa).
+- **E3.** O caminho do e-mail existente não grava a conta dele na sessão (`ContaAConfirmar`) e apaga a chave de um
+  cadastro anterior do mesmo navegador: o "Reenviar o link" do modal responde `SEM_CONTA_NA_SESSAO` e não manda nada
+  a ninguém. O e-mail novo segue como antes (sessão gravada, reenvio funciona).
+- Resíduo conhecido: o reenvio do modal ainda responde diferente nos dois casos (o e-mail novo recebe "link
+  reenviado"; o existente, a mensagem de "Esqueceu a senha?"). Igualar exige mexer no reenvio público, que também
+  serve à tela de login; fica para decisão do coordenador.
 
 ## Verificação (PR 1)
 
@@ -146,3 +168,9 @@ vê no cadastro; fica registrado até o dono decidir.
 - Unit: `CriarConviteEscritorioUseCaseTest`, `CriarConvitePlataformaUseCaseTest` (o hash é gravado e o token puro
   volta no `ConviteEmitido`), `ReenviarConviteUseCaseTest` (o reenvio troca o token) e `ConviteMailerTest`.
 - Os outros testes que montavam `Invitation` com o token passaram a montar com o hash.
+- Raiz E: `CadastroControllerTest` (o e-mail existente e o novo dão o mesmo status e o mesmo JSON, o aviso de conta
+  existente só sai para o existente, sem escritório, sem confirmação e sem sessão; o reenvio depois do e-mail
+  existente não manda nada), `CriarContaEEscritorioUseCaseTest` (null, nada gravado, o aviso com o link do "Esqueci
+  a senha", falha no envio só no log, corrida) e `LoginDeContaAConfirmarTest` (o texto novo do modal).
+- Smoke do dono: o modal "Confirme seu e-mail" depois de criar a conta, com um e-mail novo e com um que já tem conta;
+  o e-mail "Você já tem uma conta no BlueJus" e o botão "Esqueci a senha" dele.

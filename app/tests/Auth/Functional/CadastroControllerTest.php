@@ -228,23 +228,79 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->em()->getRepository(Tenant::class)->findOneBy(['name' => $dados['escritorio']]));
     }
 
-    #[TestDox('E-mail já cadastrado, mesmo com outra caixa, devolve 422 e não cria escritório')]
+    #[TestDox('Raiz E: e-mail já cadastrado (com outra caixa) recebe a mesma resposta do e-mail novo, sem escritório nem sessão; a dona recebe o aviso')]
     public function testEmailDuplicadoComOutraCaixa(): void
     {
         $client = static::createClient();
         $email = 'dup_' . uniqid() . '@adv.com';
-        $this->usuario($email);
+        $existente = $this->usuario($email);
         $this->prepararCsrf($client);
-        $dados = self::dados(['email' => strtoupper($email)]);
+        $dados = self::dados(['email' => '  ' . strtoupper($email) . ' ']);
 
         $client->jsonRequest('POST', '/cadastro/criar', $dados);
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(
-            ['erro' => 'Já existe uma conta com este e-mail. Faça login para criar o escritório por dentro.'],
-            self::json($client),
-        );
+        self::assertResponseIsSuccessful();
+        self::assertSame(['ok' => true, 'confirmar' => true, 'email' => $email], self::json($client));
         self::assertNull($this->em()->getRepository(Tenant::class)->findOneBy(['name' => $dados['escritorio']]));
+        self::assertNull($client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO));
+        self::assertCount(0, $this->em()->getRepository(ConfirmacaoEmail::class)->findBy(['user' => $existente]));
+
+        self::assertEmailCount(1);
+        $aviso = self::getMailerMessage();
+        self::assertSame($email, $aviso?->getTo()[0]->getAddress());
+        self::assertStringContainsString('Você já tem uma conta no BlueJus', (string) $aviso?->getSubject());
+        self::assertStringContainsString('/senha/esqueci', (string) $aviso?->getHtmlBody());
+        self::assertStringNotContainsString('/cadastro/confirmar-email/', (string) $aviso?->getHtmlBody());
+    }
+
+    #[TestDox('Raiz E: e-mail novo e e-mail existente dão o mesmo status e o mesmo JSON; o aviso de conta existente só sai para o existente')]
+    public function testEmailNovoEExistenteRespondemIgual(): void
+    {
+        $existente = 'igual_' . uniqid() . '@adv.com';
+        $this->usuario($existente);
+        $novo = 'igual_novo_' . uniqid() . '@adv.com';
+
+        $respostas = [];
+        $assuntos = [];
+        foreach ([$existente, $novo] as $email) {
+            self::ensureKernelShutdown();
+            $client = static::createClient();
+            $this->prepararCsrf($client);
+            $client->jsonRequest('POST', '/cadastro/criar', self::dados(['email' => $email]));
+            $json = self::json($client);
+            $respostas[] = [$client->getResponse()->getStatusCode(), array_keys($json), $json['ok'], $json['confirmar']];
+            self::assertSame($email, $json['email']);
+            self::assertEmailCount(1);
+            $assuntos[$email] = self::getMailerMessage()?->getSubject();
+        }
+
+        self::assertSame($respostas[0], $respostas[1]);
+        self::assertSame([200, ['ok', 'confirmar', 'email'], true, true], $respostas[0]);
+        self::assertStringContainsString('Você já tem uma conta no BlueJus', (string) $assuntos[$existente]);
+        self::assertStringNotContainsString('Você já tem uma conta', (string) $assuntos[$novo]);
+    }
+
+    #[TestDox('Raiz E: depois do cadastro de um e-mail existente, o reenvio do modal não manda nada para a conta dele, nem para a de um cadastro anterior')]
+    public function testReenvioDepoisDoEmailExistenteNaoEnviaNada(): void
+    {
+        $client = static::createClient();
+        $this->prepararCsrf($client);
+        $client->jsonRequest('POST', '/cadastro/criar', self::dados());
+        self::assertNotNull($client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO));
+
+        $email = 'reenvio_' . uniqid() . '@adv.com';
+        $this->usuario($email);
+        $client->jsonRequest('POST', '/cadastro/criar', self::dados(['email' => $email]));
+        self::assertNull($client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO));
+
+        $sessao = $client->getSession();
+        $sessao->set('_csrf/' . ContaAConfirmar::CSRF, self::CSRF);
+        $sessao->save();
+        $client->jsonRequest('POST', '/login/reenviar-confirmacao', ['_token' => self::CSRF]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(ContaAConfirmar::SEM_CONTA_NA_SESSAO, self::json($client)['mensagem'] ?? null);
+        self::assertEmailCount(0);
     }
 
     #[TestDox('CSRF inválido devolve 403 e não gasta a cota do IP')]

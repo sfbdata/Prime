@@ -33,10 +33,13 @@ final class ContaAConfirmar
     /** Recusa do login (formulário e lembrar-me) e da sessão encerrada; `{email}` é o da própria conta. */
     public const MENSAGEM_LOGIN = 'Confirme o seu e-mail para entrar. Enviamos o link para {email}.';
 
-    /** Modal do cadastro, estado "Confirme seu e-mail" (textos da tela antiga `verifique_email.html.twig`). */
+    /**
+     * Modal do cadastro, estado "Confirme seu e-mail". O mesmo texto para o e-mail novo e para o que já tem conta: o
+     * cadastro não diz qual é o caso (achado de auditoria interna F14; spec `seguranca-a-convites.md`, raiz E).
+     */
     public const TITULO = 'Confirme seu e-mail';
-    public const TEXTO_ENVIAMOS_ANTES = 'Enviamos um link de confirmação para';
-    public const TEXTO_ENVIAMOS_DEPOIS = '. Clique nele para criar a sua senha e ativar sua conta e seu escritório. O link expira em 7 dias.';
+    public const TEXTO_ENVIAMOS_ANTES = 'Se o e-mail';
+    public const TEXTO_ENVIAMOS_DEPOIS = ' puder ser usado, você receberá as instruções nele. Clique no link para criar a sua senha e ativar sua conta e seu escritório. O link expira em 7 dias.';
     public const TEXTO_NAO_RECEBEU = 'Não recebeu? Verifique a caixa de spam ou peça um novo link.';
     public const BOTAO_REENVIAR = 'Reenviar o link de confirmação';
     public const LINK_LOGIN = 'Ir para o login';
