@@ -15,6 +15,7 @@ use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,6 +34,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 #[CoversClass(PontoController::class)]
 #[CoversClass(ListarPendenciasDeRegistroUseCase::class)]
+#[CoversClass(BatidaJaRegistrada::class)]
 final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -196,7 +198,73 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         self::assertCount(1, $this->pendencias()->filter(sprintf('li[data-pendencia-escritorio="%d"]', $this->y->getId())), 'a pendência de Y continua');
     }
 
+    #[TestDox('O pedido de esquecimento só vale para a batida que falta: com a saída batida no dia neste escritório, o pedido de saída é recusado; a saída batida em outro escritório não recusa')]
+    public function testPedidoDeBatidaJaRegistradaERecusado(): void
+    {
+        $dia = $this->diaUtilAtras(3);
+        $this->batida($this->x, 'entrada', $dia->setTime(8, 0));
+        $this->batida($this->x, 'saida', $dia->setTime(22, 0));
+        $outro = $this->diaUtilAtras(8);
+        $this->batida($this->x, 'entrada', $outro->setTime(8, 0));
+        $this->batida($this->y, 'saida', $outro->setTime(18, 0));   // a saída de Y não é deste escritório
+        $this->logarComTenant($this->client, $this->user, $this->x);
+
+        $this->pedirEsquecimento($outro, 'saida', '18:00');
+        self::assertSame(1, $this->pedidosEm($this->x), 'controle: a saída de Y não recusa o pedido em X');
+
+        $this->pedirEsquecimento($dia, 'saida', '22:05');
+
+        self::assertResponseRedirects();
+        self::assertSame(1, $this->pedidosEm($this->x), 'nada novo é criado');
+        $this->client->followRedirect();
+        self::assertStringContainsString(sprintf(BatidaJaRegistrada::MENSAGEM, 'saída'), (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('A edição do pedido não troca para uma batida que já existe no dia neste escritório')]
+    public function testEdicaoNaoTrocaParaBatidaJaRegistrada(): void
+    {
+        $dia = $this->diaUtilAtras(3);
+        $this->batida($this->x, 'saida', $dia->setTime(18, 0));
+        $this->esquecimento($this->x, $dia, 'entrada', 'pendente');
+        $id = (int) $this->em()->getConnection()->fetchOne('SELECT id FROM justificativa_ponto WHERE user_id = ?', [$this->user->getId()]);
+        $this->logarComTenant($this->client, $this->user, $this->x);
+
+        $this->client->request('POST', sprintf('/ponto/justificativa/%d/editar', $id), [
+            '_token' => 'TOKEN_editar_justificativa_' . $id,
+            'tipo' => TipoJustificativa::EsquecimentoRegistro->value,
+            'tipoRegistroEsquecido' => 'saida',
+            'horaRegistroEsquecido' => '18:05',
+        ]);
+
+        self::assertResponseRedirects();
+        $this->em()->clear();
+        self::assertSame('entrada', $this->em()->getConnection()->fetchOne('SELECT tipo_registro_esquecido FROM justificativa_ponto WHERE id = ?', [$id]));
+        $this->client->followRedirect();
+        self::assertStringContainsString(sprintf(BatidaJaRegistrada::MENSAGEM, 'saída'), (string) $this->client->getResponse()->getContent());
+    }
+
     // ----------------------------------------------------------------- apoio
+
+    private function pedirEsquecimento(\DateTimeImmutable $dia, string $batida, string $hora): void
+    {
+        $this->client->request('POST', '/ponto/justificativa/nova', [
+            'justificativa_ponto' => [
+                '_token' => 'TOKEN_justificativa_ponto',
+                'datas' => $dia->format('Y-m-d'),
+                'tipo' => TipoJustificativa::EsquecimentoRegistro->value,
+                'tipoRegistroEsquecido' => $batida,
+                'horaRegistroEsquecido' => $hora,
+            ],
+        ]);
+    }
+
+    private function pedidosEm(Tenant $tenant): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM justificativa_ponto WHERE user_id = ? AND tenant_id = ?',
+            [$this->user->getId(), $tenant->getId()],
+        );
+    }
 
     private function pendencias(): Crawler
     {

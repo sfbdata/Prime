@@ -31,6 +31,7 @@ use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\ChaveDoPontoEletronico;
 use App\Ponto\Service\TurnoAbertoNoEscritorio;
 use App\Ponto\Service\SaidaDeEsquecimento;
+use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
@@ -83,6 +84,7 @@ final class PontoController extends AbstractController
         private readonly ChaveDoPontoEletronico $chaveDoPonto,
         private readonly TurnoAbertoNoEscritorio $turnoAberto,
         private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
+        private readonly BatidaJaRegistrada $batidaJaRegistrada,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -312,6 +314,10 @@ final class PontoController extends AbstractController
             if (empty($datasValidas)) {
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
+            if ($tipo === 'esquecimento_registro' && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, (string) $tipoRegEsquecido, $datasValidas[0])) !== null) {
+                $this->addFlash('warning', $jaBatida);   // o esquecimento é só da batida que falta
+                return $this->redirectToRoute('ponto_index', $voltaParaFolha);
+            }
 
             // Upload do atestado
             $anexoPath  = null;
@@ -458,6 +464,10 @@ final class PontoController extends AbstractController
             $horaReg = ($horaRegRaw !== null && $horaRegRaw !== '') ? \DateTime::createFromFormat('H:i', $horaRegRaw) ?: null : null;
             if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
                 $this->addFlash('warning', 'Informe o tipo e o horário do registro esquecido.');
+                return $this->redirectToRoute('ponto_index');
+            }
+            if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
+                $this->addFlash('warning', $jaBatida);   // a edição não troca para uma batida que existe
                 return $this->redirectToRoute('ponto_index');
             }
             $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
