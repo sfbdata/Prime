@@ -11,6 +11,9 @@ use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use App\Auth\Service\EmailDoConvite;
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -129,5 +132,29 @@ final class CriarConvitePlataformaUseCaseTest extends TestCase
         );
 
         self::assertSame($this->criadoPor, $resultado->getCreatedBy());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function emailsInvalidos(): iterable
+    {
+        yield 'vazio' => [''];
+        yield 'sem arroba' => ['pessoa.example.com'];
+        yield 'dois destinatários' => ['a@example.com,b@example.com'];
+        yield 'parâmetro na URL' => ['a@example.com?cc=b@example.com'];
+        yield 'aspas e parêntese' => ["a'@example.com')"];
+        yield 'acima de 180' => [str_repeat('a', 170) . '@example.com'];
+    }
+
+    #[DataProvider('emailsInvalidos')]
+    #[TestDox('E-mail inválido é recusado com a mensagem do fluxo e nada é gravado')]
+    public function testEmailInvalidoRecusado(string $email): void
+    {
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage(EmailDoConvite::ERRO);
+
+        $this->useCase->executar(new CriarConvitePlataformaInput(email: $email, fullName: null, criadoPor: $this->criadoPor));
     }
 }

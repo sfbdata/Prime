@@ -12,6 +12,7 @@ use App\Auth\Service\ConviteMailer;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Auth\UseCase\RevogarConviteUseCase;
+use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\TenantRoleRepository;
@@ -60,9 +61,13 @@ final class GerenciarConvitesController extends AbstractController
         // C5: quem não é primário nem Master só vê os perfis que cabem nas permissões dele (o UseCase revalida).
         $ator  = $this->getUser();
         $roles = array_values(array_filter($roles, fn ($r): bool => $ator instanceof User && $this->hierarquia->podeAtribuirPerfil($ator, $tenant, $r)));
+        // C5 também na lista: só o convite de perfil que quem gerencia poderia atribuir (achado de auditoria interna F5).
         $convites = array_map(
             ConviteAdminOutput::fromInvitation(...),
-            $this->invitationRepository->listarPorTenant($tenant)
+            array_values(array_filter(
+                $this->invitationRepository->listarPorTenant($tenant),
+                fn (Invitation $i): bool => $this->estaNoAlcance($i),
+            ))
         );
 
         return $this->render('auth/convites/gerenciar.html.twig', [
@@ -116,24 +121,19 @@ final class GerenciarConvitesController extends AbstractController
         return $this->voltarDoConvite($request);
     }
 
-    #[Route('/{token}/revogar', name: 'auth_gerenciar_convites_revogar', methods: ['POST'])]
-    public function revogar(string $token, Request $request): Response
+    #[Route('/{id}/revogar', name: 'auth_gerenciar_convites_revogar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function revogar(int $id, Request $request): Response
     {
         $this->assertAccess();
 
-        if (!$this->isCsrfTokenValid('convite_revogar_' . $token, $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('convite_revogar_' . $id, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $tenant = $this->tenantContext->getCurrentTenant();
-        $invitation = $this->invitationRepository->encontrarPorToken($token);
-
-        if ($invitation === null || $invitation->getTenant()?->getId() !== $tenant->getId()) {
-            throw $this->createNotFoundException('Convite não encontrado neste escritório.');
-        }
+        $this->exigirConviteNoAlcance($id);
 
         try {
-            $this->revogarUseCase->executar(new RevogarConviteInput($token));
+            $this->revogarUseCase->executar(new RevogarConviteInput($id));
             $this->addFlash('sucesso', 'Convite revogado.');
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
@@ -142,22 +142,17 @@ final class GerenciarConvitesController extends AbstractController
         return $this->redirectToRoute('auth_gerenciar_convites');
     }
 
-    #[Route('/{token}/reenviar', name: 'auth_gerenciar_convites_reenviar', methods: ['POST'])]
-    public function reenviar(string $token, Request $request): Response
+    #[Route('/{id}/reenviar', name: 'auth_gerenciar_convites_reenviar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function reenviar(int $id, Request $request): Response
     {
         $this->assertAccess();
         $this->verificarLimite($request);
 
-        if (!$this->isCsrfTokenValid('convite_reenviar_' . $token, $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('convite_reenviar_' . $id, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $tenant = $this->tenantContext->getCurrentTenant();
-        $invitation = $this->invitationRepository->encontrarPorToken($token);
-
-        if ($invitation === null || $invitation->getTenant()?->getId() !== $tenant->getId()) {
-            throw $this->createNotFoundException('Convite não encontrado neste escritório.');
-        }
+        $this->exigirConviteNoAlcance($id);
 
         $quem = $this->getUser();
         if (!$quem instanceof User) {
@@ -165,7 +160,7 @@ final class GerenciarConvitesController extends AbstractController
         }
 
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token, $quem));
+            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($id, $quem));
 
             try {
                 $this->mailer->enviarConviteEscritorio($invitation);
@@ -181,6 +176,29 @@ final class GerenciarConvitesController extends AbstractController
         }
 
         return $this->redirectToRoute('auth_gerenciar_convites');
+    }
+
+    /**
+     * Posse por escritório e C5 por perfil (achados de auditoria interna F4 e F5): o convite de outro escritório, ou de
+     * perfil que quem gerencia não poderia atribuir, responde 404, como o inexistente.
+     */
+    private function exigirConviteNoAlcance(int $id): void
+    {
+        $tenant     = $this->tenantContext->getCurrentTenant();
+        $invitation = $this->invitationRepository->findOneBy(['id' => $id, 'tenant' => $tenant]);
+
+        if ($invitation === null || !$this->estaNoAlcance($invitation)) {
+            throw $this->createNotFoundException('Convite não encontrado neste escritório.');
+        }
+    }
+
+    /** Primário e Master alcançam todos; os demais, só o convite sem perfil ou de perfil contido no deles. */
+    private function estaNoAlcance(Invitation $invitation): bool
+    {
+        $ator = $this->getUser();
+
+        return $ator instanceof User
+            && $this->hierarquia->podeMexerNoAlvo($ator, $this->tenantContext->getCurrentTenant(), $invitation->getTenantRole());
     }
 
     private function assertAccess(): void

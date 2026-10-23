@@ -14,8 +14,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * Quem cria a conta com o e-mail de outra pessoa não pode ver o convite de escritório mandado para aquele e-mail: as
- * listas entregam o token do aceite.
+ * Quem cria a conta com o e-mail de outra pessoa não pode ver o convite de escritório mandado para aquele e-mail. As
+ * listas levam o convite pelo id, nunca o token do link (achado de auditoria interna F6).
  *
  * Desde a spec `cadastro-exige-confirmacao.md`, a conta a confirmar nem fica logada: a sessão dela termina no
  * primeiro pedido (`SessaoDeContaAConfirmarListener`). O filtro das listas (`isEmailConfirmado`) fica como defesa.
@@ -49,7 +49,7 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
     }
 
     #[DataProvider('listas')]
-    #[TestDox('E-mail confirmado: o convite continua aparecendo como antes')]
+    #[TestDox('E-mail confirmado: o convite continua aparecendo, com o link pelo id e sem o token')]
     public function testEmailConfirmadoVeOConvite(string $lista): void
     {
         $client = static::createClient();
@@ -61,7 +61,8 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
         $client->request('GET', $lista);
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
+        self::assertSelectorExists(sprintf('a[href="/convites/%d"]', $convite->getId()));
+        self::assertStringNotContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
     }
 
     /** @return array{User, Invitation} */
@@ -84,7 +85,7 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
         $tenant->setName('Escritório que convidou');
         $em->persist($tenant);
 
-        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(16)), type: 'escritorio', expiresAt: new \DateTimeImmutable('+7 days'));
+        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(16)), type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+7 days'));
         $convite->setTenant($tenant);
         $em->persist($convite);
         $em->flush();

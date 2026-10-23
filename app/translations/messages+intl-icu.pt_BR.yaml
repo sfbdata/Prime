@@ -4519,7 +4519,9 @@ plataforma:
         revogado: Revogado
         expirado: Expirado
         reenviar: Reenviar
+        confirmar_reenviar: 'Reenviar convite para {email}?'
         revogar: Revogar
+        confirmar_revogar: 'Revogar convite de {email}?'
         vazio: Nenhum convite enviado ainda.
     oab:
         titulo: Revisão de OAB
