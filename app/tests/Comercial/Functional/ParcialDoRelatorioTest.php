@@ -176,7 +176,7 @@ final class ParcialDoRelatorioTest extends KernelTestCase
     {
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-relatorio.js');
         self::assertStringContainsString("raiz.dispatchEvent(new CustomEvent('mc:duplicar-campanha', { bubbles: true, cancelable: true, detail: detalhe }))", $js);
-        foreach (["BJ_T.t('comercial_relatorio.js.vazia')", "BJ_T.t('comercial_relatorio.js.confirmar_cancelar')",
+        foreach (["BJ_T.t('comercial_relatorio.js.vazia')", "BJ_T.t('comercial_relatorio.js.confirmar_cancelar')", "BJ_T.t('comercial_relatorio.js.confirmar_cancelar_fila')",
             "BJ_T.t('comercial_relatorio.js.confirmar_remover', { n: ids.length })", "BJ_T.t('comercial_relatorio.js.confirmar_excluir')",
             "BJ_T.t('comercial_relatorio.js.duplicada_menu')", "BJ_T.t('comercial_relatorio.js.reenvio_menu_sem_rastreio')",
             "BJ_T.t('comercial_relatorio.js.reenvio_sem_rastreio')", "BJ_T.t('comercial_relatorio.js.linha_dica')",
@@ -187,6 +187,7 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         foreach ([
             'vazia' => 'Nenhuma campanha nesta aba.',
             'confirmar_cancelar' => 'Cancelar o envio programado desta campanha?',
+            'confirmar_cancelar_fila' => 'Cancelar o envio desta campanha? O que ainda está na fila não sai.',
             'confirmar_remover' => 'Remover {n} campanha(s) do relatório?',
             'confirmar_excluir' => 'Excluir esta campanha do relatório?',
             'duplicada_menu' => 'Campanha duplicada: ajuste e envie.',
