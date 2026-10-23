@@ -186,3 +186,12 @@ html[data-bs-theme="dark"] .mu-menu .mu-menu-x { background: var(--bs-secondary-
 html[data-bs-theme="dark"] .mu-abas { border-color: var(--bs-border-color); }
 
 @media (prefers-reduced-motion: reduce) { .mu-aviso { animation: none; } }
+
+/* Selo "EXCLUSIVO DO MASTER / DO PRIMÁRIO" (spec edicao-sem-prazo §5; desenho 03 L324): o mesmo rótulo dourado do
+   `.mu-grupo-rotulo`, dentro do botão de editar ou excluir que só existe pelo poder. Some até o hover ou o foco do
+   teclado; flutua acima do botão (sem empurrar a linha), com fundo da página para ficar legível. */
+.com-selo-sem-prazo { position: relative; }
+.selo-sem-prazo { position: absolute; right: 0; bottom: calc(100% + 4px); z-index: 30; display: none; align-items: center; gap: 7px; padding: 3px 8px; white-space: nowrap; font-size: 10.5px; font-weight: 700; letter-spacing: 1px; line-height: 1.4; text-transform: none; color: #9a6a00; background: var(--bs-body-bg, #fff); border-radius: 4px; box-shadow: 0 2px 8px rgba(18, 36, 47, .15); pointer-events: none; }
+.com-selo-sem-prazo:hover > .selo-sem-prazo,
+.com-selo-sem-prazo:focus-visible > .selo-sem-prazo { display: inline-flex; }
+html[data-bs-theme="dark"] .selo-sem-prazo { color: #ffd770; }

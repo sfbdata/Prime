@@ -1,0 +1,9 @@
+{#
+  Selo "EXCLUSIVO DO MASTER" / "EXCLUSIVO DO PRIMÁRIO" (spec edicao-sem-prazo §5; desenho 03 L324, o visual do
+  `.mu-grupo-rotulo`). Vai DENTRO do botão de editar ou excluir que só existe por causa do poder, e o botão leva a
+  classe `com-selo-sem-prazo`: o selo aparece no hover e no foco do teclado (menu-usuario.css).
+  Parâmetro: `poder` ('master' | 'primario' | null, de `sem_prazo_selo()`). Sem poder, nada sai.
+#}
+{%- if poder -%}
+<span class="selo-sem-prazo" data-selo-sem-prazo="{{ poder }}"><i class="bi bi-star-fill" aria-hidden="true"></i>{{ ('edicao_sem_prazo.selo.' ~ poder)|trans }}</span>
+{%- endif -%}

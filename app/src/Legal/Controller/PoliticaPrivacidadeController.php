@@ -25,6 +25,9 @@ use Symfony\Component\Routing\Attribute\Route;
  * duas cópias sincronizadas à mão (ver o aviso em {@see \App\Termo\TermoVigente}); aqui
  * o PDF sai do HTML na hora, então não há como divergirem.
  *
+ * Só em português (decisão do dono, 23/10/2026): a ciência fica amarrada ao texto pt da versão, então as duas rotas
+ * fixam o locale `pt_BR` e o {@see \App\Profile\EventListener\IdiomaDaRequisicaoListener} respeita.
+ *
  * ⚠️ Limitação medida do PDF: o texto dele **não é pesquisável nem copiável**. O dompdf
  * embute a DejaVu Sans com `/Encoding /Identity-H` (os códigos no stream são índices de
  * glifo) e escreve um `/ToUnicode` identidade `<0000> <FFFF> <0000>`, que não traduz glifo
@@ -43,13 +46,14 @@ final class PoliticaPrivacidadeController extends AbstractController
         private readonly RateLimiterFactoryInterface $politicaPrivacidadePdfLimiter,
     ) {}
 
-    #[Route('/politica-de-privacidade', name: 'legal_politica_privacidade', methods: ['GET'])]
+    // Sempre em português (`locale`), qualquer que seja o idioma da pessoa: o texto é o da versão vigente.
+    #[Route('/politica-de-privacidade', name: 'legal_politica_privacidade', methods: ['GET'], locale: 'pt_BR')]
     public function ler(): Response
     {
         return $this->render('legal/politica_privacidade.html.twig', $this->contexto());
     }
 
-    #[Route('/politica-de-privacidade.pdf', name: 'legal_politica_privacidade_pdf', methods: ['GET'])]
+    #[Route('/politica-de-privacidade.pdf', name: 'legal_politica_privacidade_pdf', methods: ['GET'], locale: 'pt_BR')]
     public function pdf(Request $request): Response
     {
         if (!$this->politicaPrivacidadePdfLimiter->create($request->getClientIp())->consume()->isAccepted()) {

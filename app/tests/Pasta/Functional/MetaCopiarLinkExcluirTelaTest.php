@@ -14,6 +14,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Twig\ExclusaoDaMetaExtension;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -155,12 +156,32 @@ final class MetaCopiarLinkExcluirTelaTest extends JusPrimeWebTestCase
         self::assertSame('form.ps-meta-excluir', end($filhos), 'Excluir é o último item');
         self::assertSame('div.ps-pop-sep', $filhos[count($filhos) - 2], 'depois do separador');
 
-        // Meta de outra pessoa: o ⋮ existe, mas sem Excluir (o UseCase recusaria).
-        self::assertCount(1, $this->menu($crawler, $alheia));
-        self::assertCount(0, $this->menu($crawler, $alheia)->filter('form.ps-meta-excluir'));
+        self::assertCount(0, $botao->filter('.selo-sem-prazo'), 'pela regra de sempre, sem selo');
+
+        // Meta de outra pessoa: o admin daqui é o Master, que exclui pelo poder sem prazo, com o selo (spec edicao-sem-prazo).
+        self::assertCount(1, $this->menu($crawler, $alheia)->filter('form.ps-meta-excluir > button.com-selo-sem-prazo > .selo-sem-prazo[data-selo-sem-prazo="master"]'));
     }
 
-    #[TestDox('Excluir: meta fora da janela de exclusão não oferece o item')]
+    #[TestDox('Edição sem prazo: o primário vê Excluir com o selo na meta alheia (opção ligada) e não vê com a opção desligada')]
+    public function testPrimarioConformeAOpcao(): void
+    {
+        [$client, $user, $tenant, $pasta] = $this->cenario();
+        $meta = $this->criarMeta($pasta, $user);
+        $primaria = $this->criarColega($tenant, 'Paula Primária');
+
+        $this->logarComTenant($client, $primaria, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+        $selo = $this->menu($crawler, $meta)->filter('form.ps-meta-excluir > button.com-selo-sem-prazo > .selo-sem-prazo[data-selo-sem-prazo="primario"]');
+        self::assertCount(1, $selo);
+        self::assertSame('EXCLUSIVO DO PRIMÁRIO', trim($selo->text()));
+        self::assertCount(1, $selo->filter('i.bi.bi-star-fill'));
+
+        DesligaEdicaoSemPrazo::no($this->em(), $this->em()->find(Tenant::class, $tenant->getId()) ?? $tenant, static::getContainer());
+        $crawler = $this->abrir($client, $pasta);
+        self::assertCount(0, $this->menu($crawler, $meta)->filter('form.ps-meta-excluir'));
+    }
+
+    #[TestDox('Excluir: meta fora da janela de exclusão só aparece pelo poder sem prazo (o Master), com o selo')]
     public function testExcluirForaDaJanela(): void
     {
         [$client, $user, $tenant, $pasta] = $this->cenario();
@@ -174,7 +195,8 @@ final class MetaCopiarLinkExcluirTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrir($client, $pasta);
 
         self::assertCount(1, $this->menu($crawler, $velha));
-        self::assertCount(0, $this->menu($crawler, $velha)->filter('form.ps-meta-excluir'));
+        // O admin daqui é o Master: fora da janela o item continua, pelo poder sem prazo e com o selo.
+        self::assertCount(1, $this->menu($crawler, $velha)->filter('form.ps-meta-excluir > button.com-selo-sem-prazo > .selo-sem-prazo'));
     }
 
     #[TestDox('Excluir pela lista (token real): a meta some do banco e a tela volta para a aba Metas')]

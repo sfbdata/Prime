@@ -1556,7 +1556,8 @@ final class TenantController extends AbstractController
             if ($dataObj === false) {
                 continue;
             }
-            if ($dataObj > $hoje) {
+            // Por data, não por instante: o createFromFormat carrega a hora corrente e hoje passava por futura.
+            if ($dataObj->format('Y-m-d') > $hoje->format('Y-m-d')) {
                 $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
                 continue;
             }

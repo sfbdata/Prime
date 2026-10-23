@@ -11,7 +11,7 @@ use Twig\TwigFunction;
 
 /**
  * `idioma_atual()` (o `lang` e o `dir` do `<html>`, o nome no Meu Perfil e o marcado no modal) e `idiomas()` (a
- * lista do modal, na ordem do desenho). Spec idioma-do-sistema, entrega 1.
+ * lista do modal, na ordem do desenho, só os idiomas oferecidos). Spec idioma-do-sistema, entrega 1.
  */
 final class IdiomaExtension extends AbstractExtension
 {
@@ -24,7 +24,7 @@ final class IdiomaExtension extends AbstractExtension
     {
         return [
             new TwigFunction('idioma_atual', $this->atual(...)),
-            new TwigFunction('idiomas', static fn (): array => Idioma::cases()),
+            new TwigFunction('idiomas', static fn (): array => Idioma::oferecidos()),
         ];
     }
 

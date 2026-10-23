@@ -104,7 +104,8 @@ final class PastaRegistroRespostasTelaTest extends JusPrimeWebTestCase
             self::assertCount(1, $botao, 'cartão ' . $msg->getId());
             self::assertSame((string) $raiz->getId(), $botao->attr('data-resposta-a'));
             self::assertSame($user->getFullName(), $botao->attr('data-resposta-nome'));
-            self::assertCount(0, $crawler->filter('#pasta-msg-' . $msg->getId() . ' .ps-anotacao-acoes'), 'fora da janela não há editar/excluir');
+            // O admin daqui é o Master: fora da janela ele edita pelo poder sem prazo, com o selo (spec edicao-sem-prazo).
+            self::assertCount(1, $crawler->filter('#pasta-msg-' . $msg->getId() . ' .ps-anotacao-acoes > .btn-editar-msg-pasta.com-selo-sem-prazo > .selo-sem-prazo[data-selo-sem-prazo="master"]'), 'fora da janela só o poder libera');
         }
 
         // PAS-030: a resposta não usa mais o compositor de cima — a caixa abre sob o cartão

@@ -11,7 +11,6 @@ use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Exception\MensagemPastaNaoEditavelException;
 use App\Entity\Notificacao;
 use App\Entity\Permission\AccessRequest;
-use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
@@ -24,6 +23,7 @@ use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EditarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Pasta\Support\CriaPrazoDoComentario;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -35,6 +35,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 #[CoversClass(ResolucaoDeMencoesDoRegistro::class)]
 final class EditarMensagemPastaUseCaseTest extends TestCase
 {
+    use CriaPrazoDoComentario;
+
     use CriaSanitizadorTextoRico;
 
     private EntityManagerInterface&MockObject $em;
@@ -70,7 +72,7 @@ final class EditarMensagemPastaUseCaseTest extends TestCase
         $this->useCase = new EditarMensagemPastaUseCase(
             $this->em,
             $this->criarSanitizadorTextoRico(),
-            new JanelaDeEdicaoDeComentario(),
+            $this->prazoDoComentario(),
             new ResolucaoDeMencoesDoRegistro(
                 $this->mencoes,
                 $this->userRepository,

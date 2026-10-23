@@ -10,8 +10,10 @@ use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Enum\QualificacaoContato;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -199,6 +201,27 @@ final class QualificacaoContatoControllerTest extends CobrancaWebTestCase
         self::assertNull($this->buscarEvento($id), 'a remoção é definitiva, sem marca de desfeita');
     }
 
+    #[TestDox('Edição sem prazo: o primário (opção ligada) desfaz a qualificação alheia depois dos 5 minutos, e fica na auditoria')]
+    public function testPrimarioDesfazSemPrazo(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $evento = $this->semearQualificacao($caso, $tenant, $this->criarColega(), quando: new \DateTimeImmutable('-2 hours'));
+        $id = (int) $evento->getId();
+
+        $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $client->request('POST', '/cobrancas/qualificacoes/' . $id . '/desfazer', [
+            '_token' => $this->tokenCsrf($client, 'desfazer_qualificacao_' . $id),
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertNull($this->buscarEvento($id));
+        $linha = static::getContainer()->get(EntityManagerInterface::class)->getRepository(AuditLog::class)
+            ->findOneBy(['action' => 'sp_excluir', 'entityId' => (string) $id]);
+        self::assertSame($usuario->getId(), $linha?->getActorUserId());
+    }
+
     #[TestDox('Recusa 1: passados os 5 minutos, o servidor não desfaz mais')]
     public function testDesfazerRecusaForaDaJanela(): void
     {
@@ -207,6 +230,8 @@ final class QualificacaoContatoControllerTest extends CobrancaWebTestCase
         [, $caso] = $this->semearGrafo($tenant);
         $evento = $this->semearQualificacao($caso, $tenant, $usuario, quando: new \DateTimeImmutable('-10 minutes'));
         $id = (int) $evento->getId();
+        // O admin daqui é primário: com a opção desligada, vale a regra de sempre (spec edicao-sem-prazo).
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer());
 
         $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
@@ -227,6 +252,8 @@ final class QualificacaoContatoControllerTest extends CobrancaWebTestCase
         $colega = $this->criarColega();
         $evento = $this->semearQualificacao($caso, $tenant, $colega);
         $id = (int) $evento->getId();
+        // O admin daqui é primário: com a opção desligada, vale a regra de sempre (spec edicao-sem-prazo).
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer());
 
         $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 

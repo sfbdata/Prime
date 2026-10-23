@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -175,6 +176,7 @@ final class PastaMensagemControllerTest extends JusPrimeWebTestCase
         $mensagem = $this->criarMensagem($pasta, $autor, $tenant);
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $outro);
         $this->logarComTenant($client, $outro, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/mensagem/{$mensagem->getId()}/editar", [
@@ -200,6 +202,7 @@ final class PastaMensagemControllerTest extends JusPrimeWebTestCase
         );
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $autor);
         $this->logarComTenant($client, $autor, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/mensagem/{$mensagem->getId()}/editar", [
@@ -336,6 +339,7 @@ final class PastaMensagemControllerTest extends JusPrimeWebTestCase
         $mensagem = $this->criarMensagem($pasta, $autor, $tenant);
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $outro);
         $this->logarComTenant($client, $outro, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/mensagem/{$mensagem->getId()}/excluir", [

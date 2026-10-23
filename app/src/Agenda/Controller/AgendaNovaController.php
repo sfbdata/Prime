@@ -10,6 +10,7 @@ use App\Agenda\Service\GarantirVarreduraDePush;
 use App\Agenda\Service\GarantirVarreduraDoGoogle;
 use App\Agenda\UseCase\EstadoDoGoogleAgendaUseCase;
 use App\Agenda\UseCase\ContarMeusCompromissosUseCase;
+use App\Agenda\UseCase\DispensarAvisoDoGoogleUseCase;
 use App\Agenda\Service\PermissoesDaAgenda;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
 use App\Agenda\UseCase\ListarLembretesUseCase;
@@ -44,6 +45,7 @@ final class AgendaNovaController extends AbstractController
         private readonly GarantirVarreduraDoGoogle $garantirGoogle,
         private readonly EstadoDoGoogleAgendaUseCase $estadoDoGoogle,
         private readonly ContarMeusCompromissosUseCase $contarMeus,
+        private readonly DispensarAvisoDoGoogleUseCase $avisoDoGoogle,
     ) {
     }
 
@@ -59,13 +61,15 @@ final class AgendaNovaController extends AbstractController
 
             return $this->redirectToRoute('homepage');
         }
+        $google = $this->estadoDoGoogle->executar($tenant, $user);
 
         return $this->render('agenda/nova.html.twig', [
             'eu'     => ['id' => $user->getId(), 'nome' => $user->getFullName()],
             'podeVerPastas' => $this->daAgenda->verPastas($user, $tenant),
             'tenantId'      => $tenant->getId(),
             'escritorio'    => (string) $tenant->getName(),
-            'google'        => $this->estadoDoGoogle->executar($tenant, $user),
+            'google'        => $google,
+            'googleAviso'   => $this->avisoDoGoogle->mostrar($tenant, $user, $google),
             'equipe' => array_map(
                 static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
                 $this->usuarios->findColaboradoresAtivosPorTenant($tenant),
