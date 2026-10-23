@@ -33,6 +33,7 @@ use App\Ponto\Service\TurnoAbertoNoEscritorio;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\PublicoDosAvisosDePonto;
+use App\Ponto\Service\CartaoDePendenciaDoPonto;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
@@ -570,6 +571,23 @@ final class PontoController extends AbstractController
         }
 
         return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant, $jornada));
+    }
+
+    /**
+     * O cartão diário de pendência de registro da própria pessoa (spec `ponto-esquecimento-nao-trava.md` R9): só leitura,
+     * pedido pelo parcial global no máximo uma vez por dia (o JS guarda o "fechar" e o "adiar"). `cartao` null fora do
+     * público dos avisos de ponto ou sem pendência.
+     */
+    #[Route('/pendencia-do-dia', name: 'ponto_pendencia_do_dia', methods: ['GET'])]
+    public function pendenciaDoDia(CartaoDePendenciaDoPonto $cartao): JsonResponse
+    {
+        $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$user instanceof User || $tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
+            return $this->json(['cartao' => null]);
+        }
+
+        return $this->json(['cartao' => $cartao->de($user, $tenant)]);
     }
 
     /**

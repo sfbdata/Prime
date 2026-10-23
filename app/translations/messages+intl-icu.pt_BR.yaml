@@ -9132,4 +9132,14 @@ ponto_folha:
     registro_em_outro_escritorio: Houve registro em outro escritório neste período
     registro_em_outro_escritorio_dica: 'Enquanto o ponto deste escritório estava aberto, a pessoa registrou ponto em outro escritório. Confira as batidas do dia.'
 
+# ---- Ponto: cartão diário de pendência de registro (layout/_globais/ponto_pendente, spec ponto-esquecimento-nao-trava R9)
+ponto_cartao:
+    rotulo: 'PONTO · {n, plural, one {# pendência} other {# pendências}}'
+    titulo: Registro de ponto pendente
+    linha: '{dia}: {falta}'
+    linha_outro: '{dia}: {falta}, em {escritorio}'
+    adiar: Lembrar em 10 min
+    dispensar: Dispensar até amanhã
+    regiao: Lembrete do ponto
+
 # ---- fim

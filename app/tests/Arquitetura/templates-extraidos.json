@@ -1106,8 +1106,12 @@
 
     "ponto_pendencias": {
         "templates": [
-            "ponto/_pendencias.html.twig"
+            "ponto/_pendencias.html.twig",
+            "layout/_globais/ponto_pendente.html.twig"
         ],
-        "permitidos": ["·"]
+        "js": [
+            "ponto-pendente.js"
+        ],
+        "permitidos": ["·", "×", "Content-Type"]
     }
 }

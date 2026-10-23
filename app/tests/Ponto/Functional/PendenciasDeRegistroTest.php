@@ -291,6 +291,49 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString((string) $this->y->getName(), (string) $this->client->getResponse()->getContent());
     }
 
+    #[TestDox('R9: o cartão diário sai para o público com pendência: a mais antiga deste escritório, com o link do modal; sem pendência aqui, a de outro escritório com a orientação de trocar')]
+    public function testCartaoDiarioParaOPublico(): void
+    {
+        $antiga = $this->diaUtilAtras(8);
+        $recente = $this->diaUtilAtras(3);
+        $this->batida($this->y, 'entrada', $antiga->setTime(8, 0));
+        $this->batida($this->x, 'entrada', $recente->setTime(8, 0));
+
+        self::assertStringContainsString('id="bjPontoPendente"', $this->htmlDoPonto(), 'o parcial global entra para o público');
+        $cartao = $this->cartao();
+        self::assertSame('Registro de ponto pendente', $cartao['titulo']);
+        self::assertSame('PONTO · 2 pendências', $cartao['rotulo']);
+        self::assertSame($recente->format('d/m/Y') . ': Falta a saída', $cartao['linha']);
+        self::assertSame('/ponto/?competencia=' . $recente->format('Y-m') . '&esquecimento=' . $recente->format('Y-m-d') . ':saida', $cartao['link']);
+        self::assertNull($cartao['orientacao']);
+
+        $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
+        $cartao = $this->cartao();
+        self::assertSame('/escritorio/selecionar', $cartao['link']);
+        self::assertStringContainsString((string) $this->y->getName(), (string) $cartao['orientacao'], 'só a própria pessoa vê o nome');
+    }
+
+    #[TestDox('R9: o cartão diário não sai para quem não bate ponto (sem a chave e sem batida aqui nos últimos 30 dias), nem o parcial entra na página')]
+    public function testCartaoDiarioNaoSaiForaDoPublico(): void
+    {
+        $this->batida($this->y, 'entrada', $this->diaUtilAtras(3)->setTime(8, 0));
+        $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET registra_ponto = false WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
+        $this->em()->clear();
+
+        self::assertStringNotContainsString('id="bjPontoPendente"', $this->htmlDoPonto());
+        self::assertNull($this->cartao());
+    }
+
+    /** @return array<string, ?string>|null */
+    private function cartao(): ?array
+    {
+        $this->logarComTenant($this->client, $this->user, $this->x);
+        $this->client->request('GET', '/ponto/pendencia-do-dia');
+        self::assertResponseIsSuccessful();
+
+        return json_decode((string) $this->client->getResponse()->getContent(), true)['cartao'];
+    }
+
     // ----------------------------------------------------------------- apoio
 
     private function pedirEsquecimento(\DateTimeImmutable $dia, string $batida, string $hora): void

@@ -86,6 +86,15 @@ estava aberto (de uma entrada ou retorno até a próxima ida ao repouso ou saíd
 escritório; mesmo padrão visual do "Registro incompleto"; só na tela (PDF e XLSX não mudam). A consulta suspende o filtro
 de escritório e lê só os horários (`RegistroEmOutroEscritorioNoTurno`).
 
+**R9. Cartão diário de pendência (dono, 23/10).** Em qualquer tela, enquanto houver pendência de registro da pessoa
+(a mesma lista de R5, o mesmo público de R7), aparece o cartão do lembrete do desenho (bj-lembretes.js: pilha `#bjl-box`,
+borda esquerda, ícone redondo, rótulo, título, ação azul, adiar e fechar, barra de tempo), com o ícone e a cor do
+"Regularizar ponto de ontem" (`bi-exclamation-triangle`, `#c76a12`). Título "Registro de ponto pendente"; a linha dá o dia e
+o que falta. Uma vez por dia por pessoa e escritório (localStorage): "fechar" esconde até amanhã, "adiar" por 10 min (a
+duração do desenho). A ação leva à /ponto com o modal na pendência mais antiga deste escritório; só com pendência em outro
+escritório, orienta a trocar. Entra pelo parcial `layout/_globais/ponto_pendente.html.twig`, que só sai para o público; os
+dados vêm de `GET /ponto/pendencia-do-dia`, pedido só quando o cartão pode aparecer.
+
 ## 3. O que não muda
 
 - A chave do ponto, o choque de jornada, a cerca, o repouso mínimo e a regra de saída e ida ao repouso do #317.
