@@ -525,4 +525,51 @@ class PastaDocumentoRepository extends ServiceEntityRepository
 
         return $porPasta;
     }
+
+    /**
+     * Fila de `app:pasta:detectar-assinatura-antigos`: documentos ainda sem o selo "Assinado" que
+     * podem trazer assinatura digital (PDF, `.p7s`, `.p7m`), do mais antigo ao mais novo. Só ids,
+     * para o comando percorrer em lotes. Marcado (digital ou manual) não entra: rodar de novo não
+     * relê nada e a marcação manual nunca é tocada.
+     *
+     * @return list<int>
+     */
+    public function idsParaDetectarAssinatura(?int $tenantId = null, ?int $limite = null): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->select('d.id')
+            ->andWhere('d.assinadoEm IS NULL')
+            ->andWhere("(d.mimeType = 'application/pdf' OR LOWER(d.nomeOriginal) LIKE '%.p7s' OR LOWER(d.nomeOriginal) LIKE '%.p7m')")
+            ->orderBy('d.id', 'ASC');
+
+        if ($tenantId !== null) {
+            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
+        }
+
+        if ($limite !== null) {
+            $qb->setMaxResults($limite);
+        }
+
+        return array_map('intval', $qb->getQuery()->getSingleColumnResult());
+    }
+
+    /** Documentos que já têm o selo (digital ou manual): os "pulados" da varredura. */
+    public function contarJaAssinados(?int $tenantId = null): int
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->andWhere('d.assinadoEm IS NOT NULL');
+
+        if ($tenantId !== null) {
+            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /** Grava o que mudou nos documentos já gerenciados (a costura que o teste de UseCase mocka). */
+    public function salvar(): void
+    {
+        $this->getEntityManager()->flush();
+    }
 }

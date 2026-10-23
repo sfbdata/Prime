@@ -356,6 +356,8 @@
                            data-base-url-excluir="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
                            data-base-url-visualizar="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
                            data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                           data-base-url-marcar-assinado="{{ path('pasta_financeiro_documento_marcar_assinado', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                           data-base-url-desmarcar-assinado="{{ path('pasta_financeiro_documento_desmarcar_assinado', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
                            data-email-cliente="{{ emailCliente }}"
                            data-pasta-rotulo="{{ rotuloPastaEmail }}">
                 </label>
@@ -377,6 +379,11 @@
                                 <div class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
                                 <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|data }}</div>
                             </div>
+                            {# Selo "Assinado" (dc 1974-1976): entre o nome e o ⋮. Digital (visto no
+                               upload) ou marcado à mão pelo ⋮. `criarItemDoc` (JS) espelha. #}
+                            {% if doc.estaAssinado %}
+                            <span class="ps-fin-doc-selo"><i class="bi bi-patch-check-fill"></i>{{ 'pasta_financeiro.arquivos.assinado'|trans }}</span>
+                            {% endif %}
                             {# Menu ⋮ do arquivo (desenho 1.2.3, "Mais ações do arquivo"). Só entram
                                as ações que têm função de verdade: abrir no visualizador, baixar,
                                copiar o nome, renomear, enviar por e-mail ao cliente (`mailto:`), ver
@@ -442,6 +449,33 @@
                                             data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
                                         <i class="bi bi-pencil"></i><span>{{ 'pasta_financeiro.arquivos.renomear'|trans }}</span>
                                     </button>
+                                    {# Selo à mão (assinado à caneta e escaneado). A assinatura digital
+                                       é do arquivo: não ganha "Desmarcar". #}
+                                    {% if not doc.estaAssinado %}
+                                    <button type="button"
+                                            class="ps-fin-menu-item btn-assinatura-doc"
+                                            role="menuitem"
+                                            data-doc-id="{{ doc.id }}"
+                                            data-acao="marcar"
+                                            data-csrf="{{ csrf_token('pasta_financeiro_assinatura_' ~ doc.id) }}"
+                                            data-url-marcar="{{ path('pasta_financeiro_documento_marcar_assinado', {id: pasta.id, docId: doc.id}) }}"
+                                            data-url-desmarcar="{{ path('pasta_financeiro_documento_desmarcar_assinado', {id: pasta.id, docId: doc.id}) }}"
+                                            data-url="{{ path('pasta_financeiro_documento_marcar_assinado', {id: pasta.id, docId: doc.id}) }}">
+                                        <i class="bi bi-patch-check"></i><span>{{ 'pasta_financeiro.arquivos.marcar_assinado'|trans }}</span>
+                                    </button>
+                                    {% elseif doc.assinaturaOrigem.value == 'manual' %}
+                                    <button type="button"
+                                            class="ps-fin-menu-item btn-assinatura-doc"
+                                            role="menuitem"
+                                            data-doc-id="{{ doc.id }}"
+                                            data-acao="desmarcar"
+                                            data-csrf="{{ csrf_token('pasta_financeiro_assinatura_' ~ doc.id) }}"
+                                            data-url-marcar="{{ path('pasta_financeiro_documento_marcar_assinado', {id: pasta.id, docId: doc.id}) }}"
+                                            data-url-desmarcar="{{ path('pasta_financeiro_documento_desmarcar_assinado', {id: pasta.id, docId: doc.id}) }}"
+                                            data-url="{{ path('pasta_financeiro_documento_desmarcar_assinado', {id: pasta.id, docId: doc.id}) }}">
+                                        <i class="bi bi-x-circle"></i><span>{{ 'pasta_financeiro.arquivos.desmarcar_assinado'|trans }}</span>
+                                    </button>
+                                    {% endif %}
                                     {% endif %}
                                     {% if emailCliente %}
                                         <a class="ps-fin-menu-item js-fin-doc-email"
@@ -913,7 +947,30 @@
         return '<a class="ps-fin-menu-item js-fin-doc-email" role="menuitem" href="' + esc(href) + '">' + miolo + '</a>';
     }
 
-    function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir, meta) {
+    /* Selo "Assinado" (dc 1974-1976), o mesmo do Twig. */
+    function htmlSeloAssinado() {
+        return `<span class="ps-fin-doc-selo"><i class="bi bi-patch-check-fill"></i>${esc(BJ_T.t('pasta_financeiro.js.assinado'))}</span>`;
+    }
+
+    /* Item "Marcar como assinado" / "Desmarcar assinatura" do ⋮. Assinatura digital não ganha item.
+       `assinatura`: { assinado, origem, csrf, urlMarcar, urlDesmarcar }. */
+    function htmlItemAssinatura(id, assinatura) {
+        if (!assinatura || (assinatura.assinado && assinatura.origem !== 'manual')) { return ''; }
+        const marcar = !assinatura.assinado;
+        return `<button type="button"
+                            class="ps-fin-menu-item btn-assinatura-doc"
+                            role="menuitem"
+                            data-doc-id="${esc(id)}"
+                            data-acao="${marcar ? 'marcar' : 'desmarcar'}"
+                            data-csrf="${esc(assinatura.csrf)}"
+                            data-url="${esc(marcar ? assinatura.urlMarcar : assinatura.urlDesmarcar)}"
+                            data-url-marcar="${esc(assinatura.urlMarcar)}"
+                            data-url-desmarcar="${esc(assinatura.urlDesmarcar)}">
+                        <i class="bi ${marcar ? 'bi-patch-check' : 'bi-x-circle'}"></i><span>${esc(BJ_T.t(marcar ? 'pasta_financeiro.js.marcar_assinado' : 'pasta_financeiro.js.desmarcar_assinado'))}</span>
+                    </button>`;
+    }
+
+    function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir, meta, assinatura) {
         /* "Encaminhar via Chat I.A" (D:6958): o id da pasta vem do atributo que o Twig põe na lista
            (só com a Central e fora da lápide); o do documento é o número do servidor. */
         const encaminharPasta = Number(docLista.dataset.encaminharPasta || 0);
@@ -936,6 +993,7 @@
                 <div class="ps-doc-nome" title="${esc(titulo)}">${esc(titulo)}</div>
                 <div class="ps-doc-meta">${esc(meta ?? '')}</div>
             </div>
+            ${assinatura && assinatura.assinado ? htmlSeloAssinado() : ''}
             <div class="ps-fin-doc-acoes">
                 <button type="button"
                         class="ps-fin-menu-gatilho"
@@ -977,6 +1035,7 @@
                             data-url="${esc(urlRenomear)}">
                         <i class="bi bi-pencil"></i><span>${esc(BJ_T.t('pasta_financeiro.js.renomear'))}</span>
                     </button>
+                    ${htmlItemAssinatura(id, assinatura)}
                     ${htmlItemEmail(titulo)}
                     <button type="button" class="ps-fin-menu-item js-fin-doc-ver-documentos" role="menuitem">
                         <i class="bi bi-folder2-open"></i><span>${esc(BJ_T.t('pasta_financeiro.js.ver_documentos'))}</span>
@@ -1007,6 +1066,8 @@
             const baseExc  = this.dataset.baseUrlExcluir;
             const baseVis  = this.dataset.baseUrlVisualizar;
             const baseDl   = this.dataset.baseUrlDownload;
+            const baseMarc = this.dataset.baseUrlMarcarAssinado;
+            const baseDesm = this.dataset.baseUrlDesmarcarAssinado;
 
             uploadErro.classList.add('d-none');
             uploadSpinner.classList.remove('d-none');
@@ -1044,7 +1105,13 @@
                 // da vista, contrariando o desenho no caso em que ele mais importa.
                 if (docLista.querySelectorAll('.ps-fin-doc').length < MAX_ARQUIVOS) {
                     docLista.appendChild(
-                        criarItemDoc(data.id, data.titulo, data.mimeType, urlVis, urlDl, urlRen, data.csrfRenomear, urlExc, data.csrfExcluir, data.meta)
+                        criarItemDoc(data.id, data.titulo, data.mimeType, urlVis, urlDl, urlRen, data.csrfRenomear, urlExc, data.csrfExcluir, data.meta, {
+                            assinado: !!data.assinatura,
+                            origem: data.assinatura,
+                            csrf: data.csrfAssinatura,
+                            urlMarcar: baseMarc.replace('__ID__', data.id),
+                            urlDesmarcar: baseDesm.replace('__ID__', data.id),
+                        })
                     );
                 } else {
                     mostrarExcedente();
@@ -1150,6 +1217,41 @@
                     if (ev.key === 'Escape') { restaurarSpan(tituloAtual); }
                 });
 
+                return;
+            }
+
+            // Marcar/desmarcar o selo "Assinado". O botão é atualizado no lugar (não trocado): o
+            // script dos menus, que fecha o ⋮ depois deste handler, ainda precisa achá-lo no menu.
+            const btnAss = e.target.closest('.btn-assinatura-doc');
+            if (btnAss) {
+                const item   = document.getElementById('financeiro-doc-' + btnAss.dataset.docId);
+                const fd     = new FormData();
+                fd.append('_token', btnAss.dataset.csrf);
+
+                try {
+                    const resp = await fetch(btnAss.dataset.url, {
+                        method: 'POST',
+                        body: fd,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        (window.avisarErroPs || window.alert)(data.erro ?? data.mensagem ?? BJ_T.t('pasta_financeiro.js.erro_assinatura'));
+                        return;
+                    }
+                    const selo = item ? item.querySelector(':scope > .ps-fin-doc-selo') : null;
+                    if (data.assinado && !selo && item) {
+                        item.querySelector(':scope > .ps-fin-doc-acoes').insertAdjacentHTML('beforebegin', htmlSeloAssinado());
+                    }
+                    if (!data.assinado && selo) { selo.remove(); }
+                    const agoraMarcar = !data.assinado;
+                    btnAss.dataset.acao = agoraMarcar ? 'marcar' : 'desmarcar';
+                    btnAss.dataset.url  = agoraMarcar ? btnAss.dataset.urlMarcar : btnAss.dataset.urlDesmarcar;
+                    btnAss.querySelector('i').className = 'bi ' + (agoraMarcar ? 'bi-patch-check' : 'bi-x-circle');
+                    btnAss.querySelector('span').textContent = BJ_T.t(agoraMarcar ? 'pasta_financeiro.js.marcar_assinado' : 'pasta_financeiro.js.desmarcar_assinado');
+                } catch (_) {
+                    (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede'));
+                }
                 return;
             }
 
