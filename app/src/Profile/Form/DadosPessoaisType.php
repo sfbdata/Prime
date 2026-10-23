@@ -70,16 +70,21 @@ final class DadosPessoaisType extends AbstractType
         $this->adicionarCamposDoVinculo($builder);
     }
 
-    /** Desenho 05 de 21/10 (filtros Gênero e Cargo): declarados pela pessoa, nunca obrigatórios. */
+    /**
+     * Desenho 05 de 21/10 (filtros Gênero e Cargo): declarados pela pessoa, nunca obrigatórios aqui. Gênero só com
+     * Feminino e Masculino (D1 da spec genero-no-cadastro): o legado `nao_informado` não é oferecido nem aceito.
+     */
     private function adicionarGeneroEAtuacao(FormBuilderInterface $builder): void
     {
         $builder
             ->add('genero', EnumType::class, [
-                'class'        => Genero::class,
-                'label'        => 'Gênero',
-                'required'     => false,
-                'placeholder'  => 'Não preenchido',
-                'choice_label' => static fn (Genero $g): string => $g->rotulo(),
+                'class'           => Genero::class,
+                'choices'         => Genero::oferecidos(),
+                'label'           => 'Gênero',
+                'required'        => false,
+                'placeholder'     => 'Não preenchido',
+                'choice_label'    => static fn (Genero $g): string => $g->rotulo(),
+                'invalid_message' => Genero::ERRO_INFORME,
             ])
             ->add('atuacao', EnumType::class, [
                 'class'        => Atuacao::class,

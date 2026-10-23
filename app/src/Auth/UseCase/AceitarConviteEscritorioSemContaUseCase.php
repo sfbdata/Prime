@@ -12,6 +12,8 @@ use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Enum\Genero;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
@@ -59,6 +61,7 @@ final class AceitarConviteEscritorioSemContaUseCase
         // O `required` do HTML não protege um POST direto: a mesma regra do aceite de plataforma.
         DadosDaContaDoConvite::exigirSenha($input->senha);
         $fullName = DadosDaContaDoConvite::nome($input->fullName, $invitation->getFullName());
+        $genero = Genero::informado($input->genero);   // spec genero-no-cadastro: obrigatório, só F ou M
 
         $tenant = $invitation->getTenant();
         if ($tenant === null) {
@@ -83,6 +86,7 @@ final class AceitarConviteEscritorioSemContaUseCase
         $user->setIsActive(true);
         $user->setRoles(['ROLE_USER']);
         $user->setPassword($this->passwordHasher->hashPassword($user, $input->senha));
+        UserProfile::daContaNova($user, $genero);   // persistido em cascata com o User
 
         $userTenant = new UserTenant($user, $tenant);
         if ($invitation->getTenantRole() !== null) {

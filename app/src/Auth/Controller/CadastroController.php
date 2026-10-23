@@ -201,6 +201,7 @@ final class CadastroController extends AbstractController
             email: self::texto($dados, 'email'),
             senha: self::texto($dados, 'senha'),
             aceite: in_array($dados['aceite'] ?? false, [true, 1, '1', 'true', 'on'], true),
+            genero: self::texto($dados, 'genero'),
         );
     }
 

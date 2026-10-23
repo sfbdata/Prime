@@ -1,0 +1,28 @@
+{#
+    Janela "Como devemos tratar você?" (spec genero-no-cadastro, regra 3), no molde do aviso de espaço: cartão no
+    topo, CSS e JS próprios, sem modal do Bootstrap. Aparece para quem está logado e não tem o gênero preenchido
+    (pedir_genero(): nulo, sem perfil ou o legado nao_informado); o X fecha só nesta sessão. Só Feminino e
+    Masculino (D1 da spec). Sem JS, o formulário grava e volta para a tela inicial.
+#}
+{% if pedir_genero() %}
+    <link rel="stylesheet" href="{{ asset('css/janela-genero.css') }}">
+    <div class="jg-janela" data-janela-genero data-print="hide" role="dialog" aria-labelledby="jgTitulo" hidden>
+        <form class="jg-form" method="post" action="{{ path('app_profile_genero') }}" data-acao-fechar="{{ path('app_profile_genero_fechar') }}" novalidate>
+            <div class="jg-topo">
+                <b class="jg-titulo" id="jgTitulo">{{ 'moldura.genero.titulo'|trans }}</b>
+                <button type="button" class="jg-fechar" data-fechar-janela-genero title="{{ 'moldura.genero.fechar'|trans }}" aria-label="{{ 'moldura.genero.fechar'|trans }}">×</button>
+            </div>
+            <p class="jg-texto">{{ 'moldura.genero.texto'|trans }}</p>
+            <div class="jg-opcoes" role="radiogroup" aria-labelledby="jgTitulo">
+                <label class="jg-opcao"><input type="radio" name="genero" value="feminino"><span>{{ 'moldura.genero.feminino'|trans }}</span></label>
+                <label class="jg-opcao"><input type="radio" name="genero" value="masculino"><span>{{ 'moldura.genero.masculino'|trans }}</span></label>
+            </div>
+            <div class="jg-erro" data-erro-janela-genero role="alert" hidden></div>
+            <input type="hidden" name="_token" value="{{ csrf_token('perfil_genero') }}">
+            <div class="jg-rodape">
+                <button type="submit" class="jg-salvar">{{ 'moldura.genero.salvar'|trans }}</button>
+            </div>
+        </form>
+    </div>
+    <script src="{{ asset('js/janela-genero.js') }}" defer></script>
+{% endif %}

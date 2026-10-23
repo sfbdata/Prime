@@ -71,7 +71,7 @@ final class EventosDepoisDoCommitTest extends KernelTestCase
         });
 
         static::getContainer()->get(AceitarConviteEscritorioSemContaUseCase::class)
-            ->executar(new AceitarConviteEscritorioSemContaInput($token, 'Bia Convite', 'senha12345', aceiteTermos: true, ip: '1.2.3.4'));
+            ->executar(new AceitarConviteEscritorioSemContaInput($token, 'Bia Convite', 'senha12345', aceiteTermos: true, ip: '1.2.3.4', genero: 'feminino'));
 
         self::assertSame(1, $visto, 'o aceite dos termos já está no banco quando o evento chega');
         self::assertSame(1, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM "user" WHERE email = ?', [$email]));
@@ -85,7 +85,7 @@ final class EventosDepoisDoCommitTest extends KernelTestCase
         $this->conexao->executeStatement('ALTER TABLE comercial_ciclo_conta RENAME TO comercial_ciclo_conta_fora');
         try {
             static::getContainer()->get(AceitarConviteEscritorioSemContaUseCase::class)
-                ->executar(new AceitarConviteEscritorioSemContaInput($token, 'Caio Convite', 'senha12345', aceiteTermos: true));
+                ->executar(new AceitarConviteEscritorioSemContaInput($token, 'Caio Convite', 'senha12345', aceiteTermos: true, genero: 'masculino'));
         } finally {
             $this->conexao->executeStatement('ALTER TABLE comercial_ciclo_conta_fora RENAME TO comercial_ciclo_conta');
         }

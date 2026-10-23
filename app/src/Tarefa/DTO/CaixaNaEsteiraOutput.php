@@ -13,7 +13,7 @@ use App\Tarefa\Enum\EtapaDaPasta;
 final class CaixaNaEsteiraOutput
 {
     /**
-     * @param list<string> $avisados nomes de quem é avisado quando chega demanda
+     * @param list<AvisadoNaEsteiraOutput> $avisados quem é avisado quando chega demanda
      * @param list<int>    $idsDosAvisados
      */
     public function __construct(
