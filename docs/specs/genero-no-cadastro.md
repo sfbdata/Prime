@@ -6,48 +6,65 @@ Risco ALTO (identidade User). Pedido do dono (23/10/2026, via coordenador). Prop
 ## Estado da frente
 
 - 23/10: spec; implementação começando.
+- 23/10: D1 do dono (só Feminino e Masculino; `nao_informado` vira legado). Implementado na branch, sem migration: o
+  perfil nasce na criação da conta (`UserProfile::daContaNova`, em cascata com o User). Janela em
+  `layout/_globais/genero.html.twig` + `janela-genero.js/.css`, POSTs em `GeneroDoPerfilController`
+  (`/perfil/genero` e `/perfil/genero/fechar`, CSRF `perfil_genero`; o X guarda a marca na sessão). Dr./Dra. por
+  `TratamentoDeAdvogado` (código `dr`/`dra`; o texto vem do catálogo `metas.esteira.tratamento_*`). Suíte completa
+  da frente verde e `scripts/qa.sh` limpo. Falta: revisão (`/review`), smoke do dono e PR.
 
 ## O que já existe
 
-`App\Profile\Enum\Genero` (`feminino` "Feminino", `masculino` "Masculino", `nao_informado` "Prefiro não informar"),
+`App\Profile\Enum\Genero` (`feminino` "Feminino", `masculino` "Masculino" e o legado `nao_informado`, ver D1),
 coluna `user_profiles.genero` (nulo = não preenchido, com CHECK), editada no Meu Perfil (`DadosPessoaisType`,
 `AtualizarDadosPessoaisUseCase`). O perfil é criado sob demanda (`ObterOuCriarPerfilUseCase`). Sem migration nova
 se der para gravar o gênero no perfil já na criação da conta; a 150500 só se for inevitável (avisar o coordenador).
 
 ## Regras
 
-1. **Campo obrigatório** "Gênero" (Feminino, Masculino, Prefiro não informar), sem valor pré-escolhido, em:
+1. **Campo obrigatório** "Gênero" (só Feminino e Masculino, D1), sem valor pré-escolhido, em:
    - cadastro da tela de entrada (modal, passo "Criar conta"), com os componentes de campo do próprio desenho 10
      (**desvio autorizado**: o desenho 10 não tem o campo; pedido do dono);
    - aceite de convite do escritório sem conta, aceite de convite da plataforma (`auth/convite/ver.html.twig`) e
      convite do Trabalho Externo (`trabalho_externo/convite.html.twig`);
-   - Meu Perfil: continua como está (já tem o campo; segue opcional lá, para não travar quem edita outros dados).
-   Sem escolha, o envio é recusado com "Informe o gênero." (servidor e tela). Valor fora das três opções: a mesma
-   recusa. Quem aceita convite já tendo conta não vê o campo.
+   - Meu Perfil: continua com o campo opcional (para não travar quem edita outros dados), agora só com as duas
+     opções.
+   Sem escolha, o envio é recusado com "Informe o gênero." (servidor e tela). Valor fora das duas opções (inclusive
+   `nao_informado`): a mesma recusa. Quem aceita convite já tendo conta não vê o campo.
 2. **O admin do escritório não edita o gênero de outra pessoa** (dado pessoal): nada muda em
    `TenantUserProfileController`.
-3. **Janela para quem não informou:** todo usuário logado com `genero` nulo (ou sem perfil) vê, em qualquer tela
-   do layout, uma janela no molde do aviso de espaço (`layout/_globais/aviso_espaco`: parcial em
+3. **Janela para quem não informou:** todo usuário logado com `genero` nulo, `nao_informado` (legado) ou sem perfil
+   vê, em qualquer tela do layout, uma janela no molde do aviso de espaço (`layout/_globais/aviso_espaco`: parcial em
    `layout/_globais/`, JS e CSS próprios, componentes do desenho, sem modal do Bootstrap). Conteúdo: título
    "Como devemos tratar você?", texto "Usamos essa informação para escrever o seu nome corretamente no sistema (por
-   exemplo, Dr. ou Dra.).", as três opções e o botão "Salvar"; o X fecha. Salvar grava pelo mesmo caminho do Meu
+   exemplo, Dr. ou Dra.).", as duas opções e o botão "Salvar"; o X fecha. Salvar grava pelo mesmo caminho do Meu
    Perfil (POST próprio com CSRF, só o próprio usuário) e a janela some. Fechar vale só para a sessão: volta no
-   próximo login, até o gênero ser preenchido. "Prefiro não informar" conta como preenchido. A janela não aparece
+   próximo login, até o gênero ser preenchido. A janela não aparece
    nas telas sem o layout (entrada, véu, gate dos Termos) nem para quem está no gate dos Termos.
 4. **Dr./Dra. na esteira das Metas** (desenho 04, `trat()`, L155-162): na lista "avisados" da caixa
    (`templates/tarefa/_esteira.html.twig`, nomes de `MontarEsteiraDaPastaUseCase`), quem é advogado (OAB no
    cadastro: `User::oabNumero` preenchido) com gênero Feminino aparece "Dra. Nome", com Masculino "Dr. Nome". Sem
-   OAB, sem gênero ou com "Prefiro não informar": só o nome, como hoje. O nome continua o `nomeCurto`. O desenho
+   OAB, sem gênero ou com o legado `nao_informado`: só o nome, como hoje. O nome continua o `nomeCurto`. O desenho
    adivinha o gênero pela terminação do nome; aqui não se adivinha (decisão do dono). A dica (`avisados_dica`)
    segue o mesmo tratamento.
 5. Textos sem travessão; os textos novos entram no catálogo de idioma nas áreas já extraídas (entrada, auth,
    metas, moldura), no molde do #228.
 
+## Decisões
+
+- **D1 (dono, 23/10/2026, via coordenador): o gênero tem só Feminino e Masculino.** "Prefiro não informar" sai das
+  opções em todo lugar: cadastro, os três convites, a janela e o Meu Perfil. Sem migration: o caso `nao_informado`
+  continua no enum `Genero`, marcado como legado e nunca oferecido, para não quebrar a leitura de um valor antigo
+  (0 registros em produção e no saas_ux em 23/10). Se aparecer, conta como NÃO preenchido: a janela aparece, o
+  Dr./Dra. não sai e o Meu Perfil mostra o campo vazio. Formulários e janela recusam `nao_informado` com "Informe o
+  gênero.".
+
 ## Testes
 
 - Unit: os UseCases de criação de conta (cadastro, convites, Trabalho Externo) gravam o gênero; recusam sem ele ou
-  com valor inválido; o tratamento Dr./Dra. (advogado F, advogado M, advogado sem gênero, advogado "Prefiro não
-  informar", não advogado com gênero).
-- Functional: o campo nos 4 formulários (filho direto do lugar certo); a recusa; a janela aparece para quem não
-  tem gênero, some depois de salvar, volta no próximo login depois de fechada, não aparece para quem tem; o POST
+  com valor inválido; o tratamento Dr./Dra. (advogado F, advogado M, advogado sem gênero, advogado com o legado
+  `nao_informado`, não advogado com gênero).
+- Functional: o campo nos 4 formulários (filho direto do lugar certo), sem a opção "Prefiro não informar" (nem na
+  janela nem no Meu Perfil); a recusa; um perfil com `nao_informado` vê a janela e não ganha o título; a janela
+  aparece para quem não tem gênero, some depois de salvar, volta no próximo login depois de fechada, não aparece para quem tem; o POST
   da janela exige CSRF e só grava o próprio usuário; a esteira mostra "Dra." / "Dr." / só o nome.

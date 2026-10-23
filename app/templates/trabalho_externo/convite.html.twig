@@ -36,6 +36,15 @@
                         <label for="senha" class="form-label">{{ 'trabalho_externo.convite.senha'|trans }}</label>
                         <input type="password" id="senha" name="senha" class="form-control" minlength="8" required autocomplete="new-password">
                     </div>
+                    {# Gênero obrigatório, sem valor escolhido (spec genero-no-cadastro); volta marcado se a página voltar com erro. #}
+                    <div class="mb-3">
+                        <label for="genero" class="form-label">{{ 'trabalho_externo.convite.genero'|trans }}</label>
+                        <select id="genero" name="genero" class="form-select" required>
+                            <option value="">{{ 'trabalho_externo.convite.genero_escolha'|trans }}</option>
+                            <option value="feminino"{% if generoDigitado|default('') == 'feminino' %} selected{% endif %}>{{ 'trabalho_externo.convite.genero_feminino'|trans }}</option>
+                            <option value="masculino"{% if generoDigitado|default('') == 'masculino' %} selected{% endif %}>{{ 'trabalho_externo.convite.genero_masculino'|trans }}</option>
+                        </select>
+                    </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="aceite_termos" name="aceite_termos" value="1" required>
                         <label class="form-check-label" for="aceite_termos">
