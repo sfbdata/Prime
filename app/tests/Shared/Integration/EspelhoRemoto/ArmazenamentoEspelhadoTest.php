@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Integration\EspelhoRemoto;
 
+use App\Contribua\Armazenamento\ArmazenamentoComCota;
 use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ArmazenamentoLocal;
 use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -174,15 +176,53 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
         }
     }
 
-    #[TestDox('no container, as três interfaces do armazenamento são o decorador — e, sem configuração, ele está desligado')]
+    #[TestDox('no container, a cadeia é cota, espelho, disco; as outras duas interfaces são o espelho; e, sem configuração, ele está desligado')]
     public function testContainerEntregaODecoradorDesligado(): void
     {
         $container = static::getContainer();
 
-        self::assertInstanceOf(ArmazenamentoEspelhado::class, $container->get(ArmazenamentoDeArquivos::class));
+        // A cota recusa antes de gravar; o espelho registra depois da gravação local (decisão de 23/10).
+        self::assertSame(
+            [ArmazenamentoComCota::class, ArmazenamentoEspelhado::class, ArmazenamentoLocal::class],
+            $this->cadeia($container->get(ArmazenamentoDeArquivos::class)),
+        );
         self::assertInstanceOf(ArmazenamentoEspelhado::class, $container->get(MaterializadorDeArquivo::class));
         self::assertInstanceOf(ArmazenamentoEspelhado::class, $container->get(ArmazenamentoComPrefixo::class));
         self::assertFalse($container->get(PoliticaDeEspelhamento::class)->estaLigada());
+    }
+
+    #[TestDox('pelo armazenamento do container, desligado: gravar e excluir chegam ao disco e não deixam linha na outbox')]
+    public function testContainerDesligadoNaoRegistraNada(): void
+    {
+        $armazenamento = static::getContainer()->get(ArmazenamentoDeArquivos::class);
+        $antes         = $this->total();
+
+        $armazenado = $armazenamento->gravar(
+            new NovoArquivo(EscopoDeArquivo::global(), CategoriaDeArquivo::FOTO_PERFIL, 'jpg'),
+            FonteDeConteudo::deTexto('foto'),
+        );
+        self::assertSame('foto', $armazenamento->ler($armazenado->chave), 'gravou no disco de verdade');
+        $armazenamento->excluir($armazenado->chave);
+
+        self::assertFalse($armazenamento->existe($armazenado->chave));
+        self::assertSame($antes, $this->total(), 'desligado, o espelho não registra nada');
+    }
+
+    /**
+     * As classes da cadeia de decoradores, de fora para dentro, seguindo a propriedade `interno`.
+     *
+     * @return list<class-string>
+     */
+    private function cadeia(object $armazenamento): array
+    {
+        $classes = [];
+        for ($atual = $armazenamento; \is_object($atual); ) {
+            $classes[] = $atual::class;
+            $reflexao  = new \ReflectionObject($atual);
+            $atual     = $reflexao->hasProperty('interno') ? $reflexao->getProperty('interno')->getValue($atual) : null;
+        }
+
+        return $classes;
     }
 
     private function espelhado(PoliticaDeEspelhamento $politica): ArmazenamentoEspelhado
