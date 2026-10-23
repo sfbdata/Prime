@@ -31,6 +31,16 @@
 
 **R1. Nenhum esquecimento recusa batida.** Isso vale para entrada ou saída esquecida, hoje ou em dia anterior, no mesmo
 escritório ou em outro.
+- **Saída solta passa (dono, 23/10).** A saída ou a ida ao repouso sem entrada aberta neste escritório passa, sem a
+  chave e sem o choque. Até então só passava a que fechava um turno aberto aqui (#317).
+- Sem turno aberto e sem entrada no dia neste escritório, a resposta traz o aviso "Faltou a entrada neste dia. Envie o
+  registro de esquecimento." (`TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA`), com o link do modal de esquecimento da
+  entrada do dia.
+- A folha marca o dia como "Registro incompleto" e conta 0 minutos.
+- A entrada e o retorno do repouso continuam sujeitos à chave e ao choque.
+- O pedido de esquecimento só vale para a batida que falta: com uma batida do mesmo tipo no dia neste escritório, o
+  pedido (e a edição dele) é recusado com "Já existe um registro de {tipo} neste dia." (`BatidaJaRegistrada`). Fecha o
+  desvio da interjornada de R4.
 
 **R2. A trava de entrada aberta em outro escritório deixa de recusar.**
 - Se houver ponto aberto no A (entrada ou retorno sem fechamento), a entrada no B **passa**.
@@ -38,7 +48,8 @@ escritório ou em outro.
   registro de esquecimento por lá."
 - O escritório é da própria pessoa, então o nome pode aparecer. A regra de não mostrar o nome vale para o choque visto pelo
   admin, não para a própria pessoa.
-- O choque de **jornada** continua valendo (#317). Ele é sobre o horário cadastrado e não sobre esquecimento.
+- O choque de **jornada** continua valendo (#317) para a entrada e o retorno do repouso. Ele é sobre o horário
+  cadastrado e não sobre esquecimento. A saída e a ida ao repouso passam sempre (R1).
 
 **R3. O atalho do cabeçalho sempre oferece "Bater ponto".**
 - O estado `regularizar_ontem` continua existindo, mas como **aviso**: mostra a pendência e o caminho do registro de

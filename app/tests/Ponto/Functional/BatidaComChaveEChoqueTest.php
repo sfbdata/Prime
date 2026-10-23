@@ -11,6 +11,10 @@ use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\HomeOfficeConfig;
 use App\Ponto\Service\ChaveDoPontoEletronico;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\TurnoAbertoNoEscritorio;
+use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Entity\JornadaColaborador;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDeJornadaPorEscritorioTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -25,6 +29,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 #[CoversClass(PontoController::class)]
 #[CoversClass(ChaveDoPontoEletronico::class)]
 #[CoversClass(ChoqueDeJornadaEntreEscritorios::class)]
+#[CoversClass(TurnoAbertoNoEscritorio::class)]
 final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
 {
     use CenarioDeJornadaPorEscritorioTrait;
@@ -138,16 +143,17 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
     }
 
-    #[TestDox('Saída solta em A, sem entrada aberta aqui, no horário de B: recusa como a entrada')]
-    public function testSaidaSoltaNoHorarioDeBRecusa(): void
+    #[TestDox('Saída solta em A, sem entrada aberta aqui, no horário de B: passa com o aviso da entrada que faltou (dono 23/10), e a folha marca o dia incompleto com 0 minutos')]
+    public function testSaidaSoltaNoHorarioDeBPassaComAviso(): void
     {
-        $trecho = $this->jornadaDeHojeEmTornoDeAgora();
+        $this->jornadaDeHojeEmTornoDeAgora();
 
         $resposta = $this->baterEmA('saida');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(sprintf(ChoqueDeJornadaEntreEscritorios::MENSAGEM_BATIDA, ...$trecho), $resposta['message'] ?? null);
-        self::assertSame(0, $this->batidasEm($this->a));
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+        self::assertSame([$this->avisoSemEntrada()], $resposta['avisos']);
+        self::assertSame(1, $this->batidasEm($this->a));
+        $this->assertDiaIncompletoComZeroMinutos();
     }
 
     #[TestDox('Chave desligada em A com a entrada aberta em A: a saída em A passa')]
@@ -174,28 +180,83 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
     }
 
-    #[TestDox('Repouso e depois saída no horário de B, sem entrada aberta: a saída é recusada')]
-    public function testRepousoSeguidoDeSaidaSemEntradaAbertaRecusa(): void
+    #[TestDox('Repouso e depois saída no horário de B, sem entrada aberta: a saída passa com o aviso da entrada que faltou')]
+    public function testRepousoSeguidoDeSaidaSemEntradaAbertaPassaComAviso(): void
     {
         $this->registrarBatida($this->pessoa, $this->a, 'repouso', $this->hojeCedo());
-        $trecho = $this->jornadaDeHojeEmTornoDeAgora();
+        $this->jornadaDeHojeEmTornoDeAgora();
 
         $resposta = $this->baterEmA('saida');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(sprintf(ChoqueDeJornadaEntreEscritorios::MENSAGEM_BATIDA, ...$trecho), $resposta['message'] ?? null);
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+        self::assertSame([$this->avisoSemEntrada()], $resposta['avisos']);
+        $this->assertDiaIncompletoComZeroMinutos();
     }
 
-    #[TestDox('Chave desligada em A sem entrada aberta: a saída em A é recusada')]
-    public function testChaveDesligadaSemEntradaAbertaSaidaRecusa(): void
+    #[TestDox('Chave desligada em A sem entrada aberta: a saída e a ida ao repouso em A passam com o aviso; a entrada continua recusada')]
+    public function testChaveDesligadaSemEntradaAbertaSaidaPassaComAviso(): void
     {
         $this->vinculoEmA->alterarRegistroDePonto(false);
         $this->em()->flush();
 
+        $repouso = $this->baterEmA('repouso');
+        self::assertTrue($repouso['success'] ?? false, (string) ($repouso['message'] ?? ''));
+        self::assertSame([$this->avisoSemEntrada()], $repouso['avisos']);
+
+        $saida = $this->baterEmA('saida');
+        self::assertTrue($saida['success'] ?? false, (string) ($saida['message'] ?? ''));
+        self::assertSame([$this->avisoSemEntrada()], $saida['avisos']);
+
+        $entrada = $this->baterEmA('entrada');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(ChaveDoPontoEletronico::MENSAGEM_DESLIGADA, $entrada['message'] ?? null);
+        $this->assertDiaIncompletoComZeroMinutos();
+    }
+
+    #[TestDox('Saída que fecha a entrada de hoje em A não leva o aviso da entrada que faltou')]
+    public function testSaidaComEntradaNoDiaSemAviso(): void
+    {
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
+
         $resposta = $this->baterEmA('saida');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(ChaveDoPontoEletronico::MENSAGEM_DESLIGADA, $resposta['message'] ?? null);
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+        self::assertSame([], $resposta['avisos']);
+    }
+
+    /** @return array{texto: string, link: string, rotulo: string} */
+    private function avisoSemEntrada(): array
+    {
+        $hoje = new \DateTimeImmutable();
+
+        return [
+            'texto' => TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA,
+            'link' => '/ponto/?competencia=' . $hoje->format('Y-m') . '&esquecimento=' . $hoje->format('Y-m-d') . ':entrada',
+            'rotulo' => TurnoAbertoNoEscritorio::ROTULO_ENVIAR,
+        ];
+    }
+
+    /** A folha de hoje em A: o dia sem entrada é "registro incompleto" e conta 0 minutos. */
+    private function assertDiaIncompletoComZeroMinutos(): void
+    {
+        $hoje = new \DateTimeImmutable('today');
+        $c = static::getContainer();
+        $batidas = $c->get(RegistroPontoRepository::class)->batidasDoDiaNoEscritorio($this->pessoa, $this->a, $hoje);
+        $linhas = $c->get(FolhaPontoBuilder::class)->buildRows(
+            $hoje,
+            $hoje->setTime(23, 59, 59),
+            $batidas,
+            true,
+            false,
+            (new JornadaColaborador())->setUser($this->pessoa),
+            [],
+            [],
+            null,
+            $hoje,
+        );
+
+        self::assertTrue($linhas[0]['registroIncompleto'], 'dia incompleto');
+        self::assertSame(0, $linhas[0]['minutosTrabalhadosDia'], '0 minutos');
     }
 
     #[TestDox('Retorno do repouso no horário de B continua recusado, como a entrada')]

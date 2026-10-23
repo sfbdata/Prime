@@ -48,6 +48,9 @@
      últimas 16 horas até o momento, é entrada ou retorno. A janela de 16 horas cobre o turno noturno (entrada às 22:00,
      saída às 06:00) e jornadas de até 16 horas (`TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS`). Assim a chave e o
      choque nunca prendem o ponto aberto. Entrada e retorno do repouso seguem sujeitos às duas recusas.
+     **Mudou em 23/10 (decisão do dono):** toda saída e ida ao repouso passam, mesmo sem entrada aberta neste
+     escritório; a solta leva o aviso "Faltou a entrada neste dia. Envie o registro de esquecimento." Ver
+     `docs/specs/ponto-esquecimento-nao-trava.md`, R1.
 4. **Backfill** (produção tem 10 jornadas):
    - pessoa com um único escritório ativo: a jornada vai para ele;
    - pessoa sem vínculo ativo: vai para o último escritório. A fonte é o último `RegistroPonto`, porque remover o
@@ -107,7 +110,8 @@
   - na batida, ao lado da trava `EntradaAbertaEmOutroEscritorio`, com a hora atual contra os intervalos de hoje dos
     outros escritórios, só quando ela não cai num intervalo de hoje deste escritório. Saída e ida ao repouso passam
     quando fecham uma entrada aberta neste escritório; fora disso valem as recusas (proposta da 0d, aguardando
-    confirmação do dono).
+    confirmação do dono). Mudou em 23/10: a saída e a ida ao repouso passam sempre, e a trava virou aviso
+    (`ponto-esquecimento-nao-trava.md`, R1 e R2).
 - **Mensagens** no padrão da trava existente, como constantes de texto no PHP devolvidas no JSON de erro. Sem nome de
   escritório.
 

@@ -773,6 +773,7 @@ final class PontoController extends AbstractController
             return $this->json(['success' => false, 'message' => $interjornada['recusa']], 422);
         }
 
+        $semEntrada = $this->faltouAEntrada($user, $tenant, $tipo, $hoje, $registroRepository);   // antes de gravar
         $registro = new RegistroPonto();
         $registro->setUser($user);
         $registro->setTenant($tenant);
@@ -804,7 +805,7 @@ final class PontoController extends AbstractController
             'success' => true,
             'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
             'data'    => $dados,
-            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null),
+            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);
     }
 
@@ -815,7 +816,7 @@ final class PontoController extends AbstractController
      *
      * @return list<array{texto: string, link: ?string, rotulo: ?string}>
      */
-    private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta, ?string $interjornada): array
+    private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta, ?string $interjornada, bool $semEntrada): array
     {
         $avisos = [];
         if (!$this->publico->recebe($user, $tenant)) {
@@ -827,8 +828,30 @@ final class PontoController extends AbstractController
         if ($interjornada !== null) {
             $avisos[] = ['texto' => $interjornada, 'link' => null, 'rotulo' => null];
         }
+        if ($semEntrada) {
+            $link = $this->generateUrl('ponto_index', ['competencia' => $agora->format('Y-m'), 'esquecimento' => $agora->format('Y-m-d') . ':' . RegistroPonto::TIPO_ENTRADA]);
+            $avisos[] = ['texto' => TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA, 'link' => $link, 'rotulo' => TurnoAbertoNoEscritorio::ROTULO_ENVIAR];
+        }
 
         return $avisos;
+    }
+
+    /**
+     * Saída ou ida ao repouso solta (spec `ponto-esquecimento-nao-trava.md` R1): sem turno aberto neste escritório e sem
+     * entrada no dia aqui. A batida passa (a folha marca o dia incompleto e conta 0 minutos) e a resposta avisa.
+     */
+    private function faltouAEntrada(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, RegistroPontoRepository $registros): bool
+    {
+        if (!in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true) || $this->turnoAberto->estaAberto($user, $tenant, $agora)) {
+            return false;
+        }
+        foreach ($registros->batidasDoDiaNoEscritorio($user, $tenant, $agora) as $batida) {
+            if ($batida->getTipo() === RegistroPonto::TIPO_ENTRADA) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -873,9 +896,9 @@ final class PontoController extends AbstractController
     /**
      * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3):
      * a chave "Registra ponto eletrônico" desligada aqui e o horário de trabalho de hoje em outro escritório onde a
-     * pessoa registra ponto. Null quando segue. O ponto aberto em outro escritório não recusa mais: vira aviso depois da
-     * batida (`ponto-esquecimento-nao-trava.md` R2). Saída e ida ao repouso passam quando fecham uma entrada aberta
-     * neste escritório: nunca prender o ponto aberto (revisão de 23/10, proposta da 0d). Fora disso, as mesmas recusas.
+     * pessoa registra ponto. Null quando segue. Só a entrada e o retorno do repouso são recusados: a saída e a ida ao
+     * repouso sempre passam, fechando ou não um turno aberto aqui (decisão do dono 23/10, `ponto-esquecimento-nao-trava.md`
+     * R1); a solta leva o aviso da entrada que faltou. O ponto aberto em outro escritório não recusa: vira aviso (R2).
      */
     private function recusaEntreEscritorios(
         User $user,
@@ -884,7 +907,7 @@ final class PontoController extends AbstractController
         \DateTimeImmutable $agora,
         ChoqueDeJornadaEntreEscritorios $choque,
     ): ?string {
-        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true) && $this->turnoAberto->estaAberto($user, $tenant, $agora)) {
+        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true)) {
             return null;
         }
         if ($this->chaveDoPonto->estaDesligada($user, $tenant)) {
