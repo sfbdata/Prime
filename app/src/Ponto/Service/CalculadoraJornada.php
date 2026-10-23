@@ -15,10 +15,17 @@ class CalculadoraJornada
     private const TOLERANCIA_ATRASO_MINUTOS = 5;
 
     /**
-     * O primeiro dia em que o par invertido deixa o dia incompleto e com 0 minutos (`PONTO_PAR_INVERTIDO_DESDE`, spec
-     * `ponto-esquecimento-nao-trava.md`, opção (b) do dono). Null = a regra nova vale para todos os dias.
+     * O padrão seguro da data de corte do par invertido (spec `ponto-esquecimento-nao-trava.md`): o dia seguinte ao
+     * merge. Nenhum dia antes dela muda, e o deploy não precisa fazer nada. Para aplicar ao passado (opção (a) do dono),
+     * troque esta constante ou defina `PONTO_PAR_INVERTIDO_DESDE` numa data antiga.
      */
-    private readonly ?\DateTimeImmutable $parInvertidoDesde;
+    public const PAR_INVERTIDO_DESDE_PADRAO = '2026-10-24';
+
+    /**
+     * O primeiro dia em que o par invertido deixa o dia incompleto e com 0 minutos: `PONTO_PAR_INVERTIDO_DESDE` quando
+     * válida (substituição opcional); vazia ou inválida, a constante `PAR_INVERTIDO_DESDE_PADRAO`.
+     */
+    private readonly \DateTimeImmutable $parInvertidoDesde;
 
     public function __construct(
         private readonly JornadaResolver $jornadaResolver,
@@ -28,8 +35,10 @@ class CalculadoraJornada
     ) {
         $desde = trim($parInvertidoDesde);
         $corte = \DateTimeImmutable::createFromFormat('!Y-m-d', $desde);
-        // Vazia ou inválida: sem corte, a regra nova vale para todos os dias (o padrão em dev e teste).
-        $this->parInvertidoDesde = $corte !== false && $corte->format('Y-m-d') === $desde ? $corte : null;
+        // Vazia ou inválida: o padrão seguro do código.
+        $this->parInvertidoDesde = $corte !== false && $corte->format('Y-m-d') === $desde
+            ? $corte
+            : new \DateTimeImmutable(self::PAR_INVERTIDO_DESDE_PADRAO . ' 00:00:00');
     }
 
     /**
@@ -265,11 +274,10 @@ class CalculadoraJornada
         return ($diff->days * 1440) + ($diff->h * 60) + $diff->i;
     }
 
-    /** O dia da entrada está a partir da data de corte do par invertido (sem corte, sempre). */
+    /** O dia da entrada está a partir da data de corte do par invertido. */
     private function regraDoParInvertido(\DateTimeInterface $entrada): bool
     {
-        return $this->parInvertidoDesde === null
-            || \DateTimeImmutable::createFromInterface($entrada)->setTime(0, 0) >= $this->parInvertidoDesde;
+        return \DateTimeImmutable::createFromInterface($entrada)->setTime(0, 0) >= $this->parInvertidoDesde;
     }
 
     /**

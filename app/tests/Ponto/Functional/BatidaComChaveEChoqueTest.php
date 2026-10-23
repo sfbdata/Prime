@@ -15,6 +15,12 @@ use App\Ponto\Service\TurnoAbertoNoEscritorio;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Entity\JornadaColaborador;
+use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\LancamentoHorasPagasRepository;
+use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Service\EscolhaDasBatidasDoDia;
+use App\Ponto\Service\JornadaResolver;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Ponto\Support\CenarioDeJornadaPorEscritorioTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -295,7 +301,16 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         $hoje = new \DateTimeImmutable('today');
         $c = static::getContainer();
         $batidas = $c->get(RegistroPontoRepository::class)->batidasDoDiaNoEscritorio($this->pessoa, $this->a, $hoje);
-        $linhas = $c->get(FolhaPontoBuilder::class)->buildRows(
+        // A folha com a data de corte do par invertido numa data antiga (`PONTO_PAR_INVERTIDO_DESDE`): o teste roda em
+        // qualquer dia, inclusive antes do padrão do código (24/10/2026). A saída solta conta 0 com qualquer corte.
+        $folha = new FolhaPontoBuilder(
+            new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia(), '2026-01-01'),
+            $c->get(RegistroPontoRepository::class),
+            $c->get(JustificativaPontoRepository::class),
+            $c->get(LancamentoHorasPagasRepository::class),
+            $c->get(JornadaColaboradorRepository::class),
+        );
+        $linhas = $folha->buildRows(
             $hoje,
             $hoje->setTime(23, 59, 59),
             $batidas,

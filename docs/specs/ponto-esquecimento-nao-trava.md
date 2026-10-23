@@ -44,12 +44,12 @@ escritório ou em outro.
   retorno), o dia fica incompleto e conta 0 minutos, igual à saída solta. O `CalculadoraJornada::diffMinutos` não credita
   intervalo invertido. O indicador "intrajornada conforme" do PDF e do XLSX segue com a distância de sempre
   (`distanciaEmMinutos`).
-- **Data de corte do par invertido: opção (b) como padrão, aguardando o dono; a troca para (a) é tirar a variável.** A
-  regra do par invertido vale só a partir de `PONTO_PAR_INVERTIDO_DESDE` (AAAA-MM-DD, parâmetro
-  `ponto_par_invertido_desde`, lido pela `CalculadoraJornada`). Antes da data, o dia é calculado como antes (os 8 dias
-  em produção não mudam). Sem a variável definida, o padrão é aplicar a regra nova a todos os dias. Isso vale em dev e
-  teste. Em produção, o dono define a data de publicação no deploy. Só a conta da folha olha a data: a saída solta não
-  contar para a interjornada (R4) vale sempre.
+- **Data de corte do par invertido: padrão seguro no código; a variável é opcional; o deploy não precisa fazer
+  nada.** A regra do par invertido vale a partir de `CalculadoraJornada::PAR_INVERTIDO_DESDE_PADRAO` (2026-10-24, o dia
+  seguinte ao merge). Antes dela, o dia é calculado como antes: nenhum dia antigo muda (os 8 em produção ficam como
+  estão). `PONTO_PAR_INVERTIDO_DESDE` (AAAA-MM-DD, parâmetro `ponto_par_invertido_desde`) só substitui a data; vazia ou
+  inválida, vale a constante. Para aplicar ao passado (opção (a) do dono): troca-se a constante, ou define-se a variável
+  numa data antiga. Só a conta da folha olha a data: a saída solta não contar para a interjornada (R4) vale sempre.
 - A entrada e o retorno do repouso continuam sujeitos à chave e ao choque.
 - O pedido de esquecimento só vale para a batida que falta: com uma batida do mesmo tipo no dia neste escritório, o
   pedido (e a edição dele) é recusado com "Já existe um registro de {tipo} neste dia." (`BatidaJaRegistrada`). Fecha o
