@@ -23,8 +23,8 @@ use App\Pasta\Service\NumeracaoDePastaInterface;
  * O sufixo de letra do legado (10A/10B) é tolerado na leitura — conta como prefixo 10 — mas
  * nunca é gerado.
  *
- * A trava e a leitura do maior número moram no `NumeracaoDePasta`, compartilhado com o
- * `ExcluirPastaUseCase`: os dois precisam concordar sobre o que é o número de uma pasta.
+ * A trava e a leitura do maior número moram no `NumeracaoDePasta`. A pasta excluída (lápide)
+ * continua na tabela e por isso continua ocupando o número dela.
  * O chamador continua obrigado a abrir transação — é o que dá validade à trava (é o que o
  * `CriarPastaUseCase` faz com `wrapInTransaction`).
  */

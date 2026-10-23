@@ -188,9 +188,9 @@ services:
     # sem SMTP — é o mailer que prova a resposta neutra da recuperação de senha).
     App\Auth\Service\RedefinicaoSenhaMailerInterface: '@App\Auth\Service\RedefinicaoSenhaMailer'
 
-    # Sequência de números de pasta. Interface para o ExcluirPastaUseCase ser testado com dublê
-    # (a decisão entre lápide e exclusão real) enquanto a implementação é provada contra o
-    # Postgres de verdade, que é onde a expressão do prefixo e o recorte por tenant vivem.
+    # Sequência de números de pasta. Interface para quem gera o número (GerarNumeroDePasta) ser
+    # testado com dublê enquanto a implementação é provada contra o Postgres de verdade, que é
+    # onde a expressão do prefixo e o recorte por tenant vivem.
     App\Pasta\Service\NumeracaoDePastaInterface: '@App\Pasta\Service\NumeracaoDePasta'
 
     # Conexão somente-leitura das ferramentas MCP. SEM default de propósito: ausente a
