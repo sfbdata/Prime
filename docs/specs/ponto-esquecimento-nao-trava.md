@@ -31,7 +31,7 @@
 
 **R1. Nenhum esquecimento recusa batida.** Isso vale para entrada ou saída esquecida, hoje ou em dia anterior, no mesmo
 escritório ou em outro.
-- **Saída solta passa (dono, 23/10).** A saída ou a ida ao repouso fica livre da chave e do choque só em dois casos:
+- **Saída solta passa (confirmado pelo dono em 23/10, item 2).** A saída ou a ida ao repouso fica livre da chave e do choque só em dois casos:
   (a) quando fecha um turno aberto neste escritório (#317); (b) quando é solta de verdade, sem entrada no dia neste
   escritório. Com entrada no dia e o turno daqui fechado (por exemplo, entrada 08:00 e saída 12:00, e outra saída às
   17:00), a saída volta às regras de sempre (re-revisão de 23/10): não dá para estender o crédito do dia por fora delas.
@@ -45,7 +45,7 @@ escritório ou em outro.
   intervalo invertido. O indicador "intrajornada conforme" do PDF e do XLSX segue com a distância de sempre
   (`distanciaEmMinutos`).
 - **Data de corte do par invertido: padrão seguro no código; a variável é opcional; o deploy não precisa fazer
-  nada.** A regra do par invertido vale a partir de `CalculadoraJornada::PAR_INVERTIDO_DESDE_PADRAO` (2026-10-24, o dia
+  nada.** Opção (b), com o corte em 24/10/2026: confirmado pelo dono em 23/10. A regra do par invertido vale a partir de `CalculadoraJornada::PAR_INVERTIDO_DESDE_PADRAO` (2026-10-24, o dia
   seguinte ao merge). Antes dela, o dia é calculado como antes: nenhum dia antigo muda (os 8 em produção ficam como
   estão). `PONTO_PAR_INVERTIDO_DESDE` (AAAA-MM-DD, parâmetro `ponto_par_invertido_desde`) só substitui a data; vazia ou
   inválida, vale a constante. Para aplicar ao passado (opção (a) do dono): troca-se a constante, ou define-se a variável
@@ -106,7 +106,7 @@ escritório ou em outro.
 (`PublicoDosAvisosDePonto::recebe`). Vale para a lista de pendências da /ponto, o aviso de ontem e o atalho do cabeçalho,
 o alerta de horário (`#modalAlertaPonto` e `/ponto/alerta-horario`), os avisos da batida e o cartão diário (R9).
 
-**R8. Sinal na folha do admin (padrão provisório do dono, 23/10).** Na ficha do colaborador, o admin do escritório A vê
+**R8. Sinal na folha do admin (confirmado pelo dono em 23/10, item 1b).** Na ficha do colaborador, o admin do escritório A vê
 "Houve registro em outro escritório neste período" no dia em que a pessoa bateu em outro escritório enquanto o ponto de A
 estava aberto (de uma entrada ou retorno até a próxima ida ao repouso ou saída, no máximo 16 horas). Não diz qual
 escritório; mesmo padrão visual do "Registro incompleto"; só na tela (PDF e XLSX não mudam). A consulta suspende o filtro

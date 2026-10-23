@@ -18,6 +18,7 @@ use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\SaidaDeEsquecimento;
+use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -138,7 +139,7 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
     {
         $saida = new \DateTimeImmutable('-3 hours');
         $this->batida('entrada', $saida->modify('-1 minute'));
-        $this->batida('saida', $saida, SaidaDeEsquecimento::OBSERVACAO_APROVACAO);
+        $this->batida('saida', $saida, RegistrarBatidaDoEsquecimentoUseCase::OBSERVACAO);
         $outraHora = $this->esquecimentoDaSaida($saida->modify('-5 minutes'));
         $outraHora->setStatus('abonado');
         $this->em()->flush();
@@ -186,6 +187,36 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         $this->bater('entrada');
         self::assertResponseStatusCodeSame(422);
         self::assertSame(1, $this->batidasDoTipo('entrada'), 'interjornada intacta: só a de antes');
+    }
+
+    #[TestDox('O "aprovar todos" também confere (RegistrarBatidaDoEsquecimentoUseCase): com a saída já batida no dia, o pedido de saída do lote fica pendente e nenhuma batida é gravada; o outro pedido do lote é abonado')]
+    public function testAprovarTodosPulaOPedidoComBatidaJaRegistrada(): void
+    {
+        $ontem = new \DateTimeImmutable('yesterday 18:00');
+        $this->batida('entrada', $ontem->setTime(8, 0));
+        $this->batida('saida', $ontem);
+        $comBatida = $this->esquecimentoDaSaida($ontem->setTime(17, 0));
+        $semBatida = $this->esquecimentoDaSaida($ontem->modify('-1 day')->setTime(17, 0));
+        foreach ([$comBatida, $semBatida] as $pedido) {
+            $pedido->setBatchId('lote-teste');
+        }
+        $this->em()->flush();
+        $admin = $this->user(['ROLE_SUPER_ADMIN']);
+        $this->em()->persist(new UserTenant($admin, $this->tenant));
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $admin, $this->tenant);
+
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/batch/lote-teste/aprovar-todos', $this->tenant->getId(), $this->user->getId()), [
+            '_token' => 'TOKEN_justificativa_aprovar_todos_lote-teste',
+        ]);
+
+        self::assertResponseRedirects();
+        $status = fn (JustificativaPonto $p): string => (string) $this->em()->getConnection()->fetchOne('SELECT status FROM justificativa_ponto WHERE id = ?', [$p->getId()]);
+        self::assertSame('pendente', $status($comBatida), 'o admin decide');
+        self::assertSame('abonado', $status($semBatida));
+        self::assertSame(2, $this->batidasDoTipo('saida'), 'só a do pedido sem batida entrou');
+        $this->client->followRedirect();
+        self::assertStringContainsString(sprintf(BatidaJaRegistrada::MENSAGEM, 'saída'), (string) $this->client->getResponse()->getContent());
     }
 
     #[TestDox('O lançamento em lote do admin também confere: esquecimento de saída num dia que já tem saída batida é recusado, sem justificativa nem batida nova')]
