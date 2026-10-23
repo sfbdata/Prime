@@ -16,6 +16,7 @@ use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -69,7 +70,7 @@ final class ObterDadosDashboardComCorteTest extends TestCase
         return new DashboardZeramento($this->tenant, $coluna, $pessoa === null ? null : $this->pessoas[$pessoa], new \DateTimeImmutable($desde), new User());
     }
 
-    #[TestDox('Total metas zerado de Ana: só ela é recontada a partir do corte; o troféu passa a Bruno; a tela recebe a coluna zerada')]
+    #[TestDox('Total metas zerado de Ana: só ela é recontada a partir do corte; o troféu não muda (segue o corte de Concluídas); a tela recebe a coluna zerada')]
     public function testColunaDeUmaPessoaRecontadaDesdeOCorte(): void
     {
         $this->zeramentos->method('listarAtivos')->willReturn([$this->zerou('metas', 7, '2026-10-15 14:30')]);
@@ -94,7 +95,7 @@ final class ObterDadosDashboardComCorteTest extends TestCase
         self::assertSame(3, $linhas[8]->totalMetas, 'Bruno não tem corte: a recontagem não vaza para ele');
         self::assertSame(['metas'], $linhas[7]->colunasZeradas);
         self::assertSame([], $linhas[8]->colunasZeradas);
-        self::assertSame(8, $out->campeaoId, 'troféu com o corte: Bruno 3 concluídas contra 1 de Ana');
+        self::assertSame(7, $out->campeaoId, 'zerar só Total metas não mexe no troféu: Ana segue com 10 concluídas');
         self::assertArrayHasKey(7, $out->zeramentos['metas']['pessoas']);
         self::assertNull($out->zeramentos['metas']['todos']);
     }
@@ -116,6 +117,45 @@ final class ObterDadosDashboardComCorteTest extends TestCase
         }
         self::assertSame([7 => 1, 8 => 0], $porPessoa);
         self::assertSame(1, $out->totaisExtras[Extras::RELATORIO]);
+    }
+
+    /** @return iterable<string, array{0: string, 1: array<string, int|null>, 2: int}> coluna zerada de Ana => valores da linha dela e troféu */
+    public static function zerarUmaDasBases(): iterable
+    {
+        yield 'só Total metas' => ['metas', ['total' => 1, 'ativas' => 4, 'concluidas' => 6, 'taxa' => 60], 7];
+        yield 'só Metas ativas' => ['metas_ativas', ['total' => 10, 'ativas' => 0, 'concluidas' => 6, 'taxa' => 60], 7];
+        yield 'só Metas concluídas' => [Extras::METAS_CONCLUIDAS, ['total' => 10, 'ativas' => 4, 'concluidas' => 1, 'taxa' => 60], 8];
+    }
+
+    /**
+     * Concluídas, Taxa e troféu: as duas bases (Total e Ativas) com o MESMO corte, o da própria coluna.
+     * Zerar só Total ou só Ativas não mexe nelas; zerar Concluídas recalcula as duas bases desde o corte
+     * (a Taxa, com corte próprio, segue igual).
+     *
+     * @param array<string, int|null> $esperado
+     */
+    #[DataProvider('zerarUmaDasBases')]
+    #[TestDox('Zerar $coluna de Ana: Concluídas, Taxa e troféu só seguem o corte da própria coluna')]
+    public function testConclusaoComOProprioCorte(string $coluna, array $esperado, int $campeao): void
+    {
+        $this->zeramentos->method('listarAtivos')->willReturn([$this->zerou($coluna, 7, '2026-10-15 14:30')]);
+        $this->tarefaRepo->method('countPorResponsavel')->willReturnCallback(
+            static fn (Tenant $t, array $f): array => isset($f['contar_desde']) ? [7 => 1] : [7 => 10, 8 => 3],
+        );
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturnCallback(
+            static fn (Tenant $t, array $f): array => isset($f['contar_desde']) ? [] : [7 => 4, 8 => 1],
+        );
+
+        $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2026-10-23'), [], [Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO]);
+
+        $ana = array_values(array_filter($out->porAdvogado, static fn ($l): bool => $l->userId === 7))[0];
+        self::assertSame($esperado, [
+            'total'      => $ana->totalMetas,
+            'ativas'     => $ana->metasAtivas,
+            'concluidas' => $ana->extras[Extras::METAS_CONCLUIDAS],
+            'taxa'       => $ana->extras[Extras::TAXA_CONCLUSAO],
+        ]);
+        self::assertSame($campeao, $out->campeaoId);
     }
 
     #[TestDox('Sem zeramento ativo, nenhuma consulta com corte e nada marcado como zerado')]

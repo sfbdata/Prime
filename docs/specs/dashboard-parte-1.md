@@ -118,7 +118,9 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     extras). Nas de estoque, o corte vale pela data de entrada: Metas ativas, Vencidas e Prazos contam
     as metas CRIADAS depois do corte; Demandas ativas, as pastas abertas depois do corte; Pastas
     concluídas, o arquivamento depois do corte; Eventos, o início do evento. Taxa e Metas concluídas
-    saem de Total − Ativas com o mesmo corte.
+    saem de Total − Ativas, as duas com o corte da PRÓPRIA coluna (Concluídas ou Taxa; o da pessoa ou
+    o da equipe, o mais recente), mínimo 0: zerar só Total metas ou só Metas ativas não muda
+    Concluídas, Taxa nem troféu. O troféu e o cartão do colaborador usam o corte de Concluídas.
   - **Na tela**: célula zerada sem link (o destino não conta a partir do corte) e sem seta (o
     anterior não tem corte); no Total, sem pílula. Troféu, card "Pastas criadas" e cartão do
     colaborador (posição, Comentários, Rendimento) seguem o corte; o "1º do mês" não (é histórico).
@@ -126,7 +128,8 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     podeGerirPrimarios`), 403 no servidor. Os demais veem "Pedir para zerar": aviso na Central
     (tipo `dashboard_pedido_zerar`) a cada primário ativo e a cada pessoa com `UserTenant.controladoria`
     (ciência, "nada foi alterado"); um pedido igual por dia (o segundo volta "Você já tinha pedido
-    isso hoje"). Sem Controladoria no escritório, o texto diz só "usuário primário".
+    isso hoje"). Sem Controladoria no escritório, o texto diz só "usuário primário". Quem já pode zerar
+    e chama o pedir recebe 403 (não se aplica). Card "Pastas criadas" sem "ver pastas" com a coluna zerada.
   - **Multi-tenant**: escritório e autor da sessão; pessoa que não é colaboradora ativa do escritório
     dá 404; CSRF no header em todo POST.
   - **Desvios do desenho**: "Você recebe a resposta no Chat I.A." saiu do aviso de sem permissão (não

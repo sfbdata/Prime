@@ -6,6 +6,7 @@ namespace App\Dashboard\UseCase;
 
 use App\Dashboard\DTO\PedidoDeZeramentoOutput;
 use App\Dashboard\DTO\PedirZeramentoInput;
+use App\Dashboard\Exception\ZeramentoNaoPermitidoException;
 use App\Dashboard\Zeramento\ColaboradorDoEscritorio;
 use App\Dashboard\Zeramento\ColunasZeraveis;
 use App\Entity\Auth\User;
@@ -14,6 +15,7 @@ use App\Profile\Repository\UserProfileRepository;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -28,7 +30,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * avisa de novo e volta `repetido` (o desenho: "Você já tinha pedido isso hoje").
  *
  * Textos no idioma de quem RECEBE (spec idioma-do-sistema §4). A pessoa alvo tem de ser colaboradora
- * ativa do escritório da sessão (404).
+ * ativa do escritório da sessão (404). Quem pode zerar (Master ou primário) não pede: recusa (403).
  */
 final class PedirZeramentoDoDashboardUseCase
 {
@@ -45,11 +47,15 @@ final class PedirZeramentoDoDashboardUseCase
         private readonly UrlGeneratorInterface $urls,
         private readonly TranslatorInterface $tradutor,
         private readonly UserProfileRepository $perfis,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {
     }
 
     public function executar(PedirZeramentoInput $input): PedidoDeZeramentoOutput
     {
+        if ($this->regraDosPrimarios->podeGerirPrimarios($input->solicitante, $input->tenant)) {
+            throw new ZeramentoNaoPermitidoException('Você pode zerar esta coluna: não é preciso pedir.');
+        }
         ColunasZeraveis::exigir($input->coluna);
         $alvo = $this->colaboradores->buscar($input->tenant, $input->pessoaId);
         $url  = $this->linkDoPedido($input);

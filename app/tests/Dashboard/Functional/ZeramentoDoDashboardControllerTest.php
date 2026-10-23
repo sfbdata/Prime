@@ -141,6 +141,19 @@ final class ZeramentoDoDashboardControllerTest extends JusPrimeWebTestCase
         self::assertSame('3', $this->totalMetasDaAna(), 'a contagem volta');
     }
 
+    #[TestDox('Pastas criadas zerada: o card perde o "ver pastas" (a lista não conta desde o corte)')]
+    public function testCardPastasCriadasSemLinkComCorte(): void
+    {
+        $c = $this->cenario();
+        $this->entrar($c['primario'], $c['tenant']);
+        $link = 'a.db-card-ver[title="Abrir: Expediente · pastas criadas"]';
+        self::assertCount(1, $this->client->request('GET', '/dashboard')->filter($link), 'antes do corte');
+
+        $this->postar('', ['coluna' => 'pastas_criadas', 'pessoa' => null]);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $this->client->request('GET', '/dashboard')->filter($link));
+    }
+
     #[TestDox('Quem não é primário (mesmo com o Dashboard) recebe 403 ao zerar e ao desfazer, e nada é gravado')]
     public function testNaoPrimario403(): void
     {
@@ -186,7 +199,7 @@ final class ZeramentoDoDashboardControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    #[TestDox('Pedir para zerar avisa o primário e a Controladoria pela Central; o mesmo pedido no dia volta repetido')]
+    #[TestDox('Pedir para zerar avisa o primário e a Controladoria pela Central; o mesmo pedido no dia volta repetido; o primário não pede (403)')]
     public function testPedir(): void
     {
         $c = $this->cenario();
@@ -210,5 +223,8 @@ final class ZeramentoDoDashboardControllerTest extends JusPrimeWebTestCase
 
         $this->postar('/pedir', ['coluna' => 'metas', 'pessoa' => $c['ana']->getId()]);
         self::assertTrue($this->resposta()['repetido']);
+        $this->entrar($c['primario'], $c['tenant']);
+        $this->postar('/pedir', ['coluna' => 'metas', 'pessoa' => null]);
+        self::assertResponseStatusCodeSame(403, 'quem pode zerar não pede');
     }
 }

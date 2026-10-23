@@ -87,7 +87,8 @@
                        cargo). Com responsável filtrado o card é a linha dele: `criado_por=<id>`,
                        o mesmo destino do número da linha. Responsável que não vira linha (fora do
                        cargo escolhido, ou id que não é número) deixa o card em 0 e a lista não
-                       bateria com ele: aí o link não sai. #}
+                       bateria com ele: aí o link não sai. Com "Zerar" ativo na coluna Pastas
+                       criadas (DASH-014), também não: a lista não conta a partir do corte. #}
                     {% set respCard  = filtros.responsavel|default('') %}
                     {% set cargoCard = filtros.cargo|default('')|trim %}
                     {% set pastasQuery = null %}
@@ -96,7 +97,7 @@
                     {% elseif respCard matches '/^[1-9][0-9]*$/' and dashboard.totalPastasCriadas > 0 %}
                         {% set pastasQuery = { painel: 'acervo-geral', criado_por: respCard }|merge(periodoLink) %}
                     {% endif %}
-                    {% if pastasQuery is not null %}
+                    {% if pastasQuery is not null and 'pastas_criadas' not in dashboard.zeramentos|keys %}
                         <a class="db-card-ver" href="{{ path('expediente_index', pastasQuery) }}" title="{{ 'dashboard.cards.abrir_pastas_criadas'|trans }}">{{ 'dashboard.cards.ver_pastas'|trans }}<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     {% endif %}
                 </div>

@@ -15,6 +15,10 @@ use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Tenant\Service\RegraDosPrimarios;
+use App\Dashboard\Exception\ZeramentoNaoPermitidoException;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\TenantRole;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -52,6 +56,7 @@ final class PedirZeramentoDoDashboardUseCaseTest extends TestCase
             $urls,
             self::tradutorDoCatalogo(),
             $this->createStub(UserProfileRepository::class),
+            new RegraDosPrimarios($this->vinculos),
         );
     }
 
@@ -126,6 +131,19 @@ final class PedirZeramentoDoDashboardUseCaseTest extends TestCase
 
         $this->expectException(ColaboradorForaDoEscritorioException::class);
         $this->useCase->executar($this->pedido(99));
+    }
+
+    #[TestDox('Quem já pode zerar (primário ou Master) não pede: recusa, sem aviso')]
+    public function testPrimarioNaoPede(): void
+    {
+        $papel = (new TenantRole())->setIsSystem(true);
+        $this->vinculos->method('findAtivoPorUserETenant')->willReturnCallback(
+            fn ($u, $t): UserTenant => (new UserTenant($u, $t))->setTenantRole($papel),
+        );
+        $this->servico->expects($this->never())->method('criarNotificacao');
+
+        $this->expectException(ZeramentoNaoPermitidoException::class);
+        $this->useCase->executar($this->pedido());
     }
 
     private static function tradutorDoCatalogo(): Translator

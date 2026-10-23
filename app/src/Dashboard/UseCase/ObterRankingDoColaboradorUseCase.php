@@ -58,8 +58,8 @@ final class ObterRankingDoColaboradorUseCase
         $cortes   = CortesDoDashboard::deZeramentos($this->zeramentos->listarAtivos($tenant));
         $contar   = fn (string $coluna, callable $consulta): array => self::comCorte($cortes, $coluna, $todos, $periodo, $consulta);
         $concl    = RankingDeMetasConcluidas::concluidas(
-            $contar(ColunasZeraveis::METAS, fn (array $f): array => $this->tarefaRepository->countPorResponsavel($tenant, $f, $pastasOcultas)),
-            $contar(ColunasZeraveis::METAS_ATIVAS, fn (array $f): array => $this->tarefaRepository->countAtivasPorResponsavel($tenant, $f, $pastasOcultas)),
+            $contar(Extras::METAS_CONCLUIDAS, fn (array $f): array => $this->tarefaRepository->countPorResponsavel($tenant, $f, $pastasOcultas)),
+            $contar(Extras::METAS_CONCLUIDAS, fn (array $f): array => $this->tarefaRepository->countAtivasPorResponsavel($tenant, $f, $pastasOcultas)),
         );
         $vencidasHoje = $this->tarefaRepository->countVencidasPorResponsavel($tenant, $hoje, $pastasOcultas);
         $vencidas = $contar(ColunasZeraveis::METAS_VENCIDAS, fn (array $f): array => isset($f['contar_desde'])
