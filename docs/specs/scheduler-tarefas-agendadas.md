@@ -18,8 +18,9 @@ worker. Ganhos:
   `-w`, e esse foi o mesmo motivo de a foto do Dashboard nunca ter sido agendada);
 - falha de tarefa vira `ERROR` no log e, se configurado, e-mail.
 
-Fora do agendador, **no crontab do host, sem mudança**: `certbot renew`, `scripts/backup.sh` e
-`scripts/backup-db.sh` (rodam fora do contêiner da aplicação, e o backup não pode depender dela).
+Fora do agendador, **no crontab do host, sem mudança**: `certbot renew`, `scripts/backup-db.sh` e os
+backups dos outros sistemas da VPS (rodam fora do contêiner da aplicação, e o backup não pode depender dela).
+A linha do `scripts/backup.sh` já está comentada no crontab.
 
 ## Tarefas
 
@@ -27,23 +28,32 @@ Brasília é UTC-3 sem horário de verão (desde 2019), então cada linha é a m
 menos 3 horas. Nenhuma conversão cruza a meia-noite para outro dia da semana: só a foto do Dashboard
 (02h55 UTC) cai no dia anterior em Brasília, que é justamente o dia que ela fotografa (ver a nota abaixo).
 
-> **Conferir com o crontab real (`crontab -l` do dono).** A coluna "crontab antigo" foi levantada da
-> documentação do repositório (DEPLOY.md, `scripts/sync-reconciliar.sh` e as specs citadas), não da VPS.
-> Antes da virada, o dono compara linha a linha: tarefa no crontab que não está aqui, ou horário diferente,
-> volta para decisão antes de comentar a linha.
+A coluna "crontab antigo" foi **conferida com o crontab real da VPS em 23/10/2026** (`crontab -l` do dono).
 
-| Comando (como o agendador roda) | Crontab antigo (UTC) | Agendador (America/Sao_Paulo) | Fonte do horário antigo |
-|---|---|---|---|
-| `app:purgar-dados-expirados --force --no-interaction` | `0 3 * * *` | `0 0 * * *` (0h) | DEPLOY.md |
-| `app:importar-indices-monetarios --no-interaction` | `0 4 11 * *` | `0 1 11 * *` (dia 11, 1h) | `cobranca-simular-acordo-atualizacao-monetaria.md` |
-| `app:djen:sincronizar --no-interaction` | `0 5 * * *` | `0 2 * * *` (2h) | `djen-integracao-comunicacoes.md:71` (linha sem `-w`) |
-| `app:perfil:resumo-diario --no-interaction` | `0 11 * * *` | `0 8 * * *` (8h) | DEPLOY.md |
-| `app:push:resumo-semanal-cliente --no-interaction` | `0 11 * * 1` | `0 8 * * 1` (segunda, 8h) | DEPLOY.md |
-| `app:pasta:cobrar-checklist --no-interaction` | `0 12 * * 1-5` | `0 9 * * 1-5` (seg a sex, 9h) | DEPLOY.md |
-| `app:pastas:relatorio-sem-processo --no-interaction` | `5 13 * * *` | `5 10 * * *` (10h05) | DEPLOY.md |
-| `app:pastas:relatorio-pastas-paradas --no-interaction` | `15 13 * * *` | `15 10 * * *` (10h15) | DEPLOY.md |
-| `app:dashboard:fotografar --no-interaction` | `55 2 * * *` (recomendada, nunca agendada) | `55 23 * * *` (23h55) | `trilha-b-designer.md` (D-CRON) |
-| `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar --no-interaction` | `0 * * * *` via `scripts/sync-reconciliar.sh` | `0 * * * *` (de hora em hora) | `scripts/sync-reconciliar.sh`, `sincronizacao-drive-bidirecional.md` |
+| Comando (como o agendador roda) | Crontab antigo (UTC) | Agendador (America/Sao_Paulo) |
+|---|---|---|
+| `app:purgar-dados-expirados --force --no-interaction` | `0 3 * * *` | `0 0 * * *` (0h) |
+| `app:djen:sincronizar --dias=2 --no-interaction` | `0 6 * * *` (com `--dias=2`) | `0 3 * * *` (3h) |
+| `app:push:resumo-semanal-cliente --no-interaction` | `0 11 * * 1` | `0 8 * * 1` (segunda, 8h) |
+| `app:pastas:relatorio-sem-processo --no-interaction` | `5 13 * * *` | `5 10 * * *` (10h05) |
+| `app:pastas:relatorio-pastas-paradas --no-interaction` | `15 13 * * *` | `15 10 * * *` (10h15) |
+| `app:dashboard:fotografar --no-interaction` | não estava no crontab (recomendada em `trilha-b-designer.md`, D-CRON: `55 2 * * *`) | `55 23 * * *` (23h55) |
+| `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar --no-interaction` | `0 * * * *` via `scripts/sync-reconciliar.sh` | `0 * * * *` (de hora em hora) |
+
+A foto do Dashboard é comportamento **novo** em produção (nunca rodou); as outras seis só mudam de lugar.
+
+### Desligadas, aguardando o dono
+
+Três tarefas estavam documentadas no DEPLOY.md, mas **não estão no crontab real**: nunca rodaram em
+produção. Ligá-las agora seria comportamento novo (e-mails a clientes e escritórios, importação de índices),
+então ficam fora da agenda até o dono decidir. Para ligar, basta voltar a linha em `AgendaDeTarefas::TAREFAS`
+e no `AgendaDeTarefasTest` (o teste `testTarefasQueNuncaRodaramEmProducaoFicamDesligadas` trava a lista).
+
+| Comando | Horário que teria (Brasília) | Equivalente em UTC |
+|---|---|---|
+| `app:perfil:resumo-diario --no-interaction` | `0 8 * * *` (todo dia, 8h) | `0 11 * * *` |
+| `app:pasta:cobrar-checklist --no-interaction` | `0 9 * * 1-5` (seg a sex, 9h) | `0 12 * * 1-5` |
+| `app:importar-indices-monetarios --no-interaction` | `0 1 11 * *` (dia 11, 1h) | `0 4 11 * *` |
 
 Notas:
 
@@ -64,7 +74,7 @@ Notas:
   `GOOGLE_DRIVE_OAUTH_CLIENT_SECRET` (o worker e o "Conectar meu Drive" já dependem deles). Se faltarem, a
   primeira rodada falha com aviso ("OAuth do Drive incompleto").
 - **Ordem no mesmo minuto**: o consumidor é um só e roda uma tarefa por vez, na ordem da lista. O envio ao
-  Drive vai por último para não atrasar as diárias (0h, 2h, 8h, 9h, 10h). Os relatórios das 10h05 e 10h15
+  Drive vai por último para não atrasar as diárias (0h, 3h, 8h, 10h). Os relatórios das 10h05 e 10h15
   exigem "a partir das 10h": um atraso só os empurra para mais tarde no mesmo dia.
 - **Saída dos comandos**: o `RunCommandMessage` guarda a saída em memória. Ela aparece no log (e no e-mail)
   quando a tarefa falha; numa execução bem-sucedida, o log tem só "recebida" e "tratada" (`-vv`). Os
@@ -162,10 +172,14 @@ agendador subir, o que é aceitável (o envio é aditivo e a rodada seguinte põ
 DEPLOY.md, "Virada do crontab para o agendador":
 
 1. `crontab -l > ~/crontab-antes-do-agendador.bak`.
-2. **Conferir com o crontab real**: comparar `crontab -l` com a tabela acima.
-3. Comentar só as linhas das tarefas da tabela. Certbot e backups continuam no crontab.
+2. O crontab real já foi conferido em 23/10/2026 (a tabela acima veio dele).
+3. Comentar só estas linhas: `app:djen:sincronizar` (`0 6 * * *`), `scripts/sync-reconciliar.sh`
+   (`0 * * * *`), `app:purgar-dados-expirados` (`0 3 * * *`), `app:push:resumo-semanal-cliente`
+   (`0 11 * * 1`) e os dois relatórios de pastas (`5 13 * * *` e `15 13 * * *`). Continuam no crontab:
+   `certbot`, `scripts/backup-db.sh` e os backups dos outros sistemas (a do `scripts/backup.sh` já está
+   comentada).
 4. Mergear o PR de release.
-5. Depois do deploy: `docker logs jusprime_scheduler_prod`, `debug:scheduler` (10 tarefas, próxima
+5. Depois do deploy: `docker logs jusprime_scheduler_prod`, `debug:scheduler` (7 tarefas, próxima
    execução em `-0300`) e, na hora cheia seguinte, o envio ao Drive recebido e tratado, sem `ERROR`.
 6. Se o deploy falhar e voltar para a versão anterior (sem agendador; a volta automática o desliga),
    descomentar o crontab (`crontab ~/crontab-antes-do-agendador.bak`).

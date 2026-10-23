@@ -22,7 +22,7 @@ use Symfony\Component\Scheduler\Trigger\CronExpressionTrigger;
  * Contrato da lista de tarefas agendadas (spec docs/specs/scheduler-tarefas-agendadas.md, "Tarefas").
  *
  * Cada tarefa: o comando exato (com as opções que o crontab passava), a expressão cron em Brasília e a
- * prova de que ela dispara nos MESMOS instantes que a linha antiga do crontab, em UTC. Mudou um
+ * prova de que ela dispara nos MESMOS instantes que a linha do crontab real da VPS (conferido em 23/10), em UTC. Mudou um
  * horário, um comando ou o fuso: este teste quebra e a spec precisa mudar junto.
  */
 #[CoversClass(AgendaDeTarefas::class)]
@@ -37,11 +37,8 @@ final class AgendaDeTarefasTest extends TestCase
     {
         return [
             'app:purgar-dados-expirados' => ['app:purgar-dados-expirados --force --no-interaction', '0 0 * * *', '0 3 * * *'],
-            'app:importar-indices-monetarios' => ['app:importar-indices-monetarios --no-interaction', '0 1 11 * *', '0 4 11 * *'],
-            'app:djen:sincronizar' => ['app:djen:sincronizar --no-interaction', '0 2 * * *', '0 5 * * *'],
-            'app:perfil:resumo-diario' => ['app:perfil:resumo-diario --no-interaction', '0 8 * * *', '0 11 * * *'],
+            'app:djen:sincronizar' => ['app:djen:sincronizar --dias=2 --no-interaction', '0 3 * * *', '0 6 * * *'],
             'app:push:resumo-semanal-cliente' => ['app:push:resumo-semanal-cliente --no-interaction', '0 8 * * 1', '0 11 * * 1'],
-            'app:pasta:cobrar-checklist' => ['app:pasta:cobrar-checklist --no-interaction', '0 9 * * 1-5', '0 12 * * 1-5'],
             'app:pastas:relatorio-sem-processo' => ['app:pastas:relatorio-sem-processo --no-interaction', '5 10 * * *', '5 13 * * *'],
             'app:pastas:relatorio-pastas-paradas' => ['app:pastas:relatorio-pastas-paradas --no-interaction', '15 10 * * *', '15 13 * * *'],
             // A recomendação antiga era 02h55 UTC (23h55 de Brasília do dia anterior): mesma hora.
@@ -104,14 +101,21 @@ final class AgendaDeTarefasTest extends TestCase
         }
     }
 
-    public function testOFusoEDeBrasiliaEm9hDaManhaDoChecklist(): void
+    public function testOFusoEDeBrasiliaNasTresDaManhaDoDjen(): void
     {
-        // Segunda, 26/10/2026, 08h59 em Brasília: a próxima cobrança é 09h00 de Brasília (12h00 UTC).
-        $gatilho = $this->recorrenteDo('app:pasta:cobrar-checklist')->getTrigger();
-        $proxima = $gatilho->getNextRunDate(new \DateTimeImmutable('2026-10-26 08:59:00', new \DateTimeZone(AgendaDeTarefas::FUSO)));
+        // Segunda, 26/10/2026, 02h59 em Brasília: a próxima captação é 03h00 de Brasília (06h00 UTC).
+        $gatilho = $this->recorrenteDo('app:djen:sincronizar')->getTrigger();
+        $proxima = $gatilho->getNextRunDate(new \DateTimeImmutable('2026-10-26 02:59:00', new \DateTimeZone(AgendaDeTarefas::FUSO)));
 
         self::assertNotNull($proxima);
-        self::assertSame('2026-10-26T12:00:00+00:00', $proxima->setTimezone(new \DateTimeZone('UTC'))->format(\DATE_ATOM));
+        self::assertSame('2026-10-26T06:00:00+00:00', $proxima->setTimezone(new \DateTimeZone('UTC'))->format(\DATE_ATOM));
+    }
+
+    public function testTarefasQueNuncaRodaramEmProducaoFicamDesligadas(): void
+    {
+        foreach (['app:perfil:resumo-diario', 'app:pasta:cobrar-checklist', 'app:importar-indices-monetarios'] as $desligada) {
+            self::assertArrayNotHasKey($desligada, AgendaDeTarefas::tarefas(), $desligada . ' só liga por decisão do dono.');
+        }
     }
 
     public function testOScheduleEStatefulTravadoEProcessaSoAUltimaExecucaoPerdida(): void

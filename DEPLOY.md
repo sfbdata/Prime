@@ -207,17 +207,17 @@ php e o worker. A lista e os horários estão em `app/src/Shared/Scheduler/Agend
 | Tarefa | Quando (Brasília) | O que faz |
 |---|---|---|
 | `app:purgar-dados-expirados --force` | todo dia, 0h | apaga cadastros pendentes expirados e escritórios em quarentena vencida (RN09); depois dos backups das 23h e 23h30 |
-| `app:importar-indices-monetarios` | dia 11, 1h | importa INPC, IPCA e taxa legal do Banco Central |
-| `app:djen:sincronizar` | todo dia, 2h | captação das comunicações do DJEN |
-| `app:perfil:resumo-diario` | todo dia, 8h | resumo diário por e-mail (só em dia útil do escritório; grava antes de enviar, não repete) |
+| `app:djen:sincronizar --dias=2` | todo dia, 3h | captação das comunicações do DJEN dos últimos 2 dias |
 | `app:push:resumo-semanal-cliente` | segunda, 8h | resumo semanal das movimentações aos clientes |
-| `app:pasta:cobrar-checklist` | segunda a sexta, 9h | cobra os documentos pendentes do checklist das pastas (pula feriado do escritório) |
 | `app:pastas:relatorio-sem-processo` | todo dia, 10h05 | relatório mensal de pastas sem processo (só envia na primeira segunda-feira do mês, uma vez por escritório) |
 | `app:pastas:relatorio-pastas-paradas` | todo dia, 10h15 | relatório mensal de pastas paradas (mesma regra de envio) |
 | `app:dashboard:fotografar` | todo dia, 23h55 | foto diária do estoque do Dashboard (tendências de Vencidas e Prazos) |
 | `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar` | de hora em hora, no minuto 0 | envia ao Drive o que falta (só sistema para Drive) |
 
-Todas levam `--no-interaction`. O consumidor é um só: duas tarefas no mesmo minuto rodam uma depois da
+Todas levam `--no-interaction`. Tabela conferida com o crontab real da VPS em 23/10/2026. A foto do
+Dashboard é nova (não estava no crontab). Três tarefas documentadas antes (`app:perfil:resumo-diario`,
+`app:pasta:cobrar-checklist` e `app:importar-indices-monetarios`) **não estavam no crontab real** e ficam
+desligadas até o dono decidir (spec, seção "Desligadas, aguardando o dono"). O consumidor é um só: duas tarefas no mesmo minuto rodam uma depois da
 outra, na ordem da lista (o envio ao Drive por último).
 
 **Ver o que está agendado e a próxima execução:**
@@ -263,15 +263,16 @@ tarefa roda em dobro (uma em cada contêiner, que o `flock` de cada comando não
 máximo uma hora cheia sem o envio ao Drive entre o comentar e o agendador subir, o que é aceitável.
 
 1. Guarde o crontab: `crontab -l > ~/crontab-antes-do-agendador.bak`.
-2. Compare `crontab -l` com a tabela acima (o crontab real manda: linha que não está na tabela ou com
-   horário diferente volta para decisão antes de seguir).
-3. Comente no crontab (`crontab -e`) **só** as linhas das tarefas da tabela, inclusive a do
-   `scripts/sync-reconciliar.sh`, a do `app:djen:sincronizar`, a do `app:importar-indices-monetarios` e a
-   do `app:dashboard:fotografar`, se existirem. **Certbot, `scripts/backup.sh` e `scripts/backup-db.sh`
-   continuam no crontab.**
+2. O crontab real já foi conferido em 23/10/2026; a tabela acima veio dele.
+3. Comente no crontab (`crontab -e`) **só** estas linhas: `app:djen:sincronizar` (`0 6 * * *`),
+   `scripts/sync-reconciliar.sh` (`0 * * * *`), `app:purgar-dados-expirados` (`0 3 * * *`),
+   `app:push:resumo-semanal-cliente` (`0 11 * * 1`), `app:pastas:relatorio-sem-processo` (`5 13 * * *`) e
+   `app:pastas:relatorio-pastas-paradas` (`15 13 * * *`). **Continuam no crontab: certbot,
+   `scripts/backup-db.sh` e os backups dos outros sistemas** (a linha do `scripts/backup.sh` já está
+   comentada).
 4. Só então mergeie o PR de release.
 5. Depois do deploy: `docker ps --filter name=jusprime_scheduler_prod` (deve estar `Up`, sem reiniciar
-   sem parar), o `debug:scheduler` acima (10 tarefas, próxima execução em `-0300`) e
+   sem parar), o `debug:scheduler` acima (7 tarefas, próxima execução em `-0300`) e
    `docker logs jusprime_scheduler_prod`. Na hora cheia seguinte, o `app:sync:reconciliar` aparece recebido
    e tratado, sem `ERROR`. No dia seguinte, confira as diárias.
 6. Se o deploy falhar e voltar para a versão anterior (que não tem o agendador), descomente o crontab:

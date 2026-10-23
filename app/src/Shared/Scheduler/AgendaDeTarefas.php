@@ -43,6 +43,10 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
      * As tarefas, na ordem em que rodam quando duas caem no mesmo minuto (o consumidor é um só e
      * as executa em sequência). A sincronização com o Drive, de hora em hora, vai por último: é a
      * mais demorada e não pode atrasar as diárias. Chave = nome do comando.
+     *
+     * Só o que já rodava no crontab real da VPS (conferido em 23/10/2026). Resumo diário, cobrança do
+     * checklist e índices monetários nunca rodaram em produção: ficam desligados até o dono decidir
+     * (spec, "Desligadas, aguardando o dono").
      */
     private const TAREFAS = [
         // 0h: purga de cadastros expirados e de escritórios em quarentena vencida. Depois do
@@ -51,30 +55,15 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:purgar-dados-expirados --force --no-interaction',
             'cron'    => '0 0 * * *',
         ],
-        // Dia 11, 1h: índices monetários do Banco Central (INPC, IPCA, taxa legal).
-        'app:importar-indices-monetarios' => [
-            'comando' => 'app:importar-indices-monetarios --no-interaction',
-            'cron'    => '0 1 11 * *',
-        ],
-        // 2h: captação das comunicações do DJEN.
+        // 3h: captação das comunicações do DJEN dos últimos 2 dias (como no crontab real, 06h UTC).
         'app:djen:sincronizar' => [
-            'comando' => 'app:djen:sincronizar --no-interaction',
-            'cron'    => '0 2 * * *',
-        ],
-        // 8h: resumo diário por e-mail (o comando pula fim de semana e feriado do escritório).
-        'app:perfil:resumo-diario' => [
-            'comando' => 'app:perfil:resumo-diario --no-interaction',
-            'cron'    => '0 8 * * *',
+            'comando' => 'app:djen:sincronizar --dias=2 --no-interaction',
+            'cron'    => '0 3 * * *',
         ],
         // Segunda, 8h: resumo semanal ao cliente.
         'app:push:resumo-semanal-cliente' => [
             'comando' => 'app:push:resumo-semanal-cliente --no-interaction',
             'cron'    => '0 8 * * 1',
-        ],
-        // Segunda a sexta, 9h: cobrança do checklist das pastas.
-        'app:pasta:cobrar-checklist' => [
-            'comando' => 'app:pasta:cobrar-checklist --no-interaction',
-            'cron'    => '0 9 * * 1-5',
         ],
         // Todo dia, 10h05 e 10h15: os relatórios mensais (o comando só envia na primeira
         // segunda-feira do mês, uma vez por escritório).
