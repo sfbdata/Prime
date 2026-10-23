@@ -7,6 +7,8 @@ namespace App\Ponto\UseCase;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Exception\BatidaEmHorarioFuturoException;
+use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\BatidaJaRegistrada;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -28,6 +30,7 @@ final class RegistrarBatidaDoEsquecimentoUseCase
 
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly HorarioFuturoDaBatida $horarioFuturo,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
     ) {
     }
@@ -48,15 +51,12 @@ final class RegistrarBatidaDoEsquecimentoUseCase
     /**
      * Devolve a batida criada, ou null quando a justificativa não é de esquecimento ou falta tipo, hora ou data.
      *
-     * @throws \DomainException quando a justificativa é de outro escritório
+     * @throws \DomainException                quando a justificativa é de outro escritório
+     * @throws BatidaEmHorarioFuturoException quando a data e a hora pedidas ficam acima de agora
      */
     public function __invoke(JustificativaPonto $justificativa, Tenant $tenant): ?RegistroPonto
     {
-        if ($justificativa->getTipo() !== 'esquecimento_registro'
-            || $justificativa->getTipoRegistroEsquecido() === null
-            || $justificativa->getHoraRegistroEsquecido() === null
-            || $justificativa->getData() === null
-        ) {
+        if (!self::pedeBatida($justificativa)) {
             return null;
         }
 
@@ -65,6 +65,10 @@ final class RegistrarBatidaDoEsquecimentoUseCase
         }
         if ($this->recusa($justificativa, $tenant) !== null) {
             return null;   // a batida pedida já existe no dia: não grava a segunda (R1)
+        }
+
+        if ($this->pedeHorarioFuturo($justificativa)) {
+            throw new BatidaEmHorarioFuturoException();
         }
 
         $dataHora = new \DateTime(
@@ -81,5 +85,22 @@ final class RegistrarBatidaDoEsquecimentoUseCase
         $this->em->persist($registro);
 
         return $registro;
+    }
+
+    /**
+     * Recusa rápida para quem chama antes de abonar: o pedido de esquecimento cai acima de agora.
+     */
+    public function pedeHorarioFuturo(JustificativaPonto $justificativa): bool
+    {
+        return self::pedeBatida($justificativa)
+            && $this->horarioFuturo->estaNoFuturo($justificativa->getData(), $justificativa->getHoraRegistroEsquecido());
+    }
+
+    private static function pedeBatida(JustificativaPonto $justificativa): bool
+    {
+        return $justificativa->getTipo() === 'esquecimento_registro'
+            && $justificativa->getTipoRegistroEsquecido() !== null
+            && $justificativa->getHoraRegistroEsquecido() !== null
+            && $justificativa->getData() !== null;
     }
 }
