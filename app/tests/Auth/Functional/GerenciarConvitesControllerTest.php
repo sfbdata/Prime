@@ -15,6 +15,7 @@ use App\Entity\Tenant\TenantRolePermission;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
@@ -251,8 +252,8 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $em->persist($invitation);
         $em->flush();
 
-        $client->request('POST', '/escritorio/convites/' . $invitation->getToken() . '/revogar', [
-            '_token' => $this->gerarCsrf('convite_revogar_' . $invitation->getToken()),
+        $client->request('POST', '/escritorio/convites/' . $invitation->getId() . '/revogar', [
+            '_token' => $this->gerarCsrf('convite_revogar_' . $invitation->getId()),
         ]);
 
         self::assertResponseRedirects('/escritorio/convites');
@@ -285,8 +286,8 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $em->persist($invitation);
         $em->flush();
 
-        $client->request('POST', '/escritorio/convites/' . $invitation->getToken() . '/reenviar', [
-            '_token' => $this->gerarCsrf('convite_reenviar_' . $invitation->getToken()),
+        $client->request('POST', '/escritorio/convites/' . $invitation->getId() . '/reenviar', [
+            '_token' => $this->gerarCsrf('convite_reenviar_' . $invitation->getId()),
         ]);
 
         self::assertResponseRedirects('/escritorio/convites');
@@ -348,8 +349,8 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $em->persist($invitation);
         $em->flush();
 
-        $client->request('POST', '/escritorio/convites/' . $invitation->getToken() . '/reenviar', [
-            '_token' => $this->gerarCsrf('convite_reenviar_' . $invitation->getToken()),
+        $client->request('POST', '/escritorio/convites/' . $invitation->getId() . '/reenviar', [
+            '_token' => $this->gerarCsrf('convite_reenviar_' . $invitation->getId()),
         ]);
 
         self::assertResponseRedirects('/login');
@@ -359,9 +360,209 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $em->find(Invitation::class, $invitation->getId())->getReenvioCount());
     }
 
+    private function criarConvite(Tenant $tenant, ?TenantRole $perfil = null): Invitation
+    {
+        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $invitation = new Invitation(
+            email: 'convidado_' . uniqid() . '@example.com',
+            token: bin2hex(random_bytes(32)),
+            type: Invitation::TIPO_ESCRITORIO,
+            expiresAt: new \DateTimeImmutable('+7 days'),
+        );
+        $invitation->setTenant($tenant);
+        $invitation->setTenantRole($perfil);
+        $em->persist($invitation);
+        $em->flush();
+
+        return $invitation;
+    }
+
+    /** Perfil com uma permissão que o gestor de convites (só admin.users.invite) não tem: fora do alcance dele (C5). */
+    private function criarPerfilAcimaDoGestor(Tenant $tenant): TenantRole
+    {
+        $em   = static::getContainer()->get(EntityManagerInterface::class);
+        $perm = $em->getRepository(Permission::class)->findOneBy(['code' => 'admin.users.manage']);
+        if ($perm === null) {
+            $perm = new Permission();
+            $perm->setCode('admin.users.manage');
+            $perm->setDescription('Gerenciar usuários');
+            $perm->setGroup('admin');
+            $em->persist($perm);
+        }
+
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Acima do gestor ' . uniqid());
+        $em->persist($role);
+        $trp = new TenantRolePermission();
+        $trp->setTenantRole($role);
+        $trp->setPermission($perm);
+        $em->persist($trp);
+        $role->getTenantRolePermissions()->add($trp);
+        $em->flush();
+
+        return $role;
+    }
+
+    #[TestDox('A lista de quem gerencia não leva o token do convite; revogar e reenviar vão pelo id, com o e-mail fora do onclick')]
+    public function testListaNaoLevaOToken(): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $user    = $this->criarAdminComPermissao($tenant);
+        $convite = $this->criarConvite($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('GET', '/escritorio/convites');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString($convite->getEmail(), $html);
+        self::assertStringNotContainsString($convite->getToken(), $html);
+        self::assertSelectorExists(sprintf('form[action="/escritorio/convites/%d/revogar"][data-confirmar*="%s"]', $convite->getId(), $convite->getEmail()));
+        self::assertSelectorExists(sprintf('form[action="/escritorio/convites/%d/reenviar"][data-confirmar*="%s"]', $convite->getId(), $convite->getEmail()));
+        self::assertSelectorNotExists(sprintf('[onclick*="%s"]', $convite->getEmail()));
+    }
+
+    #[TestDox('Reenviar pelo id conta o reenvio')]
+    public function testReenviarPeloId(): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $user    = $this->criarAdminComPermissao($tenant);
+        $convite = $this->criarConvite($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', '/escritorio/convites/' . $convite->getId() . '/reenviar', [
+            '_token' => $this->gerarCsrf('convite_reenviar_' . $convite->getId()),
+        ]);
+
+        self::assertResponseRedirects('/escritorio/convites');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame(1, $em->find(Invitation::class, $convite->getId())->getReenvioCount());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function acoesDeGestao(): iterable
+    {
+        yield 'revogar' => ['revogar'];
+        yield 'reenviar' => ['reenviar'];
+    }
+
+    #[DataProvider('acoesDeGestao')]
+    #[TestDox('Convite de outro escritório: revogar e reenviar pelo id respondem 404 e nada muda')]
+    public function testConviteDeOutroEscritorioE404(string $acao): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarAdminComPermissao($tenant);
+        $alheio = $this->criarConvite($this->criarTenant());
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', sprintf('/escritorio/convites/%d/%s', $alheio->getId(), $acao), [
+            '_token' => $this->gerarCsrf(sprintf('convite_%s_%d', $acao, $alheio->getId())),
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $intacto = $em->find(Invitation::class, $alheio->getId());
+        self::assertSame('pending', $intacto->getStatus());
+        self::assertSame(0, $intacto->getReenvioCount());
+    }
+
+    #[TestDox('C5: convite de perfil acima de quem gerencia não aparece na lista; o de perfil que cabe aparece')]
+    public function testConviteDePerfilAcimaNaoApareceNaLista(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarAdminComPermissao($tenant);
+        $acima  = $this->criarConvite($tenant, $this->criarPerfilAcimaDoGestor($tenant));
+        $cabe   = $this->criarConvite($tenant, $this->criarRoleComPermissaoConvite($tenant));
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('GET', '/escritorio/convites');
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString($acima->getEmail(), $html);
+        self::assertStringContainsString($cabe->getEmail(), $html);
+    }
+
+    #[DataProvider('acoesDeGestao')]
+    #[TestDox('C5: revogar ou reenviar convite de perfil acima de quem gerencia dá 404 e nada muda')]
+    public function testConviteDePerfilAcimaE404(string $acao): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarAdminComPermissao($tenant);
+        $acima  = $this->criarConvite($tenant, $this->criarPerfilAcimaDoGestor($tenant));
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', sprintf('/escritorio/convites/%d/%s', $acima->getId(), $acao), [
+            '_token' => $this->gerarCsrf(sprintf('convite_%s_%d', $acao, $acima->getId())),
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $intacto = $em->find(Invitation::class, $acima->getId());
+        self::assertSame('pending', $intacto->getStatus());
+        self::assertSame(0, $intacto->getReenvioCount());
+    }
+
+    #[TestDox('E-mail inválido na criação é recusado com flash de erro e nada é gravado')]
+    public function testEmailInvalidoNaoCriaConvite(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarAdminComPermissao($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $roles = $em->getRepository(TenantRole::class)->findBy(['tenant' => $tenant]);
+        $email = 'invalido_' . uniqid() . '@example.com,outro@example.com';
+
+        $client->request('POST', '/escritorio/convites/novo', [
+            'email'          => $email,
+            'tenant_role_id' => $roles[0]->getId(),
+            '_token'         => $this->gerarCsrf('convite_novo'),
+        ]);
+
+        self::assertResponseRedirects('/escritorio/convites');
+        $client->followRedirect();
+        self::assertSelectorTextContains('.alert-erro', 'Informe um e-mail válido.');
+        $em->clear();
+        self::assertNull($em->getRepository(Invitation::class)->findOneBy(['email' => $email]));
+    }
+
     private function marcarEmailAConfirmar(User $user): void
     {
         $user->marcarEmailAConfirmar(new \DateTimeImmutable());
         static::getContainer()->get(EntityManagerInterface::class)->flush();
+    }
+
+    #[DataProvider('acoesDeGestao')]
+    #[TestDox('CSRF inválido: revogar ou reenviar pelo id dá 403 e nada muda')]
+    public function testCsrfInvalidoNaoMuda(string $acao): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $user    = $this->criarAdminComPermissao($tenant);
+        $convite = $this->criarConvite($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', sprintf('/escritorio/convites/%d/%s', $convite->getId(), $acao), ['_token' => 'invalido']);
+
+        self::assertResponseStatusCodeSame(403);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $intacto = $em->find(Invitation::class, $convite->getId());
+        self::assertSame('pending', $intacto->getStatus());
+        self::assertSame(0, $intacto->getReenvioCount());
     }
 }

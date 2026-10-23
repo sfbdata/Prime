@@ -29,15 +29,28 @@
                     {% endfor %}
                 {% endfor %}
 
+                {# Pelo link do e-mail a tela tem o token da URL; pela lista do convidado logado, só o id (achado de auditoria interna F6). #}
+                {% if convite.token is not null %}
+                    {% set acao_aceitar = path('auth_aceite_convite_aceitar', {token: convite.token}) %}
+                    {% set acao_recusar = path('auth_aceite_convite_recusar', {token: convite.token}) %}
+                    {% set csrf_aceitar = csrf_token('convite_' ~ convite.token) %}
+                    {% set csrf_recusar = csrf_aceitar %}
+                {% else %}
+                    {% set acao_aceitar = path('auth_meu_convite_aceitar', {id: convite.id}) %}
+                    {% set acao_recusar = path('auth_meu_convite_recusar', {id: convite.id}) %}
+                    {% set csrf_aceitar = csrf_token('convite_aceitar_' ~ convite.id) %}
+                    {% set csrf_recusar = csrf_token('convite_recusar_' ~ convite.id) %}
+                {% endif %}
+
                 <div class="d-flex gap-3 mt-4">
-                    <form method="post" action="{{ path('auth_aceite_convite_aceitar', {token: convite.token}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('convite_' ~ convite.token) }}">
+                    <form method="post" action="{{ acao_aceitar }}">
+                        <input type="hidden" name="_token" value="{{ csrf_aceitar }}">
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-check-lg me-1"></i> {{ 'auth.convite.ver_logado.aceitar'|trans }}
                         </button>
                     </form>
-                    <form method="post" action="{{ path('auth_aceite_convite_recusar', {token: convite.token}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('convite_' ~ convite.token) }}">
+                    <form method="post" action="{{ acao_recusar }}">
+                        <input type="hidden" name="_token" value="{{ csrf_recusar }}">
                         <button type="submit" class="btn btn-outline-secondary">{{ 'auth.convite.ver_logado.recusar'|trans }}</button>
                     </form>
                 </div>

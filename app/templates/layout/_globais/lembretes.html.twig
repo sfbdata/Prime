@@ -13,7 +13,7 @@
          data-url-push-chave="{{ path('app_agenda_push_chave') }}"
          data-url-push-inscrever="{{ path('app_agenda_push_inscrever') }}"
          data-url-push-cancelar="{{ path('app_agenda_push_cancelar') }}"
-         data-url-sair="{{ path('app_logout') }}"
+         data-url-sair="{{ logout_path('main') }}"
          data-eu="{{ app.user.id }}:{{ current_tenant() ? current_tenant().id : '' }}"
          data-sw="{{ asset('sw-lembretes.js') }}"></div>
     <link rel="stylesheet" href="{{ asset('css/lembretes.css') }}">

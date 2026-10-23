@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\CriarConvitePlataformaInput;
+use App\Auth\Service\EmailDoConvite;
 use App\Entity\Auth\Invitation;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
@@ -20,7 +21,7 @@ final class CriarConvitePlataformaUseCase
 
     public function executar(CriarConvitePlataformaInput $input): Invitation
     {
-        $email = strtolower(trim($input->email));
+        $email = EmailDoConvite::normalizar($input->email);
 
         if ($this->userRepository->findOneBy(['email' => $email]) !== null) {
             throw new \DomainException('Já existe uma conta com este e-mail.');

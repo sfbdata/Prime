@@ -81,21 +81,20 @@ final class AdminConviteController extends AbstractController
         return $this->redirectToRoute('admin_platform_convite_index');
     }
 
-    #[Route('/{token}/revogar', name: 'admin_platform_convite_revogar', methods: ['POST'])]
-    public function revogar(string $token, Request $request): Response
+    #[Route('/{id}/revogar', name: 'admin_platform_convite_revogar', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function revogar(int $id, Request $request): Response
     {
-        if (!$this->isCsrfTokenValid('convite_revogar_' . $token, $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('convite_revogar_' . $id, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $invitation = $this->invitationRepository->encontrarPorToken($token);
-
-        if ($invitation === null || $invitation->getType() !== Invitation::TIPO_PLATAFORMA) {
+        // Pelo id: o token só existe no link do e-mail (achado de auditoria interna F7). O de escritório é 404.
+        if ($this->invitationRepository->findOneBy(['id' => $id, 'type' => Invitation::TIPO_PLATAFORMA]) === null) {
             throw $this->createNotFoundException('Convite de plataforma não encontrado.');
         }
 
         try {
-            $this->revogarUseCase->executar(new RevogarConviteInput($token));
+            $this->revogarUseCase->executar(new RevogarConviteInput($id));
             $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_revogado'));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
@@ -104,18 +103,17 @@ final class AdminConviteController extends AbstractController
         return $this->redirectToRoute('admin_platform_convite_index');
     }
 
-    #[Route('/{token}/reenviar', name: 'admin_platform_convite_reenviar', methods: ['POST'])]
-    public function reenviar(string $token, Request $request): Response
+    #[Route('/{id}/reenviar', name: 'admin_platform_convite_reenviar', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function reenviar(int $id, Request $request): Response
     {
         $this->verificarLimite($request);
 
-        if (!$this->isCsrfTokenValid('convite_reenviar_' . $token, $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('convite_reenviar_' . $id, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $invitation = $this->invitationRepository->encontrarPorToken($token);
-
-        if ($invitation === null || $invitation->getType() !== Invitation::TIPO_PLATAFORMA) {
+        // Pelo id: o token só existe no link do e-mail (achado de auditoria interna F7). O de escritório é 404.
+        if ($this->invitationRepository->findOneBy(['id' => $id, 'type' => Invitation::TIPO_PLATAFORMA]) === null) {
             throw $this->createNotFoundException('Convite de plataforma não encontrado.');
         }
 
@@ -125,7 +123,7 @@ final class AdminConviteController extends AbstractController
         }
 
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token, $quem));
+            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($id, $quem));
 
             try {
                 $this->mailer->enviarConvitePlataforma($invitation);

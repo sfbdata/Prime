@@ -74,6 +74,19 @@ class UserProfile
         $this->criadoEm = new \DateTimeImmutable();
     }
 
+    /**
+     * O perfil de uma conta que está nascendo (cadastro, convites, Trabalho Externo), já com o gênero informado
+     * (spec genero-no-cadastro). Fica ligado ao User, que o persiste em cascata.
+     */
+    public static function daContaNova(User $user, Genero $genero): self
+    {
+        $perfil = new self($user);
+        $perfil->setGenero($genero);
+        $user->setProfile($perfil);
+
+        return $perfil;
+    }
+
     #[ORM\PreUpdate]
     public function aoAtualizar(): void
     {

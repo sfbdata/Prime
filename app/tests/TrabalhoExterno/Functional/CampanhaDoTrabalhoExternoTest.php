@@ -211,7 +211,7 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
             'cargo' => 'Advogado(a)', 'cidade' => 'Brasília', 'uf' => 'DF', 'areas' => ['Cível'], 'lgpd' => true,
         ]);
         self::assertResponseIsSuccessful();
-        $this->client->request('GET', '/logout');
+        $this->sair($this->client);
         $this->client->request('GET', '/vagas-juridicas');
         $csrf = $this->client->getCrawler()->filter('#alertas')->attr('data-csrf');
         $this->client->request('POST', '/vagas-juridicas/alertas', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['email' => 'lead@teste.com', 'uf' => 'DF', 'areas' => [], 'lgpd' => true, '_token' => $csrf], JSON_THROW_ON_ERROR));

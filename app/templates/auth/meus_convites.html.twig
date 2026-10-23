@@ -29,7 +29,7 @@
                                 <td>{% if (convite.criadorNome ?? null) is not null %}{{ convite.criadorNome }}{% else %}<span class="text-muted small">{{ 'auth.meus_convites.nao_informado'|trans }}</span>{% endif %}</td>
                                 <td>{{ convite.expiresAt|data }}</td>
                                 <td>
-                                    <a href="{{ path('auth_aceite_convite', {token: convite.token}) }}"
+                                    <a href="{{ path('auth_meu_convite', {id: convite.id}) }}"
                                        class="btn btn-sm btn-primary">
                                         {{ 'auth.meus_convites.ver_convite'|trans }}
                                     </a>

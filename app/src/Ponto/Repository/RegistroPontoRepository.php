@@ -157,6 +157,27 @@ SQL;
     }
 
     /**
+     * A última batida da pessoa NESTE escritório entre `$inicio` e `$ate` (por hora e depois id), com o escritório escrito
+     * na consulta: decide se a saída ou a ida ao repouso fecham um turno aberto aqui (spec seguranca-b-jornada §3.3).
+     */
+    public function ultimaBatidaNoTenant(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $ate): ?RegistroPonto
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :ate')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio)
+            ->setParameter('ate', $ate)
+            ->orderBy('r.dataHora', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * O primeiro repouso do dia NESTE escritório (repouso mínimo, regra da batida): tenant explícito além do filtro
      * (spec `ponto-por-escritorio.md` §2.1).
      */

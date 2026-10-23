@@ -32,9 +32,8 @@ class CalculadoraJornadaTest extends TestCase
     {
         $user = new User();
         $user->setEmail('teste@jusprime.com')->setFullName('Teste');
-        if ($jornada !== null) {
-            $user->setJornadaColaborador($jornada);
-        }
+        $jornada?->setUser($user);
+
         return $user;
     }
 
@@ -826,7 +825,8 @@ class CalculadoraJornadaTest extends TestCase
 
     public function testSaldoDoDiaSaiDaEscolhaPronta(): void
     {
-        $user = $this->novoUsuario($this->jornadaComIntervalo());
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
             $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
@@ -836,8 +836,8 @@ class CalculadoraJornadaTest extends TestCase
         $escolha = $this->calculadora->escolherBatidas($batidas, $this->segunda());
 
         // 09:00→12:00 (180) + 13:00→18:30 (330) = 510, contra a meta de 528 do bloco: −18.
-        $this->assertSame(-18, $this->calculadora->calcularSaldoDiaDaEscolha($user, $this->segunda(), $escolha, $user->getJornadaColaborador(), []));
-        $this->assertSame(-18, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $user->getJornadaColaborador(), []));
+        $this->assertSame(-18, $this->calculadora->calcularSaldoDiaDaEscolha($user, $this->segunda(), $escolha, $jornada, []));
+        $this->assertSame(-18, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []));
         $this->assertFalse($this->calculadora->registroIncompletoDaEscolha($escolha));
     }
 
@@ -854,8 +854,9 @@ class CalculadoraJornadaTest extends TestCase
         $this->assertSame(540, $this->calculadora->calcularMinutosTrabalhados($foraDeOrdem), '08:00→17:00');
 
         // E o saldo também: 540 contra a meta de 528 do bloco. Pela primeira da lista (09:00) seria −48.
-        $user = $this->novoUsuario($this->jornadaComIntervalo());
-        $this->assertSame(12, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $foraDeOrdem, $user->getJornadaColaborador(), []));
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+        $this->assertSame(12, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $foraDeOrdem, $jornada, []));
     }
 
     public function testDiaSoComBatidaDeTipoDesconhecidoContinuaIncompleto(): void

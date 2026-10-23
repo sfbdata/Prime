@@ -18,7 +18,7 @@ final class RecusarConviteEscritorioUseCase
 
     public function executar(RecusarConviteEscritorioInput $input): Invitation
     {
-        $invitation = $this->invitationRepository->encontrarPorToken($input->token);
+        $invitation = $this->encontrar($input);
 
         if ($invitation === null) {
             throw new \DomainException('Convite não encontrado.');
@@ -40,5 +40,18 @@ final class RecusarConviteEscritorioUseCase
         $this->em->flush();
 
         return $invitation;
+    }
+
+    /** Pelo token (link do e-mail) ou pelo id (lista do convidado logado, só convite de escritório). */
+    private function encontrar(RecusarConviteEscritorioInput $input): ?Invitation
+    {
+        if ($input->conviteId === null) {
+            return $this->invitationRepository->encontrarPorToken((string) $input->token);
+        }
+        if (!$input->usuarioAtual->isEmailConfirmado()) {
+            throw new \DomainException(AceitarConviteEscritorioComContaUseCase::RECUSA_EMAIL_A_CONFIRMAR);
+        }
+
+        return $this->invitationRepository->findOneBy(['id' => $input->conviteId, 'type' => Invitation::TIPO_ESCRITORIO]);
     }
 }

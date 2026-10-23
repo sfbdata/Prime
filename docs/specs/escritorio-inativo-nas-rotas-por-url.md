@@ -49,6 +49,12 @@ O texto é o aviso de conta suspensa ou excluída (`AvisoDeContaSuspensa`), o me
 
 **R6.** Escritório inexistente não é decidido aqui: a rota segue e o controller responde 404, como hoje.
 
+**R7.** Conta "suspensa a pedido" (pedido de exclusão pendente, `BloqueioPorPedidoDeExclusao::suspensaAPedido`;
+23/10, Segurança C). O Tenant segue ativo, mas a rota recusa do mesmo jeito quem tem vínculo ativo e não é
+Master, **primário inclusive**: na sessão a equipe já não entra e o primário fica só no Meu Perfil, onde desiste
+(`/perfil/...`, fora desta barreira). O texto é `BloqueioPorPedidoDeExclusao::MENSAGEM`, o mesmo da barreira (b)
+da sessão. R1, R3, R4 e R5 valem iguais. Pedido decidido (desistência, reativação) volta a passar.
+
 ## Onde
 
 Um listener único, `App\Tenant\EventListener\BarreiraDoEscritorioInativoNaRota`, em `kernel.request`
@@ -64,6 +70,8 @@ controller lembrar de checar.
 - Chamada de script: 403 JSON.
 - Excluído (em quarentena): recusado do mesmo jeito.
 - Master: passa com A suspenso.
+- R7: com pedido de exclusão pendente em A (ainda ativo), as 43 rotas recusam o admin não primário; o primário
+  também é recusado (JSON na chamada de script); sem vínculo não vê a situação; pedido desistido volta a passar.
 - `escritorio_sair`: passa com A suspenso.
 - Arquitetura: toda rota com `tenantId` no caminho é coberta (nova rota entra sozinha), e a lista do R2 só tem
   nomes que existem.
@@ -74,8 +82,6 @@ controller lembrar de checar.
 - Perguntas (a), (b) e (c) da revisão: vão ao pacote do dono. Notas da revisão cruzada da b5: o primário de
   conta suspensa não exclui o escritório, só o Master; `trabalho_externo_solicitacao` (escritório no corpo, só
   Master) fica fora, junto com o Trabalho Externo.
-- Conta "suspensa a pedido" do #125: o Tenant segue ativo, então esta barreira não a cobre. A lacuna está
-  registrada no próprio #125.
 - Trabalho Externo: o Convidado age, sem escritório, sobre a demanda de um escritório suspenso (rotas
   `trabalho_externo_*`, liberadas sem escritório na barreira da sessão). É o mesmo tipo de defeito, sem o
   escritório na URL: fica registrado para uma frente própria.

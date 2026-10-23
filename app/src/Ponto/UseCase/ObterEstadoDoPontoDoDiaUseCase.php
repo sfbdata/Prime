@@ -10,6 +10,7 @@ use App\Ponto\DTO\EstadoDoPontoDoDiaOutput;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\FeriadoRepository;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\BatidasEscolhidas;
@@ -43,6 +44,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
         private readonly InicioContagemResolver $inicioContagem,
         private readonly EsquecimentosRegistrados $esquecimentos,
         private readonly ClockInterface $clock,
+        private readonly JornadaColaboradorRepository $jornadas,
     ) {
     }
 
@@ -100,7 +102,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
      */
     private function linhaDaFolha(User $eu, Tenant $tenant, \DateTimeImmutable $dia, array $batidas): ?array
     {
-        $jornada = $eu->getJornadaColaborador() ?? (new JornadaColaborador())->setUser($eu);
+        $jornada = $this->jornadas->findByUserETenant($eu, $tenant) ?? (new JornadaColaborador())->setUser($eu);
         $linhas = $this->folha->buildRows(
             $dia->setTime(0, 0, 0),
             $dia->setTime(23, 59, 59),

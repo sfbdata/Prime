@@ -8,6 +8,7 @@ use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Enum\Genero;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\TrabalhoExterno\Controller\ConviteController;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
@@ -54,15 +55,16 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertInputValueSame('full_name', 'Nome Digitado');
         self::assertSelectorTextContains('button', 'Criar conta e aceitar', 'o formulário continua lá para corrigir');
 
-        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Novo Correspondente', 'senha' => 'senha-forte-1', '_token' => $csrf]);
+        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Novo Correspondente', 'senha' => 'senha-forte-1', 'genero' => 'masculino', '_token' => $csrf]);
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorExists('.login-container form .alert-danger', 'sem o aceite dos Termos, o erro também aparece');
 
-        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Novo Correspondente', 'senha' => 'senha-forte-1', 'aceite_termos' => '1', '_token' => $csrf]);
+        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Novo Correspondente', 'senha' => 'senha-forte-1', 'genero' => 'masculino', 'aceite_termos' => '1', '_token' => $csrf]);
         self::assertResponseRedirects("/trabalho-externo?te=$codigo");
 
         $usuario = $this->em()->getRepository(User::class)->findOneBy(['email' => 'novo.correspondente@test.com']);
         self::assertNotNull($usuario);
+        self::assertSame(Genero::Masculino, $usuario->getProfile()?->getGenero(), 'o gênero do formulário vai para o perfil');
         self::assertSame([], $this->em()->getRepository(UserTenant::class)->findBy(['user' => $usuario]), 'convite não cria vínculo com escritório');
 
         $client->request('GET', "/trabalho-externo?te=$codigo");
@@ -97,6 +99,35 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/expediente');
         self::assertResponseRedirects('/escritorio/selecionar', null, 'fora do Trabalho Externo, o convidado é só uma conta sem escritório');
+    }
+
+    #[TestDox('Gênero obrigatório na conta do convite: só Feminino e Masculino, sem valor escolhido; sem ele, a recusa mantém o que foi digitado')]
+    public function testGeneroNoConvite(): void
+    {
+        [$client, $codigo] = $this->demandaEmExecucao();
+        $token = $this->convidar($client, $codigo, 'genero.convite@test.com');
+
+        $client->getCookieJar()->clear();
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$token");
+        $campo = $crawler->filter('.login-container > form[action$="/criar-conta"] > div.mb-3 > select#genero[name="genero"][required]');
+        self::assertCount(1, $campo, 'o campo é filho direto do formulário de criar conta');
+        self::assertSame(['', 'feminino', 'masculino'], $campo->filter('option')->each(static fn ($o): string => (string) $o->attr('value')));
+        self::assertCount(0, $campo->filter('option[selected]'), 'nenhum valor pré-escolhido');
+        self::assertStringNotContainsString('Prefiro não informar', (string) $client->getResponse()->getContent());
+
+        $csrf = $crawler->filter('form[action$="/criar-conta"] input[name="_token"]')->attr('value');
+        foreach (['', 'nao_informado'] as $genero) {
+            $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Nome Digitado', 'senha' => 'senha-forte-1', 'genero' => $genero, 'aceite_termos' => '1', '_token' => $csrf]);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSelectorTextContains('.login-container form[action$="/criar-conta"] .alert-danger', 'Informe o gênero.');
+            self::assertInputValueSame('full_name', 'Nome Digitado');
+        }
+        self::assertNull($this->em()->getRepository(User::class)->findOneBy(['email' => 'genero.convite@test.com']));
+
+        // Com outro erro (senha curta), o gênero escolhido volta marcado.
+        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Nome Digitado', 'senha' => 'curta', 'genero' => 'feminino', 'aceite_termos' => '1', '_token' => $csrf]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('select#genero option[value="feminino"][selected]');
     }
 
     #[TestDox('o convidado age dentro das permissões do convite e não vê outra demanda')]
@@ -799,7 +830,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/trabalho-externo/convite/$tokenNovo");
         self::assertSelectorTextContains('h1', 'Convite indisponível');
         self::assertCount(0, $crawler->filter('form[action$="/criar-conta"]'));
-        $client->request('POST', "/trabalho-externo/convite/$tokenNovo/criar-conta", ['full_name' => 'Novo', 'senha' => 'senha-forte-1', 'aceite_termos' => '1', '_token' => 'TOKEN_te_convite_' . $tokenNovo]);
+        $client->request('POST', "/trabalho-externo/convite/$tokenNovo/criar-conta", ['full_name' => 'Novo', 'senha' => 'senha-forte-1', 'genero' => 'feminino', 'aceite_termos' => '1', '_token' => 'TOKEN_te_convite_' . $tokenNovo]);
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorTextContains('h1', 'Convite indisponível');
 
@@ -1011,7 +1042,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
     {
         $client->getCookieJar()->clear();
         $crawler = $client->request('GET', "/trabalho-externo/convite/$token");
-        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Convidado', 'senha' => 'senha-forte-1', 'aceite_termos' => '1', '_token' => $crawler->filter('form[action$="/criar-conta"] input[name="_token"]')->attr('value')]);
+        $client->request('POST', "/trabalho-externo/convite/$token/criar-conta", ['full_name' => 'Convidado', 'senha' => 'senha-forte-1', 'genero' => 'masculino', 'aceite_termos' => '1', '_token' => $crawler->filter('form[action$="/criar-conta"] input[name="_token"]')->attr('value')]);
         self::assertResponseRedirects();
 
         return $this->em()->getRepository(User::class)->findOneBy(['email' => $email]);

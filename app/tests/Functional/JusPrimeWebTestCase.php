@@ -10,6 +10,7 @@ use App\EventListener\TermoAceiteListener;
 use App\Termo\TermoVigente;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Security\Http\Logout\LogoutUrlGenerator;
 
 abstract class JusPrimeWebTestCase extends WebTestCase
 {
@@ -23,6 +24,18 @@ abstract class JusPrimeWebTestCase extends WebTestCase
         $session->set('current_tenant_id', $tenant->getId());
         $session->set(TermoAceiteListener::SESSION_KEY, TermoVigente::VERSAO);
         $session->save();
+    }
+
+    /**
+     * Sai como o link "Sair" do sistema: o logout exige o token `logout` (enable_csrf), que é stateless e vale
+     * pela origem da requisição. O navegador manda o Sec-Fetch-Site; o KernelBrowser não, então vai aqui.
+     * A URL sai do mesmo gerador do logout_path('main') do Twig: rota, nome do parâmetro e token do Symfony.
+     */
+    protected function sair(KernelBrowser $client): void
+    {
+        /** @var LogoutUrlGenerator $gerador */
+        $gerador = static::getContainer()->get('security.logout_url_generator');
+        $client->request('GET', $gerador->getLogoutPath('main'), [], [], ['HTTP_SEC_FETCH_SITE' => 'same-origin']);
     }
 
     /**
