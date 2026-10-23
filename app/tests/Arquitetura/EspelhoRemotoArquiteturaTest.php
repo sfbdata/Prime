@@ -57,15 +57,25 @@ final class EspelhoRemotoArquiteturaTest extends TestCase
         self::assertSame(0, preg_match('/\$cliente\b(?!->)|->cliente\b(?!->)/', str_replace(['private readonly S3Client $cliente', 'S3Client $cliente'], '', $codigo)), 'o cliente não pode ser repassado para fora');
     }
 
-    #[TestDox('dentro do adaptador R2 não existe a palavra delete fora de comentário')]
+    /**
+     * A única exceção é a retenção da outbox (decisão do dono de 23/10, I4): ela apaga LINHAS LOCAIS da
+     * tabela `armazenamento_replicacao`, nunca objeto remoto. O arquivo entra só com aquele `DELETE`.
+     */
+    private const OUTBOX = 'src/Shared/EspelhoRemoto/Outbox/OutboxDeReplicacao.php';
+
+    #[TestDox('dentro do espelho não existe a palavra delete fora de comentário (só o DELETE da retenção da outbox, que é linha local)')]
     public function testAdaptadorNaoConheceDelete(): void
     {
         $achados = array_filter(
             $this->arquivosQueCasam('/delete/i'),
-            static fn (string $arquivo): bool => str_starts_with($arquivo, self::DIRETORIO_DO_ESPELHO),
+            static fn (string $arquivo): bool => str_starts_with($arquivo, self::DIRETORIO_DO_ESPELHO) && $arquivo !== self::OUTBOX,
         );
 
         self::assertSame([], array_values($achados));
+
+        $outbox = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/' . self::OUTBOX));
+        self::assertSame(1, preg_match_all('/delete/i', $outbox), 'a outbox só conhece um delete');
+        self::assertStringContainsString("'DELETE FROM ' . self::TABELA . ' WHERE ' . self::CONCLUIDAS_ANTES_DE", $outbox);
     }
 
     #[TestDox('o async-aws só é conhecido pelo adaptador R2')]
