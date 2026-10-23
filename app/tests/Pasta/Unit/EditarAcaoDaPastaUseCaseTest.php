@@ -150,4 +150,18 @@ final class EditarAcaoDaPastaUseCaseTest extends TestCase
             self::assertSame('COBRANÇA', $this->pasta->getNomeAcao());
         }
     }
+
+    #[TestDox('O limite vale para o texto já em maiúsculas: 128 "ß" viram 256 "SS" e são recusados')]
+    public function testLimiteContaAsMaiusculas(): void
+    {
+        $this->podeEditar(true);
+        $this->em->expects(self::never())->method('flush');
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            $this->useCase->executar($this->pasta, str_repeat('ß', 128), $this->usuario, $this->tenant);
+        } finally {
+            self::assertSame('COBRANÇA', $this->pasta->getNomeAcao());
+        }
+    }
 }

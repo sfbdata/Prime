@@ -13,12 +13,16 @@ use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\EditarAcaoDaPastaUseCase;
 use App\Processo\Entity\Processo;
+use App\Sync\Entity\TenantDriveConexao;
+use App\Sync\Message\SincronizarPastaNoDrive;
+use App\Sync\Service\CifradorDeSegredo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
@@ -27,7 +31,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  *
  * Guardas: pasta do escritório (404), CSRF (403), EDIT na pasta (403), cadeado em Visualizar (403 da barreira).
  * O par "só ver" (403) × "ver + editar" (grava) é no MESMO escritório, para o 403 não ser outra barreira. O
- * cross-tenant usa o SUPER_ADMIN, que passa em qualquer permissão: o 404 só pode vir da conferência de dono.
+ * cross-tenant usa o admin de outro escritório: o 404 vem do filtro do escritório ou da conferência de dono.
  */
 #[CoversClass(AcaoDaPastaController::class)]
 #[CoversClass(EditarAcaoDaPastaUseCase::class)]
@@ -341,7 +345,7 @@ final class AcaoDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->cartoes($pasta));
     }
 
-    #[TestDox('Pasta de OUTRO escritório dá 404, mesmo para o SUPER_ADMIN, e nada é gravado')]
+    #[TestDox('Pasta de OUTRO escritório dá 404 para o admin de outro escritório, e nada é gravado')]
     public function testOutroEscritorioDa404(): void
     {
         [$userA, $tenantA] = $this->criarAdmin();
@@ -383,5 +387,55 @@ final class AcaoDaPastaControllerTest extends JusPrimeWebTestCase
         $this->salvar($pasta, ['nome_acao' => 'OUTRA'], self::XHR);
         self::assertResponseStatusCodeSame(403);
         self::assertSame('COBRANÇA', $this->acaoNoBanco($pasta));
+    }
+
+    // ── Drive ───────────────────────────────────────────────────────────
+
+    private function conectarDrive(Tenant $tenant, User $user): void
+    {
+        $cifrador = static::getContainer()->get(CifradorDeSegredo::class);
+        $conexao  = new TenantDriveConexao($tenant);
+        $conexao->registrarCredenciais($cifrador->cifrar('tok'), 'a@b.com', 'drive', $user);
+        $conexao->definirRootFolder('root-abcdefghij');
+        $this->em()->persist($conexao);
+        $this->em()->flush();
+    }
+
+    private function transporteAsync(): InMemoryTransport
+    {
+        return static::getContainer()->get('messenger.transport.async');
+    }
+
+    #[TestDox('A Ação compõe o nome da pasta no Drive: trocá-la enfileira a renomeação')]
+    public function testTrocarAcaoEnfileiraRenomeacao(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta]         = $this->pastaComProcesso($tenant);
+        $this->conectarDrive($tenant, $user);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->salvar($pasta, ['nome_acao' => 'Ação de despejo']);
+        self::assertResponseRedirects();
+
+        $enviadas = $this->transporteAsync()->getSent();
+        self::assertCount(1, $enviadas);
+        $msg = $enviadas[0]->getMessage();
+        self::assertInstanceOf(SincronizarPastaNoDrive::class, $msg);
+        self::assertSame($pasta->getId(), $msg->pastaId);
+        self::assertTrue($msg->renomear);
+    }
+
+    #[TestDox('A mesma Ação (só caixa e espaços diferentes) não enfileira nada')]
+    public function testMesmaAcaoNaoEnfileira(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta]         = $this->pastaComProcesso($tenant);
+        $this->conectarDrive($tenant, $user);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->salvar($pasta, ['nome_acao' => ' cobrança ']);
+        self::assertResponseRedirects();
+
+        self::assertCount(0, $this->transporteAsync()->getSent());
     }
 }

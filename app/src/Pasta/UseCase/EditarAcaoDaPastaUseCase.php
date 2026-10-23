@@ -56,17 +56,18 @@ final class EditarAcaoDaPastaUseCase
             throw new SemPermissaoParaEditarPastaException('Sem permissão para editar esta pasta.');
         }
 
-        $nova = self::normal($acao);
-        if ($nova !== null && mb_strlen($nova) > self::TAMANHO_MAXIMO) {
+        // Medida e comparada já em maiúsculas, como o setter grava ("ß" vira "SS").
+        $depois = self::normal($acao);
+        $depois = $depois !== null ? mb_strtoupper($depois) : null;
+        if ($depois !== null && mb_strlen($depois) > self::TAMANHO_MAXIMO) {
             throw new \InvalidArgumentException(sprintf('A ação pode ter no máximo %d caracteres.', self::TAMANHO_MAXIMO));
         }
 
         $antes = self::normal($pasta->getNomeAcao());
-        $pasta->setNomeAcao($nova);
-        $depois = self::normal($pasta->getNomeAcao());
         if ($antes === $depois) {
             return false;
         }
+        $pasta->setNomeAcao($depois);
 
         $this->registro->registrar($pasta, $usuario, 'pasta', sprintf(
             'ação alterada pela aba Processo: "%s" → "%s".',
