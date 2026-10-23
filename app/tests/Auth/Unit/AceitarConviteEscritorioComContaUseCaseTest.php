@@ -420,4 +420,44 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         self::assertSame($sistema, $vinculo->getTenantRole());
         self::assertTrue($capturados[0]->comoPrimario, 'convite com o papel de sistema: o evento diz que entrou como primário');
     }
+
+    #[TestDox('Pelo id (lista do convidado logado): busca só convite de escritório pelo id e aceita')]
+    public function testPeloIdAceita(): void
+    {
+        $invitation = $this->makePendingOfficeInvitation('usuario@example.com');
+        $this->invitationRepo->expects($this->never())->method('encontrarPorToken');
+        $this->invitationRepo->expects($this->once())->method('findOneBy')
+            ->with(['id' => 7, 'type' => Invitation::TIPO_ESCRITORIO])->willReturn($invitation);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn(null);
+
+        $this->useCase->executar(AceitarConviteEscritorioComContaInput::porId(7, $this->usuario));
+
+        self::assertSame('accepted', $invitation->getStatus());
+    }
+
+    #[TestDox('Pelo id com o e-mail da conta a confirmar: recusa sem nem buscar o convite')]
+    public function testPeloIdComEmailAConfirmarRecusa(): void
+    {
+        $this->usuario->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $this->invitationRepo->expects($this->never())->method('findOneBy');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage(AceitarConviteEscritorioComContaUseCase::RECUSA_EMAIL_A_CONFIRMAR);
+
+        $this->useCase->executar(AceitarConviteEscritorioComContaInput::porId(7, $this->usuario));
+    }
+
+    #[TestDox('Pelo id, convite de outro e-mail: recusa e nada é gravado')]
+    public function testPeloIdDeOutroEmailRecusa(): void
+    {
+        $invitation = $this->makePendingOfficeInvitation('outra@example.com');
+        $this->invitationRepo->method('findOneBy')->willReturn($invitation);
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Este convite não pertence à sua conta.');
+
+        $this->useCase->executar(AceitarConviteEscritorioComContaInput::porId(7, $this->usuario));
+    }
 }

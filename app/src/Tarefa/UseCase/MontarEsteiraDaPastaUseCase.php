@@ -7,6 +7,8 @@ namespace App\Tarefa\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Service\TratamentoDeAdvogado;
+use App\Tarefa\DTO\AvisadoNaEsteiraOutput;
 use App\Repository\UserTenantRepository;
 use App\Tarefa\DTO\CaixaNaEsteiraOutput;
 use App\Tarefa\DTO\EsteiraDaPastaOutput;
@@ -29,8 +31,8 @@ use App\Tarefa\Service\QuemConfiguraACaixa;
  * **Regras:** GARGALO é a caixa com MAIS atrasadas, só se houver alguma; no empate, a primeira da esteira
  * (dc L165). Meta de pasta oculta pelo cadeado para quem olha não entra nos números (spec pasta-cadeado D3).
  * A equipe para o @ do modal só vem para quem pode configurar caixa (D2): os outros nem recebem a lista.
- * O avisado aparece como "Primeiro Último", sem o "Dr./Dra." do protótipo (spec C7: o `trat()` deduz o gênero
- * pelo nome e erra).
+ * O avisado aparece como "Primeiro Último"; quem tem OAB e gênero declarado ganha o "Dr./Dra." do `trat()` do
+ * desenho (spec genero-no-cadastro, regra 4), sem adivinhar o gênero pelo nome como o protótipo.
  *
  * **Erros:** não lança; é leitura.
  */
@@ -93,14 +95,17 @@ final class MontarEsteiraDaPastaUseCase
             nomeDaCaixa: $configurada?->getNomeDaCaixa(),
             nomeDaEtapa: $configurada?->getNomeDaEtapa(),
             avisados: array_values(array_map(
-                static fn (User $u): string => self::nomeCurto((string) $u->getFullName()),
+                static fn (User $u): AvisadoNaEsteiraOutput => new AvisadoNaEsteiraOutput(
+                    self::nomeCurto((string) $u->getFullName()),
+                    TratamentoDeAdvogado::de($u),
+                ),
                 $avisados,
             )),
             idsDosAvisados: array_values(array_map(static fn (User $u): int => (int) $u->getId(), $avisados)),
         );
     }
 
-    /** "Primeiro Último" com as iniciais maiúsculas (spec C7: nome simples, sem título). */
+    /** "Primeiro Último" com as iniciais maiúsculas (spec C7); o título, se houver, a tela põe na frente. */
     private static function nomeCurto(string $nome): string
     {
         $partes = preg_split('/\s+/u', trim($nome), -1, PREG_SPLIT_NO_EMPTY) ?: [];

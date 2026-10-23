@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\CriarConviteEscritorioInput;
+use App\Auth\Service\EmailDoConvite;
 use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\Invitation;
 use App\Entity\Tenant\Tenant;
@@ -37,6 +38,8 @@ final class CriarConviteEscritorioUseCase
             throw new \DomainException(self::RECUSA_EMAIL_A_CONFIRMAR);
         }
 
+        $email = EmailDoConvite::normalizar($input->email);
+
         // Convite com o perfil de sistema faz do convidado um primário: só primário ou Master
         // (spec perfis-master D4). OperacaoDePrimarioRecusada é DomainException: vira flash.
         if ($input->tenantRole->isSystem()) {
@@ -47,8 +50,6 @@ final class CriarConviteEscritorioUseCase
 
         // Limite de usuários do plano ou do Master (P8): só com o bloqueio ligado.
         $this->vagaNoEscritorio->exigir((int) $input->tenant->getId());
-
-        $email = strtolower(trim($input->email));
 
         $this->exigirQueAindaNaoEstaNaEquipe($email, $input->tenant);
 

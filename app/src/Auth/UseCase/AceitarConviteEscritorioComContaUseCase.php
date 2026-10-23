@@ -21,6 +21,9 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 
 final class AceitarConviteEscritorioComContaUseCase
 {
+    /** Pelo id não há o link do e-mail como prova de que a caixa é da pessoa: vale o e-mail confirmado da conta. */
+    public const RECUSA_EMAIL_A_CONFIRMAR = 'Confirme o seu e-mail para responder a este convite.';
+
     public function __construct(
         private readonly InvitationRepository $invitationRepository,
         private readonly UserTenantRepository $userTenantRepository,
@@ -33,7 +36,7 @@ final class AceitarConviteEscritorioComContaUseCase
 
     public function executar(AceitarConviteEscritorioComContaInput $input): UserTenant
     {
-        $invitation = $this->invitationRepository->encontrarPorToken($input->token);
+        $invitation = $this->encontrar($input);
 
         if ($invitation === null) {
             throw new \DomainException('Convite não encontrado.');
@@ -90,6 +93,19 @@ final class AceitarConviteEscritorioComContaUseCase
         $this->avisarAceite($invitation, $input->usuarioAtual, $tenant);
 
         return $userTenant;
+    }
+
+    /** Pelo token (link do e-mail) ou pelo id (lista do convidado logado, só convite de escritório). */
+    private function encontrar(AceitarConviteEscritorioComContaInput $input): ?Invitation
+    {
+        if ($input->conviteId === null) {
+            return $this->invitationRepository->encontrarPorToken((string) $input->token);
+        }
+        if (!$input->usuarioAtual->isEmailConfirmado()) {
+            throw new \DomainException(self::RECUSA_EMAIL_A_CONFIRMAR);
+        }
+
+        return $this->invitationRepository->findOneBy(['id' => $input->conviteId, 'type' => Invitation::TIPO_ESCRITORIO]);
     }
 
     /** Já ativo, suspenso ou em análise: o convite não devolve o acesso; só o primário, pela equipe da conta. */

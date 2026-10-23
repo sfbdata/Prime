@@ -520,7 +520,20 @@
         const onde = PontoBatida.avaliarPosicao(currentLocation, SEDES);
 
         if (onde.situacao === 'fora') {
-            gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> Você está a ${Math.round(onde.distancia)}m de <strong>${onde.sede.nome}</strong>, fora da área permitida para bater o ponto.<br>Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.`;
+            // Achado de auditoria interna F2: o nome da sede é digitado por alguém e chega do servidor.
+            // A mensagem é montada por DOM e o nome entra só por `textContent`, nunca por `innerHTML`.
+            const iconeCerca = document.createElement('i');
+            iconeCerca.className = 'bi bi-geo-alt-fill';
+            const nomeDaSede = document.createElement('strong');
+            nomeDaSede.textContent = onde.sede.nome;
+            gpsStatus.replaceChildren(
+                iconeCerca,
+                ` Você está a ${Math.round(onde.distancia)}m de `,
+                nomeDaSede,
+                ', fora da área permitida para bater o ponto.',
+                document.createElement('br'),
+                'Se está em trabalho externo ou home office, peça ao gestor a liberação do dia e depois atualize esta página.'
+            );
             gpsStatus.className = 'alert alert-danger small mb-3';
             // A liberação do dia (`homeOfficeHoje`) é decidida no servidor e só chega na carga. Se o
             // gestor conceder com a página aberta, o servidor passa a aceitar e a tela continuaria

@@ -76,18 +76,19 @@
                         <td class="text-end">
                             {% if convite.status == 'pending' %}
                                 {% if convite.podeReenviar %}
-                                    <form method="post" action="{{ path('admin_platform_convite_reenviar', {token: convite.token}) }}" class="d-inline">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('convite_reenviar_' ~ convite.token) }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary me-1"
-                                                onclick="return confirm('Reenviar convite para {{ convite.email|e('html_attr') }}?')">
+                                    {# data-confirmar: a pergunta sai do JavaScript inline (menu-usuario.js; achado de auditoria interna F3). #}
+                                    <form method="post" action="{{ path('admin_platform_convite_reenviar', {id: convite.id}) }}" class="d-inline"
+                                          data-confirmar="{{ 'plataforma.convites.confirmar_reenviar'|trans({email: convite.email}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('convite_reenviar_' ~ convite.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary me-1">
                                             {{ 'plataforma.convites.reenviar'|trans }}
                                         </button>
                                     </form>
                                 {% endif %}
-                                <form method="post" action="{{ path('admin_platform_convite_revogar', {token: convite.token}) }}" class="d-inline">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('convite_revogar_' ~ convite.token) }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"
-                                            onclick="return confirm('Revogar convite de {{ convite.email|e('html_attr') }}?')">
+                                <form method="post" action="{{ path('admin_platform_convite_revogar', {id: convite.id}) }}" class="d-inline"
+                                      data-confirmar="{{ 'plataforma.convites.confirmar_revogar'|trans({email: convite.email}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('convite_revogar_' ~ convite.id) }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
                                         {{ 'plataforma.convites.revogar'|trans }}
                                     </button>
                                 </form>

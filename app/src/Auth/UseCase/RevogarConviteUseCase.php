@@ -18,7 +18,7 @@ final class RevogarConviteUseCase
 
     public function executar(RevogarConviteInput $input): Invitation
     {
-        $invitation = $this->invitationRepository->encontrarPorToken($input->token);
+        $invitation = $this->invitationRepository->find($input->conviteId);
 
         if ($invitation === null) {
             throw new \DomainException('Convite não encontrado.');

@@ -97,6 +97,16 @@ moldura:
         dica_navegar: ↑ ↓ navegar
         dica_abrir: Enter abrir
         dica_alternar: Ctrl + K abrir ou fechar
+    # Janela "Como devemos tratar você?" (layout/_globais/genero, spec genero-no-cadastro)
+    genero:
+        titulo: Como devemos tratar você?
+        texto: Usamos essa informação para escrever o seu nome corretamente no sistema (por exemplo, Dr. ou Dra.).
+        feminino: Feminino
+        masculino: Masculino
+        salvar: Salvar
+        fechar: Fechar
+        informe: Informe o gênero.
+        sessao_expirada: Sessão expirada. Recarregue a página.
     js:
         busca_sem_resultado: Nenhum resultado
         instalar_sem_pedido: 'Para instalar: no Chrome ou Edge, use o ícone de instalar na barra de endereço. No celular, "Adicionar à tela inicial".'
@@ -122,6 +132,9 @@ moldura:
             exemplo_reuniao: Reunião de equipe semanal
             exemplo_prazo: Prazo de contestação · Pasta 1180
             exemplo_compromisso: Atendimento ao cliente
+        genero:
+            informe: Informe o gênero.
+            falha: Não foi possível salvar. Tente de novo.
     # Faixa do Master numa tela desligada (_recurso_faixa_master, incluída pelo base, layout_peticionar e push_compartilhado/show)
     faixa_master:
         aviso: Esta tela está desativada para os usuários. Só o Master está vendo.
@@ -1678,6 +1691,9 @@ metas:
         gargalo_dica: Etapa com mais metas atrasadas
         atrasadas: '{n, plural, one {# atrasada} other {# atrasadas}}'
         avisados_dica: 'Avisados quando chega demanda: {nomes}'
+        # Título de quem tem OAB e gênero declarado (desenho 04, trat(); spec genero-no-cadastro, regra 4)
+        tratamento_dra: Dra. {nome}
+        tratamento_dr: Dr. {nome}
         renomear: Renomear caixa e etapa
         suas_metas: Suas metas
         individual: Individual
@@ -4524,7 +4540,9 @@ plataforma:
         revogado: Revogado
         expirado: Expirado
         reenviar: Reenviar
+        confirmar_reenviar: 'Reenviar convite para {email}?'
         revogar: Revogar
+        confirmar_revogar: 'Revogar convite de {email}?'
         vazio: Nenhum convite enviado ainda.
     oab:
         titulo: Revisão de OAB
@@ -6320,6 +6338,10 @@ auth:
             oab_numero_exemplo: 'Ex: 123456'
             oab_uf: UF da OAB
             oab_uf_exemplo: 'Ex: SP'
+            genero: Gênero
+            genero_escolha: Selecione
+            genero_feminino: Feminino
+            genero_masculino: Masculino
             termos: Termos e Condições Gerais de Uso
             ciencia: Ao criar a conta você declara ciência da
             politica: Política de Privacidade
@@ -6464,6 +6486,10 @@ entrada:
         nome_completo: Seu nome completo
         escritorio: Nome do escritório
         escritorio_exemplo: 'Ex.: Silva Advogados Associados'
+        genero: Gênero
+        genero_escolha: Selecione
+        genero_feminino: Feminino
+        genero_masculino: Masculino
         li_e_aceito_os: Li e aceito os
         e_a: e a
         ja_tem_conta: Já tem conta?
@@ -6518,6 +6544,7 @@ entrada:
         senhas_diferentes: As senhas não conferem.
         informe_nome: Informe seu nome completo.
         informe_escritorio: Informe o nome do escritório.
+        informe_genero: Informe o gênero.
         aceite: É preciso aceitar os Termos e a Política de privacidade.
         saudacao:
             bom_dia: Bom dia
@@ -7175,6 +7202,10 @@ trabalho_externo:
         para_validade: Convite para {email}, válido até {validade}.
         nome_completo: Nome completo
         senha: Senha (mínimo de 8 caracteres)
+        genero: Gênero
+        genero_escolha: Selecione
+        genero_feminino: Feminino
+        genero_masculino: Masculino
         # Frases partidas em volta dos links (spec §8).
         li_e_aceito: Li e aceito os
         termos_de_uso: Termos e Condições Gerais de Uso

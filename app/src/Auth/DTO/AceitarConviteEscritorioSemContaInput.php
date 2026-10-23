@@ -13,5 +13,7 @@ readonly class AceitarConviteEscritorioSemContaInput
         public bool $aceiteTermos = false,
         public string $ip = '',
         public ?string $userAgent = null,
+        /** Valor cru do campo Gênero (spec genero-no-cadastro); só `feminino` ou `masculino` passam. */
+        public string $genero = '',
     ) {}
 }

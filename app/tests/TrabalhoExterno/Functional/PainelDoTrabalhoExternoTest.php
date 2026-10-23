@@ -133,7 +133,7 @@ final class PainelDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $master, $sede);
         $codigo = $this->postarJson($this->client, '/trabalho-externo/api/vagas', self::vaga())['codigo'];
         $caminho = (string) parse_url($this->postarJson($this->client, '/trabalho-externo/api/vagas/compartilhar', ['codigos' => [$codigo]])['url'], PHP_URL_PATH);
-        $this->client->request('GET', '/logout');
+        $this->sair($this->client);
 
         $this->abrir($caminho);
         self::assertResponseIsSuccessful();

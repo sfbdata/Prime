@@ -9,6 +9,7 @@ use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -191,8 +192,8 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em->persist($invitation);
         $em->flush();
 
-        $client->request('POST', '/admin/platform/convites/' . $invitation->getToken() . '/revogar', [
-            '_token' => $this->gerarCsrf('convite_revogar_' . $invitation->getToken()),
+        $client->request('POST', '/admin/platform/convites/' . $invitation->getId() . '/revogar', [
+            '_token' => $this->gerarCsrf('convite_revogar_' . $invitation->getId()),
         ]);
 
         self::assertResponseRedirects('/admin/platform/convites');
@@ -221,8 +222,8 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em->persist($invitation);
         $em->flush();
 
-        $client->request('POST', '/admin/platform/convites/' . $invitation->getToken() . '/reenviar', [
-            '_token' => $this->gerarCsrf('convite_reenviar_' . $invitation->getToken()),
+        $client->request('POST', '/admin/platform/convites/' . $invitation->getId() . '/reenviar', [
+            '_token' => $this->gerarCsrf('convite_reenviar_' . $invitation->getId()),
         ]);
 
         self::assertResponseRedirects('/admin/platform/convites');
@@ -251,10 +252,96 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em->persist($invitation);
         $em->flush();
 
-        $client->request('POST', '/admin/platform/convites/' . $invitation->getToken() . '/revogar', [
-            '_token' => $this->gerarCsrf('convite_revogar_' . $invitation->getToken()),
+        $client->request('POST', '/admin/platform/convites/' . $invitation->getId() . '/revogar', [
+            '_token' => $this->gerarCsrf('convite_revogar_' . $invitation->getId()),
         ]);
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('A lista da plataforma não leva o token; revogar e reenviar vão pelo id, com o e-mail fora do onclick')]
+    public function testListaNaoLevaOToken(): void
+    {
+        $client = static::createClient();
+        $admin  = $this->criarSuperAdmin();
+        $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
+
+        $em      = static::getContainer()->get(EntityManagerInterface::class);
+        $convite = new Invitation(
+            email: 'lista_plataforma_' . uniqid() . '@example.com',
+            token: bin2hex(random_bytes(32)),
+            type: Invitation::TIPO_PLATAFORMA,
+            expiresAt: new \DateTimeImmutable('+24 hours'),
+        );
+        $em->persist($convite);
+        $em->flush();
+
+        $client->request('GET', '/admin/platform/convites');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString($convite->getEmail(), $html);
+        self::assertStringNotContainsString($convite->getToken(), $html);
+        self::assertSelectorExists(sprintf('form[action="/admin/platform/convites/%d/revogar"][data-confirmar="Revogar convite de %s?"]', $convite->getId(), $convite->getEmail()));
+        self::assertSelectorExists(sprintf('form[action="/admin/platform/convites/%d/reenviar"][data-confirmar="Reenviar convite para %s?"]', $convite->getId(), $convite->getEmail()));
+        self::assertSelectorNotExists(sprintf('[onclick*="%s"]', $convite->getEmail()));
+    }
+
+    #[TestDox('E-mail inválido no convite de plataforma é recusado com flash de erro e nada é gravado')]
+    public function testEmailInvalidoNaoCriaConvite(): void
+    {
+        $client = static::createClient();
+        $admin  = $this->criarSuperAdmin();
+        $this->instalarCsrfStorage();
+        $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
+
+        $email = 'invalido_' . uniqid() . '@example.com?cc=outro@example.com';
+        $client->request('POST', '/admin/platform/convites/novo', [
+            'email'  => $email,
+            '_token' => $this->gerarCsrf('convite_novo'),
+        ]);
+
+        self::assertResponseRedirects('/admin/platform/convites');
+        $client->followRedirect();
+        self::assertSelectorTextContains('.alert-erro', 'Informe um e-mail válido.');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertNull($em->getRepository(Invitation::class)->findOneBy(['email' => $email]));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function acoesDeGestao(): iterable
+    {
+        yield 'revogar' => ['revogar'];
+        yield 'reenviar' => ['reenviar'];
+    }
+
+    #[DataProvider('acoesDeGestao')]
+    #[TestDox('CSRF inválido: revogar ou reenviar convite de plataforma pelo id dá 403 e nada muda')]
+    public function testCsrfInvalidoNaoMuda(string $acao): void
+    {
+        $client = static::createClient();
+        $admin  = $this->criarSuperAdmin();
+        $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
+
+        $em      = static::getContainer()->get(EntityManagerInterface::class);
+        $convite = new Invitation(
+            email: 'csrf_plataforma_' . uniqid() . '@example.com',
+            token: bin2hex(random_bytes(32)),
+            type: Invitation::TIPO_PLATAFORMA,
+            expiresAt: new \DateTimeImmutable('+24 hours'),
+        );
+        $em->persist($convite);
+        $em->flush();
+
+        $client->request('POST', sprintf('/admin/platform/convites/%d/%s', $convite->getId(), $acao), ['_token' => 'invalido']);
+
+        self::assertResponseStatusCodeSame(403);
+        $em->clear();
+        $intacto = $em->find(Invitation::class, $convite->getId());
+        self::assertSame('pending', $intacto->getStatus());
+        self::assertSame(0, $intacto->getReenvioCount());
     }
 }

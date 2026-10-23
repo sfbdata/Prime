@@ -1,0 +1,19 @@
+/* Janela "Como devemos tratar você?" (spec genero-no-cadastro), no molde do aviso de espaço (aviso-espaco.css):
+   cartão no topo central, abaixo da barra azul, com as cores e a fonte do aviso. */
+.jg-janela { position: fixed; z-index: 9100; left: 50%; top: 70px; transform: translateX(-50%); width: min(460px, calc(100vw - 24px)); box-sizing: border-box; background: #fff; border: 1px solid #b6d4e3; border-left: 4px solid #0a6fa0; border-radius: 4px; box-shadow: 0 10px 30px rgba(18, 36, 47, .18); padding: 12px 14px; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+.jg-janela[hidden] { display: none; }
+.jg-topo { display: flex; align-items: center; gap: 12px; }
+.jg-titulo { flex: 1; font-size: 14px; }
+.jg-fechar { width: 30px; height: 30px; border: none; border-radius: 3px; background: transparent; color: #7a8e9b; cursor: pointer; font-size: 16px; }
+.jg-texto { font-size: 12.5px; color: #4a6373; margin: 2px 0 10px; }
+.jg-opcoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.jg-opcao { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid #e1e8ed; border-radius: 3px; background: #fff; font-size: 13px; cursor: pointer; }
+.jg-opcao:has(input:checked) { border-color: #0a63c9; background: #e8f0fc; }
+.jg-opcao input { margin: 0; }
+.jg-erro { margin-top: 8px; font-size: 12.5px; color: #b02a37; }
+.jg-erro[hidden] { display: none; }
+.jg-rodape { display: flex; justify-content: flex-end; margin-top: 10px; }
+.jg-salvar { height: 34px; padding: 0 14px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: bold 13px Arial, Helvetica, sans-serif; cursor: pointer; }
+.jg-salvar:hover { background: #0b5f86; }
+.jg-salvar:disabled { opacity: .6; cursor: default; }
+@media print { .jg-janela { display: none !important; } }

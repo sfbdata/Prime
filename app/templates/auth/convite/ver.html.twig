@@ -41,6 +41,16 @@
                 <input type="password" id="senha" name="senha" class="form-control" required autocomplete="new-password">
             </div>
 
+            {# Gênero obrigatório, sem valor escolhido (spec genero-no-cadastro). #}
+            <div class="mb-3">
+                <label for="genero" class="form-label">{{ 'auth.convite.ver.genero'|trans }}</label>
+                <select id="genero" name="genero" class="form-select" required>
+                    <option value="">{{ 'auth.convite.ver.genero_escolha'|trans }}</option>
+                    <option value="feminino">{{ 'auth.convite.ver.genero_feminino'|trans }}</option>
+                    <option value="masculino">{{ 'auth.convite.ver.genero_masculino'|trans }}</option>
+                </select>
+            </div>
+
             {% if tipo_form == 'plataforma' %}
                 <div class="mb-3">
                     <label for="oab_numero" class="form-label">{{ 'auth.convite.ver.oab_numero'|trans }}</label>

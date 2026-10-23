@@ -8,7 +8,10 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Enum\Genero;
 use App\Repository\UserTenantRepository;
+use App\Tarefa\DTO\AvisadoNaEsteiraOutput;
 use App\Tarefa\DTO\EsteiraDaPastaOutput;
 use App\Tarefa\Entity\CaixaDaEsteira;
 use App\Tarefa\Enum\EtapaDaPasta;
@@ -122,13 +125,13 @@ final class MontarEsteiraDaPastaUseCaseTest extends TestCase
         $protocolo = $saida->caixa(EtapaDaPasta::Protocolo);
         self::assertSame('Fila do protocolo', $protocolo?->nomeDaCaixa);
         self::assertSame('Protocolo e distribuição', $protocolo?->nomeDaEtapa);
-        self::assertSame(['Bruno'], $protocolo?->avisados);
+        self::assertSame(['Bruno'], self::nomes($protocolo?->avisados ?? []));
         self::assertSame([9], $protocolo?->idsDosAvisados);
         self::assertNull($saida->caixa(EtapaDaPasta::Juridico)?->nomeDaCaixa);
         self::assertSame([], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
     }
 
-    #[TestDox('Avisado com nome simples, "Primeiro Último", sem "Dr./Dra." mesmo com função de advogada (spec C7)')]
+    #[TestDox('Avisado com nome simples, "Primeiro Último"; sem OAB nem gênero, sem título (spec C7)')]
     public function testAvisadosComNomeSimples(): void
     {
         $caixa = new CaixaDaEsteira($this->escritorio, EtapaDaPasta::Juridico);
@@ -136,8 +139,28 @@ final class MontarEsteiraDaPastaUseCaseTest extends TestCase
 
         $saida = $this->montar([], ['juridico' => $caixa]);
 
-        self::assertSame(['Ana Lima', 'Bruno Souza'], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
+        self::assertSame(['Ana Lima', 'Bruno Souza'], self::nomes($saida->caixa(EtapaDaPasta::Juridico)?->avisados ?? []));
+        self::assertSame([null, null], self::tratamentos($saida->caixa(EtapaDaPasta::Juridico)?->avisados ?? []));
         self::assertSame([7, 9], $saida->caixa(EtapaDaPasta::Juridico)?->idsDosAvisados);
+    }
+
+    #[TestDox('Dr./Dra. (desenho 04, trat()): advogada F "dra", advogado M "dr"; sem gênero, com o legado ou sem OAB, nada')]
+    public function testTratamentoDosAvisados(): void
+    {
+        $caixa = new CaixaDaEsteira($this->escritorio, EtapaDaPasta::Juridico);
+        $caixa->configurar(null, null, [
+            $this->usuario(1, 'Ana Lima', '12345', Genero::Feminino),
+            $this->usuario(2, 'Bruno Souza', '54321', Genero::Masculino),
+            $this->usuario(3, 'Carla Dias', '11111', null),
+            $this->usuario(4, 'Davi Rocha', '22222', Genero::NaoInformado),
+            $this->usuario(5, 'Eva Melo', null, Genero::Feminino),
+            $this->usuario(6, 'Fabio Reis', '   ', Genero::Masculino),
+        ]);
+
+        $avisados = $this->montar([], ['juridico' => $caixa])->caixa(EtapaDaPasta::Juridico)?->avisados ?? [];
+
+        self::assertSame(['dra', 'dr', null, null, null, null], self::tratamentos($avisados));
+        self::assertSame(['Ana Lima', 'Bruno Souza', 'Carla Dias', 'Davi Rocha', 'Eva Melo', 'Fabio Reis'], self::nomes($avisados), 'o nome continua o nome curto');
     }
 
     #[TestDox('As pastas ocultas pelo cadeado seguem para a contagem')]
@@ -182,12 +205,36 @@ final class MontarEsteiraDaPastaUseCaseTest extends TestCase
         ));
     }
 
-    private function usuario(int $id, string $nome): User
+    private function usuario(int $id, string $nome, ?string $oab = null, ?Genero $genero = null): User
     {
         $usuario = new User();
         $usuario->setFullName($nome);
+        $usuario->setOabNumero($oab);
         (new \ReflectionProperty(User::class, 'id'))->setValue($usuario, $id);
+        if ($genero !== null) {
+            UserProfile::daContaNova($usuario, $genero);
+        }
 
         return $usuario;
+    }
+
+    /**
+     * @param list<AvisadoNaEsteiraOutput> $avisados
+     *
+     * @return list<string>
+     */
+    private static function nomes(array $avisados): array
+    {
+        return array_map(static fn (AvisadoNaEsteiraOutput $a): string => $a->nome, $avisados);
+    }
+
+    /**
+     * @param list<AvisadoNaEsteiraOutput> $avisados
+     *
+     * @return list<?string>
+     */
+    private static function tratamentos(array $avisados): array
+    {
+        return array_map(static fn (AvisadoNaEsteiraOutput $a): ?string => $a->tratamento, $avisados);
     }
 }

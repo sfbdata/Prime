@@ -46,7 +46,7 @@ final class VagasPublicasTest extends JusPrimeWebTestCase
         self::assertSame(2, $link['vagas']);
         $this->postarJson($client, "/trabalho-externo/api/vagas/$encerrada/acoes/encerrar");
 
-        $client->request('GET', '/logout');
+        $this->sair($client);
         $client->request('GET', parse_url($link['url'], PHP_URL_PATH));
         self::assertResponseIsSuccessful('a página é pública');
         $html = (string) $client->getResponse()->getContent();
@@ -166,7 +166,7 @@ final class VagasPublicasTest extends JusPrimeWebTestCase
         $link = $this->postarJson($client, '/trabalho-externo/api/vagas/compartilhar', ['codigos' => [$codigo]]);
         self::assertSame(1, $link['vagas']);
 
-        $client->request('GET', '/logout');
+        $this->sair($client);
         $client->request('GET', parse_url($link['url'], PHP_URL_PATH));
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Advogado cível júnior', $html);

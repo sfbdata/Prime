@@ -196,6 +196,8 @@
                         <label class="lg-md__rotulo">{{ 'entrada.modal.nome_completo'|trans }}<input class="lg-md__entrada" id="lgCdNome" type="text" autocomplete="name"></label>
                         <label class="lg-md__rotulo">{{ 'entrada.modal.escritorio'|trans }}<input class="lg-md__entrada" id="lgCdEsc" type="text" placeholder="{{ 'entrada.modal.escritorio_exemplo'|trans }}" autocomplete="organization"></label>
                         <label class="lg-md__rotulo">{{ 'entrada.login.email'|trans }}<input class="lg-md__entrada" id="lgCdEmail" type="email" placeholder="{{ 'entrada.login.email_exemplo'|trans }}" autocomplete="email"></label>
+                        {# Gênero obrigatório, sem valor escolhido (spec genero-no-cadastro; desvio autorizado do desenho 10). #}
+                        <label class="lg-md__rotulo">{{ 'entrada.modal.genero'|trans }}<select class="lg-md__entrada" id="lgCdGenero" name="genero"><option value="">{{ 'entrada.modal.genero_escolha'|trans }}</option><option value="feminino">{{ 'entrada.modal.genero_feminino'|trans }}</option><option value="masculino">{{ 'entrada.modal.genero_masculino'|trans }}</option></select></label>
                         <label class="lg-aceite"><input type="checkbox" id="lgCdAceite"><span>{{ 'entrada.modal.li_e_aceito_os'|trans }} <a href="{{ termos_href }}" target="_blank" rel="noopener">{{ 'entrada.seguranca.termos'|trans }}</a> {{ 'entrada.modal.e_a'|trans }} <a href="{{ priv_href }}" target="_blank" rel="noopener">{{ 'entrada.seguranca.privacidade'|trans }}</a>.</span></label>
                     </div>
                     {# Depois do cadastro: a conta só entra com o e-mail confirmado (spec cadastro-exige-confirmacao). #}

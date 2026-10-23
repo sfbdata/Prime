@@ -10,9 +10,12 @@
             "layout/_globais/busca_rapida.html.twig",
             "layout/_globais/fechar.html.twig",
             "layout/_globais/lembretes.html.twig",
-            "layout/_globais/tema_comemorativo.html.twig"
+            "layout/_globais/tema_comemorativo.html.twig",
+            "layout/_globais/genero.html.twig"
         ],
-        "js": [],
+        "js": [
+            "janela-genero.js"
+        ],
         "permitidos": [
             "BlueJus",
             "Esc"
