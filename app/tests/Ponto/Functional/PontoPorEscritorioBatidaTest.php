@@ -28,10 +28,10 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * A batida com o ponto por escritório (spec `docs/specs/ponto-por-escritorio.md` §4, risco ALTO): quem está com o
- * ponto aberto hoje em Y não bate a entrada em X; a interjornada e o repouso contam só dentro de cada escritório.
+ * ponto aberto hoje em Y bate a entrada em X e recebe o aviso da pendência em Y (esquecimento nunca trava,
+ * `ponto-esquecimento-nao-trava.md` R2); a interjornada e o repouso contam só dentro de cada escritório.
  *
- * X tem home office liberado todo dia para a pessoa (a batida passa sem GPS), salvo onde o teste diz o contrário: é
- * também o caso "home office em X não muda nada, a trava vem antes".
+ * X tem home office liberado todo dia para a pessoa (a batida passa sem GPS), salvo onde o teste diz o contrário.
  */
 #[CoversClass(PontoController::class)]
 #[CoversClass(EntradaAbertaEmOutroEscritorio::class)]
@@ -58,16 +58,18 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->homeOfficeTodoDia($this->user, $this->x);
     }
 
-    #[TestDox('Entrada aberta hoje em Y: a entrada em X volta 422 com a frase do dono e o nome de Y, só success e message, e nada é gravado')]
-    public function testEntradaAbertaEmYTrava(): void
+    #[TestDox('R2: entrada aberta hoje em Y, a entrada em X passa, grava em X e a resposta traz o aviso com o nome de Y, o dia e o link de trocar de escritório')]
+    public function testEntradaAbertaEmYPassaComAviso(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
 
         $resposta = $this->baterEmX('entrada');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(['success' => false, 'message' => sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName())], $resposta);
-        self::assertSame(0, $this->batidasEm($this->x));
+        self::assertResponseIsSuccessful();
+        self::assertTrue($resposta['success']);
+        self::assertSame([$this->avisoDeY()], $resposta['avisos']);
+        self::assertSame(1, $this->batidasEm($this->x));
+        self::assertSame(1, $this->batidasEm($this->y), 'nada foi gravado em Y');
     }
 
     #[TestDox('Com a saída de Y batida, a entrada em X passa e grava o escritório da sessão')]
@@ -79,12 +81,13 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $resposta = $this->baterEmX('entrada');
 
         self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertSame([], $resposta['avisos'], 'sem ponto aberto em Y, sem aviso');
         self::assertSame(1, $this->batidasEm($this->x));
         self::assertSame(2, $this->batidasEm($this->y), 'nada foi gravado em Y');
     }
 
-    #[TestDox('P-A (dono, 19/10): o pedido de esquecimento da saída de hoje em Y, ainda pendente, não solta a trava')]
-    public function testEsquecimentoPendenteNaoSolta(): void
+    #[TestDox('Com o pedido de esquecimento da saída de hoje em Y ainda pendente, a entrada em X passa e o aviso continua (o ponto em Y segue aberto)')]
+    public function testEsquecimentoPendenteMantemOAviso(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
         $pedido = new JustificativaPonto();
@@ -100,37 +103,41 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
 
         $resposta = $this->baterEmX('entrada');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $resposta['message']);
-        self::assertSame(0, $this->batidasEm($this->x));
+        self::assertTrue($resposta['success']);
+        self::assertSame([$this->avisoDeY()], $resposta['avisos']);
+        self::assertSame(1, $this->batidasEm($this->x));
     }
 
-    #[TestDox('Repouso sem retorno em Y ainda trava (P-D)')]
-    public function testRepousoSemRetornoTrava(): void
+    #[TestDox('R2: repouso sem retorno em Y (P-D), a entrada em X passa com o mesmo aviso')]
+    public function testRepousoSemRetornoPassaComAviso(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
         $this->batida($this->y, 'repouso', $this->hojeCedo(2));
 
         $resposta = $this->baterEmX('entrada');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $resposta['message']);
+        self::assertTrue($resposta['success']);
+        self::assertSame([$this->avisoDeY()], $resposta['avisos']);
+        self::assertSame(1, $this->batidasEm($this->x));
     }
 
-    #[TestDox('Entrada sem saída em Y ontem às 23:50 não trava a entrada de hoje em X (variante do mesmo dia)')]
-    public function testOntemNaoTrava(): void
+    #[TestDox('Entrada sem saída em Y ontem às 23:50: a entrada de hoje em X passa sem aviso de ponto aberto (a janela do aviso é o dia)')]
+    public function testOntemPassaSemAviso(): void
     {
         $this->batida($this->y, 'entrada', new \DateTime('yesterday 23:50'));
 
-        self::assertTrue($this->baterEmX('entrada')['success']);
+        $resposta = $this->baterEmX('entrada');
+
+        self::assertTrue($resposta['success']);
+        self::assertSame([], $resposta['avisos']);
     }
 
-    #[TestDox('Vínculo inativo em Y não trava; Y excluído não trava (separados)')]
+    #[TestDox('Vínculo inativo em Y não avisa; Y excluído não avisa (separados)')]
     public function testVinculoInativoEEscritorioExcluido(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
         $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->y->getId()]);
-        self::assertTrue($this->baterEmX('entrada')['success'], 'vínculo inativo');
+        self::assertSame([], $this->baterEmX('entrada')['avisos'], 'vínculo inativo');
 
         $z = $this->tenant('Escritório Z');
         $this->vincular($this->user, $z, ['modules.ponto.view']);
@@ -138,21 +145,24 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $z->setIsActive(false);
         $this->em()->flush();
         $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
-        self::assertTrue($this->baterEmX('entrada')['success'], 'escritório excluído');
+        self::assertSame([], $this->baterEmX('entrada')['avisos'], 'escritório excluído');
     }
 
-    #[TestDox('Y sem o módulo de ponto não trava (P-C)')]
-    public function testSemModuloEmYNaoTrava(): void
+    #[TestDox('Y sem o módulo de ponto não avisa (P-C)')]
+    public function testSemModuloEmYNaoAvisa(): void
     {
         $z = $this->tenant('Escritório Z');
         $this->vincular($this->user, $z, ['modules.clientes.view']);
         $this->batida($z, 'entrada', $this->hojeCedo(1));
 
-        self::assertTrue($this->baterEmX('entrada')['success']);
+        $resposta = $this->baterEmX('entrada');
+
+        self::assertTrue($resposta['success']);
+        self::assertSame([], $resposta['avisos']);
     }
 
-    #[TestDox('Repouso, retorno e saída em X não são travados por Y aberto')]
-    public function testSoAEntradaETravada(): void
+    #[TestDox('Repouso, retorno e saída em X passam com Y aberto, sem o aviso (ele é da entrada)')]
+    public function testSoAEntradaAvisa(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
         $this->batida($this->x, 'entrada', $this->hojeCedo(2));
@@ -160,7 +170,9 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->desligarRepousoMinimoEmX();
 
         foreach (['retorno', 'repouso', 'saida'] as $tipo) {
-            self::assertTrue($this->baterEmX($tipo)['success'], $tipo);
+            $resposta = $this->baterEmX($tipo);
+            self::assertTrue($resposta['success'], $tipo);
+            self::assertSame([], $resposta['avisos'], $tipo);
         }
     }
 
@@ -177,25 +189,28 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('Interjornada mínima', $resposta['message']);
     }
 
-    #[TestDox('Trava e interjornada falhando juntas: a trava vem antes')]
-    public function testTravaAntesDaInterjornada(): void
+    #[TestDox('Y aberto e a interjornada de uma saída batida em X: a recusa é a da interjornada, e o ponto aberto em Y não recusa')]
+    public function testYAbertoNaoRecusaMasAInterjornadaSim(): void
     {
         $this->batida($this->x, 'saida', $this->agoraHaPouco());
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
 
-        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $this->baterEmX('entrada')['message']);
+        $resposta = $this->baterEmX('entrada');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringStartsWith('Interjornada mínima', $resposta['message']);
     }
 
-    #[TestDox('Sem home office em X e sem GPS: a trava responde antes da geolocalização')]
-    public function testTravaAntesDoGps(): void
+    #[TestDox('Sem home office em X e sem GPS: Y aberto não recusa; a recusa é a da geolocalização de sempre')]
+    public function testYAbertoSemGpsRecusaPelaGeolocalizacao(): void
     {
         $this->em()->getConnection()->executeStatement('DELETE FROM home_office_config WHERE user_id = ?', [$this->user->getId()]);
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
 
-        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $this->baterEmX('entrada')['message']);
+        self::assertSame('Geolocalização é obrigatória para registrar o ponto.', $this->baterEmX('entrada')['message']);
     }
 
-    #[TestDox('Dentro da área de X (com GPS, sem home office): a mesma trava')]
+    #[TestDox('Dentro da área de X (com GPS, sem home office): passa com o mesmo aviso')]
     public function testDentroDaAreaDeX(): void
     {
         $this->em()->getConnection()->executeStatement('DELETE FROM home_office_config WHERE user_id = ?', [$this->user->getId()]);
@@ -204,11 +219,11 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
 
         $resposta = $this->baterEmX('entrada', ['latitude' => -23.55, 'longitude' => -46.63, 'precisaoGps' => 10.0]);
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $resposta['message']);
+        self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertSame([$this->avisoDeY()], $resposta['avisos']);
     }
 
-    #[TestDox('Super admin: com vínculo em Y aberto trava (N6); sem vínculo em Y, as batidas de Y não travam')]
+    #[TestDox('Super admin: com vínculo em Y aberto, passa com o aviso (N6); sem vínculo em Y, as batidas de Y não avisam')]
     public function testSuperAdmin(): void
     {
         $master = $this->user(['ROLE_SUPER_ADMIN']);
@@ -217,16 +232,16 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->batida($this->y, 'entrada', $this->hojeCedo(1), $master);   // batida em Y sem vínculo em Y
 
         $this->logarComTenant($this->client, $master, $this->x);
-        self::assertTrue($this->postar('entrada')['success'], 'sem vínculo em Y');
+        self::assertSame([], $this->postar('entrada')['avisos'], 'sem vínculo em Y');
 
         $this->em()->getConnection()->executeStatement('DELETE FROM registro_ponto WHERE user_id = ? AND tenant_id = ?', [$master->getId(), $this->x->getId()]);
         $this->vincular($master, $this->y, []);
         $resposta = $this->postar('entrada');
-        self::assertResponseStatusCodeSame(422, 'com vínculo em Y');
-        self::assertSame(sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, $this->y->getName()), $resposta['message']);
+        self::assertTrue($resposta['success'], 'com vínculo em Y');
+        self::assertSame([$this->avisoDeY()], $resposta['avisos']);
     }
 
-    #[TestDox('Lançamento manual do admin em X (correção, não batida) não é travado por Y aberto')]
+    #[TestDox('Lançamento manual do admin em X (correção, não batida) não é afetado por Y aberto')]
     public function testLancamentoManualDoAdminNaoETravado(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
@@ -245,7 +260,7 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->batidasEm($this->x));
     }
 
-    #[TestDox('A folha de X depois da recusa não mostra nada de Y')]
+    #[TestDox('A tela do ponto em X depois da entrada não mostra nada de Y (o ponto aberto de hoje em Y não é pendência da lista)')]
     public function testFolhaDeXSemDadoDeY(): void
     {
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
@@ -258,6 +273,16 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
     }
 
     // ----------------------------------------------------------------- apoio
+
+    /** @return array{texto: string, link: string, rotulo: string} o aviso de R2 com o ponto aberto hoje em Y */
+    private function avisoDeY(): array
+    {
+        return [
+            'texto' => sprintf(EntradaAbertaEmOutroEscritorio::AVISO_PENDENCIA, $this->y->getName(), (new \DateTimeImmutable())->format('d/m')),
+            'link' => '/escritorio/selecionar',
+            'rotulo' => EntradaAbertaEmOutroEscritorio::ROTULO_TROCAR,
+        ];
+    }
 
     /**
      * @param array<string, mixed> $extra

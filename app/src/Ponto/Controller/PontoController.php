@@ -634,8 +634,8 @@ final class PontoController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable();
-        if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $entradaAberta, $choque)) !== null) {
-            return $this->json(['success' => false, 'message' => $recusa], 422);   // chave, trava ou choque de horário
+        if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $choque)) !== null) {
+            return $this->json(['success' => false, 'message' => $recusa], 422);   // chave ou choque de horário
         }
 
         // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
@@ -770,7 +770,6 @@ final class PontoController extends AbstractController
             }
         }
 
-        // Cria o registro de ponto
         $registro = new RegistroPonto();
         $registro->setUser($user);
         $registro->setTenant($tenant);
@@ -802,22 +801,39 @@ final class PontoController extends AbstractController
             'success' => true,
             'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
             'data'    => $dados,
+            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta),
         ]);
     }
 
     /**
-     * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3 e
-     * ponto-por-escritorio §2.2): a chave "Registra ponto eletrônico" desligada aqui, a entrada aberta hoje em outro
-     * escritório e o horário de trabalho de hoje em outro escritório onde a pessoa registra ponto. Null quando segue.
-     * Saída e ida ao repouso passam quando fecham uma entrada aberta neste escritório: nunca prender o ponto aberto
-     * (revisão de 23/10, proposta da 0d). Fora disso valem as mesmas recusas da entrada.
+     * Os avisos da batida que entrou (spec `ponto-esquecimento-nao-trava.md` R6): o que ficou pendente e não impede o
+     * registro. Cada um é `{texto, link, rotulo}`, com `link` e `rotulo` nulos quando não há para onde ir. Só a própria
+     * pessoa recebe esta resposta, então o nome do outro escritório pode aparecer (R2).
+     *
+     * @return list<array{texto: string, link: ?string, rotulo: ?string}>
+     */
+    private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta): array
+    {
+        $avisos = [];
+        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($aberto = $entradaAberta->aviso($user, $tenant, $agora)) !== null) {
+            $avisos[] = ['texto' => $aberto, 'link' => $this->generateUrl('tenant_selecionar'), 'rotulo' => EntradaAbertaEmOutroEscritorio::ROTULO_TROCAR];
+        }
+
+        return $avisos;
+    }
+
+    /**
+     * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3):
+     * a chave "Registra ponto eletrônico" desligada aqui e o horário de trabalho de hoje em outro escritório onde a
+     * pessoa registra ponto. Null quando segue. O ponto aberto em outro escritório não recusa mais: vira aviso depois da
+     * batida (`ponto-esquecimento-nao-trava.md` R2). Saída e ida ao repouso passam quando fecham uma entrada aberta
+     * neste escritório: nunca prender o ponto aberto (revisão de 23/10, proposta da 0d). Fora disso, as mesmas recusas.
      */
     private function recusaEntreEscritorios(
         User $user,
         Tenant $tenant,
         string $tipo,
         \DateTimeImmutable $agora,
-        EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
     ): ?string {
         if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true) && $this->turnoAberto->estaAberto($user, $tenant, $agora)) {
@@ -825,9 +841,6 @@ final class PontoController extends AbstractController
         }
         if ($this->chaveDoPonto->estaDesligada($user, $tenant)) {
             return ChaveDoPontoEletronico::MENSAGEM_DESLIGADA;
-        }
-        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($travada = $entradaAberta->mensagem($user, $tenant, $agora)) !== null) {
-            return $travada;
         }
 
         return $choque->naBatida($user, $tenant, $agora);
