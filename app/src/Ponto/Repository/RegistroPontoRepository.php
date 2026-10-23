@@ -41,6 +41,26 @@ WHERE ultima.tipo <> 'saida'
 ORDER BY t.name, t.id
 SQL;
 
+    /**
+     * A consulta de `ultimaSaidaQueFechouTurno`: a batida imediatamente anterior a cada saída (LAG, por hora e id) da
+     * pessoa NESTE escritório; vale a saída mais recente cuja anterior é entrada ou retorno, dentro da janela do turno.
+     */
+    private const SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO = <<<'SQL'
+SELECT b.id
+FROM (
+    SELECT rp.id, rp.tipo, rp.data_hora,
+           LAG(rp.tipo) OVER (ORDER BY rp.data_hora, rp.id) AS tipo_anterior,
+           LAG(rp.data_hora) OVER (ORDER BY rp.data_hora, rp.id) AS quando_anterior
+    FROM registro_ponto rp
+    WHERE rp.user_id = :usuario AND rp.tenant_id = :escritorio
+) b
+WHERE b.tipo = 'saida'
+  AND b.tipo_anterior IN ('entrada', 'retorno')
+  AND b.quando_anterior >= b.data_hora - make_interval(hours => :janela)
+ORDER BY b.data_hora DESC, b.id DESC
+LIMIT 1
+SQL;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, RegistroPonto::class);
@@ -224,25 +244,31 @@ SQL;
     }
 
     /**
-     * As últimas saídas da pessoa NESTE escritório, da mais recente para a mais antiga (interjornada: a primeira que
-     * fechou um turno aberto conta, spec `ponto-esquecimento-nao-trava.md` R4). Escritório explícito, além do filtro.
-     *
-     * @return list<RegistroPonto>
+     * A última saída da pessoa NESTE escritório que FECHOU um turno: a batida imediatamente anterior a ela (por hora e
+     * id, no mesmo escritório) é entrada ou retorno, no máximo `$janelaHoras` antes (interjornada, spec
+     * `ponto-esquecimento-nao-trava.md` R4). A saída solta não conta. Sem limite de quantas saídas olhar. SQL nativo com
+     * usuário e escritório explícitos: não depende do filtro.
      */
-    public function ultimasSaidas(User $user, Tenant $tenant, int $limite): array
+    public function ultimaSaidaQueFechouTurno(User $user, Tenant $tenant, int $janelaHoras): ?RegistroPonto
     {
+        $id = $this->getEntityManager()->getConnection()->fetchOne(self::SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO, [
+            'usuario' => $user->getId(),
+            'escritorio' => $tenant->getId(),
+            'janela' => $janelaHoras,
+        ]);
+        if ($id === false || $id === null) {
+            return null;
+        }
+
         return $this->createQueryBuilder('r')
+            ->andWhere('r.id = :id')
             ->andWhere('r.user = :user')
             ->andWhere('r.tenant = :tenant')
-            ->andWhere('r.tipo = :tipo')
+            ->setParameter('id', (int) $id)
             ->setParameter('user', $user)
             ->setParameter('tenant', $tenant)
-            ->setParameter('tipo', RegistroPonto::TIPO_SAIDA)
-            ->orderBy('r.dataHora', 'DESC')
-            ->addOrderBy('r.id', 'DESC')
-            ->setMaxResults($limite)
             ->getQuery()
-            ->getResult();
+            ->getOneOrNullResult();
     }
 
     /**

@@ -211,7 +211,7 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->batidasDoTipo('saida'));
     }
 
-    #[TestDox('R4: a saída solta (sem entrada ou retorno antes dela aqui) não conta para a interjornada: a entrada passa; a saída anterior que fechou uma entrada continua contando')]
+    #[TestDox('R4: só uma saída solta (sem entrada ou retorno antes dela aqui), há 3 horas: ela não conta para a interjornada e a entrada passa')]
     public function testSaidaSoltaNaoContaParaAInterjornada(): void
     {
         $this->batida('saida', new \DateTimeImmutable('-3 hours'));   // solta
@@ -233,6 +233,36 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertStringStartsWith('Interjornada mínima é de 11h.', (string) $resposta['message']);
+    }
+
+    #[TestDox('R4, caso central: entrada, saída real há 9 h e uma saída solta mais nova; a entrada é recusada, com a interjornada medida da saída real (faltam 2 h, não 10 h)')]
+    public function testInterjornadaMedeDaSaidaRealMesmoComSaidaSoltaMaisNova(): void
+    {
+        $real = new \DateTimeImmutable('-9 hours');
+        $this->batida('entrada', $real->modify('-8 hours'));
+        $this->batida('saida', $real);
+        $this->batida('saida', new \DateTimeImmutable('-1 hour'));   // solta: a última batida antes dela é a saída real
+
+        $resposta = $this->bater('entrada');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Interjornada mínima é de 11h. Aguarde mais 2h00m.', $resposta['message']);
+    }
+
+    #[TestDox('R4, sem limite: entrada, saída real há 9 h e 11 saídas soltas depois dela; a interjornada ainda mede da saída real')]
+    public function testOnzeSaidasSoltasNaoEscondemASaidaReal(): void
+    {
+        $real = new \DateTimeImmutable('-9 hours');
+        $this->batida('entrada', $real->modify('-8 hours'));
+        $this->batida('saida', $real);
+        for ($i = 1; $i <= 11; ++$i) {
+            $this->batida('saida', $real->modify(sprintf('+%d minutes', 30 * $i)));
+        }
+
+        $resposta = $this->bater('entrada');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Interjornada mínima é de 11h. Aguarde mais 2h00m.', $resposta['message']);
     }
 
     // ----------------------------------------------------------------- apoio

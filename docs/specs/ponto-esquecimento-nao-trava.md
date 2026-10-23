@@ -81,6 +81,12 @@ escritório ou em outro.
 - **A saída solta não conta (decisão de 23/10).** A interjornada é medida a partir da última saída que FECHOU uma entrada
   ou retorno neste escritório (havia turno aberto logo antes dela). Uma saída sem turno aberto antes (saída solta) não
   conta: a entrada seguinte passa. Mesma lógica de "esquecimento nunca trava". Vale para todos os dias, sem data de corte.
+- A busca é direta e sem limite (`RegistroPontoRepository::ultimaSaidaQueFechouTurno`, LAG no Postgres): a última saída
+  deste escritório cuja batida imediatamente anterior é entrada ou retorno, dentro da janela do turno (16 h). Saídas
+  soltas mais novas não escondem a saída real.
+- Num dia com entrada, ida ao repouso e saída (retorno esquecido), a batida antes da saída é o repouso: essa saída não
+  fechou entrada nem retorno e não conta para a interjornada, de acordo com "esquecimento nunca trava". A interjornada
+  passa a valer de novo na próxima saída que fechar um turno.
 
 **R5. Pendências visíveis na tela do ponto.** A página /ponto mostra uma lista de pendências da pessoa:
 - dias com registro incompleto, neste escritório e nos outros onde ela tem vínculo ativo;
