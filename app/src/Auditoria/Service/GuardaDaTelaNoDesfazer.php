@@ -57,7 +57,9 @@ final class GuardaDaTelaNoDesfazer
 
     /**
      * Quem cuida da meta (`QuemCuidaDaMeta`): a conclusão (`tarefa_concluir`), a reabertura (`tarefa_reabrir`) e a
-     * etapa (`tarefa_passar`).
+     * etapa (`tarefa_passar`). O `status` cobre também a ida e a volta entre pendente e "em revisão" do despacho
+     * (`DespacharNaMetaUseCase`, rota `tarefa_mensagem`, que pede só o módulo e o acesso à meta): ali a guarda do
+     * desfazer é igual ou maior que a da tela.
      */
     private const CAMPOS_DE_QUEM_CUIDA = ['status', 'dataConclusao', 'etapa', 'etapasSaltadas'];
 

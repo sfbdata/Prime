@@ -158,6 +158,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         $meta = $this->meta($this->pasta(), $ator);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDoPrazo());
 
+        $this->assertComBotao($logId);
         $this->desfazer($logId);
 
         self::assertResponseRedirects();
@@ -212,6 +213,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         $meta = $this->meta($this->pasta(), $this->colega, $ator);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDaEtapa());
 
+        $this->assertComBotao($logId);
         $this->desfazer($logId);
 
         self::assertResponseRedirects();

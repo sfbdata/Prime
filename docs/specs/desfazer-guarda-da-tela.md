@@ -33,7 +33,9 @@ desfazer deve exigir exatamente o que a tela exigiria para fazer a mesma altera�
    (`BarreiraDoCadeadoListener::recusaria`, que a barreira usa; quem fica em Visualizar não escreve). Por campo:
    - `prazo` (`tarefa_atualizar_prazo`): também `AtualizarPrazoTarefaUseCase::podeEditarPrazo`;
    - `status` e `dataConclusao` (`tarefa_concluir` e `tarefa_reabrir`): também `QuemCuidaDaMeta::ehResponsavelOuCriador`
-     e editar a pasta da meta (`AcessoAPasta::podeEditar`, o `canAccessResource('pasta', edit)` do `tarefa_reabrir`);
+     e editar a pasta da meta (`AcessoAPasta::podeEditar`, o `canAccessResource('pasta', edit)` do `tarefa_reabrir`).
+     O `status` cobre também a transição entre pendente e "em revisão" do despacho (`DespacharNaMetaUseCase`, rota
+     `tarefa_mensagem`, que pede só o módulo e o acesso à meta): a guarda do desfazer é igual ou maior que a da tela;
    - `etapa` e `etapasSaltadas` (`tarefa_passar`): também `QuemCuidaDaMeta::ehResponsavelOuCriador`;
    - `titulo` (`tarefa_renomear`): também editar a pasta da meta;
    - os demais: só a regra de qualquer campo.
@@ -52,6 +54,14 @@ desfazer deve exigir exatamente o que a tela exigiria para fazer a mesma altera�
    mensagem do F19 ("Você não tem permissão para desfazer alterações."); item de outro escritório ou pasta oculta
    continua "não encontrado". As entidades do mapa `PERMISSAO_DE_EDICAO` do F19 não mudam.
 6. Textos sem travessão.
+
+## Fora desta frente
+
+- **Regras de estado da tela.** O desfazer segue as guardas de quem pode, não as regras de estado: não reabrir a meta
+  que já seguiu adiante (`ReabrirMetaUseCase`, `MetaJaSeguiuAdianteException`) e a data de conclusão válida do
+  `DesfazerReaberturaDaMetaUseCase`. Já era assim antes desta frente; fica para uma frente própria.
+- **Módulo das metas.** `MetaNaListaController::assertAccess` e o `PassagemDeEtapaController` ainda chamam
+  `canAccessModule` direto, com o mesmo comportamento; a troca pelo `AcessoAoModuloTarefas` fica para depois.
 
 ## Testes
 
