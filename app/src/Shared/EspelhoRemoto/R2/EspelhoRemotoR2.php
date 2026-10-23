@@ -59,15 +59,7 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
     public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
     {
         self::exigirStreamLegivelERebobinavel($conteudo);
-        if ($tamanhoBytes < 0) {
-            throw new \InvalidArgumentException('Tamanho negativo.');
-        }
-        if (preg_match('/\A[0-9a-f]{64}\z/', $sha256) !== 1) {
-            throw new \InvalidArgumentException('O SHA-256 tem de vir em hex minúsculo de 64 caracteres.');
-        }
-        if (preg_match('/\A[!-~][ -~]{0,254}\z/', $mimeType) !== 1) {
-            throw new \InvalidArgumentException('MIME inválido para cabeçalho HTTP.');
-        }
+        self::exigirParametrosDoEnvio($tamanhoBytes, $sha256, $mimeType);
 
         $chaveRemota = LayoutDeChaveRemota::chaveDe($chave);
         self::exigirConteudoQueConfere($conteudo, $tamanhoBytes, $sha256, $chaveRemota);
@@ -86,6 +78,25 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
             throw self::falha('enviar', $chaveRemota, $e);
         }
 
+        $this->exigirQueOGravadoConfere($chave, $chaveRemota, $tamanhoBytes, $sha256);
+    }
+
+    private static function exigirParametrosDoEnvio(int $tamanhoBytes, string $sha256, string $mimeType): void
+    {
+        if ($tamanhoBytes < 0) {
+            throw new \InvalidArgumentException('Tamanho negativo.');
+        }
+        if (preg_match('/\A[0-9a-f]{64}\z/', $sha256) !== 1) {
+            throw new \InvalidArgumentException('O SHA-256 tem de vir em hex minúsculo de 64 caracteres.');
+        }
+        if (preg_match('/\A[!-~][ -~]{0,254}\z/', $mimeType) !== 1) {
+            throw new \InvalidArgumentException('MIME inválido para cabeçalho HTTP.');
+        }
+    }
+
+    /** Lê de volta o objeto enviado e exige tamanho e SHA iguais aos do disco. */
+    private function exigirQueOGravadoConfere(ChaveDeArquivo $chave, string $chaveRemota, int $tamanhoBytes, string $sha256): void
+    {
         $gravado = $this->consultar($chave);
         if ($gravado === null || !$gravado->confereCom($tamanhoBytes, $sha256)) {
             throw new FalhaNoEspelhoRemoto(sprintf(

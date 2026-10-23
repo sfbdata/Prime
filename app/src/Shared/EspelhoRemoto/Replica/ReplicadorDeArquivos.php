@@ -84,55 +84,7 @@ final class ReplicadorDeArquivos
     private function processarItem(EspelhoRemoto $espelho, ItemDeReplicacao $item, ResumoDaRodada $resumo): void
     {
         try {
-            $noDisco = $this->local->metadados($item->chave);
-            if ($noDisco === null) {
-                $this->descartar($item, $resumo);
-
-                return;
-            }
-
-            $medida = MedidaDeConteudo::de($this->local, $item->chave);
-            if ($medida->tamanhoBytes !== $item->tamanhoBytes || !hash_equals($medida->sha256, $item->sha256)) {
-                $reregistrou = false;
-                if (!$this->outbox->existeRegistroMaisNovo($item)) {
-                    $this->outbox->registrarEnvio($item->chave, $medida->sha256, $medida->tamanhoBytes, $item->mimeType);
-                    $reregistrou = true;
-                }
-                $this->outbox->marcarSuperado($item, $reregistrou
-                    ? 'o conteúdo local mudou sem registro mais novo; registrado um envio com o conteúdo atual'
-                    : 'o conteúdo local mudou depois do registro; vale o registro mais novo');
-                $resumo->superados++;
-                $this->registrar($item, $reregistrou ? 'superado (re-registrado com o conteúdo atual)' : 'superado (conteúdo local mudou)');
-
-                return;
-            }
-
-            $remoto = $espelho->consultar($item->chave);
-            if ($remoto !== null && $remoto->confereCom($item->tamanhoBytes, $item->sha256)) {
-                $this->concluido($item, $this->outbox->marcarVerificado($item));
-                $resumo->jaEstavamNoEspelho++;
-
-                return;
-            }
-
-            if (!$this->outbox->renovarPosse($item, self::POSSE_EM_SEGUNDOS)) {
-                $resumo->possesPerdidas++;
-                $this->registrar($item, 'não enviado: a posse foi perdida antes do PUT');
-
-                return;
-            }
-
-            $stream = $this->local->abrir($item->chave);
-            try {
-                $espelho->enviar($item->chave, $stream, $item->tamanhoBytes, $item->sha256, $item->mimeType);
-            } finally {
-                if (\is_resource($stream)) {
-                    fclose($stream);
-                }
-            }
-
-            $this->concluido($item, $this->outbox->marcarVerificado($item));
-            $resumo->enviados++;
+            $this->replicar($espelho, $item, $resumo);
         } catch (ArquivoNaoEncontrado) {
             $this->descartar($item, $resumo);
         } catch (ChaveDeArquivoInvalida|\InvalidArgumentException|\LogicException $e) {
@@ -141,6 +93,69 @@ final class ReplicadorDeArquivos
             $this->registrar($item, 'falhou (permanente: ' . $e::class . ')');
         } catch (FalhaNoEspelhoRemoto|FalhaDeArmazenamento|\Throwable $e) {
             $this->falhaTransitoria($item, $e, $resumo);
+        }
+    }
+
+    /** Os passos de um item; as exceções sobem para `processarItem()`, que as classifica. */
+    private function replicar(EspelhoRemoto $espelho, ItemDeReplicacao $item, ResumoDaRodada $resumo): void
+    {
+        if ($this->local->metadados($item->chave) === null) {
+            $this->descartar($item, $resumo);
+
+            return;
+        }
+
+        $medida = MedidaDeConteudo::de($this->local, $item->chave);
+        if ($medida->tamanhoBytes !== $item->tamanhoBytes || !hash_equals($medida->sha256, $item->sha256)) {
+            $this->superarPorConteudoMudado($item, $medida, $resumo);
+
+            return;
+        }
+
+        $remoto = $espelho->consultar($item->chave);
+        if ($remoto !== null && $remoto->confereCom($item->tamanhoBytes, $item->sha256)) {
+            $this->concluido($item, $this->outbox->marcarVerificado($item));
+            $resumo->jaEstavamNoEspelho++;
+
+            return;
+        }
+
+        if (!$this->outbox->renovarPosse($item, self::POSSE_EM_SEGUNDOS)) {
+            $resumo->possesPerdidas++;
+            $this->registrar($item, 'não enviado: a posse foi perdida antes do PUT');
+
+            return;
+        }
+
+        $this->enviarDoDisco($espelho, $item);
+        $this->concluido($item, $this->outbox->marcarVerificado($item));
+        $resumo->enviados++;
+    }
+
+    /** O disco mudou depois do registro: vale o mais novo, e se não houver, registra o conteúdo atual. */
+    private function superarPorConteudoMudado(ItemDeReplicacao $item, MedidaDeConteudo $medida, ResumoDaRodada $resumo): void
+    {
+        $reregistrou = false;
+        if (!$this->outbox->existeRegistroMaisNovo($item)) {
+            $this->outbox->registrarEnvio($item->chave, $medida->sha256, $medida->tamanhoBytes, $item->mimeType);
+            $reregistrou = true;
+        }
+        $this->outbox->marcarSuperado($item, $reregistrou
+            ? 'o conteúdo local mudou sem registro mais novo; registrado um envio com o conteúdo atual'
+            : 'o conteúdo local mudou depois do registro; vale o registro mais novo');
+        $resumo->superados++;
+        $this->registrar($item, $reregistrou ? 'superado (re-registrado com o conteúdo atual)' : 'superado (conteúdo local mudou)');
+    }
+
+    private function enviarDoDisco(EspelhoRemoto $espelho, ItemDeReplicacao $item): void
+    {
+        $stream = $this->local->abrir($item->chave);
+        try {
+            $espelho->enviar($item->chave, $stream, $item->tamanhoBytes, $item->sha256, $item->mimeType);
+        } finally {
+            if (\is_resource($stream)) {
+                fclose($stream);
+            }
         }
     }
 

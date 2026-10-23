@@ -80,68 +80,98 @@ final class OutboxDeReplicacao
             $agora = $this->agora();
 
             while (true) {
-                $linha = $c->fetchAssociative(
-                    'SELECT * FROM ' . self::TABELA . ' r
-                      WHERE r.operacao = :enviar
-                        AND ((r.estado = :pendente AND r.proxima_tentativa_em <= :agora)
-                             OR (r.estado = :processando AND r.processando_ate < :agora))
-                        AND NOT EXISTS (
-                            SELECT 1 FROM ' . self::TABELA . ' o
-                             WHERE o.chave_remota = r.chave_remota AND o.id <> r.id
-                               AND o.estado = :processando AND o.processando_ate >= :agora)
-                      ORDER BY r.id
-                      LIMIT 1
-                      FOR UPDATE SKIP LOCKED',
-                    ['enviar' => self::OPERACAO_ENVIAR, 'pendente' => self::ESTADO_PENDENTE, 'processando' => self::ESTADO_PROCESSANDO, 'agora' => $agora],
-                );
+                $linha = $this->proximaCandidata($c, $agora);
                 if ($linha === false) {
                     return null;
                 }
 
-                $id      = (int) $linha['id'];
-                $novaMaisNova = $c->fetchOne(
-                    'SELECT id FROM ' . self::TABELA . ' WHERE chave_remota = :chave AND id > :id ORDER BY id DESC LIMIT 1',
-                    ['chave' => $linha['chave_remota'], 'id' => $id],
-                );
-                if ($novaMaisNova !== false) {
-                    $this->mudar($c, $id, self::ESTADO_SUPERADO, sprintf('há registro mais novo da mesma chave (#%d)', (int) $novaMaisNova));
-
-                    continue;
+                $chave = $this->chaveSeAindaServe($c, $linha, $maximoDeTentativas);
+                if ($chave !== null) {
+                    return $this->tomarPosse($c, $linha, $chave, $posseEmSegundos, $agora);
                 }
-
-                if ((int) $linha['tentativas'] >= $maximoDeTentativas) {
-                    $this->mudar($c, $id, self::ESTADO_FALHOU, sprintf('posse vencida depois de %d tentativas (o worker caiu ou o item derruba o worker)', (int) $linha['tentativas']));
-
-                    continue;
-                }
-
-                try {
-                    $chave = self::chaveDaLinha($linha);
-                } catch (ChaveDeArquivoInvalida $e) {
-                    // A mensagem da chave traz o nome cru; aqui vai só a classe.
-                    $this->mudar($c, $id, self::ESTADO_FALHOU, 'linha sem chave válida (' . $e::class . ')');
-
-                    continue;
-                }
-
-                $posse = bin2hex(random_bytes(16));
-                $c->executeStatement(
-                    'UPDATE ' . self::TABELA . ' SET estado = :processando, processando_ate = :ate, posse = :posse, tentativas = tentativas + 1, atualizado_em = :agora WHERE id = :id',
-                    ['processando' => self::ESTADO_PROCESSANDO, 'ate' => $this->agora($posseEmSegundos), 'posse' => $posse, 'agora' => $agora, 'id' => $id],
-                );
-
-                return new ItemDeReplicacao(
-                    $id,
-                    $chave,
-                    (string) $linha['chave_remota'],
-                    (string) $linha['sha256'],
-                    (int) $linha['tamanho_bytes'],
-                    (string) ($linha['mime_type'] ?? 'application/octet-stream'),
-                    (int) $linha['tentativas'] + 1,
-                    $posse,
-                );
             }
         });
+    }
+
+    /**
+     * A próxima linha de envio vencida (pendente na hora, ou em processamento com a posse vencida),
+     * sem outra em processamento válido para a mesma chave remota.
+     *
+     * @return array<string, mixed>|false
+     */
+    private function proximaCandidata(Connection $c, string $agora): array|false
+    {
+        return $c->fetchAssociative(
+            'SELECT * FROM ' . self::TABELA . ' r
+              WHERE r.operacao = :enviar
+                AND ((r.estado = :pendente AND r.proxima_tentativa_em <= :agora)
+                     OR (r.estado = :processando AND r.processando_ate < :agora))
+                AND NOT EXISTS (
+                    SELECT 1 FROM ' . self::TABELA . ' o
+                     WHERE o.chave_remota = r.chave_remota AND o.id <> r.id
+                       AND o.estado = :processando AND o.processando_ate >= :agora)
+              ORDER BY r.id
+              LIMIT 1
+              FOR UPDATE SKIP LOCKED',
+            ['enviar' => self::OPERACAO_ENVIAR, 'pendente' => self::ESTADO_PENDENTE, 'processando' => self::ESTADO_PROCESSANDO, 'agora' => $agora],
+        );
+    }
+
+    /**
+     * A chave da linha, se ela ainda deve ser enviada; senão a linha muda de estado (superada por uma
+     * mais nova, falhou pelo teto de tentativas ou por chave inválida) e volta null.
+     *
+     * @param array<string, mixed> $linha
+     */
+    private function chaveSeAindaServe(Connection $c, array $linha, int $maximoDeTentativas): ?ChaveDeArquivo
+    {
+        $id           = (int) $linha['id'];
+        $novaMaisNova = $c->fetchOne(
+            'SELECT id FROM ' . self::TABELA . ' WHERE chave_remota = :chave AND id > :id ORDER BY id DESC LIMIT 1',
+            ['chave' => $linha['chave_remota'], 'id' => $id],
+        );
+        if ($novaMaisNova !== false) {
+            $this->mudar($c, $id, self::ESTADO_SUPERADO, sprintf('há registro mais novo da mesma chave (#%d)', (int) $novaMaisNova));
+
+            return null;
+        }
+
+        if ((int) $linha['tentativas'] >= $maximoDeTentativas) {
+            $this->mudar($c, $id, self::ESTADO_FALHOU, sprintf('posse vencida depois de %d tentativas (o worker caiu ou o item derruba o worker)', (int) $linha['tentativas']));
+
+            return null;
+        }
+
+        try {
+            return self::chaveDaLinha($linha);
+        } catch (ChaveDeArquivoInvalida $e) {
+            // A mensagem da chave traz o nome cru; aqui vai só a classe.
+            $this->mudar($c, $id, self::ESTADO_FALHOU, 'linha sem chave válida (' . $e::class . ')');
+
+            return null;
+        }
+    }
+
+    /** @param array<string, mixed> $linha */
+    private function tomarPosse(Connection $c, array $linha, ChaveDeArquivo $chave, int $posseEmSegundos, string $agora): ItemDeReplicacao
+    {
+        $id    = (int) $linha['id'];
+        $posse = bin2hex(random_bytes(16));
+        $c->executeStatement(
+            'UPDATE ' . self::TABELA . ' SET estado = :processando, processando_ate = :ate, posse = :posse, tentativas = tentativas + 1, atualizado_em = :agora WHERE id = :id',
+            ['processando' => self::ESTADO_PROCESSANDO, 'ate' => $this->agora($posseEmSegundos), 'posse' => $posse, 'agora' => $agora, 'id' => $id],
+        );
+
+        return new ItemDeReplicacao(
+            $id,
+            $chave,
+            (string) $linha['chave_remota'],
+            (string) $linha['sha256'],
+            (int) $linha['tamanho_bytes'],
+            (string) ($linha['mime_type'] ?? 'application/octet-stream'),
+            (int) $linha['tentativas'] + 1,
+            $posse,
+        );
     }
 
     /** Cada `marcar*`/`reagendar`/`renovarPosse` devolve false quando a posse já não era deste item. */
