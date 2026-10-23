@@ -13,6 +13,7 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\DTO\EventoDaTimelineOutput;
 use App\Pasta\DTO\FiltroDaTimelineInput;
+use App\Pasta\DTO\PastaPagamentoLinhaOutput;
 use App\Pasta\DTO\TimelineInteligenteOutput;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
@@ -427,11 +428,14 @@ final class MontadorDaTimelineInteligente
     private function eventosDoPagamento(PastaPagamento $pagamento, \DateTimeImmutable $hoje): array
     {
         $id     = (int) $pagamento->getId();
+        // Êxito e sucumbência previstos: % do total contratado e sem vencimento.
         $resumo = sprintf(
-            '%s · R$ %s · vencimento %s',
+            '%s · %s · %s',
             $pagamento->getDescricao() !== '' ? $pagamento->getDescricao() : 'Pagamento',
-            number_format((float) $pagamento->getValor(), 2, ',', '.'),
-            $pagamento->getVencimento()->format('d/m/Y'),
+            $pagamento->getPercentual() !== null
+                ? PastaPagamentoLinhaOutput::percentualTexto($pagamento->getPercentual()) . '% do total contratado'
+                : 'R$ ' . number_format((float) $pagamento->getValor(), 2, ',', '.'),
+            $pagamento->getVencimento() !== null ? 'vencimento ' . $pagamento->getVencimento()->format('d/m/Y') : 'condicionado ao resultado',
         );
 
         $eventos = [new EventoDaTimelineOutput(
@@ -464,7 +468,7 @@ final class MontadorDaTimelineInteligente
                 id: 'pv' . $id,
                 tipo: 'pagamento_vencido',
                 categoria: 'financeiro',
-                quando: $pagamento->getVencimento()->setTime(0, 0),
+                quando: ($pagamento->getVencimento() ?? $hoje)->setTime(0, 0),
                 soData: true,
                 titulo: 'Pagamento vencido',
                 texto: $resumo,

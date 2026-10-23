@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PastaFinanceiroOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Service\BaseDoPercentual;
 use App\Shared\Service\ValorEmReais;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -45,11 +46,16 @@ use Doctrine\ORM\EntityManagerInterface;
  * ("· juros N% a.m."), gravado no parcelamento para o valor DAQUELE cálculo.
  * Com o valor corrigido à mão, a taxa já não explica o valor — então é zerada
  * (null) no mesmo flush e o sufixo some. Nenhum cálculo usa a taxa.
+ *
+ * ÊXITO E SUCUMBÊNCIA (decisão 3 do dono): o valor de um previsto com percentual é
+ * calculado na leitura (`BaseDoPercentual`), e é ESSE que a tela mostrou. Corrigir grava o
+ * valor digitado e zera o percentual (o valor congela); a linha segue prevista até ser recebida.
  */
 final class CorrigirValorDoPagamentoUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly BaseDoPercentual $baseDoPercentual,
     ) {}
 
     /**
@@ -112,19 +118,23 @@ final class CorrigirValorDoPagamentoUseCase
     /** Já sob a trava: o valor do pagamento é o do banco. */
     private function aplicar(PastaPagamento $pagamento, string $decimal, string $exibido): bool
     {
+        // O valor que vale agora: o gravado ou, no previsto com percentual, o calculado.
+        $atual = $this->baseDoPercentual->valorCalculado($pagamento);
+
         // Comparação em centavos: "1.300" e "1300,00" são o mesmo dinheiro.
-        if (ValorEmReais::paraCentavos($exibido) !== ValorEmReais::paraCentavos($pagamento->getValor())) {
+        if (ValorEmReais::paraCentavos($exibido) !== ValorEmReais::paraCentavos($atual)) {
             throw new \UnexpectedValueException(sprintf(
                 'O valor foi alterado por outra pessoa (agora %s). Recarregue e confira antes de corrigir.',
-                PastaFinanceiroOutput::formatarReais($pagamento->getValor()),
+                PastaFinanceiroOutput::formatarReais($atual),
             ));
         }
 
-        if (ValorEmReais::paraCentavos($decimal) === ValorEmReais::paraCentavos($pagamento->getValor())) {
+        if (ValorEmReais::paraCentavos($decimal) === ValorEmReais::paraCentavos($atual)) {
             return false;
         }
 
-        $pagamento->setValor($decimal);
+        // Grava o valor e larga o percentual, se havia: o valor congela.
+        $pagamento->congelarValor($decimal);
         // O rótulo de juros descrevia o valor antigo; com o valor à mão, deixa de valer.
         $pagamento->setJurosMensal(null);
         $this->em->flush();

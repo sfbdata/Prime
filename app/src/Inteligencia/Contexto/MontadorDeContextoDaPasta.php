@@ -420,13 +420,17 @@ final class MontadorDeContextoDaPasta
 
         foreach (array_slice($pagamentos, 0, self::LIMITE_PAGAMENTOS) as $pagamento) {
             $descricao = $this->rotulo($pagamento->getDescricao(), 'sem descrição', $mascarar);
+            // Êxito e sucumbência previstos: o valor é um % do total contratado, sem vencimento,
+            // e não está "em aberto" (spec pasta-exito-sucumbencia).
             $valor = $this->rotulo($pagamento->getValor(), '0', $mascarar);
             $linhas[] = sprintf(
-                'pagamento · %s · R$ %s · vencimento %s · %s [nível %d, registro interno]',
+                'pagamento · %s · %s · vencimento %s · %s [nível %d, registro interno]',
                 $descricao,
-                $valor,
-                $pagamento->getVencimento()->format('d/m/Y'),
-                $pagamento->getPagoEm() !== null ? 'pago em ' . $pagamento->getPagoEm()->format('d/m/Y') : 'EM ABERTO',
+                $pagamento->getPercentual() !== null
+                    ? $this->rotulo($pagamento->getPercentual(), '0', $mascarar) . '% do total contratado'
+                    : 'R$ ' . $valor,
+                $pagamento->getVencimento()?->format('d/m/Y') ?? 'sem vencimento',
+                $pagamento->getPagoEm() !== null ? 'pago em ' . $pagamento->getPagoEm()->format('d/m/Y') : ($pagamento->estaPrevisto() ? 'PREVISTO, condicionado ao resultado' : 'EM ABERTO'),
                 SecaoDoContexto::Financeiro->nivel(),
             );
             $assinaturas[] = sprintf(
@@ -434,7 +438,7 @@ final class MontadorDeContextoDaPasta
                 (int) $pagamento->getId(),
                 $descricao,
                 $valor,
-                $pagamento->getVencimento()->format('Y-m-d'),
+                $pagamento->getVencimento()?->format('Y-m-d') ?? '-',
                 $pagamento->getPagoEm()?->format('Y-m-d') ?? '-',
             );
         }

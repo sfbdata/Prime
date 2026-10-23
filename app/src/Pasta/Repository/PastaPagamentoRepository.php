@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CorrecaoDeValorDoPagamentoOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
@@ -26,7 +27,8 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
     /**
      * Todos os pagamentos da pasta, do vencimento mais próximo para o mais
      * distante — a ordem em que o card do trilho lê, e a mesma em que os totais
-     * são somados. O desempate por id mantém a lista estável entre dois
+     * são somados. Sem vencimento (o previsto de êxito e sucumbência) vai ao fim:
+     * é o NULLS LAST do PostgreSQL no ASC. O desempate por id mantém a lista estável entre dois
      * lançamentos com o mesmo vencimento.
      *
      * @return PastaPagamento[]
@@ -90,7 +92,9 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
      *
      * Só entra linha `update` desta classe, DESTE escritório (`tenant_id`), dos
      * ids pedidos, e que tenha mexido em `valor`: quitar e desfazer também são
-     * `update` do pagamento e não são correção de valor. Uma consulta para o
+     * `update` do pagamento e não são correção de valor. Nem quando a quitação
+     * CONGELA o êxito ou a sucumbência (grava o valor calculado no mesmo update
+     * que o `pagoEm`): isso é receber, não corrigir. Uma consulta para o
      * card inteiro, não uma por linha.
      *
      * Quem corrigiu sai pelo nome atual do usuário; sem usuário (removido),
@@ -135,6 +139,7 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
               AND a.action       = 'update'
               AND a.entity_id IN (:ids)
               AND a.changes->'diff'->'changes'->'valor' IS NOT NULL
+              AND a.changes->'diff'->'changes'->'pagoEm' IS NULL
             ORDER BY a.created_at ASC, a.id ASC
             SQL;
 
@@ -196,11 +201,14 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
         $linhas = $this->createQueryBuilder('p')
             ->select(
                 'IDENTITY(p.pasta) AS pasta_id',
-                'COUNT(p.id) AS total',
-                'SUM(CASE WHEN p.pagoEm IS NULL AND p.vencimento < :hoje THEN 1 ELSE 0 END) AS vencidos',
+                // O previsto (êxito e sucumbência não pagos) fica fora do relatório: nem conta
+                // como lançamento, nem vence (spec pasta-exito-sucumbencia, decisão 2).
+                'SUM(CASE WHEN p.pagoEm IS NULL AND p.tipo IN (:condicionados) THEN 0 ELSE 1 END) AS total',
+                'SUM(CASE WHEN p.pagoEm IS NULL AND p.tipo NOT IN (:condicionados) AND p.vencimento < :hoje THEN 1 ELSE 0 END) AS vencidos',
             )
             ->andWhere('p.tenant = :tenant')
             ->andWhere('IDENTITY(p.pasta) IN (:ids)')
+            ->setParameter('condicionados', [TipoDePagamento::Exito->value, TipoDePagamento::Sucumbencia->value])
             ->setParameter('tenant', $tenant)
             ->setParameter('ids', $pastaIds)
             ->setParameter('hoje', $hoje->setTime(0, 0), 'date_immutable')
@@ -210,7 +218,9 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
 
         $porPasta = [];
         foreach ($linhas as $l) {
-            $porPasta[(int) $l['pasta_id']] = ['total' => (int) $l['total'], 'vencidos' => (int) $l['vencidos']];
+            if ((int) $l['total'] > 0) {
+                $porPasta[(int) $l['pasta_id']] = ['total' => (int) $l['total'], 'vencidos' => (int) $l['vencidos']];
+            }
         }
 
         return $porPasta;
