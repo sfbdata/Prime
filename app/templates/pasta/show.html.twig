@@ -3875,9 +3875,13 @@ document.addEventListener('DOMContentLoaded', function () {
 {% set editCliente = pasta.clientePrincipal %}
 {% set editDocumento = editCliente ? (editCliente.cpf is defined ? editCliente.cpf : (editCliente.cnpj is defined ? editCliente.cnpj : null)) : null %}
 {% set editNomeSub = editCliente ? editCliente.nomeExibicao : pasta.nomeCliente %}
-<div class="modal fade" id="modalEditarPasta" tabindex="-1" aria-labelledby="modalEditarPastaLabel" aria-hidden="true">
-    <div class="modal-dialog ps-modal-pasta">
-        <div class="modal-content">
+{# Janela do desenho 02 (VS 18.10.26, L.634-668), não o modal do Bootstrap: sobreposição própria (L.635,
+   `pe.fundo` no mousedown do fundo), caixa de 720px com role=dialog (L.636, `pe.tecla`: Esc fecha) e, dentro
+   dela, cabeçalho, atalhos, corpo e rodapé de sempre. Abre pelos `[data-pe-abrir]` (item "Editar dados" do ⋮,
+   atalho E); fecha no X, no Fechar, no clique no fundo e no Esc. Mesmo padrão da janela "Vincular processo"
+   (`vp-sobre`). Os campos, os names, o CSRF e o POST para `pasta_edit` não mudam. #}
+<div class="ps-pe-sobre" id="modalEditarPasta" hidden>
+        <div class="ps-modal-pasta" role="dialog" aria-modal="true" aria-labelledby="modalEditarPastaLabel">
             <div class="ps-modal-pasta-cab">
                 <span class="ps-modal-pasta-cab-icone" aria-hidden="true"><i class="bi bi-folder2-open"></i></span>
                 <div class="ps-modal-pasta-cab-corpo">
@@ -3896,7 +3900,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <span class="ps-pe-estado" data-pe-estado><span class="ps-pe-estado-ponto" aria-hidden="true"></span><span data-pe-estado-txt>{{ 'pasta_show.editar.dados_da_pasta'|trans }}</span></span>
                     </div>
                 </div>
-                <button type="button" class="ps-modal-pasta-fechar" data-bs-dismiss="modal" title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="ps-modal-pasta-fechar" data-pe-fechar title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             <nav class="ps-modal-pasta-abas" aria-label="{{ 'pasta_show.editar.atalhos'|trans }}">
                 <button type="button" class="ps-modal-pasta-aba is-ativa" aria-current="true"><i class="bi bi-folder2" aria-hidden="true"></i>{{ 'pasta_show.editar.dados_da_pasta'|trans }}</button>
@@ -4000,7 +4004,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 </div>
                 <div class="ps-modal-pasta-rodape">
-                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
+                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-pe-fechar>{{ 'pasta_show.fechar'|trans }}</button>
                     <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--cadastro js-pe-ir" data-pe-ir="cliente"><i class="bi bi-person-vcard" aria-hidden="true"></i>{{ 'pasta_show.editar.cadastro_cliente_botao'|trans }}</button>
                     <button type="submit" class="ps-modal-pasta-btn ps-modal-pasta-btn--salvar">
                         <i class="bi bi-check2"></i>{{ 'pasta_show.salvar'|trans }}
@@ -4008,23 +4012,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             </form>
         </div>
-    </div>
 </div>
 
 <script>
-/* Atalhos do "Editar dados" (lote L2): fecham o modal e SÓ DEPOIS de fechado abrem o
-   destino — abrir a janela ou o drawer com o modal ainda na tela deixaria o foco
-   preso no modal (focus trap do Bootstrap) e o fundo escuro por cima. Os destinos
-   são os gatilhos que a tela já tem: o botão Cadastro do cabeçalho (#psCadastroAbrir,
-   pasta-clientes.js), a aba #processo-tab e o #psHistoricoAbrir (pasta-show.js).
+/* Janela "Editar dados" do desenho 02 (VS 18.10.26, L.634-668 e `peVals` L.4449-4485), sem o modal do
+   Bootstrap. Abrir (`peAbrir`, L.4451): mostra a sobreposição e põe o foco no número com o texto
+   selecionado (`pe.foco`). Fechar (`pe.fechar`): X, Fechar, mousedown no fundo (`pe.fundo`) e Esc
+   (`pe.tecla`); o foco volta para quem abriu (ou para o ⋮, se o item do menu já sumiu). Fechar não
+   descarta o que foi digitado: reabrir continua "Alterações não salvas", como antes.
 
-   E7: roda no DOMContentLoaded. Este script fica no corpo da página e o Bootstrap só carrega no
-   fim do base.html.twig: rodando na hora, o `typeof bootstrap === 'undefined'` saía cedo e o
-   bloco inteiro ficava morto — sem pergunta ao trocar o número (o POST saía direto), sem o
-   estado do Salvar e sem o "Descartar as alterações?". Medido no navegador (master e frente). */
+   Atalhos (lote L2): fecham a janela e então abrem o destino, os gatilhos que a tela já tem: o botão
+   Cadastro do cabeçalho (#psCadastroAbrir, pasta-clientes.js), a aba #processo-tab e o
+   #psHistoricoAbrir (pasta-show.js).
+
+   E7: roda no DOMContentLoaded, para achar o pasta-dialogos.js (janela azul do número, "Descartar
+   as alterações?") já carregado no fim do base.html.twig. */
 document.addEventListener('DOMContentLoaded', function () {
     var modal = document.getElementById('modalEditarPasta');
-    if (!modal || typeof bootstrap === 'undefined') { return; }
+    if (!modal) { return; }
     var form = modal.querySelector('form');
 
     function serializar() {
@@ -4063,7 +4068,6 @@ document.addEventListener('DOMContentLoaded', function () {
         form.addEventListener('input', conferir);
         form.addEventListener('change', conferir);
     }
-    modal.addEventListener('show.bs.modal', conferir);
     conferir();
 
     /* PAS-019 (dc L.4287/4416): trocar o NÚMERO pede confirmação antes de gravar, com o texto do
@@ -4118,11 +4122,54 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    modal.addEventListener('show.bs.modal', function () {
+    /* ── Abrir e fechar (desenho: `peAbrir`, `pe.fechar`, `pe.fundo`, `pe.tecla`, `pe.foco`) ── */
+    var peGatilho = null;
+
+    function peAbrir(gatilho) {
+        peGatilho = gatilho || null;
+        // O nome do responsável é relido do chip do cabeçalho: a troca pode ter vindo depois da carga.
         var nome = modal.querySelector('[data-pe-resp-nome]');
         var doChip = document.querySelector('.ps-cab-resp .pasta-resp-chip .pasta-resp-nome');
         if (nome && doChip) { nome.textContent = doChip.textContent.trim(); }
+        modal.hidden = false;
+        conferir();
+        if (nup) { nup.focus(); nup.select(); }
+    }
+
+    /* `devolver` falso: quem chamou leva o foco para outro lugar (atalhos). */
+    function peFechar(devolver) {
+        if (modal.hidden) { return; }
+        modal.hidden = true;
+        modal.dispatchEvent(new CustomEvent('pe:fechada'));
+        var destino = devolver === false ? null : peDestinoDoFoco(peGatilho);
+        if (destino) { destino.focus(); }
+        peGatilho = null;
+    }
+
+    /* O foco volta ao botão que abriu; se ele sumiu (item do ⋮, fechado junto), ao botão que abre o menu. */
+    function peDestinoDoFoco(gatilho) {
+        if (!gatilho || !document.contains(gatilho)) { return null; }
+        if (gatilho.getClientRects().length) { return gatilho; }
+        var menu = gatilho.closest('.ps-pop[id], [role="menu"][id]');
+        var abre = menu ? document.querySelector('[data-ps-pop="' + CSS.escape(menu.id) + '"], [aria-controls="' + CSS.escape(menu.id) + '"]') : null;
+
+        return abre && abre.getClientRects().length ? abre : null;
+    }
+
+    document.addEventListener('click', function (e) {
+        var gatilho = e.target.closest('[data-pe-abrir]');
+        if (gatilho) { e.preventDefault(); peAbrir(gatilho); }
     });
+    modal.addEventListener('mousedown', function (e) {
+        if (e.target === modal) { peFechar(); }
+    });
+    modal.addEventListener('click', function (e) {
+        if (e.target.closest('[data-pe-fechar]')) { peFechar(); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.hidden) { peFechar(); }
+    });
+    window.psEditarDados = { abrir: peAbrir, fechar: peFechar };
 
     modal.addEventListener('click', function (e) {
         var gatilho = e.target.closest('.js-pe-ir');
@@ -4131,11 +4178,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!destino) { return; }
 
         function seguir() {
-            modal.addEventListener('hidden.bs.modal', function aoFechar() {
-                modal.removeEventListener('hidden.bs.modal', aoFechar);
-                destino();
-            });
-            bootstrap.Modal.getOrCreateInstance(modal).hide();
+            peFechar(false);
+            destino();
         }
 
         if (serializar() === foto) { seguir(); return; }

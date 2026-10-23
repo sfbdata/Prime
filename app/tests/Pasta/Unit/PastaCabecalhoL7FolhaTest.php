@@ -211,9 +211,9 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
 
         $uso = self::trecho($js, 'function arrasteDasJanelas()', '/* ── 4. Atalhos do trilho');
         self::assertStringContainsString("cabecalho: '.ps-pop.is-aberto > .ps-pop-tarja'", $uso);
-        self::assertStringContainsString("cabecalho: '#modalEditarPasta .ps-modal-pasta-cab'", $uso);
-        self::assertStringContainsString("cab.closest('.modal-dialog')", $uso);
-        self::assertStringContainsString("modal.addEventListener('hidden.bs.modal'", $uso, 'o modal volta ao centro ao fechar');
+        self::assertStringContainsString("cabecalho: '#modalEditarPasta:not([hidden]) .ps-modal-pasta-cab'", $uso);
+        self::assertStringContainsString("cab.closest('.ps-modal-pasta')", $uso);
+        self::assertStringContainsString("modal.addEventListener('pe:fechada'", $uso, 'a janela volta ao lugar ao fechar');
         self::assertStringContainsString('if (vaiAbrir) { window.PsArrastar.zerar(alvo); }', self::trecho($js, 'function popovers()', 'function botaoFechar('), 'o menu reabre junto do gatilho');
 
         $cli = self::ler(__DIR__ . '/../../../public/js/pasta-clientes.js');
@@ -224,7 +224,7 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         // Os ganchos existem nos templates.
         self::assertStringContainsString('data-ps-cli-arrastar', self::ler(__DIR__ . '/../../../templates/cliente/_resumo.html.twig'));
         $show = self::ler(__DIR__ . '/../../../templates/pasta/show.html.twig');
-        self::assertMatchesRegularExpression('/id="modalEditarPasta"[^>]*>\s*<div class="modal-dialog ps-modal-pasta">\s*<div class="modal-content">\s*<div class="ps-modal-pasta-cab">/', $show);
+        self::assertMatchesRegularExpression('/id="modalEditarPasta"[^>]*>\s*<div class="ps-modal-pasta" role="dialog"[^>]*>\s*<div class="ps-modal-pasta-cab">/', $show);
 
         $css = self::ler(self::CSS);
         self::assertStringContainsString("#modalEditarPasta .ps-modal-pasta-cab { cursor: grab; touch-action: none; user-select: none; }", $css);
