@@ -52,7 +52,7 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 - Relatório: por autor, pela data de criação; resposta conta. Tem tendência (seta e pílula contra o
   período anterior equivalente, subir é bom): a data do registro é fato do passado.
 - Setas e pílula de percentual comparam com o **período anterior equivalente** (comportamento atual,
-  sem mudança neste PR). Desligar as setas em "Exibição" fica para o PR2.
+  sem mudança neste PR). Desligar as setas em "Exibição" é o PR2 (feito, ver "Fatias seguintes").
 - Zerar (PR3): qualquer coluna pode ser zerada; só o Master zera ou desfaz; quem não é Master vê
   "Pedir para zerar", que vai ao primário e à Controladoria.
 - Pastas concluídas (PR3) = "Demandas encerradas no período" do desenho, lida como "arquivadas no
@@ -76,7 +76,14 @@ Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013), seta
 
 ## Fatias seguintes
 
-- **PR2**: setas × ontem e a opção de desligar as setas em "Exibição".
+- **PR2 (feito)**: a opção de desligar as setas em "Exibição". Já existia desde o menu ⋮
+  (`dashboard.setas`, padrão `ligadas`, classe `db-page--sem-setas` que esconde `.db-seta`,
+  `.db-tend` e `.db-total-espaco` e zera o recuo `.db-cel--seta`, como o `semSetas` do desenho,
+  dc L666-671 e `tendCor`/`setaWrap`). O PR2 só travou o comportamento em teste
+  (`DashboardSetasExibicaoTelaTest`): lugar, rótulo e padrão do desenho, gravação pelo endpoint,
+  a carga seguinte respeitando, e as setas e pílulas continuando no HTML contra o período
+  anterior (sem mudar o cálculo). Setas × ontem saiu do PR2: a comparação segue contra o período
+  anterior equivalente (decisão do orquestrador).
 - **PR3**: zerar e pastas concluídas, com a migration `Version20261023150900` com `pasta.arquivada_em`, `dashboard_zeramento` e
   `dashboard_meta_pastas`.
 - **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
