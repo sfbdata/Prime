@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Ponto\Functional;
+namespace App\Tests\Ponto\Integration;
 
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;

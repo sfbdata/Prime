@@ -13,7 +13,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * Grava a batida pedida por uma justificativa de esquecimento de registro que o admin abonou.
  *
  * Caminho único da aprovação individual e do "aprovar todos" (spec `fix-aprovar-todos-esquecimento.md`).
- * Só persiste: quem chama decide o flush (o lote grava tudo de uma vez).
+ * Só persiste: quem chama decide o flush. No "aprovar todos", a notificação de cada item faz flush dentro do
+ * laço, então cada item é gravado coerente consigo mesmo (abono e batida juntos), mas o lote não é atômico
+ * (já era assim antes desta correção).
  */
 final class RegistrarBatidaDoEsquecimentoUseCase
 {
