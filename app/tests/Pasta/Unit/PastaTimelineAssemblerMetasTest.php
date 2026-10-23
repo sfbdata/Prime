@@ -235,6 +235,29 @@ final class PastaTimelineAssemblerMetasTest extends TestCase
         self::assertNull($item->metaId);
     }
 
+    #[TestDox('Mudança de carteira da pasta vira "Carteira alterada" com a transição em rótulos; sem carteira é "Sem carteira"')]
+    public function testCarteiraAlterada(): void
+    {
+        $itens = $this->montarComLinhas([
+            $this->linha('App\\Pasta\\Entity\\Pasta', 'update', '10', [
+                'diff' => ['changes' => ['carteira' => ['from' => null, 'to' => 'trabalhista']]],
+            ], '2026-06-17 20:00:00'),
+            $this->linha('App\\Pasta\\Entity\\Pasta', 'update', '10', [
+                'diff' => ['changes' => ['carteira' => ['from' => 'trabalhista', 'to' => 'familia_sucessoes']]],
+            ], '2026-06-17 21:00:00'),
+        ]);
+
+        $detalhes = [];
+        foreach ($itens as $item) {
+            if ($item->titulo === 'Carteira alterada') {
+                self::assertSame('bi-folder-symlink', $item->icone);
+                $detalhes[] = $item->detalhe;
+            }
+        }
+        sort($detalhes);
+        self::assertSame(['de Sem carteira para Trabalhista', 'de Trabalhista para Família e sucessões'], $detalhes);
+    }
+
     #[TestDox('Evento de Pasta (não-meta) não recebe metaId/metaTitulo')]
     public function testEventoNaoMetaSemReferenciaDeMeta(): void
     {
