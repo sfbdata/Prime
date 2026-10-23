@@ -90,8 +90,7 @@ final class AceitarConviteEscritorioSemContaUseCase
         $user->setPassword($this->passwordHasher->hashPassword($user, $input->senha));
         UserProfile::daContaNova($user, $genero);   // persistido em cascata com o User
 
-        $userTenant = new UserTenant($user, $tenant);
-        $userTenant->alterarRegistroDePonto($this->registroDePontoInicial->registraPontoInicial($user, $tenant));
+        $userTenant = $this->novoVinculo($user, $tenant);
         if ($invitation->getTenantRole() !== null) {
             $userTenant->setTenantRole($invitation->getTenantRole());
         }
@@ -121,5 +120,14 @@ final class AceitarConviteEscritorioSemContaUseCase
             (int) $tenant->getId(),
             $invitation->getTenantRole()?->isSystem() === true,
         ));
+    }
+
+    /** O vínculo novo, com a chave do ponto no estado inicial (spec seguranca-b-jornada, regra 5: ligada salvo choque). */
+    private function novoVinculo(User $user, Tenant $tenant): UserTenant
+    {
+        $vinculo = new UserTenant($user, $tenant);
+        $vinculo->alterarRegistroDePonto($this->registroDePontoInicial->registraPontoInicial($user, $tenant));
+
+        return $vinculo;
     }
 }
