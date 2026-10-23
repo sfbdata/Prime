@@ -13,6 +13,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Entity\Pasta;
+use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\DesligaTenantFilterNaRequisicao;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,6 +30,9 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
 
     /** D-META: toda meta nova leva prazo (ISO do `<input type="date">`) e ao menos um responsável. */
     private const PRAZO = '2026-12-31';
+
+    /** Desenho 02 (L179): a caixa / etapa também é obrigatória na Nova meta. */
+    private const ETAPA = 'juridico';
 
     private function criarUsuario(Tenant $tenant, string $email): User
     {
@@ -140,6 +144,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta conjunta',
             'descricao'    => 'Executada por duas pessoas',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $resp1->getId(), (int) $resp2->getId()],
         ]);
 
@@ -173,6 +178,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta com intruso',
             'descricao'    => 'Tenta vincular alguém de outro tenant',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $respA->getId(), (int) $estranho->getId()],
         ]);
 
@@ -202,6 +208,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'    => 'Meta sem responsável',
             'descricao' => 'Ninguém atribuído ainda',
             'prazo'     => self::PRAZO,
+            'etapa'        => self::ETAPA,
         ]);
 
         self::assertResponseStatusCodeSame(422);
@@ -229,6 +236,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta só com intruso',
             'descricao'    => 'O único responsável é de fora',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $estranho->getId()],
         ]);
 
@@ -263,6 +271,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta sem prazo',
             'descricao'    => 'O prazo é obrigatório',
             'prazo'        => $prazo,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $autor->getId()],
         ]);
 
@@ -288,6 +297,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta completa',
             'descricao'    => 'Com prazo e responsável',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $autor->getId()],
         ]);
 
@@ -296,6 +306,73 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
         self::assertSame([(int) $autor->getId()], $this->idsResponsaveis($id));
         $tarefa = static::getContainer()->get(EntityManagerInterface::class)->find(Tarefa::class, $id);
         self::assertSame(self::PRAZO, $tarefa?->getPrazo()?->format('Y-m-d'));
+    }
+
+    /** @return iterable<string, array{array<string, string>}> */
+    public static function etapasRecusadas(): iterable
+    {
+        yield 'ausente' => [[]];
+        yield 'vazia' => [['etapa' => '']];
+        yield 'fora do enum' => [['etapa' => 'financeiro']];
+        yield 'rótulo em vez do valor' => [['etapa' => 'Comercial']];
+    }
+
+    /** @param array<string, string> $etapa */
+    #[TestDox('Desenho 02: sem caixa / etapa válida → 422 com mensagem clara, nenhuma meta, nenhuma notificação')]
+    #[DataProvider('etapasRecusadas')]
+    public function testSemEtapaValidaRetorna422(array $etapa): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor_' . uniqid() . '@test.com');
+        $pastaId = (int) $this->criarPasta($tenant, $autor)->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+        $notificacoesAntes = $this->contarNotificacoes();
+
+        $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
+            '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
+            'titulo'       => 'Meta sem etapa',
+            'descricao'    => 'A caixa é obrigatória',
+            'prazo'        => self::PRAZO,
+            'responsaveis' => [(int) $autor->getId()],
+        ] + $etapa);
+
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('Escolha a caixa / etapa da meta.', $data['erro'] ?? null);
+        self::assertSame(0, $this->contarMetasDaPasta($pastaId));
+        self::assertSame($notificacoesAntes, $this->contarNotificacoes());
+    }
+
+    #[TestDox('Desenho 02: grava a etapa escolhida, mesmo contra a dedução pelo título ("Protocolar" daria Protocolo)')]
+    public function testGravaAEtapaEscolhidaContraOTitulo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor_' . uniqid() . '@test.com');
+        $pastaId = (int) $this->criarPasta($tenant, $autor)->getId();
+        $titulo = 'Protocolar a inicial';
+        self::assertSame(EtapaDaPasta::Protocolo, EtapaDaPasta::deduzirDoTitulo($titulo), 'controle: o título levaria a Protocolo');
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
+            '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
+            'titulo'       => $titulo,
+            'descricao'    => 'A pessoa escolheu outra caixa',
+            'prazo'        => self::PRAZO,
+            'etapa'        => EtapaDaPasta::Documentacao->value,
+            'responsaveis' => [(int) $autor->getId()],
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $id = (int) json_decode((string) $client->getResponse()->getContent(), true)['id'];
+        $etapa = static::getContainer()->get(EntityManagerInterface::class)->getConnection()
+            ->fetchOne('SELECT etapa FROM tarefa WHERE id = ?', [$id]);
+        self::assertSame(EtapaDaPasta::Documentacao->value, $etapa);
     }
 
     #[TestDox('PMC-044: criar pela pasta devolve o destino NA pasta — aba Metas com ?meta=<id> — e a linha da meta nova está lá')]
@@ -315,6 +392,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta que fica na pasta',
             'descricao'    => 'Depois de criar, a pasta continua aberta',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $autor->getId()],
         ]);
 
@@ -346,6 +424,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => '',
             'descricao'    => 'Sem título',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $autor->getId()],
         ]);
 
@@ -368,6 +447,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta',
             'descricao'    => 'Descrição',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $autor->getId()],
         ]);
 
@@ -404,6 +484,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta na pasta alheia',
             'descricao'    => 'Não pode nascer',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $autor->getId()],
         ]);
 
@@ -432,6 +513,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta legítima',
             'descricao'    => 'Na pasta do próprio escritório',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $autor->getId()],
         ]);
 
@@ -459,6 +541,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta de quem não vê',
             'descricao'    => 'Não pode nascer',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $resp->getId()],
         ]);
 
@@ -486,6 +569,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta de quem vê',
             'descricao'    => 'Pode nascer',
             'prazo'        => self::PRAZO,
+            'etapa'        => self::ETAPA,
             'responsaveis' => [(int) $resp->getId()],
         ]);
 
@@ -564,6 +648,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
                 'titulo'       => $titulo,
                 'descricao'    => 'Numerada ao nascer',
                 'prazo'        => self::PRAZO,
+                'etapa'        => self::ETAPA,
                 'responsaveis' => [(int) $responsavel->getId()],
             ]);
             self::assertResponseIsSuccessful();

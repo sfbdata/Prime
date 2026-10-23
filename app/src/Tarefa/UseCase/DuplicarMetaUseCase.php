@@ -18,7 +18,7 @@ use App\Tenant\Service\ColaboradoresAtribuiveis;
  * controller). O que quer: uma meta igual para começar de novo, sem redigitar.
  *
  * A cópia nasce NA HORA (sem janela de confirmação), na mesma pasta: leva descrição, prazo (mesmo vencido, como o
- * desenho), os responsáveis que a Nova meta aceitaria hoje, a prioridade exata e o tipo de demanda; o título ganha " (cópia)" (cortando o original para caber no limite de 120 do
+ * desenho), os responsáveis que a Nova meta aceitaria hoje, a prioridade exata, o tipo de demanda e a caixa / etapa; o título ganha " (cópia)" (cortando o original para caber no limite de 120 do
  * desenho); nasce aberta (pendente), criada agora e por quem duplicou, no fim da lista. Grava pelo
  * `GravarMetaNovaUseCase`, para ganhar o número da sequência do escritório como toda meta nova.
  *
@@ -112,6 +112,8 @@ final class DuplicarMetaUseCase
         $copia->setPrazo($original->getPrazo());
         $copia->setPrioridade($original->getPrioridade());
         $copia->setTipoDeDemanda($original->getTipoDeDemanda());
+        // A caixa / etapa também é a da original (o desenho copia a meta inteira): sem deduzir de novo pelo título.
+        $copia->setEtapa($original->getEtapa());
         $copia->setStatus(Tarefa::STATUS_PENDENTE);
         $copia->setPasta($original->getPasta());
         $copia->setTenant($tenant);

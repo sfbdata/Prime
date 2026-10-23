@@ -46,6 +46,23 @@ enum EtapaDaPasta: string
         return self::Juridico;
     }
 
+    /**
+     * A mesma regra do {@see deduzirDoTitulo}, para a sugestão da Nova meta no navegador (desenho 02 L4049 `nmSug`):
+     * o corpo de cada padrão, sem delimitador e sem flag, na ordem de teste. O template a renderiza num data-attribute
+     * e o JS monta o `RegExp` dela, para não haver uma segunda lista que diverge desta. O que não casar é Jurídico.
+     *
+     * @return list<array{padrao: string, etapa: string}>
+     */
+    public static function regrasDoTitulo(): array
+    {
+        $regras = [];
+        foreach (self::PELO_TITULO as $padrao => $etapa) {
+            $regras[] = ['padrao' => substr($padrao, 1, (int) strrpos($padrao, '/') - 1), 'etapa' => $etapa->value];
+        }
+
+        return $regras;
+    }
+
     /** Posição na esteira, de 1 a 8 ("CAIXA N"). */
     public function posicao(): int
     {

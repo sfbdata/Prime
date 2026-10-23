@@ -5743,3 +5743,31 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     text-transform: uppercase;
     white-space: nowrap;
 }
+
+/* =============================================================================
+   Caixa / etapa da Nova meta (desenho 02 de 22/10, dc L179 e L4068 `fases`): a
+   borda do botão normal (#d6dde3), o sugerido pelo título (#9fc3d8 sobre
+   #f2f8fc), o escolhido (#0a6fa0, texto branco e setor a .8) e a cor da dica
+   "Sugestão pelo título". Fundo, texto e setor do normal são --ps-card,
+   --ps-body e --ps-muted. O estilo do campo fica no modal (pasta/show).
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-nm-etapa-borda:     #d6dde3;
+    --ps-nm-etapa-sug-borda: #9fc3d8;
+    --ps-nm-etapa-sug-bg:    #f2f8fc;
+    --ps-nm-etapa-on:        #0a6fa0;
+    --ps-nm-etapa-on-tx:     #fff;
+    --ps-nm-etapa-on-setor:  rgba(255,255,255,.8);
+    --ps-nm-etapa-dica:      #0a6fa0;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-nm-etapa-borda:     var(--bs-border-color);
+    --ps-nm-etapa-sug-borda: rgba(69,176,214,.55);
+    --ps-nm-etapa-sug-bg:    rgba(69,176,214,.12);
+    --ps-nm-etapa-on:        #0a6fa0;
+    --ps-nm-etapa-on-tx:     #fff;
+    --ps-nm-etapa-on-setor:  rgba(255,255,255,.8);
+    --ps-nm-etapa-dica:      #45b0d6;
+}
