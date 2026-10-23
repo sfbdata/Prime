@@ -11,11 +11,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * A sequência de números de pasta de um escritório: a trava que a serializa e a leitura do que
  * já foi usado.
  *
- * Existe para ter UM lugar só. Dois pontos do sistema precisam concordar sobre o que é "o número
- * de uma pasta": o GerarNumeroDePasta, que atribui o próximo, e o ExcluirPastaUseCase, que decide
- * se a pasta sendo excluída é a última da fila (apaga de verdade) ou tem posterior (vira lápide).
- * Com a expressão do prefixo copiada nos dois, bastava alguém ajustar um lado para o sistema
- * passar a atribuir um número e a raciocinar sobre outro — sem erro nenhum aparecendo.
+ * Existe para ter UM lugar só com a expressão do prefixo e a trava por escritório, que o
+ * GerarNumeroDePasta usa para atribuir o próximo número. A exclusão de pasta não consulta mais a
+ * sequência: toda pasta excluída vira lápide e continua ocupando o número dela.
  *
  * O sufixo de letra do legado (10A/10B) conta pelo prefixo: 10A é o número 10. Nunca é gerado.
  */
@@ -30,8 +28,7 @@ final class NumeracaoDePasta implements NumeracaoDePastaInterface
     private const CLASSE_TRAVA = 4713;
 
     /**
-     * Expressão do prefixo numérico do NUP. Mantida como constante porque é o ponto exato em que
-     * geração e exclusão precisam concordar — ver o docblock da classe.
+     * Expressão do prefixo numérico do NUP: o 10A/10B do legado conta como 10.
      */
     private const SQL_PREFIXO = "CAST(substring(nup FROM '^[0-9]{1,18}') AS BIGINT)";
 
@@ -46,7 +43,7 @@ final class NumeracaoDePasta implements NumeracaoDePastaInterface
      *
      * `pg_advisory_xact_lock` só é liberada no fim da TRANSAÇÃO. Sem uma transação aberta ela
      * cairia no mesmo instante e a trava viraria enfeite — a corrida voltaria, e de forma
-     * silenciosa: dois números iguais, ou uma pasta apagada de verdade que já tinha posterior.
+     * silenciosa: dois números iguais.
      * Por isso o chamador é obrigado a abrir a transação (`wrapInTransaction`).
      */
     public function travar(Tenant $tenant): void
@@ -78,47 +75,6 @@ final class NumeracaoDePasta implements NumeracaoDePastaInterface
         );
 
         return (int) $maior;
-    }
-
-    /**
-     * Existe no escritório alguma pasta com número ESTRITAMENTE maior que o deste NUP?
-     *
-     * É a pergunta que decide entre lápide e exclusão real. Estritamente maior de propósito: a
-     * própria pasta consultada não conta, e a gêmea de número repetido (o NUP não é único — ver
-     * Version20260701144054) também não, porque apagar uma das duas não libera número nenhum.
-     *
-     * NUP sem prefixo numérico devolve `true`: a pasta não está na sequência, apagá-la não
-     * devolveria número algum, e na dúvida o registro fica.
-     */
-    public function existeNumeroMaiorQue(Tenant $tenant, ?string $nup): bool
-    {
-        $numero = self::prefixoNumerico($nup);
-
-        if ($numero === null) {
-            return true;
-        }
-
-        $existe = $this->em->getConnection()->fetchOne(
-            "SELECT EXISTS (
-                SELECT 1 FROM pasta
-                 WHERE tenant_id = ?
-                   AND nup ~ '^[0-9]'
-                   AND " . self::SQL_PREFIXO . " > ?
-             )",
-            [$this->idDo($tenant), $numero]
-        );
-
-        return (bool) $existe;
-    }
-
-    /** O mesmo recorte da SQL_PREFIXO, do lado do PHP. `null` quando o NUP não começa por dígito. */
-    public static function prefixoNumerico(?string $nup): ?int
-    {
-        if ($nup === null || preg_match('/^[0-9]{1,18}/', $nup, $casou) !== 1) {
-            return null;
-        }
-
-        return (int) $casou[0];
     }
 
     private function idDo(Tenant $tenant): int
