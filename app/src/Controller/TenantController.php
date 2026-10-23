@@ -1338,7 +1338,7 @@ final class TenantController extends AbstractController
         $encontradas = $justificativaRepository->findBy(['user' => $user, 'batchId' => $batchId, 'status' => 'pendente']);
         $pendentes   = $this->semBatidaNoFuturo($encontradas, $registrarBatidaDoEsquecimento);
         if (empty($pendentes)) {
-            if ($encontradas === []) {   // lote todo no futuro: o aviso de horário futuro já saiu
+            if ($encontradas === []) {   // lote todo no futuro não cai aqui: o aviso de horário futuro já saiu
                 $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
             }
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
