@@ -9,6 +9,7 @@ use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -307,5 +308,40 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('.alert-erro', 'Informe um e-mail válido.');
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertNull($em->getRepository(Invitation::class)->findOneBy(['email' => $email]));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function acoesDeGestao(): iterable
+    {
+        yield 'revogar' => ['revogar'];
+        yield 'reenviar' => ['reenviar'];
+    }
+
+    #[DataProvider('acoesDeGestao')]
+    #[TestDox('CSRF inválido: revogar ou reenviar convite de plataforma pelo id dá 403 e nada muda')]
+    public function testCsrfInvalidoNaoMuda(string $acao): void
+    {
+        $client = static::createClient();
+        $admin  = $this->criarSuperAdmin();
+        $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
+
+        $em      = static::getContainer()->get(EntityManagerInterface::class);
+        $convite = new Invitation(
+            email: 'csrf_plataforma_' . uniqid() . '@example.com',
+            token: bin2hex(random_bytes(32)),
+            type: Invitation::TIPO_PLATAFORMA,
+            expiresAt: new \DateTimeImmutable('+24 hours'),
+        );
+        $em->persist($convite);
+        $em->flush();
+
+        $client->request('POST', sprintf('/admin/platform/convites/%d/%s', $convite->getId(), $acao), ['_token' => 'invalido']);
+
+        self::assertResponseStatusCodeSame(403);
+        $em->clear();
+        $intacto = $em->find(Invitation::class, $convite->getId());
+        self::assertSame('pending', $intacto->getStatus());
+        self::assertSame(0, $intacto->getReenvioCount());
     }
 }

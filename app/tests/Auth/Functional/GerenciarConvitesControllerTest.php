@@ -545,4 +545,24 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $user->marcarEmailAConfirmar(new \DateTimeImmutable());
         static::getContainer()->get(EntityManagerInterface::class)->flush();
     }
+
+    #[DataProvider('acoesDeGestao')]
+    #[TestDox('CSRF inválido: revogar ou reenviar pelo id dá 403 e nada muda')]
+    public function testCsrfInvalidoNaoMuda(string $acao): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $user    = $this->criarAdminComPermissao($tenant);
+        $convite = $this->criarConvite($tenant);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', sprintf('/escritorio/convites/%d/%s', $convite->getId(), $acao), ['_token' => 'invalido']);
+
+        self::assertResponseStatusCodeSame(403);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $intacto = $em->find(Invitation::class, $convite->getId());
+        self::assertSame('pending', $intacto->getStatus());
+        self::assertSame(0, $intacto->getReenvioCount());
+    }
 }

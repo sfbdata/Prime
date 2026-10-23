@@ -234,6 +234,7 @@ final class ConviteController extends AbstractController
     {
         $this->verificarLimite($request);
         $this->verificarCsrfDoId('convite_aceitar_', $id, $request);
+        $this->meuConvite($id);
 
         try {
             $userTenant = $this->aceitarComContaUseCase->executar(
@@ -255,6 +256,7 @@ final class ConviteController extends AbstractController
     {
         $this->verificarLimite($request);
         $this->verificarCsrfDoId('convite_recusar_', $id, $request);
+        $this->meuConvite($id);
 
         try {
             $this->recusarUseCase->executar(RecusarConviteEscritorioInput::porId($id, $this->usuarioLogado()));

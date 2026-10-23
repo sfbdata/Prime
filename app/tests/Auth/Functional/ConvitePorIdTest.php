@@ -94,7 +94,7 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
     }
 
     #[DataProvider('acoes')]
-    #[TestDox('Convite de outro e-mail: aceitar ou recusar pelo id, mesmo com CSRF válido, não muda nada')]
+    #[TestDox('Convite de outro e-mail: aceitar ou recusar pelo id, mesmo com CSRF válido, dá 404 e não muda nada')]
     public function testConviteDeOutroEmailNaoMuda(string $acao): void
     {
         $client = static::createClient();
@@ -107,11 +107,62 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
             '_token' => sprintf('TOKEN_convite_%s_%d', $acao, $alheio->getId()),
         ]);
 
-        self::assertResponseRedirects();
+        self::assertResponseStatusCodeSame(404);
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertSame('pending', $em->find(Invitation::class, $alheio->getId())->getStatus());
         self::assertNull($em->getRepository(UserTenant::class)->findOneBy(['user' => $user->getId(), 'tenant' => $alheio->getTenant()->getId()]));
+    }
+
+    #[TestDox('Convite de plataforma do próprio e-mail: a tela pelo id é 404')]
+    public function testTelaDeConviteDePlataformaE404(): void
+    {
+        $client = static::createClient();
+        [$user, $meu] = $this->pessoaComEscritorio();
+        $plataforma = $this->convite($user->getEmail(), Invitation::TIPO_PLATAFORMA);
+        $this->logarComTenant($client, $user, $meu);
+
+        $client->request('GET', '/convites/' . $plataforma->getId());
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[DataProvider('acoes')]
+    #[TestDox('Convite de plataforma do próprio e-mail: aceitar ou recusar pelo id dá 404 e não muda nada')]
+    public function testConviteDePlataformaNaoMuda(string $acao): void
+    {
+        $client = static::createClient();
+        [$user, $meu] = $this->pessoaComEscritorio();
+        $plataforma = $this->convite($user->getEmail(), Invitation::TIPO_PLATAFORMA);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $meu);
+
+        $client->request('POST', sprintf('/convites/%d/%s', $plataforma->getId(), $acao), [
+            '_token' => sprintf('TOKEN_convite_%s_%d', $acao, $plataforma->getId()),
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame('pending', $em->find(Invitation::class, $plataforma->getId())->getStatus());
+    }
+
+    #[DataProvider('acoes')]
+    #[TestDox('CSRF inválido: aceitar ou recusar pelo id dá 403 e não muda nada')]
+    public function testCsrfInvalidoNaoMuda(string $acao): void
+    {
+        $client = static::createClient();
+        [$user, $meu] = $this->pessoaComEscritorio();
+        $convite = $this->convite($user->getEmail());
+        $this->logarComTenant($client, $user, $meu);
+
+        $client->request('POST', sprintf('/convites/%d/%s', $convite->getId(), $acao), ['_token' => 'invalido']);
+
+        self::assertResponseStatusCodeSame(403);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame('pending', $em->find(Invitation::class, $convite->getId())->getStatus());
+        self::assertNull($em->getRepository(UserTenant::class)->findOneBy(['user' => $user->getId(), 'tenant' => $convite->getTenant()->getId()]));
     }
 
     #[TestDox('O link público do e-mail (/convite/{token}) segue abrindo o formulário de criar conta pelo token')]
@@ -191,13 +242,15 @@ final class ConvitePorIdTest extends JusPrimeWebTestCase
         return [$user, $meu];
     }
 
-    private function convite(string $email): Invitation
+    private function convite(string $email, string $tipo = Invitation::TIPO_ESCRITORIO): Invitation
     {
         $em     = static::getContainer()->get(EntityManagerInterface::class);
         $tenant = (new Tenant())->setName('Escritório que convida ' . uniqid());
         $em->persist($tenant);
-        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(32)), type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+7 days'));
-        $convite->setTenant($tenant);
+        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(32)), type: $tipo, expiresAt: new \DateTimeImmutable('+7 days'));
+        if ($tipo === Invitation::TIPO_ESCRITORIO) {
+            $convite->setTenant($tenant);
+        }
         $em->persist($convite);
         $em->flush();
 

@@ -62,11 +62,13 @@ final class GerenciarConvitesController extends AbstractController
         $ator  = $this->getUser();
         $roles = array_values(array_filter($roles, fn ($r): bool => $ator instanceof User && $this->hierarquia->podeAtribuirPerfil($ator, $tenant, $r)));
         // C5 também na lista: só o convite de perfil que quem gerencia poderia atribuir (achado de auditoria interna F5).
+        // O alcance lê o vínculo de quem gerencia uma vez só, não um por convite.
+        $alcance  = $ator instanceof User ? $this->hierarquia->alcanceDoAtor($ator, $tenant) : static fn (): bool => false;
         $convites = array_map(
             ConviteAdminOutput::fromInvitation(...),
             array_values(array_filter(
                 $this->invitationRepository->listarPorTenant($tenant),
-                fn (Invitation $i): bool => $this->estaNoAlcance($i),
+                static fn (Invitation $i): bool => $alcance($i->getTenantRole()),
             ))
         );
 
