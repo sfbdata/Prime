@@ -401,30 +401,6 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
-     * TODOS os documentos de uma pasta que vai ser apagada DE VERDADE — vivos e, quando chamado
-     * dentro de `AcessoALixeira::comLixeiraVisivel()`, os da lixeira também (soltos ou dentro de
-     * seções, vivas ou excluídas). É a lista que `ExcluirPastaUseCase` usa para remover as linhas
-     * (a FK `pasta_documento.pasta_id` não tem ON DELETE CASCADE) e coletar as chaves dos arquivos
-     * antes do COMMIT. Filtro de tenant explícito: alimenta decisão de apagar arquivo.
-     *
-     * @return list<PastaDocumento>
-     */
-    public function listarParaRemocaoDaPasta(Pasta $pasta, Tenant $tenant): array
-    {
-        /** @var list<PastaDocumento> $documentos */
-        $documentos = $this->createQueryBuilder('d')
-            ->andWhere('d.pasta = :pasta')
-            ->andWhere('d.tenant = :tenant')
-            ->setParameter('pasta', $pasta)
-            ->setParameter('tenant', $tenant)
-            ->orderBy('d.id', 'ASC')
-            ->getQuery()
-            ->getResult();
-
-        return $documentos;
-    }
-
-    /**
      * Inteligência cadastral do cliente (F-A): os documentos de identificação e comprovante de residência destas pastas,
      * fora da lixeira, deste escritório (tenant e lixeira explícitos), o mais novo primeiro. Quem chama já conferiu que
      * as pastas são do cliente e que o usuário pode vê-las.
