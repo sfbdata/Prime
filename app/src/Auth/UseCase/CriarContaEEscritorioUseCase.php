@@ -10,6 +10,7 @@ use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\CadastroMailer;
+use App\Auth\Service\TetoDoReenvioDeConfirmacao;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Legal\PoliticaPrivacidadeVigente;
@@ -65,6 +66,8 @@ final class CriarContaEEscritorioUseCase
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly LoggerInterface $logger,
         private readonly ClockInterface $relogio,
+        private readonly ReenviarConfirmacaoDeEmailUseCase $reenviarConfirmacao,
+        private readonly TetoDoReenvioDeConfirmacao $teto,
     ) {
     }
 
@@ -235,9 +238,24 @@ final class CriarContaEEscritorioUseCase
         }
     }
 
-    /** Falha no envio só vai para o log: a resposta do cadastro é a mesma de qualquer jeito. */
+    /**
+     * O aviso segue a situação da conta: inativa ou em quarentena não recebe nada; a confirmar (ainda sem senha)
+     * recebe o link de confirmação normal, pelo reenvio que já existe e com o teto dele; a ativa e confirmada recebe
+     * o "já tem conta" com o "Esqueci a senha". Falha no envio só vai para o log: a resposta do cadastro é a mesma.
+     */
     private function avisarContaExistente(User $user): void
     {
+        if (!$user->isActive()) {
+            return;
+        }
+        if (!$user->isEmailConfirmado()) {
+            if ($this->teto->recusa($user) === null) {
+                $this->reenviarConfirmacao->executar($user);
+            }
+
+            return;
+        }
+
         try {
             $this->cadastroMailer->enviarAvisoDeContaExistente($user);
         } catch (\Throwable $e) {

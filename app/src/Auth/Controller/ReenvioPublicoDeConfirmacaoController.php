@@ -45,6 +45,12 @@ final class ReenvioPublicoDeConfirmacaoController extends AbstractController
         }
 
         $sessao = $request->getSession();
+
+        $neutro = $this->contaAConfirmar->neutroNaSessao($sessao);
+        if ($neutro !== null) {
+            return $this->reenviarPeloNeutro($request, $sessao, $neutro['emissoes']);
+        }
+
         $user = $this->contaDaSessao($sessao);
         if ($user === null) {
             return $this->responder($request, 'info', ContaAConfirmar::SEM_CONTA_NA_SESSAO);
@@ -67,6 +73,23 @@ final class ReenvioPublicoDeConfirmacaoController extends AbstractController
         };
 
         return $this->responder($request, $tipo, $texto);
+    }
+
+    /**
+     * Cadastro de um e-mail que já tem conta (raiz E da spec seguranca-a-convites): a mesma resposta e o mesmo teto
+     * da conta nova, sem mandar nada a ninguém.
+     *
+     * @param list<int> $emissoes
+     */
+    private function reenviarPeloNeutro(Request $request, SessionInterface $sessao, array $emissoes): Response
+    {
+        $recusa = $this->teto->recusaPelosInstantes($emissoes);
+        if ($recusa !== null) {
+            return $this->responder($request, 'warning', $recusa);
+        }
+        $this->contaAConfirmar->registrarEmissaoNeutra($sessao);
+
+        return $this->responder($request, 'success', ContaConfirmacaoController::FLASH_ENVIADO);
     }
 
     /** A conta guardada na sessão, se ainda existe e está ativa; senão, esquece a chave. */

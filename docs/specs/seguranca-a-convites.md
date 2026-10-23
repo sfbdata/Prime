@@ -137,18 +137,26 @@ e-mail novo responde 200 `{ok, confirmar, email}`: a resposta diz se a conta exi
   O modal mostra o mesmo texto ("Se o e-mail ... puder ser usado, você receberá as instruções nele...",
   `ContaAConfirmar::TEXTO_ENVIAMOS_ANTES|DEPOIS`). A constante `ERRO_EMAIL_EXISTENTE` sai. A validação dos campos
   (422) continua igual, porque não depende de conta nenhuma.
-- **E2.** `CriarContaEEscritorioUseCase` devolve `null` quando o e-mail já tem conta: nada é gravado e a dona da conta
-  recebe `CadastroMailer::enviarAvisoDeContaExistente()` (template `auth/cadastro/email_conta_existente.html.twig`,
-  no padrão do e-mail de confirmação), que avisa que já há conta e leva ao "Esqueci a senha"
-  (`auth_senha_esqueci`). Falha no envio só vai para o log. Para o tempo de resposta não destoar tanto, o caminho
-  calcula e descarta um hash de senha, como o caminho novo. A corrida no UNIQUE também devolve `null`, sem aviso
-  (o outro cadastro já mandou a confirmação para a mesma caixa).
-- **E3.** O caminho do e-mail existente não grava a conta dele na sessão (`ContaAConfirmar`) e apaga a chave de um
-  cadastro anterior do mesmo navegador: o "Reenviar o link" do modal responde `SEM_CONTA_NA_SESSAO` e não manda nada
-  a ninguém. O e-mail novo segue como antes (sessão gravada, reenvio funciona).
-- Resíduo conhecido: o reenvio do modal ainda responde diferente nos dois casos (o e-mail novo recebe "link
-  reenviado"; o existente, a mensagem de "Esqueceu a senha?"). Igualar exige mexer no reenvio público, que também
-  serve à tela de login; fica para decisão do coordenador.
+- **E2.** `CriarContaEEscritorioUseCase` devolve `null` quando o e-mail já tem conta: nada do cadastro é gravado e o
+  aviso segue a situação da conta existente:
+  - ativa e confirmada: `CadastroMailer::enviarAvisoDeContaExistente()` (template
+    `auth/cadastro/email_conta_existente.html.twig`, no padrão do e-mail de confirmação), que avisa que já há conta e
+    leva ao "Esqueci a senha" (`auth_senha_esqueci`);
+  - ainda a confirmar (sem senha): o link de confirmação normal dessa conta, pelo `ReenviarConfirmacaoDeEmailUseCase`
+    e respeitando o `TetoDoReenvioDeConfirmacao` (no teto, não sai nada);
+  - inativa ou em quarentena (`isActive` falso): nada.
+  Falha no envio só vai para o log. Para o tempo de resposta não destoar tanto, o caminho calcula e descarta um hash
+  de senha, como o caminho novo. A corrida no UNIQUE também devolve `null`, sem aviso.
+- **E3.** O caminho do e-mail existente não grava conta nenhuma na sessão: grava na mesma chave
+  (`ContaAConfirmar::CHAVE_SESSAO`) e com a mesma validade o marcador neutro `{neutro, email, em, emissoes}`, que
+  também substitui a chave de um cadastro anterior do navegador. O marcador é lido por `neutroNaSessao()` (o
+  `idNaSessao()` descarta o que não tem id).
+  - O "Reenviar" público com o marcador responde como o envio real (`FLASH_ENVIADO`, success) sem mandar nada, com
+    o mesmo teto (`TetoDoReenvioDeConfirmacao::recusaPelosInstantes`, sobre os instantes guardados no marcador):
+    "Aguarde" e o teto diário aparecem no mesmo clique que para a conta nova.
+  - A tela de entrada com o marcador mostra o mesmo aviso de conta a confirmar, com o e-mail digitado. Chave
+    vencida ou ausente: a tela fica como estava.
+  - O e-mail novo segue como antes (sessão com a conta, reenvio real).
 
 ## Verificação (PR 1)
 
@@ -170,9 +178,11 @@ e-mail novo responde 200 `{ok, confirmar, email}`: a resposta diz se a conta exi
 - Unit: `CriarConviteEscritorioUseCaseTest`, `CriarConvitePlataformaUseCaseTest` (o hash é gravado e o token puro
   volta no `ConviteEmitido`), `ReenviarConviteUseCaseTest` (o reenvio troca o token) e `ConviteMailerTest`.
 - Os outros testes que montavam `Invitation` com o token passaram a montar com o hash.
-- Raiz E: `CadastroControllerTest` (o e-mail existente e o novo dão o mesmo status e o mesmo JSON, o aviso de conta
-  existente só sai para o existente, sem escritório, sem confirmação e sem sessão; o reenvio depois do e-mail
-  existente não manda nada), `CriarContaEEscritorioUseCaseTest` (null, nada gravado, o aviso com o link do "Esqueci
-  a senha", falha no envio só no log, corrida) e `LoginDeContaAConfirmarTest` (o texto novo do modal).
+- Raiz E: `CadastroControllerTest` (o e-mail existente e o novo dão o mesmo status e o mesmo JSON; o aviso de conta
+  existente só sai para o existente, sem escritório, sem confirmação e só com o marcador neutro na sessão; três
+  cliques no reenvio dão as mesmas respostas nos dois casos, sem e-mail para o existente; a tela de entrada mostra o
+  mesmo aviso; a conta inativa não recebe nada; a conta a confirmar recebe a confirmação normal),
+  `CriarContaEEscritorioUseCaseTest` (null, nada gravado, as três situações da conta, o teto, falha no envio só no
+  log, corrida) e `LoginDeContaAConfirmarTest` (o texto novo do modal).
 - Smoke do dono: o modal "Confirme seu e-mail" depois de criar a conta, com um e-mail novo e com um que já tem conta;
   o e-mail "Você já tem uma conta no BlueJus" e o botão "Esqueci a senha" dele.

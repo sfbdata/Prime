@@ -81,15 +81,16 @@ final class CadastroController extends AbstractController
         }
 
         // Sem login: a tela mostra "Confirme seu e-mail". A sessão guarda a conta para o botão de reenviar o link.
-        // E-mail que já tinha conta (null): a mesma resposta, sem a conta de outra pessoa na sessão (achado de
-        // auditoria interna F14). A chave de um cadastro anterior deste navegador também sai.
+        // E-mail que já tinha conta (null): a mesma resposta, e na sessão o marcador neutro no lugar da conta de outra
+        // pessoa (achado de auditoria interna F14). Ele também substitui a chave de um cadastro anterior deste navegador.
+        $email = CriarContaEEscritorioUseCase::normalizarEmail($input->email);
         if ($conta !== null) {
             $this->contaAConfirmar->guardar($request->getSession(), $conta->user);
         } else {
-            ContaAConfirmar::esquecer($request->getSession());
+            $this->contaAConfirmar->guardarNeutro($request->getSession(), $email);
         }
 
-        return $this->json(['ok' => true, 'confirmar' => true, 'email' => CriarContaEEscritorioUseCase::normalizarEmail($input->email)]);
+        return $this->json(['ok' => true, 'confirmar' => true, 'email' => $email]);
     }
 
     /** O link do e-mail: só olha. Com o e-mail a confirmar, mostra "Crie sua senha"; não confirma nada. */
