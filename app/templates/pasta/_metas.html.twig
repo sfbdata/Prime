@@ -279,12 +279,24 @@
                                     <div class="ps-pop-sep"></div>
                                     {# E7: pergunta na janela da tela (pasta-dialogos.js, `data-ps-cf`), vermelha por
                                        ser exclusão. O `onsubmit` só pergunta pelo navegador se a janela não carregou. #}
+                                    {# Meta com despacho registrado (decisão do dono, 23/10): só o poder sem prazo chega aqui, e a
+                                       exclusão passa pela janela "Entendo que o registro oficial será apagado"
+                                       (#psMetaExcluirDespacho, meta-excluir-despacho.js), que manda `confirmar_despacho=1`. #}
+                                    {% set despachosMeta = meta_despachos_registrados(tarefa) %}
+                                    {% if despachosMeta > 0 %}
+                                    <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
+                                          data-meta-despacho="{{ despachosMeta }}">
+                                        <input type="hidden" name="confirmar_despacho" value="">
+                                    {% else %}
                                     <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
                                           data-ps-cf="{{ 'pasta_documentos.metas.excluir_confirmar'|trans }}" data-ps-cf-perigo
                                           onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);">
+                                    {% endif %}
                                         <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
-                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
-                                            <i class="bi bi-trash3"></i><span>{{ 'pasta_documentos.metas.excluir'|trans }}</span>
+                                        {# Edição sem prazo (spec §5): o selo quando só o poder libera (outro criador ou depois de 24h). #}
+                                        {% set seloMeta = meta_selo_excluir(tarefa) %}
+                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo{{ seloMeta ? ' com-selo-sem-prazo' }}" role="menuitem">
+                                            <i class="bi bi-trash3"></i><span>{{ 'pasta_documentos.metas.excluir'|trans }}</span>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloMeta} only %}
                                         </button>
                                     </form>
                                 {% endif %}
@@ -466,4 +478,29 @@
             </div>
         {% endfor %}
     </aside>
+{% endif %}
+
+{# A janela da meta com despacho registrado (desenho da devolução, 04B L106, `.mp-modal`, sem Bootstrap): o aviso, a caixa
+   "Entendo que o registro oficial será apagado" e o botão que só habilita com ela marcada. #}
+{% if not pasta.estaExcluida %}
+<div class="mp-modal mp-devolucao ps-meta-excluir-despacho" id="psMetaExcluirDespacho" hidden>
+    <div class="mp-modal-fundo" data-mp-fechar></div>
+    <div class="mp-modal-centro">
+        <div class="mp-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="psMetaExcluirDespachoTitulo">
+            <div class="mp-modal-cabeca">
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                <b id="psMetaExcluirDespachoTitulo" class="mp-modal-cabeca-titulo">{{ 'pasta_documentos.metas.despacho.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-mp-fechar aria-label="{{ 'pasta_documentos.metas.despacho.cancelar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mp-modal-corpo">
+                <div class="mp-dev-texto">{{ 'pasta_documentos.metas.despacho.aviso'|trans }}</div>
+                <label class="ps-meta-despacho-ciente"><input type="checkbox" data-meta-despacho-ciente> {{ 'pasta_documentos.metas.despacho.ciente'|trans }}</label>
+            </div>
+            <div class="mp-modal-pe">
+                <button type="button" class="mp-cancelar" data-mp-fechar>{{ 'pasta_documentos.metas.despacho.cancelar'|trans }}</button>
+                <button type="button" class="mp-confirmar ps-meta-despacho-excluir" data-meta-despacho-ok disabled><i class="bi bi-trash3" aria-hidden="true"></i> {{ 'pasta_documentos.metas.despacho.excluir'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}

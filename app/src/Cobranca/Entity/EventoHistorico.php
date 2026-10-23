@@ -87,17 +87,15 @@ class EventoHistorico implements TenantAware
      * pagamento e os demais NÃO são texto de alguém — são o que o sistema registrou quando o fato
      * aconteceu; reescrevê-los falsificaria o histórico.
      */
-    public function podeSerEditadaPor(?User $usuario, \DateTimeImmutable $agora): bool
+    public function podeSerEditadaPor(?User $usuario, \DateTimeImmutable $agora, bool $semPrazo = false): bool
     {
-        if ($this->tipo !== TipoEventoHistorico::Anotacao || $usuario === null || $this->usuario === null) {
+        if ($this->tipo !== TipoEventoHistorico::Anotacao || $usuario === null) {
             return false;
         }
 
-        if ($this->usuario->getId() !== $usuario->getId()) {
-            return false;
-        }
-
-        return $agora <= $this->ocorridoEm->add(new \DateInterval(self::JANELA_EDICAO));
+        // Edição sem prazo (spec edicao-sem-prazo, item 6): o Master e o primário (com a opção) não dependem de
+        // autoria nem de janela. Quem decide o poder é o `PoderDeEdicaoSemPrazo`; aqui chega só o sim.
+        return $semPrazo || $this->doAutorDentroDe($usuario, $agora, self::JANELA_EDICAO);
     }
 
     /**
@@ -109,17 +107,24 @@ class EventoHistorico implements TenantAware
      * o caso inteiro à mão. Manter a divisão explícita evita a armadilha de alguém achar que este
      * método sozinho autoriza a remoção.
      */
-    public function podeSerDesfeitaPor(?User $usuario, \DateTimeImmutable $agora): bool
+    public function podeSerDesfeitaPor(?User $usuario, \DateTimeImmutable $agora, bool $semPrazo = false): bool
     {
-        if ($this->tipo !== TipoEventoHistorico::QualificacaoContato || $usuario === null || $this->usuario === null) {
+        if ($this->tipo !== TipoEventoHistorico::QualificacaoContato || $usuario === null) {
             return false;
         }
 
-        if ($this->usuario->getId() !== $usuario->getId()) {
+        // Edição sem prazo (item 7): o poder tira autoria e prazo; "só a mais recente" segue no UseCase, para todos.
+        return $semPrazo || $this->doAutorDentroDe($usuario, $agora, self::JANELA_DESFAZER_QUALIFICACAO);
+    }
+
+    /** A regra de sempre: registrado por quem pede, dentro da janela (ISO 8601) contada de `ocorridoEm`. */
+    private function doAutorDentroDe(User $usuario, \DateTimeImmutable $agora, string $janela): bool
+    {
+        if ($this->usuario === null || $this->usuario->getId() !== $usuario->getId()) {
             return false;
         }
 
-        return $agora <= $this->ocorridoEm->add(new \DateInterval(self::JANELA_DESFAZER_QUALIFICACAO));
+        return $agora <= $this->ocorridoEm->add(new \DateInterval($janela));
     }
 
     public function getId(): ?int
