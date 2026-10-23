@@ -207,6 +207,7 @@ php e o worker. A lista e os horários estão em `app/src/Shared/Scheduler/Agend
 | Tarefa | Quando (Brasília) | O que faz |
 |---|---|---|
 | `app:purgar-dados-expirados --force` | todo dia, 0h | apaga cadastros pendentes expirados e escritórios em quarentena vencida (RN09); depois dos backups das 23h e 23h30 |
+| `app:importar-indices-monetarios` | dia 11, 1h | importa os índices do BCB (INPC, IPCA e taxa legal) |
 | `app:djen:sincronizar --dias=2` | todo dia, 3h | captação das comunicações do DJEN dos últimos 2 dias |
 | `app:push:resumo-semanal-cliente` | segunda, 8h | resumo semanal das movimentações aos clientes |
 | `app:pastas:relatorio-sem-processo` | todo dia, 10h05 | relatório mensal de pastas sem processo (só envia na primeira segunda-feira do mês, uma vez por escritório) |
@@ -215,9 +216,9 @@ php e o worker. A lista e os horários estão em `app/src/Shared/Scheduler/Agend
 | `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar` | de hora em hora, no minuto 0 | envia ao Drive o que falta (só sistema para Drive) |
 
 Todas levam `--no-interaction`. Tabela conferida com o crontab real da VPS em 23/10/2026. A foto do
-Dashboard é nova (não estava no crontab). Três tarefas documentadas antes (`app:perfil:resumo-diario`,
-`app:pasta:cobrar-checklist` e `app:importar-indices-monetarios`) **não estavam no crontab real** e ficam
-desligadas até o dono decidir (spec, seção "Desligadas, aguardando o dono"). O consumidor é um só: duas tarefas no mesmo minuto rodam uma depois da
+Dashboard e os índices monetários (ligados pelo dono em 23/10) são novos (não estavam no crontab). Duas
+tarefas documentadas antes (`app:perfil:resumo-diario` e `app:pasta:cobrar-checklist`) **não estavam no
+crontab real** e ficam desligadas até o dono decidir (spec, seção "Desligadas, aguardando o dono"). O consumidor é um só: duas tarefas no mesmo minuto rodam uma depois da
 outra, na ordem da lista (o envio ao Drive por último).
 
 **Ver o que está agendado e a próxima execução:**
