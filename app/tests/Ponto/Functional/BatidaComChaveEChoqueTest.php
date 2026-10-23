@@ -213,6 +213,34 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         $this->assertDiaIncompletoComZeroMinutos();
     }
 
+    #[TestDox('Com entrada e saída já batidas hoje em A (turno fechado), outra saída em A no horário de B volta às regras: recusada pelo choque, e A não credita até ela')]
+    public function testSegundaSaidaComTurnoFechadoRecusaPeloChoque(): void
+    {
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
+        $this->registrarBatida($this->pessoa, $this->a, 'saida', $this->hojeCedo()->modify('+30 seconds'));
+        $trecho = $this->jornadaDeHojeEmTornoDeAgora();
+
+        $resposta = $this->baterEmA('saida');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(sprintf(ChoqueDeJornadaEntreEscritorios::MENSAGEM_BATIDA, ...$trecho), $resposta['message'] ?? null);
+        self::assertSame(2, $this->batidasEm($this->a), 'nada gravado: A não credita até agora');
+    }
+
+    #[TestDox('Com entrada e saída já batidas hoje em A e a chave desligada, outra saída em A é recusada pela chave')]
+    public function testSegundaSaidaComTurnoFechadoRecusaPelaChave(): void
+    {
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
+        $this->registrarBatida($this->pessoa, $this->a, 'saida', $this->hojeCedo()->modify('+30 seconds'));
+        $this->vinculoEmA->alterarRegistroDePonto(false);
+        $this->em()->flush();
+
+        $resposta = $this->baterEmA('saida');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(ChaveDoPontoEletronico::MENSAGEM_DESLIGADA, $resposta['message'] ?? null);
+    }
+
     #[TestDox('Saída que fecha a entrada de hoje em A não leva o aviso da entrada que faltou')]
     public function testSaidaComEntradaNoDiaSemAviso(): void
     {

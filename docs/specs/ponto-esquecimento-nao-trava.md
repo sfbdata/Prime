@@ -31,8 +31,10 @@
 
 **R1. Nenhum esquecimento recusa batida.** Isso vale para entrada ou saída esquecida, hoje ou em dia anterior, no mesmo
 escritório ou em outro.
-- **Saída solta passa (dono, 23/10).** A saída ou a ida ao repouso sem entrada aberta neste escritório passa, sem a
-  chave e sem o choque. Até então só passava a que fechava um turno aberto aqui (#317).
+- **Saída solta passa (dono, 23/10).** A saída ou a ida ao repouso fica livre da chave e do choque só em dois casos:
+  (a) quando fecha um turno aberto neste escritório (#317); (b) quando é solta de verdade, sem entrada no dia neste
+  escritório. Com entrada no dia e o turno daqui fechado (por exemplo, entrada 08:00 e saída 12:00, e outra saída às
+  17:00), a saída volta às regras de sempre (re-revisão de 23/10): não dá para estender o crédito do dia por fora delas.
 - Sem turno aberto e sem entrada no dia neste escritório, a resposta traz o aviso "Faltou a entrada neste dia. Envie o
   registro de esquecimento." (`TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA`), com o link do modal de esquecimento da
   entrada do dia.
@@ -48,8 +50,8 @@ escritório ou em outro.
   registro de esquecimento por lá."
 - O escritório é da própria pessoa, então o nome pode aparecer. A regra de não mostrar o nome vale para o choque visto pelo
   admin, não para a própria pessoa.
-- O choque de **jornada** continua valendo (#317) para a entrada e o retorno do repouso. Ele é sobre o horário
-  cadastrado e não sobre esquecimento. A saída e a ida ao repouso passam sempre (R1).
+- O choque de **jornada** continua valendo (#317) para a entrada, o retorno do repouso e a saída ou ida ao repouso fora
+  dos dois casos livres de R1. Ele é sobre o horário cadastrado e não sobre esquecimento.
 
 **R3. O atalho do cabeçalho sempre oferece "Bater ponto".**
 - O estado `regularizar_ontem` continua existindo, mas como **aviso**: mostra a pendência e o caminho do registro de

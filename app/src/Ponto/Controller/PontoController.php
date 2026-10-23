@@ -672,7 +672,7 @@ final class PontoController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable();
-        if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $choque)) !== null) {
+        if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $choque, $registroRepository)) !== null) {
             return $this->json(['success' => false, 'message' => $recusa], 422);   // chave ou choque de horário
         }
 
@@ -863,13 +863,19 @@ final class PontoController extends AbstractController
         if (!in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true) || $this->turnoAberto->estaAberto($user, $tenant, $agora)) {
             return false;
         }
+
+        return !$this->temEntradaNoDia($user, $tenant, $agora, $registros);
+    }
+
+    private function temEntradaNoDia(User $user, Tenant $tenant, \DateTimeImmutable $agora, RegistroPontoRepository $registros): bool
+    {
         foreach ($registros->batidasDoDiaNoEscritorio($user, $tenant, $agora) as $batida) {
             if ($batida->getTipo() === RegistroPonto::TIPO_ENTRADA) {
-                return false;
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
     /**
@@ -914,9 +920,10 @@ final class PontoController extends AbstractController
     /**
      * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3):
      * a chave "Registra ponto eletrônico" desligada aqui e o horário de trabalho de hoje em outro escritório onde a
-     * pessoa registra ponto. Null quando segue. Só a entrada e o retorno do repouso são recusados: a saída e a ida ao
-     * repouso sempre passam, fechando ou não um turno aberto aqui (decisão do dono 23/10, `ponto-esquecimento-nao-trava.md`
-     * R1); a solta leva o aviso da entrada que faltou. O ponto aberto em outro escritório não recusa: vira aviso (R2).
+     * pessoa registra ponto. Null quando segue. A saída e a ida ao repouso ficam livres das duas só em dois casos
+     * (`ponto-esquecimento-nao-trava.md` R1): quando fecham um turno aberto aqui, ou quando são soltas de verdade, sem
+     * entrada no dia neste escritório (a solta leva o aviso da entrada que faltou). Com entrada no dia e o turno daqui
+     * fechado, valem as regras de sempre. O ponto aberto em outro escritório não recusa: vira aviso (R2).
      */
     private function recusaEntreEscritorios(
         User $user,
@@ -924,8 +931,10 @@ final class PontoController extends AbstractController
         string $tipo,
         \DateTimeImmutable $agora,
         ChoqueDeJornadaEntreEscritorios $choque,
+        RegistroPontoRepository $registros,
     ): ?string {
-        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true)) {
+        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true)
+            && ($this->turnoAberto->estaAberto($user, $tenant, $agora) || !$this->temEntradaNoDia($user, $tenant, $agora, $registros))) {
             return null;
         }
         if ($this->chaveDoPonto->estaDesligada($user, $tenant)) {
