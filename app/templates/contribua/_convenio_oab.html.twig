@@ -1,0 +1,47 @@
+{# Modal do convênio OAB, desenho "08 - Contribua - VS 21.10.26": aberto pelo selo do plano gratuito. #}
+<div class="ct-oab" data-modal-oab hidden>
+    <div class="ct-oab-fundo" data-fechar-oab></div>
+    <div class="ct-oab-camada">
+        <div class="ct-oab-janela" role="dialog" aria-label="Convênio OAB e BlueJus">
+            <div class="ct-oab-cabeca">
+                <span class="ct-oab-circulo ct-oab-circulo--1" aria-hidden="true"></span>
+                <span class="ct-oab-circulo ct-oab-circulo--2" aria-hidden="true"></span>
+                <button type="button" class="ct-oab-fechar" data-fechar-oab aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <div class="ct-oab-cabeca-conteudo">
+                    <div class="ct-oab-medalha" aria-hidden="true">
+                        <span class="ct-oab-fita ct-oab-fita--esquerda"></span>
+                        <span class="ct-oab-fita ct-oab-fita--direita"></span>
+                        <span class="ct-oab-roseta"></span>
+                        <span class="ct-oab-moeda"></span>
+                        <span class="ct-oab-inscricao"><b>100%</b><b class="ct-oab-inscricao-faixa">QUALIDADE</b><i>BlueJus</i></span>
+                    </div>
+                    <div class="ct-oab-titulos">
+                        <div class="ct-oab-tag"><i class="bi bi-patch-check-fill"></i>CONVÊNIO OAB</div>
+                        <div class="ct-oab-titulo">Parabéns! Você tem o BlueJus completo, sem pagar nada.</div>
+                        <div class="ct-oab-sub">Graças à parceria com a OAB, todos os recursos estão liberados para você e para o seu escritório. É a estrutura de um escritório digital de alto nível, à disposição da advocacia.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="ct-oab-corpo">
+                <div class="ct-oab-rotulo">TUDO ISSO JÁ É SEU</div>
+                <div class="ct-oab-beneficios">
+                    {% for b in [
+                        ['bi-folder2-open', 'Pastas, clientes e processos', 'Todo o acervo do escritório organizado e numerado automaticamente.'],
+                        ['bi-hourglass-split', 'Prazos e audiências', 'O sistema lê as datas dos registros e avisa antes de vencer.'],
+                        ['bi-broadcast', 'Push processual', 'Andamentos dos tribunais com resumo por inteligência artificial.'],
+                        ['bi-stars', 'BlueJus IA', 'Chat inteligente que encontra pastas paradas, prazos e pendências.'],
+                        ['bi-people', 'Equipe e permissões', 'Convide colaboradores e defina quem vê e edita cada área.'],
+                        ['bi-calendar3', 'Agenda do escritório', 'Compromissos, feriados forenses e aniversários da equipe.'],
+                        ['bi-shield-lock', 'Segurança e LGPD', 'Criptografia e controle de acesso para o sigilo profissional.'],
+                        ['bi-briefcase', 'Central de vagas', 'Divulgue vagas e encontre profissionais da advocacia.'],
+                    ] %}
+                        <div class="ct-oab-beneficio"><span class="ct-oab-beneficio-icone"><i class="bi {{ b[0] }}"></i></span><span class="ct-oab-beneficio-texto"><b>{{ b[1] }}<i class="bi bi-check-circle-fill"></i></b><span>{{ b[2] }}</span></span></div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="ct-oab-parceria"><i class="bi bi-infinity"></i><div><b>Uma parceria para durar</b><span>O compromisso do BlueJus é manter o convênio com a OAB por prazo indeterminado, para que cada advogada e cada advogado tenha tecnologia de ponta para crescer, organizar o escritório e atender melhor os seus clientes.</span></div></div>
+            <div class="ct-oab-acao"><span>Precisa de mais espaço para documentos? Amplie só quando quiser, e todos os recursos continuam liberados.</span><button type="button" class="ct-oab-crescer" data-fechar-oab><i class="bi bi-hand-thumbs-up"></i>Vamos crescer juntos</button></div>
+            <div class="ct-oab-rodape"><img class="ct-oab-rodape-oab" src="{{ asset('images/logo/oab-logo.png') }}" alt="OAB"><span>+</span><img class="ct-oab-rodape-bluejus" src="{{ asset('images/logo/bluejus-logo-cor-completo.png') }}" alt="BlueJus"></div>
+        </div>
+    </div>
+</div>

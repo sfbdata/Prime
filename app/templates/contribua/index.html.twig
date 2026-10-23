@@ -55,6 +55,19 @@
                     <div class="ct-pacote-preco"><b>{{ pac.preco }}</b><span>{{ pac.periodo }}</span></div>
                     <div class="ct-pacote-dia">{{ pac.porDia }}</div>
                     <div class="ct-pacote-desc">{{ pac.descricao }}</div>
+                    {% if pac.oab %}
+                        <button type="button" class="ct-oab-selo" data-abrir-oab title="Ver os benefícios do convênio">
+                            <img src="{{ asset('images/logo/oab-logo.png') }}" alt="OAB">
+                            <span class="ct-oab-selo-texto"><b>CONVÊNIO OAB</b><span>Gratuito para advogados</span><span class="ct-oab-selo-ver">ver benefícios</span></span>
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    {% endif %}
+                    {% if pac.temNuvem %}
+                        <div class="ct-nuvem{{ pac.nuvemRecomendada ? ' ct-nuvem--recomendada' }}">
+                            <span class="ct-nuvem-rotulo">+ Espaço</span>
+                            <span class="ct-nuvem-icone"><i class="bi bi-cloud-fill"></i><i class="bi bi-arrow-up"></i></span>
+                        </div>
+                    {% endif %}
                     <button type="button" class="ct-pacote-botao" data-pedir-plano="{{ pac.codigo }}"
                             {{ pac.desabilitado or not p.podePedirEspaco ? 'disabled' }}>{{ pac.botao }}</button>
                 </div>
@@ -195,6 +208,8 @@
         <div class="ct-modal-rodape"><button type="button" class="ct-botao-cancelar" data-fechar-sugestao>Cancelar</button><button type="button" class="ct-botao-azul ct-botao-enviar" data-enviar-sugestao><i class="bi bi-send"></i>Enviar</button></div>
     </div>
 </div>
+
+{% include 'contribua/_convenio_oab.html.twig' %}
 
 <div class="ct-toast" data-toast hidden><i class="bi bi-check-circle"></i><span></span></div>
 {% endblock %}
