@@ -218,6 +218,13 @@ final class TarefaController extends AbstractController
             return $this->json(['erro' => 'Título e descrição são obrigatórios.'], 422);
         }
 
+        // D-META (desenho 02, PZ-MOD-04): prazo e ao menos um responsável também são obrigatórios.
+        $prazo = $this->prazoDaMetaNova($request);
+        $responsaveis = $atribuiveis->resolverVarios(array_map('intval', $request->request->all('responsaveis')), $tenant);
+        if ($prazo === null || $responsaveis === []) {
+            return $this->json(['erro' => $prazo === null ? 'Informe um prazo válido para a meta.' : 'Escolha ao menos um responsável do escritório para a meta.'], 422);
+        }
+
         $tarefa = new Tarefa();
         $tarefa->setTitulo($titulo);
         $tarefa->setDescricao($descricao);
@@ -225,18 +232,8 @@ final class TarefaController extends AbstractController
         $tarefa->setPasta($pasta);
         $tarefa->setTenant($tenant);
         $tarefa->setCriadoPor($usuario);
-
-        $prazo = trim((string) $request->request->get('prazo', ''));
-        if ($prazo !== '') {
-            try {
-                $tarefa->setPrazo(new \DateTimeImmutable($prazo));
-            } catch (\Throwable) {
-                // prazo inválido é ignorado
-            }
-        }
-
-        $responsavelIds = array_map('intval', $request->request->all('responsaveis'));
-        foreach ($atribuiveis->resolverVarios($responsavelIds, $tenant) as $responsavel) {
+        $tarefa->setPrazo($prazo);
+        foreach ($responsaveis as $responsavel) {
             $tarefa->addResponsavel($responsavel);
         }
 
@@ -253,6 +250,18 @@ final class TarefaController extends AbstractController
             'id'      => $tarefa->getId(),
             'destino' => $this->generateUrl('pasta_show', ['id' => $pasta->getId(), 'meta' => $tarefa->getId()]) . '#tarefas',
         ]);
+    }
+
+    /**
+     * O prazo da meta nova, no formato do campo do modal (`<input type="date">`, ISO `aaaa-mm-dd`). Vazio ou fora
+     * do formato (texto solto, data impossível como 31/02) vira null, e o `criarParaPasta` responde 422.
+     */
+    private function prazoDaMetaNova(Request $request): ?\DateTimeImmutable
+    {
+        $valor = trim((string) $request->request->get('prazo', ''));
+        $prazo = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+
+        return $prazo !== false && $prazo->format('Y-m-d') === $valor ? $prazo : null;
     }
 
     /**
@@ -527,7 +536,7 @@ final class TarefaController extends AbstractController
      * Exclui uma meta — restrita ao criador e à janela de tempo após a criação.
      */
     #[Route('/{id}/excluir', name: 'tarefa_excluir', methods: ['POST'])]
-    public function excluir(Tarefa $tarefa, Request $request, ExcluirTarefaUseCase $useCase): Response
+    public function excluir(Tarefa $tarefa, Request $request, ExcluirTarefaUseCase $useCase, ListaDeMetasDaPastaEmJson $listaEmJson): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -546,9 +555,17 @@ final class TarefaController extends AbstractController
         } catch (MetaComDespachoSemConfirmacaoException $e) {
             return new Response($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (MetaNaoExcluivelException $e) {
+            if ($request->isXmlHttpRequest()) {
+                return new JsonResponse(['sucesso' => false, 'mensagem' => $e->getMessage()], Response::HTTP_CONFLICT);
+            }
             $this->addFlash('danger', $e->getMessage());
 
             return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+        }
+
+        // "Desfazer" do aviso "Meta duplicada" (pasta-metas.js): a aba volta renderizada, sem a cópia.
+        if ($request->isXmlHttpRequest()) {
+            return $listaEmJson->responder($tarefa, true, 'Meta excluída');
         }
 
         $this->addFlash('success', 'Meta excluída.');

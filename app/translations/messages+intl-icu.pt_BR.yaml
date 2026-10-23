@@ -7886,6 +7886,7 @@ pasta_documentos:
         reabrir: Reabrir meta
         concluir: Marcar como concluída
         editar_nome: Editar nome
+        duplicar: Duplicar
         encaminhar: Encaminhar via Chat I.A
         link_copiado: Link da meta copiado
         copiar_link: Copiar link
@@ -8920,6 +8921,9 @@ pasta_scripts:
             criar_e_notificar: Criar meta e notificar os responsáveis
             falta_titulo: título
             falta_descricao: descrição
+            falta_prazo: prazo
+            falta_responsavel: responsável
+            erro_duplicar: Não foi possível duplicar a meta. Recarregue a página e tente de novo.
             preencha: 'Preencha: {campos}'
             expandir: Expandir
             recolher: Recolher (continue vendo a lista)

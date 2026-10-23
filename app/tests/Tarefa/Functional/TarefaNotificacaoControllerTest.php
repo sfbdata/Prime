@@ -149,6 +149,7 @@ final class TarefaNotificacaoControllerTest extends JusPrimeWebTestCase
             '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
             'titulo'       => 'Meta com notificação',
             'descricao'    => 'Deve notificar os responsáveis',
+            'prazo'        => '2026-12-31',
             'responsaveis' => [(int) $resp1->getId(), (int) $resp2->getId()],
         ]);
 

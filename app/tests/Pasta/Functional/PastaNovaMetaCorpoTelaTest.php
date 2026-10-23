@@ -52,7 +52,7 @@ final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    #[TestDox('rótulos do desenho (.ps-nm-rotulo) em Título, Descrição, Prazo e Responsáveis; "*" só onde o servidor exige')]
+    #[TestDox('rótulos do desenho (.ps-nm-rotulo) em Título, Descrição, Prazo e Responsáveis, os quatro com "*" (D-META, o servidor exige os quatro)')]
     public function testRotulosDoDesenho(): void
     {
         $client          = static::createClient();
@@ -69,8 +69,10 @@ final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
         );
         self::assertCount(1, $corpo->filter('label.ps-nm-rotulo[for="tarefaTitulo"] > .ps-nm-obrig'));
         self::assertCount(1, $corpo->filter('label.ps-nm-rotulo[for="tarefaDescricao"] > .ps-nm-obrig'));
-        self::assertCount(0, $corpo->filter('label.ps-nm-rotulo[for="tarefaPrazo"] > .ps-nm-obrig'), 'prazo segue opcional (D-META)');
-        self::assertCount(0, $corpo->filter('#tarefaResponsavelRotulo > .ps-nm-obrig'), 'responsáveis seguem opcionais (D-META)');
+        self::assertCount(1, $corpo->filter('label.ps-nm-rotulo[for="tarefaPrazo"] > .ps-nm-obrig'), 'prazo obrigatório (D-META, D:4044)');
+        self::assertCount(1, $corpo->filter('span.ps-nm-rotulo#tarefaResponsavelRotulo > .ps-nm-obrig'), 'responsáveis obrigatórios (D-META, D:4044)');
+        self::assertSame('*', trim($corpo->filter('label.ps-nm-rotulo[for="tarefaPrazo"] > .ps-nm-obrig')->text()));
+        self::assertSame('*', trim($corpo->filter('span.ps-nm-rotulo#tarefaResponsavelRotulo > .ps-nm-obrig')->text()));
         self::assertCount(0, $corpo->filter('.form-label-sm, .form-control-sm'), 'sai o tamanho pequeno do Bootstrap');
     }
 
@@ -185,6 +187,8 @@ final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
             ['Hoje', 'Limpar', '', 'Fim de semana em cinza'],
             $cal->filter('.ps-nm-cal-rodape')->children()->each(static fn ($c): string => trim($c->text())),
         );
-        self::assertNull($prazo->filter('#tarefaPrazo')->attr('required'), 'prazo continua opcional');
+        // O campo enviado está fora da vista (visually-hidden, tabindex -1): o `required` nativo mostraria o balão
+        // do navegador sobre nada. Quem cobra o prazo é o "Criar meta" desabilitado (pasta-metas.js) e o 422.
+        self::assertNull($prazo->filter('#tarefaPrazo')->attr('required'), 'sem required nativo no campo escondido');
     }
 }

@@ -17,6 +17,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\DesligaTenantFilterNaRequisicao;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
@@ -25,6 +26,9 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 final class CriarTarefaControllerTest extends JusPrimeWebTestCase
 {
     use DesligaTenantFilterNaRequisicao;
+
+    /** D-META: toda meta nova leva prazo (ISO do `<input type="date">`) e ao menos um responsável. */
+    private const PRAZO = '2026-12-31';
 
     private function criarUsuario(Tenant $tenant, string $email): User
     {
@@ -135,6 +139,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
             'titulo'       => 'Meta conjunta',
             'descricao'    => 'Executada por duas pessoas',
+            'prazo'        => self::PRAZO,
             'responsaveis' => [(int) $resp1->getId(), (int) $resp2->getId()],
         ]);
 
@@ -167,6 +172,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
             'titulo'       => 'Meta com intruso',
             'descricao'    => 'Tenta vincular alguém de outro tenant',
+            'prazo'        => self::PRAZO,
             'responsaveis' => [(int) $respA->getId(), (int) $estranho->getId()],
         ]);
 
@@ -178,8 +184,8 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
         self::assertSame([(int) $respA->getId()], $ids, 'apenas o responsável do tenant atual deve ser vinculado');
     }
 
-    #[TestDox('Cria meta sem responsáveis: permitido, fica com coleção vazia')]
-    public function testCriaSemResponsaveis(): void
+    #[TestDox('D-META: sem responsável → 422 com mensagem clara, nenhuma meta, nenhuma notificação')]
+    public function testSemResponsavelRetorna422(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
@@ -189,18 +195,107 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $autor, $tenant);
+        $notificacoesAntes = $this->contarNotificacoes();
 
         $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
             '_token'    => $this->gerarCsrf('tarefa_criar_' . $pastaId),
             'titulo'    => 'Meta sem responsável',
             'descricao' => 'Ninguém atribuído ainda',
+            'prazo'     => self::PRAZO,
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('Escolha ao menos um responsável do escritório para a meta.', $data['erro'] ?? null);
+        self::assertSame(0, $this->contarMetasDaPasta($pastaId));
+        self::assertSame($notificacoesAntes, $this->contarNotificacoes());
+    }
+
+    #[TestDox('D-META: só responsável de OUTRO escritório (nenhum sobra depois do filtro) → 422, nenhuma meta')]
+    public function testSoResponsavelDeOutroEscritorioRetorna422(): void
+    {
+        $client   = static::createClient();
+        $tenantA  = $this->criarTenant();
+        $tenantB  = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenantA, 'autor_' . uniqid() . '@test.com');
+        $estranho = $this->criarUsuario($tenantB, 'estranho_' . uniqid() . '@test.com');
+        $pastaId  = (int) $this->criarPasta($tenantA, $autor)->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenantA);
+
+        $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
+            '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
+            'titulo'       => 'Meta só com intruso',
+            'descricao'    => 'O único responsável é de fora',
+            'prazo'        => self::PRAZO,
+            'responsaveis' => [(int) $estranho->getId()],
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->contarMetasDaPasta($pastaId));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function prazosInvalidos(): iterable
+    {
+        yield 'vazio' => [''];
+        yield 'só espaços' => ['   '];
+        yield 'texto solto' => ['amanhã'];
+        yield 'formato brasileiro' => ['31/12/2026'];
+        yield 'data impossível' => ['2026-02-31'];
+    }
+
+    #[TestDox('D-META: sem prazo válido → 422 com mensagem clara, nenhuma meta')]
+    #[DataProvider('prazosInvalidos')]
+    public function testSemPrazoValidoRetorna422(string $prazo): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor_' . uniqid() . '@test.com');
+        $pastaId = (int) $this->criarPasta($tenant, $autor)->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
+            '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
+            'titulo'       => 'Meta sem prazo',
+            'descricao'    => 'O prazo é obrigatório',
+            'prazo'        => $prazo,
+            'responsaveis' => [(int) $autor->getId()],
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame('Informe um prazo válido para a meta.', $data['erro'] ?? null);
+        self::assertSame(0, $this->contarMetasDaPasta($pastaId));
+    }
+
+    #[TestDox('D-META: com prazo e responsável a meta nasce com os dois gravados')]
+    public function testGravaPrazoEResponsavel(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor_' . uniqid() . '@test.com');
+        $pastaId = (int) $this->criarPasta($tenant, $autor)->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
+            '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
+            'titulo'       => 'Meta completa',
+            'descricao'    => 'Com prazo e responsável',
+            'prazo'        => self::PRAZO,
+            'responsaveis' => [(int) $autor->getId()],
         ]);
 
         self::assertResponseIsSuccessful();
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertTrue($data['sucesso'] ?? false);
-
-        self::assertSame([], $this->idsResponsaveis((int) $data['id']));
+        $id = (int) json_decode((string) $client->getResponse()->getContent(), true)['id'];
+        self::assertSame([(int) $autor->getId()], $this->idsResponsaveis($id));
+        $tarefa = static::getContainer()->get(EntityManagerInterface::class)->find(Tarefa::class, $id);
+        self::assertSame(self::PRAZO, $tarefa?->getPrazo()?->format('Y-m-d'));
     }
 
     #[TestDox('PMC-044: criar pela pasta devolve o destino NA pasta — aba Metas com ?meta=<id> — e a linha da meta nova está lá')]
@@ -217,8 +312,10 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
 
         $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
             '_token'    => $this->gerarCsrf('tarefa_criar_' . $pastaId),
-            'titulo'    => 'Meta que fica na pasta',
-            'descricao' => 'Depois de criar, a pasta continua aberta',
+            'titulo'       => 'Meta que fica na pasta',
+            'descricao'    => 'Depois de criar, a pasta continua aberta',
+            'prazo'        => self::PRAZO,
+            'responsaveis' => [(int) $autor->getId()],
         ]);
 
         self::assertResponseIsSuccessful();
@@ -246,8 +343,10 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
 
         $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
             '_token'    => $this->gerarCsrf('tarefa_criar_' . $pastaId),
-            'titulo'    => '',
-            'descricao' => 'Sem título',
+            'titulo'       => '',
+            'descricao'    => 'Sem título',
+            'prazo'        => self::PRAZO,
+            'responsaveis' => [(int) $autor->getId()],
         ]);
 
         self::assertResponseStatusCodeSame(422);
@@ -266,8 +365,10 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
 
         $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
             '_token'    => 'token_invalido',
-            'titulo'    => 'Meta',
-            'descricao' => 'Descrição',
+            'titulo'       => 'Meta',
+            'descricao'    => 'Descrição',
+            'prazo'        => self::PRAZO,
+            'responsaveis' => [(int) $autor->getId()],
         ]);
 
         self::assertResponseStatusCodeSame(403);
@@ -302,6 +403,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
             'titulo'       => 'Meta na pasta alheia',
             'descricao'    => 'Não pode nascer',
+            'prazo'        => self::PRAZO,
             'responsaveis' => [(int) $autor->getId()],
         ]);
 
@@ -327,8 +429,10 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
         $this->desligarTenantFilterNaProximaRequisicao();
         $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
             '_token'    => $this->gerarCsrf('tarefa_criar_' . $pastaId),
-            'titulo'    => 'Meta legítima',
-            'descricao' => 'Na pasta do próprio escritório',
+            'titulo'       => 'Meta legítima',
+            'descricao'    => 'Na pasta do próprio escritório',
+            'prazo'        => self::PRAZO,
+            'responsaveis' => [(int) $autor->getId()],
         ]);
 
         $this->assertTenantFilterFoiDesligado();
@@ -354,6 +458,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
             'titulo'       => 'Meta de quem não vê',
             'descricao'    => 'Não pode nascer',
+            'prazo'        => self::PRAZO,
             'responsaveis' => [(int) $resp->getId()],
         ]);
 
@@ -380,6 +485,7 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
             '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
             'titulo'       => 'Meta de quem vê',
             'descricao'    => 'Pode nascer',
+            'prazo'        => self::PRAZO,
             'responsaveis' => [(int) $resp->getId()],
         ]);
 
@@ -452,11 +558,13 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
         // Três POSTs no mesmo cliente: sem reiniciar o kernel entre eles, o CSRF previsível continua valendo.
         $client->disableReboot();
         $this->instalarCsrfStorage();
-        $criar = function (int $pastaId, string $titulo) use ($client): int {
+        $criar = function (int $pastaId, string $titulo, User $responsavel) use ($client): int {
             $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
-                '_token'    => $this->gerarCsrf('tarefa_criar_' . $pastaId),
-                'titulo'    => $titulo,
-                'descricao' => 'Numerada ao nascer',
+                '_token'       => $this->gerarCsrf('tarefa_criar_' . $pastaId),
+                'titulo'       => $titulo,
+                'descricao'    => 'Numerada ao nascer',
+                'prazo'        => self::PRAZO,
+                'responsaveis' => [(int) $responsavel->getId()],
             ]);
             self::assertResponseIsSuccessful();
 
@@ -464,10 +572,10 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
         };
 
         $this->logarComTenant($client, $autorA, $tenantA);
-        $primeiraA = $criar($pastaA, 'Primeira de A');
-        $segundaA  = $criar($pastaA, 'Segunda de A');
+        $primeiraA = $criar($pastaA, 'Primeira de A', $autorA);
+        $segundaA  = $criar($pastaA, 'Segunda de A', $autorA);
         $this->logarComTenant($client, $autorB, $tenantB);
-        $primeiraB = $criar($pastaB, 'Primeira de B');
+        $primeiraB = $criar($pastaB, 'Primeira de B', $autorB);
 
         $numero = static fn (int $id): ?int => ($n = static::getContainer()->get(EntityManagerInterface::class)->getConnection()
             ->fetchOne('SELECT numero FROM tarefa WHERE id = ?', [$id])) === null ? null : (int) $n;
