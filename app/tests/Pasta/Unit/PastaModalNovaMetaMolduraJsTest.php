@@ -205,8 +205,12 @@ final class PastaModalNovaMetaMolduraJsTest extends TestCase
         yield 'primeira vence' => ['Protocolar contrato', 'comercial'];
     }
 
-    /** O mesmo algoritmo do `regraDaEtapa` do JS, sobre os padrões exportados, bate com o `deduzirDoTitulo` do servidor. */
-    #[TestDox('os padrões exportados, usados como o JS os usa, sugerem o mesmo que o servidor deduz')]
+    /**
+     * Os padrões exportados no `data-regra`, aplicados um a um em PHP, batem com o `deduzirDoTitulo` do servidor.
+     * Prova a exportação, não o JS: o `regraDaEtapa` não roda aqui (os padrões são só ASCII, `.` e `|`, então a
+     * falta da flag `u` no `RegExp` não muda o resultado).
+     */
+    #[TestDox('os padrões exportados, aplicados em ordem, sugerem o mesmo que o servidor deduz')]
     #[DataProvider('textosDaSugestao')]
     public function testPadroesExportadosSugeremOMesmoQueOServidor(string $texto, string $esperada): void
     {
