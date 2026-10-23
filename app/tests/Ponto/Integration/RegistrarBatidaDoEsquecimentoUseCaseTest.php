@@ -7,11 +7,13 @@ namespace App\Tests\Ponto\Integration;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Exception\BatidaEmHorarioFuturoException;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 
 /**
  * Regras do UseCase que grava a batida do esquecimento abonado. Usa o EntityManager real (o UseCase só
@@ -20,6 +22,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 #[CoversClass(RegistrarBatidaDoEsquecimentoUseCase::class)]
 final class RegistrarBatidaDoEsquecimentoUseCaseTest extends KernelTestCase
 {
+    use ClockSensitiveTrait;
+
     private EntityManagerInterface $em;
     private RegistrarBatidaDoEsquecimentoUseCase $useCase;
 
@@ -64,6 +68,20 @@ final class RegistrarBatidaDoEsquecimentoUseCaseTest extends KernelTestCase
 
         $this->expectException(\DomainException::class);
         ($this->useCase)($this->justificativa($tenantB, 'esquecimento_registro', 'entrada', '08:00'), $tenantA);
+    }
+
+    #[TestDox('Pedido com data e hora acima de agora no fuso do escritório é recusado e não grava batida')]
+    public function testHorarioFuturoERecusado(): void
+    {
+        self::mockTime(new \DateTimeImmutable('2026-03-10 13:00:00', new \DateTimeZone('America/Sao_Paulo')));
+        $tenant = $this->criarTenant();
+        $futura = $this->justificativa($tenant, 'esquecimento_registro', 'saida', '13:01');
+
+        self::assertTrue($this->useCase->pedeHorarioFuturo($futura, $tenant));
+        self::assertFalse($this->useCase->pedeHorarioFuturo($this->justificativa($tenant, 'esquecimento_registro', 'saida', '13:00'), $tenant));
+
+        $this->expectException(BatidaEmHorarioFuturoException::class);
+        ($this->useCase)($futura, $tenant);
     }
 
     private function criarTenant(): Tenant

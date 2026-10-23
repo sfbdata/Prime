@@ -29,6 +29,7 @@ use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
@@ -84,6 +85,7 @@ final class TenantController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
         private readonly TranslatorInterface $tradutor,
+        private readonly HorarioFuturoDaBatida $horarioFuturo,
     ) {}
 
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
@@ -1182,6 +1184,12 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
+        // Pedido antigo com hora que ainda não chegou: não abona, para não gravar batida no futuro.
+        if ($registrarBatidaDoEsquecimento->pedeHorarioFuturo($justificativa, $tenant)) {
+            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
         $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
 
         $justificativa->setStatus('abonado');
@@ -1328,6 +1336,7 @@ final class TenantController extends AbstractController
         $this->escoparFiltroNoTenant($entityManager, $tenant);
 
         $pendentes = $justificativaRepository->findBy(['user' => $user, 'batchId' => $batchId, 'status' => 'pendente']);
+        $pendentes = $this->semBatidaNoFuturo($pendentes, $registrarBatidaDoEsquecimento, $tenant);
 
         if (empty($pendentes)) {
             $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
@@ -1429,6 +1438,48 @@ final class TenantController extends AbstractController
         ]);
     }
 
+
+    /**
+     * Data do lote do admin que não entra: data futura (por data, não por instante, porque o
+     * createFromFormat carrega a hora corrente e hoje passava por futura) ou batida esquecida
+     * cuja data e hora ficam acima de agora no fuso do escritório. Avisa o motivo no flash.
+     */
+    private function dataDoLoteRecusada(\DateTimeInterface $data, \DateTimeInterface $hoje, ?\DateTimeInterface $horaEsquecida, Tenant $tenant): bool
+    {
+        if ($data->format('Y-m-d') > $hoje->format('Y-m-d')) {
+            $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $data->format('d/m/Y')));
+
+            return true;
+        }
+        if ($horaEsquecida !== null && $this->horarioFuturo->estaNoFuturo($data, $horaEsquecida, $tenant)) {
+            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * "Aprovar todos" deixa pendente o pedido de esquecimento com hora que ainda não chegou.
+     *
+     * @param list<JustificativaPonto> $pendentes
+     *
+     * @return list<JustificativaPonto>
+     */
+    private function semBatidaNoFuturo(array $pendentes, RegistrarBatidaDoEsquecimentoUseCase $registrar, Tenant $tenant): array
+    {
+        $aprovaveis = array_values(array_filter(
+            $pendentes,
+            static fn (JustificativaPonto $j): bool => !$registrar->pedeHorarioFuturo($j, $tenant),
+        ));
+        if (count($aprovaveis) < count($pendentes)) {
+            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+        }
+
+        return $aprovaveis;
+    }
+
     #[Route('/{tenantId}/user/{id}/justificativa/nova', name: 'app_tenant_user_justificativa_nova', methods: ['POST'])]
     public function novaJustificativaAdmin(
         int $tenantId,
@@ -1520,9 +1571,7 @@ final class TenantController extends AbstractController
             if ($dataObj === false) {
                 continue;
             }
-            // Por data, não por instante: o createFromFormat carrega a hora corrente e hoje passava por futura.
-            if ($dataObj->format('Y-m-d') > $hoje->format('Y-m-d')) {
-                $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
+            if ($this->dataDoLoteRecusada($dataObj, $hoje, $horaRegEsquecida, $tenant)) {
                 continue;
             }
             $datasValidas[] = $dataObj;

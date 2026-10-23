@@ -14,6 +14,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
@@ -80,6 +81,7 @@ final class PontoController extends AbstractController
         private readonly JornadaColaboradorRepository $jornadas,
         private readonly ChaveDoPontoEletronico $chaveDoPonto,
         private readonly TurnoAbertoNoEscritorio $turnoAberto,
+        private readonly HorarioFuturoDaBatida $horarioFuturo,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -305,6 +307,11 @@ final class PontoController extends AbstractController
             }
 
             if (empty($datasValidas)) {
+                return $this->redirectToRoute('ponto_index', $voltaParaFolha);
+            }
+
+            if ($tipo === 'esquecimento_registro' && $this->horarioFuturo->estaNoFuturo($datasValidas[0], $horaRegEsquecida, $tenant)) {
+                $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
