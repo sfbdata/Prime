@@ -50,6 +50,13 @@ class UserTenant implements Auditavel
     #[ORM\Column(options: ['default' => false])]
     private bool $controladoria = false;
 
+    /**
+     * Chave "Registra ponto eletrônico" da pessoa NESTE escritório (spec seguranca-b-jornada, regras 2 e 5). Desligada,
+     * a batida é recusada mesmo com o módulo de ponto. Toda entrada nova nasce ligada; o administrador desliga.
+     */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $registraPonto = true;
+
     #[ORM\ManyToOne(targetEntity: TenantRole::class, inversedBy: 'userTenants')]
     #[ORM\JoinColumn(nullable: true)]
     private ?TenantRole $tenantRole = null;
@@ -148,6 +155,16 @@ class UserTenant implements Auditavel
     {
         $this->controladoria = $controladoria;
         return $this;
+    }
+
+    public function isRegistraPonto(): bool
+    {
+        return $this->registraPonto;
+    }
+
+    public function alterarRegistroDePonto(bool $registraPonto): void
+    {
+        $this->registraPonto = $registraPonto;
     }
 
     public function reativar(): void

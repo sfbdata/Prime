@@ -99,20 +99,28 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('Não informado', $linhas['Telefone']);
     }
 
-    #[TestDox('grade: PJ troca CTPS/Série/Admissão por CNPJ e Início do contrato, e não bate ponto')]
+    #[TestDox('grade: PJ troca CTPS/Série/Admissão por CNPJ e Início do contrato; com a chave do ponto desligada, sem ponto')]
     public function testGradePj(): void
     {
         $vinculo = new VinculoNoEscritorio($this->tenant, $this->primario);
         $vinculo->definirTipo(VinculoColaborador::Pj);
         $vinculo->definirCnpj('12345678000190');
         $this->em->persist($vinculo);
-        $this->em->flush();
+        $this->chaveDoPonto(false);
 
         $linhas = $this->linhasDaGrade($this->abrir($this->primario));
 
         self::assertSame(['E-mail', 'Vínculo', 'CPF', 'CNPJ', 'Início do contrato', 'Nascimento', 'Membro desde', 'Telefone'], array_keys($linhas));
         self::assertSame('Prestador (PJ / autônomo) · sem ponto', $linhas['Vínculo']);
         self::assertSame('12345678000190', $linhas['CNPJ']);
+    }
+
+    #[TestDox('grade: o rótulo do ponto lê a chave "Registra ponto eletrônico" do escritório, não o tipo do vínculo')]
+    public function testRotuloDoPontoLeAChave(): void
+    {
+        $this->chaveDoPonto(false);
+
+        self::assertSame('Empregado CLT · sem ponto', $this->linhasDaGrade($this->abrir($this->primario))['Vínculo']);
     }
 
     #[TestDox('modal: o primário escolhe o vínculo; o secundário vê as opções travadas e o aviso')]
@@ -385,6 +393,14 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         return $tela;
+    }
+
+    /** A chave do ponto do primário neste escritório (spec seguranca-b-jornada, regra 2). */
+    private function chaveDoPonto(bool $ligada): void
+    {
+        $this->em->getRepository(UserTenant::class)->findOneBy(['user' => $this->primario, 'tenant' => $this->tenant])
+            ?->alterarRegistroDePonto($ligada);
+        $this->em->flush();
     }
 
     /** @return array<string, string> rótulo => valor */

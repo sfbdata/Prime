@@ -2,16 +2,20 @@
 
 namespace App\Ponto\Service;
 
-use App\Entity\Auth\User;
+use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
 
+/**
+ * A cascata da jornada de uma pessoa NUM escritório: a pessoal daquele escritório, depois a padrão dele, depois os campos
+ * legados da pessoal. Quem chama passa a jornada pessoal do escritório da folha, da URL ou da batida
+ * (`JornadaColaboradorRepository::findByUserETenant`, spec seguranca-b-jornada §3.2): a de outro escritório nunca entra.
+ */
 class JornadaResolver
 {
-    public function resolverMetaDia(User $user, \DateTimeInterface $data, ?JornadaTenant $jornadaTenant): int
+    public function resolverMetaDia(?JornadaColaborador $jornada, \DateTimeInterface $data, ?JornadaTenant $jornadaTenant): int
     {
         $indiceDia = (int) $data->format('N');
-        $jornada = $user->getJornadaColaborador();
 
         // Blocos do colaborador têm prioridade
         if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
@@ -48,10 +52,8 @@ class JornadaResolver
         return 0;
     }
 
-    public function resolverAlertaHabilitado(User $user, ?JornadaTenant $jornadaTenant): bool
+    public function resolverAlertaHabilitado(?JornadaColaborador $jornada, ?JornadaTenant $jornadaTenant): bool
     {
-        $jornada = $user->getJornadaColaborador();
-
         if ($jornada !== null) {
             return $jornada->isAlertaHabilitado();
         }
@@ -83,9 +85,9 @@ class JornadaResolver
      *
      * @return string[] tipos de `RegistroPonto::TIPOS_VALIDOS`
      */
-    public function tiposEsperadosNoDia(User $user, \DateTimeInterface $data, ?JornadaTenant $jornadaTenant): array
+    public function tiposEsperadosNoDia(?JornadaColaborador $jornada, \DateTimeInterface $data, ?JornadaTenant $jornadaTenant): array
     {
-        $esperadas = $this->resolverBatidasEsperadasHoje($user, $data, $jornadaTenant);
+        $esperadas = $this->resolverBatidasEsperadasHoje($jornada, $data, $jornadaTenant);
 
         $tipos = [];
         foreach ($esperadas as $batida) {
@@ -108,10 +110,9 @@ class JornadaResolver
      *
      * @return array<array{horario: string|null, tipo: string, mensagem: string}>
      */
-    public function resolverBatidasEsperadasHoje(User $user, \DateTimeInterface $data, ?JornadaTenant $jornadaTenant): array
+    public function resolverBatidasEsperadasHoje(?JornadaColaborador $jornada, \DateTimeInterface $data, ?JornadaTenant $jornadaTenant): array
     {
         $indiceDia = (int) $data->format('N');
-        $jornada = $user->getJornadaColaborador();
 
         // Blocos do colaborador têm prioridade
         if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {

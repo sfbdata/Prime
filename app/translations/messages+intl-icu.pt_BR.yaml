@@ -4157,6 +4157,11 @@ escritorio:
         substituto: Quem assume o que era dela?
         sem_responsavel: Deixar sem responsável
         substituto_dica: Se selecionado, esse colaborador assumirá todas as responsabilidades ativas de quem sair.
+        # Chave "Registra ponto eletrônico" da aba de jornada (spec seguranca-b-jornada §3.4).
+        ponto_eletronico:
+            rotulo: Registra ponto eletrônico
+            ajuda: 'Desligada, a pessoa não bate ponto neste escritório, mesmo com a permissão do módulo de ponto.'
+            falha: Falha na comunicação com o servidor.
         # As recusas da RegraDosPrimarios (CHAVE_DA_RECUSA de lá; o português tem de ser igual ao da constante).
         recusa:
             gerir_primarios: Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.

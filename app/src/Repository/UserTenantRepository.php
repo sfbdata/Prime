@@ -168,6 +168,35 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function salvar(UserTenant $vinculo, bool $flush = false): void
+    {
+        $this->getEntityManager()->persist($vinculo);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
+     * Vínculos ativos do escritório com a chave "Registra ponto eletrônico" ligada, em ordem de nome. São as pessoas a
+     * quem a jornada padrão do escritório se aplica no choque (spec seguranca-b-jornada §3.3).
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosQueRegistramPonto(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u')
+            ->join('ut.user', 'u')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('ut.registraPonto = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /**
      * Vínculos ativos de contas ativas do escritório, com usuário, perfil, cargo e lotação já carregados
      * (uma consulta, sem N+1), em ordem de nome. Base da lista "Ocultar aba" da pasta (spec
