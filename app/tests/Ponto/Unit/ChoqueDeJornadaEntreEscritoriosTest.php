@@ -37,6 +37,9 @@ final class ChoqueDeJornadaEntreEscritoriosTest extends TestCase
     /** @var array<int, JornadaColaborador> a jornada pessoal da pessoa em cada escritório, pelo id */
     private array $pessoais = [];
 
+    /** @var array<int, JornadaTenant> a jornada padrão de cada escritório, pelo id */
+    private array $padroes = [];
+
     /** @var list<UserTenant> */
     private array $vinculosDeA = [];
 
@@ -83,6 +86,31 @@ final class ChoqueDeJornadaEntreEscritoriosTest extends TestCase
         self::assertNull($this->sut()->naBatida($this->pessoa, $this->a, $segundaAsNove));
     }
 
+    #[TestDox('Revisão 23/10: A das 09 às 13 e padrão de B das 09 às 18. Às 09:05 em A, às 14:00 em B e às 10:00 em B, passa')]
+    public function testQuandoOsDoisCobremOMomentoABatidaPassa(): void
+    {
+        $this->pessoais = [1 => $this->pessoal([[1], '09:00', '13:00'])];
+        $this->padroes[2] = (new JornadaTenant())->addBloco((new BlocoJornada())->setDiasSemana([1])->setEntrada('09:00')->setSaida('18:00'));
+
+        self::assertNull($this->sut()->naBatida($this->pessoa, $this->a, new \DateTimeImmutable('2026-10-19 09:05:00')), 'A cobre o momento');
+        self::assertNull($this->sut()->naBatida($this->pessoa, $this->b, new \DateTimeImmutable('2026-10-19 14:00:00')), 'A não trabalha às 14:00');
+        // Decisão da revisão (23/10): às 10:00 os dois cobrem o momento, um choque que entrou sem conferência. B cobre,
+        // então a batida em B passa; travar os dois lados prenderia a pessoa.
+        self::assertNull($this->sut()->naBatida($this->pessoa, $this->b, new \DateTimeImmutable('2026-10-19 10:00:00')));
+    }
+
+    #[TestDox('O horário que é só de A recusa a batida em B')]
+    public function testHorarioSoDeARecusaABatidaEmB(): void
+    {
+        $this->pessoais = [1 => $this->pessoal([[1], '07:00', '13:00'])];
+        $this->padroes[2] = (new JornadaTenant())->addBloco((new BlocoJornada())->setDiasSemana([1])->setEntrada('09:00')->setSaida('18:00'));
+
+        self::assertSame(
+            sprintf(ChoqueDeJornadaEntreEscritorios::MENSAGEM_BATIDA, '07:00', '13:00'),
+            $this->sut()->naBatida($this->pessoa, $this->b, new \DateTimeImmutable('2026-10-19 08:00:00')),
+        );
+    }
+
     #[TestDox('Padrão proposta em A: lista quem a usa e bate com B; quem tem jornada pessoal em blocos em A fica de fora')]
     public function testPadraoListaAsPessoasAfetadas(): void
     {
@@ -106,7 +134,9 @@ final class ChoqueDeJornadaEntreEscritoriosTest extends TestCase
         $vinculos = $this->createStub(UserTenantRepository::class);
         $vinculos->method('findActiveByUser')->willReturnCallback(fn (): array => $this->vinculosDaPessoa());
         $vinculos->method('findAtivosQueRegistramPonto')->willReturnCallback(fn (): array => $this->vinculosDeA);
-        $intervalos = new IntervalosDeTrabalho(new JornadaResolver(), $jornadas, $this->createStub(JornadaTenantRepository::class));
+        $padroes = $this->createStub(JornadaTenantRepository::class);
+        $padroes->method('doEscritorio')->willReturnCallback(fn (Tenant $t): ?JornadaTenant => $this->padroes[(int) $t->getId()] ?? null);
+        $intervalos = new IntervalosDeTrabalho(new JornadaResolver(), $jornadas, $padroes);
 
         return new ChoqueDeJornadaEntreEscritorios($intervalos, $jornadas, $vinculos);
     }

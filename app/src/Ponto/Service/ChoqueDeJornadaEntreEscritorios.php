@@ -49,20 +49,47 @@ final class ChoqueDeJornadaEntreEscritorios
         return $conflito === null ? null : sprintf(self::MENSAGEM_CHOQUE, ...$conflito->horario());
     }
 
-    /** A recusa da batida em `$escritorio` quando `$agora` cai num trecho de trabalho de hoje de outro escritório. */
+    /**
+     * A recusa da batida em `$escritorio` quando `$agora` cai num trecho de trabalho de hoje de outro escritório onde a
+     * pessoa registra ponto e NÃO cai num trecho de hoje deste escritório. Quando os dois cobrem o momento (um choque que
+     * entrou sem conferência: vínculo novo com a chave nascida ligada, ou gravação concorrente), a batida passa: ninguém
+     * fica travado (revisão de 23/10).
+     */
     public function naBatida(User $user, Tenant $escritorio, \DateTimeImmutable $agora): ?string
     {
         $dia = (int) $agora->format('N');
         $segundos = (int) $agora->format('H') * 3600 + (int) $agora->format('i') * 60 + (int) $agora->format('s');
+        $doOutro = $this->trechoDeOutroEscritorio($user, $escritorio, $dia, $segundos);
+        if ($doOutro === null || $this->cobre($this->intervalos->daPessoaNoEscritorio($user, $escritorio), $dia, $segundos)) {
+            return null;
+        }
+
+        return sprintf(self::MENSAGEM_BATIDA, ...$doOutro->horario());
+    }
+
+    private function trechoDeOutroEscritorio(User $user, Tenant $escritorio, int $dia, int $segundos): ?IntervaloDeTrabalho
+    {
         foreach ($this->outrosEscritoriosComPonto($user, $escritorio) as $outro) {
             foreach ($this->intervalos->daPessoaNoEscritorio($user, $outro) as $trecho) {
                 if ($trecho->contem($dia, $segundos)) {
-                    return sprintf(self::MENSAGEM_BATIDA, ...$trecho->horario());
+                    return $trecho;
                 }
             }
         }
 
         return null;
+    }
+
+    /** @param list<IntervaloDeTrabalho> $trechos */
+    private function cobre(array $trechos, int $dia, int $segundos): bool
+    {
+        foreach ($trechos as $trecho) {
+            if ($trecho->contem($dia, $segundos)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
