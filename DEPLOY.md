@@ -337,6 +337,31 @@ de novo não muda nada. Para um escritório só: `--escritorio=ID`. Não vai par
 roda, o filtro "Prioridade" só acha as metas criadas depois da publicação. O comando grava por SQL direto,
 então a mudança não aparece na trilha de auditoria da meta.
 
+### Selo "Assinado" dos documentos antigos (uma vez, depois da publicação)
+
+Os documentos de pasta ganharam o selo "Assinado" (aba Financeiro). O upload já marca sozinho os arquivos com
+assinatura digital (`.p7s`, `.p7m` e PDF assinado: PAdES, ICP-Brasil, gov.br). Os que já existiam nascem sem o
+selo até este comando rodar. Rode **uma vez depois da publicação** da versão com a migration
+`Version20261020151000`, primeiro a simulação e depois a gravação:
+
+```
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:detectar-assinatura-antigos
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:detectar-assinatura-antigos --aplicar
+```
+
+Sem `--aplicar` o comando lê os arquivos, lista por escritório quantos têm assinatura e não grava nada. Com
+`--aplicar` marca esses com a origem `digital`. Só olha documento ainda sem selo (PDF, `.p7s`, `.p7m`): o já
+marcado, digital ou à mão, é contado como pulado e nunca é sobrescrito, então rodar de novo não muda nada. Lê
+cada arquivo pelo armazenamento (só o começo e o fim do PDF); arquivo ausente ou ilegível conta como erro, vai
+para o log e o comando segue (o documento volta à fila na próxima execução). No fim mostra lidos, assinados,
+pulados e erros. Para um escritório só: `--escritorio=ID`; para fatiar: `--limite=N`. Não vai para o cron.
+
+**Atenção com o armazenamento remoto (R2).** Lá o arquivo chega por um stream sem seek, e aí o detector não
+consegue pular para o fim: **baixa o arquivo inteiro** para ler o começo e o fim (a memória continua limitada
+às pontas, mas o tráfego e o tempo são os do acervo todo). Com acervo grande, rode em partes: um escritório
+por vez (`--escritorio=ID`) e/ou fatias com `--limite=N` (cada execução retoma de onde a anterior parou,
+porque a fila é "quem ainda está sem selo"), primeiro na simulação para medir o tempo.
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:

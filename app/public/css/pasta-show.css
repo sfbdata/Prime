@@ -2533,6 +2533,25 @@ span.ps-situacao-pill { cursor: default; }
 /* As ações do arquivo moram no menu ⋮ (desenho 1.2.3). O botão fica SEMPRE à
    vista, discreto, como no desenho — o hover só o destaca. */
 .ps-fin-doc-acoes { display: flex; flex-shrink: 0; }
+/* Selo "Assinado" da linha do arquivo, entre o nome e o ⋮ (dc 1974-1976). Valores do documento; a
+   paleta é a do `ps-fin-selo--ok` (#186c47 / #e2f4ea / #bde3cd no claro), que tem a variante escura. */
+.ps-fin-doc-selo {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ps-ok-text);
+    background: var(--ps-ok-bg);
+    border: 1px solid var(--ps-ok-border);
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.ps-fin-doc-selo i { font-size: 9px; }
 .ps-fin-doc-excedente { padding: 0 17px 4px; }
 .ps-fin-link {
     font-family: inherit;
