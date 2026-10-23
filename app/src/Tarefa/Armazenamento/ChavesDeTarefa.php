@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tarefa\Armazenamento;
 
-use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
@@ -38,9 +37,8 @@ use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
  *
  * ## Tenant (R1)
  *
- * O escopo sai da MENSAGEM (`tenant_id NOT NULL`), nunca da sessão. Arquivo novo: da TAREFA, de quem
- * a mensagem copia o escritório no `TarefaController::mensagem()` — o mesmo que
- * {@see anexoDeMensagem()} vai ler depois.
+ * O escopo sai da MENSAGEM (`tenant_id NOT NULL`), nunca da sessão. Aqui só se lê o legado: o anexo
+ * novo do despacho é documento da pasta (`pasta_documento:<id>` na coluna).
  */
 final class ChavesDeTarefa
 {
