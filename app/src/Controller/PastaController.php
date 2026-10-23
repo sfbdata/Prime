@@ -117,7 +117,6 @@ use App\Pasta\UseCase\ExcluirObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
 use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
-use App\Pasta\UseCase\ResultadoExclusaoPasta;
 use App\Pasta\UseCase\RestaurarPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
 use App\Pasta\Service\CobrancasDoChecklistDaPasta;
@@ -1735,27 +1734,13 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }
 
-        $resultado = $this->excluirPastaUseCase->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant());
+        $this->excluirPastaUseCase->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant());
 
-        // Os dois desfechos precisam de mensagens diferentes: a lápide continua existindo e pode
-        // ser aberta (e restaurada), a removida não. Dizer "removida" nos dois casos faria a
-        // pessoa procurar na lixeira uma pasta que está bem ali na lista, riscada.
-        if ($resultado === ResultadoExclusaoPasta::Lapide) {
-            $this->addFlash(
-                'success',
-                sprintf(
-                    'Pasta %s excluída. Ela continua na lista, riscada, porque o número dela não pode '
-                    . 'ser reaproveitado: já existem pastas posteriores.',
-                    $pasta->getNup(),
-                ),
-            );
+        // Toda exclusão vai para a lixeira (lápide restaurável): a pasta continua existindo, então
+        // a volta é para ela, onde estão a faixa de excluída e o botão Restaurar.
+        $this->addFlash('success', sprintf('Pasta %s enviada para a lixeira (restaurável a qualquer momento)', $pasta->getNup()));
 
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-        }
-
-        $this->addFlash('success', 'Pasta removida com sucesso.');
-
-        return $this->redirectToRoute('expediente_index');
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }
 
     #[Route('/{id}/restaurar', name: 'pasta_restaurar', methods: ['POST'])]
