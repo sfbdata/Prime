@@ -119,7 +119,7 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
     #[TestDox('Entrada em A cedo, fora do horário de B; a saída em A no horário de B passa, porque fecha a entrada aberta em A')]
     public function testSaidaQueFechaEntradaAbertaPassa(): void
     {
-        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->entradaAbertaRecente());
         $this->jornadaDeHojeEmTornoDeAgora();
 
         $resposta = $this->baterEmA('saida');
@@ -130,7 +130,7 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
     #[TestDox('A ida ao repouso no horário de B também passa quando fecha a entrada aberta em A')]
     public function testRepousoQueFechaEntradaAbertaPassa(): void
     {
-        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->entradaAbertaRecente());
         $this->jornadaDeHojeEmTornoDeAgora();
 
         $resposta = $this->baterEmA('repouso');
@@ -153,7 +153,7 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
     #[TestDox('Chave desligada em A com a entrada aberta em A: a saída em A passa')]
     public function testChaveDesligadaComEntradaAbertaSaidaPassa(): void
     {
-        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->entradaAbertaRecente());
         $this->vinculoEmA->alterarRegistroDePonto(false);
         $this->em()->flush();
 
@@ -219,6 +219,16 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         $this->jornadaPessoal($this->pessoa, $this->b, [[[(int) $agora->format('N')], $trecho[0], null, null, $trecho[1]]]);
 
         return $trecho;
+    }
+
+    /**
+     * Uma entrada de hoje ainda aberta: 90 minutos atrás (antes do trecho de B, que começa 60 minutos antes de agora),
+     * ou logo depois da meia-noite se for cedo. Fica dentro da janela do turno (16 h) a qualquer hora do dia: com
+     * `hojeCedo()`, depois das 16:00 a entrada já não abriria turno nenhum.
+     */
+    private function entradaAbertaRecente(): \DateTimeImmutable
+    {
+        return max($this->hojeCedo(), new \DateTimeImmutable('-90 minutes'));
     }
 
     /** Meio minuto depois da meia-noite de hoje: antes do agora (o setUp pula os primeiros minutos do dia). */
