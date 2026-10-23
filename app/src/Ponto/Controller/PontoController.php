@@ -807,6 +807,7 @@ final class PontoController extends AbstractController
      * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3 e
      * ponto-por-escritorio §2.2): a chave "Registra ponto eletrônico" desligada aqui, a entrada aberta hoje em outro
      * escritório e o horário de trabalho de hoje em outro escritório onde a pessoa registra ponto. Null quando segue.
+     * Saída e ida ao repouso nunca são recusadas aqui: nunca prender o ponto aberto (revisão de 23/10, proposta da 0d).
      */
     private function recusaEntreEscritorios(
         User $user,
@@ -816,6 +817,9 @@ final class PontoController extends AbstractController
         EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
     ): ?string {
+        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true)) {
+            return null;
+        }
         if ($this->chaveDoPonto->estaDesligada($user, $tenant)) {
             return ChaveDoPontoEletronico::MENSAGEM_DESLIGADA;
         }

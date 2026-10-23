@@ -90,17 +90,42 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
     }
 
-    #[TestDox('Chave desligada em A: a batida em A é recusada com a mensagem, mesmo com o módulo de ponto')]
+    #[TestDox('Chave desligada em A: a entrada em A é recusada com a mensagem, mesmo com o módulo de ponto')]
     public function testChaveDesligadaEmARecusa(): void
     {
         $this->vinculoEmA->alterarRegistroDePonto(false);
         $this->em()->flush();
 
-        $resposta = $this->baterEmA('saida');
+        $resposta = $this->baterEmA('entrada');
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['success' => false, 'message' => ChaveDoPontoEletronico::MENSAGEM_DESLIGADA], $resposta);
         self::assertSame(0, $this->batidasEm($this->a));
+    }
+
+    #[TestDox('Revisão 23/10: saída e ida ao repouso passam com a chave desligada e no horário de B; nunca prender o ponto aberto')]
+    public function testSaidaERepousoNuncaSaoRecusados(): void
+    {
+        $this->jornadaDeHojeEmTornoDeAgora();
+        $this->vinculoEmA->alterarRegistroDePonto(false);
+        $this->em()->flush();
+
+        foreach (['repouso', 'saida'] as $tipo) {
+            $resposta = $this->baterEmA($tipo);
+            self::assertTrue($resposta['success'] ?? false, $tipo . ': ' . ($resposta['message'] ?? ''));
+        }
+        self::assertSame(2, $this->batidasEm($this->a));
+    }
+
+    #[TestDox('Retorno do repouso no horário de B continua recusado, como a entrada')]
+    public function testRetornoNoHorarioDeBRecusa(): void
+    {
+        $trecho = $this->jornadaDeHojeEmTornoDeAgora();
+
+        $resposta = $this->baterEmA('retorno');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(sprintf(ChoqueDeJornadaEntreEscritorios::MENSAGEM_BATIDA, ...$trecho), $resposta['message'] ?? null);
     }
 
     /** @return array{0: string, 1: string} o trecho de hoje em B, de uma hora antes a uma hora depois de agora */
