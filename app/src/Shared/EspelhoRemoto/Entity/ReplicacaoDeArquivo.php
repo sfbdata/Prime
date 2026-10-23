@@ -24,7 +24,7 @@ class ReplicacaoDeArquivo
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'bigint')]
-    private ?string $id = null;
+    private ?int $id = null;
 
     #[ORM\Column(length: 30)]
     private string $operacao = '';
@@ -45,7 +45,7 @@ class ReplicacaoDeArquivo
     private ?string $sha256 = null;
 
     #[ORM\Column(type: 'bigint', nullable: true)]
-    private ?string $tamanhoBytes = null;
+    private ?int $tamanhoBytes = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $mimeType = null;
@@ -80,7 +80,7 @@ class ReplicacaoDeArquivo
         $this->proximaTentativaEm = $this->criadoEm = $this->atualizadoEm = new \DateTimeImmutable();
     }
 
-    public function getId(): ?string
+    public function getId(): ?int
     {
         return $this->id;
     }

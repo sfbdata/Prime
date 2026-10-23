@@ -91,12 +91,22 @@ final class ReplicadorDeArquivos
             $this->outbox->marcarFalhou($item, self::semDadosPessoais($e, $item));
             $resumo->falharam++;
             $this->registrar($item, 'falhou (permanente: ' . $e::class . ')');
-        } catch (FalhaNoEspelhoRemoto|FalhaDeArmazenamento|\Throwable $e) {
+        } catch (FalhaNoEspelhoRemoto|FalhaDeArmazenamento $e) {
+            $this->falhaTransitoria($item, $e, $resumo);
+        } catch (\Throwable $e) {
+            // Rede de segurança: qualquer erro inesperado (TypeError, DBAL) também é transitório.
             $this->falhaTransitoria($item, $e, $resumo);
         }
     }
 
-    /** Os passos de um item; as exceções sobem para `processarItem()`, que as classifica. */
+    /**
+     * Os passos de um item; as exceções sobem para `processarItem()`, que as classifica.
+     *
+     * @throws ArquivoNaoEncontrado quando o arquivo saiu do disco entre a consulta e a leitura
+     * @throws ChaveDeArquivoInvalida|\InvalidArgumentException|\LogicException erro permanente do item
+     * @throws FalhaNoEspelhoRemoto quando o espelho recusa ou não responde
+     * @throws FalhaDeArmazenamento quando o disco local não responde
+     */
     private function replicar(EspelhoRemoto $espelho, ItemDeReplicacao $item, ResumoDaRodada $resumo): void
     {
         if ($this->local->metadados($item->chave) === null) {

@@ -150,11 +150,11 @@ final class EspelhoRemotoR2 implements EspelhoRemoto
         }
 
         $meta = stream_get_meta_data($conteudo);
-        $modo = (string) ($meta['mode'] ?? '');
+        $modo = $meta['mode'];
         if (!str_contains($modo, 'r') && !str_contains($modo, '+')) {
             throw new \InvalidArgumentException('O stream do conteúdo não é legível.');
         }
-        if (($meta['seekable'] ?? false) !== true) {
+        if ($meta['seekable'] !== true) {
             throw new \InvalidArgumentException('O stream do conteúdo tem de ser rebobinável.');
         }
     }
