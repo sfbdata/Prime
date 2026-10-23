@@ -258,7 +258,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         // L18: a Timeline inteligente ganhou back-end (`pasta_timeline`) e entrou no menu, com o T do desenho.
         self::assertSame('t', $menu->filter('#psTimelineAbrir')->attr('data-ps-atalho'));
 
-        self::assertSame('e', $menu->filter('.ps-pop-item[data-bs-target="#modalEditarPasta"]')->attr('data-ps-atalho'));
+        self::assertSame('e', $menu->filter('.ps-pop-item[data-pe-abrir][aria-controls="modalEditarPasta"]')->attr('data-ps-atalho'));
         self::assertSame('h', $menu->filter('#psHistoricoAbrir')->attr('data-ps-atalho'));
 
         $copiar = $menu->filter('.js-copiar-link');

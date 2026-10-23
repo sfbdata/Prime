@@ -37,6 +37,8 @@ final class AgendaDeTarefasTest extends TestCase
     {
         return [
             'app:purgar-dados-expirados' => ['app:purgar-dados-expirados --force --no-interaction', '0 0 * * *', '0 3 * * *'],
+            // Não estava no crontab real: o UTC é o da linha do DEPLOY.md, ligada por decisão do dono (23/10).
+            'app:importar-indices-monetarios' => ['app:importar-indices-monetarios --no-interaction', '0 1 11 * *', '0 4 11 * *'],
             'app:djen:sincronizar' => ['app:djen:sincronizar --dias=2 --no-interaction', '0 3 * * *', '0 6 * * *'],
             'app:push:resumo-semanal-cliente' => ['app:push:resumo-semanal-cliente --no-interaction', '0 8 * * 1', '0 11 * * 1'],
             'app:pastas:relatorio-sem-processo' => ['app:pastas:relatorio-sem-processo --no-interaction', '5 10 * * *', '5 13 * * *'],
@@ -113,7 +115,7 @@ final class AgendaDeTarefasTest extends TestCase
 
     public function testTarefasQueNuncaRodaramEmProducaoFicamDesligadas(): void
     {
-        foreach (['app:perfil:resumo-diario', 'app:pasta:cobrar-checklist', 'app:importar-indices-monetarios'] as $desligada) {
+        foreach (['app:perfil:resumo-diario', 'app:pasta:cobrar-checklist'] as $desligada) {
             self::assertArrayNotHasKey($desligada, AgendaDeTarefas::tarefas(), $desligada . ' só liga por decisão do dono.');
         }
     }
