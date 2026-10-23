@@ -56,20 +56,21 @@ final class PeriodoDoDashboardTest extends TestCase
         self::assertSame(['data_de' => $inicio, 'data_ate' => $hoje], $periodo);
     }
 
-    #[TestDox('Intervalo: começo do primeiro dia e fim do último; ponta vazia ou inválida fica aberta')]
-    public function testIntervalo(): void
+    #[TestDox('Datas do painel: só a data estrita passa; vazia ou inválida vira período aberto')]
+    public function testDatasDoPainel(): void
     {
-        [$de, $ate] = PeriodoDoDashboard::intervalo(['data_de' => '2026-10-01', 'data_ate' => '2026-10-23']);
-        self::assertSame('2026-10-01 00:00:00', $de?->format('Y-m-d H:i:s'));
-        self::assertSame('2026-10-23 23:59:59', $ate?->format('Y-m-d H:i:s'));
-
-        self::assertSame([null, null], PeriodoDoDashboard::intervalo(['data_de' => '', 'data_ate' => '2026-02-31']));
+        self::assertSame(
+            ['data_de' => '2026-10-01', 'data_ate' => '2026-10-23'],
+            PeriodoDoDashboard::datasDoPainel(['data_de' => '2026-10-01', 'data_ate' => '2026-10-23', 'busca' => 'x']),
+        );
+        self::assertSame(['data_de' => '', 'data_ate' => ''], PeriodoDoDashboard::datasDoPainel(['data_ate' => '2026-02-31']));
     }
 
-    #[TestDox('Janela válida passa; qualquer outra vira Mês')]
-    public function testJanelaValida(): void
+    #[TestDox('Janela do cartão: uma do seletor passa; qualquer outra (ou nenhuma) é o período do painel')]
+    public function testJanelaDoCartao(): void
     {
-        self::assertSame('semestre', PeriodoDoDashboard::janelaValida('semestre'));
-        self::assertSame('mes', PeriodoDoDashboard::janelaValida('<script>'));
+        self::assertSame('semestre', PeriodoDoDashboard::janelaDoCartao('semestre'));
+        self::assertSame('periodo', PeriodoDoDashboard::janelaDoCartao('<script>'));
+        self::assertSame('periodo', PeriodoDoDashboard::janelaDoCartao(''));
     }
 }

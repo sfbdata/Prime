@@ -20,11 +20,27 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
    **menos metas vencidas** (hoje), como no script do desenho. Universo: todos os colaboradores ativos
    do escritório, calculado antes de busca, responsável e cargo (o troféu não muda de dono ao filtrar
    a tabela). Ninguém recebe com zero.
-4. **Ranking no cartão do colaborador** (botão direito no nome; janela flutuante do desenho):
-   cabeçalho azul com avatar, nome e "cargo · Nº de M no período", seletor Mês · Trimestre ·
-   Semestre · Ano e as linhas do desenho com as metas concluídas e os registros ("Comentários").
-   Mesma regra do troféu, na janela escolhida. A nota mostra o total da equipe (meta com 2
-   responsáveis conta 1 vez, como no card Meta global). Id fora do escritório: 404 (IDOR).
+4. **Cartão do colaborador** (botão direito no nome, ou toque longo no celular; janela flutuante do
+   desenho, classe própria `.db-colab-janela`), com tudo o que o desenho mostra:
+   - cabeçalho azul com avatar, nome e "cargo · Nº de N no período", no **período do painel** (o
+     mesmo do troféu);
+   - **Comentários**: os registros do Relatório no mesmo período;
+   - **1º do mês**: seletor de ano (do ano corrente até o primeiro ano com meta no escritório, mais
+     Todos); um ano = 12 quadradinhos J…D (troféu dourado no mês ganho, cinza no perdido, só
+     contorno no mês que não fechou); Todos = uma faixa por ano com a contagem. Campeão do mês pela
+     regra do troféu: concluídas = metas criadas no mês e não ativas hoje; desempate menos vencidas
+     (as de hoje, como no script do desenho); empate total, ninguém. Calculado na hora (uma
+     consulta agregada), sem a tabela `dashboard_campeao_mes` do README (este PR não tem
+     migration): um mês antigo pode mudar de dono se uma meta dele for reaberta ou concluída depois,
+     e o universo são os colaboradores ativos de hoje;
+   - **Rendimento**: `(concluídas da pessoa − média dos outros) ÷ média dos outros`, os outros sendo
+     os demais colaboradores ativos; percentual verde acima, vermelho abaixo, frase e duas barras.
+   - **Seletor Período · Mês · Trimestre · Semestre · Ano** (decisão do dono, fora do desenho): a
+     alternativa ao período do painel; recorta posição, Comentários e Rendimento. Janelas em
+     calendário civil até hoje (Mês = 1º do mês; Trimestre = 1º dia do trimestre civil; Semestre =
+     1º/jan ou 1º/jul; Ano = 1º/jan). O recorte e o ano escolhidos valem para os próximos cartões da
+     página.
+   - Guarda: id que não é colaborador com vínculo ATIVO no escritório corrente dá 404 (IDOR).
 5. **Som do campeão**: fanfarra do desenho (Web Audio, sol 392 Hz + dó 523 Hz com terça), no hover do
    troféu do campeão, no máximo 2 vezes por carregamento e 1 a cada 1,4 s. Desliga pela preferência
    que já existe, "Sons" do menu ⋮ (`dashboard.sons`, README: "sons (calendário e campeão)"), e pelo
@@ -33,7 +49,8 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 ## Regras registradas (decisão do dono)
 
 - Troféu e ranking: "mais concluídas" (total − ativas), desempate menos vencidas.
-- Relatório: por autor, pela data de criação; resposta conta.
+- Relatório: por autor, pela data de criação; resposta conta. Tem tendência (seta e pílula contra o
+  período anterior equivalente, subir é bom): a data do registro é fato do passado.
 - Setas e pílula de percentual comparam com o **período anterior equivalente** (comportamento atual,
   sem mudança neste PR). Desligar as setas em "Exibição" fica para o PR2.
 - Zerar (PR3): qualquer coluna pode ser zerada; só o Master zera ou desfaz; quem não é Master vê
@@ -45,16 +62,17 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 
 - **Empate total** (mesmas concluídas e mesmas vencidas): **ninguém recebe o troféu** e o ranking
   divide a posição (1º, 1º, 3º). O desenho é omisso.
-- **Janelas do cartão**: calendário corrido até hoje. Mês = 1º do mês; Trimestre = 1º dia do
-  trimestre civil; Semestre = 1º/jan ou 1º/jul; Ano = 1º/jan. Abre em Mês.
-- **Período do troféu** = o período do painel; do cartão = a janela escolhida nele.
-- "Relatório" sem link (a lista da pessoa é a DASH-012) e sem seta de tendência.
+- "Relatório" sem link: o destino do desenho (Expediente filtrado por autor do registro e pelas
+  abas Dados da pasta, Financeiro e Detalhes) não existe, e a regra B12 só deixa o número virar link
+  quando a lista de destino conta a mesma coisa. Fica com a DASH-012 (lista da pessoa).
+- Universo do troféu e do cartão: vínculo ativo no escritório (`UserTenant.isActive`). Usuário com
+  `User.isActive = false` e vínculo ainda ativo continua no universo (não mudado aqui). Escritório em
+  quarentena de exclusão não abre o painel, então não há universo a filtrar.
 
 ## Fora deste PR
 
-Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013), setas × ontem, histórico
-de "1º do mês" (`dashboard_campeao_mes`) e o bloco "Rendimento" do cartão (D-EQUIPE), lista do
-Relatório (DASH-012).
+Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013), setas × ontem, a tabela
+`dashboard_campeao_mes` que congelaria o "1º do mês", lista e link do Relatório (DASH-012).
 
 ## Fatias seguintes
 

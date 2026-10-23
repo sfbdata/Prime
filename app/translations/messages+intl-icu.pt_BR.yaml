@@ -3156,19 +3156,41 @@ dashboard:
             carregando: Carregando…
             erro: Não foi possível carregar o desempenho. Feche a janela e tente de novo.
             sem_cargo: Sem cargo
+            janela_aria: Recorte do cartão
             periodo: Período
             mes: Mês
             trimestre: Trimestre
             semestre: Semestre
             ano: Ano
+            posicao_periodo: '{pos}º de {n} no período'
             posicao_mes: '{pos}º de {n} no mês'
             posicao_trimestre: '{pos}º de {n} no trimestre'
             posicao_semestre: '{pos}º de {n} no semestre'
             posicao_ano: '{pos}º de {n} no ano'
             comentarios: Comentários
-            metas_concluidas: Metas concluídas
-            campeao: 1º lugar
-            nota: 'Metas criadas de {de} a {ate} e já concluídas (total menos ativas). Empate: menos vencidas na frente. A meta com dois responsáveis conta para cada um; na equipe, foram {equipe}.'
+            primeiro_mes: 1º do mês
+            ano_aria: Ano
+            todos: Todos
+            vez: vez
+            vezes: vezes
+            em_ano: 'em {ano}'
+            no_total: no total
+            meses_curtos: jan,fev,mar,abr,mai,jun,jul,ago,set,out,nov,dez
+            meses_letras: J,F,M,A,M,J,J,A,S,O,N,D
+            mes_aberto: '{mes}/{ano}: ainda não fechou'
+            mes_ganhou: '{mes}/{ano}: 1º lugar'
+            mes_nao: '{mes}/{ano}: não ficou em 1º'
+            rendimento: Rendimento
+            frase_acima: '{nome} rendeu {pct}% a mais que a média dos outros'
+            frase_abaixo: '{nome} rendeu {pct}% a menos que a média dos outros'
+            frase_igual: '{nome} está na média da equipe'
+            media_equipe: Média equipe
+            legenda: 'Metas concluídas {quando}, comparadas com a média dos outros {n} colaboradores.'
+            quando_periodo: no período
+            quando_mes: no mês
+            quando_trimestre: no trimestre
+            quando_semestre: no semestre
+            quando_ano: no ano
 
 # ---- Agenda (agenda/nova, lista, novo, editar, show; agenda-nova.js)
 agenda:

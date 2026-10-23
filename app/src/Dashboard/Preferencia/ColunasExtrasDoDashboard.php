@@ -101,6 +101,8 @@ final class ColunasExtrasDoDashboard
      * de mesma duração, com a mesma consulta trocando só as datas (DASH-010):
      *   - eventos: a data de início do evento é um fato do passado; neutro, sempre cinza
      *     ('fila'; desenho `neutra`).
+     *   - relatório: a data de criação do registro é um fato do passado; subir é bom ('alta',
+     *     o padrão do desenho para quem não é `neutra` nem SOBE_RUIM; spec dashboard-parte-1).
      *
      * Ficam SEM tendência (DASH-010b), com o espaço da seta reservado como nas de estoque:
      *   - Em revisão e Pastas urgentes: são estoque (o que está em revisão/urgente agora), não
@@ -120,6 +122,7 @@ final class ColunasExtrasDoDashboard
      */
     public const TENDENCIA = [
         self::EVENTOS_AGENDA => 'fila',
+        self::RELATORIO      => 'alta',
     ];
 
     /**

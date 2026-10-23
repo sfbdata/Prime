@@ -10,10 +10,12 @@ use App\Dashboard\Preferencia\CatalogoDePreferenciasDoDashboard;
 use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
 use App\Dashboard\UseCase\ObterRankingDoColaboradorUseCase;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Factory\Tarefa\TarefaFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,13 +49,16 @@ final class DashboardParte1TelaTest extends DashboardWebTestCase
         return PastaFactory::createOne(['tenant' => $tenant])->_real();
     }
 
-    /** Meta criada hoje: concluída (conta no troféu) ou ainda ativa (só no total). */
-    private function meta(Pasta $pasta, User $responsavel, bool $concluida = true): void
+    /** Meta criada hoje (ou em $criadaEm): concluída (conta no troféu) ou ainda ativa (só no total). */
+    private function meta(Pasta $pasta, User $responsavel, bool $concluida = true, ?string $criadaEm = null): void
     {
         $tarefa = TarefaFactory::createOne(['pasta' => $pasta, 'status' => $concluida ? Tarefa::STATUS_CONCLUIDA : Tarefa::STATUS_PENDENTE])->_real();
         $tarefa->addResponsavel($responsavel);
         if ($concluida) {
             $tarefa->setDataConclusao(new \DateTimeImmutable());
+        }
+        if ($criadaEm !== null) {
+            (new \ReflectionProperty(Tarefa::class, 'dataCriacao'))->setValue($tarefa, new \DateTimeImmutable($criadaEm));
         }
         $this->em()->flush();
     }
@@ -111,7 +116,7 @@ final class DashboardParte1TelaTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/dashboard');
 
         self::assertSame('Relatório', trim($crawler->filter('table.db-table > thead > tr > th[data-coluna="relatorio"]')->text()));
-        self::assertSame('2', trim($this->linhaDe($crawler, 'Ana Relatorio')->filter('td[data-coluna="relatorio"]')->text()));
+        self::assertSame('2', trim($this->linhaDe($crawler, 'Ana Relatorio')->filter('td[data-coluna="relatorio"] .db-num')->text()));
         self::assertStringContainsString('3', $crawler->filter('table.db-table > tfoot td[data-coluna="relatorio"]')->text());
     }
 
@@ -137,6 +142,11 @@ final class DashboardParte1TelaTest extends DashboardWebTestCase
         self::assertNotNull($linha->attr('data-db-campeao'));
         self::assertSame('Mais metas concluídas no período', $linha->filter('.db-trofeu')->attr('title'));
         self::assertCount(1, $crawler->filter('.db-cel-card[data-db-campeao] .db-cel-nome > .db-trofeu'), 'no card do celular também');
+        self::assertSame(
+            'Botão direito: desempenho de Ana Campea',
+            $crawler->filter('.db-cel-card[data-db-campeao] > .db-cel-cab[data-db-colab-url]')->attr('title'),
+            'o card do celular leva o mesmo title (e o toque longo, no JS)',
+        );
     }
 
     #[TestDox('Empate total (concluídas e vencidas): ninguém leva o troféu')]
@@ -153,7 +163,16 @@ final class DashboardParte1TelaTest extends DashboardWebTestCase
         self::assertCount(0, $crawler->filter('.db-trofeu'));
     }
 
-    #[TestDox('Cartão do colaborador: posição no ranking da janela em JSON, e o nome leva a URL dele')]
+    /** @return array<string, mixed> */
+    private function cartao(string $url): array
+    {
+        static::getClient()->request('GET', $url);
+        self::assertResponseIsSuccessful();
+
+        return json_decode((string) static::getClient()->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+    }
+
+    #[TestDox('Cartão do colaborador: abre no período do painel; a janela do seletor é a alternativa; Rendimento contra a média dos outros')]
     public function testRankingDoColaborador(): void
     {
         $client = static::createClient();
@@ -170,13 +189,75 @@ final class DashboardParte1TelaTest extends DashboardWebTestCase
         $url     = $this->linhaDe($crawler, 'Ana Ranking')->filter('.db-colab')->attr('data-db-colab-url');
         self::assertSame('/dashboard/colaborador/' . $ana->getId() . '/ranking', $url);
 
-        $client->request('GET', $url . '?janela=trimestre');
-        self::assertResponseIsSuccessful();
-        $json = json_decode((string) $client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        $hoje = (new \DateTimeImmutable())->format('Y-m-d');
+        $json = $this->cartao($url . '?data_de=' . $hoje . '&data_ate=' . $hoje);
+        self::assertSame(['periodo', $hoje, $hoje, 2, 3, false], [$json['janela'], $json['dataDe'], $json['dataAte'], $json['posicao'], $json['pessoas'], $json['campeao']]);
+        self::assertSame(['eu' => 1, 'media' => 1, 'outros' => 2], $json['rendimento'], 'gestora 0 e Bruno 2: média 1 dos outros');
 
-        self::assertSame(['trimestre', 2, 3, 1, 3, false], [
-            $json['janela'], $json['posicao'], $json['pessoas'], $json['metasConcluidas'], $json['metasConcluidasEquipe'], $json['campeao'],
-        ], 'gestora, Ana e Bruno no universo; Bruno é o 1º');
+        $json = $this->cartao($url . '?janela=trimestre&data_de=2020-01-01&data_ate=2020-01-02');
+        self::assertSame(['trimestre', 2], [$json['janela'], $json['posicao']], 'a janela vence o período do painel');
+
+        $vazio = $this->cartao($url . '?data_de=2020-01-01&data_ate=2020-01-02');
+        self::assertSame(['eu' => 0, 'media' => 0, 'outros' => 2], $vazio['rendimento'], 'período do painel sem meta');
+    }
+
+    #[TestDox('1º do mês: o mês fechado em que foi o campeão, pela regra do troféu; o mês corrente não entra')]
+    public function testPrimeiroDoMes(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarGestorLogado($client);
+        $ana   = $this->criarColaborador($tenant, 'Ana Historico');
+        $bruno = $this->criarColaborador($tenant, 'Bruno Historico');
+        $pasta = $this->pasta($tenant);
+        $mesPassado = (new \DateTimeImmutable('first day of last month'))->setTime(10, 0);
+        $this->meta($pasta, $ana, true, $mesPassado->format('Y-m-d H:i'));
+        $this->meta($pasta, $ana, true, $mesPassado->format('Y-m-d H:i'));
+        $this->meta($pasta, $bruno, true, $mesPassado->format('Y-m-d H:i'));
+        $this->meta($pasta, $bruno);
+        $this->meta($pasta, $bruno);
+        $this->meta($this->pasta($this->criarTenant()), $bruno, true, $mesPassado->format('Y-m-d H:i'));
+
+        $ana1 = $this->cartao('/dashboard/colaborador/' . $ana->getId() . '/ranking')['primeiros'];
+        $ano  = (int) $mesPassado->format('Y');
+        self::assertSame([(int) $mesPassado->format('n')], $ana1['ganhos'][$ano] ?? null);
+        self::assertSame((int) (new \DateTimeImmutable())->format('n') - 1, $ana1['ultimoMesFechado']);
+        self::assertContains((int) (new \DateTimeImmutable())->format('Y'), $ana1['anos']);
+
+        $bruno1 = $this->cartao('/dashboard/colaborador/' . $bruno->getId() . '/ranking')['primeiros'];
+        self::assertSame([], $bruno1['ganhos'], 'Bruno lidera o mês corrente, que não fechou; a meta do outro escritório não conta');
+    }
+
+    #[TestDox('Cartão: vínculo inativo no mesmo escritório dá 404, como o de outro escritório')]
+    public function testRankingVinculoInativo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarGestorLogado($client);
+        $saiu = $this->criarColaborador($tenant, 'Saiu Escritorio');
+        $vinculo = $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $saiu, 'tenant' => $tenant]);
+        self::assertNotNull($vinculo);
+        $vinculo->alterarSituacao(SituacaoNaEquipe::Suspenso); // isActive=false
+        $this->em()->flush();
+
+        $client->request('GET', '/dashboard/colaborador/' . $saiu->getId() . '/ranking');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Relatório tem tendência: seta na linha e pílula no Total contra o período anterior equivalente')]
+    public function testTendenciaDoRelatorio(): void
+    {
+        $client = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        static::getContainer()->get(PreferenciaDoUsuarioRepository::class)
+            ->gravar($tenant, $gestora, CatalogoDePreferenciasDoDashboard::COLUNAS_EXTRAS, ['relatorio']);
+        $pasta = $this->pasta($tenant);
+        $this->mensagem($pasta, $gestora, '2024-03-10 10:00');
+        $this->mensagem($pasta, $gestora, '2024-03-12 10:00');
+        $this->mensagem($pasta, $gestora, '2024-02-20 10:00');
+
+        $crawler = $client->request('GET', '/dashboard?data_de=2024-03-01&data_ate=2024-03-31');
+
+        self::assertGreaterThanOrEqual(1, $crawler->filter('table.db-table > tbody td[data-coluna="relatorio"] .db-seta')->count());
+        self::assertSame('+100%', trim($crawler->filter('table.db-table > tfoot td[data-coluna="relatorio"] .db-tend')->text()));
     }
 
     #[TestDox('Cartão: colaborador de outro escritório dá 404 (IDOR) e sem o módulo bi dá 403')]
@@ -196,13 +277,16 @@ final class DashboardParte1TelaTest extends DashboardWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    private function mensagem(Pasta $pasta, User $autor): void
+    private function mensagem(Pasta $pasta, User $autor, ?string $criadaEm = null): void
     {
         $m = new PastaMensagem();
         $m->setPasta($pasta);
         $m->setAutor($autor);
         $m->setTenant($pasta->getTenant());
         $m->setConteudo('Contato com o cliente');
+        if ($criadaEm !== null) {
+            (new \ReflectionProperty(PastaMensagem::class, 'criadaEm'))->setValue($m, new \DateTimeImmutable($criadaEm));
+        }
         $this->em()->persist($m);
         $this->em()->flush();
     }

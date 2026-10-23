@@ -591,6 +591,8 @@
 }
 /* Botão direito no nome abre o cartão do colaborador (cursor do desenho). */
 .db-page .db-colab[data-db-colab-url] { cursor: context-menu; }
+/* toque longo abre o cartão (dashboard-campeao.js): sem o menu nativo de seleção do iOS por cima */
+@media (hover: none) { .db-page [data-db-colab-url] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }
 
 /* ── Selects e calendário próprios (Lote 7 · F13/F14) ─────────────────────────
    Desenho: "Filtros em cascata com avatar" e "Calendário das datas" (README) e

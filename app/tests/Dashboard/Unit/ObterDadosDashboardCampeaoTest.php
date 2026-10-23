@@ -111,13 +111,14 @@ final class ObterDadosDashboardCampeaoTest extends TestCase
         self::assertNull($this->sut->executar($this->tenant, new \DateTimeImmutable('2026-10-23'))->campeaoId);
     }
 
-    #[TestDox('Relatório ligado: uma consulta de registros por autor, com o filtro e as pastas ocultas; Total = soma das linhas')]
+    #[TestDox('Relatório ligado: registros por autor com o filtro e as pastas ocultas, e o anterior para a tendência; Total = soma das linhas')]
     public function testColunaRelatorio(): void
     {
         $filtros = ['data_de' => '2026-10-01', 'data_ate' => '2026-10-23'];
-        $this->metricas->expects(self::once())->method('contarRegistrosPorAutor')
-            ->with($this->tenant, $filtros, [55])
-            ->willReturn([7 => 4, 9 => 2, 99 => 50]);
+        // Duas consultas: o período e o anterior equivalente (a tendência do Relatório).
+        $this->metricas->expects(self::exactly(2))->method('contarRegistrosPorAutor')->willReturnCallback(
+            static fn (Tenant $t, array $f, array $o): array => $f === $filtros && $o === [55] ? [7 => 4, 9 => 2, 99 => 50] : [7 => 2],
+        );
 
         $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2026-10-23'), $filtros, [Extras::RELATORIO], [55]);
 
@@ -127,5 +128,6 @@ final class ObterDadosDashboardCampeaoTest extends TestCase
         }
         self::assertSame([7 => 4, 8 => 0, 9 => 2], $porPessoa);
         self::assertSame([Extras::RELATORIO => 6], $out->totaisExtras, 'quem não está na tabela (99) não entra no Total');
+        self::assertSame([Extras::RELATORIO => 2], $out->totaisExtrasAnteriores, 'tendência: o anterior pela mesma consulta');
     }
 }

@@ -19,7 +19,8 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Cartão do colaborador do Dashboard (botão direito no nome; spec dashboard-parte-1, item 4).
  *
- * GET, somente leitura, JSON. Guardas: as do Dashboard (escritório na sessão + módulo `bi` → 403) e
+ * GET, somente leitura, JSON. Query: `data_de`/`data_ate` do painel (o cartão abre nesse período) e,
+ * opcional, `janela` (mes, trimestre, semestre, ano), a alternativa do seletor. Guardas: as do Dashboard (escritório na sessão + módulo `bi` → 403) e
  * a posse: o id tem de ser colaborador ativo do escritório corrente, senão 404 (IDOR).
  */
 #[Route('/dashboard')]
@@ -45,7 +46,7 @@ final class RankingDoDashboardController extends AbstractController
         $janela        = (string) $request->query->get('janela', '');
 
         try {
-            $saida = $this->obterRanking->executar($tenant, $id, $janela, new \DateTimeImmutable(), $pastasOcultas);
+            $saida = $this->obterRanking->executar($tenant, $id, $janela, $request->query->all(), new \DateTimeImmutable(), $pastasOcultas);
         } catch (ColaboradorForaDoEscritorioException) {
             throw $this->createNotFoundException('Colaborador não encontrado.');
         }
