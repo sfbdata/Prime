@@ -12,6 +12,12 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Service\DetectorDeAssinaturaDigital;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ArquivoArmazenado;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\MetadadosDeArquivo;
+use App\Shared\Armazenamento\NovoArquivo;
 use App\Tests\Shared\Doubles\ArmazenamentoEmMemoria;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -116,7 +122,80 @@ final class DetectarAssinaturaDosAntigosCommandTest extends KernelTestCase
         self::assertNull($this->origemNoBanco($doc2));
     }
 
-    private function tester(ArmazenamentoEmMemoria $memoria): CommandTester
+    #[TestDox('marca manual feita entre a carga do lote e a gravação não é sobrescrita: conta como pulado')]
+    public function testMarcaManualNoMeioDaVarreduraFica(): void
+    {
+        self::bootKernel();
+        $memoria = new ArmazenamentoEmMemoria();
+        $tenant  = $this->criarTenant();
+        $pasta   = $this->criarPasta($tenant);
+        $doc     = $this->documento($pasta, $tenant, $memoria, self::PDF_ASSINADO);
+        $autor   = $this->criarUsuario();
+        $this->em()->flush();
+
+        // O lote já foi carregado (sem selo) quando o arquivo é aberto; é aí que alguém marca pela tela.
+        $conexao    = $this->em()->getConnection();
+        $comCorrida  = $this->armazenamentoQueMarcaAoAbrir($memoria, static function () use ($conexao, $doc, $autor): void {
+            $conexao->executeStatement(
+                "UPDATE pasta_documento SET assinado_em = '2026-10-23 09:00:00', assinatura_origem = 'manual', assinado_por_id = :autor WHERE id = :id",
+                ['autor' => (int) $autor->getId(), 'id' => (int) $doc->getId()],
+            );
+        });
+
+        $tester = $this->tester($comCorrida);
+        $tester->execute(['--escritorio' => (string) $tenant->getId(), '--aplicar' => true]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertStringContainsString('lidos=1 assinados=0 pulados=1 erros=0', $this->saida($tester));
+        self::assertSame('manual', $this->origemNoBanco($doc));
+        self::assertSame('2026-10-23 09:00:00', $this->assinadoEmNoBanco($doc));
+    }
+
+    /** O dublê em memória, com um efeito colateral no `abrir()`: a corrida acontece durante a leitura. */
+    private function armazenamentoQueMarcaAoAbrir(ArmazenamentoEmMemoria $memoria, \Closure $aoAbrir): ArmazenamentoDeArquivos
+    {
+        return new class ($memoria, $aoAbrir) implements ArmazenamentoDeArquivos {
+            public function __construct(
+                private readonly ArmazenamentoEmMemoria $memoria,
+                private readonly \Closure $aoAbrir,
+            ) {
+            }
+
+            public function gravar(ChaveDeArquivo|NovoArquivo $destino, FonteDeConteudo $fonte): ArquivoArmazenado
+            {
+                return $this->memoria->gravar($destino, $fonte);
+            }
+
+            public function abrir(ChaveDeArquivo $chave): mixed
+            {
+                ($this->aoAbrir)();
+
+                return $this->memoria->abrir($chave);
+            }
+
+            public function ler(ChaveDeArquivo $chave): string
+            {
+                return $this->memoria->ler($chave);
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return $this->memoria->existe($chave);
+            }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                $this->memoria->excluir($chave);
+            }
+
+            public function metadados(ChaveDeArquivo $chave): ?MetadadosDeArquivo
+            {
+                return $this->memoria->metadados($chave);
+            }
+        };
+    }
+
+    private function tester(ArmazenamentoDeArquivos $memoria): CommandTester
     {
         $container = static::getContainer();
 

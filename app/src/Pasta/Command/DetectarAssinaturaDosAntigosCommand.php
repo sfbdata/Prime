@@ -30,14 +30,16 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  *  - **simulação por padrão**: sem `--aplicar` lê, conta e lista por escritório, e não grava nada;
  *  - **idempotente**: a fila é "sem selo e pode ser assinado" (PDF, `.p7s`, `.p7m`). Documento já
- *    marcado, digital ou manual, não entra na fila e é contado como pulado; a marcação manual nunca é
- *    sobrescrita (e a corrida com alguém marcando pela tela entre a listagem e a gravação também
- *    pula). Rodar de novo não muda nada;
+ *    marcado, digital ou manual, não entra na fila e é contado como pulado. Rodar de novo não muda nada;
+ *  - **a marca manual nunca é sobrescrita**: a gravação é um UPDATE condicional
+ *    (`PastaDocumentoRepository::marcarAssinaturaDigitalSeSemSelo`, `WHERE assinado_em IS NULL` com o id,
+ *    o escritório e a pasta do documento), não a entidade carregada no lote. Se alguém marcou pela tela
+ *    entre a carga do lote e a gravação, o UPDATE afeta 0 linhas e o documento conta como pulado;
  *  - **lê pelo armazenamento** (chave → `abrir()`), só as pontas do arquivo (`DetectorDeAssinaturaDigital`).
  *    `.p7s`/`.p7m` são assinados pela extensão, sem leitura;
  *  - **arquivo ausente ou ilegível não aborta**: conta como erro, vai ao log e o comando segue. O
  *    documento continua sem selo e volta à fila na próxima execução;
- *  - lotes de `--lote` documentos com `flush()` + `clear()`.
+ *  - lotes de `--lote` documentos, com `clear()` entre eles (a entidade só é lida, nunca gravada).
  */
 #[AsCommand(
     name: 'app:pasta:detectar-assinatura-antigos',
@@ -95,9 +97,6 @@ final class DetectarAssinaturaDosAntigosCommand extends Command
                 $this->processar($doc, $aplicar, $contadores, $porEscritorio, $io);
             }
 
-            if ($aplicar) {
-                $this->em->flush();
-            }
             $this->em->clear();
         }
 
@@ -159,9 +158,8 @@ final class DetectarAssinaturaDosAntigosCommand extends Command
             return;
         }
 
-        $tenant   = $doc->getTenant();
-        $tenantId = (int) $tenant?->getId();
-        $porEscritorio[$tenantId] ??= ['nome' => (string) $tenant?->getName(), 'lidos' => 0, 'assinados' => 0, 'erros' => 0];
+        $tenantId = (int) $doc->getTenant()?->getId();
+        $porEscritorio[$tenantId] ??= ['nome' => (string) $doc->getTenant()?->getName(), 'lidos' => 0, 'assinados' => 0, 'erros' => 0];
 
         ++$contadores['lidos'];
         ++$porEscritorio[$tenantId]['lidos'];
@@ -178,14 +176,17 @@ final class DetectarAssinaturaDosAntigosCommand extends Command
             return;
         }
 
+        // Gravação condicional: 0 linhas = alguém marcou (à mão) depois da carga do lote; a marca dele fica.
+        if ($aplicar && !$this->documentos->marcarAssinaturaDigitalSeSemSelo($doc)) {
+            ++$contadores['pulados'];
+
+            return;
+        }
+
         ++$contadores['assinados'];
         ++$porEscritorio[$tenantId]['assinados'];
         if ($io->isVerbose()) {
             $io->text(sprintf('assinado: documento #%d (%s)', (int) $doc->getId(), $doc->getNomeOriginal()));
-        }
-
-        if ($aplicar) {
-            $doc->marcarAssinadoDigitalmente($doc->getCarregadoEm(), $doc->getEnviadoPor());
         }
     }
 

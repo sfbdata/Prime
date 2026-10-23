@@ -5,7 +5,9 @@ namespace App\Pasta\Repository;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Enum\OrigemDaAssinatura;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -551,6 +553,35 @@ class PastaDocumentoRepository extends ServiceEntityRepository
         }
 
         return array_map('intval', $qb->getQuery()->getSingleColumnResult());
+    }
+
+    /**
+     * Grava o selo `digital` direto no banco, só se o documento AINDA está sem selo: o UPDATE confere o
+     * id, o escritório e a pasta do documento e `assinado_em IS NULL`. Devolve false quando nada mudou
+     * (alguém marcou entre a leitura e a gravação), e a marca de quem chegou antes fica. A data é a do
+     * upload e o autor é quem enviou, como no `marcarAssinaturaDoUpload()`.
+     */
+    public function marcarAssinaturaDigitalSeSemSelo(PastaDocumento $doc): bool
+    {
+        $afetadas = $this->getEntityManager()->createQueryBuilder()
+            ->update(PastaDocumento::class, 'd')
+            ->set('d.assinadoEm', ':em')
+            ->set('d.assinaturaOrigem', ':origem')
+            ->set('d.assinadoPor', ':por')
+            ->where('d.id = :id')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.pasta = :pasta')
+            ->andWhere('d.assinadoEm IS NULL')
+            ->setParameter('em', $doc->getCarregadoEm(), Types::DATETIME_IMMUTABLE)
+            ->setParameter('origem', OrigemDaAssinatura::Digital->value)
+            ->setParameter('por', $doc->getEnviadoPor()?->getId())
+            ->setParameter('id', $doc->getId())
+            ->setParameter('tenant', $doc->getTenant()?->getId())
+            ->setParameter('pasta', $doc->getPasta()?->getId())
+            ->getQuery()
+            ->execute();
+
+        return $afetadas > 0;
     }
 
     /** Documentos que já têm o selo (digital ou manual): os "pulados" da varredura. */
