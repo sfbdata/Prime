@@ -47,7 +47,8 @@ services:
     volumes:
       - .:/var/www
     entrypoint: []
-    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    # scheduler_cadeias: as varreduras periódicas (push, Google Agenda, Comercial), como no worker de produção.
+    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "scheduler_cadeias", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
     depends_on:
       - php
       - db

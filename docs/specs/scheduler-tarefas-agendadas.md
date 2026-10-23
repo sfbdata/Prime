@@ -196,6 +196,7 @@ php -d memory_limit=256M bin/console messenger:consume scheduler_default --time-
 O `-d memory_limit=256M` é o mesmo do worker: sem ele o limite do PHP da imagem (128M) cai antes do
 `--memory-limit=192M`. O worker não tem healthcheck nem `logging` próprio; o agendador também não.
 Consumidor separado do worker de propósito: uma tarefa longa não atrasa a fila do Drive nem a dos e-mails.
+As varreduras periódicas (schedule `cadeias`) não rodam aqui, e sim no worker: ver "Cadeias no Scheduler".
 
 `scripts/deploy-prod-tls.sh` (`up -d --remove-orphans`) sobe o agendador sem mudança. O
 `scripts/vps/deploy-automatico.sh` guarda a imagem do agendador para a volta automática **quando ele já
@@ -255,11 +256,98 @@ removê-lo é passo de um PR seguinte.
   site, não a do agendador; um agendador reiniciando sem parar passa despercebido até alguém olhar o
   `docker ps` (por isso o passo 5 da virada).
 
+## Cadeias no Scheduler
+
+Branch `scheduler-cadeias-delaystamp` (empilhada sobre esta). Risco **BAIXO/MÉDIO**: não muda o que cada varredura
+faz, só quem a dispara. Sem migration.
+
+As quatro varreduras periódicas se reagendavam sozinhas: cada volta, no fim, despachava a próxima com `DelayStamp`,
+e a primeira era semeada por comando, pela tela da Agenda ou pela confirmação de campanha. Uma cadeia que morria
+(mensagem em `failed`, perdida num deploy) só voltava com a semente. Agora quem as dispara é um **segundo schedule**,
+`cadeias` (`App\Shared\Scheduler\AgendaDasCadeias`, transport `scheduler_cadeias`):
+
+| Mensagem | Intervalo | Transport do trabalho | Janela da vez no banco |
+|---|---|---|---|
+| `VarrerLembretesDePush` (push dos lembretes) | 60 s | `async` | 30 s (`agenda_push_varredura`) |
+| `VarrerGoogleAgenda` (Google Agenda) | 300 s | `async` | 150 s (`agenda_google_varredura`) |
+| `VarrerAutomacoes` (automações e recuperação do Comercial) | 900 s | `comercial` | 450 s (`comercial_varredura`) |
+| `ExpandirCampanhas` (expansor de campanhas) | 60 s | `comercial` | 30 s (`comercial_expansor`) |
+
+- **Cada domínio declara as suas** numa classe que implementa `App\Shared\Scheduler\CadeiaRecorrente` (tag
+  automática): `App\Agenda\Scheduler\CadeiasDaAgenda` (push e Google) e `App\Comercial\Scheduler\CadeiasDoComercial`
+  (varredura e expansor). A `AgendaDasCadeias` as recebe por `#[AutowireIterator]` e não importa nada de domínio
+  (o Shared não depende de domínios).
+- **`RecurringMessage::every`** com o intervalo de cada uma (as constantes `INTERVALO_SEGUNDOS` ao lado de cada
+  trava). Cada volta vai embrulhada em `RedispatchMessage(new X(), '<transport>')`: o gerador só põe a mensagem na
+  fila de sempre, e o trabalho continua com a nova tentativa e a fila `failed` de hoje. Contratos:
+  `AgendaDasCadeiasTest` (montagem, com dublês), `CadeiasDaAgendaTest` e `CadeiasDoComercialTest` (intervalo e
+  transport) e `AgendadorNoContainerTest` (o schedule real tem as quatro).
+- **Relógio fixo**: cada `every` leva `from` = `2026-01-01 00:00:00` de Brasília (`VoltaRecorrente::aCada`). Sem
+  isso, o `PeriodicalTrigger` conta o intervalo a partir da subida do processo, e o worker reinicia de hora em hora
+  (`--time-limit=3600`) ou antes (memória): a volta de 15 min recomeçaria a contagem a cada reinício e poderia nunca
+  rodar. Com a âncora no passado, o próximo disparo é o próximo múltiplo do intervalo depois de agora (conta direta, sem
+  percorrer as voltas passadas, então sem enxurrada): 900 s em :00, :15, :30 e :45; 60 s no segundo 0 de cada minuto.
+  Provado com o `MessageGenerator` do Symfony em `VoltaRecorrenteTest`.
+- **Sem `stateful`**: o que passou da hora numa parada não roda ao voltar; a próxima volta vem no intervalo seguinte.
+  O estado e a trava do schedule `default` não são compartilhados.
+- **`processOnlyLastMissedRun(true)`**: com o worker ocupado numa mensagem longa (envio ao Drive, análise da IA), as
+  voltas perdidas nesse meio tempo viram **uma** por varredura, em vez de uma fila delas (todas seriam barradas pela
+  trava do banco, mas não há por que gerá-las).
+- **Trava própria**: `agendador-de-tarefas-cadeias` (`AgendaDasCadeias::TRAVA`), na mesma loja do `default`
+  (`lock.agendador.factory`, tabela `lock_keys`). Nome diferente porque o Checkpoint segura a trava enquanto o
+  consumidor vive: com o mesmo nome, o `scheduler` e o `worker` se bloqueariam. **Vida de 60 s**
+  (`VIDA_DA_TRAVA`): sem `pcntl`, o `docker stop` mata o worker sem soltar a trava (ver "Limitações conhecidas"), e
+  o worker novo espera ela expirar. Com 60 s, isso dá no máximo cerca de 2 min sem varredura depois de um deploy
+  (com os 300 s padrão do Symfony seriam até 6 min). O push recupera o atraso: manda lembretes vencidos há menos
+  de 2 h.
+- **Quem consome: o `worker`** (`jusprime_worker_prod`), não o contêiner `scheduler`. O worker sobe em todo deploy;
+  o `scheduler` fica desligado quando o crontab do host ainda tem as tarefas (`SEM_AGENDADOR=1`, `--scale
+  scheduler=0`) e as varreduras não podem parar por isso. Comando do worker: `messenger:consume scheduler_cadeias
+  comercial async`. O `scheduler_cadeias` vem primeiro porque é leve (só põe uma mensagem na fila, no máximo uma por
+  minuto) e uma fila longa de e-mails não pode atrasar o relógio das varreduras. O `scheduler` continua só com o
+  `scheduler_default`. O worker de DEV (`docker-compose.yml`, profile `worker`) consome o mesmo.
+- **Os handlers não se reagendam.** A trava no banco (`UPDATE ... WHERE ultima_em < agora - janela` no push e no
+  Google; `proxima_em <= agora`, gravando `agora + janela`, no Comercial) fica como **segunda proteção**, com a janela
+  reduzida para **metade do intervalo**: barra a volta repetida (mensagem antiga, dois workers), que chega segundos
+  depois, e não barra a volta legítima seguinte quando o worker a pega atrasada ou o relógio do Scheduler e o do
+  redispatch se desencontram em alguns segundos. Antes eram 45 s, 240 s, 840 s e 55 s (quase o intervalo inteiro:
+  qualquer adiantamento perderia a vez).
+- **Expansor**: sem nenhuma campanha ativa, sai antes de reivindicar (não escreve na linha de controle a cada minuto).
+  Uma campanha confirmada sai na volta do minuto seguinte (antes a confirmação a "acordava" na hora).
+- **Saíram**: `GarantirVarreduraDePush`, `GarantirVarreduraDoGoogle` (e as chamadas no `AgendaNovaController`, no
+  `InscreverPushUseCase` e no `ConectarGoogleAgendaUseCase`), o `SementeDoExpansor` (o "acordar" da confirmação e das
+  datas comemorativas e o "socorro" da varredura de 15 min), os métodos `estaParada` das marcas e os comandos
+  `app:agenda:push-varredura`, `app:agenda:google-varredura` e `app:comercial:varredura`. Os outros `DelayStamp`
+  (vazão do `EnviarEmailHandler`, `MudancaNaAgendaParaOGoogleListener`, `SincronizarGoogleDaPessoaHandler`) não são
+  cadeia e ficaram.
+- **Falha do gerador**: o `AvisoDeFalhaDoAgendador` ouve o `FailureEvent` de todos os schedules. Uma volta das
+  cadeias só falha ali se não conseguir pôr a mensagem na fila (banco fora); o aviso, o e-mail e a Central mostram o
+  nome curto da mensagem de dentro (ex.: `VarrerAutomacoes`), nunca o conteúdo. A falha do trabalho em si fica no
+  retry e no `failed` do transport, como antes.
+- **Limite de e-mails** (vale para os dois schedules): no máximo um e-mail por comando a cada 60 min. Antes de gravar,
+  o aviso consulta a falha anterior do mesmo comando (`FalhaAgendadaRepository::ultimaDoComando`); se ela é de menos
+  de 60 min antes da hora agendada desta, não manda e-mail. O log e a gravação (aviso na tela e Central) continuam
+  sempre. Consequência: enquanto um comando falha sem parar com menos de 60 min entre uma falha e outra (uma volta das
+  cadeias com o banco fora, a cada minuto), só a primeira falha da série vira e-mail; a tela e a Central mostram as
+  outras. Uma tarefa de hora em hora que falha toda hora avisa toda hora (a anterior está a 60 min, não a menos). Se
+  a consulta falhar, o e-mail sai.
+
+### Virada sem rodar dobrado
+
+Não há passo manual. No deploy, as mensagens antigas com `DelayStamp` que ainda estão em `messenger_messages` (uma por
+cadeia viva) rodam uma última vez com o código novo: disputam a trava no banco com as voltas do Scheduler, quem chega
+dentro da janela não faz nada, e nenhuma deixa continuação (o handler novo não se reagenda). Pior caso: uma volta a
+mais logo depois do deploy, barrada pela trava ou inofensiva (as varreduras são idempotentes: o push reserva cada
+lembrete, a sincronia do Google tem trava por conexão, o expansor trava as linhas do lote).
+
+**Volta para a versão anterior**: o código antigo não consome o `scheduler_cadeias` e depende da semente. Push e
+Google voltam sozinhos (a semente antiga roda a cada consulta de lembretes de qualquer tela aberta); as do Comercial
+precisam de `docker exec -w /var/www/app jusprime_worker_prod php bin/console app:comercial:varredura` (o comando
+existe na versão anterior). A volta automática do `deploy-automatico.sh` imprime esse comando num `::warning::`
+(caso no `testar-deploy-automatico.sh`). Ver DEPLOY.md.
+
 ## Próximos passos (fora deste PR)
 
-- **Cadeias com `DelayStamp`** (push-varredura, google-varredura, `comercial:varredura`,
-  `ExpandirCampanhas`): hoje se reagendam sozinhas com `DelayStamp` no worker. Passá-las para o Scheduler é
-  o PR seguinte, com spec própria (elas têm estado e vazão, não só horário).
 - Remover `scripts/sync-reconciliar.sh` e as menções antigas de crontab nas specs (DJEN, índices, Dashboard,
   sincronização) depois da virada confirmada.
 - Avaliar log da saída das execuções bem-sucedidas (hoje só aparece na falha).

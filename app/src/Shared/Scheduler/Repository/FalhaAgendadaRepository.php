@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Scheduler\Repository;
 
 use App\Entity\Auth\User;
+use App\Shared\Scheduler\AgendaDeTarefas;
 use App\Shared\Scheduler\Entity\FalhaAgendada;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
@@ -38,6 +39,18 @@ class FalhaAgendadaRepository extends ServiceEntityRepository
             'ocorrida_em' => Types::DATETIME_IMMUTABLE,
             'codigo_saida' => Types::INTEGER,
         ]);
+    }
+
+    /** Quando foi a falha mais recente do comando, para o limite de e-mails do aviso (uma por hora por comando). */
+    public function ultimaDoComando(string $comando): ?\DateTimeImmutable
+    {
+        $ultima = $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT MAX(ocorrida_em) FROM falha_agendada WHERE comando = ?',
+            [mb_substr($comando, 0, 255)],
+        );
+
+        // Gravada na hora de Brasília (registrar() recebe a hora agendada no fuso do agendador), sem fuso na coluna.
+        return \is_string($ultima) ? new \DateTimeImmutable($ultima, new \DateTimeZone(AgendaDeTarefas::FUSO)) : null;
     }
 
     /**
