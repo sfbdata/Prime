@@ -1,0 +1,38 @@
+{# Pendências de registro da própria pessoa (spec docs/specs/ponto-esquecimento-nao-trava.md R5): os dias dos últimos
+   30 com registro incompleto, neste escritório e nos outros em que ela tem vínculo ativo. Nenhuma trava a batida.
+   Neste escritório, o link abre o modal de esquecimento na folha do mês (`?esquecimento=AAAA-MM-DD:tipo`); nos outros,
+   o pedido se faz lá, então a orientação é trocar de escritório. Só a própria pessoa vê esta lista (o nome do outro
+   escritório não aparece em tela de admin nem na folha de outra pessoa). Texto pelo catálogo, bloco `ponto_pendencias`. #}
+{% if pendencias is not empty %}
+    <div id="pendencias-ponto" class="card card-outline card-warning mt-3">
+        <div class="card-header">
+            <h3 class="card-title mb-0"><i class="bi bi-exclamation-triangle text-warning me-1"></i>{{ 'ponto_pendencias.titulo'|trans }}</h3>
+        </div>
+        <div class="card-body py-2 px-3">
+            <p class="small text-muted mb-2">{{ 'ponto_pendencias.explicacao'|trans }}</p>
+            <ul class="list-unstyled small mb-0">
+                {% for p in pendencias %}
+                    <li class="border-top py-2" data-pendencia="{{ p.dia }}:{{ p.tipo }}" data-pendencia-escritorio="{{ p.escritorioId }}">
+                        <div>
+                            <strong>{{ p.dia|date('d/m/Y') }}</strong>
+                            <span class="text-muted">·</span>
+                            {{ ('ponto_pendencias.falta.' ~ p.tipo)|trans }}
+                        </div>
+                        <div class="text-muted">{{ p.escritorio }}</div>
+                        {% if p.atual %}
+                            <a class="btn btn-sm btn-outline-warning mt-1"
+                               href="{{ path('ponto_index', {competencia: p.dia|slice(0, 7), esquecimento: p.dia ~ ':' ~ p.tipo}) }}">
+                                <i class="bi bi-plus-circle me-1"></i>{{ 'ponto_pendencias.enviar'|trans }}
+                            </a>
+                        {% else %}
+                            <div class="mt-1">{{ 'ponto_pendencias.outro_escritorio'|trans({escritorio: p.escritorio}) }}</div>
+                            <a class="btn btn-sm btn-outline-secondary mt-1" href="{{ path('tenant_selecionar') }}">
+                                <i class="bi bi-arrow-left-right me-1"></i>{{ 'ponto_pendencias.trocar'|trans }}
+                            </a>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+{% endif %}

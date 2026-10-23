@@ -10,6 +10,10 @@ namespace App\Ponto\DTO;
  */
 final class EstadoDoPontoDoDiaOutput
 {
+    /**
+     * Um AVISO, não um estado da linha (spec `ponto-esquecimento-nao-trava.md` R3): vai em `aviso`, ao lado do estado
+     * de hoje, e nunca tira a batida. Até 23/10 substituía o estado.
+     */
     public const REGULARIZAR_ONTEM = 'regularizar_ontem';
     public const BATER_ENTRADA = 'bater_entrada';
     public const EM_INTERVALO = 'em_intervalo';
@@ -21,6 +25,7 @@ final class EstadoDoPontoDoDiaOutput
      * @param list<array{nome: string, latitude: float, longitude: float, raio: int}> $sedes
      * @param ?string $ontemSemSaida AAAA-MM-DD quando ontem tem entrada sem saída e a folha ofereceria o "+" da saída
      * @param ?int $interjornadaMinimaMin o descanso mínimo do escritório, para o aviso da saída; null com a validação desligada
+     * @param ?string $aviso REGULARIZAR_ONTEM quando há `ontemSemSaida`; null sem pendência de ontem
      */
     public function __construct(
         public readonly string $dia,
@@ -30,6 +35,7 @@ final class EstadoDoPontoDoDiaOutput
         public readonly array $sedes,
         public readonly ?string $ontemSemSaida,
         public readonly ?int $interjornadaMinimaMin,
+        public readonly ?string $aviso = null,
     ) {
     }
 }

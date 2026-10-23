@@ -238,6 +238,25 @@
         enviar(raiz.dataset.urlPedido, { plano: b.dataset.pedirPlano }).then((d) => avisar(d.mensagem || d.erro));
     }));
 
+    /* Modal do convênio OAB: abre pelo selo do plano gratuito; fecha pelo fundo, pelo X, por "Vamos crescer juntos" e por ESC */
+    const modalOab = $('[data-modal-oab]');
+    if (modalOab) {
+        let seloQueAbriu = null;
+        const fecharOab = () => {
+            modalOab.hidden = true;
+            if (seloQueAbriu) {
+                seloQueAbriu.focus();
+            }
+        };
+        $$('[data-abrir-oab]').forEach((b) => b.addEventListener('click', () => {
+            seloQueAbriu = b;
+            modalOab.hidden = false;
+            $('.ct-oab-fechar', modalOab).focus();
+        }));
+        $$('[data-fechar-oab]', modalOab).forEach((b) => b.addEventListener('click', fecharOab));
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modalOab.hidden) { fecharOab(); } });
+    }
+
     /* Toast guardado antes de recarregar (sugestão enviada) */
     const pendente = sessionStorage.getItem('ct-toast');
     if (pendente) {

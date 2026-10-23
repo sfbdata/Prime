@@ -82,8 +82,9 @@
            `change`; o filtro-tabela.js recarrega como se o usuário tivesse digitado.
            As quatro faixas são calculadas AQUI (servidor) e vão em data-de/data-ate: o
            dashboard.js só lê os atributos. Ativo = as duas datas batem com os campos.
-           O período padrão NÃO muda (decisão do dono pendente): sem datas, nenhum botão
-           fica ativo. `data_ate` é sempre hoje; só o começo varia. #}
+           Período padrão (decisão do dono, spec dashboard-parte-1): sem datas na URL, o
+           controller abre em Este mês; "Limpar filtros" volta para ele (dashboard.js).
+           `data_ate` é sempre hoje; só o começo varia. #}
         {% set hoje = 'now'|date('Y-m-d') %}
         {% set periodos = [
             { chave: 'mes', rotulo: 'dashboard.periodo.este_mes'|trans, de: 'now'|date('Y-m-01') },
@@ -314,11 +315,10 @@
        dashboard-preferencias.js o move para dentro do `.db-table-header` e o recoloca a cada
        recarga (o mesmo nó: o estado aberto/fechado e os ouvintes sobrevivem). Sem JS ele fica
        escondido: o estilo gravado continua valendo pelas classes do `.db-page`.
-       Só o que o sistema suporta de verdade: densidade, sons (do calendário), animações, setas,
-       colunas visíveis e "Adicionar coluna" (as 6 métricas com lastro do
-       ColunasExtrasDoDashboard). Fora (decisão do dono ou sem lastro): som do campeão (depende
-       do troféu, D-DASH), "Pastas concluídas" (a pasta não tem situação "concluída"), zerar
-       relatório. #}
+       Só o que o sistema suporta de verdade: densidade, sons (do calendário e do campeão, como no
+       README do desenho), animações, setas, colunas visíveis e "Adicionar coluna" (as métricas com
+       lastro do ColunasExtrasDoDashboard). Fora (decisão do dono ou sem lastro): "Pastas
+       concluídas" (a pasta não tem situação "concluída"), zerar relatório. #}
     {% set prefColunas = [
         { chave: 'cargo',           rotulo: 'dashboard.tabela.cargo'|trans },
         { chave: 'metas',           rotulo: 'dashboard.tabela.total_metas'|trans },
@@ -452,6 +452,8 @@
 <script src="{{ asset('js/dashboard-janelas.js') }}"></script>
 {# Botão direito num card: janela "Histórico" (DASH-017), sobre o componente acima. #}
 <script src="{{ asset('js/dashboard-historico.js') }}"></script>
+{# Troféu (fanfarra no hover) e cartão do colaborador (botão direito no nome), sobre as janelas. #}
+<script src="{{ asset('js/dashboard-campeao.js') }}"></script>
 {# Depois do motor de filtro: a contagem dos cards observa a região que ele recarrega. #}
 <script src="{{ asset('js/dashboard.js') }}"></script>
 {# Selects e calendário próprios da barra de filtros: escrevem nos nativos do parcial. #}

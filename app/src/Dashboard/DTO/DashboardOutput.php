@@ -72,5 +72,7 @@ final class DashboardOutput
          * @var array<string, int|null>|null
          */
         public readonly ?array $totaisExtrasAnteriores = null,
+        /** Quem leva o troféu (mais metas concluídas no período, total menos ativas; spec dashboard-parte-1). Null = ninguém. */
+        public readonly ?int   $campeaoId = null,
     ) {}
 }

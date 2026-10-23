@@ -80,8 +80,11 @@
         : 'bi-person-badge' %}
     {% set quem = linha.nomeAdvogado %}
     {% set qPessoa = { responsavel: linha.userId } %}
-    <div class="db-cel-card">
-        <div class="db-cel-cab">
+    {% set campeao = dashboard.campeaoId is not null and linha.userId == dashboard.campeaoId %}
+    <div class="db-cel-card{{ campeao ? ' db-tr-campeao' : '' }}"{% if campeao %} data-db-campeao{% endif %}>
+        <div class="db-cel-cab" data-db-colab-url="{{ path('dashboard_colaborador_ranking', {id: linha.userId}) }}"
+             data-db-colab-nome="{{ linha.nomeAdvogado }}" data-db-colab-av="{{ av }}"
+             title="{{ 'dashboard.tabela.botao_direito_desempenho'|trans({nome: linha.nomeAdvogado}) }}">
             {% if linha.fotoUrl %}
                 <img src="{{ path('app_profile_foto_serve', {nome: linha.fotoUrl}) }}"
                      alt="{{ linha.nomeAdvogado }}"
@@ -92,7 +95,7 @@
                 <span class="collab-avatar-inicial db-avatar db-avatar--{{ av }}">{{ iniciais }}</span>
             {% endif %}
             <div class="db-cel-ident">
-                <span class="db-cel-nome">{{ linha.nomeAdvogado }}</span>
+                <span class="db-cel-nome">{{ linha.nomeAdvogado }}{% if campeao %} <i class="bi bi-trophy-fill db-trofeu" title="{{ 'dashboard.tabela.trofeu_titulo'|trans }}" aria-label="{{ 'dashboard.tabela.trofeu_rotulo'|trans }}"></i>{% endif %}</span>
                 <span class="db-cel-cargo{{ linha.cargoNome is null ? ' db-cargo--vazio' : '' }}"><i class="bi {{ cargoIcone }}" aria-hidden="true"></i><span>{{ linha.cargoNome ?? 'dashboard.sem_cargo'|trans }}</span></span>
             </div>
         </div>

@@ -293,7 +293,8 @@ final class MetricasExtrasDoDashboardRepositoryTest extends KernelTestCase
         $sem = $contar([]);
         $com = $contar(ColunasExtrasDoDashboard::chaves());
 
-        self::assertSame(4, $com - $sem, sprintf('sem extras: %d consultas; com as 6: %d', $sem, $com));
+        // 4 métricas com uma consulta cada + Relatório, uma por tabela (Dados da pasta, Financeiro, Detalhes).
+        self::assertSame(7, $com - $sem, sprintf('sem extras: %d consultas; com as 7: %d', $sem, $com));
         self::assertSame($sem, $contar([ColunasExtrasDoDashboard::METAS_CONCLUIDAS, ColunasExtrasDoDashboard::TAXA_CONCLUSAO]), 'concluídas e taxa não consultam o banco');
     }
 }

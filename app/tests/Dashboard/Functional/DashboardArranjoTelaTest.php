@@ -136,7 +136,7 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         PastaFactory::createMany(2, ['tenant' => $tenant, 'criadoPor' => $gestora]);
         PastaFactory::createMany(3, ['tenant' => $tenant, 'criadoPor' => $outro]);
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
 
         self::assertResponseIsSuccessful();
 
@@ -240,7 +240,7 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         self::assertCount(1, $crawler->filter('.db-page [data-filtro-root] > .db-print-rodape'));
 
         // sem datas: período aberto
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
         self::assertSame('início a hoje', trim($crawler->filter('.db-print-cabecalho .db-print-periodo')->text()));
     }
 
