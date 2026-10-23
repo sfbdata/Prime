@@ -59,3 +59,6 @@ dd37748b567e5746f58ffe6050003c51d26e51f7:app/tests/Comercial/Functional/Montador
 
 # F3i (21/10/2026): token fictício de teste ('0123456789abcdef' repetido), sem valor real.
 d8b27ac180b649a322799fc7afb929c68e716601:app/tests/Comercial/Unit/ImagensDaCampanhaTest.php:generic-api-key:31
+
+# Scheduler (23/10/2026): mesmo token fictício sequencial das guardas de deploy, caso SEM_AGENDADOR.
+347a7ab5c83435fa0853a600ae75a8c6f22f8e33:scripts/testar-deploy-guardas.sh:github-pat:220

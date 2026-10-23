@@ -318,6 +318,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // para o LOG DE DOMÍNIO da vaga (HistoricoVaga) e cada etapa guarda a própria data; é dado do
         // candidato, que some com o currículo excluído (LGPD), pelo mesmo motivo do Curriculo acima.
         \App\TrabalhoExterno\Entity\Candidatura::class,
+        // Falha de tarefa agendada (spec scheduler-tarefas-agendadas): gravada pelo agendador, sem sessão nem
+        // escritório, e o audit_log é por escritório. A própria linha guarda quem dispensou e quando.
+        \App\Shared\Scheduler\Entity\FalhaAgendada::class,
     ];
 
     private EntityManagerInterface $em;
