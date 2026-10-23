@@ -53,7 +53,12 @@ services:
     entrypoint: []
     # --time-limit + --memory-limit fazem o consumidor sair periodicamente; o restart o traz de volta
     # com memória fresca (padrão recomendado para workers de longa duração).
-    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    # `scheduler_cadeias` (App\Shared\Scheduler\AgendaDasCadeias) gera as varreduras do push, do Google Agenda,
+    # das automações e do expansor de campanhas, que vão para `comercial` e `async`. Fica AQUI, não no serviço
+    # `scheduler`: o worker sobe em todo deploy, e o agendador pode ficar desligado pela trava do crontab. Vem
+    # primeiro porque é leve (só põe uma mensagem na fila, no máximo uma por minuto) e uma fila longa de e-mails
+    # não pode atrasar o relógio das varreduras.
+    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "scheduler_cadeias", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
     volumes:
       # MESMO volume de uploads do php/nginx: o worker precisa LER o arquivo recém-anexado para
       # enviá-lo ao Drive (Via A) e GRAVAR os que baixar (Via B) no armazenamento compartilhado.

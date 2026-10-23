@@ -40,7 +40,6 @@ final class DisparoDasDatasComemorativas
         private readonly ModelosDeCampanha $modelos,
         private readonly ComposicaoDaCampanha $composicao,
         private readonly ChaveDasCampanhas $chave,
-        private readonly SementeDoExpansor $expansor,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -63,9 +62,6 @@ final class DisparoDasDatasComemorativas
         $criadas = 0;
         foreach ($devidas as $chave => [$data, $publico]) {
             $criadas += $this->criar($chave, $data, $publico, $agora) ? 1 : 0;
-        }
-        if ($criadas > 0) {
-            $this->expansor->acordar($agora);
         }
 
         return $criadas;

@@ -4688,6 +4688,9 @@ pasta_financeiro:
         email_corpo: 'Segue o arquivo "{titulo}" referente à pasta {pasta}.'
         ver_documentos: Ver em Documentos
         excluir: Excluir
+        assinado: Assinado
+        marcar_assinado: Marcar como assinado
+        desmarcar_assinado: Desmarcar assinatura
         ver_outros: 'ver os outros {quantidade} no gerenciador'
         reduzir: Reduzir tamanho ao enviar
         reduzir_nota: Envios mantêm o arquivo original, recomendado para contratos assinados.
@@ -4758,6 +4761,10 @@ pasta_financeiro:
         arquivos_vazio: Nenhum arquivo financeiro anexado.
         erro_enviar_arquivo: Erro ao enviar arquivo.
         erro_renomear: Erro ao renomear.
+        assinado: Assinado
+        marcar_assinado: Marcar como assinado
+        desmarcar_assinado: Desmarcar assinatura
+        erro_assinatura: Não foi possível alterar a assinatura.
         excluir_arquivo_nome: 'Excluir o arquivo "{nome}" do Financeiro?'
         excluir_arquivo: Excluir este arquivo? Esta ação não pode ser desfeita.
         # menus

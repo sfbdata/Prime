@@ -15,7 +15,6 @@ use App\Comercial\Entity\CampanhaDeEmail;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Service\MontadorDeEmail;
-use App\Comercial\Service\SementeDoExpansor;
 use App\Entity\Auth\User;
 use Psr\Clock\ClockInterface;
 
@@ -28,8 +27,8 @@ use Psr\Clock\ClockInterface;
  *   3. confere a mensagem, a âncora do modelo `vagas` (§11: só no modo simples com o botão para as vagas), a data
  *      ("Escolha uma data futura.") e o público ("Nenhum destinatário nesta lista."), resolvido com o modelo;
  *   4. grava a cópia congelada, o público (no CSV e no Individual, só os e-mails que passaram) e a trilha manual
- *      (`camp_conf`, `{publico, frequencia, total}`), numa transação;
- *   5. acorda o expansor.
+ *      (`camp_conf`, `{publico, frequencia, total}`), numa transação. O expansor a pega na volta seguinte (a cada
+ *      minuto, pelo schedule `cadeias`).
  *
  * F3i (§12): a imagem do modo simples precisa existir e não ter vencido ("A imagem expirou; envie de novo."); gravada a
  * campanha, a validade dela vai a 1 ano e o uso fica marcado, na mesma transação.
@@ -47,7 +46,6 @@ final class ConfirmarCampanhaUseCase
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly PublicosDaCampanha $publicos,
         private readonly ComposicaoDaCampanha $composicao,
-        private readonly SementeDoExpansor $expansor,
         private readonly MontadorDeEmail $montador,
         private readonly ClockInterface $relogio,
         private readonly ImagensDaCampanha $imagens,
@@ -70,7 +68,6 @@ final class ConfirmarCampanhaUseCase
             throw new CampanhaRecusada(self::SEM_DESTINATARIOS);
         }
         $id = $this->gravar($pedido, $publico, $master, $agora);
-        $this->expansor->acordar($agora);
 
         return $this->confirmada($id, $publico->total(), $pedido);
     }

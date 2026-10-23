@@ -12,7 +12,9 @@ use Symfony\Component\Console\Messenger\RunCommandMessage;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Scheduler\Event\FailureEvent;
@@ -38,6 +40,9 @@ final class AvisoDeFalhaDoAgendador
 {
     /** Quanto da saída do comando vai para o log e para o e-mail (o fim, onde costuma estar o erro). */
     private const LIMITE_DA_SAIDA = 2000;
+
+    /** No máximo um e-mail por comando nesse intervalo (a falha anterior do mesmo comando é a referência). */
+    private const INTERVALO_ENTRE_EMAILS = '-60 minutes';
 
     public function __construct(
         private readonly LoggerInterface $logger,
@@ -68,8 +73,28 @@ final class AvisoDeFalhaDoAgendador
         ]);
 
         $classe = $this->classeDoErro($falha ?? $evento->getError());
+        // Antes de gravar a desta vez: a consulta procura a falha anterior do mesmo comando.
+        $avisadoHaPouco = $this->falhouHaPouco($comando, $quando);
         $this->registrarFalha($comando, $quando, $classe, $falha?->context->exitCode);
-        $this->avisarPorEmail($comando, $quando, $classe, $falha?->context->exitCode);
+        if (!$avisadoHaPouco) {
+            $this->avisarPorEmail($comando, $quando, $classe, $falha?->context->exitCode);
+        }
+    }
+
+    /**
+     * Limite dos e-mails: o mesmo comando falhou há menos de {@see self::INTERVALO_ENTRE_EMAILS} (uma volta das cadeias
+     * falha a cada minuto com o banco fora). O log e a gravação continuam sempre. Uma falha na consulta não segura o
+     * e-mail: na dúvida, avisa.
+     */
+    private function falhouHaPouco(string $comando, \DateTimeImmutable $quando): bool
+    {
+        try {
+            $ultima = $this->falhas->ultimaDoComando($comando);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $ultima !== null && $ultima > $quando->modify(self::INTERVALO_ENTRE_EMAILS);
     }
 
     /**
@@ -118,6 +143,12 @@ final class AvisoDeFalhaDoAgendador
     {
         if ($mensagem instanceof RunCommandMessage) {
             return strtok(trim($mensagem->input), ' ') ?: $mensagem->input;
+        }
+        // Volta do schedule `cadeias`: o nome curto da mensagem de dentro (ex.: VarrerAutomacoes), sem o conteúdo.
+        if ($mensagem instanceof RedispatchMessage) {
+            $dentro = $mensagem->envelope instanceof Envelope ? $mensagem->envelope->getMessage() : $mensagem->envelope;
+
+            return substr(strrchr('\\' . $dentro::class, '\\') ?: '', 1);
         }
 
         return get_debug_type($mensagem);

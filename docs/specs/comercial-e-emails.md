@@ -149,8 +149,8 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   2. P1 (provedor), P2 ("Ao abrir uma conta" travado em ligado; recomendação: sim) e P4 (retenção de 24 meses;
      recomendação: sim) e as do pacote anterior (A2, A3, B1, reply-to, C3), com o coordenador.
   3. Deploy: este PR muda o comando do `jusprime_worker_prod` para `messenger:consume comercial async`
-     (docker-compose.prod.yml); o worker precisa ser recriado no deploy. Depois, rodar
-     `php bin/console app:comercial:varredura` uma vez (semeia a cadeia; idempotente).
+     (docker-compose.prod.yml); o worker precisa ser recriado no deploy. (O `app:comercial:varredura` que semeava
+     a cadeia saiu em 23/10/2026: a varredura passou ao schedule `cadeias`, ver `docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler".)
   4. `SYMFONY_TRUSTED_PROXIES` na VPS, para o IP real nos limitadores e na prova de consentimento.
   5. Os merges, na ordem: #82 → #87 (0d) → esta 1a.
 - **Pendências:** respostas do dono; consulta de datas de descadastro à 0d (fatia 3); `CITA_RASTREIO_DE_EMAIL` com a f6
@@ -409,11 +409,13 @@ conta.
 **Ouvintes nunca derrubam o fluxo (I3):** todo ouvinte de evento desta frente captura qualquer exceção, registra no
 log sem dado pessoal (só ids e a chave da automação) e segue. O usuário nunca recebe erro por causa de um e-mail.
 
-**Varredura (M3):** mensagem `VarrerAutomacoes`, no transporte `comercial`, que se reagenda a cada 15 min
-(`DelayStamp`). Controle `comercial_varredura` (`id` fixo 1, `proxima_em`, `executada_em`): o handler reivindica com
-`UPDATE ... SET executada_em = :agora, proxima_em = :agora + 15 min WHERE id = 1 AND proxima_em <= :agora`; zero
-linhas, outra cadeia já passou e esta morre. O comando `app:comercial:varredura` (idempotente) semeia a cadeia e
-pode rodar a qualquer momento (no deploy ou à mão); se a cadeia morrer em `failed`, rodar o comando de novo resolve.
+**Varredura (M3):** mensagem `VarrerAutomacoes`, no transporte `comercial`, disparada a cada 15 min pelo schedule
+`cadeias` do Symfony Scheduler (desde 23/10/2026; antes se reagendava com `DelayStamp` e era semeada pelo
+`app:comercial:varredura`, que saiu; ver `docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler"). Controle `comercial_varredura` (`id` fixo 1,
+`proxima_em`, `executada_em`): o handler reivindica com
+`UPDATE ... SET executada_em = :agora, proxima_em = :agora + 450 s WHERE id = 1 AND proxima_em <= :agora` (metade do
+intervalo); zero linhas, outra volta acabou de passar e esta não faz nada. O handler não se reagenda: uma volta que
+falha vai para `failed` e a seguinte vem 15 min depois, sem comando para religar.
 
 ### 3.5 Os gatilhos da 1a
 
@@ -736,13 +738,14 @@ primeira execução). (A9) Rótulos e cores do dc (L586) para
   agendada/enfileirada: N e-mail(s). O servidor envia em lotes e registra entregas, aberturas e cliques." (L560); com o
   rastreio desligado, "aberturas e cliques" seria falso: a frase termina em "registra as entregas." até o rastreio
   ligar. **A confirmar.** (R11) O N da confirmação é o da hora; o da execução pode mudar (novos cadastros, descadastros).
-- **Expansor** (R4, R5, R10, A5): cadeia `ExpandirCampanhas` no transporte `comercial`, com **linha de controle**
+- **Expansor** (R4, R5, R10, A5): volta `ExpandirCampanhas` no transporte `comercial`, com **linha de controle**
   `comercial_expansor` (id 1, `proxima_em`) e **reivindicação atômica** como a varredura da 1a (`UPDATE ... SET
   proxima_em = :depois WHERE id = 1 AND proxima_em <= :agora`; quem não reivindica sai sem fazer nada, então
   despachos extras não criam cadeia paralela). Campanha **ativa** = `na_fila`, `agendada`, `enviando` ou `recorrente`.
-  Com alguma ativa, a cadeia se reagenda a cada 60 s; sem nenhuma, para. A confirmação põe `proxima_em = agora` e
-  despacha. **Rede de segurança:** a `VarrerAutomacoes` (15 min) despacha a cadeia se houver ativa e `proxima_em`
-  estiver mais de 5 min no passado. Semeada também pelo `app:comercial:varredura`. A cada volta: confere a chave
+  Desde 23/10/2026 o schedule `cadeias` a dispara a cada 60 s (`docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler"); sem nenhuma ativa,
+  ela sai sem tocar na linha. A janela da reivindicação é de 30 s (metade do intervalo). Saíram o reagendamento com
+  `DelayStamp`, o "acordar" da confirmação (a campanha confirmada sai na volta do minuto seguinte), a rede de
+  segurança da `VarrerAutomacoes` e a semente do `app:comercial:varredura`. A cada volta: confere a chave
   (8.1.2); materializa a execução devida em `comercial_campanha_destino` (`campanha_id`, `execucao`, `email`, `nome`,
   `envio_id`; UNIQUE nos três primeiros); libera um lote dentro de **uma transação da conexão**: `SELECT ... WHERE
   envio_id IS NULL FOR UPDATE SKIP LOCKED LIMIT n`, `Carteiro::enviar` e grava o `envio_id` (o Carteiro vira savepoint
