@@ -1,6 +1,16 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.15.0"
+  data: "2026-10-23"
+  itens:
+    - "No Contribua, o plano gratuito mostra o convênio com a OAB e, ao clicar, tudo o que já está liberado para o advogado."
+    - "Os planos pagos indicam que servem para ganhar mais espaço."
+    - "Agora dá para duplicar uma meta pelo menu da própria meta, e desfazer logo em seguida se foi sem querer."
+    - "Toda meta nova precisa de prazo e de pelo menos um responsável; o prazo já vem sugerido para daqui a 7 dias."
+    - "Agora dá para mover uma pasta para outra carteira (área do direito) pelo menu ⋮ da pasta. A mudança fica registrada no histórico."
+    - "Esquecer uma batida não impede mais de registrar o ponto: a tela mostra a pendência e o caminho para enviar o registro de esquecimento."
+    - "Na aba Processo da pasta, o menu de opções agora tem \"Editar ação da pasta\". A alteração fica registrada no histórico da pasta."
 - versao: "2.14.0"
   data: "2026-10-23"
   itens:
