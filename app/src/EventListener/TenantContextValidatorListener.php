@@ -73,12 +73,15 @@ final class TenantContextValidatorListener
         'indicacao_janela',
         'indicacao_email',
         'indicacao_canal',
-        // Janela "Como devemos tratar você?" (spec genero-no-cadastro): aparece também para quem está sem escritório
-        // (a seleção de escritório com o layout, o Convidado do Trabalho Externo). Grava só o gênero do próprio
-        // usuário (getUser()), dado da pessoa, sem tenant.
-        'app_profile_genero',
-        'app_profile_genero_fechar',
     ];
+
+    /**
+     * Rotas que passam SEM escritório na sessão, mas que, com escritório, enfrentam as barreiras de sempre (conta
+     * suspensa, vínculo removido, em análise). A janela "Como devemos tratar você?" (spec genero-no-cadastro, D2)
+     * aparece também na seleção de escritório e para o Convidado do Trabalho Externo; os POSTs dela só gravam o gênero
+     * do próprio usuário (getUser()), dado da pessoa, sem tenant.
+     */
+    private const ROTAS_SEM_ESCRITORIO = ['app_profile_genero', 'app_profile_genero_fechar'];
 
     /**
      * Prefixo de rotas que funcionam SEM escritório: o Trabalho Externo atende o Convidado, que só
@@ -126,7 +129,7 @@ final class TenantContextValidatorListener
             }
             // Só no ramo SEM escritório: com escritório na sessão, o vínculo continua conferido
             // abaixo, para o Trabalho Externo também.
-            if (str_starts_with($route, self::PREFIXO_SEM_ESCRITORIO)) {
+            if (str_starts_with($route, self::PREFIXO_SEM_ESCRITORIO) || in_array($route, self::ROTAS_SEM_ESCRITORIO, true)) {
                 return;
             }
 

@@ -12,6 +12,7 @@ use App\Profile\Controller\GeneroDoPerfilController;
 use App\Profile\Entity\UserProfile;
 use App\Profile\Enum\Genero;
 use App\Profile\Twig\JanelaDoGeneroExtension;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -216,6 +217,46 @@ final class JanelaDoGeneroTest extends JusPrimeWebTestCase
 
         // Com um escritório só, a seleção escolheria por ele: o Master fica no painel dele, sem escritório na sessão.
         $this->provarSalvarEFecharSemEscritorio($user, '/master');
+    }
+
+    #[TestDox('Com escritório na sessão, o POST da janela passa pelas barreiras de sempre: vínculo suspenso, vínculo removido ou conta suspensa vão para a seleção, sem gravar')]
+    public function testComEscritorioAsBarreirasValem(): void
+    {
+        foreach (['vinculo_suspenso', 'vinculo_removido', 'conta_suspensa'] as $caso) {
+            $this->client->getCookieJar()->clear();
+            // Escritório novo a cada caso: o generoDe() limpa o EntityManager.
+            $this->tenant = (new Tenant())->setName('Escritório Barreira ' . uniqid());
+            $this->em->persist($this->tenant);
+            $user = $this->usuario(null);
+            $this->abrir($user);
+            $token = $this->csrf();
+
+            $vinculo = $this->em->getRepository(UserTenant::class)->findOneBy(['user' => $user->getId(), 'tenant' => $this->tenant->getId()]);
+            self::assertNotNull($vinculo);
+            match ($caso) {
+                'vinculo_suspenso' => $vinculo->alterarSituacao(SituacaoNaEquipe::Suspenso),
+                'vinculo_removido' => $this->em->remove($vinculo),
+                'conta_suspensa'   => $vinculo->getTenant()->setIsActive(false),
+            };
+            $this->em->flush();
+
+            $this->postar('/perfil/genero', ['genero' => 'feminino', '_token' => $token]);
+            self::assertResponseRedirects('/escritorio/selecionar', null, $caso);
+            self::assertNull($this->generoDe($user), $caso);
+        }
+    }
+
+    #[TestDox('No gate dos Termos (/termos/aceitar), quem não tem gênero não vê a janela')]
+    public function testNaoApareceNoGateDosTermos(): void
+    {
+        $user = $this->usuario(null);
+        $this->client->loginUser($user);
+
+        $this->client->request('GET', '/termos/aceitar');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('[data-janela-genero]');
+        self::assertStringNotContainsString('Como devemos tratar você?', (string) $this->client->getResponse()->getContent());
     }
 
     /** Login sem escritório na sessão; o token vem da janela de uma tela com o layout (a seleção ou o painel). */

@@ -63,8 +63,9 @@ se der para gravar o gênero no perfil já na criação da conta; a 150500 só s
   Consequência aceita: quem tem o legado e salva o Meu Perfil (por qualquer motivo) passa a ter o gênero nulo, porque
   o campo abre vazio. Pela D1 os dois querem dizer "não preenchido", e há 0 registros; o código não trata à parte.
 - **D2 (revisão, 23/10): a janela funciona sem escritório na sessão.** Os POSTs `app_profile_genero` e
-  `app_profile_genero_fechar` estão nas rotas ignoradas do `TenantContextValidatorListener` (só usam o usuário logado),
-  e o JS só dá por sucesso a resposta 2xx sem redirecionamento com `{ok: true}`; senão a janela fica, com "Não foi
+  `app_profile_genero_fechar` passam no `TenantContextValidatorListener` só no ramo SEM escritório na sessão
+  (`ROTAS_SEM_ESCRITORIO`; só usam o usuário logado); com escritório, enfrentam as barreiras de sempre (conta suspensa,
+  vínculo removido, em análise ou suspenso). A janela não aparece no gate dos Termos (tela sem o layout). O JS só dá por sucesso a resposta 2xx sem redirecionamento com `{ok: true}`; senão a janela fica, com "Não foi
   possível salvar. Tente de novo.". Com o aviso de espaço aberto, a janela entra logo abaixo dele, sem cobrir.
 
 ## Testes
