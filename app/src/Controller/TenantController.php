@@ -89,6 +89,14 @@ final class TenantController extends AbstractController
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
     ) {}
 
+    /** O sucesso do "aprovar todos"; com todos pulados (batida já registrada), só os avisos deles ficam. */
+    private function avisarAbonadas(int $abonadas): void
+    {
+        if ($abonadas > 0) {
+            $this->addFlash('success', sprintf('%d justificativa(s) abonada(s) com sucesso.', $abonadas));
+        }
+    }
+
     /**
      * Tira do "aprovar todos" o esquecimento cuja batida já existe no dia (spec `ponto-esquecimento-nao-trava.md` R1):
      * ele fica pendente, para o admin decidir, e o motivo vai num aviso.
@@ -1396,7 +1404,7 @@ final class TenantController extends AbstractController
 
         $entityManager->flush();
 
-        $this->addFlash('success', sprintf('%d justificativa(s) abonada(s) com sucesso.', count($pendentes)));
+        $this->avisarAbonadas(count($pendentes));
 
         return $this->redirectToRoute('app_tenant_user_edit_role', [
             'tenantId' => $tenantId,

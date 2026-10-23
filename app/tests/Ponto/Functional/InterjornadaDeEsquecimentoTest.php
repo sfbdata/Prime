@@ -219,6 +219,32 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         self::assertStringContainsString(sprintf(BatidaJaRegistrada::MENSAGEM, 'saída'), (string) $this->client->getResponse()->getContent());
     }
 
+    #[TestDox('O "aprovar todos" que pula todos os pedidos (batida já registrada) mostra só os avisos, sem o "0 justificativa(s) abonada(s)"')]
+    public function testAprovarTodosQuePulaTudoNaoMostraSucesso(): void
+    {
+        $ontem = new \DateTimeImmutable('yesterday 18:00');
+        $this->batida('entrada', $ontem->setTime(8, 0));
+        $this->batida('saida', $ontem);
+        $pedido = $this->esquecimentoDaSaida($ontem->setTime(17, 0));
+        $pedido->setBatchId('lote-todo-pulado');
+        $this->em()->flush();
+        $admin = $this->user(['ROLE_SUPER_ADMIN']);
+        $this->em()->persist(new UserTenant($admin, $this->tenant));
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $admin, $this->tenant);
+
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/batch/lote-todo-pulado/aprovar-todos', $this->tenant->getId(), $this->user->getId()), [
+            '_token' => 'TOKEN_justificativa_aprovar_todos_lote-todo-pulado',
+        ]);
+        self::assertResponseRedirects();
+        $this->client->followRedirect();
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString(sprintf(BatidaJaRegistrada::MENSAGEM, 'saída'), $html);
+        self::assertStringNotContainsString('justificativa(s) abonada(s) com sucesso', $html);
+        self::assertSame('pendente', $this->em()->getConnection()->fetchOne('SELECT status FROM justificativa_ponto WHERE id = ?', [$pedido->getId()]));
+    }
+
     #[TestDox('O lançamento em lote do admin também confere: esquecimento de saída num dia que já tem saída batida é recusado, sem justificativa nem batida nova')]
     public function testLoteRecusadoComSaidaJaBatida(): void
     {
