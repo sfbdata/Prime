@@ -18,7 +18,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Excluir pasta é mandar para a lixeira: TODA exclusão vira lápide restaurável, inclusive a da
- * última pasta da sequência (desenho 02 Expedientes, "vai para a lixeira por 30 dias"). Nenhuma
+ * última pasta da sequência (desenho 02 Expedientes; sem prazo nem purga, decisão do dono em 23/10). Nenhuma
  * linha sai do banco e nenhum arquivo sai do disco: o UseCase não tem mais nem como removê-los
  * (não recebe armazenamento), e o dublê do EM recusa `remove()`.
  *

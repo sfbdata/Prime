@@ -161,7 +161,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects("/pasta/{$id}");
         $crawler = $client->followRedirect();
-        self::assertStringContainsString('Pasta 500 enviada para a lixeira (restaurável por 30 dias)', $crawler->text());
+        self::assertStringContainsString('Pasta 500 enviada para a lixeira (restaurável a qualquer momento)', $crawler->text());
         self::assertCount(1, $crawler->filter('.ps-cab-excluida'), 'A pasta na lixeira mostra a faixa de excluída.');
         self::assertCount(1, $crawler->filter('form[action$="/restaurar"]'), 'A pasta na lixeira oferece o Restaurar.');
 
@@ -189,7 +189,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$id}/deletar", ['_token' => 'TOKEN_delete_pasta_' . $id, 'confirmar_nup' => '1238']);
 
         self::assertResponseRedirects("/pasta/{$id}");
-        self::assertStringContainsString('Pasta 1238 enviada para a lixeira (restaurável por 30 dias)', $client->followRedirect()->text());
+        self::assertStringContainsString('Pasta 1238 enviada para a lixeira (restaurável a qualquer momento)', $client->followRedirect()->text());
         $pasta = $this->recarregar($id);
         self::assertNotNull($pasta);
         self::assertTrue($pasta->estaExcluida(), 'Com o número certo a pasta precisa virar lápide.');

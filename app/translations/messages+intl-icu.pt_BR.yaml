@@ -8948,7 +8948,7 @@ pasta_cabecalho:
             excluir: Excluir pasta
             excluir_pergunta: 'Excluir a pasta {nup}?'
             excluir_pergunta_cliente: 'Excluir a pasta {nup} ({cliente})?'
-            excluir_registro: Essa ação vai para a lixeira por 30 dias e fica registrada no histórico.
+            excluir_registro: Essa ação vai para a lixeira e fica registrada no histórico.
             excluir_digite: 'Para confirmar, digite o número da pasta:'
             excluir_nao_confere: Número não confere. A pasta não foi excluída.
         excluida:

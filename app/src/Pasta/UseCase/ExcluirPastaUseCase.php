@@ -14,7 +14,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * Exclui a pasta mandando-a para a lixeira: vira lápide, restaurável pelo `RestaurarPastaUseCase`.
  *
  * Vale para TODA pasta, inclusive a última da sequência (desenho 02 Expedientes, `menuPasta`
- * ('excluir'): "Essa ação vai para a lixeira por 30 dias"). A linha fica com `excluida_em`/
+ * ('excluir'), sem o prazo de 30 dias do desenho: decisão do dono em 23/10, a lixeira de pastas não
+ * tem purga e a pasta fica nela até ser restaurada). A linha fica com `excluida_em`/
  * `excluida_por` preenchidos e situação ARQUIVADA; os arquivos ficam no disco, a lixeira da aba
  * Documentos fica como está. A pasta continua na lista do Expediente, riscada, e fica
  * somente-leitura (a trava é do `PastaSomenteLeituraListener`).
