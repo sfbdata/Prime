@@ -322,7 +322,7 @@ canAccessModule($u, $t, 'clientes')          == hasPermission($u, $t, 'modules.c
 | `admin.tenant.settings.manage` | `TenantController` (l. 80, 174, 200) + `FeriadoController` (l. 39) | Cobre tenant index, show, edit e feriados | Uma permissão protege 4 telas e 2 itens de sidebar distintos |
 | `admin.servicedesk.manage` | `ServiceDeskController` (l. 74, 209, 246, 286, 333) | Dashboard + 4 ações | — |
 | `admin.ponto.manage` | `TenantController` (l. 1516, 1570, 1636) | Criar/editar/excluir sede — sem listagem protegida | — |
-| `admin.audit.view` | `AuditLogController` (l. 38) | Apenas listagem | — |
+| `admin.audit.view` | `AuditLogController` (l. 38) | Listagem e desfazer | Desfazer Sede exige também `admin.ponto.manage`; Cargo e Lotação, `admin.tenant.settings.manage`; Chamado, anexo e interação, `admin.servicedesk.manage`; Evento, `admin.users.manage` ou ser o criador; LegendaCor não se desfaz (achado de auditoria interna F19) |
 | `admin.tarefas.manage` | **NENHUM** | — | **Permissão fantasma** — existe no catálogo e na sidebar mas nenhum controller a verifica |
 
 ### Seção admin da sidebar
@@ -662,6 +662,14 @@ Em produção (migration) e em desenvolvimento (fixtures), o catálogo
 Na sidebar, o item "Financeiro" usa `can_access_module('clientes')` e
 aponta para `cliente_index`. O label exibido é "Financeiro" mas a
 chave de permissão e a rota são do módulo `clientes`.
+
+### L1. Posição da batida informada pelo navegador (limitação conhecida)
+
+A numeração desta seção é do documento; o achado citado é o da auditoria interna.
+
+Achado de auditoria interna F17: a cerca do ponto decide pela posição informada pelo navegador; o
+servidor não confirma a posição; alcance limitado à batida do próprio funcionário; mitigação futura
+possível: IP da batida (exige migration e decisão do dono). Spec `docs/specs/seguranca-b-ponto.md` §1.4.
 
 ---
 
