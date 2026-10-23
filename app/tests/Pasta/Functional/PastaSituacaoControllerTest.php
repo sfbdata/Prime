@@ -209,7 +209,38 @@ final class PastaSituacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(9, (int) $this->em()->getConnection()->fetchOne('SELECT atual FROM pasta_andamento WHERE pasta_id = ?', [$pasta->getId()]), 'arquivar pelo modal também finaliza');
     }
 
+    #[TestDox('"Pastas concluídas" do Dashboard: arquivar grava arquivada_em, arquivar de novo não troca, desarquivar apaga; pelo modal também')]
+    public function testDataDeArquivamento(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->mudar($pasta, 'arquivado');
+        $primeira = $this->arquivadaEm($pasta);
+        self::assertNotNull($primeira);
+        $this->em()->getConnection()->executeStatement("UPDATE pasta SET arquivada_em = '2026-01-02 03:04:05' WHERE id = ?", [$pasta->getId()]);
+
+        $this->mudar($pasta, 'arquivado');
+        self::assertSame('2026-01-02 03:04:05', $this->arquivadaEm($pasta), 'continuar arquivada não troca a data');
+        $this->editar($pasta, ['nup' => (string) $pasta->getNup(), 'situacao' => 'arquivado']);
+        self::assertSame('2026-01-02 03:04:05', $this->arquivadaEm($pasta), 'o modal regrava a situação sem trocar a data');
+
+        $this->mudar($pasta, 'suspenso');
+        self::assertNull($this->arquivadaEm($pasta));
+
+        $this->editar($pasta, ['nup' => (string) $pasta->getNup(), 'situacao' => 'arquivado']);
+        self::assertNotNull($this->arquivadaEm($pasta), 'arquivar pelo modal grava a data');
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
+
+    private function arquivadaEm(Pasta $pasta): ?string
+    {
+        $valor = $this->em()->getConnection()->fetchOne('SELECT arquivada_em FROM pasta WHERE id = ?', [$pasta->getId()]);
+
+        return $valor === null ? null : (string) $valor;
+    }
 
     /** @param array<string, string> $dados */
     private function editar(Pasta $pasta, array $dados): void

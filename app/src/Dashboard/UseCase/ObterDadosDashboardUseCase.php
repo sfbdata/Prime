@@ -254,12 +254,13 @@ final class ObterDadosDashboardUseCase
         $mapas = [];
         foreach ($colunasExtras as $coluna) {
             $mapas[$coluna] = match ($coluna) {
-                Extras::METAS_REVISAO   => $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, $filtros, $pastasOcultas),
-                Extras::TEMPO_MEDIO     => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros, $pastasOcultas),
-                Extras::PASTAS_URGENTES => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros, $pastasOcultas),
-                Extras::EVENTOS_AGENDA  => $this->metricasExtras->contarEventosPorPessoa($tenant, $filtros, $pessoas),
-                Extras::RELATORIO       => $this->metricasExtras->contarRegistrosPorAutor($tenant, $filtros, $pastasOcultas),
-                default                 => [],
+                Extras::METAS_REVISAO     => $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, $filtros, $pastasOcultas),
+                Extras::TEMPO_MEDIO       => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros, $pastasOcultas),
+                Extras::PASTAS_URGENTES   => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros, $pastasOcultas),
+                Extras::PASTAS_CONCLUIDAS => $this->metricasExtras->contarArquivadasPorResponsavel($tenant, $filtros, $pastasOcultas),
+                Extras::EVENTOS_AGENDA    => $this->metricasExtras->contarEventosPorPessoa($tenant, $filtros, $pessoas),
+                Extras::RELATORIO         => $this->metricasExtras->contarRegistrosPorAutor($tenant, $filtros, $pastasOcultas),
+                default                   => [],
             };
         }
 

@@ -203,6 +203,43 @@ final class MetricasExtrasDoDashboardRepositoryTest extends KernelTestCase
         self::assertArrayNotHasKey((int) $bruno->getId(), $tudo);
     }
 
+    // ─── Pastas concluídas ───────────────────────────────────────────
+
+    private function arquivada(Tenant $tenant, User $responsavel, string $em): Pasta
+    {
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'responsavel' => $responsavel])->_real();
+        $pasta->setSituacao(Pasta::SITUACAO_ARQUIVADA, new \DateTimeImmutable($em));
+        $this->em->flush();
+
+        return $pasta;
+    }
+
+    #[TestDox('Pastas concluídas: arquivadas no período por responsável; desarquivada, excluída, oculta, sem data e outro escritório ficam fora')]
+    public function testConcluidasPorResponsavel(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $outro  = TenantFactory::createOne()->_real();
+        $ana    = UserFactory::createOne()->_real();
+
+        $this->arquivada($tenant, $ana, '2024-01-10 09:00');
+        $this->arquivada($tenant, $ana, '2024-01-31 22:00');               // data_ate inclusiva até o fim do dia
+        $this->arquivada($tenant, $ana, '2023-12-31 23:00');               // antes do período
+        $this->arquivada($outro, $ana, '2024-01-10 09:00');                // outro escritório
+        $this->arquivada($tenant, $ana, '2024-01-12 09:00')->setSituacao(Pasta::SITUACAO_ATIVA); // desarquivada
+        $this->arquivada($tenant, $ana, '2024-01-13 09:00')->marcarExcluida($ana, new \DateTimeImmutable());
+        $oculta = $this->arquivada($tenant, $ana, '2024-01-14 09:00');
+        PastaFactory::createOne(['tenant' => $tenant, 'responsavel' => $ana, 'situacao' => Pasta::SITUACAO_ATIVA]);
+        $semData = $this->arquivada($tenant, $ana, '2024-01-15 09:00');
+        $this->em->flush();
+        $this->em->getConnection()->executeStatement('UPDATE pasta SET arquivada_em = NULL WHERE id = ?', [$semData->getId()]);
+
+        $janeiro = ['data_de' => '2024-01-01', 'data_ate' => '2024-01-31'];
+        self::assertSame(2, $this->repo->contarArquivadasPorResponsavel($tenant, $janeiro, [(int) $oculta->getId()])[$ana->getId()] ?? 0);
+        self::assertSame(3, $this->repo->contarArquivadasPorResponsavel($tenant, $janeiro)[$ana->getId()] ?? 0, 'sem cadeado, a oculta volta');
+        self::assertSame(4, $this->repo->contarArquivadasPorResponsavel($tenant)[$ana->getId()] ?? 0, 'sem período: todas com data');
+        self::assertSame(1, $this->repo->contarArquivadasPorResponsavel($outro, $janeiro)[$ana->getId()] ?? 0);
+    }
+
     // ─── Eventos na agenda ───────────────────────────────────────────
 
     #[TestDox('Eventos: criador e participante contam; quem é os dois conta uma vez; "somente eu", cancelado e outro escritório ficam fora')]
@@ -248,7 +285,7 @@ final class MetricasExtrasDoDashboardRepositoryTest extends KernelTestCase
 
     // ─── Desempenho ──────────────────────────────────────────────────
 
-    #[TestDox('Desempenho: ligar as 6 extras custa exatamente 4 consultas a mais (uma por métrica com consulta; concluídas e taxa saem de graça), com qualquer número de pessoas')]
+    #[TestDox('Desempenho: ligar todas as extras custa uma consulta por métrica com consulta (o Relatório, uma por tabela; concluídas e taxa saem de graça), com qualquer número de pessoas')]
     public function testUmaConsultaPorMetrica(): void
     {
         $container = static::getContainer();
@@ -293,8 +330,8 @@ final class MetricasExtrasDoDashboardRepositoryTest extends KernelTestCase
         $sem = $contar([]);
         $com = $contar(ColunasExtrasDoDashboard::chaves());
 
-        // 4 métricas com uma consulta cada + Relatório, uma por tabela (Dados da pasta, Financeiro, Detalhes).
-        self::assertSame(7, $com - $sem, sprintf('sem extras: %d consultas; com as 7: %d', $sem, $com));
+        // 5 métricas com uma consulta cada + Relatório, uma por tabela (Dados da pasta, Financeiro, Detalhes).
+        self::assertSame(8, $com - $sem, sprintf('sem extras: %d consultas; com as 8: %d', $sem, $com));
         self::assertSame($sem, $contar([ColunasExtrasDoDashboard::METAS_CONCLUIDAS, ColunasExtrasDoDashboard::TAXA_CONCLUSAO]), 'concluídas e taxa não consultam o banco');
     }
 }

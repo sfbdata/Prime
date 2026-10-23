@@ -71,7 +71,7 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 
 ## Fora deste PR
 
-Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013), setas × ontem, a tabela
+Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita no PR3), setas × ontem, a tabela
 `dashboard_campeao_mes` que congelaria o "1º do mês", lista e link do Relatório (DASH-012).
 
 ## Fatias seguintes
@@ -84,7 +84,27 @@ Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013), seta
   a carga seguinte respeitando, e as setas e pílulas continuando no HTML contra o período
   anterior (sem mudar o cálculo). Setas × ontem saiu do PR2: a comparação segue contra o período
   anterior equivalente (decisão do orquestrador).
-- **PR3**: zerar e pastas concluídas, com a migration `Version20261023150900` com `pasta.arquivada_em`, `dashboard_zeramento` e
-  `dashboard_meta_pastas`.
+- **PR3 (feito: migration, entidades e Pastas concluídas)**: a migration `Version20261023150900`, a
+  única da frente, com:
+  - `pasta.arquivada_em`: gravada pelo `Pasta::setSituacao()` ao ENTRAR em Arquivado (pílula, menu ⋮ e
+    "Editar dados"; regravar Arquivado não troca a data), apagada ao sair (e no restaurar da
+    lixeira). Backfill das arquivadas não excluídas: o arquivamento mais recente entre o cartão do
+    Registro (`sistema = 'situacao'`, "para "Arquivado"") e o `audit_log` (update `situacao → arquivado`
+    ou criação já arquivada). Vale o mais recente dos dois, e não "Registro primeiro", porque o
+    "Editar dados" arquiva sem cartão, só com auditoria. Sem fonte, fica nula e a pasta não entra em
+    período nenhum (a contagem sai no log da migration; no banco de desenvolvimento `saas`, 0 de 512);
+  - `dashboard_zeramento` (tenant, coluna, `user_id` nulo = todos, `contar_desde`, `por_id`,
+    `criado_em`, `desfeito_em`, `desfeito_por_id`; índice `(tenant_id, coluna)`) e
+    `dashboard_meta_pastas` (tenant, `mes` = dia 1º da vigência, valor, `definida_por_id`,
+    `criada_em`; vale a de `mes` mais recente até o mês pedido, e no mesmo mês a última gravada).
+    Entidades e repositórios em `app/src/Dashboard`; as duas entram na purga do escritório. Os
+    casos de uso de zerar e de meta ficam para os PRs seguintes.
+  - Coluna extra **Pastas concluídas** (chave `pastas_concluidas`, rótulo e ajuda do desenho
+    `EXTRAS.pastasConcluidas`: "Pastas concluídas", "Demandas encerradas no período", soma, entre
+    Pastas urgentes e Eventos na agenda): pastas com `arquivada_em` no período, por responsável,
+    situação Arquivado, sem lápide e sem as ocultas pelo cadeado. Tem tendência (`alta`, subir é bom).
+    Número sem link: o destino do desenho (`/expediente` com `concluida`) não filtra pela data do
+    arquivamento, e a regra B12 só deixa virar link quando a lista conta a mesma coisa.
+- **PR4 em diante**: Zerar (caso de uso, permissão do Master, "Pedir para zerar") e meta de pastas.
 - **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
   padrão hoje, nenhuma opção é obrigatória, roda 1x por dia.

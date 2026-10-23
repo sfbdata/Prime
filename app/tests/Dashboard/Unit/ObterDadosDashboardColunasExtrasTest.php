@@ -151,6 +151,15 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
                 return $f['data_de'] === '2024-01-01' ? [7 => 1] : [];
             });
 
+        // Pastas concluídas tem tendência: atual e anterior, com o cadeado repassado.
+        $arquivadas = [];
+        $this->metricas->expects(self::exactly(2))->method('contarArquivadasPorResponsavel')
+            ->willReturnCallback(function (Tenant $t, array $f) use (&$arquivadas): array {
+                $arquivadas[] = $f;
+
+                return $f['data_de'] === '2024-01-01' ? [8 => 4] : [8 => 2];
+            });
+
         $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-02-10'), $filtros, Extras::chaves());
         $x   = $this->extrasPorPessoa($out);
 
@@ -162,6 +171,11 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
         self::assertSame(0, $x[8][Extras::EVENTOS_AGENDA]);
         self::assertNull($x[7][Extras::TEMPO_MEDIO], 'sem meta concluída com data: "—"');
         self::assertSame([$filtros, $anteriores], $eventos);
+        self::assertSame(4, $x[8][Extras::PASTAS_CONCLUIDAS]);
+        self::assertSame(0, $x[7][Extras::PASTAS_CONCLUIDAS]);
+        self::assertSame([$filtros, $anteriores], $arquivadas);
+        self::assertSame(2, $out->porAdvogado[array_search(8, array_map(static fn ($l): int => $l->userId, $out->porAdvogado), true)]->extrasAnteriores[Extras::PASTAS_CONCLUIDAS]);
+        self::assertSame(4, $out->totaisExtras[Extras::PASTAS_CONCLUIDAS]);
     }
 
     #[TestDox('Só as extras ligadas consultam: ligar só "Em revisão" não chama tempo, urgentes nem eventos')]
@@ -249,7 +263,7 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
         $this->metas([], []);
         $this->equipe([$this->usuario(7, 'Ana')]);
 
-        $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-01-10'), [], ['pastas_concluidas', Extras::TAXA_CONCLUSAO, 'salario', Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO]);
+        $out = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-01-10'), [], ['demandas_encerradas', Extras::TAXA_CONCLUSAO, 'salario', Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO]);
 
         self::assertSame([Extras::TAXA_CONCLUSAO, Extras::METAS_CONCLUIDAS], $out->colunasExtras);
         self::assertSame([Extras::TAXA_CONCLUSAO, Extras::METAS_CONCLUIDAS], array_keys($out->porAdvogado[0]->extras));
@@ -330,9 +344,9 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
             $ant[$l->userId] = $l->extrasAnteriores;
         }
 
-        self::assertSame([Extras::EVENTOS_AGENDA => 0, Extras::RELATORIO => 0], $ant[7], 'Ana: nenhum evento nem registro antes; nenhuma outra extra tem anterior');
-        self::assertSame([Extras::EVENTOS_AGENDA => 1, Extras::RELATORIO => 0], $ant[8]);
-        self::assertSame([Extras::EVENTOS_AGENDA => 1, Extras::RELATORIO => 0], $out->totaisExtrasAnteriores, 'Total anterior: só eventos e relatório (soma)');
+        self::assertSame([Extras::PASTAS_CONCLUIDAS => 0, Extras::EVENTOS_AGENDA => 0, Extras::RELATORIO => 0], $ant[7], 'Ana: nenhuma pasta arquivada, evento nem registro antes; nenhuma outra extra tem anterior');
+        self::assertSame([Extras::PASTAS_CONCLUIDAS => 0, Extras::EVENTOS_AGENDA => 1, Extras::RELATORIO => 0], $ant[8]);
+        self::assertSame([Extras::PASTAS_CONCLUIDAS => 0, Extras::EVENTOS_AGENDA => 1, Extras::RELATORIO => 0], $out->totaisExtrasAnteriores, 'Total anterior: só concluídas, eventos e relatório (soma)');
         // irmã que prova o alvo: as três seguem calculadas no período atual
         self::assertSame(
             [Extras::METAS_CONCLUIDAS => 3, Extras::TAXA_CONCLUSAO => 43, Extras::TEMPO_MEDIO => 3, Extras::EVENTOS_AGENDA => 3],

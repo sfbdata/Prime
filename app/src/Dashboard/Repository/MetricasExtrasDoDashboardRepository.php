@@ -24,7 +24,7 @@ use Doctrine\ORM\QueryBuilder;
  * ele EXPLICITAMENTE (além do TenantFilter): nenhum número de outro escritório entra.
  *
  * Período: a MESMA régua das colunas que já existem — metas por `t.dataCriacao`, pastas por
- * `p.dataAbertura` — com o mesmo formato estrito ('!Y-m-d', fim do dia na borda final). Agenda
+ * `p.dataAbertura` (as concluídas por `p.arquivadaEm`) — com o mesmo formato estrito ('!Y-m-d', fim do dia na borda final). Agenda
  * usa `e.dataInicio` (o compromisso cai no período em que acontece). Sem período, conta tudo,
  * como as outras colunas.
  *
@@ -131,6 +131,39 @@ class MetricasExtrasDoDashboardRepository
             ->groupBy('r.id');
 
         $this->aplicarPeriodo($qb, 'p.dataAbertura', $filtros);
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
+        }
+
+        return $this->mapaDeContagem($qb);
+    }
+
+    /**
+     * "Pastas concluídas" ("Demandas encerradas no período" do desenho): pastas ARQUIVADAS no
+     * período por responsável, pela data do arquivamento (`arquivadaEm`), e não pela abertura.
+     * Desarquivar apaga a data, então a pasta sai da conta; pasta excluída (lápide) e pasta oculta
+     * pelo cadeado para quem olha ficam fora. Arquivada sem data (legado sem fonte) não entra.
+     *
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array<int, int> userId => quantidade
+     */
+    public function contarArquivadasPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
+    {
+        $qb = $this->em->createQueryBuilder()
+            ->select('r.id AS pessoa_id, COUNT(p.id) AS total')
+            ->from(Pasta::class, 'p')
+            ->join('p.responsavel', 'r')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.situacao = :arquivada')
+            ->andWhere('p.arquivadaEm IS NOT NULL')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('arquivada', Pasta::SITUACAO_ARQUIVADA)
+            ->groupBy('r.id');
+
+        $this->aplicarPeriodo($qb, 'p.arquivadaEm', $filtros);
         if ($pastasOcultas !== []) {
             $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
         }
