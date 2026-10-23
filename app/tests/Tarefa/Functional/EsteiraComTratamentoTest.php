@@ -16,6 +16,7 @@ use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
@@ -54,6 +55,52 @@ final class EsteiraComTratamentoTest extends JusPrimeWebTestCase
         $esperado = 'Dra. Ana Lima, Dr. Bruno Souza, Carla Dias, Davi Rocha, Eduardo Melo';
         self::assertSame($esperado, trim($avisados->filter('span')->last()->text()));
         self::assertSame('Avisados quando chega demanda: ' . $esperado, $avisados->attr('title'));
+    }
+
+    /**
+     * Um avisado por caso de gênero, com o arranjo do desenho 04 (dc L61) preso por filho direto: o nome fica no
+     * `span` dentro de `.mm-caixa-avisados`, que mora no link da caixa, dentro da célula da esteira.
+     *
+     * @return iterable<string, array{0: ?Genero, 1: string}>
+     */
+    public static function generos(): iterable
+    {
+        yield 'masculino' => [Genero::Masculino, 'Dr. Bruno Souza'];
+        yield 'feminino'  => [Genero::Feminino, 'Dra. Bruna Souza'];
+        yield 'vazio'     => [null, 'Bruno Souza'];
+    }
+
+    #[DataProvider('generos')]
+    #[TestDox('Avisado com OAB pelo gênero informado: aparece como "$esperado" no lugar do desenho')]
+    public function testTratamentoPeloGeneroNoArranjoDoDesenho(?Genero $genero, string $esperado): void
+    {
+        $client = static::createClient();
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant = (new Tenant())->setName('Escritório Esteira ' . uniqid());
+        $em->persist($tenant);
+        $eu = $this->pessoa($em, $tenant, 'Quem Olha', null, Genero::Feminino);
+
+        $nome  = $genero === Genero::Feminino ? 'Bruna de Souza' : 'Bruno de Souza';
+        $caixa = new CaixaDaEsteira($tenant, EtapaDaPasta::Juridico);
+        $caixa->configurar(null, null, [$this->pessoa($em, $tenant, $nome, '12345', $genero)]);
+        $em->persist($caixa);
+        $em->flush();
+        $this->logarComTenant($client, $eu, $tenant);
+
+        $crawler = $client->request('GET', '/tarefas/minhas');
+
+        self::assertResponseIsSuccessful();
+        $nomes = $crawler->filter(
+            '.mm-esteira > .mm-esteira-caixas > .mm-caixa-celula > .mm-caixa > a.mm-caixa-link > .mm-caixa-avisados > span',
+        );
+        self::assertCount(1, $nomes);
+        self::assertSame($esperado, trim($nomes->text()));
+        self::assertSame(
+            'Avisados quando chega demanda: ' . $esperado,
+            $crawler->filter('a.mm-caixa-link > .mm-caixa-avisados')->attr('title'),
+        );
+        // O sino vem antes do nome, também como filho direto.
+        self::assertCount(1, $crawler->filter('.mm-caixa-avisados > i.bi-bell:first-child'));
     }
 
     private function pessoa(EntityManagerInterface $em, Tenant $tenant, string $nome, ?string $oab, ?Genero $genero): User
