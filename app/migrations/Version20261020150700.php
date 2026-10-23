@@ -118,7 +118,8 @@ final class Version20261020150700 extends AbstractMigration
 
     /**
      * Volta a uma jornada por pessoa. Quem ficou com jornada em mais de um escritório depois do up perde as outras: fica
-     * a mais antiga (menor id), que é a que veio do backfill. A chave sai junto com a coluna.
+     * a mais antiga (menor id), que é a que veio do backfill. A chave sai junto com a coluna. As jornadas órfãs que o up
+     * apagou (sem vínculo e sem nenhuma batida) não voltam: o down não as recupera.
      */
     public function down(Schema $schema): void
     {

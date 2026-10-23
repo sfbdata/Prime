@@ -12,8 +12,7 @@
 ## 1. Antes
 
 - `JornadaColaborador` é OneToOne com `User` e não tem escritório. Por isso o admin de um escritório lê, grava e
-  apaga a jornada que vale em todos os escritórios da pessoa. Qualquer usuário pode criar um escritório e passar nos
-  guards sobre a própria jornada.
+  apaga a jornada que vale em todos os escritórios da pessoa (achado de auditoria interna F8).
 - **Quem lê a jornada sem escritório:** `JornadaResolver` (que monta a cascata colaborador → escritório → campos
   legados), `FolhaPontoBuilder`, `PontoController`, `ObterEstadoDoPontoDoDiaUseCase` e `TenantController`.
 - **"Bate ponto" não é escolha de ninguém.** É só um rótulo tirado do tipo de vínculo (`VinculoColaborador::batePonto()`,
@@ -41,12 +40,19 @@
      um horário que passe a bater com o outro também é recusado.
    - **Jornada padrão:** a recusa lista as pessoas afetadas, que são deste escritório, cada uma com a mensagem acima.
    - **Na batida:** recusa o ponto se o momento cai dentro do horário de trabalho de hoje de outro escritório onde a
-     pessoa registra ponto.
+     pessoa registra ponto E não cai num horário de trabalho deste escritório. Quando os dois cobrem o momento (choque
+     que entrou sem conferência: vínculo novo com a chave nascida ligada, ou gravação concorrente), a batida passa:
+     ninguém fica travado (revisão de 23/10).
+   - **Saída e ida ao repouso não são recusadas** (proposta da 0d, aguardando confirmação do dono), nem pelo choque nem
+     pela chave desligada: nunca prender o ponto aberto. Entrada e retorno do repouso seguem sujeitos às duas recusas.
 4. **Backfill** (produção tem 10 jornadas):
    - pessoa com um único escritório ativo: a jornada vai para ele;
    - pessoa sem vínculo ativo: vai para o último escritório. A fonte é o último `RegistroPonto`, porque remover o
      colaborador apaga o `user_tenant`.
-   - pessoa com vários vínculos ativos: vai só para o escritório onde ela bateu ponto por último.
+   - pessoa com vários vínculos ativos: vai só para o escritório onde ela bateu ponto por último. Sem batida neles, vai
+     para o vínculo ativo mais antigo;
+   - pessoa sem vínculo e sem nenhuma batida: a jornada é apagada, porque não há escritório a que pertença.
+   - Contagem em produção: o log da migration conta os dois casos acima. O `down()` não recupera as jornadas apagadas.
 5. **A chave "Registra ponto eletrônico"** (dono, 23/10) não depende do registro de vínculo estar preenchido.
    - Backfill: fica **ligada** só para quem tem batida naquele escritório nos últimos 30 dias. Sem batida, fica
      **desligada**.
@@ -88,7 +94,8 @@
   - ao salvar ou apagar a jornada pessoal (apagar faz valer a padrão, que também é conferida);
   - ao salvar a jornada padrão do escritório, para todas as pessoas dele com o ponto ligado;
   - na batida, ao lado da trava `EntradaAbertaEmOutroEscritorio`, com a hora atual contra os intervalos de hoje dos
-    outros escritórios.
+    outros escritórios, só quando ela não cai num intervalo de hoje deste escritório. Saída e ida ao repouso não são
+    recusadas (proposta da 0d, aguardando confirmação do dono).
 - **Mensagens** no padrão da trava existente, como constantes de texto no PHP devolvidas no JSON de erro. Sem nome de
   escritório.
 
@@ -104,16 +111,15 @@
 
 - Os guards atuais (`admin.users.manage` mais o vínculo ativo da pessoa no escritório da URL) passam a casar com o
   recurso, porque a jornada e a chave são do escritório da URL.
-- O cenário do F8 deixa de valer: quem cria um escritório só mexe na própria jornada e na chave **daquele** escritório,
-  e o choque protege o horário do outro.
+- O achado de auditoria interna F8 deixa de valer: cada escritório só mexe na jornada e na chave dele, e o choque
+  protege o horário do outro.
 
 ## 4. Testes
 
 - **Dois escritórios, A e B:**
   - o admin de A grava a jornada de E em A, e a de E em B fica intacta;
   - a GET em B não mostra a de A.
-- **F8:** o funcionário cria o escritório C, liga o ponto e grava uma jornada que bate com a de A; é recusado com a
-  mensagem, sem o nome de A. Uma jornada que não bate é aceita, e a folha de A não muda.
+- **F8:** escritório novo da própria pessoa não altera nem invade o horário de outro escritório.
 - **Choque:**
   - ao ligar a chave;
   - ao salvar a jornada pessoal;
@@ -134,5 +140,8 @@
 
 - 23/10: regras 1 a 5 do §2. A chave fica independente do vínculo: backfill pelas batidas dos últimos 30 dias, e
   ligada para quem entra daqui para a frente.
+- Migration (revisão de 23/10): com vários vínculos ativos e sem batida, a jornada vai para o vínculo ativo mais
+  antigo; sem vínculo e sem nenhuma batida, a jornada é apagada. O log da migration conta os dois casos em produção, e
+  o `down()` não recupera as apagadas.
 - Junto com o PR vão as contagens de chaves ligadas e desligadas, no saas_ux e em produção (só contagem, sem dado
   pessoal).

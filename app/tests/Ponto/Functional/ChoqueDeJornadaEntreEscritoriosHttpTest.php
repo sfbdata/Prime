@@ -130,8 +130,8 @@ final class ChoqueDeJornadaEntreEscritoriosHttpTest extends JusPrimeWebTestCase
         self::assertCount(1, $this->jornadaEm($this->a)?->getBlocos() ?? [], 'a pessoal de A continua');
     }
 
-    #[TestDox('F8: quem cria o escritório C não grava jornada que bate com a de A; a que não bate entra e a folha de A não muda')]
-    public function testF8EscritorioCriadoPeloFuncionario(): void
+    #[TestDox('F8: escritório novo da própria pessoa não altera nem invade o horário de outro escritório')]
+    public function testF8EscritorioNovoDaPropriaPessoa(): void
     {
         $funcionario = $this->pessoa('Funcionário de A');
         $this->vincular($funcionario, $this->a);
