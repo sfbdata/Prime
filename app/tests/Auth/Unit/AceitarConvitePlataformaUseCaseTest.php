@@ -68,7 +68,7 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
 
         return new Invitation(
             email: 'advogado@example.com',
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'platform',
             expiresAt: $expiresAt,
         );
@@ -91,7 +91,7 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
 
     public function testConviteDeOutroTipoERecusadoSemGravar(): void
     {
-        $invitation = new Invitation(email: 'advogado@example.com', token: 'tok123', type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+24 hours'));
+        $invitation = new Invitation(email: 'advogado@example.com', tokenHash: Invitation::hashDoToken('tok123'), type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+24 hours'));
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->em->expects($this->never())->method('persist');
 

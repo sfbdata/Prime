@@ -28,11 +28,11 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $convite = $this->convite(Invitation::TIPO_PLATAFORMA, 'plataforma_' . uniqid() . '@adv.com');
 
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            '/convite/' . $convite->getToken() . '/plataforma',
+            '/convite/' . $this->tokenDe($convite) . '/plataforma',
             $crawler->filter('form[method="post"]')->attr('action'),
         );
     }
@@ -58,7 +58,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         // Pelo id, sem o token do link do e-mail (achado de auditoria interna F6).
         self::assertSelectorExists(sprintf('a[href="/convites/%d"]', $convite->getId()));
-        self::assertStringNotContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString($this->tokenDe($convite), (string) $client->getResponse()->getContent());
     }
 
     #[TestDox('"Meus convites" não mostra convite pendente de outro e-mail')]
@@ -79,7 +79,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists(sprintf('a[href="/convites/%d"]', $alheio->getId()));
-        self::assertStringNotContainsString($alheio->getToken(), (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString($this->tokenDe($alheio), (string) $client->getResponse()->getContent());
     }
 
     #[TestDox('Aceite de plataforma de ponta a ponta: cria a conta sem escritório e marca o convite como aceito')]
@@ -121,10 +121,10 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $email = 'escritorio_' . uniqid() . '@adv.com';
         $convite = $this->convite(Invitation::TIPO_ESCRITORIO, $email);
         // O CSRF é o mesmo nos dois formulários (convite_<token>): tira-se da página do próprio convite.
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
         $token = (string) $crawler->filter('form[method="post"] input[name="_token"]')->attr('value');
 
-        $client->request('POST', '/convite/' . $convite->getToken() . '/plataforma', [
+        $client->request('POST', '/convite/' . $this->tokenDe($convite) . '/plataforma', [
             '_token' => $token, 'full_name' => 'Pessoa Teste', 'senha' => 'SenhaBoa123',
             'oab_numero' => '123456', 'oab_uf' => 'DF', 'aceite_termos' => '1',
         ]);
@@ -137,7 +137,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
 
     private function aceitarPlataforma(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, Invitation $convite, string $senha): void
     {
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
         $form = $crawler->filter('form[method="post"]')->form([
             'full_name' => 'Pessoa Teste',
             'senha' => $senha,
@@ -148,15 +148,25 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client->submit($form);
     }
 
+    /** @var array<int, string> o token puro de cada convite criado aqui: o banco só tem o hash */
+    private array $tokens = [];
+
+    private function tokenDe(Invitation $convite): string
+    {
+        return $this->tokens[spl_object_id($convite)];
+    }
+
     private function convite(string $tipo, string $email): Invitation
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(16)), type: $tipo, expiresAt: new \DateTimeImmutable('+7 days'));
+        $token   = bin2hex(random_bytes(16));
+        $convite = new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: $tipo, expiresAt: new \DateTimeImmutable('+7 days'));
         if ($tipo === Invitation::TIPO_ESCRITORIO) {
             $escritorio = (new Tenant())->setName('Escritório que convidou');
             $em->persist($escritorio);
             $convite->setTenant($escritorio);
         }
+        $this->tokens[spl_object_id($convite)] = $token;
         $em->persist($convite);
         $em->flush();
 

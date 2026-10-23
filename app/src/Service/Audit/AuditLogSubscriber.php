@@ -31,6 +31,10 @@ class AuditLogSubscriber
     private const IGNORED_FIELDS = [
         'password',
         'invitationToken',
+        // Token do link do convite (Invitation) e o hash dele: nenhum dos dois vai para o audit_log
+        // (achado de auditoria interna, spec seguranca-a-convites, raiz C).
+        'token',
+        'tokenHash',
         // Refresh token OAuth do Drive por tenant — já cifrado, nunca vai para o audit_log.
         'refreshTokenCifrado',
     ];

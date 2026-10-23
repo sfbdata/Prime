@@ -47,7 +47,7 @@ final class CriarConvitePlataformaUseCaseTest extends TestCase
 
         $resultado = $this->useCase->executar(
             new CriarConvitePlataformaInput('novo@example.com', 'Fulano', $this->criadoPor)
-        );
+        )->convite;
 
         self::assertSame('platform', $resultado->getType());
         self::assertSame('pending', $resultado->getStatus());
@@ -77,7 +77,7 @@ final class CriarConvitePlataformaUseCaseTest extends TestCase
 
         $resultado = $this->useCase->executar(
             new CriarConvitePlataformaInput('  TEST@X.COM  ', null, $this->criadoPor)
-        );
+        )->convite;
 
         self::assertSame('test@x.com', $resultado->getEmail());
     }
@@ -90,7 +90,7 @@ final class CriarConvitePlataformaUseCaseTest extends TestCase
 
         $resultado = $this->useCase->executar(
             new CriarConvitePlataformaInput('novo@example.com', null, $this->criadoPor)
-        );
+        )->convite;
 
         self::assertNull($resultado->getFullName());
     }
@@ -103,22 +103,25 @@ final class CriarConvitePlataformaUseCaseTest extends TestCase
 
         $resultado = $this->useCase->executar(
             new CriarConvitePlataformaInput('novo@example.com', 'João Silva', $this->criadoPor)
-        );
+        )->convite;
 
         self::assertSame('João Silva', $resultado->getFullName());
     }
 
-    public function testTokenGeradoTem64Chars(): void
+    #[TestDox('Raiz B: o token puro (64 hex) volta só no ConviteEmitido; o convite grava o hash dele')]
+    public function testTokenGeradoTem64CharsEOConviteGuardaSoOHash(): void
     {
         $this->userRepo->method('findOneBy')->willReturn(null);
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar(
+        $emitido = $this->useCase->executar(
             new CriarConvitePlataformaInput('novo@example.com', null, $this->criadoPor)
         );
 
-        self::assertSame(64, strlen($resultado->getToken()));
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $emitido->token);
+        self::assertSame(hash('sha256', $emitido->token), $emitido->convite->getTokenHash());
+        self::assertNotSame($emitido->token, $emitido->convite->getTokenHash());
     }
 
     public function testCriadoPorPropagado(): void
@@ -129,7 +132,7 @@ final class CriarConvitePlataformaUseCaseTest extends TestCase
 
         $resultado = $this->useCase->executar(
             new CriarConvitePlataformaInput('novo@example.com', null, $this->criadoPor)
-        );
+        )->convite;
 
         self::assertSame($this->criadoPor, $resultado->getCreatedBy());
     }

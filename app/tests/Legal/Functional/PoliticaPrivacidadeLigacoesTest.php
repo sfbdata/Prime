@@ -58,16 +58,17 @@ final class PoliticaPrivacidadeLigacoesTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $em     = static::getContainer()->get(EntityManagerInterface::class);
 
+        $token   = bin2hex(random_bytes(16));
         $convite = new Invitation(
             email: 'convidado_' . uniqid() . '@adv.com',
-            token: bin2hex(random_bytes(16)),
+            tokenHash: Invitation::hashDoToken($token),
             type: Invitation::TIPO_PLATAFORMA,
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
         $em->persist($convite);
         $em->flush();
 
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $token);
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter(self::SELETOR));

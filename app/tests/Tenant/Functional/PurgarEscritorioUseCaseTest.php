@@ -465,7 +465,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->ins('registro_ponto', ['data_hora' => $ts, 'tipo' => 'entrada', 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('justificativa_ponto', ['data' => $d, 'status' => 'pendente', 'user_id' => $u, 'abono_parcial' => false, 'tenant_id' => $t, 'anexo_path' => $hex()]);
         $this->ins('aceite_termo', ['versao' => 'v-' . $uid, 'aceito_em' => $ts, 'ip' => '127.0.0.1', 'user_id' => $u, 'tenant_id' => $t]);
-        $this->ins('invitation', ['email' => 'inv' . $uid . '@x.com', 'token' => 'tok-' . $uid, 'type' => 'office', 'status' => 'pending', 'created_at' => $ts, 'expires_at' => $ts, 'tenant_id' => $t]);
+        $this->ins('invitation', ['email' => 'inv' . $uid . '@x.com', 'token_hash' => hash('sha256', 'tok-' . $uid), 'type' => 'office', 'status' => 'pending', 'created_at' => $ts, 'expires_at' => $ts, 'tenant_id' => $t]);
         $this->ins('access_request', ['resource_type' => 'pasta', 'resource_id' => $pasta, 'action' => 'view', 'requested_at' => $ts, 'user_id' => $u, 'tenant_id' => $t]);
         $this->ins('resource_access', ['resource_type' => 'pasta', 'resource_id' => $pasta, 'granted_at' => $ts, 'user_id' => $u, 'tenant_id' => $t]);
     }

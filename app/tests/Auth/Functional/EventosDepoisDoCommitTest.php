@@ -99,7 +99,7 @@ final class EventosDepoisDoCommitTest extends KernelTestCase
         $tenant = (new Tenant())->setName('Escritório Convite ' . uniqid());
         $email = 'convite_' . uniqid() . '@test.com';
         $token = bin2hex(random_bytes(16));
-        $convite = (new Invitation(email: $email, token: $token, type: 'office', expiresAt: new \DateTimeImmutable('+7 days')))->setTenant($tenant);
+        $convite = (new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: 'office', expiresAt: new \DateTimeImmutable('+7 days')))->setTenant($tenant);
         $this->em->persist($tenant);
         $this->em->persist($convite);
         $this->em->flush();

@@ -432,7 +432,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $tenant = (new Tenant())->setName('Escritório que convida ' . uniqid());
         $email = 'convidada_' . uniqid() . '@adv.com';
         $token = bin2hex(random_bytes(16));
-        $convite = new Invitation(email: $email, token: $token, type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
+        $convite = new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
         $convite->setTenant($tenant);
         $this->em()->persist($tenant);
         $this->em()->persist($convite);

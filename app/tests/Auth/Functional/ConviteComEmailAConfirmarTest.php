@@ -35,7 +35,7 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
     public function testEmailAConfirmarNaoVeOToken(string $lista): void
     {
         $client = static::createClient();
-        [$user, $convite] = $this->cenario(emailConfirmado: false);
+        [$user, $convite, $token] = $this->cenario(emailConfirmado: false);
         $client->loginUser($user);
         $this->marcarTermosAceitos($client);
 
@@ -45,7 +45,7 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
         self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
         $client->followRedirect();
         self::assertResponseIsSuccessful();
-        self::assertStringNotContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString($token, (string) $client->getResponse()->getContent());
     }
 
     #[DataProvider('listas')]
@@ -53,7 +53,7 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
     public function testEmailConfirmadoVeOConvite(string $lista): void
     {
         $client = static::createClient();
-        [$user, $convite] = $this->cenario(emailConfirmado: true);
+        [$user, $convite, $token] = $this->cenario(emailConfirmado: true);
         $client->loginUser($user);
         $this->marcarTermosAceitos($client);
         $client->followRedirects(true);
@@ -62,10 +62,10 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists(sprintf('a[href="/convites/%d"]', $convite->getId()));
-        self::assertStringNotContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString($token, (string) $client->getResponse()->getContent());
     }
 
-    /** @return array{User, Invitation} */
+    /** @return array{User, Invitation, string} */
     private function cenario(bool $emailConfirmado): array
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -85,11 +85,12 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
         $tenant->setName('Escritório que convidou');
         $em->persist($tenant);
 
-        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(16)), type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+7 days'));
+        $token = bin2hex(random_bytes(16));
+        $convite = new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+7 days'));
         $convite->setTenant($tenant);
         $em->persist($convite);
         $em->flush();
 
-        return [$user, $convite];
+        return [$user, $convite, $token];
     }
 }
