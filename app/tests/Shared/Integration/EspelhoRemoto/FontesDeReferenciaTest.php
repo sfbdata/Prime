@@ -121,6 +121,9 @@ final class FontesDeReferenciaTest extends KernelTestCase
         $cv      = Curriculo::criar($pessoa, DadosDoCurriculo::deArray(['nome' => 'Ana Souza', 'email' => 'ana@exemplo.test', 'situacao' => 'bach', 'lgpd' => true, 'areas' => []]), $agora);
         $cv->anexarArquivo(TipoArquivoDoCurriculo::Curriculo, 'cv0001.pdf', 'curriculo.pdf', $agora);
         $cv->anexarArquivo(TipoArquivoDoCurriculo::Foto, 'cv0002.jpg', 'foto.jpg', $agora);
+        // Currículo sem arquivo: a coluna fica `[]`, o valor inicial e o de depois de remover o último.
+        $vazio = Curriculo::criar(UserFactory::createOne()->_real(), DadosDoCurriculo::deArray(['nome' => 'Bia Lima', 'email' => 'bia@exemplo.test', 'situacao' => 'bach', 'lgpd' => true, 'areas' => []]), $agora);
+        $em->persist($vazio);
         $imagem = new ImagemDaCampanha('img0001.jpg', 'image/jpeg', 1, str_repeat('0', 64), 1, 1, $pessoa, $agora, $agora->modify('+30 days'));
         foreach ([$demanda, $doc, $cv, $imagem] as $entidade) {
             $em->persist($entidade);
@@ -144,6 +147,10 @@ final class FontesDeReferenciaTest extends KernelTestCase
             }
         }
         self::assertEqualsCanonicalizing(['cv0001.pdf', 'cv0002.jpg'], $doCurriculo, 'um arquivo do currículo, uma referência');
+        self::assertSame([], array_filter(
+            array_keys($porLinha),
+            static fn (string $chave): bool => $chave === 'trabalho_externo_curriculo#' . $vazio->getId(),
+        ), 'currículo sem arquivo não gera referência');
 
         $refImagem = $porLinha['comercial_imagem#' . $imagem->getId()] ?? self::fail('imagem da campanha não listada');
         self::assertSame(CategoriaDeArquivo::COMERCIAL_IMAGEM, $refImagem->chave?->categoria);
