@@ -13,6 +13,7 @@ final class SituacaoDaCota
 {
     public const PERTO = 'perto';
     public const PAUSADAS = 'pausadas';
+    public const CHAVE_VALIDA = '/^(perto|pausadas):\d{4}-\d{2}-\d{2}$/';
 
     public function __construct(
         public readonly int $enviados24h,
@@ -35,16 +36,17 @@ final class SituacaoDaCota
     }
 
     /**
-     * A chave do episódio para o "Dispensar": o estado e, nas pausadas, o dia em que a vaga volta (o horário anda a
-     * cada envio liberado na janela corrida; o dia, não). Null = sem aviso.
+     * A chave do episódio para o "Dispensar": o estado e um dia. Nas pausadas, o dia em que a vaga volta (o horário anda
+     * a cada envio liberado na janela corrida; o dia, não); no perto, o dia de hoje (amanhã é outro episódio). Null = sem
+     * aviso. Formato validado pelo controller ({@see self::CHAVE_VALIDA}).
      */
-    public function chaveDoEpisodio(): ?string
+    public function chaveDoEpisodio(\DateTimeImmutable $hoje): ?string
     {
         $estado = $this->estado();
         if ($estado === null) {
             return null;
         }
 
-        return $estado === self::PAUSADAS && $this->liberaEm !== null ? $estado . ':' . $this->liberaEm->format('Y-m-d') : $estado;
+        return $estado . ':' . ($estado === self::PAUSADAS && $this->liberaEm !== null ? $this->liberaEm : $hoje)->format('Y-m-d');
     }
 }

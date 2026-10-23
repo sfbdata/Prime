@@ -104,9 +104,9 @@ final class AvisoDaCotaDeEnvioTest extends JusPrimeWebTestCase
         $volta = $maisAntigo->modify('+24 hours 60 seconds');
         self::assertCount(1, $crawler->filter(self::AVISO . '.ae-aviso--cheio[data-aviso-cota-de-envio="pausadas"]'));
         $texto = $crawler->filter(self::AVISO)->text();
-        self::assertStringContainsString('Limite de e-mail de campanha atingido.', $texto);
+        self::assertStringContainsString('Limite de e-mail de campanha atingido', $texto);
         self::assertStringContainsString('voltam a enviar por volta das ' . $volta->format('H:i') . ' de ' . $volta->format('d/m') . '.', $texto);
-        self::assertStringContainsString('E-mails de conta, convite e avisos continuam saindo.', $texto);
+        self::assertStringContainsString('E-mails de conta e convite continuam saindo.', $texto);
     }
 
     #[TestDox('Dispensar esconde o aviso na sessão, volta para a página e o aviso reaparece quando o estado muda')]
@@ -114,9 +114,12 @@ final class AvisoDaCotaDeEnvioTest extends JusPrimeWebTestCase
     {
         $this->semear(8, 'sistema', 'enviado', new \DateTimeImmutable('-1 hour'));
         $this->entrar($this->usuario(['ROLE_SUPER_ADMIN']));
-        self::assertCount(1, $this->client->request('GET', '/novidades')->filter(self::AVISO));
+        $crawler = $this->client->request('GET', '/novidades');
+        self::assertCount(1, $crawler->filter(self::AVISO));
+        $chave = (string) $crawler->filter(self::AVISO . ' > form > input[name="chave"]')->attr('value');
+        self::assertSame('perto:' . date('Y-m-d'), $chave, 'o formulário manda a chave do aviso visto');
 
-        $this->dispensar('/novidades');
+        $this->dispensar('/novidades', $chave);
 
         self::assertResponseRedirects('/novidades');
         self::assertCount(0, $this->client->request('GET', '/novidades')->filter('[data-aviso-cota-de-envio]'));
@@ -135,6 +138,20 @@ final class AvisoDaCotaDeEnvioTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/master/comercial/cota/dispensar', ['_token' => 'errado', 'voltar' => '/novidades']);
 
         self::assertResponseStatusCodeSame(403);
+        self::assertCount(1, $this->client->request('GET', '/novidades')->filter(self::AVISO));
+    }
+
+    #[TestDox('Chave fora do formato (nem perto:AAAA-MM-DD nem pausadas:AAAA-MM-DD) não grava nada: o aviso continua')]
+    public function testChaveInvalidaNaoDispensa(): void
+    {
+        $this->semear(8, 'sistema', 'enviado', new \DateTimeImmutable('-1 hour'));
+        $this->entrar($this->usuario(['ROLE_SUPER_ADMIN']));
+
+        foreach (['perto', 'perto:ontem', 'qualquer:2030-01-01', ''] as $chave) {
+            $this->dispensar('/novidades', $chave);
+            self::assertResponseRedirects('/novidades');
+        }
+
         self::assertCount(1, $this->client->request('GET', '/novidades')->filter(self::AVISO));
     }
 
@@ -163,9 +180,10 @@ final class AvisoDaCotaDeEnvioTest extends JusPrimeWebTestCase
         }
     }
 
-    private function dispensar(string $voltar): void
+    private function dispensar(string $voltar, ?string $chave = null): void
     {
-        $this->client->request('POST', '/master/comercial/cota/dispensar', ['_token' => 'TOKEN_' . AvisoDaCotaDeEnvioController::CSRF, 'voltar' => $voltar]);
+        $chave ??= 'perto:' . date('Y-m-d');
+        $this->client->request('POST', '/master/comercial/cota/dispensar', ['_token' => 'TOKEN_' . AvisoDaCotaDeEnvioController::CSRF, 'chave' => $chave, 'voltar' => $voltar]);
     }
 
     private function entrar(User $usuario): void

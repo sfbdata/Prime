@@ -503,18 +503,22 @@ seguintes), com:
     os dois;
   - **Conta TODOS os e-mails:** os síncronos (`MailerInterface::send` direto: cadastro, convite, senha, exclusão,
     Push, envio ao cliente, trabalho externo, falha do agendador, `app:test-mailer`) viram uma linha `sistema`
-    (transacional, `enviado`, primeiro "Para", assunto, sem conteúdo) pelo
+    (transacional, `enviado`, sem conteúdo) pelo
     `RegistroDeEmailSincronoListener` (`SentMessageEvent`). O do Carteiro e a confirmação do cadastro (já gravada como
     `automacao:cad`) levam o cabeçalho interno `X-Bluejus-Registrado`, que o ouvinte tira antes de a mensagem sair
     (`MessageEvent` do transporte, prioridade −1024) e usa para não duplicar. Falha ao registrar vai ao log e nunca
-    derruba o envio. A linha `sistema` não aparece em "Últimos disparos" (filtra `automacao:` e `simulacao:`);
+    derruba o envio. **LGPD (decisão do coordenador, 23/10/2026):** a linha `sistema` não guarda o endereço nem o
+    assunto (a cota só precisa da situação, da origem e de `enviado_em`): `destinatario` é obrigatório e leva o marcador
+    fixo `sistema`, e o assunto, o fixo "E-mail do sistema" (`RegistroDeEnvioExterno::registrarSemDados`). Ela não
+    aparece em "Últimos disparos" (filtra `automacao:` e `simulacao:`);
   - **Aviso ao Master** (só `ROLE_SUPER_ADMIN`, no topo de toda tela, componente `ae-aviso` do desenho 08, como o da
     falha do agendador), calculado na hora (sem tabela): com os enviados em 24 h ≥ `COMERCIAL_AVISO_DA_COTA_PERCENTUAL`
     (padrão **80**%) do teto, o visual de atenção ("E-mails: X de 2.400 enviados nas últimas 24 horas (limite da
     Hostinger). Perto do limite."); com as campanhas pausadas (campanha esperando e sem vaga), o visual cheio com a
-    hora em que a vaga volta. "Dispensar" (POST com CSRF, `master_comercial_cota_dispensar`) guarda na sessão a chave
-    do episódio (estado e, nas pausadas, o dia da volta) e esconde o aviso até o estado mudar. Sem origem na Central de
-    Notificações.
+    hora em que a vaga volta (e-mails de conta e convite continuam saindo). "Dispensar" (POST com CSRF,
+    `master_comercial_cota_dispensar`) manda a chave do episódio que o Master viu (`perto:AAAA-MM-DD` com o dia de hoje,
+    ou `pausadas:AAAA-MM-DD` com o dia da volta); o controller só aceita esse formato, grava na sessão sem recalcular
+    a situação, e o aviso some até o episódio mudar. Sem origem na Central de Notificações.
 
 ### 3.7 Layout base e rodapé
 

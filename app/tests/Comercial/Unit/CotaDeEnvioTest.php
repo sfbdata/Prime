@@ -112,14 +112,14 @@ final class CotaDeEnvioTest extends TestCase
         $situacao = $this->cota()->situacao();
         self::assertTrue($situacao->perto);
         self::assertFalse($situacao->campanhasPausadas);
-        self::assertSame(SituacaoDaCota::PERTO, $situacao->chaveDoEpisodio());
+        self::assertSame('perto:2030-01-15', $situacao->chaveDoEpisodio(new \DateTimeImmutable(self::AGORA)));
 
         $this->registrados(2, '2030-01-15 09:00:00');
         $this->haPendentes = true;
         $situacao = $this->cota()->situacao();
         self::assertTrue($situacao->campanhasPausadas);
         self::assertSame('2030-01-16 08:01:00', $situacao->liberaEm?->format('Y-m-d H:i:s'), '8 demais passam da reserva: volta pelo enviado geral mais antigo');
-        self::assertSame('pausadas:2030-01-16', $situacao->chaveDoEpisodio());
+        self::assertSame('pausadas:2030-01-16', $situacao->chaveDoEpisodio(new \DateTimeImmutable(self::AGORA)));
     }
 
     #[TestDox('Sem campanha esperando, vaga zero não é pausa')]
@@ -130,7 +130,7 @@ final class CotaDeEnvioTest extends TestCase
         $situacao = $this->cota()->situacao();
         self::assertFalse($situacao->campanhasPausadas);
         self::assertNull($situacao->liberaEm);
-        self::assertNull($situacao->chaveDoEpisodio());
+        self::assertNull($situacao->chaveDoEpisodio(new \DateTimeImmutable(self::AGORA)));
     }
 
     private function cota(int $porMinuto = 100): CotaDeEnvio

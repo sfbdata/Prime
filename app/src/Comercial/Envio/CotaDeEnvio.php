@@ -73,9 +73,7 @@ final class CotaDeEnvio
     /** O expansor: quantos envios de campanha ainda cabem na janela, contando os já registrados na fila. */
     public function vagasDeCampanha(\DateTimeImmutable $agora): int
     {
-        [$doTetoDasCampanhas, $doTeto] = $this->folgasDoExpansor($agora);
-
-        return max(0, min($doTetoDasCampanhas, $doTeto));
+        return self::vagas($this->folgasDoExpansor($agora));
     }
 
     /** O aviso do Master, calculado na hora (sem tabela). */
@@ -107,7 +105,12 @@ final class CotaDeEnvio
             return $doHandler;
         }
 
-        return $pendentes && $this->vagasDeCampanha($agora) === 0 ? $this->expansorLiberaEm($agora) : null;
+        if (!$pendentes) {
+            return null;
+        }
+        $folgas = $this->folgasDoExpansor($agora);
+
+        return self::vagas($folgas) === 0 ? $this->expansorLiberaEm($agora, $folgas[0]) : null;
     }
 
     /** Não-campanha: pode enquanto o total da janela está abaixo do teto. */
@@ -154,11 +157,16 @@ final class CotaDeEnvio
         ];
     }
 
+    /** @param array{int, int} $folgas */
+    private static function vagas(array $folgas): int
+    {
+        return max(0, min($folgas[0], $folgas[1]));
+    }
+
     /** Quando o expansor volta a ter vaga: pelo enviado mais antigo do conjunto que trava; sem ele, o registro mais antigo. */
-    private function expansorLiberaEm(\DateTimeImmutable $agora): \DateTimeImmutable
+    private function expansorLiberaEm(\DateTimeImmutable $agora, int $doTetoDasCampanhas): \DateTimeImmutable
     {
         $desde = $agora->modify(self::JANELA);
-        [$doTetoDasCampanhas] = $this->folgasDoExpansor($agora);
         $maisAntigo = $this->envios->enviadoMaisAntigoDesde($desde, $doTetoDasCampanhas <= 0)
             ?? $this->envios->registradoDeCampanhaMaisAntigoDesde($desde);
 

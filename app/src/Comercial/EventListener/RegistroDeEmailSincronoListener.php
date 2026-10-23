@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Comercial\EventListener;
 
-use App\Comercial\Entity\EnvioDeEmail;
 use App\Comercial\Service\RegistroDeEnvioExterno;
 use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
@@ -12,15 +11,15 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Mailer\Event\MessageEvent;
 use Symfony\Component\Mailer\Event\SentMessageEvent;
-use Symfony\Component\Mime\Address;
-use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Message;
 use Symfony\Component\Mime\RawMessage;
 
 /**
  * A cota de envio conta TODOS os e-mails (spec comercial-e-emails.md §3.6): os que saem direto pelo Mailer (cadastro,
  * convite, senha, avisos, agendador...) não passam pelo Carteiro, então cada um que o transporte aceitou vira uma
- * linha `sistema` em `comercial_envio` (transacional, enviado, só o primeiro "Para" e o assunto, sem conteúdo).
+ * linha `sistema` em `comercial_envio` (transacional, enviado). LGPD (decisão do coordenador, 23/10/2026): a linha não
+ * guarda o endereço nem o assunto, porque a cota só precisa da situação, da origem e de `enviado_em`; o destinatário
+ * (coluna obrigatória) leva o marcador fixo `sistema` e o assunto, o fixo "E-mail do sistema".
  *
  * Os já registrados (o do Carteiro, no {@see \App\Comercial\MessageHandler\EnviarEmailHandler}, e a confirmação do
  * cadastro, que o {@see CicloDaContaListener} grava como `automacao:cad`) chegam com o cabeçalho interno
@@ -72,23 +71,9 @@ final class RegistroDeEmailSincronoListener
             return;
         }
         try {
-            $para = $this->primeiroDestinatario($original, $enviada->getEnvelope()->getRecipients());
-            if ($para === null) {
-                return;
-            }
-            $assunto = $original instanceof Email ? (string) $original->getSubject() : '';
-            $this->conexao->transactional(fn () => $this->registro->registrar($para, $assunto, self::ORIGEM, EnvioDeEmail::ENVIADO, $this->relogio->now()));
+            $this->conexao->transactional(fn () => $this->registro->registrarSemDados(self::ORIGEM, $this->relogio->now()));
         } catch (\Throwable $erro) {
             $this->logger->error('Comercial: e-mail síncrono enviado sem registro na cota.', ['erro' => $erro::class]);
         }
-    }
-
-    /** @param Address[] $doEnvelope */
-    private function primeiroDestinatario(RawMessage $mensagem, array $doEnvelope): ?string
-    {
-        $para = $mensagem instanceof Email ? ($mensagem->getTo()[0] ?? null) : null;
-        $para ??= array_values($doEnvelope)[0] ?? null;
-
-        return $para === null ? null : mb_substr($para->getAddress(), 0, 180);
     }
 }

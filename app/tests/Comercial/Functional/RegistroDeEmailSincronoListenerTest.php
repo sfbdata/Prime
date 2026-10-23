@@ -14,9 +14,12 @@ use App\Comercial\Message\EnviarEmail;
 use App\Comercial\MessageHandler\EnviarEmailHandler;
 use App\Comercial\Service\RegistroDeEnvioExterno;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Psr\Log\AbstractLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 
@@ -37,33 +40,60 @@ final class RegistroDeEmailSincronoListenerTest extends KernelTestCase
         $this->conexao = static::getContainer()->get(Connection::class);
     }
 
-    #[TestDox('E-mail síncrono vira uma linha sistema, transacional, enviado, com o primeiro "Para" e o assunto')]
+    #[TestDox('E-mail síncrono vira uma linha sistema, transacional, enviado, sem o endereço nem o assunto (LGPD)')]
     public function testSincronoViraLinhaSistema(): void
     {
+        $antes = $this->linhasSistema();
         $email = (new Email())->from('nao-responda@bluejus.test')->to('Pessoa.Um@Exemplo.com', 'segunda@exemplo.com')->subject('Redefinir senha')->html('<p>x</p>');
 
         static::getContainer()->get(MailerInterface::class)->send($email);
 
         self::assertEmailCount(1);
+        self::assertSame($antes + 1, $this->linhasSistema());
         self::assertSame(
-            [['origem' => 'sistema', 'tipo' => 'transacional', 'situacao' => 'enviado', 'assunto' => 'Redefinir senha', 'com_data' => true]],
-            $this->conexao->fetchAllAssociative(
-                "SELECT origem, tipo, situacao, assunto, enviado_em IS NOT NULL AS com_data FROM comercial_envio WHERE destinatario = 'pessoa.um@exemplo.com'",
+            ['destinatario' => 'sistema', 'assunto' => 'E-mail do sistema', 'tipo' => 'transacional', 'situacao' => 'enviado', 'com_data' => true],
+            $this->conexao->fetchAssociative(
+                "SELECT destinatario, assunto, tipo, situacao, enviado_em IS NOT NULL AS com_data FROM comercial_envio WHERE origem = 'sistema' ORDER BY id DESC LIMIT 1",
             ),
         );
-        self::assertSame(0, $this->linhasPara('segunda@exemplo.com'), 'só o primeiro "Para"');
+        self::assertSame(0, $this->linhasPara('pessoa.um@exemplo.com'), 'o endereço não fica gravado');
+        self::assertSame(0, (int) $this->conexao->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE assunto = 'Redefinir senha'"), 'o assunto não fica gravado');
+    }
+
+    #[TestDox('Falha ao registrar (banco fora) não derruba o envio: o e-mail sai e o erro vai ao log')]
+    public function testFalhaAoRegistrarNaoDerrubaOEnvio(): void
+    {
+        $quebrada = DriverManager::getConnection(['driver' => 'pdo_pgsql', 'host' => '127.0.0.1', 'port' => 1, 'dbname' => 'nada', 'user' => 'nada', 'password' => 'nada']);
+        $log = new class () extends AbstractLogger {
+            /** @var list<string> */
+            public array $erros = [];
+
+            public function log($level, \Stringable|string $message, array $context = []): void
+            {
+                $this->erros[] = (string) $message;
+            }
+        };
+        static::getContainer()->set(RegistroDeEmailSincronoListener::class, new RegistroDeEmailSincronoListener(new RegistroDeEnvioExterno($quebrada), $quebrada, new MockClock(), $log));
+        $antes = $this->linhasSistema();
+
+        static::getContainer()->get(MailerInterface::class)->send((new Email())->from('nao-responda@bluejus.test')->to('falha@exemplo.com')->subject('x')->html('<p>x</p>'));
+
+        self::assertEmailCount(1);
+        self::assertSame($antes, $this->linhasSistema());
+        self::assertSame(['Comercial: e-mail síncrono enviado sem registro na cota.'], $log->erros);
     }
 
     #[TestDox('Já registrado (com o cabeçalho interno): nenhuma linha a mais, e o cabeçalho não sai no e-mail')]
     public function testJaRegistradoNaoDuplicaENaoLevaOCabecalho(): void
     {
+        $antes = $this->linhasSistema();
         $email = (new Email())->from('nao-responda@bluejus.test')->to('marcado@exemplo.com')->subject('x')->html('<p>x</p>');
         $email->getHeaders()->addTextHeader(RegistroDeEmailSincronoListener::CABECALHO, '1');
 
         static::getContainer()->get(MailerInterface::class)->send($email);
 
         self::assertEmailCount(1);
-        self::assertSame(0, $this->linhasPara('marcado@exemplo.com'));
+        self::assertSame($antes, $this->linhasSistema());
         self::assertEmailNotHasHeader(self::getMailerMessage() ?? self::fail('sem e-mail'), RegistroDeEmailSincronoListener::CABECALHO);
     }
 
@@ -71,12 +101,14 @@ final class RegistroDeEmailSincronoListenerTest extends KernelTestCase
     public function testCarteiroNaoDuplica(): void
     {
         $c = static::getContainer();
+        $antes = $this->linhasSistema();
         $id = $c->get(CarteiroInterface::class)->enviar(new MensagemDeEmail('carteiro@exemplo.com', 'Do carteiro', '<p>x</p>', TipoDeEnvio::Transacional, 'automacao:val'))->envioId;
 
         $c->get(EnviarEmailHandler::class)(new EnviarEmail($id));
 
         self::assertEmailCount(1);
         self::assertSame(1, $this->linhasPara('carteiro@exemplo.com'));
+        self::assertSame($antes, $this->linhasSistema());
         self::assertSame('enviado', $this->conexao->fetchOne('SELECT situacao FROM comercial_envio WHERE id = ?', [$id]));
         self::assertEmailNotHasHeader(self::getMailerMessage() ?? self::fail('sem e-mail'), RegistroDeEmailSincronoListener::CABECALHO);
     }
@@ -95,11 +127,18 @@ final class RegistroDeEmailSincronoListenerTest extends KernelTestCase
             ip: '127.0.0.1',
             expiresAt: new \DateTimeImmutable('+1 hour'),
         );
+        $antes = $this->linhasSistema();
 
         static::getContainer()->get(CadastroMailer::class)->enviarConfirmacao($cadastro);
 
         self::assertEmailCount(1);
         self::assertSame(['automacao:cad'], $this->conexao->fetchFirstColumn("SELECT origem FROM comercial_envio WHERE destinatario = 'cadastro.cota@exemplo.com'"));
+        self::assertSame($antes, $this->linhasSistema());
+    }
+
+    private function linhasSistema(): int
+    {
+        return (int) $this->conexao->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE origem = 'sistema'");
     }
 
     private function linhasPara(string $email): int

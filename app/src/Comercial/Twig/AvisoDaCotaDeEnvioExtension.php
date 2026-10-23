@@ -6,6 +6,7 @@ namespace App\Comercial\Twig;
 
 use App\Comercial\Controller\AvisoDaCotaDeEnvioController;
 use App\Comercial\Envio\CotaDeEnvio;
+use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -26,12 +27,13 @@ final class AvisoDaCotaDeEnvioExtension extends AbstractExtension implements Res
 {
     private bool $montado = false;
 
-    /** @var array{estado: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
+    /** @var array{estado: string, chave: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
     private ?array $aviso = null;
 
     public function __construct(
         private readonly Security $security,
         private readonly CotaDeEnvio $cota,
+        private readonly ClockInterface $relogio,
         private readonly LoggerInterface $logger,
         private readonly RequestStack $requests,
         private readonly UrlGeneratorInterface $urls,
@@ -43,7 +45,7 @@ final class AvisoDaCotaDeEnvioExtension extends AbstractExtension implements Res
         return [new TwigFunction('aviso_da_cota_de_envio', $this->avisoDaCotaDeEnvio(...))];
     }
 
-    /** @return array{estado: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
+    /** @return array{estado: string, chave: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
     public function avisoDaCotaDeEnvio(): ?array
     {
         if (!$this->montado) {
@@ -60,7 +62,7 @@ final class AvisoDaCotaDeEnvioExtension extends AbstractExtension implements Res
         $this->aviso   = null;
     }
 
-    /** @return array{estado: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
+    /** @return array{estado: string, chave: string, enviados: string, teto: string, hora: string, data: string, voltar: string}|null */
     private function montarSemDerrubar(): ?array
     {
         try {
@@ -70,13 +72,14 @@ final class AvisoDaCotaDeEnvioExtension extends AbstractExtension implements Res
 
             return null;
         }
-        $chave = $situacao->chaveDoEpisodio();
+        $chave = $situacao->chaveDoEpisodio($this->relogio->now());
         if ($this->dispensado($chave) || $chave === null) {
             return null;
         }
 
         return [
             'estado'   => (string) $situacao->estado(),
+            'chave'    => $chave,
             'enviados' => number_format($situacao->enviados24h, 0, ',', '.'),
             'teto'     => number_format($situacao->teto, 0, ',', '.'),
             'hora'     => $situacao->liberaEm?->format('H:i') ?? '',
