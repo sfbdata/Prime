@@ -283,8 +283,10 @@
                                           data-ps-cf="{{ 'pasta_documentos.metas.excluir_confirmar'|trans }}" data-ps-cf-perigo
                                           onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);">
                                         <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
-                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
-                                            <i class="bi bi-trash3"></i><span>{{ 'pasta_documentos.metas.excluir'|trans }}</span>
+                                        {# Edição sem prazo (spec §5): o selo quando só o poder libera (outro criador ou depois de 24h). #}
+                                        {% set seloMeta = meta_selo_excluir(tarefa) %}
+                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo{{ seloMeta ? ' com-selo-sem-prazo' }}" role="menuitem">
+                                            <i class="bi bi-trash3"></i><span>{{ 'pasta_documentos.metas.excluir'|trans }}</span>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloMeta} only %}
                                         </button>
                                     </form>
                                 {% endif %}
