@@ -7,8 +7,10 @@ namespace App\Profile\Enum;
 /**
  * Idioma do sistema escolhido pela pessoa no Meu Perfil (desenho 07, "Preferências"; `bj-idioma.js`; spec
  * docs/specs/idioma-do-sistema.md). O valor é a etiqueta BCP 47 (`<html lang>`); o locale do Symfony troca o hífen
- * por sublinhado. Só os idiomas `ativo()` podem ser escolhidos; os outros aparecem "em breve", como o modal mostra
- * hoje. Liberar um idioma é decisão do dono, junto com o catálogo de tradução dele.
+ * por sublinhado. Só os idiomas `ativo()` são oferecidos e podem ser escolhidos: Português (Brasil), Inglês e Espanhol
+ * (decisão do dono, 23/10/2026). Os outros saem do seletor, mas os casos ficam: quem já gravou um deles no perfil
+ * (coluna `user_profiles.idioma`) continua carregando sem erro e vale como português ({@see self::emUso()}). Liberar
+ * outro idioma é decisão do dono, junto com o catálogo de tradução dele.
  */
 enum Idioma: string
 {
@@ -59,10 +61,23 @@ enum Idioma: string
         return $this === self::Arabe ? 'rtl' : 'ltr';
     }
 
-    /** Pode ser escolhido. Por enquanto só o português: os outros esperam o catálogo de tradução. */
+    /** Pode ser escolhido: português, inglês e espanhol. */
     public function ativo(): bool
     {
-        return $this === self::PortuguesBrasil;
+        return match ($this) {
+            self::PortuguesBrasil, self::Ingles, self::Espanhol => true,
+            default => false,
+        };
+    }
+
+    /**
+     * Os idiomas do seletor (menu do usuário e Meu Perfil), na ordem do desenho: só os liberados.
+     *
+     * @return list<self>
+     */
+    public static function oferecidos(): array
+    {
+        return array_values(array_filter(self::cases(), static fn (self $idioma): bool => $idioma->ativo()));
     }
 
     /** O idioma gravado, ou o padrão quando é desconhecido ou ainda não está liberado. */

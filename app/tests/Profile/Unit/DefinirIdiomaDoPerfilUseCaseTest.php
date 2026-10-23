@@ -27,20 +27,20 @@ final class DefinirIdiomaDoPerfilUseCaseTest extends TestCase
         $repositorio->method('buscarPorUsuario')->willReturn($perfil);
         $repositorio->expects(self::once())->method('salvar')->with($perfil, true);
 
-        $idioma = (new DefinirIdiomaDoPerfilUseCase(new ObterOuCriarPerfilUseCase($repositorio), $repositorio))->executar($usuario, 'pt-BR');
+        $idioma = (new DefinirIdiomaDoPerfilUseCase(new ObterOuCriarPerfilUseCase($repositorio), $repositorio))->executar($usuario, 'es');
 
-        self::assertSame(Idioma::PortuguesBrasil, $idioma);
-        self::assertSame(Idioma::PortuguesBrasil, $perfil->getIdioma());
+        self::assertSame(Idioma::Espanhol, $idioma);
+        self::assertSame(Idioma::Espanhol, $perfil->getIdioma());
     }
 
-    #[TestDox('idioma "em breve" ou desconhecido: recusa sem gravar')]
+    #[TestDox('idioma fora de português, inglês e espanhol, ou desconhecido: recusa sem gravar')]
     public function testRecusaNaoLiberado(): void
     {
         $repositorio = $this->createMock(UserProfileRepository::class);
         $repositorio->expects(self::never())->method('salvar');
         $useCase = new DefinirIdiomaDoPerfilUseCase(new ObterOuCriarPerfilUseCase($repositorio), $repositorio);
 
-        foreach (['en', 'xx', ''] as $valor) {
+        foreach (['fr', 'de', 'ar', 'xx', ''] as $valor) {
             try {
                 $useCase->executar(new User(), $valor);
                 self::fail('deveria recusar ' . $valor);
