@@ -123,19 +123,21 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
     #[TestDox('R4: a saída batida há 3 horas continua recusando a entrada pela interjornada, sem gravar')]
     public function testSaidaBatidaContinuaRecusando(): void
     {
-        $this->batida('saida', new \DateTimeImmutable('-3 hours'));
+        $this->batida('entrada', new \DateTimeImmutable('-3 hours -1 minute'));
+        $this->batida('saida', new \DateTimeImmutable('-3 hours'));   // fecha a entrada: conta para a interjornada
 
         $resposta = $this->bater('entrada');
 
         self::assertResponseStatusCodeSame(422);
         self::assertStringStartsWith('Interjornada mínima é de 11h.', (string) $resposta['message']);
-        self::assertSame(0, $this->batidasDoTipo('entrada'));
+        self::assertSame(1, $this->batidasDoTipo('entrada'), 'só a de antes');
     }
 
     #[TestDox('R4: a observação fixa sem o esquecimento abonado do mesmo dia, batida e hora não basta: continua recusando')]
     public function testObservacaoSemJustificativaNaoBasta(): void
     {
         $saida = new \DateTimeImmutable('-3 hours');
+        $this->batida('entrada', $saida->modify('-1 minute'));
         $this->batida('saida', $saida, SaidaDeEsquecimento::OBSERVACAO_APROVACAO);
         $outraHora = $this->esquecimentoDaSaida($saida->modify('-5 minutes'));
         $outraHora->setStatus('abonado');
@@ -144,13 +146,14 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         $this->bater('entrada');
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(0, $this->batidasDoTipo('entrada'));
+        self::assertSame(1, $this->batidasDoTipo('entrada'), 'só a de antes');
     }
 
     #[TestDox('R4: o esquecimento abonado sem a observação fixa na saída (lançamento manual) não basta: continua recusando')]
     public function testJustificativaSemObservacaoNaoBasta(): void
     {
         $saida = new \DateTimeImmutable('-3 hours');
+        $this->batida('entrada', $saida->modify('-1 minute'));
         $this->batida('saida', $saida, 'Lançado à mão pelo admin');
         $this->esquecimentoDaSaida($saida)->setStatus('abonado');
         $this->em()->flush();
@@ -158,16 +161,17 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         $this->bater('entrada');
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(0, $this->batidasDoTipo('entrada'));
+        self::assertSame(1, $this->batidasDoTipo('entrada'), 'só a de antes');
     }
 
     #[TestDox('A aprovação confere: pedido de saída de uma hora antes da saída batida no mesmo dia é recusado na aprovação, fica pendente, nenhuma saída nova entra e a interjornada segue recusando')]
     public function testAprovacaoRecusadaComSaidaJaBatida(): void
     {
-        if ((int) (new \DateTimeImmutable())->format('Hi') < 410) {
-            self::markTestSkipped('Antes das 04:10 o pedido de 4 horas atrás cairia em ontem.');
+        if ((int) (new \DateTimeImmutable())->format('Hi') < 510) {
+            self::markTestSkipped('Antes das 05:10 a entrada de 5 horas atrás cairia em ontem.');
         }
         $batida = new \DateTimeImmutable('-3 hours');
+        $this->batida('entrada', $batida->modify('-2 hours'));
         $this->batida('saida', $batida);
         $pedido = $this->esquecimentoDaSaida($batida->modify('-1 hour'));
 
@@ -181,7 +185,7 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
 
         $this->bater('entrada');
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(0, $this->batidasDoTipo('entrada'), 'interjornada intacta');
+        self::assertSame(1, $this->batidasDoTipo('entrada'), 'interjornada intacta: só a de antes');
     }
 
     #[TestDox('O lançamento em lote do admin também confere: esquecimento de saída num dia que já tem saída batida é recusado, sem justificativa nem batida nova')]
@@ -205,6 +209,30 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         self::assertResponseRedirects();
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM justificativa_ponto WHERE user_id = ?', [$this->user->getId()]));
         self::assertSame(1, $this->batidasDoTipo('saida'));
+    }
+
+    #[TestDox('R4: a saída solta (sem entrada ou retorno antes dela aqui) não conta para a interjornada: a entrada passa; a saída anterior que fechou uma entrada continua contando')]
+    public function testSaidaSoltaNaoContaParaAInterjornada(): void
+    {
+        $this->batida('saida', new \DateTimeImmutable('-3 hours'));   // solta
+
+        $resposta = $this->bater('entrada');
+
+        self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertSame([], $resposta['avisos']);
+    }
+
+    #[TestDox('Saída normal: entrada, saída às 22:00 de ontem e nova entrada às 07:00 de hoje (9 h depois) continua recusada pela interjornada')]
+    public function testSaidaNormalContinuaRecusando(): void
+    {
+        $saida = new \DateTimeImmutable('-9 hours');
+        $this->batida('entrada', $saida->modify('-8 hours'));
+        $this->batida('saida', $saida);
+
+        $resposta = $this->bater('entrada');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringStartsWith('Interjornada mínima é de 11h.', (string) $resposta['message']);
     }
 
     // ----------------------------------------------------------------- apoio

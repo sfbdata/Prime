@@ -183,6 +183,7 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         $this->batida($this->y, 'saida', $this->agoraHaPouco());
         self::assertTrue($this->baterEmX('entrada')['success'], 'a saída de Y não conta em X');
 
+        $this->batida($this->x, 'entrada', $this->hojeCedo(3));   // a saída de X fecha uma entrada: conta (R4)
         $this->batida($this->x, 'saida', $this->agoraHaPouco());
         $resposta = $this->baterEmX('entrada');
         self::assertResponseStatusCodeSame(422);
@@ -192,6 +193,7 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
     #[TestDox('Y aberto e a interjornada de uma saída batida em X: a recusa é a da interjornada, e o ponto aberto em Y não recusa')]
     public function testYAbertoNaoRecusaMasAInterjornadaSim(): void
     {
+        $this->batida($this->x, 'entrada', $this->hojeCedo(2));   // a saída de X fecha uma entrada: conta (R4)
         $this->batida($this->x, 'saida', $this->agoraHaPouco());
         $this->batida($this->y, 'entrada', $this->hojeCedo(1));
 

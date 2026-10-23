@@ -224,6 +224,28 @@ SQL;
     }
 
     /**
+     * As últimas saídas da pessoa NESTE escritório, da mais recente para a mais antiga (interjornada: a primeira que
+     * fechou um turno aberto conta, spec `ponto-esquecimento-nao-trava.md` R4). Escritório explícito, além do filtro.
+     *
+     * @return list<RegistroPonto>
+     */
+    public function ultimasSaidas(User $user, Tenant $tenant, int $limite): array
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.tipo = :tipo')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', RegistroPonto::TIPO_SAIDA)
+            ->orderBy('r.dataHora', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * As batidas da pessoa NAQUELE escritório no período, em ordem de horário (lista de pendências, spec
      * `ponto-esquecimento-nao-trava.md` R5). Cross-tenant de propósito: a lista mostra à própria pessoa os outros
      * escritórios dela, então o filtro de escritório fica suspenso e o escritório vai escrito na consulta. Quem chama

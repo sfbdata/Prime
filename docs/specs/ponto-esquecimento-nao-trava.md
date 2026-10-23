@@ -72,6 +72,9 @@ escritório ou em outro.
 - Se a última saída usada na medida foi criada pela aprovação de um registro de esquecimento, a interjornada não recusa:
   vira aviso, como em R2.
 - Quando a saída foi batida normalmente, a interjornada continua como hoje.
+- **A saída solta não conta (decisão de 23/10).** A interjornada é medida a partir da última saída que FECHOU uma entrada
+  ou retorno neste escritório (havia turno aberto logo antes dela). Uma saída sem turno aberto antes (saída solta) não
+  conta: a entrada seguinte passa. Mesma lógica de "esquecimento nunca trava". Vale para todos os dias, sem data de corte.
 
 **R5. Pendências visíveis na tela do ponto.** A página /ponto mostra uma lista de pendências da pessoa:
 - dias com registro incompleto, neste escritório e nos outros onde ela tem vínculo ativo;

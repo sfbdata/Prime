@@ -879,6 +879,23 @@ final class PontoController extends AbstractController
     }
 
     /**
+     * A saída que mede a interjornada (spec `ponto-esquecimento-nao-trava.md` R4, decisão de 23/10): a última que FECHOU
+     * uma entrada ou retorno neste escritório. A saída solta, sem turno aberto antes dela, não conta: esquecimento nunca
+     * trava. Olha as últimas saídas; um histórico só de saídas soltas além disso não mede nada.
+     */
+    private function ultimaSaidaQueFechouTurno(User $user, Tenant $tenant, RegistroPontoRepository $registros): ?RegistroPonto
+    {
+        foreach ($registros->ultimasSaidas($user, $tenant, 10) as $saida) {
+            $quando = \DateTimeImmutable::createFromInterface($saida->getDataHora());
+            if ($this->turnoAberto->estaAberto($user, $tenant, $quando->modify('-1 second'))) {
+                return $saida;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * A interjornada da entrada, medida pela última saída NESTE escritório (`ponto-por-escritorio.md` §2.1). Null quando
      * está cumprida ou desligada; `recusa` quando a saída foi batida; `aviso` quando a saída veio de um registro de
      * esquecimento (`ponto-esquecimento-nao-trava.md` R4): o esquecimento nunca trava a batida seguinte.
@@ -890,7 +907,7 @@ final class PontoController extends AbstractController
         if (!($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
             return null;
         }
-        $ultimaSaida = $registroRepository->findUltimaSaida($user, $tenant);
+        $ultimaSaida = $this->ultimaSaidaQueFechouTurno($user, $tenant, $registroRepository);
         if ($ultimaSaida === null) {
             return null;
         }
