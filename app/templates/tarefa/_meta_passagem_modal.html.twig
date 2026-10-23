@@ -5,7 +5,7 @@
      "Pasta X · Cliente" no cabeçalho; sem o menu de salto e volta.
    - `contexto` 'meta' (página da meta): o modal do 04B L92-102. Caixa de 560px sem altura máxima, cabeçalho só com o
      título, CONCLUÍDA e PRÓXIMO PASSO só com o nome da etapa, menu PASSAR PARA A ETAPA (salta/volta), seletor sem
-     avatar, PRAZO e as pendências; sem faixa, sem tipo e sem o que foi feito. #}
+     avatar, PRAZO e as pendências com o "Você costuma pedir:" (L99, Fase 4); sem faixa, sem tipo e sem o que foi feito. #}
 {% set naMeta = contexto == 'meta' %}
 <div class="mp-modal mp-passagem mp-passagem--{{ naMeta ? 'meta' : 'lista' }}" id="mpPassagem" data-contexto="{{ contexto }}" hidden>
     <div class="mp-modal-fundo" data-mp-fechar></div>
@@ -58,7 +58,7 @@
                         <label class="mp-campo mp-campo-resp">{{ 'metas.passagem.modal.responsavel'|trans }}<input type="text" data-mp="resp" autocomplete="off"{% if naMeta %} placeholder="{{ 'metas.passagem.modal.responsavel_placeholder_meta'|trans }}"{% endif %}><div class="mp-membros" data-mp="membros" hidden></div></label>
                         <label class="mp-campo">{{ (naMeta ? 'metas.passagem.modal.prazo_meta' : 'metas.passagem.modal.prazo')|trans }}<input type="date" data-mp="prazo"></label>
                     </div>
-                    <label class="mp-campo">{{ 'metas.passagem.modal.pendencias'|trans }}<textarea rows="3" data-mp="pend" maxlength="2000" placeholder="{{ (naMeta ? 'metas.passagem.modal.pendencias_placeholder_meta' : 'metas.passagem.modal.pendencias_placeholder')|trans }}"></textarea></label>
+                    <label class="mp-campo">{{ 'metas.passagem.modal.pendencias'|trans }}<textarea rows="3" data-mp="pend" maxlength="2000" placeholder="{{ (naMeta ? 'metas.passagem.modal.pendencias_placeholder_meta' : 'metas.passagem.modal.pendencias_placeholder')|trans }}"></textarea>{% if naMeta %}<div class="mp-costuma" data-mp="costuma" hidden><span class="mp-costuma-dica"><i class="bi bi-lightbulb"></i> {{ 'metas.passagem.modal.costuma_pedir'|trans }}</span><span class="mp-costuma-lista" data-mp="costumaLista"></span></div>{% endif %}</label>
                 </div>
                 {% if not naMeta %}<label class="mp-campo">{{ 'metas.passagem.modal.feito'|trans }}<textarea rows="2" data-mp="feito" maxlength="2000" placeholder="{{ 'metas.passagem.modal.feito_placeholder'|trans }}"></textarea></label>{% endif %}
                 <div class="mp-erro" data-mp="erro" role="alert" hidden></div>

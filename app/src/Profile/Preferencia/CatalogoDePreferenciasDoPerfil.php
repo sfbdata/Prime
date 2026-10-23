@@ -15,11 +15,13 @@ final class CatalogoDePreferenciasDoPerfil
     public const NOTIFICACOES = 'perfil.notificacoes';
     public const SONS         = 'perfil.sons';
     public const RESUMO_EMAIL = 'perfil.resumo_email';
+    /** D4 de Minhas Metas (spec minhas-metas-esteira-2210, Fase 4): desligada, nada é sugerido nem gravado. */
+    public const SUGESTOES_DESPACHOS = 'perfil.sugestoes_despachos';
 
     /** @return list<string> */
     public static function chaves(): array
     {
-        return [self::NOTIFICACOES, self::SONS, self::RESUMO_EMAIL];
+        return [self::NOTIFICACOES, self::SONS, self::RESUMO_EMAIL, self::SUGESTOES_DESPACHOS];
     }
 
     public static function existe(string $chave): bool

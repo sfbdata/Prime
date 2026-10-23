@@ -11,14 +11,18 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\DTO\DevolverMetaInput;
 use App\Tarefa\DTO\PassarEtapaInput;
+use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Exception\PassagemRecusadaException;
 use App\Tarefa\Service\AcessoAMeta;
 use App\Tarefa\Service\QuemCuidaDaMeta;
+use App\Tarefa\UseCase\AprenderComAMetaUseCase;
 use App\Tarefa\UseCase\DevolverMetaUseCase;
 use App\Tarefa\UseCase\MontarEtapaDaMetaUseCase;
+use App\Tarefa\UseCase\MontarSugestoesDaMetaUseCase;
 use App\Tarefa\UseCase\PassarEtapaDaMetaUseCase;
 use App\Tenant\Service\ColaboradoresAtribuiveis;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -45,7 +49,7 @@ final class PassagemDeEtapaController extends AbstractController
     }
 
     #[Route('/{id}/passagem', name: 'tarefa_passagem', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function dados(Tarefa $tarefa, MontarEtapaDaMetaUseCase $useCase, QuemCuidaDaMeta $quemCuida, CsrfTokenManagerInterface $csrf): JsonResponse
+    public function dados(Tarefa $tarefa, MontarEtapaDaMetaUseCase $useCase, QuemCuidaDaMeta $quemCuida, CsrfTokenManagerInterface $csrf, MontarSugestoesDaMetaUseCase $sugestoes): JsonResponse
     {
         [$usuario, $tenant] = $this->acesso($tarefa);
         if (!$quemCuida->ehResponsavelOuCriador($tarefa, $usuario)) {
@@ -58,11 +62,13 @@ final class PassagemDeEtapaController extends AbstractController
         return $this->json($useCase->dadosDoModal($tarefa, $tenant, new \DateTimeImmutable()) + [
             'url'   => $this->generateUrl('tarefa_passar', ['id' => $tarefa->getId()]),
             'token' => $csrf->getToken('passar_etapa_' . $tarefa->getId())->getValue(),
+            // "Você costuma pedir" (04B L99, Fase 4): só as linhas da própria pessoa, por etapa destino.
+            'costumaPedir' => (object) $sugestoes->pedidos($usuario, $tenant),
         ]);
     }
 
     #[Route('/{id}/passar', name: 'tarefa_passar', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function passar(Tarefa $tarefa, Request $request, PassarEtapaDaMetaUseCase $useCase, ColaboradoresAtribuiveis $atribuiveis): JsonResponse
+    public function passar(Tarefa $tarefa, Request $request, PassarEtapaDaMetaUseCase $useCase, ColaboradoresAtribuiveis $atribuiveis, AprenderComAMetaUseCase $aprender, LoggerInterface $logger): JsonResponse
     {
         [$usuario, $tenant] = $this->acesso($tarefa);
         $this->exigirCsrf('passar_etapa_' . $tarefa->getId(), $request);
@@ -84,8 +90,24 @@ final class PassagemDeEtapaController extends AbstractController
         } catch (PassagemRecusadaException|DespachoRecusadoException $e) {
             return $this->erro($e);
         }
+        $resposta = $this->json(['ok' => true, 'proxima' => $feito->proxima, 'pasta' => $feito->pasta, 'novaMeta' => $feito->novaMetaId]);
+        $this->aprenderDasPendencias($aprender, $logger, $tarefa, $usuario, $tenant, $feito->destino, $input->pendencias);
 
-        return $this->json(['ok' => true, 'proxima' => $feito->proxima, 'pasta' => $feito->pasta, 'novaMeta' => $feito->novaMetaId]);
+        return $resposta;
+    }
+
+    /**
+     * Aprendizado das pendências (Fase 4), pela etapa destino: melhor esforço, depois da passagem gravada. Uma falha vai
+     * para o log (meta e pessoa, sem as linhas) e a resposta de sucesso, montada antes, segue sem depender do
+     * EntityManager.
+     */
+    private function aprenderDasPendencias(AprenderComAMetaUseCase $aprender, LoggerInterface $logger, Tarefa $tarefa, User $usuario, Tenant $tenant, ?EtapaDaPasta $destino, string $pendencias): void
+    {
+        try {
+            $aprender->dasPendencias($usuario, $tenant, $destino, $pendencias);
+        } catch (\Throwable $e) {
+            $logger->error('Aprendizado das pendências falhou; a passagem ficou gravada.', ['meta' => $tarefa->getId(), 'usuario' => $usuario->getId(), 'erro' => $e::class]);
+        }
     }
 
     #[Route('/{id}/devolver', name: 'tarefa_devolver', requirements: ['id' => '\d+'], methods: ['POST'])]

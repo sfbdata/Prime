@@ -8,7 +8,10 @@
    - @menção (C3): o pasta-mencoes.js liga a lista ao campo; ao enviar, cada "@Nome" escolhido vira o token
      `@[Nome](user:ID)` (PastaMencoes.paraEnvio), que o servidor confere.
    - Extrato (L57, L150): abre a folha em janela nova; se o navegador bloquear, avisa "Permita pop-ups para gerar o
-     extrato.". O aviso (toast) do desenho (L176) também mostra o "Lembrete enviado no Chat I.A." que volta na URL. */
+     extrato.". O aviso (toast) do desenho (L176) também mostra o "Lembrete enviado no Chat I.A." que volta na URL.
+   - Aprendizado (Fase 4, L61 e L151-156): com o campo vazio, as frases que a pessoa mais usa nesta etapa, da natureza
+     marcada (a lista por natureza vem em data-sugestoes); o clique põe o texto inteiro no campo e marca a natureza
+     dele. Digitou, as sugestões somem; apagou tudo, voltam. */
 (function () {
   'use strict';
 
@@ -55,6 +58,62 @@
           campo.focus();
         }
       });
+    });
+  }
+
+  /* As frases da natureza marcada (L152): a lista do servidor já vem filtrada por natureza; '' é sem natureza. */
+  function iniciarSugestoes(form, campo) {
+    var caixa = form.querySelector('.despacho-sugestoes');
+    if (!caixa) return;
+    var lista = caixa.querySelector('.despacho-sugestoes-lista');
+    var oculto = form.querySelector('#despachoNatureza');
+    var porNatureza = {};
+    try { porNatureza = JSON.parse(caixa.dataset.sugestoes || '{}') || {}; } catch (e) { porNatureza = {}; }
+
+    function frase(f) {
+      var botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'despacho-sugestao';
+      botao.dataset.texto = f.texto;
+      botao.dataset.natureza = f.natureza || '';
+      var texto = document.createElement('span');
+      texto.className = 'despacho-sugestao-texto';
+      texto.textContent = f.rotulo;
+      var vezes = document.createElement('span');
+      vezes.className = 'despacho-sugestao-vezes';
+      vezes.textContent = f.vezes > 1 ? BJ_T.t('metas.despacho.js.vezes', { n: f.vezes }) : '';
+      botao.appendChild(texto);
+      botao.appendChild(vezes);
+      return botao;
+    }
+
+    function desenhar() {
+      var frases = porNatureza[oculto.value] || [];
+      lista.textContent = '';
+      frases.forEach(function (f) { lista.appendChild(frase(f)); });
+      caixa.hidden = frases.length === 0 || campo.value.trim() !== '';
+    }
+
+    function marcarNatureza(valor) {
+      form.querySelectorAll('.despacho-chip').forEach(function (c) {
+        c.setAttribute('aria-pressed', c.dataset.natureza === valor ? 'true' : 'false');
+      });
+      oculto.value = valor;
+    }
+
+    lista.addEventListener('click', function (e) {
+      var botao = e.target.closest('.despacho-sugestao');
+      if (!botao) return;
+      if (botao.dataset.natureza) marcarNatureza(botao.dataset.natureza);
+      campo.value = botao.dataset.texto;
+      campo.dispatchEvent(new Event('input'));
+      campo.focus();
+    });
+    form.querySelectorAll('.despacho-chip').forEach(function (chip) {
+      chip.addEventListener('click', desenhar);
+    });
+    campo.addEventListener('input', function () {
+      caixa.hidden = (porNatureza[oculto.value] || []).length === 0 || campo.value.trim() !== '';
     });
   }
 
@@ -183,6 +242,7 @@
     if (!form) return;
     var campo = form.querySelector('#tarefaMensagemConteudo');
     iniciarNatureza(form, campo);
+    iniciarSugestoes(form, campo);
     iniciarPrazo(form);
     iniciarContadorEAnexo(form, campo);
     iniciarEnvio(form, campo);

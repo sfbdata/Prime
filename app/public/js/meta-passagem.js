@@ -5,6 +5,9 @@
      "Concluir e passar para X" da lateral da meta) e pede os dados à rota tarefa_passagem. Na lista é o 04 (L131,
      L174-197: faixa da sequência, TIPO DE DEMANDA, seletor com foto); na meta é o 04B (L92-102: menu PASSAR PARA A
      ETAPA, seletor sem avatar). O template só traz as partes do seu desenho; aqui cada montagem pula a que falta.
+     Na meta, o "Você costuma pedir:" (04B L99, L157-158, Fase 4) mostra as linhas que a pessoa mais pede para a
+     etapa destino (costumaPedir, vindo da mesma rota); o clique acrescenta a linha ao campo e a que já está nele fica
+     azul e não repete.
    - Modal "Devolver para X" (04B L106, L165-167): motivo fixo e o que falta, com os erros do desenho.
    O servidor confere tudo de novo (PassarEtapaDaMetaUseCase, DevolverMetaUseCase). Depois de gravar, a tela recarrega
    e o aviso (toast) aparece pelo sessionStorage: o base.html.twig consome os flashes como alerta. */
@@ -262,6 +265,39 @@
         : t('metas.passagem.js.botao_passar', { etapa: estado.dados.etapas[dest].nome });
   }
 
+  /* "Você costuma pedir:" (04B L99, L157-158): as 5 linhas mais pedidas para a etapa destino; a que já está no campo
+     fica marcada (is-ja). */
+  function montarCostuma() {
+    var caixa = parte('costuma');
+    if (!caixa) { return; }
+    var pedidos = (estado.dados.costumaPedir || {})[destino()] || [];
+    var atuais = parte('pend').value.toLowerCase().split('\n').map(function (x) { return x.trim(); });
+    var lista = parte('costumaLista');
+    lista.replaceChildren();
+    pedidos.forEach(function (linha) {
+      var ja = atuais.indexOf(linha.toLowerCase()) >= 0;
+      var botao = elemento('button', 'mp-costuma-pedido' + (ja ? ' is-ja' : ''), '+ ' + linha);
+      botao.type = 'button';
+      botao.dataset.linha = linha;
+      lista.appendChild(botao);
+    });
+    caixa.hidden = pedidos.length === 0;
+  }
+
+  function iniciarCostuma() {
+    var lista = parte('costumaLista');
+    if (!lista) { return; }
+    var pend = parte('pend');
+    lista.addEventListener('click', function (ev) {
+      var botao = ev.target.closest('.mp-costuma-pedido');
+      ev.preventDefault();
+      if (!botao || botao.classList.contains('is-ja')) { return; }
+      pend.value = (pend.value.trim() ? pend.value.trim() + '\n' : '') + botao.dataset.linha;
+      montarCostuma();
+    });
+    pend.addEventListener('input', montarCostuma);
+  }
+
   function montarTudo() {
     montarFaixa();
     montarCaixaProxima();
@@ -269,6 +305,7 @@
     montarTipos();
     montarCampos();
     montarMembros();
+    montarCostuma();
   }
 
   function erroDaPassagem(texto) {
@@ -342,6 +379,7 @@
     resp.addEventListener('input', function () { estado.respId = null; estado.listaAberta = true; montarMembros(); });
     resp.addEventListener('blur', function () { setTimeout(function () { estado.listaAberta = false; parte('membros').hidden = true; }, 160); });
     parte('ok').addEventListener('click', confirmarPassagem);
+    iniciarCostuma();
   }
 
   /* ── Devolução ─────────────────────────────────────────────────────────── */
