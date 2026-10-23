@@ -18,6 +18,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+/**
+ * Aceite dos Termos de Uso. Só em português (decisão do dono, 23/10/2026): o aceite fica amarrado ao texto pt da
+ * versão ({@see TermoVigente}), então as rotas fixam o locale `pt_BR`, qualquer que seja o idioma da pessoa, e o
+ * {@see \App\Profile\EventListener\IdiomaDaRequisicaoListener} respeita.
+ */
 #[IsGranted('ROLE_USER')]
 final class TermoController extends AbstractController
 {
@@ -27,7 +32,7 @@ final class TermoController extends AbstractController
         private readonly RatificarCienciaPoliticaUseCase $ratificarCiencia,
     ) {}
 
-    #[Route('/termos/aceitar', name: 'termo_aceite', methods: ['GET'])]
+    #[Route('/termos/aceitar', name: 'termo_aceite', methods: ['GET'], locale: 'pt_BR')]
     public function aceitar(): Response
     {
         /** @var User $user */
@@ -39,7 +44,7 @@ final class TermoController extends AbstractController
         ]);
     }
 
-    #[Route('/termos/aceitar', name: 'termo_aceite_registrar', methods: ['POST'])]
+    #[Route('/termos/aceitar', name: 'termo_aceite_registrar', methods: ['POST'], locale: 'pt_BR')]
     public function registrar(Request $request): Response
     {
         if (!$this->isCsrfTokenValid('termo_aceite', (string) $request->request->get('_token'))) {

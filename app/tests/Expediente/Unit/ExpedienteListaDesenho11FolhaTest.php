@@ -72,7 +72,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString('box-shadow: none !important;', $tag);
         self::assertStringContainsString('--ex-borda-tag: #d8e1e7;', $css);
 
-        $tabela = self::ler('templates/pasta/_tabela.html.twig');
+        $tabela = self::ler('templates/expediente/_lista.html.twig');
         foreach (['bi-upc', 'bi-person', 'bi-bank', 'bi-flag me-1', 'bi-person-badge', 'bi-check2-square', 'bi-tags', 'bi-circle-half'] as $icone) {
             self::assertStringContainsString('<i class="bi ' . $icone, $tabela, 'ícone do cabeçalho do dc: ' . $icone);
         }
@@ -89,10 +89,10 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     #[TestDox('AUD-14: resumo com o intervalo de pastas da página ("1 de 50", "51 de 100") e espaços largos em volta do ponto')]
     public function testResumoComIntervalo(): void
     {
-        $tabela = self::ler('templates/pasta/_tabela.html.twig');
+        $tabela = self::ler('templates/expediente/_lista.html.twig');
         self::assertStringContainsString('{%- set primeiraDaPagina = (pagination.current_page - 1) * pagination.per_page + 1 %}', $tabela);
-        self::assertStringContainsString("ultima: (primeiraDaPagina + pastas|length - 1)|number_format(0, ',', '.')}) }}&#8195;·&#8195;{{ (pagination.total_items != 1 ? 'pasta_lista.tabela.total_varias'", $tabela);
-        self::assertSame(['{primeira} de {ultima}', 'Total: {total} pastas', 'Total: {total} pasta'], [self::texto('pasta_lista.tabela.intervalo'), self::texto('pasta_lista.tabela.total_varias'), self::texto('pasta_lista.tabela.total_uma')]);
+        self::assertStringContainsString("fim: (primeiraDaPagina + pastas|length - 1)|numero(0)}) }}&#8195;·&#8195;{{ pagination.total_items != 1 ? 'expediente.lista.resumo.total_varias'", $tabela);
+        self::assertSame(['{inicio} de {fim}', 'Total: {total} pastas', 'Total: {total} pasta'], [self::texto('expediente.lista.resumo.intervalo'), self::texto('expediente.lista.resumo.total_varias'), self::texto('expediente.lista.resumo.total_uma')]);
         self::assertStringNotContainsString('{{ pagination.current_page }} de {{ max(pagination.total_pages, 1) }}', $tabela);
     }
 
