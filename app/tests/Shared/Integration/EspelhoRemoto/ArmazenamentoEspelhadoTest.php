@@ -216,7 +216,7 @@ final class ArmazenamentoEspelhadoTest extends KernelTestCase
     private function cadeia(object $armazenamento): array
     {
         $classes = [];
-        for ($atual = $armazenamento; \is_object($atual); ) {
+        for ($atual = $armazenamento; \is_object($atual);) {
             $classes[] = $atual::class;
             $reflexao  = new \ReflectionObject($atual);
             $atual     = $reflexao->hasProperty('interno') ? $reflexao->getProperty('interno')->getValue($atual) : null;
