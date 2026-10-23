@@ -17,7 +17,7 @@ use Doctrine\Migrations\AbstractMigration;
  * - O token também sai do que já foi gravado na auditoria da `Invitation`. O formato atual do
  *   `AuditLogSubscriber` grava em `diff.after` (create), `diff.before` (delete) e `diff.changes` (update); os
  *   caminhos sem o `diff` são do formato antigo e entram por garantia. A chave é apagada, igual ao que o
- *   subscriber faz daqui para a frente com os campos ignorados.
+ *   subscriber faz daqui para a frente com os campos ignorados. Só sai a chave de um pai que é objeto.
  */
 final class Version20261020150500 extends AbstractMigration
 {
@@ -44,17 +44,17 @@ final class Version20261020150500 extends AbstractMigration
         // Apagar a coluna leva junto o UNIQUE antigo (uq_invitation_token), seja constraint ou índice.
         $this->addSql('ALTER TABLE invitation DROP COLUMN token');
 
-        $semToken = 'changes::jsonb';
-        $temToken = [];
+        // Uma remoção por caminho, só quando o pai é um objeto: o `#-` num array com chave de texto abortaria a
+        // migration.
         foreach (self::CAMINHOS_NA_AUDITORIA as $caminho) {
-            $semToken = sprintf("(%s #- '%s')", $semToken, $caminho);
-            $temToken[] = sprintf("changes::jsonb #> '%s' IS NOT NULL", $caminho);
+            $pai = (string) preg_replace('/,token}$/', '}', $caminho);
+            $this->addSql(sprintf(
+                "UPDATE audit_log SET changes = (changes::jsonb #- '%s')::json WHERE entity_class = 'App\\Entity\\Auth\\Invitation' AND changes IS NOT NULL AND jsonb_typeof(changes::jsonb #> '%s') = 'object' AND changes::jsonb #> '%s' IS NOT NULL",
+                $caminho,
+                $pai,
+                $caminho,
+            ));
         }
-        $this->addSql(sprintf(
-            "UPDATE audit_log SET changes = %s::json WHERE entity_class = 'App\\Entity\\Auth\\Invitation' AND changes IS NOT NULL AND (%s)",
-            $semToken,
-            implode(' OR ', $temToken),
-        ));
     }
 
     public function down(Schema $schema): void

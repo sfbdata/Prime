@@ -112,11 +112,13 @@ repositório busca por ele, o `ConviteMailer` lê `getToken()` da entidade e o r
 
 ## Raiz C (PR 2)
 
-- **C1.** `token` e `tokenHash` entram no `IGNORED_FIELDS` do `AuditLogSubscriber`: nem o create, nem o update do
-  reenvio, nem o delete gravam o token ou o hash. A única entidade auditável com esses campos é a `Invitation`.
+- **C1.** `token` e `tokenHash` entram no `IGNORED_FIELDS_POR_CLASSE` do `AuditLogSubscriber`, só para a
+  `Invitation` (o nome é genérico demais para valer em toda entidade): nem o create, nem o update do reenvio, nem o
+  delete gravam o token ou o hash.
 - A mesma migration apaga a chave `token` das linhas de `audit_log` da `App\Entity\Auth\Invitation`, nos caminhos
   que o subscriber grava (`diff.after`, `diff.before`, `diff.changes`) e, por garantia, nos do formato antigo
-  (`after`, `before`, `changes`). Os outros campos da linha ficam.
+  (`after`, `before`, `changes`). Um UPDATE por caminho, só nas linhas em que o pai é objeto
+  (`jsonb_typeof = 'object'`), para um array nunca abortar a migration. Os outros campos da linha ficam.
 - Conferido: a impressão `sha1` do subscriber (`computeAuditFingerprint`) só evita registro duplicado dentro do mesmo
   flush, não é verificação de integridade, então apagar a chave não quebra nada. O desfazer da auditoria
   (`DesfazerAlteracaoAuditLogUseCase`) só desfaz `update` de uma lista fechada de entidades, sem a `Invitation`, e

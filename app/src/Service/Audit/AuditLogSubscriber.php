@@ -3,6 +3,7 @@
 namespace App\Service\Audit;
 
 use App\Entity\Audit\AuditLog;
+use App\Entity\Auth\Invitation;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\ConteudoParticular;
@@ -31,12 +32,16 @@ class AuditLogSubscriber
     private const IGNORED_FIELDS = [
         'password',
         'invitationToken',
-        // Token do link do convite (Invitation) e o hash dele: nenhum dos dois vai para o audit_log
-        // (achado de auditoria interna, spec seguranca-a-convites, raiz C).
-        'token',
-        'tokenHash',
         // Refresh token OAuth do Drive por tenant — já cifrado, nunca vai para o audit_log.
         'refreshTokenCifrado',
+    ];
+
+    /**
+     * Campos ignorados só numa entidade: o nome é genérico demais para valer em todas. O token do link do convite e o
+     * hash dele não vão para o audit_log (achado de auditoria interna, spec seguranca-a-convites, raiz C).
+     */
+    private const IGNORED_FIELDS_POR_CLASSE = [
+        Invitation::class => ['token', 'tokenHash'],
     ];
 
     public function __construct(
@@ -80,7 +85,7 @@ class AuditLogSubscriber
                 continue;
             }
 
-            $changeSet = $this->normalizeChangeSet($unitOfWork->getEntityChangeSet($entity));
+            $changeSet = $this->normalizeChangeSet($unitOfWork->getEntityChangeSet($entity), $entity);
             if ($changeSet === []) {
                 continue;
             }
@@ -421,7 +426,7 @@ class AuditLogSubscriber
         $normalized = [];
 
         foreach ($data as $field => $value) {
-            if ($this->isIgnoredField($field)) {
+            if ($this->isIgnoredField($field, $entity)) {
                 continue;
             }
 
@@ -431,12 +436,12 @@ class AuditLogSubscriber
         return $normalized;
     }
 
-    private function normalizeChangeSet(array $changeSet): array
+    private function normalizeChangeSet(array $changeSet, object $entity): array
     {
         $normalized = [];
 
         foreach ($changeSet as $field => [$oldValue, $newValue]) {
-            if ($this->isIgnoredField((string) $field)) {
+            if ($this->isIgnoredField((string) $field, $entity)) {
                 continue;
             }
 
@@ -456,9 +461,18 @@ class AuditLogSubscriber
         return $normalized;
     }
 
-    private function isIgnoredField(string $field): bool
+    private function isIgnoredField(string $field, object $entity): bool
     {
-        return in_array($field, self::IGNORED_FIELDS, true);
+        if (in_array($field, self::IGNORED_FIELDS, true)) {
+            return true;
+        }
+        foreach (self::IGNORED_FIELDS_POR_CLASSE as $classe => $campos) {
+            if ($entity instanceof $classe && in_array($field, $campos, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function normalizeValue(mixed $value): mixed
