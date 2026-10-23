@@ -32,7 +32,7 @@
     var anoEscolhido = null;         // ano do "1º do mês"; vale para os próximos cartões da página
 
     function t(chave, vars) {
-        return window.BJ_T.t('dashboard.js.colaborador.' + chave, vars);
+        return window.BJ_T.t(chave, vars);
     }
 
     function el(tag, classe, texto) {
@@ -167,14 +167,14 @@
     }
 
     function tituloMes(sit, mes, ano) {
-        var curto = t('meses_curtos').split(',')[mes - 1];
+        var curto = t('dashboard.js.colaborador.meses_curtos').split(',')[mes - 1];
 
         return t(sit === 'aberto' ? 'mes_aberto' : sit === 'ganhou' ? 'mes_ganhou' : 'mes_nao', { mes: curto, ano: ano });
     }
 
     function mesesDoAno(p, ano) {
         var grade = el('div', 'db-colab-meses');
-        t('meses_letras').split(',').forEach(function (letra, i) {
+        t('dashboard.js.colaborador.meses_letras').split(',').forEach(function (letra, i) {
             var sit = situacao(p, ano, i + 1);
             var m = el('div', 'db-colab-mes db-colab-mes--' + sit);
             m.title = tituloMes(sit, i + 1, ano);
@@ -216,11 +216,11 @@
             var vezes = todos
                 ? p.anos.reduce(function (s, a) { return s + ganhosDe(p, a).length; }, 0)
                 : ganhosDe(p, anoEscolhido).length;
-            var rotulo = t(vezes === 1 ? 'vez' : 'vezes') + ' ' + (todos ? t('no_total') : t('em_ano', { ano: anoEscolhido }));
-            var opcoes = p.anos.map(function (a) { return [a, String(a)]; }).concat([['todos', t('todos')]]);
+            var rotulo = t(vezes === 1 ? 'vez' : 'vezes') + ' ' + (todos ? t('dashboard.js.colaborador.no_total') : t('dashboard.js.colaborador.em_ano', { ano: anoEscolhido }));
+            var opcoes = p.anos.map(function (a) { return [a, String(a)]; }).concat([['todos', t('dashboard.js.colaborador.todos')]]);
             caixa.replaceChildren(
-                linha('bi-trophy-fill db-colab-ico--ouro', t('primeiro_mes'), vezes, rotulo),
-                segmentado('db-colab-seg-ano', t('ano_aria'), opcoes, anoEscolhido, function (a) { anoEscolhido = a; desenharAno(); }),
+                linha('bi-trophy-fill db-colab-ico--ouro', t('dashboard.js.colaborador.primeiro_mes'), vezes, rotulo),
+                segmentado('db-colab-seg-ano', t('dashboard.js.colaborador.ano_aria'), opcoes, anoEscolhido, function (a) { anoEscolhido = a; desenharAno(); }),
                 todos ? todosOsAnos(p) : mesesDoAno(p, anoEscolhido)
             );
         }
@@ -252,15 +252,15 @@
         var caixa = el('div', 'db-colab-rend');
         var cab = el('div', 'db-colab-rend-cab');
         cab.appendChild(icone('bi-graph-up-arrow'));
-        cab.appendChild(el('span', 'db-colab-rend-rot', t('rendimento')));
+        cab.appendChild(el('span', 'db-colab-rend-rot', t('dashboard.js.colaborador.rendimento')));
         var res = el('div', 'db-colab-rend-res');
         res.appendChild(el('span', 'db-colab-rend-pct db-colab-rend-pct--' + tom, (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct) + '%'));
-        res.appendChild(el('span', 'db-colab-rend-frase', t('frase_' + tom, { nome: primeiro, pct: Math.abs(pct) })));
+        res.appendChild(el('span', 'db-colab-rend-frase', t('dashboard.js.colaborador.frase_' + tom, { nome: primeiro, pct: Math.abs(pct) })));
         var max = Math.max(r.eu, r.media, 1);
         var barras = el('div', 'db-colab-barras');
         barras.appendChild(barra(primeiro, 'db-colab-barra--eu', r.eu, max, 'db-colab-barra-cheia--' + tom));
-        barras.appendChild(barra(t('media_equipe'), 'db-colab-barra--media', r.media, max, 'db-colab-barra-cheia--media'));
-        caixa.append(cab, res, barras, el('div', 'db-colab-rend-legenda', t('legenda', { quando: t('quando_' + d.janela), n: r.outros })));
+        barras.appendChild(barra(t('dashboard.js.colaborador.media_equipe'), 'db-colab-barra--media', r.media, max, 'db-colab-barra-cheia--media'));
+        caixa.append(cab, res, barras, el('div', 'db-colab-rend-legenda', t('dashboard.js.colaborador.legenda', { quando: t('dashboard.js.colaborador.quando_' + d.janela), n: r.outros })));
 
         return caixa;
     }
@@ -270,12 +270,12 @@
     function desenhar(janela, d, aoEscolher) {
         var sub = janela.elemento.querySelector('.db-janela-sub');
         if (sub) {
-            sub.textContent = (d.cargo || t('sem_cargo')) + ' · ' + t('posicao_' + d.janela, { pos: d.posicao, n: d.pessoas });
+            sub.textContent = (d.cargo || t('dashboard.js.colaborador.sem_cargo')) + ' · ' + t('dashboard.js.colaborador.posicao_' + d.janela, { pos: d.posicao, n: d.pessoas });
         }
         var corpo = el('div', 'db-colab-corpo');
         // Alternativa do dono (fora do desenho): o recorte do cartão; abre no período do painel.
-        corpo.appendChild(segmentado('db-colab-seg-janela', t('janela_aria'), JANELAS.map(function (j) { return [j, t(j)]; }), d.janela, aoEscolher));
-        corpo.appendChild(linha('bi-chat-left-text-fill', t('comentarios'), d.registros));
+        corpo.appendChild(segmentado('db-colab-seg-janela', t('dashboard.js.colaborador.janela_aria'), JANELAS.map(function (j) { return [j, t(j)]; }), d.janela, aoEscolher));
+        corpo.appendChild(linha('bi-chat-left-text-fill', t('dashboard.js.colaborador.comentarios'), d.registros));
         corpo.appendChild(blocoPrimeiros(d.primeiros));
         janela.corpo.replaceChildren(corpo, blocoRendimento(d));
     }
@@ -304,7 +304,7 @@
                 if (!janela.elemento.isConnected) { return; }
                 desenhar(janela, d, function (j) { janelaEscolhida = j; carregar(url, janela, periodo, j); });
             })
-            .catch(function () { if (janela.elemento.isConnected) { aviso(janela.corpo, t('erro')); } });
+            .catch(function () { if (janela.elemento.isConnected) { aviso(janela.corpo, t('dashboard.js.colaborador.erro')); } });
     }
 
     function avatar(janela, nome, av) {
@@ -322,7 +322,7 @@
         window.DbJanelas.abrir({
             chave: 'colab:' + url,
             titulo: nome,
-            subtitulo: t('carregando'),
+            subtitulo: t('dashboard.js.colaborador.carregando'),
             icone: 'bi-person-fill',
             classe: 'db-hist db-colab-janela',
             largura: 320,
@@ -332,7 +332,7 @@
             origem: alvo,
             montar: function (corpo, janela) {
                 avatar(janela, nome, alvo.getAttribute('data-db-colab-av'));
-                aviso(corpo, t('carregando'));
+                aviso(corpo, t('dashboard.js.colaborador.carregando'));
                 carregar(url, janela, periodo, janelaEscolhida);
             }
         });
