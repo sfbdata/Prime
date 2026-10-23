@@ -123,7 +123,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
         self::assertSame('ativo', $pasta->getSituacao(), 'A situação não pode ter mudado.');
     }
 
-    #[TestDox('A última pasta da sequência também é protegida: número errado não a apaga de verdade')]
+    #[TestDox('A última pasta da sequência também é protegida: número errado não a exclui')]
     public function testUltimaDaSequenciaComNumeroErradoNaoSome(): void
     {
         $client          = static::createClient();
@@ -173,7 +173,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
         self::assertFalse($this->recarregar($id)?->estaExcluida(), 'Restaurar devolve a pasta.');
     }
 
-    #[TestDox('Número certo: exclui como sempre — a pasta do meio vira lápide')]
+    #[TestDox('Número certo: a pasta do meio vai para a lixeira')]
     public function testNumeroCertoViraLapide(): void
     {
         $client          = static::createClient();
