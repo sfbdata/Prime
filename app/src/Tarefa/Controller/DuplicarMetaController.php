@@ -57,7 +57,7 @@ final class DuplicarMetaController extends AbstractController
         try {
             $copiaId = $useCase->executar($tarefa, $usuario, $tenant);
         } catch (MetaNaoDuplicavelException $e) {
-            return new JsonResponse(['sucesso' => false, 'erro' => $e->getMessage(), 'mensagem' => $e->getMessage()], Response::HTTP_CONFLICT);
+            return $this->recusarDuplicacao($tarefa, $request, $e->getMessage());
         }
 
         if (!$request->isXmlHttpRequest()) {
@@ -85,17 +85,40 @@ final class DuplicarMetaController extends AbstractController
         return $tenant;
     }
 
-    /** VER a pasta é o mínimo para criar meta nela (C6-SEC-03), e a cópia é uma meta nova; depois, o CSRF por id. */
+    /**
+     * VER a pasta é o mínimo para criar meta nela (C6-SEC-03), e a cópia é uma meta nova; depois, o CSRF por id.
+     * Por XHR (o ⋮ da aba) a recusa é JSON; no formulário comum, o 403 HTML padrão, como o resto da tela.
+     */
     private function recusaDaPastaOuDoToken(Tarefa $tarefa, User $usuario, Tenant $tenant, Request $request): ?JsonResponse
     {
         $pastaId = (int) $tarefa->getPasta()->getId();
         if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW)) {
-            return new JsonResponse(['sucesso' => false, 'erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
+            return $this->proibido($request, 'Sem permissão para acessar esta pasta.');
         }
         if (!$this->isCsrfTokenValid('duplicar_tarefa_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
-            return new JsonResponse(['sucesso' => false, 'erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+            return $this->proibido($request, 'Token inválido.');
         }
 
         return null;
+    }
+
+    private function proibido(Request $request, string $mensagem): JsonResponse
+    {
+        if (!$request->isXmlHttpRequest()) {
+            throw $this->createAccessDeniedException($mensagem);
+        }
+
+        return new JsonResponse(['sucesso' => false, 'erro' => $mensagem, 'mensagem' => $mensagem], Response::HTTP_FORBIDDEN);
+    }
+
+    /** Regra do negócio (lápide, ninguém apto a receber a meta): 409 por XHR; sem JS, o aviso na aba Metas. */
+    private function recusarDuplicacao(Tarefa $tarefa, Request $request, string $mensagem): Response
+    {
+        if ($request->isXmlHttpRequest()) {
+            return new JsonResponse(['sucesso' => false, 'erro' => $mensagem, 'mensagem' => $mensagem], Response::HTTP_CONFLICT);
+        }
+        $this->addFlash('danger', $mensagem);
+
+        return $this->redirectToRoute('pasta_show', ['id' => $tarefa->getPasta()->getId(), '_fragment' => 'tarefas']);
     }
 }

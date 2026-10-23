@@ -13,6 +13,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
 use App\Tarefa\Controller\DuplicarMetaController;
 use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Enum\TipoDeDemanda;
@@ -470,5 +471,118 @@ final class DuplicarMetaControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/pasta/' . $pastaId);
 
         self::assertSame(1, $this->contarMetasDaPasta($pastaId));
+    }
+
+    // =========================================================================
+    // Responsáveis aptos, prioridade exata e o caminho sem JS
+    // =========================================================================
+
+    private function suspender(User $user, Tenant $tenant): void
+    {
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?',
+            [$user->getId(), $tenant->getId()],
+        );
+    }
+
+    #[TestDox('responsável suspenso no escritório fica fora da cópia (a Nova meta não o aceitaria); continua na original')]
+    public function testSuspensoFicaForaDaCopia(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenant, 'Ana Autora');
+        $suspenso = $this->criarUsuario($tenant, 'Carla Suspensa');
+        $pasta    = $this->criarPasta($tenant, $autor);
+        $original = $this->criarMeta($pasta, $autor, [$autor, $suspenso]);
+        $this->suspender($suspenso, $tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+        $this->duplicar($client, (int) $original->getId());
+
+        self::assertResponseIsSuccessful();
+        $copiaId = (int) $this->json($client)['copia'];
+        $ids = fn (int $metaId): array => array_map('intval', $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT user_id FROM tarefa_responsaveis WHERE tarefa_id = ? ORDER BY user_id',
+            [$metaId],
+        ));
+        self::assertSame([(int) $autor->getId()], $ids($copiaId));
+        self::assertCount(2, $ids((int) $original->getId()), 'a original não muda');
+    }
+
+    #[TestDox('nenhum responsável apto: recusa (409 por XHR; sem JS, o aviso na aba Metas) e nenhuma cópia')]
+    public function testTodosInaptosRecusa(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant   = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenant, 'Ana Autora');
+        $suspenso = $this->criarUsuario($tenant, 'Carla Suspensa');
+        $pasta    = $this->criarPasta($tenant, $autor);
+        $original = $this->criarMeta($pasta, $autor, [$suspenso]);
+        $this->suspender($suspenso, $tenant);
+        $pastaId = (int) $pasta->getId();
+        $metaId  = (int) $original->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $this->duplicar($client, $metaId);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame('Nenhum responsável desta meta pode receber metas agora. Crie pela Nova meta.', $this->json($client)['mensagem'] ?? null);
+
+        $this->duplicar($client, $metaId, false);
+        self::assertResponseRedirects('/pasta/' . $pastaId . '#tarefas');
+        $client->followRedirect();
+        self::assertStringContainsString('Nenhum responsável desta meta pode receber metas agora. Crie pela Nova meta.', (string) $client->getResponse()->getContent());
+
+        self::assertSame(1, $this->contarMetasDaPasta($pastaId));
+    }
+
+    #[TestDox('prioridade exata: a original Normal numa pasta de prioridade Alta gera cópia Normal (a criação comum herdaria)')]
+    public function testPrioridadeNormalNaPastaAltaFicaNormal(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'Ana Autora');
+        $pasta  = $this->criarPasta($tenant, $autor);
+        $pasta->setPrioridade(PrioridadePasta::Prioridade);
+        $original = $this->criarMeta($pasta, $autor, [$autor]);
+        $original->setPrioridade(PrioridadeDaMeta::Normal);
+        $this->em()->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+        $this->duplicar($client, (int) $original->getId());
+
+        self::assertResponseIsSuccessful();
+        $prioridade = $this->em()->getConnection()->fetchOne('SELECT prioridade FROM tarefa WHERE id = ?', [(int) $this->json($client)['copia']]);
+        self::assertSame(PrioridadeDaMeta::Normal->value, $prioridade);
+    }
+
+    #[TestDox('sem JS: sem VER a pasta e CSRF inválido dão o 403 HTML padrão (não JSON), sem cópia')]
+    public function testSemXhrRecusasSaoHtml(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant   = $this->criarTenant();
+        $dono     = $this->criarUsuario($tenant, 'Dona da pasta');
+        $soModulo = $this->criarUsuarioComPermissoes($tenant, ['modules.tarefas.view']);
+        $pasta    = $this->criarPasta($tenant, $dono);
+        $meta     = $this->criarMeta($pasta, $dono, [$dono]);
+        $metaId   = (int) $meta->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $soModulo, $tenant);
+        $this->duplicar($client, $metaId, false);
+        self::assertResponseStatusCodeSame(403);
+        self::assertStringNotContainsString('application/json', (string) $client->getResponse()->headers->get('Content-Type'));
+
+        $this->logarComTenant($client, $dono, $tenant);
+        $this->duplicar($client, $metaId, false, 'token_invalido');
+        self::assertResponseStatusCodeSame(403);
+        self::assertStringNotContainsString('application/json', (string) $client->getResponse()->headers->get('Content-Type'));
+
+        self::assertSame(1, $this->contarMetasDaPasta((int) $pasta->getId()));
     }
 }

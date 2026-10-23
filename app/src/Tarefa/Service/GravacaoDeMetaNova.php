@@ -13,5 +13,9 @@ use App\Entity\Tarefa\Tarefa;
  */
 interface GravacaoDeMetaNova
 {
-    public function executar(Tarefa $tarefa): void;
+    /**
+     * @param bool $herdarPrioridadeDaPasta false quando a prioridade da meta já é a decidida (a cópia do "Duplicar"
+     *                                       leva a da original, inclusive Normal)
+     */
+    public function executar(Tarefa $tarefa, bool $herdarPrioridadeDaPasta = true): void;
 }

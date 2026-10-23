@@ -9,6 +9,7 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Tarefa\Exception\MetaNaoDuplicavelException;
 use App\Tarefa\Service\GravacaoDeMetaNova;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 
 /**
  * "Duplicar" no ⋮ da meta, na aba Metas da pasta (desenho 02, D:3725 `duplicar` e D:3736; PMC-032, D-META).
@@ -16,8 +17,8 @@ use App\Tarefa\Service\GravacaoDeMetaNova;
  * Quem dispara: quem vê a pasta e tem o módulo Tarefas (as mesmas guardas da criação de meta, aplicadas pelo
  * controller). O que quer: uma meta igual para começar de novo, sem redigitar.
  *
- * A cópia nasce NA HORA (sem janela de confirmação), na mesma pasta: leva descrição, prazo, responsáveis,
- * prioridade e tipo de demanda; o título ganha " (cópia)" (cortando o original para caber no limite de 120 do
+ * A cópia nasce NA HORA (sem janela de confirmação), na mesma pasta: leva descrição, prazo (mesmo vencido, como o
+ * desenho), os responsáveis que a Nova meta aceitaria hoje, a prioridade exata e o tipo de demanda; o título ganha " (cópia)" (cortando o original para caber no limite de 120 do
  * desenho); nasce aberta (pendente), criada agora e por quem duplicou, no fim da lista. Grava pelo
  * `GravarMetaNovaUseCase`, para ganhar o número da sequência do escritório como toda meta nova.
  *
@@ -36,21 +37,25 @@ final class DuplicarMetaUseCase
 
     public function __construct(
         private readonly GravacaoDeMetaNova $gravarMeta,
+        private readonly ColaboradoresAtribuiveis $atribuiveis,
     ) {
     }
 
     /**
      * @return int o id da cópia
      *
-     * @throws MetaNaoDuplicavelException a pasta da meta foi excluída (lápide)
+     * @throws MetaNaoDuplicavelException a pasta da meta foi excluída (lápide), ou nenhum responsável dela pode
+     *                                     receber metas agora
      */
     public function executar(Tarefa $original, User $quemDuplica, Tenant $tenant): int
     {
         $this->exigirMetaDoEscritorio($original, $tenant);
         $this->exigirPastaAtiva($original);
 
-        $copia = $this->copiar($original, $quemDuplica, $tenant);
-        $this->gravarMeta->executar($copia);
+        $responsaveis = $this->responsaveisAtribuiveis($original, $tenant);
+        $copia = $this->copiar($original, $quemDuplica, $tenant, $responsaveis);
+        // A prioridade é a da original, exatamente (o desenho copia a meta inteira): sem herdar a da pasta.
+        $this->gravarMeta->executar($copia, herdarPrioridadeDaPasta: false);
         $this->entrarNaListaDaPasta($copia);
 
         return (int) $copia->getId();
@@ -80,7 +85,26 @@ final class DuplicarMetaUseCase
         }
     }
 
-    private function copiar(Tarefa $original, User $quemDuplica, Tenant $tenant): Tarefa
+    /**
+     * Só quem a Nova meta aceitaria hoje (aprovado no escritório; sem "atuais", como no `criarParaPasta`): o suspenso
+     * continua na original, mas não entra na meta nova. Sem ninguém, a duplicação é recusada (meta nova sem
+     * responsável não existe, D-META).
+     *
+     * @return list<User>
+     */
+    private function responsaveisAtribuiveis(Tarefa $original, Tenant $tenant): array
+    {
+        $ids = array_map(static fn (User $u): int => (int) $u->getId(), $original->getResponsaveis()->toArray());
+        $responsaveis = $this->atribuiveis->resolverVarios(array_values($ids), $tenant);
+        if ($responsaveis === []) {
+            throw new MetaNaoDuplicavelException('Nenhum responsável desta meta pode receber metas agora. Crie pela Nova meta.');
+        }
+
+        return $responsaveis;
+    }
+
+    /** @param list<User> $responsaveis */
+    private function copiar(Tarefa $original, User $quemDuplica, Tenant $tenant, array $responsaveis): Tarefa
     {
         $copia = new Tarefa();
         $copia->setTitulo(self::tituloDaCopia($original->getTitulo()));
@@ -92,7 +116,7 @@ final class DuplicarMetaUseCase
         $copia->setPasta($original->getPasta());
         $copia->setTenant($tenant);
         $copia->setCriadoPor($quemDuplica);
-        foreach ($original->getResponsaveis() as $responsavel) {
+        foreach ($responsaveis as $responsavel) {
             $copia->addResponsavel($responsavel);
         }
 

@@ -25,7 +25,8 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * A meta nasce com a prioridade da pasta (`PrioridadeDaMeta::daPasta`; decisão do dono de 21/10: herdada,
  * sem campo de escolha, até a análise da I.A. definir). Só quando ainda está no padrão `normal`: quem um
- * dia escolher a prioridade antes de gravar não é sobrescrito.
+ * dia escolher a prioridade antes de gravar não é sobrescrito. A cópia do "Duplicar" pede para não herdar
+ * (`$herdarPrioridadeDaPasta = false`): ela leva a prioridade da original exatamente, inclusive Normal.
  */
 final class GravarMetaNovaUseCase implements GravacaoDeMetaNova
 {
@@ -35,14 +36,14 @@ final class GravarMetaNovaUseCase implements GravacaoDeMetaNova
     ) {
     }
 
-    public function executar(Tarefa $tarefa): void
+    public function executar(Tarefa $tarefa, bool $herdarPrioridadeDaPasta = true): void
     {
         $tenantId = $tarefa->getTenant()?->getId();
         if ($tenantId === null) {
             throw new \InvalidArgumentException('A meta precisa de um escritório gravado para ser numerada.');
         }
 
-        if ($tarefa->getPrioridade() === PrioridadeDaMeta::Normal) {
+        if ($herdarPrioridadeDaPasta && $tarefa->getPrioridade() === PrioridadeDaMeta::Normal) {
             $tarefa->setPrioridade(PrioridadeDaMeta::daPasta($tarefa->getPasta()->getPrioridade()));
         }
 

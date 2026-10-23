@@ -13,6 +13,8 @@ use App\Tarefa\Enum\TipoDeDemanda;
 use App\Tarefa\Exception\MetaNaoDuplicavelException;
 use App\Tarefa\Service\GravacaoDeMetaNova;
 use App\Tarefa\UseCase\DuplicarMetaUseCase;
+use App\Repository\UserRepository;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -37,22 +39,40 @@ final class DuplicarMetaUseCaseTest extends TestCase
     private User $quemDuplica;
     /** @var list<object> */
     private array $gravados = [];
+    /** @var list<bool> o `herdarPrioridadeDaPasta` de cada gravação */
+    private array $herdou = [];
+    /** @var array<int, User> quem a Nova meta aceitaria hoje (aprovado no escritório), por id */
+    private array $aptos = [];
 
     protected function setUp(): void
     {
         $this->gravacao = $this->createMock(GravacaoDeMetaNova::class);
-        $this->gravacao->method('executar')->willReturnCallback(function (Tarefa $t): void {
+        $this->gravacao->method('executar')->willReturnCallback(function (Tarefa $t, bool $herdar = true): void {
             $this->gravados[] = $t;
+            $this->herdou[]   = $herdar;
         });
 
-        $this->useCase = new DuplicarMetaUseCase($this->gravacao);
+        // O UserRepository é nosso: a regra "só aprovado no escritório" é a do ColaboradoresAtribuiveis real.
+        $usuarios = $this->createMock(UserRepository::class);
+        $usuarios->method('findColaboradorAtivoPorIdETenant')->willReturnCallback(fn (int $id): ?User => $this->aptos[$id] ?? null);
+
+        $this->useCase = new DuplicarMetaUseCase($this->gravacao, new ColaboradoresAtribuiveis($usuarios));
 
         $this->tenant = new Tenant();
         (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->tenant, 7);
         $this->pasta = new Pasta();
         $this->pasta->setTenant($this->tenant);
-        $this->autor       = (new User())->setFullName('Ana Autora');
-        $this->quemDuplica = (new User())->setFullName('Bruno Duplica');
+        $this->autor       = $this->usuario(1, 'Ana Autora');
+        $this->quemDuplica = $this->usuario(2, 'Bruno Duplica');
+        $this->aptos       = [1 => $this->autor, 2 => $this->quemDuplica];
+    }
+
+    private function usuario(int $id, string $nome): User
+    {
+        $user = (new User())->setFullName($nome);
+        (new \ReflectionProperty(User::class, 'id'))->setValue($user, $id);
+
+        return $user;
     }
 
     private function original(string $titulo = 'Protocolar recurso'): Tarefa
@@ -175,5 +195,41 @@ final class DuplicarMetaUseCaseTest extends TestCase
 
         $this->expectException(\LogicException::class);
         $this->useCase->executar($this->original(), $this->quemDuplica, $outro);
+    }
+
+    #[TestDox('responsável suspenso (não aceito pela Nova meta) fica fora da cópia; continua na original')]
+    public function testSuspensoFicaForaDaCopia(): void
+    {
+        $original = $this->original();
+        unset($this->aptos[2]);
+
+        $this->useCase->executar($original, $this->quemDuplica, $this->tenant);
+
+        self::assertSame([$this->autor], array_values($this->copiaGravada()->getResponsaveis()->toArray()));
+        self::assertCount(2, $original->getResponsaveis(), 'a original não muda');
+    }
+
+    #[TestDox('nenhum responsável apto: recusa com a mensagem para criar pela Nova meta, nada gravado')]
+    public function testTodosInaptosRecusa(): void
+    {
+        $original    = $this->original();
+        $this->aptos = [];
+        $this->gravacao->expects(self::never())->method('executar');
+
+        $this->expectException(MetaNaoDuplicavelException::class);
+        $this->expectExceptionMessage('Nenhum responsável desta meta pode receber metas agora. Crie pela Nova meta.');
+        $this->useCase->executar($original, $this->quemDuplica, $this->tenant);
+    }
+
+    #[TestDox('a prioridade vai exata, inclusive Normal: a gravação é pedida SEM herdar a da pasta')]
+    public function testPrioridadeNormalSemHerdarDaPasta(): void
+    {
+        $original = $this->original();
+        $original->setPrioridade(PrioridadeDaMeta::Normal);
+
+        $this->useCase->executar($original, $this->quemDuplica, $this->tenant);
+
+        self::assertSame(PrioridadeDaMeta::Normal, $this->copiaGravada()->getPrioridade());
+        self::assertSame([false], $this->herdou);
     }
 }
