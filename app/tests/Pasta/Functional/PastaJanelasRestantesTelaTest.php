@@ -71,7 +71,7 @@ final class PastaJanelasRestantesTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.');", $onsubmit);
         self::assertStringNotContainsString('alert(', $onsubmit);
         // C7-PAS-03: "Excluir a pasta N (cliente)?" como o desenho (dc L.4336)
-        self::assertStringContainsString("window.prompt('Excluir a pasta " . $pasta->getNup() . ' (FULANO DE TAL)?\\nA exclusão fica registrada no histórico.\\n\\nPara confirmar, digite o número da pasta:\')', $onsubmit);
+        self::assertStringContainsString("window.prompt('Excluir a pasta " . $pasta->getNup() . ' (FULANO DE TAL)?\\nEssa ação vai para a lixeira por 30 dias e fica registrada no histórico.\\n\\nPara confirmar, digite o número da pasta:\')', $onsubmit);
         self::assertSame((string) $pasta->getNomeCliente(), $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('data-cliente'));
         self::assertSame('Excluir a pasta {nup} ({cliente})?', self::catalogoDoMenu()['excluir_pergunta_cliente']);
 
@@ -102,7 +102,7 @@ final class PastaJanelasRestantesTelaTest extends JusPrimeWebTestCase
             static fn (array $m): string => (string) mb_chr((int) hexdec($m[1]), 'UTF-8'),
             (string) $form->attr('onsubmit'),
         );
-        self::assertStringContainsString("window.prompt('Excluir a pasta " . $pasta->getNup() . '?\\nA exclusão fica registrada no histórico.\\n\\nPara confirmar, digite o número da pasta:\')', $onsubmit);
+        self::assertStringContainsString("window.prompt('Excluir a pasta " . $pasta->getNup() . '?\\nEssa ação vai para a lixeira por 30 dias e fica registrada no histórico.\\n\\nPara confirmar, digite o número da pasta:\')', $onsubmit);
         self::assertSame('Excluir a pasta {nup}?', self::catalogoDoMenu()['excluir_pergunta']);
     }
 

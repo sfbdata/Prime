@@ -8948,14 +8948,14 @@ pasta_cabecalho:
             excluir: Excluir pasta
             excluir_pergunta: 'Excluir a pasta {nup}?'
             excluir_pergunta_cliente: 'Excluir a pasta {nup} ({cliente})?'
-            excluir_registro: A exclusão fica registrada no histórico.
+            excluir_registro: Essa ação vai para a lixeira por 30 dias e fica registrada no histórico.
             excluir_digite: 'Para confirmar, digite o número da pasta:'
             excluir_nao_confere: Número não confere. A pasta não foi excluída.
         excluida:
             titulo: Pasta excluída
             quando: 'em {data} às {hora}.'
             quando_por: 'em {data} às {hora} por {nome}.'
-            motivo: 'Ela continua aqui porque o número {nup} não pode ser reaproveitado: já existem pastas posteriores. Somente leitura até ser restaurada.'
+            motivo: 'A pasta {nup} está na lixeira: somente leitura até ser restaurada.'
         cliente_nao_informado: Cliente não informado
         movimentacao:
             dica: 'Última movimentação: {quando}'
