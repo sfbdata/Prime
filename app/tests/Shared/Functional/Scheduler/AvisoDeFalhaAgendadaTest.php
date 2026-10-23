@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Functional\Scheduler;
 
+use App\Contribua\DTO\RetratoDoEspaco;
+use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
 use App\Master\Notificacoes\LeitorDeFalhasAgendadas;
 use App\Shared\Scheduler\Controller\FalhaAgendadaController;
 use App\Shared\Scheduler\Repository\FalhaAgendadaRepository;
@@ -35,8 +38,8 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
 {
     private const ENDERECO_DE_ALERTA = 'Alerta.Agendador@Exemplo.com';
 
-    /** Seletor de filho direto do body: o parcial entra em _globais, logo dentro do <body>. */
-    private const AVISO = 'body > .ae-aviso.ae-aviso--cheio[data-aviso-falha-agendada]';
+    /** Filho direto do contêiner dos avisos do topo, que o _globais põe logo dentro do <body>. */
+    private const AVISO = 'body > .ae-avisos > .ae-aviso.ae-aviso--cheio[data-aviso-falha-agendada]';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -114,6 +117,25 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('[data-aviso-falha-agendada]'));
+    }
+
+    #[TestDox('com o aviso de espaço junto, os dois ficam empilhados no mesmo contêiner, o de espaço primeiro')]
+    public function testDoisAvisosEmpilhados(): void
+    {
+        $consumo = $this->createStub(ConsumoDeArmazenamentoRepository::class);
+        $consumo->method('bytesDoEscritorio')->willReturn((int) (0.93 * 10 * RetratoDoEspaco::BYTES_POR_GB));
+        static::getContainer()->set(ConsumoDeArmazenamentoRepository::class, $consumo);
+        $this->registrarFalha('app:djen:sincronizar', '2026-10-23 03:00:00');
+        $this->entrar($this->usuario(['ROLE_SUPER_ADMIN']), primario: true);
+
+        $crawler = $this->client->request('GET', '/novidades');
+
+        self::assertCount(1, $crawler->filter('body > .ae-avisos'));
+        $avisos = $crawler->filter('body > .ae-avisos > .ae-aviso');
+        self::assertCount(2, $avisos);
+        self::assertNotNull($avisos->eq(0)->attr('data-aviso-espaco'), 'o de espaço vem primeiro');
+        self::assertNotNull($avisos->eq(1)->attr('data-aviso-falha-agendada'));
+        self::assertStringContainsString('Seu espaço está 93% ocupado', $avisos->eq(0)->text());
     }
 
     #[TestDox('Master dispensa: todas as pendentes ficam com quem e quando, volta para a página e o aviso some')]
@@ -217,11 +239,18 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/agendador/falhas/dispensar', ['_token' => 'TOKEN_' . FalhaAgendadaController::CSRF, 'voltar' => $voltar]);
     }
 
-    private function entrar(User $usuario): void
+    private function entrar(User $usuario, bool $primario = false): void
     {
         // Uma requisição anterior limpa o EntityManager: o escritório volta a ser gerenciado aqui.
         $this->escritorio = $this->em->find(Tenant::class, $this->escritorio->getId()) ?? $this->escritorio;
-        $this->em->persist(new UserTenant($usuario, $this->escritorio));
+        $vinculo = new UserTenant($usuario, $this->escritorio);
+        if ($primario) {
+            // Papel de sistema = usuário primário, o único que vê o aviso de espaço.
+            $papel = (new TenantRole())->setTenant($this->escritorio)->setName('Primário ' . uniqid())->setIsSystem(true);
+            $this->em->persist($papel);
+            $vinculo->setTenantRole($papel);
+        }
+        $this->em->persist($vinculo);
         $this->em->flush();
         $this->logarComTenant($this->client, $usuario, $this->escritorio);
     }

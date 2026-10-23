@@ -21,7 +21,7 @@
         </div>
         <form method="post" action="{{ path('agendador_falhas_dispensar') }}" class="af-form">
             <input type="hidden" name="_token" value="{{ csrf_token('dispensar_falhas_agendadas') }}">
-            <input type="hidden" name="voltar" value="{{ app.request.requestUri }}">
+            <input type="hidden" name="voltar" value="{{ falhas_agendadas.voltar }}">
             <button type="submit" class="af-dispensar">{{ 'moldura.aviso_falha_agendada.dispensar'|trans }}</button>
         </form>
     </div>

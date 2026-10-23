@@ -8,6 +8,8 @@ use App\Shared\Scheduler\QuemVeAvisoDoAgendador;
 use App\Shared\Scheduler\Repository\FalhaAgendadaRepository;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Service\ResetInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -27,7 +29,7 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
 
     private bool $montado = false;
 
-    /** @var array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool}|null */
+    /** @var array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
     private ?array $aviso = null;
 
     public function __construct(
@@ -35,6 +37,8 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
         private readonly QuemVeAvisoDoAgendador $quemVe,
         private readonly FalhaAgendadaRepository $falhas,
         private readonly LoggerInterface $logger,
+        private readonly RequestStack $requests,
+        private readonly UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -43,7 +47,7 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
         return [new TwigFunction('aviso_de_falha_agendada', $this->avisoDeFalhaAgendada(...))];
     }
 
-    /** @return array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool}|null */
+    /** @return array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
     public function avisoDeFalhaAgendada(): ?array
     {
         if (!$this->montado) {
@@ -60,7 +64,7 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
         $this->aviso   = null;
     }
 
-    /** @return array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool}|null */
+    /** @return array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
     private function montarSemDerrubar(): ?array
     {
         try {
@@ -83,6 +87,17 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
             ];
         }
 
-        return ['itens' => $itens, 'mais' => count($falhas) > self::LIMITE];
+        return ['itens' => $itens, 'mais' => count($falhas) > self::LIMITE, 'voltar' => $this->voltar()];
+    }
+
+    /**
+     * Para onde o "Dispensar" volta: a própria página só quando ela veio de um GET (repetir a URL de um POST
+     * não reabre a página e pode repetir a ação); fora disso, o início.
+     */
+    private function voltar(): string
+    {
+        $request = $this->requests->getMainRequest();
+
+        return $request !== null && $request->isMethod('GET') ? $request->getRequestUri() : $this->urls->generate('homepage');
     }
 }
