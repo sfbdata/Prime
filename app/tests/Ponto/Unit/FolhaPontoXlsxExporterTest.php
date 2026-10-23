@@ -19,6 +19,9 @@ use PHPUnit\Framework\TestCase;
  * sai na planilha com o tipo string, igual ao que foi digitado, e nunca como fórmula.
  *
  * A planilha é gerada, gravada e lida de volta do arquivo: o que se prova é o que o programa de planilha recebe.
+ *
+ * Sem a correção, só o prefixo `=` falha: a biblioteca já gravava `+`, `-` e `@` como texto. Os quatro ficam como
+ * proteção, para que continuem saindo como texto se o modo de gravar mudar.
  */
 #[CoversClass(FolhaPontoXlsxExporter::class)]
 final class FolhaPontoXlsxExporterTest extends TestCase
