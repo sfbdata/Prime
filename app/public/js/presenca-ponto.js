@@ -84,6 +84,14 @@
         });
     }
 
+    /* Os avisos que a batida aceita trouxe (R6): seguem a confirmação, no mesmo aviso, sem virar erro. */
+    function avisosDe(resultado) {
+        var avisos = resultado && resultado.data && resultado.data.avisos;
+        if (!Array.isArray(avisos)) { return ''; }
+
+        return avisos.map(function (a) { return a && a.texto ? ' ' + a.texto : ''; }).join('');
+    }
+
     function horaDe(resultado) {
         var hora = resultado && resultado.data && resultado.data.data && resultado.data.data.hora;
         return hora ? String(hora).slice(0, 5) : '';
@@ -154,7 +162,8 @@
             var resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
             if (resultado.tipo === 'sucesso') {
                 sucesso = true;
-                avisar(atual.acao === 'entrada' ? 'Ponto de entrada registrado às ' + horaDe(resultado) : 'Saída registrada às ' + horaDe(resultado));
+                var extra = avisosDe(resultado);
+                avisar((atual.acao === 'entrada' ? 'Ponto de entrada registrado às ' + horaDe(resultado) : 'Saída registrada às ' + horaDe(resultado)) + (extra ? '.' + extra : ''));
                 return;
             }
             avisar({

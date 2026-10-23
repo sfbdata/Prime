@@ -1102,5 +1102,12 @@
             "Escape",
             "Enter"
         ]
+    },
+
+    "ponto_pendencias": {
+        "templates": [
+            "ponto/_pendencias.html.twig"
+        ],
+        "permitidos": ["·"]
     }
 }

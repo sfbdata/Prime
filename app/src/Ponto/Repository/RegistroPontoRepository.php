@@ -15,6 +15,8 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class RegistroPontoRepository extends ServiceEntityRepository
 {
+    use ConsultaSemFiltroDeEscritorio;
+
     /** A consulta de `pontoAbertoHojeEmOutrosEscritorios`: o escopo inteiro escrito à mão (SQL nativo, sem filtro). */
     private const SQL_PONTO_ABERTO_EM_OUTROS_ESCRITORIOS = <<<'SQL'
 SELECT ultima.tenant_id, t.name AS nome
@@ -219,6 +221,30 @@ SQL;
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * As batidas da pessoa NAQUELE escritório no período, em ordem de horário (lista de pendências, spec
+     * `ponto-esquecimento-nao-trava.md` R5). Cross-tenant de propósito: a lista mostra à própria pessoa os outros
+     * escritórios dela, então o filtro de escritório fica suspenso e o escritório vai escrito na consulta. Quem chama
+     * já conferiu o vínculo ativo e o módulo de ponto.
+     *
+     * @return list<RegistroPonto>
+     */
+    public function batidasDoPeriodoNoEscritorio(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        return $this->semFiltroDeEscritorio(fn (): array => $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio)
+            ->setParameter('fim', $fim)
+            ->orderBy('r.dataHora', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult());
     }
 
     /**

@@ -92,4 +92,20 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString('var pendencia = avisoDoPonto(x);', $cabecalho, 'o aviso entra abaixo do atalho, que continua');
         self::assertStringContainsString('ponto().regularizar();', $cabecalho);
     }
+
+    #[TestDox('R6: os avisos da batida aceita seguem a confirmação, no cabeçalho e em #batida-aviso da tela do ponto, sem virar erro; com aviso, a tela não recarrega sozinha')]
+    public function testAvisosDepoisDoSucesso(): void
+    {
+        $js = self::js();
+        self::assertStringContainsString('var avisos = resultado && resultado.data && resultado.data.avisos;', $js);
+        self::assertStringContainsString("+ (extra ? '.' + extra : ''));", $js, 'o aviso vai junto da confirmação');
+
+        $tela = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
+        self::assertStringContainsString('const avisos = Array.isArray(resultado.data && resultado.data.avisos) ? resultado.data.avisos : [];', $tela);
+        self::assertStringContainsString("mostrarAvisoBatida(texto, 'warning', true);", $tela, 'aviso, não erro (danger), com o botão de atualizar');
+        self::assertStringContainsString("aviso.link.startsWith('/') && !aviso.link.startsWith('//')", $tela, 'só link interno');
+        self::assertStringContainsString('link.textContent = String(aviso.rotulo);', $tela, 'DOM só com textContent');
+        $sucesso = substr($tela, (int) strpos($tela, "} else if (resultado.tipo === 'sucesso') {"), 600);
+        self::assertMatchesRegularExpression('/if \(avisos\.length > 0\) \{\s+mostrarSucessoComAvisos\(resultado\.mensagem, avisos\);\s+\} else \{\s+mostrarAvisoBatida\(resultado\.mensagem, \'success\'\);\s+setTimeout/', $sucesso, 'o recarregamento automático só sem aviso');
+    }
 }

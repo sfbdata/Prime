@@ -18,6 +18,7 @@ use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
+use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
@@ -94,6 +95,7 @@ final class PontoController extends AbstractController
         HomeOfficeResolver $homeOfficeResolver,
         SedesDaCercaDoPonto $sedesDaCerca,
         CalculadoraJornada $calculadoraJornada,
+        ListarPendenciasDeRegistroUseCase $pendencias,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -226,6 +228,7 @@ final class PontoController extends AbstractController
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
             'esquecimentosRegistrados' => $esquecimentosRegistrados,
             'dataHoje'                 => $hojeStr,
+            'pendencias'               => $pendencias->executar($user, $tenant),   // R5: só a própria pessoa
         ]);
     }
 
