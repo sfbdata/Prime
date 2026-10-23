@@ -190,6 +190,17 @@
         return n;
     }
 
+    /**
+     * Selo "EXCLUSIVO DO PRIMÁRIO" (spec edicao-sem-prazo §5, item 8): o servidor manda o rótulo quando só o poder
+     * sem prazo libera o apagar; o mesmo span do parcial `_selo_sem_prazo` (menu-usuario.css), visível no hover e no foco.
+     */
+    function seloSemPrazo(m) {
+        if (vazio(m.seloSemPrazo)) {
+            return null;
+        }
+        return el('span', { class: 'selo-sem-prazo' }, [el('i', { class: 'bi bi-star-fill', attrs: { 'aria-hidden': 'true' } }), m.seloSemPrazo]);
+    }
+
     function vazio(v) { return String(v === undefined || v === null ? '' : v).trim() === ''; }
 
     function dataBr(ymd) {
@@ -1712,11 +1723,11 @@
      * nega o apagar, mostra o motivo num item travado que só fecha o menu.
      */
     function menuDaMensagem(caixa, m) {
-        var item = function (rot, icone, acao, classe) {
+        var item = function (rot, icone, acao, classe, selo) {
             caixa.appendChild(el('button', {
                 type: 'button', class: 'te-menu-item' + (classe ? ' ' + classe : ''),
                 onclick: function () { fecharMenu(); acao(); }
-            }, [ic(icone), rot]));
+            }, [ic(icone), rot, selo || null]));
         };
         if (m.lixeira) {
             caixa.appendChild(el('div', { class: 'te-menu-tit', text: 'Lixeira' }));
@@ -1733,7 +1744,7 @@
         }
         item('Mover para a lixeira', 'bi-trash', function () { chatLote([m.id], 'lixeira'); });
         if (m.podeApagar) {
-            item('Apagar para todos', 'bi-trash-fill', function () { apagarParaTodos(m); }, 'is-perigo');
+            item('Apagar para todos', 'bi-trash-fill', function () { apagarParaTodos(m); }, 'is-perigo' + (m.seloSemPrazo ? ' com-selo-sem-prazo' : ''), seloSemPrazo(m));
         } else if (!vazio(m.apagarBloqueado)) {
             item(m.apagarBloqueado, 'bi-lock', function () {}, 'is-travado');
         }
@@ -1837,9 +1848,9 @@
                     onclick: function () { chatLote([m.id], 'lixeira'); }
                 }, ic('bi-archive')),
                 m.podeApagar ? el('button', {
-                    type: 'button', class: 'te-msg-btn is-perigo', title: m.apagarDica || 'Apagar para todos',
+                    type: 'button', class: 'te-msg-btn is-perigo' + (m.seloSemPrazo ? ' com-selo-sem-prazo' : ''), title: m.apagarDica || 'Apagar para todos',
                     onclick: function () { apagarParaTodos(m); }
-                }, ic('bi-trash')) : null
+                }, [ic('bi-trash'), seloSemPrazo(m)]) : null
             ]));
         }
         if (!pv && m.lixeira) {
