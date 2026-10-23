@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Tests\Ponto\Support\RegistroDePontoInicialDeTesteTrait;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -24,6 +25,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(UserTenant::class)]
 final class AlterarSituacaoNaEquipeUseCaseTest extends TestCase
 {
+    use RegistroDePontoInicialDeTesteTrait;
+
     private Tenant $tenant;
     private User $primario;
     private UserTenant $vinculoPrimario;
@@ -41,7 +44,7 @@ final class AlterarSituacaoNaEquipeUseCaseTest extends TestCase
         $alvo  = $this->vinculo($this->usuario(11), false, 101);
         $repo  = $this->equipe([101 => $alvo]);
         $repo->expects(self::exactly(2))->method('gravar');
-        $sut   = new AlterarSituacaoNaEquipeUseCase($repo, $this->regra());
+        $sut   = new AlterarSituacaoNaEquipeUseCase($repo, $this->regra(), $this->registroDePontoInicialSemChoque());
 
         $sut->executar($this->primario, $this->tenant, 101, SituacaoNaEquipe::Suspenso);
         self::assertSame([SituacaoNaEquipe::Suspenso, false], [$alvo->getSituacao(), $alvo->isActive()]);
@@ -57,7 +60,7 @@ final class AlterarSituacaoNaEquipeUseCaseTest extends TestCase
         $secundario = $this->usuario(11);
         $master     = $this->usuario(12, ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
         $alvos      = [101 => $this->vinculo($secundario, false, 101), 102 => $this->vinculo($master, false, 102), 100 => $this->vinculoPrimario];
-        $sut        = new AlterarSituacaoNaEquipeUseCase($this->equipe($alvos), $this->regra([11 => $alvos[101]]));
+        $sut        = new AlterarSituacaoNaEquipeUseCase($this->equipe($alvos), $this->regra([11 => $alvos[101]]), $this->registroDePontoInicialSemChoque());
 
         foreach ([
             [$secundario, 102, 'Somente o usuário primário'],

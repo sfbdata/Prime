@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
@@ -244,7 +245,7 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
             email: 'revogar_office_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(16)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(16))),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -275,7 +276,7 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
             email: 'limite_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(16)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(16))),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -341,7 +342,7 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
             email: 'reenvio_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(16)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(16))),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -365,7 +366,7 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
             email: 'convidado_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(32)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(32))),
             type: Invitation::TIPO_ESCRITORIO,
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -418,7 +419,7 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString($convite->getEmail(), $html);
-        self::assertStringNotContainsString($convite->getToken(), $html);
+        self::assertStringNotContainsString($convite->getTokenHash(), $html);
         self::assertSelectorExists(sprintf('form[action="/escritorio/convites/%d/revogar"][data-confirmar*="%s"]', $convite->getId(), $convite->getEmail()));
         self::assertSelectorExists(sprintf('form[action="/escritorio/convites/%d/reenviar"][data-confirmar*="%s"]', $convite->getId(), $convite->getEmail()));
         self::assertSelectorNotExists(sprintf('[onclick*="%s"]', $convite->getEmail()));
@@ -564,5 +565,136 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $intacto = $em->find(Invitation::class, $convite->getId());
         self::assertSame('pending', $intacto->getStatus());
         self::assertSame(0, $intacto->getReenvioCount());
+    }
+
+    /**
+     * Cria pela tela e devolve o convite gravado e o token puro do link que saiu no e-mail.
+     *
+     * @return array{Invitation, string}
+     */
+    private function criarPelaTela(KernelBrowser $client, Tenant $tenant): array
+    {
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $email = 'hash_' . uniqid() . '@example.com';
+        $client->request('POST', '/escritorio/convites/novo', [
+            'email'          => $email,
+            'tenant_role_id' => $em->getRepository(TenantRole::class)->findBy(['tenant' => $tenant])[0]->getId(),
+            '_token'         => $this->gerarCsrf('convite_novo'),
+        ]);
+        self::assertResponseRedirects('/escritorio/convites');
+
+        $em->clear();
+        $convite = $em->getRepository(Invitation::class)->findOneBy(['email' => $email]);
+        self::assertNotNull($convite);
+
+        return [$convite, $this->tokenDoUltimoEmail()];
+    }
+
+    private function tokenDoUltimoEmail(): string
+    {
+        self::assertSame(1, preg_match('#/convite/([a-f0-9]{64})#', (string) self::getMailerMessage()?->getHtmlBody(), $link));
+
+        return $link[1];
+    }
+
+    #[TestDox('Raiz B: o banco guarda só o hash do token; o link do e-mail traz o puro e abre o convite')]
+    public function testBancoGuardaSoOHashEOLinkDoEmailFunciona(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->criarRoleComPermissaoConvite($tenant);
+        $user = $this->criarAdminComPermissao($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        [$convite, $token] = $this->criarPelaTela($client, $tenant);
+
+        self::assertSame(hash('sha256', $token), $convite->getTokenHash());
+        $linha = static::getContainer()->get(EntityManagerInterface::class)->getConnection()
+            ->fetchAssociative('SELECT * FROM invitation WHERE id = ?', [$convite->getId()]);
+        self::assertArrayNotHasKey('token', $linha);
+        self::assertNotContains($token, $linha);
+
+        $client->request('GET', '/convite/' . $token);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists(sprintf('form[action="/convite/%s/criar-conta"]', $token));
+    }
+
+    #[TestDox('Raiz B: convite de antes da migration (hash calculado pelo backfill no banco) continua abrindo com o link enviado')]
+    public function testTokenAntigoComHashDoBackfillContinuaValido(): void
+    {
+        $client  = static::createClient();
+        $convite = $this->criarConvite($this->criarTenant());
+        $antigo  = bin2hex(random_bytes(32));
+        // A mesma expressão da Version20261020150500: o hash calculado pelo PostgreSQL tem de bater com o do PHP.
+        static::getContainer()->get(EntityManagerInterface::class)->getConnection()->executeStatement(
+            "UPDATE invitation SET token_hash = encode(sha256(convert_to(?, 'UTF8')), 'hex') WHERE id = ?",
+            [$antigo, $convite->getId()],
+        );
+
+        $client->request('GET', '/convite/' . $antigo);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists(sprintf('form[action="/convite/%s/criar-conta"]', $antigo));
+    }
+
+    #[TestDox('Raiz B: o reenvio gera um link novo; o anterior passa a dar convite não encontrado')]
+    public function testReenvioTrocaOTokenEInvalidaOLinkAnterior(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->criarRoleComPermissaoConvite($tenant);
+        $user = $this->criarAdminComPermissao($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        // Duas requisições com o CSRF dublado: sem o reboot, o container continua com o dublê.
+        $client->disableReboot();
+        [$convite, $anterior] = $this->criarPelaTela($client, $tenant);
+
+        $client->request('POST', '/escritorio/convites/' . $convite->getId() . '/reenviar', [
+            '_token' => $this->gerarCsrf('convite_reenviar_' . $convite->getId()),
+        ]);
+        self::assertResponseRedirects('/escritorio/convites');
+        $novo = $this->tokenDoUltimoEmail();
+
+        self::assertNotSame($anterior, $novo);
+        $client->request('GET', '/convite/' . $anterior);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'Convite não encontrado');
+        $client->request('GET', '/convite/' . $novo);
+        self::assertSelectorExists(sprintf('form[action="/convite/%s/criar-conta"]', $novo));
+    }
+
+    #[TestDox('Raiz C: criar e reenviar o convite não gravam o token nem o hash na auditoria')]
+    public function testTokenNaoEntraNaAuditoria(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->criarRoleComPermissaoConvite($tenant);
+        $user = $this->criarAdminComPermissao($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        // Duas requisições com o CSRF dublado: sem o reboot, o container continua com o dublê.
+        $client->disableReboot();
+        [$convite, $anterior] = $this->criarPelaTela($client, $tenant);
+        $client->request('POST', '/escritorio/convites/' . $convite->getId() . '/reenviar', [
+            '_token' => $this->gerarCsrf('convite_reenviar_' . $convite->getId()),
+        ]);
+        $novo = $this->tokenDoUltimoEmail();
+
+        // O create é gravado antes de o id existir (entity_id nulo): acha-se pelo e-mail do `after`.
+        $registros = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchFirstColumn(
+            "SELECT changes::text FROM audit_log WHERE entity_class = ? AND (entity_id = ? OR (action = 'create' AND changes::text LIKE ?)) ORDER BY id",
+            [Invitation::class, (string) $convite->getId(), '%' . $convite->getEmail() . '%'],
+        );
+
+        self::assertCount(2, $registros, 'O create e o update do convite continuam auditados.');
+        self::assertStringContainsString('"after"', $registros[0]);
+        foreach ($registros as $json) {
+            foreach ([$anterior, $novo, hash('sha256', $anterior), hash('sha256', $novo)] as $valor) {
+                self::assertStringNotContainsString($valor, $json);
+            }
+            self::assertStringNotContainsString('"token', $json);
+        }
     }
 }

@@ -2430,7 +2430,8 @@
                 el('div', { class: 'te-cfg-dica', text: 'O que os colaboradores da sua conta podem fazer nesta aba.' })
             ].concat([
                 ['ver', 'Ver as demandas'], ['chat', 'Responder no chat'], ['proposta', 'Elaborar e enviar propostas'],
-                ['convidar', 'Convidar e revogar profissionais'], ['situacao', 'Alterar a situação das demandas']
+                ['convidar', 'Convidar e revogar profissionais'], ['situacao', 'Alterar a situação das demandas'],
+                ['talentos', 'Publicar vagas e analisar currículos']
             ].map(function (o) { return opcao('equipe', o[0], o[1], null, equipe[o[0]]); }))),
             el('div', null, [
                 el('div', { class: 'te-cfg-sec is-priv', text: 'PRIVACIDADE PARA CONTAS EXTERNAS' })

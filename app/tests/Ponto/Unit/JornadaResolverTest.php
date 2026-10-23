@@ -23,15 +23,14 @@ class JornadaResolverTest extends TestCase
     // Helpers
     // ──────────────────────────────────────────────────────────────────
 
-    private function novoUsuario(?JornadaColaborador $jornada = null): User
+    /** A jornada pessoal do escritório que o resolver recebe (spec seguranca-b-jornada §3.2); null é "sem jornada". */
+    private function jornadaPessoal(?JornadaColaborador $jornada = null): ?JornadaColaborador
     {
         $user = new User();
         $user->setEmail('teste@jusprime.com')->setFullName('Usuário Teste');
-        if ($jornada !== null) {
-            $jornada->setUser($user);
-            $user->setJornadaColaborador($jornada);
-        }
-        return $user;
+        $jornada?->setUser($user);
+
+        return $jornada;
     }
 
     private function novoBlocoColaborador(array $dias, int $minutos): BlocoJornadaColaborador
@@ -77,9 +76,9 @@ class JornadaResolverTest extends TestCase
         $jornada = new JornadaColaborador();
         $jornada->addBloco($this->novoBlocoColaborador([1, 2, 3, 4, 5], 480)); // seg–sex, 8h
 
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->segunda(), null);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->segunda(), null);
 
         $this->assertSame(480, $resultado);
     }
@@ -92,9 +91,9 @@ class JornadaResolverTest extends TestCase
         $jornadaTenant = new JornadaTenant();
         $jornadaTenant->addBloco($this->novaBlocoJornada([1, 2, 3, 4, 5], 600)); // tenant tem 10h
 
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->segunda(), $jornadaTenant);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->segunda(), $jornadaTenant);
 
         $this->assertSame(480, $resultado, 'Blocos do usuário devem ter prioridade sobre os do tenant');
     }
@@ -104,9 +103,9 @@ class JornadaResolverTest extends TestCase
         $jornada = new JornadaColaborador();
         $jornada->addBloco($this->novoBlocoColaborador([1, 2, 3, 4, 5], 480)); // apenas seg–sex
 
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->sabado(), null);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->sabado(), null);
 
         $this->assertSame(0, $resultado);
     }
@@ -118,24 +117,24 @@ class JornadaResolverTest extends TestCase
     public function testSemBlocosUsuarioUsaBlocosTenant(): void
     {
         $jornada = new JornadaColaborador(); // sem blocos
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
         $jornadaTenant = new JornadaTenant();
         $jornadaTenant->addBloco($this->novaBlocoJornada([1, 2, 3, 4, 5], 480));
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->segunda(), $jornadaTenant);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->segunda(), $jornadaTenant);
 
         $this->assertSame(480, $resultado);
     }
 
     public function testSemBlocosUsuarioTenantNaoCobertoDiaRetornaZero(): void
     {
-        $user = $this->novoUsuario(new JornadaColaborador());
+        $jornadaPessoal = $this->jornadaPessoal(new JornadaColaborador());
 
         $jornadaTenant = new JornadaTenant();
         $jornadaTenant->addBloco($this->novaBlocoJornada([1, 2, 3, 4, 5], 480));
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->sabado(), $jornadaTenant);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->sabado(), $jornadaTenant);
 
         $this->assertSame(0, $resultado);
     }
@@ -146,18 +145,18 @@ class JornadaResolverTest extends TestCase
 
     public function testNenhumBlocoNemEscalaRetornaZero(): void
     {
-        $user = $this->novoUsuario(); // sem jornada
+        $jornadaPessoal = $this->jornadaPessoal(); // sem jornada
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->segunda(), null);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->segunda(), null);
 
         $this->assertSame(0, $resultado);
     }
 
     public function testNenhumBlocoComEscalaVaziaRetornaZero(): void
     {
-        $user = $this->novoUsuario(new JornadaColaborador()); // jornada sem blocos, sem tenant
+        $jornadaPessoal = $this->jornadaPessoal(new JornadaColaborador()); // jornada sem blocos, sem tenant
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->segunda(), null);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->segunda(), null);
 
         // Sem blocos, cai no fallback legado: cargaHorariaDiaria padrão = 480, dia está nos diasSemana padrão [1-5]
         $this->assertSame(480, $resultado);
@@ -170,9 +169,9 @@ class JornadaResolverTest extends TestCase
     public function testFallbackLegadoDiaUtil(): void
     {
         $jornada = new JornadaColaborador(); // sem blocos; padrão: 480 min, seg–sex
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->segunda(), null);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->segunda(), null);
 
         $this->assertSame(480, $resultado);
     }
@@ -183,9 +182,9 @@ class JornadaResolverTest extends TestCase
         $jornada->setDiasSemana([1, 2, 3, 4, 5, 6]);
         $jornada->setCargaHorariaSabado(240); // 4h no sábado
 
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->sabado(), null);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->sabado(), null);
 
         $this->assertSame(240, $resultado);
     }
@@ -193,9 +192,9 @@ class JornadaResolverTest extends TestCase
     public function testFallbackLegadoDomingoRetornaZero(): void
     {
         $jornada = new JornadaColaborador(); // dias padrão [1-5] — não inclui domingo
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
-        $resultado = $this->resolver->resolverMetaDia($user, $this->domingo(), null);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $this->domingo(), null);
 
         $this->assertSame(0, $resultado);
     }
@@ -205,11 +204,11 @@ class JornadaResolverTest extends TestCase
         $jornada = new JornadaColaborador();
         $jornada->setDiasSemana([1, 2, 3, 4]); // sem sexta
 
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
         $sexta = new \DateTimeImmutable('2026-04-24'); // N=5
 
-        $resultado = $this->resolver->resolverMetaDia($user, $sexta, null);
+        $resultado = $this->resolver->resolverMetaDia($jornadaPessoal, $sexta, null);
 
         $this->assertSame(0, $resultado);
     }
@@ -222,29 +221,29 @@ class JornadaResolverTest extends TestCase
     {
         $jornada = new JornadaColaborador();
         $jornada->setAlertaHabilitado(false);
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
         $jornadaTenant = new JornadaTenant();
         $jornadaTenant->setAlertaHabilitado(true);
 
-        $this->assertFalse($this->resolver->resolverAlertaHabilitado($user, $jornadaTenant));
+        $this->assertFalse($this->resolver->resolverAlertaHabilitado($jornadaPessoal, $jornadaTenant));
     }
 
     public function testAlertaFallbackParaTenantSemEscala(): void
     {
-        $user = $this->novoUsuario(); // sem jornada
+        $jornadaPessoal = $this->jornadaPessoal(); // sem jornada
 
         $jornadaTenant = new JornadaTenant();
         $jornadaTenant->setAlertaHabilitado(true);
 
-        $this->assertTrue($this->resolver->resolverAlertaHabilitado($user, $jornadaTenant));
+        $this->assertTrue($this->resolver->resolverAlertaHabilitado($jornadaPessoal, $jornadaTenant));
     }
 
     public function testAlertaRetornaFalseSemEscalaSemTenant(): void
     {
-        $user = $this->novoUsuario();
+        $jornadaPessoal = $this->jornadaPessoal();
 
-        $this->assertFalse($this->resolver->resolverAlertaHabilitado($user, null));
+        $this->assertFalse($this->resolver->resolverAlertaHabilitado($jornadaPessoal, null));
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -262,11 +261,11 @@ class JornadaResolverTest extends TestCase
 
         $jornada = new JornadaColaborador();
         $jornada->addBloco($bloco);
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
         $this->assertSame(
             ['entrada', 'repouso', 'retorno', 'saida'],
-            $this->resolver->tiposEsperadosNoDia($user, $this->segunda(), null)
+            $this->resolver->tiposEsperadosNoDia($jornadaPessoal, $this->segunda(), null)
         );
     }
 
@@ -279,11 +278,11 @@ class JornadaResolverTest extends TestCase
 
         $jornada = new JornadaColaborador();
         $jornada->addBloco($bloco);
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
         $this->assertSame(
             ['entrada', 'saida'],
-            $this->resolver->tiposEsperadosNoDia($user, $this->segunda(), null)
+            $this->resolver->tiposEsperadosNoDia($jornadaPessoal, $this->segunda(), null)
         );
     }
 
@@ -298,11 +297,11 @@ class JornadaResolverTest extends TestCase
         $jornadaTenant = new JornadaTenant();
         $jornadaTenant->addBloco($blocoTenant);
 
-        $user = $this->novoUsuario(); // sem jornada própria
+        $jornadaPessoal = $this->jornadaPessoal(); // sem jornada própria
 
         $this->assertSame(
             ['entrada', 'repouso', 'retorno', 'saida'],
-            $this->resolver->tiposEsperadosNoDia($user, $this->segunda(), $jornadaTenant)
+            $this->resolver->tiposEsperadosNoDia($jornadaPessoal, $this->segunda(), $jornadaTenant)
         );
     }
 
@@ -316,23 +315,23 @@ class JornadaResolverTest extends TestCase
 
         $jornada = new JornadaColaborador();
         $jornada->addBloco($bloco);
-        $user = $this->novoUsuario($jornada);
+        $jornadaPessoal = $this->jornadaPessoal($jornada);
 
         // Sábado 2026-04-25: nenhum bloco cobre o dia. Sem escala não há intervalo a exigir —
         // e exigir as quatro batidas descartaria hora extra real de fim de semana.
         $this->assertSame(
             ['entrada', 'saida'],
-            $this->resolver->tiposEsperadosNoDia($user, new \DateTimeImmutable('2026-04-25'), null)
+            $this->resolver->tiposEsperadosNoDia($jornadaPessoal, new \DateTimeImmutable('2026-04-25'), null)
         );
     }
 
     public function testColaboradorSemJornadaNenhumaPedeApenasEntradaESaida(): void
     {
-        $user = $this->novoUsuario();
+        $jornadaPessoal = $this->jornadaPessoal();
 
         $this->assertSame(
             ['entrada', 'saida'],
-            $this->resolver->tiposEsperadosNoDia($user, $this->segunda(), null)
+            $this->resolver->tiposEsperadosNoDia($jornadaPessoal, $this->segunda(), null)
         );
     }
 }

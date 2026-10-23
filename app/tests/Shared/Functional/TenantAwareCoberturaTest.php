@@ -25,7 +25,6 @@ use App\Master\Entity\RecursoEstado;
 use App\Pasta\Entity\PastaProcesso;
 use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\BlocoJornadaColaborador;
-use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\TenantAware;
 use App\Termo\Entity\AceiteTermo;
@@ -244,7 +243,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * entrando com a rede ligada. Com o teto, essa saída exige mexer no teto no mesmo diff, e
      * aí é decisão visível em vez de descuido.
      */
-    private const MAX_PENDENTE = 14;
+    private const MAX_PENDENTE = 13;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
@@ -306,7 +305,6 @@ final class TenantAwareCoberturaTest extends KernelTestCase
 
         // Fatia 6 — Ponto eletrônico (risco ALTO, re-revisão obrigatória).
         BlocoJornada::class,
-        JornadaColaborador::class,
         BlocoJornadaColaborador::class,
 
         // Fatia 7 — depende de decisão do dono sobre os nulos (§5.1 da spec):

@@ -9,7 +9,9 @@ use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\CadastroMailer;
+use App\Auth\Service\TetoDoReenvioDeConfirmacao;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
+use App\Auth\UseCase\ReenviarConfirmacaoDeEmailUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
@@ -110,6 +112,8 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
             $this->eventos,
             $this->logger,
             new MockClock(new \DateTimeImmutable(self::AGORA)),
+            new ReenviarConfirmacaoDeEmailUseCase($this->confirmacaoRepository, $this->mailer(), $this->logger, new MockClock(new \DateTimeImmutable(self::AGORA))),
+            new TetoDoReenvioDeConfirmacao($this->confirmacaoRepository, new MockClock(new \DateTimeImmutable(self::AGORA))),
         );
     }
 
@@ -117,10 +121,14 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
     {
         $rotas = new RouteCollection();
         $rotas->add('auth_cadastro_confirmar_email', new Route('/cadastro/confirmar-email/{token}'));
+        $rotas->add('auth_senha_esqueci', new Route('/senha/esqueci'));
 
         return new CadastroMailer(
             $this->transporte,
-            new Environment(new ArrayLoader(['auth/cadastro/email_confirmacao.html.twig' => '{{ nome }} {{ link }}'])),
+            new Environment(new ArrayLoader([
+                'auth/cadastro/email_confirmacao.html.twig' => '{{ nome }} {{ link }}',
+                'auth/cadastro/email_conta_existente.html.twig' => 'existente {{ nome }} {{ link }}',
+            ])),
             new UrlGenerator($rotas, new RequestContext(host: 'bluejus.test', scheme: 'https')),
             new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'),
             new EventDispatcher(),
@@ -308,31 +316,79 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         self::assertFalse($this->hasher->isPasswordValid($vazia, ''));
     }
 
-    #[TestDox('E-mail já usado (com outra caixa) é recusado antes de qualquer gravação')]
+    #[TestDox('Raiz E: e-mail já usado (com outra caixa) não grava nada, devolve null e manda à dona o aviso com o Esqueci a senha')]
     public function testEmailExistenteIgnorandoCaixa(): void
     {
+        $dona = (new User())->setEmail('ana@adv.com')->setFullName('Ana Dona');
         $this->userRepository->expects($this->once())->method('encontrarPorEmailIgnorandoCaixa')
-            ->with('ana@adv.com')->willReturn([new User()]);
+            ->with('ana@adv.com')->willReturn([$dona]);
         $this->em->expects($this->never())->method('wrapInTransaction');
+        $this->confirmacaoRepository->expects($this->never())->method('salvar');
 
-        $this->expectException(\DomainException::class);
-        $this->expectExceptionMessage(CriarContaEEscritorioUseCase::ERRO_EMAIL_EXISTENTE);
+        self::assertNull($this->useCase()->executar(self::input(email: ' ANA@adv.com '), '10.0.0.1', null));
 
-        $this->useCase()->executar(self::input(email: 'ANA@adv.com'), '10.0.0.1', null);
+        self::assertCount(1, $this->enviados);
+        self::assertSame('ana@adv.com', $this->enviados[0]->getTo()[0]->getAddress());
+        self::assertStringContainsString('Você já tem uma conta no BlueJus', (string) $this->enviados[0]->getSubject());
+        self::assertSame('existente Ana Dona https://bluejus.test/senha/esqueci', $this->enviados[0]->getHtmlBody());
+        self::assertSame([], $this->despachados);
     }
 
-    #[TestDox('Corrida no UNIQUE de user.email vira a mesma mensagem do e-mail existente, sem e-mail nem evento')]
+    #[TestDox('Raiz E: conta existente inativa (ou em quarentena) não recebe nada e nada é gravado')]
+    public function testContaExistenteInativaNaoRecebeNada(): void
+    {
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([(new User())->setEmail('ana@adv.com')->setIsActive(false)]);
+        $this->confirmacaoRepository->expects($this->never())->method('salvar');
+
+        self::assertNull($this->useCase()->executar(self::input(), '10.0.0.1', null));
+        self::assertSame([], $this->enviados);
+    }
+
+    #[TestDox('Raiz E: conta existente a confirmar recebe o link de confirmação normal (link novo gravado), não o "já tem conta"')]
+    public function testContaExistenteAConfirmarRecebeAConfirmacao(): void
+    {
+        $dona = (new User())->setEmail('ana@adv.com')->setFullName('Ana Dona');
+        $dona->marcarEmailAConfirmar(new \DateTimeImmutable('-1 hour'));
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([$dona]);
+        $this->confirmacaoRepository->expects($this->once())->method('salvar');
+
+        self::assertNull($this->useCase()->executar(self::input(), '10.0.0.1', null));
+
+        self::assertCount(1, $this->enviados);
+        self::assertSame(1, preg_match('#/cadastro/confirmar-email/[a-f0-9]{64}#', (string) $this->enviados[0]->getHtmlBody()));
+        self::assertStringNotContainsString('já tem uma conta', (string) $this->enviados[0]->getSubject());
+    }
+
+    #[TestDox('Raiz E: conta existente a confirmar que bateu no teto do reenvio não recebe outro link')]
+    public function testContaExistenteAConfirmarNoTetoNaoRecebe(): void
+    {
+        $dona = (new User())->setEmail('ana@adv.com');
+        $dona->marcarEmailAConfirmar(new \DateTimeImmutable('-1 hour'));
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([$dona]);
+        $this->confirmacaoRepository->method('houveEmissaoDesde')->willReturn(true);
+        $this->confirmacaoRepository->expects($this->never())->method('salvar');
+
+        self::assertNull($this->useCase()->executar(self::input(), '10.0.0.1', null));
+        self::assertSame([], $this->enviados);
+    }
+
+    #[TestDox('Raiz E: falha no envio do aviso de conta existente só vai para o log; a resposta continua null')]
+    public function testFalhaNoAvisoDeContaExistenteSoVaiParaOLog(): void
+    {
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([(new User())->setEmail('ana@adv.com')]);
+        $this->transporteFalha = true;
+
+        self::assertNull($this->useCase()->executar(self::input(), '10.0.0.1', null));
+        self::assertSame('Falha ao enviar o aviso de conta existente do cadastro.', $this->logger->registros[0]['mensagem'] ?? null);
+    }
+
+    #[TestDox('Corrida no UNIQUE de user.email vira a mesma resposta do e-mail existente (null), sem e-mail nem evento')]
     public function testCorridaNoUniqueViraEmailExistente(): void
     {
         $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
         $this->em->method('wrapInTransaction')->willThrowException($this->createStub(UniqueConstraintViolationException::class));
 
-        try {
-            $this->useCase()->executar(self::input(), '10.0.0.1', null);
-            self::fail('Esperava DomainException.');
-        } catch (\DomainException $e) {
-            self::assertSame(CriarContaEEscritorioUseCase::ERRO_EMAIL_EXISTENTE, $e->getMessage());
-        }
+        self::assertNull($this->useCase()->executar(self::input(), '10.0.0.1', null));
 
         self::assertSame([], $this->enviados);
         self::assertSame([], $this->despachados);

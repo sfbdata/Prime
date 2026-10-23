@@ -73,16 +73,24 @@ final class CadastroController extends AbstractController
             return $this->json(['erro' => 'Muitas tentativas. Tente de novo mais tarde.'], Response::HTTP_TOO_MANY_REQUESTS);
         }
 
+        $input = self::input($dados);
         try {
-            $conta = $this->criarConta->executar(self::input($dados), (string) $request->getClientIp(), $request->headers->get('User-Agent'));
+            $conta = $this->criarConta->executar($input, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
         } catch (\InvalidArgumentException | \DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         // Sem login: a tela mostra "Confirme seu e-mail". A sessão guarda a conta para o botão de reenviar o link.
-        $this->contaAConfirmar->guardar($request->getSession(), $conta->user);
+        // E-mail que já tinha conta (null): a mesma resposta, e na sessão o marcador neutro no lugar da conta de outra
+        // pessoa (achado de auditoria interna F14). Ele também substitui a chave de um cadastro anterior deste navegador.
+        $email = CriarContaEEscritorioUseCase::normalizarEmail($input->email);
+        if ($conta !== null) {
+            $this->contaAConfirmar->guardar($request->getSession(), $conta->user);
+        } else {
+            $this->contaAConfirmar->guardarNeutro($request->getSession(), $email);
+        }
 
-        return $this->json(['ok' => true, 'confirmar' => true, 'email' => $conta->user->getEmail()]);
+        return $this->json(['ok' => true, 'confirmar' => true, 'email' => $email]);
     }
 
     /** O link do e-mail: só olha. Com o e-mail a confirmar, mostra "Crie sua senha"; não confirma nada. */

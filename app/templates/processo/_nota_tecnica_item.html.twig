@@ -9,7 +9,7 @@
    Contrato com o nota-tecnica.js (ids e classes não mudam):
    #nota-tecnica-<id> · .ps-nota · .ps-nota-texto · .ps-nota-quando ·
    .js-nota-menu (+ aria-controls) · .ps-nota-menu · .js-nota-responder · .js-nota-copiar ·
-   .js-nota-bloqueado (+ data-aviso) ·
+   .js-nota-encaminhar · .js-nota-bloqueado (+ data-aviso) ·
    .js-nota-editar / .js-nota-excluir (+ data-nota-id, data-conteudo,
    data-conteudo-html, data-csrf, data-url).
 
@@ -19,8 +19,13 @@
    nota", "Copiar texto" e "Editar"/"Excluir". "Responder com outra nota" (PMC-057) faz
    o que o desenho faz (`abrirNova`): abre o compositor de nota NOVA do bloco, com o
    foco — sem vínculo de resposta (nota técnica não tem resposta no modelo; isso
-   exigiria migration). Some onde não se escreve (lápide ou só leitura, PMC-058). "Encaminhar via Chat I.A"
-   é a PMC-018.
+   exigiria migration). Some onde não se escreve (lápide ou só leitura, PMC-058).
+   "Encaminhar via Chat I.A" (PMC-018, dc:5403 do desenho 02 VS 18.10.26: depois de "Copiar
+   texto", antes do separador, `bi-send`): como o ⋮ do processo e o das metas, leva só ids em
+   `data-*` (`.js-encaminhar`, tipo `nota_tecnica`) e o pasta-encaminhar.js dispara
+   `bj-central:despachar`; o servidor relê a nota presa à pasta e ao escritório
+   (`ItensEncaminhaveisDaPasta`). Só com a Central na página e fora da lápide; quem só lê a pasta
+   também encaminha (basta ver a pasta, spec encaminhar-via-chat-ia §2).
    Editar/Excluir: do autor, dentro da janela de 15 min, com "· N min" (como o
    Financeiro do desenho, dc:5958); fora dela, ou para quem não é o autor, os dois
    ficam com `bi-lock` e "· bloqueado" e, clicados, só avisam o motivo (C6-PMC-05,
@@ -35,7 +40,9 @@
              do Push a nota é; dentro do teor da própria publicação é redundante),
              `somenteLeitura` (bool, opcional — a pasta é lápide; vem do bloco),
              `podeEscreverNota` (bool, opcional — EDIT da pasta e pasta viva; vem do bloco),
-             `idSufixo` (string, opcional — vem do bloco; ver abaixo).
+             `idSufixo` (string, opcional — vem do bloco; ver abaixo),
+             `encaminharNotaPasta` (int|null, opcional — vem do bloco: o id da pasta quando o
+             "Encaminhar via Chat I.A" entra; na resposta do criar, sem bloco, sai do `pastaId`).
    ============================================================================ #}
 {# FPN-020: a mesma nota pode estar DUAS vezes na pasta_show — na aba Processo e pendurada sob o
    cartão do Push. Os ids do cartão e do menu precisam ser únicos (o ⋮ acha o menu por
@@ -51,6 +58,11 @@
 {# PMC-058: o bloco decide quem escreve (EDIT + pasta viva). Na resposta do criar não há bloco: quem
    acabou de criar escreve, então vale a lápide só. #}
 {% set podeEscreverNota = podeEscreverNota is defined ? podeEscreverNota : not somenteLeitura %}
+{# PMC-018: o bloco confere a Central UMA vez e repassa; na resposta do criar não há bloco, então
+   pergunta aqui, com o `pastaId` que o controller já conferiu (do escritório e vinculando o processo). #}
+{% set encaminharNotaPasta = encaminharNotaPasta is defined
+    ? encaminharNotaPasta
+    : (pastaId|default(null) and not somenteLeitura and central_disponivel() ? pastaId : null) %}
 {% set podeGerenciar = not somenteLeitura and nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
 <article class="ps-nota" id="nota-tecnica-{{ nota.id }}{{ idSufixo }}" data-nota-id="{{ nota.id }}">
     <div class="ps-nota-topo">
@@ -81,6 +93,13 @@
             <button type="button" class="ps-processo-menu-item js-nota-copiar" role="menuitem">
                 <i class="bi bi-clipboard" aria-hidden="true"></i><span>{{ 'processo.nota.copiar'|trans }}</span>
             </button>
+            {% if encaminharNotaPasta %}
+                <button type="button" class="ps-processo-menu-item js-encaminhar js-nota-encaminhar" role="menuitem"
+                        data-encaminhar-pasta="{{ encaminharNotaPasta }}" data-encaminhar-tipo="nota_tecnica"
+                        data-encaminhar-id="{{ nota.id }}">
+                    <i class="bi bi-send" aria-hidden="true"></i><span>{{ 'processo.nota.encaminhar'|trans }}</span>
+                </button>
+            {% endif %}
             {% if not somenteLeitura %}
                 <div class="ps-processo-menu-sep" role="separator"></div>
                 {% if podeGerenciar %}

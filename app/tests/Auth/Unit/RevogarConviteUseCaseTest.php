@@ -32,7 +32,7 @@ final class RevogarConviteUseCaseTest extends TestCase
     {
         $invitation = new Invitation(
             email: 'test@example.com',
-            token: 'abc123',
+            tokenHash: Invitation::hashDoToken('abc123'),
             type: 'platform',
             expiresAt: new \DateTimeImmutable('+24 hours'),
         );

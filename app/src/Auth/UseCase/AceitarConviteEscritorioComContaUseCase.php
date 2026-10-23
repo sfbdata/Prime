@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auth\UseCase;
 
+use App\Ponto\Service\RegistroDePontoInicial;
 use App\Auth\DTO\AceitarConviteEscritorioComContaInput;
 use App\Auth\Event\ConviteDeEscritorioAceito;
 use App\Entity\Auth\Invitation;
@@ -30,6 +31,7 @@ final class AceitarConviteEscritorioComContaUseCase
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly EventDispatcherInterface $eventos,
         private readonly VagaNoEscritorio $vagaNoEscritorio,
+        private readonly RegistroDePontoInicial $registroDePontoInicial,
     ) {}
 
     public function executar(AceitarConviteEscritorioComContaInput $input): UserTenant
@@ -68,6 +70,7 @@ final class AceitarConviteEscritorioComContaUseCase
 
         if ($vinculo !== null) {
             $vinculo->reativar();
+            $this->registroDePontoInicial->conferirAoReligar($vinculo);
             $vinculo->setTenantRole($invitation->getTenantRole());
             $vinculo->setUpdatedAt(new \DateTimeImmutable());
             $invitation->aceitar($input->usuarioAtual);
@@ -78,6 +81,7 @@ final class AceitarConviteEscritorioComContaUseCase
         }
 
         $userTenant = new UserTenant($input->usuarioAtual, $tenant);
+        $userTenant->alterarRegistroDePonto($this->registroDePontoInicial->registraPontoInicial($input->usuarioAtual, $tenant));
         if ($invitation->getTenantRole() !== null) {
             $userTenant->setTenantRole($invitation->getTenantRole());
         }

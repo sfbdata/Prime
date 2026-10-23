@@ -39,7 +39,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
     {
         return new Invitation(
             email: 'teste@example.com',
-            token: 'token-valido',
+            tokenHash: Invitation::hashDoToken('token-valido'),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -67,7 +67,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->invitationRepo->method('find')->willReturn($convite);
         $this->em->expects($this->once())->method('flush');
 
-        self::assertSame($convite, $this->useCase->executar(new ReenviarConviteInput(1, $quem)));
+        self::assertSame($convite, $this->useCase->executar(new ReenviarConviteInput(1, $quem))->convite);
     }
 
     #[TestDox('Convite não encontrado lança DomainException')]
@@ -101,7 +101,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
     {
         $invitation = new Invitation(
             email: 'teste@example.com',
-            token: 'token-expirado',
+            tokenHash: Invitation::hashDoToken('token-expirado'),
             type: 'office',
             expiresAt: new \DateTimeImmutable('-1 hour'),
         );
@@ -137,10 +137,23 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->invitationRepo->method('find')->willReturn($invitation);
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar(new ReenviarConviteInput(1, $this->quemConfirmado()));
+        $resultado = $this->useCase->executar(new ReenviarConviteInput(1, $this->quemConfirmado()))->convite;
 
         self::assertSame(1, $resultado->getReenvioCount());
         self::assertSame('pending', $resultado->getStatus());
+    }
+
+    #[TestDox('Raiz B: o reenvio troca o token; o hash novo é gravado e o token puro novo volta para o e-mail')]
+    public function testReenvioTrocaOToken(): void
+    {
+        $invitation = $this->convitePendente();
+        $this->invitationRepo->method('find')->willReturn($invitation);
+
+        $emitido = $this->useCase->executar(new ReenviarConviteInput(1, $this->quemConfirmado()));
+
+        self::assertNotSame(Invitation::hashDoToken('token-valido'), $invitation->getTokenHash());
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $emitido->token);
+        self::assertSame(Invitation::hashDoToken($emitido->token), $invitation->getTokenHash());
     }
 
     #[TestDox('Segundo reenvio chega a contador 2')]
@@ -151,7 +164,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->invitationRepo->method('find')->willReturn($invitation);
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar(new ReenviarConviteInput(1, $this->quemConfirmado()));
+        $resultado = $this->useCase->executar(new ReenviarConviteInput(1, $this->quemConfirmado()))->convite;
 
         self::assertSame(2, $resultado->getReenvioCount());
     }
@@ -165,7 +178,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->invitationRepo->method('find')->willReturn($invitation);
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar(new ReenviarConviteInput(1, $this->quemConfirmado()));
+        $resultado = $this->useCase->executar(new ReenviarConviteInput(1, $this->quemConfirmado()))->convite;
 
         self::assertSame(3, $resultado->getReenvioCount());
     }
@@ -173,10 +186,10 @@ final class ReenviarConviteUseCaseTest extends TestCase
     #[TestDox('Busca o convite pelo id do input, não pelo token')]
     public function testBuscaPeloId(): void
     {
-        $convite = new Invitation(email: 'x@example.com', token: 't', type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+7 days'));
+        $convite = new Invitation(email: 'x@example.com', tokenHash: Invitation::hashDoToken('t'), type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+7 days'));
         $this->invitationRepo->expects($this->never())->method('encontrarPorToken');
         $this->invitationRepo->expects($this->once())->method('find')->with(42)->willReturn($convite);
 
-        self::assertSame(1, $this->useCase->executar(new ReenviarConviteInput(42, $this->quemConfirmado()))->getReenvioCount());
+        self::assertSame(1, $this->useCase->executar(new ReenviarConviteInput(42, $this->quemConfirmado()))->convite->getReenvioCount());
     }
 }

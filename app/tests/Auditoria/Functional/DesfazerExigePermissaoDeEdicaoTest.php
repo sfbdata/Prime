@@ -34,7 +34,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * Achado de auditoria interna F19 (spec `docs/specs/seguranca-b-ponto.md` §1.3): desfazer uma alteração de Sede, Cargo,
  * Lotação, Chamado ou interação do chamado exige, além de `admin.audit.view`, a permissão da tela que edita a entidade.
  * Evento segue a tela `agenda_editar`: `admin.users.manage` ou ser o criador. Sem isso, 403 e nada muda. A LegendaCor
- * não se desfaz: nenhuma tela a edita. O desfazer das outras entidades continua só com `admin.audit.view`.
+ * não se desfaz: nenhuma tela a edita. Meta e pasta seguem as guardas por item da tela (`DesfazerExigeAGuardaDaTelaTest`).
  */
 #[CoversClass(AuditLogController::class)]
 #[CoversClass(DesfazerAlteracaoAuditLogUseCase::class)]
@@ -286,8 +286,8 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         self::assertSame('Nome novo', $this->valorAtual(Cargo::class, $id));
     }
 
-    #[TestDox('Outras entidades continuam como antes: a pasta se desfaz só com admin.audit.view')]
-    public function testOutraEntidadeSoComAuditoria(): void
+    #[TestDox('Pasta, fora do mapa do F19: com admin.audit.view e a edição da pasta (a guarda da tela), desfaz')]
+    public function testPastaForaDoMapaDesfazComAEdicaoDaPasta(): void
     {
         $pasta = new Pasta();
         $pasta->setNup('TEST-F19-' . uniqid());
@@ -298,7 +298,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         $this->em->flush();
         $id = (int) $pasta->getId();
         $logId = $this->criarLog(Pasta::class, $id, ['nomeAcao' => ['from' => 'acao anterior', 'to' => 'acao atual']]);
-        $this->entrarCom(self::SO_AUDITORIA);
+        $this->entrarCom([...self::SO_AUDITORIA, 'resources.pasta.edit']);
 
         $this->desfazer($logId);
 
