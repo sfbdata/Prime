@@ -225,6 +225,22 @@ final class PastaCarteiraControllerTest extends JusPrimeWebTestCase
         $this->assertIntocada($alheia);
     }
 
+    #[TestDox('pasta excluída: o somente-leitura recusa com 403 e o motivo, e nada muda')]
+    public function testPastaExcluida(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $pasta->marcarExcluida($user, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->mover($pasta, 'trabalhista');
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertNotEmpty($this->resposta()['mensagem'] ?? null);
+        $this->assertIntocada($pasta);
+    }
+
     #[TestDox('GET na rota não existe (405)')]
     public function testSoPost(): void
     {

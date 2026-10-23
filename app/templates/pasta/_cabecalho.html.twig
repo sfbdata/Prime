@@ -808,7 +808,7 @@
             })
             .then(function (r) {
                 if (!r.ok || !r.dados.sucesso) {
-                    avisarErro((r.dados && r.dados.erro) || BJ_T.t('pasta_cabecalho.js.cabecalho.carteira_erro'));
+                    avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || BJ_T.t('pasta_cabecalho.js.cabecalho.carteira_erro'));
                     return;
                 }
                 marcarAtual(r.dados.carteira);
