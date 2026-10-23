@@ -174,6 +174,7 @@ final class PastaSomenteLeituraPorIdTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta da lápide',
             'descricao'    => 'Não deveria nascer em pasta excluída',
             'prazo'        => '2026-12-31',
+            'etapa'        => 'juridico',
             'responsaveis' => [$responsavelId],
         ];
     }

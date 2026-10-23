@@ -225,6 +225,13 @@ final class TarefaController extends AbstractController
             return $this->json(['erro' => $prazo === null ? 'Informe um prazo válido para a meta.' : 'Escolha ao menos um responsável do escritório para a meta.'], 422);
         }
 
+        // Desenho 02 (L179 e L4048 `inval`): a caixa / etapa é escolhida no modal, obrigatória. Só um valor do enum
+        // vale; a dedução pelo título (PrePersist) continua como rede para as outras rotas, não para esta.
+        $etapa = EtapaDaPasta::tryFrom(trim((string) $request->request->get('etapa', '')));
+        if ($etapa === null) {
+            return $this->json(['erro' => 'Escolha a caixa / etapa da meta.'], 422);
+        }
+
         $tarefa = new Tarefa();
         $tarefa->setTitulo($titulo);
         $tarefa->setDescricao($descricao);
@@ -233,6 +240,7 @@ final class TarefaController extends AbstractController
         $tarefa->setTenant($tenant);
         $tarefa->setCriadoPor($usuario);
         $tarefa->setPrazo($prazo);
+        $tarefa->setEtapa($etapa);
         foreach ($responsaveis as $responsavel) {
             $tarefa->addResponsavel($responsavel);
         }
