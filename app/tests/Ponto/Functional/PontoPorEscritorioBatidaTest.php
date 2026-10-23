@@ -195,7 +195,7 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
     {
         $this->batida($this->x, 'entrada', $this->entradaRecente());   // a saída de X fecha uma entrada: conta (R4)
         $this->batida($this->x, 'saida', $this->agoraHaPouco());
-        $this->batida($this->y, 'entrada', $this->hojeCedo(1));
+        $this->batida($this->y, 'entrada', $this->entradaRecente());   // Y aberto a qualquer hora do dia
 
         $resposta = $this->baterEmX('entrada');
 
@@ -207,7 +207,7 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
     public function testYAbertoSemGpsRecusaPelaGeolocalizacao(): void
     {
         $this->em()->getConnection()->executeStatement('DELETE FROM home_office_config WHERE user_id = ?', [$this->user->getId()]);
-        $this->batida($this->y, 'entrada', $this->hojeCedo(1));
+        $this->batida($this->y, 'entrada', $this->entradaRecente());   // Y aberto a qualquer hora do dia
 
         self::assertSame('Geolocalização é obrigatória para registrar o ponto.', $this->baterEmX('entrada')['message']);
     }
