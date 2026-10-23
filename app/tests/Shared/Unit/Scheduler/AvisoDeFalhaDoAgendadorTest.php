@@ -189,6 +189,47 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
         self::assertStringNotContainsString('cliente@exemplo.com', (string) $email->getTextBody(), 'nada do conteúdo da mensagem');
     }
 
+    public function testSegundaFalhaDoMesmoComandoDentroDe60MinNaoMandaEmailMasGravaELoga(): void
+    {
+        // A falha agendada é às 23h55 de Brasília; a anterior do mesmo comando, às 23h00 (55 min antes).
+        $falhas = $this->createMock(FalhaAgendadaRepository::class);
+        $falhas->method('ultimaDoComando')->with('app:dashboard:fotografar')
+            ->willReturn(new \DateTimeImmutable('2026-10-23 23:00:00', new \DateTimeZone(AgendaDeTarefas::FUSO)));
+        $falhas->expects(self::once())->method('registrar');
+        $mailer = new MailerQueGuarda();
+
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $falhas, 'ops@exemplo.com'))
+            ->__invoke($this->falhaDoComando('app:dashboard:fotografar --no-interaction', 1));
+
+        self::assertCount(0, $mailer->enviados, 'dentro de 60 min da anterior, sem e-mail');
+        self::assertCount(1, $this->logger->doNivel('error'), 'o log continua');
+    }
+
+    public function testFalhaDoMesmoComandoDepoisDe60MinMandaEmail(): void
+    {
+        $falhas = $this->createStub(FalhaAgendadaRepository::class);
+        $falhas->method('ultimaDoComando')
+            ->willReturn(new \DateTimeImmutable('2026-10-23 22:55:00', new \DateTimeZone(AgendaDeTarefas::FUSO)));
+        $mailer = new MailerQueGuarda();
+
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $falhas, 'ops@exemplo.com'))
+            ->__invoke($this->falhaDoComando('app:dashboard:fotografar --no-interaction', 1));
+
+        self::assertCount(1, $mailer->enviados, 'a anterior foi há 60 min: avisa de novo');
+    }
+
+    public function testConsultaDaFalhaAnteriorQueFalhaNaoSeguraOEmail(): void
+    {
+        $falhas = $this->createStub(FalhaAgendadaRepository::class);
+        $falhas->method('ultimaDoComando')->willThrowException(new \RuntimeException('banco fora'));
+        $mailer = new MailerQueGuarda();
+
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $falhas, 'ops@exemplo.com'))
+            ->__invoke($this->falhaDoComando('app:dashboard:fotografar --no-interaction', 1));
+
+        self::assertCount(1, $mailer->enviados);
+    }
+
     public function testGravaAFalhaComOComandoAHoraDeBrasiliaAClasseEOCodigo(): void
     {
         $falhas = $this->createMock(FalhaAgendadaRepository::class);

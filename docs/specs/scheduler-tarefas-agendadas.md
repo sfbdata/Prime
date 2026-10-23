@@ -282,6 +282,12 @@ e a primeira era semeada por comando, pela tela da Agenda ou pela confirmação 
   fila de sempre, e o trabalho continua com a nova tentativa e a fila `failed` de hoje. Contratos:
   `AgendaDasCadeiasTest` (montagem, com dublês), `CadeiasDaAgendaTest` e `CadeiasDoComercialTest` (intervalo e
   transport) e `AgendadorNoContainerTest` (o schedule real tem as quatro).
+- **Relógio fixo**: cada `every` leva `from` = `2026-01-01 00:00:00` de Brasília (`VoltaRecorrente::aCada`). Sem
+  isso, o `PeriodicalTrigger` conta o intervalo a partir da subida do processo, e o worker reinicia de hora em hora
+  (`--time-limit=3600`) ou antes (memória): a volta de 15 min recomeçaria a contagem a cada reinício e poderia nunca
+  rodar. Com a âncora no passado, o próximo disparo é o próximo múltiplo do intervalo depois de agora (conta direta, sem
+  percorrer as voltas passadas, então sem enxurrada): 900 s em :00, :15, :30 e :45; 60 s no segundo 0 de cada minuto.
+  Provado com o `MessageGenerator` do Symfony em `VoltaRecorrenteTest`.
 - **Sem `stateful`**: o que passou da hora numa parada não roda ao voltar; a próxima volta vem no intervalo seguinte.
   O estado e a trava do schedule `default` não são compartilhados.
 - **`processOnlyLastMissedRun(true)`**: com o worker ocupado numa mensagem longa (envio ao Drive, análise da IA), as
@@ -318,6 +324,13 @@ e a primeira era semeada por comando, pela tela da Agenda ou pela confirmação 
   cadeias só falha ali se não conseguir pôr a mensagem na fila (banco fora); o aviso, o e-mail e a Central mostram o
   nome curto da mensagem de dentro (ex.: `VarrerAutomacoes`), nunca o conteúdo. A falha do trabalho em si fica no
   retry e no `failed` do transport, como antes.
+- **Limite de e-mails** (vale para os dois schedules): no máximo um e-mail por comando a cada 60 min. Antes de gravar,
+  o aviso consulta a falha anterior do mesmo comando (`FalhaAgendadaRepository::ultimaDoComando`); se ela é de menos
+  de 60 min antes da hora agendada desta, não manda e-mail. O log e a gravação (aviso na tela e Central) continuam
+  sempre. Consequência: enquanto um comando falha sem parar com menos de 60 min entre uma falha e outra (uma volta das
+  cadeias com o banco fora, a cada minuto), só a primeira falha da série vira e-mail; a tela e a Central mostram as
+  outras. Uma tarefa de hora em hora que falha toda hora avisa toda hora (a anterior está a 60 min, não a menos). Se
+  a consulta falhar, o e-mail sai.
 
 ### Virada sem rodar dobrado
 
@@ -330,7 +343,8 @@ lembrete, a sincronia do Google tem trava por conexão, o expansor trava as linh
 **Volta para a versão anterior**: o código antigo não consome o `scheduler_cadeias` e depende da semente. Push e
 Google voltam sozinhos (a semente antiga roda a cada consulta de lembretes de qualquer tela aberta); as do Comercial
 precisam de `docker exec -w /var/www/app jusprime_worker_prod php bin/console app:comercial:varredura` (o comando
-existe na versão anterior). Ver DEPLOY.md.
+existe na versão anterior). A volta automática do `deploy-automatico.sh` imprime esse comando num `::warning::`
+(caso no `testar-deploy-automatico.sh`). Ver DEPLOY.md.
 
 ## Próximos passos (fora deste PR)
 

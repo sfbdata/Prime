@@ -9,8 +9,7 @@ use App\Agenda\Message\VarrerLembretesDePush;
 use App\Agenda\Repository\VarreduraDePushRepository;
 use App\Agenda\Repository\VarreduraDoGoogleRepository;
 use App\Shared\Scheduler\CadeiaRecorrente;
-use Symfony\Component\Messenger\Message\RedispatchMessage;
-use Symfony\Component\Scheduler\RecurringMessage;
+use App\Shared\Scheduler\VoltaRecorrente;
 
 /**
  * As varreduras da Agenda no schedule `cadeias`: o push dos lembretes (a cada 60 s) e a sincronia do Google Agenda (a
@@ -22,7 +21,7 @@ final class CadeiasDaAgenda implements CadeiaRecorrente
 
     public function mensagens(): iterable
     {
-        yield RecurringMessage::every(VarreduraDePushRepository::INTERVALO_SEGUNDOS, new RedispatchMessage(new VarrerLembretesDePush(), self::TRANSPORT));
-        yield RecurringMessage::every(VarreduraDoGoogleRepository::INTERVALO_SEGUNDOS, new RedispatchMessage(new VarrerGoogleAgenda(), self::TRANSPORT));
+        yield VoltaRecorrente::aCada(VarreduraDePushRepository::INTERVALO_SEGUNDOS, new VarrerLembretesDePush(), self::TRANSPORT);
+        yield VoltaRecorrente::aCada(VarreduraDoGoogleRepository::INTERVALO_SEGUNDOS, new VarrerGoogleAgenda(), self::TRANSPORT);
     }
 }

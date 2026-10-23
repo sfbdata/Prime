@@ -196,6 +196,7 @@ confere "sai 1 (voltou)" '[[ $rc == 1 ]]'
 confere "volta o código" '[[ $(head_prod) == $ANTES ]]'
 confere "volta a imagem e recria php e worker" 'grep -q "docker tag jusprime-rollback:jusprime_php_prod-pre-v2.1.0 jusprime-php" "$T/log" && grep -q "compose .*up -d --no-build php worker" "$T/log"'
 confere "desliga a manutenção" '[[ ! -f "$T/prod/nginx/maintenance/maintenance.on" ]]'
+confere "avisa como religar as varreduras do Comercial na versão anterior" 'grep -q "::warning::.*docker exec -w /var/www/app jusprime_worker_prod php bin/console app:comercial:varredura" "$T/saida" && grep -q "Agenda, push e Google, se religam sozinhas" "$T/saida"'
 
 echo "── Agendador: guardado e recriado na volta quando já existia ──"
 montar ""
@@ -250,6 +251,7 @@ echo "── Sem crontab nenhum (crontab -l: no crontab for root) ──"
 montar ""
 rc=$(rodar publicar)
 confere "sobe com o agendador" '[[ $rc == 0 ]] && grep -q "SEM_AGENDADOR=0" "$T/log" && grep -q "Nenhuma tarefa do sistema ativa no crontab" "$T/saida"'
+confere "publicação que deu certo não pede para religar varredura" '! grep -q "app:comercial:varredura" "$T/saida"'
 
 # O worker consome o scheduler_cadeias (as varreduras do push, do Google Agenda e do Comercial): em nenhuma volta ele
 # pode ficar de fora, com ou sem agendador, com ou sem crontab ativo.

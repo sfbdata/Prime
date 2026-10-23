@@ -273,6 +273,9 @@ voltar() {
         sleep 5
     done
     rm -f nginx/maintenance/maintenance.on
+    # As varreduras periódicas rodam no schedule `cadeias` desde a versão que o trouxe; uma versão anterior a ele
+    # depende da semente (docs/specs/scheduler-tarefas-agendadas.md, "Cadeias no Scheduler").
+    echo "::warning::Se a versão anterior ainda não tem o schedule cadeias, as varreduras do Comercial precisam ser religadas: docker exec -w /var/www/app $WORKER php bin/console app:comercial:varredura (as da Agenda, push e Google, se religam sozinhas na primeira tela aberta)."
     if [[ "$ok" == 1 ]] && saude; then
         echo "::error::$TAG falhou e produção VOLTOU para $(git describe --tags --always "$ANTES")."
         exit 1

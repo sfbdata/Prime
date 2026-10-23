@@ -238,7 +238,8 @@ docker logs -f jusprime_scheduler_prod
 `ERROR` no log ("Tarefa agendada falhou: app:..."). Com `AGENDADOR_ALERTA_EMAIL` no `.env.prod` (um
 endereço, ou vários separados por vírgula), vai também um e-mail "[BlueJus] Tarefa agendada falhou: app:..."
 pelo remetente `MAILER_FROM`. O e-mail não traz dado de cliente: só o comando, o horário, a classe do erro e o
-código de saída; a mensagem e a saída do comando ficam no `docker logs jusprime_scheduler_prod`. Vazia ou
+código de saída; a mensagem e a saída do comando ficam no `docker logs jusprime_scheduler_prod`. No máximo um
+e-mail por comando a cada 60 min (falhas seguidas do mesmo comando só aparecem no log, na tela e na Central). Vazia ou
 ausente: só o log. Mudou a variável: recrie o contêiner
 (`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler`). Não há nova tentativa
 automática: a próxima execução é a do horário seguinte. Toda falha também é gravada (tabela `falha_agendada`, só comando, hora, classe do erro e código) e aparece
@@ -281,7 +282,8 @@ reagendavam rodam uma última vez, sem continuação, e a trava no banco barra a
 
 **Se a publicação voltar para a versão anterior** (a volta automática do deploy), o código antigo depende da semente:
 push e Google se religam sozinhos na primeira tela aberta; as do Comercial precisam de
-`docker exec -w /var/www/app jusprime_worker_prod php bin/console app:comercial:varredura`.
+`docker exec -w /var/www/app jusprime_worker_prod php bin/console app:comercial:varredura`. A própria volta automática
+lembra disso num `::warning::` no log do deploy.
 
 #### Virada do crontab para o agendador (passo do dono, uma vez)
 
