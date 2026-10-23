@@ -897,6 +897,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             $this->notificacaoService,
             $urlGenerator,
             $this->em,
+            $this->logger,
         );
     }
 

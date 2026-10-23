@@ -147,6 +147,19 @@ final class QuemAcompanhaAPastaTest extends TestCase
         self::assertSame([3], self::ids($this->servico()->destinatarios($this->pasta, $this->tenant, [])));
     }
 
+    #[TestDox('Evento de outra aba: a regra lida é a da aba do evento (Documentos para documento novo), não a de Dados')]
+    public function testAbaDoEventoDecide(): void
+    {
+        $this->candidatos([$this->pessoa(2), $this->pessoa(3)]);
+        $this->acesso([2 => true, 3 => true]);
+        $regra = AbaOcultaDaPasta::paraAlguns($this->tenant, $this->pasta, AbaDaPasta::Documentos, [3], $this->pessoa(9), new \DateTimeImmutable());
+        $this->regrasDeAba->expects(self::once())->method('daAba')
+            ->with($this->identicalTo($this->pasta), AbaDaPasta::Documentos)
+            ->willReturn($regra);
+
+        self::assertSame([2], self::ids($this->servico()->destinatarios($this->pasta, $this->tenant, [], AbaDaPasta::Documentos)));
+    }
+
     #[TestDox('O autor, o dono do comentário respondido e os mencionados ficam de fora (eles já têm o aviso próprio)')]
     public function testAutorMencionadoERespondidoFora(): void
     {
