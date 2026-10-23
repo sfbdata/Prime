@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Tarefa\Functional;
 
 use App\Controller\TarefaController;
+use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
@@ -13,6 +14,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\DesligaTenantFilterNaRequisicao;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -141,6 +143,7 @@ final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
         $id     = (int) $tarefa->getId();
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $outro);
         $this->logarComTenant($client, $outro, $tenant);
 
         $client->request('POST', "/tarefas/{$id}/excluir", [
@@ -238,6 +241,7 @@ final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
             'UPDATE tarefa SET data_criacao = :d WHERE id = :id',
             ['d' => '2020-01-01 00:00:00', 'id' => $id]
         );
+        DesligaEdicaoSemPrazo::no($em, $tenant, static::getContainer());
         $em->clear();
 
         $this->instalarCsrfStorage();
@@ -274,5 +278,30 @@ final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertNotNull($em->find(Tarefa::class, $id));
+    }
+
+    #[TestDox('Edição sem prazo: o primário (opção ligada) exclui a meta de outra pessoa fora das 24h, e isso entra na auditoria')]
+    public function testPrimarioExcluiMetaAlheiaForaDaJanela(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenant, 'autor_' . uniqid() . '@test.com');
+        $primario = $this->criarUsuario($tenant, 'primario_' . uniqid() . '@test.com');
+        $id       = (int) $this->criarTarefa($tenant, $autor, $autor)->getId();
+        $em       = static::getContainer()->get(EntityManagerInterface::class);
+        $em->getConnection()->executeStatement('UPDATE tarefa SET data_criacao = :d WHERE id = :id', ['d' => '2020-01-01 00:00:00', 'id' => $id]);
+        $em->clear();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $primario, $tenant);
+        $client->request('POST', "/tarefas/{$id}/excluir", ['_token' => $this->gerarCsrf('excluir_tarefa_' . $id)]);
+
+        self::assertResponseStatusCodeSame(302);
+        $em->clear();
+        self::assertNull($em->find(Tarefa::class, $id));
+        $linha = $em->getRepository(AuditLog::class)->findOneBy(['action' => 'sp_excluir', 'entityId' => (string) $id]);
+        self::assertNotNull($linha);
+        self::assertSame($primario->getId(), $linha->getActorUserId());
+        self::assertSame('Usuário primário', $linha->getChanges()['papel'] ?? null);
     }
 }

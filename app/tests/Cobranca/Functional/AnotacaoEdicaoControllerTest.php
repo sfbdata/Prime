@@ -8,8 +8,10 @@ use App\Cobranca\Controller\CasoController;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -95,6 +97,8 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
         [, $caso] = $this->semearGrafo($tenant);
         $evento = $this->semearAnotacao($caso, $tenant, $usuario, 'antiga', new \DateTimeImmutable('-3 days'));
         $id = (int) $evento->getId();
+        // O admin daqui é primário: com a opção desligada, vale a regra de sempre (spec edicao-sem-prazo).
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer());
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertCount(0, $crawler->filter('.js-editar-anotacao'), 'lápis some depois de 48h');
@@ -117,6 +121,8 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
         $autorAlheio = $this->criarColega();
         $evento = $this->semearAnotacao($caso, $tenant, $autorAlheio, 'do colega');
         $id = (int) $evento->getId();
+        // O admin daqui é primário: com a opção desligada, vale a regra de sempre (spec edicao-sem-prazo).
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer());
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertCount(0, $crawler->filter('.js-editar-anotacao'), 'ninguém edita anotação de colega');
@@ -127,6 +133,44 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame('do colega', $this->recarregar($id)->getDescricao());
+    }
+
+    #[TestDox('Edição sem prazo: o primário (opção ligada) e o Master corrigem a anotação alheia depois das 48h, com o selo, e fica na auditoria')]
+    public function testPrimarioEMasterSemPrazo(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $evento = $this->semearAnotacao($caso, $tenant, $this->criarColega(), 'do colega', new \DateTimeImmutable('-5 days'));
+        $id = (int) $evento->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $selo = $crawler->filter('#tab-cobranca .js-editar-anotacao.com-selo-sem-prazo > .selo-sem-prazo[data-selo-sem-prazo="primario"]');
+        self::assertCount(1, $selo, 'o lápis só existe pelo poder, e leva o selo');
+        self::assertSame('EXCLUSIVO DO PRIMÁRIO', trim($selo->text()));
+        self::assertCount(1, $crawler->filter('#tab-cobranca .js-excluir-anotacao.com-selo-sem-prazo > .selo-sem-prazo'));
+
+        $form = $crawler->filter('#formEditarAnotacao')->form();
+        $form->getNode()->setAttribute('action', '/cobrancas/casos/anotacoes/' . $id . '/editar');
+        $form['editar_anotacao[texto]'] = 'corrigido pelo primário';
+        $client->submit($form);
+        self::assertResponseRedirects();
+        self::assertSame('corrigido pelo primário', $this->recarregar($id)->getDescricao());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $linha = $em->getRepository(AuditLog::class)->findOneBy(['action' => 'sp_editar', 'entityId' => (string) $id]);
+        self::assertNotNull($linha);
+        self::assertSame($usuario->getId(), $linha->getActorUserId());
+
+        // O Master não tem opção: desligada, ele continua editando, com o selo dele.
+        $master = $em->find(User::class, $usuario->getId());
+        DesligaEdicaoSemPrazo::no($em, $em->find(Tenant::class, $tenant->getId()) ?? $tenant, static::getContainer());
+        $master?->setRoles(['ROLE_SUPER_ADMIN']);
+        $em->flush();
+        // Papel mudado derruba o token (Symfony confere os papéis a cada requisição): entra de novo.
+        $this->logarComTenant($client, $master ?? $usuario, $tenant);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertCount(1, $crawler->filter('#tab-cobranca .js-editar-anotacao.com-selo-sem-prazo > .selo-sem-prazo[data-selo-sem-prazo="master"]'));
     }
 
     #[TestDox('Evento automático (contato) não é editável nem apagável')]

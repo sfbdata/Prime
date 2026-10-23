@@ -22,7 +22,6 @@
             <span class="despacho-espaco"></span>
             <small class="despacho-em">
                 {% set em = d ? d.registradoEm : item.dataHora %}{{ 'metas.despacho.quando'|trans({data: em|data, hora: em|hora}) }}
-                {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">{{ 'metas.detalhe.editado'|trans }}</span>{% endif %}
             </small>
         </div>
 

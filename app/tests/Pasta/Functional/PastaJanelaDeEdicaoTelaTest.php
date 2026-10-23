@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -107,6 +109,7 @@ final class PastaJanelaDeEdicaoTelaTest extends JusPrimeWebTestCase
         $det = $this->comentar(PastaObservacaoDetalhes::class, $pasta, $user, $tenant, '-20 minutes');
         $fin = $this->comentar(PastaObservacaoFinanceira::class, $pasta, $user, $tenant, '-20 minutes');
 
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Unit;
 
-use App\Cobranca\Entity\Acordo;
 use App\Cobranca\DTO\PrescricaoOutput;
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
@@ -26,18 +26,19 @@ use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraPrescricao;
-use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\EncargosVivos;
-use Symfony\Component\Clock\MockClock;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Tests\Tenant\Support\CriaPoderSemPrazo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * Ajuste 10: o mapa `obrigacaoId => alocado` do caso inteiro tem que sair de UMA query, nunca de
@@ -49,6 +50,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(MontarDetalheCasoUseCase::class)]
 final class MontarDetalheCasoUseCaseTest extends TestCase
 {
+    use CriaPoderSemPrazo;
+
     private ObrigacaoRepository&MockObject $obrigacaoRepository;
     private PagamentoRepository&MockObject $pagamentoRepository;
     private LiquidacaoRepository&MockObject $liquidacaoRepository;
@@ -126,6 +129,8 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             new EncargosVivos(new MockClock(new \DateTimeImmutable(self::AGORA)), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             // CalculadoraPrescricao é `final` e PURA (só conta dias sobre a lista recebida): instância real.
             new CalculadoraPrescricao(),
+            // Edição sem prazo de verdade, sem primário: vale a regra de sempre.
+            $this->poderSemPrazo(),
         );
 
         $this->tenant = new Tenant();

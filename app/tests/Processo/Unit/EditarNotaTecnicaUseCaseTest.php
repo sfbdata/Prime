@@ -8,7 +8,6 @@ use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Processo\Entity\NotaTecnica;
 use App\Processo\Entity\NotaTecnicaVersao;
 use App\Processo\Entity\Processo;
@@ -18,6 +17,7 @@ use App\Processo\Repository\NotaTecnicaRepository;
 use App\Processo\Repository\NotaTecnicaVersaoRepository;
 use App\Processo\UseCase\EditarNotaTecnicaUseCase;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
+use App\Tests\Pasta\Support\CriaPrazoDoComentario;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -26,6 +26,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(EditarNotaTecnicaUseCase::class)]
 final class EditarNotaTecnicaUseCaseTest extends TestCase
 {
+    use CriaPrazoDoComentario;
+
     use CriaSanitizadorTextoRico;
     use CriaResolucaoDeMencoesDaNota;
 
@@ -47,7 +49,7 @@ final class EditarNotaTecnicaUseCaseTest extends TestCase
         $this->versaoRepository->method('adicionar')->willReturnCallback(function (NotaTecnicaVersao $v): void {
             $this->versoes[] = $v;
         });
-        $this->useCase    = new EditarNotaTecnicaUseCase($this->repository, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario(), $this->em, $this->resolucao, $this->versaoRepository);
+        $this->useCase    = new EditarNotaTecnicaUseCase($this->repository, $this->criarSanitizadorTextoRico(), $this->prazoDoComentario(), $this->em, $this->resolucao, $this->versaoRepository);
         $this->autor      = $this->pessoa(1, 'Ana Advogada');
     }
 

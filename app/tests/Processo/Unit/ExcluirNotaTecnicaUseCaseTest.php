@@ -7,7 +7,6 @@ namespace App\Tests\Processo\Unit;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
-use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Processo\Entity\NotaTecnica;
 use App\Processo\Entity\Processo;
 use App\Processo\Exception\NotaTecnicaNaoExcluivelException;
@@ -15,6 +14,7 @@ use App\Processo\Repository\NotaTecnicaRepository;
 use App\Processo\UseCase\ExcluirNotaTecnicaUseCase;
 use App\Repository\NotificacaoRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Pasta\Support\CriaPrazoDoComentario;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -23,6 +23,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ExcluirNotaTecnicaUseCase::class)]
 final class ExcluirNotaTecnicaUseCaseTest extends TestCase
 {
+    use CriaPrazoDoComentario;
+
     private NotaTecnicaRepository&MockObject $repository;
     private NotificacaoRepository&MockObject $notificacoes;
     private EntityManagerInterface&MockObject $em;
@@ -37,7 +39,7 @@ final class ExcluirNotaTecnicaUseCaseTest extends TestCase
         $this->em           = $this->createMock(EntityManagerInterface::class);
         // A transação roda o bloco de verdade: o que se confere é o que acontece DENTRO dela.
         $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $bloco): mixed => $bloco($this->em));
-        $this->useCase    = new ExcluirNotaTecnicaUseCase($this->repository, new JanelaDeEdicaoDeComentario(), $this->notificacoes, $this->em);
+        $this->useCase    = new ExcluirNotaTecnicaUseCase($this->repository, $this->prazoDoComentario(), $this->notificacoes, $this->em);
         $this->tenant     = new Tenant();
         $this->autor      = (new User())->setEmail('autor@test.com');
     }

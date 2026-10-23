@@ -1324,8 +1324,17 @@
         // o que nasceu bloqueado não reabre.
         const nasceuLiberado = !!registro.querySelector('.btn-editar-obs') && !!registro.querySelector('.btn-excluir-obs');
         const resto = nasceuLiberado ? minutosRestantesObs(registro) : 0;
-        const podeGerenciar = resto > 0;
+        const pelaRegra = resto > 0 && registro.getAttribute('data-obs-do-autor') === '1';
+        // Edição sem prazo (spec edicao-sem-prazo §5): Master e primário (com a opção) seguem sem prazo, com o selo.
+        const selo = nasceuLiberado && !pelaRegra ? (registro.dataset.semPrazoRotulo || '') : '';
+        const podeGerenciar = pelaRegra || selo !== '';
         excluir.classList.toggle('ps-fin-menu-item--perigo', podeGerenciar);
+        if (window.SeloSemPrazo) { window.SeloSemPrazo.pintar(editar, selo); window.SeloSemPrazo.pintar(excluir, selo); }
+        if (selo) {
+            pintarItemObs(editar, true, BJ_T.t('pasta_financeiro.js.editar_sem_prazo'), 'bi-pencil', '');
+            pintarItemObs(excluir, true, BJ_T.t('pasta_financeiro.js.excluir_sem_prazo'), 'bi-trash3', '');
+            return;
+        }
 
         if (!podeGerenciar) {
             const motivo = registro.getAttribute('data-obs-do-autor') === '1' ? BJ_T.t('pasta_financeiro.js.motivo_prazo') : BJ_T.t('pasta_financeiro.js.motivo_autor');
@@ -1603,7 +1612,12 @@
         : '?' %}
     {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo
        vem do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). #}
-    {% set podeGerenciar = podeEscrever and obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
+    {% set pelaRegraFin = obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
+    {# Edição sem prazo (spec edicao-sem-prazo §1 e §5): Master e primário (com a opção) também editam e excluem; o
+       selo aparece quando é o poder que libera. Mesma resposta do servidor (`PrazoDoComentario`). #}
+    {% set poderFin = podeEscrever ? sem_prazo_selo(false) : null %}
+    {% set seloFin = podeEscrever ? sem_prazo_selo(pelaRegraFin) : null %}
+    {% set podeGerenciar = podeEscrever and sem_prazo_libera(pelaRegraFin) %}
     {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
     {% set alvoId = raiz ? raiz.id : obs.id %}
     {% set alvoNome = raiz ? (raiz.autor.fullName ?? raiz.autor.email ?? '') : autor %}
@@ -1619,6 +1633,7 @@
     <article class="ps-anotacao{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="financeiro-obs-{{ obs.id }}"
              data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}"
              data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}"
+             {%- if poderFin and podeGerenciar %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ poderFin)|trans }}"{% endif %}
              {#- Presença do autor (pasta-presenca-autor.js). #}
              {%- if obs.autor %} data-autor-id="{{ obs.autor.id }}"{% endif %}>
         {% if obs.resposta %}
@@ -1640,25 +1655,25 @@
             {% if podeGerenciar %}
                 <span class="ps-anotacao-acoes">
                     <button type="button"
-                            class="ps-anotacao-acao btn-editar-obs"
+                            class="ps-anotacao-acao btn-editar-obs{{ seloFin ? ' com-selo-sem-prazo' }}"
                             title="{{ 'pasta_financeiro.registro.editar'|trans }}" aria-label="{{ 'pasta_financeiro.registro.editar'|trans }}"
                             data-obs-id="{{ obs.id }}"
                             data-conteudo="{{ obs.conteudo|e('html_attr') }}"
                             data-conteudo-html="{{ obs.conteudo|registro_texto|e('html_attr') }}"
                             data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
                             data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
-                        <i class="bi bi-pencil"></i>
+                        <i class="bi bi-pencil"></i>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloFin} only %}
                     </button>
                     <button type="button"
-                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
+                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs{{ seloFin ? ' com-selo-sem-prazo' }}"
                             title="{{ 'pasta_financeiro.registro.excluir'|trans }}" aria-label="{{ 'pasta_financeiro.registro.excluir'|trans }}"
                             data-obs-id="{{ obs.id }}"
                             data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
                             data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
-                        <i class="bi bi-trash3"></i>
+                        <i class="bi bi-trash3"></i>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloFin} only %}
                     </button>
                     {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
-                    <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="{{ 'pasta_financeiro.registro.janela_dica'|trans({minutos: minRest}) }}">{{ 'pasta_financeiro.registro.janela'|trans({minutos: minRest}) }}</span>
+                    {% if not seloFin %}<span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="{{ 'pasta_financeiro.registro.janela_dica'|trans({minutos: minRest}) }}">{{ 'pasta_financeiro.registro.janela'|trans({minutos: minRest}) }}</span>{% endif %}
                 </span>
             {% endif %}
             {% if podeEscrever %}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Processo\Functional;
 
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -428,6 +429,7 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         $nota            = $this->criarNota($processo, $outro, $tenant);
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', "/processos/{$processo->getId()}/nota-tecnica/{$nota->getId()}/editar", [
             '_token'   => $this->csrf('processo_nota_tecnica_editar_' . $nota->getId()),
@@ -447,6 +449,7 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         $nota            = $this->criarNota($processo, $user, $tenant, new \DateTimeImmutable('-20 minutes'));
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/processos/{$processo->getId()}/nota-tecnica/{$nota->getId()}/editar", [
@@ -565,6 +568,7 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         $nota            = $this->criarNota($processo, $outro, $tenant);
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', "/processos/{$processo->getId()}/nota-tecnica/{$nota->getId()}/excluir", [
             '_token' => $this->csrf('processo_nota_tecnica_excluir_' . $nota->getId()),

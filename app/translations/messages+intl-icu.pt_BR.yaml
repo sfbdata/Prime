@@ -745,6 +745,8 @@ processo:
         editar_min: 'Editar · {minutos} min'
         exclusao_liberada: 'Exclusão liberada por mais {minutos} min'
         excluir_min: 'Excluir · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir
         so_autor_edita: Só o autor edita a nota, em até 15 minutos
         so_autor_exclui: Só o autor exclui a nota, em até 15 minutos
         editar_bloqueado: Editar · bloqueado
@@ -1478,7 +1480,6 @@ metas:
         so_comentar: Só comentar
         devolver: Devolver
         sem_eventos: Nenhum evento registrado ainda.
-        editado: '(editado)'
         visualizar_arquivo: Visualizar arquivo
         baixar: Baixar
         acompanhando: Acompanhando
@@ -1782,6 +1783,10 @@ perfis:
         destino_rotulo: PASSA A TER O PERFIL
         sem_destino: Não há perfil secundário para este usuário. Crie um perfil secundário antes de remover um primário.
         nota_primario: 'O usuário primário tem acesso total ao escritório: as {total} permissões estão sempre ativas e não podem ser desmarcadas.'
+        sem_prazo:
+            titulo: Edição sem prazo
+            rotulo: Usuário primário pode editar e excluir qualquer registro sem limite de tempo
+            salvo: A opção de edição sem prazo foi salva.
     form:
         faixa: Perfil de usuário secundário (colaborador). Defina o que ele pode acessar.
         nome: NOME DO PERFIL
@@ -4003,11 +4008,6 @@ publicas:
         lista:
             titulo: SUAS INDICAÇÕES
             vazio: Nenhuma indicação ainda.
-    convite:
-        titulo: Convite de Usuário
-        enviar: Enviar Convite
-        placeholder_nome: Digite o nome completo
-        placeholder_email: Digite o e-mail
     js:
         # indicacao.js
         indicacao:
@@ -4765,6 +4765,8 @@ pasta_financeiro:
         excluir_bloqueado: Excluir · bloqueado
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         nao_copiou: Não foi possível copiar
         nome_copiado: Nome copiado
         resumo_copiado: Resumo copiado
@@ -6526,13 +6528,6 @@ entrada:
         ola: 'Olá, {nome}!'
         ola_sem_nome: Olá!
         continuar: Continuar
-    registration:
-        titulo: Criar senha
-        bem_vindo: 'Bem-vindo, {nome}!'
-        texto: 'Você foi convidado para acessar o sistema. Para ativar sua conta, crie uma senha abaixo:'
-        senha: Senha
-        confirme: Confirme a senha
-        criar: Criar senha
     js:
         erro_generico: Não foi possível concluir. Tente novamente.
         email_invalido: Informe um e-mail válido.
@@ -7531,49 +7526,7 @@ pasta_lista:
     acao: Ação
     prioridade: Prioridade
     metas: Metas
-    mover_para: Mover para…
-    excluida: Excluída
-    excluida_em: 'Excluída em {data}'
-    excluida_em_por: 'Excluída em {data} por {nome}'
-    alternar_situacao: Dê duplo-clique para alternar entre ativo e arquivado
     metas_resumo: '{total} meta(s) · {ativas} ativa(s)'
-    fixada_favoritos: Fixada nos favoritos
-    tirar_favoritos: Tirar dos favoritos
-    marcar_favorito: Marcar como favorito
-    index:
-        titulo: Pastas
-        nova: Nova Pasta
-    tabela:
-        ordenar_por: Ordenar por
-        ordenar_por_opcao: Ordenar por…
-        nup_crescente: NUP (crescente)
-        nup_decrescente: NUP (decrescente)
-        cliente_az: Cliente (A-Z)
-        cliente_za: Cliente (Z-A)
-        prioridade_maior: Prioridade (maior primeiro)
-        prioridade_menor: Prioridade (menor primeiro)
-        acao_az: Ação (A-Z)
-        responsavel_az: Responsável (A-Z)
-        situacao: Situação
-        visualizar_dica: Escolher como exibir as pastas
-        visualizar: Visualizar
-        detalhes_dica: Tabela com todas as colunas
-        detalhes: Detalhes
-        cartoes_dica: Pastas em cartões
-        cartoes: Cartões
-        painel_marcadores: Painel de marcadores
-        intervalo: '{primeira} de {ultima}'
-        total_uma: 'Total: {total} pasta'
-        total_varias: 'Total: {total} pastas'
-        contagem_uma: '{total} pasta'
-        contagem_varias: '{total} pastas'
-        responsavel: Responsável
-        marcadores: Marcadores
-        sem_metas: Sem metas
-        vazio_filtro: Nenhuma pasta encontrada com esses filtros.
-        vazio: Nenhuma pasta cadastrada.
-    card:
-        dias: '{dias}d'
     cliente_linha:
         cad_completo: Cadastro completo · abrir detalhes do cliente
         cad_incompleto_uma: 'Cadastro incompleto: {total} pendência · abrir detalhes do cliente'
@@ -7633,12 +7586,6 @@ pasta_lista:
         vazio_filtro_texto: Tente ajustar ou limpar os filtros aplicados.
         vazio_titulo: Tudo em dia por aqui
         vazio_texto: Você não possui demandas no momento.
-    js:
-        favoritos_erro: Não foi possível alterar os favoritos.
-        tirar_favoritos: Tirar dos favoritos
-        marcar_favorito: Marcar como favorito
-        fixada_favoritos: Fixada nos favoritos
-        erro_comunicacao: Erro de comunicação. Tente novamente.
 
 # ---- Pasta: documentos, metas e anotações (pasta/_documentos_*, _metas, _dados_anotacoes)
 pasta_documentos:
@@ -7891,6 +7838,12 @@ pasta_documentos:
         excluir_confirmar: 'Excluir esta meta? Esta ação não pode ser desfeita.'
         excluir: Excluir
         nome: Nome da meta
+        despacho:
+            titulo: Excluir meta com despacho registrado
+            aviso: Esta meta tem despacho registrado e não pode ser excluída.
+            ciente: Entendo que o registro oficial será apagado
+            cancelar: Cancelar
+            excluir: Excluir meta
         salvar: Salvar
         cancelar: Cancelar
         filtro_vazio: Nenhuma meta neste filtro
@@ -8009,6 +7962,8 @@ pasta_detalhes:
         imprimir: Imprimir
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         editar_dica: 'Edição liberada por mais {minutos} min'
         excluir_dica: 'Exclusão liberada por mais {minutos} min'
         editar_bloqueado: Editar · bloqueado
@@ -8053,6 +8008,8 @@ pasta_detalhes:
         imprimir: Imprimir
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         editar_dica: 'Edição liberada por mais {minutos} min'
         excluir_dica: 'Exclusão liberada por mais {minutos} min'
         editar_bloqueado: Editar · bloqueado
@@ -8548,6 +8505,8 @@ pasta_show:
             menu_excluir: 'Excluir comentário · {min} min'
             menu_editar_bloqueado: Editar · bloqueado
             menu_excluir_bloqueado: Excluir · bloqueado
+            menu_editar_sem_prazo: Editar
+            menu_excluir_sem_prazo: Excluir comentário
             copiado: Texto copiado
             nao_copiou: Não foi possível copiar
             visivel_equipe: Visível para a equipe
@@ -9121,5 +9080,10 @@ pasta_cabecalho:
             documento: Documento
             erro_busca: Não foi possível buscar agora. Tente de novo.
             erro_vincular: Não foi possível vincular o cliente.
+
+edicao_sem_prazo:
+    selo:
+        master: EXCLUSIVO DO MASTER
+        primario: EXCLUSIVO DO PRIMÁRIO
 
 # ---- fim

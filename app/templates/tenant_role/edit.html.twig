@@ -81,6 +81,16 @@
             {% endif %}
         </template>
 
+        {# Edição sem prazo (spec edicao-sem-prazo §3; linha de checkbox do desenho Perfis 1.2, 21.10 L448). Vale para
+           todos os primários do escritório; só um primário ativo muda (o Master vê travado). Envia ao marcar (perfis.js). #}
+        <div class="pf-card pf-cartao pf-sem-prazo" data-pf-sem-prazo>
+            <div class="pf-cartao-cab"><i class="bi bi-clock-history"></i><b>{{ 'perfis.editar.sem_prazo.titulo'|trans }}</b></div>
+            <form method="post" action="{{ path('app_tenant_role_edicao_sem_prazo', {tenantId: tenantId}) }}" data-pf-sem-prazo-form>
+                <input type="hidden" name="_token" value="{{ csrf_token('edicao_sem_prazo_' ~ tenantId) }}">
+                <label class="pf-item{{ podeMudarSemPrazo ? '' : ' is-travado' }}"><input type="checkbox" name="ligado" value="1" data-pf-sem-prazo-caixa{{ edicaoSemPrazo ? ' checked' : '' }}{{ podeMudarSemPrazo ? '' : ' disabled' }}>{{ 'perfis.editar.sem_prazo.rotulo'|trans }}</label>
+            </form>
+        </div>
+
         <div class="pf-cartoes">
             {% for cartao in cartoes %}
                 <div class="pf-card pf-cartao">
