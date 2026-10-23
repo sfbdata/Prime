@@ -46,8 +46,8 @@
    - **Saída e ida ao repouso passam quando fecham uma entrada aberta neste escritório; fora disso valem as recusas**
      (proposta da 0d, aguardando confirmação do dono). Entrada aberta = a última batida da pessoa neste escritório, nas
      últimas 16 horas até o momento, é entrada ou retorno. A janela de 16 horas cobre o turno noturno (entrada às 22:00,
-     saída às 06:00) e jornadas de até 16 horas (`TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS`). Assim a chave e o choque nunca prendem o ponto aberto. Entrada e retorno do
-     repouso seguem sujeitos às duas recusas.
+     saída às 06:00) e jornadas de até 16 horas (`TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS`). Assim a chave e o
+     choque nunca prendem o ponto aberto. Entrada e retorno do repouso seguem sujeitos às duas recusas.
 4. **Backfill** (produção tem 10 jornadas):
    - pessoa com um único escritório ativo: a jornada vai para ele;
    - pessoa sem vínculo ativo: vai para o último escritório. A fonte é o último `RegistroPonto`, porque remover o
@@ -62,10 +62,11 @@
    - Daqui para a frente, toda pessoa que entra num escritório nasce com a chave **ligada**, salvo choque com outro
      escritório da pessoa; havendo choque, nasce desligada (revisão de 23/10, aguardando confirmação do dono), e o
      administrador vê o motivo ao tentar ligar. O administrador desliga se quiser.
-   - **Religação** (revisão de 23/10): o vínculo que volta a ativo com a chave ligada passa pela mesma conferência e,
-     havendo choque, fica com a chave desligada. Vale para a situação que volta a aprovada, o convite que reativa um
-     vínculo e o escritório reativado pelo Master (cada vínculo ativo dele com a chave ligada). Fora do ar, o vínculo e
-     o escritório não entram no choque, e outro escritório pode ter marcado o mesmo horário nesse meio tempo.
+   - **Religação** (revisão de 23/10, aguardando confirmação do dono): o vínculo que volta a ativo com a chave ligada
+     passa pela mesma conferência e, havendo choque, fica com a chave desligada. Vale para a situação que volta a
+     aprovada, o convite que reativa um vínculo e o escritório reativado pelo Master (cada vínculo ativo dele com a
+     chave ligada). Fora do ar, o vínculo e o escritório não entram no choque, e outro escritório pode ter marcado o
+     mesmo horário nesse meio tempo.
 
 ## 3. Depois
 
