@@ -20,7 +20,7 @@ final class CartaoDePendenciaDoPontoJsTest extends TestCase
         return (string) file_get_contents(__DIR__ . '/../../../public/js/ponto-pendente.js');
     }
 
-    #[TestDox('Guarda por dia, por pessoa e escritório: consultar marca o dia; fechar esconde até amanhã; adiar, 10 min')]
+    #[TestDox('Guarda por dia, por pessoa e escritório: a resposta marca o dia; fechar esconde até amanhã; adiar, 10 min')]
     public function testGuardaPorDiaAdiarEFechar(): void
     {
         $js = self::js();
@@ -30,7 +30,7 @@ final class CartaoDePendenciaDoPontoJsTest extends TestCase
         self::assertStringContainsString('return guardado.dia !== hoje();', $js);
         self::assertStringContainsString("fechar.addEventListener('click', function () { gravar({ dia: hoje() }); tirar(); });", $js);
         self::assertStringContainsString("adiar.addEventListener('click', function () { gravar({ dia: hoje(), adiarAte: Date.now() + ADIAR_MS }); tirar(); });", $js);
-        self::assertStringContainsString("gravar({ dia: hoje() });   // consultado", $js);
+        self::assertStringContainsString("gravar({ dia: hoje() });   // mostrado", $js);
         self::assertStringContainsString("try { return JSON.parse(localStorage.getItem(CHAVE) || '{}') || {}; } catch (e) { return {}; }", $js);
         self::assertStringContainsString('try { localStorage.setItem(CHAVE, JSON.stringify(valor)); } catch (e)', $js);
     }
@@ -51,17 +51,19 @@ final class CartaoDePendenciaDoPontoJsTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $js);
     }
 
-    #[TestDox('O endpoint é pedido no máximo uma vez por dia: a consulta marca o dia antes de sair; resposta vazia grava vazio; o relógio de fundo passa pela mesma guarda')]
+    #[TestDox('O endpoint é pedido no máximo uma vez por dia com sucesso: o dia só é marcado depois de uma resposta; a vazia grava vazio; a falha de rede não marca e tenta de novo; o relógio de fundo passa pela mesma guarda')]
     public function testUmaConsultaPorDia(): void
     {
         $js = self::js();
-        $checar = substr($js, (int) strpos($js, 'function checar() {'), 900);
-        self::assertStringContainsString("if (document.getElementById('bjl-ponto-pendente') || !deveMostrar(ler(), Date.now())) { return; }", $checar);
-        $marca = strpos($checar, 'gravar({ dia: hoje() });   // consultado');
-        self::assertNotFalse($marca, 'marca o dia antes da consulta');
-        self::assertLessThan((int) strpos($checar, 'fetch(URL'), $marca);
-        self::assertStringContainsString('if (!dados || !dados.cartao) { gravar({ dia: hoje(), vazio: true }); return; }', $checar);
-        self::assertStringContainsString('setInterval(checar, 60000);', $js, 'só para o adiamento vencer, pela mesma guarda');
+        $checar = substr($js, (int) strpos($js, 'function checar() {'), 1200);
+        self::assertStringContainsString("if (consultando || document.getElementById('bjl-ponto-pendente') || !deveMostrar(ler(), Date.now())) { return; }", $checar);
+        self::assertStringNotContainsString('// consultado', $checar, 'o dia não é marcado antes da resposta');
+        $resposta = (int) strpos($checar, '.then(function (dados) {');
+        self::assertGreaterThan($resposta, (int) strpos($checar, 'gravar({ dia: hoje(), vazio: true })'));
+        self::assertGreaterThan($resposta, (int) strpos($checar, 'gravar({ dia: hoje() });   // mostrado'));
+        self::assertStringContainsString('if (!dados) { return; }   // falha (rede, sessão): não marca o dia', $checar);
+        self::assertStringContainsString('.catch(function () { /* falha de rede: o dia não foi marcado; tenta de novo na próxima página ou no próximo minuto */ })', $checar);
+        self::assertStringContainsString('setInterval(checar, 60000);', $js, 'pela mesma guarda');
     }
 
     #[TestDox('Pilha compartilhada com a Agenda: cada cartão marca o dono; o desenhar da Agenda só remove os cartões dela e só tira #bjl-box sem filho de outro dono')]

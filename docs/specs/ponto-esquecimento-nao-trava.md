@@ -107,7 +107,7 @@ borda esquerda, ícone redondo, rótulo, título, ação azul, adiar e fechar, b
 o que falta. Uma vez por dia por pessoa e escritório (localStorage): "fechar" esconde até amanhã, "adiar" por 10 min (a
 duração do desenho). A ação leva à /ponto com o modal na pendência mais antiga deste escritório; só com pendência em outro
 escritório, orienta a trocar. Entra pelo parcial `layout/_globais/ponto_pendente.html.twig`, que só sai para o público; os
-dados vêm de `GET /ponto/pendencia-do-dia`, pedido só quando o cartão pode aparecer.
+dados vêm de `GET /ponto/pendencia-do-dia`, pedido só quando o cartão pode aparecer; o dia só é marcado depois de uma resposta (com cartão ou vazia), e a falha de rede tenta de novo.
 
 ## 3. O que não muda
 

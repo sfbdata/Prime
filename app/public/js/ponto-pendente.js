@@ -4,8 +4,8 @@
    o cartão com a borda esquerda na cor do tipo, o ícone redondo, o rótulo, o título, os botões (ação azul, adiar e
    fechar) e a barra de tempo. Ícone e cor do "Regularizar ponto de ontem" (dc 03, L676-677).
 
-   Uma vez por dia por pessoa e escritório (localStorage, sempre em try/catch): consultar marca o dia (e a resposta
-   vazia grava `vazio`), então o endpoint sai no máximo uma vez por dia; "fechar" esconde
+   Uma vez por dia por pessoa e escritório (localStorage, sempre em try/catch): a resposta do servidor marca o dia (a
+   vazia grava `vazio`; a falha de rede não marca e tenta de novo); "fechar" esconde
    até amanhã; "adiar" esconde por 10 min (a duração do desenho, "Lembrar em 10 min"). Textos e link vêm prontos do
    servidor; DOM só com textContent.
    ============================================================================= */
@@ -112,16 +112,24 @@
         });
     }
 
+    var consultando = false;   // uma consulta por vez na página (o relógio de fundo não empilha pedidos)
+
+    /* O dia só é marcado depois de uma resposta do servidor: com o cartão (mostrado) ou vazia (`vazio`). Assim o
+       endpoint responde no máximo uma vez por dia por pessoa e escritório; a falha (rede, sessão) não marca e tenta de
+       novo na próxima página ou no próximo minuto. */
     function checar() {
-        if (document.getElementById('bjl-ponto-pendente') || !deveMostrar(ler(), Date.now())) { return; }
-        gravar({ dia: hoje() });   // consultado: o endpoint sai no máximo uma vez por dia (ou quando o adiamento vence)
+        if (consultando || document.getElementById('bjl-ponto-pendente') || !deveMostrar(ler(), Date.now())) { return; }
+        consultando = true;
         fetch(URL, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
             .then(function (r) { return r.ok && (r.headers.get('Content-Type') || '').indexOf('application/json') !== -1 ? r.json() : null; })
             .then(function (dados) {
-                if (!dados || !dados.cartao) { gravar({ dia: hoje(), vazio: true }); return; }
+                if (!dados) { return; }   // falha (rede, sessão): não marca o dia
+                if (!dados.cartao) { gravar({ dia: hoje(), vazio: true }); return; }
+                gravar({ dia: hoje() });   // mostrado: só amanhã de novo (ou quando o adiamento vencer)
                 if (!document.getElementById('bjl-ponto-pendente')) { desenhar(dados.cartao); }
             })
-            .catch(function () { /* sem resposta: tenta na próxima página */ });
+            .catch(function () { /* falha de rede: o dia não foi marcado; tenta de novo na próxima página ou no próximo minuto */ })
+            .finally(function () { consultando = false; });
     }
 
     function iniciar() {
