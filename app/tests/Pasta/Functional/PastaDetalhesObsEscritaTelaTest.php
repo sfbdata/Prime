@@ -288,9 +288,9 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter("#psObsMenu{$id} > .js-obs-editar[data-obs-janela=\"editar\"]"));
         self::assertCount(1, $crawler->filter("#psObsMenu{$id} > .js-obs-excluir[data-obs-janela=\"excluir\"]"));
         $idAlheia = $alheia->getId();
-        // C7-FPN-02: o bloqueado é `aria-disabled` (clicável, avisa), não `disabled`.
-        self::assertCount(1, $crawler->filter("#psObsMenu{$idAlheia} > [data-obs-janela=\"editar\"][aria-disabled=\"true\"][data-aviso]"));
-        self::assertCount(1, $crawler->filter("#psObsMenu{$idAlheia} > [data-obs-janela=\"excluir\"][aria-disabled=\"true\"][data-aviso]"));
+        // O admin daqui é o Master: a alheia abre pelo poder sem prazo, com o selo (spec edicao-sem-prazo).
+        self::assertCount(1, $crawler->filter("#psObsMenu{$idAlheia} > .js-obs-editar.com-selo-sem-prazo[data-obs-janela=\"editar\"] > .selo-sem-prazo"));
+        self::assertCount(1, $crawler->filter("#psObsMenu{$idAlheia} > .js-obs-excluir.com-selo-sem-prazo[data-obs-janela=\"excluir\"] > .selo-sem-prazo"));
         self::assertCount(0, $crawler->filter("#psObsMenu{$idAlheia} > [disabled]"));
 
         $html = (string) $client->getResponse()->getContent();

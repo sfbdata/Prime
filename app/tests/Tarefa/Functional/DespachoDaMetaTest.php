@@ -20,6 +20,7 @@ use App\Repository\TarefaMensagemRepository;
 use App\Tarefa\Controller\DespachoDaMetaController;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
+use App\Tarefa\Exception\DespachoRegistradoException;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -221,8 +222,28 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#despacho-' . $despacho->getId() . ' .btn-editar-msg, #despacho-' . $despacho->getId() . ' .bi-pencil'));
     }
 
-    #[TestDox('Mensagem antiga do próprio autor: sem botão nem link de edição (decisão do dono de 22/10), o "(editado)" continua, e a rota antiga não existe mais')]
-    public function testAntigaSemEdicaoComEditado(): void
+    #[TestDox('Edição sem prazo: nem o Master edita o despacho registrado (sem botão, sem selo, sem rota, e a entidade recusa)')]
+    public function testMasterNaoEditaODespachoRegistrado(): void
+    {
+        $despacho = $this->despachoGravado($this->criador);
+        $master = $this->criarPessoa($this->escritorio, 'Marcos Master');
+        $master->setRoles(['ROLE_SUPER_ADMIN']);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $master, $this->escritorio);
+
+        $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+        $item = $crawler->filter('#despacho-' . $despacho->getId());
+        self::assertCount(1, $item);
+        self::assertCount(0, $item->filter('.btn-editar-msg, .bi-pencil, [data-url*="/editar"], .selo-sem-prazo'));
+        $this->client->request('POST', '/tarefas/mensagem/' . $despacho->getId() . '/editar', ['conteudo' => 'Trocado']);
+        self::assertContains($this->client->getResponse()->getStatusCode(), [404, 405]);
+
+        $this->expectException(DespachoRegistradoException::class);
+        $despacho->setMensagem('<p>Trocado pelo Master</p>');
+    }
+
+    #[TestDox('Mensagem antiga do próprio autor: sem botão nem link de edição (decisão do dono de 22/10), sem o "(editado)" (desenho 04B, spec edicao-sem-prazo §1.6), e a rota antiga não existe mais')]
+    public function testAntigaSemEdicaoSemEditado(): void
     {
         $antiga = (new TarefaMensagem())->setUsuario($this->criador)->setTenant($this->escritorio)->setMensagem('Antiga')->setEditadoEm(new \DateTimeImmutable('-1 day'));
         $this->meta->addMensagem($antiga);
@@ -236,7 +257,8 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertCount(1, $item);
         self::assertCount(0, $item->filter('.btn-editar-msg, .bi-pencil, [data-url*="/editar"]'));
         self::assertStringNotContainsString('/tarefas/mensagem/' . $id . '/editar', (string) $this->client->getResponse()->getContent());
-        self::assertSame('(editado)', trim($item->filter('.despacho-em > .tarefa-msg-editado')->text()));
+        self::assertCount(0, $item->filter('.tarefa-msg-editado'));
+        self::assertStringNotContainsString('(editado)', $item->text());
 
         $this->client->request('POST', '/tarefas/mensagem/' . $id . '/editar', ['conteudo' => 'Texto trocado']);
         self::assertContains($this->client->getResponse()->getStatusCode(), [404, 405]);

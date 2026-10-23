@@ -11,8 +11,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Invariantes da exclusão-lápide na própria entidade. O que decide ENTRE lápide e exclusão real
- * é o ExcluirPastaUseCase (e tem prova funcional contra o Postgres); aqui prova-se só que a
+ * Invariantes da exclusão-lápide na própria entidade. Toda exclusão vira lápide pelo
+ * ExcluirPastaUseCase (com prova funcional contra o Postgres); aqui prova-se só que a
  * marca, uma vez posta, não pode ser sobrescrita nem desfeita fora de ordem.
  */
 #[CoversClass(Pasta::class)]

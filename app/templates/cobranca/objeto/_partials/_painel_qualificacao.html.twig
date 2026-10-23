@@ -65,8 +65,9 @@
                 <form method="post" action="{{ path('cobranca_qualificacao_desfazer', {eventoId: linha.eventoId}) }}"
                       class="ms-auto" data-disable-on-submit="true">
                     <input type="hidden" name="_token" value="{{ csrf_token('desfazer_qualificacao_' ~ linha.eventoId) }}">
-                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none" data-acao="desfazer-qualificacao">
-                        {{ 'cobranca_objeto.qualificacao.desfazer'|trans }}
+                    {# Edição sem prazo (item 7): liberado só pelo poder, leva o selo no hover e no foco. #}
+                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none{{ linha.seloSemPrazo ? ' com-selo-sem-prazo' }}" data-acao="desfazer-qualificacao">
+                        {{ 'cobranca_objeto.qualificacao.desfazer'|trans }}{% include '_partials/_selo_sem_prazo.html.twig' with {poder: linha.seloSemPrazo} only %}
                     </button>
                 </form>
                 {% endif %}

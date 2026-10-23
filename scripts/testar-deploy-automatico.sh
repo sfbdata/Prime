@@ -28,7 +28,7 @@ montar() {   # $1 = conteúdo da migration nova ("" = sem migration)
     # deploy-prod-tls.sh falso: o comportamento vem de FAKE_DEPLOY
     cat > scripts/deploy-prod-tls.sh <<'EOS'
 #!/usr/bin/env bash
-echo "deploy-prod-tls PULAR_GIT_PULL=${PULAR_GIT_PULL:-}" >> "$FAKE_LOG"
+echo "deploy-prod-tls PULAR_GIT_PULL=${PULAR_GIT_PULL:-} SEM_AGENDADOR=${SEM_AGENDADOR:-}" >> "$FAKE_LOG"
 case "$FAKE_DEPLOY" in
   ok)            echo novo > "$FAKE_ESTADO/imagem" ;;
   falha_build)   exit 1 ;;
@@ -51,7 +51,10 @@ EOS
 echo "docker $*" >> "$FAKE_LOG"
 case "$1" in
   inspect)
+    # Por padrão o agendador já existe; FAKE_SEM_AGENDADOR=1 simula o primeiro deploy com ele.
+    [[ "${FAKE_SEM_AGENDADOR:-0}" == 1 && "${*: -1}" == jusprime_scheduler_prod ]] && exit 1
     case "$3" in
+      *State.Running*) [[ "${FAKE_AGENDADOR_PARADO:-0}" == 1 ]] && echo false || echo true ;;
       *Config.Image*) echo "jusprime-php" ;;
       *State.Health*) echo healthy ;;
       *'.Image}}'*)   echo "sha256:$(cat "$FAKE_ESTADO/imagem")" ;;
@@ -74,7 +77,13 @@ esac
 exit 0
 EOS
     printf '#!/usr/bin/env bash\necho "curl $*" >> "$FAKE_LOG"\nprintf "%%s" "${FAKE_HTTP:-200}"\n' > "$T/bin/curl"
-    chmod +x "$T/bin/docker" "$T/bin/curl"
+    # crontab -l falso: FAKE_CRONTAB vazio = sem crontab (o real sai com erro "no crontab for root").
+    cat > "$T/bin/crontab" <<'EOS'
+#!/usr/bin/env bash
+[[ -n "${FAKE_CRONTAB:-}" ]] || { echo "no crontab for root" >&2; exit 1; }
+printf '%s\n' "$FAKE_CRONTAB"
+EOS
+    chmod +x "$T/bin/docker" "$T/bin/curl" "$T/bin/crontab"
 }
 
 rodar() {    # $1 = modo; demais: variáveis FAKE_*
@@ -187,6 +196,60 @@ confere "sai 1 (voltou)" '[[ $rc == 1 ]]'
 confere "volta o código" '[[ $(head_prod) == $ANTES ]]'
 confere "volta a imagem e recria php e worker" 'grep -q "docker tag jusprime-rollback:jusprime_php_prod-pre-v2.1.0 jusprime-php" "$T/log" && grep -q "compose .*up -d --no-build php worker" "$T/log"'
 confere "desliga a manutenção" '[[ ! -f "$T/prod/nginx/maintenance/maintenance.on" ]]'
+
+echo "── Agendador: guardado e recriado na volta quando já existia ──"
+montar ""
+rc=$(rodar publicar FAKE_DEPLOY=falha_depois)
+confere "guarda a imagem do agendador" 'grep -q "docker tag sha256:velho jusprime-rollback:jusprime_scheduler_prod-pre-v2.1.0" "$T/log"'
+confere "recria php, worker e agendador" 'grep -q "compose .*up -d --no-build php worker scheduler" "$T/log"'
+
+echo "── Agendador: primeiro deploy com ele (não existia antes) ──"
+montar ""
+rc=$(rodar publicar FAKE_SEM_AGENDADOR=1)
+confere "publicar sai 0 sem guardar o agendador" '[[ $rc == 0 ]] && ! grep -q "jusprime-rollback:jusprime_scheduler_prod" "$T/log"'
+montar ""
+rc=$(rodar publicar FAKE_DEPLOY=falha_depois FAKE_SEM_AGENDADOR=1)
+confere "na volta, desliga o agendador que subiu com a versão nova" '[[ $rc == 1 ]] && grep -q "docker rm -f jusprime_scheduler_prod" "$T/log" && grep -qE "compose .*up -d --no-build php worker$" "$T/log"'
+
+echo "── Agendador: parado antes do deploy não volta ──"
+montar ""
+rc=$(rodar publicar FAKE_DEPLOY=falha_depois FAKE_AGENDADOR_PARADO=1)
+confere "não guarda o agendador parado e o desliga na volta" '[[ $rc == 1 ]] && ! grep -q "jusprime-rollback:jusprime_scheduler_prod" "$T/log" && grep -q "docker rm -f jusprime_scheduler_prod" "$T/log" && grep -qE "compose .*up -d --no-build php worker$" "$T/log"'
+
+echo "── Crontab do host com as tarefas do sistema (dono esqueceu a virada) ──"
+CRON_ATIVO_TXT="$(printf '%s\n' '0 2 * * * certbot renew -q' \
+  '0 6 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:djen:sincronizar --dias=2 >> /var/log/jusprime-djen.log 2>&1' \
+  '0 * * * * /opt/jusprime/scripts/sync-reconciliar.sh' \
+  '30 2 * * * /opt/jusprime/scripts/backup-db.sh')"
+montar ""
+rc=$(rodar publicar FAKE_CRONTAB="$CRON_ATIVO_TXT")
+confere "o deploy segue e sai 0" '[[ $rc == 0 && $(head_prod) == $SHA ]]'
+confere "pede o deploy SEM o agendador" 'grep -q "deploy-prod-tls PULAR_GIT_PULL=1 SEM_AGENDADOR=1" "$T/log"'
+confere "aviso visível com as linhas e o passo para ligar" 'grep -q "::warning::O crontab do host ainda roda" "$T/saida" && grep -q "app:djen:sincronizar --dias=2" "$T/saida" && grep -q "sync-reconciliar.sh" "$T/saida" && grep -q "up -d scheduler" "$T/saida"'
+confere "certbot e backup não aparecem como tarefa do sistema" '! grep -qE "^    .*(certbot|backup-db)" "$T/saida"'
+montar ""
+rc=$(rodar publicar FAKE_DEPLOY=falha_depois FAKE_CRONTAB="$CRON_ATIVO_TXT")
+confere "na volta, não religa o agendador (rodaria junto com o cron)" '[[ $rc == 1 ]] && grep -q "docker rm -f jusprime_scheduler_prod" "$T/log" && grep -qE "compose .*up -d --no-build php worker$" "$T/log"'
+montar ""
+rc=$(rodar simular FAKE_CRONTAB="$CRON_ATIVO_TXT")
+confere "a simulação já avisa" '[[ $rc == 0 ]] && grep -q "::warning::O crontab do host ainda roda" "$T/saida"'
+
+echo "── Crontab com as linhas do sistema comentadas: o agendador sobe ──"
+montar ""
+rc=$(rodar publicar FAKE_CRONTAB="$(printf '%s\n' '0 2 * * * certbot renew -q' \
+  '# 0 6 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:djen:sincronizar --dias=2' \
+  '  #0 * * * * /opt/jusprime/scripts/sync-reconciliar.sh' '30 2 * * * /opt/jusprime/scripts/backup-db.sh')")
+confere "sobe com o agendador e sem aviso" '[[ $rc == 0 ]] && grep -q "deploy-prod-tls PULAR_GIT_PULL=1 SEM_AGENDADOR=0" "$T/log" && ! grep -q "::warning::" "$T/saida"'
+
+echo "── Crontab só com certbot e backup ──"
+montar ""
+rc=$(rodar publicar FAKE_CRONTAB="$(printf '%s\n' '0 2 * * * certbot renew -q' '30 2 * * * /opt/jusprime/scripts/backup-db.sh')")
+confere "sobe com o agendador" '[[ $rc == 0 ]] && grep -q "SEM_AGENDADOR=0" "$T/log" && ! grep -q "::warning::" "$T/saida"'
+
+echo "── Sem crontab nenhum (crontab -l: no crontab for root) ──"
+montar ""
+rc=$(rodar publicar)
+confere "sobe com o agendador" '[[ $rc == 0 ]] && grep -q "SEM_AGENDADOR=0" "$T/log" && grep -q "Nenhuma tarefa do sistema ativa no crontab" "$T/saida"'
 
 echo "── Conferência falha (versão nova não está no container) ──"
 montar ""

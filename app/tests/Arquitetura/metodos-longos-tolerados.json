@@ -356,7 +356,6 @@
     "Pasta/UseCase/EnviarMensagemPastaUseCase.php::notificarAutorDoComentario": 51,
     "Pasta/UseCase/EnviarObservacaoDetalhesUseCase.php::executar": 59,
     "Pasta/UseCase/EnviarObservacaoFinanceiraUseCase.php::executar": 59,
-    "Pasta/UseCase/ExcluirPastaUseCase.php::executar": 46,
     "Pasta/UseCase/ExportarPecaTextoUseCase.php::materializarImagens": 68,
     "Pasta/UseCase/ListarMencionaveisDaPastaUseCase.php::executar": 51,
     "Pasta/UseCase/MontarZipDeDocumentosUseCase.php::executar": 101,

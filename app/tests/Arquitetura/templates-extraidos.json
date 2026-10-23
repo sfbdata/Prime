@@ -7,6 +7,7 @@
             "_sidebar.html.twig",
             "layout/_globais.html.twig",
             "layout/_globais/aviso_espaco.html.twig",
+            "layout/_globais/aviso_falha_agendada.html.twig",
             "layout/_globais/busca_rapida.html.twig",
             "layout/_globais/fechar.html.twig",
             "layout/_globais/lembretes.html.twig",
@@ -639,7 +640,6 @@
         "templates": [
             "security/login.html.twig",
             "security/entrando.html.twig",
-            "registration/confirm.html.twig",
             "_fundo_auth.html.twig"
         ],
         "js": [
@@ -789,8 +789,7 @@
             "comercial/confirmacao/vencido.html.twig",
             "email_descadastro/confirmado.html.twig",
             "email_descadastro/confirmar.html.twig",
-            "indicacao/_janela.html.twig",
-            "invitation/index.html.twig"
+            "indicacao/_janela.html.twig"
         ],
         "js": [
             "indicacao.js"
@@ -882,9 +881,6 @@
 
     "pasta_lista": {
         "templates": [
-            "pasta/index.html.twig",
-            "pasta/_tabela.html.twig",
-            "pasta/_card.html.twig",
             "pasta/_cliente_linha.html.twig",
             "pasta/_filtros.html.twig",
             "pasta/_filtro_situacao.html.twig",
@@ -892,9 +888,7 @@
             "pasta/demandas/_resultado.html.twig"
         ],
         "js": [],
-        "permitidos": [
-            "aria-sort=\"\""
-        ]
+        "permitidos": []
     },
 
     "inteligencia": {

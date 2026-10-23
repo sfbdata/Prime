@@ -20,7 +20,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * A1 — o dropdown de "responsável" do Expediente (acervo geral e painel por marcador) vazava TODOS
  * os usuários de TODOS os escritórios via `findBy(['isActive'=>true])` (User não é TenantAware).
  * Agora usa `findColaboradoresAtivosPorTenant`. Os dois endpoints são AJAX (XHR) e devolvem o
- * partial `pasta/_tabela.html.twig`, que renderiza o dropdown com o nome de cada responsável.
+ * partial `expediente/_lista.html.twig`, que renderiza o dropdown com o nome de cada responsável.
  */
 #[CoversClass(ExpedienteController::class)]
 final class ExpedienteUsuariosIsolamentoControllerTest extends JusPrimeWebTestCase
