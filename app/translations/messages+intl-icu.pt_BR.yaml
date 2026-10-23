@@ -4003,11 +4003,6 @@ publicas:
         lista:
             titulo: SUAS INDICAÇÕES
             vazio: Nenhuma indicação ainda.
-    convite:
-        titulo: Convite de Usuário
-        enviar: Enviar Convite
-        placeholder_nome: Digite o nome completo
-        placeholder_email: Digite o e-mail
     js:
         # indicacao.js
         indicacao:
@@ -6526,13 +6521,6 @@ entrada:
         ola: 'Olá, {nome}!'
         ola_sem_nome: Olá!
         continuar: Continuar
-    registration:
-        titulo: Criar senha
-        bem_vindo: 'Bem-vindo, {nome}!'
-        texto: 'Você foi convidado para acessar o sistema. Para ativar sua conta, crie uma senha abaixo:'
-        senha: Senha
-        confirme: Confirme a senha
-        criar: Criar senha
     js:
         erro_generico: Não foi possível concluir. Tente novamente.
         email_invalido: Informe um e-mail válido.
@@ -7531,49 +7519,7 @@ pasta_lista:
     acao: Ação
     prioridade: Prioridade
     metas: Metas
-    mover_para: Mover para…
-    excluida: Excluída
-    excluida_em: 'Excluída em {data}'
-    excluida_em_por: 'Excluída em {data} por {nome}'
-    alternar_situacao: Dê duplo-clique para alternar entre ativo e arquivado
     metas_resumo: '{total} meta(s) · {ativas} ativa(s)'
-    fixada_favoritos: Fixada nos favoritos
-    tirar_favoritos: Tirar dos favoritos
-    marcar_favorito: Marcar como favorito
-    index:
-        titulo: Pastas
-        nova: Nova Pasta
-    tabela:
-        ordenar_por: Ordenar por
-        ordenar_por_opcao: Ordenar por…
-        nup_crescente: NUP (crescente)
-        nup_decrescente: NUP (decrescente)
-        cliente_az: Cliente (A-Z)
-        cliente_za: Cliente (Z-A)
-        prioridade_maior: Prioridade (maior primeiro)
-        prioridade_menor: Prioridade (menor primeiro)
-        acao_az: Ação (A-Z)
-        responsavel_az: Responsável (A-Z)
-        situacao: Situação
-        visualizar_dica: Escolher como exibir as pastas
-        visualizar: Visualizar
-        detalhes_dica: Tabela com todas as colunas
-        detalhes: Detalhes
-        cartoes_dica: Pastas em cartões
-        cartoes: Cartões
-        painel_marcadores: Painel de marcadores
-        intervalo: '{primeira} de {ultima}'
-        total_uma: 'Total: {total} pasta'
-        total_varias: 'Total: {total} pastas'
-        contagem_uma: '{total} pasta'
-        contagem_varias: '{total} pastas'
-        responsavel: Responsável
-        marcadores: Marcadores
-        sem_metas: Sem metas
-        vazio_filtro: Nenhuma pasta encontrada com esses filtros.
-        vazio: Nenhuma pasta cadastrada.
-    card:
-        dias: '{dias}d'
     cliente_linha:
         cad_completo: Cadastro completo · abrir detalhes do cliente
         cad_incompleto_uma: 'Cadastro incompleto: {total} pendência · abrir detalhes do cliente'
@@ -7633,12 +7579,6 @@ pasta_lista:
         vazio_filtro_texto: Tente ajustar ou limpar os filtros aplicados.
         vazio_titulo: Tudo em dia por aqui
         vazio_texto: Você não possui demandas no momento.
-    js:
-        favoritos_erro: Não foi possível alterar os favoritos.
-        tirar_favoritos: Tirar dos favoritos
-        marcar_favorito: Marcar como favorito
-        fixada_favoritos: Fixada nos favoritos
-        erro_comunicacao: Erro de comunicação. Tente novamente.
 
 # ---- Pasta: documentos, metas e anotações (pasta/_documentos_*, _metas, _dados_anotacoes)
 pasta_documentos:
