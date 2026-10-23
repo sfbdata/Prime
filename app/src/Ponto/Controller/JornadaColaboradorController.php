@@ -10,7 +10,10 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JornadaTenantRepository;
+use App\Ponto\DTO\AlterarRegistroDePontoInput;
+use App\Ponto\Exception\ChoqueDeJornadaException;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\UseCase\AlterarRegistroDePontoUseCase;
 use App\Ponto\Service\IntervalosDeTrabalho;
 use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
@@ -248,6 +251,57 @@ final class JornadaColaboradorController extends AbstractController
         $entityManager->flush();
 
         return $this->json(['ok' => true]);
+    }
+
+    /**
+     * Liga ou desliga a chave "Registra ponto eletrônico" da pessoa NESTE escritório (spec seguranca-b-jornada, regras 2
+     * e 3). Mesma guarda da jornada: `admin.users.manage` no escritório da sessão (ou Master) e vínculo ativo da pessoa
+     * no escritório da URL. Ligar recusa com 422 quando a jornada daqui bate com outro escritório.
+     */
+    #[Route('/registra-ponto', name: 'app_jornada_colaborador_registra_ponto', methods: ['POST'])]
+    public function registraPonto(
+        int $tenantId,
+        User $user,
+        Request $request,
+        PermissionChecker $permissionChecker,
+        AlterarRegistroDePontoUseCase $alterarRegistroDePonto,
+    ): JsonResponse {
+        $urlTenant = $this->exigirAdminDoEscritorioDaPessoa($tenantId, $user, $permissionChecker);
+        $this->validarCsrfAjax($request);
+
+        $data = json_decode((string) $request->getContent(), true);
+        if (!is_array($data) || !is_bool($data['registraPonto'] ?? null)) {
+            return $this->json(['erro' => 'Payload inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $alterarRegistroDePonto->executar(new AlterarRegistroDePontoInput($user, $urlTenant, $data['registraPonto']));
+        } catch (ChoqueDeJornadaException $choque) {
+            return $this->json(['erro' => $choque->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['ok' => true, 'registraPonto' => $data['registraPonto']]);
+    }
+
+    /** A guarda das rotas da página do colaborador: devolve o escritório da URL, onde a pessoa tem vínculo ativo. */
+    private function exigirAdminDoEscritorioDaPessoa(int $tenantId, User $user, PermissionChecker $permissionChecker): Tenant
+    {
+        $currentUser = $this->getUser();
+        if (!$currentUser instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant = $tenant?->getId() === $tenantId;
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para gerenciar o ponto.');
+        }
+        $urlTenant = $this->tenantRepository->find($tenantId);
+        if ($urlTenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $urlTenant)) {
+            throw $this->createNotFoundException('Usuário não pertence a este tenant.');
+        }
+
+        return $urlTenant;
     }
 
     /**
