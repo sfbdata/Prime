@@ -99,6 +99,14 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         $js = self::js();
         self::assertStringContainsString('var avisos = resultado && resultado.data && resultado.data.avisos;', $js);
         self::assertStringContainsString("+ (extra ? '.' + extra : ''));", $js, 'o aviso vai junto da confirmação');
+        self::assertStringContainsString("var interno = typeof a.link === 'string' && a.link.charAt(0) === '/' && a.link.charAt(1) !== '/' && a.rotulo;", $js, 'só link interno');
+        self::assertStringContainsString('avisosDaBatida: function () { return avisosDaBatida; },', $js);
+
+        $cabecalho = (string) file_get_contents(__DIR__ . '/../../../public/js/presenca-cabecalho.js');
+        self::assertStringContainsString('avisosDaBatida(x).forEach(function (a) { tx.appendChild(a); });', $cabecalho, 'o cabeçalho mostra o aviso da batida');
+        self::assertStringContainsString('link.href = a.link;', $cabecalho);
+        self::assertStringContainsString('link.textContent = a.rotulo;', $cabecalho, 'o link do aviso, por DOM');
+        self::assertStringNotContainsString('innerHTML', $cabecalho . $js);
 
         $tela = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
         self::assertStringContainsString('const avisos = Array.isArray(resultado.data && resultado.data.avisos) ? resultado.data.avisos : [];', $tela);

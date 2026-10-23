@@ -32,6 +32,7 @@
     var estado = null;            // a última resposta de /ponto/estado-do-dia
     var envioEmAndamento = false; // trava do clique: cobre a posição, a releitura e o POST (spec F2)
     var aoMudar = function () {};
+    var avisosDaBatida = [];      // os avisos da última batida aceita (R6), para o cabeçalho desenhar com o link
 
     function avisar(texto) {
         if (window.bjAviso) { window.bjAviso(texto); return; }
@@ -84,12 +85,16 @@
         });
     }
 
-    /* Os avisos que a batida aceita trouxe (R6): seguem a confirmação, no mesmo aviso, sem virar erro. */
+    /* Os avisos que a batida aceita trouxe (R6), sem virar erro. Só texto e, quando há, o link INTERNO e o rótulo
+       dele: o cabeçalho monta o link por DOM (presenca-cabecalho.js), só com textContent. */
     function avisosDe(resultado) {
         var avisos = resultado && resultado.data && resultado.data.avisos;
-        if (!Array.isArray(avisos)) { return ''; }
+        if (!Array.isArray(avisos)) { return []; }
 
-        return avisos.map(function (a) { return a && a.texto ? ' ' + a.texto : ''; }).join('');
+        return avisos.filter(function (a) { return a && a.texto; }).map(function (a) {
+            var interno = typeof a.link === 'string' && a.link.charAt(0) === '/' && a.link.charAt(1) !== '/' && a.rotulo;
+            return { texto: String(a.texto), link: interno ? a.link : null, rotulo: interno ? String(a.rotulo) : null };
+        });
     }
 
     function horaDe(resultado) {
@@ -133,6 +138,7 @@
         var atual = linhaDe(base);
         if (envioEmAndamento || !atual || !atual.acao) { return; }
         envioEmAndamento = true;   // (1)
+        avisosDaBatida = [];
         var sucesso = false;
         try {
             aoMudar();   // mostra o item ocupado
@@ -162,7 +168,8 @@
             var resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
             if (resultado.tipo === 'sucesso') {
                 sucesso = true;
-                var extra = avisosDe(resultado);
+                avisosDaBatida = avisosDe(resultado);
+                var extra = avisosDaBatida.map(function (a) { return ' ' + a.texto; }).join('');
                 avisar((atual.acao === 'entrada' ? 'Ponto de entrada registrado às ' + horaDe(resultado) : 'Saída registrada às ' + horaDe(resultado)) + (extra ? '.' + extra : ''));
                 return;
             }
@@ -190,6 +197,7 @@
     window.PresencaPonto = {
         linha: linha,
         aviso: aviso,
+        avisosDaBatida: function () { return avisosDaBatida; },
         regularizar: function () { if (aviso()) { regularizarOntem(estado.ontemSemSaida); } },
         ocupado: function () { return envioEmAndamento; },
         atualizar: atualizar,

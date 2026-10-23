@@ -298,6 +298,7 @@
         tx.appendChild(subtitulo(x));
         var pendencia = avisoDoPonto(x);
         if (pendencia) { tx.appendChild(pendencia); }
+        avisosDaBatida(x).forEach(function (a) { tx.appendChild(a); });
         l.appendChild(tx);
         var dir = el('span', 'presenca-dir');
         var st = el('span', 'presenca-status', ST[x.k][0]);
@@ -354,6 +355,26 @@
         sub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(e); } });
 
         return sub;
+    }
+
+    /* Na sua linha, os avisos da última batida aceita (R6), com o link do aviso ("Trocar de escritório") como a tela do
+       ponto já mostra. Montados por DOM: texto por textContent, link só interno (presenca-ponto.js já filtra). */
+    function avisosDaBatida(x) {
+        var lista = x.eu && ponto() && ponto().avisosDaBatida ? ponto().avisosDaBatida() : [];
+        return lista.map(function (a) {
+            var sub = el('span', 'presenca-sub presenca-sub--aviso-batida');
+            sub.appendChild(icone('bi-exclamation-triangle'));
+            sub.appendChild(document.createTextNode(a.texto));
+            if (a.link && a.rotulo) {
+                var link = document.createElement('a');
+                link.href = a.link;
+                link.textContent = a.rotulo;
+                link.addEventListener('click', function (e) { e.stopPropagation(); });
+                sub.appendChild(link);
+            }
+
+            return sub;
+        });
     }
 
     function desenharPainel() {
