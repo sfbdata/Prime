@@ -80,7 +80,7 @@ class CalculadoraJornada
         $tenantComBlocos  = $jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty();
 
         if ($jornadaComBlocos || $tenantComBlocos) {
-            $cargaEsperada = $isFeriado ? 0 : $this->jornadaResolver->resolverMetaDia($user, $data, $jornadaTenant);
+            $cargaEsperada = $isFeriado ? 0 : $this->jornadaResolver->resolverMetaDia($jornada, $data, $jornadaTenant);
         } else {
             // Lógica legada: usa campos planos de JornadaColaborador
             $isDiaTrabalho = $jornada ? in_array($indiceDia, $jornada->getDiasSemana(), true) : false;

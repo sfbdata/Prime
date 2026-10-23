@@ -7,6 +7,7 @@ namespace App\Tests\Ponto\Unit;
 use App\Entity\Auth\User;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -226,6 +227,7 @@ final class FolhaPontoPadroesHistoricosTest extends TestCase
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
+            $this->createStub(JornadaColaboradorRepository::class),
         );
     }
 }

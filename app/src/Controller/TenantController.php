@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Ponto\Entity\JornadaColaborador;
@@ -413,10 +414,8 @@ final class TenantController extends AbstractController
     /**
      * @return array{cargaHorariaSemanal: int, fonte: string}|null
      */
-    private function resolverJornadaInfoAdmin(User $user, ?\App\Ponto\Entity\JornadaTenant $jornadaTenant): ?array
+    private function resolverJornadaInfoAdmin(?JornadaColaborador $jornada, ?\App\Ponto\Entity\JornadaTenant $jornadaTenant): ?array
     {
-        $jornada = $user->getJornadaColaborador();
-
         if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
             $carga = $jornada->getCargaHorariaSemanal()
                 ?? $jornadaTenant?->getCargaHorariaSemanal()
@@ -467,7 +466,8 @@ final class TenantController extends AbstractController
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
         RegraDosPrimarios $regraDosPrimarios,
-        HierarquiaDePerfis $hierarquia
+        HierarquiaDePerfis $hierarquia,
+        JornadaColaboradorRepository $jornadaColaboradorRepository
     ): Response {
         $currentUser = $this->getUser();
 
@@ -583,7 +583,7 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenantId]);
         }
 
-        $jornada                  = $user->getJornadaColaborador();
+        $jornada                  = $jornadaColaboradorRepository->findByUserETenant($user, $tenant);
         $userHasCustomEscala      = $jornada !== null && !$jornada->getBlocos()->isEmpty();
 
         $userAccesses   = $resourceAccessRepository->findByUsers([$user])[(int) $user->getId()] ?? [];
@@ -686,7 +686,7 @@ final class TenantController extends AbstractController
             $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
         }
 
-        $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);
+        $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($jornada, $jornadaTenant);
         $justificativas = $justificativaRepository->findByTenantUser($user);
 
         $perfil            = $obterOuCriarPerfil->executar($user);

@@ -8,7 +8,7 @@
     {% set tenantPresenca = current_tenant() %}
     {# Atalho de ponto na sua linha (fase 2, ALTO): o critério de quem já vê o alerta de ponto (módulo e jornada), e
        nunca na própria tela do ponto, onde o bloco "batidas de hoje" não relê nada e sugeriria a mesma batida. #}
-    {% set atalhoPonto = can_access_module('ponto') and app.user.jornadaColaborador is not null and app.request.attributes.get('_route') != 'ponto_index' %}
+    {% set atalhoPonto = can_access_module('ponto') and tem_jornada_no_escritorio() and app.request.attributes.get('_route') != 'ponto_index' %}
     <span class="presenca-cab" data-presenca-cabecalho
           data-url-equipe="{{ path('central_equipe') }}"
           data-chave="{{ tenantPresenca.id }}:{{ app.user.id }}"

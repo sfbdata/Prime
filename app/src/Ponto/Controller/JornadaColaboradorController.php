@@ -29,6 +29,7 @@ final class JornadaColaboradorController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantRepository $tenantRepository,
+        private readonly JornadaColaboradorRepository $jornadas,
     ) {}
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_get', methods: ['GET'])]
@@ -58,7 +59,7 @@ final class JornadaColaboradorController extends AbstractController
             throw $this->createNotFoundException('Usuário não pertence a este tenant.');
         }
 
-        $jornada       = $user->getJornadaColaborador();
+        $jornada       = $this->jornadas->findByUserETenant($user, $urlTenant);
         $jornadaTenant = $urlTenant->getJornadaTenant();
 
         $blocosTenant = [];
@@ -167,10 +168,9 @@ final class JornadaColaboradorController extends AbstractController
             return $this->json(['erro' => $erros], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $jornada = $user->getJornadaColaborador();
+        $jornada = $this->jornadas->findByUserETenant($user, $urlTenant);
         if ($jornada === null) {
-            $jornada = new JornadaColaborador();
-            $jornada->setUser($user);
+            $jornada = (new JornadaColaborador())->setUser($user)->setTenant($urlTenant);
             $entityManager->persist($jornada);
         }
 
@@ -229,7 +229,7 @@ final class JornadaColaboradorController extends AbstractController
         // CSRF após os guards de autorização (a falha de autz/tenant tem prioridade e fica testável).
         $this->validarCsrfAjax($request);
 
-        $jornada = $user->getJornadaColaborador();
+        $jornada = $this->jornadas->findByUserETenant($user, $urlTenant);
         if ($jornada === null) {
             return $this->json(['ok' => true]);
         }

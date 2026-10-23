@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Central\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Tests\Central\Support\CentralHttpTrait;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -20,11 +21,10 @@ final class AtalhoDePontoNoCabecalhoTest extends JusPrimeWebTestCase
     use CriaFixturesInteligenciaTrait;
     use CentralHttpTrait;
 
-    private function comJornada(User $user): void
+    private function comJornada(User $user, Tenant $tenant): void
     {
         $jornada = new JornadaColaborador();
-        $jornada->setUser($user);
-        $user->setJornadaColaborador($jornada);
+        $jornada->setUser($user)->setTenant($tenant);
         $this->em()->persist($jornada);
         $this->em()->flush();
     }
@@ -35,7 +35,7 @@ final class AtalhoDePontoNoCabecalhoTest extends JusPrimeWebTestCase
         $client = $this->cliente();
         [, $tenant] = $this->criarAdmin();
         $ana = $this->criarUsuarioComPermissoes($tenant, ['modules.ponto.view'], 'ana');
-        $this->comJornada($ana);
+        $this->comJornada($ana, $tenant);
         $this->logarComTenant($client, $ana, $tenant);
 
         $client->request('GET', '/notificacoes');
@@ -57,9 +57,9 @@ final class AtalhoDePontoNoCabecalhoTest extends JusPrimeWebTestCase
         [, $tenant] = $this->criarAdmin();
         $semJornada = $this->criarUsuarioComPermissoes($tenant, ['modules.ponto.view'], 'semjornada');
         $semModulo = $this->colega($tenant, 'semmodulo');
-        $this->comJornada($semModulo);
+        $this->comJornada($semModulo, $tenant);
         $naTela = $this->criarUsuarioComPermissoes($tenant, ['modules.ponto.view'], 'natela');
-        $this->comJornada($naTela);
+        $this->comJornada($naTela, $tenant);
 
         foreach ([[$semJornada, '/notificacoes'], [$semModulo, '/notificacoes'], [$naTela, '/ponto/']] as [$quem, $url]) {
             $this->logarComTenant($client, $quem, $tenant);

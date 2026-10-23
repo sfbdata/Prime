@@ -26,6 +26,7 @@ use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Exception\JustificativaJaAnalisadaException;
 use App\Ponto\UseCase\ConfirmarEdicaoDeJustificativaUseCase;
 use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
@@ -73,6 +74,7 @@ final class PontoController extends AbstractController
         private readonly InicioContagemResolver $inicioContagemResolver,
         private readonly SubstituirAnexoDoLoteUseCase $substituirAnexoDoLote,
         private readonly ConfirmarEdicaoDeJustificativaUseCase $confirmarEdicao,
+        private readonly JornadaColaboradorRepository $jornadas,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -126,11 +128,8 @@ final class PontoController extends AbstractController
 
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
-        $jornada = $user->getJornadaColaborador();
-        if ($jornada === null) {
-            $jornada = new JornadaColaborador();
-            $jornada->setUser($user);
-        }
+        $jornadaDoEscritorio = $this->jornadas->findByUserETenant($user, $tenant);
+        $jornada = $jornadaDoEscritorio ?? (new JornadaColaborador())->setUser($user);
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
@@ -170,8 +169,8 @@ final class PontoController extends AbstractController
         $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem, $tenant);
         $horasPagasMinutos = $folhaPontoBuilder->somarHorasPagasDaCompetencia($user, $tenant, $anoSelecionado, $mesSelecionado);
 
-        $jornadaInfo = $this->resolverJornadaInfo($user, $jornadaTenant);
-        $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($user, $agora, $jornadaTenant);
+        $jornadaInfo = $this->resolverJornadaInfo($jornadaDoEscritorio, $jornadaTenant);
+        $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($jornadaDoEscritorio, $agora, $jornadaTenant);
 
         $justificativaForm = $this->createForm(JustificativaPontoType::class);
 
@@ -543,7 +542,9 @@ final class PontoController extends AbstractController
 
         $jornadaTenant = $tenant?->getJornadaTenant();
 
-        return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant));
+        $jornada = $tenant === null ? null : $this->jornadas->findByUserETenant($user, $tenant);
+
+        return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant, $jornada));
     }
 
     /**
@@ -801,10 +802,8 @@ final class PontoController extends AbstractController
     /**
      * @return array{cargaHorariaSemanal: int, fonte: string}|null
      */
-    private function resolverJornadaInfo(\App\Entity\Auth\User $user, ?JornadaTenant $jornadaTenant): ?array
+    private function resolverJornadaInfo(?JornadaColaborador $jornada, ?JornadaTenant $jornadaTenant): ?array
     {
-        $jornada = $user->getJornadaColaborador();
-
         if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
             $carga = $jornada->getCargaHorariaSemanal()
                 ?? $jornadaTenant?->getCargaHorariaSemanal()
@@ -820,11 +819,11 @@ final class PontoController extends AbstractController
     }
 
     private function resolverDuracaoJornadaDiaria(
-        \App\Entity\Auth\User $user,
+        ?JornadaColaborador $jornada,
         \DateTimeImmutable $data,
         ?JornadaTenant $jornadaTenant,
     ): ?int {
-        $batidas = $this->jornadaResolver->resolverBatidasEsperadasHoje($user, $data, $jornadaTenant);
+        $batidas = $this->jornadaResolver->resolverBatidasEsperadasHoje($jornada, $data, $jornadaTenant);
 
         $entradaHorario = null;
         $saidaHorario   = null;
@@ -901,7 +900,7 @@ final class PontoController extends AbstractController
 
         /** @var \App\Ponto\Entity\RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
-        $jornada  = $targetUser->getJornadaColaborador();
+        $jornada  = $this->jornadas->findByUserETenant($targetUser, $tenant);
         $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
         $jornadaTenantPdf = $tenant->getJornadaTenant();
@@ -985,7 +984,7 @@ final class PontoController extends AbstractController
 
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
-        $jornada  = $targetUser->getJornadaColaborador();
+        $jornada  = $this->jornadas->findByUserETenant($targetUser, $tenant);
         $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
         $jornadaTenantXlsx = $tenant->getJornadaTenant();
