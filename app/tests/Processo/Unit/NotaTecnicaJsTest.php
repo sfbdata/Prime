@@ -110,6 +110,16 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringContainsString("closest('.js-nota-copiar')", $js);
     }
 
+    #[TestDox('PMC-018: "Encaminhar via Chat I.A" só fecha o menu; o despacho é do pasta-encaminhar.js pela classe js-encaminhar')]
+    public function testEncaminharFechaOMenu(): void
+    {
+        self::assertStringContainsString("if (alvo.closest('.js-nota-encaminhar')) { fecharMenu(false); return; }", $this->ler(self::JS));
+
+        $item = $this->ler(self::ITEM);
+        self::assertStringContainsString('js-encaminhar js-nota-encaminhar', $item);
+        self::assertStringContainsString('data-encaminhar-tipo="nota_tecnica"', $item);
+    }
+
     #[TestDox('PMC-057: "Responder com outra nota" fecha o menu e abre o compositor de nota NOVA do próprio bloco, como o abrirNova do desenho')]
     public function testResponderAbreOCompositorDoBloco(): void
     {

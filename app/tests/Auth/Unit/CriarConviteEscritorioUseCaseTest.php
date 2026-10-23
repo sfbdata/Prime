@@ -94,7 +94,7 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar($this->input('novo@example.com'));
+        $resultado = $this->useCase->executar($this->input('novo@example.com'))->convite;
 
         self::assertSame('office', $resultado->getType());
         self::assertSame('pending', $resultado->getStatus());
@@ -105,6 +105,22 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         self::assertEqualsWithDelta(7 * 86400, $diff, 5);
     }
 
+    #[TestDox('Raiz B: o convite grava só o hash do token; o token puro volta no ConviteEmitido, para o e-mail')]
+    public function testGravaOHashEDevolveOTokenPuro(): void
+    {
+        $this->userRepo->method('findOneBy')->willReturn(null);
+        $gravado = null;
+        $this->em->method('persist')->willReturnCallback(static function (object $o) use (&$gravado): void {
+            $gravado = $o;
+        });
+
+        $emitido = $this->useCase->executar($this->input('novo@example.com'));
+
+        self::assertSame($emitido->convite, $gravado);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $emitido->token);
+        self::assertSame(hash('sha256', $emitido->token), $emitido->convite->getTokenHash());
+    }
+
     public function testEmailComContaSemVinculoAtivoCriaConvite(): void
     {
         $existingUser = new User();
@@ -113,7 +129,7 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar($this->input('existente@example.com'));
+        $resultado = $this->useCase->executar($this->input('existente@example.com'))->convite;
 
         self::assertSame('pending', $resultado->getStatus());
     }
@@ -137,7 +153,7 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->input('  CONVIDADO@EXAMPLE.COM  '));
+        $resultado = $this->useCase->executar($this->input('  CONVIDADO@EXAMPLE.COM  '))->convite;
 
         self::assertSame('convidado@example.com', $resultado->getEmail());
     }
@@ -158,7 +174,7 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->input('novo@example.com', 'Maria'));
+        $resultado = $this->useCase->executar($this->input('novo@example.com', 'Maria'))->convite;
 
         self::assertSame($this->tenant, $resultado->getTenant());
         self::assertSame($this->role, $resultado->getTenantRole());

@@ -185,7 +185,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
             email: 'revogar_plataforma_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(16)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(16))),
             type: 'platform',
             expiresAt: new \DateTimeImmutable('+24 hours'),
         );
@@ -215,7 +215,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
             email: 'reenviar_plataforma_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(16)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(16))),
             type: 'platform',
             expiresAt: new \DateTimeImmutable('+24 hours'),
         );
@@ -245,7 +245,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
             email: 'escritorio_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(16)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(16))),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -270,7 +270,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em      = static::getContainer()->get(EntityManagerInterface::class);
         $convite = new Invitation(
             email: 'lista_plataforma_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(32)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(32))),
             type: Invitation::TIPO_PLATAFORMA,
             expiresAt: new \DateTimeImmutable('+24 hours'),
         );
@@ -282,7 +282,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString($convite->getEmail(), $html);
-        self::assertStringNotContainsString($convite->getToken(), $html);
+        self::assertStringNotContainsString($convite->getTokenHash(), $html);
         self::assertSelectorExists(sprintf('form[action="/admin/platform/convites/%d/revogar"][data-confirmar="Revogar convite de %s?"]', $convite->getId(), $convite->getEmail()));
         self::assertSelectorExists(sprintf('form[action="/admin/platform/convites/%d/reenviar"][data-confirmar="Reenviar convite para %s?"]', $convite->getId(), $convite->getEmail()));
         self::assertSelectorNotExists(sprintf('[onclick*="%s"]', $convite->getEmail()));
@@ -329,7 +329,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $em      = static::getContainer()->get(EntityManagerInterface::class);
         $convite = new Invitation(
             email: 'csrf_plataforma_' . uniqid() . '@example.com',
-            token: bin2hex(random_bytes(32)),
+            tokenHash: Invitation::hashDoToken(bin2hex(random_bytes(32))),
             type: Invitation::TIPO_PLATAFORMA,
             expiresAt: new \DateTimeImmutable('+24 hours'),
         );

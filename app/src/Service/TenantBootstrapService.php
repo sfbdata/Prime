@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Ponto\Service\RegistroDePontoInicial;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
@@ -24,6 +25,7 @@ class TenantBootstrapService
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
+        private readonly RegistroDePontoInicial $registroDePontoInicial,
     ) {}
 
     /**
@@ -76,6 +78,7 @@ class TenantBootstrapService
                 ->findOneBy(['user' => $creator, 'tenant' => $tenant]);
             if ($userTenant === null) {
                 $userTenant = new UserTenant($creator, $tenant);
+                $userTenant->alterarRegistroDePonto($this->registroDePontoInicial->registraPontoInicial($creator, $tenant));
                 $this->entityManager->persist($userTenant);
             }
             $userTenant->setTenantRole($adminRole);

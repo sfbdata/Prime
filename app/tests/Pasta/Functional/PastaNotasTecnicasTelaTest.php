@@ -166,7 +166,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         return [$menu, $itens];
     }
 
-    #[TestDox('⋮ do autor dentro dos 15 min: Responder com outra nota, Copiar texto, Editar · 10 min e Excluir · 10 min, com as ações reais')]
+    #[TestDox('⋮ do autor dentro dos 15 min: Responder com outra nota, Copiar texto, Encaminhar via Chat I.A, Editar · 10 min e Excluir · 10 min, com as ações reais')]
     public function testMenuDoAutorDentroDaJanela(): void
     {
         $client          = static::createClient();
@@ -180,7 +180,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menuDaNota($crawler, $recente);
-        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Editar · 10 min', 'Excluir · 10 min'], $itens);
+        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Encaminhar via Chat I.A', 'Editar · 10 min', 'Excluir · 10 min'], $itens);
         self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-copiar > i.bi-clipboard'));
         self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-editar[data-url][data-csrf][data-conteudo][data-conteudo-html] > i.bi-pencil'));
         self::assertCount(1, $menu->filter('.ps-nota-menu > .js-nota-excluir[data-url][data-csrf] > i.bi-trash'));
@@ -208,7 +208,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menuDaNota($crawler, $antiga);
-        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Encaminhar via Chat I.A', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
         self::assertCount(2, $menu->filter('.ps-nota-menu > .ps-nota-menu-bloqueado.js-nota-bloqueado[aria-disabled="true"] > i.bi-lock'));
         // C6-PMC-05 (dc:5405-5406): clicável — sem `disabled`, que engolia o clique e deixava o
         // motivo só no `title` —, com o aviso do desenho no `data-aviso`.
@@ -220,7 +220,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $menu->filter('.js-nota-editar, .js-nota-excluir, [data-url], [data-csrf]'), 'item bloqueado não carrega ação');
     }
 
-    #[TestDox('⋮ de nota de OUTRO autor, mesmo dentro da janela: só Copiar texto ativo; Editar/Excluir bloqueados')]
+    #[TestDox('⋮ de nota de OUTRO autor, mesmo dentro da janela: Responder, Copiar texto e Encaminhar ativos; Editar/Excluir bloqueados')]
     public function testMenuDeOutroAutor(): void
     {
         $client          = static::createClient();
@@ -235,9 +235,101 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menuDaNota($crawler, $nota);
-        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertSame(['Responder com outra nota', 'Copiar texto', 'Encaminhar via Chat I.A', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
         self::assertCount(0, $menu->filter('.js-nota-editar, .js-nota-excluir, [data-url]'));
         self::assertCount(0, $crawler->filter("#nota-tecnica-{$nota->getId()} .ps-anotacao-acoes"));
+    }
+
+    #[TestDox('PMC-018: "Encaminhar via Chat I.A" vem depois de Copiar texto e antes do separador (dc:5403), com bi-send e só os ids da pasta e da nota')]
+    public function testEncaminharNaPosicaoDoDesenho(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $nota = $this->criarNota($processo, $user, $tenant, '<p>Para encaminhar</p>', null, '-5 minutes');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        [$menu] = $this->menuDaNota($crawler, $nota);
+        $menuSel = "#psNotaMenu{$nota->getId()}";
+        $item    = $crawler->filter("{$menuSel} > .js-nota-copiar + button.js-encaminhar.js-nota-encaminhar");
+        self::assertCount(1, $item, 'Copiar texto, Encaminhar: a ordem do desenho');
+        self::assertCount(1, $crawler->filter("{$menuSel} > .js-nota-encaminhar + .ps-processo-menu-sep"), 'Encaminhar, separador');
+        self::assertSame('Encaminhar via Chat I.A', trim($item->text()));
+        self::assertCount(1, $item->filter('button > i.bi.bi-send'));
+        self::assertSame('menuitem', $item->attr('role'));
+        self::assertSame('nota_tecnica', $item->attr('data-encaminhar-tipo'));
+        self::assertSame((string) $nota->getId(), $item->attr('data-encaminhar-id'));
+        self::assertSame((string) $pasta->getId(), $item->attr('data-encaminhar-pasta'));
+        // Só identificadores: nada de URL, token ou texto da nota no item.
+        self::assertCount(0, $menu->filter('.js-nota-encaminhar[data-url], .js-nota-encaminhar[data-csrf], .js-nota-encaminhar[data-conteudo]'));
+    }
+
+    #[TestDox('PMC-018: no teor do Push e na nota pendurada sob o cartão, o item leva o mesmo tipo e id da nota')]
+    public function testEncaminharNaNotaDoPush(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $pub  = $this->criarPublicacao($tenant, '60000071', self::NUMERO, '2026-08-20', $processo);
+        $nota = $this->criarNota($processo, $user, $tenant, '<p>Do Push</p>', $pub);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/push/{$pub->getId()}");
+        self::assertResponseIsSuccessful();
+
+        $item = $crawler->filter("#notas-publicacao-{$pub->getId()} #psNotaMenu{$nota->getId()} > .js-nota-copiar + .js-nota-encaminhar");
+        self::assertCount(1, $item);
+        self::assertSame('nota_tecnica', $item->attr('data-encaminhar-tipo'));
+        self::assertSame((string) $nota->getId(), $item->attr('data-encaminhar-id'));
+        self::assertSame((string) $pasta->getId(), $item->attr('data-encaminhar-pasta'));
+    }
+
+    #[TestDox('PMC-018: quem só lê a pasta também encaminha (basta ver a pasta; o servidor confere)')]
+    public function testLeitorEncaminha(): void
+    {
+        $client          = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $leitor          = $this->criarUsuarioSemPermissaoDoModulo($tenant);
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $nota = $this->criarNota($processo, $admin, $tenant);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        [, $itens] = $this->menuDaNota($crawler, $nota);
+        self::assertSame(['Copiar texto', 'Encaminhar via Chat I.A', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+    }
+
+    #[TestDox('PMC-018: sem a Central (vínculo inativo) o item não aparece; o resto do ⋮ continua')]
+    public function testEncaminharSemCentral(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO);
+        $this->vincular($pasta, $processo);
+        $nota = $this->criarNota($processo, $user, $tenant, '<p>Sem Central</p>', null, '-5 minutes');
+
+        $this->logarComTenant($client, $user, $tenant);
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?',
+            [$user->getId(), $tenant->getId()],
+        );
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(0, $crawler->filter("#psNotaMenu{$nota->getId()} .js-encaminhar"));
+        self::assertCount(1, $crawler->filter("#psNotaMenu{$nota->getId()} > .js-nota-copiar"));
     }
 
     #[TestDox('pasta excluída (lápide): o ⋮ da nota é só leitura — Copiar texto, sem editar nem excluir, na aba Processo e no teor do Push')]

@@ -41,8 +41,8 @@ use Psr\Log\LoggerInterface;
  *    via information_schema, que nenhuma tabela tenant-scoped sobrou — falha segura e clara
  *    caso uma tabela nova não tenha sido adicionada à ordem (drift de schema).
  *  - PRESERVADOS: User (nunca apagado — decisão de produto), audit_log (retido; a própria
- *    purga é registrada como evento), permission (catálogo global), cadastro_pendente e
- *    jornada_colaborador (per-user, sem tenant_id).
+ *    purga é registrada como evento), permission (catálogo global) e cadastro_pendente.
+ *    A jornada pessoal é por escritório desde a spec seguranca-b-jornada e sai na purga.
  *
  * ## Arquivos (E2.5)
  *
@@ -94,6 +94,7 @@ final class PurgarEscritorioUseCase
     private const ORDEM_DELECAO = [
         // Fase 1 — bloqueadores intermediários (NO ACTION): apagar antes do pai.
         ['bloco_jornada', 'jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
+        ['bloco_jornada_colaborador', 'jornada_colaborador_id IN (SELECT id FROM jornada_colaborador WHERE tenant_id = :tenant)'],
         ['tenant_role_permission', 'tenant_role_id IN (SELECT id FROM tenant_role WHERE tenant_id = :tenant)'],
         ['cliente_documento', 'tenant_id = :tenant'],
         // Histórico do cadastro (E12 3d): cairia pela CASCADE de `cliente`, mas a FK de tenant é NO ACTION.
@@ -311,6 +312,7 @@ final class PurgarEscritorioUseCase
         ['agenda_google_exclusao', 'tenant_id = :tenant'],
         ['agenda_google_conexao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
+        ['jornada_colaborador', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],
         // Horas pagas (ajuste manual do banco de horas): FK tenant_id/user_id NOT DEFERRABLE, sem

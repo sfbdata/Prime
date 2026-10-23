@@ -88,7 +88,7 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $mes = (int) $agora->format('n');
         $primeiroDia = $agora->format('Y-m-01');
 
-        $this->criarJornadaSemDiasDeTrabalho($colaborador);
+        $this->criarJornadaSemDiasDeTrabalho($colaborador, $tenant);
         $this->criarRegistro($colaborador, $tenant, $primeiroDia . ' 09:00:00');
         $this->criarRegistro($colaborador, $tenant, $primeiroDia . ' 11:00:00', RegistroPonto::TIPO_SAIDA);
         $this->criarLancamento($tenant, $colaborador, $autor, $ano, $mes, -600);
@@ -125,7 +125,7 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
         $mes = (int) $agora->format('n');
         $primeiroDia = $agora->format('Y-m-01');
 
-        $this->criarJornadaSemDiasDeTrabalho($colaborador);
+        $this->criarJornadaSemDiasDeTrabalho($colaborador, $tenant);
         $this->criarRegistro($colaborador, $tenant, $primeiroDia . ' 09:00:00');
         $this->criarRegistro($colaborador, $tenant, $primeiroDia . ' 11:00:00', RegistroPonto::TIPO_SAIDA);
         $this->criarLancamento($tenant, $colaborador, $autor, $ano, $mes, -600);
@@ -702,17 +702,17 @@ final class HorasPagasFolhaExibicaoTest extends JusPrimeWebTestCase
      * Jornada sem nenhum dia de trabalho: a carga esperada do dia vira 0 em qualquer dia da semana
      * (`CalculadoraJornada::calcularSaldoDia`), então o saldo do dia é exatamente o que foi batido —
      * o único jeito de fixar o "Saldo do mês" num teste que roda em qualquer data do calendário.
-     * Também garante `getJornadaColaborador() !== null`, sem o que a ficha do admin nem apura saldo.
+     * Também garante a jornada pessoal no escritório, sem a qual a ficha do admin nem apura saldo.
      */
-    private function criarJornadaSemDiasDeTrabalho(User $user): void
+    private function criarJornadaSemDiasDeTrabalho(User $user, Tenant $tenant): void
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $jornada = new JornadaColaborador();
         $jornada->setUser($user);
+        $jornada->setTenant($tenant);
         $jornada->setDiasSemana([]);
         $em->persist($jornada);
-        $user->setJornadaColaborador($jornada);
         $em->flush();
     }
 

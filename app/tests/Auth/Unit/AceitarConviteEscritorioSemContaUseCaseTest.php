@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Auth\Unit;
 
+use App\Tests\Ponto\Support\RegistroDePontoInicialDeTesteTrait;
 use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
 use App\Auth\UseCase\AceitarConviteEscritorioSemContaUseCase;
 use App\Entity\Auth\Invitation;
@@ -33,6 +34,8 @@ use App\Auth\Event\ConviteDeEscritorioAceito;
 #[CoversClass(AceitarConviteEscritorioSemContaUseCase::class)]
 final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 {
+    use RegistroDePontoInicialDeTesteTrait;
+
     use VagaNoEscritorioDublada;
     private EventDispatcher $eventos;
 
@@ -66,6 +69,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
             new RegraDosPrimarios($this->userTenantRepo),
             $this->eventos = new EventDispatcher(),
             $this->vagaNoEscritorio(),
+            $this->registroDePontoInicialSemChoque(),
         );
         $this->tenant = new Tenant();
     }
@@ -81,7 +85,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 
         $invitation = new Invitation(
             email: $email,
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'office',
             expiresAt: $expiresAt,
         );
@@ -254,7 +258,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
     {
         $invitation = new Invitation(
             email: 'novo@example.com',
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );

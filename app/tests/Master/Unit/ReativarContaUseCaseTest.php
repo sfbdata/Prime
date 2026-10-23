@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Tests\Ponto\Support\RegistroDePontoInicialDeTesteTrait;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Master\DTO\SituacaoDaContaInput;
@@ -26,6 +27,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ReativarContaUseCase::class)]
 final class ReativarContaUseCaseTest extends TestCase
 {
+    use RegistroDePontoInicialDeTesteTrait;
+
     private ContasDoSistemaRepository&MockObject $contas;
     private EscopoDeAuditoriaDePlataforma $escopo;
     private ReativarContaUseCase $useCase;
@@ -35,7 +38,7 @@ final class ReativarContaUseCaseTest extends TestCase
     {
         $this->contas  = $this->createMock(ContasDoSistemaRepository::class);
         $this->escopo  = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase = new ReativarContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365);
+        $this->useCase = new ReativarContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365, $this->registroDePontoInicialSemChoque());
         $this->master  = self::usuario(['ROLE_SUPER_ADMIN']);
     }
 

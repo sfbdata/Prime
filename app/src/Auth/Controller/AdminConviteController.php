@@ -59,21 +59,21 @@ final class AdminConviteController extends AbstractController
         }
 
         try {
-            $invitation = $this->criarUseCase->executar(new CriarConvitePlataformaInput(
+            $emitido = $this->criarUseCase->executar(new CriarConvitePlataformaInput(
                 email: (string) $request->request->get('email', ''),
                 fullName: (string) $request->request->get('full_name', '') ?: null,
                 criadoPor: $this->getUser(),
             ));
 
             try {
-                $this->mailer->enviarConvitePlataforma($invitation);
+                $this->mailer->enviarConvitePlataforma($emitido->convite, $emitido->token);
             } catch (\RuntimeException) {
                 $this->addFlash('erro', $this->tradutor->trans('plataforma.flash.convite_criado_sem_email'));
 
                 return $this->redirectToRoute('admin_platform_convite_index');
             }
 
-            $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_enviado', ['email' => $invitation->getEmail()]));
+            $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_enviado', ['email' => $emitido->convite->getEmail()]));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }
@@ -123,10 +123,10 @@ final class AdminConviteController extends AbstractController
         }
 
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($id, $quem));
+            $emitido = $this->reenviarUseCase->executar(new ReenviarConviteInput($id, $quem));
 
             try {
-                $this->mailer->enviarConvitePlataforma($invitation);
+                $this->mailer->enviarConvitePlataforma($emitido->convite, $emitido->token);
             } catch (\RuntimeException) {
                 $this->addFlash('erro', $this->tradutor->trans('plataforma.flash.convite_email_nao_enviado'));
 

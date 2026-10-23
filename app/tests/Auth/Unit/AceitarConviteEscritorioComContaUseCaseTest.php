@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Auth\Unit;
 
+use App\Tests\Ponto\Support\RegistroDePontoInicialDeTesteTrait;
 use App\Auth\DTO\AceitarConviteEscritorioComContaInput;
 use App\Auth\UseCase\AceitarConviteEscritorioComContaUseCase;
 use App\Entity\Auth\Invitation;
@@ -11,6 +12,14 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Ponto\Entity\BlocoJornadaColaborador;
+use App\Ponto\Entity\JornadaColaborador;
+use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Repository\JornadaTenantRepository;
+use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\IntervalosDeTrabalho;
+use App\Ponto\Service\JornadaResolver;
+use App\Ponto\Service\RegistroDePontoInicial;
 use App\Repository\InvitationRepository;
 use App\Tests\Auth\Doubles\VagaNoEscritorioDublada;
 use App\Repository\UserTenantRepository;
@@ -27,6 +36,8 @@ use App\Auth\Event\ConviteDeEscritorioAceito;
 #[CoversClass(AceitarConviteEscritorioComContaUseCase::class)]
 final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 {
+    use RegistroDePontoInicialDeTesteTrait;
+
     use VagaNoEscritorioDublada;
     private EventDispatcher $eventos;
 
@@ -49,6 +60,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
             new RegraDosPrimarios($this->userTenantRepo),
             $this->eventos = new EventDispatcher(),
             $this->vagaNoEscritorio(),
+            $this->registroDePontoInicialSemChoque(),
         );
         $this->tenant  = new Tenant();
         $this->usuario = (new User())->setEmail('usuario@example.com');
@@ -65,7 +77,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 
         $invitation = new Invitation(
             email: $email,
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'office',
             expiresAt: $expiresAt,
         );
@@ -261,6 +273,37 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         self::assertCount(1, $capturados, 'reativação: o Comercial deduplica as boas-vindas, o evento sai igual');
     }
 
+    #[TestDox('Convite que reativa o vínculo: com a jornada daqui batendo com outro escritório onde a pessoa registra ponto, a chave fica desligada')]
+    public function testReativarComChoqueDesligaAChave(): void
+    {
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->tenant, 1);
+        (new \ReflectionProperty(User::class, 'id'))->setValue($this->usuario, 7);
+        $outro = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($outro, 2);
+        $vinculoInativo = $this->criarVinculoInativo($this->usuario, $this->tenant);
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($this->makePendingOfficeInvitation('usuario@example.com'));
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn($vinculoInativo);
+        $this->userTenantRepo->method('findActiveByUser')->willReturn([$vinculoInativo, new UserTenant($this->usuario, $outro)]);
+        $manha = (new JornadaColaborador())->addBloco((new BlocoJornadaColaborador())->setDiasSemana([1])->setEntrada('08:00')->setSaida('12:00'));
+        $jornadas = $this->createStub(JornadaColaboradorRepository::class);
+        $jornadas->method('findByUserETenant')->willReturn($manha);   // a mesma manhã aqui e no outro escritório
+        $intervalos = new IntervalosDeTrabalho(new JornadaResolver(), $jornadas, $this->createStub(JornadaTenantRepository::class));
+        $useCase = new AceitarConviteEscritorioComContaUseCase(
+            $this->invitationRepo,
+            $this->userTenantRepo,
+            $this->em,
+            new RegraDosPrimarios($this->userTenantRepo),
+            $this->eventos,
+            $this->vagaNoEscritorio(),
+            new RegistroDePontoInicial($intervalos, new ChoqueDeJornadaEntreEscritorios($intervalos, $jornadas, $this->userTenantRepo), $this->userTenantRepo),
+        );
+
+        $resultado = $useCase->executar(new AceitarConviteEscritorioComContaInput('tok123', $this->usuario));
+
+        self::assertTrue($resultado->isActive());
+        self::assertFalse($resultado->isRegistraPonto());
+    }
+
     public function testAtualizaTenantRoleAoReativarVinculo(): void
     {
         $roleAntiga     = new TenantRole();
@@ -322,7 +365,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
     {
         $invitation = new Invitation(
             email: 'usuario@example.com',
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );

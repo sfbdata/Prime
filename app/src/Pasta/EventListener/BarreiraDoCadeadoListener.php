@@ -129,12 +129,19 @@ final class BarreiraDoCadeadoListener
 
     private function recusa(NivelDeAcesso $nivel, Request $request): bool
     {
-        $rota = (string) $request->attributes->get('_route');
+        return self::recusaria($nivel, $request->getMethod(), (string) $request->attributes->get('_route'));
+    }
 
+    /**
+     * A regra da barreira, sem a requisição: o desfazer da auditoria (`GuardaDaTelaNoDesfazer`) pergunta aqui se a
+     * escrita na meta ou na pasta passaria pela barreira, para seguir qualquer mudança dela.
+     */
+    public static function recusaria(NivelDeAcesso $nivel, string $metodo, string $rota): bool
+    {
         return match ($nivel) {
             NivelDeAcesso::Editar     => false,
             NivelDeAcesso::Oculto     => !in_array($rota, self::ROTAS_DO_OCULTO, true),
-            NivelDeAcesso::Visualizar => !in_array($request->getMethod(), self::METODOS_DE_LEITURA, true)
+            NivelDeAcesso::Visualizar => !in_array($metodo, self::METODOS_DE_LEITURA, true)
                 && !in_array($rota, self::ROTAS_DO_VISUALIZAR, true),
         };
     }

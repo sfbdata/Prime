@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -31,6 +32,9 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(FolhaPontoBuilder::class)]
 final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
 {
+    /** A jornada pessoal que o repositório devolve para o escritório da folha. */
+    private ?JornadaColaborador $jornadaNoEscritorio = null;
+
     /** 08:00→09:00 + 13:00→18:00: o dia ambíguo conta o PRIMEIRO repouso, nas duas regras. */
     private const MINUTOS_DIA_AMBIGUO = 360;
 
@@ -157,12 +161,15 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
         $lancamentos = $this->createStub(LancamentoHorasPagasRepository::class);
         $lancamentos->method('somarPorPeriodo')->willReturn(0);
         $lancamentos->method('somarPorCompetencia')->willReturn(0);
+        $jornadas = $this->createStub(JornadaColaboradorRepository::class);
+        $jornadas->method('findByUserETenant')->willReturnCallback(fn (): ?JornadaColaborador => $this->jornadaNoEscritorio);
 
         return new FolhaPontoBuilder(
             new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia('2026-05-01')),
             $registros,
             $justificativas,
             $lancamentos,
+            $jornadas,
         );
     }
 
@@ -174,7 +181,7 @@ final class FolhaPontoSaldoAtravessaVigenciaTest extends TestCase
         $jornada = new JornadaColaborador();
         $jornada->setUser($user);
         $jornada->setDiasSemana([]);
-        $user->setJornadaColaborador($jornada);
+        $this->jornadaNoEscritorio = $jornada;
 
         return $jornada;
     }

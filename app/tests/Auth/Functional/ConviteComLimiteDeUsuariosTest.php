@@ -137,7 +137,7 @@ final class ConviteComLimiteDeUsuariosTest extends JusPrimeWebTestCase
     {
         $convidado = UserFactory::createOne(['fullName' => 'Quarta Pessoa', 'roles' => ['ROLE_USER'], 'isActive' => true])->_real();
         $token = bin2hex(random_bytes(16));
-        $convite = new Invitation(email: (string) $convidado->getEmail(), token: $token, type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
+        $convite = new Invitation(email: (string) $convidado->getEmail(), tokenHash: Invitation::hashDoToken($token), type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
         $convite->setTenant($this->tenant);
         $convite->setTenantRole($this->perfil);
         $convite->setCreatedBy($this->admin);

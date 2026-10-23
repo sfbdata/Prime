@@ -1,6 +1,6 @@
 # Segurança A: o token do convite só existe no e-mail
 
-Risco ALTO (identidade User/Tenant). Origem: achados de auditoria interna F1, F3, F4, F5, F6, F7 e F14. Esta spec
+Risco ALTO (identidade User/Tenant). Origem: achados de auditoria interna F1, F3, F4, F5, F6, F7, F10, F14, F15 e F16. Esta spec
 descreve o defeito e a correção; não descreve como o defeito seria explorado.
 
 ## Estado da frente
@@ -11,8 +11,11 @@ descreve o defeito e a correção; não descreve como o defeito seria explorado.
 - Pendência anterior a esta frente, mantida igual: quem está logado SEM escritório na sessão e clica no convite da
   seleção de escritório volta para a própria seleção (o `TenantContextValidatorListener` não libera nem
   `auth_aceite_convite` nem as rotas novas `auth_meu_convite*`). Decisão do coordenador.
-- PR 2 (raízes B e C, com a migration `Version20261020150500`): não começado.
-- Raiz E: decisão pendente com o dono.
+- 23/10: PR 2 (raízes B e C, com a migration `Version20261020150500`) implementado na branch `seguranca-a-hash`,
+  empilhada sobre a `seguranca-a-convites`, com commit local e sem push. Migration aplicada no banco da frente.
+  Falta a revisão e, depois do merge, aplicar a migration no dev (`scripts/migrar-dev.sh`).
+- 23/10: raiz E decidida pelo dono (mensagem única no cadastro e aviso por e-mail a quem já tem conta) e
+  implementada no PR 2, num commit próprio.
 
 ## Por que
 
@@ -26,9 +29,9 @@ O link do convite (`/convite/{token}`) é a prova de que a pessoa é dona da cai
 |---|---|---|---|
 | A | F4, F5, F6, F7 (F1 é consequência) | O token aparece para quem convida e nas telas do convidado logado | PR 1 |
 | D | F3 | O e-mail do convite vai para um `onclick` e não é validado na criação | PR 1 |
-| B | | O token fica no banco em texto puro | PR 2 |
-| C | | O token entra na trilha de auditoria | PR 2 |
-| E | F14 | O cadastro público diz se o e-mail já tem conta | Decisão do dono |
+| B | F15, F16 | O token fica no banco em texto puro | PR 2 |
+| C | F10 | O token entra na trilha de auditoria | PR 2 |
+| E | F14 | O cadastro público diz se o e-mail já tem conta | PR 2 |
 
 ## Raiz A (PR 1)
 
@@ -83,25 +86,77 @@ fazem `strtolower(trim())` no e-mail.
   `public/js/menu-usuario.js` (carregado no `base.html.twig`) já pergunta no `submit`. Nenhum script novo. O texto da
   plataforma sai do template para o catálogo (`plataforma.convites.confirmar_reenviar` e `confirmar_revogar`).
 
-## Raiz B (PR 2, não implementada aqui)
+## Raiz B (PR 2)
 
-- O banco passa a guardar só o hash (sha256) do token do convite, como o Trabalho Externo (`ConviteDemanda`).
-- Migration `Version20261020150500`: backfill `sha256` dos tokens que existem, sem quebrar os links já enviados (o
-  link traz o token puro; a busca passa a comparar o hash).
-- O reenvio gera um token novo e manda o link novo, como o `TrabalhoExterno/UseCase/ReenviarConviteUseCase`. O
-  `ConviteMailer` recebe o token puro do caso de uso, porque a entidade não o terá mais.
-- Depois do PR 1 nenhuma tela lê o token da entidade, então a troca fica contida no repositório, nos casos de uso de
-  criar e reenviar e no mailer.
+### Antes
 
-## Raiz C (PR 2, não implementada aqui)
+`Invitation.token` guarda o token do link em texto puro (coluna de 64 caracteres, UNIQUE `uq_invitation_token`), o
+repositório busca por ele, o `ConviteMailer` lê `getToken()` da entidade e o reenvio manda o mesmo token de novo.
 
-- O token sai da trilha de auditoria: o campo entra no `IGNORED_FIELDS` do `AuditLogSubscriber`.
-- O que já foi gravado no `audit_log` tem o valor do token redigido.
+### Depois
 
-## Raiz E (decisão pendente com o dono)
+- **B1.** A entidade guarda só `tokenHash` (SHA-256 em hex, 64 caracteres, UNIQUE `uq_invitation_token_hash`), com
+  `Invitation::hashDoToken()` e `Invitation::gerarToken()`, como a `ConviteDemanda` do Trabalho Externo. Não há mais
+  `getToken()`. `InvitationRepository::encontrarPorToken()` recebe o token puro do link e busca pelo hash, então
+  `/convite/{token}` e as rotas dele seguem iguais.
+- O token puro só existe em memória: `CriarConviteEscritorioUseCase`, `CriarConvitePlataformaUseCase` e
+  `ReenviarConviteUseCase` devolvem `App\Auth\DTO\ConviteEmitido` (o convite e o token puro), e o controller passa o
+  token ao `ConviteMailer::enviarConviteEscritorio|enviarConvitePlataforma(Invitation, string $token)`. O
+  `ConviteEmitido` não vai para tela, lista nem JSON.
+- **B2.** O reenvio gera um token novo (`Invitation::trocarToken()`) e manda o link novo; o link anterior passa a dar
+  "Convite não encontrado", a mesma tela do token que não existe.
+- **B3.** Migration `Version20261020150500`: cria `token_hash`, preenche com
+  `encode(sha256(convert_to(token, 'UTF8')), 'hex')` (o mesmo valor do `hash('sha256', $token)` do PHP, então os links
+  já enviados continuam valendo), põe o UNIQUE em `token_hash` e apaga a coluna `token` (o UNIQUE antigo sai junto).
+  O `down()` é irreversível: o token não volta.
 
-O cadastro público diz, pela mensagem, se o e-mail já tem conta (achado F14). Tirar isso muda o texto que o cliente
-vê no cadastro; fica registrado até o dono decidir.
+## Raiz C (PR 2)
+
+- **C1.** `token` e `tokenHash` entram no `IGNORED_FIELDS_POR_CLASSE` do `AuditLogSubscriber`, só para a
+  `Invitation` (o nome é genérico demais para valer em toda entidade): nem o create, nem o update do reenvio, nem o
+  delete gravam o token ou o hash.
+- A mesma migration apaga a chave `token` das linhas de `audit_log` da `App\Entity\Auth\Invitation`, nos caminhos
+  que o subscriber grava (`diff.after`, `diff.before`, `diff.changes`) e, por garantia, nos do formato antigo
+  (`after`, `before`, `changes`). Um UPDATE por caminho, só nas linhas em que o pai é objeto
+  (`jsonb_typeof = 'object'`), para um array nunca abortar a migration. Os outros campos da linha ficam.
+- Conferido: a impressão `sha1` do subscriber (`computeAuditFingerprint`) só evita registro duplicado dentro do mesmo
+  flush, não é verificação de integridade, então apagar a chave não quebra nada. O desfazer da auditoria
+  (`DesfazerAlteracaoAuditLogUseCase`) só desfaz `update` de uma lista fechada de entidades, sem a `Invitation`, e
+  nunca recria entidade a partir do log: não há caminho que recrie um convite sem o token.
+
+## Raiz E (PR 2, decisão do dono de 23/10)
+
+### Antes
+
+`POST /cadastro/criar` com um e-mail que já tem conta responde 422 com "Já existe uma conta com este e-mail..." e o
+e-mail novo responde 200 `{ok, confirmar, email}`: a resposta diz se a conta existe.
+
+### Depois
+
+- **E1.** A mesma resposta nos dois casos: 200 com `{"ok": true, "confirmar": true, "email": <e-mail normalizado>}`.
+  O modal mostra o mesmo texto ("Se o e-mail ... puder ser usado, você receberá as instruções nele...",
+  `ContaAConfirmar::TEXTO_ENVIAMOS_ANTES|DEPOIS`). A constante `ERRO_EMAIL_EXISTENTE` sai. A validação dos campos
+  (422) continua igual, porque não depende de conta nenhuma.
+- **E2.** `CriarContaEEscritorioUseCase` devolve `null` quando o e-mail já tem conta: nada do cadastro é gravado e o
+  aviso segue a situação da conta existente:
+  - ativa e confirmada: `CadastroMailer::enviarAvisoDeContaExistente()` (template
+    `auth/cadastro/email_conta_existente.html.twig`, no padrão do e-mail de confirmação), que avisa que já há conta e
+    leva ao "Esqueci a senha" (`auth_senha_esqueci`);
+  - ainda a confirmar (sem senha): o link de confirmação normal dessa conta, pelo `ReenviarConfirmacaoDeEmailUseCase`
+    e respeitando o `TetoDoReenvioDeConfirmacao` (no teto, não sai nada);
+  - inativa ou em quarentena (`isActive` falso): nada.
+  Falha no envio só vai para o log. Para o tempo de resposta não destoar tanto, o caminho calcula e descarta um hash
+  de senha, como o caminho novo. A corrida no UNIQUE também devolve `null`, sem aviso.
+- **E3.** O caminho do e-mail existente não grava conta nenhuma na sessão: grava na mesma chave
+  (`ContaAConfirmar::CHAVE_SESSAO`) e com a mesma validade o marcador neutro `{neutro, email, em, emissoes}`, que
+  também substitui a chave de um cadastro anterior do navegador. O marcador é lido por `neutroNaSessao()` (o
+  `idNaSessao()` descarta o que não tem id).
+  - O "Reenviar" público com o marcador responde como o envio real (`FLASH_ENVIADO`, success) sem mandar nada, com
+    o mesmo teto (`TetoDoReenvioDeConfirmacao::recusaPelosInstantes`, sobre os instantes guardados no marcador):
+    "Aguarde" e o teto diário aparecem no mesmo clique que para a conta nova.
+  - A tela de entrada com o marcador mostra o mesmo aviso de conta a confirmar, com o e-mail digitado. Chave
+    vencida ou ausente: a tela fica como estava.
+  - O e-mail novo segue como antes (sessão com a conta, reenvio real).
 
 ## Verificação (PR 1)
 
@@ -114,3 +169,20 @@ vê no cadastro; fica registrado até o dono decidir.
   `RecusarConviteEscritorioUseCaseTest`, `CriarConviteEscritorioUseCaseTest`, `CriarConvitePlataformaUseCaseTest`.
 - Smoke do dono: os botões Reenviar e Revogar nas duas telas de convites ainda perguntam antes de enviar; "Meus
   convites" abre o convite e aceita.
+
+## Verificação (PR 2)
+
+- `GerenciarConvitesControllerTest`: o convite criado pela tela grava só o hash e o link do e-mail abre o convite; um
+  token antigo com o hash calculado pela expressão do backfill continua valendo; o reenvio troca o link e o anterior
+  dá "Convite não encontrado"; a auditoria do create e do reenvio não tem token nem hash.
+- Unit: `CriarConviteEscritorioUseCaseTest`, `CriarConvitePlataformaUseCaseTest` (o hash é gravado e o token puro
+  volta no `ConviteEmitido`), `ReenviarConviteUseCaseTest` (o reenvio troca o token) e `ConviteMailerTest`.
+- Os outros testes que montavam `Invitation` com o token passaram a montar com o hash.
+- Raiz E: `CadastroControllerTest` (o e-mail existente e o novo dão o mesmo status e o mesmo JSON; o aviso de conta
+  existente só sai para o existente, sem escritório, sem confirmação e só com o marcador neutro na sessão; três
+  cliques no reenvio dão as mesmas respostas nos dois casos, sem e-mail para o existente; a tela de entrada mostra o
+  mesmo aviso; a conta inativa não recebe nada; a conta a confirmar recebe a confirmação normal),
+  `CriarContaEEscritorioUseCaseTest` (null, nada gravado, as três situações da conta, o teto, falha no envio só no
+  log, corrida) e `LoginDeContaAConfirmarTest` (o texto novo do modal).
+- Smoke do dono: o modal "Confirme seu e-mail" depois de criar a conta, com um e-mail novo e com um que já tem conta;
+  o e-mail "Você já tem uma conta no BlueJus" e o botão "Esqueci a senha" dele.

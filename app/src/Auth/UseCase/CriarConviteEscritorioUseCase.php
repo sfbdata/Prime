@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\CriarConviteEscritorioInput;
+use App\Auth\DTO\ConviteEmitido;
 use App\Auth\Service\EmailDoConvite;
 use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\Invitation;
@@ -32,7 +33,7 @@ final class CriarConviteEscritorioUseCase
         private readonly HierarquiaDePerfis $hierarquia,
     ) {}
 
-    public function executar(CriarConviteEscritorioInput $input): Invitation
+    public function executar(CriarConviteEscritorioInput $input): ConviteEmitido
     {
         if (!$input->criadoPor->isEmailConfirmado()) {
             throw new \DomainException(self::RECUSA_EMAIL_A_CONFIRMAR);
@@ -53,9 +54,11 @@ final class CriarConviteEscritorioUseCase
 
         $this->exigirQueAindaNaoEstaNaEquipe($email, $input->tenant);
 
+        // O token puro só existe aqui e no e-mail: o banco guarda o hash (spec seguranca-a-convites, raiz B).
+        $token      = Invitation::gerarToken();
         $invitation = new Invitation(
             email: $email,
-            token: bin2hex(random_bytes(32)),
+            tokenHash: Invitation::hashDoToken($token),
             type: Invitation::TIPO_ESCRITORIO,
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -67,7 +70,7 @@ final class CriarConviteEscritorioUseCase
         $this->em->persist($invitation);
         $this->em->flush();
 
-        return $invitation;
+        return new ConviteEmitido($invitation, $token);
     }
 
     /**
