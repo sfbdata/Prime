@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Scheduler;
 
+use App\Shared\Email\IdentidadeDeEmail;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Exception\RunCommandFailedException;
 use Symfony\Component\Console\Messenger\RunCommandMessage;
@@ -23,9 +24,12 @@ use Symfony\Component\Scheduler\Event\FailureEvent;
  * {@see HandlerFailedException} e o Scheduler dispara o {@see FailureEvent}. O transport do agendador não
  * tem nova tentativa nem fila de falhas: este aviso é o único rastro.
  *
- * Sempre registra um erro no log (stderr do contêiner jusprime_scheduler_prod). Com AGENDADOR_ALERTA_EMAIL
- * preenchida (um ou mais endereços separados por vírgula), manda também um e-mail curto. Uma falha no
- * envio do e-mail é registrada e engolida: o aviso não pode derrubar o consumidor do agendador.
+ * Sempre registra um erro no log (stderr do contêiner jusprime_scheduler_prod), com o detalhe completo:
+ * mensagem e fim da saída do comando. Com AGENDADOR_ALERTA_EMAIL preenchida (um ou mais endereços
+ * separados por vírgula), manda também um e-mail curto SEM dado de cliente: só o comando, o horário, a
+ * classe da exceção e o código de saída (a mensagem e a saída podem citar escritório, pessoa ou e-mail; o
+ * detalhe fica no log). Uma falha no envio do e-mail é registrada e engolida: o aviso não pode derrubar o
+ * consumidor do agendador.
  */
 #[AsEventListener(event: FailureEvent::class)]
 final class AvisoDeFalhaDoAgendador
@@ -36,7 +40,7 @@ final class AvisoDeFalhaDoAgendador
     public function __construct(
         private readonly LoggerInterface $logger,
         private readonly MailerInterface $mailer,
-        private readonly string $mailerFrom,
+        private readonly IdentidadeDeEmail $identidade,
         #[Autowire('%env(string:default::AGENDADOR_ALERTA_EMAIL)%')]
         private readonly string $alertaEmail,
     ) {
@@ -66,7 +70,13 @@ final class AvisoDeFalhaDoAgendador
 
         // Dentro do try também o endereço: um AGENDADOR_ALERTA_EMAIL mal escrito lança na montagem.
         try {
-            $this->mailer->send($this->montarEmail($this->destinatarios(), $comando, $erro, $saida, $quando));
+            $this->mailer->send($this->montarEmail(
+                $this->destinatarios(),
+                $comando,
+                $quando,
+                $this->classeDoErro($falha ?? $evento->getError()),
+                $falha?->context->exitCode,
+            ));
         } catch (\Throwable $e) {
             $this->logger->error('Não foi possível enviar o e-mail de falha da tarefa agendada {comando}: {erro}', [
                 'comando'   => $comando,
@@ -74,6 +84,12 @@ final class AvisoDeFalhaDoAgendador
                 'exception' => $e,
             ]);
         }
+    }
+
+    /** A exceção de origem: a do comando, se ele lançou; senão a RunCommandFailedException do código de saída. */
+    private function classeDoErro(\Throwable $erro): string
+    {
+        return ($erro->getPrevious() ?? $erro)::class;
     }
 
     /** O nome do comando ("app:pasta:cobrar-checklist"), sem as opções. */
@@ -123,24 +139,26 @@ final class AvisoDeFalhaDoAgendador
         return $enderecos;
     }
 
-    /** @param list<Address> $destinatarios */
-    private function montarEmail(array $destinatarios, string $comando, string $erro, string $saida, \DateTimeImmutable $quando): Email
+    /**
+     * Só metadados: nada da mensagem nem da saída do comando, que podem trazer dado de cliente.
+     *
+     * @param list<Address> $destinatarios
+     */
+    private function montarEmail(array $destinatarios, string $comando, \DateTimeImmutable $quando, string $classeDoErro, ?int $codigo): Email
     {
         $texto = sprintf(
-            "A tarefa agendada %s falhou na execução de %s (horário de Brasília).\n\nErro: %s\n",
+            "A tarefa agendada %s falhou na execução de %s (horário de Brasília).\n\nErro: %s\nCódigo de saída: %s\n\n"
+            . "O detalhe (mensagem e saída do comando) está no log do contêiner: docker logs jusprime_scheduler_prod\n",
             $comando,
             $quando->format('d/m/Y H:i'),
-            $erro,
+            $classeDoErro,
+            $codigo === null ? 'desconhecido' : (string) $codigo,
         );
-        if ($saida !== '') {
-            $texto .= "\nFim da saída do comando:\n" . $saida . "\n";
-        }
-        $texto .= "\nDetalhes no log do contêiner: docker logs jusprime_scheduler_prod\n";
 
-        return (new Email())
-            ->from(Address::create($this->mailerFrom))
+        $email = (new Email())
             ->to(...$destinatarios)
-            ->subject('[BlueJus] Tarefa agendada falhou: ' . $comando)
             ->text($texto);
+
+        return $this->identidade->aplicar($email, 'Tarefa agendada falhou: ' . $comando);
     }
 }

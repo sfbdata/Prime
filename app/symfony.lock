@@ -266,9 +266,7 @@
             "version": "7.2",
             "ref": "caea3c928ee9e1b21288fd76aef36f16ea355515"
         },
-        "files": [
-            "src/Schedule.php"
-        ]
+        "files": []
     },
     "symfony/security-bundle": {
         "version": "7.4",

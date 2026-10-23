@@ -237,7 +237,9 @@ docker logs -f jusprime_scheduler_prod
 **Aviso de falha.** Uma tarefa que termina com código diferente de 0 (ou lança exceção) gera sempre um
 `ERROR` no log ("Tarefa agendada falhou: app:..."). Com `AGENDADOR_ALERTA_EMAIL` no `.env.prod` (um
 endereço, ou vários separados por vírgula), vai também um e-mail "[BlueJus] Tarefa agendada falhou: app:..."
-pelo remetente `MAILER_FROM`. Vazia ou ausente: só o log. Mudou a variável: recrie o contêiner
+pelo remetente `MAILER_FROM`. O e-mail não traz dado de cliente: só o comando, o horário, a classe do erro e o
+código de saída; a mensagem e a saída do comando ficam no `docker logs jusprime_scheduler_prod`. Vazia ou
+ausente: só o log. Mudou a variável: recrie o contêiner
 (`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler`). Não há nova tentativa
 automática: a próxima execução é a do horário seguinte. Para rodar uma tarefa na hora, use o `docker exec`
 de sempre no `jusprime_php_prod`.
@@ -255,21 +257,26 @@ aceitam `--tenant=ID`). A carência da quarentena (padrão 365 dias) segue em `T
 
 #### Virada do crontab para o agendador (passo do dono, uma vez)
 
-O deploy da versão que traz o agendador já o liga. Enquanto as linhas antigas seguirem no crontab, cada
-tarefa roda duas vezes (uma em cada contêiner, e o `flock` de cada comando não enxerga o outro). Por isso a
-virada é no mesmo dia do deploy, antes da próxima hora cheia:
+O deploy da versão que traz o agendador já o liga, e o deploy só acontece com o merge do PR de release
+("Lança a vX.Y.Z"). Por isso a hora da virada é a do merge, e o crontab sai **antes** dele: assim nenhuma
+tarefa roda em dobro (uma em cada contêiner, que o `flock` de cada comando não enxerga). O custo é no
+máximo uma hora cheia sem o envio ao Drive entre o comentar e o agendador subir, o que é aceitável.
 
-1. Antes de tudo, guarde o crontab: `crontab -l > ~/crontab-antes-do-agendador.bak`.
-2. Depois do deploy: `docker ps --filter name=jusprime_scheduler_prod` (deve estar `Up`) e o
-   `debug:scheduler` acima (10 tarefas, próxima execução em `-0300`).
-3. Comente no crontab (`crontab -e`) **só** as linhas das tarefas da tabela acima, inclusive a do
+1. Guarde o crontab: `crontab -l > ~/crontab-antes-do-agendador.bak`.
+2. Compare `crontab -l` com a tabela acima (o crontab real manda: linha que não está na tabela ou com
+   horário diferente volta para decisão antes de seguir).
+3. Comente no crontab (`crontab -e`) **só** as linhas das tarefas da tabela, inclusive a do
    `scripts/sync-reconciliar.sh`, a do `app:djen:sincronizar`, a do `app:importar-indices-monetarios` e a
    do `app:dashboard:fotografar`, se existirem. **Certbot, `scripts/backup.sh` e `scripts/backup-db.sh`
    continuam no crontab.**
-4. Na hora cheia seguinte, confira a primeira execução: `docker logs --since 1h jusprime_scheduler_prod`
-   mostra o `app:sync:reconciliar` recebido e tratado, sem `ERROR`. No dia seguinte, confira as diárias.
-5. Se algo der errado: descomente as linhas (`crontab ~/crontab-antes-do-agendador.bak`) e pare o agendador
-   (`docker stop jusprime_scheduler_prod`). Ele volta a subir no próximo deploy.
+4. Só então mergeie o PR de release.
+5. Depois do deploy: `docker ps --filter name=jusprime_scheduler_prod` (deve estar `Up`, sem reiniciar
+   sem parar), o `debug:scheduler` acima (10 tarefas, próxima execução em `-0300`) e
+   `docker logs jusprime_scheduler_prod`. Na hora cheia seguinte, o `app:sync:reconciliar` aparece recebido
+   e tratado, sem `ERROR`. No dia seguinte, confira as diárias.
+6. Se o deploy falhar e voltar para a versão anterior (que não tem o agendador), descomente o crontab:
+   `crontab ~/crontab-antes-do-agendador.bak`. O mesmo se o agendador não ficar de pé: restaure o crontab e
+   `docker stop jusprime_scheduler_prod` (ele volta a subir no próximo deploy).
 
 Os arquivos de log antigos (`/var/log/jusprime-*.log` das tarefas) param de crescer; o histórico passa a
 ser o `docker logs` do agendador.

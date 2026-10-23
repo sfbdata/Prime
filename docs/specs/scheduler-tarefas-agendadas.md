@@ -119,8 +119,11 @@ diferente de 0 (`throwOnFailure` é `true` por padrão) ou lança exceção; o w
 - Sempre: `logger->error('Tarefa agendada falhou: {comando}: {erro}')` com o comando, a mensagem, o código
   de saída, o fim da saída (até 2000 caracteres) e o horário agendado. Vai para o stderr do contêiner.
 - Com `AGENDADOR_ALERTA_EMAIL` preenchida (um ou mais endereços separados por vírgula): e-mail
-  "[BlueJus] Tarefa agendada falhou: app:..." pelo `MailerInterface`, remetente `MAILER_FROM` (o mesmo de
-  todos os e-mails do sistema). Lida com `%env(string:default::AGENDADOR_ALERTA_EMAIL)%`: ausente no
+  "[BlueJus] Tarefa agendada falhou: app:..." pelo `MailerInterface`, com a identidade padrão dos e-mails
+  do sistema (`IdentidadeDeEmail::aplicar`: remetente `MAILER_FROM`, `Reply-To` e prefixo do assunto).
+  **Sem dado de cliente**: o e-mail leva só o comando, o horário, a classe da exceção de origem e o código
+  de saída, e aponta para `docker logs jusprime_scheduler_prod`. A mensagem crua e a saída do comando (que
+  podem citar escritório, pessoa, CPF ou e-mail) ficam só no log. Lida com `%env(string:default::AGENDADOR_ALERTA_EMAIL)%`: ausente no
   `.env.prod` é o mesmo que vazia (o build de produção apaga o `app/.env`).
 - Falha no envio (SMTP fora, endereço mal escrito): registrada em `ERROR` e engolida. O aviso nunca derruba
   o consumidor.
@@ -151,24 +154,41 @@ versão (2 deploys), não por contêiner. Casos novos em `scripts/testar-deploy-
 
 ## Plano de virada (passo do dono)
 
-O deploy da versão que traz o agendador já o liga. Enquanto as linhas antigas seguirem no crontab, cada
-tarefa roda duas vezes, uma em cada contêiner (o `flock` de cada comando é por contêiner). Quase todas são
-idempotentes no dia (gravam antes de enviar), mas o envio ao Drive de hora em hora em dois contêineres ao
-mesmo tempo pode criar pasta duplicada no Drive. Por isso a virada é no mesmo dia do deploy, antes da
-próxima hora cheia. Passo a passo em DEPLOY.md, "Virada do crontab para o agendador":
+O deploy da versão que traz o agendador já o liga, e o deploy só acontece com o merge do PR de release.
+Então o merge controla a hora, e o crontab sai **antes** dele: não há janela em que a mesma tarefa roda em
+dois contêineres (o `flock` de cada comando é por contêiner; o envio ao Drive em dobro poderia duplicar
+pasta no Drive). O custo é no máximo uma hora cheia sem o envio ao Drive, entre comentar o crontab e o
+agendador subir, o que é aceitável (o envio é aditivo e a rodada seguinte põe em dia). Passo a passo em
+DEPLOY.md, "Virada do crontab para o agendador":
 
 1. `crontab -l > ~/crontab-antes-do-agendador.bak`.
-2. Depois do deploy: contêiner `Up` e `debug:scheduler` com as 10 tarefas e próxima execução em `-0300`.
-3. **Conferir com o crontab real**: comparar `crontab -l` com a tabela acima e comentar só as linhas das
-   tarefas da tabela. Certbot e backups continuam no crontab.
-4. Na hora cheia seguinte, `docker logs --since 1h jusprime_scheduler_prod`: o envio ao Drive recebido e
-   tratado, sem `ERROR`. No dia seguinte, as diárias.
-5. Volta: restaurar o crontab salvo e `docker stop jusprime_scheduler_prod`.
+2. **Conferir com o crontab real**: comparar `crontab -l` com a tabela acima.
+3. Comentar só as linhas das tarefas da tabela. Certbot e backups continuam no crontab.
+4. Mergear o PR de release.
+5. Depois do deploy: `docker logs jusprime_scheduler_prod`, `debug:scheduler` (10 tarefas, próxima
+   execução em `-0300`) e, na hora cheia seguinte, o envio ao Drive recebido e tratado, sem `ERROR`.
+6. Se o deploy falhar e voltar para a versão anterior (sem agendador; a volta automática o desliga),
+   descomentar o crontab (`crontab ~/crontab-antes-do-agendador.bak`).
 
-Recomendado: preencher `AGENDADOR_ALERTA_EMAIL` no `.env.prod` antes do deploy.
+Recomendado: preencher `AGENDADOR_ALERTA_EMAIL` no `.env.prod` antes do merge.
 
 O `scripts/sync-reconciliar.sh` fica no repositório até a virada estar confirmada (é o caminho de volta);
 removê-lo é passo de um PR seguinte.
+
+## Limitações conhecidas
+
+- **Parada sem sinal tratado.** A imagem não tem a extensão `pcntl`, então o consumidor não trata o
+  SIGTERM do `docker stop` (deploy, restart): o Docker espera o prazo e mata com SIGKILL. A trava não é
+  liberada e fica presa até expirar (cerca de `nextTime + 300 s`, pela renovação do `Checkpoint`). Até lá o
+  contêiner novo não gera tarefa nenhuma, o que pode atrasar uma tarefa em até ~65 min (o estado garante
+  que ela roda, só que tarde). O worker antigo tem o mesmo problema. Um `stop_grace_period` não ajuda (sem
+  `pcntl` o processo nunca sai sozinho; só alongaria o deploy) e não foi posto.
+- **Estouro de memória** é erro fatal do PHP: o processo morre sem passar pelo `FailureEvent`, então não há
+  log de "Tarefa agendada falhou" nem e-mail. O `restart: unless-stopped` traz o contêiner de volta e o
+  estado roda a tarefa de novo, que pode estourar de novo.
+- **Reinício em laço não é percebido pelo deploy.** O `deploy-automatico.sh` confere a saúde do php e do
+  site, não a do agendador; um agendador reiniciando sem parar passa despercebido até alguém olhar o
+  `docker ps` (por isso o passo 5 da virada).
 
 ## Próximos passos (fora deste PR)
 
@@ -178,3 +198,6 @@ removê-lo é passo de um PR seguinte.
 - Remover `scripts/sync-reconciliar.sh` e as menções antigas de crontab nas specs (DJEN, índices, Dashboard,
   sincronização) depois da virada confirmada.
 - Avaliar log da saída das execuções bem-sucedidas (hoje só aparece na falha).
+- Limitações acima: instalar `pcntl` na imagem (parada limpa, trava liberada, vale também para o worker);
+  aviso de morte por memória (ex.: contar reinícios do contêiner); conferir o agendador no deploy
+  (`docker inspect` do estado e do contador de reinício).
