@@ -21,11 +21,13 @@ trait RegistroDePontoInicialDeTesteTrait
     private function registroDePontoInicialSemChoque(): RegistroDePontoInicial
     {
         $jornadas = $this->createStub(JornadaColaboradorRepository::class);
+        $vinculos = $this->createStub(UserTenantRepository::class);
         $intervalos = new IntervalosDeTrabalho(new JornadaResolver(), $jornadas, $this->createStub(JornadaTenantRepository::class));
 
         return new RegistroDePontoInicial(
             $intervalos,
-            new ChoqueDeJornadaEntreEscritorios($intervalos, $jornadas, $this->createStub(UserTenantRepository::class)),
+            new ChoqueDeJornadaEntreEscritorios($intervalos, $jornadas, $vinculos),
+            $vinculos,
         );
     }
 }

@@ -67,6 +67,7 @@ final class AceitarConviteEscritorioComContaUseCase
 
         if ($vinculo !== null) {
             $vinculo->reativar();
+            $this->registroDePontoInicial->conferirAoReligar($vinculo);
             $vinculo->setTenantRole($invitation->getTenantRole());
             $vinculo->setUpdatedAt(new \DateTimeImmutable());
             $invitation->aceitar($input->usuarioAtual);
