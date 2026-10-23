@@ -15,6 +15,8 @@ use App\Ponto\Repository\HomeOfficeConfigRepository;
  */
 final class HomeOfficeResolver
 {
+    private const TIMEZONE_PADRAO = 'America/Sao_Paulo';
+
     public function __construct(
         private readonly HomeOfficeConfigRepository $configRepository,
     ) {
@@ -32,7 +34,7 @@ final class HomeOfficeResolver
         }
 
         $local = \DateTimeImmutable::createFromInterface($instante)
-            ->setTimezone(FusoDoEscritorio::de($tenant));
+            ->setTimezone(new \DateTimeZone($this->timezoneDoTenant($tenant)));
         $diaSemana = (int) $local->format('N'); // 1=Segunda ... 7=Domingo
         $diaStr = $local->format('Y-m-d');
 
@@ -57,5 +59,17 @@ final class HomeOfficeResolver
         }
 
         return true;
+    }
+
+    private function timezoneDoTenant(Tenant $tenant): string
+    {
+        foreach ($tenant->getSedes() as $sede) {
+            $tz = $sede->getTimezone();
+            if ($tz !== null && $tz !== '') {
+                return $tz;
+            }
+        }
+
+        return self::TIMEZONE_PADRAO;
     }
 }

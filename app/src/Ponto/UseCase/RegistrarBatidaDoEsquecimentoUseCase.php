@@ -45,7 +45,7 @@ final class RegistrarBatidaDoEsquecimentoUseCase
             throw new \DomainException('A justificativa não pertence a este escritório.');
         }
 
-        if ($this->pedeHorarioFuturo($justificativa, $tenant)) {
+        if ($this->pedeHorarioFuturo($justificativa)) {
             throw new BatidaEmHorarioFuturoException();
         }
 
@@ -68,10 +68,10 @@ final class RegistrarBatidaDoEsquecimentoUseCase
     /**
      * Recusa rápida para quem chama antes de abonar: o pedido de esquecimento cai acima de agora.
      */
-    public function pedeHorarioFuturo(JustificativaPonto $justificativa, Tenant $tenant): bool
+    public function pedeHorarioFuturo(JustificativaPonto $justificativa): bool
     {
         return self::pedeBatida($justificativa)
-            && $this->horarioFuturo->estaNoFuturo($justificativa->getData(), $justificativa->getHoraRegistroEsquecido(), $tenant);
+            && $this->horarioFuturo->estaNoFuturo($justificativa->getData(), $justificativa->getHoraRegistroEsquecido());
     }
 
     private static function pedeBatida(JustificativaPonto $justificativa): bool

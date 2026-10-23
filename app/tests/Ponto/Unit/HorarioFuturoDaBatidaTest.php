@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Unit;
 
-use App\Entity\Tenant\Sede;
-use App\Entity\Tenant\Tenant;
-use App\Ponto\Service\FusoDoEscritorio;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -15,15 +12,12 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 
 /**
- * A batida pedida (data e hora no fuso do escritório) não pode ficar acima de agora; agora e antes passam.
+ * A batida pedida (data e hora no relógio do servidor, a régua da gravação) não pode ficar acima de
+ * agora; agora e antes passam.
  */
 #[CoversClass(HorarioFuturoDaBatida::class)]
-#[CoversClass(FusoDoEscritorio::class)]
 final class HorarioFuturoDaBatidaTest extends TestCase
 {
-    /** Meio-dia de 10/03/2026 em São Paulo (15:00 UTC). */
-    private const AGORA = '2026-03-10 15:00:00';
-
     /** @return iterable<string, array{string, string, bool}> */
     public static function casos(): iterable
     {
@@ -35,26 +29,29 @@ final class HorarioFuturoDaBatidaTest extends TestCase
     }
 
     #[DataProvider('casos')]
-    #[TestDox('Sem sede vale São Paulo: $data $hora no futuro? $esperado')]
-    public function testComparaComAgoraNoFusoPadrao(string $data, string $hora, bool $esperado): void
+    #[TestDox('Agora são 12:00 de 10/03/2026 no servidor: $data $hora no futuro? $esperado')]
+    public function testComparaComAgoraNoRelogioDoServidor(string $data, string $hora, bool $esperado): void
     {
-        self::assertSame($esperado, $this->regra()->estaNoFuturo(new \DateTime($data), new \DateTime('1970-01-01 ' . $hora), new Tenant()));
+        $regra = $this->regra(new \DateTimeImmutable('2026-03-10 12:00:00', new \DateTimeZone(date_default_timezone_get())));
+
+        self::assertSame($esperado, $regra->estaNoFuturo(new \DateTime($data), new \DateTime('1970-01-01 ' . $hora)));
     }
 
-    #[TestDox('Com sede em outro fuso, a hora é lida no fuso da sede')]
-    public function testUsaOFusoDaSede(): void
+    #[TestDox('O fuso da sede não entra: às 11:30 do servidor, 11:00 já passou, mesmo num escritório em Manaus')]
+    public function testFusoDaSedeNaoEntra(): void
     {
-        $tenant = new Tenant();
-        $sede = new Sede();
-        $sede->setTimezone('America/Manaus');   // uma hora atrás de São Paulo: agora são 11:00 lá
-        $tenant->addSede($sede);
+        // O relógio injetado chega em Manaus (uma hora atrás de São Paulo); a régua continua a do servidor.
+        $agoraEmManaus = (new \DateTimeImmutable('2026-03-10 11:30:00', new \DateTimeZone(date_default_timezone_get())))
+            ->setTimezone(new \DateTimeZone('America/Manaus'));
+        $regra = $this->regra($agoraEmManaus);
 
-        self::assertTrue($this->regra()->estaNoFuturo(new \DateTime('2026-03-10'), new \DateTime('1970-01-01 11:30'), $tenant));
-        self::assertFalse($this->regra()->estaNoFuturo(new \DateTime('2026-03-10'), new \DateTime('1970-01-01 11:00'), $tenant));
+        $hoje = new \DateTime('2026-03-10');
+        self::assertFalse($regra->estaNoFuturo($hoje, new \DateTime('1970-01-01 11:00')));
+        self::assertTrue($regra->estaNoFuturo($hoje, new \DateTime('1970-01-01 11:31')));
     }
 
-    private function regra(): HorarioFuturoDaBatida
+    private function regra(\DateTimeImmutable $agora): HorarioFuturoDaBatida
     {
-        return new HorarioFuturoDaBatida(new MockClock(new \DateTimeImmutable(self::AGORA, new \DateTimeZone('UTC'))));
+        return new HorarioFuturoDaBatida(new MockClock($agora));
     }
 }

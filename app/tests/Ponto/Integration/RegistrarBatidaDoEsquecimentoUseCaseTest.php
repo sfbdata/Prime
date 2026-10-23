@@ -70,15 +70,15 @@ final class RegistrarBatidaDoEsquecimentoUseCaseTest extends KernelTestCase
         ($this->useCase)($this->justificativa($tenantB, 'esquecimento_registro', 'entrada', '08:00'), $tenantA);
     }
 
-    #[TestDox('Pedido com data e hora acima de agora no fuso do escritório é recusado e não grava batida')]
+    #[TestDox('Pedido com data e hora acima de agora no relógio do servidor é recusado e não grava batida')]
     public function testHorarioFuturoERecusado(): void
     {
-        self::mockTime(new \DateTimeImmutable('2026-03-10 13:00:00', new \DateTimeZone('America/Sao_Paulo')));
+        self::mockTime(new \DateTimeImmutable('2026-03-10 13:00:00', new \DateTimeZone(date_default_timezone_get())));
         $tenant = $this->criarTenant();
         $futura = $this->justificativa($tenant, 'esquecimento_registro', 'saida', '13:01');
 
-        self::assertTrue($this->useCase->pedeHorarioFuturo($futura, $tenant));
-        self::assertFalse($this->useCase->pedeHorarioFuturo($this->justificativa($tenant, 'esquecimento_registro', 'saida', '13:00'), $tenant));
+        self::assertTrue($this->useCase->pedeHorarioFuturo($futura));
+        self::assertFalse($this->useCase->pedeHorarioFuturo($this->justificativa($tenant, 'esquecimento_registro', 'saida', '13:00')));
 
         $this->expectException(BatidaEmHorarioFuturoException::class);
         ($this->useCase)($futura, $tenant);

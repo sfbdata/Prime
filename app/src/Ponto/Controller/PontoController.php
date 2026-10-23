@@ -310,7 +310,7 @@ final class PontoController extends AbstractController
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
-            if ($tipo === 'esquecimento_registro' && $this->horarioFuturo->estaNoFuturo($datasValidas[0], $horaRegEsquecida, $tenant)) {
+            if ($tipo === 'esquecimento_registro' && $this->horarioFuturo->estaNoFuturo($datasValidas[0], $horaRegEsquecida)) {
                 $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }

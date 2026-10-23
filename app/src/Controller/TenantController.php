@@ -1185,7 +1185,7 @@ final class TenantController extends AbstractController
         }
 
         // Pedido antigo com hora que ainda não chegou: não abona, para não gravar batida no futuro.
-        if ($registrarBatidaDoEsquecimento->pedeHorarioFuturo($justificativa, $tenant)) {
+        if ($registrarBatidaDoEsquecimento->pedeHorarioFuturo($justificativa)) {
             $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
@@ -1335,11 +1335,12 @@ final class TenantController extends AbstractController
         // Escopa o findBy ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
         $this->escoparFiltroNoTenant($entityManager, $tenant);
 
-        $pendentes = $justificativaRepository->findBy(['user' => $user, 'batchId' => $batchId, 'status' => 'pendente']);
-        $pendentes = $this->semBatidaNoFuturo($pendentes, $registrarBatidaDoEsquecimento, $tenant);
-
+        $encontradas = $justificativaRepository->findBy(['user' => $user, 'batchId' => $batchId, 'status' => 'pendente']);
+        $pendentes   = $this->semBatidaNoFuturo($encontradas, $registrarBatidaDoEsquecimento);
         if (empty($pendentes)) {
-            $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
+            if ($encontradas === []) {   // lote todo no futuro: o aviso de horário futuro já saiu
+                $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
+            }
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
@@ -1442,16 +1443,16 @@ final class TenantController extends AbstractController
     /**
      * Data do lote do admin que não entra: data futura (por data, não por instante, porque o
      * createFromFormat carrega a hora corrente e hoje passava por futura) ou batida esquecida
-     * cuja data e hora ficam acima de agora no fuso do escritório. Avisa o motivo no flash.
+     * cuja data e hora ficam acima de agora (relógio do servidor, o mesmo da gravação). Avisa o motivo no flash.
      */
-    private function dataDoLoteRecusada(\DateTimeInterface $data, \DateTimeInterface $hoje, ?\DateTimeInterface $horaEsquecida, Tenant $tenant): bool
+    private function dataDoLoteRecusada(\DateTimeInterface $data, \DateTimeInterface $hoje, ?\DateTimeInterface $horaEsquecida): bool
     {
         if ($data->format('Y-m-d') > $hoje->format('Y-m-d')) {
             $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $data->format('d/m/Y')));
 
             return true;
         }
-        if ($horaEsquecida !== null && $this->horarioFuturo->estaNoFuturo($data, $horaEsquecida, $tenant)) {
+        if ($horaEsquecida !== null && $this->horarioFuturo->estaNoFuturo($data, $horaEsquecida)) {
             $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
 
             return true;
@@ -1467,11 +1468,11 @@ final class TenantController extends AbstractController
      *
      * @return list<JustificativaPonto>
      */
-    private function semBatidaNoFuturo(array $pendentes, RegistrarBatidaDoEsquecimentoUseCase $registrar, Tenant $tenant): array
+    private function semBatidaNoFuturo(array $pendentes, RegistrarBatidaDoEsquecimentoUseCase $registrar): array
     {
         $aprovaveis = array_values(array_filter(
             $pendentes,
-            static fn (JustificativaPonto $j): bool => !$registrar->pedeHorarioFuturo($j, $tenant),
+            static fn (JustificativaPonto $j): bool => !$registrar->pedeHorarioFuturo($j),
         ));
         if (count($aprovaveis) < count($pendentes)) {
             $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
@@ -1571,7 +1572,7 @@ final class TenantController extends AbstractController
             if ($dataObj === false) {
                 continue;
             }
-            if ($this->dataDoLoteRecusada($dataObj, $hoje, $horaRegEsquecida, $tenant)) {
+            if ($this->dataDoLoteRecusada($dataObj, $hoje, $horaRegEsquecida)) {
                 continue;
             }
             $datasValidas[] = $dataObj;

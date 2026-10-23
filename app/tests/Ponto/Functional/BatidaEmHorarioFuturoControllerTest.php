@@ -25,11 +25,10 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Batida em horário futuro: nas duas portas que gravam batida esquecida (lote do admin e pedido do
- * colaborador) e na aprovação do pedido, a data e a hora acima de agora, no fuso do escritório, são
- * recusadas sem gravar nada. Agora e antes passam.
+ * colaborador) e na aprovação do pedido, a data e a hora acima de agora, no relógio do servidor (a
+ * régua da gravação), são recusadas sem gravar nada. Agora e antes passam.
  *
- * O relógio fica parado em HOJE ao meio-dia no fuso do escritório (o tenant nasce sem sede, então vale
- * São Paulo): o teste não depende da hora em que roda.
+ * O relógio fica parado em HOJE ao meio-dia no fuso do servidor: o teste não depende da hora em que roda.
  */
 #[CoversClass(TenantController::class)]
 #[CoversClass(PontoController::class)]
@@ -49,7 +48,7 @@ final class BatidaEmHorarioFuturoControllerTest extends JusPrimeWebTestCase
         $this->client = static::createClient();
         $this->client->disableReboot();
         $this->hoje = (new \DateTimeImmutable('today'))->format('Y-m-d');
-        self::mockTime(new \DateTimeImmutable($this->hoje . ' 12:00:00', new \DateTimeZone('America/Sao_Paulo')));
+        self::mockTime(new \DateTimeImmutable($this->hoje . ' 12:00:00', new \DateTimeZone(date_default_timezone_get())));
 
         $this->tenant      = $this->criarTenant();
         $this->colaborador = $this->criarUsuario();
@@ -156,6 +155,28 @@ final class BatidaEmHorarioFuturoControllerTest extends JusPrimeWebTestCase
         self::assertSame('abonado', $em->find(JustificativaPonto::class, $passado)?->getStatus());
         self::assertSame('pendente', $em->find(JustificativaPonto::class, $futuro)?->getStatus());
         self::assertSame([$this->hoje . ' 08:00'], $this->batidas());
+    }
+
+    #[TestDox('Aprovar todos com o lote inteiro no futuro mostra só o aviso de horário futuro')]
+    public function testAprovarTodosComLoteTodoNoFuturo(): void
+    {
+        $lote = 'lote-' . uniqid();
+        $this->criarPedidoPendente($lote, '13:00');
+        $this->criarPedidoPendente($lote, '18:00');
+        $this->logarAdmin();
+
+        $this->client->request('POST', sprintf(
+            '/tenant/%d/user/%d/justificativa/batch/%s/aprovar-todos',
+            $this->tenant->getId(),
+            $this->colaborador->getId(),
+            $lote,
+        ), ['_token' => 'TOKEN_justificativa_aprovar_todos_' . $lote]);
+
+        self::assertResponseRedirects();
+        self::assertSame([HorarioFuturoDaBatida::MENSAGEM], $this->avisos());
+        self::assertSame([], $this->client->getRequest()->getSession()->getFlashBag()->peek('success'));
+        self::assertSame([[$this->hoje, 'pendente'], [$this->hoje, 'pendente']], $this->justificativas());
+        self::assertSame([], $this->batidas());
     }
 
     // ----------------------------------------------------------------- helpers

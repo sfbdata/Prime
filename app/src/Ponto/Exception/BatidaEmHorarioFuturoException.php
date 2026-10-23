@@ -7,8 +7,8 @@ namespace App\Ponto\Exception;
 use App\Ponto\Service\HorarioFuturoDaBatida;
 
 /**
- * A batida pedida fica acima de agora no fuso do escritório. A mensagem é a da tela; o controller
- * confere antes (recusa rápida) e esta exceção é a última guarda de quem grava a batida.
+ * A batida pedida fica acima de agora no relógio do servidor (a régua da gravação). A mensagem é a da
+ * tela; o controller confere antes (recusa rápida) e esta exceção é a última guarda de quem grava a batida.
  */
 final class BatidaEmHorarioFuturoException extends \DomainException
 {
