@@ -663,6 +663,12 @@ Na sidebar, o item "Financeiro" usa `can_access_module('clientes')` e
 aponta para `cliente_index`. O label exibido é "Financeiro" mas a
 chave de permissão e a rota são do módulo `clientes`.
 
+### F8. Posição da batida informada pelo navegador (limitação conhecida)
+
+Achado de auditoria interna F17: a cerca do ponto decide pela posição informada pelo navegador; o
+servidor não confirma a posição; alcance limitado à batida do próprio funcionário; mitigação futura
+possível: IP da batida (exige migration e decisão do dono). Spec `docs/specs/seguranca-b-ponto.md` §1.4.
+
 ---
 
 ## 9. Onde Vive Cada Coisa
