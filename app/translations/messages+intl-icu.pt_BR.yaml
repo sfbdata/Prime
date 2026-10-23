@@ -96,6 +96,13 @@ moldura:
         mais: Há outras falhas mais antigas.
         detalhe: Detalhe no log do agendador.
         dispensar: Dispensar
+    # Aviso da cota de envio de e-mail (layout/_globais/aviso_cota_de_envio, spec comercial-e-emails §3.6)
+    aviso_cota_de_envio:
+        titulo_perto: Perto do limite de e-mail
+        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas (limite da Hostinger). Perto do limite.'
+        titulo_pausadas: Limite de e-mail de campanha atingido
+        texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
+        dispensar: Dispensar
     busca_rapida:
         rotulo: Busca rápida
         campo: Buscar pasta, cliente, CPF ou processo
