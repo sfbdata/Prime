@@ -7,6 +7,7 @@
             "_sidebar.html.twig",
             "layout/_globais.html.twig",
             "layout/_globais/aviso_espaco.html.twig",
+            "layout/_globais/aviso_falha_agendada.html.twig",
             "layout/_globais/busca_rapida.html.twig",
             "layout/_globais/fechar.html.twig",
             "layout/_globais/lembretes.html.twig",

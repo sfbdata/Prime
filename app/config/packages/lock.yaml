@@ -1,0 +1,12 @@
+# Trava do agendador de tarefas (docs/specs/scheduler-tarefas-agendadas.md, "Trava").
+#
+# Um recurso com NOME, não o `default`: com um `default` configurado o Symfony passa a usar a trava em
+# todos os rate limiters (lock_factory: auto), e cada tentativa de login viraria uma escrita no banco.
+# O nome deixa os limitadores como sempre foram e entrega a trava só a quem a pede
+# (`lock.agendador.factory`, usada em App\Shared\Scheduler\AgendaDeTarefas).
+#
+# A loja é a conexão Doctrine padrão (DoctrineDbalStore, tabela `lock_keys`, criada pela migration
+# Version20261023150800): a trava vale entre contêineres, o que um flock no /tmp de cada um não faz.
+framework:
+    lock:
+        agendador: 'doctrine.dbal.default_connection'

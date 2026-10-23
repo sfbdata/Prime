@@ -1,0 +1,6 @@
+/* Contêiner único dos avisos do topo (layout/_globais.html.twig): fica no lugar do .ae-aviso do desenho 08
+   (aviso-espaco.css: topo central, abaixo da barra azul) e empilha os avisos, o de espaço primeiro, sem
+   sobrepor. Cada aviso perde só o posicionamento próprio; o visual é o mesmo. */
+.ae-avisos { position: fixed; z-index: 9100; left: 50%; top: 70px; transform: translateX(-50%); width: min(720px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 8px; }
+.ae-avisos > .ae-aviso { position: static; transform: none; width: 100%; }
+@media print { .ae-avisos { display: none !important; } }
