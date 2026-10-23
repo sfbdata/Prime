@@ -57,6 +57,8 @@ final class ExcluirTarefaUseCase
             throw new MetaNaoExcluivelException('Esta meta não pode ser excluída.');
         }
 
+        // A aba devolvida na mesma requisição (Desfazer da duplicação, por XHR) lê a coleção da pasta.
+        $tarefa->getPasta()->getTarefas()->removeElement($tarefa);
         $this->em->remove($tarefa);
         $this->em->flush();
     }
