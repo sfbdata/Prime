@@ -68,12 +68,20 @@ final class TiposDeAvisoDaCentral
         LembrarMetaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'metas', 'rotulo' => 'Lembrete', 'icone' => 'bi-bell', 'cor' => self::AMBAR, 'nivel' => 2],
     ];
 
+    /**
+     * Pasta acompanhada ("Acompanhar alterações" do menu ⋮ da pasta, desenho 02 L4497: "Você vai receber no Chat I.A as
+     * alterações da pasta"): grupo Mensagens, o sino do item do menu, azul, nível 1. Fora do `match` pelo limite de linhas.
+     */
+    private const DA_PASTA_ACOMPANHADA = [
+        Notificacao::TIPO_PASTA_ACOMPANHADA => ['grupo' => 'mensagens', 'rotulo' => 'Pasta acompanhada', 'icone' => 'bi-bell', 'cor' => self::AZUL, 'nivel' => 1],
+    ];
+
     /** @return array{grupo: ?string, rotulo: string, icone: string, cor: string, nivel: int} */
     public function para(string $tipo): array
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
         $tipo = strtolower($tipo);
-        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? null;
+        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? self::DA_PASTA_ACOMPANHADA[$tipo] ?? null;
         if ($doMapa !== null) {
             return $doMapa;
         }

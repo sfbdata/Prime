@@ -10,6 +10,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
@@ -51,6 +52,11 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * COTA (SEC-008): os dois avisos (resposta e menção) gastam a mesma cota do autor
  * ({@see CotaDeNotificacoesDoRegistro}). Estourada, o aviso é suprimido com `warning` no log e a
  * mensagem é gravada do mesmo jeito — o envio nunca falha por causa do teto.
+ *
+ * ACOMPANHAR ALTERAÇÕES (menu ⋮ da pasta): toda mensagem nova, comum, resposta ou com menção,
+ * avisa quem acompanha a pasta ({@see AvisoDePastaAcompanhada}), menos o autor, o dono do
+ * comentário respondido e os mencionados, que já recebem o aviso próprio. Esse aviso não gasta a
+ * cota: ele já é limitado a um não lido por pasta e por pessoa.
  */
 final class EnviarMensagemPastaUseCase
 {
@@ -74,6 +80,7 @@ final class EnviarMensagemPastaUseCase
         private readonly MencoesDoRegistro $mencoes,
         private readonly ResolucaoDeMencoesDoRegistro $resolucaoDeMencoes,
         private readonly CotaDeNotificacoesDoRegistro $cota,
+        private readonly AvisoDePastaAcompanhada $avisoDeAcompanhamento,
     ) {}
 
     /**
@@ -127,6 +134,7 @@ final class EnviarMensagemPastaUseCase
         if ($raiz === null && $mencionados === []) {
             $this->em->persist($mensagem);
             $this->em->flush();
+            $this->avisoDeAcompanhamento->aoRegistrarMensagem($mensagem, $pasta, $tenant, [$autor]);
 
             return $mensagem;
         }
@@ -143,6 +151,7 @@ final class EnviarMensagemPastaUseCase
                 $this->notificarAutorDoComentario($raiz, $mensagem, $pasta, $autor, $tenant);
             }
             $this->resolucaoDeMencoes->notificar($mencionados, $mensagem, $pasta, $autor, $tenant, $raiz?->getAutor());
+            $this->avisoDeAcompanhamento->aoRegistrarMensagem($mensagem, $pasta, $tenant, [$autor, $raiz?->getAutor(), ...$mencionados]);
 
             return $mensagem;
         });

@@ -115,7 +115,7 @@ _(preenchido após as investigações)_
 | D-PJ | Pendências de cadastro e qualificação de PJ | regra comum aplicada | desenho só tem PF | aval do texto | — | — | — |
 | D-RELINI | "Pontos do relatório inicial" + linha vermelha em Detalhes | — | acende a linha vermelha em quase todas as pastas | aceitar? | — | só o aviso, sem a linha | — |
 | D-META | Nova meta: prazo e responsáveis obrigatórios; "Ação" só leitura no Editar dados | não mudou | desvio de função existente | aceitar o desenho? | — | — | — |
-| D-ACOMP | Acompanhar alterações (padrão LIGADO no desenho) | — | notificação por pasta = barulho | padrão ligado/desligado | — | desligado | — |
+| D-ACOMP | Acompanhar alterações (padrão LIGADO no desenho) | resolvida pelo desenho (PR pasta-acompanhar-alteracoes): padrão ligado, tabela de exceção `pasta_acompanhamento_desligado` | notificação por pasta = barulho (mitigado: 1 aviso não lido por pasta e pessoa) | — | — | ligado; neste PR só mensagens do Registro avisam | documento, meta, situação, responsável e Push pendentes |
 | D-CARTEIRA | "Mover para outra carteira" | — | a Pasta não tem carteira/área | conceito novo? | — | não | — |
 | D-BARRA | Barra global (topo + sub-nav) | medido (Trilha A §5) | `base.html.twig`/`app.css` de todas as telas | mudar o sistema inteiro? | — | sim, numa frente própria | divergência visível em todas as telas |
 | D-CONNECT | Chat I.A/Central, ligações, BlueJus Connect | investigado | produto próprio; ligações exigem servidor de chamadas | escopo | — | frente própria | — |

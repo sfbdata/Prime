@@ -161,4 +161,12 @@ final class BarreiraDoCadeadoRotasArquiteturaTest extends KernelTestCase
         self::assertSame(['pasta_show', 'pasta_acesso_pedir'], BarreiraDoCadeadoListener::ROTAS_DO_OCULTO);
         self::assertNotContains('pasta_push_lida', BarreiraDoCadeadoListener::ROTAS_DO_VISUALIZAR, 'marcar lida vale para o escritório: é escrita.');
     }
+
+    #[TestDox('em Visualizar, as preferências pessoais do menu ⋮ (favoritos e acompanhar alterações) continuam valendo')]
+    public function testPreferenciasDoMenuPassamEmVisualizar(): void
+    {
+        self::assertContains('pasta_favorito_alternar', BarreiraDoCadeadoListener::ROTAS_DO_VISUALIZAR);
+        self::assertContains('pasta_acompanhamento_alternar', BarreiraDoCadeadoListener::ROTAS_DO_VISUALIZAR);
+        self::assertNotContains('pasta_acompanhamento_alternar', BarreiraDoCadeadoListener::ROTAS_DO_OCULTO, 'Oculto não alcança a preferência');
+    }
 }

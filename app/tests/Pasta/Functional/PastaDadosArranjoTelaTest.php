@@ -123,7 +123,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $itens = $crawler->filter('#psMenuAcoes .ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Link externo do Push', 'Imprimir resumo', 'Cadeado', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Link externo do Push', 'Imprimir resumo', 'Cadeado', 'Acompanhar alterações', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
             $itens,
             'a ordem do menu é a do desenho'
         );
@@ -146,7 +146,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $menu = $crawler->filter('#psMenuAcoes');
         self::assertCount(1, $menu);
-        self::assertCount(13, $menu->filter('.ps-pop-item'), 'treze itens, todos com back-end: editar, histórico, timeline inteligente, duplicar, vincular, trocar responsável, copiar link, link externo do Push, imprimir resumo, cadeado (o usuário primário, spec pasta-cadeado), fixar nos favoritos, arquivar, excluir');
+        self::assertCount(14, $menu->filter('.ps-pop-item'), 'catorze itens, todos com back-end: editar, histórico, timeline inteligente, duplicar, vincular, trocar responsável, copiar link, link externo do Push, imprimir resumo, cadeado (o usuário primário, spec pasta-cadeado), acompanhar alterações, fixar nos favoritos, arquivar, excluir');
 
         self::assertCount(
             1,

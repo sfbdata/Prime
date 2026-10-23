@@ -19,8 +19,9 @@ use Doctrine\ORM\EntityManagerInterface;
  * Salvaguardas: só o autor da mensagem pode excluí-la, e apenas dentro de uma
  * janela curta após a criação (`JanelaDeEdicaoDeComentario`, 15 minutos) — o suficiente para desfazer um engano.
  *
- * NOT-01: os avisos que a mensagem gerou (menção `TIPO_PASTA_MENCAO_REGISTRO` e resposta
- * `TIPO_PASTA_RESPOSTA_REGISTRO`, ambos com link `pasta_show#pasta-msg-<id>`) saem junto, na
+ * NOT-01: os avisos que a mensagem gerou (menção `TIPO_PASTA_MENCAO_REGISTRO`, resposta
+ * `TIPO_PASTA_RESPOSTA_REGISTRO` e pasta acompanhada `TIPO_PASTA_ACOMPANHADA`, todos com link
+ * `pasta_show#pasta-msg-<id>`) saem junto, na
  * MESMA transação — senão a prévia do texto apagado continuaria no sino e na Timeline de quem
  * recebeu. Só os deste escritório e só os da âncora exata (`#pasta-msg-12` não leva o `-123`).
  * As respostas a esta mensagem continuam (a FK é SET NULL), e os avisos delas também.
@@ -31,6 +32,8 @@ final class ExcluirMensagemPastaUseCase
     public const TIPOS_DE_AVISO_DA_MENSAGEM = [
         Notificacao::TIPO_PASTA_MENCAO_REGISTRO,
         Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO,
+        // "Acompanhar alterações": o aviso leva à mensagem; sem ela, o link ficaria quebrado.
+        Notificacao::TIPO_PASTA_ACOMPANHADA,
     ];
 
     public function __construct(
