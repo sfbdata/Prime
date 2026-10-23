@@ -250,7 +250,7 @@ resposta do R2 não leva a CSP da aplicação.
 | **P2.2** | `LayoutDeChaveRemota`, `EspelhoRemoto` + adaptador `async-aws/s3`, contra S3 falso **sem rede**; teste das 326 chaves legadas | não | reverter commits |
 | **P2.3** | decorador, outbox (1 migration aditiva), worker, reconciliação em dry-run; deploy com flag **vazia** | não | flag já vazia; migration aditiva fica |
 | **P2.4** | dono cria/confirma `bluejus-arquivos` e o token restrito; prova do 403 no bucket de backup; P0c | não | — |
-| **P2.5a** | rejeição do download do Drive com tamanho incompatível (§6) | sim (sync) | reverter commit |
+| **P2.5a** | rejeição do download do Drive com tamanho incompatível (§6). **A confirmar** (23/10): a importação do Drive vai sair, e esta etapa provavelmente deixa de existir | sim (sync) | reverter commit |
 | **P2.5** | flag por categoria: `foto_perfil` → `cliente_documento` → `justificativa_anexo` → `cobranca_documento` → `tarefa_anexo` → `kanban_anexo` → `chamado_anexo` → `pasta_imagem_editor` → `pasta_documento` | sim (escrita extra) | **esvaziar a flag = só local na hora**; objetos no R2 ficam, sem efeito |
 | **P2.6** | backfill do acervo; reconciliação a 100% | sim (envio) | parar o comando |
 | **P2.7** | reconciliação diária pelo cron + critério de saída | — | tirar do cron |
@@ -551,7 +551,7 @@ categoria, tenant e o resumo do erro com a chave substituída por `<chave #id>`.
 legados de texto livre, nome de pessoa —, sem retenção, e sobrevive à purga do escritório (a coluna é
 `escopo_tenant_id`, e a purga não a enxerga). Proposta: (a) apagar linhas `verificado`/`superado`/
 `descartado` com mais de N dias; (b) a purga do escritório apagar as linhas do escopo dele. As duas são
-exclusão de LINHA LOCAL, não de objeto remoto. Nada implementado; decidir antes da P2.5.
+exclusão de LINHA LOCAL, não de objeto remoto. **Resolvida em 23/10**: ver "Decisões do dono (23/10/2026)" abaixo.
 
 **Risco residual conhecido (M1, raro):** se a transação do domínio já estiver ABORTADA no Postgres
 quando a outbox tentar o savepoint, o DBAL incrementa o nível de aninhamento antes de falhar; o domínio
@@ -567,6 +567,37 @@ arquivos grandes esgotam as 6 tentativas e caem em `falhou`. Subir o teto exige 
 
 **Re-revisão da P2.3 (15/10):** I1, I2 e I3 fechados; I4 e M1 seguem como decisão do dono. Bloqueante
 novo B1 (colisão de versão com a Central B), corrigido pela renomeação para `Version20261015213000` (hoje `Version20261020151300`).
+
+**Decisões do dono (23/10/2026), registradas ao trazer o master para a frente:**
+- **I4 resolvida (retenção de 90 dias).** As linhas de envio em `verificado`, `superado` ou `descartado`
+  com `atualizado_em` de mais de 90 dias são APAGADAS. Ficam as em `pendente`, `processando` e
+  `falhou`, e também as de exclusão (`registrado`), que serão a fila da futura lixeira de 30 dias.
+  Comando `armazenamento:limpar-replicacao [--dias=90] [--simular]`, só com contagens na saída (sem
+  nome nem chave); método `OutboxDeReplicacao::apagarConcluidasHaMaisDe()`, por DBAL e em UTC.
+- **M1 aceito.** O risco residual fica; a reconciliação diária cobre o que ele deixar para trás.
+- **Isenção do `TenantFilter` ratificada.** Condição: nenhuma tela pode exibir a fila.
+- **Exclusão no espelho.** "Nunca apagar no R2" vale só durante a implantação. Depois: lixeira de 30
+  dias no espelho e backups com validade de 90 dias (frente futura, antes de ligar documento de
+  cliente). Pedido de exclusão da PESSOA pela LGPD apaga na hora, no sistema, no espelho e nos backups;
+  a exclusão de conta de escritório mantém a quarentena de 365 dias.
+- **Drive.** A importação do Drive vai sair (regra nova); a P2.5a provavelmente deixa de existir. A
+  confirmar.
+- **Backup em dia.** P0c de 23/10 em `p0c-20261023/` (102 arquivos, verificada por SHA).
+- **Cadeia do armazenamento: cota, espelho, disco.** O decorador de cota do Contribua (`#[AsDecorator]`
+  sobre `ArmazenamentoDeArquivos`) envolve o espelho, que envolve o `ArmazenamentoLocal`: a cota recusa
+  antes de gravar, e o espelho registra depois da gravação local. `MaterializadorDeArquivo` e
+  `ArmazenamentoComPrefixo` apontam direto para o espelho. `ArmazenamentoEspelhadoTest` prova a cadeia
+  e que, desligado, nada é registrado.
+- **Três categorias novas do master**, pela regra do §2 (caminho relativo à raiz de uploads, como o
+  `ResolvedorDeCaminhoLocal` resolve; as três raízes estão sob `public/uploads/`):
+  `trabalho_externo_documento` (escritório da demanda) em `core/t/{tenant}/uploads/trabalho-externo/{nome}`;
+  `trabalho_externo_curriculo` (global) em `core/g/uploads/trabalho-externo/curriculos/{nome}`;
+  `comercial_imagem` (global) em `core/g/uploads/comercial-imagens/{nome}`. A reconciliação ganhou as
+  fontes `trabalho_externo_documento`, `trabalho_externo_curriculo` (um arquivo do JSON `arquivos`,
+  uma referência) e `comercial_imagem`.
+- **Anexo de tarefa.** O anexo novo do despacho é documento da pasta (`pasta_documento:<id>` na coluna)
+  e entra pela fonte `pasta_documento`; a fonte `tarefa_mensagem` lê só os legados (`LIKE '/%'`). Saiu
+  `ChavesDeTarefa::novoAnexo`, sem chamador.
 
 **Limites honestos dos testes:** concorrência entre PROCESSOS (dois workers em conexões diferentes) não
 cabe no rollback por teste do DAMA — o que se prova é a regra (uma chave por vez; a mais nova supera),
