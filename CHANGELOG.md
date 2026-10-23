@@ -8,6 +8,22 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.15.0] - 2026-10-23
+
+### Adicionado
+
+- Pasta, aba Metas: "Duplicar" no menu ⋮ da meta (desenho 02, PMC-032), entre "Editar nome" e "Encaminhar via Chat I.A". A cópia nasce na hora na mesma pasta, aberta, com descrição, prazo (mesmo vencido), prioridade exata (Normal fica Normal, sem herdar a da pasta) e tipo de demanda da original e o título com " (cópia)" (até 120 caracteres); não notifica ninguém. Dos responsáveis, só vão os que a Nova meta aceitaria (vínculo ativo); se nenhum sobrar, a duplicação é recusada com "Nenhum responsável desta meta pode receber metas agora. Crie pela Nova meta." Sem XHR, recusa e sucesso respondem com aviso e volta para a aba Metas. O aviso "Meta duplicada" traz "Desfazer", que exclui a cópia. Rota nova `tarefa_duplicar` (POST, CSRF por id, mesmas guardas da criação de meta; recusada na pasta excluída). `tarefa_excluir` passa a responder JSON por XHR.
+- Pasta, modal "Nova meta" (D-META): prazo e ao menos um responsável passam a ser obrigatórios, com o "*" nos rótulos e o "Criar meta" desabilitado com "Preencha: título, descrição, prazo, responsável" (só os que faltam). Aberto pelo botão "Nova meta", o prazo já vem em hoje + 7 dias. O servidor responde 422 sem prazo válido ou sem responsável do escritório. Sem migration.
+- Pasta, menu ⋮ do cabeçalho: "Mover para outra carteira", como no desenho 02 VS 18.10.26. O submenu "Mover pasta N para" lista as seis carteiras (Contencioso cível, Condominial, Família e sucessões, Trabalhista, Previdenciário, Empresarial), marca a atual com "· atual" e grava pela rota `pasta_mover_carteira` (POST, CSRF, permissão de editar a pasta). O Registro ganha o cartão "Carteira: movida de "X" para "Y"." e a Timeline mostra "Carteira alterada".
+- Migration `Version20261020151500`: coluna nula `pasta.carteira`. As pastas existentes ficam "Sem carteira"; nada é preenchido para trás.
+- Pasta, aba Processo: "Editar ação da pasta" no ⋮ do cartão do processo principal e no ⋮ do cabeçalho da aba (decisão do dono de 23/10/2026; desenho 02: "Ação · vem do menu Processo"). Formulário no padrão da edição no cartão (P5b), com XHR; rota `pasta_acao_salvar` (POST + CSRF), `EditarAcaoDaPastaUseCase` com a guarda de EDIT na pasta (teto do cadeado incluído) e do escritório; a lápide e o cadeado em Visualizar são recusados pelos listeners. A troca escreve o cartão do sistema "Dados da pasta: ação alterada pela aba Processo" no Registro, entra no audit_log e, se o nome da pasta mudou, enfileira a renomeação no Drive. Sem migration.
+
+### Alterado
+
+- Contribua, desenho 08 VS 21.10.26: selo "CONVÊNIO OAB" no pacote Free, que abre o modal do convênio (8 benefícios, "Uma parceria para durar", rodapé OAB + BlueJus); etiqueta "+ Espaço" com nuvem nos pacotes pagos maiores que o atual; botões dos cartões alinhados no rodapé. Sem migration.
+- Central: os avisos do Contribua mostram "Ver sugestão" no lugar de "Abrir" (campo `acao` em `/central/avisos`, nulo nos demais tipos).
+- Ponto: esquecimento nunca trava a batida. O ponto aberto em outro escritório e a interjornada contada de uma saída vinda de esquecimento viram aviso na resposta da batida; o "Regularizar ponto de ontem" do cabeçalho vira aviso ao lado do "Bater ponto"; a tela do ponto lista as pendências dos últimos 30 dias, deste e dos outros escritórios da pessoa; a saída sem entrada passa com aviso; um cartão diário lembra a pendência; os avisos só vão para quem registra ou bateu ponto no escritório; a ficha do admin sinaliza o dia com registro em outro escritório, sem dizer qual. Sem migration.
+
 ## [2.14.0] - 2026-10-23
 
 ### Adicionado
@@ -807,7 +823,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.14.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.15.0...HEAD
+[2.15.0]: https://github.com/sfbdata/Prime/compare/v2.14.0...v2.15.0
 [2.14.0]: https://github.com/sfbdata/Prime/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/sfbdata/Prime/compare/v2.12.0...v2.13.0
 [2.12.0]: https://github.com/sfbdata/Prime/compare/v2.11.1...v2.12.0
