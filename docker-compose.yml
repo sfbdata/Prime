@@ -71,6 +71,9 @@ services:
   db:
     image: postgres:15
     container_name: jusprime_db_dev
+    # 512m de memória compartilhada: com 64m (padrão do Docker) as consultas paralelas da suíte esgotavam o /dev/shm
+    # e derrubavam o banco (segfault e recovery em 23/10/2026).
+    shm_size: 512m
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-symfony}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-symfony}

@@ -45,15 +45,17 @@ A foto do Dashboard é comportamento **novo** em produção (nunca rodou); as ou
 ### Desligadas, aguardando o dono
 
 Três tarefas estavam documentadas no DEPLOY.md, mas **não estão no crontab real**: nunca rodaram em
-produção. Ligá-las agora seria comportamento novo (e-mails a clientes e escritórios, importação de índices),
-então ficam fora da agenda até o dono decidir. Para ligar, basta voltar a linha em `AgendaDeTarefas::TAREFAS`
+produção. Ligá-las seria comportamento novo (e-mails a clientes e escritórios, importação de índices),
+então ficaram fora da agenda até o dono decidir. Em 23/10/2026 o dono ligou `app:importar-indices-monetarios`
+(dia 11, 1h de Brasília, como no DEPLOY.md); resumo diário e cobrança do checklist seguem desligados até
+a simulação em produção. Para ligar, basta voltar a linha em `AgendaDeTarefas::TAREFAS`
 e no `AgendaDeTarefasTest` (o teste `testTarefasQueNuncaRodaramEmProducaoFicamDesligadas` trava a lista).
 
 | Comando | Horário que teria (Brasília) | Equivalente em UTC |
 |---|---|---|
 | `app:perfil:resumo-diario --no-interaction` | `0 8 * * *` (todo dia, 8h) | `0 11 * * *` |
 | `app:pasta:cobrar-checklist --no-interaction` | `0 9 * * 1-5` (seg a sex, 9h) | `0 12 * * 1-5` |
-| `app:importar-indices-monetarios --no-interaction` | `0 1 11 * *` (dia 11, 1h) | `0 4 11 * *` |
+| ~~`app:importar-indices-monetarios --no-interaction`~~ (ligada em 23/10/2026) | `0 1 11 * *` (dia 11, 1h) | `0 4 11 * *` |
 
 Notas:
 
