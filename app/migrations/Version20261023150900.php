@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * - `pasta.arquivada_em`: quando a pasta entrou em Arquivado pela última vez ("Pastas concluídas").
  *   Backfill só das pastas arquivadas hoje e não excluídas (a lápide não conta): o arquivamento mais
  *   recente entre o cartão do Registro (`pasta_mensagem`, sistema `situacao`, "para "Arquivado"") e o
- *   `audit_log` (update com situacao → arquivado, ou criação já arquivada). Vale o mais recente dos
+ *   `audit_log` (update com situacao → arquivado; a auditoria de criação não guarda o id da pasta). Vale o mais recente dos
  *   dois porque o "Editar dados" arquiva sem cartão no Registro, só com auditoria. Sem nenhuma fonte,
  *   fica nula (a contagem sai no log da migration) e a pasta não entra em período nenhum.
  * - `dashboard_zeramento`: o "Zerar" de coluna (DASH-014), por pessoa ou para todos (`user_id` nulo).
@@ -36,8 +36,8 @@ final class Version20261023150900 extends AbstractMigration
             SELECT a.entity_id, MAX(a.created_at) AS em
               FROM audit_log a
              WHERE a.entity_class = 'App\Pasta\Entity\Pasta'
-               AND ((a.action = 'update' AND a.changes::jsonb #>> '{diff,changes,situacao,to}' = 'arquivado')
-                 OR (a.action = 'create' AND a.changes::jsonb #>> '{diff,after,situacao}' = 'arquivado'))
+               AND a.action = 'update'
+               AND a.changes::jsonb #>> '{diff,changes,situacao,to}' = 'arquivado'
              GROUP BY a.entity_id
         )
         UPDATE pasta p
@@ -59,8 +59,8 @@ final class Version20261023150900 extends AbstractMigration
                               AND (m.conteudo LIKE '%para &quot;Arquivado&quot;%' OR m.conteudo LIKE '%para "Arquivado"%'))
            AND NOT EXISTS (SELECT 1 FROM audit_log a
                             WHERE a.entity_class = 'App\Pasta\Entity\Pasta' AND a.entity_id = p.id::text
-                              AND ((a.action = 'update' AND a.changes::jsonb #>> '{diff,changes,situacao,to}' = 'arquivado')
-                                OR (a.action = 'create' AND a.changes::jsonb #>> '{diff,after,situacao}' = 'arquivado')))
+                              AND a.action = 'update'
+                              AND a.changes::jsonb #>> '{diff,changes,situacao,to}' = 'arquivado')
         SQL;
 
     public function getDescription(): string

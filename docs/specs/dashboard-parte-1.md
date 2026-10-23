@@ -89,10 +89,10 @@ Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita
   - `pasta.arquivada_em`: gravada pelo `Pasta::setSituacao()` ao ENTRAR em Arquivado (pílula, menu ⋮ e
     "Editar dados"; regravar Arquivado não troca a data), apagada ao sair (e no restaurar da
     lixeira). Backfill das arquivadas não excluídas: o arquivamento mais recente entre o cartão do
-    Registro (`sistema = 'situacao'`, "para "Arquivado"") e o `audit_log` (update `situacao → arquivado`
-    ou criação já arquivada). Vale o mais recente dos dois, e não "Registro primeiro", porque o
+    Registro (`sistema = 'situacao'`, "para "Arquivado"") e o `audit_log` (update `situacao → arquivado`;
+    a de criação não serve, porque sai sem o id da pasta). Vale o mais recente dos dois, e não "Registro primeiro", porque o
     "Editar dados" arquiva sem cartão, só com auditoria. Sem fonte, fica nula e a pasta não entra em
-    período nenhum (a contagem sai no log da migration; no banco de desenvolvimento `saas`, 0 de 512);
+    período nenhum (a contagem sai no log da migration; no banco de desenvolvimento `saas`, 0 de 512; em produção, 0 de 555 em 23/10);
   - `dashboard_zeramento` (tenant, coluna, `user_id` nulo = todos, `contar_desde`, `por_id`,
     `criado_em`, `desfeito_em`, `desfeito_por_id`; índice `(tenant_id, coluna)`) e
     `dashboard_meta_pastas` (tenant, `mes` = dia 1º da vigência, valor, `definida_por_id`,

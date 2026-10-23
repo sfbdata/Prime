@@ -69,9 +69,6 @@ final class BackfillDaArquivadaEmTest extends KernelTestCase
         $this->cartao($modalDepois, 'Ativo', 'Arquivado', '2026-03-01 10:00:00');
         $this->auditoria($modalDepois, 'update', '{"diff":{"changes":{"situacao":{"from":"ativo","to":"arquivado"}}}}', '2026-07-01 10:00:00');
 
-        $criadaArquivada = $this->pasta('arquivado');
-        $this->auditoria($criadaArquivada, 'create', '{"diff":{"after":{"situacao":"arquivado","nup":"X"}}}', '2026-02-02 02:02:02');
-
         $semFonte = $this->pasta('arquivado');
         $this->cartao($semFonte, 'Ativo', 'Suspenso', '2026-05-01 10:00:00');
 
@@ -88,7 +85,6 @@ final class BackfillDaArquivadaEmTest extends KernelTestCase
         self::assertSame('2026-05-03 10:00:00', $this->arquivadaEm($peloRegistro));
         self::assertSame('2026-06-10 09:30:00', $this->arquivadaEm($pelaAuditoria));
         self::assertSame('2026-07-01 10:00:00', $this->arquivadaEm($modalDepois));
-        self::assertSame('2026-02-02 02:02:02', $this->arquivadaEm($criadaArquivada));
         self::assertNull($this->arquivadaEm($semFonte));
         self::assertNull($this->arquivadaEm($excluida), 'pasta excluída não conta');
         self::assertNull($this->arquivadaEm($ativa));
