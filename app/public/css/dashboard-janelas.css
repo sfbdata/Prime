@@ -337,3 +337,103 @@ body:has(.db-page--sem-anim) .db-hist-barra { animation: none; }
 @media print {
     .db-janela { display: none !important; }
 }
+
+/* ── Cartão do colaborador (spec dashboard-parte-1; dc 1.2.2 l.1476-1500, README "Cabeçalho da
+   janela do colaborador") ─────────────────────────────────────────────────────────────────────
+   Faixa azul do sistema no cabeçalho, avatar de 36px com anel branco, nome Arial 14.5px/700 e
+   "cargo · posição" 12px a 84%. As linhas são as do desenho (ícone 13px, rótulo 11.5px/700 em
+   caixa alta, número Arial 18px/700); o seletor de janela reaproveita o segmentado do histórico. */
+.db-janela.db-colab {
+    --db-colab-rotulo: #4f6878;
+    --db-colab-valor:  #0e2533;
+    --db-colab-extra:  #6b8494;
+    --db-colab-ico:    #0c7a9c;
+    --db-colab-ouro:   #c49a3a;
+    width: 320px;
+}
+[data-bs-theme="dark"] .db-janela.db-colab {
+    --db-colab-rotulo: var(--bs-secondary-color);
+    --db-colab-valor:  var(--bs-body-color);
+    --db-colab-extra:  var(--bs-secondary-color);
+    --db-colab-ico:    #7ccbe4;
+    --db-colab-ouro:   #e6c48a;
+}
+.db-colab .db-janela-cab {
+    position: relative;
+    overflow: hidden;
+    margin: -1px -1px 0;
+    padding: 10px 10px 10px 12px;
+    border-radius: 4px 4px 0 0;
+    background: linear-gradient(120deg, #0f6fc4 0%, #0c7a9c 100%);
+}
+.db-colab .db-janela-cab::before {
+    content: "";
+    position: absolute;
+    right: -30px;
+    top: -40px;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.16), rgba(255,255,255,0) 70%);
+    pointer-events: none;
+}
+.db-colab .db-janela-cab > * { position: relative; }
+.db-colab .db-janela-titulo {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14.5px;
+    color: #fff;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.db-colab .db-janela-sub { color: rgba(255,255,255,.84); margin-top: 2px; }
+.db-colab .db-janela-grip { color: rgba(255,255,255,.55); }
+.db-colab .db-janela-fechar { color: rgba(255,255,255,.9); }
+.db-colab .db-janela-fechar:hover { background: rgba(255,255,255,.16); color: #fff; }
+.db-colab .db-colab-av {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 0 0 2px #fff, 0 4px 10px -4px rgba(6,40,70,.5);
+}
+/* as 9 cores do avatar da tabela (dc AV), escolhidas pelo mesmo índice da linha */
+.db-colab-av--0 { background: linear-gradient(145deg, #0f6fc4, #0c5799); }
+.db-colab-av--1 { background: linear-gradient(145deg, #1f7a4d, #185f3c); }
+.db-colab-av--2 { background: linear-gradient(145deg, #6b4b8a, #533b6c); }
+.db-colab-av--3 { background: linear-gradient(145deg, #a3232b, #7f1b22); }
+.db-colab-av--4 { background: linear-gradient(145deg, #2a5f8f, #214a70); }
+.db-colab-av--5 { background: linear-gradient(145deg, #8a5a12, #6c460e); }
+.db-colab-av--6 { background: linear-gradient(145deg, #0c7a9c, #095f7a); }
+.db-colab-av--7 { background: linear-gradient(145deg, #4a6274, #3a4c5a); }
+.db-colab-av--8 { background: linear-gradient(145deg, #1f9d61, #187a4c); }
+.db-colab-corpo { padding: 12px 14px; }
+.db-colab-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 9px;
+}
+.db-colab-linha-ico { font-size: 13px; color: var(--db-colab-ico); }
+.db-colab-linha-ico.db-colab-ico--ouro { color: var(--db-colab-ouro); }
+.db-colab-linha-rotulo {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--db-colab-rotulo);
+    white-space: nowrap;
+}
+.db-colab-linha-espaco { flex: 1; }
+.db-colab-linha-valor {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--db-colab-valor);
+    font-variant-numeric: tabular-nums;
+}
+.db-colab-linha-extra { font-size: 12px; color: var(--db-colab-extra); }
+.db-colab .db-colab-janelas { margin-bottom: 0; }

@@ -36,13 +36,13 @@ final class DashboardPeriodoSegmentadoTest extends DashboardWebTestCase
         self::assertSame('true', $ativos->attr('aria-pressed'));
     }
 
-    #[TestDox('Sem datas na URL nenhum botão fica ativo: o período padrão não muda')]
-    public function testSemDatasNenhumBotaoAtivo(): void
+    #[TestDox('Datas enviadas vazias (período aberto): nenhum botão fica ativo. Sem datas na URL o painel abre em Este mês (DashboardParte1TelaTest)')]
+    public function testDatasVaziasNenhumBotaoAtivo(): void
     {
         $client = static::createClient();
         $this->criarGestorLogado($client);
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
 
         self::assertResponseIsSuccessful();
         self::assertCount(4, $crawler->filter('.db-seg > .db-seg-btn'));

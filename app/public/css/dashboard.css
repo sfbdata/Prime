@@ -570,6 +570,27 @@
     background: var(--db-btn-hover-bg);
 }
 .db-page .filtro-limpar:focus-visible { outline: none; box-shadow: var(--db-focus); }
+/* Período padrão (spec dashboard-parte-1): no Este mês sem outro filtro, o botão sai (dashboard.js). */
+.db-page .filtro-limpar[hidden] { display: none; }
+
+/* Troféu do campeão (dc 1.2.2 l.801 e script l.2986): 11.5px dourado logo depois do nome; no hover
+   da linha cresce 1.35x e inclina -10 graus com mola, e ganha brilho. A fanfarra é do JS. */
+.db-page .db-trofeu {
+    font-size: 11.5px;
+    color: #c49a3a;
+    flex-shrink: 0;
+    display: inline-block;
+    transform-origin: 50% 90%;
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1), filter .35s ease;
+    filter: drop-shadow(0 1px 1px rgba(150,110,30,.25));
+}
+.db-page .db-colab > .db-trofeu { margin-left: -6px; } /* 6px do nome, como no desenho (gap 12px da célula) */
+.db-page .db-tr-campeao:hover .db-trofeu {
+    transform: scale(1.35) rotate(-10deg);
+    filter: drop-shadow(0 0 6px rgba(214,160,40,.75));
+}
+/* Botão direito no nome abre o cartão do colaborador (cursor do desenho). */
+.db-page .db-colab[data-db-colab-url] { cursor: context-menu; }
 
 /* ── Selects e calendário próprios (Lote 7 · F13/F14) ─────────────────────────
    Desenho: "Filtros em cascata com avatar" e "Calendário das datas" (README) e

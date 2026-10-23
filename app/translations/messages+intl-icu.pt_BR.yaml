@@ -2976,6 +2976,9 @@ dashboard:
         abrir_pastas: 'Abrir: Expediente · pastas de {nome}'
         abrir_pastas_ativas: 'Abrir: Expediente · pastas ativas de {nome}'
         abrir_pastas_criadas: 'Abrir: Expediente · pastas criadas por {nome}'
+        botao_direito_desempenho: 'Botão direito: desempenho de {nome}'
+        trofeu_titulo: Mais metas concluídas no período
+        trofeu_rotulo: Melhor resultado
     celular:
         ordenar: Ordenar
         ordem_crescente: Ordem crescente
@@ -3149,6 +3152,23 @@ dashboard:
         janelas:
             arraste_para_mover: Arraste para mover
             fechar: Fechar
+        colaborador:
+            carregando: Carregando…
+            erro: Não foi possível carregar o desempenho. Feche a janela e tente de novo.
+            sem_cargo: Sem cargo
+            periodo: Período
+            mes: Mês
+            trimestre: Trimestre
+            semestre: Semestre
+            ano: Ano
+            posicao_mes: '{pos}º de {n} no mês'
+            posicao_trimestre: '{pos}º de {n} no trimestre'
+            posicao_semestre: '{pos}º de {n} no semestre'
+            posicao_ano: '{pos}º de {n} no ano'
+            comentarios: Comentários
+            metas_concluidas: Metas concluídas
+            campeao: 1º lugar
+            nota: 'Metas criadas de {de} a {ate} e já concluídas (total menos ativas). Empate: menos vencidas na frente. A meta com dois responsáveis conta para cada um; na equipe, foram {equipe}.'
 
 # ---- Agenda (agenda/nova, lista, novo, editar, show; agenda-nova.js)
 agenda:

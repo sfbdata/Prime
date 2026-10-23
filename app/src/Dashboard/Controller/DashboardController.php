@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Dashboard\Controller;
 
 use App\Dashboard\Inteligencia\MontarLeituraDoDashboard;
+use App\Dashboard\Periodo\PeriodoDoDashboard;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Dashboard\UseCase\ObterPreferenciasDoDashboardUseCase;
 use App\Entity\Auth\User;
@@ -38,19 +39,7 @@ final class DashboardController extends AbstractController
         $currentUser = $this->getUser();
         $tenant      = $this->assertAccess($currentUser);
 
-        $filtros = [
-            'data_de'     => (string) $request->query->get('data_de', ''),
-            'data_ate'    => (string) $request->query->get('data_ate', ''),
-            'responsavel' => (string) $request->query->get('responsavel', ''),
-            // Nome do cargo, ou ObterDadosDashboardUseCase::CARGO_SEM ('__sem__') para quem não tem cargo.
-            'cargo'       => (string) $request->query->get('cargo', ''),
-            // Trecho do nome do colaborador: esconde linhas da tabela, não mexe nos cards.
-            'busca'       => trim((string) $request->query->get('busca', '')),
-            // Coluna clicada no cabeçalho da tabela. A validação é do UseCase: chave que não
-            // existe cai no padrão do painel em vez de quebrar a tela.
-            'ordenar'     => (string) $request->query->get('ordenar', ''),
-            'direcao'     => (string) $request->query->get('direcao', ''),
-        ];
+        $filtros = $this->lerFiltros($request);
 
         // Estilo pessoal do menu ⋮ do usuário LOGADO neste escritório. Lido também no XHR: as
         // colunas extras ("Adicionar coluna") mudam o HTML da tabela, então o fragmento tem de
@@ -137,6 +126,33 @@ final class DashboardController extends AbstractController
             'contagemSemCargo' => $contagemSemCargo,
             'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
         ]);
+    }
+
+    /**
+     * Filtros da URL. Sem `data_de` e sem `data_ate`, o painel abre em "Este mês" (1º do mês até
+     * hoje; spec dashboard-parte-1, item 1). Data vazia enviada (o usuário apagou) deixa o período aberto.
+     *
+     * @return array<string, mixed>
+     */
+    private function lerFiltros(Request $request): array
+    {
+        $filtros = [
+            'data_de'     => (string) $request->query->get('data_de', ''),
+            'data_ate'    => (string) $request->query->get('data_ate', ''),
+            'responsavel' => (string) $request->query->get('responsavel', ''),
+            // Nome do cargo, ou ObterDadosDashboardUseCase::CARGO_SEM ('__sem__') para quem não tem cargo.
+            'cargo'       => (string) $request->query->get('cargo', ''),
+            // Trecho do nome do colaborador: esconde linhas da tabela, não mexe nos cards.
+            'busca'       => trim((string) $request->query->get('busca', '')),
+            // Coluna clicada no cabeçalho da tabela. A validação é do UseCase: chave que não
+            // existe cai no padrão do painel em vez de quebrar a tela.
+            'ordenar'     => (string) $request->query->get('ordenar', ''),
+            'direcao'     => (string) $request->query->get('direcao', ''),
+        ];
+
+        $veioData = $request->query->has('data_de') || $request->query->has('data_ate');
+
+        return PeriodoDoDashboard::comPadrao($filtros, $veioData, new \DateTimeImmutable());
     }
 
     private function assertAccess(User $user): Tenant

@@ -253,7 +253,7 @@ final class DashboardFotoTendenciaTelaTest extends DashboardWebTestCase
         [$gestora, $tenant] = $this->criarGestorLogado($client);
         $this->fotografar($tenant, self::VESPERA, [(int) $gestora->getId()]);
 
-        $crawler = $client->xmlHttpRequest('GET', '/dashboard');
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?data_de=&data_ate=');
         self::assertResponseIsSuccessful();
 
         self::assertCount(0, $crawler->filter('table > tfoot .db-tend'));
