@@ -36,6 +36,9 @@
    `podeEditarPasta` que o parcial da aba Processo já calculou; sem nenhum dos dois, pergunta a
    `can_access_resource`, que guarda a resposta por requisição (um bloco por processo não repete
    a consulta). #}
+{# PMC-018: "Encaminhar via Chat I.A" no ⋮ de cada nota. A Central conferida UMA vez por bloco (cada
+   chamada consulta o vínculo); o id da pasta ou null (sem Central, lápide). #}
+{% set encaminharNotaPasta = not somenteLeitura and central_disponivel() ? pastaId : null %}
 {% set podeEscreverNota = not somenteLeitura and (podeEscreverNota is defined
     ? podeEscreverNota
     : (podeEditarPasta ?? can_access_resource('pasta', pastaId, 'edit'))) %}
@@ -75,7 +78,7 @@
 
     <div class="ps-notas-lista">
         {% for nota in notas %}
-            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao, somenteLeitura: somenteLeitura, podeEscreverNota: podeEscreverNota, idSufixo: idSufixoNota ?? ''}) }}
+            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao, somenteLeitura: somenteLeitura, podeEscreverNota: podeEscreverNota, idSufixo: idSufixoNota ?? '', encaminharNotaPasta: encaminharNotaPasta}) }}
         {% endfor %}
     </div>
 

@@ -501,6 +501,10 @@
         var itemCopiar = alvo.closest('.js-nota-copiar');
         if (itemCopiar) { copiar(itemCopiar); return; }
 
+        // PMC-018: "Encaminhar via Chat I.A" só fecha o menu aqui; o despacho é do
+        // pasta-encaminhar.js (`.js-encaminhar` → `bj-central:despachar`, tipo `nota_tecnica`).
+        if (alvo.closest('.js-nota-encaminhar')) { fecharMenu(false); return; }
+
         // C6-PMC-05 (dc:5405-5406): "Editar · bloqueado" / "Excluir · bloqueado" são clicáveis e
         // dizem POR QUE não agem — o motivo só no `title` não aparece no toque nem no teclado.
         // O aviso é o da tela (`avisarPs`, pasta-dialogos.js); o item não carrega ação nenhuma.
