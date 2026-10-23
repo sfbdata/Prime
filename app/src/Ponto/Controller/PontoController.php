@@ -27,6 +27,8 @@ use App\Ponto\Exception\JustificativaJaAnalisadaException;
 use App\Ponto\UseCase\ConfirmarEdicaoDeJustificativaUseCase;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Service\ChaveDoPontoEletronico;
+use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
@@ -75,6 +77,7 @@ final class PontoController extends AbstractController
         private readonly SubstituirAnexoDoLoteUseCase $substituirAnexoDoLote,
         private readonly ConfirmarEdicaoDeJustificativaUseCase $confirmarEdicao,
         private readonly JornadaColaboradorRepository $jornadas,
+        private readonly ChaveDoPontoEletronico $chaveDoPonto,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -577,6 +580,7 @@ final class PontoController extends AbstractController
         RegistroPontoRepository $registroRepository,
         HomeOfficeResolver $homeOfficeResolver,
         EntradaAbertaEmOutroEscritorio $entradaAberta,
+        ChoqueDeJornadaEntreEscritorios $choque,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -628,8 +632,8 @@ final class PontoController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable();
-        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($travada = $entradaAberta->mensagem($user, $tenant, $hoje)) !== null) {
-            return $this->json(['success' => false, 'message' => $travada], 422);   // ponto aberto em outro escritório
+        if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $entradaAberta, $choque)) !== null) {
+            return $this->json(['success' => false, 'message' => $recusa], 422);   // chave, trava ou choque de horário
         }
 
         // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
@@ -797,6 +801,29 @@ final class PontoController extends AbstractController
             'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
             'data'    => $dados,
         ]);
+    }
+
+    /**
+     * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3 e
+     * ponto-por-escritorio §2.2): a chave "Registra ponto eletrônico" desligada aqui, a entrada aberta hoje em outro
+     * escritório e o horário de trabalho de hoje em outro escritório onde a pessoa registra ponto. Null quando segue.
+     */
+    private function recusaEntreEscritorios(
+        User $user,
+        Tenant $tenant,
+        string $tipo,
+        \DateTimeImmutable $agora,
+        EntradaAbertaEmOutroEscritorio $entradaAberta,
+        ChoqueDeJornadaEntreEscritorios $choque,
+    ): ?string {
+        if ($this->chaveDoPonto->estaDesligada($user, $tenant)) {
+            return ChaveDoPontoEletronico::MENSAGEM_DESLIGADA;
+        }
+        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($travada = $entradaAberta->mensagem($user, $tenant, $agora)) !== null) {
+            return $travada;
+        }
+
+        return $choque->naBatida($user, $tenant, $agora);
     }
 
     /**
