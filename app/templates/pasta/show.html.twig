@@ -3148,7 +3148,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cartao = `
         <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}"
                  data-janela-ate="${Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60}"
-                 data-do-autor="1" data-autor-id="{{ app.user ? app.user.id : '' }}">
+                 data-do-autor="1" data-autor-id="{{ app.user ? app.user.id : '' }}"{% if sem_prazo_selo(false) %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ sem_prazo_selo(false))|trans|e('html_attr') }}"{% endif %}>
             ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>

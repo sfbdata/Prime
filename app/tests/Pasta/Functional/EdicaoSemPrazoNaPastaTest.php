@@ -136,6 +136,22 @@ final class EdicaoSemPrazoNaPastaTest extends JusPrimeWebTestCase
         self::assertCount(2, $this->auditoriaSemPrazo($this->escritorio));
     }
 
+    #[DataProvider('pontos')]
+    #[TestDox('Ponto $ponto: a edição do Master recusada na validação (conteúdo vazio) não deixa linha de auditoria, mesmo com um flush depois')]
+    public function testEdicaoInvalidaNaoAudita(string $ponto): void
+    {
+        $master = $this->novaPessoa($this->escritorio, 'Marcos Master', false, ['ROLE_SUPER_ADMIN']);
+        $conteudo = $this->criar($ponto, $this->autor, '-3 days');
+        $this->logarComTenant($this->client, $master, $this->escritorio);
+
+        [$url, $token] = $this->rota($ponto, $conteudo, 'editar');
+        $this->client->request('POST', $url, ['_token' => 'TOKEN_' . $token, 'conteudo' => '<p><br></p>']);
+
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode());
+        $this->em->flush();
+        self::assertSame([], $this->auditoriaSemPrazo($this->escritorio));
+    }
+
     // ── fixtures ────────────────────────────────────────────────────────────────
 
     private function criar(string $ponto, User $autor, string $quando): object

@@ -292,6 +292,26 @@ final class EditarExcluirAnotacaoUseCaseTest extends TestCase
         $this->editar($this->relogio('2026-07-22 10:10:00'))->executar($input, $this->tenant, $master);
     }
 
+    #[Test]
+    #[TestDox('Edição sem prazo: a edição do Master recusada na validação (texto vazio) não vai para a auditoria')]
+    public function masterComTextoVazioNaoAudita(): void
+    {
+        $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($this->anotacao());
+        $this->eventoRepository->expects($this->never())->method('salvar');
+        $master = (new User())->setRoles(['ROLE_SUPER_ADMIN']);
+        $this->definirId($master, 50);
+        $trilha = $this->createMock(AuditLogRepository::class);
+        $trilha->expects($this->never())->method('registrar');
+        $poder = $this->poderSemPrazo();
+        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-30 10:00:00'), $poder, $this->auditoriaSemPrazo($poder, $trilha), $this->criarSanitizadorTextoRico());
+        $input = new EditarAnotacaoInput();
+        $input->eventoId = 5;
+        $input->texto = '<p><br></p>';
+
+        $this->expectException(\InvalidArgumentException::class);
+        $sut->executar($input, $this->tenant, $master);
+    }
+
     private function editar(ClockInterface $relogio): EditarAnotacaoUseCase
     {
         $poder = $this->poderSemPrazo();

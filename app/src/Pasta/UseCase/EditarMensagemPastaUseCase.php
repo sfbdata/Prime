@@ -74,7 +74,7 @@ final class EditarMensagemPastaUseCase
         [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
 
         // O texto de antes fica guardado INTEIRO (PAS-045, "Ver alteração" da Timeline).
-        $mensagem->editarConteudo($conteudo, new \DateTimeImmutable());
+        $this->aplicar($mensagem, $usuario, $tenant, $conteudo);
 
         $pasta = $mensagem->getPasta();
         if ($mencionados === [] || $pasta === null) {
@@ -98,12 +98,21 @@ final class EditarMensagemPastaUseCase
         });
     }
 
-    /** A checagem do podeEditar() e, quando foi o poder sem prazo que liberou, o rastro na auditoria (§6). */
+    /** A checagem do podeEditar(). O rastro na auditoria (§6) fica em aplicar(), depois das validações. */
     private function exigir(PastaMensagem $mensagem, User $usuario, Tenant $tenant): void
     {
         if (!$this->podeEditar($mensagem, $usuario, $tenant)) {
             throw new MensagemPastaNaoEditavelException('Esta mensagem não pode ser editada.');
         }
+    }
+
+    /**
+     * Só depois de todas as validações: a trilha da edição sem prazo (spec §6) é gravada junto com a edição, nunca
+     * por uma tentativa recusada.
+     */
+    private function aplicar(PastaMensagem $mensagem, User $usuario, Tenant $tenant, string $conteudo): void
+    {
         $this->prazo->registrar(AuditoriaDaEdicaoSemPrazo::EDITAR, $usuario, $tenant, $mensagem->pertenceAo($usuario), $mensagem->getCriadaEm(), $mensagem, $mensagem->getAutor());
+        $mensagem->editarConteudo($conteudo, new \DateTimeImmutable());
     }
 }

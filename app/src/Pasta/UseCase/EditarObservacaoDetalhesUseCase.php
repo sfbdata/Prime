@@ -64,7 +64,7 @@ final class EditarObservacaoDetalhesUseCase
         [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
 
         // O texto de antes fica guardado INTEIRO (PAS-045b, "Ver alteração" da Timeline).
-        $observacao->editarConteudo($conteudo, new \DateTimeImmutable());
+        $this->aplicar($observacao, $usuario, $tenant, $conteudo);
 
         $pasta = $observacao->getPasta();
         if ($mencionados === [] || $pasta === null) {
@@ -89,12 +89,21 @@ final class EditarObservacaoDetalhesUseCase
         });
     }
 
-    /** A checagem do podeEditar() e, quando foi o poder sem prazo que liberou, o rastro na auditoria (§6). */
+    /** A checagem do podeEditar(). O rastro na auditoria (§6) fica em aplicar(), depois das validações. */
     private function exigir(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant): void
     {
         if (!$this->podeEditar($observacao, $usuario, $tenant)) {
             throw new ObservacaoDetalhesNaoEditavelException('Esta observação não pode ser editada.');
         }
+    }
+
+    /**
+     * Só depois de todas as validações: a trilha da edição sem prazo (spec §6) é gravada junto com a edição, nunca
+     * por uma tentativa recusada.
+     */
+    private function aplicar(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant, string $conteudo): void
+    {
         $this->prazo->registrar(AuditoriaDaEdicaoSemPrazo::EDITAR, $usuario, $tenant, $observacao->pertenceAo($usuario), $observacao->getCriadaEm(), $observacao, $observacao->getAutor());
+        $observacao->editarConteudo($conteudo, new \DateTimeImmutable());
     }
 }

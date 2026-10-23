@@ -201,6 +201,7 @@ final class MarcacoesDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $uma = array_values(array_filter($this->mensagens($client, $codigo), static fn (array $m): bool => $m['id'] === $ids['Uma']))[0];
         self::assertTrue($uma['podeApagar']);
         self::assertSame('EXCLUSIVO DO PRIMÁRIO', $uma['seloSemPrazo']);
+        self::assertSame('Apagar para todos', $uma['apagarDica'], 'pelo poder não há prazo de 60 min na dica');
         $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens/{$ids['Uma']}/apagar");
         self::assertResponseIsSuccessful();
         $linha = $em->getRepository(AuditLog::class)->findOneBy(['action' => 'sp_excluir', 'entityId' => (string) $ids['Uma']]);

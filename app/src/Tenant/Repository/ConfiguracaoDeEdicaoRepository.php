@@ -30,10 +30,20 @@ class ConfiguracaoDeEdicaoRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** Sem linha, a opção vale ligada (spec §3). */
+    /**
+     * Sem linha, a opção vale ligada (spec §3). Lida pelo DBAL, sem o TenantFilter da sessão: o escritório pedido
+     * pode não ser o da sessão (item 8, o primário do escritório DONO da demanda do TE), e o filtro esconderia a
+     * linha, caindo no "ligada" (falha aberta). O tenant vai explícito no WHERE.
+     */
     public function primarioSemPrazo(Tenant $tenant): bool
     {
-        return $this->doEscritorio($tenant)?->isPrimarioSemPrazo() ?? true;
+        $valor = $this->getEntityManager()->getConnection()->fetchOne(
+            // 1/0 em vez do booleano: o `false` do fetchOne é "sem linha", não pode ser confundido com a opção desligada.
+            'SELECT CASE WHEN primario_sem_prazo THEN 1 ELSE 0 END FROM escritorio_configuracao_edicao WHERE tenant_id = :tenant',
+            ['tenant' => $tenant->getId()],
+        );
+
+        return $valor === false || (int) $valor === 1;
     }
 
     public function salvar(ConfiguracaoDeEdicao $configuracao): void

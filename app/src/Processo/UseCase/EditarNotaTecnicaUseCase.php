@@ -81,7 +81,7 @@ final class EditarNotaTecnicaUseCase
         if ($conteudo !== $nota->getConteudo()) {
             $this->versaoRepository->adicionar(NotaTecnicaVersao::daNotaAntesDeEditar($nota, $tenant));
         }
-        $nota->editar($conteudo);
+        $this->aplicar($nota, $usuario, $tenant, $conteudo);
 
         if ($mencionados === [] || $pasta === null) {
             $this->repository->salvar($nota, flush: true);
@@ -107,12 +107,21 @@ final class EditarNotaTecnicaUseCase
         return $a === $b || ($a->getId() !== null && $a->getId() === $b->getId());
     }
 
-    /** A checagem do podeEditar() e, quando foi o poder sem prazo que liberou, o rastro na auditoria. */
+    /** A checagem do podeEditar(). O rastro na auditoria (§6) fica em aplicar(), depois das validações. */
     private function exigir(NotaTecnica $nota, User $usuario, Tenant $tenant): void
     {
         if (!$this->podeEditar($nota, $usuario, $tenant)) {
             throw new NotaTecnicaNaoEditavelException('Esta nota técnica não pode ser editada.');
         }
+    }
+
+    /**
+     * Só depois de todas as validações: a trilha da edição sem prazo (spec §6) é gravada junto com a edição, nunca
+     * por uma tentativa recusada.
+     */
+    private function aplicar(NotaTecnica $nota, User $usuario, Tenant $tenant, string $conteudo): void
+    {
         $this->prazo->registrar(AuditoriaDaEdicaoSemPrazo::EDITAR, $usuario, $tenant, $nota->pertenceAo($usuario), $nota->getCriadaEm(), $nota, $nota->getAutor());
+        $nota->editar($conteudo);
     }
 }

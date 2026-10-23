@@ -57,7 +57,7 @@ final class EditarAnotacaoUseCase
             throw new CasoEncerradoException((int) $caso->getId());
         }
 
-        $this->exigirPermissao($evento, $usuario, $tenant);
+        $pelaRegra = $this->exigirPermissao($evento, $usuario, $tenant);
 
         // Mesma limpeza do registro: a edição é outra porta para o mesmo texto.
         $texto = $this->sanitizador->limpar(trim((string) $input->texto)) ?? '';
@@ -66,6 +66,8 @@ final class EditarAnotacaoUseCase
             throw new \InvalidArgumentException('A anotação não pode ser vazia.');
         }
 
+        // A trilha da edição sem prazo (spec §6) só depois de todas as validações.
+        $this->auditoria->registrar(AuditoriaDaEdicaoSemPrazo::EDITAR, $usuario, $tenant, $pelaRegra, EventoHistorico::class, $evento->getId(), $evento->getUsuario()?->getId());
         $evento->reescrever($texto, $this->clock->now());
         $this->eventoRepository->salvar($evento, true);
 
@@ -74,15 +76,16 @@ final class EditarAnotacaoUseCase
 
     /**
      * Autor dentro das 48h, OU o poder sem prazo (spec edicao-sem-prazo, item 6: Master; primário com a opção). O uso do
-     * poder vai para a trilha.
+     * poder vai para a trilha, gravada por `executar` só depois das validações; aqui só se devolve se valeu a regra de sempre.
      */
-    private function exigirPermissao(EventoHistorico $evento, User $usuario, Tenant $tenant): void
+    private function exigirPermissao(EventoHistorico $evento, User $usuario, Tenant $tenant): bool
     {
         $agora = $this->clock->now();
         $pelaRegra = $evento->podeSerEditadaPor($usuario, $agora);
         if (!$pelaRegra && !$evento->podeSerEditadaPor($usuario, $agora, $this->poder->de($usuario, $tenant) !== null)) {
             throw new AnotacaoNaoEditavelException();
         }
-        $this->auditoria->registrar(AuditoriaDaEdicaoSemPrazo::EDITAR, $usuario, $tenant, $pelaRegra, EventoHistorico::class, $evento->getId(), $evento->getUsuario()?->getId());
+
+        return $pelaRegra;
     }
 }
