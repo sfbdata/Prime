@@ -28,6 +28,7 @@ use App\Ponto\UseCase\ConfirmarEdicaoDeJustificativaUseCase;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\ChaveDoPontoEletronico;
+use App\Ponto\Service\TurnoAbertoNoEscritorio;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
@@ -78,6 +79,7 @@ final class PontoController extends AbstractController
         private readonly ConfirmarEdicaoDeJustificativaUseCase $confirmarEdicao,
         private readonly JornadaColaboradorRepository $jornadas,
         private readonly ChaveDoPontoEletronico $chaveDoPonto,
+        private readonly TurnoAbertoNoEscritorio $turnoAberto,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -807,7 +809,8 @@ final class PontoController extends AbstractController
      * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3 e
      * ponto-por-escritorio §2.2): a chave "Registra ponto eletrônico" desligada aqui, a entrada aberta hoje em outro
      * escritório e o horário de trabalho de hoje em outro escritório onde a pessoa registra ponto. Null quando segue.
-     * Saída e ida ao repouso nunca são recusadas aqui: nunca prender o ponto aberto (revisão de 23/10, proposta da 0d).
+     * Saída e ida ao repouso passam quando fecham uma entrada aberta neste escritório: nunca prender o ponto aberto
+     * (revisão de 23/10, proposta da 0d). Fora disso valem as mesmas recusas da entrada.
      */
     private function recusaEntreEscritorios(
         User $user,
@@ -817,7 +820,7 @@ final class PontoController extends AbstractController
         EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
     ): ?string {
-        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true)) {
+        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true) && $this->turnoAberto->estaAberto($user, $tenant, $agora)) {
             return null;
         }
         if ($this->chaveDoPonto->estaDesligada($user, $tenant)) {

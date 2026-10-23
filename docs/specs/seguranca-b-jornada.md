@@ -43,8 +43,10 @@
      pessoa registra ponto E não cai num horário de trabalho deste escritório. Quando os dois cobrem o momento (choque
      que entrou sem conferência: vínculo novo com a chave nascida ligada, ou gravação concorrente), a batida passa:
      ninguém fica travado (revisão de 23/10).
-   - **Saída e ida ao repouso não são recusadas** (proposta da 0d, aguardando confirmação do dono), nem pelo choque nem
-     pela chave desligada: nunca prender o ponto aberto. Entrada e retorno do repouso seguem sujeitos às duas recusas.
+   - **Saída e ida ao repouso passam quando fecham uma entrada aberta neste escritório; fora disso valem as recusas**
+     (proposta da 0d, aguardando confirmação do dono). Entrada aberta = a última batida da pessoa neste escritório, hoje
+     até o momento, é entrada ou retorno. Assim a chave e o choque nunca prendem o ponto aberto. Entrada e retorno do
+     repouso seguem sujeitos às duas recusas.
 4. **Backfill** (produção tem 10 jornadas):
    - pessoa com um único escritório ativo: a jornada vai para ele;
    - pessoa sem vínculo ativo: vai para o último escritório. A fonte é o último `RegistroPonto`, porque remover o
@@ -96,8 +98,9 @@
   - ao salvar ou apagar a jornada pessoal (apagar faz valer a padrão, que também é conferida);
   - ao salvar a jornada padrão do escritório, para todas as pessoas dele com o ponto ligado;
   - na batida, ao lado da trava `EntradaAbertaEmOutroEscritorio`, com a hora atual contra os intervalos de hoje dos
-    outros escritórios, só quando ela não cai num intervalo de hoje deste escritório. Saída e ida ao repouso não são
-    recusadas (proposta da 0d, aguardando confirmação do dono).
+    outros escritórios, só quando ela não cai num intervalo de hoje deste escritório. Saída e ida ao repouso passam
+    quando fecham uma entrada aberta neste escritório; fora disso valem as recusas (proposta da 0d, aguardando
+    confirmação do dono).
 - **Mensagens** no padrão da trava existente, como constantes de texto no PHP devolvidas no JSON de erro. Sem nome de
   escritório.
 

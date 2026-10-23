@@ -103,18 +103,62 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->batidasEm($this->a));
     }
 
-    #[TestDox('Revisão 23/10: saída e ida ao repouso passam com a chave desligada e no horário de B; nunca prender o ponto aberto')]
-    public function testSaidaERepousoNuncaSaoRecusados(): void
+    #[TestDox('Entrada em A cedo, fora do horário de B; a saída em A no horário de B passa, porque fecha a entrada aberta em A')]
+    public function testSaidaQueFechaEntradaAbertaPassa(): void
     {
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
         $this->jornadaDeHojeEmTornoDeAgora();
+
+        $resposta = $this->baterEmA('saida');
+
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+    }
+
+    #[TestDox('A ida ao repouso no horário de B também passa quando fecha a entrada aberta em A')]
+    public function testRepousoQueFechaEntradaAbertaPassa(): void
+    {
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
+        $this->jornadaDeHojeEmTornoDeAgora();
+
+        $resposta = $this->baterEmA('repouso');
+
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+    }
+
+    #[TestDox('Saída solta em A, sem entrada aberta aqui, no horário de B: recusa como a entrada')]
+    public function testSaidaSoltaNoHorarioDeBRecusa(): void
+    {
+        $trecho = $this->jornadaDeHojeEmTornoDeAgora();
+
+        $resposta = $this->baterEmA('saida');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(sprintf(ChoqueDeJornadaEntreEscritorios::MENSAGEM_BATIDA, ...$trecho), $resposta['message'] ?? null);
+        self::assertSame(0, $this->batidasEm($this->a));
+    }
+
+    #[TestDox('Chave desligada em A com a entrada aberta em A: a saída em A passa')]
+    public function testChaveDesligadaComEntradaAbertaSaidaPassa(): void
+    {
+        $this->registrarBatida($this->pessoa, $this->a, 'entrada', $this->hojeCedo());
         $this->vinculoEmA->alterarRegistroDePonto(false);
         $this->em()->flush();
 
-        foreach (['repouso', 'saida'] as $tipo) {
-            $resposta = $this->baterEmA($tipo);
-            self::assertTrue($resposta['success'] ?? false, $tipo . ': ' . ($resposta['message'] ?? ''));
-        }
-        self::assertSame(2, $this->batidasEm($this->a));
+        $resposta = $this->baterEmA('saida');
+
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+    }
+
+    #[TestDox('Chave desligada em A sem entrada aberta: a saída em A é recusada')]
+    public function testChaveDesligadaSemEntradaAbertaSaidaRecusa(): void
+    {
+        $this->vinculoEmA->alterarRegistroDePonto(false);
+        $this->em()->flush();
+
+        $resposta = $this->baterEmA('saida');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(ChaveDoPontoEletronico::MENSAGEM_DESLIGADA, $resposta['message'] ?? null);
     }
 
     #[TestDox('Retorno do repouso no horário de B continua recusado, como a entrada')]
@@ -138,6 +182,12 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         $this->jornadaPessoal($this->pessoa, $this->b, [[[(int) $agora->format('N')], $trecho[0], null, null, $trecho[1]]]);
 
         return $trecho;
+    }
+
+    /** Meio minuto depois da meia-noite de hoje: antes do agora (o setUp pula os primeiros minutos do dia). */
+    private function hojeCedo(): \DateTimeImmutable
+    {
+        return (new \DateTimeImmutable('today'))->modify('+30 seconds');
     }
 
     /** @return array<string, mixed> */
