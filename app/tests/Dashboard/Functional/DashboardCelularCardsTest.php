@@ -286,7 +286,7 @@ final class DashboardCelularCardsTest extends DashboardWebTestCase
         $client = static::createClient();
         $this->montarCenario($client);
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('.db-cel-lista .db-tend'));
         self::assertCount(0, $crawler->filter('.db-cel-lista .db-seta'));

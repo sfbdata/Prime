@@ -31,6 +31,7 @@ use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\SedeRepository;
@@ -87,6 +88,28 @@ final class TenantController extends AbstractController
         private readonly TranslatorInterface $tradutor,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
     ) {}
+
+    /**
+     * Tira do "aprovar todos" o esquecimento cuja batida já existe no dia (spec `ponto-esquecimento-nao-trava.md` R1):
+     * ele fica pendente, para o admin decidir, e o motivo vai num aviso.
+     *
+     * @param list<JustificativaPonto> $pendentes
+     *
+     * @return list<JustificativaPonto>
+     */
+    private function semBatidaJaRegistrada(array $pendentes, Tenant $tenant, RegistrarBatidaDoEsquecimentoUseCase $registrar): array
+    {
+        $seguem = [];
+        foreach ($pendentes as $justificativa) {
+            if (($recusa = $registrar->recusa($justificativa, $tenant)) !== null) {
+                $this->addFlash('warning', $recusa);
+                continue;
+            }
+            $seguem[] = $justificativa;
+        }
+
+        return $seguem;
+    }
 
     /**
      * O esquecimento só vale para a batida que falta (spec `ponto-esquecimento-nao-trava.md` R1): a recusa quando a
@@ -1162,7 +1185,8 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         NotificacaoService $notificacaoService,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1202,7 +1226,7 @@ final class TenantController extends AbstractController
             $this->addFlash('warning', 'Apenas justificativas pendentes podem ser abonadas.');
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
-        if (($jaBatida = $this->esquecimentoJaBatido($user, $tenant, $justificativa->getTipo(), $justificativa->getTipoRegistroEsquecido(), [$justificativa->getData()])) !== null) {
+        if (($jaBatida = $registrarBatidaDoEsquecimento->recusa($justificativa, $tenant)) !== null) {
             $this->addFlash('warning', $jaBatida);   // o pedido fica pendente: o admin decide (R1)
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
@@ -1218,22 +1242,8 @@ final class TenantController extends AbstractController
 
         $entityManager->flush();
 
-        if ($justificativa->getTipo() === 'esquecimento_registro'
-            && $justificativa->getTipoRegistroEsquecido() !== null
-            && $justificativa->getHoraRegistroEsquecido() !== null
-            && $justificativa->getData() !== null
-        ) {
-            $dataHora = new \DateTime(
-                $justificativa->getData()->format('Y-m-d') . ' '
-                . $justificativa->getHoraRegistroEsquecido()->format('H:i:s')
-            );
-            $registro = new RegistroPonto();
-            $registro->setUser($justificativa->getUser());
-            $registro->setTenant($tenant);
-            $registro->setDataHora($dataHora);
-            $registro->setTipo($justificativa->getTipoRegistroEsquecido());
-            $registro->setObservacao(SaidaDeEsquecimento::OBSERVACAO_APROVACAO);
-            $entityManager->persist($registro);
+        // Esquecimento de registro: grava a batida pedida (mesmo caminho do "aprovar todos").
+        if ($registrarBatidaDoEsquecimento($justificativa, $tenant) !== null) {
             $entityManager->flush();
         }
 
@@ -1337,7 +1347,8 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         NotificacaoService $notificacaoService,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        RegistrarBatidaDoEsquecimentoUseCase $registrarBatidaDoEsquecimento
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1373,10 +1384,13 @@ final class TenantController extends AbstractController
         }
 
         $urlPonto = $this->generateUrl('ponto_index');
+        $pendentes = $this->semBatidaJaRegistrada($pendentes, $tenant, $registrarBatidaDoEsquecimento);   // R1
         foreach ($pendentes as $justificativa) {
             $justificativa->setStatus('abonado');
             $justificativa->setDataAnalise(new \DateTime());
             $justificativa->setAnalisadoPor($currentUser);
+            // Esquecimento de registro: grava a batida pedida, como na aprovação individual.
+            $registrarBatidaDoEsquecimento($justificativa, $tenant);
             $notificacaoService->notificarJustificativaAprovada($justificativa, $urlPonto);
         }
 
