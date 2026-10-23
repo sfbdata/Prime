@@ -17,8 +17,12 @@ use Doctrine\Migrations\AbstractMigration;
  * propósito, o `DROP INDEX uniq_cobranca_obrigacao_ref_competencia` que o mesmo dump propõe — é
  * índice funcional único que o Doctrine não sabe representar (divergência antiga, não desta mudança;
  * aceitá-lo deixaria entrar duplicata).
+ *
+ * Versão: nasceu `Version20261015180000`, foi renomeada para `Version20261015213000` (colisão com a
+ * Central B) e, ao trazer o master de 23/10, para `Version20261020151300`, versão definida pelo
+ * coordenador para entrar depois das migrations que já estão no master.
  */
-final class Version20261015213000 extends AbstractMigration
+final class Version20261020151300 extends AbstractMigration
 {
     public function getDescription(): string
     {
