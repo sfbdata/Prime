@@ -146,18 +146,17 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         self::assertStringContainsString('el.getClientRects().length > 0', self::funcao('visivel'));
     }
 
-    #[TestDox('Editar dados roda no DOMContentLoaded: no corpo da página o Bootstrap ainda não existe e o bloco saía cedo (sem pergunta do número, POST direto) — achado na tela, existia no master')]
+    #[TestDox('Editar dados roda no DOMContentLoaded e não depende mais do Bootstrap (janela do desenho 02): o bloco não sai cedo e a pergunta do número continua valendo')]
     public function testEditarDadosNaoMorreAntesDoBootstrap(): void
     {
         $show = self::ler('templates/pasta/show.html.twig');
-        $ini  = strpos($show, "var modal = document.getElementById('modalEditarPasta');\n    if (!modal || typeof bootstrap === 'undefined') { return; }");
+        $ini  = strpos($show, "var modal = document.getElementById('modalEditarPasta');\n    if (!modal) { return; }");
         self::assertNotFalse($ini);
         $antes = substr($show, $ini - 80, 80);
-        self::assertStringContainsString("document.addEventListener('DOMContentLoaded', function () {", $antes, 'o guarda do Bootstrap só pode rodar depois do base.html.twig carregar o Bootstrap');
+        self::assertStringContainsString("document.addEventListener('DOMContentLoaded', function () {", $antes, 'roda depois do base.html.twig carregar o pasta-dialogos.js');
         self::assertStringNotContainsString('(function () {', $antes);
-
-        $base = self::ler('templates/base.html.twig');
-        self::assertGreaterThan(strpos($base, '{% block body %}'), strpos($base, 'bootstrap.bundle.min.js'), 'premissa: o Bootstrap carrega DEPOIS do corpo da página');
+        $bloco = substr($show, $ini, (int) strpos($show, '</script>', $ini) - $ini);
+        self::assertStringNotContainsString('bootstrap', $bloco, 'a janela não usa mais o modal do Bootstrap');
     }
 
     /**

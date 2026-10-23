@@ -617,7 +617,7 @@
 .ps-pop-tarja,
 #modalEditarPasta .ps-modal-pasta-cab { cursor: grab; touch-action: none; user-select: none; }
 .ps-pop.is-arrastando > .ps-pop-tarja,
-#modalEditarPasta .modal-dialog.is-arrastando .ps-modal-pasta-cab { cursor: grabbing; }
+#modalEditarPasta .ps-modal-pasta.is-arrastando .ps-modal-pasta-cab { cursor: grabbing; }
 .ps-pop-tarja:has(> .ps-pop-x) { position: relative; padding-right: 50px; }
 /* Sem tarja, o X ficaria por cima do ✓ do primeiro item (prioridade, metas): o
    painel abre uma faixa de 38px para ele em vez de sobrepor. */
@@ -4858,23 +4858,47 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     .ps-clientes .js-cliente-acoes > .cliente-abrir:focus-visible i { animation: none; transform: none; }
 }
 
-/* ── Moldura do modal "Editar dados" (#modalEditarPasta; auditoria 2 C2) ──
-   dc 560-592. So a MOLDURA: os campos (Acao so leitura, Tipo de documento) sao
-   D-META. Uso esperado: `.ps-modal-pasta` no `.modal-dialog`; dentro do
-   `.modal-content`, `.ps-modal-pasta-cab` (com `-cab-icone`, `-cab-corpo`,
-   `-titulo`, `-sub`, `-fechar`), `.ps-modal-pasta-corpo`, `.ps-modal-pasta-rotulo`
-   em cada rotulo e `.ps-modal-pasta-rodape` com `.ps-modal-pasta-btn` +
-   `--fechar` / `--salvar`. O modal vive no <body> (fora de `.ps-page`); os
-   tokens vem de `.ps-body`. */
-.ps-modal-pasta.modal-dialog { max-width: 720px; }
-.ps-modal-pasta .modal-content {
-    border: none;
+/* ── Janela "Editar dados" (#modalEditarPasta) ──
+   Desenho 02 (VS 18.10.26, L.634-668), sem o modal do Bootstrap: `.ps-pe-sobre`
+   é a sobreposição (L.635: fixa, z-index 2100, rgba(14,37,51,.38), caixa no
+   alto com 4vh 12px, rolagem própria, finFade .2s) e `.ps-modal-pasta` é a
+   caixa role=dialog (L.636: 100% até 720px, quina 4px, sombra do desenho,
+   coluna, finIn .26s). Dentro, `.ps-modal-pasta-cab` (com `-cab-icone`,
+   `-cab-corpo`, `-titulo`, `-sub`, `-fechar`), `.ps-modal-pasta-corpo`,
+   `.ps-modal-pasta-rotulo` em cada rótulo e `.ps-modal-pasta-rodape` com
+   `.ps-modal-pasta-btn` + `--fechar` / `--salvar`. A janela vive no <body>
+   (fora de `.ps-page`); os tokens vêm de `.ps-body`. */
+.ps-pe-sobre {
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4vh 12px;
+    overflow-y: auto;
+    background: rgba(14,37,51,.38);
+    animation: psPeFundo .2s ease both;
+}
+.ps-pe-sobre[hidden] { display: none; }
+.ps-modal-pasta {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
     border-radius: 4px;
     background: var(--ps-card);
     color: var(--ps-text);
     box-shadow: var(--ps-shadow-modal);
     overflow: hidden;
     font-family: var(--jp-font-sans);
+    animation: psPeEntra .26s cubic-bezier(.22,.8,.3,1) both;
+}
+@keyframes psPeFundo { from { opacity: 0; } to { opacity: 1; } }
+@keyframes psPeEntra { from { opacity: 0; transform: translate3d(0,14px,0) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .ps-pe-sobre,
+    .ps-modal-pasta { animation: none; }
 }
 .ps-modal-pasta-cab {
     display: flex;
