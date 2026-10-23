@@ -21,13 +21,32 @@ final class NomeDaSedeForaDoInnerHtmlJsTest extends TestCase
         return (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
     }
 
+    /**
+     * O valor de cada atribuição a `innerHTML`, do `=` até o `;` que fecha o statement, mesmo que ele ocupe várias
+     * linhas (flag `s`). O controle confere que nenhuma atribuição ficou de fora da captura.
+     *
+     * @return list<string>
+     */
+    private static function atribuicoesDeInnerHtml(): array
+    {
+        $tela = self::tela();
+        preg_match_all('/\.innerHTML\s*=\s*(.*?);[ \t]*$/ms', $tela, $captura);
+        self::assertCount(
+            preg_match_all('/\.innerHTML\s*=(?!=)/', $tela),
+            $captura[1],
+            'alguma atribuição a innerHTML não foi capturada'
+        );
+
+        return $captura[1];
+    }
+
     #[TestDox('Nenhum innerHTML da tela do ponto recebe o nome da sede nem outro dado da sede')]
     public function testNenhumInnerHtmlRecebeDadoDaSede(): void
     {
-        preg_match_all('/\.innerHTML\s*=\s*(.*?);\s*$/m', self::tela(), $atribuicoes);
+        $atribuicoes = self::atribuicoesDeInnerHtml();
 
-        self::assertNotEmpty($atribuicoes[1], 'controle: a tela ainda tem innerHTML com texto fixo');
-        foreach ($atribuicoes[1] as $valor) {
+        self::assertNotEmpty($atribuicoes, 'controle: a tela ainda tem innerHTML com texto fixo');
+        foreach ($atribuicoes as $valor) {
             self::assertStringNotContainsString('onde.sede', $valor, 'dado da sede em innerHTML: ' . $valor);
             self::assertStringNotContainsString('.nome', $valor, 'nome em innerHTML: ' . $valor);
             self::assertStringNotContainsString('SEDES', $valor);
@@ -48,10 +67,10 @@ final class NomeDaSedeForaDoInnerHtmlJsTest extends TestCase
     #[TestDox('Só valores conhecidos entram em innerHTML: texto fixo, rótulo do tipo e número da precisão')]
     public function testInnerHtmlSoComValorConhecido(): void
     {
-        preg_match_all('/\.innerHTML\s*=\s*(.*?);\s*$/m', self::tela(), $atribuicoes);
+        $atribuicoes = self::atribuicoesDeInnerHtml();
 
         $permitidos = ['Math.round(', 'accuracy.toFixed(1)', 'rotuloBotaoBatida()'];
-        foreach ($atribuicoes[1] as $valor) {
+        foreach ($atribuicoes as $valor) {
             preg_match_all('/\$\{(.*?)\}/', $valor, $interpolacoes);
             foreach ($interpolacoes[1] as $expressao) {
                 $conhecida = false;
