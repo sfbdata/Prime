@@ -839,9 +839,10 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
 .ps-etiqueta-add i { font-size: 15px; line-height: 1; }
 
 /* ── Linha 2: o CLIENTE e o titulo (desenho 1.2.3) ──
-   Icone de pessoa em circulo de 38px (nao clicavel: a foto do cliente e funcao
-   nova), nome em maiusculas, "Movimentado…" ao lado e o documento embaixo. O
-   dono quer uma linha so, quebrando apenas se passar de metade da tela. */
+   Icone de pessoa em circulo de 38px (a foto do cliente por cima, quando ha; botao
+   com menu para quem edita o cliente: desenho 02 VS 18.10.26, L1255), nome em
+   maiusculas, "Movimentado…" ao lado e o documento embaixo. O dono quer uma linha
+   so, quebrando apenas se passar de metade da tela. */
 .ps-cab-cliente { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 2px 0 24px; position: relative; }
 .ps-cab-cliente-icone {
     width: 38px;
@@ -856,6 +857,155 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     box-shadow: inset 0 0 0 1px rgba(12,122,156,.12);
 }
 .ps-cab-cliente-icone i { font-size: 21px; line-height: 1; }
+
+/* Foto do cliente (dc L1255 e L3853): o botao de 38px cresce 6% e ganha o anel ao passar o mouse; a foto cobre o
+   circulo por cima do icone. Menu (dc L472-482) e editor de recorte (dc L483-505) com os valores do desenho. */
+.ps-cab-foto { position: relative; overflow: hidden; padding: 0; }
+button.ps-cab-foto {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    transition: transform .18s, box-shadow .18s;
+}
+button.ps-cab-foto:hover,
+button.ps-cab-foto:focus-visible,
+button.ps-cab-foto[aria-expanded="true"] { transform: scale(1.06); box-shadow: 0 0 0 3px rgba(15,111,196,.18); outline: none; }
+.ps-cab-foto-img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: center; background: #dfe8ee; }
+
+.ps-foto-fundo { position: fixed; inset: 0; z-index: 150; }
+.ps-foto-menu {
+    position: fixed;
+    z-index: 151;
+    width: 210px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.16);
+    padding: 5px;
+    animation: psFotoMenuIn .14s cubic-bezier(.22,.8,.3,1) both;
+}
+.ps-foto-fundo[hidden], .ps-foto-menu[hidden], .ps-foto-editor[hidden], .ps-foto-menu-item[hidden] { display: none; }
+.ps-foto-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #243845;
+    text-align: left;
+    cursor: pointer;
+}
+.ps-foto-menu-item:hover, .ps-foto-menu-item:focus-visible { background: #eef5fa; outline: none; }
+.ps-foto-menu-item i { font-size: 14px; color: #5f7684; width: 16px; }
+.ps-foto-menu-item--perigo, .ps-foto-menu-item--perigo i { color: #a3232b; }
+.ps-foto-menu-item--perigo:hover, .ps-foto-menu-item--perigo:focus-visible { background: #fdf0ef; }
+
+.ps-foto-editor {
+    position: fixed;
+    inset: 0;
+    z-index: 160;
+    background: rgba(10,30,45,.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: psFotoPcIn .2s both;
+}
+.ps-foto-editor-janela {
+    width: min(380px, 100%);
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.5);
+    overflow: hidden;
+    animation: psFotoMenuIn .22s cubic-bezier(.22,.8,.3,1) both;
+}
+.ps-foto-editor-topo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg,#0d80a3,#0b5f86);
+    color: #fff;
+}
+.ps-foto-editor-topo > i { font-size: 15px; }
+.ps-foto-editor-titulo { flex: 1; font-size: 13.5px; font-weight: 700; }
+.ps-foto-editor-fechar {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-foto-editor-fechar i { font-size: 12px; }
+.ps-foto-editor-corpo { padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.ps-foto-editor-circulo {
+    position: relative;
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #e6edf2;
+    cursor: grab;
+    touch-action: none;
+    box-shadow: 0 0 0 4px #fff, 0 0 0 5px #d3dde5;
+}
+.ps-foto-editor-imagem {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    max-width: none;
+    user-select: none;
+    pointer-events: none;
+}
+.ps-foto-editor-dica { font-size: 12px; color: #6b8494; }
+.ps-foto-editor-zoom { display: flex; align-items: center; gap: 10px; width: 100%; }
+.ps-foto-editor-zoom > i { color: #6b8494; }
+.ps-foto-editor-zoom input[type="range"] { flex: 1; accent-color: #0a7aad; }
+.ps-foto-editor-girar {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    background: #eef4f8;
+    color: #0b5f86;
+    cursor: pointer;
+}
+.ps-foto-editor-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid #eef2f5; }
+.ps-foto-editor-btn {
+    height: 32px;
+    padding: 0 13px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-foto-editor-btn--trocar { background: #eef4f8; color: #0b5f86; margin-right: auto; }
+.ps-foto-editor-btn--cancelar { background: transparent; color: #455c6b; }
+.ps-foto-editor-btn--salvar {
+    padding: 0 16px;
+    background: #0a7aad;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.ps-foto-editor-btn--salvar:disabled { opacity: .6; cursor: progress; }
+@keyframes psFotoMenuIn { from { opacity: 0; transform: translate3d(0,-6px,0) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes psFotoPcIn { from { opacity: 0; transform: translate3d(0,10px,0); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .ps-foto-menu, .ps-foto-editor, .ps-foto-editor-janela { animation: none; }
+    button.ps-cab-foto { transition: none; }
+}
 .ps-cab-cliente-corpo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ps-cab-cliente-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
 .ps-cab-titulo {

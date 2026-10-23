@@ -15,8 +15,10 @@
    processo, Trocar responsável, Copiar link, Imprimir resumo, Fixar nos
    favoritos, Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul
    do desenho. O que o desenho mostra e o sistema ainda não tem (Mover carteira,
-   Acompanhar, Cadeado, Intelligence, foto do cliente) NÃO é
-   renderizado: item inerte ensina o usuário a desconfiar do menu inteiro.
+   Acompanhar, Cadeado, Intelligence) NÃO é renderizado: item inerte ensina o
+   usuário a desconfiar do menu inteiro. A foto do cliente (desenho 02 VS 18.10.26,
+   L1255 e L472-505) é real: o círculo ao lado do nome, com menu e editor de recorte
+   (/js/pasta-foto-cliente.js) para quem pode editar o cliente.
    "Fixar nos favoritos" (seção Preferências) é real: POST
    `pasta_favorito_alternar`.
 
@@ -352,10 +354,9 @@
     {# ── Linha 2: o cliente é o título ───────────────────────────────────── #}
     {# `nomeCliente` é o IDENTIFICADOR da pasta (decisão do dono, 01/09/2026): é ele
        que vira o título quando não há cliente cadastrado — o estado real de quase
-       todas as pastas. O ícone de pessoa não é clicável: a foto do cliente é função
-       nova e botão sem função é mentira na tela. #}
+       todas as pastas. Sem cliente cadastrado o ícone de pessoa fica inerte. #}
     <div class="ps-cab-cliente" data-cad-ate="1">
-        <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+        {{ include('pasta/_cabecalho_foto_cliente.html.twig', {pasta: pasta, cliente: cliente, cad: cad is defined ? cad : null}) }}
         <div class="ps-cab-cliente-corpo">
             <div class="ps-cab-cliente-linha">
                 {# Com cliente cadastrado, o botão direito no nome abre a janela "Detalhes do

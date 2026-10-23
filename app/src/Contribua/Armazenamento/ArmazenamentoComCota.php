@@ -57,7 +57,8 @@ final class ArmazenamentoComCota implements ArmazenamentoDeArquivos, ResetInterf
     /**
      * As categorias que `ConsumoDeArmazenamentoRepository` soma. As demais passam sem bloqueio nem
      * medição: justificativa de ponto (o funcionário nunca pode ficar sem justificar a falta),
-     * Trabalho Externo, imagem do editor, anexo de tarefa e foto de perfil.
+     * Trabalho Externo, imagem do editor, anexo de tarefa, foto de perfil e foto do cliente (como a de perfil, sem
+     * tamanho no banco: é um JPEG de 320 px, recortado no navegador).
      */
     private const CATEGORIAS_COBRADAS = [
         CategoriaDeArquivo::PASTA_DOCUMENTO,
