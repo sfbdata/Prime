@@ -610,3 +610,11 @@ Leitura pelo R2 · URL pré-assinada · `X-Accel-Redirect` · coluna `storage_ba
 exclusão, expiração ou lifecycle no R2 · deduplicação · normalização de chave · correção dos 90
 suspeitos · limpeza dos 73 sem rastro · alteração do bucket de backup · outros sistemas BlueJus
 (cada um terá prefixo próprio no layout — `core/` é só do BlueJus Core).
+
+## Próximo passo (23/10, pausa)
+
+Branch `r2-p23` pronta, revisada e com `qa.sh` limpo, ainda sem push: o controle de permissões da sessão
+bloqueou o `git push`. O dono decide entre liberar o push ou rodar ele mesmo o push e o `gh pr create`
+(corpo do PR preparado pela sessão do R2). Depois do PR: suíte do CI verde, merge pelo dono, migration em
+`saas_test`/`saas_ux`, e então a P2.4 (bucket `bluejus-arquivos` e chave restrita, passo a passo para o dono).
+Sobreposição: #345 (`ResolvedorDeCaminhoLocal`), #342 (`TarefaController`), #343 e Contribua (`services.yaml`).
