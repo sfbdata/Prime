@@ -66,6 +66,19 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->batidasEm($this->a));
     }
 
+    #[TestDox('A e B cobrem o momento (choque que entrou sem conferência): a entrada em A passa, ninguém fica travado')]
+    public function testQuandoOsDoisCobremOMomentoAEntradaPassa(): void
+    {
+        [$inicio, $fim] = $this->jornadaDeHojeEmTornoDeAgora();
+        // A jornada de A é gravada direto no banco, sem a conferência do choque: é o caso que a regra cobre.
+        $this->jornadaPessoal($this->pessoa, $this->a, [[[(int) (new \DateTimeImmutable())->format('N')], $inicio, null, null, $fim]]);
+
+        $resposta = $this->baterEmA('entrada');
+
+        self::assertTrue($resposta['success'] ?? false, (string) ($resposta['message'] ?? ''));
+        self::assertSame(1, $this->batidasEm($this->a));
+    }
+
     #[TestDox('Fora do horário de B (a jornada de B é de outro dia da semana): a batida em A passa')]
     public function testForaDoHorarioDeBAceita(): void
     {
