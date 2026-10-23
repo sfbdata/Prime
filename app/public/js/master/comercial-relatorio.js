@@ -221,7 +221,10 @@
     function cancelar() {
       const c = estado.aberta;
       if (!c || !c.cancelavel) return;
-      if (!window.confirm(BJ_T.t('comercial_relatorio.js.confirmar_cancelar'))) return;
+      const pergunta = c.estado === 'agendada' || c.estado === 'recorrente'
+        ? BJ_T.t('comercial_relatorio.js.confirmar_cancelar')
+        : BJ_T.t('comercial_relatorio.js.confirmar_cancelar_fila');
+      if (!window.confirm(pergunta)) return;
       pedir(url(raiz.dataset.urlCancelar, c.id), Object.assign(POST(), { body: '{}' }))
         .then(r => { fechar(); avisar(r.mensagem); carregar(); recarregarOutras(instancia); })
         .catch(err => { fechar(); avisar(err.message); });
