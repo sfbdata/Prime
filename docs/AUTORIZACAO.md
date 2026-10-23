@@ -322,7 +322,7 @@ canAccessModule($u, $t, 'clientes')          == hasPermission($u, $t, 'modules.c
 | `admin.tenant.settings.manage` | `TenantController` (l. 80, 174, 200) + `FeriadoController` (l. 39) | Cobre tenant index, show, edit e feriados | Uma permissão protege 4 telas e 2 itens de sidebar distintos |
 | `admin.servicedesk.manage` | `ServiceDeskController` (l. 74, 209, 246, 286, 333) | Dashboard + 4 ações | — |
 | `admin.ponto.manage` | `TenantController` (l. 1516, 1570, 1636) | Criar/editar/excluir sede — sem listagem protegida | — |
-| `admin.audit.view` | `AuditLogController` (l. 38) | Listagem e desfazer | Desfazer Sede exige também `admin.ponto.manage`; Cargo e Lotação, `admin.tenant.settings.manage`; Chamado, anexo e interação, `admin.servicedesk.manage`; Evento, `admin.users.manage` ou ser o criador; LegendaCor não se desfaz (achado de auditoria interna F19) |
+| `admin.audit.view` | `AuditLogController` (l. 38) | Listagem e desfazer | Desfazer Sede exige também `admin.ponto.manage`; Cargo e Lotação, `admin.tenant.settings.manage`; Chamado, anexo e interação, `admin.servicedesk.manage`; Evento, `admin.users.manage` ou ser o criador; LegendaCor não se desfaz (achado de auditoria interna F19). Meta e pasta pedem a guarda da tela (`GuardaDaTelaNoDesfazer`: módulo `tarefas` e `AcessoAMeta`, prazo e conclusão pela regra da tela; `AcessoAPasta::podeEditar` na pasta-mãe; mensagem da pasta pelo `EditarMensagemPastaUseCase::podeEditar`); TarefaMensagem e Notificacao não se desfazem |
 | `admin.tarefas.manage` | **NENHUM** | — | **Permissão fantasma** — existe no catálogo e na sidebar mas nenhum controller a verifica |
 
 ### Seção admin da sidebar

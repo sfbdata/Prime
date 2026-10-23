@@ -7,6 +7,15 @@ Risco MÉDIO. Pedido do coordenador (23/10/2026). Frente da 9b, `desfazer-guarda
 ## Estado da frente
 
 - 23/10: spec; implementação começando.
+- 23/10: implementado, commit local na branch, sem push. Ponto único: `App\Auditoria\Service\GuardaDaTelaNoDesfazer`
+  (`permite` no botão, `permitePorId` antes do `executar`), que chama o mapa do F19 e as guardas da tela. Extraído do
+  `TarefaController::assertAccess` o `App\Tarefa\Service\AcessoAoModuloTarefas` (a tela passa a usá-lo, mesmo
+  comportamento). `TarefaMensagem` e `Notificacao` saíram das reversíveis. Testes: `DesfazerExigeAGuardaDaTelaTest`
+  (16), dois casos unit no `DesfazerAlteracaoAuditLogUseCaseTest`; ajustados dois testes antigos cuja premissa mudou
+  (a pasta agora pede `resources.pasta.edit`; a meta pede alguém da pasta com vínculo).
+- Fica para decisão: a tela da `PastaObservacaoDetalhes` pede também autor e janela de edição
+  (`EditarObservacaoDetalhesUseCase::podeEditar`), a da mensagem pede também ver a pasta, e a passagem de etapa da meta
+  pede quem cuida da meta; a spec não pede essas regras e elas não entraram.
 
 ## O problema
 

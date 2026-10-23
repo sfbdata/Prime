@@ -122,6 +122,22 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         self::assertTrue($this->sut->podeReverter($log));
     }
 
+    #[TestDox('A resposta da meta não se desfaz: nenhuma tela a edita (spec desfazer-guarda-da-tela)')]
+    public function testUpdateTarefaMensagemNaoEhReversivel(): void
+    {
+        $log = $this->criarLog('update', \App\Entity\Tarefa\TarefaMensagem::class, '9');
+
+        self::assertFalse($this->sut->podeReverter($log));
+    }
+
+    #[TestDox('A notificação não se desfaz: só o dono mexe nela pela tela (spec desfazer-guarda-da-tela)')]
+    public function testUpdateNotificacaoNaoEhReversivel(): void
+    {
+        $log = $this->criarLog('update', \App\Entity\Notificacao::class, '9');
+
+        self::assertFalse($this->sut->podeReverter($log));
+    }
+
     public function testUpdateUserRetornaFalsePorRiscoAlto(): void
     {
         $log = $this->criarLog('update', \App\Entity\Auth\User::class, '1');
