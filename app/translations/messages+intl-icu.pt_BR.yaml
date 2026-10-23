@@ -815,6 +815,7 @@ comercial_relatorio:
         duplicada_menu: 'Campanha duplicada: ajuste e envie.'
         editor_indisponivel: Não foi possível abrir o editor da campanha.
         confirmar_cancelar: Cancelar o envio programado desta campanha?
+        confirmar_cancelar_fila: Cancelar o envio desta campanha? O que ainda está na fila não sai.
         confirmar_remover: 'Remover {n} campanha(s) do relatório?'
         confirmar_excluir: Excluir esta campanha do relatório?
         reenvio_menu_rastreada: Reenvio disponível quando o servidor registrar as leituras.
