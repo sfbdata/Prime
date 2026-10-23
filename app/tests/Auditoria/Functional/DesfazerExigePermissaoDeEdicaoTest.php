@@ -32,8 +32,9 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Achado de auditoria interna F19 (spec `docs/specs/seguranca-b-ponto.md` §1.3): desfazer uma alteração de Sede, Cargo,
- * Lotação ou Chamado exige, além de `admin.audit.view`, a permissão da tela que edita a entidade. Sem ela, 403 e nada
- * muda. O desfazer das outras entidades continua só com `admin.audit.view`.
+ * Lotação, Chamado ou interação do chamado exige, além de `admin.audit.view`, a permissão da tela que edita a entidade.
+ * Evento segue a tela `agenda_editar`: `admin.users.manage` ou ser o criador. Sem isso, 403 e nada muda. A LegendaCor
+ * não se desfaz: nenhuma tela a edita. O desfazer das outras entidades continua só com `admin.audit.view`.
  */
 #[CoversClass(AuditLogController::class)]
 #[CoversClass(DesfazerAlteracaoAuditLogUseCase::class)]
