@@ -1757,6 +1757,10 @@ perfis:
         destino_rotulo: PASSA A TER O PERFIL
         sem_destino: Não há perfil secundário para este usuário. Crie um perfil secundário antes de remover um primário.
         nota_primario: 'O usuário primário tem acesso total ao escritório: as {total} permissões estão sempre ativas e não podem ser desmarcadas.'
+        sem_prazo:
+            titulo: Edição sem prazo
+            rotulo: Usuário primário pode editar e excluir qualquer registro sem limite de tempo
+            salvo: A opção de edição sem prazo foi salva.
     form:
         faixa: Perfil de usuário secundário (colaborador). Defina o que ele pode acessar.
         nome: NOME DO PERFIL
@@ -9076,5 +9080,10 @@ pasta_cabecalho:
             documento: Documento
             erro_busca: Não foi possível buscar agora. Tente de novo.
             erro_vincular: Não foi possível vincular o cliente.
+
+edicao_sem_prazo:
+    selo:
+        master: EXCLUSIVO DO MASTER
+        primario: EXCLUSIVO DO PRIMÁRIO
 
 # ---- fim

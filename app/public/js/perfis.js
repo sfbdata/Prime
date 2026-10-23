@@ -205,4 +205,12 @@
             });
         });
     });
+
+    /* Edição sem prazo do primário (spec edicao-sem-prazo §3): marcar ou desmarcar grava na hora. Desmarcado, o
+       navegador não manda o campo e o servidor lê "desligado". */
+    document.querySelectorAll('[data-pf-sem-prazo-caixa]').forEach(function (caixa) {
+        caixa.addEventListener('change', function () {
+            if (caixa.form) { caixa.form.submit(); }
+        });
+    });
 })();
