@@ -20,7 +20,8 @@ use Doctrine\Migrations\AbstractMigration;
  *
  * Versão: nasceu `Version20261015180000`, foi renomeada para `Version20261015213000` (colisão com a
  * Central B) e, ao trazer o master de 23/10, para `Version20261020151300`, versão definida pelo
- * coordenador para entrar depois das migrations que já estão no master.
+ * coordenador. O master já tem versões posteriores a ela; o Doctrine roda a que faltar, fora de
+ * ordem, e esta só cria a tabela nova, sem depender de nenhuma outra.
  */
 final class Version20261020151300 extends AbstractMigration
 {
