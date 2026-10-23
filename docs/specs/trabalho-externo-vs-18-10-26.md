@@ -14,13 +14,16 @@
    Migration `Version20261019231700`.
 6. `trabalho-externo-engajamento` (F4, §4.7) → **PR #113 em rascunho**, base `trabalho-externo-candidatura`.
    Migration `Version20261019235800`.
+7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → **PR #117 em rascunho**, base `trabalho-externo-engajamento`.
+   Migration `Version20261019235900`.
+8. `trabalho-externo-campanha` (campanha do Master, §4.10) → PR em rascunho, base `trabalho-externo-painel-termo`. Sem migration.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
 base do PR para `master` e tirar do rascunho.
 
 **Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
-#62 → #83 → #84 → #96 → #105 → #113. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+#62 → #83 → #84 → #96 → #105 → #113 → #117. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
 F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
@@ -95,7 +98,14 @@ física (pendência abaixo); F3a: minimização (esconder e-mail,
 telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do decisor; hoje segue o
 desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
 é excluído (o termo fica ligado ao usuário). Decidir se "Salvar edição" e "Novo escritório" do bloco SOLICITANTE da
-Nova solicitação (06 l.640, 641) entram (§4.8).
+Nova solicitação (06 l.640, 641) entram (§4.8). **Termo de Voluntariado (F3b-2) parado por ponto
+jurídico** (coordenador, 19/10): pela Lei 9.608/1998, art. 1º, serviço voluntário é o prestado a
+entidade pública ou instituição privada sem fins lucrativos; escritório de advocacia e a BlueJus LTDA
+têm fins lucrativos, e o termo pode configurar vínculo de emprego. Vai ao dono e ao advogado, junto com:
+quem é o "ESCRITÓRIO" do termo (Central, escritório da vaga ou escolha) e quem vê CPF e RG do
+voluntário. Já decidido para quando andar: aceite forte no servidor (usuário, data e hora ISO, IP,
+navegador, versão e hash do texto congelado) e apagar o termo enviado e não aceito ao excluir o
+currículo. Até lá, o painel mostra "0 termo(s) aceito(s) · 0 aguardando" e o filtro "Termo" só "Sem termo".
 
 **Próximo passo** (coordenador, 19/10): a F3b, empilhada sobre o #113 (painel e
 Termo de Voluntariado, com os avisos do Termo pelo sino); depois os KPIs da página pública. Ao fim da
@@ -706,6 +716,111 @@ apoiador (f6, decisão de produto com o coordenador).
 | 4 | Avisos do Termo de Voluntariado | 1032, 1033 | F3b, pelo sino da F4 |
 | 5 | Currículo atualizado "aparece primeiro" | 839, 1021, 1059 | entra na F4: o banco ordena por `atualizadoEm` (como l.995 e 1006); RECEBIDO e "Novos na semana" seguem por `recebidoEm` |
 | 6 | Contratos de `bj-dica.js` e `bluejus-central.js` | 15, 17 | registrados acima |
+
+## 4.9 F3b-1: painel do Master e KPIs da página pública (desenho 06, 19/10)
+
+Branch `trabalho-externo-painel-termo`, empilhada sobre `trabalho-externo-engajamento` (#113). Risco
+**BAIXO** (leitura agregada, só Master; dois contadores anônimos). O Termo de Voluntariado é a F3b-2,
+depois das decisões de produto (enviadas ao coordenador em 19/10).
+
+### Tela (l.171 a 194, 887, 1120 a 1146; desenho manda)
+- Seletor **Painel/Lista** só do Master, padrão Painel; a Equipe segue com o aviso "Estatísticas
+  disponíveis só para o Master" e só a lista. Clicar num KPI ou numa barra vai para a Lista com o filtro.
+- **8 KPIs** com rótulos, ícones, cores, subtítulos e cliques do inventário, número animado (`_contar`,
+  900 ms, easeOutCubic, só quando o número muda). Bases coerentes (lacuna 2): "ativos" = status
+  diferente de arquivado em todos os KPIs de currículo. COM OAB conta e filtra adv e estOab (lacuna 1).
+  VOLUNTÁRIOS: "{n} termo(s) aceito(s) · {n} aguardando" fica 0/0 até a F3b-2 (último termo por
+  currículo). ALERTAS POR E-MAIL: inscritos de `InteressadoEmVagas`, visitas pelo link e cliques em
+  "criar conta" (abaixo); o clique, sem campanha (5d), segue o desenho: CSV `alertas-vagas-bluejus.csv`
+  (E-mail; UF; Áreas; Inscrito em; Origem) ou o toast "Ainda sem inscritos" / "Compartilhe vagas para
+  começar a captar e-mails.". VAGAS COMPARTILHADAS: soma de `divulgacoes`. OFERTAS COM TEMPO: % com
+  aceite e média do primeiro aceite da rodada.
+- **6 gráficos de barras** (top 8, "clique para filtrar", "Sem dados ainda.") com os cliques do desenho.
+- **Crescimento do banco de talentos**: séries, Mensal/Anual, ano ou "Todos os anos", curvas, tooltip,
+  vazio e resumo do desenho. Correções (lacuna 6): em "Todos os anos" a variação compara o ano atual com
+  o anterior; no Mensal do ano corrente compara com o mesmo período do ano anterior; sem séries ligadas
+  o resumo some.
+
+### KPIs da página pública
+- Contadores anônimos por dia, sem dado pessoal: **visitas pelo link** (cada GET de
+  `/vagas-juridicas/{token}` válido) e **cliques em "Criar conta"** na página pública (com e sem token),
+  por `POST /vagas-juridicas/cta` (sem sessão, limitador de taxa por IP, sem CSRF porque não grava
+  nada pessoal; `navigator.sendBeacon`). Robôs conhecidos (User-Agent) não contam.
+- Revisão de 19/10: a visita também tem teto por IP e token (acima dele a página abre, só não conta);
+  o clique só conta vindo da própria origem (`Sec-Fetch-Site`/`Origin`); falha do contador nunca derruba
+  a página; robôs por padrão de User-Agent sem pegar celular (ex.: Cubot); o download do CSV de inscritos
+  fica no log (quem e quando, sem os e-mails); a variação em "Todos os anos" compara o mesmo período.
+- Tabela `trabalho_externo_metrica_publica` (dia, link opcional, visitas, cliques), um registro por dia
+  e link, somado com UPSERT.
+
+### Contrato (fixo)
+- `GET /trabalho-externo/api/curriculos/painel` `trabalho_externo_curriculos_painel` (só Master; 403 para
+  os demais): `{kpis: [{k, rot, ic, cor, n, sub, ir: {mod, filtro?: {cf?, cs?, ca?, cu?, busca?}, vf?} |
+  {acao: "alertasCsv"}}], barras: [{tit, ic, cor?, itens: [{rot, n, cor?, ir}]}], crescimento: {cvs:
+  {"AAAA-MM": n}, cands: {...}, vols: {...}}, inscritos: n}`.
+- `GET /trabalho-externo/curriculos/alertas.csv` `trabalho_externo_alertas_csv` (só Master).
+- `POST /vagas-juridicas/cta` `vagas_publicas_cta` (204).
+- `index.html.twig`: `data-url-curriculos-painel`, `data-url-alertas-csv`; `vagas_publicas.html.twig`:
+  `data-url-cta` no botão "Criar conta".
+
+## 4.10 Campanha por e-mail do Master (desenho 06, 19/10)
+
+Branch `trabalho-externo-campanha`, empilhada sobre `trabalho-externo-painel-termo` (#117). Risco
+**MÉDIO** (exporta e-mails). **Sem migration.** Aprovada pelo coordenador em 19/10.
+
+### Fiel ao desenho: monta, mostra e exporta; não envia
+Modal "Campanha por e-mail" (l.330 a 341; script l.940 a 957, 1082 a 1097, 1168, 1169), aberto pelo menu
+⋮ do Master ("Campanha por e-mail…", `bi-envelope-paper`, l.1265), pelo endereço `#camp=1` (l.1078) e pelo
+clique do KPI "ALERTAS POR E-MAIL" (l.1146; com campanha, o clique abre o modal em vez do CSV). Público
+"Candidatos" / "Escritórios" (l.1169), filtros "Todas as UFs" e "Todas as áreas", "ASSUNTO DO E-MAIL",
+resumo de destinatários e de vagas, a nota da l.338 (ferramenta externa e o marcador de descadastro),
+"PRÉVIA DO E-MAIL" em iframe. Rodapé (l.1097): "Fechar", "Lista de destinatários (CSV)", "Copiar HTML",
+"Baixar HTML do e-mail", com os toasts do desenho. **Sem botão "Enviar"** (o desenho não tem); ligar ao
+envio da 5d fica para quando houver contrato. O HTML é o `emailHTML` do desenho (tabelas, estilos inline),
+gerado no servidor por Twig, com o marcador `{{descadastrar}}` no rodapé para a ferramenta externa trocar,
+o link das vagas por um link público de vagas (F2c) com as vagas abertas filtradas.
+
+### Destinatários (regra num único lugar: `DestinatariosDaCampanha`)
+- **Candidatos, currículos: DESLIGADOS** (`CURRICULOS_LIBERADOS = false`, coordenador 19/10). O aceite do
+  currículo ("compartilhá-los apenas com quem publica as vagas a que eu me candidatar") não cobre e-mail de
+  campanha. A tela diz "N currículo(s) ficam de fora: o aceite do currículo não cobre e-mail de campanha.".
+  **A confirmar com o dono**, entre: (a) um aceite específico de campanha no formulário do currículo (texto
+  novo, desvio do desenho); (b) só os inscritos confirmados da 5d; (c) aceitar o risco. Hoje a campanha sai
+  com 0 destinatários: o modal, a prévia e o HTML funcionam; o CSV responde "Sem destinatários".
+- **Candidatos**, regra quando liberados: currículos com aceite LGPD (filtros de UF e área). Os inscritos nos alertas (página
+  pública) **só entram com o e-mail confirmado** (double opt-in da 5d); até lá ficam de fora, e a tela
+  diz quantos e por quê ("N inscrito(s) nos alertas ficam de fora até confirmarem o e-mail."). **A
+  confirmar com o dono.**
+- **Escritórios**: e-mails dos ofertantes das vagas e, como no desenho (l.1083), os inscritos nos alertas
+  (filtro de UF e área do desenho; sem confirmação ficam de fora com o motivo deles). Ofertantes **fora até
+  o dono decidir** ("e-mail dos ofertantes em campanha, interesse legítimo B2B?", `ESCRITORIOS_LIBERADOS`):
+  o botão do público aparece desabilitado com a dica "a confirmar". Uma regra só liga. **A confirmar com o
+  dono.**
+- Contas desativadas (`isActive() === false`): o currículo nunca entra nem conta no "de fora".
+- Sem duplicados (e-mail em minúsculas). Descadastro: quando o serviço da 0d entrar no master, quem se
+  descadastrou sai da lista (ponto de troca marcado no código).
+
+### Segurança e LGPD
+Só o Master (como o CSV de alertas, §4.9). Cada exportação (CSV, copiar HTML, baixar HTML) grava no log de
+auditoria (canal `audit`; o padrão passa pelo `fingers_crossed` da produção e descartaria o `info`) quem,
+quando, o público, os filtros e a quantidade, **sem a lista**. CSV com proteção contra fórmula. No banco,
+só o link de vagas (F2c) do HTML exportado; a prévia não grava nada. Toda exportação é POST com CSRF.
+
+### Contrato (fixo)
+- `GET /trabalho-externo/api/campanha` `trabalho_externo_campanha` (`?pub=cand|esc&uf=&area=&assunto=`;
+  só Master): `{pub, publicos: [{k, rot, sub, ic, disponivel, dica?}], ufs, areas, assunto,
+  assuntoPadrao, destinatarios: n, deFora: [{n, motivo}], vagas: n, html, resumo}`.
+- `POST /trabalho-externo/campanha/destinatarios.csv` `trabalho_externo_campanha_csv` (CSRF no header
+  `X-CSRF-Token`; corpo JSON `{pub, uf, area}`; colunas do desenho: E-mail; Nome; Origem; UF; lista vazia:
+  404 `{ok: false, titulo: "Sem destinatários", mensagem}`). GET é 405.
+- `POST /trabalho-externo/campanha/email.html` `trabalho_externo_campanha_html` (CSRF; corpo JSON
+  `{pub, uf, area, assunto}`; attachment `email-campanha-bluejus.html`; grava o link de vagas). GET é 405.
+- `POST /trabalho-externo/api/campanha/registro` `trabalho_externo_campanha_registro` (`{acao: copiar,
+  pub, uf, area, assunto}`, CSRF): grava o log do "Copiar HTML" e devolve `{ok, html, destinatarios,
+  vagas}` (o HTML com o link de vagas próprio, para a tela copiar).
+- A recusa (Equipe, externo, prévia `?como=`) é 403 em JSON nas quatro rotas.
+- `index.html.twig`: `data-url-campanha`, `data-url-campanha-csv`, `data-url-campanha-html`,
+  `data-url-campanha-registro`.
 
 ## 5. Verificação
 

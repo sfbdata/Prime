@@ -1,5 +1,6 @@
 /* BlueJus · Janela "Indicar o BlueJus" (spec indicar-bluejus.md; desenho bj-contas.js L98-133).
    Marcação em templates/indicacao/_janela.html.twig; o item do menu é [data-ind-abrir].
+   O texto fixo vem do catálogo (BJ_T, publicas.js.indicacao, entregue pela _janela).
    Tudo o que vem do servidor entra por textContent/createElement (nunca innerHTML).
    WhatsApp e copiar agem no clique (o navegador só deixa abrir janela e escrever na área de transferência dentro do
    gesto) e registram em seguida; a trava conhecida já esconde os botões, como no desenho. */
@@ -38,7 +39,7 @@
     quem.textContent = (i.nome ? i.nome + ' · ' : '') + (i.email || (i.canal === 'whatsapp' ? 'WhatsApp' : i.canal));
     const data = document.createElement('span'); data.className = 'ind-item-data'; data.textContent = i.em;
     const selo = document.createElement('span'); selo.className = 'ind-selo' + (i.contaCriada ? ' ind-selo-conta' : '');
-    selo.textContent = i.contaCriada ? 'CONTA CRIADA' : 'ENVIADA';
+    selo.textContent = i.contaCriada ? BJ_T.t('publicas.js.indicacao.conta_criada') : BJ_T.t('publicas.js.indicacao.enviada');
     linha.append(quem, data, selo);
     return linha;
   }
@@ -59,7 +60,7 @@
     const lista = $('[data-ind-lista]');
     lista.replaceChildren();
     if (d.ultimas.length === 0) {
-      const vazio = document.createElement('div'); vazio.className = 'ind-vazio'; vazio.textContent = 'Nenhuma indicação ainda.';
+      const vazio = document.createElement('div'); vazio.className = 'ind-vazio'; vazio.textContent = BJ_T.t('publicas.js.indicacao.vazio');
       lista.append(vazio);
     } else {
       d.ultimas.forEach(i => lista.append(item(i)));
@@ -75,7 +76,7 @@
     });
   }
 
-  function falhou() { aviso('Não foi possível concluir agora. Recarregue a página e tente de novo.'); }
+  function falhou() { aviso(BJ_T.t('publicas.js.indicacao.falhou')); }
 
   function enviar(url, corpo) {
     raiz().querySelectorAll('.ind-acoes > button').forEach(b => { b.disabled = true; });
@@ -95,7 +96,7 @@
     carregar('').then(() => {
       const m = window.bootstrap && bootstrap.Modal.getOrCreateInstance(raiz());
       if (m) m.show();
-    }).catch(() => { if (window.bjAviso) window.bjAviso('Não foi possível abrir a janela agora. Recarregue a página e tente de novo.'); });
+    }).catch(() => { if (window.bjAviso) window.bjAviso(BJ_T.t('publicas.js.indicacao.abrir_falhou')); });
   }
 
   function podeEnviar() { return estado && estado.pendencias.length === 0 && !estado.trava; }

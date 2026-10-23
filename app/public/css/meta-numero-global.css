@@ -1,0 +1,36 @@
+/* Selo do número da meta no escritório: "Nº 0001" depois do título (desenho 02, dc L1559).
+   Partial: templates/tarefa/_numero_global.html.twig. Usado na aba Metas da pasta, no cartão de
+   Minhas Metas e no detalhe da meta. Valores do desenho em token; o tema escuro troca só as cores. */
+:root {
+    --meta-num-global-bg: #e9f1f6;
+    --meta-num-global-tx: #4f6878;
+}
+
+[data-bs-theme="dark"] {
+    --meta-num-global-bg: rgba(255, 255, 255, .08);
+    --meta-num-global-tx: var(--bs-secondary-color);
+}
+
+/* inline-block: o risco do título da meta concluída não passa para o selo (desenho:
+   text-decoration:none), nem o sublinhado do link do título no hover. */
+.meta-num-global {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: 3px;
+    background: var(--meta-num-global-bg);
+    color: var(--meta-num-global-tx);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    font-variant-numeric: tabular-nums;
+    vertical-align: 2px;
+    text-decoration: none;
+}
+
+/* Minhas Metas: o título é uma linha só, com reticências; o selo fica FORA do link, como irmão no
+   topo do cartão, para não sumir nas reticências nem herdar a caixa alta. O vão vem do gap do topo. */
+.mm-meta-topo > .meta-num-global {
+    flex-shrink: 0;
+    margin-left: 0;
+}

@@ -69,7 +69,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
             'nome' => 'Nova Pessoa',
             'escritorio' => 'Pessoa Advogados ' . uniqid(),
             'email' => $email,
-            'senha' => 'segredo123',
+            'genero' => 'feminino',
             'aceite' => true,
             '_token' => self::CSRF,
         ]);

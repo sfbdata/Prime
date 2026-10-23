@@ -6,6 +6,7 @@ namespace App\Comercial\UseCase;
 
 use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Campanha\ComposicaoDaCampanha;
+use App\Comercial\Campanha\ImagensDaCampanha;
 use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\CampanhaConfirmada;
 use App\Comercial\DTO\PedidoDeCampanha;
@@ -24,10 +25,14 @@ use Psr\Clock\ClockInterface;
  *
  *   1. a chave da instalação desligada recusa ("O envio de campanhas está desligado nesta instalação.");
  *   2. a chave de idempotência já usada devolve a mesma campanha (clique duplo não cria duas);
- *   3. confere a mensagem, a data ("Escolha uma data futura.") e o público ("Nenhum destinatário nesta lista.");
+ *   3. confere a mensagem, a âncora do modelo `vagas` (§11: só no modo simples com o botão para as vagas), a data
+ *      ("Escolha uma data futura.") e o público ("Nenhum destinatário nesta lista."), resolvido com o modelo;
  *   4. grava a cópia congelada, o público (no CSV e no Individual, só os e-mails que passaram) e a trilha manual
  *      (`camp_conf`, `{publico, frequencia, total}`), numa transação;
  *   5. acorda o expansor.
+ *
+ * F3i (§12): a imagem do modo simples precisa existir e não ter vencido ("A imagem expirou; envie de novo."); gravada a
+ * campanha, a validade dela vai a 1 ano e o uso fica marcado, na mesma transação.
  *
  * Estado: recorrente na frequência que não é a única (sem data, começa agora); agendada com data; senão na fila.
  */
@@ -45,6 +50,7 @@ final class ConfirmarCampanhaUseCase
         private readonly SementeDoExpansor $expansor,
         private readonly MontadorDeEmail $montador,
         private readonly ClockInterface $relogio,
+        private readonly ImagensDaCampanha $imagens,
     ) {
     }
 
@@ -59,7 +65,7 @@ final class ConfirmarCampanhaUseCase
         }
         $agora = $this->relogio->now();
         $this->exigirMensagemEData($pedido, $agora);
-        $publico = $this->publicos->resolver($pedido->publico->publico, $pedido->publico->informados, $pedido->publico->filtro, $agora);
+        $publico = $this->publicos->resolver($pedido->publico->publico, $pedido->publico->informados, $pedido->publico->filtro, $agora, $pedido->mensagem->chave);
         if ($publico->total() === 0) {
             throw new CampanhaRecusada(self::SEM_DESTINATARIOS);
         }
@@ -73,6 +79,8 @@ final class ConfirmarCampanhaUseCase
     {
         // Monta uma vez para um endereço de conferência: assunto ou conteúdo vazio é recusado com a mensagem da 2a.
         $this->composicao->mensagemPara($pedido->mensagem, self::ENDERECO_DE_CONFERENCIA, null, 'campanha:0');
+        ComposicaoDaCampanha::exigirAncoraDeVagas($pedido->mensagem);
+        $this->imagens->exigirVigente($pedido->mensagem, $agora);
         if ($pedido->agendarPara !== null && $pedido->agendarPara <= $agora) {
             throw new CampanhaRecusada(self::DATA_PASSADA);
         }
@@ -85,6 +93,7 @@ final class ConfirmarCampanhaUseCase
             if ($id !== null) {
                 $changes = ['publico' => $pedido->publico->publico, 'frequencia' => $pedido->frequencia, 'total' => $publico->total()];
                 $this->campanhas->auditar($id, CampanhaDeEmailRepository::CONFIRMADA, $changes, $master->getId(), $master->getEmail(), $agora);
+                $this->imagens->renovarPeloEnvio($pedido->mensagem, $agora);
             }
 
             return $id;
@@ -132,6 +141,7 @@ final class ConfirmarCampanhaUseCase
             'proxima' => $pedido->agendarPara ?? $agora,
             'estado' => $recorrente ? CampanhaDeEmail::RECORRENTE : ($pedido->agendarPara !== null ? CampanhaDeEmail::AGENDADA : CampanhaDeEmail::NA_FILA),
             'total' => $publico->total(), 'criada_por' => $master->getId(), 'agora' => $agora,
+            'rastrear_leitura' => $pedido->rastrearLeitura,
         ];
     }
 

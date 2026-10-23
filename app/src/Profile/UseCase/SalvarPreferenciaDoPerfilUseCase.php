@@ -8,6 +8,7 @@ use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Profile\Preferencia\CatalogoDePreferenciasDoPerfil;
+use App\Profile\Service\AssinaturaDoResumoDiario;
 
 /**
  * Liga ou desliga UMA preferência do Meu Perfil (Notificações no sistema, Sons de alerta, Resumo
@@ -18,6 +19,7 @@ final class SalvarPreferenciaDoPerfilUseCase
 {
     public function __construct(
         private readonly PreferenciaDoUsuarioRepository $preferencias,
+        private readonly ?AssinaturaDoResumoDiario $resumo = null,
     ) {
     }
 
@@ -28,6 +30,12 @@ final class SalvarPreferenciaDoPerfilUseCase
             throw new \InvalidArgumentException('Preferência desconhecida.');
         }
 
+        // O Resumo diário também liga e desliga o descadastro do e-mail (uma fonte só, AssinaturaDoResumoDiario).
+        if ($chave === CatalogoDePreferenciasDoPerfil::RESUMO_EMAIL && $this->resumo !== null) {
+            $this->resumo->definir($tenant, $usuario, $ligado);
+
+            return;
+        }
         $this->preferencias->gravar($tenant, $usuario, $chave, $ligado);
     }
 }

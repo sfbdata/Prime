@@ -1,8 +1,10 @@
 # Minhas Metas — reorganização em abas por papel
 
 **Frente:** `minhas-metas-abas` · **Risco:** BAIXO (domínio Tarefa; não toca ponto, identidade nem permissão)
-**Desenho aprovado:** <https://claude.ai/code/artifact/0e1a9bfa-3864-43fa-84b9-540ce0437257>
-(fontes em `docs/design/minhas-metas/*.dc.html` — 3 artboards: aba responsável, aba criei, modo lista)
+**Desenho-alvo:** `docs/design/redesign-19-10-26/04 - Minhas Metas 1.0.dc.html` (decisão do dono, 21/10).
+A proposta antiga de 13/10 (`docs/design/minhas-metas/*.dc.html`, 3 artboards) fica só como histórico.
+A decisão de 21/10 revoga o "fica como está" do #206: onde o desenho 04 mostra, ele manda (grupos,
+nomes, cores, Concluídas aberta, legenda do andamento, barra de filtro sem Status, prioridade da meta).
 
 ## O defeito que originou a frente
 
@@ -37,7 +39,9 @@ mais ampla contrariaria o motivo da frente.
 ### Contagens
 
 Cada aba exibe a contagem **de metas em aberto** (status != `concluida`). Concluídas ficam fora da
-contagem e num bloco recolhido, limitado aos **últimos 30 dias** por `dataConclusao` — hoje a tela
+contagem e num grupo comum, aberto (desenho 04, P:154 e P:163), limitado aos **últimos 30 dias** por
+`dataConclusao`. O corte de 30 dias fica no servidor: o desenho é omisso e o mesmo corte alimenta o
+"últimos 30 dias" do andamento — hoje a tela
 carrega todas as concluídas de sempre, e é isso que a faz pesar com 318 metas.
 
 ⚠️ `dataConclusao` é nula em metas concluídas antes da coluna existir. O corte usa
@@ -46,23 +50,31 @@ some meta concluída legítima da tela.
 
 ## Agrupamento dentro da lista
 
-**Aba `responsavel`, `acompanhando` e `todas`** — por urgência, na ordem:
+**Todas as abas** (`responsavel`, `criei`, `acompanhando` e `todas`), por urgência, na ordem do
+desenho 04 (P:154, LIS-07/08; decisão do dono de 21/10):
 
-1. Atrasadas — `prazo < hoje`, não concluída
-2. Próximos 7 dias — `hoje <= prazo <= hoje+7`
-3. Depois — `prazo > hoje+7`
-4. Sem prazo — `prazo IS NULL`
-5. Enviadas para revisão — `status = em_revisao` (sai da fila de trabalho: a bola está com quem criou)
-6. Concluídas — recolhido
+| # | Chave | Rótulo (`metas.grupos.*`) | Cor | Regra |
+|---|---|---|---|---|
+| 1 | `atrasadas` | Atrasadas | #a3232b | `prazo < hoje`, não concluída |
+| 2 | `proximas` | Vencem em 7 dias | #c08a12 | `hoje <= prazo <= hoje+7` |
+| 3 | `em_revisao` | Aguardando revisão | #0a6fa0 | `status = em_revisao` |
+| 4 | `depois` | No prazo | #1e7b45 | `prazo > hoje+7` |
+| 5 | `sem_prazo` | Sem prazo | #7d909d | `prazo IS NULL` |
+| 6 | `concluidas` | Concluídas | #1e7b45 | `status = concluida` (últimos 30 dias) |
 
-**Aba `criei`** — por etapa da revisão:
+O desenho escreve os rótulos em caixa alta; o catálogo guarda a grafia normal e o CSS
+(`.mm-grupo-nome`) põe a caixa alta. As chaves ficaram as de antes para não quebrar CSS, JS e
+seletores. Nenhum grupo tem nota (sai a nota por aba da revisão) e nenhum é recolhido: Concluídas é
+um grupo comum, aberto, sem seta. Grupo vazio não aparece.
 
-1. Aguardando sua revisão — `status = em_revisao` (é a ação de quem criou)
-2. Em andamento — `status = pendente`, ordenado por prazo (atrasadas primeiro)
-3. Concluídas — recolhido
+Na linha, a faixa de 4px à esquerda tem a cor do grupo e o fundo é branco; só a atrasada tem fundo
+#fdf3f3 (P:162). A pílula de status da linha (`metas.status.*`) segue o mesmo balde do grupo.
 
-Um item aparece em **exatamente um** grupo. `em_revisao` tem precedência sobre a urgência do prazo em
-todas as abas; sem essa precedência a mesma meta cairia em dois blocos.
+A aba `criei` agrupa como as outras (P:151-154: a aba só escolhe quais metas entram). Até o acerto
+do desenho 04 ela agrupava por etapa da revisão.
+
+Um item aparece em **exatamente um** grupo. A precedência da classificação não mudou: `concluida`,
+depois `em_revisao` (vence a urgência do prazo), depois sem prazo, atrasada, próxima e no prazo.
 
 ## KPIs (faixa de atalhos)
 
@@ -87,13 +99,18 @@ foi o que a primeira versão fazia, porque a faceta excluía só `concluida`. O 
 
 ## Trilho lateral (coluna direita, 356px)
 
-- **Andamento** — barra de progresso e as quatro fatias: concluídas (30 dias), **em aberto**,
-  atrasadas, em revisão. As fatias somam o total exibido; se não somarem, o número está errado.
-  A segunda chama-se "em aberto", e não "no prazo", porque soma as de prazo folgado **e** as sem
-  prazo nenhum — chamar de "no prazo" o que não tem prazo seria mentir no rótulo.
+- **Seu andamento** (sempre este título, em qualquer aba) — "X de Y concluídas", barra de progresso
+  e a legenda de três itens do desenho 04 (P:111-117, P:177), nesta ordem: "N concluída(s)" #1e7b45,
+  "N atrasada(s)" #a3232b, "N em revisão" #0a6fa0 (`metas.trilho.legenda.*`). Os números são de
+  TODAS as metas da pessoa (universo da aba `todas`, concluídas dos últimos 30 dias, sem as pastas
+  do cadeado), sem a aba aberta e sem os filtros da tela: `TarefaRepository::contarAndamento`, uma
+  consulta agregada, também na recarga parcial. A fatia "em aberto" saiu (decisão do dono de 21/10,
+  que revoga a de 14/10); com isso a legenda não soma Y, e não precisa.
 - **Quem delegou para você** (aba `responsavel`) / **Com quem estão** (aba `criei`) — pessoas com
   contagem de abertas e de atrasadas. Teto de 5 linhas, com "e mais N pessoas".
-- **Precisa de atenção** — as atrasadas, no máximo 5, com "ver todas" quando houver mais.
+- **Precisa de atenção** — as atrasadas de TODAS as metas da pessoa (mesmo universo do andamento),
+  da que venceu primeiro, no máximo 4 (`MinhasMetasOutput::TETO_ATENCAO`), sem "ver todas" (desenho
+  04, P:119-127 e P:178). O item abre a meta (TRI-09).
 
 O trilho não aparece no modo lista.
 
@@ -131,14 +148,29 @@ Status · Atualizada · ações.
 ## Arquitetura
 
 ```
-GET /tarefas/minhas?aba=&modo=&busca=&status=&prioridade=&prazo=
+GET /tarefas/minhas?aba=&modo=&busca=&prioridade=&prazo=
   → TarefaController::minhas
     → ListarMinhasMetasUseCase::executar(User, Tenant, AbaMetas, filtros)
       → TarefaRepository::findParaMinhasMetas(...)   (lista, já escopada pela aba)
-      → TarefaRepository::contarPainelMinhasMetas(...) (KPIs + fatias do trilho)
+      → TarefaRepository::contarPainelMinhasMetas(...) (os quatro KPIs)
       → TarefaRepository::contarPorAba(...)          (número em cada aba)
+      → TarefaRepository::contarAndamento(...)       ("Seu andamento": X de Y e fatias, todas as metas)
+      → TarefaRepository::findAtrasadasParaAtencao(...) ("Precisa de atenção": até 4 atrasadas, todas as metas)
     → MinhasMetasOutput  (grupos montados, KPIs, trilho)
 ```
+
+`contarAndamento` e `findAtrasadasParaAtencao` partem do mesmo universo (`universoDoAndamento`: aba
+`todas`, sem cadeado, concluídas dos últimos 30 dias, sem os filtros da tela) e rodam também na
+recarga parcial; só o modo lista os dispensa. O isolamento entre escritórios vem do TenantFilter: meta
+de outro escritório com o usuário como responsável não entra (`testTrilhoNaoContaMetaDeOutroEscritorio`).
+
+**Barra de filtro (desenho 04, P:69-80, P:174):** busca, Prioridade e Prazo. O filtro Status saiu
+(o desenho não o tem; decisão do dono de 21/10): `status` na URL é ignorado. O select de prazo mostra "Atrasadas", "Vencem em 7 dias"
+e "Sem prazo", com os valores de sempre (`vencidas`, `proximas`, `sem`, que os KPIs usam). O botão do
+motor compartilhado diz "Limpar filtros" (`data-ft-rotulo-limpar` no root), é de texto, fica na
+linha dos selects e só aparece com filtro ativo; zera busca e selects, não a aba. Os chips dos filtros
+ativos não aparecem nesta barra (o desenho não os tem; continuam no DOM). Tudo por CSS local em
+`.mm-barra-cartao`: `filtro-tabela.js` e `filtro-tabela.css` não mudam.
 
 - `AbaMetas` é um enum `string` em `src/Tarefa/Enum/`, com `tryFrom` + padrão — o controller nunca
   repassa string crua ao repositório.
@@ -146,6 +178,26 @@ GET /tarefas/minhas?aba=&modo=&busca=&status=&prioridade=&prazo=
   esconde a regra de negócio na view e impede teste unitário do agrupamento.
 - Toda consulta continua herdando o `TenantFilter`; nenhum método novo recebe id de usuário vindo do
   request — o usuário é sempre o logado, fixado no servidor.
+
+## Prioridade da meta (desenho 04, P:77, P:137-144, P:153)
+
+A faceta "Prioridade" (Normal, Alta, Urgente) filtra pela prioridade **da meta**, não mais pela da
+pasta. Uma meta normal numa pasta urgente não entra em "Urgente".
+
+- Enum `App\Tarefa\Enum\PrioridadeDaMeta` (`normal`, `alta`, `urgente`; rótulos em
+  `metas.prioridade.*`), coluna `tarefa.prioridade` VARCHAR(20) NOT NULL DEFAULT 'normal'
+  (migration `Version20261020149300`, só estrutura). Não reaproveita `PrioridadePasta`.
+- **Meta nova herda da pasta** na criação: pasta `urgente` vira `urgente`, `prioridade` vira `alta`,
+  o resto `normal`.
+- **Metas antigas** recebem a mesma herança pelo comando idempotente
+  `app:tarefa:herdar-prioridade-da-pasta` (`--dry-run`, `--escritorio=ID`), por escritório, que só
+  toca meta ainda `normal`. Roda uma vez depois da publicação (`DEPLOY.md`).
+- O valor antigo `prioridade` na URL é ignorado; o join da pasta fica só para a busca.
+- O cartão não mostra mais a prioridade da pasta (o desenho 04 não mostra prioridade na linha).
+- **Decisão do dono (21/10):** prioridade herdada da pasta, sem campo de escolha, até a I.A. definir.
+  O desenho 04 não tem onde escolher e o 02 faz a prioridade nascer da análise da I.A., que está
+  travada. A herança só vale enquanto a meta está `normal`: quem um dia escolher antes de gravar não é
+  sobrescrito.
 
 ## Testes (o que precisa ficar provado)
 
@@ -163,7 +215,7 @@ GET /tarefas/minhas?aba=&modo=&busca=&status=&prioridade=&prazo=
 
 **Controller**
 11. As quatro abas respondem 200 e marcam a aba certa como ativa.
-12. Filtros de busca/status/prazo continuam funcionando dentro de cada aba.
+12. Filtros de busca/prioridade/prazo continuam funcionando dentro de cada aba; não há faceta Status.
 13. XHR devolve só o fragmento.
 
 **Isolamento (obrigatório)**
@@ -178,8 +230,7 @@ valer como verde.
 ## Dívida conhecida e aceita
 
 - **O template recebe `Tarefa`, não um Output DTO**, contra o que `app/templates/CLAUDE.md` manda.
-  Os dois N+1 que isso causava foram mortos por pré-carga, mas restam `meta.pasta.prioridade` e
-  `meta.responsaveis` (ambos pré-existentes: a tela antiga já os lia). Um `MetaOutput` resolvido por
+  Os dois N+1 que isso causava foram mortos por pré-carga, mas resta `meta.responsaveis` (ambos pré-existentes: a tela antiga já os lia). Um `MetaOutput` resolvido por
   DQL fecharia a conta — é uma frente própria, não um remendo desta.
 - **Metas de pasta arquivada entram nos KPIs** (34 no dev). A lista sempre as trouxe; o que é novo é
   pôr um número em cima. Decisão do dono se `situacao` deve entrar no recorte.

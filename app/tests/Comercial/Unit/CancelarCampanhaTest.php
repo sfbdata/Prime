@@ -25,23 +25,21 @@ use Psr\Clock\ClockInterface;
 #[CoversClass(AbrirCampanhaDoRelatorioUseCase::class)]
 final class CancelarCampanhaTest extends TestCase
 {
-    /** @return iterable<string, array{string, bool, bool}> */
+    /** @return iterable<string, array{string, bool}> */
     public static function estados(): iterable
     {
-        foreach (CampanhaDeEmail::ATIVAS as $ativa) {
-            yield $ativa => [$ativa, false, true];
+        yield 'agendada' => [CampanhaDeEmail::AGENDADA, true];
+        yield 'recorrente' => [CampanhaDeEmail::RECORRENTE, true];
+        foreach ([CampanhaDeEmail::NA_FILA, CampanhaDeEmail::ENVIANDO, CampanhaDeEmail::ENVIADA, CampanhaDeEmail::CANCELADA, 'teste'] as $outro) {
+            yield $outro => [$outro, false];
         }
-        yield 'enviada com fila' => [CampanhaDeEmail::ENVIADA, true, true];
-        yield 'enviada sem fila' => [CampanhaDeEmail::ENVIADA, false, false];
-        yield 'cancelada' => [CampanhaDeEmail::CANCELADA, true, false];
-        yield 'teste' => ['teste', true, false];
     }
 
-    #[TestDox('O botão aparece só onde o EncerrarCampanha aceita: $estado')]
+    #[TestDox('O botão aparece só no envio programado, como o desenho: $estado')]
     #[DataProvider('estados')]
-    public function testCancelavel(string $estado, bool $temFila, bool $esperado): void
+    public function testCancelavel(string $estado, bool $esperado): void
     {
-        self::assertSame($esperado, AbrirCampanhaDoRelatorioUseCase::cancelavel($estado, static fn (): bool => $temFila));
+        self::assertSame($esperado, AbrirCampanhaDoRelatorioUseCase::cancelavel($estado));
     }
 
     #[TestDox('Console sem mudança: o motivo é "Encerrada pelo console" e a trilha vai sem autor')]

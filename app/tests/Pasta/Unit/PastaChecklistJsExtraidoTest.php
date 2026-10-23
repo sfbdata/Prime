@@ -15,6 +15,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaChecklistJsExtraidoTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const SHOW      = __DIR__ . '/../../../templates/pasta/show.html.twig';
     private const CHECKLIST = __DIR__ . '/../../../templates/pasta/_documentos_checklist.html.twig';
     private const JS        = __DIR__ . '/../../../public/js/pasta-checklist.js';
@@ -73,7 +75,8 @@ final class PastaChecklistJsExtraidoTest extends TestCase
         }
         self::assertStringContainsString('new window.Sortable(lista', $js, 'reordenar arrastando');
         self::assertStringContainsString("'dblclick'", $js, 'renomear inline');
-        self::assertStringContainsString("perguntar('Excluir este item do checklist?', true)", $js, 'E7: janela vermelha da tela');
+        self::assertStringContainsString("perguntar(BJ_T.t('pasta_scripts.js.checklist.excluir_item_pergunta'), true)", $js, 'E7: janela vermelha da tela');
+        self::assertTextoDoScript('Excluir este item do checklist?', 'checklist.excluir_item_pergunta', $js);
     }
 
     #[TestDox('renomear tem guarda de requisição em voo: Enter + blur não salvam duas vezes')]

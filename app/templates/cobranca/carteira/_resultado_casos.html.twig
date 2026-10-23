@@ -9,16 +9,17 @@
 {% set estado = filtros.estado|default('') %}
 {% set ordenar = filtros.ordenar|default('saldo') %}
 {% set direcao = filtros.direcao|default('desc') %}
-{% set rotulo = carteira.rotuloObjeto|default('Objeto') %}
+{% set rotuloPadrao = 'cobranca_carteira.show.objeto'|trans %}
+{% set rotulo = carteira.rotuloObjeto|default(rotuloPadrao) %}
 
 {# A contagem pertence visualmente à barra de busca (o CSS a leva para lá em tela larga), mas mora
    AQUI porque muda a cada filtro — e a barra, que guarda o foco do campo, não recarrega.
    `total` é o tamanho da lista JÁ filtrada; `carteira.totalCasos` é a carteira inteira. #}
 <div class="cs-contagem">
     {%- if total == carteira.totalCasos -%}
-        {{ total }} caso{{ total == 1 ? '' : 's' }}
+        {{ total == 1 ? 'cobranca_carteira.casos.contagem_um'|trans({total: total ~ ''}) : 'cobranca_carteira.casos.contagem'|trans({total: total ~ ''}) }}
     {%- else -%}
-        {{ total }} de {{ carteira.totalCasos }} casos
+        {{ 'cobranca_carteira.casos.contagem_filtrada'|trans({total: total ~ '', carteira: carteira.totalCasos ~ ''}) }}
     {%- endif -%}
 </div>
 
@@ -42,19 +43,19 @@
                 <th class="cs-col-pessoa cs-th-ordenavel{{ ordenar == 'pessoa' ? ' ' ~ direcao : '' }}" data-ordenar="pessoa" scope="col"
                     aria-sort="{{ ordenar == 'pessoa' ? (direcao == 'asc' ? 'ascending' : 'descending') : 'none' }}">
                     <button type="button" class="cs-ordenar">
-                        <span>Pessoa cobrada</span>
+                        <span>{{ 'cobranca_carteira.casos.coluna.pessoa'|trans }}</span>
                         <i class="bi bi-arrow-{{ ordenar == 'pessoa' ? (direcao == 'asc' ? 'up' : 'down') : 'down-up' }}"></i>
                     </button>
                 </th>
-                <th class="cs-col-estado" scope="col">Estado</th>
+                <th class="cs-col-estado" scope="col">{{ 'cobranca_carteira.casos.coluna.estado'|trans }}</th>
                 <th class="cs-col-saldo cs-th-saldo cs-th-ordenavel{{ ordenar == 'saldo' ? ' ' ~ direcao : '' }}" data-ordenar="saldo" scope="col"
                     aria-sort="{{ ordenar == 'saldo' ? (direcao == 'asc' ? 'ascending' : 'descending') : 'none' }}">
                     <button type="button" class="cs-ordenar">
-                        <span>Saldo</span>
+                        <span>{{ 'cobranca_carteira.casos.coluna.saldo'|trans }}</span>
                         <i class="bi bi-arrow-{{ ordenar == 'saldo' ? (direcao == 'asc' ? 'up' : 'down') : 'down-up' }}"></i>
                     </button>
                 </th>
-                <th class="cs-col-anexo" scope="col"><span class="visually-hidden">Anexos</span></th>
+                <th class="cs-col-anexo" scope="col"><span class="visually-hidden">{{ 'cobranca_carteira.casos.coluna.anexos'|trans }}</span></th>
             </tr>
         </thead>
         <tbody>
@@ -74,8 +75,8 @@
                     {# "Pronto p/ encerrar" é indicador DERIVADO (saldo zerado e caso não encerrado),
                        não um quarto estado — por isso texto miúdo abaixo, nunca um selo do mesmo peso. #}
                     {% if caso.prontoParaEncerrar %}
-                    <span class="cs-pronto" title="Saldo exigível zerado: o caso pode ser encerrado">
-                        <i class="bi bi-check2-circle"></i>Pronto p/ encerrar
+                    <span class="cs-pronto" title="{{ 'cobranca_carteira.casos.pronto_dica'|trans }}">
+                        <i class="bi bi-check2-circle"></i>{{ 'cobranca_carteira.casos.pronto'|trans }}
                     </span>
                     {% endif %}
                 </td>
@@ -88,15 +89,15 @@
                     {% if caso.temVencido %}
                     <div class="cs-saldo-vencido">
                         {%- if caso.saldoVencido == caso.saldoExigivel -%}
-                            tudo vencido
+                            {{ 'cobranca_carteira.casos.tudo_vencido'|trans }}
                         {%- else -%}
-                            {{ caso.saldoVencido|centavos }} vencido
+                            {{ 'cobranca_carteira.casos.vencido'|trans({valor: caso.saldoVencido|centavos}) }}
                         {%- endif -%}
                     </div>
                     {% endif %}
                 </td>
                 <td class="cs-td-anexo">
-                    {% if caso.temDocumentos %}<i class="bi bi-paperclip" title="O objeto tem documentos" aria-label="O objeto tem documentos"></i>{% endif %}
+                    {% if caso.temDocumentos %}<i class="bi bi-paperclip" title="{{ 'cobranca_carteira.casos.tem_documentos'|trans }}" aria-label="{{ 'cobranca_carteira.casos.tem_documentos'|trans }}"></i>{% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -110,7 +111,7 @@
    incompleta, e usar o tamanho da lista devolvida faria "Mostrando 7–7 de 121". #}
 {% set primeiro = (pagina - 1) * por_pagina + 1 %}
 <div class="cs-rodape">
-    <span class="cs-faixa">Mostrando {{ primeiro }} a {{ primeiro + casos|length - 1 }} de {{ total }}</span>
+    <span class="cs-faixa">{{ 'cobranca_carteira.casos.faixa'|trans({primeiro: primeiro ~ '', ultimo: (primeiro + casos|length - 1) ~ '', total: total ~ ''}) }}</span>
     {{ include('cobranca/carteira/_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
 </div>
 
@@ -118,25 +119,24 @@
 <div class="cs-vazio">
     {% if busca is not empty %}
         <i class="bi bi-search"></i>
-        <p class="cs-vazio-titulo">Nenhum caso casa “{{ busca }}”</p>
+        <p class="cs-vazio-titulo">{{ 'cobranca_carteira.casos.busca_vazia_titulo'|trans({busca: busca}) }}</p>
         <p class="cs-vazio-texto">
-            A busca cobre a identificação {{ rotulo == 'Objeto' ? 'do objeto' : ('da ' ~ rotulo|lower) }} e o nome da pessoa
-            cobrada. Os valores do cabeçalho continuam sendo os da carteira inteira.
+            {{ rotulo == rotuloPadrao ? 'cobranca_carteira.casos.busca_vazia_texto_objeto'|trans : 'cobranca_carteira.casos.busca_vazia_texto'|trans({rotulo: rotulo|lower}) }}
         </p>
-        <button type="button" class="cs-btn js-filtro-limpar"><i class="bi bi-x-lg"></i><span>Limpar busca</span></button>
+        <button type="button" class="cs-btn js-filtro-limpar"><i class="bi bi-x-lg"></i><span>{{ 'cobranca_carteira.casos.limpar_busca'|trans }}</span></button>
     {% elseif estado is not empty %}
         <i class="bi bi-funnel"></i>
-        <p class="cs-vazio-titulo">Nenhum caso neste recorte</p>
+        <p class="cs-vazio-titulo">{{ 'cobranca_carteira.casos.estado_vazio_titulo'|trans }}</p>
         <p class="cs-vazio-texto">
-            A carteira tem {{ carteira.totalCasos }} caso{{ carteira.totalCasos == 1 ? '' : 's' }}, mas nenhum no estado
-            escolhido. Os valores do cabeçalho continuam sendo os da carteira inteira.
+            {% set casosDaCarteira = carteira.totalCasos == 1 ? 'cobranca_carteira.casos.contagem_um'|trans({total: carteira.totalCasos ~ ''}) : 'cobranca_carteira.casos.contagem'|trans({total: carteira.totalCasos ~ ''}) %}
+            {{ 'cobranca_carteira.casos.estado_vazio_texto'|trans({casos: casosDaCarteira}) }}
         </p>
-        <button type="button" class="cs-btn js-filtro-limpar"><i class="bi bi-x-lg"></i><span>Limpar filtro</span></button>
+        <button type="button" class="cs-btn js-filtro-limpar"><i class="bi bi-x-lg"></i><span>{{ 'cobranca_carteira.casos.limpar_filtro'|trans }}</span></button>
     {% else %}
         <i class="bi bi-briefcase"></i>
-        <p class="cs-vazio-titulo">Nenhuma cobrança nesta carteira</p>
+        <p class="cs-vazio-titulo">{{ 'cobranca_carteira.casos.vazio_titulo'|trans }}</p>
         <p class="cs-vazio-texto">
-            As cobranças aparecem aqui depois de importar um relatório ou de criar {{ rotulo == 'Objeto' ? 'um objeto' : ('uma ' ~ rotulo|lower) }} à mão.
+            {{ rotulo == rotuloPadrao ? 'cobranca_carteira.casos.vazio_texto_objeto'|trans : 'cobranca_carteira.casos.vazio_texto'|trans({rotulo: rotulo|lower}) }}
         </p>
     {% endif %}
 </div>

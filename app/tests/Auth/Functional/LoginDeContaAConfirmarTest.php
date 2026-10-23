@@ -15,6 +15,10 @@ use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Legal\PoliticaPrivacidadeVigente;
+use App\Termo\Entity\AceiteTermo;
+use App\Termo\Entity\CienciaPolitica;
+use App\Termo\TermoVigente;
 use App\Security\PedidoDeNavegacao;
 use App\Security\SessaoDeContaAConfirmarListener;
 use App\Security\UserChecker;
@@ -243,21 +247,73 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertTrue($this->entrou($client));
     }
 
-    #[TestDox('Confirmar pelo link do e-mail e depois entrar funciona')]
-    public function testConfirmarPeloLinkEEntrar(): void
+    /** Abre o link do e-mail e cria a senha pelo formulário "Crie sua senha" (spec cadastro-senha-no-link). */
+    private function criarSenhaPeloLink(KernelBrowser $client, string $token, string $senha): void
     {
-        $client = static::createClient();
-        $user = $this->conta();
+        $form = $client->request('GET', '/cadastro/confirmar-email/' . $token)->selectButton('Criar senha e confirmar')->form();
+        $form['senha'] = $senha;
+        $form['confirmacao'] = $senha;
+        $form['aceite']->tick();
+        $client->submit($form);
+        self::assertSelectorTextContains('.confirmacao-email', 'Sua senha foi criada.');
+    }
+
+    private function linkDeConfirmacao(User $user): string
+    {
         $token = bin2hex(random_bytes(32));
         $this->em()->persist(new ConfirmacaoEmail($user, ConfirmacaoEmail::hashDoToken($token), new \DateTimeImmutable('+6 days')));
         $this->em()->flush();
 
+        return $token;
+    }
+
+    #[TestDox('Conta antiga a confirmar (com senha): o link pede a senha nova; a antiga deixa de valer e a nova entra')]
+    public function testCriarSenhaPeloLinkEEntrar(): void
+    {
+        $client = static::createClient();
+        $user = $this->conta();
+        $token = $this->linkDeConfirmacao($user);
+
         $client->request('GET', '/cadastro/confirmar-email/' . $token);
-        self::assertSelectorTextContains('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSelectorTextSame('.confirmacao-email h3', 'Crie sua senha');
+        $this->criarSenhaPeloLink($client, $token, 'novaSenha456');
         self::assertFalse($this->entrou($client), 'o link confirma, mas não faz login sozinho');
 
         $this->enviarLogin($client, (string) $user->getEmail(), self::SENHA);
+        self::assertResponseRedirects('/login');
+        self::assertSame(self::ERRO_DE_CREDENCIAL, trim($client->followRedirect()->filter('#lgErro')->text()));
+
+        $this->enviarLogin($client, (string) $user->getEmail(), 'novaSenha456');
         self::assertEntrouPeloVeu($client);
+    }
+
+    #[TestDox('O cookie lembrar-me antigo cai depois que a senha é criada pelo link (a assinatura leva a senha)')]
+    public function testRememberMeAntigoCaiDepoisDeCriarASenha(): void
+    {
+        $client = static::createClient();
+        $user = $this->conta(aConfirmar: false);
+        $this->enviarLogin($client, (string) $user->getEmail(), self::SENHA, lembrar: true);
+        self::assertEntrouPeloVeu($client);
+        $lembrarMe = $client->getCookieJar()->get('REMEMBERME');
+        self::assertNotNull($lembrarMe);
+
+        // A conta volta a ficar a confirmar (como as de produção do #201) e o link cria a senha nova.
+        $gerenciado = $this->em()->find(User::class, $user->getId());
+        self::assertNotNull($gerenciado);
+        $gerenciado->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $token = $this->linkDeConfirmacao($gerenciado);
+        $client->getCookieJar()->clear();
+        $this->criarSenhaPeloLink($client, $token, 'novaSenha456');
+        $this->em()->clear();
+        self::assertTrue($this->em()->find(User::class, $user->getId())?->isEmailConfirmado());
+
+        // Só o cookie antigo, sem sessão: a conta está confirmada, mas o hash mudou e a assinatura não bate mais.
+        $client->getCookieJar()->clear();
+        $client->getCookieJar()->set($lembrarMe);
+        $client->request('GET', '/termos/aceitar');
+
+        self::assertResponseRedirects('http://localhost/login');
+        self::assertFalse($this->entrou($client));
     }
 
     #[TestDox('Recuperar a senha pelo código (que confirma o e-mail) e depois entrar funciona')]
@@ -284,6 +340,91 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertEntrouPeloVeu($client);
     }
 
+    /** O aceite e a ciência do cadastro, como o CriarContaEEscritorioUseCase grava. */
+    private function aceiteDoCadastro(User $user): void
+    {
+        $this->em()->persist(new AceiteTermo($user, TermoVigente::VERSAO, '198.51.100.1', 'Navegador do cadastro'));
+        $this->em()->persist(new CienciaPolitica($user, PoliticaPrivacidadeVigente::VERSAO, '198.51.100.1', 'Navegador do cadastro'));
+        $this->em()->flush();
+    }
+
+    /** @return list<string> as origens gravadas para a conta, em ordem */
+    private function origens(string $tabela, User $user): array
+    {
+        return $this->em()->getConnection()->fetchFirstColumn('SELECT origem FROM ' . $tabela . ' WHERE user_id = :id ORDER BY id', ['id' => $user->getId()]);
+    }
+
+    /** Troca a senha pelo código do "Esqueceu a senha?" (o código é gravado direto, como no teste acima). */
+    private function trocarSenhaPeloCodigo(KernelBrowser $client, User $user, string $senha): void
+    {
+        $segredo = (string) static::getContainer()->getParameter('kernel.secret');
+        $this->em()->persist(new RedefinicaoSenha(
+            user: $user,
+            tokenHash: SolicitarCodigoSenhaUseCase::hashDoCodigo((int) $user->getId(), '123456', $segredo),
+            expiraEm: new \DateTimeImmutable('+15 minutes'),
+            ip: '127.0.0.1',
+        ));
+        $this->em()->flush();
+        $token = (string) $client->request('GET', '/login')->filter('#lgRaiz')->attr('data-token-senha');
+        $client->jsonRequest('POST', '/senha/codigo/confirmar', [
+            'email' => $user->getEmail(), 'codigo' => '123456', 'senha' => $senha, 'confirmacao' => $senha, '_token' => $token,
+        ]);
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('D2b: conta a confirmar pelo código perde o valor do aceite do cadastro; na entrada, o gate pede Termos e Política e grava reaceite')]
+    public function testCodigoEmContaAConfirmarPassaPeloGate(): void
+    {
+        $client = static::createClient();
+        $user = $this->conta();
+        $this->aceiteDoCadastro($user);
+
+        $this->trocarSenhaPeloCodigo($client, $user, 'novaSenha456');
+
+        self::assertSame(['cadastro_nao_ratificado'], $this->origens('aceite_termo', $user));
+        self::assertSame(['cadastro_nao_ratificado'], $this->origens('ciencia_politica', $user));
+
+        $this->enviarLogin($client, (string) $user->getEmail(), 'novaSenha456');
+        self::assertEntrouPeloVeu($client);
+        $client->request('GET', '/');
+        self::assertResponseRedirects('/termos/aceitar');
+
+        $tela = $client->followRedirect();
+        $caixa = $tela->filter('label.aceite-check');
+        self::assertSame('Li e aceito os Termos e Condições Gerais de Uso do BlueJus e a Política de privacidade.', trim((string) preg_replace('/\s+/u', ' ', $caixa->text())));
+        self::assertCount(1, $caixa->filter('a[href="/politica-de-privacidade"][target="_blank"]'));
+        $form = $tela->selectButton('Aceitar e continuar')->form();
+        $form['aceito']->tick();
+        $client->submit($form);
+        self::assertResponseRedirects('/');
+
+        self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('aceite_termo', $user));
+        self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('ciencia_politica', $user));
+        $client->request('GET', '/');
+        self::assertFalse($client->getResponse()->isRedirect('/termos/aceitar'), 'depois do aceite, o gate não para mais');
+
+        // Duplo envio do gate: a segunda ciência `reaceite` não grava nem estoura o índice único.
+        $repo = static::getContainer()->get(\App\Termo\Repository\CienciaPoliticaRepository::class);
+        self::assertFalse($repo->registrarReaceite($user, \App\Legal\PoliticaPrivacidadeVigente::VERSAO, '127.0.0.1', null, new \DateTimeImmutable()));
+        self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('ciencia_politica', $user));
+    }
+
+    #[TestDox('D2b: o código numa conta já confirmada não mexe no aceite do cadastro, e o gate fica só dos Termos')]
+    public function testCodigoEmContaConfirmadaNaoMudaOAceite(): void
+    {
+        $client = static::createClient();
+        $user = $this->conta(aConfirmar: false);
+        $this->aceiteDoCadastro($user);
+
+        $this->trocarSenhaPeloCodigo($client, $user, 'novaSenha456');
+
+        self::assertSame(['cadastro'], $this->origens('aceite_termo', $user));
+        self::assertSame(['cadastro'], $this->origens('ciencia_politica', $user));
+        $this->enviarLogin($client, (string) $user->getEmail(), 'novaSenha456');
+        $client->request('GET', '/');
+        self::assertFalse($client->getResponse()->isRedirect('/termos/aceitar'));
+    }
+
     #[TestDox('Conta criada pelo convite de escritório nasce confirmada e entra')]
     public function testConviteDeEscritorioEntra(): void
     {
@@ -291,14 +432,14 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $tenant = (new Tenant())->setName('Escritório que convida ' . uniqid());
         $email = 'convidada_' . uniqid() . '@adv.com';
         $token = bin2hex(random_bytes(16));
-        $convite = new Invitation(email: $email, token: $token, type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
+        $convite = new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
         $convite->setTenant($tenant);
         $this->em()->persist($tenant);
         $this->em()->persist($convite);
         $this->em()->flush();
 
         $user = static::getContainer()->get(AceitarConviteEscritorioSemContaUseCase::class)->executar(
-            new AceitarConviteEscritorioSemContaInput(token: $token, fullName: 'Bia Convidada', senha: self::SENHA, aceiteTermos: true, ip: '127.0.0.1'),
+            new AceitarConviteEscritorioSemContaInput(token: $token, fullName: 'Bia Convidada', senha: self::SENHA, aceiteTermos: true, ip: '127.0.0.1', genero: 'feminino'),
         );
         self::assertTrue($user->isEmailConfirmado());
 
@@ -306,7 +447,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertEntrouPeloVeu($client);
     }
 
-    #[TestDox('Cadastro de ponta a ponta: nasce sem login, a tela pede a confirmação, o reenvio respeita o teto e o link destrava')]
+    #[TestDox('Cadastro de ponta a ponta: nasce sem login, a senha do cadastro não entra, o reenvio respeita o teto e a senha criada no link entra')]
     public function testCadastroDePontaAPonta(): void
     {
         $client = static::createClient();
@@ -317,7 +458,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
 
         $client->jsonRequest('POST', '/cadastro/criar', [
             'nome' => 'Ana Souza', 'escritorio' => 'Souza ' . uniqid(), 'email' => $email,
-            'senha' => self::SENHA, 'aceite' => true, '_token' => 'token-do-cadastro',
+            'senha' => self::SENHA, 'genero' => 'masculino', 'aceite' => true, '_token' => 'token-do-cadastro',
         ]);
         self::assertSame(['ok' => true, 'confirmar' => true, 'email' => $email], json_decode((string) $client->getResponse()->getContent(), true));
         self::assertFalse($this->entrou($client));
@@ -331,13 +472,28 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $client->jsonRequest('POST', '/login/reenviar-confirmacao', ['_token' => (string) $tela->filter('#lgRaiz')->attr('data-token-reenvio')], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         self::assertSame(['ok' => false, 'mensagem' => 'Aguarde um instante antes de pedir outro link de confirmação.'], json_decode((string) $client->getResponse()->getContent(), true));
 
+        // A senha digitada no cadastro nunca vale (spec cadastro-senha-no-link): o erro é o de credencial comum.
         $this->enviarLogin($client, $email, self::SENHA);
         self::assertResponseRedirects('/login');
         self::assertFalse($this->entrou($client));
+        self::assertSame(self::ERRO_DE_CREDENCIAL, trim($client->followRedirect()->filter('#lgErro')->text()));
 
+        // O link pede a senha; a do cadastro continua sem valer depois da confirmação, e a criada entra.
         $client->request('GET', '/cadastro/confirmar-email/' . $link[1]);
-        self::assertSelectorTextContains('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSelectorTextSame('.confirmacao-email h3', 'Crie sua senha');
+        $this->criarSenhaPeloLink($client, $link[1], 'novaSenha456');
+        // D2: o aceite do link entra ao lado do do cadastro, sem apagar.
+        $origens = fn (string $tabela): array => $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT origem FROM ' . $tabela . ' WHERE user_id = :id ORDER BY id',
+            ['id' => $user->getId()],
+        );
+        self::assertSame(['cadastro', 'link_confirmacao'], $origens('aceite_termo'));
+        self::assertSame(['cadastro', 'link_confirmacao'], $origens('ciencia_politica'));
         $this->enviarLogin($client, $email, self::SENHA);
+        self::assertResponseRedirects('/login');
+        self::assertFalse($this->entrou($client));
+        self::assertSame(self::ERRO_DE_CREDENCIAL, trim($client->followRedirect()->filter('#lgErro')->text()));
+        $this->enviarLogin($client, $email, 'novaSenha456');
         self::assertEntrouPeloVeu($client);
     }
 
@@ -380,6 +536,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertSame('', trim($tela->filter('#lgErro')->text()));
         $client->jsonRequest('POST', '/login/reenviar-confirmacao', ['_token' => (string) $tela->filter('#lgRaiz')->attr('data-token-reenvio')], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         self::assertSame(['ok' => true, 'mensagem' => ContaAConfirmar::SEM_CONTA_NA_SESSAO], json_decode((string) $client->getResponse()->getContent(), true));
+        self::assertSame('Para receber um novo acesso, use "Esqueceu a senha?": enviamos um código para o seu e-mail.', ContaAConfirmar::SEM_CONTA_NA_SESSAO);
         self::assertEmailCount(0);
     }
 
@@ -394,7 +551,8 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertSame('Confirme seu e-mail', $passo->attr('data-titulo'));
         self::assertSame('Reenviar o link de confirmação', $passo->attr('data-botao'));
         $textos = $passo->filter('.lg-md__texto');
-        self::assertSame('Enviamos um link de confirmação para . Clique nele para ativar sua conta e seu escritório. O link expira em 7 dias.', trim($textos->eq(0)->text()));
+        // Raiz E (spec seguranca-a-convites): o mesmo texto para o e-mail novo e para o que já tem conta.
+        self::assertSame('Se o e-mail puder ser usado, você receberá as instruções nele. Clique no link para criar a sua senha e ativar sua conta e seu escritório. O link expira em 7 dias.', trim($textos->eq(0)->text()));
         self::assertCount(1, $textos->eq(0)->filter('b#lgCfEmail'));
         self::assertSame('Não recebeu? Verifique a caixa de spam ou peça um novo link.', trim($textos->eq(1)->text()));
         self::assertSame('Ir para o login', trim($tela->filter('#lgMdForm > .lg-md__jatem[data-passo="conf"] > a[data-md-fechar]')->text()));

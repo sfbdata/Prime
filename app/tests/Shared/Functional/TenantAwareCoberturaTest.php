@@ -25,7 +25,6 @@ use App\Master\Entity\RecursoEstado;
 use App\Pasta\Entity\PastaProcesso;
 use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\BlocoJornadaColaborador;
-use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\TenantAware;
 use App\Termo\Entity\AceiteTermo;
@@ -45,6 +44,7 @@ use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
 use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
+use App\TrabalhoExterno\Entity\MetricaPublica;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Entity\Vaga;
@@ -154,6 +154,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
+        MetricaPublica::class, // contador anônimo da página pública (dia, link, visitas, cliques), sem escritório nem pessoa; só o painel do Master lê, e só a soma (PainelDoTrabalhoExternoTest::testSoOMasterVeOPainel)
         Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
         Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
 
@@ -178,6 +179,15 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\CampanhaDeEmail::class,
         \App\Comercial\Entity\DestinoDaCampanha::class,
         \App\Comercial\Entity\ControleDoExpansor::class,
+        // F3e (comercial-marcas.md): as marcas do Relatório são de cada Master sobre as campanhas da plataforma, sem
+        // escritório (a tabela não tem `tenant_id`).
+        \App\Comercial\Entity\CampanhaMarca::class,
+        // F3i (§12): as imagens das campanhas do Master são da plataforma, sem escritório; a rota pública /e/i/ as
+        // entrega sem sessão, pelo token.
+        \App\Comercial\Entity\ImagemDaCampanha::class,
+        // F4 (comercial-e-emails.md §13): o estado das 17 datas comemorativas é configuração da PLATAFORMA, do Master,
+        // sem escritório (a tabela não tem `tenant_id`), lido pelo passo `datas` da varredura, que roda sem sessão.
+        \App\Comercial\Entity\DataComemorativa::class,
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
@@ -192,6 +202,13 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
         \App\Master\Entity\SeccionalOab::class,
         \App\Master\Entity\DivulgacaoNaSeccional::class,
+        // Janela da OAB dos estados que faltam (docs/specs/master-oab-estados-que-faltam.md): as subseções e a nota
+        // explicativa de cada seccional são anotação de trabalho da PLATAFORMA, compartilhada entre os Masters, sem
+        // escritório nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
+        \App\Master\Entity\SubsecaoOab::class,
+        \App\Master\Entity\NotaDaSeccional::class,
+        // Nota por cidade da janela da OAB (desenho 05 inteiro, 21/10/2026): mesmo modelo da nota da seccional.
+        \App\Master\Entity\NotaDaCidadeOab::class,
         // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
         // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
         \App\Master\Entity\TemaConfig::class,
@@ -221,7 +238,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * entrando com a rede ligada. Com o teto, essa saída exige mexer no teto no mesmo diff, e
      * aí é decisão visível em vez de descuido.
      */
-    private const MAX_PENDENTE = 14;
+    private const MAX_PENDENTE = 13;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
@@ -247,7 +264,14 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 57 → 58 com os temas comemorativos (21/10/2026): TemaConfig, configuração global da plataforma, justificada acima.
     // 58 → 60 com a Central de Notificações do Master (21/10/2026): CentralMasterEstado e CentralMasterResposta são do
     // Master, que lê todos os escritórios, justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 60;
+    // 60 → 62 com a janela da OAB dos estados que faltam (21/10/2026): SubsecaoOab e NotaDaSeccional (plataforma),
+    // justificadas acima.
+    // 62 → 63 com as marcas do Relatório da Central de envios (21/10/2026): CampanhaMarca, do Master, justificada acima.
+    // 63 → 64 com a métrica anônima da página pública do Trabalho Externo (19/10/2026): MetricaPublica, justificada acima.
+    // 64 → 65 com a nota por cidade da janela da OAB (21/10/2026): NotaDaCidadeOab (plataforma), justificada acima.
+    // 65 → 66 com as imagens das campanhas do Master (21/10/2026, F3i): ImagemDaCampanha (plataforma), justificada acima.
+    // 66 → 67 com as datas comemorativas do Comercial (21/10/2026, F4): DataComemorativa (plataforma), justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 67;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
@@ -274,7 +298,6 @@ final class TenantAwareCoberturaTest extends KernelTestCase
 
         // Fatia 6 — Ponto eletrônico (risco ALTO, re-revisão obrigatória).
         BlocoJornada::class,
-        JornadaColaborador::class,
         BlocoJornadaColaborador::class,
 
         // Fatia 7 — depende de decisão do dono sobre os nulos (§5.1 da spec):

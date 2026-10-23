@@ -135,6 +135,70 @@ final class CentralLimparConversaTest extends JusPrimeWebTestCase
         self::assertContains('bom dia', $this->historico($client, $grupo), 'nada foi limpo para quem ficou');
     }
 
+    #[TestDox('Excluir e reabrir a 1:1: quem excluiu volta à MESMA conversa, ativo, sem o histórico excluído, e envia; o colega recebe e segue com tudo')]
+    public function testReabrirConversaExcluida(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+
+        $this->logarComTenant($client, $bia, $tenant);
+        $conversa = $this->abrir($client, $ana);
+        $this->enviar($client, $conversa, 'um');
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->post($client, "/central/conversas/$conversa/limpar", []);
+        self::assertResponseIsSuccessful();
+
+        // Abrir de novo pelo contato (o que a tela faz ao clicar no colega).
+        self::assertSame($conversa, $this->abrir($client, $bia), 'a 1:1 do par é a mesma; não nasce outra');
+        self::assertSame([], $this->historico($client, $conversa), 'o que a Ana excluiu segue oculto para ela');
+        self::assertNotContains($conversa, $this->lista($client), 'sem mensagem nova, a conversa segue fora da lista');
+        $saiu = $this->em()->getConnection()->fetchOne(
+            'SELECT saiu_em FROM central_participante WHERE conversa_id = ? AND usuario_id = ?', [$conversa, $ana->getId()]
+        );
+        self::assertNull($saiu, 'excluir não tira a Ana da conversa: ela segue participante ativa');
+
+        $this->enviar($client, $conversa, 'voltei');
+        self::assertContains($conversa, $this->lista($client));
+        self::assertSame(['voltei'], $this->historico($client, $conversa));
+
+        $this->logarComTenant($client, $bia, $tenant);
+        self::assertSame(['um', 'voltei'], $this->historico($client, $conversa), 'a Bia recebe na mesma conversa e não perde nada');
+        $client->request('GET', '/central/novidades?desde=0');
+        self::assertContains('voltei', array_column($this->json($client)['mensagens'], 'conteudo'));
+    }
+
+    #[TestDox('Quem saiu do grupo segue bloqueado: não lê, não envia e o grupo não volta à lista dele')]
+    public function testQuemSaiuDoGrupoSegueBloqueado(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+        $caio = $this->colega($tenant, 'caio');
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->post($client, '/central/grupos', ['nome' => 'Equipe', 'participantes' => [$bia->getId(), $caio->getId()]]);
+        self::assertResponseIsSuccessful();
+        $grupo = (int) $this->json($client)['grupo']['id'];
+
+        $this->logarComTenant($client, $bia, $tenant);
+        $this->post($client, "/central/conversas/$grupo/sair", []);
+        self::assertResponseIsSuccessful();
+        $this->post($client, "/central/conversas/$grupo/mensagens", ['conteudo' => 'ainda aqui?']);
+        self::assertResponseStatusCodeSame(404);
+        $client->request('GET', "/central/conversas/$grupo/mensagens");
+        self::assertResponseStatusCodeSame(404);
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $this->enviar($client, $grupo, 'nova no grupo');
+
+        $this->logarComTenant($client, $bia, $tenant);
+        self::assertNotContains($grupo, $this->lista($client));
+    }
+
     #[TestDox('Limpar: conversa alheia é 404, sem CSRF é 403, e nenhum dos dois esconde nada')]
     public function testGuardas(): void
     {

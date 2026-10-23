@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Criar nova senha{% endblock %}
+{% block title %}{{ 'auth.senha.redefinir.titulo'|trans }}{% endblock %}
 
 {% block stylesheets %}
 {% include '_fundo_auth.html.twig' %}
@@ -27,8 +27,8 @@
     <div class="senha-card">
         <div class="senha-head">
             <img src="/images/logo/bluejus_logo.svg" alt="BlueJus" class="senha-logo">
-            <h1 class="h4 fw-bold mb-0">Criar nova senha</h1>
-            <p class="senha-sub">Use no mínimo 8 caracteres. Ao salvar, você sairá das outras sessões.</p>
+            <h1 class="h4 fw-bold mb-0">{{ 'auth.senha.redefinir.titulo'|trans }}</h1>
+            <p class="senha-sub">{{ 'auth.senha.redefinir.subtitulo'|trans }}</p>
         </div>
         <div class="senha-body">
             {{ form_start(form) }}
@@ -36,7 +36,7 @@
                 {{ form_row(form.senha.second, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
 
                 <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-shield-lock me-1"></i> Salvar nova senha
+                    <i class="bi bi-shield-lock me-1"></i> {{ 'auth.senha.redefinir.salvar'|trans }}
                 </button>
             {{ form_end(form) }}
         </div>

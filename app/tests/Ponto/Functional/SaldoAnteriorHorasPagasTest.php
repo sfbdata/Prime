@@ -148,7 +148,10 @@ final class SaldoAnteriorHorasPagasTest extends JusPrimeWebTestCase
         $em->persist($userTenant);
         $em->flush();
 
-        self::assertNull($user->getJornadaColaborador(), 'o cenário exige colaborador sem jornada individual');
+        self::assertNull(
+            static::getContainer()->get(\App\Ponto\Repository\JornadaColaboradorRepository::class)->findByUserETenant($user, $tenant),
+            'o cenário exige colaborador sem jornada individual',
+        );
 
         return $user;
     }

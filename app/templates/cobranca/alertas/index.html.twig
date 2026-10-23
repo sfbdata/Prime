@@ -1,12 +1,12 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cobranças · Alertas{% endblock %}
+{% block title %}{{ 'cobranca_carteira.alertas.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-bell"></i>Cobranças</h1>
+        <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-bell"></i>{{ 'cobranca_carteira.comum.cobrancas'|trans }}</h1>
         {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'alertas' }) }}
     </div>
 </section>
@@ -16,9 +16,9 @@
         {# ── Filtro por carteira ──────────────────────────────── #}
         <form method="get" action="{{ path('cobranca_alertas') }}" class="row g-2 align-items-end mb-3">
             <div class="col-12 col-md-4">
-                <label class="form-label small mb-1" for="filtroCarteira">Carteira</label>
+                <label class="form-label small mb-1" for="filtroCarteira">{{ 'cobranca_carteira.comum.carteira'|trans }}</label>
                 <select class="form-select form-select-sm" id="filtroCarteira" name="carteira" onchange="this.form.submit()">
-                    <option value="">Todas as carteiras</option>
+                    <option value="">{{ 'cobranca_carteira.comum.todas_as_carteiras'|trans }}</option>
                     {% for c in carteiras %}
                     <option value="{{ c.id }}" {{ carteiraId == c.id ? 'selected' : '' }}>{{ c.nome }}</option>
                     {% endfor %}
@@ -29,9 +29,9 @@
         {% if central.totalCasosComAlerta == 0 %}
             <div class="cobranca-empty">
                 <div class="empty-ico"><i class="bi bi-check2-circle"></i></div>
-                <div class="empty-title">Nenhum alerta pendente</div>
+                <div class="empty-title">{{ 'cobranca_carteira.alertas.vazio_titulo'|trans }}</div>
                 <div class="text-muted">
-                    {% if carteiraId %}Esta carteira não tem alertas operacionais no momento.{% else %}Nenhuma cobrança do escritório exige atenção agora.{% endif %}
+                    {% if carteiraId %}{{ 'cobranca_carteira.alertas.vazio_carteira'|trans }}{% else %}{{ 'cobranca_carteira.alertas.vazio_texto'|trans }}{% endif %}
                 </div>
             </div>
         {% else %}
@@ -51,7 +51,7 @@
             <div class="dash-carteira-grupo">
                 <div class="dash-carteira-cabecalho">
                     <span><i class="bi bi-folder2-open me-1"></i><a href="{{ path('cobranca_carteira_show', {id: grupo.carteiraId}) }}">{{ grupo.carteiraNome }}</a></span>
-                    <span class="badge text-bg-secondary">{{ grupo.totalAlertas }} alerta(s)</span>
+                    <span class="badge text-bg-secondary">{{ 'cobranca_carteira.alertas.total'|trans({total: grupo.totalAlertas ~ ''}) }}</span>
                 </div>
                 {% for caso in grupo.casos %}
                 <div class="dash-alerta-caso">

@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorLixeiraTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS  = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS = __DIR__ . '/../../../public/css/pasta-explorador.css';
 
@@ -77,7 +79,9 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringContainsString("if (!bate) { recarregarDocumentos(", $desfazer);
         // Contagem do dc L4935: as CHAVES selecionadas, não a subárvore que voltou junto.
         self::assertStringContainsString('const desfazer = desfazerDe(res.j, saiu, itens.length);', $excluir);
-        self::assertStringContainsString("if (aindaEMeu()) toast(nChaves > 1 ? nChaves + ' itens restaurados' : 'Restaurado');", $desfazer, 'textos do desenho (dc L4935)');
+        self::assertStringContainsString("if (aindaEMeu()) toast(nChaves > 1 ? BJ_T.t('pasta_scripts.js.explorador.restaurados_varios', { n: nChaves }) : BJ_T.t('pasta_scripts.js.explorador.restaurado'));", $desfazer);
+        self::assertTextoDoScript('{n} itens restaurados', 'explorador.restaurados_varios', $desfazer); // textos do desenho (dc L4935)
+        self::assertTextoDoScript('Restaurado', 'explorador.restaurado', $desfazer);
         self::assertStringNotContainsString('saiu.arquivos.length + saiu.pastas.length', $desfazer);
         // Corrida: a resposta de um Desfazer em voo não atropela o toast de uma exclusão mais nova.
         self::assertStringContainsString('const meuToast = toastSeq;', $desfazer);
@@ -115,14 +119,20 @@ final class PastaExploradorLixeiraTest extends TestCase
         self::assertStringContainsString('document.body.appendChild(raizModal);', $modal, 'fora do painel animado da aba');
         self::assertStringContainsString("class: 'modal fade pex-modal pex-lix'", $modal);
         // Sem purga automática (D-DOC-RET, 07/10): a tela não pode prometer prazo nem apagamento de vez.
-        self::assertStringContainsString("'Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.'", $modal);
+        self::assertTextoDoScript('Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.', 'explorador.lix_nota', $modal);
         self::assertStringNotContainsString('DIAS_NA_LIXEIRA', $js);
         self::assertDoesNotMatchRegularExpression('/\\d+ dias na lixeira|apagados de vez\\./', $js);
         // A linha: nome por `text` (textContent), excluído em/por e caminho original.
         $linha = $this->funcao('linhaDaLixeira');
         self::assertStringContainsString("h('span', { class: 'pex-lix-nome', id: nomeId, text: it.nome, title: it.nome })", $linha);
-        self::assertStringContainsString("(dataExclusao ? 'Excluído em ' + dataExclusao : 'Excluído (data sem registro)') + (it.excluidoPor && it.excluidoPor.nome ? ' por ' + it.excluidoPor.nome : '')", $linha);
-        self::assertStringContainsString("'Local original: ' + (it.caminho || 'Raiz')", $linha);
+        self::assertStringContainsString("const excluido = dataExclusao ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_em', { data: dataExclusao }) : BJ_T.t('pasta_scripts.js.explorador.lix_excluido_sem_data');", $linha);
+        self::assertStringContainsString("const quando = it.excluidoPor && it.excluidoPor.nome ? BJ_T.t('pasta_scripts.js.explorador.lix_excluido_por', { quando: excluido, nome: it.excluidoPor.nome }) : excluido;", $linha);
+        self::assertStringContainsString("BJ_T.t('pasta_scripts.js.explorador.lix_local_original', { local: it.caminho || BJ_T.t('pasta_scripts.js.explorador.raiz') })", $linha);
+        self::assertTextoDoScript('Excluído em {data}', 'explorador.lix_excluido_em', $linha);
+        self::assertTextoDoScript('Excluído (data sem registro)', 'explorador.lix_excluido_sem_data', $linha);
+        self::assertTextoDoScript('{quando} por {nome}', 'explorador.lix_excluido_por', $linha);
+        self::assertTextoDoScript('Local original: {local}', 'explorador.lix_local_original', $linha);
+        self::assertTextoDoScript('Raiz', 'explorador.raiz', $linha);
         // Restaurar (um ou selecionados) pelo MESMO token do lote; a lista é relida depois.
         $restaurar = $this->funcao('restaurarDaLixeira');
         self::assertStringContainsString('postJson(cfg.urlRestaurar, { _token: cfg.csrfLote, documentos: lote.documentos, secoes: lote.secoes })', $restaurar);
@@ -154,7 +164,7 @@ final class PastaExploradorLixeiraTest extends TestCase
 
         $linha = $this->funcao('linhaDaLixeira');
         self::assertStringContainsString("const junto = !!pai && pai.excluidoEm != null && pai.excluidoEm === it.excluidoEm;", $linha);
-        self::assertStringContainsString("'Excluído junto com a pasta \"' + pai.nome + '\"'", $linha);
+        self::assertTextoDoScript('Excluído junto com a pasta "{nome}"', 'explorador.lix_junto_com', $linha);
     }
 
     #[TestDox('lápide da Pasta inteira: sem caixa de marcar, sem Restaurar e sem Desfazer')]

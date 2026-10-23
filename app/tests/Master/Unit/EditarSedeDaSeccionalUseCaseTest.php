@@ -21,7 +21,7 @@ use Symfony\Component\Clock\MockClock;
 
 /**
  * Editar a sede de uma seccional (spec master-seccionais-oab, "Editar sede"): endereço até 255, telefone até 40,
- * site só https:// até 255; grava dentro do escopo de plataforma.
+ * site com http:// ou https:// até 255; grava dentro do escopo de plataforma.
  */
 #[CoversClass(EditarSedeDaSeccionalUseCase::class)]
 #[CoversClass(EditarSedeDaSeccionalInput::class)]
@@ -64,9 +64,9 @@ final class EditarSedeDaSeccionalUseCaseTest extends TestCase
         yield 'endereço longo' => [['endereco' => str_repeat('a', 256)], 'O endereço passa de 255 caracteres.'];
         yield 'telefone longo' => [['telefone' => str_repeat('9', 41)], 'O telefone passa de 40 caracteres.'];
         yield 'site longo' => [['site' => 'https://exemplo.test/' . str_repeat('a', 240)], 'O site passa de 255 caracteres.'];
-        yield 'site http' => [['site' => 'http://exemplo.test'], 'Informe o site completo, começando com https://.'];
-        yield 'site sem esquema' => [['site' => 'www.exemplo.test'], 'Informe o site completo, começando com https://.'];
-        yield 'site javascript' => [['site' => 'javascript:alert(1)'], 'Informe o site completo, começando com https://.'];
+        yield 'site sem esquema' => [['site' => 'www.exemplo.test'], 'Informe o site completo, começando com http:// ou https://.'];
+        yield 'site javascript' => [['site' => 'javascript:alert(1)'], 'Informe o site completo, começando com http:// ou https://.'];
+        yield 'site ftp' => [['site' => 'ftp://exemplo.test'], 'Informe o site completo, começando com http:// ou https://.'];
     }
 
     /** @param array<string, string> $corpo */
@@ -84,6 +84,17 @@ final class EditarSedeDaSeccionalUseCaseTest extends TestCase
             self::assertSame($mensagem, $e->getMessage());
         }
         self::assertNull($this->seccional->getAtualizadoEm());
+    }
+
+    #[TestDox('site com http:// é aceito, como no desenho (L903-904: /^https?:\/\//)')]
+    public function testSiteHttp(): void
+    {
+        $this->repositorio->method('buscarPorUf')->willReturn($this->seccional);
+        $this->repositorio->expects($this->once())->method('salvar');
+
+        $this->useCase()->executar(EditarSedeDaSeccionalInput::doJson($this->master, 'SP', ['site' => 'http://www.oabsp.org.br']));
+
+        self::assertSame('http://www.oabsp.org.br', $this->seccional->getSite());
     }
 
     #[TestDox('linha ausente: SeccionalNaoEncontrada')]

@@ -18,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorSomenteLeituraJsTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS        = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CHECKLIST = __DIR__ . '/../../../public/js/pasta-checklist.js';
 
@@ -184,10 +186,10 @@ final class PastaExploradorSomenteLeituraJsTest extends TestCase
         // Não vazio: as 12 de escrita de hoje (fundo 2, vários 4, um item 6 — Copiar mora no opCopiar)
         // e as de leitura que o só leitor tem de continuar vendo.
         self::assertCount(12, $deEscrita, 'ação de escrita nova? marque-a e ajuste a conta');
-        foreach (["'Nova pasta'", "'Colar'", "'Recortar'", "'Copiar'", "'Mover para…'", "'Renomear'", "'Editar…'", "'Excluir'", "'Excluir ' + sel.length"] as $rotulo) {
+        foreach (["BJ_T.t('pasta_scripts.js.explorador.menu_nova_pasta')", "BJ_T.t('pasta_scripts.js.explorador.menu_colar')", "BJ_T.t('pasta_scripts.js.explorador.menu_recortar')", "BJ_T.t('pasta_scripts.js.explorador.menu_copiar')", "BJ_T.t('pasta_scripts.js.explorador.menu_mover_para')", "BJ_T.t('pasta_scripts.js.explorador.menu_renomear')", "BJ_T.t('pasta_scripts.js.explorador.menu_editar')", "BJ_T.t('pasta_scripts.js.explorador.menu_excluir')", "BJ_T.t('pasta_scripts.js.explorador.menu_excluir_n'"] as $rotulo) {
             self::assertNotEmpty(array_filter($deEscrita, static fn (string $c): bool => str_starts_with($c, 'op(' . $rotulo)), "escrita sem marca ou fora do menu: {$rotulo}");
         }
-        foreach (["'Abrir'", "'Visualizar'", "'Baixar'", "'Baixar como .zip'", "'Baixar como .zip ('", "'Copiar link'", "'Copiar links'", "'Copiar caminho'", "'Copiar caminhos'", "'Propriedades'", "'Selecionar tudo'", 'rotulo,', 'rotuloLixeira()', 'par[1]', 'painel ?'] as $rotulo) {
+        foreach (["BJ_T.t('pasta_scripts.js.explorador.menu_abrir')", "BJ_T.t('pasta_scripts.js.explorador.menu_visualizar')", "BJ_T.t('pasta_scripts.js.explorador.baixar')", "BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip')", "BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip_n'", "BJ_T.t('pasta_scripts.js.explorador.menu_copiar_link')", 'arqs.length < sel.length ?', "BJ_T.t('pasta_scripts.js.explorador.menu_copiar_caminho')", "BJ_T.t('pasta_scripts.js.explorador.menu_copiar_caminhos')", "BJ_T.t('pasta_scripts.js.explorador.menu_propriedades')", "BJ_T.t('pasta_scripts.js.explorador.menu_selecionar_tudo')", 'rotulo,', 'rotuloLixeira()', 'par[1]', 'painel ?'] as $rotulo) {
             self::assertNotEmpty(array_filter($deLeitura, static fn (string $c): bool => str_starts_with($c, 'op(' . $rotulo)), "leitura que sumiria do só leitor: {$rotulo}");
         }
     }
@@ -229,7 +231,9 @@ final class PastaExploradorSomenteLeituraJsTest extends TestCase
     #[TestDox('o vazio de quem só lê não convida a arrastar, colar nem anexar')]
     public function testVazio(): void
     {
-        self::assertStringContainsString(": (!cfg.podeEditar ? (caminho.length ? 'Pasta vazia.' : 'Nenhum arquivo ainda.')", $this->funcao('renderizar'));
+        self::assertStringContainsString(": (!cfg.podeEditar ? (caminho.length ? BJ_T.t('pasta_scripts.js.explorador.vazio_pasta') : BJ_T.t('pasta_scripts.js.explorador.vazio_raiz'))", $this->funcao('renderizar'));
+        self::assertTextoDoScript('Pasta vazia.', 'explorador.vazio_pasta', $this->funcao('renderizar'));
+        self::assertTextoDoScript('Nenhum arquivo ainda.', 'explorador.vazio_raiz', $this->funcao('renderizar'));
     }
 
     #[TestDox('checklist: sem data-pode-editar="1" no #pexExplorador, ✎, +, modelos, alça e marcar saem ANTES de qualquer listener; o interruptor e o Reativar também')]

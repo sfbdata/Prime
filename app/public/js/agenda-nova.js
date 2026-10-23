@@ -17,20 +17,21 @@
 
     /* Calendários do desenho: chave => [nome, cor, fundo do chip]. */
     const CAL = {
-        meus: ['Meus compromissos', '#0a6fa0', '#e5f1f7'],
-        aud: ['Audiências', '#5b3f9e', '#efeaf8'],
-        prazo: ['Prazos das pastas', '#c0392b', '#fdecee'],
-        reun: ['Reuniões', '#1e7b45', '#e9f6ee'],
-        fer: ['Feriados nacionais', '#9a5b00', '#fff4d6'],
-        est: ['Feriados do estado', '#b45309', '#ffedd5'],
-        forense: ['Recesso forense', '#7a1f2b', '#f8e1e4'],
-        com: ['Datas comemorativas', '#c2457a', '#fce7f0'],
-        trib: ['Tribunais e eleições', '#334e8a', '#e4eaf6'],
-        aniv: ['Aniversários da equipe', '#d1477a', '#fde8f0'],
+        meus: [BJ_T.t('agenda.js.calendario.meus'), '#0a6fa0', '#e5f1f7'],
+        aud: [BJ_T.t('agenda.js.calendario.aud'), '#5b3f9e', '#efeaf8'],
+        prazo: [BJ_T.t('agenda.js.calendario.prazo'), '#c0392b', '#fdecee'],
+        reun: [BJ_T.t('agenda.js.calendario.reun'), '#1e7b45', '#e9f6ee'],
+        fer: [BJ_T.t('agenda.js.calendario.fer'), '#9a5b00', '#fff4d6'],
+        est: [BJ_T.t('agenda.js.calendario.est'), '#b45309', '#ffedd5'],
+        forense: [BJ_T.t('agenda.js.calendario.forense'), '#7a1f2b', '#f8e1e4'],
+        com: [BJ_T.t('agenda.js.calendario.com'), '#c2457a', '#fce7f0'],
+        trib: [BJ_T.t('agenda.js.calendario.trib'), '#334e8a', '#e4eaf6'],
+        aniv: [BJ_T.t('agenda.js.calendario.aniv'), '#d1477a', '#fde8f0'],
     };
     const DO_SISTEMA = ['fer', 'est', 'forense', 'com', 'trib', 'aniv'];
-    const MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-    const SEM = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+    const MES = [BJ_T.t('agenda.js.datas.mes.janeiro'), BJ_T.t('agenda.js.datas.mes.fevereiro'), BJ_T.t('agenda.js.datas.mes.marco'), BJ_T.t('agenda.js.datas.mes.abril'), BJ_T.t('agenda.js.datas.mes.maio'), BJ_T.t('agenda.js.datas.mes.junho'), BJ_T.t('agenda.js.datas.mes.julho'), BJ_T.t('agenda.js.datas.mes.agosto'), BJ_T.t('agenda.js.datas.mes.setembro'), BJ_T.t('agenda.js.datas.mes.outubro'), BJ_T.t('agenda.js.datas.mes.novembro'), BJ_T.t('agenda.js.datas.mes.dezembro')];
+    const SEM = [BJ_T.t('agenda.js.datas.semana.dom'), BJ_T.t('agenda.js.datas.semana.seg'), BJ_T.t('agenda.js.datas.semana.ter'), BJ_T.t('agenda.js.datas.semana.qua'), BJ_T.t('agenda.js.datas.semana.qui'), BJ_T.t('agenda.js.datas.semana.sex'), BJ_T.t('agenda.js.datas.semana.sab')];
+    const SEM_LETRA = [BJ_T.t('agenda.js.datas.letra.dom'), BJ_T.t('agenda.js.datas.letra.seg'), BJ_T.t('agenda.js.datas.letra.ter'), BJ_T.t('agenda.js.datas.letra.qua'), BJ_T.t('agenda.js.datas.letra.qui'), BJ_T.t('agenda.js.datas.letra.sex'), BJ_T.t('agenda.js.datas.letra.sab')];
     const H0 = 7;
     const H1 = 22;
     const CHAVE_VIS = 'bj-agenda-v1-vis';
@@ -91,7 +92,11 @@
     const inicioSemana = d => { const x = new Date(d); x.setDate(x.getDate() - x.getDay()); x.setHours(0, 0, 0, 0); return x; };
     const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const maiuscula = t => t.charAt(0).toUpperCase() + t.slice(1);
-    const brData = k => dataDe(k).toLocaleDateString('pt-BR');
+    const brData = k => BJFormato.data(dataDe(k));
+    /* Frase inteira numa chave, com partes em negrito: o parâmetro vai como lugar(nome) e volta como <b>parte</b>,
+       tudo escapado, numa passada só. */
+    const lugar = k => '\u0001' + k + '\u0001';
+    const comNegrito = (texto, partes) => esc(texto).replace(/\u0001(\w+)\u0001/g, (m, k) => '<b>' + esc(partes[k]) + '</b>');
 
     let tAviso = null;
     function avisar(texto) {
@@ -179,7 +184,7 @@
         try {
             await Promise.all(juntar(intervalos()).map(([de, ate]) => garantir(de, ate)));
         } catch (e) {
-            avisar('Não foi possível carregar a agenda. Tente de novo em instantes.');
+            avisar(BJ_T.t('agenda.js.avisos.carregar_falhou'));
         }
         desenhar();
     }
@@ -189,7 +194,7 @@
         const L = [];
         s.datas.forEach(d => L.push({
             id: d.id, d: d.data, t: d.titulo, cal: d.calendario, src: d.calendario, dia: true, h1: '', h2: '',
-            obs: d.observacao || (d.fonte && d.calendario === 'fer' ? 'Fonte: ' + d.fonte + '.' : ''),
+            obs: d.observacao || (d.fonte && d.calendario === 'fer' ? BJ_T.t('agenda.js.detalhe.fonte', { fonte: d.fonte }) : ''),
             uf: d.uf, tipo: d.tipo, ponto: d.contaNoPonto, editado: d.editado,
         }));
         s.itens.forEach(c => L.push({
@@ -215,7 +220,7 @@
         return por;
     }
 
-    const horaDe = e => (e.dia ? 'Dia inteiro' : (e.h1 || '') + (e.h2 ? ' às ' + e.h2 : ''));
+    const horaDe = e => (e.dia ? BJ_T.t('agenda.js.comum.dia_inteiro') : (e.h2 ? BJ_T.t('agenda.js.grade.hora_ate', { inicio: e.h1 || '', fim: e.h2 }) : (e.h1 || '')));
     const tituloNaTela = e => (e.privado ? '🔒 ' : '') + (s.escopo === 'equipe' && e.src === 'meus' && !e.meu && e.dono ? String(e.dono).split(' ')[0] + ': ' : '') + e.t;
     const corDe = e => CAL[e.cal] || CAL.meus;
 
@@ -237,7 +242,7 @@
         desenharResumo();
         desenharMini(porDia(L.filter(e => e.cal !== 'fer')));
         desenharCals();
-        document.getElementById('agUfs').textContent = s.ufs === null ? '…' : (s.ufs.join(' e ') || 'nenhum estado cadastrado');
+        document.getElementById('agUfs').textContent = s.ufs === null ? '…' : (s.ufs.join(BJ_T.t('agenda.js.lateral.ufs_separador')) || BJ_T.t('agenda.js.lateral.nenhum_estado'));
         desenharSegmentos();
         desenharAniversario(por);
         const grade = document.getElementById('agGrade');
@@ -250,14 +255,15 @@
 
     function tituloDoPeriodo() {
         const r = s.ref;
-        if (s.vista === 'mes') { return maiuscula(MES[r.getMonth()]) + ' de ' + r.getFullYear(); }
-        if (s.vista === 'dia') { return r.getDate() + ' de ' + MES[r.getMonth()] + ' de ' + r.getFullYear(); }
+        if (s.vista === 'mes') { return BJ_T.t('agenda.js.periodo.mes', { mes: maiuscula(MES[r.getMonth()]), ano: String(r.getFullYear()) }); }
+        if (s.vista === 'dia') { return BJ_T.t('agenda.js.periodo.dia', { dia: String(r.getDate()), mes: MES[r.getMonth()], ano: String(r.getFullYear()) }); }
         if (s.vista === 'semana') {
             const a = inicioSemana(r);
             const b = soma(a, 6);
-            return a.getDate() + (a.getMonth() !== b.getMonth() ? ' de ' + MES[a.getMonth()] : '') + ' a ' + b.getDate() + ' de ' + MES[b.getMonth()] + ' de ' + b.getFullYear();
+            const p = { dia1: String(a.getDate()), mes1: MES[a.getMonth()], dia2: String(b.getDate()), mes2: MES[b.getMonth()], ano: String(b.getFullYear()) };
+            return a.getMonth() !== b.getMonth() ? BJ_T.t('agenda.js.periodo.semana_dois_meses', p) : BJ_T.t('agenda.js.periodo.semana', p);
         }
-        return 'Próximos 60 dias';
+        return BJ_T.t('agenda.js.periodo.lista');
     }
 
     function desenharResumo() {
@@ -269,10 +275,10 @@
         const pz = T.filter(e => e.cal === 'prazo');
         const au = T.filter(e => e.cal === 'aud');
         const cartoes = [
-            ['Prazos hoje', pz.filter(e => e.d === k0).length, '#c0392b', 'bi-hourglass-split', 'Prazos que vencem hoje', 'dia', h],
-            ['Amanhã', pz.filter(e => e.d === k1).length, '#c76a12', 'bi-hourglass', 'Prazos que vencem amanhã', 'dia', soma(h, 1)],
-            ['Nos próximos 7 dias', pz.filter(e => e.d >= k0 && e.d <= k7).length, '#0a6fa0', 'bi-calendar-week', 'Prazos de hoje até ' + brData(k7), 'semana', h],
-            ['Audiências hoje', au.filter(e => e.d === k0).length, '#5b3f9e', 'bi-bank', 'Audiências marcadas para hoje', 'dia', h],
+            [BJ_T.t('agenda.js.resumo.prazos_hoje'), pz.filter(e => e.d === k0).length, '#c0392b', 'bi-hourglass-split', BJ_T.t('agenda.js.resumo.prazos_hoje_dica'), 'dia', h],
+            [BJ_T.t('agenda.js.resumo.amanha'), pz.filter(e => e.d === k1).length, '#c76a12', 'bi-hourglass', BJ_T.t('agenda.js.resumo.amanha_dica'), 'dia', soma(h, 1)],
+            [BJ_T.t('agenda.js.resumo.proximos_7'), pz.filter(e => e.d >= k0 && e.d <= k7).length, '#0a6fa0', 'bi-calendar-week', BJ_T.t('agenda.js.resumo.proximos_7_dica', { data: brData(k7) }), 'semana', h],
+            [BJ_T.t('agenda.js.resumo.audiencias_hoje'), au.filter(e => e.d === k0).length, '#5b3f9e', 'bi-bank', BJ_T.t('agenda.js.resumo.audiencias_hoje_dica'), 'dia', h],
         ];
         document.getElementById('agResumo').innerHTML = cartoes.map(([r, n, cor, ic, tip, vista, ref], i) => {
             const c = n ? cor : '#9aabb7';
@@ -295,8 +301,8 @@
             dias += '<button type="button" class="' + cls + '" data-mini="' + k + '">' + d.getDate() + ((por[k] || []).length ? '<span class="ag-mini-ponto"></span>' : '') + '</button>';
         }
         document.getElementById('agMini').innerHTML = '<div class="ag-mini-cab"><b>' + maiuscula(MES[mi.getMonth()]) + ' ' + mi.getFullYear() + '</b>'
-            + '<button type="button" data-mini-nav="-1" title="Mês anterior"><i class="bi bi-chevron-left"></i></button><button type="button" data-mini-nav="1" title="Próximo mês"><i class="bi bi-chevron-right"></i></button></div>'
-            + '<div class="ag-mini-grade">' + ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(d => '<span class="ag-mini-sem">' + d + '</span>').join('') + dias + '</div>';
+            + '<button type="button" data-mini-nav="-1" title="' + esc(BJ_T.t('agenda.js.mini.mes_anterior')) + '"><i class="bi bi-chevron-left"></i></button><button type="button" data-mini-nav="1" title="' + esc(BJ_T.t('agenda.js.mini.proximo_mes')) + '"><i class="bi bi-chevron-right"></i></button></div>'
+            + '<div class="ag-mini-grade">' + SEM_LETRA.map(d => '<span class="ag-mini-sem">' + esc(d) + '</span>').join('') + dias + '</div>';
     }
 
     function desenharCals() {
@@ -310,16 +316,16 @@
     }
 
     function desenharSegmentos() {
-        document.getElementById('agEscopos').innerHTML = [['minha', 'Minha agenda', 'bi-person'], ['equipe', 'Equipe do escritório', 'bi-people']]
-            .map(([k, r, ic]) => '<button type="button" data-escopo="' + k + '" class="' + (s.escopo === k ? 'is-on' : '') + '" aria-pressed="' + (s.escopo === k) + '"><i class="bi ' + ic + '"></i>' + r + '</button>').join('');
-        document.getElementById('agVistas').innerHTML = [['dia', 'DIA'], ['semana', 'SEMANA'], ['mes', 'MÊS'], ['lista', 'LISTA']]
-            .map(([k, r]) => '<button type="button" data-vista-btn="' + k + '" class="' + (s.vista === k ? 'is-on' : '') + '" aria-pressed="' + (s.vista === k) + '">' + r + '</button>').join('');
+        document.getElementById('agEscopos').innerHTML = [['minha', BJ_T.t('agenda.js.comum.minha_agenda'), 'bi-person'], ['equipe', BJ_T.t('agenda.js.comum.equipe_escritorio'), 'bi-people']]
+            .map(([k, r, ic]) => '<button type="button" data-escopo="' + k + '" class="' + (s.escopo === k ? 'is-on' : '') + '" aria-pressed="' + (s.escopo === k) + '"><i class="bi ' + ic + '"></i>' + esc(r) + '</button>').join('');
+        document.getElementById('agVistas').innerHTML = [['dia', BJ_T.t('agenda.js.vista.dia')], ['semana', BJ_T.t('agenda.js.vista.semana')], ['mes', BJ_T.t('agenda.js.vista.mes')], ['lista', BJ_T.t('agenda.js.vista.lista')]]
+            .map(([k, r]) => '<button type="button" data-vista-btn="' + k + '" class="' + (s.vista === k ? 'is-on' : '') + '" aria-pressed="' + (s.vista === k) + '">' + esc(r) + '</button>').join('');
     }
 
     function desenharAniversario(por) {
         const L = (por[iso(hoje0())] || []).filter(e => e.cal === 'aniv');
         document.getElementById('agAniv').innerHTML = L.length
-            ? '<div class="ag-aniv"><span class="ag-aniv-emoji">🎉</span><b>Hoje é aniversário de ' + esc(L.map(e => String(e.nome || '').split(' ')[0]).join(', ')) + '!</b><span>Que tal mandar os parabéns no Chat?</span></div>'
+            ? '<div class="ag-aniv"><span class="ag-aniv-emoji">🎉</span><b>' + esc(BJ_T.t('agenda.js.aniversario.hoje', { nomes: L.map(e => String(e.nome || '').split(' ')[0]).join(', ') })) + '</b><span>' + esc(BJ_T.t('agenda.js.aniversario.parabens')) + '</span></div>'
             : '';
     }
 
@@ -350,7 +356,7 @@
             + '<div class="ag-cel-topo"><span class="ag-cel-n">' + d.getDate() + '</span>'
             + (fer ? '<span class="ag-cel-fer" data-ev="' + esc(fer.id) + '" data-tip="' + esc(fer.t) + '" title="' + esc(fer.t) + '">' + esc(fer.t) + '</span>' : '') + '</div>'
             + resto.slice(0, 3).map(e => chip(e)).join('')
-            + (resto.length > 3 ? '<button type="button" class="ag-mais" data-ver-dia="' + k + '">+ ' + (resto.length - 3) + ' mais</button>' : '')
+            + (resto.length > 3 ? '<button type="button" class="ag-mais" data-ver-dia="' + k + '">' + esc(BJ_T.t('agenda.js.grade.mais', { n: String(resto.length - 3) })) + '</button>' : '')
             + '</div>';
     }
 
@@ -392,8 +398,8 @@
         const hk = iso(hoje0());
         const lim = iso(soma(hoje0(), 60));
         const dias = Object.keys(por).filter(k => k >= hk && k <= lim).sort();
-        const completa = url.lista ? '<div class="ag-lista-completa"><a href="' + esc(url.lista) + '"><i class="bi bi-list-ul"></i>Lista completa, com eventos passados e filtros</a></div>' : '';
-        if (!dias.length) { return '<div class="ag-lista-vazia">Nenhum compromisso nos próximos 60 dias.</div>' + completa; }
+        const completa = url.lista ? '<div class="ag-lista-completa"><a href="' + esc(url.lista) + '"><i class="bi bi-list-ul"></i>' + esc(BJ_T.t('agenda.js.lista.completa')) + '</a></div>' : '';
+        if (!dias.length) { return '<div class="ag-lista-vazia">' + esc(BJ_T.t('agenda.js.lista.vazia')) + '</div>' + completa; }
         return dias.map(k => {
             const d = dataDe(k);
             return '<div class="ag-lista-dia"><div class="ag-lista-data"><b>' + d.getDate() + ' ' + MES[d.getMonth()].slice(0, 3) + '</b><span>' + SEM[d.getDay()] + '</span></div><div>'
@@ -410,28 +416,28 @@
         const visto = new Set();
         const L = T.filter(e => ['fer', 'est'].includes(e.cal) && e.d >= ini && e.d <= fim).filter(e => { const k = e.d + e.t; if (visto.has(k)) { return false; } visto.add(k); return true; });
         const rec = T.find(e => e.cal === 'forense' && e.d >= ini && e.d <= fim);
-        if (rec) { L.push(Object.assign({}, rec, { t: 'Início do recesso forense' })); }
+        if (rec) { L.push(Object.assign({}, rec, { t: BJ_T.t('agenda.js.feriados.inicio_recesso') })); }
         L.sort((a, b) => a.d.localeCompare(b.d));
-        document.getElementById('agPfTit').textContent = 'Próximos feriados · ' + MES[h.getMonth()] + ' e ' + MES[(h.getMonth() + 1) % 12];
+        document.getElementById('agPfTit').textContent = BJ_T.t('agenda.js.feriados.titulo', { mes1: MES[h.getMonth()], mes2: MES[(h.getMonth() + 1) % 12] });
         const caixa = document.getElementById('agPf');
-        if (!L.length) { caixa.innerHTML = '<div class="ag-pf-vazio">Nenhum feriado neste mês nem no próximo.</div>'; return; }
+        if (!L.length) { caixa.innerHTML = '<div class="ag-pf-vazio">' + esc(BJ_T.t('agenda.js.feriados.vazio')) + '</div>'; return; }
         caixa.innerHTML = '<div class="ag-pf-grade">' + L.map(e => {
             const d = dataDe(e.d);
             const n = Math.round((d - dataDe(iso(h))) / 864e5);
-            const falta = n <= 0 ? 'hoje' : n === 1 ? 'amanhã' : 'em ' + n + ' dias';
+            const falta = n <= 0 ? BJ_T.t('agenda.js.feriados.hoje') : n === 1 ? BJ_T.t('agenda.js.feriados.amanha') : BJ_T.t('agenda.js.feriados.em_dias', { n: String(n) });
             const ponte = d.getDay() === 2 || d.getDay() === 4;
             return '<button type="button" class="ag-pf-item" data-pf="' + e.d + '"><span class="ag-pf-data"><span style="background:' + corDe(e)[1] + ';">' + SEM[d.getDay()] + '</span><b>' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '</b></span>'
-                + '<span class="ag-pf-txt"><b>' + esc(e.t) + '</b><span>' + esc(tipoDoFeriado(e)) + ' · ' + falta + '</span></span>'
-                + (ponte ? '<span class="ag-ponte" title="Feriado em terça ou quinta: possível ponte">PONTE</span>' : '') + '</button>';
+                + '<span class="ag-pf-txt"><b>' + esc(e.t) + '</b><span>' + esc(tipoDoFeriado(e)) + ' · ' + esc(falta) + '</span></span>'
+                + (ponte ? '<span class="ag-ponte" title="' + esc(BJ_T.t('agenda.js.feriados.ponte_dica')) + '">' + esc(BJ_T.t('agenda.js.feriados.ponte')) + '</span>' : '') + '</button>';
         }).join('') + '</div>';
     }
 
     function tipoDoFeriado(e) {
-        if (e.cal === 'est') { return 'Estadual · ' + (e.uf || ''); }
-        if (e.cal === 'forense') { return 'Forense'; }
-        if (e.tipo === 'ponto_facultativo') { return 'Ponto facultativo'; }
-        if (e.tipo === 'escritorio') { return 'Escritório'; }
-        return 'Nacional';
+        if (e.cal === 'est') { return BJ_T.t('agenda.js.tipo_feriado.estadual', { uf: e.uf || '' }); }
+        if (e.cal === 'forense') { return BJ_T.t('agenda.js.tipo_feriado.forense'); }
+        if (e.tipo === 'ponto_facultativo') { return BJ_T.t('agenda.js.tipo_feriado.ponto_facultativo'); }
+        if (e.tipo === 'escritorio') { return BJ_T.t('agenda.js.tipo_feriado.escritorio'); }
+        return BJ_T.t('agenda.js.tipo_feriado.nacional');
     }
 
     /* ── Detalhe ────────────────────────────────────────────────────────── */
@@ -441,25 +447,25 @@
 
     function origemDe(e) {
         const base = origemBase(e);
-        const editado = e.editado ? ' Nome alterado pelo escritório.' : '';
-        const dica = DO_SISTEMA.includes(e.src) && s.podeAjustar ? ' Clique com o botão direito no dia para editar ou ocultar.' : '';
+        const editado = e.editado ? ' ' + BJ_T.t('agenda.js.origem.nome_alterado') : '';
+        const dica = DO_SISTEMA.includes(e.src) && s.podeAjustar ? ' ' + BJ_T.t('agenda.js.origem.dica_botao_direito') : '';
         return base + editado + dica;
     }
 
     function origemBase(e) {
-        const ponto = e.ponto ? ' Conta como feriado no ponto.' : ' Não conta no ponto: para contar, cadastre em Feriados e Folgas.';
-        if (e.tipo === 'acrescentada') { return 'Incluído pelo escritório na Agenda. Não conta no ponto: para contar, cadastre em Feriados e Folgas.'; }
-        if (e.src === 'pasta') { return 'Vem dos prazos e audiências registrados na pasta. Para alterar, edite na pasta.'; }
-        if (e.src === 'fer' && e.tipo === 'escritorio') { return 'Feriado cadastrado pelo escritório em Feriados e Folgas. Conta como feriado no ponto.'; }
-        if (e.src === 'fer' && e.tipo === 'ponto_facultativo') { return 'Ponto facultativo, já incluído pelo sistema.' + ponto; }
-        if (e.src === 'fer') { return 'Feriado nacional, já incluído pelo sistema.' + ponto; }
-        if (e.src === 'est') { return 'Feriado estadual incluído pela localização cadastrada (' + (e.uf || '') + ').' + ponto; }
-        if (e.src === 'forense') { return 'Recesso forense incluído pelo sistema.'; }
-        if (e.src === 'com') { return 'Data comemorativa incluída pelo sistema.'; }
-        if (e.src === 'trib') { return 'Data dos tribunais incluída pelo sistema.'; }
-        if (e.src === 'aniv') { return 'Aniversário cadastrado no Meu Perfil.'; }
-        if (e.doGoogle) { return 'Importado do Google Agenda.'; }
-        return 'Criado na agenda do BlueJus.';
+        const ponto = ' ' + (e.ponto ? BJ_T.t('agenda.js.origem.conta_no_ponto') : BJ_T.t('agenda.js.origem.nao_conta_no_ponto'));
+        if (e.tipo === 'acrescentada') { return BJ_T.t('agenda.js.origem.acrescentada'); }
+        if (e.src === 'pasta') { return BJ_T.t('agenda.js.origem.pasta'); }
+        if (e.src === 'fer' && e.tipo === 'escritorio') { return BJ_T.t('agenda.js.origem.feriado_escritorio'); }
+        if (e.src === 'fer' && e.tipo === 'ponto_facultativo') { return BJ_T.t('agenda.js.origem.ponto_facultativo') + ponto; }
+        if (e.src === 'fer') { return BJ_T.t('agenda.js.origem.feriado_nacional') + ponto; }
+        if (e.src === 'est') { return BJ_T.t('agenda.js.origem.feriado_estadual', { uf: e.uf || '' }) + ponto; }
+        if (e.src === 'forense') { return BJ_T.t('agenda.js.origem.recesso'); }
+        if (e.src === 'com') { return BJ_T.t('agenda.js.origem.comemorativa'); }
+        if (e.src === 'trib') { return BJ_T.t('agenda.js.origem.tribunais'); }
+        if (e.src === 'aniv') { return BJ_T.t('agenda.js.origem.aniversario'); }
+        if (e.doGoogle) { return BJ_T.t('agenda.js.origem.google'); }
+        return BJ_T.t('agenda.js.origem.bluejus');
     }
 
     function googleUrl(e) {
@@ -467,32 +473,35 @@
         const fim = e.dia ? iso(soma(dataDe(e.d), 1)).replace(/-/g, '') : dt(e.d, e.h2 || e.h1);
         return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(e.t)
             + '&dates=' + (e.dia ? dt(e.d) : dt(e.d, e.h1)) + '/' + fim
-            + '&details=' + encodeURIComponent((e.obs || '') + (e.pasta ? '\nPasta ' + e.pasta + ' · BlueJus' : ''));
+            + '&details=' + encodeURIComponent((e.obs || '') + (e.pasta ? '\n' + BJ_T.t('agenda.js.detalhe.google_pasta', { nup: e.pasta }) : ''));
     }
 
     function abrir(e) {
         const fimOutroDia = e.fimOriginal && e.inicioOriginal && e.fimOriginal.slice(0, 10) !== e.inicioOriginal.slice(0, 10) ? e.fimOriginal : '';
-        const ate = fimOutroDia ? ' até ' + brData(fimOutroDia.slice(0, 10)) + (e.dia ? '' : ' às ' + fimOutroDia.slice(11, 16)) : '';
+        const ate = fimOutroDia ? ' ' + (e.dia ? BJ_T.t('agenda.js.detalhe.ate_data', { data: brData(fimOutroDia.slice(0, 10)) }) : BJ_T.t('agenda.js.detalhe.ate_data_hora', { data: brData(fimOutroDia.slice(0, 10)), hora: fimOutroDia.slice(11, 16) })) : '';
         const quando = dataDe(e.d).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
-            + (e.dia || !e.h1 ? ' · dia inteiro' + ate : ' · ' + e.h1 + (ate || (e.h2 ? ' às ' + e.h2 : '')));
+            + (e.dia || !e.h1 ? ' · ' + BJ_T.t('agenda.js.detalhe.dia_inteiro') + ate : ' · ' + e.h1 + (ate || (e.h2 ? ' ' + BJ_T.t('agenda.js.detalhe.as_hora', { hora: e.h2 }) : '')));
         const linhas = [
             '<b>' + esc(e.t) + '</b>',
             '<span><i class="bi bi-clock"></i>' + esc(quando) + '</span>',
             '<span><i class="bi bi-tag"></i>' + esc(corDe(e)[0]) + '</span>',
         ];
-        if (e.src === 'meus' && !e.meu && e.dono) { linhas.push('<span><i class="bi bi-person"></i>Agenda de ' + esc(e.dono) + '</span>'); }
-        if (e.src === 'meus') { linhas.push('<span><i class="bi bi-eye"></i>' + (e.privado ? 'Só você vê' : 'Visível para a equipe do escritório') + '</span>'); }
-        if (e.repetir || e.recorrente) { linhas.push('<span><i class="bi bi-arrow-repeat"></i>Repete: ' + esc(({ diario: 'todo dia', semanal: 'toda semana', mensal: 'todo mês', anual: 'todo ano' })[e.repetir] || 'sim') + (e.repetirAte ? ' até ' + esc(brData(e.repetirAte)) : '') + '</span>'); }
-        if (e.status === 'concluido' || e.status === 'cancelado') { linhas.push('<span class="ag-modal-situacao is-' + e.status + '"><i class="bi ' + (e.status === 'concluido' ? 'bi-check2-circle' : 'bi-x-circle') + '"></i>' + (e.status === 'concluido' ? 'Concluído' : 'Cancelado') + '</span>'); }
-        if (e.pastaId) { linhas.push('<a href="' + esc(comId(url.pasta, e.pastaId)) + '"><i class="bi bi-folder2-open"></i>Abrir a Pasta ' + esc(e.pasta || '') + '</a>'); }
+        if (e.src === 'meus' && !e.meu && e.dono) { linhas.push('<span><i class="bi bi-person"></i>' + esc(BJ_T.t('agenda.js.detalhe.agenda_de', { nome: e.dono })) + '</span>'); }
+        if (e.src === 'meus') { linhas.push('<span><i class="bi bi-eye"></i>' + esc(e.privado ? BJ_T.t('agenda.js.detalhe.so_voce_ve') : BJ_T.t('agenda.js.detalhe.visivel_equipe')) + '</span>'); }
+        if (e.repetir || e.recorrente) {
+            const frequencia = ({ diario: BJ_T.t('agenda.js.detalhe.frequencia.diario'), semanal: BJ_T.t('agenda.js.detalhe.frequencia.semanal'), mensal: BJ_T.t('agenda.js.detalhe.frequencia.mensal'), anual: BJ_T.t('agenda.js.detalhe.frequencia.anual') })[e.repetir] || BJ_T.t('agenda.js.detalhe.frequencia.sim');
+            linhas.push('<span><i class="bi bi-arrow-repeat"></i>' + esc(e.repetirAte ? BJ_T.t('agenda.js.detalhe.repete_ate', { frequencia, data: brData(e.repetirAte) }) : BJ_T.t('agenda.js.detalhe.repete', { frequencia })) + '</span>');
+        }
+        if (e.status === 'concluido' || e.status === 'cancelado') { linhas.push('<span class="ag-modal-situacao is-' + e.status + '"><i class="bi ' + (e.status === 'concluido' ? 'bi-check2-circle' : 'bi-x-circle') + '"></i>' + esc(e.status === 'concluido' ? BJ_T.t('agenda.js.situacao.concluido') : BJ_T.t('agenda.js.situacao.cancelado')) + '</span>'); }
+        if (e.pastaId) { linhas.push('<a href="' + esc(comId(url.pasta, e.pastaId)) + '"><i class="bi bi-folder2-open"></i>' + esc(BJ_T.t('agenda.js.detalhe.abrir_pasta', { nup: e.pasta || '' })) + '</a>'); }
         if (e.obs) { linhas.push('<span class="ag-modal-obs">' + esc(e.obs) + '</span>'); }
-        if ((e.avisados || []).length) { linhas.push('<span class="ag-modal-avisados"><i class="bi bi-chat-dots"></i>Avisados no Chat: ' + esc(nomesAvisados(e.avisados)) + '</span>'); }
+        if ((e.avisados || []).length) { linhas.push('<span class="ag-modal-avisados"><i class="bi bi-chat-dots"></i>' + esc(BJ_T.t('agenda.js.detalhe.avisados_chat', { nomes: nomesAvisados(e.avisados) })) + '</span>'); }
         linhas.push('<div class="ag-modal-origem">' + esc(origemDe(e)) + '</div>');
         if (s.podeAjustar && url.feriados && DO_SISTEMA.includes(e.src) && e.src !== 'aniv' && !e.ponto) {
-            linhas.push('<a class="ag-modal-feriados" href="' + esc(url.feriados) + '"><i class="bi bi-box-arrow-up-right"></i>Cadastrar em Feriados e Folgas, para contar no ponto</a>');
+            linhas.push('<a class="ag-modal-feriados" href="' + esc(url.feriados) + '"><i class="bi bi-box-arrow-up-right"></i>' + esc(BJ_T.t('agenda.js.detalhe.cadastrar_feriado')) + '</a>');
         }
-        document.getElementById('agModal').innerHTML = '<div class="ag-modal-fundo" data-fechar></div><div class="ag-modal-caixa"><div class="ag-modal" role="dialog" aria-modal="true" aria-label="Compromisso">'
-            + '<div class="ag-modal-cab"><i class="bi bi-calendar-event"></i><b>Compromisso</b><button type="button" class="ag-modal-x" data-fechar title="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+        document.getElementById('agModal').innerHTML = '<div class="ag-modal-fundo" data-fechar></div><div class="ag-modal-caixa"><div class="ag-modal" role="dialog" aria-modal="true" aria-label="' + esc(BJ_T.t('agenda.js.detalhe.titulo')) + '">'
+            + '<div class="ag-modal-cab"><i class="bi bi-calendar-event"></i><b>' + esc(BJ_T.t('agenda.js.detalhe.titulo')) + '</b><button type="button" class="ag-modal-x" data-fechar title="' + esc(BJ_T.t('agenda.js.comum.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
             + '<div class="ag-modal-corpo">' + linhas.join('') + '</div>'
             + '<div class="ag-modal-rodape">' + botoesDoDetalhe(e) + '</div></div></div>';
         const x = document.querySelector('#agModal .ag-modal-x');
@@ -500,17 +509,17 @@
     }
 
     function botoesDoDetalhe(e) {
-        const fechar = '<button type="button" class="ag-mbtn is-fim" data-fechar><i class="bi bi-x"></i>Fechar</button>';
+        const fechar = '<button type="button" class="ag-mbtn is-fim" data-fechar><i class="bi bi-x"></i>' + esc(BJ_T.t('agenda.js.comum.fechar')) + '</button>';
         if (DO_SISTEMA.includes(e.src)) { return fechar; }
-        const google = '<a class="ag-mbtn" href="' + esc(googleUrl(e)) + '" target="_blank" rel="noopener"><i class="bi bi-google"></i>Google Agenda</a>';
-        const det = (acao, rotulo, ic, classe) => '<button type="button" class="ag-mbtn' + classe + '" data-det="' + acao + '" data-ev="' + esc(e.id) + '"><i class="bi ' + ic + '"></i>' + rotulo + '</button>';
+        const google = '<a class="ag-mbtn" href="' + esc(googleUrl(e)) + '" target="_blank" rel="noopener"><i class="bi bi-google"></i>' + esc(BJ_T.t('agenda.js.detalhe.google_agenda')) + '</a>';
+        const det = (acao, rotulo, ic, classe) => '<button type="button" class="ag-mbtn' + classe + '" data-det="' + acao + '" data-ev="' + esc(e.id) + '"><i class="bi ' + ic + '"></i>' + esc(rotulo) + '</button>';
         /* Desenho 09, L238: todo item que não é data do sistema, inclusive prazo e audiência de pasta. */
-        const avisarBtn = (e.eventoId && !e.privado) || prazoId(e) ? det('avisar', 'Avisar no Chat', 'bi-chat-dots', '') : '';
+        const avisarBtn = (e.eventoId && !e.privado) || prazoId(e) ? det('avisar', BJ_T.t('agenda.js.acoes.avisar_chat'), 'bi-chat-dots', '') : '';
         if (e.src === 'meus' && e.editavel && e.eventoId) {
-            const sit = (e.status === 'agendado' || !e.status ? det('concluir', 'Concluir', 'bi-check2-circle', '') : '')
-                + (e.status !== 'cancelado' ? det('cancelar', 'Cancelar compromisso', 'bi-x-circle', '') : '')
-                + (e.status && e.status !== 'agendado' ? det('reabrir', 'Reabrir', 'bi-arrow-counterclockwise', '') : '');
-            return google + avisarBtn + sit + det('excluir', 'Excluir', 'bi-trash3', ' is-perigo') + det('editar', 'Editar', 'bi-pencil', ' is-pri is-fim');
+            const sit = (e.status === 'agendado' || !e.status ? det('concluir', BJ_T.t('agenda.js.acoes.concluir'), 'bi-check2-circle', '') : '')
+                + (e.status !== 'cancelado' ? det('cancelar', BJ_T.t('agenda.js.acoes.cancelar_compromisso'), 'bi-x-circle', '') : '')
+                + (e.status && e.status !== 'agendado' ? det('reabrir', BJ_T.t('agenda.js.acoes.reabrir'), 'bi-arrow-counterclockwise', '') : '');
+            return google + avisarBtn + sit + det('excluir', BJ_T.t('agenda.js.comum.excluir'), 'bi-trash3', ' is-perigo') + det('editar', BJ_T.t('agenda.js.acoes.editar'), 'bi-pencil', ' is-pri is-fim');
         }
 
         return google + avisarBtn + fechar;
@@ -521,15 +530,15 @@
     /* ── Menu de botão direito ──────────────────────────────────────────── */
     function abrirMenu(x, y, dia, e) {
         const itens = [];
-        if (e && !DO_SISTEMA.includes(e.src)) { itens.push(['Abrir compromisso', 'bi-box-arrow-up-right', 'abrir']); }
-        if (e && DO_SISTEMA.includes(e.src)) { itens.push(['Ver detalhes', 'bi-info-circle', 'abrir']); }
+        if (e && !DO_SISTEMA.includes(e.src)) { itens.push([BJ_T.t('agenda.js.menu.abrir_compromisso'), 'bi-box-arrow-up-right', 'abrir']); }
+        if (e && DO_SISTEMA.includes(e.src)) { itens.push([BJ_T.t('agenda.js.menu.ver_detalhes'), 'bi-info-circle', 'abrir']); }
         if (e && DO_SISTEMA.includes(e.src) && s.podeAjustar) {
-            itens.push(['Editar nome', 'bi-pencil', 'renomear']);
-            itens.push(String(e.id).startsWith('x-') ? ['Excluir', 'bi-eye-slash', 'ocultar', 'perigo'] : ['Ocultar da agenda', 'bi-eye-slash', 'ocultar', 'perigo']);
+            itens.push([BJ_T.t('agenda.js.menu.editar_nome'), 'bi-pencil', 'renomear']);
+            itens.push(String(e.id).startsWith('x-') ? [BJ_T.t('agenda.js.comum.excluir'), 'bi-eye-slash', 'ocultar', 'perigo'] : [BJ_T.t('agenda.js.menu.ocultar'), 'bi-eye-slash', 'ocultar', 'perigo']);
         }
-        if (s.podeAjustar) { itens.push(['Acrescentar feriado ou data em ' + brData(dia), 'bi-plus-lg', 'acrescentar']); }
-        itens.push(['Novo compromisso em ' + brData(dia), 'bi-calendar-plus', 'novo']);
-        if (s.podeAjustar && s.temAjustes) { itens.push(['Restaurar datas do sistema', 'bi-arrow-counterclockwise', 'restaurar']); }
+        if (s.podeAjustar) { itens.push([BJ_T.t('agenda.js.menu.acrescentar_em', { data: brData(dia) }), 'bi-plus-lg', 'acrescentar']); }
+        itens.push([BJ_T.t('agenda.js.menu.novo_em', { data: brData(dia) }), 'bi-calendar-plus', 'novo']);
+        if (s.podeAjustar && s.temAjustes) { itens.push([BJ_T.t('agenda.js.menu.restaurar'), 'bi-arrow-counterclockwise', 'restaurar']); }
         const el = document.getElementById('agCtx');
         el.innerHTML = '<div class="ag-ctx-fundo" data-ctx-fechar></div><div class="ag-ctx" role="menu" style="left:' + Math.min(x, innerWidth - 250) + 'px;top:' + Math.min(y, innerHeight - 260) + 'px;">'
             + '<div class="ag-ctx-tit">' + esc(e ? e.t : brData(dia)) + '</div>'
@@ -545,8 +554,8 @@
     /* ── Modal de criar e editar (V16, V17) ─────────────────────────────── */
     const TIPOS = ['meus', 'aud', 'reun', 'prazo'];
     const LEMBRETE_PADRAO = { aud: '60', reun: '10', prazo: '15', meus: '15' };
-    const LEMBRETES = [['0', 'Sem lembrete'], ['10', '10 min antes'], ['15', '15 min antes'], ['30', '30 min antes'], ['60', '1 hora antes'], ['1440', '1 dia antes']];
-    const REPETIR = [['', 'Não repete'], ['diario', 'Todo dia'], ['semanal', 'Toda semana'], ['mensal', 'Todo mês'], ['anual', 'Todo ano']];
+    const LEMBRETES = [['0', BJ_T.t('agenda.js.form.lembrete.sem')], ['10', BJ_T.t('agenda.js.form.lembrete.min_10')], ['15', BJ_T.t('agenda.js.form.lembrete.min_15')], ['30', BJ_T.t('agenda.js.form.lembrete.min_30')], ['60', BJ_T.t('agenda.js.form.lembrete.hora_1')], ['1440', BJ_T.t('agenda.js.form.lembrete.dia_1')]];
+    const REPETIR = [['', BJ_T.t('agenda.js.form.repetir.nao')], ['diario', BJ_T.t('agenda.js.form.repetir.diario')], ['semanal', BJ_T.t('agenda.js.form.repetir.semanal')], ['mensal', BJ_T.t('agenda.js.form.repetir.mensal')], ['anual', BJ_T.t('agenda.js.form.repetir.anual')]];
     const nomeCurto = n => String(n || '').split(' ').slice(0, 2).join(' ');
     const daEquipe = () => equipe.filter(u => u.id !== eu.id);
     let f = null;
@@ -574,45 +583,45 @@
         desenharForm('');
     }
 
-    function rotulo(r, campo) { return '<label class="ag-f-rot">' + r + campo + '</label>'; }
+    function rotulo(r, campo) { return '<label class="ag-f-rot">' + esc(r) + campo + '</label>'; }
 
     function htmlForm(erro) {
         const tipos = TIPOS.map(k => {
             const on = f.tipo === k;
-            return '<button type="button" class="ag-f-tipo" data-f-tipo="' + k + '" style="border-color:' + (on ? CAL[k][1] : '') + ';background:' + (on ? CAL[k][2] : '') + ';color:' + (on ? CAL[k][1] : '') + ';"><span style="background:' + CAL[k][1] + ';"></span>' + CAL[k][0].replace('Prazos das pastas', 'Prazo') + '</button>';
+            return '<button type="button" class="ag-f-tipo" data-f-tipo="' + k + '" style="border-color:' + (on ? CAL[k][1] : '') + ';background:' + (on ? CAL[k][2] : '') + ';color:' + (on ? CAL[k][1] : '') + ';"><span style="background:' + CAL[k][1] + ';"></span>' + esc(k === 'prazo' ? BJ_T.t('agenda.js.form.tipo_prazo') : CAL[k][0]) + '</button>';
         }).join('');
-        const vis = [['equipe', 'Equipe do escritório', 'bi-people', f.part.length ? 'Só os participantes e você veem' : 'Todos da conta veem'], ['privado', 'Só eu', 'bi-lock', 'Ninguém mais vê, nem o primário']].map(([k, r, ic, d]) =>
-            '<button type="button" class="ag-f-vis' + (f.vis === k ? ' is-on' : '') + '" data-f-vis="' + k + '"><i class="bi ' + ic + '"></i><span><b>' + r + '</b><span>' + d + '</span></span></button>').join('');
-        const opcoes = (lista, v) => lista.map(([k, r]) => '<option value="' + k + '"' + (String(v) === k ? ' selected' : '') + '>' + r + '</option>').join('');
+        const vis = [['equipe', BJ_T.t('agenda.js.comum.equipe_escritorio'), 'bi-people', f.part.length ? BJ_T.t('agenda.js.form.vis.participantes_veem') : BJ_T.t('agenda.js.form.vis.todos_veem')], ['privado', BJ_T.t('agenda.js.form.vis.so_eu'), 'bi-lock', BJ_T.t('agenda.js.form.vis.ninguem_ve')]].map(([k, r, ic, d]) =>
+            '<button type="button" class="ag-f-vis' + (f.vis === k ? ' is-on' : '') + '" data-f-vis="' + k + '"><i class="bi ' + ic + '"></i><span><b>' + esc(r) + '</b><span>' + esc(d) + '</span></span></button>').join('');
+        const opcoes = (lista, v) => lista.map(([k, r]) => '<option value="' + k + '"' + (String(v) === k ? ' selected' : '') + '>' + esc(r) + '</option>').join('');
         const part = daEquipe().map(u => '<button type="button" class="ag-f-pessoa' + (f.part.includes(u.id) ? ' is-on' : '') + '" data-f-part="' + u.id + '">' + esc(nomeCurto(u.nome)) + '</button>').join('');
         const avisados = nomesAvisados(f.avis);
-        return '<input class="ag-f-titulo" data-f="t" value="' + esc(f.t) + '" placeholder="Título" maxlength="255">'
+        return '<input class="ag-f-titulo" data-f="t" value="' + esc(f.t) + '" placeholder="' + esc(BJ_T.t('agenda.js.form.titulo_placeholder')) + '" maxlength="255">'
             + '<div class="ag-f-tipos">' + tipos + '</div>'
-            + '<div class="ag-f-grade">' + rotulo('DATA', '<input type="date" data-f="d" value="' + esc(f.d) + '">')
-            + rotulo('INÍCIO', '<input type="time" data-f="h1" value="' + esc(f.h1) + '"' + (f.dia ? ' disabled' : '') + '>')
-            + rotulo('FIM', '<input type="time" data-f="h2" value="' + esc(f.h2) + '"' + (f.dia ? ' disabled' : '') + '>') + '</div>'
-            + (f.dias > 0 ? '<div class="ag-f-nota"><i class="bi bi-info-circle"></i> Termina em ' + esc(brData(iso(soma(dataDe(f.d), f.dias)))) + ' (' + f.dias + ' dia(s) depois do início). <button type="button" class="ag-f-link" data-f-mesmodia>Terminar no mesmo dia</button></div>' : '')
-            + (f.serie ? '<div class="ag-f-nota"><i class="bi bi-arrow-repeat"></i> Este compromisso se repete: a alteração vale para todas as repetições.</div>' : '')
+            + '<div class="ag-f-grade">' + rotulo(BJ_T.t('agenda.js.form.rotulo.data'), '<input type="date" data-f="d" value="' + esc(f.d) + '">')
+            + rotulo(BJ_T.t('agenda.js.form.rotulo.inicio'), '<input type="time" data-f="h1" value="' + esc(f.h1) + '"' + (f.dia ? ' disabled' : '') + '>')
+            + rotulo(BJ_T.t('agenda.js.form.rotulo.fim'), '<input type="time" data-f="h2" value="' + esc(f.h2) + '"' + (f.dia ? ' disabled' : '') + '>') + '</div>'
+            + (f.dias > 0 ? '<div class="ag-f-nota"><i class="bi bi-info-circle"></i> ' + esc(BJ_T.t('agenda.js.form.termina_em', { data: brData(iso(soma(dataDe(f.d), f.dias))), dias: String(f.dias) })) + ' <button type="button" class="ag-f-link" data-f-mesmodia>' + esc(BJ_T.t('agenda.js.form.mesmo_dia')) + '</button></div>' : '')
+            + (f.serie ? '<div class="ag-f-nota"><i class="bi bi-arrow-repeat"></i> ' + esc(BJ_T.t('agenda.js.form.serie')) + '</div>' : '')
             + '<div class="ag-f-viss">' + vis + '</div>'
-            + '<label class="ag-f-check"><input type="checkbox" data-f-dia' + (f.dia ? ' checked' : '') + '>Dia inteiro</label>'
-            + '<div class="ag-f-grade2">' + (podeVerPastas ? rotulo('PASTA (NUP, OPCIONAL)', '<input data-f="pasta" value="' + esc(f.pasta) + '" placeholder="Ex.: número da pasta">') : '')
-            + rotulo('LEMBRETE', '<select data-f="lem">' + opcoes(LEMBRETES, f.lem) + '</select>') + '</div>'
-            + '<div class="ag-f-grade2">' + rotulo('REPETIR', '<select data-f="rep">' + opcoes(REPETIR, f.rep) + '</select>')
-            + rotulo('ATÉ (OPCIONAL)', '<input type="date" data-f="repAte" value="' + esc(f.repAte) + '"' + (f.rep ? '' : ' disabled') + '>') + '</div>'
-            + (part ? '<div class="ag-f-bloco"><span class="ag-f-rot-linha">PARTICIPANTES <span class="ag-f-dica">' + (f.vis === 'privado' ? 'em "Só eu" os participantes não veem nem são avisados' : 'só eles e você veem o compromisso') + '</span></span><div class="ag-f-pessoas">' + part + '</div></div>' : '')
-            + '<div class="ag-f-avisar"><span class="ag-f-rot-linha">AVISAR NO CHAT I.A <span class="ag-f-dica">' + (f.vis === 'privado' ? 'em "Só eu" ninguém é avisado' : 'cada @pessoa recebe o resumo e o atalho') + '</span></span>'
-            + '<textarea data-f="obs" rows="2" placeholder="Local, link da reunião ou observações">' + esc(f.obs) + '</textarea>'
+            + '<label class="ag-f-check"><input type="checkbox" data-f-dia' + (f.dia ? ' checked' : '') + '>' + esc(BJ_T.t('agenda.js.comum.dia_inteiro')) + '</label>'
+            + '<div class="ag-f-grade2">' + (podeVerPastas ? rotulo(BJ_T.t('agenda.js.form.rotulo.pasta'), '<input data-f="pasta" value="' + esc(f.pasta) + '" placeholder="' + esc(BJ_T.t('agenda.js.form.pasta_placeholder')) + '">') : '')
+            + rotulo(BJ_T.t('agenda.js.form.rotulo.lembrete'), '<select data-f="lem">' + opcoes(LEMBRETES, f.lem) + '</select>') + '</div>'
+            + '<div class="ag-f-grade2">' + rotulo(BJ_T.t('agenda.js.form.rotulo.repetir'), '<select data-f="rep">' + opcoes(REPETIR, f.rep) + '</select>')
+            + rotulo(BJ_T.t('agenda.js.form.rotulo.repetir_ate'), '<input type="date" data-f="repAte" value="' + esc(f.repAte) + '"' + (f.rep ? '' : ' disabled') + '>') + '</div>'
+            + (part ? '<div class="ag-f-bloco"><span class="ag-f-rot-linha">' + esc(BJ_T.t('agenda.js.form.participantes')) + ' <span class="ag-f-dica">' + esc(f.vis === 'privado' ? BJ_T.t('agenda.js.form.participantes_dica_privado') : BJ_T.t('agenda.js.form.participantes_dica')) + '</span></span><div class="ag-f-pessoas">' + part + '</div></div>' : '')
+            + '<div class="ag-f-avisar"><span class="ag-f-rot-linha">' + esc(BJ_T.t('agenda.js.comum.avisar_chat_ia')) + ' <span class="ag-f-dica">' + esc(f.vis === 'privado' ? BJ_T.t('agenda.js.form.avisar_dica_privado') : BJ_T.t('agenda.js.form.avisar_dica')) + '</span></span>'
+            + '<textarea data-f="obs" rows="2" placeholder="' + esc(BJ_T.t('agenda.js.form.obs_placeholder')) + '">' + esc(f.obs) + '</textarea>'
             + '<div id="agAt"></div>'
-            + (avisados ? '<div class="ag-f-avisados"><i class="bi bi-chat-dots"></i> Serão avisados: ' + esc(avisados) + '</div>' : '') + '</div>'
+            + (avisados ? '<div class="ag-f-avisados"><i class="bi bi-chat-dots"></i> ' + esc(BJ_T.t('agenda.js.form.serao_avisados', { nomes: avisados })) + '</div>' : '') + '</div>'
             + (erro ? '<div class="ag-f-erro" role="alert">' + esc(erro) + '</div>' : '');
     }
 
     function desenharForm(erro) {
-        document.getElementById('agModal').innerHTML = '<div class="ag-modal-fundo" data-fechar></div><div class="ag-modal-caixa"><div class="ag-modal" role="dialog" aria-modal="true" aria-label="' + (editId ? 'Editar compromisso' : 'Novo compromisso') + '">'
-            + '<div class="ag-modal-cab"><i class="bi bi-calendar-event"></i><b>' + (editId ? 'Editar compromisso' : 'Novo compromisso') + '</b><button type="button" class="ag-modal-x" data-fechar title="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+        document.getElementById('agModal').innerHTML = '<div class="ag-modal-fundo" data-fechar></div><div class="ag-modal-caixa"><div class="ag-modal" role="dialog" aria-modal="true" aria-label="' + esc(editId ? BJ_T.t('agenda.js.form.editar_titulo') : BJ_T.t('agenda.js.form.novo_titulo')) + '">'
+            + '<div class="ag-modal-cab"><i class="bi bi-calendar-event"></i><b>' + esc(editId ? BJ_T.t('agenda.js.form.editar_titulo') : BJ_T.t('agenda.js.form.novo_titulo')) + '</b><button type="button" class="ag-modal-x" data-fechar title="' + esc(BJ_T.t('agenda.js.comum.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
             + '<div class="ag-modal-corpo ag-form">' + htmlForm(erro) + '</div>'
-            + '<div class="ag-modal-rodape"><button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>Cancelar</button>'
-            + '<button type="button" class="ag-mbtn is-pri is-fim" data-f-salvar><i class="bi bi-check2"></i>Salvar</button></div></div></div>';
+            + '<div class="ag-modal-rodape"><button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>' + esc(BJ_T.t('agenda.js.comum.cancelar')) + '</button>'
+            + '<button type="button" class="ag-mbtn is-pri is-fim" data-f-salvar><i class="bi bi-check2"></i>' + esc(BJ_T.t('agenda.js.comum.salvar')) + '</button></div></div></div>';
         const tit = document.querySelector('#agModal [data-f="t"]');
         if (tit && !erro) { tit.focus(); }
         const ta = document.querySelector('#agModal textarea');
@@ -628,7 +637,7 @@
     /* @colega no campo de observações: abre a lista, navega com setas, escolhe com Enter ou Tab. */
     function lerArroba(ta) {
         const pos = ta.selectionStart || ta.value.length;
-        const m = ta.value.slice(0, pos).match(/(^|\s)@([\wÀ-ÿ]*)$/);
+        const m = ta.value.slice(0, pos).match(/(^|\s)@([\w\u00C0-\u00FF]*)$/);
         at = m ? { q: m[2].toLowerCase(), ini: pos - m[2].length - 1, i: at && at.q === m[2].toLowerCase() ? at.i : 0 } : null;
         f.avis = Array.from(new Set(f.avis.filter(id => (equipe.find(u => u.id === id) || {}).nome && ta.value.includes('@' + nomeCurto(equipe.find(u => u.id === id).nome))).concat(
             daEquipe().filter(u => ta.value.includes('@' + nomeCurto(u.nome))).map(u => u.id))));
@@ -644,8 +653,8 @@
         const caixa = document.getElementById('agAt');
         const av = document.querySelector('#agModal .ag-f-avisados');
         const nomes = nomesAvisados(f.avis);
-        if (av) { av.innerHTML = nomes ? '<i class="bi bi-chat-dots"></i> Serão avisados: ' + esc(nomes) : ''; }
-        else if (nomes) { caixa.insertAdjacentHTML('afterend', '<div class="ag-f-avisados"><i class="bi bi-chat-dots"></i> Serão avisados: ' + esc(nomes) + '</div>'); }
+        if (av) { av.innerHTML = nomes ? '<i class="bi bi-chat-dots"></i> ' + esc(BJ_T.t('agenda.js.form.serao_avisados', { nomes })) : ''; }
+        else if (nomes) { caixa.insertAdjacentHTML('afterend', '<div class="ag-f-avisados"><i class="bi bi-chat-dots"></i> ' + esc(BJ_T.t('agenda.js.form.serao_avisados', { nomes })) + '</div>'); }
         if (!at) { caixa.innerHTML = ''; return; }
         const L = candidatos();
         const r = ta.getBoundingClientRect();
@@ -653,7 +662,7 @@
         const embaixo = innerHeight - r.bottom - 8 >= h;
         caixa.innerHTML = '<div class="ag-at" role="listbox" style="left:' + Math.max(8, r.left) + 'px;width:' + Math.min(innerWidth - 16, r.width) + 'px;top:' + (embaixo ? r.bottom + 4 : Math.max(8, r.top - h - 4)) + 'px;max-height:' + h + 'px;">'
             + (L.length ? L.map((u, i) => '<button type="button" role="option" class="ag-at-item' + (i === at.i % L.length ? ' is-on' : '') + '" data-at="' + u.id + '"><span>' + esc(nomeCurto(u.nome).split(' ').map(p => p[0]).join('').toUpperCase()) + '</span>' + esc(u.nome) + '</button>').join('')
-                : '<div class="ag-at-vazio">Nenhum colaborador com esse nome</div>') + '</div>';
+                : '<div class="ag-at-vazio">' + esc(BJ_T.t('agenda.js.form.arroba_vazio')) + '</div>') + '</div>';
     }
 
     function escolherArroba(id) {
@@ -676,15 +685,15 @@
     async function postar(endereco, corpo) {
         const resp = await fetch(endereco, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' }, body: JSON.stringify(corpo) });
         const json = await resp.json().catch(() => ({}));
-        if (!resp.ok) { throw new Error(json.erro || 'Não foi possível salvar. Tente de novo.'); }
+        if (!resp.ok) { throw new Error(json.erro || BJ_T.t('agenda.js.erros.salvar')); }
         return json;
     }
 
     function erroLocal() {
-        if (!f.t.trim()) { return 'Informe o título.'; }
-        if (!f.d) { return 'Informe a data.'; }
-        if (!f.dia && !f.dias && f.h2 && f.h2 <= f.h1) { return 'O fim precisa ser depois do início.'; }
-        if (f.rep && f.repAte && f.repAte < f.d) { return 'A repetição precisa terminar depois do início.'; }
+        if (!f.t.trim()) { return BJ_T.t('agenda.js.erros.titulo'); }
+        if (!f.d) { return BJ_T.t('agenda.js.erros.data'); }
+        if (!f.dia && !f.dias && f.h2 && f.h2 <= f.h1) { return BJ_T.t('agenda.js.erros.fim_antes'); }
+        if (f.rep && f.repAte && f.repAte < f.d) { return BJ_T.t('agenda.js.erros.repeticao_antes'); }
         return '';
     }
 
@@ -702,18 +711,18 @@
             recarregarEm(f.serie ? s.ref : dataDe(r.data));
             f = null;
             const lembra = !corpo.diaInteiro && corpo.inicio && corpo.lembreteMinutos !== 0;
-            avisar('Compromisso salvo.' + (lembra ? ' Você será lembrado com aviso e som.' : '') + (r.avisados ? ' ' + r.avisados + ' pessoa(s) avisada(s) no Chat I.A.' : ''));
+            avisar(BJ_T.t('agenda.js.avisos.salvo') + (lembra ? ' ' + BJ_T.t('agenda.js.avisos.lembrete') : '') + (r.avisados ? ' ' + BJ_T.t('agenda.js.avisos.pessoas_avisadas', { n: String(r.avisados) }) : ''));
         } catch (e) {
             desenharForm(e.message);
         }
     }
 
     function perguntarCompartilhar() {
-        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="Compartilhar com a equipe?">'
-            + '<div class="ag-perg-cab"><i class="bi bi-people"></i> Compartilhar com a equipe?</div>'
-            + '<div class="ag-perg-txt">Você está em <b>Minha agenda</b>. Deseja que <b>' + esc(f.t) + '</b> apareça também na <b>Equipe do escritório</b>?</div>'
-            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-perg="privado"><i class="bi bi-lock"></i>Não, só eu</button>'
-            + '<button type="button" class="ag-mbtn is-pri" data-perg="equipe"><i class="bi bi-people"></i>Sim, compartilhar</button></div></div></div>';
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="' + esc(BJ_T.t('agenda.js.compartilhar.titulo')) + '">'
+            + '<div class="ag-perg-cab"><i class="bi bi-people"></i> ' + esc(BJ_T.t('agenda.js.compartilhar.titulo')) + '</div>'
+            + '<div class="ag-perg-txt">' + comNegrito(BJ_T.t('agenda.js.compartilhar.texto', { agenda: lugar('agenda'), titulo: lugar('titulo'), equipe: lugar('equipe') }), { agenda: BJ_T.t('agenda.js.comum.minha_agenda'), titulo: f.t, equipe: BJ_T.t('agenda.js.comum.equipe_escritorio') }) + '</div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-perg="privado"><i class="bi bi-lock"></i>' + esc(BJ_T.t('agenda.js.compartilhar.nao')) + '</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-perg="equipe"><i class="bi bi-people"></i>' + esc(BJ_T.t('agenda.js.compartilhar.sim')) + '</button></div></div></div>';
         const sim = document.querySelector('#agPerg [data-perg="equipe"]');
         if (sim) { sim.focus(); }
     }
@@ -726,12 +735,12 @@
     }
 
     async function excluirItem(e) {
-        if (!confirm(e.repetir ? 'Excluir este compromisso e todas as repetições?' : 'Excluir este compromisso?')) { return; }
+        if (!confirm(e.repetir ? BJ_T.t('agenda.js.confirmar.excluir_serie') : BJ_T.t('agenda.js.confirmar.excluir'))) { return; }
         try {
             await postar(comId(url.excluir, e.eventoId), {});
             fecharModal();
             recarregarEm(s.ref);
-            avisar('Compromisso excluído.');
+            avisar(BJ_T.t('agenda.js.avisos.excluido'));
         } catch (x) { avisar(x.message); }
     }
 
@@ -744,14 +753,14 @@
 
     function desenharEscolhaAviso(e) {
         const ja = e.avisados || [];
-        const pessoas = daEquipe().map(u => '<button type="button" class="ag-f-pessoa' + (ja.includes(u.id) || escolhaAviso.includes(u.id) ? ' is-on' : '') + '"' + (ja.includes(u.id) ? ' disabled title="Já avisado"' : '') + ' data-av-p="' + u.id + '" data-ev="' + esc(e.id) + '">' + esc(nomeCurto(u.nome)) + '</button>').join('');
+        const pessoas = daEquipe().map(u => '<button type="button" class="ag-f-pessoa' + (ja.includes(u.id) || escolhaAviso.includes(u.id) ? ' is-on' : '') + '"' + (ja.includes(u.id) ? ' disabled title="' + esc(BJ_T.t('agenda.js.aviso_chat.ja_avisado')) + '"' : '') + ' data-av-p="' + u.id + '" data-ev="' + esc(e.id) + '">' + esc(nomeCurto(u.nome)) + '</button>').join('');
         const corpo = document.querySelector('#agModal .ag-modal-corpo');
         const rodape = document.querySelector('#agModal .ag-modal-rodape');
         if (!corpo || !rodape) { return; }
         let bloco = corpo.querySelector('.ag-av');
         if (!bloco) { corpo.insertAdjacentHTML('beforeend', '<div class="ag-av ag-f-bloco"></div>'); bloco = corpo.querySelector('.ag-av'); }
-        bloco.innerHTML = '<span class="ag-f-rot-linha">AVISAR NO CHAT I.A <span class="ag-f-dica">cada pessoa recebe o resumo e o atalho</span></span><div class="ag-f-pessoas">' + (pessoas || '<span class="ag-f-dica">Nenhum colega no escritório.</span>') + '</div>';
-        rodape.innerHTML = '<button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>Cancelar</button><button type="button" class="ag-mbtn is-pri is-fim" data-av-ok data-ev="' + esc(e.id) + '"' + (escolhaAviso.length ? '' : ' disabled') + '><i class="bi bi-chat-dots"></i>Avisar' + (escolhaAviso.length ? ' ' + escolhaAviso.length : '') + '</button>';
+        bloco.innerHTML = '<span class="ag-f-rot-linha">' + esc(BJ_T.t('agenda.js.comum.avisar_chat_ia')) + ' <span class="ag-f-dica">' + esc(BJ_T.t('agenda.js.aviso_chat.dica')) + '</span></span><div class="ag-f-pessoas">' + (pessoas || '<span class="ag-f-dica">' + esc(BJ_T.t('agenda.js.aviso_chat.sem_colegas')) + '</span>') + '</div>';
+        rodape.innerHTML = '<button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>' + esc(BJ_T.t('agenda.js.comum.cancelar')) + '</button><button type="button" class="ag-mbtn is-pri is-fim" data-av-ok data-ev="' + esc(e.id) + '"' + (escolhaAviso.length ? '' : ' disabled') + '><i class="bi bi-chat-dots"></i>' + esc(escolhaAviso.length ? BJ_T.t('agenda.js.aviso_chat.avisar_n', { n: String(escolhaAviso.length) }) : BJ_T.t('agenda.js.aviso_chat.avisar')) + '</button>';
     }
 
     /* Prazo de pasta vem com id "pz-<id do prazo>". */
@@ -766,20 +775,20 @@
             const r = await postar(prazoId(e) ? comId(url.avisarPrazo, prazoId(e)) : comId(url.avisar, e.eventoId), { ids: escolhaAviso });
             fecharModal();
             recarregarEm(s.ref);
-            avisar(r.avisados ? r.avisados + ' pessoa(s) avisada(s) no Chat I.A.' : 'Essas pessoas já tinham sido avisadas.');
+            avisar(r.avisados ? BJ_T.t('agenda.js.avisos.pessoas_avisadas', { n: String(r.avisados) }) : BJ_T.t('agenda.js.avisos.ja_avisadas'));
         } catch (x) { avisar(x.message); }
     }
 
     async function mudarSituacao(e, status) {
-        const serie = e.repetir || e.recorrente ? ' Vale para todas as repetições.' : '';
+        const serie = e.repetir || e.recorrente ? ' ' + BJ_T.t('agenda.js.confirmar.vale_serie') : '';
         const temParticipantes = (e.participantes || []).some(id => id !== eu.id);
-        const pergunta = { concluido: 'Concluir este compromisso?', agendado: 'Reabrir este compromisso?', cancelado: 'Cancelar este compromisso?' + (temParticipantes ? ' Os participantes serão avisados.' : '') }[status];
+        const pergunta = { concluido: BJ_T.t('agenda.js.confirmar.concluir'), agendado: BJ_T.t('agenda.js.confirmar.reabrir'), cancelado: BJ_T.t('agenda.js.confirmar.cancelar') + (temParticipantes ? ' ' + BJ_T.t('agenda.js.confirmar.participantes_avisados') : '') }[status];
         if ((serie || status === 'cancelado') && !confirm(pergunta + serie)) { return; }
         try {
             await postar(comId(url.status, e.eventoId), { status });
             fecharModal();
             recarregarEm(s.ref);
-            avisar({ concluido: 'Compromisso concluído.', cancelado: 'Compromisso cancelado.', agendado: 'Compromisso reaberto.' }[status]);
+            avisar({ concluido: BJ_T.t('agenda.js.avisos.concluido'), cancelado: BJ_T.t('agenda.js.avisos.cancelado'), agendado: BJ_T.t('agenda.js.avisos.reaberto') }[status]);
         } catch (x) { avisar(x.message); }
     }
 
@@ -834,7 +843,7 @@
         try {
             await postar(comId(url.mover, e.eventoId), { data: novoInicio, hora: destino.hora });
             recarregarEm(s.ref);
-            avisar('Compromisso movido para ' + brData(novoInicio) + (destino.hora && !e.dia ? ' às ' + destino.hora : '') + '.');
+            avisar(destino.hora && !e.dia ? BJ_T.t('agenda.js.avisos.movido_hora', { data: brData(novoInicio), hora: destino.hora }) : BJ_T.t('agenda.js.avisos.movido', { data: brData(novoInicio) }));
         } catch (x) { avisar(x.message); }
     });
 
@@ -949,6 +958,10 @@
         if (alvo('#agGoogleSair')) { googleDesconectar(); }
         if (alvo('[data-google-sair="cancelar"]')) { document.getElementById('agPerg').innerHTML = ''; }
         if (alvo('[data-google-sair="ok"]')) { confirmarDesconectar(); }
+        if (alvo('[data-google-perm="fechar"]')) { document.getElementById('agPerg').innerHTML = ''; }
+        if (alvo('[data-google-perm="tentar"]')) { document.getElementById('agPerg').innerHTML = ''; irAoGoogle(); }
+        if (alvo('[data-google-ir="cancelar"]')) { document.getElementById('agPerg').innerHTML = ''; }
+        if (alvo('[data-google-ir="continuar"]')) { document.getElementById('agPerg').innerHTML = ''; irAoGoogle(); }
     });
 
     raiz.addEventListener('contextmenu', ev => {
@@ -1023,22 +1036,22 @@
     }
 
     /* ── Ajustes de datas do sistema (botão direito, entrega 4) ─────────── */
-    const TIPOS_DE_DATA = [['fer', 'Nacional'], ['est', 'Estadual'], ['trib', 'Tribunal'], ['com', 'Comemorativa']];
+    const TIPOS_DE_DATA = [['fer', BJ_T.t('agenda.js.data_form.tipo.fer')], ['est', BJ_T.t('agenda.js.data_form.tipo.est')], ['trib', BJ_T.t('agenda.js.data_form.tipo.trib')], ['com', BJ_T.t('agenda.js.data_form.tipo.com')]];
     let formData = null;
 
     function formDeData(dia, e) {
         formData = { dia, e, cal: 'trib' };
-        const titulo = e ? 'Editar nome' : 'Acrescentar feriado ou data';
-        const tipos = e ? '' : '<div class="ag-f-rot-linha">TIPO</div><div class="ag-f-tipos">' + TIPOS_DE_DATA.map(([k, r]) => '<button type="button" class="ag-f-tipo' + (k === 'trib' ? ' is-on' : '') + '" data-dt-tipo="' + k + '"><span style="background:' + CAL[k][1] + ';"></span>' + r + '</button>').join('') + '</div>';
-        document.getElementById('agModal').innerHTML = '<div class="ag-modal-fundo" data-fechar></div><div class="ag-modal-caixa"><div class="ag-modal" role="dialog" aria-modal="true" aria-label="' + titulo + '">'
-            + '<div class="ag-modal-cab"><i class="bi bi-calendar-plus"></i><b>' + titulo + '</b><button type="button" class="ag-modal-x" data-fechar title="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+        const titulo = e ? BJ_T.t('agenda.js.menu.editar_nome') : BJ_T.t('agenda.js.data_form.acrescentar_titulo');
+        const tipos = e ? '' : '<div class="ag-f-rot-linha">' + esc(BJ_T.t('agenda.js.data_form.tipo_rotulo')) + '</div><div class="ag-f-tipos">' + TIPOS_DE_DATA.map(([k, r]) => '<button type="button" class="ag-f-tipo' + (k === 'trib' ? ' is-on' : '') + '" data-dt-tipo="' + k + '"><span style="background:' + CAL[k][1] + ';"></span>' + esc(r) + '</button>').join('') + '</div>';
+        document.getElementById('agModal').innerHTML = '<div class="ag-modal-fundo" data-fechar></div><div class="ag-modal-caixa"><div class="ag-modal" role="dialog" aria-modal="true" aria-label="' + esc(titulo) + '">'
+            + '<div class="ag-modal-cab"><i class="bi bi-calendar-plus"></i><b>' + esc(titulo) + '</b><button type="button" class="ag-modal-x" data-fechar title="' + esc(BJ_T.t('agenda.js.comum.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
             + '<div class="ag-modal-corpo ag-form"><span class="ag-f-nota"><i class="bi bi-calendar3"></i> ' + esc(brData(dia)) + '</span>'
-            + '<label class="ag-f-rot">NOME<input data-dt="titulo" maxlength="255" value="' + esc(e ? e.t : '') + '" placeholder="Ex.: Feriado municipal, Suspensão de expediente no TJ"></label>'
+            + '<label class="ag-f-rot">' + esc(BJ_T.t('agenda.js.data_form.nome_rotulo')) + '<input data-dt="titulo" maxlength="255" value="' + esc(e ? e.t : '') + '" placeholder="' + esc(BJ_T.t('agenda.js.data_form.nome_placeholder')) + '"></label>'
             + tipos
-            + (e ? '' : '<label class="ag-f-rot">FONTE (OPCIONAL)<input data-dt="fonte" maxlength="255" placeholder="Portaria, lei ou link"></label>')
-            + '<span class="ag-f-nota"><i class="bi bi-info-circle"></i> Vale para a Agenda de todo o escritório. Não muda o ponto: para contar como feriado na jornada, cadastre em Feriados e Folgas.</span>'
+            + (e ? '' : '<label class="ag-f-rot">' + esc(BJ_T.t('agenda.js.data_form.fonte_rotulo')) + '<input data-dt="fonte" maxlength="255" placeholder="' + esc(BJ_T.t('agenda.js.data_form.fonte_placeholder')) + '"></label>')
+            + '<span class="ag-f-nota"><i class="bi bi-info-circle"></i> ' + esc(BJ_T.t('agenda.js.data_form.nota')) + '</span>'
             + '<div class="ag-f-erro" id="agDtErro"></div></div>'
-            + '<div class="ag-modal-rodape"><button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>Cancelar</button><button type="button" class="ag-mbtn is-pri is-fim" data-dt-salvar><i class="bi bi-check2"></i>' + (e ? 'Salvar' : 'Incluir') + '</button></div></div></div>';
+            + '<div class="ag-modal-rodape"><button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>' + esc(BJ_T.t('agenda.js.comum.cancelar')) + '</button><button type="button" class="ag-mbtn is-pri is-fim" data-dt-salvar><i class="bi bi-check2"></i>' + esc(e ? BJ_T.t('agenda.js.comum.salvar') : BJ_T.t('agenda.js.data_form.incluir')) + '</button></div></div></div>';
         const campo = document.querySelector('#agModal [data-dt="titulo"]');
         if (campo) { campo.focus(); }
     }
@@ -1047,7 +1060,7 @@
         const titulo = (document.querySelector('#agModal [data-dt="titulo"]') || {}).value || '';
         const fonte = (document.querySelector('#agModal [data-dt="fonte"]') || {}).value || '';
         const erro = document.getElementById('agDtErro');
-        if (!titulo.trim()) { erro.textContent = 'Informe o nome.'; return; }
+        if (!titulo.trim()) { erro.textContent = BJ_T.t('agenda.js.erros.nome'); return; }
         try {
             if (formData.e) {
                 await postar(url.renomear, { id: formData.e.id, titulo });
@@ -1058,7 +1071,7 @@
             const renomeou = !!formData.e;
             fecharModal();
             recarregarDatas();
-            if (!renomeou) { avisar('Incluído em ' + brData(dia) + '.'); }
+            if (!renomeou) { avisar(BJ_T.t('agenda.js.avisos.incluido_em', { data: brData(dia) })); }
         } catch (x) { erro.textContent = x.message; }
     }
 
@@ -1067,16 +1080,16 @@
             await postar(url.ocultar, { id: e.id });
             recarregarDatas();
             const acrescentada = String(e.id).startsWith('x-');
-            avisar('"' + e.t + '" removido da agenda.' + (acrescentada ? '' : ' Restaure quando quiser.') + (e.ponto ? ' Ele continua contando no ponto.' : ''));
+            avisar(BJ_T.t('agenda.js.avisos.removido', { titulo: e.t }) + (acrescentada ? '' : ' ' + BJ_T.t('agenda.js.avisos.restaure')) + (e.ponto ? ' ' + BJ_T.t('agenda.js.avisos.continua_no_ponto') : ''));
         } catch (x) { avisar(x.message); }
     }
 
     async function restaurarDatas() {
-        if (!confirm('Restaurar todos os feriados e datas que você ocultou ou editou?')) { return; }
+        if (!confirm(BJ_T.t('agenda.js.confirmar.restaurar'))) { return; }
         try {
             await postar(url.restaurar, {});
             recarregarDatas();
-            avisar('Datas do sistema restauradas.');
+            avisar(BJ_T.t('agenda.js.avisos.restauradas'));
         } catch (x) { avisar(x.message); }
     }
 
@@ -1123,7 +1136,7 @@
             await carregar();
             e = acharItem(id);
         }
-        if (!e) { avisar('Compromisso não encontrado. Ele pode ter sido excluído ou não estar visível para você.'); return; }
+        if (!e) { avisar(BJ_T.t('agenda.js.avisos.nao_encontrado')); return; }
         s.ref = dataDe(e.d);
         s.ref.setHours(0, 0, 0, 0);
         await carregar();
@@ -1133,27 +1146,42 @@
     /* Google Agenda (entrega 6). Clique como no desenho (linha 233): com o servidor liberado, vai ao
        Google com volta=<página atual>; sem, avisa. A volta traz #google=<resultado> para o toast. */
     const AVISOS_GOOGLE = {
-        conectado: 'Google Agenda conectado. Os compromissos já estão sendo sincronizados.',
-        cancelado: 'A conexão com o Google Agenda foi cancelada.',
-        falhou: 'Não foi possível conectar ao Google Agenda. Tente de novo.',
-        limite: 'Muitas tentativas com o Google Agenda. Tente de novo em alguns minutos.',
+        conectado: BJ_T.t('agenda.js.google.volta.conectado'),
+        cancelado: BJ_T.t('agenda.js.google.volta.cancelado'),
+        falhou: BJ_T.t('agenda.js.google.volta.falhou'),
+        limite: BJ_T.t('agenda.js.google.volta.limite'),
     };
-    function googleSincronizar() {
+    function irAoGoogle() {
         const u = url.googleConectar;
-        if (u) { location.href = u + (u.includes('?') ? '&' : '?') + 'volta=' + encodeURIComponent(location.href.split('#')[0]); return; }
-        avisar('A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.');
+        location.href = u + (u.includes('?') ? '&' : '?') + 'volta=' + encodeURIComponent(location.href.split('#')[0]);
+    }
+    /* Antes de ir ao Google (decisão do dono, 21/10/2026): avisa da permissão da agenda, que o Google mostra como caixinha. */
+    function googleSincronizar() {
+        if (!url.googleConectar) {
+            avisar(BJ_T.t('agenda.js.google.nao_configurado'));
+            return;
+        }
+        // Só na primeira conexão: quem já está conectado vai direto.
+        if ('conectado' === raiz.dataset.google) { irAoGoogle(); return; }
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="' + esc(BJ_T.t('agenda.js.google.conectar_titulo')) + '">'
+            + '<div class="ag-perg-cab"><i class="bi bi-google"></i> ' + esc(BJ_T.t('agenda.js.google.conectar_titulo')) + '</div>'
+            + '<div class="ag-perg-txt">' + esc(BJ_T.t('agenda.js.google.conectar_texto')) + '</div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-ir="cancelar"><i class="bi bi-x"></i>' + esc(BJ_T.t('agenda.js.comum.cancelar')) + '</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-google-ir="continuar"><i class="bi bi-google"></i>' + esc(BJ_T.t('agenda.js.google.continuar')) + '</button></div></div></div>';
+        const continuar = document.querySelector('#agPerg [data-google-ir="continuar"]');
+        if (continuar) { continuar.focus(); }
     }
     /* Desconectar (decisão do dono, 20/10/2026): pergunta se apaga também a agenda do escritório no Google,
        com "Não, manter" marcado; mantida, ela fica lá parada. */
     function googleDesconectar() {
-        const nome = esc(raiz.dataset.escritorio || 'do escritório');
-        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="Desconectar o Google Agenda?">'
-            + '<div class="ag-perg-cab"><i class="bi bi-google"></i> Desconectar o Google Agenda?</div>'
-            + '<div class="ag-perg-txt">Os compromissos param de sincronizar. Apagar também a agenda “' + nome + '” do seu Google?</div>'
-            + '<div class="ag-perg-txt"><label><input type="radio" name="agGoogleAgenda" value="manter" checked> Não, manter</label><br>'
-            + '<label><input type="radio" name="agGoogleAgenda" value="apagar"> Sim, apagar a agenda “' + nome + '” do Google</label></div>'
-            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-sair="cancelar"><i class="bi bi-x"></i>Cancelar</button>'
-            + '<button type="button" class="ag-mbtn is-pri" data-google-sair="ok"><i class="bi bi-box-arrow-right"></i>Desconectar</button></div></div></div>';
+        const nome = raiz.dataset.escritorio || BJ_T.t('agenda.js.google.nome_padrao');
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="' + esc(BJ_T.t('agenda.js.google.desconectar_titulo')) + '">'
+            + '<div class="ag-perg-cab"><i class="bi bi-google"></i> ' + esc(BJ_T.t('agenda.js.google.desconectar_titulo')) + '</div>'
+            + '<div class="ag-perg-txt">' + esc(BJ_T.t('agenda.js.google.desconectar_texto', { nome })) + '</div>'
+            + '<div class="ag-perg-txt"><label><input type="radio" name="agGoogleAgenda" value="manter" checked> ' + esc(BJ_T.t('agenda.js.google.manter')) + '</label><br>'
+            + '<label><input type="radio" name="agGoogleAgenda" value="apagar"> ' + esc(BJ_T.t('agenda.js.google.apagar', { nome })) + '</label></div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-sair="cancelar"><i class="bi bi-x"></i>' + esc(BJ_T.t('agenda.js.comum.cancelar')) + '</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-google-sair="ok"><i class="bi bi-box-arrow-right"></i>' + esc(BJ_T.t('agenda.js.google.desconectar')) + '</button></div></div></div>';
         const ok = document.querySelector('#agPerg [data-google-sair="ok"]');
         if (ok) { ok.focus(); }
     }
@@ -1165,10 +1193,21 @@
             location.reload();
         } catch (e) { avisar(e.message); }
     }
+    /* Voltou do Google sem a permissão da agenda (a caixinha desmarcada no consentimento): explica e oferece tentar de novo. */
+    function googleSemPermissao() {
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="' + esc(BJ_T.t('agenda.js.google.sem_permissao_titulo')) + '">'
+            + '<div class="ag-perg-cab"><i class="bi bi-google"></i> ' + esc(BJ_T.t('agenda.js.google.sem_permissao_titulo')) + '</div>'
+            + '<div class="ag-perg-txt">' + esc(BJ_T.t('agenda.js.google.sem_permissao_texto')) + '</div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-perm="fechar"><i class="bi bi-x"></i>' + esc(BJ_T.t('agenda.js.google.agora_nao')) + '</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-google-perm="tentar"><i class="bi bi-google"></i>' + esc(BJ_T.t('agenda.js.google.tentar_de_novo')) + '</button></div></div></div>';
+        const tentar = document.querySelector('#agPerg [data-google-perm="tentar"]');
+        if (tentar) { tentar.focus(); }
+    }
     function avisoDaVoltaDoGoogle() {
-        const m = location.hash.match(/google=(conectado|cancelado|falhou|limite)/);
+        const m = location.hash.match(/google=(conectado|cancelado|falhou|limite|sem-permissao)/);
         if (!m) { return; }
         history.replaceState(null, '', location.pathname + location.search);
+        if ('sem-permissao' === m[1]) { googleSemPermissao(); return; }
         avisar(AVISOS_GOOGLE[m[1]]);
     }
 

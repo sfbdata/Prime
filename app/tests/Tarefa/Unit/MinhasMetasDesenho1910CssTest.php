@@ -147,18 +147,39 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
             'color: var(--mm-grupo-texto)',
         ]);
         $this->temTudo('.mm-grupo-cabeca > .mm-dot', ['width: 7px', 'height: 7px']);
-        $this->temTudo('button.mm-grupo-cabeca', ['border: 0', 'border-bottom: 1px solid var(--mm-grupo-cabeca-borda)']);
+        self::assertStringNotContainsString('button.mm-grupo-cabeca', $this->css(), 'nenhum grupo recolhe (desenho 04, P:163)');
+        self::assertStringNotContainsString('.mm-grupo-seta', $this->css());
     }
 
     #[TestDox('LIS-05/06: a cor do grupo vem do token do grupo e pinta a faixa da linha; o hover continua vencendo')]
     public function testCorDoGrupo(): void
     {
-        $this->temTudo('.mm-grupo-atrasadas', ['--mm-grupo-cor: var(--mm-grupo-atrasadas-cor)']);
-        $this->temTudo('.mm-grupo-proximas', ['--mm-grupo-cor: var(--mm-grupo-proximas-cor)']);
-        self::assertStringContainsString('border-left-color: var(--mm-grupo-cor, var(--mm-danger-dot))', $this->regras('.mm-meta.tom-danger'));
-        self::assertStringContainsString('border-left-color: var(--mm-grupo-cor, var(--mm-warn-dot))', $this->regras('.mm-meta.tom-warn'));
+        $cores = [
+            'atrasadas'  => ['atrasadas', '#a3232b'],
+            'proximas'   => ['proximas', '#c08a12'],
+            'em_revisao' => ['em-revisao', '#0a6fa0'],
+            'depois'     => ['depois', '#1e7b45'],
+            'sem_prazo'  => ['sem-prazo', '#7d909d'],
+            'concluidas' => ['concluidas', '#1e7b45'],
+        ];
+        foreach ($cores as $chave => [$token, $cor]) {
+            $this->temTudo('.mm-grupo-' . $chave, ['--mm-grupo-cor: var(--mm-grupo-' . $token . '-cor)']);
+            self::assertSame($cor, $this->token('--mm-grupo-' . $token . '-cor'), 'desenho 04, P:154: ' . $chave);
+            self::assertSame(2, substr_count($this->css(), '--mm-grupo-' . $token . '-cor:'), 'token claro e escuro: ' . $chave);
+        }
+        foreach (['danger' => 'danger-dot', 'warn' => 'warn-dot', 'accent' => 'accent', 'cinza' => 'cinza-dot', 'ok' => 'ok-dot'] as $tom => $reserva) {
+            $regra = $this->regras('.mm-meta.tom-' . $tom);
+            self::assertStringContainsString('box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-' . $reserva . '))', $regra, 'faixa da linha na cor do grupo (dc L88): ' . $tom);
+            self::assertStringNotContainsString('border-left', $regra, $tom);
+        }
+        // Tema escuro: um verde só (No prazo, Concluídas e o ponto/faixa do andamento), 7,7:1 sobre o cartão.
+        foreach (['--mm-grupo-depois-cor', '--mm-grupo-concluidas-cor', '--mm-faixa-andamento'] as $verde) {
+            self::assertSame(1, preg_match('/\[data-bs-theme="dark"\] \.mm-page \{[^}]*' . preg_quote($verde, '/') . ':\s*([^;]+);/', $this->css(), $m), $verde . ' no escuro');
+            self::assertSame('#6ddaa2', trim($m[1]), $verde . ' no escuro');
+        }
+        self::assertDoesNotMatchRegularExpression('/background:/', $this->regras('.mm-meta.tom-ok'), 'fundo branco; só a atrasada tem fundo (P:162)');
         self::assertGreaterThan(strpos($this->css(), '.mm-meta.tom-warn'), strpos($this->css(), '.mm-meta:hover {'), 'hover depois dos tons');
-        self::assertStringContainsString('var(--mm-danger-dot)', $this->regras('.mm-page .mm-titulo::after'), 'o traço do H1 não mudou de token');
+        self::assertStringContainsString('var(--mm-danger-dot)', $this->regras('.mm-page .mm-titulo::after'), 'o traço do H1 geral (Equipe) não mudou de token');
     }
 
     #[TestDox('LIS-15: a linha mostra o cursor de clique')]
@@ -224,11 +245,11 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
         ]);
         self::assertSame('#12242f', $this->token('--mm-text'));
         $this->temTudo('.mm-page .mm-cabecalho .mm-cabecalho-linha', ['display: flex', 'gap: 18px']);
-        $this->temTudo('.mm-page .mm-cabecalho .mm-subtitulo', ['font-size: 13.5px', 'color: var(--mm-subtitulo)', 'margin: 8px 0 0']);
+        $this->temTudo('.mm-page .mm-cabecalho .mm-subtitulo', ['font-size: 13.5px', 'color: var(--mm-subtitulo)', 'margin: 0']);   // os 8px vêm do gap da coluna (dc L51)
         $this->temTudo('.mm-page .mm-titulo', ['font-size: 1.5rem']);   // o .mm-titulo geral (Equipe) segue como era
     }
 
-    #[TestDox('FIL-03: busca e selects de 36px, raio 4, borda #e2e9ee, só dentro da barra desta tela; o anel de foco continua')]
+    #[TestDox('FIL-03: busca e selects de 36px, raio 4, borda #e2e9ee, só dentro da barra desta tela; sem anel de foco (dc 22/10 L75: `outline:none`)')]
     public function testBusca(): void
     {
         $this->temTudo('.mm-barra-cartao .filtro-busca', ['flex: 1 1 220px', 'min-width: 180px', 'max-width: none']);
@@ -236,12 +257,12 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
         foreach (['.mm-barra-cartao .filtro-busca input.js-filtro-busca', '.mm-barra-cartao .filtro-select'] as $seletor) {
             $this->temTudo($seletor, ['height: 36px', 'border: 1px solid var(--mm-controle-borda)', 'border-radius: 4px', 'font-size: 13px']);
             self::assertDoesNotMatchRegularExpression('/(^|[\s;])background:/', $this->regras($seletor), 'background-color, para não apagar a seta do select');
-            $this->temTudo($seletor . ':focus', ['box-shadow: 0 0 0 3px var(--mm-foco-anel)']);
+            $this->temTudo($seletor . ':focus', ['box-shadow: none']);
         }
-        self::assertStringNotContainsString('outline: none', $this->regras('.mm-barra-cartao .filtro-select:focus'));
+        $this->temTudo('.mm-barra-cartao .filtro-busca .bi-search', ['font-size: 16px']);
     }
 
-    #[TestDox('FIL-03/MM-FIL-11: busca, Status, Prioridade e Prazo numa linha só a partir de 768px; o form desce inteiro em vez de quebrar os campos; selects pelo conteúdo')]
+    #[TestDox('FIL-03/MM-FIL-11: busca, Prioridade e Prazo numa linha só a partir de 768px; o form desce inteiro em vez de quebrar os campos; selects pelo conteúdo')]
     public function testFiltrosNumaLinhaSo(): void
     {
         $this->temTudo('.mm-barra-cartao > .filtro-barra', ['flex: 1 1 auto', 'min-width: 0']);
@@ -250,7 +271,21 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
             preg_match('/@media \(min-width:\s*768px\)\s*\{\s*\.mm-barra-cartao > \.filtro-barra\s*\{\s*min-width:\s*auto;\s*\}\s*\.mm-barra-cartao \.filtro-linha\s*\{\s*flex-wrap:\s*nowrap;\s*\}/', $this->css()),
             'em tela larga a linha dos campos não quebra e o form não encolhe abaixo do conteúdo',
         );
-        $this->temTudo('.mm-barra-cartao .filtro-select', ['flex: 0 0 auto', 'width: auto', 'min-width: 120px', 'max-width: none']);
+        $this->temTudo('.mm-barra-cartao .filtro-select', ['flex: 0 0 auto', 'width: auto', 'max-width: none', 'padding: 0 8px', 'appearance: auto']);
+        $this->temTudo('.mm-barra-cartao .filtro-select[name="prioridade"]', ['min-width: 140px']);   // dc 22/10 L76
+        $this->temTudo('.mm-barra-cartao .filtro-select[name="prazo"]', ['min-width: 150px']);        // dc 22/10 L77
         $this->temTudo('.mm-barra-cartao .filtro-busca', ['min-width: 180px']);
+    }
+
+    #[TestDox('Desenho 04 (P:79): "Limpar filtros" é botão de texto #0a6fa0, sem borda, 13px, 34px, na linha dos selects; os chips (fora do desenho) não aparecem, só nesta barra')]
+    public function testLimparFiltros(): void
+    {
+        self::assertSame('#0a6fa0', $this->token('--mm-limpar'));
+        $this->temTudo('.mm-barra-cartao .filtro-limpar', ['height: 34px', 'border: none', 'background: transparent', 'color: var(--mm-limpar)', 'font-size: 13px', 'text-decoration: none']);
+        $this->temTudo('.mm-barra-cartao .filtro-limpar:hover', ['color: var(--mm-limpar)']);
+        $this->temTudo('.mm-barra-cartao .filtro-chip', ['display: none']);
+        $this->temTudo('.mm-barra-cartao .filtro-chips', ['margin-top: 0']);
+        $this->temTudo('.mm-barra-cartao > .filtro-barra', ['display: flex', 'align-items: center']);
+        self::assertStringNotContainsString('.filtro-limpar', (string) preg_replace('/\.mm-barra-cartao \.filtro-limpar/', '', $this->css()), 'nenhuma regra de .filtro-limpar fora desta barra');
     }
 }

@@ -17,6 +17,7 @@ use App\Auth\Enum\StatusOab;
 use App\Profile\Enum\Atuacao;
 use App\Profile\Enum\Genero;
 use App\Profile\Enum\VinculoColaborador;
+use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -66,6 +67,15 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('SECUNDÁRIO', trim($this->abrir($this->secundario)->filter('.mp-nome-linha > .mp-selo-papel')->text()));
     }
 
+    #[TestDox('o avatar tem o #fotoPerfilAtual que o script da foto troca (sem foto, as iniciais), e nenhum .perfil-foto-btn')]
+    public function testAvatarQueOScriptDaFotoTroca(): void
+    {
+        $tela = $this->abrir($this->primario);
+
+        self::assertCount(1, $tela->filter('.mp-ident-linha > button.mp-avatar > span#fotoPerfilAtual.mp-avatar-ini'));
+        self::assertCount(0, $tela->filter('.perfil-foto-btn'));
+    }
+
     #[TestDox('cadastro vazio: alerta com 22% e os chips do que falta, na ordem do desenho')]
     public function testCadastroIncompleto(): void
     {
@@ -89,20 +99,28 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('Não informado', $linhas['Telefone']);
     }
 
-    #[TestDox('grade: PJ troca CTPS/Série/Admissão por CNPJ e Início do contrato, e não bate ponto')]
+    #[TestDox('grade: PJ troca CTPS/Série/Admissão por CNPJ e Início do contrato; com a chave do ponto desligada, sem ponto')]
     public function testGradePj(): void
     {
         $vinculo = new VinculoNoEscritorio($this->tenant, $this->primario);
         $vinculo->definirTipo(VinculoColaborador::Pj);
         $vinculo->definirCnpj('12345678000190');
         $this->em->persist($vinculo);
-        $this->em->flush();
+        $this->chaveDoPonto(false);
 
         $linhas = $this->linhasDaGrade($this->abrir($this->primario));
 
         self::assertSame(['E-mail', 'Vínculo', 'CPF', 'CNPJ', 'Início do contrato', 'Nascimento', 'Membro desde', 'Telefone'], array_keys($linhas));
         self::assertSame('Prestador (PJ / autônomo) · sem ponto', $linhas['Vínculo']);
         self::assertSame('12345678000190', $linhas['CNPJ']);
+    }
+
+    #[TestDox('grade: o rótulo do ponto lê a chave "Registra ponto eletrônico" do escritório, não o tipo do vínculo')]
+    public function testRotuloDoPontoLeAChave(): void
+    {
+        $this->chaveDoPonto(false);
+
+        self::assertSame('Empregado CLT · sem ponto', $this->linhasDaGrade($this->abrir($this->primario))['Vínculo']);
     }
 
     #[TestDox('modal: o primário escolhe o vínculo; o secundário vê as opções travadas e o aviso')]
@@ -215,6 +233,45 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertFalse($gravado['perfil.sons']);
 
         self::assertSame('false', $this->abrir($this->primario)->filter('.mp-prefs > button[data-mp-pref="perfil.sons"]')->attr('aria-checked'));
+    }
+
+    #[TestDox('aprendizado das metas (D4): a chave ligada por padrão e, logo depois, a linha "Apagar o que foi aprendido" com confirmação e token')]
+    public function testAprendizadoDasMetas(): void
+    {
+        $tela = $this->abrir($this->primario);
+
+        $chave = $tela->filter('.mp-prefs > button.mp-pref[role="switch"][data-mp-pref="perfil.sugestoes_despachos"]');
+        self::assertSame('true', $chave->attr('aria-checked'));
+        self::assertSame('Sugestões a partir dos meus despachos', $chave->filter('.mp-pref-texto > span')->text());
+        $form = $tela->filter('.mp-prefs > button[data-mp-pref="perfil.sugestoes_despachos"] + form.mp-pref-form');
+        self::assertCount(1, $form);
+        self::assertSame('/perfil/aprendizado/apagar', $form->attr('action'));
+        self::assertNotSame('', (string) $form->attr('data-confirmar'));
+        self::assertCount(1, $form->filter('form.mp-pref-form > input[type="hidden"][name="_token"]'));
+        self::assertSame('Apagar o que foi aprendido', $form->filter('form.mp-pref-form > button.mp-pref[data-mp-apagar-aprendizado] > .mp-pref-texto > span')->text());
+    }
+
+    #[TestDox('Resumo diário: o descadastro do rodapé desliga a chave; religar pelo Meu Perfil reativa só o resumo, mesmo com "todos"')]
+    public function testResumoDiarioSegueODescadastro(): void
+    {
+        $descadastro = static::getContainer()->get(DescadastroDeEmailInterface::class);
+        $email = (string) $this->primario->getEmail();
+        $chave = '.mp-prefs > button[data-mp-pref="perfil.resumo_email"]';
+        self::assertSame('true', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
+
+        $descadastro->descadastrar($this->tenant, $email, DescadastroDeEmailInterface::ASSUNTO_TODOS, 'link_do_email');
+        $tela = $this->abrir($this->primario);
+        self::assertSame('false', $tela->filter($chave)->attr('aria-checked'), 'quem disse "não quero nada" vê o resumo desligado');
+
+        $this->postarJson('/perfil/preferencia', $tela, ['chave' => 'perfil.resumo_email', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($descadastro->estaDescadastrado($this->tenant, $email, 'resumo_diario'), 'religar libera o resumo');
+        self::assertTrue($descadastro->estaDescadastrado($this->tenant, $email, 'outro_assunto'), 'e só ele: o "todos" continua para o resto');
+        self::assertSame('true', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
+
+        $this->postarJson('/perfil/preferencia', $this->abrir($this->primario), ['chave' => 'perfil.resumo_email', 'ligado' => false]);
+        self::assertTrue($descadastro->estaDescadastrado($this->tenant, $email, 'resumo_diario'), 'desligar descadastra');
+        self::assertSame('false', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
     }
 
     #[TestDox('preferências: chave fora do catálogo responde 400; sem o token AJAX, 403')]
@@ -336,6 +393,14 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         return $tela;
+    }
+
+    /** A chave do ponto do primário neste escritório (spec seguranca-b-jornada, regra 2). */
+    private function chaveDoPonto(bool $ligada): void
+    {
+        $this->em->getRepository(UserTenant::class)->findOneBy(['user' => $this->primario, 'tenant' => $this->tenant])
+            ?->alterarRegistroDePonto($ligada);
+        $this->em->flush();
     }
 
     /** @return array<string, string> rótulo => valor */

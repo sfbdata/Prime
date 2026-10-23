@@ -25,6 +25,8 @@ final class PublicoResolvido
         private readonly ?int $base = null,
         public readonly int $semInformacao = 0,
         private readonly ?array $antesDoFiltro = null,
+        public readonly int $repetidos = 0,
+        public readonly int $invalidos = 0,
     ) {
     }
 

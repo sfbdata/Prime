@@ -41,8 +41,8 @@ use Psr\Log\LoggerInterface;
  *    via information_schema, que nenhuma tabela tenant-scoped sobrou — falha segura e clara
  *    caso uma tabela nova não tenha sido adicionada à ordem (drift de schema).
  *  - PRESERVADOS: User (nunca apagado — decisão de produto), audit_log (retido; a própria
- *    purga é registrada como evento), permission (catálogo global), cadastro_pendente e
- *    jornada_colaborador (per-user, sem tenant_id).
+ *    purga é registrada como evento), permission (catálogo global) e cadastro_pendente.
+ *    A jornada pessoal é por escritório desde a spec seguranca-b-jornada e sai na purga.
  *
  * ## Arquivos (E2.5)
  *
@@ -94,6 +94,7 @@ final class PurgarEscritorioUseCase
     private const ORDEM_DELECAO = [
         // Fase 1 — bloqueadores intermediários (NO ACTION): apagar antes do pai.
         ['bloco_jornada', 'jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
+        ['bloco_jornada_colaborador', 'jornada_colaborador_id IN (SELECT id FROM jornada_colaborador WHERE tenant_id = :tenant)'],
         ['tenant_role_permission', 'tenant_role_id IN (SELECT id FROM tenant_role WHERE tenant_id = :tenant)'],
         ['cliente_documento', 'tenant_id = :tenant'],
         // Histórico do cadastro (E12 3d): cairia pela CASCADE de `cliente`, mas a FK de tenant é NO ACTION.
@@ -107,6 +108,7 @@ final class PurgarEscritorioUseCase
         ['parte_processo', 'tenant_id = :tenant'],
         ['assunto_processo', 'tenant_id = :tenant'],
         ['saida_da_equipe', 'tenant_id = :tenant'],
+        ['resumo_diario_envio', 'tenant_id = :tenant'],
         ['user_tenant', 'tenant_id = :tenant'],
         // Notas técnicas do processo (tenant_id direto). Cairiam por cascata do processo, mas a FK à
         // publicação é SET NULL: apagar antes evita o UPDATE inútil e deixa a deleção explícita.
@@ -275,6 +277,13 @@ final class PurgarEscritorioUseCase
         // não são TenantAware); sai explicitamente para não ficar órfão.
         ['central_master_estado', 'tenant_id = :tenant'],
         ['central_master_resposta', 'tenant_id = :tenant'],
+        // Contador da sequência de metas do escritório ("Nº 0001"): FK de tenant NO ACTION, nada o referencia.
+        ['tarefa_numeracao', 'tenant_id = :tenant'],
+        // Caixas da esteira de Minhas Metas (nome e avisados): os avisados caem por CASCADE da caixa.
+        ['tarefa_caixa_esteira', 'tenant_id = :tenant'],
+        // Aprendizado de Minhas Metas (Fase 4): por usuário e escritório, FK de tenant NO ACTION, nada o referencia.
+        ['tarefa_aprendizado_despacho', 'tenant_id = :tenant'],
+        ['tarefa_aprendizado_pendencia', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
@@ -299,9 +308,11 @@ final class PurgarEscritorioUseCase
         // Agenda (6): conexões com o Google Agenda (refresh token cifrado), ligações e exclusões pendentes. FKs CASCADE; explícito por convenção.
         ['agenda_google_ligacao', 'tenant_id = :tenant'],
         ['agenda_google_prazo', 'tenant_id = :tenant'],
+        ['agenda_google_data', 'tenant_id = :tenant'],
         ['agenda_google_exclusao', 'tenant_id = :tenant'],
         ['agenda_google_conexao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
+        ['jornada_colaborador', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],
         // Horas pagas (ajuste manual do banco de horas): FK tenant_id/user_id NOT DEFERRABLE, sem

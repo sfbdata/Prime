@@ -303,6 +303,36 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Vínculos pasta-processo dos processos dados, só em pastas do escritório que não foram excluídas: dão a
+     * ORIGEM de cada processo na busca da janela "Vincular processo" (desenho 02, `procCatalogo`). O principal
+     * vem primeiro; depois, a ordem em que foram vinculados.
+     *
+     * @param list<int> $idsProcesso
+     *
+     * @return list<PastaProcesso>
+     */
+    public function vinculosDosProcessos(array $idsProcesso, Tenant $tenant): array
+    {
+        if ($idsProcesso === []) {
+            return [];
+        }
+
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('v', 'pa')
+            ->from(PastaProcesso::class, 'v')
+            ->join('v.pasta', 'pa')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->andWhere('IDENTITY(v.processo) IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $idsProcesso)
+            ->orderBy('v.principal', 'DESC')
+            ->addOrderBy('v.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Pastas do escritório que casam com o termo — alimenta a busca do modal "Vincular uma pasta
      * existente" da judicialização.
      *
@@ -988,7 +1018,9 @@ class PastaRepository extends ServiceEntityRepository
      *
      * - aud: audiência registrada na pasta, não cumprida, de hoje em diante.
      * - protocolar: pasta ativa, não administrativa, que ainda não passou pela fase Protocolo do andamento.
-     * Prazo = meta com prazo ou prazo/audiência registrado à mão. O prazo calculado do Push ainda não existe.
+     * Prazo = meta com prazo ou linha do `pasta_prazo` de qualquer origem: registrado à mão, lido dos registros ou
+     * calculado do Push processual (origem `push`, docs/specs/prazo-do-push.md), todos pelo mesmo caminho. Como
+     * ATIVIDADE (resp10 e o "depois da data" do findou), a linha do Push não conta: é publicação do juízo, não resposta.
      */
     private function aplicarFiltroDoExpediente(QueryBuilder $qb, string $filtro): void
     {
@@ -1002,7 +1034,7 @@ class PastaRepository extends ServiceEntityRepository
             . ' OR EXISTS (SELECT 1 FROM %3$s of_%6$s WHERE of_%6$s.pasta = p AND of_%6$s.criadaEm > %7$s)'
             . ' OR EXISTS (SELECT 1 FROM %4$s t_%6$s WHERE t_%6$s.pasta = p AND (t_%6$s.dataCriacao > %7$s OR t_%6$s.dataConclusao > %7$s))'
             . ' OR EXISTS (SELECT 1 FROM %5$s tm_%6$s JOIN tm_%6$s.tarefa tt_%6$s WHERE tt_%6$s.pasta = p AND tm_%6$s.criadoEm > %7$s)'
-            . ' OR EXISTS (SELECT 1 FROM %8$s zp_%6$s WHERE zp_%6$s.pasta = p AND (zp_%6$s.criadoEm > %7$s OR zp_%6$s.cumpridoEm > %7$s)))',
+            . ' OR EXISTS (SELECT 1 FROM %8$s zp_%6$s WHERE zp_%6$s.pasta = p AND zp_%6$s.origem <> \'%9$s\' AND (zp_%6$s.criadoEm > %7$s OR zp_%6$s.cumpridoEm > %7$s)))',
             PastaMensagem::class,
             PastaObservacaoDetalhes::class,
             PastaObservacaoFinanceira::class,
@@ -1011,6 +1043,7 @@ class PastaRepository extends ServiceEntityRepository
             $sufixo,
             $limite,
             PastaPrazo::class,
+            PastaPrazo::ORIGEM_PUSH, // a publicação do juízo não é resposta do escritório
         );
 
         switch ($filtro) {
@@ -1208,6 +1241,48 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $nomes;
+    }
+
+    /**
+     * O cadastro de cliente de cada nome, quando as pastas com aquele nome apontam para UM cadastro só: é o
+     * "A nova pasta será vinculada ao mesmo cadastro" da Nova Pasta (desenho 03, L276). Nome sem cadastro, ou
+     * com dois cadastros diferentes (homônimos), fica de fora: a pasta nova não tem a quem se ligar sem
+     * adivinhar. Casa pelo identificador da pasta em maiúsculas; o cadastro considerado é o principal.
+     *
+     * @param list<string> $nomes
+     *
+     * @return array<string, int> nome em maiúsculas => id do cliente
+     */
+    public function cadastroUnicoPorNomeDeCliente(array $nomes, Tenant $tenant): array
+    {
+        $nomes = array_values(array_unique(array_filter(array_map(
+            static fn (string $n): string => mb_strtoupper(trim($n)),
+            $nomes,
+        ), static fn (string $n): bool => $n !== '')));
+        if ($nomes === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('UPPER(p.nomeCliente) AS nome', 'MIN(c.id) AS cliente')
+            ->join('p.clientePrincipal', 'c')
+            ->where('p.tenant = :tenant')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('UPPER(p.nomeCliente) IN (:nomes)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nomes', $nomes)
+            ->groupBy('nome')
+            ->having('COUNT(DISTINCT c.id) = 1')
+            ->getQuery()
+            ->getArrayResult();
+
+        $cadastros = [];
+        foreach ($linhas as $l) {
+            $cadastros[(string) $l['nome']] = (int) $l['cliente'];
+        }
+
+        return $cadastros;
     }
 
     /**

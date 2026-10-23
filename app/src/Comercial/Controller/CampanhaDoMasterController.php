@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\Controller;
 
-use App\Comercial\DTO\CampanhaDaLista;
+use App\Comercial\Campanha\PreparadorDeImagemDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\ModeloSalvoOutput;
@@ -15,15 +15,17 @@ use App\Comercial\UseCase\ConfirmarCampanhaUseCase;
 use App\Comercial\UseCase\ContarPublicosUseCase;
 use App\Comercial\UseCase\CriarModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\DuplicarModeloDeCampanhaUseCase;
+use App\Comercial\UseCase\EnviarImagemDaCampanhaUseCase;
 use App\Comercial\UseCase\EnviarTesteDaCampanhaUseCase;
 use App\Comercial\UseCase\ExcluirModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\ImportarModeloHtmlUseCase;
-use App\Comercial\UseCase\ListarCampanhasUseCase;
 use App\Comercial\UseCase\ListarModelosDeCampanhaUseCase;
 use App\Comercial\UseCase\PreviaDaCampanhaUseCase;
+use App\Comercial\UseCase\SalvarComoMeuModeloUseCase;
 use App\Comercial\UseCase\SalvarModeloDeCampanhaUseCase;
 use App\Entity\Auth\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -41,6 +43,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class CampanhaDoMasterController extends AbstractController
 {
     private const CSRF_INVALIDO = 'Token CSRF inválido. Recarregue a página.';
+    public const SEM_IMAGEM = 'Escolha uma imagem JPG ou PNG.';
 
     #[Route('/master/comercial/modelos', name: 'master_comercial_modelos', methods: ['GET'])]
     public function modelos(ListarModelosDeCampanhaUseCase $listar): JsonResponse
@@ -48,15 +51,16 @@ final class CampanhaDoMasterController extends AbstractController
         return $this->json(['modelos' => $listar->executar()]);
     }
 
-    /** "Novo modelo", "Duplicar" e "Importar HTML" (dc L.549, L.550, L.553), pelo campo `acao`. */
+    /** "Novo modelo", "Duplicar", "Importar HTML" (dc L.549, L.550, L.553) e "Salvar como meu modelo" (dc 21.10 L653), pelo campo `acao`. */
     #[Route('/master/comercial/modelos', name: 'master_comercial_modelo_criar', methods: ['POST'])]
-    public function criar(Request $request, CriarModeloDeCampanhaUseCase $novo, DuplicarModeloDeCampanhaUseCase $duplicar, ImportarModeloHtmlUseCase $importar): JsonResponse
+    public function criar(Request $request, CriarModeloDeCampanhaUseCase $novo, DuplicarModeloDeCampanhaUseCase $duplicar, ImportarModeloHtmlUseCase $importar, SalvarComoMeuModeloUseCase $salvarComo): JsonResponse
     {
-        return $this->protegido($request, function (array $corpo) use ($novo, $duplicar, $importar): JsonResponse {
+        return $this->protegido($request, function (array $corpo) use ($novo, $duplicar, $importar, $salvarComo): JsonResponse {
             $saida = match ($corpo['acao'] ?? null) {
                 'novo' => $novo->executar($this->master()),
                 'duplicar' => $duplicar->executar(MensagemDaCampanha::deArray(self::objeto($corpo['modelo'] ?? null)), $this->master()),
                 'importar' => $importar->executar(self::texto($corpo['arquivo'] ?? ''), self::texto($corpo['html'] ?? ''), $this->master()),
+                'salvar_como' => $salvarComo->executar(MensagemDaCampanha::deArray(self::objeto($corpo['modelo'] ?? null)), self::texto($corpo['nome'] ?? ''), $this->master()),
                 default => throw new CampanhaRecusada('Ação desconhecida.'),
             };
 
@@ -87,7 +91,7 @@ final class CampanhaDoMasterController extends AbstractController
     #[Route('/master/comercial/previa-campanha', name: 'master_comercial_previa_campanha', methods: ['POST'])]
     public function previa(Request $request, PreviaDaCampanhaUseCase $previa): JsonResponse
     {
-        $resposta = $this->protegido($request, fn (array $corpo): JsonResponse => new JsonResponse(['html' => $previa->executar(MensagemDaCampanha::deArray($corpo), self::exemplo($corpo['exemplo'] ?? null))]));
+        $resposta = $this->protegido($request, fn (array $corpo): JsonResponse => new JsonResponse(['html' => $previa->executar(MensagemDaCampanha::deArray($corpo), self::exemplo($corpo['exemplo'] ?? null), \is_string($corpo['nomeDaPrevia'] ?? null) ? $corpo['nomeDaPrevia'] : '')]));
         $resposta->headers->set('Content-Security-Policy', 'sandbox');
 
         return $resposta;
@@ -117,11 +121,30 @@ final class CampanhaDoMasterController extends AbstractController
         });
     }
 
-    /** A lista de campanhas do Monitoramento (dc L.284-285, L.586): as 12 últimas, sem as métricas (fatia 3). */
-    #[Route('/master/comercial/campanhas', name: 'master_comercial_campanhas', methods: ['GET'])]
-    public function campanhas(ListarCampanhasUseCase $listar): JsonResponse
+    /**
+     * "Adicionar imagem" / "Trocar imagem" do modo simples (dc 21.10 L274, L659; spec §12, F3i): multipart com o campo
+     * `imagem`, o mesmo CSRF no header. Devolve `{token, url}` (a URL absoluta do endereço público). O arquivo maior que
+     * 1 MB é recusado antes de ser lido.
+     */
+    #[Route('/master/comercial/imagens', name: 'master_comercial_imagem_enviar', methods: ['POST'])]
+    public function enviarImagem(Request $request, EnviarImagemDaCampanhaUseCase $enviar): JsonResponse
     {
-        return $this->json(['campanhas' => array_map(static fn (CampanhaDaLista $c): array => (array) $c, $listar->executar())]);
+        if (!$this->isCsrfTokenValid(ComercialDoMasterController::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return new JsonResponse(['erro' => self::CSRF_INVALIDO], Response::HTTP_FORBIDDEN);
+        }
+        try {
+            $arquivo = $request->files->get('imagem');
+            if (!$arquivo instanceof UploadedFile || !$arquivo->isValid()) {
+                throw new CampanhaRecusada(self::SEM_IMAGEM);
+            }
+            if ((int) $arquivo->getSize() > PreparadorDeImagemDaCampanha::LIMITE_EM_BYTES) {
+                throw new CampanhaRecusada(PreparadorDeImagemDaCampanha::GRANDE_DEMAIS);
+            }
+
+            return new JsonResponse($enviar->executar((string) file_get_contents($arquivo->getPathname()), $this->master())->paraArray());
+        } catch (CampanhaRecusada $e) {
+            return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
     }
 
     /**

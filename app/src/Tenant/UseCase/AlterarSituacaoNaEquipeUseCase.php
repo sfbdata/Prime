@@ -7,6 +7,7 @@ namespace App\Tenant\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Service\RegistroDePontoInicial;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Exception\MembroDaEquipeNaoEncontrado;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
@@ -27,6 +28,7 @@ final class AlterarSituacaoNaEquipeUseCase
     public function __construct(
         private readonly EquipeDoEscritorioRepository $equipe,
         private readonly RegraDosPrimarios $regra,
+        private readonly RegistroDePontoInicial $registroDePonto,
     ) {
     }
 
@@ -40,6 +42,7 @@ final class AlterarSituacaoNaEquipeUseCase
 
         if ($vinculo->getSituacao() !== $situacao) {
             $vinculo->alterarSituacao($situacao);
+            $this->registroDePonto->conferirAoReligar($vinculo);   // de volta a aprovado: o choque confere a chave
             $this->equipe->gravar();
         }
 

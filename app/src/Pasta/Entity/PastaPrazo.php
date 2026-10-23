@@ -32,6 +32,9 @@ class PastaPrazo implements TenantAware, Auditavel
 
     public const ORIGEM_MANUAL   = 'manual';
     public const ORIGEM_REGISTRO = 'registro';
+    /** Calculado da publicação do Push (docs/specs/prazo-do-push.md): `registroRef` é "push:<id da publicação>". */
+    public const ORIGEM_PUSH     = 'push';
+    public const REF_PUSH        = 'push:';
 
     /** Onde o prazo lido foi escrito (prefixo de `registroRef`) e o rótulo que a tela mostra, como o desenho. */
     public const ROTULOS_REGISTRO = ['expedientes' => 'Registro dos expedientes', 'detalhes' => 'Detalhes', 'financeiro' => 'Financeiro'];
@@ -68,19 +71,27 @@ class PastaPrazo implements TenantAware, Auditavel
     private ?User $cumpridoPor = null;
 
     /**
-     * `manual` (o "+" do trilho) ou `registro` (lido de uma data escrita num registro da pasta pelo LeitorDeDatas,
-     * E12c). O lido não se edita nem se cumpre: muda quando o registro muda.
+     * `manual` (o "+" do trilho), `registro` (lido de uma data escrita num registro da pasta pelo LeitorDeDatas,
+     * E12c) ou `push` (calculado da publicação do Push, que se cumpre). O lido e o calculado não se editam: mudam
+     * quando a origem muda.
      */
     #[ORM\Column(length: 20, options: ['default' => self::ORIGEM_MANUAL])]
     private string $origem = self::ORIGEM_MANUAL;
 
-    /** "expedientes:123", "detalhes:45", "financeiro:6": o registro de onde a data foi lida. */
+    /** "expedientes:123", "detalhes:45", "financeiro:6": o registro de onde a data foi lida; "push:7", a publicação. */
     #[ORM\Column(name: 'registro_ref', length: 40, nullable: true)]
     private ?string $registroRef = null;
 
     /** Data contada pelo leitor ("prazo de 15 dias úteis"), a conferir. */
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $estimado = false;
+
+    /**
+     * Do Push: a parte parece Fazenda Pública, MP ou Defensoria ({@see \App\Pasta\Service\SinalDePrazoEmDobro}). O
+     * prazo NÃO é dobrado; a tela só avisa que pode ser prazo em dobro.
+     */
+    #[ORM\Column(name: 'pode_ser_em_dobro', type: 'boolean', options: ['default' => false])]
+    private bool $podeSerEmDobro = false;
 
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
@@ -133,16 +144,41 @@ class PastaPrazo implements TenantAware, Auditavel
         return $prazo;
     }
 
+    /**
+     * Prazo calculado da publicação do Push: sem autor nem responsável, e a data de criação é a da disponibilização
+     * no DJEN (a publicação não é atividade nova da pasta só porque a sincronização rodou agora).
+     */
+    public static function doPush(Tenant $tenant, Pasta $pasta, int $publicacaoId, \DateTimeImmutable $disponibilizadaEm, string $tipo, string $titulo, \DateTimeImmutable $data, ?string $hora, bool $estimado, bool $podeSerEmDobro = false): self
+    {
+        $prazo = new self($tenant, $pasta, null);
+        $prazo->definir($tipo, $titulo, $data, $hora, null);
+        $prazo->origem = self::ORIGEM_PUSH;
+        $prazo->registroRef = self::REF_PUSH . $publicacaoId;
+        $prazo->estimado = $estimado;
+        $prazo->podeSerEmDobro = $podeSerEmDobro;
+        $prazo->criadoEm = $disponibilizadaEm;
+
+        return $prazo;
+    }
+
     public function isManual(): bool { return $this->origem === self::ORIGEM_MANUAL; }
+    public function isPush(): bool { return $this->origem === self::ORIGEM_PUSH; }
     public function getOrigem(): string { return $this->origem; }
     public function getRegistroRef(): ?string { return $this->registroRef; }
     public function isEstimado(): bool { return $this->estimado; }
+    public function podeSerEmDobro(): bool { return $this->podeSerEmDobro; }
 
-    /** "Manual", ou de onde foi lido, com " (estimado: conferir)" quando a data foi contada (desenho `pzLista`). */
+    /**
+     * "Manual", "Push processual", ou de onde foi lido, com " (estimado: conferir)" quando a data foi contada (desenho
+     * `pzLista`). Do Push, o selo "prazo calculado, confira" fica com a tela (catálogo de tradução).
+     */
     public function getOrigemRotulo(): string
     {
         if ($this->isManual()) {
             return 'Manual';
+        }
+        if ($this->isPush()) {
+            return 'Push processual';
         }
         $onde = self::ROTULOS_REGISTRO[explode(':', (string) $this->registroRef)[0]] ?? 'Registro';
 

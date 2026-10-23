@@ -13,6 +13,8 @@ use App\Pasta\Service\AvisoDoChecklist;
 use App\Pasta\UseCase\EnviarRelatorioPastasParadasUseCase;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
+use App\Tarefa\UseCase\LembrarMetaUseCase;
+use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
 use App\Master\UseCase\ResponderNaCentralUseCase;
 
 /**
@@ -34,6 +36,16 @@ final class TiposDeAvisoDaCentral
     private const VERDE = '#1f9d61';
     private const AMBAR = '#c8952a';
 
+    /**
+     * Fora do `match` para ele caber no limite de linhas: o "Pedir acesso" da tela "Acesso restrito" dos Perfis
+     * (desenho 05 - Perfis 1.2, L822: tipo "pedido", para o primário) e a resposta do Master a quem escreveu ao
+     * BlueJus pela Central de Notificações (sem e-mail para responder).
+     */
+    private const DOS_PERFIS_E_DA_CENTRAL_DO_MASTER = [
+        PedirAcessoAosPerfisUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Pedido de acesso', 'icone' => 'bi-shield-lock', 'cor' => self::AMBAR, 'nivel' => 2],
+        ResponderNaCentralUseCase::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Resposta do BlueJus', 'icone' => 'bi-reply', 'cor' => self::AZUL, 'nivel' => 2],
+    ];
+
     /** Trabalho Externo (F4): avisos de vagas e candidaturas, fora do `match` para ele caber no limite de linhas. */
     private const DO_TRABALHO_EXTERNO = [
         Notificacao::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => ['grupo' => 'atencao', 'rotulo' => 'Pedido de vaga', 'icone' => 'bi-inbox', 'cor' => self::AMBAR, 'nivel' => 2],
@@ -47,13 +59,23 @@ final class TiposDeAvisoDaCentral
         Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => ['grupo' => 'atencao', 'rotulo' => 'Pedido de informações', 'icone' => 'bi-question-circle', 'cor' => self::AMBAR, 'nivel' => 2],
     ];
 
+    /**
+     * Metas, fora do `match` para ele caber no limite de linhas. O "Lembrar" da página da meta (desenho 04B L133:
+     * `notificar({ tipo: 'lembrete', … })`) não tem par no `TIPOS` do bluejus-central.js: entra no grupo Metas, com o
+     * sino do botão e o âmbar de "aguardando".
+     */
+    private const DAS_METAS = [
+        LembrarMetaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'metas', 'rotulo' => 'Lembrete', 'icone' => 'bi-bell', 'cor' => self::AMBAR, 'nivel' => 2],
+    ];
+
     /** @return array{grupo: ?string, rotulo: string, icone: string, cor: string, nivel: int} */
     public function para(string $tipo): array
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
         $tipo = strtolower($tipo);
-        if (isset(self::DO_TRABALHO_EXTERNO[$tipo])) {
-            return self::DO_TRABALHO_EXTERNO[$tipo];
+        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? null;
+        if ($doMapa !== null) {
+            return $doMapa;
         }
 
         return match ($tipo) {
@@ -81,8 +103,6 @@ final class TiposDeAvisoDaCentral
             // Relatório mensal de pastas paradas (spec pastas-paradas, "Avisos"): o `paradasNotificar` do desenho.
             EnviarRelatorioPastasParadasUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Relatório', 'icone' => 'bi-pause-circle', 'cor' => self::AMBAR, 'nivel' => 2],
             ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Documento analisado', 'icone' => 'bi-file-earmark-check', 'cor' => self::AZUL, 'nivel' => 1],
-            // Resposta do Master a quem escreveu ao BlueJus pela Central de Notificações (sem e-mail para responder).
-            ResponderNaCentralUseCase::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Resposta do BlueJus', 'icone' => 'bi-reply', 'cor' => self::AZUL, 'nivel' => 2],
             // Suporte da tela de entrada (desenho 10 / bluejus-central.js bjSuporteFila: tipo "mensagem").
             EnviarMensagemSuporteUseCase::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Mensagem', 'icone' => 'bi-chat-left-text', 'cor' => self::PETROLEO, 'nivel' => 1],
             default => ['grupo' => null, 'rotulo' => 'Aviso', 'icone' => 'bi-bell', 'cor' => self::PETROLEO, 'nivel' => 1],

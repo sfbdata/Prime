@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Comercial\UseCase;
 
+use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\Campanha\ComposicaoDaCampanha;
-use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\CampanhaDoRelatorio;
 use App\Comercial\DTO\DestinatarioDoRelatorio;
 use App\Comercial\Entity\CampanhaDeEmail;
@@ -21,8 +21,7 @@ use Symfony\Component\Mime\Address;
  * montador do envio ({@see ComposicaoDaCampanha::previa()}, com o nome de exemplo no `{nome}`) e até 200
  * destinatários com o estado do envio. Null se a campanha não existe.
  *
- * "Cancelar envio" só onde o {@see EncerrarCampanhaUseCase} aceita: estado ativo (na fila, agendada, enviando,
- * recorrente) ou `enviada` com envio ainda na fila do Carteiro.
+ * "Cancelar envio" só na agendada e na recorrente, como o dc L711 (`rlVerAg`).
  *
  * @phpstan-import-type Campanha from CampanhaDeEmailRepository
  */
@@ -42,6 +41,7 @@ final class AbrirCampanhaDoRelatorioUseCase
         private readonly RelatorioDeCampanhasRepository $relatorio,
         private readonly ComposicaoDaCampanha $composicao,
         private readonly string $mailerFrom,
+        private readonly RastreioDaLeitura $rastreio,
     ) {
     }
 
@@ -51,7 +51,7 @@ final class AbrirCampanhaDoRelatorioUseCase
         if ($c === null) {
             return null;
         }
-        $metricas = ListarRelatorioDeCampanhasUseCase::metricas($c, $this->relatorio->metricas([$id])[$id] ?? null);
+        $metricas = ListarRelatorioDeCampanhasUseCase::metricas($c, $this->relatorio->metricas([$id])[$id] ?? null, $this->rastreio->efetivo($c['rastrear_leitura']));
         $destinatarios = array_map(self::destinatario(...), $this->relatorio->destinatarios($id, CampanhaDoRelatorio::LIMITE));
 
         return new CampanhaDoRelatorio(
@@ -61,10 +61,10 @@ final class AbrirCampanhaDoRelatorioUseCase
             $c['estado'],
             self::situacao($c['estado'], $c['frequencia']),
             $this->remetente(),
-            PublicosDaCampanha::ROTULOS[$c['publico']] ?? $c['publico'],
+            ListarRelatorioDeCampanhasUseCase::rotuloDoPublico($c['publico'], $c['total']),
             $c['modelo_nome'],
             (new \DateTimeImmutable($c['agendada_para'] ?? $c['criada_em']))->format('d/m/Y H:i'),
-            self::cancelavel($c['estado'], fn (): bool => $this->relatorio->temEnvioNaFila($id)),
+            self::cancelavel($c['estado']),
             $c['execucoes'] > 0,
             $metricas,
             $this->html($c),
@@ -73,18 +73,10 @@ final class AbrirCampanhaDoRelatorioUseCase
         );
     }
 
-    /**
-     * O que o EncerrarCampanhaUseCase aceita (§8.1.5): estado ativo, ou `enviada` com envio na fila.
-     *
-     * @param \Closure(): bool $temFila só consultada na `enviada`
-     */
-    public static function cancelavel(string $estado, \Closure $temFila): bool
+    /** O botão do dc L711: só o envio programado (agendada ou recorrente). */
+    public static function cancelavel(string $estado): bool
     {
-        if (\in_array($estado, CampanhaDeEmail::ATIVAS, true)) {
-            return true;
-        }
-
-        return $estado === CampanhaDeEmail::ENVIADA && $temFila();
+        return \in_array($estado, [CampanhaDeEmail::AGENDADA, CampanhaDeEmail::RECORRENTE], true);
     }
 
     /** O estado ao lado do assunto (dc L713: "E-mail de teste", "Recorrente · freq", "Agendada", "Na fila de envio"). */

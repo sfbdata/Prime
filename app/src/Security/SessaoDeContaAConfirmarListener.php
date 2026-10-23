@@ -37,6 +37,7 @@ final class SessaoDeContaAConfirmarListener
         'app_login',
         'app_logout',
         'auth_cadastro_confirmar_email',
+        'auth_cadastro_criar_senha',
         'auth_confirmacao_reenviar_publico',
         'auth_senha_esqueci',
         'auth_senha_codigo_enviar',

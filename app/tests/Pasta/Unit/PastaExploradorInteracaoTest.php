@@ -20,6 +20,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorInteracaoTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS  = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS = __DIR__ . '/../../../public/css/pasta-explorador.css';
 
@@ -60,7 +62,9 @@ final class PastaExploradorInteracaoTest extends TestCase
     public function testVazioDaSubpasta(): void
     {
         $js = $this->js();
-        self::assertStringContainsString("(caminho.length ? 'Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).' : 'Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.')", $js);
+        self::assertStringContainsString("(caminho.length ? BJ_T.t('pasta_scripts.js.explorador.vazio_pasta_editar') : BJ_T.t('pasta_scripts.js.explorador.vazio_raiz_editar'))", $js);
+        self::assertTextoDoScript('Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).', 'explorador.vazio_pasta_editar', $js);
+        self::assertTextoDoScript('Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.', 'explorador.vazio_raiz_editar', $js);
     }
 
     #[TestDox('teclado: nenhum atalho dispara com foco em campo de texto, select, contenteditable, dentro do checklist, nem com o menu aberto; Enter/Espaço/Del/F2/setas/Ctrl+A só com o foco na lista ou numa linha')]
@@ -117,20 +121,56 @@ final class PastaExploradorInteracaoTest extends TestCase
         $corpo = $this->funcao('opcoesDoMenu');
 
         // Fundo (dc L4826-4834).
-        $fundo = ["op('Nova pasta', 'bi-folder-plus', novaPastaInline, { escrita: true })", "op('Colar', 'bi-clipboard', colarAqui, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", "op('Selecionar tudo', 'bi-check2-all', selecionarTudo, { atalho: 'Ctrl+A' })", "['nome', 'Classificar por nome'], ['data', 'Classificar por data'], ['tamanho', 'Classificar por tamanho'], ['tipo', 'Classificar por tipo']", "op(painel ? 'Ocultar painel de detalhes' : 'Mostrar painel de detalhes'"];
+        $fundo = ["op(BJ_T.t('pasta_scripts.js.explorador.menu_nova_pasta'), 'bi-folder-plus', novaPastaInline, { escrita: true })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', colarAqui, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_v'), desabilitado: !areaDeTransferencia, escrita: true })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_selecionar_tudo'), 'bi-check2-all', selecionarTudo, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_a') })", "['nome', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_nome')], ['data', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_data')], ['tamanho', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_tamanho')], ['tipo', BJ_T.t('pasta_scripts.js.explorador.menu_classificar_tipo')]", "op(painel ? BJ_T.t('pasta_scripts.js.explorador.menu_ocultar_painel') : BJ_T.t('pasta_scripts.js.explorador.menu_mostrar_painel')"];
         // Vários itens (dc L4797-4808): "Baixar como .zip (N)" abre; Copiar logo depois de Recortar (L8).
         // "Mover para…" (modal de destino) é função do sistema (§16.7) e mora aqui, não na barra.
-        $multi = ["op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })", "op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true })", 'opCopiar(sel),', "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true })", "op('Copiar caminhos'", 'opFavorito(sel),', "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true, escrita: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
+        $multi = ["op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip_n', { n: sel.length }), 'bi-file-earmark-zip', function () { baixarZip(sel); })", "op(arqs.length < sel.length ? BJ_T.t('pasta_scripts.js.explorador.menu_copiar_links_n', { n: arqs.length }) : BJ_T.t('pasta_scripts.js.explorador.menu_copiar_links')", "op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar(sel); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_x'), escrita: true })", 'opCopiar(sel),', "op(BJ_T.t('pasta_scripts.js.explorador.menu_mover_para'), 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_caminhos')", 'opFavorito(sel),', "op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir_n', { n: sel.length }), 'bi-trash3', function () { excluirItens(sel); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_del'), perigo: true, escrita: true })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_propriedades'), 'bi-info-square', mostrarPainel)"];
         // Um item (dc L4809-4826): depois de Copiar caminho, o Encaminhar via Chat I.A (desenho 02 VS 18.10.26,
         // D:5071, PR4d) e o favorito (L6, dc L4820), nessa ordem.
         // Pasta: "Baixar como .zip" no lugar do Baixar; arquivo: Copiar depois de Recortar (L8).
-        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); })", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true })", '.concat([opCopiar([alvo])])', "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true })", "op('Copiar caminho', 'bi-signpost'", '.concat(opEncaminhar(alvo))', 'opFavorito([alvo]),', "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true })", "op('Editar…', 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true })"];
+        $item = ["op(BJ_T.t('pasta_scripts.js.explorador.menu_abrir'), ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip'), 'bi-download', function () { baixarZip([alvo]); })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_visualizar'), 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_espaco') })", "op(BJ_T.t('pasta_scripts.js.explorador.baixar'), 'bi-download'", "op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_link'), 'bi-link-45deg'", "op(BJ_T.t('pasta_scripts.js.explorador.menu_recortar'), 'bi-scissors', function () { recortar([alvo]); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_x'), escrita: true })", '.concat([opCopiar([alvo])])', "op(BJ_T.t('pasta_scripts.js.explorador.menu_colar'), 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_ctrl_v'), desabilitado: !areaDeTransferencia, escrita: true })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_mover_para'), 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_caminho'), 'bi-signpost'", '.concat(opEncaminhar(alvo))', 'opFavorito([alvo]),', "op(BJ_T.t('pasta_scripts.js.explorador.menu_renomear'), 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_f2'), escrita: true })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_editar'), 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })", "op(BJ_T.t('pasta_scripts.js.explorador.menu_excluir'), 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: BJ_T.t('pasta_scripts.js.explorador.atalho_del'), perigo: true, escrita: true })"];
         $pos = -1;
         foreach (array_merge($fundo, $multi, $item) as $trecho) {
             $p = strpos($corpo, $trecho, $pos + 1);
             self::assertNotFalse($p, "item fora da ordem do desenho ou ausente: {$trecho}");
             $pos = $p;
         }
+
+        // Os rótulos do menu, no catálogo (spec idioma-do-sistema §20.9).
+        self::assertTextoDoScript('Nova pasta', 'explorador.menu_nova_pasta', $js);
+        self::assertTextoDoScript('Colar', 'explorador.menu_colar', $js);
+        self::assertTextoDoScript('Selecionar tudo', 'explorador.menu_selecionar_tudo', $js);
+        self::assertTextoDoScript('Classificar por nome', 'explorador.menu_classificar_nome', $js);
+        self::assertTextoDoScript('Classificar por data', 'explorador.menu_classificar_data', $js);
+        self::assertTextoDoScript('Classificar por tamanho', 'explorador.menu_classificar_tamanho', $js);
+        self::assertTextoDoScript('Classificar por tipo', 'explorador.menu_classificar_tipo', $js);
+        self::assertTextoDoScript('Ocultar painel de detalhes', 'explorador.menu_ocultar_painel', $js);
+        self::assertTextoDoScript('Mostrar painel de detalhes', 'explorador.menu_mostrar_painel', $js);
+        self::assertTextoDoScript('Baixar como .zip ({n})', 'explorador.menu_baixar_zip_n', $js);
+        self::assertTextoDoScript('Copiar links', 'explorador.menu_copiar_links', $js);
+        self::assertTextoDoScript('Copiar links ({n})', 'explorador.menu_copiar_links_n', $js);
+        self::assertTextoDoScript('Recortar', 'explorador.menu_recortar', $js);
+        self::assertTextoDoScript('Mover para…', 'explorador.menu_mover_para', $js);
+        self::assertTextoDoScript('Copiar caminhos', 'explorador.menu_copiar_caminhos', $js);
+        self::assertTextoDoScript('Excluir {n} itens', 'explorador.menu_excluir_n', $js);
+        self::assertTextoDoScript('Propriedades', 'explorador.menu_propriedades', $js);
+        self::assertTextoDoScript('Abrir', 'explorador.menu_abrir', $js);
+        self::assertTextoDoScript('Baixar como .zip', 'explorador.menu_baixar_zip', $js);
+        self::assertTextoDoScript('Visualizar', 'explorador.menu_visualizar', $js);
+        self::assertTextoDoScript('Espaço', 'explorador.atalho_espaco', $js);
+        self::assertTextoDoScript('Ctrl+V', 'explorador.atalho_ctrl_v', $js);
+        self::assertTextoDoScript('Ctrl+A', 'explorador.atalho_ctrl_a', $js);
+        self::assertTextoDoScript('Ctrl+X', 'explorador.atalho_ctrl_x', $js);
+        self::assertTextoDoScript('Ctrl+C', 'explorador.atalho_ctrl_c', $js);
+        self::assertTextoDoScript('Del', 'explorador.atalho_del', $js);
+        self::assertTextoDoScript('Enter', 'explorador.atalho_enter', $js);
+        self::assertTextoDoScript('F2', 'explorador.atalho_f2', $js);
+        self::assertTextoDoScript('Baixar', 'explorador.baixar', $js);
+        self::assertTextoDoScript('Copiar link', 'explorador.menu_copiar_link', $js);
+        self::assertTextoDoScript('Copiar caminho', 'explorador.menu_copiar_caminho', $js);
+        self::assertTextoDoScript('Renomear', 'explorador.menu_renomear', $js);
+        self::assertTextoDoScript('Editar…', 'explorador.menu_editar', $js);
+        self::assertTextoDoScript('Excluir', 'explorador.menu_excluir', $js);
 
         // Não renderizados: o Desfazer (é do toast) e o "Compartilhar" do protótipo (S-12).
         foreach (["'Desfazer'", "op('Compartilhar"] as $proibido) {
@@ -160,12 +200,13 @@ final class PastaExploradorInteracaoTest extends TestCase
 
         // Uma chamada só, no menu de um item, logo depois de "Copiar caminho" e antes do favorito (D:5070-5072).
         self::assertSame(1, substr_count($corpo, 'opEncaminhar('), 'só o menu de UM item tem o Encaminhar (o de vários do desenho não tem)');
-        self::assertStringContainsString("op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),\n            ])\n            .concat(opEncaminhar(alvo))\n            .concat([\n                opFavorito([alvo]),", $corpo);
+        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_caminho'), 'bi-signpost', function () { copiarCaminhos([alvo]); }),\n            ])\n            .concat(opEncaminhar(alvo))\n            .concat([\n                opFavorito([alvo]),", $corpo);
         $multi = substr($corpo, (int) strpos($corpo, 'if (multi) {'), (int) strpos($corpo, 'const ehPasta') - (int) strpos($corpo, 'if (multi) {'));
         self::assertStringNotContainsString('Encaminhar', $multi);
 
         // Ícone e texto do desenho; classe própria (nunca a .js-encaminhar do PR4a, que daria dois despachos).
-        self::assertStringContainsString("op('Encaminhar via Chat I.A', 'bi-send', function () {", $encaminha);
+        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.menu_encaminhar'), 'bi-send', function () {", $encaminha);
+        self::assertTextoDoScript('Encaminhar via Chat I.A', 'explorador.menu_encaminhar', $js);
         self::assertStringContainsString("{ classe: 'js-explorador-encaminhar' }", $encaminha);
         self::assertStringNotContainsString("'js-encaminhar'", $js);
         self::assertStringContainsString('if (o.classe) n.classList.add(o.classe);', $this->funcao('abrirMenu'));
@@ -176,7 +217,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         // A guarda vem ANTES do op(): sem ela o item nem é montado.
         $guarda = "if (cfg.pastaExcluida || !window.BJCentral || !Number.isInteger(pasta) || pasta <= 0 || !Number.isInteger(id) || id <= 0) return [];";
         self::assertStringContainsString($guarda, $encaminha);
-        self::assertLessThan(strpos($encaminha, "op('Encaminhar"), strpos($encaminha, $guarda));
+        self::assertLessThan(strpos($encaminha, "op(BJ_T.t('pasta_scripts.js.explorador.menu_encaminhar')"), strpos($encaminha, $guarda));
         self::assertStringContainsString('const pasta = Number(pastaId);', $encaminha);
         self::assertStringContainsString('const id = Number(alvo && alvo.id);', $encaminha);
         // Item na lixeira não entra na lista (o servidor monta o #pexDados só com os vivos; LixeiraFilter).
@@ -199,10 +240,13 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("navigator.clipboard.writeText(t).then(function () { return true; }, function () { return copiarPorExec(t); });", $js);
         self::assertStringContainsString("ok = document.execCommand('copy');", $js);
         // DOC-120: a contagem soma arquivos e subpastas.
-        self::assertStringContainsString("if (ok) toast(links.length === 1 ? 'Link copiado' : 'Links copiados');", $js);
+        self::assertStringContainsString("if (ok) toast(links.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.link_copiado') : BJ_T.t('pasta_scripts.js.explorador.links_copiados'));", $js);
+        self::assertTextoDoScript('Link copiado', 'explorador.link_copiado', $js);
+        self::assertTextoDoScript('Links copiados', 'explorador.links_copiados', $js);
         self::assertStringNotContainsString('/pastas/', $js, 'a URL fictícia do protótipo não vem para o sistema');
         // "Copiar caminho" (DOC-38): "BlueJus › Pasta <nup> › Documentos › … › nome".
-        self::assertStringContainsString("return 'BlueJus › Pasta ' + cfg.pastaRotulo + ' › ' + caminhoLegivel(localDe(it)) + ' › ' + it.nome;", $js);
+        self::assertStringContainsString("return BJ_T.t('pasta_scripts.js.explorador.caminho_copiado', { pasta: cfg.pastaRotulo, local: caminhoLegivel(localDe(it)), nome: it.nome });", $js);
+        self::assertTextoDoScript('BlueJus › Pasta {pasta} › {local} › {nome}', 'explorador.caminho_copiado', $js);
     }
 
     #[TestDox('lote (D4): mover e excluir vão em JSON para mover-lote/excluir-lote com o token csrfLote; nada de POST de formulário por documento')]
@@ -229,7 +273,8 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("moverLote(chaves, destinoId).then(function (ok) { if (ok) areaDeTransferencia = null; });", $js);
         self::assertStringContainsString("const chaves = areaDeTransferencia.chaves.filter(function (k) { return k !== 'pasta:' + destinoId && chaveExiste(k); });", $js);
         self::assertStringContainsString("limparRecorteDoQueNaoExiste();", $this->funcao('excluirItens'));
-        self::assertStringContainsString("return true;\n        }).catch(function (err) { toastErro(err.message || 'Erro de comunicação.'); return false; });", $this->funcao('moverLote'));
+        self::assertStringContainsString("return true;\n        }).catch(function (err) { toastErro(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao')); return false; });", $this->funcao('moverLote'));
+        self::assertTextoDoScript('Erro de comunicação.', 'explorador.erro_comunicacao', $js);
         // Pasta→pasta (DOC-55): a tela barra o ciclo antes do pedido; o servidor confere de novo.
         self::assertStringContainsString("if (destinoId != null && lote.secoes.some(function (id) { return id === destinoId || descendentes(id).indexOf(destinoId) !== -1; })) {", $js);
         // O caminho antigo (formulário POST + reload por documento) saiu. O único submit de
@@ -244,7 +289,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString('renderizar();', $mover);
         $excluir = $this->funcao('excluirItens');
         self::assertLessThan(strpos($excluir, 'arquivos.splice(i, 1)'), strpos($excluir, "if (!res.ok || !res.j.ok) throw new Error"));
-        self::assertStringContainsString("toastErro(err.message || 'Erro de comunicação.')", $excluir, 'erro do servidor vira toast');
+        self::assertStringContainsString("toastErro(err.message || BJ_T.t('pasta_scripts.js.explorador.erro_comunicacao'))", $excluir, 'erro do servidor vira toast');
     }
 
     #[TestDox('teto de 2.000 itens por ação é respeitado no cliente, com mensagem, ANTES do confirm() e do pedido')]
@@ -254,7 +299,8 @@ final class PastaExploradorInteracaoTest extends TestCase
 
         self::assertStringContainsString('const TETO_LOTE      = 2000;', $js, 'o mesmo de PastaDocumentoController::TETO_DE_ITENS_POR_LOTE');
         self::assertStringContainsString('if (n <= TETO_LOTE) return false;', $js);
-        self::assertStringContainsString("toastErro('Seleção acima do limite de ' + TETO_LOTE.toLocaleString('pt-BR') + ' itens por ação. Selecione menos itens.');", $js);
+        self::assertStringContainsString("toastErro(BJ_T.t('pasta_scripts.js.explorador.acima_do_teto', { teto: TETO_LOTE.toLocaleString('pt-BR') }));", $js);
+        self::assertTextoDoScript('Seleção acima do limite de {teto} itens por ação. Selecione menos itens.', 'explorador.acima_do_teto', $js);
         $excluir = $this->funcao('excluirItens');
         self::assertLessThan(strpos($excluir, 'confirmarUIPs('), strpos($excluir, 'acimaDoTeto('), 'o teto vem antes da confirmação');
         $mover = $this->funcao('moverLote');
@@ -269,10 +315,14 @@ final class PastaExploradorInteracaoTest extends TestCase
         // E7: a confirmação (S-3) continua, na janela vermelha da tela.
         self::assertStringContainsString('const pergunta = t.confirmacao || avisoExclusaoDoLote(itens);', $js);
         self::assertStringContainsString('window.confirmarUIPs(pergunta, true)', $js);
-        self::assertStringContainsString("return 'Excluir ' + itens.length + ' itens? Ao todo: ' + partes.join(' e ') + '.' + AVISO_LIXEIRA;", $js);
-        self::assertStringContainsString("const AVISO_LIXEIRA = ' Os itens vão para a lixeira e podem ser restaurados.';", $js);
+        self::assertStringContainsString("return BJ_T.t('pasta_scripts.js.explorador.excluir_lote', { n: itens.length, conteudo: juntarComE(partes), lixeira: AVISO_LIXEIRA });", $js);
+        self::assertTextoDoScript('Excluir {n} itens? Ao todo: {conteudo}. {lixeira}', 'explorador.excluir_lote', $js);
+        self::assertStringContainsString("const AVISO_LIXEIRA = BJ_T.t('pasta_scripts.js.explorador.aviso_lixeira');", $js);
+        self::assertTextoDoScript('Os itens vão para a lixeira e podem ser restaurados.', 'explorador.aviso_lixeira', $js);
         self::assertStringNotContainsString('não pode ser desfeita', $js, 'com a lixeira (L7) a frase deixou de ser verdade');
-        self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');", $js);
+        self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.excluido_um', { nome: itens[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.excluidos_varios', { n: itens.length }));", $js);
+        self::assertTextoDoScript('Excluído: {nome}', 'explorador.excluido_um', $js);
+        self::assertTextoDoScript('{n} itens excluídos', 'explorador.excluidos_varios', $js);
         self::assertStringContainsString('toast(texto, false, desfazer);', $this->funcao('excluirItens'));
         // Toast do desenho: 4,2 s (dc L4772).
         self::assertStringContainsString('const TOAST_MS       = 4200;', $js);
@@ -313,7 +363,8 @@ final class PastaExploradorInteracaoTest extends TestCase
         // Sortable no toque: arrastar o dedo rola; só segurar 250 ms reordena.
         self::assertStringContainsString("delay: 250,\n            delayOnTouchOnly: true,", $js);
         // Colar sem nada que ainda exista: avisa em vez de silêncio.
-        self::assertStringContainsString("if (!chaves.length) { areaDeTransferencia = null; toast('Nada para colar'); return; }", $js);
+        self::assertStringContainsString("if (!chaves.length) { areaDeTransferencia = null; toast(BJ_T.t('pasta_scripts.js.explorador.nada_para_colar')); return; }", $js);
+        self::assertTextoDoScript('Nada para colar', 'explorador.nada_para_colar', $js);
         // Toque longo no FUNDO da lista (e no vazio) abre o menu de fundo: o iOS não dispara contextmenu.
         self::assertStringContainsString("abrirMenu(t.x, t.y, t.linha ? itemPorChave(chaveDoElemento(t.linha)) : null);", $js);
         self::assertStringContainsString("ligarToqueLongo(el.lista);\n    if (el.vazio) ligarToqueLongo(el.vazio);", $js);
@@ -372,7 +423,8 @@ final class PastaExploradorInteracaoTest extends TestCase
 
         self::assertStringContainsString("if (el.btnNovaPasta) el.btnNovaPasta.addEventListener('click', novaPastaInline);", $js);
         self::assertStringContainsString("linha.dataset.pexTemp = '';", $js, 'a linha provisória é marcada');
-        self::assertStringContainsString("const nome = nomeLivre('Nova pasta');", $js);
+        self::assertStringContainsString("const nome = nomeLivre(BJ_T.t('pasta_scripts.js.explorador.menu_nova_pasta'));", $js);
+        self::assertTextoDoScript('Nova pasta', 'explorador.menu_nova_pasta', $js);
         self::assertStringContainsString("iniciarRenomear({ tipo: 'pasta', id: 0, nome: nome, dado: temp }, { linha: linha, criar: true });", $js);
         // Enter salva, Esc cancela, perder o foco salva (dc L4941-4944).
         self::assertStringContainsString("if (e.key === 'Enter') { e.preventDefault(); salvarRenomear(); }", $js);

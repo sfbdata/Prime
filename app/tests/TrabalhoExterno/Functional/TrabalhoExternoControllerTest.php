@@ -539,6 +539,40 @@ final class TrabalhoExternoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403, 'proposta continua dependendo de "Elaborar e enviar propostas"');
     }
 
+    #[TestDox('Equipe: a chave "Publicar vagas e analisar currículos" do modal grava `talentos` e liga a gestão dos currículos')]
+    public function testChaveTalentosDaEquipe(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrf($client);
+        $sede = $this->criarTenant('Sede');
+        $this->definirSede($sede);
+        $master = $this->criarMaster($sede);
+        $equipe = $this->criarUsuario($sede, nome: 'Colaborador');
+
+        $this->logarComTenant($client, $master, $sede);
+        $client->request('GET', '/trabalho-externo/api/painel');
+        self::assertTrue($this->json($client)['painel']['configuracao']['equipe']['talentos'], 'a Equipe nasce com talentos (desenho, CFG.equipe)');
+
+        $this->postarJson($client, '/trabalho-externo/api/configuracao', ['equipe' => ['talentos' => false]]);
+        self::assertResponseIsSuccessful();
+        $client->request('GET', '/trabalho-externo/api/painel');
+        self::assertFalse($this->json($client)['painel']['configuracao']['equipe']['talentos'], 'o modal reabre com a chave desligada');
+
+        $this->logarComTenant($client, $equipe, $sede);
+        $client->request('GET', '/trabalho-externo/api/curriculos');
+        self::assertFalse($this->json($client)['podeGerir'], 'sem a chave a Equipe não gere o banco de talentos');
+        $this->postarJson($client, '/trabalho-externo/api/configuracao', ['equipe' => ['talentos' => true]]);
+        self::assertResponseStatusCodeSame(403, 'só o Master liga a chave');
+
+        $this->logarComTenant($client, $master, $sede);
+        $this->postarJson($client, '/trabalho-externo/api/configuracao', ['equipe' => ['talentos' => true]]);
+        self::assertResponseIsSuccessful();
+
+        $this->logarComTenant($client, $equipe, $sede);
+        $client->request('GET', '/trabalho-externo/api/curriculos');
+        self::assertTrue($this->json($client)['podeGerir'], 'com a chave a Equipe gere o banco de talentos');
+    }
+
     #[TestDox('chat: nota interna some para o Solicitante, nome de quem atende vira "Central BlueJus" e as não lidas zeram ao abrir')]
     public function testChat(): void
     {

@@ -68,9 +68,10 @@ final class ConviteController extends AbstractController
                 $request->request->getBoolean('aceite_termos'),
                 $request->getClientIp(),
                 $request->headers->get('User-Agent'),
+                (string) $request->request->get('genero', ''),
             );
         } catch (DadosInvalidos|DemandaNaoEncontrada $e) {
-            return $this->pagina($token, $e->getMessage(), (string) $request->request->get('full_name', ''));
+            return $this->pagina($token, $e->getMessage(), (string) $request->request->get('full_name', ''), (string) $request->request->get('genero', ''));
         }
 
         // Entra direto: a resposta do autenticador (que mandaria escolher escritório) é ignorada,
@@ -107,10 +108,10 @@ final class ConviteController extends AbstractController
 
     /**
      * A página do convite. Com erro, ela é desenhada de novo NA MESMA resposta (422), com a
-     * mensagem dentro do formulário e o nome digitado: um aviso de sessão seria consumido pelo
+     * mensagem dentro do formulário, o nome digitado e o gênero escolhido: um aviso de sessão seria consumido pelo
      * layout antes do formulário e a pessoa veria a página sem saber o que errou.
      */
-    private function pagina(string $token, ?string $erro = null, ?string $nomeDigitado = null): Response
+    private function pagina(string $token, ?string $erro = null, ?string $nomeDigitado = null, ?string $generoDigitado = null): Response
     {
         $usuario = $this->getUser();
         $pagina = $this->abrir->executar($token, $usuario instanceof User ? $usuario : null);
@@ -118,7 +119,7 @@ final class ConviteController extends AbstractController
             $pagina['convite']['nome'] = $nomeDigitado;
         }
 
-        return $this->render('trabalho_externo/convite.html.twig', $pagina + ['token' => $token, 'erro' => $erro], new Response(
+        return $this->render('trabalho_externo/convite.html.twig', $pagina + ['token' => $token, 'erro' => $erro, 'generoDigitado' => $generoDigitado], new Response(
             '',
             $erro !== null ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK,
         ));

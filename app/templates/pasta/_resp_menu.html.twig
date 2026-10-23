@@ -20,30 +20,30 @@
 #pastaRespMenu .pasta-resp-check { display: none; flex-shrink: 0; font-size: 15px; color: var(--ps-accent, #0a7aad); }
 #pastaRespMenu .pasta-resp-opcao.ativa .pasta-resp-check { display: inline-block; }
 </style>
-<div class="pasta-resp-menu" id="pastaRespMenu" hidden{% if not naPasta %} role="dialog" aria-label="Escolher responsável"{% endif %}>
+<div class="pasta-resp-menu" id="pastaRespMenu" hidden{% if not naPasta %} role="dialog" aria-label="{{ 'pasta_resp.resp.escolher'|trans }}"{% endif %}>
 
     {# ── Busca: parada no topo ── #}
     <div class="pasta-resp-busca-wrap">
         <i class="bi bi-search pasta-resp-busca-icone" aria-hidden="true"></i>
         <input type="text"
                class="pasta-resp-busca"
-               placeholder="Filtrar responsável"
+               placeholder="{{ 'pasta_resp.resp.filtrar'|trans }}"
                autocomplete="off"
                spellcheck="false"
                role="combobox"
                aria-expanded="true"
                aria-autocomplete="list"
                aria-controls="pastaRespLista"
-               aria-label="Filtrar responsável">
-        {% if not naPasta %}<button type="button" class="pasta-resp-fechar" data-tip="Fechar" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>{% endif %}
+               aria-label="{{ 'pasta_resp.resp.filtrar'|trans }}">
+        {% if not naPasta %}<button type="button" class="pasta-resp-fechar" data-tip="{{ 'pasta_resp.fechar'|trans }}" aria-label="{{ 'pasta_resp.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>{% endif %}
     </div>
 
     {# ── Lista: a parte que rola ── #}
-    <div class="pasta-resp-lista" id="pastaRespLista" role="listbox" aria-label="Escolher responsável">
+    <div class="pasta-resp-lista" id="pastaRespLista" role="listbox" aria-label="{{ 'pasta_resp.resp.escolher'|trans }}">
         <button type="button" class="pasta-resp-opcao" role="option" aria-selected="false"
-                data-user-id="" data-nome="Sem responsável" data-foto="">
+                data-user-id="" data-nome="{{ 'pasta_resp.resp.sem_responsavel'|trans }}" data-foto="">
             <span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi bi-person-dash"></i></span>
-            <span class="pasta-resp-nome">Sem responsável</span>
+            <span class="pasta-resp-nome">{{ 'pasta_resp.resp.sem_responsavel'|trans }}</span>
             <i class="bi bi-check2 pasta-resp-check" aria-hidden="true"></i>
         </button>
         {% for u in usuarios %}
@@ -61,7 +61,7 @@
         {# Sem isto, filtrar ate nao sobrar ninguem deixa um retangulo vazio com
            cara de tela quebrada. O JS so troca o atributo hidden. #}
         <div class="pasta-resp-vazio" hidden>
-            {% if naPasta %}<i class="bi bi-search me-1"></i>Nenhum colaborador encontrado{% else %}Nenhum responsável encontrado{% endif %}
+            {% if naPasta %}<i class="bi bi-search me-1"></i>{{ 'pasta_resp.resp.nenhum_colaborador'|trans }}{% else %}{{ 'pasta_resp.resp.nenhum_responsavel'|trans }}{% endif %}
         </div>
     </div>
 </div>

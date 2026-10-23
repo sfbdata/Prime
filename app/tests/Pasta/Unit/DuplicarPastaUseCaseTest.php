@@ -13,6 +13,7 @@ use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\Repository\PastaChecklistItemRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Pasta\UseCase\DuplicarPastaUseCase;
@@ -86,7 +87,7 @@ final class DuplicarPastaUseCaseTest extends TestCase
 
         return new DuplicarPastaUseCase(
             $this->em,
-            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->numeracao)),
+            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->numeracao), $this->createStub(PastaRepository::class)),
             $this->checklistRepo,
             new \App\Pasta\Service\VisibilidadeDasAbasDaPasta($repo, $primarios, new \App\Pasta\Service\EquipeQuePodeTerAbaOculta($vinculos, $primarios)),
         );

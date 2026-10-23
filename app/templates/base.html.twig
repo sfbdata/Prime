@@ -124,7 +124,7 @@
                             #}
                             <button class="sidebar-toggle-btn" id="sidebarToggleBtn"
                                     type="button"
-                                    aria-label="Abrir/fechar menu" data-tip="Menu">
+                                    aria-label="{{ 'moldura.cabecalho.menu_lateral_alternar'|trans }}" data-tip="{{ 'moldura.cabecalho.menu_lateral_dica'|trans }}">
                                 <i class="bi bi-list"></i>
                             </button>
                             <a href="{{ path('expediente_index') }}" class="navtop-brand">
@@ -134,34 +134,34 @@
                             {% set pageTitle = '' %}
                             {% set currentRoute = app.request.attributes.get('_route')|default('') %}
                             {% if currentRoute starts with 'cliente_' %}
-                                {% set pageTitle = 'Clientes' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.clientes'|trans %}
                             {% elseif currentRoute starts with 'processo_' %}
-                                {% set pageTitle = 'Processos' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.processos'|trans %}
                             {% elseif currentRoute starts with 'pasta_' %}
-                                {% set pageTitle = 'Pastas' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.pastas'|trans %}
                             {% elseif currentRoute starts with 'tarefa_' %}
-                                {% set pageTitle = 'Metas' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.metas'|trans %}
                             {% elseif currentRoute starts with 'agenda_' %}
-                                {% set pageTitle = 'Agenda' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.agenda'|trans %}
                             {% elseif currentRoute starts with 'servicedesk_' %}
-                                {% set pageTitle = 'Service Desk' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.service_desk'|trans %}
                             {% elseif currentRoute starts with 'app_tenant_role_' or currentRoute starts with 'master_' %}
                                 {# Desenho 05 Perfis 1.2, L39: a barra mostra "Perfis" na lista, na edição e no perfil Master. #}
-                                {% set pageTitle = 'Perfis' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.perfis'|trans %}
                             {% elseif currentRoute starts with 'app_tenant_' %}
-                                {% set pageTitle = 'Tenants' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.tenants'|trans %}
                             {% elseif currentRoute starts with 'audit_log_' %}
-                                {% set pageTitle = 'Auditoria' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.auditoria'|trans %}
                             {% elseif currentRoute == 'invite_user' %}
-                                {% set pageTitle = 'Convidar Usuários' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.convidar_usuarios'|trans %}
                             {% elseif currentRoute == 'app_profile' %}
-                                {% set pageTitle = 'Meu Perfil' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.meu_perfil'|trans %}
                             {% elseif currentRoute starts with 'expediente_' %}
-                                {% set pageTitle = 'Expediente' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.expediente'|trans %}
                             {% elseif currentRoute starts with 'cobranca_' %}
-                                {% set pageTitle = 'Cobranças' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.cobrancas'|trans %}
                             {% elseif currentRoute starts with 'contribua_' %}
-                                {% set pageTitle = 'Quem somos e contribua' %}
+                                {% set pageTitle = 'moldura.cabecalho.titulo_pagina.quem_somos_e_contribua'|trans %}
                             {% endif %}
                             {% if pageTitle %}
                                 <span class="navtop-page-sep">|</span>
@@ -178,7 +178,7 @@
                             {% if current_tenant() and _escritorios|length > 0 %}
                                 <div class="navtop-action">
                                     <button type="button" class="navtop-avatar-btn mu-escritorio" data-mu-conta="trocar"
-                                            aria-label="{{ current_tenant().name }}: trocar de conta" {% if 'exp-body' in block('body_class') %}data-tip{% else %}title{% endif %}="{{ current_tenant().name }}">
+                                            aria-label="{{ 'moldura.cabecalho.escritorio_trocar_conta'|trans({escritorio: current_tenant().name}) }}" {% if 'exp-body' in block('body_class') %}data-tip{% else %}title{% endif %}="{{ current_tenant().name }}">
                                         <i class="bi bi-building"></i>
                                         <span class="navtop-escritorio-nome d-none d-lg-inline">{{ current_tenant().name }}</span>
                                     </button>
@@ -194,7 +194,7 @@
                                 <a href="#" class="navtop-action-btn"
                                    data-bs-toggle="dropdown" data-bs-auto-close="outside"
                                    id="notificacaoDropdownToggle"
-                                   aria-label="Notificações" data-tip="Notificações">
+                                   aria-label="{{ 'moldura.notificacoes.rotulo'|trans }}" data-tip="{{ 'moldura.notificacoes.rotulo'|trans }}">
                                     <i class="bi bi-bell"></i>
                                     <span class="navtop-badge" id="notificacaoBadge"
                                           style="{% if notificacoesCount == 0 %}display:none;{% endif %}">
@@ -208,7 +208,7 @@
                                             <li class="nav-item" role="presentation">
                                                 <button class="nav-link active" type="button" role="tab"
                                                         data-categoria="pessoal" data-bs-toggle="tab" data-bs-target="#notifTabPessoal">
-                                                    Minhas
+                                                    {{ 'moldura.notificacoes.aba_minhas'|trans }}
                                                     <span class="badge text-bg-secondary notif-tab-badge" id="notifBadgePessoal"
                                                           {% if notificacoesPessoaisCount == 0 %}style="display:none"{% endif %}>{{ notificacoesPessoaisCount }}</span>
                                                 </button>
@@ -216,7 +216,7 @@
                                             <li class="nav-item" role="presentation">
                                                 <button class="nav-link" type="button" role="tab"
                                                         data-categoria="gestao" data-bs-toggle="tab" data-bs-target="#notifTabGestao">
-                                                    Gestão
+                                                    {{ 'moldura.notificacoes.aba_gestao'|trans }}
                                                     <span class="badge text-bg-warning notif-tab-badge" id="notifBadgeGestao"
                                                           {% if notificacoesGestaoCount == 0 %}style="display:none"{% endif %}>{{ notificacoesGestaoCount }}</span>
                                                 </button>
@@ -225,7 +225,7 @@
                                     {% else %}
                                         <div class="notif-header">
                                             <i class="bi bi-bell me-1"></i>
-                                            <span id="notificacaoCountText">{{ notificacoesCount }}</span> notificação(ões)
+                                            <span id="notificacaoCountText">{{ notificacoesCount }}</span> {{ 'moldura.notificacoes.contagem_sufixo'|trans }}
                                         </div>
                                     {% endif %}
                                     <div class="dropdown-divider m-0"></div>
@@ -249,7 +249,7 @@
                                                     {% endfor %}
                                                 {% else %}
                                                     <a href="#" class="dropdown-item text-center text-muted py-3">
-                                                        <i class="bi bi-check-circle me-2"></i> Nenhuma notificação
+                                                        <i class="bi bi-check-circle me-2"></i> {{ 'moldura.notificacoes.nenhuma'|trans }}
                                                     </a>
                                                 {% endif %}
                                             </div>
@@ -265,7 +265,7 @@
                                         {% endif %}
                                     </div>
                                     <a href="{{ path('notificacao_index') }}" class="dropdown-item text-center notif-footer">
-                                        <i class="bi bi-list-ul me-1"></i> Ver todas as notificações
+                                        <i class="bi bi-list-ul me-1"></i> {{ 'moldura.notificacoes.ver_todas'|trans }}
                                     </a>
                                 </div>
                             </div>
@@ -274,7 +274,7 @@
                             {% if recurso_visivel('instalar') %}
                             <button type="button" id="btnInstalarApp"
                                     class="navtop-action-btn {{ recurso_marca('instalar') }}"
-                                    aria-label="Instalar aplicativo"
+                                    aria-label="{{ 'moldura.cabecalho.instalar_aplicativo'|trans }}"
                                     style="display:none; background:none; border:none; cursor:pointer;">
                                 <i class="bi bi-download"></i>
                             </button>
@@ -282,7 +282,7 @@
 
                             {# Fullscreen #}
                             <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
-                               aria-label="Tela cheia" data-tip="Tela cheia">
+                               aria-label="{{ 'moldura.cabecalho.tela_cheia'|trans }}" data-tip="{{ 'moldura.cabecalho.tela_cheia'|trans }}">
                                 <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
                                 <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none"></i>
                             </a>
@@ -297,7 +297,7 @@
                             <div class="navtop-action dropdown menu-usuario">
                                 <a href="#" class="navtop-avatar-btn dropdown-toggle" data-mu-toggle
                                    data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
-                                   aria-haspopup="menu" aria-label="Menu do usuário">
+                                   aria-haspopup="menu" aria-label="{{ 'moldura.cabecalho.menu_usuario'|trans }}">
                                     <div class="navtop-user-info d-none d-md-flex">
                                         <span class="navtop-username">{{ app.user.fullName }}</span>
                                         {% set papelNaBarra = papel_na_barra() %}
@@ -326,30 +326,30 @@
                     <div class="navtop-subnav">
                         <a href="{{ path('expediente_index') }}"
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'expediente_' ? 'active' : '' }}">
-                            Expediente
+                            {{ 'moldura.cabecalho.subnav.expediente'|trans }}
                         </a>
                         <a href="{{ path('demandas_index') }}"
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') == 'demandas_index' ? 'active' : '' }}">
-                            Demandas
+                            {{ 'moldura.cabecalho.subnav.demandas'|trans }}
                         </a>
                         {# Processos saiu daqui (16/10, pedido do dono): o cadastro mora dentro do Push
                            Processual, que acompanha as publicações por OAB e por processo cadastrado. #}
                         {% if can_access_module('tarefas') and recurso_visivel('metas') %}
                             <a href="{{ path('tarefa_minhas') }}"
                                class="navtop-subnav-link {{ recurso_marca('metas') }} {{ app.request.attributes.get('_route') starts with 'tarefa_' ? 'active' : '' }}">
-                                Minhas Metas
+                                {{ 'moldura.cabecalho.subnav.minhas_metas'|trans }}
                             </a>
                         {% endif %}
                         {% if can_access_module('agenda') %}
                             <a href="{{ path('agenda_index') }}"
                                class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'agenda_' ? 'active' : '' }}">
-                                Agenda
+                                {{ 'moldura.cabecalho.subnav.agenda'|trans }}
                             </a>
                         {% endif %}
                         {% if can_access_module('trabalho_externo') and recurso_visivel('trabalho') %}
                             <a href="{{ path('trabalho_externo_index') }}"
                                class="navtop-subnav-link {{ recurso_marca('trabalho') }} {{ app.request.attributes.get('_route') starts with 'trabalho_externo_' ? 'active' : '' }}">
-                                Trabalho Externo
+                                {{ 'moldura.cabecalho.subnav.trabalho_externo'|trans }}
                             </a>
                         {% endif %}
                     </div>
@@ -373,7 +373,7 @@
                                 {% for message in messages %}
                                     <div class="alert alert-{{ label == 'error' ? 'danger' : label }} alert-dismissible fade show" role="alert">
                                         {{ message }}
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ 'moldura.comum.fechar'|trans }}"></button>
                                     </div>
                                 {% endfor %}
                             {% endfor %}
@@ -389,7 +389,7 @@
             </div>{# /app-wrapper #}
 
             {# Alerta de ponto eletrônico #}
-            {% if app.user and can_access_module('ponto') and app.user.jornadaColaborador is not null %}
+            {% if app.user and can_access_module('ponto') and tem_jornada_no_escritorio() %}
                 {% include 'ponto/_modal_alerta_ponto.html.twig' %}
             {% endif %}
 
@@ -544,20 +544,20 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">
-                            <i class="bi bi-phone me-2"></i>Instalar BlueJus
+                            <i class="bi bi-phone me-2"></i>{{ 'moldura.instalar_ios.titulo'|trans }}
                         </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'moldura.comum.fechar'|trans }}"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-3">Para instalar o BlueJus no seu iPhone ou iPad:</p>
+                        <p class="mb-3">{{ 'moldura.instalar_ios.introducao'|trans }}</p>
                         <ol class="mb-0">
-                            <li class="mb-2">Toque no botão <strong>Compartilhar</strong> <i class="bi bi-box-arrow-up"></i> na barra do Safari</li>
-                            <li class="mb-2">Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong></li>
-                            <li>Toque em <strong>Adicionar</strong> para confirmar</li>
+                            <li class="mb-2">{{ 'moldura.instalar_ios.passo1_inicio'|trans }} <strong>{{ 'moldura.instalar_ios.passo1_compartilhar'|trans }}</strong> <i class="bi bi-box-arrow-up"></i> {{ 'moldura.instalar_ios.passo1_fim'|trans }}</li>
+                            <li class="mb-2">{{ 'moldura.instalar_ios.passo2_inicio'|trans }} <strong>"{{ 'moldura.instalar_ios.passo2_adicionar_tela_inicio'|trans }}"</strong></li>
+                            <li>{{ 'moldura.instalar_ios.passo3_inicio'|trans }} <strong>{{ 'moldura.instalar_ios.passo3_adicionar'|trans }}</strong> {{ 'moldura.instalar_ios.passo3_fim'|trans }}</li>
                         </ol>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'moldura.comum.fechar'|trans }}</button>
                     </div>
                 </div>
             </div>
@@ -576,7 +576,6 @@
                 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
                 let deferredPrompt = null;
-                const AVISO_SEM_PEDIDO = 'Para instalar: no Chrome ou Edge, use o ícone de instalar na barra de endereço. No celular, "Adicionar à tela inicial".';
 
                 function marcarInstalado() {
                     if (btnHeader)    btnHeader.style.display = 'none';
@@ -600,7 +599,7 @@
                     }
                     if (isStandalone) { marcarInstalado(); return; }
                     // Sem o pedido do navegador (desenho 03, dc L.690): o aviso de como instalar, em vez de nada.
-                    if (window.bjAviso) window.bjAviso(AVISO_SEM_PEDIDO);
+                    if (window.bjAviso) window.bjAviso(BJ_T.t('moldura.js.instalar_sem_pedido'));
                 }
 
                 if (isStandalone) {
@@ -624,6 +623,8 @@
 
         {# Formatos de data e número pelo <html lang> (spec idioma-do-sistema, entrega 2); sem defer: quem usa pode vir antes. #}
         <script src="{{ asset('js/bj-formato.js') }}"></script>
+        {{ catalogo_js('moldura.js', 'menu.usuario.js', 'termos', 'comum.js') }}
+        <script src="{{ asset('js/bj-traducao.js') }}"></script>
         <script src="{{ asset('js/novidades.js') }}" defer></script>
         <script src="{{ asset('js/menu-usuario.js') }}" defer></script>
         {% block javascripts %}{% endblock %}

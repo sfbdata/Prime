@@ -84,7 +84,7 @@ final class PoliticaDaDemanda
      */
     public function botoes(Contexto $ctx, DemandaExterna $d): array
     {
-        if ($ctx->previa) {
+        if ($ctx->somenteLeitura()) {
             return [];
         }
         $s = $d->getSituacao();
@@ -253,7 +253,7 @@ final class PoliticaDaDemanda
 
     public function podeConversar(Contexto $ctx, DemandaExterna $d): bool
     {
-        if ($ctx->previa || !$this->podeVer($ctx, $d) || $d->getSituacao() === Situacao::Rascunho) {
+        if ($ctx->somenteLeitura() || !$this->podeVer($ctx, $d) || $d->getSituacao() === Situacao::Rascunho) {
             return false;
         }
 
@@ -272,7 +272,7 @@ final class PoliticaDaDemanda
     /** Checklist e "Registrar andamento": só em execução, pela Central ou pelo Convidado com "andamento". */
     public function podeRegistrarAndamento(Contexto $ctx, DemandaExterna $d): bool
     {
-        return !$ctx->previa
+        return !$ctx->somenteLeitura()
             && $this->podeVer($ctx, $d)
             && $d->getSituacao() === Situacao::Execucao
             && ($ctx->ehInterno() || $this->convidadoPode($ctx, 'andamento'));
@@ -280,7 +280,7 @@ final class PoliticaDaDemanda
 
     public function podeAnexar(Contexto $ctx, DemandaExterna $d): bool
     {
-        return !$ctx->previa
+        return !$ctx->somenteLeitura()
             && $this->podeVer($ctx, $d)
             && $d->getSituacao() !== Situacao::Rascunho
             && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'enviar'));
@@ -350,7 +350,7 @@ final class PoliticaDaDemanda
      */
     public function podeApagarMensagem(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): bool
     {
-        if ($ctx->previa || !$m->podeSerApagada()) {
+        if ($ctx->somenteLeitura() || !$m->podeSerApagada()) {
             return false;
         }
         if ($ctx->perfil === Perfil::Master) {

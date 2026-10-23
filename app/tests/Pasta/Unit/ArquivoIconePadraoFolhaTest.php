@@ -50,7 +50,8 @@ final class ArquivoIconePadraoFolhaTest extends TestCase
         self::assertNotFalse($fim);
         $bloco = substr($js, $inicio, $fim - $inicio);
 
-        preg_match_all("/^\\s*'?([A-Z0-9]+)'?:\\s*\\['([^']+)',\\s*'([^']+)',\\s*'[^']*'\\]/m", $bloco, $m, PREG_SET_ORDER);
+        // O rótulo (3º item) vem do catálogo: `BJ_T.t('pasta_scripts.js.explorador.tipo_*')` (spec idioma-do-sistema §20.9).
+        preg_match_all("/^\\s*'?([A-Z0-9]+)'?:\\s*\\['([^']+)',\\s*'([^']+)',\\s*BJ_T\\.t\\('pasta_scripts\\.js\\.explorador\\.tipo_[a-z_]+'\\)\\]/m", $bloco, $m, PREG_SET_ORDER);
         self::assertGreaterThan(30, count($m), 'o mapa TIPOS foi lido');
 
         $tipos = [];

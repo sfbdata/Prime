@@ -253,6 +253,103 @@ final class CandidaturasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame('Ana Lima', $this->lista()['meu']['nome'], 'o currículo ficou salvo');
     }
 
+    #[TestDox('vaga de escritório fora do ar: some da lista e do detalhe de quem é de fora e recusa candidatura; quem já se candidatou ainda a abre')]
+    public function testVagaDeEscritorioForaDoAr(): void
+    {
+        [$sede, $a] = [$this->criarTenant('Sede'), $this->criarTenant('Dono suspenso')];
+        $master = $this->criarMaster($sede);
+        $dono = $this->criarUsuario($a, nome: 'Dono');
+        $codigo = $this->divulgarEAprovar($dono, $a, $master, $sede, 'Correspondente em Maceió');
+        $jaCandidato = $this->comCurriculo($this->criarTenant('B'), 'Bia Lima');
+        $this->postarJson($this->client, self::VAGAS . "/$codigo/candidatura");
+        self::assertResponseIsSuccessful();
+        $outro = $this->comCurriculo($tenantC = $this->criarTenant('C'), 'Caio Reis');
+        self::assertContains($codigo, array_column($this->listaDeVagas(), 'codigo'), 'premissa: no ar, a vaga aparece');
+
+        $a = $this->em()->find(Tenant::class, $a->getId());
+        $a->setIsActive(false);
+        $this->em()->flush();
+
+        $this->logarComTenant($this->client, $outro, $tenantC);
+        self::assertNotContains($codigo, array_column($this->listaDeVagas(), 'codigo'));
+        $this->client->request('GET', self::VAGAS . "/$codigo");
+        self::assertResponseStatusCodeSame(404);
+        $recusa = $this->postarJson($this->client, self::VAGAS . "/$codigo/candidatura");
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['Vaga indisponível', 'Esta vaga não está recebendo candidaturas.'], [$recusa['titulo'], $recusa['mensagem']]);
+
+        $this->logarComTenant($this->client, $jaCandidato, $this->em()->getRepository(\App\Entity\Auth\UserTenant::class)->findOneBy(['user' => $jaCandidato])->getTenant());
+        self::assertSame('enviada', $this->detalhe($codigo)['botaoExterno'], 'quem se candidatou acompanha a vaga');
+        self::assertSame(1, $this->contar('trabalho_externo_candidatura'));
+
+        // Link público de vagas e e-mail da campanha: as mesmas listagens, sem a vaga.
+        $repositorio = static::getContainer()->get(\App\TrabalhoExterno\Repository\VagaRepository::class);
+        $id = (int) Vaga::idDoCodigo($codigo);
+        self::assertSame([], $repositorio->abertasEntre([$id]), 'link público /vagas-juridicas/{token}');
+        self::assertNotContains($id, array_map(static fn (Vaga $v): ?int => $v->getId(), $repositorio->abertas()), 'e-mail da campanha');
+
+        // Master: não reabre nem oferta de novo a vaga desse escritório.
+        $this->logarComTenant($this->client, $master, $sede);
+        $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/pausar");
+        $recusa = $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/reabrir");
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('O escritório que divulgou esta vaga está fora do ar. A vaga não pode ser publicada agora.', $recusa['mensagem']);
+    }
+
+    #[TestDox('vaga pendente de escritório fora do ar não entra na fila de aprovação do Master e não pode ser aprovada')]
+    public function testFilaDeAprovacaoSemEscritorioForaDoAr(): void
+    {
+        [$sede, $a] = [$this->criarTenant('Sede'), $this->criarTenant('Dono suspenso')];
+        $master = $this->criarMaster($sede);
+        $dono = $this->criarUsuario($a, nome: 'Dono');
+        $this->logarComTenant($this->client, $dono, $a);
+        $codigo = $this->postarJson($this->client, self::VAGAS, self::vaga('Pendente do suspenso'))['codigo'];
+        self::assertResponseIsSuccessful();
+        $this->logarComTenant($this->client, $master, $sede);
+        self::assertContains($codigo, array_column($this->listaDeVagas(), 'codigo'), 'premissa: no ar, a pendente está na fila');
+
+        $a = $this->em()->find(Tenant::class, $a->getId());
+        $a->setIsActive(false);
+        $this->em()->flush();
+
+        self::assertNotContains($codigo, array_column($this->listaDeVagas(), 'codigo'));
+        $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/aprovar");
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('oferta de escritório fora do ar: "Ofertar novamente" é recusado (403) e a vaga continua pausada')]
+    public function testOfertarNovamenteComEscritorioForaDoAr(): void
+    {
+        [$sede, $a] = [$this->criarTenant('Sede'), $this->criarTenant('Dono suspenso')];
+        $master = $this->criarMaster($sede);
+        $codigo = $this->divulgarEAprovar($this->criarUsuario($a, nome: 'Dono'), $a, $master, $sede, 'Oferta do suspenso');
+        // A oferta (minutos, quantidade) só o Master cria pela tela, sempre da Central; aqui ela é de um escritório.
+        $this->em()->getConnection()->executeStatement('UPDATE trabalho_externo_vaga SET oferta = true WHERE id = ?', [Vaga::idDoCodigo($codigo)]);
+        $this->em()->clear();
+        $this->logarComTenant($this->client, $master, $sede);
+        $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/pausar");
+        self::assertResponseIsSuccessful();
+        self::assertContains('ofertar', array_column($this->detalhe($codigo)['botoes'] ?? [], 'k'), 'premissa: no ar, "Ofertar novamente" aparece');
+
+        $a = $this->em()->find(Tenant::class, $a->getId());
+        $a->setIsActive(false);
+        $this->em()->flush();
+
+        $recusa = $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/ofertar");
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('O escritório que divulgou esta vaga está fora do ar. A vaga não pode ser publicada agora.', $recusa['mensagem']);
+        self::assertSame('pausada', $this->em()->getConnection()->fetchOne('SELECT situacao FROM trabalho_externo_vaga WHERE id = ?', [Vaga::idDoCodigo($codigo)]));
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function listaDeVagas(): array
+    {
+        $this->client->request('GET', self::VAGAS);
+        self::assertResponseIsSuccessful();
+
+        return $this->json($this->client)['vagas']['vagas'];
+    }
+
     protected function setUp(): void
     {
         $this->client = static::createClient();

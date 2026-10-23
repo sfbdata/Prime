@@ -1,0 +1,968 @@
+/* Passagem de etapa e devolução da meta (desenhos 04 e 04B de Minhas Metas de 22/10; spec
+   minhas-metas-esteira-2210.md, Fase 3). Valores copiados dos estilos inline do dc: trilho "ETAPA DA PASTA" (04B L43-44),
+   lateral (04B L79-81), botão "Concluir etapa" do cartão (04 L102), modal "Concluir etapa e passar adiante" (04 L131,
+   com o menu de salto do 04B L93), devolução (04B L106) e aviso (04 L131 fim). Templates: tarefa/_meta_etapa_trilho,
+   tarefa/_meta_passagem_modal, tarefa/_meta_devolucao_modal e tarefa/_meta_cartao. Os tokens existem só para o tema
+   escuro, com o valor do desenho no tema claro. */
+:root {
+    --mp-fundo: #fff;
+    --mp-borda: #d3dde4;
+    --mp-borda-leve: #dfe7ed;
+    --mp-divisa: #eef2f5;
+    --mp-titulo: #243845;
+    --mp-texto: #34505f;
+    --mp-texto-2: #4a6373;
+    --mp-suave: #5b7383;
+    --mp-mudo: #7a8e9b;
+    --mp-apagado: #9aabb7;
+    --mp-seg-fundo: #e6edf2;
+    --mp-hover: #e5f1f7;
+    --mp-hover-menu: #eef5fa;
+}
+
+[data-bs-theme="dark"] {
+    --mp-fundo: var(--bs-body-bg);
+    --mp-borda: var(--bs-border-color);
+    --mp-borda-leve: var(--bs-border-color);
+    --mp-divisa: var(--bs-border-color-translucent);
+    --mp-titulo: var(--bs-emphasis-color);
+    --mp-texto: var(--bs-body-color);
+    --mp-texto-2: var(--bs-body-color);
+    --mp-suave: var(--bs-secondary-color);
+    --mp-mudo: var(--bs-secondary-color);
+    --mp-apagado: var(--bs-secondary-color);
+    --mp-seg-fundo: var(--bs-tertiary-bg);
+    --mp-hover: rgba(10, 111, 160, .2);
+    --mp-hover-menu: rgba(10, 111, 160, .2);
+}
+
+/* ── Trilho "ETAPA DA PASTA" (04B L42-44); 14px até o bloco seguinte, o gap do <main> (L34) ── */
+.mp-trilho {
+    background: var(--mp-fundo);
+    border: 1px solid var(--mp-borda-leve);
+    border-radius: 4px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.mp-trilho > .mp-trilho-rotulo {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 1.2px;
+    color: var(--mp-texto-2);
+    margin-right: 6px;
+}
+
+.mp-trilho > .mp-trilho-etapa {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--mp-apagado);
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.mp-trilho > .mp-trilho-etapa.is-atual {
+    background: #0a6fa0;
+    color: #fff;
+}
+
+.mp-trilho > .mp-trilho-etapa.is-saltada {
+    background: var(--mp-fundo);
+    color: #c0392b;
+    border: 1px dashed #e3a3a3;
+    text-decoration: line-through;
+}
+
+.mp-trilho > .mp-trilho-etapa.is-passada {
+    color: var(--mp-texto);
+}
+
+.mp-trilho > .mp-trilho-etapa.is-proxima {
+    color: #0a6fa0;
+}
+
+.mp-trilho > .mp-trilho-saltadas {
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #a3232b;
+}
+
+/* ── Lateral (04B L78-82): aside com gap de 10px ── */
+.mp-lateral {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.mp-lateral > .mp-concluir {
+    width: 100%;
+    height: 40px;
+    border: none;
+    border-radius: 3px;
+    background: #0a6fa0;
+    color: #fff;
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.mp-lateral > .mp-concluir:hover {
+    background: #0b5f86;
+}
+
+.mp-lateral > .mp-lateral-proximo {
+    font-size: 12px;
+    color: var(--mp-suave);
+    line-height: 1.45;
+    padding: 0 2px;
+}
+
+.mp-lateral > .mp-devolver {
+    width: 100%;
+    height: 36px;
+    border: 1px solid var(--mp-borda);
+    border-radius: 3px;
+    background: var(--mp-fundo);
+    color: #9a5b00;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.mp-lateral > .mp-devolver:hover {
+    border-color: #c08a12;
+    background: #fffaf0;
+}
+
+/* ── "Concluir etapa" no cartão (04 L102) ── */
+.mp-cartao-concluir {
+    height: 30px;
+    padding: 0 10px;
+    flex: none;
+    border: 1px solid #bfe3cc;
+    background: var(--mp-fundo);
+    border-radius: 3px;
+    color: #1e7b45;
+    font: inherit;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.mp-cartao-concluir:hover {
+    background: #e9f6ee;
+}
+
+/* ── Modais: fundo, centro e caixa (04 L131; devolução 04B L106) ── */
+.mp-modal[hidden] {
+    display: none;
+}
+
+.mp-modal > .mp-modal-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(18, 36, 47, .38);
+}
+
+.mp-modal > .mp-modal-centro {
+    position: fixed;
+    inset: 0;
+    z-index: 9001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    pointer-events: none;
+}
+
+.mp-modal-centro > .mp-modal-caixa {
+    pointer-events: auto;
+    width: min(600px, 100%);
+    max-height: 94vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--mp-fundo);
+    border-radius: 4px;
+    box-shadow: 0 20px 50px rgba(18, 36, 47, .28);
+    color: var(--mp-titulo);
+}
+
+.mp-modal-caixa > .mp-modal-cabeca {
+    background: #0a6fa0;
+    color: #fff;
+    padding: 13px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mp-modal-cabeca > .mp-modal-cabeca-texto {
+    flex: 1;
+    min-width: 0;
+}
+
+.mp-modal-cabeca-texto > b {
+    display: block;
+    font-size: 15px;
+}
+
+.mp-modal-cabeca-texto > span {
+    font-size: 12px;
+    opacity: .85;
+}
+
+/* 04B L93: o cabeçalho da página da meta só tem o título */
+.mp-modal-cabeca > .mp-modal-cabeca-titulo {
+    flex: 1;
+    font-size: 15px;
+}
+
+.mp-modal-cabeca > .mp-modal-x {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .15);
+    color: #fff;
+    cursor: pointer;
+}
+
+.mp-modal-caixa > .mp-modal-corpo {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.mp-modal-corpo > .mp-com-proxima {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.mp-modal-corpo > .mp-com-proxima[hidden] {
+    display: none;
+}
+
+/* ── Página da meta (04B L92-102): 560px sem altura máxima, 12px entre os blocos ── */
+.mp-passagem--meta .mp-modal-centro > .mp-modal-caixa {
+    width: min(560px, 100%);
+    max-height: none;
+    overflow: visible;
+}
+
+.mp-passagem--meta .mp-modal-caixa > .mp-modal-corpo,
+.mp-passagem--meta .mp-modal-corpo > .mp-com-proxima {
+    gap: 12px;
+}
+
+.mp-passagem--meta .mp-campo > input {
+    font-size: 14px;
+}
+
+.mp-passagem--meta .mp-campo-resp > .mp-membros {
+    max-height: 220px;
+}
+
+.mp-passagem--meta .mp-modal-caixa > .mp-modal-pe {
+    flex-wrap: nowrap;
+}
+
+.mp-passagem--meta .mp-modal-pe > .mp-confirmar {
+    display: inline-block;
+}
+
+/* Faixa da sequência (04 L131, hoSeq L197) */
+.mp-modal-corpo > .mp-seq {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.mp-seq > .mp-seq-etapa {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    line-height: 26px;
+    padding: 0 8px;
+    border-radius: 3px;
+    background: #eef2f5;
+    color: #7a8e9b;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.mp-seq > .mp-seq-etapa.is-atual {
+    background: #1e7b45;
+    color: #fff;
+}
+
+.mp-seq > .mp-seq-etapa.is-proxima {
+    background: #0a6fa0;
+    color: #fff;
+}
+
+.mp-seq > .mp-seq-etapa.is-passada {
+    background: #c9d3da;
+    color: #fff;
+}
+
+/* CONCLUÍDA → PRÓXIMO PASSO */
+.mp-modal-corpo > .mp-caixas {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+}
+
+.mp-caixas > .mp-caixa-concluida {
+    border: 1px solid #bfe3cc;
+    background: #f1faf4;
+    border-radius: 4px;
+    padding: 10px 12px;
+}
+
+.mp-caixas > .mp-caixas-seta {
+    font-size: 20px;
+    color: #0a6fa0;
+}
+
+.mp-caixas > .mp-caixa-proxima {
+    border: 1px solid #cfe3f0;
+    background: #f2f8fc;
+    border-radius: 4px;
+    padding: 10px 12px;
+}
+
+/* 04B L95: na página da meta a caixa guarda 40px à direita para o botão do menu */
+.mp-passagem--meta .mp-caixas > .mp-caixa-proxima {
+    position: relative;
+    padding: 10px 40px 10px 12px;
+}
+
+.mp-caixas > .mp-caixa-proxima.is-volta {
+    border-color: #f1d38a;
+    background: #fffaf0;
+}
+
+.mp-caixas > .mp-caixa-proxima.is-salta {
+    border-color: #e3a3a3;
+    background: #fdf6f6;
+}
+
+.mp-caixa-concluida > .mp-caixa-rotulo,
+.mp-caixa-proxima > .mp-caixa-rotulo {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: .6px;
+}
+
+.mp-caixa-concluida > .mp-caixa-rotulo {
+    color: #1e7b45;
+}
+
+.mp-caixa-proxima > .mp-caixa-rotulo {
+    color: #0a6fa0;
+}
+
+.mp-caixa-proxima.is-volta > .mp-caixa-rotulo {
+    color: #9a5b00;
+}
+
+.mp-caixa-proxima.is-salta > .mp-caixa-rotulo {
+    color: #a3232b;
+}
+
+.mp-caixa-concluida > b,
+.mp-caixa-proxima > b {
+    display: block;
+    font-size: 14px;
+    margin-top: 2px;
+    color: #12242f;
+}
+
+.mp-caixa-concluida > .mp-caixa-texto,
+.mp-caixa-proxima > .mp-caixa-texto {
+    font-size: 12px;
+    color: #4a6373;
+}
+
+/* Menu "PASSAR PARA A ETAPA" (04B L93) */
+.mp-caixa-proxima > .mp-menu-botao {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border: 1px solid #cfe3f0;
+    border-radius: 3px;
+    background: #fff;
+    color: #0a6fa0;
+    cursor: pointer;
+}
+
+.mp-caixa-proxima > .mp-menu-botao:hover {
+    background: #e5f1f7;
+}
+
+.mp-caixa-proxima > .mp-menu-botao[hidden],
+.mp-caixa-proxima > .mp-menu[hidden] {
+    display: none;
+}
+
+.mp-menu > .mp-menu-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+}
+
+.mp-menu > .mp-menu-caixa {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 6;
+    width: 240px;
+    background: var(--mp-fundo);
+    border: 1px solid var(--mp-borda);
+    border-radius: 3px;
+    box-shadow: 0 10px 26px rgba(18, 36, 47, .18);
+    padding: 4px 0;
+}
+
+.mp-menu-caixa > .mp-menu-titulo {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: .5px;
+    color: var(--mp-suave);
+    border-bottom: 1px solid var(--mp-divisa);
+}
+
+.mp-menu-caixa > .mp-menu-lista {
+    max-height: 200px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.mp-menu-lista > .mp-menu-sep {
+    height: 1px;
+    background: var(--mp-divisa);
+    margin: 4px 0;
+}
+
+.mp-menu-lista > .mp-menu-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    background: var(--mp-fundo);
+    padding: 7px 12px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--mp-titulo);
+    cursor: pointer;
+    text-align: left;
+}
+
+.mp-menu-lista > .mp-menu-item[data-prox="1"] {
+    background: #f2f8fc;
+}
+
+.mp-menu-lista > .mp-menu-item:hover {
+    background: var(--mp-hover-menu);
+}
+
+.mp-menu-item > .bi {
+    width: 14px;
+    color: #0a6fa0;
+}
+
+.mp-menu-item.is-volta > .bi {
+    color: #9a5b00;
+}
+
+.mp-menu-item > .mp-menu-nome {
+    flex: 1;
+}
+
+.mp-menu-nome > .mp-menu-setor {
+    display: block;
+    font-size: 11px;
+    color: var(--mp-mudo);
+}
+
+.mp-menu-item > .mp-menu-marca {
+    font-size: 10.5px;
+    color: #a3232b;
+}
+
+.mp-menu-item.is-volta > .mp-menu-marca {
+    color: #9a5b00;
+}
+
+/* "Saltando: ..." / "Voltando para ..." (04B L94) */
+.mp-modal-corpo > .mp-salto {
+    font-size: 12px;
+    color: #a3232b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mp-modal-corpo > .mp-salto.is-volta {
+    color: #9a5b00;
+}
+
+.mp-modal-corpo > .mp-salto[hidden] {
+    display: none;
+}
+
+/* TIPO DE DEMANDA (04 L131, hoTipos L196) */
+.mp-modal-corpo > .mp-tipo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.mp-tipo > .mp-rotulo {
+    font-size: 11.5px;
+    font-weight: bold;
+    letter-spacing: .5px;
+    color: var(--mp-texto-2);
+}
+
+.mp-tipo > .mp-tipos {
+    display: flex;
+    align-self: flex-start;
+    max-width: 100%;
+    background: var(--mp-seg-fundo);
+    border-radius: 4px;
+    padding: 3px;
+    gap: 2px;
+    flex-wrap: wrap;
+}
+
+.mp-tipos > .mp-tipo-botao {
+    height: 26px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--mp-suave);
+    box-shadow: none;
+    font: inherit;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.mp-tipos > .mp-tipo-botao.is-ativo {
+    background: #fff;
+    color: #0a6fa0;
+    box-shadow: 0 1px 3px rgba(18, 36, 47, .12);
+}
+
+/* Responsável, prazo, pendências e o que foi feito */
+.mp-com-proxima > .mp-resp-prazo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 160px;
+    gap: 10px;
+}
+
+.mp-resp-prazo > .mp-campo,
+.mp-com-proxima > .mp-campo,
+.mp-modal-corpo > .mp-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: bold;
+    letter-spacing: .5px;
+    color: var(--mp-texto-2);
+    margin: 0;
+}
+
+.mp-resp-prazo > .mp-campo-resp {
+    position: relative;
+}
+
+.mp-campo > input {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--mp-borda);
+    border-radius: 3px;
+    background: var(--mp-fundo);
+    color: var(--mp-titulo);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: normal;
+    letter-spacing: 0;
+}
+
+.mp-campo > input[type="date"] {
+    padding: 0 8px;
+}
+
+.mp-campo > textarea {
+    padding: 8px 9px;
+    resize: vertical;
+    border: 1px solid var(--mp-borda);
+    border-radius: 3px;
+    background: var(--mp-fundo);
+    color: var(--mp-titulo);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: normal;
+    letter-spacing: 0;
+}
+
+/* Lista de membros (04 L131, hoMembros L195) */
+.mp-campo-resp > .mp-membros {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    z-index: 5;
+    background: var(--mp-fundo);
+    border: 1px solid var(--mp-borda);
+    border-radius: 4px;
+    box-shadow: 0 10px 24px rgba(18, 36, 47, .18);
+    max-height: 240px;
+    overflow: auto;
+    letter-spacing: 0;
+    font-weight: normal;
+}
+
+.mp-campo-resp > .mp-membros[hidden] {
+    display: none;
+}
+
+.mp-membros > .mp-membro {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: none;
+    background: var(--mp-fundo);
+    padding: 7px 10px;
+    font: inherit;
+    font-size: 13.5px;
+    color: var(--mp-titulo);
+    cursor: pointer;
+    text-align: left;
+}
+
+.mp-membros > .mp-membro:hover {
+    background: var(--mp-hover);
+}
+
+.mp-membro > .mp-membro-foto {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    border-radius: 50%;
+    background: #0a6fa0;
+    background-size: cover;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mp-membro > .mp-membro-texto {
+    min-width: 0;
+}
+
+.mp-membro-texto > b {
+    display: block;
+    font-size: 13px;
+}
+
+.mp-membro-texto > span {
+    font-size: 11.5px;
+    color: var(--mp-suave);
+}
+
+/* 04B L97: sem avatar, nome em negrito e função em coluna; o texto herda a cor do rótulo */
+.mp-membros > .mp-membro.is-coluna {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    font-size: inherit;
+    color: var(--mp-texto-2);
+}
+
+.mp-membro.is-coluna > b {
+    font-size: 13px;
+}
+
+.mp-membro.is-coluna > span {
+    font-size: 11.5px;
+    color: var(--mp-suave);
+}
+
+.mp-membros > .mp-membros-vazio {
+    padding: 7px 10px;
+    font-size: 12.5px;
+    color: var(--mp-mudo);
+}
+
+/* Erro (o texto e a cor do erro da devolução, 04B L106) */
+.mp-modal-corpo > .mp-erro {
+    font-size: 12.5px;
+    color: #a3232b;
+}
+
+.mp-modal-corpo > .mp-erro[hidden] {
+    display: none;
+}
+
+/* Rodapé (04 L131) */
+.mp-modal-caixa > .mp-modal-pe {
+    padding: 12px 18px;
+    border-top: 1px solid var(--mp-divisa);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mp-modal-pe > .mp-cancelar {
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--mp-borda);
+    border-radius: 3px;
+    background: var(--mp-fundo);
+    color: var(--mp-texto);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.mp-modal-pe > .mp-confirmar {
+    height: 36px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 3px;
+    background: #1e7b45;
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.mp-modal-pe > .mp-confirmar:disabled {
+    opacity: .65;
+    cursor: default;
+}
+
+/* ── Devolução (04B L106): fundo .35, caixa de 480px, cantos de 3px ── */
+.mp-devolucao > .mp-modal-fundo {
+    z-index: 9400;
+    background: rgba(18, 36, 47, .35);
+}
+
+.mp-devolucao > .mp-modal-centro {
+    z-index: 9401;
+}
+
+.mp-devolucao .mp-modal-centro > .mp-modal-caixa {
+    width: min(480px, 100%);
+    max-height: none;
+    border-radius: 3px;
+    box-shadow: 0 20px 50px rgba(18, 36, 47, .25);
+    overflow: hidden;
+}
+
+.mp-devolucao .mp-modal-caixa > .mp-modal-cabeca {
+    padding: 12px 16px;
+    gap: 8px;
+}
+
+.mp-devolucao .mp-modal-cabeca > b {
+    flex: 1;
+}
+
+.mp-devolucao .mp-modal-cabeca > .mp-modal-x {
+    width: 28px;
+    height: 28px;
+}
+
+.mp-devolucao .mp-modal-caixa > .mp-modal-corpo {
+    padding: 14px 16px;
+    gap: 10px;
+}
+
+.mp-modal-corpo > .mp-dev-texto {
+    font-size: 13px;
+    color: var(--mp-texto-2);
+    line-height: 1.5;
+}
+
+.mp-modal-corpo > .mp-dev-rotulo {
+    font-size: 11.5px;
+    font-weight: bold;
+    letter-spacing: .5px;
+    color: var(--mp-texto-2);
+}
+
+.mp-modal-corpo > .mp-dev-motivos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.mp-dev-motivos > .mp-dev-motivo {
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--mp-borda);
+    border-radius: 3px;
+    background: var(--mp-fundo);
+    color: var(--mp-texto);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+.mp-dev-motivos > .mp-dev-motivo.is-ativo {
+    border-color: #c08a12;
+    background: #fff8e6;
+    color: #7a5200;
+}
+
+.mp-modal-corpo > .mp-dev-falta {
+    border: 1px solid var(--mp-borda);
+    border-radius: 3px;
+    padding: 8px 9px;
+    background: var(--mp-fundo);
+    color: var(--mp-titulo);
+    font: inherit;
+    font-size: 13.5px;
+    resize: vertical;
+}
+
+.mp-devolucao .mp-modal-caixa > .mp-modal-pe {
+    padding: 10px 16px;
+    flex-wrap: nowrap;
+}
+
+.mp-devolucao .mp-modal-pe > .mp-cancelar {
+    height: 34px;
+    padding: 0 13px;
+    font-size: 13.5px;
+}
+
+.mp-devolucao .mp-modal-pe > .mp-confirmar {
+    height: 34px;
+    padding: 0 15px;
+    background: #0a6fa0;
+    font-size: 13.5px;
+    display: inline-block;
+}
+
+/* Aviso (toast) depois de gravar (04 L131 fim; 04B L176) */
+.mp-toast {
+    position: fixed;
+    z-index: 9500;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    background: #12242f;
+    color: #fff;
+    font-size: 13.5px;
+    padding: 10px 16px;
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+}
+
+.mp-toast > .bi {
+    color: #7fe0a8;
+    margin-right: 6px;
+}
+
+
+/* ── "Você costuma pedir:" (04B L99, Fase 4): dica cinza e as linhas como "+ linha"; a que já está no campo fica azul ── */
+.mp-costuma {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+    margin-top: -4px;
+}
+
+.mp-costuma[hidden] {
+    display: none;
+}
+
+.mp-costuma > .mp-costuma-dica {
+    font-size: 11px;
+    color: var(--mp-apagado);
+}
+
+.mp-costuma > .mp-costuma-lista {
+    display: contents;
+}
+
+.mp-costuma-lista > .mp-costuma-pedido {
+    height: 22px;
+    padding: 0 8px;
+    border: 1px solid var(--mp-borda-leve);
+    border-radius: 3px;
+    background: var(--mp-fundo);
+    color: var(--mp-suave);
+    font: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+}
+
+.mp-costuma-lista > .mp-costuma-pedido.is-ja {
+    border-color: #0a6fa0;
+    background: var(--mp-hover);
+    color: #0a6fa0;
+}

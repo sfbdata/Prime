@@ -27,6 +27,28 @@ final class EngajamentoDoTrabalhoExterno
         return $primeiro === '' ? $cumprimento : $cumprimento . ', ' . $primeiro;
     }
 
+    /**
+     * A média, em minutos, do início da rodada ao primeiro aceite de cada oferta (`tMed`, l.1016 e 1018);
+     * null sem aceite. O chip do banner e o KPI "OFERTAS COM TEMPO" do painel usam a mesma conta.
+     *
+     * @param list<array{inicio: \DateTimeImmutable, aceite: \DateTimeImmutable}> $aceites
+     */
+    public static function minutosAteOAceite(array $aceites): ?float
+    {
+        if ($aceites === []) {
+            return null;
+        }
+        $segundos = array_map(static fn (array $a): int => max(0, $a['aceite']->getTimestamp() - $a['inicio']->getTimestamp()), $aceites);
+
+        return array_sum($segundos) / count($segundos) / 60;
+    }
+
+    /** "2,5" de 2,46 minutos: uma casa, vírgula, sem o ",0" (`String(tMed).replace('.', ',')`). */
+    public static function minutos(float $minutos): string
+    {
+        return str_replace('.', ',', (string) round($minutos, 1));
+    }
+
     public function subtitulo(bool $interno): string
     {
         return $interno ? 'Veja o que aconteceu na Central desde a sua última visita.' : 'Oportunidades para você na rede BlueJus.';
@@ -53,7 +75,7 @@ final class EngajamentoDoTrabalhoExterno
             $aoVivo > 0 ? self::chip('bi-broadcast', '#1e7b45', $aoVivo . ' oferta(s) ao vivo · a próxima termina em ' . self::mmss($r->ofertasAoVivo[0], $r->agora), ['mod' => 'vagas', 'filtro' => 'aberta']) : null,
             $r->curriculosNaSemana > 0 ? self::chip('bi-person-plus', '#0a6fa0', $r->curriculosNaSemana . ' currículo(s) novo(s) nesta semana', ['mod' => 'cv', 'filtro' => 'novo']) : null,
             $r->candidaturasNaSemana > 0 ? self::chip('bi-send-check', '#5b3f9e', $r->candidaturasNaSemana . ' candidatura(s) e aceite(s) na semana', ['mod' => 'vagas', 'filtro' => 'todas']) : null,
-            $r->minutosAteOAceite !== null ? self::chip('bi-stopwatch', '#c76a12', 'Ofertas são aceitas em ' . str_replace('.', ',', (string) round($r->minutosAteOAceite, 1)) . ' min, em média', null) : null,
+            $r->minutosAteOAceite !== null ? self::chip('bi-stopwatch', '#c76a12', 'Ofertas são aceitas em ' . self::minutos($r->minutosAteOAceite) . ' min, em média', null) : null,
             $r->totalVagas === 0 ? self::chip('bi-megaphone', '#0a6fa0', 'Publique a primeira vaga ou oferta com tempo', $r->podeCriar ? ['mod' => 'vagas', 'acao' => 'novaVaga'] : null) : null,
         ];
     }

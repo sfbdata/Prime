@@ -12,7 +12,7 @@
     Rotas com {codigo} vão com o marcador TE-0, trocado no JS pelo código real.
 #}
 
-{% block title %}Trabalho Externo · BlueJus{% endblock %}
+{% block title %}{{ 'trabalho_externo.painel.titulo_pagina'|trans }}{% endblock %}
 
 {% block body_class %}te-body{% endblock %}
 
@@ -72,6 +72,12 @@
      data-url-curriculos-marcacoes="{{ path('trabalho_externo_curriculos_marcacoes') }}"
      data-url-curriculo-previa="{{ path('trabalho_externo_curriculo_previa') }}"
      data-url-curriculos-csv="{{ path('trabalho_externo_curriculos_csv') }}"
+     data-url-curriculos-painel="{{ path('trabalho_externo_curriculos_painel') }}"
+     data-url-alertas-csv="{{ path('trabalho_externo_alertas_csv') }}"
+     data-url-campanha="{{ path('trabalho_externo_campanha') }}"
+     data-url-campanha-csv="{{ path('trabalho_externo_campanha_csv') }}"
+     data-url-campanha-html="{{ path('trabalho_externo_campanha_html') }}"
+     data-url-campanha-registro="{{ path('trabalho_externo_campanha_registro') }}"
      data-url-simbolo="{{ asset('images/logo/bluejus_simbolo.svg') }}"
      {#- Conta com o e-mail a confirmar não convida (spec login-desenho-10): o JS mostra o aviso e o botão de reenviar o link. #}
      {%- if app.user is not null and not app.user.emailConfirmado %}
@@ -84,8 +90,8 @@
         <h1 class="te-titulo">
             <i class="bi bi-geo-alt"></i>
             <span class="te-titulo-textos">
-                <span class="te-titulo-nome">Trabalho Externo</span>
-                <span class="te-titulo-sub">Central de demandas, vagas e talentos jurídicos</span>
+                <span class="te-titulo-nome">{{ 'trabalho_externo.painel.nome'|trans }}</span>
+                <span class="te-titulo-sub">{{ 'trabalho_externo.painel.subtitulo'|trans }}</span>
             </span>
         </h1>
         <div class="te-titulo-acoes" id="teTituloAcoes"></div>
@@ -109,7 +115,7 @@
             <div class="te-chips" id="teChips"></div>
             <label class="te-busca">
                 <i class="bi bi-search"></i>
-                <input type="text" id="teBusca" placeholder="Buscar demanda, cidade, processo" autocomplete="off">
+                <input type="text" id="teBusca" placeholder="{{ 'trabalho_externo.painel.busca_placeholder'|trans }}" autocomplete="off">
             </label>
         </div>
 
@@ -119,7 +125,7 @@
         <div class="te-tabela-caixa">
             <div class="te-tabela">
                 <div class="te-grade te-grade--cab">
-                    <div class="te-cab-sel" id="teCabSel"></div><div>ID</div><div>SERVIÇO</div><div>ORIGEM → EXECUÇÃO</div><div>PRAZO</div><div>RESPONSÁVEL</div><div>SITUAÇÃO</div><div class="te-centro">CHAT</div><div></div>
+                    <div class="te-cab-sel" id="teCabSel"></div><div>{{ 'trabalho_externo.painel.coluna.id'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.servico'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.origem_execucao'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.prazo'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.responsavel'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.situacao'|trans }}</div><div class="te-centro">{{ 'trabalho_externo.painel.coluna.chat'|trans }}</div><div></div>
                 </div>
                 <div id="teLinhas"></div>
             </div>
@@ -132,7 +138,7 @@
             <div class="te-vg-sel" id="teVgSel"></div>
             <label class="te-vg-busca">
                 <i class="bi bi-search"></i>
-                <input type="text" id="teVgBusca" placeholder="Buscar vaga, cargo, área ou cidade" autocomplete="off">
+                <input type="text" id="teVgBusca" placeholder="{{ 'trabalho_externo.painel.vagas_busca_placeholder'|trans }}" autocomplete="off">
             </label>
             <div class="te-vg-filtros" id="teVgFiltros"></div>
             <span class="te-espaco"></span>

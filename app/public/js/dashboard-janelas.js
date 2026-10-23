@@ -178,7 +178,7 @@
 
         var cab = el('div', 'db-janela-cab');
         cab.setAttribute('data-janela-alca', '');
-        cab.title = 'Arraste para mover';
+        cab.title = window.BJ_T.t('dashboard.js.janelas.arraste_para_mover');
         if (o.icone) {
             var ic = el('span', 'db-janela-icone');
             ic.setAttribute('aria-hidden', 'true');
@@ -198,8 +198,8 @@
         cab.appendChild(grip);
         var x = el('button', 'db-janela-fechar');
         x.type = 'button';
-        x.setAttribute('aria-label', 'Fechar');
-        x.title = 'Fechar';
+        x.setAttribute('aria-label', window.BJ_T.t('dashboard.js.janelas.fechar'));
+        x.title = window.BJ_T.t('dashboard.js.janelas.fechar');
         var xi = el('i', 'bi bi-x-lg');
         xi.setAttribute('aria-hidden', 'true');
         x.appendChild(xi);

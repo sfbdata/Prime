@@ -23,39 +23,39 @@
             <div class="usuario-name">{{ app.user.fullName|upper }}</div>
             <div class="usuario-email">{{ app.user.email }}</div>
             <div class="mu-selos">
-                {% if _ehMaster %}<span class="mu-selo mu-selo-master"><i class="bi bi-star-fill"></i>MASTER</span>{% endif %}
+                {% if _ehMaster %}<span class="mu-selo mu-selo-master"><i class="bi bi-star-fill"></i>{{ 'termos.master'|trans|upper }}</span>{% endif %}
                 {% if current_tenant() %}
-                    <span class="mu-selo mu-selo-papel">{{ _ehPrimario or _ehMaster ? 'USUÁRIO PRIMÁRIO' : 'SECUNDÁRIO' }}</span>
+                    <span class="mu-selo mu-selo-papel">{{ _ehPrimario or _ehMaster ? 'menu.usuario.dropdown.selo_primario'|trans : 'termos.secundario'|trans|upper }}</span>
                 {% endif %}
             </div>
         </div>
-        <button type="button" class="mu-menu-x" data-mu-fechar-menu aria-label="Fechar menu"><i class="bi bi-x-lg"></i></button>
+        <button type="button" class="mu-menu-x" data-mu-fechar-menu aria-label="{{ 'menu.usuario.dropdown.fechar_menu'|trans }}"><i class="bi bi-x-lg"></i></button>
     </div>
 
     <div class="mu-grupo">
         <a href="{{ path('app_profile') }}" class="dropdown-item mu-item" role="menuitem">
-            <i class="bi bi-person"></i><span class="mu-item-texto"><span class="mu-item-titulo">Meu Perfil</span></span>
+            <i class="bi bi-person"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.meu_perfil'|trans }}</span></span>
         </a>
         {% if current_tenant() and (_ehPrimario or _ehMaster) %}
             <a href="{{ path('auth_gerenciar_convites') }}" class="dropdown-item mu-item" role="menuitem" data-mu-convites data-mu-conta="conta">
-                <i class="bi bi-envelope-paper"></i><span class="mu-item-texto"><span class="mu-item-titulo">Convites do escritório</span></span>
-                <span class="mu-item-dir">equipe</span>
+                <i class="bi bi-envelope-paper"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.convites'|trans }}</span></span>
+                <span class="mu-item-dir">{{ 'menu.usuario.dropdown.convites_dir'|trans }}</span>
             </a>
         {% endif %}
         <button type="button" class="dropdown-item mu-item" role="menuitem" data-ind-abrir>
-            <i class="bi bi-megaphone"></i><span class="mu-item-texto"><span class="mu-item-titulo">Indicar o BlueJus</span></span>
-            <span class="mu-item-dir">nova conta</span>
+            <i class="bi bi-megaphone"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.indicar'|trans }}</span></span>
+            <span class="mu-item-dir">{{ 'menu.usuario.dropdown.indicar_dir'|trans }}</span>
         </button>
         {% if current_tenant() %}
             <button type="button" class="dropdown-item mu-item" role="menuitem" data-mu-conta="trocar">
-                <i class="bi bi-arrow-left-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">Trocar de conta</span></span>
+                <i class="bi bi-arrow-left-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.trocar_conta'|trans }}</span></span>
             </button>
         {% endif %}
     </div>
 
     {% if _ehMaster %}
         <div class="mu-grupo mu-grupo-master">
-            <div class="mu-grupo-rotulo"><i class="bi bi-star-fill"></i>EXCLUSIVO DO MASTER</div>
+            <div class="mu-grupo-rotulo"><i class="bi bi-star-fill"></i>{{ 'menu.usuario.dropdown.exclusivo_master'|trans }}</div>
             {% include 'menu_usuario/_itens_master.html.twig' with {classe_item: 'dropdown-item mu-item mu-item-duplo', papel: 'menuitem'} only %}
         </div>
     {% endif %}
@@ -68,20 +68,20 @@
         <button type="button" id="toggleTema" class="dropdown-item mu-item {{ recurso_marca('tema') }}"
                 role="menuitemcheckbox" aria-checked="false">
             <i class="bi bi-moon-stars" id="toggleTemaIcone"></i>
-            <span class="mu-item-texto"><span class="mu-item-titulo" id="toggleTemaLabel">Tema escuro</span></span>
+            <span class="mu-item-texto"><span class="mu-item-titulo" id="toggleTemaLabel">{{ 'menu.usuario.dropdown.tema_escuro'|trans }}</span></span>
             <span class="mu-chave" aria-hidden="true"><span></span></span>
         </button>
         {% endif %}
         {% if recurso_visivel('idioma') %}
         <button type="button" class="dropdown-item mu-item {{ recurso_marca('idioma') }}" role="menuitem" data-mu-idioma>
-            <i class="bi bi-translate"></i><span class="mu-item-texto"><span class="mu-item-titulo">Idioma</span></span>
-            <span class="mu-item-dir">Português (Brasil)</span>
+            <i class="bi bi-translate"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.idioma'|trans }}</span></span>
+            <span class="mu-item-dir">{{ idioma_atual().nome }}</span>
         </button>
         {% endif %}
         {% if recurso_visivel('instalar') %}
         <button type="button" id="linkInstalarApp" class="dropdown-item mu-item {{ recurso_marca('instalar') }}" role="menuitem">
             <i class="bi bi-download"></i>
-            <span class="mu-item-texto"><span class="mu-item-titulo" id="linkInstalarAppTexto">Instalar aplicativo</span></span>
+            <span class="mu-item-texto"><span class="mu-item-titulo" id="linkInstalarAppTexto">{{ 'menu.usuario.dropdown.instalar'|trans }}</span></span>
         </button>
         {% endif %}
     </div>
@@ -93,18 +93,18 @@
         {# Novidades: o selo aparece até a pessoa abrir a página (public/js/novidades.js). #}
         <a href="{{ path('novidades_index') }}" class="dropdown-item mu-item {{ recurso_marca('novidades') }}" role="menuitem"
            data-novidades-versao="{{ novidades_mais_recente()|e('html_attr') }}">
-            <i class="bi bi-stars"></i><span class="mu-item-texto"><span class="mu-item-titulo">Novidades</span></span>
-            <span class="novidades-selo badge rounded-pill text-bg-primary ms-auto d-none">novo</span>
+            <i class="bi bi-stars"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.novidades'|trans }}</span></span>
+            <span class="novidades-selo badge rounded-pill text-bg-primary ms-auto d-none">{{ 'menu.usuario.dropdown.novidades_selo'|trans }}</span>
         </a>
         {% endif %}
         {% if recurso_visivel('ajuda') %}
         <button type="button" class="dropdown-item mu-item {{ recurso_marca('ajuda') }}" role="menuitem" data-mu-ajuda>
-            <i class="bi bi-question-circle"></i><span class="mu-item-texto"><span class="mu-item-titulo">Ajuda e atalhos</span></span>
+            <i class="bi bi-question-circle"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.ajuda'|trans }}</span></span>
         </button>
         {% endif %}
         {% if recurso_visivel('privacidade') %}
         <a href="{{ path('legal_politica_privacidade') }}" class="dropdown-item mu-item {{ recurso_marca('privacidade') }}" role="menuitem" target="_blank" rel="noopener">
-            <i class="bi bi-shield-lock"></i><span class="mu-item-texto"><span class="mu-item-titulo">Política de Privacidade</span></span>
+            <i class="bi bi-shield-lock"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.privacidade'|trans }}</span></span>
         </a>
         {% endif %}
     </div>
@@ -113,14 +113,14 @@
     {# Contribua (desenho 03: entre Política de Privacidade e Sair, com "PIX" à direita). #}
     <div class="mu-grupo">
         <a href="{{ path('contribua_index') }}" class="dropdown-item mu-item" role="menuitem">
-            <i class="bi bi-heart" style="color:#c0392b"></i><span class="mu-item-texto"><span class="mu-item-titulo">Contribua</span></span>
+            <i class="bi bi-heart" style="color:#c0392b"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.contribua'|trans }}</span></span>
             <span class="mu-item-dir">PIX</span>
         </a>
     </div>
 
     <div class="mu-grupo">
-        <a href="{{ path('app_logout') }}" class="dropdown-item mu-item text-danger" role="menuitem" data-mu-sair>
-            <i class="bi bi-box-arrow-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">Sair</span></span>
+        <a href="{{ logout_path('main') }}" class="dropdown-item mu-item text-danger" role="menuitem" data-mu-sair>
+            <i class="bi bi-box-arrow-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.sair'|trans }}</span></span>
         </a>
     </div>
 </div>

@@ -7,30 +7,30 @@
     <div class="sidebar-wrapper pje-menu-wrapper">
         <nav>
             <ul class="pje-menu-list">
-                <li class="pje-menu-separator">Master</li>
+                <li class="pje-menu-separator">{{ 'termos.master'|trans }}</li>
                 <li class="pje-menu-item">
                     <a href="{{ path('admin_platform_dashboard') }}"
                        class="pje-menu-link {{ currentRoute == 'admin_platform_dashboard' ? 'active' : '' }}">
-                        <i class="bi bi-speedometer2 pje-nav-icon"></i><span>Dashboard</span>
+                        <i class="bi bi-speedometer2 pje-nav-icon"></i><span>{{ 'plataforma.menu.painel'|trans }}</span>
                     </a>
                 </li>
                 <li class="pje-menu-item">
                     <a href="{{ path('admin_platform_convite_index') }}"
                        class="pje-menu-link {{ currentRoute starts with 'admin_platform_convite' ? 'active' : '' }}">
-                        <i class="bi bi-envelope-paper pje-nav-icon"></i><span>Convites</span>
+                        <i class="bi bi-envelope-paper pje-nav-icon"></i><span>{{ 'plataforma.menu.convites'|trans }}</span>
                     </a>
                 </li>
                 <li class="pje-menu-item">
                     <a href="{{ path('admin_platform_oab_index') }}"
                        class="pje-menu-link {{ currentRoute starts with 'admin_platform_oab' ? 'active' : '' }}">
-                        <i class="bi bi-patch-check pje-nav-icon"></i><span>Revisão de OAB</span>
+                        <i class="bi bi-patch-check pje-nav-icon"></i><span>{{ 'plataforma.menu.revisao_oab'|trans }}</span>
                     </a>
                 </li>
 
-                <li class="pje-menu-separator">Sistema</li>
+                <li class="pje-menu-separator">{{ 'plataforma.menu.sistema'|trans }}</li>
                 <li class="pje-menu-item">
                     <a href="{{ path('expediente_index') }}" class="pje-menu-link">
-                        <i class="bi bi-box-arrow-left pje-nav-icon"></i><span>Voltar ao sistema</span>
+                        <i class="bi bi-box-arrow-left pje-nav-icon"></i><span>{{ 'plataforma.menu.voltar'|trans }}</span>
                     </a>
                 </li>
             </ul>

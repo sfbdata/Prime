@@ -857,3 +857,247 @@ MÉDIO (envio em massa). Sem migration: o filtro fica congelado no `publico_para
   próprio (tirar o filtro alargaria o público); os IN vão em blocos de 10 mil (limite de parâmetros do PostgreSQL);
   nascimento no futuro conta como sem a informação; "Prefiro não informar" (`nao_informado`) também (contrato da F1);
   OAB com número e sem status é pendente, como no dc; plano fora do catálogo não atende ninguém, sem erro.
+
+## 10. F3: a tela da Central de envios (desenho 05 VS 21.10.26)
+
+Divisão (coordenador, 21/10): F3a editor (selo e nome na prévia, emojis, barra de ações com "Programar envio", "Ver
+como vai chegar" computador e celular, "Salvar como meu modelo", linha de destinatários com repetidos e inválidos), F3b
+UI dos filtros, F3c KPIs embaixo e Descadastrados, F3d e F3e relatório em caixa de entrada (da 9b), F3f teste novo e
+gravado, F3g confirmação de leitura, F3h modo venda na seção Indicações, F3i imagem no modo simples, F4 Datas
+comemorativas. Com migration: F3e, F3g e, provavelmente, F3i e F4 (números pedidos na vez).
+
+### Decisões do coordenador (21/10, por delegação do dono; o dono pode rever)
+- O teste gravado conta no KPI "Campanhas", como no dc.
+- Confirmação de leitura por campanha com o rastreio global desligado (Política): a chave aparece desligada, com a
+  explicação, e Lidos e Taxa de leitura mostram "—".
+- "Entregue" (✓ verde) = enviado sem falha, até haver provedor com recibo.
+- "Reenviar a quem não leu" = uma campanha nova, com confirmação, só com o rastreio ligado.
+- "Excluir do relatório" só oculta (a trilha e a retenção de 24 meses ficam). Estrela e Arquivar são por usuário
+  Master.
+- Descadastrados: lista `comercial_campanhas` e `todos`; "Registrar pedido" grava em `comercial_campanhas`; "Excluir"
+  (reativar) é um por vez, com confirmação e auditoria.
+- "E-mails na fila" = o que está de fato na fila (envios enfileirados), não a soma do total das campanhas.
+- Modo venda: "Cadastrar e-mail" manda a confirmação do endereço (dupla), como já existe; o relatório na seção
+  Indicações mostra tudo, como no dc.
+- Nome na prévia: o primeiro nome do primeiro destinatário, como no dc; "Dra. Ana" quando não há ninguém.
+- Exportar destinatários (CSV): auditado, sem os e-mails já com hash (depois de 24 meses).
+- "Cancelar envio" de recorrente = Encerrar (A3); o dc não tem "Pausar".
+
+### Com o dono (não implementar a parte em dúvida; o controle fica desabilitado ou de fora)
+- Teste para qualquer endereço (dc L668, "Encaminhar para um e-mail"): contraria a C4 (só o Master logado).
+- Imagem no modo simples: o dc grava como `data:`, que o Gmail bloqueia; hospedar no servidor exige decidir tamanho,
+  retenção e URL pública.
+- "Limpar lista" dos Descadastrados (reativação em massa, risco LGPD).
+- Datas comemorativas: o A2 (o dc liga todas; a decisão anterior era desligadas e só primários).
+- Remetente: mostrar o real (`nao-responda@`) ou passar a enviar de `contato@` como no dc. Até a resposta, a tela
+  mostra o remetente real.
+
+### F3b (entregue)
+- O painel "Filtrar destinatários" logo abaixo da grade de públicos (L260): fechado, o selo com quantos campos estão
+  preenchidos (a busca conta) e "N de M com filtro" ou "Todos (M)"; aberto, a busca, os 7 atalhos (L664, cada um troca
+  o filtro inteiro), os 8 selects (Plano pelo catálogo, D4) e "N de M atendem ao filtro · K sem essa informação no
+  cadastro (ficam de fora)" ou "Enviando para todos da lista (M)", com "Limpar filtro". O `filtro` vai na contagem e na
+  confirmação; quem conta é o servidor (F2). O modo venda (só busca e Estado) é da F3h.
+
+### F3a (entregue)
+- Cabeçalho "Central de envios · nova campanha" (L251) com o botão "Descadastrados (N)": dispara
+  `mc:descadastrados-abrir` (o bloco é da F3c, do 0d) e lê o N do `mc:resumo`.
+- "Salvar como meu modelo" no modelo fixo (L653): pede o nome (padrão "<nome> (meu)") e guarda a cópia em Meus
+  modelos no MESMO modo (`SalvarComoMeuModeloUseCase`, ação `salvar_como`); o "Duplicar" continua convertendo em blocos.
+- Selo (em maiúsculas ao digitar) e "Nome na prévia" entre Assunto e Título (L270); o nome digitado troca o `{nome}`
+  como foi escrito, só na prévia (`nomeDaPrevia`). Os 10 emojis entram no fim do texto simples (L274). A imagem do
+  mesmo trecho está com o dono.
+- Linha de destinatários do L665: "N destinatário(s) · X descadastrado(s) retirado(s) · Y repetido(s) removido(s) · Z
+  inválido(s) ignorado(s)" ou "· lista limpa"; o B1 entra no mesmo tom. Para contar os inválidos, a leitura do CSV e do
+  Individual passou a manter os endereços errados (o CSV só os que têm "@"); quem filtra é o `PublicosDaCampanha`.
+- Barra (L287-292): "Enviar" ou "Programar envio" com a seta do PROGRAMAR ENVIO (data, REPETIR, Concluir); ver, testar
+  e baixar em ícones; a LGPD na dica do escudo; o relógio com a data e a repetição na linha de destinatários.
+- "Como o destinatário vai receber" (L499-501): computador e celular (375 × 640), o remetente real do sistema.
+- Ganchos para as outras partes: `window.McCampanha.modeloAtual()` (teste da F3f, 7d) e
+  `window.McCampanha.extrasDoEnvio` (F3g, 0d: funções que devolvem um objeto para mesclar no "Enviar campanha").
+
+### F3h: modo venda na seção Indicações (b5, combinado com a 5d em 21/10)
+
+Desenho 05 VS 21.10.26: `secCentral = sec === 'com' || sec === 'ind'` e `venda = sec === 'ind'` (dc L627-645 e o
+render). A mesma Central de envios aparece na seção "Indicações do BlueJus", abaixo do resumo e dos limites (#185/#190).
+Escrita depois da F3a, em cima do código dela; a 5d revisa.
+
+**Tela (modo `venda`):**
+1. Modelos só `convite`, `vagas`, `news` e `novidades`, mais os do usuário; padrão `convite`. O seletor de modelo não
+   aparece (`cmMostraModelo: sec !== 'ind'`) e os passos viram 1 PARA QUEM e 2 MENSAGEM (`cmNPara`/`cmNMsg`).
+2. Públicos só `leads` (rótulo "Novos contatos (base)", descrição "Interessados ainda sem conta"), `csv` e `indiv`, em
+   3 colunas (`cmPubCols`). Público fora da lista volta para `leads`.
+3. Botão "Cadastrar e-mail" no cabeçalho do PARA QUEM (`cmLeadAdd`, borda tracejada do dc).
+4. Filtro (F3b) só com a busca e o Estado: os selects e os atalhos somem.
+5. Relatório: o mesmo da seção Comercial, mostrando tudo (sem origem na campanha; spec §10, sem migration).
+
+**Contrato com o código da 5d:**
+- Os ganchos globais da F3a (`window.McCampanha.modeloAtual()`, `window.McCampanha.extrasDoEnvio`) continuam
+  apontando para a instância do modo `com` (a F3f e a F3g dependem deles); a instância `venda` não se registra neles.
+- `_comercial.html.twig` recebe `modo` (padrão `'com'`) e põe `data-modo` na raiz.
+- `comercial-campanha.js` deixa de ser singleton: roda por raiz (`[data-mc-campanha]`), cada uma com o seu token, as
+  suas URLs e ids únicos, e carrega com `sec === 'com'` ou `sec === 'ind'` conforme a raiz. Uma tabela única
+  `MODOS = {com: {...}, venda: {modelos, publicos, filtros, passos}}`.
+- Não mexer no motor do filtro (`FiltroDoPublico`, `FiltroDeDestinatarios`, `AtributosDosDestinatarios`) nem no
+  relatório da 9b.
+
+**Servidor:**
+- "Cadastrar e-mail": `CadastrarContatoDoMasterUseCase` (Comercial, só Master), que chama
+  `ConfirmacaoDeEnderecoInterface::pedir(...)` para a lista `comercial_campanhas` (`ComposicaoDaCampanha::LISTA`): a
+  confirmação dupla da 1a, com os limitadores (e-mail, IP, global). Quem se descadastrou da lista NÃO recebe o pedido
+  por aqui, nem depois de 30 dias (LGPD, coordenação 21/10): conta à parte na resposta, sem o endereço.
+  Origem `cadastro-manual-master` (rótulo "pela equipe do BlueJus, em um cadastro manual" em `RotulosDoConsentimento`).
+  Vários e-mails separados por vírgula, espaço ou ponto e vírgula; a resposta diz quantos pedidos saíram, quantos já
+  existiam, quantos foram barrados e quantos são descadastrados (`descadastrados`), sem travessão. O texto do dc ("Só cadastre quem autorizou receber (LGPD)") aparece no campo.
+- `modo: 'venda'` no pedido de contagem e de envio, validado no `PedidoDePublico` e no `PedidoDeCampanha`: público fora
+  de `leads`/`csv`/`indiv` ou modelo fora dos quatro (e dos do usuário) é recusado (422). É coerência, não barreira:
+  `modo` e o `cu<id>` são rótulos que o próprio cliente manda (o Master pode enviar pela seção Comercial de qualquer
+  forma). No modo venda, o filtro aceita só busca e Estado (o resto recusado).
+
+**Testes:** a seção ind tem a Central como filho direto (combinador), com `data-modo="venda"`; os dois modos na mesma
+página não se confundem (token, URLs, ids); a recusa no servidor (público, modelo, filtro); o UseCase do cadastro
+(confirmação pedida, limitadores, origem, descadastrado); 403 para quem não é Master; CSRF.
+
+**Estado (21/10, implementado na branch `comercial-f3h`, a revisar pela 5d):**
+- Feito: `_comercial.html.twig` com `modo` (raiz da venda `.mc.mc-venda[data-mc-venda][data-modo="venda"]`, sem
+  `data-mc`, ids com prefixo `mc-venda-`), incluído pelo `_indicacoes.html.twig` como filho direto do `[data-mi]`;
+  `comercial-campanha.js` por raiz, com `MODOS`; `PedidoDePublico::modo` e as recusas da venda no `PedidoDePublico` e
+  no `PedidoDeCampanha`; `CadastrarContatoDoMasterUseCase` em `POST /master/comercial/contatos` (origem
+  `cadastro-manual-master`, rótulos da origem e da lista `comercial_campanhas` no `RotulosDoConsentimento`).
+- Limite por IP do cadastro: `comercial_contatos_master` (20 por hora) no `framework.yaml`, 429 com mensagem.
+- Cada raiz expõe `raiz.mcModeloAtual` (o modelo da própria instância; o teste da F3f lê o da instância do clique).
+- Depois do #223, em PRs próprios (coordenação, 21/10): o Relatório na venda (9b, include no `_comercial.html.twig`
+  dentro da raiz) e o botão "Descadastrados (N)" na venda (0d, o mesmo bloco movido para antes da Central do clique;
+  `raiz.mcExtrasDoEnvio` para a confirmação de leitura).
+- Coordenação, 21/10 (o dono pode rever): o descadastrado não recebe o pedido pelo cadastro do Master; no e-mail do
+  cadastro manual, a segunda frase é "Se não quiser receber, é só ignorar este e-mail." (as outras origens seguem com
+  "Se não foi você, ignore este e-mail.").
+
+## 11. F3.3 (a): quem autorizou vagas recebe o modelo de vagas (dono, 21/10)
+
+Decisões do dono (21/10): F3.1 (a), `COMERCIAL_CAMPANHAS_LIGADAS` nasce desligada (como já está); F3.3, as duas
+saídas: (a) já, (b) a caixa "aceito novidades" quando houver desenho; F3.9 (b), o rótulo da Base de contatos passa a
+"Contatos que autorizaram campanhas". Risco MÉDIO (envio em massa, consentimento). Migration `Version20261020149600`.
+
+### Regra
+- Público `leads` ("Base de contatos"):
+  - com o modelo `vagas` ("Ofertas · vagas abertas", dc L506): a união sem repetidos dos confirmados de
+    `comercial_campanhas` e de `vagas_alerta`, nessa ordem;
+  - com qualquer outro modelo, inclusive cópias `cu<id>`: só os confirmados de `comercial_campanhas`, como hoje.
+- Cada destinatário leva a lista pela qual entrou: quem está nas duas sai por `comercial_campanhas`, e quem só autorizou
+  vagas sai por `vagas_alerta`. Essa lista decide o link de descadastro, o List-Unsubscribe e a checagem do Carteiro.
+- No modelo `vagas`, quem se descadastrou de QUALQUER uma das duas listas fica de fora, para que o "não quero mais" de
+  uma não volte pela outra.
+- Âncora no servidor (decisão técnica): com a chave `vagas`, a campanha só é aceita no modo `simples` com o botão
+  apontando para as vagas (`link = vagas`). O texto continua editável. Fora disso, a campanha é recusada com uma
+  mensagem clara. Isso não é barreira contra o Master, porque a rota é só dele. Serve para o consentimento de vagas
+  não sair num e-mail que não leva às vagas.
+- A lista de cada destino fica gravada na fila (`comercial_campanha_destino.lista`, padrão `comercial_campanhas`). A
+  recorrente e a agendada resolvem o público com o `modelo_chave` gravado na campanha.
+- A contagem recebe o modelo: a tela manda `modelo` e reconta ao trocar de modelo.
+- Ficam como estão: o B1 do CSV e do Individual (só `comercial_campanhas`) e o KPI "Base de contatos" do painel.
+
+### Confirmações do dono (21/10) sobre o §8.8
+- Item 1: confirmado (a chave nasce desligada). Item 3: revisto por esta seção. Item 9: o rótulo muda para "Contatos que
+  autorizaram campanhas". Item 12: confirmado (a limpeza dos sinais do nome do CSV fica). Item 13: confirmado (a
+  recorrente com até 24 h de atraso sai uma vez; com mais, pula aquela vez).
+
+### Decisões técnicas da implementação
+- A âncora vale na confirmação e no envio de teste; a prévia não recusa, porque roda a cada edição. A URL completa das
+  vagas não substitui o `link = vagas`.
+- No modelo `vagas`, o descadastro das duas listas vale para qualquer público, não só para a Base de contatos.
+
+### Para o dono (nota, sem bloquear)
+- Sair pelo link de uma campanha de vagas também desliga os alertas de vagas, porque é o mesmo consentimento.
+- Uma campanha recorrente de vagas cresce sozinha conforme a lista `vagas_alerta` cresce.
+
+## 12. F3i: imagem na campanha do modo simples (dono, 21/10 à noite; o dono pode rever)
+
+Decisão do dono, F3i (a): a imagem fica guardada no BlueJus com endereço público, até 1 MB, só JPG ou PNG, e é apagada
+1 ano depois da campanha. Desenho: dc 05 VS 21.10.26, L274 (controle), L596 (no e-mail) e L659 (JS). Risco MÉDIO
+(arquivo público, envio em massa). Uma migration (tabela `comercial_imagem`).
+
+### O que o desenho mostra (entra inteiro)
+- No modo simples, abaixo do TEXTO e na linha do "Inserir:", o botão "Adicionar imagem", que vira "Trocar imagem"
+  quando já há uma, e o "Remover". Uma imagem por e-mail.
+- No e-mail, a imagem vai logo abaixo do cabeçalho azul e antes dos parágrafos, com 540 px de largura e cantos de 6 px.
+  Com imagem, o espaço interno do texto cai de 28 para 18 px.
+- No navegador, a imagem é reduzida a no máximo 1080 px e convertida em JPEG (qualidade 0,85), como no desenho.
+
+### Regras
+- **Envio:** `POST /master/comercial/imagens`, só para o Master, com o CSRF da seção. O tipo é conferido pelo conteúdo,
+  só JPEG ou PNG, nunca pela extensão. O servidor recusa arquivo acima de 1 MB e dimensão acima de 4000 px. A imagem é
+  regravada no servidor para tirar EXIF e localização. O nome é aleatório e a URL usa um token próprio.
+- **Endereço público:** `GET /e/i/{token}.{jpg|png}`, sem login. Leva Content-Type exato, `nosniff`, cache de um dia e
+  `noindex`. Token inexistente ou vencido dá 404.
+- **Na campanha e no modelo:** a mensagem guarda só o token (`imagem`), nunca URL livre nem `data:`. Token desconhecido
+  ou vencido é recusado com "A imagem expirou; envie de novo."
+- **Alt:** o título do e-mail. O desenho usa um alt mas não tem campo para preenchê-lo; pela convenção, nenhum campo novo
+  entra na tela.
+- **Validade:**
+  - campanha: 1 ano a partir do último envio, o que inclui cada execução da recorrente;
+  - modelo salvo: 1 ano a partir do último salvamento;
+  - imagem enviada e nunca usada: 30 dias.
+  - A purga entra no `app:purgar-dados-expirados`, e o arquivo só é apagado depois do COMMIT.
+- **Escopo:** só o modo simples, como no desenho. O bloco "Imagem" do modo blocos continua com endereço `https://`.
+- **Efeito esperado:** um e-mail antigo perde a imagem depois de 1 ano.
+
+### Decisões técnicas (o dono pode rever)
+Contagem de 1 ano na recorrente pelo último envio; 30 dias para a imagem sem uso; o alt é o título; o JPEG do desenho é
+mantido.
+
+## 13. F4: datas comemorativas (dono, 21/10 à noite; o dono pode rever)
+
+Decisão do dono, F4 (a), como o desenho: as datas nascem LIGADAS e vão para todos. A chave geral das campanhas
+(`COMERCIAL_CAMPANHAS_LIGADAS`, F3.1) nasce desligada e segura tudo: nada sai em massa até o Master ligá-la. Isto
+substitui a A2. Desenho: dc 05 VS 21.10.26, L335-339 (tela), L614-618 (as 17 datas), L626-627 (modelo de cada data) e
+L678-682 (estado). Risco MÉDIO. Migration `Version20261020149800`.
+
+### O que o desenho mostra (entra inteiro)
+- A seção "Datas comemorativas", com o sub "mensagens automáticas nas datas nacionais · N ativas".
+- Uma linha por data, com:
+  - o interruptor;
+  - o selo com dia da semana, dd/mm e ícone;
+  - o nome e "em N dias · envio dd/mm às 9h", em laranja com 7 dias ou menos;
+  - a antecedência: No dia, 1 dia antes ou 3 dias antes;
+  - o "Para quem": Todos, Primários ou Base de contatos;
+  - o "Ver mensagem", com o aviso "Prévia da mensagem de X. Use Duplicar para personalizar o texto.".
+- As 17 datas:
+  - fixas: Ano Novo, Mulher, Tiradentes, Trabalho, Namorados, Advogado, Independência, Cliente, Crianças, Finados,
+    Consciência Negra, Natal e Réveillon;
+  - móveis: Carnaval (Páscoa menos 47), Páscoa, Mães (2º domingo de maio) e Pais (2º domingo de agosto).
+- Os textos são literais do dc. Padrão de cada data: ligada, no dia, para Todos.
+- O modelo de cada data:
+  - assunto: título + " · BlueJus";
+  - selo: o nome em maiúsculas;
+  - título: o título sem "!" + ", {nome}!";
+  - blocos: o texto mais o botão "Abrir o BlueJus".
+  As datas também entram na grade de modelos (dc L627), para o "Duplicar".
+
+### Regras
+- **Estado no servidor:** a tabela `comercial_data_comemorativa` (chave, ligada, antecedência 0/1/3, público
+  `todos|prim|leads`, `alterada_por` e `alterada_em`, auditável) nasce semeada com as 17 ligadas, no dia, para Todos.
+  O `localStorage` do dc vira servidor.
+- **Disparo:** o passo `datas` no `VarrerAutomacoesHandler`. Para cada data ligada cujo dia de envio é hoje e que já
+  passou das 9h (America/Sao_Paulo), cria uma campanha única do sistema (`criada_por` nulo, `modelo_chave =
+  data-<id>`, o público da data). Ela herda o expansor: vazão, teto, B1, descadastro, Relatório e Cancelar.
+- **Uma vez por ano:** `chave_idempotencia = data:<id>:<ano da data>`. O ano é o da data, então o Ano Novo "1 dia
+  antes" sai em 31/12 com o ano seguinte.
+- **Janela:** até 23:59 do dia de envio. Ligar a data nesse dia, depois das 9h, ainda manda. Passado o dia, nada é
+  recuperado.
+- **Chave geral desligada:** o passo não cria nada e não represa nada.
+- **Público:**
+  - Todos: primários mais secundários, ativos;
+  - Primários: só os primários;
+  - Base de contatos: os confirmados de `comercial_campanhas`.
+  A lista de envio e de descadastro é `comercial_campanhas`. A base legal de Todos e Primários é o legítimo interesse,
+  como o item 8 da §8.8, que esta decisão confirma na prática.
+- **Texto da tela:** pelo catálogo (`comercial.datas.*` e `comercial.js.datas_*`). Os nomes e os textos das datas
+  ficam no PHP, como os outros modelos fixos.
+
+### Para o dono (nota, sem bloquear)
+- Ligar a chave geral solta a próxima data para todos, sem confirmação nova.
+- Vazão: com o teto de 1.000 por dia, uma base maior que isso recebe o Natal em dois dias.
+- O Réveillon e o Ano Novo saem em dias seguidos.
+- As campanhas das datas aparecem no Relatório e no KPI "Campanhas". Um selo "Data comemorativa" no Relatório fica
+  para depois.

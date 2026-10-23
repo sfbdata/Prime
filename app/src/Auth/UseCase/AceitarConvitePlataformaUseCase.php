@@ -12,6 +12,8 @@ use App\Auth\Service\DadosDaContaDoConvite;
 use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Enum\Genero;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
@@ -79,6 +81,7 @@ final class AceitarConvitePlataformaUseCase
         $user->setPassword($this->passwordHasher->hashPassword($user, $input->senha));
         $user->setOabNumero($input->oabNumero);
         $user->setOabUf($input->oabUf);
+        UserProfile::daContaNova($user, Genero::informado($input->genero));   // persistido em cascata com o User
 
         // Verifica a OAB e grava o status (dormente por ora → nao_verificada).
         $resultado = $this->validadorOab->verificar($input->oabNumero, $input->oabUf, $fullName);
@@ -88,7 +91,6 @@ final class AceitarConvitePlataformaUseCase
         if ($resultado->status === StatusOab::Confirmada) {
             $user->setOabVerificadaEm(new \DateTimeImmutable());
         }
-
         $invitation->aceitar($user);
 
         $this->em->persist($user);
@@ -109,7 +111,8 @@ final class AceitarConvitePlataformaUseCase
     /**
      * O que o formulário pode ter burlado no navegador (o `required` do HTML não protege um POST direto):
      * o convite tem de ser DE PLATAFORMA (o CSRF é o mesmo do de escritório), a senha segue o mínimo do
-     * cadastro e o nome não pode ficar em branco (cai no nome do convite, como no aceite de escritório).
+     * cadastro, o nome não pode ficar em branco (cai no nome do convite, como no aceite de escritório) e o gênero é
+     * obrigatório.
      */
     private function exigirDadosDaConta(AceitarConvitePlataformaInput $input, Invitation $invitation): string
     {
@@ -119,6 +122,7 @@ final class AceitarConvitePlataformaUseCase
 
         DadosDaContaDoConvite::exigirSenha($input->senha);
         $fullName = DadosDaContaDoConvite::nome($input->fullName, $invitation->getFullName());
+        Genero::informado($input->genero);   // spec genero-no-cadastro: obrigatório, só F ou M
 
         return $fullName;
     }

@@ -67,11 +67,22 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Cobrança automática do checklist (desenho 02): estado operacional da rotina (datas dos envios,
         // previsão); cada aviso que sai já fica na caixa da pessoa. Auditar daria uma linha por dia por item.
         \App\Pasta\Entity\PastaChecklistCobranca::class,
+        // Contador da sequência de metas do escritório: estado operacional (o último número entregue), gravado
+        // só por SQL. O número que vale fica na própria meta, que é Auditavel e já entra na trilha ao nascer.
+        \App\Tarefa\Entity\NumeracaoDeMetas::class,
+        // Aprendizado de Minhas Metas (Fase 4, D4): texto de despacho e linhas de pendência guardados só para as
+        // sugestões da própria pessoa. Auditar daria uma linha por despacho e deixaria metadados no audit_log depois do
+        // "Apagar o que foi aprendido"; o ato que importa (o despacho, a passagem) já é auditado na meta.
+        \App\Tarefa\Entity\AprendizadoDoDespacho::class,
+        \App\Tarefa\Entity\AprendizadoDaPendencia::class,
 
         // Preferência pessoal de tela (densidade, animações, setas, colunas ocultas do Dashboard):
         // estilo de quem olha, sem efeito sobre dado nenhum do escritório. Auditar cada clique no
         // menu ⋮ encheria o audit_log de ruído sem valor de prova.
         \App\Dashboard\Entity\PreferenciaDoUsuario::class,
+
+        // Resumo diário por e-mail: a trava do envio (uma linha por pessoa e dia); o próprio envio fica em comercial_envio.
+        \App\Profile\Entity\ResumoDiarioEnvio::class,
 
         // Saída da equipe: o próprio registro já é a trilha (só inclusão, nunca alterado), e a remoção que o
         // cria já entra no audit_log (RemoverColaboradorDoEscritorioUseCase::registrarAuditoria).
@@ -109,6 +120,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\CampanhaDeEmail::class,
         \App\Comercial\Entity\DestinoDaCampanha::class,
         \App\Comercial\Entity\ControleDoExpansor::class,
+        // Marcas do Relatório (comercial-marcas.md): estrela, arquivo e "remover" de cada Master, só organizam a lista
+        // dele e não mudam campanha nem envio. O que importa já tem trilha manual (camp_csv na exportação).
+        \App\Comercial\Entity\CampanhaMarca::class,
+        // Imagem da campanha do modo simples (comercial-e-emails.md §12, F3i): a própria linha diz quem enviou e quando, e
+        // a validade é renovada pelo worker, sem sessão (não há autor).
+        \App\Comercial\Entity\ImagemDaCampanha::class,
         // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
         // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
         // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.
@@ -175,6 +192,7 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\ConexaoGoogleAgenda::class,
         \App\Agenda\Entity\LigacaoComGoogle::class,
         \App\Agenda\Entity\PrazoNoGoogle::class,
+        \App\Agenda\Entity\DataNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber
@@ -288,6 +306,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // consentimento (data e versão do texto), que é o registro que a LGPD pede.
         \App\TrabalhoExterno\Entity\LinkDeVagas::class,
         \App\TrabalhoExterno\Entity\InteressadoEmVagas::class,
+        // Contadores anônimos da página pública (spec VS 18.10.26 §4.9): somados por UPSERT a cada visita
+        // e clique, sem ator nem dado pessoal. Auditar seria uma linha de log por visita anônima.
+        \App\TrabalhoExterno\Entity\MetricaPublica::class,
         // Currículo do banco de talentos (spec VS 18.10.26 §4.5): é dado pessoal do candidato, que pode
         // excluí-lo a qualquer momento (LGPD). Auditar copiaria nome, contato e resumo para o audit_log
         // do escritório de quem age, e a cópia sobreviveria à exclusão pedida pelo titular. O registro de

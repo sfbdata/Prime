@@ -23,7 +23,7 @@ use Psr\Clock\ClockInterface;
  * Fluxo principal: carrega a seccional, confere os tamanhos e o site, troca a sede inteira (campo vazio vira
  * nulo), grava quem e quando, e salva dentro do escopo de plataforma.
  * Fluxos alternativos: linha ausente (banco sem a carga) é 404; endereço acima de 255, telefone acima de 40,
- * site acima de 255 ou sem `https://` são recusados com a mensagem (422) e nada muda.
+ * site acima de 255 ou sem `http://` ou `https://` são recusados com a mensagem (422) e nada muda.
  * Pós-condições: o cartão passa a mostrar a sede nova para todos os Masters.
  * Auditoria: SeccionalOab é Auditavel; dentro do EscopoDeAuditoriaDePlataforma a linha do audit_log fica sem
  * escritório, só na trilha do Master ("Plataforma (sem conta)").
@@ -39,7 +39,7 @@ final class EditarSedeDaSeccionalUseCase
 
     public function executar(EditarSedeDaSeccionalInput $input): SeccionalOab
     {
-        $seccional = $this->repositorio->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
+        $seccional = $this->repositorio->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
         $this->exigirTamanhos($input);
         $this->exigirSiteSeguro($input->site);
 
@@ -52,19 +52,19 @@ final class EditarSedeDaSeccionalUseCase
     private function exigirTamanhos(EditarSedeDaSeccionalInput $input): void
     {
         if (mb_strlen((string) $input->endereco) > SeccionalOab::ENDERECO_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O endereço passa de %d caracteres.', SeccionalOab::ENDERECO_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_ENDERECO_LONGO, ['limite' => SeccionalOab::ENDERECO_MAXIMO]);
         }
 
         if (mb_strlen((string) $input->telefone) > SeccionalOab::TELEFONE_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O telefone passa de %d caracteres.', SeccionalOab::TELEFONE_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_TELEFONE_LONGO, ['limite' => SeccionalOab::TELEFONE_MAXIMO]);
         }
 
         if (mb_strlen((string) $input->site) > SeccionalOab::SITE_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O site passa de %d caracteres.', SeccionalOab::SITE_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_SITE_LONGO, ['limite' => SeccionalOab::SITE_MAXIMO]);
         }
     }
 
-    /** Só `https://` com um domínio: o link sai no cartão e abre em outra aba. */
+    /** `http://` ou `https://` com um domínio (desenho 05 L903-904: /^https?:\/\//): o link sai no cartão e abre em outra aba. */
     private function exigirSiteSeguro(?string $site): void
     {
         if ($site === null) {
@@ -72,10 +72,10 @@ final class EditarSedeDaSeccionalUseCase
         }
 
         $valido = filter_var($site, \FILTER_VALIDATE_URL) !== false
-            && strtolower((string) parse_url($site, \PHP_URL_SCHEME)) === 'https'
+            && in_array(strtolower((string) parse_url($site, \PHP_URL_SCHEME)), ['http', 'https'], true)
             && (string) parse_url($site, \PHP_URL_HOST) !== '';
         if (!$valido) {
-            throw new SeccionalRecusada('Informe o site completo, começando com https://.');
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_SITE_SEM_HTTPS);
         }
     }
 }

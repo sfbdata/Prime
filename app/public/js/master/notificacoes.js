@@ -5,6 +5,8 @@
    - Abas, busca e página vão ao servidor (GET); marcar, abrir e responder são POST JSON com X-CSRF-Token.
    - O texto das mensagens vem de fora (visitante da tela de entrada, autor de sugestão): tudo entra por textContent,
      nunca por innerHTML.
+   - Textos no catálogo (master.js.notificacoes.*, entregue pelo painel com catalogo_js), lidos por BJ_T.t na hora
+     de usar; datas por window.BJFormato. O rótulo do tipo, o remetente, o assunto e o texto vêm do servidor.
    Nenhuma regra mora só aqui: o estado é por Master no servidor, e o servidor recusa resposta a alerta. */
 (() => {
   'use strict';
@@ -26,6 +28,8 @@
 
   // Rótulos e cores de cada tipo: o TP do desenho (L727). As cores moram no master.css (.nf-tag-<tipo>).
   const TIPOS = ['sug', 'prob', 'falta', 'alerta', 'sup', 'fale'];
+  // O catálogo e o BJ_T entram depois deste arquivo (fim do base): ler só na hora de usar.
+  const T = (chave, params) => window.BJ_T.t(chave, params);
   const S = { aba: 'rec', q: '', pagina: 1, sel: new Set(), dados: null, ver: null, carregado: false, ocupado: false };
 
   /* ---------- utilidades ---------- */
@@ -36,19 +40,14 @@
     return n;
   }
   function icone(classe) { const i = el('i', 'bi ' + classe); i.setAttribute('aria-hidden', 'true'); return i; }
-  const doisDig = n => String(n).padStart(2, '0');
   // Hora se hoje, senão "dd mmm" (desenho, função em).
   function dataCurta(iso) {
     const d = new Date(iso);
     if (isNaN(d)) return '';
-    if (d.toDateString() === new Date().toDateString()) return doisDig(d.getHours()) + ':' + doisDig(d.getMinutes());
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
+    if (d.toDateString() === new Date().toDateString()) return window.BJFormato.hora(d);
+    return d.toLocaleDateString(window.BJFormato.idioma(), { day: '2-digit', month: 'short' }).replace('.', '');
   }
-  function dataHora(iso) {
-    const d = new Date(iso);
-    if (isNaN(d)) return '';
-    return d.toLocaleDateString('pt-BR') + ' ' + doisDig(d.getHours()) + ':' + doisDig(d.getMinutes());
-  }
+  const dataHora = iso => window.BJFormato.dataHora(iso);
   const iniciais = nome => String(nome || '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const deCompleto = m => m.de + (m.escritorio ? ' · ' + m.escritorio : '');
   const classeDoTipo = tipo => 'nf-tag nf-tag-' + (TIPOS.includes(tipo) ? tipo : 'sug');
@@ -60,7 +59,7 @@
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
       body: JSON.stringify(corpo || {}),
-    }).then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || 'Não foi possível salvar.')))));
+    }).then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || T('master.js.notificacoes.erro_salvar'))))));
   }
   const urlDa = (base, m) => base.replace('xorigemx', encodeURIComponent(m.origem)).replace(/\/0\//, '/' + encodeURIComponent(m.id) + '/');
 
@@ -70,7 +69,7 @@
     return fetch(URL_LISTAR + '?' + p.toString(), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(d => { S.carregado = true; S.dados = d; avisar(''); desenhar(); })
-      .catch(() => avisar('Não foi possível carregar as mensagens. Recarregue a página.'));
+      .catch(() => avisar(T('master.js.notificacoes.erro_carregar')));
   }
 
   function desenhar() {
@@ -102,10 +101,10 @@
     $('[data-nf-sel-n]').textContent = String(nSel);
     const arq = S.aba === 'arq';
     $('[data-nf-arq]').dataset.nfLote = arq ? 'desarquivar' : 'arquivar';
-    $('[data-nf-arq]').title = arq ? 'Desarquivar' : 'Arquivar';
-    $('[data-nf-arq-txt]').textContent = arq ? 'Desarquivar' : 'Arquivar';
+    $('[data-nf-arq]').title = arq ? T('master.js.notificacoes.desarquivar') : T('master.js.notificacoes.arquivar');
+    $('[data-nf-arq-txt]').textContent = arq ? T('master.js.notificacoes.desarquivar') : T('master.js.notificacoes.arquivar');
     const ini = (d.pagina - 1) * d.porPagina;
-    $('[data-nf-pag]').textContent = d.total ? (ini + 1) + '-' + Math.min(ini + d.porPagina, d.total) + ' de ' + d.total : '0 de 0';
+    $('[data-nf-pag]').textContent = d.total ? T('master.js.notificacoes.pagina', { ini: ini + 1, fim: Math.min(ini + d.porPagina, d.total), total: d.total }) : T('master.js.notificacoes.pagina_vazia');
     const paginas = Math.ceil(d.total / d.porPagina);
     $('[data-nf-paginas]').hidden = paginas <= 1;
     $('[data-nf-pag-ant]').disabled = d.pagina <= 1;
@@ -118,10 +117,10 @@
     l.dataset.nfChave = m.chave;
     l.tabIndex = 0;
     const bSel = el('button', 'nf-l-btn');
-    bSel.type = 'button'; bSel.dataset.nfSel = ''; bSel.setAttribute('aria-label', 'Selecionar');
+    bSel.type = 'button'; bSel.dataset.nfSel = ''; bSel.setAttribute('aria-label', T('master.js.notificacoes.selecionar'));
     bSel.append(icone(sel ? 'bi-check-square-fill' : 'bi-square'));
     const bEst = el('button', 'nf-l-btn nf-l-estrela' + (m.estrela ? ' on' : ''));
-    bEst.type = 'button'; bEst.dataset.nfEstrela = ''; bEst.setAttribute('aria-label', m.estrela ? 'Tirar a estrela' : 'Marcar com estrela');
+    bEst.type = 'button'; bEst.dataset.nfEstrela = ''; bEst.setAttribute('aria-label', m.estrela ? T('master.js.notificacoes.tirar_estrela') : T('master.js.notificacoes.marcar_estrela'));
     bEst.append(icone(m.estrela ? 'bi-star-fill' : 'bi-star'));
     const de = el('span', 'nf-l-de', m.de);
     const meio = el('span', 'nf-l-meio');
@@ -129,7 +128,7 @@
     resumo.append(el('b', 'nf-l-ass', m.assunto), el('span', 'nf-l-txt', ' · ' + m.texto));
     meio.append(el('span', classeDoTipo(m.tipo), m.rotulo), resumo);
     l.append(bSel, bEst, de, meio);
-    if (m.respondida) { const r = icone('bi-reply-fill nf-l-resp'); r.title = 'Respondida'; l.append(r); }
+    if (m.respondida) { const r = icone('bi-reply-fill nf-l-resp'); r.title = T('master.js.notificacoes.respondida'); l.append(r); }
     l.append(el('span', 'nf-l-data', dataCurta(m.em)));
     return l;
   }
@@ -160,17 +159,16 @@
     $('[data-nf-ver-ini]').textContent = iniciais(m.de);
     $('[data-nf-ver-de]').textContent = deCompleto(m);
     $('[data-nf-ver-txt]').textContent = m.texto;
-    $('[data-nf-ir-ind]').hidden = m.tipo !== 'alerta';
+    // Só o alerta do Indicar o BlueJus leva às Indicações; os outros alertas (consumo, exclusão de conta) não.
+    $('[data-nf-ir-ind]').hidden = m.origem !== 'alerta_indicacao';
     $('[data-nf-est-um-ic]').className = 'bi ' + (m.estrela ? 'bi-star-fill' : 'bi-star');
-    $('[data-nf-arq-um]').title = m.arquivada ? 'Desarquivar' : 'Arquivar';
-    $('[data-nf-arq-um]').setAttribute('aria-label', m.arquivada ? 'Desarquivar' : 'Arquivar');
+    $('[data-nf-arq-um]').title = m.arquivada ? T('master.js.notificacoes.desarquivar') : T('master.js.notificacoes.arquivar');
+    $('[data-nf-arq-um]').setAttribute('aria-label', m.arquivada ? T('master.js.notificacoes.desarquivar') : T('master.js.notificacoes.arquivar'));
     desenharHistorico(S.ver.historico);
     const resp = $('[data-nf-resp]');
     resp.hidden = !m.podeResponder;
-    $('[data-nf-resp-para]').textContent = 'Responder a ' + deCompleto(m);
-    $('[data-nf-resp-txt]').placeholder = m.email
-      ? 'Escreva sua resposta. Ela é enviada por e-mail para ' + m.email + '.'
-      : 'Escreva sua resposta. Ela chega como aviso na Central de quem enviou.';
+    $('[data-nf-resp-para]').textContent = T('master.js.notificacoes.responder_a', { quem: deCompleto(m) });
+    $('[data-nf-resp-txt]').placeholder = m.email ? T('master.js.notificacoes.dica_email', { email: m.email }) : T('master.js.notificacoes.dica_central');
     $('[data-nf-resp-msg]').hidden = true;
     elVer.hidden = false;
   }
@@ -189,8 +187,8 @@
 
   // A resposta dada antes pela página do Contribua vem com o canal `contribua`.
   function quemRespondeu(r) {
-    if (r.canal === 'contribua') return r.porNome + ' respondeu pela página do Contribua';
-    return r.minha ? 'Você respondeu' : r.porNome + ' respondeu';
+    if (r.canal === 'contribua') return T('master.js.notificacoes.respondeu_contribua', { nome: r.porNome });
+    return r.minha ? T('master.js.notificacoes.voce_respondeu') : T('master.js.notificacoes.respondeu', { nome: r.porNome });
   }
 
   function fecharVer() { S.ver = null; elVer.hidden = true; $('[data-nf-resp-txt]').value = ''; }
@@ -208,7 +206,7 @@
         S.ver.mensagem.respondida = true;
         txt.value = '';
         desenharHistorico(S.ver.historico);
-        mostrarNaResposta(r.canal === 'email' ? 'Resposta registrada e enviada para a fila de e-mail.' : 'Resposta registrada e enviada como aviso na Central.');
+        mostrarNaResposta(r.canal === 'email' ? T('master.js.notificacoes.enviada_email') : T('master.js.notificacoes.enviada_central'));
         carregar();
       })
       .catch(e => mostrarNaResposta(e.message))
@@ -292,5 +290,9 @@
   if (painel) {
     painel.addEventListener('mp:secao', e => { if (e.detail && e.detail.sec === 'notif' && !S.carregado) carregar(); });
   }
-  if (/[#&]sec=notif\b/.test(location.hash)) carregar();
+  // Já aberta pelo hash: espera o fim da página, onde entram o catálogo, o BJ_T e o BJFormato.
+  if (/[#&]sec=notif\b/.test(location.hash)) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { if (!S.carregado) carregar(); });
+    else carregar();
+  }
 })();

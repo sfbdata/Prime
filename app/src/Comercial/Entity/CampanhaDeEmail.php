@@ -108,6 +108,13 @@ class CampanhaDeEmail
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $total = 0;
 
+    /**
+     * A confirmação de leitura escolhida na campanha (F3g, desenho 05 VS 21.10.26 L291). Só rastreia de fato com as
+     * duas chaves globais ({@see \App\Comercial\Service\RastreioDaLeitura}); gravada já, para ligar sem migrar de novo.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $rastrearLeitura = false;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'criada_por_id', nullable: true, onDelete: 'SET NULL')]
     private ?User $criadaPor = null;

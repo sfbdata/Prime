@@ -5,24 +5,30 @@ declare(strict_types=1);
 namespace App\Tests\Auth\Functional;
 
 use App\Auth\Controller\CadastroController;
+use App\Auth\Controller\ContaConfirmacaoController;
 use App\Auth\Entity\CadastroPendente;
 use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\ForcaDaSenha;
+use App\Auth\Service\TetoDoReenvioDeConfirmacao;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Legal\PoliticaPrivacidadeVigente;
+use App\Profile\Enum\Genero;
 use App\Termo\Entity\AceiteTermo;
 use App\Termo\Entity\CienciaPolitica;
 use App\Termo\TermoVigente;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\DomCrawler\Form;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -57,7 +63,7 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
             'nome' => 'Ana Souza',
             'escritorio' => 'Souza Advogados ' . uniqid(),
             'email' => 'ana_' . uniqid() . '@adv.com',
-            'senha' => 'segredo123',
+            'genero' => 'feminino',
             'aceite' => true,
             '_token' => self::CSRF,
         ], $trocas);
@@ -112,6 +118,22 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         return $logado;
     }
 
+    #[TestDox('O passo "Criar conta" tem o campo Gênero com os componentes do desenho 10: só Feminino e Masculino, sem valor escolhido')]
+    public function testCampoGeneroNoCadastro(): void
+    {
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/login');
+
+        self::assertResponseIsSuccessful();
+        $campo = $crawler->filter('#lgMdForm > .lg-md__passo[data-passo="cad"] > label.lg-md__rotulo > select.lg-md__entrada#lgCdGenero');
+        self::assertCount(1, $campo);
+        self::assertSame(['', 'feminino', 'masculino'], $campo->filter('option')->each(static fn ($o): string => (string) $o->attr('value')));
+        self::assertSame(['Selecione', 'Feminino', 'Masculino'], $campo->filter('option')->each(static fn ($o): string => trim($o->text())));
+        self::assertCount(0, $campo->filter('option[selected]'));
+        self::assertStringContainsString('Gênero', $campo->closest('label')?->text() ?? '');
+        self::assertStringNotContainsString('Prefiro não informar', (string) $client->getResponse()->getContent());
+    }
+
     #[TestDox('GET /cadastro leva à tela de entrada com o cadastro aberto')]
     public function testGetRedirecionaParaATelaDeEntrada(): void
     {
@@ -154,6 +176,7 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertNull($user->getOabNumero());
         self::assertFalse($user->isEmailConfirmado());
         self::assertNotNull($user->getEmailAConfirmarDesde());
+        self::assertSame(Genero::Feminino, $user->getProfile()?->getGenero(), 'o perfil nasce com o gênero do cadastro');
 
         $tenant = $em->getRepository(Tenant::class)->findOneBy(['name' => $dados['escritorio']]);
         self::assertNotNull($tenant);
@@ -180,6 +203,22 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/login?abrir=cadastro');
     }
 
+    #[TestDox('POST /cadastro/criar de cliente antigo que ainda manda a senha: a senha é ignorada (D1 da spec cadastro-senha-no-link)')]
+    public function testSenhaDeClienteAntigoEIgnorada(): void
+    {
+        $client = static::createClient();
+        $this->prepararCsrf($client);
+        $dados = self::dados(['senha' => 'segredo123']);
+
+        $client->jsonRequest('POST', '/cadastro/criar', $dados);
+
+        self::assertResponseIsSuccessful();
+        $this->em()->clear();
+        $user = $this->em()->getRepository(User::class)->findOneBy(['email' => $dados['email']]);
+        self::assertNotNull($user);
+        self::assertFalse(static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, 'segredo123'));
+    }
+
     /** @return iterable<string, array{array<string, mixed>, string}> */
     public static function invalidos(): iterable
     {
@@ -191,8 +230,11 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         yield 'e-mail longo demais' => [['email' => str_repeat('a', 173) . '@adv.com'], 'Informe um e-mail válido.'];
         yield 'e-mail com cópia na query' => [['email' => 'a@b.com?cc=c@d.com'], 'Informe um e-mail válido.'];
         yield 'dois e-mails com vírgula' => [['email' => 'a@b.com,c@d.com'], 'Informe um e-mail válido.'];
-        yield 'senha fraca' => [['senha' => 'abcdefgh'], ForcaDaSenha::ERRO];
         yield 'sem aceite' => [['aceite' => false], 'É preciso aceitar os Termos e a Política de privacidade.'];
+        yield 'sem gênero' => [['genero' => ''], 'Informe o gênero.'];
+        yield 'gênero ausente' => [['genero' => null], 'Informe o gênero.'];
+        yield 'gênero fora das opções' => [['genero' => 'outro'], 'Informe o gênero.'];
+        yield 'gênero legado "prefiro não informar"' => [['genero' => 'nao_informado'], 'Informe o gênero.'];
         yield 'campo ausente' => [['nome' => null], 'Informe seu nome completo.'];
     }
 
@@ -213,23 +255,159 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->em()->getRepository(Tenant::class)->findOneBy(['name' => $dados['escritorio']]));
     }
 
-    #[TestDox('E-mail já cadastrado, mesmo com outra caixa, devolve 422 e não cria escritório')]
+    #[TestDox('Raiz E: e-mail já cadastrado (com outra caixa) recebe a mesma resposta do e-mail novo, sem escritório nem sessão; a dona recebe o aviso')]
     public function testEmailDuplicadoComOutraCaixa(): void
     {
         $client = static::createClient();
         $email = 'dup_' . uniqid() . '@adv.com';
-        $this->usuario($email);
+        $existente = $this->usuario($email);
         $this->prepararCsrf($client);
-        $dados = self::dados(['email' => strtoupper($email)]);
+        $dados = self::dados(['email' => '  ' . strtoupper($email) . ' ']);
 
         $client->jsonRequest('POST', '/cadastro/criar', $dados);
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(
-            ['erro' => 'Já existe uma conta com este e-mail. Faça login para criar o escritório por dentro.'],
-            self::json($client),
-        );
+        self::assertResponseIsSuccessful();
+        self::assertSame(['ok' => true, 'confirmar' => true, 'email' => $email], self::json($client));
         self::assertNull($this->em()->getRepository(Tenant::class)->findOneBy(['name' => $dados['escritorio']]));
+        // Na sessão, só o marcador neutro: nenhuma conta (nem a da dona do e-mail).
+        $chave = $client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO);
+        self::assertTrue($chave['neutro'] ?? false);
+        self::assertArrayNotHasKey('id', $chave);
+        self::assertCount(0, $this->em()->getRepository(ConfirmacaoEmail::class)->findBy(['user' => $existente]));
+
+        self::assertEmailCount(1);
+        $aviso = self::getMailerMessage();
+        self::assertSame($email, $aviso?->getTo()[0]->getAddress());
+        self::assertStringContainsString('Você já tem uma conta no BlueJus', (string) $aviso?->getSubject());
+        self::assertStringContainsString('/senha/esqueci', (string) $aviso?->getHtmlBody());
+        self::assertStringNotContainsString('/cadastro/confirmar-email/', (string) $aviso?->getHtmlBody());
+    }
+
+    #[TestDox('Raiz E: e-mail novo e e-mail existente dão o mesmo status e o mesmo JSON; o aviso de conta existente só sai para o existente')]
+    public function testEmailNovoEExistenteRespondemIgual(): void
+    {
+        $existente = 'igual_' . uniqid() . '@adv.com';
+        $this->usuario($existente);
+        $novo = 'igual_novo_' . uniqid() . '@adv.com';
+
+        $respostas = [];
+        $assuntos = [];
+        foreach ([$existente, $novo] as $email) {
+            self::ensureKernelShutdown();
+            $client = static::createClient();
+            $this->prepararCsrf($client);
+            $client->jsonRequest('POST', '/cadastro/criar', self::dados(['email' => $email]));
+            $json = self::json($client);
+            $respostas[] = [$client->getResponse()->getStatusCode(), array_keys($json), $json['ok'], $json['confirmar']];
+            self::assertSame($email, $json['email']);
+            self::assertEmailCount(1);
+            $assuntos[$email] = self::getMailerMessage()?->getSubject();
+        }
+
+        self::assertSame($respostas[0], $respostas[1]);
+        self::assertSame([200, ['ok', 'confirmar', 'email'], true, true], $respostas[0]);
+        self::assertStringContainsString('Você já tem uma conta no BlueJus', (string) $assuntos[$existente]);
+        self::assertStringNotContainsString('Você já tem uma conta', (string) $assuntos[$novo]);
+    }
+
+    /**
+     * Cadastro e três cliques no "Reenviar" do modal (já, 3 min depois, e logo em seguida), num cliente sem reboot e
+     * com o relógio de mentira. Devolve, por clique, o status, o JSON e quantos e-mails saíram.
+     *
+     * @return list<array{int, array<string, mixed>, int}>
+     */
+    private function cadastroEReenvios(string $email): array
+    {
+        self::ensureKernelShutdown();
+        $client = static::createClient();
+        $client->disableReboot();
+        $relogio = new MockClock(new \DateTimeImmutable());
+        static::getContainer()->set(ClockInterface::class, $relogio);
+        $this->prepararCsrf($client);
+        $client->jsonRequest('POST', '/cadastro/criar', self::dados(['email' => $email]));
+        self::assertResponseIsSuccessful();
+
+        $sessao = $client->getSession();
+        $sessao->set('_csrf/' . ContaAConfirmar::CSRF, self::CSRF);
+        $sessao->save();
+
+        $cliques = [];
+        foreach ([0, 3 * 60, 0] as $espera) {
+            $relogio->sleep($espera);
+            $client->jsonRequest('POST', '/login/reenviar-confirmacao', ['_token' => self::CSRF]);
+            $cliques[] = [$client->getResponse()->getStatusCode(), self::json($client), count(self::getMailerMessages())];
+        }
+
+        return $cliques;
+    }
+
+    #[TestDox('Raiz E: o "Reenviar" do modal responde igual para o e-mail novo e para o que já tem conta (mesmo teto), e nada sai para a conta existente')]
+    public function testReenvioDepoisDoEmailExistenteRespondeIgual(): void
+    {
+        $existente = 'reenvio_' . uniqid() . '@adv.com';
+        $this->usuario($existente);
+
+        $doExistente = $this->cadastroEReenvios($existente);
+        $doNovo = $this->cadastroEReenvios('reenvio_novo_' . uniqid() . '@adv.com');
+
+        $semContagem = static fn (array $cliques): array => array_map(static fn (array $c): array => [$c[0], $c[1]], $cliques);
+        self::assertSame($semContagem($doNovo), $semContagem($doExistente));
+        self::assertSame([
+            [200, ['ok' => false, 'mensagem' => TetoDoReenvioDeConfirmacao::AGUARDE]],
+            [200, ['ok' => true, 'mensagem' => ContaConfirmacaoController::FLASH_ENVIADO]],
+            [200, ['ok' => false, 'mensagem' => TetoDoReenvioDeConfirmacao::AGUARDE]],
+        ], $semContagem($doNovo));
+        self::assertSame([0, 0, 0], array_column($doExistente, 2));
+        self::assertSame([0, 1, 0], array_column($doNovo, 2));
+    }
+
+    #[TestDox('Raiz E: a tela de entrada mostra o mesmo aviso de conta a confirmar depois do cadastro de um e-mail existente')]
+    public function testTelaDeEntradaIgualDepoisDoEmailExistente(): void
+    {
+        $email = 'tela_' . uniqid() . '@adv.com';
+        $client = static::createClient();
+        $this->usuario($email);
+        $this->prepararCsrf($client);
+        $client->jsonRequest('POST', '/cadastro/criar', self::dados(['email' => $email]));
+
+        $client->request('GET', '/login');
+
+        self::assertStringContainsString(ContaAConfirmar::mensagemDeLogin($email), (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('Raiz E: conta existente inativa (ou em quarentena) não recebe nada, com a mesma resposta')]
+    public function testContaExistenteInativaNaoRecebeNada(): void
+    {
+        $email = 'inativa_' . uniqid() . '@adv.com';
+        $client = static::createClient();
+        $this->usuario($email)->setIsActive(false);
+        $this->em()->flush();
+        $this->prepararCsrf($client);
+
+        $client->jsonRequest('POST', '/cadastro/criar', self::dados(['email' => $email]));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['ok' => true, 'confirmar' => true, 'email' => $email], self::json($client));
+        self::assertEmailCount(0);
+    }
+
+    #[TestDox('Raiz E: conta existente ainda a confirmar recebe o link de confirmação normal, não o "já tem conta"')]
+    public function testContaExistenteAConfirmarRecebeAConfirmacao(): void
+    {
+        $email = 'aconfirmar_' . uniqid() . '@adv.com';
+        $client = static::createClient();
+        $user = $this->usuario($email);
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 hour'));
+        $this->em()->flush();
+        $this->prepararCsrf($client);
+
+        $client->jsonRequest('POST', '/cadastro/criar', self::dados(['email' => $email]));
+
+        self::assertSame(['ok' => true, 'confirmar' => true, 'email' => $email], self::json($client));
+        self::assertEmailCount(1);
+        self::assertStringContainsString('/cadastro/confirmar-email/', (string) self::getMailerMessage()?->getHtmlBody());
+        self::assertStringNotContainsString('já tem uma conta', (string) self::getMailerMessage()?->getSubject());
+        self::assertCount(1, $this->em()->getRepository(ConfirmacaoEmail::class)->findBy(['user' => $user]));
     }
 
     #[TestDox('CSRF inválido devolve 403 e não gasta a cota do IP')]
@@ -288,25 +466,291 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    #[TestDox('O link do e-mail confirma a conta; o segundo clique continua dizendo que está confirmado')]
-    public function testConfirmarEmailIdempotente(): void
+    /** O e-mail que o cadastro mandou, com o texto da spec cadastro-senha-no-link. */
+    #[TestDox('O e-mail de confirmação pede para confirmar e criar a senha, com o botão "Confirmar e criar minha senha"')]
+    public function testEmailDeConfirmacaoPedeASenha(): void
+    {
+        $client = static::createClient();
+        $this->prepararCsrf($client);
+
+        $client->jsonRequest('POST', '/cadastro/criar', self::dados());
+
+        self::assertResponseIsSuccessful();
+        $html = (string) self::getMailerMessage()?->getHtmlBody();
+        $texto = (string) preg_replace('/\s+/u', ' ', strip_tags($html));
+        self::assertStringContainsString('Sua conta no BlueJus foi criada. Para ativá-la, confirme que este e-mail é seu e crie a sua senha. O link vale por 7 dias.', $texto);
+        self::assertSame(1, preg_match('#<a href="[^"]*/cadastro/confirmar-email/[a-f0-9]{64}"[^>]*>Confirmar e criar minha senha</a>#', $html));
+        self::assertStringNotContainsString('já pode usar', $texto);
+        self::assertStringContainsString('Se você não criou esta conta, ignore este e-mail.', $texto);
+    }
+
+    /** Abre o link e devolve o formulário "Crie sua senha" preenchido. */
+    private function formularioDoLink(KernelBrowser $client, string $token, string $senha, ?string $confirmacao = null, bool $aceite = true): Form
+    {
+        $form = $client->request('GET', '/cadastro/confirmar-email/' . $token)->selectButton('Criar senha e confirmar')->form();
+        $form['senha'] = $senha;
+        $form['confirmacao'] = $confirmacao ?? $senha;
+        if ($aceite) {
+            $form['aceite']->tick();
+        }
+
+        return $form;
+    }
+
+    private function senhaValida(int $id, string $senha): bool
+    {
+        $this->em()->clear();
+        $user = $this->em()->find(User::class, $id);
+        self::assertNotNull($user);
+
+        return static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, $senha);
+    }
+
+    /** Nada mudou: e-mail a confirmar, senha antiga ('x') e o link sem a marca de uso. */
+    private function assertNadaMudou(int $id): void
+    {
+        self::assertTrue($this->senhaValida($id, 'x'));
+        $user = $this->em()->find(User::class, $id);
+        self::assertFalse($user?->isEmailConfirmado());
+        self::assertNull($this->em()->getRepository(ConfirmacaoEmail::class)->findOneBy(['user' => $user])?->getUsadoEm());
+    }
+
+    #[TestDox('O GET do link não confirma nada: mostra "Crie sua senha" com a régua, sem Referer nem cache')]
+    public function testGetDoLinkNaoConfirma(): void
     {
         $client = static::createClient();
         $token = bin2hex(random_bytes(32));
-        $id = $this->pendenteDeConfirmacao($token)->getId();
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
 
-        $client->request('GET', '/cadastro/confirmar-email/' . $token);
+        $tela = $client->request('GET', '/cadastro/confirmar-email/' . $token);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSame('no-referrer', $client->getResponse()->headers->get('Referrer-Policy'));
+        self::assertStringContainsString('no-store', (string) $client->getResponse()->headers->get('Cache-Control'));
+        self::assertSelectorTextSame('.confirmacao-email h3', 'Crie sua senha');
+        $form = $tela->filter('.confirmacao-email > form.criar-senha[method="post"][action="/cadastro/confirmar-email/' . $token . '"]');
+        self::assertCount(1, $form);
+        self::assertSame('Nova senha', trim($form->filter('label[for="criarSenhaNova"]')->text()));
+        self::assertSame('Mínimo de 8 caracteres', $form->filter('input#criarSenhaNova[name="senha"][type="password"]')->attr('placeholder'));
+        self::assertCount(1, $form->filter('[data-forca="criarSenhaNova"] .criar-senha__barra'));
+        self::assertSame('Confirmar nova senha', trim($form->filter('label[for="criarSenhaConf"]')->text()));
+        self::assertCount(1, $form->filter('input#criarSenhaConf[name="confirmacao"][type="password"]'));
+        self::assertCount(1, $form->filter('input[type="hidden"][name="_token"]'));
+        self::assertSame('Criar senha e confirmar', trim($form->filter('button[type="submit"]')->text()));
+        self::assertCount(1, $tela->filter('script[src*="/js/auth/criar-senha.js"]'));
+        self::assertCount(0, $tela->filter('.confirmacao-email a[href="/login"]'));
+        $this->assertNadaMudou($id);
+    }
+
+    #[TestDox('Criar a senha confirma o e-mail, marca o link e grava a senha nova; não entra; o segundo clique só diz que está confirmado')]
+    public function testCriarSenhaConfirma(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+
+        $client->submit($this->formularioDoLink($client, $token, 'novaSenha456'));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('E-mail confirmado. Sua senha foi criada.', trim((string) preg_replace('/\s+/u', ' ', $client->getCrawler()->filter('.confirmacao-email > .text-center')->text())));
         self::assertSelectorExists('.confirmacao-email a[href="/login"]');
-        $this->em()->clear();
-        self::assertTrue($this->em()->find(User::class, $id)?->isEmailConfirmado());
+        self::assertSelectorNotExists('form.criar-senha');
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken(), 'não faz login sozinho');
+        self::assertTrue($this->senhaValida($id, 'novaSenha456'));
+        self::assertFalse($this->senhaValida($id, 'x'));
+        $user = $this->em()->find(User::class, $id);
+        self::assertTrue($user?->isEmailConfirmado());
+        self::assertNotNull($this->em()->getRepository(ConfirmacaoEmail::class)->findOneBy(['user' => $user])?->getUsadoEm());
 
         $client->request('GET', '/cadastro/confirmar-email/' . $token);
 
+        self::assertSelectorTextSame('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSelectorTextNotContains('.confirmacao-email', 'Sua senha foi criada.');
+        self::assertSelectorNotExists('form.criar-senha');
+    }
+
+    #[TestDox('Dois POSTs do mesmo link: o segundo recebe "E-mail confirmado." e não troca a senha criada pelo primeiro')]
+    public function testSegundoPostNaoTrocaASenha(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+        $primeiro = $this->formularioDoLink($client, $token, 'primeiraSenha1');
+        $segundo = $this->formularioDoLink($client, $token, 'segundaSenha2');
+
+        $client->submit($primeiro);
+        self::assertSelectorTextContains('.confirmacao-email', 'Sua senha foi criada.');
+        $client->submit($segundo);
+
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSelectorTextSame('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSelectorTextNotContains('.confirmacao-email', 'Sua senha foi criada.');
+        self::assertTrue($this->senhaValida($id, 'primeiraSenha1'));
+        self::assertFalse($this->senhaValida($id, 'segundaSenha2'));
+    }
+
+    #[TestDox('A página "Crie sua senha" tem a caixa do cadastro, desmarcada, com os links dos Termos e da Política')]
+    public function testPaginaTemACaixaDeAceite(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $this->pendenteDeConfirmacao($token);
+
+        $tela = $client->request('GET', '/cadastro/confirmar-email/' . $token);
+
+        $caixa = $tela->filter('form.criar-senha > .form-check');
+        self::assertCount(1, $caixa->filter('input#criarSenhaAceite[type="checkbox"][name="aceite"]'));
+        self::assertNull($caixa->filter('input#criarSenhaAceite')->attr('checked'));
+        self::assertSame('Li e aceito os Termos de uso e a Política de privacidade.', trim((string) preg_replace('/\s+/u', ' ', $caixa->filter('label[for="criarSenhaAceite"]')->text())));
+        self::assertSame('https://www.bluejus.com.br/termos/termos-de-uso.pdf', $caixa->filter('label a')->eq(0)->attr('href'));
+        self::assertSame('Termos de uso', $caixa->filter('label a')->eq(0)->text());
+        self::assertSame('https://www.bluejus.com.br/politica-de-privacidade', $caixa->filter('label a')->eq(1)->attr('href'));
+        self::assertSame('Política de privacidade', $caixa->filter('label a')->eq(1)->text());
+        self::assertSame('_blank', $caixa->filter('label a')->eq(0)->attr('target'));
+    }
+
+    /** @return list<string> as origens gravadas para a conta na tabela, em ordem */
+    private function origens(string $tabela, int $id): array
+    {
+        return $this->em()->getConnection()->fetchFirstColumn('SELECT origem FROM ' . $tabela . ' WHERE user_id = :id ORDER BY id', ['id' => $id]);
+    }
+
+    #[TestDox('POST sem a caixa: 422 com a mensagem do cadastro, o formulário volta, o link vale e nenhum aceite é gravado')]
+    public function testSemAceiteRecusa(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+
+        $client->submit($this->formularioDoLink($client, $token, 'novaSenha456', aceite: false));
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextSame('.criar-senha__erro', 'É preciso aceitar os Termos e a Política de privacidade.');
+        self::assertSelectorExists('form.criar-senha input#criarSenhaAceite');
+        $this->assertNadaMudou($id);
+        self::assertSame([], $this->origens('aceite_termo', $id));
+        self::assertSame([], $this->origens('ciencia_politica', $id));
+    }
+
+    #[TestDox('POST com a caixa: grava um aceite novo dos Termos e a ciência da Política (versão vigente, IP, user agent, escritório do dono) e os do cadastro ficam')]
+    public function testComAceiteGravaOAceiteDoLink(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $user = $this->pendenteDeConfirmacao($token);
+        $id = (int) $user->getId();
+        $tenant = (new Tenant())->setName('Escritório da Ana ' . uniqid())->setCriadoPor($user);
+        $this->em()->persist($tenant);
+        $this->em()->persist(new AceiteTermo($user, TermoVigente::VERSAO, '198.51.100.1', 'Navegador do cadastro', $tenant));
+        $this->em()->persist(new CienciaPolitica($user, PoliticaPrivacidadeVigente::VERSAO, '198.51.100.1', 'Navegador do cadastro'));
+        $this->em()->flush();
+        $form = $this->formularioDoLink($client, $token, 'novaSenha456');
+
+        $client->request('POST', $form->getUri(), $form->getPhpValues(), [], ['REMOTE_ADDR' => '203.0.113.50', 'HTTP_USER_AGENT' => 'Navegador do link']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.confirmacao-email', 'Sua senha foi criada.');
+        self::assertSame(['cadastro', 'link_confirmacao'], $this->origens('aceite_termo', $id));
+        self::assertSame(['cadastro', 'link_confirmacao'], $this->origens('ciencia_politica', $id));
+        $conexao = $this->em()->getConnection();
+        $aceite = $conexao->fetchAssociative("SELECT versao, ip, user_agent, tenant_id FROM aceite_termo WHERE user_id = :id AND origem = 'link_confirmacao'", ['id' => $id]);
+        self::assertSame(['versao' => TermoVigente::VERSAO, 'ip' => '203.0.113.50', 'user_agent' => 'Navegador do link', 'tenant_id' => $tenant->getId()], $aceite);
+        $ciencia = $conexao->fetchAssociative("SELECT versao, ip, user_agent FROM ciencia_politica WHERE user_id = :id AND origem = 'link_confirmacao'", ['id' => $id]);
+        self::assertSame(['versao' => PoliticaPrivacidadeVigente::VERSAO, 'ip' => '203.0.113.50', 'user_agent' => 'Navegador do link'], $ciencia);
+        self::assertSame('198.51.100.1', $conexao->fetchOne("SELECT ip FROM aceite_termo WHERE user_id = :id AND origem = 'cadastro'", ['id' => $id]));
+    }
+
+    #[TestDox('POST sem o CSRF certo: 403, o formulário volta com o aviso e nada muda')]
+    public function testCriarSenhaSemCsrf(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+        $client->request('GET', '/cadastro/confirmar-email/' . $token);
+
+        $client->request('POST', '/cadastro/confirmar-email/' . $token, ['senha' => 'novaSenha456', 'confirmacao' => 'novaSenha456', '_token' => 'forjado']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextSame('.criar-senha__erro', 'Sessão expirada. Recarregue a página.');
+        $this->assertNadaMudou($id);
+
+        $client->request('POST', '/cadastro/confirmar-email/' . $token, ['senha' => 'novaSenha456', 'confirmacao' => 'novaSenha456']);
+
+        self::assertResponseStatusCodeSame(403);
+        $this->assertNadaMudou($id);
+    }
+
+    #[TestDox('CSRF inválido num link que não vale: 403 com a página de erro, sem o formulário')]
+    public function testCsrfInvalidoEmLinkQueNaoVale(): void
+    {
+        $client = static::createClient();
+
+        $client->request('POST', '/cadastro/confirmar-email/' . bin2hex(random_bytes(32)), ['senha' => 'novaSenha456', 'confirmacao' => 'novaSenha456', '_token' => 'forjado']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextContains('body', 'Este link de confirmação é inválido ou expirou.');
+        self::assertSelectorNotExists('form');
+    }
+
+    #[TestDox('CSRF inválido com o e-mail já confirmado: 403 com "E-mail confirmado.", sem o formulário e sem trocar a senha')]
+    public function testCsrfInvalidoComEmailJaConfirmado(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $user = $this->pendenteDeConfirmacao($token);
+        $user->confirmarEmail();
+        $this->em()->flush();
+
+        $client->request('POST', '/cadastro/confirmar-email/' . $token, ['senha' => 'novaSenha456', 'confirmacao' => 'novaSenha456', '_token' => 'forjado']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextContains('h3', 'E-mail confirmado.');
+        self::assertSelectorNotExists('form');
+        self::assertTrue($this->senhaValida((int) $user->getId(), 'x'));
+    }
+
+    /** @return iterable<string, array{string, string, string}> */
+    public static function senhasRecusadas(): iterable
+    {
+        yield 'fraca' => ['abcdefgh', 'abcdefgh', ForcaDaSenha::ERRO];
+        yield 'acima do máximo' => ['Ab1' . str_repeat('x', ForcaDaSenha::MAXIMO_EM_BYTES), 'Ab1' . str_repeat('x', ForcaDaSenha::MAXIMO_EM_BYTES), ForcaDaSenha::ERRO];
+        yield 'confirmação diferente' => ['novaSenha456', 'novaSenha457', 'As senhas não conferem.'];
+    }
+
+    #[DataProvider('senhasRecusadas')]
+    #[TestDox('Senha recusada ($mensagem): 422, o formulário volta com a mensagem e o link continua valendo')]
+    public function testSenhaRecusadaNaoConsomeOLink(string $senha, string $confirmacao, string $mensagem): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+
+        $client->submit($this->formularioDoLink($client, $token, $senha, $confirmacao));
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextSame('.criar-senha__erro', $mensagem);
+        self::assertSelectorExists('form.criar-senha');
+        $this->assertNadaMudou($id);
+
+        $client->submit($this->formularioDoLink($client, $token, 'novaSenha456'));
+
+        self::assertSelectorTextContains('.confirmacao-email', 'Sua senha foi criada.');
+    }
+
+    #[TestDox('POST num link desconhecido mostra o erro do link e não grava nada')]
+    public function testCriarSenhaLinkInvalido(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+        $form = $this->formularioDoLink($client, $token, 'novaSenha456');
+
+        $client->request('POST', '/cadastro/confirmar-email/' . bin2hex(random_bytes(32)), $form->getValues());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.confirmacao-email', 'Este link de confirmação é inválido ou expirou.');
+        self::assertSelectorNotExists('form.criar-senha');
+        $this->assertNadaMudou($id);
     }
 
     #[TestDox('Link de confirmação desconhecido mostra o erro sem confirmar nada')]

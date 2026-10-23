@@ -51,7 +51,7 @@ final class ConviteMailerTest extends TestCase
     {
         return new Invitation(
             email: 'convidado@exemplo.com',
-            token: self::TOKEN,
+            tokenHash: Invitation::hashDoToken(self::TOKEN),
             type: 'platform',
             expiresAt: new \DateTimeImmutable('+24 hours'),
         );
@@ -69,7 +69,7 @@ final class ConviteMailerTest extends TestCase
 
         $invitation = new Invitation(
             email: 'colaborador@exemplo.com',
-            token: self::TOKEN,
+            tokenHash: Invitation::hashDoToken(self::TOKEN),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -100,7 +100,7 @@ final class ConviteMailerTest extends TestCase
                 $emailCapturado = $e;
             });
 
-        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma());
+        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma(), self::TOKEN);
 
         self::assertSame('[BlueJus] Você foi convidado para o BlueJus', $emailCapturado->getSubject());
     }
@@ -116,7 +116,7 @@ final class ConviteMailerTest extends TestCase
                 $emailCapturado = $e;
             });
 
-        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma());
+        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma(), self::TOKEN);
 
         self::assertSame('test@bluejus.test', $emailCapturado->getFrom()[0]->getAddress());
         self::assertSame('BlueJus', $emailCapturado->getFrom()[0]->getName());
@@ -134,7 +134,7 @@ final class ConviteMailerTest extends TestCase
                 $emailCapturado = $e;
             });
 
-        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma());
+        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma(), self::TOKEN);
 
         self::assertSame('convidado@exemplo.com', $emailCapturado->getTo()[0]->getAddress());
     }
@@ -152,7 +152,7 @@ final class ConviteMailerTest extends TestCase
             });
 
         $this->mailer->method('send');
-        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma());
+        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma(), self::TOKEN);
 
         self::assertSame('email/convite_plataforma.html.twig', $templateUsado);
     }
@@ -171,7 +171,7 @@ final class ConviteMailerTest extends TestCase
             });
 
         $this->mailer->method('send');
-        $this->service->enviarConvitePlataforma($invitation);
+        $this->service->enviarConvitePlataforma($invitation, self::TOKEN);
 
         self::assertArrayHasKey('invitation', $variaveisPassadas);
         self::assertArrayHasKey('link', $variaveisPassadas);
@@ -192,7 +192,7 @@ final class ConviteMailerTest extends TestCase
                 $emailCapturado = $e;
             });
 
-        $this->service->enviarConviteEscritorio($this->criarConviteEscritorio());
+        $this->service->enviarConviteEscritorio($this->criarConviteEscritorio(), self::TOKEN);
 
         self::assertSame(
             '[BlueJus] Você foi convidado para colaborar em um escritório no BlueJus',
@@ -216,7 +216,7 @@ final class ConviteMailerTest extends TestCase
             });
 
         $this->mailer->method('send');
-        $this->service->enviarConviteEscritorio($this->criarConviteEscritorio());
+        $this->service->enviarConviteEscritorio($this->criarConviteEscritorio(), self::TOKEN);
 
         self::assertSame('email/convite_escritorio.html.twig', $templateUsado);
     }
@@ -232,6 +232,6 @@ final class ConviteMailerTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Falha ao enviar convite de plataforma:');
 
-        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma());
+        $this->service->enviarConvitePlataforma($this->criarConvitePlataforma(), self::TOKEN);
     }
 }

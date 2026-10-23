@@ -42,6 +42,9 @@ final class TermoAceiteListener
         'auth_aceite_convite_criar_conta',
         'auth_aceite_convite_aceitar',
         'auth_aceite_convite_recusar',
+        'auth_meu_convite',
+        'auth_meu_convite_aceitar',
+        'auth_meu_convite_recusar',
         // Quem está sendo parado para aceitar os Termos precisa poder ler a Política de
         // Privacidade antes de decidir. São rotas públicas e somente de leitura: liberá-las
         // aqui não afrouxa o portão do aceite, só deixa de transformar o link em beco sem saída.
@@ -66,6 +69,7 @@ final class TermoAceiteListener
         'trabalho_externo_vagas_publicas',
         'trabalho_externo_vagas_link',
         'trabalho_externo_vagas_alertas',
+        'vagas_publicas_cta',
     ];
 
     public function __construct(

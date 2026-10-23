@@ -10,6 +10,7 @@ use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -50,6 +51,7 @@ final class FolhaPontoRegressaoFolhasReaisTest extends TestCase
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
+            $this->createStub(JornadaColaboradorRepository::class),
         );
     }
 
@@ -358,7 +360,6 @@ final class FolhaPontoRegressaoFolhasReaisTest extends TestCase
         $jornada->setDiasSemana([1, 2, 3, 4, 5]);
         $jornada->setCargaHorariaDiaria(528);
         $jornada->addBloco($bloco);
-        $user->setJornadaColaborador($jornada);
 
         return $jornada;
     }

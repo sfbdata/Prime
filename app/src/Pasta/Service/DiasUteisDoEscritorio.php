@@ -47,6 +47,42 @@ final class DiasUteisDoEscritorio
         return $d;
     }
 
+    /**
+     * O N-ésimo dia útil DEPOIS de `$inicio` (o próprio dia não conta), como o prazo padrão do despacho da meta
+     * (desenho 04B de 22/10, L118: 5 dias úteis a partir de hoje). Zero devolve o próprio dia.
+     */
+    public function somarUteis(\DateTimeImmutable $inicio, int $dias, ?string $uf): \DateTimeImmutable
+    {
+        $d = $inicio->setTime(0, 0);
+        for ($contados = 0; $contados < $dias;) {
+            $d = $d->modify('+1 day');
+            if ($this->ehUtil($d, $uf)) {
+                ++$contados;
+            }
+        }
+
+        return $d;
+    }
+
+    /**
+     * Os dias NÃO úteis de `$de` a `$ate`, inclusive, em `Y-m-d` (fins de semana incluídos): a lista que a tela
+     * usa para recontar os dias úteis no navegador pela mesma regra (C12).
+     *
+     * @return list<string>
+     */
+    public function naoUteisEntre(\DateTimeImmutable $de, \DateTimeImmutable $ate, ?string $uf): array
+    {
+        $lista = [];
+        $fim = $ate->setTime(0, 0);
+        for ($d = $de->setTime(0, 0); $d <= $fim; $d = $d->modify('+1 day')) {
+            if (!$this->ehUtil($d, $uf)) {
+                $lista[] = $d->format('Y-m-d');
+            }
+        }
+
+        return $lista;
+    }
+
     /** Fixa a UF, para passar ao {@see LeitorDeDatas}. */
     public function daUf(?string $uf): DiasUteisDaUf
     {

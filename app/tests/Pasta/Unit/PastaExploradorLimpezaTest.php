@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L9 da aba Documentos: duplicados e limpeza na tela (DOC-62..66; desenho 02 - EXPEDIENTES
@@ -17,9 +18,18 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorLimpezaTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS   = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS  = __DIR__ . '/../../../public/css/pasta-explorador.css';
     private const TWIG = __DIR__ . '/../../../templates/pasta/_documentos_explorador.html.twig';
+    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
+
+    /** @return array<string, mixed> o bloco `pasta_documentos.explorador` do catálogo */
+    private function catalogo(): array
+    {
+        return Yaml::parseFile(self::CATALOGO)['pasta_documentos']['explorador'];
+    }
 
     private function js(): string
     {
@@ -67,9 +77,16 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertNotFalse($ini);
         $faixa = substr($twig, $ini, strpos($twig, '{# A lista é o alvo do teclado', $ini) - $ini);
 
-        self::assertStringContainsString('Sugestões de limpeza (por regras)', $faixa);
-        self::assertStringContainsString('aria-label="Sugestões de limpeza por regras"', $faixa);
-        self::assertStringContainsString('Não é inteligência artificial.', $faixa, 'o título explica que são regras');
+        self::assertStringContainsString("{{ 'pasta_documentos.explorador.limpeza.titulo'|trans }}", $faixa);
+        self::assertStringContainsString("aria-label=\"{{ 'pasta_documentos.explorador.limpeza.regiao'|trans }}\"", $faixa);
+        self::assertStringContainsString("title=\"{{ 'pasta_documentos.explorador.limpeza.dica'|trans }}\"", $faixa);
+        $limpeza = $this->catalogo()['limpeza'];
+        self::assertSame('Sugestões de limpeza (por regras)', $limpeza['titulo']);
+        self::assertSame('Sugestões de limpeza por regras', $limpeza['regiao']);
+        self::assertStringEndsWith('Não é inteligência artificial.', $limpeza['dica'], 'o título explica que são regras');
+        foreach ($limpeza as $texto) {
+            self::assertDoesNotMatchRegularExpression('/\bI\.?A\b/u', $texto);
+        }
         self::assertStringNotContainsString('bi-stars', $faixa);
         self::assertStringNotContainsString('✦', $faixa);
         self::assertDoesNotMatchRegularExpression('/\bI\.?A\b/u', $faixa);
@@ -79,7 +96,8 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertStringNotContainsString('bi-stars', $l9);
         self::assertStringNotContainsString('✦', $l9);
         self::assertStringNotContainsString('bi-stars', $this->js(), 'nenhuma estrela de "IA" no explorador');
-        self::assertStringContainsString("'Ganhe espaço: ' + partes.join(', ') + ' · libera cerca de ' + formatarBytes(somaDaLimpeza(sug))", $l9, 'texto do desenho (dc L4946)');
+        self::assertStringContainsString("BJ_T.t('pasta_scripts.js.explorador.limpeza_texto', { regras: partes.join(', '), tamanho: formatarBytes(somaDaLimpeza(sug)) })", $l9);
+        self::assertTextoDoScript('Ganhe espaço: {regras} · libera cerca de {tamanho}', 'explorador.limpeza_texto', $l9); // texto do desenho (dc L4946)
     }
 
     #[TestDox('nada de innerHTML/insertAdjacentHTML: nome de arquivo é dado do usuário — selos, motivos e itens vão por h()/textContent')]
@@ -90,7 +108,8 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertStringNotContainsString('insertAdjacentHTML', $js);
         self::assertStringNotContainsString('outerHTML', $js);
 
-        self::assertStringContainsString("h('span', { class: 'pex-selo pex-selo--identico', title: titulo }, [icone('bi-files'), 'Idêntico'])", $this->funcao('seloIdentico'));
+        self::assertStringContainsString("h('span', { class: 'pex-selo pex-selo--identico', title: titulo }, [icone('bi-files'), BJ_T.t('pasta_scripts.js.explorador.selo_identico')])", $this->funcao('seloIdentico'));
+        self::assertTextoDoScript('Idêntico', 'explorador.selo_identico', $this->funcao('seloIdentico'));
         self::assertStringContainsString("h('span', { class: 'pex-limpeza-item-nome', text: x.a.nome, title: x.a.nome })", $this->funcao('renderizarLimpeza'));
         self::assertStringContainsString('el.limpezaTexto.textContent = ', $this->funcao('renderizarLimpeza'));
     }
@@ -130,7 +149,8 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertStringNotContainsString('fetch(', $l9, 'nenhum pedido próprio: o lote é o excluir-lote');
         self::assertStringNotContainsString('postJson(', $l9);
         self::assertStringNotContainsString('confirm(', $l9, 'o confirm é o do excluirItens');
-        self::assertStringContainsString("'Excluir ' + marcados.length + ' selecionado(s) · ' + formatarBytes(somaDaLimpeza(marcados))", $l9);
+        self::assertStringContainsString("BJ_T.t('pasta_scripts.js.explorador.limpeza_excluir', { n: marcados.length, tamanho: formatarBytes(somaDaLimpeza(marcados)) })", $l9);
+        self::assertTextoDoScript('Excluir {n} selecionado(s) · {tamanho}', 'explorador.limpeza_excluir', $l9);
         self::assertStringContainsString('el.limpezaExcluir.disabled = marcados.length === 0;', $l9);
 
         $excluir = $this->funcao('excluirItens');
@@ -143,15 +163,18 @@ final class PastaExploradorLimpezaTest extends TestCase
     #[TestDox('DOC-102/103: nota, confirmação e aviso da limpeza com o texto do desenho (dc L2235/L4952), sem prazo de lixeira; os demais Excluir seguem com o confirm e o toast genéricos')]
     public function testTextosDaLimpezaDoDesenho(): void
     {
-        self::assertStringContainsString('<span class="pex-limpeza-nota">Nada é excluído sem você confirmar. A exclusão pode ser desfeita.</span>', $this->twig());
+        self::assertStringContainsString("<span class=\"pex-limpeza-nota\">{{ 'pasta_documentos.explorador.limpeza.nota'|trans }}</span>", $this->twig());
+        self::assertSame('Nada é excluído sem você confirmar. A exclusão pode ser desfeita.', $this->catalogo()['limpeza']['nota']);
 
         $l9 = $this->secaoDoL9();
-        self::assertStringContainsString("confirmacao: 'Excluir ' + itens.length + ' arquivo(s) sugerido(s)? Você pode desfazer logo em seguida.',", $l9);
-        self::assertStringContainsString("aviso: itens.length + ' arquivo(s) excluído(s) · ' + formatarBytes(somaDaLimpeza(marcados)) + ' liberados',", $l9);
+        self::assertStringContainsString("confirmacao: BJ_T.t('pasta_scripts.js.explorador.limpeza_confirmacao', { n: itens.length }),", $l9);
+        self::assertStringContainsString("aviso: BJ_T.t('pasta_scripts.js.explorador.limpeza_aviso', { n: itens.length, tamanho: formatarBytes(somaDaLimpeza(marcados)) }),", $l9);
+        self::assertTextoDoScript('Excluir {n} arquivo(s) sugerido(s)? Você pode desfazer logo em seguida.', 'explorador.limpeza_confirmacao', $l9);
+        self::assertTextoDoScript('{n} arquivo(s) excluído(s) · {tamanho} liberados', 'explorador.limpeza_aviso', $l9);
         self::assertDoesNotMatchRegularExpression('/\\d+ dias/u', $l9, 'a lixeira não tem purga automática: nada de prazo');
 
         $excluir = $this->funcao('excluirItens');
-        self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? 'Excluído: ' + itens[0].nome : itens.length + ' itens excluídos');", $excluir);
+        self::assertStringContainsString("const texto = t.aviso || (itens.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.excluido_um', { nome: itens[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.excluidos_varios', { n: itens.length }));", $excluir);
         // Os outros fluxos chamam sem textos: confirm e toast genéricos.
         self::assertStringContainsString("case 'excluir':  excluirItens(sel); break;", $this->js());
         self::assertStringContainsString("if (k === 'Delete') { if (sel.length) { e.preventDefault(); excluirItens(sel); } return; }", $this->js());
@@ -176,16 +199,21 @@ final class PastaExploradorLimpezaTest extends TestCase
     public function testSelosDaLinha(): void
     {
         $js = $this->js();
-        self::assertStringContainsString("const SELO_SUGESTAO = { vazio: 'Vazio', copia_processo: 'Ver no PJe', muito_grande: 'Muito grande' };", $js);
+        self::assertStringContainsString("const SELO_SUGESTAO = { vazio: BJ_T.t('pasta_scripts.js.explorador.selo_vazio'), copia_processo: BJ_T.t('pasta_scripts.js.explorador.selo_copia_processo'), muito_grande: BJ_T.t('pasta_scripts.js.explorador.selo_muito_grande') };", $js);
+        self::assertTextoDoScript('Vazio', 'explorador.selo_vazio', $js);
+        self::assertTextoDoScript('Ver no PJe', 'explorador.selo_copia_processo', $js);
+        self::assertTextoDoScript('Muito grande', 'explorador.selo_muito_grande', $js);
         $linha = $this->funcao('linhaArquivo');
         self::assertStringContainsString('const selo = identico || seloSugestao(a);', $linha);
         self::assertStringContainsString("r.linha.classList.add('pex-item--identico');", $linha);
-        self::assertStringContainsString("'Conteúdo idêntico a: '", $this->funcao('seloIdentico'));
-        self::assertStringContainsString("'Sugestão para ganhar espaço: '", $this->funcao('seloSugestao'));
+        self::assertTextoDoScript('Conteúdo idêntico a: {nomes}. Este é o mais antigo (sugerido manter).', 'explorador.identico_este_fica', $this->funcao('seloIdentico'));
+        self::assertTextoDoScript('Conteúdo idêntico a: {nomes}. Sugestão: manter "{fica}".', 'explorador.identico_outro_fica', $this->funcao('seloIdentico'));
+        self::assertTextoDoScript('Sugestão para ganhar espaço: {motivo}', 'explorador.selo_sugestao_titulo', $this->funcao('seloSugestao'));
         self::assertStringContainsString("if (a.identicoA == null || !a.sha256) return [];", $this->funcao('copiasIdenticas'), 'sem lastro de hash, sem selo');
 
-        self::assertStringContainsString("['Nome parecido', nomeParecidoTexto(d)],", $js);
-        self::assertStringContainsString("'% parecido; confira se é o mesmo documento)'", $this->funcao('nomeParecidoTexto'));
+        self::assertStringContainsString("[BJ_T.t('pasta_scripts.js.explorador.prop_nome_parecido'), nomeParecidoTexto(d)],", $js);
+        self::assertTextoDoScript('Nome parecido', 'explorador.prop_nome_parecido', $js);
+        self::assertTextoDoScript('{nome} ({percentual}% parecido; confira se é o mesmo documento)', 'explorador.nome_parecido', $this->funcao('nomeParecidoTexto'));
     }
 
     #[TestDox('renomear/editar preservam identicoA, nomeParecidoCom e regraLimpeza: a resposta de arquivo() traz NULL e não pode apagar o par')]
@@ -220,8 +248,10 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertNotFalse($faix);
         self::assertNotFalse($lis);
         self::assertTrue($cab < $faix && $faix < $lis);
-        self::assertStringContainsString('id="pexLimpezaRevisar" aria-expanded="false" aria-controls="pexLimpezaLista">Revisar</button>', $twig);
-        self::assertStringContainsString('aria-label="Dispensar sugestão"', $twig);
+        self::assertStringContainsString("id=\"pexLimpezaRevisar\" aria-expanded=\"false\" aria-controls=\"pexLimpezaLista\">{{ 'pasta_documentos.explorador.limpeza.revisar'|trans }}</button>", $twig);
+        self::assertStringContainsString("aria-label=\"{{ 'pasta_documentos.explorador.limpeza.dispensar'|trans }}\"", $twig);
+        self::assertSame('Revisar', $this->catalogo()['limpeza']['revisar']);
+        self::assertSame('Dispensar sugestão', $this->catalogo()['limpeza']['dispensar']);
         self::assertStringContainsString('<div class="pex-limpeza-lista" id="pexLimpezaLista" hidden>', $twig);
     }
 

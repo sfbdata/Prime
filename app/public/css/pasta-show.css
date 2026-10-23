@@ -1790,6 +1790,8 @@ span.ps-situacao-pill { cursor: default; }
 .ps-page .ps-linha-titulo a:not(.btn):not(.ps-btn) { color: inherit; }
 .ps-page .ps-linha-titulo a:not(.btn):not(.ps-btn):hover { color: var(--ps-accent); text-decoration: none; }
 .ps-linha-meta { font-size: 12px; color: var(--ps-label); margin-top: 2px; }
+/* Selo "prazo calculado, confira" do prazo do Push (docs/specs/prazo-do-push.md). */
+.ps-prazo-calculado { display: inline-block; font-size: 10.5px; color: var(--ps-warn-text); background: var(--ps-warn-bg); border: 1px solid var(--ps-warn-border); border-radius: 3px; padding: 0 5px; white-space: nowrap; }
 
 .ps-pip { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
 /* O tom do pip e o mesmo TEXTO do selo ao lado, como no desenho: vermelho ate 2
@@ -3533,8 +3535,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-meta-titulo { display: flex; align-items: flex-start; gap: 8px; font-size: 14.5px; font-weight: 600; line-height: 1.35; text-wrap: pretty; color: var(--ps-text); }
 .ps-meta-titulo i { font-size: 15px; line-height: 1.35; color: var(--ps-ok-dot); flex-shrink: 0; }
 /* Numero local da meta (desenho: "1." 14.5/700 azul, algarismos tabulares). O
-   numero global do desenho (tarefa.id) nao entra: e a sequencia de TODOS os
-   escritorios. */
+   selo "Nº 0001" depois do titulo e o numero da meta no escritorio (nunca o id):
+   estilo em meta-numero-global.css. */
 .ps-meta-num { flex-shrink: 0; min-width: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.35; color: var(--ps-meta-num); font-variant-numeric: tabular-nums; }
 .ps-meta-titulo-tx { flex: 1; min-width: 0; }
 /* So o TEXTO e riscado (desenho): o numero continua legivel. */
@@ -5660,4 +5662,34 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     border: 1px solid #c3d2dd;
     border-radius: 3px;
     background: linear-gradient(135deg, #fff 45%, #cf3f36 47%, #cf3f36 53%, #fff 55%);
+}
+
+/* =============================================================================
+   Tag fixa "Observação" dos registros de Detalhes (desenho 02, dc L2458 `o.tagSt`
+   e dc L6275 `COR['Observação']`): 10,5px, 700, caixa alta com .06em, 2px 8px,
+   cantos de 4px, roxo #6b5bb0 sobre #efecfa. Fica depois do autor (e da
+   presença) e antes de "editado". A etiqueta variável (Combinado, Ligação,
+   Atendimento) segue pendente (PAS-029).
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-obs-tag-tx: #6b5bb0;
+    --ps-obs-tag-bg: #efecfa;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-obs-tag-tx: #c9bff2;
+    --ps-obs-tag-bg: rgba(107, 91, 176, .28);
+}
+.detalhes-obs-tag {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--ps-obs-tag-bg);
+    color: var(--ps-obs-tag-tx);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
 }

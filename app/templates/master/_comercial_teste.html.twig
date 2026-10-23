@@ -1,0 +1,31 @@
+{#
+    "Enviar e-mail de teste" e "Teste enviado" (desenho 05 VS 21.10.26, L497-498 e L668-669; F3f). O destino é só o
+    Master logado (decisão da coordenação, 21/10/2026: "qualquer endereço" está com o dono): o campo vem preenchido e
+    travado, com a nota. O envio vai pela rota que já existe (`master_comercial_teste`); o modelo vem do editor
+    (`mcModeloAtual()` da section[data-mc-campanha] do clique). Vem uma vez em cada modo (`ids`: mc ou mc-venda), dentro da
+    raiz dele, para aparecer na seção que está aberta. public/js/master/comercial-teste.js.
+#}
+{% set _t = (ids ?? 'mc') ~ '-tst' %}
+<div class="mc-tst" data-mc-tst hidden data-url="{{ path('master_comercial_teste') }}">
+    <div class="mc-tst-fundo" data-mc-tst-fechar></div>
+    <div class="mc-tst-caixa" role="dialog" aria-modal="true" aria-labelledby="{{ _t }}-titulo">
+        <div class="mc-tst-cabeca"><i class="bi bi-send-check" aria-hidden="true"></i><b id="{{ _t }}-titulo">{{ 'comercial.teste.titulo'|trans }}</b><button type="button" class="mc-tst-x" data-mc-tst-fechar aria-label="{{ 'comercial.teste.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div class="mc-tst-corpo">
+            <label class="mc-tst-rotulo" for="{{ _t }}-para">{{ 'comercial.teste.enviar_para'|trans }} <span>{{ 'comercial.teste.separe'|trans }}</span></label>
+            <input class="mc-tst-para" id="{{ _t }}-para" data-mc-tst-para value="{{ app.user ? app.user.email : '' }}" readonly aria-describedby="{{ _t }}-trava">
+            <div class="mc-tst-nota" id="{{ _t }}-trava" data-mc-tst-trava>{{ 'comercial.teste.trava'|trans }}</div>
+            <div class="mc-tst-nota">{{ 'comercial.teste.nota'|trans }}</div>
+            <div class="mc-tst-erro" data-mc-tst-erro role="alert" hidden></div>
+        </div>
+        <div class="mc-tst-rodape"><button type="button" class="mc-tst-cancelar" data-mc-tst-fechar>{{ 'comercial.teste.cancelar'|trans }}</button><button type="button" class="mc-tst-enviar" data-mc-tst-enviar><i class="bi bi-send" aria-hidden="true"></i> {{ 'comercial.teste.enviar'|trans }}</button></div>
+    </div>
+</div>
+<div class="mc-tst" data-mc-tst-ok hidden>
+    <div class="mc-tst-fundo" data-mc-tst-fechar></div>
+    <div class="mc-tst-caixa mc-tst-ok" role="dialog" aria-modal="true" aria-labelledby="{{ _t }}-ok-titulo">
+        <div class="mc-tst-ok-ic"><i class="bi bi-check2-circle" aria-hidden="true"></i></div>
+        <b id="{{ _t }}-ok-titulo">{{ 'comercial.teste.ok_titulo'|trans }}</b>
+        <div class="mc-tst-ok-texto">{{ 'comercial.teste.ok_para'|trans }} <span data-mc-tst-ok-para></span>{{ 'comercial.teste.ok_resto'|trans }}</div>
+        <button type="button" class="mc-tst-enviar" data-mc-tst-fechar>{{ 'comercial.teste.ok'|trans }}</button>
+    </div>
+</div>

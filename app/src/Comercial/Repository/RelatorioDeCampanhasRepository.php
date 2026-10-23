@@ -19,12 +19,17 @@ use Doctrine\DBAL\Connection;
  * As abas agrupam pelo estado: `rec` (recorrente), `ag` (agendada) e `env` (o resto: na fila, enviando, enviada,
  * cancelada e o `teste`, quando existir). A paginação é feita no SQL.
  *
+ * As marcas são de cada Master (`comercial_campanha_marca`, F3e; spec `comercial-marcas.md`): `est` (Com estrela) é
+ * estrela e não arquivada, `arq` (Arquivadas) é a arquivada, que sai das outras quatro; a removida não aparece em aba
+ * nenhuma nem conta. Por isso a lista recebe o id do Master logado.
+ *
  * @phpstan-type LinhaDaCampanha array{
  *     id: int, nome: string, assunto: string, titulo: string, modelo_nome: string, publico: string, frequencia: string,
- *     estado: string, total: int, execucoes: int, agendada_para: ?string, criada_em: string
+ *     estado: string, total: int, execucoes: int, agendada_para: ?string, criada_em: string, rastrear_leitura: bool, estrela: bool
  * }
  * @phpstan-type Metricas array{destinatarios: int, na_fila: int, enviados: int, entregues: int, lidos: int, rejeitados: int, clicaram: int}
  * @phpstan-type Destinatario array{email: string, situacao: ?string, aberto: bool, clicou: bool}
+ * @phpstan-type Contagens array{env: int, ag: int, rec: int, est: int, arq: int}
  */
 class RelatorioDeCampanhasRepository
 {
@@ -38,28 +43,41 @@ class RelatorioDeCampanhasRepository
     /** Rejeitados: o SMTP recusou. */
     public const SITUACAO_REJEITADA = 'falhou';
 
-    public const ABAS = ['env', 'ag', 'rec'];
+    public const ABAS = ['env', 'ag', 'rec', 'est', 'arq'];
 
     private const GRUPO = "CASE c.estado WHEN 'recorrente' THEN 'rec' WHEN 'agendada' THEN 'ag' ELSE 'env' END";
+    /** As marcas do Master logado (sem linha, sem marca) e a regra de cada uma. */
+    private const MARCAS = 'comercial_campanha c LEFT JOIN comercial_campanha_marca m ON m.campanha_id = c.id AND m.user_id = :master';
+    private const ARQUIVADA = 'COALESCE(m.arquivada, false)';
+    private const ESTRELA = 'COALESCE(m.estrela, false)';
+    private const VISIVEL = 'm.removida_em IS NULL';
 
     public function __construct(private readonly Connection $conexao)
     {
     }
 
-    /** @return array{env: int, ag: int, rec: int} quantas campanhas em cada aba (sem a busca, como o dc) */
-    public function contarPorAba(): array
+    /** @return Contagens quantas campanhas em cada aba, para o Master (sem a busca, como o dc L700) */
+    public function contarPorAba(int $masterId): array
     {
-        $linhas = $this->conexao->fetchAllKeyValue('SELECT ' . self::GRUPO . ' AS aba, COUNT(*) FROM comercial_campanha c GROUP BY 1');
+        $aberta = 'NOT ' . self::ARQUIVADA . ' AND ' . self::GRUPO;
+        $l = (array) $this->conexao->fetchAssociative(
+            'SELECT COUNT(*) FILTER (WHERE ' . $aberta . " = 'env') AS env, COUNT(*) FILTER (WHERE " . $aberta . " = 'ag') AS ag,
+                    COUNT(*) FILTER (WHERE " . $aberta . " = 'rec') AS rec,
+                    COUNT(*) FILTER (WHERE " . self::ESTRELA . ' AND NOT ' . self::ARQUIVADA . ') AS est,
+                    COUNT(*) FILTER (WHERE ' . self::ARQUIVADA . ') AS arq
+             FROM ' . self::MARCAS . ' WHERE ' . self::VISIVEL,
+            ['master' => $masterId],
+        );
 
-        return ['env' => (int) ($linhas['env'] ?? 0), 'ag' => (int) ($linhas['ag'] ?? 0), 'rec' => (int) ($linhas['rec'] ?? 0)];
+        return ['env' => (int) ($l['env'] ?? 0), 'ag' => (int) ($l['ag'] ?? 0), 'rec' => (int) ($l['rec'] ?? 0), 'est' => (int) ($l['est'] ?? 0), 'arq' => (int) ($l['arq'] ?? 0)];
     }
 
-    /** Quantas campanhas a aba tem com a busca (por nome, assunto, modelo ou e-mail de um destinatário). */
-    public function contar(string $aba, string $busca): int
+    /** Quantas campanhas a aba tem com a busca (por nome, assunto, modelo ou e-mail de um destinatário), para o Master. */
+    public function contar(int $masterId, string $aba, string $busca): int
     {
-        [$onde, $parametros] = self::filtro($aba, $busca);
+        [$onde, $parametros] = self::filtro($masterId, $aba, $busca);
 
-        return (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha c WHERE ' . $onde, $parametros);
+        return (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM ' . self::MARCAS . ' WHERE ' . $onde, $parametros);
     }
 
     /**
@@ -67,13 +85,13 @@ class RelatorioDeCampanhasRepository
      *
      * @return list<LinhaDaCampanha>
      */
-    public function pagina(string $aba, string $busca, int $limite, int $deslocamento): array
+    public function pagina(int $masterId, string $aba, string $busca, int $limite, int $deslocamento): array
     {
-        [$onde, $parametros] = self::filtro($aba, $busca);
+        [$onde, $parametros] = self::filtro($masterId, $aba, $busca);
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT c.id, c.nome, c.assunto, c.titulo, c.modelo_nome, c.publico, c.frequencia, c.estado, c.total, c.execucoes,
-                    c.agendada_para, c.criada_em
-             FROM comercial_campanha c WHERE ' . $onde . ' ORDER BY c.id DESC LIMIT ' . max(1, $limite) . ' OFFSET ' . max(0, $deslocamento),
+                    c.agendada_para, c.criada_em, c.rastrear_leitura, ' . self::ESTRELA . ' AS estrela
+             FROM ' . self::MARCAS . ' WHERE ' . $onde . ' ORDER BY c.id DESC LIMIT ' . max(1, $limite) . ' OFFSET ' . max(0, $deslocamento),
             $parametros,
         );
 
@@ -137,22 +155,33 @@ class RelatorioDeCampanhasRepository
         ], $linhas);
     }
 
-    /** A campanha `enviada` que ainda tem envio esperando o worker (o EncerrarCampanha alcança, §8.1.5). */
-    public function temEnvioNaFila(int $campanhaId): bool
+    /**
+     * Todos os destinatários da campanha para o "Exportar destinatários" (spec `comercial-marcas.md`, regra 6), da
+     * execução mais nova para a mais antiga, sem o e-mail anonimizado pela retenção (o hash não tem `@`).
+     *
+     * @return list<array{email: string, situacao: ?string, aberto: bool}>
+     */
+    public function destinatariosParaExportar(int $campanhaId): array
     {
-        return $this->conexao->fetchOne(
-            "SELECT 1 FROM comercial_envio WHERE origem = :origem AND situacao IN ('enfileirado', 'enviando') LIMIT 1",
-            ['origem' => 'campanha:' . $campanhaId],
-        ) !== false;
+        $linhas = $this->conexao->fetchAllAssociative(
+            "SELECT d.email, e.situacao, e.primeira_abertura_em IS NOT NULL AS aberto FROM comercial_campanha_destino d LEFT JOIN comercial_envio e ON e.id = d.envio_id
+             WHERE d.campanha_id = :id AND d.email LIKE '%@%' ORDER BY d.execucao DESC, d.id",
+            ['id' => $campanhaId],
+        );
+
+        return array_map(static fn (array $l): array => [
+            'email' => (string) $l['email'], 'situacao' => $l['situacao'] === null ? null : (string) $l['situacao'],
+            'aberto' => (bool) $l['aberto'],
+        ], $linhas);
     }
 
     /**
-     * @return array{0: string, 1: array<string, string>}
+     * @return array{0: string, 1: array<string, string|int>}
      */
-    private static function filtro(string $aba, string $busca): array
+    private static function filtro(int $masterId, string $aba, string $busca): array
     {
-        $onde = self::GRUPO . ' = :aba';
-        $parametros = ['aba' => $aba];
+        $parametros = ['master' => $masterId];
+        $onde = self::VISIVEL . ' AND ' . self::condicaoDaAba($aba, $parametros);
         if ($busca !== '') {
             $onde .= " AND (c.nome ILIKE :q OR c.assunto ILIKE :q OR c.modelo_nome ILIKE :q" . self::buscaNoPublico($busca, $parametros) . "
                 OR EXISTS (SELECT 1 FROM comercial_campanha_destino d WHERE d.campanha_id = c.id AND d.email ILIKE :q))";
@@ -163,10 +192,29 @@ class RelatorioDeCampanhasRepository
     }
 
     /**
+     * A regra da aba (dc L698): a arquivada só em Arquivadas; Com estrela é estrela e não arquivada; as três do estado
+     * deixam a arquivada de fora.
+     *
+     * @param array<string, string|int> $parametros
+     */
+    private static function condicaoDaAba(string $aba, array &$parametros): string
+    {
+        if ($aba === 'arq') {
+            return self::ARQUIVADA;
+        }
+        if ($aba === 'est') {
+            return self::ESTRELA . ' AND NOT ' . self::ARQUIVADA;
+        }
+        $parametros['aba'] = $aba;
+
+        return self::GRUPO . ' = :aba AND NOT ' . self::ARQUIVADA;
+    }
+
+    /**
      * O público é gravado pela chave ('prim') e a tela mostra o rótulo ("Usuários primários"), como o dc L699 busca:
      * as chaves cujo rótulo contém a busca entram como parâmetros.
      *
-     * @param array<string, string> $parametros
+     * @param array<string, string|int> $parametros
      */
     private static function buscaNoPublico(string $busca, array &$parametros): string
     {
@@ -195,6 +243,8 @@ class RelatorioDeCampanhasRepository
             'modelo_nome' => (string) $l['modelo_nome'], 'publico' => (string) $l['publico'], 'frequencia' => (string) $l['frequencia'],
             'estado' => (string) $l['estado'], 'total' => (int) $l['total'], 'execucoes' => (int) $l['execucoes'],
             'agendada_para' => $l['agendada_para'] === null ? null : (string) $l['agendada_para'], 'criada_em' => (string) $l['criada_em'],
+            'rastrear_leitura' => (bool) $l['rastrear_leitura'],
+            'estrela' => (bool) ($l['estrela'] ?? false),
         ];
     }
 }

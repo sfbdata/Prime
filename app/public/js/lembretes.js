@@ -30,10 +30,10 @@
     const KD = 'bj-lembretes-disp';
     const AZ = '#0a6fa0';
     const PERF = {
-        aud: { r: 'AUDIÊNCIA', ic: 'bi-bank', cor: '#5b3f9e', antes: 60, notas: [523, 659, 784, 1047, 784, 1047], dica: 'Confira a pauta, os documentos e o link da sala virtual.' },
-        reun: { r: 'REUNIÃO DE EQUIPE', ic: 'bi-people-fill', cor: '#1e7b45', antes: 10, notas: [784, 988], dica: 'A equipe vai se reunir. Leve as pendências da semana.' },
-        prazo: { r: 'PRAZO', ic: 'bi-hourglass-split', cor: '#c0392b', antes: 15, notas: [880, 660, 880, 660], dica: 'Prazo com horário: confirme o protocolo antes do limite.' },
-        meus: { r: 'COMPROMISSO', ic: 'bi-calendar-event', cor: AZ, antes: 15, notas: [660, 880, 1100], dica: '' },
+        aud: { r: BJ_T.t('moldura.js.lembretes.tipo_audiencia'), ic: 'bi-bank', cor: '#5b3f9e', antes: 60, notas: [523, 659, 784, 1047, 784, 1047], dica: BJ_T.t('moldura.js.lembretes.dica_audiencia') },
+        reun: { r: BJ_T.t('moldura.js.lembretes.tipo_reuniao'), ic: 'bi-people-fill', cor: '#1e7b45', antes: 10, notas: [784, 988], dica: BJ_T.t('moldura.js.lembretes.dica_reuniao') },
+        prazo: { r: BJ_T.t('moldura.js.lembretes.tipo_prazo'), ic: 'bi-hourglass-split', cor: '#c0392b', antes: 15, notas: [880, 660, 880, 660], dica: BJ_T.t('moldura.js.lembretes.dica_prazo') },
+        meus: { r: BJ_T.t('moldura.js.lembretes.tipo_compromisso'), ic: 'bi-calendar-event', cor: AZ, antes: 15, notas: [660, 880, 1100], dica: '' },
     };
     const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -91,10 +91,10 @@
 
     function rotulo(ev) {
         const min = Math.round((ev.quando - Date.now()) / 6e4);
-        const h = ev.quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        if (min > 59) { return 'Em ' + Math.round(min / 60) + 'h · ' + h; }
-        if (min > 0) { return 'Em ' + min + ' min · às ' + h; }
-        return min > -5 ? 'Agora · ' + h : 'Começou às ' + h;
+        const h = BJFormato.hora(ev.quando);
+        if (min > 59) { return BJ_T.t('moldura.js.lembretes.em_horas', { horas: Math.round(min / 60), hora: h }); }
+        if (min > 0) { return BJ_T.t('moldura.js.lembretes.em_minutos', { minutos: min, hora: h }); }
+        return min > -5 ? BJ_T.t('moldura.js.lembretes.agora', { hora: h }) : BJ_T.t('moldura.js.lembretes.comecou', { hora: h });
     }
 
     function mostrar(ev) {
@@ -104,7 +104,7 @@
         som(ev.tipo);
         try {
             if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('BlueJus · ' + ev.t, { body: rotulo(ev), icon: ICONE, tag: ev.k });
+                new Notification(BJ_T.t('moldura.js.lembretes.notificacao_titulo', { titulo: ev.t }), { body: rotulo(ev), icon: ICONE, tag: ev.k });
             }
         } catch (e) { /* sem notificação */ }
     }
@@ -121,7 +121,7 @@
             box = document.createElement('div');
             box.id = 'bjl-box';
             box.setAttribute('role', 'region');
-            box.setAttribute('aria-label', 'Lembretes');
+            box.setAttribute('aria-label', BJ_T.t('moldura.js.lembretes.regiao'));
             box.className = 'bjl-box';
             document.body.appendChild(box);
         }
@@ -135,11 +135,11 @@
         const dica = ev.obs || P.dica;
         return '<div class="bjl-cartao" id="' + idDe(ev.k) + '" role="alert" style="border-left-color:' + P.cor + ';">'
             + '<div class="bjl-topo"><span class="bjl-icone" style="background:' + P.cor + ';"><i class="bi ' + P.ic + '"></i></span>'
-            + '<div class="bjl-textos"><div class="bjl-rotulo" style="color:' + P.cor + ';">' + P.r + ' · ' + esc(rotulo(ev)) + '</div><b>' + esc(ev.t) + '</b>'
+            + '<div class="bjl-textos"><div class="bjl-rotulo" style="color:' + P.cor + ';">' + esc(P.r) + ' · ' + esc(rotulo(ev)) + '</div><b>' + esc(ev.t) + '</b>'
             + (dica ? '<div class="bjl-dica">' + esc(dica) + '</div>' : '') + '</div>'
-            + '<button type="button" class="bjl-x" data-bjl-x="' + esc(ev.k) + '" title="Dispensar" aria-label="Dispensar">×</button></div>'
-            + '<div class="bjl-botoes"><button type="button" class="bjl-abrir" data-bjl-abrir="' + esc(ev.k) + '">' + ((ev.pastaId || ev.pastaDeExemplo) && ev.tipo !== 'meus' ? 'Abrir pasta' : 'Ver na agenda') + '</button>'
-            + '<button type="button" class="bjl-adiar" data-bjl-adiar="' + esc(ev.k) + '">Lembrar em 10 min</button></div>'
+            + '<button type="button" class="bjl-x" data-bjl-x="' + esc(ev.k) + '" title="' + esc(BJ_T.t('moldura.js.lembretes.dispensar')) + '" aria-label="' + esc(BJ_T.t('moldura.js.lembretes.dispensar')) + '">\u00d7</button></div>'
+            + '<div class="bjl-botoes"><button type="button" class="bjl-abrir" data-bjl-abrir="' + esc(ev.k) + '">' + ((ev.pastaId || ev.pastaDeExemplo) && ev.tipo !== 'meus' ? esc(BJ_T.t('moldura.js.lembretes.abrir_pasta')) : esc(BJ_T.t('moldura.js.lembretes.ver_na_agenda'))) + '</button>'
+            + '<button type="button" class="bjl-adiar" data-bjl-adiar="' + esc(ev.k) + '">' + esc(BJ_T.t('moldura.js.lembretes.lembrar_em_10_min')) + '</button></div>'
             + '<div class="bjl-barra" style="background:' + P.cor + ';"></div></div>';
     }
 
@@ -189,10 +189,10 @@
     }
 
     const EXEMPLOS = {
-        aud: ['Audiência de conciliação · Pasta 1180', 'aud'],
-        reun: ['Reunião de equipe semanal', 'reun'],
-        prazo: ['Prazo de contestação · Pasta 1180', 'prazo'],
-        meus: ['Atendimento ao cliente', 'meus'],
+        aud: [BJ_T.t('moldura.js.lembretes.exemplo_audiencia'), 'aud'],
+        reun: [BJ_T.t('moldura.js.lembretes.exemplo_reuniao'), 'reun'],
+        prazo: [BJ_T.t('moldura.js.lembretes.exemplo_prazo'), 'prazo'],
+        meus: [BJ_T.t('moldura.js.lembretes.exemplo_compromisso'), 'meus'],
     };
 
     window.BJLembretes = {

@@ -42,11 +42,12 @@ interface FonteDeDadosDaPasta
     public function tarefasDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array;
 
     /**
-     * Anotações internas (aba Dados), mais recente primeiro.
+     * Anotações internas (aba Dados), mais recente primeiro. Sem `$comFinanceiro`, os cartões do sistema que
+     * são dado financeiro (`RegistroDoSistemaNaPasta::DO_FINANCEIRO`: pró-bono e contrato) ficam de fora.
      *
      * @return list<PastaMensagem>
      */
-    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array;
+    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite, bool $comFinanceiro = true): array;
 
     /**
      * Observações da aba Detalhes, mais recente primeiro.

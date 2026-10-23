@@ -19,8 +19,8 @@ use Psr\Log\LoggerInterface;
  * O trabalho de cada volta do expansor (spec `comercial-e-emails.md` §8.1 e §8.5), chamado pelo
  * {@see \App\Comercial\MessageHandler\ExpandirCampanhasHandler}:
  *   1. a chave da instalação: desligada, toda campanha ativa vira `cancelada` (parada de emergência);
- *   2. materializa a execução devida em `comercial_campanha_destino`, com o público resolvido de novo (B1 e descadastro
- *      reaplicados). Nada é recuperado: a única que acordou mais de 24 h atrasada é cancelada sem enviar; a recorrente
+ *   2. materializa a execução devida em `comercial_campanha_destino`, com o público resolvido de novo pelo modelo
+ *      gravado (`modelo_chave`; B1 e descadastro reaplicados) e a lista de cada destinatário (§11). Nada é recuperado: a única que acordou mais de 24 h atrasada é cancelada sem enviar; a recorrente
  *      que perdeu a vez pula para a próxima data futura;
  *   3. libera um lote numa transação da conexão (trava as linhas com `SKIP LOCKED`, entrega ao Carteiro, que vira
  *      savepoint, e grava o `envio_id`): queda no meio = nada gravado, nada duplicado;
@@ -40,6 +40,14 @@ final class ExpansorDeCampanhas
     /** O filtro congelado (§9) não passa mais na validação: tirar o filtro alargaria o público, então a campanha para. */
     public const MOTIVO_DO_FILTRO = 'O filtro guardado na campanha não vale mais; nada foi enviado';
 
+    /**
+     * A confirmação de leitura escolhida em cada campanha (F3g), lida com a mensagem: o envio só rastreia com ela e com
+     * as duas chaves globais (o MontadorDeEmail confere as chaves).
+     *
+     * @var array<int, bool>
+     */
+    private array $rastrearLeitura = [];
+
     public function __construct(
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly DestinoDaCampanhaRepository $destinos,
@@ -51,6 +59,7 @@ final class ExpansorDeCampanhas
         private readonly ChaveDasCampanhas $chave,
         private readonly LoggerInterface $logger,
         private readonly int $tetoDiarioDeCampanhas,
+        private readonly ImagensDaCampanha $imagens,
     ) {
     }
 
@@ -174,13 +183,48 @@ final class ExpansorDeCampanhas
             }
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);
             // O filtro congelado (§9) volta a valer, com a data desta execução (idade e aniversário).
-            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora);
+            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora, $this->modeloDoPublico($campanha));
             $execucao = $campanha['execucoes'] + 1;
             $this->destinos->materializar($campanha['id'], $execucao, $publico->destinatarios, $agora);
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;
             $estado = $recorrente ? CampanhaDeEmail::RECORRENTE : ($publico->total() > 0 ? CampanhaDeEmail::ENVIANDO : CampanhaDeEmail::ENVIADA);
             $this->campanhas->registrarExecucao($campanha['id'], $execucao, $publico->total(), $estado, $recorrente ? $seguinte : null);
+            $this->renovarImagem($campanha, $agora);
         });
+    }
+
+    /**
+     * F3i (§12): cada execução (a única e cada vez da recorrente) leva a validade da imagem do simples a 1 ano depois
+     * deste envio e marca o uso. A cópia que não descongela não tem imagem a renovar (e não vira e-mail).
+     *
+     * @param Campanha $campanha
+     */
+    private function renovarImagem(array $campanha, \DateTimeImmutable $agora): void
+    {
+        try {
+            $this->imagens->renovarPeloEnvio($this->composicao->descongelar($campanha), $agora);
+        } catch (CampanhaRecusada) {
+        }
+    }
+
+    /**
+     * O modelo que decide as listas do público (§11). Uma campanha `vagas` gravada sem a âncora (antes dela existir) não
+     * alcança quem só autorizou `vagas_alerta`: resolve como qualquer outro modelo.
+     *
+     * @param Campanha $campanha
+     */
+    private function modeloDoPublico(array $campanha): string
+    {
+        if ($campanha['modelo_chave'] !== PublicosDaCampanha::MODELO_DE_VAGAS) {
+            return $campanha['modelo_chave'];
+        }
+        try {
+            ComposicaoDaCampanha::exigirAncoraDeVagas($this->composicao->descongelar($campanha));
+        } catch (CampanhaRecusada) {
+            return '';
+        }
+
+        return $campanha['modelo_chave'];
     }
 
     /** @param Campanha $campanha */
@@ -213,9 +257,9 @@ final class ExpansorDeCampanhas
 
     /**
      * O e-mail do destinatário, com a campanha descongelada uma vez por lote. Null se não vira e-mail (o conteúdo ou o
-     * endereço deixou de valer): o destinatário sai da execução em vez de travar o lote.
+     * endereço deixou de valer): o destinatário sai da execução em vez de travar o lote. A lista é a do destino (§11).
      *
-     * @param array{id: int, campanha_id: int, email: string, nome: ?string} $destino
+     * @param array{id: int, campanha_id: int, email: string, nome: ?string, lista: string} $destino
      * @param array<int, \App\Comercial\DTO\MensagemDaCampanha|null>          $mensagens
      */
     private function mensagem(array $destino, array &$mensagens): ?MensagemDeEmail
@@ -223,6 +267,7 @@ final class ExpansorDeCampanhas
         $id = $destino['campanha_id'];
         if (!\array_key_exists($id, $mensagens)) {
             $campanha = $this->campanhas->porId($id);
+            $this->rastrearLeitura[$id] = $campanha['rastrear_leitura'] ?? false;
             try {
                 $mensagens[$id] = $campanha === null ? null : $this->composicao->descongelar($campanha);
             } catch (CampanhaRecusada) {
@@ -230,7 +275,7 @@ final class ExpansorDeCampanhas
             }
         }
         try {
-            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, true, $this->politica->replyToDaCampanha());
+            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, $this->rastrearLeitura[$id] ?? false, $this->politica->replyToDaCampanha(), $destino['lista']);
         } catch (CampanhaRecusada | \InvalidArgumentException) {
             $this->logger->error('Comercial: destinatário de campanha descartado (não vira e-mail).', ['campanhaId' => $id, 'destinoId' => $destino['id']]);
 

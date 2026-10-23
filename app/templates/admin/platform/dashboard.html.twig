@@ -1,19 +1,19 @@
 {% extends 'admin/platform/_base_platform.html.twig' %}
 
-{% block title %}Painel do Master{% endblock %}
+{% block title %}{{ 'plataforma.painel.titulo'|trans({termo: 'termos.master'|trans}) }}{% endblock %}
 
 {% block platform_body %}
 <div class="platform-header">
     <div>
-        <h1 class="platform-title">Painel do Master</h1>
-        <p class="platform-subtitle">Administração global, fora de qualquer escritório</p>
+        <h1 class="platform-title">{{ 'plataforma.painel.titulo'|trans({termo: 'termos.master'|trans}) }}</h1>
+        <p class="platform-subtitle">{{ 'plataforma.painel.subtitulo'|trans }}</p>
     </div>
-    <span class="platform-badge"><i class="bi bi-shield-lock-fill"></i> Master</span>
+    <span class="platform-badge"><i class="bi bi-shield-lock-fill"></i> {{ 'termos.master'|trans }}</span>
 </div>
 
 {% set cards = [
-    {route: 'admin_platform_oab_index',     icon: 'patch-check',     title: 'Revisão de OAB', desc: 'Confirmar, reverter e revisar as OABs dos usuários.'},
-    {route: 'admin_platform_convite_index', icon: 'envelope-paper',  title: 'Convites',       desc: 'Convidar novas contas e acompanhar os convites do Master.'}
+    {route: 'admin_platform_oab_index',     icon: 'patch-check',     title: 'plataforma.painel.oab_titulo'|trans, desc: 'plataforma.painel.oab_descricao'|trans},
+    {route: 'admin_platform_convite_index', icon: 'envelope-paper',  title: 'plataforma.painel.convites_titulo'|trans, desc: 'plataforma.painel.convites_descricao'|trans({termo: 'termos.master'|trans})}
 ] %}
 
 <div class="row g-3">

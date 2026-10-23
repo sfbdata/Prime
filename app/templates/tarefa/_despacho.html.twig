@@ -1,0 +1,94 @@
+{#
+    Um item da linha do tempo da meta no formato único do desenho 04B de 22/10 (L70-71, L127 e L161; spec
+    minhas-metas-esteira-2210, C11 a C15 e L6). Recebe `l` (ItemDaLinhaDoTempoOutput) e `tarefa`. Todo item, despacho
+    ou evento, é um cartão "DESPACHO N · tipo"; `l.tom` dá a cor. Só o despacho (`d`) tem registro, anexo, prazo,
+    ciência e certidão. Registro (D1): "Registrado por NOME (Cargo) em ... · Cód. XXXX.XXXX", com o código ligado à
+    página de validação. Mensagem antiga (sem código) fica sem a linha de local e data e sem a de registro, e é a
+    única que se edita (o lembrete, também sem código, não se edita).
+    Fase 2b: "quem → para" com os mencionados (L161), a @menção como destaque (`registro_texto`, nunca o token cru)
+    e o anexo juntado aos documentos da pasta como "nome · juntado à pasta" (L161); o anexo antigo sai na mesma linha do
+    clipe, com o link que abre o arquivo. `ultimo` (o último da lista) não leva o traço vertical do marcador (L71).
+    Datas como no desenho: "dd/mm/aaaa, hh:mm" (`metas.despacho.quando`).
+#}
+{% set item = l.item %}
+{% set d = l.despacho %}
+<div class="despacho-item despacho-item--{{ l.tom }} tarefa-timeline-entry{% if d %} tarefa-timeline-entry--mensagem{% endif %}" id="{{ d ? 'despacho-' ~ item.mensagemId : 'evento-' ~ l.numero }}">
+    <div class="despacho-marca"><span class="despacho-icone"><i class="bi {{ l.icone }}"></i></span>{% if not (ultimo ?? false) %}<span class="despacho-traco"></span>{% endif %}</div>
+    <div class="despacho-cartao">
+        <div class="despacho-cabeca">
+            <b class="despacho-numero">{{ 'metas.despacho.numero'|trans({n: l.numero}) }}</b>
+            <span class="despacho-tipo">· {{ l.tipo|trans }}</span>
+            {% if l.maisRecente %}<span class="despacho-recente">{{ 'metas.despacho.mais_recente'|trans }}</span>{% endif %}
+            <span class="despacho-espaco"></span>
+            <small class="despacho-em">
+                {% set em = d ? d.registradoEm : item.dataHora %}{{ 'metas.despacho.quando'|trans({data: em|data, hora: em|hora}) }}
+                {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">{{ 'metas.detalhe.editado'|trans }}</span>{% endif %}
+            </small>
+        </div>
+
+        <div class="despacho-corpo">
+            {% if not d %}
+                {% if item.autorNome or item.autorEmail %}<div class="despacho-quem"><b>{{ item.autorNome ?? item.autorEmail }}</b></div>{% endif %}
+                {# Texto do sistema (auditoria): segue escapado. #}
+                {% if item.detalhe %}<div class="despacho-texto">{{ item.detalhe|nl2br }}</div>{% endif %}
+            {% else %}
+            <div class="despacho-quem"><b>{{ d.autor }}</b>{% if d.para %} <i class="bi bi-arrow-right"></i> <b class="despacho-para">{{ d.para|join(', ') }}</b>{% endif %}</div>
+            {% if item.detalhe %}
+                <div class="tarefa-msg-conteudo despacho-texto" id="tarefa-msg-conteudo-{{ item.mensagemId }}">
+                    <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|registro_texto }}</span></span>
+                </div>
+            {% endif %}
+
+            {% if d.codigo %}
+                {% if d.cidade %}
+                    <div class="despacho-local">{{ 'metas.despacho.local_e_data'|trans({cidade: d.cidade, data: d.registradoEm}) }}</div>
+                {% endif %}
+                <div class="despacho-registro">
+                    <i class="bi bi-patch-check"></i>
+                    <span>{{ 'metas.despacho.registrado_por'|trans }} <b>{{ (d.registradoPor ?? d.autor)|upper }}</b>{% if d.cargo %} ({{ d.cargo }}){% endif %} {{ 'metas.despacho.registrado_em'|trans({data: d.registradoEm|data, hora: d.registradoEm|hora}) }} · <a href="{{ path('tarefa_registro_validar', {codigo: d.codigo}) }}" title="{{ 'metas.despacho.conferir_registro'|trans }}">{{ 'metas.despacho.codigo'|trans({codigo: d.codigo}) }}</a></span>
+                </div>
+            {% endif %}
+
+            {% if d.anexoNome %}
+                <div class="despacho-juntado">
+                    <i class="bi bi-paperclip"></i>
+                    <a href="{{ path('pasta_documento_view', {id: d.anexoDocumentoId}) }}" target="_blank" rel="noopener">{{ d.anexoNome }}</a>
+                    <span class="despacho-juntado-onde">· {{ 'metas.despacho.juntado_a_pasta'|trans }}</span>
+                </div>
+            {% elseif item.arquivoAnexo and item.arquivoAnexo starts with '/' %}
+                {# O anexo antigo abre no visualizador único (#previewDocModal, VisualizadorDocumento) pelo meta-detalhe.js;
+                   sem JS, ou com Ctrl/Cmd/Shift/meio, o link abre o arquivo em outra aba. #}
+                {% set ext  = item.arquivoAnexo|split('.')|last|lower %}
+                {% set mime = {pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp3: 'audio/mpeg', mp4: 'video/mp4', webm: 'video/webm'}[ext] ?? 'application/octet-stream' %}
+                <div class="despacho-juntado">
+                    <i class="bi bi-paperclip"></i>
+                    <a href="{{ path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) }}" target="_blank" rel="noopener" title="{{ 'metas.detalhe.visualizar_arquivo'|trans }}"
+                       data-md-visualizar data-url="{{ path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) }}" data-nome="{{ item.arquivoAnexo|split('/')|last }}" data-mime="{{ mime }}">{{ item.arquivoAnexo|split('/')|last }}</a>
+                </div>
+            {% endif %}
+
+            {% if d.certidao %}
+                <div class="despacho-certidao">
+                    <i class="bi bi-patch-check"></i> {{ d.certidao }} · {{ 'metas.despacho.certidao_assinatura'|trans({nome: d.certificadoPor ?? '', quando: 'metas.despacho.quando'|trans({data: d.certificadoEm|data, hora: d.certificadoEm|hora})}) }}
+                </div>
+            {% endif %}
+
+            <div class="despacho-rodape">
+                {% if d.prazo %}
+                    <span class="despacho-cumprir{% if d.prazoVencido %} despacho-cumprir--vencido{% endif %}"><i class="bi bi-calendar-event"></i> {{ 'metas.despacho.cumprir_ate'|trans({data: d.prazo|data}) }}</span>
+                {% endif %}
+                {% if d.ciente %}
+                    <span class="despacho-ciente"><i class="bi bi-eye"></i> {{ 'metas.despacho.ciente'|trans({nome: d.ciente, quando: 'metas.despacho.quando'|trans({data: d.cienteEm|data, hora: d.cienteEm|hora})}) }}</span>
+                {% endif %}
+                <span class="despacho-espaco"></span>
+                {% if d.podeCertificar %}
+                    <button type="button" class="despacho-certificar"
+                            data-md-abrir="modalCertificarDespacho"
+                            data-url="{{ path('tarefa_mensagem_certificar', {id: item.mensagemId}) }}"
+                            data-token="{{ csrf_token('certificar_despacho_' ~ item.mensagemId) }}">{{ 'metas.despacho.certificar'|trans }}</button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

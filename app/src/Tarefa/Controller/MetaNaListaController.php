@@ -12,16 +12,20 @@ use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\Exception\AlertaDeMetaRecusadoException;
+use App\Tarefa\Exception\MetaJaSeguiuAdianteException;
 use App\Tarefa\Exception\TituloDeMetaInvalidoException;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
+use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
 use App\Tarefa\UseCase\ReabrirMetaUseCase;
 use App\Tarefa\UseCase\RenomearMetaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Ações da meta feitas na própria lista da aba Metas da pasta (desenho 1.2.3):
@@ -43,6 +47,7 @@ final class MetaNaListaController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly UserTenantRepository $userTenantRepo,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -77,6 +82,7 @@ final class MetaNaListaController extends AbstractController
         ReabrirMetaUseCase $useCase,
         ListaDeMetasDaPastaEmJson $listaEmJson,
         ReaberturaDesfazivelDaMeta $reaberturaDesfazivel,
+        QuemCuidaDaMeta $quemCuida,
     ): Response {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -84,12 +90,16 @@ final class MetaNaListaController extends AbstractController
         $this->verificarAcessoTarefa($tarefa, $tenant);
         $this->verificarAcessoPasta($tarefa, $usuario, $tenant);
 
-        if (!$this->isCsrfTokenValid('reabrir_tarefa_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        if (($recusa = $this->recusaAntesDeReabrir($tarefa, $usuario, $request, $quemCuida)) !== null) {
+            return $recusa;
         }
 
         $anterior = $tarefa->getDataConclusao();
-        $reabriu  = $useCase->executar($tarefa, $tenant);
+        try {
+            $reabriu = $useCase->executar($tarefa, $tenant);
+        } catch (MetaJaSeguiuAdianteException $e) {
+            return $this->recusarReabertura($tarefa, $request, $this->tradutor->trans($e->getMessage()));
+        }
 
         // PMC-061: o reabrir apaga a data de conclusão; ela fica lembrada no servidor (sessão de
         // quem reabriu) para o "Desfazer" devolvê-la, em vez de concluir com a data de agora.
@@ -134,6 +144,27 @@ final class MetaNaListaController extends AbstractController
         } catch (AlertaDeMetaRecusadoException $e) {
             $this->addFlash('danger', $e->getMessage());
         }
+
+        return $this->voltarParaAsMetas($tarefa);
+    }
+
+    /** CSRF e D3 (decisão do dono, 22/10): só o responsável ou quem criou reabre, como no concluir. */
+    private function recusaAntesDeReabrir(Tarefa $tarefa, User $usuario, Request $request, QuemCuidaDaMeta $quemCuida): ?Response
+    {
+        if (!$this->isCsrfTokenValid('reabrir_tarefa_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        return $quemCuida->ehResponsavelOuCriador($tarefa, $usuario) ? null : RecusaDeQuemNaoCuidaDaMeta::responder($request);
+    }
+
+    /** A meta que já seguiu para a próxima etapa não reabre (422); para corrigir, volta-se a etapa. */
+    private function recusarReabertura(Tarefa $tarefa, Request $request, string $mensagem): Response
+    {
+        if ($request->isXmlHttpRequest()) {
+            return new JsonResponse(['ok' => false, 'erro' => $mensagem, 'sucesso' => false, 'mensagem' => $mensagem], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $this->addFlash('danger', $mensagem);
 
         return $this->voltarParaAsMetas($tarefa);
     }
