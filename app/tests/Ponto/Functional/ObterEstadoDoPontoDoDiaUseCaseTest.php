@@ -193,6 +193,7 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
     private function casoDeUsoEm(string $agora): ObterEstadoDoPontoDoDiaUseCase
     {
         $c = static::getContainer();
+        $relogio = new \Symfony\Component\Clock\MockClock($agora, date_default_timezone_get());
 
         return new ObterEstadoDoPontoDoDiaUseCase(
             $c->get(\App\Ponto\Repository\RegistroPontoRepository::class),
@@ -204,8 +205,9 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
             $c->get(\App\Ponto\Repository\JustificativaPontoRepository::class),
             $c->get(\App\Ponto\Service\InicioContagemResolver::class),
             $c->get(\App\Ponto\Service\EsquecimentosRegistrados::class),
-            new \Symfony\Component\Clock\MockClock($agora, date_default_timezone_get()),   // o fuso do sistema, como o relógio real
+            $relogio,   // o fuso do sistema, como o relógio real
             $c->get(\App\Ponto\Repository\JornadaColaboradorRepository::class),
+            new \App\Ponto\Service\PublicoDosAvisosDePonto($c->get(\App\Repository\UserTenantRepository::class), $c->get(\App\Ponto\Repository\RegistroPontoRepository::class), $relogio),
         );
     }
 

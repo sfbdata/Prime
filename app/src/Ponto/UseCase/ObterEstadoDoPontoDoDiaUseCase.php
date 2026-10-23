@@ -19,6 +19,7 @@ use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\HomeOfficeResolver;
 use App\Ponto\Service\InicioContagemResolver;
+use App\Ponto\Service\PublicoDosAvisosDePonto;
 use App\Ponto\Service\SedesDaCercaDoPonto;
 use Psr\Clock\ClockInterface;
 
@@ -46,6 +47,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
         private readonly EsquecimentosRegistrados $esquecimentos,
         private readonly ClockInterface $clock,
         private readonly JornadaColaboradorRepository $jornadas,
+        private readonly PublicoDosAvisosDePonto $publico,
     ) {
     }
 
@@ -55,7 +57,8 @@ final class ObterEstadoDoPontoDoDiaUseCase
         // O dia de hoje vai para a escolha, como no `index`: a vigência da regra depende dele.
         $escolhidas = $this->escolha->escolher($this->registros->batidasDoDiaNoEscritorio($eu, $tenant, $agora), $agora);
         $hoje = $this->horariosDe($escolhidas);
-        $ontemSemSaida = $this->ontemSemSaida($eu, $tenant, $agora);
+        // R7: o "Regularizar ponto de ontem" só para o público dos avisos de ponto.
+        $ontemSemSaida = $this->publico->recebe($eu, $tenant) ? $this->ontemSemSaida($eu, $tenant, $agora) : null;
 
         return new EstadoDoPontoDoDiaOutput(
             dia: $agora->format('Y-m-d'),

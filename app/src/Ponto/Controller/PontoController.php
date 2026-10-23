@@ -32,6 +32,7 @@ use App\Ponto\Service\ChaveDoPontoEletronico;
 use App\Ponto\Service\TurnoAbertoNoEscritorio;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Ponto\Service\BatidaJaRegistrada;
+use App\Ponto\Service\PublicoDosAvisosDePonto;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
@@ -85,6 +86,7 @@ final class PontoController extends AbstractController
         private readonly TurnoAbertoNoEscritorio $turnoAberto,
         private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
+        private readonly PublicoDosAvisosDePonto $publico,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -230,7 +232,7 @@ final class PontoController extends AbstractController
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
             'esquecimentosRegistrados' => $esquecimentosRegistrados,
             'dataHoje'                 => $hojeStr,
-            'pendencias'               => $pendencias->executar($user, $tenant),   // R5: só a própria pessoa
+            'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
         ]);
     }
 
@@ -563,6 +565,9 @@ final class PontoController extends AbstractController
         $jornadaTenant = $tenant?->getJornadaTenant();
 
         $jornada = $tenant === null ? null : $this->jornadas->findByUserETenant($user, $tenant);
+        if ($tenant === null || !$this->publico->recebe($user, $tenant)) {
+            return $this->json(['alertar' => false]);   // fora do público dos avisos de ponto
+        }
 
         return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant, $jornada));
     }
@@ -813,6 +818,9 @@ final class PontoController extends AbstractController
     private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta, ?string $interjornada): array
     {
         $avisos = [];
+        if (!$this->publico->recebe($user, $tenant)) {
+            return [];   // R7: fora do público dos avisos de ponto
+        }
         if ($tipo === RegistroPonto::TIPO_ENTRADA && ($aberto = $entradaAberta->aviso($user, $tenant, $agora)) !== null) {
             $avisos[] = ['texto' => $aberto, 'link' => $this->generateUrl('tenant_selecionar'), 'rotulo' => EntradaAbertaEmOutroEscritorio::ROTULO_TROCAR];
         }

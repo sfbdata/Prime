@@ -243,6 +243,27 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         self::assertStringContainsString(sprintf(BatidaJaRegistrada::MENSAGEM, 'saída'), (string) $this->client->getResponse()->getContent());
     }
 
+    #[TestDox('R7: sem a chave do ponto em X e sem batida em X nos últimos 30 dias, a pessoa não vê pendência nem alerta de horário em X; com uma batida em X, volta a ver')]
+    public function testPublicoDosAvisos(): void
+    {
+        $dia = $this->diaUtilAtras(3);
+        $this->batida($this->y, 'entrada', $dia->setTime(8, 0));
+        $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET registra_ponto = false WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->x->getId()]);
+        $this->em()->clear();
+
+        self::assertStringNotContainsString('id="pendencias-ponto"', $this->htmlDoPonto(), 'fora do público: nada');
+        $this->client->request('GET', '/ponto/alerta-horario');
+        self::assertSame(['alertar' => false], json_decode((string) $this->client->getResponse()->getContent(), true));
+
+        $this->user = $this->em()->find(User::class, $this->user->getId()) ?? $this->user;
+        $this->x = $this->em()->find(Tenant::class, $this->x->getId()) ?? $this->x;
+        $this->y = $this->em()->find(Tenant::class, $this->y->getId()) ?? $this->y;
+        $this->batida($this->x, 'entrada', $this->diaUtilAtras(10)->setTime(8, 0));
+        $this->batida($this->x, 'saida', $this->diaUtilAtras(10)->setTime(17, 0));
+
+        self::assertCount(1, $this->pendencias()->filter(sprintf('li[data-pendencia-escritorio="%d"]', $this->y->getId())), 'bateu em X nos últimos 30 dias: vê');
+    }
+
     // ----------------------------------------------------------------- apoio
 
     private function pedirEsquecimento(\DateTimeImmutable $dia, string $batida, string $hora): void
