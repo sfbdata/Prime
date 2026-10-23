@@ -50,4 +50,18 @@ final class CartaoDePendenciaDoPontoJsTest extends TestCase
         self::assertStringContainsString("c.link.charAt(0) === '/' && c.link.charAt(1) !== '/'", $js, 'só link interno');
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $js);
     }
+
+    #[TestDox('Pilha compartilhada com a Agenda: cada cartão marca o dono; o desenhar da Agenda só remove os cartões dela e só tira #bjl-box sem filho de outro dono')]
+    public function testPilhaCompartilhadaComAAgenda(): void
+    {
+        self::assertStringContainsString("cartao.setAttribute('data-bjl-dono', 'ponto');", self::js());
+
+        $agenda = (string) file_get_contents(__DIR__ . '/../../../public/js/lembretes.js');
+        $desenhar = substr($agenda, (int) strpos($agenda, 'function desenhar() {'), 1200);
+        self::assertStringNotContainsString('[...box.children].forEach(c => { if (!ids.includes(c.id)) { c.remove(); } });', $desenhar, 'não remove cartão de outro dono');
+        self::assertStringNotContainsString('if (box) { box.remove(); }', $desenhar, 'não remove a pilha com cartão de outro dono');
+        self::assertStringContainsString("box.querySelectorAll('[data-bjl-dono=\"agenda\"]')", $desenhar);
+        self::assertStringContainsString('if (!box.children.length) { box.remove(); }', $desenhar);
+        self::assertStringContainsString('data-bjl-dono="agenda"', $agenda, 'o cartão da Agenda marca o dono');
+    }
 }

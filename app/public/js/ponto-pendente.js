@@ -59,6 +59,7 @@
         var box = pilha(c.regiao);
         var cartao = el('div', 'bjl-cartao');
         cartao.id = 'bjl-ponto-pendente';
+        cartao.setAttribute('data-bjl-dono', 'ponto');   // a pilha é da Agenda também: cada uma só tira os seus
         cartao.style.borderLeftColor = COR;
 
         var topo = el('div', 'bjl-topo');
