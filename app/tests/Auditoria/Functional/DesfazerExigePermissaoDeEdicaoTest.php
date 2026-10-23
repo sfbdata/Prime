@@ -286,8 +286,8 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         self::assertSame('Nome novo', $this->valorAtual(Cargo::class, $id));
     }
 
-    #[TestDox('Fora do mapa do F19, a pasta segue a guarda da tela (editar a pasta), não uma permissão de admin')]
-    public function testOutraEntidadeSoComAuditoria(): void
+    #[TestDox('Pasta, fora do mapa do F19: com admin.audit.view e a edição da pasta (a guarda da tela), desfaz')]
+    public function testPastaForaDoMapaDesfazComAEdicaoDaPasta(): void
     {
         $pasta = new Pasta();
         $pasta->setNup('TEST-F19-' . uniqid());

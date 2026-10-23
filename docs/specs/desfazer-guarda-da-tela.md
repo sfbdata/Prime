@@ -15,6 +15,8 @@ Risco MÉDIO. Pedido do coordenador (23/10/2026). Frente da 9b, `desfazer-guarda
   (a pasta agora pede `resources.pasta.edit`; a meta pede alguém da pasta com vínculo).
 - 23/10: o coordenador decidiu que as três regras da tela que tinham ficado de fora entram (regras 2 e 3): a etapa da
   meta, a observação dos Detalhes e ver a pasta na mensagem. Testes: `DesfazerExigeAGuardaDaTelaTest` (22).
+- 23/10: revisão: a meta passou a exigir por campo o que a rota pede (regra 2), com a barreira do cadeado para qualquer
+  campo; saiu o `permissaoDeEdicaoPorId`, sem uso. Testes: `DesfazerExigeAGuardaDaTelaTest` (31).
 
 ## O problema
 
@@ -26,11 +28,18 @@ desfazer deve exigir exatamente o que a tela exigiria para fazer a mesma altera�
 
 1. **Mesma guarda, chamada, não copiada.** O desfazer chama o mesmo serviço ou método que a tela usa, para herdar
    qualquer mudança futura da regra (a 3b está mudando as guardas de edição: `edicao-sem-prazo`).
-2. **Tarefa (meta):** módulo `tarefas` (`canAccessModule`) e `AcessoAMeta::exigir` com o ator. Se o diff tem o
-   campo do prazo, também a regra do prazo da tela (`AtualizarPrazoTarefaUseCase::podeEditarPrazo`). Se tem a
-   conclusão, a reabertura ou a etapa (`etapa`, `etapasSaltadas`), a regra de quem cuida da meta
-   (`QuemCuidaDaMeta::ehResponsavelOuCriador`), a mesma da conclusão e da passagem de etapa. Os demais campos: módulo e
-   acesso à meta.
+2. **Tarefa (meta):** o que a rota de cada campo pede. Para qualquer campo: módulo `tarefas` (`AcessoAoModuloTarefas`),
+   `AcessoAMeta::exigir` com o ator e a barreira do cadeado para escrita na pasta da meta
+   (`BarreiraDoCadeadoListener::recusaria`, que a barreira usa; quem fica em Visualizar não escreve). Por campo:
+   - `prazo` (`tarefa_atualizar_prazo`): também `AtualizarPrazoTarefaUseCase::podeEditarPrazo`;
+   - `status` e `dataConclusao` (`tarefa_concluir` e `tarefa_reabrir`): também `QuemCuidaDaMeta::ehResponsavelOuCriador`
+     e editar a pasta da meta (`AcessoAPasta::podeEditar`, o `canAccessResource('pasta', edit)` do `tarefa_reabrir`);
+   - `etapa` e `etapasSaltadas` (`tarefa_passar`): também `QuemCuidaDaMeta::ehResponsavelOuCriador`;
+   - `titulo` (`tarefa_renomear`): também editar a pasta da meta;
+   - os demais: só a regra de qualquer campo.
+   Das rotas que alteram a meta, pedem editar a pasta só `tarefa_renomear`, `tarefa_reabrir` e `tarefa_alertar` (que não
+   muda campo da meta). `tarefa_concluir`, `tarefa_atualizar_prazo`, `tarefa_passar`, `tarefa_devolver`,
+   `tarefa_mensagem` e `tarefa_update_responsaveis` não pedem.
 3. **Pasta e filhas** (`Pasta`, `PastaDocumento`, `PastaSecao`, `PastaChecklistItem`, `PastaObservacaoDetalhes`):
    `AcessoAPasta::podeEditar(ator, pasta-mãe)` (o mesmo teto do cadeado que `canAccessResource` usa).
    `PastaObservacaoDetalhes`: também a regra da tela de edição (`EditarObservacaoDetalhesUseCase::podeEditar`: autor,

@@ -10,6 +10,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\EventListener\BarreiraDoCadeadoListener;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
@@ -35,25 +36,37 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * `docs/specs/desfazer-guarda-da-tela.md`, continuação do F19).
  *
  *  - a permissão de edição do mapa do F19 (`DesfazerAlteracaoAuditLogUseCase::permissaoDeEdicao`);
- *  - meta: o módulo `tarefas` e o `AcessoAMeta`, mais a regra do prazo se o diff tem o prazo e a de quem cuida da
- *    meta se tem a conclusão, a reabertura ou a etapa;
+ *  - meta: o que a rota de cada campo pede (mapa abaixo). Para qualquer campo, o módulo `tarefas`, o `AcessoAMeta` e
+ *    a barreira do cadeado para escrita na pasta da meta;
  *  - pasta e filhas: `AcessoAPasta::podeEditar` na pasta-mãe (com o teto do cadeado); a observação dos Detalhes,
  *    também a regra da tela de edição dela (`EditarObservacaoDetalhesUseCase::podeEditar`: autor e janela);
  *  - mensagem da pasta: o que a rota de edição pede. Ver a pasta (`AcessoAPasta::podeVer`), a barreira do cadeado
- *    para escrita (nível `Editar`) e a regra da edição (`EditarMensagemPastaUseCase::podeEditar`).
+ *    para escrita e a regra da edição (`EditarMensagemPastaUseCase::podeEditar`).
  *
  * As guardas são CHAMADAS, nunca copiadas: mudou a regra da tela, mudou a do desfazer. A linha ou a entidade que não
  * existe, está na lixeira ou é de outro escritório não exige nada aqui: o `executar()` a recusa sem tocar em nada.
  */
 final class GuardaDaTelaNoDesfazer
 {
-    private const CAMPO_DO_PRAZO = 'prazo';
+    /** A escrita que a barreira do cadeado julga: o próprio POST do desfazer, que não é rota de leitura. */
+    private const METODO_DO_DESFAZER = 'POST';
+    private const ROTA_DO_DESFAZER = 'audit_log_desfazer';
+
+    /** O prazo: `tarefa_atualizar_prazo`, só quem criou a meta (`AtualizarPrazoTarefaUseCase::podeEditarPrazo`). */
+    private const CAMPOS_DO_CRIADOR = ['prazo'];
 
     /**
-     * A conclusão (`ConcluirMetaUseCase`), a reabertura (`ReabrirMetaUseCase`) e a etapa da meta: a tela só deixa quem
-     * cuida da meta (`QuemCuidaDaMeta`) mexer nestes campos.
+     * Quem cuida da meta (`QuemCuidaDaMeta`): a conclusão (`tarefa_concluir`), a reabertura (`tarefa_reabrir`) e a
+     * etapa (`tarefa_passar`).
      */
     private const CAMPOS_DE_QUEM_CUIDA = ['status', 'dataConclusao', 'etapa', 'etapasSaltadas'];
+
+    /**
+     * Editar a pasta da meta (`canAccessResource('pasta', edit)`, o `AcessoAPasta::podeEditar`): o nome
+     * (`tarefa_renomear`) e a reabertura (`tarefa_reabrir`), no `MetaNaListaController`. O concluir, o prazo, a
+     * passagem e a devolução não pedem.
+     */
+    private const CAMPOS_DE_QUEM_EDITA_A_PASTA = ['titulo', 'status', 'dataConclusao'];
 
     private const PASTA_E_FILHAS = [
         Pasta::class,
@@ -128,15 +141,29 @@ final class GuardaDaTelaNoDesfazer
     /** @param list<string> $campos */
     private function permiteAMeta(Tarefa $meta, array $campos, User $ator, Tenant $tenant): bool
     {
-        if (!$this->moduloTarefas->pode($ator, $tenant) || !$this->temAcessoAMeta($meta, $ator, $tenant)) {
-            return false;
-        }
-        if (in_array(self::CAMPO_DO_PRAZO, $campos, true) && !$this->prazoDaMeta->podeEditarPrazo($meta, $ator, $tenant)) {
+        if (!$this->moduloTarefas->pode($ator, $tenant) || !$this->temAcessoAMeta($meta, $ator, $tenant)
+            || !$this->passaPelaBarreira($meta->getPasta(), $ator)) {
             return false;
         }
 
-        return array_intersect(self::CAMPOS_DE_QUEM_CUIDA, $campos) === []
-            || $this->quemCuidaDaMeta->ehResponsavelOuCriador($meta, $ator);
+        return (!self::temAlgum(self::CAMPOS_DO_CRIADOR, $campos) || $this->prazoDaMeta->podeEditarPrazo($meta, $ator, $tenant))
+            && (!self::temAlgum(self::CAMPOS_DE_QUEM_CUIDA, $campos) || $this->quemCuidaDaMeta->ehResponsavelOuCriador($meta, $ator))
+            && (!self::temAlgum(self::CAMPOS_DE_QUEM_EDITA_A_PASTA, $campos) || $this->acessoAPasta->podeEditar($ator, $meta->getPasta()));
+    }
+
+    /**
+     * @param list<string> $daRegra
+     * @param list<string> $doDiff
+     */
+    private static function temAlgum(array $daRegra, array $doDiff): bool
+    {
+        return array_intersect($daRegra, $doDiff) !== [];
+    }
+
+    /** A `BarreiraDoCadeadoListener` recusa a escrita (POST) na meta ou na pasta a quem o cadeado deixa só ver. */
+    private function passaPelaBarreira(Pasta $pasta, User $ator): bool
+    {
+        return !BarreiraDoCadeadoListener::recusaria($this->acessoAPasta->nivel($ator, $pasta), self::METODO_DO_DESFAZER, self::ROTA_DO_DESFAZER);
     }
 
     private function temAcessoAMeta(Tarefa $meta, User $ator, Tenant $tenant): bool
@@ -157,7 +184,7 @@ final class GuardaDaTelaNoDesfazer
 
         return $pasta !== null
             && $this->acessoAPasta->podeVer($ator, $pasta)
-            && $this->acessoAPasta->nivel($ator, $pasta)->podeEditar()
+            && $this->passaPelaBarreira($pasta, $ator)
             && $this->editarMensagemPasta->podeEditar($mensagem, $ator, $tenant);
     }
 

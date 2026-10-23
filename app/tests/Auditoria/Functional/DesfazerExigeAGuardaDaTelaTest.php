@@ -21,8 +21,10 @@ use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaChecklistItem;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -98,7 +100,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     {
         $meta = $this->meta($this->pasta(), $this->colega);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']]);
-        $this->entrarCom(self::SO_AUDITORIA);
+        $this->entrarCom([...self::SO_AUDITORIA, self::EDITAR_PASTA]);
 
         $this->assertSemBotao($logId);
         $this->desfazer($logId);
@@ -107,12 +109,12 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         self::assertSame('Titulo novo', $this->colunaDaMeta($meta, 'titulo'));
     }
 
-    #[TestDox('Meta: com o módulo e o acesso à meta, o título se desfaz')]
+    #[TestDox('Meta: com o módulo, o acesso à meta e a edição da pasta (como tarefa_renomear), o título se desfaz')]
     public function testMetaComModuloEAcessoDesfaz(): void
     {
         $meta = $this->meta($this->pasta(), $this->colega);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']]);
-        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
 
         $this->assertComBotao($logId);
         $this->desfazer($logId);
@@ -126,7 +128,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     {
         $meta = $this->meta($this->pasta(semCriador: true), $this->colega);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']]);
-        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
 
         $this->assertSemBotao($logId);
         $this->desfazer($logId);
@@ -167,7 +169,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     {
         $meta = $this->meta($this->pasta(), $this->colega);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDaReabertura());
-        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
 
         $this->assertSemBotao($logId);
         $this->desfazer($logId);
@@ -176,10 +178,10 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         self::assertSame(Tarefa::STATUS_PENDENTE, $this->colunaDaMeta($meta, 'status'));
     }
 
-    #[TestDox('Meta: desfazer a reabertura por um responsável da meta conclui de novo')]
+    #[TestDox('Meta: desfazer a reabertura por um responsável da meta que edita a pasta conclui de novo')]
     public function testConclusaoPeloResponsavelDesfaz(): void
     {
-        $ator = $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS]);
+        $ator = $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
         $meta = $this->meta($this->pasta(), $this->colega, $ator);
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDaReabertura());
 
@@ -214,6 +216,64 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame(EtapaDaPasta::Abertura->value, $this->colunaDaMeta($meta, 'etapa'));
+    }
+
+    #[TestDox('Meta: renomear sem poder editar a pasta (como tarefa_renomear) dá 403 e o título fica')]
+    public function testTituloSemEditarAPastaRecebe403(): void
+    {
+        $meta = $this->meta($this->pasta(), $this->colega);
+        $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS]);
+
+        $this->assertSemBotao($logId);
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Titulo novo', $this->colunaDaMeta($meta, 'titulo'));
+    }
+
+    #[TestDox('Meta: a reabertura por quem cuida da meta mas não edita a pasta (como tarefa_reabrir) dá 403')]
+    public function testConclusaoSemEditarAPastaRecebe403(): void
+    {
+        $ator = $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS]);
+        $meta = $this->meta($this->pasta(), $this->colega, $ator);
+        $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDaReabertura());
+
+        $this->assertSemBotao($logId);
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->colunaDaMeta($meta, 'status'));
+    }
+
+    #[TestDox('Meta: o cadeado que só deixa ver a pasta barra o desfazer de qualquer campo, mesmo do criador no prazo')]
+    public function testMetaDePastaSoParaVerPeloCadeadoRecebe403(): void
+    {
+        $ator = $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
+        $pasta = $this->pasta();
+        $meta = $this->meta($pasta, $ator);
+        $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDoPrazo());
+        $this->cadeadoSoParaVer($pasta, $ator);
+
+        $this->assertSemBotao($logId);
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertStringStartsWith('2026-12-01', $this->colunaDaMeta($meta, 'prazo'));
+    }
+
+    #[TestDox('Meta: as etapas saltadas sozinhas, por quem não cuida da meta, dão 403')]
+    public function testEtapasSaltadasPorQuemNaoCuidaRecebe403(): void
+    {
+        $meta = $this->meta($this->pasta(), $this->colega);
+        $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['etapasSaltadas' => ['from' => [EtapaDaPasta::Comercial->value], 'to' => []]]);
+        $this->entrarCom([...self::SO_AUDITORIA, self::MODULO_METAS, self::EDITAR_PASTA]);
+
+        $this->assertSemBotao($logId);
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('[]', $this->colunaDaMeta($meta, 'etapas_saltadas'));
     }
 
     // ── Pasta e filhas ──────────────────────────────────────────────────────
@@ -252,16 +312,46 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         $pasta = $this->pasta();
         $logId = $this->criarLog(Pasta::class, (int) $pasta->getId(), ['nomeAcao' => ['from' => 'acao anterior', 'to' => 'ACAO ATUAL']]);
         $ator = $this->entrarCom([...self::SO_AUDITORIA, self::EDITAR_PASTA]);
-        $cadeado = new CadeadoDaPasta($this->tenant, $pasta, ModoDoCadeado::PorPessoa, null, new \DateTimeImmutable());
-        $cadeado->definirPorPessoa([[$ator, NivelDeAcesso::Visualizar]], null, new \DateTimeImmutable());
-        $this->em->persist($cadeado);
-        $this->em->flush();
+        $this->cadeadoSoParaVer($pasta, $ator);
 
         $this->assertSemBotao($logId);
         $this->desfazer($logId);
 
         self::assertResponseStatusCodeSame(403);
         self::assertSame('ACAO ATUAL', $this->nomeAcao($pasta));
+    }
+
+    #[TestDox('Documento da pasta: sem editar a pasta-mãe, 403; com, desfaz')]
+    public function testDocumentoSegueAPastaMae(): void
+    {
+        $documento = new PastaDocumento();
+        $documento->setTitulo('doc.pdf');
+        $documento->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $documento->setCaminhoArquivo('fake-' . bin2hex(random_bytes(6)) . '.pdf');
+        $documento->setNomeOriginal('novo.pdf');
+        $documento->setMimeType('application/pdf');
+        $documento->setTamanhoBytes(10);
+        $documento->setPasta($this->pasta());
+        $documento->setTenant($this->tenant);
+        $this->em->persist($documento);
+        $this->em->flush();
+        $id = (int) $documento->getId();
+        $logId = $this->criarLog(PastaDocumento::class, $id, ['nomeOriginal' => ['from' => 'antigo.pdf', 'to' => 'novo.pdf']]);
+
+        $this->provarNegadoEDepoisDesfeito($logId, fn (): string => (string) $this->em->getConnection()->fetchOne('SELECT nome_original FROM pasta_documento WHERE id = ?', [$id]), 'novo.pdf', 'antigo.pdf');
+    }
+
+    #[TestDox('Seção da pasta: sem editar a pasta-mãe, 403; com, desfaz')]
+    public function testSecaoSegueAPastaMae(): void
+    {
+        $secao = (new PastaSecao())->setPasta($this->pasta())->setTenant($this->tenant)->setNome('Secao nova')->setOrdem(1);
+        $this->em->persist($secao);
+        $this->em->flush();
+        $id = (int) $secao->getId();
+        $logId = $this->criarLog(PastaSecao::class, $id, ['nome' => ['from' => 'Secao anterior', 'to' => 'Secao nova']]);
+        $nomeAtual = (string) $this->em->getConnection()->fetchOne('SELECT nome FROM pasta_secao WHERE id = ?', [$id]);
+
+        $this->provarNegadoEDepoisDesfeito($logId, fn (): string => (string) $this->em->getConnection()->fetchOne('SELECT nome FROM pasta_secao WHERE id = ?', [$id]), $nomeAtual, null);
     }
 
     #[TestDox('Filha da pasta (item do checklist): sem editar a pasta-mãe, 403 e o botão não aparece')]
@@ -338,10 +428,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         $pasta = $this->pasta();
         $mensagem = $this->mensagem($pasta, $ator);
         $logId = $this->criarLog(PastaMensagem::class, (int) $mensagem->getId(), ['conteudo' => ['from' => 'Texto anterior', 'to' => 'Texto novo']]);
-        $cadeado = new CadeadoDaPasta($this->tenant, $pasta, ModoDoCadeado::PorPessoa, null, new \DateTimeImmutable());
-        $cadeado->definirPorPessoa([[$ator, NivelDeAcesso::Visualizar]], null, new \DateTimeImmutable());
-        $this->em->persist($cadeado);
-        $this->em->flush();
+        $this->cadeadoSoParaVer($pasta, $ator);
 
         $this->assertSemBotao($logId);
         $this->desfazer($logId);
@@ -375,6 +462,52 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertSame('Texto anterior', $this->conteudoDaObservacao($observacao));
+    }
+
+    #[TestDox('Observação dos Detalhes: o autor que não edita a pasta recebe 403')]
+    public function testObservacaoDoAutorSemEditarAPastaRecebe403(): void
+    {
+        $ator = $this->entrarCom([...self::SO_AUDITORIA, self::VER_PASTA]);
+        $observacao = $this->observacao($ator);
+        $logId = $this->criarLog(PastaObservacaoDetalhes::class, (int) $observacao->getId(), ['conteudo' => ['from' => 'Texto anterior', 'to' => 'Texto novo']]);
+
+        $this->assertSemBotao($logId);
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Texto novo', $this->conteudoDaObservacao($observacao));
+    }
+
+    #[TestDox('Observação dos Detalhes: o autor fora da janela de edição recebe 403')]
+    public function testObservacaoForaDaJanelaRecebe403(): void
+    {
+        $ator = $this->entrarCom([...self::SO_AUDITORIA, self::EDITAR_PASTA]);
+        $observacao = $this->observacao($ator);
+        $this->em->getConnection()->executeStatement("UPDATE pasta_observacao_detalhes SET criada_em = NOW() - INTERVAL '1 day' WHERE id = ?", [$observacao->getId()]);
+        $this->em->refresh($observacao);
+        $logId = $this->criarLog(PastaObservacaoDetalhes::class, (int) $observacao->getId(), ['conteudo' => ['from' => 'Texto anterior', 'to' => 'Texto novo']]);
+
+        $this->assertSemBotao($logId);
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Texto novo', $this->conteudoDaObservacao($observacao));
+    }
+
+    #[TestDox('Mensagem da pasta: o autor fora da janela de edição recebe 403')]
+    public function testMensagemForaDaJanelaRecebe403(): void
+    {
+        $ator = $this->entrarCom([...self::SO_AUDITORIA, self::VER_PASTA]);
+        $mensagem = $this->mensagem($this->pasta(), $ator);
+        $this->em->getConnection()->executeStatement("UPDATE pasta_mensagem SET criada_em = NOW() - INTERVAL '1 day' WHERE id = ?", [$mensagem->getId()]);
+        $this->em->refresh($mensagem);
+        $logId = $this->criarLog(PastaMensagem::class, (int) $mensagem->getId(), ['conteudo' => ['from' => 'Texto anterior', 'to' => 'Texto novo']]);
+
+        $this->assertSemBotao($logId);
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Texto novo', $this->conteudoDaMensagem($mensagem));
     }
 
     // ── Fora da lista de reversíveis ────────────────────────────────────────
@@ -428,6 +561,10 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     /** @param list<string> $permissoes */
     private function entrarCom(array $permissoes): User
     {
+        // Depois de um desfazer (que limpa o EntityManager), o escritório volta a ser gerenciado.
+        if (!$this->em->contains($this->tenant)) {
+            $this->tenant = $this->em->find(Tenant::class, $this->tenant->getId()) ?? $this->tenant;
+        }
         $user = $this->pessoa('Auditora');
 
         $role = new TenantRole();
@@ -603,9 +740,42 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         $this->client->request('POST', "/auditoria/{$logId}/desfazer", ['_token' => 'TOKEN_audit_desfazer_' . $logId]);
     }
 
+    /** A linha aparece na página (controle), só o botão some. */
     private function assertSemBotao(int $logId): void
     {
-        self::assertStringNotContainsString("/auditoria/{$logId}/desfazer", $this->paginaDaAuditoria(), 'o botão não aparece para quem não pode desfazer');
+        $pagina = $this->paginaDaAuditoria();
+        self::assertStringContainsString("id=\"audit-detail-{$logId}\"", $pagina, 'controle: a linha aparece na auditoria');
+        self::assertStringNotContainsString("/auditoria/{$logId}/desfazer", $pagina, 'o botão não aparece para quem não pode desfazer');
+    }
+
+    private function cadeadoSoParaVer(Pasta $pasta, User $pessoa): void
+    {
+        $cadeado = new CadeadoDaPasta($this->tenant, $pasta, ModoDoCadeado::PorPessoa, null, new \DateTimeImmutable());
+        $cadeado->definirPorPessoa([[$pessoa, NivelDeAcesso::Visualizar]], null, new \DateTimeImmutable());
+        $this->em->persist($cadeado);
+        $this->em->flush();
+    }
+
+    /**
+     * Sem editar a pasta: 403, botão some e nada muda. Depois, com a edição, o desfazer volta o valor anterior.
+     *
+     * @param \Closure(): string $valor
+     */
+    private function provarNegadoEDepoisDesfeito(int $logId, \Closure $valor, string $atual, ?string $anterior): void
+    {
+        $this->entrarCom(self::SO_AUDITORIA);
+        $this->assertSemBotao($logId);
+        $this->desfazer($logId);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame($atual, $valor());
+
+        $this->entrarCom([...self::SO_AUDITORIA, self::EDITAR_PASTA]);
+        $this->desfazer($logId);
+        self::assertResponseRedirects();
+        self::assertNotSame($atual, $valor());
+        if ($anterior !== null) {
+            self::assertSame($anterior, $valor());
+        }
     }
 
     private function assertComBotao(int $logId): void

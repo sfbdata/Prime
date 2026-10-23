@@ -147,21 +147,6 @@ final class DesfazerAlteracaoAuditLogUseCase
         return $permissao;
     }
 
-    /**
-     * A mesma pergunta pelo id, só para uma linha do escritório. Linha de outro escritório ou inexistente devolve
-     * null: `executar()` a recusa como "não encontrado", sem revelar a entidade.
-     */
-    public function permissaoDeEdicaoPorId(int $auditLogId, int $tenantId, User $ator): ?string
-    {
-        $log = $this->auditLogRepository->find($auditLogId);
-
-        if ($log === null || $log->getTenantId() !== $tenantId) {
-            return null;
-        }
-
-        return $this->permissaoDeEdicao($log, $ator);
-    }
-
     private function eCriadorDoEvento(AuditLog $log, User $ator): bool
     {
         if ($log->getEntityClass() !== \App\Agenda\Entity\Evento::class || $log->getEntityId() === null) {
