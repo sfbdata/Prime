@@ -213,6 +213,17 @@ final class TrocarFotoDoClienteUseCaseTest extends TestCase
         $this->sut()->executar(new FotoDoClienteInput(9, 5, $this->autor, $this->tenant));
     }
 
+    #[TestDox('Upload que o PHP recusou (acima do upload_max_filesize): recusa sem gravar, sem ler o conteúdo')]
+    public function testUploadRecusadoPeloPhp(): void
+    {
+        $caminho = $this->dirTemp . '/' . bin2hex(random_bytes(6));
+        file_put_contents($caminho, $this->jpeg());
+        $arquivo = new UploadedFile($caminho, 'foto.jpg', null, \UPLOAD_ERR_INI_SIZE, true);
+
+        $this->expectException(FotoDoClienteInvalidaException::class);
+        $this->sut()->executar(new FotoDoClienteInput(9, 5, $this->autor, $this->tenant, $arquivo));
+    }
+
     /** @return iterable<string, array{class-string<\Throwable>, \Closure(self): void, 2?: bool, 3?: bool}> */
     public static function guardas(): iterable
     {

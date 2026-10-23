@@ -12,6 +12,9 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
+use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -171,6 +174,26 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(0, $c->filter(self::BOTAO));
         self::assertCount(0, $c->filter('[data-ps-foto-menu]'));
+        self::assertCount(1, $c->filter(self::SPAN . '.ps-cab-foto > img.ps-cab-foto-img'));
+    }
+
+    #[TestDox('cadeado em Visualizar para quem edita o cliente: só a foto, sem botão nem menu')]
+    public function testCadeadoVisualizar(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->pastaComCliente($tenant, 'a1b2c3.jpg');
+        $editor = $this->colaborador($tenant, ['resources.pasta.view', 'resources.pasta.edit', 'resources.cliente.view', 'resources.cliente.edit']);
+        $cadeado = new CadeadoDaPasta($tenant, $pasta, ModoDoCadeado::PorPessoa, null, new \DateTimeImmutable());
+        $cadeado->definirPorPessoa([[$editor, NivelDeAcesso::Visualizar]], null, new \DateTimeImmutable());
+        $this->em()->persist($cadeado);
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $c = $this->abrir($client, $pasta);
+
+        self::assertCount(0, $c->filter(self::BOTAO));
+        self::assertCount(0, $c->filter('[data-ps-foto-menu], [data-ps-foto-editor], [data-ps-foto-arquivo]'));
         self::assertCount(1, $c->filter(self::SPAN . '.ps-cab-foto > img.ps-cab-foto-img'));
     }
 

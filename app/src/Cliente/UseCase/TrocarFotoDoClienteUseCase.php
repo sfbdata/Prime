@@ -71,6 +71,9 @@ final class TrocarFotoDoClienteUseCase
         if ($arquivo === null) {
             throw new FotoDoClienteInvalidaException('Nenhuma imagem enviada.');
         }
+        if (!$arquivo->isValid()) {
+            throw new FotoDoClienteInvalidaException('A imagem não chegou inteira. Tente de novo com um arquivo de até 3 MB.');
+        }
         $mime = $arquivo->getMimeType();
         if (!\in_array($mime, self::MIME_PERMITIDOS, true) || !self::conteudoEhImagem($arquivo, $mime)) {
             throw new FotoDoClienteInvalidaException('Formato de imagem não permitido. Use JPG, PNG ou WebP.');

@@ -14,6 +14,9 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
+use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -278,6 +281,26 @@ final class FotoDoClienteControllerTest extends JusPrimeWebTestCase
         self::assertSame($nome, $this->fotoNoBanco($cliente));
     }
 
+    #[TestDox('cadeado em Visualizar para quem edita o cliente: trocar e remover são 403, e nada muda')]
+    public function testCadeadoVisualizar(): void
+    {
+        [$tenant, $gestor, $cliente, $pasta] = $this->cenario();
+        $this->logarComTenant($this->client, $gestor, $tenant);
+        $this->trocar($pasta, $cliente, $this->jpeg());
+        $nome = $this->fotoNoBanco($cliente);
+
+        $editor = $this->criarColaborador($tenant, ['resources.pasta.view', 'resources.pasta.edit', 'resources.cliente.view', 'resources.cliente.edit']);
+        $this->trancar($tenant, $pasta, $editor, NivelDeAcesso::Visualizar);
+        $this->logarComTenant($this->client, $editor, $tenant);
+
+        $this->trocar($pasta, $cliente, $this->png());
+        self::assertResponseStatusCodeSame(403);
+        $this->remover($pasta, $cliente);
+        self::assertResponseStatusCodeSame(403);
+
+        self::assertSame($nome, $this->fotoNoBanco($cliente));
+    }
+
     #[TestDox('entrega: nome com caminho e nome que não é o do cliente são 404')]
     public function testEntregaConfereONome(): void
     {
@@ -335,6 +358,21 @@ final class FotoDoClienteControllerTest extends JusPrimeWebTestCase
         $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/clientes/' . $cliente->getId() . '/foto/remover', [
             '_token' => $token ?? 'TOKEN_cliente_foto_' . $cliente->getId(),
         ]);
+    }
+
+    private function trancar(Tenant $tenant, Pasta $pasta, User $pessoa, NivelDeAcesso $nivel): void
+    {
+        $em = $this->em();
+        $cadeado = new CadeadoDaPasta(
+            $em->getReference(Tenant::class, $tenant->getId()),
+            $em->getReference(Pasta::class, $pasta->getId()),
+            ModoDoCadeado::PorPessoa,
+            null,
+            new \DateTimeImmutable(),
+        );
+        $cadeado->definirPorPessoa([[$em->getReference(User::class, $pessoa->getId()), $nivel]], null, new \DateTimeImmutable());
+        $em->persist($cadeado);
+        $em->flush();
     }
 
     private function fotoNoBanco(ClientePF $cliente): ?string
