@@ -44,9 +44,9 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
      * as executa em sequência). A sincronização com o Drive, de hora em hora, vai por último: é a
      * mais demorada e não pode atrasar as diárias. Chave = nome do comando.
      *
-     * Só o que já rodava no crontab real da VPS (conferido em 23/10/2026). Resumo diário, cobrança do
-     * checklist e índices monetários nunca rodaram em produção: ficam desligados até o dono decidir
-     * (spec, "Desligadas, aguardando o dono").
+     * O que já rodava no crontab real da VPS (conferido em 23/10/2026), mais a foto do Dashboard e os
+     * índices monetários (ligados por decisão do dono). Resumo diário e cobrança do checklist nunca
+     * rodaram em produção: ficam desligados até o dono decidir (spec, "Desligadas, aguardando o dono").
      */
     private const TAREFAS = [
         // 0h: purga de cadastros expirados e de escritórios em quarentena vencida. Depois do
@@ -54,6 +54,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
         'app:purgar-dados-expirados' => [
             'comando' => 'app:purgar-dados-expirados --force --no-interaction',
             'cron'    => '0 0 * * *',
+        ],
+        // Dia 11, 1h: importação dos índices do BCB (INPC, IPCA e taxa legal), como no DEPLOY.md
+        // (04h UTC). Ligada por decisão do dono em 23/10/2026.
+        'app:importar-indices-monetarios' => [
+            'comando' => 'app:importar-indices-monetarios --no-interaction',
+            'cron'    => '0 1 11 * *',
         ],
         // 3h: captação das comunicações do DJEN dos últimos 2 dias (como no crontab real, 06h UTC).
         'app:djen:sincronizar' => [
