@@ -1,6 +1,17 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.13.0"
+  data: "2026-10-22"
+  itens:
+    - "No painel de quem está on-line, cada colega aparece com a foto do perfil."
+    - "As telas de metas ficaram mais limpas e iguais ao novo desenho. Algumas opções pouco usadas saíram de Minhas Metas e continuam na aba Metas da pasta."
+    - "A meta aprende com os seus despachos: sugere as frases que você mais usa, a natureza e o prazo de costume, e lembra as pendências que você costuma pedir. Dá para desligar e apagar no Meu Perfil."
+    - "O despacho da meta ficou formal: escolha a natureza, o prazo para cumprir (já sugerido em 5 dias úteis) e cada despacho fica registrado com nome, cargo, data e um código que a equipe pode conferir. Quem recebe dá ciência ao abrir a meta, e dá para certificar o cumprimento direto no despacho."
+    - "No despacho da meta dá para marcar colegas com @, que são avisados. O arquivo anexado vai direto para os documentos da pasta. O botão \"Extrato\" imprime toda a tramitação da meta, e o \"Lembrar\" avisa quem está com a meta parada."
+    - "Ao concluir uma meta, ela já passa a pasta para a próxima etapa, com responsável, prazo e pendências, e avisa quem vai cuidar. Quem recebeu uma meta pode devolvê-la explicando o motivo."
+    - "Quem foi convidado para uma demanda deixa de vê-la quando o escritório que a abriu é excluído."
+    - "A janela de vincular processo à pasta ficou mais simples: ao clicar na busca, os processos do escritório já aparecem, com a pasta de onde cada um vem, e o número e o CPF/CNPJ se formatam enquanto você digita."
 - versao: "2.12.0"
   data: "2026-10-22"
   itens:
