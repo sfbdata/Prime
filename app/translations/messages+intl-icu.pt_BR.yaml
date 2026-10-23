@@ -3552,6 +3552,12 @@ agenda:
             sem_permissao_texto: Marque a permissão da agenda na tela do Google e tente de novo. Sem ela, o BlueJus não consegue criar a agenda do escritório na sua conta Google.
             agora_nao: Agora não
             tentar_de_novo: Tentar de novo
+            aviso:
+                titulo: Sincronize com o Google Agenda
+                texto: Conecte a sua conta Google para ver os compromissos do BlueJus no seu Google Agenda e receber os lembretes no celular. Use o botão Sincronizar com o Google Agenda, aqui na Agenda.
+                nao_mostrar: Não mostrar esta mensagem novamente
+                agora_nao: Agora não
+                sincronizar: Sincronizar agora
 
 # ---- Comercial do Master (master/_comercial*, master/comercial*.js)
 comercial:
