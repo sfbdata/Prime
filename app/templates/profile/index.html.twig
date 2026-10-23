@@ -277,7 +277,7 @@ input[type="range"].img-slider {
     : perfil.cpf %}
 {% set _campos = [
     {icone: 'bi-envelope', rotulo: 'perfil.grade.email'|trans, valor: perfil.email, copiar: true},
-    {icone: v.icone, rotulo: 'perfil.grade.vinculo'|trans, valor: v.batePonto ? 'perfil.grade.vinculo_bate_ponto'|trans({vinculo: v.rotulo}) : 'perfil.grade.vinculo_sem_ponto'|trans({vinculo: v.rotulo}), copiar: false},
+    {icone: v.icone, rotulo: 'perfil.grade.vinculo'|trans, valor: perfil.registraPonto ? 'perfil.grade.vinculo_bate_ponto'|trans({vinculo: v.rotulo}) : 'perfil.grade.vinculo_sem_ponto'|trans({vinculo: v.rotulo}), copiar: false},
     {icone: 'bi-person-vcard', rotulo: 'perfil.grade.cpf'|trans, valor: _cpfFormatado, copiar: true},
 ] %}
 {% if v.value == 'clt' %}

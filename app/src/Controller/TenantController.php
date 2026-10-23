@@ -709,6 +709,7 @@ final class TenantController extends AbstractController
             'user'                   => $user,
             'tenantId'               => $tenantId,
             'userHasCustomEscala'    => $userHasCustomEscala,
+            'registraPonto'          => $userTenant->isRegistraPonto(),
             'userAccesses'           => $userAccesses,
             'resourceLabels'         => $resourceLabels,
             'competenciasPonto'      => $competenciasPonto,
