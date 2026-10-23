@@ -35,12 +35,17 @@ Google Agenda e lembretes no celular) e leva ao mesmo fluxo do botão "Sincroniz
    - Rota própria da Agenda: `POST /agenda/google/aviso/dispensar` (`app_agenda_google_aviso_dispensar`),
      CSRF `ajax` no cabeçalho `X-CSRF-Token`, exige acesso ao módulo agenda, grava só para o usuário da
      sessão no escritório da sessão e não recebe id.
-   - UseCase: `DispensarAvisoDoGoogleUseCase` (grava) e a leitura no mesmo UseCase (`dispensado()`).
+   - UseCase: `DispensarAvisoDoGoogleUseCase`: `executar()` grava; `mostrar()` decide se a janela abre.
 
 ## Desvio autorizado do desenho
 
 - A caixa "Não mostrar esta mensagem novamente" e o X no cabeçalho não existem na janela de pergunta do
   desenho (l.125). Quem pediu foi o dono; o resto segue o componente do desenho.
+
+## Decisão de implementação (a confirmar com o dono)
+
+- Na volta do Google (`#google=...` no endereço), a janela não abre naquela entrada: o toast ou a explicação
+  da permissão da agenda já ocupam o `#agPerg`. Na próxima entrada ela volta, se ainda couber.
 
 ## Testes
 
@@ -52,6 +57,6 @@ Google Agenda e lembretes no celular) e leva ao mesmo fluxo do botão "Sincroniz
 ## Estado da frente
 
 - [x] Spec.
-- [ ] UseCase, rota, template, JS, catálogo e testes.
-- [ ] Suíte direcionada verde e `scripts/qa.sh`.
+- [x] UseCase, rota, template, JS, CSS, catálogo e testes (23/10/2026, branch `agenda-aviso-google`).
+- [x] Suíte direcionada verde (`--filter 'Agenda|Preferencia|Arquitetura|Traducao'`: 610 testes) e `scripts/qa.sh`.
 - [ ] Smoke do dono na tela.

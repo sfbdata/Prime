@@ -379,6 +379,11 @@
 .ag-perg-rodape { padding: 12px 18px; border-top: 1px solid var(--ag-div-2); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .ag-perg-rodape .ag-mbtn { height: 36px; font-size: 14px !important; }
 .ag-perg-nao { font-weight: normal !important; }
+/* Orientação do Google Agenda (spec agenda-aviso-google): X no cabeçalho e a caixa "Não mostrar", pedidos do dono. */
+.ag-perg-cab-x { display: flex; align-items: center; gap: 10px; }
+.ag-perg-cab-x > span { flex: 1; }
+.ag-perg-opcao { padding-top: 0; font-size: 13px; }
+.ag-perg-opcao label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; }
 
 /* Toque longo abre o menu do dia (iPhone): sem o balão de copiar/selecionar do sistema por cima. Só no toque:
    com mouse, o título do compromisso continua selecionável. */
