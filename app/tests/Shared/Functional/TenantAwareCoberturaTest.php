@@ -229,6 +229,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // `tenant_id` (nulo para suporte e alerta) é só para a purga do escritório (ORDEM_DELECAO).
         \App\Master\Entity\CentralMasterEstado::class,
         \App\Master\Entity\CentralMasterResposta::class,
+
+        // Falha de tarefa agendada (spec scheduler-tarefas-agendadas, "Aviso de falha"): dado do SISTEMA, sem
+        // escritório. A tarefa roda para todos (purga, DJEN, envio ao Drive) e quem vê o aviso é o Master ou o
+        // e-mail de AGENDADOR_ALERTA_EMAIL. A linha só guarda comando, hora, classe do erro e código de saída.
+        \App\Shared\Scheduler\Entity\FalhaAgendada::class,
     ];
 
     /**
@@ -272,7 +277,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 64 → 65 com a nota por cidade da janela da OAB (21/10/2026): NotaDaCidadeOab (plataforma), justificada acima.
     // 65 → 66 com as imagens das campanhas do Master (21/10/2026, F3i): ImagemDaCampanha (plataforma), justificada acima.
     // 66 → 67 com as datas comemorativas do Comercial (21/10/2026, F4): DataComemorativa (plataforma), justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 67;
+    // 67 → 68 com as falhas das tarefas agendadas (23/10/2026, spec scheduler-tarefas-agendadas): FalhaAgendada é dado
+    // do sistema, sem escritório, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 68;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

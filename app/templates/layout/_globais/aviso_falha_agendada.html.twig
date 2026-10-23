@@ -1,0 +1,28 @@
+{#
+    Aviso de falha das tarefas agendadas (spec scheduler-tarefas-agendadas, "Aviso de falha"), no topo de
+    toda tela, com o componente do aviso do desenho 08 (bj-plano.js, #bjp-bar) no visual "cheio": borda
+    vermelha e ⛔. Só para o Master e para o e-mail de AGENDADOR_ALERTA_EMAIL; aviso_de_falha_agendada()
+    devolve null para os demais sem consultar o banco. Mostra só o comando e a hora de cada falha pendente
+    (o detalhe fica no log do agendador). "Dispensar" tira o aviso de todos que o veem.
+#}
+{% set falhas_agendadas = aviso_de_falha_agendada() %}
+{% if falhas_agendadas %}
+    <link rel="stylesheet" href="{{ asset('css/aviso-espaco.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/aviso-falha-agendada.css') }}">
+    <div class="ae-aviso ae-aviso--cheio af-aviso" data-aviso-falha-agendada data-print="hide" role="alert">
+        <span class="ae-icone" aria-hidden="true">⛔</span>
+        <div class="ae-texto">
+            <b>{{ 'moldura.aviso_falha_agendada.titulo'|trans }}</b>
+            {% for falha in falhas_agendadas.itens %}
+                <div>{{ 'moldura.aviso_falha_agendada.item'|trans({comando: falha.comando, hora: falha.hora, data: falha.data}) }}</div>
+            {% endfor %}
+            {% if falhas_agendadas.mais %}<div>{{ 'moldura.aviso_falha_agendada.mais'|trans }}</div>{% endif %}
+            <div>{{ 'moldura.aviso_falha_agendada.detalhe'|trans }}</div>
+        </div>
+        <form method="post" action="{{ path('agendador_falhas_dispensar') }}" class="af-form">
+            <input type="hidden" name="_token" value="{{ csrf_token('dispensar_falhas_agendadas') }}">
+            <input type="hidden" name="voltar" value="{{ app.request.requestUri }}">
+            <button type="submit" class="af-dispensar">{{ 'moldura.aviso_falha_agendada.dispensar'|trans }}</button>
+        </form>
+    </div>
+{% endif %}

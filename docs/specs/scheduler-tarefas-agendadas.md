@@ -115,7 +115,14 @@ Criadas pela migration, nunca pela auto-criação do Symfony: `lock_keys` (`key_
 exato que o Symfony gera. O Doctrine as enxerga pelos schema listeners da trava e do cache
 (`LockStoreSchemaListener`, `DoctrineDbalCacheAdapterSchemaListener`), então o `make:migration` e o
 `schema:validate` não propõem apagá-las e nenhum `schema_filter` foi preciso. Sem dado de escritório (sem
-`tenant_id`). O `down()` remove as duas.
+`tenant_id`).
+
+A mesma migration cria `falha_agendada` (entidade `App\Shared\Scheduler\Entity\FalhaAgendada`, mapeamento
+`AppSharedScheduler` no `doctrine.yaml`): `id`, `comando`, `ocorrida_em`, `classe_erro`, `codigo_saida`
+(nulo), `dispensada_em` (nulo) e `dispensada_por_id` (nulo, FK para `user` com `ON DELETE SET NULL`, para
+não travar a purga). Índice `(dispensada_em, ocorrida_em)` para a consulta das pendentes. Entidade global:
+fora do `TenantAware` (teto do `TenantAwareCoberturaTest` de 67 para 68) e da auditoria
+(`AuditavelCoberturaTest`), com a justificativa ao lado. O `down()` remove as três.
 
 ## Aviso de falha
 
@@ -137,9 +144,38 @@ diferente de 0 (`throwOnFailure` é `true` por padrão) ou lança exceção; o w
   `.env.prod` é o mesmo que vazia (o build de produção apaga o `app/.env`).
 - Falha no envio (SMTP fora, endereço mal escrito): registrada em `ERROR` e engolida. O aviso nunca derruba
   o consumidor.
+- Sempre, depois do log: grava uma `FalhaAgendada` só com metadados (comando, hora agendada em Brasília,
+  classe do erro e código de saída; nunca a mensagem nem a saída). Grava por SQL direto
+  (`FalhaAgendadaRepository::registrar`), sem depender do EntityManager que a tarefa pode ter fechado. Uma
+  falha na gravação é registrada em `ERROR` e engolida, e o e-mail sai do mesmo jeito.
 - O transport do agendador não tem nova tentativa nem fila de falhas (`failed`): o retry e a fila de falhas
   do Messenger só valem para transports declarados no `messenger.yaml`. A próxima execução é a do horário
   seguinte.
+
+### Aviso na tela e na Central do Master
+
+- **Quem vê**: o Master (`ROLE_SUPER_ADMIN`) ou a pessoa cujo e-mail é um dos endereços de
+  `AGENDADOR_ALERTA_EMAIL`, sem diferença de maiúsculas (variável vazia: só o Master). Regra única em
+  `App\Shared\Scheduler\QuemVeAvisoDoAgendador`, usada pela moldura e pela rota de dispensar.
+- **Aviso**: parcial `layout/_globais/aviso_falha_agendada.html.twig` (uma linha no `_globais`, sem tocar no
+  `base`), com o componente do aviso do desenho 08 (`#bjp-bar` em `bj-plano.js`, já implementado como
+  `.ae-aviso`) no visual cheio: borda vermelha e ⛔. Lista até 5 falhas pendentes, as mais recentes
+  ("app:djen:sincronizar às 03:00 de 23/10."), avisa se há outras mais antigas e diz "Detalhe no log do
+  agendador." Sem JS e sem modal: o botão "Dispensar" é um formulário POST. CSS próprio
+  (`css/aviso-falha-agendada.css`) só para o botão, que repete o azul do `a.ae-aumentar` do desenho.
+  Textos no catálogo (`moldura.aviso_falha_agendada.*`).
+- **Custo por página**: a função Twig `aviso_de_falha_agendada()` só consulta para quem vê o aviso, uma vez
+  por requisição, `dispensada_em IS NULL ORDER BY ocorrida_em DESC LIMIT 6` no índice acima. Uma falha na
+  consulta some com o aviso, nunca com a página.
+- **Dispensar**: `POST /agendador/falhas/dispensar` (`agendador_falhas_dispensar`), CSRF
+  `dispensar_falhas_agendadas`, 403 para quem não vê o aviso. Marca **todas** as pendentes de uma vez
+  (`dispensada_em`, `dispensada_por_id`): o aviso some para todos os que o veem. Volta para a página de
+  origem só se for caminho local (sem `//`, barra invertida nem caractere de controle, também na forma
+  decodificada); senão, para o início.
+- **Central do Master**: origem `falha_agendada` (`App\Master\Notificacoes\LeitorDeFalhasAgendadas`), do
+  "Sistema BlueJus", tipo Alerta, sem resposta. Lista as recentes, dispensadas ou não: dispensar tira o
+  aviso da moldura, não a mensagem da Central. Texto: "Tarefa agendada falhou: app:djen:sincronizar às 03:00
+  de 23/10. Detalhe no log do agendador."
 
 ## Contêiner
 

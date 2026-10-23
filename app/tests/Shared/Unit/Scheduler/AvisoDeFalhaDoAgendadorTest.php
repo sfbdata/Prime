@@ -7,6 +7,7 @@ namespace App\Tests\Shared\Unit\Scheduler;
 use App\Shared\Scheduler\AgendaDeTarefas;
 use App\Shared\Email\IdentidadeDeEmail;
 use App\Shared\Scheduler\AvisoDeFalhaDoAgendador;
+use App\Shared\Scheduler\Repository\FalhaAgendadaRepository;
 use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use App\Tests\Shared\Doubles\MailerQueGuarda;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -26,7 +27,8 @@ use Symfony\Component\Scheduler\Trigger\CronExpressionTrigger;
 
 /**
  * Aviso de falha do agendador (spec docs/specs/scheduler-tarefas-agendadas.md, "Aviso de falha"): sempre loga;
- * manda e-mail só com AGENDADOR_ALERTA_EMAIL preenchida; uma falha no e-mail nunca chega ao consumidor.
+ * grava a falha (só metadados) para o aviso na tela; manda e-mail só com AGENDADOR_ALERTA_EMAIL preenchida;
+ * uma falha no e-mail ou na gravação nunca chega ao consumidor.
  */
 #[CoversClass(AvisoDeFalhaDoAgendador::class)]
 final class AvisoDeFalhaDoAgendadorTest extends TestCase
@@ -35,8 +37,11 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
 
     private IdentidadeDeEmail $identidade;
 
+    private FalhaAgendadaRepository $falhas;
+
     protected function setUp(): void
     {
+        $this->falhas     = $this->createStub(FalhaAgendadaRepository::class);
         $this->logger     = new LoggerEmMemoria();
         $this->identidade = new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.com.br>', 'suporte@bluejus.com.br');
     }
@@ -45,7 +50,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
     {
         $mailer = new MailerQueGuarda();
 
-        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, ''))
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $this->falhas, ''))
             ->__invoke($this->falhaDoComando('app:pasta:cobrar-checklist --no-interaction', 1, "linha 1\nFalhou no escritório 3"));
 
         $erros = $this->logger->doNivel('error');
@@ -61,7 +66,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
     {
         $mailer = new MailerQueGuarda();
 
-        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, '   '))
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $this->falhas, '   '))
             ->__invoke($this->falhaDoComando('app:djen:sincronizar --no-interaction', 1));
 
         self::assertCount(1, $this->logger->doNivel('error'));
@@ -72,7 +77,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
     {
         $mailer = new MailerQueGuarda();
 
-        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, 'ops@exemplo.com, dono@exemplo.com'))
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $this->falhas, 'ops@exemplo.com, dono@exemplo.com'))
             ->__invoke($this->falhaDoComando('app:dashboard:fotografar --no-interaction', 1, 'Falha ao fotografar o escritório #2'));
 
         self::assertCount(1, $this->logger->doNivel('error'));
@@ -97,7 +102,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
     {
         $mailer = new MailerQueGuarda();
 
-        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, 'ops@exemplo.com'))
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $this->falhas, 'ops@exemplo.com'))
             ->__invoke($this->falhaDoComando('app:perfil:resumo-diario --no-interaction', 1, 'Enviado para ana@cliente.com.br (Escritório Silva)'));
 
         $texto = (string) $mailer->enviados[0]->getTextBody();
@@ -117,7 +122,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
         );
         $erro = new HandlerFailedException(new EnvelopeDoMessenger($mensagem), ['console.messenger.execute_command_handler' => $falha]);
 
-        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, 'ops@exemplo.com'))
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $this->falhas, 'ops@exemplo.com'))
             ->__invoke($this->evento($mensagem, $erro));
 
         $texto = (string) $mailer->enviados[0]->getTextBody();
@@ -129,7 +134,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
     {
         $mailer = new MailerQueGuarda(falhar: true);
 
-        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, 'ops@exemplo.com'))
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $this->falhas, 'ops@exemplo.com'))
             ->__invoke($this->falhaDoComando('app:perfil:resumo-diario --no-interaction', 1));
 
         $erros = $this->logger->doNivel('error');
@@ -142,7 +147,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
     {
         $mailer = new MailerQueGuarda();
 
-        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, 'isto não é e-mail'))
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $this->falhas, 'isto não é e-mail'))
             ->__invoke($this->falhaDoComando('app:perfil:resumo-diario --no-interaction', 1));
 
         self::assertCount(2, $this->logger->doNivel('error'));
@@ -154,13 +159,57 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
         $mensagem = new RunCommandMessage('app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar --no-interaction');
         $erro     = new HandlerFailedException(new EnvelopeDoMessenger($mensagem), ['console.messenger.execute_command_handler' => new \RuntimeException('banco fora do ar')]);
 
-        (new AvisoDeFalhaDoAgendador($this->logger, new MailerQueGuarda(), $this->identidade, ''))
+        (new AvisoDeFalhaDoAgendador($this->logger, new MailerQueGuarda(), $this->identidade, $this->falhas, ''))
             ->__invoke($this->evento($mensagem, $erro));
 
         $erros = $this->logger->doNivel('error');
         self::assertCount(1, $erros);
         self::assertSame('app:sync:reconciliar', $erros[0]['contexto']['comando']);
         self::assertStringContainsString('banco fora do ar', $erros[0]['contexto']['erro']);
+    }
+
+    public function testGravaAFalhaComOComandoAHoraDeBrasiliaAClasseEOCodigo(): void
+    {
+        $falhas = $this->createMock(FalhaAgendadaRepository::class);
+        $falhas->expects(self::once())->method('registrar')->with(
+            'app:djen:sincronizar',
+            self::callback(static fn (\DateTimeImmutable $em): bool => $em->format('Y-m-d H:i:s e') === '2026-10-23 23:55:00 America/Sao_Paulo'),
+            RunCommandFailedException::class,
+            2,
+        );
+
+        (new AvisoDeFalhaDoAgendador($this->logger, new MailerQueGuarda(), $this->identidade, $falhas, ''))
+            ->__invoke($this->falhaDoComando('app:djen:sincronizar --dias=2 --no-interaction', 2, 'saída com dado de cliente'));
+
+        self::assertCount(1, $this->logger->doNivel('error'));
+    }
+
+    public function testExcecaoDoComandoGravaAClasseDeOrigemSemCodigoDeSaida(): void
+    {
+        $mensagem = new RunCommandMessage('app:sync:reconciliar --no-interaction');
+        $erro     = new HandlerFailedException(new EnvelopeDoMessenger($mensagem), ['console.messenger.execute_command_handler' => new \RuntimeException('banco fora do ar')]);
+        $falhas   = $this->createMock(FalhaAgendadaRepository::class);
+        $falhas->expects(self::once())->method('registrar')
+            ->with('app:sync:reconciliar', self::anything(), \RuntimeException::class, null);
+
+        (new AvisoDeFalhaDoAgendador($this->logger, new MailerQueGuarda(), $this->identidade, $falhas, ''))
+            ->__invoke($this->evento($mensagem, $erro));
+    }
+
+    public function testFalhaAoGravarEhRegistradaENaoImpedeOEmail(): void
+    {
+        $falhas = $this->createStub(FalhaAgendadaRepository::class);
+        $falhas->method('registrar')->willThrowException(new \RuntimeException('tabela ausente'));
+        $mailer = new MailerQueGuarda();
+
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $falhas, 'ops@exemplo.com'))
+            ->__invoke($this->falhaDoComando('app:djen:sincronizar --dias=2 --no-interaction', 1));
+
+        $erros = $this->logger->doNivel('error');
+        self::assertCount(2, $erros, 'O erro da tarefa e o erro da gravação.');
+        self::assertStringContainsString('gravar a falha', $erros[1]['mensagem']);
+        self::assertSame('tabela ausente', $erros[1]['contexto']['erro']);
+        self::assertCount(1, $mailer->enviados, 'O e-mail sai mesmo sem a gravação.');
     }
 
     /** Como o worker entrega: RunCommandFailedException embrulhada numa HandlerFailedException. */

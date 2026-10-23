@@ -241,13 +241,15 @@ pelo remetente `MAILER_FROM`. O e-mail não traz dado de cliente: só o comando,
 código de saída; a mensagem e a saída do comando ficam no `docker logs jusprime_scheduler_prod`. Vazia ou
 ausente: só o log. Mudou a variável: recrie o contêiner
 (`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler`). Não há nova tentativa
-automática: a próxima execução é a do horário seguinte. Para rodar uma tarefa na hora, use o `docker exec`
+automática: a próxima execução é a do horário seguinte. Toda falha também é gravada (tabela `falha_agendada`, só comando, hora, classe do erro e código) e aparece
+num aviso vermelho no topo de toda tela para o Master e para quem tem o e-mail de `AGENDADOR_ALERTA_EMAIL`,
+com o botão "Dispensar" (tira o aviso de todos), e na Central do Master (origem "Tarefa agendada falhou"). Para rodar uma tarefa na hora, use o `docker exec`
 de sempre no `jusprime_php_prod`.
 
 **Trava e estado.** A trava (tabela `lock_keys`) impede que dois consumidores gerem a mesma tarefa; o
 estado (tabela `cache_agendador`) guarda a última execução de cada uma, então uma tarefa que passou da
 hora durante um deploy ou uma parada roda quando o contêiner volta (só a última execução perdida). As duas
-tabelas nascem da migration `Version20261023150800`.
+tabelas nascem da migration `Version20261023150800`, junto com a `falha_agendada`.
 
 **Simular antes** continua igual, no `jusprime_php_prod` e sem tocar no agendador:
 `app:purgar-dados-expirados --dry-run`, `app:pasta:cobrar-checklist --escritorio=ID --simular`,

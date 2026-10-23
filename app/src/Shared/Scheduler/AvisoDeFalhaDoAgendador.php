@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Scheduler;
 
 use App\Shared\Email\IdentidadeDeEmail;
+use App\Shared\Scheduler\Repository\FalhaAgendadaRepository;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Exception\RunCommandFailedException;
 use Symfony\Component\Console\Messenger\RunCommandMessage;
@@ -25,11 +26,12 @@ use Symfony\Component\Scheduler\Event\FailureEvent;
  * tem nova tentativa nem fila de falhas: este aviso é o único rastro.
  *
  * Sempre registra um erro no log (stderr do contêiner jusprime_scheduler_prod), com o detalhe completo:
- * mensagem e fim da saída do comando. Com AGENDADOR_ALERTA_EMAIL preenchida (um ou mais endereços
+ * mensagem e fim da saída do comando. Grava também uma {@see \App\Shared\Scheduler\Entity\FalhaAgendada}
+ * (só metadados), que alimenta o aviso na moldura e a Central do Master. Com AGENDADOR_ALERTA_EMAIL preenchida (um ou mais endereços
  * separados por vírgula), manda também um e-mail curto SEM dado de cliente: só o comando, o horário, a
  * classe da exceção e o código de saída (a mensagem e a saída podem citar escritório, pessoa ou e-mail; o
  * detalhe fica no log). Uma falha no envio do e-mail é registrada e engolida: o aviso não pode derrubar o
- * consumidor do agendador.
+ * consumidor do agendador. O mesmo vale para a gravação da falha.
  */
 #[AsEventListener(event: FailureEvent::class)]
 final class AvisoDeFalhaDoAgendador
@@ -41,6 +43,7 @@ final class AvisoDeFalhaDoAgendador
         private readonly LoggerInterface $logger,
         private readonly MailerInterface $mailer,
         private readonly IdentidadeDeEmail $identidade,
+        private readonly FalhaAgendadaRepository $falhas,
         #[Autowire('%env(string:default::AGENDADOR_ALERTA_EMAIL)%')]
         private readonly string $alertaEmail,
     ) {
@@ -64,19 +67,37 @@ final class AvisoDeFalhaDoAgendador
             'exception' => $evento->getError(),
         ]);
 
+        $classe = $this->classeDoErro($falha ?? $evento->getError());
+        $this->registrarFalha($comando, $quando, $classe, $falha?->context->exitCode);
+        $this->avisarPorEmail($comando, $quando, $classe, $falha?->context->exitCode);
+    }
+
+    /**
+     * Grava a falha para o aviso na tela (Master e AGENDADOR_ALERTA_EMAIL) e a Central do Master. Uma falha
+     * aqui (banco fora, tabela ausente) é registrada e engolida: não pode derrubar o consumidor nem o e-mail.
+     */
+    private function registrarFalha(string $comando, \DateTimeImmutable $quando, string $classe, ?int $codigo): void
+    {
+        try {
+            $this->falhas->registrar($comando, $quando, $classe, $codigo);
+        } catch (\Throwable $e) {
+            $this->logger->error('Não foi possível gravar a falha da tarefa agendada {comando}: {erro}', [
+                'comando'   => $comando,
+                'erro'      => $e->getMessage(),
+                'exception' => $e,
+            ]);
+        }
+    }
+
+    private function avisarPorEmail(string $comando, \DateTimeImmutable $quando, string $classe, ?int $codigo): void
+    {
         if (trim($this->alertaEmail) === '') {
             return;
         }
 
         // Dentro do try também o endereço: um AGENDADOR_ALERTA_EMAIL mal escrito lança na montagem.
         try {
-            $this->mailer->send($this->montarEmail(
-                $this->destinatarios(),
-                $comando,
-                $quando,
-                $this->classeDoErro($falha ?? $evento->getError()),
-                $falha?->context->exitCode,
-            ));
+            $this->mailer->send($this->montarEmail($this->destinatarios(), $comando, $quando, $classe, $codigo));
         } catch (\Throwable $e) {
             $this->logger->error('Não foi possível enviar o e-mail de falha da tarefa agendada {comando}: {erro}', [
                 'comando'   => $comando,
