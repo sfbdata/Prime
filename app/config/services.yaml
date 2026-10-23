@@ -59,6 +59,10 @@ parameters:
     # para registro criado a partir desta data (AAAA-MM-DD). Vazio = desligado. O default mora AQUI porque o build
     # de produção faz `rm .env` (docs/specs/prazo-feriado-calendario.md).
     prazos_calendario_desde: '%env(string:default::PRAZOS_CALENDARIO_DESDE)%'
+    # Ponto: o par invertido (saída antes da entrada, intervalo invertido) deixa o dia incompleto e com 0 minutos só a
+    # partir desta data (AAAA-MM-DD). Vazio = a regra nova vale para todos os dias. O default mora AQUI porque o build
+    # de produção faz `rm .env` (docs/specs/ponto-esquecimento-nao-trava.md, opção (b)).
+    ponto_par_invertido_desde: '%env(string:default::PONTO_PAR_INVERTIDO_DESDE)%'
     # Sincronização Google Drive. Vazios em dev/test. Dois modos de auth:
     #  - service account (Shared Drive): google_drive_credentials = caminho do JSON.
     #  - OAuth login de usuário (ex.: conta do rclone; ponte atual + futuro "Conectar meu Drive"):

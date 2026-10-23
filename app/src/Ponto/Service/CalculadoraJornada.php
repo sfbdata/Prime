@@ -7,16 +7,30 @@ use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class CalculadoraJornada
 {
     // Tolerância negativa: atrasos menores que este valor são ignorados (não descontam)
     private const TOLERANCIA_ATRASO_MINUTOS = 5;
 
+    /**
+     * O primeiro dia em que o par invertido deixa o dia incompleto e com 0 minutos (`PONTO_PAR_INVERTIDO_DESDE`, spec
+     * `ponto-esquecimento-nao-trava.md`, opção (b) do dono). Null = a regra nova vale para todos os dias.
+     */
+    private readonly ?\DateTimeImmutable $parInvertidoDesde;
+
     public function __construct(
         private readonly JornadaResolver $jornadaResolver,
         private readonly EscolhaDasBatidasDoDia $escolhaDasBatidas = new EscolhaDasBatidasDoDia(),
-    ) {}
+        #[Autowire('%ponto_par_invertido_desde%')]
+        string $parInvertidoDesde = '',
+    ) {
+        $desde = trim($parInvertidoDesde);
+        $corte = \DateTimeImmutable::createFromFormat('!Y-m-d', $desde);
+        // Vazia ou inválida: sem corte, a regra nova vale para todos os dias (o padrão em dev e teste).
+        $this->parInvertidoDesde = $corte !== false && $corte->format('Y-m-d') === $desde ? $corte : null;
+    }
 
     /**
      * Quais batidas do dia valem — a decisão ÚNICA, a mesma que a folha exibe (a calculadora não tem
@@ -210,14 +224,16 @@ class CalculadoraJornada
         if ($entrada === null || $this->parInvertido($escolha)) {
             return 0;
         }
+        // Antes da data de corte, a conta de sempre: a distância, mesmo com o par invertido.
+        $minutos = $this->regraDoParInvertido($entrada) ? $this->diffMinutos(...) : $this->distanciaEmMinutos(...);
 
         if ($escolha->temIntervalo() && $saida !== null) {
-            return $this->diffMinutos($entrada, $escolha->repouso->getDataHora())
-                 + $this->diffMinutos($escolha->retorno->getDataHora(), $saida);
+            return $minutos($entrada, $escolha->repouso->getDataHora())
+                 + $minutos($escolha->retorno->getDataHora(), $saida);
         }
 
         if ($saida !== null) {
-            return $this->diffMinutos($entrada, $saida);
+            return $minutos($entrada, $saida);
         }
 
         return 0;
@@ -249,6 +265,13 @@ class CalculadoraJornada
         return ($diff->days * 1440) + ($diff->h * 60) + $diff->i;
     }
 
+    /** O dia da entrada está a partir da data de corte do par invertido (sem corte, sempre). */
+    private function regraDoParInvertido(\DateTimeInterface $entrada): bool
+    {
+        return $this->parInvertidoDesde === null
+            || \DateTimeImmutable::createFromInterface($entrada)->setTime(0, 0) >= $this->parInvertidoDesde;
+    }
+
     /**
      * A saída escolhida antes da entrada escolhida ou, com o par de intervalo, um trecho invertido (a ida ao repouso
      * antes da entrada, ou a saída antes do retorno). O dia fica incompleto e conta 0 minutos, como a saída solta.
@@ -257,7 +280,7 @@ class CalculadoraJornada
     {
         $entrada = $escolha->entrada?->getDataHora();
         $saida = $escolha->saida?->getDataHora();
-        if ($entrada === null || $saida === null) {
+        if ($entrada === null || $saida === null || !$this->regraDoParInvertido($entrada)) {
             return false;
         }
         if ($saida < $entrada) {

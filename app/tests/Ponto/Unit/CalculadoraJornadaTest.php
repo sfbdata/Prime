@@ -969,4 +969,24 @@ class CalculadoraJornadaTest extends TestCase
         $this->assertFalse($this->calculadora->registroIncompleto($comRepouso));
         $this->assertSame(480, $this->calculadora->calcularMinutosTrabalhados($comRepouso));
     }
+
+    /**
+     * Data de corte do par invertido (`PONTO_PAR_INVERTIDO_DESDE`, opção (b) do dono): antes dela o dia invertido conta
+     * como antes; a partir dela fica incompleto com 0 minutos; sem a variável, a regra nova vale para todos os dias.
+     */
+    public function testParInvertidoRespeitaADataDeCorte(): void
+    {
+        $antes = [$this->batida('saida', '07:00', '2026-10-21'), $this->batida('entrada', '13:00', '2026-10-21')];
+        $depois = [$this->batida('saida', '07:00', '2026-10-23'), $this->batida('entrada', '13:00', '2026-10-23')];
+        $comCorte = new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia(), '2026-10-22');
+
+        $this->assertFalse($comCorte->registroIncompleto($antes), 'antes do corte: como antes');
+        $this->assertSame(360, $comCorte->calcularMinutosTrabalhados($antes), 'antes do corte: credita como antes');
+        $this->assertTrue($comCorte->registroIncompleto($depois), 'depois do corte: incompleto');
+        $this->assertSame(0, $comCorte->calcularMinutosTrabalhados($depois), 'depois do corte: 0 minutos');
+
+        $semVariavel = new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia(), '');
+        $this->assertTrue($semVariavel->registroIncompleto($antes), 'sem a variável: regra nova');
+        $this->assertSame(0, $semVariavel->calcularMinutosTrabalhados($antes));
+    }
 }

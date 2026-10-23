@@ -43,7 +43,13 @@ escritório ou em outro.
   07:00 e entrada às 13:00), ou um trecho do intervalo é invertido (ida ao repouso antes da entrada, saída antes do
   retorno), o dia fica incompleto e conta 0 minutos, igual à saída solta. O `CalculadoraJornada::diffMinutos` não credita
   intervalo invertido. O indicador "intrajornada conforme" do PDF e do XLSX segue com a distância de sempre
-  (`distanciaEmMinutos`). Vale também para o passado: um dia antigo com o par invertido deixa de creditar.
+  (`distanciaEmMinutos`).
+- **Data de corte do par invertido: opção (b) como padrão, aguardando o dono; a troca para (a) é tirar a variável.** A
+  regra do par invertido vale só a partir de `PONTO_PAR_INVERTIDO_DESDE` (AAAA-MM-DD, parâmetro
+  `ponto_par_invertido_desde`, lido pela `CalculadoraJornada`). Antes da data, o dia é calculado como antes (os 8 dias
+  em produção não mudam). Sem a variável definida, o padrão é aplicar a regra nova a todos os dias. Isso vale em dev e
+  teste. Em produção, o dono define a data de publicação no deploy. Só a conta da folha olha a data: a saída solta não
+  contar para a interjornada (R4) vale sempre.
 - A entrada e o retorno do repouso continuam sujeitos à chave e ao choque.
 - O pedido de esquecimento só vale para a batida que falta: com uma batida do mesmo tipo no dia neste escritório, o
   pedido (e a edição dele) é recusado com "Já existe um registro de {tipo} neste dia." (`BatidaJaRegistrada`). Fecha o
