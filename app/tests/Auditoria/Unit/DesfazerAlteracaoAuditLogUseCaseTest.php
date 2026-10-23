@@ -738,6 +738,10 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         yield 'Sede' => [Sede::class, 'admin.ponto.manage'];
         yield 'Cargo' => [Cargo::class, 'admin.tenant.settings.manage'];
         yield 'Lotação' => [Lotacao::class, 'admin.tenant.settings.manage'];
+        yield 'Chamado' => [\App\Entity\ServiceDesk\Chamado::class, 'admin.servicedesk.manage'];
+        yield 'Anexo do chamado' => [\App\Entity\ServiceDesk\ChamadoAnexo::class, 'admin.servicedesk.manage'];
+        yield 'Interação do chamado' => [\App\Entity\ServiceDesk\ChamadoInteracao::class, 'admin.servicedesk.manage'];
+        yield 'Evento' => [\App\Agenda\Entity\Evento::class, 'admin.users.manage'];
         yield 'Pasta, sem permissão a mais' => [Pasta::class, null];
     }
 

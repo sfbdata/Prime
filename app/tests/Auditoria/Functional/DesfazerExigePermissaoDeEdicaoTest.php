@@ -10,6 +10,7 @@ use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
+use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Sede;
@@ -27,9 +28,9 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * Achado de auditoria interna F19 (spec `docs/specs/seguranca-b-ponto.md` §1.3): desfazer uma alteração de Sede, Cargo
- * ou Lotação exige, além de `admin.audit.view`, a permissão da tela que edita a entidade. Sem ela, 403 e nada muda.
- * O desfazer das outras entidades continua só com `admin.audit.view`.
+ * Achado de auditoria interna F19 (spec `docs/specs/seguranca-b-ponto.md` §1.3): desfazer uma alteração de Sede, Cargo,
+ * Lotação ou Chamado exige, além de `admin.audit.view`, a permissão da tela que edita a entidade. Sem ela, 403 e nada
+ * muda. O desfazer das outras entidades continua só com `admin.audit.view`.
  */
 #[CoversClass(AuditLogController::class)]
 #[CoversClass(DesfazerAlteracaoAuditLogUseCase::class)]
@@ -130,6 +131,12 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
             $entidade->setRaioPermitido(100);
             $entidade->setTimezone('America/Sao_Paulo');
             $diff = ['latitude' => ['from' => '-15.81100086', 'to' => '-10.00000000']];
+        } elseif ($classe === Chamado::class) {
+            $entidade = new Chamado();
+            $entidade->setTitulo('Titulo novo');
+            $entidade->setDescricao('Descrição do chamado');
+            $entidade->setSolicitante($this->solicitante());
+            $diff = ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']];
         } else {
             $entidade = $classe === Cargo::class ? new Cargo() : new Lotacao();
             $entidade->setNome('Nome novo');
@@ -140,6 +147,20 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         $this->em->flush();
 
         return [(int) $entidade->getId(), $this->criarLog($classe, (int) $entidade->getId(), $diff)];
+    }
+
+    private function solicitante(): User
+    {
+        $user = new User();
+        $user->setEmail('f19_solicitante_' . uniqid() . '@test.com');
+        $user->setFullName('Solicitante F19');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword('x');
+        $this->em->persist($user);
+        $this->em->persist(new UserTenant($user, $this->tenant));
+
+        return $user;
     }
 
     /** @param array<string, array{from: mixed, to: mixed}> $diff */
@@ -167,6 +188,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     {
         [$tabela, $coluna] = match ($classe) {
             Sede::class  => ['sede', 'latitude'],
+            Chamado::class => ['chamado', 'titulo'],
             Cargo::class => ['cargo', 'nome'],
             default      => ['lotacao', 'nome'],
         };
@@ -180,6 +202,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         yield 'Sede' => [Sede::class, 'admin.ponto.manage', '-10.00000000', '-15.81100086'];
         yield 'Cargo' => [Cargo::class, 'admin.tenant.settings.manage', 'Nome novo', 'Nome anterior'];
         yield 'Lotação' => [Lotacao::class, 'admin.tenant.settings.manage', 'Nome novo', 'Nome anterior'];
+        yield 'Chamado' => [Chamado::class, 'admin.servicedesk.manage', 'Titulo novo', 'Titulo anterior'];
     }
 
     #[DataProvider('entidades')]

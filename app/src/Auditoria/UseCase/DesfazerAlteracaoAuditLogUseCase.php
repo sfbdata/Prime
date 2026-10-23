@@ -57,13 +57,19 @@ final class DesfazerAlteracaoAuditLogUseCase
     /**
      * Desfazer é editar (achado de auditoria interna F19): além de `admin.audit.view`, quem desfaz precisa da mesma
      * permissão que a tela de edição da entidade exige. Sede: telas de sede em `TenantController` (`admin.ponto.manage`).
-     * Cargo e Lotação: aba do `app_tenant_edit` (`admin.tenant.settings.manage`). Entidade fora do mapa não exige
-     * permissão a mais. Quem confere é o controller, pelo `PermissionChecker`, antes de chamar `executar()`.
+     * Cargo e Lotação: aba do `app_tenant_edit` (`admin.tenant.settings.manage`). Chamado e o que pende dele: atribuir e
+     * mudar o estado no `ServiceDeskController` (`admin.servicedesk.manage`). Evento: `agenda_editar` aceita
+     * `admin.users.manage` ou o criador; aqui vale só a permissão, sem a exceção do criador. Entidade fora do mapa não
+     * exige permissão a mais. Quem confere é o controller, pelo `PermissionChecker`, antes de chamar `executar()`.
      */
     private const PERMISSAO_DE_EDICAO = [
-        Sede::class    => 'admin.ponto.manage',
-        Cargo::class   => 'admin.tenant.settings.manage',
-        Lotacao::class => 'admin.tenant.settings.manage',
+        Sede::class                                    => 'admin.ponto.manage',
+        Cargo::class                                   => 'admin.tenant.settings.manage',
+        Lotacao::class                                 => 'admin.tenant.settings.manage',
+        \App\Entity\ServiceDesk\Chamado::class          => 'admin.servicedesk.manage',
+        \App\Entity\ServiceDesk\ChamadoAnexo::class     => 'admin.servicedesk.manage',
+        \App\Entity\ServiceDesk\ChamadoInteracao::class => 'admin.servicedesk.manage',
+        \App\Agenda\Entity\Evento::class                => 'admin.users.manage',
     ];
 
     /**
