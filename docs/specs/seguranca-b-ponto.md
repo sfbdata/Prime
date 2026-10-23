@@ -6,8 +6,7 @@
   read-only. O relatório da auditoria fica fora do repositório e não é citado aqui.
 - Risco **ALTO** (ponto eletrônico). O fluxo é este: spec, implementação, revisão read-only, correção e nova revisão.
 - **PR 1** (branch `seguranca-b-ponto`): F2, F12, F18 e F19, com o F17 documentado. Não tem migration.
-- **PR 2** (branch própria, depois do PR 1): F8 e F11, com a migration `Version20261020150700`, já reservada. O
-  backfill depende da decisão do dono (§3.3).
+- **PR 2** (branch própria, depois do PR 1): F8 e F11. Ver §3.
 
 ## 1. PR 1
 
@@ -40,7 +39,9 @@
 - **Depois:** desfazer uma alteração exige, além de `admin.audit.view`, a **mesma permissão que a tela usa para editar
   aquela entidade**:
   - `Sede`: `admin.ponto.manage`;
-  - `Cargo` e `Lotacao`: a permissão da tela de edição, a confirmar no código.
+  - `Cargo` e `Lotacao`: `admin.tenant.settings.manage` (aba do `app_tenant_edit`);
+  - mesma família, acrescentada na revisão: `Chamado`, `ChamadoAnexo` e `ChamadoInteracao` com
+    `admin.servicedesk.manage`; `Evento` com `admin.users.manage` (sem a exceção do criador).
   - Sem ela, a resposta é 403 e nada muda.
   - A checagem fica no servidor, no UseCase ou no Controller, pelo `PermissionChecker` do sistema. Não basta esconder
     o botão.
@@ -63,38 +64,7 @@
 - Não muda o desenho nem os textos das telas.
 - Não toca na jornada (PR 2) nem no `AuditLogSubscriber`, que é do #123.
 
-## 3. PR 2: jornada por escritório (F8 e F11)
+## 3. PR 2
 
-### 3.1 Antes
-
-- `JornadaColaborador` é OneToOne com `User`, sem escritório. O índice único é só `user_id`.
-- O admin de um escritório lê, grava e apaga um registro que vale para **todos** os escritórios da pessoa.
-- Qualquer usuário pode criar um escritório e passar nos guards sobre a própria jornada.
-- Quem lê a jornada sem escritório: `JornadaResolver`, `FolhaPontoBuilder`, `PontoController`,
-  `ObterEstadoDoPontoDoDiaUseCase` e `TenantController`.
-
-### 3.2 Depois
-
-- `JornadaColaborador` ganha `tenant` (ManyToOne, NOT NULL) e passa a ser TenantAware, com único
-  `(user_id, tenant_id)`. Sai o OneToOne do `User`.
-- O repositório ganha `findByUserETenant`, no padrão do `HomeOfficeConfigRepository`.
-- Toda leitura usa o escritório da folha, da URL ou da batida. A gravação grava `tenant` = o escritório da URL.
-- Os guards ficam como estão (`admin.users.manage` mais o vínculo ativo), porque passam a casar com o recurso.
-
-### 3.3 Migration `Version20261020150700` e backfill (decisão do dono pendente)
-
-- A coluna `tenant_id` entra nula. Depois do backfill vira NOT NULL, e o índice único passa a `(user_id, tenant_id)`.
-- Proposta, à espera do dono (produção tem 10 jornadas):
-  - pessoa com um único vínculo ativo: o escritório desse vínculo;
-  - pessoa sem vínculo ativo: o último escritório da pessoa;
-  - pessoa com vários vínculos ativos: a jornada é duplicada para cada escritório ativo, o que mantém o cálculo de hoje.
-
-### 3.4 Testes
-
-- Functional com dois escritórios:
-  - o admin de A grava a jornada da pessoa E em A, e a jornada de E em B fica intacta;
-  - a GET em B não mostra a jornada de A.
-- Cenário do F8: o funcionário cria o escritório C e grava a própria jornada lá; a folha dele em A não muda.
-- Unit do `JornadaResolver` e do `FolhaPontoBuilder`: a meta do dia em B usa a jornada de B, ou a jornada padrão do
-  escritório B.
-- Migration: aplica e reverte, `schema:validate` limpo e backfill coberto por um teste de integração.
+O PR 2 (achados de auditoria interna F8 e F11, jornada por escritório) tem spec própria em
+docs/specs/seguranca-b-jornada.md, em outra branch.
