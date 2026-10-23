@@ -1094,7 +1094,8 @@
             "T",
             "Content-Type",
             "Escape",
-            "Enter"
+            "Enter",
+            "App\\\\Pasta\\\\Entity\\\\CarteiraDaPasta"
         ]
     }
 }

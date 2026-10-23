@@ -8965,6 +8965,9 @@ pasta_cabecalho:
             duplicar_confirmar: 'Duplicar a pasta {nup}? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.'
             vincular_processo: Vincular processo
             trocar_responsavel: Trocar responsável
+            mover_carteira: Mover para outra carteira
+            carteira_titulo: 'Mover pasta {nup} para'
+            carteira_atual: '{carteira} · atual'
             compartilhar: Compartilhar
             copiar_link: Copiar link da pasta
             link_push: Link externo do Push
@@ -9104,6 +9107,8 @@ pasta_cabecalho:
             restaurar: Restaurar
             favoritos_erro: Não foi possível alterar os favoritos.
             erro_comunicacao: Erro de comunicação. Tente novamente.
+            carteira_movida: 'Pasta {nup} movida para a carteira {carteira}'
+            carteira_erro: Não foi possível mover a pasta de carteira.
         prazos:
             titulo_novo: Novo prazo ou audiência
             titulo_editar: Editar prazo
