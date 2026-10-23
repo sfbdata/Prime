@@ -337,3 +337,228 @@ body:has(.db-page--sem-anim) .db-hist-barra { animation: none; }
 @media print {
     .db-janela { display: none !important; }
 }
+
+/* ── Cartão do colaborador (spec dashboard-parte-1; dc 1.2.2 l.1476-1557 e script l.3032-3093,
+   README "Botão direito no colaborador") ─────────────────────────────────────────────────────
+   Classe própria da janela (.db-colab-janela), para não colidir com a célula .db-colab da tabela.
+   Faixa azul no cabeçalho, avatar de 36px com anel branco, nome Arial 14.5px/700 e "cargo ·
+   posição" 12px a 84%. Linhas do desenho (ícone 13px, rótulo 11.5px/700 em caixa alta, número
+   Arial 18px/700), "1º do mês" com os 12 quadradinhos ou a faixa por ano, e o Rendimento com as
+   duas barras. Os segmentados reaproveitam o do histórico dos cards (.db-hist-anos). */
+.db-janela.db-colab-janela {
+    --db-colab-rotulo: #4f6878;
+    --db-colab-valor:  #0e2533;
+    --db-colab-extra:  #6b8494;
+    --db-colab-ico:    #0c7a9c;
+    --db-colab-ouro:   #c49a3a;
+    --db-colab-mes-rot: #7b93a2;
+    --db-colab-mes-aberto-rot: #c3d0d8;
+    --db-colab-mes-cinza: #eef3f6;
+    --db-colab-mes-borda: #e3eaef;
+    --db-colab-rend-bg: linear-gradient(180deg, #fafcfd, #f5f9fb);
+    --db-colab-rend-borda: #eef3f6;
+    --db-colab-frase: #34505f;
+    --db-colab-legenda: #7b93a2;
+    --db-colab-trilho: #e9eff3;
+    --db-colab-media: #aebfcb;
+    --db-colab-media-valor: #5f7684;
+    width: 320px;
+}
+[data-bs-theme="dark"] .db-janela.db-colab-janela {
+    --db-colab-rotulo: var(--bs-secondary-color);
+    --db-colab-valor:  var(--bs-body-color);
+    --db-colab-extra:  var(--bs-secondary-color);
+    --db-colab-ico:    #7ccbe4;
+    --db-colab-ouro:   #e6c48a;
+    --db-colab-mes-rot: var(--bs-secondary-color);
+    --db-colab-mes-aberto-rot: rgba(255,255,255,.28);
+    --db-colab-mes-cinza: rgba(255,255,255,.08);
+    --db-colab-mes-borda: rgba(255,255,255,.14);
+    --db-colab-rend-bg: rgba(255,255,255,.03);
+    --db-colab-rend-borda: var(--bs-border-color);
+    --db-colab-frase: var(--bs-body-color);
+    --db-colab-legenda: var(--bs-secondary-color);
+    --db-colab-trilho: rgba(255,255,255,.1);
+    --db-colab-media: #6f8796;
+    --db-colab-media-valor: var(--bs-secondary-color);
+}
+.db-colab-janela .db-janela-cab {
+    position: relative;
+    overflow: hidden;
+    margin: -1px -1px 0;
+    padding: 10px 10px 10px 12px;
+    border-radius: 4px 4px 0 0;
+    background: linear-gradient(120deg, #0f6fc4 0%, #0c7a9c 100%);
+}
+.db-colab-janela .db-janela-cab::before {
+    content: "";
+    position: absolute;
+    right: -30px;
+    top: -40px;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.16), rgba(255,255,255,0) 70%);
+    pointer-events: none;
+}
+.db-colab-janela .db-janela-cab > * { position: relative; }
+.db-colab-janela .db-janela-titulo {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14.5px;
+    color: #fff;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.db-colab-janela .db-janela-sub { color: rgba(255,255,255,.84); margin-top: 2px; }
+.db-colab-janela .db-janela-grip { color: rgba(255,255,255,.55); }
+.db-colab-janela .db-janela-fechar { color: rgba(255,255,255,.9); }
+.db-colab-janela .db-janela-fechar:hover { background: rgba(255,255,255,.16); color: #fff; }
+.db-colab-janela .db-colab-av {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 0 0 2px #fff, 0 4px 10px -4px rgba(6,40,70,.5);
+}
+/* as 9 cores do avatar da tabela (dc AV), escolhidas pelo mesmo índice da linha */
+.db-colab-av--0 { background: linear-gradient(145deg, #0f6fc4, #0c5799); }
+.db-colab-av--1 { background: linear-gradient(145deg, #1f7a4d, #185f3c); }
+.db-colab-av--2 { background: linear-gradient(145deg, #6b4b8a, #533b6c); }
+.db-colab-av--3 { background: linear-gradient(145deg, #a3232b, #7f1b22); }
+.db-colab-av--4 { background: linear-gradient(145deg, #2a5f8f, #214a70); }
+.db-colab-av--5 { background: linear-gradient(145deg, #8a5a12, #6c460e); }
+.db-colab-av--6 { background: linear-gradient(145deg, #0c7a9c, #095f7a); }
+.db-colab-av--7 { background: linear-gradient(145deg, #4a6274, #3a4c5a); }
+.db-colab-av--8 { background: linear-gradient(145deg, #1f9d61, #187a4c); }
+.db-colab-corpo { padding: 12px 14px; }
+.db-colab-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 9px;
+}
+.db-colab-linha-ico { font-size: 13px; color: var(--db-colab-ico); }
+.db-colab-linha-ico.db-colab-ico--ouro { color: var(--db-colab-ouro); }
+.db-colab-linha-rotulo {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--db-colab-rotulo);
+    white-space: nowrap;
+}
+.db-colab-linha-espaco { flex: 1; }
+.db-colab-linha-valor {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--db-colab-valor);
+    font-variant-numeric: tabular-nums;
+}
+.db-colab-linha-extra { font-size: 12px; color: var(--db-colab-extra); }
+.db-colab-janela .db-colab-seg-janela,
+.db-colab-janela .db-colab-seg-ano { margin-bottom: 10px; }
+
+/* 1º do mês: um ano = 12 quadradinhos J…D; Todos = uma faixa de 12 barrinhas por ano */
+.db-colab-meses { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; }
+.db-colab-mes { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.db-colab-mes-q {
+    width: 100%;
+    max-width: 20px;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    background: var(--db-colab-mes-cinza);
+}
+.db-colab-mes-q .bi { font-size: 8.5px; }
+.db-colab-mes--ganhou .db-colab-mes-q {
+    background: linear-gradient(160deg, #fbefcf, #f3dc9e);
+    color: #9a7220;
+    box-shadow: inset 0 0 0 1px rgba(196,154,58,.35);
+}
+.db-colab-mes--aberto .db-colab-mes-q { background: transparent; box-shadow: inset 0 0 0 1px var(--db-colab-mes-borda); }
+.db-colab-mes-rot { font-size: 9.5px; font-weight: 700; color: var(--db-colab-mes-rot); }
+.db-colab-mes--aberto .db-colab-mes-rot { color: var(--db-colab-mes-aberto-rot); }
+.db-colab-anos-todos { display: flex; flex-direction: column; gap: 7px; }
+.db-colab-ano-linha { display: grid; grid-template-columns: 34px minmax(0, 1fr) 22px; align-items: center; gap: 8px; }
+.db-colab-ano-rot { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 700; color: var(--db-colab-rotulo); }
+.db-colab-faixa { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2px; }
+.db-colab-faixa-b { display: block; height: 10px; border-radius: 3px; background: var(--db-colab-mes-cinza); }
+.db-colab-faixa-b.db-colab-mes--ganhou { background: linear-gradient(160deg, #f3d27a, #d7aa45); }
+.db-colab-faixa-b.db-colab-mes--aberto { background: transparent; box-shadow: inset 0 0 0 1px var(--db-colab-mes-borda); }
+.db-colab-ano-vezes {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--db-colab-valor);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Rendimento: percentual grande (verde acima, vermelho abaixo), frase e as duas barras */
+.db-colab-rend {
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--db-colab-rend-borda);
+    background: var(--db-colab-rend-bg);
+    border-radius: 0 0 4px 4px;
+}
+.db-colab-rend-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.db-colab-rend-cab .bi { font-size: 13px; color: var(--db-colab-ico); }
+.db-colab-rend-rot {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--db-colab-rotulo);
+}
+.db-colab-rend-res { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.db-colab-rend-pct {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--db-colab-frase);
+}
+.db-colab-rend-pct--acima  { color: #14784a; }
+.db-colab-rend-pct--abaixo { color: #b0302a; }
+[data-bs-theme="dark"] .db-colab-rend-pct--acima  { color: #85d3a8; }
+[data-bs-theme="dark"] .db-colab-rend-pct--abaixo { color: #f0a0a4; }
+.db-colab-rend-frase { font-size: 13px; color: var(--db-colab-frase); line-height: 1.35; text-wrap: pretty; }
+.db-colab-barras { display: flex; flex-direction: column; gap: 7px; }
+.db-colab-barra { display: grid; grid-template-columns: 72px minmax(0, 1fr) 30px; align-items: center; gap: 8px; }
+.db-colab-barra-nome { font-size: 12px; font-weight: 600; color: var(--db-colab-frase); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-colab-barra--media .db-colab-barra-nome { color: var(--db-colab-extra); }
+.db-colab-barra-trilho { height: 8px; border-radius: 999px; background: var(--db-colab-trilho); overflow: hidden; }
+.db-colab-barra-cheia {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .6s cubic-bezier(.22,.8,.3,1);
+    animation: dbColabBarra .7s cubic-bezier(.22,.8,.3,1);
+}
+.db-colab-barra-cheia--acima  { background: linear-gradient(90deg, #16945a, #2bb673); }
+.db-colab-barra-cheia--abaixo { background: linear-gradient(90deg, #d0574c, #e7837a); }
+.db-colab-barra-cheia--igual  { background: linear-gradient(90deg, #1597bd, #0c7a9c); }
+.db-colab-barra-cheia--media  { background: var(--db-colab-media); }
+.db-colab-barra-valor {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--db-colab-valor);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.db-colab-barra--media .db-colab-barra-valor { color: var(--db-colab-media-valor); }
+.db-colab-rend-legenda { font-size: 11.5px; color: var(--db-colab-legenda); margin-top: 9px; line-height: 1.4; }
+@keyframes dbColabBarra { from { transform: scaleX(0); transform-origin: left; } to { transform: scaleX(1); transform-origin: left; } }
+@media (prefers-reduced-motion: reduce) {
+    .db-colab-barra-cheia { animation: none; transition: none; }
+}

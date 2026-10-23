@@ -38,6 +38,8 @@ use Symfony\Component\DomCrawler\Crawler;
 final class DashboardCardsVerParidadeTest extends JusPrimeWebTestCase
 {
     private const PERIODO = ['data_de' => '2024-03-01', 'data_ate' => '2024-03-31'];
+    /** Datas enviadas vazias: período aberto (sem elas, o painel abre em Este mês). */
+    private const SEM_PERIODO = ['data_de' => '', 'data_ate' => ''];
 
     /** @var array<string, string> NUPs da massa, por apelido */
     private array $nups = [];
@@ -49,7 +51,7 @@ final class DashboardCardsVerParidadeTest extends JusPrimeWebTestCase
         [$admin, $tenant] = $this->semear();
         $this->logarComTenant($client, $admin, $tenant);
 
-        foreach ([[], self::PERIODO] as $filtros) {
+        foreach ([self::SEM_PERIODO, self::PERIODO] as $filtros) {
             [$card, $lista] = $this->cardEListaDePastas($client, $filtros);
             self::assertGreaterThan(0, $card, 'paridade entre zeros não prova nada');
             self::assertSame($card, $this->contarPastas($lista), 'número do card = tamanho da lista ' . json_encode($filtros));
@@ -64,7 +66,7 @@ final class DashboardCardsVerParidadeTest extends JusPrimeWebTestCase
         // Com período: Ana 2 + Bruno 1 (a de fora do período só entra sem período).
         [$card] = $this->cardEListaDePastas($client, self::PERIODO);
         self::assertSame(3, $card, 'pré-condição da massa');
-        [$cardSem] = $this->cardEListaDePastas($client, []);
+        [$cardSem] = $this->cardEListaDePastas($client, self::SEM_PERIODO);
         self::assertSame(4, $cardSem, 'sem período entra a de maio');
     }
 
@@ -116,7 +118,7 @@ final class DashboardCardsVerParidadeTest extends JusPrimeWebTestCase
         [$admin, $tenant, $ana] = $this->semear();
         $this->logarComTenant($client, $admin, $tenant);
 
-        foreach ([[], self::PERIODO, self::PERIODO + ['responsavel' => (string) $ana->getId()], self::PERIODO + ['cargo' => 'Advogado']] as $filtros) {
+        foreach ([self::SEM_PERIODO, self::PERIODO, self::PERIODO + ['responsavel' => (string) $ana->getId()], self::PERIODO + ['cargo' => 'Advogado']] as $filtros) {
             [$card, $lista, $query] = $this->cardEListaDeMetas($client, $filtros);
             self::assertGreaterThan(0, $card, 'paridade entre zeros não prova nada');
             self::assertSame($card, $this->totalDeMetas($lista), 'número do card = total da lista ' . json_encode($filtros));

@@ -130,7 +130,8 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
      */
     private function assertParidade(KernelBrowser $client, string $query, array $nomes): array
     {
-        $dashboard = $client->request('GET', '/dashboard' . $query);
+        // Sem query = sem período: as datas vão vazias, senão o painel abriria em Este mês.
+        $dashboard = $client->request('GET', '/dashboard' . ($query === '' ? '?data_de=&data_ate=' : $query));
         self::assertResponseIsSuccessful();
 
         $vistos       = [];
@@ -312,7 +313,7 @@ final class DashboardExtrasLinkEquipeTelaTest extends DashboardWebTestCase
      */
     private function assertTaxaETempo(KernelBrowser $client, array $periodo): void
     {
-        $query = $periodo === [] ? '' : '?' . http_build_query($periodo);
+        $query = $periodo === [] ? '?data_de=&data_ate=' : '?' . http_build_query($periodo); // sem período: datas vazias
         $dash  = $client->request('GET', '/dashboard' . $query);
         self::assertResponseIsSuccessful();
 
