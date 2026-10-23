@@ -86,6 +86,27 @@ final class FontesDeReferenciaTest extends KernelTestCase
         self::assertNull($refAdmin->chave, 'admin/ não é endereçável (DP-9): sai como chave inválida, nunca como outra chave');
     }
 
+    #[TestDox('anexo novo de tarefa (pasta_documento:<id>) não entra pela fonte de tarefa: nem como chave, nem como fora do formato')]
+    public function testAnexoNovoDeTarefaNaoViraForaDoFormato(): void
+    {
+        self::bootKernel();
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant = TenantFactory::createOne();
+        $tarefa = TarefaFactory::createOne(['pasta' => PastaFactory::createOne(['tenant' => $tenant]), 'tenant' => $tenant]);
+
+        $autor   = UserFactory::createOne()->_real();
+        $novo    = $this->mensagem($tarefa->_real(), $autor, TarefaMensagem::PREFIXO_DOCUMENTO_DA_PASTA . '123');
+        $legado  = $this->mensagem($tarefa->_real(), $autor, '/uploads/tarefas/chat/arquivo_6abab5669fac90.42347212.pdf');
+        $em->persist($novo);
+        $em->persist($legado);
+        $em->flush();
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        self::assertArrayNotHasKey('tarefa_mensagem#' . $novo->getId(), $porLinha, 'o documento da pasta já é coberto pela fonte pasta_documento');
+        self::assertNotNull(($porLinha['tarefa_mensagem#' . $legado->getId()] ?? self::fail('legado não listado'))->chave, 'o legado continua virando chave');
+    }
+
     #[TestDox('Trabalho Externo e Comercial: o documento leva o escritório da demanda; currículo e imagem da campanha são globais')]
     public function testFontesDoTrabalhoExternoEDoComercial(): void
     {

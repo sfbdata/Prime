@@ -22,16 +22,17 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * E2.7 (spec P2 §10.1): o anexo de mensagem de meta passa pelo armazenamento por chave.
+ * E2.7 (spec P2 §10.1): o anexo LEGADO de mensagem de meta é lido pelo armazenamento por chave.
  *
- * O que não pode mudar, e é provado aqui pela rota de verdade:
- *  - a coluna continua guardando `/uploads/tarefas/chat/<nome>` (a timeline e o template a leem);
- *  - o arquivo mora em `<tarefas_uploads_dir>/chat/<nome>`, o mesmo lugar físico de sempre;
- *  - visualizar e baixar continuam servindo o arquivo com o nome de sempre;
- *  - ausência é 404, e valor que a fábrica recusa também — nunca 500.
+ * Desde a Fase 2b das Metas o anexo novo do despacho é documento da pasta (C4); a coluna guarda
+ * `pasta_documento:<id>` e a tela abre o documento pela rota da pasta. Aqui fica só o legado, provado
+ * pela rota de verdade:
+ *  - a coluna guarda `/uploads/tarefas/chat/<nome>` e o arquivo mora em `<tarefas_uploads_dir>/chat/<nome>`;
+ *  - visualizar e baixar servem o arquivo com o nome de sempre;
+ *  - ausência é 404, e valor que a fábrica recusa também, nunca 500;
+ *  - upload inválido (UPLOAD_ERR_*) continua sendo ignorado em silêncio.
  *
- * O que muda, e também é provado: o nome passa a ser o opaco de 128 bits do storage (D8), o download
- * ganha `nosniff`, e `admin/` deixa de ser servível (DP-9, zero referências em produção).
+ * O download ganha `nosniff`, e `admin/` deixa de ser servível (DP-9, zero referências em produção).
  */
 #[CoversClass(TarefaController::class)]
 final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
@@ -53,51 +54,6 @@ final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
         parent::tearDown();
     }
 
-    #[TestDox('upload: grava em <tarefas>/chat com nome opaco do storage e a coluna guarda /uploads/tarefas/chat/<nome>')]
-    public function testUploadGravaPelaChaveNoMesmoLugar(): void
-    {
-        $client          = static::createClient();
-        [$user, $tenant] = $this->criarGestor();
-        $tarefaId        = $this->criarTarefa($tenant, $user);
-        $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $user, $tenant);
-
-        $client->request('POST', '/tarefas/' . $tarefaId . '/mensagem', [
-            '_token'   => 'TOKEN_mensagem_tarefa_' . $tarefaId,
-            'mensagem' => 'Segue o comprovante',
-        ], ['arquivo_mensagem' => $this->upload(self::PDF, 'comprovante.pdf', 'application/pdf')]);
-
-        self::assertResponseRedirects();
-        $valor = $this->anexoDaUltimaMensagem($tarefaId);
-        self::assertMatchesRegularExpression('#^/uploads/tarefas/chat/[0-9a-f]{32}\.pdf\z#', $valor);
-
-        $caminho = $this->diretorioDeChat() . '/' . substr($valor, \strlen('/uploads/tarefas/chat/'));
-        $this->arquivos[] = $caminho;
-        self::assertFileExists($caminho);
-        self::assertSame(self::PDF, file_get_contents($caminho));
-        self::assertSame(0666 & ~umask(), fileperms($caminho) & 0777, 'INV-10: modo de upload, não 0600');
-    }
-
-    #[TestDox('upload sem texto: a mensagem continua sendo "[Arquivo anexado]"')]
-    public function testUploadSemTextoMantemMensagemPadrao(): void
-    {
-        $client          = static::createClient();
-        [$user, $tenant] = $this->criarGestor();
-        $tarefaId        = $this->criarTarefa($tenant, $user);
-        $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $user, $tenant);
-
-        $client->request('POST', '/tarefas/' . $tarefaId . '/mensagem', [
-            '_token' => 'TOKEN_mensagem_tarefa_' . $tarefaId,
-        ], ['arquivo_mensagem' => $this->upload('linha', 'nota.txt', 'text/plain')]);
-
-        self::assertResponseRedirects();
-        $mensagem = $this->ultimaMensagem($tarefaId);
-        self::assertSame('[Arquivo anexado]', $mensagem->getMensagem());
-        $this->arquivos[] = $this->diretorioDeChat() . '/' . basename((string) $mensagem->getArquivoAnexo());
-        self::assertFileExists(end($this->arquivos));
-    }
-
     #[TestDox('upload inválido (UPLOAD_ERR_*) continua sendo ignorado em silêncio: a mensagem sai sem anexo')]
     public function testUploadInvalidoEhIgnorado(): void
     {
@@ -116,27 +72,6 @@ final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
         self::assertNull($this->ultimaMensagem($tarefaId)->getArquivoAnexo());
-    }
-
-    #[TestDox('o anexo enviado pela rota abre de volta pela rota de visualização (ida e volta pela chave)')]
-    public function testAnexoEnviadoAbreDeVolta(): void
-    {
-        $client          = static::createClient();
-        [$user, $tenant] = $this->criarGestor();
-        $tarefaId        = $this->criarTarefa($tenant, $user);
-        $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $user, $tenant);
-
-        $client->request('POST', '/tarefas/' . $tarefaId . '/mensagem', [
-            '_token' => 'TOKEN_mensagem_tarefa_' . $tarefaId,
-        ], ['arquivo_mensagem' => $this->upload(self::PDF, 'peca.pdf', 'application/pdf')]);
-        $mensagem         = $this->ultimaMensagem($tarefaId);
-        $this->arquivos[] = $this->diretorioDeChat() . '/' . basename((string) $mensagem->getArquivoAnexo());
-
-        $client->request('GET', '/tarefas/mensagem/' . $mensagem->getId() . '/arquivo/visualizar');
-
-        self::assertResponseIsSuccessful();
-        self::assertSame(self::PDF, $client->getInternalResponse()->getContent());
     }
 
     #[TestDox('download: attachment com o nome de sempre (último segmento do valor) e nosniff')]
@@ -261,15 +196,6 @@ final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
         $this->arquivos[] = $diretorio . '/' . $nome;
     }
 
-    private function upload(string $conteudo, string $nomeOriginal, string $mime): UploadedFile
-    {
-        $origem = tempnam(sys_get_temp_dir(), 'tarefa-upload-');
-        file_put_contents($origem, $conteudo);
-        $this->arquivos[] = $origem;
-
-        return new UploadedFile($origem, $nomeOriginal, $mime, null, true);
-    }
-
     private function instalarCsrfStorage(): void
     {
         static::getContainer()->set('security.csrf.token_storage', new class implements ClearableTokenStorageInterface {
@@ -294,11 +220,6 @@ final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
         self::assertCount(1, $mensagens, 'a mensagem com anexo tem de ter sido criada');
 
         return $mensagens[0];
-    }
-
-    private function anexoDaUltimaMensagem(int $tarefaId): string
-    {
-        return (string) $this->ultimaMensagem($tarefaId)->getArquivoAnexo();
     }
 
     /** @return array{User, Tenant} */

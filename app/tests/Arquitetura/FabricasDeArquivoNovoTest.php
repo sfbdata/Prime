@@ -12,7 +12,6 @@ use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\ServiceDesk\Chamado;
-use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Kanban\Armazenamento\ChavesDeKanban;
 use App\Kanban\Entity\KanbanCard;
@@ -25,7 +24,6 @@ use App\ServiceDesk\Armazenamento\ChavesDeServiceDesk;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\NovoArquivo;
-use App\Tarefa\Armazenamento\ChavesDeTarefa;
 use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -116,12 +114,6 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ChavesDePonto::class . '::novoAnexoDeLote',
             static fn (?Tenant $t): ?Tenant => $t,
             CategoriaDeArquivo::JUSTIFICATIVA_ANEXO,
-        ];
-        // E2.7: o anexo de mensagem tira o escopo da TAREFA, de quem a mensagem copia o escritório.
-        yield ChavesDeTarefa::class . '::novoAnexo' => [
-            ChavesDeTarefa::class . '::novoAnexo',
-            static fn (?Tenant $t): object => self::comTenant(new Tarefa(), $t),
-            CategoriaDeArquivo::TAREFA_ANEXO,
         ];
     }
 

@@ -11,7 +11,6 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
-use App\Shared\Armazenamento\NovoArquivo;
 
 /**
  * Traduz o anexo de mensagem de tarefa em {@see ChaveDeArquivo} (E2.7, spec P2 §10.1).
@@ -97,16 +96,6 @@ final class ChavesDeTarefa
             self::escopoDe($mensagem->getTenant(), 'anexo de mensagem de tarefa'),
             CategoriaDeArquivo::TAREFA_ANEXO,
             $nome,
-        );
-    }
-
-    /** Arquivo novo: o nome é cunhado pelo storage (D8); o escopo sai da tarefa. */
-    public static function novoAnexo(Tarefa $tarefa, string $extensao): NovoArquivo
-    {
-        return new NovoArquivo(
-            self::escopoDe($tarefa->getTenant(), 'anexo novo de mensagem de tarefa'),
-            CategoriaDeArquivo::TAREFA_ANEXO,
-            $extensao,
         );
     }
 

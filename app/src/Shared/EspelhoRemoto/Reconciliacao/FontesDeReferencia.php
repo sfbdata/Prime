@@ -16,6 +16,9 @@ use Doctrine\DBAL\Connection;
  * depois: documento de demanda e arquivos do currículo do Trabalho Externo e imagem da campanha do
  * Comercial (decisão do dono de 23/10).
  *
+ * Anexo de tarefa: só os valores LEGADOS (caminho público, começa por `/`). O anexo novo do despacho
+ * é documento da pasta (`pasta_documento:<id>` na coluna) e já entra pela fonte `pasta_documento`.
+ *
  * Currículo: os arquivos moram no JSON `arquivos` (tipo → chave e nome original); cada arquivo é uma
  * referência, com o id da linha do currículo.
  *
@@ -40,7 +43,7 @@ final class FontesDeReferencia implements FonteDeReferencias
         'cobranca_carteira_documento' => ['sql' => 'SELECT id, tenant_id AS tenant, caminho_arquivo AS valor FROM cobranca_carteira_documento WHERE caminho_arquivo IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::COBRANCA_DOCUMENTO],
         'chamado_anexo' => ['sql' => 'SELECT a.id, c.tenant_id AS tenant, a.nome_arquivo AS valor FROM chamado_anexo a JOIN chamado c ON c.id = a.chamado_id WHERE a.nome_arquivo IS NOT NULL ORDER BY a.id', 'categoria' => CategoriaDeArquivo::CHAMADO_ANEXO],
         'kanban_anexo' => ['sql' => 'SELECT id, tenant_id AS tenant, caminho AS valor FROM kanban_anexo WHERE caminho IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::KANBAN_ANEXO],
-        'tarefa_mensagem' => ['sql' => 'SELECT id, tenant_id AS tenant, arquivo_anexo AS valor FROM tarefa_mensagem WHERE arquivo_anexo IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::TAREFA_ANEXO],
+        'tarefa_mensagem' => ['sql' => "SELECT id, tenant_id AS tenant, arquivo_anexo AS valor FROM tarefa_mensagem WHERE arquivo_anexo LIKE '/%' ORDER BY id", 'categoria' => CategoriaDeArquivo::TAREFA_ANEXO],
         'trabalho_externo_documento' => ['sql' => 'SELECT d.id, e.tenant_id AS tenant, d.nome_armazenado AS valor FROM trabalho_externo_documento d JOIN trabalho_externo_demanda e ON e.id = d.demanda_id ORDER BY d.id', 'categoria' => CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO],
         'trabalho_externo_curriculo' => ['sql' => "SELECT c.id, NULL AS tenant, a.value->>'chave' AS valor FROM trabalho_externo_curriculo c CROSS JOIN LATERAL json_each(c.arquivos) a WHERE a.value->>'chave' IS NOT NULL ORDER BY c.id, a.key", 'categoria' => CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO],
         'comercial_imagem' => ['sql' => 'SELECT id, NULL AS tenant, nome_arquivo AS valor FROM comercial_imagem ORDER BY id', 'categoria' => CategoriaDeArquivo::COMERCIAL_IMAGEM],

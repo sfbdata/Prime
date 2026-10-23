@@ -123,24 +123,6 @@ final class ChavesDeTarefaTest extends TestCase
         self::assertSame(TarefaMensagem::class, (string) $parametros[0]->getType());
     }
 
-    #[TestDox('novoAnexo(): escopo da TAREFA, categoria TAREFA_ANEXO e a extensão informada')]
-    public function testNovoAnexoUsaOEscritorioDaTarefa(): void
-    {
-        $novo = ChavesDeTarefa::novoAnexo($this->tarefa($this->tenant(9)), 'pdf');
-
-        self::assertSame(CategoriaDeArquivo::TAREFA_ANEXO, $novo->categoria);
-        self::assertSame(9, $novo->escopo->tenantIdOuNull());
-        self::assertSame('pdf', $novo->extensao);
-    }
-
-    #[TestDox('novoAnexo(): tarefa sem tenant é recusada')]
-    public function testNovoAnexoSemTenantLanca(): void
-    {
-        $this->expectException(ChaveDeArquivoInvalida::class);
-
-        ChavesDeTarefa::novoAnexo($this->tarefa(null), 'pdf');
-    }
-
     #[TestDox('valorDaColuna(): devolve o caminho público que a coluna sempre guardou, e a volta reconstrói a mesma chave')]
     public function testValorDaColunaFazIdaEVolta(): void
     {
