@@ -9,6 +9,7 @@ use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RegraDosMasters;
@@ -1205,7 +1206,7 @@ final class TenantController extends AbstractController
             $registro->setTenant($tenant);
             $registro->setDataHora($dataHora);
             $registro->setTipo($justificativa->getTipoRegistroEsquecido());
-            $registro->setObservacao('Criado por aprovação de justificativa (Esquecimento de Registro)');
+            $registro->setObservacao(SaidaDeEsquecimento::OBSERVACAO_APROVACAO);
             $entityManager->persist($registro);
             $entityManager->flush();
         }
@@ -1600,7 +1601,7 @@ final class TenantController extends AbstractController
                 $registro->setTenant($tenant);
                 $registro->setDataHora($dataHora);
                 $registro->setTipo($tipoRegEsquecido);
-                $registro->setObservacao('Criado pelo administrador via justificativa (Esquecimento de Registro)');
+                $registro->setObservacao(SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN);
                 $entityManager->persist($registro);
             }
         }

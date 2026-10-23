@@ -29,6 +29,7 @@ use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\ChaveDoPontoEletronico;
 use App\Ponto\Service\TurnoAbertoNoEscritorio;
+use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
@@ -80,6 +81,7 @@ final class PontoController extends AbstractController
         private readonly JornadaColaboradorRepository $jornadas,
         private readonly ChaveDoPontoEletronico $chaveDoPonto,
         private readonly TurnoAbertoNoEscritorio $turnoAberto,
+        private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -748,26 +750,9 @@ final class PontoController extends AbstractController
             }
         }
 
-        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
-            $ultimaSaida = $registroRepository->findUltimaSaida($user, $tenant);
-            if ($ultimaSaida !== null) {
-                $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
-                $diffMinutos = (int) round(
-                    ((new \DateTime())->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60
-                );
-                if ($diffMinutos < $minimoInterjornada) {
-                    $minFalt = $minimoInterjornada - $diffMinutos;
-                    return $this->json([
-                        'success' => false,
-                        'message' => sprintf(
-                            'Interjornada mínima é de %dh. Aguarde mais %dh%02dm.',
-                            intdiv($minimoInterjornada, 60),
-                            intdiv($minFalt, 60),
-                            $minFalt % 60
-                        ),
-                    ], 422);
-                }
-            }
+        $interjornada = $tipo === RegistroPonto::TIPO_ENTRADA ? $this->interjornada($user, $tenant, $jornadaTenant, $registroRepository) : null;
+        if (isset($interjornada['recusa'])) {
+            return $this->json(['success' => false, 'message' => $interjornada['recusa']], 422);
         }
 
         $registro = new RegistroPonto();
@@ -801,7 +786,7 @@ final class PontoController extends AbstractController
             'success' => true,
             'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
             'data'    => $dados,
-            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta),
+            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null),
         ]);
     }
 
@@ -812,14 +797,56 @@ final class PontoController extends AbstractController
      *
      * @return list<array{texto: string, link: ?string, rotulo: ?string}>
      */
-    private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta): array
+    private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta, ?string $interjornada): array
     {
         $avisos = [];
         if ($tipo === RegistroPonto::TIPO_ENTRADA && ($aberto = $entradaAberta->aviso($user, $tenant, $agora)) !== null) {
             $avisos[] = ['texto' => $aberto, 'link' => $this->generateUrl('tenant_selecionar'), 'rotulo' => EntradaAbertaEmOutroEscritorio::ROTULO_TROCAR];
         }
+        if ($interjornada !== null) {
+            $avisos[] = ['texto' => $interjornada, 'link' => null, 'rotulo' => null];
+        }
 
         return $avisos;
+    }
+
+    /**
+     * A interjornada da entrada, medida pela última saída NESTE escritório (`ponto-por-escritorio.md` §2.1). Null quando
+     * está cumprida ou desligada; `recusa` quando a saída foi batida; `aviso` quando a saída veio de um registro de
+     * esquecimento (`ponto-esquecimento-nao-trava.md` R4): o esquecimento nunca trava a batida seguinte.
+     *
+     * @return array{recusa?: string, aviso?: string}|null
+     */
+    private function interjornada(User $user, Tenant $tenant, ?JornadaTenant $jornadaTenant, RegistroPontoRepository $registroRepository): ?array
+    {
+        if (!($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
+            return null;
+        }
+        $ultimaSaida = $registroRepository->findUltimaSaida($user, $tenant);
+        if ($ultimaSaida === null) {
+            return null;
+        }
+        $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
+        $diffMinutos = (int) round(((new \DateTime())->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60);
+        if ($diffMinutos >= $minimoInterjornada) {
+            return null;
+        }
+        if ($this->saidaDeEsquecimento->veioDeEsquecimento($ultimaSaida)) {
+            return ['aviso' => sprintf(
+                SaidaDeEsquecimento::AVISO_INTERJORNADA,
+                $ultimaSaida->getDataHora()->format('d/m'),
+                $ultimaSaida->getDataHora()->format('H:i'),
+                intdiv($minimoInterjornada, 60),
+            )];
+        }
+        $minFalt = $minimoInterjornada - $diffMinutos;
+
+        return ['recusa' => sprintf(
+            'Interjornada mínima é de %dh. Aguarde mais %dh%02dm.',
+            intdiv($minimoInterjornada, 60),
+            intdiv($minFalt, 60),
+            $minFalt % 60
+        )];
     }
 
     /**

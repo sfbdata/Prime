@@ -286,6 +286,35 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Há esquecimento ABONADO da pessoa neste escritório para a batida `$tipo` no dia e na hora de `$quando`
+     * (`SaidaDeEsquecimento`, spec ponto-esquecimento-nao-trava R4). Escritório explícito, além do filtro: é regra
+     * da batida e não pode depender do filtro estar ligado.
+     */
+    public function existeEsquecimentoAbonado(User $user, Tenant $tenant, \DateTimeImmutable $quando, string $tipo): bool
+    {
+        $achadas = $this->createQueryBuilder('j')
+            ->select('COUNT(j.id)')
+            ->andWhere('j.user = :user')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.tipo = :esquecimento')
+            ->andWhere('j.status = :abonado')
+            ->andWhere('j.tipoRegistroEsquecido = :tipo')
+            ->andWhere('j.data = :dia')
+            ->andWhere('j.horaRegistroEsquecido = :hora')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('esquecimento', TipoJustificativa::EsquecimentoRegistro->value)
+            ->setParameter('abonado', 'abonado')
+            ->setParameter('tipo', $tipo)
+            ->setParameter('dia', $quando->format('Y-m-d'))
+            ->setParameter('hora', $quando->format('H:i:s'))
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $achadas > 0;
+    }
+
+    /**
      * Verifica se já existe uma justificativa pendente ou abonada para o usuário nessa data.
      */
     public function findOneByUserAndData(User $user, \DateTimeInterface $data): ?JustificativaPonto
