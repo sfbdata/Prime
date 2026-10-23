@@ -51,6 +51,8 @@ EOS
 echo "docker $*" >> "$FAKE_LOG"
 case "$1" in
   inspect)
+    # Por padrão o agendador já existe; FAKE_SEM_AGENDADOR=1 simula o primeiro deploy com ele.
+    [[ "${FAKE_SEM_AGENDADOR:-0}" == 1 && "${*: -1}" == jusprime_scheduler_prod ]] && exit 1
     case "$3" in
       *Config.Image*) echo "jusprime-php" ;;
       *State.Health*) echo healthy ;;
@@ -187,6 +189,20 @@ confere "sai 1 (voltou)" '[[ $rc == 1 ]]'
 confere "volta o código" '[[ $(head_prod) == $ANTES ]]'
 confere "volta a imagem e recria php e worker" 'grep -q "docker tag jusprime-rollback:jusprime_php_prod-pre-v2.1.0 jusprime-php" "$T/log" && grep -q "compose .*up -d --no-build php worker" "$T/log"'
 confere "desliga a manutenção" '[[ ! -f "$T/prod/nginx/maintenance/maintenance.on" ]]'
+
+echo "── Agendador: guardado e recriado na volta quando já existia ──"
+montar ""
+rc=$(rodar publicar FAKE_DEPLOY=falha_depois)
+confere "guarda a imagem do agendador" 'grep -q "docker tag sha256:velho jusprime-rollback:jusprime_scheduler_prod-pre-v2.1.0" "$T/log"'
+confere "recria php, worker e agendador" 'grep -q "compose .*up -d --no-build php worker scheduler" "$T/log"'
+
+echo "── Agendador: primeiro deploy com ele (não existia antes) ──"
+montar ""
+rc=$(rodar publicar FAKE_SEM_AGENDADOR=1)
+confere "publicar sai 0 sem guardar o agendador" '[[ $rc == 0 ]] && ! grep -q "jusprime-rollback:jusprime_scheduler_prod" "$T/log"'
+montar ""
+rc=$(rodar publicar FAKE_DEPLOY=falha_depois FAKE_SEM_AGENDADOR=1)
+confere "na volta, desliga o agendador que subiu com a versão nova" '[[ $rc == 1 ]] && grep -q "docker rm -f jusprime_scheduler_prod" "$T/log" && grep -qE "compose .*up -d --no-build php worker$" "$T/log"'
 
 echo "── Conferência falha (versão nova não está no container) ──"
 montar ""

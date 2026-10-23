@@ -1,0 +1,146 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Shared\Scheduler;
+
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Console\Exception\RunCommandFailedException;
+use Symfony\Component\Console\Messenger\RunCommandMessage;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Mime\Address;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Scheduler\Event\FailureEvent;
+
+/**
+ * Avisa quando uma tarefa agendada falha (spec `docs/specs/scheduler-tarefas-agendadas.md`, "Aviso de falha").
+ *
+ * Um {@see RunCommandMessage} com código de saída diferente de 0, ou um comando que lança exceção, vira
+ * {@see RunCommandFailedException} no handler do Symfony; o worker do Messenger a embrulha numa
+ * {@see HandlerFailedException} e o Scheduler dispara o {@see FailureEvent}. O transport do agendador não
+ * tem nova tentativa nem fila de falhas: este aviso é o único rastro.
+ *
+ * Sempre registra um erro no log (stderr do contêiner jusprime_scheduler_prod). Com AGENDADOR_ALERTA_EMAIL
+ * preenchida (um ou mais endereços separados por vírgula), manda também um e-mail curto. Uma falha no
+ * envio do e-mail é registrada e engolida: o aviso não pode derrubar o consumidor do agendador.
+ */
+#[AsEventListener(event: FailureEvent::class)]
+final class AvisoDeFalhaDoAgendador
+{
+    /** Quanto da saída do comando vai para o log e para o e-mail (o fim, onde costuma estar o erro). */
+    private const LIMITE_DA_SAIDA = 2000;
+
+    public function __construct(
+        private readonly LoggerInterface $logger,
+        private readonly MailerInterface $mailer,
+        private readonly string $mailerFrom,
+        #[Autowire('%env(string:default::AGENDADOR_ALERTA_EMAIL)%')]
+        private readonly string $alertaEmail,
+    ) {
+    }
+
+    public function __invoke(FailureEvent $evento): void
+    {
+        $comando = $this->nomeDaTarefa($evento->getMessage());
+        $falha   = $this->falhaDoComando($evento->getError());
+        $erro    = $falha?->getMessage() ?? $evento->getError()->getMessage();
+        $saida   = $this->fimDaSaida($falha?->context->output ?? '');
+        $quando  = $evento->getMessageContext()->triggeredAt
+            ->setTimezone(new \DateTimeZone(AgendaDeTarefas::FUSO));
+
+        $this->logger->error('Tarefa agendada falhou: {comando}: {erro}', [
+            'comando'  => $comando,
+            'erro'     => $erro,
+            'codigo'   => $falha?->context->exitCode,
+            'saida'    => $saida,
+            'agendada' => $quando->format(\DATE_ATOM),
+            'exception' => $evento->getError(),
+        ]);
+
+        if (trim($this->alertaEmail) === '') {
+            return;
+        }
+
+        // Dentro do try também o endereço: um AGENDADOR_ALERTA_EMAIL mal escrito lança na montagem.
+        try {
+            $this->mailer->send($this->montarEmail($this->destinatarios(), $comando, $erro, $saida, $quando));
+        } catch (\Throwable $e) {
+            $this->logger->error('Não foi possível enviar o e-mail de falha da tarefa agendada {comando}: {erro}', [
+                'comando'   => $comando,
+                'erro'      => $e->getMessage(),
+                'exception' => $e,
+            ]);
+        }
+    }
+
+    /** O nome do comando ("app:pasta:cobrar-checklist"), sem as opções. */
+    private function nomeDaTarefa(object $mensagem): string
+    {
+        if ($mensagem instanceof RunCommandMessage) {
+            return strtok(trim($mensagem->input), ' ') ?: $mensagem->input;
+        }
+
+        return get_debug_type($mensagem);
+    }
+
+    private function falhaDoComando(\Throwable $erro): ?RunCommandFailedException
+    {
+        if ($erro instanceof RunCommandFailedException) {
+            return $erro;
+        }
+
+        if ($erro instanceof HandlerFailedException) {
+            // As chaves são os nomes dos handlers (strings), não 0, 1...
+            return array_values($erro->getWrappedExceptions(RunCommandFailedException::class, true))[0] ?? null;
+        }
+
+        return null;
+    }
+
+    private function fimDaSaida(string $saida): string
+    {
+        $saida = trim($saida);
+
+        return mb_strlen($saida) > self::LIMITE_DA_SAIDA
+            ? '(...) ' . mb_substr($saida, -self::LIMITE_DA_SAIDA)
+            : $saida;
+    }
+
+    /** @return list<Address> */
+    private function destinatarios(): array
+    {
+        $enderecos = [];
+        foreach (explode(',', $this->alertaEmail) as $endereco) {
+            $endereco = trim($endereco);
+            if ($endereco !== '') {
+                $enderecos[] = new Address($endereco);
+            }
+        }
+
+        return $enderecos;
+    }
+
+    /** @param list<Address> $destinatarios */
+    private function montarEmail(array $destinatarios, string $comando, string $erro, string $saida, \DateTimeImmutable $quando): Email
+    {
+        $texto = sprintf(
+            "A tarefa agendada %s falhou na execução de %s (horário de Brasília).\n\nErro: %s\n",
+            $comando,
+            $quando->format('d/m/Y H:i'),
+            $erro,
+        );
+        if ($saida !== '') {
+            $texto .= "\nFim da saída do comando:\n" . $saida . "\n";
+        }
+        $texto .= "\nDetalhes no log do contêiner: docker logs jusprime_scheduler_prod\n";
+
+        return (new Email())
+            ->from(Address::create($this->mailerFrom))
+            ->to(...$destinatarios)
+            ->subject('[BlueJus] Tarefa agendada falhou: ' . $comando)
+            ->text($texto);
+    }
+}

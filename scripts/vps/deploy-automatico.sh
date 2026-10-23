@@ -13,7 +13,7 @@
 #   2. guarda de migration: migration nova que APAGA (DROP TABLE/COLUMN, TRUNCATE, DELETE,
 #      ALTER ... TYPE, RENAME) para o deploy automático. Essas são do dono, à mão;
 #   3. backup do banco (pg_dump -Fc) conferido com pg_restore --list;
-#   4. guarda a imagem atual do php e do worker (tag + container parado + docker save);
+#   4. guarda a imagem atual do php, do worker e do agendador (tag + container parado + docker save);
 #   5. posiciona o checkout na tag (fast-forward) e roda scripts/deploy-prod-tls.sh;
 #   6. confere: php saudável, a versão nova dentro do container, manutenção desligada e
 #      https://bluejus.com.br/login respondendo 200;
@@ -37,6 +37,7 @@ LOGS="${JUSPRIME_LOGS_DEPLOY:-/var/log/jusprime-deploy}"
 TRAVA="${JUSPRIME_TRAVA_DEPLOY:-/var/lock/jusprime-deploy.lock}"
 PHP=jusprime_php_prod
 WORKER=jusprime_worker_prod
+SCHEDULER=jusprime_scheduler_prod
 DB=jusprime_db_prod
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.prod)
 
@@ -183,7 +184,13 @@ fi
 # ─── 4. Guarda a versão atual (rollback) ───────────────────────────────────────
 etapa "Guardando a versão atual para a volta automática"
 declare -A IMG_NOME IMG_ID
-for c in "$PHP" "$WORKER"; do
+# O agendador (serviço `scheduler`) entra na volta só se já existia antes deste deploy: no primeiro
+# deploy com ele não há imagem anterior a guardar, e a volta o desliga (ver voltar()).
+GUARDADOS=("$PHP" "$WORKER")
+if docker inspect "$SCHEDULER" >/dev/null 2>&1; then
+    GUARDADOS+=("$SCHEDULER")
+fi
+for c in "${GUARDADOS[@]}"; do
     IMG_NOME[$c]="$(docker inspect -f '{{.Config.Image}}' "$c")"
     IMG_ID[$c]="$(docker inspect -f '{{.Image}}' "$c")"
     docker tag "${IMG_ID[$c]}" "jusprime-rollback:${c}-pre-$TAG"
@@ -192,20 +199,29 @@ for c in "$PHP" "$WORKER"; do
     echo "  $c: ${IMG_ID[$c]:7:12} guardada como jusprime-rollback:${c}-pre-$TAG"
 done
 mkdir -p "$BACKUP_IMG"
-docker save "jusprime-rollback:$PHP-pre-$TAG" "jusprime-rollback:$WORKER-pre-$TAG" \
+imagens_guardadas=()
+for c in "${GUARDADOS[@]}"; do imagens_guardadas+=("jusprime-rollback:$c-pre-$TAG"); done
+docker save "${imagens_guardadas[@]}" \
     | gzip > "$BACKUP_IMG/jusprime-pre-$TAG.tar.gz"
 ls -1t "$BACKUP_IMG"/jusprime-pre-v*.tar.gz 2>/dev/null | tail -n +3 | xargs -r rm -f   # guarda 2
 echo "  cópia em arquivo: $BACKUP_IMG/jusprime-pre-$TAG.tar.gz ($(du -h "$BACKUP_IMG/jusprime-pre-$TAG.tar.gz" | cut -f1))"
 # Imagens e containers de rollback: só os dos 2 deploys mais recentes (tag com nome não é
-# apagada pelo `docker image prune` do deploy, e o disco da VPS é apertado).
+# apagada pelo `docker image prune` do deploy, e o disco da VPS é apertado). Conta por VERSÃO, não por
+# container: um deploy guarda 2 ou 3 (php, worker e, depois que ele existe, o agendador).
+declare -A versoes_mantidas=()
 while IFS= read -r antigo; do
     [[ -n "$antigo" ]] || continue
+    versao_antiga="${antigo##*_pre_v}"
+    if [[ -n "${versoes_mantidas[$versao_antiga]:-}" ]] || (( ${#versoes_mantidas[@]} < 2 )); then
+        versoes_mantidas[$versao_antiga]=1
+        continue
+    fi
     resto="${antigo#jusprime_rollback_}"                       # <container>_pre_vX.Y.Z
     docker rm -f "$antigo" >/dev/null 2>&1 || true
     docker rmi "jusprime-rollback:${resto%_pre_v*}-pre-v${resto##*_pre_v}" >/dev/null 2>&1 || true
     echo "  rollback antigo removido: $antigo"
 done < <(docker ps -a --filter name=jusprime_rollback_ --format '{{.CreatedAt}}|{{.Names}}' \
-    | grep -E '\|jusprime_rollback_.+_pre_v[0-9]+\.[0-9]+\.[0-9]+$' | sort -r | cut -d'|' -f2 | tail -n +5)
+    | grep -E '\|jusprime_rollback_.+_pre_v[0-9]+\.[0-9]+\.[0-9]+$' | sort -r | cut -d'|' -f2)
 # Só os do formato deste script (…_pre_vX.Y.Z): travas criadas à mão em outros deploys (preloop1,
 # preargv...) não são dele e ficam. Medido no deploy da v2.1.0: o filtro antigo, só por prefixo,
 # apagou os containers preloop1/preloop2 de 13/10 (as cópias em arquivo deles ficaram).
@@ -214,11 +230,19 @@ voltar() {
     trap - ERR
     etapa "VOLTANDO para a versão anterior"
     local ok=1
-    for c in "$PHP" "$WORKER"; do
+    local servicos=(php worker)
+    for c in "${GUARDADOS[@]}"; do
         docker tag "jusprime-rollback:${c}-pre-$TAG" "${IMG_NOME[$c]}" || ok=0
     done
     git reset --quiet --hard "$ANTES" || ok=0   # checkout conferido limpo no passo 1
-    "${COMPOSE[@]}" up -d --no-build php worker || ok=0
+    if [[ " ${GUARDADOS[*]} " == *" $SCHEDULER "* ]]; then
+        servicos+=(scheduler)
+    else
+        # Primeiro deploy com o agendador: a versão anterior não o tem. Desliga o que subiu com a nova,
+        # senão ele seguiria rodando as tarefas com o código da versão que falhou.
+        docker rm -f "$SCHEDULER" >/dev/null 2>&1 || true
+    fi
+    "${COMPOSE[@]}" up -d --no-build "${servicos[@]}" || ok=0
     for _ in $(seq 1 36); do
         [[ "$(docker inspect -f '{{.State.Health.Status}}' "$PHP" 2>/dev/null)" == healthy ]] && break
         sleep 5
@@ -241,7 +265,7 @@ if ! PULAR_GIT_PULL=1 bash scripts/deploy-prod-tls.sh; then
     if [[ ! -f nginx/maintenance/maintenance.on && "$(docker inspect -f '{{.Image}}' "$PHP")" == "${IMG_ID[$PHP]}" ]]; then
         git reset --quiet --hard "$ANTES"
         # Build parcial pode ter retagueado a imagem de um serviço: devolve o nome à imagem em uso.
-        for c in "$PHP" "$WORKER"; do docker tag "${IMG_ID[$c]}" "${IMG_NOME[$c]}" || true; done
+        for c in "${GUARDADOS[@]}"; do docker tag "${IMG_ID[$c]}" "${IMG_NOME[$c]}" || true; done
         echo "::error::o build de $TAG falhou; nenhum container foi trocado e o site seguiu no ar."
         exit 1
     fi
