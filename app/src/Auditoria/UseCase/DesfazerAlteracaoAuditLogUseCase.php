@@ -33,7 +33,10 @@ use Doctrine\ORM\Mapping\FieldMapping;
  */
 final class DesfazerAlteracaoAuditLogUseCase
 {
-    /** Entidades de risco BAIXO — únicas reversíveis. */
+    /**
+     * Entidades de risco BAIXO, únicas reversíveis. A resposta da meta (`TarefaMensagem`) e a `Notificacao` saíram
+     * (spec `desfazer-guarda-da-tela`): nenhuma tela edita a resposta, e a notificação só o dono mexe.
+     */
     private const ENTIDADES_REVERSIVEIS = [
         \App\Pasta\Entity\Pasta::class,
         \App\Pasta\Entity\PastaDocumento::class,
@@ -42,12 +45,10 @@ final class DesfazerAlteracaoAuditLogUseCase
         \App\Pasta\Entity\PastaMensagem::class,
         \App\Pasta\Entity\PastaObservacaoDetalhes::class,
         \App\Entity\Tarefa\Tarefa::class,
-        \App\Entity\Tarefa\TarefaMensagem::class,
         \App\Entity\ServiceDesk\Chamado::class,
         \App\Entity\ServiceDesk\ChamadoAnexo::class,
         \App\Entity\ServiceDesk\ChamadoInteracao::class,
         \App\Agenda\Entity\Evento::class,
-        \App\Entity\Notificacao::class,
         \App\Entity\Tenant\Cargo::class,
         \App\Entity\Tenant\Lotacao::class,
         \App\Entity\Tenant\Sede::class,
@@ -59,7 +60,8 @@ final class DesfazerAlteracaoAuditLogUseCase
      * Cargo e Lotação: aba do `app_tenant_edit` (`admin.tenant.settings.manage`). Chamado e o que pende dele: atribuir e
      * mudar o estado no `ServiceDeskController` (`admin.servicedesk.manage`). Evento: `agenda_editar` aceita
      * `admin.users.manage` ou o criador, e a exceção do criador mora em `permissaoDeEdicao()`. Entidade fora do mapa
-     * não exige permissão a mais. Quem confere é o controller, pelo `PermissionChecker`, antes de chamar `executar()`.
+     * não exige permissão a mais. Quem confere é a `GuardaDaTelaNoDesfazer`, junto com as guardas por item da tela,
+     * antes de o controller chamar `executar()`.
      */
     private const PERMISSAO_DE_EDICAO = [
         Sede::class                                    => 'admin.ponto.manage',
@@ -143,21 +145,6 @@ final class DesfazerAlteracaoAuditLogUseCase
         }
 
         return $permissao;
-    }
-
-    /**
-     * A mesma pergunta pelo id, só para uma linha do escritório. Linha de outro escritório ou inexistente devolve
-     * null: `executar()` a recusa como "não encontrado", sem revelar a entidade.
-     */
-    public function permissaoDeEdicaoPorId(int $auditLogId, int $tenantId, User $ator): ?string
-    {
-        $log = $this->auditLogRepository->find($auditLogId);
-
-        if ($log === null || $log->getTenantId() !== $tenantId) {
-            return null;
-        }
-
-        return $this->permissaoDeEdicao($log, $ator);
     }
 
     private function eCriadorDoEvento(AuditLog $log, User $ator): bool
