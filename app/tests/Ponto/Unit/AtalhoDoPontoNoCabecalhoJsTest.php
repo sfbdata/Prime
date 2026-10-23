@@ -69,7 +69,6 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString("if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }", $js, 'só recusa quando certamente fora');
         self::assertStringContainsString("return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };", $js);
         self::assertStringContainsString("if (base.interjornadaMinimaMin) { texto += ' A próxima entrada só será aceita depois de ' + descanso(base.interjornadaMinimaMin) + ' de descanso.'; }", $js, 'decisão do dono 19/10: o valor do escritório, só com a validação ligada');
-        self::assertStringContainsString("if (atual.acao === 'regularizar') { regularizarOntem(base.ontemSemSaida); return; }", $js, 'regularizar não envia batida');
         self::assertStringContainsString("'?competencia=' + dia.slice(0, 7) + '&esquecimento=' + dia + ':saida'", $js);
         foreach (['nao_entrou: AVISO_NAO_ENTROU', 'sem_confirmacao: AVISO_SEM_CONFIRMACAO', 'sem_rede: AVISO_SEM_REDE', 'atrasado: AVISO_ATRASADO'] as $caso) {
             self::assertStringContainsString($caso, $js);
@@ -78,5 +77,19 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString("resultado.data.data.hora", $js, 'a hora do aviso é a do servidor');
         self::assertStringNotContainsString('innerHTML', $js);
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $js);
+    }
+
+    #[TestDox('R3: o "Regularizar ponto de ontem" é aviso ao lado da linha; a linha nunca o troca pela batida, e o clique nele só leva ao pedido de esquecimento')]
+    public function testRegularizarOntemEAviso(): void
+    {
+        $js = self::js();
+        self::assertStringNotContainsString("case 'regularizar_ontem':", $js, 'não é mais estado da linha');
+        self::assertStringNotContainsString("acao: 'regularizar'", $js, 'a linha não perde a batida');
+        self::assertStringContainsString("if (!estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }", $js);
+        self::assertStringContainsString("regularizar: function () { if (aviso()) { regularizarOntem(estado.ontemSemSaida); } },", $js);
+
+        $cabecalho = (string) file_get_contents(__DIR__ . '/../../../public/js/presenca-cabecalho.js');
+        self::assertStringContainsString('var pendencia = avisoDoPonto(x);', $cabecalho, 'o aviso entra abaixo do atalho, que continua');
+        self::assertStringContainsString('ponto().regularizar();', $cabecalho);
     }
 }

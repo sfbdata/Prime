@@ -50,14 +50,13 @@
             .finally(function () { clearTimeout(prazo); });
     }
 
-    /* dc `pontoDe`, mais o intervalo que o dc não tem (decisão Q1). */
+    /* dc `pontoDe`, mais o intervalo que o dc não tem (decisão Q1). O "Regularizar ponto de ontem" do dc não é mais
+       estado da linha: esquecimento nunca trava (spec ponto-esquecimento-nao-trava R3), e ele vem em `aviso()`. */
     function linha() { return linhaDe(estado); }
     function linhaDe(e) {
         if (!e) { return null; }
         var h = e.hoje || {};
         switch (e.estado) {
-            case 'regularizar_ontem':   // dc: vem antes de tudo; aqui leva ao pedido de esquecimento (decisão do dono)
-                return { texto: 'Regularizar ponto de ontem', cor: '#c76a12', icone: 'bi-exclamation-triangle', acao: 'regularizar', dica: 'Clique para informar a saída de ontem' };
             case 'bater_entrada':
                 return { texto: 'Bater ponto', cor: '#0a6fa0', icone: 'bi-fingerprint', acao: 'entrada', dica: 'Clique para registrar a entrada' };
             case 'em_intervalo':
@@ -69,6 +68,14 @@
             default:
                 return null;
         }
+    }
+
+    /* O aviso de ontem (R3): fica ao lado da linha, que continua oferecendo a batida, e leva ao pedido de
+       esquecimento. Null sem pendência de ontem. */
+    function aviso() {
+        if (!estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }
+
+        return { texto: 'Regularizar ponto de ontem', cor: '#c76a12', icone: 'bi-exclamation-triangle', dica: 'Clique para informar a saída de ontem' };
     }
 
     function atualizar() {
@@ -117,7 +124,6 @@
         var base = estado;
         var atual = linhaDe(base);
         if (envioEmAndamento || !atual || !atual.acao) { return; }
-        if (atual.acao === 'regularizar') { regularizarOntem(base.ontemSemSaida); return; }
         envioEmAndamento = true;   // (1)
         var sucesso = false;
         try {
@@ -174,6 +180,8 @@
 
     window.PresencaPonto = {
         linha: linha,
+        aviso: aviso,
+        regularizar: function () { if (aviso()) { regularizarOntem(estado.ontemSemSaida); } },
         ocupado: function () { return envioEmAndamento; },
         atualizar: atualizar,
         bater: bater,
