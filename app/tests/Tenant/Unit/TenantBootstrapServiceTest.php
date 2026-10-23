@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Tests\Ponto\Support\RegistroDePontoInicialDeTesteTrait;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
@@ -20,6 +21,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(TenantBootstrapService::class)]
 final class TenantBootstrapServiceTest extends TestCase
 {
+    use RegistroDePontoInicialDeTesteTrait;
+
     private EntityManagerInterface&MockObject $em;
     private TenantBootstrapService $service;
     private Tenant $tenant;
@@ -28,7 +31,7 @@ final class TenantBootstrapServiceTest extends TestCase
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->service = new TenantBootstrapService($this->em);
+        $this->service = new TenantBootstrapService($this->em, $this->registroDePontoInicialSemChoque());
         $this->tenant  = new Tenant();
         $this->criador = (new User())->setEmail('admin@test.com');
         new UserTenant($this->criador, $this->tenant);

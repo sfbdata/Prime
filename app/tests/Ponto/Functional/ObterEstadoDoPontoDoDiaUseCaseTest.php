@@ -202,6 +202,7 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
             $c->get(\App\Ponto\Service\InicioContagemResolver::class),
             $c->get(\App\Ponto\Service\EsquecimentosRegistrados::class),
             new \Symfony\Component\Clock\MockClock($agora, date_default_timezone_get()),   // o fuso do sistema, como o relógio real
+            $c->get(\App\Ponto\Repository\JornadaColaboradorRepository::class),
         );
     }
 

@@ -165,6 +165,25 @@ final class HierarquiaDePerfis implements ResetInterface
     }
 
     /**
+     * O `podeMexerNoAlvo` para uma lista (convites pendentes): a mesma regra, com o nível e o perfil do ator lidos uma
+     * vez só, em vez de uma consulta do vínculo por item.
+     *
+     * @return \Closure(?TenantRole): bool
+     */
+    public function alcanceDoAtor(User $ator, Tenant $tenant): \Closure
+    {
+        if ($this->nivelDoAtor($ator, $tenant) >= self::NIVEL_PRIMARIO) {
+            return static fn (?TenantRole $perfil): bool => true;
+        }
+
+        $doAtor = $this->userTenantRepository->findAtivoPorUserETenant($ator, $tenant)?->getTenantRole();
+        $dele   = $doAtor === null ? [] : self::codigos($doAtor);
+
+        return static fn (?TenantRole $perfil): bool => $perfil === null
+            || (!$perfil->isSystem() && array_diff(self::codigos($perfil), $dele) === []);
+    }
+
+    /**
      * C5 no edit-role: quem não é primário nem Master só mexe (perfil e senha) em quem tem o perfil atual contido no
      * dele. Alvo sem perfil não tem permissão nenhuma: passa.
      */

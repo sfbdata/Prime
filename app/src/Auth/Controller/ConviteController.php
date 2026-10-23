@@ -62,7 +62,7 @@ final class ConviteController extends AbstractController
             ]);
         }
 
-        $output = ConviteOutput::fromInvitation($invitation);
+        $output = ConviteOutput::fromInvitation($invitation, $token);
 
         if ($invitation->getType() === Invitation::TIPO_PLATAFORMA) {
             return $this->render('auth/convite/ver.html.twig', ['convite' => $output, 'tipo_form' => 'plataforma']);
@@ -194,8 +194,8 @@ final class ConviteController extends AbstractController
     public function meusConvites(): Response
     {
         $usuario = $this->getUser();
-        // Conta com o e-mail ainda a confirmar (cadastro do desenho 10) não vê convite: a lista entrega o token,
-        // e quem criou a conta pode não ser o dono da caixa de e-mail.
+        // Conta com o e-mail ainda a confirmar (cadastro do desenho 10) não vê convite: quem criou a conta pode não
+        // ser o dono da caixa de e-mail. A lista leva o id, nunca o token (achado de auditoria interna F6).
         $pendentes = $usuario instanceof User && $usuario->isEmailConfirmado()
             ? $this->invitationRepository->encontrarPendentesPorEmail($usuario->getUserIdentifier())
             : [];
@@ -206,6 +206,99 @@ final class ConviteController extends AbstractController
         ));
 
         return $this->render('auth/meus_convites.html.twig', ['convites' => $convites]);
+    }
+
+    /**
+     * O convite aberto pela lista do convidado logado (Meus convites, seleção de escritório), pelo id: a mesma tela
+     * do link do e-mail, sem o token. Só o convite de escritório do e-mail da conta, e com o e-mail confirmado.
+     */
+    #[Route('/convites/{id}', name: 'auth_meu_convite', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
+    public function verMeuConvite(int $id, Request $request): Response
+    {
+        $this->verificarLimite($request);
+        $invitation = $this->meuConvite($id);
+        $output     = ConviteOutput::fromInvitation($invitation);
+
+        if ($invitation->isExpired() || $invitation->getStatus() === 'expired') {
+            return $this->render('auth/convite/erro.html.twig', ['motivo' => 'expirado', 'convite' => $output]);
+        }
+        if ($invitation->getStatus() !== 'pending') {
+            return $this->render('auth/convite/erro.html.twig', ['motivo' => 'ja_utilizado', 'convite' => $output]);
+        }
+
+        return $this->render('auth/convite/ver_logado.html.twig', ['convite' => $output]);
+    }
+
+    #[Route('/convites/{id}/aceitar', name: 'auth_meu_convite_aceitar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function aceitarMeuConvite(int $id, Request $request): Response
+    {
+        $this->verificarLimite($request);
+        $this->verificarCsrfDoId('convite_aceitar_', $id, $request);
+        $this->meuConvite($id);
+
+        try {
+            $userTenant = $this->aceitarComContaUseCase->executar(
+                AceitarConviteEscritorioComContaInput::porId($id, $this->usuarioLogado())
+            );
+            $this->addFlash('sucesso', sprintf('Bem-vindo ao escritório %s!', $userTenant->getTenant()->getName() ?? 'escritório'));
+        } catch (\DomainException $e) {
+            $this->addFlash('erro', $e->getMessage());
+
+            return $this->redirectToRoute('auth_meu_convite', ['id' => $id]);
+        }
+
+        return $this->redirectToRoute('homepage');
+    }
+
+    #[Route('/convites/{id}/recusar', name: 'auth_meu_convite_recusar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function recusarMeuConvite(int $id, Request $request): Response
+    {
+        $this->verificarLimite($request);
+        $this->verificarCsrfDoId('convite_recusar_', $id, $request);
+        $this->meuConvite($id);
+
+        try {
+            $this->recusarUseCase->executar(RecusarConviteEscritorioInput::porId($id, $this->usuarioLogado()));
+            $this->addFlash('info', 'Convite recusado.');
+        } catch (\DomainException $e) {
+            $this->addFlash('erro', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('homepage');
+    }
+
+    /** Convite de escritório do e-mail da conta logada; de outro e-mail, ou com o e-mail a confirmar, é 404. */
+    private function meuConvite(int $id): Invitation
+    {
+        $usuario    = $this->usuarioLogado();
+        $invitation = $this->invitationRepository->findOneBy(['id' => $id, 'type' => Invitation::TIPO_ESCRITORIO]);
+
+        if ($invitation === null || !$usuario->isEmailConfirmado()
+            || strtolower($invitation->getEmail()) !== strtolower((string) $usuario->getEmail())) {
+            throw $this->createNotFoundException('Convite não encontrado.');
+        }
+
+        return $invitation;
+    }
+
+    private function usuarioLogado(): User
+    {
+        $usuario = $this->getUser();
+        if (!$usuario instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+
+        return $usuario;
+    }
+
+    private function verificarCsrfDoId(string $prefixo, int $id, Request $request): void
+    {
+        if (!$this->isCsrfTokenValid($prefixo . $id, $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
     }
 
     private function verificarLimite(Request $request): void

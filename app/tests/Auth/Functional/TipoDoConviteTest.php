@@ -57,7 +57,9 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client->request('GET', '/convites');
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('/convite/' . $convite->getToken(), (string) $client->getResponse()->getContent());
+        // Pelo id, sem o token do link do e-mail (achado de auditoria interna F6).
+        self::assertSelectorExists(sprintf('a[href="/convites/%d"]', $convite->getId()));
+        self::assertStringNotContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
     }
 
     #[TestDox('"Meus convites" não mostra convite pendente de outro e-mail')]
@@ -77,6 +79,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client->request('GET', '/convites');
 
         self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists(sprintf('a[href="/convites/%d"]', $alheio->getId()));
         self::assertStringNotContainsString($alheio->getToken(), (string) $client->getResponse()->getContent());
     }
 

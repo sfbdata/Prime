@@ -64,7 +64,7 @@
                 <a class="btn-login d-inline-block text-center text-decoration-none" href="{{ path('app_login') }}">{{ 'trabalho_externo.convite.entrar'|trans }}</a>
             {% elseif estado == 'outro_email' %}
                 <div class="alert alert-warning">{{ 'trabalho_externo.convite.outro_email'|trans({email: convite.email}) }}</div>
-                <a class="btn-login d-inline-block text-center text-decoration-none" href="{{ path('app_logout') }}">{{ 'trabalho_externo.convite.sair'|trans }}</a>
+                <a class="btn-login d-inline-block text-center text-decoration-none" href="{{ logout_path('main') }}">{{ 'trabalho_externo.convite.sair'|trans }}</a>
             {% elseif estado == 'aceitar' %}
                 <form method="post" action="{{ path('trabalho_externo_convite_aceitar', {token: token}) }}">
                     {% if erro %}<div class="alert alert-danger" role="alert">{{ erro }}</div>{% endif %}

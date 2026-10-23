@@ -40,6 +40,8 @@ final class PerfilOutput
         public readonly ?\DateTimeImmutable $revisadoEm = null,
         public readonly ?Genero $genero = null,
         public readonly ?Atuacao $atuacao = null,
+        /** A chave "Registra ponto eletrônico" no escritório atual (spec seguranca-b-jornada): o rótulo do vínculo lê ela. */
+        public readonly bool $registraPonto = false,
     ) {
     }
 
@@ -76,6 +78,7 @@ final class PerfilOutput
             revisadoEm: $perfil->getRevisadoEm(),
             genero: $perfil->getGenero(),
             atuacao: $perfil->getAtuacao(),
+            registraPonto: $userTenant?->isRegistraPonto() ?? false,
         );
     }
 
