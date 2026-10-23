@@ -28,9 +28,10 @@ class JornadaColaborador implements Auditavel, TenantAware
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
+    /** Sem valor só na jornada proposta, que nunca é gravada (`propostaComBlocos`). */
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
-    private ?Tenant $tenant = null;
+    private Tenant $tenant;
 
     // Horários em formato HH:mm
     #[ORM\Column(length: 5, nullable: true)]
@@ -96,7 +97,7 @@ class JornadaColaborador implements Auditavel, TenantAware
 
     public function getTenant(): ?Tenant
     {
-        return $this->tenant;
+        return $this->tenant ?? null;
     }
 
     public function setTenant(Tenant $tenant): static
