@@ -2693,15 +2693,22 @@ document.addEventListener('DOMContentLoaded', function () {
         if (responder) { responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta'); }
 
         const resto = minutosRestantesReg(cartao);
-        const pode  = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0;
+        const temBotao = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta');
+        const pelaRegra = temBotao && cartao.dataset.doAutor === '1' && resto > 0;
+        // Edição sem prazo (spec edicao-sem-prazo §5): Master e primário (com a opção) seguem sem prazo, com o selo.
+        const seloSemPrazo = temBotao && !pelaRegra ? (cartao.dataset.semPrazoRotulo || '') : '';
         const motivo = cartao.dataset.doAutor === '1' ? BJ_T.t('pasta_show.js.registro.motivo_prazo') : BJ_T.t('pasta_show.js.registro.motivo_autor');
         const editar  = menuReg.querySelector('.js-reg-editar');
         const excluir = menuReg.querySelector('.js-reg-excluir');
+        if (window.SeloSemPrazo) { window.SeloSemPrazo.pintar(editar, seloSemPrazo); window.SeloSemPrazo.pintar(excluir, seloSemPrazo); }
         if (!editar || !excluir) {
             // lápide: sem itens de escrita para pintar
-        } else if (pode) {
+        } else if (pelaRegra) {
             pintarItemReg(editar, true, BJ_T.t('pasta_show.js.registro.menu_editar', {min: resto}), 'bi-pencil', '');
             pintarItemReg(excluir, true, BJ_T.t('pasta_show.js.registro.menu_excluir', {min: resto}), 'bi-trash3', '');
+        } else if (seloSemPrazo) {
+            pintarItemReg(editar, true, BJ_T.t('pasta_show.js.registro.menu_editar_sem_prazo'), 'bi-pencil', '');
+            pintarItemReg(excluir, true, BJ_T.t('pasta_show.js.registro.menu_excluir_sem_prazo'), 'bi-trash3', '');
         } else {
             pintarItemReg(editar, false, BJ_T.t('pasta_show.js.registro.menu_editar_bloqueado'), 'bi-lock', motivo);
             pintarItemReg(excluir, false, BJ_T.t('pasta_show.js.registro.menu_excluir_bloqueado'), 'bi-lock', motivo);
@@ -4673,4 +4680,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-encaminhar.js') }}"></script>
 {# "Destacar comentário": a raiz #psDestaques fica no fim do bloco body. #}
 <script src="{{ asset('js/pasta-destaque.js') }}"></script>
+{# Selo "EXCLUSIVO DO MASTER / DO PRIMÁRIO" nos menus pintados pelo JS (spec edicao-sem-prazo §5). #}
+<script src="{{ asset('js/selo-sem-prazo.js') }}"></script>
 {% endblock %}

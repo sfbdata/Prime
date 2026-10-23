@@ -724,6 +724,8 @@ processo:
         editar_min: 'Editar · {minutos} min'
         exclusao_liberada: 'Exclusão liberada por mais {minutos} min'
         excluir_min: 'Excluir · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir
         so_autor_edita: Só o autor edita a nota, em até 15 minutos
         so_autor_exclui: Só o autor exclui a nota, em até 15 minutos
         editar_bloqueado: Editar · bloqueado
@@ -1456,7 +1458,6 @@ metas:
         so_comentar: Só comentar
         devolver: Devolver
         sem_eventos: Nenhum evento registrado ainda.
-        editado: '(editado)'
         visualizar_arquivo: Visualizar arquivo
         baixar: Baixar
         acompanhando: Acompanhando
@@ -4737,6 +4738,8 @@ pasta_financeiro:
         excluir_bloqueado: Excluir · bloqueado
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         nao_copiou: Não foi possível copiar
         nome_copiado: Nome copiado
         resumo_copiado: Resumo copiado
@@ -7968,6 +7971,8 @@ pasta_detalhes:
         imprimir: Imprimir
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         editar_dica: 'Edição liberada por mais {minutos} min'
         excluir_dica: 'Exclusão liberada por mais {minutos} min'
         editar_bloqueado: Editar · bloqueado
@@ -8012,6 +8017,8 @@ pasta_detalhes:
         imprimir: Imprimir
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         editar_dica: 'Edição liberada por mais {minutos} min'
         excluir_dica: 'Exclusão liberada por mais {minutos} min'
         editar_bloqueado: Editar · bloqueado
@@ -8507,6 +8514,8 @@ pasta_show:
             menu_excluir: 'Excluir comentário · {min} min'
             menu_editar_bloqueado: Editar · bloqueado
             menu_excluir_bloqueado: Excluir · bloqueado
+            menu_editar_sem_prazo: Editar
+            menu_excluir_sem_prazo: Excluir comentário
             copiado: Texto copiado
             nao_copiou: Não foi possível copiar
             visivel_equipe: Visível para a equipe

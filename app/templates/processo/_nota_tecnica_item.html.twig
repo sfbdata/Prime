@@ -51,7 +51,11 @@
 {# PMC-058: o bloco decide quem escreve (EDIT + pasta viva). Na resposta do criar não há bloco: quem
    acabou de criar escreve, então vale a lápide só. #}
 {% set podeEscreverNota = podeEscreverNota is defined ? podeEscreverNota : not somenteLeitura %}
-{% set podeGerenciar = not somenteLeitura and nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
+{% set pelaRegraNota = nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
+{# Edição sem prazo (spec edicao-sem-prazo §1 e §5): Master e primário (com a opção) também editam e excluem, fora do
+   prazo e a nota dos outros; o selo aparece quando é o poder que libera (a mesma resposta do `PrazoDoComentario`). #}
+{% set seloNota = not somenteLeitura and app.user ? sem_prazo_selo(pelaRegraNota) : null %}
+{% set podeGerenciar = not somenteLeitura and app.user and sem_prazo_libera(pelaRegraNota) %}
 <article class="ps-nota" id="nota-tecnica-{{ nota.id }}{{ idSufixo }}" data-nota-id="{{ nota.id }}">
     <div class="ps-nota-topo">
         <span class="ps-nota-selo"><i class="bi bi-journal-text" aria-hidden="true"></i>{{ 'processo.nota.selo'|trans }}</span>
@@ -86,23 +90,25 @@
                 {% if podeGerenciar %}
                     {% set minRest = comentario_minutos_restantes(nota.criadaEm) %}
                     <button type="button"
-                            class="ps-processo-menu-item js-nota-editar" role="menuitem"
-                            title="{{ 'processo.nota.edicao_liberada'|trans({minutos: minRest ~ ''}) }}"
+                            class="ps-processo-menu-item js-nota-editar{{ seloNota ? ' com-selo-sem-prazo' }}" role="menuitem"
+                            {%- if not seloNota %} title="{{ 'processo.nota.edicao_liberada'|trans({minutos: minRest ~ ''}) }}"{% endif %}
                             data-nota-id="{{ nota.id }}"
                             {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
                             data-conteudo="{{ nota.conteudo|e('html_attr') }}"
                             data-conteudo-html="{{ nota.conteudo|registro_texto|e('html_attr') }}"
                             data-csrf="{{ csrf_token('processo_nota_tecnica_editar_' ~ nota.id) }}"
                             data-url="{{ path('processo_nota_tecnica_editar', {id: nota.processoId, notaId: nota.id}) }}">
-                        <i class="bi bi-pencil" aria-hidden="true"></i><span>{{ 'processo.nota.editar_min'|trans({minutos: minRest ~ ''}) }}</span>
+                        <i class="bi bi-pencil" aria-hidden="true"></i><span>{{ seloNota ? 'processo.nota.editar_sem_prazo'|trans : 'processo.nota.editar_min'|trans({minutos: minRest ~ ''}) }}</span>
+                        {%- include '_partials/_selo_sem_prazo.html.twig' with {poder: seloNota} only %}
                     </button>
                     <button type="button"
-                            class="ps-processo-menu-item js-nota-excluir" role="menuitem"
-                            title="{{ 'processo.nota.exclusao_liberada'|trans({minutos: minRest ~ ''}) }}"
+                            class="ps-processo-menu-item js-nota-excluir{{ seloNota ? ' com-selo-sem-prazo' }}" role="menuitem"
+                            {%- if not seloNota %} title="{{ 'processo.nota.exclusao_liberada'|trans({minutos: minRest ~ ''}) }}"{% endif %}
                             data-nota-id="{{ nota.id }}"
                             data-csrf="{{ csrf_token('processo_nota_tecnica_excluir_' ~ nota.id) }}"
                             data-url="{{ path('processo_nota_tecnica_excluir', {id: nota.processoId, notaId: nota.id}) }}">
-                        <i class="bi bi-trash" aria-hidden="true"></i><span>{{ 'processo.nota.excluir_min'|trans({minutos: minRest ~ ''}) }}</span>
+                        <i class="bi bi-trash" aria-hidden="true"></i><span>{{ seloNota ? 'processo.nota.excluir_sem_prazo'|trans : 'processo.nota.excluir_min'|trans({minutos: minRest ~ ''}) }}</span>
+                        {%- include '_partials/_selo_sem_prazo.html.twig' with {poder: seloNota} only %}
                     </button>
                 {% else %}
                     {# Desenho (dc:5405-5406): o item bloqueado é CLICÁVEL e mostra o aviso

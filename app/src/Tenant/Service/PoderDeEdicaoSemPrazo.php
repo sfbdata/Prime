@@ -39,7 +39,7 @@ final class PoderDeEdicaoSemPrazo implements ResetInterface
 
     public function de(User $usuario, Tenant $tenant): ?PoderSemPrazo
     {
-        $chave = $usuario->getId() . ':' . $tenant->getId();
+        $chave = ($usuario->getId() ?? 'o' . spl_object_id($usuario)) . ':' . ($tenant->getId() ?? 'o' . spl_object_id($tenant));
         $this->memoria[$chave] ??= $this->calcular($usuario, $tenant) ?? false;
 
         return $this->memoria[$chave] === false ? null : $this->memoria[$chave];

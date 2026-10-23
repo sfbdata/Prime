@@ -19,6 +19,12 @@ class AuditLogRepository extends ServiceEntityRepository
     /**
      * @return AuditLog[]
      */
+    /** Gravação manual (a trilha que não vem do `AuditLogSubscriber`). Só persiste: o `flush` é de quem chama. */
+    public function registrar(AuditLog $log): void
+    {
+        $this->getEntityManager()->persist($log);
+    }
+
     public function findByFilters(
         ?string $entityClass,
         ?string $userFilter,

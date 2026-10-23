@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -204,6 +206,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $this->vincular($pasta, $processo);
         $antiga = $this->criarNota($processo, $user, $tenant, '<p>Antiga</p>', null, '-20 minutes');
 
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
@@ -231,6 +234,7 @@ final class PastaNotasTecnicasTelaTest extends JusPrimeWebTestCase
         $this->vincular($pasta, $processo);
         $nota = $this->criarNota($processo, $outro, $tenant);
 
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 

@@ -50,6 +50,9 @@ trait CenarioDeEdicaoSemPrazo
 
     protected function desligarOpcaoDoPrimario(Tenant $tenant, User $primario): void
     {
+        // Depois de uma requisição o EntityManager pode ter sido limpo: trabalha com as instâncias gerenciadas.
+        $tenant = $this->em->find(Tenant::class, $tenant->getId()) ?? $tenant;
+        $primario = $this->em->find(User::class, $primario->getId()) ?? $primario;
         $configuracao = new ConfiguracaoDeEdicao($tenant);
         $configuracao->alterar(false, $primario, new \DateTimeImmutable());
         $this->em->persist($configuracao);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -152,6 +153,7 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         [$user, $tenant, $pasta] = $this->cenario();
         $outro = $this->criarUsuario($tenant, 'Outro Autor');
         $obs   = $this->criarRegistro($pasta, $outro, $tenant, 'Registro de outra pessoa.');
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
@@ -169,6 +171,7 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         $client = static::createClient();
         [$user, $tenant, $pasta] = $this->cenario();
         $obs = $this->criarRegistro($pasta, $user, $tenant, 'Registro antigo.', new \DateTimeImmutable('-20 minutes'));
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");

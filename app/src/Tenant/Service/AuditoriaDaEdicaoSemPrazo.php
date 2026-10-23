@@ -7,8 +7,7 @@ namespace App\Tenant\Service;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Tenant\Enum\PoderSemPrazo;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Repository\AuditLogRepository;
 
 /**
  * O rastro da edição sem prazo (spec `edicao-sem-prazo-master-primario.md` §6): quando o Master ou o primário edita ou
@@ -23,7 +22,7 @@ final class AuditoriaDaEdicaoSemPrazo
     public const EXCLUIR = 'sp_excluir';
 
     public function __construct(
-        private readonly EntityManagerInterface $em,
+        private readonly AuditLogRepository $auditoria,
         private readonly PoderDeEdicaoSemPrazo $poder,
     ) {
     }
@@ -39,7 +38,7 @@ final class AuditoriaDaEdicaoSemPrazo
         if ($poder === null) {
             return;
         }
-        $this->em->persist((new AuditLog())
+        $this->auditoria->registrar((new AuditLog())
             ->setAction($acao)
             ->setEntityClass($entidade)
             ->setEntityId($id === null ? null : (string) $id)

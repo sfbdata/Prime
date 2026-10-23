@@ -7,7 +7,7 @@ namespace App\Processo\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\Service\JanelaDeEdicaoDeComentario;
+use App\Pasta\Service\PrazoDoComentario;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Processo\DTO\NotaTecnicaOutput;
 use App\Processo\Entity\NotaTecnica;
@@ -15,6 +15,7 @@ use App\Processo\Entity\NotaTecnicaVersao;
 use App\Processo\Exception\NotaTecnicaForaDoEscopoException;
 use App\Processo\Exception\NotaTecnicaNaoEditavelException;
 use App\Processo\Repository\NotaTecnicaRepository;
+use App\Tenant\Service\AuditoriaDaEdicaoSemPrazo;
 use App\Processo\Repository\NotaTecnicaVersaoRepository;
 use App\Shared\Service\SanitizadorTextoRico;
 use Doctrine\ORM\EntityManagerInterface;
@@ -40,7 +41,7 @@ final class EditarNotaTecnicaUseCase
     public function __construct(
         private readonly NotaTecnicaRepository $repository,
         private readonly SanitizadorTextoRico $sanitizador,
-        private readonly JanelaDeEdicaoDeComentario $janela,
+        private readonly PrazoDoComentario $prazo,
         private readonly EntityManagerInterface $em,
         private readonly ResolucaoDeMencoesDoRegistro $resolucaoDeMencoes,
         private readonly NotaTecnicaVersaoRepository $versaoRepository,
@@ -54,18 +55,13 @@ final class EditarNotaTecnicaUseCase
             return false;
         }
 
-        if (!$nota->pertenceAo($usuario)) {
-            return false;
-        }
-
-        return $this->janela->estaAberta($nota->getCriadaEm(), $agora);
+        // Autor dentro da janela, OU o poder sem prazo (Master; primário com a opção ligada).
+        return $this->prazo->libera($usuario, $tenant, $nota->pertenceAo($usuario), $nota->getCriadaEm(), $agora);
     }
 
     public function executar(NotaTecnica $nota, User $usuario, Tenant $tenant, string $conteudo, ?Pasta $pasta = null): NotaTecnicaOutput
     {
-        if (!$this->podeEditar($nota, $usuario, $tenant)) {
-            throw new NotaTecnicaNaoEditavelException('Esta nota técnica não pode ser editada.');
-        }
+        $this->exigir($nota, $usuario, $tenant);
 
         // Mesma prova da criação: a pasta que decide os avisos é deste escritório e vincula o processo.
         if ($pasta !== null && (!self::mesmoTenant($pasta->getTenant(), $tenant) || !$pasta->temProcesso($nota->getProcesso()))) {
@@ -109,5 +105,14 @@ final class EditarNotaTecnicaUseCase
         }
 
         return $a === $b || ($a->getId() !== null && $a->getId() === $b->getId());
+    }
+
+    /** A checagem do podeEditar() e, quando foi o poder sem prazo que liberou, o rastro na auditoria. */
+    private function exigir(NotaTecnica $nota, User $usuario, Tenant $tenant): void
+    {
+        if (!$this->podeEditar($nota, $usuario, $tenant)) {
+            throw new NotaTecnicaNaoEditavelException('Esta nota técnica não pode ser editada.');
+        }
+        $this->prazo->registrar(AuditoriaDaEdicaoSemPrazo::EDITAR, $usuario, $tenant, $nota->pertenceAo($usuario), $nota->getCriadaEm(), $nota, $nota->getAutor());
     }
 }
