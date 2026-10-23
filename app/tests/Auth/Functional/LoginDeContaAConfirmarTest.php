@@ -432,7 +432,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $tenant = (new Tenant())->setName('Escritório que convida ' . uniqid());
         $email = 'convidada_' . uniqid() . '@adv.com';
         $token = bin2hex(random_bytes(16));
-        $convite = new Invitation(email: $email, token: $token, type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
+        $convite = new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
         $convite->setTenant($tenant);
         $this->em()->persist($tenant);
         $this->em()->persist($convite);
@@ -551,7 +551,8 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertSame('Confirme seu e-mail', $passo->attr('data-titulo'));
         self::assertSame('Reenviar o link de confirmação', $passo->attr('data-botao'));
         $textos = $passo->filter('.lg-md__texto');
-        self::assertSame('Enviamos um link de confirmação para . Clique nele para criar a sua senha e ativar sua conta e seu escritório. O link expira em 7 dias.', trim($textos->eq(0)->text()));
+        // Raiz E (spec seguranca-a-convites): o mesmo texto para o e-mail novo e para o que já tem conta.
+        self::assertSame('Se o e-mail puder ser usado, você receberá as instruções nele. Clique no link para criar a sua senha e ativar sua conta e seu escritório. O link expira em 7 dias.', trim($textos->eq(0)->text()));
         self::assertCount(1, $textos->eq(0)->filter('b#lgCfEmail'));
         self::assertSame('Não recebeu? Verifique a caixa de spam ou peça um novo link.', trim($textos->eq(1)->text()));
         self::assertSame('Ir para o login', trim($tela->filter('#lgMdForm > .lg-md__jatem[data-passo="conf"] > a[data-md-fechar]')->text()));

@@ -85,7 +85,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 
         $invitation = new Invitation(
             email: $email,
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'office',
             expiresAt: $expiresAt,
         );
@@ -258,7 +258,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
     {
         $invitation = new Invitation(
             email: 'novo@example.com',
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );

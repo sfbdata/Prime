@@ -99,7 +99,7 @@ final class GerenciarConvitesController extends AbstractController
         }
 
         try {
-            $invitation = $this->criarUseCase->executar(new CriarConviteEscritorioInput(
+            $emitido = $this->criarUseCase->executar(new CriarConviteEscritorioInput(
                 email: (string) $request->request->get('email', ''),
                 fullName: (string) $request->request->get('full_name', '') ?: null,
                 tenant: $tenant,
@@ -108,14 +108,14 @@ final class GerenciarConvitesController extends AbstractController
             ));
 
             try {
-                $this->mailer->enviarConviteEscritorio($invitation);
+                $this->mailer->enviarConviteEscritorio($emitido->convite, $emitido->token);
             } catch (\RuntimeException) {
                 $this->addFlash('erro', 'Convite criado, mas o email não foi enviado. Use o botão Reenviar.');
 
                 return $this->voltarDoConvite($request);
             }
 
-            $this->addFlash('sucesso', sprintf('Convite enviado para %s.', $invitation->getEmail()));
+            $this->addFlash('sucesso', sprintf('Convite enviado para %s.', $emitido->convite->getEmail()));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }
@@ -162,10 +162,10 @@ final class GerenciarConvitesController extends AbstractController
         }
 
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($id, $quem));
+            $emitido = $this->reenviarUseCase->executar(new ReenviarConviteInput($id, $quem));
 
             try {
-                $this->mailer->enviarConviteEscritorio($invitation);
+                $this->mailer->enviarConviteEscritorio($emitido->convite, $emitido->token);
             } catch (\RuntimeException) {
                 $this->addFlash('erro', 'Não foi possível enviar o email. Tente novamente.');
 

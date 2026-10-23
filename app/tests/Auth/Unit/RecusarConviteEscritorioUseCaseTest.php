@@ -43,7 +43,7 @@ final class RecusarConviteEscritorioUseCaseTest extends TestCase
 
         return new Invitation(
             email: $email,
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'office',
             expiresAt: $expiresAt,
         );
