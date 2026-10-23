@@ -186,7 +186,12 @@ final class PastaPagamentoController extends AbstractController
             return $this->json(['erro' => 'Pagamento não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
-        $this->alternarUseCase->executar($pagamento);
+        try {
+            $this->alternarUseCase->executar($pagamento);
+        } catch (\DomainException $e) {
+            // Previsto sobre um Total contratado zerado: nada foi gravado.
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         return $this->json([
             'pago'   => $pagamento->estaPago(),

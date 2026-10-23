@@ -19,6 +19,7 @@ use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Processo\Entity\Processo;
 use Psr\Clock\ClockInterface;
@@ -394,6 +395,27 @@ final class MontadorDeContextoDaPasta
         return new SecaoDeContexto(SecaoDoContexto::Checklist, $linhas, $this->excedente($todos, self::LIMITE_CHECKLIST), $assinaturas);
     }
 
+    /**
+     * Êxito e sucumbência previstos: o valor é um % do total contratado, não um R$ fixo
+     * (spec pasta-exito-sucumbencia).
+     */
+    private function valorDoPagamento(PastaPagamento $pagamento, string $valor, bool $mascarar): string
+    {
+        return $pagamento->getPercentual() !== null
+            ? $this->rotulo($pagamento->getPercentual(), '0', $mascarar) . '% do total contratado'
+            : 'R$ ' . $valor;
+    }
+
+    /** O previsto não está "em aberto": depende do resultado do processo. */
+    private function situacaoDoPagamento(PastaPagamento $pagamento): string
+    {
+        return match (true) {
+            $pagamento->getPagoEm() !== null => 'pago em ' . $pagamento->getPagoEm()->format('d/m/Y'),
+            $pagamento->estaPrevisto()       => 'PREVISTO, condicionado ao resultado',
+            default                          => 'EM ABERTO',
+        };
+    }
+
     private function financeiro(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
         $linhas = [];
@@ -420,17 +442,13 @@ final class MontadorDeContextoDaPasta
 
         foreach (array_slice($pagamentos, 0, self::LIMITE_PAGAMENTOS) as $pagamento) {
             $descricao = $this->rotulo($pagamento->getDescricao(), 'sem descrição', $mascarar);
-            // Êxito e sucumbência previstos: o valor é um % do total contratado, sem vencimento,
-            // e não está "em aberto" (spec pasta-exito-sucumbencia).
             $valor = $this->rotulo($pagamento->getValor(), '0', $mascarar);
             $linhas[] = sprintf(
                 'pagamento · %s · %s · vencimento %s · %s [nível %d, registro interno]',
                 $descricao,
-                $pagamento->getPercentual() !== null
-                    ? $this->rotulo($pagamento->getPercentual(), '0', $mascarar) . '% do total contratado'
-                    : 'R$ ' . $valor,
-                $pagamento->getVencimento()?->format('d/m/Y') ?? 'sem vencimento',
-                $pagamento->getPagoEm() !== null ? 'pago em ' . $pagamento->getPagoEm()->format('d/m/Y') : ($pagamento->estaPrevisto() ? 'PREVISTO, condicionado ao resultado' : 'EM ABERTO'),
+                $this->valorDoPagamento($pagamento, $valor, $mascarar),
+                $pagamento->getVencimento()?->format('d/m/Y') ?? 'nenhum',
+                $this->situacaoDoPagamento($pagamento),
                 SecaoDoContexto::Financeiro->nivel(),
             );
             $assinaturas[] = sprintf(

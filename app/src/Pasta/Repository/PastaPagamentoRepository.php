@@ -9,15 +9,18 @@ use App\Pasta\DTO\CorrecaoDeValorDoPagamentoOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Entity\TipoDePagamento;
+use App\Pasta\Service\LancamentosDaPastaSobTrava;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 use Doctrine\Persistence\Proxy;
 
 /**
  * @extends ServiceEntityRepository<PastaPagamento>
  */
-final class PastaPagamentoRepository extends ServiceEntityRepository
+final class PastaPagamentoRepository extends ServiceEntityRepository implements LancamentosDaPastaSobTrava
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -65,6 +68,36 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
             ->orderBy('p.vencimento', 'ASC')
             ->addOrderBy('p.id', 'ASC')
             ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Trava a PASTA (`SELECT … FOR UPDATE`) e relê do BANCO os lançamentos dela, para congelar um
+     * êxito ou sucumbência sobre a base de AGORA (spec pasta-exito-sucumbencia, decisão 3).
+     *
+     * Sem a trava, duas quitações ou correções simultâneas na mesma pasta leriam a mesma base e
+     * congelariam sobre um número que a outra acabou de mudar. Sem o `HINT_REFRESH`, a consulta
+     * devolveria as entidades do identity map com o estado de quando o request as carregou.
+     * A ordem (pasta, depois as linhas) é a mesma em todo gesto que congela: sem deadlock.
+     *
+     * Exige transação aberta (quem chama abre e fecha).
+     *
+     * @return list<PastaPagamento> os lançamentos da pasta, inclusive o que vai congelar
+     */
+    public function travarPastaELerLancamentos(Pasta $pasta): array
+    {
+        $this->getEntityManager()->lock($pasta, LockMode::PESSIMISTIC_WRITE);
+
+        /** @var list<PastaPagamento> */
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.pasta = :pasta')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $pasta->getTenant())
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->setHint(Query::HINT_REFRESH, true)
             ->getResult();
     }
 

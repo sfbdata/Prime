@@ -424,12 +424,10 @@ final class MontadorDaTimelineInteligente
         );
     }
 
-    /** @return list<EventoDaTimelineOutput> */
-    private function eventosDoPagamento(PastaPagamento $pagamento, \DateTimeImmutable $hoje): array
+    /** Êxito e sucumbência previstos: % do total contratado e sem vencimento. */
+    private function resumoDoPagamento(PastaPagamento $pagamento): string
     {
-        $id     = (int) $pagamento->getId();
-        // Êxito e sucumbência previstos: % do total contratado e sem vencimento.
-        $resumo = sprintf(
+        return sprintf(
             '%s · %s · %s',
             $pagamento->getDescricao() !== '' ? $pagamento->getDescricao() : 'Pagamento',
             $pagamento->getPercentual() !== null
@@ -437,6 +435,13 @@ final class MontadorDaTimelineInteligente
                 : 'R$ ' . number_format((float) $pagamento->getValor(), 2, ',', '.'),
             $pagamento->getVencimento() !== null ? 'vencimento ' . $pagamento->getVencimento()->format('d/m/Y') : 'condicionado ao resultado',
         );
+    }
+
+    /** @return list<EventoDaTimelineOutput> */
+    private function eventosDoPagamento(PastaPagamento $pagamento, \DateTimeImmutable $hoje): array
+    {
+        $id     = (int) $pagamento->getId();
+        $resumo = $this->resumoDoPagamento($pagamento);
 
         $eventos = [new EventoDaTimelineOutput(
             id: 'pl' . $id,

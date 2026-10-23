@@ -707,5 +707,10 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
             trim((string) preg_replace('/\s+/u', ' ', $crawler->filter('#formNovoPagamento > .ps-np-cab > .ps-np-cab-textos > .ps-np-sub')->text())),
         );
         self::assertSame('R$ 1.300,00', trim($crawler->filter('#formNovoPagamento .js-np-bloco-pct .ps-np-base')->text()));
+        foreach (['exito', 'sucumbencia'] as $tipo) {
+            $nota = (string) $crawler->filter('.ps-np-tipos > button.ps-np-tipo[data-tipo="' . $tipo . '"]')->attr('data-nota');
+            self::assertStringContainsString('sobre o total contratado', $nota, "dica do {$tipo}");
+            self::assertStringNotContainsString('valor da causa', $nota, "dica do {$tipo}");
+        }
     }
 }

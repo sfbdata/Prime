@@ -31,6 +31,9 @@ sucumbência). O lançamento nasce como **previsto**: um honorário que só exis
    `baseCausa` do desenho, L.3600: `pct == null && !prev`). Não usa mais o `pasta.valor_causa`.
    O valor em R$ de um previsto com percentual = `round(base × pct / 100)` em centavos, calculado
    na **leitura** por esse serviço (o card, a impressão e o "+ R$ X previsto" leem dele).
+   Ao **congelar** (decisão 3), a base é relida do banco sob a trava da pasta
+   (`LancamentosDaPastaSobTrava`, `SELECT … FOR UPDATE`), numa transação, na ordem pasta → linhas.
+   Com a base zerada, "Marcar como recebido" num previsto é recusado (422), sem gravar R$ 0,00.
 2. **O previsto fica fora** do contratado, do recebido, dos vencidos, da régua (barra) e dos
    relatórios e totais. Ele só aparece como linha (selo azul "Previsto") e no
    "+ R$ X previsto em êxito | em sucumbência | em êxito e sucumbência".
@@ -106,7 +109,8 @@ prevista guarda o valor calculado **no lançamento** (um retrato): é o que o hi
 
 ## 6. Desenho item a item
 
-- ✓ `FIN_TIPOS`: 4 tipos no modal, êxito e sucumbência habilitados, dicas com o texto do desenho.
+- ✓ `FIN_TIPOS`: 4 tipos no modal, êxito e sucumbência habilitados, dicas com o texto do desenho
+  (salvo a base, abaixo).
 - ✓ Modal em êxito/sucumbência: some valor/parcelas/vencimento/juros; entra o % com o rótulo do
   desenho ("% sobre o proveito" / "% de sucumbência") e a "Base" só leitura.
 - ✓ Padrões 20 (êxito) e 10 (sucumbência); descrição "Honorários de êxito (N%)" / "Sucumbência
@@ -118,6 +122,6 @@ prevista guarda o valor calculado **no lançamento** (um retrato): é o que o hi
 - ✓ Faixa: card "Total contratado" (desvio de nome aprovado em C8), só leitura, "sincronizado".
 - ✓ Impressão: previsto fora dos totais, situação "Previsto", " (N%)" ao lado do valor.
 - ✓ Pendências: previsto não vence.
-- ✗ As dicas do `FIN_TIPOS` seguem o texto literal do desenho ("% sobre o valor da causa"), que
-  diverge da base de C8 (total contratado). Decisão do coordenador.
+- ✓ (desvio de C8) As dicas do `FIN_TIPOS` de êxito e sucumbência dizem "sobre o total
+  contratado" no lugar de "sobre o valor da causa" do desenho, coerentes com a base de C8.
 - ✗ Descrição livre some no previsto (o desenho não a tem no bloco do %); o sistema a tinha.

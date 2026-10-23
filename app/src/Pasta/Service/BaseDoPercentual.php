@@ -68,8 +68,22 @@ final class BaseDoPercentual
         }
 
         $pasta = $pagamento->getPasta();
-        $base  = $pasta !== null ? $this->daPasta($pasta) : 0;
 
-        return ValorEmReais::deCentavos($this->centavosDe($pagamento, $base));
+        return $this->valorCalculadoSobre($pagamento, $pasta !== null ? $pasta->getPagamentos() : []);
+    }
+
+    /**
+     * O valor do lançamento sobre a base dos lançamentos informados: os relidos sob a trava da
+     * pasta (`PastaPagamentoRepository::travarPastaELerLancamentos`) na hora de congelar.
+     *
+     * @param iterable<PastaPagamento> $lancamentosDaPasta
+     */
+    public function valorCalculadoSobre(PastaPagamento $pagamento, iterable $lancamentosDaPasta): string
+    {
+        if ($pagamento->getPercentual() === null) {
+            return $pagamento->getValor();
+        }
+
+        return ValorEmReais::deCentavos($this->centavosDe($pagamento, $this->centavosDaBase($lancamentosDaPasta)));
     }
 }

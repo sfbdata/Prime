@@ -273,6 +273,36 @@ final class PastaPagamentoPrevistoControllerTest extends JusPrimeWebTestCase
         self::assertSame('R$ 14.789,00', $dados['resumo']['contratado']);
     }
 
+    #[TestDox('"Marcar como recebido" com o Total contratado zerado: 422 com a mensagem, nada gravado (nem R$ 0,00)')]
+    public function testQuitarComBaseZeroRecusa(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuario();
+        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $this->logarComTenant($client, $user, $tenant);
+        $this->lancar($client, $pastaId, ['percentual' => '15']);
+        $id = (int) $this->previstos($pastaId)[0]['id'];
+        $this->em()->getConnection()->executeStatement(
+            "DELETE FROM pasta_pagamento WHERE pasta_id = :p AND tipo IN ('contrato', 'custas')",
+            ['p' => $pastaId],
+        );
+        $antes = $this->previstos($pastaId)[0];
+
+        $client->request('POST', "/pasta/{$pastaId}/pagamento/{$id}/quitacao", [
+            '_token' => 'TOKEN_pasta_pagamento_quitacao_' . $id,
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(
+            'O total contratado está zerado: lance os pagamentos do contrato antes de marcar este percentual como recebido.',
+            $this->json($client)['erro'],
+        );
+        $depois = $this->previstos($pastaId)[0];
+        self::assertSame($antes, $depois, 'nada gravado: segue previsto, com o percentual');
+        self::assertNull($depois['pago_em']);
+        self::assertSame('15.00', $depois['percentual']);
+    }
+
     #[TestDox('"Corrigir valor" congela: grava o valor digitado e zera o percentual; compara com o calculado')]
     public function testCorrigirCongela(): void
     {
