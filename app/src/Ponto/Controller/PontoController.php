@@ -19,6 +19,7 @@ use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
+use App\Ponto\UseCase\ListarPendenciasDeRegistroUseCase;
 use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
@@ -30,6 +31,10 @@ use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Service\ChaveDoPontoEletronico;
 use App\Ponto\Service\TurnoAbertoNoEscritorio;
+use App\Ponto\Service\SaidaDeEsquecimento;
+use App\Ponto\Service\BatidaJaRegistrada;
+use App\Ponto\Service\PublicoDosAvisosDePonto;
+use App\Ponto\Service\CartaoDePendenciaDoPonto;
 use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Repository\SedeRepository;
@@ -82,6 +87,9 @@ final class PontoController extends AbstractController
         private readonly ChaveDoPontoEletronico $chaveDoPonto,
         private readonly TurnoAbertoNoEscritorio $turnoAberto,
         private readonly HorarioFuturoDaBatida $horarioFuturo,
+        private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
+        private readonly BatidaJaRegistrada $batidaJaRegistrada,
+        private readonly PublicoDosAvisosDePonto $publico,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -94,6 +102,7 @@ final class PontoController extends AbstractController
         HomeOfficeResolver $homeOfficeResolver,
         SedesDaCercaDoPonto $sedesDaCerca,
         CalculadoraJornada $calculadoraJornada,
+        ListarPendenciasDeRegistroUseCase $pendencias,
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -226,6 +235,7 @@ final class PontoController extends AbstractController
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
             'esquecimentosRegistrados' => $esquecimentosRegistrados,
             'dataHoje'                 => $hojeStr,
+            'pendencias'               => $this->publico->recebe($user, $tenant) ? $pendencias->executar($user, $tenant) : [],   // R5 e R7
         ]);
     }
 
@@ -309,9 +319,8 @@ final class PontoController extends AbstractController
             if (empty($datasValidas)) {
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
-
-            if ($tipo === 'esquecimento_registro' && $this->horarioFuturo->estaNoFuturo($datasValidas[0], $horaRegEsquecida)) {
-                $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+            if ($tipo === 'esquecimento_registro' && ($recusa = $this->recusaDoEsquecimento($user, $tenant, (string) $tipoRegEsquecido, $datasValidas[0], $horaRegEsquecida)) !== null) {
+                $this->addFlash('warning', $recusa);
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
@@ -399,6 +408,18 @@ final class PontoController extends AbstractController
         return $this->redirectToRoute('ponto_index', $voltaParaFolha);
     }
 
+    /**
+     * O esquecimento é só da batida que falta e nunca de um horário que ainda não chegou.
+     */
+    private function recusaDoEsquecimento(User $user, Tenant $tenant, string $tipo, \DateTimeInterface $dia, ?\DateTimeInterface $hora): ?string
+    {
+        if (($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipo, $dia)) !== null) {
+            return $jaBatida;
+        }
+
+        return $hora !== null && $this->horarioFuturo->estaNoFuturo($dia, $hora) ? HorarioFuturoDaBatida::MENSAGEM : null;
+    }
+
     #[Route('/justificativa/{id}/editar', name: 'ponto_justificativa_editar', methods: ['GET', 'POST'])]
     public function editarJustificativa(
         JustificativaPonto $justificativa,
@@ -460,6 +481,10 @@ final class PontoController extends AbstractController
             $horaReg = ($horaRegRaw !== null && $horaRegRaw !== '') ? \DateTime::createFromFormat('H:i', $horaRegRaw) ?: null : null;
             if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
                 $this->addFlash('warning', 'Informe o tipo e o horário do registro esquecido.');
+                return $this->redirectToRoute('ponto_index');
+            }
+            if (($dia = $justificativa->getData()) !== null && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipoRegEsquecido, $dia)) !== null) {
+                $this->addFlash('warning', $jaBatida);   // a edição não troca para uma batida que existe
                 return $this->redirectToRoute('ponto_index');
             }
             $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
@@ -555,8 +580,28 @@ final class PontoController extends AbstractController
         $jornadaTenant = $tenant?->getJornadaTenant();
 
         $jornada = $tenant === null ? null : $this->jornadas->findByUserETenant($user, $tenant);
+        if ($tenant === null || !$this->publico->recebe($user, $tenant)) {
+            return $this->json(['alertar' => false]);   // fora do público dos avisos de ponto
+        }
 
         return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant, $jornada));
+    }
+
+    /**
+     * O cartão diário de pendência de registro da própria pessoa (spec `ponto-esquecimento-nao-trava.md` R9): só leitura,
+     * pedido pelo parcial global no máximo uma vez por dia (o JS guarda o "fechar" e o "adiar"). `cartao` null fora do
+     * público dos avisos de ponto ou sem pendência.
+     */
+    #[Route('/pendencia-do-dia', name: 'ponto_pendencia_do_dia', methods: ['GET'])]
+    public function pendenciaDoDia(CartaoDePendenciaDoPonto $cartao): JsonResponse
+    {
+        $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$user instanceof User || $tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
+            return $this->json(['cartao' => null]);
+        }
+
+        return $this->json(['cartao' => $cartao->de($user, $tenant)]);
     }
 
     /**
@@ -641,8 +686,8 @@ final class PontoController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable();
-        if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $entradaAberta, $choque)) !== null) {
-            return $this->json(['success' => false, 'message' => $recusa], 422);   // chave, trava ou choque de horário
+        if (($recusa = $this->recusaEntreEscritorios($user, $tenant, $tipo, $hoje, $choque, $registroRepository)) !== null) {
+            return $this->json(['success' => false, 'message' => $recusa], 422);   // chave ou choque de horário
         }
 
         // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
@@ -755,29 +800,12 @@ final class PontoController extends AbstractController
             }
         }
 
-        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
-            $ultimaSaida = $registroRepository->findUltimaSaida($user, $tenant);
-            if ($ultimaSaida !== null) {
-                $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
-                $diffMinutos = (int) round(
-                    ((new \DateTime())->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60
-                );
-                if ($diffMinutos < $minimoInterjornada) {
-                    $minFalt = $minimoInterjornada - $diffMinutos;
-                    return $this->json([
-                        'success' => false,
-                        'message' => sprintf(
-                            'Interjornada mínima é de %dh. Aguarde mais %dh%02dm.',
-                            intdiv($minimoInterjornada, 60),
-                            intdiv($minFalt, 60),
-                            $minFalt % 60
-                        ),
-                    ], 422);
-                }
-            }
+        $interjornada = $tipo === RegistroPonto::TIPO_ENTRADA ? $this->interjornada($user, $tenant, $jornadaTenant, $registroRepository) : null;
+        if (isset($interjornada['recusa'])) {
+            return $this->json(['success' => false, 'message' => $interjornada['recusa']], 422);
         }
 
-        // Cria o registro de ponto
+        $semEntrada = $this->faltouAEntrada($user, $tenant, $tipo, $hoje, $registroRepository);   // antes de gravar
         $registro = new RegistroPonto();
         $registro->setUser($user);
         $registro->setTenant($tenant);
@@ -809,32 +837,122 @@ final class PontoController extends AbstractController
             'success' => true,
             'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
             'data'    => $dados,
+            'avisos'  => $this->avisosDaBatida($user, $tenant, $tipo, $hoje, $entradaAberta, $interjornada['aviso'] ?? null, $semEntrada),
         ]);
     }
 
     /**
-     * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3 e
-     * ponto-por-escritorio §2.2): a chave "Registra ponto eletrônico" desligada aqui, a entrada aberta hoje em outro
-     * escritório e o horário de trabalho de hoje em outro escritório onde a pessoa registra ponto. Null quando segue.
-     * Saída e ida ao repouso passam quando fecham uma entrada aberta neste escritório: nunca prender o ponto aberto
-     * (revisão de 23/10, proposta da 0d). Fora disso valem as mesmas recusas da entrada.
+     * Os avisos da batida que entrou (spec `ponto-esquecimento-nao-trava.md` R6): o que ficou pendente e não impede o
+     * registro. Cada um é `{texto, link, rotulo}`, com `link` e `rotulo` nulos quando não há para onde ir. Só a própria
+     * pessoa recebe esta resposta, então o nome do outro escritório pode aparecer (R2).
+     *
+     * @return list<array{texto: string, link: ?string, rotulo: ?string}>
+     */
+    private function avisosDaBatida(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, EntradaAbertaEmOutroEscritorio $entradaAberta, ?string $interjornada, bool $semEntrada): array
+    {
+        $avisos = [];
+        if (!$this->publico->recebe($user, $tenant)) {
+            return [];   // R7: fora do público dos avisos de ponto
+        }
+        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($aberto = $entradaAberta->aviso($user, $tenant, $agora)) !== null) {
+            $avisos[] = ['texto' => $aberto, 'link' => $this->generateUrl('tenant_selecionar'), 'rotulo' => EntradaAbertaEmOutroEscritorio::ROTULO_TROCAR];
+        }
+        if ($interjornada !== null) {
+            $avisos[] = ['texto' => $interjornada, 'link' => null, 'rotulo' => null];
+        }
+        if ($semEntrada) {
+            $link = $this->generateUrl('ponto_index', ['competencia' => $agora->format('Y-m'), 'esquecimento' => $agora->format('Y-m-d') . ':' . RegistroPonto::TIPO_ENTRADA]);
+            $avisos[] = ['texto' => TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA, 'link' => $link, 'rotulo' => TurnoAbertoNoEscritorio::ROTULO_ENVIAR];
+        }
+
+        return $avisos;
+    }
+
+    /**
+     * Saída ou ida ao repouso solta (spec `ponto-esquecimento-nao-trava.md` R1): sem turno aberto neste escritório e sem
+     * entrada no dia aqui. A batida passa (a folha marca o dia incompleto e conta 0 minutos) e a resposta avisa.
+     */
+    private function faltouAEntrada(User $user, Tenant $tenant, string $tipo, \DateTimeImmutable $agora, RegistroPontoRepository $registros): bool
+    {
+        if (!in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true) || $this->turnoAberto->estaAberto($user, $tenant, $agora)) {
+            return false;
+        }
+
+        return !$this->temEntradaNoDia($user, $tenant, $agora, $registros);
+    }
+
+    private function temEntradaNoDia(User $user, Tenant $tenant, \DateTimeImmutable $agora, RegistroPontoRepository $registros): bool
+    {
+        foreach ($registros->batidasDoDiaNoEscritorio($user, $tenant, $agora) as $batida) {
+            if ($batida->getTipo() === RegistroPonto::TIPO_ENTRADA) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A interjornada da entrada, medida pela última saída NESTE escritório (`ponto-por-escritorio.md` §2.1). Null quando
+     * está cumprida ou desligada; `recusa` quando a saída foi batida; `aviso` quando a saída veio de um registro de
+     * esquecimento (`ponto-esquecimento-nao-trava.md` R4): o esquecimento nunca trava a batida seguinte.
+     *
+     * @return array{recusa?: string, aviso?: string}|null
+     */
+    private function interjornada(User $user, Tenant $tenant, ?JornadaTenant $jornadaTenant, RegistroPontoRepository $registroRepository): ?array
+    {
+        if (!($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
+            return null;
+        }
+        $ultimaSaida = $registroRepository->ultimaSaidaQueFechouTurno($user, $tenant, TurnoAbertoNoEscritorio::JANELA_DO_TURNO_HORAS);   // a solta não conta (R4)
+        if ($ultimaSaida === null) {
+            return null;
+        }
+        $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
+        $diffMinutos = (int) round(((new \DateTime())->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60);
+        if ($diffMinutos >= $minimoInterjornada) {
+            return null;
+        }
+        if ($this->saidaDeEsquecimento->veioDeEsquecimento($ultimaSaida)) {
+            return ['aviso' => sprintf(
+                SaidaDeEsquecimento::AVISO_INTERJORNADA,
+                $ultimaSaida->getDataHora()->format('d/m'),
+                $ultimaSaida->getDataHora()->format('H:i'),
+                intdiv($minimoInterjornada, 60),
+            )];
+        }
+        $minFalt = $minimoInterjornada - $diffMinutos;
+
+        return ['recusa' => sprintf(
+            'Interjornada mínima é de %dh. Aguarde mais %dh%02dm.',
+            intdiv($minimoInterjornada, 60),
+            intdiv($minFalt, 60),
+            $minFalt % 60
+        )];
+    }
+
+    /**
+     * A recusa da batida que vem de outro escritório, antes do home office e da cerca (spec seguranca-b-jornada §3.3):
+     * a chave "Registra ponto eletrônico" desligada aqui e o horário de trabalho de hoje em outro escritório onde a
+     * pessoa registra ponto. Null quando segue. A saída e a ida ao repouso ficam livres das duas só em dois casos
+     * (`ponto-esquecimento-nao-trava.md` R1): quando fecham um turno aberto aqui, ou quando são soltas de verdade, sem
+     * entrada no dia neste escritório (a solta leva o aviso da entrada que faltou). Com entrada no dia e o turno daqui
+     * fechado, valem as regras de sempre. O ponto aberto em outro escritório não recusa: vira aviso (R2).
      */
     private function recusaEntreEscritorios(
         User $user,
         Tenant $tenant,
         string $tipo,
         \DateTimeImmutable $agora,
-        EntradaAbertaEmOutroEscritorio $entradaAberta,
         ChoqueDeJornadaEntreEscritorios $choque,
+        RegistroPontoRepository $registros,
     ): ?string {
-        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true) && $this->turnoAberto->estaAberto($user, $tenant, $agora)) {
+        if (in_array($tipo, [RegistroPonto::TIPO_SAIDA, RegistroPonto::TIPO_REPOUSO], true)
+            && ($this->turnoAberto->estaAberto($user, $tenant, $agora) || !$this->temEntradaNoDia($user, $tenant, $agora, $registros))) {
             return null;
         }
         if ($this->chaveDoPonto->estaDesligada($user, $tenant)) {
             return ChaveDoPontoEletronico::MENSAGEM_DESLIGADA;
-        }
-        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($travada = $entradaAberta->mensagem($user, $tenant, $agora)) !== null) {
-            return $travada;
         }
 
         return $choque->naBatida($user, $tenant, $agora);

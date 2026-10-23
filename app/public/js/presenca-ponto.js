@@ -32,6 +32,7 @@
     var estado = null;            // a última resposta de /ponto/estado-do-dia
     var envioEmAndamento = false; // trava do clique: cobre a posição, a releitura e o POST (spec F2)
     var aoMudar = function () {};
+    var avisosDaBatida = [];      // os avisos da última batida aceita (R6), para o cabeçalho desenhar com o link
 
     function avisar(texto) {
         if (window.bjAviso) { window.bjAviso(texto); return; }
@@ -50,14 +51,13 @@
             .finally(function () { clearTimeout(prazo); });
     }
 
-    /* dc `pontoDe`, mais o intervalo que o dc não tem (decisão Q1). */
+    /* dc `pontoDe`, mais o intervalo que o dc não tem (decisão Q1). O "Regularizar ponto de ontem" do dc não é mais
+       estado da linha: esquecimento nunca trava (spec ponto-esquecimento-nao-trava R3), e ele vem em `aviso()`. */
     function linha() { return linhaDe(estado); }
     function linhaDe(e) {
         if (!e) { return null; }
         var h = e.hoje || {};
         switch (e.estado) {
-            case 'regularizar_ontem':   // dc: vem antes de tudo; aqui leva ao pedido de esquecimento (decisão do dono)
-                return { texto: 'Regularizar ponto de ontem', cor: '#c76a12', icone: 'bi-exclamation-triangle', acao: 'regularizar', dica: 'Clique para informar a saída de ontem' };
             case 'bater_entrada':
                 return { texto: 'Bater ponto', cor: '#0a6fa0', icone: 'bi-fingerprint', acao: 'entrada', dica: 'Clique para registrar a entrada' };
             case 'em_intervalo':
@@ -71,9 +71,29 @@
         }
     }
 
+    /* O aviso de ontem (R3): fica ao lado da linha, que continua oferecendo a batida, e leva ao pedido de
+       esquecimento. Null sem pendência de ontem. */
+    function aviso() {
+        if (!estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }
+
+        return { texto: 'Regularizar ponto de ontem', cor: '#c76a12', icone: 'bi-exclamation-triangle', dica: 'Clique para informar a saída de ontem' };
+    }
+
     function atualizar() {
         return lerEstado(RELEITURA_PRAZO_MS).then(function (novo) {
             if (novo) { estado = novo; aoMudar(); }
+        });
+    }
+
+    /* Os avisos que a batida aceita trouxe (R6), sem virar erro. Só texto e, quando há, o link INTERNO e o rótulo
+       dele: o cabeçalho monta o link por DOM (presenca-cabecalho.js), só com textContent. */
+    function avisosDe(resultado) {
+        var avisos = resultado && resultado.data && resultado.data.avisos;
+        if (!Array.isArray(avisos)) { return []; }
+
+        return avisos.filter(function (a) { return a && a.texto; }).map(function (a) {
+            var interno = typeof a.link === 'string' && a.link.charAt(0) === '/' && a.link.charAt(1) !== '/' && a.rotulo;
+            return { texto: String(a.texto), link: interno ? a.link : null, rotulo: interno ? String(a.rotulo) : null };
         });
     }
 
@@ -117,8 +137,8 @@
         var base = estado;
         var atual = linhaDe(base);
         if (envioEmAndamento || !atual || !atual.acao) { return; }
-        if (atual.acao === 'regularizar') { regularizarOntem(base.ontemSemSaida); return; }
         envioEmAndamento = true;   // (1)
+        avisosDaBatida = [];
         var sucesso = false;
         try {
             aoMudar();   // mostra o item ocupado
@@ -148,7 +168,9 @@
             var resultado = await PB.enviarBatida(urlBatida, payload, momentoDoToque);          // (7) atraso e (8) POST
             if (resultado.tipo === 'sucesso') {
                 sucesso = true;
-                avisar(atual.acao === 'entrada' ? 'Ponto de entrada registrado às ' + horaDe(resultado) : 'Saída registrada às ' + horaDe(resultado));
+                avisosDaBatida = avisosDe(resultado);
+                var extra = avisosDaBatida.map(function (a) { return ' ' + a.texto; }).join('');
+                avisar((atual.acao === 'entrada' ? 'Ponto de entrada registrado às ' + horaDe(resultado) : 'Saída registrada às ' + horaDe(resultado)) + (extra ? '.' + extra : ''));
                 return;
             }
             avisar({
@@ -174,6 +196,9 @@
 
     window.PresencaPonto = {
         linha: linha,
+        aviso: aviso,
+        avisosDaBatida: function () { return avisosDaBatida; },
+        regularizar: function () { if (aviso()) { regularizarOntem(estado.ontemSemSaida); } },
         ocupado: function () { return envioEmAndamento; },
         atualizar: atualizar,
         bater: bater,

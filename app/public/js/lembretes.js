@@ -114,9 +114,14 @@
         return URL_AGENDA + (ev.eventoId ? '#ev=ev-' + ev.eventoId + '-' + ev.dia : '');
     }
 
+    // A pilha #bjl-box é compartilhada (o cartão do ponto, ponto-pendente.js, entra nela): aqui só os cartões da Agenda
+    // (data-bjl-dono="agenda") saem, e a pilha só some vazia.
     function desenhar() {
         let box = document.getElementById('bjl-box');
-        if (!fila.length) { if (box) { box.remove(); } return; }
+        if (!fila.length) {
+            if (box) { box.querySelectorAll('[data-bjl-dono="agenda"]').forEach(c => c.remove()); if (!box.children.length) { box.remove(); } }
+            return;
+        }
         if (!box) {
             box = document.createElement('div');
             box.id = 'bjl-box';
@@ -126,14 +131,14 @@
             document.body.appendChild(box);
         }
         const ids = fila.map(ev => idDe(ev.k));
-        [...box.children].forEach(c => { if (!ids.includes(c.id)) { c.remove(); } });
+        box.querySelectorAll('[data-bjl-dono="agenda"]').forEach(c => { if (!ids.includes(c.id)) { c.remove(); } });
         fila.filter(ev => !document.getElementById(idDe(ev.k))).forEach(ev => box.insertAdjacentHTML('beforeend', htmlCartao(ev)));
     }
 
     function htmlCartao(ev) {
         const P = PERF[ev.tipo] || PERF.meus;
         const dica = ev.obs || P.dica;
-        return '<div class="bjl-cartao" id="' + idDe(ev.k) + '" role="alert" style="border-left-color:' + P.cor + ';">'
+        return '<div class="bjl-cartao" data-bjl-dono="agenda" id="' + idDe(ev.k) + '" role="alert" style="border-left-color:' + P.cor + ';">'
             + '<div class="bjl-topo"><span class="bjl-icone" style="background:' + P.cor + ';"><i class="bi ' + P.ic + '"></i></span>'
             + '<div class="bjl-textos"><div class="bjl-rotulo" style="color:' + P.cor + ';">' + esc(P.r) + ' · ' + esc(rotulo(ev)) + '</div><b>' + esc(ev.t) + '</b>'
             + (dica ? '<div class="bjl-dica">' + esc(dica) + '</div>' : '') + '</div>'

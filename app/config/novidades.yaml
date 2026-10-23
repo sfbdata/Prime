@@ -1,6 +1,28 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.14.0"
+  data: "2026-10-23"
+  itens:
+    - "Ao abrir a Agenda, o BlueJus lembra que dá para ligar a sua conta Google e receber os lembretes no celular. Se preferir, marque \"Não mostrar esta mensagem novamente\"."
+    - "O Dashboard agora abre mostrando o mês atual."
+    - "Nova coluna \"Relatório\" mostra quantos registros cada pessoa fez nas pastas."
+    - "Quem concluiu mais metas no período ganha um troféu ao lado do nome."
+    - "Clique com o botão direito no nome de um colaborador (no celular, segure o dedo) para ver a posição dele, os meses em que ficou em 1º e o rendimento comparado com a equipe."
+    - "O Master e o usuário primário podem corrigir ou apagar registros a qualquer momento, inclusive de colegas. O primário pode desligar isso em Perfis. Os demais continuam com o prazo de sempre."
+    - "Na aba Financeiro da pasta, os arquivos assinados ganham o selo \"Assinado\". Arquivos com assinatura digital (gov.br, ICP-Brasil) são reconhecidos sozinhos no envio; contratos assinados à caneta podem ser marcados pelo menu do arquivo."
+    - "Ao aprovar de uma vez todos os pedidos de um lote, as batidas esquecidas agora entram na folha de ponto, como já acontecia ao aprovar um pedido por vez."
+    - "Ao criar a conta, o sistema pergunta o seu gênero para escrever o seu nome corretamente (por exemplo, Dr. ou Dra.)."
+    - "Quem ainda não informou vê uma janela rápida para escolher; dá para fechar e responder depois."
+    - "Na esteira de Minhas Metas, advogados aparecem com Dr. ou Dra. antes do nome."
+    - "A lista de \"Idioma do sistema\" ficou só com os três idiomas planejados: Português (Brasil), Inglês e Espanhol (estes dois ainda em breve)."
+    - "Agora dá para encaminhar uma nota técnica a um colega pelo Chat I.A, direto no menu da nota."
+    - "Na pasta, a janela \"Editar dados\" abre do jeito do novo desenho e já com o número da pasta selecionado para digitar."
+    - "Ao excluir uma pasta, ela vai para a lixeira e pode ser restaurada pelo botão Restaurar na própria pasta."
+    - "O link do convite agora só existe no e-mail de quem foi convidado, e a lista de convites mostra a cada pessoa só os convites que ela pode gerenciar."
+    - "O link do convite fica ainda mais protegido: só quem recebe o e-mail tem o código, e reenviar o convite troca o link."
+    - "Ao criar uma conta, a tela não diz mais se o e-mail já está cadastrado: quem já tem conta recebe um e-mail com o caminho para recuperar a senha."
+    - "No Trabalho Externo, o Master agora escolhe em \"Equipe e privacidade\" se os colaboradores podem publicar vagas e analisar currículos."
 - versao: "2.13.0"
   data: "2026-10-22"
   itens:

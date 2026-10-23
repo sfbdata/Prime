@@ -30,6 +30,8 @@ final class RegistroDoSistemaNaPasta
         'resp'     => 'Responsável',
         'probono'  => 'Pró-bono',
         'pasta'    => 'Dados da pasta',
+        // "Mover para outra carteira" do menu ⋮ (desenho 02 VS 18.10.26, `menuPasta('mover')`).
+        'carteira' => 'Carteira',
     ];
 
     /**

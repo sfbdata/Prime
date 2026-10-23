@@ -7,6 +7,7 @@ namespace App\Pasta\Service;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\CarteiraDaPasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
@@ -583,6 +584,9 @@ class PastaTimelineAssembler
                 if ((string) $field === 'prioridade') {
                     return ['Prioridade alterada', 'bi-flag-fill', 'text-bg-secondary', $this->descreverTransicaoPrioridade($diff['prioridade'] ?? null)];
                 }
+                if ((string) $field === 'carteira') {
+                    return ['Carteira alterada', 'bi-folder-symlink', 'text-bg-secondary', $this->descreverTransicaoCarteira($diff['carteira'] ?? null)];
+                }
                 if ((string) $field === 'processo') {
                     return ['Processo vinculado atualizado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
                 }
@@ -609,6 +613,22 @@ class PastaTimelineAssembler
         }
 
         return $de !== null ? sprintf('de %s para %s', $de, $para) : sprintf('definida para %s', $para);
+    }
+
+    /**
+     * "de Sem carteira para Trabalhista": o mesmo texto do cartão do Registro (`MoverPastaDeCarteiraUseCase`).
+     *
+     * @param array<string, mixed>|null $change
+     */
+    private function descreverTransicaoCarteira(?array $change): ?string
+    {
+        $para = is_array($change) && is_string($change['to'] ?? null) ? CarteiraDaPasta::tryFrom($change['to']) : null;
+        if ($para === null) {
+            return null;
+        }
+        $de = is_string($change['from'] ?? null) ? CarteiraDaPasta::tryFrom($change['from']) : null;
+
+        return sprintf('de %s para %s', CarteiraDaPasta::rotuloDe($de), $para->rotulo());
     }
 
     private function labelPrioridade(string $valor): string

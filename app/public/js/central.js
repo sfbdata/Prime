@@ -661,7 +661,7 @@
         }
 
         function menuDoAviso(a, x, y, origem) {   // menuNotif: abrir, resolver/reabrir, lida/não lida, excluir
-            var itens = [{ icone: 'bi-box-arrow-up-right', rotulo: 'Abrir', acao: function () { abrirAviso(a); } }];
+            var itens = [{ icone: 'bi-box-arrow-up-right', rotulo: a.acao || 'Abrir', acao: function () { abrirAviso(a); } }];   /* "Ver sugestão" no Contribua */
             itens.push(a.resolvidoEm
                 ? { icone: 'bi-arrow-counterclockwise', rotulo: 'Reabrir', acao: function () { resolverAviso(a, false); } }
                 : { icone: 'bi-check2-circle', rotulo: 'Resolver (dar baixa)', corIcone: '#1e8a4c', acao: function () { resolverAviso(a, true); } });
@@ -677,7 +677,7 @@
             var c = criar('div', 'bj-central-aviso-cartao' + (a.lido ? ' bj-central-aviso-cartao--lido' : '') + (ok ? ' bj-central-aviso-cartao--resolvido' : ''));
             c.setAttribute('role', 'button');
             c.tabIndex = 0;
-            c.title = 'Clique para abrir. Botão direito: mais opções';
+            c.title = 'Clique para ' + (a.acao ? a.acao.toLowerCase() : 'abrir') + '. Botão direito: mais opções';
             var cor = ok ? VERDE : a.cor;
             var fundo = ok ? '#f4f9f5' : a.cor + (a.lido ? '08' : '14');   // L5605: a cor do tipo bem clara (alfa em hexadecimal)
             c.style.setProperty('--bjc-aviso', cor);
