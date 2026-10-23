@@ -203,7 +203,7 @@
                     {% if podeEditarPasta %}
                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="e"
                             title="{{ 'pasta_cabecalho.cabecalho.menu.editar_dica'|trans }}"
-                            data-bs-toggle="modal" data-bs-target="#modalEditarPasta">
+                            data-pe-abrir aria-haspopup="dialog" aria-controls="modalEditarPasta">
                         <i class="bi bi-pencil"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.editar'|trans }}</span><kbd class="ps-pop-atalho">E</kbd>
                     </button>
                     {% endif %}

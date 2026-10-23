@@ -385,12 +385,14 @@
 
         var modal = document.getElementById('modalEditarPasta');
         if (!modal) { return; }
+        // Janela "Editar dados" (desenho 02, sem o modal do Bootstrap): arrasta a caixa e volta ao
+        // lugar ao fechar (`pe:fechada`, disparado pelo script da janela no show.html.twig).
         window.PsArrastar.ligar({
-            cabecalho: '#modalEditarPasta .ps-modal-pasta-cab',
-            janela: function (cab) { return cab.closest('.modal-dialog'); }
+            cabecalho: '#modalEditarPasta:not([hidden]) .ps-modal-pasta-cab',
+            janela: function (cab) { return cab.closest('.ps-modal-pasta'); }
         });
-        modal.addEventListener('hidden.bs.modal', function () {
-            window.PsArrastar.zerar(modal.querySelector('.modal-dialog'));
+        modal.addEventListener('pe:fechada', function () {
+            window.PsArrastar.zerar(modal.querySelector('.ps-modal-pasta'));
         });
     }
 
