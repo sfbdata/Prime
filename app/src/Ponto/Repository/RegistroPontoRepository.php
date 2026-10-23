@@ -248,6 +248,31 @@ SQL;
     }
 
     /**
+     * Só os HORÁRIOS das batidas da pessoa em qualquer outro escritório no período (`RegistroEmOutroEscritorioNoTurno`,
+     * spec `ponto-esquecimento-nao-trava.md` R8): o sinal da folha do admin diz só que houve registro, nunca onde. O
+     * filtro de escritório fica suspenso de propósito; a consulta não devolve escritório nem entidade.
+     *
+     * @return list<\DateTimeImmutable>
+     */
+    public function horariosEmOutrosEscritorios(User $user, Tenant $exceto, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        $linhas = $this->semFiltroDeEscritorio(fn (): array => $this->createQueryBuilder('r')
+            ->select('r.dataHora AS quando')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant <> :exceto')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('exceto', $exceto)
+            ->setParameter('inicio', $inicio)
+            ->setParameter('fim', $fim)
+            ->orderBy('r.dataHora', 'ASC')
+            ->getQuery()
+            ->getArrayResult());
+
+        return array_map(static fn (array $l): \DateTimeImmutable => \DateTimeImmutable::createFromInterface($l['quando']), $linhas);
+    }
+
+    /**
      * Os OUTROS escritórios em que a pessoa está com o ponto aberto hoje (spec `ponto-por-escritorio.md` §2.2): a
      * última batida do dia até o `agora` (por horário e depois id) não é saída, e houve entrada no dia até o `agora`.
      * Batida lançada para depois do `agora` não conta.

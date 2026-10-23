@@ -264,6 +264,33 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         self::assertCount(1, $this->pendencias()->filter(sprintf('li[data-pendencia-escritorio="%d"]', $this->y->getId())), 'bateu em X nos últimos 30 dias: vê');
     }
 
+    #[TestDox('R8: na ficha do colaborador, o admin de X vê o sinal no dia em que houve batida em Y com o ponto de X aberto, sem o nome de Y; o dia com a batida de Y depois da saída de X não tem sinal')]
+    public function testAdminDeXVeOSinalDeRegistroEmOutroEscritorio(): void
+    {
+        $comSinal = $this->diaUtilAtras(3);
+        $semSinal = $this->diaUtilAtras(8);
+        $this->batida($this->x, 'entrada', $comSinal->setTime(8, 0));
+        $this->batida($this->y, 'entrada', $comSinal->setTime(10, 0));   // com o ponto de X aberto
+        $this->batida($this->x, 'saida', $comSinal->setTime(17, 0));
+        if ($semSinal->format('Y-m') === $comSinal->format('Y-m')) {   // o controle negativo, quando cabe na competência
+            $this->batida($this->x, 'entrada', $semSinal->setTime(8, 0));
+            $this->batida($this->x, 'saida', $semSinal->setTime(12, 0));
+            $this->batida($this->y, 'entrada', $semSinal->setTime(13, 0));   // depois da saída de X
+        }
+
+        $admin = $this->user(['ROLE_USER']);
+        $this->vincular($admin, $this->x, ['admin.users.manage']);
+        $this->logarComTenant($this->client, $admin, $this->x);
+        $crawler = $this->client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?tab=ponto&competencia=%s', $this->x->getId(), $this->user->getId(), $comSinal->format('Y-m')));
+
+        self::assertResponseIsSuccessful();
+        $sinal = $crawler->filter(sprintf('tr[data-chave-dia="%s"] [data-registro-em-outro-escritorio]', $comSinal->format('Y-m-d')));
+        self::assertCount(1, $sinal);
+        self::assertStringContainsString('Houve registro em outro escritório neste período', $sinal->text());
+        self::assertCount(1, $crawler->filter('[data-registro-em-outro-escritorio]'), 'só o dia com o ponto de X aberto');
+        self::assertStringNotContainsString((string) $this->y->getName(), (string) $this->client->getResponse()->getContent());
+    }
+
     // ----------------------------------------------------------------- apoio
 
     private function pedirEsquecimento(\DateTimeImmutable $dia, string $batida, string $hora): void

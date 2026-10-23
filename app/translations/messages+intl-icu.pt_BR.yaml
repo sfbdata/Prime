@@ -9127,4 +9127,9 @@ ponto_pendencias:
     outro_escritorio: 'Este registro é de {escritorio}. Troque para esse escritório e envie o registro de esquecimento por lá.'
     trocar: Trocar de escritório
 
+# ---- Ponto: sinal da folha na ficha do admin (ponto/_folha_table, spec ponto-esquecimento-nao-trava R8)
+ponto_folha:
+    registro_em_outro_escritorio: Houve registro em outro escritório neste período
+    registro_em_outro_escritorio_dica: 'Enquanto o ponto deste escritório estava aberto, a pessoa registrou ponto em outro escritório. Confira as batidas do dia.'
+
 # ---- fim

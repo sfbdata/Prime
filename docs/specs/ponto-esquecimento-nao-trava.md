@@ -75,6 +75,17 @@ escritório ou em outro.
 **R6. Aviso ao bater.** A resposta da batida pode trazer `avisos` (lista de textos com link) além de `message`. A tela
 (`#batida-aviso` em /ponto e o aviso do cabeçalho) mostra o aviso **depois** do sucesso, sem tratar como erro.
 
+**R7. Público dos avisos de ponto (dono, 23/10).** Os avisos e as pendências de ponto só aparecem para quem tem a chave
+"Registra ponto eletrônico" ligada no escritório atual OU bateu ponto nele nos últimos 30 dias
+(`PublicoDosAvisosDePonto::recebe`). Vale para a lista de pendências da /ponto, o aviso de ontem e o atalho do cabeçalho,
+o alerta de horário (`#modalAlertaPonto` e `/ponto/alerta-horario`), os avisos da batida e o cartão diário (R9).
+
+**R8. Sinal na folha do admin (padrão provisório do dono, 23/10).** Na ficha do colaborador, o admin do escritório A vê
+"Houve registro em outro escritório neste período" no dia em que a pessoa bateu em outro escritório enquanto o ponto de A
+estava aberto (de uma entrada ou retorno até a próxima ida ao repouso ou saída, no máximo 16 horas). Não diz qual
+escritório; mesmo padrão visual do "Registro incompleto"; só na tela (PDF e XLSX não mudam). A consulta suspende o filtro
+de escritório e lê só os horários (`RegistroEmOutroEscritorioNoTurno`).
+
 ## 3. O que não muda
 
 - A chave do ponto, o choque de jornada, a cerca, o repouso mínimo e a regra de saída e ida ao repouso do #317.
