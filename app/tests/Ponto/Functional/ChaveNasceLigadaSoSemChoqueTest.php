@@ -86,7 +86,7 @@ final class ChaveNasceLigadaSoSemChoqueTest extends JusPrimeWebTestCase
     private function aceitarConvite(Tenant $tenant): void
     {
         $token = bin2hex(random_bytes(16));
-        $convite = new Invitation(email: (string) $this->pessoa->getEmail(), token: $token, type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
+        $convite = new Invitation(email: (string) $this->pessoa->getEmail(), tokenHash: Invitation::hashDoToken($token), type: 'office', expiresAt: new \DateTimeImmutable('+7 days'));
         $convite->setTenant($tenant);
         $this->em()->persist($convite);
         $this->em()->flush();
