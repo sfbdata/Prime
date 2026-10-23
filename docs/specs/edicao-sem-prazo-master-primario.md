@@ -6,6 +6,7 @@ repassado pelo coordenador (bluejus-72). Leitura obrigatória: `docs/AUTORIZACAO
 ## Estado da frente
 
 - 23/10: levantamento dos prazos feito (seção 2); decisões do dono A e B recebidas; spec escrita. Migration: 150600.
+- 23/10: implementado e revisado; decisões do dono sobre meta com despacho registrado e mensagens do TE (seção 2).
 
 ## 1. Regra
 
@@ -42,7 +43,14 @@ meta (10 min de sessão) e os itens sem prazo (Kanban, agenda, prazo da meta, ju
 
 Decisão do dono B: o item 7 entra (5 min para todos; Master sempre; primário com a opção). A condição "só a mais
 recente" continua para todos, porque é de consistência do histórico e não de prazo.
-Item 8: o primário que vale é o do escritório dono da demanda; o `Perfil::Master` do TE continua como está.
+Item 8 (decisão do dono, 23/10): o primário que vale é o do escritório dono da demanda, e ele só apaga mensagens de
+autor com vínculo ativo nesse escritório; as da Central e de convidados de outros escritórios, não. O
+`Perfil::Master` do TE continua como está. A opção é lida do escritório dono, sem o filtro de tenant da sessão.
+
+Item 5, meta com despacho registrado (decisão do dono, 23/10): a exclusão é recusada para todos com "Esta meta tem
+despacho registrado e não pode ser excluída". Master e primário (com a opção) veem o aviso numa janela de confirmação
+(componente de janela das Metas) e só excluem confirmando de forma explícita; sem a confirmação o servidor recusa. A
+auditoria registra a exclusão com os códigos dos despachos apagados.
 
 ## 3. Onde fica a opção do primário
 
