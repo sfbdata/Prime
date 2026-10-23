@@ -10,6 +10,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\SaidaDeEsquecimento;
+use App\Ponto\Service\BatidaJaRegistrada;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RegraDosMasters;
@@ -84,7 +85,28 @@ final class TenantController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
         private readonly TranslatorInterface $tradutor,
+        private readonly BatidaJaRegistrada $batidaJaRegistrada,
     ) {}
+
+    /**
+     * O esquecimento só vale para a batida que falta (spec `ponto-esquecimento-nao-trava.md` R1): a recusa quando a
+     * pessoa já tem, num dos dias, uma batida do tipo pedido neste escritório; null quando segue ou não é esquecimento.
+     *
+     * @param iterable<\DateTimeInterface|null> $dias
+     */
+    private function esquecimentoJaBatido(User $pessoa, Tenant $tenant, ?string $tipo, ?string $tipoRegistro, iterable $dias): ?string
+    {
+        if ($tipo !== 'esquecimento_registro' || $tipoRegistro === null || $tipoRegistro === '') {
+            return null;
+        }
+        foreach ($dias as $dia) {
+            if ($dia !== null && ($recusa = $this->batidaJaRegistrada->mensagem($pessoa, $tenant, $tipoRegistro, $dia)) !== null) {
+                return $recusa;
+            }
+        }
+
+        return null;
+    }
 
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
     public function index(TenantRepository $tenantRepository, PermissionChecker $permissionChecker): Response
@@ -1180,6 +1202,10 @@ final class TenantController extends AbstractController
             $this->addFlash('warning', 'Apenas justificativas pendentes podem ser abonadas.');
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
+        if (($jaBatida = $this->esquecimentoJaBatido($user, $tenant, $justificativa->getTipo(), $justificativa->getTipoRegistroEsquecido(), [$justificativa->getData()])) !== null) {
+            $this->addFlash('warning', $jaBatida);   // o pedido fica pendente: o admin decide (R1)
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
 
         $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
 
@@ -1538,6 +1564,10 @@ final class TenantController extends AbstractController
         }
 
         if (empty($datasValidas)) {
+            return $redirect();
+        }
+        if (($jaBatida = $this->esquecimentoJaBatido($user, $tenant, $tipo, $tipoRegEsquecido, $datasValidas)) !== null) {
+            $this->addFlash('danger', $jaBatida);   // o esquecimento é só da batida que falta (R1)
             return $redirect();
         }
 

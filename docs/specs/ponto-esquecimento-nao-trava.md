@@ -43,6 +43,10 @@ escritório ou em outro.
 - O pedido de esquecimento só vale para a batida que falta: com uma batida do mesmo tipo no dia neste escritório, o
   pedido (e a edição dele) é recusado com "Já existe um registro de {tipo} neste dia." (`BatidaJaRegistrada`). Fecha o
   desvio da interjornada de R4.
+- A aprovação também confere (re-revisão de 23/10): a aprovação individual e o lançamento em lote do admin recusam, com a
+  mesma mensagem, o esquecimento de uma batida que já existe naquele dia, escritório e pessoa. O pedido fica pendente. O
+  caso honesto (por exemplo, a saída batida por engano no lugar da ida ao repouso) é resolvido pelo admin, que corrige
+  a batida na ficha e então aprova. A aprovação de todos do lote não grava batida, então não precisa conferir.
 
 **R2. A trava de entrada aberta em outro escritório deixa de recusar.**
 - Se houver ponto aberto no A (entrada ou retorno sem fechamento), a entrada no B **passa**.

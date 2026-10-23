@@ -16,6 +16,7 @@ use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\Service\SaidaDeEsquecimento;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -160,7 +161,65 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->batidasDoTipo('entrada'));
     }
 
+    #[TestDox('A aprovação confere: pedido de saída de uma hora antes da saída batida no mesmo dia é recusado na aprovação, fica pendente, nenhuma saída nova entra e a interjornada segue recusando')]
+    public function testAprovacaoRecusadaComSaidaJaBatida(): void
+    {
+        if ((int) (new \DateTimeImmutable())->format('Hi') < 410) {
+            self::markTestSkipped('Antes das 04:10 o pedido de 4 horas atrás cairia em ontem.');
+        }
+        $batida = new \DateTimeImmutable('-3 hours');
+        $this->batida('saida', $batida);
+        $pedido = $this->esquecimentoDaSaida($batida->modify('-1 hour'));
+
+        $this->aprovar($pedido);
+
+        self::assertResponseRedirects();
+        self::assertSame('pendente', $this->em()->getConnection()->fetchOne('SELECT status FROM justificativa_ponto WHERE id = ?', [$pedido->getId()]), 'o admin decide');
+        self::assertSame(1, $this->batidasDoTipo('saida'), 'nenhuma saída nova');
+        $this->client->followRedirect();
+        self::assertStringContainsString(sprintf(BatidaJaRegistrada::MENSAGEM, 'saída'), (string) $this->client->getResponse()->getContent());
+
+        $this->bater('entrada');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->batidasDoTipo('entrada'), 'interjornada intacta');
+    }
+
+    #[TestDox('O lançamento em lote do admin também confere: esquecimento de saída num dia que já tem saída batida é recusado, sem justificativa nem batida nova')]
+    public function testLoteRecusadoComSaidaJaBatida(): void
+    {
+        $ontem = new \DateTimeImmutable('yesterday 12:00');
+        $this->batida('saida', $ontem);
+        $admin = $this->user(['ROLE_SUPER_ADMIN']);
+        $this->em()->persist(new UserTenant($admin, $this->tenant));
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $admin, $this->tenant);
+
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/nova', $this->tenant->getId(), $this->user->getId()), [
+            '_token' => 'TOKEN_admin_nova_justificativa_' . $this->user->getId(),
+            'datas' => $ontem->format('Y-m-d'),
+            'tipo' => TipoJustificativa::EsquecimentoRegistro->value,
+            'tipoRegistroEsquecido' => 'saida',
+            'horaRegistroEsquecido' => '11:00',
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM justificativa_ponto WHERE user_id = ?', [$this->user->getId()]));
+        self::assertSame(1, $this->batidasDoTipo('saida'));
+    }
+
     // ----------------------------------------------------------------- apoio
+
+    private function aprovar(JustificativaPonto $pedido): void
+    {
+        $admin = $this->user(['ROLE_SUPER_ADMIN']);
+        $this->em()->persist(new UserTenant($admin, $this->tenant));
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $admin, $this->tenant);
+        $id = (int) $pedido->getId();
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/%d/aprovar', $this->tenant->getId(), $this->user->getId(), $id), [
+            '_token' => 'TOKEN_justificativa_aprovar_' . $id,
+        ]);
+    }
 
     private function esquecimentoDaSaida(\DateTimeImmutable $quando): JustificativaPonto
     {
