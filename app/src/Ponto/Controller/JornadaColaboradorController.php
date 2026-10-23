@@ -20,6 +20,7 @@ use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,6 +32,9 @@ use Symfony\Component\Routing\Annotation\Route;
 final class JornadaColaboradorController extends AbstractController
 {
     use ValidaCsrfAjaxTrait;
+
+    /** Dois salvamentos da mesma jornada ao mesmo tempo: o segundo bate no índice único (spec seguranca-b-jornada). */
+    public const JORNADA_ALTERADA_AO_MESMO_TEMPO = 'Esta jornada acabou de ser alterada; recarregue e tente de novo.';
 
     public function __construct(
         private readonly TenantContext $tenantContext,
@@ -198,9 +202,7 @@ final class JornadaColaboradorController extends AbstractController
             $jornada->addBloco($this->blocoDaRequisicao($blocoData));
         }
 
-        $entityManager->flush();
-
-        return $this->json(['ok' => true]);
+        return $this->gravarJornada($entityManager);   // dois salvamentos ao mesmo tempo: 409, não 500
     }
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_delete', methods: ['DELETE'])]
@@ -332,6 +334,17 @@ final class JornadaColaboradorController extends AbstractController
         $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
 
         return $bloco;
+    }
+
+    private function gravarJornada(EntityManagerInterface $entityManager): JsonResponse
+    {
+        try {
+            $entityManager->flush();
+        } catch (UniqueConstraintViolationException) {
+            return $this->json(['erro' => self::JORNADA_ALTERADA_AO_MESMO_TEMPO], Response::HTTP_CONFLICT);
+        }
+
+        return $this->json(['ok' => true]);
     }
 
     private function validarBlocos(array $blocos, int $cargaSemanal): ?string
