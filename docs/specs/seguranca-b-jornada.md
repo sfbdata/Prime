@@ -56,8 +56,9 @@
 5. **A chave "Registra ponto eletrônico"** (dono, 23/10) não depende do registro de vínculo estar preenchido.
    - Backfill: fica **ligada** só para quem tem batida naquele escritório nos últimos 30 dias. Sem batida, fica
      **desligada**.
-   - Daqui para a frente, toda pessoa que entra num escritório nasce com a chave **ligada**, e o administrador desliga
-     se quiser.
+   - Daqui para a frente, toda pessoa que entra num escritório nasce com a chave **ligada**, salvo choque com outro
+     escritório da pessoa; havendo choque, nasce desligada (revisão de 23/10), e o administrador vê o motivo ao tentar
+     ligar. O administrador desliga se quiser.
 
 ## 3. Depois
 
@@ -72,7 +73,8 @@
 - **`user_tenant`:** ganha `registra_ponto` (boolean NOT NULL). Fica no `user_tenant` porque existe para toda pessoa
   do escritório; o `vinculo_no_escritorio` nem sempre está preenchido.
   - O padrão para entrada nova é `true`, em toda criação de `UserTenant`: convite aceito, cadastro e criação de
-    escritório.
+    escritório. Nasce ligado, salvo choque com outro escritório da pessoa; havendo choque, nasce desligado
+    (`RegistroDePontoInicial::registraPontoInicial`, ponto único dos criadores).
   - Backfill: `true` só para (user, tenant) com `RegistroPonto` nos últimos 30 dias. O resto fica `false`.
   - Se uma pessoa ficar com a chave ligada em dois escritórios cujos horários já se chocam hoje, nada é desfeito. O
     choque passa a ser conferido só na próxima gravação.

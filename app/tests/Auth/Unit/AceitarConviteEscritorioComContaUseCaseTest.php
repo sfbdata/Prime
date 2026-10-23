@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Auth\Unit;
 
+use App\Tests\Ponto\Support\RegistroDePontoInicialDeTesteTrait;
 use App\Auth\DTO\AceitarConviteEscritorioComContaInput;
 use App\Auth\UseCase\AceitarConviteEscritorioComContaUseCase;
 use App\Entity\Auth\Invitation;
@@ -27,6 +28,8 @@ use App\Auth\Event\ConviteDeEscritorioAceito;
 #[CoversClass(AceitarConviteEscritorioComContaUseCase::class)]
 final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 {
+    use RegistroDePontoInicialDeTesteTrait;
+
     use VagaNoEscritorioDublada;
     private EventDispatcher $eventos;
 
@@ -49,6 +52,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
             new RegraDosPrimarios($this->userTenantRepo),
             $this->eventos = new EventDispatcher(),
             $this->vagaNoEscritorio(),
+            $this->registroDePontoInicialSemChoque(),
         );
         $this->tenant  = new Tenant();
         $this->usuario = (new User())->setEmail('usuario@example.com');

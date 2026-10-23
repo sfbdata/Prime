@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Auth\Unit;
 
+use App\Tests\Ponto\Support\RegistroDePontoInicialDeTesteTrait;
 use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
 use App\Auth\UseCase\AceitarConviteEscritorioSemContaUseCase;
 use App\Entity\Auth\Invitation;
@@ -31,6 +32,8 @@ use App\Auth\Event\ConviteDeEscritorioAceito;
 #[CoversClass(AceitarConviteEscritorioSemContaUseCase::class)]
 final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 {
+    use RegistroDePontoInicialDeTesteTrait;
+
     use VagaNoEscritorioDublada;
     private EventDispatcher $eventos;
 
@@ -64,6 +67,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
             new RegraDosPrimarios($this->userTenantRepo),
             $this->eventos = new EventDispatcher(),
             $this->vagaNoEscritorio(),
+            $this->registroDePontoInicialSemChoque(),
         );
         $this->tenant = new Tenant();
     }
