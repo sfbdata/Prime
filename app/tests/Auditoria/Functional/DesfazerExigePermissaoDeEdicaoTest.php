@@ -10,7 +10,10 @@ use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
+use App\Agenda\Entity\Evento;
+use App\Entity\Agenda\LegendaCor;
 use App\Entity\ServiceDesk\Chamado;
+use App\Entity\ServiceDesk\ChamadoInteracao;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Sede;
@@ -76,7 +79,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
     }
 
     /** @param list<string> $permissoes */
-    private function entrarCom(array $permissoes): void
+    private function entrarCom(array $permissoes): User
     {
         $user = new User();
         $user->setEmail('f19_' . uniqid() . '@test.com');
@@ -114,6 +117,8 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         $this->em->flush();
 
         $this->logarComTenant($this->client, $user, $this->tenant);
+
+        return $user;
     }
 
     /**
@@ -130,23 +135,57 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
             $entidade->setLongitude('-48.06479935');
             $entidade->setRaioPermitido(100);
             $entidade->setTimezone('America/Sao_Paulo');
+            $entidade->setTenant($this->tenant);
             $diff = ['latitude' => ['from' => '-15.81100086', 'to' => '-10.00000000']];
         } elseif ($classe === Chamado::class) {
-            $entidade = new Chamado();
-            $entidade->setTitulo('Titulo novo');
-            $entidade->setDescricao('Descrição do chamado');
-            $entidade->setSolicitante($this->solicitante());
+            $entidade = $this->chamado('Titulo novo');
             $diff = ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']];
+        } elseif ($classe === ChamadoInteracao::class) {
+            $entidade = new ChamadoInteracao();
+            $entidade->setChamado($this->chamado('Chamado da interação'));
+            $entidade->setAutor($this->solicitante());
+            $entidade->setMensagem('Mensagem nova');
+            $diff = ['mensagem' => ['from' => 'Mensagem anterior', 'to' => 'Mensagem nova']];
         } else {
             $entidade = $classe === Cargo::class ? new Cargo() : new Lotacao();
             $entidade->setNome('Nome novo');
+            $entidade->setTenant($this->tenant);
             $diff = ['nome' => ['from' => 'Nome anterior', 'to' => 'Nome novo']];
         }
-        $entidade->setTenant($this->tenant);
         $this->em->persist($entidade);
         $this->em->flush();
 
         return [(int) $entidade->getId(), $this->criarLog($classe, (int) $entidade->getId(), $diff)];
+    }
+
+    private function chamado(string $titulo): Chamado
+    {
+        $chamado = new Chamado();
+        $chamado->setTitulo($titulo);
+        $chamado->setDescricao('Descrição do chamado');
+        $chamado->setSolicitante($this->solicitante());
+        $chamado->setTenant($this->tenant);
+        $this->em->persist($chamado);
+
+        return $chamado;
+    }
+
+    /** @return array{0: int, 1: int} [id do evento, id da linha de auditoria] */
+    private function cenarioEvento(User $criador): array
+    {
+        $evento = new Evento();
+        $evento->setTitulo('Titulo novo');
+        $evento->setTenant($this->tenant);
+        $evento->setCriador($criador);
+        $evento->setDataInicio(new \DateTimeImmutable('2026-11-10 10:00'));
+        $evento->setDataFim(new \DateTimeImmutable('2026-11-10 11:00'));
+        $evento->setVisibilidade(Evento::VISIBILIDADE_TODOS);
+        $evento->setStatus(Evento::STATUS_AGENDADO);
+        $this->em->persist($evento);
+        $this->em->flush();
+        $id = (int) $evento->getId();
+
+        return [$id, $this->criarLog(Evento::class, $id, ['titulo' => ['from' => 'Titulo anterior', 'to' => 'Titulo novo']])];
     }
 
     private function solicitante(): User
@@ -189,6 +228,8 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         [$tabela, $coluna] = match ($classe) {
             Sede::class  => ['sede', 'latitude'],
             Chamado::class => ['chamado', 'titulo'],
+            ChamadoInteracao::class => ['chamado_interacao', 'mensagem'],
+            Evento::class => ['evento', 'titulo'],
             Cargo::class => ['cargo', 'nome'],
             default      => ['lotacao', 'nome'],
         };
@@ -203,6 +244,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         yield 'Cargo' => [Cargo::class, 'admin.tenant.settings.manage', 'Nome novo', 'Nome anterior'];
         yield 'Lotação' => [Lotacao::class, 'admin.tenant.settings.manage', 'Nome novo', 'Nome anterior'];
         yield 'Chamado' => [Chamado::class, 'admin.servicedesk.manage', 'Titulo novo', 'Titulo anterior'];
+        yield 'Interação do chamado' => [ChamadoInteracao::class, 'admin.servicedesk.manage', 'Mensagem nova', 'Mensagem anterior'];
     }
 
     #[DataProvider('entidades')]
@@ -277,5 +319,61 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString("/auditoria/{$logCargo}/desfazer", $html, 'controle: a linha do cargo tem o botão');
         self::assertStringNotContainsString("/auditoria/{$logSede}/desfazer", $html, 'sem admin.ponto.manage, a linha da sede não tem o botão');
+    }
+
+    #[TestDox('Evento sem admin.users.manage: o criador desfaz, como na tela agenda_editar')]
+    public function testCriadorDoEventoDesfaz(): void
+    {
+        $criador = $this->entrarCom(self::SO_AUDITORIA);
+        [$id, $logId] = $this->cenarioEvento($criador);
+
+        $this->desfazer($logId);
+
+        self::assertResponseRedirects();
+        self::assertSame('Titulo anterior', $this->valorAtual(Evento::class, $id));
+    }
+
+    #[TestDox('Evento sem admin.users.manage: quem não é o criador recebe 403 e o evento fica intacto')]
+    public function testOutraPessoaNaoDesfazEvento(): void
+    {
+        [$id, $logId] = $this->cenarioEvento($this->solicitante());
+        $this->entrarCom(self::SO_AUDITORIA);
+
+        $this->desfazer($logId);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Titulo novo', $this->valorAtual(Evento::class, $id));
+    }
+
+    #[TestDox('Evento com admin.users.manage: quem não é o criador desfaz')]
+    public function testComPermissaoDesfazEventoDeOutro(): void
+    {
+        [$id, $logId] = $this->cenarioEvento($this->solicitante());
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage']);
+
+        $this->desfazer($logId);
+
+        self::assertResponseRedirects();
+        self::assertSame('Titulo anterior', $this->valorAtual(Evento::class, $id));
+    }
+
+    #[TestDox('LegendaCor não se desfaz: a recusa é a de entidade não reversível e nada muda')]
+    public function testLegendaCorNaoSeDesfaz(): void
+    {
+        $legenda = (new LegendaCor())->setNome('Nome novo')->setCor('#123456')->setTenant($this->tenant);
+        $this->em->persist($legenda);
+        $this->em->flush();
+        $id = (int) $legenda->getId();
+        $logId = $this->criarLog(LegendaCor::class, $id, ['nome' => ['from' => 'Nome anterior', 'to' => 'Nome novo']]);
+        $this->entrarCom([...self::SO_AUDITORIA, 'admin.users.manage', 'admin.tenant.settings.manage']);
+
+        $this->desfazer($logId);
+
+        self::assertResponseRedirects();
+        self::assertSame(
+            ['Esta alteração não pode ser desfeita automaticamente.'],
+            $this->client->getRequest()->getSession()->getFlashBag()->peek('error'),
+        );
+        self::assertSame('Nome novo', $this->em->getConnection()->fetchOne('SELECT nome FROM legenda_cor WHERE id = ?', [$id]));
     }
 }

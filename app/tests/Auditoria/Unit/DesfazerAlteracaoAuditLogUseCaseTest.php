@@ -752,8 +752,8 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         $log = $this->criarLog('update', $entityClass, '1');
         $this->auditLogRepository->method('find')->with(10)->willReturn($log);
 
-        self::assertSame($esperada, $this->sut->permissaoDeEdicao($log));
-        self::assertSame($esperada, $this->sut->permissaoDeEdicaoPorId(10, 1));
+        self::assertSame($esperada, $this->sut->permissaoDeEdicao($log, new User()));
+        self::assertSame($esperada, $this->sut->permissaoDeEdicaoPorId(10, 1, new User()));
     }
 
     #[TestDox('linha de outro escritório não revela a entidade: a permissão por id sai null')]
@@ -762,6 +762,31 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         $log = $this->criarLog('update', Sede::class, '1', null, 2);
         $this->auditLogRepository->method('find')->with(10)->willReturn($log);
 
-        self::assertNull($this->sut->permissaoDeEdicaoPorId(10, 1));
+        self::assertNull($this->sut->permissaoDeEdicaoPorId(10, 1, new User()));
+    }
+
+    #[TestDox('Evento: o criador desfaz sem admin.users.manage, como na tela agenda_editar; outra pessoa precisa dela')]
+    public function testCriadorDoEventoDispensaPermissao(): void
+    {
+        $criador = new User();
+        $evento = (new \App\Agenda\Entity\Evento())->setCriador($criador);
+        $log = $this->criarLog('update', \App\Agenda\Entity\Evento::class, '7');
+        $this->em->method('find')->with(\App\Agenda\Entity\Evento::class, '7')->willReturn($evento);
+
+        self::assertNull($this->sut->permissaoDeEdicao($log, $criador));
+        self::assertSame('admin.users.manage', $this->sut->permissaoDeEdicao($log, new User()));
+    }
+
+    #[TestDox('LegendaCor não se desfaz: nenhuma tela a edita, então o desfazer seria o único caminho de escrita')]
+    public function testLegendaCorNaoEReversivel(): void
+    {
+        $log = $this->criarLog('update', \App\Entity\Agenda\LegendaCor::class, '3', ['nome' => ['from' => 'a', 'to' => 'b']]);
+        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
+        $this->em->expects(self::never())->method('find');
+
+        self::assertFalse($this->sut->podeReverter($log));
+        $resultado = $this->sut->executar(10, 1);
+        self::assertFalse($resultado->sucesso);
+        self::assertSame('Esta alteração não pode ser desfeita automaticamente.', $resultado->erro);
     }
 }

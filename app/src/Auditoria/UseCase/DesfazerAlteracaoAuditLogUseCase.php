@@ -47,7 +47,6 @@ final class DesfazerAlteracaoAuditLogUseCase
         \App\Entity\ServiceDesk\ChamadoAnexo::class,
         \App\Entity\ServiceDesk\ChamadoInteracao::class,
         \App\Agenda\Entity\Evento::class,
-        \App\Entity\Agenda\LegendaCor::class,
         \App\Entity\Notificacao::class,
         \App\Entity\Tenant\Cargo::class,
         \App\Entity\Tenant\Lotacao::class,
@@ -59,8 +58,8 @@ final class DesfazerAlteracaoAuditLogUseCase
      * permissão que a tela de edição da entidade exige. Sede: telas de sede em `TenantController` (`admin.ponto.manage`).
      * Cargo e Lotação: aba do `app_tenant_edit` (`admin.tenant.settings.manage`). Chamado e o que pende dele: atribuir e
      * mudar o estado no `ServiceDeskController` (`admin.servicedesk.manage`). Evento: `agenda_editar` aceita
-     * `admin.users.manage` ou o criador; aqui vale só a permissão, sem a exceção do criador. Entidade fora do mapa não
-     * exige permissão a mais. Quem confere é o controller, pelo `PermissionChecker`, antes de chamar `executar()`.
+     * `admin.users.manage` ou o criador, e a exceção do criador mora em `permissaoDeEdicao()`. Entidade fora do mapa
+     * não exige permissão a mais. Quem confere é o controller, pelo `PermissionChecker`, antes de chamar `executar()`.
      */
     private const PERMISSAO_DE_EDICAO = [
         Sede::class                                    => 'admin.ponto.manage',
@@ -131,17 +130,26 @@ final class DesfazerAlteracaoAuditLogUseCase
             && $log->getEntityId() !== null;
     }
 
-    /** A permissão de edição que desfazer esta linha exige, além de `admin.audit.view`; null quando não há. */
-    public function permissaoDeEdicao(AuditLog $log): ?string
+    /**
+     * A permissão de edição que desfazer esta linha exige do ator, além de `admin.audit.view`; null quando não exige.
+     * Evento segue a regra do `agenda_editar`: `admin.users.manage` OU ser o criador. Para o criador, nada a mais.
+     */
+    public function permissaoDeEdicao(AuditLog $log, User $ator): ?string
     {
-        return self::PERMISSAO_DE_EDICAO[$log->getEntityClass()] ?? null;
+        $permissao = self::PERMISSAO_DE_EDICAO[$log->getEntityClass()] ?? null;
+
+        if ($permissao !== null && $this->eCriadorDoEvento($log, $ator)) {
+            return null;
+        }
+
+        return $permissao;
     }
 
     /**
      * A mesma pergunta pelo id, só para uma linha do escritório. Linha de outro escritório ou inexistente devolve
      * null: `executar()` a recusa como "não encontrado", sem revelar a entidade.
      */
-    public function permissaoDeEdicaoPorId(int $auditLogId, int $tenantId): ?string
+    public function permissaoDeEdicaoPorId(int $auditLogId, int $tenantId, User $ator): ?string
     {
         $log = $this->auditLogRepository->find($auditLogId);
 
@@ -149,7 +157,18 @@ final class DesfazerAlteracaoAuditLogUseCase
             return null;
         }
 
-        return $this->permissaoDeEdicao($log);
+        return $this->permissaoDeEdicao($log, $ator);
+    }
+
+    private function eCriadorDoEvento(AuditLog $log, User $ator): bool
+    {
+        if ($log->getEntityClass() !== \App\Agenda\Entity\Evento::class || $log->getEntityId() === null) {
+            return false;
+        }
+        $evento = $this->em->find(\App\Agenda\Entity\Evento::class, $log->getEntityId());
+        $criador = $evento instanceof \App\Agenda\Entity\Evento ? $evento->getCriador() : null;
+
+        return $criador !== null && ($criador === $ator || ($criador->getId() !== null && $criador->getId() === $ator->getId()));
     }
 
     public function executar(int $auditLogId, int $tenantId): DesfazerResultado

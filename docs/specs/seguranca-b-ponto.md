@@ -41,7 +41,8 @@
   - `Sede`: `admin.ponto.manage`;
   - `Cargo` e `Lotacao`: `admin.tenant.settings.manage` (aba do `app_tenant_edit`);
   - mesma família, acrescentada na revisão: `Chamado`, `ChamadoAnexo` e `ChamadoInteracao` com
-    `admin.servicedesk.manage`; `Evento` com `admin.users.manage` (sem a exceção do criador).
+    `admin.servicedesk.manage`; `Evento` com `admin.users.manage` OU ser o criador, como em `agenda_editar`;
+  - `LegendaCor` sai das entidades reversíveis: nenhuma tela a edita, e o desfazer seria o único caminho de escrita.
   - Sem ela, a resposta é 403 e nada muda.
   - A checagem fica no servidor, no UseCase ou no Controller, pelo `PermissionChecker` do sistema. Não basta esconder
     o botão.

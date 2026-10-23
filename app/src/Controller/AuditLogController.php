@@ -159,19 +159,19 @@ final class AuditLogController extends AbstractController
         if (!$this->desfazerUseCase->podeReverter($log)) {
             return false;
         }
-        $permissao = $this->desfazerUseCase->permissaoDeEdicao($log);
+        $permissao = $this->desfazerUseCase->permissaoDeEdicao($log, $user);
 
         return $permissao === null || $permissionChecker->canAdminister($user, $tenant, $permissao);
     }
 
     /**
-     * Desfazer é editar (achado de auditoria interna F19): a linha de Sede, Cargo ou Lotação exige também a permissão
-     * da tela que edita a entidade. Sem ela, 403 e nada muda.
+     * Desfazer é editar (achado de auditoria interna F19): a linha de entidade com tela de edição protegida exige também
+     * a permissão dessa tela (o criador do Evento, como em `agenda_editar`, dispensa). Sem ela, 403 e nada muda.
      */
     private function exigirPermissaoDeEdicao(int $id, User $user, ?Tenant $tenant, PermissionChecker $permissionChecker): void
     {
         $tenantId = $tenant?->getId();
-        $permissao = $this->desfazerUseCase->permissaoDeEdicaoPorId($id, is_int($tenantId) ? $tenantId : 0);
+        $permissao = $this->desfazerUseCase->permissaoDeEdicaoPorId($id, is_int($tenantId) ? $tenantId : 0, $user);
 
         if ($permissao !== null && !$permissionChecker->canAdminister($user, $tenant, $permissao)) {
             throw $this->createAccessDeniedException('Você não tem permissão para desfazer alterações.');
