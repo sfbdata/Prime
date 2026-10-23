@@ -22,7 +22,7 @@ final class ReenviarConviteUseCase
             throw new \DomainException(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR);
         }
 
-        $invitation = $this->invitationRepository->encontrarPorToken($input->token);
+        $invitation = $this->invitationRepository->find($input->conviteId);
 
         if ($invitation === null) {
             throw new \DomainException('Convite não encontrado.');

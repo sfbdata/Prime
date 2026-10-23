@@ -277,4 +277,38 @@ final class HierarquiaDePerfisTest extends TestCase
 
         return $perfil;
     }
+
+    #[TestDox('alcanceDoAtor: a mesma resposta do podeMexerNoAlvo para cada perfil, com o vínculo do ator lido uma vez só')]
+    public function testAlcanceDoAtorEmLote(): void
+    {
+        $vinculos = $this->createMock(UserTenantRepository::class);
+        $user     = $this->usuario();
+        $vinculo  = (new UserTenant($user, $this->tenant))->setTenantRole($this->perfil(['admin.users.invite']));
+        // Uma do nível (RegraDosPrimarios) e uma do perfil do ator; nenhuma por perfil da lista.
+        $vinculos->expects($this->exactly(2))->method('findAtivoPorUserETenant')->willReturn($vinculo);
+        $hierarquia = new HierarquiaDePerfis(
+            new RegraDosMasters($this->createMock(ContasDoSistemaRepository::class)),
+            new RegraDosPrimarios($vinculos),
+            $vinculos,
+            $this->checker,
+        );
+
+        $alcance = $hierarquia->alcanceDoAtor($user, $this->tenant);
+
+        self::assertTrue($alcance(null));
+        self::assertTrue($alcance($this->perfil([])));
+        self::assertTrue($alcance($this->perfil(['admin.users.invite'])));
+        self::assertFalse($alcance($this->perfil(['admin.users.invite', 'admin.users.manage'])));
+        self::assertFalse($alcance($this->perfilDoSistema));
+    }
+
+    #[TestDox('alcanceDoAtor: primário e Master alcançam todos os perfis')]
+    public function testAlcanceDoPrimarioEDoMaster(): void
+    {
+        foreach ([$this->primario(), $this->master()] as $ator) {
+            $alcance = $this->hierarquia->alcanceDoAtor($ator, $this->tenant);
+            self::assertTrue($alcance($this->perfilDoSistema));
+            self::assertTrue($alcance($this->perfil(['admin.roles.manage'])));
+        }
+    }
 }
