@@ -22,7 +22,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * Excluir pasta exige o NÚMERO dela digitado (desenho 1.2.3, `menuPasta('excluir')`) — e quem
  * confere é o SERVIDOR. Se só o prompt do navegador conferisse, a confirmação seria cosmética:
  * qualquer POST com o token CSRF excluiria. Os casos negativos provam a recusa E que a pasta
- * ficou intacta; o positivo prova que o caminho normal (lápide) continua o mesmo.
+ * ficou intacta; os positivos provam que a pasta vai para a lixeira, inclusive a última.
  */
 #[CoversClass(PastaController::class)]
 #[Group('pasta')]
@@ -123,7 +123,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
         self::assertSame('ativo', $pasta->getSituacao(), 'A situação não pode ter mudado.');
     }
 
-    #[TestDox('A última pasta da sequência também é protegida: número errado não a apaga de verdade')]
+    #[TestDox('A última pasta da sequência também é protegida: número errado não a exclui')]
     public function testUltimaDaSequenciaComNumeroErradoNaoSome(): void
     {
         $client          = static::createClient();
@@ -138,10 +138,42 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$id}/deletar", ['_token' => 'TOKEN_delete_pasta_' . $id, 'confirmar_nup' => '499']);
 
         self::assertResponseRedirects("/pasta/{$id}");
-        self::assertNotNull($this->recarregar($id), 'Número errado não pode apagar a última pasta.');
+        $crawler = $client->followRedirect();
+        self::assertStringContainsString('Número não confere. A pasta não foi excluída.', $crawler->text());
+        $pasta = $this->recarregar($id);
+        self::assertNotNull($pasta, 'Número errado não pode apagar a última pasta.');
+        self::assertFalse($pasta->estaExcluida(), 'Número errado não pode mandar a última pasta para a lixeira.');
     }
 
-    #[TestDox('Número certo: exclui como sempre — a pasta do meio vira lápide')]
+    #[TestDox('Número certo na ÚLTIMA da sequência: vai para a lixeira (não some), volta para a pasta com o aviso do desenho e é restaurável')]
+    public function testUltimaDaSequenciaVaiParaALixeira(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $ultima          = $this->criarPasta($tenant, '500');
+        $id              = (int) $ultima->getId();
+
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$id}/deletar", ['_token' => 'TOKEN_delete_pasta_' . $id, 'confirmar_nup' => '500']);
+
+        self::assertResponseRedirects("/pasta/{$id}");
+        $crawler = $client->followRedirect();
+        self::assertStringContainsString('Pasta 500 enviada para a lixeira (restaurável a qualquer momento)', $crawler->text());
+        self::assertCount(1, $crawler->filter('.ps-cab-excluida'), 'A pasta na lixeira mostra a faixa de excluída.');
+        self::assertCount(1, $crawler->filter('form[action$="/restaurar"]'), 'A pasta na lixeira oferece o Restaurar.');
+
+        $pasta = $this->recarregar($id);
+        self::assertNotNull($pasta, 'A última da sequência não pode mais ser apagada de verdade.');
+        self::assertTrue($pasta->estaExcluida());
+
+        $client->request('POST', "/pasta/{$id}/restaurar", ['_token' => 'TOKEN_restaurar_pasta_' . $id]);
+        self::assertFalse($this->recarregar($id)?->estaExcluida(), 'Restaurar devolve a pasta.');
+    }
+
+    #[TestDox('Número certo: a pasta do meio vai para a lixeira')]
     public function testNumeroCertoViraLapide(): void
     {
         $client          = static::createClient();
@@ -157,6 +189,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$id}/deletar", ['_token' => 'TOKEN_delete_pasta_' . $id, 'confirmar_nup' => '1238']);
 
         self::assertResponseRedirects("/pasta/{$id}");
+        self::assertStringContainsString('Pasta 1238 enviada para a lixeira (restaurável a qualquer momento)', $client->followRedirect()->text());
         $pasta = $this->recarregar($id);
         self::assertNotNull($pasta);
         self::assertTrue($pasta->estaExcluida(), 'Com o número certo a pasta precisa virar lápide.');

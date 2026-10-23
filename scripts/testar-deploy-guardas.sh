@@ -128,7 +128,7 @@ case "$todos" in
       fi
       [[ -f "$raiz/FALHAR_BUILD" ]] && { echo "BUILD:FALHOU" >> "$reg"; exit 1; }
       echo "BUILD:OK" >> "$reg"; exit 0 ;;
-  *"up -d"*)       echo "UP" >> "$reg"; exit 0 ;;
+  *"up -d"*)       echo "UP" >> "$reg"; echo "UP_ARGS:$todos" >> "$reg"; exit 0 ;;
   *pg_isready*)    exit 0 ;;
   *Health.Status*) echo healthy; exit 0 ;;
   *migrations:migrate*) echo "MIGRATE" >> "$reg"; exit 0 ;;
@@ -209,6 +209,24 @@ for SCRIPT in deploy-prod.sh deploy-prod-tls.sh; do
   grep -q "^UP$" "$dir/chamadas.log" 2>/dev/null \
       && vermelho "build quebrado: chegou a recriar container" \
       || verde "build quebrado: nenhum container foi recriado"
+  rm -rf "$dir"
+done
+
+# Agendador desligado pelo deploy-automatico.sh (tarefas ainda no crontab do host): o up não o cria.
+echo
+echo "  ▸ deploy-prod-tls.sh com SEM_AGENDADOR"
+for sem in 1 0; do
+  dir="$(mktemp -d)"; montar_sandbox "$dir"
+  printf '{"github-oauth":{"github.com":"ghp_0123456789abcdefghijABCDEFGHIJ012345"}}' > "$dir/.composer-auth.json"
+  rc="$( cd "$dir" && PATH="$dir/bin:$PATH" LETSENCRYPT_DIR="$dir/letsencrypt" COMPOSER_AUTH_SEM_REDE=1 \
+      SEM_AGENDADOR="$sem" bash scripts/deploy-prod-tls.sh >saida.log 2>&1; echo $? )"
+  if [[ "$sem" == 1 ]]; then
+    [[ "$rc" -eq 0 ]] && grep -q "^UP_ARGS:.*up -d --remove-orphans --scale scheduler=0$" "$dir/chamadas.log" \
+        && verde "SEM_AGENDADOR=1: sobe tudo com --scale scheduler=0" || vermelho "SEM_AGENDADOR=1: o up não desligou o agendador (rc=$rc)"
+  else
+    [[ "$rc" -eq 0 ]] && grep -q "^UP_ARGS:" "$dir/chamadas.log" && ! grep -q "scale scheduler" "$dir/chamadas.log" \
+        && verde "SEM_AGENDADOR=0: sobe tudo, agendador incluído" || vermelho "SEM_AGENDADOR=0: up inesperado (rc=$rc)"
+  fi
   rm -rf "$dir"
 done
 

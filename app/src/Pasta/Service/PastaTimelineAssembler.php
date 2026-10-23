@@ -555,7 +555,7 @@ class PastaTimelineAssembler
                     'Pasta excluída',
                     'bi-trash3',
                     'text-bg-danger',
-                    'A pasta continua na lista, riscada: o número dela não pode ser reaproveitado.',
+                    'A pasta foi para a lixeira e pode ser restaurada.',
                 ]
                 : [
                     'Pasta restaurada',
