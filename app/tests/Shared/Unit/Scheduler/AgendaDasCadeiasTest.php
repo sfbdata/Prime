@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Unit\Scheduler;
 
-use App\Agenda\Message\VarrerGoogleAgenda;
-use App\Agenda\Message\VarrerLembretesDePush;
-use App\Comercial\Message\ExpandirCampanhas;
-use App\Comercial\Message\VarrerAutomacoes;
 use App\Shared\Scheduler\AgendaDasCadeias;
 use App\Shared\Scheduler\AgendaDeTarefas;
+use App\Shared\Scheduler\CadeiaRecorrente;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Lock\Key;
@@ -19,61 +15,35 @@ use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\PersistingStoreInterface;
 use Symfony\Component\Lock\Store\InMemoryStore;
 use Symfony\Component\Messenger\Message\RedispatchMessage;
-use Symfony\Component\Scheduler\Generator\MessageContext;
 use Symfony\Component\Scheduler\RecurringMessage;
-use Symfony\Component\Scheduler\Schedule;
-use Symfony\Component\Scheduler\Trigger\PeriodicalTrigger;
 
 /**
- * Contrato do schedule `cadeias` (spec docs/specs/scheduler-tarefas-agendadas.md, "Cadeias no Scheduler"): as quatro
- * varreduras que antes se reagendavam com DelayStamp, cada uma no intervalo de antes e redespachada para o transport de
- * antes (o trabalho segue com a nova tentativa e a fila de falhas de sempre). Sem estado: o que passou da hora numa
- * parada não roda ao voltar.
+ * A montagem do schedule `cadeias` (spec docs/specs/scheduler-tarefas-agendadas.md, "Cadeias no Scheduler"), com
+ * dublês de {@see CadeiaRecorrente}: junta as voltas de todos os domínios, sem estado, com trava própria. As voltas
+ * reais de cada domínio têm teste próprio (CadeiasDaAgendaTest, CadeiasDoComercialTest) e o schedule do container,
+ * o AgendadorNoContainerTest.
  */
 #[CoversClass(AgendaDasCadeias::class)]
 final class AgendaDasCadeiasTest extends TestCase
 {
-    /** @return iterable<string, array{class-string, int, string}> mensagem, intervalo em segundos, transport */
-    public static function cadeiasEsperadas(): iterable
+    #[TestDox('Junta as voltas de todas as cadeias declaradas, na ordem, sem conhecer as mensagens')]
+    public function testJuntaAsVoltasDeTodasAsCadeias(): void
     {
-        yield 'push dos lembretes' => [VarrerLembretesDePush::class, 60, 'async'];
-        yield 'Google Agenda' => [VarrerGoogleAgenda::class, 300, 'async'];
-        yield 'automações do Comercial' => [VarrerAutomacoes::class, 900, 'comercial'];
-        yield 'expansor de campanhas' => [ExpandirCampanhas::class, 60, 'comercial'];
+        $a = RecurringMessage::every(60, new RedispatchMessage(new \stdClass(), 'async'));
+        $b = RecurringMessage::every(300, new RedispatchMessage(new \ArrayObject(), 'async'));
+        $c = RecurringMessage::every(900, new RedispatchMessage(new \SplQueue(), 'comercial'));
+
+        $agenda = (new AgendaDasCadeias(new LockFactory(new InMemoryStore()), [$this->cadeia($a, $b), $this->cadeia($c)]))->getSchedule();
+
+        self::assertSame([$a, $b, $c], array_values($agenda->getRecurringMessages()));
     }
 
-    #[TestDox('Só as quatro cadeias, nem mais nem menos')]
-    public function testAsQuatroCadeias(): void
+    #[TestDox('Sem nenhuma cadeia declarada, o schedule fica vazio em vez de quebrar')]
+    public function testSemCadeiaNenhuma(): void
     {
-        $esperadas = array_map(static fn (array $c): string => $c[0], iterator_to_array(self::cadeiasEsperadas()));
+        $agenda = (new AgendaDasCadeias(new LockFactory(new InMemoryStore()), []))->getSchedule();
 
-        self::assertSame(array_values($esperadas), array_keys(AgendaDasCadeias::cadeias()));
-        self::assertCount(4, $this->agenda()->getRecurringMessages());
-    }
-
-    /** @param class-string $classe */
-    #[DataProvider('cadeiasEsperadas')]
-    #[TestDox('$_dataName: a cada $segundos s, redespachada para o transport $transport')]
-    public function testCadaCadeiaNoIntervaloENoTransportDeAntes(string $classe, int $segundos, string $transport): void
-    {
-        $recorrente = $this->recorrenteDa($classe);
-        $gatilho    = $recorrente->getTrigger();
-
-        self::assertInstanceOf(PeriodicalTrigger::class, $gatilho);
-        $inicio = new \DateTimeImmutable('2026-10-23 10:00:00');
-        $proxima = $gatilho->getNextRunDate($inicio);
-        self::assertNotNull($proxima);
-        $depois = $gatilho->getNextRunDate($proxima);
-        self::assertNotNull($depois);
-        self::assertSame($segundos, $depois->getTimestamp() - $proxima->getTimestamp());
-
-        $mensagens = iterator_to_array($recorrente->getMessages(
-            new MessageContext(AgendaDasCadeias::NOME, $recorrente->getId(), $gatilho, $inicio),
-        ), false);
-        self::assertCount(1, $mensagens);
-        self::assertInstanceOf(RedispatchMessage::class, $mensagens[0]);
-        self::assertInstanceOf($classe, $mensagens[0]->envelope);
-        self::assertSame($transport, $mensagens[0]->transportNames);
+        self::assertSame([], $agenda->getRecurringMessages());
     }
 
     #[TestDox('Sem estado (stateful), com trava própria de vida curta e uma volta só por cadeia depois de um atraso')]
@@ -103,7 +73,7 @@ final class AgendaDasCadeiasTest extends TestCase
                 $key->reduceLifetime($ttl);
             }
         };
-        $agenda = (new AgendaDasCadeias(new LockFactory($loja)))->getSchedule();
+        $agenda = (new AgendaDasCadeias(new LockFactory($loja), []))->getSchedule();
 
         self::assertNull($agenda->getState(), 'o que passou da hora numa parada não roda ao voltar');
         self::assertTrue($agenda->shouldProcessOnlyLastMissedRun(), 'worker ocupado: as voltas perdidas viram uma só');
@@ -114,17 +84,18 @@ final class AgendaDasCadeiasTest extends TestCase
         self::assertNotSame(AgendaDeTarefas::TRAVA, AgendaDasCadeias::TRAVA, 'uma trava por schedule: a do default não pode segurar as cadeias');
     }
 
-    private function agenda(): Schedule
+    private function cadeia(RecurringMessage ...$voltas): CadeiaRecorrente
     {
-        return (new AgendaDasCadeias(new LockFactory(new InMemoryStore())))->getSchedule();
-    }
+        return new class ($voltas) implements CadeiaRecorrente {
+            /** @param list<RecurringMessage> $voltas */
+            public function __construct(private readonly array $voltas)
+            {
+            }
 
-    /** @param class-string $classe */
-    private function recorrenteDa(string $classe): RecurringMessage
-    {
-        $indice = array_search($classe, array_keys(AgendaDasCadeias::cadeias()), true);
-        self::assertIsInt($indice, "Cadeia {$classe} fora da agenda.");
-
-        return array_values($this->agenda()->getRecurringMessages())[$indice];
+            public function mensagens(): iterable
+            {
+                return $this->voltas;
+            }
+        };
     }
 }

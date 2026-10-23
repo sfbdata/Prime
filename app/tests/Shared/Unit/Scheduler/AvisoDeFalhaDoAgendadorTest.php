@@ -21,6 +21,7 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Messenger\Envelope as EnvelopeDoMessenger;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Scheduler\Event\FailureEvent;
 use Symfony\Component\Scheduler\Generator\MessageContext;
 use Symfony\Component\Scheduler\Trigger\CronExpressionTrigger;
@@ -168,6 +169,26 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
         self::assertStringContainsString('banco fora do ar', $erros[0]['contexto']['erro']);
     }
 
+    public function testVoltaDasCadeiasMostraONomeCurtoDaMensagemDeDentro(): void
+    {
+        $dentro   = new \ArrayObject(['email' => 'cliente@exemplo.com']);
+        $mensagem = new RedispatchMessage($dentro, 'comercial');
+        $erro     = new HandlerFailedException(new EnvelopeDoMessenger($mensagem), ['messenger.redispatch_message_handler' => new \RuntimeException('banco fora do ar')]);
+        $falhas   = $this->createMock(FalhaAgendadaRepository::class);
+        $falhas->expects(self::once())->method('registrar')->with('ArrayObject', self::anything(), \RuntimeException::class, null);
+        $mailer = new MailerQueGuarda();
+
+        (new AvisoDeFalhaDoAgendador($this->logger, $mailer, $this->identidade, $falhas, 'ops@exemplo.com'))
+            ->__invoke($this->evento($mensagem, $erro));
+
+        self::assertSame('ArrayObject', $this->logger->doNivel('error')[0]['contexto']['comando']);
+        self::assertCount(1, $mailer->enviados);
+        $email = $mailer->enviados[0];
+        self::assertStringContainsString('ArrayObject', (string) $email->getSubject());
+        self::assertStringNotContainsString('RedispatchMessage', (string) $email->getSubject());
+        self::assertStringNotContainsString('cliente@exemplo.com', (string) $email->getTextBody(), 'nada do conteúdo da mensagem');
+    }
+
     public function testGravaAFalhaComOComandoAHoraDeBrasiliaAClasseEOCodigo(): void
     {
         $falhas = $this->createMock(FalhaAgendadaRepository::class);
@@ -228,7 +249,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
         ));
     }
 
-    private function evento(RunCommandMessage $mensagem, \Throwable $erro): FailureEvent
+    private function evento(object $mensagem, \Throwable $erro): FailureEvent
     {
         $agenda  = new AgendaDeTarefas(new ArrayAdapter(), new LockFactory(new InMemoryStore()));
         $gatilho = CronExpressionTrigger::fromSpec('55 23 * * *', null, AgendaDeTarefas::FUSO);

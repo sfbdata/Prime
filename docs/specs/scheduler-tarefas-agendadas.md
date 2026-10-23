@@ -273,10 +273,15 @@ e a primeira era semeada por comando, pela tela da Agenda ou pela confirmação 
 | `VarrerAutomacoes` (automações e recuperação do Comercial) | 900 s | `comercial` | 450 s (`comercial_varredura`) |
 | `ExpandirCampanhas` (expansor de campanhas) | 60 s | `comercial` | 30 s (`comercial_expansor`) |
 
+- **Cada domínio declara as suas** numa classe que implementa `App\Shared\Scheduler\CadeiaRecorrente` (tag
+  automática): `App\Agenda\Scheduler\CadeiasDaAgenda` (push e Google) e `App\Comercial\Scheduler\CadeiasDoComercial`
+  (varredura e expansor). A `AgendaDasCadeias` as recebe por `#[AutowireIterator]` e não importa nada de domínio
+  (o Shared não depende de domínios).
 - **`RecurringMessage::every`** com o intervalo de cada uma (as constantes `INTERVALO_SEGUNDOS` ao lado de cada
   trava). Cada volta vai embrulhada em `RedispatchMessage(new X(), '<transport>')`: o gerador só põe a mensagem na
-  fila de sempre, e o trabalho continua com a nova tentativa e a fila `failed` de hoje. O contrato é o
-  `AgendaDasCadeiasTest`.
+  fila de sempre, e o trabalho continua com a nova tentativa e a fila `failed` de hoje. Contratos:
+  `AgendaDasCadeiasTest` (montagem, com dublês), `CadeiasDaAgendaTest` e `CadeiasDoComercialTest` (intervalo e
+  transport) e `AgendadorNoContainerTest` (o schedule real tem as quatro).
 - **Sem `stateful`**: o que passou da hora numa parada não roda ao voltar; a próxima volta vem no intervalo seguinte.
   O estado e a trava do schedule `default` não são compartilhados.
 - **`processOnlyLastMissedRun(true)`**: com o worker ocupado numa mensagem longa (envio ao Drive, análise da IA), as
@@ -310,7 +315,8 @@ e a primeira era semeada por comando, pela tela da Agenda ou pela confirmação 
   (vazão do `EnviarEmailHandler`, `MudancaNaAgendaParaOGoogleListener`, `SincronizarGoogleDaPessoaHandler`) não são
   cadeia e ficaram.
 - **Falha do gerador**: o `AvisoDeFalhaDoAgendador` ouve o `FailureEvent` de todos os schedules. Uma volta das
-  cadeias só falha ali se não conseguir pôr a mensagem na fila (banco fora); a falha do trabalho em si fica no
+  cadeias só falha ali se não conseguir pôr a mensagem na fila (banco fora); o aviso, o e-mail e a Central mostram o
+  nome curto da mensagem de dentro (ex.: `VarrerAutomacoes`), nunca o conteúdo. A falha do trabalho em si fica no
   retry e no `failed` do transport, como antes.
 
 ### Virada sem rodar dobrado

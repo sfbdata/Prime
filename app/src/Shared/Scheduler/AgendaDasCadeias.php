@@ -4,19 +4,11 @@ declare(strict_types=1);
 
 namespace App\Shared\Scheduler;
 
-use App\Agenda\Message\VarrerGoogleAgenda;
-use App\Agenda\Message\VarrerLembretesDePush;
-use App\Agenda\Repository\VarreduraDePushRepository;
-use App\Agenda\Repository\VarreduraDoGoogleRepository;
-use App\Comercial\Message\ExpandirCampanhas;
-use App\Comercial\Message\VarrerAutomacoes;
-use App\Comercial\MessageHandler\ExpandirCampanhasHandler;
-use App\Comercial\MessageHandler\VarrerAutomacoesHandler;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
-use Symfony\Component\Scheduler\RecurringMessage;
 use Symfony\Component\Scheduler\Schedule;
 use Symfony\Component\Scheduler\ScheduleProviderInterface;
 
@@ -24,6 +16,9 @@ use Symfony\Component\Scheduler\ScheduleProviderInterface;
  * As quatro varreduras periódicas que antes se reagendavam sozinhas com `DelayStamp` (spec
  * `docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler"): push dos lembretes, Google Agenda,
  * automações do Comercial e expansor de campanhas.
+ *
+ * Quem declara as varreduras é cada domínio, numa {@see CadeiaRecorrente} (`App\Agenda\Scheduler\CadeiasDaAgenda` e
+ * `App\Comercial\Scheduler\CadeiasDoComercial`): esta classe só as junta e não conhece nenhuma mensagem de domínio.
  *
  * Schedule próprio (`cadeias`, transport `scheduler_cadeias`), consumido pelo **worker** (`jusprime_worker_prod`),
  * que sobe em todo deploy; o contêiner `scheduler` pode ficar desligado pela trava do crontab e as varreduras não
@@ -41,7 +36,8 @@ use Symfony\Component\Scheduler\ScheduleProviderInterface;
  * Segunda proteção: cada handler reivindica a vez numa linha do banco (janela de cerca de metade do intervalo),
  * então uma volta a mais (virada, dois workers) não faz o trabalho em dobro.
  *
- * A lista é um contrato: `AgendaDasCadeiasTest` confere mensagem, intervalo e transport de cada uma.
+ * Contratos: `AgendaDasCadeiasTest` (a montagem), `CadeiasDaAgendaTest` e `CadeiasDoComercialTest` (intervalo e
+ * transport de cada varredura) e `AgendadorNoContainerTest` (o schedule real tem as quatro).
  */
 #[AsSchedule(self::NOME)]
 final class AgendaDasCadeias implements ScheduleProviderInterface
@@ -59,26 +55,13 @@ final class AgendaDasCadeias implements ScheduleProviderInterface
 
     private ?Schedule $schedule = null;
 
+    /** @param iterable<CadeiaRecorrente> $cadeias */
     public function __construct(
         #[Autowire(service: 'lock.agendador.factory')]
         private readonly LockFactory $travas,
+        #[AutowireIterator(CadeiaRecorrente::TAG)]
+        private readonly iterable $cadeias,
     ) {
-    }
-
-    /**
-     * Mensagem => intervalo em segundos e transport de destino (o mesmo de antes da troca). Os intervalos moram ao
-     * lado de cada trava no banco, que usa a metade deles como janela.
-     *
-     * @return array<class-string, array{segundos: int, transport: string}>
-     */
-    public static function cadeias(): array
-    {
-        return [
-            VarrerLembretesDePush::class => ['segundos' => VarreduraDePushRepository::INTERVALO_SEGUNDOS, 'transport' => 'async'],
-            VarrerGoogleAgenda::class    => ['segundos' => VarreduraDoGoogleRepository::INTERVALO_SEGUNDOS, 'transport' => 'async'],
-            VarrerAutomacoes::class      => ['segundos' => VarrerAutomacoesHandler::INTERVALO_SEGUNDOS, 'transport' => 'comercial'],
-            ExpandirCampanhas::class     => ['segundos' => ExpandirCampanhasHandler::INTERVALO_SEGUNDOS, 'transport' => 'comercial'],
-        ];
     }
 
     public function getSchedule(): Schedule
@@ -88,13 +71,19 @@ final class AgendaDasCadeias implements ScheduleProviderInterface
         }
 
         $mensagens = [];
-        foreach (self::cadeias() as $classe => $cadeia) {
-            $mensagens[] = RecurringMessage::every($cadeia['segundos'], new RedispatchMessage(new $classe(), $cadeia['transport']));
+        foreach ($this->cadeias as $cadeia) {
+            foreach ($cadeia->mensagens() as $mensagem) {
+                $mensagens[] = $mensagem;
+            }
         }
 
-        return $this->schedule = (new Schedule())
-            ->add(...$mensagens)
+        $schedule = (new Schedule())
             ->processOnlyLastMissedRun(true)
             ->lock($this->travas->createLock(self::TRAVA, self::VIDA_DA_TRAVA));
+        if ($mensagens !== []) {
+            $schedule->add(...$mensagens);
+        }
+
+        return $this->schedule = $schedule;
     }
 }

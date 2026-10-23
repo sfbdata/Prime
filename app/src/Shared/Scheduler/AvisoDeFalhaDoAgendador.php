@@ -12,7 +12,9 @@ use Symfony\Component\Console\Messenger\RunCommandMessage;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Scheduler\Event\FailureEvent;
@@ -118,6 +120,12 @@ final class AvisoDeFalhaDoAgendador
     {
         if ($mensagem instanceof RunCommandMessage) {
             return strtok(trim($mensagem->input), ' ') ?: $mensagem->input;
+        }
+        // Volta do schedule `cadeias`: o nome curto da mensagem de dentro (ex.: VarrerAutomacoes), sem o conteúdo.
+        if ($mensagem instanceof RedispatchMessage) {
+            $dentro = $mensagem->envelope instanceof Envelope ? $mensagem->envelope->getMessage() : $mensagem->envelope;
+
+            return substr(strrchr('\\' . $dentro::class, '\\') ?: '', 1);
         }
 
         return get_debug_type($mensagem);
