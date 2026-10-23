@@ -243,6 +243,24 @@ class JornadaColaborador implements Auditavel, TenantAware
         return $this;
     }
 
+    /**
+     * Cópia solta (nunca persistida) com outros blocos e os mesmos campos legados: a jornada proposta que o choque entre
+     * escritórios confere antes de gravar (spec seguranca-b-jornada §3.3).
+     *
+     * @param iterable<BlocoJornadaColaborador> $blocos
+     */
+    public function propostaComBlocos(iterable $blocos): self
+    {
+        $proposta = clone $this;
+        $proposta->id = null;
+        $proposta->blocos = new ArrayCollection();
+        foreach ($blocos as $bloco) {
+            $proposta->blocos->add($bloco);
+        }
+
+        return $proposta;
+    }
+
     public function removeBloco(BlocoJornadaColaborador $bloco): static
     {
         $this->blocos->removeElement($bloco);

@@ -7,6 +7,7 @@ use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\JornadaTenant;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JornadaTenantRepository;
+use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
@@ -24,6 +25,7 @@ final class JornadaTenantController extends AbstractController
 
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly ChoqueDeJornadaEntreEscritorios $choque,
     ) {}
 
     #[Route('/{id}/jornada', name: 'app_jornada_tenant_get', methods: ['GET'])]
@@ -141,6 +143,11 @@ final class JornadaTenantController extends AbstractController
             return $this->json(['erro' => $erros], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $afetadas = $this->pessoasEmChoque($tenant, $jornadaTenantRepository->doEscritorio($tenant), $blocos);
+        if ($afetadas !== []) {
+            return $this->json(['erro' => $this->recusaDasPessoas($afetadas), 'pessoas' => $afetadas], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $jornada = $jornadaTenantRepository->findOneBy(['tenant' => $tenant]);
 
         if ($jornada === null) {
@@ -162,19 +169,50 @@ final class JornadaTenantController extends AbstractController
         }
 
         foreach ($blocos as $blocoData) {
-            $bloco = new BlocoJornada();
-            $bloco->setDiasSemana(array_map('intval', (array) ($blocoData['diasSemana'] ?? [])));
-            $bloco->setEntrada((string) ($blocoData['entrada'] ?? '09:00'));
-            $bloco->setRepouso($blocoData['repouso'] !== '' ? (string) ($blocoData['repouso'] ?? null) : null);
-            $bloco->setRetorno($blocoData['retorno'] !== '' ? (string) ($blocoData['retorno'] ?? null) : null);
-            $bloco->setSaida((string) ($blocoData['saida'] ?? '18:00'));
-            $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
-            $jornada->addBloco($bloco);
+            $jornada->addBloco($this->blocoDaRequisicao($blocoData));
         }
 
         $entityManager->flush();
 
         return $this->json(['ok' => true]);
+    }
+
+    /**
+     * As pessoas do escritório com o ponto ligado para quem a padrão proposta bate com o horário de outro escritório
+     * (spec seguranca-b-jornada §3.3). Quem tem jornada pessoal em blocos não usa a padrão.
+     *
+     * @param array<int, array<string, mixed>> $blocos
+     *
+     * @return list<array{nome: string, mensagem: string}>
+     */
+    private function pessoasEmChoque(Tenant $tenant, ?JornadaTenant $atual, array $blocos): array
+    {
+        $proposta = ($atual ?? (new JornadaTenant())->setTenant($tenant))
+            ->propostaComBlocos(array_map($this->blocoDaRequisicao(...), $blocos));
+
+        return $this->choque->pessoasEmChoqueComPadrao($tenant, $proposta);
+    }
+
+    /** @param list<array{nome: string, mensagem: string}> $afetadas */
+    private function recusaDasPessoas(array $afetadas): string
+    {
+        $linhas = array_map(static fn (array $p): string => $p['nome'] . ': ' . $p['mensagem'], $afetadas);
+
+        return ChoqueDeJornadaEntreEscritorios::MENSAGEM_PADRAO . "\n" . implode("\n", $linhas);
+    }
+
+    /** @param array<string, mixed> $blocoData */
+    private function blocoDaRequisicao(array $blocoData): BlocoJornada
+    {
+        $bloco = new BlocoJornada();
+        $bloco->setDiasSemana(array_map('intval', (array) ($blocoData['diasSemana'] ?? [])));
+        $bloco->setEntrada((string) ($blocoData['entrada'] ?? '09:00'));
+        $bloco->setRepouso(($blocoData['repouso'] ?? '') !== '' ? (string) $blocoData['repouso'] : null);
+        $bloco->setRetorno(($blocoData['retorno'] ?? '') !== '' ? (string) $blocoData['retorno'] : null);
+        $bloco->setSaida((string) ($blocoData['saida'] ?? '18:00'));
+        $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
+
+        return $bloco;
     }
 
     private function validarBlocos(array $blocos, int $cargaSemanal): ?string

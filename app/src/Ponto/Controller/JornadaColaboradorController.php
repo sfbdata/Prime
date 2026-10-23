@@ -7,7 +7,11 @@ namespace App\Ponto\Controller;
 use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Repository\JornadaTenantRepository;
+use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\Service\IntervalosDeTrabalho;
 use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
@@ -30,6 +34,9 @@ final class JornadaColaboradorController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantRepository $tenantRepository,
         private readonly JornadaColaboradorRepository $jornadas,
+        private readonly JornadaTenantRepository $padroes,
+        private readonly IntervalosDeTrabalho $intervalos,
+        private readonly ChoqueDeJornadaEntreEscritorios $choque,
     ) {}
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_get', methods: ['GET'])]
@@ -169,6 +176,9 @@ final class JornadaColaboradorController extends AbstractController
         }
 
         $jornada = $this->jornadas->findByUserETenant($user, $urlTenant);
+        if (($choque = $this->choqueDaProposta($user, $urlTenant, $jornada, array_map($this->blocoDaRequisicao(...), $blocos))) !== null) {
+            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // regra 3: quem marcou primeiro fica
+        }
         if ($jornada === null) {
             $jornada = (new JornadaColaborador())->setUser($user)->setTenant($urlTenant);
             $entityManager->persist($jornada);
@@ -182,14 +192,7 @@ final class JornadaColaboradorController extends AbstractController
         }
 
         foreach ($blocos as $blocoData) {
-            $bloco = new BlocoJornadaColaborador();
-            $bloco->setDiasSemana(array_map('intval', (array) ($blocoData['diasSemana'] ?? [])));
-            $bloco->setEntrada((string) ($blocoData['entrada'] ?? '09:00'));
-            $bloco->setRepouso($blocoData['repouso'] !== '' ? (string) ($blocoData['repouso'] ?? null) : null);
-            $bloco->setRetorno($blocoData['retorno'] !== '' ? (string) ($blocoData['retorno'] ?? null) : null);
-            $bloco->setSaida((string) ($blocoData['saida'] ?? '18:00'));
-            $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
-            $jornada->addBloco($bloco);
+            $jornada->addBloco($this->blocoDaRequisicao($blocoData));
         }
 
         $entityManager->flush();
@@ -233,6 +236,9 @@ final class JornadaColaboradorController extends AbstractController
         if ($jornada === null) {
             return $this->json(['ok' => true]);
         }
+        if (($choque = $this->choqueDaProposta($user, $urlTenant, $jornada, [])) !== null) {
+            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // sem a pessoal vale a padrão
+        }
 
         foreach ($jornada->getBlocos()->toArray() as $bloco) {
             $jornada->removeBloco($bloco);
@@ -242,6 +248,36 @@ final class JornadaColaboradorController extends AbstractController
         $entityManager->flush();
 
         return $this->json(['ok' => true]);
+    }
+
+    /**
+     * O choque da jornada proposta com outro escritório onde a pessoa registra ponto (spec seguranca-b-jornada §3.3).
+     * Só conta quando a chave do ponto dela está ligada neste escritório: desligada, a jornada daqui não marca horário.
+     *
+     * @param list<BlocoJornadaColaborador> $blocos os blocos propostos; vazio é "sem jornada pessoal em blocos"
+     */
+    private function choqueDaProposta(User $user, Tenant $tenant, ?JornadaColaborador $atual, array $blocos): ?string
+    {
+        if ($this->userTenantRepository->findAtivoPorUserETenant($user, $tenant)?->isRegistraPonto() !== true) {
+            return null;
+        }
+        $proposta = ($atual ?? new JornadaColaborador())->propostaComBlocos($blocos);
+
+        return $this->choque->mensagem($user, $tenant, $this->intervalos->daJornada($proposta, $this->padroes->doEscritorio($tenant)));
+    }
+
+    /** @param array<string, mixed> $blocoData */
+    private function blocoDaRequisicao(array $blocoData): BlocoJornadaColaborador
+    {
+        $bloco = new BlocoJornadaColaborador();
+        $bloco->setDiasSemana(array_map('intval', (array) ($blocoData['diasSemana'] ?? [])));
+        $bloco->setEntrada((string) ($blocoData['entrada'] ?? '09:00'));
+        $bloco->setRepouso(($blocoData['repouso'] ?? '') !== '' ? (string) $blocoData['repouso'] : null);
+        $bloco->setRetorno(($blocoData['retorno'] ?? '') !== '' ? (string) $blocoData['retorno'] : null);
+        $bloco->setSaida((string) ($blocoData['saida'] ?? '18:00'));
+        $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
+
+        return $bloco;
     }
 
     private function validarBlocos(array $blocos, int $cargaSemanal): ?string
