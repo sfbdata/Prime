@@ -12,6 +12,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\HomeOfficeConfig;
+use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
@@ -69,6 +70,49 @@ final class InterjornadaDeEsquecimentoTest extends JusPrimeWebTestCase
         self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
         self::assertSame([[
             'texto' => sprintf(SaidaDeEsquecimento::AVISO_INTERJORNADA, $saida->format('d/m'), $saida->format('H:i'), 11),
+            'link' => null,
+            'rotulo' => null,
+        ]], $resposta['avisos']);
+        self::assertSame(2, $this->batidasDoTipo('entrada'));
+    }
+
+    /**
+     * O lote do admin trata a data de HOJE como futura (compara a data com a hora atual com o começo do dia, defeito
+     * anterior a esta frente), então a saída vai para ontem ao meio-dia e a interjornada do escritório sobe para 48 h:
+     * a entrada de agora fica dentro dela em qualquer hora do dia.
+     */
+    #[TestDox('R4: o lançamento em lote do admin (esquecimento já abonado, com a observação do lançamento) seguido de entrada: a interjornada não recusa e a resposta traz o aviso')]
+    public function testLancamentoEmLoteDoAdminViraAviso(): void
+    {
+        $jornada = (new JornadaTenant())->setTenant($this->tenant)->setMinimoMinutosInterjornada(2880);
+        $this->tenant->setJornadaTenant($jornada);
+        $this->em()->persist($jornada);
+        $this->em()->flush();
+        $saida = new \DateTimeImmutable('yesterday 12:00');
+        $this->batida('entrada', $saida->modify('-4 hours'));
+        $admin = $this->user(['ROLE_SUPER_ADMIN']);
+        $this->em()->persist(new UserTenant($admin, $this->tenant));
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $admin, $this->tenant);
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/justificativa/nova', $this->tenant->getId(), $this->user->getId()), [
+            '_token' => 'TOKEN_admin_nova_justificativa_' . $this->user->getId(),
+            'datas' => $saida->format('Y-m-d'),
+            'tipo' => TipoJustificativa::EsquecimentoRegistro->value,
+            'tipoRegistroEsquecido' => 'saida',
+            'horaRegistroEsquecido' => $saida->format('H:i'),
+        ]);
+        self::assertResponseRedirects();
+        $observacao = $this->em()->getConnection()->fetchOne(
+            'SELECT observacao FROM registro_ponto WHERE user_id = ? AND tenant_id = ? AND tipo = ?',
+            [$this->user->getId(), $this->tenant->getId(), 'saida'],
+        );
+        self::assertSame(SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN, $observacao, 'o lote gravou a saída com a observação do lançamento');
+
+        $resposta = $this->bater('entrada');
+
+        self::assertTrue($resposta['success'], (string) ($resposta['message'] ?? ''));
+        self::assertSame([[
+            'texto' => sprintf(SaidaDeEsquecimento::AVISO_INTERJORNADA, $saida->format('d/m'), '12:00', 48),
             'link' => null,
             'rotulo' => null,
         ]], $resposta['avisos']);
