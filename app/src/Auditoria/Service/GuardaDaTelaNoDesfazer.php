@@ -17,6 +17,7 @@ use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\UseCase\EditarMensagemPastaUseCase;
+use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
 use App\Repository\AuditLogRepository;
 use App\Service\PermissionChecker;
 use App\Shared\Contract\TenantAware;
@@ -35,9 +36,11 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *
  *  - a permissão de edição do mapa do F19 (`DesfazerAlteracaoAuditLogUseCase::permissaoDeEdicao`);
  *  - meta: o módulo `tarefas` e o `AcessoAMeta`, mais a regra do prazo se o diff tem o prazo e a de quem cuida da
- *    meta se tem a conclusão ou a reabertura;
- *  - pasta e filhas: `AcessoAPasta::podeEditar` na pasta-mãe (com o teto do cadeado);
- *  - mensagem da pasta: a regra da tela de edição (`EditarMensagemPastaUseCase::podeEditar`).
+ *    meta se tem a conclusão, a reabertura ou a etapa;
+ *  - pasta e filhas: `AcessoAPasta::podeEditar` na pasta-mãe (com o teto do cadeado); a observação dos Detalhes,
+ *    também a regra da tela de edição dela (`EditarObservacaoDetalhesUseCase::podeEditar`: autor e janela);
+ *  - mensagem da pasta: o que a rota de edição pede. Ver a pasta (`AcessoAPasta::podeVer`), a barreira do cadeado
+ *    para escrita (nível `Editar`) e a regra da edição (`EditarMensagemPastaUseCase::podeEditar`).
  *
  * As guardas são CHAMADAS, nunca copiadas: mudou a regra da tela, mudou a do desfazer. A linha ou a entidade que não
  * existe, está na lixeira ou é de outro escritório não exige nada aqui: o `executar()` a recusa sem tocar em nada.
@@ -46,8 +49,11 @@ final class GuardaDaTelaNoDesfazer
 {
     private const CAMPO_DO_PRAZO = 'prazo';
 
-    /** A conclusão (`ConcluirMetaUseCase`) e a reabertura (`ReabrirMetaUseCase`) mexem nestes campos. */
-    private const CAMPOS_DA_CONCLUSAO = ['status', 'dataConclusao'];
+    /**
+     * A conclusão (`ConcluirMetaUseCase`), a reabertura (`ReabrirMetaUseCase`) e a etapa da meta: a tela só deixa quem
+     * cuida da meta (`QuemCuidaDaMeta`) mexer nestes campos.
+     */
+    private const CAMPOS_DE_QUEM_CUIDA = ['status', 'dataConclusao', 'etapa', 'etapasSaltadas'];
 
     private const PASTA_E_FILHAS = [
         Pasta::class,
@@ -68,6 +74,7 @@ final class GuardaDaTelaNoDesfazer
         private readonly QuemCuidaDaMeta $quemCuidaDaMeta,
         private readonly AcessoAPasta $acessoAPasta,
         private readonly EditarMensagemPastaUseCase $editarMensagemPasta,
+        private readonly EditarObservacaoDetalhesUseCase $editarObservacaoDetalhes,
     ) {
     }
 
@@ -111,7 +118,9 @@ final class GuardaDaTelaNoDesfazer
 
         return match (true) {
             $entidade instanceof Tarefa => $this->permiteAMeta($entidade, $this->camposDoDiff($log), $ator, $tenant),
-            $entidade instanceof PastaMensagem => $this->editarMensagemPasta->podeEditar($entidade, $ator, $tenant),
+            $entidade instanceof PastaMensagem => $this->permiteAMensagem($entidade, $ator, $tenant),
+            $entidade instanceof PastaObservacaoDetalhes => $this->permiteAPasta($entidade, $ator)
+                && $this->editarObservacaoDetalhes->podeEditar($entidade, $ator, $tenant),
             default => $this->permiteAPasta($entidade, $ator),
         };
     }
@@ -126,7 +135,7 @@ final class GuardaDaTelaNoDesfazer
             return false;
         }
 
-        return array_intersect(self::CAMPOS_DA_CONCLUSAO, $campos) === []
+        return array_intersect(self::CAMPOS_DE_QUEM_CUIDA, $campos) === []
             || $this->quemCuidaDaMeta->ehResponsavelOuCriador($meta, $ator);
     }
 
@@ -139,6 +148,17 @@ final class GuardaDaTelaNoDesfazer
         }
 
         return true;
+    }
+
+    /** A rota de edição pede ver a pasta, e a barreira do cadeado recusa a escrita de quem só visualiza. */
+    private function permiteAMensagem(PastaMensagem $mensagem, User $ator, Tenant $tenant): bool
+    {
+        $pasta = $mensagem->getPasta();
+
+        return $pasta !== null
+            && $this->acessoAPasta->podeVer($ator, $pasta)
+            && $this->acessoAPasta->nivel($ator, $pasta)->podeEditar()
+            && $this->editarMensagemPasta->podeEditar($mensagem, $ator, $tenant);
     }
 
     private function permiteAPasta(object $entidade, User $ator): bool

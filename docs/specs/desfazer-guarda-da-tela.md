@@ -13,9 +13,8 @@ Risco MÉDIO. Pedido do coordenador (23/10/2026). Frente da 9b, `desfazer-guarda
   comportamento). `TarefaMensagem` e `Notificacao` saíram das reversíveis. Testes: `DesfazerExigeAGuardaDaTelaTest`
   (16), dois casos unit no `DesfazerAlteracaoAuditLogUseCaseTest`; ajustados dois testes antigos cuja premissa mudou
   (a pasta agora pede `resources.pasta.edit`; a meta pede alguém da pasta com vínculo).
-- Fica para decisão: a tela da `PastaObservacaoDetalhes` pede também autor e janela de edição
-  (`EditarObservacaoDetalhesUseCase::podeEditar`), a da mensagem pede também ver a pasta, e a passagem de etapa da meta
-  pede quem cuida da meta; a spec não pede essas regras e elas não entraram.
+- 23/10: o coordenador decidiu que as três regras da tela que tinham ficado de fora entram (regras 2 e 3): a etapa da
+  meta, a observação dos Detalhes e ver a pasta na mensagem. Testes: `DesfazerExigeAGuardaDaTelaTest` (22).
 
 ## O problema
 
@@ -29,11 +28,15 @@ desfazer deve exigir exatamente o que a tela exigiria para fazer a mesma altera�
    qualquer mudança futura da regra (a 3b está mudando as guardas de edição: `edicao-sem-prazo`).
 2. **Tarefa (meta):** módulo `tarefas` (`canAccessModule`) e `AcessoAMeta::exigir` com o ator. Se o diff tem o
    campo do prazo, também a regra do prazo da tela (`AtualizarPrazoTarefaUseCase::podeEditarPrazo`). Se tem a
-   conclusão ou a reabertura, a regra de quem pode concluir (`QuemCuidaDaMeta::ehResponsavelOuCriador`). Os demais
-   campos: módulo e acesso à meta.
+   conclusão, a reabertura ou a etapa (`etapa`, `etapasSaltadas`), a regra de quem cuida da meta
+   (`QuemCuidaDaMeta::ehResponsavelOuCriador`), a mesma da conclusão e da passagem de etapa. Os demais campos: módulo e
+   acesso à meta.
 3. **Pasta e filhas** (`Pasta`, `PastaDocumento`, `PastaSecao`, `PastaChecklistItem`, `PastaObservacaoDetalhes`):
    `AcessoAPasta::podeEditar(ator, pasta-mãe)` (o mesmo teto do cadeado que `canAccessResource` usa).
-   `PastaMensagem`: a regra da tela (`EditarMensagemPastaUseCase::podeEditar`: autor, dentro do prazo).
+   `PastaObservacaoDetalhes`: também a regra da tela de edição (`EditarObservacaoDetalhesUseCase::podeEditar`: autor,
+   dentro do prazo). `PastaMensagem`: o que a rota de edição pede, ver a pasta (`AcessoAPasta::podeVer`, o mesmo
+   `canAccessResource` de `view`), a barreira do cadeado para escrita (nível `Editar`) e a regra da tela
+   (`EditarMensagemPastaUseCase::podeEditar`: autor, dentro do prazo).
 4. **Saem da lista de reversíveis** (decisão do coordenador, 23/10): `TarefaMensagem` (nenhuma tela edita ou apaga)
    e `Notificacao` (só o dono mexe na tela; desfazer a de outra pessoa não tem uso).
 5. **Onde checar:** no mesmo ponto do F19 (antes do `executar` e no `podeDesfazer` do botão). Negado: 403 com a
@@ -45,5 +48,6 @@ desfazer deve exigir exatamente o que a tela exigiria para fazer a mesma altera�
 
 Functional por entidade (no molde de `DesfazerExigePermissaoDeEdicaoTest`): quem tem a guarda da tela desfaz; quem
 só tem a permissão da auditoria recebe 403 e o botão não aparece. Casos: meta sem acesso (AcessoAMeta), prazo por
-quem não é o criador, conclusão por quem não cuida da meta, pasta sem poder editar (inclusive pelo cadeado), filha
-de pasta, mensagem da pasta de outro autor, e `TarefaMensagem` e `Notificacao` não reversíveis.
+quem não é o criador, conclusão e etapa por quem não cuida da meta, pasta sem poder editar (inclusive pelo cadeado),
+filha de pasta, observação dos Detalhes de outro autor, mensagem da pasta de outro autor, do autor que não vê a pasta
+e do autor que o cadeado deixa só ver, e `TarefaMensagem` e `Notificacao` não reversíveis.
