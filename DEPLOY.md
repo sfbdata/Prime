@@ -257,6 +257,32 @@ tabelas nascem da migration `Version20261023150800`, junto com a `falha_agendada
 `app:pastas:relatorio-pastas-paradas --dry-run`, `app:perfil:resumo-diario --dry-run` (os de escritório
 aceitam `--tenant=ID`). A carência da quarentena (padrão 365 dias) segue em `TENANT_CARENCIA_PURGA_DIAS`.
 
+#### Varreduras periódicas (no worker, não no agendador)
+
+O push dos lembretes (a cada 60 s), a sincronia do Google Agenda (5 min), as automações do Comercial (15 min) e o
+expansor de campanhas (60 s) são o schedule `cadeias` (`app/src/Shared/Scheduler/AgendaDasCadeias.php`). Quem o
+consome é o **worker** (`jusprime_worker_prod`, `messenger:consume scheduler_cadeias comercial async`), que sobe em
+todo deploy: as varreduras seguem mesmo com o agendador desligado pela trava do crontab. Cada volta só põe a mensagem
+na fila de sempre (`async` ou `comercial`), com a nova tentativa e a fila `failed` de sempre. Não há comando para
+"semear" nem para religar: os antigos `app:agenda:push-varredura`, `app:agenda:google-varredura` e
+`app:comercial:varredura` saíram. Spec: `docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler".
+
+**Conferir** (o `debug:scheduler` lista os dois schedules, `cadeias` e `default`, com a próxima volta de cada um):
+
+```
+docker exec -w /var/www/app jusprime_worker_prod php bin/console debug:scheduler cadeias
+docker logs --since 1h jusprime_worker_prod 2>&1 | grep -E "RedispatchMessage|Varrer|ExpandirCampanhas"
+```
+
+Com o worker no ar, o log mostra a cada minuto a volta recebida do `scheduler_cadeias` e, logo depois, a mensagem
+tratada na fila. Depois de um deploy, a primeira volta pode levar até cerca de 2 min (a trava do worker antigo,
+morto sem soltá-la, expira em 60 s mais o intervalo). Na virada não há passo manual: as mensagens antigas que se
+reagendavam rodam uma última vez, sem continuação, e a trava no banco barra a volta em dobro.
+
+**Se a publicação voltar para a versão anterior** (a volta automática do deploy), o código antigo depende da semente:
+push e Google se religam sozinhos na primeira tela aberta; as do Comercial precisam de
+`docker exec -w /var/www/app jusprime_worker_prod php bin/console app:comercial:varredura`.
+
 #### Virada do crontab para o agendador (passo do dono, uma vez)
 
 O deploy da versão que traz o agendador já o liga, e o deploy só acontece com o merge do PR de release
