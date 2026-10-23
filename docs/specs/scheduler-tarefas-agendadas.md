@@ -225,6 +225,16 @@ DEPLOY.md, "Virada do crontab para o agendador":
 6. Se o deploy falhar e voltar para a versão anterior (sem agendador; a volta automática o desliga),
    descomentar o crontab (`crontab ~/crontab-antes-do-agendador.bak`).
 
+**Se esquecer o crontab, o deploy não liga o agendador e avisa.** O `deploy-automatico.sh` (roda como
+root) lê o `crontab -l` antes de subir os contêineres. Linha ativa com `bin/console app:` ou
+`sync-reconciliar.sh`: a publicação segue, mas com `SEM_AGENDADOR=1`, e o `deploy-prod-tls.sh` sobe com
+`--scale scheduler=0` (o agendador nem nasce). Sai um `::warning::` com as linhas e o passo para ligar
+depois (comentar o crontab e `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+scheduler`). Comentário, certbot e backups não contam; sem crontab (`no crontab for root`), o agendador
+sobe. Na volta automática, o agendador só é religado se rodava antes do deploy e o crontab não tem as
+tarefas. Provado em `scripts/testar-deploy-automatico.sh` e `scripts/testar-deploy-guardas.sh`. O
+`deploy-prod-tls.sh` rodado à mão, sem o `deploy-automatico.sh`, não faz essa conferência.
+
 Recomendado: preencher `AGENDADOR_ALERTA_EMAIL` no `.env.prod` antes do merge.
 
 O `scripts/sync-reconciliar.sh` fica no repositório até a virada estar confirmada (é o caminho de volta);

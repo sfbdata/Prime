@@ -279,7 +279,17 @@ máximo uma hora cheia sem o envio ao Drive entre o comentar e o agendador subir
    e tratado, sem `ERROR`. No dia seguinte, confira as diárias.
 6. Se o deploy falhar e voltar para a versão anterior (que não tem o agendador), descomente o crontab:
    `crontab ~/crontab-antes-do-agendador.bak`. O mesmo se o agendador não ficar de pé: restaure o crontab e
-   `docker stop jusprime_scheduler_prod` (ele volta a subir no próximo deploy).
+   `docker stop jusprime_scheduler_prod` (com o crontab restaurado, o próximo deploy também não o liga).
+
+**Se esquecer o crontab, o deploy não liga o agendador e avisa.** Antes de subir os contêineres, o
+`deploy-automatico.sh` lê o `crontab -l` do root. Com alguma linha ativa (não comentada) com
+`bin/console app:` ou `sync-reconciliar.sh`, a publicação segue normalmente, mas o agendador não nasce
+(`--scale scheduler=0` no `deploy-prod-tls.sh`), e o log do deploy (e o GitHub Actions) mostra um
+`::warning::` com as linhas encontradas. As tarefas continuam no cron e nada roda duas vezes. Para ligar
+depois: comente essas linhas (`crontab -e`) e rode, em `/opt/jusprime`,
+`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler`. Certbot e backups não
+contam; sem crontab nenhum, o agendador sobe. A volta automática só religa o agendador se ele estava
+rodando antes do deploy e o crontab não tem as tarefas.
 
 Os arquivos de log antigos (`/var/log/jusprime-*.log` das tarefas) param de crescer; o histórico passa a
 ser o `docker logs` do agendador.

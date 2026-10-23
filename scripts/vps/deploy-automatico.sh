@@ -13,6 +13,7 @@
 #   2. guarda de migration: migration nova que APAGA (DROP TABLE/COLUMN, TRUNCATE, DELETE,
 #      ALTER ... TYPE, RENAME) para o deploy automático. Essas são do dono, à mão;
 #   3. backup do banco (pg_dump -Fc) conferido com pg_restore --list;
+#   2b. crontab do host com tarefa do sistema ativa: o deploy segue, mas SEM ligar o agendador (avisa);
 #   4. guarda a imagem atual do php, do worker e do agendador (tag + container parado + docker save);
 #   5. posiciona o checkout na tag (fast-forward) e roda scripts/deploy-prod-tls.sh;
 #   6. confere: php saudável, a versão nova dentro do container, manutenção desligada e
@@ -151,6 +152,28 @@ if [[ -n "$destrutivas" ]]; then
 fi
 echo "Nenhuma migration destrutiva."
 
+# ─── 2b. Crontab do host x agendador ───────────────────────────────────────────
+# Se o dono ainda não comentou no crontab (do root: o deploy roda como root) as tarefas que o agendador
+# assumiu, ligar o agendador faria cada uma rodar DUAS vezes (uma no cron, outra no contêiner). Nesse caso
+# o deploy segue, mas sem o agendador (SEM_AGENDADOR=1 → `--scale scheduler=0` no deploy-prod-tls.sh), e
+# avisa. Sem crontab (`crontab -l` com erro "no crontab") vale como nenhuma linha: o agendador sobe.
+etapa "Crontab do host (tarefas do agendador)"
+tarefas_no_cron() {
+    { crontab -l 2>/dev/null || true; } | grep -vE '^[[:space:]]*(#|$)' | grep -E 'bin/console app:|sync-reconciliar\.sh' || true
+}
+CRON_ATIVO="$(tarefas_no_cron)"
+SEM_AGENDADOR=0
+if [[ -n "$CRON_ATIVO" ]]; then
+    SEM_AGENDADOR=1
+    echo "::warning::O crontab do host ainda roda tarefas do sistema: este deploy NÃO liga o agendador (senão elas rodariam duas vezes). As tarefas seguem no cron."
+    echo "Linhas ativas encontradas:"
+    sed 's/^/    /' <<< "$CRON_ATIVO"
+    echo "Para ligar depois: comente essas linhas (crontab -e) e rode, em $REPO:"
+    echo "    docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler"
+else
+    echo "Nenhuma tarefa do sistema ativa no crontab: o agendador sobe."
+fi
+
 # ─── 3. Backup do banco, conferido ─────────────────────────────────────────────
 etapa "Backup do banco"
 mkdir -p "$BACKUP_DB"; chmod 700 "$BACKUP_DB"
@@ -184,10 +207,11 @@ fi
 # ─── 4. Guarda a versão atual (rollback) ───────────────────────────────────────
 etapa "Guardando a versão atual para a volta automática"
 declare -A IMG_NOME IMG_ID
-# O agendador (serviço `scheduler`) entra na volta só se já existia antes deste deploy: no primeiro
+# O agendador (serviço `scheduler`) entra na volta só se já rodava antes deste deploy: no primeiro
 # deploy com ele não há imagem anterior a guardar, e a volta o desliga (ver voltar()).
+# Só se estava RODANDO: parado (ou desligado por crontab ativo) ele não volta.
 GUARDADOS=("$PHP" "$WORKER")
-if docker inspect "$SCHEDULER" >/dev/null 2>&1; then
+if [[ "$(docker inspect -f '{{.State.Running}}' "$SCHEDULER" 2>/dev/null || true)" == true ]]; then
     GUARDADOS+=("$SCHEDULER")
 fi
 for c in "${GUARDADOS[@]}"; do
@@ -235,11 +259,12 @@ voltar() {
         docker tag "jusprime-rollback:${c}-pre-$TAG" "${IMG_NOME[$c]}" || ok=0
     done
     git reset --quiet --hard "$ANTES" || ok=0   # checkout conferido limpo no passo 1
-    if [[ " ${GUARDADOS[*]} " == *" $SCHEDULER "* ]]; then
+    # Com tarefa ativa no crontab ele também não volta: rodaria junto com o cron.
+    if [[ " ${GUARDADOS[*]} " == *" $SCHEDULER "* && "$SEM_AGENDADOR" == 0 ]]; then
         servicos+=(scheduler)
     else
-        # Primeiro deploy com o agendador: a versão anterior não o tem. Desliga o que subiu com a nova,
-        # senão ele seguiria rodando as tarefas com o código da versão que falhou.
+        # Não rodava antes (primeiro deploy com ele, ou parado) ou o crontab ainda tem as tarefas: desliga o
+        # que tiver subido com a versão nova, senão ele seguiria rodando com o código da versão que falhou.
         docker rm -f "$SCHEDULER" >/dev/null 2>&1 || true
     fi
     "${COMPOSE[@]}" up -d --no-build "${servicos[@]}" || ok=0
@@ -260,7 +285,7 @@ voltar() {
 etapa "Publicando $TAG"
 trap 'voltar' ERR
 git merge --quiet --ff-only "$SHA"
-if ! PULAR_GIT_PULL=1 bash scripts/deploy-prod-tls.sh; then
+if ! PULAR_GIT_PULL=1 SEM_AGENDADOR="$SEM_AGENDADOR" bash scripts/deploy-prod-tls.sh; then
     # Build quebrado sai ANTES da manutenção, sem tocar container: nesse caso a volta é só do git.
     if [[ ! -f nginx/maintenance/maintenance.on && "$(docker inspect -f '{{.Image}}' "$PHP")" == "${IMG_ID[$PHP]}" ]]; then
         git reset --quiet --hard "$ANTES"
@@ -284,3 +309,6 @@ saude || ok=0
 
 echo
 echo "✅ Produção em $TAG ($SHA). Backup: $dump"
+if [[ "$SEM_AGENDADOR" == 1 ]]; then
+    echo "::warning::Agendador DESLIGADO: o crontab do host ainda tem as tarefas do sistema. Comente-as e rode: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler"
+fi
