@@ -1,0 +1,158 @@
+{# ============================================================================
+   Link externo do Push Processual, lado do escritório (spec docs/specs/push-link-externo.md §5).
+   Desenho: docs/design/claude-design-2026-10-05 (1)/"02 - EXPEDIENTES 1.2.3.dc.html" ([EXP]):
+   modal L.506-552 (lógica `plVals`, L.5158-5226), painel de acessos L.476-503 (`plAcessosVals`,
+   L.4396-4407) e o menu da aba Push (`pushLinkItens`/`abaMenu`, L.4378-4419; visual do menu
+   genérico `gm`, L.289-297, com o X de fechar do print do dono).
+
+   Três peças, todas escondidas até o pasta-push-link.js abrir:
+     1. `#pushLinkMenu`: o menu "PUSH PROCESSUAL" do botão direito na aba Push. Os itens já vêm
+        aqui; o JS só mostra os que valem para os links desta pasta (dado do GET da lista).
+     2. `#modalLinkExternoPush`: o modal com o formulário, o link criado e a lista "Links desta
+        pasta" (as linhas da lista o JS monta, só com textContent).
+     3. `#pushLinkAcessos`: o painel "Acessos ao link do Push" (C.7).
+
+   Decisões do dono que tiram coisa do desenho (spec, D3): um link só, o curto, já ativo. Sem o
+   selo "ativa com o domínio", sem "Copiar link completo" e sem a linha do tamanho do link
+   completo. Sem os balões de DICA (spec §6).
+
+   Contexto: `pasta`, `push` (App\Pasta\DTO\PastaPushOutput).
+   ============================================================================ #}
+{% set proc = pasta.processoPrincipal %}
+{% set totalMovs = push.total|default(0) %}
+{# Textos do pasta-push-link.js, que o show carrega depois deste parcial (spec idioma-do-sistema, "A Pasta, aba Push"). #}
+{{ catalogo_js('pasta_push.js') }}
+
+{# ── 1. Menu da aba Push ([EXP] L.289-297 `gm`, itens L.4388-4395) ──
+   Com a tela `pushpub` desligada, some para quem não é Master, como o item do ⋮ (_cabecalho);
+   sem o #pushLinkMenu o JS não prende o botão direito e vale o menu do navegador. #}
+{% if recurso_visivel('pushpub') %}
+<div class="ppl-menu {{ recurso_marca('pushpub') }}" id="pushLinkMenu" role="menu" aria-labelledby="pushLinkMenuTitulo" hidden>
+    <div class="ppl-menu-cab">
+        <span class="ppl-menu-titulo" id="pushLinkMenuTitulo">{{ 'pasta_push.link.menu.titulo'|trans }}</span>
+        <button type="button" class="ppl-menu-x js-ppl-menu-fechar" title="{{ 'pasta_push.link.menu.fechar_dica'|trans }}" aria-label="{{ 'pasta_push.link.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </div>
+    <button type="button" class="ppl-menu-item js-ppl-menu-copiar" role="menuitem" hidden>
+        <i class="bi bi-link-45deg" aria-hidden="true"></i><span>{{ 'pasta_push.link.menu.copiar'|trans }}</span>
+    </button>
+    <button type="button" class="ppl-menu-item js-ppl-menu-acessos" role="menuitem" hidden>
+        <i class="bi bi-eye" aria-hidden="true"></i><span class="js-ppl-menu-acessos-rotulo">{{ 'pasta_push.link.menu.acessos'|trans }}</span>
+    </button>
+    <button type="button" class="ppl-menu-item js-ppl-menu-gerar" role="menuitem" hidden>
+        <i class="bi bi-broadcast" aria-hidden="true"></i><span class="js-ppl-menu-gerar-rotulo">{{ 'pasta_push.link.menu.gerar'|trans }}</span>
+    </button>
+    <button type="button" class="ppl-menu-item js-ppl-menu-indisponivel" role="menuitem" hidden>
+        <i class="bi bi-lock" aria-hidden="true"></i><span>{{ 'pasta_push.link.menu.indisponivel'|trans }}</span>
+    </button>
+    <div class="ppl-menu-carregando js-ppl-menu-carregando" role="presentation">{{ 'pasta_push.link.menu.carregando'|trans }}</div>
+</div>
+{% endif %}
+
+{# ── 2. Modal ([EXP] L.506-552) ── #}
+<div class="ppl-fundo" id="modalLinkExternoPush" hidden
+     data-url-links="{{ path('pasta_push_links_listar', {id: pasta.id}) }}"
+     data-csrf="{{ csrf_token('pasta_push_link_' ~ pasta.id) }}"
+     data-pasta-nup="{{ pasta.nup }}"
+     data-tem-processo="{{ proc ? '1' : '0' }}">
+    <div class="ppl-janela" role="dialog" aria-modal="true" aria-labelledby="pplTitulo">
+        <div class="ppl-cab">
+            <span class="ppl-cab-icone" aria-hidden="true"><i class="bi bi-broadcast"></i></span>
+            <div class="ppl-cab-textos">
+                <div class="ppl-cab-titulo" id="pplTitulo">{{ 'pasta_push.link.modal.titulo'|trans }}</div>
+                <div class="ppl-cab-sub">{{ 'pasta_push.link.pasta'|trans({nup: pasta.nup}) }}{% if proc %} · {{ 'pasta_push.link.modal.processo'|trans({numero: proc.numeroProcesso|numero_cnj}) }}{% endif %}</div>
+            </div>
+            <button type="button" class="ppl-cab-x js-ppl-fechar" aria-label="{{ 'pasta_push.link.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+
+        <div class="ppl-corpo">
+            {% if not proc %}
+                {# [EXP] L.513 `pl.semProc` #}
+                <div class="ppl-sem-proc">{{ 'pasta_push.link.modal.sem_processo'|trans }}</div>
+            {% else %}
+                {# [EXP] L.515: o aviso fixo. #}
+                <div class="ppl-aviso"><i class="bi bi-shield-lock" aria-hidden="true"></i><span>{{ 'pasta_push.link.modal.aviso_antes'|trans }} <strong>{{ 'pasta_push.link.modal.aviso_destaque'|trans }}</strong> {{ 'pasta_push.link.modal.aviso_depois'|trans }}</span></div>
+
+                {# Pasta que não pode gerar agora (arquivada, cancelada, sem movimentação): o motivo
+                   do servidor, no mesmo tom do aviso sem processo. O desenho só trata a falta de
+                   processo dentro do modal; o resto ele mostra no menu da aba. #}
+                <div class="ppl-sem-proc js-ppl-bloqueio" hidden></div>
+                <div class="ppl-erro js-ppl-erro" role="alert" hidden></div>
+
+                {# C.5: link criado ([EXP] L.517-531, menos o que a D3 tirou). #}
+                <div class="ppl-criado js-ppl-criado" hidden>
+                    <div class="ppl-criado-titulo"><i class="bi bi-check-circle-fill" aria-hidden="true"></i><span class="js-ppl-criado-titulo">{{ 'pasta_push.link.criado.titulo'|trans }}</span></div>
+                    <div class="ppl-criado-linha">
+                        <input type="text" class="ppl-criado-url js-ppl-criado-url" readonly aria-label="{{ 'pasta_push.link.criado.endereco'|trans }}" value="">
+                        <button type="button" class="ppl-btn ppl-btn--primario js-ppl-criado-copiar"><i class="bi bi-clipboard js-ppl-criado-copiar-ic" aria-hidden="true"></i><span class="js-ppl-criado-copiar-txt">{{ 'pasta_push.link.criado.copiar'|trans }}</span></button>
+                    </div>
+                    <div class="ppl-criado-codigo js-ppl-criado-codigo-linha" hidden>{{ 'pasta_push.link.criado.codigo'|trans }}<span class="ppl-criado-codigo-num js-ppl-criado-codigo"></span><span class="ppl-criado-codigo-dica">{{ 'pasta_push.link.criado.codigo_dica'|trans }}</span></div>
+                    <div class="ppl-criado-rodape">
+                        <i class="bi bi-clock" aria-hidden="true"></i><span class="js-ppl-criado-validade"></span>
+                        <span class="ppl-espaco"></span>
+                        <button type="button" class="ppl-btn ppl-btn--contorno js-ppl-ver-terceiro"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>{{ 'pasta_push.link.criado.ver_como_terceiro'|trans }}</button>
+                        <button type="button" class="ppl-btn ppl-btn--texto js-ppl-criar-outro">{{ 'pasta_push.link.criado.criar_outro'|trans }}</button>
+                    </div>
+                </div>
+
+                {# C.3: formulário ([EXP] L.533-539). #}
+                <div class="ppl-form js-ppl-form">
+                    <div class="ppl-faixa"><i class="bi bi-clock-history" aria-hidden="true"></i><span><strong>{{ 'pasta_push.link.form.validade'|trans }}</strong> {{ 'pasta_push.link.form.validade_depois'|trans }}</span></div>
+                    <div class="ppl-ve">
+                        <span class="ppl-rotulo">{{ 'pasta_push.link.form.o_que_ve'|trans }}</span>
+                        <div class="ppl-ve-fixo"><i class="bi bi-check2" aria-hidden="true"></i>{{ 'pasta_push.link.form.movimentacoes'|trans }}<span class="ppl-espaco"></span><span class="ppl-ve-fixo-n"><span class="ps-num">{{ totalMovs }}</span> {{ 'pasta_push.link.form.hoje'|trans }}</span></div>
+                        {# `ops` do desenho ([EXP] L.5205): código e cliente ligados; IA desligada e
+                           travada até o servidor dizer quantas análises podem ir junto. #}
+                        <button type="button" class="ppl-op js-ppl-op" role="switch" aria-checked="true" data-op="exigir_codigo">
+                            <span class="ppl-op-textos"><span class="ppl-op-titulo">{{ 'pasta_push.link.form.codigo'|trans }}</span><span class="ppl-op-desc">{{ 'pasta_push.link.form.codigo_desc'|trans }}</span></span>
+                            <span class="ppl-sw" aria-hidden="true"><span class="ppl-sw-bola"></span></span>
+                        </button>
+                        <button type="button" class="ppl-op js-ppl-op" role="switch" aria-checked="true" data-op="mostrar_cliente">
+                            <span class="ppl-op-textos"><span class="ppl-op-titulo">{{ 'pasta_push.link.form.cliente'|trans }}</span><span class="ppl-op-desc">{{ 'pasta_push.link.form.cliente_desc'|trans }}</span></span>
+                            <span class="ppl-sw" aria-hidden="true"><span class="ppl-sw-bola"></span></span>
+                        </button>
+                        {# Sem `modules.inteligencia.view` a aba não mostra nada de IA: o interruptor também some. #}
+                        {% if iaPermitida|default(false) %}
+                        <button type="button" class="ppl-op js-ppl-op" role="switch" aria-checked="false" data-op="incluir_analises" disabled aria-disabled="true">
+                            <span class="ppl-op-textos"><span class="ppl-op-titulo">{{ 'pasta_push.link.form.ia'|trans }}</span><span class="ppl-op-desc js-ppl-op-ia-desc">{{ 'pasta_push.link.form.ia_sem'|trans }}</span></span>
+                            <span class="ppl-sw" aria-hidden="true"><span class="ppl-sw-bola"></span></span>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# C.6: "Links desta pasta" ([EXP] L.540-548), dentro de `pl.temProc` (L.514-549) como no
+                   desenho: sem processo vinculado o modal só mostra o aviso. #}
+                <div class="ppl-lista-bloco js-ppl-lista-bloco" hidden>
+                    <div class="ppl-lista-cab">
+                        <span class="ppl-rotulo">{{ 'pasta_push.link.lista.titulo'|trans }}</span>
+                        <span class="ppl-espaco"></span>
+                        <button type="button" class="ppl-ac-total js-ppl-abrir-acessos" title="{{ 'pasta_push.link.lista.abrir_acessos'|trans }}"><i class="bi bi-eye" aria-hidden="true"></i><b class="js-ppl-ac-total">0</b><span class="js-ppl-ac-total-txt"> {{ 'pasta_push.link.acessos_no_total'|trans }}</span><i class="bi bi-box-arrow-up-right ppl-ac-total-seta" aria-hidden="true"></i></button>
+                        <span class="ppl-lista-resumo js-ppl-resumo"></span>
+                    </div>
+                    <ul class="ppl-lista js-ppl-lista"></ul>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="ppl-rodape-janela">
+            <button type="button" class="ppl-btn ppl-btn--neutro js-ppl-fechar">{{ 'pasta_push.link.fechar'|trans }}</button>
+            {% if proc %}
+                <button type="button" class="ppl-btn ppl-btn--primario js-ppl-gerar"><i class="bi bi-link-45deg" aria-hidden="true"></i><span>{{ 'pasta_push.link.modal.gerar'|trans }}</span></button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ── 3. Painel "Acessos ao link do Push" ([EXP] L.476-503) ── #}
+<div class="ppl-ac-fundo" id="pushLinkAcessos" hidden>
+    <div class="ppl-ac-janela" role="dialog" aria-modal="true" aria-labelledby="pplAcTitulo">
+        <div class="ppl-ac-cab">
+            <i class="bi bi-eye" aria-hidden="true"></i>
+            <div class="ppl-ac-cab-textos"><span class="ppl-ac-cab-titulo" id="pplAcTitulo">{{ 'pasta_push.link.acessos.titulo'|trans }}</span><span class="ppl-ac-cab-sub js-ppl-ac-sub">{{ 'pasta_push.link.pasta'|trans({nup: pasta.nup}) }}</span></div>
+            <button type="button" class="ppl-ac-x js-ppl-ac-fechar" aria-label="{{ 'pasta_push.link.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="ppl-ac-resumo"><span class="ppl-ac-resumo-n js-ppl-ac-n">0</span><span class="ppl-ac-resumo-txt js-ppl-ac-n-txt">{{ 'pasta_push.link.acessos_no_total'|trans }}</span><span class="ppl-espaco"></span><span class="ppl-ac-resumo-ultimo js-ppl-ac-ultimo">{{ 'pasta_push.link.acessos.nenhum'|trans }}</span></div>
+        <div class="ppl-ac-lista js-ppl-ac-lista"></div>
+        <div class="ppl-ac-rodape">{{ 'pasta_push.link.acessos.rodape'|trans }}</div>
+    </div>
+</div>

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -187,6 +189,7 @@ final class ExclusaoApagaAvisosDaMensagemTest extends JusPrimeWebTestCase
         $pasta   = $this->criarPasta($tenant);
         $pastaId = (int) $pasta->getId();
 
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $bruno);
         $this->logarComTenant($client, $ana, $tenant);
         $client->request('POST', '/pasta/' . $pastaId . '/mensagem', [
             '_token'   => 'TOKEN_pasta_mensagem_' . $pastaId,

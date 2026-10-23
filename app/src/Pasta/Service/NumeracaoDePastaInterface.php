@@ -9,10 +9,9 @@ use App\Entity\Tenant\Tenant;
 /**
  * A sequência de números de pasta de um escritório.
  *
- * Existe como interface para os dois lados que precisam concordar sobre ela — o
- * `GerarNumeroDePasta`, que atribui o próximo número, e o `ExcluirPastaUseCase`, que decide se a
- * pasta sendo excluída é a última da fila — poderem ser testados no nível certo: a implementação
- * é provada contra o Postgres de verdade, e quem a consome é provado com dublê.
+ * Existe como interface para o `GerarNumeroDePasta`, que atribui o próximo número, poder ser
+ * testado no nível certo: a implementação é provada contra o Postgres de verdade, e quem a consome
+ * é provado com dublê.
  */
 interface NumeracaoDePastaInterface
 {
@@ -26,7 +25,4 @@ interface NumeracaoDePastaInterface
 
     /** O maior número já usado no escritório; 0 se não há nenhum número aproveitável. */
     public function maiorNumero(Tenant $tenant): int;
-
-    /** Existe alguma pasta do escritório com número ESTRITAMENTE maior que o deste NUP? */
-    public function existeNumeroMaiorQue(Tenant $tenant, ?string $nup): bool;
 }

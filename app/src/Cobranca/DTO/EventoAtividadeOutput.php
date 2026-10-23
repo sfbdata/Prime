@@ -32,7 +32,7 @@ final class EventoAtividadeOutput
             ocorridoEm: $evento->getOcorridoEm(),
             tipoLabel: $evento->getTipo()->label(),
             objetoId: $objeto?->getId(),
-            objetoIdentificacao: $objeto?->getIdentificacao() ?? '—',
+            objetoIdentificacao: $objeto?->getIdentificacao() ?? 'Não informado',
             descricao: $evento->getDescricao(),
         );
     }

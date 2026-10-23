@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Processo {{ processo.numeroProcesso }}{% endblock %}
+{% block title %}{{ 'processo.show.titulo'|trans({numero: processo.numeroProcesso}) }}{% endblock %}
 
 {% block stylesheets %}
 {{ parent() }}
@@ -31,14 +31,17 @@
         <div class="row mb-2">
             <div class="col-sm-6">
                 <h1 class="m-0">
-                    <i class="bi bi-briefcase me-2"></i>Processo {{ processo.numeroProcesso }}
+                    <i class="bi bi-briefcase me-2"></i>{{ 'processo.show.titulo'|trans({numero: processo.numeroProcesso}) }}
                 </h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ path('processo_index') }}">Processos</a></li>
-                    <li class="breadcrumb-item active">Detalhes</li>
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'processo.comum.home'|trans }}</a></li>
+                    {% if can_access_module('djen') %}
+                        <li class="breadcrumb-item"><a href="{{ path('push_processual_index') }}">{{ 'processo.comum.push'|trans }}</a></li>
+                    {% endif %}
+                    <li class="breadcrumb-item"><a href="{{ path('processo_index') }}">{{ 'processo.comum.processos'|trans }}</a></li>
+                    <li class="breadcrumb-item active">{{ 'processo.show.detalhes'|trans }}</li>
                 </ol>
             </div>
         </div>
@@ -66,7 +69,7 @@
                             <div class="col-12 col-sm-4">
                                 <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Tribunal</span>
+                                        <span class="info-box-text text-center text-muted">{{ 'processo.comum.tribunal'|trans }}</span>
                                         <span class="info-box-number text-center text-muted mb-0">{{ processo.siglaTribunal ? processo.siglaTribunal|upper : '-' }}</span>
                                     </div>
                                 </div>
@@ -74,7 +77,7 @@
                             <div class="col-12 col-sm-4">
                                 <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Instância</span>
+                                        <span class="info-box-text text-center text-muted">{{ 'processo.comum.instancia'|trans }}</span>
                                         <span class="info-box-number text-center text-muted mb-0">{{ processo.instancia ?: '-' }}</span>
                                     </div>
                                 </div>
@@ -82,8 +85,8 @@
                             <div class="col-12 col-sm-4">
                                 <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Distribuição</span>
-                                        <span class="info-box-number text-center text-muted mb-0">{% if processo.dataDistribuicao %}{{ processo.dataDistribuicao|date('d/m/Y') }}{% else %}-{% endif %}</span>
+                                        <span class="info-box-text text-center text-muted">{{ 'processo.show.distribuicao'|trans }}</span>
+                                        <span class="info-box-number text-center text-muted mb-0">{% if processo.dataDistribuicao %}{{ processo.dataDistribuicao|data }}{% else %}-{% endif %}</span>
                                     </div>
                                 </div>
                             </div>
@@ -93,28 +96,28 @@
                         <ul class="nav nav-tabs" id="processoTabs" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="true">
-                                    <i class="bi bi-info-circle me-1"></i> Informações
+                                    <i class="bi bi-info-circle me-1"></i> {{ 'processo.comum.informacoes'|trans }}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="partes-tab" data-bs-toggle="tab" data-bs-target="#partes" type="button" role="tab" aria-controls="partes" aria-selected="false">
-                                    <i class="bi bi-people me-1"></i> Partes
+                                    <i class="bi bi-people me-1"></i> {{ 'processo.comum.partes'|trans }}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="movimentacoes-tab" data-bs-toggle="tab" data-bs-target="#movimentacoes" type="button" role="tab" aria-controls="movimentacoes" aria-selected="false">
-                                    <i class="bi bi-clock-history me-1"></i> Movimentações
+                                    <i class="bi bi-clock-history me-1"></i> {{ 'processo.comum.movimentacoes'|trans }}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
-                                    <i class="bi bi-list-task me-1"></i> Tarefas
+                                    <i class="bi bi-list-task me-1"></i> {{ 'processo.show.tarefas'|trans }}
                                     {% if historicoTarefas|length > 0 %}<span class="badge text-bg-secondary ms-1">{{ historicoTarefas|length }}</span>{% endif %}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="sistema-tab" data-bs-toggle="tab" data-bs-target="#sistema" type="button" role="tab" aria-controls="sistema" aria-selected="false">
-                                    <i class="bi bi-info-circle me-1"></i> Detalhes
+                                    <i class="bi bi-info-circle me-1"></i> {{ 'processo.show.detalhes'|trans }}
                                 </button>
                             </li>
                         </ul>
@@ -125,13 +128,13 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="text-muted">
-                                            <p class="text-sm">Órgão Julgador
+                                            <p class="text-sm">{{ 'processo.comum.orgao_julgador'|trans }}
                                                 <b class="d-block">{{ processo.orgaoJulgador ?: '-' }}</b>
                                             </p>
-                                            <p class="text-sm">Classe Processual
+                                            <p class="text-sm">{{ 'processo.comum.classe_processual'|trans }}
                                                 <b class="d-block">{{ processo.classeProcessual ?: '-' }}</b>
                                             </p>
-                                            <p class="text-sm">Assunto{% if processo.assuntos|length > 1 %}s{% endif %}
+                                            <p class="text-sm">{{ processo.assuntos|length > 1 ? 'processo.show.assuntos'|trans : 'processo.show.assunto'|trans }}
                                                 {% if processo.assuntos|length > 0 %}
                                                     <span class="d-block mt-1">
                                                         {% for assunto in processo.assuntos %}
@@ -146,11 +149,11 @@
                                     </div>
                                     <div class="col-md-6">
                                         <div class="text-muted">
-                                            <p class="text-sm">Data de Baixa
-                                                <b class="d-block">{% if processo.dataBaixa %}{{ processo.dataBaixa|date('d/m/Y') }}{% else %}-{% endif %}</b>
+                                            <p class="text-sm">{{ 'processo.comum.data_baixa'|trans }}
+                                                <b class="d-block">{% if processo.dataBaixa %}{{ processo.dataBaixa|data }}{% else %}-{% endif %}</b>
                                             </p>
-                                            <p class="text-sm">Última Atualização
-                                                <b class="d-block">{% if processo.dataAtualizacao %}{{ processo.dataAtualizacao|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            <p class="text-sm">{{ 'processo.show.ultima_atualizacao'|trans }}
+                                                <b class="d-block">{% if processo.dataAtualizacao %}{{ processo.dataAtualizacao|data_hora }}{% else %}-{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
@@ -165,10 +168,10 @@
                                         <table class="table table-striped table-hover">
                                             <thead>
                                                 <tr>
-                                                    <th><i class="bi bi-tag me-1"></i> Tipo</th>
-                                                    <th><i class="bi bi-person me-1"></i> Nome</th>
-                                                    <th><i class="bi bi-card-text me-1"></i> Documento</th>
-                                                    <th><i class="bi bi-bookmark me-1"></i> Papel</th>
+                                                    <th><i class="bi bi-tag me-1"></i> {{ 'processo.comum.tipo'|trans }}</th>
+                                                    <th><i class="bi bi-person me-1"></i> {{ 'processo.comum.nome'|trans }}</th>
+                                                    <th><i class="bi bi-card-text me-1"></i> {{ 'processo.comum.documento'|trans }}</th>
+                                                    <th><i class="bi bi-bookmark me-1"></i> {{ 'processo.comum.papel'|trans }}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -184,7 +187,7 @@
                                         </table>
                                     </div>
                                 {% else %}
-                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte cadastrada.</div>
+                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> {{ 'processo.show.sem_partes'|trans }}</div>
                                 {% endif %}
                             </div>
 
@@ -196,19 +199,19 @@
                                         <table class="table table-striped table-hover">
                                             <thead class="table-light sticky-top">
                                                 <tr>
-                                                    <th style="width: 100px;"><i class="bi bi-calendar me-1"></i> Data</th>
-                                                    <th><i class="bi bi-chat-left-text me-1"></i> Descrição</th>
-                                                    <th style="width: 120px;"><i class="bi bi-tag me-1"></i> Tipo</th>
-                                                    <th style="width: 150px;"><i class="bi bi-building me-1"></i> Órgão</th>
+                                                    <th style="width: 100px;"><i class="bi bi-calendar me-1"></i> {{ 'processo.comum.data'|trans }}</th>
+                                                    <th><i class="bi bi-chat-left-text me-1"></i> {{ 'processo.comum.descricao'|trans }}</th>
+                                                    <th style="width: 120px;"><i class="bi bi-tag me-1"></i> {{ 'processo.comum.tipo'|trans }}</th>
+                                                    <th style="width: 150px;"><i class="bi bi-building me-1"></i> {{ 'processo.comum.orgao'|trans }}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {% for mov in movimentacoesOrdenadas %}
                                                     <tr>
-                                                        <td>{% if mov.dataMovimentacao %}{{ mov.dataMovimentacao|date('d/m/Y') }}{% else %}-{% endif %}</td>
+                                                        <td>{% if mov.dataMovimentacao %}{{ mov.dataMovimentacao|data }}{% else %}-{% endif %}</td>
                                                         <td>
                                                             {{ mov.descricao }}
-                                                            {% if mov.complementosResumo %}<span class="text-muted">— {{ mov.complementosResumo }}</span>{% endif %}
+                                                            {% if mov.complementosResumo %}<span class="text-muted">({{ mov.complementosResumo }})</span>{% endif %}
                                                         </td>
                                                         <td><span class="badge bg-body-tertiary text-body-secondary">{{ mov.tipo ?: '-' }}</span></td>
                                                         <td>{{ mov.orgao ?: '-' }}</td>
@@ -218,7 +221,7 @@
                                         </table>
                                     </div>
                                 {% else %}
-                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma movimentação cadastrada.</div>
+                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> {{ 'processo.show.sem_movimentacoes'|trans }}</div>
                                 {% endif %}
                             </div>
 
@@ -227,21 +230,21 @@
                                 <div class="row">
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-calendar-plus me-2"></i> Criado em
-                                                <b class="d-block">{% if processo.criadoAt %}{{ processo.criadoAt|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            <p class="text-sm mb-2"><i class="bi bi-calendar-plus me-2"></i> {{ 'processo.show.criado_em'|trans }}
+                                                <b class="d-block">{% if processo.criadoAt %}{{ processo.criadoAt|data_hora }}{% else %}-{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-calendar-check me-2"></i> Modificado em
-                                                <b class="d-block">{% if processo.modificadoEm %}{{ processo.modificadoEm|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            <p class="text-sm mb-2"><i class="bi bi-calendar-check me-2"></i> {{ 'processo.show.modificado_em'|trans }}
+                                                <b class="d-block">{% if processo.modificadoEm %}{{ processo.modificadoEm|data_hora }}{% else %}-{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-person-check me-2"></i> Criado por
+                                            <p class="text-sm mb-2"><i class="bi bi-person-check me-2"></i> {{ 'processo.show.criado_por'|trans }}
                                                 <b class="d-block">{% if processo.criadoPor %}{{ processo.criadoPor.fullName }}{% else %}-{% endif %}</b>
                                             </p>
                                         </div>
@@ -250,25 +253,25 @@
 
                                 {# Metadados do CNJ/Datajud #}
                                 <hr class="my-3">
-                                <h6 class="text-muted mb-3"><i class="bi bi-database me-1"></i> Dados do CNJ (Datajud)</h6>
+                                <h6 class="text-muted mb-3"><i class="bi bi-database me-1"></i> {{ 'processo.show.dados_cnj'|trans }}</h6>
                                 <div class="row">
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-hdd-network me-2"></i> Sistema de origem
+                                            <p class="text-sm mb-2"><i class="bi bi-hdd-network me-2"></i> {{ 'processo.show.sistema_origem'|trans }}
                                                 <b class="d-block">{{ processo.sistema ?: '-' }}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-file-earmark me-2"></i> Formato
+                                            <p class="text-sm mb-2"><i class="bi bi-file-earmark me-2"></i> {{ 'processo.show.formato'|trans }}
                                                 <b class="d-block">{{ processo.formato ?: '-' }}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-shield-lock me-2"></i> Nível de sigilo
+                                            <p class="text-sm mb-2"><i class="bi bi-shield-lock me-2"></i> {{ 'processo.show.nivel_sigilo'|trans }}
                                                 <b class="d-block">
                                                     {% if processo.nivelSigiloLabel %}
                                                         {{ processo.nivelSigiloLabel }}{% if processo.nivelSigilo is not null %} ({{ processo.nivelSigilo }}){% endif %}
@@ -279,21 +282,21 @@
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-building me-2"></i> Código do órgão
+                                            <p class="text-sm mb-2"><i class="bi bi-building me-2"></i> {{ 'processo.show.codigo_orgao'|trans }}
                                                 <b class="d-block">{{ processo.orgaoJulgadorCodigo ?: '-' }}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-geo-alt me-2"></i> Município (IBGE)
+                                            <p class="text-sm mb-2"><i class="bi bi-geo-alt me-2"></i> {{ 'processo.show.municipio_ibge'|trans }}
                                                 <b class="d-block">{{ processo.orgaoJulgadorMunicipioIbge ?: '-' }}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-fingerprint me-2"></i> ID Datajud
+                                            <p class="text-sm mb-2"><i class="bi bi-fingerprint me-2"></i> {{ 'processo.show.id_datajud'|trans }}
                                                 <b class="d-block text-break">{{ processo.datajudId ?: '-' }}</b>
                                             </p>
                                         </div>
@@ -304,7 +307,7 @@
                             {# Tab: Tarefas #}
                             <div class="tab-pane fade" id="tarefas" role="tabpanel" aria-labelledby="tarefas-tab">
                                 {% if historicoTarefas|length > 0 %}
-                                    <h4 class="mb-3"><i class="bi bi-list-task me-1"></i> Atividades Recentes</h4>
+                                    <h4 class="mb-3"><i class="bi bi-list-task me-1"></i> {{ 'processo.show.atividades_recentes'|trans }}</h4>
                                     {% for item in historicoTarefas %}
                                     <div class="card mb-3 tarefa-card" 
                                          style="cursor: pointer; transition: all 0.2s ease;"
@@ -315,11 +318,11 @@
                                          data-tarefa-descricao="{{ item.descricao|e('html_attr') }}"
                                          data-tarefa-status="{{ item.statusAtual }}"
                                          data-tarefa-usuarios="{{ item.usuarios }}"
-                                         data-tarefa-prazo="{% if item.prazo %}{{ item.prazo|date('d/m/Y H:i') }}{% else %}-{% endif %}"
-                                         data-tarefa-criacao="{{ item.dataCriacao|date('d/m/Y H:i') }}"
-                                         data-tarefa-revisao="{% if item.dataUltimaRevisao %}{{ item.dataUltimaRevisao|date('d/m/Y H:i') }}{% else %}-{% endif %}"
-                                         data-tarefa-conclusao="{% if item.dataConclusaoFinal %}{{ item.dataConclusaoFinal|date('d/m/Y H:i') }}{% else %}-{% endif %}"
-                                         data-tarefa-tempo="{% if item.tempoTotalSegundos is not null %}{% set horas = item.tempoTotalSegundos // 3600 %}{% set minutos = (item.tempoTotalSegundos % 3600) // 60 %}{{ horas }}h {{ '%02d'|format(minutos) }}min{% else %}-{% endif %}"
+                                         data-tarefa-prazo="{% if item.prazo %}{{ item.prazo|data_hora }}{% else %}-{% endif %}"
+                                         data-tarefa-criacao="{{ item.dataCriacao|data_hora }}"
+                                         data-tarefa-revisao="{% if item.dataUltimaRevisao %}{{ item.dataUltimaRevisao|data_hora }}{% else %}-{% endif %}"
+                                         data-tarefa-conclusao="{% if item.dataConclusaoFinal %}{{ item.dataConclusaoFinal|data_hora }}{% else %}-{% endif %}"
+                                         data-tarefa-tempo="{% if item.tempoTotalSegundos is not null %}{% set horas = item.tempoTotalSegundos // 3600 %}{% set minutos = (item.tempoTotalSegundos % 3600) // 60 %}{{ 'processo.show.tempo'|trans({horas: horas ~ '', minutos: '%02d'|format(minutos)}) }}{% else %}-{% endif %}"
                                          data-tarefa-url="{{ path('tarefa_show', {id: item.tarefaId}) }}">
                                         <div class="card-body py-3">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
@@ -333,21 +336,21 @@
                                             </p>
                                             <div class="d-flex flex-wrap gap-3 text-muted small">
                                                 <span><i class="bi bi-person me-1"></i>{{ item.usuarios }}</span>
-                                                <span><i class="bi bi-calendar me-1"></i>{{ item.dataCriacao|date('d/m/Y H:i') }}</span>
+                                                <span><i class="bi bi-calendar me-1"></i>{{ item.dataCriacao|data_hora }}</span>
                                                 {% if item.tempoTotalSegundos is not null %}
                                                     {% set horas = item.tempoTotalSegundos // 3600 %}
                                                     {% set minutos = (item.tempoTotalSegundos % 3600) // 60 %}
-                                                    <span><i class="bi bi-stopwatch me-1"></i>{{ horas }}h {{ '%02d'|format(minutos) }}min</span>
+                                                    <span><i class="bi bi-stopwatch me-1"></i>{{ 'processo.show.tempo'|trans({horas: horas ~ '', minutos: '%02d'|format(minutos)}) }}</span>
                                                 {% endif %}
                                                 {% if item.prazo %}
-                                                    <span><i class="bi bi-alarm me-1"></i>Prazo: {{ item.prazo|date('d/m/Y') }}</span>
+                                                    <span><i class="bi bi-alarm me-1"></i>{{ 'processo.show.prazo_em'|trans({data: item.prazo|data}) }}</span>
                                                 {% endif %}
                                             </div>
                                         </div>
                                     </div>
                                     {% endfor %}
                                 {% else %}
-                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Não há tarefas vinculadas a este processo.</div>
+                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> {{ 'processo.show.sem_tarefas'|trans }}</div>
                                 {% endif %}
                             </div>
 
@@ -358,7 +361,7 @@
                     <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
                         <div class="card card-primary card-outline" id="card-vinculos">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> Vínculos</h3>
+                                <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> {{ 'processo.show.vinculos'|trans }}</h3>
                             </div>
                             <div class="card-body">
                                 {# Pastas em que este processo está vinculado. É o espelho da aba
@@ -368,14 +371,14 @@
                                    principal continua fazendo isso de dentro da pasta, onde estão o
                                    CSRF e a permissão do recurso. #}
                                 <h6 class="text-muted mb-3">
-                                    <i class="bi bi-folder me-1"></i> Pastas
+                                    <i class="bi bi-folder me-1"></i> {{ 'processo.show.pastas'|trans }}
                                     {% if pastasVinculadas|length > 0 %}
                                         <span class="badge text-bg-secondary ms-1">{{ pastasVinculadas|length }}</span>
                                     {% endif %}
                                 </h6>
                                 {% if pastasVinculadas is empty %}
                                     <p class="text-muted small mb-0">
-                                        <i class="bi bi-info-circle me-1"></i> Este processo não está vinculado a nenhuma pasta.
+                                        <i class="bi bi-info-circle me-1"></i> {{ 'processo.show.sem_pastas'|trans }}
                                     </p>
                                 {% else %}
                                     {% for pasta in pastasVinculadas %}
@@ -385,15 +388,20 @@
                                                     <i class="bi bi-folder2-open me-1 text-warning"></i>
                                                     <span class="fw-semibold">{{ pasta.rotulo }}</span>
                                                 </a>
+                                                {% if pasta.oculta %}
+                                                    {# Cadeado (spec pasta-cadeado D1): da pasta oculta, só o número, o cliente e o cadeado. #}
+                                                    <i class="bi bi-lock exp-cadeado" title="{{ 'processo.show.pasta_trancada_dica'|trans }}" aria-label="{{ 'processo.show.pasta_trancada'|trans }}"></i>
+                                                {% endif %}
                                                 {% if pasta.principal %}
-                                                    <span class="badge text-bg-primary small" title="Este processo é o principal da pasta">
-                                                        <i class="bi bi-star-fill me-1"></i>Principal
+                                                    <span class="badge text-bg-primary small" title="{{ 'processo.show.principal_dica'|trans }}">
+                                                        <i class="bi bi-star-fill me-1"></i>{{ 'processo.show.principal'|trans }}
                                                     </span>
                                                 {% endif %}
-                                                {% if pasta.excluida %}
+                                                {% if pasta.oculta %}
+                                                {% elseif pasta.excluida %}
                                                     <span class="badge text-bg-danger pasta-badge-excluida small"
-                                                          title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}">
-                                                        Excluída
+                                                          title="{{ 'processo.show.excluida_em'|trans({data: pasta.excluidaEm|data_hora}) }}">
+                                                        {{ 'processo.show.excluida'|trans }}
                                                     </span>
                                                 {% else %}
                                                     <span class="badge small {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
@@ -419,22 +427,22 @@
             <div class="card-footer">
                 <div class="d-flex justify-content-between">
                     <a href="{{ path('processo_index') }}" class="btn btn-secondary">
-                        <i class="bi bi-arrow-left me-1"></i> Voltar aos Processos
+                        <i class="bi bi-arrow-left me-1"></i> {{ 'processo.show.voltar'|trans }}
                     </a>
                     <div class="d-flex gap-2">
                         <a href="{{ path('processo_edit', {id: processo.id}) }}"
                            class="btn btn-outline-primary btn-sm"
-                           title="Editar processo"
-                           aria-label="Editar processo">
-                            <i class="bi bi-pencil me-1"></i> Editar
+                           title="{{ 'processo.comum.editar_processo'|trans }}"
+                           aria-label="{{ 'processo.comum.editar_processo'|trans }}">
+                            <i class="bi bi-pencil me-1"></i> {{ 'processo.comum.editar'|trans }}
                         </a>
-                        <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este processo?');">
+                        <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('{{ 'processo.show.excluir_confirmar'|trans|e('js') }}');">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete_processo_' ~ processo.id) }}">
                             <button type="submit"
                                     class="btn btn-outline-danger btn-sm"
-                                    title="Excluir processo"
-                                    aria-label="Excluir processo">
-                                <i class="bi bi-trash me-1"></i> Excluir Processo
+                                    title="{{ 'processo.show.excluir_processo'|trans }}"
+                                    aria-label="{{ 'processo.show.excluir_processo'|trans }}">
+                                <i class="bi bi-trash me-1"></i> {{ 'processo.show.excluir'|trans }}
                             </button>
                         </form>
                     </div>
@@ -452,42 +460,42 @@
                 <h5 class="modal-title" id="modalTarefaLabel">
                     <i class="bi bi-list-task me-1"></i> <span id="modalTarefaTitulo"></span>
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'processo.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <p class="text-sm text-muted mb-1">Status</p>
+                        <p class="text-sm text-muted mb-1">{{ 'processo.show.modal.status'|trans }}</p>
                         <span id="modalTarefaStatus" class="badge"></span>
                     </div>
                     <div class="col-md-6">
-                        <p class="text-sm text-muted mb-1">Atribuído a</p>
+                        <p class="text-sm text-muted mb-1">{{ 'processo.show.modal.atribuido'|trans }}</p>
                         <p class="mb-0 fw-semibold" id="modalTarefaUsuarios"></p>
                     </div>
                 </div>
                 
                 <div class="row mb-3">
                     <div class="col-md-4">
-                        <p class="text-sm text-muted mb-1"><i class="bi bi-calendar-plus me-1"></i> Criada em</p>
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-calendar-plus me-1"></i> {{ 'processo.show.modal.criada_em'|trans }}</p>
                         <p class="mb-0" id="modalTarefaCriacao"></p>
                     </div>
                     <div class="col-md-4">
-                        <p class="text-sm text-muted mb-1"><i class="bi bi-calendar-check me-1"></i> Prazo</p>
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-calendar-check me-1"></i> {{ 'processo.show.modal.prazo'|trans }}</p>
                         <p class="mb-0" id="modalTarefaPrazo"></p>
                     </div>
                     <div class="col-md-4">
-                        <p class="text-sm text-muted mb-1"><i class="bi bi-stopwatch me-1"></i> Tempo Total</p>
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-stopwatch me-1"></i> {{ 'processo.show.modal.tempo_total'|trans }}</p>
                         <p class="mb-0" id="modalTarefaTempo"></p>
                     </div>
                 </div>
                 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <p class="text-sm text-muted mb-1"><i class="bi bi-arrow-repeat me-1"></i> Última Revisão</p>
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-arrow-repeat me-1"></i> {{ 'processo.show.modal.ultima_revisao'|trans }}</p>
                         <p class="mb-0" id="modalTarefaRevisao"></p>
                     </div>
                     <div class="col-md-6">
-                        <p class="text-sm text-muted mb-1"><i class="bi bi-check-circle me-1"></i> Conclusão</p>
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-check-circle me-1"></i> {{ 'processo.show.modal.conclusao'|trans }}</p>
                         <p class="mb-0" id="modalTarefaConclusao"></p>
                     </div>
                 </div>
@@ -495,16 +503,16 @@
                 <hr>
                 
                 <div class="mb-0">
-                    <p class="text-sm text-muted mb-1"><i class="bi bi-card-text me-1"></i> Descrição</p>
+                    <p class="text-sm text-muted mb-1"><i class="bi bi-card-text me-1"></i> {{ 'processo.comum.descricao'|trans }}</p>
                     <div class="p-3 bg-body-tertiary rounded" id="modalTarefaDescricao" style="white-space: pre-wrap;"></div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x me-1"></i> Fechar
+                    <i class="bi bi-x me-1"></i> {{ 'processo.comum.fechar'|trans }}
                 </button>
                 <a href="#" id="modalTarefaLink" class="btn btn-primary">
-                    <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Tarefa
+                    <i class="bi bi-box-arrow-up-right me-1"></i> {{ 'processo.show.modal.abrir_tarefa'|trans }}
                 </a>
             </div>
         </div>

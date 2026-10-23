@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cliente - {{ cliente.cpf is defined ? cliente.nomeCompleto : cliente.razaoSocial }}{% endblock %}
+{% block title %}{{ 'cliente.show.titulo_pagina'|trans({nome: cliente.cpf is defined ? cliente.nomeCompleto : cliente.razaoSocial}) }}{% endblock %}
 
 {% block body %}
 {# Content Header #}
@@ -14,9 +14,9 @@
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item">Clientes</li>
-                    <li class="breadcrumb-item active">Detalhes</li>
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'cliente.show.migalha.inicio'|trans }}</a></li>
+                    <li class="breadcrumb-item">{{ 'cliente.show.migalha.clientes'|trans }}</li>
+                    <li class="breadcrumb-item active">{{ 'cliente.show.migalha.detalhes'|trans }}</li>
                 </ol>
             </div>
         </div>
@@ -28,7 +28,7 @@
     <div class="container-fluid">
         <div class="card card-primary card-outline">
             <div class="card-header">
-                <h3 class="card-title">{{ cliente.cpf is defined ? 'Pessoa Física' : 'Pessoa Jurídica' }}</h3>
+                <h3 class="card-title">{{ cliente.cpf is defined ? 'cliente.show.pessoa_fisica'|trans : 'cliente.show.pessoa_juridica'|trans }}</h3>
                 <div class="card-tools">
                     <span class="badge text-bg-primary">
                         {{ cliente.cpf is defined ? cliente.cpf : cliente.cnpj }}
@@ -44,8 +44,8 @@
                             <div class="col-12 col-sm-4">
                                 <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Tipo</span>
-                                        <span class="info-box-number text-center text-muted mb-0">{{ cliente.cpf is defined ? 'PF' : 'PJ' }}</span>
+                                        <span class="info-box-text text-center text-muted">{{ 'cliente.show.tipo'|trans }}</span>
+                                        <span class="info-box-number text-center text-muted mb-0">{{ cliente.cpf is defined ? 'cliente.show.sigla_pf'|trans : 'cliente.show.sigla_pj'|trans }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -55,12 +55,12 @@
                         <ul class="nav nav-tabs" id="clienteTabs" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#dados" type="button" role="tab" aria-controls="dados" aria-selected="true">
-                                    <i class="bi bi-person-vcard me-1"></i> Dados do Cliente
+                                    <i class="bi bi-person-vcard me-1"></i> {{ 'cliente.show.aba.dados'|trans }}
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="false">
-                                    <i class="bi bi-info-circle me-1"></i> Detalhes
+                                    <i class="bi bi-info-circle me-1"></i> {{ 'cliente.show.aba.detalhes'|trans }}
                                 </button>
                             </li>
                         </ul>
@@ -70,149 +70,149 @@
                             <div class="tab-pane fade show active" id="dados" role="tabpanel" aria-labelledby="dados-tab">
                                 {% if cliente.cpf is defined %}
                                     {# Pessoa Física #}
-                                    <h5 class="mb-3"><i class="bi bi-person-badge me-1"></i> Dados Pessoais</h5>
+                                    <h5 class="mb-3"><i class="bi bi-person-badge me-1"></i> {{ 'cliente.show.secao.dados_pessoais'|trans }}</h5>
                                     <div class="row mb-4">
                                         <div class="col-md-6">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">Nome Completo
-                                                    <b class="d-block">{{ cliente.nomeCompleto }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.nomeCompleto }}" title="Copiar"></i></b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.nome_completo'|trans }}
+                                                    <b class="d-block">{{ cliente.nomeCompleto }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.nomeCompleto }}" title="{{ 'cliente.comum.copiar'|trans }}"></i></b>
                                                 </p>
-                                                <p class="text-sm mb-2">CPF
-                                                    <b class="d-block">{{ cliente.cpf }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cpf }}" title="Copiar"></i></b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.cpf'|trans }}
+                                                    <b class="d-block">{{ cliente.cpf }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cpf }}" title="{{ 'cliente.comum.copiar'|trans }}"></i></b>
                                                 </p>
-                                                <p class="text-sm mb-2">Data de Nascimento
-                                                    <b class="d-block">{% if cliente.dataNascimento %}{{ cliente.dataNascimento|date('d/m/Y') }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.dataNascimento|date('d/m/Y') }}" title="Copiar"></i>{% else %}-{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.data_nascimento'|trans }}
+                                                    <b class="d-block">{% if cliente.dataNascimento %}{{ cliente.dataNascimento|data }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.dataNascimento|data }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% else %}-{% endif %}</b>
                                                 </p>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">Estado Civil
-                                                    <b class="d-block">{{ cliente.estadoCivil ?: '-' }}{% if cliente.estadoCivil %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.estadoCivil }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.estado_civil'|trans }}
+                                                    <b class="d-block">{{ cliente.estadoCivil ?: '-' }}{% if cliente.estadoCivil %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.estadoCivil }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
-                                                <p class="text-sm mb-2">Profissão
-                                                    <b class="d-block">{{ cliente.profissao ?: '-' }}{% if cliente.profissao %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.profissao }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.profissao'|trans }}
+                                                    <b class="d-block">{{ cliente.profissao ?: '-' }}{% if cliente.profissao %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.profissao }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <h5 class="mb-3"><i class="bi bi-card-text me-1"></i> Documento RG</h5>
+                                    <h5 class="mb-3"><i class="bi bi-card-text me-1"></i> {{ 'cliente.show.secao.documento_rg'|trans }}</h5>
                                     <div class="row mb-4">
                                         <div class="col-md-4">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">RG
-                                                    <b class="d-block">{{ cliente.rg ?: '-' }}{% if cliente.rg %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rg }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.rg'|trans }}
+                                                    <b class="d-block">{{ cliente.rg ?: '-' }}{% if cliente.rg %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rg }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">Órgão Expedidor
-                                                    <b class="d-block">{{ cliente.rgOrgaoExpedidor ?: '-' }}{% if cliente.rgOrgaoExpedidor %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rgOrgaoExpedidor }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.orgao_expedidor'|trans }}
+                                                    <b class="d-block">{{ cliente.rgOrgaoExpedidor ?: '-' }}{% if cliente.rgOrgaoExpedidor %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rgOrgaoExpedidor }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
                                             </div>
                                         </div>
                                         <div class="col-md-4">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">Data de Emissão
-                                                    <b class="d-block">{% if cliente.rgDataEmissao %}{{ cliente.rgDataEmissao|date('d/m/Y') }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rgDataEmissao|date('d/m/Y') }}" title="Copiar"></i>{% else %}-{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.data_emissao'|trans }}
+                                                    <b class="d-block">{% if cliente.rgDataEmissao %}{{ cliente.rgDataEmissao|data }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rgDataEmissao|data }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% else %}-{% endif %}</b>
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
                                 {% else %}
                                     {# Pessoa Jurídica #}
-                                    <h5 class="mb-3"><i class="bi bi-building me-1"></i> Dados da Empresa</h5>
+                                    <h5 class="mb-3"><i class="bi bi-building me-1"></i> {{ 'cliente.show.secao.dados_empresa'|trans }}</h5>
                                     <div class="row mb-4">
                                         <div class="col-md-6">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">Razão Social
-                                                    <b class="d-block">{{ cliente.razaoSocial }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.razaoSocial }}" title="Copiar"></i></b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.razao_social'|trans }}
+                                                    <b class="d-block">{{ cliente.razaoSocial }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.razaoSocial }}" title="{{ 'cliente.comum.copiar'|trans }}"></i></b>
                                                 </p>
-                                                <p class="text-sm mb-2">Nome Fantasia
-                                                    <b class="d-block">{{ cliente.nomeFantasia ?: '-' }}{% if cliente.nomeFantasia %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.nomeFantasia }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.nome_fantasia'|trans }}
+                                                    <b class="d-block">{{ cliente.nomeFantasia ?: '-' }}{% if cliente.nomeFantasia %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.nomeFantasia }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
-                                                <p class="text-sm mb-2">CNPJ
-                                                    <b class="d-block">{{ cliente.cnpj }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cnpj }}" title="Copiar"></i></b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.cnpj'|trans }}
+                                                    <b class="d-block">{{ cliente.cnpj }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cnpj }}" title="{{ 'cliente.comum.copiar'|trans }}"></i></b>
                                                 </p>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">Inscrição Estadual
-                                                    <b class="d-block">{{ cliente.inscricaoEstadual ?: '-' }}{% if cliente.inscricaoEstadual %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.inscricaoEstadual }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.inscricao_estadual'|trans }}
+                                                    <b class="d-block">{{ cliente.inscricaoEstadual ?: '-' }}{% if cliente.inscricaoEstadual %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.inscricaoEstadual }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
-                                                <p class="text-sm mb-2">Inscrição Municipal
-                                                    <b class="d-block">{{ cliente.inscricaoMunicipal ?: '-' }}{% if cliente.inscricaoMunicipal %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.inscricaoMunicipal }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.inscricao_municipal'|trans }}
+                                                    <b class="d-block">{{ cliente.inscricaoMunicipal ?: '-' }}{% if cliente.inscricaoMunicipal %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.inscricaoMunicipal }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <h5 class="mb-3"><i class="bi bi-person-workspace me-1"></i> Representante Legal</h5>
+                                    <h5 class="mb-3"><i class="bi bi-person-workspace me-1"></i> {{ 'cliente.show.secao.representante_legal'|trans }}</h5>
                                     <div class="row mb-4">
                                         <div class="col-md-6">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">Nome
-                                                    <b class="d-block">{{ cliente.representanteLegal ?: '-' }}{% if cliente.representanteLegal %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteLegal }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.nome'|trans }}
+                                                    <b class="d-block">{{ cliente.representanteLegal ?: '-' }}{% if cliente.representanteLegal %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteLegal }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
-                                                <p class="text-sm mb-2">CPF
-                                                    <b class="d-block">{{ cliente.representanteCpf ?: '-' }}{% if cliente.representanteCpf %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteCpf }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.cpf'|trans }}
+                                                    <b class="d-block">{{ cliente.representanteCpf ?: '-' }}{% if cliente.representanteCpf %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteCpf }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="text-muted">
-                                                <p class="text-sm mb-2">RG
-                                                    <b class="d-block">{{ cliente.representanteRg ?: '-' }}{% if cliente.representanteRg %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteRg }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.rg'|trans }}
+                                                    <b class="d-block">{{ cliente.representanteRg ?: '-' }}{% if cliente.representanteRg %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteRg }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
-                                                <p class="text-sm mb-2">Cargo
-                                                    <b class="d-block">{{ cliente.representanteCargo ?: '-' }}{% if cliente.representanteCargo %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteCargo }}" title="Copiar"></i>{% endif %}</b>
+                                                <p class="text-sm mb-2">{{ 'cliente.show.campo.cargo'|trans }}
+                                                    <b class="d-block">{{ cliente.representanteCargo ?: '-' }}{% if cliente.representanteCargo %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteCargo }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
                                 {% endif %}
 
-                                <h5 class="mb-3"><i class="bi bi-telephone me-1"></i> Contato</h5>
+                                <h5 class="mb-3"><i class="bi bi-telephone me-1"></i> {{ 'cliente.show.secao.contato'|trans }}</h5>
                                 <div class="row mb-4">
                                     <div class="col-md-6">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2">E-mail
-                                                <b class="d-block">{{ cliente.email }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.email }}" title="Copiar"></i></b>
+                                            <p class="text-sm mb-2">{{ 'cliente.show.campo.email'|trans }}
+                                                <b class="d-block">{{ cliente.email }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.email }}" title="{{ 'cliente.comum.copiar'|trans }}"></i></b>
                                             </p>
-                                            <p class="text-sm mb-2">Celular
-                                                <b class="d-block">{{ cliente.telefoneCelular ?: '-' }}{% if cliente.telefoneCelular %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.telefoneCelular }}" title="Copiar"></i>{% endif %}</b>
+                                            <p class="text-sm mb-2">{{ 'cliente.show.campo.celular'|trans }}
+                                                <b class="d-block">{{ cliente.telefoneCelular ?: '-' }}{% if cliente.telefoneCelular %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.telefoneCelular }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2">Telefone Fixo
-                                                <b class="d-block">{{ cliente.telefoneFixo ?: '-' }}{% if cliente.telefoneFixo %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.telefoneFixo }}" title="Copiar"></i>{% endif %}</b>
+                                            <p class="text-sm mb-2">{{ 'cliente.show.campo.telefone_fixo'|trans }}
+                                                <b class="d-block">{{ cliente.telefoneFixo ?: '-' }}{% if cliente.telefoneFixo %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.telefoneFixo }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <h5 class="mb-3"><i class="bi bi-geo-alt me-1"></i> Endereço</h5>
+                                <h5 class="mb-3"><i class="bi bi-geo-alt me-1"></i> {{ 'cliente.show.secao.endereco'|trans }}</h5>
                                 <div class="row">
                                     <div class="col-md-12">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2">CEP
-                                                <b class="d-block">{{ cliente.cep ?: '-' }}{% if cliente.cep %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cep }}" title="Copiar"></i>{% endif %}</b>
+                                            <p class="text-sm mb-2">{{ 'cliente.show.campo.cep'|trans }}
+                                                <b class="d-block">{{ cliente.cep ?: '-' }}{% if cliente.cep %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cep }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                             </p>
-                                            <p class="text-sm mb-2">Endereço
-                                                <b class="d-block">{{ cliente.endereco ?: '-' }}{% if cliente.endereco %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.endereco }}" title="Copiar"></i>{% endif %}</b>
+                                            <p class="text-sm mb-2">{{ 'cliente.show.campo.endereco'|trans }}
+                                                <b class="d-block">{{ cliente.endereco ?: '-' }}{% if cliente.endereco %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.endereco }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                             </p>
                                             {% if cliente.complemento %}
-                                            <p class="text-sm mb-2">Complemento
-                                                <b class="d-block">{{ cliente.complemento }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.complemento }}" title="Copiar"></i></b>
+                                            <p class="text-sm mb-2">{{ 'cliente.show.campo.complemento'|trans }}
+                                                <b class="d-block">{{ cliente.complemento }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.complemento }}" title="{{ 'cliente.comum.copiar'|trans }}"></i></b>
                                             </p>
                                             {% endif %}
-                                            <p class="text-sm mb-0">Cidade/Estado
-                                                <b class="d-block">{{ cliente.cidade ?: '-' }} - {{ cliente.estado ?: '-' }}{% if cliente.cidade %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cidade }} - {{ cliente.estado }}" title="Copiar"></i>{% endif %}</b>
+                                            <p class="text-sm mb-0">{{ 'cliente.show.campo.cidade_estado'|trans }}
+                                                <b class="d-block">{{ cliente.cidade ?: '-' }} - {{ cliente.estado ?: '-' }}{% if cliente.cidade %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cidade }} - {{ cliente.estado }}" title="{{ 'cliente.comum.copiar'|trans }}"></i>{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
@@ -224,21 +224,21 @@
                                 <div class="row">
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-calendar-plus me-2"></i> Criado em
-                                                <b class="d-block">{% if cliente.criadoAt %}{{ cliente.criadoAt|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            <p class="text-sm mb-2"><i class="bi bi-calendar-plus me-2"></i> {{ 'cliente.show.campo.criado_em'|trans }}
+                                                <b class="d-block">{% if cliente.criadoAt %}{{ cliente.criadoAt|data_hora }}{% else %}-{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-calendar-check me-2"></i> Modificado em
-                                                <b class="d-block">{% if cliente.modificadoEm %}{{ cliente.modificadoEm|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            <p class="text-sm mb-2"><i class="bi bi-calendar-check me-2"></i> {{ 'cliente.show.campo.modificado_em'|trans }}
+                                                <b class="d-block">{% if cliente.modificadoEm %}{{ cliente.modificadoEm|data_hora }}{% else %}-{% endif %}</b>
                                             </p>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="text-muted">
-                                            <p class="text-sm mb-2"><i class="bi bi-person-check me-2"></i> Criado por
+                                            <p class="text-sm mb-2"><i class="bi bi-person-check me-2"></i> {{ 'cliente.show.campo.criado_por'|trans }}
                                                 <b class="d-block">{% if cliente.criadoPor %}{{ cliente.criadoPor.fullName }}{% else %}-{% endif %}</b>
                                             </p>
                                         </div>
@@ -252,17 +252,17 @@
                     <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
                         <div class="card card-primary card-outline">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> Vínculos</h3>
+                                <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> {{ 'cliente.show.vinculos.titulo'|trans }}</h3>
                             </div>
                             <div class="card-body">
                                 {# Processos #}
-                                <h6 class="text-muted mb-3"><i class="bi bi-briefcase me-1"></i> Processos</h6>
-                                <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i> Nenhum processo cadastrado.</p>
+                                <h6 class="text-muted mb-3"><i class="bi bi-briefcase me-1"></i> {{ 'cliente.show.vinculos.processos'|trans }}</h6>
+                                <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i> {{ 'cliente.show.vinculos.sem_processo'|trans }}</p>
 
                                 {# Pastas #}
-                                <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> Pastas</h6>
+                                <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> {{ 'cliente.show.vinculos.pastas'|trans }}</h6>
                                 {% if pastas is empty %}
-                                    <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma pasta vinculada.</p>
+                                    <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> {{ 'cliente.show.vinculos.sem_pasta'|trans }}</p>
                                 {% else %}
                                     {% for pasta in pastas %}
                                         <div class="vinculo-link mb-1">
@@ -270,9 +270,13 @@
                                                 <i class="bi bi-folder2-open me-1 text-warning"></i>
                                                 <span class="fw-semibold">{{ pasta.nup }}</span>
                                             </a>
+                                            {% if (pastasOcultas ?? {})[pasta.id] is defined %}
+                                                <i class="bi bi-lock exp-cadeado ms-1" title="{{ 'cliente.show.vinculos.cadeado_dica'|trans }}" aria-label="{{ 'cliente.show.vinculos.cadeado'|trans }}"></i>
+                                            {% else %}
                                             <span class="badge ms-1 {% if pasta.situacao == 'ativo' %}text-bg-success{% else %}text-bg-secondary{% endif %} small">
                                                 {{ pasta.situacao|capitalize }}
                                             </span>
+                                            {% endif %}
                                         </div>
                                     {% endfor %}
                                 {% endif %}
@@ -282,7 +286,7 @@
                         {# Card: Arquivos do Cliente #}
                         <div class="card card-primary card-outline mt-3">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-paperclip me-1"></i> Arquivos do Cliente</h3>
+                                <h3 class="card-title"><i class="bi bi-paperclip me-1"></i> {{ 'cliente.show.arquivos.titulo'|trans }}</h3>
                             </div>
                             <div class="card-body">
                                 {# Formulário de upload inline #}
@@ -292,10 +296,10 @@
 
                                     <div class="d-flex align-items-center gap-2 mb-3">
                                         <button type="button" id="btnAdicionarAnexoCliente" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
+                                            <i class="bi bi-plus-lg me-1"></i> {{ 'cliente.show.arquivos.adicionar'|trans }}
                                         </button>
                                         <button type="button" id="btnLimparAnexosCliente" class="btn btn-sm btn-outline-secondary d-none">
-                                            <i class="bi bi-x-circle me-1"></i> Limpar
+                                            <i class="bi bi-x-circle me-1"></i> {{ 'cliente.show.arquivos.limpar'|trans }}
                                         </button>
                                         <input type="file" id="inputAnexoOcultoCliente" multiple
                                                accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,audio/*,video/*"
@@ -308,19 +312,19 @@
                                         <div class="form-check form-switch">
                                             <input type="checkbox" class="form-check-input" id="reduzirTamanhoCliente" name="reduzir_tamanho" value="1">
                                             <label class="form-check-label" for="reduzirTamanhoCliente">
-                                                Reduzir tamanho dos arquivos (economiza espaço)
+                                                {{ 'cliente.show.arquivos.reduzir'|trans }}
                                             </label>
                                         </div>
                                         <div class="form-text text-muted mb-2">
-                                            Mantenha desligado para preservar a qualidade original.
+                                            {{ 'cliente.show.arquivos.reduzir_nota'|trans }}
                                             <span class="d-block text-warning-emphasis">
                                                 <i class="bi bi-exclamation-triangle me-1"></i>
-                                                PDFs assinados digitalmente podem ter a assinatura invalidada ao reduzir o tamanho.
+                                                {{ 'cliente.show.arquivos.reduzir_aviso'|trans }}
                                             </span>
                                         </div>
                                         <div class="text-end">
                                             <button type="submit" class="btn btn-sm btn-success">
-                                                <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                                                <i class="bi bi-cloud-upload me-1"></i> {{ 'cliente.show.arquivos.enviar_todos'|trans }}
                                             </button>
                                         </div>
                                     </div>
@@ -348,14 +352,19 @@
                                                         <small class="text-muted">
                                                             {{ label }}
                                                             {% if doc.descricao %} · {{ doc.descricao }}{% endif %}
-                                                            {% if doc.numero %} · Nº {{ doc.numero }}{% endif %}
-                                                            · {{ doc.uploadedAt|date('d/m/Y') }}
-                                                            · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}
+                                                            {% if doc.numero %} · {{ 'cliente.show.arquivos.numero'|trans({numero: doc.numero}) }}{% endif %}
+                                                            {% if doc.vinculado %}{# vinculado do menu Documentos: sem arquivo próprio, a data é a do envio à pasta #}
+                                                            · {{ doc.pastaDocumento.carregadoEm|data }}
+                                                            · {{ 'cliente.show.arquivos.na_pasta'|trans({nup: doc.pastaDocumento.pasta.nup ?: ('#' ~ doc.pastaDocumento.pasta.id)}) }}
+                                                            {% else %}
+                                                            · {{ doc.uploadedAt|data }}
+                                                            · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? 'cliente.show.arquivos.tamanho_kb'|trans({n: (doc.tamanhoBytes / 1024)|round(1) ~ ''}) : 'cliente.show.arquivos.tamanho_mb'|trans({n: (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ''}) }}
+                                                            {% endif %}
                                                         </small>
                                                     </div>
                                                     <div class="d-flex gap-1 flex-shrink-0">
                                                         <button type="button" class="btn btn-sm btn-outline-primary"
-                                                                title="Visualizar"
+                                                                title="{{ 'cliente.comum.visualizar'|trans }}"
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#previewDocModal"
                                                                 data-url="{{ path('cliente_documento_view', {id: doc.id}) }}"
@@ -363,15 +372,17 @@
                                                                 data-mime="{{ doc.mimeType }}">
                                                             <i class="bi bi-eye"></i>
                                                         </button>
+                                                        {% if not doc.vinculado %}
                                                         <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                                title="Editar"
+                                                                title="{{ 'cliente.comum.editar'|trans }}"
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#editDocModal{{ doc.id }}">
                                                             <i class="bi bi-pencil"></i>
                                                         </button>
-                                                        <form method="post" action="{{ path('cliente_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');">
+                                                        {% endif %}
+                                                        <form method="post" action="{{ path('cliente_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('{{ 'cliente.show.arquivos.excluir_confirma'|trans|e('js') }}');">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('delete_doc_cliente_' ~ doc.id) }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'cliente.comum.excluir'|trans }}">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
                                                         </form>
@@ -392,17 +403,17 @@
                     <div class="d-flex gap-2">
                         <a href="{{ path('cliente_edit', {id: cliente.id}) }}"
                            class="btn btn-outline-primary btn-sm"
-                           title="Editar cliente"
-                           aria-label="Editar cliente">
-                            <i class="bi bi-pencil me-1"></i> Editar
+                           title="{{ 'cliente.show.editar_cliente'|trans }}"
+                           aria-label="{{ 'cliente.show.editar_cliente'|trans }}">
+                            <i class="bi bi-pencil me-1"></i> {{ 'cliente.comum.editar'|trans }}
                         </a>
-                        <form method="post" action="{{ path('cliente_delete', {id: cliente.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este cliente?');">
+                        <form method="post" action="{{ path('cliente_delete', {id: cliente.id}) }}" onsubmit="return confirm('{{ 'cliente.show.excluir_confirma'|trans|e('js') }}');">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
                             <button type="submit"
                                     class="btn btn-outline-danger btn-sm"
-                                    title="Excluir cliente"
-                                    aria-label="Excluir cliente">
-                                <i class="bi bi-trash me-1"></i> Excluir Cliente
+                                    title="{{ 'cliente.show.excluir_cliente'|trans }}"
+                                    aria-label="{{ 'cliente.show.excluir_cliente'|trans }}">
+                                <i class="bi bi-trash me-1"></i> {{ 'cliente.show.excluir_cliente_botao'|trans }}
                             </button>
                         </form>
                     </div>
@@ -425,9 +436,9 @@
                 </h6>
                 <div class="ms-auto d-flex gap-2 align-items-center">
                     <a id="previewDocDownload" href="#" class="btn btn-sm btn-outline-primary" download>
-                        <i class="bi bi-download me-1"></i> Download
+                        <i class="bi bi-download me-1"></i> {{ 'cliente.show.previa.baixar'|trans }}
                     </a>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cliente.comum.fechar'|trans }}"></button>
                 </div>
             </div>
             <div class="modal-body p-0 d-flex align-items-stretch" style="min-height:60vh;">
@@ -447,8 +458,8 @@
                     <form method="post" action="{{ path('cliente_documento_edit', {id: doc.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('edit_doc_cliente_' ~ doc.id) }}">
                         <div class="modal-header">
-                            <h5 class="modal-title"><i class="bi bi-pencil me-1"></i> Editar documento</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            <h5 class="modal-title"><i class="bi bi-pencil me-1"></i> {{ 'cliente.show.editar_doc.titulo'|trans }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cliente.comum.fechar'|trans }}"></button>
                         </div>
                         <div class="modal-body">
                             {% set ext = doc.nomeOriginal|split('.')|last %}
@@ -456,16 +467,16 @@
                                 ? doc.nomeOriginal|slice(0, doc.nomeOriginal|length - ext|length - 1)
                                 : doc.nomeOriginal %}
                             <div class="mb-3">
-                                <label class="form-label">Nome do arquivo</label>
+                                <label class="form-label">{{ 'cliente.show.editar_doc.nome'|trans }}</label>
                                 <div class="input-group">
                                     <input type="text" name="nomeBase" class="form-control"
                                            value="{{ nomeBase }}" maxlength="250" required>
                                     <span class="input-group-text text-muted">.{{ ext }}</span>
                                 </div>
-                                <div class="form-text">A extensão <strong>.{{ ext }}</strong> é preservada automaticamente.</div>
+                                <div class="form-text">{{ 'cliente.show.editar_doc.extensao_antes'|trans }} <strong>.{{ ext }}</strong> {{ 'cliente.show.editar_doc.extensao_depois'|trans }}</div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Tipo de documento</label>
+                                <label class="form-label">{{ 'cliente.comum.tipo_documento'|trans }}</label>
                                 <select name="categoria" class="form-select" required>
                                     {% for valor, texto in documentTypeOptions %}
                                         <option value="{{ valor }}" {{ doc.categoria == valor ? 'selected' : '' }}>{{ texto }}</option>
@@ -473,20 +484,20 @@
                                 </select>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Descrição</label>
+                                <label class="form-label">{{ 'cliente.comum.descricao'|trans }}</label>
                                 <input type="text" name="descricao" class="form-control"
-                                       value="{{ doc.descricao ?? '' }}" maxlength="500" placeholder="Descrição (opcional)">
+                                       value="{{ doc.descricao ?? '' }}" maxlength="500" placeholder="{{ 'cliente.comum.descricao_opcional'|trans }}">
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Número (opcional)</label>
+                                <label class="form-label">{{ 'cliente.comum.numero_opcional'|trans }}</label>
                                 <input type="text" name="numero" class="form-control"
-                                       value="{{ doc.numero ?? '' }}" maxlength="255" placeholder="Número">
+                                       value="{{ doc.numero ?? '' }}" maxlength="255" placeholder="{{ 'cliente.comum.numero'|trans }}">
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'cliente.comum.cancelar'|trans }}</button>
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-lg me-1"></i> Salvar
+                                <i class="bi bi-check-lg me-1"></i> {{ 'cliente.comum.salvar'|trans }}
                             </button>
                         </div>
                     </form>
@@ -538,6 +549,7 @@
 }
 </style>
 
+{{ catalogo_js('cliente.js') }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -577,13 +589,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let indiceGlobal = 0;
 
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
     function formatarTamanho(bytes) {
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / 1024 / 1024).toFixed(2) + ' MB';
     }
 
     function buildSelectOpcoes() {
-        let html = '<option value="">Selecione o tipo</option>';
+        let html = '<option value="">' + esc(BJ_T.t('cliente.js.anexo.selecione_tipo')) + '</option>';
         for (const [valor, texto] of Object.entries(documentTypeOptions)) {
             html += `<option value="${valor}">${texto}</option>`;
         }
@@ -601,28 +615,28 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="d-flex align-items-start gap-3">
                 <i class="bi bi-file-earmark-text fs-4 text-primary flex-shrink-0 mt-1"></i>
                 <div class="flex-grow-1">
-                    <div class="anexo-nome">${file.name}</div>
+                    <div class="anexo-nome">${esc(file.name)}</div>
                     <div class="anexo-tamanho mb-2">${formatarTamanho(file.size)}</div>
                     <div class="row g-2">
                         <div class="col-12 col-md-4">
-                            <label class="form-label form-label-sm mb-1">Tipo de documento</label>
+                            <label class="form-label form-label-sm mb-1">${esc(BJ_T.t('cliente.js.anexo.tipo_documento'))}</label>
                             <select name="categorias[${idx}]" class="form-select form-select-sm" required>
                                 ${buildSelectOpcoes()}
                             </select>
                         </div>
                         <div class="col-12 col-md-5">
-                            <label class="form-label form-label-sm mb-1">Descrição</label>
+                            <label class="form-label form-label-sm mb-1">${esc(BJ_T.t('cliente.js.anexo.descricao'))}</label>
                             <input type="text" name="descricoes[${idx}]" class="form-control form-control-sm"
-                                   placeholder="Descrição (opcional)" maxlength="500">
+                                   placeholder="${esc(BJ_T.t('cliente.js.anexo.descricao_opcional'))}" maxlength="500">
                         </div>
                         <div class="col-12 col-md-3">
-                            <label class="form-label form-label-sm mb-1">Número (opcional)</label>
+                            <label class="form-label form-label-sm mb-1">${esc(BJ_T.t('cliente.js.anexo.numero_opcional'))}</label>
                             <input type="text" name="numeros[${idx}]" class="form-control form-control-sm"
-                                   placeholder="Número" maxlength="255">
+                                   placeholder="${esc(BJ_T.t('cliente.js.anexo.numero'))}" maxlength="255">
                         </div>
                     </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 mt-1 btn-remover-anexo" title="Remover">
+                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 mt-1 btn-remover-anexo" title="${esc(BJ_T.t('cliente.js.anexo.remover'))}">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>

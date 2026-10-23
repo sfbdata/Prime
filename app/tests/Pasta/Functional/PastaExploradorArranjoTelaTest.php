@@ -12,6 +12,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Pasta\Unit\TextoDosScriptsDaPasta;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -32,6 +33,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 #[CoversClass(PastaController::class)]
 final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
 {
+    use TextoDosScriptsDaPasta;
+
     /** @return array{User, Tenant} */
     private function criarUsuarioAdmin(): array
     {
@@ -282,8 +285,8 @@ final class PastaExploradorArranjoTelaTest extends JusPrimeWebTestCase
         // L2b: o painel mostra enviadoPor/paginas/modificadoEm do #pexDados — os RÓTULOS moram
         // no JS (o desenho, `pProps` L4953, rotula a data de "Modificado"), nunca no HTML estático.
         $js = (string) file_get_contents(__DIR__ . '/../../../public/js/pasta-explorador.js');
-        foreach (["'Enviado por'", "'Modificado'", "'Páginas'"] as $rotulo) {
-            self::assertStringContainsString($rotulo, $js, "{$rotulo} é linha do painel de detalhes");
+        foreach (['Enviado por' => 'prop_enviado_por', 'Modificado' => 'col_data', 'Páginas' => 'prop_paginas'] as $rotulo => $chave) {
+            self::assertTextoDoScript($rotulo, 'explorador.' . $chave, $js); // linha do painel de detalhes
         }
         foreach (['Enviado por', 'Modificado', 'Páginas'] as $rotulo) {
             self::assertStringNotContainsString($rotulo, $painel->html(), 'as propriedades nascem do JS, não do Twig');

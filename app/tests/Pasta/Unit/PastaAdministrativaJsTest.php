@@ -59,8 +59,11 @@ final class PastaAdministrativaJsTest extends TestCase
     {
         $corpo = $this->submit();
         self::assertStringContainsString("form.getAttribute('data-confirmar')", $corpo);
-        $confirma = strpos($corpo, 'window.confirm(confirmar)');
+        // E7: a pergunta vai para a janela azul da tela (perguntarAdministrativa) e é ESPERADA
+        // antes de mexer no interruptor e de enviar.
+        $confirma = strpos($corpo, 'var sim = await perguntarAdministrativa(confirmar);');
         self::assertNotFalse($confirma);
+        self::assertStringContainsString("if (!sim || !document.contains(form)) { return; }", $corpo);
         self::assertLessThan(strpos($corpo, 'pintarInterruptor(botao, !ligadoAntes)'), $confirma);
         self::assertLessThan(strpos($corpo, 'fetch(form.action'), $confirma);
     }
@@ -97,7 +100,7 @@ final class PastaAdministrativaJsTest extends TestCase
         $falha = substr($falha, 0, (int) strpos($falha, "document.addEventListener('submit'"));
         self::assertStringContainsString('pintarInterruptor(botao, ligadoAntes)', $falha);
         self::assertStringContainsString('botao.disabled = false', $falha);
-        self::assertStringContainsString('window.alert(', $falha);
+        self::assertStringContainsString('(window.avisarErroPs || window.alert)(', $falha, 'o aviso da tela; o alert só sem o pasta-dialogos.js');
 
         $corpo = $this->submit();
         self::assertStringContainsString("falhaAdministrativa(form, botao, ligadoAntes, typeof r.dados.erro === 'string' ? r.dados.erro : '')", $corpo);

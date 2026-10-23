@@ -1,0 +1,32 @@
+{# "Devolver para X" (desenho 04B L106 e L165-167; spec Fase 3, L15 e D3): motivo fixo, o que falta (mínimo de 5) e
+   os erros do desenho, conferidos de novo no servidor (DevolverMetaUseCase). #}
+<div class="mp-modal mp-devolucao" id="mpDevolucao" hidden
+     data-url="{{ path('tarefa_devolver', {id: tarefa.id}) }}"
+     data-token="{{ csrf_token('devolver_meta_' ~ tarefa.id) }}">
+    <div class="mp-modal-fundo" data-mp-fechar></div>
+    <div class="mp-modal-centro">
+        <div class="mp-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="mpDevolucaoTitulo">
+            <div class="mp-modal-cabeca">
+                <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
+                <b id="mpDevolucaoTitulo">{{ 'metas.passagem.devolver_para'|trans({nome: etapa.devolverPara}) }}</b>
+                <button type="button" class="mp-modal-x" data-mp-fechar aria-label="{{ 'metas.passagem.devolucao.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mp-modal-corpo">
+                <div class="mp-dev-texto">{{ 'metas.passagem.devolucao.explicacao'|trans }}</div>
+                <div class="mp-dev-rotulo">{{ 'metas.passagem.devolucao.motivo'|trans }}</div>
+                <div class="mp-dev-motivos" role="group" aria-label="{{ 'metas.passagem.devolucao.motivo'|trans }}">
+                    {%- for motivo in constant('App\\Tarefa\\DTO\\DevolverMetaInput::MOTIVOS') %}
+                    <button type="button" class="mp-dev-motivo" data-motivo="{{ motivo }}" aria-pressed="false">{{ motivo }}</button>
+                    {%- endfor %}
+                </div>
+                <div class="mp-dev-rotulo">{{ 'metas.passagem.devolucao.o_que_falta'|trans }}</div>
+                <textarea class="mp-dev-falta" rows="3" maxlength="2000" data-mp="falta" placeholder="{{ 'metas.passagem.devolucao.placeholder'|trans }}" aria-label="{{ 'metas.passagem.devolucao.o_que_falta'|trans }}"></textarea>
+                <div class="mp-erro" data-mp="erro" role="alert" hidden></div>
+            </div>
+            <div class="mp-modal-pe">
+                <button type="button" class="mp-cancelar" data-mp-fechar>{{ 'metas.passagem.devolucao.cancelar'|trans }}</button>
+                <button type="button" class="mp-confirmar" data-mp="ok"><i class="bi bi-arrow-return-left" aria-hidden="true"></i> {{ 'metas.passagem.devolucao.devolver'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>

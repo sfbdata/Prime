@@ -10,6 +10,7 @@ use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -21,6 +22,7 @@ class FolhaPontoBuilder
         private readonly RegistroPontoRepository $registroPontoRepository,
         private readonly JustificativaPontoRepository $justificativaPontoRepository,
         private readonly LancamentoHorasPagasRepository $lancamentoHorasPagasRepository,
+        private readonly JornadaColaboradorRepository $jornadaColaboradorRepository,
     ) {}
 
     /**
@@ -295,6 +297,12 @@ class FolhaPontoBuilder
      * chamador que esquecesse o tenant perdia os lançamentos de horas pagas em SILÊNCIO — sem
      * exceção, sem log, com a folha aparentemente normal e o banco de horas errado.
      */
+    /** A jornada pessoal do escritório da folha (spec seguranca-b-jornada §3.2); sem escritório, nenhuma. */
+    private function jornadaNoEscritorio(User $user, ?Tenant $tenant): ?JornadaColaborador
+    {
+        return $tenant === null ? null : $this->jornadaColaboradorRepository->findByUserETenant($user, $tenant);
+    }
+
     private function exigirTenant(Tenant|null|false $tenant, string $metodo): ?Tenant
     {
         if ($tenant === false) {
@@ -326,7 +334,7 @@ class FolhaPontoBuilder
         // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
         $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, $mes);
 
-        $jornada = $user->getJornadaColaborador();
+        $jornada = $this->jornadaNoEscritorio($user, $tenantNorm);
         if ($jornada === null) {
             return $horasPagas;
         }
@@ -419,7 +427,7 @@ class FolhaPontoBuilder
         // anterior à primeira batida, ou de colaborador sem jornada, continua valendo.
         $horasPagas = $this->somarHorasPagasDoPeriodo($user, $tenantNorm, $ano, 1, 12);
 
-        $jornada = $user->getJornadaColaborador();
+        $jornada = $this->jornadaNoEscritorio($user, $tenantNorm);
         if ($jornada === null) {
             return $horasPagas;
         }

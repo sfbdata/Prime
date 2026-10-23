@@ -18,7 +18,9 @@ use App\Djen\UseCase\AlternarStatusOabMonitoradaUseCase;
 use App\Djen\UseCase\RemoverOabMonitoradaUseCase;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
 use App\Entity\Auth\User;
+use App\Pasta\Service\AcessoAPasta;
 use App\Entity\Tenant\Tenant;
+use App\Processo\Repository\ProcessoRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,7 +30,9 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Módulo "Push Processual": publicações captadas do DJEN para o escritório atual + gestão das OABs
- * monitoradas + sincronização sob demanda.
+ * monitoradas + sincronização sob demanda. Desde 16/10 é também a porta de entrada dos processos
+ * (o item Processos saiu do menu): a tela leva ao cadastro, e todo processo cadastrado sem baixa é
+ * acompanhado pelo número na sincronização, além das OABs.
  *
  * O nome do produto é "Push Processual"; DJEN (Diário de Justiça Eletrônico Nacional) segue sendo o
  * nome do sistema do CNJ de onde as publicações vêm — por isso ele permanece nas classes, no código
@@ -54,6 +58,8 @@ final class DjenController extends AbstractController
         private readonly RemoverOabMonitoradaUseCase $removerOab,
         private readonly AlternarStatusOabMonitoradaUseCase $alternarOab,
         private readonly SincronizarPublicacoesDjenUseCase $sincronizar,
+        private readonly ProcessoRepository $processoRepository,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -75,15 +81,18 @@ final class DjenController extends AbstractController
         ];
         $pagina = max(1, (int) $request->query->get('pagina', 1));
 
-        $total = $this->publicacaoRepository->countByFiltros($tenant, $filtros);
+        $ocultos = $this->numerosOcultos($tenant);
+        $total = $this->publicacaoRepository->countByFiltros($tenant, $filtros, $ocultos);
 
         return $this->render('djen/index.html.twig', [
-            'publicacoes' => $this->publicacaoRepository->listarItensDoTenant($tenant, $filtros, $pagina, self::POR_PAGINA),
+            'publicacoes' => $this->publicacaoRepository->listarItensDoTenant($tenant, $filtros, $pagina, self::POR_PAGINA, $ocultos),
             'filtros' => $filtros,
             'tribunais' => $this->publicacaoRepository->listarTribunaisDoTenant($tenant),
             'pagina' => $pagina,
             'total' => $total,
             'totalPaginas' => (int) ceil($total / self::POR_PAGINA),
+            // Processos cadastrados (sem baixa) que a sincronização consulta pelo número.
+            'processosAcompanhados' => $this->processoRepository->contarAcompanhadosDoTenant($tenant),
         ]);
     }
 
@@ -218,7 +227,7 @@ final class DjenController extends AbstractController
         }
 
         $publicacao = $this->publicacaoRepository->findOneByIdDoTenant($id, $tenant);
-        if ($publicacao === null) {
+        if ($publicacao === null || in_array($publicacao->getNumeroProcesso(), $this->numerosOcultos($tenant), true)) {
             throw $this->createNotFoundException('Publicação não encontrada.');
         }
 
@@ -232,6 +241,19 @@ final class DjenController extends AbstractController
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
             'voltarPara' => $this->destinoDeVolta($request),
         ]);
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado D3): processos das pastas ocultas para quem olha. O Push deles some da
+     * lista global e a publicação responde 404, como se não existisse.
+     *
+     * @return list<string>
+     */
+    private function numerosOcultos(Tenant $tenant): array
+    {
+        $user = $this->getUser();
+
+        return $user instanceof User ? $this->acessoAPasta->numerosDeProcessoOcultos($user, $tenant) : [];
     }
 
     /**

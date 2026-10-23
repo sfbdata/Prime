@@ -19,12 +19,12 @@
 (function () {
     'use strict';
 
-    // Título e ícone enquanto a resposta não chega (a resposta traz os definitivos).
+    // Título (chave do catálogo) e ícone enquanto a resposta não chega (a resposta traz os definitivos).
     var VISUAL = {
-        pastas:   { titulo: 'Pastas criadas', icone: 'bi-folder-plus' },
-        metas:    { titulo: 'Metas ativas', icone: 'bi-check2-square' },
-        urgentes: { titulo: 'Demandas urgentes', icone: 'bi-flag-fill' },
-        global:   { titulo: 'Meta global batida', icone: 'bi-bullseye' }
+        pastas:   { titulo: 'dashboard.js.historico.pastas_criadas', icone: 'bi-folder-plus' },
+        metas:    { titulo: 'dashboard.js.historico.metas_ativas', icone: 'bi-check2-square' },
+        urgentes: { titulo: 'dashboard.js.historico.demandas_urgentes', icone: 'bi-flag-fill' },
+        global:   { titulo: 'dashboard.js.historico.meta_global_batida', icone: 'bi-bullseye' }
     };
 
     function el(tag, classe, texto) {
@@ -53,7 +53,7 @@
     function desenharOpcao(area, opcao, tituloCard) {
         var barras = el('div', 'db-hist-barras');
         barras.setAttribute('role', 'img');
-        barras.setAttribute('aria-label', tituloCard + ' — ' + opcao.barras.map(function (b) { return b.titulo; }).join('; '));
+        barras.setAttribute('aria-label', tituloCard + ': ' + opcao.barras.map(function (b) { return b.titulo; }).join('; '));
         var rotulos = el('div', 'db-hist-rotulos');
         rotulos.setAttribute('aria-hidden', 'true');
 
@@ -93,7 +93,7 @@
     function desenhar(corpo, d) {
         if (!d.disponivel) {
             corpo.replaceChildren(
-                el('p', 'db-hist-aviso', 'Ainda não há histórico deste número.'),
+                el('p', 'db-hist-aviso', window.BJ_T.t('dashboard.js.historico.sem_historico')),
                 el('div', 'db-hist-nota', d.nota)
             );
 
@@ -103,7 +103,7 @@
         var graf = el('div', 'db-hist-graf');
         var anos = el('div', 'db-hist-anos');
         anos.setAttribute('role', 'group');
-        anos.setAttribute('aria-label', 'Ano');
+        anos.setAttribute('aria-label', window.BJ_T.t('dashboard.js.historico.ano'));
         var grafico = el('div', 'db-hist-grafico');
         graf.appendChild(anos);
         graf.appendChild(grafico);
@@ -132,7 +132,7 @@
     }
 
     function carregar(url, janela) {
-        aviso(janela.corpo, 'Carregando…');
+        aviso(janela.corpo, window.BJ_T.t('dashboard.js.historico.carregando'));
         window.fetch(url, {
             credentials: 'same-origin',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
@@ -148,7 +148,7 @@
             desenhar(janela.corpo, d);
         }).catch(function () {
             if (janela.elemento.isConnected) {
-                aviso(janela.corpo, 'Não foi possível carregar o histórico. Feche a janela e tente de novo.');
+                aviso(janela.corpo, window.BJ_T.t('dashboard.js.historico.erro'));
             }
         });
     }
@@ -170,8 +170,8 @@
 
             window.DbJanelas.abrir({
                 chave: 'hist:' + tipo + '|' + f.responsavel + '|' + f.cargo,
-                titulo: visual.titulo,
-                subtitulo: 'Histórico mensal',
+                titulo: window.BJ_T.t(visual.titulo),
+                subtitulo: window.BJ_T.t('dashboard.js.historico.subtitulo'),
                 icone: visual.icone,
                 classe: 'db-hist db-hist--' + tipo,
                 largura: 330,

@@ -1,0 +1,419 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Pasta\Functional;
+
+use App\Agenda\Service\CalendarioDoSistema;
+use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
+use App\Pasta\Controller\PastaPrazoController;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\EventListener\PrazosDosRegistrosListener;
+use App\Pasta\Service\DiasUteisDoEscritorio;
+use App\Pasta\Service\PrazosDosRegistros;
+use App\Tests\Functional\JusPrimeWebTestCase;
+use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
+
+/**
+ * Datas escritas nos registros da pasta viram prazos (E12c, desenho 1.2.3 `pzLista` + `lerDatas`): "Prazo 16/10/2026"
+ * no Registro aparece em "Próximos prazos" e no filtro "Expediente com prazo" da Lista; "audiência" vai para o filtro
+ * Audiência. Editar ou excluir o registro relê a pasta.
+ */
+#[CoversClass(PrazosDosRegistros::class)]
+#[CoversClass(PrazosDosRegistrosListener::class)]
+final class PrazosDosRegistrosTest extends JusPrimeWebTestCase
+{
+    private const MARCO = 'PRAZOS_CALENDARIO_DESDE';
+
+    private KernelBrowser $client;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->client = static::createClient();
+        $this->client->disableReboot();
+        $this->instalarCsrfStorage();
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_ENV[self::MARCO], $_SERVER[self::MARCO]);
+        parent::tearDown();
+    }
+
+    #[TestDox('"Prazo DD/MM/AAAA e prazo DD/MM/AAAA" no Registro cria dois prazos lidos, com o autor como responsável')]
+    public function testRegistroComDuasDatasCriaDoisPrazos(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        [$d1, $d2] = [$this->dia('+5 days'), $this->dia('+6 days')];
+
+        $this->registrar($pasta, '<p>Prazo ' . $d1->format('d/m/Y') . ' e prazo ' . $d2->format('d/m/Y') . '</p>');
+
+        $linhas = $this->lidos($pasta);
+        self::assertSame([[ 'prazo', $d1->format('Y-m-d')], ['prazo', $d2->format('Y-m-d')]], array_map(static fn (array $l): array => [$l['tipo'], $l['data']], $linhas));
+        self::assertSame('Admin Leitura', $linhas[0]['responsavel']);
+        self::assertStringStartsWith('expedientes:', $linhas[0]['registro_ref']);
+    }
+
+    #[TestDox('o trilho mostra o prazo lido com a origem "Registro dos expedientes" e sem cumprir, editar ou excluir')]
+    public function testTrilhoMostraOPrazoLido(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->registrar($pasta, 'Prazo ' . $this->dia('+2 days')->format('d/m/Y'));
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+
+        $linha = $c->filter('[data-trilho="prazos"] .ps-prazo');
+        self::assertCount(1, $linha);
+        self::assertStringContainsString(' · Registro dos expedientes', $linha->filter('.ps-linha-meta')->text());
+        self::assertSame('Faltam 2 dias', trim($linha->filter('.ps-selo')->text()));
+        self::assertCount(0, $linha->filter('.js-prazo-cumprir, .js-prazo-editar, .js-prazo-excluir'));
+        self::assertCount(0, $c->filter('.ps-prazo[data-prazo-manual]'));
+    }
+
+    #[TestDox('"audiência" com data vai para o filtro Audiência; "prazo" com data vai para Expediente com prazo')]
+    public function testFiltrosDaLista(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $comAudiencia = $this->criarPasta($tenant, 'RAUD');
+        $comPrazo = $this->criarPasta($tenant, 'RPRZ');
+        $semData = $this->criarPasta($tenant, 'RSEM');
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->registrar($comAudiencia, 'Audiência de instrução em ' . $this->dia('+10 days')->format('d/m/Y') . ' às 14h30.');
+        $this->registrar($comPrazo, 'Prazo ' . $this->dia('+4 days')->format('d/m/Y'));
+        $this->registrar($semData, 'Cliente ligou pedindo notícias.');
+
+        $aud = $this->painel('?expediente=aud');
+        self::assertStringContainsString($comAudiencia->getNup(), $aud);
+        self::assertStringNotContainsString($comPrazo->getNup(), $aud);
+
+        $prazo = $this->painel('?expediente=prazo');
+        self::assertStringContainsString($comPrazo->getNup(), $prazo);
+        self::assertStringContainsString($comAudiencia->getNup(), $prazo);
+        self::assertStringNotContainsString($semData->getNup(), $prazo);
+
+        self::assertSame('14:30', $this->lidos($comAudiencia)[0]['hora']);
+        self::assertSame('audiencia', $this->lidos($comAudiencia)[0]['tipo']);
+    }
+
+    #[TestDox('editar o registro troca a data lida; excluir o registro apaga o prazo lido')]
+    public function testEditarEExcluirORegistro(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $id = $this->registrar($pasta, 'Prazo ' . $this->dia('+5 days')->format('d/m/Y'));
+
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/mensagem/' . $id . '/editar', ['conteudo' => 'Prazo ' . $this->dia('+9 days')->format('d/m/Y'), '_token' => 'TOKEN_pasta_mensagem_editar_' . $id]);
+        self::assertResponseIsSuccessful();
+        self::assertSame([$this->dia('+9 days')->format('Y-m-d')], array_column($this->lidos($pasta), 'data'));
+
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/mensagem/' . $id . '/excluir', ['_token' => 'TOKEN_pasta_mensagem_excluir_' . $id]);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->lidos($pasta));
+    }
+
+    #[TestDox('Detalhes também é lido; o cartão do sistema ("Prazo adicionado: ...") não vira prazo de novo')]
+    public function testDetalhesLidoECartaoDoSistemaNao(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/detalhes/observacao', ['conteudo' => 'Pagamento do boleto até ' . $this->dia('+7 days')->format('d/m/Y'), '_token' => 'TOKEN_pasta_detalhes_obs_' . $pasta->getId()]);
+        self::assertResponseIsSuccessful();
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/prazos', ['tipo' => 'prazo', 'titulo' => 'Manual', 'data' => $this->dia('+20 days')->format('Y-m-d'), 'hora' => '', 'responsavel' => '', '_token' => 'TOKEN_' . PastaPrazoController::idDoToken((int) $pasta->getId())]);
+        self::assertResponseIsSuccessful();
+
+        $lidos = $this->lidos($pasta);
+        self::assertCount(1, $lidos, 'só o Detalhes; o cartão do sistema do prazo manual não é relido');
+        self::assertStringStartsWith('detalhes:', $lidos[0]['registro_ref']);
+        self::assertSame('Vencimento de pagamento', $lidos[0]['titulo']);
+    }
+
+    #[TestDox('prazo lido não se cumpre nem se edita pelo servidor')]
+    public function testPrazoLidoRecusadoNasRotasDoManual(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->registrar($pasta, 'Prazo ' . $this->dia('+5 days')->format('d/m/Y'));
+        $id = (int) $this->lidos($pasta)[0]['id'];
+        $token = 'TOKEN_' . PastaPrazoController::idDoToken((int) $pasta->getId());
+
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/prazos/' . $id . '/cumprir', ['_token' => $token]);
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode());
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/prazos', ['prazo_id' => (string) $id, 'tipo' => 'prazo', 'titulo' => 'X', 'data' => '2030-01-01', 'hora' => '', 'responsavel' => '', '_token' => $token]);
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode());
+        self::assertNull($this->em()->getConnection()->fetchOne('SELECT cumprido_em FROM pasta_prazo WHERE id = ?', [$id]));
+    }
+
+    #[TestDox('marco vazio (padrão): "prazo de 5 dias" de 30/03/2026 grava 06/04, contando a Sexta-feira Santa como hoje')]
+    public function testMarcoVazioCalculaComoHoje(): void
+    {
+        self::assertSame('', static::getContainer()->getParameter('prazos_calendario_desde'));
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta, static::getContainer()->get(PrazosDosRegistros::class)));
+        self::assertSame(['2026-04-06'], array_column($this->lidos($pasta), 'data'));
+    }
+
+    #[TestDox('registro anterior ao marco relido com o marco ligado: a data gravada e o próprio prazo continuam os mesmos')]
+    public function testRegistroAntigoRelidoNaoMuda(): void
+    {
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+        $antes = $this->lidos($pasta);
+        self::assertSame(['2026-04-06'], array_column($antes, 'data'));
+
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta, $this->prazosDesde('2026-04-01')));
+        self::assertSame($antes, $this->lidos($pasta), 'mesmo id, mesma data: nada apagado nem recriado');
+    }
+
+    #[TestDox('registro a partir do marco: grava a data nova (Sexta-feira Santa e feriado de AL não contam; corridos no sábado vão à segunda)')]
+    public function testRegistroNovoGravaDataNova(): void
+    {
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+        self::assertSame(['2026-04-06'], array_column($this->lidos($pasta), 'data'));
+
+        self::assertSame(['criados' => 1, 'apagados' => 1], $this->sincronizar($pasta, $this->prazosDesde('2026-03-30')));
+        self::assertSame(['2026-04-07'], array_column($this->lidos($pasta), 'data'));
+
+        $corridos = $this->pastaComRegistroDe('2026-04-08 09:00:00', 'Prazo de 10 dias corridos.');
+        $this->sincronizar($corridos, $this->prazosDesde('2026-03-30'));
+        self::assertSame(['2026-04-20'], array_column($this->lidos($corridos), 'data'));
+
+        $alagoas = $this->pastaComRegistroDe('2026-09-15 09:00:00', 'Prazo de 2 dias para manifestação.');
+        $this->sincronizar($alagoas, $this->prazosDesde('2026-03-30'));
+        self::assertSame(['2026-09-18'], array_column($this->lidos($alagoas), 'data'));
+    }
+
+    #[TestDox('fiação: PRAZOS_CALENDARIO_DESDE válida no container liga o modo novo para o registro posterior ao marco')]
+    public function testFiacaoComMarcoValidoNoContainer(): void
+    {
+        $this->religarComMarco('2026-03-01');
+        $prazos = static::getContainer()->get(PrazosDosRegistros::class);
+
+        self::assertSame('2026-03-01', static::getContainer()->getParameter('prazos_calendario_desde'));
+        self::assertNull($prazos->calendarioDoRegistro(new \DateTimeImmutable('2026-02-28 23:59:59'), 'AL'));
+        self::assertNotNull($prazos->calendarioDoRegistro(new \DateTimeImmutable('2026-03-01 00:00'), 'AL'));
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+        self::assertSame(['2026-04-07'], array_column($this->lidos($pasta), 'data'), 'Sexta-feira Santa não conta');
+    }
+
+    #[TestDox('listener com o marco ligado: salvar um registro novo grava a data nova (07/04, não 06/04)')]
+    public function testListenerComMarcoGravaDataNova(): void
+    {
+        $this->religarComMarco('2026-03-01');
+        [$user, $tenant] = $this->criarAdmin();
+        $tenant->setEstado('AL');
+        $pasta = $this->criarPasta($tenant);
+
+        $registro = (new PastaMensagem())->setPasta($pasta)->setTenant($tenant)->setAutor($user)->setConteudo('Prazo de 5 dias para manifestação.');
+        // Registro escrito em 30/03/2026 (a base do leitor), salvo agora: o listener relê a pasta no postFlush.
+        (new \ReflectionProperty(PastaMensagem::class, 'criadaEm'))->setValue($registro, new \DateTimeImmutable('2026-03-30 10:00:00'));
+        $this->em()->persist($registro);
+        $this->em()->flush();
+
+        self::assertSame(['2026-04-07'], array_column($this->lidos($pasta), 'data'));
+    }
+
+    #[TestDox('troca de UF do escritório depois do marco: o registro posterior ao marco é relido com a UF nova (esperado pela spec: a UF é a do escritório no momento da leitura)')]
+    public function testTrocaDeUfReleComAUfNova(): void
+    {
+        $this->religarComMarco('2026-03-01');
+        $pasta = $this->pastaComRegistroDe('2026-09-15 09:00:00', 'Prazo de 2 dias para manifestação.');
+        self::assertSame(['2026-09-18'], array_column($this->lidos($pasta), 'data'), 'AL: 16/09 é feriado estadual');
+
+        $this->em()->clear();
+        $this->em()->find(Tenant::class, $this->em()->find(Pasta::class, $pasta->getId())?->getTenant()?->getId())?->setEstado('SP');
+        $this->em()->flush();
+
+        self::assertSame(['criados' => 1, 'apagados' => 1], $this->sincronizar($pasta, static::getContainer()->get(PrazosDosRegistros::class)));
+        self::assertSame(['2026-09-17'], array_column($this->lidos($pasta), 'data'), 'SP: 16/09 é dia útil');
+    }
+
+    #[TestDox('editar depois do marco um registro anterior a ele: continua no cálculo antigo (a base é o criadaEm do registro, não a data da edição)')]
+    public function testEdicaoDeRegistroAntigoContinuaNoCalculoAntigo(): void
+    {
+        $this->religarComMarco('2026-04-01');
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+        self::assertSame(['2026-04-06'], array_column($this->lidos($pasta), 'data'));
+        $id = (int) $this->em()->getConnection()->fetchOne('SELECT id FROM pasta_mensagem WHERE pasta_id = ? AND sistema IS NULL', [$pasta->getId()]);
+
+        $this->em()->clear();
+        $this->em()->find(PastaMensagem::class, $id)?->setConteudo('Prazo de 5 dias para contestação.')->setEditadaEm(new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $lidos = $this->lidos($pasta);
+        self::assertSame(['Prazo para contestação'], array_column($lidos, 'titulo'), 'a edição foi relida pelo listener');
+        self::assertSame(['2026-04-06'], array_column($lidos, 'data'), 'cálculo antigo: com o calendário seria 07/04');
+    }
+
+    // ── helpers ─────────────────────────────────────────────────────────
+
+    /**
+     * O marco é env lida em tempo de execução: com outro valor, o kernel novo monta o PrazosDosRegistros do container
+     * (e o do listener) com ele. O tearDown limpa a env.
+     */
+    private function religarComMarco(string $desde): void
+    {
+        self::ensureKernelShutdown();
+        $_ENV[self::MARCO] = $_SERVER[self::MARCO] = $desde;
+        $this->client = static::createClient();
+        $this->client->disableReboot();
+        $this->instalarCsrfStorage();
+    }
+
+    /** Pasta de escritório em AL com um registro escrito em $criadaEm (o leitor usa essa data como base). */
+    private function pastaComRegistroDe(string $criadaEm, string $texto): Pasta
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $tenant->setEstado('AL');
+        $this->em()->flush();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $id = $this->registrar($pasta, $texto);
+        $this->em()->getConnection()->executeStatement('UPDATE pasta_mensagem SET criada_em = ? WHERE id = ?', [$criadaEm, $id]);
+        $this->sincronizar($pasta, static::getContainer()->get(PrazosDosRegistros::class));
+
+        return $pasta;
+    }
+
+    private function prazosDesde(string $desde): PrazosDosRegistros
+    {
+        return new PrazosDosRegistros($this->em(), new DiasUteisDoEscritorio(new CalendarioDoSistema()), $desde);
+    }
+
+    /** @return array{criados: int, apagados: int} */
+    private function sincronizar(Pasta $pasta, PrazosDosRegistros $prazos): array
+    {
+        $this->em()->clear();
+        $r = $prazos->sincronizar($this->em()->find(Pasta::class, $pasta->getId()));
+        $this->em()->flush();
+
+        return $r;
+    }
+
+    private function em(): EntityManagerInterface
+    {
+        return static::getContainer()->get(EntityManagerInterface::class);
+    }
+
+    private function dia(string $quando): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('today ' . $quando);
+    }
+
+    private function registrar(Pasta $pasta, string $texto): int
+    {
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/mensagem', ['conteudo' => $texto, '_token' => 'TOKEN_pasta_mensagem_' . $pasta->getId()]);
+        self::assertResponseIsSuccessful();
+
+        return (int) $this->em()->getConnection()->fetchOne('SELECT id FROM pasta_mensagem WHERE pasta_id = ? AND sistema IS NULL ORDER BY id DESC LIMIT 1', [$pasta->getId()]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function lidos(Pasta $pasta): array
+    {
+        return $this->em()->getConnection()->fetchAllAssociative(
+            "SELECT id, tipo, titulo, data, hora, responsavel, registro_ref FROM pasta_prazo WHERE pasta_id = ? AND origem = 'registro' ORDER BY data",
+            [$pasta->getId()],
+        );
+    }
+
+    private function painel(string $query): string
+    {
+        $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral' . $query);
+        self::assertResponseIsSuccessful();
+
+        return (string) $this->client->getResponse()->getContent();
+    }
+
+    /** @return array{0: User, 1: Tenant} */
+    private function criarAdmin(): array
+    {
+        $tenant = new Tenant();
+        $tenant->setName('Tenant Prazo ' . uniqid());
+        $this->em()->persist($tenant);
+        $user = $this->novoUsuario('Admin Leitura');
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Administrador ' . uniqid());
+        $role->setIsSystem(true);
+        $this->em()->persist($role);
+        $ut = new UserTenant($user, $tenant);
+        $ut->setTenantRole($role);
+        $this->em()->persist($ut);
+        $this->em()->flush();
+
+        return [$user, $tenant];
+    }
+
+    private function novoUsuario(string $nome): User
+    {
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $user = new User();
+        $user->setEmail('prazo_' . uniqid() . '@test.com');
+        $user->setFullName($nome);
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        $this->em()->persist($user);
+
+        return $user;
+    }
+
+    private function criarPasta(Tenant $tenant, string $rotulo = ''): Pasta
+    {
+        $pasta = new Pasta();
+        $pasta->setNup('PZ' . $rotulo . strtoupper(substr(uniqid(), -6)));
+        $pasta->setTenant($tenant);
+        $this->em()->persist($pasta);
+        $this->em()->flush();
+
+        return $pasta;
+    }
+
+    private function instalarCsrfStorage(): void
+    {
+        $storage = new class implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string
+            {
+                return 'TOKEN_' . $tokenId;
+            }
+
+            public function setToken(string $tokenId, string $token): void {}
+
+            public function removeToken(string $tokenId): ?string
+            {
+                return null;
+            }
+
+            public function hasToken(string $tokenId): bool
+            {
+                return true;
+            }
+
+            public function clear(): void {}
+        };
+
+        static::getContainer()->set('security.csrf.token_storage', $storage);
+    }
+}

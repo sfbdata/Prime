@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
+use App\Cliente\Entity\ClientePF;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
+use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[CoversClass(PastaController::class)]
@@ -403,7 +406,11 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('/pasta/', (string) $json['redirect']);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertCount(1, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+        $criadas = $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]);
+        self::assertCount(1, $criadas);
+        // O Expediente fica na lista e avisa "Pasta N aberta para CLIENTE" (desenho 03, dc `salvarNovaFn`).
+        self::assertSame($criadas[0]->getNup(), $json['nup']);
+        self::assertSame('CLIENTE NOVO', $json['cliente']);
     }
 
     #[TestDox('D12.5 AJAX: confirmar=1 cria mesmo assim e devolve status=ok (aviso NÃO bloqueia)')]
@@ -454,5 +461,95 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         // Continua sem criar nada — a modal recebe o erro, não uma pasta.
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertCount(0, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+    }
+
+    // ── Mesmo cadastro (desenho 03, L276) ───────────────────────────────
+
+    #[TestDox('nome de cliente com um cadastro só por trás: a nova pasta entra ligada ao mesmo cadastro')]
+    public function testNovaPastaVinculadaAoMesmoCadastro(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $cadastro        = $this->novoCliente($tenant, 'Joana Prado');
+        $this->pastaDoCliente($tenant, 'JOANA PRADO', $cadastro);
+        $this->pastaDoCliente($tenant, 'JOANA PRADO', null);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $nova = $this->criarPeloModal($client, '  joana prado ');
+
+        self::assertSame([$cadastro->getId()], $this->idsDosClientes($nova));
+        self::assertSame($cadastro->getId(), $nova->getClientePrincipal()?->getId());
+    }
+
+    #[TestDox('homônimos (dois cadastros com o mesmo nome de pasta) não ligam a nova pasta a nenhum')]
+    public function testHomonimosNaoVinculam(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $this->pastaDoCliente($tenant, 'JOSE SILVA', $this->novoCliente($tenant, 'José Silva'));
+        $this->pastaDoCliente($tenant, 'JOSE SILVA', $this->novoCliente($tenant, 'José Silva'));
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        self::assertSame([], $this->idsDosClientes($this->criarPeloModal($client, 'JOSE SILVA')));
+    }
+
+    #[TestDox('nome usado só como texto, sem cadastro, e o cadastro de outro escritório não ligam nada')]
+    public function testSemCadastroOuDeOutroEscritorioNaoVincula(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        [, $outro]       = $this->criarUsuarioAdmin();
+        $this->pastaDoCliente($tenant, 'MARIA SO TEXTO', null);
+        $this->pastaDoCliente($outro, 'CARLOS DE FORA', $this->novoCliente($outro, 'Carlos de Fora'));
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        self::assertSame([], $this->idsDosClientes($this->criarPeloModal($client, 'MARIA SO TEXTO')));
+        self::assertSame([], $this->idsDosClientes($this->criarPeloModal($client, 'CARLOS DE FORA')));
+    }
+
+    private function novoCliente(Tenant $tenant, string $nome): ClientePF
+    {
+        return ClientePFFactory::createOne(['tenant' => $tenant, 'nomeCompleto' => $nome])->_real();
+    }
+
+    private function pastaDoCliente(Tenant $tenant, string $nomeCliente, ?ClientePF $cadastro): void
+    {
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $pasta = new Pasta();
+        $pasta->setNup('CAD-' . strtoupper(uniqid()));
+        $pasta->setTenant($tenant);
+        $pasta->setNomeCliente($nomeCliente);
+        if ($cadastro !== null) {
+            $pasta->addCliente($em->getReference(ClientePF::class, $cadastro->getId()));
+        }
+        $em->persist($pasta);
+        $em->flush();
+    }
+
+    private function criarPeloModal(KernelBrowser $client, string $nomeCliente): Pasta
+    {
+        $client->xmlHttpRequest('POST', '/pasta/nova', [
+            'nome_cliente' => $nomeCliente,
+            'nome_acao'    => 'Ação ' . uniqid(),
+            'confirmar'    => '1',
+        ]);
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        preg_match('#/pasta/(\d+)$#', (string) $dados['redirect'], $m);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $pasta = $em->find(Pasta::class, (int) $m[1]);
+        self::assertNotNull($pasta);
+
+        return $pasta;
+    }
+
+    /** @return list<int> */
+    private function idsDosClientes(Pasta $pasta): array
+    {
+        return array_values(array_map(static fn ($c): int => (int) $c->getId(), $pasta->getClientes()->toArray()));
     }
 }

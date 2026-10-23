@@ -59,7 +59,8 @@ final class ImportarCadastroCondominosTest extends KernelTestCase
 
         self::assertCount(7, $leitura->importaveis, '6 proprietários + 1 pessoa relacionada');
         self::assertGreaterThanOrEqual(1, count($leitura->rejeitadas), 'a linha sem nome é rejeitada');
-        self::assertGreaterThan(0, $leitura->linhasIgnoradas, 'cabeçalho, rodapé e papel desconhecido');
+        // 8 linhas institucionais do topo + o cabeçalho "Sacado" + o papel desconhecido "Sindico" + 4 de rodapé.
+        self::assertSame(14, $leitura->linhasIgnoradas, 'cabeçalho, rodapé e papel desconhecido');
 
         $motivos = array_map(static fn ($r): string => $r->motivo, $leitura->rejeitadas);
         self::assertNotEmpty(array_filter($motivos, static fn (string $m): bool => str_contains($m, 'sem nome')));

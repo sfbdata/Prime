@@ -1,0 +1,350 @@
+{# ============================================================================
+   Relatório geral · Processos das pastas.
+   Desenho aprovado: docs/design/claude-design-2026-10-05 (1)/"02 - EXPEDIENTES 1.2.3.dc.html":
+   conteúdo `spHTML` (L4538-4555), moldura `impMontar` (faixa azul, cabeçalho BLUEJUS, título,
+   corpo no tamanho escolhido e o rodapé "Documento interno do escritório · BlueJus") com as opções
+   do `spPDF` (L4569: cabeçalho ligado, sem dados da pasta, sem autor, sem financeiro, 10,5 pt).
+   Spec: docs/specs/relatorio-processos-controladoria.md.
+
+   Uma folha, três modos (`modo`, decidido pelo RelatorioDeProcessosController):
+     - `pagina`: página própria (o link do aviso da Controladoria abre aqui);
+     - `fragmento`: só a folha com o próprio <style>, que o relatorio-processos.js põe na prévia.
+       Nenhum <script> aqui: o iframe de impressão não executa nada;
+     - `pdf`: o HTML que o Dompdf converte (CSS 2.1: sem flex; logo embutido; os símbolos que a
+       Helvetica do PDF não tem, ☐ e →, saem na DejaVu Sans).
+
+   Os estilos inline do `spHTML` viraram classes `rsp-*`, cada bloco citando a linha do desenho.
+   Os tamanhos dentro do corpo são relativos (em): no padrão de 10,5 pt dão exatamente os pt do
+   desenho, e o "Tamanho do texto" da prévia muda a folha inteira.
+
+   Contexto: `modo`, `relatorio` (RelatorioSemProcessoOutput), `opcoes`, `impressoEm`,
+   `impressoPor` e, no PDF, `logoPdf`.
+   ============================================================================ #}
+{% import _self as rel %}
+{% set titulo = relatorio.titulo %}
+{% set A = constant('App\\Pasta\\DTO\\AnaliseSemProcessoDaPasta::ADMINISTRATIVA') %}
+
+{% set estiloFolha %}
+    .rp-folha { box-sizing: border-box; padding: 44px 48px; background: #fff; color: #12242f; font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.55; overflow-wrap: anywhere; }
+    .rp-folha * { box-sizing: border-box; }
+    {# impMontar L4614: faixa azul, cabeçalho e título. #}
+    .rp-faixa { height: 30px; background: #0b7398; margin: -44px -48px 30px; }
+    .rp-cab { width: 100%; border-collapse: collapse; border-bottom: 2px solid #0a7aad; margin-bottom: 12px; }
+    .rp-cab td { padding: 0 0 6px; vertical-align: bottom; }
+    .rp-marca img { width: 30px; height: 30px; object-fit: contain; vertical-align: middle; }
+    .rp-marca span { font-size: 15pt; font-weight: 700; color: #0a7aad; letter-spacing: .02em; vertical-align: middle; margin-left: 8px; }
+    .rp-impresso { font-size: 8.5pt; color: #6b8494; text-align: right; line-height: 1.4; }
+    .rp-titulo { font-size: 12.5pt; font-weight: 700; margin: 0 0 4px; line-height: 1.4; }
+    .rp-rodape { margin-top: 18px; border-top: 1px solid #dfe4e8; padding-top: 4px; font-size: 8pt; color: #8aa0ad; }
+    .rp-sem-cabecalho [data-rp-parte="cabecalho"] { display: none; }
+    .rp-faixa, .rsp-sec, .rsp-com-titulo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    {# spHTML L4542: os cinco cartões-resumo (flex:1, gap 8px). Em tabela de células iguais com 8px
+       entre elas, para sair igual na tela e no Dompdf (que não tem flex); a moldura com margem
+       negativa tira o espaço das pontas. #}
+    .rsp-cartoes-moldura { margin: 2px -8px 12px; }
+    .rsp-cartoes { width: 100%; table-layout: auto; border-collapse: separate; border-spacing: 8px 0; }
+    .rsp-cartao { border: 1px solid #d3dde4; border-radius: 4px; padding: 7px 9px; vertical-align: top; }
+    .rsp-cartao-rotulo { font-size: .7143em; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5f7684; word-break: keep-all; overflow-wrap: normal; hyphens: manual; }
+    /* keep-all: na tela, "ADMINISTRATIVAS" quebrava no meio da palavra (verificação visual 19/10). */
+    .rsp-cartao-valor { font-size: 1.5238em; font-weight: 700; color: #0b4f73; line-height: 1.3; }
+    .rsp-tom-laranja { color: #b4460a; }
+    .rsp-tom-vermelho { color: #a3232b; }
+
+    {# L4543: "Resumo para despacho". #}
+    .rsp-h3 { margin: 4px 0 6px; font-size: 1em; font-weight: 700; color: #0b4f73; }
+    .rsp-despacho { border: 1px solid #d3dde4; border-radius: 4px; margin-bottom: 12px; }
+    .rsp-despacho-linha { width: 100%; border-collapse: collapse; font-size: .9048em; line-height: 1.45; }
+    .rsp-despacho-linha + .rsp-despacho-linha { border-top: 1px solid #e3e9ee; }
+    .rsp-despacho-linha td { padding: 6px 10px 6px 0; vertical-align: top; }
+    .rsp-despacho-linha td:first-child { padding-left: 10px; width: 46px; font-weight: 700; color: #0b4f73; white-space: nowrap; }
+    .rsp-despacho-resumo { color: #34505f; }
+    .rsp-despacho-prox { color: #b4460a; }
+
+    {# L4544: o parágrafo de abertura. #}
+    .rsp-abertura { margin: 0 0 12px; font-size: .9524em; color: #34505f; }
+
+    {# L4546-4547: "Evolução". #}
+    .rsp-h3--evolucao { margin-top: 6px; }
+    .rsp-evolucao { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: .8571em; }
+    .rsp-evolucao th { text-align: left; padding: 4px 6px; font-size: .8889em; text-transform: uppercase; color: #5f7684; border-bottom: 1.5px solid #c9d5de; }
+    .rsp-evolucao td { padding: 4px 6px; border-bottom: 1px solid #e3e9ee; }
+    .rsp-evolucao tr.rsp-hoje td { font-weight: 700; border-bottom: 0; }
+    .rsp-igual { color: #7b93a2; }
+    .rsp-melhorou { color: #1e7b45; }
+    .rsp-piorou { color: #a3232b; }
+    .rsp-legenda { margin: 0 0 8px; font-size: .8095em; color: #7b93a2; }
+
+    {# L4545: título colorido de cada seção e a tabela de cinco colunas. #}
+    .rsp-sec { margin: 14px 0 6px; padding: 5px 9px; font-size: 1em; font-weight: 700; color: #fff; border-radius: 3px; }
+    .rsp-sec--deveria { background: #b4460a; }
+    .rsp-sec--rever { background: #a3232b; }
+    .rsp-sec--classificar { background: #5f7684; }
+    .rsp-sec--admin { background: #0b5f86; }
+    .rsp-tabela { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    .rsp-tabela th { text-align: left; padding: 5px 6px; font-size: .7619em; text-transform: uppercase; letter-spacing: .04em; color: #5f7684; border-bottom: 1.5px solid #c9d5de; }
+    .rsp-tabela tr { page-break-inside: avoid; break-inside: avoid; }
+    .rsp-tabela td { padding: 6px; border-bottom: 1px solid #e3e9ee; vertical-align: top; }
+    .rsp-tabela td.rsp-num { font-weight: 700; color: #0b4f73; white-space: nowrap; }
+    .rsp-resp { font-size: .8095em; color: #5f7684; }
+    .rsp-sugestao { font-size: .9048em; }
+    .rsp-nota-linha { margin-top: 3px; font-size: .8947em; color: #5f7684; }
+    .rsp-metas { font-size: .8095em; line-height: 1.5; }
+
+    {# L4541: o selo de confiança (`chip`), com as cores de `conf` (L4540): fundo = cor a 8%, borda a 25%. #}
+    .rsp-selo { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: .7619em; font-weight: 700; white-space: nowrap; border: 1px solid; }
+    .rsp-selo--confirmado { color: #1e7b45; background: rgba(30, 123, 69, .078); border-color: rgba(30, 123, 69, .251); }
+    .rsp-selo--provavel { color: #0b5f86; background: rgba(11, 95, 134, .078); border-color: rgba(11, 95, 134, .251); }
+    .rsp-selo--hipotese { color: #8a5a12; background: rgba(138, 90, 18, .078); border-color: rgba(138, 90, 18, .251); }
+    .rsp-selo--declarado { color: #5f7684; background: rgba(95, 118, 132, .078); border-color: rgba(95, 118, 132, .251); }
+    .rsp-selo--sem-dados { color: #7b93a2; background: rgba(123, 147, 162, .078); border-color: rgba(123, 147, 162, .251); }
+
+    {# L4552: "Com processo vinculado". #}
+    .rsp-com-titulo { margin: 14px 0 6px; padding: 5px 9px; font-size: 1em; font-weight: 700; color: #0b4f73; background: #e5f1f7; border-radius: 3px; }
+    .rsp-com-lista { margin: 0; font-size: .8571em; color: #34505f; line-height: 1.6; }
+
+    {# L4553: a nota final. #}
+    .rsp-nota-final { margin: 12px 0 0; font-size: .8095em; color: #7b93a2; }
+    .rsp-h3, .rsp-sec, .rsp-com-titulo { page-break-after: avoid; break-after: avoid; }
+{% endset %}
+
+{% macro secao(titulo, tom, itens) %}
+    {% if itens|length > 0 %}
+        <h3 class="rsp-sec rsp-sec--{{ tom }}">{{ titulo }} ({{ itens|length }})</h3>
+        <table class="rsp-tabela">
+            <thead>
+                <tr><th class="rsp-c-pasta">{{ 'expediente.relatorio.secao.pasta'|trans }}</th><th class="rsp-c-cliente">{{ 'expediente.relatorio.secao.cliente_responsavel'|trans }}</th><th class="rsp-c-analise">{{ 'expediente.relatorio.secao.analise_e_sugestao'|trans }}</th><th class="rsp-c-metas">{{ 'expediente.relatorio.secao.metas_sugeridas'|trans }}</th><th class="rsp-c-conf">{{ 'expediente.relatorio.secao.confianca'|trans }}</th></tr>
+            </thead>
+            <tbody>
+                {% for x in itens %}
+                    <tr>
+                        <td class="rsp-num">{{ x.numero }}</td>
+                        <td>{{ x.cliente }}<div class="rsp-resp">{{ x.responsavel }}</div></td>
+                        <td class="rsp-sugestao">
+                            {{- x.sugestao -}}
+                            {% if x.termos|length > 0 %}
+                                <div class="rsp-nota-linha">{{ 'expediente.relatorio.secao.evidencias'|trans }} {% for t in x.termos|slice(0, 4) %}{{ t[0] }} ({{ t[1]|lower }}){{ not loop.last ? ', ' }}{% endfor %}</div>
+                            {% endif %}
+                            {% if x.decisaoAnterior %}
+                                <div class="rsp-nota-linha">{{ 'expediente.relatorio.secao.decisao_anterior'|trans({decisao: x.decisaoAnterior.decisao, por: x.decisaoAnterior.por}) }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="rsp-metas">
+                            {% for m in x.metas %}<div><span class="rsp-simbolo">☐</span> <b>{{ m.prazo }}</b> {{ m.titulo }}</div>{% endfor %}
+                        </td>
+                        {% set selo = x.seloDeConfianca %}
+                        <td><span class="rsp-selo rsp-selo--{{ selo[1] }}">{{ selo[0] }}</span></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endmacro %}
+
+{% macro delta(d) %}
+    {%- if d == 0 -%}<span class="rsp-igual">=</span>
+    {%- else -%}<span class="{{ d < 0 ? 'rsp-melhorou' : 'rsp-piorou' }}">{{ d > 0 ? '+' }}{{ d }}</span>
+    {%- endif -%}
+{% endmacro %}
+
+{% set folha %}
+    <main class="rp-folha{{ opcoes.cabecalho ? '' : ' rp-sem-cabecalho' }}" data-rp-titulo="{{ titulo }}">
+        {% if opcoes.cabecalho or modo == 'fragmento' %}
+            <div data-rp-parte="cabecalho">
+                <div class="rp-faixa"></div>
+                <table class="rp-cab">
+                    <tr>
+                        <td class="rp-marca">
+                            {%- if modo == 'pdf' -%}
+                                {% if logoPdf %}<img src="{{ logoPdf }}" alt="">{% endif %}
+                            {%- else -%}
+                                <img src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt="">
+                            {%- endif -%}
+                            <span>BLUEJUS</span>
+                        </td>
+                        <td class="rp-impresso">
+                            {{ 'expediente.relatorio.folha.gestao_juridica'|trans }}<br>
+                            {{ 'expediente.relatorio.folha.impresso_em'|trans({data: impressoEm|date('d/m/Y, H:i:s')}) }}{% if impressoPor %} {{ 'expediente.relatorio.folha.impresso_por'|trans({nome: impressoPor}) }}{% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        {% endif %}
+
+        <h1 class="rp-titulo" data-rp-parte="titulo">{{ titulo }}</h1>
+
+        <div class="rp-corpo" data-rp-parte="corpo" style="font-size: {{ opcoes.fonteCss }}pt">
+            {# L4542 #}
+            <div class="rsp-cartoes-moldura">
+                <table class="rsp-cartoes">
+                    <tr>
+                        {% for c in relatorio.cartoes %}
+                            <td class="rsp-cartao">
+                                <div class="rsp-cartao-rotulo">{{ c.rotulo }}</div>
+                                <div class="rsp-cartao-valor rsp-tom-{{ c.tom }}">{{ c.valor }}</div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                </table>
+            </div>
+
+            {# L4543 #}
+            {% set despacho = relatorio.paraDespacho %}
+            {% if despacho|length > 0 %}
+                <h3 class="rsp-h3">{{ 'expediente.relatorio.resumo_para_despacho'|trans }}</h3>
+                <div class="rsp-despacho">
+                    {% for x in despacho %}
+                        <table class="rsp-despacho-linha">
+                            <tr>
+                                <td>{{ x.numero }}</td>
+                                <td>
+                                    <b>{{ x.cliente }}</b> · {{ x.responsavel }}<br>
+                                    <span class="rsp-despacho-resumo">{{ x.resumo }}</span><br>
+                                    <span class="rsp-despacho-prox"><span class="rsp-simbolo">→</span> {{ x.proximoPasso }}</span>
+                                </td>
+                            </tr>
+                        </table>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {# L4544 #}
+            <p class="rsp-abertura">{{ 'expediente.relatorio.abertura'|trans({data: relatorio.hoje|data}) }}</p>
+
+            {# L4546-4547: só com histórico de envios (e só para quem vê o escritório inteiro). #}
+            {% if relatorio.historico|length > 0 %}
+                <h3 class="rsp-h3 rsp-h3--evolucao">{{ 'expediente.relatorio.evolucao.titulo'|trans }}</h3>
+                <table class="rsp-evolucao">
+                    <thead>
+                        <tr><th>{{ 'expediente.relatorio.evolucao.mes'|trans }}</th><th>{{ 'expediente.relatorio.evolucao.sem_processo'|trans }}</th><th>{{ 'expediente.relatorio.evolucao.deveriam_ter'|trans }}</th><th>{{ 'expediente.relatorio.evolucao.rever_cadastro'|trans }}</th><th>{{ 'expediente.relatorio.evolucao.sem_classificacao'|trans }}</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for h in relatorio.historico %}
+                            <tr><td>{{ h.mes }}</td><td>{{ h.resumo.sem }}</td><td>{{ h.resumo.deveria }}</td><td>{{ h.resumo.rever }}</td><td>{{ h.resumo.classificar }}</td></tr>
+                        {% endfor %}
+                        <tr class="rsp-hoje">
+                            <td>{{ 'expediente.relatorio.evolucao.hoje'|trans }}</td>
+                            {% for campo in ['sem', 'deveria', 'rever', 'classificar'] %}
+                                <td>{{ relatorio.resumo.valor(campo) }} {{ rel.delta(relatorio.delta(campo)) }}</td>
+                            {% endfor %}
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="rsp-legenda">{{ 'expediente.relatorio.evolucao.legenda'|trans }}</p>
+            {% endif %}
+
+            {# L4549-4551 #}
+            {{ rel.secao('expediente.relatorio.secao.titulo_deveria'|trans, 'deveria', relatorio.daCategoria('deveria')) }}
+            {{ rel.secao('expediente.relatorio.secao.titulo_rever'|trans, 'rever', relatorio.daCategoria('rever', 'inconsistente')) }}
+            {{ rel.secao('expediente.relatorio.secao.titulo_classificar'|trans, 'classificar', relatorio.daCategoria('sugAdmin', 'classificar')) }}
+            {{ rel.secao('expediente.relatorio.secao.titulo_admin'|trans, 'admin', relatorio.daCategoria(A)) }}
+
+            {# L4552 #}
+            {% set com = relatorio.daCategoria('com') %}
+            {% if com|length > 0 %}
+                <h3 class="rsp-com-titulo">{{ 'expediente.relatorio.com_processo_vinculado'|trans({n: com|length ~ ''}) }}</h3>
+                <p class="rsp-com-lista">
+                    {%- for x in com -%}
+                        <b>{{ x.numero }}</b> {{ x.cliente }} · {{ x.processoNumero }}{% if not loop.last %}<br>{% endif %}
+                    {%- endfor -%}
+                </p>
+            {% endif %}
+
+            {# L4553 #}
+            <p class="rsp-nota-final">{{ 'expediente.relatorio.nota_final.inicio'|trans }} "{{ 'expediente.relatorio.nota_final.provavel'|trans }}" {{ 'expediente.relatorio.nota_final.e'|trans }} "{{ 'expediente.relatorio.nota_final.hipotese'|trans }}" {{ 'expediente.relatorio.nota_final.exigem_conferencia'|trans }}
+                {% if relatorio.totalDecisoes > 0 %}{{ 'expediente.relatorio.nota_final.decisoes_consideradas'|trans({n: relatorio.totalDecisoes ~ ''}) }}{% else %}{{ 'expediente.relatorio.nota_final.cada_vez_inicio'|trans }} "{{ 'expediente.relatorio.nota_final.administrativo_sem_processo'|trans }}"{{ 'expediente.relatorio.nota_final.cada_vez_fim'|trans }}{% endif %}
+                {{ 'expediente.relatorio.nota_final.nao_substitui_pje'|trans }}</p>
+        </div>
+
+        <div class="rp-rodape" data-rp-parte="rodape">{{ 'expediente.relatorio.folha.rodape'|trans }}</div>
+    </main>
+{% endset %}
+
+{% if modo == 'fragmento' %}
+<div class="rp-documento">
+    <style>{{ estiloFolha }}</style>
+    {{ folha }}
+</div>
+{% elseif modo == 'pdf' %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ titulo }}</title>
+    <style>
+        @page { size: A4; margin: 14mm 13mm 16mm; }
+        body { margin: 0; padding: 0; background: #fff; }
+        {{ estiloFolha }}
+        {# Dompdf: a margem da página faz o papel do padding da folha; sem flex (cartões em linha). #}
+        .rp-folha { display: block; padding: 0; font-family: Helvetica, Arial, sans-serif; }
+        .rp-faixa { margin: -14mm -13mm 30px; }
+        {# O Dompdf não distribui as colunas como o navegador: larguras fixas para a tabela não espremer. #}
+        .rsp-tabela { table-layout: fixed; }
+        .rsp-tabela .rsp-c-pasta { width: 8%; }
+        .rsp-tabela .rsp-c-cliente { width: 17%; }
+        .rsp-tabela .rsp-c-analise { width: 37%; }
+        .rsp-tabela .rsp-c-metas { width: 25%; }
+        .rsp-tabela .rsp-c-conf { width: 13%; }
+        .rsp-simbolo { font-family: 'DejaVu Sans', sans-serif; }
+    </style>
+</head>
+<body>
+    {{ folha }}
+</body>
+</html>
+{% else %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex">
+    <title>{{ titulo }}</title>
+    <style>
+        @page { size: A4; margin: 18mm 0; }
+        @page :first { margin-top: 0; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; background: #eaeef1; color: #243845; font-family: Arial, Helvetica, sans-serif; }
+        .rp-barra {
+            position: sticky; top: 0; z-index: 2;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 10px 20px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.16);
+            font-size: 13px;
+        }
+        .rp-barra button, .rp-barra a {
+            height: 32px; padding: 0 14px; border-radius: 4px; border: 1px solid #c9d5dd;
+            background: #fff; color: #243845; font: inherit; font-weight: 600;
+            display: inline-flex; align-items: center; text-decoration: none; cursor: pointer;
+        }
+        .rp-barra .rp-primario { background: #0a7aad; border-color: #0a7aad; color: #fff; }
+        .rp-barra .rp-espaco { flex: 1; }
+        {{ estiloFolha }}
+        .rp-folha { width: 210mm; min-height: 297mm; margin: 20px auto; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+
+        @media print {
+            html, body { background: #fff; }
+            .rp-barra { display: none; }
+            .rp-folha { width: auto; min-height: 0; margin: 0; box-shadow: none; padding: 18mm 16mm 0; }
+            .rp-faixa { margin: -18mm -16mm 30px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="rp-barra" role="toolbar" aria-label="{{ 'expediente.relatorio.barra.rotulo'|trans }}">
+        <strong>{{ titulo }}</strong>
+        <span class="rp-espaco"></span>
+        <a href="{{ path('expediente_index') }}">{{ 'expediente.relatorio.barra.voltar_ao_expediente'|trans }}</a>
+        <a href="{{ path('expediente_relatorio_processos_pdf') }}">{{ 'expediente.relatorio.impressao.baixar_pdf'|trans }}</a>
+        <button type="button" class="rp-primario" id="rpImprimir">{{ 'expediente.relatorio.impressao.imprimir'|trans }}</button>
+    </div>
+
+    {{ folha }}
+
+    <script>
+    (function () {
+        var imprimir = document.getElementById('rpImprimir');
+        if (imprimir) { imprimir.addEventListener('click', function () { window.print(); }); }
+    })();
+    </script>
+</body>
+</html>
+{% endif %}

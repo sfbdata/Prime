@@ -19,9 +19,10 @@ class InvitationRepository extends ServiceEntityRepository
         parent::__construct($registry, Invitation::class);
     }
 
+    /** O link traz o token puro; o banco só tem o hash dele. */
     public function encontrarPorToken(string $token): ?Invitation
     {
-        return $this->findOneBy(['token' => $token]);
+        return $this->findOneBy(['tokenHash' => Invitation::hashDoToken($token)]);
     }
 
     /** @return Invitation[] */
@@ -48,7 +49,7 @@ class InvitationRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('i')
             ->andWhere('i.type = :type')
-            ->setParameter('type', 'platform')
+            ->setParameter('type', Invitation::TIPO_PLATAFORMA)
             ->orderBy('i.createdAt', 'DESC')
             ->getQuery()
             ->getResult();

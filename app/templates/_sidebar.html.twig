@@ -12,9 +12,9 @@
             <span class="pje-search-icon"><i class="fa fa-search"></i></span>
             <input type="text" id="sidebarSearchInput"
                    class="pje-search-input"
-                   placeholder="Acesso rápido"
+                   placeholder="{{ 'moldura.menu_lateral.busca'|trans }}"
                    autocomplete="off"
-                   aria-label="Acesso rápido">
+                   aria-label="{{ 'moldura.menu_lateral.busca'|trans }}">
         </div>
         <div class="pje-search-results" id="sidebarSearchResults" style="display:none;">
             <ul class="pje-search-list" id="sidebarSearchList"></ul>
@@ -26,12 +26,12 @@
         <nav>
             <ul class="pje-menu-list">
 
-                {% if can_access_module('bi') %}
-                    <li class="pje-menu-item">
+                {% if can_access_module('bi') and recurso_visivel('dashboard') %}
+                    <li class="pje-menu-item {{ recurso_marca('dashboard') }}">
                         <a href="{{ path('dashboard_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'dashboard_' ? 'active' : '' }}">
                             <i class="bi bi-bar-chart-line pje-nav-icon"></i>
-                            <span>Dashboard</span>
+                            <span>{{ 'moldura.menu_lateral.dashboard'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
@@ -40,29 +40,47 @@
                     <a href="{{ path('expediente_index') }}"
                        class="pje-menu-link {{ currentRoute starts with 'expediente_' ? 'active' : '' }}">
                         <i class="bi bi-inbox-fill pje-nav-icon"></i>
-                        <span>Expediente</span>
+                        <span>{{ 'moldura.menu_lateral.expediente'|trans }}</span>
                     </a>
                 </li>
 
-                {% if can_access_module('processos') %}
+                {# Processos e Push Processual foram UNIFICADOS (16/10, pedido do dono): o cadastro de
+                   processos mora dentro do Push Processual, e as telas de processo acendem este item.
+                   Quem só tem o módulo de processos (sem o Push) não pode perder o caminho até eles:
+                   para esse perfil o item continua sendo "Processos". #}
+                {% if can_access_module('djen') %}
+                    <li class="pje-menu-item">
+                        {# O módulo se chamava DJEN: sem o alias, quem digita "djen" (o termo que os
+                           usuários conhecem, e o que as notificações antigas dizem) não acha nada.
+                           "processos" pelo mesmo motivo: o item Processos saiu do menu. #}
+                        <a href="{{ path('push_processual_index') }}"
+                           data-busca-alias="djen publicações intimações processos"
+                           class="pje-menu-link {{ currentRoute starts with 'push_processual_' or currentRoute starts with 'processo_' ? 'active' : '' }}">
+                            <i class="bi bi-newspaper pje-nav-icon"></i>
+                            <span>{{ 'moldura.menu_lateral.push_processual'|trans }}</span>
+                        </a>
+                    </li>
+                {% elseif can_access_module('processos') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('processo_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'processo_' ? 'active' : '' }}">
                             <i class="bi bi-briefcase pje-nav-icon"></i>
-                            <span>Processos</span>
+                            <span>{{ 'moldura.menu_lateral.processos'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
 
-                {% if can_access_module('djen') %}
-                    <li class="pje-menu-item">
-                        {# O módulo se chamava DJEN: sem o alias, quem digita "djen" (o termo que os
-                           usuários conhecem, e o que as notificações antigas dizem) não acha nada. #}
-                        <a href="{{ path('push_processual_index') }}"
-                           data-busca-alias="djen publicações intimações"
-                           class="pje-menu-link {{ currentRoute starts with 'push_processual_' ? 'active' : '' }}">
-                            <i class="bi bi-newspaper pje-nav-icon"></i>
-                            <span>Push Processual</span>
+                {# Trabalho Externo: logo abaixo do Push Processual, com o selo "NOVO" do desenho
+                   (`06 - Trabalho Externo 1.0`, menu lateral). O Master global passa pelo bypass de
+                   super admin; a tela decide o resto (aba suspensa, só equipe etc.). #}
+                {% if can_access_module('trabalho_externo') and recurso_visivel('trabalho') %}
+                    <li class="pje-menu-item {{ recurso_marca('trabalho') }}">
+                        <a href="{{ path('trabalho_externo_index') }}"
+                           data-busca-alias="correspondente diligência demanda externa"
+                           class="pje-menu-link {{ currentRoute starts with 'trabalho_externo_' ? 'active' : '' }}">
+                            <i class="bi bi-geo-alt pje-nav-icon"></i>
+                            <span>{{ 'moldura.menu_lateral.trabalho_externo'|trans }}</span>
+                            <span class="pje-menu-novo" style="margin-left:auto; font-size:10px; font-weight:bold; color:#0a6fa0; background:#e5f1f7; padding:1px 6px; border-radius:3px;">{{ 'moldura.menu_lateral.selo_novo'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
@@ -72,17 +90,17 @@
                         <a href="{{ path('cobranca_carteira_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'cobranca_' ? 'active' : '' }}">
                             <i class="bi bi-cash-coin pje-nav-icon"></i>
-                            <span>Cobranças</span>
+                            <span>{{ 'moldura.menu_lateral.cobrancas'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
 
-                {% if can_access_module('tarefas') %}
-                    <li class="pje-menu-item">
+                {% if can_access_module('tarefas') and recurso_visivel('metas') %}
+                    <li class="pje-menu-item {{ recurso_marca('metas') }}">
                         <a href="{{ path('tarefa_minhas') }}"
                            class="pje-menu-link {{ currentRoute starts with 'tarefa_' ? 'active' : '' }}">
                             <i class="bi bi-list-check pje-nav-icon"></i>
-                            <span>Minhas Metas</span>
+                            <span>{{ 'moldura.menu_lateral.minhas_metas'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
@@ -91,7 +109,7 @@
                     <a href="{{ path('demandas_index') }}"
                        class="pje-menu-link {{ currentRoute == 'demandas_index' ? 'active' : '' }}">
                         <i class="bi bi-inbox pje-nav-icon"></i>
-                        <span>Demandas</span>
+                        <span>{{ 'moldura.menu_lateral.demandas'|trans }}</span>
                     </a>
                 </li>
 
@@ -100,7 +118,7 @@
                         <a href="{{ path('agenda_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'agenda_' ? 'active' : '' }}">
                             <i class="bi bi-calendar3 pje-nav-icon"></i>
-                            <span>Agenda</span>
+                            <span>{{ 'moldura.menu_lateral.agenda'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
@@ -110,7 +128,7 @@
                         <a href="{{ path('kanban_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'kanban_' ? 'active' : '' }}">
                             <i class="bi bi-kanban pje-nav-icon"></i>
-                            <span>Kanban</span>
+                            <span>{{ 'moldura.menu_lateral.kanban'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
@@ -120,7 +138,7 @@
                         <a href="{{ path('servicedesk_meus_chamados') }}"
                            class="pje-menu-link {{ currentRoute == 'servicedesk_meus_chamados' or currentRoute == 'servicedesk_novo' ? 'active' : '' }}">
                             <i class="bi bi-headset pje-nav-icon"></i>
-                            <span>Service Desk</span>
+                            <span>{{ 'moldura.menu_lateral.service_desk'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
@@ -130,7 +148,7 @@
                         <a href="{{ path('ponto_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'ponto_' ? 'active' : '' }}">
                             <i class="bi bi-fingerprint pje-nav-icon"></i>
-                            <span>Ponto Eletrônico</span>
+                            <span>{{ 'moldura.menu_lateral.ponto_eletronico'|trans }}</span>
                         </a>
                     </li>
                 {% endif %}
@@ -148,14 +166,14 @@
                     can_administer('admin.audit.view')
                 %}
                 {% if hasAnyAdminPerm %}
-                    <li class="pje-menu-separator">ADMIN</li>
+                    <li class="pje-menu-separator">{{ 'moldura.menu_lateral.secao_admin'|trans }}</li>
 
                     {% if can_administer('admin.users.invite') %}
                         <li class="pje-menu-item">
                             <a href="{{ path('invite_user') }}"
                                class="pje-menu-link {{ currentRoute == 'invite_user' ? 'active' : '' }}">
                                 <i class="bi bi-envelope pje-nav-icon"></i>
-                                <span>Convidar Usuários</span>
+                                <span>{{ 'moldura.menu_lateral.convidar_usuarios'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -165,7 +183,7 @@
                             <a href="{{ path('app_tenant_users', {'tenantId': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute == 'app_tenant_users' ? 'active' : '' }}">
                                 <i class="bi bi-people-fill pje-nav-icon"></i>
-                                <span>Colaboradores</span>
+                                <span>{{ 'moldura.menu_lateral.colaboradores'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -175,7 +193,7 @@
                             <a href="{{ path('app_tenant_show', {'tenantId': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute == 'app_tenant_show' ? 'active' : '' }}">
                                 <i class="bi bi-building-gear pje-nav-icon"></i>
-                                <span>Meu Escritório</span>
+                                <span>{{ 'moldura.menu_lateral.meu_escritorio'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -185,7 +203,7 @@
                             <a href="{{ path('app_tenant_role_index', {'tenantId': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute starts with 'app_tenant_role_' ? 'active' : '' }}">
                                 <i class="bi bi-shield-lock pje-nav-icon"></i>
-                                <span>Perfis</span>
+                                <span>{{ 'moldura.menu_lateral.perfis'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -195,7 +213,7 @@
                             <a href="{{ path('app_access_request_index') }}"
                                class="pje-menu-link {{ currentRoute starts with 'app_access_request_' ? 'active' : '' }}">
                                 <i class="bi bi-key pje-nav-icon"></i>
-                                <span>Solicitações de Acesso</span>
+                                <span>{{ 'moldura.menu_lateral.solicitacoes_acesso'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -206,7 +224,7 @@
                             <a href="{{ path('servicedesk_index') }}"
                                class="pje-menu-link {{ currentRoute == 'servicedesk_index' ? 'active' : '' }}">
                                 <i class="bi bi-headset pje-nav-icon"></i>
-                                <span>Service Desk (TI)</span>
+                                <span>{{ 'moldura.menu_lateral.service_desk_ti'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -216,7 +234,7 @@
                             <a href="{{ path('app_tenant_sedes', {'tenantId': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute == 'app_tenant_sedes' ? 'active' : '' }}">
                                 <i class="bi bi-geo-alt pje-nav-icon"></i>
-                                <span>Sedes (Ponto)</span>
+                                <span>{{ 'moldura.menu_lateral.sedes_ponto'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -226,7 +244,7 @@
                             <a href="{{ path('app_feriado_index', {'tenantId': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute starts with 'app_feriado_' ? 'active' : '' }}">
                                 <i class="bi bi-calendar-check pje-nav-icon"></i>
-                                <span>Feriados e Folgas</span>
+                                <span>{{ 'moldura.menu_lateral.feriados_folgas'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -236,7 +254,7 @@
                             <a href="{{ path('inteligencia_admin_config') }}"
                                class="pje-menu-link {{ currentRoute starts with 'inteligencia_admin_' ? 'active' : '' }}">
                                 <i class="bi bi-stars pje-nav-icon"></i>
-                                <span>BlueJus IA</span>
+                                <span>{{ 'moldura.menu_lateral.bluejus_ia'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -246,7 +264,7 @@
                             <a href="{{ path('audit_log_index') }}"
                                class="pje-menu-link {{ currentRoute starts with 'audit_log_' ? 'active' : '' }}">
                                 <i class="bi bi-shield-check pje-nav-icon"></i>
-                                <span>Trilha de Auditoria</span>
+                                <span>{{ 'moldura.menu_lateral.trilha_auditoria'|trans }}</span>
                             </a>
                         </li>
                     {% endif %}
@@ -300,7 +318,7 @@
             if (!q) { results.style.display = 'none'; return; }
             var found = links.filter(function (l) { return (l.label + ' ' + l.alias).toLowerCase().includes(q); });
             if (found.length === 0) {
-                list.innerHTML = '<li class="pje-search-empty">Nenhum resultado</li>';
+                var vazio = document.createElement('li'); vazio.className = 'pje-search-empty'; vazio.textContent = BJ_T.t('moldura.js.busca_sem_resultado'); list.replaceChildren(vazio);
             } else {
                 found.forEach(function (l) {
                     var li = document.createElement('li');

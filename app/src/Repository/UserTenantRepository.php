@@ -38,6 +38,49 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * O usuário tem vínculo com algum escritório além deste (qualquer perfil e situação, com o escritório no ar ou
+     * não)? Conta também o suspenso e o em análise: o vínculo removido some da tabela, e o que sobra pode voltar a valer.
+     * A senha é da conta, não do vínculo: quem a troca pelo edit-role deste escritório abriria os outros
+     * (spec perfis-1.2-permissoes-e-hierarquia C8).
+     */
+    public function existeVinculoEmOutroEscritorio(User $user, Tenant $tenant): bool
+    {
+        return (int) $this->createQueryBuilder('ut')
+            ->select('COUNT(ut.id)')
+            ->andWhere('ut.user = :user')
+            ->andWhere('ut.tenant <> :tenant')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
+
+    /**
+     * Contas FORA DO AR (isActive=false: suspensas ou em quarentena de exclusão) com que o usuário tem
+     * vínculo ativo. Base dos avisos da tela de seleção (spec perfis-1.2-contas C9 e C9b).
+     *
+     * @return list<array{nome: string, excluida: bool}>
+     */
+    public function contasForaDoArDoUsuario(User $user): array
+    {
+        $linhas = $this->createQueryBuilder('ut')
+            ->select('t.name AS nome', 't.excluidoEm AS excluidoEm')
+            ->join('ut.tenant', 't')
+            ->andWhere('ut.user = :user')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('t.isActive = false')
+            ->setParameter('user', $user)
+            ->orderBy('t.name')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_values(array_map(
+            static fn (array $l): array => ['nome' => (string) $l['nome'], 'excluida' => $l['excluidoEm'] !== null],
+            $linhas,
+        ));
+    }
+
     public function existeVinculoAtivo(User $user, Tenant $tenant): bool
     {
         return $this->createQueryBuilder('ut')
@@ -68,11 +111,14 @@ class UserTenantRepository extends ServiceEntityRepository
      */
     public function contarAdminsAtivos(Tenant $tenant): int
     {
+        // Conta só quem consegue agir: vínculo ativo E conta ativa (RegraDosPrimarios::ehPrimario).
         return (int) $this->createQueryBuilder('ut')
             ->select('COUNT(ut.id)')
             ->join('ut.tenantRole', 'r')
+            ->join('ut.user', 'u')
             ->andWhere('ut.tenant = :tenant')
             ->andWhere('ut.isActive = true')
+            ->andWhere('u.isActive = true')
             ->andWhere('r.isSystem = true')
             ->setParameter('tenant', $tenant)
             ->getQuery()
@@ -99,5 +145,175 @@ class UserTenantRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Vínculos ativos do escritório, com usuário e perfil já carregados, em ordem de nome.
+     * Base da tela de edição do perfil primário (primários e secundários promovíveis).
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosComPerfilPorTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u', 'r')
+            ->join('ut.user', 'u')
+            ->leftJoin('ut.tenantRole', 'r')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function salvar(UserTenant $vinculo, bool $flush = false): void
+    {
+        $this->getEntityManager()->persist($vinculo);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
+     * Vínculos ativos do escritório com a chave "Registra ponto eletrônico" ligada, em ordem de nome. São as pessoas a
+     * quem a jornada padrão do escritório se aplica no choque (spec seguranca-b-jornada §3.3).
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosQueRegistramPonto(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u')
+            ->join('ut.user', 'u')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('ut.registraPonto = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Vínculos ativos de contas ativas do escritório, com usuário, perfil, cargo e lotação já carregados
+     * (uma consulta, sem N+1), em ordem de nome. Base da lista "Ocultar aba" da pasta (spec
+     * pasta-ocultar-aba §2.4): a "função · setor" de cada pessoa é cargo · lotação.
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosComCargoELotacaoPorTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u', 'r', 'c', 'l')
+            ->join('ut.user', 'u')
+            ->leftJoin('ut.tenantRole', 'r')
+            ->leftJoin('ut.cargo', 'c')
+            ->leftJoin('ut.lotacao', 'l')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('u.isActive = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Vínculos ativos por perfil no escritório: [id do perfil => quantidade].
+     *
+     * @return array<int, int>
+     */
+    public function contarAtivosPorPerfil(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('ut')
+            ->select('IDENTITY(ut.tenantRole) AS perfil', 'COUNT(ut.id) AS total')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('ut.tenantRole IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('ut.tenantRole')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPerfil = [];
+        foreach ($linhas as $linha) {
+            $porPerfil[(int) $linha['perfil']] = (int) $linha['total'];
+        }
+
+        return $porPerfil;
+    }
+
+    /**
+     * Todos os vínculos (ativos e inativos) por perfil no escritório: [id do perfil => quantidade].
+     * É o que a exclusão de perfil solta (TenantRoleController::delete).
+     *
+     * @return array<int, int>
+     */
+    public function contarVinculosPorPerfil(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('ut')
+            ->select('IDENTITY(ut.tenantRole) AS perfil', 'COUNT(ut.id) AS total')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.tenantRole IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('ut.tenantRole')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPerfil = [];
+        foreach ($linhas as $linha) {
+            $porPerfil[(int) $linha['perfil']] = (int) $linha['total'];
+        }
+
+        return $porPerfil;
+    }
+
+    /**
+     * Usuários administradores ativos do escritório (perfil de sistema). Destino do "Pedir acesso" de uma
+     * pasta trancada (E12).
+     *
+     * @return User[]
+     */
+    public function findUsuariosAdminsAtivos(Tenant $tenant): array
+    {
+        $vinculos = $this->createQueryBuilder('ut')
+            ->join('ut.tenantRole', 'r')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('r.isSystem = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('ut.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (UserTenant $ut): User => $ut->getUser(), $vinculos);
+    }
+
+    /**
+     * Pessoas marcadas como Controladoria no escritório (spec relatorio-processos-controladoria, D1),
+     * com vínculo ativo e conta ativa: quem recebe o relatório de pastas sem processo.
+     *
+     * @return User[]
+     */
+    public function findUsuariosDaControladoria(Tenant $tenant): array
+    {
+        $vinculos = $this->createQueryBuilder('ut')
+            ->addSelect('u')
+            ->join('ut.user', 'u')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('u.isActive = true')
+            ->andWhere('ut.controladoria = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (UserTenant $ut): User => $ut->getUser(), $vinculos);
     }
 }

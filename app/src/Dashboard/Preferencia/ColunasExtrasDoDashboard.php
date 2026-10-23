@@ -16,11 +16,13 @@ namespace App\Dashboard\Preferencia;
  *                        concluídas que TÊM data de conclusão (as do legado não têm);
  *   - pastas_urgentes  → `Pasta.prioridade = urgente`, por responsável, no período;
  *   - eventos_agenda   → `Evento` visível à equipe em que a pessoa é criadora ou participante,
- *                        no período.
+ *                        no período;
+ *   - relatorio        → registros por autor em Dados da pasta, Financeiro e Detalhes, no
+ *                        período (chave `comentarios` no desenho; spec dashboard-parte-1).
  *
  * "Pastas concluídas" (do desenho) NÃO está aqui: a pasta só tem ativo/arquivado, não existe
- * "concluída" — sem lastro (pendencias-pos-documentos, item 17). "Relatório" (comentários) também
- * não: depende de decisão do dono (zerar relatório).
+ * "concluída" — sem lastro (pendencias-pos-documentos, item 17). O "zerar" do Relatório também não
+ * (DASH-014, fatia seguinte).
  *
  * A ordem do catálogo é a ordem da lista "Adicionar coluna" no menu (a do desenho). A ordem das
  * colunas NA TABELA é a da preferência do usuário: cada "+" acrescenta no fim.
@@ -36,6 +38,7 @@ final class ColunasExtrasDoDashboard
     public const TEMPO_MEDIO      = 'tempo_medio';
     public const PASTAS_URGENTES  = 'pastas_urgentes';
     public const EVENTOS_AGENDA   = 'eventos_agenda';
+    public const RELATORIO        = 'relatorio';
 
     public const TIPO_SOMA = 'soma';
     public const TIPO_PCT  = 'pct';
@@ -58,7 +61,7 @@ final class ColunasExtrasDoDashboard
             'rotulo' => 'Taxa de conclusão',
             'ajuda'  => 'Concluídas ÷ total de metas',
             'tipo'   => self::TIPO_PCT,
-            'nota'   => 'Sem meta no período, não há taxa (—).',
+            'nota'   => 'Sem meta no período, não há taxa (aparece como Sem dado).',
         ],
         self::METAS_REVISAO => [
             'rotulo' => 'Em revisão',
@@ -84,6 +87,12 @@ final class ColunasExtrasDoDashboard
             'tipo'   => self::TIPO_SOMA,
             'nota'   => 'Eventos visíveis à equipe (não os "somente eu") em que a pessoa é criadora ou participante, pela data de início; cancelados ficam fora. Evento recorrente conta uma vez, pela ocorrência-base (a data de início dele), não por repetição.',
         ],
+        self::RELATORIO => [
+            'rotulo' => 'Relatório',
+            'ajuda'  => 'Registros em Dados da pasta, Financeiro e Detalhes',
+            'tipo'   => self::TIPO_SOMA,
+            'nota'   => 'Registros escritos pela pessoa no período, respostas incluídas; editar não conta de novo e os avisos automáticos do sistema ficam fora.',
+        ],
     ];
 
     /**
@@ -92,6 +101,8 @@ final class ColunasExtrasDoDashboard
      * de mesma duração, com a mesma consulta trocando só as datas (DASH-010):
      *   - eventos: a data de início do evento é um fato do passado; neutro, sempre cinza
      *     ('fila'; desenho `neutra`).
+     *   - relatório: a data de criação do registro é um fato do passado; subir é bom ('alta',
+     *     o padrão do desenho para quem não é `neutra` nem SOBE_RUIM; spec dashboard-parte-1).
      *
      * Ficam SEM tendência (DASH-010b), com o espaço da seta reservado como nas de estoque:
      *   - Em revisão e Pastas urgentes: são estoque (o que está em revisão/urgente agora), não
@@ -111,6 +122,7 @@ final class ColunasExtrasDoDashboard
      */
     public const TENDENCIA = [
         self::EVENTOS_AGENDA => 'fila',
+        self::RELATORIO      => 'alta',
     ];
 
     /**

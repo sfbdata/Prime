@@ -10,6 +10,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * PAS-034 — a janela de confirmação e o aviso do desenho (dc L.280-288 `cf`, L.597 `edAviso`)
@@ -84,20 +85,45 @@ final class PastaDialogosTelaTest extends JusPrimeWebTestCase
             $ini = strpos($html, $funcao);
             self::assertNotFalse($ini, $funcao);
             $corpo = substr($html, $ini, 1100);
-            self::assertStringContainsString("titulo: 'Excluir o comentário de ' + autor.trim() + '?',", $corpo);
-            self::assertStringContainsString('". Ele some para toda a equipe e a exclusão fica registrada no histórico.', $corpo);
+            if ($funcao === 'function confirmarExclusaoObs(artigo)') {
+                // Detalhes: o texto vem do catálogo do idioma (`pasta_detalhes.js.*`).
+                self::assertStringContainsString("titulo: BJ_T.t('pasta_detalhes.js.excluir_titulo', { autor: autor.trim() }),", $corpo);
+                self::assertStringContainsString("BJ_T.t('pasta_detalhes.js.excluir_texto', { trecho:", $corpo);
+            } else {
+                // Registro (aba Dados): o texto vem do catálogo do idioma (`pasta_show.js.registro.*`).
+                self::assertStringContainsString("titulo: BJ_T.t('pasta_show.js.registro.excluir_titulo', {autor: autor.trim()}),", $corpo);
+                self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.excluir_texto', {trecho:", $corpo);
+            }
             self::assertStringContainsString('window.confirmarPs ? confirmarPs(opcoes)', $corpo);
         }
+        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        self::assertSame('Excluir o comentário de {autor}?', $catalogo['excluir_titulo']);
+        self::assertSame('"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.', $catalogo['excluir_texto']);
+        $registro = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['registro'];
+        self::assertSame('Excluir o comentário de {autor}?', $registro['excluir_titulo']);
+        self::assertSame('"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.', $registro['excluir_texto']);
         foreach (["alert('A mensagem não pode ser vazia.')", "alert('A observação não pode ser vazia.')"] as $antigo) {
             self::assertStringNotContainsString($antigo, $html);
         }
         // O Financeiro (outra frente) ainda usa alert: aqui se conferem os dois scripts deste lote.
-        foreach (['Reg', 'Obs'] as $s) {
-            self::assertStringContainsString("avisarErro{$s}(data.erro ?? 'Erro ao editar.')", $html);
-            self::assertStringContainsString("avisarErro{$s}(data.erro ?? 'Erro ao excluir.')", $html);
-            self::assertSame(2, substr_count($html, "avisarErro{$s}('Erro de rede.')"), 'editar e excluir');
-        }
-        self::assertStringContainsString("avisarErroReg('A mensagem não pode ser vazia.')", $html);
-        self::assertStringContainsString("avisarErroObs('A observação não pode ser vazia.')", $html);
+        // Registro: os avisos vêm do catálogo do idioma (`pasta_show.js`).
+        self::assertStringContainsString("avisarErroReg(data.erro ?? BJ_T.t('pasta_show.js.registro.erro_editar'))", $html);
+        self::assertStringContainsString("avisarErroReg(data.erro ?? BJ_T.t('pasta_show.js.registro.erro_excluir'))", $html);
+        self::assertSame(2, substr_count($html, "avisarErroReg(BJ_T.t('pasta_show.js.erro_rede'))"), 'editar e excluir');
+        self::assertStringContainsString("avisarErroReg(BJ_T.t('pasta_show.js.registro.vazia'))", $html);
+        $show = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js'];
+        self::assertSame('Erro ao editar.', $show['registro']['erro_editar']);
+        self::assertSame('Erro ao excluir.', $show['registro']['erro_excluir']);
+        self::assertSame('Erro de rede.', $show['erro_rede']);
+        self::assertSame('A mensagem não pode ser vazia.', $show['registro']['vazia']);
+        // Detalhes: os mesmos avisos, com o texto do catálogo do idioma.
+        self::assertStringContainsString("avisarErroObs(data.erro ?? BJ_T.t('pasta_detalhes.js.erro_editar'))", $html);
+        self::assertStringContainsString("avisarErroObs(data.erro ?? BJ_T.t('pasta_detalhes.js.erro_excluir'))", $html);
+        self::assertSame(2, substr_count($html, "avisarErroObs(BJ_T.t('pasta_detalhes.js.erro_rede'))"), 'editar e excluir');
+        self::assertStringContainsString("avisarErroObs(BJ_T.t('pasta_detalhes.js.vazia'))", $html);
+        self::assertSame('Erro ao editar.', $catalogo['erro_editar']);
+        self::assertSame('Erro ao excluir.', $catalogo['erro_excluir']);
+        self::assertSame('Erro de rede.', $catalogo['erro_rede']);
+        self::assertSame('A observação não pode ser vazia.', $catalogo['vazia']);
     }
 }

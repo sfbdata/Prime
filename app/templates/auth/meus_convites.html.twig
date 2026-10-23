@@ -1,37 +1,37 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Meus Convites{% endblock %}
+{% block title %}{{ 'auth.meus_convites.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <div class="row">
     <div class="col-12">
-        <h2 class="mb-4">Meus Convites Pendentes</h2>
+        <h2 class="mb-4">{{ 'auth.meus_convites.cabecalho'|trans }}</h2>
 
         {% if convites is empty %}
             <div class="alert alert-info">
-                <i class="bi bi-envelope me-2"></i> Nenhum convite pendente.
+                <i class="bi bi-envelope me-2"></i> {{ 'auth.meus_convites.vazio'|trans }}
             </div>
         {% else %}
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Escritório</th>
-                            <th>Convidado por</th>
-                            <th>Expira em</th>
+                            <th>{{ 'auth.meus_convites.escritorio'|trans }}</th>
+                            <th>{{ 'auth.meus_convites.convidado_por'|trans }}</th>
+                            <th>{{ 'auth.comum.expira_em'|trans }}</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for convite in convites %}
                             <tr>
-                                <td>{{ convite.tenantNome ?? '—' }}</td>
-                                <td>{{ convite.criadorNome ?? '—' }}</td>
-                                <td>{{ convite.expiresAt|date('d/m/Y') }}</td>
+                                <td>{% if (convite.tenantNome ?? null) is not null %}{{ convite.tenantNome }}{% else %}<span class="text-muted small">{{ 'auth.meus_convites.nao_informado'|trans }}</span>{% endif %}</td>
+                                <td>{% if (convite.criadorNome ?? null) is not null %}{{ convite.criadorNome }}{% else %}<span class="text-muted small">{{ 'auth.meus_convites.nao_informado'|trans }}</span>{% endif %}</td>
+                                <td>{{ convite.expiresAt|data }}</td>
                                 <td>
-                                    <a href="{{ path('auth_aceite_convite', {token: convite.token}) }}"
+                                    <a href="{{ path('auth_meu_convite', {id: convite.id}) }}"
                                        class="btn btn-sm btn-primary">
-                                        Ver convite
+                                        {{ 'auth.meus_convites.ver_convite'|trans }}
                                     </a>
                                 </td>
                             </tr>

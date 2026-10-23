@@ -8,7 +8,8 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
-use App\Pasta\Service\JanelaDeEdicaoDeComentario;
+use App\Pasta\Service\PrazoDoComentario;
+use App\Tenant\Service\AuditoriaDaEdicaoSemPrazo;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Shared\Service\SanitizadorTextoRico;
 use Doctrine\ORM\EntityManagerInterface;
@@ -18,6 +19,8 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Salvaguardas: só o autor da observação pode editá-la, e apenas dentro de uma
  * janela curta após a criação (`JanelaDeEdicaoDeComentario`, 15 minutos) — o suficiente para corrigir erros de escrita.
+ * Edição sem prazo (spec edicao-sem-prazo §1): o Master e o primário (com a opção do escritório) passam por cima
+ * do prazo e da autoria, pelo {@see PrazoDoComentario}; o uso do poder fica na auditoria.
  *
  * @MENÇÕES (EDT-010r): a edição passa pela MESMA {@see ResolucaoDeMencoesDoRegistro} do envio e
  * avisa quem PASSOU a ser mencionado, com as regras do Registro, na mesma transação.
@@ -30,7 +33,7 @@ final class EditarObservacaoDetalhesUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly SanitizadorTextoRico $sanitizador,
-        private readonly JanelaDeEdicaoDeComentario $janela,
+        private readonly PrazoDoComentario $prazo,
         private readonly ResolucaoDeMencoesDoRegistro $resolucaoDeMencoes,
     ) {}
 
@@ -42,18 +45,13 @@ final class EditarObservacaoDetalhesUseCase
             return false;
         }
 
-        if (!$observacao->pertenceAo($usuario)) {
-            return false;
-        }
-
-        return $this->janela->estaAberta($observacao->getCriadaEm(), $agora);
+        // Autor dentro da janela, OU o poder sem prazo (Master; primário com a opção ligada).
+        return $this->prazo->libera($usuario, $tenant, $observacao->pertenceAo($usuario), $observacao->getCriadaEm(), $agora);
     }
 
     public function executar(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant, string $conteudo): void
     {
-        if (!$this->podeEditar($observacao, $usuario, $tenant)) {
-            throw new ObservacaoDetalhesNaoEditavelException('Esta observação não pode ser editada.');
-        }
+        $this->exigir($observacao, $usuario, $tenant);
 
         // Mesma limpeza do envio: a edição é outra porta de entrada para o mesmo campo, e uma
         // porta sem sanitização anularia a da outra.
@@ -66,7 +64,7 @@ final class EditarObservacaoDetalhesUseCase
         [$conteudo, $mencionados] = $this->resolucaoDeMencoes->resolver($conteudo, $tenant);
 
         // O texto de antes fica guardado INTEIRO (PAS-045b, "Ver alteração" da Timeline).
-        $observacao->editarConteudo($conteudo, new \DateTimeImmutable());
+        $this->aplicar($observacao, $usuario, $tenant, $conteudo);
 
         $pasta = $observacao->getPasta();
         if ($mencionados === [] || $pasta === null) {
@@ -89,5 +87,23 @@ final class EditarObservacaoDetalhesUseCase
                 $observacao->getRespostaA()?->getAutor(),
             );
         });
+    }
+
+    /** A checagem do podeEditar(). O rastro na auditoria (§6) fica em aplicar(), depois das validações. */
+    private function exigir(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant): void
+    {
+        if (!$this->podeEditar($observacao, $usuario, $tenant)) {
+            throw new ObservacaoDetalhesNaoEditavelException('Esta observação não pode ser editada.');
+        }
+    }
+
+    /**
+     * Só depois de todas as validações: a trilha da edição sem prazo (spec §6) é gravada junto com a edição, nunca
+     * por uma tentativa recusada.
+     */
+    private function aplicar(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant, string $conteudo): void
+    {
+        $this->prazo->registrar(AuditoriaDaEdicaoSemPrazo::EDITAR, $usuario, $tenant, $observacao->pertenceAo($usuario), $observacao->getCriadaEm(), $observacao, $observacao->getAutor());
+        $observacao->editarConteudo($conteudo, new \DateTimeImmutable());
     }
 }

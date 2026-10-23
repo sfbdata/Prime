@@ -4,23 +4,39 @@ declare(strict_types=1);
 
 namespace App\Auth\UseCase;
 
+use App\Ponto\Service\RegistroDePontoInicial;
 use App\Auth\DTO\AceitarConviteEscritorioComContaInput;
+use App\Auth\Event\ConviteDeEscritorioAceito;
+use App\Entity\Auth\Invitation;
+use App\Entity\Auth\User;
+use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
+use App\Tenant\Enum\SituacaoNaEquipe;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
 final class AceitarConviteEscritorioComContaUseCase
 {
+    /** Pelo id não há o link do e-mail como prova de que a caixa é da pessoa: vale o e-mail confirmado da conta. */
+    public const RECUSA_EMAIL_A_CONFIRMAR = 'Confirme o seu e-mail para responder a este convite.';
+
     public function __construct(
         private readonly InvitationRepository $invitationRepository,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly EntityManagerInterface $em,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly EventDispatcherInterface $eventos,
+        private readonly VagaNoEscritorio $vagaNoEscritorio,
+        private readonly RegistroDePontoInicial $registroDePontoInicial,
     ) {}
 
     public function executar(AceitarConviteEscritorioComContaInput $input): UserTenant
     {
-        $invitation = $this->invitationRepository->encontrarPorToken($input->token);
+        $invitation = $this->encontrar($input);
 
         if ($invitation === null) {
             throw new \DomainException('Convite não encontrado.');
@@ -43,23 +59,29 @@ final class AceitarConviteEscritorioComContaUseCase
             throw new \DomainException('Convite inválido: escritório não encontrado.');
         }
 
-        $vinculo = $this->userTenantRepository->findPorUserETenant($input->usuarioAtual, $tenant);
+        // Convite de primário: quem convidou ainda pode dar esse acesso? (spec perfis-master D4)
+        $this->regraDosPrimarios->garantirQueConviteDePrimarioSegueValido($invitation);
 
-        if ($vinculo !== null && $vinculo->isActive()) {
-            throw new \DomainException('Você já é colaborador deste escritório.');
-        }
+        $vinculo = $this->userTenantRepository->findPorUserETenant($input->usuarioAtual, $tenant);
+        $this->exigirQueOConvitePodeAbrir($vinculo, $tenant);
+
+        // Limite de usuários também no aceite (spec perfis-1.2-planos-e-limites §6): o convite pode ter saído com vaga.
+        $this->vagaNoEscritorio->exigir((int) $tenant->getId());
 
         if ($vinculo !== null) {
             $vinculo->reativar();
+            $this->registroDePontoInicial->conferirAoReligar($vinculo);
             $vinculo->setTenantRole($invitation->getTenantRole());
             $vinculo->setUpdatedAt(new \DateTimeImmutable());
             $invitation->aceitar($input->usuarioAtual);
             $this->em->flush();
+            $this->avisarAceite($invitation, $input->usuarioAtual, $tenant);
 
             return $vinculo;
         }
 
         $userTenant = new UserTenant($input->usuarioAtual, $tenant);
+        $userTenant->alterarRegistroDePonto($this->registroDePontoInicial->registraPontoInicial($input->usuarioAtual, $tenant));
         if ($invitation->getTenantRole() !== null) {
             $userTenant->setTenantRole($invitation->getTenantRole());
         }
@@ -68,7 +90,42 @@ final class AceitarConviteEscritorioComContaUseCase
 
         $this->em->persist($userTenant);
         $this->em->flush();
+        $this->avisarAceite($invitation, $input->usuarioAtual, $tenant);
 
         return $userTenant;
+    }
+
+    /** Pelo token (link do e-mail) ou pelo id (lista do convidado logado, só convite de escritório). */
+    private function encontrar(AceitarConviteEscritorioComContaInput $input): ?Invitation
+    {
+        if ($input->conviteId === null) {
+            return $this->invitationRepository->encontrarPorToken((string) $input->token);
+        }
+        if (!$input->usuarioAtual->isEmailConfirmado()) {
+            throw new \DomainException(self::RECUSA_EMAIL_A_CONFIRMAR);
+        }
+
+        return $this->invitationRepository->findOneBy(['id' => $input->conviteId, 'type' => Invitation::TIPO_ESCRITORIO]);
+    }
+
+    /** Já ativo, suspenso ou em análise: o convite não devolve o acesso; só o primário, pela equipe da conta. */
+    private function exigirQueOConvitePodeAbrir(?UserTenant $vinculo, Tenant $tenant): void
+    {
+        if ($vinculo !== null && $vinculo->isActive()) {
+            throw new \DomainException('Você já é colaborador deste escritório.');
+        }
+        if ($vinculo !== null && $vinculo->getSituacao() !== SituacaoNaEquipe::Aprovado) {
+            throw new \DomainException($vinculo->getSituacao()->mensagemDeAcesso((string) $tenant->getName()));
+        }
+    }
+
+    /** Depois do último flush: as boas-vindas do Comercial (comercial-e-emails.md §3.5). */
+    private function avisarAceite(Invitation $invitation, User $user, Tenant $tenant): void
+    {
+        $this->eventos->dispatch(new ConviteDeEscritorioAceito(
+            (int) $user->getId(),
+            (int) $tenant->getId(),
+            $invitation->getTenantRole()?->isSystem() === true,
+        ));
     }
 }

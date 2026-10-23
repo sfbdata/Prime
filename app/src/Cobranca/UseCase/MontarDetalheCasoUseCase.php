@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Cobranca\UseCase;
 
-use App\Entity\Auth\User;
 use App\Cobranca\DTO\AcordoOutput;
-use App\Cobranca\DTO\GrupoAcordoObrigacoesOutput;
 use App\Cobranca\DTO\CasoDetalheOutput;
 use App\Cobranca\DTO\EventoHistoricoOutput;
+use App\Cobranca\DTO\GrupoAcordoObrigacoesOutput;
 use App\Cobranca\DTO\LiquidacaoOutput;
 use App\Cobranca\DTO\ObrigacaoOutput;
 use App\Cobranca\DTO\PagamentoOutput;
@@ -35,6 +34,9 @@ use App\Cobranca\Service\CalculadoraPrescricao;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\EncargosVivos;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
+use App\Entity\Auth\User;
+use App\Tenant\Enum\PoderSemPrazo;
+use App\Tenant\Service\PoderDeEdicaoSemPrazo;
 
 /**
  * Leitura: monta o detalhe completo do Caso — a tela central (SPEC §9/§26, Etapa 8). Agrega o
@@ -71,6 +73,7 @@ final class MontarDetalheCasoUseCase
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
         private readonly EncargosVivos $encargosVivos,
         private readonly CalculadoraPrescricao $calculadoraPrescricao,
+        private readonly PoderDeEdicaoSemPrazo $poderSemPrazo,
     ) {
     }
 
@@ -304,11 +307,11 @@ final class MontarDetalheCasoUseCase
 
         return new CasoDetalheOutput(
             id: $caso->getId() ?? 0,
-            objetoIdentificacao: $objeto?->getIdentificacao() ?? '—',
+            objetoIdentificacao: $objeto?->getIdentificacao() ?? 'Não informado',
             objetoDescricao: $objeto?->getDescricao(),
             carteiraId: $carteira?->getId() ?? 0,
-            carteiraNome: $carteira?->getNome() ?? '—',
-            pessoaCobradaNome: $pessoa?->getNome() ?? '—',
+            carteiraNome: $carteira?->getNome() ?? 'Não informado',
+            pessoaCobradaNome: $pessoa?->getNome() ?? 'Não informado',
             pessoaCobradaCpf: $pessoa?->getCpf(),
             pessoaCobradaCnpj: $pessoa?->getCnpj(),
             pessoaCobradaEmail: $pessoa?->getEmail(),
@@ -337,7 +340,7 @@ final class MontarDetalheCasoUseCase
             // `$hoje` é o mesmo relógio injetado usado no resto do método — a janela de edição da
             // anotação não pode medir o tempo por uma fonte diferente da que rege a tela.
             historico: array_map(
-                static fn ($e) => EventoHistoricoOutput::fromEntity($e, $usuarioAtual, $hoje),
+                fn ($e) => EventoHistoricoOutput::fromEntity($e, $usuarioAtual, $hoje, $this->poderNoCaso($caso, $usuarioAtual)),
                 $eventos,
             ),
             // Base resolvida do honorário do CASO (para o espelho %↔R$ do honorário nos modais converter
@@ -361,7 +364,7 @@ final class MontarDetalheCasoUseCase
             // Mesmo relógio, mesmo conjunto: a prescrição olha a competência mais antiga entre EXATAMENTE
             // as obrigações em aberto que os cards somaram (spec §1.3).
             prescricao: $this->calculadoraPrescricao->calcular($emAberto, $hoje),
-            qualificacoes: $this->montarQualificacoes($eventos, $usuarioAtual, $hoje),
+            qualificacoes: $this->montarQualificacoes($eventos, $usuarioAtual, $hoje, $this->poderNoCaso($caso, $usuarioAtual)),
             obrigacoesAvulsasEmAberto: $obrigacoesAvulsasEmAberto,
             obrigacoesAvulsasPagas: $obrigacoesAvulsasPagas,
             totalPagoDasAvulsas: $totalPagoDasAvulsas,
@@ -382,7 +385,7 @@ final class MontarDetalheCasoUseCase
      *
      * @return list<QualificacaoContatoOutput>
      */
-    private function montarQualificacoes(array $eventos, ?User $usuarioAtual, \DateTimeImmutable $hoje): array
+    private function montarQualificacoes(array $eventos, ?User $usuarioAtual, \DateTimeImmutable $hoje, ?PoderSemPrazo $poder): array
     {
         $qualificacoes = [];
         $jaViuAPrimeira = false;
@@ -395,13 +398,24 @@ final class MontarDetalheCasoUseCase
             $ehMaisRecente = !$jaViuAPrimeira;
             $jaViuAPrimeira = true;
 
-            $linha = QualificacaoContatoOutput::tentarDe($evento, $usuarioAtual, $hoje, $ehMaisRecente);
+            $linha = QualificacaoContatoOutput::tentarDe($evento, $usuarioAtual, $hoje, $ehMaisRecente, $poder);
             if ($linha !== null) {
                 $qualificacoes[] = $linha;
             }
         }
 
         return $qualificacoes;
+    }
+
+    /**
+     * Edição sem prazo (spec `edicao-sem-prazo-master-primario.md`, itens 6 e 7): o poder do leitor no escritório
+     * dono do caso (Master, primário com a opção ou nada). Sem leitor (a Central), nada.
+     */
+    private function poderNoCaso(CasoCobranca $caso, ?User $usuarioAtual): ?PoderSemPrazo
+    {
+        $tenant = $caso->getTenant();
+
+        return $usuarioAtual !== null && $tenant !== null ? $this->poderSemPrazo->de($usuarioAtual, $tenant) : null;
     }
 
     /**

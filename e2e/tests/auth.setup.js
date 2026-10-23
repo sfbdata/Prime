@@ -2,10 +2,40 @@
 const { test: setup, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
+const { execSync } = require('child_process');
 
 const STORAGE_FILE = path.join(__dirname, '../storage/auth.json');
 
+// O banco que o localhost:8080 usa: o do app/.env.local da pasta principal (o `saas_ux` neste PC), não o `saas` fixo.
+// E2E_DB_NAME no e2e/.env manda, se definido.
+function bancoDoServidor() {
+    if (process.env.E2E_DB_NAME) return process.env.E2E_DB_NAME;
+    const url = execSync(
+        `docker exec jusprime_php_dev bash -c 'cd /var/www/app && (grep -h "^DATABASE_URL=" .env.local 2>/dev/null || grep -h "^DATABASE_URL=" .env) | tail -n 1'`,
+    ).toString().trim();
+    const nome = url.replace(/["']/g, '').split('?')[0].split('/').pop();
+    if (!nome) throw new Error('Não achei o DATABASE_URL da pasta principal; defina E2E_DB_NAME no e2e/.env');
+    return nome;
+}
+
+// Gênero preenchido no usuário de testes, para a janela "Como devemos tratar você?" (spec genero-no-cadastro,
+// regra 3) não cobrir os cliques dos specs. A migration que cria o usuário (Version20260508170000) já foi aplicada
+// nos bancos de dev; por isso o acerto mora aqui, idempotente. Cria o perfil se faltar.
+function preencherGeneroDoUsuarioE2E() {
+    const sql = `
+        INSERT INTO user_profiles (user_id, criado_em, genero)
+        SELECT u.id, NOW(), 'masculino' FROM "user" u WHERE u.email = 'e2e@jusprime.local'
+        ON CONFLICT (user_id) DO UPDATE SET genero = 'masculino'
+        WHERE user_profiles.genero IS NULL OR user_profiles.genero = 'nao_informado'`;
+    execSync(
+        `docker exec -i jusprime_db_dev psql -v ON_ERROR_STOP=1 -U symfony -d ${JSON.stringify(bancoDoServidor())} -q`,
+        { input: sql, stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+}
+
 setup('autenticar usuário de teste', async ({ page }) => {
+    preencherGeneroDoUsuarioE2E();
+
     await page.goto('/login');
 
     // Verifica se há mensagem de rate limit antes de tentar

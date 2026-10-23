@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Processo\Functional;
 
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\NotaTecnica;
@@ -136,6 +137,7 @@ final class NotaTecnicaVersaoTest extends JusPrimeWebTestCase
         $nota            = $this->criarNota($processo, $outro, $tenant, '<p>Do colega</p>');
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $this->editar($client, $processo, (int) $nota->getId(), '<p>Tentando</p>');
 

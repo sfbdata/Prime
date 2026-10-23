@@ -50,7 +50,30 @@ final readonly class PastaResumoImpressaoOutput
         public array $metasAbertas,
         public array $movimentacoes,
         public ?array $financeiro,
+        public bool $comProcessos = true,
+        public bool $comMetas = true,
     ) {
+    }
+
+    /**
+     * Sem as seções das abas ocultas para quem imprime (spec pasta-ocultar-aba §4): "Processos" com a
+     * aba Processo oculta e "Metas abertas" com Metas oculta. O número do processo no cabeçalho da
+     * folha fica, como no cabeçalho da tela (decisão do orquestrador).
+     *
+     * @param list<string> $abasOcultas
+     */
+    public function semSecoesDasAbas(array $abasOcultas): self
+    {
+        $semProcessos = \in_array('processo', $abasOcultas, true);
+        $semMetas = \in_array('tarefas', $abasOcultas, true);
+
+        return new self(
+            $this->numero, $this->titulo, $this->documento, $this->responsavel, $this->situacao, $this->acao,
+            $this->clientes, $this->processos, $this->pendencias,
+            $semMetas ? 0 : $this->totalMetasAbertas, $semMetas ? [] : $this->metasAbertas,
+            $this->movimentacoes, $this->financeiro,
+            $this->comProcessos && !$semProcessos, $this->comMetas && !$semMetas,
+        );
     }
 
     /**
@@ -121,7 +144,7 @@ final readonly class PastaResumoImpressaoOutput
             titulo: $titulo,
             documento: $principal !== null ? self::documento($principal) : null,
             responsavel: $pasta->getResponsavel()?->getFullName() ?: null,
-            situacao: $pasta->getSituacao() === 'arquivado' ? 'Arquivado' : 'Ativo',
+            situacao: $pasta->getSituacaoRotulo(),
             acao: $acao ?: null,
             clientes: $clientes,
             processos: $processos,

@@ -13,96 +13,125 @@
    Cabeçalho dos cartões no padrão PJe: faixa cinza, título 13.5/700, contagem
    em pílula azul e o chevron › que leva à aba (botão, não link morto).
 
-   Contexto: `pasta`, `proximosPrazos`.
+   Contexto: `pasta`, `proximosPrazos`, `unidadeCobrada`, `abasOcultas` (ids das abas ocultas para quem vê).
    ============================================================================ #}
 
+{# Alto do trilho: Ação, Processo vinculado e Cobrança (saíram do cabeçalho, como o desenho). #}
+{{ include('pasta/_dados_trilho_topo.html.twig') }}
+
 {# ── Próximos prazos ──────────────────────────────────────────────────────
-   Resumo das metas ABERTAS ordenadas pelo prazo mais próximo (PastaPrazoOutput).
-   Meta sem prazo não entra: não tem lugar numa lista ordenada por data. #}
-<section class="ps-card" data-trilho="prazos">
+   Prazos e audiências registrados à mão e metas abertas com prazo, do mais próximo ao mais distante
+   (PastaPrazoOutput::daPasta, E12b). Meta sem prazo não entra: não tem lugar numa lista ordenada por data. #}
+{% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+{% set podeRegistrarPrazo = podeEditarPasta and not pasta.estaExcluida %}
+{# Os prazos são da aba Metas: com ela oculta, o cartão e a janela somem (spec pasta-ocultar-aba §5;
+   as rotas `pasta_prazo_*` também recusam). Idem o cartão Documentos com a aba Documentos oculta. #}
+{% set abasOcultas = abasOcultas|default([]) %}
+{% if 'tarefas' not in abasOcultas %}
+<section class="ps-card" data-trilho="prazos"
+         data-url-prazos="{{ path('pasta_prazo_salvar', {id: pasta.id}) }}"
+         data-csrf-prazos="{{ csrf_token('pasta_prazos_' ~ pasta.id) }}">
     <div class="ps-card-cab">
-        <h2>Próximos prazos</h2>
-        {% if proximosPrazos|length > 0 %}
-            <span class="ps-contagem">{{ proximosPrazos|length }}</span>
-        {% endif %}
+        <h2>{{ 'pasta_cabecalho.trilho.prazos.titulo'|trans }}</h2>
+        {# Contagem = todos os itens (dc `prazosN`), a lista mostra os 8 primeiros. #}
+        <span class="ps-contagem">{{ proximosPrazos|length }}</span>
         <span class="ps-cab-espaco"></span>
+        {% if podeRegistrarPrazo %}
+            <button type="button" class="ps-card-cab-link ps-card-cab-mais js-prazo-novo"
+                    title="{{ 'pasta_cabecalho.trilho.prazos.adicionar'|trans }}" aria-label="{{ 'pasta_cabecalho.trilho.prazos.adicionar'|trans }}"><i class="bi bi-plus-lg"></i></button>
+        {% endif %}
         <button type="button" class="ps-card-cab-link" data-ps-ir-aba="tarefas-tab"
-                title="Abrir as metas" aria-label="Abrir as metas"><i class="bi bi-chevron-right"></i></button>
+                title="{{ 'pasta_cabecalho.trilho.prazos.abrir_metas'|trans }}" aria-label="{{ 'pasta_cabecalho.trilho.prazos.abrir_metas'|trans }}"><i class="bi bi-chevron-right"></i></button>
     </div>
     {% if proximosPrazos|length == 0 %}
-        <div class="ps-vazio">
-            <i class="bi bi-calendar-check"></i>
-            <div class="ps-vazio-titulo">Nenhum prazo aberto</div>
-            <div class="ps-vazio-nota">Metas com prazo aparecem aqui, da mais próxima para a mais distante.</div>
-        </div>
+        <div class="ps-prazos-vazio">{{ 'pasta_cabecalho.trilho.prazos.vazio'|trans }}</div>
     {% else %}
-        {# ⋮ por prazo (L7, desenho dc L.1348 e L.6150-6151): "Ver nas metas",
-           "Alertar <primeiro nome>", "Adicionar à agenda (.ics)" e "Copiar"; o
-           botão direito na linha abre o mesmo menu.
-           "Alertar" (PAS-038) é o MESMO POST do sino das Metas (`tarefa_alertar`,
-           token `alertar_tarefa_<id>`, 1 alerta por hora por destinatário, volta
-           para #tarefas) e a mesma guarda de tela (módulo Tarefas). Um item por
-           responsável da meta, sem o próprio usuário — o desenho mostra um só
-           porque a meta dele tem um só. Pasta excluída (lápide) é somente leitura:
-           o item some (o servidor recusaria o POST de qualquer jeito).
-           "Encaminhar via Chat I.A" segue fora: não há back-end, e item inerte
-           ensina o usuário a desconfiar do menu.
-           A data do .ics vem da META (dia inteiro, Y-m-d com ano) — o
-           `PastaPrazoOutput.meta` só tem "dd/mm", e o desenho chutava o ano
-           corrente, o que erra todo prazo de dezembro visto em janeiro.
-           PAS-047: o POST exige EDITAR a pasta (MetaNaListaController::verificarAcessoPasta);
-           quem só vê não recebe o item. `podeEditarPasta` vem calculado uma vez pelo show. #}
-        {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
+        {# ⋮ por prazo (dc L.6557-6559): nos prazos registrados à mão, "Marcar como cumprido", "Editar" e "Excluir"
+           primeiro; depois "Ver nas metas", "Alertar <primeiro nome>" (só metas: o responsável do prazo manual é texto
+           livre, sem colaborador para alertar), "Adicionar à agenda (.ics)" e "Copiar". O botão direito na linha
+           abre o mesmo menu. "Alertar" é o MESMO POST do sino das Metas (`tarefa_alertar`), com a mesma guarda.
+           "Encaminhar via Chat I.A" (D:6561) vem logo depois de "Ver nas metas": só ids em `data-*` (meta = Tarefa.id,
+           prazo registrado = PastaPrazo.id), disparo no pasta-prazos.js; só com a Central e fora da lápide. #}
         {% set podeAlertarPrazo = can_access_module('tarefas') and podeEditarPasta and not pasta.estaExcluida %}
-        {% for prazo in proximosPrazos %}
-            {% set tarefaDoPrazo = pasta.tarefas|filter(t => t.id == prazo.tarefaId)|first %}
-            {% set prazoDia = tarefaDoPrazo and tarefaDoPrazo.prazo ? tarefaDoPrazo.prazo.format('Ymd') : '' %}
-            {% set prazoResp = tarefaDoPrazo and tarefaDoPrazo.responsavel ? tarefaDoPrazo.responsavel.fullName : '' %}
+        {% set encaminharPrazo = not pasta.estaExcluida and central_disponivel() ? pasta.id : null %}
+        {% for prazo in proximosPrazos|slice(0, 8) %}
+            {% set tarefaDoPrazo = prazo.tarefaId ? pasta.tarefas|filter(t => t.id == prazo.tarefaId)|first : null %}
             {% set alertaveisDoPrazo = podeAlertarPrazo and tarefaDoPrazo
                 ? tarefaDoPrazo.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id)
                 : [] %}
-            <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}">
+            {% set chave = prazo.prazoId ? 'm' ~ prazo.prazoId : prazo.tarefaId %}
+            {# Calculado do Push (docs/specs/prazo-do-push.md): a origem e o selo "confira" vêm do catálogo. #}
+            {% set metaDoPrazo = prazo.push ? prazo.meta ~ ' · ' ~ 'pasta_dados.prazos.origem_push'|trans : prazo.meta %}
+            <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}"{% if prazo.prazoId and prazo.manual %} data-prazo-manual="{{ prazo.prazoId }}"{% endif %}>
                 <span class="ps-pip ps-pip--{{ prazo.tom }}"></span>
                 <div class="ps-linha-corpo">
                     <div class="ps-linha-titulo">
-                        <a href="{{ path('tarefa_show', {id: prazo.tarefaId}) }}">{{ prazo.titulo }}</a>
+                        {% if prazo.tarefaId %}<a href="{{ path('tarefa_show', {id: prazo.tarefaId}) }}">{{ prazo.titulo }}</a>{% else %}{{ prazo.titulo }}{% endif %}
                     </div>
-                    <div class="ps-linha-meta">{{ prazo.meta }}</div>
+                    <div class="ps-linha-meta">{{ metaDoPrazo }}{% if prazo.push %} <span class="ps-prazo-calculado{{ prazo.podeSerEmDobro ? ' ps-prazo-calculado--dobro' }}" title="{{ (prazo.podeSerEmDobro ? 'pasta_dados.prazos.selo_push_dobro_dica' : 'pasta_dados.prazos.selo_push_dica')|trans }}">{{ (prazo.podeSerEmDobro ? 'pasta_dados.prazos.selo_push_dobro' : 'pasta_dados.prazos.selo_push')|trans }}</span>{% endif %}</div>
                 </div>
                 <span class="ps-selo ps-selo--{{ prazo.tom }}">{{ prazo.selo }}</span>
                 <div class="ps-pop-wrap ps-prazo-mais-wrap">
-                    <button type="button" class="ps-prazo-mais" data-ps-pop="psPrazoMenu{{ prazo.tarefaId }}"
-                            aria-haspopup="menu" aria-expanded="false" aria-controls="psPrazoMenu{{ prazo.tarefaId }}"
-                            title="Mais opções" aria-label="Mais opções do prazo"><i class="bi bi-three-dots-vertical"></i></button>
-                    <div class="ps-pop ps-pop--menu ps-pop--prazo" id="psPrazoMenu{{ prazo.tarefaId }}" role="menu">
+                    <button type="button" class="ps-prazo-mais" data-ps-pop="psPrazoMenu{{ chave }}"
+                            aria-haspopup="menu" aria-expanded="false" aria-controls="psPrazoMenu{{ chave }}"
+                            title="{{ 'pasta_cabecalho.trilho.prazos.mais_opcoes'|trans }}" aria-label="{{ 'pasta_cabecalho.trilho.prazos.mais_opcoes_rotulo'|trans }}"><i class="bi bi-three-dots-vertical"></i></button>
+                    <div class="ps-pop ps-pop--menu ps-pop--prazo" id="psPrazoMenu{{ chave }}" role="menu">
                         <div class="ps-pop-secao ps-prazo-menu-titulo" title="{{ prazo.titulo }}">{{ prazo.titulo }}</div>
+                        {% if prazo.prazoId and (prazo.manual or prazo.push) and podeRegistrarPrazo %}
+                            <button type="button" class="ps-pop-item js-prazo-cumprir" role="menuitem"
+                                    data-url="{{ path('pasta_prazo_cumprir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
+                                <i class="bi bi-check2-circle"></i><span>{{ 'pasta_cabecalho.trilho.prazos.cumprir'|trans }}</span>
+                            </button>
+                            {# O calculado do Push só se cumpre: editar e excluir são do manual. #}
+                            {% if prazo.manual %}
+                            <button type="button" class="ps-pop-item js-prazo-editar" role="menuitem"
+                                    data-prazo-id="{{ prazo.prazoId }}" data-tipo="{{ prazo.tipo }}"
+                                    data-titulo="{{ prazo.descricao }}" data-data="{{ prazo.dataIso }}"
+                                    data-hora="{{ prazo.hora }}" data-responsavel="{{ prazo.responsavel }}">
+                                <i class="bi bi-pencil"></i><span>{{ 'pasta_cabecalho.trilho.prazos.editar'|trans }}</span>
+                            </button>
+                            <button type="button" class="ps-pop-item js-prazo-excluir" role="menuitem"
+                                    data-url="{{ path('pasta_prazo_excluir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
+                                <i class="bi bi-trash3"></i><span>{{ 'pasta_cabecalho.trilho.prazos.excluir'|trans }}</span>
+                            </button>
+                            {% endif %}
+                            <div class="ps-pop-sep"></div>
+                        {% endif %}
                         <button type="button" class="ps-pop-item" role="menuitem" data-ps-ir-aba="tarefas-tab">
-                            <i class="bi bi-check2-square"></i><span>Ver nas metas</span>
+                            <i class="bi bi-check2-square"></i><span>{{ 'pasta_cabecalho.trilho.prazos.ver_metas'|trans }}</span>
                         </button>
+                        {% if encaminharPrazo and (prazo.tarefaId or prazo.prazoId) %}
+                            <button type="button" class="ps-pop-item js-prazo-encaminhar" role="menuitem"
+                                    data-encaminhar-pasta="{{ encaminharPrazo }}"
+                                    data-encaminhar-tipo="{{ prazo.tarefaId ? 'meta' : 'prazo' }}"
+                                    data-encaminhar-id="{{ prazo.tarefaId ?: prazo.prazoId }}">
+                                <i class="bi bi-send"></i><span>{{ 'pasta_cabecalho.trilho.prazos.encaminhar'|trans }}</span>
+                            </button>
+                        {% endif %}
                         {% for r in alertaveisDoPrazo %}
                             <form method="post" action="{{ path('tarefa_alertar', {id: prazo.tarefaId}) }}" class="ps-prazo-alertar">
                                 <input type="hidden" name="_token" value="{{ csrf_token('alertar_tarefa_' ~ prazo.tarefaId) }}">
                                 <input type="hidden" name="usuario" value="{{ r.id }}">
-                                <button type="submit" class="ps-pop-item" role="menuitem" title="Alertar {{ r.fullName }} para verificar a meta">
-                                    <i class="bi bi-bell"></i><span>Alertar {{ r.fullName|split(' ')|first }}</span>
+                                <button type="submit" class="ps-pop-item" role="menuitem" title="{{ 'pasta_cabecalho.trilho.prazos.alertar_dica'|trans({nome: r.fullName}) }}">
+                                    <i class="bi bi-bell"></i><span>{{ 'pasta_cabecalho.trilho.prazos.alertar'|trans({nome: r.fullName|split(' ')|first}) }}</span>
                                 </button>
                             </form>
                         {% endfor %}
                         <div class="ps-pop-sep"></div>
-                        {% if prazoDia %}
+                        {% if prazo.dataIso %}
                             <button type="button" class="ps-pop-item js-prazo-ics" role="menuitem"
-                                    data-ics-uid="meta-{{ prazo.tarefaId }}"
-                                    data-ics-dia="{{ prazoDia }}"
+                                    data-ics-uid="{{ prazo.prazoId ? 'prazo-' ~ prazo.prazoId : 'meta-' ~ prazo.tarefaId }}"
+                                    data-ics-dia="{{ prazo.dataIso|replace({'-': ''}) }}"
                                     data-ics-titulo="{{ prazo.titulo|e('html_attr') }}"
-                                    data-ics-responsavel="{{ prazoResp|e('html_attr') }}"
+                                    data-ics-responsavel="{{ (prazo.responsavel ?? '')|e('html_attr') }}"
                                     data-ics-pasta="{{ pasta.nup|e('html_attr') }}">
-                                <i class="bi bi-calendar-plus"></i><span>Adicionar à agenda (.ics)</span>
+                                <i class="bi bi-calendar-plus"></i><span>{{ 'pasta_cabecalho.trilho.prazos.ics'|trans }}</span>
                             </button>
                         {% endif %}
                         <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
-                                data-ps-copiar="{{ (prazo.titulo ~ ' · ' ~ prazo.selo ~ ' · ' ~ prazo.meta ~ ' · Pasta ' ~ pasta.nup)|e('html_attr') }}"
-                                data-ps-copiado="Prazo copiado">
-                            <i class="bi bi-clipboard"></i><span>Copiar</span>
+                                data-ps-copiar="{{ ('pasta_cabecalho.trilho.prazos.copiar_texto'|trans({titulo: prazo.titulo, selo: prazo.selo, meta: metaDoPrazo, nup: pasta.nup}))|e('html_attr') }}"
+                                data-ps-copiado="{{ 'pasta_cabecalho.trilho.prazos.copiado'|trans }}">
+                            <i class="bi bi-clipboard"></i><span>{{ 'pasta_cabecalho.trilho.prazos.copiar'|trans }}</span>
                         </button>
                     </div>
                 </div>
@@ -110,6 +139,36 @@
         {% endfor %}
     {% endif %}
 </section>
+
+{# Janela "Novo prazo ou audiência" / "Editar prazo" (dc L.2908-2926): 420px, cabeçalho azul, Prazo ou Audiência,
+   descrição, data, hora, responsável. pasta-prazos.js abre, preenche e envia. #}
+{% if podeRegistrarPrazo %}
+<div class="ps-pz-fundo" id="psPrazoJanela" hidden>
+    <div class="ps-pz" role="dialog" aria-modal="true" aria-labelledby="psPrazoTitulo">
+        <div class="ps-pz-cab"><i class="bi bi-calendar-event" aria-hidden="true"></i><b id="psPrazoTitulo">{{ 'pasta_cabecalho.trilho.janela.novo'|trans }}</b>
+            <button type="button" class="ps-pz-x js-pz-fechar" aria-label="{{ 'pasta_cabecalho.trilho.janela.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div class="ps-pz-corpo">
+            <div class="ps-pz-tipos" role="radiogroup" aria-label="{{ 'pasta_cabecalho.trilho.janela.tipo'|trans }}">
+                <button type="button" class="ps-pz-tipo js-pz-tipo" data-tipo="prazo" role="radio"><i class="bi bi-hourglass-split" aria-hidden="true"></i>{{ 'pasta_cabecalho.trilho.janela.prazo'|trans }}</button>
+                <button type="button" class="ps-pz-tipo js-pz-tipo" data-tipo="audiencia" role="radio"><i class="bi bi-people" aria-hidden="true"></i>{{ 'pasta_cabecalho.trilho.janela.audiencia'|trans }}</button>
+            </div>
+            <label class="ps-pz-campo">{{ 'pasta_cabecalho.trilho.janela.descricao'|trans }}<input type="text" id="psPzTitulo" maxlength="255" placeholder="{{ 'pasta_cabecalho.trilho.janela.descricao_exemplo'|trans }}" autocomplete="off"></label>
+            <div class="ps-pz-linha">
+                <label class="ps-pz-campo ps-pz-campo--data">{{ 'pasta_cabecalho.trilho.janela.data'|trans }}<input type="date" id="psPzData"></label>
+                <label class="ps-pz-campo ps-pz-campo--hora">{{ 'pasta_cabecalho.trilho.janela.hora'|trans }}<span class="js-pz-hora-opc"> {{ 'pasta_cabecalho.trilho.janela.opcional'|trans }}</span><input type="time" id="psPzHora"></label>
+            </div>
+            <label class="ps-pz-campo">{{ 'pasta_cabecalho.trilho.janela.responsavel'|trans }}<input type="text" id="psPzResp" maxlength="120" placeholder="{{ 'pasta_cabecalho.trilho.janela.responsavel_exemplo'|trans }}" autocomplete="off"></label>
+            <div class="ps-pz-nota"><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'pasta_cabecalho.trilho.janela.nota'|trans }}</div>
+            <div class="ps-pz-erro" id="psPzErro" role="alert"></div>
+            <div class="ps-pz-rodape">
+                <button type="button" class="ps-pz-btn ps-pz-btn--cinza js-pz-fechar">{{ 'pasta_cabecalho.trilho.janela.cancelar'|trans }}</button>
+                <button type="button" class="ps-pz-btn ps-pz-btn--azul js-pz-salvar">{{ 'pasta_cabecalho.trilho.janela.salvar'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
 
 {# ── Clientes ─────────────────────────────────────────────────────────────
    O miolo (#clientesList, .cliente-linha, o bloco #clientesOutros dos "outros") é o mesmo
@@ -143,13 +202,13 @@
          data-resumo-url="{{ path('cliente_resumo', {id: 0}) }}"
          data-pasta-id="{{ pasta.id }}">
     <div class="ps-card-cab">
-        <h2>Clientes</h2>
+        <h2>{{ 'pasta_cabecalho.trilho.clientes.titulo'|trans }}</h2>
         {% if pasta.clientes|length > 0 %}
             <span class="ps-contagem">{{ pasta.clientes|length }}</span>
         {% endif %}
         <span class="ps-cab-espaco"></span>
         {% if podeMexerNoCliente %}
-            <button type="button" class="ps-card-cab-add js-ps-vinc-abrir" title="Vincular cliente" aria-label="Vincular cliente"
+            <button type="button" class="ps-card-cab-add js-ps-vinc-abrir" title="{{ 'pasta_cabecalho.trilho.clientes.vincular'|trans }}" aria-label="{{ 'pasta_cabecalho.trilho.clientes.vincular'|trans }}"
                     aria-expanded="false" aria-controls="psVincCliente"><i class="bi bi-plus-lg"></i></button>
         {% endif %}
     </div>
@@ -162,14 +221,14 @@
             <div class="ps-vinc-campo">
                 <i class="bi bi-search" aria-hidden="true"></i>
                 <input type="search" class="ps-vinc-input" autocomplete="off"
-                       placeholder="Nome ou CPF do cliente" aria-label="Buscar cliente por nome ou CPF">
+                       placeholder="{{ 'pasta_cabecalho.trilho.clientes.busca'|trans }}" aria-label="{{ 'pasta_cabecalho.trilho.clientes.busca_rotulo'|trans }}">
             </div>
-            <div class="ps-vinc-resultados" role="listbox" aria-label="Clientes encontrados"></div>
+            <div class="ps-vinc-resultados" role="listbox" aria-label="{{ 'pasta_cabecalho.trilho.clientes.encontrados'|trans }}"></div>
             <div class="ps-vinc-vazio" hidden>
                 <i class="bi bi-person-x" aria-hidden="true"></i>
-                <span class="ps-vinc-vazio-texto">Cliente ainda não cadastrado.</span>
+                <span class="ps-vinc-vazio-texto">{{ 'pasta_cabecalho.trilho.clientes.nao_cadastrado'|trans }}</span>
                 <button type="button" class="ps-vinc-cadastrar js-ps-vinc-cadastrar"
-                        data-bs-toggle="modal" data-bs-target="#modalAdicionarCliente"><i class="bi bi-person-plus"></i>Cadastrar cliente</button>
+                        data-bs-toggle="modal" data-bs-target="#modalAdicionarCliente"><i class="bi bi-person-plus"></i>{{ 'pasta_cabecalho.trilho.clientes.cadastrar'|trans }}</button>
             </div>
             <div class="ps-vinc-erro" role="alert" hidden></div>
         </div>
@@ -178,6 +237,7 @@
     {# `data-nome-cliente`: o JS do show remonta o vazio deste bloco (abaixo) ao desvincular o último cliente. #}
     <div id="clientesList" data-nome-cliente="{{ pasta.nomeCliente }}">
         {% set clientePrincipal = pasta.clientePrincipal %}
+        {% set idsDuplicados = pasta_clientes_duplicados(pasta) %}
         {% if pasta.clientes|length > 0 %}
             {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
 
@@ -189,7 +249,7 @@
             {% if clientePrincipal %}
                 <div class="cliente-principal">
                     {{ include('pasta/_cliente_linha.html.twig', {
-                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente,
+                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente, cpfDuplicado: clientePrincipal.id in idsDuplicados,
                     }) }}
                 </div>
             {% endif %}
@@ -198,7 +258,7 @@
                 <div class="clientes-outros ps-clientes-rolagem" id="clientesOutros">
                     {% for cliente in outros %}
                         {{ include('pasta/_cliente_linha.html.twig', {
-                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente,
+                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente, cpfDuplicado: cliente.id in idsDuplicados,
                         }) }}
                     {% endfor %}
                 </div>
@@ -210,13 +270,13 @@
             <div id="clientesPlaceholder" class="ps-cliente">
                 <i class="bi bi-person-circle" style="color: var(--ps-faint)"></i>
                 <span class="ps-cliente-nome flex-grow-1">{{ pasta.nomeCliente }}</span>
-                <span class="ps-selo ps-selo--tranquilo">não vinculado</span>
+                <span class="ps-selo ps-selo--tranquilo">{{ 'pasta_cabecalho.trilho.clientes.nao_vinculado'|trans }}</span>
             </div>
         {% else %}
             <div id="clientesPlaceholder" class="ps-vazio">
                 <i class="bi bi-person-circle"></i>
-                <div class="ps-vazio-titulo">Nenhum cliente vinculado</div>
-                <div class="ps-vazio-nota">Vincule o cliente para calcular a média por CPF.</div>
+                <div class="ps-vazio-titulo">{{ 'pasta_cabecalho.trilho.clientes.nenhum'|trans }}</div>
+                <div class="ps-vazio-nota">{{ 'pasta_cabecalho.trilho.clientes.nenhum_nota'|trans }}</div>
             </div>
         {% endif %}
     </div>
@@ -225,23 +285,28 @@
 {# ── Documentos ───────────────────────────────────────────────────────────
    Três itens e o atalho para a aba, como o desenho pede. A lista completa mora
    na aba Documentos; repeti-la aqui só empurraria o trilho para fora da vista.
-   O ícone é o do TIPO do arquivo (PDF vermelho, Word azul…), via `arquivo_icone`. #}
-{% set docsRecentes = pasta.documentos|sort((a, b) => b.carregadoEm <=> a.carregadoEm)|slice(0, 3) %}
+   O ícone é o do TIPO do arquivo (PDF vermelho, Word azul…), via `arquivo_icone`:
+   família e cores do Guia visual, as mesmas da aba Documentos; a cor sai pela classe
+   `ps-doc-icone--<tipo>` (tokens com par escuro no pasta-show.css), nunca inline. #}
+{# O contrato de honorários some com o Financeiro oculto (regra `documentoVisivel`, ocultar aba). #}
+{% set docsDoCartao = abasDaPasta is defined and abasDaPasta ? pasta.documentos|filter(d => abasDaPasta.documentoVisivel(d.categoria)) : pasta.documentos %}
+{% set docsRecentes = docsDoCartao|sort((a, b) => b.carregadoEm <=> a.carregadoEm)|slice(0, 3) %}
+{% if 'documentos' not in abasOcultas %}
 <section class="ps-card" data-trilho="documentos">
     <div class="ps-card-cab">
-        <h2>Documentos</h2>
-        {% if pasta.documentos|length > 0 %}
-            <span class="ps-contagem">{{ pasta.documentos|length }}</span>
+        <h2>{{ 'pasta_cabecalho.trilho.documentos.titulo'|trans }}</h2>
+        {% if docsDoCartao|length > 0 %}
+            <span class="ps-contagem">{{ docsDoCartao|length }}</span>
         {% endif %}
         <span class="ps-cab-espaco"></span>
         <button type="button" class="ps-card-cab-link" data-ps-ir-aba="documentos-tab"
-                title="Abrir todos os documentos" aria-label="Abrir todos os documentos"><i class="bi bi-chevron-right"></i></button>
+                title="{{ 'pasta_cabecalho.trilho.documentos.abrir_todos'|trans }}" aria-label="{{ 'pasta_cabecalho.trilho.documentos.abrir_todos'|trans }}"><i class="bi bi-chevron-right"></i></button>
     </div>
     {% if docsRecentes|length == 0 %}
         <div class="ps-vazio">
             <i class="bi bi-paperclip"></i>
-            <div class="ps-vazio-titulo">Nenhum documento</div>
-            <div class="ps-vazio-nota">Envie arquivos pela aba Documentos.</div>
+            <div class="ps-vazio-titulo">{{ 'pasta_cabecalho.trilho.documentos.nenhum'|trans }}</div>
+            <div class="ps-vazio-nota">{{ 'pasta_cabecalho.trilho.documentos.nenhum_nota'|trans }}</div>
         </div>
     {% else %}
         {# Clicar abre o pré-visualizador — o MESMO gesto da aba Documentos, e o
@@ -257,7 +322,7 @@
                data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
                data-nome="{{ doc.nomeOriginal|e('html_attr') }}"
                data-mime="{{ doc.mimeType|e('html_attr') }}">
-                <span class="ps-doc-icone" style="color: {{ icone.cor|e('html_attr') }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
+                <span class="ps-doc-icone ps-doc-icone--{{ icone.tipo }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
                 <span class="ps-linha-corpo">
                     <span class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</span>
                     <span class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</span>
@@ -266,6 +331,7 @@
         {% endfor %}
     {% endif %}
 </section>
+{% endif %}
 
 {# Comportamento do L7 (janela do cliente, copiar, .ics). Fica no parcial do
    trilho, e não no show, porque é só o trilho que precisa dele; `defer` o faz

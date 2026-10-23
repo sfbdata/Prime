@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cobranças · Central{% endblock %}
+{% block title %}{{ 'cobranca_pessoa.central.titulo_pagina'|trans }}{% endblock %}
 
 {#
    Central de Acompanhamento da Cobrança — Fatia 1 (spec `cobranca-central-acompanhamento.md`).
@@ -11,7 +11,7 @@
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-people"></i>Cobranças</h1>
+        <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-people"></i>{{ 'cobranca_pessoa.central.titulo'|trans }}</h1>
         {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'central' }) }}
     </div>
 </section>
@@ -21,38 +21,38 @@
         {# ── Filtros (período + carteira) ─────────────────────── #}
         <form method="get" action="{{ path('cobranca_central') }}" class="row g-2 align-items-end mb-3" id="filtrosCentral">
             <div class="col-12 col-sm-6 col-md-3">
-                <label class="form-label small mb-1" for="filtroPeriodo">Período</label>
+                <label class="form-label small mb-1" for="filtroPeriodo">{{ 'cobranca_pessoa.central.filtro.periodo'|trans }}</label>
                 <select class="form-select form-select-sm" id="filtroPeriodo" name="periodo">
                     {% for valor, rotulo in {
-                        'hoje': 'Hoje',
-                        'ontem': 'Ontem',
-                        'semana': 'Esta semana',
-                        'mes': 'Este mês',
-                        'personalizado': 'Personalizado'
+                        'hoje': 'cobranca_pessoa.central.periodo.hoje'|trans,
+                        'ontem': 'cobranca_pessoa.central.periodo.ontem'|trans,
+                        'semana': 'cobranca_pessoa.central.periodo.semana'|trans,
+                        'mes': 'cobranca_pessoa.central.periodo.mes'|trans,
+                        'personalizado': 'cobranca_pessoa.central.periodo.personalizado'|trans
                     } %}
                     <option value="{{ valor }}" {{ periodo.atalho == valor ? 'selected' : '' }}>{{ rotulo }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-6 col-md-2 js-periodo-personalizado" {{ periodo.atalho != 'personalizado' ? 'hidden' : '' }}>
-                <label class="form-label small mb-1" for="filtroInicio">De</label>
+                <label class="form-label small mb-1" for="filtroInicio">{{ 'cobranca_pessoa.central.filtro.de'|trans }}</label>
                 <input type="date" class="form-control form-control-sm" id="filtroInicio" name="inicio" value="{{ periodo.inicioTexto }}">
             </div>
             <div class="col-6 col-md-2 js-periodo-personalizado" {{ periodo.atalho != 'personalizado' ? 'hidden' : '' }}>
-                <label class="form-label small mb-1" for="filtroFim">Até</label>
+                <label class="form-label small mb-1" for="filtroFim">{{ 'cobranca_pessoa.central.filtro.ate'|trans }}</label>
                 <input type="date" class="form-control form-control-sm" id="filtroFim" name="fim" value="{{ periodo.fimTexto }}">
             </div>
             <div class="col-12 col-sm-6 col-md-3">
-                <label class="form-label small mb-1" for="filtroCarteira">Carteira</label>
+                <label class="form-label small mb-1" for="filtroCarteira">{{ 'cobranca_pessoa.central.filtro.carteira'|trans }}</label>
                 <select class="form-select form-select-sm" id="filtroCarteira" name="carteira">
-                    <option value="">Todas as carteiras</option>
+                    <option value="">{{ 'cobranca_pessoa.central.filtro.todas_carteiras'|trans }}</option>
                     {% for c in carteiras %}
                     <option value="{{ c.id }}" {{ carteiraId == c.id ? 'selected' : '' }}>{{ c.nome }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-12 col-md-2">
-                <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel me-1"></i>Aplicar</button>
+                <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel me-1"></i>{{ 'cobranca_pessoa.central.filtro.aplicar'|trans }}</button>
             </div>
         </form>
 
@@ -61,13 +61,14 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="abaAtividade" data-bs-toggle="tab" data-bs-target="#paneAtividade"
                         type="button" role="tab" aria-controls="paneAtividade" aria-selected="true">
-                    <i class="bi bi-activity me-1"></i>Atividade
+                    <i class="bi bi-activity me-1"></i>{{ 'cobranca_pessoa.central.abas.atividade'|trans }}
                 </button>
             </li>
+            {# O `id` é identificador do DOM (`abaResultado`, `paneResultado`), não texto da tela. #}
             {% for aba in [
-                { id: 'Resultado', rotulo: 'Resultado', icone: 'graph-up-arrow' },
-                { id: 'Pendencias', rotulo: 'Pendências', icone: 'hourglass-split' },
-                { id: 'Extrato', rotulo: 'Extrato do devedor', icone: 'person-lines-fill' }
+                { id: 'resultado'|capitalize, rotulo: 'cobranca_pessoa.central.abas.resultado'|trans, icone: 'graph-up-arrow' },
+                { id: 'pendencias'|capitalize, rotulo: 'cobranca_pessoa.central.abas.pendencias'|trans, icone: 'hourglass-split' },
+                { id: 'extrato'|capitalize, rotulo: 'cobranca_pessoa.central.abas.extrato'|trans, icone: 'person-lines-fill' }
             ] %}
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="aba{{ aba.id }}" data-bs-toggle="tab" data-bs-target="#pane{{ aba.id }}"
@@ -83,15 +84,15 @@
                 {{ include('cobranca/central/_aba_atividade.html.twig') }}
             </div>
             {% for aba in [
-                { id: 'Resultado', rotulo: 'Resultado' },
-                { id: 'Pendencias', rotulo: 'Pendências' },
-                { id: 'Extrato', rotulo: 'Extrato do devedor' }
+                { id: 'resultado'|capitalize, rotulo: 'cobranca_pessoa.central.abas.resultado'|trans },
+                { id: 'pendencias'|capitalize, rotulo: 'cobranca_pessoa.central.abas.pendencias'|trans },
+                { id: 'extrato'|capitalize, rotulo: 'cobranca_pessoa.central.abas.extrato'|trans }
             ] %}
             <div class="tab-pane fade" id="pane{{ aba.id }}" role="tabpanel" aria-labelledby="aba{{ aba.id }}">
                 <div class="cobranca-empty">
                     <div class="empty-ico"><i class="bi bi-cone-striped"></i></div>
-                    <div class="empty-title">{{ aba.rotulo }} — em construção</div>
-                    <div class="text-muted">Esta aba entra numa próxima fatia da Central.</div>
+                    <div class="empty-title">{{ 'cobranca_pessoa.central.em_construcao'|trans({aba: aba.rotulo}) }}</div>
+                    <div class="text-muted">{{ 'cobranca_pessoa.central.em_construcao_texto'|trans }}</div>
                 </div>
             </div>
             {% endfor %}
@@ -108,6 +109,7 @@
 
 {% block javascripts %}
 {{ parent() }}
+{{ catalogo_js('cobranca_pessoa.js') }}
 <script>
 (function () {
     'use strict';
@@ -159,7 +161,7 @@
             .catch(function () {
                 botao.disabled = false;
                 botao.insertAdjacentHTML('afterend',
-                    '<span class="text-danger small ms-2 js-erro-cadastro">não foi possível carregar</span>');
+                    '<span class="text-danger small ms-2 js-erro-cadastro">' + BJ_T.t('cobranca_pessoa.js.erro_cadastro') + '</span>');
             });
     });
 
@@ -187,7 +189,7 @@
         destino.hidden = false;
         linha.classList.add('is-aberta');
         linha.setAttribute('aria-expanded', 'true');
-        celula.innerHTML = '<div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>Carregando…</div>';
+        celula.innerHTML = '<div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-2"></span>' + BJ_T.t('cobranca_pessoa.js.carregando') + '</div>';
 
         fetch(linha.dataset.url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (resposta) {
@@ -197,7 +199,7 @@
             })
             .then(function (html) { celula.innerHTML = html; })
             .catch(function () {
-                celula.innerHTML = '<div class="text-danger small py-2">Não foi possível carregar o detalhe. Tente de novo.</div>';
+                celula.innerHTML = '<div class="text-danger small py-2">' + BJ_T.t('cobranca_pessoa.js.erro_detalhe') + '</div>';
             });
     });
 })();

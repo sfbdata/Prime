@@ -36,21 +36,21 @@
 {%- set catalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') -%}
 {%- set tipo = catalogo[chave].tipo -%}
 {%- if valor is null -%}
-    <span class="db-num db-num--vazio" title="Sem dado no período">—</span>
+    <span class="db-num db-num--vazio text-muted small" title="{{ 'dashboard.extras.sem_dado_no_periodo'|trans }}">{{ 'dashboard.extras.sem_dado'|trans }}</span>
 {%- else -%}
-    {%- set texto = tipo == 'pct' ? valor ~ '%' : (tipo == 'dias' ? valor ~ 'd' : valor) -%}
+    {%- set texto = tipo == 'pct' ? valor ~ '%' : (tipo == 'dias' ? 'dashboard.extras.valor_dias'|trans({n: valor ~ ''}) : valor) -%}
     {%- if userId is not null and chave == 'pastas_urgentes' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', prioridade: 'urgente', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Expediente · pastas urgentes de {{ quem }}" aria-label="Abrir: Expediente · pastas urgentes de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', prioridade: 'urgente', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_pastas_urgentes'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_pastas_urgentes'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'metas_concluidas' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas concluídas de {{ quem }}" aria-label="Abrir: Metas concluídas de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_metas_concluidas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_metas_concluidas'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'taxa_conclusao' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Taxa de conclusão de {{ quem }}" aria-label="Abrir: Taxa de conclusão de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_taxa_conclusao'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_taxa_conclusao'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'tempo_medio' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Tempo médio de {{ quem }}" aria-label="Abrir: Tempo médio de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_tempo_medio'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_tempo_medio'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'metas_revisao' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'em_revisao', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas em revisão de {{ quem }}" aria-label="Abrir: Metas em revisão de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'em_revisao', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_metas_revisao'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_metas_revisao'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'eventos_agenda' and valor > 0 and can_access_module('agenda') -%}
-        <a class="db-num db-num-link" href="{{ path('agenda_lista', { responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Eventos na agenda de {{ quem }}" aria-label="Abrir: Eventos na agenda de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('agenda_lista', { responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_eventos_agenda'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_eventos_agenda'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif valor == 0 -%}
         <span class="db-num db-num--zero">{{ texto }}</span>
     {%- else -%}

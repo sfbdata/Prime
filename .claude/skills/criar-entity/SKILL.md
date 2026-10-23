@@ -150,6 +150,18 @@ docker exec jusprime_php_dev bash -c 'cd app && php bin/console doctrine:schema:
 isso **não** quer dizer que o mapeamento está errado. Leia qual bloco falhou; use `--skip-sync` para
 isolar o mapeamento.
 
+## Tamanho e organização de método
+
+- **Meta: ~20 linhas por método.** O CI reprova acima de 40 (`tests/Arquitetura/MetodoLongoArquiteturaTest`,
+  contado do `function` ao `}`; docblock e atributos não contam). 40 é o limite, não a meta.
+- **Um método, um nível de abstração.** O método público conta a história chamando métodos privados com
+  nome do negócio; o detalhe mora no privado.
+- **Bloco que precisa de comentário para ser entendido vira método**, e o comentário vira o nome dele.
+- **Método legado longo** (está em `tests/Arquitetura/metodos-longos-tolerados.json`): pode crescer no
+  máximo 5 linhas sobre o número da lista, no total. O código novo vai para um método privado novo; não
+  reescreva o legado sem liberação. Mover para o domínio é trocar a chave no JSON com o mesmo número.
+- Método de domínio curto: a invariante é checada num privado com nome (`exigirAberta()`), e o método público só orquestra a mudança de estado.
+
 ## `make:entity` — não use
 
 Escreva a entidade à mão a partir do esqueleto acima.

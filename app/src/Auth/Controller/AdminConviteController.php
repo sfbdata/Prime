@@ -12,6 +12,8 @@ use App\Auth\Service\ConviteMailer;
 use App\Auth\UseCase\CriarConvitePlataformaUseCase;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Auth\UseCase\RevogarConviteUseCase;
+use App\Entity\Auth\Invitation;
+use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,6 +22,7 @@ use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[IsGranted('ROLE_SUPER_ADMIN')]
 #[Route('/admin/platform/convites')]
@@ -32,6 +35,7 @@ final class AdminConviteController extends AbstractController
         private readonly ReenviarConviteUseCase $reenviarUseCase,
         private readonly ConviteMailer $mailer,
         private readonly RateLimiterFactory $conviteCriarLimiter,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route('', name: 'admin_platform_convite_index', methods: ['GET'])]
@@ -55,21 +59,21 @@ final class AdminConviteController extends AbstractController
         }
 
         try {
-            $invitation = $this->criarUseCase->executar(new CriarConvitePlataformaInput(
+            $emitido = $this->criarUseCase->executar(new CriarConvitePlataformaInput(
                 email: (string) $request->request->get('email', ''),
                 fullName: (string) $request->request->get('full_name', '') ?: null,
                 criadoPor: $this->getUser(),
             ));
 
             try {
-                $this->mailer->enviarConvitePlataforma($invitation);
+                $this->mailer->enviarConvitePlataforma($emitido->convite, $emitido->token);
             } catch (\RuntimeException) {
-                $this->addFlash('erro', 'Convite criado, mas o email não foi enviado. Use o botão Reenviar.');
+                $this->addFlash('erro', $this->tradutor->trans('plataforma.flash.convite_criado_sem_email'));
 
                 return $this->redirectToRoute('admin_platform_convite_index');
             }
 
-            $this->addFlash('sucesso', sprintf('Convite enviado para %s.', $invitation->getEmail()));
+            $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_enviado', ['email' => $emitido->convite->getEmail()]));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }
@@ -77,22 +81,21 @@ final class AdminConviteController extends AbstractController
         return $this->redirectToRoute('admin_platform_convite_index');
     }
 
-    #[Route('/{token}/revogar', name: 'admin_platform_convite_revogar', methods: ['POST'])]
-    public function revogar(string $token, Request $request): Response
+    #[Route('/{id}/revogar', name: 'admin_platform_convite_revogar', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function revogar(int $id, Request $request): Response
     {
-        if (!$this->isCsrfTokenValid('convite_revogar_' . $token, $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('convite_revogar_' . $id, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $invitation = $this->invitationRepository->encontrarPorToken($token);
-
-        if ($invitation === null || $invitation->getType() !== 'platform') {
+        // Pelo id: o token só existe no link do e-mail (achado de auditoria interna F7). O de escritório é 404.
+        if ($this->invitationRepository->findOneBy(['id' => $id, 'type' => Invitation::TIPO_PLATAFORMA]) === null) {
             throw $this->createNotFoundException('Convite de plataforma não encontrado.');
         }
 
         try {
-            $this->revogarUseCase->executar(new RevogarConviteInput($token));
-            $this->addFlash('sucesso', 'Convite revogado.');
+            $this->revogarUseCase->executar(new RevogarConviteInput($id));
+            $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_revogado'));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }
@@ -100,33 +103,37 @@ final class AdminConviteController extends AbstractController
         return $this->redirectToRoute('admin_platform_convite_index');
     }
 
-    #[Route('/{token}/reenviar', name: 'admin_platform_convite_reenviar', methods: ['POST'])]
-    public function reenviar(string $token, Request $request): Response
+    #[Route('/{id}/reenviar', name: 'admin_platform_convite_reenviar', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function reenviar(int $id, Request $request): Response
     {
         $this->verificarLimite($request);
 
-        if (!$this->isCsrfTokenValid('convite_reenviar_' . $token, $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('convite_reenviar_' . $id, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $invitation = $this->invitationRepository->encontrarPorToken($token);
-
-        if ($invitation === null || $invitation->getType() !== 'platform') {
+        // Pelo id: o token só existe no link do e-mail (achado de auditoria interna F7). O de escritório é 404.
+        if ($this->invitationRepository->findOneBy(['id' => $id, 'type' => Invitation::TIPO_PLATAFORMA]) === null) {
             throw $this->createNotFoundException('Convite de plataforma não encontrado.');
         }
 
+        $quem = $this->getUser();
+        if (!$quem instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token));
+            $emitido = $this->reenviarUseCase->executar(new ReenviarConviteInput($id, $quem));
 
             try {
-                $this->mailer->enviarConvitePlataforma($invitation);
+                $this->mailer->enviarConvitePlataforma($emitido->convite, $emitido->token);
             } catch (\RuntimeException) {
-                $this->addFlash('erro', 'Não foi possível enviar o email. Tente novamente.');
+                $this->addFlash('erro', $this->tradutor->trans('plataforma.flash.convite_email_nao_enviado'));
 
                 return $this->redirectToRoute('admin_platform_convite_index');
             }
 
-            $this->addFlash('sucesso', 'Convite reenviado.');
+            $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_reenviado'));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }

@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Push Processual — Publicação{% endblock %}
+{% block title %}{{ 'djen.show.titulo_pagina'|trans }}{% endblock %}
 
 {% block stylesheets %}
 <style>
@@ -16,12 +16,12 @@
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">Push Processual — Publicação</h1>
+        <h1 class="m-0">{{ 'djen.show.titulo'|trans }}</h1>
         {# Volta para a origem quando ela é conhecida e interna (ver DjenController::destinoDeVolta);
            sem origem, o destino é a lista — que era o comportamento fixo de antes. #}
         <a href="{{ voltarPara ?: path('push_processual_index') }}"
            id="push-voltar" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> {{ voltarPara ? 'Voltar' : 'Voltar para as publicações' }}
+            <i class="bi bi-arrow-left me-1"></i> {{ (voltarPara ? 'djen.show.voltar' : 'djen.show.voltar_publicacoes')|trans }}
         </a>
     </div>
 </section>
@@ -31,22 +31,22 @@
         <div class="card mb-3">
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-3"><small class="text-muted d-block">Tribunal</small>{{ publicacao.siglaTribunal }}</div>
-                    <div class="col-md-3"><small class="text-muted d-block">Tipo</small>{{ publicacao.tipoComunicacao ?? '—' }}</div>
-                    <div class="col-md-3"><small class="text-muted d-block">Disponibilização</small>{{ publicacao.dataDisponibilizacao ?? '—' }}</div>
-                    <div class="col-md-3"><small class="text-muted d-block">Meio</small>{{ publicacao.meioLabel ?? '—' }}</div>
-                    <div class="col-md-6"><small class="text-muted d-block">Processo</small>
-                        {{ publicacao.numeroProcessoExibicao ?? '—' }}
+                    <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.comum.tribunal'|trans }}</small>{{ publicacao.siglaTribunal }}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.comum.tipo'|trans }}</small>{% if (publicacao.tipoComunicacao ?? null) is not null %}{{ publicacao.tipoComunicacao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.show.disponibilizacao'|trans }}</small>{% if (publicacao.dataDisponibilizacao ?? null) is not null %}{{ publicacao.dataDisponibilizacao }}{% else %}<span class="text-muted small">{{ 'djen.comum.sem_registro'|trans }}</span>{% endif %}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.comum.meio'|trans }}</small>{% if (publicacao.meioLabel ?? null) is not null %}{{ publicacao.meioLabel }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</div>
+                    <div class="col-md-6"><small class="text-muted d-block">{{ 'djen.comum.processo'|trans }}</small>
+                        {% if (publicacao.numeroProcessoExibicao ?? null) is not null %}{{ publicacao.numeroProcessoExibicao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}
                         {% if publicacao.avulsa %}
-                            <span class="badge bg-secondary">Avulsa</span>
+                            <span class="badge bg-secondary">{{ 'djen.comum.avulsa'|trans }}</span>
                         {% else %}
-                            <a href="{{ path('processo_show', {id: publicacao.processoId}) }}" class="badge bg-success text-decoration-none">Ver processo</a>
+                            <a href="{{ path('processo_show', {id: publicacao.processoId}) }}" class="badge bg-success text-decoration-none">{{ 'djen.show.ver_processo'|trans }}</a>
                         {% endif %}
                     </div>
-                    <div class="col-md-3"><small class="text-muted d-block">Órgão</small>{{ publicacao.nomeOrgao ?? '—' }}</div>
-                    <div class="col-md-3"><small class="text-muted d-block">Classe</small>{{ publicacao.nomeClasse ?? '—' }}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.comum.orgao'|trans }}</small>{% if (publicacao.nomeOrgao ?? null) is not null %}{{ publicacao.nomeOrgao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.show.classe'|trans }}</small>{% if (publicacao.nomeClasse ?? null) is not null %}{{ publicacao.nomeClasse }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</div>
                     {% if publicacao.oabRotulo %}
-                        <div class="col-md-3"><small class="text-muted d-block">Captada pela OAB</small>{{ publicacao.oabRotulo }}</div>
+                        <div class="col-md-3"><small class="text-muted d-block">{{ 'djen.show.captada_pela_oab'|trans }}</small>{{ publicacao.oabRotulo }}</div>
                     {% endif %}
                 </div>
             </div>
@@ -54,10 +54,10 @@
 
         {% if publicacao.destinatarios is not empty %}
             <div class="card mb-3">
-                <div class="card-header"><h3 class="card-title">Destinatários</h3></div>
+                <div class="card-header"><h3 class="card-title">{{ 'djen.show.destinatarios'|trans }}</h3></div>
                 <div class="card-body p-0">
                     <table class="table mb-0">
-                        <thead><tr><th>Nome</th><th>Polo</th></tr></thead>
+                        <thead><tr><th>{{ 'djen.show.nome'|trans }}</th><th>{{ 'djen.show.polo'|trans }}</th></tr></thead>
                         <tbody>
                             {% for dest in publicacao.destinatarios %}
                                 <tr><td>{{ dest.nome }}</td><td>{{ dest.polo }}</td></tr>
@@ -70,10 +70,10 @@
 
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h3 class="card-title">Teor da comunicação</h3>
+                <h3 class="card-title">{{ 'djen.show.teor'|trans }}</h3>
                 {% if publicacao.link %}
                     <a href="{{ publicacao.link|e('html_attr') }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-box-arrow-up-right me-1"></i> Inteiro teor na origem
+                        <i class="bi bi-box-arrow-up-right me-1"></i> {{ 'djen.show.inteiro_teor'|trans }}
                     </a>
                 {% endif %}
             </div>
@@ -82,7 +82,7 @@
                     {# Teor já sanitizado no controller (HtmlSanitizer 'djen') — seguro renderizar com raw. #}
                     <div class="djen-teor">{{ publicacao.textoHtml|raw }}</div>
                 {% else %}
-                    <p class="text-muted mb-0">Sem teor textual disponível.</p>
+                    <p class="text-muted mb-0">{{ 'djen.show.sem_teor'|trans }}</p>
                 {% endif %}
             </div>
         </div>

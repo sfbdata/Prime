@@ -68,7 +68,7 @@ final class CriarCarteiraType extends AbstractType
                 'class' => TipoVinculo::class,
                 'choice_label' => static fn (TipoVinculo $t): string => $t->label(),
                 'required' => false,
-                'placeholder' => '—',
+                'placeholder' => 'Nenhum',
                 'attr' => ['class' => 'form-select'],
             ])
             ->add('rotuloObjeto', TextType::class, [

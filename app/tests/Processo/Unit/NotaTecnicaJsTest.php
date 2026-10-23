@@ -110,6 +110,16 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringContainsString("closest('.js-nota-copiar')", $js);
     }
 
+    #[TestDox('PMC-018: "Encaminhar via Chat I.A" só fecha o menu; o despacho é do pasta-encaminhar.js pela classe js-encaminhar')]
+    public function testEncaminharFechaOMenu(): void
+    {
+        self::assertStringContainsString("if (alvo.closest('.js-nota-encaminhar')) { fecharMenu(false); return; }", $this->ler(self::JS));
+
+        $item = $this->ler(self::ITEM);
+        self::assertStringContainsString('js-encaminhar js-nota-encaminhar', $item);
+        self::assertStringContainsString('data-encaminhar-tipo="nota_tecnica"', $item);
+    }
+
     #[TestDox('PMC-057: "Responder com outra nota" fecha o menu e abre o compositor de nota NOVA do próprio bloco, como o abrirNova do desenho')]
     public function testResponderAbreOCompositorDoBloco(): void
     {
@@ -133,7 +143,8 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringContainsString("botaoEditar.closest('.ps-nota')", $editar);
         self::assertStringNotContainsString("getElementById('nota-tecnica-'", $editar, 'o id acharia a cópia da outra aba');
 
-        $excluir = $this->funcao('excluir');
+        // E7: o pedido e a remoção moram em `excluirConfirmado`, que só roda no "sim" da janela.
+        $excluir = $this->funcao('excluirConfirmado');
         self::assertStringContainsString(".ps-nota[data-nota-id=\"' + botaoExcluir.getAttribute('data-nota-id') + '\"]", $excluir);
         self::assertStringContainsString('copia.remove()', $excluir);
         self::assertStringContainsString('atualizarContagem(blocoDaCopia)', $excluir);
@@ -202,7 +213,7 @@ final class NotaTecnicaJsTest extends TestCase
 
         self::assertStringContainsString("new CustomEvent('ps:notas-mudou', { bubbles: true })", $this->funcao('avisarMudanca'));
         self::assertStringContainsString('avisarMudanca(bloco);', $this->funcao('fecharCompositor'), 'salvar fecha o compositor: o aviso sai por aqui também');
-        self::assertStringContainsString('avisarMudanca(blocoDaCopia);', $this->funcao('excluir'));
+        self::assertStringContainsString('avisarMudanca(blocoDaCopia);', $this->funcao('excluirConfirmado'));
 
         // Do lado do partial: o bloco pendurado nasce escondido só quando vazio, com a marca.
         $bloco = $this->ler(self::APP . '/templates/processo/_notas_tecnicas.html.twig');
@@ -225,8 +236,12 @@ final class NotaTecnicaJsTest extends TestCase
         self::assertStringNotContainsString('fetch(', $bloco);
 
         $item = $this->ler(self::ITEM);
-        self::assertStringContainsString('data-aviso="Só o autor edita a nota, em até 15 minutos"', $item);
-        self::assertStringContainsString('data-aviso="Só o autor exclui a nota, em até 15 minutos"', $item);
+        // O aviso mora no catálogo (spec idioma-do-sistema §23b); o texto em português segue o mesmo.
+        self::assertStringContainsString('data-aviso="{{ \'processo.nota.so_autor_edita\'|trans }}"', $item);
+        self::assertStringContainsString('data-aviso="{{ \'processo.nota.so_autor_exclui\'|trans }}"', $item);
+        $catalogo = $this->ler(self::APP . '/translations/messages+intl-icu.pt_BR.yaml');
+        self::assertStringContainsString('so_autor_edita: Só o autor edita a nota, em até 15 minutos', $catalogo);
+        self::assertStringContainsString('so_autor_exclui: Só o autor exclui a nota, em até 15 minutos', $catalogo);
         self::assertStringNotContainsString('disabled aria-disabled', $item, 'o `disabled` engolia o clique');
     }
 }

@@ -65,102 +65,102 @@
     <div class="pex-cab">
         <div class="pex-titulo">
             <i class="bi bi-folder2-open" aria-hidden="true"></i>
-            <span class="pex-titulo-txt">Documentos</span>
+            <span class="pex-titulo-txt">{{ 'pasta_documentos.explorador.titulo'|trans }}</span>
             <span class="pex-contagem" id="pexContagem">{{ explorador.totalArquivos }}</span>
         </div>
         <div class="pex-espaco"></div>
         <label class="pex-busca" for="pexBusca">
             <i class="bi bi-search" aria-hidden="true"></i>
-            <input type="search" id="pexBusca" placeholder="Buscar arquivos e pastas…" aria-label="Buscar arquivos e pastas" autocomplete="off">
-            <button type="button" class="pex-busca-limpar" id="pexBuscaLimpar" aria-label="Limpar busca" hidden><i class="bi bi-x"></i></button>
+            <input type="search" id="pexBusca" placeholder="{{ 'pasta_documentos.explorador.buscar_placeholder'|trans }}" aria-label="{{ 'pasta_documentos.explorador.buscar'|trans }}" autocomplete="off">
+            <button type="button" class="pex-busca-limpar" id="pexBuscaLimpar" aria-label="{{ 'pasta_documentos.explorador.limpar_busca'|trans }}" hidden><i class="bi bi-x"></i></button>
         </label>
         {# DOC-118: quem só VÊ a pasta (ou a pasta na lápide) não recebe Nova pasta nem Anexar —
            o servidor recusaria (`explorador.podeEditar`, decidido no PastaController::show). #}
         {% if explorador.podeEditar %}
-        <button type="button" class="pex-btn-nova" id="pexNovaPasta"><i class="bi bi-folder-plus" aria-hidden="true"></i><span>Nova pasta</span></button>
-        <button type="button" class="pex-btn-anexar" id="pexAnexar"><i class="bi bi-paperclip" aria-hidden="true"></i><span>Anexar</span></button>
+        <button type="button" class="pex-btn-nova" id="pexNovaPasta"><i class="bi bi-folder-plus" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.nova_pasta'|trans }}</span></button>
+        <button type="button" class="pex-btn-anexar" id="pexAnexar"><i class="bi bi-paperclip" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.anexar'|trans }}</span></button>
         <input type="file" id="pexFileInput" multiple hidden accept=".png,.jpg,.jpeg,.gif,.webp,.tif,.tiff,.heic,.heif,.pdf,.kml,.xml,.xls,.xlsx,.ods,.csv,.doc,.docx,.odt,.rtf,.pptx,.odp,.txt,.eml,.zip,.p7s,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
         {% endif %}
 
         <div class="pex-menu-wrap">
-            <button type="button" class="pex-btn-menu" id="pexOrganizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexOrganizarMenu" title="Organizar colunas e filtrar por tipo">
-                <i class="bi bi-sliders" aria-hidden="true"></i>Organizar<span class="pex-selo-filtro" id="pexFiltroSelo" title="1 filtro ativo" hidden>1</span><i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
+            <button type="button" class="pex-btn-menu" id="pexOrganizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexOrganizarMenu" title="{{ 'pasta_documentos.explorador.organizar_dica'|trans }}">
+                <i class="bi bi-sliders" aria-hidden="true"></i>{{ 'pasta_documentos.explorador.organizar'|trans }}<span class="pex-selo-filtro" id="pexFiltroSelo" title="{{ 'pasta_documentos.explorador.um_filtro_ativo'|trans }}" hidden>1</span><i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
             </button>
-            <div class="pex-popover pex-popover--organizar" id="pexOrganizarMenu" role="menu" aria-label="Organizar" hidden>
+            <div class="pex-popover pex-popover--organizar" id="pexOrganizarMenu" role="menu" aria-label="{{ 'pasta_documentos.explorador.organizar'|trans }}" hidden>
                 {# Ordem das colunas (dc L2043-2046): as linhas com as setas são montadas pelo JS a
                    partir da preferência `pex:colunas` — a ordem é do usuário, não do servidor. #}
-                <div class="pex-pop-rotulo">Ordem das colunas</div>
+                <div class="pex-pop-rotulo">{{ 'pasta_documentos.explorador.ordem_colunas'|trans }}</div>
                 <div class="pex-ordem-colunas" id="pexOrdemColunas"></div>
-                <div class="pex-pop-nota">Também é possível arrastar o título da coluna para os lados.</div>
+                <div class="pex-pop-nota">{{ 'pasta_documentos.explorador.ordem_colunas_nota'|trans }}</div>
                 <div class="pex-pop-sep"></div>
-                <div class="pex-pop-rotulo">Classificar por</div>
+                <div class="pex-pop-rotulo">{{ 'pasta_documentos.explorador.classificar_por'|trans }}</div>
                 {# "Manual" é a 1ª pílula (S-5): é a ordem que o arraste grava em
                    pasta_documentos_reordenar / pasta_secoes_reordenar. #}
                 <div class="pex-pilulas" id="pexClassificar">
-                    <button type="button" role="menuitemradio" aria-checked="true"  data-pex-classificar="manual"><span>Manual</span></button>
-                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="nome"><span>Nome</span><i class="bi pex-seta" aria-hidden="true"></i></button>
-                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="tipo"><span>Tipo</span><i class="bi pex-seta" aria-hidden="true"></i></button>
-                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="tamanho"><span>Tamanho</span><i class="bi pex-seta" aria-hidden="true"></i></button>
-                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="data"><span>Modificado</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    <button type="button" role="menuitemradio" aria-checked="true"  data-pex-classificar="manual"><span>{{ 'pasta_documentos.explorador.manual'|trans }}</span></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="nome"><span>{{ 'pasta_documentos.explorador.nome'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="tipo"><span>{{ 'pasta_documentos.explorador.tipo'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="tamanho"><span>{{ 'pasta_documentos.explorador.tamanho'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="data"><span>{{ 'pasta_documentos.explorador.modificado'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button>
                     {# Só aparece com a coluna Categoria ligada (S-2). #}
-                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="categoria" hidden><span>Categoria</span><i class="bi pex-seta" aria-hidden="true"></i></button>
+                    <button type="button" role="menuitemradio" aria-checked="false" data-pex-classificar="categoria" hidden><span>{{ 'pasta_documentos.explorador.categoria'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button>
                 </div>
                 <div class="pex-pop-sep"></div>
-                <div class="pex-pop-rotulo">Colunas</div>
-                <button type="button" class="pex-pop-item" role="menuitemcheckbox" aria-checked="false" data-pex-coluna="categoria" title="Mostra a categoria jurídica do documento (Procuração, Identificação…) como 5ª coluna">
-                    <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-tag" aria-hidden="true"></i><span>Categoria</span>
+                <div class="pex-pop-rotulo">{{ 'pasta_documentos.explorador.colunas'|trans }}</div>
+                <button type="button" class="pex-pop-item" role="menuitemcheckbox" aria-checked="false" data-pex-coluna="categoria" title="{{ 'pasta_documentos.explorador.categoria_dica'|trans }}">
+                    <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-tag" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.categoria'|trans }}</span>
                 </button>
                 <div class="pex-pop-sep"></div>
                 {# Tipo de documento (dc L2048-2054, `TIPOS_DOC`): a contagem e o "desabilitado quando
                    zero" valem para o que está na tela (nível aberto ou busca) e vêm do JS. #}
-                <div class="pex-pop-rotulo">Tipo de documento</div>
+                <div class="pex-pop-rotulo">{{ 'pasta_documentos.explorador.tipo_documento'|trans }}</div>
                 <div class="pex-filtro-tipos" id="pexFiltroTipo">
                     {% for tipo in [
-                        ['todos', 'Todos os itens', 'bi-grid'],
-                        ['pastas', 'Pastas', 'bi-folder-fill'],
-                        ['pdf', 'PDF', 'bi-file-earmark-pdf-fill'],
-                        ['word', 'Word', 'bi-file-earmark-word-fill'],
-                        ['excel', 'Excel', 'bi-file-earmark-excel-fill'],
-                        ['img', 'Imagens', 'bi-file-earmark-image-fill'],
-                        ['zip', 'Compactados', 'bi-file-earmark-zip-fill'],
-                        ['outros', 'Outros', 'bi-file-earmark-fill'],
+                        ['todos', 'pasta_documentos.explorador.filtro.todos', 'bi-grid'],
+                        ['pastas', 'pasta_documentos.explorador.filtro.pastas', 'bi-folder-fill'],
+                        ['pdf', 'pasta_documentos.explorador.filtro.pdf', 'bi-file-earmark-pdf-fill'],
+                        ['word', 'pasta_documentos.explorador.filtro.word', 'bi-file-earmark-word-fill'],
+                        ['excel', 'pasta_documentos.explorador.filtro.excel', 'bi-file-earmark-excel-fill'],
+                        ['img', 'pasta_documentos.explorador.filtro.img', 'bi-file-earmark-image-fill'],
+                        ['zip', 'pasta_documentos.explorador.filtro.zip', 'bi-file-earmark-zip-fill'],
+                        ['outros', 'pasta_documentos.explorador.filtro.outros', 'bi-file-earmark-fill'],
                     ] %}
                         <button type="button" class="pex-pop-item pex-filtro-item pex-filtro--{{ tipo[0] }}" role="menuitemradio" aria-checked="{{ tipo[0] == 'todos' ? 'true' : 'false' }}" data-pex-filtro="{{ tipo[0] }}">
-                            <span class="pex-ponto" aria-hidden="true"></span><i class="bi {{ tipo[2] }}" aria-hidden="true"></i><span class="pex-filtro-rotulo">{{ tipo[1] }}</span><span class="pex-filtro-n"></span>
+                            <span class="pex-ponto" aria-hidden="true"></span><i class="bi {{ tipo[2] }}" aria-hidden="true"></i><span class="pex-filtro-rotulo">{{ tipo[1]|trans }}</span><span class="pex-filtro-n"></span>
                         </button>
                     {% endfor %}
                 </div>
                 <div class="pex-pop-sep"></div>
-                <button type="button" class="pex-pop-item" id="pexRestaurar"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Restaurar padrão</span></button>
+                <button type="button" class="pex-pop-item" id="pexRestaurar"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.restaurar_padrao'|trans }}</span></button>
                 {# L7: a lixeira da pasta. O N é contado pelo JS ao abrir o Organizar. #}
                 <div class="pex-pop-sep"></div>
-                <button type="button" class="pex-pop-item" id="pexLixeiraAbrir"><i class="bi bi-trash3" aria-hidden="true"></i><span>Lixeira <span class="pex-lix-n" id="pexLixeiraN"></span></span></button>
+                <button type="button" class="pex-pop-item" id="pexLixeiraAbrir"><i class="bi bi-trash3" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.lixeira'|trans }} <span class="pex-lix-n" id="pexLixeiraN"></span></span></button>
             </div>
         </div>
 
         <div class="pex-menu-wrap">
             <button type="button" class="pex-btn-menu" id="pexVisualizar" aria-haspopup="menu" aria-expanded="false" aria-controls="pexVisualizarMenu">
-                <i class="bi bi-list-columns-reverse" aria-hidden="true"></i>Visualizar<i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
+                <i class="bi bi-list-columns-reverse" aria-hidden="true"></i>{{ 'pasta_documentos.explorador.visualizar'|trans }}<i class="bi bi-chevron-down pex-chev" aria-hidden="true"></i>
             </button>
             {# Os oito modos do desenho (dc `EXP_MODOS`, L3051), na ordem dele; Detalhes é o padrão. #}
-            <div class="pex-popover pex-popover--visualizar" id="pexVisualizarMenu" role="menu" aria-label="Modo de exibição" hidden>
+            <div class="pex-popover pex-popover--visualizar" id="pexVisualizarMenu" role="menu" aria-label="{{ 'pasta_documentos.explorador.modo_exibicao'|trans }}" hidden>
                 {% for modo in [
-                    ['xg', 'Ícones extra grandes', 'bi-display'],
-                    ['g', 'Ícones grandes', 'bi-laptop'],
-                    ['m', 'Ícones médios', 'bi-tablet-landscape'],
-                    ['p', 'Ícones pequenos', 'bi-grid'],
-                    ['lista', 'Lista', 'bi-list'],
-                    ['det', 'Detalhes', 'bi-list-columns-reverse'],
-                    ['blocos', 'Blocos', 'bi-view-list'],
-                    ['cont', 'Conteúdo', 'bi-card-list'],
+                    ['xg', 'pasta_documentos.explorador.modo.xg', 'bi-display'],
+                    ['g', 'pasta_documentos.explorador.modo.g', 'bi-laptop'],
+                    ['m', 'pasta_documentos.explorador.modo.m', 'bi-tablet-landscape'],
+                    ['p', 'pasta_documentos.explorador.modo.p', 'bi-grid'],
+                    ['lista', 'pasta_documentos.explorador.modo.lista', 'bi-list'],
+                    ['det', 'pasta_documentos.explorador.modo.det', 'bi-list-columns-reverse'],
+                    ['blocos', 'pasta_documentos.explorador.modo.blocos', 'bi-view-list'],
+                    ['cont', 'pasta_documentos.explorador.modo.cont', 'bi-card-list'],
                 ] %}
                     <button type="button" class="pex-pop-item" role="menuitemradio" aria-checked="{{ modo[0] == 'det' ? 'true' : 'false' }}" data-pex-modo="{{ modo[0] }}">
-                        <span class="pex-ponto" aria-hidden="true"></span><i class="bi {{ modo[2] }}" aria-hidden="true"></i><span>{{ modo[1] }}</span>
+                        <span class="pex-ponto" aria-hidden="true"></span><i class="bi {{ modo[2] }}" aria-hidden="true"></i><span>{{ modo[1]|trans }}</span>
                     </button>
                 {% endfor %}
                 <div class="pex-pop-sep pex-pop-sep--modos"></div>
                 <button type="button" class="pex-pop-item" role="menuitemcheckbox" aria-checked="false" id="pexPainelAlternar">
-                    <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-layout-sidebar-reverse" aria-hidden="true"></i><span>Painel de detalhes</span>
+                    <span class="pex-ponto" aria-hidden="true"></span><i class="bi bi-layout-sidebar-reverse" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.painel_detalhes'|trans }}</span>
                 </button>
             </div>
         </div>
@@ -173,7 +173,7 @@
     <div class="pex-upload-bar" id="pexUploadBar" hidden>
         <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
         <span class="pex-upload-nome" id="pexUploadNome"></span>
-        <div class="progress" role="progressbar" aria-label="Progresso do upload"><div class="progress-bar" id="pexUploadProgresso" style="width:0%"></div></div>
+        <div class="progress" role="progressbar" aria-label="{{ 'pasta_documentos.explorador.progresso_upload'|trans }}"><div class="progress-bar" id="pexUploadProgresso" style="width:0%"></div></div>
         <span class="pex-upload-contador" id="pexUploadContador"></span>
     </div>
 
@@ -181,16 +181,16 @@
        da página, sobrevive ao reload que o explorador faz ao terminar o lote. Ids = contrato. #}
     <div id="uploadDuplicadosAviso" class="alert alert-warning alert-dismissible small py-2 mb-3 d-none" role="status"
          data-url-pasta-tpl="{{ path('pasta_show', {id: '__ID__'}) }}">
-        <i class="bi bi-files me-1"></i><strong>Arquivo idêntico já existe no escritório.</strong>
+        <i class="bi bi-files me-1"></i><strong>{{ 'pasta_documentos.explorador.duplicado_aviso'|trans }}</strong>
         <ul class="mb-0 mt-1 ps-3" id="uploadDuplicadosLista"></ul>
-        <button type="button" class="btn-close" aria-label="Fechar" id="uploadDuplicadosFechar"></button>
+        <button type="button" class="btn-close" aria-label="{{ 'pasta_documentos.fechar'|trans }}" id="uploadDuplicadosFechar"></button>
     </div>
 
     {# ── Corpo: resultado da busca, trilha, cabeçalho das colunas e lista ── #}
     <div class="pex-corpo" id="pexCorpo">
         {# Filtro por tipo ativo (dc L2184): "Mostrando somente [PDF ×]". #}
         <div class="pex-filtro-info" id="pexFiltroInfo" hidden>
-            Mostrando somente<span class="pex-filtro-chip"><span id="pexFiltroNome"></span><button type="button" id="pexFiltroLimpar" title="Mostrar todos" aria-label="Remover filtro"><i class="bi bi-x" aria-hidden="true"></i></button></span>
+            {{ 'pasta_documentos.explorador.mostrando_somente'|trans }}<span class="pex-filtro-chip"><span id="pexFiltroNome"></span><button type="button" id="pexFiltroLimpar" title="{{ 'pasta_documentos.explorador.mostrar_todos'|trans }}" aria-label="{{ 'pasta_documentos.explorador.remover_filtro'|trans }}"><i class="bi bi-x" aria-hidden="true"></i></button></span>
         </div>
         <div class="pex-busca-info" id="pexBuscaInfo" hidden></div>
 
@@ -199,19 +199,19 @@
            baixa direto; uma pasta ou vários itens viram um .zip (L8, D5). Copiar (L8, D6) fica
            desabilitado quando a seleção só tem pastas — pastas não são copiadas. Renomear só com um item.
            "Mover para…" (modal de destino) mora no menu de contexto. O JS mostra/esconde por contagem. #}
-        <div class="pex-selecao" id="pexSelecao" role="toolbar" aria-label="Ações da seleção" hidden>
-            <button type="button" class="pex-selecao-limpar" id="pexSelecaoLimpar" title="Limpar seleção (Esc)" aria-label="Limpar seleção"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        <div class="pex-selecao" id="pexSelecao" role="toolbar" aria-label="{{ 'pasta_documentos.explorador.acoes_selecao'|trans }}" hidden>
+            <button type="button" class="pex-selecao-limpar" id="pexSelecaoLimpar" title="{{ 'pasta_documentos.explorador.limpar_selecao_dica'|trans }}" aria-label="{{ 'pasta_documentos.explorador.limpar_selecao'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             <span class="pex-selecao-txt" id="pexSelecaoTexto"></span>
-            <button type="button" class="pex-selecao-acao" data-pex-sel="baixar" title="Baixar o arquivo" hidden><i class="bi bi-download" aria-hidden="true"></i><span>Baixar</span></button>
-            <button type="button" class="pex-selecao-acao" data-pex-sel="copiar" title="Copiar (Ctrl+C)" hidden><i class="bi bi-copy" aria-hidden="true"></i><span>Copiar</span></button>
-            <button type="button" class="pex-selecao-acao" data-pex-sel="recortar" title="Recortar (Ctrl+X)"><i class="bi bi-scissors" aria-hidden="true"></i><span>Recortar</span></button>
-            <button type="button" class="pex-selecao-acao" data-pex-sel="renomear" title="Renomear (F2)" hidden><i class="bi bi-input-cursor-text" aria-hidden="true"></i><span>Renomear</span></button>
-            <button type="button" class="pex-selecao-acao" data-pex-sel="tudo" title="Selecionar tudo (Ctrl+A)"><i class="bi bi-check2-all" aria-hidden="true"></i><span>Selecionar tudo</span></button>
-            <button type="button" class="pex-selecao-acao pex-selecao-acao--perigo" data-pex-sel="excluir" title="Excluir (Del)"><i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="baixar" title="{{ 'pasta_documentos.explorador.selecao.baixar_dica'|trans }}" hidden><i class="bi bi-download" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.selecao.baixar'|trans }}</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="copiar" title="{{ 'pasta_documentos.explorador.selecao.copiar_dica'|trans }}" hidden><i class="bi bi-copy" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.selecao.copiar'|trans }}</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="recortar" title="{{ 'pasta_documentos.explorador.selecao.recortar_dica'|trans }}"><i class="bi bi-scissors" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.selecao.recortar'|trans }}</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="renomear" title="{{ 'pasta_documentos.explorador.selecao.renomear_dica'|trans }}" hidden><i class="bi bi-input-cursor-text" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.selecao.renomear'|trans }}</span></button>
+            <button type="button" class="pex-selecao-acao" data-pex-sel="tudo" title="{{ 'pasta_documentos.explorador.selecao.selecionar_tudo_dica'|trans }}"><i class="bi bi-check2-all" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.selecao.selecionar_tudo'|trans }}</span></button>
+            <button type="button" class="pex-selecao-acao pex-selecao-acao--perigo" data-pex-sel="excluir" title="{{ 'pasta_documentos.explorador.selecao.excluir_dica'|trans }}"><i class="bi bi-trash3" aria-hidden="true"></i><span>{{ 'pasta_documentos.explorador.selecao.excluir'|trans }}</span></button>
         </div>
 
         <div class="pex-trilha" id="pexTrilha" hidden>
-            <button type="button" class="pex-subir" id="pexSubir" title="Voltar à pasta anterior (Backspace)" aria-label="Voltar à pasta anterior"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+            <button type="button" class="pex-subir" id="pexSubir" title="{{ 'pasta_documentos.explorador.subir_dica'|trans }}" aria-label="{{ 'pasta_documentos.explorador.subir'|trans }}"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
             <i class="bi bi-folder2-open pex-trilha-ico" aria-hidden="true"></i>
             <span class="pex-trilha-niveis" id="pexTrilhaNiveis"></span>
         </div>
@@ -222,18 +222,18 @@
            explorador e só marcam os itens VISÍVEIS (busca, filtro e nível aberto). O JS liga
            esta faixa só nos outros sete modos, e só com itens na tela. #}
         <div class="pex-todos" id="pexTodos" hidden>
-            <span class="pex-chk pex-chk--todos"><input type="checkbox" class="pex-chk-in pex-chk-todos" id="pexTodosFaixa" aria-label="Selecionar todos os itens visíveis" disabled><span class="pex-chk-caixa" aria-hidden="true"></span></span>
-            <label class="pex-todos-txt" for="pexTodosFaixa">Selecionar todos</label>
+            <span class="pex-chk pex-chk--todos"><input type="checkbox" class="pex-chk-in pex-chk-todos" id="pexTodosFaixa" aria-label="{{ 'pasta_documentos.explorador.selecionar_visiveis'|trans }}" disabled><span class="pex-chk-caixa" aria-hidden="true"></span></span>
+            <label class="pex-todos-txt" for="pexTodosFaixa">{{ 'pasta_documentos.explorador.selecionar_todos'|trans }}</label>
         </div>
 
         {# Cabeçalho estático do modo Detalhes (dc L2213). Clicar classifica; o `aria-sort`
            nasce em "none": nenhuma coluna manda até alguém pedir. A coluna Categoria entra por
            JS quando ligada no Organizar. #}
         <div class="pex-cabecalho" id="pexCabecalho">
-            <div class="pex-col pex-col-nome" aria-sort="none"><span class="pex-chk pex-chk--todos"><input type="checkbox" class="pex-chk-in pex-chk-todos" id="pexTodosCab" aria-label="Selecionar todos os itens visíveis" disabled><span class="pex-chk-caixa" aria-hidden="true"></span></span><button type="button" data-pex-classificar="nome" title="Classificar por nome"><span>Nome</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
-            <div class="pex-col pex-col-tipo" aria-sort="none"><button type="button" data-pex-classificar="tipo" title="Classificar por tipo"><span>Tipo</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
-            <div class="pex-col pex-col-tam" aria-sort="none"><button type="button" data-pex-classificar="tamanho" title="Classificar por tamanho"><span>Tamanho</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
-            <div class="pex-col pex-col-data" aria-sort="none"><button type="button" data-pex-classificar="data" title="Classificar por data de modificação"><span>Modificado</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-nome" aria-sort="none"><span class="pex-chk pex-chk--todos"><input type="checkbox" class="pex-chk-in pex-chk-todos" id="pexTodosCab" aria-label="{{ 'pasta_documentos.explorador.selecionar_visiveis'|trans }}" disabled><span class="pex-chk-caixa" aria-hidden="true"></span></span><button type="button" data-pex-classificar="nome" title="{{ 'pasta_documentos.explorador.classificar.nome'|trans }}"><span>{{ 'pasta_documentos.explorador.nome'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-tipo" aria-sort="none"><button type="button" data-pex-classificar="tipo" title="{{ 'pasta_documentos.explorador.classificar.tipo'|trans }}"><span>{{ 'pasta_documentos.explorador.tipo'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-tam" aria-sort="none"><button type="button" data-pex-classificar="tamanho" title="{{ 'pasta_documentos.explorador.classificar.tamanho'|trans }}"><span>{{ 'pasta_documentos.explorador.tamanho'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
+            <div class="pex-col pex-col-data" aria-sort="none"><button type="button" data-pex-classificar="data" title="{{ 'pasta_documentos.explorador.classificar.data'|trans }}"><span>{{ 'pasta_documentos.explorador.modificado'|trans }}</span><i class="bi pex-seta" aria-hidden="true"></i></button></div>
             <div class="pex-col pex-col-acoes" aria-hidden="true"></div>
         </div>
 
@@ -242,38 +242,38 @@
            0 byte fora do Drive, cópia do processo com mais de 100 páginas ou 50 MB, mais de 100 MB) — não é IA,
            e o rótulo diz isso (S-4: nada de bi-stars). Nasce oculta; o JS liga só na raiz, quando
            há sugestão e a faixa não foi dispensada nesta sessão (`pex:limpeza:<pastaId>`). O texto
-           e os itens são do JS (textContent). Excluir vai pelo excluir-lote, com confirm(). #}
-        <div class="pex-limpeza" id="pexLimpeza" role="region" aria-label="Sugestões de limpeza por regras" hidden>
+           e os itens são do JS (textContent). Excluir vai pelo excluir-lote, com a janela de confirmação. #}
+        <div class="pex-limpeza" id="pexLimpeza" role="region" aria-label="{{ 'pasta_documentos.explorador.limpeza.regiao'|trans }}" hidden>
             <div class="pex-limpeza-faixa">
                 <i class="bi bi-hdd pex-limpeza-ico" aria-hidden="true"></i>
                 <span class="pex-limpeza-txt">
-                    <span class="pex-limpeza-titulo" title="Regras fixas: cópia de conteúdo idêntico, arquivo vazio, cópia do processo com mais de 100 páginas ou 50 MB e arquivo com mais de 100 MB. Não é inteligência artificial.">Sugestões de limpeza — por regras</span>
+                    <span class="pex-limpeza-titulo" title="{{ 'pasta_documentos.explorador.limpeza.dica'|trans }}">{{ 'pasta_documentos.explorador.limpeza.titulo'|trans }}</span>
                     <span id="pexLimpezaTexto"></span>
                 </span>
-                <button type="button" class="pex-limpeza-revisar" id="pexLimpezaRevisar" aria-expanded="false" aria-controls="pexLimpezaLista">Revisar</button>
-                <button type="button" class="pex-limpeza-dispensar" id="pexLimpezaDispensar" title="Agora não" aria-label="Dispensar sugestão"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <button type="button" class="pex-limpeza-revisar" id="pexLimpezaRevisar" aria-expanded="false" aria-controls="pexLimpezaLista">{{ 'pasta_documentos.explorador.limpeza.revisar'|trans }}</button>
+                <button type="button" class="pex-limpeza-dispensar" id="pexLimpezaDispensar" title="{{ 'pasta_documentos.explorador.limpeza.agora_nao'|trans }}" aria-label="{{ 'pasta_documentos.explorador.limpeza.dispensar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
             <div class="pex-limpeza-lista" id="pexLimpezaLista" hidden>
                 <div class="pex-limpeza-itens" id="pexLimpezaItens"></div>
                 <div class="pex-limpeza-rodape">
-                    <span class="pex-limpeza-nota">Nada é excluído sem você confirmar. A exclusão pode ser desfeita.</span>
-                    <button type="button" class="pex-limpeza-excluir" id="pexLimpezaExcluir">Excluir</button>
+                    <span class="pex-limpeza-nota">{{ 'pasta_documentos.explorador.limpeza.nota'|trans }}</span>
+                    <button type="button" class="pex-limpeza-excluir" id="pexLimpezaExcluir">{{ 'pasta_documentos.explorador.selecao.excluir'|trans }}</button>
                 </div>
             </div>
         </div>
 
         {# A lista é o alvo do teclado (setas, Ctrl+A, Del, F2…) e do laço; as linhas são `option`
            e a selecionada/focada vai em `aria-activedescendant`, posto pelo JS. #}
-        <div class="pex-lista" id="pexLista" tabindex="0" role="listbox" aria-multiselectable="true" aria-label="Arquivos e pastas"></div>
+        <div class="pex-lista" id="pexLista" tabindex="0" role="listbox" aria-multiselectable="true" aria-label="{{ 'pasta_documentos.explorador.lista'|trans }}"></div>
 
         {# Painel de detalhes (dc L2271-2289): IMEDIATAMENTE depois da lista e ao lado dela pela
            grade do .pex-corpo. Nasce oculto (o desenho começa com `expPainel: false`); o JS liga
            pela preferência `pex:painel` e preenche com o item selecionado. Só propriedades que o
            #pexDados tem — enviado por, modificado em e páginas chegam com o L4. #}
-        <aside class="pex-painel" id="pexPainel" aria-label="Detalhes do item selecionado" hidden>
+        <aside class="pex-painel" id="pexPainel" aria-label="{{ 'pasta_documentos.explorador.painel'|trans }}" hidden>
             <div class="pex-painel-vazio" id="pexPainelVazio">
                 <i class="bi bi-layout-sidebar-reverse" aria-hidden="true"></i>
-                <span>Selecione uma pasta ou arquivo para ver os detalhes.</span>
+                <span>{{ 'pasta_documentos.explorador.painel_vazio'|trans }}</span>
             </div>
             <div class="pex-painel-sel" id="pexPainelSel" hidden></div>
         </aside>
@@ -293,7 +293,7 @@
         {# Menu de contexto (dc L2266-2270): fundo que fecha ao clicar e o menu de 240px. Os itens
            são clonados de `#pexMenuItem` pelo JS, na ordem do desenho, só os que têm ação hoje. #}
         <div class="pex-ctx-fundo" id="pexMenuFundo" hidden></div>
-        <div class="pex-ctx" id="pexMenu" role="menu" aria-label="Ações" hidden></div>
+        <div class="pex-ctx" id="pexMenu" role="menu" aria-label="{{ 'pasta_documentos.explorador.acoes'|trans }}" hidden></div>
         <template id="pexMenuItem">
             <button type="button" class="pex-ctx-item" role="menuitem"><i class="bi pex-ctx-ico" aria-hidden="true"></i><span class="pex-ctx-rotulo"></span><span class="pex-ctx-atalho" aria-hidden="true"></span></button>
         </template>
@@ -303,7 +303,7 @@
         <div class="pex-toast" id="pexToast" role="status" aria-live="polite" hidden>
             <i class="bi pex-toast-ico" id="pexToastIcone" aria-hidden="true" hidden></i>
             <span id="pexToastTexto"></span>
-            <button type="button" class="pex-toast-desfazer" id="pexToastDesfazer" hidden>Desfazer</button>
+            <button type="button" class="pex-toast-desfazer" id="pexToastDesfazer" hidden>{{ 'pasta_documentos.explorador.desfazer'|trans }}</button>
         </div>
 
         {# ── Visor em tela cheia (L10, DOC-47..50; dc L299-329) ─────────────────────────────
@@ -314,7 +314,7 @@
            arquivo no visor" (DOC-51) NÃO é renderizada (S-7): no desenho é um blob que nunca
            chega ao servidor. Nada de cor inline: os tokens moram no pasta-explorador.css. #}
         {% set visorCliente = pasta.clientePrincipal %}
-        <div class="pex-visor" id="pexVisor" role="dialog" aria-modal="true" aria-label="Visualizar arquivo" tabindex="-1" hidden
+        <div class="pex-visor" id="pexVisor" role="dialog" aria-modal="true" aria-label="{{ 'pasta_documentos.explorador.visor.rotulo'|trans }}" tabindex="-1" hidden
              data-pasta-rotulo="{{ pasta.nup ?? pasta.id }}"
              data-pasta-cliente="{{ visorCliente ? visorCliente.nomeExibicao : '' }}">
             <div class="pex-visor-cab">
@@ -324,20 +324,20 @@
                     <span class="pex-visor-meta" id="pexVisorMeta"></span>
                 </div>
                 <div class="pex-visor-grupo pex-visor-nav">
-                    <button type="button" class="pex-visor-btn" id="pexVisorAnterior" title="Arquivo anterior (←)" aria-label="Arquivo anterior"><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorAnterior" title="{{ 'pasta_documentos.explorador.visor.anterior_dica'|trans }}" aria-label="{{ 'pasta_documentos.explorador.visor.anterior'|trans }}"><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
                     <span class="pex-visor-num pex-visor-pos" id="pexVisorPosicao" aria-live="polite"></span>
-                    <button type="button" class="pex-visor-btn" id="pexVisorProximo" title="Próximo arquivo (→)" aria-label="Próximo arquivo"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorProximo" title="{{ 'pasta_documentos.explorador.visor.proximo_dica'|trans }}" aria-label="{{ 'pasta_documentos.explorador.visor.proximo'|trans }}"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
                 </div>
                 <div class="pex-visor-grupo pex-visor-zoom" id="pexVisorZoom">
-                    <button type="button" class="pex-visor-btn" id="pexVisorMenos" title="Diminuir zoom (−)" aria-label="Diminuir zoom"><i class="bi bi-zoom-out" aria-hidden="true"></i></button>
-                    <button type="button" class="pex-visor-num pex-visor-zoom-txt" id="pexVisorZoomTxt" title="Voltar a 100%" aria-label="Zoom atual; clique para voltar a 100%">100%</button>
-                    <button type="button" class="pex-visor-btn" id="pexVisorMais" title="Aumentar zoom (+)" aria-label="Aumentar zoom"><i class="bi bi-zoom-in" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorMenos" title="{{ 'pasta_documentos.explorador.visor.menos_dica'|trans }}" aria-label="{{ 'pasta_documentos.explorador.visor.menos'|trans }}"><i class="bi bi-zoom-out" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-num pex-visor-zoom-txt" id="pexVisorZoomTxt" title="{{ 'pasta_documentos.explorador.visor.zoom_dica'|trans }}" aria-label="{{ 'pasta_documentos.explorador.visor.zoom'|trans }}">100%</button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorMais" title="{{ 'pasta_documentos.explorador.visor.mais_dica'|trans }}" aria-label="{{ 'pasta_documentos.explorador.visor.mais'|trans }}"><i class="bi bi-zoom-in" aria-hidden="true"></i></button>
                 </div>
                 <div class="pex-visor-grupo pex-visor-acoes">
-                    <button type="button" class="pex-visor-btn" id="pexVisorBaixar" title="Baixar" aria-label="Baixar"><i class="bi bi-download" aria-hidden="true"></i></button>
-                    <button type="button" class="pex-visor-btn" id="pexVisorImprimir" title="Imprimir" aria-label="Imprimir" aria-disabled="false"><i class="bi bi-printer" aria-hidden="true"></i></button>
-                    <button type="button" class="pex-visor-btn" id="pexVisorNovaAba" title="Abrir em nova aba" aria-label="Abrir em nova aba"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></button>
-                    <button type="button" class="pex-visor-btn pex-visor-fechar" id="pexVisorFechar" title="Fechar (Esc)" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorBaixar" title="{{ 'pasta_documentos.explorador.selecao.baixar'|trans }}" aria-label="{{ 'pasta_documentos.explorador.selecao.baixar'|trans }}"><i class="bi bi-download" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorImprimir" title="{{ 'pasta_documentos.explorador.visor.imprimir'|trans }}" aria-label="{{ 'pasta_documentos.explorador.visor.imprimir'|trans }}" aria-disabled="false"><i class="bi bi-printer" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn" id="pexVisorNovaAba" title="{{ 'pasta_documentos.explorador.visor.nova_aba'|trans }}" aria-label="{{ 'pasta_documentos.explorador.visor.nova_aba'|trans }}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></button>
+                    <button type="button" class="pex-visor-btn pex-visor-fechar" id="pexVisorFechar" title="{{ 'pasta_documentos.explorador.visor.fechar_dica'|trans }}" aria-label="{{ 'pasta_documentos.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                 </div>
             </div>
             <div class="pex-visor-area" id="pexVisorArea">
@@ -352,7 +352,7 @@
                 {% for arquivo in explorador.arquivos %}
                     <li><a href="{{ arquivo.viewUrl }}" target="_blank" rel="noopener noreferrer">{{ arquivo.nome }}</a></li>
                 {% else %}
-                    <li>Nenhum arquivo nesta pasta.</li>
+                    <li>{{ 'pasta_documentos.explorador.sem_arquivos'|trans }}</li>
                 {% endfor %}
             </ul>
         </noscript>
@@ -362,6 +362,7 @@
         <script type="application/json" id="pexDados">{{ explorador.json|raw }}</script>
 
         {# O visor (L10). `defer`: roda depois do parse; o explorador só o procura no clique. #}
+        {{ catalogo_js('pasta_documentos.js') }}
         <script src="{{ asset('js/pasta-explorador-visor.js') }}" defer></script>
     </div>
 

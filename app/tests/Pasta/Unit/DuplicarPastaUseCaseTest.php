@@ -13,6 +13,7 @@ use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\Repository\PastaChecklistItemRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Pasta\UseCase\DuplicarPastaUseCase;
@@ -57,14 +58,39 @@ final class DuplicarPastaUseCaseTest extends TestCase
             $this->persistidos[] = $o;
         });
 
-        $this->useCase = new DuplicarPastaUseCase(
-            $this->em,
-            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->numeracao)),
-            $this->checklistRepo,
-        );
+        $this->useCase = $this->comRegrasDeAba([]);
 
         $this->tenant  = new Tenant();
         $this->usuario = new User();
+    }
+
+    /**
+     * O UseCase com as regras de aba oculta dadas (ocultar aba): o usuário de teste não é primário
+     * nem Master, então uma regra "toda a equipe" o alcança.
+     *
+     * @param list<\App\Pasta\Entity\AbaOcultaDaPasta> $regras
+     */
+    private function comRegrasDeAba(array $regras): DuplicarPastaUseCase
+    {
+        $repo = $this->createStub(\App\Pasta\Repository\AbaOcultaDaPastaRepository::class);
+        $repo->method('daAba')->willReturnCallback(static function (Pasta $p, \App\Pasta\Entity\AbaDaPasta $aba) use ($regras) {
+            foreach ($regras as $r) {
+                if ($r->getAba() === $aba) {
+                    return $r;
+                }
+            }
+
+            return null;
+        });
+        $vinculos = $this->createStub(\App\Repository\UserTenantRepository::class);
+        $primarios = new \App\Tenant\Service\RegraDosPrimarios($vinculos);
+
+        return new DuplicarPastaUseCase(
+            $this->em,
+            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->numeracao), $this->createStub(PastaRepository::class)),
+            $this->checklistRepo,
+            new \App\Pasta\Service\VisibilidadeDasAbasDaPasta($repo, $primarios, new \App\Pasta\Service\EquipeQuePodeTerAbaOculta($vinculos, $primarios)),
+        );
     }
 
     private function origem(): Pasta
@@ -186,6 +212,20 @@ final class DuplicarPastaUseCaseTest extends TestCase
         self::assertCount(1, $nova->getClientes());
         self::assertFalse($nova->getClientes()->contains($intruso));
         self::assertSame($daCasa, $nova->getClientePrincipal());
+    }
+
+    #[TestDox('Documentos oculta para quem duplica (ocultar aba): o checklist não vai para a cópia')]
+    public function testDocumentosOcultoNaoCopiaChecklist(): void
+    {
+        $this->checklistDaOrigem(['PROCURAÇÃO' => true]);
+        $this->numeracao->method('maiorNumero')->willReturn(10);
+        $origem = $this->origem();
+        $regra = \App\Pasta\Entity\AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $origem, \App\Pasta\Entity\AbaDaPasta::Documentos, new User(), new \DateTimeImmutable());
+        (new \ReflectionProperty(User::class, 'id'))->setValue($this->usuario, 77);
+
+        $this->comRegrasDeAba([$regra])->executar($origem, $this->usuario, $this->tenant);
+
+        self::assertSame([], $this->itensPersistidos());
     }
 
     #[TestDox('copia os itens do checklist na mesma ordem, todos PENDENTES, ligados à pasta nova e ao escritório')]

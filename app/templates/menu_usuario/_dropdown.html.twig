@@ -1,0 +1,126 @@
+{#
+    Menu do usuário (clique no nome/avatar do cabeçalho). Desenho "03 - EXPEDIENTE - VS 18.10.26",
+    linhas 310 a 345: ordem, ícones, rótulos à direita e quem vê cada item.
+      - todos: Meu Perfil, Trocar de conta, Tema escuro, Idioma, Instalar aplicativo, Novidades,
+        Ajuda e atalhos, Política de Privacidade, Sair
+      - só o primário (ou o Master): Convites do escritório
+      - só o Master (ROLE_SUPER_ADMIN): seção "Exclusivo do Master"
+    Recebe do base: `_iniciais`, `_ehPrimario`, `_ehMaster`, `fotoPerfilUrl`.
+    `.usuario-dropdown` fica: os testes de Novidades e da Política localizam os links por ela.
+#}
+<div class="dropdown-menu dropdown-menu-end shadow usuario-dropdown mu-menu" role="menu" data-sem-x="1">
+    <div class="usuario-dropdown-header mu-topo">
+        <span class="usuario-avatar-lg mu-avatar-lg" id="usuarioAvatarLg">
+            {% if fotoPerfilUrl %}
+                <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
+                     alt="{{ app.user.fullName }}"
+                     style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+            {% else %}
+                {{ _iniciais }}
+            {% endif %}
+        </span>
+        <div class="usuario-info">
+            <div class="usuario-name">{{ app.user.fullName|upper }}</div>
+            <div class="usuario-email">{{ app.user.email }}</div>
+            <div class="mu-selos">
+                {% if _ehMaster %}<span class="mu-selo mu-selo-master"><i class="bi bi-star-fill"></i>{{ 'termos.master'|trans|upper }}</span>{% endif %}
+                {% if current_tenant() %}
+                    <span class="mu-selo mu-selo-papel">{{ _ehPrimario or _ehMaster ? 'menu.usuario.dropdown.selo_primario'|trans : 'termos.secundario'|trans|upper }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <button type="button" class="mu-menu-x" data-mu-fechar-menu aria-label="{{ 'menu.usuario.dropdown.fechar_menu'|trans }}"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div class="mu-grupo">
+        <a href="{{ path('app_profile') }}" class="dropdown-item mu-item" role="menuitem">
+            <i class="bi bi-person"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.meu_perfil'|trans }}</span></span>
+        </a>
+        {% if current_tenant() and (_ehPrimario or _ehMaster) %}
+            <a href="{{ path('auth_gerenciar_convites') }}" class="dropdown-item mu-item" role="menuitem" data-mu-convites data-mu-conta="conta">
+                <i class="bi bi-envelope-paper"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.convites'|trans }}</span></span>
+                <span class="mu-item-dir">{{ 'menu.usuario.dropdown.convites_dir'|trans }}</span>
+            </a>
+        {% endif %}
+        <button type="button" class="dropdown-item mu-item" role="menuitem" data-ind-abrir>
+            <i class="bi bi-megaphone"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.indicar'|trans }}</span></span>
+            <span class="mu-item-dir">{{ 'menu.usuario.dropdown.indicar_dir'|trans }}</span>
+        </button>
+        {% if current_tenant() %}
+            <button type="button" class="dropdown-item mu-item" role="menuitem" data-mu-conta="trocar">
+                <i class="bi bi-arrow-left-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.trocar_conta'|trans }}</span></span>
+            </button>
+        {% endif %}
+    </div>
+
+    {% if _ehMaster %}
+        <div class="mu-grupo mu-grupo-master">
+            <div class="mu-grupo-rotulo"><i class="bi bi-star-fill"></i>{{ 'menu.usuario.dropdown.exclusivo_master'|trans }}</div>
+            {% include 'menu_usuario/_itens_master.html.twig' with {classe_item: 'dropdown-item mu-item mu-item-duplo', papel: 'menuitem'} only %}
+        </div>
+    {% endif %}
+
+    {# Telas e recursos (spec perfis-1.2-telas-e-recursos): item desligado some para quem não é Master e
+       aparece marcado em vermelho para o Master; o grupo inteiro some quando nenhum item dele é visível. #}
+    {% if recurso_visivel('tema') or recurso_visivel('idioma') or recurso_visivel('instalar') %}
+    <div class="mu-grupo">
+        {% if recurso_visivel('tema') %}
+        <button type="button" id="toggleTema" class="dropdown-item mu-item {{ recurso_marca('tema') }}"
+                role="menuitemcheckbox" aria-checked="false">
+            <i class="bi bi-moon-stars" id="toggleTemaIcone"></i>
+            <span class="mu-item-texto"><span class="mu-item-titulo" id="toggleTemaLabel">{{ 'menu.usuario.dropdown.tema_escuro'|trans }}</span></span>
+            <span class="mu-chave" aria-hidden="true"><span></span></span>
+        </button>
+        {% endif %}
+        {% if recurso_visivel('idioma') %}
+        <button type="button" class="dropdown-item mu-item {{ recurso_marca('idioma') }}" role="menuitem" data-mu-idioma>
+            <i class="bi bi-translate"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.idioma'|trans }}</span></span>
+            <span class="mu-item-dir">{{ idioma_atual().nome }}</span>
+        </button>
+        {% endif %}
+        {% if recurso_visivel('instalar') %}
+        <button type="button" id="linkInstalarApp" class="dropdown-item mu-item {{ recurso_marca('instalar') }}" role="menuitem">
+            <i class="bi bi-download"></i>
+            <span class="mu-item-texto"><span class="mu-item-titulo" id="linkInstalarAppTexto">{{ 'menu.usuario.dropdown.instalar'|trans }}</span></span>
+        </button>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if recurso_visivel('novidades') or recurso_visivel('ajuda') or recurso_visivel('privacidade') %}
+    <div class="mu-grupo">
+        {% if recurso_visivel('novidades') %}
+        {# Novidades: o selo aparece até a pessoa abrir a página (public/js/novidades.js). #}
+        <a href="{{ path('novidades_index') }}" class="dropdown-item mu-item {{ recurso_marca('novidades') }}" role="menuitem"
+           data-novidades-versao="{{ novidades_mais_recente()|e('html_attr') }}">
+            <i class="bi bi-stars"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.novidades'|trans }}</span></span>
+            <span class="novidades-selo badge rounded-pill text-bg-primary ms-auto d-none">{{ 'menu.usuario.dropdown.novidades_selo'|trans }}</span>
+        </a>
+        {% endif %}
+        {% if recurso_visivel('ajuda') %}
+        <button type="button" class="dropdown-item mu-item {{ recurso_marca('ajuda') }}" role="menuitem" data-mu-ajuda>
+            <i class="bi bi-question-circle"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.ajuda'|trans }}</span></span>
+        </button>
+        {% endif %}
+        {% if recurso_visivel('privacidade') %}
+        <a href="{{ path('legal_politica_privacidade') }}" class="dropdown-item mu-item {{ recurso_marca('privacidade') }}" role="menuitem" target="_blank" rel="noopener">
+            <i class="bi bi-shield-lock"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.privacidade'|trans }}</span></span>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# Contribua (desenho 03: entre Política de Privacidade e Sair, com "PIX" à direita). #}
+    <div class="mu-grupo">
+        <a href="{{ path('contribua_index') }}" class="dropdown-item mu-item" role="menuitem">
+            <i class="bi bi-heart" style="color:#c0392b"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.contribua'|trans }}</span></span>
+            <span class="mu-item-dir">PIX</span>
+        </a>
+    </div>
+
+    <div class="mu-grupo">
+        <a href="{{ logout_path('main') }}" class="dropdown-item mu-item text-danger" role="menuitem" data-mu-sair>
+            <i class="bi bi-box-arrow-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.sair'|trans }}</span></span>
+        </a>
+    </div>
+</div>

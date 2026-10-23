@@ -1,0 +1,40 @@
+{# Confirmação de endereço (GET da rota pública `comercial_confirmar_endereco`, spec comercial-e-emails.md §3.3).
+   O GET só mostra: quem grava é o POST do botão "Confirmar", na mesma URL, com o CSRF do token. Leitores de link do
+   e-mail abrem o GET e não podem confirmar ninguém. Não mostra o endereço. Página avulsa, sem o layout do sistema.
+   Contexto: `token`, `csrfInvalido` (o POST voltou sem CSRF válido). #}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>{{ 'publicas.confirmacao.confirmar.titulo'|trans }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <main style="max-width:520px;margin:48px auto;padding:0 16px;">
+        <div style="background-color:#ffffff;border-radius:8px;overflow:hidden;">
+            <div style="background-color:#0a6fa0;padding:20px 28px;">
+                <p style="margin:0;font-size:20px;font-weight:bold;color:#ffffff;">BlueJus</p>
+            </div>
+            <div style="padding:28px;">
+                <h1 style="margin:0 0 12px;font-size:18px;color:#1a1a2e;">{{ 'publicas.confirmacao.confirmar.titulo'|trans }}</h1>
+                {% if csrfInvalido %}
+                    <p class="aviso" style="margin:0 0 12px;font-size:14px;color:#b42318;line-height:1.5;">
+                        {{ 'publicas.confirmacao.confirmar.csrf_invalido'|trans }}
+                    </p>
+                {% endif %}
+                <p style="margin:0 0 20px;font-size:15px;color:#444444;line-height:1.6;">
+                    {{ 'publicas.confirmacao.confirmar.texto'|trans }}
+                </p>
+                <form method="post" action="{{ path('comercial_confirmar_endereco_gravar', {token: token}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('comercial_confirmar_endereco_' ~ token) }}">
+                    <button type="submit" name="confirmar" value="1" style="padding:12px 24px;border:none;border-radius:6px;background-color:#0a6fa0;color:#ffffff;font-size:15px;font-weight:bold;cursor:pointer;">{{ 'publicas.confirmacao.confirmar.botao'|trans }}</button>
+                </form>
+                <p style="margin:20px 0 0;font-size:13px;color:#888888;line-height:1.5;">
+                    {{ 'publicas.confirmacao.confirmar.nao_foi_voce'|trans }}
+                </p>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

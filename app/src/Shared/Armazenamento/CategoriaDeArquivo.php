@@ -28,6 +28,17 @@ enum CategoriaDeArquivo: string
     case COBRANCA_DOCUMENTO   = 'cobranca_documento';
     case KANBAN_ANEXO         = 'kanban_anexo';
     case TAREFA_ANEXO         = 'tarefa_anexo';
+    // Documentos de demanda do Trabalho Externo. Plana como o Kanban: o escopo é o escritório
+    // solicitante, dono da demanda (`ChavesDeTrabalhoExterno`).
+    case TRABALHO_EXTERNO_DOCUMENTO = 'trabalho_externo_documento';
+    // Arquivos do currículo do Trabalho Externo (foto, carteira da OAB, comprovante, currículo).
+    // Escopo GLOBAL, como a foto de perfil: o currículo é do usuário, não de um escritório, e a
+    // purga de escritório não o leva (`ChavesDeTrabalhoExterno::arquivoDoCurriculo`).
+    case TRABALHO_EXTERNO_CURRICULO = 'trabalho_externo_curriculo';
+    // A imagem da campanha do modo simples do Comercial (spec comercial-e-emails.md §12, F3i). Escopo
+    // GLOBAL: é da plataforma (só o Master envia), não de um escritório, e sai por endereço público
+    // (`/e/i/{token}.{ext}`) até vencer (`ChavesDeComercial`).
+    case COMERCIAL_IMAGEM = 'comercial_imagem';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

@@ -1,0 +1,17 @@
+{% extends 'recurso/_layout_simples.html.twig' %}
+
+{# Tela desligada pelo Master (spec docs/specs/perfis-1.2-telas-e-recursos.md, R5). Status 503.
+   Recebe `titulo` ("<Título> em preparação"), `mensagem` (o motivo ou o texto padrão) e `previsao`
+   (dd/mm/aaaa ou null). #}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block body %}
+<main class="bj-recurso-preparo" role="main">
+    <div class="bj-recurso-preparo-icone" aria-hidden="true"><i class="bi bi-tools"></i></div>
+    <h1 class="bj-recurso-preparo-titulo">{{ titulo }}</h1>
+    {# Como no bj-recursos.js: a previsão fica no mesmo bloco do texto, depois de uma quebra. #}
+    <div class="bj-recurso-preparo-texto"><span class="bj-recurso-preparo-motivo">{{ mensagem }}</span>{% if previsao %}<br><span class="bj-recurso-preparo-previsao">{{ 'recurso.em_preparacao.previsao'|trans({data: previsao}) }}</span>{% endif %}</div>
+    <a class="bj-recurso-preparo-voltar" href="{{ path('expediente_index') }}">{{ 'recurso.em_preparacao.voltar'|trans }}</a>
+</main>
+{% endblock %}

@@ -13,7 +13,13 @@
    `html` dele (PastaController::htmlLinhaCliente) e o JS do show so o insere —
    nao ha mais espelho JS, e a linha nova nasce com o icone como as demais.
 
-   Parametros: pasta, cliente, ehPrincipal (bool); opcional podeMexerNoCliente (bool).
+   Parametros: pasta, cliente, ehPrincipal (bool); opcionais podeMexerNoCliente (bool)
+   e cpfDuplicado (bool).
+   Selo "CPF duplicado" (desenho 02 VS 18.10.26, L1509 e L6527-6536): outro cliente
+   vinculado a ESTA pasta tem o mesmo documento (so digitos). Quem decide e o servico
+   `ClientesDuplicadosDaPasta`; o trilho calcula uma vez e repassa, o XHR cai no
+   fallback (funcao `pasta_clientes_duplicados`). O desenho so fala de CPF: para PJ o
+   selo diz "CNPJ duplicado".
    C6-PMC-03: a estrela vazia (tornar principal) e a lixeira (desvincular) so para
    quem o servidor deixaria usa-las — EDIT na pasta e pasta fora da lapide. O
    trilho repassa a decisao; o XHR (htmlLinhaCliente) nao, entao o fallback e aqui
@@ -23,17 +29,26 @@
     ? podeMexerNoCliente
     : (can_access_resource('pasta', pasta.id, 'edit') and not pasta.estaExcluida) %}
 {% set doc = cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null) %}
+{% set cpfDuplicado = cpfDuplicado is defined
+    ? cpfDuplicado
+    : cliente.id in pasta_clientes_duplicados(pasta) %}
+{% set rotuloDoc = cliente.cpf is defined ? 'CPF' : 'CNPJ' %}
 {% set pendencias = cliente_pendencias(cliente) %}
 {% set cadCompleto = pendencias is empty %}
 {% set cadDica = cadCompleto
-    ? 'Cadastro completo · abrir detalhes do cliente'
-    : 'Cadastro incompleto: ' ~ pendencias|length ~ (pendencias|length == 1 ? ' pendência' : ' pendências')
-      ~ ' · abrir detalhes do cliente' ~ "\n" ~ pendencias|map(p => '• ' ~ p)|join("\n") %}
+    ? 'pasta_lista.cliente_linha.cad_completo'|trans
+    : (pendencias|length == 1 ? 'pasta_lista.cliente_linha.cad_incompleto_uma' : 'pasta_lista.cliente_linha.cad_incompleto_varias')|trans({total: pendencias|length ~ ''})
+      ~ "\n" ~ pendencias|map(p => '• ' ~ p)|join("\n") %}
 {# Iniciais das DUAS primeiras palavras, como o desenho (e como o JS do show). #}
 {% set partesNome = cliente.nomeExibicao|trim|split(' ')|filter(p => p is not empty) %}
 {% set iniciais = partesNome|slice(0, 2)|map(p => p|slice(0, 1))|join('')|upper %}
 <div class="cliente-linha d-flex align-items-center gap-2 py-2"
      data-cliente-id="{{ cliente.id }}"
+     {#- Para pasta-clientes-duplicados.js recalcular o selo de TODAS as linhas depois de vincular ou
+         desvincular sem recarregar (dc L6527-6536). A chave e um HMAC dos digitos (mesma comparacao
+         do servico), nunca o documento cru. #}
+     data-doc-chave="{{ pasta_cliente_doc_chave(cliente) }}"
+     data-doc-tipo="{{ rotuloDoc|lower }}"
      {# O token vai na LINHA, nao so no form: quando a estrela cheia (que nao tem
         form) precisa voltar a ser botao, o JS nao teria de onde tira-lo. #}
      {%- if podeMexerNoCliente %} data-token-principal="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}"{% endif %}>
@@ -50,7 +65,8 @@
                     class="cliente-cad js-ps-cli-detalhes cliente-cad--{{ cadCompleto ? 'completo' : 'pendente' }}"
                     data-pendencias="{{ pendencias|length }}"
                     title="{{ cadDica }}" aria-label="{{ cadDica }}"><i class="bi bi-person-vcard" aria-hidden="true"></i></button>
-            {%- if ehPrincipal %}<span class="ps-selo-principal">Principal</span>{% endif -%}
+            {%- if cpfDuplicado %}<span class="ps-selo-duplicado" title="{{ 'pasta_lista.cliente_linha.duplicado_dica'|trans({doc: rotuloDoc}) }}">{{ 'pasta_lista.cliente_linha.duplicado'|trans({doc: rotuloDoc}) }}</span>{% endif -%}
+            {%- if ehPrincipal %}<span class="ps-selo-principal">{{ 'pasta_lista.cliente_linha.principal'|trans }}</span>{% endif -%}
         </div>
         {% if doc %}
             <div class="cliente-doc">
@@ -66,13 +82,13 @@
         {% if ehPrincipal %}
             <span class="btn btn-xs btn-primary disabled js-cliente-principal-estrela"
                   data-cliente-id="{{ cliente.id }}"
-                  title="Cliente principal desta pasta — a Média por CPF é dele{{ podeMexerNoCliente ? '. Clique na estrela de outro para trocar' : '' }}">
+                  title="{{ (podeMexerNoCliente ? 'pasta_lista.cliente_linha.principal_dica_trocar' : 'pasta_lista.cliente_linha.principal_dica')|trans }}">
                 <i class="bi bi-star-fill"></i>
             </span>
         {% elseif podeMexerNoCliente %}
             <form method="post" action="{{ path('pasta_cliente_principal', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-cliente-principal m-0">
                 <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_principal_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-                <button type="submit" class="btn btn-xs btn-outline-secondary" title="Tornar cliente principal (a Média por CPF passa a ser dele)">
+                <button type="submit" class="btn btn-xs btn-outline-secondary" title="{{ 'pasta_lista.cliente_linha.tornar_principal'|trans }}">
                     <i class="bi bi-star"></i>
                 </button>
             </form>
@@ -80,7 +96,7 @@
 
         <a href="{{ path('cliente_show', {id: cliente.id}) }}"
            class="cliente-abrir"
-           title="Abrir ficha do cliente (documentos e anexos ficam lá)" aria-label="Abrir cliente {{ cliente.nomeExibicao|e('html_attr') }}">
+           title="{{ 'pasta_lista.cliente_linha.abrir_dica'|trans }}" aria-label="{{ 'pasta_lista.cliente_linha.abrir_rotulo'|trans({nome: cliente.nomeExibicao})|e('html_attr') }}">
             {# Dois icones (auditoria 2 D8, dc L.6127): fechada no repouso, aberta no
                hover/foco. Quem troca e o CSS (.ps-cli-abrir-*), sem JS. #}
             <i class="bi bi-folder-fill ps-cli-abrir-fechada" aria-hidden="true"></i>
@@ -90,7 +106,7 @@
         {% if podeMexerNoCliente %}
             <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">
                 <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_desvincular_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-                <button type="submit" class="btn btn-xs btn-outline-danger" title="Desvincular cliente da pasta">
+                <button type="submit" class="btn btn-xs btn-outline-danger" title="{{ 'pasta_lista.cliente_linha.desvincular'|trans }}">
                     <i class="bi bi-trash"></i>
                 </button>
             </form>

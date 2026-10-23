@@ -6,28 +6,39 @@ namespace App\Tenant\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Master\Service\RegraDosMasters;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\DTO\CriarEscritorioInput;
 use App\Tenant\Form\CriarEscritorioType;
 use App\Tenant\UseCase\CriarEscritorioUseCase;
+use App\Tenant\Exception\PedidoDeExclusaoRecusado;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\SairDoEscritorioUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class EscritorioController extends AbstractController
 {
+    private const CHAVE_CONFIRMACAO_NAO_CONFERE = 'escritorio.flash.confirmacao_nao_confere';
+
     public function __construct(
         private readonly SairDoEscritorioUseCase $sairDoEscritorio,
         private readonly CriarEscritorioUseCase $criarEscritorio,
         private readonly ExcluirEscritorioUseCase $excluirEscritorio,
         private readonly TenantContext $tenantContext,
+        private readonly RegraDosMasters $regraDosMasters,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
+    /**
+     * Recusa, com flash, a conta criada por um Master (spec perfis-1.2-contas C5 e Q4, regra em
+     * {@see RegraDosMasters::recusaParaExcluir()}) e a confirmação com o nome errado.
+     */
     #[Route('/escritorio/{id}/excluir', name: 'escritorio_excluir', methods: ['POST'])]
     public function excluir(
         Tenant $tenant,
@@ -35,6 +46,36 @@ final class EscritorioController extends AbstractController
         PermissionChecker $permissionChecker,
         UserTenantRepository $userTenantRepository,
     ): Response {
+        $usuario = $this->exigirQuemPodeExcluir($tenant, $request, $permissionChecker, $userTenantRepository);
+
+        $recusa = $this->regraDosMasters->recusaParaExcluir($tenant) ?? ($request->request->getString('confirmar_nome') !== (string) $tenant->getName() ? $this->tradutor->trans(self::CHAVE_CONFIRMACAO_NAO_CONFERE) : null);
+        if ($recusa !== null) {
+            $this->addFlash('danger', $recusa);
+
+            return $this->redirectToRoute('app_tenant_show', ['tenantId' => $tenant->getId()]);
+        }
+
+        try {
+            $this->excluirEscritorio->executar($tenant, $usuario);
+        } catch (PedidoDeExclusaoRecusado $e) {
+            // Pedido de exclusão pendente: só o Master decide (403); decidido ao mesmo tempo por outro (409).
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->redirectToRoute('app_tenant_show', ['tenantId' => $tenant->getId()]);
+        }
+
+        if ($this->tenantContext->getCurrentTenant()?->getId() === $tenant->getId()) {
+            $this->tenantContext->clearCurrentTenant();
+        }
+
+        $this->addFlash('success', $this->tradutor->trans('escritorio.flash.escritorio_excluido'));
+
+        return $this->redirectToRoute('tenant_selecionar');
+    }
+
+    /** Usuário logado, CSRF válido e SuperAdmin ou admin do escritório (vínculo ativo + admin.tenant.settings.manage). */
+    private function exigirQuemPodeExcluir(Tenant $tenant, Request $request, PermissionChecker $permissionChecker, UserTenantRepository $userTenantRepository): User
+    {
         $usuario = $this->getUser();
         if (!$usuario instanceof User) {
             throw $this->createAccessDeniedException();
@@ -52,21 +93,7 @@ final class EscritorioController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if ($request->request->getString('confirmar_nome') !== (string) $tenant->getName()) {
-            $this->addFlash('danger', 'A confirmação não confere com o nome do escritório.');
-
-            return $this->redirectToRoute('app_tenant_show', ['tenantId' => $tenant->getId()]);
-        }
-
-        $this->excluirEscritorio->executar($tenant);
-
-        if ($this->tenantContext->getCurrentTenant()?->getId() === $tenant->getId()) {
-            $this->tenantContext->clearCurrentTenant();
-        }
-
-        $this->addFlash('success', 'Escritório excluído. Os dados ficam em quarentena e podem ser recuperados.');
-
-        return $this->redirectToRoute('tenant_selecionar');
+        return $usuario;
     }
 
     #[Route('/escritorio/criar', name: 'escritorio_criar', methods: ['GET', 'POST'])]
@@ -86,7 +113,7 @@ final class EscritorioController extends AbstractController
             try {
                 $tenant = $this->criarEscritorio->executar($input, $usuario);
                 $this->tenantContext->setCurrentTenant($tenant->getId());
-                $this->addFlash('success', 'Escritório criado com sucesso. Você já está dentro dele.');
+                $this->addFlash('success', $this->tradutor->trans('escritorio.flash.escritorio_criado'));
 
                 return $this->redirectToRoute('expediente_index');
             } catch (\DomainException | \InvalidArgumentException $e) {

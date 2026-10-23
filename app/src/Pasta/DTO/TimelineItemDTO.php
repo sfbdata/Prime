@@ -33,5 +33,7 @@ final readonly class TimelineItemDTO
         // Texto inteiro de antes da última edição da mensagem (PAS-045); null se nunca editada.
         // Quem lê é a Timeline inteligente ("Ver alteração").
         public ?string $conteudoAnterior = null,
+        // Cartão do sistema no Registro ('fase', 'prazo'); null nos escritos por pessoas.
+        public ?string $sistema = null,
     ) {}
 }

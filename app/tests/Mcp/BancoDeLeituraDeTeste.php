@@ -79,12 +79,15 @@ final class BancoDeLeituraDeTeste
 
         $admin = DriverManager::getConnection($params);
 
-        // DO block porque o PostgreSQL não tem CREATE ROLE IF NOT EXISTS.
+        // DO block porque o PostgreSQL não tem CREATE ROLE IF NOT EXISTS. A role é do cluster, não do
+        // banco: dois processos (ParaTest, ou duas frentes) podem passar juntos pelo IF NOT EXISTS, e o
+        // segundo CREATE ROLE perde a corrida. A exceção dele quer dizer "já existe", que é o que se quer.
         $admin->executeStatement(sprintf(
             "DO $$ BEGIN
                 IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '%s') THEN
                     CREATE ROLE %s LOGIN PASSWORD '%s';
                 END IF;
+            EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
             END $$;",
             self::ROLE,
             self::ROLE,
@@ -121,12 +124,15 @@ final class BancoDeLeituraDeTeste
 
         $admin = DriverManager::getConnection($params);
 
-        // DO block porque o PostgreSQL não tem CREATE ROLE IF NOT EXISTS.
+        // DO block porque o PostgreSQL não tem CREATE ROLE IF NOT EXISTS. A role é do cluster, não do
+        // banco: dois processos (ParaTest, ou duas frentes) podem passar juntos pelo IF NOT EXISTS, e o
+        // segundo CREATE ROLE perde a corrida. A exceção dele quer dizer "já existe", que é o que se quer.
         $admin->executeStatement(sprintf(
             "DO $$ BEGIN
                 IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '%s') THEN
                     CREATE ROLE %s LOGIN PASSWORD '%s';
                 END IF;
+            EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL;
             END $$;",
             self::ROLE_SEM_INSERT,
             self::ROLE_SEM_INSERT,

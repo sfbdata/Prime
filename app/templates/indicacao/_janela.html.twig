@@ -1,0 +1,62 @@
+{#
+    Janela "Indicar o BlueJus" (spec indicar-bluejus.md; desenho bj-contas.js L98-133, `indicar()`). Aberta pelo item
+    do menu do usuário ([data-ind-abrir], templates/menu_usuario/_dropdown.html.twig). Os textos fixos estão aqui; o
+    que depende da pessoa (nome, link curto, mensagem, pendências do cadastro, trava e "SUAS INDICAÇÕES") vem do
+    GET indicacao_janela e é montado por public/js/indicacao.js com textContent/createElement.
+    Recebe do base: `_ehPrimario`, `_ehMaster` (o texto da dica muda para quem chama a equipe, bj-contas.js L116).
+#}
+<link rel="stylesheet" href="{{ asset('css/indicacao.css') }}">
+<div class="modal fade mu-modal ind-modal" id="modalIndicacao" tabindex="-1" aria-labelledby="modalIndicacaoTitulo" aria-hidden="true"
+     data-url-janela="{{ path('indicacao_janela') }}"
+     data-url-email="{{ path('indicacao_email') }}"
+     data-url-whatsapp="{{ path('indicacao_canal', {canal: 'whatsapp'}) }}"
+     data-url-link="{{ path('indicacao_canal', {canal: 'link'}) }}"
+     data-token="{{ csrf_token('indicacao') }}">
+    <div class="modal-dialog modal-dialog-centered ind-dialogo">
+        <div class="modal-content">
+            <div class="mu-modal-topo">
+                <b id="modalIndicacaoTitulo">{{ 'publicas.indicacao.titulo'|trans }}</b>
+                <button type="button" class="ind-x" data-bs-dismiss="modal" aria-label="{{ 'publicas.indicacao.fechar'|trans }}">×</button>
+            </div>
+            <div class="ind-corpo">
+                <div class="ind-dica">
+                    <span class="ind-dica-icone" aria-hidden="true">💡</span>
+                    <span>{{ 'publicas.indicacao.dica.inicio'|trans }} <b>{{ 'publicas.indicacao.dica.negrito'|trans }}</b> {{ 'publicas.indicacao.dica.fim'|trans }}
+                        {%- if current_tenant() and (_ehPrimario|default(false) or _ehMaster|default(false)) %} {{ 'publicas.indicacao.dica.equipe_inicio'|trans }} <b>{{ 'publicas.indicacao.dica.equipe_negrito'|trans }}</b>{{ 'publicas.indicacao.dica.equipe_use'|trans }} <b>{{ 'publicas.indicacao.dica.equipe_convites'|trans }}</b>.
+                        {%- elseif current_tenant() %} {{ 'publicas.indicacao.dica.secundario'|trans }}{% endif %}</span>
+                </div>
+
+                <div class="ind-pendencias" data-ind-pendencias hidden>
+                    <b>{{ 'publicas.indicacao.pendencias.titulo'|trans }}</b><br>
+                    <span data-ind-pendencias-texto></span>
+                    <div class="ind-pendencias-acao"><a href="{{ path('app_profile') }}" class="ind-btn ind-btn-pri">{{ 'publicas.indicacao.pendencias.completar'|trans }}</a></div>
+                </div>
+
+                <div class="ind-trava" data-ind-trava role="alert" hidden></div>
+
+                <div class="ind-envio" data-ind-envio hidden>
+                    <div class="ind-quem">{{ 'publicas.indicacao.envio.em_seu_nome'|trans }} <b data-ind-nome></b> · {{ 'publicas.indicacao.envio.link_curto'|trans }} <b data-ind-link></b></div>
+                    <div class="ind-campos">
+                        <input type="text" class="ind-campo" id="indNome" maxlength="120" placeholder="{{ 'publicas.indicacao.envio.nome'|trans }}" aria-label="{{ 'publicas.indicacao.envio.nome'|trans }}" autocomplete="off">
+                        <input type="email" class="ind-campo" id="indEmail" maxlength="180" placeholder="{{ 'publicas.indicacao.envio.email'|trans }}" aria-label="{{ 'publicas.indicacao.envio.email'|trans }}" autocomplete="off">
+                    </div>
+                    <textarea class="ind-campo ind-mensagem" id="indMensagem" rows="4" aria-label="{{ 'publicas.indicacao.envio.mensagem'|trans }}"></textarea>
+                    <div class="ind-acoes">
+                        <button type="button" class="ind-btn ind-btn-pri" data-ind-email>{{ 'publicas.indicacao.envio.por_email'|trans }}</button>
+                        <button type="button" class="ind-btn ind-btn-wa" data-ind-whatsapp>WhatsApp</button>
+                        <button type="button" class="ind-btn ind-btn-sec" data-ind-copiar>{{ 'publicas.indicacao.envio.copiar'|trans }}</button>
+                    </div>
+                </div>
+
+                <div class="ind-aviso" data-ind-aviso role="status" aria-live="polite" hidden></div>
+
+                <div class="ind-titulo-lista">{{ 'publicas.indicacao.lista.titulo'|trans }} (<span data-ind-total>0</span>)</div>
+                <div class="ind-lista" data-ind-lista>
+                    <div class="ind-vazio">{{ 'publicas.indicacao.lista.vazio'|trans }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{ catalogo_js('publicas.js.indicacao') }}
+<script src="{{ asset('js/indicacao.js') }}" defer></script>

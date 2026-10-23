@@ -99,8 +99,8 @@
                             <span>BLUEJUS</span>
                         </td>
                         <td class="rp-impresso">
-                            Gestão jurídica<br>
-                            Impresso em {{ impressoEm|date('d/m/Y, H:i:s') }}{% if impressoPor %} por {{ impressoPor }}{% endif %}
+                            {{ 'pasta_resp.folha.gestao'|trans }}<br>
+                            {% if impressoPor %}{{ 'pasta_resp.folha.impresso_por'|trans({quando: impressoEm|date('d/m/Y, H:i:s'), nome: impressoPor}) }}{% else %}{{ 'pasta_resp.folha.impresso'|trans({quando: impressoEm|date('d/m/Y, H:i:s')}) }}{% endif %}
                         </td>
                     </tr>
                 </table>
@@ -110,9 +110,9 @@
         {% if opcoes.dados %}
             <table class="rp-identidade" data-rp-parte="dados">
                 <tr>
-                    <td><b>Pasta</b> {{ resumo.numero }}</td>
-                    <td><b>Cliente</b> {{ resumo.titulo }}</td>
-                    {% if principal %}<td><b>Processo</b> {{ principal.numero|numero_cnj }}</td>{% endif %}
+                    <td><b>{{ 'pasta_resp.folha.pasta'|trans }}</b> {{ resumo.numero }}</td>
+                    <td><b>{{ 'pasta_resp.folha.cliente'|trans }}</b> {{ resumo.titulo }}</td>
+                    {% if principal %}<td><b>{{ 'pasta_resp.folha.processo'|trans }}</b> {{ principal.numero|numero_cnj }}</td>{% endif %}
                 </tr>
             </table>
         {% endif %}
@@ -120,58 +120,58 @@
         <h1 class="rp-titulo" data-rp-parte="titulo">{{ titulo }}</h1>
         {# Autor, data e tipo: só o registro tem. Na moldura quem o põe é a tela; na folha da
            observação, o servidor — a mesma linha do `data-autor`/`data-quando`/`data-tipo` do ⋮
-           (`_detalhes_obs.html.twig`), com o tipo "Atendimento" do desenho. #}
+           (`_detalhes_obs.html.twig`), com a tag fixa "Observação" do desenho 02 (dc L6874). #}
         {% if opcoes.autor and secao == 'observacao' and registro is not null %}
             {%- set autorRegistro = registro.autor ? (registro.autor.fullName ?? registro.autor.email) : null -%}
-            <div class="rp-autor" data-rp-parte="autor">{{ autorRegistro ?: 'Autor desconhecido' }} · {{ registro.criadaEm|date('d/m/Y, H:i') }} · Atendimento</div>
+            <div class="rp-autor" data-rp-parte="autor">{{ autorRegistro ?: 'pasta_resp.folha.autor_desconhecido'|trans }} · {{ registro.criadaEm|data }}, {{ registro.criadaEm|hora }} · {{ 'pasta_resp.folha.observacao'|trans }}</div>
         {% elseif opcoes.autor and modo == 'fragmento' %}<div class="rp-autor" data-rp-parte="autor"></div>{% endif %}
 
         <div class="rp-corpo" data-rp-parte="corpo" style="font-size: {{ opcoes.fonteCss }}pt">
             {% if secao == 'resumo' %}
                 <section data-secao="dados">
-                    <div class="rp-secao">Dados da pasta</div>
+                    <div class="rp-secao">{{ 'pasta_resp.folha.dados_pasta'|trans }}</div>
                     <table class="rp-tabela">
-                        <tr><td class="rp-chave">Cliente</td><td>{{ resumo.titulo }}</td></tr>
+                        <tr><td class="rp-chave">{{ 'pasta_resp.folha.cliente'|trans }}</td><td>{{ resumo.titulo }}</td></tr>
                         {% if resumo.documento %}
                             <tr><td class="rp-chave">{{ resumo.documento|documento_br_rotulo }}</td><td class="rp-num">{{ resumo.documento|documento_br }}</td></tr>
                         {% endif %}
-                        {% if resumo.responsavel %}<tr><td class="rp-chave">Responsável</td><td>{{ resumo.responsavel }}</td></tr>{% endif %}
-                        <tr><td class="rp-chave">Situação</td><td>{{ resumo.situacao }}</td></tr>
+                        {% if resumo.responsavel %}<tr><td class="rp-chave">{{ 'pasta_resp.folha.responsavel'|trans }}</td><td>{{ resumo.responsavel }}</td></tr>{% endif %}
+                        <tr><td class="rp-chave">{{ 'pasta_resp.folha.situacao'|trans }}</td><td>{{ resumo.situacao }}</td></tr>
                         {% if principal %}
-                            <tr><td class="rp-chave">Processo</td><td class="rp-num">{{ principal.numero|numero_cnj }}</td></tr>
+                            <tr><td class="rp-chave">{{ 'pasta_resp.folha.processo'|trans }}</td><td class="rp-num">{{ principal.numero|numero_cnj }}</td></tr>
                         {% endif %}
-                        {% if resumo.acao %}<tr><td class="rp-chave">Ação</td><td>{{ resumo.acao }}</td></tr>{% endif %}
+                        {% if resumo.acao %}<tr><td class="rp-chave">{{ 'pasta_resp.folha.acao'|trans }}</td><td>{{ resumo.acao }}</td></tr>{% endif %}
                         {% if principal and (principal.orgao or principal.tribunal) %}
-                            <tr><td class="rp-chave">Órgão</td><td>{{ principal.orgao ?: principal.tribunal }}</td></tr>
+                            <tr><td class="rp-chave">{{ 'pasta_resp.folha.orgao'|trans }}</td><td>{{ principal.orgao ?: principal.tribunal }}</td></tr>
                         {% endif %}
                     </table>
                 </section>
 
                 {% if resumo.clientes|length > 0 %}
                     <section data-secao="clientes">
-                        <div class="rp-secao">Clientes ({{ resumo.clientes|length }})</div>
+                        <div class="rp-secao">{{ 'pasta_resp.folha.clientes'|trans({total: resumo.clientes|length ~ ''}) }}</div>
                         <table class="rp-tabela">
-                            <tr><th>Nome</th><th>Documento</th></tr>
+                            <tr><th>{{ 'pasta_resp.folha.nome'|trans }}</th><th>{{ 'pasta_resp.folha.documento'|trans }}</th></tr>
                             {% for c in resumo.clientes %}
                                 <tr>
-                                    <td>{{ c.nome }}{% if c.principal and resumo.clientes|length > 1 %} <span class="rp-marca-principal">· principal</span>{% endif %}</td>
-                                    <td class="rp-num">{{ c.documento ? c.documento|documento_br : '—' }}</td>
+                                    <td>{{ c.nome }}{% if c.principal and resumo.clientes|length > 1 %} <span class="rp-marca-principal">· {{ 'pasta_resp.folha.principal'|trans }}</span>{% endif %}</td>
+                                    <td class="rp-num">{{ c.documento ? c.documento|documento_br : 'pasta_resp.folha.nao_informado'|trans }}</td>
                                 </tr>
                             {% endfor %}
                         </table>
                     </section>
                 {% endif %}
 
-                {% if resumo.processos|length > 0 %}
+                {% if resumo.comProcessos and resumo.processos|length > 0 %}
                     <section data-secao="processos">
-                        <div class="rp-secao">Processos ({{ resumo.processos|length }})</div>
+                        <div class="rp-secao">{{ 'pasta_resp.folha.processos'|trans({total: resumo.processos|length ~ ''}) }}</div>
                         <table class="rp-tabela">
-                            <tr><th>Número</th><th>Classe</th><th>Órgão</th></tr>
+                            <tr><th>{{ 'pasta_resp.folha.numero'|trans }}</th><th>{{ 'pasta_resp.folha.classe'|trans }}</th><th>{{ 'pasta_resp.folha.orgao'|trans }}</th></tr>
                             {% for p in resumo.processos %}
                                 <tr>
-                                    <td class="rp-num">{{ p.numero|numero_cnj }}{% if p.principal and resumo.processos|length > 1 %} <span class="rp-marca-principal">· principal</span>{% endif %}</td>
-                                    <td>{{ p.classe ?: '—' }}</td>
-                                    <td>{{ p.orgao ?: (p.tribunal ?: '—') }}</td>
+                                    <td class="rp-num">{{ p.numero|numero_cnj }}{% if p.principal and resumo.processos|length > 1 %} <span class="rp-marca-principal">· {{ 'pasta_resp.folha.principal'|trans }}</span>{% endif %}</td>
+                                    <td>{{ p.classe ?: 'pasta_resp.folha.nao_informada'|trans }}</td>
+                                    <td>{{ p.orgao ?: (p.tribunal ?: 'pasta_resp.folha.nao_informado'|trans) }}</td>
                                 </tr>
                             {% endfor %}
                         </table>
@@ -180,45 +180,48 @@
 
                 {% if resumo.pendencias|length > 0 %}
                     <section data-secao="pendencias">
-                        <div class="rp-secao">Pendências</div>
+                        <div class="rp-secao">{{ 'pasta_resp.folha.pendencias'|trans }}</div>
                         <ul class="rp-lista">
                             {% for p in resumo.pendencias %}<li>{{ p }}</li>{% endfor %}
                         </ul>
                     </section>
                 {% endif %}
 
+                {% if resumo.comMetas %}
                 <section data-secao="metas">
-                    <div class="rp-secao">Metas abertas ({{ resumo.totalMetasAbertas }})</div>
+                    <div class="rp-secao">{{ 'pasta_resp.folha.metas'|trans({total: resumo.totalMetasAbertas ~ ''}) }}</div>
                     {% if resumo.metasAbertas|length > 0 %}
                         <table class="rp-tabela">
-                            <tr><th>Meta</th><th>Responsável</th><th>Prazo</th></tr>
+                            <tr><th>{{ 'pasta_resp.folha.meta'|trans }}</th><th>{{ 'pasta_resp.folha.responsavel'|trans }}</th><th>{{ 'pasta_resp.folha.prazo'|trans }}</th></tr>
                             {% for m in resumo.metasAbertas %}
+                                {% set classeAtraso = m.atrasoDias > 0 ? ' rp-atraso' : '' %}
                                 <tr>
                                     <td>{{ m.titulo }}</td>
                                     <td>{{ m.responsaveis }}</td>
-                                    <td class="rp-num{{ m.atrasoDias > 0 ? ' rp-atraso' : '' }}">
-                                        {{- m.prazo ?: 'Sem prazo' -}}
-                                        {%- if m.atrasoDias > 0 %} ({{ m.atrasoDias }}d atraso){% endif -%}
+                                    <td class="rp-num{{ classeAtraso }}">
+                                        {{- m.prazo ?: 'pasta_resp.folha.sem_prazo'|trans -}}
+                                        {%- if classeAtraso %} {{ 'pasta_resp.folha.atraso'|trans({dias: m.atrasoDias ~ ''}) }}{% endif -%}
                                     </td>
                                 </tr>
                             {% endfor %}
                         </table>
                         {% if resumo.totalMetasAbertas > resumo.metasAbertas|length %}
-                            <div class="rp-vazio">e mais {{ resumo.totalMetasAbertas - resumo.metasAbertas|length }} — a lista completa está na aba Metas.</div>
+                            <div class="rp-vazio">{{ 'pasta_resp.folha.mais_metas'|trans({total: (resumo.totalMetasAbertas - resumo.metasAbertas|length) ~ ''}) }}</div>
                         {% endif %}
                     {% else %}
-                        <div class="rp-vazio">Nenhuma meta aberta.</div>
+                        <div class="rp-vazio">{{ 'pasta_resp.folha.nenhuma_meta'|trans }}</div>
                     {% endif %}
                 </section>
+                {% endif %}
 
                 {% if resumo.movimentacoes|length > 0 %}
                     <section data-secao="movimentacoes">
-                        <div class="rp-secao">Últimas movimentações</div>
+                        <div class="rp-secao">{{ 'pasta_resp.folha.movimentacoes'|trans }}</div>
                         <table class="rp-tabela">
                             {% for mv in resumo.movimentacoes %}
                                 <tr>
-                                    <td class="rp-num" style="width:86px;font-weight:700">{{ mv.data ?: '—' }}</td>
-                                    <td style="width:110px"><b>{{ mv.tipo ?: 'Publicação' }}</b></td>
+                                    <td class="rp-num" style="width:86px;font-weight:700">{{ mv.data ?: 'pasta_resp.folha.sem_registro'|trans }}</td>
+                                    <td style="width:110px"><b>{{ mv.tipo ?: 'pasta_resp.folha.publicacao'|trans }}</b></td>
                                     {# O texto da movimentação (dc:4591); sem teor, o órgão · processo. #}
                                     {% if mv.texto %}
                                         <td>{{ mv.texto }}</td>
@@ -233,15 +236,15 @@
 
                 {% if resumo.financeiro is not null %}
                     <section class="rp-financeiro" data-secao="financeiro">
-                        <div class="rp-secao">Financeiro</div>
+                        <div class="rp-secao">{{ 'pasta_resp.folha.financeiro'|trans }}</div>
                         <table class="rp-tabela">
                             {# Como o `linha()` do desenho (dc L.4586): valor vazio não vira linha. #}
                             {% if resumo.financeiro.valorCausa != constant('App\\Pasta\\DTO\\PastaFinanceiroOutput::SEM_DADO') %}
-                                <tr><td class="rp-chave">Valor da causa</td><td class="rp-num">{{ resumo.financeiro.valorCausa }}</td></tr>
+                                <tr><td class="rp-chave">{{ 'pasta_resp.folha.valor_causa'|trans }}</td><td class="rp-num">{{ resumo.financeiro.valorCausa }}</td></tr>
                             {% endif %}
                             {% if resumo.financeiro.lancamentos > 0 %}
-                                <tr><td class="rp-chave">Recebido</td><td class="rp-num">{{ resumo.financeiro.recebido }} de {{ resumo.financeiro.previsto }}</td></tr>
-                                <tr><td class="rp-chave">Lançamentos</td><td class="rp-num">{{ resumo.financeiro.lancamentos }}</td></tr>
+                                <tr><td class="rp-chave">{{ 'pasta_resp.folha.recebido'|trans }}</td><td class="rp-num">{{ 'pasta_resp.folha.recebido_de'|trans({recebido: resumo.financeiro.recebido, previsto: resumo.financeiro.previsto}) }}</td></tr>
+                                <tr><td class="rp-chave">{{ 'pasta_resp.folha.lancamentos'|trans }}</td><td class="rp-num">{{ resumo.financeiro.lancamentos }}</td></tr>
                             {% endif %}
                         </table>
                     </section>
@@ -261,7 +264,7 @@
             {% elseif secao == 'extrato' and extrato is not null %}
                 {# O mesmo conteúdo da folha `#psExtratoFolha` da aba Financeiro (dc 3515). #}
                 <section data-secao="extrato">
-                    <p><strong>{{ extrato.recebidoFormatado }}</strong> recebidos de <strong>{{ extrato.contratadoFormatado }}</strong></p>
+                    <p><strong>{{ extrato.recebidoFormatado }}</strong> {{ 'pasta_resp.folha.recebidos_de'|trans }} <strong>{{ extrato.contratadoFormatado }}</strong></p>
                     <ul>
                         {% for linha in extrato.linhas %}
                             <li>{{ linha.descricao }}: {{ linha.valor }} · {{ linha.quando }}</li>
@@ -274,11 +277,11 @@
         {% if opcoes.financeiro and extrato is not null %}
             {# Bloco "Financeiro" da opção do mesmo nome (`impFinanceiro`), fora do tamanho escolhido. #}
             <div data-rp-parte="financeiro">
-                <div class="rp-fin-titulo">Financeiro</div>
-                <div class="rp-fin-linha">{{ extrato.contrato }} · Contratado {{ extrato.contratadoFormatado }} · Recebido {{ extrato.recebidoFormatado }} · A receber {{ extrato.aReceberFormatado }}</div>
+                <div class="rp-fin-titulo">{{ 'pasta_resp.folha.financeiro'|trans }}</div>
+                <div class="rp-fin-linha">{{ 'pasta_resp.folha.fin_linha'|trans({contrato: extrato.contrato, contratado: extrato.contratadoFormatado, recebido: extrato.recebidoFormatado, receber: extrato.aReceberFormatado}) }}</div>
                 <table class="rp-fin-tabela">
                     <thead>
-                        <tr><th>Lançamento</th><th>Vencimento</th><th class="rp-valor">Valor</th><th>Situação</th></tr>
+                        <tr><th>{{ 'pasta_resp.folha.lancamento'|trans }}</th><th>{{ 'pasta_resp.folha.vencimento'|trans }}</th><th class="rp-valor">{{ 'pasta_resp.folha.valor'|trans }}</th><th>{{ 'pasta_resp.folha.situacao'|trans }}</th></tr>
                     </thead>
                     <tbody>
                         {% for linha in extrato.linhas %}
@@ -294,7 +297,7 @@
             </div>
         {% endif %}
 
-        <div class="rp-rodape" data-rp-parte="rodape">Documento interno do escritório · BlueJus</div>
+        <div class="rp-rodape" data-rp-parte="rodape">{{ 'pasta_resp.folha.rodape'|trans }}</div>
     </main>
 {% endset %}
 
@@ -365,14 +368,14 @@
     </style>
 </head>
 <body>
-    <div class="rp-barra" role="toolbar" aria-label="Impressão do resumo">
+    <div class="rp-barra" role="toolbar" aria-label="{{ 'pasta_resp.folha.barra'|trans }}">
         <strong>{{ titulo }}</strong>
         <span class="rp-espaco"></span>
         {% if resumo.financeiro is not null %}
-            <label><input type="checkbox" id="rpIncluirFinanceiro" checked> Incluir financeiro</label>
+            <label><input type="checkbox" id="rpIncluirFinanceiro" checked> {{ 'pasta_resp.folha.incluir_financeiro'|trans }}</label>
         {% endif %}
-        <a href="{{ path('pasta_show', {id: pastaId}) }}">Voltar à pasta</a>
-        <button type="button" class="rp-primario" id="rpImprimir">Imprimir</button>
+        <a href="{{ path('pasta_show', {id: pastaId}) }}">{{ 'pasta_resp.folha.voltar'|trans }}</a>
+        <button type="button" class="rp-primario" id="rpImprimir">{{ 'pasta_resp.imprimir'|trans }}</button>
     </div>
 
     {{ folha }}

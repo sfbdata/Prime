@@ -23,6 +23,7 @@
     --ia-azul-2:        #0d80a3;
     --ia-azul-claro:    #1597bd;
     --ia-azul-txt:      #0c7a9c;
+    --ia-marca-cab:     #0a6fa0;  /* BLUEJUS do cabeçalho, dc de 13/10 L1246 */
     --ia-azul-link:     #0a7aad;
     --ia-fundo:         #f7fafc;
     --ia-cartao:        #fff;
@@ -43,6 +44,31 @@
     --ia-menu-sombra:   0 8px 24px rgba(16, 42, 58, .18);
     --ia-off:           #8a97a0;
     --ia-rodape-bg:     #fbfcfd;
+    --ia-escolhido-bg:  #eef6fa;  /* comando/relatório escolhido e fundo do ícone (dc L1043, L5970) */
+    --ia-descricao:     #6b8494;
+    /* Aba Perguntar (F3, dc L1077, L1087-1089, L1127-1129). */
+    --ia-sugestao-tx:   #0b5f86;
+    --ia-sugestao-hover:#e0eef6;
+    --ia-campo-bg:      #f1f6f9;
+    --ia-acao-hover:    #e3f0f8;  /* ações do resultado (F5, dc L1101-1105) */
+    --ia-shim-1:        #eef3f6;
+    --ia-shim-2:        #dfeaf1;
+    /* Aba Documentos (F4, dc L1043-1058, `chk` L5918, `fi` L3216-3230). */
+    --ia-doc-hover:     #f1f7fb;
+    --ia-doc-divisoria: #eef2f5;
+    --ia-doc-nome:      #1d3441;
+    --ia-check-bg:      #eef3f6;
+    --ia-check-anel:    #c9d6de;
+    --ia-fi-pdf:        #d93025;
+    --ia-fi-word:       #185abd;
+    --ia-fi-excel:      #107c41;
+    --ia-fi-ppt:        #c43e1c;
+    --ia-fi-zip:        #c99a06;
+    --ia-fi-rar:        #7d3c98;
+    --ia-fi-imagem:     #0f7b8c;
+    --ia-fi-texto:      #5f7684;
+    --ia-fi-video:      #6b3fa0;
+    --ia-fi-outro:      #6b8494;
     /* Selo, marca e chips do cartão: os mesmos roxos do Push. */
     --ia-roxo:          #5b3fb0;
     --ia-roxo-2:        #6a4bc4;
@@ -65,6 +91,7 @@
 [data-bs-theme="dark"] .ia-drawer,
 [data-bs-theme="dark"] .ia-drawer-fundo {
     --ia-azul-txt:      #6fc3e0;
+    --ia-marca-cab:     #6fc3e0;
     --ia-azul-link:     #6fc3e0;
     --ia-fundo:         var(--bs-body-bg);
     --ia-cartao:        var(--bs-secondary-bg);
@@ -85,6 +112,19 @@
     --ia-menu-sombra:   0 8px 24px rgba(0, 0, 0, .5);
     --ia-off:           var(--bs-secondary-color);
     --ia-rodape-bg:     var(--bs-tertiary-bg);
+    --ia-escolhido-bg:  rgba(111, 195, 224, .12);
+    --ia-descricao:     var(--bs-secondary-color);
+    --ia-sugestao-tx:   #8fcbe8;
+    --ia-sugestao-hover:rgba(111, 195, 224, .2);
+    --ia-campo-bg:      var(--bs-tertiary-bg);
+    --ia-acao-hover:    rgba(111, 195, 224, .2);
+    --ia-shim-1:        rgba(255, 255, 255, .05);
+    --ia-shim-2:        rgba(255, 255, 255, .12);
+    --ia-doc-hover:     rgba(111, 195, 224, .1);
+    --ia-doc-divisoria: var(--bs-border-color);
+    --ia-doc-nome:      var(--bs-body-color);
+    --ia-check-bg:      var(--bs-tertiary-bg);
+    --ia-check-anel:    var(--bs-border-color);
     --ia-roxo:          #b9a6f2;
     --ia-roxo-2:        #b9a6f2;
     --ia-roxo-icone:    #a99bd0;
@@ -109,6 +149,8 @@
 @keyframes iaPulse { 0%, 100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
 @keyframes iaEstrela { 0%, 100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 0 rgba(31, 166, 204, 0)); } 45% { transform: scale(1.12) rotate(8deg); filter: drop-shadow(0 0 3px rgba(31, 166, 204, .65)); } }
 @keyframes iaBrilho { 0%, 100% { opacity: .35; transform: scale(.7); } 45% { opacity: 1; transform: scale(1.15); } }
+/* Brilho do "carregando" da aba Perguntar, valores do desenho (dc L52). */
+@keyframes iaShim { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes iaCartaoEntra { 0% { opacity: 0; transform: translate3d(0, -8px, 0); } 60% { opacity: 1; transform: none; } }
 
 /* ── Botão do cabeçalho (dc L.1139) ── */
@@ -134,15 +176,17 @@
 .ps-cab-ia-estrela-g { transform-box: fill-box; transform-origin: center; animation: iaEstrela 3.2s ease-in-out infinite; }
 .ps-cab-ia-estrela-p { transform-box: fill-box; transform-origin: center; animation: iaBrilho 3.2s ease-in-out .8s infinite; }
 .ps-cab-ia-estrela-c { transform-box: fill-box; transform-origin: center; animation: iaBrilho 3.2s ease-in-out 1.6s infinite; }
-.ps-cab-ia-rotulo { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
-.ps-cab-ia-marca { font-size: 9px; font-weight: 800; letter-spacing: .16em; color: var(--ia-azul-txt); }
-.ps-cab-ia-nome { font-size: 13px; font-weight: 700; color: var(--ia-texto); }
+.ps-cab-ia-rotulo { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; line-height: 1.1; }
+.ps-cab-ia-marca { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: var(--ia-marca-cab); }
+.ps-cab-ia-nome { font-size: 14.5px; font-weight: 700; color: var(--ia-texto); }
 
 /* ── Drawer (dc L.843) ── */
+/* O desenho cobre a tela inteira, barra superior inclusive: o 95/96 do protótipo vira 1051/1052,
+   acima da barra fixa (app.css, 1050) e abaixo do modal do Bootstrap (1055), que abre por cima. */
 .ia-drawer-fundo {
     position: fixed;
     inset: 0;
-    z-index: 95;
+    z-index: 1051;
     background: var(--ia-fundo-escuro);
     animation: iaFade .25s ease both;
 }
@@ -152,7 +196,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    z-index: 96;
+    z-index: 1052;
     width: 460px;
     max-width: 100vw;
     display: flex;
@@ -213,7 +257,7 @@
     gap: 5px;
     max-width: 100%;
     padding: 3px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
     background: rgba(255, 255, 255, .14);
     font-size: 11.5px;
     font-weight: 600;
@@ -378,7 +422,7 @@
     align-items: center;
     gap: 4px;
     padding: 2px 8px;
-    border-radius: 999px;
+    border-radius: 4px;
     font-size: 10.5px;
     font-weight: 800;
     letter-spacing: .06em;
@@ -472,7 +516,7 @@ a.ia-icone { text-decoration: none; }
     min-width: 84px;
     text-align: center;
     padding: 3px 7px;
-    border-radius: 999px;
+    border-radius: 4px;
     font-size: 10px;
     font-weight: 800;
     letter-spacing: .05em;
@@ -586,6 +630,279 @@ a.ia-icone { text-decoration: none; }
 .ia-audit-txt { flex: 1; min-width: 0; }
 .ia-audit-vazio { margin: 0; font-size: 11.5px; color: var(--ia-texto-4); }
 
+/* ── Abas do drawer (dc L955-956, `tab`, L5917) ── */
+.ia-abas { display: flex; gap: 3px; padding: 3px; background: rgba(255, 255, 255, .14); border-radius: 4px; }
+.ia-aba {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    background: transparent;
+    color: #fff;
+    transition: background .2s, color .2s;
+}
+.ia-aba > i { font-size: 12.5px; }
+.ia-aba.is-ativa { background: #fff; color: var(--ia-azul); box-shadow: 0 2px 6px -2px rgba(0, 0, 0, .25); }
+.ia-aba:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.ia-aba-painel { display: grid; grid-auto-rows: max-content; gap: 12px; }
+.ia-aba-painel[hidden] { display: none; }
+
+/* ── Aba Análise: "Comandos para esta pasta" (dc L1040-1048) ── */
+.ia-secao-titulo { margin: 0; padding: 2px 2px 0; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ia-texto-5); }
+.ia-comandos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.ia-comando-btn {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 11px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ia-cartao);
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: box-shadow .2s, transform .2s;
+}
+.ia-comando-btn:hover,
+.ia-comando-btn:focus-visible { box-shadow: inset 0 0 0 1.5px var(--ia-anel-cta); transform: translateY(-1px); }
+.ia-comando-btn[aria-pressed="true"] { background: var(--ia-escolhido-bg); box-shadow: inset 0 0 0 1.5px var(--ia-azul-txt); }
+.ia-comando-ico {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ia-escolhido-bg);
+    color: var(--ia-azul-txt);
+}
+.ia-comando-ico > i { font-size: 13.5px; }
+.ia-comando-btn.is-andamento .ia-comando-ico > i { animation: iaPulse 1.1s ease-in-out infinite; }
+.ia-comando-rotulo { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--ia-texto); line-height: 1.3; }
+/* O comando escolhido: o mesmo cartão branco dos agentes de antes. */
+.ia-comando {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 13px;
+    border-radius: 4px;
+    background: var(--ia-cartao);
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+}
+.ia-comando[hidden] { display: none; }
+
+/* ── Aba Relatórios (dc L1072-1083, `modelos`) ── */
+.ia-aba-intro { margin: 0; font-size: 12.5px; color: var(--ia-texto-4); line-height: 1.5; }
+.ia-relatorios { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ia-relatorio-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 11px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    background: var(--ia-cartao);
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+    transition: box-shadow .2s, background .2s;
+}
+.ia-relatorio-btn:hover,
+.ia-relatorio-btn:focus-visible { box-shadow: inset 0 0 0 1.5px var(--ia-anel-cta); }
+.ia-relatorio-btn[aria-pressed="true"] { background: var(--ia-escolhido-bg); box-shadow: inset 0 0 0 1.5px var(--ia-azul-txt); }
+.ia-relatorio-ico { font-size: 16px; color: var(--ia-azul-txt); }
+.ia-relatorio-btn.is-andamento .ia-relatorio-ico { animation: iaPulse 1.1s ease-in-out infinite; }
+.ia-relatorio-nome { font-size: 12.5px; font-weight: 700; color: var(--ia-texto); }
+.ia-relatorio-desc { font-size: 11px; color: var(--ia-descricao); line-height: 1.35; }
+
+/* ── Aba Documentos (F4, dc L1041-1058): cartão da lista, "Selecionar todos", linhas
+   com a caixa (`chk`, L5918), o ícone do arquivo pelo tipo (`fi` com 30px, L3220-3223)
+   e o "Índice inteligente" no estilo secundário (`cta(dis, true)`, `ia.indiceSt`). */
+.ia-docs { padding: 6px; border-radius: 4px; background: var(--ia-cartao); box-shadow: inset 0 0 0 1px var(--ia-anel); }
+.ia-docs-aviso { padding: 7px 8px; }
+.ia-docs-divisoria { height: 1px; margin: 2px 8px; background: var(--ia-doc-divisoria); }
+.ia-doc {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background .15s;
+}
+.ia-doc--todos { padding: 7px 8px; }
+.ia-doc:hover,
+.ia-doc:focus-visible { background: var(--ia-doc-hover); }
+.ia-doc-check {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    color: transparent;
+    background: var(--ia-check-bg);
+    box-shadow: inset 0 0 0 1.5px var(--ia-check-anel);
+    transition: background .2s;
+}
+.ia-doc-check > i { font-size: 12px; }
+.ia-doc[aria-pressed="true"] > .ia-doc-check {
+    color: #fff;
+    background: linear-gradient(135deg, var(--ia-azul-claro), var(--ia-azul-txt));
+    box-shadow: none;
+}
+.ia-doc-todos-rotulo { flex: 1; font-size: 12.5px; font-weight: 700; color: var(--ia-texto); }
+.ia-doc-contagem { font-size: 11.5px; color: var(--ia-descricao); }
+.ia-doc-ico { position: relative; width: 30px; height: 30px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ia-doc-ico > i { font-size: 30px; line-height: 1; color: var(--ia-fi-outro); }
+.ia-doc-ico--pdf > i    { color: var(--ia-fi-pdf); }
+.ia-doc-ico--word > i   { color: var(--ia-fi-word); }
+.ia-doc-ico--excel > i  { color: var(--ia-fi-excel); }
+.ia-doc-ico--ppt > i    { color: var(--ia-fi-ppt); }
+.ia-doc-ico--zip > i    { color: var(--ia-fi-zip); }
+.ia-doc-ico--rar > i    { color: var(--ia-fi-rar); }
+.ia-doc-ico--imagem > i { color: var(--ia-fi-imagem); }
+.ia-doc-ico--texto > i  { color: var(--ia-fi-texto); }
+.ia-doc-ico--video > i  { color: var(--ia-fi-video); }
+.ia-doc-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ia-doc-nome { font-size: 13px; font-weight: 600; color: var(--ia-doc-nome); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ia-doc-dados { font-size: 11.5px; color: var(--ia-descricao); }
+/* O Índice não tem cartão: o botão fica direto na aba, como no desenho, e a lista embaixo. */
+.ia-comando.ia-comando--indice { padding: 0; background: transparent; box-shadow: none; }
+.ia-cta--secundario {
+    width: 100%;
+    color: var(--ia-azul);
+    background: var(--ia-cartao);
+    box-shadow: inset 0 0 0 1.5px var(--ia-anel-cta);
+}
+[data-bs-theme="dark"] .ia-drawer .ia-cta--secundario { color: var(--ia-azul-txt); }
+.ia-cta--secundario.ia-cta--indisponivel { color: var(--ia-off); box-shadow: inset 0 0 0 1.5px var(--ia-anel); }
+
+/* ── Aba Perguntar (F3): conversa, sugestões, "carregando" e rodapé com o campo.
+   Valores do desenho: mensagens dc L5972 (`msgs`), texto vazio L1077, sugestões
+   L1080, cartão "Consultando os dados desta pasta" L1086-1092, rodapé L1126-1131. */
+.ia-conversa { display: grid; gap: 12px; }
+.ia-conversa-msgs { display: flex; flex-direction: column; gap: 8px; }
+.ia-conversa-msg {
+    max-width: 88%;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.ia-conversa-msg--eu {
+    align-self: flex-end;
+    background: linear-gradient(135deg, var(--ia-azul-claro), var(--ia-azul));
+    color: #fff;
+}
+.ia-conversa-msg--ia {
+    align-self: flex-start;
+    background: var(--ia-cartao);
+    color: var(--ia-texto-2);
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+}
+.ia-conversa-msg--ia.is-falha { color: var(--ia-perigo); }
+.ia-conversa-vazia { margin: 0; font-size: 12.5px; color: var(--ia-texto-4); line-height: 1.5; }
+.ia-conversa-sugestoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.ia-conversa-sugestao {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ia-escolhido-bg);
+    color: var(--ia-sugestao-tx);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ia-conversa-sugestao:hover:not(:disabled),
+.ia-conversa-sugestao:focus-visible { background: var(--ia-sugestao-hover); }
+.ia-conversa-sugestao:disabled { opacity: .5; cursor: default; }
+.ia-conversa-carregando {
+    background: var(--ia-cartao);
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.ia-conversa-etapa { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ia-azul-txt); }
+.ia-conversa-etapa > i { font-size: 14px; animation: iaPulse 1.2s ease-in-out infinite; }
+.ia-conversa-shim {
+    height: 9px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--ia-shim-1) 25%, var(--ia-shim-2) 50%, var(--ia-shim-1) 75%);
+    background-size: 200% 100%;
+    animation: iaShim 1.2s linear infinite;
+}
+.ia-conversa-shim--curto { width: 78%; }
+.ia-conversa-rodape {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--ia-anel);
+    background: var(--ia-cartao);
+}
+.ia-conversa-rodape[hidden] { display: none; }
+.ia-conversa-aviso { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ia-texto-4); }
+.ia-conversa-aviso.is-erro { color: var(--ia-perigo); }
+.ia-conversa-campo { display: flex; gap: 8px; align-items: center; }
+.ia-conversa-input {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    padding: 0 13px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ia-campo-bg);
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ia-texto);
+    outline: none;
+}
+.ia-conversa-input:focus-visible { box-shadow: inset 0 0 0 1.5px var(--ia-anel-cta); }
+.ia-conversa-input:disabled { opacity: .6; cursor: not-allowed; }
+.ia-conversa-enviar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--ia-azul-claro), var(--ia-azul));
+    cursor: pointer;
+}
+.ia-conversa-enviar > i { font-size: 14px; }
+.ia-conversa-enviar:disabled { opacity: .5; cursor: default; }
+
 @media (max-width: 520px) {
     .ia-drawer { width: 100vw; }
     .ps-cab-ia-rotulo { display: none; }
@@ -596,8 +913,33 @@ a.ia-icone { text-decoration: none; }
     .ia-cartao.is-nova,
     .ia-drawer-ico > i,
     .ia-cta.is-carregando > i,
+    .ia-comando-btn.is-andamento .ia-comando-ico > i,
+    .ia-relatorio-btn.is-andamento .ia-relatorio-ico,
     .ia-andamento-ico,
+    .ia-conversa-etapa > i,
+    .ia-conversa-shim,
     .ps-cab-ia-estrela-g,
     .ps-cab-ia-estrela-p,
     .ps-cab-ia-estrela-c { animation: none; }
 }
+
+/* ── Ações do resultado (F5, dc L1101-1105): botão claro, 30px, ícone + rótulo ── */
+.ia-res-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.ia-res-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ia-campo-bg);
+    color: var(--ia-sugestao-tx);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ia-res-acao:hover, .ia-res-acao:focus-visible { background: var(--ia-acao-hover); }
+.ia-res-acao i { font-size: 12px; }

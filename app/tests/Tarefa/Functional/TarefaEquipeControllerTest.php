@@ -153,7 +153,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
         self::assertResponseIsSuccessful();
         self::assertEqualsCanonicalizing(['Meta pendente', 'Meta concluída', 'Meta em revisão'], $this->titulos($crawler));
         self::assertSame(3, $this->total($crawler));
-        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas — Fulano de Tal');
+        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas: Fulano de Tal');
     }
 
     #[TestDox('status=ativas exclui só as concluídas (em revisão continua ativa, como no Dashboard)')]
@@ -169,7 +169,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/tarefas/equipe', ['status' => 'ativas', 'responsavel' => $fulano->getId()]);
 
         self::assertEqualsCanonicalizing(['Meta pendente', 'Meta em revisão'], $this->titulos($crawler));
-        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas ativas — Fulano de Tal');
+        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas ativas: Fulano de Tal');
     }
 
     #[TestDox('status=vencidas lista ativas com prazo passado e IGNORA o período')]
@@ -196,7 +196,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
 
         self::assertEqualsCanonicalizing(['Vencida antiga', 'Vencida recente'], $this->titulos($crawler));
         $titulo = $crawler->filter('[data-equipe-titulo]')->text();
-        self::assertStringContainsString('Metas vencidas — Fulano de Tal', $titulo);
+        self::assertStringContainsString('Metas vencidas: Fulano de Tal', $titulo);
         self::assertStringNotContainsString('·', $titulo, 'Vencidas não têm recorte de período, o título não pode sugerir um.');
     }
 
@@ -216,7 +216,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/tarefas/equipe', ['status' => 'prazo_proximo', 'responsavel' => $fulano->getId()]);
 
         self::assertSame(['Vence em 3 dias'], $this->titulos($crawler));
-        self::assertSelectorTextContains('[data-equipe-titulo]', 'Prazos próximos — Fulano de Tal');
+        self::assertSelectorTextContains('[data-equipe-titulo]', 'Prazos próximos: Fulano de Tal');
     }
 
     #[TestDox('Status desconhecido cai em "todas" (tela de leitura não quebra por parâmetro estranho)')]
@@ -253,7 +253,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
         ]);
 
         self::assertSame(['Criada em 2020'], $this->titulos($crawler));
-        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas — Fulano de Tal · 01/01/2020–31/01/2020');
+        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas: Fulano de Tal · 01/01/2020 a 31/01/2020');
     }
 
     #[TestDox('Sem responsável, a lista cobre a equipe toda e cada meta aparece uma vez')]
@@ -271,7 +271,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/tarefas/equipe', ['status' => 'todas']);
 
         self::assertEqualsCanonicalizing(['Meta a dois', 'Meta da Beltrana'], $this->titulos($crawler));
-        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas — Equipe');
+        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas: Equipe');
     }
 
     #[TestDox('cargo restringe a lista aos colaboradores daquele cargo')]
@@ -289,7 +289,7 @@ final class TarefaEquipeControllerTest extends DashboardWebTestCase
         $crawler = $client->request('GET', '/tarefas/equipe', ['status' => 'todas', 'cargo' => 'Advogado']);
 
         self::assertSame(['Meta da advogada'], $this->titulos($crawler));
-        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas — Advogado');
+        self::assertSelectorTextContains('[data-equipe-titulo]', 'Metas: Advogado');
     }
 
     #[TestDox('Paginação: 26 metas viram 2 páginas e a página 2 mantém os filtros')]

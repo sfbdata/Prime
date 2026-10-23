@@ -17,3 +17,17 @@ framework:
         # Namespaced pools use the above "app" backend by default
         #pools:
             #my.dedicated.cache: null
+
+services:
+    # Painel do Master (spec perfis-master D8): último retrato das fontes públicas do mapa (IBGE,
+    # Quadro da Advocacia da OAB, tabela enviada pelo Master), com fonte e data. Filesystem SEM
+    # expiração, fora de var/cache (que o cache:clear apaga): a idade é decidida pelo código e o
+    # retrato velho continua valendo quando a fonte falha. Se var/ não persistir no deploy, o
+    # comando app:master:atualizar-fontes-publicas refaz o retrato da OAB e da população; a malha
+    # municipal do IBGE é buscada de novo na primeira consulta.
+    cache.master_fontes:
+        class: Symfony\Component\Cache\Adapter\FilesystemAdapter
+        arguments:
+            $namespace: 'master_fontes'
+            $defaultLifetime: 0
+            $directory: '%kernel.project_dir%/var/master-fontes/%kernel.environment%'

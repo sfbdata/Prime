@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editar Escritório{% endblock %}
+{% block title %}{{ 'escritorio.editar.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Editar Escritório</h1>
+        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>{{ 'escritorio.editar.titulo'|trans }}</h1>
     </div>
 </section>
 
@@ -18,22 +18,17 @@
                 <ul class="nav nav-tabs mb-0" id="editTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-dados-btn" data-bs-toggle="tab" data-bs-target="#tab-dados" type="button" role="tab">
-                            <i class="bi bi-building me-1"></i>Dados do Escritório
+                            <i class="bi bi-building me-1"></i>{{ 'escritorio.editar.aba_dados'|trans }}
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-cargos-btn" data-bs-toggle="tab" data-bs-target="#tab-cargos" type="button" role="tab">
-                            <i class="bi bi-briefcase me-1"></i>Cargos
+                            <i class="bi bi-briefcase me-1"></i>{{ 'escritorio.editar.aba_cargos'|trans }}
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-lotacoes-btn" data-bs-toggle="tab" data-bs-target="#tab-lotacoes" type="button" role="tab">
-                            <i class="bi bi-building-gear me-1"></i>Lotações
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-senha-btn" data-bs-toggle="tab" data-bs-target="#tab-senha" type="button" role="tab">
-                            <i class="bi bi-key me-1"></i>Alterar Senha
+                            <i class="bi bi-building-gear me-1"></i>{{ 'escritorio.editar.aba_lotacoes'|trans }}
                         </button>
                     </li>
                 </ul>
@@ -68,7 +63,7 @@
                             </div>
 
                             <hr class="my-3">
-                            <h6 class="mb-3"><i class="bi bi-geo-alt me-1"></i>Endereço</h6>
+                            <h6 class="mb-3"><i class="bi bi-geo-alt me-1"></i>{{ 'escritorio.editar.endereco'|trans }}</h6>
 
                             <div class="row g-2 mb-3">
                                 <div class="col-md-4">
@@ -112,7 +107,7 @@
 
                             <div class="mt-3">
                                 <button class="btn btn-primary">
-                                    <i class="bi bi-check-lg me-1"></i>Salvar Dados
+                                    <i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar.salvar_dados'|trans }}
                                 </button>
                             </div>
                         {{ form_end(nameForm) }}
@@ -120,7 +115,7 @@
 
                     {# Aba: Cargos #}
                     <div class="tab-pane fade" id="tab-cargos" role="tabpanel">
-                        <p class="text-muted small mb-3">Defina os cargos disponíveis para os funcionários deste escritório.</p>
+                        <p class="text-muted small mb-3">{{ 'escritorio.editar.cargos_dica'|trans }}</p>
 
                         {{ form_start(cargosForm) }}
                             <div id="cargos-container"
@@ -129,19 +124,19 @@
                                 {% for cargoForm in cargosForm.cargos %}
                                     <div class="cargo-row input-group mb-2">
                                         {{ form_widget(cargoForm.nome, {attr: {class: 'form-control'}}) }}
-                                        <button type="button" class="btn btn-outline-danger btn-remove-cargo" title="Remover">
+                                        <button type="button" class="btn btn-outline-danger btn-remove-cargo" title="{{ 'escritorio.editar.remover'|trans }}">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
                                 {% endfor %}
                             </div>
                             <button type="button" id="btn-add-cargo" class="btn btn-sm btn-outline-success mb-4">
-                                <i class="bi bi-plus me-1"></i>Adicionar Cargo
+                                <i class="bi bi-plus me-1"></i>{{ 'escritorio.editar.adicionar_cargo'|trans }}
                             </button>
 
                             <div class="mt-2">
                                 <button class="btn btn-success">
-                                    <i class="bi bi-check-lg me-1"></i>Salvar Cargos
+                                    <i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar.salvar_cargos'|trans }}
                                 </button>
                             </div>
                         {{ form_end(cargosForm) }}
@@ -149,7 +144,7 @@
 
                     {# Aba: Lotações #}
                     <div class="tab-pane fade" id="tab-lotacoes" role="tabpanel">
-                        <p class="text-muted small mb-3">Defina as lotações (setores, filiais, departamentos) disponíveis para os funcionários.</p>
+                        <p class="text-muted small mb-3">{{ 'escritorio.editar.lotacoes_dica'|trans }}</p>
 
                         {{ form_start(lotacoesForm) }}
                             <div id="lotacoes-container"
@@ -158,42 +153,29 @@
                                 {% for lotacaoForm in lotacoesForm.lotacoes %}
                                     <div class="lotacao-row input-group mb-2">
                                         {{ form_widget(lotacaoForm.nome, {attr: {class: 'form-control'}}) }}
-                                        <button type="button" class="btn btn-outline-danger btn-remove-lotacao" title="Remover">
+                                        <button type="button" class="btn btn-outline-danger btn-remove-lotacao" title="{{ 'escritorio.editar.remover'|trans }}">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
                                 {% endfor %}
                             </div>
                             <button type="button" id="btn-add-lotacao" class="btn btn-sm btn-outline-success mb-4">
-                                <i class="bi bi-plus me-1"></i>Adicionar Lotação
+                                <i class="bi bi-plus me-1"></i>{{ 'escritorio.editar.adicionar_lotacao'|trans }}
                             </button>
 
                             <div class="mt-2">
                                 <button class="btn btn-success">
-                                    <i class="bi bi-check-lg me-1"></i>Salvar Lotações
+                                    <i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar.salvar_lotacoes'|trans }}
                                 </button>
                             </div>
                         {{ form_end(lotacoesForm) }}
-                    </div>
-
-                    {# Aba: Alterar Senha #}
-                    <div class="tab-pane fade" id="tab-senha" role="tabpanel">
-                        {{ form_start(passwordForm) }}
-                            {{ form_row(passwordForm.password) }}
-                            {{ form_row(passwordForm.confirm_password) }}
-                            <div class="mt-3">
-                                <button class="btn btn-secondary">
-                                    <i class="bi bi-shield-lock me-1"></i>Alterar Senha
-                                </button>
-                            </div>
-                        {{ form_end(passwordForm) }}
                     </div>
 
                 </div>{# /tab-content #}
 
                 <div class="d-flex gap-2 justify-content-between mb-4">
                     <a href="{{ path('app_tenant_show', {'tenantId': tenant.id}) }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-1"></i>Voltar
+                        <i class="bi bi-arrow-left me-1"></i>{{ 'escritorio.editar.voltar'|trans }}
                     </a>
                 </div>
 

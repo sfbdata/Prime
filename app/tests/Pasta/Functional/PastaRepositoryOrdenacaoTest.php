@@ -155,7 +155,7 @@ final class PastaRepositoryOrdenacaoTest extends KernelTestCase
         self::assertTrue($this->vemAntes($normal->getNup(), $urgente->getNup(), $asc));
     }
 
-    #[TestDox('ordena por responsável (nome, asc)')]
+    #[TestDox('ordena por responsável (nome, asc e desc)')]
     public function testOrdenaPorResponsavel(): void
     {
         $t = $this->criarTenant();
@@ -167,6 +167,9 @@ final class PastaRepositoryOrdenacaoTest extends KernelTestCase
 
         $asc = $this->nupsOrdenados($t, 'responsavel', 'asc');
         self::assertTrue($this->vemAntes($ana->getNup(), $bruno->getNup(), $asc));
+
+        $desc = $this->nupsOrdenados($t, 'responsavel', 'desc');
+        self::assertTrue($this->vemAntes($bruno->getNup(), $ana->getNup(), $desc), 'a direção desc foi ignorada');
     }
 
     #[TestDox('ordena por cliente vinculado (nome, asc)')]

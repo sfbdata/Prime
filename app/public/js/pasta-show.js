@@ -426,7 +426,7 @@
         var trocar = document.getElementById('psMenuTrocarResponsavel');
         if (trocar) {
             trocar.addEventListener('click', function () {
-                var chip = document.querySelector('.ps-cab-dados .pasta-resp-chip');
+                var chip = document.querySelector('.ps-cab-resp .pasta-resp-chip');
                 if (chip) { chip.click(); }
             });
         }

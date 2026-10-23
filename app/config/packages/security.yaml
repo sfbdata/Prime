@@ -31,6 +31,9 @@ security:
                 samesite: lax
             logout:
                 path: app_logout
+                # Sem o token, qualquer site derrubava a sessão (e o lembrar-me) com um GET para /logout.
+                # O id `logout` é stateless (csrf.yaml): vale pela origem da requisição. Link de sair: logout_path('main').
+                enable_csrf: true
 
     access_control:
         # Criação de escritório: exclusivo para SuperAdmin (liberação manual por enquanto)
@@ -38,10 +41,19 @@ security:
         - { path: ^/register/confirm, roles: PUBLIC_ACCESS }  # redirect legado
         - { path: ^/invite$,          roles: ROLE_USER }       # redirect legado para auth_gerenciar_convites
         - { path: ^/convite,          roles: PUBLIC_ACCESS }  # aceite de convite
+        - { path: ^/trabalho-externo/convite/, roles: PUBLIC_ACCESS }  # convite do Trabalho Externo (o aceite exige login; criar conta, não)
+        - { path: ^/p/,               roles: PUBLIC_ACCESS }  # link externo do Push Processual (terceiro sem login, somente leitura)
         - { path: ^/cadastro,         roles: PUBLIC_ACCESS }  # auto-cadastro público (conta + escritório)
+        - { path: ^/i/,               roles: PUBLIC_ACCESS }  # link curto do Indicar o BlueJus: guarda o código e leva ao cadastro
         - { path: ^/senha,            roles: PUBLIC_ACCESS }  # recuperação de senha (quem esqueceu não consegue logar)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
         - { path: ^/politica-de-privacidade, roles: PUBLIC_ACCESS }  # leitura pública: quem ainda não tem conta precisa ler
+        - { path: ^/vagas-juridicas, roles: PUBLIC_ACCESS }  # página pública de vagas do Trabalho Externo (só cargo, local e tipo)
+        - { path: ^/email/descadastro, roles: PUBLIC_ACCESS }  # "Não quero mais receber estes avisos": link assinado, sem login
+        - { path: ^/e/a/,             roles: PUBLIC_ACCESS }  # Comercial: pixel de abertura dos e-mails (sem login, sem sessão)
+        - { path: ^/e/c/,             roles: PUBLIC_ACCESS }  # Comercial: link rastreado dos e-mails (assinado; sem login)
+        - { path: ^/e/i/,             roles: PUBLIC_ACCESS }  # Comercial: imagem da campanha do modo simples (token; sem login, sem sessão)
+        - { path: ^/e/confirmar/,     roles: PUBLIC_ACCESS }  # Comercial: confirmação de endereço (double opt-in; GET mostra, POST grava)
 
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers

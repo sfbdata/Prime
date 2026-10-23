@@ -222,7 +222,7 @@ final class HorasPagasController extends AbstractController
 
         $this->addFlash('warning', sprintf(
             'Atenção: este desconto derrubou o banco de horas de %d para -%dh%02d. '
-            . 'O banco zera em 1º de janeiro — se as horas pagas foram acumuladas em outro ano, '
+            . 'O banco zera em 1º de janeiro. Se as horas pagas foram acumuladas em outro ano, '
             . 'lance na competência daquele ano.',
             $input->ano,
             intdiv($abs, 60),

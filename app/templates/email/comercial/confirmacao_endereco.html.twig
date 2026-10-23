@@ -1,0 +1,24 @@
+{# Miolo do e-mail de confirmação de endereço (double opt-in, spec comercial-e-emails.md §3.3). O layout, o rodapé
+   legal e o link de descadastro são do Carteiro (_layout.html.twig).
+   Contexto: `nomeDaLista` e `rotuloDaOrigem` (nomes legíveis de RotulosDoConsentimento, nunca o identificador cru) e
+   `link` (URL absoluta do GET /e/confirmar/{token}, que só mostra o botão; quem grava é o POST).
+   A frase "Este endereço foi informado em ..." vai no rodapé, pelo `motivoDoEnvio` da MensagemDeEmail (§3.7). #}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">{{ 'emails.comercial.confirmacao_endereco.confirme'|trans({lista: nomeDaLista}) }}</p>
+
+<p style="margin:0 0 24px;font-size:15px;color:#444444;line-height:1.6;">
+    {{ 'emails.comercial.confirmacao_endereco.clique'|trans }}
+</p>
+
+<table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+    <tr>
+        <td style="background-color:#1a56db;border-radius:6px;">
+            <a href="{{ link }}" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">{{ 'emails.comercial.confirmacao_endereco.botao'|trans }}</a>
+        </td>
+    </tr>
+</table>
+
+<p style="margin:0 0 8px;font-size:13px;color:#888888;line-height:1.6;">
+    {{ 'emails.comercial.confirmacao_endereco.nao_funcionar'|trans }}
+</p>
+<p style="margin:0 0 16px;font-size:13px;color:#1a56db;word-break:break-all;">{{ link }}</p>
+

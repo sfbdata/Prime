@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'emails.trabalho_externo_convite.titulo'|trans }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+                    <tr>
+                        <td style="background-color:#0a6fa0;padding:24px 32px;">
+                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">BlueJus</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;">
+                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">{{ 'emails.trabalho_externo_convite.ola'|trans({nome: convite.nome}) }}</p>
+
+                            <p style="margin:0 0 16px;font-size:15px;color:#444444;line-height:1.6;">
+                                {{ 'emails.trabalho_externo_convite.convidou'|trans }} <strong>{{ servico }}</strong> {{ 'emails.trabalho_externo_convite.em'|trans }} <strong>{{ local }}</strong>{% if convite.funcao %}{{ 'emails.trabalho_externo_convite.como'|trans({funcao: convite.funcao}) }}{% endif %}.
+                            </p>
+
+                            <p style="margin:0 0 24px;font-size:15px;color:#444444;line-height:1.6;">
+                                {{ 'emails.trabalho_externo_convite.acesso'|trans }}
+                            </p>
+
+                            <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                                <tr>
+                                    <td style="border-radius:6px;background-color:#0a6fa0;">
+                                        <a href="{{ link }}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
+                                            {{ 'emails.trabalho_externo_convite.ver_convite'|trans }}
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin:0 0 8px;font-size:13px;color:#888888;">
+                                {{ 'emails.trabalho_externo_convite.vale'|trans }} <strong>{{ convite.validade|data }}</strong>.
+                            </p>
+
+                            <p style="margin:0;font-size:13px;color:#888888;">
+                                {{ 'emails.trabalho_externo_convite.nao_funcionar'|trans }}
+                            </p>
+                            <p style="margin:4px 0 0;font-size:12px;color:#0a6fa0;word-break:break-all;">
+                                {{ link }}
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 32px;background-color:#f9f9f9;border-top:1px solid #eeeeee;">
+                            <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.5;">
+                                {{ 'emails.trabalho_externo_convite.nao_esperava'|trans }}
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

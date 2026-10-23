@@ -33,6 +33,10 @@
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set finPastaLapide = pasta.estaExcluida %}
 {% set podeEscreverFin = podeEditarPasta and not finPastaLapide %}
+{# "Encaminhar via Chat I.A" (D:1936, D:6305 e D:6958): a Central conferida UMA vez (cada chamada
+   consulta o vínculo). Na lápide o servidor dá 404 ao despacho (spec §2.11): nada a oferecer. É o
+   id da pasta ou null. Aba oculta não restringe (spec §2.2). #}
+{% set encaminharPasta = central_disponivel() and not finPastaLapide ? pasta.id : null %}
 
 {% set contratoAssinado = pasta.situacaoContrato == 'REGULAR' %}
 {% set arquivosVisiveis = 3 %}
@@ -60,7 +64,7 @@
        texto e ignorar o selo. #}
     <div class="ps-fin-bloco">
         <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo">Contrato</span>
+            <span class="ps-fin-rotulo">{{ 'pasta_financeiro.contrato.rotulo'|trans }}</span>
         </div>
         <div class="ps-fin-corpo ps-fin-corpo--selo">
             {% if not podeEscreverFin %}
@@ -68,23 +72,23 @@
             <span class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
                   id="financeiro-situacao-selo"
                   style="cursor: default;"
-                  title="{{ contratoAssinado ? 'Contrato assinado' : 'Contrato pendente' }}">
+                  title="{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado_titulo'|trans : 'pasta_financeiro.contrato.pendente_titulo'|trans }}">
                 <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
-                <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'Assinado' : 'Pendente' }}</span>
+                <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado'|trans : 'pasta_financeiro.contrato.pendente'|trans }}</span>
             </span>
             {% else %}
             <button type="button"
                     id="financeiro-situacao-btn"
                     class="ps-fin-selo ps-fin-selo--{{ contratoAssinado ? 'ok' : 'perigo' }}"
                     title="{{ contratoAssinado
-                        ? 'Contrato assinado — clique para reabrir como pendente'
-                        : 'Contrato pendente — clique para marcar como assinado' }}"
+                        ? 'pasta_financeiro.contrato.assinado_dica'|trans
+                        : 'pasta_financeiro.contrato.pendente_dica'|trans }}"
                     data-pasta-id="{{ pasta.id }}"
                     data-situacao-atual="{{ pasta.situacaoContrato }}"
                     data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
                     data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
                 <i class="bi {{ contratoAssinado ? 'bi-patch-check-fill' : 'bi-hourglass-split' }}"></i>
-                <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'Assinado' : 'Pendente' }}</span>
+                <span class="ps-fin-selo-texto">{{ contratoAssinado ? 'pasta_financeiro.contrato.assinado'|trans : 'pasta_financeiro.contrato.pendente'|trans }}</span>
             </button>
             {% endif %}
         </div>
@@ -93,7 +97,7 @@
     {# Pró-bono — selo idêntico ao do contrato, porque é o mesmo gesto. #}
     <div class="ps-fin-bloco">
         <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo">Pró-bono</span>
+            <span class="ps-fin-rotulo">{{ 'pasta_financeiro.pro_bono.rotulo'|trans }}</span>
         </div>
         <div class="ps-fin-corpo ps-fin-corpo--selo">
             {% if not podeEscreverFin %}
@@ -101,20 +105,20 @@
                   id="financeiro-probono-selo"
                   style="cursor: default;">
                 <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
-                <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'Pró-bono ativo' : 'Não é pró-bono' }}</span>
+                <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'pasta_financeiro.pro_bono.ativo'|trans : 'pasta_financeiro.pro_bono.inativo'|trans }}</span>
             </span>
             {% else %}
             <button type="button"
                     id="financeiro-probono-btn"
                     class="ps-fin-selo ps-fin-selo--{{ pasta.proBono ? 'ok' : 'neutro' }}"
-                    title="Alternar caso pró-bono"
+                    title="{{ 'pasta_financeiro.pro_bono.alternar'|trans }}"
                     aria-pressed="{{ pasta.proBono ? 'true' : 'false' }}"
                     data-pasta-id="{{ pasta.id }}"
                     data-ativo="{{ pasta.proBono ? '1' : '0' }}"
                     data-csrf="{{ csrf_token('pasta_pro_bono_' ~ pasta.id) }}"
                     data-url="{{ path('pasta_atualizar_pro_bono', {id: pasta.id}) }}">
                 <i class="bi {{ pasta.proBono ? 'bi-check2-circle' : 'bi-dash-circle' }}"></i>
-                <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'Pró-bono ativo' : 'Não é pró-bono' }}</span>
+                <span class="ps-fin-selo-texto">{{ pasta.proBono ? 'pasta_financeiro.pro_bono.ativo'|trans : 'pasta_financeiro.pro_bono.inativo'|trans }}</span>
             </button>
             {% endif %}
         </div>
@@ -133,10 +137,10 @@
          data-url="{{ path('pasta_atualizar_valor_causa', {id: pasta.id}) }}"
          {%- endif %}>
         <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo">Honorários contratuais</span>
+            <span class="ps-fin-rotulo">{{ 'pasta_financeiro.honorarios.rotulo'|trans }}</span>
             {% if podeEscreverFin %}
             <span class="ps-cab-espaco"></span>
-            <button type="button" class="ps-fin-lapis" id="financeiro-valor-causa-lapis" title="Editar honorários contratuais">
+            <button type="button" class="ps-fin-lapis" id="financeiro-valor-causa-lapis" title="{{ 'pasta_financeiro.honorarios.editar'|trans }}">
                 <i class="bi bi-pencil"></i>
             </button>
             {% endif %}
@@ -147,7 +151,7 @@
                  class="ps-fin-numero ps-num"
                  tabindex="0"
                  role="button"
-                 title="Clique para editar"
+                 title="{{ 'pasta_financeiro.honorarios.clique_editar'|trans }}"
                  data-valor="{{ financeiro.valorCausa ?? '' }}">{{ financeiro.valorCausaFormatado }}</div>
             <input type="text"
                    id="financeiro-valor-causa-input"
@@ -155,13 +159,13 @@
                    inputmode="decimal"
                    maxlength="20"
                    placeholder="0,00"
-                   aria-label="Honorários contratuais">
+                   aria-label="{{ 'pasta_financeiro.honorarios.rotulo'|trans }}">
             {% else %}
             <div id="financeiro-valor-causa"
                  class="ps-fin-numero ps-num"
                  data-valor="{{ financeiro.valorCausa ?? '' }}">{{ financeiro.valorCausaFormatado }}</div>
             {% endif %}
-            <div class="ps-fin-sub">valor cadastrado na pasta</div>
+            <div class="ps-fin-sub">{{ 'pasta_financeiro.honorarios.nota'|trans }}</div>
             <div id="financeiro-valor-causa-erro" class="ps-fin-sub ps-fin-sub--erro d-none"></div>
         </div>
     </div>
@@ -178,8 +182,8 @@
         <div class="ps-fin-corpo">
             <div id="financeiro-media-cpf" class="ps-fin-numero ps-num">{{ financeiro.mediaCpfFormatada }}</div>
             <div class="ps-fin-sub" id="financeiro-media-nota"
-                 {% if financeiro.clienteNome %}title="Média das pastas deste cliente"{% endif %}>
-                {{- financeiro.clienteNome ?? 'Vincule o cliente para calcular' -}}
+                 {% if financeiro.clienteNome %}title="{{ 'pasta_financeiro.media.dica'|trans }}"{% endif %}>
+                {{- financeiro.clienteNome ?? 'pasta_financeiro.media.sem_cliente'|trans -}}
             </div>
         </div>
     </div>
@@ -195,9 +199,9 @@
     <div class="ps-coluna">
         <section class="ps-card ps-anotacoes" id="financeiroRelatorio">
             <div class="ps-card-cab ps-card-cab--painel">
-                <h2>Relatório financeiro</h2>
+                <h2>{{ 'pasta_financeiro.relatorio.titulo'|trans }}</h2>
                 {% set idsContagemFin = observacoesFinanceiras|map(o => o.id) %}
-                <span class="ps-contagem" id="financeiro-obs-count" title="Registros principais (respostas não contam)">{{ observacoesFinanceiras|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemFin)|length }}</span>
+                <span class="ps-contagem" id="financeiro-obs-count" title="{{ 'pasta_financeiro.relatorio.contagem_dica'|trans }}">{{ observacoesFinanceiras|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemFin)|length }}</span>
             </div>
 
             {# C7-FPN-01: sem escrita, o compositor nem é montado. Na lápide entra a nota de só leitura
@@ -205,7 +209,7 @@
                (`_financeiro_obs_script`) já tolera a falta do #formFinanceiroObservacao. #}
             {% if finPastaLapide %}
             <div class="ps-compositor ps-compositor--leitura" id="financeiroObsSomenteLeitura">
-                <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> Pasta excluída: o relatório financeiro fica só para leitura.</span>
+                <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> {{ 'pasta_financeiro.relatorio.somente_leitura'|trans }}</span>
             </div>
             {% elseif podeEscreverFin %}
             <div class="ps-compositor">
@@ -222,11 +226,11 @@
                                   class="form-control"
                                   rows="2"
                                   maxlength="5000"
-                                  placeholder="Registrar combinado, honorário ou movimento financeiro do caso…"></textarea>
+                                  placeholder="{{ 'pasta_financeiro.relatorio.placeholder'|trans }}"></textarea>
                         <div class="ps-compositor-rodape">
-                            <span class="ps-compositor-nota">Visível para a equipe</span>
+                            <span class="ps-compositor-nota">{{ 'pasta_financeiro.relatorio.visivel_equipe'|trans }}</span>
                             <span class="ps-cab-espaco"></span>
-                            <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarObsFinanceiro" title="Enviar (Ctrl+Enter)">Enviar</button>
+                            <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarObsFinanceiro" title="{{ 'pasta_financeiro.relatorio.enviar_dica'|trans }}">{{ 'pasta_financeiro.relatorio.enviar'|trans }}</button>
                         </div>
                     </div>
                 </form>
@@ -234,14 +238,15 @@
             {% endif %}
             <div id="financeiroObsErro" class="ps-compositor-erro d-none"></div>
 
-            <div id="financeiroObsLista" class="ps-registro ps-fin-obs-rolagem{{ observacoesFinanceiras is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}">
+            <div id="financeiroObsLista" class="ps-registro ps-fin-obs-rolagem{{ observacoesFinanceiras is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}"
+                 {%- if encaminharPasta %} data-encaminhar-pasta="{{ encaminharPasta }}"{% endif %}>
                 {% if observacoesFinanceiras is empty %}
                     <div class="ps-vazio" id="financeiroObsVazio">
                         <i class="bi bi-cash-coin"></i>
-                        <div class="ps-vazio-titulo">Nada registrado ainda</div>
+                        <div class="ps-vazio-titulo">{{ 'pasta_financeiro.relatorio.vazio_titulo'|trans }}</div>
                         {# O convite "Anote acima…" só para quem tem o compositor acima (C7-FPN-01). #}
                         {% if podeEscreverFin %}
-                        <div class="ps-vazio-nota">Anote acima o que foi combinado de honorário, custas ou reembolso.</div>
+                        <div class="ps-vazio-nota">{{ 'pasta_financeiro.relatorio.vazio_nota'|trans }}</div>
                         {% endif %}
                     </div>
                 {% else %}
@@ -264,13 +269,13 @@
                             {% set diaAnteriorFin = diaFin %}
                         {% endif %}
 
-                        {{ fin.registro(obs, null, pasta, podeEscreverFin) }}
+                        {{ fin.registro(obs, null, pasta, podeEscreverFin, encaminharPasta) }}
 
                         {% set respostasFin = observacoesFinanceiras|filter(o => o.respostaA is not null and o.respostaA.id == obs.id)|reverse %}
                         {% if respostasFin|length > 0 %}
                             <div class="ps-respostas" data-resposta-de="{{ obs.id }}">
                                 {% for resposta in respostasFin %}
-                                    {{ fin.registro(resposta, obs, pasta, podeEscreverFin) }}
+                                    {{ fin.registro(resposta, obs, pasta, podeEscreverFin, encaminharPasta) }}
                                 {% endfor %}
                             </div>
                         {% endif %}
@@ -288,25 +293,31 @@
                clica o botão de responder do cartão.
                C7-FPN-01: quem não escreve (só vê a pasta, ou lápide) não recebe Responder, nem
                Editar/Excluir, nem bloqueados — o motivo seria de permissão, não de prazo ou de
-               autoria (PAS-014/025c; igual a Detalhes). Fora do menu ficam "Encaminhar via Chat I.A"
-               (FPN-007) e "Destacar" (sem lastro). #}
-            <div class="ps-fin-menu" id="financeiroObsMenu" role="menu" aria-label="Ações do registro" hidden>
+               autoria (PAS-014/025c; igual a Detalhes). "Encaminhar via Chat I.A" (D:6305, FPN-007)
+               vem logo depois de Copiar texto, só com a Central e fora da lápide, e clica o ↪ do
+               cartão (D:1936). "Destacar" e "Remover destaque" entram pelo pasta-destaque.js. #}
+            <div class="ps-fin-menu" id="financeiroObsMenu" role="menu" aria-label="{{ 'pasta_financeiro.menu_registro.rotulo'|trans }}" hidden>
                 <div class="ps-fin-menu-titulo"></div>
                 {% if podeEscreverFin %}
                     <button type="button" class="ps-fin-menu-item js-fin-obs-responder" role="menuitem">
-                        <i class="bi bi-reply-fill" aria-hidden="true"></i><span>Responder</span>
+                        <i class="bi bi-reply-fill" aria-hidden="true"></i><span>{{ 'pasta_financeiro.menu_registro.responder'|trans }}</span>
                     </button>
                 {% endif %}
                 <button type="button" class="ps-fin-menu-item js-fin-obs-copiar" role="menuitem">
-                    <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
+                    <i class="bi bi-clipboard" aria-hidden="true"></i><span>{{ 'pasta_financeiro.menu_registro.copiar'|trans }}</span>
                 </button>
+                {% if encaminharPasta %}
+                    <button type="button" class="ps-fin-menu-item js-fin-obs-encaminhar" role="menuitem">
+                        <i class="bi bi-send" aria-hidden="true"></i><span>{{ 'pasta_financeiro.comum.encaminhar'|trans }}</span>
+                    </button>
+                {% endif %}
                 {% if podeEscreverFin %}
                 <div class="ps-fin-menu-sep" role="separator"></div>
                 <button type="button" class="ps-fin-menu-item js-fin-obs-editar js-fin-obs-gerenciar" role="menuitem">
-                    <i class="bi bi-pencil" aria-hidden="true"></i><span>Editar</span>
+                    <i class="bi bi-pencil" aria-hidden="true"></i><span>{{ 'pasta_financeiro.menu_registro.editar'|trans }}</span>
                 </button>
                 <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar" role="menuitem">
-                    <i class="bi bi-trash3" aria-hidden="true"></i><span>Excluir comentário</span>
+                    <i class="bi bi-trash3" aria-hidden="true"></i><span>{{ 'pasta_financeiro.menu_registro.excluir'|trans }}</span>
                 </button>
                 {% endif %}
                 {# Sem "Imprimir": no desenho (dc L.6454-6466, menuObs/extrasObs) ele mora só no ⋮
@@ -325,15 +336,15 @@
 
         <section class="ps-card" data-trilho="arquivos">
             <div class="ps-card-cab">
-                <h2>Arquivos</h2>
+                <h2>{{ 'pasta_financeiro.arquivos.titulo'|trans }}</h2>
                 {# Contagem SEMPRE à vista, inclusive 0 (dc 1831). #}
                 <span class="ps-contagem" id="financeiro-docs-contagem">{{ documentosContrato|length }}</span>
                 {# C7-FPN-01: enviar arquivo exige EDIT; quem não escreve não recebe o Adicionar. #}
                 {% if podeEscreverFin %}
                 <span class="ps-cab-espaco"></span>
                 <label class="ps-btn-mini ps-fin-adicionar"
-                       title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
-                    <i class="bi bi-plus-lg"></i> Adicionar
+                       title="{{ 'pasta_financeiro.arquivos.adicionar_dica'|trans }}">
+                    <i class="bi bi-plus-lg"></i> {{ 'pasta_financeiro.arquivos.adicionar'|trans }}
                     <input type="file"
                            id="financeiro-upload-input"
                            accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
@@ -345,15 +356,17 @@
                            data-base-url-excluir="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
                            data-base-url-visualizar="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
                            data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                           data-base-url-marcar-assinado="{{ path('pasta_financeiro_documento_marcar_assinado', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                           data-base-url-desmarcar-assinado="{{ path('pasta_financeiro_documento_desmarcar_assinado', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
                            data-email-cliente="{{ emailCliente }}"
                            data-pasta-rotulo="{{ rotuloPastaEmail }}">
                 </label>
                 {% endif %}
             </div>
 
-            <div id="financeiro-docs-lista">
+            <div id="financeiro-docs-lista"{% if encaminharPasta %} data-encaminhar-pasta="{{ encaminharPasta }}"{% endif %}>
                 {% if documentosContrato is empty %}
-                    <div class="ps-fin-doc-vazio" id="financeiro-docs-vazio">Nenhum arquivo financeiro anexado.</div>
+                    <div class="ps-fin-doc-vazio" id="financeiro-docs-vazio">{{ 'pasta_financeiro.arquivos.vazio'|trans }}</div>
                 {% else %}
                     {% for doc in documentosContrato|slice(0, arquivosVisiveis) %}
                         {# Ícone do TIPO do arquivo, 30px, como o trilho de Dados (dc ~6549 `fi(ext,30)`).
@@ -361,24 +374,30 @@
                            protege; o MIME é o desempate. `iconeDoArquivo` (JS, abaixo) espelha. #}
                         {% set icone = arquivo_icone(doc.titulo, doc.mimeType ?? '') %}
                         <div class="ps-fin-doc" id="financeiro-doc-{{ doc.id }}">
-                            <span class="ps-doc-icone" style="color: {{ icone.cor|e('html_attr') }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
+                            <span class="ps-doc-icone ps-doc-icone--{{ icone.tipo }}" title="{{ icone.rotulo }}"><i class="bi {{ icone.icone }}"></i></span>
                             <div class="ps-fin-doc-corpo">
                                 <div class="ps-doc-nome" title="{{ doc.titulo }}">{{ doc.titulo }}</div>
-                                <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
+                                <div class="ps-doc-meta">{{ doc.tamanhoBytes|formatar_bytes }} · {{ doc.carregadoEm|data }}</div>
                             </div>
+                            {# Selo "Assinado" (dc 1974-1976): entre o nome e o ⋮. Digital (visto no
+                               upload) ou marcado à mão pelo ⋮. `criarItemDoc` (JS) espelha. #}
+                            {% if doc.estaAssinado %}
+                            <span class="ps-fin-doc-selo"><i class="bi bi-patch-check-fill"></i>{{ 'pasta_financeiro.arquivos.assinado'|trans }}</span>
+                            {% endif %}
                             {# Menu ⋮ do arquivo (desenho 1.2.3, "Mais ações do arquivo"). Só entram
                                as ações que têm função de verdade: abrir no visualizador, baixar,
                                copiar o nome, renomear, enviar por e-mail ao cliente (`mailto:`), ver
-                               no gerenciador e excluir. "Encaminhar via Chat I.A" do desenho depende
-                               de função nova e fica fora (§1.3 da spec).
+                               no gerenciador e excluir. "Encaminhar via Chat I.A" (D:6958) vem logo
+                               depois de "Copiar nome do arquivo", só com a Central e fora da
+                               lápide, e despacha o documento (pasta-encaminhar.js).
                                As classes `btn-renomear-doc`/`btn-excluir-doc` e os `data-*` são os
                                mesmos de antes: o JS deste arquivo escuta por delegação na lista.
                                A MESMA estrutura é montada em JS (`criarItemDoc`, abaixo). #}
                             <div class="ps-fin-doc-acoes">
                                 <button type="button"
                                         class="ps-fin-menu-gatilho"
-                                        title="Mais ações do arquivo"
-                                        aria-label="Mais ações do arquivo"
+                                        title="{{ 'pasta_financeiro.arquivos.mais_acoes'|trans }}"
+                                        aria-label="{{ 'pasta_financeiro.arquivos.mais_acoes'|trans }}"
                                         aria-haspopup="menu"
                                         aria-expanded="false"
                                         aria-controls="financeiro-doc-menu-{{ doc.id }}">
@@ -389,66 +408,103 @@
                                     <button type="button"
                                             class="ps-fin-menu-item"
                                             role="menuitem"
-                                            title="Visualizar"
+                                            title="{{ 'pasta_financeiro.arquivos.visualizar'|trans }}"
                                             data-bs-toggle="modal"
                                             data-bs-target="#previewDocModal"
                                             data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
                                             data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
                                             data-nome="{{ doc.titulo }}"
                                             data-mime="{{ doc.mimeType }}">
-                                        <i class="bi bi-box-arrow-up-right"></i><span>Abrir</span>
+                                        <i class="bi bi-box-arrow-up-right"></i><span>{{ 'pasta_financeiro.arquivos.abrir'|trans }}</span>
                                     </button>
                                     <a class="ps-fin-menu-item"
                                        role="menuitem"
                                        href="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}">
-                                        <i class="bi bi-download"></i><span>Baixar</span>
+                                        <i class="bi bi-download"></i><span>{{ 'pasta_financeiro.arquivos.baixar'|trans }}</span>
                                     </a>
                                     <button type="button"
                                             class="ps-fin-menu-item js-fin-doc-copiar-nome"
                                             role="menuitem">
-                                        <i class="bi bi-clipboard"></i><span>Copiar nome do arquivo</span>
+                                        <i class="bi bi-clipboard"></i><span>{{ 'pasta_financeiro.arquivos.copiar_nome'|trans }}</span>
                                     </button>
+                                    {% if encaminharPasta %}
+                                    <button type="button"
+                                            class="ps-fin-menu-item js-encaminhar"
+                                            role="menuitem"
+                                            data-encaminhar-pasta="{{ encaminharPasta }}"
+                                            data-encaminhar-tipo="documento"
+                                            data-encaminhar-id="{{ doc.id }}">
+                                        <i class="bi bi-send"></i><span>{{ 'pasta_financeiro.comum.encaminhar'|trans }}</span>
+                                    </button>
+                                    {% endif %}
                                     {# C7-FPN-01: Renomear e Excluir exigem EDIT; quem não escreve não os recebe. #}
                                     {% if podeEscreverFin %}
                                     <button type="button"
                                             class="ps-fin-menu-item btn-renomear-doc"
                                             role="menuitem"
-                                            title="Renomear"
+                                            title="{{ 'pasta_financeiro.arquivos.renomear'|trans }}"
                                             data-doc-id="{{ doc.id }}"
                                             data-titulo="{{ doc.titulo }}"
                                             data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
                                             data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
-                                        <i class="bi bi-pencil"></i><span>Renomear</span>
+                                        <i class="bi bi-pencil"></i><span>{{ 'pasta_financeiro.arquivos.renomear'|trans }}</span>
                                     </button>
+                                    {# Selo à mão (assinado à caneta e escaneado). A assinatura digital
+                                       é do arquivo: não ganha "Desmarcar". #}
+                                    {% if not doc.estaAssinado %}
+                                    <button type="button"
+                                            class="ps-fin-menu-item btn-assinatura-doc"
+                                            role="menuitem"
+                                            data-doc-id="{{ doc.id }}"
+                                            data-acao="marcar"
+                                            data-csrf="{{ csrf_token('pasta_financeiro_assinatura_' ~ doc.id) }}"
+                                            data-url-marcar="{{ path('pasta_financeiro_documento_marcar_assinado', {id: pasta.id, docId: doc.id}) }}"
+                                            data-url-desmarcar="{{ path('pasta_financeiro_documento_desmarcar_assinado', {id: pasta.id, docId: doc.id}) }}"
+                                            data-url="{{ path('pasta_financeiro_documento_marcar_assinado', {id: pasta.id, docId: doc.id}) }}">
+                                        <i class="bi bi-patch-check"></i><span>{{ 'pasta_financeiro.arquivos.marcar_assinado'|trans }}</span>
+                                    </button>
+                                    {% elseif doc.assinaturaOrigem.value == 'manual' %}
+                                    <button type="button"
+                                            class="ps-fin-menu-item btn-assinatura-doc"
+                                            role="menuitem"
+                                            data-doc-id="{{ doc.id }}"
+                                            data-acao="desmarcar"
+                                            data-csrf="{{ csrf_token('pasta_financeiro_assinatura_' ~ doc.id) }}"
+                                            data-url-marcar="{{ path('pasta_financeiro_documento_marcar_assinado', {id: pasta.id, docId: doc.id}) }}"
+                                            data-url-desmarcar="{{ path('pasta_financeiro_documento_desmarcar_assinado', {id: pasta.id, docId: doc.id}) }}"
+                                            data-url="{{ path('pasta_financeiro_documento_desmarcar_assinado', {id: pasta.id, docId: doc.id}) }}">
+                                        <i class="bi bi-x-circle"></i><span>{{ 'pasta_financeiro.arquivos.desmarcar_assinado'|trans }}</span>
+                                    </button>
+                                    {% endif %}
                                     {% endif %}
                                     {% if emailCliente %}
                                         <a class="ps-fin-menu-item js-fin-doc-email"
                                            role="menuitem"
-                                           href="mailto:{{ emailCliente }}?subject={{ ('Pasta ' ~ rotuloPastaEmail ~ ' · ' ~ doc.titulo)|url_encode }}&amp;body={{ ('Segue o arquivo "' ~ doc.titulo ~ '" referente à pasta ' ~ rotuloPastaEmail ~ '.')|url_encode }}">
-                                            <i class="bi bi-envelope"></i><span>Enviar por e-mail ao cliente</span>
+                                           href="mailto:{{ emailCliente }}?subject={{ 'pasta_financeiro.arquivos.email_assunto'|trans({pasta: rotuloPastaEmail, titulo: doc.titulo})|url_encode }}&amp;body={{ 'pasta_financeiro.arquivos.email_corpo'|trans({pasta: rotuloPastaEmail, titulo: doc.titulo})|url_encode }}">
+                                            <i class="bi bi-envelope"></i><span>{{ 'pasta_financeiro.arquivos.enviar_email'|trans }}</span>
                                         </a>
                                     {% else %}
                                         <button type="button"
                                                 class="ps-fin-menu-item js-fin-doc-email js-fin-doc-email-sem-cadastro"
                                                 role="menuitem">
-                                            <i class="bi bi-envelope"></i><span>Enviar por e-mail ao cliente</span>
+                                            <i class="bi bi-envelope"></i><span>{{ 'pasta_financeiro.arquivos.enviar_email'|trans }}</span>
                                         </button>
                                     {% endif %}
                                     <button type="button"
                                             class="ps-fin-menu-item js-fin-doc-ver-documentos"
                                             role="menuitem">
-                                        <i class="bi bi-folder2-open"></i><span>Ver em Documentos</span>
+                                        <i class="bi bi-folder2-open"></i><span>{{ 'pasta_financeiro.arquivos.ver_documentos'|trans }}</span>
                                     </button>
                                     {% if podeEscreverFin %}
                                     <div class="ps-fin-menu-sep" role="separator"></div>
                                     <button type="button"
                                             class="ps-fin-menu-item ps-fin-menu-item--perigo btn-excluir-doc"
                                             role="menuitem"
-                                            title="Excluir"
+                                            title="{{ 'pasta_financeiro.arquivos.excluir'|trans }}"
                                             data-doc-id="{{ doc.id }}"
                                             data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
                                             data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
-                                        <i class="bi bi-trash3"></i><span>Excluir</span>
+                                        <i class="bi bi-trash3"></i><span>{{ 'pasta_financeiro.arquivos.excluir'|trans }}</span>
                                     </button>
                                     {% endif %}
                                 </div>
@@ -459,10 +515,11 @@
             </div>
 
             {# Passou de 3, o resto não some da vista sem dizer para onde foi. #}
-            {% if documentosContrato|length > arquivosVisiveis %}
+            {# Sem o atalho quando a aba Documentos está oculta para quem vê (ocultar aba). #}
+            {% if documentosContrato|length > arquivosVisiveis and 'documentos' not in abasOcultas|default([]) %}
                 <div class="ps-fin-doc-excedente" id="financeiro-docs-excedente">
                     <button type="button" class="ps-fin-link" data-ps-ir-aba="documentos-tab">
-                        ver os outros {{ documentosContrato|length - arquivosVisiveis }} no gerenciador
+                        {{ 'pasta_financeiro.arquivos.ver_outros'|trans({quantidade: (documentosContrato|length - arquivosVisiveis) ~ ''}) }}
                     </button>
                 </div>
             {% endif %}
@@ -476,12 +533,12 @@
                         role="switch"
                         aria-checked="false">
                     <span class="ps-fin-switch-trilho"><span class="ps-fin-switch-knob"></span></span>
-                    <span>Reduzir tamanho ao enviar</span>
+                    <span>{{ 'pasta_financeiro.arquivos.reduzir'|trans }}</span>
                 </button>
-                <div class="ps-fin-sub" id="financeiro-reduzir-nota">Envios mantêm o arquivo original, recomendado para contratos assinados.</div>
+                <div class="ps-fin-sub" id="financeiro-reduzir-nota">{{ 'pasta_financeiro.arquivos.reduzir_nota'|trans }}</div>
                 <div id="financeiro-upload-erro" class="ps-fin-sub ps-fin-sub--erro d-none"></div>
                 <div id="financeiro-upload-spinner" class="ps-fin-sub d-none">
-                    <span class="spinner-border spinner-border-sm me-1"></span>Enviando…
+                    <span class="spinner-border spinner-border-sm me-1"></span>{{ 'pasta_financeiro.arquivos.enviando'|trans }}
                 </div>
             </div>
             {% endif %}
@@ -498,7 +555,7 @@
                  data-base-url-excluir="{{ path('pasta_pagamento_excluir', {id: pasta.id, pagamentoId: 0})|replace({'/0/': '/__ID__/'}) }}"
                  data-base-url-corrigir="{{ path('pasta_pagamento_corrigir_valor', {id: pasta.id, pagamentoId: 0})|replace({'/0/': '/__ID__/'}) }}">
             <div class="ps-card-cab">
-                <h2>Pagamentos</h2>
+                <h2>{{ 'pasta_financeiro.pagamentos.titulo'|trans }}</h2>
                 <span class="ps-contagem" id="psPagamentosTotal">{{ pagamentos.total }}</span>
                 <span class="ps-cab-espaco"></span>
                 {# Só o ⋮ no cabeçalho (dc 1865-1871): o "ver todos" mora no menu, no item
@@ -519,40 +576,40 @@
                         class="ps-pag-concluir js-pag-concluir-edicao"
                         id="psPagamentosConcluir"
                         hidden>
-                    <i class="bi bi-check2"></i><span>Concluir edição</span>
+                    <i class="bi bi-check2"></i><span>{{ 'pasta_financeiro.pagamentos.concluir_edicao'|trans }}</span>
                 </button>
                 {% endif %}
                 {% if podeEscreverFin or pagamentos.total > 0 %}
                 <button type="button"
                         class="ps-fin-menu-gatilho ps-fin-menu-gatilho--cab"
                         id="psPagamentosMenuBtn"
-                        title="Mais opções"
-                        aria-label="Mais opções de pagamentos"
+                        title="{{ 'pasta_financeiro.pagamentos.mais_opcoes'|trans }}"
+                        aria-label="{{ 'pasta_financeiro.pagamentos.mais_opcoes_rotulo'|trans }}"
                         aria-haspopup="menu"
                         aria-expanded="false"
                         aria-controls="psPagamentosMenu">
                     <i class="bi bi-three-dots-vertical"></i>
                 </button>
                 <div class="ps-fin-menu" id="psPagamentosMenu" role="menu" hidden>
-                    <div class="ps-fin-menu-titulo">Pagamentos</div>
+                    <div class="ps-fin-menu-titulo">{{ 'pasta_financeiro.pagamentos.titulo'|trans }}</div>
                     {% if podeEscreverFin %}
                     <button type="button" class="ps-fin-menu-item" role="menuitem"
                             data-bs-toggle="modal" data-bs-target="#modalNovoPagamento">
-                        <i class="bi bi-plus-lg"></i><span>Adicionar pagamento</span>
+                        <i class="bi bi-plus-lg"></i><span>{{ 'pasta_financeiro.pagamentos.adicionar'|trans }}</span>
                     </button>
                     <button type="button" class="ps-fin-menu-item js-pag-editar" role="menuitem">
-                        <i class="bi bi-pencil-square"></i><span>Editar ou corrigir valores</span>
+                        <i class="bi bi-pencil-square"></i><span>{{ 'pasta_financeiro.pagamentos.editar_valores'|trans }}</span>
                     </button>
                     {% endif %}
                     <button type="button" class="ps-fin-menu-item js-pag-ver-todos" role="menuitem">
-                        <i class="bi bi-list-ul"></i><span>Ver todos os lançamentos</span>
+                        <i class="bi bi-list-ul"></i><span>{{ 'pasta_financeiro.pagamentos.ver_todos'|trans }}</span>
                     </button>
                     <div class="ps-fin-menu-sep js-pag-so-com-extrato" role="separator"></div>
                     <button type="button" class="ps-fin-menu-item js-pag-copiar-resumo js-pag-so-com-extrato" role="menuitem">
-                        <i class="bi bi-clipboard"></i><span>Copiar resumo</span>
+                        <i class="bi bi-clipboard"></i><span>{{ 'pasta_financeiro.pagamentos.copiar_resumo'|trans }}</span>
                     </button>
                     <button type="button" class="ps-fin-menu-item js-pag-imprimir-extrato js-pag-so-com-extrato" role="menuitem">
-                        <i class="bi bi-printer"></i><span>Imprimir extrato</span>
+                        <i class="bi bi-printer"></i><span>{{ 'pasta_financeiro.pagamentos.imprimir_extrato'|trans }}</span>
                     </button>
                 </div>
                 {% endif %}
@@ -563,11 +620,11 @@
                re-renderiza a cada mudança — por isso o extrato impresso é sempre o
                que está na tela. O JS junta os dois numa folha só na hora de imprimir. #}
             <div class="ps-fin-extrato-cab" id="psExtratoCabecalho" hidden>
-                <div class="ps-fin-extrato-titulo">Extrato de pagamentos</div>
+                <div class="ps-fin-extrato-titulo">{{ 'pasta_financeiro.pagamentos.extrato_titulo'|trans }}</div>
                 <div class="ps-fin-extrato-pasta">
-                    Pasta {{ pasta.nup ?? ('#' ~ pasta.id) }}{% if pasta.nomeCliente %} · {{ pasta.nomeCliente }}{% endif %}
+                    {{ 'pasta_financeiro.pagamentos.extrato_pasta'|trans({pasta: pasta.nup ?? ('#' ~ pasta.id)}) }}{% if pasta.nomeCliente %} · {{ pasta.nomeCliente }}{% endif %}
                 </div>
-                <div class="ps-fin-extrato-emissao">Emitido em <span class="js-extrato-emitido-em"></span></div>
+                <div class="ps-fin-extrato-emissao">{{ 'pasta_financeiro.pagamentos.emitido_em'|trans }} <span class="js-extrato-emitido-em"></span></div>
             </div>
 
             <div id="psPagamentosCorpo">
@@ -578,7 +635,7 @@
             <div class="ps-fin-rodape">
                 <button type="button" class="ps-fin-btn-add"
                         data-bs-toggle="modal" data-bs-target="#modalNovoPagamento">
-                    <i class="bi bi-plus-lg"></i><span>Adicionar pagamento</span>
+                    <i class="bi bi-plus-lg"></i><span>{{ 'pasta_financeiro.pagamentos.adicionar'|trans }}</span>
                 </button>
             </div>
             {% endif %}
@@ -586,6 +643,12 @@
 
     </div>
 </div>
+
+{# Textos dos scripts desta aba (os três daqui, o _financeiro_obs_script e o
+   _financeiro_pagamentos_script) no idioma da página: `BJ_T.t('pasta_financeiro.js.<chave>')`.
+   Os scripts rodam antes do bj-traducao.js (o base o carrega no fim do corpo): por isso
+   só pedem texto dentro das funções, na hora do uso, nunca ao carregar. #}
+{{ catalogo_js('pasta_financeiro.js') }}
 
 <script>
 (function () {
@@ -618,18 +681,18 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
                 const data = await resp.json();
-                if (!resp.ok) { alert(data.erro ?? 'Erro ao alterar situação.'); return; }
+                if (!resp.ok) { (window.avisarErroPs || window.alert)(data.erro ?? BJ_T.t('pasta_financeiro.js.erro_situacao')); return; }
 
                 const assinado = data.situacao === 'REGULAR';
                 this.dataset.situacaoAtual = data.situacao;
                 this.className = 'ps-fin-selo ps-fin-selo--' + (assinado ? 'ok' : 'perigo');
                 this.title = assinado
-                    ? 'Contrato assinado — clique para reabrir como pendente'
-                    : 'Contrato pendente — clique para marcar como assinado';
+                    ? BJ_T.t('pasta_financeiro.js.contrato_assinado_dica')
+                    : BJ_T.t('pasta_financeiro.js.contrato_pendente_dica');
                 this.querySelector('i').className = 'bi ' + (assinado ? 'bi-patch-check-fill' : 'bi-hourglass-split');
-                this.querySelector('.ps-fin-selo-texto').textContent = assinado ? 'Assinado' : 'Pendente';
+                this.querySelector('.ps-fin-selo-texto').textContent = assinado ? BJ_T.t('pasta_financeiro.js.contrato_assinado') : BJ_T.t('pasta_financeiro.js.contrato_pendente');
             } catch (_) {
-                alert('Erro de rede. Tente novamente.');
+                (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede_tente'));
             }
         });
     }
@@ -651,15 +714,15 @@
                     body: fd,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
-                if (!resp.ok) { alert('Erro ao salvar pró-bono.'); return; }
+                if (!resp.ok) { (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_pro_bono')); return; }
 
                 this.dataset.ativo = novo ? '1' : '0';
                 this.setAttribute('aria-pressed', novo ? 'true' : 'false');
                 this.className = 'ps-fin-selo ps-fin-selo--' + (novo ? 'ok' : 'neutro');
                 this.querySelector('i').className = 'bi ' + (novo ? 'bi-check2-circle' : 'bi-dash-circle');
-                this.querySelector('.ps-fin-selo-texto').textContent = novo ? 'Pró-bono ativo' : 'Não é pró-bono';
+                this.querySelector('.ps-fin-selo-texto').textContent = novo ? BJ_T.t('pasta_financeiro.js.pro_bono_ativo') : BJ_T.t('pasta_financeiro.js.pro_bono_inativo');
             } catch (_) {
-                alert('Erro de rede. Tente novamente.');
+                (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede_tente'));
             }
         });
     }
@@ -718,7 +781,7 @@
                 const data = await resp.json();
 
                 if (!resp.ok) {
-                    vcErro.textContent = data.erro ?? 'Erro ao salvar.';
+                    vcErro.textContent = data.erro ?? BJ_T.t('pasta_financeiro.js.erro_salvar');
                     vcErro.classList.remove('d-none');
                     vcInput.focus();
                     return;
@@ -735,7 +798,7 @@
                 vcErro.classList.add('d-none');
                 fecharEdicao();
             } catch (_) {
-                vcErro.textContent = 'Erro de rede. Tente novamente.';
+                vcErro.textContent = BJ_T.t('pasta_financeiro.js.erro_rede_tente');
                 vcErro.classList.remove('d-none');
             } finally {
                 vcGravando = false;
@@ -777,8 +840,8 @@
             this.classList.toggle('is-ligado', ligado);
             if (reduzirNota) {
                 reduzirNota.textContent = ligado
-                    ? 'Atenção: um PDF assinado digitalmente pode perder a assinatura ao ser reduzido.'
-                    : 'Envios mantêm o arquivo original, recomendado para contratos assinados.';
+                    ? BJ_T.t('pasta_financeiro.js.reduzir_aviso')
+                    : BJ_T.t('pasta_financeiro.js.reduzir_nota');
                 reduzirNota.classList.toggle('ps-fin-sub--aviso', ligado);
             }
         });
@@ -812,13 +875,14 @@
 
     /** Atalho para o gerenciador quando há mais arquivos do que o card mostra. */
     function mostrarExcedente() {
-        if (document.getElementById('financeiro-docs-excedente')) { return; }
+        // Sem a aba Documentos (oculta para quem vê), o atalho não existe.
+        if (document.getElementById('financeiro-docs-excedente') || !document.getElementById('documentos-tab')) { return; }
 
         const bloco = document.createElement('div');
         bloco.className = 'ps-fin-doc-excedente';
         bloco.id = 'financeiro-docs-excedente';
         bloco.innerHTML = '<button type="button" class="ps-fin-link" data-ps-ir-aba="documentos-tab">'
-            + 'ver os demais no gerenciador</button>';
+            + esc(BJ_T.t('pasta_financeiro.js.ver_demais')) + '</button>';
         bloco.querySelector('button').addEventListener('click', function () {
             const gatilho = document.getElementById('documentos-tab');
             if (gatilho && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
@@ -829,32 +893,34 @@
     /**
      * Espelho de `arquivo_icone()` (App\Twig\ArquivoIconeExtension) para os tipos
      * que este upload aceita (PDF, DOC/DOCX, JPEG, PNG), com o mesmo desempate
-     * pelo MIME e o mesmo genérico. Mudou lá, muda aqui.
+     * pelo MIME e o mesmo genérico: [ícone, tipo, rótulo]. A cor sai da classe
+     * `ps-doc-icone--<tipo>` (tokens do pasta-show.css, com par escuro), nunca
+     * inline. Mudou lá, muda aqui (PastaFinanceiroIconeEspelhoFolhaTest avisa).
      */
     function iconeDoArquivo(titulo, mime) {
         const t     = String(titulo);
         const ponto = t.lastIndexOf('.');
         const ext   = ponto > 0 ? t.slice(ponto + 1).toLowerCase() : '';
         const mapa  = {
-            pdf:  ['bi-filetype-pdf',  '#e2564d', 'PDF'],
-            doc:  ['bi-filetype-doc',  '#2b7cd3', 'Word'],
-            docx: ['bi-filetype-docx', '#2b7cd3', 'Word'],
-            png:  ['bi-filetype-png',  '#7b5ea7', 'Imagem'],
-            jpg:  ['bi-filetype-jpg',  '#7b5ea7', 'Imagem'],
-            jpeg: ['bi-filetype-jpg',  '#7b5ea7', 'Imagem'],
+            pdf:  ['bi-file-earmark-pdf-fill',   'pdf',  'PDF'],
+            doc:  ['bi-file-earmark-word-fill',  'word', 'Word'],
+            docx: ['bi-file-earmark-word-fill',  'word', 'Word'],
+            png:  ['bi-file-earmark-image-fill', 'img',  'Imagem'],
+            jpg:  ['bi-file-earmark-image-fill', 'img',  'Imagem'],
+            jpeg: ['bi-file-earmark-image-fill', 'img',  'Imagem'],
         };
         const m = String(mime ?? '');
-        const [icone, cor, rotulo] = mapa[ext]
-            ?? (m.startsWith('image/') ? ['bi-file-image', '#7b5ea7', 'Imagem']
-            : m.includes('pdf') ? ['bi-filetype-pdf', '#e2564d', 'PDF']
-            : (m.includes('word') || m.includes('document')) ? ['bi-filetype-doc', '#2b7cd3', 'Word']
-            : ['bi-file-earmark', '#6c757d', 'Arquivo']);
-        return { icone: icone, cor: cor, rotulo: rotulo };
+        const [icone, tipo, rotulo] = mapa[ext]
+            ?? (m.startsWith('image/') ? ['bi-file-earmark-image-fill', 'img', 'Imagem']
+            : m.includes('pdf') ? ['bi-file-earmark-pdf-fill', 'pdf', 'PDF']
+            : (m.includes('word') || m.includes('document')) ? ['bi-file-earmark-word-fill', 'word', 'Word']
+            : ['bi-file-earmark-fill', 'outro', 'Arquivo']);
+        return { icone: icone, tipo: tipo, rotulo: rotulo };
     }
 
     function htmlIconeDoArquivo(titulo, mime) {
         const ic = iconeDoArquivo(titulo, mime);
-        return '<span class="ps-doc-icone" style="color: ' + esc(ic.cor) + '" title="' + esc(ic.rotulo) + '">'
+        return '<span class="ps-doc-icone ps-doc-icone--' + esc(ic.tipo) + '" title="' + esc(ic.rotulo) + '">'
             + '<i class="bi ' + esc(ic.icone) + '"></i></span>';
     }
 
@@ -867,13 +933,13 @@
         if (!email) { return ''; }
 
         return 'mailto:' + email
-            + '?subject=' + encodeURIComponent('Pasta ' + rotulo + ' · ' + titulo)
-            + '&body=' + encodeURIComponent('Segue o arquivo "' + titulo + '" referente à pasta ' + rotulo + '.');
+            + '?subject=' + encodeURIComponent(BJ_T.t('pasta_financeiro.js.email_assunto', { pasta: rotulo, titulo: titulo }))
+            + '&body=' + encodeURIComponent(BJ_T.t('pasta_financeiro.js.email_corpo', { pasta: rotulo, titulo: titulo }));
     }
 
     function htmlItemEmail(titulo) {
         const href  = mailtoDoArquivo(titulo);
-        const miolo = '<i class="bi bi-envelope"></i><span>Enviar por e-mail ao cliente</span>';
+        const miolo = '<i class="bi bi-envelope"></i><span>' + esc(BJ_T.t('pasta_financeiro.js.enviar_email')) + '</span>';
         if (!href) {
             return '<button type="button" class="ps-fin-menu-item js-fin-doc-email js-fin-doc-email-sem-cadastro" role="menuitem">' + miolo + '</button>';
         }
@@ -881,7 +947,43 @@
         return '<a class="ps-fin-menu-item js-fin-doc-email" role="menuitem" href="' + esc(href) + '">' + miolo + '</a>';
     }
 
-    function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir, meta) {
+    /* Selo "Assinado" (dc 1974-1976), o mesmo do Twig. */
+    function htmlSeloAssinado() {
+        return `<span class="ps-fin-doc-selo"><i class="bi bi-patch-check-fill"></i>${esc(BJ_T.t('pasta_financeiro.js.assinado'))}</span>`;
+    }
+
+    /* Item "Marcar como assinado" / "Desmarcar assinatura" do ⋮. Assinatura digital não ganha item.
+       `assinatura`: { assinado, origem, csrf, urlMarcar, urlDesmarcar }. */
+    function htmlItemAssinatura(id, assinatura) {
+        if (!assinatura || (assinatura.assinado && assinatura.origem !== 'manual')) { return ''; }
+        const marcar = !assinatura.assinado;
+        return `<button type="button"
+                            class="ps-fin-menu-item btn-assinatura-doc"
+                            role="menuitem"
+                            data-doc-id="${esc(id)}"
+                            data-acao="${marcar ? 'marcar' : 'desmarcar'}"
+                            data-csrf="${esc(assinatura.csrf)}"
+                            data-url="${esc(marcar ? assinatura.urlMarcar : assinatura.urlDesmarcar)}"
+                            data-url-marcar="${esc(assinatura.urlMarcar)}"
+                            data-url-desmarcar="${esc(assinatura.urlDesmarcar)}">
+                        <i class="bi ${marcar ? 'bi-patch-check' : 'bi-x-circle'}"></i><span>${esc(BJ_T.t(marcar ? 'pasta_financeiro.js.marcar_assinado' : 'pasta_financeiro.js.desmarcar_assinado'))}</span>
+                    </button>`;
+    }
+
+    function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir, meta, assinatura) {
+        /* "Encaminhar via Chat I.A" (D:6958): o id da pasta vem do atributo que o Twig põe na lista
+           (só com a Central e fora da lápide); o do documento é o número do servidor. */
+        const encaminharPasta = Number(docLista.dataset.encaminharPasta || 0);
+        const itemEncaminhar  = encaminharPasta
+            ? `<button type="button"
+                            class="ps-fin-menu-item js-encaminhar"
+                            role="menuitem"
+                            data-encaminhar-pasta="${encaminharPasta}"
+                            data-encaminhar-tipo="documento"
+                            data-encaminhar-id="${Number(id)}">
+                        <i class="bi bi-send"></i><span>${esc(BJ_T.t('pasta_financeiro.js.encaminhar'))}</span>
+                    </button>`
+            : '';
         const div = document.createElement('div');
         div.className = 'ps-fin-doc';
         div.id = 'financeiro-doc-' + id;
@@ -891,11 +993,12 @@
                 <div class="ps-doc-nome" title="${esc(titulo)}">${esc(titulo)}</div>
                 <div class="ps-doc-meta">${esc(meta ?? '')}</div>
             </div>
+            ${assinatura && assinatura.assinado ? htmlSeloAssinado() : ''}
             <div class="ps-fin-doc-acoes">
                 <button type="button"
                         class="ps-fin-menu-gatilho"
-                        title="Mais ações do arquivo"
-                        aria-label="Mais ações do arquivo"
+                        title="${esc(BJ_T.t('pasta_financeiro.js.mais_acoes'))}"
+                        aria-label="${esc(BJ_T.t('pasta_financeiro.js.mais_acoes'))}"
                         aria-haspopup="menu"
                         aria-expanded="false"
                         aria-controls="financeiro-doc-menu-${esc(id)}">
@@ -906,44 +1009,46 @@
                     <button type="button"
                             class="ps-fin-menu-item"
                             role="menuitem"
-                            title="Visualizar"
+                            title="${esc(BJ_T.t('pasta_financeiro.js.visualizar'))}"
                             data-bs-toggle="modal"
                             data-bs-target="#previewDocModal"
                             data-url="${esc(urlVisualizar)}"
                             data-download="${esc(urlDownload)}"
                             data-nome="${esc(titulo)}"
                             data-mime="${esc(mimeType)}">
-                        <i class="bi bi-box-arrow-up-right"></i><span>Abrir</span>
+                        <i class="bi bi-box-arrow-up-right"></i><span>${esc(BJ_T.t('pasta_financeiro.js.abrir'))}</span>
                     </button>
                     <a class="ps-fin-menu-item" role="menuitem" href="${esc(urlDownload)}">
-                        <i class="bi bi-download"></i><span>Baixar</span>
+                        <i class="bi bi-download"></i><span>${esc(BJ_T.t('pasta_financeiro.js.baixar'))}</span>
                     </a>
                     <button type="button" class="ps-fin-menu-item js-fin-doc-copiar-nome" role="menuitem">
-                        <i class="bi bi-clipboard"></i><span>Copiar nome do arquivo</span>
+                        <i class="bi bi-clipboard"></i><span>${esc(BJ_T.t('pasta_financeiro.js.copiar_nome'))}</span>
                     </button>
+                    ${itemEncaminhar}
                     <button type="button"
                             class="ps-fin-menu-item btn-renomear-doc"
                             role="menuitem"
-                            title="Renomear"
+                            title="${esc(BJ_T.t('pasta_financeiro.js.renomear'))}"
                             data-doc-id="${esc(id)}"
                             data-titulo="${esc(titulo)}"
                             data-csrf="${esc(csrfRenomear)}"
                             data-url="${esc(urlRenomear)}">
-                        <i class="bi bi-pencil"></i><span>Renomear</span>
+                        <i class="bi bi-pencil"></i><span>${esc(BJ_T.t('pasta_financeiro.js.renomear'))}</span>
                     </button>
+                    ${htmlItemAssinatura(id, assinatura)}
                     ${htmlItemEmail(titulo)}
                     <button type="button" class="ps-fin-menu-item js-fin-doc-ver-documentos" role="menuitem">
-                        <i class="bi bi-folder2-open"></i><span>Ver em Documentos</span>
+                        <i class="bi bi-folder2-open"></i><span>${esc(BJ_T.t('pasta_financeiro.js.ver_documentos'))}</span>
                     </button>
                     <div class="ps-fin-menu-sep" role="separator"></div>
                     <button type="button"
                             class="ps-fin-menu-item ps-fin-menu-item--perigo btn-excluir-doc"
                             role="menuitem"
-                            title="Excluir"
+                            title="${esc(BJ_T.t('pasta_financeiro.js.excluir'))}"
                             data-doc-id="${esc(id)}"
                             data-csrf="${esc(csrfExcluir)}"
                             data-url="${esc(urlExcluir)}">
-                        <i class="bi bi-trash3"></i><span>Excluir</span>
+                        <i class="bi bi-trash3"></i><span>${esc(BJ_T.t('pasta_financeiro.js.excluir'))}</span>
                     </button>
                 </div>
             </div>`;
@@ -961,6 +1066,8 @@
             const baseExc  = this.dataset.baseUrlExcluir;
             const baseVis  = this.dataset.baseUrlVisualizar;
             const baseDl   = this.dataset.baseUrlDownload;
+            const baseMarc = this.dataset.baseUrlMarcarAssinado;
+            const baseDesm = this.dataset.baseUrlDesmarcarAssinado;
 
             uploadErro.classList.add('d-none');
             uploadSpinner.classList.remove('d-none');
@@ -979,7 +1086,7 @@
                 const data = await resp.json();
 
                 if (!resp.ok) {
-                    uploadErro.textContent = data.erro ?? 'Erro ao enviar arquivo.';
+                    uploadErro.textContent = data.erro ?? BJ_T.t('pasta_financeiro.js.erro_enviar_arquivo');
                     uploadErro.classList.remove('d-none');
                     return;
                 }
@@ -998,14 +1105,20 @@
                 // da vista, contrariando o desenho no caso em que ele mais importa.
                 if (docLista.querySelectorAll('.ps-fin-doc').length < MAX_ARQUIVOS) {
                     docLista.appendChild(
-                        criarItemDoc(data.id, data.titulo, data.mimeType, urlVis, urlDl, urlRen, data.csrfRenomear, urlExc, data.csrfExcluir, data.meta)
+                        criarItemDoc(data.id, data.titulo, data.mimeType, urlVis, urlDl, urlRen, data.csrfRenomear, urlExc, data.csrfExcluir, data.meta, {
+                            assinado: !!data.assinatura,
+                            origem: data.assinatura,
+                            csrf: data.csrfAssinatura,
+                            urlMarcar: baseMarc.replace('__ID__', data.id),
+                            urlDesmarcar: baseDesm.replace('__ID__', data.id),
+                        })
                     );
                 } else {
                     mostrarExcedente();
                 }
                 atualizarContagemDocs(+1);
             } catch (_) {
-                uploadErro.textContent = 'Erro de rede. Tente novamente.';
+                uploadErro.textContent = BJ_T.t('pasta_financeiro.js.erro_rede_tente');
                 uploadErro.classList.remove('d-none');
             } finally {
                 uploadSpinner.classList.add('d-none');
@@ -1079,7 +1192,7 @@
                         });
                         const data = await resp.json();
                         const titulo = resp.ok ? data.titulo : tituloAtual;
-                        if (!resp.ok) { alert(data.erro ?? 'Erro ao renomear.'); }
+                        if (!resp.ok) { (window.avisarErroPs || window.alert)(data.erro ?? BJ_T.t('pasta_financeiro.js.erro_renomear')); }
                         restaurarSpan(titulo);
                         btnRen.dataset.titulo = titulo;
                         // Mantém o pré-visualizador e o ícone do tipo coerentes.
@@ -1093,7 +1206,7 @@
                         const itemEmail = item.querySelector('a.js-fin-doc-email');
                         if (itemEmail) { itemEmail.href = mailtoDoArquivo(titulo); }
                     } catch (_) {
-                        alert('Erro de rede.');
+                        (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede'));
                         restaurarSpan(tituloAtual);
                     }
                 }
@@ -1107,9 +1220,52 @@
                 return;
             }
 
+            // Marcar/desmarcar o selo "Assinado". O botão é atualizado no lugar (não trocado): o
+            // script dos menus, que fecha o ⋮ depois deste handler, ainda precisa achá-lo no menu.
+            const btnAss = e.target.closest('.btn-assinatura-doc');
+            if (btnAss) {
+                const item   = document.getElementById('financeiro-doc-' + btnAss.dataset.docId);
+                const fd     = new FormData();
+                fd.append('_token', btnAss.dataset.csrf);
+
+                try {
+                    const resp = await fetch(btnAss.dataset.url, {
+                        method: 'POST',
+                        body: fd,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) {
+                        (window.avisarErroPs || window.alert)(data.erro ?? data.mensagem ?? BJ_T.t('pasta_financeiro.js.erro_assinatura'));
+                        return;
+                    }
+                    const selo = item ? item.querySelector(':scope > .ps-fin-doc-selo') : null;
+                    if (data.assinado && !selo && item) {
+                        item.querySelector(':scope > .ps-fin-doc-acoes').insertAdjacentHTML('beforebegin', htmlSeloAssinado());
+                    }
+                    if (!data.assinado && selo) { selo.remove(); }
+                    const agoraMarcar = !data.assinado;
+                    btnAss.dataset.acao = agoraMarcar ? 'marcar' : 'desmarcar';
+                    btnAss.dataset.url  = agoraMarcar ? btnAss.dataset.urlMarcar : btnAss.dataset.urlDesmarcar;
+                    btnAss.querySelector('i').className = 'bi ' + (agoraMarcar ? 'bi-patch-check' : 'bi-x-circle');
+                    btnAss.querySelector('span').textContent = BJ_T.t(agoraMarcar ? 'pasta_financeiro.js.marcar_assinado' : 'pasta_financeiro.js.desmarcar_assinado');
+                } catch (_) {
+                    (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede'));
+                }
+                return;
+            }
+
             const btnExc = e.target.closest('.btn-excluir-doc');
             if (btnExc) {
-                if (!confirm('Excluir este arquivo? Esta ação não pode ser desfeita.')) return;
+                // E7: janela vermelha da tela com o texto do dc (`confirmarUI(…, true)`, L.6839); o nome
+                // vem do título do próprio menu (textContent). Sem ele, a frase de antes.
+                const tituloArq = btnExc.closest('.ps-fin-menu')?.querySelector('.ps-fin-menu-titulo');
+                const nomeArq = tituloArq ? tituloArq.textContent.trim() : '';
+                const perguntaArq = nomeArq
+                    ? BJ_T.t('pasta_financeiro.js.excluir_arquivo_nome', { nome: nomeArq })
+                    : BJ_T.t('pasta_financeiro.js.excluir_arquivo');
+                const excluirArq = window.confirmarUIPs ? await window.confirmarUIPs(perguntaArq, true) : confirm(perguntaArq);
+                if (!excluirArq) return;
 
                 const docId = btnExc.dataset.docId;
                 const fd    = new FormData();
@@ -1128,15 +1284,15 @@
                             const vazio = document.createElement('div');
                             vazio.className = 'ps-fin-doc-vazio';
                             vazio.id = 'financeiro-docs-vazio';
-                            vazio.textContent = 'Nenhum arquivo financeiro anexado.';
+                            vazio.textContent = BJ_T.t('pasta_financeiro.js.arquivos_vazio');
                             docLista.appendChild(vazio);
                         }
                     } else {
                         const data = await resp.json();
-                        alert(data.erro ?? 'Erro ao excluir.');
+                        (window.avisarErroPs || window.alert)(data.erro ?? BJ_T.t('pasta_financeiro.js.erro_excluir'));
                     }
                 } catch (_) {
-                    alert('Erro de rede.');
+                    (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede'));
                 }
             }
         });
@@ -1183,7 +1339,7 @@
         const editar = menu.querySelector('.js-pag-editar');
         if (editar) {
             const editando = !!document.getElementById('psPagamentos')?.classList.contains('is-editando');
-            editar.querySelector('span').textContent = editando ? 'Concluir edição' : 'Editar ou corrigir valores';
+            editar.querySelector('span').textContent = editando ? BJ_T.t('pasta_financeiro.js.concluir_edicao') : BJ_T.t('pasta_financeiro.js.editar_valores');
         }
 
         const temExtrato = !!document.getElementById('psExtratoFolha');
@@ -1196,7 +1352,7 @@
             item.hidden = !document.querySelector('#psPagamentosCorpo .ps-pag-linha');
             const cartao    = document.getElementById('psPagamentos');
             const mostrando = !!cartao && cartao.classList.contains('is-mostrando-todos');
-            item.querySelector('span').textContent = mostrando ? 'Mostrar só os próximos' : 'Ver todos os lançamentos';
+            item.querySelector('span').textContent = mostrando ? BJ_T.t('pasta_financeiro.js.mostrar_proximos') : BJ_T.t('pasta_financeiro.js.ver_todos');
             item.querySelector('i').className = 'bi ' + (mostrando ? 'bi-chevron-up' : 'bi-list-ul');
         }
     }
@@ -1225,8 +1381,6 @@
        C6-FPN-05: os minutos saem do `data-janela-ate` do cartão (epoch do servidor) a CADA
        abertura, como em Detalhes; passada a janela com a página aberta, os dois viram
        "· bloqueado" com o motivo do prazo (o servidor recusaria). */
-    const OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.';
-    const OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.';
     function pintarItemObs(item, pode, rotulo, icone, motivo) {
         item.disabled = false;
         if (pode) {
@@ -1252,6 +1406,8 @@
     let obsAlvo = null;
     function prepararMenuObs(menu, registro) {
         obsAlvo = registro;
+        // "Destacar" e "Remover destaque" (dc L6305), só para quem edita: pasta-destaque.js.
+        if (window.PastaDestaque) { window.PastaDestaque.pintarMenu(menu, registro, 'financeiro'); }
         const autor = textoLimpo(registro.querySelector('.ps-anotacao-autor'));
         const data  = registro.querySelector('.ps-anotacao-data');
         const quando = data ? (data.getAttribute('title') || textoLimpo(data)) : '';
@@ -1270,18 +1426,27 @@
         // o que nasceu bloqueado não reabre.
         const nasceuLiberado = !!registro.querySelector('.btn-editar-obs') && !!registro.querySelector('.btn-excluir-obs');
         const resto = nasceuLiberado ? minutosRestantesObs(registro) : 0;
-        const podeGerenciar = resto > 0;
+        const pelaRegra = resto > 0 && registro.getAttribute('data-obs-do-autor') === '1';
+        // Edição sem prazo (spec edicao-sem-prazo §5): Master e primário (com a opção) seguem sem prazo, com o selo.
+        const selo = nasceuLiberado && !pelaRegra ? (registro.dataset.semPrazoRotulo || '') : '';
+        const podeGerenciar = pelaRegra || selo !== '';
         excluir.classList.toggle('ps-fin-menu-item--perigo', podeGerenciar);
-
-        if (!podeGerenciar) {
-            const motivo = registro.getAttribute('data-obs-do-autor') === '1' ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR;
-            pintarItemObs(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);
-            pintarItemObs(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);
+        if (window.SeloSemPrazo) { window.SeloSemPrazo.pintar(editar, selo); window.SeloSemPrazo.pintar(excluir, selo); }
+        if (selo) {
+            pintarItemObs(editar, true, BJ_T.t('pasta_financeiro.js.editar_sem_prazo'), 'bi-pencil', '');
+            pintarItemObs(excluir, true, BJ_T.t('pasta_financeiro.js.excluir_sem_prazo'), 'bi-trash3', '');
             return;
         }
 
-        pintarItemObs(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', '');
-        pintarItemObs(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', '');
+        if (!podeGerenciar) {
+            const motivo = registro.getAttribute('data-obs-do-autor') === '1' ? BJ_T.t('pasta_financeiro.js.motivo_prazo') : BJ_T.t('pasta_financeiro.js.motivo_autor');
+            pintarItemObs(editar, false, BJ_T.t('pasta_financeiro.js.editar_bloqueado'), 'bi-lock', motivo);
+            pintarItemObs(excluir, false, BJ_T.t('pasta_financeiro.js.excluir_bloqueado'), 'bi-lock', motivo);
+            return;
+        }
+
+        pintarItemObs(editar, true, BJ_T.t('pasta_financeiro.js.editar_min', { minutos: resto }), 'bi-pencil', '');
+        pintarItemObs(excluir, true, BJ_T.t('pasta_financeiro.js.excluir_min', { minutos: resto }), 'bi-trash3', '');
     }
 
     function menuDoGatilho(gatilho) {
@@ -1303,10 +1468,10 @@
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(texto).then(
                 function () { avisar(aviso); },
-                function () { avisar('Não foi possível copiar'); }
+                function () { avisar(BJ_T.t('pasta_financeiro.js.nao_copiou')); }
             );
         } else {
-            avisar('Não foi possível copiar');
+            avisar(BJ_T.t('pasta_financeiro.js.nao_copiou'));
         }
     }
 
@@ -1318,7 +1483,7 @@
         const folha = document.getElementById('psExtratoFolha');
         if (!folha) { return ''; }
         const linhas = Array.prototype.map.call(folha.querySelectorAll('.ps-fin-extrato-lista li'), textoLimpo);
-        return 'Pagamentos · ' + textoLimpo(folha.querySelector('.ps-fin-extrato-total')) + '\n' + linhas.join('\n');
+        return BJ_T.t('pasta_financeiro.js.resumo_pagamentos', { total: textoLimpo(folha.querySelector('.ps-fin-extrato-total')) }) + '\n' + linhas.join('\n');
     }
 
     /* "Imprimir extrato" (desenho dc 3515 → `gmImprimir`, EDT-004/FPN-010): a MESMA janela
@@ -1386,7 +1551,7 @@
     function emailSemCadastro() {
         const gatilho = document.getElementById('dados-tab');
         if (gatilho && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(gatilho).show(); }
-        avisar('Cadastre um e-mail do cliente para enviar');
+        avisar(BJ_T.t('pasta_financeiro.js.email_sem_cadastro'));
     }
 
     // Clique FORA fecha, em captura: os gatilhos do cabeçalho (pasta-show.js)
@@ -1426,24 +1591,25 @@
             // Sem Renomear (quem não escreve), o nome vem do título do próprio menu.
             const ren    = aberto.menu.querySelector('.btn-renomear-doc');
             const titulo = aberto.menu.querySelector('.ps-fin-menu-titulo');
-            copiar(ren ? ren.dataset.titulo : (titulo ? (titulo.getAttribute('title') || textoLimpo(titulo)) : ''), item.querySelector('span'), 'Nome copiado');
+            copiar(ren ? ren.dataset.titulo : (titulo ? (titulo.getAttribute('title') || textoLimpo(titulo)) : ''), item.querySelector('span'), BJ_T.t('pasta_financeiro.js.nome_copiado'));
             return;
         }
         if (item.classList.contains('js-pag-copiar-resumo')) {
-            copiar(resumoDosPagamentos(), item.querySelector('span'), 'Resumo copiado');
+            copiar(resumoDosPagamentos(), item.querySelector('span'), BJ_T.t('pasta_financeiro.js.resumo_copiado'));
             return;
         }
         if (item.classList.contains('js-fin-obs-copiar')) {
-            copiar(textoLimpo(obsAlvo ? obsAlvo.querySelector('.obs-conteudo .ql-editor') : null), item.querySelector('span'), 'Texto copiado');
+            copiar(textoLimpo(obsAlvo ? obsAlvo.querySelector('.obs-conteudo .ql-editor') : null), item.querySelector('span'), BJ_T.t('pasta_financeiro.js.texto_copiado'));
             return;
         }
 
         fechar(false);
 
-        // Responder, Editar e Excluir do registro clicam os botões do próprio cartão: o
-        // handler deles (no _financeiro_obs_script) é o único caminho.
-        if (item.classList.contains('js-fin-obs-editar') || item.classList.contains('js-fin-obs-excluir') || item.classList.contains('js-fin-obs-responder')) {
+        // Responder, Encaminhar, Editar e Excluir do registro clicam os botões do próprio cartão: o
+        // handler deles (no _financeiro_obs_script e no pasta-encaminhar.js) é o único caminho.
+        if (item.classList.contains('js-fin-obs-editar') || item.classList.contains('js-fin-obs-excluir') || item.classList.contains('js-fin-obs-responder') || item.classList.contains('js-fin-obs-encaminhar')) {
             const seletor = item.classList.contains('js-fin-obs-responder') ? '.btn-responder-obs'
+                : item.classList.contains('js-fin-obs-encaminhar') ? '.js-encaminhar'
                 : (item.classList.contains('js-fin-obs-editar') ? '.btn-editar-obs' : '.btn-excluir-obs');
             // `:scope > .ps-anotacao-topo`: o botão do PRÓPRIO cartão.
             const botao = obsAlvo ? obsAlvo.querySelector(':scope > .ps-anotacao-topo ' + seletor) : null;
@@ -1538,8 +1704,9 @@
    que aparece com o cartão sob o mouse. O JS (`_financeiro_obs_script`) monta a MESMA marcação.
    `podeEscrever` (C7-FPN-01): EDIT na pasta e pasta viva. Sem ele, nem lápis/lixeira nem
    Responder — nem para o autor dentro da janela (a rota exige EDIT, a lápide recusa o POST).
+   `encaminharPasta`: o id da pasta quando o ↪ "Encaminhar via Chat I.A" entra, ou null.
 #}
-{% macro registro(obs, raiz, pasta, podeEscrever) %}
+{% macro registro(obs, raiz, pasta, podeEscrever, encaminharPasta) %}
     {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
     {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
     {% set iniciais = partes|length > 0
@@ -1547,71 +1714,91 @@
         : '?' %}
     {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo
        vem do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). #}
-    {% set podeGerenciar = podeEscrever and obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
+    {% set pelaRegraFin = obs.autor and app.user and obs.autor.id == app.user.id and comentario_editavel(obs.criadaEm) %}
+    {# Edição sem prazo (spec edicao-sem-prazo §1 e §5): Master e primário (com a opção) também editam e excluem; o
+       selo aparece quando é o poder que libera. Mesma resposta do servidor (`PrazoDoComentario`). #}
+    {% set poderFin = podeEscrever ? sem_prazo_selo(false) : null %}
+    {% set seloFin = podeEscrever ? sem_prazo_selo(pelaRegraFin) : null %}
+    {% set podeGerenciar = podeEscrever and sem_prazo_libera(pelaRegraFin) %}
     {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
     {% set alvoId = raiz ? raiz.id : obs.id %}
     {% set alvoNome = raiz ? (raiz.autor.fullName ?? raiz.autor.email ?? '') : autor %}
     {% set respostaANome = obs.respostaA ? (obs.respostaA.autor.fullName ?? obs.respostaA.autor.email ?? null) : null %}
     {# Resposta de outro dia que não o da raiz: a hora leva o dia junto ("06/10 · 09:12"). #}
     {% set horaRotulo = (raiz and obs.criadaEm|date('Y-m-d') != raiz.criadaEm|date('Y-m-d'))
-        ? obs.criadaEm|date('d/m') ~ ' · ' ~ obs.criadaEm|date('H:i')
-        : obs.criadaEm|date('H:i') %}
+        ? obs.criadaEm|date('d/m') ~ ' · ' ~ obs.criadaEm|hora
+        : obs.criadaEm|hora %}
 
     {# `data-obs-do-autor`: só para o motivo do "· bloqueado" do menu (FPN-006b).
        `data-janela-ate` (C6-FPN-05): o fim da janela de edição em epoch (segundos); o menu
        recalcula os minutos por ele a cada abertura, como em Detalhes. #}
     <article class="ps-anotacao{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="financeiro-obs-{{ obs.id }}"
              data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}"
-             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}">
+             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}"
+             {%- if poderFin and podeGerenciar %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ poderFin)|trans }}"{% endif %}
+             {#- Presença do autor (pasta-presenca-autor.js). #}
+             {%- if obs.autor %} data-autor-id="{{ obs.autor.id }}"{% endif %}>
         {% if obs.resposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">
                 <i class="bi bi-reply-fill" aria-hidden="true"></i>
-                <span>{% if respostaANome is not null %}Resposta a {{ respostaANome }}{% else %}Resposta a uma mensagem excluída{% endif %}</span>
+                <span>{% if respostaANome is not null %}{{ 'pasta_financeiro.registro.resposta_a'|trans({nome: respostaANome}) }}{% else %}{{ 'pasta_financeiro.registro.resposta_orfa'|trans }}{% endif %}</span>
             </div>
         {% endif %}
         <span class="ps-anotacao-ponto" aria-hidden="true"></span>
         <span class="ps-anotacao-seta" aria-hidden="true"></span>
         <div class="ps-anotacao-topo">
             <span class="ps-avatar ps-avatar--24">{{ iniciais }}</span>
-            <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+            <span class="ps-anotacao-autor">{{ autor ?: 'pasta_financeiro.registro.autor_desconhecido'|trans }}</span>
             {% if obs.editadaEm %}
-                <span class="ps-anotacao-editado" title="Editado em {{ obs.editadaEm|date('d/m/Y H:i') }}">editado</span>
+                <span class="ps-anotacao-editado" title="{{ 'pasta_financeiro.registro.editado_em'|trans({quando: obs.editadaEm|data_hora}) }}">{{ 'pasta_financeiro.registro.editado'|trans }}</span>
             {% endif %}
             <span class="ps-cab-espaco"></span>
             {% if podeGerenciar %}
                 <span class="ps-anotacao-acoes">
                     <button type="button"
-                            class="ps-anotacao-acao btn-editar-obs"
-                            title="Editar registro" aria-label="Editar registro"
+                            class="ps-anotacao-acao btn-editar-obs{{ seloFin ? ' com-selo-sem-prazo' }}"
+                            title="{{ 'pasta_financeiro.registro.editar'|trans }}" aria-label="{{ 'pasta_financeiro.registro.editar'|trans }}"
                             data-obs-id="{{ obs.id }}"
                             data-conteudo="{{ obs.conteudo|e('html_attr') }}"
                             data-conteudo-html="{{ obs.conteudo|registro_texto|e('html_attr') }}"
                             data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
                             data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
-                        <i class="bi bi-pencil"></i>
+                        <i class="bi bi-pencil"></i>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloFin} only %}
                     </button>
                     <button type="button"
-                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
-                            title="Excluir registro" aria-label="Excluir registro"
+                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs{{ seloFin ? ' com-selo-sem-prazo' }}"
+                            title="{{ 'pasta_financeiro.registro.excluir'|trans }}" aria-label="{{ 'pasta_financeiro.registro.excluir'|trans }}"
                             data-obs-id="{{ obs.id }}"
                             data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
                             data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
-                        <i class="bi bi-trash3"></i>
+                        <i class="bi bi-trash3"></i>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloFin} only %}
                     </button>
                     {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
-                    <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ minRest }} min">· {{ minRest }} min</span>
+                    {% if not seloFin %}<span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="{{ 'pasta_financeiro.registro.janela_dica'|trans({minutos: minRest}) }}">{{ 'pasta_financeiro.registro.janela'|trans({minutos: minRest}) }}</span>{% endif %}
                 </span>
             {% endif %}
             {% if podeEscrever %}
                 {# Responder a uma RESPOSTA já começa com "@Nome " do autor dela (desenho `respTxt`). #}
                 <button type="button"
                         class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs"
-                        title="Responder" aria-label="Responder"
+                        title="{{ 'pasta_financeiro.registro.responder'|trans }}" aria-label="{{ 'pasta_financeiro.registro.responder'|trans }}"
                         data-resposta-a="{{ alvoId }}"
-                        data-resposta-nome="{{ alvoNome ?: 'Autor desconhecido' }}"
+                        data-resposta-nome="{{ alvoNome ?: 'pasta_financeiro.registro.autor_desconhecido'|trans }}"
                         {%- if raiz and obs.autor and autor %} data-resposta-autor-id="{{ obs.autor.id }}" data-resposta-autor-nome="{{ autor }}"{% endif %}>
                     <i class="bi bi-reply-fill"></i>
+                </button>
+            {% endif %}
+            {% if encaminharPasta %}
+                {# D:1936: o ↪ espelhado, 28×26, depois do Responder e antes da hora; aparece com o
+                   cartão sob o mouse, como o Responder (`data-acao`). Só ids: o servidor relê o registro. #}
+                <button type="button"
+                        class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                        title="{{ 'pasta_financeiro.comum.encaminhar'|trans }}" aria-label="{{ 'pasta_financeiro.comum.encaminhar'|trans }}"
+                        data-encaminhar-pasta="{{ encaminharPasta }}"
+                        data-encaminhar-tipo="registro_financeiro"
+                        data-encaminhar-id="{{ obs.id }}">
+                    <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
                 </button>
             {% endif %}
             <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ horaRotulo }}</span>

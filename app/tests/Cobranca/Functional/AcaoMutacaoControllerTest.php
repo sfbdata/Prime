@@ -182,7 +182,7 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
         $eventos = static::getContainer()->get(EventoHistoricoRepository::class)->doCaso($casoFresh);
         $contato = array_values(array_filter($eventos, fn ($e) => $e->getTipo() === TipoEventoHistorico::ContatoRealizado));
         self::assertCount(1, $contato, 'grava exatamente um evento de contato');
-        self::assertStringContainsString('Contato por Telefone em 10/05/2026 14:30 — Atendido. Prometeu pagar', $contato[0]->getDescricao());
+        self::assertStringContainsString('Contato por Telefone em 10/05/2026 14:30: Atendido. Prometeu pagar', $contato[0]->getDescricao());
         self::assertSame('2026-05-10 14:30', $contato[0]->getOcorridoEm()->format('Y-m-d H:i'), 'a data do contato vira o ocorridoEm do evento');
     }
 

@@ -8,69 +8,64 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Entity\Auth\User;
+use App\Service\Tenant\TenantContext;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * O que falta no cadastro de um cliente para ele servir de qualificação numa peça.
  *
- * Origem: regra `cliPend` do desenho aprovado ("02 - EXPEDIENTES 1.2.3.dc.html",
- * L.3249-3255, lista `CLI_REQ` em L.3172), ADAPTADA aos campos que existem aqui. O
- * desenho foi feito sobre um cadastro imaginário; onde ele pede um campo que o
- * sistema não tem, a pendência foi OMITIDA — cobrar o que não há onde preencher
- * deixaria todo cliente "incompleto" para sempre.
+ * Regra `cliPend` do desenho 1.2.3 (lista `CLI_REQ`), com os textos dele. Desde a E12f o cadastro tem número e
+ * bairro, então nada do desenho fica omitido para pessoa física. Cada pendência diz a aba do Cadastro onde se
+ * resolve (`pessoais`, `endereco`, `contato`, `docs`): é ela que acende o ponto laranja da aba e para onde o clique no
+ * quadro "Pendências" leva.
  *
- *   Desenho                 Aqui
- *   ──────────────────────  ─────────────────────────────────────────────
- *   Nome completo           ClientePF::nomeCompleto · ClientePJ::razaoSocial
- *   Estado civil            ClientePF::estadoCivil (só PF)
- *   Profissão               ClientePF::profissao (só PF)
- *   RG                      ClientePF::rg (só PF)
- *   CPF                     ClientePF::cpf · ClientePJ::cnpj
- *   Logradouro              Cliente::endereco ("Endereço" — campo único)
- *   Número                  OMITIDO: não existe campo próprio, vai junto do endereço
- *   Bairro                  OMITIDO: não existe campo próprio
- *   Cidade · UF · CEP       Cliente::cidade · Cliente::estado · Cliente::cep
- *   contato (tel/whats/e-mail) Cliente::telefoneCelular · telefoneFixo · email
- *   doc. de identificação   ClienteDocumento categoria IDENTIFICACAO
- *   comprov. de residência  ClienteDocumento categoria COMPROVANTE_RESIDENCIA
+ * Pessoa jurídica (o desenho só desenha pessoa física; o dono decidiu adaptar): razão social, CNPJ, representante
+ * legal e o CPF dele na aba Cliente; endereço, contato e documentos iguais.
  *
- * Pessoa jurídica: o desenho só modela pessoa física. Para PJ vale a parte comum
- * (nome, documento, endereço, contato, anexos); estado civil, profissão e RG não
- * se aplicam, e nada foi inventado no lugar deles (representante legal, por
- * exemplo, não está no desenho).
- *
- * Serviço PURO: lê a entidade e devolve texto. Não consulta banco — os anexos vêm
- * da coleção `documentos` do próprio cliente.
+ * Documento VINCULADO do menu Documentos só resolve a pendência para quem vê a pasta dele
+ * ({@see DocumentosVisiveisDoCadastro}): contar o vínculo de pasta escondida denunciaria que ela tem um documento do
+ * cliente (spec cliente-inteligencia-cadastral §2.3, decisão do coordenador em 20/10). Sem quem olha, só o anexo
+ * próprio conta.
  */
 final class PendenciasDoCadastro
 {
-    /**
-     * As pendências, na ordem do desenho, já no texto que a tela mostra
-     * ("RG não informado", "Nenhum contato informado"...). Lista vazia = completo.
-     *
-     * @return list<string>
-     */
+    public function __construct(
+        private readonly ?DocumentosVisiveisDoCadastro $visiveis = null,
+        private readonly ?Security $seguranca = null,
+        private readonly ?TenantContext $tenants = null,
+    ) {
+    }
+
+    /** @return list<string> */
     public function de(Cliente $cliente): array
     {
-        $pendencias = [];
+        return array_column($this->porAba($cliente), 'texto');
+    }
 
-        foreach ($this->camposObrigatorios($cliente) as [$rotulo, $valor]) {
+    /** @return list<array{texto: string, aba: string}> */
+    public function porAba(Cliente $cliente): array
+    {
+        $pendencias = [];
+        foreach ($this->camposObrigatorios($cliente) as [$rotulo, $valor, $aba, $genero]) {
             if (self::vazio($valor)) {
-                $pendencias[] = $rotulo . ' não ' . self::informado($rotulo);
+                $pendencias[] = ['texto' => $rotulo . ' não ' . ($genero === 'a' ? 'informada' : 'informado'), 'aba' => $aba];
             }
         }
 
         if (self::vazio($cliente->getTelefoneCelular())
             && self::vazio($cliente->getTelefoneFixo())
+            && self::vazio($cliente->getWhatsapp())
             && self::vazio($cliente->getEmail())) {
-            $pendencias[] = 'Nenhum contato informado';
+            $pendencias[] = ['texto' => 'Nenhum contato informado', 'aba' => 'contato'];
         }
 
         if (!$this->temAnexo($cliente, ClienteDocumento::CATEGORIA_IDENTIFICACAO)) {
-            $pendencias[] = 'Documento de identificação não anexado';
+            $pendencias[] = ['texto' => 'Documento de identificação não anexado', 'aba' => 'docs'];
         }
 
         if (!$this->temAnexo($cliente, ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA)) {
-            $pendencias[] = 'Comprovante de residência não anexado';
+            $pendencias[] = ['texto' => 'Comprovante de residência não anexado', 'aba' => 'docs'];
         }
 
         return $pendencias;
@@ -78,36 +73,38 @@ final class PendenciasDoCadastro
 
     public function estaCompleto(Cliente $cliente): bool
     {
-        return $this->de($cliente) === [];
+        return $this->porAba($cliente) === [];
     }
 
-    /**
-     * @return list<array{0: string, 1: ?string}> [rótulo, valor] na ordem do desenho
-     */
+    /** @return list<array{0: string, 1: ?string, 2: string, 3: string}> rótulo, valor, aba, gênero do rótulo */
     private function camposObrigatorios(Cliente $cliente): array
     {
         $endereco = [
-            ['Endereço', $cliente->getEndereco()],
-            ['Cidade', $cliente->getCidade()],
-            ['UF', $cliente->getEstado()],
-            ['CEP', $cliente->getCep()],
+            ['Logradouro', $cliente->getEndereco(), 'endereco', 'o'],
+            ['Número', $cliente->getNumero(), 'endereco', 'o'],
+            ['Bairro', $cliente->getBairro(), 'endereco', 'o'],
+            ['Cidade', $cliente->getCidade(), 'endereco', 'a'],
+            ['UF', $cliente->getEstado(), 'endereco', 'a'],
+            ['CEP', $cliente->getCep(), 'endereco', 'o'],
         ];
 
         if ($cliente instanceof ClientePF) {
             return [
-                ['Nome completo', $cliente->getNomeCompleto()],
-                ['Estado civil', $cliente->getEstadoCivil()],
-                ['Profissão', $cliente->getProfissao()],
-                ['RG', $cliente->getRg()],
-                ['CPF', $cliente->getCpf()],
+                ['Nome completo', $cliente->getNomeCompleto(), 'pessoais', 'o'],
+                ['Estado civil', $cliente->getEstadoCivil(), 'pessoais', 'o'],
+                ['Profissão', $cliente->getProfissao(), 'pessoais', 'a'],
+                ['RG', $cliente->getRg(), 'pessoais', 'o'],
+                ['CPF', $cliente->getCpf(), 'pessoais', 'o'],
                 ...$endereco,
             ];
         }
 
         if ($cliente instanceof ClientePJ) {
             return [
-                ['Razão social', $cliente->getRazaoSocial()],
-                ['CNPJ', $cliente->getCnpj()],
+                ['Razão social', $cliente->getRazaoSocial(), 'pessoais', 'a'],
+                ['CNPJ', $cliente->getCnpj(), 'pessoais', 'o'],
+                ['Representante legal', $cliente->getRepresentanteLegal(), 'pessoais', 'o'],
+                ['CPF do representante', $cliente->getRepresentanteCpf(), 'pessoais', 'o'],
                 ...$endereco,
             ];
         }
@@ -117,8 +114,8 @@ final class PendenciasDoCadastro
 
     private function temAnexo(Cliente $cliente, string $categoria): bool
     {
-        foreach ($cliente->getDocumentos() as $documento) {
-            if ($documento->getCategoria() === $categoria) {
+        foreach ($this->documentosQueContam($cliente) as $documento) {
+            if ($documento->getCategoria() === $categoria && $documento->estaDisponivel()) {
                 return true;
             }
         }
@@ -126,16 +123,15 @@ final class PendenciasDoCadastro
         return false;
     }
 
-    /**
-     * Concordância do desenho: "Profissão não informada", "RG não informado".
-     * Masculinos: os rótulos que o desenho trata com "o" e os dois que só existem
-     * aqui (Endereço). O resto é feminino.
-     */
-    private static function informado(string $rotulo): string
+    /** @return iterable<ClienteDocumento> */
+    private function documentosQueContam(Cliente $cliente): iterable
     {
-        return \in_array($rotulo, ['Nome completo', 'Estado civil', 'RG', 'CPF', 'CNPJ', 'Endereço', 'CEP'], true)
-            ? 'informado'
-            : 'informada';
+        $usuario = $this->seguranca?->getUser();
+        if ($this->visiveis === null || !$usuario instanceof User) {
+            return array_filter($cliente->getDocumentos()->toArray(), static fn (ClienteDocumento $d): bool => !$d->isVinculado());
+        }
+
+        return $this->visiveis->de($cliente, $usuario, $this->tenants?->getCurrentTenant());
     }
 
     private static function vazio(?string $valor): bool

@@ -12,7 +12,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Política de Privacidade — BlueJus (versão {{ versao }})</title>
+    <title>{{ 'legal.pdf.titulo_pagina'|trans({versao: versao}) }}</title>
     <style>
         @page { margin: 2cm 1.8cm 2.2cm; }
 
@@ -79,7 +79,7 @@
 </head>
 <body>
     <div class="rodape">
-        BlueJus — Política de Privacidade · versão {{ versao }} · publicada em {{ data_publicacao }}
+        {{ 'legal.pdf.rodape'|trans({versao: versao, data: data_publicacao}) }}
     </div>
 
     {% include 'legal/_politica_privacidade_texto.html.twig' %}

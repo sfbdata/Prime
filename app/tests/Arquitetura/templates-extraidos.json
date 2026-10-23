@@ -1,0 +1,1100 @@
+{
+    "_leia": "Templates cujo texto já mora no catálogo (spec idioma-do-sistema). Texto novo neles entra por |trans. 'permitidos' são textos que ficam como estão (marca, sigla, exemplo).",
+
+    "moldura": {
+        "templates": [
+            "base.html.twig",
+            "_sidebar.html.twig",
+            "layout/_globais.html.twig",
+            "layout/_globais/aviso_espaco.html.twig",
+            "layout/_globais/aviso_falha_agendada.html.twig",
+            "layout/_globais/busca_rapida.html.twig",
+            "layout/_globais/fechar.html.twig",
+            "layout/_globais/lembretes.html.twig",
+            "layout/_globais/tema_comemorativo.html.twig",
+            "layout/_globais/genero.html.twig"
+        ],
+        "js": [
+            "janela-genero.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "Esc"
+        ]
+    },
+
+    "menu": {
+        "templates": [
+            "menu_usuario/_dropdown.html.twig",
+            "menu_usuario/_itens_master.html.twig",
+            "menu_usuario/_minha_conta.html.twig",
+            "menu_usuario/_modais.html.twig",
+            "menu_usuario/_presenca.html.twig",
+            "menu_usuario/_trocar_conta.html.twig"
+        ],
+        "js": [
+            "menu-usuario.js"
+        ],
+        "permitidos": [
+            "PIX",
+            "Content-Type",
+            "Escape"
+        ]
+    },
+
+    "perfil": {
+        "templates": [
+            "profile/index.html.twig"
+        ],
+        "js": [
+            "meu-perfil.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "Não uso mais",
+            "Achei caro",
+            "Faltou um recurso",
+            "Mudei de sistema",
+            "Encerrando o escritório",
+            "Outro motivo",
+            "Content-Type"
+        ]
+    },
+
+    "pasta_processo": {
+        "templates": [
+            "pasta/_processos_vinculados.html.twig"
+        ],
+        "js": [
+            "pasta-processo.js"
+        ],
+        "permitidos": [
+            "Escape",
+            "Accept"
+        ]
+    },
+
+    "processo": {
+        "templates": [
+            "processo/index.html.twig",
+            "processo/_resultado.html.twig",
+            "processo/new.html.twig",
+            "processo/show.html.twig",
+            "processo/_notas_tecnicas.html.twig",
+            "processo/_nota_tecnica_item.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "comercial": {
+        "templates": [
+            "master/_comercial.html.twig",
+            "master/_comercial_datas.html.twig",
+            "master/_comercial_descadastrados.html.twig",
+            "master/_comercial_kpis.html.twig",
+            "master/_comercial_leitura.html.twig",
+            "master/_comercial_teste.html.twig"
+        ],
+        "js": [
+            "master/comercial.js",
+            "master/comercial-campanha.js",
+            "master/comercial-datas.js",
+            "master/comercial-descadastrados.js",
+            "master/comercial-leitura.js",
+            "master/comercial-teste.js"
+        ],
+        "permitidos": [
+            "B",
+            "Content-Type",
+            "Accept",
+            "Escape"
+        ]
+    },
+
+    "comercial_relatorio": {
+        "templates": [
+            "master/_comercial_relatorio.html.twig"
+        ],
+        "js": [
+            "master/comercial-relatorio.js"
+        ],
+        "permitidos": [
+            "B",
+            "Content-Type",
+            "Escape"
+        ]
+    },
+
+    "temas": {
+        "templates": [
+            "master/_recursos_tema.html.twig"
+        ],
+        "js": [
+            "master/temas.js"
+        ],
+        "permitidos": [
+            "Content-Type"
+        ]
+    },
+
+    "expediente": {
+        "templates": [
+            "expediente/index.html.twig",
+            "expediente/_lista.html.twig",
+            "expediente/_paginacao.html.twig",
+            "expediente/_modais_lista.html.twig",
+            "expediente/_acervo_geral.html.twig",
+            "expediente/_painel_marcador.html.twig",
+            "expediente/_trilho.html.twig",
+            "expediente/_relatorio_processos_modal.html.twig",
+            "expediente/relatorio_processos.html.twig",
+            "expediente/pastas_paradas.html.twig"
+        ],
+        "js": [
+            "expediente-lista.js",
+            "expediente-trilho.js"
+        ],
+        "permitidos": [
+            "exp-body",
+            "aria-sort=\"\"",
+            "10,5 pt",
+            "BLUEJUS",
+            "App\\\\Pasta\\\\DTO\\\\AnaliseSemProcessoDaPasta::ADMINISTRATIVA",
+            "Crítico",
+            "Atenção",
+            "Acompanhar",
+            "App\\\\Pasta\\\\DTO\\\\RelatorioPastasParadasOutput::NENHUMA",
+            "App\\\\Pasta\\\\DTO\\\\RelatorioPastasParadasOutput::NOTA_FINAL",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Tab",
+            "ArrowDown",
+            "ArrowUp",
+            "Home",
+            "End",
+            "ContextMenu"
+        ]
+    },
+
+    "metas": {
+        "templates": [
+            "tarefa/minhas.html.twig",
+            "tarefa/_meta_cartao.html.twig",
+            "tarefa/_resultado.html.twig",
+            "tarefa/equipe.html.twig",
+            "tarefa/_numero_global.html.twig",
+            "tarefa/show.html.twig",
+            "tarefa/_despacho.html.twig",
+            "tarefa/_despacho_formulario.html.twig",
+            "tarefa/_meta_aguardando.html.twig",
+            "tarefa/_meta_situacao.html.twig",
+            "tarefa/_meta_detalhes.html.twig",
+            "tarefa/registro.html.twig",
+            "tarefa/extrato.html.twig"
+        ],
+        "js": ["meta-despacho.js", "meta-detalhe.js"],
+        "permitidos": ["Enter", "Escape", "Tab", "meta-body", "mm-body"]
+    },
+
+    "perfis": {
+        "templates": [
+            "tenant_role/index.html.twig",
+            "tenant_role/edit.html.twig",
+            "tenant_role/new.html.twig",
+            "tenant_role/_form.html.twig",
+            "tenant_role/_confirmacao.html.twig",
+            "tenant_role/acesso_restrito.html.twig"
+        ],
+        "js": [
+            "perfis.js"
+        ],
+        "permitidos": [
+            "Escape"
+        ]
+    },
+
+    "pasta_push": {
+        "templates": [
+            "pasta/_push_processual.html.twig",
+            "pasta/_push_painel.html.twig",
+            "pasta/_push_cliente.html.twig",
+            "pasta/_push_cliente_modal.html.twig",
+            "pasta/_push_teor.html.twig",
+            "pasta/_push_link_externo.html.twig"
+        ],
+        "js": [
+            "pasta-push.js",
+            "pasta-push-painel.js",
+            "pasta-push-cliente.js",
+            "pasta-push-link.js"
+        ],
+        "permitidos": [
+            "Accept",
+            "Escape",
+            "Tab",
+            "ContextMenu",
+            "ArrowDown",
+            "ArrowUp",
+            "ç",
+            "ã",
+            "á",
+            "â",
+            "é",
+            "ê",
+            "í",
+            "ó",
+            "õ",
+            "ú"
+        ]
+    },
+
+    "master": {
+        "templates": [
+            "master/painel.html.twig",
+            "master/_notificacoes.html.twig",
+            "master/_indicacoes.html.twig",
+            "master/mapa_mundo.html.twig"
+        ],
+        "js": [
+            "master/painel.js",
+            "master/notificacoes.js",
+            "master/indicacoes.js",
+            "master/masters.js",
+            "master/recursos.js",
+            "master/mapa-mundo.js",
+            "master/bj-dica.js"
+        ],
+        "permitidos": [
+            "Rondônia",
+            "Acre",
+            "Amazonas",
+            "Roraima",
+            "Pará",
+            "Amapá",
+            "Tocantins",
+            "Maranhão",
+            "Piauí",
+            "Ceará",
+            "Rio Grande do Norte",
+            "Paraíba",
+            "Pernambuco",
+            "Alagoas",
+            "Sergipe",
+            "Bahia",
+            "Minas Gerais",
+            "Espírito Santo",
+            "Rio de Janeiro",
+            "São Paulo",
+            "Paraná",
+            "Santa Catarina",
+            "Rio Grande do Sul",
+            "Mato Grosso do Sul",
+            "Mato Grosso",
+            "Goiás",
+            "Distrito Federal",
+            "Ativa",
+            "Suspensa",
+            "Em quarentena",
+            "Argentina",
+            "Bolívia",
+            "Chile",
+            "Colômbia",
+            "Equador",
+            "Paraguai",
+            "Peru",
+            "Uruguai",
+            "Venezuela",
+            "Canadá",
+            "México",
+            "Estados Unidos",
+            "Portugal",
+            "Espanha",
+            "Itália",
+            "França",
+            "Alemanha",
+            "Reino Unido",
+            "Suíça",
+            "Países Baixos",
+            "Bélgica",
+            "Irlanda",
+            "Angola",
+            "Moçambique",
+            "Cabo Verde",
+            "Guiné-Bissau",
+            "São Tomé e Príncipe",
+            "Timor-Leste",
+            "Brasil",
+            "Austrália",
+            "Japão",
+            "China",
+            "Norte",
+            "Nordeste",
+            "Centro-Oeste",
+            "Sudeste",
+            "Sul",
+            "Polygon",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Rio Branco",
+            "Maceió",
+            "Macapá",
+            "Manaus",
+            "Salvador",
+            "Fortaleza",
+            "Brasília",
+            "Vitória",
+            "Goiânia",
+            "São Luís",
+            "Cuiabá",
+            "Campo Grande",
+            "Belo Horizonte",
+            "Belém",
+            "João Pessoa",
+            "Curitiba",
+            "Recife",
+            "Teresina",
+            "Natal",
+            "Porto Alegre",
+            "Porto Velho",
+            "Boa Vista",
+            "Florianópolis",
+            "Aracaju",
+            "Palmas",
+            "America/Sao_Paulo"
+        ]
+    },
+
+    "cliente": {
+        "templates": [
+            "cliente/show.html.twig",
+            "cliente/editPF.html.twig",
+            "cliente/editPJ.html.twig",
+            "cliente/_cadastro.html.twig",
+            "cliente/_resumo.html.twig"
+        ],
+        "js": [
+            "cliente-cadastro.js"
+        ],
+        "permitidos": [
+            "Accept",
+            "Enter",
+            "Escape"
+        ]
+    },
+
+    "mapa_brasil": {
+        "templates": [
+            "master/mapa_brasil.html.twig"
+        ],
+        "js": [
+            "master/mapa-brasil.js"
+        ],
+        "permitidos": [
+            "Rondônia",
+            "Acre",
+            "Amazonas",
+            "Roraima",
+            "Pará",
+            "Amapá",
+            "Tocantins",
+            "Maranhão",
+            "Piauí",
+            "Ceará",
+            "Rio Grande do Norte",
+            "Paraíba",
+            "Pernambuco",
+            "Alagoas",
+            "Sergipe",
+            "Bahia",
+            "Minas Gerais",
+            "Espírito Santo",
+            "Rio de Janeiro",
+            "São Paulo",
+            "Paraná",
+            "Santa Catarina",
+            "Rio Grande do Sul",
+            "Mato Grosso do Sul",
+            "Mato Grosso",
+            "Goiás",
+            "Distrito Federal",
+            "Content-Type",
+            "Escape",
+            "Polygon"
+        ]
+    },
+
+    "cobranca_objeto": {
+        "templates": [
+            "cobranca/objeto/show.html.twig",
+            "cobranca/objeto/_partials/_divida.html.twig",
+            "cobranca/objeto/_partials/_movimentos.html.twig",
+            "cobranca/objeto/_partials/_responsaveis.html.twig",
+            "cobranca/objeto/_partials/_telefones_cobrada.html.twig",
+            "cobranca/objeto/_partials/_painel_qualificacao.html.twig",
+            "cobranca/objeto/_partials/_honorarios.html.twig",
+            "cobranca/objeto/_partials/_anotacao_acoes.html.twig",
+            "cobranca/objeto/_partials/_campos_config_encargos.html.twig",
+            "cobranca/caso/index.html.twig",
+            "cobranca/caso/_resultado.html.twig",
+            "cobranca/caso/_documentos.html.twig",
+            "cobranca/caso/_acoes_modais.html.twig",
+            "cobranca/caso/_acoes_modais_financeiro.html.twig",
+            "cobranca/acordo/show.html.twig"
+        ],
+        "js": [
+            "objeto-linha-menu.js",
+            "judicializar-buscar-pasta.js"
+        ],
+        "permitidos": [
+            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone",
+            "Escape",
+            "ArrowDown",
+            "ArrowUp",
+            "Tab",
+            "Enter"
+        ]
+    },
+
+    "dashboard": {
+        "templates": [
+            "dashboard/index.html.twig",
+            "dashboard/_resultado.html.twig",
+            "dashboard/_desempenho_cards.html.twig",
+            "dashboard/_extras.html.twig",
+            "dashboard/_tendencia.html.twig",
+            "dashboard/_inteligencia.html.twig"
+        ],
+        "js": [
+            "dashboard.js",
+            "dashboard-filtros.js",
+            "dashboard-historico.js",
+            "dashboard-janelas.js",
+            "dashboard-preferencias.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "Intelligence",
+            "BlueJus Intelligence",
+            "db-body",
+            "sóci",
+            "Atenção imediata",
+            "Acompanhamento",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::CATALOGO",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::TENDENCIA",
+            "Accept",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Tab",
+            "ArrowDown",
+            "ArrowUp"
+        ]
+    },
+
+    "agenda": {
+        "templates": [
+            "agenda/nova.html.twig",
+            "agenda/lista.html.twig",
+            "agenda/novo.html.twig",
+            "agenda/editar.html.twig",
+            "agenda/show.html.twig"
+        ],
+        "js": [
+            "lembretes.js",
+            "agenda-nova.js"
+        ],
+        "permitidos": [
+            "ag-body"
+        ]
+    },
+
+    "pasta_financeiro": {
+        "templates": [
+            "pasta/_financeiro.html.twig",
+            "pasta/_financeiro_obs_script.html.twig",
+            "pasta/_financeiro_pagamentos.html.twig",
+            "pasta/_financeiro_pagamentos_script.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "cobranca_carteira": {
+        "templates": [
+            "cobranca/carteira/index.html.twig",
+            "cobranca/carteira/_resultado.html.twig",
+            "cobranca/carteira/_paginacao.html.twig",
+            "cobranca/carteira/show.html.twig",
+            "cobranca/carteira/_resultado_casos.html.twig",
+            "cobranca/carteira/_acoes_modais.html.twig",
+            "cobranca/carteira/_campos_config.html.twig",
+            "cobranca/dashboard/index.html.twig",
+            "cobranca/alertas/index.html.twig",
+            "cobranca/importacao/upload.html.twig",
+            "cobranca/importacao/preview.html.twig"
+        ],
+        "js": [
+            "cobranca-carteira-form.js",
+            "cobranca-soltar-arquivo.js",
+            "carteira-filtro-estado.js"
+        ],
+        "permitidos": [
+            "cs-body",
+            "resources.carteira.gerenciar"
+        ]
+    },
+
+    "cobranca_pessoa": {
+        "templates": [
+            "cobranca/pessoa/show.html.twig",
+            "cobranca/pessoa/_partials/_ficha_abas.html.twig",
+            "cobranca/pessoa/_partials/_qualificacao.html.twig",
+            "cobranca/pessoa/_partials/_lista_enderecos.html.twig",
+            "cobranca/pessoa/_partials/_lista_telefones.html.twig",
+            "cobranca/pessoa/_partials/_lista_emails.html.twig",
+            "cobranca/central/index.html.twig",
+            "cobranca/central/_aba_atividade.html.twig",
+            "cobranca/central/_detalhe_pessoa.html.twig",
+            "cobranca/central/_lista_eventos.html.twig",
+            "cobranca/central/_momento.html.twig",
+            "cobranca/_partials/_subnav.html.twig"
+        ],
+        "permitidos": [
+            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
+        ]
+    },
+
+    "escritorio": {
+        "templates": [
+            "tenant/index.html.twig",
+            "tenant/new.html.twig",
+            "tenant/criar.html.twig",
+            "tenant/show.html.twig",
+            "tenant/edit.html.twig",
+            "tenant/_form.html.twig",
+            "tenant/_delete_form.html.twig",
+            "tenant/selecionar.html.twig",
+            "tenant/escritorio_indisponivel.html.twig",
+            "tenant/users.html.twig",
+            "tenant/edit_user_role.html.twig",
+            "tenant/sedes.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "· BlueJus"
+        ]
+    },
+
+    "plataforma": {
+        "templates": [
+            "admin/platform/_base_platform.html.twig",
+            "admin/platform/_sidebar_platform.html.twig",
+            "admin/platform/convites.html.twig",
+            "admin/platform/dashboard.html.twig",
+            "admin/platform/oab.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "kanban": {
+        "templates": [
+            "kanban/index.html.twig",
+            "kanban/board.html.twig",
+            "kanban/_partials/_card_mini.html.twig",
+            "kanban/_partials/_card_modal_body.html.twig",
+            "kanban/_partials/_comentario.html.twig"
+        ],
+        "permitidos": []
+    },
+
+    "auth": {
+        "templates": [
+            "auth/meus_convites.html.twig",
+            "auth/cadastro/confirmar_email.html.twig",
+            "auth/cadastro/erro.html.twig",
+            "auth/conta/_reenviar_confirmacao.html.twig",
+            "auth/convite/erro.html.twig",
+            "auth/convite/nao_pertence.html.twig",
+            "auth/convite/ver.html.twig",
+            "auth/convite/ver_logado.html.twig",
+            "auth/convites/gerenciar.html.twig",
+            "auth/senha/erro.html.twig",
+            "auth/senha/redefinir.html.twig",
+            "auth/suporte/mensagens.html.twig"
+        ],
+        "js": [
+            "auth/criar-senha.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "App\\\\Auth\\\\Controller\\\\CadastroController::CSRF_CRIAR_SENHA",
+            "App\\\\Auth\\\\UseCase\\\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR"
+        ]
+    },
+
+    "entrada": {
+        "templates": [
+            "security/login.html.twig",
+            "security/entrando.html.twig",
+            "_fundo_auth.html.twig"
+        ],
+        "js": [
+            "auth/entrada.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "https://",
+            "App\\\\Auth\\\\Service\\\\ContaAConfirmar",
+            "Não consigo entrar",
+            "Outro assunto",
+            "Content-Type",
+            "CapsLock",
+            "Escape"
+        ]
+    },
+
+    "djen": {
+        "templates": [
+            "djen/index.html.twig",
+            "djen/oabs.html.twig",
+            "djen/show.html.twig"
+        ],
+        "permitidos": []
+    },
+
+    "feriado": {
+        "templates": [
+            "feriado/index.html.twig",
+            "feriado/new.html.twig",
+            "feriado/edit.html.twig",
+            "feriado/_form.html.twig"
+        ],
+        "permitidos": []
+    },
+
+    "sync": {
+        "templates": [
+            "sync/drive_conexao.html.twig"
+        ],
+        "permitidos": [
+            "https://drive.google.com/drive/folders/…"
+        ]
+    },
+
+    "comum": {
+        "templates": [
+            "_partials/_avatar_usuario.html.twig",
+            "_partials/_filtro_barra.html.twig",
+            "_partials/_filtro_paginacao.html.twig",
+            "_partials/_janela_confirmacao.html.twig",
+            "_partials/modal_access_request.html.twig",
+            "_partials/modal_mover_marcador.html.twig",
+            "_partials/modal_nova_pasta.html.twig"
+        ],
+        "js": [
+            "filtro-tabela.js",
+            "pasta-dialogos.js"
+        ],
+        "permitidos": [
+            "= total_paginas ? 'disabled' : '' }} aria-label=\"\">",
+            "App\\\\Expediente\\\\Service\\\\CoresDoMarcador::DESENHO",
+            "Enter",
+            "Escape",
+            "ArrowDown"
+        ]
+    },
+
+    "raiz": {
+        "templates": [
+            "_fundo_auth.html.twig",
+            "_oab_status.html.twig",
+            "_recurso_faixa_master.html.twig",
+            "layout_peticionar.html.twig"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "| BlueJus"
+        ]
+    },
+
+    "pasta_avisos": {
+        "templates": [
+            "pasta/_abas_ocultas.html.twig",
+            "pasta/_andamento.html.twig",
+            "pasta/_aviso_duplicada_conteudo.html.twig",
+            "pasta/_aviso_duplicada_modal.html.twig",
+            "pasta/_cadeado_faixa.html.twig",
+            "pasta/_cadeado_icone.html.twig",
+            "pasta/_cadeado_menu.html.twig",
+            "pasta/_cadeado_modal.html.twig",
+            "pasta/_cadeado_pedidos.html.twig",
+            "pasta/confirmar_duplicada.html.twig",
+            "pasta/trancada.html.twig",
+            "pasta/zip_recusado.html.twig"
+        ],
+        "js": [
+            "pasta-abas-ocultas.js",
+            "pasta-andamento.js",
+            "pasta-cadeado.js",
+            "pasta-cadeado-pedidos.js"
+        ],
+        "permitidos": [
+            "ps-body",
+            "· BlueJus",
+            "Accept",
+            "Content-Type",
+            "ContextMenu",
+            "Escape",
+            "Enter",
+            "ArrowDown",
+            "ArrowUp",
+            "Tab"
+        ]
+    },
+
+    "pasta_resp": {
+        "templates": [
+            "pasta/_historico_drawer.html.twig",
+            "pasta/_impressao_modal.html.twig",
+            "pasta/_pontos_relatorio.html.twig",
+            "pasta/_resp_chip.html.twig",
+            "pasta/_resp_estilo.html.twig",
+            "pasta/_resp_menu.html.twig",
+            "pasta/_resp_script.html.twig",
+            "pasta/_timeline_inteligente.html.twig",
+            "pasta/resumo_impressao.html.twig"
+        ],
+        "js": [
+            "pasta-impressao.js",
+            "pasta-timeline.js"
+        ],
+        "permitidos": [
+            "BLUEJUS",
+            "BlueJus",
+            "App\\\\Pasta\\\\DTO\\\\PastaFinanceiroOutput::SEM_DADO",
+            "Accept",
+            "AbortError",
+            "Escape"
+        ]
+    },
+
+    "publicas": {
+        "templates": [
+            "comercial/confirmacao/confirmado.html.twig",
+            "comercial/confirmacao/confirmar.html.twig",
+            "comercial/confirmacao/vencido.html.twig",
+            "email_descadastro/confirmado.html.twig",
+            "email_descadastro/confirmar.html.twig",
+            "indicacao/_janela.html.twig"
+        ],
+        "js": [
+            "indicacao.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "WhatsApp",
+            "Content-Type"
+        ]
+    },
+
+    "emails": {
+        "templates": [
+            "email/cadastro_confirmacao.html.twig",
+            "email/codigo_exclusao_conta.html.twig",
+            "email/codigo_senha.html.twig",
+            "email/convite_escritorio.html.twig",
+            "email/convite_plataforma.html.twig",
+            "email/indicacao/convite.html.twig",
+            "email/perfil/resumo_diario.html.twig",
+            "email/push_aviso_equipe.html.twig",
+            "email/push_cliente.html.twig",
+            "email/redefinicao_senha.html.twig",
+            "email/trabalho_externo_convite.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "App\\\\Pasta\\\\DTO\\\\MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA"
+        ]
+    },
+
+    "emails_comercial": {
+        "templates": [
+            "email/comercial/_layout.html.twig",
+            "email/comercial/confirmacao_endereco.html.twig",
+            "email/comercial/automacao/_blocos.html.twig",
+            "email/comercial/automacao/boas_vindas.html.twig",
+            "email/comercial/automacao/espaco_100.html.twig",
+            "email/comercial/automacao/espaco_90.html.twig",
+            "email/comercial/automacao/lembrete_confirmacao.html.twig",
+            "email/comercial/automacao/pedido_espaco.html.twig",
+            "email/comercial/automacao/primeiros_passos.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus"
+        ]
+    },
+
+    "trabalho_externo": {
+        "templates": [
+            "trabalho_externo/convite.html.twig",
+            "trabalho_externo/curriculo_documento.html.twig",
+            "trabalho_externo/index.html.twig",
+            "trabalho_externo/sem_acesso.html.twig",
+            "trabalho_externo/vagas_publicas.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "te-body",
+            "App\\\\Auth\\\\UseCase\\\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR"
+        ]
+    },
+
+    "central": {
+        "templates": [
+            "central/_flutuante.html.twig",
+            "central/_janela.html.twig",
+            "central/index.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "App\\\\Central\\\\Entity\\\\Mensagem::TAMANHO_MAXIMO"
+        ]
+    },
+
+    "servicedesk": {
+        "templates": [
+            "servicedesk/index.html.twig",
+            "servicedesk/meus_chamados.html.twig",
+            "servicedesk/novo.html.twig",
+            "servicedesk/show.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "pasta_lista": {
+        "templates": [
+            "pasta/_cliente_linha.html.twig",
+            "pasta/_filtros.html.twig",
+            "pasta/_filtro_situacao.html.twig",
+            "pasta/demandas.html.twig",
+            "pasta/demandas/_resultado.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "inteligencia": {
+        "templates": [
+            "inteligencia/_agentes_drawer.html.twig",
+            "inteligencia/_agentes_painel.html.twig",
+            "inteligencia/_comando_secao.html.twig",
+            "inteligencia/_documentos_indice.html.twig",
+            "inteligencia/_analise_cartao_agente.html.twig",
+            "inteligencia/_analises_agente.html.twig",
+            "inteligencia/_analises_comando.html.twig",
+            "inteligencia/_analises_push.html.twig",
+            "inteligencia/_conversa.html.twig",
+            "inteligencia/_conversa_rodape.html.twig",
+            "inteligencia/_auditoria.html.twig",
+            "inteligencia/admin/configuracao.html.twig"
+        ],
+        "js": [
+            "pasta-ia-agentes.js",
+            "pasta-ia-conversa.js",
+            "pasta-ia-push.js"
+        ],
+        "permitidos": [
+            "BlueJus IA",
+            "BLUEJUS IA",
+            "App\\\\Inteligencia\\\\Enum\\\\SecaoDoContexto",
+            "Escape",
+            "Enter",
+            "ArrowRight",
+            "ArrowLeft",
+            "Home",
+            "End"
+        ]
+    },
+
+    "pasta_documentos": {
+        "templates": [
+            "pasta/_dados_anotacoes.html.twig",
+            "pasta/_documentos_checklist.html.twig",
+            "pasta/_documentos_explorador.html.twig",
+            "pasta/_documentos_sugeridos.html.twig",
+            "pasta/_metas.html.twig"
+        ],
+        "js": [
+            "pasta-documentos-sugeridos.js",
+            "pasta-explorador-visor.js"
+        ],
+        "permitidos": [
+            "App\\\\Pasta\\\\Entity\\\\MotivoDesativacaoChecklist",
+            "App\\\\Tarefa\\\\UseCase\\\\RenomearMetaUseCase::TAMANHO_MAXIMO",
+            "Escape",
+            "Tab",
+            "ArrowLeft",
+            "ArrowRight"
+        ]
+    },
+
+    "pasta_detalhes": {
+        "templates": [
+            "pasta/_detalhes_obs.html.twig"
+        ],
+        "js": [
+            "pasta-ler-mais.js"
+        ],
+        "permitidos": []
+    },
+
+    "avulsas": {
+        "templates": [
+            "notificacao/index.html.twig",
+            "novidades/index.html.twig",
+            "access_request/index.html.twig",
+            "audit/index.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "| BlueJus",
+            "= pag.total_pages ? 'disabled' : '' }}\">",
+            "= pagination.total_pages ? 'disabled' : '' }}\">",
+            "view",
+            "edit",
+            "delete",
+            "true",
+            "false",
+            "text-bg-success",
+            "text-bg-primary",
+            "text-bg-danger",
+            "text-bg-secondary"
+        ]
+    },
+
+    "recurso": {
+        "templates": [
+            "recurso/_layout_simples.html.twig",
+            "recurso/em_preparacao.html.twig"
+        ],
+        "permitidos": [
+            "BlueJus | BlueJus"
+        ]
+    },
+    "legal": {
+        "templates": [
+            "legal/politica_privacidade.html.twig",
+            "legal/politica_privacidade_pdf.html.twig"
+        ],
+        "permitidos": []
+    },
+    "termo": {
+        "templates": [
+            "termo/aceite.html.twig"
+        ],
+        "permitidos": [
+            "BlueJus"
+        ]
+    },
+
+    "pasta_peticionar": {
+        "templates": [
+            "pasta/peticionar.html.twig"
+        ],
+        "js": [
+            "peticionar-documentos.js"
+        ],
+        "permitidos": [
+            "'.' ~ ext)|join(',') }}\"",
+            "required>",
+            "App\\\\Pasta\\\\DTO\\\\ExploradorDeDocumentosOutput::CATEGORIAS",
+            "BlueJus",
+            "| BlueJus",
+            "Content-Type",
+            "Escape",
+            "ArrowDown",
+            "ArrowUp",
+            "Enter",
+            "Files"
+        ]
+    },
+
+    "pasta_show": {
+        "templates": [
+            "pasta/show.html.twig"
+        ],
+        "permitidos": [
+            "ps-body",
+            "CPF",
+            "CNPJ",
+            "RG",
+            "CEP",
+            "UF",
+            "SSP/SP",
+            "SP",
+            "R$ 0,00",
+            "App\\\\Pasta\\\\Entity\\\\TipoDeApenso",
+            "App\\\\Pasta\\\\Entity\\\\Pasta::ROTULOS_SITUACAO"
+        ]
+    },
+
+    "pasta_scripts": {
+        "templates": [],
+        "js": [
+            "pasta-explorador.js",
+            "pasta-checklist.js",
+            "pasta-metas.js"
+        ],
+        "permitidos": [
+            "Accept",
+            "Content-Type",
+            "Files",
+            "Escape",
+            "Enter",
+            "Tab",
+            "Backspace",
+            "Delete",
+            "Home",
+            "End",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowUp",
+            "ContextMenu",
+            "Spacebar",
+            "Erro no toggle:",
+            "Erro ao reordenar:",
+            "Erro ao editar item:",
+            "Erro ao excluir item:"
+        ]
+    },
+    "pasta_cabecalho": {
+        "templates": [
+            "pasta/_cabecalho.html.twig",
+            "pasta/_dados_trilho.html.twig",
+            "pasta/_dados_trilho_topo.html.twig"
+        ],
+        "js": [
+            "pasta-prazos.js",
+            "pasta-clientes.js",
+            "pasta-clientes-busca.js"
+        ],
+        "permitidos": [
+            "BLUEJUS",
+            "Intelligence",
+            "E",
+            "H",
+            "T",
+            "Content-Type",
+            "Escape",
+            "Enter"
+        ]
+    }
+}

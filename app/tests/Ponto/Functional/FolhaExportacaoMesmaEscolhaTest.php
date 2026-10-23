@@ -14,6 +14,7 @@ use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\FeriadoRepository;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\FolhaPontoBuilder;
@@ -96,7 +97,7 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
         $builder = $container->get(FolhaPontoBuilder::class);
         $ano = (int) $dia->format('Y');
         $mes = (int) $dia->format('n');
-        $jornada = $colaborador->getJornadaColaborador();
+        $jornada = $container->get(JornadaColaboradorRepository::class)->findByUserETenant($colaborador, $tenant);
         $feriados = $container->get(FeriadoRepository::class)->findByTenant($tenant);
         $justificativas = $container->get(JustificativaPontoRepository::class)->findByUserAndCompetenciaIndexed($colaborador, $ano, $mes);
         $jornadaTenant = $tenant->getJornadaTenant();
@@ -146,9 +147,9 @@ final class FolhaExportacaoMesmaEscolhaTest extends JusPrimeWebTestCase
         $colaborador = $this->criarColaboradorComum($tenant);
         $jornada = new JornadaColaborador();
         $jornada->setUser($colaborador);
+        $jornada->setTenant($tenant);
         $jornada->setDiasSemana([]);
         $em->persist($jornada);
-        $colaborador->setJornadaColaborador($jornada);
 
         // Sempre ONTEM, mesmo no dia 1º: a exportação é pedida pelo mês do próprio dia, e dia futuro
         // não é apurado — "amanhã" deixaria as horas em branco e o teste cairia um dia por mês.

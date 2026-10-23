@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L7 (cabeçalho, CSS da pasta e aba Processo), lido como FOLHA: não há navegador no
@@ -106,10 +107,14 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
 
         // Os três botões ainda são .ps-btn com o rótulo num <span> filho, dentro do cabeçalho do cartão.
         $proc = self::ler(__DIR__ . '/../../../templates/pasta/_processos_vinculados.html.twig');
-        self::assertStringContainsString('<i class="bi bi-link-45deg"></i><span>Vincular processo</span>', $proc);
-        self::assertStringContainsString('<i class="bi bi-file-earmark-text"></i><span>Peticionar na pasta</span>', $proc);
+        self::assertStringContainsString("<i class=\"bi bi-link-45deg\"></i><span>{{ 'pasta_processo.cabecalho.vincular'|trans }}</span>", $proc);
+        self::assertStringContainsString("<i class=\"bi bi-file-earmark-text\"></i><span>{{ 'pasta_processo.cabecalho.peticionar'|trans }}</span>", $proc);
+        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        self::assertSame('Vincular processo', $catalogo['pasta_processo']['cabecalho']['vincular']);
+        self::assertSame('Peticionar na pasta', $catalogo['pasta_processo']['cabecalho']['peticionar']);
         $metas = self::ler(__DIR__ . '/../../../templates/pasta/_metas.html.twig');
-        self::assertStringContainsString('<i class="bi bi-plus-lg"></i><span>Nova meta</span>', $metas);
+        self::assertStringContainsString("<i class=\"bi bi-plus-lg\"></i><span>{{ 'pasta_documentos.metas.nova'|trans }}</span>", $metas);
+        self::assertSame('Nova meta', $catalogo['pasta_documentos']['metas']['nova']);
     }
 
     #[TestDox('PMC-026: o interruptor Administrativo saiu do <style> do parcial e usa tokens com par escuro')]
@@ -136,18 +141,16 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         self::assertStringNotContainsString('#b4460a', $escuro);
     }
 
-    #[TestDox('PAS-002: o observador da pílula carimba ATIVO só na volta de arquivado para ativo e tira o selo em 3,3 s')]
+    #[TestDox('PAS-002 (E12d): pasta ativa ganha o carimbo ATIVO 1,4 s depois de abrir (desenho `ativoSeloMostrar`) e ele sai em 3,3 s')]
     public function testSeloAtivoPassageiro(): void
     {
-        $script = self::trecho(self::ler(self::CABECALHO), 'O selo ARQUIVADO acompanha a pílula');
+        $script = self::trecho(self::ler(self::CABECALHO), 'Carimbo ATIVO passageiro');
 
-        self::assertStringContainsString("var estavaArquivada = pilula.classList.contains('ps-situacao-pill--arquivado');", $script);
-        self::assertStringContainsString('if (estavaArquivada && !arquivada && faixa.dataset.psSeloAtivoModelo)', $script, 'só na reativação');
+        self::assertStringContainsString("pilula.classList.contains('ps-situacao-pill--ativo')", $script, 'só na pasta ativa');
         self::assertStringContainsString("insertAdjacentHTML('afterbegin', faixa.dataset.psSeloAtivoModelo)", $script);
-        self::assertStringContainsString('setTimeout(tirarSeloAtivo, 3300)', $script);
-        self::assertStringContainsString('estavaArquivada = arquivada;', $script);
-        // O ARQUIVADO é procurado pela própria classe: o ATIVO na tela não pode passar por ele.
-        self::assertStringContainsString("faixa.querySelector(':scope > .ps-cab-selo--arquivado')", $script);
+        self::assertStringContainsString('}, 3300);', $script);
+        self::assertStringContainsString('}, 1400);', $script);
+        self::assertStringContainsString("faixa.querySelector(':scope > .ps-cab-selo--ativo')", $script);
 
         $css = self::ler(self::CSS);
         $ativo = self::regra($css, '.ps-cab-selo--ativo');

@@ -15,7 +15,9 @@ namespace App\Pasta\DTO;
 final class DeterminacaoDoJuizoOutput
 {
     /**
-     * @param list<string> $documentos chaves de `CatalogoDeDocumentos::TIPOS` que a frase manda juntar
+     * @param list<string> $documentos   chaves de `CatalogoDeDocumentos::TIPOS` que a frase manda juntar
+     * @param ?string      $destinatario a quem a frase se dirige (`partes`, `autor`, `reu`, `perito`, `cartorio`),
+     *                                   quando o extrator acha; a tela não mostra, o título do prazo do Push usa
      */
     public function __construct(
         public readonly int $publicacaoId,
@@ -28,6 +30,7 @@ final class DeterminacaoDoJuizoOutput
         public readonly ?string $prazoUnidade,
         public readonly ?string $prazoContagem,
         public readonly array $documentos,
+        public readonly ?string $destinatario = null,
     ) {
     }
 

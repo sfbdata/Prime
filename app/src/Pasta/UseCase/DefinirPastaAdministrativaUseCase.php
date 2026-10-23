@@ -11,6 +11,10 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Service\PermissionChecker;
+use App\Pasta\Entity\PastaAndamento;
+use App\Pasta\Repository\PastaAndamentoRepository;
+use App\Pasta\Service\RegistroDeDecisaoSemProcesso;
+use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -33,6 +37,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * Auditoria: `Pasta` implementa `Auditavel`; a troca do campo entra no `audit_log` pelo
  * subscriber, como qualquer outra edição da pasta.
  *
+ * Aprendizado do relatório de pastas sem processo (`spMarcar` L4510): se a pasta tinha termos
+ * judiciais, a decisão (`administrativo` ao marcar, `precisa` ao desmarcar) é gravada DEPOIS do flush
+ * da marcação, por upsert ({@see RegistroDeDecisaoSemProcesso}): só existe decisão de marcação gravada.
+ *
  * @return bool true quando o valor mudou
  */
 final class DefinirPastaAdministrativaUseCase
@@ -40,6 +48,9 @@ final class DefinirPastaAdministrativaUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly PermissionChecker $permissionChecker,
+        private readonly ?RegistroDoSistemaNaPasta $registro = null,
+        private readonly ?PastaAndamentoRepository $andamentos = null,
+        private readonly ?RegistroDeDecisaoSemProcesso $decisoes = null,
     ) {
     }
 
@@ -58,7 +69,14 @@ final class DefinirPastaAdministrativaUseCase
         }
 
         $pasta->setAdministrativa($administrativa);
+        // Andamento (E12b, desenho `spMarcar`): a trilha troca de via, e o Registro conta isso.
+        $this->registro?->registrar($pasta, $usuario, 'fase', $administrativa
+            ? 'pasta marcada como administrativa: o andamento passa para a via administrativa (Requerimento, Em análise, Exigência, Parecer). O andamento judicial fica guardado.'
+            : ($this->andamentos?->daPasta($pasta, PastaAndamento::VIA_JUDICIAL, $tenant) !== null
+                ? 'pasta voltou para a via judicial: o andamento judicial anterior foi restaurado.'
+                : 'pasta voltou para a via judicial.'));
         $this->em->flush();
+        $this->decisoes?->registrar($pasta, $administrativa, $usuario, $tenant);
 
         return true;
     }

@@ -85,7 +85,7 @@ final class ValidadorRodapeFiltros
     {
         if ($linha === null) {
             return new ResultadoRodape(false, [sprintf(
-                'O arquivo não tem a linha "%s" no rodapé — sem ela não há como conferir o recorte de %s.',
+                'O arquivo não tem a linha "%s" no rodapé. Sem ela não há como conferir o recorte de %s.',
                 self::PREFIXO,
                 $esperado->fonte,
             )]);
@@ -97,7 +97,7 @@ final class ValidadorRodapeFiltros
         foreach ($esperado->expectativas as $expectativa) {
             if (in_array($expectativa['chave'], $ambiguas, true)) {
                 $motivos[] = sprintf(
-                    'O campo "%s" aparece mais de uma vez no rodapé, com valores diferentes — recorte ambíguo.',
+                    'O campo "%s" aparece mais de uma vez no rodapé, com valores diferentes: recorte ambíguo.',
                     $expectativa['chave'],
                 );
 
@@ -135,7 +135,7 @@ final class ValidadorRodapeFiltros
             }
 
             return sprintf(
-                'O campo "%s" não aparece no rodapé e também não há um "%s" solto no lugar dele — recorte desconhecido.',
+                'O campo "%s" não aparece no rodapé e também não há um "%s" solto no lugar dele: recorte desconhecido.',
                 $chave,
                 implode('"/"', $valores),
             );

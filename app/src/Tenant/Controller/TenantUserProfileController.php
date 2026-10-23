@@ -10,6 +10,7 @@ use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
+use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,6 +23,7 @@ final class TenantUserProfileController extends AbstractController
         private readonly ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         private readonly AtualizarDadosPessoaisUseCase $atualizarDadosPessoais,
         private readonly PermissionChecker $permissionChecker,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     #[Route('/{tenantId}/user/{id}/dados-pessoais', name: 'app_tenant_user_dados_pessoais', methods: ['POST'])]
@@ -55,8 +57,18 @@ final class TenantUserProfileController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para editar dados de usuário.');
         }
 
+        // Conta do Master: só o próprio Master mexe (spec perfis-master D2, RegraDosPrimarios).
+        if (!$currentUser instanceof User || !$this->regraDosPrimarios->podeAlterarConta($currentUser, $user)) {
+            throw $this->createAccessDeniedException('A conta do Master só pode ser alterada pelo próprio Master.');
+        }
+
         $perfil = $this->obterOuCriarPerfil->executar($user);
         $input  = new DadosPessoaisInput();
+        // Esta tela não edita frase, telefone, gênero nem atuação: o UseCase regrava os valores atuais.
+        $input->status   = $perfil->getStatus();
+        $input->telefone = $perfil->getTelefone();
+        $input->genero   = $perfil->getGenero();
+        $input->atuacao  = $perfil->getAtuacao();
         $form   = $this->createForm(DadosPessoaisType::class, $input);
         $form->handleRequest($request);
 

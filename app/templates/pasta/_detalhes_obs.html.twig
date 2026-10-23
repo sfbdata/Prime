@@ -39,6 +39,9 @@
 {# Editor rico (barra de formatação). O Quill é auto-hospedado — sem CDN externo. #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
+{# Textos do script abaixo e do pasta-ler-mais.js no idioma da página: `BJ_T.t('pasta_detalhes.js.<chave>')`.
+   O bj-traducao.js vem no fim do corpo (base): os scripts só pedem texto na hora do uso, nunca ao carregar. #}
+{{ catalogo_js('pasta_detalhes.js') }}
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 {# "continuar lendo (N parágrafos)" / "mostrar menos" (desenho 1.2.3): a lista abaixo é
@@ -58,8 +61,13 @@
    no compositor). #}
 {% set podeEscreverObs = podeEditarPasta and not obsPastaLapide %}
 {% set obsPodeCriarMeta = podeEscreverObs %}
-{% set OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.' %}
-{% set OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.' %}
+{# dc L.6872: "Enviar no Chat I.A" só com o lançador flutuante na página; uma consulta só, não uma por observação. #}
+{% set obsComChat = central_disponivel() %}
+{% set OBS_MOTIVO_PRAZO = 'pasta_detalhes.motivo_prazo'|trans %}
+{% set OBS_MOTIVO_AUTOR = 'pasta_detalhes.motivo_autor'|trans %}
+{# "Encaminhar via Chat I.A": a Central conferida UMA vez (cada chamada consulta o vínculo). Na
+   lápide o servidor dá 404 ao despacho (spec §2.11): nada a oferecer. É o id da pasta ou null. #}
+{% set encaminharPasta = obsComChat and not obsPastaLapide ? pasta.id : null %}
 <style>
     {# C7-FPN-02: o bloqueado é `aria-disabled` (clicável, avisa o motivo), não mais `disabled`. #}
     .ps-detalhes-obs .ps-obs-menu .ps-processo-menu-item[aria-disabled="true"],
@@ -68,9 +76,9 @@
 
 <section class="ps-card ps-anotacoes ps-detalhes-obs">
     <div class="ps-card-cab ps-card-cab--painel">
-        <h2>Relatório inicial de Atendimento</h2>
+        <h2>{{ 'pasta_detalhes.titulo'|trans }}</h2>
         {% set idsContagemDet = observacoesDetalhes|map(o => o.id) %}
-        <span class="ps-contagem" id="detalhes-obs-count" title="Observações principais (respostas não contam)">{{ observacoesDetalhes|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemDet)|length }}</span>
+        <span class="ps-contagem" id="detalhes-obs-count" title="{{ 'pasta_detalhes.contagem_dica'|trans }}">{{ observacoesDetalhes|filter(o => o.respostaA is null or o.respostaA.id not in idsContagemDet)|length }}</span>
     </div>
 
     {# C6-PAS-02: sem escrita, o compositor nem é montado. Na lápide entra a nota de só leitura
@@ -78,7 +86,7 @@
        O JS abaixo já tolera a falta do #formDetalhesObservacao. #}
     {% if obsPastaLapide %}
     <div class="ps-compositor ps-compositor--leitura" id="detalhesObsSomenteLeitura">
-        <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> Pasta excluída: o relatório fica só para leitura.</span>
+        <span class="ps-compositor-nota"><i class="bi bi-lock" aria-hidden="true"></i> {{ 'pasta_detalhes.lapide_nota'|trans }}</span>
     </div>
     {% elseif podeEscreverObs %}
     <div class="ps-compositor">
@@ -93,11 +101,11 @@
                           maxlength="5000"
                           data-editor-rico
                           data-editor-rico-envio="btnEnviarObsDetalhes"
-                          placeholder="Adicionar observação…"></textarea>
+                          placeholder="{{ 'pasta_detalhes.placeholder'|trans }}"></textarea>
                 <div class="ps-compositor-rodape">
-                    <span class="ps-compositor-nota">Visível para a equipe</span>
+                    <span class="ps-compositor-nota">{{ 'pasta_detalhes.visivel_equipe'|trans }}</span>
                     <span class="ps-cab-espaco"></span>
-                    <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarObsDetalhes" title="Enviar (Ctrl+Enter)">Enviar</button>
+                    <button type="submit" class="ps-btn ps-btn--primario" id="btnEnviarObsDetalhes" title="{{ 'pasta_detalhes.enviar_dica'|trans }}">{{ 'pasta_detalhes.enviar'|trans }}</button>
                 </div>
             </div>
         </form>
@@ -105,13 +113,14 @@
     {% endif %}
     <div id="detalhesObsErro" class="ps-compositor-erro d-none"></div>
 
-    <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}" data-ler-mais=".obs-conteudo-det">
+    <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}" data-ler-mais=".obs-conteudo-det" data-pasta-nup="{{ pasta.nup }}"
+         {%- if encaminharPasta %} data-encaminhar-pasta="{{ encaminharPasta }}"{% endif %}>
         {% if observacoesDetalhes is empty %}
             <div class="ps-vazio" id="detalhesObsVazio">
                 <i class="bi bi-chat-left-text"></i>
-                <div class="ps-vazio-titulo">Nenhuma observação registrada</div>
+                <div class="ps-vazio-titulo">{{ 'pasta_detalhes.vazio_titulo'|trans }}</div>
                 {% if podeEscreverObs %}
-                    <div class="ps-vazio-nota">Registre acima o relato do cliente, o resumo da demanda, a tese e os resultados esperados.</div>
+                    <div class="ps-vazio-nota">{{ 'pasta_detalhes.vazio_nota'|trans }}</div>
                 {% endif %}
             </div>
         {% else %}
@@ -131,13 +140,13 @@
                     {% set diaAnterior = dia %}
                 {% endif %}
 
-                {{ det.observacao(obs, null, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) }}
+                {{ det.observacao(obs, null, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, encaminharPasta, obsComChat) }}
 
                 {% set respostasDet = observacoesDetalhes|filter(o => o.respostaA is not null and o.respostaA.id == obs.id)|reverse %}
                 {% if respostasDet|length > 0 %}
                     <div class="ps-respostas" data-resposta-de="{{ obs.id }}">
                         {% for resposta in respostasDet %}
-                            {{ det.observacao(resposta, obs, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) }}
+                            {{ det.observacao(resposta, obs, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, encaminharPasta, obsComChat) }}
                         {% endfor %}
                     </div>
                 {% endif %}
@@ -172,14 +181,14 @@
 
     /* "Excluir o comentário de NOME?" com a data e o trecho (dc L.5906 `comExcluir`). */
     function confirmarExclusaoObs(artigo) {
-        const autor = (artigo && artigo.querySelector('.ps-anotacao-autor') || {}).textContent || 'colaborador';
+        const autor = (artigo && artigo.querySelector('.ps-anotacao-autor') || {}).textContent || BJ_T.t('pasta_detalhes.js.colaborador');
         const data  = artigo ? artigo.querySelector('.ps-anotacao-data') : null;
         const corpo = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
         const txt   = (corpo ? corpo.innerText : '').replace(/\s+/g, ' ').trim();
         const opcoes = {
-            titulo: 'Excluir o comentário de ' + autor.trim() + '?',
-            texto: (data && data.title ? data.title + ' · ' : '') + '"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')
-                + '". Ele some para toda a equipe e a exclusão fica registrada no histórico.',
+            titulo: BJ_T.t('pasta_detalhes.js.excluir_titulo', { autor: autor.trim() }),
+            texto: (data && data.title ? data.title + ' · ' : '')
+                + BJ_T.t('pasta_detalhes.js.excluir_texto', { trecho: txt.slice(0, 140) + (txt.length > 140 ? '…' : '') }),
         };
         return window.confirmarPs ? confirmarPs(opcoes) : Promise.resolve(confirm(opcoes.titulo));
     }
@@ -208,7 +217,15 @@
         }
     }
 
-    const ROTULO_ORFA = 'Resposta a uma mensagem excluída';
+    /* O bj-traducao.js chega no fim do corpo, depois deste script: o texto é pedido na hora do uso. */
+    function rotuloOrfa() { return BJ_T.t('pasta_detalhes.js.resposta_orfa'); }
+
+    /** A dica do lápis: "Editável por mais N minuto(s)", com o mesmo `== 1` do Twig. */
+    function editavelDica(minutos) {
+        return minutos === 1
+            ? BJ_T.t('pasta_detalhes.js.editavel_um', { minutos: minutos })
+            : BJ_T.t('pasta_detalhes.js.editavel_varios', { minutos: minutos });
+    }
 
     if (formObs) {
         obsConteudo.addEventListener('keydown', function (e) {
@@ -218,10 +235,10 @@
         formObs.addEventListener('submit', async function (e) {
             e.preventDefault();
             const conteudo = obsConteudo.value.trim();
-            if (conteudo === '') { mostrarErro('A observação não pode ser vazia.'); return; }
+            if (conteudo === '') { mostrarErro(BJ_T.t('pasta_detalhes.js.vazia')); return; }
 
             btnEnviarObs.disabled = true;
-            btnEnviarObs.textContent = 'Enviando…';
+            btnEnviarObs.textContent = BJ_T.t('pasta_detalhes.js.enviando');
             if (window.EditorRico) { EditorRico.marcarEnvio(obsConteudo, true); }
             obsErro.classList.add('d-none');
 
@@ -234,17 +251,18 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
                 const data = await resp.json();
-                if (!resp.ok) { mostrarErro(data.erro ?? 'Erro ao enviar.'); return; }
+                if (!resp.ok) { mostrarErro(data.erro ?? BJ_T.t('pasta_detalhes.js.erro_enviar')); return; }
 
                 inserirItem(data);
                 atualizarContagem();
+                avisarObsAlterada();
                 // Limpa o editor (que é quem alimenta a textarea); sem isso o texto enviado ficaria na tela.
                 if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
                 if (window.PastaMencoes) { PastaMencoes.esquecer(obsConteudo); }
             } catch (_) {
-                mostrarErro('Erro de rede. Tente novamente.');
+                mostrarErro(BJ_T.t('pasta_detalhes.js.erro_rede_tente'));
             } finally {
-                btnEnviarObs.textContent = 'Enviar';
+                btnEnviarObs.textContent = BJ_T.t('pasta_detalhes.js.enviar');
                 // O editor decide: depois de enviar ele está vazio, e vazio o Enviar fica apagado.
                 if (window.EditorRico) { EditorRico.marcarEnvio(obsConteudo, false); } else { btnEnviarObs.disabled = false; }
             }
@@ -278,6 +296,12 @@
     /* Mais recente PRIMEIRO (mesma ordem do servidor). A pílula do dia só entra se a
        primeira do topo não for a de hoje — a chave do dia é a do servidor (`data-hoje`).
        Resposta: vai para o fim da conversa da raiz (da mais antiga à mais nova). */
+    /* O relatório mudou (enviar, responder, editar ou excluir deram certo): o card "Pontos do
+       relatório inicial" (pasta/_pontos_relatorio.html.twig) escuta e se redesenha. */
+    function avisarObsAlterada() {
+        document.dispatchEvent(new CustomEvent('ps:detalhes-obs-alterada'));
+    }
+
     function inserirItem(data) {
         const vazioMsg = document.getElementById('detalhesObsVazio');
         if (vazioMsg) { vazioMsg.remove(); }
@@ -291,12 +315,12 @@
             const criadaEm   = String(data.criadaEm ?? '');
             const ehResposta = !!data.respostaA;
             const alvoId     = ehResposta ? data.respostaA : data.id;
-            const alvoNome   = ehResposta ? (data.respostaANome || 'Autor desconhecido') : (data.autorNome || 'Autor desconhecido');
+            const alvoNome   = ehResposta ? (data.respostaANome || BJ_T.t('pasta_detalhes.js.autor_desconhecido')) : (data.autorNome || BJ_T.t('pasta_detalhes.js.autor_desconhecido'));
             const autorResp  = ehResposta && data.autorId
                 ? ` data-resposta-autor-id="${esc(data.autorId)}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"`
                 : '';
             const faixa = ehResposta
-                ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? 'Resposta a ' + data.respostaANome : ROTULO_ORFA)}</span></div>`
+                ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? BJ_T.t('pasta_detalhes.js.resposta_a', { nome: data.respostaANome }) : rotuloOrfa())}</span></div>`
                 : '';
 
             /* C6-PAS-05/07: o fim da janela em epoch NUMÉRICO (segundos), a partir do instante que o
@@ -305,20 +329,40 @@
                `Number()` dele daria NaN (o defeito do C6-PAS-01 no Registro). */
             const janelaAte  = Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60;
 
+            /* "Encaminhar via Chat I.A" (D:2463 e D:6869): o id da pasta vem do atributo que o Twig
+               põe na lista (só com a Central e fora da lápide); o da observação é o número do servidor. */
+            const encaminharPasta = Number(obsLista.dataset.encaminharPasta || 0);
+            const btnEncaminhar   = encaminharPasta
+                ? `<button type="button"
+                                class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                                title="${esc(BJ_T.t('pasta_detalhes.js.encaminhar'))}" aria-label="${esc(BJ_T.t('pasta_detalhes.js.encaminhar'))}"
+                                data-encaminhar-pasta="${encaminharPasta}"
+                                data-encaminhar-tipo="registro_detalhes"
+                                data-encaminhar-id="${Number(data.id)}">
+                            <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
+                        </button>`
+                : '';
+            const itemEncaminhar  = encaminharPasta
+                ? `<button type="button" class="ps-processo-menu-item js-obs-encaminhar" role="menuitem">
+                                <i class="bi bi-send"></i><span>${esc(BJ_T.t('pasta_detalhes.js.encaminhar'))}</span>
+                            </button>`
+                : '';
+
             return `
                 <article class="ps-anotacao detalhes-obs-item${ehResposta ? ' ps-anotacao--resposta' : ''}" id="detalhes-obs-${data.id}"
-                         data-janela-ate="${janelaAte}" data-do-autor="1">
+                         data-janela-ate="${janelaAte}" data-do-autor="1" data-autor-id="${esc(data.autorId ?? '')}"{% if sem_prazo_selo(false) %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ sem_prazo_selo(false))|trans|e('html_attr') }}"{% endif %}>
                     ${faixa}
                     <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
                     <div class="ps-anotacao-topo">
                         <span class="ps-avatar ps-avatar--24">${data.autorFotoUrl ? `<img src="${esc(data.autorFotoUrl)}" alt="">` : esc(iniciaisDe(data.autorNome))}</span>
-                        <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
+                        <span class="ps-anotacao-autor">${esc(data.autorNome ?? BJ_T.t('pasta_detalhes.js.autor_desconhecido'))}</span>
+                        <span class="detalhes-obs-tag">${esc(BJ_T.t('pasta_detalhes.js.tag'))}</span>
                         <span class="ps-cab-espaco"></span>{% if podeEscreverObs %}
                         <span class="ps-anotacao-acoes">
                             <button type="button"
                                     class="ps-anotacao-acao btn-editar-obs-det"
-                                    title="Editável por mais {{ comentario_janela_minutos() }} {{ comentario_janela_minutos() == 1 ? 'minuto' : 'minutos' }}" aria-label="Editar observação"
+                                    title="${esc(editavelDica({{ comentario_janela_minutos() }}))}" aria-label="${esc(BJ_T.t('pasta_detalhes.js.editar'))}"
                                     data-obs-id="${data.id}"
                                     data-conteudo="${esc(data.conteudo)}"
                                     data-conteudo-html="${esc(data.conteudoHtml ?? '')}"
@@ -328,7 +372,7 @@
                             </button>
                             <button type="button" hidden
                                     class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs-det"
-                                    title="Excluir observação" aria-label="Excluir observação"
+                                    title="${esc(BJ_T.t('pasta_detalhes.js.excluir'))}" aria-label="${esc(BJ_T.t('pasta_detalhes.js.excluir'))}"
                                     data-obs-id="${data.id}"
                                     data-csrf="${esc(data.csrfExcluir ?? '')}"
                                     data-url="${esc(urlExcluir)}">
@@ -337,47 +381,52 @@
                         </span>
                         <button type="button"
                                 class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs-det"
-                                title="Responder" aria-label="Responder"
+                                title="${esc(BJ_T.t('pasta_detalhes.js.responder'))}" aria-label="${esc(BJ_T.t('pasta_detalhes.js.responder'))}"
                                 data-resposta-a="${esc(alvoId)}"
                                 data-resposta-nome="${esc(alvoNome)}"${autorResp}>
                             <i class="bi bi-reply-fill"></i>
                         </button>{% endif %}
+                        ${btnEncaminhar}
                         <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(horaDaResposta(criadaEm, raiz))}</span>
-                        <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
-                                aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
+                        <button type="button" class="ps-obs-menu-btn js-obs-menu" title="${esc(BJ_T.t('pasta_detalhes.js.mais_acoes'))}"
+                                aria-label="${esc(BJ_T.t('pasta_detalhes.js.mais_acoes'))}" aria-haspopup="menu" aria-expanded="false"
                                 aria-controls="psObsMenu${data.id}">
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
                         <div class="ps-obs-menu" id="psObsMenu${data.id}" role="menu" hidden>
-                            <div class="ps-processo-menu-titulo">${esc(data.autorNome ?? 'Autor desconhecido')} · ${esc(criadaEm.replace(' ', ', '))}</div>{% if podeEscreverObs %}
+                            <div class="ps-processo-menu-titulo">${esc(data.autorNome ?? BJ_T.t('pasta_detalhes.js.autor_desconhecido'))} · ${esc(criadaEm.replace(' ', ', '))} · ${esc(BJ_T.t('pasta_detalhes.js.tag'))}</div>{% if podeEscreverObs %}
                             <button type="button" class="ps-processo-menu-item js-obs-responder" role="menuitem">
-                                <i class="bi bi-reply-fill"></i><span>Responder</span>
+                                <i class="bi bi-reply-fill"></i><span>${esc(BJ_T.t('pasta_detalhes.js.responder'))}</span>
                             </button>{% endif %}
                             <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
-                                <i class="bi bi-clipboard"></i><span>Copiar texto</span>
-                            </button>{% if podeEscreverObs %}
+                                <i class="bi bi-clipboard"></i><span>${esc(BJ_T.t('pasta_detalhes.js.copiar'))}</span>
+                            </button>
+                            ${itemEncaminhar}{% if podeEscreverObs %}
                             <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
-                                <i class="bi bi-quote"></i><span>Citar no novo registro</span>
+                                <i class="bi bi-quote"></i><span>${esc(BJ_T.t('pasta_detalhes.js.citar'))}</span>
                             </button>{% endif %}{% if obsPodeCriarMeta %}
                             <button type="button" class="ps-processo-menu-item js-obs-criar-meta" role="menuitem">
-                                <i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>
+                                <i class="bi bi-check2-square"></i><span>${esc(BJ_T.t('pasta_detalhes.js.criar_meta'))}</span>
+                            </button>{% endif %}{% if obsComChat %}
+                            <button type="button" class="ps-processo-menu-item js-obs-enviar-chat" role="menuitem">
+                                <i class="bi bi-chat-dots"></i><span>${esc(BJ_T.t('pasta_detalhes.js.enviar_chat'))}</span>
                             </button>{% endif %}
                             <button type="button" class="ps-processo-menu-item js-obs-imprimir" role="menuitem"
-                                    data-autor="${esc(data.autorNome ?? 'Autor desconhecido')}"
+                                    data-autor="${esc(data.autorNome ?? BJ_T.t('pasta_detalhes.js.autor_desconhecido'))}"
                                     data-quando="${esc(criadaEm.replace(' ', ', '))}"
-                                    data-tipo="Atendimento">
-                                <i class="bi bi-printer"></i><span>Imprimir</span>
+                                    data-tipo="${esc(BJ_T.t('pasta_detalhes.js.tag'))}">
+                                <i class="bi bi-printer"></i><span>${esc(BJ_T.t('pasta_detalhes.js.imprimir'))}</span>
                             </button>{% if podeEscreverObs %}
                             <div class="ps-processo-menu-sep" role="separator"></div>
                             <button type="button" class="ps-processo-menu-item js-obs-editar" role="menuitem"
                                     data-obs-janela="editar"
-                                    data-obs-id="${data.id}" title="Edição liberada por mais {{ comentario_janela_minutos() }} min">
-                                <i class="bi bi-pencil"></i><span>Editar · {{ comentario_janela_minutos() }} min</span>
+                                    data-obs-id="${data.id}" title="${esc(BJ_T.t('pasta_detalhes.js.editar_dica', { minutos: {{ comentario_janela_minutos() }} }))}">
+                                <i class="bi bi-pencil"></i><span>${esc(BJ_T.t('pasta_detalhes.js.editar_min', { minutos: {{ comentario_janela_minutos() }} }))}</span>
                             </button>
                             <button type="button" class="ps-processo-menu-item js-obs-excluir" role="menuitem"
                                     data-obs-janela="excluir"
-                                    data-obs-id="${data.id}" title="Exclusão liberada por mais {{ comentario_janela_minutos() }} min">
-                                <i class="bi bi-trash3"></i><span>Excluir comentário · {{ comentario_janela_minutos() }} min</span>
+                                    data-obs-id="${data.id}" title="${esc(BJ_T.t('pasta_detalhes.js.excluir_dica', { minutos: {{ comentario_janela_minutos() }} }))}">
+                                <i class="bi bi-trash3"></i><span>${esc(BJ_T.t('pasta_detalhes.js.excluir_min', { minutos: {{ comentario_janela_minutos() }} }))}</span>
                             </button>{% endif %}
                         </div>
                     </div>
@@ -457,7 +506,7 @@
         icone.className = 'bi bi-reply-fill';
         icone.setAttribute('aria-hidden', 'true');
         const para = document.createElement('span');
-        para.textContent = 'Respondendo a ' + (botao.dataset.respostaNome || 'Autor desconhecido');
+        para.textContent = BJ_T.t('pasta_detalhes.js.respondendo_a', { nome: botao.dataset.respostaNome || BJ_T.t('pasta_detalhes.js.autor_desconhecido') });
         faixa.appendChild(icone);
         faixa.appendChild(para);
 
@@ -465,7 +514,7 @@
         campo.className = 'ps-resp-caixa-campo';
         campo.rows = 2;
         campo.maxLength = 5000;
-        campo.placeholder = 'Escreva a resposta…';
+        campo.placeholder = BJ_T.t('pasta_detalhes.js.resposta_placeholder');
         campo.setAttribute('aria-label', para.textContent);
 
         const erro = document.createElement('div');
@@ -475,7 +524,7 @@
         const cancelar = document.createElement('button');
         cancelar.type = 'button';
         cancelar.className = 'ps-resp-caixa-cancelar';
-        cancelar.textContent = 'Cancelar';
+        cancelar.textContent = BJ_T.t('pasta_detalhes.js.cancelar');
 
         const enviar = document.createElement('button');
         enviar.type = 'button';
@@ -485,7 +534,7 @@
         iEnviar.className = 'bi bi-send';
         iEnviar.setAttribute('aria-hidden', 'true');
         enviar.appendChild(iEnviar);
-        enviar.appendChild(document.createTextNode('Responder'));
+        enviar.appendChild(document.createTextNode(BJ_T.t('pasta_detalhes.js.responder')));
 
         const acoes = document.createElement('div');
         acoes.className = 'ps-resp-caixa-acoes';
@@ -518,7 +567,7 @@
                 const resp = await fetch(urlEnviar, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const data = await resp.json();
                 if (!resp.ok) {
-                    erro.textContent = data.erro ?? 'Erro ao enviar a resposta.';
+                    erro.textContent = data.erro ?? BJ_T.t('pasta_detalhes.js.erro_enviar_resposta');
                     erro.hidden = false;
                     enviar.disabled = false;
                     return;
@@ -526,8 +575,9 @@
                 fecharCaixaRespostaDet();
                 inserirItem(data);
                 atualizarContagem();
+                avisarObsAlterada();
             } catch (_) {
-                erro.textContent = 'Erro de rede. Tente novamente.';
+                erro.textContent = BJ_T.t('pasta_detalhes.js.erro_rede_tente');
                 erro.hidden = false;
                 enviar.disabled = false;
             }
@@ -585,7 +635,7 @@
     }
 
     /* C6-PAS-04 (PAS-033): ao salvar uma edição, o "editado" entra (ou é atualizado) logo depois do
-       autor, com a MESMA dica do Twig. A hora de publicação sai do title da hora do cartão
+       autor (e da tag "Observação", quando há: desenho 02, dc L2458), com a MESMA dica do Twig. A hora de publicação sai do title da hora do cartão
        ("dd/mm/aaaa HH:MM"); a edição é a `editadaEm` do servidor ("dd/mm/aaaa HH:MM"). */
     function marcarEditadoObs(artigo, editadaEm) {
         const topo = artigo ? artigo.querySelector(':scope > .ps-anotacao-topo') : null;
@@ -594,14 +644,16 @@
         if (!marca) {
             marca = document.createElement('span');
             marca.className = 'ps-anotacao-editado detalhes-obs-editado';
-            marca.textContent = 'editado';
-            const autor = topo.querySelector(':scope > .ps-anotacao-autor');
-            if (autor) { autor.after(marca); } else { topo.appendChild(marca); }
+            marca.textContent = BJ_T.t('pasta_detalhes.js.editado');
+            const ancora = topo.querySelector(':scope > .detalhes-obs-tag') || topo.querySelector(':scope > .ps-anotacao-autor');
+            if (ancora) { ancora.after(marca); } else { topo.appendChild(marca); }
         }
         const publicado = (((topo.querySelector(':scope > .ps-anotacao-data') || {}).title) || '').slice(-5);
         const partes    = String(editadaEm || '').split(' ');
-        const edicao    = partes.length === 2 ? partes[0] + ' às ' + partes[1] : '';
-        marca.title = (publicado ? 'Publicado às ' + publicado + ' · ' : '') + 'última edição ' + edicao;
+        const edicao    = partes.length === 2 ? BJ_T.t('pasta_detalhes.js.editado_quando', { data: partes[0], hora: partes[1] }) : '';
+        marca.title = publicado
+            ? BJ_T.t('pasta_detalhes.js.editado_dica', { hora: publicado, quando: edicao })
+            : BJ_T.t('pasta_detalhes.js.editado_dica_sem_hora', { quando: edicao });
     }
 
     /* C6-PAS-05: os minutos de Editar/Excluir são recalculados a CADA abertura do ⋮, com a regra
@@ -641,12 +693,19 @@
         if (!artigo.querySelector('.ps-anotacao-acoes .btn-editar-obs-det')) { return; } // nasceu bloqueado
         const resto  = minutosRestantesObs(artigo);
         const motivo = artigo.dataset.doAutor === '1' ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR;
-        if (resto > 0) {
-            pintarItemObs(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', 'Edição liberada por mais ' + resto + ' min');
-            pintarItemObs(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', 'Exclusão liberada por mais ' + resto + ' min');
+        const pelaRegra = artigo.dataset.doAutor === '1' && resto > 0;
+        // Edição sem prazo (spec edicao-sem-prazo §5): Master e primário (com a opção) seguem sem prazo, com o selo.
+        const selo = pelaRegra ? '' : (artigo.dataset.semPrazoRotulo || '');
+        if (window.SeloSemPrazo) { window.SeloSemPrazo.pintar(editar, selo); window.SeloSemPrazo.pintar(excluir, selo); }
+        if (pelaRegra) {
+            pintarItemObs(editar, true, BJ_T.t('pasta_detalhes.js.editar_min', { minutos: resto }), 'bi-pencil', BJ_T.t('pasta_detalhes.js.editar_dica', { minutos: resto }));
+            pintarItemObs(excluir, true, BJ_T.t('pasta_detalhes.js.excluir_min', { minutos: resto }), 'bi-trash3', BJ_T.t('pasta_detalhes.js.excluir_dica', { minutos: resto }));
+        } else if (selo) {
+            pintarItemObs(editar, true, BJ_T.t('pasta_detalhes.js.editar_sem_prazo'), 'bi-pencil', '');
+            pintarItemObs(excluir, true, BJ_T.t('pasta_detalhes.js.excluir_sem_prazo'), 'bi-trash3', '');
         } else {
-            pintarItemObs(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);
-            pintarItemObs(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);
+            pintarItemObs(editar, false, BJ_T.t('pasta_detalhes.js.editar_bloqueado'), 'bi-lock', motivo);
+            pintarItemObs(excluir, false, BJ_T.t('pasta_detalhes.js.excluir_bloqueado'), 'bi-lock', motivo);
         }
     }
 
@@ -660,6 +719,8 @@
         fecharMenuObs(false);
         document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
         pintarJanelaObs(menu, gatilho.closest('.detalhes-obs-item'));
+        // "Destacar" e "Remover destaque" (dc L6305), só para quem edita: pasta-destaque.js.
+        if (window.PastaDestaque) { window.PastaDestaque.pintarMenu(menu, gatilho.closest('.detalhes-obs-item'), 'detalhes'); }
         menu.hidden = false;
         const r = gatilho.getBoundingClientRect();
         let x = r.right - menu.offsetWidth;
@@ -679,6 +740,30 @@
 
     /* "Copiar texto": o texto como se lê na tela (sem a marcação do editor). O rótulo
        vira o aviso por um instante e o menu fecha, como no ⋮ do processo. */
+    /* dc L.6872: abre a Central (evento `bj-central:abrir`, ouvido pelo lançador flutuante) e copia
+       "Pasta N · cabeçalho" + o texto, até 900 caracteres, para colar na conversa. */
+    function enviarObsNoChat(item) {
+        const artigo = item.closest('.detalhes-obs-item');
+        const corpo  = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
+        const menu   = item.closest('.ps-obs-menu');
+        const titulo = menu ? menu.querySelector('.ps-processo-menu-titulo') : null;
+        const cab    = titulo ? titulo.textContent.trim() : '';
+        const lista  = document.getElementById('detalhesObsLista');
+        const nup    = lista ? (lista.dataset.pastaNup || '') : '';
+        const texto  = BJ_T.t('pasta_detalhes.js.chat_texto', { pasta: nup, cabecalho: cab }) + '\n' + (corpo ? corpo.innerText.trim() : '').slice(0, 900);
+        fecharMenuObs(false);
+        document.dispatchEvent(new CustomEvent('bj-central:abrir'));
+        const aviso = window.bjAviso || function () {};
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(
+                function () { aviso(BJ_T.t('pasta_detalhes.js.chat_copiado')); },
+                function () { aviso(BJ_T.t('pasta_detalhes.js.chat_nao_copiou')); }
+            );
+        } else {
+            aviso(BJ_T.t('pasta_detalhes.js.chat_nao_copiou'));
+        }
+    }
+
     function copiarTextoObs(item) {
         const artigo = item.closest('.detalhes-obs-item');
         const corpo  = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
@@ -695,11 +780,11 @@
         }
         if (texto && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(texto).then(
-                function () { avisar('Texto copiado'); },
-                function () { avisar('Não foi possível copiar'); }
+                function () { avisar(BJ_T.t('pasta_detalhes.js.texto_copiado')); },
+                function () { avisar(BJ_T.t('pasta_detalhes.js.nao_copiou')); }
             );
         } else {
-            avisar('Não foi possível copiar');
+            avisar(BJ_T.t('pasta_detalhes.js.nao_copiou'));
         }
     }
 
@@ -805,6 +890,9 @@
             const itemMeta = e.target.closest('.js-obs-criar-meta');
             if (itemMeta) { criarMetaObs(itemMeta); return; }
 
+            const itemChat = e.target.closest('.js-obs-enviar-chat');
+            if (itemChat) { enviarObsNoChat(itemChat); return; }
+
             // Responder do ⋮: clica o botão de responder do PRÓPRIO cartão.
             const itemResponder = e.target.closest('.js-obs-responder');
             if (itemResponder) {
@@ -847,7 +935,7 @@
                    (transparente) · Salvar (primário) à direita. */
                 const nota = document.createElement('span');
                 nota.className = 'ps-compositor-nota';
-                nota.textContent = 'Visível para a equipe';
+                nota.textContent = BJ_T.t('pasta_detalhes.js.visivel_equipe');
 
                 const espaco = document.createElement('span');
                 espaco.className = 'ps-cab-espaco';
@@ -855,12 +943,12 @@
                 const btnCancelar = document.createElement('button');
                 btnCancelar.type = 'button';
                 btnCancelar.className = 'ps-anotacao-edicao-cancelar';
-                btnCancelar.textContent = 'Cancelar';
+                btnCancelar.textContent = BJ_T.t('pasta_detalhes.js.cancelar');
 
                 const btnConfirmar = document.createElement('button');
                 btnConfirmar.type = 'button';
                 btnConfirmar.className = 'ps-btn ps-btn--primario';
-                btnConfirmar.textContent = 'Salvar';
+                btnConfirmar.textContent = BJ_T.t('pasta_detalhes.js.salvar');
 
                 const rodape = document.createElement('div');
                 rodape.className = 'ps-anotacao-edicao-rodape';
@@ -916,7 +1004,7 @@
                     const vazio = window.EditorRico
                         ? EditorRico.estaVazio(textarea)
                         : textarea.value.trim() === '';
-                    if (vazio) { avisarErroObs('A observação não pode ser vazia.'); return; }
+                    if (vazio) { avisarErroObs(BJ_T.t('pasta_detalhes.js.vazia')); return; }
 
                     const fd = new FormData();
                     fd.append('_token', btnEditar.dataset.csrf);
@@ -935,12 +1023,13 @@
                             btnEditar.dataset.conteudo     = data.conteudo;
                             btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
                             marcarEditadoObs(item, data.editadaEm);
+                            avisarObsAlterada();
                         } else {
                             restaurarExibicao(htmlAtual);
-                            avisarErroObs(data.erro ?? 'Erro ao editar.');
+                            avisarErroObs(data.erro ?? BJ_T.t('pasta_detalhes.js.erro_editar'));
                         }
                     } catch (_) {
-                        avisarErroObs('Erro de rede.');
+                        avisarErroObs(BJ_T.t('pasta_detalhes.js.erro_rede'));
                     }
                 });
 
@@ -974,7 +1063,7 @@
                                 minhas.classList.add('ps-respostas--orfa');
                                 minhas.removeAttribute('data-resposta-de');
                                 minhas.querySelectorAll(':scope > .ps-anotacao--resposta > .ps-anotacao-resposta-rot > span').forEach(function (rot) {
-                                    rot.textContent = ROTULO_ORFA;
+                                    rot.textContent = rotuloOrfa();
                                 });
                                 minhas.querySelectorAll(':scope > .ps-anotacao').forEach(function (orfa) {
                                     const btn = orfa.querySelector('.btn-responder-obs-det');
@@ -999,22 +1088,23 @@
                             }
                         }
                         atualizarContagem();
+                        avisarObsAlterada();
                         if (!obsLista.querySelector('.ps-anotacao')) {
                             obsLista.classList.add('ps-registro--vazio');
                             const div = document.createElement('div');
                             div.className = 'ps-vazio';
                             div.id = 'detalhesObsVazio';
                             div.innerHTML = '<i class="bi bi-chat-left-text"></i>'
-                                + '<div class="ps-vazio-titulo">Nenhuma observação registrada</div>'
-                                + '<div class="ps-vazio-nota">Registre acima o relato do cliente, o resumo da demanda, a tese e os resultados esperados.</div>';
+                                + '<div class="ps-vazio-titulo">' + esc(BJ_T.t('pasta_detalhes.js.vazio_titulo')) + '</div>'
+                                + '<div class="ps-vazio-nota">' + esc(BJ_T.t('pasta_detalhes.js.vazio_nota')) + '</div>';
                             obsLista.appendChild(div);
                         }
                     } else {
                         const data = await resp.json();
-                        avisarErroObs(data.erro ?? 'Erro ao excluir.');
+                        avisarErroObs(data.erro ?? BJ_T.t('pasta_detalhes.js.erro_excluir'));
                     }
                 } catch (_) {
-                    avisarErroObs('Erro de rede.');
+                    avisarErroObs(BJ_T.t('pasta_detalhes.js.erro_rede'));
                 }
             }
         });
@@ -1026,9 +1116,10 @@
    Uma observação. `raiz` é a observação respondida quando o cartão é uma resposta pendurada
    nela (null para a raiz e para a resposta solta — a órfã, cuja original foi excluída, ou a que
    responde a algo fora do limite). Mesma estrutura do Registro da aba Dados. O JS deste arquivo
-   (`htmlDoCartao`) monta a MESMA marcação.
+   (`htmlDoCartao`) monta a MESMA marcação. `encaminharPasta`: o id da pasta quando o ↪
+   "Encaminhar via Chat I.A" e o item do ⋮ entram, ou null.
 #}
-{% macro observacao(obs, raiz, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) %}
+{% macro observacao(obs, raiz, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, encaminharPasta = null, obsComChat = false) %}
     {% set obsPastaLapide = pasta.estaExcluida %}
     {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
     {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
@@ -1039,35 +1130,48 @@
     {# Autor, dentro da janela de 15 min: o prazo vem do MESMO serviço do UseCase. C6-PAS-02: e
        só para quem escreve na pasta viva (as rotas exigem EDIT; a lápide recusa todo POST). #}
     {% set doAutor = obs.autor and app.user and obs.autor.id == app.user.id %}
-    {% set podeGerenciar = podeEscreverObs and doAutor and comentario_editavel(obs.criadaEm) %}
+    {% set pelaRegraObs = doAutor and comentario_editavel(obs.criadaEm) %}
+    {# Edição sem prazo (spec edicao-sem-prazo §1 e §5): Master e primário (com a opção) também editam e excluem; o
+       selo aparece quando é o poder que libera. Mesma resposta do servidor (`PrazoDoComentario`). #}
+    {% set poderObs = podeEscreverObs ? sem_prazo_selo(false) : null %}
+    {% set seloObs = podeEscreverObs ? sem_prazo_selo(pelaRegraObs) : null %}
+    {% set podeGerenciar = podeEscreverObs and sem_prazo_libera(pelaRegraObs) %}
     {# Responder a uma resposta liga à RAIZ dela (um nível só), como no desenho. #}
     {% set alvoId = raiz ? raiz.id : obs.id %}
     {% set alvoNome = raiz ? (raiz.autor.fullName ?? raiz.autor.email ?? '') : autor %}
     {% set respostaANome = obs.respostaA ? (obs.respostaA.autor.fullName ?? obs.respostaA.autor.email ?? null) : null %}
     {# Resposta de outro dia que não o da raiz: a hora leva o dia junto ("06/10 · 09:12"). #}
     {% set horaRotulo = (raiz and obs.criadaEm|date('Y-m-d') != raiz.criadaEm|date('Y-m-d'))
-        ? obs.criadaEm|date('d/m') ~ ' · ' ~ obs.criadaEm|date('H:i')
-        : obs.criadaEm|date('H:i') %}
+        ? obs.criadaEm|date('d/m') ~ ' · ' ~ obs.criadaEm|hora
+        : obs.criadaEm|hora %}
     {# C6-PAS-05: o fim da janela (epoch, em segundos) e se o cartão é de quem está logado — o ⋮
        recalcula os minutos ao abrir, como o Registro (`data-janela-ate`/`data-do-autor`). #}
     <article class="ps-anotacao detalhes-obs-item{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="detalhes-obs-{{ obs.id }}"
              data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}"
-             data-do-autor="{{ doAutor ? '1' : '0' }}">
+             data-do-autor="{{ doAutor ? '1' : '0' }}"
+             {%- if poderObs and podeGerenciar %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ poderObs)|trans }}"{% endif %}
+             {#- Presença do autor (pasta-presenca-autor.js). #}
+             {%- if obs.autor %} data-autor-id="{{ obs.autor.id }}"{% endif %}>
         {% if obs.resposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">
                 <i class="bi bi-reply-fill" aria-hidden="true"></i>
-                <span>{% if respostaANome is not null %}Resposta a {{ respostaANome }}{% else %}Resposta a uma mensagem excluída{% endif %}</span>
+                <span>{% if respostaANome is not null %}{{ 'pasta_detalhes.cartao.resposta_a'|trans({nome: respostaANome}) }}{% else %}{{ 'pasta_detalhes.cartao.resposta_orfa'|trans }}{% endif %}</span>
             </div>
         {% endif %}
         <span class="ps-anotacao-ponto" aria-hidden="true"></span>
         <span class="ps-anotacao-seta" aria-hidden="true"></span>
         <div class="ps-anotacao-topo">
             <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ path('app_profile_foto_serve', {nome: foto}) }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
-            <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+            <span class="ps-anotacao-autor">{{ autor ?: 'pasta_detalhes.cartao.autor_desconhecido'|trans }}</span>
+            {# Tag fixa "Observação" do desenho 02 (dc L2458, `o.tag`; dc L6320: todo registro de Detalhes a recebe),
+               depois do autor e antes de "editado". Também no cabeçalho do ⋮ e na linha da impressão (dc L6874:
+               autor · quando · Observação). A etiqueta VARIÁVEL (Combinado, Ligação, Atendimento) segue pendente com
+               o Farlei (PAS-029) e fica de fora; o cartão montado em JS, acima, repete esta tag. #}
+            <span class="detalhes-obs-tag">{{ 'pasta_detalhes.cartao.tag'|trans }}</span>
             {% if obs.editadaEm %}
                 {# C6-PAS-04 (PAS-033; dc L.5975 `editadoDica`): quando foi publicado e quando foi a última edição. #}
-                <span class="ps-anotacao-editado detalhes-obs-editado" title="Publicado às {{ obs.criadaEm|date('H:i') }} · última edição {{ obs.editadaEm|date('d/m/Y') }} às {{ obs.editadaEm|date('H:i') }}">editado</span>
+                <span class="ps-anotacao-editado detalhes-obs-editado" title="{{ 'pasta_detalhes.cartao.editado_dica'|trans({hora: obs.criadaEm|hora, data: obs.editadaEm|data, hora_edicao: obs.editadaEm|hora}) }}">{{ 'pasta_detalhes.cartao.editado'|trans }}</span>
             {% endif %}
             <span class="ps-cab-espaco"></span>
             {% if podeGerenciar %}
@@ -1077,23 +1181,23 @@
                 {% set minRest = comentario_minutos_restantes(obs.criadaEm) %}
                 <span class="ps-anotacao-acoes">
                     <button type="button"
-                            class="ps-anotacao-acao btn-editar-obs-det"
-                            title="Editável por mais {{ minRest }} {{ minRest == 1 ? 'minuto' : 'minutos' }}" aria-label="Editar observação"
+                            class="ps-anotacao-acao btn-editar-obs-det{{ seloObs ? ' com-selo-sem-prazo' }}"
+                            title="{{ seloObs ? 'pasta_detalhes.cartao.editar'|trans : (minRest == 1 ? 'pasta_detalhes.cartao.editavel_um'|trans({minutos: minRest}) : 'pasta_detalhes.cartao.editavel_varios'|trans({minutos: minRest})) }}" aria-label="{{ 'pasta_detalhes.cartao.editar'|trans }}"
                             data-obs-id="{{ obs.id }}"
                             {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
                             data-conteudo="{{ obs.conteudo|e('html_attr') }}"
                             data-conteudo-html="{{ obs.conteudo|registro_texto|e('html_attr') }}"
                             data-csrf="{{ csrf_token('pasta_detalhes_obs_editar_' ~ obs.id) }}"
                             data-url="{{ path('pasta_detalhes_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
-                        <i class="bi bi-pencil"></i>
+                        <i class="bi bi-pencil"></i>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloObs} only %}
                     </button>
                     <button type="button" hidden
-                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs-det"
-                            title="Excluir observação" aria-label="Excluir observação"
+                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs-det{{ seloObs ? ' com-selo-sem-prazo' }}"
+                            title="{{ 'pasta_detalhes.cartao.excluir'|trans }}" aria-label="{{ 'pasta_detalhes.cartao.excluir'|trans }}"
                             data-obs-id="{{ obs.id }}"
                             data-csrf="{{ csrf_token('pasta_detalhes_obs_excluir_' ~ obs.id) }}"
                             data-url="{{ path('pasta_detalhes_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
-                        <i class="bi bi-trash3"></i>
+                        <i class="bi bi-trash3"></i>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloObs} only %}
                     </button>
                 </span>
             {% endif %}
@@ -1101,52 +1205,80 @@
                 {# Responder a uma RESPOSTA já começa com "@Nome " do autor dela (desenho `respTxt`). #}
                 <button type="button"
                         class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs-det"
-                        title="Responder" aria-label="Responder"
+                        title="{{ 'pasta_detalhes.cartao.responder'|trans }}" aria-label="{{ 'pasta_detalhes.cartao.responder'|trans }}"
                         data-resposta-a="{{ alvoId }}"
-                        data-resposta-nome="{{ alvoNome ?: 'Autor desconhecido' }}"
+                        data-resposta-nome="{{ alvoNome ?: 'pasta_detalhes.cartao.autor_desconhecido'|trans }}"
                         {%- if raiz and obs.autor and autor %} data-resposta-autor-id="{{ obs.autor.id }}" data-resposta-autor-nome="{{ autor }}"{% endif %}>
                     <i class="bi bi-reply-fill"></i>
+                </button>
+            {% endif %}
+            {% if encaminharPasta %}
+                {# D:2463: o ↪ espelhado, 28×26, depois do Responder e antes da hora; aparece com o
+                   cartão sob o mouse, como o Responder (`data-acao`). Só ids: o servidor relê a observação. #}
+                <button type="button"
+                        class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                        title="{{ 'pasta_detalhes.cartao.encaminhar'|trans }}" aria-label="{{ 'pasta_detalhes.cartao.encaminhar'|trans }}"
+                        data-encaminhar-pasta="{{ encaminharPasta }}"
+                        data-encaminhar-tipo="registro_detalhes"
+                        data-encaminhar-id="{{ obs.id }}">
+                    <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
                 </button>
             {% endif %}
             <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ horaRotulo }}</span>
             {# ⋮ da observação (N7, dc L.2335): 28×28, depois da hora. Itens: ver o
                cabeçalho (PAS-041). "Imprimir" (EDT-003) fecha os extras, logo depois de "Criar
                meta…" e antes do separador de Editar/Excluir (C6-EDT-04; dc L.5958: `extras`
-               e só então '-'). Encaminhar via Chat I.A não existe aqui. #}
-            <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
-                    aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
+               e só então '-'). "Encaminhar via Chat I.A" (D:6869) vem logo depois de Copiar
+               texto, com a Central, e clica o ↪ do cartão. "Enviar no Chat I.A"
+               (dc L.6872) fica entre "Criar meta…" e "Imprimir". #}
+            <button type="button" class="ps-obs-menu-btn js-obs-menu" title="{{ 'pasta_detalhes.cartao.mais_acoes'|trans }}"
+                    aria-label="{{ 'pasta_detalhes.cartao.mais_acoes'|trans }}" aria-haspopup="menu" aria-expanded="false"
                     aria-controls="psObsMenu{{ obs.id }}">
                 <i class="bi bi-three-dots-vertical"></i>
             </button>
             <div class="ps-obs-menu" id="psObsMenu{{ obs.id }}" role="menu" hidden>
-                <div class="ps-processo-menu-titulo">{{ autor ?: 'Autor desconhecido' }} · {{ obs.criadaEm|date('d/m/Y, H:i') }}</div>
+                <div class="ps-processo-menu-titulo">{{ autor ?: 'pasta_detalhes.cartao.autor_desconhecido'|trans }} · {{ obs.criadaEm|date('d/m/Y, H:i') }} · {{ 'pasta_detalhes.cartao.tag'|trans }}</div>
                 {% if podeEscreverObs %}
                     <button type="button" class="ps-processo-menu-item js-obs-responder" role="menuitem">
-                        <i class="bi bi-reply-fill"></i><span>Responder</span>
+                        <i class="bi bi-reply-fill"></i><span>{{ 'pasta_detalhes.cartao.responder'|trans }}</span>
                     </button>
                 {% endif %}
                 <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
-                    <i class="bi bi-clipboard"></i><span>Copiar texto</span>
+                    <i class="bi bi-clipboard"></i><span>{{ 'pasta_detalhes.menu.copiar'|trans }}</span>
                 </button>
+                {% if encaminharPasta %}
+                    <button type="button" class="ps-processo-menu-item js-obs-encaminhar" role="menuitem">
+                        <i class="bi bi-send"></i><span>{{ 'pasta_detalhes.cartao.encaminhar'|trans }}</span>
+                    </button>
+                {% endif %}
                 {# Citar escreve no compositor: sem compositor (C6-PAS-02), não há onde citar. #}
                 {% if podeEscreverObs %}
                     <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
-                        <i class="bi bi-quote"></i><span>Citar no novo registro</span>
+                        <i class="bi bi-quote"></i><span>{{ 'pasta_detalhes.menu.citar'|trans }}</span>
                     </button>
                 {% endif %}
                 {% if obsPodeCriarMeta %}
                     <button type="button" class="ps-processo-menu-item js-obs-criar-meta" role="menuitem">
-                        <i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>
+                        <i class="bi bi-check2-square"></i><span>{{ 'pasta_detalhes.menu.criar_meta'|trans }}</span>
+                    </button>
+                {% endif %}
+                {# dc L.6872: "Enviar no Chat I.A" abre a Central e copia "Pasta N · cabeçalho" + o texto (até 900) para
+                   colar na conversa. Só com o lançador flutuante na página (`obsComChat`). O NUP vem do
+                   `data-pasta-nup` da lista (fora do <script>: no template JS do cartão novo ele seria texto cru).
+                   O `bj-chat-anexar-texto` do dc fica de fora: nada no sistema o ouve. #}
+                {% if obsComChat %}
+                    <button type="button" class="ps-processo-menu-item js-obs-enviar-chat" role="menuitem">
+                        <i class="bi bi-chat-dots"></i><span>{{ 'pasta_detalhes.menu.enviar_chat'|trans }}</span>
                     </button>
                 {% endif %}
                 {# EDT-003 (dc L.6466): "Imprimir" abre a janela de impressão (pasta-impressao.js)
-                   com "Registro do expediente" e a linha autor · data · tipo — o tipo do
-                   relatório de Detalhes no desenho é "Atendimento". #}
+                   com "Registro do expediente" e a linha autor · data · tipo. O tipo é a tag fixa
+                   "Observação" do desenho 02 (dc L6874, `meta.tag`). #}
                 <button type="button" class="ps-processo-menu-item js-obs-imprimir" role="menuitem"
-                        data-autor="{{ autor ?: 'Autor desconhecido' }}"
+                        data-autor="{{ autor ?: 'pasta_detalhes.cartao.autor_desconhecido'|trans }}"
                         data-quando="{{ obs.criadaEm|date('d/m/Y, H:i') }}"
-                        data-tipo="Atendimento">
-                    <i class="bi bi-printer"></i><span>Imprimir</span>
+                        data-tipo="{{ 'pasta_detalhes.cartao.tag'|trans }}">
+                    <i class="bi bi-printer"></i><span>{{ 'pasta_detalhes.menu.imprimir'|trans }}</span>
                 </button>
                 {# Quem não escreve (só vê a pasta, ou lápide) não recebe Editar/Excluir nem bloqueados:
                    o motivo seria de permissão, não de prazo ou de autoria (PAS-014/025c; igual ao cartão do JS). #}
@@ -1155,17 +1287,27 @@
                     {# C6-PAS-05: `data-obs-janela` marca os dois itens nos dois estados; ao abrir o ⋮,
                        o JS (`pintarJanelaObs`) recalcula os minutos pelo `data-janela-ate` do cartão e
                        bloqueia os itens quando a janela fecha sem recarregar a página. #}
-                    {% if podeGerenciar %}
+                    {% if seloObs %}
+                        {# Liberado pelo poder sem prazo: sem os minutos, com o selo no hover e no foco. #}
+                        <button type="button" class="ps-processo-menu-item js-obs-editar com-selo-sem-prazo" role="menuitem"
+                                data-obs-janela="editar" data-obs-id="{{ obs.id }}">
+                            <i class="bi bi-pencil"></i><span>{{ 'pasta_detalhes.menu.editar_sem_prazo'|trans }}</span>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloObs} only %}
+                        </button>
+                        <button type="button" class="ps-processo-menu-item js-obs-excluir com-selo-sem-prazo" role="menuitem"
+                                data-obs-janela="excluir" data-obs-id="{{ obs.id }}">
+                            <i class="bi bi-trash3"></i><span>{{ 'pasta_detalhes.menu.excluir_sem_prazo'|trans }}</span>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloObs} only %}
+                        </button>
+                    {% elseif podeGerenciar %}
                         {% set minRestMenu = comentario_minutos_restantes(obs.criadaEm) %}
                         <button type="button" class="ps-processo-menu-item js-obs-editar" role="menuitem"
                                 data-obs-janela="editar"
-                                data-obs-id="{{ obs.id }}" title="Edição liberada por mais {{ minRestMenu }} min">
-                            <i class="bi bi-pencil"></i><span>Editar · {{ minRestMenu }} min</span>
+                                data-obs-id="{{ obs.id }}" title="{{ 'pasta_detalhes.menu.editar_dica'|trans({minutos: minRestMenu}) }}">
+                            <i class="bi bi-pencil"></i><span>{{ 'pasta_detalhes.menu.editar_min'|trans({minutos: minRestMenu}) }}</span>
                         </button>
                         <button type="button" class="ps-processo-menu-item js-obs-excluir" role="menuitem"
                                 data-obs-janela="excluir"
-                                data-obs-id="{{ obs.id }}" title="Exclusão liberada por mais {{ minRestMenu }} min">
-                            <i class="bi bi-trash3"></i><span>Excluir comentário · {{ minRestMenu }} min</span>
+                                data-obs-id="{{ obs.id }}" title="{{ 'pasta_detalhes.menu.excluir_dica'|trans({minutos: minRestMenu}) }}">
+                            <i class="bi bi-trash3"></i><span>{{ 'pasta_detalhes.menu.excluir_min'|trans({minutos: minRestMenu}) }}</span>
                         </button>
                     {% else %}
                         {# C7-FPN-02: clicável, diz o motivo num aviso neutro (dc 5958 `gmAviso(pm.motivo)`):
@@ -1174,12 +1316,12 @@
                         <button type="button" class="ps-processo-menu-item" role="menuitem"
                                 data-obs-janela="editar"
                                 aria-disabled="true" data-aviso="{{ motivoObs }}" title="{{ motivoObs }}">
-                            <i class="bi bi-lock"></i><span>Editar · bloqueado</span>
+                            <i class="bi bi-lock"></i><span>{{ 'pasta_detalhes.menu.editar_bloqueado'|trans }}</span>
                         </button>
                         <button type="button" class="ps-processo-menu-item" role="menuitem"
                                 data-obs-janela="excluir"
                                 aria-disabled="true" data-aviso="{{ motivoObs }}" title="{{ motivoObs }}">
-                            <i class="bi bi-lock"></i><span>Excluir · bloqueado</span>
+                            <i class="bi bi-lock"></i><span>{{ 'pasta_detalhes.menu.excluir_bloqueado'|trans }}</span>
                         </button>
                     {% endif %}
                 {% endif %}

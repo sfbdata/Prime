@@ -16,6 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * PAS-013: menu e chip do responsável seguem o desenho NA PASTA — dica "Filtrar
@@ -111,7 +112,7 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        $chip = $crawler->filter('.ps-cab-dados [data-campo="responsavel"] .pasta-resp-chip');
+        $chip = $crawler->filter('.ps-cab-resp[data-campo="responsavel"] .pasta-resp-chip');
         self::assertCount(1, $chip);
         self::assertSame('', $chip->attr('data-resp-id'));
         self::assertCount(1, $chip->filter('.pasta-resp-chip > .resp-avatar-vazio > i.bi-person-dash'));
@@ -135,14 +136,15 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
 
         self::assertStringContainsString("var naPasta = chip.dataset.contexto === 'pasta';", $render);
         self::assertStringContainsString("<i class=\"bi ' + (naPasta ? 'bi-person-dash' : 'bi-person') + '\"></i></span>'", $render);
-        self::assertStringContainsString("'<span class=\"pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '\">Sem responsável</span>'", $render);
+        self::assertStringContainsString("'<span class=\"pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '\">' + escResp(BJ_T.t('pasta_resp.js.resp.sem_responsavel')) + '</span>'", $render);
+        self::assertSame('Sem responsável', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_resp']['js']['resp']['sem_responsavel']);
         // O desenho antigo, fixo, não pode voltar: era ele que desfazia o chip da pasta.
         self::assertStringNotContainsString('<i class="bi bi-person"></i>', $render);
         self::assertStringNotContainsString('<span class="pasta-resp-nome text-muted">Sem responsável</span>', $render);
     }
 
-    #[TestDox('Expediente: menu e chip continuam como eram — "Filtrar…", sem ✓, chip vazio com bi-person e apagado')]
-    public function testExpedienteNaoMuda(): void
+    #[TestDox('Expediente: o menu segue o desenho 03 ("Filtrar responsável", ✓, X na faixa azul, papel de dialog, vazio do desenho); o chip vazio continua com bi-person e apagado, com a dica do desenho')]
+    public function testExpedienteSegueODesenho03(): void
     {
         $client                   = static::createClient();
         [$admin, $tenant, $pasta] = $this->criarCenario(comResponsavel: false);
@@ -151,35 +153,29 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?busca=' . rawurlencode($pasta->getNup()));
         self::assertResponseIsSuccessful();
 
-        self::assertCount(1, $crawler->filter('#pastaRespMenu .pasta-resp-busca[placeholder="Filtrar…"]'));
-        self::assertSame(
-            'Filtrar colaboradores pelo nome',
-            $crawler->filter('#pastaRespMenu .pasta-resp-busca')->attr('aria-label')
-        );
-        self::assertCount(0, $crawler->filter('.pasta-resp-check'), 'o ✓ é só da pasta');
-        self::assertCount(
-            1,
-            $crawler->filter('#pastaRespMenu .pasta-resp-opcao[data-user-id=""] .pasta-resp-nome.text-muted'),
-            '"Sem responsável" segue apagado no menu do Expediente'
-        );
-        self::assertStringNotContainsString(
-            '#pastaRespMenu .pasta-resp-check',
-            (string) $client->getResponse()->getContent(),
-            'o <style> do ✓ não vai para o Expediente'
-        );
+        $menu = $crawler->filter('#pastaRespMenu[role="dialog"][aria-label="Escolher responsável"]');
+        self::assertCount(1, $menu);
+        self::assertCount(1, $menu->filter('.pasta-resp-busca[placeholder="Filtrar responsável"][aria-label="Filtrar responsável"]'));
+        self::assertCount(1, $menu->filter('.pasta-resp-busca-wrap > button.pasta-resp-fechar[data-tip="Fechar"][aria-label="Fechar"]'));
+        self::assertGreaterThan(0, $menu->filter('.pasta-resp-opcao > .pasta-resp-check')->count(), 'o ✓ em toda opção (aparece na ativa)');
+        self::assertCount(0, $menu->filter('.pasta-resp-opcao[data-user-id=""] .pasta-resp-nome.text-muted'), '"Sem responsável" sem o apagado, como no dc `opts`');
+        self::assertSame('Nenhum responsável encontrado', trim($menu->filter('.pasta-resp-vazio')->text()));
 
-        // Tabela E cartão: os dois incluem o chip, por caminhos diferentes.
+        $chip = $crawler->filter('#tabelaPastas .pasta-resp-chip');
+        self::assertSame('Clique para atribuir um responsável', $chip->attr('data-tip'));
+        self::assertNull($chip->attr('title'), 'a dica do Expediente é a do sistema de dicas, sem o title nativo junto');
+
+        // A tabela inclui o chip; o cartão do desenho 1.1 (E12) mostra o responsável só como avatar e nome.
         $chipTabela = $crawler->filter('#tabelaPastas .pasta-resp-chip');
         self::assertCount(1, $chipTabela);
         self::assertCount(1, $chipTabela->filter('.pasta-resp-chip > .resp-avatar-vazio > i.bi-person'));
         self::assertCount(1, $chipTabela->filter('.pasta-resp-chip > .pasta-resp-nome.text-muted'));
         self::assertSame('expediente', $chipTabela->attr('data-contexto'));
 
-        $chipCartao = $crawler->filter('.pastas-lista .pasta-card .pasta-resp-chip');
-        self::assertCount(1, $chipCartao);
-        self::assertCount(1, $chipCartao->filter('.pasta-resp-chip > .resp-avatar-vazio > i.bi-person'));
-        self::assertCount(1, $chipCartao->filter('.pasta-resp-chip > .pasta-resp-nome.text-muted'));
-        self::assertSame('expediente', $chipCartao->attr('data-contexto'));
+        $peCartao = $crawler->filter('.pastas-lista > .exp-cartao > .exp-cartao-pe');
+        self::assertCount(1, $peCartao);
+        self::assertSame('?', trim($peCartao->filter('.exp-simples-av.is-vazio')->text()));
+        self::assertSame('Sem responsável', trim($peCartao->filter('.exp-cartao-resp')->text()));
 
         self::assertCount(0, $crawler->filter('.pasta-resp-chip i.bi-person-dash'), 'o ícone do desenho é só da pasta');
     }

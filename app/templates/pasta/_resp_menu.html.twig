@@ -7,43 +7,44 @@
    area rolavel, senao o campo sobe e some assim que o usuario rola os nomes.
 
    `respContexto`: 'pasta' (padrao, pasta_show) ou 'expediente' (o _tabela passa).
-   So na pasta entra o desenho do PAS-013 — dica "Filtrar responsável", ✓ na
-   opcao ativa e "Sem responsável" sem o apagado. O Expediente fica como era. #}
+   Os dois seguem o desenho: dica "Filtrar responsável", ✓ na opcao ativa e "Sem
+   responsável" sem o apagado (na pasta, PAS-013; no Expediente, o desenho 03 VS
+   18.10.26, que acrescenta o X de fechar na faixa azul, o vazio "Nenhum responsável
+   encontrado" e o papel de dialog, para o leitor de tela e para o X global). #}
 {% import '_partials/_avatar_usuario.html.twig' as av %}
 {% set fotosResponsaveis = fotosResponsaveis|default({}) %}
 {% set naPasta = (respContexto|default('pasta')) == 'pasta' %}
-{% if naPasta %}
 {# O ✓ so aparece na opcao `.ativa`, que o _resp_script liga ao abrir o menu.
    O <style> fica FORA do menu: o menu tem so dois filhos (busca e lista). #}
 <style>
 #pastaRespMenu .pasta-resp-check { display: none; flex-shrink: 0; font-size: 15px; color: var(--ps-accent, #0a7aad); }
 #pastaRespMenu .pasta-resp-opcao.ativa .pasta-resp-check { display: inline-block; }
 </style>
-{% endif %}
-<div class="pasta-resp-menu" id="pastaRespMenu" hidden>
+<div class="pasta-resp-menu" id="pastaRespMenu" hidden{% if not naPasta %} role="dialog" aria-label="{{ 'pasta_resp.resp.escolher'|trans }}"{% endif %}>
 
     {# ── Busca: parada no topo ── #}
     <div class="pasta-resp-busca-wrap">
         <i class="bi bi-search pasta-resp-busca-icone" aria-hidden="true"></i>
         <input type="text"
                class="pasta-resp-busca"
-               placeholder="{{ naPasta ? 'Filtrar responsável' : 'Filtrar…' }}"
+               placeholder="{{ 'pasta_resp.resp.filtrar'|trans }}"
                autocomplete="off"
                spellcheck="false"
                role="combobox"
                aria-expanded="true"
                aria-autocomplete="list"
                aria-controls="pastaRespLista"
-               aria-label="{{ naPasta ? 'Filtrar responsável' : 'Filtrar colaboradores pelo nome' }}">
+               aria-label="{{ 'pasta_resp.resp.filtrar'|trans }}">
+        {% if not naPasta %}<button type="button" class="pasta-resp-fechar" data-tip="{{ 'pasta_resp.fechar'|trans }}" aria-label="{{ 'pasta_resp.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>{% endif %}
     </div>
 
     {# ── Lista: a parte que rola ── #}
-    <div class="pasta-resp-lista" id="pastaRespLista" role="listbox" aria-label="Escolher responsável">
+    <div class="pasta-resp-lista" id="pastaRespLista" role="listbox" aria-label="{{ 'pasta_resp.resp.escolher'|trans }}">
         <button type="button" class="pasta-resp-opcao" role="option" aria-selected="false"
-                data-user-id="" data-nome="Sem responsável" data-foto="">
+                data-user-id="" data-nome="{{ 'pasta_resp.resp.sem_responsavel'|trans }}" data-foto="">
             <span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi bi-person-dash"></i></span>
-            <span class="pasta-resp-nome{{ naPasta ? '' : ' text-muted' }}">Sem responsável</span>
-            {% if naPasta %}<i class="bi bi-check2 pasta-resp-check" aria-hidden="true"></i>{% endif %}
+            <span class="pasta-resp-nome">{{ 'pasta_resp.resp.sem_responsavel'|trans }}</span>
+            <i class="bi bi-check2 pasta-resp-check" aria-hidden="true"></i>
         </button>
         {% for u in usuarios %}
             {% set fotoU = fotosResponsaveis[u.id]|default(null) %}
@@ -53,14 +54,14 @@
                     data-foto="{{ fotoU ? path('app_profile_foto_serve', {nome: fotoU}) : '' }}">
                 {{ av.avatar(u.fullName, fotoU, 24) }}
                 <span class="pasta-resp-nome">{{ u.fullName }}</span>
-                {% if naPasta %}<i class="bi bi-check2 pasta-resp-check" aria-hidden="true"></i>{% endif %}
+                <i class="bi bi-check2 pasta-resp-check" aria-hidden="true"></i>
             </button>
         {% endfor %}
 
         {# Sem isto, filtrar ate nao sobrar ninguem deixa um retangulo vazio com
            cara de tela quebrada. O JS so troca o atributo hidden. #}
         <div class="pasta-resp-vazio" hidden>
-            <i class="bi bi-search me-1"></i>Nenhum colaborador encontrado
+            {% if naPasta %}<i class="bi bi-search me-1"></i>{{ 'pasta_resp.resp.nenhum_colaborador'|trans }}{% else %}{{ 'pasta_resp.resp.nenhum_responsavel'|trans }}{% endif %}
         </div>
     </div>
 </div>

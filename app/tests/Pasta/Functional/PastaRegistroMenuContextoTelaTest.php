@@ -13,6 +13,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * PAS-025: o menu do botão direito no cartão do Registro (desenho dc L.5958, `menu` de
@@ -54,7 +55,7 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         return substr($html, $ini, $tamanho);
     }
 
-    #[TestDox('PAS-025: o menu único #psRegMenu tem, na ordem do desenho, Responder, Copiar texto, separador, Editar e Excluir comentário, com os ícones')]
+    #[TestDox('PAS-025: o menu único #psRegMenu tem, na ordem do desenho, Responder, Copiar texto, Encaminhar via Chat I.A, separador, Editar e Excluir comentário, com os ícones')]
     public function testMenuUnicoComOsItensDoDesenho(): void
     {
         $client          = static::createClient();
@@ -72,10 +73,10 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         $itens = $menu->filter('#psRegMenu > .ps-processo-menu-item')->each(
             static fn ($i): string => trim(preg_replace('/\s+/u', ' ', $i->text()) ?? ''),
         );
-        self::assertSame(['Responder', 'Copiar texto', 'Editar', 'Excluir comentário'], $itens);
+        self::assertSame(['Responder', 'Copiar texto', 'Encaminhar via Chat I.A', 'Editar', 'Excluir comentário'], $itens);
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-responder > i.bi-reply-fill'));
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-copiar > i.bi-clipboard'));
-        self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-copiar + .ps-processo-menu-sep[role="separator"] + .js-reg-editar > i.bi-pencil'));
+        self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-copiar + .js-reg-encaminhar + .ps-processo-menu-sep[role="separator"] + .js-reg-editar > i.bi-pencil'));
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-excluir > i.bi-trash3'));
         self::assertCount(1, $menu->filter('#psRegMenu > .ps-processo-menu-titulo.js-reg-menu-titulo'));
     }
@@ -221,7 +222,10 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertSame('0', $crawler->filter("#pasta-msg-{$alheio->getId()}")->attr('data-do-autor'));
         // As ações reais que o menu aciona continuam no cartão do autor dentro da janela.
         self::assertCount(1, $crawler->filter("#pasta-msg-{$meu->getId()} .ps-anotacao-acoes > .btn-editar-msg-pasta"));
-        self::assertCount(0, $crawler->filter("#pasta-msg-{$alheio->getId()} .ps-anotacao-acoes"));
+        self::assertCount(0, $crawler->filter("#pasta-msg-{$meu->getId()} .selo-sem-prazo"), 'pela regra de sempre não há selo');
+        // O admin daqui é o Master: o conteúdo alheio abre pelo poder sem prazo, com o selo (spec edicao-sem-prazo).
+        self::assertCount(1, $crawler->filter("#pasta-msg-{$alheio->getId()} .ps-anotacao-acoes > .btn-editar-msg-pasta.com-selo-sem-prazo > .selo-sem-prazo"));
+        self::assertSame('EXCLUSIVO DO MASTER', $crawler->filter("#pasta-msg-{$alheio->getId()}")->attr('data-sem-prazo-rotulo'));
     }
 
     #[TestDox('PAS-025: o cartão montado em JS (registro recém-enviado) tem o mesmo ⋮ e os dados da janela')]
@@ -343,18 +347,24 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         $client->request('GET', '/pasta/' . $pasta->getId());
         $html = $this->html($client);
 
-        $abrir = $this->trecho($html, 'function abrirMenuReg(cartao, gatilho, x, y)', 3000);
-        self::assertStringContainsString("'Editar · ' + resto + ' min', 'bi-pencil'", $abrir);
-        self::assertStringContainsString("'Excluir comentário · ' + resto + ' min', 'bi-trash3'", $abrir);
-        self::assertStringContainsString("'Editar · bloqueado', 'bi-lock', motivo", $abrir);
-        self::assertStringContainsString("'Excluir · bloqueado', 'bi-lock', motivo", $abrir);
-        self::assertStringContainsString("cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0", $abrir);
-        self::assertStringContainsString("cartao.dataset.doAutor === '1' ? REG_MOTIVO_PRAZO : REG_MOTIVO_AUTOR", $abrir);
+        $abrir = $this->trecho($html, 'function abrirMenuReg(cartao, gatilho, x, y)', 4400);
+        // O texto vem do catálogo do idioma (`pasta_show.js.registro.*`); o catálogo guarda o texto de antes.
+        self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_editar', {min: resto}), 'bi-pencil'", $abrir);
+        self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_excluir', {min: resto}), 'bi-trash3'", $abrir);
+        self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_editar_bloqueado'), 'bi-lock', motivo", $abrir);
+        self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_excluir_bloqueado'), 'bi-lock', motivo", $abrir);
+        $registro = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['registro'];
+        self::assertSame('Editar · {min} min', $registro['menu_editar']);
+        self::assertSame('Excluir comentário · {min} min', $registro['menu_excluir']);
+        self::assertSame('Editar · bloqueado', $registro['menu_editar_bloqueado']);
+        self::assertSame('Excluir · bloqueado', $registro['menu_excluir_bloqueado']);
+        self::assertStringContainsString("const pelaRegra = temBotao && cartao.dataset.doAutor === '1' && resto > 0;", $abrir);
+        self::assertStringContainsString("cartao.dataset.doAutor === '1' ? BJ_T.t('pasta_show.js.registro.motivo_prazo') : BJ_T.t('pasta_show.js.registro.motivo_autor')", $abrir);
         self::assertStringContainsString("responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta')", $abrir);
         self::assertStringContainsString(':not([disabled])', $abrir, 'o foco não cai num item bloqueado');
 
-        self::assertStringContainsString("const REG_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.';", $html);
-        self::assertStringContainsString("const REG_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.';", $html);
+        self::assertSame('O prazo de 15 minutos para editar ou excluir terminou.', $registro['motivo_prazo']);
+        self::assertSame('Só o autor pode editar ou excluir, nos 15 minutos após publicar.', $registro['motivo_autor']);
 
         $pintar = $this->trecho($html, 'function pintarItemReg(', 500);
         self::assertStringContainsString('item.disabled = !pode', $pintar);
@@ -375,6 +385,7 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         $copiar = $this->trecho($html, 'function copiarTextoReg(item, cartao)', 1200);
         self::assertStringContainsString(".pasta-msg-conteudo .ql-editor", $copiar);
         self::assertStringContainsString('navigator.clipboard.writeText(texto)', $copiar);
-        self::assertStringContainsString("avisar('Texto copiado')", $copiar);
+        self::assertStringContainsString("avisar(BJ_T.t('pasta_show.js.registro.copiado'))", $copiar);
+        self::assertSame('Texto copiado', $registro['copiado']);
     }
 }

@@ -44,33 +44,13 @@ final class <Nome>Test extends TestCase
 }
 ```
 
-## Estrutura de teste funcional
-
-```php
-<?php
-declare(strict_types=1);
-namespace App\Tests\<Dominio>\Functional;
-
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-
-final class <Nome>ControllerTest extends WebTestCase
-{
-    public function testListarRetorna200(): void
-    {
-        $client = static::createClient();
-        // autenticar usuário de teste
-        $client->request('GET', '/rota');
-
-        self::assertResponseIsSuccessful();
-    }
-}
-```
-
 ## Regras obrigatórias
 
 - Usar atributos PHPUnit: `#[DataProvider]`, `#[CoversClass]`, `#[Group]`, `#[TestDox]`
 - **Nunca mockar `EntityManager` diretamente** — crie uma interface e mocke ela
-- **Nunca mockar o que não é seu** — só mockar abstrações próprias (interfaces do domínio)
+- **Nunca mockar o que não é seu** — só mockar abstrações próprias. O repository do domínio (`XRepository`) é
+  nosso e pode ser mockado no teste de UseCase; `EntityManager`, `ServiceEntityRepository` genérico e classes de
+  terceiros, não. A query em si se prova em teste de integração.
 - DAMA/DoctrineTestBundle para rollback automático em testes funcionais
 - Mocks com PHPUnit nativo: `createMock()`, `createStub()` — não usar Prophecy
 
@@ -102,13 +82,24 @@ $cliente = ClienteFactory::createOne(['nome' => 'Teste Ltda']);
 - Controllers (happy path + erro): todos cobertos por Functional
 - Target global: 80%
 
-## Rodar testes
+Medir: `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --coverage-text'`.
 
-```bash
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/<Dominio>/'
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --coverage-text'
-```
+## Rodar em paralelo (ParaTest)
+
+`scripts/testar-paralelo.sh [frente] [-p N]` roda a suíte em N processos (padrão 6). A serial
+(`php bin/phpunit`, `scripts/frente-testar.sh`) continua sendo a referência; no CI, o workflow "Suíte completa" roda a suíte inteira com o ParaTest (`scripts/ci-montar-banco-de-teste.sh`).
+
+Cada processo tem banco, uploads, logs e temporários próprios (`tests/Shared/Paralelo/ProcessoDeTesteParalelo`).
+Teste novo que grava fora do banco não pode montar caminho fixo: use o parâmetro do container
+(`uploads_dir`, `cobrancas_uploads_dir`...), `kernel.logs_dir` com o sufixo `getenv('TESTE_PROCESSO')`
+e `sys_get_temp_dir()`. Os ids se repetem entre processos (cada banco recomeça as sequências), então
+nada fora do banco pode ser compartilhado por id de tenant.
+
+Os dois scripts rodam o PHP com o OPcache ligado na CLI (`scripts/lib/opcache-de-teste.sh`). À mão,
+use a mesma receita: `php -d opcache.enable_cli=1 -d opcache.memory_consumption=512
+-d opcache.interned_strings_buffer=32 -d opcache.max_accelerated_files=20000
+-d opcache.revalidate_freq=0 bin/phpunit`. Sem ela (`enable_cli=0` no container) o bytecode das ~7 mil
+classes carregadas fica na heap do processo: a serial pica em ~400 MB em vez de ~208 MB e roda mais devagar.
 
 ## Geradores (`make:factory`, `make:test`) — servem, mas gravam no lugar errado
 

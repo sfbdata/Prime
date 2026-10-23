@@ -73,8 +73,14 @@ if [[ ! -f "$LETSENCRYPT_DIR/live/grupojusprime.tech/fullchain.pem" || \
 fi
 
 # ─── Atualiza código ───────────────────────────────────────────────────────────
-echo "📦 Atualizando código do repositório..."
-git pull
+# O deploy automático (scripts/vps/deploy-automatico.sh) já deixou o checkout exatamente na tag
+# vX.Y.Z e chama com PULAR_GIT_PULL=1: um pull aqui traria o que entrou no master depois da tag.
+if [[ "${PULAR_GIT_PULL:-0}" == 1 ]]; then
+  echo "📦 Código já posicionado na versão $(git describe --tags --always) (deploy automático)."
+else
+  echo "📦 Atualizando código do repositório..."
+  git pull
+fi
 
 # ─── Constrói a imagem ANTES de derrubar nada ──────────────────────────────────
 # A ORDEM É O CONSERTO. Antes, a manutenção era ligada primeiro e o build vinha depois:
@@ -101,7 +107,14 @@ touch nginx/maintenance/maintenance.on
 # imagem mudou — o php. nginx e db ficam intactos, então não há "conexão recusada" e
 # o app co-hospedado (grupojusprime.tech) não sofre blip.
 echo "🐳 Subindo containers (recria só o php)..."
-$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --remove-orphans
+# SEM_AGENDADOR=1 (o deploy-automatico.sh achou tarefa do sistema ativa no crontab do host): sobe tudo
+# menos o agendador, que nem chega a nascer, para nenhuma tarefa rodar duas vezes (cron + agendador).
+ESCALA_AGENDADOR=()
+if [[ "${SEM_AGENDADOR:-0}" == 1 ]]; then
+  ESCALA_AGENDADOR=(--scale scheduler=0)
+  echo "⚠️  Agendador NÃO sobe neste deploy (tarefas ainda no crontab do host)."
+fi
+$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --remove-orphans ${ESCALA_AGENDADOR[@]+"${ESCALA_AGENDADOR[@]}"}
 
 # ─── Reconecta o nginx à rede do sistema co-hospedado (condomínio) ───
 # Em deploys normais o nginx NÃO é recriado (config inalterada), então este passo só

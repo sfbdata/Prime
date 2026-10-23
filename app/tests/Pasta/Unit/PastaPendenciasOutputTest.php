@@ -10,6 +10,7 @@ use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Service\PontosDoRelatorioInicial;
 use App\Processo\Entity\Processo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -187,11 +188,11 @@ final class PastaPendenciasOutputTest extends TestCase
             'todo item marcado tem arquivo (o filtro removeu tudo): sem pendência',
         );
         self::assertSame(
-            ['n' => 1, 'txt' => '1 item do checklist marcado sem anexo'],
+            ['n' => 1, 'txt' => '1 item marcado sem anexo'],
             PastaPendenciasOutput::montar($this->pastaRegular(), 0, [], $hoje, 1)->porAba['documentos'],
         );
         self::assertSame(
-            ['n' => 3, 'txt' => '3 itens do checklist marcados sem anexo'],
+            ['n' => 3, 'txt' => '3 itens marcados sem anexo'],
             PastaPendenciasOutput::montar($this->pastaRegular(), 0, [], $hoje, 3)->porAba['documentos'],
         );
         self::assertSame(['documentos'], array_keys(PastaPendenciasOutput::montar($this->pastaRegular(), 0, [], $hoje, 2)->porAba));
@@ -216,5 +217,24 @@ final class PastaPendenciasOutputTest extends TestCase
         $out = PastaPendenciasOutput::montar($pasta, 2, [], new \DateTimeImmutable(self::HOJE), veFinanceiro: true);
 
         self::assertSame(['tarefas', 'processo', 'financeiro', 'push'], array_keys($out->porAba));
+    }
+
+    #[TestDox('Detalhes: relatório inicial incompleto acende a aba; completo ou não informado, não')]
+    public function testDetalhesPeloRelatorioInicial(): void
+    {
+        $pasta = $this->pastaRegular();
+
+        $parcial = PastaPendenciasOutput::montar($pasta, 0, [], relatorioInicial: PontosDoRelatorioInicial::dosTextos(['O cliente deseja a revisão.']));
+        self::assertSame(
+            ['detalhes' => ['n' => 2, 'txt' => 'relatório inicial sem acordos iniciais e resultado esperado pelo cliente']],
+            $parcial->porAba,
+        );
+
+        $completo = PastaPendenciasOutput::montar($pasta, 0, [], relatorioInicial: PontosDoRelatorioInicial::dosTextos([
+            'Objetivo: revisão. Ficou combinado o envio. Resultado: redução da parcela.',
+        ]));
+        self::assertSame([], $completo->porAba);
+
+        self::assertSame([], PastaPendenciasOutput::montar($pasta, 0, [])->porAba, 'sem os pontos, Detalhes não acende');
     }
 }

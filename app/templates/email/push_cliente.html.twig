@@ -1,0 +1,45 @@
+{# E-mail do escritório ao cliente pelo Push (spec push-avisar-cliente §3): o layout da implementação
+   provisória do envio (EnvioDeEmailAoClientePeloMailer), até o Carteiro da 5d assumir layout e rodapé.
+   Contexto: `escritorio`, `titulo` (opcional), `corpoHtml` (o miolo, JÁ ESCAPADO por quem montou a
+   mensagem: TextoDoEnvioAoCliente::html), `linkDescadastro`. #}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titulo ?: (escritorio ?: 'BlueJus') }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:4px;overflow:hidden;max-width:600px;width:100%;">
+                    <tr>
+                        <td style="background-color:#0a6fa0;padding:24px 32px;">
+                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">{{ escritorio ?: 'BlueJus' }}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;font-size:15px;color:#333333;line-height:1.6;">
+                            {% if titulo %}
+                                <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">{{ titulo }}</p>
+                            {% endif %}
+                            {{ corpoHtml|raw }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 32px;background-color:#f9f9f9;border-top:1px solid #eeeeee;">
+                            <p style="margin:0 0 6px;font-size:12px;color:#888888;line-height:1.5;">
+                                {{ 'emails.push_cliente.motivo'|trans({escritorio: escritorio ?: 'emails.push_cliente.um_escritorio'|trans}) }}
+                            </p>
+                            <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.5;">
+                                <a href="{{ linkDescadastro }}" style="color:#888888;">{{ 'emails.push_cliente.descadastro'|trans }}</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

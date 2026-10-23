@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Agenda\Functional;
 
 use App\Controller\AgendaController;
-use App\Entity\Agenda\Evento;
-use App\Entity\Agenda\LegendaCor;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -16,7 +15,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Isolamento multi-tenant do AgendaController via HTTP. Gestores isSystem (que bypassam o
@@ -79,82 +77,11 @@ final class AgendaIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame(Evento::STATUS_AGENDADO, $intacto->getStatus(), 'evento de outro tenant não pode ter sido cancelado');
     }
 
-    #[TestDox('Salvar legendas de um tenant não apaga as legendas de outro')]
-    public function testSalvarLegendasNaoApagaDeOutroTenant(): void
-    {
-        $client = static::createClient();
-        $this->instalarCsrfStorage();
-        $tenantA = $this->criarTenant();
-        $tenantB = $this->criarTenant();
-        $gestorA = $this->criarGestor($tenantA, 'gestorA_' . uniqid() . '@test.com');
-        $legendaB = $this->criarLegenda($tenantB, 'Prazo B');
-        $idLegB = (int) $legendaB->getId();
-        $this->limparIdentityMap();
-
-        // Gestor A salva uma lista vazia: o mass-delete só pode tocar legendas de A.
-        $this->logarComTenant($client, $gestorA, $tenantA);
-        $client->request('POST', '/agenda/legendas/salvar', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], json_encode(['legendas' => []]));
-        self::assertResponseIsSuccessful();
-
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        if ($em->getFilters()->isEnabled('tenant')) {
-            $em->getFilters()->disable('tenant');
-        }
-        $em->clear();
-        self::assertNotNull($em->find(LegendaCor::class, $idLegB), 'legenda de outro tenant foi apagada');
-    }
-
-    #[TestDox('Criar evento via AJAX rejeita participante de outro tenant')]
-    public function testCriarAjaxRejeitaParticipanteDeOutroTenant(): void
-    {
-        $client = static::createClient();
-        $this->instalarCsrfStorage();
-        $tenantA = $this->criarTenant();
-        $tenantB = $this->criarTenant();
-        $gestorA = $this->criarGestor($tenantA, 'gestorA_' . uniqid() . '@test.com');
-        $usuarioB = $this->criarGestor($tenantB, 'usuarioB_' . uniqid() . '@test.com');
-        $idUserB = (int) $usuarioB->getId();
-        $titulo = 'EventoAjax' . uniqid();
-        $this->limparIdentityMap();
-
-        $this->logarComTenant($client, $gestorA, $tenantA);
-        $payload = json_encode([
-            'titulo' => $titulo,
-            'dataInicio' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i'),
-            'duracao' => 1,
-            'participantes' => [$idUserB],
-        ]);
-        $client->request('POST', '/agenda/criar-ajax', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], $payload);
-        self::assertResponseIsSuccessful();
-
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        if ($em->getFilters()->isEnabled('tenant')) {
-            $em->getFilters()->disable('tenant');
-        }
-        $em->clear();
-        $evento = $em->getRepository(Evento::class)->findOneBy(['titulo' => $titulo]);
-        self::assertNotNull($evento);
-        self::assertCount(0, $evento->getParticipantes(), 'participante de outro tenant não pode ter sido vinculado');
-    }
-
     // ----------------------------------------------------------------- helpers
 
     private function limparIdentityMap(): void
     {
         static::getContainer()->get(EntityManagerInterface::class)->clear();
-    }
-
-    private function instalarCsrfStorage(): void
-    {
-        $storage = new class implements ClearableTokenStorageInterface {
-            public function getToken(string $tokenId): string { return 'TOKEN_' . $tokenId; }
-            public function setToken(string $tokenId, string $token): void {}
-            public function removeToken(string $tokenId): ?string { return null; }
-            public function hasToken(string $tokenId): bool { return true; }
-            public function clear(): void {}
-        };
-
-        static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 
     private function criarTenant(): Tenant
@@ -211,20 +138,5 @@ final class AgendaIsolamentoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $evento;
-    }
-
-    private function criarLegenda(Tenant $tenant, string $nome): LegendaCor
-    {
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $legenda = new LegendaCor();
-        $legenda->setNome($nome);
-        $legenda->setCor('#00a65a');
-        $legenda->setOrdem(0);
-        $legenda->setTenant($tenant);
-        $em->persist($legenda);
-        $em->flush();
-
-        return $legenda;
     }
 }

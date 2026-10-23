@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Service;
 
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Auth\User;
@@ -14,6 +15,7 @@ use App\Expediente\Repository\MarcadorRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Repository\AuditLogRepository;
+use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaMensagemRepository;
 use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
 use App\Repository\UserRepository;
@@ -51,9 +53,19 @@ class PastaTimelineAssembler
         private readonly UserRepository $userRepository,
         private readonly MarcadorRepository $marcadorRepository,
         private readonly TarefaRepository $tarefaRepository,
+        // Opcional para os testes de unidade que não olham contrato; no container é sempre injetado.
+        private readonly ?PastaDocumentoRepository $documentoRepository = null,
     ) {}
 
+    /** @var array<string, true> ids (texto, como no audit_log) dos contratos de honorários da pasta */
+    private array $idsDeContrato = [];
+
     /**
+     * `$abasOcultas`: as abas ocultas para quem vai ler (spec pasta-ocultar-aba §5). O que vem delas
+     * não entra, pela regra única `VisibilidadeDasAbasDaPasta::eventoVisivel`.
+     *
+     * @param list<string> $abasOcultas
+     *
      * @return TimelineItemDTO[]
      */
     public function montar(
@@ -61,9 +73,11 @@ class PastaTimelineAssembler
         ?Tenant $tenant,
         int $tenantId,
         ?int $processoId,
-        int $limit = 150
+        int $limit = 150,
+        array $abasOcultas = [],
     ): array {
         $items = [];
+        $this->idsDeContrato = $this->idsDeContrato($pasta, $abasOcultas);
 
         if ($tenant !== null) {
             foreach ($this->agruparRespostas($this->mensagemRepository->findByPasta($pasta, $tenant, $limit)) as $item) {
@@ -89,7 +103,49 @@ class PastaTimelineAssembler
 
         usort($items, static fn(TimelineItemDTO $a, TimelineItemDTO $b) => $b->dataHora <=> $a->dataHora);
 
-        return array_slice($items, 0, $limit);
+        return array_slice($this->semAbasOcultas($items, $abasOcultas), 0, $limit);
+    }
+
+    /**
+     * Os contratos de honorários da pasta, só quando o Financeiro está oculto para quem lê: a edição de
+     * um contrato não traz a categoria no diff, então o id decide (ocultar aba, revisão de permissão).
+     *
+     * @param list<string> $abasOcultas
+     *
+     * @return array<string, true>
+     */
+    private function idsDeContrato(Pasta $pasta, array $abasOcultas): array
+    {
+        if ($this->documentoRepository === null || !\in_array('financeiro', $abasOcultas, true)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($this->documentoRepository->findByPastaECategoria($pasta, PastaDocumento::CATEGORIA_CONTRATO) as $doc) {
+            $ids[(string) $doc->getId()] = true;
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param TimelineItemDTO[] $items
+     * @param list<string>      $abasOcultas
+     *
+     * @return TimelineItemDTO[]
+     */
+    private function semAbasOcultas(array $items, array $abasOcultas): array
+    {
+        if ($abasOcultas === []) {
+            return $items;
+        }
+
+        return array_values(array_filter($items, static fn (TimelineItemDTO $i): bool => VisibilidadeDasAbasDaPasta::eventoVisivel(
+            $i->tipo === TimelineItemType::MENSAGEM
+                ? (\in_array($i->sistema, RegistroDoSistemaNaPasta::DO_FINANCEIRO, true) ? 'registro_financeiro' : 'registro')
+                : $i->origem,
+            $abasOcultas,
+        )));
     }
 
     /**
@@ -164,6 +220,7 @@ class PastaTimelineAssembler
             respostaAId:   $raiz?->getId(),
             respostaANome: $raiz !== null ? ($raiz->getAutor()?->getFullName() ?? $raiz->getAutor()?->getEmail()) : null,
             conteudoAnterior: $msg->getConteudoAnterior(),
+            sistema:       $msg->getSistema(),
         );
     }
 
@@ -209,8 +266,24 @@ class PastaTimelineAssembler
             badgeCss:   $badgeCss,
             metaId:     $metaId,
             metaTitulo: $metaTitulo,
-            origem:     $this->origemDaClasse($entityClass),
+            origem:     $this->ehContrato($entityClass, $entityId, $changes) ? 'contrato' : $this->origemDaClasse($entityClass),
         );
+    }
+
+    /**
+     * Documento de honorários (`CATEGORIA_CONTRATO`): pela categoria gravada no diff (criação e
+     * exclusão trazem o estado inteiro) ou pelo id, quando o Financeiro está oculto para quem lê.
+     *
+     * @param array<string, mixed>|null $changes
+     */
+    private function ehContrato(string $entityClass, ?string $entityId, ?array $changes): bool
+    {
+        if (!str_ends_with($entityClass, 'PastaDocumento')) {
+            return false;
+        }
+        $categoria = $changes['diff']['after']['categoria'] ?? $changes['diff']['before']['categoria'] ?? null;
+
+        return $categoria === PastaDocumento::CATEGORIA_CONTRATO || ($entityId !== null && isset($this->idsDeContrato[$entityId]));
     }
 
     /**
@@ -391,7 +464,7 @@ class PastaTimelineAssembler
         $detalhe        = sprintf('%d arquivo(s)', $arquivos);
         $naoEncontrados = $changes['nao_encontrados'] ?? 0;
         if (is_int($naoEncontrados) && $naoEncontrados > 0) {
-            $detalhe .= sprintf(' — %d não encontrado(s) no armazenamento', $naoEncontrados);
+            $detalhe .= sprintf(' (%d não encontrado(s) no armazenamento)', $naoEncontrados);
         }
 
         return $detalhe;
@@ -482,7 +555,7 @@ class PastaTimelineAssembler
                     'Pasta excluída',
                     'bi-trash3',
                     'text-bg-danger',
-                    'A pasta continua na lista, riscada: o número dela não pode ser reaproveitado.',
+                    'A pasta foi para a lixeira e pode ser restaurada.',
                 ]
                 : [
                     'Pasta restaurada',

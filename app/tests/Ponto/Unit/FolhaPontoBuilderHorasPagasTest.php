@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -25,6 +26,9 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(FolhaPontoBuilder::class)]
 final class FolhaPontoBuilderHorasPagasTest extends TestCase
 {
+    /** @var array<int, JornadaColaborador> a jornada pessoal de cada pessoa no escritório da folha, por objeto */
+    private array $jornadaNoEscritorio = [];
+
     // ──────────────────────────────────────────────────────────────────
     // calcularSaldoAnual
     // ──────────────────────────────────────────────────────────────────
@@ -112,7 +116,6 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $builder = $this->builderComLancamentos([2026 => [3 => -120]]);
 
         $userSemJornada = $this->createStub(User::class);
-        $userSemJornada->method('getJornadaColaborador')->willReturn(null);
 
         $saldo = $builder->calcularSaldoAnual($userSemJornada, 2026, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
 
@@ -210,7 +213,6 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $builder = $this->builderComLancamentos([2026 => [3 => -120]]);
 
         $userSemJornada = $this->createStub(User::class);
-        $userSemJornada->method('getJornadaColaborador')->willReturn(null);
 
         $saldo = $builder->calcularSaldoAteMes($userSemJornada, 2026, 3, [], null, new \DateTimeImmutable('2026-01-01'), $this->tenant());
 
@@ -289,6 +291,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
             $repo,
+            $this->jornadas(),
         );
 
         $saldo = $builder->calcularSaldoAteMes($user, 2026, 4, [], null, null, $tenant);
@@ -313,6 +316,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
             $repo,
+            $this->jornadas(),
         );
 
         self::assertSame(-600, $builder->calcularSaldoAnual($user, 2026, [], null, null, $tenant));
@@ -338,6 +342,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
             $repo,
+            $this->jornadas(),
         );
 
         $saldo = $builder->somarHorasPagasDaCompetencia($user, $tenant, 2026, 8);
@@ -452,7 +457,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
         $jornada = $this->jornadaComDiasUteis([4]);
 
         $userComJornadaReal = $this->createStub(User::class);
-        $userComJornadaReal->method('getJornadaColaborador')->willReturn($jornada);
+        $this->jornadaNoEscritorio[spl_object_id($userComJornadaReal)] = $jornada;
 
         $entrada = new RegistroPonto();
         $entrada->setTipo(RegistroPonto::TIPO_ENTRADA);
@@ -476,6 +481,7 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $registroRepo,
             $this->createStub(JustificativaPontoRepository::class),
             $lancamentoRepo,
+            $this->jornadas(),
         );
 
         $saldo = $builder->calcularSaldoAteMes(
@@ -520,15 +526,26 @@ final class FolhaPontoBuilderHorasPagasTest extends TestCase
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
             $repo,
+            $this->jornadas(),
         );
     }
 
     private function userComJornada(): User
     {
         $user = $this->createStub(User::class);
-        $user->method('getJornadaColaborador')->willReturn($this->jornadaSimples());
+        $this->jornadaNoEscritorio[spl_object_id($user)] = $this->jornadaSimples();
 
         return $user;
+    }
+
+    private function jornadas(): JornadaColaboradorRepository
+    {
+        $jornadas = $this->createStub(JornadaColaboradorRepository::class);
+        $jornadas->method('findByUserETenant')->willReturnCallback(
+            fn (User $u): ?JornadaColaborador => $this->jornadaNoEscritorio[spl_object_id($u)] ?? null
+        );
+
+        return $jornadas;
     }
 
     private function tenant(): Tenant

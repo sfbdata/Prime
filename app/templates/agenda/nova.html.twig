@@ -1,0 +1,119 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Agenda nova. Desenho aprovado: docs/design/agenda-vs-18-10-26/09 - Agenda - VS 18.10.26.dc.html
+    (spec docs/specs/agenda-vs-18-10-26.md). O cabeçalho azul e a faixa de abas são a moldura do
+    sistema (base.html.twig).
+
+    O template monta só o esqueleto fixo; `equipe` alimenta o @colega do "Avisar no Chat". Cartões, mini calendário, calendários, grade, lista,
+    próximos feriados, detalhe e menu de botão direito são desenhados pelo public/js/agenda-nova.js
+    a partir de GET /agenda/datas e GET /agenda/compromissos. Rotas com {id} vão com o marcador 0,
+    trocado no JS pelo id real.
+#}
+
+{% block title %}{{ 'agenda.nova.titulo_pagina'|trans }}{% endblock %}
+
+{% block body_class %}ag-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/agenda-nova.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="ag-page" id="agPagina"
+     data-url-datas="{{ path('app_agenda_datas') }}"
+     data-url-compromissos="{{ path('app_agenda_compromissos') }}"
+     data-eu="{{ eu|json_encode|e('html_attr') }}"
+     data-equipe="{{ equipe|json_encode|e('html_attr') }}"
+     data-pode-ver-pastas="{{ podeVerPastas ? '1' : '0' }}"
+     data-url-criar="{{ path('app_agenda_compromisso_criar') }}"
+     data-url-salvar="{{ path('app_agenda_compromisso_salvar', {id: 0}) }}"
+     data-url-excluir="{{ path('app_agenda_compromisso_excluir', {id: 0}) }}"
+     data-url-avisar="{{ path('app_agenda_compromisso_avisar', {id: 0}) }}"
+     data-url-avisar-prazo="{{ path('app_agenda_prazo_avisar', {id: 0}) }}"
+     data-url-mover="{{ path('app_agenda_compromisso_mover', {id: 0}) }}"
+     data-url-status="{{ path('app_agenda_compromisso_status', {id: 0}) }}"
+     data-url-pasta="{{ path('pasta_show', {id: 0}) }}"
+     data-url-lista="{{ path('agenda_lista') }}"
+     data-url-acrescentar="{{ path('app_agenda_data_acrescentar') }}"
+     data-url-renomear="{{ path('app_agenda_data_renomear') }}"
+     data-url-ocultar="{{ path('app_agenda_data_ocultar') }}"
+     data-url-restaurar="{{ path('app_agenda_data_restaurar') }}"
+     data-url-feriados="{{ path('app_feriado_index', {tenantId: tenantId}) }}"
+     data-google="{{ google }}"
+     data-url-google-conectar="{{ google != 'indisponivel' ? path('app_agenda_google_conectar') : '' }}"
+     data-url-google-desconectar="{{ path('app_agenda_google_desconectar') }}"
+     data-google-aviso="{{ googleAviso ? '1' : '0' }}"
+     data-url-google-aviso-dispensar="{{ path('app_agenda_google_aviso_dispensar') }}"
+     data-escritorio="{{ escritorio }}">
+
+    <div class="ag-topo">
+        <i class="bi bi-calendar3 ag-topo-icone" aria-hidden="true"></i>
+        <h1 class="ag-titulo">{{ 'agenda.nova.titulo'|trans }}</h1>
+        <span class="ag-topo-vao"></span>
+        <div class="ag-resumo" id="agResumo"></div>
+    </div>
+
+    <div class="ag-corpo">
+        <aside class="ag-lado" data-screen-label="Calendários">
+            <div class="ag-lado-novo">
+                <button type="button" class="ag-btn-novo" id="agNovo"><i class="bi bi-plus-lg"></i>{{ 'agenda.nova.novo_compromisso'|trans }}</button>
+            </div>
+            <div class="ag-mini" id="agMini"></div>
+            <div class="ag-lado-rotulo">{{ 'agenda.nova.calendarios'|trans }}</div>
+            <div id="agCals"></div>
+            <div class="ag-ufs"><i class="bi bi-geo-alt"></i> {{ 'agenda.nova.feriados_estaduais_de'|trans }} <b id="agUfs">…</b><span class="ag-ufs-sub">{{ 'agenda.nova.feriados_estaduais_origem'|trans }}</span></div>
+            <div class="ag-lado-rotulo ag-lado-rotulo-sep">{{ 'agenda.nova.testar_lembretes'|trans }}</div>
+            <div class="ag-testes">
+                <button type="button" class="ag-teste" data-testar="aud" style="color:#5b3f9e;"><i class="bi bi-bank"></i>{{ 'agenda.nova.teste_audiencia'|trans }}</button>
+                <button type="button" class="ag-teste" data-testar="reun" style="color:#1e7b45;"><i class="bi bi-people-fill"></i>{{ 'agenda.nova.teste_reuniao'|trans }}</button>
+                <button type="button" class="ag-teste" data-testar="prazo" style="color:#c0392b;"><i class="bi bi-hourglass-split"></i>{{ 'agenda.nova.teste_prazo'|trans }}</button>
+                <button type="button" class="ag-teste" data-testar="meus" style="color:#0a6fa0;"><i class="bi bi-calendar-event"></i>{{ 'agenda.nova.teste_compromisso'|trans }}</button>
+            </div>
+            <div class="ag-lado-rotulo ag-lado-rotulo-sep">{{ 'agenda.nova.google_agenda'|trans }}</div>
+            <div class="ag-google">
+                {# Três estados do desenho (linha 232): conectado, não conectado, servidor sem cliente OAuth. #}
+                <button type="button" class="ag-google-btn" id="agGoogle"><i class="bi bi-arrow-repeat"></i>{{ google == 'conectado' ? 'agenda.nova.google_sincronizado'|trans : 'agenda.nova.google_sincronizar'|trans }}</button>
+                <div class="ag-google-st" style="color: {{ google == 'conectado' ? '#1e7b45' : '#7a8e9b' }};"><i class="bi bi-circle-fill"></i>{{ google == 'conectado' ? 'agenda.nova.google_conectado'|trans : (google == 'nao_conectado' ? 'agenda.nova.google_nao_conectado'|trans : 'agenda.nova.google_indisponivel'|trans) }}</div>
+                {% if google == 'conectado' %}
+                    {# Fora do desenho: revogar o consentimento é direito da pessoa (LGPD, art. 8º, § 5º). #}
+                    <button type="button" class="ag-google-sair" id="agGoogleSair">{{ 'agenda.nova.google_desconectar'|trans }}</button>
+                {% endif %}
+                <div class="ag-google-txt">{{ 'agenda.nova.google_explicacao_inicio'|trans }} "{{ 'agenda.nova.google_explicacao_so_eu'|trans }}" {{ 'agenda.nova.google_explicacao_fim'|trans }}</div>
+            </div>
+        </aside>
+
+        <div class="ag-direita">
+            <main class="ag-cal" data-screen-label="Calendário">
+                <div class="ag-barra">
+                    <button type="button" class="ag-hoje" id="agHoje">{{ 'agenda.nova.hoje'|trans }}</button>
+                    <button type="button" class="ag-seta" id="agAnt" title="{{ 'agenda.nova.anterior'|trans }}"><i class="bi bi-chevron-left"></i></button><button type="button" class="ag-seta" id="agProx" title="{{ 'agenda.nova.proximo'|trans }}"><i class="bi bi-chevron-right"></i></button>
+                    <b class="ag-periodo" id="agPeriodo"></b>
+                    <label class="ag-busca"><i class="bi bi-search"></i><input type="search" id="agBusca" placeholder="{{ 'agenda.nova.buscar'|trans }}" autocomplete="off"></label>
+                    <div class="ag-seg" id="agEscopos"></div>
+                    <div class="ag-seg ag-seg-vistas" id="agVistas"></div>
+                </div>
+                <div id="agAniv"></div>
+                <div id="agGrade" aria-live="polite"></div>
+            </main>
+            <section class="ag-pf" data-screen-label="Próximos feriados">
+                <div class="ag-pf-cab"><i class="bi bi-calendar-x"></i><b id="agPfTit">{{ 'agenda.nova.proximos_feriados'|trans }}</b><span>{{ 'agenda.nova.proximos_feriados_regra'|trans }}</span></div>
+                <div id="agPf"></div>
+            </section>
+        </div>
+    </div>
+
+    {# Camadas: o JS preenche e mostra. Dentro do .ag-page para herdar os tokens do tema. #}
+    <div id="agModal"></div>
+    <div id="agCtx"></div>
+    <div id="agPerg"></div>
+    <div id="agToast"></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+{{ catalogo_js('agenda.js') }}
+<script src="{{ asset('js/agenda-nova.js') }}" defer></script>
+{% endblock %}

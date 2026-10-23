@@ -1,77 +1,138 @@
-# Cria a tag vX.Y.Z e a release do GitHub — e SÓ num commit do master que passou no CI.
+# Cria a tag vX.Y.Z e a release do GitHub — e SÓ num commit do master que passou no CI — e, com o
+# deploy automático ligado, publica em produção.
 #
-# Disparo manual (Actions → Release → Run workflow, a partir do master), depois que o PR de
-# release foi mergeado. Recusa, sem criar nada, quando:
-#   - não foi disparado a partir do master (este arquivo e, acima dele, a política de branches do
-#     ambiente `release`: job de outra branch não entra no ambiente nem recebe a chave do App);
-#   - a seção [Não lançado] do CHANGELOG não está vazia (mudança que não é da versão);
-#   - a versão não é SemVer, ou VersaoDoSistema::ATUAL / CHANGELOG não batem com ela
-#     (scripts/release.sh validar — o mesmo contrato do VersaoDoSistemaTest);
+#   merge do PR "Lança a vX.Y.Z" → Qualidade verde no master → [este workflow] → tag + release → Deploy
+#
+# Dispara sozinho quando o workflow Qualidade termina num push no master. O job "decidir" (sem
+# ambiente, sem segredo) olha a VersaoDoSistema daquele commit: se a versão já tem tag, não há o
+# que lançar e tudo termina ali, em sucesso. Também roda pelo botão (Run workflow, a partir do
+# master) para retomar uma liberação: nesse caso cria tag e release, mas NUNCA chama o Deploy.
+#
+# Recusa, sem criar nada, quando:
+#   - não é o master; a versão não é SemVer; VersaoDoSistema / CHANGELOG não batem com ela, ou há
+#     arquivo pendente em mudancas/ (scripts/release.sh validar);
 #   - a tag já existe;
-#   - os checks obrigatórios do master ("Segredos" e "Lints e testes unitários") não estão verdes
-#     NESTE commit.
+#   - os checks obrigatórios ("Segredos" e "Lints e testes unitários") não ficam verdes NESTE commit.
 #
-# Quem cria a tag é o GitHub App "BlueJus Release", a ÚNICA exceção do ruleset que protege as tags
-# v* (o GITHUB_TOKEN não está disponível como exceção de ruleset). A chave do App existe só no
-# ambiente `release` — nenhuma cópia fora dele — e o token é gerado no último passo, depois de
-# todas as recusas, válido só para este repositório e só com contents:write.
-# Configuração, testes e reversão: docs/runbooks/protecao-tags-versao.md.
-# A release leva como corpo a seção da versão no CHANGELOG. Procedimento: docs/versionamento.md.
+# Quem cria a tag é o GitHub App "BlueJus Release", a ÚNICA exceção do ruleset das tags v* (o
+# GITHUB_TOKEN não está disponível como exceção de ruleset). A chave do App existe só no ambiente
+# `release`, que só aceita jobs do master. Configuração: docs/runbooks/protecao-tags-versao.md e
+# docs/runbooks/deploy-automatico.md.
+#
+# Deploy automático: variável de repositório DEPLOY_AUTOMATICO
+#   ligado    → Deploy real depois da release;
+#   simulacao → Deploy em modo simulação (produção não muda);
+#   ausente   → não chama o Deploy.
 
 name: Release
 
-on:
+# workflow_run é o gatilho clássico de abuso (PR de fork rodando com privilégio). Aqui ele só lança
+# quando o Qualidade veio de um PUSH no master DESTE repositório (o job "decidir" confere evento,
+# branch e repositório); nenhum código de PR é baixado, e o único código executado é o do commit
+# do master, que só recebe por PR com os checks obrigatórios.
+on:  # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: [Qualidade]
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
     inputs:
       versao:
-        description: "Versão a lançar, sem o v (exemplo: 2.0.0)"
+        description: "Versão a lançar, sem o v (exemplo: 2.1.0)"
         required: true
         type: string
 
 permissions:
   contents: read
 
-concurrency:
-  group: release
-  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
 
 jobs:
+  decidir:
+    name: Decidir se há versão a lançar
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      lancar: ${{ steps.decidir.outputs.lancar }}
+      sha: ${{ steps.decidir.outputs.sha }}
+      versao: ${{ steps.decidir.outputs.versao }}
+    env:
+      EVENTO: ${{ github.event_name }}
+      REF: ${{ github.ref }}
+      ENTRADA: ${{ inputs.versao }}
+      RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN_CONCLUSAO: ${{ github.event.workflow_run.conclusion }}
+      RUN_EVENTO: ${{ github.event.workflow_run.event }}
+      RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      RUN_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+    steps:
+      - name: Baixar o historico e as tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Decidir
+        id: decidir
+        run: |
+          nao() { echo "lancar=false" >> "$GITHUB_OUTPUT"; echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; }
+          if [[ "$EVENTO" == workflow_dispatch ]]; then
+            [[ "$REF" == refs/heads/master ]] || { echo "::error::Dispare o Release a partir do master (veio de $REF)."; exit 1; }
+            [[ "$ENTRADA" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
+              || { echo "::error::Versão fora do formato X.Y.Z (sem o v)."; exit 1; }
+            sha="$GITHUB_SHA"; versao="$ENTRADA"
+          else
+            [[ "$RUN_EVENTO" == push && "$RUN_BRANCH" == master && "$RUN_REPO" == "$GITHUB_REPOSITORY" ]] \
+              || nao "Qualidade não veio de um push no master deste repositório: nada a lançar."
+            [[ "$RUN_CONCLUSAO" == success ]] || nao "Qualidade não terminou verde ($RUN_CONCLUSAO): nada a lançar."
+            [[ "$RUN_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::sha inválido: $RUN_SHA"; exit 1; }
+            sha="$RUN_SHA"
+            versao="$(git show "$sha:app/src/Shared/VersaoDoSistema.php" | sed -n "s/.*public const ATUAL = '\([0-9.]*\)'.*/\1/p")"
+            [[ "$versao" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::VersaoDoSistema ilegível em $sha."; exit 1; }
+            if git rev-parse -q --verify "refs/tags/v$versao" >/dev/null; then
+              nao "A versão $versao do commit ${sha:0:8} já tem tag: entrega sem versão nova, nada a lançar."
+            fi
+            # Commit com arquivo em mudancas/ não é o do PR de release (que os consome): a versão
+            # sai do commit do merge do PR de release. Ver docs/runbooks/deploy-automatico.md, seção 4.
+            if [[ -n "$(git ls-tree --name-only "$sha" mudancas/ | grep -v '^mudancas/README.md$' || true)" ]]; then
+              nao "O commit ${sha:0:8} tem mudança pendente em mudancas/: não é o commit de uma release."
+            fi
+          fi
+          {
+            echo "lancar=true"
+            echo "sha=$sha"
+            echo "versao=$versao"
+          } >> "$GITHUB_OUTPUT"
+          echo "Versão $versao a lançar no commit $sha." | tee -a "$GITHUB_STEP_SUMMARY"
+
   release:
     name: Criar tag e release
+    needs: decidir
+    if: needs.decidir.outputs.lancar == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    # Só jobs do master entram (política de branches do ambiente) e, se houver revisor
-    # configurado, o job espera a aprovação ANTES de receber a chave do App.
+    timeout-minutes: 25
+    # Fila só para criar tag: o Deploy tem a própria (no deploy.yml), então um deploy demorado
+    # não segura nem cancela a criação de tag de outra execução.
+    concurrency:
+      group: release-tag
+      cancel-in-progress: false
+    # Só jobs do master entram no ambiente; é dele que vem a chave do App.
     environment: release
     permissions:
       contents: read # o GITHUB_TOKEN só lê: quem escreve a tag é o App
       checks: read   # ler o resultado dos checks do commit
 
-    # `shell: bash` explícito liga o pipefail (o padrão do Actions sem ele é só `bash -e`).
-    defaults:
-      run:
-        shell: bash
-
     # Nenhum token aqui: cada passo recebe só o que usa. O código do repositório
     # (scripts/release.sh) roda sem token nenhum.
     env:
-      VERSAO: ${{ inputs.versao }}
-      SHA: ${{ github.sha }}
+      VERSAO: ${{ needs.decidir.outputs.versao }}
+      SHA: ${{ needs.decidir.outputs.sha }}
 
     steps:
-      - name: Exigir disparo a partir do master e versao no formato SemVer
-        env:
-          REF: ${{ github.ref }}
-        run: |
-          if [[ "$REF" != refs/heads/master ]]; then
-            echo "::error::Dispare o Release a partir do master (veio de $REF)."
-            exit 1
-          fi
-          if [[ ! "$VERSAO" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::Versão fora do formato X.Y.Z (sem o v)."
-            exit 1
-          fi
-
       - name: Exigir o App de release configurado no ambiente
         env:
           CLIENT_ID: ${{ vars.RELEASE_APP_CLIENT_ID }}
@@ -85,9 +146,10 @@ jobs:
       - name: Baixar o codigo do commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.decidir.outputs.sha }}
           persist-credentials: false
 
-      - name: Conferir versao, constante e CHANGELOG
+      - name: Conferir versao, constante, CHANGELOG e mudancas pendentes
         run: bash scripts/release.sh validar "$VERSAO"
 
       - name: Recusar tag que ja existe
@@ -110,17 +172,22 @@ jobs:
         run: |
           # app_id 15368 = GitHub Actions, o mesmo que a proteção do master exige: um check de outro
           # app com o mesmo nome não conta. Vale a tentativa MAIS RECENTE (re-run incluído), e só
-          # concluída: um re-run em andamento não deixa um "success" antigo passar por ele.
+          # concluída. Espera até 15 min por um check ainda em andamento (o Segredos pode terminar
+          # depois do Qualidade, que é quem dispara este workflow).
           for check in "Segredos" "Lints e testes unitários"; do
-            # Nome vazio faria a API devolver TODOS os checks: confere antes de perguntar.
             nome="$(jq -rn --arg c "$check" '$c|@uri')"
             if [[ -z "$nome" ]]; then
               echo "::error::Não consegui codificar o nome do check '$check'."
               exit 1
             fi
-            conclusao="$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?app_id=15368&check_name=$nome" \
-              -q '[.check_runs[]] | sort_by(.started_at // "") | last
-                  | if . == null then "ausente" elif .status != "completed" then "em andamento" else .conclusion end')"
+            for tentativa in $(seq 1 90); do
+              conclusao="$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?app_id=15368&check_name=$nome" \
+                -q '[.check_runs[]] | sort_by(.started_at // "") | last
+                    | if . == null then "ausente" elif .status != "completed" then "em andamento" else .conclusion end')"
+              [[ "$conclusao" == "em andamento" || "$conclusao" == ausente ]] || break
+              echo "'$check': $conclusao (tentativa $tentativa); esperando 10 s"
+              sleep 10
+            done
             if [[ "$conclusao" != success ]]; then
               echo "::error::'$check' não está verde em $SHA (resultado: ${conclusao:-ausente})."
               exit 1
@@ -158,4 +225,24 @@ jobs:
             echo "::error::A tag v$VERSAO aponta para $alvo, não para $SHA. Confira a release antes de qualquer deploy."
             exit 1
           fi
-          echo "Release v$VERSAO criada em $SHA."
+          echo "Release v$VERSAO criada em $SHA." | tee -a "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy
+    needs: [decidir, release]
+    if: >-
+      github.event_name == 'workflow_run'
+      && (vars.DEPLOY_AUTOMATICO == 'ligado' || vars.DEPLOY_AUTOMATICO == 'simulacao')
+    permissions:
+      contents: read
+      checks: read
+    uses: ./.github/workflows/deploy.yml
+    with:
+      tag: v${{ needs.decidir.outputs.versao }}
+      simulacao: ${{ vars.DEPLOY_AUTOMATICO != 'ligado' }}
+    # `secrets: inherit` é obrigatório: sem ele, o job do Deploy chamado daqui recebe VAZIOS os
+    # segredos do ambiente production, mesmo declarando `environment: production` (medido no
+    # Release da v2.1.0, 18/10/2026: "Segredo VPS_HOST ausente"). Disparado direto (Run workflow),
+    # o Deploy os recebe normalmente. O repositório não tem segredo próprio: o que desce são só os
+    # do ambiente, e só o job que entra em production os enxerga.
+    secrets: inherit  # zizmor: ignore[secrets-inherit]

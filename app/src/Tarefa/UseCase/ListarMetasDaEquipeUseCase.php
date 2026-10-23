@@ -67,8 +67,9 @@ final class ListarMetasDaEquipeUseCase
     /**
      * @param array<string, mixed> $filtros  status, responsavel (userId), cargo (nome), data_de, data_ate (Y-m-d),
      *                                       escopo (`card` = critério do card Metas ativas)
+     * @param list<int>            $pastasOcultas ids das pastas ocultas pelo cadeado para quem olha (D3)
      */
-    public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros, int $pagina = 1): MetasDaEquipeOutput
+    public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros, int $pagina = 1, array $pastasOcultas = []): MetasDaEquipeOutput
     {
         $status = (string) ($filtros['status'] ?? '');
         if (!isset(self::STATUS[$status])) {
@@ -92,8 +93,8 @@ final class ListarMetasDaEquipeUseCase
         $pagina  = max(1, $pagina);
 
         $buscar = fn (int $p) => $doCard
-            ? $this->tarefaRepository->findMetasAtivasDoCardPaginado($tenant, $periodo + ['responsavel' => $respId > 0 ? (string) $respId : ''], $p, self::POR_PAGINA)
-            : $this->tarefaRepository->findMetasDaEquipePaginado($tenant, $ids, $status, $periodo, $referencia, $p, self::POR_PAGINA);
+            ? $this->tarefaRepository->findMetasAtivasDoCardPaginado($tenant, $periodo + ['responsavel' => $respId > 0 ? (string) $respId : ''], $p, self::POR_PAGINA, $pastasOcultas)
+            : $this->tarefaRepository->findMetasDaEquipePaginado($tenant, $ids, $status, $periodo, $referencia, $p, self::POR_PAGINA, $pastasOcultas);
 
         $paginador = $buscar($pagina);
         $total     = count($paginador);
@@ -114,7 +115,7 @@ final class ListarMetasDaEquipeUseCase
             status:       $status,
             titulo:       $this->titulo($status, $respId, $cargo, $equipe, $relativo ? null : $dataDe, $relativo ? null : $dataAte, $referencia),
             descricao:    $doCard
-                ? 'Todas as metas não concluídas do escritório, criadas no período — o número do card Metas ativas.'
+                ? 'Todas as metas não concluídas do escritório, criadas no período. É o número do card Metas ativas.'
                 : $this->descricao($status),
             metas:        $metas,
             total:        $total,
@@ -181,7 +182,7 @@ final class ListarMetasDaEquipeUseCase
             $sujeito = 'Equipe';
         }
 
-        $titulo  = self::STATUS[$status] . ' — ' . $sujeito;
+        $titulo  = self::STATUS[$status] . ': ' . $sujeito;
         $periodo = $this->periodo($de, $ate, $referencia);
 
         return $periodo === '' ? $titulo : $titulo . ' · ' . $periodo;
@@ -194,7 +195,7 @@ final class ListarMetasDaEquipeUseCase
         $fmt   = $curto ? 'd/m' : 'd/m/Y';
 
         return match (true) {
-            $de !== null && $ate !== null => $de->format($fmt) . '–' . $ate->format($fmt),
+            $de !== null && $ate !== null => $de->format($fmt) . ' a ' . $ate->format($fmt),
             $de !== null                  => 'desde ' . $de->format($fmt),
             $ate !== null                 => 'até ' . $ate->format($fmt),
             default                       => '',
@@ -205,8 +206,8 @@ final class ListarMetasDaEquipeUseCase
     {
         return match ($status) {
             'ativas'        => 'Metas não concluídas, criadas no período.',
-            'vencidas'      => 'Metas não concluídas com o prazo já vencido — contadas até agora, sem recorte de período.',
-            'prazo_proximo' => 'Metas não concluídas com prazo nos próximos 7 dias — sem recorte de período.',
+            'vencidas'      => 'Metas não concluídas com o prazo já vencido, contadas até agora, sem recorte de período.',
+            'prazo_proximo' => 'Metas não concluídas com prazo nos próximos 7 dias, sem recorte de período.',
             'concluidas'    => 'Metas concluídas, criadas no período.',
             'em_revisao'    => 'Metas aguardando a revisão do gestor, criadas no período.',
             default         => 'Todas as metas criadas no período, em qualquer status.',

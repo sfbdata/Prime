@@ -1,0 +1,115 @@
+{# Trilho do Expediente no desenho 1.1 (dc L.74-95, E12): "Todas as pastas" com atualizar, os filtros do sistema
+   (EXPEDIENTES) e os marcadores com submarcadores, arrastáveis. Renderizado aqui e servido de novo pela rota
+   `expediente_trilho` depois de criar, editar, excluir ou reordenar um marcador (expediente-trilho.js).
+   Quem é o item aberto e quais grupos estão abertos é estado da tela: o JS reaplica depois de cada troca. #}
+{% set filtrosSistema = [
+    {chave: 'resp10',     nome: 'expediente.trilho.filtro.resp10.nome'|trans,     icone: 'bi-reply',          nota: 'expediente.trilho.filtro.resp10.nota'|trans},
+    {chave: 'findou',     nome: 'expediente.trilho.filtro.findou.nome'|trans,     icone: 'bi-hourglass-bottom', nota: 'expediente.trilho.filtro.findou.nota'|trans},
+    {chave: 'aud',        nome: 'expediente.trilho.filtro.aud.nome'|trans,        icone: 'bi-people',         nota: 'expediente.trilho.filtro.aud.nota'|trans},
+    {chave: 'prazo',      nome: 'expediente.trilho.filtro.prazo.nome'|trans,      icone: 'bi-calendar-event', nota: 'expediente.trilho.filtro.prazo.nota'|trans},
+    {chave: 'metas',      nome: 'expediente.trilho.filtro.metas.nome'|trans,      icone: 'bi-check2-square',  nota: 'expediente.trilho.filtro.metas.nota'|trans},
+    {chave: 'protocolar', nome: 'expediente.trilho.filtro.protocolar.nome'|trans, icone: 'bi-send',           nota: 'expediente.trilho.filtro.protocolar.nota'|trans},
+] %}
+<div class="exp-tri" id="expTrilho"
+     data-url-trilho="{{ path('expediente_trilho') }}"
+     data-url-acervo="{{ path('expediente_acervo_geral') }}"
+     data-url-marcador="{{ path('expediente_marcador_pastas', {id: 0}) }}"
+     data-url-criar="{{ path('expediente_marcador_criar') }}"
+     data-url-editar="{{ path('expediente_marcador_editar', {id: 0}) }}"
+     data-url-excluir="{{ path('expediente_marcador_excluir', {id: 0}) }}"
+     data-url-reordenar="{{ path('expediente_marcador_reordenar', {id: 0}) }}"
+     data-csrf-criar="{{ csrf_token('marcador') }}"
+     data-csrf-lista="{{ csrf_token('expediente_lista') }}"
+     data-total="{{ totalPastas }}">
+
+    <button type="button" class="exp-tri-todas expediente-menu-link" data-painel="{{ path('expediente_acervo_geral') }}"
+            data-tip="{{ 'expediente.trilho.todas_dica'|trans({total: totalPastas|numero(0)}) }}">
+        <i class="bi bi-folder2" aria-hidden="true"></i>
+        <span class="exp-tri-rotulo exp-tri-todas-nome">{{ 'expediente.trilho.todas_as_pastas'|trans }}</span>
+        <span class="exp-tri-atualizar js-tri-padrao" role="button" tabindex="0"
+              data-tip="{{ 'expediente.trilho.atualizar_dica'|trans }}" aria-label="{{ 'expediente.trilho.atualizar_rotulo'|trans }}">
+            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+        </span>
+    </button>
+
+    <div class="exp-tri-cab exp-tri-cab--sistema">
+        <span class="exp-tri-titulo">{{ 'expediente.trilho.expedientes'|trans }}</span>
+        <i class="bi bi-lock exp-tri-cadeado" data-tip="{{ 'expediente.trilho.cadeado_dica'|trans }}" aria-hidden="true"></i>
+    </div>
+    <div class="exp-tri-lista" role="list" aria-label="{{ 'expediente.trilho.filtros_do_sistema'|trans }}">
+        {% for f in filtrosSistema %}
+            {% set n = f.emBreve ?? false ? null : (contagensExpediente[f.chave] ?? 0) %}
+            <div role="listitem">
+                <div class="exp-tri-item exp-tri-sistema{% if f.emBreve ?? false %} is-em-breve{% endif %}{% if f.chave == 'findou' and 0 < n %} is-alerta{% endif %}"
+                     role="button" tabindex="0" data-expediente="{{ f.chave }}" data-nome="{{ f.nome }}" data-nota="{{ f.nota }}"
+                     data-icone="{{ f.icone }}" data-tip-fechado="{{ f.nome }}"
+                     {% if f.emBreve ?? false %}aria-disabled="true" data-tip="{{ 'expediente.trilho.em_breve_dica'|trans({nome: f.nome}) }}"{% endif %}>
+                    <i class="bi bi-chevron-right exp-tri-seta" aria-hidden="true"></i>
+                    <i class="bi {{ f.icone }} exp-tri-icone-fechado" aria-hidden="true"></i>
+                    <span class="exp-tri-rotulo exp-tri-nome">{{ f.nome }}</span>
+                    <span class="exp-tri-n">{% if f.emBreve ?? false %}<span class="exp-tri-breve">{{ 'expediente.trilho.em_breve'|trans }}</span>{% else %}{{ n }}{% endif %}</span>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="exp-tri-cab exp-tri-cab--marcadores">
+        <span class="exp-tri-titulo">{{ 'expediente.trilho.marcadores'|trans }}</span>
+        <button type="button" class="exp-tri-mais js-tri-cab-mais" data-tip="{{ 'expediente.trilho.opcoes_dos_marcadores'|trans }}" aria-label="{{ 'expediente.trilho.opcoes_dos_marcadores'|trans }}" aria-haspopup="menu">
+            <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="exp-tri-recolher js-tri-recolher" id="expedienteSidebarToggleBtn" data-tip="{{ 'expediente.trilho.recolher_painel'|trans }}" aria-label="{{ 'expediente.trilho.recolher_ou_expandir'|trans }}">
+            <i class="bi bi-chevron-left" id="expedienteSidebarToggleIcon" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="exp-tri-lista" id="lista-marcadores" role="list" aria-label="{{ 'expediente.trilho.marcadores'|trans }}">
+        {% for marcador in pastas %}
+            {% set corTela = marcador.cor|cor_marcador %}
+            {% set total = contagemRaiz[marcador.id] ?? 0 %}
+            <div role="listitem" class="exp-tri-grupo" id="item-pasta-{{ marcador.id }}">
+                <div class="exp-tri-item exp-tri-marcador expediente-menu-link" role="button" tabindex="0" draggable="true"
+                     data-marcador-id="{{ marcador.id }}" data-pai-id="" data-nome="{{ marcador.nome }}"
+                     data-cor="{{ marcador.cor }}" data-cor-tela="{{ corTela }}" data-descricao="{{ marcador.descricao }}"
+                     data-n="{{ total }}" data-filhos="{{ marcador.filhos|length }}"
+                     data-token="{{ csrf_token('editar_marcador_' ~ marcador.id) }}"
+                     data-token-excluir="{{ csrf_token('excluir_marcador_' ~ marcador.id) }}"
+                     data-tip="{{ marcador.descricao ?: marcador.nome }}" style="--mk-cor: {{ corTela }};">
+                    <span class="exp-tri-abrir{% if marcador.filhos is empty %} is-vazio{% endif %} js-tri-abrir"
+                          {% if marcador.filhos is not empty %}data-tip="{{ 'expediente.trilho.ver_n_submarcadores'|trans({n: marcador.filhos|length ~ ''}) }}" role="button" aria-label="{{ 'expediente.trilho.ver_submarcadores'|trans }}" aria-expanded="false"{% endif %}>
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    </span>
+                    <i class="bi bi-folder-fill exp-tri-pasta" aria-hidden="true"></i>
+                    <span class="exp-tri-rotulo exp-tri-nome expediente-item-nome">{{ marcador.nome }}</span>
+                    <button type="button" class="exp-tri-opcoes js-tri-opcoes" aria-label="{{ 'expediente.trilho.opcoes_do_marcador'|trans }}" data-tip="{{ 'expediente.trilho.opcoes_do_marcador'|trans }}">
+                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                    </button>
+                    <span class="exp-tri-n js-contagem-marcador">{{ total > 0 ? total : '' }}</span>
+                </div>
+                {% if marcador.filhos is not empty %}
+                    <div class="exp-tri-subs" role="list" hidden>
+                        {% for sub in marcador.filhos %}
+                            {% set corSub = sub.cor|cor_marcador %}
+                            {% set nSub = contagemPastas[sub.id] ?? 0 %}
+                            <div role="listitem" id="item-pasta-{{ sub.id }}">
+                                <div class="exp-tri-item exp-tri-marcador exp-tri-sub expediente-submenu-link" role="button" tabindex="0" draggable="true"
+                                     data-marcador-id="{{ sub.id }}" data-pai-id="{{ marcador.id }}" data-nome="{{ sub.nome }}"
+                                     data-cor="{{ sub.cor }}" data-cor-tela="{{ corSub }}" data-descricao="{{ sub.descricao }}"
+                                     data-n="{{ nSub }}" data-filhos="0"
+                                     data-token="{{ csrf_token('editar_marcador_' ~ sub.id) }}"
+                                     data-token-excluir="{{ csrf_token('excluir_marcador_' ~ sub.id) }}"
+                                     data-tip="{{ sub.descricao ?: sub.nome }}" style="--mk-cor: {{ corSub }};">
+                                    <i class="bi bi-folder-fill exp-tri-pasta" aria-hidden="true"></i>
+                                    <span class="exp-tri-rotulo exp-tri-nome expediente-item-nome">{{ sub.nome }}</span>
+                                    <button type="button" class="exp-tri-opcoes js-tri-opcoes" aria-label="{{ 'expediente.trilho.opcoes_do_marcador'|trans }}" data-tip="{{ 'expediente.trilho.opcoes_do_marcador'|trans }}">
+                                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                                    </button>
+                                    <span class="exp-tri-n js-contagem-marcador">{{ nSub > 0 ? nSub : '' }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>

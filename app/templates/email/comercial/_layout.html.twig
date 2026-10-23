@@ -1,0 +1,78 @@
+{# Layout base dos e-mails do Carteiro (spec comercial-e-emails §3.7 e §8.3; desenho 05, dc L496-502).
+   Tabelas e estilo inline (clientes de e-mail ignoram <style> e CSS externo).
+   Contexto (montado por App\Comercial\Service\MontadorDeEmail):
+     assunto, selo?, titulo?, corpo (HTML já pronto do chamador), logo (URL absoluta),
+     layout ('padrao' | 'linhas' | 'cru'; App\Comercial\Envio\LayoutDoEmail):
+       padrao: o miolo num <td> com a fonte do corpo (a 1a: automações, 0d e a7);
+       linhas: o corpo já são as linhas <tr> da tabela de 600 px (campanhas em blocos e no modo simples, dc L499-500);
+       cru:    o HTML importado (já sanitizado pelo montador), sem o cabeçalho azul, com só o rodapé legal (B3);
+     tipo ('lista' | 'transacional'), escritorio? (nome; null = plataforma),
+     linkDescadastro, linkPolitica, pixel? (URL do pixel, só com o rastreio ligado),
+     motivoDoEnvio? (MensagemDeEmail::motivoDoEnvio: a frase de por que a pessoa recebeu; troca só essa frase do rodapé).
+   O rodapé sai SEMPRE (B3) e não é editável: razão social, a frase do escopo e do tipo, o link de
+   descadastro (M1) e o da Política de Privacidade (B4). #}
+{% set layout = layout|default('padrao') %}
+{% set rodape %}
+<tr><td style="background:#f7f9fb;border-top:1px solid #e6edf2;padding:18px 30px;font:12px/1.6 Arial,Helvetica,sans-serif;color:#7a8e9b;" class="rodape-legal">
+{% if escritorio %}{{ 'emails.comercial.layout.enviado_por'|trans({escritorio: escritorio}) }}<br>{% endif %}
+{{ 'emails.comercial.layout.razao_social'|trans }}<br>
+{% if motivoDoEnvio is defined and motivoDoEnvio %}
+{{ motivoDoEnvio }}
+{% elseif escritorio %}
+{% elseif tipo == 'lista' %}
+{{ 'emails.comercial.layout.motivo_lista'|trans }}
+{% else %}
+{{ 'emails.comercial.layout.motivo_conta'|trans }}
+{% endif %}
+{% if tipo == 'lista' %}
+<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>{{ 'emails.comercial.layout.descadastro_lista'|trans }}</a>.
+{% elseif escritorio %}
+<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>{{ 'emails.comercial.layout.descadastro_escritorio'|trans({escritorio: escritorio}) }}</a>.
+{% else %}
+<a href="{{ linkDescadastro }}" style="color:#0a6fa0;" data-descadastro>{{ 'emails.comercial.layout.descadastro_plataforma'|trans }}</a>.
+{% endif %}
+<br><a href="{{ linkPolitica }}" style="color:#0a6fa0;" data-politica>{{ 'emails.comercial.layout.politica'|trans }}</a>
+</td></tr>
+{% endset %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>{{ assunto }}</title>
+</head>
+{% if layout == 'cru' %}
+<body style="margin:0;padding:0;">
+{{ corpo|raw }}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" data-rodape-cru>
+<tr><td align="center" style="padding:0 12px 24px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">
+{{ rodape }}
+</table>
+</td></tr>
+</table>
+{% else %}
+<body style="margin:0;padding:0;background:#eef2f5;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f5;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#0a6fa0;background-image:linear-gradient(135deg,#0a6fa0,#0b4f75);padding:26px 30px;">
+<img src="{{ logo }}" alt="BlueJus" height="34" style="display:block;height:34px;border:0;">
+<div style="font:bold 12px Arial,Helvetica,sans-serif;letter-spacing:1.5px;color:#cfe6f4;margin-top:16px;">{{ selo ?? '' }}</div>
+<div style="font:bold 24px/1.25 Arial,Helvetica,sans-serif;color:#ffffff;margin-top:6px;">{{ titulo ?? '' }}</div>
+</td></tr>
+{% if layout == 'linhas' %}
+{{ corpo|raw }}
+{% else %}
+<tr><td style="padding:28px 30px 8px;font:15px/1.6 Arial,Helvetica,sans-serif;color:#34505f;">
+{{ corpo|raw }}
+</td></tr>
+{% endif %}
+{{ rodape }}
+</table>
+</td></tr>
+</table>
+{% endif %}
+{% if pixel %}<img src="{{ pixel }}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;">{% endif %}
+</body>
+</html>

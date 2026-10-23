@@ -1,0 +1,11 @@
+{# Chave "Confirmação de leitura" da barra de envio (F3g; desenho 05 VS 21.10.26, L291 e L656; spec comercial-e-emails
+   §10, decisão 4). Com o rastreio global desligado (a configuração e a Política de Privacidade), a chave aparece
+   desligada e sem clique, com a explicação; liberado, começa ligada, como no dc, e o comercial-leitura.js a alterna.
+   O valor vai no "Enviar" pelo gancho `McCampanha.extrasDoEnvio` (`rastrearLeitura`). #}
+{% set disponivel = rastreio_da_leitura_disponivel() %}
+<button type="button" class="mc-cp-leitura{{ disponivel ? ' is-ligada' : '' }}" data-mc-cp-rastrear="{{ disponivel ? '1' : '0' }}"
+        aria-pressed="{{ disponivel ? 'true' : 'false' }}"
+        {% if disponivel %}title="{{ 'comercial.leitura.dica_ligada'|trans }}"{% else %}disabled aria-disabled="true"
+        title="{{ 'comercial.leitura.dica_desligada'|trans }}"{% endif %}>
+    <i class="bi bi-check2-all" aria-hidden="true"></i><span data-mc-cp-rastrear-txt>{{ disponivel ? 'comercial.leitura.ligada'|trans : 'comercial.leitura.desligada'|trans }}</span>
+</button>

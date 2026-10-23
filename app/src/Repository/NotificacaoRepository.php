@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -18,6 +19,54 @@ class NotificacaoRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Notificacao::class);
+    }
+
+    /** O aviso mais recente deste tipo para a pessoa sobre a meta (o intervalo do Lembrar, L10). */
+    public function ultimaDoTipoNaTarefa(Tarefa $tarefa, User $usuario, string $tipo): ?Notificacao
+    {
+        return $this->findOneBy(['tarefa' => $tarefa, 'usuario' => $usuario, 'tipo' => $tipo], ['criadaEm' => 'DESC']);
+    }
+
+    /**
+     * Sininho em silêncio (preferência "Notificações no sistema" do Meu Perfil): só os tipos da lista contam e aparecem
+     * no sino. Nulo = todos.
+     *
+     * @param list<string>|null $soTipos
+     */
+    private function soDosTipos(QueryBuilder $qb, ?array $soTipos): void
+    {
+        if ($soTipos !== null) {
+            $qb->andWhere('n.tipo IN (:soTipos)')->setParameter('soTipos', $soTipos);
+        }
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado): aviso ligado a pasta oculta para a pessoa (pela meta ou pela URL
+     * `/pasta/{id}`) não sai nem conta, mesmo gravado antes do cadeado. A resposta ao pedido de acesso
+     * (`pasta_acesso_decidido`) sempre sai: é para quem está do lado de fora.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    private function semAvisosDasPastasOcultas(QueryBuilder $qb, array $pastasOcultas): void
+    {
+        if ($pastasOcultas === []) {
+            return;
+        }
+
+        $qb->leftJoin('n.tarefa', 'n_meta')
+            ->andWhere('n_meta.id IS NULL OR IDENTITY(n_meta.pasta) NOT IN (:pastasOcultasDoAviso) OR n.tipo = :avisoDecidido')
+            ->setParameter('pastasOcultasDoAviso', $pastasOcultas)
+            ->setParameter('avisoDecidido', Notificacao::TIPO_PASTA_ACESSO_DECIDIDO);
+        foreach ($pastasOcultas as $i => $pastaId) {
+            $qb->andWhere(sprintf(
+                'n.tipo = :avisoDecidido OR n.url IS NULL OR (n.url <> :avisoUrl%1$d AND n.url NOT LIKE :avisoUrlBarra%1$d AND n.url NOT LIKE :avisoUrlAncora%1$d AND n.url NOT LIKE :avisoUrlQuery%1$d)',
+                $i,
+            ))
+                ->setParameter('avisoUrl' . $i, '/pasta/' . $pastaId)
+                ->setParameter('avisoUrlBarra' . $i, '/pasta/' . $pastaId . '/%')
+                ->setParameter('avisoUrlAncora' . $i, '/pasta/' . $pastaId . '#%')
+                ->setParameter('avisoUrlQuery' . $i, '/pasta/' . $pastaId . '?%');
+        }
     }
 
     /**
@@ -39,8 +88,10 @@ class NotificacaoRepository extends ServiceEntityRepository
      * Retorna notificações não lidas do usuário (opcionalmente de uma categoria)
      *
      * @return Notificacao[]
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10): array
+    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10, array $pastasOcultas = [], ?array $soTipos = null): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -49,14 +100,18 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->orderBy('n.criadaEm', 'DESC')
             ->setMaxResults($limit);
         $this->aplicarCategoria($qb, $categoria);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->soDosTipos($qb, $soTipos);
 
         return $qb->getQuery()->getResult();
     }
 
     /**
      * Conta notificações não lidas do usuário (opcionalmente de uma categoria)
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null): int
+    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = [], ?array $soTipos = null): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
@@ -64,6 +119,8 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->andWhere('n.lida = false')
             ->setParameter('usuario', $usuario);
         $this->aplicarCategoria($qb, $categoria);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->soDosTipos($qb, $soTipos);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
@@ -73,8 +130,10 @@ class NotificacaoRepository extends ServiceEntityRepository
      * ordenadas da mais recente para a mais antiga.
      *
      * @return Notificacao[]
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function findPaginadasByUsuario(User $usuario, ?string $categoria, int $page, int $perPage): array
+    public function findPaginadasByUsuario(User $usuario, ?string $categoria, int $page, int $perPage, array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -83,6 +142,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
         $this->aplicarCategoria($qb, $categoria);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
 
         return $qb->getQuery()->getResult();
     }
@@ -90,14 +150,17 @@ class NotificacaoRepository extends ServiceEntityRepository
     /**
      * Conta o total de notificações do usuário (opcionalmente de uma categoria),
      * para o cálculo de páginas.
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function countByUsuario(User $usuario, ?string $categoria = null): int
+    public function countByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = []): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->setParameter('usuario', $usuario);
         $this->aplicarCategoria($qb, $categoria);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
@@ -139,6 +202,57 @@ class NotificacaoRepository extends ServiceEntityRepository
         $this->aplicarCategoria($qb, $categoria);
 
         return $qb->getQuery()->execute();
+    }
+
+    /**
+     * Os links das notificações NÃO lidas do usuário, de um tipo, no escritório — a Central lê deles em que conversas
+     * há menção por ver (o link é `/central?conversa=N`). Tenant explícito, além do TenantFilter.
+     *
+     * @return list<string>
+     */
+    public function urlsNaoLidasDoTipo(User $usuario, Tenant $tenant, string $tipo): array
+    {
+        /** @var list<string> $urls */
+        $urls = $this->createQueryBuilder('n')
+            ->select('n.url')
+            ->where('n.usuario = :usuario')
+            ->andWhere('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.lida = false')
+            ->andWhere('n.url IS NOT NULL')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return $urls;
+    }
+
+    /**
+     * Marca como lidas as notificações NÃO lidas do usuário, de um tipo, que apontam para um link exato (a
+     * conversa da Central lida lê as menções dela). Tenant explícito: o UPDATE em massa escapa o TenantFilter.
+     *
+     * @return int quantidade marcada
+     */
+    public function marcarComoLidasPelaUrl(User $usuario, Tenant $tenant, string $tipo, string $url): int
+    {
+        return $this->createQueryBuilder('n')
+            ->update()
+            ->set('n.lida', 'true')
+            ->set('n.lidaEm', ':agora')
+            ->where('n.usuario = :usuario')
+            ->andWhere('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.url = :url')
+            ->andWhere('n.lida = false')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('url', $url)
+            ->setParameter('agora', new \DateTimeImmutable())
+            ->getQuery()
+            ->execute();
     }
 
     /**
@@ -248,5 +362,80 @@ class NotificacaoRepository extends ServiceEntityRepository
         }
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Não lidas do sino de VÁRIAS pessoas, só DESTE escritório (Central, Painel "Equipe · em aberto"). Só o número:
+     * título e texto nunca saem. Tenant explícito: o TenantFilter não é a única barreira.
+     *
+     * @param list<int> $usuarioIds
+     *
+     * @return array<int, int> id do usuário → quantidade (só quem tem alguma)
+     */
+    public function contarNaoLidasPorUsuarios(Tenant $tenant, array $usuarioIds): array
+    {
+        if ($usuarioIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('n')
+            ->select('IDENTITY(n.usuario) AS usuario', 'COUNT(n.id) AS total')
+            ->where('n.tenant = :tenant')
+            ->andWhere('n.usuario IN (:ids)')
+            ->andWhere('n.lida = false')
+            // Os avisos da própria Central (menção, entrou no grupo) já contam como mensagem não lida: não somar 2 vezes.
+            ->andWhere('n.tipo NOT IN (:daCentral)')
+            ->groupBy('n.usuario')
+            ->setParameter('daCentral', [Notificacao::TIPO_CENTRAL_MENCAO, Notificacao::TIPO_CENTRAL_GRUPO_ADICIONADO])
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $usuarioIds)
+            ->getQuery()
+            ->getArrayResult();
+
+        $porUsuario = [];
+        foreach ($linhas as $linha) {
+            $porUsuario[(int) $linha['usuario']] = (int) $linha['total'];
+        }
+
+        return $porUsuario;
+    }
+
+    /**
+     * Existe aviso deste tipo no escritório criado a partir de `$desde`? É o teto do envio manual do
+     * relatório de pastas sem processo (um a cada 30 minutos por escritório).
+     */
+    public function existeDoTipoNoEscritorioDesde(Tenant $tenant, string $tipo, \DateTimeImmutable $desde): bool
+    {
+        return (int) $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->andWhere('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.criadaEm >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
+
+    /**
+     * Existe aviso deste tipo, com este link, no escritório, criado a partir de `$desde`? É o teto do "Pedir acesso"
+     * aos Perfis (um por pessoa por dia): o link do aviso identifica a pessoa que pediu. Tenant explícito, além do
+     * TenantFilter.
+     */
+    public function existeDoTipoComUrlNoEscritorioDesde(Tenant $tenant, string $tipo, string $url, \DateTimeImmutable $desde): bool
+    {
+        return (int) $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->andWhere('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.url = :url')
+            ->andWhere('n.criadaEm >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('url', $url)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
     }
 }

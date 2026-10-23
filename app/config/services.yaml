@@ -31,6 +31,11 @@ parameters:
     # Anexos de mensagem de tarefa (E2.7): o arquivo mora em <dir>/chat/<nome>, o mesmo lugar que o
     # TarefaController sempre usou; só o ResolvedorDeCaminhoLocal lê este parâmetro.
     tarefas_uploads_dir: '%kernel.project_dir%/public/uploads/tarefas'
+    # Documentos das demandas do Trabalho Externo (categoria plana, nome opaco cunhado pelo storage).
+    trabalho_externo_uploads_dir: '%kernel.project_dir%/public/uploads/trabalho-externo'
+    # Imagens das campanhas do modo simples do Comercial (F3i). Mesmo volume, sem acesso direto pelo nginx:
+    # saem só pela rota pública /e/i/{token}.{ext}, que confere o token e a validade.
+    comercial_imagens_dir: '%kernel.project_dir%/public/uploads/comercial-imagens'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -53,6 +58,10 @@ parameters:
     # O default mora AQUI e não no .env porque o build de produção faz `rm .env`.
     suporte_form_url: '%env(string:default:default_suporte_form_url:SUPORTE_FORM_URL)%'
     default_suporte_form_url: ''
+    # Prazos lidos dos registros contam pelo calendário do sistema (feriados nacionais e estaduais, recesso) só
+    # para registro criado a partir desta data (AAAA-MM-DD). Vazio = desligado. O default mora AQUI porque o build
+    # de produção faz `rm .env` (docs/specs/prazo-feriado-calendario.md).
+    prazos_calendario_desde: '%env(string:default::PRAZOS_CALENDARIO_DESDE)%'
     # Sincronização Google Drive. Vazios em dev/test. Dois modos de auth:
     #  - service account (Shared Drive): google_drive_credentials = caminho do JSON.
     #  - OAuth login de usuário (ex.: conta do rclone; ponte atual + futuro "Conectar meu Drive"):
@@ -73,6 +82,31 @@ parameters:
     # no alias abaixo + Anexo I da Política de Privacidade (decisões D1/D3 da spec).
     ia_habilitada: '%env(default:default_ia_habilitada:bool:IA_HABILITADA)%'
     default_ia_habilitada: false
+    # Provedor da BlueJus IA = Anthropic (decisão D1, 14/10/2026). Chave e modelo SÓ por ambiente (.env.prod na
+    # VPS, nunca no repositório); vazios = provedor dormente, mesmo com IA_HABILITADA=1. Proposta de modelo e
+    # cotas: docs/specs/inteligencia-provedor-anthropic.md.
+    ia_anthropic_chave: '%env(string:default::ANTHROPIC_API_KEY)%'
+    ia_anthropic_modelo: '%env(string:default::IA_MODELO)%'
+    # Esforço (output_config.effort): vazio = padrão do modelo. É a alavanca de custo — ver a proposta.
+    ia_anthropic_esforco: '%env(string:default::IA_ESFORCO)%'
+    # Folga somada ao max_tokens de cada prompt: o raciocínio adaptativo dos modelos atuais conta no max_tokens.
+    ia_anthropic_margem_raciocinio: '%env(int:default:default_ia_anthropic_margem_raciocinio:IA_MARGEM_RACIOCINIO)%'
+    default_ia_anthropic_margem_raciocinio: 8000
+    # Comercial e e-mails (spec comercial-e-emails §3.6 e §3.8). Defaults AQUI, não no .env (o build de produção faz
+    # `rm .env`). Vazão: e-mails por minuto e teto diário (o diário conta tudo o que saiu; os transacionais do ciclo da
+    # conta só respeitam o por minuto). Rastreio: só liga com esta flag E PoliticaPrivacidadeVigente::CITA_RASTREIO_DE_EMAIL.
+    comercial.envios_por_minuto: '%env(int:default:default_comercial_envios_por_minuto:COMERCIAL_ENVIOS_POR_MINUTO)%'
+    default_comercial_envios_por_minuto: 20
+    comercial.teto_diario: '%env(int:default:default_comercial_teto_diario:COMERCIAL_TETO_DIARIO)%'
+    default_comercial_teto_diario: 1500
+    comercial.rastreio_ligado: '%env(default:default_comercial_rastreio_ligado:bool:COMERCIAL_RASTREIO_LIGADO)%'
+    default_comercial_rastreio_ligado: false
+    # Campanhas (spec comercial-e-emails §8.1.2 e §8.5): a chave da instalação nasce DESLIGADA (o "Enviar campanha" é
+    # recusado e o expansor cancela as ativas; trocar exige reiniciar o worker) e o teto diário só das campanhas.
+    comercial.campanhas_ligadas: '%env(default:default_comercial_campanhas_ligadas:bool:COMERCIAL_CAMPANHAS_LIGADAS)%'
+    default_comercial_campanhas_ligadas: false
+    comercial.teto_diario_campanhas: '%env(int:default:default_comercial_teto_diario_campanhas:COMERCIAL_TETO_DIARIO_CAMPANHAS)%'
+    default_comercial_teto_diario_campanhas: 1000
 
 services:
     # default configuration for services in *this* file
@@ -93,6 +127,8 @@ services:
             string $cobrancasUploadsDir: '%cobrancas_uploads_dir%'
             string $kanbanUploadsDir: '%kanban_uploads_dir%'
             string $tarefasUploadsDir: '%tarefas_uploads_dir%'
+            string $trabalhoExternoUploadsDir: '%trabalho_externo_uploads_dir%'
+            string $comercialImagensDir: '%comercial_imagens_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
             string $bcbSgsBaseUrl: '%bcb_sgs_base_url%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
@@ -104,6 +140,12 @@ services:
             string $googleDriveOauthRefreshToken: '%google_drive_oauth_refresh_token%'
             string $syncCryptoKey: '%sync_crypto_key%'
             bool $iaHabilitada: '%ia_habilitada%'
+            int $enviosPorMinuto: '%comercial.envios_por_minuto%'
+            int $tetoDiario: '%comercial.teto_diario%'
+            bool $rastreioLigado: '%comercial.rastreio_ligado%'
+            bool $campanhasLigadas: '%comercial.campanhas_ligadas%'
+            int $tetoDiarioDeCampanhas: '%comercial.teto_diario_campanhas%'
+            Symfony\Component\HttpFoundation\UriSigner $assinadorDeClique: '@comercial.assinador_de_clique'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
@@ -115,15 +157,26 @@ services:
             # parâmetro opcional do `ArmazenamentoLocal` e o container quebraria na compilação.
             - '../src/Shared/Armazenamento/DiretorioTemporarioPrivado.php'
 
+    # A interface do armazenamento tem várias implementações (o disco, o decorador do espelho no R2 e o
+    # decorador de cota do Contribua, que envolve o alias por #[AsDecorator]). O alias que diz qual é a de
+    # baixo está mais abaixo, no bloco do espelho (P2.3): a cadeia fica cota → espelho → disco. O alias
+    # fica no YAML, e não num atributo no backend, porque o núcleo não pode depender do Symfony (INV-8).
+
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
     App\Auth\Service\OabWebServiceClientInterface: '@App\Auth\Service\ClienteOabIndisponivel'
 
-    # BlueJus IA: provedor de linguagem DORMENTE (mesmo padrão do OAB) enquanto o dono não escolhe o
-    # fornecedor (D1). Nunca devolve texto que não veio do modelo: sem provedor é exceção → status
-    # `indisponivel`. Quando houver provedor real, trocar este alias. Em `when@test` vira o
-    # ProvedorFalso (abaixo).
-    App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorNaoConfigurado'
+    # BlueJus IA: o provedor é a Anthropic (D1, 14/10/2026). DORMENTE até haver ANTHROPIC_API_KEY e IA_MODELO no
+    # ambiente — sem os dois, `estaConfigurado()` é falso e nenhuma chamada sai (igual ao ProvedorNaoConfigurado,
+    # que fica para instalação sem IA). Nunca devolve texto que não veio do modelo. Em `when@test` vira o
+    # ProvedorFalso (abaixo): a suíte nunca chama a API.
+    App\Inteligencia\Service\ProvedorAnthropic:
+        arguments:
+            $chave: '%ia_anthropic_chave%'
+            $modelo: '%ia_anthropic_modelo%'
+            $esforco: '%ia_anthropic_esforco%'
+            $margemDeRaciocinio: '%ia_anthropic_margem_raciocinio%'
+    App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorAnthropic'
     # Leitura das movimentações para o contexto da IA (publicações + Datajud), tenant explícito.
     App\Inteligencia\Contexto\FonteDeMovimentacoesDoPush: '@App\Inteligencia\Contexto\FonteDeMovimentacoesDoPushDoctrine'
 
@@ -133,14 +186,15 @@ services:
     # Cliente do DJEN: injeta a implementação concreta via interface (integração desacoplada).
     App\Djen\Service\DjenClientInterface: '@App\Djen\Service\DjenClient'
     App\Djen\Service\NotificadorPublicacoesDjenInterface: '@App\Djen\Service\NotificadorPublicacoesDjen'
+    App\Djen\Service\EsperaEntreConsultasInterface: '@App\Djen\Service\EsperaEntreConsultas'
 
     # Envio do link de redefinição de senha (interface para o UseCase poder ser testado
     # sem SMTP — é o mailer que prova a resposta neutra da recuperação de senha).
     App\Auth\Service\RedefinicaoSenhaMailerInterface: '@App\Auth\Service\RedefinicaoSenhaMailer'
 
-    # Sequência de números de pasta. Interface para o ExcluirPastaUseCase ser testado com dublê
-    # (a decisão entre lápide e exclusão real) enquanto a implementação é provada contra o
-    # Postgres de verdade, que é onde a expressão do prefixo e o recorte por tenant vivem.
+    # Sequência de números de pasta. Interface para quem gera o número (GerarNumeroDePasta) ser
+    # testado com dublê enquanto a implementação é provada contra o Postgres de verdade, que é
+    # onde a expressão do prefixo e o recorte por tenant vivem.
     App\Pasta\Service\NumeracaoDePastaInterface: '@App\Pasta\Service\NumeracaoDePasta'
 
     # Conexão somente-leitura das ferramentas MCP. SEM default de propósito: ausente a
@@ -198,6 +252,24 @@ services:
             $chaveDeAcesso: '%env(string:default::ESPELHO_R2_CHAVE)%'
             $segredo: '%env(string:default::ESPELHO_R2_SEGREDO)%'
 
+    # Comercial e e-mails: a porta de envio e o registro (contratos para a 0d e a a7). `public` para os testes de
+    # contrato alcançarem as portas pelo container mesmo enquanto nenhum consumidor as usa (serviço privado sem
+    # consumidor é removido na compilação; ver o comentário do ConexaoLeitura acima).
+    App\Comercial\Envio\CarteiroInterface:
+        alias: App\Comercial\Service\Carteiro
+        public: true
+    App\Comercial\Envio\RegistroDeEnviosInterface:
+        alias: App\Comercial\Service\RegistroDeEnvios
+        public: true
+    # A chave das campanhas (spec §8.1.2): `public` para os testes trocarem a chave no container (o padrão é desligada).
+    App\Comercial\Campanha\ChaveDasCampanhas:
+        public: true
+    # Assinatura do link rastreado (`/e/c/{token}?u=...&s=...`, spec §3.8): HMAC com o kernel.secret, parâmetro `s`.
+    # Separado do `uri_signer` do framework (que usa `_hash`) para a URL ter o formato da spec.
+    comercial.assinador_de_clique:
+        class: Symfony\Component\HttpFoundation\UriSigner
+        arguments: ['%kernel.secret%', 's']
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
@@ -205,21 +277,29 @@ services:
 # isolando-os dos diretórios reais public/uploads/* (que em dev pertencem ao www-data e não são
 # graváveis pelo runner). Sem isto, testes que gravam arquivo (ex.: AnexoDownloadControllerTest,
 # PecaImagemControllerTest) quebram ou poluem os dados reais.
+# O sufixo TESTE_PROCESSO separa os processos do ParaTest (tests/Shared/Paralelo/ProcessoDeTesteParalelo);
+# na execução serial é vazio.
 when@test:
     parameters:
-        uploads_dir: '%kernel.project_dir%/var/uploads-test/pastas'
-        justificativas_uploads_dir: '%kernel.project_dir%/var/uploads-test/justificativas'
-        chamados_uploads_dir: '%kernel.project_dir%/var/uploads-test/chamados'
-        clientes_uploads_dir: '%kernel.project_dir%/var/uploads-test/clientes'
-        fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test/perfil'
-        cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test/cobrancas'
-        kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test/kanban'
-        tarefas_uploads_dir: '%kernel.project_dir%/var/uploads-test/tarefas'
+        uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/pastas'
+        justificativas_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/justificativas'
+        chamados_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/chamados'
+        clientes_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/clientes'
+        fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/perfil'
+        cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/cobrancas'
+        kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/kanban'
+        tarefas_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/tarefas'
+        trabalho_externo_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/trabalho-externo'
+        comercial_imagens_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/comercial-imagens'
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true
 
     services:
+        # Página de erro igual à de PRODUÇÃO (sem depuração); o porquê está na classe.
+        App\Tests\Shared\Doubles\PaginaDeErroDeProducao:
+            decorates: error_handler.error_renderer.html
+
         # BlueJus IA — o ÚNICO provedor com resposta programada, e ele mora em tests/. `public` para
         # o teste alcançá-lo pelo container e programar a resposta/falha antes da requisição.
         App\Tests\Inteligencia\Support\ProvedorFalso:

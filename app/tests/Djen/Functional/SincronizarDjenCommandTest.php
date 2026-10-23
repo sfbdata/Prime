@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Djen\Functional;
 
+use App\Djen\DTO\ConsultaComunicacoesQuery;
 use App\Djen\DTO\RespostaComunicacoes;
 use App\Djen\Entity\OabMonitorada;
 use App\Djen\Enum\MotivoFalhaDjen;
@@ -11,7 +12,10 @@ use App\Djen\Exception\ConsultaDjenException;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\DjenClient;
 use App\Djen\Service\DjenClientInterface;
+use App\Djen\Service\EsperaEntreConsultas;
+use App\Djen\Service\EsperaEntreConsultasInterface;
 use App\Entity\Tenant\Tenant;
+use App\Processo\Entity\Processo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -79,6 +83,64 @@ final class SincronizarDjenCommandTest extends KernelTestCase
         $tester = $this->rodar(['--tenant' => (string) $tenantId]);
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
+    }
+
+    #[Test]
+    public function comandoCaptaPeloNumeroDoProcessoDepoisDasOabsEsperandoOLimite(): void
+    {
+        self::bootKernel();
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+
+        $tenantId = $this->criarEscritorioComOab($em, '67228', 'PR');
+        $processo = new Processo();
+        $processo->setTenant($em->getReference(Tenant::class, $tenantId));
+        $processo->setNumeroProcesso('07011111111111111111');
+        $processo->setClasseProcessual('Procedimento Comum');
+        $em->persist($processo);
+        $em->flush();
+
+        // Ordem das consultas + um 429 na primeira tentativa pelo número: o comando espera e repete.
+        $ordem = [];
+        $mock = $this->createMock(DjenClientInterface::class);
+        $mock->method('consultarComunicacoes')->willReturnCallback(
+            static function (ConsultaComunicacoesQuery $q) use (&$ordem): RespostaComunicacoes {
+                $ordem[] = $q->numeroOab !== null ? 'oab' : 'processo';
+                if ($q->numeroProcesso !== null && \count(array_keys($ordem, 'processo', true)) === 1) {
+                    throw new ConsultaDjenException(MotivoFalhaDjen::LimiteExcedido);
+                }
+
+                return $q->numeroProcesso === null
+                    ? new RespostaComunicacoes(0, [])
+                    : new RespostaComunicacoes(1, [[
+                        'id' => 777010,
+                        'numero_processo' => '07011111111111111111',
+                        'siglaTribunal' => 'TJDFT',
+                        'tipoComunicacao' => 'Intimação',
+                        'data_disponibilizacao' => '2026-07-06',
+                    ]]);
+            }
+        );
+        $container->set(DjenClient::class, $mock);
+
+        $esperas = [];
+        $espera = $this->createMock(EsperaEntreConsultasInterface::class);
+        $espera->method('aguardar')->willReturnCallback(static function (int $s) use (&$esperas): void {
+            $esperas[] = $s;
+        });
+        $container->set(EsperaEntreConsultas::class, $espera);
+
+        $tester = $this->rodar(['--tenant' => (string) $tenantId]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertSame(['oab', 'processo', 'processo'], $ordem, 'OABs primeiro; o número é repetido depois da espera');
+        self::assertSame([61], $esperas);
+
+        $em->clear();
+        $publicacao = $container->get(PublicacaoDjenRepository::class)->findOneBy(['djenId' => '777010']);
+        self::assertNotNull($publicacao);
+        self::assertNull($publicacao->getOabMonitorada());
+        self::assertSame('07011111111111111111', $publicacao->getProcesso()?->getNumeroProcesso());
     }
 
     private function criarEscritorioComOab(EntityManagerInterface $em, string $numero, string $uf): int

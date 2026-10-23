@@ -9,6 +9,7 @@ use App\Cliente\Entity\Cliente;
 use App\Expediente\Entity\Marcador;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
+use App\Pasta\Exception\ApensadoInvalidoException;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Repository\PastaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -29,6 +30,18 @@ class Pasta implements Auditavel, TenantAware
 {
     public const SITUACAO_ATIVA     = 'ativo';
     public const SITUACAO_ARQUIVADA = 'arquivado';
+    // Suspenso e Cancelado vêm do desenho 1.1 da Lista (E12). Quem pede "ativa" continua pedindo só ATIVA.
+    public const SITUACAO_SUSPENSA  = 'suspenso';
+    public const SITUACAO_CANCELADA = 'cancelado';
+    public const SITUACOES = [self::SITUACAO_ATIVA, self::SITUACAO_SUSPENSA, self::SITUACAO_CANCELADA, self::SITUACAO_ARQUIVADA];
+
+    /** Rótulos do desenho 1.2.3 (`sitMap`): o que a pílula, os cartões e as listas mostram. */
+    public const ROTULOS_SITUACAO = [
+        self::SITUACAO_ATIVA     => 'Ativo',
+        self::SITUACAO_SUSPENSA  => 'Suspenso',
+        self::SITUACAO_CANCELADA => 'Cancelado',
+        self::SITUACAO_ARQUIVADA => 'Arquivado',
+    ];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -48,7 +61,7 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(name: 'drive_synced_at', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $driveSyncedAt = null;
 
-    #[Assert\Choice(choices: [self::SITUACAO_ATIVA, self::SITUACAO_ARQUIVADA])]
+    #[Assert\Choice(choices: self::SITUACOES)]
     #[ORM\Column(length: 20, options: ['default' => self::SITUACAO_ATIVA])]
     private string $situacao = self::SITUACAO_ATIVA;
 
@@ -180,6 +193,10 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(name: 'checklist_motivo', length: 40, nullable: true, enumType: MotivoDesativacaoChecklist::class)]
     private ?MotivoDesativacaoChecklist $checklistMotivo = null;
 
+    /** Último "Revisar checklist" (desenho 02, `ckLembrete`: a cada 30 dias desativado). Nasce na desativação. */
+    #[ORM\Column(name: 'checklist_lembrete_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $checklistLembreteEm = null;
+
     /**
      * Valor da causa, em reais. Nulo significa "ninguém preencheu" — que é
      * diferente de R$ 0,00 (causa sem valor econômico). A tela e a média por CPF
@@ -252,6 +269,11 @@ $this->documentos = new ArrayCollection();
     public function getSituacao(): string
     {
         return $this->situacao;
+    }
+
+    public function getSituacaoRotulo(): string
+    {
+        return self::ROTULOS_SITUACAO[$this->situacao] ?? 'Ativo';
     }
 
     public function setSituacao(string $situacao): self
@@ -430,6 +452,11 @@ $this->documentos = new ArrayCollection();
         );
     }
 
+    /**
+     * O vínculo marcado como principal; sem marca (dado antigo), o primeiro que não foi vinculado como
+     * apensado. Apensado com tipo nunca vira principal por omissão: a pasta só com apensados não tem
+     * principal (P4f, "Vincular apensado sem principal é permitido", N:4555).
+     */
     public function getVinculoPrincipal(): ?PastaProcesso
     {
         foreach ($this->pastaProcessos as $vinculo) {
@@ -438,7 +465,30 @@ $this->documentos = new ArrayCollection();
             }
         }
 
-        return $this->pastaProcessos->first() ?: null;
+        return $this->primeiroVinculoSemTipoDeApenso();
+    }
+
+    /**
+     * Os apensados da pasta (P4f): todo vínculo que não é o principal, na ordem em que foram vinculados.
+     *
+     * @return list<PastaProcesso>
+     */
+    public function getApensados(): array
+    {
+        $principal = $this->getVinculoPrincipal();
+
+        return array_values(array_filter(
+            $this->pastaProcessos->toArray(),
+            static fn (PastaProcesso $vinculo): bool => $vinculo !== $principal,
+        ));
+    }
+
+    /** O vínculo é um apensado desta pasta (vinculado e não é o principal)? */
+    public function ehApensado(Processo $processo): bool
+    {
+        $vinculo = $this->getVinculoPorProcesso($processo);
+
+        return $vinculo !== null && $vinculo !== $this->getVinculoPrincipal();
     }
 
     /**
@@ -478,7 +528,7 @@ $this->documentos = new ArrayCollection();
         }
 
         $vinculo = new PastaProcesso($this, $processo, $vinculadoPor);
-        if ($this->pastaProcessos->isEmpty()) {
+        if ($this->getVinculoPrincipal() === null) {
             $vinculo->setPrincipal(true);
         }
         $this->pastaProcessos->add($vinculo);
@@ -487,8 +537,30 @@ $this->documentos = new ArrayCollection();
     }
 
     /**
+     * Vincula um processo como APENSADO da pasta (P4f, desenho `procSalvarVinc`, N:4551-4555): nunca vira o
+     * principal, nem quando a pasta ainda não tem um. Recusa, com o texto do desenho, o processo que já é o
+     * principal e o que já está vinculado.
+     */
+    public function vincularApensado(Processo $processo, TipoDeApenso $tipo, ?User $vinculadoPor = null): PastaProcesso
+    {
+        $existente = $this->getVinculoPorProcesso($processo);
+        if ($existente !== null && $existente === $this->getVinculoPrincipal()) {
+            throw new ApensadoInvalidoException('Este é o processo principal da pasta.');
+        }
+        if ($existente !== null) {
+            throw new ApensadoInvalidoException('Este apensado já está vinculado.');
+        }
+
+        $vinculo = new PastaProcesso($this, $processo, $vinculadoPor);
+        $vinculo->setTipoApenso($tipo);
+        $this->pastaProcessos->add($vinculo);
+
+        return $vinculo;
+    }
+
+    /**
      * Desvincula um processo. Se ele era o principal e ainda restam vínculos,
-     * promove o primeiro remanescente a principal.
+     * promove o primeiro remanescente a principal (o apensado com tipo não é promovido: P4f).
      */
     public function desvincularProcesso(Processo $processo): void
     {
@@ -501,8 +573,7 @@ $this->documentos = new ArrayCollection();
         $this->pastaProcessos->removeElement($vinculo);
 
         if ($eraPrincipal) {
-            $novoPrincipal = $this->pastaProcessos->first() ?: null;
-            $novoPrincipal?->setPrincipal(true);
+            $this->primeiroVinculoSemTipoDeApenso()?->setPrincipal(true);
         }
     }
 
@@ -519,6 +590,19 @@ $this->documentos = new ArrayCollection();
         foreach ($this->pastaProcessos as $vinculo) {
             $vinculo->setPrincipal($vinculo === $alvo);
         }
+        // O apensado promovido deixa de ser apensado (P4f): o principal não tem tipo de apenso.
+        $alvo->setTipoApenso(null);
+    }
+
+    private function primeiroVinculoSemTipoDeApenso(): ?PastaProcesso
+    {
+        foreach ($this->pastaProcessos as $vinculo) {
+            if ($vinculo->getTipoApenso() === null) {
+                return $vinculo;
+            }
+        }
+
+        return null;
     }
 
     private function mesmoProcesso(Processo $a, Processo $b): bool
@@ -797,8 +881,19 @@ $this->documentos = new ArrayCollection();
         $this->checklistDesativadoEm  = $em;
         $this->checklistDesativadoPor = $por;
         $this->checklistMotivo        = $motivo;
+        $this->checklistLembreteEm    = $em;
 
         return $this;
+    }
+
+    public function getChecklistLembreteEm(): ?\DateTimeImmutable
+    {
+        return $this->checklistLembreteEm;
+    }
+
+    public function registrarLembreteDoChecklist(\DateTimeImmutable $em): void
+    {
+        $this->checklistLembreteEm = $em;
     }
 
     /** Reativa: limpa os três campos. Recusa reativar o que já está ativo. */
@@ -811,6 +906,7 @@ $this->documentos = new ArrayCollection();
         $this->checklistDesativadoEm  = null;
         $this->checklistDesativadoPor = null;
         $this->checklistMotivo        = null;
+        $this->checklistLembreteEm    = null;
 
         return $this;
     }

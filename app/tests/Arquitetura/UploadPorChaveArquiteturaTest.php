@@ -23,9 +23,9 @@ final class UploadPorChaveArquiteturaTest extends TestCase
      *
      *  - `FonteDeUploadHttp` — é quem deve (INV-10);
      *  - `ImportacaoController` — a planilha de importação vai para `import-tmp`, temporário que
-     *    atravessa requisições e fica como está nesta E2 (D3).
-     *
-     * O `TarefaController` saiu daqui na E2.7: o anexo de mensagem passa pela ponte.
+     *    atravessa requisições e fica como está nesta E2 (D3);
+     *  (O `TarefaController` saiu da lista na Fase 2b das Metas: o anexo do despacho entra nos documentos da
+     *  pasta pela regra de chaves, C4.)
      */
     private const QUEM_MOVE_UPLOAD = [
         'src/Cobranca/Controller/ImportacaoController.php',

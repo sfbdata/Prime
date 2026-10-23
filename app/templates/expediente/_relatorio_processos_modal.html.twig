@@ -1,0 +1,45 @@
+{# ============================================================================
+   Prévia "Imprimir" do relatório geral de processos.
+   Desenho: docs/design/claude-design-2026-10-05 (1)/"02 - EXPEDIENTES 1.2.3.dc.html", marcação
+   `imp` (L198-212) e `impVals` (L4621-4631), aberta pelo `spPDF` (L4569). Spec D2: a folha vem do
+   servidor (`expediente_relatorio_processos?fragmento=1`), com as opções "Cabeçalho do escritório"
+   e "Tamanho do texto" (9 a 16 pt, passo 0,5, começa em 10,5) e os botões Imprimir, Baixar PDF
+   (Dompdf, `expediente_relatorio_processos_pdf`) e Copiar texto. As outras opções do `impVals`
+   (dados da pasta, autor, financeiro) ficam fora: o relatório não é de uma pasta (`spPDF` as desliga).
+
+   Mesma janela e mesmas classes `psi-*` da impressão da pasta: o pasta-impressao.css já vem com a
+   janela "Imprimir" da pasta (_impressao_modal), incluída antes desta na mesma tela. O
+   comportamento é do relatorio-processos.js.
+   ============================================================================ #}
+<div class="psi-fundo" id="rpcImpressao" hidden
+     data-url-folha="{{ path('expediente_relatorio_processos') }}"
+     data-url-pdf="{{ path('expediente_relatorio_processos_pdf') }}">
+    <div class="psi-janela" role="dialog" aria-modal="true" aria-labelledby="rpcImpressaoTitulo">
+        <div class="psi-cab">
+            <i class="bi bi-printer" aria-hidden="true"></i>
+            <div class="psi-cab-titulo" id="rpcImpressaoTitulo">{{ 'expediente.relatorio.impressao.imprimir'|trans }}</div>
+            <button type="button" class="psi-fechar js-rpc-fechar" aria-label="{{ 'moldura.comum.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="psi-corpo">
+            <div class="psi-palco" id="rpcImpressaoPalco" aria-live="polite"></div>
+            <div class="psi-lado">
+                <span class="psi-rotulo">{{ 'expediente.relatorio.impressao.incluir_na_folha'|trans }}</span>
+                <button type="button" class="psi-opcao js-rpc-opcao" data-opcao="cabecalho" aria-pressed="true">
+                    <i class="bi bi-check-square-fill" aria-hidden="true"></i>{{ 'expediente.relatorio.impressao.cabecalho_do_escritorio'|trans }}
+                </button>
+                <span class="psi-rotulo psi-rotulo--tamanho">{{ 'expediente.relatorio.impressao.tamanho_do_texto'|trans }}</span>
+                <div class="psi-tamanho">
+                    <button type="button" class="psi-tamanho-btn js-rpc-menor" aria-label="{{ 'expediente.relatorio.impressao.diminuir'|trans }}"><i class="bi bi-dash-lg"></i></button>
+                    <span class="psi-tamanho-valor" id="rpcImpressaoFonte">10,5 pt</span>
+                    <button type="button" class="psi-tamanho-btn js-rpc-maior" aria-label="{{ 'expediente.relatorio.impressao.aumentar'|trans }}"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div class="psi-espaco"></div>
+                <span class="psi-nota">{{ 'expediente.relatorio.impressao.nota_papel_inicio'|trans }} "{{ 'expediente.relatorio.impressao.nota_papel_salvar_pdf'|trans }}" {{ 'expediente.relatorio.impressao.nota_papel_fim'|trans }}</span>
+                <button type="button" class="psi-imprimir js-rpc-imprimir"><i class="bi bi-printer"></i>{{ 'expediente.relatorio.impressao.imprimir'|trans }}</button>
+                <button type="button" class="psi-baixar js-rpc-baixar"><i class="bi bi-file-earmark-pdf"></i>{{ 'expediente.relatorio.impressao.baixar_pdf'|trans }}</button>
+                <button type="button" class="psi-copiar js-rpc-copiar"><i class="bi bi-copy"></i>{{ 'expediente.relatorio.impressao.copiar_texto'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{{ asset('js/relatorio-processos.js') }}" defer></script>

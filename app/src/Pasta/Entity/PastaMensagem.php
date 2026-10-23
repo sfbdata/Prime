@@ -74,6 +74,14 @@ class PastaMensagem implements Auditavel, TenantAware
     #[ORM\Column(name: 'eh_resposta', type: 'boolean', options: ['default' => false])]
     private bool $ehResposta = false;
 
+    /**
+     * Cartão do SISTEMA no Registro (desenho 1.2.3, `autoReg`/`sistema`): mudança de andamento, prazo
+     * adicionado ou cumprido, via administrativa. Escrito pelo sistema em nome de quem fez a mudança; não se
+     * edita, não se exclui e não se responde. Null nos registros escritos por pessoas.
+     */
+    #[ORM\Column(name: 'sistema', length: 20, nullable: true)]
+    private ?string $sistema = null;
+
     public function __construct()
     {
         $this->criadaEm = new \DateTimeImmutable();
@@ -182,6 +190,23 @@ class PastaMensagem implements Auditavel, TenantAware
         }
 
         return $this;
+    }
+
+    public function getSistema(): ?string
+    {
+        return $this->sistema;
+    }
+
+    public function setSistema(?string $sistema): self
+    {
+        $this->sistema = $sistema;
+
+        return $this;
+    }
+
+    public function isDoSistema(): bool
+    {
+        return $this->sistema !== null;
     }
 
     public function isResposta(): bool

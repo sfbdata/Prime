@@ -9,6 +9,16 @@
     </div>
     <div class="card-body">
 
+        {# Chave "Registra ponto eletrônico" da pessoa NESTE escritório (spec seguranca-b-jornada §3.4) #}
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="registraPontoChave"{{ registraPonto ? ' checked' }}
+                   data-url="{{ path('app_jornada_colaborador_registra_ponto', {tenantId: tenantId, id: user.id}) }}"
+                   data-falha="{{ 'escritorio.editar_usuario.ponto_eletronico.falha'|trans }}">
+            <label class="form-check-label fw-semibold" for="registraPontoChave">{{ 'escritorio.editar_usuario.ponto_eletronico.rotulo'|trans }}</label>
+            <div class="form-text">{{ 'escritorio.editar_usuario.ponto_eletronico.ajuda'|trans }}</div>
+        </div>
+        <div id="registraPontoErro" class="alert alert-danger d-none" style="white-space: pre-line"></div>
+
         {# Aviso de jornada legada #}
         <div id="escalaAvisoLegado" class="alert alert-warning d-none">
             <i class="bi bi-exclamation-triangle me-2"></i>
@@ -58,7 +68,7 @@
                 <span id="escalaTotalAcumulado" class="fw-bold fs-5">00:00 / 00:00</span>
             </div>
 
-            <div id="escalaErro" class="alert alert-danger mt-3 d-none"></div>
+            <div id="escalaErro" class="alert alert-danger mt-3 d-none" style="white-space: pre-line"></div>
         </div>
 
     </div>
@@ -279,8 +289,8 @@
         const linhas = jornada.blocos.map(b => {
             const dias = (b.diasSemana || []).map(d => diasNomes[d] || d).join(', ');
             const horario = b.repouso
-                ? `${b.entrada}–${b.repouso} / ${b.retorno}–${b.saida}`
-                : `${b.entrada}–${b.saida}`;
+                ? `${b.entrada} às ${b.repouso} / ${b.retorno} às ${b.saida}`
+                : `${b.entrada} às ${b.saida}`;
             return `${dias}: ${horario} (${toHHMM(b.minutosBloco)}/dia)`;
         });
 
@@ -388,11 +398,42 @@
                 if (resp.ok) {
                     window.location.href = window.location.pathname + '?tab=escala';
                 } else {
-                    alert('Erro ao limpar jornada personalizada.');
+                    const result = await resp.json().catch(() => ({}));
+                    alert(result.erro || 'Erro ao limpar jornada personalizada.');
                     this.disabled = false;
                 }
             } catch (err) {
                 alert('Falha na comunicação com o servidor.');
+                this.disabled = false;
+            }
+        });
+    }
+
+    // Chave "Registra ponto eletrônico": grava na hora; recusada (choque com outro escritório), volta como estava.
+    const chavePonto = document.getElementById('registraPontoChave');
+    if (chavePonto) {
+        chavePonto.addEventListener('change', async function () {
+            const erroEl = document.getElementById('registraPontoErro');
+            const pedido = this.checked;
+            erroEl.classList.add('d-none');
+            this.disabled = true;
+            try {
+                const resp = await fetch(this.dataset.url, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body:    JSON.stringify({ registraPonto: pedido }),
+                });
+                const result = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    this.checked = !pedido;
+                    erroEl.textContent = result.erro || this.dataset.falha;
+                    erroEl.classList.remove('d-none');
+                }
+            } catch (err) {
+                this.checked = !pedido;
+                erroEl.textContent = this.dataset.falha;
+                erroEl.classList.remove('d-none');
+            } finally {
                 this.disabled = false;
             }
         });

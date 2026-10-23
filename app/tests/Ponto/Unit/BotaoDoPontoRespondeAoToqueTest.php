@@ -31,10 +31,15 @@ use PHPUnit\Framework\TestCase;
  *
  * PHPUnit não executa JavaScript: isto confere o arranjo do fonte. Que o botão responde ao toque
  * num Android é smoke do dono, no celular.
+ *
+ * O envio e a classificação da resposta moram em `public/js/ponto-batida.js`; o botão e os avisos
+ * continuam na tela, que é onde estes testes olham. O módulo não pode mexer no botão.
  */
 final class BotaoDoPontoRespondeAoToqueTest extends TestCase
 {
     private const CAMINHO_TELA = __DIR__ . '/../../../templates/ponto/index.html.twig';
+
+    private const CAMINHO_MODULO = __DIR__ . '/../../../public/js/ponto-batida.js';
 
     private function tela(): string
     {
@@ -57,6 +62,15 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
             $atribuicoes,
             'o botão voltou a ser desabilitado por impedimento de regra: toque sem resposta é '
             . 'indistinguível de batida registrada para quem não conhece a tela'
+        );
+
+        // O módulo é puro: devolve classificação, e quem mexe no botão é a tela.
+        $modulo = file_get_contents(self::CAMINHO_MODULO);
+        self::assertNotFalse($modulo, 'não foi possível ler o módulo da batida');
+        self::assertStringNotContainsString(
+            'disabled',
+            $modulo,
+            'o módulo da batida passou a mexer no botão: o único dono do `disabled` é o envio da tela'
         );
     }
 
@@ -200,7 +214,9 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
         $posicaoDaCerca = strpos($handler, "onde.situacao === 'fora'");
         self::assertNotFalse($posicaoDaCerca, 'a verificação da cerca sumiu do handler do clique');
 
-        $posicaoDoEnvio = strpos($handler, 'fetch(');
+        // O `fetch` mora em `PontoBatida.enviarBatida` desde a extração do módulo; no handler, o
+        // envio é a chamada a ela.
+        $posicaoDoEnvio = strpos($handler, 'PontoBatida.enviarBatida(');
         self::assertNotFalse($posicaoDoEnvio, 'o envio sumiu do handler');
         self::assertLessThan(
             $posicaoDoEnvio,
@@ -263,9 +279,16 @@ final class BotaoDoPontoRespondeAoToqueTest extends TestCase
 
         // Pré-selecionar sem mostrar trocaria o erro de "não escolheu" pelo de "não percebeu".
         self::assertMatchesRegularExpression(
-            '/function rotuloBotaoBatida\(\)[\s\S]{0,400}?Bater Ponto\'\s*\+\s*\(nome\s*\?\s*\' — \'\s*\+\s*nome\s*:\s*\'\'\)/',
+            '/function rotuloBotaoBatida\(\)[\s\S]{0,400}?Bater Ponto\'\s*\+\s*\(nome\s*\?\s*\': \'\s*\+\s*nome\s*:\s*\'\'\)/',
             $tela,
             'o rótulo do botão deixou de dizer o tipo escolhido'
+        );
+
+        // Regra do dono (15/10/2026): nada de travessão em texto visível. O rótulo é "Bater Ponto: Saída".
+        self::assertDoesNotMatchRegularExpression(
+            '/function rotuloBotaoBatida\(\)[\s\S]{0,400}?[—–]/u',
+            $tela,
+            'o rótulo do botão voltou a usar travessão'
         );
 
         // `liberarBotaoBatida` roda depois de toda falha de envio; se ela reescrever o rótulo sem

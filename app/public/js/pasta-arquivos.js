@@ -391,7 +391,7 @@
                 atualizarContagem(destino);
                 render();
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { (window.avisarErroPs || window.alert)(err.message); });
     }
 
     // -------------------------------------------------- CRUD de pastas -------
@@ -410,7 +410,7 @@
                         if (!res.ok) throw new Error(res.j.erro || 'Falha ao criar a pasta.');
                         adicionarCartaoPasta(res.j);
                     })
-                    .catch(function (err) { alert(err.message); });
+                    .catch(function (err) { (window.avisarErroPs || window.alert)(err.message); });
             });
         });
     }
@@ -472,7 +472,7 @@
                     card.querySelector('.fm-pasta-nome').textContent = res.j.nome;
                     if (pastaAtualId() === card.dataset.secaoId) render();
                 })
-                .catch(function (err) { alert(err.message); });
+                .catch(function (err) { (window.avisarErroPs || window.alert)(err.message); });
         });
     }
 
@@ -516,7 +516,7 @@
                 todasPastas().forEach(function (el) { if (subarvore.indexOf(el.dataset.secaoId) !== -1) el.remove(); });
                 if (subarvore.indexOf(pastaAtualId()) !== -1) voltarRaiz(); else render();
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { (window.avisarErroPs || window.alert)(err.message); });
     }
 
     // --------------------------------------------------- mover pasta ---------
@@ -531,7 +531,7 @@
                 card.dataset.paiId = res.j.paiId ? String(res.j.paiId) : '';
                 render();
             })
-            .catch(function (err) { alert(err.message); });
+            .catch(function (err) { (window.avisarErroPs || window.alert)(err.message); });
     }
 
     function descendentes(secaoId, profundidade) {
@@ -659,7 +659,7 @@
     }
 
     function enviarArquivos(arquivos) {
-        if (typeof window.enviarArquivoComProgresso !== 'function') { alert('Upload indisponível.'); return; }
+        if (typeof window.enviarArquivoComProgresso !== 'function') { (window.avisarErroPs || window.alert)('Upload indisponível.'); return; }
         const destino = pastaAtualId() === 'geral' ? null : pastaAtualId();
         let i = 0, houveErro = false;
         uploadBar.classList.add('ativo');
@@ -692,7 +692,7 @@
             }).catch(function (err) {
                 houveErro = true;
                 uploadProg.classList.add('bg-danger');
-                uploadNome.textContent = '✗ ' + file.name + ' — ' + err.message;
+                uploadNome.textContent = '✗ ' + file.name + ': ' + err.message;
             }).then(function () { i++; proximo(); });
         }
         proximo();

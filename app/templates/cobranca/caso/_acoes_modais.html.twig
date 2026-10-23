@@ -14,14 +14,13 @@
    congela ao registrar/editar (D6, ao-vivo). #}
 {% macro camposEncargos(formEncargos, honorarioComposta = true, carenciaHonorariosCaso = 0) %}
 <hr class="my-3">
-<h6 class="fw-semibold mb-1">Encargos reconhecidos</h6>
+<h6 class="fw-semibold mb-1">{{ 'cobranca_objeto.modais.encargos.titulo'|trans }}</h6>
 <div class="form-text mb-3">
-    Informe o percentual <em>ou</em> o valor em reais — um espelha o outro enquanto você digita; quem
-    grava a taxa final (à data de hoje) é o servidor. Juros, multa e correção incidem sobre o
-    <strong>valor original</strong>; o <strong>honorário</strong> incide sobre
-    {{ honorarioComposta ? 'a base composta (valor + juros + multa + correção)' : 'o valor original (principal)' }}.
-    Deixe os dois campos <strong>vazios</strong> para <strong>herdar</strong> a configuração do caso —
-    a obrigação nunca congela ao registrar ou editar.
+    {{ 'cobranca_objeto.modais.encargos.ajuda.inicio'|trans }} <em>{{ 'cobranca_objeto.modais.encargos.ajuda.ou'|trans }}</em> {{ 'cobranca_objeto.modais.encargos.ajuda.espelho'|trans }}
+    <strong>{{ 'cobranca_objeto.modais.encargos.ajuda.valor_original'|trans }}</strong>{{ 'cobranca_objeto.modais.encargos.ajuda.o'|trans }} <strong>{{ 'cobranca_objeto.modais.encargos.ajuda.honorario'|trans }}</strong> {{ 'cobranca_objeto.modais.encargos.ajuda.incide_sobre'|trans }}
+    {{ (honorarioComposta ? 'cobranca_objeto.modais.encargos.ajuda.base_composta' : 'cobranca_objeto.modais.encargos.ajuda.base_original')|trans }}
+    {{ 'cobranca_objeto.modais.encargos.ajuda.deixe'|trans }} <strong>{{ 'cobranca_objeto.modais.encargos.ajuda.vazios'|trans }}</strong> {{ 'cobranca_objeto.modais.encargos.ajuda.para'|trans }} <strong>{{ 'cobranca_objeto.modais.encargos.ajuda.herdar'|trans }}</strong> {{ 'cobranca_objeto.modais.encargos.ajuda.configuracao'|trans }}
+    {{ 'cobranca_objeto.modais.encargos.ajuda.nunca_congela'|trans }}
 </div>
 {# TODO(humano): a spec de encargos ao-vivo propõe estender o bloqueio do campo R$ também a multa/correção
    e à janela de tolerância (juros/multa) — extensão PROPOSTA, ainda NÃO ratificada. Hoje só juros
@@ -29,18 +28,18 @@
    aprovado, replicar o mesmo padrão (`data-encargo` + `aplicarBorda` em show.html.twig). #}
 <div class="jp-encargos-wrap" data-dias="0" data-carencia="{{ carenciaHonorariosCaso ?? 0 }}">
 {% for encargo in [
-    {'campo': 'juros', 'rotulo': 'Juros', 'base': 'valorOriginal'},
-    {'campo': 'multa', 'rotulo': 'Multa', 'base': 'valorOriginal'},
-    {'campo': 'correcao', 'rotulo': 'Correção', 'base': 'valorOriginal'},
-    {'campo': 'honorarios', 'rotulo': 'Honorários', 'base': honorarioComposta ? 'composta' : 'valorOriginal'}
+    {'campo': 'juros', 'bp': 'jurosBp', 'reais': 'jurosReais', 'rotulo': 'cobranca_objeto.modais.encargos.juros'|trans, 'base': 'valorOriginal'},
+    {'campo': 'multa', 'bp': 'multaBp', 'reais': 'multaReais', 'rotulo': 'cobranca_objeto.modais.encargos.multa'|trans, 'base': 'valorOriginal'},
+    {'campo': 'correcao', 'bp': 'correcaoBp', 'reais': 'correcaoReais', 'rotulo': 'cobranca_objeto.modais.encargos.correcao'|trans, 'base': 'valorOriginal'},
+    {'campo': 'honorarios', 'bp': 'honorariosBp', 'reais': 'honorariosReais', 'rotulo': 'cobranca_objeto.modais.encargos.honorarios'|trans, 'base': honorarioComposta ? 'composta' : 'valorOriginal'}
 ] %}
-    {% set bpCampo = encargo.campo ~ 'Bp' %}
-    {% set reaisCampo = encargo.campo ~ 'Reais' %}
+    {% set bpCampo = encargo.bp %}
+    {% set reaisCampo = encargo.reais %}
     {% set modoCampo = 'modo' ~ (encargo.campo|capitalize) %}
     <div class="row g-2 mb-3 jp-encargo" data-encargo="{{ encargo.campo }}" data-base="{{ encargo.base }}">
         {{ form_widget(attribute(formEncargos, modoCampo), {'attr': {'class': 'jp-taxa-modo'}}) }}
         <div class="col-5">
-            <label class="form-label" for="{{ attribute(formEncargos, bpCampo).vars.id }}">{{ encargo.rotulo }} (%)</label>
+            <label class="form-label" for="{{ attribute(formEncargos, bpCampo).vars.id }}">{{ 'cobranca_objeto.modais.encargos.rotulo_pct'|trans({encargo: encargo.rotulo}) }}</label>
             <div class="input-group">
                 {{ form_widget(attribute(formEncargos, bpCampo), {'attr': {'class': 'form-control jp-taxa-pct'}}) }}
                 <span class="input-group-text">%</span>
@@ -48,16 +47,16 @@
             {{ form_errors(attribute(formEncargos, bpCampo)) }}
         </div>
         <div class="col-7">
-            <label class="form-label" for="{{ attribute(formEncargos, reaisCampo).vars.id }}">{{ encargo.rotulo }} (R$)</label>
+            <label class="form-label" for="{{ attribute(formEncargos, reaisCampo).vars.id }}">{{ 'cobranca_objeto.modais.encargos.rotulo_reais'|trans({encargo: encargo.rotulo}) }}</label>
             <div class="input-group">
                 {{ form_widget(attribute(formEncargos, reaisCampo), {'attr': {'class': 'form-control jp-taxa-reais'}}) }}
-                <span class="input-group-text">R$</span>
+                <span class="input-group-text">{{ 'cobranca_objeto.comum.simbolo_reais'|trans }}</span>
             </div>
             {{ form_errors(attribute(formEncargos, reaisCampo)) }}
             <div class="d-flex align-items-center justify-content-between mt-1">
-                <small class="text-muted jp-taxa-herda">herda do caso</small>
+                <small class="text-muted jp-taxa-herda">{{ 'cobranca_objeto.modais.encargos.herda'|trans }}</small>
                 <button type="button" class="btn btn-link btn-sm p-0 jp-taxa-limpar"
-                        aria-label="Limpar {{ encargo.rotulo }} e voltar a herdar do caso">Limpar (herdar)</button>
+                        aria-label="{{ 'cobranca_objeto.modais.encargos.limpar_rotulo'|trans({encargo: encargo.rotulo}) }}">{{ 'cobranca_objeto.modais.encargos.limpar'|trans }}</button>
             </div>
         </div>
     </div>
@@ -74,8 +73,8 @@
         <div class="modal-content">
             {{ form_start(forms.registrarObrigacao, {action: path('cobranca_obrigacao_registrar', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloRegistrarObrigacao"><i class="bi bi-plus-circle me-1"></i>Registrar obrigação</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloRegistrarObrigacao"><i class="bi bi-plus-circle me-1"></i>{{ 'cobranca_objeto.modais.registrar_obrigacao'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 {{ form_row(forms.registrarObrigacao.descricao) }}
@@ -85,8 +84,8 @@
                 {{ blocoEncargos.camposEncargos(forms.registrarObrigacao, caso.baseHonorariosComposta, caso.carenciaHonorariosDias) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.registrar'|trans }}</button>
             </div>
             {{ form_end(forms.registrarObrigacao) }}
         </div>
@@ -103,20 +102,19 @@
         <div class="modal-content">
             {{ form_start(forms.editarObrigacao, {attr: {id: 'formEditarObrigacao'}}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloEditarObrigacao"><i class="bi bi-pencil-square me-1"></i>Editar obrigação</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloEditarObrigacao"><i class="bi bi-pencil-square me-1"></i>{{ 'cobranca_objeto.modais.editar_obrigacao'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">Correção de cadastro — informe o motivo. O saldo se ajusta automaticamente.</p>
+                <p class="text-muted small mb-3">{{ 'cobranca_objeto.modais.editar_obrigacao_texto'|trans }}</p>
                 {# F5 (spec §12): quando a obrigação já recebeu pagamento, mudar o valor pode deixar o
                    recebido sobrando ou faltando. Nasce escondido (`d-none`) e o JS de show.html.twig o
                    revela conforme o `data-tem-pagamento` do botão "Editar" da linha — o modal é
                    reutilizável (1 por página), então o gatilho tem de vir do item clicado, não do render. #}
                 <div class="alert alert-info small d-flex align-items-start gap-2 mb-3 d-none" data-aviso-reconciliar>
                     <i class="bi bi-info-circle-fill"></i>
-                    <div>Esta obrigação já recebeu pagamento. Se você <strong>alterar o valor</strong>, o valor
-                        recebido pode ficar sobrando ou faltando — nesse caso, ajuste-o depois em
-                        <strong>Corrigir pagamento</strong>, no extrato de movimentos.</div>
+                    <div>{{ 'cobranca_objeto.modais.reconciliar.inicio'|trans }} <strong>{{ 'cobranca_objeto.modais.reconciliar.alterar_valor'|trans }}</strong>{{ 'cobranca_objeto.modais.reconciliar.meio'|trans }}
+                        <strong>{{ 'cobranca_objeto.modais.reconciliar.corrigir_pagamento'|trans }}</strong>{{ 'cobranca_objeto.modais.reconciliar.fim'|trans }}</div>
                 </div>
                 {{ form_row(forms.editarObrigacao.descricao) }}
                 {{ form_row(forms.editarObrigacao.valorOriginal) }}
@@ -127,8 +125,8 @@
                 {{ form_row(forms.editarObrigacao.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Salvar correção</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.salvar_correcao'|trans }}</button>
             </div>
             {{ form_end(forms.editarObrigacao) }}
         </div>
@@ -142,17 +140,17 @@
             <form method="post" id="formExcluirObrigacao">
                 <input type="hidden" name="_token" value="">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="tituloExcluirObrigacao"><i class="bi bi-trash me-1"></i>Excluir obrigação</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <h5 class="modal-title" id="tituloExcluirObrigacao"><i class="bi bi-trash me-1"></i>{{ 'cobranca_objeto.modais.excluir_obrigacao'|trans }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-3">Excluir definitivamente <strong data-obrigacao-descricao></strong>? Esta ação não pode ser desfeita.</p>
-                    <label class="form-label" for="motivoExcluirObrigacao">Motivo da exclusão</label>
-                    <input type="text" name="motivo" id="motivoExcluirObrigacao" class="form-control" maxlength="255" required placeholder="Ex.: obrigação lançada em duplicidade">
+                    <p class="mb-3">{{ 'cobranca_objeto.modais.excluir_obrigacao_pergunta.inicio'|trans }} <strong data-obrigacao-descricao></strong>{{ 'cobranca_objeto.modais.excluir_obrigacao_pergunta.fim'|trans }}</p>
+                    <label class="form-label" for="motivoExcluirObrigacao">{{ 'cobranca_objeto.modais.motivo_exclusao'|trans }}</label>
+                    <input type="text" name="motivo" id="motivoExcluirObrigacao" class="form-control" maxlength="255" required placeholder="{{ 'cobranca_objeto.modais.motivo_exclusao_placeholder'|trans }}">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Excluir</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>{{ 'cobranca_objeto.modais.excluir'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -165,19 +163,19 @@
         <div class="modal-content">
             {{ form_start(forms.encerrarCaso, {action: path('cobranca_caso_encerrar', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloEncerrarCaso"><i class="bi bi-flag me-1"></i>Encerrar caso</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloEncerrarCaso"><i class="bi bi-flag me-1"></i>{{ 'cobranca_objeto.modais.encerrar_caso'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-exclamation-triangle-fill"></i>
-                    <div>O encerramento só é aceito com o <strong>saldo exigível zerado</strong> (invariável 17). A judicialização não impede encerrar.</div>
+                    <div>{{ 'cobranca_objeto.modais.encerrar_aviso.inicio'|trans }} <strong>{{ 'cobranca_objeto.modais.encerrar_aviso.saldo_zerado'|trans }}</strong> {{ 'cobranca_objeto.modais.encerrar_aviso.fim'|trans }}</div>
                 </div>
                 {{ form_row(forms.encerrarCaso.observacao) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-danger"><i class="bi bi-flag me-1"></i>Encerrar caso</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-flag me-1"></i>{{ 'cobranca_objeto.modais.encerrar_caso'|trans }}</button>
             </div>
             {{ form_end(forms.encerrarCaso) }}
         </div>
@@ -190,16 +188,16 @@
         <div class="modal-content">
             {{ form_start(forms.definirProximaAcao, {action: path('cobranca_acao_definir', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloDefinirAcao"><i class="bi bi-flag me-1"></i>Definir próxima ação</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloDefinirAcao"><i class="bi bi-flag me-1"></i>{{ 'cobranca_objeto.modais.definir_acao'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 {{ form_row(forms.definirProximaAcao.descricao) }}
                 {{ form_row(forms.definirProximaAcao.prazo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Definir</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.definir'|trans }}</button>
             </div>
             {{ form_end(forms.definirProximaAcao) }}
         </div>
@@ -213,20 +211,20 @@
         <div class="modal-content">
             {{ form_start(forms.concluirAcao, {action: path('cobranca_acao_concluir', {id: caso.proximaAcao.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloConcluirAcao"><i class="bi bi-check2-circle me-1"></i>Concluir ação</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloConcluirAcao"><i class="bi bi-check2-circle me-1"></i>{{ 'cobranca_objeto.modais.concluir_acao'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-3">{{ caso.proximaAcao.descricao }}</p>
                 {{ form_row(forms.concluirAcao.resultado) }}
                 <hr class="my-3">
-                <p class="small text-muted mb-2">Se já quiser encadear a próxima ação (opcional):</p>
+                <p class="small text-muted mb-2">{{ 'cobranca_objeto.modais.encadear'|trans }}</p>
                 {{ form_row(forms.concluirAcao.proximaDescricao) }}
                 {{ form_row(forms.concluirAcao.proximoPrazo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Concluir</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.concluir'|trans }}</button>
             </div>
             {{ form_end(forms.concluirAcao) }}
         </div>
@@ -240,17 +238,17 @@
         <div class="modal-content">
             {{ form_start(forms.alterarPessoa, {action: path('cobranca_caso_alterar_pessoa', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloAlterarPessoa"><i class="bi bi-arrow-left-right me-1"></i>Alterar pessoa cobrada</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloAlterarPessoa"><i class="bi bi-arrow-left-right me-1"></i>{{ 'cobranca_objeto.modais.alterar_pessoa'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">A troca é manual e não afeta dívida, pagamentos nem acordos. Atual: <strong>{{ caso.pessoaCobradaNome }}</strong>.</p>
+                <p class="text-muted small mb-3">{{ 'cobranca_objeto.modais.alterar_pessoa_texto'|trans }} <strong>{{ caso.pessoaCobradaNome }}</strong>{{ 'cobranca_objeto.modais.alterar_pessoa_fim'|trans }}</p>
                 {{ form_row(forms.alterarPessoa.novaPessoaCobradaId) }}
                 {{ form_row(forms.alterarPessoa.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Alterar</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.alterar'|trans }}</button>
             </div>
             {{ form_end(forms.alterarPessoa) }}
         </div>
@@ -275,13 +273,13 @@
         <div class="modal-content">
             {{ form_start(forms.judicializar, {action: path('cobranca_caso_judicializar', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloJudicializar"><i class="bi bi-bank me-1"></i>Judicializar caso</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloJudicializar"><i class="bi bi-bank me-1"></i>{{ 'cobranca_objeto.modais.judicializar.titulo'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-info small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-info-circle-fill"></i>
-                    <div>Abre a pasta judicial do caso e liga as duas. A judicialização <strong>não encerra</strong> o caso — o acompanhamento financeiro continua.</div>
+                    <div>{{ 'cobranca_objeto.modais.judicializar.aviso.inicio'|trans }} <strong>{{ 'cobranca_objeto.modais.judicializar.aviso.nao_encerra'|trans }}</strong> {{ 'cobranca_objeto.modais.judicializar.aviso.fim'|trans }}</div>
                 </div>
 
                 <div class="cob-judicializar-modo mb-3">{{ form_row(forms.judicializar.modo) }}</div>
@@ -295,9 +293,9 @@
                        dado que falta na ficha, não a operação. #}
                     <p class="small text-secondary mb-0">
                         {% if caso.pessoaCobradaCpf %}
-                            <i class="bi bi-person-check me-1"></i>{{ caso.pessoaCobradaNome }} entra na pasta como <strong>cliente principal</strong>, com os dados da ficha.
+                            <i class="bi bi-person-check me-1"></i>{{ 'cobranca_objeto.modais.judicializar.com_cpf.inicio'|trans({nome: caso.pessoaCobradaNome}) }} <strong>{{ 'cobranca_objeto.modais.judicializar.com_cpf.cliente_principal'|trans }}</strong>{{ 'cobranca_objeto.modais.judicializar.com_cpf.fim'|trans }}
                         {% else %}
-                            <i class="bi bi-info-circle me-1"></i>A pasta nasce só com o nome e a ação: sem CPF na ficha de {{ caso.pessoaCobradaNome }}, não há cliente a cadastrar.
+                            <i class="bi bi-info-circle me-1"></i>{{ 'cobranca_objeto.modais.judicializar.sem_cpf'|trans({nome: caso.pessoaCobradaNome}) }}
                         {% endif %}
                     </p>
                 </div>
@@ -308,23 +306,23 @@
                    produção, rotuladas só pelo número). O id escolhido vai no campo oculto; a lista
                    vem do servidor conforme se digita. #}
                 <div class="cob-judicializar-vincular" data-modo-bloco="vincular">
-                    <label class="form-label" for="buscarPastaJudicial">Pasta judicial</label>
+                    <label class="form-label" for="buscarPastaJudicial">{{ 'cobranca_objeto.modais.judicializar.pasta_judicial'|trans }}</label>
                     <div data-buscar-pasta
                          data-url="{{ path('cobranca_pastas_buscar') }}">
                         <input type="text" id="buscarPastaJudicial" class="form-control"
-                               placeholder="Digite o número, o cliente ou a ação da pasta…"
+                               placeholder="{{ 'cobranca_objeto.modais.judicializar.buscar_placeholder'|trans }}"
                                autocomplete="off" data-buscar-pasta-campo>
                         <div class="cob-buscar-pasta-resultados list-group mt-1 d-none" data-buscar-pasta-lista></div>
                         <p class="small text-secondary mb-0 mt-1" data-buscar-pasta-escolhida hidden></p>
                     </div>
                     {{ form_widget(forms.judicializar.pastaId) }}
                     {{ form_errors(forms.judicializar.pastaId) }}
-                    <p class="small text-secondary mb-0">Só é usada se você marcar <strong>Vincular uma pasta existente</strong> acima.</p>
+                    <p class="small text-secondary mb-0">{{ 'cobranca_objeto.modais.judicializar.so_usada.inicio'|trans }} <strong>{{ 'cobranca_objeto.modais.judicializar.so_usada.vincular'|trans }}</strong> {{ 'cobranca_objeto.modais.judicializar.so_usada.fim'|trans }}</p>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Judicializar</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.judicializar.botao'|trans }}</button>
             </div>
             {{ form_end(forms.judicializar) }}
         </div>
@@ -339,19 +337,19 @@
         <div class="modal-content">
             {{ form_start(forms.cancelarJudicializacao, {action: path('cobranca_caso_cancelar_judicializacao', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloCancelarJudicializacao"><i class="bi bi-x-octagon me-1"></i>Cancelar judicialização</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloCancelarJudicializacao"><i class="bi bi-x-octagon me-1"></i>{{ 'cobranca_objeto.modais.cancelar_judicializacao.titulo'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-exclamation-triangle-fill"></i>
-                    <div>Desvincula a pasta judicial do caso e volta o status para <strong>ativo</strong>. A pasta em si <strong>não é apagada</strong> — só o vínculo com este caso.</div>
+                    <div>{{ 'cobranca_objeto.modais.cancelar_judicializacao.aviso.inicio'|trans }} <strong>{{ 'cobranca_objeto.modais.cancelar_judicializacao.aviso.ativo'|trans }}</strong>{{ 'cobranca_objeto.modais.cancelar_judicializacao.aviso.meio'|trans }} <strong>{{ 'cobranca_objeto.modais.cancelar_judicializacao.aviso.nao_apagada'|trans }}</strong>{{ 'cobranca_objeto.modais.cancelar_judicializacao.aviso.fim'|trans }}</div>
                 </div>
                 {{ form_row(forms.cancelarJudicializacao.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>Cancelar judicialização</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>{{ 'cobranca_objeto.modais.cancelar_judicializacao.titulo'|trans }}</button>
             </div>
             {{ form_end(forms.cancelarJudicializacao) }}
         </div>
@@ -365,8 +363,8 @@
         <div class="modal-content">
             {{ form_start(forms.registrarTentativa, {action: path('cobranca_tentativa_registrar', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloRegistrarTentativa"><i class="bi bi-telephone me-1"></i>Registrar contato</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloRegistrarTentativa"><i class="bi bi-telephone me-1"></i>{{ 'cobranca_objeto.modais.registrar_contato'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 {{ form_row(forms.registrarTentativa.dataContato) }}
@@ -375,8 +373,8 @@
                 {{ form_row(forms.registrarTentativa.observacao) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.registrar'|trans }}</button>
             </div>
             {{ form_end(forms.registrarTentativa) }}
         </div>
@@ -400,32 +398,30 @@
         <div class="modal-content">
             {{ form_start(forms.acordoCriar, {action: path('cobranca_acordo_criar', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloCriarAcordo"><i class="bi bi-file-earmark-text me-1"></i>Criar acordo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloCriarAcordo"><i class="bi bi-file-earmark-text me-1"></i>{{ 'cobranca_objeto.modais.acordo.criar'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body" id="corpoCriarAcordo">
 
                 {# ── Passo 1: o que sai do saldo ── #}
                 <section class="cob-acordo-passo">
-                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">1</span>O que será renegociado</h6>
+                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">1</span>{{ 'cobranca_objeto.modais.acordo.passo1'|trans }}</h6>
 
                     {# Ajuste 9 (INV-I): só DÍVIDA ORIGINAL é oferecida — parcela de acordo vigente não pode ser
                        renegociada aqui. Lista vazia significa que tudo já está dentro de um acordo: sem este
                        aviso o gestor veria um espaço em branco sem explicação. #}
                     {% if forms.acordoCriar.obrigacoesSubstituidasIds.vars.choices is empty %}
                         <div class="alert alert-warning py-2 mb-0 small" role="alert">
-                            <i class="bi bi-info-circle me-1"></i>Não há dívidas disponíveis para acordo neste caso.
-                            Se já existe um acordo vigente, rompa-o primeiro: as dívidas originais voltam ao saldo
-                            e poderão ser acordadas de novo.
+                            <i class="bi bi-info-circle me-1"></i>{{ 'cobranca_objeto.modais.acordo.sem_dividas'|trans }}
                         </div>
                     {% else %}
                         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
-                            <div class="btn-group btn-group-sm" role="group" aria-label="Seleção de dívidas">
-                                <button type="button" class="btn btn-outline-secondary" data-acordo-selecao="todas">Selecionar todas</button>
-                                <button type="button" class="btn btn-outline-secondary" data-acordo-selecao="nenhuma">Limpar</button>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="{{ 'cobranca_objeto.modais.acordo.selecao'|trans }}">
+                                <button type="button" class="btn btn-outline-secondary" data-acordo-selecao="todas">{{ 'cobranca_objeto.modais.acordo.selecionar_todas'|trans }}</button>
+                                <button type="button" class="btn btn-outline-secondary" data-acordo-selecao="nenhuma">{{ 'cobranca_objeto.modais.acordo.limpar'|trans }}</button>
                             </div>
                             <span class="cob-acordo-selecionado">
-                                Selecionado: <strong data-acordo-total-selecionado>R$ 0,00</strong>
+                                {{ 'cobranca_objeto.modais.acordo.selecionado'|trans }} <strong data-acordo-total-selecionado>{{ 0|centavos }}</strong>
                             </span>
                         </div>
 
@@ -447,46 +443,45 @@
                            marcada tem `data-alocado-centavos > 0`. #}
                         <div class="alert alert-warning d-none py-2 small mt-2 mb-0" id="avisoAcordoComPagamento">
                             <i class="bi bi-info-circle me-1"></i>
-                            Uma das dívidas escolhidas <strong>já recebeu pagamento</strong>. O valor sugerido é o que
-                            <strong>ainda falta</strong> — não o valor original.
+                            {{ 'cobranca_objeto.modais.acordo.com_pagamento.inicio'|trans }} <strong>{{ 'cobranca_objeto.modais.acordo.com_pagamento.ja_recebeu'|trans }}</strong>{{ 'cobranca_objeto.modais.acordo.com_pagamento.meio'|trans }}
+                            <strong>{{ 'cobranca_objeto.modais.acordo.com_pagamento.ainda_falta'|trans }}</strong>{{ 'cobranca_objeto.modais.acordo.com_pagamento.fim'|trans }}
                         </div>
                         <div class="form-text">
-                            As escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Só dívidas
-                            originais aparecem aqui — para refazer um acordo vigente, rompa o atual primeiro.
+                            {{ 'cobranca_objeto.modais.acordo.escolhidas_ajuda'|trans }}
                         </div>
                     {% endif %}
                 </section>
 
                 {# ── Passo 2: o gerador de parcelamento (Ajuste 7) ── #}
                 <section class="cob-acordo-passo">
-                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">2</span>Como parcelar</h6>
+                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">2</span>{{ 'cobranca_objeto.modais.acordo.passo2'|trans }}</h6>
                     <div class="cob-acordo-gerador" data-acordo-gerador>
                         <div class="row g-3 align-items-end">
                             <div class="col-sm-6 col-lg-3">{{ form_row(forms.acordoCriar.valorTotalNegociado) }}</div>
                             <div class="col-sm-6 col-lg-3">{{ form_row(forms.acordoCriar.valorEntrada) }}</div>
                             <div class="col-sm-6 col-lg-2">
-                                <label class="form-label" for="acordoQtdParcelas">Nº de parcelas</label>
+                                <label class="form-label" for="acordoQtdParcelas">{{ 'cobranca_objeto.modais.acordo.qtd_parcelas'|trans }}</label>
                                 <input type="number" min="1" step="1" value="1" class="form-control" id="acordoQtdParcelas">
                             </div>
                             <div class="col-sm-6 col-lg-2">
-                                <label class="form-label" for="acordoData1">1º vencimento</label>
+                                <label class="form-label" for="acordoData1">{{ 'cobranca_objeto.modais.acordo.primeiro_vencimento'|trans }}</label>
                                 <input type="date" class="form-control" id="acordoData1">
                             </div>
                             <div class="col-sm-6 col-lg-2">
-                                <label class="form-label" for="acordoPeriodicidade">Periodicidade</label>
+                                <label class="form-label" for="acordoPeriodicidade">{{ 'cobranca_objeto.modais.acordo.periodicidade'|trans }}</label>
                                 <select class="form-select" id="acordoPeriodicidade">
-                                    <option value="mensal">Mensal</option>
-                                    <option value="quinzenal">Quinzenal</option>
-                                    <option value="semanal">Semanal</option>
+                                    <option value="mensal">{{ 'cobranca_objeto.modais.acordo.mensal'|trans }}</option>
+                                    <option value="quinzenal">{{ 'cobranca_objeto.modais.acordo.quinzenal'|trans }}</option>
+                                    <option value="semanal">{{ 'cobranca_objeto.modais.acordo.semanal'|trans }}</option>
                                 </select>
                             </div>
                         </div>
                         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-3">
                             <span class="form-text mb-0">
-                                O total nasce da seleção acima; edite-o para dar desconto ou acrescentar juros.
+                                {{ 'cobranca_objeto.modais.acordo.total_ajuda'|trans }}
                             </span>
                             <button type="button" class="btn jp-btn-accent" id="acordoGerar">
-                                <i class="bi bi-magic me-1"></i>Gerar parcelas
+                                <i class="bi bi-magic me-1"></i>{{ 'cobranca_objeto.modais.acordo.gerar_parcelas'|trans }}
                             </button>
                         </div>
                         <div class="small text-danger mt-1" data-acordo-erro-gerador></div>
@@ -495,24 +490,24 @@
 
                 {# ── Passo 3: as parcelas geradas, editáveis ── #}
                 <section class="cob-acordo-passo">
-                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">3</span>Parcelas do acordo</h6>
+                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">3</span>{{ 'cobranca_objeto.modais.acordo.passo3'|trans }}</h6>
                     {# Vazio explicado: sem isto, "Parcelas do acordo" seguido de um botão parece um erro de
                        carregamento. O JS não depende deste bloco — ele some sozinho quando há linha. #}
                     <p class="cob-acordo-vazio text-secondary small" data-acordo-vazio>
-                        Nenhuma parcela ainda. Use <strong>Gerar parcelas</strong> acima, ou acrescente uma por vez.
+                        {{ 'cobranca_objeto.modais.acordo.vazio.inicio'|trans }} <strong>{{ 'cobranca_objeto.modais.acordo.gerar_parcelas'|trans }}</strong> {{ 'cobranca_objeto.modais.acordo.vazio.fim'|trans }}
                     </p>
                     <div id="parcelasContainer"
                          data-prototype="{{ form_widget(forms.acordoCriar.parcelas.vars.prototype)|e('html_attr') }}"
                          data-index="{{ forms.acordoCriar.parcelas|length }}">
                         {% for parcela in forms.acordoCriar.parcelas %}
                         <div class="parcela-linha border rounded p-2 mb-2">{{ form_widget(parcela) }}
-                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">{{ 'cobranca_objeto.modais.acordo.remover'|trans }}</button>
                         </div>
                         {% endfor %}
                     </div>
                     {{ form_errors(forms.acordoCriar.parcelas) }}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcela"><i class="bi bi-plus-lg me-1"></i>Adicionar parcela</button>
-                    <div class="form-text">Ao mudar o valor de uma parcela, ela fica fixa e as demais se redistribuem para fechar o total.</div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcela"><i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.modais.acordo.adicionar_parcela'|trans }}</button>
+                    <div class="form-text">{{ 'cobranca_objeto.modais.acordo.parcela_fixa_ajuda'|trans }}</div>
                 </section>
 
                 {# ── Data do acordo: registro, não negociação — por isso no fim, fora dos três passos ── #}
@@ -523,8 +518,8 @@
                    que "Criar acordo" está desabilitado. Antes ficava no fim do corpo, fora de vista quando o
                    modal rolava. O gancho `data-acordo-fechamento` é o mesmo — o JS não muda. #}
                 <div class="small flex-grow-1" data-acordo-fechamento></div>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Criar acordo</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.modais.acordo.criar'|trans }}</button>
             </div>
             {{ form_end(forms.acordoCriar) }}
         </div>
@@ -537,16 +532,16 @@
         <div class="modal-content">
             {{ form_start(forms.romperAcordo, {attr: {id: 'formRomperAcordo'}}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloRomperAcordo"><i class="bi bi-x-octagon me-1"></i>Romper acordo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloRomperAcordo"><i class="bi bi-x-octagon me-1"></i>{{ 'cobranca_objeto.acordo.romper_titulo'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">O rompimento restaura as obrigações originais.</p>
+                <p class="text-muted small mb-3">{{ 'cobranca_objeto.modais.romper_texto'|trans }}</p>
                 {{ form_row(forms.romperAcordo.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>Romper</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>{{ 'cobranca_objeto.acordo.romper'|trans }}</button>
             </div>
             {{ form_end(forms.romperAcordo) }}
         </div>
@@ -559,16 +554,16 @@
         <div class="modal-content">
             {{ form_start(forms.cancelarAcordo, {attr: {id: 'formCancelarAcordo'}}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloCancelarAcordo"><i class="bi bi-slash-circle me-1"></i>Cancelar acordo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloCancelarAcordo"><i class="bi bi-slash-circle me-1"></i>{{ 'cobranca_objeto.acordo.cancelar_titulo'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">O cancelamento (erro de lançamento) restaura as obrigações originais.</p>
+                <p class="text-muted small mb-3">{{ 'cobranca_objeto.acordo.cancelar_texto'|trans }}</p>
                 {{ form_row(forms.cancelarAcordo.motivo) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                <button type="submit" class="btn btn-warning"><i class="bi bi-slash-circle me-1"></i>Cancelar acordo</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.fechar'|trans }}</button>
+                <button type="submit" class="btn btn-warning"><i class="bi bi-slash-circle me-1"></i>{{ 'cobranca_objeto.acordo.cancelar_titulo'|trans }}</button>
             </div>
             {{ form_end(forms.cancelarAcordo) }}
         </div>

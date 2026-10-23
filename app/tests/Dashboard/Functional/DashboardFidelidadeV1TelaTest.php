@@ -102,7 +102,7 @@ final class DashboardFidelidadeV1TelaTest extends DashboardWebTestCase
         [, $tenant] = $this->criarGestorLogado($client);
         $this->criarColaborador($tenant, 'Ana Lima');
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
         self::assertResponseIsSuccessful();
 
         self::assertCount(7, $crawler->filter('.db-table-card table > tfoot > tr > td > .db-total-cel > .db-total-num'), 'a irmã prova que o Total montou');

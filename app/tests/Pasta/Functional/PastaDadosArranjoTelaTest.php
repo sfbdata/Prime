@@ -123,7 +123,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $itens = $crawler->filter('#psMenuAcoes .ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Link externo do Push', 'Imprimir resumo', 'Cadeado', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
             $itens,
             'a ordem do menu é a do desenho'
         );
@@ -146,7 +146,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $menu = $crawler->filter('#psMenuAcoes');
         self::assertCount(1, $menu);
-        self::assertCount(11, $menu->filter('.ps-pop-item'), 'onze itens, todos com back-end: editar, histórico, timeline inteligente, duplicar, vincular, trocar responsável, copiar link, imprimir resumo, fixar nos favoritos, arquivar, excluir');
+        self::assertCount(13, $menu->filter('.ps-pop-item'), 'treze itens, todos com back-end: editar, histórico, timeline inteligente, duplicar, vincular, trocar responsável, copiar link, link externo do Push, imprimir resumo, cadeado (o usuário primário, spec pasta-cadeado), fixar nos favoritos, arquivar, excluir');
 
         self::assertCount(
             1,
@@ -173,14 +173,15 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $campos = $crawler->filter('.ps-cabecalho > .ps-cab-dados > [data-campo]');
-        /* Desenho 1.2.3: o cliente virou o TÍTULO, a movimentação foi para o lado
-           do nome e a situação, para a linha das abas. Sobram três células. */
+        /* Desenho 1.2.3 (16/10): a faixa saiu do cabeçalho. Ação e Processo vinculado são o primeiro
+           cartão do trilho, nessa ordem; o Responsável foi para a linha de cima, antes das setas. */
+        self::assertCount(0, $crawler->filter('.ps-cabecalho [data-trilho="processo"]'), 'nada da antiga faixa no cabeçalho');
         self::assertSame(
-            ['processo', 'acao', 'responsavel'],
-            $campos->each(fn ($n) => $n->attr('data-campo')),
-            'ordem do desenho: Processo vinculado · Ação · Responsável'
+            ['acao', 'processo'],
+            $crawler->filter('.ps-trilho > [data-trilho="processo"] > [data-campo]')->each(fn ($n) => $n->attr('data-campo')),
+            'ordem do desenho: Ação · Processo vinculado'
         );
+        self::assertCount(1, $crawler->filter('.ps-cab-linha1 > .ps-cab-resp[data-campo="responsavel"] + .ps-cab-nav'), 'Responsável logo antes das setas');
     }
 
     #[TestDox('o título grande é o IDENTIFICADOR da pasta; a ação vai para a faixa de dados; o número fica na linha de cima')]
@@ -204,7 +205,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         self::assertSame(
             'EXECUÇÃO DE TÍTULO EXTRAJUDICIAL',
-            trim($crawler->filter('.ps-cab-dados > [data-campo="acao"] .ps-dado')->text()),
+            trim($crawler->filter('[data-trilho="processo"] > [data-campo="acao"] .ps-dado')->text()),
             'a ação é a segunda célula da faixa de dados'
         );
 
@@ -307,9 +308,9 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $cartoes = $crawler->filter('#dados > .ps-grade > .ps-trilho > [data-trilho]');
         self::assertSame(
-            ['prazos', 'clientes', 'documentos'],
+            ['processo', 'prazos', 'clientes', 'documentos'],
             $cartoes->each(fn ($n) => $n->attr('data-trilho')),
-            'ordem aprovada (revisão 28/08): Próximos prazos · Clientes · Documentos'
+            'desenho 1.2.3: Ação e Processo vinculado no alto, depois Próximos prazos · Clientes · Documentos'
         );
     }
 
@@ -606,7 +607,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         $mascarado = '1059316-72.2022.4.01.3400';
 
-        $noCabecalho = $crawler->filter('.ps-cab-dados [data-campo="processo"] a');
+        $noCabecalho = $crawler->filter('[data-trilho="processo"] [data-campo="processo"] a');
         self::assertCount(1, $noCabecalho);
         self::assertSame($mascarado, trim($noCabecalho->text()), 'o cabeçalho mostra o número formatado, não os 20 dígitos colados');
 
@@ -623,7 +624,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         // no sistema do tribunal.
         self::assertSame(
             '10593167220224013400',
-            $crawler->filter('.ps-cab-dados [data-campo="processo"] .copy-btn')->attr('data-copy'),
+            $crawler->filter('[data-trilho="processo"] [data-campo="processo"] .copy-btn')->attr('data-copy'),
             'copiar entrega o número cru, não a máscara'
         );
 
@@ -635,7 +636,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
            impedir. */
         self::assertSame(
             'CUMPRIMENTO DE SENTENÇA · TJDFT',
-            trim($crawler->filter('.ps-cab-dados [data-campo="processo"] .ps-dado-sub')->text())
+            trim($crawler->filter('[data-trilho="processo"] [data-campo="processo"] .ps-dado-sub')->text())
         );
     }
 
@@ -669,7 +670,7 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
 
         // Ordem: a mais próxima primeiro.
         self::assertStringContainsString('Protocolar contestação', $linhas->eq(0)->text());
-        self::assertSame('Falta 1 dia', trim($linhas->eq(0)->filter('.ps-selo')->text()));
+        self::assertSame('Faltam 1 dia', trim($linhas->eq(0)->filter('.ps-selo')->text()), 'texto do desenho 1.2.3 (E12b)');
         self::assertStringContainsString(
             'ps-selo--urgente',
             (string) $linhas->eq(0)->filter('.ps-selo')->attr('class'),
@@ -749,5 +750,57 @@ final class PastaDadosArranjoTelaTest extends JusPrimeWebTestCase
         // Sem JS, o href leva ao arquivo em outra aba.
         self::assertSame('/pasta/documento/' . $doc->getId() . '/visualizar', $linha->attr('href'));
         self::assertSame('_blank', $linha->attr('target'));
+    }
+
+    /**
+     * Guia visual BlueJus (04 Tipografia e ícones): o ícone do TIPO de arquivo é o
+     * MESMO da aba Documentos, família `bi-file-earmark-*-fill`, com cor só para o
+     * tipo. A cor sai pela classe `ps-doc-icone--<tipo>` (tokens com par escuro no
+     * pasta-show.css), nunca inline: inline ignoraria o tema escuro e as duas abas
+     * da mesma tela desenhariam o mesmo arquivo com tons diferentes.
+     */
+    #[TestDox('o ícone do documento do trilho é o da aba Documentos (Guia visual)')]
+    public function testIconeDoDocumentoDoTrilhoSegueOGuiaVisual(): void
+    {
+        $client                       = static::createClient();
+        [$em, $user, $tenant, $pasta] = $this->criarBase();
+
+        $arquivos = [
+            ['Procuração', 'procuracao.pdf', 'application/pdf'],
+            ['Contrato', 'contrato.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+            ['Custas', 'custas.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        ];
+        foreach ($arquivos as [$titulo, $nome, $mime]) {
+            $doc = new PastaDocumento();
+            $doc->setTitulo($titulo);
+            $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+            $doc->setCaminhoArquivo('uploads/fake/' . $nome);
+            $doc->setNomeOriginal($nome);
+            $doc->setMimeType($mime);
+            $doc->setTamanhoBytes(2048);
+            $doc->setPasta($pasta);
+            $doc->setTenant($tenant);
+            $em->persist($doc);
+            $pasta->addDocumento($doc);
+        }
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $this->abrir($client, $pasta);
+
+        $esperado = [
+            'procuracao.pdf' => ['bi-file-earmark-pdf-fill', 'pdf', 'PDF'],
+            'contrato.docx'  => ['bi-file-earmark-word-fill', 'word', 'Word'],
+            'custas.xlsx'    => ['bi-file-earmark-excel-fill', 'excel', 'Planilha'],
+        ];
+        foreach ($esperado as $nome => [$icone, $tipo, $rotulo]) {
+            $span = $crawler->filter('[data-trilho="documentos"] a.ps-doc[data-nome="' . $nome . '"] > span.ps-doc-icone');
+            self::assertCount(1, $span, "{$nome} tem o ícone do tipo");
+            self::assertCount(1, $span->filter('i.bi.' . $icone), "{$nome} usa a família da aba Documentos ({$icone})");
+            self::assertSame($rotulo, $span->attr('title'));
+            self::assertCount(1, $crawler->filter('[data-trilho="documentos"] a.ps-doc[data-nome="' . $nome . '"] > span.ps-doc-icone.ps-doc-icone--' . $tipo), "{$nome} pinta pela classe do tipo '{$tipo}'");
+            self::assertNull($span->attr('style'), "{$nome} sem cor inline: a cor vem do token, que tem par escuro");
+            self::assertCount(0, $span->filter('i[class*="bi-filetype-"]'), "{$nome} não usa a família de contorno (bi-filetype-*), que só csv/html/xml/json mantêm, como no explorador");
+        }
     }
 }

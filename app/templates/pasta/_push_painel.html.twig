@@ -1,0 +1,160 @@
+{# ============================================================================
+   Coluna direita da aba Push: o cartão de Monitoramento e Situação atual (desenho 1.2.3,
+   dc L.2567-2626; spec push-painel-monitoramento) e o "Avisar quando chegar" (dc L.2629-2636;
+   spec push-avisar-quando-chegar) e o "Avisar cliente" (P4c, spec push-avisar-cliente); a leitura completa
+   ("Lendo o processo" com as 12 etapas, a análise e o envio de arquivos) é do P4e.
+
+   Textos de `pushVals` (dc L.5434-5446) e de `previsaoProc` (dc L.5110-5116), resolvidos no
+   servidor (App\Pasta\DTO\PainelDoPushOutput). Estilos 1:1 em pasta-push-painel.css, com a linha
+   do desenho em cada regra. O pasta-push-painel.js liga o switch e o "Buscar agora" (sem
+   innerHTML com dado: só troca texto, classe e atributo).
+
+   O switch muda o processo PRINCIPAL e exige EDITAR a pasta; "Buscar agora" exige ver. Na pasta
+   excluída (lápide) os dois saem desabilitados: o servidor recusaria (são POST).
+
+   Contexto: `pasta`, `painel` (PainelDoPushOutput), `avisos` (AvisosDoPushOutput ou null),
+   `podeEditarPasta`.
+   ============================================================================ #}
+{% set pastaViva = not pasta.estaExcluida %}
+{% set podeAlternar = painel.temProcesso and podeEditarPasta and pastaViva %}
+{% set situacao = painel.situacao %}
+{% set principal = painel.processos|first %}
+{# A dica do switch dá o motivo real de ele estar travado; liberado e pausado, diz quem pausou. #}
+{% if not pastaViva %}
+    {% set dicaTrava = 'pasta_push.painel.excluida'|trans %}
+{% elseif not podeEditarPasta %}
+    {% set dicaTrava = 'pasta_push.painel.so_quem_edita'|trans %}
+{% else %}
+    {% set dicaTrava = null %}
+{% endif %}
+<aside class="ps-push-coluna" aria-label="{{ 'pasta_push.painel.rotulo'|trans }}">
+    <div class="ps-push-painel" data-push-painel
+         data-monitoramento-url="{{ path('pasta_push_monitoramento', {id: pasta.id}) }}"
+         data-monitoramento-token="{{ csrf_token('pasta_push_monitoramento_' ~ pasta.id) }}"
+         data-buscar-url="{{ path('pasta_push_buscar', {id: pasta.id}) }}"
+         data-buscar-token="{{ csrf_token('pasta_push_buscar_' ~ pasta.id) }}"
+         data-buscar-permitido="{{ pastaViva ? '1' : '0' }}">
+        <div class="ps-push-painel-cab">
+            <span class="ps-push-painel-ponto{{ painel.ativo ? ' is-ativo' : '' }}" data-push-painel-ponto aria-hidden="true"></span>
+            <span class="ps-push-painel-status">
+                <span class="ps-push-painel-titulo" data-push-painel-titulo>{{ painel.statusTxt }}</span>
+                <span class="ps-push-painel-sub" data-push-painel-sub>{{ painel.statusSub }}</span>
+            </span>
+            {% set dicaPrincipal = dicaTrava ?? (principal ? principal.dicaPausa : null) %}
+            <button type="button" class="ps-push-switch{{ painel.ativo ? ' is-on' : '' }}"
+                    role="switch" aria-checked="{{ painel.ativo ? 'true' : 'false' }}" aria-label="{{ 'pasta_push.painel.switch'|trans }}"
+                    data-push-painel-switch data-push-painel-principal
+                    {% if principal %}data-processo-id="{{ principal.id }}"{% endif %}
+                    {% if painel.temProcesso and dicaPrincipal %}title="{{ dicaPrincipal }}"{% endif %}
+                    {{ podeAlternar ? '' : 'disabled' }}>
+                <span class="ps-push-switch-bola"></span>
+            </button>
+        </div>
+        {# Processos da pasta (desenho de 18/10, pedido do coordenador): o principal com o selo, e os
+           demais recuados por uma barra, cada um com o seu switch. Número com a máscara CNJ. #}
+        <div class="ps-push-painel-info">
+            <div class="ps-push-painel-linha">
+                <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                {% if principal %}
+                    <span class="ps-push-painel-processo">{{ principal.numero|numero_cnj }}{% if principal.tribunal %} · {{ principal.tribunal }}{% endif %}</span>
+                    <span class="ps-push-painel-selo">{{ 'pasta_push.painel.principal'|trans }}</span>
+                {% else %}
+                    <span class="ps-push-painel-processo">{{ 'pasta_push.painel.sem_processo'|trans }}</span>
+                {% endif %}
+            </div>
+            {% for apensado in painel.processos|slice(1) %}
+                {% set dicaApensado = dicaTrava ?? apensado.dicaPausa %}
+                <div class="ps-push-apensado" data-push-painel-processo="{{ apensado.id }}">
+                    <span class="ps-push-apensado-texto">
+                        <span class="ps-push-apensado-numero">{{ apensado.numero|numero_cnj }}{% if apensado.tribunal %} · {{ apensado.tribunal }}{% endif %}</span>
+                        <span class="ps-push-apensado-sub" data-push-painel-processo-sub>{{ apensado.sub }}</span>
+                    </span>
+                    <button type="button" class="ps-push-switch{{ apensado.ativo ? ' is-on' : '' }}"
+                            role="switch" aria-checked="{{ apensado.ativo ? 'true' : 'false' }}"
+                            aria-label="{{ 'pasta_push.painel.switch_do_processo'|trans({numero: apensado.numero|numero_cnj}) }}"
+                            data-push-painel-switch data-processo-id="{{ apensado.id }}"
+                            {% if dicaApensado %}title="{{ dicaApensado }}"{% endif %}
+                            {{ podeEditarPasta and pastaViva ? '' : 'disabled' }}>
+                        <span class="ps-push-switch-bola"></span>
+                    </button>
+                </div>
+            {% endfor %}
+            <div class="ps-push-painel-linha"><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>{{ painel.ultima }}</span></div>
+        </div>
+        {% if situacao is not null %}
+            {# Some com o monitoramento pausado (dc L.5420); o switch a mostra de novo sem recarregar. #}
+            <div class="ps-push-sit" data-push-painel-situacao{{ painel.ativo ? '' : ' hidden' }}>
+                <div class="ps-push-sit-rotulo"><i class="bi bi-pin-angle" aria-hidden="true"></i>{{ 'pasta_push.painel.situacao.titulo'|trans }}</div>
+                <div class="ps-push-sit-fase">
+                    <span class="ps-push-sit-titulo">{{ situacao.situacao }}</span>
+                    <span class="ps-push-sit-selo ps-push-sit-selo--{{ situacao.statusMod }}">{{ situacao.status }}</span>
+                </div>
+                <div class="ps-push-sit-grade">
+                    <span class="ps-push-sit-k">{{ 'pasta_push.painel.situacao.ultimo'|trans }}</span><span class="ps-push-sit-v ps-push-sit-v--forte">{{ situacao.ultimo }}</span>
+                    <span class="ps-push-sit-k">{{ 'pasta_push.painel.situacao.proximo'|trans }}</span><span class="ps-push-sit-v ps-push-sit-v--forte">{{ situacao.proximo }}</span>
+                    <span class="ps-push-sit-k">{{ 'pasta_push.painel.situacao.quem'|trans }}</span><span class="ps-push-sit-v">{{ situacao.quem }}</span>
+                    <span class="ps-push-sit-k">{{ 'pasta_push.painel.situacao.prazo'|trans }}</span><span class="ps-push-sit-v">{{ situacao.prazo }}</span>
+                    <span class="ps-push-sit-k">{{ 'pasta_push.painel.situacao.previsao'|trans }}</span><span class="ps-push-sit-previsao" title="{{ situacao.dica }}">{{ situacao.previsao }}</span>
+                </div>
+                <div class="ps-push-sit-proxima">
+                    <div class="ps-push-sit-rotulo"><i class="bi bi-signpost-split" aria-hidden="true"></i>{{ 'pasta_push.painel.situacao.proxima'|trans }}</div>
+                    <span class="ps-push-sit-posterior">{{ situacao.posterior }}</span>
+                    <div class="ps-push-sit-conf">
+                        <span class="ps-push-sit-conf-selo ps-push-sit-conf-selo--{{ situacao.confMod }}">{{ 'pasta_push.painel.situacao.confianca'|trans({conf: situacao.conf}) }}</span>
+                        <span class="ps-push-sit-base">{{ 'pasta_push.painel.situacao.base'|trans({base: situacao.base}) }}</span>
+                    </div>
+                </div>
+                {% if situacao.nota is not null %}
+                    <div class="ps-push-sit-nota"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span>{{ situacao.nota }}</span></div>
+                {% endif %}
+                <div class="ps-push-sit-rodape">{{ 'pasta_push.painel.situacao.rodape'|trans({aprendizado: situacao.aprendizado}) }}</div>
+            </div>
+        {% endif %}
+        <button type="button" class="ps-push-buscar" data-push-painel-buscar
+                title="{{ 'pasta_push.painel.buscar_dica'|trans }}"
+                {{ painel.ativo and pastaViva ? '' : 'disabled' }}>
+            <i class="bi bi-cloud-download" aria-hidden="true" data-push-painel-buscar-ico></i><span data-push-painel-buscar-txt>{{ 'pasta_push.painel.buscar'|trans }}</span>
+        </button>
+        <p class="ps-push-painel-msg" data-push-painel-msg role="status" hidden></p>
+    </div>
+    {% if avisos is defined and avisos is not null %}
+        {# "Avisar quando chegar" (dc L.2629-2636, `avisos` dc L.5447; spec push-avisar-quando-chegar §2).
+           Cada linha é o botão inteiro com role=switch (o rótulo é o nome acessível). Mudar exige
+           EDITAR a pasta; quem só vê enxerga as chaves desabilitadas com a dica, e a lápide também.
+           A chave travada pelo motivo dela (e-mail sem o aviso ao responsável, IA indisponível)
+           traz a dica do servidor. #}
+        {% if not pastaViva %}
+            {% set dicaAvisos = 'pasta_push.painel.excluida'|trans %}
+        {% elseif not podeEditarPasta %}
+            {% set dicaAvisos = 'pasta_push.painel.avisos.so_quem_edita'|trans %}
+        {% else %}
+            {% set dicaAvisos = null %}
+        {% endif %}
+        <div class="ps-push-avisos" data-push-avisos
+             data-avisos-url="{{ path('pasta_push_avisos', {id: pasta.id}) }}"
+             data-avisos-token="{{ csrf_token('pasta_push_avisos_' ~ pasta.id) }}"
+             data-avisos-permitido="{{ podeEditarPasta and pastaViva ? '1' : '0' }}">
+            <div class="ps-push-avisos-titulo">{{ 'pasta_push.painel.avisos.titulo'|trans }}</div>
+            {% for item in avisos.itens %}
+                {% set dicaItem = dicaAvisos ?? item.dica %}
+                <button type="button" class="ps-push-aviso{{ item.ligado ? ' is-on' : '' }}"
+                        role="switch" aria-checked="{{ item.ligado ? 'true' : 'false' }}"
+                        data-push-aviso="{{ item.chave }}"
+                        {% if dicaItem %}title="{{ dicaItem }}"{% endif %}
+                        {{ dicaAvisos is null and not item.travado ? '' : 'disabled' }}>
+                    <span class="ps-push-aviso-rotulo">{{ item.rotulo }}</span><span class="ps-push-aviso-sw" aria-hidden="true"><span class="ps-push-switch-bola"></span></span>
+                </button>
+            {% endfor %}
+            <p class="ps-push-painel-msg" data-push-avisos-msg role="status" hidden></p>
+        </div>
+    {% endif %}
+    {# "Avisar cliente" (P4c; spec push-avisar-cliente §2, desenho de 18/10 dc N:2765-2830). #}
+    {% set avisarCliente = avisar_cliente(pasta.id) %}
+    {% if avisarCliente is not null %}
+        {% include 'pasta/_push_cliente.html.twig' with {pasta: pasta, cliente: avisarCliente} only %}
+    {% endif %}
+</aside>
+<link rel="stylesheet" href="{{ asset('css/pasta-push-painel.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-push-cliente.css') }}">
+<script src="{{ asset('js/pasta-push-painel.js') }}" defer></script>
+<script src="{{ asset('js/pasta-push-cliente.js') }}" defer></script>

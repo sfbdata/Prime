@@ -7,6 +7,7 @@ namespace App\Dashboard\UseCase;
 use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
+use App\Dashboard\Ranking\RankingDeMetasConcluidas;
 use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Entity\Tenant\Tenant;
@@ -65,33 +66,38 @@ final class ObterDadosDashboardUseCase
      *                                        da tabela. Só essas são calculadas — uma consulta
      *                                        agregada por métrica, no máximo; chave fora do
      *                                        catálogo é ignorada.
+     * @param list<int>            $pastasOcultas pastas ocultas pelo cadeado para quem olha
+     *                                        (`AcessoAPasta::idsOcultosPara`, uma consulta por
+     *                                        requisição): as metas delas saem de todo card e
+     *                                        coluna de metas, como da lista /tarefas/equipe
+     *                                        (spec pasta-cadeado D1 e D3). Vazio = sem cadeado.
      */
-    public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros = [], array $colunasExtras = []): DashboardOutput
+    public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros = [], array $colunasExtras = [], array $pastasOcultas = []): DashboardOutput
     {
         $colunasExtras = Extras::filtrar($colunasExtras);
 
         // CARDS
-        $totalMetasAtivas  = $this->tarefaRepository->countMetasAtivas($tenant, $filtros);
-        $demandasUrgentes  = $this->pastaRepository->countUrgentes($tenant, $filtros);
-        $global            = $this->tarefaRepository->countMetasGlobal($tenant, $filtros);
+        $totalMetasAtivas  = $this->tarefaRepository->countMetasAtivas($tenant, $filtros, $pastasOcultas);
+        $demandasUrgentes  = $this->pastaRepository->countUrgentes($tenant, $filtros, $pastasOcultas);
+        $global            = $this->tarefaRepository->countMetasGlobal($tenant, $filtros, $pastasOcultas);
         $metaGlobalPercent = $global['total'] > 0
             ? (int) round($global['concluidas'] / $global['total'] * 100)
             : 0;
 
         // 7 mapas userId => count (período aplicado; vencidas/prazos são relativos à referência)
-        $mTotalTarefa  = $this->tarefaRepository->countPorResponsavel($tenant, $filtros);
-        $mAtivasTarefa = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtros);
-        $mVencidas     = $this->tarefaRepository->countVencidasPorResponsavel($tenant, $referencia);
-        $mPrazos       = $this->tarefaRepository->countPrazosProximosPorResponsavel($tenant, $referencia);
-        $mTotalPasta   = $this->pastaRepository->countPorResponsavel($tenant, $filtros);
-        $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant, $filtros);
+        $mTotalTarefa  = $this->tarefaRepository->countPorResponsavel($tenant, $filtros, $pastasOcultas);
+        $mAtivasTarefa = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas);
+        $mVencidas     = $this->tarefaRepository->countVencidasPorResponsavel($tenant, $referencia, $pastasOcultas);
+        $mPrazos       = $this->tarefaRepository->countPrazosProximosPorResponsavel($tenant, $referencia, $pastasOcultas);
+        $mTotalPasta   = $this->pastaRepository->countPorResponsavel($tenant, $filtros, $pastasOcultas);
+        $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas);
         // Por CRIADOR, não por responsável: mede quem abriu a pasta (uso do sistema e
         // produtividade), enquanto os dois mapas acima medem quem responde por ela.
-        $mCriadasPasta = $this->pastaRepository->countCriadasPorCriador($tenant, $filtros);
+        $mCriadasPasta = $this->pastaRepository->countCriadasPorCriador($tenant, $filtros, $pastasOcultas);
 
-        // Lista canônica: todos os colaboradores ativos do tenant
-        $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant);
+        $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant); // lista canônica: todos os ativos do tenant
         $mCargo        = $colaboradores === [] ? [] : $this->userRepository->findCargoPorColaboradores($tenant);
+        $todosIds      = array_map(static fn ($u): int => (int) $u->getId(), $colaboradores); // universo do troféu: antes de busca, responsável e cargo
 
         // Facetas de linha: responsável reduz a um colaborador; cargo reduz ao cargo escolhido.
         $respId = (int) ($filtros['responsavel'] ?? 0);
@@ -110,17 +116,19 @@ final class ObterDadosDashboardUseCase
         $mAntCriadas     = [];
         if ($comAnterior && $colaboradores !== []) {
             $filtrosAnteriores = array_merge($filtros, $periodoAnterior);
-            $mAntTarefa        = $this->tarefaRepository->countPorResponsavel($tenant, $filtrosAnteriores);
-            $mAntPasta         = $this->pastaRepository->countPorResponsavel($tenant, $filtrosAnteriores);
-            $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores);
+            $mAntTarefa        = $this->tarefaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
+            $mAntPasta         = $this->pastaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
+            $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores, $pastasOcultas);
         }
 
         // Estoque anterior (vencidas, prazos próximos): não se reconstrói do passado, então vem
         // da foto diária do dia `data_de − 1` — exatamente o fim do período anterior. Quem não
         // foi fotografado naquele dia fica sem tendência (null). Metas/Demandas ativas não
         // entram: o painel as filtra por criação no período, a foto é o estoque inteiro.
+        // Cadeado: a foto é do escritório inteiro. Para quem tem pasta oculta, comparar com ela revelaria a
+        // diferença (oráculo); sem foto, as setas de Vencidas e Prazos não aparecem nesta requisição.
         $mEstoqueAnterior = [];
-        if ($comAnterior && $colaboradores !== []) {
+        if ($comAnterior && $colaboradores !== [] && $pastasOcultas === []) {
             $mEstoqueAnterior = $this->dashboardFotoRepository->buscarPorReferencia(
                 $tenant,
                 new \DateTimeImmutable($periodoAnterior['data_ate']),
@@ -136,6 +144,7 @@ final class ObterDadosDashboardUseCase
             $filtros,
             $colunasExtras,
             array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
+            $pastasOcultas,
         );
 
         // Tendência das extras com lastro por data (hoje só Eventos na agenda): a MESMA consulta
@@ -150,6 +159,7 @@ final class ObterDadosDashboardUseCase
                 array_merge($filtros, $periodoAnterior),
                 $extrasComTendencia,
                 array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
+                $pastasOcultas,
             );
         }
 
@@ -224,6 +234,7 @@ final class ObterDadosDashboardUseCase
             totaisExtrasAnteriores:     $comAnterior
                 ? $this->totaisExtras($extrasComTendencia, $linhas, true)
                 : null,
+            campeaoId:                  RankingDeMetasConcluidas::campeao($todosIds, RankingDeMetasConcluidas::concluidas($mTotalTarefa, $mAtivasTarefa), $mVencidas),
         );
     }
 
@@ -234,18 +245,20 @@ final class ObterDadosDashboardUseCase
      * @param array<string, mixed> $filtros
      * @param list<string>         $colunasExtras
      * @param list<int>            $pessoas
+     * @param list<int>            $pastasOcultas metas destas pastas não contam (cadeado, D1 e D3)
      *
      * @return array<string, array<int, mixed>>
      */
-    private function mapasExtras(Tenant $tenant, array $filtros, array $colunasExtras, array $pessoas): array
+    private function mapasExtras(Tenant $tenant, array $filtros, array $colunasExtras, array $pessoas, array $pastasOcultas = []): array
     {
         $mapas = [];
         foreach ($colunasExtras as $coluna) {
             $mapas[$coluna] = match ($coluna) {
-                Extras::METAS_REVISAO   => $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, $filtros),
-                Extras::TEMPO_MEDIO     => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros),
-                Extras::PASTAS_URGENTES => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros),
+                Extras::METAS_REVISAO   => $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, $filtros, $pastasOcultas),
+                Extras::TEMPO_MEDIO     => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros, $pastasOcultas),
+                Extras::PASTAS_URGENTES => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros, $pastasOcultas),
                 Extras::EVENTOS_AGENDA  => $this->metricasExtras->contarEventosPorPessoa($tenant, $filtros, $pessoas),
+                Extras::RELATORIO       => $this->metricasExtras->contarRegistrosPorAutor($tenant, $filtros, $pastasOcultas),
                 default                 => [],
             };
         }

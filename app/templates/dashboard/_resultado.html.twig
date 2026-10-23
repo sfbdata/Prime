@@ -8,7 +8,7 @@
    fica na primeira linha, ao lado do título (order 0 no CSS da casca). #}
 <div class="db-atualizado">
     <span class="db-atualizado-ponto"><span class="db-atualizado-anel"></span><span class="db-atualizado-nucleo"></span></span>
-    <span>Atualizado às {{ 'now'|date('H:i') }}</span>
+    <span>{{ 'dashboard.atualizado_as'|trans({hora: 'now'|hora}) }}</span>
 </div>
 
 {# ── Cards de métricas ──────────────────────────────────────────────────────
@@ -78,7 +78,7 @@
                 </svg>
             </div></div>
             <div class="db-card-corpo">
-                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--1">Pastas criadas</span></div>
+                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--1">{{ 'dashboard.cards.pastas_criadas'|trans }}</span></div>
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num" data-card="pastas" data-alvo="{{ dashboard.totalPastasCriadas }}">{{ dashboard.totalPastasCriadas }}</div>
                     {# "ver pastas": o card soma a coluna Pastas criadas, isto é, as pastas abertas
@@ -97,7 +97,7 @@
                         {% set pastasQuery = { painel: 'acervo-geral', criado_por: respCard }|merge(periodoLink) %}
                     {% endif %}
                     {% if pastasQuery is not null %}
-                        <a class="db-card-ver" href="{{ path('expediente_index', pastasQuery) }}" title="Abrir: Expediente · pastas criadas">ver pastas<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                        <a class="db-card-ver" href="{{ path('expediente_index', pastasQuery) }}" title="{{ 'dashboard.cards.abrir_pastas_criadas'|trans }}">{{ 'dashboard.cards.ver_pastas'|trans }}<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     {% endif %}
                 </div>
                 {# Sem legenda: o desenho mostra só o rótulo e o número neste card. #}
@@ -143,7 +143,7 @@
                 </svg>
             </div></div>
             <div class="db-card-corpo">
-                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--2">Metas ativas</span></div>
+                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--2">{{ 'dashboard.cards.metas_ativas'|trans }}</span></div>
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num" data-card="metas" data-alvo="{{ dashboard.totalMetasAtivas }}">{{ dashboard.totalMetasAtivas }}</div>
                     {# "ver metas": /tarefas/equipe no escopo do CARD (`escopo=card`), que conta
@@ -152,9 +152,9 @@
                     {% set metasQuery = { status: 'ativas', escopo: 'card' }
                         |merge(filtros.responsavel|default('') != '' ? { responsavel: filtros.responsavel } : {})
                         |merge(periodoLink) %}
-                    <a class="db-card-ver" href="{{ path('tarefa_equipe', metasQuery) }}" title="Abrir: Metas da equipe · metas ativas">ver metas<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    <a class="db-card-ver" href="{{ path('tarefa_equipe', metasQuery) }}" title="{{ 'dashboard.cards.abrir_metas_ativas'|trans }}">{{ 'dashboard.cards.ver_metas'|trans }}<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                 </div>
-                <div class="db-card-legenda db-card-legenda--hover">tarefas ainda não concluídas</div>
+                <div class="db-card-legenda db-card-legenda--hover">{{ 'dashboard.cards.legenda_metas_ativas'|trans }}</div>
             </div>
         </div>
     </div>
@@ -189,7 +189,7 @@
                 </svg>
             </div></div>
             <div class="db-card-corpo">
-                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--3">Demandas urgentes</span></div>
+                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--3">{{ 'dashboard.cards.demandas_urgentes'|trans }}</span></div>
                 <div class="db-card-valor-linha">
                     <div class="db-stat-num db-stat-num--urgente" data-card="urgentes" data-alvo="{{ dashboard.demandasUrgentes }}">{{ dashboard.demandasUrgentes }}</div>
                     {# "ver pastas": Acervo geral do Expediente com prioridade urgente. Leva o
@@ -198,9 +198,9 @@
                     {% set urgQuery = { painel: 'acervo-geral', prioridade: 'urgente' }
                         |merge(filtros.responsavel|default('') != '' ? { responsavel: filtros.responsavel } : {})
                         |merge(periodoLink) %}
-                    <a class="db-card-ver" href="{{ path('expediente_index', urgQuery) }}" title="Abrir: Expediente · pastas urgentes">ver pastas<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    <a class="db-card-ver" href="{{ path('expediente_index', urgQuery) }}" title="{{ 'dashboard.cards.abrir_pastas_urgentes'|trans }}">{{ 'dashboard.cards.ver_pastas'|trans }}<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                 </div>
-                <div class="db-card-legenda db-card-legenda--hover">pastas com prioridade Urgente</div>
+                <div class="db-card-legenda db-card-legenda--hover">{{ 'dashboard.cards.legenda_urgentes'|trans }}</div>
             </div>
         </div>
     </div>
@@ -241,7 +241,7 @@
                 </svg>
             </div></div>
             <div class="db-card-corpo">
-                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--4">Meta global batida</span></div>
+                <div class="db-card-rotulo-wrap"><span class="db-card-rotulo db-card-rotulo--4">{{ 'dashboard.cards.meta_global_batida'|trans }}</span></div>
                 <div class="db-card-valor-linha db-card-valor-linha--pct">
                     <div class="db-stat-num" data-card="global" data-alvo="{{ pct }}">{{ pct }}</div>
                     <div class="db-stat-pct">%</div>
@@ -253,8 +253,8 @@
                     <div class="db-barra-fill"><div class="db-barra-brilho"></div></div>
                 </div>
                 <div class="db-card-legenda">
-                    <span class="db-card-legenda-num">{{ dashboard.metasConcluidas }}</span> de
-                    <span class="db-card-legenda-num">{{ dashboard.metasTotal }}</span> metas concluídas
+                    <span class="db-card-legenda-num">{{ dashboard.metasConcluidas }}</span> {{ 'dashboard.cards.legenda_global_de'|trans }}
+                    <span class="db-card-legenda-num">{{ dashboard.metasTotal }}</span> {{ 'dashboard.cards.legenda_global_metas_concluidas'|trans }}
                 </div>
             </div>
         </div>
@@ -271,8 +271,8 @@
 {% set qtd = linhas|length %}
 <div class="db-table-card">
     <div class="db-table-header">
-        <span class="db-table-titulo">Desempenho</span>
-        <span class="db-contador" title="{{ qtd == 1 ? '1 colaborador' : qtd ~ ' colaboradores' }}" aria-label="{{ qtd == 1 ? '1 colaborador' : qtd ~ ' colaboradores' }}"><i class="bi bi-people-fill"></i><span class="db-contador-num">{{ qtd }}</span></span>
+        <span class="db-table-titulo">{{ 'dashboard.tabela.titulo'|trans }}</span>
+        <span class="db-contador" title="{{ qtd == 1 ? 'dashboard.tabela.um_colaborador'|trans : 'dashboard.tabela.n_colaboradores'|trans({n: qtd ~ ''}) }}" aria-label="{{ qtd == 1 ? 'dashboard.tabela.um_colaborador'|trans : 'dashboard.tabela.n_colaboradores'|trans({n: qtd ~ ''}) }}"><i class="bi bi-people-fill"></i><span class="db-contador-num">{{ qtd }}</span></span>
         {# Busca de colaborador recolhida (desenho): só a lupa; ao clicar abre para 260px com
            o campo focado; fecha ao sair se vazio; Esc limpa e fecha. Este campo NÃO tem
            `name`: quem vai na query é o `.js-filtro-busca` escondido no form da casca, que o
@@ -281,8 +281,8 @@
            ainda dá para apagar a busca. #}
         {% set buscaAtual = filtros.busca|default('') %}
         <div class="db-busca{{ buscaAtual != '' ? ' is-aberta' : '' }}">
-            <button type="button" class="db-busca-lupa js-db-busca-abrir" title="Buscar colaborador" aria-label="Buscar colaborador"><i class="bi bi-search" aria-hidden="true"></i></button>
-            <input type="text" class="db-busca-input js-db-busca" placeholder="Buscar colaborador" aria-label="Buscar colaborador" autocomplete="off" value="{{ buscaAtual }}" tabindex="{{ buscaAtual != '' ? '0' : '-1' }}">
+            <button type="button" class="db-busca-lupa js-db-busca-abrir" title="{{ 'dashboard.filtros.buscar_colaborador'|trans }}" aria-label="{{ 'dashboard.filtros.buscar_colaborador'|trans }}"><i class="bi bi-search" aria-hidden="true"></i></button>
+            <input type="text" class="db-busca-input js-db-busca" placeholder="{{ 'dashboard.filtros.buscar_colaborador'|trans }}" aria-label="{{ 'dashboard.filtros.buscar_colaborador'|trans }}" autocomplete="off" value="{{ buscaAtual }}" tabindex="{{ buscaAtual != '' ? '0' : '-1' }}">
         </div>
     </div>
     {# Celular (< 768px): lista de cards com as mesmas linhas; a tabela abaixo segue no DOM. #}
@@ -293,7 +293,7 @@
            `table > tbody > tr` como gente. #}
         {# Mais de 8 numéricas (as 7 + 2 extras ou mais): mínimo de 52px por coluna e, se
            ainda não couber, rolagem com Colaborador fixa (desenho, "Adicionar coluna"). #}
-        <table class="table db-table mb-0{{ extras|length >= 2 ? ' db-table--larga' : '' }}">
+        <table class="table db-table mb-0{{ 2 <= extras|length ? ' db-table--larga' : '' }}">
             <thead>
                 {# Ordenação por clique no cabeçalho (padrão Expediente): o th leva `data-ordenar`,
                    o motor filtro-tabela.js grava nos hidden ordenar/direcao do form e recarrega o
@@ -305,16 +305,16 @@
                 {% set ordCol = ordValida ? ordPedido : 'metas' %}
                 {% set ordDir = ordValida and filtros.direcao|default('') == 'asc' ? 'asc' : 'desc' %}
                 <tr>
-                    <th class="sortable db-th-colab{{ ordCol == 'advogado' ? ' ' ~ ordDir : '' }}" data-ordenar="advogado">Colaborador <i class="bi bi-chevron-expand sort-icon"></i></th>
-                    <th class="sortable db-th-cargo{{ ordCol == 'cargo' ? ' ' ~ ordDir : '' }}" data-ordenar="cargo" data-coluna="cargo">Cargo <i class="bi bi-chevron-expand sort-icon"></i></th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'metas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas" data-coluna="metas"><i class="bi bi-chevron-expand sort-icon"></i> Total metas</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_ativas" data-coluna="metas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Metas ativas</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_vencidas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_vencidas" data-coluna="metas_vencidas"><i class="bi bi-chevron-expand sort-icon"></i> Metas vencidas</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'prazos' ? ' ' ~ ordDir : '' }}" data-ordenar="prazos" data-coluna="prazos"><i class="bi bi-chevron-expand sort-icon"></i> Prazos próximos</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas" data-coluna="demandas"><i class="bi bi-chevron-expand sort-icon"></i> Total demandas</th>
-                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas_ativas" data-coluna="demandas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> Demandas ativas</th>
+                    <th class="sortable db-th-colab{{ ordCol == 'advogado' ? ' ' ~ ordDir : '' }}" data-ordenar="advogado">{{ 'dashboard.tabela.colaborador'|trans }} <i class="bi bi-chevron-expand sort-icon"></i></th>
+                    <th class="sortable db-th-cargo{{ ordCol == 'cargo' ? ' ' ~ ordDir : '' }}" data-ordenar="cargo" data-coluna="cargo">{{ 'dashboard.tabela.cargo'|trans }} <i class="bi bi-chevron-expand sort-icon"></i></th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas" data-coluna="metas"><i class="bi bi-chevron-expand sort-icon"></i> {{ 'dashboard.tabela.total_metas'|trans }}</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_ativas" data-coluna="metas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> {{ 'dashboard.tabela.metas_ativas'|trans }}</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'metas_vencidas' ? ' ' ~ ordDir : '' }}" data-ordenar="metas_vencidas" data-coluna="metas_vencidas"><i class="bi bi-chevron-expand sort-icon"></i> {{ 'dashboard.tabela.metas_vencidas'|trans }}</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'prazos' ? ' ' ~ ordDir : '' }}" data-ordenar="prazos" data-coluna="prazos"><i class="bi bi-chevron-expand sort-icon"></i> {{ 'dashboard.tabela.prazos_proximos'|trans }}</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas" data-coluna="demandas"><i class="bi bi-chevron-expand sort-icon"></i> {{ 'dashboard.tabela.total_demandas'|trans }}</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'demandas_ativas' ? ' ' ~ ordDir : '' }}" data-ordenar="demandas_ativas" data-coluna="demandas_ativas"><i class="bi bi-chevron-expand sort-icon"></i> {{ 'dashboard.tabela.demandas_ativas'|trans }}</th>
                     {# Por quem ABRIU a pasta (criadoPor) — as duas colunas acima são por responsável. #}
-                    <th class="sortable text-center db-th-num{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas" data-coluna="pastas_criadas"><i class="bi bi-chevron-expand sort-icon"></i> Pastas criadas</th>
+                    <th class="sortable text-center db-th-num{{ ordCol == 'pastas_criadas' ? ' ' ~ ordDir : '' }}" data-ordenar="pastas_criadas" data-coluna="pastas_criadas"><i class="bi bi-chevron-expand sort-icon"></i> {{ 'dashboard.tabela.pastas_criadas'|trans }}</th>
                     {% for k in extras %}
                     <th class="sortable text-center db-th-num db-th-extra{{ ordCol == k ? ' ' ~ ordDir : '' }}" data-ordenar="{{ k }}" data-coluna="{{ k }}" data-extra title="{{ extra.titulo(k) }}"><i class="bi bi-chevron-expand sort-icon"></i> {{ extrasCatalogo[k].rotulo }}</th>
                     {% endfor %}
@@ -339,9 +339,16 @@
                     : ('paraleg' in cargoLower) ? 'bi-journal-text'
                     : ('financ' in cargoLower) ? 'bi-cash-coin'
                     : 'bi-person-badge' %}
-                <tr>
+                {# Troféu (spec dashboard-parte-1): só na linha do campeão, que o UseCase escolhe entre TODOS
+                   os colaboradores ativos, antes da busca e dos filtros. O hover da linha anima o troféu
+                   (CSS) e toca a fanfarra (dashboard-campeao.js). #}
+                {% set campeao = dashboard.campeaoId is not null and linha.userId == dashboard.campeaoId %}
+                <tr{% if campeao %} class="db-tr-campeao" data-db-campeao{% endif %}>
                     <td class="db-td-colab">
-                        <div class="db-colab">
+                        {# Botão direito no nome: cartão do colaborador (ranking), janela flutuante. #}
+                        <div class="db-colab" data-db-colab-url="{{ path('dashboard_colaborador_ranking', {id: linha.userId}) }}"
+                             data-db-colab-nome="{{ linha.nomeAdvogado }}" data-db-colab-av="{{ av }}"
+                             title="{{ 'dashboard.tabela.botao_direito_desempenho'|trans({nome: linha.nomeAdvogado}) }}">
                             {% if linha.fotoUrl %}
                                 <img src="{{ path('app_profile_foto_serve', {nome: linha.fotoUrl}) }}"
                                      alt="{{ linha.nomeAdvogado }}"
@@ -352,10 +359,11 @@
                                 <span class="collab-avatar-inicial db-avatar db-avatar--{{ av }}">{{ iniciais }}</span>
                             {% endif %}
                             <span class="db-colab-nome" title="{{ linha.nomeAdvogado }}"><span class="db-nome-completo">{{ linha.nomeAdvogado }}</span><span class="db-nome-curto">{{ nomeCurto }}</span></span>
+                            {% if campeao %}<i class="bi bi-trophy-fill db-trofeu" title="{{ 'dashboard.tabela.trofeu_titulo'|trans }}" aria-label="{{ 'dashboard.tabela.trofeu_rotulo'|trans }}"></i>{% endif %}
                         </div>
                     </td>
                     <td class="db-td-cargo" data-coluna="cargo">
-                        <span class="db-cargo{{ linha.cargoNome is null ? ' db-cargo--vazio' : '' }}"><i class="bi {{ cargoIcone }}"></i><span>{{ linha.cargoNome ?? 'Sem cargo' }}</span></span>
+                        <span class="db-cargo{{ linha.cargoNome is null ? ' db-cargo--vazio' : '' }}"><i class="bi {{ cargoIcone }}"></i><span>{{ linha.cargoNome ?? 'dashboard.sem_cargo'|trans }}</span></span>
                     </td>
                     {# Números de METAS e de PASTAS > 0 são links para a lista que eles contam,
                        já filtrada pela pessoa (e pelo período, quando a métrica usa período).
@@ -366,7 +374,7 @@
                     {% set comSeta = linha.totalMetasAnterior is not null %}
                     <td class="text-center db-td-num" data-coluna="metas"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
                         {%- if linha.totalMetas > 0 -%}
-                            <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Metas de {{ quem }}" aria-label="Abrir: Metas de {{ quem }}">{{ linha.totalMetas }}</a>
+                            <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas' }|merge(qPessoa)|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_metas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_metas'|trans({nome: quem}) }}">{{ linha.totalMetas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
@@ -374,7 +382,7 @@
                     </span></td>
                     <td class="text-center db-td-num" data-coluna="metas_ativas">
                         {%- if linha.metasAtivas > 0 -%}
-                            <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'ativas' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Metas ativas de {{ quem }}" aria-label="Abrir: Metas ativas de {{ quem }}">{{ linha.metasAtivas }}</a>
+                            <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'ativas' }|merge(qPessoa)|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_metas_ativas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_metas_ativas'|trans({nome: quem}) }}">{{ linha.metasAtivas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
@@ -385,7 +393,7 @@
                     {% set comSetaPraz = linha.prazosProximosAnterior is not null %}
                     <td class="text-center db-td-num" data-coluna="metas_vencidas"><span class="db-cel{{ comSetaVenc ? ' db-cel--seta' : '' }}">
                         {%- if linha.metasVencidas > 0 -%}
-                            <a class="db-pill db-pill--venc db-num-link" href="{{ path('tarefa_equipe', { status: 'vencidas' }|merge(qPessoa)) }}" title="Abrir: Metas vencidas de {{ quem }}" aria-label="Abrir: Metas vencidas de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</a>
+                            <a class="db-pill db-pill--venc db-num-link" href="{{ path('tarefa_equipe', { status: 'vencidas' }|merge(qPessoa)) }}" title="{{ 'dashboard.tabela.abrir_metas_vencidas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_metas_vencidas'|trans({nome: quem}) }}"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
@@ -393,7 +401,7 @@
                     </span></td>
                     <td class="text-center db-td-num" data-coluna="prazos"><span class="db-cel{{ comSetaPraz ? ' db-cel--seta' : '' }}">
                         {%- if linha.prazosProximos > 0 -%}
-                            <a class="db-pill db-pill--praz db-num-link" href="{{ path('tarefa_equipe', { status: 'prazo_proximo' }|merge(qPessoa)) }}" title="Abrir: Metas com prazo próximo de {{ quem }}" aria-label="Abrir: Metas com prazo próximo de {{ quem }}"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</a>
+                            <a class="db-pill db-pill--praz db-num-link" href="{{ path('tarefa_equipe', { status: 'prazo_proximo' }|merge(qPessoa)) }}" title="{{ 'dashboard.tabela.abrir_prazo_proximo'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_prazo_proximo'|trans({nome: quem}) }}"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
@@ -401,7 +409,7 @@
                     </span></td>
                     <td class="text-center db-td-num" data-coluna="demandas"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
                         {%- if linha.totalDemandas > 0 -%}
-                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge(periodoLink)) }}" title="Abrir: Expediente · pastas de {{ quem }}" aria-label="Abrir: Expediente · pastas de {{ quem }}">{{ linha.totalDemandas }}</a>
+                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_pastas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_pastas'|trans({nome: quem}) }}">{{ linha.totalDemandas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
@@ -409,7 +417,7 @@
                     </span></td>
                     <td class="text-center db-td-num" data-coluna="demandas_ativas">
                         {%- if linha.demandasAtivas > 0 -%}
-                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge({ status: 'ativo' })|merge(periodoLink)) }}" title="Abrir: Expediente · pastas ativas de {{ quem }}" aria-label="Abrir: Expediente · pastas ativas de {{ quem }}">{{ linha.demandasAtivas }}</a>
+                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge({ status: 'ativo' })|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_pastas_ativas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_pastas_ativas'|trans({nome: quem}) }}">{{ linha.demandasAtivas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
@@ -417,7 +425,7 @@
                     {# Por quem ABRIU a pasta: o link filtra por criado_por, sem responsável. #}
                     <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
                         {%- if linha.pastasCriadas > 0 -%}
-                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', criado_por: linha.userId }|merge(periodoLink)) }}" title="Abrir: Expediente · pastas criadas por {{ quem }}" aria-label="Abrir: Expediente · pastas criadas por {{ quem }}">{{ linha.pastasCriadas }}</a>
+                            <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', criado_por: linha.userId }|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_pastas_criadas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_pastas_criadas'|trans({nome: quem}) }}">{{ linha.pastasCriadas }}</a>
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
@@ -474,7 +482,7 @@
                     <th scope="row" class="db-td-colab">
                         <div class="db-colab">
                             <span class="db-total-icone"><i class="bi bi-calculator"></i></span>
-                            <span class="db-total-rotulo">Total</span>
+                            <span class="db-total-rotulo">{{ 'dashboard.tabela.total'|trans }}</span>
                         </div>
                     </th>
                     <td class="db-td-cargo" data-coluna="cargo"></td>
@@ -495,7 +503,7 @@
                     {% set tipoX = extrasCatalogo[k].tipo %}
                     {% set sentidoX = extrasTendencia[k] ?? null %}
                     {% set antTx = tAntX is null ? null : (tAntX[k] ?? null) %}
-                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? '—' : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? tx ~ 'd' : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel"><span class="db-total-num">{{ tx is null ? 'dashboard.extras.sem_dado'|trans : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? 'dashboard.extras.valor_dias'|trans({n: tx ~ ''}) : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     {% endfor %}
                 </tr>
             </tfoot>
@@ -504,12 +512,12 @@
         {% if linhas is empty %}
         <div class="db-empty">
             <i class="bi bi-people"></i>
-            Nenhum colaborador com esses filtros.
+            {{ 'dashboard.tabela.vazio'|trans }}
         </div>
         {% endif %}
     </div>
     <div class="db-nota">
         <i class="bi bi-info-circle"></i>
-        <span>Uma meta com vários responsáveis conta para cada um deles, por isso a soma das linhas pode passar do total do card. Vencidas e prazos próximos são sempre relativos a hoje, não ao período filtrado.</span>
+        <span>{{ 'dashboard.tabela.nota'|trans }}</span>
     </div>
 </div>

@@ -1065,7 +1065,7 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $indicador = $crawler->filter('#secao-divida .jp-obr-congelado');
         self::assertCount(1, $indicador);
         self::assertStringContainsString('Encargos congelados em 01/02/2026', (string) $indicador->attr('title'));
-        self::assertStringContainsString('não são recalculados automaticamente', (string) $indicador->attr('title'));
+        self::assertStringContainsString('Não são recalculados automaticamente', (string) $indicador->attr('title'));
         // A não-congelada diz quando foi a última atualização, no próprio Total — AO VIVO, com a data de
         // hoje. Casa por PADRÃO de data (não pela data exata de execução) para não flakar na virada da
         // meia-noite entre montar o esperado e renderizar o request.

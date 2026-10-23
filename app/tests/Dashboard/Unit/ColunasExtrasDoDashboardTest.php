@@ -23,10 +23,10 @@ final class ColunasExtrasDoDashboardTest extends TestCase
         self::assertStringContainsString('recorrente conta uma vez, pela ocorrência-base', $nota);
     }
 
-    #[TestDox('Tendência só em Eventos na agenda (data real, neutra); estoque e as três por criação + status de hoje ficam fora')]
+    #[TestDox('Tendência só em Eventos na agenda (neutra) e Relatório (subir é bom), as de data real; estoque e as três por criação + status de hoje ficam fora')]
     public function testTendencia(): void
     {
-        self::assertSame([Extras::EVENTOS_AGENDA => 'fila'], Extras::TENDENCIA);
+        self::assertSame([Extras::EVENTOS_AGENDA => 'fila', Extras::RELATORIO => 'alta'], Extras::TENDENCIA);
         self::assertSame(
             [Extras::EVENTOS_AGENDA],
             Extras::comTendencia([Extras::METAS_CONCLUIDAS, Extras::EVENTOS_AGENDA, Extras::METAS_REVISAO, Extras::TEMPO_MEDIO, Extras::PASTAS_URGENTES, Extras::TAXA_CONCLUSAO]),

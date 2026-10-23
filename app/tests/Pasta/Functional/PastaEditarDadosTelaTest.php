@@ -10,6 +10,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * "Editar dados" da pasta no desenho 1.2.3 (dc L.560-592, `peVals` L.4278-4307): linha do
@@ -101,8 +102,12 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
 
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString("var foto = serializar();", $html, 'o retrato é o do servidor, tirado ao carregar');
-        self::assertStringContainsString("estadoTxt.textContent = mudou ? 'Alterações não salvas' : 'Dados da pasta';", $html);
-        self::assertStringContainsString("var erro = nup && nup.value.trim() === '' ? 'Informe o número da pasta.' : '';", $html);
+        self::assertStringContainsString("estadoTxt.textContent = mudou ? BJ_T.t('pasta_show.js.editar.nao_salvas') : BJ_T.t('pasta_show.js.editar.dados_da_pasta');", $html);
+        self::assertStringContainsString("var erro = nup && nup.value.trim() === '' ? BJ_T.t('pasta_show.js.editar.informe_numero') : '';", $html);
+        $editar = self::catalogoDoEditar();
+        self::assertSame('Alterações não salvas', $editar['nao_salvas']);
+        self::assertSame('Dados da pasta', $editar['dados_da_pasta']);
+        self::assertSame('Informe o número da pasta.', $editar['informe_numero']);
         self::assertStringContainsString('salvar.disabled = !(mudou && !erro);', $html);
         self::assertStringContainsString('pendencias.hidden = !(mudou && erro);', $html);
     }
@@ -119,11 +124,24 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         self::assertSame($pasta->getNup(), $crawler->filter('#edit_nup')->attr('value'), 'o defaultValue que o script compara');
 
         $html = (string) $client->getResponse()->getContent();
-        $ini  = strpos($html, "form.addEventListener('submit', function (e) {\n            var antes = nup.defaultValue.trim();");
+        // E7: a pergunta é calculada no envio e vai para a janela AZUL da tela (psConfirmarEnvio,
+        // dc `confirmarUI(…, false)` L.4416), que segura o envio até o "sim".
+        $ini  = strpos($html, 'var perguntaDoNumero = function () {');
         self::assertNotFalse($ini, 'a confirmação fica no envio do formulário');
-        $trecho = substr($html, $ini, 600);
-        self::assertStringContainsString("depois !== '' && depois !== antes", $trecho, 'só quando o número muda');
-        self::assertStringContainsString("window.confirm('Alterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.')", $trecho);
-        self::assertStringContainsString('e.preventDefault();', $trecho, 'Cancelar não envia');
+        $trecho = substr($html, $ini, 1200);
+        self::assertStringContainsString("if (depois === '' || depois === antes) { return null; }", $trecho, 'só quando o número muda');
+        self::assertStringContainsString("mensagem: BJ_T.t('pasta_show.js.editar.numero_titulo') + '\\n' + BJ_T.t('pasta_show.js.editar.numero_pergunta', {antes: antes, depois: depois}),", $trecho);
+        $editar = self::catalogoDoEditar();
+        self::assertSame('Alterar número da pasta', $editar['numero_titulo']);
+        self::assertSame('Alterar o número da pasta de {antes} para {depois}? Links e referências antigas passam a apontar para o novo número.', $editar['numero_pergunta']);
+        self::assertStringContainsString('perigo: false', $trecho);
+        self::assertStringContainsString('window.psConfirmarEnvio(form, perguntaDoNumero)', $trecho);
+        self::assertStringContainsString('e.preventDefault();', $trecho, 'sem a janela, Cancelar no confirm não envia');
+    }
+
+    /** @return array<string, string> o texto do script do modal, no catálogo do idioma (`pasta_show.js.editar`) */
+    private static function catalogoDoEditar(): array
+    {
+        return Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['editar'];
     }
 }

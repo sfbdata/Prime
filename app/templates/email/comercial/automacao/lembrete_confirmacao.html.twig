@@ -1,0 +1,6 @@
+{# Modelo "Confirmar e-mail" do desenho 05 (dc L.508), no lembrete `lemb`, com o link novo. Sem o código de 6
+   dígitos: o código na confirmação é da frente do desenho 10 (decisão de 19/10, Q5). #}
+{% import 'email/comercial/automacao/_blocos.html.twig' as b %}
+{{ b.texto('emails.comercial.lembrete_confirmacao.texto'|trans) }}
+{{ b.botao('emails.comercial.lembrete_confirmacao.botao'|trans, urlDeConfirmacao) }}
+{{ b.texto('emails.comercial.lembrete_confirmacao.validade'|trans) }}

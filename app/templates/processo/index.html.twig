@@ -1,13 +1,18 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Processos Judiciais{% endblock %}
+{% block title %}{{ 'processo.index.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">Processos Judiciais</h1>
+        <h1 class="m-0">{{ 'processo.index.titulo'|trans }}</h1>
         <div class="d-flex gap-2">
-            <a href="{{ path('processo_new') }}" class="btn btn-success">Cadastrar Processo</a>
+            {% if can_access_module('djen') %}
+                <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-newspaper me-1"></i> {{ 'processo.comum.push'|trans }}
+                </a>
+            {% endif %}
+            <a href="{{ path('processo_new') }}" class="btn btn-success">{{ 'processo.index.cadastrar'|trans }}</a>
         </div>
     </div>
 </section>
@@ -21,18 +26,20 @@
 
         <div data-filtro-root data-filtro-endpoint="{{ path('processo_index') }}">
             {{ include('_partials/_filtro_barra.html.twig', {
-                busca_placeholder: 'Buscar por número, classe, assunto ou tribunal…',
+                busca_placeholder: 'processo.index.busca'|trans,
                 filtros: filtros,
                 facetas: [
-                    { name: 'tribunal', rotulo: 'Tribunal', tipo: 'select', opcoes: tribunalOpcoes },
-                    { name: 'situacao', rotulo: 'Situação', tipo: 'select', opcoes: [
-                        { valor: 'EM_ANDAMENTO', label: 'Em Andamento' },
-                        { valor: 'ENCERRADO', label: 'Encerrado' },
-                        { valor: 'SUSPENSO', label: 'Suspenso' },
-                        { valor: 'ARQUIVADO', label: 'Arquivado' }
+                    { name: 'tribunal', rotulo: 'processo.index.filtro.tribunal'|trans, tipo: 'select', opcoes: tribunalOpcoes },
+                    { name: 'situacao', rotulo: 'processo.index.filtro.situacao'|trans, tipo: 'select', opcoes: [
+                        { valor: 'EM_ANDAMENTO', label: 'processo.situacao.em_andamento'|trans },
+                        { valor: 'ENCERRADO', label: 'processo.situacao.encerrado'|trans },
+                        { valor: 'SUSPENSO', label: 'processo.situacao.suspenso'|trans },
+                        { valor: 'ARQUIVADO', label: 'processo.situacao.arquivado'|trans },
+                        { valor: 'BAIXADO', label: 'processo.situacao.baixado'|trans },
+                        { valor: 'TRANSITADO_EM_JULGADO', label: 'processo.situacao.transitado_em_julgado'|trans }
                     ] },
-                    { name: 'data_de', rotulo: 'De', tipo: 'date' },
-                    { name: 'data_ate', rotulo: 'Até', tipo: 'date' }
+                    { name: 'data_de', rotulo: 'processo.index.filtro.de'|trans, tipo: 'date' },
+                    { name: 'data_ate', rotulo: 'processo.index.filtro.ate'|trans, tipo: 'date' }
                 ]
             }) }}
 

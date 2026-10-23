@@ -11,9 +11,11 @@ use App\Tarefa\Enum\AbaMetas;
 /**
  * Quebra a lista plana de metas nos blocos que a tela mostra.
  *
- * Duas leituras diferentes, porque as duas perguntas são diferentes:
- *  - quem EXECUTA quer saber o que vence primeiro  → agrupa por urgência do prazo;
- *  - quem DELEGOU quer saber o que voltou para ele → agrupa por etapa da revisão.
+ * Todas as abas agrupam por urgência do prazo, com os mesmos grupos, na mesma ordem, sem nota e todos
+ * abertos (desenho 04, dc P:148, P:154 e P:163; LIS-07/08/10, decisão do dono de 21/10): Atrasadas,
+ * Vencem em 7 dias, Aguardando revisão, No prazo, Sem prazo, Concluídas. A aba só muda QUAIS metas
+ * entram. As chaves (`depois`, `em_revisao`...) ficaram as de antes porque CSS, JS e seletores as usam;
+ * o rótulo é chave do catálogo (`metas.grupos.*`), traduzida no Twig.
  *
  * Invariante: cada meta cai em EXATAMENTE um grupo. `em_revisao` e `concluida` vencem a
  * urgência do prazo — uma meta entregue e atrasada apareceria nos dois blocos se a ordem de
@@ -23,7 +25,20 @@ final class AgrupadorDeMetas
 {
     private const JANELA_PROXIMOS_DIAS = 7;
 
+    /** Chave do grupo => tom da linha, na ordem de leitura da tela (dc `G`, P:154). */
+    private const GRUPOS = [
+        'atrasadas'  => 'danger',
+        'proximas'   => 'warn',
+        'em_revisao' => 'accent',
+        'depois'     => 'cinza',
+        'sem_prazo'  => 'cinza',
+        'concluidas' => 'ok',
+    ];
+
     /**
+     * A aba não muda os grupos (nome, ordem, cor) desde o desenho 04; fica na assinatura porque é
+     * o contrato do UseCase.
+     *
      * @param Tarefa[] $metas
      * @return GrupoDeMetasOutput[]  só os grupos não vazios, na ordem de leitura da tela
      */
@@ -31,98 +46,35 @@ final class AgrupadorDeMetas
     {
         $hoje = ($hoje ?? new \DateTimeImmutable())->setTime(0, 0);
 
-        $grupos = $aba->agrupaPorEtapaDaRevisao()
-            ? $this->porEtapaDaRevisao($metas, $hoje)
-            : $this->porUrgencia($metas, $hoje);
+        $baldes = array_fill_keys(array_keys(self::GRUPOS), []);
+        foreach ($metas as $meta) {
+            $baldes[self::classificar($meta, $hoje)][] = $meta;
+        }
 
-        return array_values(array_filter($grupos, static fn (GrupoDeMetasOutput $g): bool => !$g->estaVazio()));
+        $grupos = [];
+        foreach (self::GRUPOS as $chave => $tom) {
+            if ($baldes[$chave] === []) {
+                continue;
+            }
+            $doGrupo  = in_array($chave, ['atrasadas', 'proximas', 'depois'], true) ? $this->ordenarPorPrazo($baldes[$chave]) : $baldes[$chave];
+            $grupos[] = new GrupoDeMetasOutput($chave, 'metas.grupos.' . $chave, $tom, $doGrupo);
+        }
+
+        return $grupos;
     }
 
     /**
-     * @param Tarefa[] $metas
-     * @return GrupoDeMetasOutput[]
+     * Em que balde de urgência a meta cai — a regra única que decide o grupo da lista e, desde a
+     * fidelidade de 13/10, também a pílula de status da linha (`StatusDoPrazoDaMeta`). Pública e pura
+     * para que grupo e pílula nunca discordem.
+     *
+     * @return 'atrasadas'|'proximas'|'depois'|'sem_prazo'|'em_revisao'|'concluidas'
      */
-    private function porUrgencia(array $metas, \DateTimeImmutable $hoje): array
+    public static function classificar(Tarefa $meta, ?\DateTimeImmutable $hoje = null): string
     {
+        $hoje   = ($hoje ?? new \DateTimeImmutable())->setTime(0, 0);
         $limite = $hoje->modify('+' . self::JANELA_PROXIMOS_DIAS . ' days');
 
-        $baldes = ['atrasadas' => [], 'proximas' => [], 'depois' => [], 'sem_prazo' => [], 'em_revisao' => [], 'concluidas' => []];
-
-        foreach ($metas as $meta) {
-            $baldes[$this->baldeDaUrgencia($meta, $hoje, $limite)][] = $meta;
-        }
-
-        foreach (['atrasadas', 'proximas', 'depois'] as $chave) {
-            $baldes[$chave] = $this->ordenarPorPrazo($baldes[$chave]);
-        }
-
-        return [
-            new GrupoDeMetasOutput('atrasadas', 'Atrasadas', 'danger', $baldes['atrasadas']),
-            new GrupoDeMetasOutput('proximas', 'Próximos 7 dias', 'warn', $baldes['proximas']),
-            new GrupoDeMetasOutput('depois', 'Depois', 'cinza', $baldes['depois']),
-            new GrupoDeMetasOutput('sem_prazo', 'Sem prazo', 'cinza', $baldes['sem_prazo']),
-            new GrupoDeMetasOutput(
-                'em_revisao',
-                'Enviadas para revisão',
-                'accent',
-                $baldes['em_revisao'],
-                nota: 'aguardando quem criou a meta',
-            ),
-            new GrupoDeMetasOutput(
-                'concluidas',
-                'Concluídas',
-                'ok',
-                $baldes['concluidas'],
-                recolhido: true,
-                nota: 'nos últimos 30 dias',
-            ),
-        ];
-    }
-
-    /**
-     * @param Tarefa[] $metas
-     * @return GrupoDeMetasOutput[]
-     */
-    private function porEtapaDaRevisao(array $metas, \DateTimeImmutable $hoje): array
-    {
-        $baldes = ['aguardando' => [], 'andamento' => [], 'concluidas' => []];
-
-        foreach ($metas as $meta) {
-            $baldes[match ($meta->getStatus()) {
-                Tarefa::STATUS_CONCLUIDA  => 'concluidas',
-                Tarefa::STATUS_EM_REVISAO => 'aguardando',
-                default                   => 'andamento',
-            }][] = $meta;
-        }
-
-        return [
-            new GrupoDeMetasOutput(
-                'aguardando',
-                'Aguardando sua revisão',
-                'accent',
-                $baldes['aguardando'],
-                nota: 'o responsável terminou e enviou para você',
-            ),
-            new GrupoDeMetasOutput(
-                'andamento',
-                'Em andamento',
-                'warn',
-                $this->ordenarPorPrazo($baldes['andamento']),
-                nota: 'com quem você delegou',
-            ),
-            new GrupoDeMetasOutput(
-                'concluidas',
-                'Concluídas',
-                'ok',
-                $baldes['concluidas'],
-                recolhido: true,
-                nota: 'nos últimos 30 dias',
-            ),
-        ];
-    }
-
-    private function baldeDaUrgencia(Tarefa $meta, \DateTimeImmutable $hoje, \DateTimeImmutable $limite): string
-    {
         if ($meta->getStatus() === Tarefa::STATUS_CONCLUIDA) {
             return 'concluidas';
         }
@@ -148,9 +100,8 @@ final class AgrupadorDeMetas
     }
 
     /**
-     * Prazo mais apertado primeiro. Meta sem prazo vai para o fim — dentro dos baldes de
-     * urgência isso não acontece, mas o método também serve ao "Em andamento" da aba Criei,
-     * que mistura os dois.
+     * Prazo mais apertado primeiro. Meta sem prazo vai para o fim (dentro dos baldes de urgência
+     * isso não acontece; a regra fica para o método não depender de quem o chama).
      *
      * @param Tarefa[] $metas
      * @return Tarefa[]

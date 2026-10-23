@@ -52,8 +52,84 @@ class PastaMensagemRepository extends ServiceEntityRepository
             ->setParameter('pasta', $pasta)
             ->setParameter('tenant', $tenant)
             ->orderBy('m.criadaEm', 'DESC')
+            // Cartões gravados no mesmo flush (contrato e fase do selo) empatam no criadaEm: o id desempata.
+            ->addOrderBy('m.id', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Os registros escritos por pessoas (sem os cartões do sistema) das pastas pedidas, para o
+     * relatório de pastas sem processo: o texto (ainda com HTML), o autor e quando. Uma consulta
+     * para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<array{conteudo: string, autor: string, em: \DateTimeImmutable}>> pastaId => registros
+     */
+    public function registrosParaAnaliseSemProcesso(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('m')
+            ->select('IDENTITY(m.pasta) AS pasta_id', 'm.conteudo', 'm.criadaEm', 'a.fullName', 'a.email')
+            ->join('m.pasta', 'p')
+            ->leftJoin('m.autor', 'a')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->andWhere('m.sistema IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('m.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = [
+                'conteudo' => (string) $l['conteudo'],
+                'autor'    => (string) ($l['fullName'] ?? $l['email'] ?? ''),
+                'em'       => $l['criadaEm'],
+            ];
+        }
+
+        return $porPasta;
+    }
+
+    /**
+     * Quando foi o registro mais recente escrito por pessoa (sem os cartões do sistema) de cada pasta
+     * pedida, para o relatório de pastas paradas. Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, \DateTimeImmutable> pastaId => data e hora do último registro
+     */
+    public function ultimoRegistroPorPasta(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('m')
+            ->select('IDENTITY(m.pasta) AS pasta_id', 'MAX(m.criadaEm) AS ultimo')
+            ->join('m.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->andWhere('m.sistema IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->groupBy('m.pasta')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']] = new \DateTimeImmutable((string) $l['ultimo']);
+        }
+
+        return $porPasta;
     }
 }

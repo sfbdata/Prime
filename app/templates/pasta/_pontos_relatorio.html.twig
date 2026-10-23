@@ -1,0 +1,177 @@
+{# ── Pontos do relatório inicial (trilho da aba Detalhes) ────────────────────
+   Desenho 02 - EXPEDIENTES - VS 18.10.26 (dc L.2520-2527 e `ri` em L.6932): título, selo
+   "Completo" ou "N pendente(s)", os três pontos (registrado: check verde e "Registrado no
+   relatório"; faltando: alerta vermelho e a dica) e, quando falta algo, "Completar no relatório".
+
+   A regra (quais pontos foram registrados) é do servidor: `PontosDoRelatorioInicial`, a mesma
+   que acende a linha vermelha da aba Detalhes. A tela só mostra.
+
+   "Completar no relatório" escreve no compositor do Relatório inicial de Atendimento, logo ao
+   lado (#detalhesObsConteudo): foca o editor e, se estiver vazio, escreve "Rótulo: " de cada
+   ponto que falta, um por linha (`ri.escrever` do desenho). Sem compositor (quem só vê a pasta,
+   ou a lápide) o servidor recusaria o envio, e o botão não aparece (convenção PAS-014).
+
+   Reativo como o `relInicial()` do desenho: quando a própria pessoa envia, responde, edita ou
+   exclui uma observação, o _detalhes_obs.html.twig dispara `ps:detalhes-obs-alterada`; o card
+   busca `pasta_detalhes_pontos_relatorio` e redesenha selo, itens e botão, e acende ou apaga a
+   pendência da aba Detalhes (#detalhes-tab: classe, barra e title, montados como no
+   _cabecalho.html.twig). Tudo por textContent. Erro de rede: fica como está, em silêncio.
+   Mudança feita por OUTRA pessoa só aparece ao recarregar.
+
+   Contexto: `pasta` (para a URL), `pontos` (PontosDoRelatorioInicial), `podeEscrever` (bool). #}
+{% set faltam = pontos.faltam() %}
+{% set rotulosFaltam = faltam|map(f => f.rot) %}
+<section class="ps-card ps-pontos-relatorio" data-trilho="pontos-relatorio"
+         data-url="{{ path('pasta_detalhes_pontos_relatorio', {id: pasta.id}) }}"
+         data-pode-escrever="{{ podeEscrever ? '1' : '0' }}">
+    <div class="ps-pontos-relatorio-cab">
+        <h2>{{ 'pasta_resp.pontos.titulo'|trans }}</h2>
+        <span class="ps-pontos-relatorio-selo {{ pontos.completo() ? 'is-completo' : 'is-pendente' }}">{{ pontos.selo() }}</span>
+    </div>
+    <ul class="ps-pontos-relatorio-lista">
+        {% for item in pontos.itens %}
+            <li class="ps-pontos-relatorio-item {{ item.ok ? 'is-ok' : 'is-falta' }}" data-ponto="{{ item.k }}">
+                <i class="bi {{ item.ok ? 'bi-check-circle-fill' : 'bi-exclamation-circle' }}" aria-hidden="true"></i>
+                <span class="ps-pontos-relatorio-texto">
+                    <span class="ps-pontos-relatorio-rot">{{ item.rot }}</span>
+                    <span class="ps-pontos-relatorio-dica">{{ item.dica }}</span>
+                </span>
+            </li>
+        {% endfor %}
+    </ul>
+    {% if faltam is not empty and podeEscrever %}
+        <button type="button" class="ps-pontos-relatorio-completar js-ri-completar"
+                data-faltam="{{ rotulosFaltam|json_encode|e('html_attr') }}">
+            <i class="bi bi-pencil-square" aria-hidden="true"></i>{{ 'pasta_resp.pontos.completar'|trans }}
+        </button>
+    {% endif %}
+</section>
+{# Textos do script abaixo (o botão refeito ao redesenhar). #}
+{{ catalogo_js('pasta_resp.js.pontos') }}
+<script>
+(function () {
+    var card = document.querySelector('.ps-pontos-relatorio[data-url]');
+    if (!card) { return; }
+    var podeEscrever = card.dataset.podeEscrever === '1';
+
+    function escHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* "Completar no relatório": foca o compositor e, se vazio, escreve "Rótulo: " de cada ponto
+       que falta (`ri.escrever` do desenho). Delegado no card: o botão é refeito ao redesenhar. */
+    card.addEventListener('click', function (e) {
+        var botao = e.target.closest('.js-ri-completar');
+        if (!botao) { return; }
+        var textarea = document.getElementById('detalhesObsConteudo');
+        if (!textarea) { return; }
+        var faltam = [];
+        try { faltam = JSON.parse(botao.dataset.faltam || '[]'); } catch (x) { faltam = []; }
+
+        var caixa = textarea.closest('.ps-compositor') || textarea;
+        caixa.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        var quill = window.EditorRico ? window.EditorRico.instancia(textarea) : null;
+        if (!quill) {
+            if (textarea.value.trim() === '') {
+                textarea.value = faltam.map(function (r) { return r + ': '; }).join('\n');
+            }
+            textarea.focus();
+
+            return;
+        }
+
+        if (window.EditorRico.estaVazio(textarea)) {
+            window.EditorRico.definirConteudo(
+                textarea,
+                faltam.map(function (r) { return '<p>' + escHtml(r) + ': </p>'; }).join('')
+            );
+        }
+        quill.focus();
+        quill.setSelection(Math.max(0, quill.getLength() - 1), 0);
+    });
+
+    function itemDoPonto(item) {
+        var li = document.createElement('li');
+        li.className = 'ps-pontos-relatorio-item ' + (item.ok ? 'is-ok' : 'is-falta');
+        li.dataset.ponto = String(item.k);
+        var ic = document.createElement('i');
+        ic.className = 'bi ' + (item.ok ? 'bi-check-circle-fill' : 'bi-exclamation-circle');
+        ic.setAttribute('aria-hidden', 'true');
+        var texto = document.createElement('span');
+        texto.className = 'ps-pontos-relatorio-texto';
+        var rot = document.createElement('span');
+        rot.className = 'ps-pontos-relatorio-rot';
+        rot.textContent = String(item.rot);
+        var dica = document.createElement('span');
+        dica.className = 'ps-pontos-relatorio-dica';
+        dica.textContent = String(item.dica);
+        texto.appendChild(rot);
+        texto.appendChild(dica);
+        li.appendChild(ic);
+        li.appendChild(texto);
+
+        return li;
+    }
+
+    function botaoCompletar(faltam) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ps-pontos-relatorio-completar js-ri-completar';
+        var ic = document.createElement('i');
+        ic.className = 'bi bi-pencil-square';
+        ic.setAttribute('aria-hidden', 'true');
+        btn.appendChild(ic);
+        btn.appendChild(document.createTextNode(BJ_T.t('pasta_resp.js.pontos.completar')));
+        btn.dataset.faltam = JSON.stringify(faltam);
+
+        return btn;
+    }
+
+    /* A pendência da aba, como o _cabecalho.html.twig monta: classe `ps-aba--pend`, a barra
+       `.ps-aba-pend` como primeiro filho e o title "Rótulo · texto". */
+    function pendenciaDaAba(pendencia) {
+        var aba = document.getElementById('detalhes-tab');
+        if (!aba) { return; }
+        var rotuloEl = aba.querySelector(':scope > i + span');
+        var rotulo = rotuloEl ? rotuloEl.textContent : BJ_T.t('pasta_resp.js.pontos.detalhes');
+        var barra = aba.querySelector(':scope > .ps-aba-pend');
+        aba.classList.toggle('ps-aba--pend', !!pendencia);
+        aba.title = pendencia ? rotulo + ' · ' + String(pendencia.txt) : rotulo;
+        if (pendencia && !barra) {
+            barra = document.createElement('span');
+            barra.className = 'ps-aba-pend';
+            barra.setAttribute('aria-hidden', 'true');
+            aba.insertBefore(barra, aba.firstChild);
+        } else if (!pendencia && barra) {
+            barra.remove();
+        }
+    }
+
+    function redesenhar(d) {
+        if (!d || !Array.isArray(d.itens)) { return; }
+        var selo = card.querySelector('.ps-pontos-relatorio-selo');
+        if (selo) {
+            selo.textContent = String(d.selo);
+            selo.classList.toggle('is-completo', !!d.completo);
+            selo.classList.toggle('is-pendente', !d.completo);
+        }
+        var lista = card.querySelector('.ps-pontos-relatorio-lista');
+        if (lista) {
+            lista.replaceChildren.apply(lista, d.itens.map(itemDoPonto));
+        }
+        var faltam = d.itens.filter(function (i) { return !i.ok; }).map(function (i) { return String(i.rot); });
+        var atual = card.querySelector('.js-ri-completar');
+        if (atual) { atual.remove(); }
+        if (podeEscrever && faltam.length) { card.appendChild(botaoCompletar(faltam)); }
+        pendenciaDaAba(d.pendencia || null);
+    }
+
+    document.addEventListener('ps:detalhes-obs-alterada', function () {
+        fetch(card.dataset.url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(redesenhar)
+            .catch(function () { /* rede: o card fica como está */ });
+    });
+}());
+</script>

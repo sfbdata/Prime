@@ -1,0 +1,78 @@
+{% extends 'base.html.twig' %}
+
+{# Aceite do convite do Trabalho Externo (spec §8). `estado`: indisponivel · criar_conta · entrar ·
+   outro_email · aceitar. A página não diz de que escritório é a demanda: só o serviço e o local. #}
+
+{% block title %}{{ 'trabalho_externo.convite.titulo_pagina'|trans }}{% endblock %}
+
+{% block head_meta %}<meta name="referrer" content="no-referrer">{% endblock %}
+
+{% block body %}
+<div class="login-wrapper">
+    <div class="login-container">
+        {% if estado == 'indisponivel' %}
+            <h1>{{ 'trabalho_externo.convite.indisponivel'|trans }}</h1>
+            <p>{{ 'trabalho_externo.convite.indisponivel_texto'|trans }}</p>
+        {% else %}
+            <h1>{{ 'trabalho_externo.convite.titulo'|trans }}</h1>
+            <p>{{ 'trabalho_externo.convite.convidado_para'|trans }} <strong>{{ convite.servico }}</strong> {{ 'trabalho_externo.convite.em'|trans }} <strong>{{ convite.local }}</strong>.
+                {{ 'trabalho_externo.convite.acesso_somente'|trans }}</p>
+            <p class="text-muted small">{{ 'trabalho_externo.convite.para_validade'|trans({email: convite.email, validade: convite.validade}) }}</p>
+
+            {# O erro vem na própria resposta (422), dentro do formulário que o causou. #}
+            {% set erroNoFormulario = estado in ['criar_conta', 'aceitar'] %}
+            {% if erro and not erroNoFormulario %}
+                <div class="alert alert-danger" role="alert">{{ erro }}</div>
+            {% endif %}
+
+            {% if estado == 'criar_conta' %}
+                <form method="post" action="{{ path('trabalho_externo_convite_criar_conta', {token: token}) }}">
+                    {% if erro %}<div class="alert alert-danger" role="alert">{{ erro }}</div>{% endif %}
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">{{ 'trabalho_externo.convite.nome_completo'|trans }}</label>
+                        <input type="text" id="full_name" name="full_name" class="form-control" value="{{ convite.nome }}" required autocomplete="name">
+                    </div>
+                    <div class="mb-3">
+                        <label for="senha" class="form-label">{{ 'trabalho_externo.convite.senha'|trans }}</label>
+                        <input type="password" id="senha" name="senha" class="form-control" minlength="8" required autocomplete="new-password">
+                    </div>
+                    {# Gênero obrigatório, sem valor escolhido (spec genero-no-cadastro); volta marcado se a página voltar com erro. #}
+                    <div class="mb-3">
+                        <label for="genero" class="form-label">{{ 'trabalho_externo.convite.genero'|trans }}</label>
+                        <select id="genero" name="genero" class="form-select" required>
+                            <option value="">{{ 'trabalho_externo.convite.genero_escolha'|trans }}</option>
+                            <option value="feminino"{% if generoDigitado|default('') == 'feminino' %} selected{% endif %}>{{ 'trabalho_externo.convite.genero_feminino'|trans }}</option>
+                            <option value="masculino"{% if generoDigitado|default('') == 'masculino' %} selected{% endif %}>{{ 'trabalho_externo.convite.genero_masculino'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="aceite_termos" name="aceite_termos" value="1" required>
+                        <label class="form-check-label" for="aceite_termos">
+                            {{ 'trabalho_externo.convite.li_e_aceito'|trans }}
+                            <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">{{ 'trabalho_externo.convite.termos_de_uso'|trans }}</a>.
+                        </label>
+                    </div>
+                    <p class="form-text mb-3">
+                        {{ 'trabalho_externo.convite.declara_ciencia'|trans }}
+                        <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">{{ 'trabalho_externo.convite.politica_de_privacidade'|trans }}</a>.
+                    </p>
+                    <input type="hidden" name="_token" value="{{ csrf_token('te_convite_' ~ token) }}">
+                    <button class="btn-login" type="submit">{{ 'trabalho_externo.convite.criar_conta_e_aceitar'|trans }}</button>
+                </form>
+            {% elseif estado == 'entrar' %}
+                <p>{{ 'trabalho_externo.convite.conta_existente'|trans }}</p>
+                <a class="btn-login d-inline-block text-center text-decoration-none" href="{{ path('app_login') }}">{{ 'trabalho_externo.convite.entrar'|trans }}</a>
+            {% elseif estado == 'outro_email' %}
+                <div class="alert alert-warning">{{ 'trabalho_externo.convite.outro_email'|trans({email: convite.email}) }}</div>
+                <a class="btn-login d-inline-block text-center text-decoration-none" href="{{ logout_path('main') }}">{{ 'trabalho_externo.convite.sair'|trans }}</a>
+            {% elseif estado == 'aceitar' %}
+                <form method="post" action="{{ path('trabalho_externo_convite_aceitar', {token: token}) }}">
+                    {% if erro %}<div class="alert alert-danger" role="alert">{{ erro }}</div>{% endif %}
+                    <input type="hidden" name="_token" value="{{ csrf_token('te_convite_' ~ token) }}">
+                    <button class="btn-login" type="submit">{{ 'trabalho_externo.convite.aceitar'|trans }}</button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

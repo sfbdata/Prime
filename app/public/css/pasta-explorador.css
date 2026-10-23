@@ -213,17 +213,18 @@
     --pex-limp-excluir:   #a3232b;
     --pex-limp-excluir-hover: #861b22;
 
-    /* ícones por tipo (dc L4675-4680) */
+    /* ícones por tipo (dc L4675-4680; excel/assin no verde do Guia visual, #1d7a46,
+       o mesmo do chip --pex-f-excel e do helper arquivo_icone) */
     --pex-c-pdf:          #d93a2b;
     --pex-c-word:         #1f5fbf;
-    --pex-c-excel:        #1e7b45;
+    --pex-c-excel:        #1d7a46;
     --pex-c-img:          #7a4bb0;
     --pex-c-zip:          #b7791f;
     --pex-c-txt:          #4f6878;
     --pex-c-slides:       #c0571d;
     --pex-c-midia:        #7a4bb0;
     --pex-c-email:        #0a7aad;
-    --pex-c-assin:        #1e7b45;
+    --pex-c-assin:        #1d7a46;
     --pex-c-outro:        #6b8494;
 
     /* estados, rodapé, upload */
@@ -519,7 +520,7 @@
     padding: 0 6px 0 11px;
     margin: 0;
     background: var(--pex-busca-bg);
-    border-radius: 999px;
+    border-radius: 4px;
     min-width: 230px;
     cursor: text;
     transition: background .15s, box-shadow .15s;
@@ -643,7 +644,7 @@
     height: 28px;
     padding: 0 10px;
     border: none;
-    border-radius: 999px;
+    border-radius: 4px;
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 600;
@@ -741,13 +742,13 @@
     font-size: 11px;
     font-weight: 700;
     padding: 2px 9px;
-    border-radius: 999px;
+    border-radius: 4px;
     white-space: nowrap;
     flex-shrink: 0;
 }
 .pex-ck-selo.incompleto { color: var(--bs-warning-text-emphasis); background: var(--bs-warning-bg-subtle); border: 1px solid var(--bs-warning-border-subtle); }
 .pex-ck-selo.completo   { color: var(--bs-success-text-emphasis); background: var(--bs-success-bg-subtle); border: 1px solid var(--bs-success-border-subtle); }
-.pex-ck-barra { width: 150px; height: 6px; border-radius: 999px; background: var(--pex-ck-barra-bg); overflow: hidden; }
+.pex-ck-barra { width: 150px; height: 6px; border-radius: 4px; background: var(--pex-ck-barra-bg); overflow: hidden; }
 .pex-ck-barra-fill { height: 100%; border-radius: 999px; transition: width .6s cubic-bezier(.32,.72,0,1), background-color .3s; }
 .pex-ck-barra-fill.incompleto { background: var(--bs-warning); }
 .pex-ck-barra-fill.completo   { background: var(--bs-success); }
@@ -860,7 +861,7 @@
     gap: 6px;
     height: 24px;
     padding: 0 4px 0 10px;
-    border-radius: 999px;
+    border-radius: 4px;
     background: var(--pex-chip-bg);
     color: var(--pex-chip-txt);
     font-weight: 700;

@@ -1,0 +1,65 @@
+# Todo PR para o master descreve o que muda num arquivo em mudancas/ (formato: mudancas/README.md).
+#
+# É de onde o robô (preparar-release.yml) calcula a próxima versão e monta o CHANGELOG e a página
+# Novidades. Mudança só de CI, teste ou documentação usa `tipo: interno` (não gera versão).
+# O PR de release do robô (branch release/proxima) é a exceção: ele é que consome os arquivos.
+
+name: Mudanças
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mudancas-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mudancas:
+    name: Registro de mudança
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Testes do script de mudancas
+        run: python3 -m unittest scripts/test_mudancas.py -v
+
+      - name: Conferir os arquivos de mudanca
+        run: python3 -I scripts/mudancas.py validar
+
+      - name: Exigir um arquivo de mudanca neste PR
+        run: |
+          if [[ "$HEAD_REF" == release/proxima && "$HEAD_REPO" == "$GITHUB_REPOSITORY" ]]; then
+            echo "PR de release do robô: ele consome os arquivos de mudança."
+            exit 0
+          fi
+          novos="$(git diff --name-only --diff-filter=AM "$BASE_SHA...$HEAD_SHA" -- 'mudancas/*.md' | grep -v '^mudancas/README.md$' || true)"
+          if [[ -z "$novos" ]]; then
+            echo "::error::Este PR não tem arquivo em mudancas/. Crie um (formato em mudancas/README.md); para mudança só de CI, teste ou documentação, use 'tipo: interno'."
+            exit 1
+          fi
+          echo "Arquivos de mudança deste PR:"
+          echo "$novos"
+
+      - name: Mostrar o que a proxima versao leva
+        run: python3 -I scripts/mudancas.py resumo >> "$GITHUB_STEP_SUMMARY"

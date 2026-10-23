@@ -26,6 +26,8 @@ class PastaType extends AbstractType
                 'required' => true,
                 'choices' => [
                     'Ativo'     => 'ativo',
+                    'Suspenso'  => 'suspenso',
+                    'Cancelado' => 'cancelado',
                     'Arquivado' => 'arquivado',
                 ],
             ])

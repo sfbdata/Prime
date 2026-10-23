@@ -132,7 +132,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         $mov = $crawler->filter('.ps-cab-cliente-linha > .ps-cab-mov');
         self::assertCount(1, $mov, 'o indicador é irmão direto do título, na mesma linha');
         self::assertStringContainsString('Movimentado hoje', $mov->text());
-        self::assertCount(0, $crawler->filter('.ps-cab-dados [data-campo="movimentacao"]'), 'saiu da faixa de dados');
+        self::assertCount(0, $crawler->filter('[data-trilho="processo"] [data-campo="movimentacao"]'), 'saiu da faixa de dados');
     }
 
     // =========================================================================
@@ -149,13 +149,13 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $celula = $crawler->filter('.ps-cab-dados > [data-campo="processo"]');
-        self::assertCount(1, $celula->filter('button.ps-link-btn[data-bs-target="#modalVincularProcesso"]'));
+        $celula = $crawler->filter('[data-trilho="processo"] > [data-campo="processo"]');
+        self::assertCount(1, $celula->filter('button.ps-link-btn[data-vp-abrir][aria-controls="modalVincularProcesso"]'));
         self::assertCount(0, $celula->filter('.ps-chip-vinc'));
-        self::assertCount(0, $crawler->filter('.ps-cab-dados a[href="#"]'), 'nenhum link morto na faixa');
+        self::assertCount(0, $crawler->filter('[data-trilho="processo"] a[href="#"]'), 'nenhum link morto na faixa');
     }
 
-    #[TestDox('com dois processos, a célula mostra o principal, "trocar" e o chip "1 vinculado" que abre o outro')]
+    #[TestDox('com dois processos, a célula mostra o principal, "trocar" e o chip "1 apensado" que abre o outro (P4f)')]
     public function testChipDeVinculadosComDoisProcessos(): void
     {
         $client          = static::createClient();
@@ -167,17 +167,18 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $celula = $crawler->filter('.ps-cab-dados > [data-campo="processo"]');
+        $celula = $crawler->filter('[data-trilho="processo"] > [data-campo="processo"]');
         self::assertCount(1, $celula->filter('.ps-cab-proc-acoes > button.ps-link-btn[data-ps-ir-aba="processo-tab"]'), '"trocar" leva à aba Processo');
 
         $chip = $celula->filter('.ps-cab-proc-acoes > button.ps-chip-vinc');
         self::assertCount(1, $chip);
-        self::assertStringContainsString('1 vinculado', $chip->text());
+        self::assertStringContainsString('1 apensado', $chip->text());
         self::assertSame('psProcessosVinculados', $chip->attr('data-ps-toggle'));
 
         $lista = $celula->filter('#psProcessosVinculados > .ps-cab-vinculado');
         self::assertCount(1, $lista, 'a lista traz só o OUTRO processo, não o principal de novo');
-        self::assertStringContainsString('vinculado', strtolower($lista->filter('.ps-rotulo--mini')->text()));
+        // O segundo vínculo, sem tipo gravado, é apensado "Outro" (P4f §1).
+        self::assertSame('apensado · outro', strtolower(trim($lista->filter('.ps-rotulo--mini')->text())));
     }
 
     // =========================================================================
@@ -202,11 +203,11 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         self::assertSame('psSituacao', $pill->attr('data-ps-pop'));
 
         $opcoes = $crawler->filter('#psSituacao > button.js-situacao-opt[role="menuitemradio"]');
-        self::assertCount(2, $opcoes, 'só as duas situações que o sistema tem: Suspenso e Cancelado são função nova');
-        self::assertSame(['ativo', 'arquivado'], $opcoes->each(fn ($n) => $n->attr('data-situacao')));
+        self::assertCount(4, $opcoes, 'as 4 situações do desenho (`situacaoVals`)');
+        self::assertSame(['ativo', 'suspenso', 'cancelado', 'arquivado'], $opcoes->each(fn ($n) => $n->attr('data-situacao')));
         self::assertSame('ativo', $crawler->filter('#psSituacao > button[aria-checked="true"]')->attr('data-situacao'));
 
-        self::assertCount(0, $crawler->filter('.ps-cab-dados [data-campo="situacao"]'), 'a situação saiu da faixa de dados');
+        self::assertCount(0, $crawler->filter('[data-trilho="processo"] [data-campo="situacao"]'), 'a situação saiu da faixa de dados');
 
         // O item do menu ⋮ oferece o caminho inverso ao estado atual.
         $alternar = $crawler->filter('#psMenuAcoes .js-situacao-alternar');
@@ -251,7 +252,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
 
         $itens = $menu->filter('.ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Imprimir resumo', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Link externo do Push', 'Imprimir resumo', 'Cadeado', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
             $itens
         );
         // L18: a Timeline inteligente ganhou back-end (`pasta_timeline`) e entrou no menu, com o T do desenho.
@@ -343,7 +344,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
 
         self::assertSame(
             'Vincule um processo para definir',
-            trim($crawler->filter('.ps-cab-dados > [data-campo="acao"] .ps-dado')->text())
+            trim($crawler->filter('[data-trilho="processo"] > [data-campo="acao"] .ps-dado')->text())
         );
     }
 

@@ -6,13 +6,25 @@
       - delegateSelector: seletor CSS do container pai dos botoes js-mover-para (null = document)
       - onSucessoCallback: nome de funcao JS global chamada apos salvar, recebe (data, escHtml)
                            se omitido, apenas fecha o modal e atualiza data-marcadores-ativos
+
+    "Criar marcador" (desenho 02 - EXPEDIENTES - VS 18.10.26, dc L.461 e `marcVals` L.3803-3834):
+    com texto na busca que nao bate com nenhum marcador (minusculas e sem acento), a lista ganha no
+    fim a linha 'Criar marcador "texto"'. Ela cria pela rota de sempre (`expediente_marcador_criar`,
+    CSRF `marcador`), o marcador novo entra na lista JA MARCADO e a busca se limpa; gravar na pasta
+    continua sendo o Salvar. A rota exige o modulo Expediente: sem ele, a linha nao aparece.
 #}
-<div class="modal fade" id="modalMoverPara" tabindex="-1" aria-labelledby="modalMoverParaLabel" aria-hidden="true">
+{% set podeCriarMarcador = can_access_module('expediente') %}
+<div class="modal fade" id="modalMoverPara" tabindex="-1" aria-labelledby="modalMoverParaLabel" aria-hidden="true"
+     {%- if podeCriarMarcador %}
+     data-url-criar-marcador="{{ path('expediente_marcador_criar') }}"
+     data-csrf-criar-marcador="{{ csrf_token('marcador') }}"
+     data-cores-marcador="{{ constant('App\\Expediente\\Service\\CoresDoMarcador::DESENHO')|json_encode|e('html_attr') }}"
+     {%- endif %}>
     <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalMoverParaLabel">
-                    <i class="bi bi-tags me-1"></i> Marcadores da pasta
+                    <i class="bi bi-tags me-1"></i> {{ 'comum.mover_marcador.titulo'|trans }}
                 </h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
@@ -30,9 +42,9 @@
                             <i class="bi bi-search text-muted" style="font-size:.8rem;"></i>
                         </span>
                         <input type="text" id="moverParaBusca" class="form-control border-start-0 ps-1"
-                               placeholder="Buscar marcador…" autocomplete="off">
+                               placeholder="{{ 'comum.mover_marcador.buscar'|trans }}" autocomplete="off">
                         <button type="button" class="btn btn-outline-secondary border-start-0" id="moverParaBuscaLimpar"
-                                style="display:none;" title="Limpar busca">
+                                style="display:none;" title="{{ 'comum.mover_marcador.limpar_busca'|trans }}">
                             <i class="bi bi-x" style="font-size:.8rem;"></i>
                         </button>
                     </div>
@@ -44,7 +56,7 @@
                 {# Estado vazio #}
                 <div id="moverParaVazio" class="text-muted small text-center py-4 px-3" style="display:none;">
                     <i class="bi bi-tags d-block mb-1" style="font-size:1.6rem;opacity:.3;"></i>
-                    <span id="moverParaVazioTexto">Nenhum marcador criado ainda.</span>
+                    <span id="moverParaVazioTexto">{{ 'comum.mover_marcador.nenhum_criado'|trans }}</span>
                 </div>
 
                 <div id="moverParaErro" class="text-danger small px-3 pt-2" style="display:none;"></div>
@@ -52,9 +64,9 @@
             <div class="modal-footer py-2 justify-content-between align-items-center">
                 <span class="text-muted small" id="moverParaContador" style="display:none;"></span>
                 <div class="d-flex gap-2 ms-auto">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
                     <button type="button" class="btn btn-primary btn-sm" id="btnSalvarMoverPara">
-                        <i class="bi bi-check-lg me-1"></i> Salvar
+                        <i class="bi bi-check-lg me-1"></i> {{ 'comum.salvar'|trans }}
                     </button>
                 </div>
             </div>
@@ -211,6 +223,32 @@
     border-color: #0d6efd;
 }
 
+/* ── "Criar marcador" (desenho, dc L.462) ───────────────────────── */
+.mover-criar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 3px;
+    padding: 11px 12px;
+    border: none;
+    border-radius: 4px;
+    background: #f1f6fb;
+    color: #0b5f86;
+    font-family: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+.mover-criar:hover,
+.mover-criar:focus-visible { background: #e3eef7; }
+.mover-criar:disabled { opacity: .6; cursor: progress; }
+.mover-criar-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-bs-theme="dark"] .mover-criar { background: rgba(69,176,214,.16); color: #74c6e3; }
+[data-bs-theme="dark"] .mover-criar:hover,
+[data-bs-theme="dark"] .mover-criar:focus-visible { background: rgba(69,176,214,.24); }
+
 /* ── Contador no footer ───────────────────────────────────────── */
 #moverParaContador {
     display: inline-flex;
@@ -231,6 +269,8 @@
     var todosMarcadores    = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor, paiId: m.pai ? m.pai.id : null})|json_encode|raw }};
     var delegateSelector   = {{ delegateSelector is defined ? delegateSelector|json_encode|raw : 'null' }};
     var callbackNome       = {{ onSucessoCallback is defined ? onSucessoCallback|json_encode|raw : 'null' }};
+    // E12: o trilho do Expediente avisa quando a lista de marcadores mudou (criar, editar, excluir, reordenar).
+    window.atualizarMarcadoresDoMoverPara = function (lista) { todosMarcadores = lista; };
 
     var modalEl        = document.getElementById('modalMoverPara');
     var inputPastaId   = document.getElementById('moverParaPastaId');
@@ -242,6 +282,15 @@
     var buscaEl        = document.getElementById('moverParaBusca');
     var buscaLimparBtn = document.getElementById('moverParaBuscaLimpar');
     var contadorEl     = document.getElementById('moverParaContador');
+    var urlCriar       = modalEl.dataset.urlCriarMarcador || null;
+    var csrfCriar      = modalEl.dataset.csrfCriarMarcador || '';
+    var coresCriar     = [];
+    try { coresCriar = JSON.parse(modalEl.dataset.coresMarcador || '[]'); } catch (_) { coresCriar = []; }
+
+    /* Minúsculas e sem acento: o `fold` do desenho, na busca e na conferência de nome repetido. */
+    function dobrar(s) {
+        return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    }
 
     function escHtml(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -265,7 +314,7 @@
             contadorEl.style.display = 'none';
         } else {
             contadorEl.style.display = '';
-            contadorEl.innerHTML = '<i class="bi bi-check2-circle"></i> ' + n + ' selecionado' + (n !== 1 ? 's' : '');
+            contadorEl.innerHTML = '<i class="bi bi-check2-circle"></i> ' + escHtml(BJ_T.t(n !== 1 ? 'comum.js.mover_marcador.selecionados' : 'comum.js.mover_marcador.selecionado', { n: n }));
         }
     }
 
@@ -309,7 +358,8 @@
 
     function renderizarArvore(ativos, filtro) {
         lista.innerHTML = '';
-        filtro = (filtro || '').toLowerCase().trim();
+        var digitado = (filtro || '').trim();
+        filtro = dobrar(digitado);
 
         var raizes = todosMarcadores.filter(function (m) { return m.paiId === null; });
         var filhosMap = {};
@@ -324,9 +374,9 @@
 
         raizes.forEach(function (raiz) {
             var filhos = filhosMap[raiz.id] || [];
-            var raizBate = !filtro || raiz.nome.toLowerCase().indexOf(filtro) !== -1;
+            var raizBate = !filtro || dobrar(raiz.nome).indexOf(filtro) !== -1;
             var filhosBatidos = filtro
-                ? filhos.filter(function (f) { return f.nome.toLowerCase().indexOf(filtro) !== -1; })
+                ? filhos.filter(function (f) { return dobrar(f.nome).indexOf(filtro) !== -1; })
                 : filhos;
             if (!raizBate && filhosBatidos.length === 0) return;
 
@@ -382,13 +432,77 @@
 
         atualizarContador();
 
-        if (totalVisiveis === 0) {
+        /* dc L.3833: `podeCriar = !!q && !existe`. */
+        var existe    = todosMarcadores.some(function (m) { return dobrar(m.nome.trim()) === filtro; });
+        var podeCriar = !!urlCriar && digitado !== '' && !existe;
+        if (podeCriar) {
+            lista.appendChild(botaoCriar(digitado));
+        }
+
+        if (totalVisiveis === 0 && !podeCriar) {
             vazioEl.style.display = '';
             document.getElementById('moverParaVazioTexto').textContent =
-                filtro ? 'Nenhum marcador encontrado para "' + filtro + '".' : 'Nenhum marcador criado ainda.';
+                filtro ? BJ_T.t('comum.js.mover_marcador.nenhum_encontrado', { busca: digitado }) : BJ_T.t('comum.js.mover_marcador.nenhum_criado');
         } else {
             vazioEl.style.display = 'none';
         }
+    }
+
+    function botaoCriar(nome) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mover-criar';
+        btn.id = 'moverParaCriar';
+        btn.innerHTML = '<i class="bi bi-plus-circle" aria-hidden="true"></i><span class="mover-criar-nome"></span>';
+        btn.querySelector('.mover-criar-nome').textContent = BJ_T.t('comum.js.mover_marcador.criar', { nome: nome });
+        btn.addEventListener('click', function () { criarMarcador(nome, btn); });
+
+        return btn;
+    }
+
+    /* O marcador criado entra JÁ MARCADO e a busca se limpa (`criar` do desenho, dc L.3834). A cor
+       segue a paleta do desenho em rodízio, pela quantidade de marcadores principais. */
+    function criarMarcador(nome, btn) {
+        var raizes = todosMarcadores.filter(function (m) { return m.paiId === null; }).length;
+        var params = new URLSearchParams({ _token: csrfCriar, nome: nome });
+        if (coresCriar.length) { params.append('cor', coresCriar[raizes % coresCriar.length]); }
+
+        btn.disabled = true;
+        erroEl.style.display = 'none';
+
+        fetch(urlCriar, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString(),
+        })
+        .then(function (r) {
+            return r.text().then(function (txt) {
+                try { return { ok: r.ok, data: JSON.parse(txt) }; }
+                catch (_) { return { ok: false, data: { erro: BJ_T.t('comum.js.mover_marcador.resposta_invalida') } }; }
+            });
+        })
+        .then(function (res) {
+            btn.disabled = false;
+            if (!res.ok) {
+                erroEl.textContent   = res.data.erro || BJ_T.t('comum.js.mover_marcador.erro_criar');
+                erroEl.style.display = '';
+                return;
+            }
+
+            var ativos = getAtivos();
+            todosMarcadores = todosMarcadores.concat([{ id: res.data.id, nome: res.data.nome, cor: res.data.cor, paiId: res.data.paiId }]);
+            ativos.push(String(res.data.id));
+            buscaEl.value = '';
+            buscaLimparBtn.style.display = 'none';
+            renderizarArvore(ativos, '');
+            buscaEl.focus();
+        })
+        .catch(function (err) {
+            btn.disabled = false;
+            erroEl.textContent   = BJ_T.t('comum.js.mover_marcador.erro_comunicacao');
+            erroEl.style.display = '';
+            console.error('[mover-para] erro ao criar marcador:', err);
+        });
     }
 
     function abrirModal(btn) {
@@ -454,13 +568,13 @@
         .then(function (r) {
             return r.text().then(function (txt) {
                 try { return { ok: r.ok, data: JSON.parse(txt) }; }
-                catch (_) { return { ok: false, data: { erro: 'Resposta inválida do servidor.' } }; }
+                catch (_) { return { ok: false, data: { erro: BJ_T.t('comum.js.mover_marcador.resposta_invalida') } }; }
             });
         })
         .then(function (res) {
             btn.disabled = false;
             if (!res.ok) {
-                erroEl.textContent   = res.data.erro || res.data.mensagem || 'Erro ao salvar.';
+                erroEl.textContent   = res.data.erro || res.data.mensagem || BJ_T.t('comum.js.mover_marcador.erro_salvar');
                 erroEl.style.display = '';
                 return;
             }
@@ -478,7 +592,7 @@
         })
         .catch(function (err) {
             btn.disabled = false;
-            erroEl.textContent   = 'Erro de comunicação.';
+            erroEl.textContent   = BJ_T.t('comum.js.mover_marcador.erro_comunicacao');
             erroEl.style.display = '';
             console.error('[mover-para] erro inesperado:', err);
         });

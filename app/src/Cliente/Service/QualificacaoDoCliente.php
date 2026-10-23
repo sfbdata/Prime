@@ -36,6 +36,7 @@ final class QualificacaoDoCliente
         'SOLTEIRO'      => 'solteiro(a)',
         'CASADO'        => 'casado(a)',
         'DIVORCIADO'    => 'divorciado(a)',
+        'SEPARADO'      => 'separado(a)',
         'VIUVO'         => 'viúvo(a)',
         'UNIAO_ESTAVEL' => 'união estável',
     ];
@@ -70,8 +71,22 @@ final class QualificacaoDoCliente
         }
 
         $partes = array_values(array_filter($partes, static fn (string $p): bool => $p !== ''));
+        $texto = $partes === [] ? '' : implode(', ', $partes) . '.';
 
-        return $partes === [] ? '' : implode(', ', $partes) . '.';
+        return $cliente instanceof ClientePF ? self::concordar($texto, $cliente->getGenero()) : $texto;
+    }
+
+    /**
+     * Gênero informado (desenho 1.2.3): masculino tira o "(a)" (nascido, portador, inscrito); feminino troca "o(a)"
+     * por "a" e o resto do "(a)" por "a" (nascida, portadora, inscrita). Sem gênero, o "(a)" fica.
+     */
+    private static function concordar(string $texto, ?string $genero): string
+    {
+        return match ($genero) {
+            'MASCULINO' => str_replace('(a)', '', $texto),
+            'FEMININO'  => str_replace('(a)', 'a', str_replace('o(a)', 'a', $texto)),
+            default     => $texto,
+        };
     }
 
     /** @return list<string> */
@@ -82,6 +97,11 @@ final class QualificacaoDoCliente
         }
 
         $partes = [self::nome($cliente->getNomeCompleto())];
+
+        $nacionalidade = self::texto($cliente->getNacionalidade());
+        if ($nacionalidade !== '') {
+            $partes[] = mb_strtolower($nacionalidade);
+        }
 
         $civil = self::texto($cliente->getEstadoCivil());
         if ($civil !== '') {
@@ -100,7 +120,8 @@ final class QualificacaoDoCliente
 
         $rg = self::texto($cliente->getRg());
         if ($rg !== '') {
-            $partes[] = 'portador(a) do RG nº ' . $rg;
+            $orgao    = self::texto($cliente->getRgOrgaoExpedidor());
+            $partes[] = 'portador(a) do RG nº ' . $rg . ($orgao !== '' ? ' ' . $orgao : '');
         }
 
         $cpf = self::texto($cliente->getCpf());
@@ -145,15 +166,21 @@ final class QualificacaoDoCliente
         return $trecho;
     }
 
-    /** "na Rua X, 10, Apto 2, Brasília/DF, CEP 70000-000" — só os pedaços que existem. */
+    /** "na RUA X, nº 10, APTO 2, Bairro CENTRO, BRASÍLIA/DF, CEP 70000-000" (desenho): só os pedaços que existem. */
     private function endereco(Cliente $cliente): string
     {
         $pedacos = [];
 
         $logradouro = self::texto($cliente->getEndereco());
         if ($logradouro !== '') {
+            $numero      = self::texto($cliente->getNumero());
             $complemento = self::texto($cliente->getComplemento());
-            $pedacos[]   = 'na ' . $logradouro . ($complemento !== '' ? ', ' . $complemento : '');
+            $pedacos[]   = 'na ' . $logradouro . ($numero !== '' ? ', nº ' . $numero : '') . ($complemento !== '' ? ', ' . $complemento : '');
+        }
+
+        $bairro = self::texto($cliente->getBairro());
+        if ($bairro !== '') {
+            $pedacos[] = 'Bairro ' . $bairro;
         }
 
         $cidade = self::texto($cliente->getCidade());
@@ -181,6 +208,11 @@ final class QualificacaoDoCliente
         }
         if ($fixo !== '' && $fixo !== $celular) {
             $pedacos[] = 'telefone ' . $fixo;
+        }
+        // WhatsApp só quando é outro número (desenho).
+        $whatsapp = self::texto($cliente->getWhatsapp());
+        if ($whatsapp !== '' && $whatsapp !== $celular) {
+            $pedacos[] = 'WhatsApp ' . $whatsapp;
         }
 
         $email = self::texto($cliente->getEmail());

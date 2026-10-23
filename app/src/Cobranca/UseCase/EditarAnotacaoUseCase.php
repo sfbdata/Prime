@@ -13,6 +13,8 @@ use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Service\SanitizadorTextoRico;
+use App\Tenant\Service\AuditoriaDaEdicaoSemPrazo;
+use App\Tenant\Service\PoderDeEdicaoSemPrazo;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -35,6 +37,8 @@ final class EditarAnotacaoUseCase
     public function __construct(
         private readonly EventoHistoricoRepository $eventoRepository,
         private readonly ClockInterface $clock,
+        private readonly PoderDeEdicaoSemPrazo $poder,
+        private readonly AuditoriaDaEdicaoSemPrazo $auditoria,
         private readonly SanitizadorTextoRico $sanitizador,
     ) {
     }
@@ -53,9 +57,7 @@ final class EditarAnotacaoUseCase
             throw new CasoEncerradoException((int) $caso->getId());
         }
 
-        if (!$evento->podeSerEditadaPor($usuario, $this->clock->now())) {
-            throw new AnotacaoNaoEditavelException();
-        }
+        $pelaRegra = $this->exigirPermissao($evento, $usuario, $tenant);
 
         // Mesma limpeza do registro: a edição é outra porta para o mesmo texto.
         $texto = $this->sanitizador->limpar(trim((string) $input->texto)) ?? '';
@@ -64,9 +66,26 @@ final class EditarAnotacaoUseCase
             throw new \InvalidArgumentException('A anotação não pode ser vazia.');
         }
 
+        // A trilha da edição sem prazo (spec §6) só depois de todas as validações.
+        $this->auditoria->registrar(AuditoriaDaEdicaoSemPrazo::EDITAR, $usuario, $tenant, $pelaRegra, EventoHistorico::class, $evento->getId(), $evento->getUsuario()?->getId());
         $evento->reescrever($texto, $this->clock->now());
         $this->eventoRepository->salvar($evento, true);
 
         return $evento;
+    }
+
+    /**
+     * Autor dentro das 48h, OU o poder sem prazo (spec edicao-sem-prazo, item 6: Master; primário com a opção). O uso do
+     * poder vai para a trilha, gravada por `executar` só depois das validações; aqui só se devolve se valeu a regra de sempre.
+     */
+    private function exigirPermissao(EventoHistorico $evento, User $usuario, Tenant $tenant): bool
+    {
+        $agora = $this->clock->now();
+        $pelaRegra = $evento->podeSerEditadaPor($usuario, $agora);
+        if (!$pelaRegra && !$evento->podeSerEditadaPor($usuario, $agora, $this->poder->de($usuario, $tenant) !== null)) {
+            throw new AnotacaoNaoEditavelException();
+        }
+
+        return $pelaRegra;
     }
 }

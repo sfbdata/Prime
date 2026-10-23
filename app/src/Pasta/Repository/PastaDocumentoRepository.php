@@ -5,7 +5,9 @@ namespace App\Pasta\Repository;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Enum\OrigemDaAssinatura;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -38,6 +40,35 @@ class PastaDocumentoRepository extends ServiceEntityRepository
             ->andWhere('d.mimeType = :mime')
             ->setParameter('tenant', $tenant)
             ->setParameter('mime', 'text/html')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return $chaves;
+    }
+
+    /**
+     * As chaves das peças HTML de algumas pastas do escritório (a imagem embutida na peça e o cadeado,
+     * spec pasta-cadeado D5).
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return string[]
+     */
+    public function chavesDePecasHtmlDasPastas(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        /** @var string[] $chaves */
+        $chaves = $this->createQueryBuilder('d')
+            ->select('d.caminhoArquivo')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.mimeType = :mime')
+            ->andWhere('IDENTITY(d.pasta) IN (:pastas)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('mime', 'text/html')
+            ->setParameter('pastas', $pastaIds)
             ->getQuery()
             ->getSingleColumnResult();
 
@@ -164,6 +195,20 @@ class PastaDocumentoRepository extends ServiceEntityRepository
      * Um documento pelo id, DENTRO do escritório — o guard IDOR das rotas que recebem só o id do
      * documento na URL. Filtro explícito: não depende de o TenantFilter estar ligado.
      */
+    /** Documentos vivos (fora da lixeira) da pasta: a sugestão "Documentação" do andamento conta por eles. */
+    public function contarVivosDaPasta(Pasta $pasta, Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->andWhere('d.pasta = :pasta')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.excluidoEm IS NULL')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function findByIdAndTenant(int $id, Tenant $tenant): ?PastaDocumento
     {
         return $this->createQueryBuilder('d')
@@ -356,26 +401,182 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
-     * TODOS os documentos de uma pasta que vai ser apagada DE VERDADE — vivos e, quando chamado
-     * dentro de `AcessoALixeira::comLixeiraVisivel()`, os da lixeira também (soltos ou dentro de
-     * seções, vivas ou excluídas). É a lista que `ExcluirPastaUseCase` usa para remover as linhas
-     * (a FK `pasta_documento.pasta_id` não tem ON DELETE CASCADE) e coletar as chaves dos arquivos
-     * antes do COMMIT. Filtro de tenant explícito: alimenta decisão de apagar arquivo.
+     * Inteligência cadastral do cliente (F-A): os documentos de identificação e comprovante de residência destas pastas,
+     * fora da lixeira, deste escritório (tenant e lixeira explícitos), o mais novo primeiro. Quem chama já conferiu que
+     * as pastas são do cliente e que o usuário pode vê-las.
+     *
+     * @param list<Pasta> $pastas
      *
      * @return list<PastaDocumento>
      */
-    public function listarParaRemocaoDaPasta(Pasta $pasta, Tenant $tenant): array
+    public function identificacaoEComprovanteDasPastas(array $pastas, Tenant $tenant): array
     {
-        /** @var list<PastaDocumento> $documentos */
-        $documentos = $this->createQueryBuilder('d')
-            ->andWhere('d.pasta = :pasta')
+        if ($pastas === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('d')
+            ->andWhere('d.pasta IN (:pastas)')
             ->andWhere('d.tenant = :tenant')
-            ->setParameter('pasta', $pasta)
+            ->andWhere('d.excluidoEm IS NULL')
+            ->andWhere('d.categoria IN (:categorias)')
+            ->setParameter('pastas', $pastas)
             ->setParameter('tenant', $tenant)
-            ->orderBy('d.id', 'ASC')
+            ->setParameter('categorias', [PastaDocumento::CATEGORIA_IDENTIFICACAO, PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA])
+            ->orderBy('d.carregadoEm', 'DESC')
+            ->addOrderBy('d.id', 'DESC')
             ->getQuery()
             ->getResult();
+    }
 
-        return $documentos;
+    /**
+     * Título, nome do arquivo e categoria dos documentos (fora da lixeira) das pastas pedidas, para o
+     * relatório de pastas sem processo. Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<string>> pastaId => "título nome categoria"
+     */
+    public function textosParaAnaliseSemProcesso(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('d')
+            ->select('IDENTITY(d.pasta) AS pasta_id', 'd.titulo', 'd.nomeOriginal', 'd.categoria')
+            ->join('d.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            // A lixeira já sai pelo LixeiraFilter na tela; o comando roda sem filtro nenhum.
+            ->andWhere('d.excluidoEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('d.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = trim($l['titulo'] . ' ' . $l['nomeOriginal'] . ' ' . $l['categoria']);
+        }
+
+        return $porPasta;
+    }
+
+    /**
+     * Título, nome do arquivo e categoria dos documentos (fora da lixeira) das pastas pedidas, para o
+     * relatório de pastas paradas saber se a procuração e o contrato de honorários estão juntados.
+     * Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<array{titulo: string, nomeOriginal: string, categoria: string}>> pastaId => documentos
+     */
+    public function documentosParaPastasParadas(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('d')
+            ->select('IDENTITY(d.pasta) AS pasta_id', 'd.titulo', 'd.nomeOriginal', 'd.categoria')
+            ->join('d.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            // A lixeira já sai pelo LixeiraFilter na tela; o comando roda sem filtro nenhum.
+            ->andWhere('d.excluidoEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('d.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = [
+                'titulo'       => (string) $l['titulo'],
+                'nomeOriginal' => (string) $l['nomeOriginal'],
+                'categoria'    => (string) $l['categoria'],
+            ];
+        }
+
+        return $porPasta;
+    }
+
+    /**
+     * Fila de `app:pasta:detectar-assinatura-antigos`: documentos ainda sem o selo "Assinado" que
+     * podem trazer assinatura digital (PDF, `.p7s`, `.p7m`), do mais antigo ao mais novo. Só ids,
+     * para o comando percorrer em lotes. Marcado (digital ou manual) não entra: rodar de novo não
+     * relê nada e a marcação manual nunca é tocada.
+     *
+     * @return list<int>
+     */
+    public function idsParaDetectarAssinatura(?int $tenantId = null, ?int $limite = null): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->select('d.id')
+            ->andWhere('d.assinadoEm IS NULL')
+            ->andWhere("(d.mimeType = 'application/pdf' OR LOWER(d.nomeOriginal) LIKE '%.p7s' OR LOWER(d.nomeOriginal) LIKE '%.p7m')")
+            ->orderBy('d.id', 'ASC');
+
+        if ($tenantId !== null) {
+            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
+        }
+
+        if ($limite !== null) {
+            $qb->setMaxResults($limite);
+        }
+
+        return array_map('intval', $qb->getQuery()->getSingleColumnResult());
+    }
+
+    /**
+     * Grava o selo `digital` direto no banco, só se o documento AINDA está sem selo: o UPDATE confere o
+     * id, o escritório e a pasta do documento e `assinado_em IS NULL`. Devolve false quando nada mudou
+     * (alguém marcou entre a leitura e a gravação), e a marca de quem chegou antes fica. A data é a do
+     * upload e o autor é quem enviou, como no `marcarAssinaturaDoUpload()`.
+     */
+    public function marcarAssinaturaDigitalSeSemSelo(PastaDocumento $doc): bool
+    {
+        $afetadas = $this->getEntityManager()->createQueryBuilder()
+            ->update(PastaDocumento::class, 'd')
+            ->set('d.assinadoEm', ':em')
+            ->set('d.assinaturaOrigem', ':origem')
+            ->set('d.assinadoPor', ':por')
+            ->where('d.id = :id')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.pasta = :pasta')
+            ->andWhere('d.assinadoEm IS NULL')
+            ->setParameter('em', $doc->getCarregadoEm(), Types::DATETIME_IMMUTABLE)
+            ->setParameter('origem', OrigemDaAssinatura::Digital->value)
+            ->setParameter('por', $doc->getEnviadoPor()?->getId())
+            ->setParameter('id', $doc->getId())
+            ->setParameter('tenant', $doc->getTenant()?->getId())
+            ->setParameter('pasta', $doc->getPasta()?->getId())
+            ->getQuery()
+            ->execute();
+
+        return $afetadas > 0;
+    }
+
+    /** Documentos que já têm o selo (digital ou manual): os "pulados" da varredura. */
+    public function contarJaAssinados(?int $tenantId = null): int
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->andWhere('d.assinadoEm IS NOT NULL');
+
+        if ($tenantId !== null) {
+            $qb->andWhere('d.tenant = :tenantId')->setParameter('tenantId', $tenantId);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /** Grava o que mudou nos documentos já gerenciados (a costura que o teste de UseCase mocka). */
+    public function salvar(): void
+    {
+        $this->getEntityManager()->flush();
     }
 }

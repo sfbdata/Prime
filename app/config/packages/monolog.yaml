@@ -53,18 +53,20 @@ when@test:
                 handler: nested
                 excluded_http_codes: [404, 405]
                 channels: ["!event"]
+            # O sufixo separa os processos do ParaTest (tests/Shared/Paralelo/ProcessoDeTesteParalelo);
+            # na execução serial é vazio e os nomes ficam os de sempre.
             nested:
                 type: stream
-                path: "%kernel.logs_dir%/%kernel.environment%.log"
+                path: "%kernel.logs_dir%/%kernel.environment%%env(default::TESTE_PROCESSO)%.log"
                 level: debug
             audit:
                 type: stream
-                path: "%kernel.logs_dir%/audit_test.log"
+                path: "%kernel.logs_dir%/audit_test%env(default::TESTE_PROCESSO)%.log"
                 level: info
                 channels: ["audit"]
             mcp:
                 type: stream
-                path: "%kernel.logs_dir%/mcp_test.log"
+                path: "%kernel.logs_dir%/mcp_test%env(default::TESTE_PROCESSO)%.log"
                 level: info
                 channels: ["mcp"]
 

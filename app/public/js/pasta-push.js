@@ -3,7 +3,8 @@
 
    O acordeão (abrir o teor por XHR) continua no pasta-show.js e não é tocado
    aqui. Este arquivo cuida de:
-     1. filtro Todas · Novas · Geram prazo (no navegador: a lista inteira já está na página);
+     1. filtro Todas · Novas · Geram prazo (no navegador: a lista inteira já está na página),
+        depois do chip do processo (P4f: Todos os processos, Principal, um por apensado);
      2. selo e linha de pendência da aba, que acompanham as linhas "novas";
      3. copiar o ID do documento (numeroComunicacao);
      4. marcar como lida / não lida (POST `pasta_push_lida`);
@@ -31,6 +32,17 @@
 
         var lista = secao.querySelector('.ps-push-lista');
         var filtroAtual = 'todas';
+        // P4f (desenho `pushProc`, N:5670): o chip do processo filtra ANTES do Todas/Novas/Geram prazo.
+        var processoAtual = 'todos';
+
+        function marcarChipDoProcesso(chave) {
+            processoAtual = chave;
+            secao.querySelectorAll('.ps-push-proc').forEach(function (b) {
+                var ativo = b.getAttribute('data-push-proc-filtro') === chave;
+                b.classList.toggle('is-ativo', ativo);
+                b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+            });
+        }
 
         /* ── 1. Filtro ─────────────────────────────────────────────────────── */
         function aplicarFiltro() {
@@ -38,13 +50,15 @@
             var itens = lista.querySelectorAll('.ps-push-item');
             var diaAnterior = null;
             var visiveis = 0;
+            var processo = processoAtual;
 
             Array.prototype.forEach.call(itens, function (item) {
                 // "prazo" lê a marca que o servidor pôs pela regra do desenho
                 // (PastaPushOutput::tipoGeraPrazo): o JS não reclassifica o tipo.
-                var mostra = filtroAtual === 'novas'
+                var doProcesso = processo === 'todos' || item.getAttribute('data-push-proc') === processo;
+                var mostra = doProcesso && (filtroAtual === 'novas'
                     ? item.classList.contains(CLASSE_NOVA)
-                    : (filtroAtual === 'prazo' ? item.getAttribute('data-push-gera-prazo') === '1' : true);
+                    : (filtroAtual === 'prazo' ? item.getAttribute('data-push-gera-prazo') === '1' : true));
                 item.hidden = !mostra;
                 if (!mostra) { return; }
 
@@ -59,6 +73,14 @@
             var vazio = document.getElementById('push-vazio-filtro');
             if (vazio) { vazio.hidden = visiveis > 0; }
         }
+
+        secao.addEventListener('click', function (e) {
+            var chip = e.target.closest('.ps-push-proc');
+            if (!chip) { return; }
+
+            marcarChipDoProcesso(chip.getAttribute('data-push-proc-filtro') || 'todos');
+            aplicarFiltro();
+        });
 
         secao.addEventListener('click', function (e) {
             var botao = e.target.closest('.ps-push-filtro');
@@ -88,8 +110,8 @@
                 if (nova && !selo && assunto) {
                     selo = document.createElement('span');
                     selo.className = 'ps-push-novo';
-                    selo.title = 'Não lida';
-                    selo.textContent = 'Novo';
+                    selo.title = BJ_T.t('pasta_push.js.nao_lida');
+                    selo.textContent = BJ_T.t('pasta_push.js.novo');
                     assunto.appendChild(selo);
                 } else if (!nova && selo) {
                     selo.remove();
@@ -122,9 +144,13 @@
             } else if (novas === 0 && pend) {
                 pend.remove();
             }
-            aba.title = 'Push Processual' + (novas > 0
-                ? ' · ' + novas + ' ' + (novas === 1 ? 'movimentação nova sem leitura' : 'movimentações novas sem leitura')
-                : '');
+            if (novas === 0) {
+                aba.title = BJ_T.t('pasta_push.js.aba_titulo');
+            } else if (novas === 1) {
+                aba.title = BJ_T.t('pasta_push.js.aba_titulo_uma_nova');
+            } else {
+                aba.title = BJ_T.t('pasta_push.js.aba_titulo_novas', { n: String(novas) });
+            }
         }
 
         if (lista && window.MutationObserver) {
@@ -156,11 +182,11 @@
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(id).then(
-                    function () { avisar('ID ' + id + ' copiado', true); },
-                    function () { avisar('Não foi possível copiar', false); }
+                    function () { avisar(BJ_T.t('pasta_push.js.id_copiado', { id: id }), true); },
+                    function () { avisar(BJ_T.t('pasta_push.js.copiar_falhou'), false); }
                 );
             } else {
-                avisar('Não foi possível copiar', false);
+                avisar(BJ_T.t('pasta_push.js.copiar_falhou'), false);
             }
         });
 
@@ -170,7 +196,7 @@
             var icone = botao.querySelector('i');
             if (icone) { icone.className = 'bi ' + (lida ? 'bi-envelope' : 'bi-envelope-open'); }
             var rotulo = botao.querySelector('.js-push-lida-rotulo');
-            if (rotulo) { rotulo.textContent = lida ? 'Marcar como não lida' : 'Marcar como lida'; }
+            if (rotulo) { rotulo.textContent = lida ? BJ_T.t('pasta_push.js.marcar_nao_lida') : BJ_T.t('pasta_push.js.marcar_lida'); }
         }
 
         /* O POST de `pasta_push_lida`, num lugar só: o botão do teor e o item do menu
@@ -191,7 +217,7 @@
                 })
                 .then(function (res) {
                     if (!res.ok || !res.dados.sucesso) {
-                        throw new Error(res.dados.erro || res.dados.message || 'Não foi possível atualizar a publicação.');
+                        throw new Error(res.dados.erro || res.dados.message || BJ_T.t('pasta_push.js.lida_falhou'));
                     }
                     return !!res.dados.lida;
                 });
@@ -212,10 +238,10 @@
                 })
                 .then(function (res) {
                     if (!res.ok) {
-                        throw new Error(res.dados.erro || 'Não foi possível copiar o texto.');
+                        throw new Error(res.dados.erro || BJ_T.t('pasta_push.js.texto_falhou'));
                     }
                     if (typeof res.dados.texto !== 'string' || res.dados.texto === '') {
-                        throw new Error('Esta publicação não trouxe teor textual.');
+                        throw new Error(BJ_T.t('pasta_push.js.sem_teor'));
                     }
                     return res.dados.texto;
                 });
@@ -241,7 +267,7 @@
                 })
                 .catch(function (falha) {
                     if (erro) {
-                        erro.textContent = falha && falha.message ? falha.message : 'Não foi possível atualizar a publicação.';
+                        erro.textContent = falha && falha.message ? falha.message : BJ_T.t('pasta_push.js.lida_falhou');
                         erro.hidden = false;
                     }
                 })
@@ -274,15 +300,17 @@
             if (!botao || !modal || !window.bootstrap) { return; }
 
             var d = botao.dataset;
-            var tipo = d.metaTipo || 'Publicação';
-            var titulo = 'Providência: ' + tipo.toLowerCase() + (d.metaData ? ' de ' + d.metaData : '');
+            var tipo = d.metaTipo || BJ_T.t('pasta_push.js.tarefa.publicacao');
+            var titulo = d.metaData
+                ? BJ_T.t('pasta_push.js.tarefa.titulo_com_data', { tipo: tipo.toLowerCase(), data: d.metaData })
+                : BJ_T.t('pasta_push.js.tarefa.titulo', { tipo: tipo.toLowerCase() });
 
-            var linhas = ['Movimentação recebida pelo Push Processual.', 'Tipo: ' + tipo];
-            if (d.metaOrgao) { linhas.push('Órgão: ' + d.metaOrgao); }
-            if (d.metaProcesso) { linhas.push('Processo: ' + d.metaProcesso); }
-            if (d.metaData) { linhas.push('Disponibilizada em: ' + d.metaData); }
-            if (d.metaDocumento) { linhas.push('ID do documento: ' + d.metaDocumento); }
-            if (d.metaLink) { linhas.push('Documento no PJe: ' + d.metaLink); }
+            var linhas = [BJ_T.t('pasta_push.js.tarefa.recebida'), BJ_T.t('pasta_push.js.tarefa.tipo', { tipo: tipo })];
+            if (d.metaOrgao) { linhas.push(BJ_T.t('pasta_push.js.tarefa.orgao', { orgao: d.metaOrgao })); }
+            if (d.metaProcesso) { linhas.push(BJ_T.t('pasta_push.js.tarefa.processo', { processo: d.metaProcesso })); }
+            if (d.metaData) { linhas.push(BJ_T.t('pasta_push.js.tarefa.disponibilizada', { data: d.metaData })); }
+            if (d.metaDocumento) { linhas.push(BJ_T.t('pasta_push.js.tarefa.documento', { documento: d.metaDocumento })); }
+            if (d.metaLink) { linhas.push(BJ_T.t('pasta_push.js.tarefa.link', { link: d.metaLink })); }
 
             var elTitulo = campo('tarefaTitulo');
             var elDescricao = campo('tarefaDescricao');
@@ -381,7 +409,7 @@
             var prazo = setTimeout(function () {
                 if (observador) { observador.disconnect(); }
                 if (falhou) { falhou(); }
-                avisar('Não foi possível carregar o teor. Tente de novo.');
+                avisar(BJ_T.t('pasta_push.js.teor_falhou'));
             }, ESPERA_TEOR_MS);
 
             function conferir() {
@@ -408,11 +436,11 @@
         function copiarTexto(texto) {
             if (texto && navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(texto).then(
-                    function () { avisar('Texto copiado'); },
-                    function () { avisar('Não foi possível copiar'); }
+                    function () { avisar(BJ_T.t('pasta_push.js.texto_copiado')); },
+                    function () { avisar(BJ_T.t('pasta_push.js.copiar_falhou')); }
                 );
             } else {
-                avisar('Não foi possível copiar');
+                avisar(BJ_T.t('pasta_push.js.copiar_falhou'));
             }
         }
 
@@ -422,7 +450,7 @@
            do servidor chega depois dele. Se essa escrita falhar com o texto em mãos, tenta o
            `writeText` comum. */
         function copiarTextoDaPublicacao(url) {
-            if (!url || !navigator.clipboard) { avisar('Não foi possível copiar'); return; }
+            if (!url || !navigator.clipboard) { avisar(BJ_T.t('pasta_push.js.copiar_falhou')); return; }
             var pedido = buscarTextoDaPublicacao(url);
 
             if (window.ClipboardItem && navigator.clipboard.write) {
@@ -430,10 +458,10 @@
                 conteudo.catch(function () { /* a falha é avisada pelo `pedido` abaixo */ });
                 try {
                     navigator.clipboard.write([new window.ClipboardItem({ 'text/plain': conteudo })]).then(
-                        function () { avisar('Texto copiado'); },
+                        function () { avisar(BJ_T.t('pasta_push.js.texto_copiado')); },
                         function () {
                             pedido.then(copiarTexto, function (falha) {
-                                avisar(falha && falha.message ? falha.message : 'Não foi possível copiar');
+                                avisar(falha && falha.message ? falha.message : BJ_T.t('pasta_push.js.copiar_falhou'));
                             });
                         }
                     );
@@ -443,7 +471,7 @@
                 }
             }
             pedido.then(copiarTexto, function (falha) {
-                avisar(falha && falha.message ? falha.message : 'Não foi possível copiar');
+                avisar(falha && falha.message ? falha.message : BJ_T.t('pasta_push.js.copiar_falhou'));
             });
         }
 
@@ -475,7 +503,7 @@
             var lida = menu.querySelector('.js-push-menu-lida');
             if (lida) {
                 var rotulo = lida.querySelector('.js-push-menu-lida-rotulo');
-                if (rotulo) { rotulo.textContent = nova ? 'Marcar como lida' : 'Marcar como não lida'; }
+                if (rotulo) { rotulo.textContent = nova ? BJ_T.t('pasta_push.js.marcar_lida') : BJ_T.t('pasta_push.js.marcar_nao_lida'); }
                 var icone = lida.querySelector('i');
                 if (icone) { icone.className = 'bi ' + (nova ? 'bi-envelope-open' : 'bi-envelope'); }
             }
@@ -540,10 +568,10 @@
                     gravarLida(de.item.getAttribute('data-push-lida-url'), menu.getAttribute('data-lida-token'), querLida)
                         .then(function (lida) {
                             de.item.classList.toggle(CLASSE_NOVA, !lida);
-                            avisar(lida ? 'Marcada como lida' : 'Marcada como não lida');
+                            avisar(lida ? BJ_T.t('pasta_push.js.marcada_lida') : BJ_T.t('pasta_push.js.marcada_nao_lida'));
                         })
                         .catch(function (falha) {
-                            avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar a publicação.');
+                            avisar(falha && falha.message ? falha.message : BJ_T.t('pasta_push.js.lida_falhou'));
                         });
                     return;
                 }
@@ -551,7 +579,7 @@
                     var teorDoc = teorNaPagina(de.cab);
                     if (teorDoc) {
                         var href = linkDoDocumento(teorDoc);
-                        if (href) { window.open(href, '_blank', 'noopener,noreferrer'); } else { avisar('Esta movimentação não tem documento para abrir.'); }
+                        if (href) { window.open(href, '_blank', 'noopener,noreferrer'); } else { avisar(BJ_T.t('pasta_push.js.sem_documento')); }
                         return;
                     }
                     var janela = window.open('', '_blank');
@@ -561,14 +589,25 @@
                         if (destino && janela) { janela.location.replace(destino); return; }
                         if (janela) { janela.close(); }
                         if (destino) { window.open(destino, '_blank', 'noopener,noreferrer'); return; }
-                        avisar('Esta movimentação não tem documento para abrir.');
+                        avisar(BJ_T.t('pasta_push.js.sem_documento'));
                     }, function () { if (janela) { janela.close(); } });
+                    return;
+                }
+                if (opcao.classList.contains('js-push-menu-encaminhar')) {
+                    // FPN-016: o mesmo evento do pasta-encaminhar.js, com o id do cartão clicado.
+                    var pastaDoEnvio = Number(opcao.getAttribute('data-encaminhar-pasta'));
+                    var publicacaoId = Number(de.item.getAttribute('data-push-id'));
+                    if (pastaDoEnvio && publicacaoId) {
+                        document.dispatchEvent(new CustomEvent('bj-central:despachar', {
+                            detail: { pastaId: pastaDoEnvio, tipo: 'push', itemId: publicacaoId },
+                        }));
+                    }
                     return;
                 }
                 if (opcao.classList.contains('js-push-menu-tarefa')) {
                     comTeor(de.cab, function (p) {
                         var botao = p.querySelector('.js-push-criar-meta');
-                        if (botao) { botao.click(); } else { avisar('Não foi possível criar a tarefa por aqui.'); }
+                        if (botao) { botao.click(); } else { avisar(BJ_T.t('pasta_push.js.tarefa_falhou')); }
                     });
                     return;
                 }
@@ -590,7 +629,7 @@
                     comTeor(de.cab, function (p) {
                         var bloco = p.querySelector('#notas-publicacao-' + id);
                         var nova = bloco ? bloco.querySelector('.js-nota-nova') : null;
-                        if (!nova) { avisar('Esta movimentação não aceita nota técnica.'); return; }
+                        if (!nova) { avisar(BJ_T.t('pasta_push.js.sem_nota')); return; }
                         nova.click();
                         bloco.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                     });

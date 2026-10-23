@@ -1,0 +1,197 @@
+/* BlueJus · Menu do usuário, modal "Conta do escritório", Idioma, Em preparação e abas do Meu Perfil.
+   Valores do desenho "03 - EXPEDIENTE - VS 18.10.26" (linhas 310 a 345) e "07 - Meu Perfil - VS 18.10.26". */
+
+/* ---------- menu do avatar ---------- */
+.menu-usuario { position: relative; } /* âncora do selo de presença (menu_usuario/_presenca.html.twig) */
+.usuario-dropdown.mu-menu { width: min(320px, calc(100vw - 24px)); min-width: 0; max-height: calc(100vh - 80px); overflow: auto;
+  padding: 0 0 6px; border: 1px solid #d3dde4; border-radius: 4px; box-shadow: 0 14px 36px rgba(15, 32, 43, .2); color: #1f3644; }
+.mu-menu .mu-topo { position: relative; gap: 14px; padding: 12px 52px 12px 18px; background: #f5f8fa; border-bottom: 1px solid #e6edf2; }
+.mu-menu-x { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border: none; border-radius: 3px; background: #e6edf2; color: #34505f; cursor: pointer; }
+.mu-menu-x:hover { background: #d3dde4; }
+/* nome em caixa alta no cabeçalho, como nos desenhos 03 e 07 */
+.navtop-username { text-transform: uppercase; }
+.mu-menu .mu-avatar-lg { width: 52px; height: 52px; background: #0a6fa0; font-size: 18px; }
+.mu-menu .usuario-name { font-size: 15px; font-weight: 700; line-height: 1.25; color: #12242f; }
+.mu-menu .usuario-email { font-size: 12.5px; color: #5b7383; }
+.mu-selos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.mu-selo { height: 20px; padding: 0 7px; border-radius: 3px; font-size: 10.5px; font-weight: 700; letter-spacing: .4px;
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.mu-selo-master { background: #fff4d6; color: #7a5200; }
+.mu-selo-papel { background: #e5f1f7; color: #0a6fa0; }
+
+.mu-grupo { padding: 5px 0 0; }
+.mu-grupo + .mu-grupo { margin-top: 5px; border-top: 1px solid #e6edf2; }
+.mu-grupo-rotulo { display: flex; align-items: center; gap: 7px; padding: 6px 18px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 1px; color: #9a6a00; }
+
+.mu-menu .mu-item { width: 100%; display: flex; align-items: center; gap: 12px; border: none; background: transparent;
+  padding: 6px 18px; font-size: 14px; line-height: 1.3; color: #1f3644; text-align: left; cursor: pointer; transition: background .12s, color .12s; }
+.mu-menu .mu-item:hover, .mu-menu .mu-item:focus-visible { background: #e6f2fa; color: #0b4f75; }
+.mu-menu .mu-item > .bi { width: 18px; font-size: 16px; flex: none; }
+.mu-menu .mu-item.text-danger { color: #c0392b !important; }
+.mu-item-texto { flex: 1; min-width: 0; }
+.mu-item-titulo { display: block; line-height: 1.3; }
+.mu-item-sub { display: block; font-size: 11.5px; line-height: 1.2; color: #7a8e9b; }
+.mu-item-dir { font-size: 11.5px; color: #7b93a2; white-space: nowrap; }
+
+/* chave liga/desliga do tema escuro */
+.mu-chave { position: relative; width: 34px; height: 18px; flex: none; border-radius: 9px; background: #c9d3da; transition: background .2s; }
+.mu-chave > span { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: left .2s; }
+#toggleTema.ligado .mu-chave { background: #0a6fa0; }
+#toggleTema.ligado .mu-chave > span { left: 18px; }
+
+.mu-escritorio { border: none; background: transparent; color: inherit; }
+
+/* ---------- modais ---------- */
+.mu-modal .modal-content { border: none; border-radius: 4px; overflow: hidden; box-shadow: 0 26px 60px -20px rgba(12, 48, 72, .45); color: #12242f; }
+.mu-modal-largo { max-width: min(620px, calc(100vw - 32px)); }
+.mu-modal-medio { max-width: min(460px, calc(100vw - 24px)); }
+.mu-modal-topo { display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: #0a6fa0; color: #fff; }
+.mu-modal-topo > b { flex: 1; font-size: 16px; }
+.mu-modal-x { width: 30px; height: 30px; border: none; border-radius: 3px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; }
+.mu-modal-x:hover { background: rgba(255, 255, 255, .28); }
+.mu-abas { display: flex; padding: 0 18px; border-bottom: 1px solid #e1e8ed; }
+.mu-aba { border: none; background: none; padding: 12px 4px 10px; margin-right: 18px; font-size: 14px; font-weight: 700; color: #5f7684;
+  border-bottom: 3px solid transparent; cursor: pointer; }
+.mu-aba.on { color: #0a6fa0; border-bottom-color: #0a6fa0; }
+.mu-modal-corpo { padding: 18px; }
+.mu-texto { font-size: 13.5px; line-height: 1.5; color: #34505f; margin: 0 0 12px; }
+.mu-nota { font-size: 12px; color: #62798a; margin-top: 4px; }
+.mu-nota-modal { padding: 0 18px 16px; line-height: 1.5; color: #5b7383; }
+.mu-carregando { font-size: 13px; color: #62798a; padding: 8px 0; }
+.mu-acoes { display: flex; justify-content: flex-end; }
+.mu-btn { height: 38px; padding: 0 16px; border: none; border-radius: 4px; font-size: 14px; font-weight: 700; display: inline-flex;
+  align-items: center; gap: 7px; text-decoration: none; cursor: pointer; transition: background .15s; }
+.mu-btn-pri { background: #0a6fa0; color: #fff; }
+.mu-btn-pri:hover { background: #0b5f86; color: #fff; }
+
+/* Trocar conta */
+.mu-contas { display: flex; flex-direction: column; gap: 8px; }
+.mu-conta { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; border: 1px solid #e1e8ed; background: #fff;
+  border-radius: 4px; padding: 11px 13px; cursor: pointer; color: #12242f; }
+.mu-conta:hover { border-color: #0a6fa0; }
+.mu-conta.atual { border-color: #0a6fa0; background: #eef6fb; cursor: default; opacity: 1; }
+.mu-conta > .bi { font-size: 18px; color: #0a6fa0; }
+.mu-conta-texto { flex: 1; min-width: 0; }
+.mu-conta-texto > b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mu-conta-texto > span { font-size: 12px; color: #62798a; }
+.mu-conta-atual { font-size: 11px; font-weight: 700; color: #0a6fa0; }
+.mu-sair-conta { margin-top: 6px; font-size: 13px; }
+
+/* Minha conta: equipe da conta (bj-contas.js, aba conta) */
+.mu-minha-conta { display: flex; flex-direction: column; gap: 14px; }
+.mu-resumo { background: #f3f7fa; border-radius: 4px; padding: 12px 14px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13.5px; }
+.mu-resumo > span:nth-child(odd) { color: #5f7684; }
+.mu-resumo-papel { color: #0a6fa0; }
+.mu-rotulo { font-size: 12px; font-weight: 700; letter-spacing: .5px; color: #5f7684; }
+.mu-rotulo-convidar { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
+.mu-link-convites { font-weight: 400; letter-spacing: 0; font-size: 12px; }
+.mu-nota-convidar { margin-top: -10px; }
+.mu-equipe { max-height: 220px; overflow: auto; border: 1px solid #e1e8ed; border-radius: 4px; }
+.mu-membro { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #eef2f5; font-size: 14px; }
+.mu-membro:last-child { border-bottom: none; }
+.mu-membro-avatar { width: 30px; height: 30px; flex: none; border-radius: 50%; background: #8ea3b1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.mu-membro-avatar.primario { background: #0a6fa0; }
+.mu-membro-texto { flex: 1; min-width: 0; }
+.mu-membro-nome { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mu-membro-sub { font-size: 12px; color: #62798a; }
+.mu-selo-equipe, .mu-situacao { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 3px; white-space: nowrap; }
+.mu-selo-equipe { background: #eef2f5; color: #5f7684; }
+.mu-selo-equipe.primario { background: #e3f0f8; color: #0a6fa0; }
+.mu-situacao.aprovado { background: #e9f6ee; color: #1e7b45; }
+.mu-situacao.em_analise { background: #fff4d6; color: #7a5200; }
+.mu-situacao.suspenso { background: #fdecee; color: #a3232b; }
+.mu-membro-menu { width: 26px; height: 26px; border: none; border-radius: 3px; background: none; color: #5f7684; cursor: pointer; font-size: 16px; line-height: 1; }
+.mu-membro-menu:hover { background: #e6edf2; }
+.mu-convidar { display: grid; grid-template-columns: 1fr 1fr 160px; gap: 8px; }
+.mu-convidar input, .mu-convidar select { height: 38px; border: 1px solid #c9d6df; border-radius: 4px; padding: 0 11px; font-size: 14px; color: #12242f; background: #fff; min-width: 0; }
+.mu-convidar .mu-acoes { grid-column: 1 / -1; }
+@media (max-width: 560px) { .mu-convidar { grid-template-columns: 1fr; } }
+.mu-menu-membro { position: fixed; z-index: 100001; width: 240px; background: #fff; border: 1px solid #d3dde4; border-radius: 4px; box-shadow: 0 10px 28px rgba(18, 36, 47, .2); padding: 4px 0; }
+.mu-mm-topo { padding: 7px 14px 8px; font-size: 12px; color: #62798a; border-bottom: 1px solid #eef2f5; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mu-mm-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; background: #fff; padding: 8px 14px; font-size: 13.5px; color: #243845; cursor: pointer; text-align: left; }
+.mu-mm-item:hover { background: #eef5fa; }
+.mu-mm-item.verde { color: #1e7b45; }
+.mu-mm-item.ambar { color: #9a5b00; }
+.mu-mm-item.vermelho { color: #a3232b; }
+.mu-mm-ic { width: 16px; text-align: center; }
+.mu-mm-sep { height: 1px; background: #eef2f5; margin: 4px 0; }
+.mu-mm-vazio { padding: 8px 14px; font-size: 12.5px; color: #7a8e9b; }
+
+/* Idioma */
+.mu-idiomas { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 14px 18px; }
+.mu-idioma { display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border: 1px solid #d3dde4; border-radius: 3px;
+  background: #fff; font-size: 14px; color: #12242f; text-align: left; }
+.mu-idioma.atual { border-color: #0a6fa0; background: #e5f1f7; }
+.mu-idioma.atual > .bi { color: #0a6fa0; font-weight: 700; }
+.mu-idioma:disabled { opacity: .6; cursor: not-allowed; }
+.mu-idioma-sigla { width: 28px; height: 20px; flex: none; border-radius: 2px; background: #0a6fa0; color: #fff; font-size: 10.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; }
+.mu-idioma-nome { flex: 1; }
+.mu-idioma-breve { font-size: 11px; color: #7a8e9b; }
+
+/* Em preparação (bj-recursos.js) */
+.mu-preparacao { position: relative; text-align: center; padding: 30px 26px; }
+.mu-modal-x-claro { position: absolute; top: 10px; right: 10px; background: #eef2f5; color: #34505f; }
+.mu-modal-x-claro:hover { background: #e1e8ed; }
+.mu-preparacao-icone { width: 62px; height: 62px; margin: 0 auto 12px; border-radius: 50%; background: #e5f1f7; color: #0a6fa0;
+  display: flex; align-items: center; justify-content: center; font-size: 28px; }
+.mu-preparacao-titulo { display: block; font-size: 19px; margin-bottom: 6px; }
+.mu-preparacao .mu-texto { color: #4a6373; margin: 0; }
+
+/* aviso (toast) */
+.mu-aviso { position: fixed; z-index: 9900; left: 50%; bottom: 26px; transform: translateX(-50%); max-width: calc(100vw - 24px);
+  background: #12242f; color: #fff; font-size: 14px; padding: 10px 16px; border-radius: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+  animation: muSobe .2s ease both; transition: opacity .2s; }
+.mu-aviso.saindo { opacity: 0; }
+@keyframes muSobe { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ---------- abas do Meu Perfil (desenho 07, "Abas do perfil") ---------- */
+.mu-abas-perfil { background: #0a6fa0; box-shadow: 0 2px 6px rgba(18, 36, 47, .12); }
+.mu-abas-perfil-miolo { max-width: 1180px; margin: 0 auto; padding: 0 18px; display: flex; align-items: stretch; gap: 2px; overflow-x: auto; }
+.mu-aba-perfil { position: relative; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border: none; background: transparent;
+  color: #fff; font-size: 13.5px; white-space: nowrap; opacity: .88; text-decoration: none; cursor: pointer; transition: background .15s, opacity .15s; }
+.mu-aba-perfil:hover, .mu-aba-perfil[aria-expanded="true"] { background: rgba(255, 255, 255, .14); color: #fff; opacity: 1; }
+.mu-aba-perfil.on { background: rgba(255, 255, 255, .16); font-weight: 700; opacity: 1; }
+.mu-aba-perfil.on::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px; border-radius: 2px 2px 0 0; background: #fff; }
+.mu-aba-perfil-master > .bi-star-fill { color: #ffd770; }
+.mu-aba-perfil .bi-chevron-down { font-size: 10px; transition: transform .2s; }
+.mu-aba-perfil[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
+.mu-master-menu { width: 290px; padding: 6px 0; border: none; border-radius: 0 0 4px 4px; background: #0b5f86; box-shadow: 0 14px 34px rgba(18, 36, 47, .3); }
+.mu-master-menu .mu-grupo-rotulo { color: #ffd770; padding: 6px 14px 8px; }
+.mu-menu-x-escuro { top: 6px; right: 8px; width: 26px; height: 26px; background: rgba(255, 255, 255, .15); color: #fff; }
+.mu-menu-x-escuro:hover { background: rgba(255, 255, 255, .28); }
+.mu-master-menu { position: relative; }
+.mu-master-menu .mu-item { width: 100%; display: flex; align-items: center; gap: 11px; padding: 8px 14px; border: none; background: transparent;
+  color: #fff; text-align: left; text-decoration: none; cursor: pointer; }
+.mu-master-menu .mu-item:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+.mu-master-menu .mu-item > .bi { width: 18px; font-size: 15px; opacity: .9; }
+.mu-master-menu .mu-item-titulo { font-size: 13.5px; }
+.mu-master-menu .mu-item-sub { color: #fff; opacity: .72; }
+
+/* ---------- tema escuro ---------- */
+html[data-bs-theme="dark"] .usuario-dropdown.mu-menu { border-color: var(--bs-border-color); color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mu-menu .mu-topo { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }
+html[data-bs-theme="dark"] .mu-menu .usuario-name,
+html[data-bs-theme="dark"] .mu-menu .mu-item { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mu-menu .mu-item:hover { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mu-grupo + .mu-grupo { border-color: var(--bs-border-color); }
+html[data-bs-theme="dark"] .mu-modal .modal-content,
+html[data-bs-theme="dark"] .mu-conta,
+html[data-bs-theme="dark"] .mu-idioma { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
+html[data-bs-theme="dark"] .mu-conta.atual,
+html[data-bs-theme="dark"] .mu-idioma.atual { background: var(--bs-secondary-bg); border-color: #3aa0d8; }
+html[data-bs-theme="dark"] .mu-texto { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mu-menu .mu-menu-x { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .mu-abas { border-color: var(--bs-border-color); }
+
+@media (prefers-reduced-motion: reduce) { .mu-aviso { animation: none; } }
+
+/* Selo "EXCLUSIVO DO MASTER / DO PRIMÁRIO" (spec edicao-sem-prazo §5; desenho 03 L324): o mesmo rótulo dourado do
+   `.mu-grupo-rotulo`, dentro do botão de editar ou excluir que só existe pelo poder. Some até o hover ou o foco do
+   teclado; flutua acima do botão (sem empurrar a linha), com fundo da página para ficar legível. */
+.com-selo-sem-prazo { position: relative; }
+.selo-sem-prazo { position: absolute; right: 0; bottom: calc(100% + 4px); z-index: 30; display: none; align-items: center; gap: 7px; padding: 3px 8px; white-space: nowrap; font-size: 10.5px; font-weight: 700; letter-spacing: 1px; line-height: 1.4; text-transform: none; color: #9a6a00; background: var(--bs-body-bg, #fff); border-radius: 4px; box-shadow: 0 2px 8px rgba(18, 36, 47, .15); pointer-events: none; }
+.com-selo-sem-prazo:hover > .selo-sem-prazo,
+.com-selo-sem-prazo:focus-visible > .selo-sem-prazo { display: inline-flex; }
+html[data-bs-theme="dark"] .selo-sem-prazo { color: #ffd770; }

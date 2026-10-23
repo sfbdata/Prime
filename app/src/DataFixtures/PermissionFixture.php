@@ -28,6 +28,7 @@ class PermissionFixture extends Fixture
         ['code' => 'modules.bi.view',            'description' => 'Acesso ao módulo BI (futuro)',                'group' => 'modules'],
         ['code' => 'modules.cobrancas.view',     'description' => 'Acesso ao módulo Gestão de Cobranças',        'group' => 'modules'],
         ['code' => 'modules.inteligencia.view',  'description' => 'Usar a BlueJus IA',                          'group' => 'modules'],
+        ['code' => 'modules.trabalho_externo.view', 'description' => 'Acesso ao módulo Trabalho Externo (solicitar e acompanhar demandas)', 'group' => 'modules'],
 
         // --- recursos ---
         ['code' => 'resources.pasta.view',       'description' => 'Visualizar pasta específica',                 'group' => 'resources'],
@@ -39,6 +40,7 @@ class PermissionFixture extends Fixture
         ['code' => 'resources.processo.view',    'description' => 'Visualizar processo específico',              'group' => 'resources'],
         ['code' => 'resources.processo.edit',    'description' => 'Criar e editar processo',                     'group' => 'resources'],
         ['code' => 'resources.processo.delete',  'description' => 'Excluir processo',                            'group' => 'resources'],
+        ['code' => 'resources.agenda.ver_prazos', 'description' => 'Ver prazos na agenda',                       'group' => 'resources'],
         // --- cobranças (capacidades da SPEC §22; gates ligados nas Etapas 3/8) ---
         ['code' => 'resources.cobranca.gerenciar',              'description' => 'Gerenciar casos de cobrança (operar obrigações, contatos, ações)', 'group' => 'resources'],
         ['code' => 'resources.carteira.gerenciar',              'description' => 'Gerenciar carteiras de cobrança e suas configurações',            'group' => 'resources'],

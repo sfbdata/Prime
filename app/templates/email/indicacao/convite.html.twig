@@ -1,0 +1,19 @@
+{# Miolo do convite "Indicar o BlueJus" (spec indicar-bluejus.md, comportamento 4 e "Para o dono" 2). Modelo FIXO: o
+   texto livre da janela vai só no WhatsApp (e-mail da plataforma com texto livre vira canal de spam). O layout, o
+   rodapé legal, o motivo do envio e o link "Não quero mais receber" são do Carteiro (email/comercial/_layout).
+   Contexto: `quemIndica` (nome de quem indica) e `link` (o link curto /i/{codigo}). O nome do convidado, digitado por
+   quem indica, NÃO entra no corpo (seria texto livre num e-mail da plataforma): fica só gravado na indicação. #}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">{{ 'emails.indicacao.convite.ola'|trans }}</p>
+
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#1f3644;">
+    <b>{{ quemIndica }}</b> {{ 'emails.indicacao.convite.indicou'|trans }}
+</p>
+
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#1f3644;">
+    {{ 'emails.indicacao.convite.crie'|trans }}
+</p>
+
+<p style="margin:22px 0;"><a href="{{ link }}" style="display:inline-block;background:#0a6fa0;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:12px 22px;border-radius:4px;">{{ 'emails.indicacao.convite.criar_conta'|trans }}</a></p>
+
+<p style="margin:0 0 8px;font-size:13px;color:#5b7383;line-height:1.6;">{{ 'emails.indicacao.convite.nao_funcionar'|trans }}</p>
+<p style="margin:0 0 16px;font-size:13px;color:#0a6fa0;word-break:break-all;">{{ link }}</p>

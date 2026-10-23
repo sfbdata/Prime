@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auth\UseCase;
 
+use App\Auth\DTO\ConviteEmitido;
 use App\Auth\DTO\ReenviarConviteInput;
 use App\Entity\Auth\Invitation;
 use App\Repository\InvitationRepository;
@@ -16,9 +17,13 @@ final class ReenviarConviteUseCase
         private readonly EntityManagerInterface $em,
     ) {}
 
-    public function executar(ReenviarConviteInput $input): Invitation
+    public function executar(ReenviarConviteInput $input): ConviteEmitido
     {
-        $invitation = $this->invitationRepository->encontrarPorToken($input->token);
+        if (!$input->reenviadoPor->isEmailConfirmado()) {
+            throw new \DomainException(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR);
+        }
+
+        $invitation = $this->invitationRepository->find($input->conviteId);
 
         if ($invitation === null) {
             throw new \DomainException('Convite não encontrado.');
@@ -36,9 +41,12 @@ final class ReenviarConviteUseCase
             throw new \DomainException('Limite de reenvios atingido. Crie um novo convite.');
         }
 
+        // O banco só tem o hash, então reenviar é gerar um link novo: o anterior deixa de valer (raiz B).
+        $token = Invitation::gerarToken();
+        $invitation->trocarToken(Invitation::hashDoToken($token));
         $invitation->incrementarReenvio();
         $this->em->flush();
 
-        return $invitation;
+        return new ConviteEmitido($invitation, $token);
     }
 }

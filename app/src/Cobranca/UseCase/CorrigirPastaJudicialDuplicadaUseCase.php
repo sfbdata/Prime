@@ -145,7 +145,7 @@ final class CorrigirPastaJudicialDuplicadaUseCase
         $pessoaNome = $caso->getPessoaCobradaAtual()?->getNome() ?? '—';
         $unidade = $caso->getObjeto()?->getIdentificacao() ?? '—';
 
-        $orfa = $this->pastaOrfaCompativel($tenant, $pessoaNome, $idsJaVinculados);
+        $orfa = $this->pastaOrfaCompativel($tenant, $pessoaNome, $idsJaVinculados, $usuario);
         $reaproveitou = $orfa !== null;
         $pastaNova = $orfa ?? $this->criarPastaNova($tenant, $usuario);
 
@@ -192,13 +192,14 @@ final class CorrigirPastaJudicialDuplicadaUseCase
      *
      * @param list<int> $idsJaVinculados
      */
-    private function pastaOrfaCompativel(Tenant $tenant, string $pessoaNome, array $idsJaVinculados): ?Pasta
+    private function pastaOrfaCompativel(Tenant $tenant, string $pessoaNome, array $idsJaVinculados, ?User $usuario = null): ?Pasta
     {
         if (trim($pessoaNome) === '' || $pessoaNome === '—') {
             return null;
         }
 
-        foreach ($this->pastaRepository->buscarParaVinculo($pessoaNome, $tenant, 5, $idsJaVinculados) as $linha) {
+        // Cadeado: com quem corrige, só a pasta que ela edita é reaproveitada.
+        foreach ($this->pastaRepository->buscarParaVinculo($pessoaNome, $tenant, 5, $idsJaVinculados, $usuario) as $linha) {
             return $this->pastaRepository->find($linha['id']);
         }
 
@@ -228,7 +229,7 @@ final class CorrigirPastaJudicialDuplicadaUseCase
             TipoEventoHistorico::VinculoPasta,
             $usuario,
             sprintf(
-                'Pasta corrigida: duplicidade com o caso #%d resolvida — %s %s.',
+                'Pasta corrigida: duplicidade com o caso #%d resolvida (%s %s).',
                 $vencedor->getId(),
                 $reaproveitou ? 'vinculado à pasta órfã' : 'nova pasta',
                 $pastaNova->getNup() ?? (string) $pastaNova->getId(),

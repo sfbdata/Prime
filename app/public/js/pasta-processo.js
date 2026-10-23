@@ -37,7 +37,7 @@
 
         var rotulo = botao.querySelector('span');
         var icone  = botao.querySelector('i');
-        if (rotulo) { rotulo.textContent = abrir ? 'Mostrar menos' : 'Ver todas as informações'; }
+        if (rotulo) { rotulo.textContent = abrir ? BJ_T.t('pasta_processo.js.mostrar_menos') : BJ_T.t('pasta_processo.js.ver_todas'); }
         if (icone)  { icone.className = 'bi ' + (abrir ? 'bi-chevron-up' : 'bi-chevron-down'); }
     }
 
@@ -70,7 +70,7 @@
             var exp   = !!botao && botao.getAttribute('aria-expanded') === 'true';
             var span  = item.querySelector('span');
             var icone = item.querySelector('i');
-            if (span)  { span.textContent = exp ? 'Mostrar menos' : 'Ver todas as informações'; }
+            if (span)  { span.textContent = exp ? BJ_T.t('pasta_processo.js.mostrar_menos') : BJ_T.t('pasta_processo.js.ver_todas'); }
             if (icone) { icone.className = 'bi ' + (exp ? 'bi-chevron-up' : 'bi-card-list'); }
         }
     }
@@ -126,11 +126,11 @@
 
         if (texto && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(texto).then(
-                function () { avisar(item.getAttribute('data-aviso') || 'Copiado'); },
-                function () { avisar('Não foi possível copiar'); }
+                function () { avisar(item.getAttribute('data-aviso') || BJ_T.t('pasta_processo.js.copiado')); },
+                function () { avisar(BJ_T.t('pasta_processo.js.copiar_falhou')); }
             );
         } else {
-            avisar('Não foi possível copiar');
+            avisar(BJ_T.t('pasta_processo.js.copiar_falhou'));
         }
     }
 
@@ -198,7 +198,20 @@
         if (!alvo || !alvo.closest) { return; }
 
         var botaoMais = alvo.closest('.js-proc-alternar');
-        if (botaoMais) { alternar(botaoMais); return; }
+        if (botaoMais) {
+            // Desenho (`alternar`): abrir ou fechar o painel encerra a edição em curso.
+            var emEdicao = cartaoEmEdicao(botaoMais);
+            if (emEdicao) { fecharEdicao(emEdicao, false); }
+            alternar(botaoMais);
+            return;
+        }
+
+        var cancelar = alvo.closest('.js-proc-edicao-cancelar');
+        if (cancelar) {
+            var formCancelar = cancelar.closest('form.js-proc-edicao');
+            if (formCancelar) { fecharEdicao(formCancelar, true); }
+            return;
+        }
 
         var gatilho = alvo.closest('.js-proc-menu-gatilho');
         if (gatilho) {
@@ -215,6 +228,12 @@
         if (item.classList.contains('js-proc-compartilhar'))   { compartilhar(item); return; }
         if (item.classList.contains('js-proc-imprimir'))       { imprimirResumo(item); return; }
         if (item.classList.contains('js-proc-ver-movimentacoes')) { irParaAba(item); return; }
+        if (item.classList.contains('js-proc-editar')) {
+            var gatilhoDoMenu = aberto ? aberto.gatilho : null;
+            fechar(false);
+            abrirEdicao(document.querySelector(item.getAttribute('data-edicao') || ''), gatilhoDoMenu);
+            return;
+        }
         if (item.classList.contains('js-proc-alternar-menu')) {
             var botao = document.querySelector(item.getAttribute('data-botao') || '');
             fechar(false);
@@ -237,6 +256,17 @@
         if (!alvo || !alvo.closest) { return; }
         // Botão direito em outro lugar fecha o menu aberto, como o clique fora.
         if (aberto && !aberto.menu.contains(alvo)) { fechar(false); }
+
+        // PZ-CTX-08: botão direito sobre o próprio ⋮ (cabeçalho ou cartão) abre o mesmo menu do clique,
+        // sob o ⋮ — o dc liga os dois eventos ao mesmo handler (L.1680 `procHdMenu`).
+        var gatilhoProprio = alvo.closest('.js-proc-menu-gatilho');
+        if (gatilhoProprio) {
+            var menuProprio = document.getElementById(gatilhoProprio.getAttribute('aria-controls') || '');
+            if (!menuProprio) { return; }
+            e.preventDefault();
+            abrirMenu(menuProprio, gatilhoProprio, null);
+            return;
+        }
 
         var cartao = alvo.closest('article.ps-processo[data-ps-menu-contexto]');
         if (!cartao) { return; }
@@ -284,11 +314,21 @@
         botao.disabled = false;
         botao.removeAttribute('aria-busy');
         delete form.dataset.enviando;
-        window.alert(mensagem || 'Não foi possível alterar "Administrativo sem processo". Tente de novo.');
+        (window.avisarErroPs || window.alert)(mensagem || BJ_T.t('pasta_processo.js.administrativa_falhou'));
         botao.focus();
     }
 
-    document.addEventListener('submit', function (e) {
+    /* E7: a pergunta sai na janela da tela (pasta-dialogos.js `confirmarUIPs`), AZUL e com o título do
+       desenho ("Marcar como administrativo", dc L.6878 `admSPtoggle`); sem ela, o confirm do navegador. */
+    function perguntarAdministrativa(texto) {
+        if (window.confirmarUIPs) {
+            return window.confirmarUIPs(BJ_T.t('pasta_processo.js.administrativa_titulo') + '\n' + texto.replace(/\s*\n\s*/g, ' '), false);
+        }
+
+        return Promise.resolve(window.confirm(texto));
+    }
+
+    document.addEventListener('submit', async function (e) {
         var form = e.target;
         if (!(form instanceof HTMLFormElement) || !form.matches('form.js-pasta-administrativa')) { return; }
         // Sem fetch, segue o caminho sem JS (POST + recarga).
@@ -298,7 +338,13 @@
         if (form.dataset.enviando) { return; }
 
         var confirmar = form.getAttribute('data-confirmar');
-        if (confirmar && !window.confirm(confirmar)) { return; }
+        if (confirmar) {
+            // Enquanto pergunta, outro clique não abre uma segunda janela nem envia.
+            form.dataset.enviando = '1';
+            var sim = await perguntarAdministrativa(confirmar);
+            delete form.dataset.enviando;
+            if (!sim || !document.contains(form)) { return; }
+        }
 
         var botao = form.querySelector('button[role="switch"]');
         if (!botao) { form.submit(); return; }
@@ -322,7 +368,7 @@
         }, function () {
             // Só a falha de REDE desfaz aqui: um erro depois da troca não pode
             // "desligar" na tela o que o servidor já gravou.
-            falhaAdministrativa(form, botao, ligadoAntes, 'Erro de comunicação. A marcação pode não ter sido salva — recarregue a página.');
+            falhaAdministrativa(form, botao, ligadoAntes, BJ_T.t('pasta_processo.js.administrativa_sem_comunicacao'));
             return null;
         }).then(function (r) {
             if (!r) { return; }
@@ -338,6 +384,90 @@
             window.mpSwapProcessos(r.dados.html);
             var novo = document.querySelector('form.js-pasta-administrativa button[role="switch"]');
             if (novo) { novo.focus(); }
+        });
+    });
+
+    /* ── Editar dados do processo no cartão (P5b; desenho N:1794-1818) ────
+       O formulário já vem no cartão, escondido. Abrir esconde o painel "todas as
+       informações" (desenho: `verDetalhes = exp && !draft`); Cancelar e Esc voltam ao que
+       estava; Salvar manda por XHR e troca o cartão (`mpSwapProcessos`), abrindo o painel
+       do processo salvo, como o `salvar` do desenho. Sem JS, o form faz POST comum. */
+    function cartaoEmEdicao(dentro) {
+        var cartao = dentro.closest('article.ps-processo');
+        var form = cartao ? cartao.querySelector('form.js-proc-edicao') : null;
+        return form && !form.hidden ? form : null;
+    }
+
+    function abrirEdicao(form, voltarPara) {
+        if (!(form instanceof HTMLFormElement)) { return; }
+        var cartao = form.closest('article.ps-processo');
+        var botaoMais = cartao ? cartao.querySelector('.js-proc-alternar') : null;
+        if (botaoMais && botaoMais.getAttribute('aria-expanded') === 'true') { alternar(botaoMais); }
+        form.hidden = false;
+        form.psVoltarPara = voltarPara || null;
+        var primeiro = form.querySelector('input[type="text"], textarea');
+        if (primeiro) { primeiro.focus(); }
+    }
+
+    function fecharEdicao(form, devolverFoco) {
+        form.reset();
+        form.hidden = true;
+        if (devolverFoco) {
+            var cartao = form.closest('article.ps-processo');
+            var volta = form.psVoltarPara || (cartao ? cartao.querySelector('.js-proc-menu-gatilho') : null);
+            if (volta && document.contains(volta)) { volta.focus(); }
+        }
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || !e.target || !e.target.closest) { return; }
+        var form = e.target.closest('form.js-proc-edicao');
+        if (!form || form.hidden) { return; }
+        e.preventDefault();
+        fecharEdicao(form, true);
+    });
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches('form.js-proc-edicao')) { return; }
+        if (typeof window.mpSwapProcessos !== 'function') { return; }
+        e.preventDefault();
+
+        var salvar = form.querySelector('.ps-processo-edicao-salvar');
+        if (salvar) { salvar.disabled = true; }
+        var cartao = form.closest('article.ps-processo');
+        var processoId = cartao ? cartao.getAttribute('data-processo-id') : null;
+        function avisar(texto, tipo) {
+            if (window.avisarPs) { window.avisarPs(texto, tipo); } else if (tipo === 'erro') { window.alert(texto); }
+        }
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: new FormData(form),
+        }).then(function (resp) {
+            return resp.json().catch(function () { return {}; }).then(function (dados) {
+                return { ok: resp.ok, dados: dados || {} };
+            });
+        }).then(function (r) {
+            if (!r.ok || r.dados.sucesso !== true || typeof r.dados.html !== 'string') {
+                // `erro` do controller; `mensagem` da recusa da pasta excluída (PastaSomenteLeituraListener).
+                var motivo = typeof r.dados.erro === 'string' ? r.dados.erro : (typeof r.dados.mensagem === 'string' ? r.dados.mensagem : '');
+                avisar(motivo || BJ_T.t('pasta_processo.js.dados_falhou'), 'erro');
+                if (salvar) { salvar.disabled = false; }
+                return;
+            }
+            window.mpSwapProcessos(r.dados.html);
+            var novo = processoId ? document.querySelector('article.ps-processo[data-processo-id="' + processoId + '"] .js-proc-alternar') : null;
+            if (novo) {
+                alternar(novo);
+                novo.focus();
+            }
+            if (typeof r.dados.aviso === 'string') { avisar(r.dados.aviso, 'ok'); }
+        }, function () {
+            avisar(BJ_T.t('pasta_processo.js.dados_sem_comunicacao'), 'erro');
+            if (salvar) { salvar.disabled = false; }
         });
     });
 }());

@@ -1,0 +1,51 @@
+{# ============================================================================
+   Aba Documentos do drawer BlueJus IA (spec inteligencia-drawer-da-pasta, F4;
+   desenho 02 - EXPEDIENTES - VS 18.10.26, dc L1041-1058 e L5961-5968).
+
+   O conteúdo desta aba mora dentro do `tabpanel` do `_agentes_painel.html.twig`
+   (cada bloco é filho direto do painel da aba):
+   · o texto do topo, honesto: a IA monta o índice pelos dados de cada arquivo.
+     O do desenho promete leitura e OCR; a regra 7 do domínio (o conteúdo dos
+     documentos não é lido) corrige o protótipo;
+   · o cartão da lista: "Selecionar todos" com a contagem "N de M", a divisória e
+     uma linha por documento (caixa de marcar, ícone do arquivo pelo tipo, nome
+     numa linha e "1,2 MB · 18/08" ou "240 KB · hoje", como o `meta` do
+     desenho, dc L6578-6580; o tipo está no ícone). Só metadados;
+   · a seção do "Índice inteligente" (`_comando_secao.html.twig`): o botão na
+     largura toda, desabilitado sem documento marcado, e embaixo o resultado e o
+     histórico do comando. "Ler N documentos" do desenho NÃO entra (D13).
+
+   O `pasta-ia-agentes.js` marca e desmarca (`data-ia-doc`, `data-ia-docs-todos`),
+   atualiza a contagem e manda os ids marcados como `documentos[]` no POST.
+
+   Contexto: `documentos` (App\Inteligencia\DTO\DocumentosDoIndiceOutput, ou null
+   no HTML da pasta, antes de o painel carregar), `comando` (o Índice, enum
+   Comando), `saida` (AnalisesDoComandoOutput ou null), `pastaId` (int), `ia`
+   (enum Disponibilidade).
+   ============================================================================ #}
+<p class="ia-aba-intro">{{ 'inteligencia.documentos.intro'|trans }}</p>
+<div class="ia-docs" role="group" aria-label="{{ 'inteligencia.documentos.grupo'|trans }}" data-ia-docs>
+    {% if documentos is null %}
+        <p class="ia-ag-vazio ia-docs-aviso" data-ia-docs-carregando>{{ 'inteligencia.documentos.carregando'|trans }}</p>
+    {% elseif documentos.vazia %}
+        <p class="ia-ag-vazio ia-docs-aviso" data-ia-docs-vazio>{{ 'inteligencia.documentos.vazio'|trans }}</p>
+    {% else %}
+        <button type="button" class="ia-doc ia-doc--todos" data-ia-docs-todos aria-pressed="false">
+            <span class="ia-doc-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+            <span class="ia-doc-todos-rotulo">{{ 'inteligencia.documentos.selecionar_todos'|trans }}</span>
+            <span class="ia-doc-contagem" data-ia-docs-contagem data-ia-docs-total="{{ documentos.total }}">{{ 'inteligencia.documentos.contagem'|trans({total: documentos.total ~ ''}) }}</span>
+        </button>
+        <div class="ia-docs-divisoria" aria-hidden="true"></div>
+        {% for d in documentos.documentos %}
+            <button type="button" class="ia-doc" data-ia-doc="{{ d.id }}" aria-pressed="false" title="{{ d.nome }}">
+                <span class="ia-doc-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                <span class="ia-doc-ico ia-doc-ico--{{ d.familia }}" aria-hidden="true"><i class="bi {{ d.icone }}"></i></span>
+                <span class="ia-doc-txt">
+                    <span class="ia-doc-nome">{{ d.nome }}</span>
+                    <span class="ia-doc-dados">{{ d.dados }}</span>
+                </span>
+            </button>
+        {% endfor %}
+    {% endif %}
+</div>
+{{ include('inteligencia/_comando_secao.html.twig', {comando: comando, saida: saida, pastaId: pastaId, ia: ia, escolhido: true}, with_context = false) }}

@@ -1,0 +1,81 @@
+{% extends 'base.html.twig' %}
+
+{# ============================================================================
+   Tela "Pasta trancada" (spec pasta-cadeado K3; desenho 02 L1276-1293): quem está `Oculto` numa pasta com
+   cadeado vê só o cabeçalho com o nome do cliente e o CPF, e o pedido de acesso. Nada de abas, documentos,
+   processo, Push, financeiro, IA nem menu ⋮: esta página não inclui o cabeçalho completo da pasta, só a
+   linha do número e a do cliente, com as classes dele.
+
+   Contexto: `pasta`, `cad` (CadeadoNaTelaOutput).
+   ============================================================================ #}
+
+{% block title %}{{ 'pasta_avisos.trancada.titulo'|trans({pasta: pasta.nup ~ ''}) }}{% endblock %}
+
+{% block body_class %}ps-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="/css/pasta-show.css">
+<link rel="stylesheet" href="{{ asset('css/pasta-cadeado.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set cliente = pasta.clientePrincipal %}
+{% set documento = cliente ? (cliente.cpf is defined ? cliente.cpf : (cliente.cnpj is defined ? cliente.cnpj : null)) : null %}
+<div class="ps-page" data-cad-area="1" style="position:relative">
+    <header class="ps-card ps-cabecalho">
+        <div class="ps-cab-linha1">
+            <div class="ps-cab-identidade">
+                <a href="{{ path('expediente_index') }}" class="ps-btn ps-btn--voltar ps-cab-voltar" title="{{ 'pasta_avisos.trancada.voltar_dica'|trans }}">
+                    <i class="bi bi-arrow-left"></i><span>{{ 'pasta_avisos.trancada.voltar'|trans }}</span>
+                </a>
+                <span class="ps-cab-nup"><span>{{ 'termos.pasta'|trans|upper }}</span> <span class="ps-num">{{ pasta.nup }}</span></span>
+            </div>
+        </div>
+        <div class="ps-cab-cliente" data-cad-ate="1">
+            <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+            <div class="ps-cab-cliente-corpo">
+                <div class="ps-cab-cliente-linha">
+                    <h1 class="ps-cab-titulo">
+                        {%- if cliente -%}
+                            {{ cliente.nomeExibicao }}
+                        {%- elseif pasta.nomeCliente -%}
+                            {{ pasta.nomeCliente }}
+                        {%- else -%}
+                            <span class="ps-dado--vazio">{{ 'pasta_avisos.trancada.cliente_nao_informado'|trans }}</span>
+                        {%- endif -%}
+                    </h1>
+                </div>
+                {% if documento %}
+                    <span class="ps-cab-doc ps-num">{{ documento|documento_br_rotulo }} {{ documento|documento_br }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    {# O véu vai até o fim da página (sem faixa clara embaixo): o contêiner ocupa a altura da janela abaixo do cabeçalho. #}
+    <div style="position:relative;min-height:calc(100vh - 300px)">
+        <div style="position:absolute;left:0;right:0;top:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(234,238,241,.99) 220px);backdrop-filter:blur(6px);display:flex;justify-content:center;padding:28px 16px">
+            <div style="position:sticky;top:90px;align-self:flex-start;max-width:440px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+                <span data-cad-onda>{{ include('pasta/_cadeado_icone.html.twig', {px: 92, ondas: true}) }}</span>
+                <span style="font-size:17px;font-weight:700;color:#12242f">{{ 'pasta_avisos.trancada.titulo_veu'|trans }}</span>
+                <span style="font-size:13.5px;line-height:1.55;color:#4f6878;text-wrap:pretty">{{ 'pasta_avisos.trancada.texto'|trans }}</span>
+                {% if cad.podePedir %}
+                    <form method="post" action="{{ path('pasta_acesso_pedir', {id: pasta.id}) }}" style="display:contents">
+                        <input type="hidden" name="_token" value="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}">
+                        <input type="hidden" name="nivel" value="editar">
+                        <textarea name="motivo" maxlength="300" placeholder="{{ 'pasta_avisos.trancada.motivo'|trans }}" rows="2" style="width:min(360px,100%);box-sizing:border-box;padding:9px 11px;border:none;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px #d8e2e8;font-family:inherit;font-size:13px;color:#243845;resize:none;outline:none"></textarea>
+                        <button type="submit" style="display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 18px;border:none;border-radius:4px;background:#0a7aad;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:background .15s"><i class="bi bi-send"></i>{{ 'pasta_avisos.trancada.pedir'|trans }}</button>
+                    </form>
+                {% endif %}
+                {% if cad.aguardando %}
+                    <span style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:4px;background:#eef5fa;color:#0b5f86;font-size:13px;font-weight:600"><i class="bi bi-hourglass-split"></i>{{ 'pasta_avisos.trancada.aguardando'|trans({hora: cad.horaDoPedido ~ ''}) }}</span>
+                {% endif %}
+                {% if cad.recusado %}
+                    <span style="font-size:12.5px;color:#a3232b">{{ cad.recusadoTexto }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

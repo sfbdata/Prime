@@ -19,6 +19,8 @@ _Atualizado em 2026-07-01._
 ## Documentação (`docs/`)
 - [AUTORIZACAO.md](AUTORIZACAO.md) — modelo de autorização (4 camadas, bypasses, falhas)
 - [checklist-review.md](checklist-review.md)
+- [guias/ambiente-e-console.md](guias/ambiente-e-console.md) — uploads em DEV, tabela do console do Symfony, MCP de produção, geradores
+- [guias/desenho-para-tela.md](guias/desenho-para-tela.md) — implementar a partir de um desenho: origem, exemplos e armadilhas
 - [refatoracao-identidade-global.md](refatoracao-identidade-global.md)
 - [versionamento.md](versionamento.md) — política SemVer, fonte única da versão, release e rollback
 
@@ -84,21 +86,27 @@ _Atualizado em 2026-07-01._
 
 ## Instruções por camada (CLAUDE.md)
 - [app/src/CLAUDE.md](../app/src/CLAUDE.md) — layout de domínios, legado, regras transversais
-- [app/src/Controller/CLAUDE.md](../app/src/Controller/CLAUDE.md) — padrões de controller, rotas, permissões
-- [app/src/Entity/CLAUDE.md](../app/src/Entity/CLAUDE.md) — entidades Doctrine, UUID, multi-tenant, enums
-- [app/src/Repository/CLAUDE.md](../app/src/Repository/CLAUDE.md) — filtro de tenant, paginação, DTOs via DQL
+- [app/src/Controller/CLAUDE.md](../app/src/Controller/CLAUDE.md) — pasta legada: edição mínima ou migração para o domínio
+- [app/src/Entity/CLAUDE.md](../app/src/Entity/CLAUDE.md) — pasta legada: edição mínima ou migração para o domínio
+- [app/src/Repository/CLAUDE.md](../app/src/Repository/CLAUDE.md) — pasta legada: edição mínima ou migração para o domínio
 - [app/src/Shared/CLAUDE.md](../app/src/Shared/CLAUDE.md) — código transversal
+- [app/src/Central/CLAUDE.md](../app/src/Central/CLAUDE.md) — Central de Comunicação: regras inegociáveis
+- [app/src/Inteligencia/CLAUDE.md](../app/src/Inteligencia/CLAUDE.md) — BlueJus IA: regras inegociáveis
 - [app/templates/CLAUDE.md](../app/templates/CLAUDE.md) — convenções Twig
 - [app/tests/CLAUDE.md](../app/tests/CLAUDE.md) — tipos de teste, DAMA, Foundry, attributes PHPUnit
 
 ## Skills e comandos (`.claude/`)
+- [agents/feature-implementer.md](../.claude/agents/feature-implementer.md)
+- [agents/feature-review-agent.md](../.claude/agents/feature-review-agent.md) — revisor read-only do `/review`
 - [commands/git-commit.md](../.claude/commands/git-commit.md)
 - [commands/relatorio-dia.md](../.claude/commands/relatorio-dia.md)
 - [commands/review.md](../.claude/commands/review.md)
+- [skills/armazenamento-de-arquivos/SKILL.md](../.claude/skills/armazenamento-de-arquivos/SKILL.md) — arquivo por chave (saiu do Shared/CLAUDE.md)
 - [skills/criar-controller/SKILL.md](../.claude/skills/criar-controller/SKILL.md)
 - [skills/criar-dto/SKILL.md](../.claude/skills/criar-dto/SKILL.md)
 - [skills/criar-entity/SKILL.md](../.claude/skills/criar-entity/SKILL.md)
 - [skills/criar-form/SKILL.md](../.claude/skills/criar-form/SKILL.md)
+- [skills/criar-migration/SKILL.md](../.claude/skills/criar-migration/SKILL.md) — ritual do make:migration
 - [skills/criar-repository/SKILL.md](../.claude/skills/criar-repository/SKILL.md)
 - [skills/criar-usecase/SKILL.md](../.claude/skills/criar-usecase/SKILL.md)
 - [skills/workflow/SKILL.md](../.claude/skills/workflow/SKILL.md)

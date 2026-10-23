@@ -11,11 +11,13 @@ use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Processo\Enum\MotivoFalhaDatajud;
 use App\Processo\Exception\ConsultaDatajudException;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\DatajudClient;
+use App\Processo\Service\ConsultasDoCnjGuardadas;
 use App\Processo\Service\DatajudProcessoMapper;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Processo\Service\ValidadorNumeroCnj;
@@ -51,9 +53,20 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/processos')]
 class ProcessoController extends AbstractController
 {
+    /** Atributo da sub-requisição da pasta (`PastaController::buscarProcessoNoCnj`): o id da pasta autorizada. */
+    public const CNJ_PELA_PASTA = '_cnj_pela_pasta';
+
     use ResourceAccessTrait;
 
     private const PER_PAGE = 25;
+
+    /**
+     * Acima desta quantidade de processos mais novos do mesmo foro já publicados, o atraso da base
+     * não explica a ausência. Medido em 15/10/2026: processo sigiloso de vara de família com 466
+     * posteriores, arquivado com 1.187, recente com 0. Perto do corte de publicação a base fica
+     * com buracos de poucos processos (um caso real tinha 1), daí a margem.
+     */
+    private const POSTERIORES_PARA_DESCARTAR_ATRASO = 50;
 
     public function __construct(
         private readonly TenantContext $tenantContext,
@@ -61,7 +74,7 @@ class ProcessoController extends AbstractController
     ) {}
 
     #[Route('/', name: 'processo_index', methods: ['GET'])]
-    public function index(Request $request, ProcessoRepository $repo, PermissionChecker $permissionChecker): Response
+    public function index(Request $request, ProcessoRepository $repo, PermissionChecker $permissionChecker, AcessoAPasta $acessoAPasta): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -82,11 +95,11 @@ class ProcessoController extends AbstractController
         $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
         $pagina  = max(1, (int) $request->query->get('page', 1));
 
-        $total        = $repo->countByFiltros($tenant, $filtros);
+        $total        = $repo->countByFiltros($tenant, $filtros, $tenant !== null ? $acessoAPasta->idsDosProcessosOcultos($currentUser, $tenant) : []);
         $totalPaginas = max(1, (int) ceil($total / self::PER_PAGE));
 
         $dados = [
-            'processos'     => $repo->findByFiltrosPaginado($tenant, $filtros, $pagina, self::PER_PAGE, $ordenar, $direcao),
+            'processos'     => $repo->findByFiltrosPaginado($tenant, $filtros, $pagina, self::PER_PAGE, $ordenar, $direcao, $tenant !== null ? $acessoAPasta->idsDosProcessosOcultos($currentUser, $tenant) : []),
             'total'         => $total,
             'pagina'        => $pagina,
             'total_paginas' => $totalPaginas,
@@ -195,6 +208,7 @@ class ProcessoController extends AbstractController
         TarefaRepository $tarefaRepository,
         PastaRepository $pastaRepository,
         PermissionChecker $permissionChecker,
+        AcessoAPasta $acessoAPasta,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -202,6 +216,9 @@ class ProcessoController extends AbstractController
 
         $tenant = $this->tenantContext->getCurrentTenant();
         $processoId = (int) $processo->getId();
+        if ($tenant !== null && in_array($processoId, $acessoAPasta->idsDosProcessosOcultos($currentUser, $tenant), true)) {
+            throw $this->createAccessDeniedException('O usuário primário restringiu o acesso às pastas deste processo.');
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, $tenant, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW, 'processo_index', $processo->getNumeroProcesso())) {
             return $redirect;
         }
@@ -242,7 +259,7 @@ class ProcessoController extends AbstractController
         // Sem escritório no contexto não há a quem perguntar quais pastas são visíveis —
         // lista vazia é o único resultado seguro (o super admin global cai aqui).
         $pastasVinculadas = $tenant !== null
-            ? $pastaRepository->listarVinculadasAoProcesso($processo, $tenant)
+            ? $pastaRepository->listarVinculadasAoProcesso($processo, $tenant, $currentUser)
             : [];
 
         return $this->render('processo/show.html.twig', [
@@ -275,13 +292,13 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/api/search', name: 'api_datajud_search', methods: ['POST'])]
-    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger, ValidadorNumeroCnj $validadorNumeroCnj): JsonResponse
+    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger, ValidadorNumeroCnj $validadorNumeroCnj, ConsultasDoCnjGuardadas $consultasDoCnj): JsonResponse
     {
         // Gateia pela permissão do módulo: a action dispara consulta à API externa do CNJ — sem
         // guard, qualquer logado abusaria do custo/rate-limit. Não persiste nada (B8).
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
-        if (!$permissionChecker->canAccessModule($user, $this->tenantContext->getCurrentTenant(), 'processos')) {
+        if (!$this->podeConsultarCnj($request, $permissionChecker, $user)) {
             return $this->erroDatajud('Você não tem permissão para consultar processos no CNJ.', Response::HTTP_FORBIDDEN);
         }
 
@@ -306,12 +323,13 @@ class ProcessoController extends AbstractController
 
             if ($hits === []) {
                 return $this->erroDatajud(
-                    $this->mensagemNaoEncontrado($numeroProcesso, $validadorNumeroCnj),
+                    $this->mensagemNaoEncontrado($numeroProcesso, $validadorNumeroCnj, $datajudClient, $logger),
                     404
                 );
             }
 
             $processData = $hits[0]['_source'] ?? [];
+            $this->guardarConsulta($consultasDoCnj, $request, $user, $numeroProcesso, $processData);
 
             // Criar um processo temporário para mapping
             $processo = new Processo();
@@ -389,6 +407,29 @@ class ProcessoController extends AbstractController
         }
     }
 
+    /**
+     * O módulo `processos`, ou a consulta encaminhada pela pasta (a4, spec processo-cadastro-pela-pasta): a rota
+     * da pasta já exigiu EDIT nela e passa o atributo no `forward`. O atributo só nasce no servidor: esta rota não
+     * tem parâmetro de caminho, e query e corpo não viram atributo.
+     */
+    private function podeConsultarCnj(Request $request, PermissionChecker $permissionChecker, \App\Entity\Auth\User $usuario): bool
+    {
+        return $request->attributes->getInt(self::CNJ_PELA_PASTA) > 0
+            || $permissionChecker->canAccessModule($usuario, $this->tenantContext->getCurrentTenant(), 'processos');
+    }
+
+    /**
+     * Guarda o `_source` no servidor (30 min, por escritório, pessoa, sessão e número) para o cadastro pela janela
+     * da pasta aplicar o que a resposta não leva de volta (a1). O navegador nunca devolve esses dados.
+     */
+    private function guardarConsulta(ConsultasDoCnjGuardadas $consultasDoCnj, Request $request, \App\Entity\Auth\User $usuario, string $numeroSoDigitos, mixed $source): void
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant !== null && is_array($source)) {
+            $consultasDoCnj->guardar($tenant, $usuario, $request->getSession()->getId(), $numeroSoDigitos, $source);
+        }
+    }
+
     private function erroDatajud(string $mensagem, int $status): JsonResponse
     {
         $response = new JsonResponse(['error' => $mensagem], $status);
@@ -412,23 +453,42 @@ class ProcessoController extends AbstractController
      * consultado no CNJ normalmente. Bloquear a consulta deixaria o usuário sem saída diante
      * de um número atípico, e não é isso que estamos consertando.
      */
-    private function mensagemNaoEncontrado(string $numeroProcesso, ValidadorNumeroCnj $validador): string
+    private function mensagemNaoEncontrado(string $numeroProcesso, ValidadorNumeroCnj $validador, DatajudClient $datajudClient, LoggerInterface $logger): string
     {
         $sigla = $this->derivarSiglaSegura($numeroProcesso);
+        $base = $sigla !== null ? sprintf('na base pública do %s', $sigla) : 'na base pública do CNJ';
 
         if (!$validador->digitoVerificadorConfere($numeroProcesso)) {
             $abertura = $sigla !== null
                 ? sprintf('Consultamos a base do %s e não encontramos nenhum processo com esse número.', $sigla)
                 : 'Não encontramos nenhum processo com esse número.';
 
-            return $abertura . ' Confira o número digitado: o dígito verificador não confere, o que costuma indicar erro de digitação.';
+            return $abertura . ' Confira o número digitado: o dígito verificador não confere, o que costuma indicar erro de digitação. Se o número estiver certo, preencha os dados manualmente.';
         }
 
-        $abertura = $sigla !== null
-            ? sprintf('O número é válido, mas não encontramos este processo na base do %s.', $sigla)
-            : 'O número é válido, mas não encontramos este processo na base pública do CNJ.';
+        // Segunda consulta só para escolher a explicação: se falhar, cai na mensagem que cobre as duas causas.
+        try {
+            $posteriores = $datajudClient->contarPosterioresNoForo($numeroProcesso, self::POSTERIORES_PARA_DESCARTAR_ATRASO);
+        } catch (ConsultaDatajudException | TribunalNaoIdentificadoException $e) {
+            $logger->warning('Falha ao contar processos posteriores no Datajud', ['erro' => $e->getMessage()]);
+            $posteriores = null;
+        }
 
-        return $abertura . ' A base pública do CNJ é publicada com atraso de algumas semanas e não inclui processos em segredo de justiça — se o processo é recente, tente de novo em alguns dias ou preencha os dados manualmente.';
+        if ($posteriores === 0) {
+            return sprintf('O número é válido, mas este processo ainda não aparece %s.', $base)
+                . ' A base do CNJ é publicada com algumas semanas de atraso e ainda não chegou aos processos mais recentes deste foro.'
+                . ' Para cadastrar agora, preencha os dados manualmente. Se preferir, tente a busca de novo daqui a algumas semanas.';
+        }
+
+        if ($posteriores !== null && $posteriores >= self::POSTERIORES_PARA_DESCARTAR_ATRASO) {
+            return sprintf('O número é válido, mas este processo não aparece %s, embora processos mais novos do mesmo foro já apareçam.', $base)
+                . ' Isso acontece com processos em segredo de justiça (como os de família) e com processos arquivados, que a base pública não divulga.'
+                . ' Ele não vai aparecer na busca: preencha os dados manualmente.';
+        }
+
+        return sprintf('O número é válido, mas não encontramos este processo %s.', $base)
+            . ' Isso acontece com processos recentes, que o CNJ publica com algumas semanas de atraso, e com processos em segredo de justiça ou arquivados, que a base pública não divulga.'
+            . ' Preencha os dados manualmente.';
     }
 
     /**

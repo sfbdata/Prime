@@ -10,10 +10,10 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
-use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Tests\Processo\Unit\CriaResolucaoDeMencoesDaNota;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
+use App\Tests\Pasta\Support\CriaPrazoDoComentario;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -21,6 +21,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(EditarObservacaoDetalhesUseCase::class)]
 final class EditarObservacaoDetalhesUseCaseTest extends TestCase
 {
+    use CriaPrazoDoComentario;
+
     use CriaSanitizadorTextoRico;
     use CriaResolucaoDeMencoesDaNota;
 
@@ -32,7 +34,7 @@ final class EditarObservacaoDetalhesUseCaseTest extends TestCase
     {
         $this->tenant  = $this->definirId(new Tenant(), 1);
         $this->montarMencoes();
-        $this->useCase = new EditarObservacaoDetalhesUseCase($this->em, $this->criarSanitizadorTextoRico(), new JanelaDeEdicaoDeComentario(), $this->resolucao);
+        $this->useCase = new EditarObservacaoDetalhesUseCase($this->em, $this->criarSanitizadorTextoRico(), $this->prazoDoComentario(), $this->resolucao);
         $this->autor   = $this->pessoa(1, 'Ana Souza');
     }
 

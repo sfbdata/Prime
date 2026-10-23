@@ -12,14 +12,23 @@ use App\Repository\InvitationRepository;
 use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
+/**
+ * O token do link não fica no banco: só o hash SHA-256 dele (achado de auditoria interna, spec
+ * `docs/specs/seguranca-a-convites.md`, raiz B). Quem tem o banco não tem o link. O token puro só existe em
+ * memória, no caso de uso que o gera e no e-mail; o link `/convite/{token}` calcula o hash para buscar.
+ */
 #[ORM\Entity(repositoryClass: InvitationRepository::class)]
 #[ORM\Table(name: 'invitation')]
-#[ORM\UniqueConstraint(name: 'uq_invitation_token', columns: ['token'])]
+#[ORM\UniqueConstraint(name: 'uq_invitation_token_hash', columns: ['token_hash'])]
 #[ORM\Index(name: 'idx_invitation_email', columns: ['email'])]
 #[ORM\Index(name: 'idx_invitation_status_expires', columns: ['status', 'expires_at'])]
 #[ORM\Index(name: 'idx_invitation_tenant_status', columns: ['tenant_id', 'status'])]
 class Invitation implements Auditavel
 {
+    /** Valores gravados em `type`. Use sempre as constantes: o nome em inglês é o que está no banco. */
+    public const TIPO_ESCRITORIO = 'office';
+    public const TIPO_PLATAFORMA = 'platform';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -66,7 +75,7 @@ class Invitation implements Auditavel
         private string $email,
 
         #[ORM\Column(length: 64)]
-        private string $token,
+        private string $tokenHash,
 
         #[ORM\Column(length: 20)]
         private string $type,
@@ -83,7 +92,24 @@ class Invitation implements Auditavel
 
     public function getEmail(): string { return $this->email; }
 
-    public function getToken(): string { return $this->token; }
+    public static function hashDoToken(string $token): string
+    {
+        return hash('sha256', $token);
+    }
+
+    /** Token novo do link: o puro vai só para o e-mail; o banco recebe o `hashDoToken()` dele. */
+    public static function gerarToken(): string
+    {
+        return bin2hex(random_bytes(32));
+    }
+
+    public function getTokenHash(): string { return $this->tokenHash; }
+
+    /** Novo link: o banco só guarda o hash, então reenviar é trocar o token (o link anterior deixa de valer). */
+    public function trocarToken(string $novoTokenHash): void
+    {
+        $this->tokenHash = $novoTokenHash;
+    }
 
     public function getType(): string { return $this->type; }
 

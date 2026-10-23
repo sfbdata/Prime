@@ -10,10 +10,15 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
+use App\Shared\Prazo\RegraDoPrazo;
+use App\Tarefa\Enum\EtapaDaPasta;
+use App\Tarefa\Enum\PrioridadeDaMeta;
+use App\Tarefa\Enum\TipoDeDemanda;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+#[ORM\UniqueConstraint(name: 'uniq_tarefa_tenant_numero', columns: ['tenant_id', 'numero'])]
 class Tarefa implements Auditavel, TenantAware
 {
     public const STATUS_PENDENTE    = 'pendente';
@@ -31,6 +36,14 @@ class Tarefa implements Auditavel, TenantAware
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
+    /**
+     * Número da meta na sequência do ESCRITÓRIO ("Nº 0001", desenho 02 L1559). Nunca o id, que é global
+     * e expõe o volume dos outros escritórios (PMC-035). Atribuído ao criar pelo `GravarMetaNovaUseCase`;
+     * nulo nas metas antigas até o `app:tarefa:numerar-metas` rodar.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $numero = null;
+
     #[ORM\Column(length: 255)]
     private string $titulo;
 
@@ -42,6 +55,32 @@ class Tarefa implements Auditavel, TenantAware
 
     #[ORM\Column(length: 20)]
     private string $status = self::STATUS_PENDENTE;
+
+    /** Prioridade própria da meta (desenho 04); nasce herdada da pasta (`PrioridadeDaMeta::daPasta`). */
+    #[ORM\Column(length: 20, enumType: PrioridadeDaMeta::class, options: ['default' => 'normal'])]
+    private PrioridadeDaMeta $prioridade = PrioridadeDaMeta::Normal;
+
+    /**
+     * Caixa da esteira em que a meta está (desenho 04 de 22/10). Sem etapa escolhida, a meta nasce na etapa
+     * deduzida do título (`EtapaDaPasta::deduzirDoTitulo`, no `definirEtapaPeloTitulo`).
+     */
+    #[ORM\Column(length: 20, enumType: EtapaDaPasta::class, options: ['default' => 'juridico'])]
+    // Nula só entre o `new` e o PrePersist; no banco é NOT NULL, com Jurídico para INSERT feito por SQL.
+    private ?EtapaDaPasta $etapa = null; // @phpstan-ignore doctrine.columnType
+
+    /** Decide a sequência de caixas por onde a pasta passa (`TipoDeDemanda::sequencia`). */
+    #[ORM\Column(name: 'tipo_de_demanda', length: 20, enumType: TipoDeDemanda::class, options: ['default' => 'judicial'])]
+    private TipoDeDemanda $tipoDeDemanda = TipoDeDemanda::Judicial;
+
+    /**
+     * Etapas da esteira que a pasta saltou até chegar a esta meta (desenho 04B L44: riscadas no trilho, "N etapa(s)
+     * saltada(s): X, Y"). Lista dos valores de `EtapaDaPasta`, na ordem da esteira; a meta da etapa seguinte herda a
+     * lista e soma o que a passagem saltou (04B L175 `pul`).
+     *
+     * @var list<string>
+     */
+    #[ORM\Column(name: 'etapas_saltadas', type: 'json', options: ['default' => '[]'])]
+    private array $etapasSaltadas = [];
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $dataCriacao;
@@ -79,7 +118,7 @@ class Tarefa implements Auditavel, TenantAware
     private Collection $acompanhantes;
 
     #[ORM\OneToMany(mappedBy: 'tarefa', targetEntity: TarefaMensagem::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
-    #[ORM\OrderBy(['criadoEm' => 'ASC'])]
+    #[ORM\OrderBy(['criadoEm' => 'ASC', 'id' => 'ASC'])]
     private Collection $mensagens;
 
     public function __construct()
@@ -88,6 +127,12 @@ class Tarefa implements Auditavel, TenantAware
         $this->mensagens   = new ArrayCollection();
         $this->responsaveis = new ArrayCollection();
         $this->acompanhantes = new ArrayCollection();
+    }
+
+    #[ORM\PrePersist]
+    public function definirEtapaPeloTitulo(): void
+    {
+        $this->etapa ??= EtapaDaPasta::deduzirDoTitulo($this->titulo);
     }
 
     #[ORM\PreUpdate]
@@ -99,6 +144,26 @@ class Tarefa implements Auditavel, TenantAware
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getNumero(): ?int
+    {
+        return $this->numero;
+    }
+
+    /** O número é dado uma vez só: trocar o de uma meta já numerada a desligaria do que já foi citado. */
+    public function numerar(int $numero): self
+    {
+        if ($this->numero !== null) {
+            throw new \LogicException('Esta meta já tem número.');
+        }
+        if ($numero < 1) {
+            throw new \InvalidArgumentException('O número da meta começa em 1.');
+        }
+
+        $this->numero = $numero;
+
+        return $this;
     }
 
     public function getTitulo(): string
@@ -142,6 +207,63 @@ class Tarefa implements Auditavel, TenantAware
     public function setStatus(string $status): self
     {
         $this->status = $status;
+        return $this;
+    }
+
+    public function getPrioridade(): PrioridadeDaMeta
+    {
+        return $this->prioridade;
+    }
+
+    public function setPrioridade(PrioridadeDaMeta $prioridade): self
+    {
+        $this->prioridade = $prioridade;
+
+        return $this;
+    }
+
+    public function getEtapa(): EtapaDaPasta
+    {
+        return $this->etapa ?? EtapaDaPasta::deduzirDoTitulo($this->titulo);
+    }
+
+    public function setEtapa(EtapaDaPasta $etapa): self
+    {
+        $this->etapa = $etapa;
+
+        return $this;
+    }
+
+    public function getTipoDeDemanda(): TipoDeDemanda
+    {
+        return $this->tipoDeDemanda;
+    }
+
+    public function setTipoDeDemanda(TipoDeDemanda $tipoDeDemanda): self
+    {
+        $this->tipoDeDemanda = $tipoDeDemanda;
+
+        return $this;
+    }
+
+    /** @return list<EtapaDaPasta> na ordem da esteira, sem repetir; valor desconhecido no banco é ignorado */
+    public function getEtapasSaltadas(): array
+    {
+        $etapas = array_values(array_filter(array_map(EtapaDaPasta::tryFrom(...), $this->etapasSaltadas)));
+        usort($etapas, static fn (EtapaDaPasta $a, EtapaDaPasta $b): int => $a->posicao() <=> $b->posicao());
+
+        return $etapas;
+    }
+
+    /** @param iterable<EtapaDaPasta> $etapas */
+    public function setEtapasSaltadas(iterable $etapas): self
+    {
+        $valores = [];
+        foreach ($etapas as $etapa) {
+            $valores[$etapa->value] = $etapa->value;
+        }
+        $this->etapasSaltadas = array_values($valores);
+
         return $this;
     }
 
@@ -284,17 +406,18 @@ class Tarefa implements Auditavel, TenantAware
     }
 
     /**
+     * A contagem de dias é a da RegraDoPrazo (dias de calendário; a hora gravada no prazo não conta), para a
+     * meta dar o mesmo veredito aqui e na Pasta. $hoje existe para os testes; sem ele, é hoje.
+     *
      * @return array{dias: int|null, cor: string, texto: string}
      */
-    public function getPrazoInfo(): array
+    public function getPrazoInfo(?\DateTimeImmutable $hoje = null): array
     {
         if ($this->prazo === null || $this->status === self::STATUS_CONCLUIDA) {
             return ['dias' => null, 'cor' => '', 'texto' => '-'];
         }
 
-        $hoje = new \DateTimeImmutable('today');
-        $diff = $hoje->diff($this->prazo);
-        $dias = (int) $diff->format('%r%a');
+        $dias = RegraDoPrazo::diasAte($this->prazo, $hoje);
 
         if ($dias > 3) {
             $cor = 'success';

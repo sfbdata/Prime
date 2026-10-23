@@ -22,9 +22,9 @@
             </div>
             <div class="flex-grow-1"></div>
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                <li class="breadcrumb-item"><a href="{{ path('dashboard_index', lista.filtros|filter((v, k) => k in ['responsavel', 'cargo', 'data_de', 'data_ate'])) }}">Dashboard</a></li>
-                <li class="breadcrumb-item active">Metas da equipe</li>
+                <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'metas.migalha.home'|trans }}</a></li>
+                {% set filtrosDoDashboard = lista.filtros|filter((v, k) => k in ['responsavel', 'cargo', 'data_de', 'data_ate']) %}<li class="breadcrumb-item"><a href="{{ path('dashboard_index', filtrosDoDashboard) }}">{{ 'metas.equipe.migalha_dashboard'|trans }}</a></li>
+                <li class="breadcrumb-item active">{{ 'metas.equipe.migalha_atual'|trans }}</li>
             </ol>
         </div>
     </div>
@@ -36,8 +36,8 @@
             {% if lista.estaVazia %}
                 <div class="mm-vazio" data-equipe-vazio>
                     <i class="bi bi-check2-all"></i>
-                    <div class="mm-vazio-titulo">Nenhuma meta encontrada com esses filtros</div>
-                    <div class="mm-vazio-sub">Volte ao Dashboard e escolha outro colaborador, cargo ou período.</div>
+                    <div class="mm-vazio-titulo">{{ 'metas.equipe.vazio_titulo'|trans }}</div>
+                    <div class="mm-vazio-sub">{{ 'metas.equipe.vazio_sub'|trans }}</div>
                 </div>
             {% else %}
                 <div class="mm-tabela-scroll">
@@ -45,11 +45,11 @@
 
                         <div class="mm-linha mm-linha-cabeca">
                             <div></div>
-                            <div class="mm-th">Meta</div>
-                            <div class="mm-th">Responsável</div>
-                            <div class="mm-th">Prazo</div>
-                            <div class="mm-th">Status</div>
-                            <div class="mm-th">Criada</div>
+                            <div class="mm-th">{{ 'metas.lista.cabecalho.meta'|trans }}</div>
+                            <div class="mm-th">{{ 'metas.lista.cabecalho.responsavel'|trans }}</div>
+                            <div class="mm-th">{{ 'metas.lista.cabecalho.prazo'|trans }}</div>
+                            <div class="mm-th">{{ 'metas.lista.cabecalho.status'|trans }}</div>
+                            <div class="mm-th">{{ 'metas.lista.cabecalho.criada'|trans }}</div>
                             <div></div>
                         </div>
 
@@ -59,7 +59,7 @@
                             {% set emRevisao = meta.status == 'em_revisao' %}
                             {% set tomPrazo = concluida ? 'muted' : (emRevisao ? 'accent' : (info.cor == 'danger' ? 'danger' : (info.cor == 'warning' ? 'warn' : 'cinza'))) %}
                             {% set tomStatus = concluida ? 'ok' : (emRevisao ? 'accent' : (info.dias is not null and info.dias < 0 ? 'danger' : 'warn')) %}
-                            {% set rotuloStatus = concluida ? 'Concluída' : (emRevisao ? 'Em revisão' : (info.dias is not null and info.dias < 0 ? 'Atrasada' : 'Pendente')) %}
+                            {% set rotuloStatus = concluida ? 'metas.status.concluida'|trans : (emRevisao ? 'metas.status.em_revisao'|trans : (info.dias is not null and info.dias < 0 ? 'metas.status.atrasada'|trans : 'metas.status.pendente'|trans)) %}
                             {% set nomes = meta.responsaveis|map(r => r.fullName) %}
 
                             <div class="mm-linha" data-equipe-meta="{{ meta.id }}">
@@ -77,22 +77,22 @@
                                         <span class="mm-avatar mm-avatar-sm">{{ nomes|first|slice(0, 1) }}</span>
                                         <span title="{{ nomes|join(', ') }}">{{ nomes|first }}{% if nomes|length > 1 %} +{{ nomes|length - 1 }}{% endif %}</span>
                                     {% else %}
-                                        <span class="text-muted">—</span>
+                                        <span class="text-muted">{{ 'metas.comum.nao_informado'|trans }}</span>
                                     {% endif %}
                                 </div>
 
                                 <span class="mm-prazo tom-{{ tomPrazo }}">
                                     <i class="bi bi-calendar-event"></i>
-                                    {%- if meta.prazo is null %}sem prazo
-                                    {%- elseif concluida %}{{ meta.prazo|date('d/m/Y') }}
+                                    {%- if meta.prazo is null %}{{ 'metas.comum.sem_prazo'|trans }}
+                                    {%- elseif concluida %}{{ meta.prazo|data }}
                                     {%- else %}{{ info.texto }}{% endif %}
                                 </span>
 
                                 <div><span class="mm-pilula tom-{{ tomStatus }}">{{ rotuloStatus }}</span></div>
 
-                                <span class="mm-linha-atualizada">{{ meta.dataCriacao|date('d/m/Y') }}</span>
+                                <span class="mm-linha-atualizada">{{ meta.dataCriacao|data }}</span>
 
-                                <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-acao-icone" title="Abrir a meta">
+                                <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-acao-icone" title="{{ 'metas.comum.abrir_a_meta'|trans }}">
                                     <i class="bi bi-chevron-right"></i>
                                 </a>
                             </div>
@@ -103,7 +103,7 @@
             {% endif %}
 
             <div class="mm-separador d-flex align-items-center flex-wrap gap-2" style="border-bottom: none;">
-                <span class="mm-grupo-nota" data-equipe-total="{{ lista.total }}">{{ lista.total }} meta{{ lista.total == 1 ? '' : 's' }}</span>
+                <span class="mm-grupo-nota" data-equipe-total="{{ lista.total }}">{{ lista.total == 1 ? 'metas.equipe.total_uma'|trans({total: lista.total ~ ''}) : 'metas.equipe.total_varias'|trans({total: lista.total ~ ''}) }}</span>
                 <div class="flex-grow-1"></div>
                 {# Paginação por links simples (sem XHR): cada link leva os mesmos filtros — trocar de
                    página não pode mudar o que está sendo contado. #}
@@ -112,10 +112,10 @@
                     {% set inicio = max(1, lista.pagina - janela) %}
                     {% set fim = min(lista.totalPaginas, lista.pagina + janela) %}
 
-                    <nav aria-label="Paginação das metas" data-equipe-paginacao>
+                    <nav aria-label="{{ 'metas.equipe.paginacao'|trans }}" data-equipe-paginacao>
                         <ul class="pagination pagination-sm mb-0">
                             <li class="page-item {{ lista.pagina <= 1 ? 'disabled' : '' }}">
-                                <a class="page-link" href="{{ path('tarefa_equipe', lista.filtros|merge({page: max(1, lista.pagina - 1)})) }}" aria-label="Página anterior">&lsaquo;</a>
+                                <a class="page-link" href="{{ path('tarefa_equipe', lista.filtros|merge({page: max(1, lista.pagina - 1)})) }}" aria-label="{{ 'metas.equipe.pagina_anterior'|trans }}">&lsaquo;</a>
                             </li>
                             {% for p in inicio..fim %}
                                 <li class="page-item {{ p == lista.pagina ? 'active' : '' }}">
@@ -123,8 +123,8 @@
                                        {% if p == lista.pagina %}aria-current="page"{% endif %}>{{ p }}</a>
                                 </li>
                             {% endfor %}
-                            <li class="page-item {{ lista.pagina >= lista.totalPaginas ? 'disabled' : '' }}">
-                                <a class="page-link" href="{{ path('tarefa_equipe', lista.filtros|merge({page: min(lista.totalPaginas, lista.pagina + 1)})) }}" aria-label="Próxima página">&rsaquo;</a>
+                            <li class="page-item {{ lista.totalPaginas <= lista.pagina ? 'disabled' : '' }}">
+                                <a class="page-link" href="{{ path('tarefa_equipe', lista.filtros|merge({page: min(lista.totalPaginas, lista.pagina + 1)})) }}" aria-label="{{ 'metas.equipe.proxima_pagina'|trans }}">&rsaquo;</a>
                             </li>
                         </ul>
                     </nav>

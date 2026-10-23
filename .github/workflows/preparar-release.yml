@@ -1,0 +1,149 @@
+# Mantém aberto o PR "Lança a vX.Y.Z": a próxima versão, calculada dos arquivos em mudancas/.
+#
+# A cada push no master (cada PR mergeado), recalcula a versão e reescreve a branch release/proxima
+# a partir do master: scripts/mudancas.py aplicar monta a seção do CHANGELOG, sobe a
+# VersaoDoSistema, acrescenta o texto para o cliente em app/config/novidades.yaml e apaga os
+# arquivos de mudança. Sem mudança que gere versão, fecha o PR aberto (se houver).
+#
+# Mergear esse PR é a decisão de publicar: o Release cria a tag e chama o Deploy sozinho.
+#
+# Quem escreve a branch e o PR é o GitHub App "BlueJus Release" (PR aberto pelo GITHUB_TOKEN não
+# dispara os checks, e sem checks o PR nunca pode ser mergeado). A chave do App existe só no
+# ambiente `release`, que só aceita jobs do master. Configuração: docs/runbooks/deploy-automatico.md.
+
+name: Preparar release
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preparar-release
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  BRANCH: release/proxima
+
+jobs:
+  decidir:
+    name: Calcular a proxima versao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      versao: ${{ steps.calc.outputs.versao }}
+      pr: ${{ steps.calc.outputs.pr }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Baixar o master
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Calcular
+        id: calc
+        run: |
+          python3 -I scripts/mudancas.py validar
+          versao="$(python3 -I scripts/mudancas.py proxima)"
+          # Só o PR do robô: do MESMO repositório e aberto pelo App. Um PR de fork com a mesma branch
+          # (release/proxima) é ignorado: o robô nunca o edita nem o fecha.
+          pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+            --json number,isCrossRepository,author \
+            -q '[.[] | select(.isCrossRepository == false and (.author.login | startswith("app/")))][0].number // ""')"
+          echo "versao=$versao" >> "$GITHUB_OUTPUT"
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          echo "Próxima versão: ${versao:-nenhuma}; PR de release aberto: ${pr:-nenhum}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  atualizar:
+    name: Atualizar o PR de release
+    needs: decidir
+    if: needs.decidir.outputs.versao != '' || needs.decidir.outputs.pr != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+    env:
+      VERSAO: ${{ needs.decidir.outputs.versao }}
+      PR: ${{ needs.decidir.outputs.pr }}
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Gerar o token do App de release
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Fechar o PR de release (nada a lancar)
+        if: env.VERSAO == ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          gh pr close "$PR" --repo "$GITHUB_REPOSITORY" --delete-branch \
+            --comment "Fechado pelo robô: o master não tem mais mudança que gere versão."
+
+      - name: Baixar o master
+        if: env.VERSAO != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Montar a versao na branch release/proxima
+        if: env.VERSAO != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          python3 -I scripts/mudancas.py resumo > "$RUNNER_TEMP/resumo.md"
+          aplicada="$(python3 -I scripts/mudancas.py aplicar --data "$(TZ=America/Sao_Paulo date +%F)")"
+          [[ "$aplicada" == "$VERSAO" ]] || { echo "::error::aplicou $aplicada, esperava $VERSAO"; exit 1; }
+          bash scripts/release.sh validar "$VERSAO"
+
+          id="$(gh api "users/${SLUG}%5Bbot%5D" -q .id)"
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${id}+${SLUG}[bot]@users.noreply.github.com"
+          git checkout -q -B "$BRANCH"
+          git add -A CHANGELOG.md app/src/Shared/VersaoDoSistema.php app/config/novidades.yaml mudancas/
+          git commit -q -m "Lança a versão $VERSAO"
+          # O token vai só na URL deste push (o checkout não guardou credencial). A branch é do
+          # robô: ela é refeita do master a cada push, por isso --force.
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
+
+      - name: Abrir ou atualizar o PR
+        if: env.VERSAO != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          {
+            cat "$RUNNER_TEMP/resumo.md"
+            echo
+            echo "---"
+            echo "**Mergear este PR é publicar:** o Release cria a tag \`v$VERSAO\` e, com o deploy automático"
+            echo "ligado, o Deploy publica em produção (backup, versão anterior guardada, conferência e volta"
+            echo "automática). Enquanto não for mergeado, este PR é refeito a cada mudança que entra no master."
+          } > "$RUNNER_TEMP/corpo.md"
+          if [[ -n "$PR" ]]; then
+            gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --title "Lança a v$VERSAO" --body-file "$RUNNER_TEMP/corpo.md"
+            echo "PR #$PR atualizado para v$VERSAO." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base master --head "$BRANCH" \
+              --title "Lança a v$VERSAO" --body-file "$RUNNER_TEMP/corpo.md"
+            echo "PR de release aberto para v$VERSAO." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

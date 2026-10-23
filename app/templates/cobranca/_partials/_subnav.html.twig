@@ -4,21 +4,21 @@
    (ajuste 2, decisão G): não há mais item "Casos". Parâmetro: ativo
    ('painel' | 'carteiras' | 'alertas' | 'central').
 ─────────────────────────────────────────────────────────────────────────── #}
-<nav class="cobranca-subnav" aria-label="Seções de Cobranças">
+<nav class="cobranca-subnav" aria-label="{{ 'cobranca_pessoa.subnav.rotulo'|trans }}">
     <a href="{{ path('cobranca_dashboard') }}"
        class="cobranca-subnav-item {{ ativo == 'painel' ? 'active' : '' }}">
-        <i class="bi bi-speedometer2"></i><span>Painel</span>
+        <i class="bi bi-speedometer2"></i><span>{{ 'cobranca_pessoa.subnav.painel'|trans }}</span>
     </a>
     <a href="{{ path('cobranca_carteira_index') }}"
        class="cobranca-subnav-item {{ ativo == 'carteiras' ? 'active' : '' }}">
-        <i class="bi bi-folder2-open"></i><span>Carteiras</span>
+        <i class="bi bi-folder2-open"></i><span>{{ 'cobranca_pessoa.subnav.carteiras'|trans }}</span>
     </a>
     <a href="{{ path('cobranca_alertas') }}"
        class="cobranca-subnav-item {{ ativo == 'alertas' ? 'active' : '' }}">
-        <i class="bi bi-bell"></i><span>Alertas</span>
+        <i class="bi bi-bell"></i><span>{{ 'cobranca_pessoa.subnav.alertas'|trans }}</span>
     </a>
     <a href="{{ path('cobranca_central') }}"
        class="cobranca-subnav-item {{ ativo == 'central' ? 'active' : '' }}">
-        <i class="bi bi-people"></i><span>Central</span>
+        <i class="bi bi-people"></i><span>{{ 'cobranca_pessoa.subnav.central'|trans }}</span>
     </a>
 </nav>

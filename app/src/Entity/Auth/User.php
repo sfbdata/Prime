@@ -3,7 +3,6 @@
 namespace App\Entity\Auth;
 
 use App\Auth\Enum\StatusOab;
-use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Repository\UserRepository;
 use App\Shared\Contract\Auditavel;
@@ -42,9 +41,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     private ?string $invitationToken = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
-    private ?JornadaColaborador $jornadaColaborador = null;
-
-    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?UserProfile $profile = null;
 
     #[ORM\Column(length: 20, nullable: true)]
@@ -61,6 +57,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $oabVerificadaEm = null;
+
+    /**
+     * Preenchido só pelo cadastro do desenho 10, que entra antes do clique no link de confirmação; o clique
+     * zera. Nulo = e-mail sem pendência (as contas antigas e as de convite provaram o e-mail pelo próprio link).
+     */
+    #[ORM\Column(name: 'email_a_confirmar_desde', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $emailAConfirmarDesde = null;
 
     // -------------------------
     // Construtor
@@ -148,6 +151,26 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
         return $this;
     }
 
+    public function getEmailAConfirmarDesde(): ?\DateTimeImmutable
+    {
+        return $this->emailAConfirmarDesde;
+    }
+
+    public function isEmailConfirmado(): bool
+    {
+        return $this->emailAConfirmarDesde === null;
+    }
+
+    public function marcarEmailAConfirmar(\DateTimeImmutable $agora): void
+    {
+        $this->emailAConfirmarDesde = $agora;
+    }
+
+    public function confirmarEmail(): void
+    {
+        $this->emailAConfirmarDesde = null;
+    }
+
     public function isActive(): bool
     {
         return $this->isActive;
@@ -167,20 +190,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     public function setInvitationToken(?string $token): static
     {
         $this->invitationToken = $token;
-        return $this;
-    }
-
-    public function getJornadaColaborador(): ?JornadaColaborador
-    {
-        return $this->jornadaColaborador;
-    }
-
-    public function setJornadaColaborador(?JornadaColaborador $jornadaColaborador): static
-    {
-        if ($jornadaColaborador !== null && $jornadaColaborador->getUser() !== $this) {
-            $jornadaColaborador->setUser($this);
-        }
-        $this->jornadaColaborador = $jornadaColaborador;
         return $this;
     }
 

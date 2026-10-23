@@ -10,16 +10,20 @@ use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Fluxo\FluxoDaAnaliseDaPasta;
+use App\Inteligencia\Fluxo\FluxoDaPerguntaLivre;
 use App\Inteligencia\Fluxo\FluxoDoResumoDoPush;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
 use App\Inteligencia\MessageHandler\ProcessarAnaliseDeInteligenciaHandler;
+use App\Inteligencia\Prompt\PromptDaPergunta;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Prompt\PromptResumoDoPush;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\PerguntaDaConversaRepository;
 use App\Inteligencia\Service\InterpretadorDeRespostaDePush;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoAgente;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
@@ -66,6 +70,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $repositorio,
             new FluxoDoResumoDoPush($c->get(MontadorDeContextoDoPush::class), new PromptResumoDoPush(), new InterpretadorDeRespostaDePush(), $repositorio),
             new FluxoDaAnaliseDaPasta($c->get(MontadorDeContextoDaPasta::class), new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio),
+            new FluxoDaPerguntaLivre($c->get(MontadorDeContextoDaPasta::class), new PromptDaPergunta(new PromptDoAgente()), new InterpretadorDeRespostaDoAgente(), $c->get(PerguntaDaConversaRepository::class)),
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
@@ -563,6 +568,29 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertSame(1, $relida->getContextoResumo()['novas']);
     }
 
+    #[TestDox('P4h: a anterior EDITADA pelo advogado entra no prompt com o texto ORIGINAL do modelo')]
+    public function testAnteriorEditadaUsaOOriginal(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta, , $primeiraPub] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $anterior = $this->criarAnalisePendente($tenant, $user, $pasta, ['pub:' . $primeiraPub->getId()]);
+        $this->concluirAnalise($anterior, 'A contestação foi recebida.');
+        $anterior->editar('Texto do advogado, não do modelo.', [], $user);
+        $this->em()->flush();
+
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('Nada novo.');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString("<analise_anterior>\nA contestação foi recebida.\n</analise_anterior>", $texto);
+        self::assertStringNotContainsString('Texto do advogado', $texto);
+    }
+
     // =========================================================================
     // Agentes da pasta (fatia 2) — mesmo handler, outro fluxo
     // =========================================================================
@@ -640,6 +668,36 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringContainsString('Agente Gestor', (string) $notificacoes[0]->getMensagem());
     }
 
+    #[TestDox('comando: o worker monta o PEDIDO do comando, usa a anterior do MESMO comando e conclui; a de outro comando do agente não vira anterior')]
+    public function testComandoConcluiComAnteriorDoMesmoComando(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant, texto: 'Intimação para réplica em 15 dias.');
+        $this->ligarIaNoTenant($tenant, $user);
+        $resposta = (string) json_encode(['resumo' => 'Riscos mapeados.', 'pontos' => [], 'quem' => 'Dra. Ana', 'texto' => "CONCLUSÃO\nRiscos.\n\nNecessita de conferência do advogado."], JSON_UNESCAPED_UNICODE);
+
+        // Uma concluída de OUTRO comando do mesmo agente (Gestor): não pode entrar como anterior.
+        $outro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::AnalisarPasta);
+        $falsoOutro = new ProvedorFalso();
+        $falsoOutro->responderCom((string) json_encode(['resumo' => 'Visão geral SEGREDO-DO-OUTRO.', 'pontos' => [], 'quem' => '', 'texto' => 'Texto SEGREDO-DO-OUTRO.'], JSON_UNESCAPED_UNICODE));
+        $this->handler($falsoOutro)($this->mensagem($outro));
+
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IdentificarRiscos);
+        $falso = new ProvedorFalso();
+        $falso->responderCom($resposta);
+        $this->handler($falso)($this->mensagem($analise));
+
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Concluida, $relida->getStatus());
+        self::assertSame(Comando::IdentificarRiscos, $relida->getComando());
+        $pedido = $falso->ultimoPedido();
+        self::assertNotNull($pedido);
+        self::assertStringStartsWith('PEDIDO: ' . Comando::IdentificarRiscos->pedido(), $pedido->textoDoUsuario());
+        self::assertStringNotContainsString('SEGREDO-DO-OUTRO', $pedido->textoDoUsuario(), 'a anterior é só do mesmo comando');
+        self::assertStringContainsString('identificar_riscos', $pedido->rotuloDeUso);
+    }
+
     #[TestDox('agente: financeiro gravado como false → o worker obedece e nada financeiro vai ao provedor')]
     public function testAgenteObedeceADecisaoSobreOFinanceiro(): void
     {
@@ -660,6 +718,112 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringNotContainsString('Honorários secretos', $texto);
         self::assertStringContainsString('não fazem parte desta análise', $texto);
         self::assertFalse($this->reler($analise)->getContextoResumo()['financeiro']);
+    }
+
+    #[TestDox('agente: abas ocultas gravadas na solicitação (ocultar aba) → o worker obedece: o Push não vai ao provedor')]
+    public function testAgenteObedeceAsAbasOcultas(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $this->criarPagamento($tenant, $pasta, 'Honorários visíveis');
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: true, abasOcultas: ['push']);
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"ok","pontos":[],"quem":"","texto":"CONCLUSÃO\n• ok"}');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertSame(StatusDaAnalise::Concluida, $this->reler($analise)->getStatus());
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringNotContainsString('<movimentacoes>', $texto);
+        self::assertStringContainsString('Honorários visíveis', $texto, 'o resto segue');
+        self::assertSame(['push'], $this->reler($analise)->getContextoResumo()['abasOcultas']);
+    }
+
+    #[TestDox('Índice (F4): o worker obedece a documentosSelecionados: o pedido leva só os marcados, nenhum outro nome, e diz que o conteúdo não foi lido')]
+    public function testIndiceLevaSoOsDocumentosSelecionados(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $marcado = $this->criarDocumento($tenant, $pasta, 'Procuracao marcada');
+        $this->criarDocumento($tenant, $pasta, 'Contrato social esquecido');
+        $outroMarcado = $this->criarDocumento($tenant, $pasta, 'Peticao marcada');
+        $selecao = [(int) $marcado->getId(), (int) $outroMarcado->getId()];
+        sort($selecao);
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IndiceDosDocumentos, documentosSelecionados: $selecao);
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"ok","pontos":[],"quem":"","texto":"CONCLUSÃO\n• ok"}');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Concluida, $relida->getStatus());
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString('PEDIDO: ' . Comando::IndiceDosDocumentos->pedido(), $texto);
+        self::assertStringContainsString('O conteúdo dos arquivos não foi lido: não descreva o que está dentro deles.', $texto);
+        self::assertStringContainsString('procuracao-marcada.pdf', $texto);
+        self::assertStringContainsString('peticao-marcada.pdf', $texto);
+        self::assertStringNotContainsString('CONTRATO SOCIAL ESQUECIDO', mb_strtoupper($texto), 'documento não marcado não sai');
+        self::assertStringNotContainsString('contrato-social-esquecido', $texto);
+        self::assertStringNotContainsString('itens omitidos', $texto, 'o não marcado não vira "omitido por limite"');
+        self::assertSame(1, substr_count($texto, '<documentos>'));
+        self::assertSame($selecao, $relida->getContextoResumo()['documentosSelecionados'], 'o worker regrava o resumo com a mesma seleção');
+        self::assertSame(2, $relida->getContextoResumo()['secoes']['documentos']);
+    }
+
+    #[TestDox('Índice (F4) nunca recebe análise anterior: o índice antigo de A e B não volta ao pedido novo só com C')]
+    public function testIndiceNaoRecebeAnterior(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $a = $this->criarDocumento($tenant, $pasta, 'Documento Alfa');
+        $b = $this->criarDocumento($tenant, $pasta, 'Documento Beta');
+        $c = $this->criarDocumento($tenant, $pasta, 'Documento Gama');
+        $antigo = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IndiceDosDocumentos, financeiro: false, documentosSelecionados: [(int) $a->getId(), (int) $b->getId()]);
+        $this->concluirAnalise($antigo, 'Índice: documento-alfa.pdf (procuração) e documento-beta.pdf (petição).');
+        $novo = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IndiceDosDocumentos, financeiro: false, documentosSelecionados: [(int) $c->getId()]);
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"ok","pontos":[],"quem":"","texto":"CONCLUSÃO\n• ok"}');
+
+        $this->handler($falso)($this->mensagem($novo));
+
+        self::assertSame(StatusDaAnalise::Concluida, $this->reler($novo)->getStatus());
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString('documento-gama.pdf', $texto);
+        self::assertStringNotContainsString('<analise_anterior>', $texto);
+        self::assertStringNotContainsString('documento-alfa', $texto);
+        self::assertStringNotContainsString('documento-beta', $texto);
+        self::assertStringNotContainsString('DOCUMENTO ALFA', $texto);
+        self::assertStringNotContainsString('DOCUMENTO BETA', $texto);
+    }
+
+    #[TestDox('Índice (F4): documentos novos entre o pedido e o processamento não tiram o marcado do prompt (o worker busca pelos ids, sem o corte de recência)')]
+    public function testIndiceMarcadoSobreviveADocumentosNovos(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $marcado = $this->criarDocumento($tenant, $pasta, 'Marcado antigo');
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IndiceDosDocumentos, documentosSelecionados: [(int) $marcado->getId()]);
+        for ($i = 1; $i <= \App\Inteligencia\Contexto\MontadorDeContextoDaPasta::LIMITE_DOCUMENTOS; ++$i) {
+            $this->criarDocumento($tenant, $pasta, 'Novo ' . $i);
+        }
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"ok","pontos":[],"quem":"","texto":"CONCLUSÃO\n• ok"}');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertSame(StatusDaAnalise::Concluida, $this->reler($analise)->getStatus());
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString('marcado-antigo.pdf', $texto);
+        self::assertStringNotContainsString('novo-1.pdf', $texto);
+        self::assertSame(1, $this->reler($analise)->getContextoResumo()['secoes']['documentos']);
     }
 
     #[TestDox('agente: processo com nivelSigilo > 0 → falhou "contexto bloqueado", provedor NÃO chamado (mesmo para o Documental)')]
@@ -722,6 +886,28 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
         self::assertStringContainsString("<analise_anterior>\nVisão anterior do gestor.\n</analise_anterior>", $texto);
         self::assertStringNotContainsString('Prazos anteriores.', $texto);
+    }
+
+    #[TestDox('agente: a anterior que leu o financeiro ou uma aba hoje oculta para quem pede NÃO volta ao provedor')]
+    public function testAnteriorQueLeuOQueQuemPedeNaoVeNaoVolta(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $comFinanceiro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: true);
+        $this->concluirAnalise($comFinanceiro, 'Honorários de 30 por cento.');
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"nova","texto":"x"}');
+
+        $semFinanceiro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: false);
+        $this->handler($falso)($this->mensagem($semFinanceiro));
+        self::assertStringNotContainsString('Honorários de 30 por cento.', (string) $falso->ultimoPedido()?->textoDoUsuario());
+
+        $comPushOculto = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: true, abasOcultas: ['push']);
+        $this->handler($falso)($this->mensagem($comPushOculto));
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringNotContainsString('<analise_anterior>', $texto, 'a anterior do Gestor leu o Push');
     }
 
     #[TestDox('IA-033: a análise anterior do Push volta ao provedor mascarada (CPF vira [CPF], CNJ intacto)')]

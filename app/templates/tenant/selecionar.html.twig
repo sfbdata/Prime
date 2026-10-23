@@ -1,41 +1,66 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Selecionar escritório{% endblock %}
+{% block title %}{{ 'escritorio.selecionar.titulo_pagina'|trans({termo: 'termos.escritorio'|trans}) }}{% endblock %}
 
 {% block body %}
 <div class="container py-5" style="max-width: 600px">
     <div class="text-center mb-4">
-        <h3>Selecione um escritório</h3>
+        <h3>{{ 'escritorio.selecionar.titulo'|trans }}</h3>
         {% if vinculos|length > 0 %}
-            <p class="text-muted">Você tem acesso a {{ vinculos|length }} escritório(s).</p>
+            <p class="text-muted">{{ 'escritorio.selecionar.acesso'|trans({n: vinculos|length}) }}</p>
         {% endif %}
     </div>
 
+    {# "Suspensa a pedido" (PR 5): o escritório barrado não entra na lista; aparece com o aviso. #}
+    {% for aviso in avisosDePedido|default([]) %}
+        <div class="alert alert-warning text-center" data-conta-suspensa-a-pedido>
+            <i class="bi bi-hourglass-split d-block fs-3 mb-2"></i>
+            <strong>{{ aviso.escritorio }}</strong><br>{{ aviso.texto }}
+        </div>
+    {% endfor %}
+
+    {% for mensagem in bloqueados|default([]) %}
+        <div class="alert alert-warning d-flex gap-2 align-items-start" data-acesso-bloqueado>
+            <i class="bi bi-lock fs-5"></i><div>{{ mensagem }}</div>
+        </div>
+    {% endfor %}
+
     {% if vinculos is empty %}
         {% set convites_escritorio = convites|default([])|filter(c => c.tenant is not null) %}
-        {% if convites_escritorio is empty %}
+        {# avisosDeConta (C9 e C9b) só vem preenchido sem convite de escritório (TenantSelecaoController). #}
+        {% if avisosDeConta|default([]) is not empty %}
+            {% for aviso in avisosDeConta %}
+                <div class="alert alert-warning text-center" {{ aviso.excluida ? 'data-conta-excluida' : 'data-conta-suspensa' }}>
+                    <i class="bi {{ aviso.excluida ? 'bi-building-x' : 'bi-pause-circle' }} d-block fs-3 mb-2"></i>
+                    {{ aviso.texto }}
+                </div>
+            {% endfor %}
+        {% elseif convites_escritorio is empty %}
+            {# Com acesso bloqueado (em análise ou suspenso) ou conta suspensa a pedido, a mensagem de cima já explica; não diz "nenhum escritório". #}
+            {% if bloqueados|default([]) is empty and avisosDePedido|default([]) is empty %}
             <div class="alert alert-warning text-center">
                 <i class="bi bi-building-x d-block fs-3 mb-2"></i>
-                Você ainda não faz parte de nenhum escritório.<br>
-                <small class="text-muted">Peça a um administrador para te convidar.</small>
+                {{ 'escritorio.selecionar.nenhum'|trans }}<br>
+                <small class="text-muted">{{ 'escritorio.selecionar.peca_convite'|trans }}</small>
             </div>
+            {% endif %}
         {% else %}
             <p class="text-center text-muted mb-3">
                 <i class="bi bi-envelope-paper me-1"></i>
-                Você tem {{ convites_escritorio|length }} convite(s) pendente(s):
+                {{ 'escritorio.selecionar.convites'|trans({n: convites_escritorio|length}) }}
             </p>
             {% for convite in convites_escritorio %}
-                <a href="{{ path('auth_aceite_convite', {token: convite.token}) }}"
+                <a href="{{ path('auth_meu_convite', {id: convite.id}) }}"
                    class="card mb-2 text-decoration-none text-body">
                     <div class="card-body d-flex align-items-center gap-3">
                         <i class="bi bi-building fs-4 text-primary"></i>
                         <div class="flex-grow-1">
                             <div class="fw-semibold">{{ convite.tenant.name }}</div>
                             {% if convite.tenantRole %}
-                                <small class="text-muted">{{ convite.tenantRole.name }}</small>
+                                <small class="text-muted">{{ convite.tenantRole.nomeExibido }}</small>
                             {% endif %}
                         </div>
-                        <span class="btn btn-sm btn-outline-primary">Ver convite</span>
+                        <span class="btn btn-sm btn-outline-primary">{{ 'escritorio.selecionar.ver_convite'|trans }}</span>
                     </div>
                 </a>
             {% endfor %}
@@ -43,7 +68,7 @@
 
         <div class="text-center mt-4">
             <a href="{{ path('escritorio_criar') }}" class="btn btn-primary">
-                <i class="bi bi-building-add me-1"></i> Criar meu escritório
+                <i class="bi bi-building-add me-1"></i> {{ 'escritorio.selecionar.criar'|trans }}
             </a>
         </div>
     {% else %}
@@ -54,7 +79,7 @@
                 <button type="submit" class="btn btn-outline-primary w-100 text-start p-3">
                     <strong>{{ vinculo.tenant.name }}</strong>
                     {% if vinculo.tenantRole %}
-                        <br><small class="text-muted">{{ vinculo.tenantRole.name }}</small>
+                        <br><small class="text-muted">{{ vinculo.tenantRole.nomeExibido }}</small>
                     {% endif %}
                 </button>
             </form>

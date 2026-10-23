@@ -1,27 +1,37 @@
 /* =============================================================================
-   BlueJus IA — agentes da pasta (spec inteligencia-agentes-da-pasta §5).
+   BlueJus IA — drawer da pasta (specs inteligencia-agentes-da-pasta §5 e
+   inteligencia-drawer-da-pasta F1/F2/F4).
 
      1. abre/fecha o drawer do cabeçalho (botão, X, fundo, Esc) e, na PRIMEIRA
         abertura, carrega o painel (GET `inteligencia_agentes_painel`) no lugar
         da lista estática;
-     2. "Gerar análise" de um agente: POST `inteligencia_agente_solicitar` e o
-        retorno honesto (202 em andamento, 200 "nada novo", 409/429 motivo) —
-        motivo de disponibilidade trava TODOS os agentes até a página recarregar;
+     1b. abas Análise, Documentos e Relatórios (`data-ia-aba` → `data-ia-aba-painel`, setas
+        do teclado no tablist) e a escolha do comando/relatório na grade
+        (`data-ia-escolher` → `data-ia-comando`); aba e escolhas sobrevivem à
+        troca do painel;
+     2. "Gerar análise" de um comando (ou agente): POST no `data-ia-url` do botão
+        (`inteligencia_comando_solicitar`) e o retorno honesto (202 em andamento,
+        200 "nada novo", 409/429 motivo); motivo de disponibilidade trava TODOS
+        os botões até a página recarregar;
+     2b. aba Documentos (F4): marcar e desmarcar (`data-ia-doc`), "Selecionar
+        todos" (`data-ia-docs-todos`), a contagem "N de M" e o "Índice
+        inteligente" (`data-ia-exige-selecao`) liberado só com seleção; o POST
+        leva os ids marcados como `documentos[]`;
      3. polling do status (GET `inteligencia_analise_status`) enquanto houver
         análise pendente/processando no drawer — 2 s, 5 s depois de 30 s, 10 s
         depois de 2 min; PAUSA com a página oculta ou o drawer fechado —, e
-        recarga do fragmento DO AGENTE (GET `inteligencia_agente_listar`) quando
-        ela termina;
-     4. ações da análise (lida · excluir · interna) por XHR + recarga do agente;
+        recarga do fragmento DO COMANDO (GET no `data-ia-url` da lista,
+        `inteligencia_comando_listar`) quando ela termina;
+     4. ações da análise (lida · excluir · interna) por XHR + recarga da lista;
      5. menu ⋮ do cartão;
-     6. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
+     6. "Criar tarefa" (embaixo do resultado, F5): abre o `#modalCriarTarefa` da pasta
         pré-preenchido, no mesmo contrato do pasta-ia-push.js;
      7. Copiar e Imprimir do cartão concluído, sobre o mesmo texto do "Baixar .txt"
         (GET `inteligencia_analise_txt`); baixar e imprimir avisam o servidor
         (POST `inteligencia_analise_registro`) para o registro de auditoria —
         copiar, não (C6-IA-01);
      8. rodapé "Registro de auditoria (N)": GET `inteligencia_auditoria_da_pasta`
-        a cada abertura do drawer e depois de cada recarga de agente; o chevron
+        a cada abertura do drawer e depois de cada recarga de lista; o chevron
         abre e fecha a lista.
 
    Tudo por delegação no drawer: o painel e as listas são trocados inteiros.
@@ -75,7 +85,7 @@
         function buscarFragmento(url) {
             return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
                 .then(function (r) {
-                    if (!r.ok) { throw new Error('Não foi possível atualizar as análises.'); }
+                    if (!r.ok) { throw new Error(BJ_T.t('inteligencia.js.agentes.falha_atualizar')); }
                     return r.text();
                 })
                 .then(function (html) {
@@ -172,16 +182,87 @@
                     var atual = painel();
                     if (!novo || !atual) { return; }
                     atual.replaceWith(novo);
+                    aplicarAbaEEscolhas();
                     acompanhar();
                 })
                 .catch(function (falha) {
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível carregar as análises.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_carregar'), true);
                 })
                 .then(function () { carregandoPainel = false; });
         }
 
-        /* ── Botões e listas por agente ───────────────────────────────────── */
-        function secaoDe(el) { return el ? el.closest('[data-ia-agente]') : null; }
+        /* ── 1b. Abas e escolha do comando ────────────────────────────────── */
+        // A aba ativa e o comando escolhido em cada aba moram aqui: o painel é trocado inteiro
+        // (primeira abertura) e a escolha do usuário não pode voltar ao padrão do servidor.
+        var abaAtiva = 'analise';
+        var escolhidos = {};
+
+        function abas() { return drawer.querySelectorAll('[data-ia-aba]'); }
+
+        function mostrarAba(nome, focar) {
+            abaAtiva = nome;
+            abas().forEach(function (b) {
+                var ativa = b.getAttribute('data-ia-aba') === nome;
+                b.classList.toggle('is-ativa', ativa);
+                b.setAttribute('aria-selected', ativa ? 'true' : 'false');
+                b.tabIndex = ativa ? 0 : -1;
+                if (ativa && focar) { b.focus(); }
+            });
+            drawer.querySelectorAll('[data-ia-aba-painel]').forEach(function (p) {
+                p.hidden = p.getAttribute('data-ia-aba-painel') !== nome;
+            });
+        }
+
+        function escolher(valor) {
+            var secao = drawer.querySelector('[data-ia-comando="' + valor + '"]');
+            var aba = secao ? secao.closest('[data-ia-aba-painel]') : null;
+            if (!aba) { return; }
+            escolhidos[aba.getAttribute('data-ia-aba-painel')] = valor;
+            aba.querySelectorAll('[data-ia-escolher]').forEach(function (b) {
+                b.setAttribute('aria-pressed', b.getAttribute('data-ia-escolher') === valor ? 'true' : 'false');
+            });
+            aba.querySelectorAll('[data-ia-comando]').forEach(function (s) {
+                s.hidden = s.getAttribute('data-ia-comando') !== valor;
+            });
+        }
+
+        function aplicarAbaEEscolhas() {
+            mostrarAba(abaAtiva, false);
+            Object.keys(escolhidos).forEach(function (aba) { escolher(escolhidos[aba]); });
+        }
+
+        drawer.addEventListener('click', function (e) {
+            var aba = e.target.closest('[data-ia-aba]');
+            if (aba) { mostrarAba(aba.getAttribute('data-ia-aba'), false); return; }
+            var botao = e.target.closest('[data-ia-escolher]');
+            if (!botao) { return; }
+            var valor = botao.getAttribute('data-ia-escolher');
+            escolher(valor);
+            // Comando: o clique já roda, como no desenho (dc `CMDS`, `onClick` do botão). Sem nada novo, o
+            // servidor devolve a última análise sem gastar cota. Relatório: escolhe e o "Gerar ..." roda.
+            var secao = drawer.querySelector('[data-ia-comando="' + valor + '"]');
+            var gerar = secao && secao.closest('[data-ia-aba-painel="analise"]') ? botaoDe(secao) : null;
+            if (gerar && !gerar.disabled && gerar.getAttribute('data-ia-disponivel') !== '0') { gerar.click(); }
+        });
+
+        // Tablist do WAI-ARIA: setas trocam de aba (e levam o foco), Home/End vão às pontas.
+        drawer.addEventListener('keydown', function (e) {
+            var atual = e.target.closest('[data-ia-aba]');
+            if (!atual) { return; }
+            var lista = Array.prototype.slice.call(abas());
+            var i = lista.indexOf(atual);
+            var destino = null;
+            if (e.key === 'ArrowRight') { destino = lista[(i + 1) % lista.length]; }
+            if (e.key === 'ArrowLeft') { destino = lista[(i - 1 + lista.length) % lista.length]; }
+            if (e.key === 'Home') { destino = lista[0]; }
+            if (e.key === 'End') { destino = lista[lista.length - 1]; }
+            if (!destino) { return; }
+            e.preventDefault();
+            mostrarAba(destino.getAttribute('data-ia-aba'), true);
+        });
+
+        /* ── Botões e listas por comando (ou agente) ──────────────────────── */
+        function secaoDe(el) { return el ? (el.closest('[data-ia-comando]') || el.closest('[data-ia-agente]')) : null; }
         function listaDe(secao) { return secao ? secao.querySelector('[data-ia-lista]') : null; }
         function botaoDe(secao) { return secao ? secao.querySelector('[data-ia-gerar]') : null; }
 
@@ -192,9 +273,17 @@
 
         function botaoCarregando(botao, sim) {
             if (!botao || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
-            botao.disabled = !!sim;
+            botao.disabled = !!sim || semSelecao(botao);
             botao.classList.toggle('is-carregando', !!sim);
-            if (sim) { rotuloDoBotao(botao, 'Analisando…'); }
+            if (sim) { rotuloDoBotao(botao, BJ_T.t('inteligencia.js.agentes.analisando')); }
+        }
+
+        // O botão do comando na grade pulsa enquanto houver análise em andamento nele.
+        function marcarNaGrade(secao, emAndamentoAgora) {
+            var valor = secao ? secao.getAttribute('data-ia-comando') : null;
+            if (!valor) { return; }
+            var botao = drawer.querySelector('[data-ia-escolher="' + valor + '"]');
+            if (botao) { botao.classList.toggle('is-andamento', !!emAndamentoAgora); }
         }
 
         // Rótulo e title saem do que a lista recém-carregada diz (mesma regra do template).
@@ -204,16 +293,21 @@
             if (!botao || !l || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
             if (l.getAttribute('data-ia-em-andamento') === '1') {
                 botaoCarregando(botao, true);
-                botao.title = 'Análise em andamento';
+                botao.title = BJ_T.t('inteligencia.js.agentes.em_andamento');
+                marcarNaGrade(secao, true);
                 return;
             }
             botaoCarregando(botao, false);
+            marcarNaGrade(secao, false);
             var temConcluida = l.getAttribute('data-ia-tem-concluida') === '1';
-            rotuloDoBotao(botao, temConcluida ? 'Gerar nova análise' : 'Gerar análise');
-            botao.title = temConcluida ? 'Nova análise deste agente considerando o histórico' : 'Lê os dados desta pasta e responde';
+            var rotulo = botao.getAttribute('data-ia-rotulo') || BJ_T.t('inteligencia.js.agentes.gerar_analise');
+            var deNovo = botao.getAttribute('data-ia-rotulo-de-novo') || BJ_T.t('inteligencia.js.agentes.gerar_nova');
+            rotuloDoBotao(botao, temConcluida ? deNovo : rotulo);
+            botao.title = temConcluida ? BJ_T.t('inteligencia.js.agentes.dica_nova') : BJ_T.t('inteligencia.js.agentes.dica_primeira');
+            if (botao.hasAttribute('data-ia-exige-selecao')) { botao.title = tituloDoIndice(botao); }
         }
 
-        // Um 409/429 de disponibilidade vale para todos os agentes até a página recarregar.
+        // Um 409/429 de disponibilidade vale para todos os botões até a página recarregar.
         function travarTodos(mensagem, motivo) {
             drawer.querySelectorAll('[data-ia-gerar]').forEach(function (botao) {
                 botao.setAttribute('data-ia-disponivel', '0');
@@ -246,7 +340,7 @@
                     recarregarAuditoria();
                 })
                 .catch(function (falha) {
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar as análises.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_atualizar'), true);
                 });
         }
 
@@ -280,7 +374,7 @@
             if (Date.now() - inicio > LIMITE_MS) {
                 if (!limiteAvisado) {
                     limiteAvisado = true;
-                    avisar('A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.', true);
+                    avisar(BJ_T.t('inteligencia.js.agentes.demorando'), true);
                 }
                 return;
             }
@@ -328,18 +422,70 @@
             retomar();
         });
 
+        /* ── 2b. Seleção de documentos (aba Documentos, F4) ──────────────── */
+        // A seleção mora no DOM (aria-pressed das linhas): a lista só é trocada com o painel inteiro.
+        function linhasDeDocumento() { return drawer.querySelectorAll('[data-ia-doc]'); }
+
+        function idsMarcados() {
+            return Array.prototype.filter.call(linhasDeDocumento(), function (l) {
+                return l.getAttribute('aria-pressed') === 'true';
+            }).map(function (l) { return l.getAttribute('data-ia-doc'); });
+        }
+
+        // Só o botão que exige seleção (o "Índice inteligente") fica preso sem documento marcado.
+        function semSelecao(botao) {
+            return botao.hasAttribute('data-ia-exige-selecao') && idsMarcados().length === 0;
+        }
+
+        // O title do Índice segue a seleção, não o histórico (o índice nunca recebe o anterior).
+        function tituloDoIndice(botao) {
+            return semSelecao(botao) ? BJ_T.t('inteligencia.js.agentes.dica_indice_marque') : BJ_T.t('inteligencia.js.agentes.dica_indice_monta');
+        }
+
+        function atualizarSelecao() {
+            var total = linhasDeDocumento().length;
+            var marcados = idsMarcados().length;
+            var contagem = drawer.querySelector('[data-ia-docs-contagem]');
+            var todos = drawer.querySelector('[data-ia-docs-todos]');
+            if (contagem) { contagem.textContent = BJ_T.t('inteligencia.js.agentes.contagem', { marcados: String(marcados), total: String(total) }); }
+            if (todos) { todos.setAttribute('aria-pressed', total > 0 && marcados === total ? 'true' : 'false'); }
+            drawer.querySelectorAll('[data-ia-gerar][data-ia-exige-selecao]').forEach(function (botao) {
+                if (botao.getAttribute('data-ia-disponivel') !== '1' || botao.classList.contains('is-carregando')) { return; }
+                botao.disabled = marcados === 0;
+                botao.title = tituloDoIndice(botao);
+            });
+        }
+
+        drawer.addEventListener('click', function (e) {
+            var linha = e.target.closest('[data-ia-doc]');
+            var todos = e.target.closest('[data-ia-docs-todos]');
+            if (!linha && !todos) { return; }
+            if (linha) {
+                linha.setAttribute('aria-pressed', linha.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+            } else {
+                var marcarTodos = idsMarcados().length !== linhasDeDocumento().length;
+                linhasDeDocumento().forEach(function (l) { l.setAttribute('aria-pressed', marcarTodos ? 'true' : 'false'); });
+            }
+            atualizarSelecao();
+        });
+
         /* ── 2. Gerar análise ─────────────────────────────────────────────── */
         drawer.addEventListener('click', function (e) {
             var botao = e.target.closest('[data-ia-gerar]');
             if (!botao || !drawer.contains(botao)) { return; }
             if (botao.disabled || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
+            if (semSelecao(botao)) { return; }
             var secao = secaoDe(botao);
 
             var dados = new FormData();
             dados.append('_token', drawer.getAttribute('data-ia-token') || '');
+            if (botao.hasAttribute('data-ia-exige-selecao')) {
+                idsMarcados().forEach(function (id) { dados.append('documentos[]', id); });
+            }
 
             avisar('');
             botaoCarregando(botao, true);
+            marcarNaGrade(secao, true);
             inicio = Date.now();
             limiteAvisado = false;
 
@@ -353,10 +499,11 @@
                 .then(function (res) {
                     var d = res.dados;
                     if (!res.ok) {
-                        var texto = d.mensagem || 'Não foi possível pedir a análise agora. Tente novamente.';
+                        var texto = d.mensagem || BJ_T.t('inteligencia.js.agentes.falha_pedir');
                         avisar(texto, true);
                         if (MOTIVOS_QUE_TRAVAM.indexOf(d.motivo) !== -1) {
                             travarTodos(texto, d.motivo);
+                            marcarNaGrade(secao, false);
                         } else {
                             botaoCarregando(botao, false);
                             sincronizarBotao(secao);
@@ -367,7 +514,7 @@
                     recarregarAgente(secao, d.id);
                 })
                 .catch(function () {
-                    avisar('Não foi possível pedir a análise agora. Tente novamente.', true);
+                    avisar(BJ_T.t('inteligencia.js.agentes.falha_pedir'), true);
                     botaoCarregando(botao, false);
                     sincronizarBotao(secao);
                 });
@@ -405,13 +552,26 @@
         });
 
         /* ── 4. Ações da análise ──────────────────────────────────────────── */
-        drawer.addEventListener('submit', function (e) {
+        drawer.addEventListener('submit', async function (e) {
             var form = e.target.closest('form[data-ia-acao]');
             if (!form || !drawer.contains(form)) { return; }
             e.preventDefault();
 
+            // E7: janela vermelha da tela quando ela existe (Pasta; dc `confirmarUI(…, true)`,
+            // L.5351); sem ela, o confirm do navegador. Uma pergunta por vez.
             var confirmar = form.getAttribute('data-ia-confirmar');
-            if (confirmar && !window.confirm(confirmar)) { return; }
+            if (confirmar) {
+                // Marca no formulário, não `disabled` no botão: o foco volta a ele ao fechar a janela,
+                // e botão desabilitado não recebe foco.
+                if (form.dataset.perguntando) { return; }
+                form.dataset.perguntando = '1';
+                // O menu fecha no clique, antes do envio: o foco volta explicitamente ao ⋮ da análise.
+                var envoltorio = form.closest('.ia-menu-wrap');
+                var voltar = envoltorio ? envoltorio.querySelector('[aria-haspopup]') : null;
+                var sim = window.confirmarUIPs ? await window.confirmarUIPs(confirmar, true, voltar) : window.confirm(confirmar);
+                delete form.dataset.perguntando;
+                if (!sim || !document.contains(form)) { return; }
+            }
 
             var secao = secaoDe(form);
             var enviar = form.querySelector('button[type="submit"]');
@@ -427,12 +587,12 @@
                 .then(lerJson)
                 .then(function (res) {
                     if (!res.ok) {
-                        throw new Error(res.dados.mensagem || res.dados.message || 'Não foi possível atualizar a análise.');
+                        throw new Error(res.dados.mensagem || res.dados.message || BJ_T.t('inteligencia.js.agentes.falha_atualizar_analise'));
                     }
                     return recarregarAgente(secao);
                 })
                 .catch(function (falha) {
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar a análise.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_atualizar_analise'), true);
                     if (enviar) { enviar.disabled = false; }
                 });
         });
@@ -450,13 +610,13 @@
         function buscarTexto(url) {
             return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
                 .then(function (r) {
-                    if (!r.ok) { throw new Error('Não foi possível ler a análise.'); }
+                    if (!r.ok) { throw new Error(BJ_T.t('inteligencia.js.agentes.falha_ler')); }
                     return r.text();
                 });
         }
 
         function copiar(url) {
-            if (!navigator.clipboard) { return Promise.reject(new Error('Este navegador não deixa copiar daqui.')); }
+            if (!navigator.clipboard) { return Promise.reject(new Error(BJ_T.t('inteligencia.js.agentes.sem_copiar'))); }
             // ClipboardItem com promessa preserva o gesto do clique enquanto o texto chega.
             if (window.ClipboardItem && navigator.clipboard.write) {
                 var blob = buscarTexto(url).then(function (t) { return new Blob([t], { type: 'text/plain' }); });
@@ -484,7 +644,7 @@
                     }, 1400);
                 })
                 .catch(function (falha) {
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível copiar a análise.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_copiar'), true);
                 });
         });
 
@@ -531,7 +691,7 @@
 
             var janela = window.open('', '_blank');
             if (!janela) {
-                avisar('O navegador bloqueou a janela de impressão. Libere as janelas pop-up deste site.', true);
+                avisar(BJ_T.t('inteligencia.js.agentes.popup_bloqueado'), true);
                 return;
             }
             buscarTexto(url)
@@ -551,11 +711,11 @@
                 })
                 .catch(function (falha) {
                     janela.close();
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível imprimir a análise.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_imprimir'), true);
                 });
         });
 
-        /* ── 6. Criar tarefa da providência ───────────────────────────────── */
+        /* ── 6. Criar tarefa (ações do resultado, F5) ─────────────────────── */
         drawer.addEventListener('click', function (e) {
             var item = e.target.closest('[data-ia-criar-meta]');
             if (!item) { return; }
@@ -564,16 +724,16 @@
             if (!modal || !window.bootstrap) { return; }
 
             var d = item.dataset;
-            var linhas = ['Providência indicada pelo ' + (d.metaAgente || 'agente') + ' da BlueJus IA em ' + (d.metaQuando || '') + '.'];
-            linhas.push('Gerado por IA · não é ato oficial do processo. Confira os documentos originais antes de agir.');
+            var linhas = [BJ_T.t('inteligencia.js.agentes.meta_linha', { agente: d.metaAgente || BJ_T.t('inteligencia.js.agentes.meta_agente'), quando: d.metaQuando || '' })];
+            linhas.push(BJ_T.t('inteligencia.js.agentes.meta_aviso'));
             if (d.metaPonto) { linhas.push(''); linhas.push((d.metaRotulo ? d.metaRotulo + ': ' : '') + d.metaPonto); }
-            if (d.metaQuem) { linhas.push('Quem deve agir: ' + d.metaQuem); }
-            if (d.metaResumo) { linhas.push(''); linhas.push('Resumo: ' + d.metaResumo); }
+            if (d.metaQuem) { linhas.push(BJ_T.t('inteligencia.js.agentes.meta_quem', { quem: d.metaQuem })); }
+            if (d.metaResumo) { linhas.push(''); linhas.push(BJ_T.t('inteligencia.js.agentes.meta_resumo', { resumo: d.metaResumo })); }
 
             var titulo = document.getElementById('tarefaTitulo');
             var descricao = document.getElementById('tarefaDescricao');
             var prazo = document.getElementById('tarefaPrazo');
-            if (titulo) { titulo.value = (d.metaTitulo || 'Providência indicada pela análise IA').slice(0, 255); }
+            if (titulo) { titulo.value = (d.metaTitulo || BJ_T.t('inteligencia.js.agentes.meta_titulo')).slice(0, 255); }
             if (descricao) { descricao.value = linhas.join('\n').slice(0, 5000); }
             if (prazo) {
                 var p = new Date(); p.setDate(p.getDate() + 7);

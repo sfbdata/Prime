@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\TrabalhoExterno\UseCase;
+
+use App\TrabalhoExterno\Enum\Perfil;
+use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
+use App\TrabalhoExterno\Enum\TipoItemMarcado;
+use App\TrabalhoExterno\Repository\MarcacaoDeMensagemRepository;
+use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Service\ApresentadorDeDemanda;
+use App\TrabalhoExterno\Service\ContadorDeNaoLidas;
+use App\TrabalhoExterno\Service\Contexto;
+use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
+use App\TrabalhoExterno\Service\PreviaDePerfil;
+
+/** O painel lateral de uma demanda, no recorte do perfil. Consulta: não grava nada. */
+final class DetalharDemandaUseCase
+{
+    public function __construct(
+        private readonly LocalizadorDeDemanda $localizador,
+        private readonly ApresentadorDeDemanda $apresentador,
+        private readonly ContadorDeNaoLidas $contador,
+        private readonly PreviaDePerfil $previa,
+        private readonly MarcacaoDeMensagemRepository $marcacoes,
+        private readonly MarcacaoDoUsuarioRepository $marcacoesDeItem,
+    ) {
+    }
+
+    /** @return array<string, mixed> */
+    public function executar(Contexto $ctx, string $codigo): array
+    {
+        [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
+        $id = (int) $demanda->getId();
+        $naoLidas = $this->contador->porDemanda([[$demanda, $ctx]])[$id] ?? 0;
+        // "Marcar como não lida" conta 1, como na lista: é o que faz a tela avisar a leitura ao abrir o chat.
+        $marcaDoItem = $this->marcacoesDeItem->doUsuario($ctx->usuario, TipoItemMarcado::Demanda, [$id])[$id] ?? null;
+        if ($naoLidas === 0 && $marcaDoItem?->isNaoLida() === true) {
+            $naoLidas = 1;
+        }
+
+        return $this->apresentador->detalhe($ctx, $demanda, $naoLidas, $this->marcacoes->daDemanda($demanda, $ctx->usuario));
+    }
+
+    /**
+     * O painel lateral como `$como` veria a demanda (spec §9). Localiza no escopo do Master; se o
+     * perfil pré-visualizado não a veria (ex.: convidado sem convite aceito), é "não encontrada".
+     *
+     * @return array<string, mixed>
+     */
+    public function executarPrevia(Contexto $master, string $codigo, Perfil $como): array
+    {
+        [$demanda] = $this->localizador->localizar($master, $codigo);
+        $ctx = $this->previa->paraDemanda($master, $como, $demanda) ?? throw new DemandaNaoEncontrada();
+        $naoLidas = $this->contador->porDemanda([[$demanda, $ctx]]);
+
+        return $this->apresentador->detalhe($ctx, $demanda, $naoLidas[(int) $demanda->getId()] ?? 0);
+    }
+}

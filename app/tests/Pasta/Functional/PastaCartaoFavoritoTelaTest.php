@@ -14,7 +14,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * Estrela de favorito no CARTÃO do Expediente (modo lista no desktop e sempre no celular —
- * `pasta/_card.html.twig`, item 7 das pendências pós-Documentos).
+ * `expediente/_lista.html.twig`, item 7 das pendências pós-Documentos).
  *
  * Arranjo com combinador de filho direto: a estrela é botão DENTRO do bloco de identificação do
  * cartão, antes do NUP — não "existe em algum lugar da página" (a tabela, que coexiste no DOM,

@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Validacao\RestricoesAnexoJustificativa;
 use App\Ponto\Entity\JornadaColaborador;
@@ -10,6 +11,7 @@ use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
+use App\Master\Service\RegraDosMasters;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Form\EditUserTenantRoleType;
@@ -21,7 +23,6 @@ use App\Form\TenantCargosType;
 use App\Form\TenantLotacoesType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
-use App\Form\TenantPasswordType;
 use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Ponto\Repository\FeriadoRepository;
@@ -42,7 +43,11 @@ use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\HierarquiaDePerfis;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
+use App\Tenant\Exception\PedidoDeExclusaoRecusado;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\InvitationService;
@@ -66,6 +71,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/tenant')]
 final class TenantController extends AbstractController
@@ -76,6 +82,7 @@ final class TenantController extends AbstractController
         private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
@@ -118,7 +125,7 @@ final class TenantController extends AbstractController
             $existingUser = $entityManager->getRepository(User::class)->findOneBy(['email' => $adminEmail]);
 
             if ($existingUser) {
-                $form->get('adminEmail')->addError(new FormError('Este e-mail já está em uso. Informe outro e-mail para o administrador.'));
+                $form->get('adminEmail')->addError(new FormError($this->tradutor->trans('escritorio.flash.email_em_uso')));
 
                 return $this->render('tenant/new.html.twig', [
                     'tenant' => $tenant,
@@ -143,7 +150,7 @@ final class TenantController extends AbstractController
                 $entityManager->remove($tenant);
                 $entityManager->flush();
 
-                $form->get('adminEmail')->addError(new FormError('Este e-mail já está cadastrado. Informe outro e-mail para o administrador.'));
+                $form->get('adminEmail')->addError(new FormError($this->tradutor->trans('escritorio.flash.email_cadastrado')));
 
                 return $this->render('tenant/new.html.twig', [
                     'tenant' => $tenant,
@@ -152,16 +159,16 @@ final class TenantController extends AbstractController
             }
 
             if (!$result['sent']) {
-                $this->addFlash('warning', 'Tenant criado, mas não foi possível enviar o e-mail de ativação do administrador agora. Verifique SMTP e reenvie o convite.');
+                $this->addFlash('warning', $this->tradutor->trans('escritorio.flash.criado_sem_email'));
 
                 if ($this->getParameter('kernel.environment') === 'dev') {
-                    $this->addFlash('info', sprintf('Link de confirmação (dev): %s', $result['link']));
+                    $this->addFlash('info', $this->tradutor->trans('escritorio.flash.link_dev', ['link' => $result['link']]));
                 }
 
                 return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
             }
 
-            $this->addFlash('success', 'Tenant criado com sucesso! O administrador receberá um e-mail para criar a senha.');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.criado'));
 
             return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
         }
@@ -196,9 +203,7 @@ final class TenantController extends AbstractController
         Request $request,
         #[MapEntity(id: 'tenantId')] Tenant $tenant,
         EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher,
         PermissionChecker $permissionChecker,
-        TenantRoleRepository $tenantRoleRepository,
         UserTenantRepository $userTenantRepository
     ): Response {
         $user = $this->getUser();
@@ -219,39 +224,7 @@ final class TenantController extends AbstractController
         $nameForm->handleRequest($request);
         if ($nameForm->isSubmitted() && $nameForm->isValid()) {
             $entityManager->flush();
-            $this->addFlash('success', 'Nome do Tenant atualizado com sucesso!');
-            return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId()]);
-        }
-
-        // Form para alterar senha
-        $passwordForm = $this->createForm(TenantPasswordType::class, $tenant);
-        $passwordForm->handleRequest($request);
-        if ($passwordForm->isSubmitted() && $passwordForm->isValid()) {
-            $newPassword = $passwordForm->get('password')->getData();
-            $confirmPassword = $passwordForm->get('confirm_password')->getData();
-
-            if ($newPassword !== $confirmPassword) {
-                $this->addFlash('error', 'As senhas não coincidem.');
-            } else {
-                // Busca o usuário com perfil de sistema (Administrador do Escritório) no tenant
-                $adminRole = null;
-                foreach ($tenantRoleRepository->findByTenantId($tenant->getId()) as $role) {
-                    if ($role->isSystem()) {
-                        $adminRole = $role;
-                        break;
-                    }
-                }
-
-                $adminUser = $adminRole
-                    ? $entityManager->getRepository(User::class)->findOneBy(['tenantRole' => $adminRole])
-                    : null;
-
-                if ($adminUser) {
-                    $adminUser->setPassword($passwordHasher->hashPassword($adminUser, $newPassword));
-                    $entityManager->flush();
-                    $this->addFlash('success', 'Senha do administrador alterada com sucesso!');
-                }
-            }
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.nome_atualizado'));
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId()]);
         }
 
@@ -260,7 +233,7 @@ final class TenantController extends AbstractController
         $cargosForm->handleRequest($request);
         if ($cargosForm->isSubmitted() && $cargosForm->isValid()) {
             $entityManager->flush();
-            $this->addFlash('success', 'Cargos atualizados com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.cargos_atualizados'));
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-cargos']);
         }
 
@@ -286,21 +259,20 @@ final class TenantController extends AbstractController
                 }
             }
             $entityManager->flush();
-            $this->addFlash('success', 'Lotações atualizadas com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.lotacoes_atualizadas'));
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
         }
 
         return $this->render('tenant/edit.html.twig', [
             'tenant'        => $tenant,
             'nameForm'      => $nameForm->createView(),
-            'passwordForm'  => $passwordForm->createView(),
             'cargosForm'    => $cargosForm->createView(),
             'lotacoesForm'  => $lotacoesForm->createView(),
         ]);
     }
 
     #[Route('/{tenantId}', name: 'app_tenant_delete', methods: ['POST'])]
-    public function delete(Request $request, #[MapEntity(id: 'tenantId')] Tenant $tenant, ExcluirEscritorioUseCase $excluirEscritorio): Response
+    public function delete(Request $request, #[MapEntity(id: 'tenantId')] Tenant $tenant, ExcluirEscritorioUseCase $excluirEscritorio, RegraDosMasters $regraDosMasters): Response
     {
         $user = $this->getUser();
 
@@ -312,9 +284,27 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Somente SUPER_ADMIN pode excluir Tenants.');
         }
 
+        // Conta criada por um Master não é excluída (spec perfis-1.2-contas C5 e Q4).
+        $recusa = $regraDosMasters->recusaParaExcluir($tenant);
+        if ($recusa !== null) {
+            $this->addFlash('danger', $recusa);
+
+            return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
+        }
+
         // RS08: exclusão é soft delete (quarentena), nunca mais remove() destrutivo.
         if ($this->isCsrfTokenValid('delete'.$tenant->getId(), $request->request->get('_token'))) {
-            $excluirEscritorio->executar($tenant);
+            $ator = $this->getUser();
+            if ($ator instanceof User) {
+                try {
+                    $excluirEscritorio->executar($tenant, $ator);
+                } catch (PedidoDeExclusaoRecusado $e) {
+                    // Pedido decidido ao mesmo tempo pela desistência do primário (409).
+                    $this->addFlash('danger', $e->getMessage());
+
+                    return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
+                }
+            }
         }
 
         return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
@@ -424,10 +414,8 @@ final class TenantController extends AbstractController
     /**
      * @return array{cargaHorariaSemanal: int, fonte: string}|null
      */
-    private function resolverJornadaInfoAdmin(User $user, ?\App\Ponto\Entity\JornadaTenant $jornadaTenant): ?array
+    private function resolverJornadaInfoAdmin(?JornadaColaborador $jornada, ?\App\Ponto\Entity\JornadaTenant $jornadaTenant): ?array
     {
-        $jornada = $user->getJornadaColaborador();
-
         if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
             $carga = $jornada->getCargaHorariaSemanal()
                 ?? $jornadaTenant?->getCargaHorariaSemanal()
@@ -476,11 +464,14 @@ final class TenantController extends AbstractController
         GerarCodigoFuncionario $gerarCodigo,
         ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        RegraDosPrimarios $regraDosPrimarios,
+        HierarquiaDePerfis $hierarquia,
+        JornadaColaboradorRepository $jornadaColaboradorRepository
     ): Response {
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -512,13 +503,71 @@ final class TenantController extends AbstractController
             $userTenant->setCodigoFuncionario($gerarCodigo->executar($tenant));
         }
 
+        // Perfil ANTES do submit: o form escreve direto no vínculo, e a regra dos primários
+        // precisa saber se a troca põe ou tira alguém do perfil de sistema.
+        $perfilAnterior = $userTenant->getTenantRole();
+
+        // Spec perfis-master D4 (RegraDosPrimarios): só primário ou Master dá ou tira o perfil de
+        // sistema e troca senha de primário. Para os demais o perfil de sistema nem é opção; se o
+        // alvo já é primário, o único perfil oferecido é o atual (não dá para rebaixar).
+        $podeGerirPrimarios = $regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant);
+        $podeTrocarSenha    = $hierarquia->podeTrocarSenha($currentUser, $tenant, $userTenant); // RegraDosPrimarios + C5 + C8
+        // Conta do Master: o perfil dele só ele mesmo troca (A1). O único perfil oferecido é o atual.
+        $podeAlterarConta   = $regraDosPrimarios->podeAlterarConta($currentUser, $user);
+        if (!$podeAlterarConta && $perfilAnterior !== null) {
+            $tenantRoles = [$perfilAnterior];
+        } elseif (!$podeGerirPrimarios) {
+            $tenantRoles = $perfilAnterior?->isSystem() === true
+                ? [$perfilAnterior]
+                : array_values(array_filter($tenantRoles, static fn ($r): bool => !$r->isSystem()));
+        }
+        $tenantRoles = $hierarquia->perfisAtribuiveis($currentUser, $tenant, $user, $tenantRoles, $perfilAnterior); // C5: subconjunto e próprio perfil
+
         $form = $this->createForm(EditUserTenantRoleType::class, $userTenant, [
             'tenant_roles'    => $tenantRoles,
             'tenant_cargos'   => $cargos,
             'tenant_lotacoes' => $lotacoes,
             'data_admissao'   => $userTenant->getDataAdmissao(),
+            'pode_marcar_controladoria' => $podeGerirPrimarios,
         ]);
         $form->handleRequest($request);
+
+        if ($form->isSubmitted()) {
+            $eraPrimario  = $perfilAnterior?->isSystem() === true;
+            $seraPrimario = $userTenant->getTenantRole()?->isSystem() === true;
+            $erroDePerfil = null;
+
+            if (!$podeAlterarConta && $userTenant->getTenantRole() !== $perfilAnterior) {
+                $erroDePerfil = RegraDosPrimarios::RECUSA_CONTA_DO_MASTER;
+            } elseif ($eraPrimario !== $seraPrimario && !$podeGerirPrimarios) {
+                // Cinto do select: um POST forjado com o id do perfil de sistema cai aqui.
+                $erroDePerfil = RegraDosPrimarios::RECUSA_GERIR_PRIMARIOS;
+            } elseif (($recusaDaHierarquia = $hierarquia->recusaAoAtribuir($currentUser, $tenant, $user, $perfilAnterior, $userTenant->getTenantRole())) !== null) {
+                $erroDePerfil = $recusaDaHierarquia; // C5: cinto do select, para o POST forjado
+            } elseif ($eraPrimario && !$seraPrimario) {
+                // Spec §5 E1: esta porta não rebaixa o titular nem o último primário.
+                try {
+                    $regraDosPrimarios->garantirQuePodeDeixarDeSerPrimario($userTenant);
+                } catch (OperacaoDePrimarioRecusada $e) {
+                    $erroDePerfil = $e->getMessage();
+                }
+            }
+
+            if ($erroDePerfil !== null) {
+                $form->get('tenantRole')->addError(new FormError($this->traduzirRecusa($erroDePerfil)));
+                // Desfaz a troca em memória: mais abaixo o ObterOuCriarPerfilUseCase pode dar
+                // flush (perfil pessoal ausente) e levaria a troca recusada junto.
+                $userTenant->setTenantRole($perfilAnterior);
+            }
+
+            $senhaPedida = $form->get('newPassword')->getData();
+            if (is_string($senhaPedida) && trim($senhaPedida) !== '' && !$podeTrocarSenha) {
+                $form->get('newPassword')->addError(new FormError($this->traduzirRecusa(
+                    !$podeAlterarConta ? RegraDosPrimarios::RECUSA_CONTA_DO_MASTER : (!$regraDosPrimarios->podeTrocarSenhaDe($currentUser, $userTenant)
+                        ? RegraDosPrimarios::RECUSA_SENHA_DE_PRIMARIO : (string) $hierarquia->recusaDaSenha($currentUser, $tenant, $userTenant))
+                )));
+            }
+        }
 
         if ($form->isSubmitted() && $form->isValid()) {
             $newPassword = $form->get('newPassword')->getData();
@@ -530,11 +579,11 @@ final class TenantController extends AbstractController
             $userTenant->setDataAdmissao($form->get('dataAdmissao')->getData());
 
             $entityManager->flush();
-            $this->addFlash('success', 'Usuário atualizado com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.usuario_atualizado'));
             return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenantId]);
         }
 
-        $jornada                  = $user->getJornadaColaborador();
+        $jornada                  = $jornadaColaboradorRepository->findByUserETenant($user, $tenant);
         $userHasCustomEscala      = $jornada !== null && !$jornada->getBlocos()->isEmpty();
 
         $userAccesses   = $resourceAccessRepository->findByUsers([$user])[(int) $user->getId()] ?? [];
@@ -637,7 +686,7 @@ final class TenantController extends AbstractController
             $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
         }
 
-        $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);
+        $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($jornada, $jornadaTenant);
         $justificativas = $justificativaRepository->findByTenantUser($user);
 
         $perfil            = $obterOuCriarPerfil->executar($user);
@@ -660,6 +709,7 @@ final class TenantController extends AbstractController
             'user'                   => $user,
             'tenantId'               => $tenantId,
             'userHasCustomEscala'    => $userHasCustomEscala,
+            'registraPonto'          => $userTenant->isRegistraPonto(),
             'userAccesses'           => $userAccesses,
             'resourceLabels'         => $resourceLabels,
             'competenciasPonto'      => $competenciasPonto,
@@ -690,7 +740,8 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        RegraDosPrimarios $regraDosPrimarios
     ): Response {
         $currentUser = $this->getUser();
 
@@ -714,23 +765,59 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para editar nomes de usuário.');
         }
 
+        if (!$regraDosPrimarios->podeAlterarConta($currentUser, $user)) {
+            throw $this->createAccessDeniedException('A conta do Master só pode ser alterada pelo próprio Master.');
+        }
+
         if (!$this->isCsrfTokenValid('edit_user_name_' . $user->getId(), $request->request->get('_token'))) {
-            $this->addFlash('error', 'Token inválido.');
+            $this->addFlash('error', $this->tradutor->trans('escritorio.flash.token_invalido'));
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
         }
 
         $novoNome = trim($request->request->get('fullName', ''));
 
         if ($novoNome === '') {
-            $this->addFlash('error', 'O nome não pode ser vazio.');
+            $this->addFlash('error', $this->tradutor->trans('escritorio.flash.nome_vazio'));
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
         }
 
         $user->setFullName($novoNome);
         $entityManager->flush();
-        $this->addFlash('success', 'Nome atualizado com sucesso!');
+        $this->addFlash('success', $this->tradutor->trans('escritorio.flash.nome_do_usuario_atualizado'));
 
         return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
+    }
+
+    /**
+     * Idioma (spec idioma-do-sistema §27): a recusa da HierarquiaDePerfis ou da RegraDosPrimarios continua sendo o
+     * português da constante (o que as regras devolvem e os testes comparam) e vai à tela pela chave dela. A que não
+     * tem chave (as próprias do RemoverColaboradorDoEscritorioUseCase) sai como veio.
+     */
+    private function traduzirRecusa(string $recusa): string
+    {
+        $chave = HierarquiaDePerfis::CHAVE_DA_RECUSA[$recusa] ?? RegraDosPrimarios::CHAVE_DA_RECUSA[$recusa] ?? null;
+
+        return $chave === null ? $recusa : $this->tradutor->trans($chave);
+    }
+
+    /**
+     * C5 (spec perfis-1.2-permissoes-e-hierarquia): quem não é primário nem Master não remove do escritório quem tem
+     * o perfil atual fora do subconjunto do dele. Devolve a volta com a recusa, ou nulo quando pode.
+     */
+    private function recusaDaHierarquiaNaRemocao(
+        mixed $executor,
+        Tenant $tenant,
+        User $colaborador,
+        HierarquiaDePerfis $hierarquia,
+        UserTenantRepository $userTenantRepository
+    ): ?Response {
+        $perfilDoAlvo = $userTenantRepository->findAtivoPorUserETenant($colaborador, $tenant)?->getTenantRole();
+        if ($executor instanceof User && $hierarquia->podeMexerNoAlvo($executor, $tenant, $perfilDoAlvo)) {
+            return null;
+        }
+        $this->addFlash('danger', $this->traduzirRecusa(HierarquiaDePerfis::RECUSA_ALVO_ACIMA_DO_SEU));
+
+        return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenant->getId()]);
     }
 
     #[Route('/{tenantId}/user/{userId}/remover', name: 'app_tenant_user_remover', methods: ['POST'])]
@@ -743,6 +830,7 @@ final class TenantController extends AbstractController
         EntityManagerInterface $em,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
+        HierarquiaDePerfis $hierarquia,
     ): Response {
         $executor = $this->getUser();
 
@@ -773,6 +861,9 @@ final class TenantController extends AbstractController
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($executor, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException();
         }
+        if (($recusa = $this->recusaDaHierarquiaNaRemocao($executor, $tenant, $colaborador, $hierarquia, $userTenantRepository)) !== null) {
+            return $recusa; // C5
+        }
 
         // O <select> de substituto manda string VAZIA quando se escolhe "deixar sem
         // responsável", e getInt() lança BadRequestException nesse caso (400) em vez de
@@ -791,9 +882,9 @@ final class TenantController extends AbstractController
             // A trava do último administrador (D7) mora no UseCase e vale também para
             // super-admin — não é atalhada aqui, mesmo que o guard acima já tenha passado.
             $useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant, $substituto));
-            $this->addFlash('success', sprintf('%s foi removido do escritório.', $colaborador->getFullName()));
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.colaborador_removido', ['nome' => (string) $colaborador->getFullName()]));
         } catch (\InvalidArgumentException $e) {
-            $this->addFlash('danger', $e->getMessage());
+            $this->addFlash('danger', $this->traduzirRecusa($e->getMessage()));
         }
 
         return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenantId]);
@@ -1438,7 +1529,8 @@ final class TenantController extends AbstractController
             if ($dataObj === false) {
                 continue;
             }
-            if ($dataObj > $hoje) {
+            // Por data, não por instante: o createFromFormat carrega a hora corrente e hoje passava por futura.
+            if ($dataObj->format('Y-m-d') > $hoje->format('Y-m-d')) {
                 $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
                 continue;
             }
@@ -1661,7 +1753,7 @@ final class TenantController extends AbstractController
         $entityManager->remove($resourceAccess);
         $entityManager->flush();
 
-        $this->addFlash('success', 'Acesso específico removido com sucesso.');
+        $this->addFlash('success', $this->tradutor->trans('escritorio.flash.acesso_removido'));
 
         return $this->redirectToRoute('app_tenant_user_edit_role', [
             'tenantId' => $tenantId,
@@ -1704,7 +1796,7 @@ final class TenantController extends AbstractController
             $entityManager->persist($sede);
             $entityManager->flush();
 
-            $this->addFlash('success', 'Sede cadastrada com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.sede_cadastrada'));
             return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenant->getId()]);
         }
 
@@ -1759,12 +1851,17 @@ final class TenantController extends AbstractController
 
         if ($editForm->isSubmitted() && $editForm->isValid()) {
             $entityManager->flush();
-            $this->addFlash('success', 'Sede atualizada com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.sede_atualizada'));
 
             return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenantId]);
         }
 
-        // Falha de validação: re-renderizar a página com o form de edição com erros
+        // Falha de validação: re-renderizar a página com o form de edição com erros.
+        // O form já escreveu o valor inválido na entidade gerenciada; o refresh devolve a
+        // cerca gravada para a lista da tela (nada foi gravado, sem flush).
+        if ($editForm->isSubmitted()) {
+            $entityManager->refresh($sede);
+        }
         $newSede  = new Sede();
         $form     = $this->createForm(SedeType::class, $newSede);
         $sedes    = $sedeRepository->findBy(['tenant' => $tenant]);
@@ -1828,17 +1925,17 @@ final class TenantController extends AbstractController
             $entityManager->flush();
             $connection->commit();
 
-            $this->addFlash('success', 'Sede removida com sucesso.');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.sede_removida'));
 
             if ($totalDesvinculados > 0) {
-                $this->addFlash('info', sprintf('%d registro(s) de ponto foram desvinculados automaticamente da sede removida.', $totalDesvinculados));
+                $this->addFlash('info', $this->tradutor->trans('escritorio.flash.sede_registros_desvinculados', ['qtd' => (string) $totalDesvinculados]));
             }
         } catch (\Throwable) {
             if ($connection->isTransactionActive()) {
                 $connection->rollBack();
             }
 
-            $this->addFlash('danger', 'Não foi possível remover a sede neste momento. Tente novamente.');
+            $this->addFlash('danger', $this->tradutor->trans('escritorio.flash.sede_nao_removida'));
         }
 
         return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenantId]);

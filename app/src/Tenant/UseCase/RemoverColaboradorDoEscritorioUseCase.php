@@ -10,6 +10,11 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\OrigemRemocao;
 use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\Entity\SaidaDaEquipe;
+use App\Tenant\Enum\MotivoDaSaida;
+use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Repository\SaidaDaEquipeRepository;
+use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -24,6 +29,8 @@ final class RemoverColaboradorDoEscritorioUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly SaidaDaEquipeRepository $saidas,
     ) {}
 
     public function executar(RemoverColaboradorInput $input): void
@@ -49,6 +56,7 @@ final class RemoverColaboradorDoEscritorioUseCase
             $this->revogarAcessos($input);
 
             $this->registrarAuditoria($input, $vinculo);
+            $this->registrarSaida($input, $vinculo);
 
             $this->em->remove($vinculo);
             $this->em->flush();
@@ -61,8 +69,27 @@ final class RemoverColaboradorDoEscritorioUseCase
         }
     }
 
+    /** A data da saída sobrevive ao vínculo apagado (spec docs/specs/saida-da-equipe.md; painel do Master, b5). */
+    private function registrarSaida(RemoverColaboradorInput $input, UserTenant $vinculo): void
+    {
+        $this->saidas->registrar(new SaidaDaEquipe(
+            $input->tenant,
+            $input->colaborador,
+            $input->origem === OrigemRemocao::Saida ? MotivoDaSaida::Saiu : MotivoDaSaida::Removido,
+            $vinculo->getTenantRole()?->isSystem() === true,
+        ));
+    }
+
     private function validar(RemoverColaboradorInput $input, UserTenant $vinculo): void
     {
+        // Decisão D4 do dono: "o titular nunca é rebaixado nem removido". Sair por conta própria
+        // é uma remoção: deixaria o escritório sem o titular que abriu a conta.
+        if ($input->origem === OrigemRemocao::Saida && $this->regraDosPrimarios->ehTitular($vinculo)) {
+            throw new \InvalidArgumentException(
+                'O titular do escritório não pode sair. Fale com o suporte do BlueJus.'
+            );
+        }
+
         if ($input->origem === OrigemRemocao::Painel) {
             if ($input->executor === $input->colaborador) {
                 throw new \InvalidArgumentException(
@@ -73,6 +100,22 @@ final class RemoverColaboradorDoEscritorioUseCase
             // Cinto secundário: sabidamente inerte onde tenant.criado_por é nulo (spec §4).
             if ($input->tenant->getCriadoPor() === $input->colaborador) {
                 throw new \InvalidArgumentException('Não é permitido remover o criador do escritório.');
+            }
+
+            // Spec perfis-master D2: a conta do Master só o próprio Master mexe, inclusive tirá-la
+            // de um escritório. Vale mesmo onde criado_por é nulo.
+            if (!$this->regraDosPrimarios->podeAlterarConta($input->executor, $input->colaborador)) {
+                throw new \InvalidArgumentException('A conta do Master só pode ser alterada pelo próprio Master.');
+            }
+
+            // Spec perfis-master D4: tirar um primário (sócio) do escritório é gerir primários,
+            // coisa de primário ou Master. Um secundário com admin.users.manage não remove sócio.
+            if ($vinculo->getTenantRole()?->isSystem() === true) {
+                try {
+                    $this->regraDosPrimarios->garantirQuePodeGerirPrimarios($input->executor, $input->tenant);
+                } catch (OperacaoDePrimarioRecusada $e) {
+                    throw new \InvalidArgumentException($e->getMessage(), 0, $e);
+                }
             }
         }
 
@@ -108,8 +151,9 @@ final class RemoverColaboradorDoEscritorioUseCase
 
     private function ehUltimoAdmin(UserTenant $vinculo, Tenant $tenant): bool
     {
-        $role = $vinculo->getTenantRole();
-        if ($role === null || !$role->isSystem()) {
+        // Só quem é CONTADO como primário (vínculo ativo, conta ativa, perfil de sistema) pode ser
+        // "o último": conta desativada não entra na contagem, logo não segura a trava (spec M-b).
+        if (!$this->regraDosPrimarios->ehPrimario($vinculo)) {
             return false;
         }
 

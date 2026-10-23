@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'emails.codigo_senha.titulo'|trans({codigo: codigo}) }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+                    <tr>
+                        <td style="background-color:#0a76a8;padding:24px 32px;">
+                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">BlueJus</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;">
+                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">{{ 'emails.codigo_senha.ola'|trans({nome: nome}) }}</p>
+
+                            <p style="margin:0 0 16px;font-size:15px;color:#34505f;line-height:1.6;">
+                                {{ 'emails.codigo_senha.use_codigo'|trans }} <strong>BlueJus</strong>:
+                            </p>
+
+                            <p style="margin:0 0 16px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#12242f;font-family:'Courier New',Courier,monospace;">{{ codigo }}</p>
+
+                            <p style="margin:0 0 16px;font-size:15px;color:#34505f;line-height:1.6;">
+                                {{ 'emails.codigo_senha.vale'|trans }}
+                            </p>
+
+                            <p style="margin:24px 0 0;font-size:13px;color:#7a8e9b;line-height:1.6;">
+                                {{ 'emails.codigo_senha.nao_pediu'|trans }}
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

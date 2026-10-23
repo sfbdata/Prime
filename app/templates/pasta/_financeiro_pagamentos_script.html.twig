@@ -69,8 +69,9 @@
     // quem valida e grava; o navegador só evita a ida quando nada mudou.
     let corrigindo = null; // { linha, caixa }
 
-    const ERRO_FORMATO = 'Informe apenas números, como 12.860,00.';
-    const ERRO_CASAS   = 'Use no máximo duas casas decimais, como 12.860,00.';
+    /* Do catálogo na hora do uso: este script roda antes do bj-traducao.js, que o base carrega no fim. */
+    function erroFormato() { return BJ_T.t('pasta_financeiro.js.erro_formato'); }
+    function erroCasas() { return BJ_T.t('pasta_financeiro.js.erro_casas'); }
 
     /**
      * "1.234,56" / "1234.56" → { numero, erro }, só para comparar, montar o
@@ -84,13 +85,13 @@
         const t = String(texto).replace(/R\$|r\$|\s/g, '');
         // Vazio não é erro de formato: cai no "maior que zero" de quem chama.
         if (t === '') { return { numero: NaN, erro: null }; }
-        if (/[^0-9.,]/.test(t)) { return { numero: NaN, erro: ERRO_FORMATO }; }
+        if (/[^0-9.,]/.test(t)) { return { numero: NaN, erro: erroFormato() }; }
 
         let inteiro;
         let decimal;
         if (t.indexOf(',') >= 0) {
             const partes = t.split(',');
-            if (partes.length > 2 || partes[1].indexOf('.') >= 0) { return { numero: NaN, erro: ERRO_FORMATO }; }
+            if (partes.length > 2 || partes[1].indexOf('.') >= 0) { return { numero: NaN, erro: erroFormato() }; }
             inteiro = partes[0].replace(/\./g, '');
             decimal = partes[1];
         } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(t)) {
@@ -98,13 +99,13 @@
             decimal = '';
         } else {
             const partes = t.split('.');
-            if (partes.length > 2) { return { numero: NaN, erro: ERRO_FORMATO }; }
+            if (partes.length > 2) { return { numero: NaN, erro: erroFormato() }; }
             inteiro = partes[0];
             decimal = partes[1] ?? '';
         }
 
-        if (inteiro === '' && decimal === '') { return { numero: NaN, erro: ERRO_FORMATO }; }
-        if (decimal.length > 2) { return { numero: NaN, erro: ERRO_CASAS }; }
+        if (inteiro === '' && decimal === '') { return { numero: NaN, erro: erroFormato() }; }
+        if (decimal.length > 2) { return { numero: NaN, erro: erroCasas() }; }
 
         return { numero: Number((inteiro || '0') + '.' + (decimal || '0')), erro: null };
     }
@@ -136,20 +137,20 @@
         input.inputMode = 'decimal';
         input.maxLength = 20;
         input.value = linha.dataset.valor || '';
-        input.setAttribute('aria-label', 'Novo valor de ' + (linha.dataset.descricao || ''));
+        input.setAttribute('aria-label', BJ_T.t('pasta_financeiro.js.novo_valor_de', { descricao: linha.dataset.descricao || '' }));
 
         const salvar = document.createElement('button');
         salvar.type = 'button';
         salvar.className = 'ps-pag-edicao-salvar';
-        salvar.title = 'Salvar (Enter)';
-        salvar.setAttribute('aria-label', 'Salvar valor');
+        salvar.title = BJ_T.t('pasta_financeiro.js.salvar_enter');
+        salvar.setAttribute('aria-label', BJ_T.t('pasta_financeiro.js.salvar_valor'));
         salvar.innerHTML = '<i class="bi bi-check-lg"></i>';
 
         const cancelar = document.createElement('button');
         cancelar.type = 'button';
         cancelar.className = 'ps-pag-edicao-cancelar';
-        cancelar.title = 'Cancelar (Esc)';
-        cancelar.setAttribute('aria-label', 'Cancelar');
+        cancelar.title = BJ_T.t('pasta_financeiro.js.cancelar_esc');
+        cancelar.setAttribute('aria-label', BJ_T.t('pasta_financeiro.js.cancelar'));
         cancelar.innerHTML = '<i class="bi bi-x-lg"></i>';
 
         caixa.append(moeda, input, salvar, cancelar);
@@ -176,16 +177,18 @@
 
         if (lido.erro !== null) {
             input.classList.add('is-erro');
-            alert(lido.erro);
+            (window.avisarErroPs || window.alert)(lido.erro);
             input.focus();
             return;
         }
         if (!(novo > 0)) { input.classList.add('is-erro'); input.focus(); return; }
         if (Math.abs(novo - atual) < 0.005) { cancelarCorrecao(); return; }
 
-        const pergunta = 'Corrigir "' + (linha.dataset.descricao || '') + '" de ' + brl(atual) + ' para ' + brl(novo) + '?'
-            + '\n\nA alteração fica registrada no histórico com seu nome, data e hora.';
-        if (!window.confirm(pergunta)) { return; }
+        const pergunta = BJ_T.t('pasta_financeiro.js.corrigir_pergunta', { descricao: linha.dataset.descricao || '', de: brl(atual), para: brl(novo) })
+            + '\n\n' + BJ_T.t('pasta_financeiro.js.corrigir_historico');
+        // E7: janela AZUL da tela, como o dc (`confirmarUI(…)` sem perigo, L.3563).
+        const corrigir = window.confirmarUIPs ? await window.confirmarUIPs(pergunta, false) : window.confirm(pergunta);
+        if (!corrigir) { return; }
 
         const url = cartao.dataset.baseUrlCorrigir.replace('__ID__', linha.dataset.pagamentoId);
         botao.disabled = true;
@@ -199,20 +202,21 @@
             if (status === 409) {
                 // Nada foi gravado. O card volta relido do servidor, já com o
                 // valor que vale agora; a caixa de correção fecha junto.
-                alert(data.erro ?? 'O valor foi alterado por outra pessoa. Recarregue e confira antes de corrigir.');
+                /* Fica o alert do navegador: a página pode recarregar logo em seguida, e o aviso sumiria antes de ser lido. */
+                window.alert(data.erro ?? BJ_T.t('pasta_financeiro.js.erro_conflito'));
                 corrigindo = null;
                 if (data.resumo) { aplicarResumo(data.resumo); } else { window.location.reload(); }
                 return;
             }
             if (!ok) {
                 input.classList.add('is-erro');
-                alert(data.erro ?? data.mensagem ?? 'Erro ao corrigir o valor.');
+                (window.avisarErroPs || window.alert)(data.erro ?? data.mensagem ?? BJ_T.t('pasta_financeiro.js.erro_corrigir'));
                 return;
             }
             corrigindo = null;
             aplicarResumo(data.resumo);
         } catch (_) {
-            alert('Erro de rede. Tente novamente.');
+            (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede_tente'));
         } finally {
             botao.disabled = false;
         }
@@ -239,10 +243,10 @@
             alvo.disabled = true;
             try {
                 const { ok, data } = await postar(url, alvo.dataset.csrf);
-                if (!ok) { alert(data.erro ?? data.mensagem ?? 'Erro ao alterar o pagamento.'); return; }
+                if (!ok) { (window.avisarErroPs || window.alert)(data.erro ?? data.mensagem ?? BJ_T.t('pasta_financeiro.js.erro_quitacao')); return; }
                 aplicarResumo(data.resumo);
             } catch (_) {
-                alert('Erro de rede. Tente novamente.');
+                (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede_tente'));
             } finally {
                 alvo.disabled = false;
             }
@@ -256,17 +260,21 @@
             const linhaEx = corpo.querySelector('.ps-pag-linha[data-pagamento-id="' + CSS.escape(id) + '"]');
             const valorEx = linhaEx ? lerValor(linhaEx.dataset.valor || '').numero : NaN;
             const perguntaEx = linhaEx && !Number.isNaN(valorEx)
-                ? 'Excluir "' + (linhaEx.dataset.descricao || '') + '" (' + brl(valorEx) + ')?'
-                : 'Excluir este lançamento?';
-            if (!confirm(perguntaEx)) { return; }
+                ? BJ_T.t('pasta_financeiro.js.excluir_lancamento_pergunta', { descricao: linhaEx.dataset.descricao || '', valor: brl(valorEx) })
+                : BJ_T.t('pasta_financeiro.js.excluir_lancamento_generico');
+            // E7: janela vermelha da tela com o título do dc ("Excluir lançamento", L.3573).
+            const excluirLanc = window.confirmarUIPs
+                ? await window.confirmarUIPs(BJ_T.t('pasta_financeiro.js.excluir_lancamento_titulo') + '\n' + perguntaEx, true)
+                : confirm(perguntaEx);
+            if (!excluirLanc) { return; }
 
             const url = cartao.dataset.baseUrlExcluir.replace('__ID__', id);
             try {
                 const { ok, data } = await postar(url, alvo.dataset.csrf);
-                if (!ok) { alert(data.erro ?? data.mensagem ?? 'Erro ao excluir.'); return; }
+                if (!ok) { (window.avisarErroPs || window.alert)(data.erro ?? data.mensagem ?? BJ_T.t('pasta_financeiro.js.erro_excluir')); return; }
                 aplicarResumo(data.resumo);
             } catch (_) {
-                alert('Erro de rede. Tente novamente.');
+                (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede_tente'));
             }
         }
     });
@@ -384,51 +392,51 @@
         /** O que a prévia mostra e o botão promete. Espelho da regra do dc L.3470-3500. */
         function calcular() {
             const tipo   = valorDe('tipo');
-            const rotulo = tipo === 'custas' ? 'custas' : 'honorários';
+            const rotulo = tipo === 'custas' ? BJ_T.t('pasta_financeiro.js.tipo_custas') : BJ_T.t('pasta_financeiro.js.tipo_honorarios');
             const base   = valorDe('base');
             let total;
 
             if (base === 'pct') {
                 const pct = decimalCurto(valorDe('percentual'));
-                if (pct === null || !(pct > 0 && pct <= 100)) { return { novos: [], erro: 'Informe um percentual entre 0 e 100.' }; }
+                if (pct === null || !(pct > 0 && pct <= 100)) { return { novos: [], erro: BJ_T.t('pasta_financeiro.js.erro_percentual') }; }
                 const causa = causaCentavos();
-                if (causa <= 0) { return { novos: [], erro: 'Informe o valor da causa antes de calcular por percentual.' }; }
+                if (causa <= 0) { return { novos: [], erro: BJ_T.t('pasta_financeiro.js.erro_causa') }; }
                 total = Math.round(causa * pct / 100);
             } else {
                 total = centavosDe(valorDe('total'));
                 if (total === null) { return { novos: [], erro: '' }; }
-                if (Number.isNaN(total)) { return { novos: [], erro: 'Informe apenas números, como 12.860,00.' }; }
+                if (Number.isNaN(total)) { return { novos: [], erro: erroFormato() }; }
             }
-            if (!(total > 0)) { return { novos: [], erro: 'Informe o valor total.' }; }
+            if (!(total > 0)) { return { novos: [], erro: BJ_T.t('pasta_financeiro.js.erro_total') }; }
 
             const venc = valorDe('vencimento');
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(venc)) { return { novos: [], erro: 'Informe o 1º vencimento.' }; }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(venc)) { return { novos: [], erro: BJ_T.t('pasta_financeiro.js.erro_vencimento') }; }
 
             const entDigitada = centavosDe(valorDe('entrada'));
-            if (Number.isNaN(entDigitada)) { return { novos: [], erro: 'Informe apenas números, como 12.860,00.' }; }
+            if (Number.isNaN(entDigitada)) { return { novos: [], erro: erroFormato() }; }
             const ent = Math.min(entDigitada ?? 0, total);
             const n   = Math.max(1, Math.min(MAX_PARCELAS, parseInt(valorDe('parcelas'), 10) || 1));
 
             let taxa = 0;
             if (valorDe('juros') === '1') {
                 taxa = decimalCurto(valorDe('taxa'));
-                if (taxa === null || !(taxa > 0 && taxa <= 10)) { return { novos: [], erro: 'Informe os juros ao mês entre 0 e 10%.' }; }
+                if (taxa === null || !(taxa > 0 && taxa <= 10)) { return { novos: [], erro: BJ_T.t('pasta_financeiro.js.erro_juros') }; }
             }
 
             // Descrição livre opcional (fora do desenho): mesma regra do servidor.
             const livre = valorDe('descricao').replace(/\s+/g, ' ').trim();
             const novos = [];
             const hoje  = hojeIso();
-            if (ent > 0) { novos.push({ d: livre ? livre + ' · entrada' : 'Entrada · ' + rotulo, q: dataBR(hoje), v: ent }); }
+            if (ent > 0) { novos.push({ d: livre ? BJ_T.t('pasta_financeiro.js.livre_entrada', { descricao: livre }) : BJ_T.t('pasta_financeiro.js.entrada_de', { tipo: rotulo }), q: dataBR(hoje), v: ent }); }
 
             const principal = total - ent;
             if (principal > 0) {
                 const valores = calcularParcelas(principal, n, taxa);
-                if (valores === null) { return { novos: [], erro: 'O valor é pequeno demais para ' + n + ' parcelas. Diminua o número de parcelas.' }; }
+                if (valores === null) { return { novos: [], erro: BJ_T.t('pasta_financeiro.js.erro_pequeno', { n: n }) }; }
                 valores.forEach((v, k) => novos.push({
                     d: livre
                         ? (n === 1 ? livre : livre + ' · ' + (k + 1) + '/' + n)
-                        : (n === 1 ? (tipo === 'custas' ? 'Custas e despesas' : 'Honorários contratuais') : (k + 1) + 'ª parcela · ' + rotulo),
+                        : (n === 1 ? (tipo === 'custas' ? BJ_T.t('pasta_financeiro.js.custas_e_despesas') : BJ_T.t('pasta_financeiro.js.honorarios_contratuais')) : BJ_T.t('pasta_financeiro.js.parcela_de', { numero: k + 1, tipo: rotulo })),
                     q: dataBR(somarMeses(venc, k)),
                     v,
                 }));
@@ -459,14 +467,14 @@
 
                 return linha;
             }));
-            el.resumo.textContent = novos.length ? novos.length + (novos.length === 1 ? ' lançamento · ' : ' lançamentos · ') + brlCentavos(soma) : '';
+            el.resumo.textContent = novos.length ? (novos.length === 1 ? BJ_T.t('pasta_financeiro.js.resumo_um', { quantidade: novos.length, total: brlCentavos(soma) }) : BJ_T.t('pasta_financeiro.js.resumo_varios', { quantidade: novos.length, total: brlCentavos(soma) })) : '';
             el.mais.hidden        = novos.length <= 5;
-            el.mais.textContent   = '+ ' + (novos.length - 5) + ' parcelas';
+            el.mais.textContent   = BJ_T.t('pasta_financeiro.js.mais_parcelas', { quantidade: novos.length - 5 });
             el.erro.hidden        = !erro;
             el.erro.textContent   = erro;
             el.vazio.hidden       = !(novos.length === 0 && !erro);
 
-            btnGerar.textContent = novos.length > 1 ? 'Gerar ' + novos.length + ' lançamentos' : 'Adicionar';
+            btnGerar.textContent = novos.length > 1 ? BJ_T.t('pasta_financeiro.js.gerar', { quantidade: novos.length }) : BJ_T.t('pasta_financeiro.js.adicionar');
             btnGerar.disabled    = novos.length === 0;
         }
 
@@ -509,7 +517,7 @@
 
             // O valor da causa pode ter sido editado nesta tela depois da carga.
             const causa = causaCentavos();
-            el.causa.textContent = causa > 0 ? brlCentavos(causa) : '—';
+            el.causa.textContent = causa > 0 ? brlCentavos(causa) : BJ_T.t('pasta_financeiro.js.sem_dado');
             renderizar();
         });
 
@@ -533,7 +541,7 @@
 
                 if (!resp.ok) {
                     // `mensagem` é a recusa da pasta excluída (PastaSomenteLeituraListener).
-                    el.erro.textContent = data.erro || data.mensagem || 'Erro ao lançar o pagamento.';
+                    el.erro.textContent = data.erro || data.mensagem || BJ_T.t('pasta_financeiro.js.erro_lancar');
                     el.erro.hidden = false;
                     btnGerar.disabled = false;
                     return;
@@ -544,7 +552,7 @@
                 cartao.classList.add('is-mostrando-todos');
                 bootstrap.Modal.getInstance(modalEl)?.hide();
             } catch (_) {
-                el.erro.textContent = 'Erro de rede. Tente novamente.';
+                el.erro.textContent = BJ_T.t('pasta_financeiro.js.erro_rede_tente');
                 el.erro.hidden = false;
                 btnGerar.disabled = false;
             }

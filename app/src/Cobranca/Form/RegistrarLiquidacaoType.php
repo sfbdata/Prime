@@ -35,7 +35,7 @@ final class RegistrarLiquidacaoType extends AbstractType
                 'attr' => ['class' => 'form-control', 'maxlength' => 255, 'placeholder' => 'Ex.: Veículo Fiat Uno placa ABC-1234'],
             ])
             ->add('valorAtribuidoBem', CentavosType::class, [
-                'label' => 'Valor atribuído ao bem (R$) — opcional',
+                'label' => 'Valor atribuído ao bem (R$, opcional)',
                 'required' => false,
                 'attr' => ['class' => 'form-control'],
             ])

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ponto\Service;
 
 use App\Entity\Auth\User;
+use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -23,9 +24,9 @@ class VerificadorAlertaPonto
     /**
      * @return array{alertar: bool, mensagem: string, tipo: string, horario: string}
      */
-    public function verificar(User $user, \DateTimeImmutable $agora, ?JornadaTenant $jornadaTenant = null): array
+    public function verificar(User $user, \DateTimeImmutable $agora, ?JornadaTenant $jornadaTenant = null, ?JornadaColaborador $jornada = null): array
     {
-        if (!$this->jornadaResolver->resolverAlertaHabilitado($user, $jornadaTenant)) {
+        if (!$this->jornadaResolver->resolverAlertaHabilitado($jornada, $jornadaTenant)) {
             return $this->semAlerta();
         }
 
@@ -56,7 +57,7 @@ class VerificadorAlertaPonto
 
         if (!$repousoRegistrado) {
             // Verifica horário configurado (±5 min) — tem prioridade sobre CLT
-            $alertaRepouso = $this->verificarRepousoPorHorario($user, $agora, $jornadaTenant);
+            $alertaRepouso = $this->verificarRepousoPorHorario($jornada, $agora, $jornadaTenant);
             if ($alertaRepouso !== null) {
                 return $alertaRepouso;
             }
@@ -93,7 +94,7 @@ class VerificadorAlertaPonto
         }
 
         if ($retornoRegistrado && !$saidaRegistrada) {
-            $metaDiaMinutos = $this->jornadaResolver->resolverMetaDia($user, $agora, $jornadaTenant);
+            $metaDiaMinutos = $this->jornadaResolver->resolverMetaDia($jornada, $agora, $jornadaTenant);
             if ($metaDiaMinutos > 0) {
                 $entrada = $porTipo[RegistroPonto::TIPO_ENTRADA];
 
@@ -128,11 +129,11 @@ class VerificadorAlertaPonto
      * @return array{alertar: bool, mensagem: string, tipo: string, horario: string}|null
      */
     private function verificarRepousoPorHorario(
-        User $user,
+        ?JornadaColaborador $jornada,
         \DateTimeImmutable $agora,
         ?JornadaTenant $jornadaTenant,
     ): ?array {
-        $batidasEsperadas = $this->jornadaResolver->resolverBatidasEsperadasHoje($user, $agora, $jornadaTenant);
+        $batidasEsperadas = $this->jornadaResolver->resolverBatidasEsperadasHoje($jornada, $agora, $jornadaTenant);
         $agoraMin = (int) $agora->format('H') * 60 + (int) $agora->format('i');
 
         foreach ($batidasEsperadas as $batida) {

@@ -1,0 +1,14 @@
+{#
+   Confirmação interna do desenho "05 - Perfis 1.0" (linhas 330-338), no lugar do window.confirm.
+   Preenchida pelo public/js/perfis.js (título, ícone, cor, texto, botão) a cada pedido.
+#}
+<div class="pf-conf-fundo" data-pf-conf hidden>
+    <div class="pf-conf" role="dialog" aria-modal="true" aria-labelledby="pfConfTitulo">
+        <div class="pf-conf-cab" data-pf-conf-cab><i class="bi" data-pf-conf-icone></i><span id="pfConfTitulo" data-pf-conf-titulo></span></div>
+        <div class="pf-conf-texto"><span data-pf-conf-texto></span><div data-pf-conf-extra></div></div>
+        <div class="pf-conf-rodape">
+            <button type="button" class="pf-conf-cancelar" data-pf-conf-cancelar>{{ 'perfis.cancelar'|trans }}</button>
+            <button type="button" class="pf-conf-ok" data-pf-conf-ok></button>
+        </div>
+    </div>
+</div>

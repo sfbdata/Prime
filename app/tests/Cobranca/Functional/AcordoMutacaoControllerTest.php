@@ -57,6 +57,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         $acordos = static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh);
         self::assertCount(1, $acordos, 'o acordo deve ter sido criado');
+        self::assertSame('2026-08-01', $acordos[0]->getDataAcordo()?->format('Y-m-d'), 'a data do acordo é a informada, não a de hoje');
     }
 
     #[TestDox('Criar acordo sem capacidade: negado')]

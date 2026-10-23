@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Enum\StatusOab;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
@@ -40,6 +41,60 @@ class UserRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('u')
             ->where('LOWER(u.email) = :email')
             ->setParameter('email', mb_strtolower(trim($email)))
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Usuários que carregam um papel GLOBAL na coluna `roles` (ex.: ROLE_SUPER_ADMIN, o Master).
+     *
+     * `roles` é `json` (não `jsonb`) no PostgreSQL: não aceita LIKE nem o operador `?` direto
+     * (e `?` colidiria com o placeholder do DBAL). Por isso o CAST para texto e a busca pelo
+     * nome entre aspas, que não casa prefixo de outro papel.
+     *
+     * @return User[]
+     */
+    public function findComPapelGlobal(string $papel): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT id FROM "user" WHERE CAST(roles AS TEXT) LIKE :papel ORDER BY id',
+            ['papel' => '%"' . $papel . '"%'],
+        );
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->findBy(['id' => array_map('intval', $ids)], ['id' => 'ASC']);
+    }
+
+    /**
+     * Contas ativas com o e-mail ainda por confirmar desde `$pendenteAte` (ou antes) que ainda não receberam o
+     * lembrete único (ConfirmacaoEmail com `lembrete`). A mais antiga primeiro. É a fila da varredura do
+     * Comercial (5d), que reemite pelo ReemitirConfirmacaoDeEmailUseCase.
+     *
+     * Identidade é global: não há tenant a filtrar aqui.
+     *
+     * @return list<User>
+     */
+    public function semConfirmacaoDeEmailParaLembrete(\DateTimeImmutable $pendenteAte, int $limite): array
+    {
+        $lembrete = $this->getEntityManager()->createQueryBuilder()
+            ->select('1')
+            ->from(ConfirmacaoEmail::class, 'c')
+            ->where('c.user = u')
+            ->andWhere('c.lembrete = true')
+            ->getDQL();
+
+        return $this->createQueryBuilder('u')
+            ->where('u.isActive = true')
+            ->andWhere('u.emailAConfirmarDesde IS NOT NULL')
+            ->andWhere('u.emailAConfirmarDesde <= :pendenteAte')
+            ->andWhere('NOT EXISTS (' . $lembrete . ')')
+            ->setParameter('pendenteAte', $pendenteAte)
+            ->orderBy('u.emailAConfirmarDesde', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->setMaxResults($limite)
             ->getQuery()
             ->getResult();
     }

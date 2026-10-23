@@ -26,7 +26,7 @@
    ⋮ também com "Copiar link" (PMC-028: a URL ABSOLUTA de `tarefa_show`, pelo
    mesmo `.js-ps-copiar` do trilho da aba Dados, em pasta-clientes.js) e
    "Excluir" (PMC-030: POST `tarefa_excluir`, token `excluir_tarefa_<id>`, com
-   confirm()). "Excluir" só aparece quando o `ExcluirTarefaUseCase::podeExcluir`
+   confirmação na janela da tela — E7). "Excluir" só aparece quando o `ExcluirTarefaUseCase::podeExcluir`
    deixaria (criador, dentro da janela) e nunca na pasta excluída (lápide). O
    desenho oferece "Desfazer" depois de excluir; aqui NÃO há: a exclusão é
    física, e desfazer exigiria lápide de meta (decisão em aberto).
@@ -38,7 +38,12 @@
    "Desfazer", que manda o formulário oposto da linha nova (mesma guarda e CSRF).
    Sem JS, continua o POST + redirect.
 
-   O que não tem lastro NÃO aparece: número global, duplicar e encaminhar. #}
+   "Encaminhar via Chat I.A" (D:3737, `metaMenu`): no ⋮, depois de "Editar nome" (o desenho o põe depois de
+   "Duplicar", que não existe aqui) e antes de "Copiar link". Leva só ids em `data-*` (`.js-meta-encaminhar`,
+   tipo `meta`); o pasta-metas.js dispara `bj-central:despachar`. Só com a Central (`central_disponivel()`) e
+   fora da lápide (o despacho dá 404 na pasta excluída, spec §2.11).
+
+   O que não tem lastro NÃO aparece: número global e duplicar. #}
 {# Aviso com "Desfazer" (dc L.1509-1510): fixo, centrado, 24px do rodapé, raio 4,
    13px; "Desfazer" #7cc4ff/700. O `.ps-l7-aviso` da tela não serve: tem
    `pointer-events: none` e o botão precisa de clique. Nasce no <body> pelo
@@ -79,9 +84,9 @@
     @media (prefers-reduced-motion: reduce) { .ps-metas-aviso { animation: none; } }
 </style>
 {% set statusLabelTarefa = {
-    'pendente':   'Pendente',
-    'em_revisao': 'Para Revisão',
-    'concluida':  'Concluída',
+    'pendente':   'pasta_documentos.metas.status.pendente',
+    'em_revisao': 'pasta_documentos.metas.status.em_revisao',
+    'concluida':  'pasta_documentos.metas.status.concluida',
 } %}
 {% set podeConcluir = can_access_module('tarefas') %}
 {# PMC-060: pasta excluída (lápide) é somente-leitura — o `PastaSomenteLeituraListener` recusa
@@ -95,20 +100,24 @@
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set podeAlertar = metaEditavel and podeEditarPasta %}
 {% set ultimosAlertas = podeAlertar and metasResumo.linhas|length > 0 ? metas_ultimos_alertas(pasta) : {} %}
+{# A Central conferida UMA vez neste template (cada chamada consulta o vínculo): o "Encaminhar via Chat I.A" do ⋮ e
+   os "Responsáveis nas metas" que abrem a conversa. `encaminharPasta` é o id da pasta ou null (sem Central, lápide). #}
+{% set metasComChat = central_disponivel() %}
+{% set encaminharPasta = metasComChat and not pasta.estaExcluida ? pasta.id : null %}
 <div class="ps-grade">
 <section class="ps-card ps-metas" data-ps-metas>
     <div class="ps-card-cab ps-card-cab--painel">
-        <h2>Metas da pasta</h2>
-        <div class="ps-metas-filtros" role="group" aria-label="Filtrar metas">
+        <h2>{{ 'pasta_documentos.metas.titulo'|trans }}</h2>
+        <div class="ps-metas-filtros" role="group" aria-label="{{ 'pasta_documentos.metas.filtrar'|trans }}">
             {% for f in [
-                {id: 'abertas',    rotulo: 'Abertas',    n: metasResumo.abertas},
-                {id: 'atrasadas',  rotulo: 'Atrasadas',  n: metasResumo.atrasadas},
-                {id: 'concluidas', rotulo: 'Concluídas', n: metasResumo.concluidas},
-                {id: 'todas',      rotulo: 'Todas',      n: metasResumo.total},
+                {id: 'abertas',    rotulo: 'pasta_documentos.metas.filtro.abertas',    n: metasResumo.abertas},
+                {id: 'atrasadas',  rotulo: 'pasta_documentos.metas.filtro.atrasadas',  n: metasResumo.atrasadas},
+                {id: 'concluidas', rotulo: 'pasta_documentos.metas.filtro.concluidas', n: metasResumo.concluidas},
+                {id: 'todas',      rotulo: 'pasta_documentos.metas.filtro.todas',      n: metasResumo.total},
             ] %}
                 <button type="button" class="ps-metas-filtro{{ f.id == 'abertas' ? ' is-ativo' : '' }}"
                         data-ps-metas-filtro="{{ f.id }}" aria-pressed="{{ f.id == 'abertas' ? 'true' : 'false' }}">
-                    <span>{{ f.rotulo }}</span><span class="ps-metas-filtro-n ps-num">{{ f.n }}</span>
+                    <span>{{ f.rotulo|trans }}</span><span class="ps-metas-filtro-n ps-num">{{ f.n }}</span>
                 </button>
             {% endfor %}
         </div>
@@ -116,9 +125,9 @@
         {# PMC-062: na lápide o servidor recusa criar meta na pasta (PastaSomenteLeituraListener);
            o botão não é oferecido. #}
         {% if not pasta.estaExcluida %}
-            <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="Nova meta para esta pasta" aria-label="Nova meta"
+            <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="{{ 'pasta_documentos.metas.nova_dica'|trans }}" aria-label="{{ 'pasta_documentos.metas.nova'|trans }}"
                     data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
-                <i class="bi bi-plus-lg"></i><span>Nova meta</span>
+                <i class="bi bi-plus-lg"></i><span>{{ 'pasta_documentos.metas.nova'|trans }}</span>
             </button>
         {% endif %}
     </div>
@@ -138,44 +147,44 @@
                          data-meta-id="{{ tarefa.id }}"
                          data-meta-estado="{{ tom }}"
                          data-meta-titulo="{{ tarefa.titulo }}"
-                         data-meta-prazo="{{ tarefa.prazo ? tarefa.prazo|date('d/m/Y') : '' }}">
-                    <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-meta-abrir" title="Abrir o relatório da meta"
+                         data-meta-prazo="{{ tarefa.prazo ? tarefa.prazo|data : '' }}">
+                    <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-meta-abrir" title="{{ 'pasta_documentos.metas.abrir_relatorio_dica'|trans }}"
                        aria-haspopup="dialog" aria-controls="psMetaRelatorio">
                         <div class="ps-meta-corpo">
                             <div class="ps-meta-titulo">
-                                {%- if concluida %}<i class="bi bi-check-circle-fill" title="Meta concluída"></i>{% endif -%}
-                                <span class="ps-meta-num ps-num" title="Meta {{ linha.numero }} desta pasta">{{ linha.numero }}.</span>
-                                <span class="ps-meta-titulo-tx">{{ tarefa.titulo }}</span>
+                                {%- if concluida %}<i class="bi bi-check-circle-fill" title="{{ 'pasta_documentos.metas.meta_concluida'|trans }}"></i>{% endif -%}
+                                <span class="ps-meta-num ps-num" title="{{ 'pasta_documentos.metas.numero_dica'|trans({numero: linha.numero ~ ''}) }}">{{ linha.numero }}.</span>
+                                <span class="ps-meta-titulo-tx">{{ tarefa.titulo }}{{ include('tarefa/_numero_global.html.twig', {numero: tarefa.numero, local: linha.numero}) }}</span>
                             </div>
                             <div class="ps-meta-linha">
-                                <span title="Autor"><i class="bi bi-person"></i>{{ tarefa.criadoPor ? tarefa.criadoPor.fullName : '—' }}</span>
+                                <span title="{{ 'pasta_documentos.metas.autor'|trans }}"><i class="bi bi-person"></i>{{ tarefa.criadoPor ? tarefa.criadoPor.fullName : 'pasta_documentos.metas.nao_informado'|trans }}</span>
                                 {# PMC-036: todos os responsáveis à vista (dc L.1442, `m.responsaveis`
                                    = os nomes juntados por ", "), não o primeiro + "+N". #}
-                                <span class="ps-meta-resp" title="{{ tarefa.responsaveis|length > 1 ? 'Responsáveis' : 'Responsável' }}">
+                                <span class="ps-meta-resp" title="{{ (1 < tarefa.responsaveis|length ? 'pasta_documentos.metas.responsaveis' : 'pasta_documentos.metas.responsavel')|trans }}">
                                     <i class="bi bi-people"></i>
-                                    {%- if tarefa.responsaveis|length > 0 %}{{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}{% else %}—{% endif -%}
+                                    {%- if tarefa.responsaveis|length > 0 %}{{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}{% else %}{{ 'pasta_documentos.metas.nao_informado'|trans }}{% endif -%}
                                 </span>
                                 {% if concluida and linha.prazoConcluida %}
-                                    <span class="ps-meta-prazo" title="Prazo: {{ tarefa.prazo|date('d/m/Y') }}{{ tarefa.dataConclusao ? ' · concluída em ' ~ tarefa.dataConclusao|date('d/m/Y') : '' }}"><i class="bi bi-calendar-event"></i>{{ linha.prazoConcluida }}</span>
+                                    <span class="ps-meta-prazo" title="{{ tarefa.dataConclusao ? 'pasta_documentos.metas.prazo_concluida_em'|trans({prazo: tarefa.prazo|date('d/m/Y'), data: tarefa.dataConclusao|data}) : 'pasta_documentos.metas.prazo_dica'|trans({prazo: tarefa.prazo|date('d/m/Y')}) }}"><i class="bi bi-calendar-event"></i>{{ linha.prazoConcluida }}</span>
                                 {% elseif not concluida and dias is not null %}
-                                    <span class="ps-meta-prazo{{ atrasada ? ' ps-meta-prazo--atraso' : '' }}" title="Prazo: {{ tarefa.prazo|date('d/m/Y') }}">
+                                    <span class="ps-meta-prazo{{ atrasada ? ' ps-meta-prazo--atraso' : '' }}" title="{{ 'pasta_documentos.metas.prazo_dica'|trans({prazo: tarefa.prazo|date('d/m/Y')}) }}">
                                         <i class="bi bi-calendar-event"></i>
                                         {%- if atrasada -%}
-                                            {{ (-dias) }} dia{{ -dias == 1 ? '' : 's' }} em atraso
+                                            {{ (-dias == 1 ? 'pasta_documentos.metas.atraso_um' : 'pasta_documentos.metas.atraso_varios')|trans({total: (-dias) ~ ''}) }}
                                         {%- elseif dias == 0 -%}
-                                            vence hoje
+                                            {{ 'pasta_documentos.metas.vence_hoje'|trans }}
                                         {%- else -%}
-                                            vence {{ tarefa.prazo|date('d/m/Y') }}
+                                            {{ 'pasta_documentos.metas.vence'|trans({data: tarefa.prazo|date('d/m/Y')}) }}
                                         {%- endif -%}
                                     </span>
                                 {% endif %}
                             </div>
                         </div>
                         <div class="ps-meta-direita">
-                            <span class="ps-meta-status">{{ concluida ? 'Concluída' : (atrasada ? 'Atrasada' : (statusLabelTarefa[tarefa.status] ?? tarefa.status)) }}</span>
-                            <span class="ps-meta-datas ps-num" title="{{ tarefa.prazo ? 'Prazo' : 'Criada em' }}{{ tarefa.dataAlteracao ? ' · última alteração' : '' }}">
+                            <span class="ps-meta-status">{{ (concluida ? 'pasta_documentos.metas.status.concluida' : (atrasada ? 'pasta_documentos.metas.status.atrasada' : (statusLabelTarefa[tarefa.status] ?? tarefa.status)))|trans }}</span>
+                            <span class="ps-meta-datas ps-num" title="{{ (tarefa.prazo ? 'pasta_documentos.metas.prazo' : 'pasta_documentos.metas.criada_em')|trans }}{{ tarefa.dataAlteracao ? ' · ' ~ 'pasta_documentos.metas.ultima_alteracao'|trans : '' }}">
                                 {{- (tarefa.prazo ?: tarefa.dataCriacao)|date('d/m/Y') -}}
-                                {%- if tarefa.dataAlteracao %} · mod. {{ tarefa.dataAlteracao|date('d/m/Y') }}{% endif -%}
+                                {%- if tarefa.dataAlteracao %} · {{ 'pasta_documentos.metas.modificada'|trans({data: tarefa.dataAlteracao|data}) }}{% endif -%}
                             </span>
                         </div>
                     </a>
@@ -189,21 +198,21 @@
                                HH:MM. Clique para alertar de novo"; logo depois do envio
                                (volta do POST) ele balança. #}
                             {% set alerta = ultimosAlertas[tarefa.id] ?? null %}
-                            {% set tituloSino = alerta ? alerta.titulo : 'Alertar para verificar' %}
+                            {% set tituloSino = alerta ? alerta.titulo : 'pasta_documentos.metas.alertar'|trans %}
                             <div class="ps-pop-wrap ps-meta-sino-wrap">
                                 <button type="button" class="ps-meta-sino{{ alerta ? ' is-alertado' : '' }}{{ alerta and alerta.recente ? ' is-recente' : '' }}"
                                         title="{{ tituloSino }}" aria-label="{{ tituloSino }}"
                                         data-ps-pop="psMetaSino{{ tarefa.id }}" aria-haspopup="menu" aria-expanded="false">
                                     <i class="bi {{ alerta ? 'bi-bell-fill' : 'bi-bell' }}"></i>
                                 </button>
-                                <div class="ps-pop ps-pop--meta ps-pop--sino" aria-label="Alertar para verificar a meta {{ linha.numero }}" id="psMetaSino{{ tarefa.id }}" role="menu">
-                                    <div class="ps-pop-secao">Alertar para verificar</div>
+                                <div class="ps-pop ps-pop--meta ps-pop--sino" aria-label="{{ 'pasta_documentos.metas.alertar_meta'|trans({numero: linha.numero ~ ''}) }}" id="psMetaSino{{ tarefa.id }}" role="menu">
+                                    <div class="ps-pop-secao">{{ 'pasta_documentos.metas.alertar'|trans }}</div>
                                     {% for r in alertaveis %}
                                         <form method="post" action="{{ path('tarefa_alertar', {id: tarefa.id}) }}" class="ps-meta-alertar">
                                             <input type="hidden" name="_token" value="{{ csrf_token('alertar_tarefa_' ~ tarefa.id) }}">
                                             <input type="hidden" name="usuario" value="{{ r.id }}">
                                             <button type="submit" class="ps-pop-item" role="menuitem">
-                                                <i class="bi bi-bell"></i><span>{{ r.fullName }} · responsável</span>
+                                                <i class="bi bi-bell"></i><span>{{ 'pasta_documentos.metas.alertar_responsavel'|trans({nome: r.fullName ~ ''}) }}</span>
                                             </button>
                                         </form>
                                     {% endfor %}
@@ -211,55 +220,83 @@
                             </div>
                         {% endif %}
                         <div class="ps-pop-wrap ps-meta-acoes">
-                            <button type="button" class="ps-meta-menu-btn" title="Mais ações da meta" aria-label="Mais ações da meta"
+                            <button type="button" class="ps-meta-menu-btn" title="{{ 'pasta_documentos.metas.mais_acoes'|trans }}" aria-label="{{ 'pasta_documentos.metas.mais_acoes'|trans }}"
                                     data-ps-pop="psMetaMenu{{ tarefa.id }}" aria-haspopup="menu" aria-expanded="false">
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
-                            <div class="ps-pop ps-pop--meta" aria-label="Ações da meta {{ linha.numero }}" id="psMetaMenu{{ tarefa.id }}" role="menu">
+                            <div class="ps-pop ps-pop--meta" aria-label="{{ 'pasta_documentos.metas.acoes_meta'|trans({numero: linha.numero ~ ''}) }}" id="psMetaMenu{{ tarefa.id }}" role="menu">
                                 <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-relatorio="{{ tarefa.id }}">
-                                    <i class="bi bi-file-earmark-text"></i><span>Abrir relatório</span>
+                                    <i class="bi bi-file-earmark-text"></i><span>{{ 'pasta_documentos.metas.abrir_relatorio'|trans }}</span>
                                 </button>
                                 {% if not metaEditavel %}
                                     {# Lápide: nada de concluir, reabrir nem editar o nome (PMC-060). #}
                                 {% elseif concluida %}
-                                    <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-meta-reabrir">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
-                                        <button type="submit" class="ps-pop-item" role="menuitem">
-                                            <i class="bi bi-arrow-counterclockwise"></i><span>Reabrir meta</span>
-                                        </button>
-                                    </form>
-                                {% else %}
+                                    {# D3: só quem cuida da meta reabre; a que já seguiu para a próxima etapa não reabre (volta-se a etapa). #}
+                                    {% if cuida_da_meta(tarefa, app.user) and not meta_seguiu_adiante(tarefa) %}
+                                        <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-meta-reabrir">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
+                                            <button type="submit" class="ps-pop-item" role="menuitem">
+                                                <i class="bi bi-arrow-counterclockwise"></i><span>{{ 'pasta_documentos.metas.reabrir'|trans }}</span>
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                {% elseif cuida_da_meta(tarefa, app.user) %}
+                                    {# D3: só o responsável ou quem criou a meta conclui; o servidor confere de novo. #}
                                     <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-meta-concluir">
                                         <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
                                         <button type="submit" class="ps-pop-item" role="menuitem">
-                                            <i class="bi bi-check2-circle"></i><span>Marcar como concluída</span>
+                                            <i class="bi bi-check2-circle"></i><span>{{ 'pasta_documentos.metas.concluir'|trans }}</span>
                                         </button>
                                     </form>
                                 {% endif %}
                                 {% if metaEditavel %}
                                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-renomear="{{ tarefa.id }}">
-                                        <i class="bi bi-pencil"></i><span>Editar nome</span>
+                                        <i class="bi bi-pencil"></i><span>{{ 'pasta_documentos.metas.editar_nome'|trans }}</span>
+                                    </button>
+                                {% endif %}
+                                {% if encaminharPasta %}
+                                    {# D:3737: depois de "Editar nome" ("Duplicar" não existe aqui), antes de "Copiar link". #}
+                                    <button type="button" class="ps-pop-item js-meta-encaminhar" role="menuitem"
+                                            data-encaminhar-pasta="{{ encaminharPasta }}"
+                                            data-encaminhar-tipo="meta"
+                                            data-encaminhar-id="{{ tarefa.id }}">
+                                        <i class="bi bi-send"></i><span>{{ 'pasta_documentos.metas.encaminhar'|trans }}</span>
                                     </button>
                                 {% endif %}
                                 <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
                                         data-ps-copiar="{{ url('tarefa_show', {id: tarefa.id}) }}"
-                                        data-ps-copiado="Link da meta copiado">
-                                    <i class="bi bi-link-45deg"></i><span>Copiar link</span>
+                                        data-ps-copiado="{{ 'pasta_documentos.metas.link_copiado'|trans }}">
+                                    <i class="bi bi-link-45deg"></i><span>{{ 'pasta_documentos.metas.copiar_link'|trans }}</span>
                                 </button>
                                 {# PMC-029: o mesmo "Abrir em Metas" do rodapé do drawer, aqui no ⋮
                                    (dc L.3560, depois de "Copiar link"). Mesmo destino (`tarefa_show`);
                                    o destino final segue a D-META-LINK (PMC-037). É leitura: continua
                                    na pasta excluída. #}
                                 <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-pop-item" role="menuitem">
-                                    <i class="bi bi-box-arrow-up-right"></i><span>Abrir em Metas</span>
+                                    <i class="bi bi-box-arrow-up-right"></i><span>{{ 'pasta_documentos.metas.abrir_em_metas'|trans }}</span>
                                 </a>
                                 {% if not pasta.estaExcluida and meta_pode_excluir(tarefa) %}
                                     <div class="ps-pop-sep"></div>
+                                    {# E7: pergunta na janela da tela (pasta-dialogos.js, `data-ps-cf`), vermelha por
+                                       ser exclusão. O `onsubmit` só pergunta pelo navegador se a janela não carregou. #}
+                                    {# Meta com despacho registrado (decisão do dono, 23/10): só o poder sem prazo chega aqui, e a
+                                       exclusão passa pela janela "Entendo que o registro oficial será apagado"
+                                       (#psMetaExcluirDespacho, meta-excluir-despacho.js), que manda `confirmar_despacho=1`. #}
+                                    {% set despachosMeta = meta_despachos_registrados(tarefa) %}
+                                    {% if despachosMeta > 0 %}
                                     <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
-                                          onsubmit="return confirm('Excluir esta meta? Esta ação não pode ser desfeita.');">
+                                          data-meta-despacho="{{ despachosMeta }}">
+                                        <input type="hidden" name="confirmar_despacho" value="">
+                                    {% else %}
+                                    <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
+                                          data-ps-cf="{{ 'pasta_documentos.metas.excluir_confirmar'|trans }}" data-ps-cf-perigo
+                                          onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);">
+                                    {% endif %}
                                         <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
-                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
-                                            <i class="bi bi-trash3"></i><span>Excluir</span>
+                                        {# Edição sem prazo (spec §5): o selo quando só o poder libera (outro criador ou depois de 24h). #}
+                                        {% set seloMeta = meta_selo_excluir(tarefa) %}
+                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo{{ seloMeta ? ' com-selo-sem-prazo' }}" role="menuitem">
+                                            <i class="bi bi-trash3"></i><span>{{ 'pasta_documentos.metas.excluir'|trans }}</span>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloMeta} only %}
                                         </button>
                                     </form>
                                 {% endif %}
@@ -273,9 +310,9 @@
                             <form method="post" action="{{ path('tarefa_renomear', {id: tarefa.id}) }}" class="ps-meta-renomear" hidden>
                                 <input type="hidden" name="_token" value="{{ csrf_token('renomear_tarefa_' ~ tarefa.id) }}">
                                 <input type="text" name="titulo" class="ps-meta-ren-campo" value="{{ tarefa.titulo }}"
-                                       aria-label="Nome da meta" maxlength="{{ constant('App\\Tarefa\\UseCase\\RenomearMetaUseCase::TAMANHO_MAXIMO') }}" required autocomplete="off">
-                                <button type="submit" class="ps-meta-ren-salvar">Salvar</button>
-                                <button type="button" class="ps-meta-ren-cancelar">Cancelar</button>
+                                       aria-label="{{ 'pasta_documentos.metas.nome'|trans }}" maxlength="{{ constant('App\\Tarefa\\UseCase\\RenomearMetaUseCase::TAMANHO_MAXIMO') }}" required autocomplete="off">
+                                <button type="submit" class="ps-meta-ren-salvar">{{ 'pasta_documentos.metas.salvar'|trans }}</button>
+                                <button type="button" class="ps-meta-ren-cancelar">{{ 'pasta_documentos.metas.cancelar'|trans }}</button>
                             </form>
                         {% endif %}
                     {% endif %}
@@ -284,14 +321,14 @@
         </div>
         <div class="ps-vazio ps-metas-filtro-vazio" hidden>
             <i class="bi bi-check2-square"></i>
-            <div class="ps-vazio-titulo">Nenhuma meta neste filtro</div>
-            <div class="ps-vazio-nota">Troque o filtro acima ou crie uma nova meta.</div>
+            <div class="ps-vazio-titulo">{{ 'pasta_documentos.metas.filtro_vazio'|trans }}</div>
+            <div class="ps-vazio-nota">{{ 'pasta_documentos.metas.filtro_vazio_nota'|trans }}</div>
         </div>
     {% else %}
         <div class="ps-vazio">
             <i class="bi bi-check2-square"></i>
-            <div class="ps-vazio-titulo">Nenhuma meta criada para esta pasta</div>
-            <div class="ps-vazio-nota">Crie a primeira pelo botão acima.</div>
+            <div class="ps-vazio-titulo">{{ 'pasta_documentos.metas.vazio'|trans }}</div>
+            <div class="ps-vazio-nota">{{ 'pasta_documentos.metas.vazio_nota'|trans }}</div>
         </div>
     {% endif %}
 </section>
@@ -299,52 +336,65 @@
    `PastaMetasResumoOutput`, nunca contados no template. #}
 <div class="ps-trilho">
     <section class="ps-card ps-metas-andamento" data-trilho="andamento">
-        <h2>Andamento das metas</h2>
+        <h2>{{ 'pasta_documentos.metas.andamento'|trans }}</h2>
         <div class="ps-metas-progresso">
             <span class="ps-metas-progresso-num ps-num">{{ metasResumo.concluidas }}/{{ metasResumo.total }}</span>
-            <span class="ps-metas-progresso-rot">concluídas</span>
+            <span class="ps-metas-progresso-rot">{{ 'pasta_documentos.metas.concluidas'|trans }}</span>
         </div>
         <div class="ps-metas-barra" role="progressbar" aria-valuenow="{{ metasResumo.percentual }}" aria-valuemin="0" aria-valuemax="100">
             <div class="ps-metas-barra-cheia" style="width: {{ metasResumo.percentual }}%"></div>
         </div>
         <div class="ps-metas-legenda">
-            <span><i class="ps-metas-ponto ps-metas-ponto--ok" aria-hidden="true"></i>{{ metasResumo.concluidas }} concluída{{ metasResumo.concluidas == 1 ? '' : 's' }}</span>
-            <span><i class="ps-metas-ponto ps-metas-ponto--pend" aria-hidden="true"></i>{{ metasResumo.pendentes }} pendente{{ metasResumo.pendentes == 1 ? '' : 's' }}</span>
-            <span><i class="ps-metas-ponto ps-metas-ponto--atraso" aria-hidden="true"></i>{{ metasResumo.atrasadas }} atrasada{{ metasResumo.atrasadas == 1 ? '' : 's' }}</span>
+            <span><i class="ps-metas-ponto ps-metas-ponto--ok" aria-hidden="true"></i>{{ (metasResumo.concluidas == 1 ? 'pasta_documentos.metas.legenda.concluida_um' : 'pasta_documentos.metas.legenda.concluida_varios')|trans({total: metasResumo.concluidas ~ ''}) }}</span>
+            <span><i class="ps-metas-ponto ps-metas-ponto--pend" aria-hidden="true"></i>{{ (metasResumo.pendentes == 1 ? 'pasta_documentos.metas.legenda.pendente_um' : 'pasta_documentos.metas.legenda.pendente_varios')|trans({total: metasResumo.pendentes ~ ''}) }}</span>
+            <span><i class="ps-metas-ponto ps-metas-ponto--atraso" aria-hidden="true"></i>{{ (metasResumo.atrasadas == 1 ? 'pasta_documentos.metas.legenda.atrasada_um' : 'pasta_documentos.metas.legenda.atrasada_varios')|trans({total: metasResumo.atrasadas ~ ''}) }}</span>
         </div>
     </section>
 
     <section class="ps-card ps-metas-atencao" data-trilho="atencao">
-        <div class="ps-card-cab ps-card-cab--painel"><h2>Precisa de atenção</h2></div>
+        <div class="ps-card-cab ps-card-cab--painel"><h2>{{ 'pasta_documentos.metas.atencao'|trans }}</h2></div>
         {% for a in metasResumo.atencao %}
             <div class="ps-metas-atencao-item">
                 <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
                 <div class="ps-linha-corpo">
                     <div class="ps-metas-atencao-titulo"><a href="{{ path('tarefa_show', {id: a.id}) }}">{{ a.titulo }}</a></div>
-                    <div class="ps-metas-atencao-meta">prazo {{ a.prazo }} · {{ a.atraso }} dia{{ a.atraso == 1 ? '' : 's' }} em atraso{% if a.responsaveis %} · {{ a.responsaveis }}{% endif %}</div>
+                    <div class="ps-metas-atencao-meta">{{ (a.atraso == 1 ? 'pasta_documentos.metas.atencao_um' : 'pasta_documentos.metas.atencao_varios')|trans({prazo: a.prazo ~ '', total: a.atraso ~ ''}) }}{% if a.responsaveis %} · {{ a.responsaveis }}{% endif %}</div>
                 </div>
             </div>
         {% endfor %}
         <div class="ps-metas-atencao-nota">
             {%- if metasResumo.atencao is empty -%}
-                Nenhuma meta atrasada nesta pasta.
+                {{ 'pasta_documentos.metas.atencao_vazio'|trans }}
             {%- else -%}
-                Metas atrasadas continuam contando dias até serem concluídas.
+                {{ 'pasta_documentos.metas.atencao_nota'|trans }}
             {%- endif -%}
         </div>
     </section>
 
     <section class="ps-card ps-metas-pessoas" data-trilho="pessoas">
-        <h2>Responsáveis nas metas</h2>
+        <h2>{{ 'pasta_documentos.metas.pessoas'|trans }}</h2>
         <div class="ps-metas-pessoas-lista">
+            {# dc L.1686: cada pessoa é um botão que abre a conversa 1:1 no Chat I.A (`BJCentral.conversar`, Encaminhar
+               PR3), com a dica "Conversar com PRIMEIRO_NOME no chat" e o `bi-chat-dots`. Sem a Central na página, fica
+               o texto de antes. #}
             {% for p in metasResumo.pessoas %}
-                <div class="ps-metas-pessoa">
-                    <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
-                    <span class="ps-metas-pessoa-nome" title="{{ p.nome }}">{{ p.nome }}</span>
-                    <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
-                </div>
+                {% if metasComChat and p.userId %}
+                    {% set dica = 'pasta_documentos.metas.conversar'|trans({nome: p.nome|split(' ')|first}) %}
+                    <button type="button" class="ps-metas-pessoa ps-metas-pessoa--conversar js-metas-conversar" data-user-id="{{ p.userId }}" title="{{ dica }}" aria-label="{{ dica }}">
+                        <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
+                        <span class="ps-metas-pessoa-nome">{{ p.nome }}</span>
+                        <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
+                        <i class="bi bi-chat-dots ps-metas-pessoa-chat" aria-hidden="true"></i>
+                    </button>
+                {% else %}
+                    <div class="ps-metas-pessoa">
+                        <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
+                        <span class="ps-metas-pessoa-nome" title="{{ p.nome }}">{{ p.nome }}</span>
+                        <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
+                    </div>
+                {% endif %}
             {% else %}
-                <div class="ps-metas-pessoas-vazio">Nenhuma meta com responsável.</div>
+                <div class="ps-metas-pessoas-vazio">{{ 'pasta_documentos.metas.pessoas_vazio'|trans }}</div>
             {% endfor %}
         </div>
     </section>
@@ -357,14 +407,14 @@
    Uma `.ps-mrel-meta` por meta, na ordem da lista; só uma fica visível. #}
 {% if metasResumo.linhas|length > 0 %}
     <div class="ps-mrel-fundo" id="psMetaRelatorioFundo" hidden></div>
-    <aside class="ps-mrel" id="psMetaRelatorio" role="dialog" aria-modal="true" aria-label="Relatório da meta" hidden>
+    <aside class="ps-mrel" id="psMetaRelatorio" role="dialog" aria-modal="true" aria-label="{{ 'pasta_documentos.metas.relatorio'|trans }}" hidden>
         <div class="ps-mrel-cab">
             <i class="bi bi-clipboard2-check" aria-hidden="true"></i>
-            <span class="ps-mrel-cab-titulo">Relatório da meta</span>
+            <span class="ps-mrel-cab-titulo">{{ 'pasta_documentos.metas.relatorio'|trans }}</span>
             <span class="ps-mrel-pos ps-num" data-ps-mrel-pos></span>
-            <button type="button" class="ps-mrel-nav" data-ps-mrel-anterior title="Meta anterior" aria-label="Meta anterior"><i class="bi bi-chevron-up"></i></button>
-            <button type="button" class="ps-mrel-nav" data-ps-mrel-proxima title="Próxima meta" aria-label="Próxima meta"><i class="bi bi-chevron-down"></i></button>
-            <button type="button" class="ps-mrel-fechar" data-ps-mrel-fechar title="Fechar (Esc)" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+            <button type="button" class="ps-mrel-nav" data-ps-mrel-anterior title="{{ 'pasta_documentos.metas.anterior'|trans }}" aria-label="{{ 'pasta_documentos.metas.anterior'|trans }}"><i class="bi bi-chevron-up"></i></button>
+            <button type="button" class="ps-mrel-nav" data-ps-mrel-proxima title="{{ 'pasta_documentos.metas.proxima'|trans }}" aria-label="{{ 'pasta_documentos.metas.proxima'|trans }}"><i class="bi bi-chevron-down"></i></button>
+            <button type="button" class="ps-mrel-fechar" data-ps-mrel-fechar title="{{ 'pasta_documentos.explorador.visor.fechar_dica'|trans }}" aria-label="{{ 'pasta_documentos.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
         </div>
         {% for linha in metasResumo.linhas %}
             {% set tarefa = linha.tarefa %}
@@ -387,7 +437,7 @@
                         {% endfor %}
                     </div>
                     <div class="ps-mrel-secao">
-                        <div class="ps-mrel-secao-titulo">Histórico</div>
+                        <div class="ps-mrel-secao-titulo">{{ 'pasta_documentos.metas.historico'|trans }}</div>
                         <div class="ps-mrel-hist">
                             {% for evento in rel.historico %}
                                 <div class="ps-mrel-hist-item ps-mrel-hist-item--{{ evento.tom }}">
@@ -402,7 +452,7 @@
                     </div>
                     {# Preenchido pelo pasta-metas.js com as OUTRAS linhas da lista. #}
                     <div class="ps-mrel-secao" data-ps-mrel-outras-secao hidden>
-                        <div class="ps-mrel-secao-titulo">Outras metas desta pasta</div>
+                        <div class="ps-mrel-secao-titulo">{{ 'pasta_documentos.metas.outras'|trans }}</div>
                         <div class="ps-mrel-outras" data-ps-mrel-outras></div>
                     </div>
                 </div>
@@ -410,20 +460,47 @@
                     {# Mesmas rotas, tokens e guarda do ⋮ da linha; na lápide, só "Abrir em Metas" (PMC-060). #}
                     {% if metaEditavel %}
                         {% if rel.tom == 'concluida' %}
+                            {% if cuida_da_meta(tarefa, app.user) and not meta_seguiu_adiante(tarefa) %}
                             <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
                                 <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
-                                <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--reabrir"><i class="bi bi-arrow-counterclockwise"></i>Reabrir meta</button>
+                                <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--reabrir"><i class="bi bi-arrow-counterclockwise"></i>{{ 'pasta_documentos.metas.reabrir'|trans }}</button>
                             </form>
-                        {% else %}
+                            {% endif %}
+                        {% elseif cuida_da_meta(tarefa, app.user) %}
                             <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
                                 <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
-                                <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--concluir"><i class="bi bi-check2-circle"></i>Marcar como concluída</button>
+                                <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--concluir"><i class="bi bi-check2-circle"></i>{{ 'pasta_documentos.metas.concluir'|trans }}</button>
                             </form>
                         {% endif %}
                     {% endif %}
-                    <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-mrel-modulo"><i class="bi bi-box-arrow-up-right"></i>Abrir em Metas</a>
+                    <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="ps-mrel-modulo"><i class="bi bi-box-arrow-up-right"></i>{{ 'pasta_documentos.metas.abrir_em_metas'|trans }}</a>
                 </div>
             </div>
         {% endfor %}
     </aside>
+{% endif %}
+
+{# A janela da meta com despacho registrado (desenho da devolução, 04B L106, `.mp-modal`, sem Bootstrap): o aviso, a caixa
+   "Entendo que o registro oficial será apagado" e o botão que só habilita com ela marcada. #}
+{% if not pasta.estaExcluida %}
+<div class="mp-modal mp-devolucao ps-meta-excluir-despacho" id="psMetaExcluirDespacho" hidden>
+    <div class="mp-modal-fundo" data-mp-fechar></div>
+    <div class="mp-modal-centro">
+        <div class="mp-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="psMetaExcluirDespachoTitulo">
+            <div class="mp-modal-cabeca">
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                <b id="psMetaExcluirDespachoTitulo" class="mp-modal-cabeca-titulo">{{ 'pasta_documentos.metas.despacho.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-mp-fechar aria-label="{{ 'pasta_documentos.metas.despacho.cancelar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mp-modal-corpo">
+                <div class="mp-dev-texto">{{ 'pasta_documentos.metas.despacho.aviso'|trans }}</div>
+                <label class="ps-meta-despacho-ciente"><input type="checkbox" data-meta-despacho-ciente> {{ 'pasta_documentos.metas.despacho.ciente'|trans }}</label>
+            </div>
+            <div class="mp-modal-pe">
+                <button type="button" class="mp-cancelar" data-mp-fechar>{{ 'pasta_documentos.metas.despacho.cancelar'|trans }}</button>
+                <button type="button" class="mp-confirmar ps-meta-despacho-excluir" data-meta-despacho-ok disabled><i class="bi bi-trash3" aria-hidden="true"></i> {{ 'pasta_documentos.metas.despacho.excluir'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}

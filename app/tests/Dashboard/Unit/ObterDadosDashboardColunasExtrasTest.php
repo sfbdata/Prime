@@ -308,7 +308,7 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
         self::assertNull($out->totaisExtrasAnteriores);
     }
 
-    #[TestDox('Com período: só eventos têm anterior (mesma consulta, datas trocadas); concluídas, taxa e tempo (DASH-010b) e o estoque ficam sem')]
+    #[TestDox('Com período: só eventos e relatório têm anterior (mesma consulta, datas trocadas); concluídas, taxa e tempo (DASH-010b) e o estoque ficam sem')]
     public function testAnteriorSoDosEventos(): void
     {
         $filtros = ['data_de' => '2024-02-01', 'data_ate' => '2024-02-29'];
@@ -330,9 +330,9 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
             $ant[$l->userId] = $l->extrasAnteriores;
         }
 
-        self::assertSame([Extras::EVENTOS_AGENDA => 0], $ant[7], 'Ana: nenhum evento antes; nenhuma outra extra tem anterior');
-        self::assertSame([Extras::EVENTOS_AGENDA => 1], $ant[8]);
-        self::assertSame([Extras::EVENTOS_AGENDA => 1], $out->totaisExtrasAnteriores, 'Total anterior: só eventos (soma)');
+        self::assertSame([Extras::EVENTOS_AGENDA => 0, Extras::RELATORIO => 0], $ant[7], 'Ana: nenhum evento nem registro antes; nenhuma outra extra tem anterior');
+        self::assertSame([Extras::EVENTOS_AGENDA => 1, Extras::RELATORIO => 0], $ant[8]);
+        self::assertSame([Extras::EVENTOS_AGENDA => 1, Extras::RELATORIO => 0], $out->totaisExtrasAnteriores, 'Total anterior: só eventos e relatório (soma)');
         // irmã que prova o alvo: as três seguem calculadas no período atual
         self::assertSame(
             [Extras::METAS_CONCLUIDAS => 3, Extras::TAXA_CONCLUSAO => 43, Extras::TEMPO_MEDIO => 3, Extras::EVENTOS_AGENDA => 3],

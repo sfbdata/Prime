@@ -31,10 +31,23 @@
 (function () {
     'use strict';
 
-    var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho',
-        'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-    var SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-    var SEMANA_LONGA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+    // Nomes do calendário pelo catálogo do idioma (dashboard.js.filtros.*): chaves, lidas na hora de desenhar.
+    var MESES = ['dashboard.js.filtros.mes_1', 'dashboard.js.filtros.mes_2', 'dashboard.js.filtros.mes_3',
+        'dashboard.js.filtros.mes_4', 'dashboard.js.filtros.mes_5', 'dashboard.js.filtros.mes_6',
+        'dashboard.js.filtros.mes_7', 'dashboard.js.filtros.mes_8', 'dashboard.js.filtros.mes_9',
+        'dashboard.js.filtros.mes_10', 'dashboard.js.filtros.mes_11', 'dashboard.js.filtros.mes_12'];
+    var SEMANA = ['dashboard.js.filtros.semana_curta_0', 'dashboard.js.filtros.semana_curta_1',
+        'dashboard.js.filtros.semana_curta_2', 'dashboard.js.filtros.semana_curta_3',
+        'dashboard.js.filtros.semana_curta_4', 'dashboard.js.filtros.semana_curta_5',
+        'dashboard.js.filtros.semana_curta_6'];
+    var SEMANA_LONGA = ['dashboard.js.filtros.semana_longa_0', 'dashboard.js.filtros.semana_longa_1',
+        'dashboard.js.filtros.semana_longa_2', 'dashboard.js.filtros.semana_longa_3',
+        'dashboard.js.filtros.semana_longa_4', 'dashboard.js.filtros.semana_longa_5',
+        'dashboard.js.filtros.semana_longa_6'];
+    function mes(m) { return window.BJ_T.t(MESES[m]); }
+    function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
     function p2(n) { return (n < 10 ? '0' : '') + n; }
     function iso(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
@@ -55,7 +68,11 @@
     var somContexto = null;
     var somUltimo = 0;
 
+    // "Sons de alerta" do Meu Perfil (perfil.sons, no servidor) vem antes: com `data-perfil-sons="0"` no
+    // `.db-page` o calendário fica mudo; ligado, vale a opção "Sons" do menu ⋮ como antes.
     function somLigado() {
+        if (document.querySelector('.db-page[data-perfil-sons="0"]')) { return false; }
+
         return !document.querySelector('.db-page.db-page--sem-som');
     }
 
@@ -223,7 +240,7 @@
         var nome = escolhida.getAttribute('data-nome') || '';
         var alvoNome = this.btn.querySelector('.db-dd-btn-nome');
         if (alvoNome) { alvoNome.textContent = nome; }
-        var rotulo = this.name === 'responsavel' ? 'Responsável' : 'Cargo';
+        var rotulo = this.name === 'responsavel' ? window.BJ_T.t('dashboard.js.filtros.responsavel') : window.BJ_T.t('dashboard.js.filtros.cargo');
         this.btn.setAttribute('aria-label', rotulo + ': ' + nome);
         var avBtn = this.btn.querySelector('.db-dd-av');
         var avOp = escolhida.querySelector('.db-dd-av');
@@ -340,19 +357,19 @@
         var de = (nativo(this.form, 'data_de') || {}).value || '';
         var ate = (nativo(this.form, 'data_ate') || {}).value || '';
         var hoje = iso(new Date());
-        var titulo = MESES[M].charAt(0).toUpperCase() + MESES[M].slice(1) + ' de ' + Y;
+        var titulo = esc(window.BJ_T.t('dashboard.js.filtros.titulo_mes', { mes: mes(M).charAt(0).toUpperCase() + mes(M).slice(1), ano: Y }));
 
         var g0 = new Date(Y, M, 1 - new Date(Y, M, 1).getDay());
         var h = [];
         h.push('<div class="db-cal-topo">'
             + '<span class="db-cal-titulo" aria-live="polite">' + titulo + '</span>'
-            + '<button type="button" class="db-cal-nav" data-db-cal-mes="-1" aria-label="Mês anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>'
-            + '<button type="button" class="db-cal-nav" data-db-cal-mes="1" aria-label="Próximo mês"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>'
+            + '<button type="button" class="db-cal-nav" data-db-cal-mes="-1" aria-label="' + esc(window.BJ_T.t('dashboard.js.filtros.mes_anterior')) + '"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>'
+            + '<button type="button" class="db-cal-nav" data-db-cal-mes="1" aria-label="' + esc(window.BJ_T.t('dashboard.js.filtros.proximo_mes')) + '"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>'
             + '</div>');
         h.push('<div class="db-cal-semana" aria-hidden="true">');
-        SEMANA.forEach(function (l, i) {
-            h.push('<span' + (i === 0 || i === 6 ? ' class="is-fds"' : '') + '>' + l + '</span>');
-        });
+        for (var s = 0; s < 7; s++) {
+            h.push('<span' + (s === 0 || s === 6 ? ' class="is-fds"' : '') + '>' + esc(window.BJ_T.t(SEMANA[s])) + '</span>');
+        }
         h.push('</div><div class="db-cal-dias" role="grid" aria-label="' + titulo + '">');
         for (var i = 0; i < 42; i++) {
             var d = new Date(g0.getFullYear(), g0.getMonth(), g0.getDate() + i);
@@ -368,8 +385,7 @@
             h.push('<span role="gridcell">'
                 + '<button type="button" class="' + cls.join(' ') + '" data-dia="' + k + '"'
                 + ' tabindex="' + (k === this.cursor ? '0' : '-1') + '"'
-                + ' aria-label="' + SEMANA_LONGA[d.getDay()] + ', ' + d.getDate() + ' de ' + MESES[d.getMonth()] + ' de ' + d.getFullYear()
-                + (k === hoje ? ' (hoje)' : '') + '"'
+                + ' aria-label="' + esc(window.BJ_T.t(k === hoje ? 'dashboard.js.filtros.dia_hoje' : 'dashboard.js.filtros.dia', { semana: window.BJ_T.t(SEMANA_LONGA[d.getDay()]), dia: d.getDate(), mes: mes(d.getMonth()), ano: d.getFullYear() })) + '"'
                 + (k === valor ? ' aria-pressed="true"' : '')
                 + (k === hoje ? ' aria-current="date"' : '') + '>'
                 + '<span class="db-cal-num">' + d.getDate() + '</span><span class="db-cal-ponto" aria-hidden="true"></span>'
@@ -378,8 +394,8 @@
         }
         h.push('</div>');
         h.push('<div class="db-cal-rodape">'
-            + '<button type="button" class="db-cal-limpar" data-db-cal-acao="limpar">Limpar</button>'
-            + '<button type="button" class="db-cal-hoje" data-db-cal-acao="hoje">Hoje</button>'
+            + '<button type="button" class="db-cal-limpar" data-db-cal-acao="limpar">' + esc(window.BJ_T.t('dashboard.js.filtros.limpar')) + '</button>'
+            + '<button type="button" class="db-cal-hoje" data-db-cal-acao="hoje">' + esc(window.BJ_T.t('dashboard.js.filtros.hoje')) + '</button>'
             + '</div>');
         this.painel.innerHTML = h.join('');
 
@@ -405,10 +421,10 @@
     Calendario.prototype.sincronizar = function () {
         var v = this.valor();
         var rot = this.btn.querySelector('.db-cal-rotulo');
-        if (rot) { rot.textContent = v ? br(v) : 'dd/mm/aaaa'; }
+        if (rot) { rot.textContent = v ? br(v) : window.BJ_T.t('dashboard.js.filtros.dd_mm_aaaa'); }
         this.btn.classList.toggle('is-vazio', !v);
-        var nome = this.name === 'data_de' ? 'Data inicial' : 'Data final';
-        this.btn.setAttribute('aria-label', nome + ': ' + (v ? br(v) : 'sem data'));
+        var nome = this.name === 'data_de' ? window.BJ_T.t('dashboard.js.filtros.data_inicial') : window.BJ_T.t('dashboard.js.filtros.data_final');
+        this.btn.setAttribute('aria-label', nome + ': ' + (v ? br(v) : window.BJ_T.t('dashboard.js.filtros.sem_data')));
         if (this.aberto()) { this.desenhar(false); }
     };
 

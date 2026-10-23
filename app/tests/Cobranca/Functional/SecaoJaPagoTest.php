@@ -281,9 +281,9 @@ final class SecaoJaPagoTest extends CobrancaWebTestCase
         self::assertCount(1, $pagas, 'exigível zero satisfaz quitada() e cai no histórico');
         self::assertCount(0, $crawler->filter('#secao-divida .jp-obr'), 'e não fica na fila de cobrança');
 
-        // Sem alocação nenhuma, não há data. O travessão é o certo — a alternativa silenciosa seria
+        // Sem alocação nenhuma, não há data. "Sem registro" é o certo — a alternativa silenciosa seria
         // imprimir 01/01/1970, que é o que um `?->format()` mal guardado produz.
-        self::assertSame('—', trim($pagas->filter('.jp-pagas-data')->text()));
+        self::assertSame('Sem registro', trim($pagas->filter('.jp-pagas-data')->text()));
         self::assertStringContainsString('R$ 0,00', $pagas->filter('.jp-pagas-valor')->text());
     }
 

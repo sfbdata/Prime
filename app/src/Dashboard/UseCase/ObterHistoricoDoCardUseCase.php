@@ -47,7 +47,7 @@ final class ObterHistoricoDoCardUseCase
 
     /** Texto honesto dos cards sem série reconstruível. */
     private const NOTA_SEM_FOTO = '%s é um retrato do momento: o valor de um mês que já passou não se recupera pelas datas gravadas. '
-        . 'O histórico depende da foto diária do painel, que ainda não está ativada — por isso nenhum número é mostrado aqui.';
+        . 'O histórico depende da foto diária do painel, que ainda não está ativada. Por isso nenhum número é mostrado aqui.';
 
     private const SUBTITULO = 'Histórico mensal';
 
@@ -70,8 +70,9 @@ final class ObterHistoricoDoCardUseCase
 
     /**
      * @param array<string, mixed> $filtros responsavel (userId), cargo (nome ou CARGO_SEM) — os do painel
+     * @param list<int>            $pastasOcultas pastas ocultas pelo cadeado para quem olha: não contam, como no card
      */
-    public function executar(Tenant $tenant, string $card, \DateTimeImmutable $referencia, array $filtros = []): HistoricoDoCardOutput
+    public function executar(Tenant $tenant, string $card, \DateTimeImmutable $referencia, array $filtros = [], array $pastasOcultas = []): HistoricoDoCardOutput
     {
         $config = self::CONFIG[$card] ?? self::CONFIG['pastas'];
 
@@ -99,6 +100,7 @@ final class ObterHistoricoDoCardUseCase
             array_map(static fn (User $u): int => (int) $u->getId(), $universo),
             new \DateTimeImmutable(sprintf('%d-01-01 00:00:00', $primeiro)),
             new \DateTimeImmutable(sprintf('%d-12-31 23:59:59', $anoAtual)),
+            $pastasOcultas,
         );
 
         $series = [];
@@ -228,7 +230,7 @@ final class ObterHistoricoDoCardUseCase
                     'tom'    => 'neutro',
                 ],
                 $idx === false
-                    ? ['rotulo' => 'Melhor', 'valor' => '0', 'sub' => '—', 'tom' => 'neutro']
+                    ? ['rotulo' => 'Melhor', 'valor' => '0', 'sub' => 'Sem dado', 'tom' => 'neutro']
                     : ['rotulo' => 'Melhor', 'valor' => (string) $max, 'sub' => self::MES_CURTO[(int) $idx] . '/' . $ano, 'tom' => 'ouro'],
                 $comp,
             ],
@@ -276,7 +278,7 @@ final class ObterHistoricoDoCardUseCase
                     'tom'    => 'neutro',
                 ],
                 $idx === false
-                    ? ['rotulo' => 'Melhor', 'valor' => '0', 'sub' => '—', 'tom' => 'neutro']
+                    ? ['rotulo' => 'Melhor', 'valor' => '0', 'sub' => 'Sem dado', 'tom' => 'neutro']
                     : ['rotulo' => 'Melhor', 'valor' => (string) $max, 'sub' => $rotulos[(int) $idx], 'tom' => 'ouro'],
                 [
                     'rotulo' => 'Variação',

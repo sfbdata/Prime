@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Tenant\Repository\SaidaDaEquipeRepository;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -33,7 +35,7 @@ final class RemoverColaboradorDoEscritorioUseCaseTest extends TestCase
         $this->conn                 = $this->createMock(Connection::class);
         $this->userTenantRepository = $this->createMock(UserTenantRepository::class);
         $this->em->method('getConnection')->willReturn($this->conn);
-        $this->useCase = new RemoverColaboradorDoEscritorioUseCase($this->em, $this->userTenantRepository);
+        $this->useCase = new RemoverColaboradorDoEscritorioUseCase($this->em, $this->userTenantRepository, new RegraDosPrimarios($this->userTenantRepository), $this->createStub(SaidaDaEquipeRepository::class));
     }
 
     private function criarUsuario(string $nome = 'Teste'): User
@@ -316,8 +318,12 @@ final class RemoverColaboradorDoEscritorioUseCaseTest extends TestCase
         $this->useCase->executar(new RemoverColaboradorInput($executor, $colaborador, $tenant));
     }
 
-    #[TestDox('permite o criador do escritorio sair sozinho, pois a trava do criador vale so no painel')]
-    public function testPermiteCriadorSairPelaPortaDaSaida(): void
+    /**
+     * Invertido em 16/10/2026 pela decisão D4 do dono (spec perfis-master): "o titular nunca é
+     * rebaixado nem removido". Antes, a trava do criador valia só no painel e ele podia sair.
+     */
+    #[TestDox('recusa o criador do escritorio (titular) sair pela porta da saida')]
+    public function testRecusaCriadorSairPelaPortaDaSaida(): void
     {
         $tenant = new Tenant();
         $pessoa = $this->criarUsuario('Fundador');
@@ -326,7 +332,10 @@ final class RemoverColaboradorDoEscritorioUseCaseTest extends TestCase
 
         $this->userTenantRepository->method('findAtivoPorUserETenant')->willReturn($vinculo);
 
-        $this->em->expects($this->once())->method('remove')->with($vinculo);
+        $this->em->expects($this->never())->method('remove');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('O titular do escritório não pode sair. Fale com o suporte do BlueJus.');
 
         $this->useCase->executar(
             new RemoverColaboradorInput($pessoa, $pessoa, $tenant, null, OrigemRemocao::Saida)

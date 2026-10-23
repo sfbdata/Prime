@@ -24,10 +24,10 @@
 
 <div class="jp-secao" id="secao-movimentos">
     <div class="jp-secao-head">
-        <h2 class="jp-secao-titulo"><i class="bi bi-arrow-down-left-circle"></i>O que já entrou</h2>
+        <h2 class="jp-secao-titulo"><i class="bi bi-arrow-down-left-circle"></i>{{ 'cobranca_objeto.movimentos.titulo'|trans }}</h2>
         <span class="jp-ordem" data-bs-toggle="tooltip"
-              title="Extrato: o que aconteceu por último aparece no topo — ordem inversa à da dívida acima.">
-            <i class="bi bi-sort-down"></i>Do mais recente para o mais antigo
+              title="{{ 'cobranca_objeto.movimentos.ordem_dica'|trans }}">
+            <i class="bi bi-sort-down"></i>{{ 'cobranca_objeto.movimentos.ordem'|trans }}
         </span>
         {% if podeMovimentar %}
         <div class="jp-secao-acoes">
@@ -50,9 +50,9 @@
     <div class="jp-lista">
         <div class="jp-lista-head">
             <span></span>
-            <span>Entrou em</span>
-            <span>O que foi</span>
-            <span class="col-valor">Valor</span>
+            <span>{{ 'cobranca_objeto.movimentos.coluna.entrou_em'|trans }}</span>
+            <span>{{ 'cobranca_objeto.movimentos.coluna.o_que_foi'|trans }}</span>
+            <span class="col-valor">{{ 'cobranca_objeto.movimentos.coluna.valor'|trans }}</span>
             <span></span>
         </div>
 
@@ -63,17 +63,17 @@
                 <div class="jp-mov-ico"><i class="bi bi-cash"></i></div>
                 <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ p.data|date('d/m/Y') }}</div></div>
                 <div class="jp-obr-desc">
-                    Pagamento recebido
+                    {{ 'cobranca_objeto.movimentos.pagamento_recebido'|trans }}
                     <span class="jp-obr-sub">
-                        dívida {{ p.valorDivida|centavos }}
-                        {% if p.valorEncargos > 0 %}<span class="opacity-50">|</span> encargos {{ p.valorEncargos|centavos }}{% endif %}
-                        <span class="opacity-50">|</span> honorários {{ p.valorHonorarios|centavos }}
+                        {{ 'cobranca_objeto.movimentos.divida'|trans({valor: p.valorDivida|centavos}) }}
+                        {% if p.valorEncargos > 0 %}<span class="opacity-50">|</span> {{ 'cobranca_objeto.movimentos.encargos'|trans({valor: p.valorEncargos|centavos}) }}{% endif %}
+                        <span class="opacity-50">|</span> {{ 'cobranca_objeto.movimentos.honorarios'|trans({valor: p.valorHonorarios|centavos}) }}
                     </span>
                 </div>
                 <div class="jp-mov-valor">{{ p.valorTotal|centavos }}</div>
                 <div class="jp-obr-acoes">
                     {% if p.foiCorrigido %}
-                    <span class="badge text-bg-warning" data-bs-toggle="tooltip" title="Correção sem estorno: {{ p.motivoCorrecao|e('html_attr') }}">Corrigido</span>
+                    <span class="badge text-bg-warning" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.movimentos.corrigido_dica'|trans({motivo: p.motivoCorrecao}) }}">{{ 'cobranca_objeto.movimentos.corrigido'|trans }}</span>
                     {% endif %}
                     {% if podeMovimentar %}
                     <button type="button" class="btn btn-sm jp-btn-outline py-0"
@@ -82,14 +82,14 @@
                             data-previa-url="{{ path('cobranca_pagamento_previa_corrigir', {id: p.id}) }}"
                             data-pagamento-data="{{ p.data|date('d/m/Y') }}"
                             data-pagamento-total="{{ p.valorTotal|centavos }}"
-                            title="Corrigir pagamento (sem estorno)">Corrigir</button>
+                            title="{{ 'cobranca_objeto.movimentos.corrigir_dica'|trans }}">{{ 'cobranca_objeto.movimentos.corrigir'|trans }}</button>
                     <button type="button" class="btn btn-sm jp-btn-outline py-0 text-danger"
                             data-bs-toggle="modal" data-bs-target="#modalExcluirPagamento"
                             data-acao-url="{{ path('cobranca_pagamento_excluir', {id: p.id}) }}"
                             data-token="{{ csrf_token('excluir_pagamento_' ~ p.id) }}"
                             data-pagamento-data="{{ p.data|date('d/m/Y') }}"
                             data-pagamento-total="{{ p.valorTotal|centavos }}"
-                            title="Excluir recebimento (devolve o valor ao saldo)">Excluir</button>
+                            title="{{ 'cobranca_objeto.movimentos.excluir_dica'|trans }}">{{ 'cobranca_objeto.movimentos.excluir'|trans }}</button>
                     {% endif %}
                 </div>
             </div>
@@ -99,9 +99,9 @@
                 <div class="jp-mov-ico is-liq"><i class="bi bi-box-seam"></i></div>
                 <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ l.data|date('d/m/Y') }}</div></div>
                 <div class="jp-obr-desc">
-                    Liquidação · {{ l.tipoLabel }}
+                    {{ 'cobranca_objeto.movimentos.liquidacao'|trans({tipo: l.tipoLabel}) }}
                     <span class="jp-obr-sub">
-                        {{ l.descricaoBem }} · valor reconhecido pelo credor{% if l.valorAtribuidoBem %} (bem avaliado em {{ l.valorAtribuidoBem|centavos }}){% endif %}
+                        {{ l.descricaoBem }} · {{ 'cobranca_objeto.movimentos.valor_reconhecido'|trans }}{% if l.valorAtribuidoBem %} {{ 'cobranca_objeto.movimentos.bem_avaliado'|trans({valor: l.valorAtribuidoBem|centavos}) }}{% endif %}
                     </span>
                 </div>
                 <div class="jp-mov-valor">{{ l.valorReconhecido|centavos }}</div>
@@ -111,8 +111,8 @@
         {% else %}
             <div class="jp-vazio">
                 <i class="bi bi-arrow-down-left-circle"></i>
-                <div class="jp-vazio-titulo">Nada entrou ainda</div>
-                <p class="jp-vazio-dica">Pagamentos e liquidações não monetárias aparecem aqui, do mais recente para o mais antigo.</p>
+                <div class="jp-vazio-titulo">{{ 'cobranca_objeto.movimentos.vazio_titulo'|trans }}</div>
+                <p class="jp-vazio-dica">{{ 'cobranca_objeto.movimentos.vazio_dica'|trans }}</p>
             </div>
         {% endfor %}
     </div>
@@ -131,8 +131,8 @@
 {% if acordosEncerrados|length > 0 %}
 <div class="jp-secao" id="secao-acordos-encerrados">
     <div class="jp-secao-head">
-        <h2 class="jp-secao-titulo"><i class="bi bi-archive"></i>Acordos encerrados</h2>
-        <span class="text-secondary small">não afetam o total em aberto</span>
+        <h2 class="jp-secao-titulo"><i class="bi bi-archive"></i>{{ 'cobranca_objeto.movimentos.acordos_encerrados'|trans }}</h2>
+        <span class="text-secondary small">{{ 'cobranca_objeto.movimentos.acordos_encerrados_nota'|trans }}</span>
     </div>
     <div class="jp-lista">
         {% for a in acordosEncerrados %}
@@ -141,9 +141,9 @@
                 <i class="bi {{ a.vigente ? 'bi-file-earmark-text' : 'bi-x-lg' }}"></i>
             </div>
             {# Guarda obrigatória: `null|date` imprimiria HOJE. Acordo sem data mostra o traço. #}
-            <div class="jp-obr-data"><div class="jp-obr-data-dia">{% if a.dataAcordo %}{{ a.dataAcordo|date('d/m/Y') }}{% else %}<span class="jp-sem-data">—</span><span class="jp-enc-motivo d-block">⚠ sem data</span>{% endif %}</div></div>
+            <div class="jp-obr-data"><div class="jp-obr-data-dia">{% if a.dataAcordo %}{{ a.dataAcordo|data }}{% else %}<span class="jp-enc-motivo d-block">{{ 'cobranca_objeto.movimentos.sem_data'|trans }}</span>{% endif %}</div></div>
             <div class="jp-obr-desc">
-                Acordo #{{ a.id }}
+                {{ 'cobranca_objeto.movimentos.acordo'|trans({id: a.id ~ ''}) }}
                 {# O selo de ESTADO continua sempre, e o de substituição vem AO LADO. A contábil mantém a
                    situação do acordo assumido de propósito ("Em andamento" para rastreabilidade, ou
                    "Liquidado" quando ela deu baixa) — e 20 dos 37 acordos assumidos no dado real estão
@@ -152,26 +152,25 @@
                 {%- if a.qtdSucessores > 0 %}
                     <span class="badge text-bg-secondary ms-1">
                         {{- a.substituidoPeloAcordoId
-                            ? 'Substituído pelo acordo #' ~ a.substituidoPeloAcordoId
-                            : 'Substituído por ' ~ a.qtdSucessores ~ ' acordos' -}}
+                            ? 'cobranca_objeto.movimentos.substituido_pelo'|trans({id: a.substituidoPeloAcordoId ~ ''})
+                            : 'cobranca_objeto.movimentos.substituido_por'|trans({n: a.qtdSucessores ~ ''}) -}}
                     </span>
                 {%- endif %}
                 <span class="jp-obr-sub">
                     {% set motivo = a.motivoRompimento ?: a.motivoCancelamento %}
-                    {% if motivo %}"{{ motivo }}" — {% endif %}
-                    {{ a.qtdParcelas }} parcela(s) · substituiu {{ a.qtdObrigacoesSubstituidas }} obrigação(ões)
+                    {% if motivo %}"{{ motivo }}" · {% endif %}
+                    {{ 'cobranca_objeto.movimentos.resumo_acordo'|trans({parcelas: a.qtdParcelas ~ '', obrigacoes: a.qtdObrigacoesSubstituidas ~ ''}) }}
                     {# Os dois casos são EXCLUDENTES de propósito: um acordo desfeito devolveu as trocas ao
                        saldo, um acordo assumido tirou as parcelas dele. Como dois `if` independentes, o
                        acordo rompido E assumido exibiria as duas frases juntas, uma contradizendo a
                        outra. Hoje não existe nenhum nessa forma; a estrutura é que impede. #}
-                    {%- if not a.vigente %} · as obrigações trocadas voltaram ao total em aberto
-                    {%- elseif a.qtdSucessores > 0 %} · as parcelas dele foram renegociadas em
-                        {{- a.substituidoPeloAcordoId ? ' outro acordo' : ' ' ~ a.qtdSucessores ~ ' outros acordos' }} e saíram do total em aberto{% endif %}
+                    {%- if not a.vigente %} {{ 'cobranca_objeto.movimentos.desfeito'|trans }}
+                    {%- elseif a.qtdSucessores > 0 %} {{ a.substituidoPeloAcordoId ? 'cobranca_objeto.movimentos.renegociadas_um'|trans : 'cobranca_objeto.movimentos.renegociadas_varios'|trans({n: a.qtdSucessores ~ ''}) }}{% endif %}
                 </span>
             </div>
             <div class="jp-obr-valor"></div>
             <div class="jp-obr-acoes">
-                <a href="{{ path('cobranca_acordo_show', {id: a.id}) }}" class="btn btn-sm jp-btn-outline">Abrir</a>
+                <a href="{{ path('cobranca_acordo_show', {id: a.id}) }}" class="btn btn-sm jp-btn-outline">{{ 'cobranca_objeto.movimentos.abrir'|trans }}</a>
             </div>
         </div>
         {% endfor %}

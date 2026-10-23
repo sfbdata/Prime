@@ -35,3 +35,30 @@ dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github
 dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:178
 dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:188
 dfdadc2a771e3b5ae4375266aba3a285bd36363d:scripts/testar-deploy-guardas.sh:github-pat:202
+
+# e2e/tests/central-fidelidade.spec.js (Central, 16/10/2026): o evento storage do teste citava, entre aspas, o NOME
+# da chave de localStorage do protótipo do Designer (bj-central-v1), não um segredo; a regra generic-api-key confunde.
+# Conferido no PR #12; a linha atual usa a constante CHAVE_DB_PROTOTIPO e não dispara mais.
+42dd165e417cc9da261cea7fcfaf586da1f8fad7:e2e/tests/central-fidelidade.spec.js:generic-api-key:153
+0499001eb8421f37204538e7a8b464f81a6f0773:e2e/tests/central-fidelidade.spec.js:generic-api-key:174
+
+# docs/design/trabalho-externo/bluejus-central.js (Trabalho Externo, 16/10/2026): cópia fiel do protótipo do Designer.
+# As linhas citam, entre aspas, NOMES de chaves de localStorage (bj-central-v1, bj-pasta-acesso-pedidos-v1), não
+# segredos; a regra generic-api-key confunde (mesmo caso do PR #12). Conferido no PR #13; o arquivo é referência de
+# desenho e não deve ser editado.
+74a9dcc46ef501f1294436f2cb9f09dde0e6e1d8:docs/design/trabalho-externo/bluejus-central.js:generic-api-key:11
+74a9dcc46ef501f1294436f2cb9f09dde0e6e1d8:docs/design/trabalho-externo/bluejus-central.js:generic-api-key:150
+
+# docs/design/meu-perfil-18-10/bluejus-central.js (commit do PR #53, arquivo já removido no commit seguinte):
+# nomes de chave de localStorage do protótipo ('bj-central-v1', 'bj-pasta-acesso-pedidos-v1'), conferidos em 19/10/2026
+6b6bcff1522da57dee4e607afe9653fb44596f8d:docs/design/meu-perfil-18-10/bluejus-central.js:generic-api-key:11
+6b6bcff1522da57dee4e607afe9653fb44596f8d:docs/design/meu-perfil-18-10/bluejus-central.js:generic-api-key:152
+
+# Comercial 1a (20/10/2026): token fictício de teste ('0123456789abcdef' repetido), sem valor real.
+dd37748b567e5746f58ffe6050003c51d26e51f7:app/tests/Comercial/Functional/MontadorDeEmailTest.php:generic-api-key:30
+
+# F3i (21/10/2026): token fictício de teste ('0123456789abcdef' repetido), sem valor real.
+d8b27ac180b649a322799fc7afb929c68e716601:app/tests/Comercial/Unit/ImagensDaCampanhaTest.php:generic-api-key:31
+
+# Scheduler (23/10/2026): mesmo token fictício sequencial das guardas de deploy, caso SEM_AGENDADOR.
+347a7ab5c83435fa0853a600ae75a8c6f22f8e33:scripts/testar-deploy-guardas.sh:github-pat:220

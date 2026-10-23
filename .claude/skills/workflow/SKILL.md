@@ -194,8 +194,10 @@ A base de cada frente é definida pelo **script**, não pelo `worktree.baseRef`:
 `scripts/frente-abrir.sh` faz `git worktree add ... origin/master` explicitamente. Por isso o
 setting continua `head` (que o fan-out precisa) sem prejudicar as frentes.
 
-Registro obrigatório: `docs/frentes-ativas.md`. É o que permite duas sessões saberem uma da
-outra. Fatos medidos do ambiente: `docs/worktrees-frentes-paralelas.md`.
+Como duas sessões sabem uma da outra: `gh pr list` ao começar e o check "Aviso de sobreposição"
+em cada PR (regras em CLAUDE.md, "Várias sessões ao mesmo tempo"). O registro em
+`docs/frentes-ativas.md` ficou **opcional** desde 18/10/2026: ele próprio conflitava entre PRs.
+Fatos medidos do ambiente: `docs/worktrees-frentes-paralelas.md`.
 
 ```bash
 scripts/frente-abrir.sh <nome>          # worktree + vendor + uploads + banco de teste isolado
@@ -286,14 +288,15 @@ Subagente de docs mantém o estado do projeto (feito, pendente, urgente, priorid
 
 ## Git
 
-Ver regra no root CLAUDE.md. Resumo: **staging e commit local são permitidos** —
-o orquestrador roda `git add`/`git commit`, revisando `git status` + diff +
-arquivos staged antes, sem `git add .` cego. **Push, merge, rebase, reset e
-integração continuam do humano**: o orquestrador monta e explica esses comandos e
-entrega em bloco `# Execute manualmente no terminal externo`, você aprova sim/não.
-`block-git-writes.py` permanece ativo — libera `add`/`commit` (e `cherry-pick`
-**individual**, um commit por vez, só para a integração do orquestrador no
-fan-out), bloqueia push/merge/rebase/reset e não aceita `--no-verify`. Subagentes
+Ver regra no root CLAUDE.md. Resumo: **commit local, push de branch de trabalho e
+`gh pr create` são permitidos** ao orquestrador (revisando `git status` + diff +
+arquivos staged antes, sem `git add .` cego). **Merge de PR (= deploy), disparo de
+workflow, configuração do GitHub, push no master/de tag/forçado e reescrita local
+continuam do humano**: o orquestrador monta e explica esses comandos e entrega em
+bloco `# Execute manualmente no terminal externo`. `block-git-writes.py` é a
+garantia técnica — libera `add`/`commit`/push de branch/`gh pr create` (e
+`cherry-pick` **individual**, um commit por vez, só para a integração do
+orquestrador no fan-out), bloqueia o resto e não aceita `--no-verify`. Subagentes
 implementadores podem commitar o próprio trabalho (na própria worktree, no
 fan-out), mas nunca fazem merge, push, rebase, reset, cherry-pick nem integram —
 o hook por-agente `feature-implementer-no-integration.py` trava isso tecnicamente.

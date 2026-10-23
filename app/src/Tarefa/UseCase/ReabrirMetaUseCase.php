@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Tarefa\UseCase;
 
 use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Tarefa\Enum\AcaoDoDespacho;
+use App\Tarefa\Exception\MetaJaSeguiuAdianteException;
+use App\Tarefa\Service\TransacaoDaPassagem;
 
 /**
  * Reabrir uma meta concluída ("Reabrir meta" no ⋮ da lista da pasta, desenho 1.2.3).
@@ -19,12 +22,14 @@ use Doctrine\ORM\EntityManagerInterface;
 final class ReabrirMetaUseCase
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
+        private readonly TransacaoDaPassagem $transacao,
     ) {
     }
 
     /**
      * @return bool true quando reabriu; false quando a meta não estava concluída
+     *
+     * @throws MetaJaSeguiuAdianteException a passagem de etapa já a levou adiante
      */
     public function executar(Tarefa $tarefa, Tenant $tenant): bool
     {
@@ -33,15 +38,30 @@ final class ReabrirMetaUseCase
             throw new \LogicException('Meta de outro escritório.');
         }
 
-        if ($tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
-            return false;
-        }
+        // Travada e relida do banco: a decisão vale pelo status gravado, não pelo que esta tela tinha em memória.
+        return $this->transacao->emTransacao(function () use ($tarefa): bool {
+            $this->transacao->travarERecarregar($tarefa);
+            if ($tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
+                return false;
+            }
+            if (self::seguiuAdiante($tarefa)) {
+                throw new MetaJaSeguiuAdianteException();
+            }
+            $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
+            $tarefa->setDataConclusao(null);
 
-        $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
-        $tarefa->setDataConclusao(null);
-        $this->em->flush();
+            return true;
+        });
+    }
 
-        return true;
+    /**
+     * A meta que a passagem de etapa concluiu: ela grava o ato "Etapa concluída" ({@see AcaoDoDespacho::Etapa}) no
+     * histórico da própria meta. A tela usa a mesma regra para esconder o Reabrir.
+     */
+    public static function seguiuAdiante(Tarefa $tarefa): bool
+    {
+        return $tarefa->getStatus() === Tarefa::STATUS_CONCLUIDA
+            && $tarefa->getMensagens()->exists(static fn (int|string $i, TarefaMensagem $ato): bool => $ato->getAcao() === AcaoDoDespacho::Etapa);
     }
 
     private static function mesmoEscritorio(?Tenant $daMeta, Tenant $atual): bool

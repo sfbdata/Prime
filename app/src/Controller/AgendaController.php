@@ -2,21 +2,17 @@
 
 namespace App\Controller;
 
-use App\Entity\Agenda\Evento;
-use App\Entity\Agenda\LegendaCor;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Form\EventoType;
 use App\Repository\EventoRepository;
-use App\Repository\LegendaCorRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -25,9 +21,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * AgendaController - Gerencia eventos do calendário.
  * 
  * Estrutura de rotas:
- * - GET  /agenda                  → Exibe calendário
+ * - GET  /agenda                  → tela nova (App\Agenda\Controller\AgendaNovaController, entrega 3b)
  * - GET  /agenda/lista            → Exibe lista de eventos
- * - GET  /agenda/eventos          → API JSON para FullCalendar
  * - GET  /agenda/novo             → Formulário de criação
  * - POST /agenda/novo             → Cria novo evento
  * - GET  /agenda/{id}             → Exibe detalhes do evento
@@ -39,38 +34,12 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/agenda')]
 class AgendaController extends AbstractController
 {
-    use ValidaCsrfAjaxTrait;
-
     public function __construct(
         private readonly NotificacaoService $notificacaoService,
         private readonly UserRepository $userRepository,
-        private readonly LegendaCorRepository $legendaCorRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
     ) {
-    }
-
-    /**
-     * Exibe o calendário
-     */
-    #[Route('', name: 'agenda_index', methods: ['GET'])]
-    public function index(): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'agenda')) {
-            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
-            return $this->redirectToRoute('homepage');
-        }
-
-        $usuarios = $this->userRepository->findColaboradoresAtivosPorTenant($tenant);
-        $legendas = $this->legendaCorRepository->findAllOrdered();
-        
-        return $this->render('agenda/index.html.twig', [
-            'usuarios' => $usuarios,
-            'legendas' => $legendas,
-        ]);
     }
 
     /**
@@ -133,124 +102,6 @@ class AgendaController extends AbstractController
     }
 
     /**
-     * API JSON para FullCalendar
-     */
-    #[Route('/eventos', name: 'agenda_eventos', methods: ['GET'])]
-    public function eventos(EventoRepository $eventoRepository, Request $request): JsonResponse
-    {
-        /** @var User $user */
-        $user = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
-            return $this->json(['error' => 'Sem permissão'], 403);
-        }
-
-        $start = $request->query->get('start');
-        $end = $request->query->get('end');
-
-        if ($start && $end) {
-            $startDate = new \DateTimeImmutable($start);
-            $endDate = new \DateTimeImmutable($end);
-            $eventos = $eventoRepository->findByDateRange($startDate, $endDate, $user);
-        } else {
-            $eventos = $eventoRepository->findForCalendar(null, null, $user);
-        }
-
-        // Processar eventos (podem ser entidades Evento ou arrays de ocorrências recorrentes)
-        $data = array_map(function($item) {
-            if ($item instanceof Evento) {
-                return $item->toFullCalendarArray();
-            }
-            // Já é um array (ocorrência de evento recorrente)
-            return $item;
-        }, $eventos);
-
-        return $this->json($data);
-    }
-
-    /**
-     * API JSON para criar evento via AJAX (modal)
-     */
-    #[Route('/criar-ajax', name: 'agenda_criar_ajax', methods: ['POST'])]
-    public function criarAjax(Request $request, EntityManagerInterface $em): JsonResponse
-    {
-        /** @var User $user */
-        $user = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
-            return $this->json(['success' => false, 'error' => 'Sem permissão'], 403);
-        }
-
-        // CSRF após o guard de autorização (a falha de permissão tem prioridade e fica testável).
-        $this->validarCsrfAjax($request);
-
-        try {
-            $data = json_decode($request->getContent(), true);
-
-            if (empty($data['titulo'])) {
-                return $this->json(['success' => false, 'error' => 'Título é obrigatório']);
-            }
-
-            $evento = new Evento();
-            $evento->setCriador($user);
-            $evento->setTenant($tenant);
-            $evento->setTitulo($data['titulo']);
-            $evento->setDescricao($data['descricao'] ?? null);
-            $evento->setLocal($data['local'] ?? null);
-            $evento->setCor($data['cor'] ?? Evento::COR_AZUL);
-            $evento->setStatus($data['status'] ?? Evento::STATUS_AGENDADO);
-            $evento->setDiaInteiro($data['diaInteiro'] ?? false);
-            $evento->setVisibilidade($data['visibilidade'] ?? Evento::VISIBILIDADE_TODOS);
-
-            $dataInicio = new \DateTimeImmutable($data['dataInicio']);
-            $evento->setDataInicio($dataInicio);
-
-            $duracao = (float) ($data['duracao'] ?? 1);
-            $minutos = (int) ($duracao * 60);
-            $dataFim = $dataInicio->modify("+{$minutos} minutes");
-            $evento->setDataFim($dataFim);
-
-            // Recorrência
-            if (!empty($data['recorrente'])) {
-                $evento->setRecorrente(true);
-                $evento->setTipoRecorrencia($data['tipoRecorrencia'] ?? null);
-                if (!empty($data['fimRecorrencia'])) {
-                    $evento->setFimRecorrencia(new \DateTimeImmutable($data['fimRecorrencia']));
-                }
-            }
-
-            // Participantes — só usuários do tenant atual (rejeita ids de outro escritório)
-            if (!empty($data['participantes']) && is_array($data['participantes'])) {
-                $ids = array_map('intval', $data['participantes']);
-                foreach ($this->userRepository->findPorIdsETenant($ids, $tenant) as $participante) {
-                    $evento->addParticipante($participante);
-                }
-            }
-
-            $em->persist($evento);
-            $em->flush();
-
-            // Notificar participantes
-            foreach ($evento->getParticipantes() as $participante) {
-                $this->notificacaoService->criarNotificacao(
-                    $participante,
-                    $evento->getTenant(),
-                    Notificacao::TIPO_EVENTO_CRIADO,
-                    'Você foi convidado para o evento: ' . $evento->getTitulo(),
-                    $this->generateUrl('agenda_show', ['id' => $evento->getId()])
-                );
-            }
-
-            return $this->json([
-                'success' => true,
-                'evento' => $evento->toFullCalendarArray()
-            ]);
-        } catch (\Exception $e) {
-            return $this->json(['success' => false, 'error' => $e->getMessage()]);
-        }
-    }
-
-    /**
      * Formulário de criação de evento
      */
     #[Route('/novo', name: 'agenda_novo', methods: ['GET', 'POST'])]
@@ -294,7 +145,7 @@ class AgendaController extends AbstractController
             $em->flush();
 
             // Notificar participantes
-            foreach ($evento->getParticipantes() as $participante) {
+            foreach ($this->participantesAvisaveis($evento) as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
                     $evento->getTenant(),
@@ -425,7 +276,7 @@ class AgendaController extends AbstractController
             $em->flush();
 
             // Notificar participantes sobre cancelamento
-            foreach ($evento->getParticipantes() as $participante) {
+            foreach ($this->participantesAvisaveis($evento) as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
                     $evento->getTenant(),
@@ -442,141 +293,13 @@ class AgendaController extends AbstractController
     }
 
     /**
-     * API para atualizar evento via drag & drop no calendário
+     * "Só eu" só a pessoa vê: os participantes não enxergam o compromisso, e o aviso (com o título) ainda
+     * iria para a auditoria pela Notificacao. Então "Só eu" não avisa ninguém.
+     *
+     * @return iterable<User>
      */
-    #[Route('/{id}/atualizar-datas', name: 'agenda_atualizar_datas', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function atualizarDatas(Evento $evento, Request $request, EntityManagerInterface $em, PermissionChecker $permissionChecker): JsonResponse
+    private function participantesAvisaveis(Evento $evento): iterable
     {
-        /** @var User $user */
-        $user = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-
-        // Apenas admin ou criador pode atualizar
-        if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
-            return $this->json(['success' => false, 'message' => 'Sem permissão'], 403);
-        }
-
-        $data = json_decode($request->getContent(), true);
-
-        if (!$this->isCsrfTokenValid('agenda_atualizar_datas', $data['_token'] ?? '')) {
-            return $this->json(['success' => false, 'message' => 'Token de segurança inválido'], 403);
-        }
-
-        if (isset($data['start'])) {
-            $evento->setDataInicio(new \DateTimeImmutable($data['start']));
-        }
-        if (isset($data['end'])) {
-            $evento->setDataFim(new \DateTimeImmutable($data['end']));
-        }
-        if (isset($data['allDay'])) {
-            $evento->setDiaInteiro($data['allDay']);
-        }
-
-        $em->flush();
-
-        return $this->json(['success' => true]);
-    }
-
-    /**
-     * Salvar legendas (AJAX)
-     */
-    #[Route('/legendas/salvar', name: 'agenda_legendas_salvar', methods: ['POST'])]
-    public function salvarLegendas(Request $request, EntityManagerInterface $em): JsonResponse
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'agenda')) {
-            return $this->json(['success' => false, 'error' => 'Sem permissão'], 403);
-        }
-
-        // CSRF após o guard de autorização (a falha de permissão tem prioridade e fica testável).
-        $this->validarCsrfAjax($request);
-
-        $data = json_decode($request->getContent(), true);
-
-        if (!isset($data['legendas']) || !is_array($data['legendas'])) {
-            return $this->json(['success' => false, 'message' => 'Dados inválidos'], 400);
-        }
-
-        // Legendas do tenant atual (findAll já é filtrado pelo TenantFilter). O lookup por id
-        // usa só este conjunto: ids de outro escritório são ignorados (find() por PK não é
-        // filtrado, então NÃO usamos o repositório direto para editar por id).
-        $legendasExistentes = $this->legendaCorRepository->findAll();
-        $porId = [];
-        foreach ($legendasExistentes as $l) {
-            $porId[$l->getId()] = $l;
-        }
-        $idsRecebidos = [];
-
-        foreach ($data['legendas'] as $index => $legendaData) {
-            $id = $legendaData['id'] ?? null;
-            $nome = trim($legendaData['nome'] ?? '');
-            $cor = $legendaData['cor'] ?? '#0073b7';
-
-            if (empty($nome)) {
-                continue;
-            }
-
-            if ($id && is_numeric($id)) {
-                // Edição: só se a legenda pertencer ao tenant atual.
-                if (isset($porId[(int) $id])) {
-                    $legenda = $porId[(int) $id];
-                    $legenda->setNome($nome);
-                    $legenda->setCor($cor);
-                    $legenda->setOrdem($index);
-                    $idsRecebidos[] = (int) $id;
-                }
-            } else {
-                $legenda = new LegendaCor();
-                $legenda->setNome($nome);
-                $legenda->setCor($cor);
-                $legenda->setOrdem($index);
-                $legenda->setTenant($tenant);
-                $em->persist($legenda);
-            }
-        }
-
-        // Remover legendas do tenant atual que não foram enviadas.
-        foreach ($legendasExistentes as $legenda) {
-            if (!in_array($legenda->getId(), $idsRecebidos)) {
-                $em->remove($legenda);
-            }
-        }
-
-        $em->flush();
-
-        // Retornar legendas atualizadas
-        $legendas = $this->legendaCorRepository->findAllOrdered();
-        $legendasArray = array_map(fn($l) => [
-            'id' => $l->getId(),
-            'nome' => $l->getNome(),
-            'cor' => $l->getCor(),
-        ], $legendas);
-
-        return $this->json(['success' => true, 'legendas' => $legendasArray]);
-    }
-
-    /**
-     * Obter legendas (AJAX)
-     */
-    #[Route('/legendas', name: 'agenda_legendas', methods: ['GET'])]
-    public function getLegendas(): JsonResponse
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'agenda')) {
-            return $this->json(['error' => 'Sem permissão'], 403);
-        }
-
-        $legendas = $this->legendaCorRepository->findAllOrdered();
-        $legendasArray = array_map(fn($l) => [
-            'id' => $l->getId(),
-            'nome' => $l->getNome(),
-            'cor' => $l->getCor(),
-        ], $legendas);
-
-        return $this->json($legendasArray);
+        return Evento::VISIBILIDADE_SOMENTE_EU === $evento->getVisibilidade() ? [] : $evento->getParticipantes();
     }
 }

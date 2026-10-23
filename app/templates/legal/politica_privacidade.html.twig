@@ -19,7 +19,7 @@
     <meta name="robots" content="noindex, follow">
 {% endblock %}
 
-{% block title %}Política de Privacidade — BlueJus{% endblock %}
+{% block title %}{{ 'legal.politica.titulo_pagina'|trans }}{% endblock %}
 
 {% block stylesheets %}
 <style>
@@ -61,7 +61,7 @@
     /* --------------------------------------------------------------------- sumário */
     .pp-sumario {
         border: 1px solid var(--bs-border-color);
-        border-radius: .5rem;
+        border-radius: 4px;
         padding: 1.25rem 1.5rem;
         margin-bottom: 2.5rem;
         background: var(--bs-tertiary-bg);
@@ -93,7 +93,7 @@
         background: var(--bs-tertiary-bg);
         padding: .9rem 1.1rem;
         margin: 1.25rem 0;
-        border-radius: 0 .35rem .35rem 0;
+        border-radius: 0 4px 4px 0;
         text-align: justify;
     }
 
@@ -149,17 +149,17 @@
         <a href="{{ path('legal_politica_privacidade_pdf') }}"
            class="btn btn-outline-secondary btn-sm"
            target="_blank" rel="noopener">
-            <i class="bi bi-file-earmark-pdf me-1"></i>Abrir em PDF
+            <i class="bi bi-file-earmark-pdf me-1"></i>{{ 'legal.politica.abrir_pdf'|trans }}
         </a>
         <a href="/termos/termos-de-uso.pdf"
            class="btn btn-outline-secondary btn-sm"
            target="_blank" rel="noopener noreferrer">
-            <i class="bi bi-file-earmark-text me-1"></i>Termos e Condições de Uso
+            <i class="bi bi-file-earmark-text me-1"></i>{{ 'legal.politica.termos'|trans }}
         </a>
     </div>
 
     {% include 'legal/_politica_privacidade_texto.html.twig' %}
 
-    <a class="pp-topo" href="#pp-topo">Voltar ao topo</a>
+    <a class="pp-topo" href="#pp-topo">{{ 'legal.politica.voltar_topo'|trans }}</a>
 </div>
 {% endblock %}

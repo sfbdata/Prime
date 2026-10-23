@@ -305,86 +305,6 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
         self::assertSame(0, $kpis['atrasadas'], 'Já entreguei: não conta como minha pendência atrasada.');
     }
 
-    #[TestDox('Trilho da aba "Sou responsável": quem delegou para mim, com abertas e atrasadas')]
-    public function testTrilhoListaQuemDelegouParaMim(): void
-    {
-        $tenant = TenantFactory::createOne()->_real();
-        $eu     = UserFactory::createOne()->_real();
-        $chefe  = UserFactory::createOne(['fullName' => 'Mariana Costa'])->_real();
-        $colega = UserFactory::createOne(['fullName' => 'Samuel Freitas'])->_real();
-
-        $atrasada = $this->meta($tenant, 'Do chefe, atrasada', $chefe, [$eu]);
-        $atrasada->setPrazo(new \DateTimeImmutable('-3 days'));
-        $this->meta($tenant, 'Do chefe, no prazo', $chefe, [$eu]);
-        $this->meta($tenant, 'Do colega', $colega, [$eu]);
-        $this->meta($tenant, 'Que eu deleguei', $eu, [$colega]);
-        $this->em->flush();
-
-        $pessoas = $this->repo->contarPessoasDoTrilho($eu, AbaMetas::RESPONSAVEL);
-        $porNome = [];
-        foreach ($pessoas as $p) {
-            $porNome[$p->nome] = $p;
-        }
-
-        self::assertSame(2, $porNome['Mariana Costa']->abertas);
-        self::assertSame(1, $porNome['Mariana Costa']->atrasadas);
-        self::assertSame(1, $porNome['Samuel Freitas']->abertas);
-        self::assertSame(0, $porNome['Samuel Freitas']->atrasadas);
-        self::assertArrayNotHasKey(
-            $eu->getFullName(),
-            $porNome,
-            'O trilho desta aba lista quem delegou PARA mim — eu mesmo não entro por ter delegado a outro.',
-        );
-    }
-
-    #[TestDox('Trilho da aba "Criei": com quem estão as metas que eu deleguei')]
-    public function testTrilhoListaComQuemEstao(): void
-    {
-        $tenant = TenantFactory::createOne()->_real();
-        $eu     = UserFactory::createOne()->_real();
-        $ana    = UserFactory::createOne(['fullName' => 'Ana Lima'])->_real();
-        $bruno  = UserFactory::createOne(['fullName' => 'Bruno Reis'])->_real();
-
-        $atrasada = $this->meta($tenant, 'Com a Ana, atrasada', $eu, [$ana]);
-        $atrasada->setPrazo(new \DateTimeImmutable('-5 days'));
-        $this->meta($tenant, 'Com a Ana e o Bruno', $eu, [$ana, $bruno]);
-        $this->meta($tenant, 'Me atribuíram', $ana, [$eu]);
-        $this->em->flush();
-
-        $porNome = [];
-        foreach ($this->repo->contarPessoasDoTrilho($eu, AbaMetas::CRIEI) as $p) {
-            $porNome[$p->nome] = $p;
-        }
-
-        self::assertSame(2, $porNome['Ana Lima']->abertas);
-        self::assertSame(1, $porNome['Ana Lima']->atrasadas);
-        self::assertSame(1, $porNome['Bruno Reis']->abertas, 'Meta com dois responsáveis conta para os dois.');
-        self::assertArrayNotHasKey(
-            $ana->getFullName() . ' (como criadora)',
-            $porNome,
-            'O trilho agrupa por responsável, não por quem criou.',
-        );
-        self::assertSame([], array_diff(array_keys($porNome), ['Ana Lima', 'Bruno Reis']), 'Só os responsáveis das metas que EU criei entram.');
-    }
-
-    #[TestDox('O trilho ignora metas concluídas — mede carga de hoje, não histórico')]
-    public function testTrilhoIgnoraConcluidas(): void
-    {
-        $tenant = TenantFactory::createOne()->_real();
-        $eu     = UserFactory::createOne()->_real();
-        $chefe  = UserFactory::createOne(['fullName' => 'Chefe Teste'])->_real();
-
-        $this->meta($tenant, 'Aberta', $chefe, [$eu]);
-        $concluida = $this->meta($tenant, 'Concluída', $chefe, [$eu], Tarefa::STATUS_CONCLUIDA);
-        $concluida->setDataConclusao(new \DateTimeImmutable('-1 day'));
-        $this->em->flush();
-
-        $pessoas = $this->repo->contarPessoasDoTrilho($eu, AbaMetas::RESPONSAVEL);
-
-        self::assertCount(1, $pessoas);
-        self::assertSame(1, $pessoas[0]->abertas);
-    }
-
     /**
      * O teto que a spec §Testes item 10 pede, e que faltava: o KPI é um ATALHO, então o
      * número que ele mostra e o tamanho da lista que ele abre têm de ser o mesmo.
@@ -429,5 +349,85 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
                 "O KPI '{$kpi}' mostra {$kpis[$kpi]}, mas o filtro '{$faceta}' devolve " . count($lista) . ' meta(s).',
             );
         }
+    }
+
+    #[TestDox('Desenho 04: o andamento conta TODAS as minhas metas (os três papéis, sem duplicar), concluídas só dos últimos 30 dias, e nada do colega')]
+    public function testAndamentoContaTodasAsMinhasMetas(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+        $colega = UserFactory::createOne()->_real();
+
+        $this->meta($tenant, 'Criei para mim', $eu, [$eu])->setPrazo(new \DateTimeImmutable('-2 days'));
+        $this->meta($tenant, 'Deleguei', $eu, [$colega])->setPrazo(new \DateTimeImmutable('+20 days'));
+        $this->meta($tenant, 'Me atribuíram, entreguei', $colega, [$eu], Tarefa::STATUS_EM_REVISAO)->setPrazo(new \DateTimeImmutable('-9 days'));
+        $this->meta($tenant, 'Só acompanho', $colega, [$colega])->alternarAcompanhamento($eu);
+        $this->meta($tenant, 'Concluí ontem', $eu, [$eu], Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable('-1 day'));
+        $this->meta($tenant, 'Concluí faz tempo', $eu, [$eu], Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable('-40 days'));
+        $this->meta($tenant, 'Do colega, atrasada', $colega, [$colega])->setPrazo(new \DateTimeImmutable('-5 days'));
+        $this->em->flush();
+
+        $andamento = $this->repo->contarAndamento($eu);
+
+        self::assertSame(5, $andamento->total, 'os três papéis, a concluída recente, e nada do colega nem da concluída antiga');
+        self::assertSame(1, $andamento->concluidas);
+        self::assertSame(1, $andamento->atrasadas, 'a em revisão vencida não conta como atrasada (FORA_DA_FILA)');
+        self::assertSame(1, $andamento->emRevisao);
+    }
+
+    #[TestDox('Desenho 04: o andamento e a atenção respeitam o cadeado (pastas ocultas não entram)')]
+    public function testAndamentoEAtencaoSemPastasOcultas(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+
+        $visivel = $this->meta($tenant, 'Visível', $eu, [$eu]);
+        $visivel->setPrazo(new \DateTimeImmutable('-1 day'));
+        $oculta = $this->meta($tenant, 'Na pasta oculta', $eu, [$eu]);
+        $oculta->setPrazo(new \DateTimeImmutable('-3 days'));
+        $this->em->flush();
+        $ocultas = [(int) $oculta->getPasta()->getId()];
+
+        self::assertSame(1, $this->repo->contarAndamento($eu, $ocultas)->total);
+        self::assertSame(['Visível'], $this->titulos($this->repo->findAtrasadasParaAtencao($eu, 4, $ocultas)));
+    }
+
+    #[TestDox('Desenho 04: a atenção traz as atrasadas de todas as minhas metas, da que venceu primeiro, até o limite; em revisão, concluída e folgada ficam fora')]
+    public function testAtencaoAtrasadasDeTodasAsMetasComLimite(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+        $colega = UserFactory::createOne()->_real();
+
+        foreach ([1, 6, 3, 9, 2] as $dias) {
+            $this->meta($tenant, 'Venceu há ' . $dias, $dias % 2 === 0 ? $eu : $colega, [$dias % 2 === 0 ? $colega : $eu])
+                ->setPrazo(new \DateTimeImmutable('-' . $dias . ' days'));
+        }
+        $this->meta($tenant, 'Entregue vencida', $colega, [$eu], Tarefa::STATUS_EM_REVISAO)->setPrazo(new \DateTimeImmutable('-20 days'));
+        $this->meta($tenant, 'Folgada', $eu, [$eu])->setPrazo(new \DateTimeImmutable('+3 days'));
+        $this->meta($tenant, 'Do colega', $colega, [$colega])->setPrazo(new \DateTimeImmutable('-30 days'));
+        $this->em->flush();
+        $this->em->clear();
+
+        $atencao = $this->repo->findAtrasadasParaAtencao($eu, 4);
+
+        self::assertSame(['Venceu há 9', 'Venceu há 6', 'Venceu há 3', 'Venceu há 2'], $this->titulos($atencao));
+        $uow = $this->em->getUnitOfWork();
+        self::assertFalse($uow->isUninitializedObject($atencao[0]->getPasta()), 'pasta já carregada, sem ida ao banco por item');
+        self::assertFalse($uow->isUninitializedObject($atencao[0]->getCriadoPor()), 'criador já carregado, sem ida ao banco por item');
+    }
+
+    #[TestDox('Precisa de atenção: meta atrasada de pasta excluída (lápide) fica de fora')]
+    public function testAtencaoSemPastaExcluida(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+        $this->meta($tenant, 'Viva', $eu, [$eu])->setPrazo(new \DateTimeImmutable('-2 days'));
+        $daLapide = $this->meta($tenant, 'Da lápide', $eu, [$eu])->setPrazo(new \DateTimeImmutable('-5 days'));
+        $daLapide->getPasta()->marcarExcluida($eu, new \DateTimeImmutable());
+        $this->em->flush();
+        $this->em->clear();
+
+        self::assertSame(['Viva'], $this->titulos($this->repo->findAtrasadasParaAtencao($eu, 4)));
     }
 }

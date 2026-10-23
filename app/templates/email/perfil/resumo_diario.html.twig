@@ -1,0 +1,14 @@
+{# Resumo diário por e-mail (desenho 07, prefT 'resumo': "Prazos e metas do dia, às 8h"; spec docs/specs/resumo-diario-por-email.md).
+   Só o miolo: o cabeçalho e o rodapé legal são do layout do Carteiro. Estilo inline (clientes de e-mail).
+   Variáveis: nome, escritorio, dia (DateTimeImmutable), itens (ItensDoResumoDiario), url. #}
+{% import 'email/comercial/automacao/_blocos.html.twig' as b %}
+{{ b.texto((nome ? 'emails.perfil.resumo_diario.bom_dia_nome'|trans({nome: nome}) : 'emails.perfil.resumo_diario.bom_dia'|trans) ~ ' ' ~ 'emails.perfil.resumo_diario.seu_dia'|trans({escritorio: escritorio, dia: dia|data})) }}
+{% if itens.prazos is not empty %}
+    {{ b.titulo('emails.perfil.resumo_diario.prazos'|trans({quantos: itens.prazos|length ~ ''})) }}
+    {{ b.noticias(itens.prazos|map(p => [(p.hora ? p.hora ~ ' · ' : '') ~ p.tipo ~ ': ' ~ p.titulo, p.pasta ? 'emails.perfil.resumo_diario.pasta'|trans({pasta: p.pasta}) : 'emails.perfil.resumo_diario.agenda'|trans])) }}
+{% endif %}
+{% if itens.metas is not empty %}
+    {{ b.titulo('emails.perfil.resumo_diario.metas'|trans({quantos: itens.metas|length ~ ''})) }}
+    {{ b.noticias(itens.metas|map(m => [m.titulo, m.pasta ? 'emails.perfil.resumo_diario.pasta'|trans({pasta: m.pasta}) : ''])) }}
+{% endif %}
+{{ b.botao('emails.perfil.resumo_diario.abrir'|trans, url) }}

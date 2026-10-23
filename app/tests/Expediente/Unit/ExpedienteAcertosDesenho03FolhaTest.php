@@ -1,0 +1,101 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Expediente\Unit;
+
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
+
+/**
+ * Acertos finais do Expediente contra o desenho 03 VS 18.10.26 (conferência de 19/10): as dicas do cabeçalho e da
+ * paginação, o clique na linha com um menu aberto e a Nova Pasta que fica na lista. Lê o texto dos arquivos; o
+ * comportamento na tela é conferido no navegador. O menu de responsável tem teste próprio (PastaRespMenuDesenhoTelaTest).
+ */
+final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
+{
+    private const DIR = __DIR__ . '/../../../';
+
+    /** O texto da chave no catálogo do português (desde a extração do idioma, o template e o JS só têm a chave). */
+    private static function texto(string $chave): string
+    {
+        $no = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        foreach (explode('.', $chave) as $parte) {
+            $no = $no[$parte];
+        }
+
+        return $no;
+    }
+
+    private static function ler(string $arquivo): string
+    {
+        return (string) file_get_contents(self::DIR . $arquivo);
+    }
+
+    #[TestDox('Cabeçalho: as dicas "Menu", "Notificações" e "Tela cheia" do desenho (dc L.59, 65, 66)')]
+    public function testDicasDoCabecalho(): void
+    {
+        // Desde a entrega 3 do idioma o texto mora no catálogo: o template tem a chave, o catálogo o texto do desenho.
+        $base = self::ler('templates/base.html.twig');
+        self::assertStringContainsString("aria-label=\"{{ 'moldura.cabecalho.menu_lateral_alternar'|trans }}\" data-tip=\"{{ 'moldura.cabecalho.menu_lateral_dica'|trans }}\"", $base);
+        self::assertStringContainsString("aria-label=\"{{ 'moldura.notificacoes.rotulo'|trans }}\" data-tip=\"{{ 'moldura.notificacoes.rotulo'|trans }}\"", $base);
+        self::assertStringContainsString("aria-label=\"{{ 'moldura.cabecalho.tela_cheia'|trans }}\" data-tip=\"{{ 'moldura.cabecalho.tela_cheia'|trans }}\"", $base);
+        $catalogo = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml');
+        self::assertSame(['Abrir/fechar menu', 'Menu', 'Notificações', 'Tela cheia'], [
+            $catalogo['moldura']['cabecalho']['menu_lateral_alternar'], $catalogo['moldura']['cabecalho']['menu_lateral_dica'],
+            $catalogo['moldura']['notificacoes']['rotulo'], $catalogo['moldura']['cabecalho']['tela_cheia'],
+        ]);
+    }
+
+    #[TestDox('Cabeçalho no Expediente: o escritório (dc L.64) e o selo de presença (dc L.67) usam a dica do desenho (data-tip); fora do Expediente, a do navegador (title)')]
+    public function testDicasDoEscritorioEDoSelo(): void
+    {
+        $base = self::ler('templates/base.html.twig');
+        self::assertStringContainsString("{% if 'exp-body' in block('body_class') %}data-tip{% else %}title{% endif %}=\"{{ current_tenant().name }}\"", $base);
+        $js = self::ler('public/js/presenca-cabecalho.js');
+        self::assertStringContainsString("selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', n + ' on-line'", $js);
+        self::assertStringNotContainsString('selo.title =', $js);
+    }
+
+    #[TestDox('Paginação: as dicas do desenho (dc `pags`), com "Página N de M"')]
+    public function testDicasDaPaginacao(): void
+    {
+        $pag = self::ler('templates/expediente/_paginacao.html.twig');
+        foreach (['primeira' => 'Primeira página', 'anterior' => 'Página anterior', 'proxima' => 'Próxima página', 'ultima' => 'Última página'] as $chave => $dica) {
+            self::assertStringContainsString("data-tip=\"{{ 'expediente.paginacao." . $chave . "'|trans }}\"", $pag);
+            self::assertSame($dica, self::texto('expediente.paginacao.' . $chave));
+        }
+        self::assertStringContainsString("data-tip=\"{{ 'expediente.paginacao.pagina_n_de_m'|trans({pagina: p ~ '', total: total ~ ''}) }}\"", $pag);
+        self::assertSame('Página {pagina} de {total}', self::texto('expediente.paginacao.pagina_n_de_m'));
+    }
+
+    #[TestDox('Com um menu aberto (filtro, responsável ou contexto), o clique na linha só fecha o menu e não há dica (dc `abrir` e `_ov`)')]
+    public function testCliqueNaLinhaComMenuAberto(): void
+    {
+        $js = self::ler('public/js/expediente-lista.js');
+        self::assertStringContainsString("menuAbertoNoToque = !!(menu || document.querySelector('.exp-pop, #pastaRespMenu:not([hidden])'));", $js);
+        self::assertStringContainsString('}, true);' . "\n" . '    window.ExpMenu.abertoNoToque = function () { return menuAbertoNoToque; };', $js, 'a pergunta é feita na captura do mousedown');
+        self::assertStringContainsString("if (window.ExpMenu.abertoNoToque()) { return; }", $js, 'nem a janela de sigilo abre');
+        self::assertStringContainsString("document.querySelector('.exp-pop, #pastaRespMenu:not([hidden])')) { fecharDica(); return; }", $js);
+
+        $index = self::ler('templates/expediente/index.html.twig');
+        self::assertStringContainsString('if (window.ExpMenu && window.ExpMenu.abertoNoToque && window.ExpMenu.abertoNoToque()) return;', $index);
+    }
+
+    #[TestDox('Nova Pasta no Expediente: fica na lista (NUP decrescente, página 1) com o aviso "Pasta N aberta para CLIENTE"; fora dele, abre a pasta')]
+    public function testNovaPastaFicaNaLista(): void
+    {
+        $modal = self::ler('templates/_partials/modal_nova_pasta.html.twig');
+        self::assertStringContainsString("{% if desenho11 %} data-fica-na-lista=\"1\"{% endif %}", $modal);
+        self::assertStringContainsString("document.dispatchEvent(new CustomEvent('exp:pasta-criada', { detail: { nup: json.nup, cliente: json.cliente || '' } }));", $modal);
+        self::assertStringContainsString('window.location = json.redirect;', $modal, 'a lista da Pasta segue abrindo a pasta criada');
+
+        $index = self::ler('templates/expediente/index.html.twig');
+        self::assertStringContainsString("document.addEventListener('exp:pasta-criada', function (e) {", $index);
+        self::assertStringContainsString("if (ord) ord.value = 'nup';", $index);
+        self::assertStringContainsString("if (dir) dir.value = 'desc';", $index);
+        self::assertStringContainsString("avisarOuAlertar(BJ_T.t('expediente.js.lista.pasta_criada', {nup: e.detail.nup, cliente: e.detail.cliente}));", $index);
+        self::assertSame('Pasta {nup} aberta para {cliente}', self::texto('expediente.js.lista.pasta_criada'));
+    }
+}

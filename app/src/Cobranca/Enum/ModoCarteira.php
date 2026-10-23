@@ -28,7 +28,7 @@ enum ModoCarteira: string
     public function descricao(): string
     {
         return match ($this) {
-            self::Unico => 'Cada objeto tem no máximo uma cobrança não encerrada por vez — ativa ou judicializada. Novas dívidas do mesmo objeto entram na cobrança que já está aberta.',
+            self::Unico => 'Cada objeto tem no máximo uma cobrança não encerrada por vez (ativa ou judicializada). Novas dívidas do mesmo objeto entram na cobrança que já está aberta.',
             self::Multiplo => 'O mesmo objeto pode ter várias cobranças abertas ao mesmo tempo, cada uma com o seu próprio saldo.',
         };
     }

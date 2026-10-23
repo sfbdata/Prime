@@ -2,8 +2,12 @@
 
 namespace App\Processo\Repository;
 
+use App\Entity\Audit\AuditLog;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
+use App\Twig\NumeroProcessoExtension;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -48,6 +52,112 @@ class ProcessoRepository extends ServiceEntityRepository
     public function findOneByIdDoTenant(int $id, Tenant $tenant): ?Processo
     {
         return $this->findOneBy(['id' => $id, 'tenant' => $tenant]);
+    }
+
+    /**
+     * Números dos processos que o Push Processual acompanha por número: todos os cadastrados no
+     * escritório que ainda não deram baixa (processo baixado não recebe publicação nova) e cujo
+     * monitoramento não foi pausado na aba Push da pasta (spec push-painel-monitoramento §1), do mais
+     * recente ao mais antigo: no botão, que roda dentro do limite do DJEN, o recém-cadastrado vem
+     * primeiro.
+     *
+     * Escopado pelo tenant explícito: roda também no comando de captação, onde o TenantFilter
+     * está desligado.
+     *
+     * @return list<string>
+     */
+    public function listarNumerosAcompanhadosDoTenant(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p.numeroProcesso')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.dataBaixa IS NULL')
+            ->andWhere('p.monitoramentoPausadoEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map('strval', $linhas));
+    }
+
+    /**
+     * Quantos processos o Push Processual acompanha por número (mesmo critério de
+     * `listarNumerosAcompanhadosDoTenant`). Alimenta o botão da tela do módulo.
+     */
+    public function contarAcompanhadosDoTenant(Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.dataBaixa IS NULL')
+            ->andWhere('p.monitoramentoPausadoEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Grava o processo e a linha de auditoria da mesma ação num flush só (P5b: dados manuais do
+     * cartão; o `Processo` não é Auditavel, senão cada sincronização do Datajud viraria log).
+     */
+    public function salvarComAuditoria(Processo $processo, AuditLog $registro): void
+    {
+        $em = $this->getEntityManager();
+        $em->persist($processo);
+        $em->persist($registro);
+        $em->flush();
+    }
+
+    /**
+     * Em quantas pastas vivas (fora da lápide) do escritório este processo está vinculado (P5b: o aviso "Valem para todas
+     * as pastas com este processo"). Tenant explícito: não depende do filtro de sessão.
+     */
+    public function contarPastasDoProcesso(Processo $processo, Tenant $tenant): int
+    {
+        return (int) $this->getEntityManager()->createQueryBuilder()
+            ->select('COUNT(DISTINCT pa.id)')
+            ->from(PastaProcesso::class, 'pp')
+            ->join('pp.pasta', 'pa')
+            ->andWhere('pp.processo = :processo')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->setParameter('processo', $processo)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Grava a última verificação no DJEN dos processos do escritório com estes números (spec
+     * push-painel-monitoramento §1). Os números chegam só com dígitos (é o que a captação consulta)
+     * e o cadastro pode guardá-los com a máscara CNJ: a comparação é com as DUAS formas, por `IN`,
+     * para usar o índice único (tenant_id, numero_processo) em vez de varrer a tabela.
+     *
+     * UPDATE direto, e não pela entidade: roda depois da captação (no comando, centenas de números)
+     * e não deve disparar o `PreUpdate` do processo, que mudaria o `modificadoEm` sem ninguém ter
+     * mexido no cadastro. Escopado pelo tenant explícito (o comando roda sem o TenantFilter).
+     *
+     * @param list<string> $numerosSoDigitos
+     */
+    public function registrarVerificacaoDosNumeros(Tenant $tenant, array $numerosSoDigitos, \DateTimeImmutable $em): void
+    {
+        if ($numerosSoDigitos === []) {
+            return;
+        }
+
+        $mascara = new NumeroProcessoExtension();
+        $formas = [];
+        foreach ($numerosSoDigitos as $numero) {
+            $formas[$numero] = true;
+            $formas[$mascara->numeroCnj($numero)] = true;
+        }
+
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE processo SET ultima_verificacao_em = :em WHERE tenant_id = :tenant AND numero_processo IN (:numeros)',
+            ['em' => $em->format('Y-m-d H:i:s'), 'tenant' => $tenant->getId(), 'numeros' => array_map('strval', array_keys($formas))],
+            ['numeros' => ArrayParameterType::STRING],
+        );
     }
 
     /**
@@ -104,12 +214,17 @@ class ProcessoRepository extends ServiceEntityRepository
 
         $termo = trim($termo);
         if ($termo !== '') {
+            // O número fica gravado só com dígitos; digitado com a máscara do CNJ ("1234567-89.2024..."),
+            // casa pelos dígitos.
+            $digitos = (string) preg_replace('/\D/', '', $termo);
+            $numero = $digitos !== '' && preg_match('/^[\d.\-\s]+$/', $termo) === 1 ? $digitos : $termo;
             $qb->andWhere(
-                'UNACCENT(LOWER(p.numeroProcesso)) LIKE UNACCENT(LOWER(:termo))'
+                'UNACCENT(LOWER(p.numeroProcesso)) LIKE UNACCENT(LOWER(:numero))'
                 . ' OR UNACCENT(LOWER(p.classeProcessual)) LIKE UNACCENT(LOWER(:termo))'
                 . ' OR UNACCENT(LOWER(p.assuntoProcessual)) LIKE UNACCENT(LOWER(:termo))'
                 . ' OR UNACCENT(LOWER(p.siglaTribunal)) LIKE UNACCENT(LOWER(:termo))'
-            )->setParameter('termo', '%' . $termo . '%');
+            )->setParameter('termo', '%' . $termo . '%')
+             ->setParameter('numero', '%' . $numero . '%');
         }
 
         if ($idsExcluir !== []) {
@@ -166,6 +281,7 @@ class ProcessoRepository extends ServiceEntityRepository
      * (CLI, super-admin, teste).
      *
      * @param array<string, string> $filtros  busca, tribunal, situacao, data_de, data_ate
+     * @param list<int>             $processosOcultos processos que não abrem para quem lista (cadeado, K3)
      * @return Processo[]
      */
     public function findByFiltrosPaginado(
@@ -174,9 +290,11 @@ class ProcessoRepository extends ServiceEntityRepository
         int $pagina = 1,
         int $porPagina = 25,
         string $ordenar = '',
-        string $direcao = 'desc'
+        string $direcao = 'desc',
+        array $processosOcultos = [],
     ): array {
         $qb = $this->buildQbFiltros($tenant, $filtros);
+        $this->semOsProcessosOcultos($qb, $processosOcultos);
         $this->aplicarOrdenacaoProcesso($qb, $ordenar, $direcao);
 
         return $qb
@@ -188,13 +306,26 @@ class ProcessoRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<int>             $processosOcultos
      */
-    public function countByFiltros(Tenant $tenant, array $filtros): int
+    public function countByFiltros(Tenant $tenant, array $filtros, array $processosOcultos = []): int
     {
-        return (int) $this->buildQbFiltros($tenant, $filtros)
-            ->select('COUNT(p.id)')
-            ->getQuery()
-            ->getSingleScalarResult();
+        $qb = $this->buildQbFiltros($tenant, $filtros)->select('COUNT(p.id)');
+        $this->semOsProcessosOcultos($qb, $processosOcultos);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado K3): processo cujas pastas são todas ocultas para quem lista não entra.
+     *
+     * @param list<int> $processosOcultos
+     */
+    private function semOsProcessosOcultos(QueryBuilder $qb, array $processosOcultos): void
+    {
+        if ($processosOcultos !== []) {
+            $qb->andWhere('p.id NOT IN (:processosOcultos)')->setParameter('processosOcultos', $processosOcultos);
+        }
     }
 
     /**
@@ -369,5 +500,34 @@ class ProcessoRepository extends ServiceEntityRepository
             $numeros[$row['numeroProcesso']] = $row['numeroProcesso'];
         }
         return $numeros;
+    }
+
+    /**
+     * Os valores de `orgao_julgador` com a acentuação estragada pelo mapper antigo ("Ã"/"Â" + U+0080..U+00BF, ou o "Μ"
+     * grego do "õ"), com a quantidade de cada um. Todos os escritórios: é o reparo do comando
+     * `app:processo:corrigir-acentuacao-do-orgao`, e o nome do órgão é público.
+     *
+     * @return array<string, int> valor → quantidade
+     */
+    public function orgaosJulgadoresComAcentuacaoEstragada(): array
+    {
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            "SELECT orgao_julgador AS valor, count(*) AS n FROM processo WHERE orgao_julgador ~ ('[ÃÂ][' || chr(128) || '-' || chr(191) || chr(924) || ']') GROUP BY orgao_julgador ORDER BY count(*) DESC, orgao_julgador",
+        );
+
+        $valores = [];
+        foreach ($linhas as $linha) {
+            $valores[(string) $linha['valor']] = (int) $linha['n'];
+        }
+
+        return $valores;
+    }
+
+    /** Troca um valor de `orgao_julgador` por outro em todos os escritórios (reparo da acentuação); devolve quantos mudaram. */
+    public function trocarOrgaoJulgador(string $antes, string $depois): int
+    {
+        return (int) $this->getEntityManager()->createQuery(
+            'UPDATE App\Processo\Entity\Processo e SET e.orgaoJulgador = :depois WHERE e.orgaoJulgador = :antes',
+        )->setParameter('antes', $antes)->setParameter('depois', $depois)->execute();
     }
 }

@@ -1,0 +1,8 @@
+{# Modelo "Espaço em 90%" do desenho 05 (dc L.508-513): `e90`. O percentual é o limite escolhido na automação (80, 85 ou 90). #}
+{% import 'email/comercial/automacao/_blocos.html.twig' as b %}
+{{ b.texto('emails.comercial.espaco_90.texto'|trans({limite: limite ~ ''})) }}
+{{ b.noticias([
+    ['emails.comercial.espaco_90.aumente_titulo'|trans, 'emails.comercial.espaco_90.aumente_resumo'|trans],
+    ['emails.comercial.espaco_90.libere_titulo'|trans, 'emails.comercial.espaco_90.libere_resumo'|trans],
+]) }}
+{{ b.botao('emails.comercial.espaco_90.botao'|trans, urlDoEspaco) }}

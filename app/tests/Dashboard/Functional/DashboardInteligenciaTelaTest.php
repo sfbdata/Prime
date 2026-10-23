@@ -112,7 +112,7 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         $client = static::createClient();
         $this->criarGestorLogado($client);
 
-        $painel = $this->painel($client->request('GET', '/dashboard'));
+        $painel = $this->painel($client->request('GET', '/dashboard?data_de=&data_ate='));
 
         $cab = $painel->filter('aside.db-ia-painel > .db-ia-cab > .db-ia-cab-texto');
         self::assertCount(1, $cab);
@@ -299,7 +299,7 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         $client = static::createClient();
         $this->criarGestorLogado($client);
 
-        $painel = $this->painel($client->request('GET', '/dashboard'));
+        $painel = $this->painel($client->request('GET', '/dashboard?data_de=&data_ate='));
 
         self::assertCount(0, $painel->filter('.db-ia-dia'));
         self::assertCount(0, $painel->filter('.db-ia-ritmo-topo'));

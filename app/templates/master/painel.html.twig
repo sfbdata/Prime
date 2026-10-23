@@ -1,0 +1,203 @@
+{% extends 'base.html.twig' %}
+
+{# Desenho: docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (edição do perfil Master: abas Painel do sistema | Permissões |
+   Telas e recursos;
+   bloco "Masters do sistema" com Master primário e secundários, linhas 317-336). O painel do sistema segue o desenho 1.0
+   (docs/design/perfis-1.0/05 - Perfis 1.0.dc.html).
+   As seções do painel são montadas por public/js/master/painel.js a partir dos endpoints /master/dados/*; o bloco Masters
+   (select, mensagem e confirmação) por public/js/master/masters.js. Spec: docs/specs/perfis-1.2-masters.md.
+   Idioma (spec docs/specs/idioma-do-sistema.md, P2a da b5): os textos vêm do catálogo (master.painel.*; o painel.js,
+   de master.js.* e termos.*, entregues por catalogo_js). #}
+
+{% block title %}{{ 'master.painel.titulo_pagina'|trans({papel: 'termos.master'|trans}) }}{% endblock %}
+
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('css/master.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/master-seccionais.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set tenantAtual = current_tenant() %}
+{% set urls = {
+    visao: path('master_dados_visao_geral'),
+    contas: path('master_dados_contas'),
+    oab: path('master_dados_usuarios_oab'),
+    auditoria: path('master_dados_auditoria'),
+    contaSuspender: path('master_conta_suspender', {id: 0}),
+    contaReativar: path('master_conta_reativar', {id: 0}),
+    contaExcluir: path('master_conta_excluir', {id: 0}),
+    contaLimiteArm: path('master_conta_limite_armazenamento', {id: 0}),
+    contaLimiteUsu: path('master_conta_limite_usuarios', {id: 0}),
+    planos: path('master_dados_planos'),
+    planoAlterar: path('master_plano_alterar', {codigo: 'codigo'}),
+    faixas: path('master_faixas_configurar'),
+    mapaBrasil: path('master_mapa_brasil'),
+    mapaMundo: path('master_mapa_mundo'),
+    seccionais: path('master_dados_seccionais'),
+    revisaoOab: path('admin_platform_oab_index'),
+    convites: path('admin_platform_convite_index'),
+    logo: asset('images/logo/bluejus-logo-nav.png')
+} %}
+<div class="mp" id="master-painel" data-urls="{{ urls|json_encode|e('html_attr') }}" data-quem="{{ app.user ? app.user.fullName : '' }}">
+
+    <div class="mp-topo">
+        <h1 class="mp-titulo"><i class="bi bi-shield-lock"></i>{{ 'master.painel.titulo'|trans({papel: 'termos.master'|trans}) }}<span class="mp-selo">{{ 'termos.master'|trans|upper }}</span><span class="mp-titulo-traco"></span></h1>
+        <a class="mp-btn-voltar" href="{{ tenantAtual ? path('app_tenant_role_index', {tenantId: tenantAtual.id}) : path('dashboard_index') }}"><i class="bi bi-arrow-left"></i>{{ 'master.painel.voltar'|trans }}</a>
+    </div>
+
+    <div class="mp-abas" role="tablist">
+        <button type="button" class="mp-aba on" data-aba="painel" role="tab" aria-selected="true"><i class="bi bi-speedometer2"></i>{{ 'master.painel.aba.painel'|trans }}</button>
+        <button type="button" class="mp-aba" data-aba="perm" role="tab" aria-selected="false"><i class="bi bi-key"></i>{{ 'master.painel.aba.permissoes'|trans }}</button>
+        <button type="button" class="mp-aba" data-aba="rec" role="tab" aria-selected="false"><i class="bi bi-toggles"></i>{{ 'master.painel.aba.recursos'|trans }}</button>
+    </div>
+
+    <div class="mp-painel" data-painel-aba="painel">
+        <div class="mp-faixa"><i class="bi bi-shield-fill-check"></i>{{ 'master.painel.faixa'|trans }}</div>
+        <div class="mp-secs" id="mp-secs"></div>
+        <div class="mp-secao" id="mp-secao"><div class="mp-carregando">{{ 'master.painel.carregando'|trans }}</div></div>
+        {# Seção "Comercial e e-mails" (desenho 1.2, #sec=com): mora num parcial próprio, de outra frente. Sem o
+           parcial, o painel.js nem mostra o botão da seção. O parcial pode trazer o próprio <script src> (CSP 'self')
+           e ouvir o evento "mp:secao" no #master-painel para montar a seção quando ela abrir. #}
+        <div class="mp-secao-externa" data-sec-externa="com" hidden>{% include 'master/_comercial.html.twig' ignore missing %}</div>
+        <div class="mp-secao-externa" data-sec-externa="ind" hidden>{% include 'master/_indicacoes.html.twig' ignore missing %}</div>
+        <div class="mp-secao-externa" data-sec-externa="notif" hidden>{% include 'master/_notificacoes.html.twig' ignore missing %}</div>
+    </div>
+
+    <div class="mp-perm" data-painel-aba="perm" hidden>
+        <div class="mp-card mp-masters" data-mp-masters>
+            <div class="mp-cab-roxo"><i class="bi bi-people-fill"></i><b>{{ 'master.painel.masters.titulo'|trans }}</b><span>{{ 'master.painel.masters.contagem'|trans({n: masters|length}) }}</span></div>
+            {% for m in masters %}
+                {% set partes = m.nome|split(' ')|filter(p => p is not empty) %}
+                <div class="mp-master{{ m.primario ? ' mp-master-primario' : ' mp-master-secundario' }}">
+                    <span class="mp-avatar{{ m.primario ? '' : ' mp-avatar-sec' }}">{% for p in partes|slice(0, 2) %}{{ p|first|upper }}{% endfor %}</span>
+                    <span class="mp-master-id"><b>{{ m.nome }}</b><span>{{ m.email }}{% if m.oabNumero %} · {{ 'master.painel.masters.oab'|trans({numero: m.oabNumero ~ (m.oabUf ? '/' ~ m.oabUf)}) }}{% endif %}</span></span>
+                    {% if m.primario %}
+                        <span class="mp-tag-master">{{ 'master.painel.masters.tag'|trans({papel: 'termos.master'|trans, nivel: 'termos.primario'|trans})|upper }}</span>
+                        <i class="bi bi-lock-fill mp-cadeado" title="{{ 'master.painel.masters.primario_dica'|trans }}"></i>
+                    {% else %}
+                        <span class="mp-tag-master mp-tag-master-sec">{{ 'master.painel.masters.tag'|trans({papel: 'termos.master'|trans, nivel: 'termos.secundario'|trans})|upper }}</span>
+                        {# Remover é só do Master primário (M3); o secundário vê a lista sem ações. #}
+                        {% if souPrimario %}
+                            <form method="post" action="{{ path('master_remover', {userId: m.id}) }}" class="mp-form-remover">
+                                <input type="hidden" name="_token" value="{{ csrf_token('master_remover_' ~ m.id) }}">
+                                <button type="button" class="mp-lixeira" title="{{ 'master.painel.masters.remover'|trans }}" aria-label="{{ 'master.painel.masters.remover'|trans }}"
+                                        data-mp-remover-master data-nome="{{ m.nome }}"><i class="bi bi-trash3"></i></button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="mp-vazio-linha">{{ 'master.painel.masters.vazio'|trans }}</div>
+            {% endfor %}
+
+            {% if souPrimario %}
+                {% set pmInfo = 'master.painel.masters.promover_info'|trans %}
+                {% set pmMsg = 'master.painel.masters.promover_msg'|trans %}
+                <form method="post" action="{{ path('master_promover') }}" class="mp-promover" data-mp-form-promover>
+                    <input type="hidden" name="_token" value="{{ csrf_token('master_promover') }}">
+                    <b>{{ 'master.painel.masters.promover_titulo'|trans({papel: 'termos.master'|trans}) }}</b>
+                    <div class="mp-promover-grade">
+                        <select name="usuario" data-mp-promover-select aria-label="{{ 'master.painel.masters.promover_campo'|trans }}">
+                            <option value="">{{ 'master.painel.masters.promover_escolha'|trans }}</option>
+                            {% for c in candidatos %}
+                                <option value="{{ c.id }}" data-nome="{{ c.nome }}" data-info="{{ c.email }} · {{ c.oabNumero ? 'master.painel.masters.oab'|trans({numero: c.oabNumero ~ (c.oabUf ? '/' ~ c.oabUf)}) : 'master.painel.masters.sem_oab'|trans }}">{{ c.nome }} · {{ c.perfil ?? 'master.painel.masters.sem_perfil'|trans }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="mp-promover-info" data-mp-promover-info data-padrao="{{ pmInfo }}">{{ pmInfo }}</span>
+                        <button type="button" class="mp-btn-roxo" data-mp-promover><i class="bi bi-stars"></i>{{ 'master.painel.masters.promover'|trans }}</button>
+                    </div>
+                    <span class="mp-promover-msg" data-mp-promover-msg data-padrao="{{ pmMsg }}">{{ pmMsg }}</span>
+                </form>
+            {% endif %}
+        </div>
+
+        <div class="mp-perm-duas">
+            <div class="mp-card mp-poderes">
+                <div class="mp-cab-roxo"><i class="bi bi-stars"></i><b>{{ 'master.painel.poderes.titulo'|trans }}</b><i class="bi bi-lock-fill" title="{{ 'master.painel.poderes.fixos_dica'|trans }}"></i></div>
+                {% for p in [
+                    'master.painel.poderes.ver_contas'|trans,
+                    'master.painel.poderes.suspender'|trans,
+                    'master.painel.poderes.limites'|trans,
+                    'master.painel.poderes.planos'|trans,
+                    'master.painel.poderes.configuracoes'|trans,
+                    'master.painel.poderes.auditoria'|trans,
+                    'master.painel.poderes.masters'|trans,
+                    'master.painel.poderes.sem_tempo'|trans
+                ] %}
+                    <div class="mp-poder"><i class="bi bi-check-circle-fill"></i>{{ p }}</div>
+                {% endfor %}
+                <div class="mp-rodape-roxo">{{ 'master.painel.poderes.rodape'|trans }}</div>
+            </div>
+
+            <div class="mp-card mp-papeis">
+                <div class="mp-cab-cinza-14"><i class="bi bi-diagram-3"></i><b>{{ 'master.painel.papeis.titulo'|trans }}</b></div>
+                {% for p in [
+                    {rot: 'termos.master'|trans|upper, icone: 'bi-stars', cor: '#7a3e8f', bg: '#f3e9f7', quem: 'master.painel.papeis.master_quem'|trans, faz: 'master.painel.papeis.master_faz'|trans, naoFaz: 'master.painel.papeis.master_nao_faz'|trans},
+                    {rot: 'termos.primario'|trans|upper, icone: 'bi-person-badge', cor: '#0a6fa0', bg: '#e5f1f7', quem: 'master.painel.papeis.primario_quem'|trans, faz: 'master.painel.papeis.primario_faz'|trans, naoFaz: 'master.painel.papeis.primario_nao_faz'|trans},
+                    {rot: 'termos.secundario'|trans|upper, icone: 'bi-person', cor: '#4a6373', bg: '#eef2f5', quem: 'master.painel.papeis.secundario_quem'|trans, faz: 'master.painel.papeis.secundario_faz'|trans, naoFaz: 'master.painel.papeis.secundario_nao_faz'|trans}
+                ] %}
+                    <div class="mp-papel">
+                        <span class="mp-papel-selo" style="--cor: {{ p.cor }}; --bg: {{ p.bg }};"><i class="bi {{ p.icone }}"></i>{{ p.rot }}</span>
+                        <span class="mp-papel-quem">{{ p.quem }}</span>
+                        <span class="mp-papel-faz"><b>{{ 'master.painel.papeis.faz'|trans }}</b> {{ p.faz }}</span>
+                        <span class="mp-papel-nao"><b>{{ 'master.painel.papeis.nao_faz'|trans }}</b> {{ p.naoFaz }}</span>
+                    </div>
+                {% endfor %}
+                <div class="mp-rodape-cinza">{{ 'master.painel.papeis.rodape'|trans }}</div>
+            </div>
+        </div>
+    </div>
+
+    {# Aba "Telas e recursos" (desenho linhas 299-309; spec docs/specs/perfis-1.2-telas-e-recursos.md §3). Os grupos e
+       os itens são desenhados por public/js/master/recursos.js a partir de data-recursos (estado efetivo do servidor). #}
+    <div class="mp-rec" data-painel-aba="rec" hidden>
+        {% include 'master/_recursos_tema.html.twig' %}
+        <div class="mp-rec-card" data-mp-recursos
+             data-recursos="{{ recursos|json_encode|e('html_attr') }}"
+             data-url="{{ path('master_recurso_alternar', {chave: 'CHAVE'})|e('html_attr') }}"
+             data-token="{{ csrf_token('master_recursos') }}">
+            <div class="mp-rec-cab">
+                <i class="bi bi-toggles"></i>
+                <div class="mp-rec-cab-texto">
+                    <b>{{ 'master.painel.recursos.titulo'|trans }}</b>
+                    <div>{{ 'master.painel.recursos.texto'|trans }}</div>
+                </div>
+                {% set recOff = recursos|filter(r => not r.ativo)|length %}
+                <b class="mp-rec-resumo{{ recOff ? ' is-off' }}" data-mp-rec-resumo>{{ recOff ? 'master.painel.recursos.desativados'|trans({n: recOff}) : 'master.painel.recursos.tudo_ativo'|trans }}</b>
+                <input type="search" class="mp-rec-busca" data-mp-rec-busca placeholder="{{ 'master.painel.recursos.busca'|trans }}" aria-label="{{ 'master.painel.recursos.busca'|trans }}">
+            </div>
+            <div class="mp-rec-aviso" data-mp-rec-aviso role="status" hidden></div>
+            <div class="mp-rec-grupos" data-mp-rec-grupos></div>
+        </div>
+    </div>
+
+    {# Modal de limite (desenho 1.2, linhas 397-410) e "Editar plano" (convenção), montados pelo painel.js. #}
+    <div id="mp-modal"></div>
+
+    {# Confirmação interna do desenho (linhas 411-419), preenchida por public/js/master/masters.js (promover e remover
+       Master) e pelo painel.js (suspender, reativar e excluir conta), por window.BJMasterConf. #}
+    <div class="mp-conf-fundo" data-mp-conf hidden>
+        <div class="mp-conf" role="dialog" aria-modal="true" aria-labelledby="mpConfTitulo">
+            <div class="mp-conf-cab" data-mp-conf-cab><i class="bi" data-mp-conf-icone></i><span id="mpConfTitulo" data-mp-conf-titulo></span></div>
+            <div class="mp-conf-texto" data-mp-conf-texto></div>
+            {# Só na exclusão de conta (C4): libera o botão quando a palavra bater; o servidor confere de novo. #}
+            <div class="mp-conf-campo" data-mp-conf-campo hidden>
+                <label for="mpConfPalavra" data-mp-conf-rotulo></label>
+                <input id="mpConfPalavra" type="text" autocomplete="off" spellcheck="false" data-mp-conf-palavra>
+            </div>
+            <div class="mp-conf-rodape">
+                <button type="button" class="mp-conf-cancelar" data-mp-conf-cancelar>{{ 'master.painel.cancelar'|trans }}</button>
+                <button type="button" class="mp-conf-ok" data-mp-conf-ok></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    <script src="{{ asset('js/master/bj-dica.js') }}"></script>
+    {{ catalogo_js('master.js', 'termos') }}
+    <script src="{{ asset('js/master/painel.js') }}"></script>
+    <script src="{{ asset('js/master/masters.js') }}"></script>
+    <script src="{{ asset('js/master/recursos.js') }}"></script>
+{% endblock %}

@@ -4,25 +4,28 @@ declare(strict_types=1);
 
 namespace App\Tarefa\DTO;
 
+use App\Entity\Tarefa\Tarefa;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\EtapaDaPasta;
 
 /**
  * Tudo o que a tela "Minhas Metas" precisa para desenhar uma aba: os blocos da lista, o
- * número de cada aba e os quatro KPIs do topo.
+ * número de cada aba, os quatro KPIs do topo e o trilho. "Seu andamento" e "Precisa de atenção"
+ * olham todas as metas da pessoa (`$andamento`, `$atencao`), não a aba nem os filtros.
  */
 final class MinhasMetasOutput
 {
-    /** Teto de linhas dos blocos do trilho — além disso a coluna vira uma segunda lista. */
-    private const TETO_TRILHO = 5;
+    /** Teto do "Precisa de atenção" (desenho 04, dc `atencao`: `.slice(0, 4)`), sem "Ver todas". */
+    public const TETO_ATENCAO = 4;
 
     /**
      * @param GrupoDeMetasOutput[]                                                      $grupos
      * @param array<string, int>                                                        $contagensPorAba
      * @param array{atrasadas: int, proximas: int, sem_prazo: int, aguardando_revisao: int} $kpis
      * @param array<string, string>                                                     $filtros
-     * @param PessoaNoTrilhoOutput[]                                                    $pessoas
      * @param int[]                                                                     $acompanhadas
-     * @param array<int, int>                                                           $mensagensPorMeta
+     * @param Tarefa[]                                                                  $atencao
+     * @param array<string, string>                                                     $nomesDasEtapas etapa → nome dado pelo escritório
      */
     public function __construct(
         public readonly AbaMetas $aba,
@@ -30,37 +33,55 @@ final class MinhasMetasOutput
         public readonly array $contagensPorAba,
         public readonly array $kpis,
         public readonly array $filtros,
-        public readonly bool $modoLista,
-        public readonly array $pessoas = [],
         public readonly array $acompanhadas = [],
-        public readonly array $mensagensPorMeta = [],
+        public readonly AndamentoDasMetasOutput $andamento = new AndamentoDasMetasOutput(),
+        public readonly array $atencao = [],
+        public readonly array $nomesDasEtapas = [],
     ) {
     }
 
     /**
-     * Estes dois vêm pré-carregados do repositório, em duas consultas para a lista inteira.
-     * Perguntar à entidade (`meta.ehAcompanhadaPor`, `meta.mensagens|length`) custaria uma ida
-     * ao banco por linha, porque as coleções são lazy.
+     * Chip "i/T · Etapa" e "→ próximo: Etapa · Setor" da linha (desenho 04 de 22/10, dc L218 `faseItem`).
+     * `posicao` é nula quando o tipo de demanda não passa por essa etapa; `proxima` é nula na última e na
+     * concluída (o desenho esconde o "próximo" da concluída). `nome`/`nomeDaProxima` nulos = o do catálogo.
+     *
+     * @return array{etapa: EtapaDaPasta, posicao: ?int, total: int, nome: ?string, proxima: ?EtapaDaPasta, nomeDaProxima: ?string}
+     */
+    public function etapaDaMeta(Tarefa $meta): array
+    {
+        $etapa   = $meta->getEtapa();
+        $tipo    = $meta->getTipoDeDemanda();
+        $proxima = $meta->getStatus() === Tarefa::STATUS_CONCLUIDA ? null : $tipo->proximaDepoisDe($etapa);
+
+        return [
+            'etapa'         => $etapa,
+            'posicao'       => $tipo->posicaoDe($etapa),
+            'total'         => count($tipo->sequencia()),
+            'nome'          => $this->nomesDasEtapas[$etapa->value] ?? null,
+            'proxima'       => $proxima,
+            'nomeDaProxima' => $proxima === null ? null : ($this->nomesDasEtapas[$proxima->value] ?? null),
+        ];
+    }
+
+    /**
+     * Vem pré-carregado do repositório, numa consulta para a lista inteira. Perguntar à entidade
+     * (`meta.ehAcompanhadaPor`) custaria uma ida ao banco por linha, porque a coleção é lazy.
      */
     public function estaAcompanhando(int $metaId): bool
     {
         return in_array($metaId, $this->acompanhadas, true);
     }
 
-    public function totalDeMensagens(int $metaId): int
+    /** Pílula de status derivada do dado real, pela mesma regra que escolhe o grupo. */
+    public function statusDaMeta(Tarefa $meta): StatusDoPrazoDaMeta
     {
-        return $this->mensagensPorMeta[$metaId] ?? 0;
+        return StatusDoPrazoDaMeta::de($meta);
     }
 
-    /** @return PessoaNoTrilhoOutput[] */
-    public function pessoasVisiveis(): array
+    /** Texto do prazo da linha (desenho de 13/10), com o destaque só na atrasada — mesma regra do grupo. */
+    public function prazoDaMeta(Tarefa $meta): TextoDoPrazoDaMeta
     {
-        return array_slice($this->pessoas, 0, self::TETO_TRILHO);
-    }
-
-    public function pessoasOcultas(): int
-    {
-        return max(0, count($this->pessoas) - self::TETO_TRILHO);
+        return TextoDoPrazoDaMeta::de($meta);
     }
 
     public function grupo(string $chave): ?GrupoDeMetasOutput
@@ -75,81 +96,56 @@ final class MinhasMetasOutput
     }
 
     /**
-     * As metas do bloco "Precisa de atenção" — as atrasadas, com teto.
+     * As metas do bloco "Precisa de atenção" (desenho 04, dc `atencao`): as atrasadas de TODAS as metas
+     * da pessoa, da que venceu primeiro, no máximo `TETO_ATENCAO`. Não dependem da aba nem dos filtros:
+     * vêm prontas de `TarefaRepository::findAtrasadasParaAtencao`. O desenho não tem "Ver todas".
      *
-     * @return \App\Entity\Tarefa\Tarefa[]
+     * @return Tarefa[]
      */
     public function metasQuePrecisamDeAtencao(): array
     {
-        return array_slice($this->grupo('atrasadas')?->metas ?? [], 0, self::TETO_TRILHO);
-    }
-
-    public function atrasadasOcultas(): int
-    {
-        return max(0, ($this->grupo('atrasadas')?->total() ?? 0) - self::TETO_TRILHO);
+        return array_slice($this->atencao, 0, self::TETO_ATENCAO);
     }
 
     /**
-     * As quatro fatias da barra de andamento. Somam o total exibido — se não somarem, algum
-     * número está mentindo, e é por isso que saem todas do mesmo lugar (os grupos), e não de
-     * contagens independentes.
+     * Legenda de "Seu andamento" (desenho 04, dc `andLeg`, P:111-117 e P:177), sobre TODAS as metas da
+     * pessoa, como o "X de Y" acima dela: não muda com a aba nem com os filtros da tela.
      *
-     * @return array<int, array{rotulo: string, total: int, tom: string}>
+     * @return array<int, array{chave: string, total: int, tom: string}>  `chave` é do catálogo (ICU, `{total}`)
      */
     public function fatiasDoAndamento(): array
     {
-        $noPrazo = ($this->grupo('proximas')?->total() ?? 0)
-            + ($this->grupo('depois')?->total() ?? 0)
-            + ($this->grupo('sem_prazo')?->total() ?? 0)
-            + ($this->grupo('andamento')?->total() ?? 0);
+        // Os três itens do desenho, na ordem dele, inclusive zerados: o leitor procura o número no mesmo
+        // lugar toda vez. "em aberto" saiu por decisão do dono de 21/10 (revoga a de 14/10); por isso a
+        // legenda não soma o "Y".
+        $a = $this->andamento;
 
-        return array_values(array_filter([
-            ['rotulo' => 'concluídas', 'total' => $this->totalConcluidas(), 'tom' => 'ok'],
-            // "em aberto", e não "no prazo": este balde soma as que têm prazo folgado E as sem
-            // prazo nenhum. Chamar de "no prazo" o que não tem prazo seria mentir no rótulo.
-            ['rotulo' => 'em aberto', 'total' => $noPrazo, 'tom' => 'warn'],
-            ['rotulo' => 'atrasadas', 'total' => $this->grupo('atrasadas')?->total() ?? 0, 'tom' => 'danger'],
-            ['rotulo' => 'em revisão', 'total' => $this->totalEmRevisao(), 'tom' => 'accent'],
-        ], static fn (array $f): bool => $f['total'] > 0));
+        return [
+            ['chave' => 'metas.trilho.legenda.concluidas', 'total' => $a->concluidas, 'tom' => 'ok'],
+            ['chave' => 'metas.trilho.legenda.atrasadas', 'total' => $a->atrasadas, 'tom' => 'danger'],
+            ['chave' => 'metas.trilho.legenda.em_revisao', 'total' => $a->emRevisao, 'tom' => 'accent'],
+        ];
     }
 
+    /** O "X" do "X de Y concluídas" do trilho, sobre todas as metas da pessoa. */
     public function totalConcluidas(): int
     {
-        return $this->grupo('concluidas')?->total() ?? 0;
+        return $this->andamento->concluidas;
+    }
+
+    /** O "Y" do "X de Y concluídas" do trilho: todas as metas da pessoa, concluídas dos últimos 30 dias inclusive. */
+    public function totalDoAndamento(): int
+    {
+        return $this->andamento->total;
     }
 
     public function percentualConcluido(): int
     {
-        $total = $this->totalExibido();
-
-        return $total === 0 ? 0 : (int) round($this->totalConcluidas() / $total * 100);
-    }
-
-    private function totalEmRevisao(): int
-    {
-        return ($this->grupo('em_revisao')?->total() ?? 0) + ($this->grupo('aguardando')?->total() ?? 0);
-    }
-
-    /** Quantas metas a aba está mostrando agora — soma dos blocos, concluídas incluídas. */
-    public function totalExibido(): int
-    {
-        return array_sum(array_map(static fn (GrupoDeMetasOutput $g): int => $g->total(), $this->grupos));
+        return $this->andamento->percentualConcluido();
     }
 
     public function estaVazia(): bool
     {
         return $this->grupos === [];
-    }
-
-    /** Verdadeiro quando o vazio veio de um filtro, e não de a aba não ter nada. */
-    public function temFiltroAtivo(): bool
-    {
-        foreach (['busca', 'status', 'prioridade', 'prazo'] as $campo) {
-            if (($this->filtros[$campo] ?? '') !== '') {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

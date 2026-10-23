@@ -339,8 +339,16 @@
     function excluir(botaoExcluir) {
         var bloco = blocoDe(botaoExcluir);
         if (!bloco) { return; }
-        if (!window.confirm('Excluir esta nota técnica? Esta ação não pode ser desfeita.')) { return; }
+        // E7: janela vermelha da tela com o texto do dc (`confirmarUI(…, true)`, L.5603); sem a janela,
+        // o confirm do navegador com o mesmo texto. Nada sai antes do "sim".
+        var pergunta = 'Excluir esta nota técnica?';
+        var resposta = window.confirmarUIPs ? window.confirmarUIPs(pergunta, true) : Promise.resolve(window.confirm(pergunta));
+        resposta.then(function (sim) {
+            if (sim && document.contains(botaoExcluir)) { excluirConfirmado(botaoExcluir, bloco); }
+        });
+    }
 
+    function excluirConfirmado(botaoExcluir, bloco) {
         var fd = new FormData();
         fd.append('_token', botaoExcluir.getAttribute('data-csrf') || '');
         fd.append('pasta_id', bloco.getAttribute('data-pasta-id') || '');
@@ -492,6 +500,10 @@
 
         var itemCopiar = alvo.closest('.js-nota-copiar');
         if (itemCopiar) { copiar(itemCopiar); return; }
+
+        // PMC-018: "Encaminhar via Chat I.A" só fecha o menu aqui; o despacho é do
+        // pasta-encaminhar.js (`.js-encaminhar` → `bj-central:despachar`, tipo `nota_tecnica`).
+        if (alvo.closest('.js-nota-encaminhar')) { fecharMenu(false); return; }
 
         // C6-PMC-05 (dc:5405-5406): "Editar · bloqueado" / "Excluir · bloqueado" são clicáveis e
         // dizem POR QUE não agem — o motivo só no `title` não aparece no toque nem no teclado.

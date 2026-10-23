@@ -11,10 +11,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
-    <title>Não foi possível baixar o .zip · BlueJus</title>
+    <title>{{ 'pasta_avisos.zip.titulo'|trans }} · BlueJus</title>
     <style>
         body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f3f5f7; color: #12242f; font: 15px/1.5 Arial, Helvetica, sans-serif; }
-        .zip-recusa { max-width: 440px; margin: 24px; padding: 28px 28px 24px; background: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, .15); text-align: center; }
+        .zip-recusa { max-width: 440px; margin: 24px; padding: 28px 28px 24px; background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, .15); text-align: center; }
         .zip-recusa h1 { margin: 0 0 10px; font-size: 18px; }
         .zip-recusa p { margin: 0 0 20px; color: #4f6878; }
         .zip-recusa button { padding: 8px 22px; border: 0; border-radius: 4px; background: #1d5c8c; color: #fff; font: 700 14px Arial, Helvetica, sans-serif; cursor: pointer; }
@@ -23,10 +23,10 @@
 </head>
 <body>
     <main class="zip-recusa" role="alert">
-        <h1>Não foi possível baixar o .zip</h1>
+        <h1>{{ 'pasta_avisos.zip.titulo'|trans }}</h1>
         <p id="zipRecusaMensagem">{{ mensagem }}</p>
-        <button type="button" id="zipRecusaFechar" onclick="window.close()">Fechar</button>
-        <small>Se a aba não fechar, feche-a pelo navegador e volte à pasta.</small>
+        <button type="button" id="zipRecusaFechar" onclick="window.close()">{{ 'pasta_avisos.fechar'|trans }}</button>
+        <small>{{ 'pasta_avisos.zip.dica'|trans }}</small>
     </main>
 </body>
 </html>

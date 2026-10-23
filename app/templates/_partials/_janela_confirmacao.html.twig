@@ -1,0 +1,100 @@
+{# Janela de confirmação do desenho (dc 02 L.351-356 `cf`; regra `confirmarUI`/`cfVals` L.6185-6187) — PAS-034 e E7
+   da fidelidade. Uma por página; /js/pasta-dialogos.js (`confirmarPs`, `confirmarUIPs`, `psConfirmarEnvio`) só troca
+   TEXTO, cor e mostra/esconde. Usada pela Pasta e, desde a E8, pelo Expediente.
+
+   Os tokens moram no PRÓPRIO `.ps-cf-fundo`: a janela pode ser hospedada dentro de um modal aberto (fora do
+   `.ps-body`) e o Expediente não tem os tokens da Pasta. Cada um aponta primeiro para o da Pasta (`--ps-*`) e,
+   sem ele, para o valor do desenho (claro) ou do Bootstrap (escuro) — na Pasta, nada muda. #}
+<style>
+    .ps-cf-fundo {
+        --cf-cab: #0b6a96; --cf-ok: #b3262e; --cf-ok-hv: #921f26; --cf-ok-azul: #0a6fa0; --cf-ok-azul-hv: #085a82;
+        --cf-cancelar-tx: #34505f;
+        --cf-card: var(--ps-card, #fff); --cf-texto: var(--ps-body, #243845);
+        --cf-div: var(--ps-div-strong, #eef2f5); --cf-soft: var(--ps-soft, #fafcfd);
+        position: fixed; inset: 0; z-index: 2147483500; padding: 16px; pointer-events: auto;
+        display: flex; align-items: center; justify-content: center; background: rgba(16,36,48,.32);
+    }
+    [data-bs-theme="dark"] .ps-cf-fundo {
+        --cf-cab: #0a5f86; --cf-ok: #c0392f; --cf-ok-hv: #a3232b; --cf-ok-azul: #1479ad; --cf-ok-azul-hv: #0a6fa0;
+        --cf-cancelar-tx: var(--ps-text-2, var(--bs-body-color));
+        --cf-card: var(--ps-card, var(--bs-tertiary-bg)); --cf-texto: var(--ps-body, var(--bs-body-color));
+        --cf-div: var(--ps-div-strong, var(--bs-border-color-translucent)); --cf-soft: var(--ps-soft, var(--bs-secondary-bg));
+    }
+    .ps-cf-fundo[hidden] { display: none; }
+    .ps-cf {
+        width: min(420px, 100%); border-radius: 4px; overflow: hidden; outline: none;
+        background: var(--cf-card); box-shadow: 0 18px 50px rgba(16,42,58,.28);
+    }
+    .ps-cf-cab { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--cf-cab); color: #fff; }
+    .ps-cf-cab > i { font-size: 16px; }
+    .ps-cf-titulo { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 700; color: #fff; }
+    .ps-cf-fechar {
+        width: 30px; height: 30px; border: none; border-radius: 4px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.16); color: #fff;
+    }
+    .ps-cf-texto { padding: 14px 16px; font-size: 13.5px; line-height: 1.55; color: var(--cf-texto); overflow-wrap: anywhere; }
+    .ps-cf-rodape { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--cf-div); background: var(--cf-soft); }
+    .ps-cf-btn { height: 34px; border: none; border-radius: 4px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    /* E7: texto do Cancelar #34505f, o do dc (`cf`, L.356). */
+    .ps-cf-btn--cancelar { padding: 0 14px; background: var(--cf-div); color: var(--cf-cancelar-tx); }
+    .ps-cf-btn--ok { padding: 0 16px; background: var(--cf-ok); color: #fff; }
+    .ps-cf-btn--ok:hover, .ps-cf-btn--ok:focus-visible { background: var(--cf-ok-hv); }
+    /* E7: variante azul do desenho (dc `cfVals`, okBg #0a6fa0) para ação sem perigo. O hover o desenho
+       não define: escurece como o vermelho. */
+    .ps-cf.is-azul .ps-cf-btn--ok { background: var(--cf-ok-azul); }
+    .ps-cf.is-azul .ps-cf-btn--ok:hover, .ps-cf.is-azul .ps-cf-btn--ok:focus-visible { background: var(--cf-ok-azul-hv); }
+
+    /* E8b: moldura de alerta do dc 03 (L.259-271, exclusão de marcador): faixa vermelha de 5px, círculo de 64px
+       com ⚠, título 17px e texto 14px centralizados, botões de 38px no centro, sem o X (Esc e Cancelar fecham).
+       Só quando pedida (`moldura: 'alerta'` no confirmarPs): a Pasta segue com a janela da E7. O escuro o
+       desenho não tem: segue a convenção (tokens do Bootstrap). */
+    .ps-cf-fundo {
+        --cf-al-faixa: #c0392b; --cf-al-circulo: #fbecec; --cf-al-titulo: #12242f; --cf-al-texto: #34505f;
+        --cf-al-ok: #c0392b; --cf-al-ok-hv: #a3232b;
+        --cf-al-cancelar: #e2e9ee; --cf-al-cancelar-tx: #1f3644; --cf-al-cancelar-hv: #d3dde4;
+    }
+    [data-bs-theme="dark"] .ps-cf-fundo {
+        --cf-al-circulo: rgba(192,57,43,.18); --cf-al-titulo: var(--bs-emphasis-color); --cf-al-texto: var(--bs-body-color);
+        --cf-al-cancelar: var(--bs-secondary-bg); --cf-al-cancelar-tx: var(--bs-body-color); --cf-al-cancelar-hv: var(--bs-tertiary-bg);
+    }
+    @keyframes psCfAlerta { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    .ps-cf-fundo.is-alerta { background: rgba(14,37,51,.38); }
+    .ps-cf-fundo.is-alerta .ps-cf {
+        width: min(430px, 100%); box-shadow: 0 26px 60px -20px rgba(12,48,72,.45);
+        border-top: 5px solid var(--cf-al-faixa); animation: psCfAlerta .18s ease-out;
+    }
+    .ps-cf-fundo.is-alerta .ps-cf-cab {
+        flex-direction: column; gap: 11px; padding: 24px 24px 0; background: transparent; text-align: center;
+    }
+    .ps-cf-fundo.is-alerta .ps-cf-cab > i {
+        width: 64px; height: 64px; border-radius: 50%; background: var(--cf-al-circulo);
+        display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--cf-al-faixa);
+    }
+    .ps-cf-fundo.is-alerta .ps-cf-titulo { flex: none; font-size: 17px; font-weight: 700; color: var(--cf-al-titulo); text-align: center; }
+    .ps-cf-fundo.is-alerta .ps-cf-fechar { display: none; }
+    .ps-cf-fundo.is-alerta .ps-cf-texto { padding: 11px 24px 18px; font-size: 14px; line-height: 1.5; color: var(--cf-al-texto); text-align: center; text-wrap: pretty; }
+    .ps-cf-fundo.is-alerta .ps-cf-rodape { justify-content: center; gap: 10px; padding: 0 24px 22px; border-top: 0; background: transparent; }
+    .ps-cf-fundo.is-alerta .ps-cf-btn { height: 38px; padding: 0 18px; font-size: 14px; }
+    .ps-cf-fundo.is-alerta .ps-cf-btn--ok { gap: 8px; background: var(--cf-al-ok); transition: transform .15s; }
+    .ps-cf-fundo.is-alerta .ps-cf-btn--ok:hover, .ps-cf-fundo.is-alerta .ps-cf-btn--ok:focus-visible { background: var(--cf-al-ok-hv); transform: scale(1.03); }
+    .ps-cf-fundo.is-alerta .ps-cf-btn--cancelar { background: var(--cf-al-cancelar); color: var(--cf-al-cancelar-tx); }
+    .ps-cf-fundo.is-alerta .ps-cf-btn--cancelar:hover { background: var(--cf-al-cancelar-hv); }
+    @media (prefers-reduced-motion: reduce) {
+        .ps-cf-fundo.is-alerta .ps-cf { animation: none; }
+        .ps-cf-fundo.is-alerta .ps-cf-btn--ok:hover, .ps-cf-fundo.is-alerta .ps-cf-btn--ok:focus-visible { transform: none; }
+    }
+</style>
+<div class="ps-cf-fundo" id="psConfirmar" hidden>
+    <div class="ps-cf" role="alertdialog" aria-modal="true" aria-labelledby="psConfirmarTitulo" aria-describedby="psConfirmarTexto" tabindex="-1">
+        <div class="ps-cf-cab">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            <h2 class="ps-cf-titulo" id="psConfirmarTitulo"></h2>
+            <button type="button" class="ps-cf-fechar" data-ps-cf-cancelar aria-label="{{ 'comum.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="ps-cf-texto" id="psConfirmarTexto"></div>
+        <div class="ps-cf-rodape">
+            <button type="button" class="ps-cf-btn ps-cf-btn--cancelar" data-ps-cf-cancelar>{{ 'comum.cancelar'|trans }}</button>
+            <button type="button" class="ps-cf-btn ps-cf-btn--ok" data-ps-cf-ok><i class="bi bi-trash3" aria-hidden="true"></i><span>{{ 'comum.excluir'|trans }}</span></button>
+        </div>
+    </div>
+</div>

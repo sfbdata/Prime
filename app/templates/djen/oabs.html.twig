@@ -1,13 +1,13 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Push Processual — OABs monitoradas{% endblock %}
+{% block title %}{{ 'djen.oabs.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">OABs monitoradas</h1>
+        <h1 class="m-0">{{ 'djen.oabs.titulo'|trans }}</h1>
         <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Voltar às publicações
+            <i class="bi bi-arrow-left me-1"></i> {{ 'djen.oabs.voltar'|trans }}
         </a>
     </div>
 </section>
@@ -15,7 +15,7 @@
 <section class="content">
     <div class="container-fluid">
         <div class="card card-outline card-success mb-3">
-            <div class="card-header"><h3 class="card-title"><i class="bi bi-plus-circle me-1"></i> Adicionar OAB</h3></div>
+            <div class="card-header"><h3 class="card-title"><i class="bi bi-plus-circle me-1"></i> {{ 'djen.oabs.adicionar_oab'|trans }}</h3></div>
             <div class="card-body">
                 {{ form_start(form) }}
                     <div class="row g-2 align-items-end">
@@ -35,7 +35,7 @@
                             {{ form_errors(form.apelido) }}
                         </div>
                         <div class="col-md-3">
-                            <button type="submit" class="btn btn-success w-100"><i class="bi bi-plus-lg me-1"></i> Adicionar</button>
+                            <button type="submit" class="btn btn-success w-100"><i class="bi bi-plus-lg me-1"></i> {{ 'djen.oabs.adicionar'|trans }}</button>
                         </div>
                     </div>
                 {{ form_end(form) }}
@@ -47,35 +47,35 @@
                 <table class="table table-hover mb-0 align-middle">
                     <thead>
                         <tr>
-                            <th>OAB</th>
-                            <th>Apelido</th>
-                            <th>Status</th>
-                            <th>Desde</th>
-                            <th class="text-end">Ações</th>
+                            <th>{{ 'djen.oabs.oab'|trans }}</th>
+                            <th>{{ 'djen.oabs.apelido'|trans }}</th>
+                            <th>{{ 'djen.oabs.status'|trans }}</th>
+                            <th>{{ 'djen.oabs.desde'|trans }}</th>
+                            <th class="text-end">{{ 'djen.comum.acoes'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for oab in oabs %}
                             <tr>
                                 <td>{{ oab.numero }}/{{ oab.uf }}</td>
-                                <td>{{ oab.apelido ?? '—' }}</td>
+                                <td>{% if (oab.apelido ?? null) is not null %}{{ oab.apelido }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</td>
                                 <td>
                                     {% if oab.ativo %}
-                                        <span class="badge bg-success">Ativa</span>
+                                        <span class="badge bg-success">{{ 'djen.oabs.ativa'|trans }}</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">Pausada</span>
+                                        <span class="badge bg-secondary">{{ 'djen.oabs.pausada'|trans }}</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ oab.criadoEm ?? '—' }}</td>
+                                <td>{% if (oab.criadoEm ?? null) is not null %}{{ oab.criadoEm }}{% else %}<span class="text-muted small">{{ 'djen.comum.sem_registro'|trans }}</span>{% endif %}</td>
                                 <td class="text-end">
                                     <form method="POST" action="{{ path('push_processual_oab_alternar', {id: oab.id}) }}" class="d-inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                            {{ oab.ativo ? 'Pausar' : 'Reativar' }}
+                                            {{ (oab.ativo ? 'djen.oabs.pausar' : 'djen.oabs.reativar')|trans }}
                                         </button>
                                     </form>
                                     <form method="POST" action="{{ path('push_processual_oab_remover', {id: oab.id}) }}" class="d-inline"
-                                          onsubmit="return confirm('Remover esta OAB do monitoramento?');">
+                                          onsubmit="return confirm('{{ 'djen.oabs.remover_confirmar'|trans|e('js') }}');">
                                         <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">
                                             <i class="bi bi-trash"></i>
@@ -86,7 +86,7 @@
                         {% else %}
                             <tr>
                                 <td colspan="5" class="text-center text-muted py-4">
-                                    Nenhuma OAB monitorada ainda. Adicione uma acima para captar as publicações.
+                                    {{ 'djen.oabs.vazio'|trans }}
                                 </td>
                             </tr>
                         {% endfor %}

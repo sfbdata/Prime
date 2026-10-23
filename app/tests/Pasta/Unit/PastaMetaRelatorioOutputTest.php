@@ -174,7 +174,7 @@ final class PastaMetaRelatorioOutputTest extends TestCase
         self::assertSame(['Concluída', 'data de conclusão não registrada'], [$ultimo['texto'], $ultimo['data']]);
     }
 
-    #[TestDox('sem prazo, sem autor e sem responsáveis: sem frase de prazo, campos com "—"/"Sem prazo" e só o evento de criação')]
+    #[TestDox('sem prazo, sem autor e sem responsáveis: sem frase de prazo, campos com "Não informado"/"Sem prazo" e só o evento de criação')]
     public function testMetaSemPrazoNemPessoas(): void
     {
         $pasta = new Pasta();
@@ -184,10 +184,10 @@ final class PastaMetaRelatorioOutputTest extends TestCase
 
         self::assertNull($r->prazoTexto);
         $campos = $this->campos($r);
-        self::assertSame('—', $campos['Criada por']);
-        self::assertSame('—', $campos['Responsáveis']);
+        self::assertSame('Não informado', $campos['Criada por']);
+        self::assertSame('Não informado', $campos['Responsáveis']);
         self::assertSame('Sem prazo', $campos['Prazo']);
-        self::assertSame('—', $campos['Pasta'], 'pasta sem identificador');
+        self::assertSame('Não informado', $campos['Pasta'], 'pasta sem identificador');
         self::assertSame([['texto' => 'Meta criada', 'data' => '20/09/2026', 'tom' => 'criada']], $r->historico);
     }
 

@@ -6,38 +6,15 @@ Cada domínio em `src/<Dominio>/` com subpastas: `Controller/` `UseCase/` `Entit
 
 Pastas globais `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository/` são **legado** — não criar arquivos novos lá.
 
-## Domínios ativos
+## Domínios
 
-| Domínio | Pasta | Situação |
-|---|---|---|
-| Clientes | `src/Cliente/` | ativo |
-| Expediente (processos/pastas) | `src/Expediente/` | ativo |
-| Processos | `src/Processo/` | ativo |
-| Pastas | `src/Pasta/` | ativo |
-| Tarefas | `src/Tarefa/` | ativo |
-| Perfil do usuário | `src/Profile/` | ativo |
-| Compartilhado | `src/Shared/` | ativo |
-| Ponto | `src/Entity/Ponto/` | legado — migrar para `src/Ponto/` |
-| Agenda | `src/Entity/Agenda/` | legado — migração planejada (`src/Agenda/` ainda não criado) |
-| ServiceDesk | `src/Entity/ServiceDesk/` | legado — migração planejada (`src/ServiceDesk/` ainda não criado) |
-| Tenant | `src/Entity/Tenant/` | legado |
-| Permission | `src/Entity/Permission/` | legado |
+O domínio é a pasta: `src/<Dominio>/` (Cliente, Cobranca, Pasta, Ponto, Central, Inteligencia…; liste
+com `ls app/src`). Ainda em pasta legada: as entidades de `src/Entity/` (Agenda, Audit, Auth,
+Permission, ServiceDesk, Tarefa, Tenant, `Notificacao`) e os controllers de `src/Controller/`.
 
-## Configuração por domínio
-
-Dados específicos de cada domínio. Use ao criar/editar arquivos em
-`src/<Dominio>/`. Padrões gerais de cada camada estão nas skills
-(a serem criadas na próxima etapa).
-
-| Domínio | Namespace base | Módulo permissão | Prefixo rota |
-|---|---|---|---|
-| Cliente | `App\Cliente` | `clientes` | `app_cliente_` |
-| Expediente | `App\Expediente` | `expediente` | `app_expediente_` |
-| Processo | `App\Processo` | `processos` | `app_processo_` |
-| Pasta | `App\Pasta` | `pastas` | `app_pasta_` |
-| Tarefa | `App\Tarefa` | `tarefas` | `app_tarefa_` |
-| Profile | `App\Profile` | `profile` | `app_profile_` |
-| Shared | `App\Shared` | _(transversal)_ | _(N/A)_ |
+Módulo de permissão e prefixo de rota de cada domínio: leia o controller dele ou rode
+`debug:router | grep <prefixo>`. Três domínios não usam módulo de permissão: Central (vínculo ativo
+com o escritório), Master (`ROLE_SUPER_ADMIN`) e Novidades (qualquer usuário logado, sem tenant).
 
 ## Refatorando código legado
 
@@ -80,11 +57,15 @@ Request → Controller → Form/DTO → UseCase → Entity → Repository → fl
 
 ## Padrões PHP/Symfony obrigatórios
 
+`scripts/qa.sh` (e o CI) conferem: PHPStan nível 5 em todo `src/`, com o legado no baseline; e o
+PHP-CS-Fixer (`@PSR12` + as regras abaixo que dá para automatizar) só nos arquivos PHP **novos**. Arquivo
+alterado não é reformatado: siga as regras à mão.
+
 - `declare(strict_types=1);` em todo arquivo PHP
 - Type hints em 100% de argumentos e retornos
 - Constructor property promotion com `private readonly` para dependências
 - Apenas atributos PHP (`#[Route]`, `#[ORM\...]`) — nenhuma anotação docblock
-- Classes `final` por padrão (serviços, use cases, controllers, DTOs, forms) — **exceto entidades Doctrine**, que não podem ser `final` por causa dos proxies gerados pelo ORM
+- Classes `final` por padrão (serviços, use cases, controllers, DTOs, forms) — **exceto entidades Doctrine**, que não podem ser `final` por causa dos proxies gerados pelo ORM, e **repositories**, que os testes de UseCase mockam (ver skill `criar-repository`)
 - Comparação idêntica `===`/`!==` sempre
 - Linha em branco antes de `return` (exceto bloco de uma linha)
 - Nunca `else`/`elseif` após `if` que retorna ou lança

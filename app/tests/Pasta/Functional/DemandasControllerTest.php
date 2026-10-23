@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Pasta\Controller\DemandasController;
@@ -167,15 +168,24 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    #[TestDox('GET /demandas com filtro de prioridade retorna 200')]
+    #[TestDox('GET /demandas com filtro de prioridade lista só as pastas daquela prioridade')]
     public function testComFiltroPrioridadeRetorna200(): void
     {
-        $client = static::createClient();
-        $this->criarUsuarioComTenant($client);
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->criarUsuarioComTenant($client);
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
+
+        $urgente = $this->criarPastaParaResponsavel($usuario, $tenant);
+        $urgente->setPrioridade(PrioridadePasta::Urgente);
+        $normal = $this->criarPastaParaResponsavel($usuario, $tenant);
+        $em->flush();
 
         $client->request('GET', '/demandas', ['prioridade' => 'urgente']);
 
         self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString((string) $urgente->getNup(), $body);
+        self::assertStringNotContainsString((string) $normal->getNup(), $body, 'o filtro de prioridade foi ignorado');
     }
 
     #[TestDox('Por padrão lista ativas E arquivadas; a faceta Status estreita (decisão de produto)')]

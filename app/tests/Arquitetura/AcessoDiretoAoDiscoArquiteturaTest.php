@@ -57,9 +57,16 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Pasta/Service/VagasDeZipDoEscritorio.php'             => 'lock files das vagas de zip',
         'src/Pasta/UseCase/MontarZipDeDocumentosUseCase.php'       => 'monta e mede o .zip gerado (ZipArchive), na área temporária',
         'src/Pasta/UseCase/UploadPecaUseCase.php'                  => 'só lê: abre o upload em trânsito com ZipArchive para conferir o DOCX',
+        'src/Pasta/Service/DetectorDeAssinaturaDigital.php'        => 'só lê as pontas do upload em trânsito (selo Assinado); o acervo ele lê pelo stream que o armazenamento abre',
+        'src/Comercial/Campanha/PreparadorDeImagemDaCampanha.php'  => 'GD gera os bytes em memória (destino null); grava pelo armazenamento (COMERCIAL_IMAGEM)',
+        'src/Comercial/Controller/CampanhaDoMasterController.php'  => 'só lê o upload em trânsito da imagem; quem grava é o armazenamento',
+        'src/Master/Controller/FontesPublicasController.php'       => 'só lê o upload em trânsito da tabela do Master (vai para o cache, não para o acervo)',
+        'src/TrabalhoExterno/Service/ArmazenadorDeArquivosDoCurriculo.php' => 'mede o upload em trânsito e recorta a foto em memória (GD, destino null); grava pelo armazenamento',
+        'src/Master/Fontes/ArmazemDeFontes.php'                    => 'lock files das fontes públicas em var/master-fontes',
         // Export: PhpWord/PhpSpreadsheet escrevem em php://output, nunca no acervo.
         'src/Pasta/UseCase/ExportarPecaTextoUseCase.php'           => 'escritor do PhpWord para php://output (imagens só pela AreaTemporariaPrivada)',
         'src/Ponto/Service/FolhaPontoXlsxExporter.php'             => 'escritor Xlsx para php://output',
+        'src/Cobranca/Service/ListaCarteiraXlsxExporter.php'       => 'escritor Xlsx para php://output',
         // Drive: o temporário do download e do upload em blocos (DT-8: descarte do download que falhou).
         'src/Sync/Service/GoogleDriveClient.php'                   => 'temporário do download/upload do Drive',
         'src/Sync/Service/ReconciliadorDePasta.php'                => 'cria e descarta o temporário do download',
@@ -67,7 +74,9 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Cobranca/Controller/ImportacaoController.php'         => 'import-tmp (D3)',
         'src/Cobranca/DTO/ImportarRelatorioInput.php'              => 'assinatura dos primeiros bytes do upload temporário',
         // Recurso estático da aplicação, não arquivo do usuário.
-        'src/Pasta/Controller/PastaResumoController.php'           => 'logo estático no PDF do resumo',
+        'src/Shared/Service/GeradorDePdfComDompdf.php'             => 'logo estático no PDF (o do resumo da pasta mudou para cá)',
+        'src/TrabalhoExterno/Service/DocumentoDoCurriculo.php'     => 'logo estático no PDF do currículo (as imagens do currículo saem pela AreaTemporariaPrivada)',
+        'src/Novidades/Service/LeitorDeNovidades.php'              => 'lê o arquivo de novidades da própria aplicação',
         // Commands de operador: leem arquivos do operador ou abrem lock/saída, fora do armazenamento.
         'src/AtualizacaoMonetaria/Command/ImportarIndicesMonetariosCommand.php' => 'planilha do operador',
         'src/Cobranca/Command/CarregarEspelhoRelatorioCommand.php'  => 'planilha do operador',
@@ -80,6 +89,16 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Djen/Command/SincronizarDjenCommand.php'              => 'lock file do DJEN',
         'src/Sync/Command/BackfillPastasCommand.php'               => 'lock/arquivo do operador',
         'src/Sync/Command/ReconciliarCommand.php'                  => 'lock file do sync',
+        'src/Pasta/Command/RelatorioPastasParadasCommand.php'      => 'lock file do relatório',
+        'src/Pasta/Command/RelatorioSemProcessoCommand.php'        => 'lock file do relatório',
+        'src/Pasta/Command/ResumoSemanalAoClienteCommand.php'      => 'lock file do resumo semanal',
+        'src/Profile/Command/ResumoDiarioCommand.php'              => 'lock file do resumo diário',
+        // Falso positivo do regex: método chamado `link()`, que casa com a função `link(` do PHP. Não tocam o disco.
+        'src/Agenda/Service/AvisoDoCompromisso.php'                => 'falso positivo: método link()',
+        'src/Auth/Controller/SuporteEntradaController.php'         => 'falso positivo: método link()',
+        'src/Comercial/Campanha/RenderizadorDeBlocos.php'          => 'falso positivo: método link()',
+        'src/TrabalhoExterno/Controller/VagasPublicasController.php' => 'falso positivo: método link()',
+        'src/TrabalhoExterno/UseCase/ExportarEmailDaCampanhaUseCase.php' => 'falso positivo: método link()',
         'src/Shared/EspelhoRemoto/Command/ReconciliarEspelhoCommand.php' => 'grava o relatório JSON pedido em --saida (P2.3)',
     ];
 

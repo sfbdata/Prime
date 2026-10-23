@@ -69,7 +69,7 @@ final class FolhaPontoXlsxExporter
     {
         $mes = $c['mes'] ?? '';
         $ano = $c['ano'] ?? '';
-        $titulo = sprintf('FOLHA DE PONTO – %02d/%d', (int)$mes, (int)$ano);
+        $titulo = sprintf('FOLHA DE PONTO: %02d/%d', (int)$mes, (int)$ano);
 
         $sheet->mergeCells('A1:J1');
         $sheet->setCellValue('A1', $titulo);
@@ -110,7 +110,7 @@ final class FolhaPontoXlsxExporter
         $lin = $inicio;
         foreach ($dadosEmpresa as [$texto, $bold, $italic, $underline]) {
             $sheet->mergeCells("A{$lin}:E{$lin}");
-            $sheet->setCellValue("A{$lin}", $texto);
+            $this->escreverTexto($sheet, "A{$lin}", (string) $texto);
             $font = $sheet->getStyle("A{$lin}")->getFont()->setSize(9)->setName('Arial');
             $font->setBold($bold)->setItalic($italic)->setUnderline($underline);
             $sheet->getStyle("A{$lin}")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
@@ -145,7 +145,7 @@ final class FolhaPontoXlsxExporter
         $linR = $inicio + 1;
         foreach ($linhasRegime as $textoRegime) {
             $sheet->mergeCells("F{$linR}:J{$linR}");
-            $sheet->setCellValue("F{$linR}", $textoRegime);
+            $this->escreverTexto($sheet, "F{$linR}", $textoRegime);
             $sR = $sheet->getStyle("F{$linR}");
             $sR->getFont()->setSize(8)->setName('Arial');
             $sR->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setIndent(1);
@@ -215,7 +215,7 @@ final class FolhaPontoXlsxExporter
         if ($celIni !== $celFim) {
             $sheet->mergeCells("{$celIni}:{$celFim}");
         }
-        $sheet->setCellValue($celIni, $texto);
+        $this->escreverTexto($sheet, $celIni, $texto);
         $s = $sheet->getStyle("{$celIni}:{$celFim}");
         $s->getFont()->setSize(8)->setName('Arial');
         $s->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setIndent(1);
@@ -304,27 +304,27 @@ final class FolhaPontoXlsxExporter
                 $sF->getFont()->setBold(true);
                 $sF->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             } else {
-                $sheet->setCellValue("C{$lin}", $row['entrada'] ? substr($row['entrada'], 0, 5) : '–');
-                $sheet->setCellValue("D{$lin}", $row['repouso'] ? substr($row['repouso'], 0, 5) : '–');
-                $sheet->setCellValue("E{$lin}", $row['retorno'] ? substr($row['retorno'], 0, 5) : '–');
-                $sheet->setCellValue("F{$lin}", $row['saida']   ? substr($row['saida'], 0, 5) : '–');
+                $sheet->setCellValue("C{$lin}", $row['entrada'] ? substr($row['entrada'], 0, 5) : 'Sem registro');
+                $sheet->setCellValue("D{$lin}", $row['repouso'] ? substr($row['repouso'], 0, 5) : 'Sem registro');
+                $sheet->setCellValue("E{$lin}", $row['retorno'] ? substr($row['retorno'], 0, 5) : 'Sem registro');
+                $sheet->setCellValue("F{$lin}", $row['saida']   ? substr($row['saida'], 0, 5) : 'Sem registro');
             }
 
             // Colunas calculadas
-            $sheet->setCellValue("G{$lin}", $row['horasTrabalhadas'] ?? '–');
-            $sheet->setCellValue("H{$lin}", $row['horasExtras'] ?? '–');
-            $sheet->setCellValue("I{$lin}", $row['bancoHoras'] ?? '–');
+            $sheet->setCellValue("G{$lin}", $row['horasTrabalhadas'] ?? 'Sem dado');
+            $sheet->setCellValue("H{$lin}", $row['horasExtras'] ?? 'Sem dado');
+            $sheet->setCellValue("I{$lin}", $row['bancoHoras'] ?? 'Sem dado');
 
             // Justificativa
             $justText = '';
             if ($isFeriado && !empty($row['nomeFeriado'])) {
-                $justText = 'Feriado – ' . $row['nomeFeriado'];
+                $justText = 'Feriado: ' . $row['nomeFeriado'];
             } elseif (!empty($row['justificativa'])) {
                 $j = $row['justificativa'];
                 if ($j->getStatus() === 'abonado') {
                     $justText = $j->getLabelTipo() ?? '';
                     if ($j->isAbonoParcial() && $j->getHoraInicioAbono() && $j->getHoraFimAbono()) {
-                        $justText .= sprintf(' (Parcial: %s–%s)', $j->getHoraInicioAbono()->format('H:i'), $j->getHoraFimAbono()->format('H:i'));
+                        $justText .= sprintf(' (Parcial: %s às %s)', $j->getHoraInicioAbono()->format('H:i'), $j->getHoraFimAbono()->format('H:i'));
                     }
                 } elseif ($j->getStatus() === 'pendente') {
                     $justText = ($j->getLabelTipo() ?? '') . ' (pendente)';
@@ -332,7 +332,7 @@ final class FolhaPontoXlsxExporter
                     $justText = ($j->getLabelTipo() ?? '') . ' (rejeitada)';
                 }
             }
-            $sheet->setCellValue("J{$lin}", $justText);
+            $this->escreverTexto($sheet, "J{$lin}", (string) $justText);
 
             // Estilos da linha
             $s = $sheet->getStyle("A{$lin}:J{$lin}");
@@ -384,11 +384,11 @@ final class FolhaPontoXlsxExporter
         // competência já está DENTRO do "Saldo do Banco de Horas Atual", que é o banco acumulado
         // (anterior + mês + horas pagas). Decisão do dono em 2026-07-31 — ver spec §7.
         $resumo = [
-            'Detalhe de Horas Trabalhadas no Mês:  ' . ($c['totalHorasTrabalhadas'] ?? '–'),
-            'Total de Horas Extras no Mês:  '         . ($c['totalHorasExtras'] ?? '–'),
-            'Saldo do Banco de Horas Anterior:  '     . ($c['saldoBancoAnterior'] ?? '–'),
-            'Saldo do Banco de Horas Atual:  '        . ($c['saldoBancoAtual'] ?? '–'),
-            'Horas a Compensar:  '                    . ($c['horasACompensar'] ?? '–'),
+            'Detalhe de Horas Trabalhadas no Mês:  ' . ($c['totalHorasTrabalhadas'] ?? 'Sem dado'),
+            'Total de Horas Extras no Mês:  '         . ($c['totalHorasExtras'] ?? 'Sem dado'),
+            'Saldo do Banco de Horas Anterior:  '     . ($c['saldoBancoAnterior'] ?? 'Sem dado'),
+            'Saldo do Banco de Horas Atual:  '        . ($c['saldoBancoAtual'] ?? 'Sem dado'),
+            'Horas a Compensar:  '                    . ($c['horasACompensar'] ?? 'Sem dado'),
         ];
 
         $conformeRepouso      = ($c['intrajornadaConforme'] ?? true);
@@ -494,19 +494,29 @@ final class FolhaPontoXlsxExporter
 
         // Nome Empregado
         $sheet->mergeCells("A{$lin}:E{$lin}");
-        $sheet->setCellValue("A{$lin}", $c['nomeUsuario'] ?? '');
+        $this->escreverTexto($sheet, "A{$lin}", (string) ($c['nomeUsuario'] ?? ''));
         $sheet->getStyle("A{$lin}")->getFont()->setBold(true)->setSize(8)->setName('Arial');
         $sheet->getStyle("A{$lin}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getRowDimension($lin)->setRowHeight(13);
 
         // Nome Responsável
         $sheet->mergeCells("F{$lin}:J{$lin}");
-        $sheet->setCellValue("F{$lin}", $c['responsavelAssinatura'] ?? '');
+        $this->escreverTexto($sheet, "F{$lin}", (string) ($c['responsavelAssinatura'] ?? ''));
         $sheet->getStyle("F{$lin}")->getFont()->setBold(true)->setSize(8)->setName('Arial');
         $sheet->getStyle("F{$lin}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $lin++;
 
         return $lin;
+    }
+
+    /**
+     * Todo texto livre da folha passa por aqui (achado de auditoria interna F12 e F18). Gravado como valor genérico,
+     * um texto que começa com `=`, `+`, `-` ou `@` vira fórmula na planilha. Com o tipo string explícito a célula
+     * mostra o texto exatamente como foi digitado: nenhum caractere é trocado nem prefixado.
+     */
+    private function escreverTexto(Worksheet $sheet, string $celula, string $texto): void
+    {
+        $sheet->setCellValueExplicit($celula, $texto, DataType::TYPE_STRING);
     }
 
     private function escreverRodape(Worksheet $sheet, int $linha): void

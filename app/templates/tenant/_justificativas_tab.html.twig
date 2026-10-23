@@ -1,6 +1,6 @@
 <div class="card card-outline card-warning mb-3">
     <div class="card-header d-flex align-items-center justify-content-between">
-        <h3 class="card-title mb-0"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta — {{ user.fullName }}</h3>
+        <h3 class="card-title mb-0"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta: {{ user.fullName }}</h3>
         <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalAdminNovaJustificativa">
             <i class="bi bi-plus-circle me-1"></i>Justificar Falta
         </button>
@@ -66,13 +66,13 @@
                                         {% if primeiraJust.labelTipo %}
                                             <span class="badge text-bg-info text-dark">{{ primeiraJust.labelTipo }}</span>
                                         {% else %}
-                                            <span class="text-muted">—</span>
+                                            <span class="text-muted">Não informado</span>
                                         {% endif %}
                                         {% if primeiraJust.abonoParcial %}
                                             <span class="badge text-bg-secondary ms-1">Abono Parcial</span>
                                             {% if primeiraJust.horaInicioAbono and primeiraJust.horaFimAbono %}
                                                 <span class="small text-muted ms-1">
-                                                    {{ primeiraJust.horaInicioAbono|date('H:i') }}–{{ primeiraJust.horaFimAbono|date('H:i') }}
+                                                    {{ primeiraJust.horaInicioAbono|date('H:i') }} às {{ primeiraJust.horaFimAbono|date('H:i') }}
                                                     ({{ primeiraJust.minutosAbonados // 60 }}h{{ '%02d'|format(primeiraJust.minutosAbonados % 60) }}m)
                                                 </span>
                                             {% endif %}
@@ -167,9 +167,9 @@
                                             </div>
                                         {% else %}
                                             <div class="small text-muted mb-2">
-                                                Analisado por {{ j.analisadoPor ? j.analisadoPor.fullName : '—' }}
+                                                Analisado por {{ j.analisadoPor ? j.analisadoPor.fullName : 'usuário não informado' }}
                                                 {% if j.dataAnalise %} em {{ j.dataAnalise|date('d/m/Y') }}{% endif %}
-                                                {% if j.observacaoAnalise %} — {{ j.observacaoAnalise }}{% endif %}
+                                                {% if j.observacaoAnalise %}: {{ j.observacaoAnalise }}{% endif %}
                                             </div>
                                             {# Reverter para pendente #}
                                             <form method="post"
@@ -202,7 +202,7 @@
 
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalAdminNovaJustificativaLabel">
-                        <i class="bi bi-calendar-x me-2"></i>Justificar Falta — {{ user.fullName }}
+                        <i class="bi bi-calendar-x me-2"></i>Justificar Falta: {{ user.fullName }}
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>

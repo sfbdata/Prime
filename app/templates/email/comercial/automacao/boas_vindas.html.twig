@@ -1,0 +1,10 @@
+{# Modelo "Boas-vindas" do desenho 05 (dc L.509): `val` e `conv`. #}
+{% import 'email/comercial/automacao/_blocos.html.twig' as b %}
+{{ b.texto('emails.comercial.boas_vindas.texto'|trans) }}
+{{ b.titulo('emails.comercial.boas_vindas.comece'|trans) }}
+{{ b.noticias([
+    ['emails.comercial.boas_vindas.pasta_titulo'|trans, 'emails.comercial.boas_vindas.pasta_resumo'|trans],
+    ['emails.comercial.boas_vindas.processo_titulo'|trans, 'emails.comercial.boas_vindas.processo_resumo'|trans],
+    ['emails.comercial.boas_vindas.equipe_titulo'|trans, 'emails.comercial.boas_vindas.equipe_resumo'|trans],
+]) }}
+{{ b.botao('emails.comercial.boas_vindas.botao'|trans, urlDoApp) }}

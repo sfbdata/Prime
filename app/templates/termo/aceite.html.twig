@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer">
-    <title>Termos e Condições de Uso — BlueJus</title>
+    <title>{{ 'termo.aceite.titulo_pagina'|trans }}</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
         :root {
@@ -22,7 +22,7 @@
             display: flex; align-items: center; justify-content: center; padding: 24px;
         }
         .termo-card {
-            background: #fff; width: 100%; max-width: 840px; border-radius: 14px;
+            background: #fff; width: 100%; max-width: 840px; border-radius: 4px;
             box-shadow: 0 18px 50px rgba(1, 60, 90, .18); overflow: hidden;
             display: flex; flex-direction: column; max-height: calc(100vh - 48px);
         }
@@ -52,13 +52,13 @@
         .termo-footer { padding: 20px 32px; border-top: 1px solid var(--borda); background: #f7fafc; }
         .alerta {
             background: #fdecea; color: #b3261e; border: 1px solid #f5c6c2;
-            padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 14px;
+            padding: 10px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 14px;
         }
         .aceite-check { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; font-size: 14px; cursor: pointer; }
         .aceite-check input { margin-top: 2px; width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--azul); cursor: pointer; }
         .acoes { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
         .btn {
-            border: 0; border-radius: 9px; padding: 12px 26px; font-size: 14px; font-weight: 600;
+            border: 0; border-radius: 4px; padding: 12px 26px; font-size: 14px; font-weight: 600;
             cursor: pointer; text-decoration: none; display: inline-block; transition: background .15s, box-shadow .15s;
         }
         .btn-primary { background: var(--azul); color: #fff; box-shadow: 0 4px 12px rgba(0, 120, 170, .3); }
@@ -81,9 +81,9 @@
 
         <div class="termo-header">
             <img src="/images/logo/bluejus_logo.svg" alt="BlueJus">
-            <h1>Termos e Condições Gerais de Uso</h1>
-            <p>Para continuar, leia e aceite os termos abaixo.</p>
-            <span class="versao">Versão {{ versao }}</span>
+            <h1>{{ 'termo.aceite.titulo'|trans }}</h1>
+            <p>{{ 'termo.aceite.instrucao'|trans }}</p>
+            <span class="versao">{{ 'termo.aceite.versao'|trans({versao: versao}) }}</span>
         </div>
 
         <div class="termo-scroll">
@@ -98,20 +98,25 @@
             <form method="post" action="{{ path('termo_aceite_registrar') }}">
                 <label class="aceite-check">
                     <input type="checkbox" name="aceito" value="1" id="aceito" required>
-                    <span>Li e aceito os Termos e Condições Gerais de Uso do BlueJus.</span>
+                    {# D2b da spec cadastro-senha-no-link: a conta confirmada pelo código declara também a Política. #}
+                    {% if pedirPolitica|default(false) %}
+                        <span>{{ 'termo.aceite.declaracao_com_politica_antes'|trans }} <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">{{ 'termo.aceite.declaracao_com_politica_link'|trans }}</a>.</span>
+                    {% else %}
+                        <span>{{ 'termo.aceite.declaracao'|trans }}</span>
+                    {% endif %}
                 </label>
 
                 <input type="hidden" name="_token" value="{{ csrf_token('termo_aceite') }}">
 
                 <div class="acoes">
                     <span class="links">
-                        <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">Baixar em PDF</a>
+                        <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">{{ 'termo.aceite.baixar_pdf'|trans }}</a>
                         <span class="sep">·</span>
-                        <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">Política de Privacidade</a>
+                        <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">{{ 'termo.aceite.politica'|trans }}</a>
                         <span class="sep">·</span>
-                        <a href="{{ path('app_logout') }}">Sair</a>
+                        <a href="{{ logout_path('main') }}">{{ 'termo.aceite.sair'|trans }}</a>
                     </span>
-                    <button type="submit" class="btn btn-primary" id="btnAceitar">Aceitar e continuar</button>
+                    <button type="submit" class="btn btn-primary" id="btnAceitar">{{ 'termo.aceite.aceitar'|trans }}</button>
                 </div>
             </form>
         </div>

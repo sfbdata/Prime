@@ -75,6 +75,19 @@ if (!$this->checker->canAccessModule($user, 'clientes')) {
 
 Cada action deve ter no máximo ~20 linhas; cada controller no máximo ~10 actions; cada action no máximo ~5 variáveis locais. Se ultrapassar, extrair para UseCase.
 
+## Tamanho e organização de método
+
+- **Meta: ~20 linhas por método.** O CI reprova acima de 40 (`tests/Arquitetura/MetodoLongoArquiteturaTest`,
+  contado do `function` ao `}`; docblock e atributos não contam). 40 é o limite, não a meta.
+- **Um método, um nível de abstração.** O método público conta a história chamando métodos privados com
+  nome do negócio; o detalhe mora no privado.
+- **Bloco que precisa de comentário para ser entendido vira método**, e o comentário vira o nome dele.
+- **Método legado longo** (está em `tests/Arquitetura/metodos-longos-tolerados.json`): pode crescer no
+  máximo 5 linhas sobre o número da lista, no total. O código novo vai para um método privado novo; não
+  reescreva o legado sem liberação. Mover para o domínio é trocar a chave no JSON com o mesmo número.
+- No controller a regra acima tem uma exceção: a action segue a heurística dos 5-10-20 (seção acima, ~20 linhas),
+  e o que passa disso vai para um UseCase, não para um método privado do controller.
+
 ## `make:controller` / `make:crud` — não use
 
 Escreva o controller à mão seguindo este arquivo.

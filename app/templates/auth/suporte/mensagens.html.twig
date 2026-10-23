@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{# Lista do "Falar com suporte" da tela de entrada (desenho 10). Recebe `mensagens`: list<MensagemSuporteItem>. #}
+
+{% block title %}{{ 'auth.suporte.titulo'|trans }}{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid">
+        <h1 class="m-0"><i class="bi bi-headset me-2"></i>{{ 'auth.suporte.titulo'|trans }}</h1>
+        <p class="text-muted mb-3">{{ 'auth.suporte.subtitulo_antes'|trans }} "{{ 'auth.suporte.falar_com_suporte'|trans }}" {{ 'auth.suporte.subtitulo_depois'|trans }}</p>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        {% if mensagens is empty %}
+            <div class="card"><div class="card-body text-muted suporte-mensagens-vazio">{{ 'auth.suporte.vazio'|trans }}</div></div>
+        {% else %}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 suporte-mensagens">
+                        <thead>
+                            <tr>
+                                <th>{{ 'auth.suporte.data'|trans }}</th>
+                                <th>{{ 'auth.comum.nome'|trans }}</th>
+                                <th>{{ 'auth.comum.email'|trans }}</th>
+                                <th>{{ 'auth.suporte.assunto'|trans }}</th>
+                                <th>{{ 'auth.suporte.mensagem'|trans }}</th>
+                                <th>{{ 'auth.suporte.origem'|trans }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in mensagens %}
+                                <tr>
+                                    <td class="text-nowrap">{{ m.criadaEm|data_hora }}</td>
+                                    <td>{{ m.nome is empty ? 'auth.suporte.sem_nome'|trans : m.nome }}</td>
+                                    <td><a href="mailto:{{ m.email|url_encode }}">{{ m.email }}</a><br><a class="btn btn-sm btn-outline-primary mt-1" href="mailto:{{ m.email|url_encode }}?subject={{ ('auth.suporte.assunto_do_email'|trans)|url_encode }}"><i class="bi bi-reply"></i> {{ 'auth.suporte.responder'|trans }}</a></td>
+                                    <td>{{ m.assunto ?? 'auth.suporte.sem_assunto'|trans }}</td>
+                                    <td>{{ m.mensagem|nl2br }}</td>
+                                    <td>{{ m.origem == 'login' ? 'auth.suporte.origem_login'|trans : m.origem }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

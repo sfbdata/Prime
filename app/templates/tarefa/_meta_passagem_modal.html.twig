@@ -1,0 +1,73 @@
+{# Modal "Concluir etapa e passar adiante" (spec Fase 3, L11 a L14). Um desenho por tela, os mesmos dados do servidor
+   (rota tarefa_passagem), e o meta-passagem.js preenche as partes `data-mp` que existirem:
+   - `contexto` 'lista' (Minhas Metas): o modal do 04 L131 e L195-197. Faixa da sequência, CONCLUÍDA com o título,
+     PRÓXIMO PASSO com a descrição, TIPO DE DEMANDA, seletor com foto, PRAZO DA PRÓXIMA ETAPA, O QUE FOI FEITO e
+     "Pasta X · Cliente" no cabeçalho; sem o menu de salto e volta.
+   - `contexto` 'meta' (página da meta): o modal do 04B L92-102. Caixa de 560px sem altura máxima, cabeçalho só com o
+     título, CONCLUÍDA e PRÓXIMO PASSO só com o nome da etapa, menu PASSAR PARA A ETAPA (salta/volta), seletor sem
+     avatar, PRAZO e as pendências com o "Você costuma pedir:" (L99, Fase 4); sem faixa, sem tipo e sem o que foi feito. #}
+{% set naMeta = contexto == 'meta' %}
+<div class="mp-modal mp-passagem mp-passagem--{{ naMeta ? 'meta' : 'lista' }}" id="mpPassagem" data-contexto="{{ contexto }}" hidden>
+    <div class="mp-modal-fundo" data-mp-fechar></div>
+    <div class="mp-modal-centro">
+        <div class="mp-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="mpPassagemTitulo">
+            <div class="mp-modal-cabeca">
+                <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+                {% if naMeta %}
+                    <b class="mp-modal-cabeca-titulo" id="mpPassagemTitulo">{{ 'metas.passagem.modal.titulo'|trans }}</b>
+                {% else %}
+                    <span class="mp-modal-cabeca-texto"><b id="mpPassagemTitulo">{{ 'metas.passagem.modal.titulo'|trans }}</b><span data-mp="pasta"></span></span>
+                {% endif %}
+                <button type="button" class="mp-modal-x" data-mp-fechar aria-label="{{ 'metas.passagem.modal.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mp-modal-corpo">
+                {% if not naMeta %}<div class="mp-seq" data-mp="seq"></div>{% endif %}
+                <div class="mp-caixas">
+                    <div class="mp-caixa-concluida">
+                        <span class="mp-caixa-rotulo">{{ 'metas.passagem.modal.concluida'|trans }}</span>
+                        <b data-mp="atual"></b>
+                        {% if not naMeta %}<span class="mp-caixa-texto" data-mp="titulo"></span>{% endif %}
+                    </div>
+                    <i class="bi bi-arrow-right mp-caixas-seta" aria-hidden="true"></i>
+                    <div class="mp-caixa-proxima" data-mp="caixaProxima">
+                        <span class="mp-caixa-rotulo" data-mp="rotuloProxima">{{ 'metas.passagem.modal.proximo_passo'|trans }}</span>
+                        <b data-mp="proxima"></b>
+                        {% if naMeta %}
+                            <button type="button" class="mp-menu-botao" data-mp="menuBotao" title="{{ 'metas.passagem.modal.menu_dica'|trans }}" aria-label="{{ 'metas.passagem.modal.menu_dica'|trans }}" aria-expanded="false" hidden><i class="bi bi-chevron-down"></i></button>
+                            <div class="mp-menu" data-mp="menu" hidden>
+                                <div class="mp-menu-fundo" data-mp="menuFundo"></div>
+                                <div class="mp-menu-caixa">
+                                    <div class="mp-menu-titulo">{{ 'metas.passagem.modal.menu_titulo'|trans }}</div>
+                                    <div class="mp-menu-lista" data-mp="menuLista" data-hoscroll="1"></div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <span class="mp-caixa-texto" data-mp="descProxima"></span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if naMeta %}<div class="mp-salto" data-mp="salto" hidden><i class="bi" aria-hidden="true"></i><span></span></div>{% endif %}
+                {% if not naMeta %}
+                    <div class="mp-tipo">
+                        <span class="mp-rotulo">{{ 'metas.passagem.modal.tipo'|trans }}</span>
+                        <div class="mp-tipos" data-mp="tipos" role="group" aria-label="{{ 'metas.passagem.modal.tipo'|trans }}"></div>
+                    </div>
+                {% endif %}
+                <div class="mp-com-proxima" data-mp="comProxima">
+                    <div class="mp-resp-prazo">
+                        <label class="mp-campo mp-campo-resp">{{ 'metas.passagem.modal.responsavel'|trans }}<input type="text" data-mp="resp" autocomplete="off"{% if naMeta %} placeholder="{{ 'metas.passagem.modal.responsavel_placeholder_meta'|trans }}"{% endif %}><div class="mp-membros" data-mp="membros" hidden></div></label>
+                        <label class="mp-campo">{{ (naMeta ? 'metas.passagem.modal.prazo_meta' : 'metas.passagem.modal.prazo')|trans }}<input type="date" data-mp="prazo"></label>
+                    </div>
+                    <label class="mp-campo">{{ 'metas.passagem.modal.pendencias'|trans }}<textarea rows="3" data-mp="pend" maxlength="2000" placeholder="{{ (naMeta ? 'metas.passagem.modal.pendencias_placeholder_meta' : 'metas.passagem.modal.pendencias_placeholder')|trans }}"></textarea>{% if naMeta %}<div class="mp-costuma" data-mp="costuma" hidden><span class="mp-costuma-dica"><i class="bi bi-lightbulb"></i> {{ 'metas.passagem.modal.costuma_pedir'|trans }}</span><span class="mp-costuma-lista" data-mp="costumaLista"></span></div>{% endif %}</label>
+                </div>
+                {% if not naMeta %}<label class="mp-campo">{{ 'metas.passagem.modal.feito'|trans }}<textarea rows="2" data-mp="feito" maxlength="2000" placeholder="{{ 'metas.passagem.modal.feito_placeholder'|trans }}"></textarea></label>{% endif %}
+                <div class="mp-erro" data-mp="erro" role="alert" hidden></div>
+            </div>
+            <div class="mp-modal-pe">
+                <button type="button" class="mp-cancelar" data-mp-fechar>{{ 'metas.passagem.modal.cancelar'|trans }}</button>
+                {# 04B: ícone, espaço e texto; 04: flex com 7px entre eles. #}
+                <button type="button" class="mp-confirmar" data-mp="ok"><i class="bi bi-check2-circle" aria-hidden="true"></i>{% if naMeta %} {% endif %}<span data-mp="okTexto"></span></button>
+            </div>
+        </div>
+    </div>
+</div>

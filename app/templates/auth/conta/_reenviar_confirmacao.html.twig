@@ -1,0 +1,5 @@
+{# Botão "Reenviar o link de confirmação" (desenho 10): vai junto da recusa por e-mail a confirmar. #}
+<form method="post" action="{{ path('conta_confirmacao_reenviar') }}" class="d-inline js-reenviar-confirmacao">
+    <input type="hidden" name="_token" value="{{ csrf_token('conta_confirmacao_reenviar') }}">
+    <button type="submit" class="btn btn-sm btn-outline-primary">{{ 'auth.reenviar_confirmacao'|trans }}</button>
+</form>

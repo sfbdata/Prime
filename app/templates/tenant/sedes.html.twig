@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Sedes — {{ tenant.name }}{% endblock %}
+{% block title %}{{ 'escritorio.sedes.titulo'|trans }} | {{ tenant.name }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -30,7 +30,7 @@
         .sedes-page-icon {
             width: 44px;
             height: 44px;
-            border-radius: 12px;
+            border-radius: 4px;
             background: linear-gradient(135deg, #1a56a4 0%, #0e3a72 100%);
             display: flex;
             align-items: center;
@@ -57,7 +57,7 @@
             align-items: center;
             gap: .4rem;
             padding: .45rem .9rem;
-            border-radius: 8px;
+            border-radius: 4px;
             font-size: .82rem;
             font-weight: 600;
             color: var(--bs-body-color);
@@ -74,7 +74,7 @@
 
         /* ── Alertas refinados ── */
         .sedes-flash {
-            border-radius: 10px;
+            border-radius: 4px;
             border-left: 4px solid;
             font-size: .88rem;
             font-weight: 500;
@@ -88,7 +88,7 @@
         /* ── Card base ── */
         .sedes-card {
             background: var(--bs-body-bg);
-            border-radius: 14px;
+            border-radius: 4px;
             border: 1px solid var(--bs-border-color);
             box-shadow: 0 1px 4px rgba(0,0,0,.05);
             overflow: hidden;
@@ -112,7 +112,7 @@
         .sedes-card-header-title .card-icon {
             width: 28px;
             height: 28px;
-            border-radius: 7px;
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -125,7 +125,7 @@
         .sedes-form-body { padding: 1.25rem; }
         .form-section {
             padding: 1rem 1.125rem;
-            border-radius: 10px;
+            border-radius: 4px;
             background: var(--bs-tertiary-bg);
             border: 1px solid var(--bs-border-color);
             margin-bottom: 1rem;
@@ -146,7 +146,7 @@
             display: block;
         }
         .sedes-input {
-            border-radius: 8px !important;
+            border-radius: 4px !important;
             border: 1.5px solid var(--bs-border-color) !important;
             font-size: .88rem !important;
             font-family: 'DM Sans', sans-serif !important;
@@ -174,7 +174,7 @@
             flex: 1;
         }
         .btn-search {
-            border-radius: 8px !important;
+            border-radius: 4px !important;
             font-size: .82rem !important;
             font-weight: 600 !important;
             font-family: 'DM Sans', sans-serif !important;
@@ -182,7 +182,7 @@
             white-space: nowrap;
         }
         .btn-icon-only {
-            border-radius: 8px !important;
+            border-radius: 4px !important;
             padding: .42rem .65rem !important;
             font-size: .88rem !important;
         }
@@ -191,7 +191,7 @@
             font-size: .77rem;
             font-weight: 500;
             padding: .45rem .7rem;
-            border-radius: 7px;
+            border-radius: 4px;
             margin-top: .5rem;
             display: none;
         }
@@ -202,7 +202,7 @@
         /* ── Mapa ── */
         .map-wrapper {
             position: relative;
-            border-radius: 10px;
+            border-radius: 4px;
             overflow: hidden;
             border: 1.5px solid var(--bs-border-color);
             margin-top: .75rem;
@@ -217,7 +217,7 @@
             z-index: 1000;
             width: 34px;
             height: 34px;
-            border-radius: 8px;
+            border-radius: 4px;
             background: var(--bs-body-bg);
             border: 1.5px solid rgba(0,0,0,0.15);
             cursor: pointer;
@@ -247,7 +247,7 @@
             margin-top: 1.25rem;
         }
         .btn-submit {
-            border-radius: 9px !important;
+            border-radius: 4px !important;
             font-weight: 700 !important;
             font-size: .85rem !important;
             font-family: 'DM Sans', sans-serif !important;
@@ -262,7 +262,7 @@
             box-shadow: 0 5px 16px rgba(26,86,164,.38) !important;
         }
         .btn-cancel-edit {
-            border-radius: 9px !important;
+            border-radius: 4px !important;
             font-weight: 600 !important;
             font-size: .85rem !important;
             font-family: 'DM Sans', sans-serif !important;
@@ -278,7 +278,7 @@
         .sedes-list-body { padding: 1.25rem; }
         .sede-card {
             border: 1.5px solid var(--bs-border-color);
-            border-radius: 12px;
+            border-radius: 4px;
             padding: 1rem 1.1rem;
             margin-bottom: .75rem;
             background: var(--bs-body-bg);
@@ -329,7 +329,7 @@
             align-items: center;
             gap: .3rem;
             padding: .25rem .55rem;
-            border-radius: 6px;
+            border-radius: 4px;
             font-size: .73rem;
             font-weight: 600;
             font-family: 'DM Mono', monospace;
@@ -355,7 +355,7 @@
             flex-shrink: 0;
         }
         .btn-sede-edit, .btn-sede-del {
-            border-radius: 7px !important;
+            border-radius: 4px !important;
             font-size: .82rem !important;
             padding: .35rem .6rem !important;
             font-family: 'DM Sans', sans-serif !important;
@@ -428,12 +428,12 @@
                 <i class="bi bi-building-fill"></i>
             </div>
             <div>
-                <div class="sedes-page-title">Sedes</div>
+                <div class="sedes-page-title">{{ 'escritorio.sedes.titulo'|trans }}</div>
                 <div class="sedes-page-subtitle">{{ tenant.name }}</div>
             </div>
         </div>
         <a href="{{ path('app_tenant_edit', {'tenantId': tenant.id}) }}" class="btn-back">
-            <i class="bi bi-arrow-left"></i> Voltar
+            <i class="bi bi-arrow-left"></i> {{ 'escritorio.sedes.voltar'|trans }}
         </a>
     </div>
 
@@ -458,7 +458,7 @@
                         <span class="card-icon card-icon-blue">
                             <i class="bi bi-{{ editSede is defined ? 'pencil-fill' : 'plus-lg' }}"></i>
                         </span>
-                        {{ editSede is defined ? 'Editar Sede' : 'Nova Sede' }}
+                        {{ (editSede is defined ? 'escritorio.sedes.editar_sede' : 'escritorio.sedes.nova_sede')|trans }}
                     </h3>
                 </div>
 
@@ -472,30 +472,30 @@
 
                     {# ── Seção: Identificação ── #}
                     <div class="form-section">
-                        <div class="form-section-label"><i class="bi bi-tag me-1"></i>Identificação</div>
+                        <div class="form-section-label"><i class="bi bi-tag me-1"></i>{{ 'escritorio.sedes.identificacao'|trans }}</div>
                         <label class="sedes-label" for="{{ activeForm.nome.vars.id }}">
-                            Nome da Sede
+                            {{ 'escritorio.sedes.nome'|trans }}
                         </label>
-                        {{ form_widget(activeForm.nome, {'attr': {'class': 'form-control sedes-input', 'placeholder': 'Ex: Escritório Centro'}}) }}
+                        {{ form_widget(activeForm.nome, {'attr': {'class': 'form-control sedes-input', 'placeholder': 'escritorio.sedes.nome_exemplo'|trans}}) }}
                         {{ form_errors(activeForm.nome) }}
                     </div>
 
                     {# ── Seção: Localização ── #}
                     <div class="form-section">
-                        <div class="form-section-label"><i class="bi bi-geo-alt me-1"></i>Localização no Mapa</div>
+                        <div class="form-section-label"><i class="bi bi-geo-alt me-1"></i>{{ 'escritorio.sedes.localizacao'|trans }}</div>
 
                         {# Busca de endereço #}
                         <div class="address-search-row mb-2">
                             <input type="text"
                                    id="cep-search-input"
                                    class="form-control sedes-input"
-                                   placeholder="CEP ou endereço"
+                                   placeholder="{{ 'escritorio.sedes.cep_ou_endereco'|trans }}"
                                    maxlength="9"
-                                   aria-label="CEP ou endereço">
+                                   aria-label="{{ 'escritorio.sedes.cep_ou_endereco'|trans }}">
                             <button class="btn btn-outline-secondary btn-search" type="button" id="btn-cep-search">
-                                <i class="bi bi-search"></i> Buscar
+                                <i class="bi bi-search"></i> {{ 'escritorio.sedes.buscar'|trans }}
                             </button>
-                            <button class="btn btn-outline-secondary btn-icon-only" type="button" id="btn-toggle-fields" title="Preencher manualmente">
+                            <button class="btn btn-outline-secondary btn-icon-only" type="button" id="btn-toggle-fields" title="{{ 'escritorio.sedes.preencher_manualmente'|trans }}">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
                         </div>
@@ -503,31 +503,21 @@
                         <div id="address-extra-fields" class="address-extra-fields" style="display:none">
                             <div class="row g-2">
                                 <div class="col-8">
-                                    <input type="text" id="search-logradouro" class="form-control sedes-input" placeholder="Logradouro">
+                                    <input type="text" id="search-logradouro" class="form-control sedes-input" placeholder="{{ 'escritorio.sedes.logradouro'|trans }}">
                                 </div>
                                 <div class="col-4">
-                                    <input type="text" id="search-numero" class="form-control sedes-input" placeholder="Número">
+                                    <input type="text" id="search-numero" class="form-control sedes-input" placeholder="{{ 'escritorio.sedes.numero'|trans }}">
                                 </div>
                                 <div class="col-7">
-                                    <input type="text" id="search-cidade" class="form-control sedes-input" placeholder="Cidade">
+                                    <input type="text" id="search-cidade" class="form-control sedes-input" placeholder="{{ 'escritorio.sedes.cidade'|trans }}">
                                 </div>
                                 <div class="col-5">
                                     <select id="search-estado" class="form-select sedes-input">
-                                        <option value="">UF</option>
-                                        <option value="AC">AC</option><option value="AL">AL</option>
-                                        <option value="AP">AP</option><option value="AM">AM</option>
-                                        <option value="BA">BA</option><option value="CE">CE</option>
-                                        <option value="DF">DF</option><option value="ES">ES</option>
-                                        <option value="GO">GO</option><option value="MA">MA</option>
-                                        <option value="MT">MT</option><option value="MS">MS</option>
-                                        <option value="MG">MG</option><option value="PA">PA</option>
-                                        <option value="PB">PB</option><option value="PR">PR</option>
-                                        <option value="PE">PE</option><option value="PI">PI</option>
-                                        <option value="RJ">RJ</option><option value="RN">RN</option>
-                                        <option value="RS">RS</option><option value="RO">RO</option>
-                                        <option value="RR">RR</option><option value="SC">SC</option>
-                                        <option value="SP">SP</option><option value="SE">SE</option>
-                                        <option value="TO">TO</option>
+                                        <option value="">{{ 'escritorio.sedes.uf'|trans }}</option>
+{# As siglas das UFs são dado. A linha em branco dentro do for repõe a quebra que o endif come. #}{% for par in ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']|batch(2) %}
+                                        <option value="{{ par|first }}">{{ par|first }}</option>{% if par|length > 1 %}<option value="{{ par|last }}">{{ par|last }}</option>{% endif %}
+
+{% endfor %}
                                     </select>
                                 </div>
                             </div>
@@ -537,13 +527,13 @@
 
                         <div class="map-wrapper">
                             <div id="sede-map"></div>
-                            <button type="button" id="btn-gps-locate" class="map-locate-btn" title="Usar minha localização">
+                            <button type="button" id="btn-gps-locate" class="map-locate-btn" title="{{ 'escritorio.sedes.usar_localizacao'|trans }}">
                                 <i class="bi bi-geo-alt-fill"></i>
                             </button>
                         </div>
                         <div class="map-tip">
                             <i class="bi bi-cursor-fill" style="font-size:.7rem"></i>
-                            Clique no mapa para marcar a localização exata da sede.
+                            {{ 'escritorio.sedes.dica_mapa'|trans }}
                         </div>
 
                         {{ form_widget(activeForm.latitude) }}
@@ -554,25 +544,26 @@
 
                     {# ── Seção: Raio ── #}
                     <div class="form-section" style="margin-bottom:0">
-                        <div class="form-section-label"><i class="bi bi-arrows-angle-expand me-1"></i>Raio de Validação</div>
+                        <div class="form-section-label"><i class="bi bi-arrows-angle-expand me-1"></i>{{ 'escritorio.sedes.raio'|trans }}</div>
                         {{ form_widget(activeForm.raioPermitido, {'attr': {'class': 'form-control sedes-input'}}) }}
+                        {{ form_errors(activeForm.raioPermitido) }}
                         <div class="form-hint">
                             <i class="bi bi-info-circle" style="font-size:.74rem"></i>
-                            Distância máxima da sede para validar o ponto via GPS (metros).
+                            {{ 'escritorio.sedes.raio_dica'|trans }}
                         </div>
                     </div>
 
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary btn-submit" id="btn-salvar">
                             {% if editSede is defined %}
-                                <i class="bi bi-pencil me-1"></i> Atualizar Sede
+                                <i class="bi bi-pencil me-1"></i> {{ 'escritorio.sedes.atualizar'|trans }}
                             {% else %}
-                                <i class="bi bi-plus-lg me-1"></i> Salvar Sede
+                                <i class="bi bi-plus-lg me-1"></i> {{ 'escritorio.sedes.salvar'|trans }}
                             {% endif %}
                         </button>
                         <button type="button" id="btn-cancelar-sede" class="btn btn-cancel-edit"
                                 style="{{ editSede is defined ? '' : 'display:none' }}">
-                            Cancelar
+                            {{ 'escritorio.sedes.cancelar'|trans }}
                         </button>
                     </div>
 
@@ -589,11 +580,11 @@
                         <span class="card-icon card-icon-green">
                             <i class="bi bi-building"></i>
                         </span>
-                        Sedes Cadastradas
+                        {{ 'escritorio.sedes.cadastradas'|trans }}
                     </h3>
                     {% if sedes|length > 0 %}
                         <span class="badge rounded-pill" style="background:#eff6ff;color:#1a56a4;font-size:.75rem;font-weight:700;padding:.3rem .65rem;font-family:'DM Sans',sans-serif">
-                            {{ sedes|length }} {{ sedes|length == 1 ? 'sede' : 'sedes' }}
+                            {{ 'escritorio.sedes.contagem'|trans({n: sedes|length, qtd: sedes|length ~ ''}) }}
                         </span>
                     {% endif %}
                 </div>
@@ -619,12 +610,12 @@
                                             </span>
                                         {% else %}
                                             <span class="sede-badge sede-badge-nocoords">
-                                                <i class="bi bi-geo-alt"></i> Sem coordenadas
+                                                <i class="bi bi-geo-alt"></i> {{ 'escritorio.sedes.sem_coordenadas'|trans }}
                                             </span>
                                         {% endif %}
                                         <span class="sede-badge sede-badge-raio">
                                             <i class="bi bi-arrows-angle-expand"></i>
-                                            {{ sede.raioPermitido }}m
+                                            {{ 'escritorio.sedes.raio_metros'|trans({raio: sede.raioPermitido ~ ''}) }}
                                         </span>
                                     </div>
                                 </div>
@@ -632,7 +623,7 @@
                                     <button type="button"
                                             class="btn btn-sede-edit btn-editar-sede"
                                             data-sede-id="{{ sede.id }}"
-                                            title="Editar sede">
+                                            title="{{ 'escritorio.sedes.editar_dica'|trans }}">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <form method="post"
@@ -640,7 +631,7 @@
                                           class="d-inline-block"
                                           onsubmit="return confirm('Excluir a sede \'{{ sede.nome|e('js') }}\' permanentemente?');">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_sede_' ~ sede.id) }}">
-                                        <button type="submit" class="btn btn-sede-del" title="Excluir sede">
+                                        <button type="submit" class="btn btn-sede-del" title="{{ 'escritorio.sedes.excluir_dica'|trans }}">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -652,8 +643,8 @@
                             <div class="sedes-empty-icon">
                                 <i class="bi bi-building-add"></i>
                             </div>
-                            <div class="sedes-empty-title">Nenhuma sede cadastrada</div>
-                            <div class="sedes-empty-sub">Crie a primeira sede usando o formulário ao lado.</div>
+                            <div class="sedes-empty-title">{{ 'escritorio.sedes.vazio_titulo'|trans }}</div>
+                            <div class="sedes-empty-sub">{{ 'escritorio.sedes.vazio_sub'|trans }}</div>
                         </div>
                     {% endfor %}
                 </div>
@@ -814,7 +805,7 @@
                                 if (results && results.length > 0) {
                                     panToResult(results[0].lat, results[0].lon);
                                     const precisao = tentativas.indexOf(q) === 0 ? '' :
-                                        tentativas.indexOf(q) === 1 ? ' (aproximado — bairro)' : ' (aproximado — cidade)';
+                                        tentativas.indexOf(q) === 1 ? ' (aproximado pelo bairro)' : ' (aproximado pela cidade)';
                                     showCepFeedback('Localização encontrada: ' + (results[0].display_name || '') + precisao, 'success');
                                     found = true;
                                     break;

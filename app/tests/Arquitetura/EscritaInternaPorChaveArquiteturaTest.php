@@ -45,19 +45,27 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *
      *  - `ImportarRelatorioInput` — assinatura dos primeiros bytes do upload ainda temporário,
      *    antes de ele virar arquivo persistido;
+     *  - `CampanhaDoMasterController` (F3i, 21/10) — lê a imagem que o Master envia do upload ainda temporário, com
+     *    teto de 1 MB checado antes; o UseCase confere e regrava pelo GD e só então grava por chave no armazenamento;
      *  - `ArmazenamentoLocal` — é o backend: é aqui que a leitura por chave vira disco;
      *  - `MapearAcervoCommand`, `ParsearAcervoCommand` — leem arquivos do operador (JSON e
      *    planilhas do acervo), fora do armazenamento;
-     *  - `PastaResumoController` (EDT-002, 07/10) — lê o LOGO estático da aplicação
-     *    (`public/images/logo/bluejus_simbolo.svg`) para embutir no PDF do resumo; não é arquivo do
+     *  - `FontesPublicasController` (perfis-master E2, 16/10) — lê a planilha CSV que o Master envia
+     *    (população IBGE / Quadro da Advocacia) do upload ainda temporário, com teto de 2 MB checado
+     *    antes; vira retrato no armazém de fontes do Master, nunca arquivo do armazenamento;
+     *  - `GeradorDePdfComDompdf` (EDT-002, 07/10; extraído do PastaResumoController na spec
+     *    relatorio-processos-controladoria) — lê o LOGO estático da aplicação
+     *    (`public/images/logo/bluejus_simbolo.svg`) para embutir nos PDFs; não é arquivo do
      *    usuário nem passa pelo armazenamento (o Dompdf roda sem recurso remoto).
      */
     private const QUEM_LE_CRU = [
         'src/Cobranca/DTO/ImportarRelatorioInput.php',
+        'src/Comercial/Controller/CampanhaDoMasterController.php',
         'src/Command/MapearAcervoCommand.php',
         'src/Command/ParsearAcervoCommand.php',
-        'src/Pasta/Controller/PastaResumoController.php',
+        'src/Master/Controller/FontesPublicasController.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
+        'src/Shared/Service/GeradorDePdfComDompdf.php',
     ];
 
     /**

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Functional;
 
+use App\Tenant\Repository\SaidaDaEquipeRepository;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
@@ -93,6 +95,8 @@ final class ReconvitePosRemocaoTest extends JusPrimeWebTestCase
         $useCase = new RemoverColaboradorDoEscritorioUseCase(
             $em,
             static::getContainer()->get(UserTenantRepository::class),
+            static::getContainer()->get(RegraDosPrimarios::class),
+            static::getContainer()->get(SaidaDaEquipeRepository::class),
         );
         $useCase->executar(new RemoverColaboradorInput($admin, $colaborador, $tenantA));
 

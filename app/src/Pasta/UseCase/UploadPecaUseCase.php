@@ -11,6 +11,7 @@ use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Service\ContadorDePaginasDePdf;
+use App\Pasta\Service\DetectorDeAssinaturaDigital;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
@@ -41,6 +42,19 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * e só para PDF; a compressão não muda a contagem (a validação dela exige as mesmas páginas).
  * Falha na contagem → NULL, o upload segue (`app:documentos:calcular-hash --paginas` preenche).
  * `enviadoPor` é quem está logado; NULL nos caminhos sem usuário (importação, Drive).
+ *
+ * ## Selo "Assinado" (assinatura digital)
+ *
+ * `.p7s`/`.p7m` ou PDF com dicionário de assinatura (`DetectorDeAssinaturaDigital`) nascem com o selo,
+ * origem `digital`. A leitura é no caminho temporário, antes de mover, como o hash e as páginas. Se a
+ * compressão regravou o PDF, a assinatura não sobreviveu (o Ghostscript reescreve o arquivo): o
+ * documento nasce SEM o selo, porque o que ficou no storage não está mais assinado.
+ *
+ * ## Arquivo novo dentro de transação maior
+ *
+ * `aoGravar` (opcional) recebe a chave assim que o arquivo é gravado, antes de qualquer outro passo que possa
+ * falhar. É assim que o despacho da meta entrega a chave à `TransacaoComArquivoNovo`, que só apaga o arquivo quando
+ * o COMMIT comprovadamente não aconteceu.
  *
  * ## Tipo pelo conteúdo (DOC-115)
  *
@@ -122,8 +136,10 @@ final class UploadPecaUseCase
         private readonly CompressaoDeArquivoArmazenado $compressao,
         private readonly LoggerInterface $logger,
         private readonly ContadorDePaginasDePdf $contadorDePaginas,
+        private readonly DetectorDeAssinaturaDigital $detectorDeAssinatura,
     ) {}
 
+    /** @param (\Closure(\App\Shared\Armazenamento\ChaveDeArquivo): void)|null $aoGravar recebe a chave logo depois da gravação */
     public function executar(
         Pasta $pasta,
         ?PastaSecao $secao,
@@ -134,6 +150,7 @@ final class UploadPecaUseCase
         Tenant $tenant,
         bool $reduzirTamanho = false,
         ?User $enviadoPor = null,
+        ?\Closure $aoGravar = null,
     ): ResultadoUploadPeca {
         if ($secao !== null && $secao->getTenant() !== $tenant) {
             throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
@@ -180,9 +197,12 @@ final class UploadPecaUseCase
         // Antes de mover: depois do `gravarEm()` o caminho do upload não existe mais.
         $sha256  = Sha256DeArquivo::deArquivoLocal($file->getPathname());
         $paginas = $mimeType === 'application/pdf' ? $this->contadorDePaginas->contar($file->getPathname()) : null;
+        $assinado = $this->detectorDeAssinatura->arquivoAssinado($file->getPathname(), $file->getClientOriginalName(), $mimeType);
 
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
+        // A chave vai já agora para quem roda o upload numa transação maior: se algo falhar daqui em diante, ele decide.
+        $aoGravar?->__invoke($armazenado->chave);
 
         // D30: sem compressão, o tamanho gravado é o que o storage mediu ao gravar.
         $compressao = ResultadoCompressao::naoComprimido($armazenado->tamanhoBytes);
@@ -209,6 +229,7 @@ final class UploadPecaUseCase
         $doc->setSecao($secao);
         $doc->setPaginas($paginas);
         $doc->setEnviadoPor($enviadoPor);
+        $doc->marcarAssinaturaDoUpload($assinado, $compressao->comprimido, $enviadoPor);
 
         $this->em->persist($doc);
         $this->em->flush();

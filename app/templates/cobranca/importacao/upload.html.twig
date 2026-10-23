@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cobranças · Importar · {{ carteiraNome }}{% endblock %}
+{% block title %}{{ 'cobranca_carteira.importacao.titulo_pagina'|trans({carteira: carteiraNome}) }}{% endblock %}
 
 {% block body %}
 <div class="cobrancas-page">
@@ -10,7 +10,7 @@
             <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i>
             </a>
-            <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-upload"></i>Importar relatório</h1>
+            <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-upload"></i>{{ 'cobranca_carteira.importacao.titulo'|trans }}</h1>
         </div>
         <div class="text-muted"><i class="bi bi-folder2-open me-1"></i>{{ carteiraNome }}</div>
     </div>
@@ -21,19 +21,19 @@
         <div class="row justify-content-center">
             <div class="col-lg-7">
                 <div class="card cobranca-card">
-                    <div class="card-header fw-semibold"><i class="bi bi-filetype-xlsx me-1"></i>Relatório de inadimplência</div>
+                    <div class="card-header fw-semibold"><i class="bi bi-filetype-xlsx me-1"></i>{{ 'cobranca_carteira.importacao.inadimplencia'|trans }}</div>
                     <div class="card-body">
                         {{ form_start(form, {'action': path('cobranca_importacao_prever', {id: carteiraId}), 'attr': {'novalidate': 'novalidate'}}) }}
                             {{ form_row(form.arquivo) }}
                             <div class="alert alert-info small mt-2 mb-3">
                                 <i class="bi bi-info-circle me-1"></i>
-                                O relatório será apenas <strong>pré-visualizado</strong> primeiro. Nada é gravado até você confirmar.
-                                Linhas <strong>sem valor principal</strong> (apenas encargos/honorários) são <strong>rejeitadas</strong> com o motivo — nenhuma obrigação é criada para elas.
-                                A reimportação do mesmo relatório <strong>não duplica</strong> — apenas atualiza os encargos.
+                                {{ 'cobranca_carteira.importacao.aviso.inicio'|trans }} <strong>{{ 'cobranca_carteira.importacao.aviso.pre_visualizado'|trans }}</strong> {{ 'cobranca_carteira.importacao.aviso.primeiro'|trans }}
+                                <strong>{{ 'cobranca_carteira.importacao.aviso.sem_principal'|trans }}</strong> {{ 'cobranca_carteira.importacao.aviso.apenas'|trans }} <strong>{{ 'cobranca_carteira.importacao.aviso.rejeitadas'|trans }}</strong> {{ 'cobranca_carteira.importacao.aviso.motivo'|trans }}
+                                <strong>{{ 'cobranca_carteira.importacao.aviso.nao_duplica'|trans }}</strong>{{ 'cobranca_carteira.importacao.aviso.fim'|trans }}
                             </div>
                             <div class="d-flex justify-content-end gap-2">
-                                <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-outline-secondary">Cancelar</a>
-                                <button type="submit" class="btn btn-primary"><i class="bi bi-eye me-1"></i>Pré-visualizar</button>
+                                <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-outline-secondary">{{ 'cobranca_carteira.comum.cancelar'|trans }}</a>
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-eye me-1"></i>{{ 'cobranca_carteira.importacao.pre_visualizar'|trans }}</button>
                             </div>
                         {{ form_end(form) }}
                     </div>

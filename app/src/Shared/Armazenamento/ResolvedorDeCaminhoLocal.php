@@ -48,6 +48,13 @@ final readonly class ResolvedorDeCaminhoLocal
         private string $cobrancasUploadsDir,
         private string $kanbanUploadsDir,
         private string $tarefasUploadsDir,
+        // Último e com padrão vazio: entrou com o Trabalho Externo, depois das outras raízes, e os
+        // testes que montam o resolvedor à mão continuam valendo. Vazio NUNCA vira caminho
+        // (ver `trabalhoExternoRaiz()`): falha alto em vez de gravar na raiz do disco.
+        private string $trabalhoExternoUploadsDir = '',
+        // As imagens das campanhas do Comercial (F3i), com o mesmo padrão vazio e a mesma recusa
+        // de virar caminho (ver `comercialImagensRaiz()`).
+        private string $comercialImagensDir = '',
     ) {
     }
 
@@ -98,6 +105,8 @@ final readonly class ResolvedorDeCaminhoLocal
             $this->cobrancasUploadsDir,
             $this->kanbanUploadsDir,
             $this->tarefasUploadsDir,
+            ...($this->trabalhoExternoUploadsDir !== '' ? [$this->trabalhoExternoUploadsDir] : []),
+            ...($this->comercialImagensDir !== '' ? [$this->comercialImagensDir] : []),
         ]);
     }
 
@@ -128,10 +137,32 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::FOTO_PERFIL         => $this->raiz($this->fotosPerfilDir),
             CategoriaDeArquivo::KANBAN_ANEXO        => $this->raiz($this->kanbanUploadsDir),
             CategoriaDeArquivo::TAREFA_ANEXO        => $this->raiz($this->tarefasUploadsDir) . '/' . self::SUBPASTA_DE_TAREFA,
+            CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO => $this->trabalhoExternoRaiz(),
+            // Subpasta da mesma raiz: os currículos não se misturam com os documentos das demandas.
+            CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO => $this->trabalhoExternoRaiz() . '/curriculos',
+            CategoriaDeArquivo::COMERCIAL_IMAGEM => $this->comercialImagensRaiz(),
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),
         };
+    }
+
+    private function trabalhoExternoRaiz(): string
+    {
+        if ($this->trabalhoExternoUploadsDir === '') {
+            throw new \LogicException('Diretório dos documentos do Trabalho Externo não configurado (trabalho_externo_uploads_dir).');
+        }
+
+        return $this->raiz($this->trabalhoExternoUploadsDir);
+    }
+
+    private function comercialImagensRaiz(): string
+    {
+        if ($this->comercialImagensDir === '') {
+            throw new \LogicException('Diretório das imagens das campanhas do Comercial não configurado (comercial_imagens_dir).');
+        }
+
+        return $this->raiz($this->comercialImagensDir);
     }
 
     private function raiz(string $diretorio): string

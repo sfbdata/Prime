@@ -36,6 +36,9 @@
    `podeEditarPasta` que o parcial da aba Processo já calculou; sem nenhum dos dois, pergunta a
    `can_access_resource`, que guarda a resposta por requisição (um bloco por processo não repete
    a consulta). #}
+{# PMC-018: "Encaminhar via Chat I.A" no ⋮ de cada nota. A Central conferida UMA vez por bloco (cada
+   chamada consulta o vínculo); o id da pasta ou null (sem Central, lápide). #}
+{% set encaminharNotaPasta = not somenteLeitura and central_disponivel() ? pastaId : null %}
 {% set podeEscreverNota = not somenteLeitura and (podeEscreverNota is defined
     ? podeEscreverNota
     : (podeEditarPasta ?? can_access_resource('pasta', pastaId, 'edit'))) %}
@@ -59,41 +62,41 @@
          no bloco, não em `[data-mencionaveis-url]`, que o pasta-mencoes.js reserva ao Registro. #}
      data-url-mencionaveis="{{ pastaId ? path('pasta_mencionaveis', {id: pastaId}) : '' }}">
     <div class="ps-notas-cab">
-        <span class="ps-notas-titulo"><i class="bi bi-journal-text" aria-hidden="true"></i>Notas técnicas</span>
-        <span class="ps-contagem ps-notas-contagem" title="Notas técnicas">{{ notas|length }}</span>
+        <span class="ps-notas-titulo"><i class="bi bi-journal-text" aria-hidden="true"></i>{{ 'processo.notas.titulo'|trans }}</span>
+        <span class="ps-contagem ps-notas-contagem" title="{{ 'processo.notas.titulo'|trans }}">{{ notas|length }}</span>
         <span class="ps-notas-aviso">
-            {%- if publicacaoId %}Sobre esta movimentação. {% endif -%}
-            A nota é do processo: aparece em toda pasta que o vincula.
+            {%- if publicacaoId %}{{ 'processo.notas.sobre_movimentacao'|trans }} {% endif -%}
+            {{ 'processo.notas.aviso'|trans }}
         </span>
         {% if podeEscreverNota %}
             <span class="ps-cab-espaco"></span>
-            <button type="button" class="ps-btn ps-btn--suave ps-btn--nota js-nota-nova" title="Adicionar nota técnica" aria-label="Adicionar nota técnica">
-                <i class="bi bi-journal-plus"></i><span>Adicionar nota técnica</span>
+            <button type="button" class="ps-btn ps-btn--suave ps-btn--nota js-nota-nova" title="{{ 'processo.notas.adicionar'|trans }}" aria-label="{{ 'processo.notas.adicionar'|trans }}">
+                <i class="bi bi-journal-plus"></i><span>{{ 'processo.notas.adicionar'|trans }}</span>
             </button>
         {% endif %}
     </div>
 
     <div class="ps-notas-lista">
         {% for nota in notas %}
-            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao, somenteLeitura: somenteLeitura, podeEscreverNota: podeEscreverNota, idSufixo: idSufixoNota ?? ''}) }}
+            {{ include('processo/_nota_tecnica_item.html.twig', {nota: nota, mostrarMovimentacao: mostrarMovimentacao, somenteLeitura: somenteLeitura, podeEscreverNota: podeEscreverNota, idSufixo: idSufixoNota ?? '', encaminharNotaPasta: encaminharNotaPasta}) }}
         {% endfor %}
     </div>
 
     {# Desenho dc:1693–1710 (auditoria 2 P3): as notas primeiro, o compositor depois. #}
     {% if podeEscreverNota %}
     <div class="ps-nota-editor" hidden>
-        <div class="ps-nota-editor-rotulo"><i class="bi bi-journal-plus" aria-hidden="true"></i>Nova nota técnica</div>
+        <div class="ps-nota-editor-rotulo"><i class="bi bi-journal-plus" aria-hidden="true"></i>{{ 'processo.notas.nova'|trans }}</div>
         {#- EDT-021: o editor mantém o "Salvar nota" apagado enquanto estiver vazio (contrato
             `data-editor-rico-envio` do editor-rico.js; o id é único por bloco). #}
         <textarea class="ps-nota-textarea" rows="3" maxlength="5000"
                   data-editor-rico-envio="{{ blocoId }}-salvar"
-                  aria-label="Texto da nota técnica"
+                  aria-label="{{ 'processo.notas.texto'|trans }}"
                   {#- Desenho dc:1713 (aba Processo) e dc:2554 (teor do Push), com a frase da @menção. #}
-                  placeholder="{{ publicacaoId ? 'Explique o despacho' : 'Explique o processo ou o despacho' }}: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém."></textarea>
+                  placeholder="{{ publicacaoId ? 'processo.notas.placeholder_despacho'|trans : 'processo.notas.placeholder_processo'|trans }}"></textarea>
         <div class="ps-nota-erro" hidden></div>
         <div class="ps-nota-editor-acoes">
-            <button type="button" class="ps-btn js-nota-cancelar">Cancelar</button>
-            <button type="button" class="ps-btn ps-btn--primario js-nota-salvar" id="{{ blocoId }}-salvar" title="Salvar (Ctrl+Enter)">Salvar nota</button>
+            <button type="button" class="ps-btn js-nota-cancelar">{{ 'processo.notas.cancelar'|trans }}</button>
+            <button type="button" class="ps-btn ps-btn--primario js-nota-salvar" id="{{ blocoId }}-salvar" title="{{ 'processo.notas.salvar_dica'|trans }}">{{ 'processo.notas.salvar'|trans }}</button>
         </div>
     </div>
     {% endif %}

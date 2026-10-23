@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Kanban — BlueJus{% endblock %}
+{% block title %}{{ 'kanban.index.titulo_aba'|trans }}{% endblock %}
 
 {% block stylesheets %}
 <style>
@@ -28,7 +28,7 @@
     gap: 1.25rem;
 }
 .kb-board-card {
-    border-radius: 12px;
+    border-radius: 4px;
     border: 1px solid rgba(0,0,0,.08);
     background: var(--bs-body-bg);
     box-shadow: 0 1px 3px rgba(0,0,0,.06);
@@ -93,7 +93,7 @@
     gap: .3rem;
 }
 .kb-board-add {
-    border-radius: 12px;
+    border-radius: 4px;
     border: 2px dashed rgba(0,0,0,.15);
     background: transparent;
     display: flex;
@@ -126,7 +126,7 @@
 
 /* Skeleton */
 .kb-skeleton {
-    border-radius: 12px;
+    border-radius: 4px;
     overflow: hidden;
     border: 1px solid rgba(0,0,0,.06);
     min-height: 130px;
@@ -165,20 +165,20 @@
 <div class="kb-page-header">
     <h1 class="kb-page-title">
         <i class="bi bi-kanban" style="color:#3b82f6;"></i>
-        Kanban
+        {{ 'kanban.nome'|trans }}
     </h1>
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCriarBoard">
-        <i class="bi bi-plus-lg me-1"></i> Criar Mural
+        <i class="bi bi-plus-lg me-1"></i> {{ 'kanban.index.criar_mural'|trans }}
     </button>
 </div>
 
 {% if boards|length == 0 %}
     <div class="kb-empty-state">
         <div class="kb-empty-icon"><i class="bi bi-kanban"></i></div>
-        <h5 class="fw-semibold mb-2">Nenhum mural ainda</h5>
-        <p class="mb-3" style="max-width:360px; margin: 0 auto;">Crie seu primeiro mural para organizar tarefas em colunas e acompanhar o progresso do time.</p>
+        <h5 class="fw-semibold mb-2">{{ 'kanban.index.vazio_titulo'|trans }}</h5>
+        <p class="mb-3" style="max-width:360px; margin: 0 auto;">{{ 'kanban.index.vazio_texto'|trans }}</p>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarBoard">
-            <i class="bi bi-plus-lg me-1"></i> Criar primeiro mural
+            <i class="bi bi-plus-lg me-1"></i> {{ 'kanban.index.criar_primeiro'|trans }}
         </button>
     </div>
 {% else %}
@@ -196,21 +196,21 @@
                 <div class="kb-board-meta">
                     <span class="kb-meta-item">
                         <i class="bi bi-card-text"></i>
-                        {{ board.cardsCount }} card{{ board.cardsCount != 1 ? 's' : '' }}
+                        {{ (board.cardsCount != 1 ? 'kanban.index.cards_varios' : 'kanban.index.cards_um')|trans({total: board.cardsCount ~ ''}) }}
                     </span>
                     <span class="kb-meta-item">
                         <i class="bi bi-people"></i>
                         {{ board.participantesCount }}
                     </span>
                 </div>
-                <span class="kb-meta-item">{{ board.criadoEm|date('d/m/Y') }}</span>
+                <span class="kb-meta-item">{{ board.criadoEm|data }}</span>
             </div>
         </a>
         {% endfor %}
 
         <button class="kb-board-add" data-bs-toggle="modal" data-bs-target="#modalCriarBoard" type="button">
             <i class="bi bi-plus-circle" style="font-size:1.5rem;"></i>
-            Novo mural
+            {{ 'kanban.index.novo_mural'|trans }}
         </button>
     </div>
 {% endif %}
@@ -221,7 +221,7 @@
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalCriarBoardLabel">
-                    <i class="bi bi-kanban me-1"></i> Novo Mural
+                    <i class="bi bi-kanban me-1"></i> {{ 'kanban.modal_criar.titulo'|trans }}
                 </h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
@@ -232,7 +232,7 @@
                     {{ form_row(form.descricao, {attr: {class: 'form-control form-control-sm', rows: 2}}) }}
 
                     <div class="mb-3">
-                        <label class="form-label form-label-sm fw-semibold">Cor do mural</label>
+                        <label class="form-label form-label-sm fw-semibold">{{ 'kanban.modal_criar.cor'|trans }}</label>
                         <div class="kb-cor-opcoes" id="corOpcoes">
                             {% for cor in ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#64748b'] %}
                                 <button type="button" class="kb-cor-btn" style="background:{{ cor }};" data-cor="{{ cor }}" title="{{ cor }}"></button>
@@ -242,22 +242,22 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label form-label-sm fw-semibold">Participantes</label>
+                        <label class="form-label form-label-sm fw-semibold">{{ 'kanban.comum.participantes'|trans }}</label>
                         <select id="participantesSelect" name="participantesIds[]" multiple class="form-select form-select-sm" style="width:100%;">
                             {% for usuario in usuarios %}
                                 <option value="{{ usuario.id }}">{{ usuario.fullName ?? usuario.email }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">Quem terá acesso a este mural.</div>
+                        <div class="form-text">{{ 'kanban.modal_criar.participantes_ajuda'|trans }}</div>
                     </div>
 
                     {{ form_row(form._token) }}
                     <div id="criarBoardErro" class="text-danger small mt-1" style="display:none;"></div>
                 </div>
                 <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'kanban.comum.cancelar'|trans }}</button>
                     <button type="submit" class="btn btn-primary btn-sm" id="btnCriarBoard">
-                        <i class="bi bi-check-lg me-1"></i> Criar Mural
+                        <i class="bi bi-check-lg me-1"></i> {{ 'kanban.index.criar_mural'|trans }}
                     </button>
                 </div>
             </form>
@@ -267,6 +267,7 @@
 {% endblock %}
 
 {% block javascripts %}
+{{ catalogo_js('kanban.js') }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // Color picker
@@ -287,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Select2 para participantes
     if (typeof $.fn !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
         $('#participantesSelect').select2({
-            placeholder: 'Selecionar participantes...',
+            placeholder: BJ_T.t('kanban.js.selecionar_participantes'),
             allowClear: true,
             width: '100%',
             dropdownParent: $('#modalCriarBoard'),
@@ -310,13 +311,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (res.sucesso) {
                     window.location.href = res.redirectUrl;
                 } else {
-                    erro.textContent = (res.erros || ['Erro ao criar mural.']).join(', ');
+                    erro.textContent = (res.erros || [BJ_T.t('kanban.js.erro_criar_mural')]).join(', ');
                     erro.style.display = 'block';
                     btn.disabled = false;
                 }
             })
             .catch(() => {
-                erro.textContent = 'Erro de comunicação. Tente novamente.';
+                erro.textContent = BJ_T.t('kanban.js.erro_comunicacao');
                 erro.style.display = 'block';
                 btn.disabled = false;
             });

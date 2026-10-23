@@ -1,0 +1,192 @@
+{#
+    Página pública de vagas do Trabalho Externo (desenho `Vagas Publicas.dc.html`, spec VS 18.10.26 §4.2).
+    Sem login e sem o layout do sistema: o desenho tem cabeçalho próprio. Os estilos são os inline do
+    desenho, passados para classes `vp-*`. Só chega aqui o que o desenho diz que a página mostra
+    (cargo, local, tipo, áreas); o bloco borrado de cada cartão é enfeite fixo, sem dado da vaga.
+
+    Contas (P1, decidida pelo desenho em 19/10, spec §4.2): o candidato é o usuário externo (Solicitante
+    de qualquer escritório, ou Convidado), e o único cadastro do desenho é "Criar minha conta e
+    escritório". Por isso "criar conta" e "divulgar" vão os dois para o /cadastro, e "Entrar" para o /login.
+#}
+{% set vagas = pagina.vagas %}
+{% set total = pagina.total %}
+{% set cargos = pagina.cargos %}
+{% set ufsVagas = pagina.ufsDasVagas %}
+{% set urlCand = path('auth_cadastro') %}
+{% set urlDivulgar = path('auth_cadastro') %}
+{# Todo CTA de cadastro conta um clique anônimo (spec §4.9): o JS manda `{token}` por sendBeacon. #}
+{% set urlCta = path('vagas_publicas_cta') %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, follow">
+    <meta name="referrer" content="no-referrer">
+    <title>{{ 'trabalho_externo.vagas_publicas.titulo_pagina'|trans }}</title>
+    <meta property="og:title" content="{{ 'trabalho_externo.vagas_publicas.titulo_pagina'|trans }}">
+    <meta property="og:description" content="{{ 'trabalho_externo.vagas_publicas.og_descricao'|trans }}">
+    <meta property="og:image" content="{{ absolute_url('/images/logo/bluejus_simbolo.svg') }}">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ asset('css/vagas-publicas.css') }}">
+</head>
+<body class="vp-body">
+<div class="vp-pagina" id="vpPagina" data-publico="{{ app.request.query.get('p') == 'esc' ? 'esc' : 'cand' }}">
+    <header class="vp-topo">
+        <img src="/images/logo/bluejus-white-transparent-nav.png" alt="BlueJus" class="vp-logo">
+        <span class="vp-flex"></span>
+        <a href="{{ path('app_login') }}" class="vp-entrar">{{ 'trabalho_externo.vagas_publicas.entrar'|trans }}</a>
+        <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-criar" data-so="cand">{{ 'trabalho_externo.vagas_publicas.criar_conta_gratis'|trans }}</a>
+        <a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-criar" data-so="esc">{{ 'trabalho_externo.vagas_publicas.criar_conta_gratis'|trans }}</a>
+    </header>
+
+    <section class="vp-hero" data-screen-label="Topo">
+        <span class="vp-bola vp-bola--1"></span><span class="vp-bola vp-bola--2"></span>
+        <div class="vp-hero-in">
+            <div class="vp-hero-txt">
+                <div class="vp-publicos" role="tablist">
+                    <button type="button" data-publico="cand"><i class="bi bi-person-badge"></i>{{ 'trabalho_externo.vagas_publicas.procuro_vaga'|trans }}</button>
+                    <button type="button" data-publico="esc"><i class="bi bi-building"></i>{{ 'trabalho_externo.vagas_publicas.quero_contratar'|trans }}</button>
+                </div><br>
+                <div class="vp-selo"><span class="vp-pulso"></span>
+                    <span data-so="cand">{% if vagas is not empty %}{{ 'trabalho_externo.vagas_publicas.selo.vagas_abertas'|trans({total: total ~ ''}) }}{% if pagina.geradoEm %} · {{ 'trabalho_externo.vagas_publicas.selo.atualizado_em'|trans({data: pagina.geradoEm}) }}{% endif %}{% else %}{{ 'trabalho_externo.vagas_publicas.selo.central'|trans }}{% endif %}</span>
+                    <span data-so="esc">{{ 'trabalho_externo.vagas_publicas.selo.escritorios'|trans }}</span>
+                </div>
+                <h1 class="vp-h1">
+                    <span data-so="cand">{{ vagas is not empty ? 'trabalho_externo.vagas_publicas.h1.com_vagas'|trans : 'trabalho_externo.vagas_publicas.h1.sem_vagas'|trans }}</span>
+                    <span data-so="esc">{{ 'trabalho_externo.vagas_publicas.h1.escritorios'|trans }}</span>
+                </h1>
+                <p class="vp-sub">
+                    <span data-so="cand">{% if vagas is not empty %}{{ 'trabalho_externo.vagas_publicas.sub.contratando'|trans({cargos: cargos is not empty ? cargos|slice(0, 3)|join(', ')|lower : 'trabalho_externo.vagas_publicas.sub.profissionais'|trans}) }}{% if ufsVagas is not empty %} {{ 'trabalho_externo.vagas_publicas.sub.em_ufs'|trans({ufs: ufsVagas|slice(0, 4)|join(', ')}) }}{% endif %}. {{ 'trabalho_externo.vagas_publicas.sub.ver_detalhes'|trans }}{% else %}{{ 'trabalho_externo.vagas_publicas.sub.sem_vagas'|trans }}{% endif %}</span>
+                    <span data-so="esc">{{ 'trabalho_externo.vagas_publicas.sub.escritorios'|trans }}</span>
+                </p>
+                <div class="vp-hero-ctas">
+                    <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-cta" data-so="cand"><i class="bi bi-person-plus"></i>{{ 'trabalho_externo.vagas_publicas.cta.candidatar'|trans }}</a>
+                    <a href="#alertas" class="vp-cta2" data-so="cand"><i class="bi bi-bell"></i>{{ 'trabalho_externo.vagas_publicas.cta.receber_por_email'|trans }}</a>
+                    <a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-cta" data-so="esc"><i class="bi bi-megaphone"></i>{{ 'trabalho_externo.vagas_publicas.cta.divulgar'|trans }}</a>
+                    <a href="#passos" class="vp-cta2" data-so="esc"><i class="bi bi-play-circle"></i>{{ 'trabalho_externo.vagas_publicas.cta.como_funciona'|trans }}</a>
+                </div>
+            </div>
+            <div class="vp-nums">
+                {% set numsCand = vagas is not empty
+                    ? [['', total, total == 1 ? 'trabalho_externo.vagas_publicas.num.vaga_aberta'|trans : 'trabalho_externo.vagas_publicas.num.vagas_abertas'|trans], ['', cargos|length, cargos|length == 1 ? 'trabalho_externo.vagas_publicas.num.cargo'|trans : 'trabalho_externo.vagas_publicas.num.cargos'|trans], ['', ufsVagas|length ?: 1, ufsVagas|length > 1 ? 'trabalho_externo.vagas_publicas.num.estados'|trans : 'trabalho_externo.vagas_publicas.num.estado'|trans], ['', 'trabalho_externo.vagas_publicas.num.gratis'|trans, 'trabalho_externo.vagas_publicas.num.para_se_candidatar'|trans]]
+                    : [['bi-lightning-charge', 'trabalho_externo.vagas_publicas.num.um_clique'|trans, 'trabalho_externo.vagas_publicas.num.para_se_candidatar'|trans], ['bi-file-earmark-person', 'trabalho_externo.vagas_publicas.num.pdf'|trans, 'trabalho_externo.vagas_publicas.num.curriculo_profissional'|trans], ['bi-bell', 'trabalho_externo.vagas_publicas.num.avisos'|trans, 'trabalho_externo.vagas_publicas.num.de_vaga_nova'|trans], ['bi-cash-coin', 'trabalho_externo.vagas_publicas.num.gratis'|trans, 'trabalho_externo.vagas_publicas.num.sem_pegadinha'|trans]] %}
+                {% for n in numsCand %}
+                    <div class="vp-num" data-so="cand">{% if n[0] %}<i class="bi {{ n[0] }}"></i>{% endif %}<b class="{{ n[0] ? 'vp-num-ic' : 'vp-num-v' }}">{{ n[1] }}</b><span>{{ n[2] }}</span></div>
+                {% endfor %}
+                {% for n in [['bi-cash-coin', 'trabalho_externo.vagas_publicas.num.rs_zero'|trans, 'trabalho_externo.vagas_publicas.num.para_divulgar'|trans], ['bi-funnel', 'trabalho_externo.vagas_publicas.num.selecao'|trans, 'trabalho_externo.vagas_publicas.num.melhores_candidatos'|trans], ['bi-shield-check', 'trabalho_externo.vagas_publicas.num.revisada'|trans, 'trabalho_externo.vagas_publicas.num.pela_equipe'|trans], ['bi-share', 'trabalho_externo.vagas_publicas.num.rede'|trans, 'trabalho_externo.vagas_publicas.num.canais'|trans]] %}
+                    <div class="vp-num" data-so="esc"><i class="bi {{ n[0] }}"></i><b class="vp-num-ic">{{ n[1] }}</b><span>{{ n[2] }}</span></div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <main class="vp-main">
+        {% if pagina.comLink and vagas is empty %}
+            <div class="vp-preenchidas" data-so="cand">
+                <span class="vp-preenchidas-ic"><i class="bi bi-hourglass-split"></i></span>
+                <div class="vp-preenchidas-txt"><b>{{ 'trabalho_externo.vagas_publicas.preenchidas.titulo'|trans }}</b><div>{{ 'trabalho_externo.vagas_publicas.preenchidas.texto'|trans }}</div></div>
+                <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-btn"><i class="bi bi-person-plus"></i>{{ 'trabalho_externo.vagas_publicas.criar_conta_gratis'|trans }}</a>
+            </div>
+        {% endif %}
+
+        {% if vagas is not empty %}
+            <section class="vp-lista" data-screen-label="Vagas">
+                <div class="vp-lista-cab"><h2>{{ vagas|length == 1 ? 'trabalho_externo.vagas_publicas.lista.vaga_compartilhada'|trans : 'trabalho_externo.vagas_publicas.lista.vagas_compartilhadas'|trans }}</h2><span>{{ pagina.indicadoPor ? 'trabalho_externo.vagas_publicas.lista.indicadas_por'|trans({nome: pagina.indicadoPor}) : '' }}{{ pagina.geradoEm ? ' · ' ~ pagina.geradoEm : '' }}</span></div>
+                <div class="vp-grade">
+                    {% for v in vagas %}
+                        <div class="vp-card" style="animation-delay: {{ loop.index0 * 80 }}ms">
+                            <div class="vp-card-topo"><span class="vp-card-ic"><i class="bi bi-briefcase"></i></span><div class="vp-card-tit"><b>{{ v.titulo }}</b><span>{{ v.cargo }}</span></div>{% if v.qtd > 1 %}<span class="vp-card-q">{{ 'trabalho_externo.vagas_publicas.card.qtd_vagas'|trans({qtd: v.qtd ~ ''}) }}</span>{% endif %}</div>
+                            <div class="vp-card-dados"><span><i class="bi bi-geo-alt"></i>{{ v.local }}</span><span><i class="bi bi-file-earmark-text"></i>{{ v.contratacao }}</span></div>
+                            <div class="vp-card-areas">{% for a in v.areas %}<span>{{ a }}</span>{% endfor %}</div>
+                            <div class="vp-card-bloq">
+                                <div class="vp-card-borrado" aria-hidden="true">{{ 'trabalho_externo.vagas_publicas.card.borrado_remuneracao'|trans }}<br>{{ 'trabalho_externo.vagas_publicas.card.borrado_escritorio'|trans }}<br>{{ 'trabalho_externo.vagas_publicas.card.borrado_requisitos'|trans }}</div>
+                                <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}"><i class="bi bi-lock-fill"></i>{{ 'trabalho_externo.vagas_publicas.card.ver_detalhes'|trans }}</a>
+                            </div>
+                            <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-card-cta"><i class="bi bi-send"></i>{{ 'trabalho_externo.vagas_publicas.card.candidatar'|trans }}</a>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        <section id="passos" class="vp-esc" data-screen-label="Para escritórios" data-so="esc">
+            <div><div class="vp-esc-k">{{ 'trabalho_externo.vagas_publicas.escritorios.chapeu'|trans }}</div><h2>{{ 'trabalho_externo.vagas_publicas.escritorios.titulo'|trans }}</h2><p>{{ 'trabalho_externo.vagas_publicas.escritorios.texto'|trans }}</p><a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-btn-verde"><i class="bi bi-megaphone"></i>{{ 'trabalho_externo.vagas_publicas.cta.divulgar'|trans }}</a></div>
+            <div class="vp-esc-passos">
+                {% for p in [['1', 'trabalho_externo.vagas_publicas.passo.conta'|trans, 'trabalho_externo.vagas_publicas.passo.conta_texto'|trans], ['2', 'trabalho_externo.vagas_publicas.passo.envie'|trans, 'trabalho_externo.vagas_publicas.passo.envie_texto'|trans], ['3', 'trabalho_externo.vagas_publicas.passo.revisa'|trans, 'trabalho_externo.vagas_publicas.passo.revisa_texto'|trans], ['4', 'trabalho_externo.vagas_publicas.passo.receba'|trans, 'trabalho_externo.vagas_publicas.passo.receba_texto'|trans]] %}
+                    <div class="vp-passo"><span>{{ p[0] }}</span><span><b>{{ p[1] }}</b>{{ p[2] }}</span></div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="vp-benef" data-screen-label="Benefícios" data-so="cand">
+            <h2>{{ 'trabalho_externo.vagas_publicas.beneficios.titulo'|trans }}</h2>
+            <p>{{ 'trabalho_externo.vagas_publicas.beneficios.subtitulo'|trans }}</p>
+            <div class="vp-benef-grade">
+                {% for b in [['bi-lightning-charge', '#c76a12', '#fff4d6', 'trabalho_externo.vagas_publicas.beneficios.um_clique'|trans, 'trabalho_externo.vagas_publicas.beneficios.um_clique_texto'|trans], ['bi-file-earmark-person', '#0a6fa0', '#e5f1f7', 'trabalho_externo.vagas_publicas.beneficios.curriculo'|trans, 'trabalho_externo.vagas_publicas.beneficios.curriculo_texto'|trans], ['bi-bell', '#5b3f9e', '#efeaf8', 'trabalho_externo.vagas_publicas.beneficios.avisos'|trans, 'trabalho_externo.vagas_publicas.beneficios.avisos_texto'|trans], ['bi-building', '#1e7b45', '#e9f6ee', 'trabalho_externo.vagas_publicas.beneficios.rede'|trans, 'trabalho_externo.vagas_publicas.beneficios.rede_texto'|trans]] %}
+                    <div class="vp-benef-item"><span style="background: {{ b[2] }}; color: {{ b[1] }};"><i class="bi {{ b[0] }}"></i></span><span><b>{{ b[3] }}</b>{{ b[4] }}</span></div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section id="alertas" class="vp-alertas" data-screen-label="Alertas por e-mail"
+                 data-url="{{ path('trabalho_externo_vagas_alertas') }}" data-csrf="{{ csrf_token(csrf) }}" data-token="{{ token }}"
+                 data-areas-sugeridas="{{ pagina.areasSugeridas|json_encode|e('html_attr') }}">
+            <div class="vp-lead-ok" hidden>
+                <span class="vp-lead-ok-ic"><i class="bi bi-envelope-check"></i></span>
+                <div class="vp-lead-ok-tit">{{ 'trabalho_externo.vagas_publicas.alertas.pronto'|trans }}</div>
+                <div class="vp-lead-ok-txt" id="vpLeadTxt"></div>
+                <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-btn"><i class="bi bi-person-plus"></i>{{ 'trabalho_externo.vagas_publicas.alertas.criar_conta_agora'|trans }}</a>
+            </div>
+            <div class="vp-lead-form">
+                <div class="vp-lead-cab"><span><i class="bi bi-bell"></i></span><div><h2>{{ 'trabalho_externo.vagas_publicas.alertas.titulo'|trans }}</h2><p>{{ 'trabalho_externo.vagas_publicas.alertas.subtitulo'|trans }}</p></div></div>
+                <div class="vp-lead-campos">
+                    <input id="vpEmail" type="email" placeholder="{{ 'trabalho_externo.vagas_publicas.alertas.email_placeholder'|trans }}" autocomplete="email" maxlength="180">
+                    <select id="vpUf"><option value="">{{ 'trabalho_externo.vagas_publicas.alertas.todo_o_brasil'|trans }}</option>{% for u in pagina.ufs %}<option value="{{ u }}">{{ u }}</option>{% endfor %}</select>
+                </div>
+                <div class="vp-lead-rot">{{ 'trabalho_externo.vagas_publicas.alertas.areas_de_interesse'|trans }}</div>
+                <div class="vp-lead-areas" id="vpAreas">{% for a in pagina.areas %}<button type="button" data-area="{{ a }}">{{ a }}</button>{% endfor %}</div>
+                <label class="vp-lead-lgpd"><input type="checkbox" id="vpLgpd"><span>{{ pagina.consentimento }}</span></label>
+                <div class="vp-lead-erro" id="vpErro" hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
+                <button type="button" class="vp-lead-btn" id="vpInscrever"><i class="bi bi-envelope-paper"></i>{{ 'trabalho_externo.vagas_publicas.alertas.quero_receber'|trans }}</button>
+            </div>
+        </section>
+
+        <section class="vp-share" data-screen-label="Compartilhar">
+            <i class="bi bi-people"></i>
+            <div><b>{{ 'trabalho_externo.vagas_publicas.compartilhar.titulo'|trans }}</b><div>{{ 'trabalho_externo.vagas_publicas.compartilhar.texto'|trans }}</div></div>
+            {% set urlDasVagas = token ? url('trabalho_externo_vagas_link', {token: token}) : url('trabalho_externo_vagas_publicas') %}
+            <a href="https://wa.me/?text={{ (vagas is not empty ? 'trabalho_externo.vagas_publicas.compartilhar.whatsapp_com_vagas'|trans({total: total ~ '', cargos: cargos|slice(0, 3)|join(', '), url: urlDasVagas}) : 'trabalho_externo.vagas_publicas.compartilhar.whatsapp_sem_vagas'|trans({url: urlDasVagas}))|url_encode }}" target="_blank" rel="noopener noreferrer" class="vp-btn-verde"><i class="bi bi-whatsapp"></i>{{ 'trabalho_externo.vagas_publicas.compartilhar.enviar_whatsapp'|trans }}</a>
+        </section>
+    </main>
+
+    <section class="vp-sistema" data-screen-label="Sistema BlueJus">
+        <div class="vp-sistema-in">
+            <div><div class="vp-sistema-k">{{ 'trabalho_externo.vagas_publicas.sistema.chapeu'|trans }}</div><h2>{{ 'trabalho_externo.vagas_publicas.sistema.titulo'|trans }}</h2><p>{{ 'trabalho_externo.vagas_publicas.sistema.texto'|trans }}</p><a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-btn-branco"><i class="bi bi-rocket-takeoff"></i>{{ 'trabalho_externo.vagas_publicas.sistema.criar_conta'|trans }}</a></div>
+            <div class="vp-recursos">
+                {% for r in [['bi-folder2-open', 'trabalho_externo.vagas_publicas.sistema.pastas'|trans, 'trabalho_externo.vagas_publicas.sistema.pastas_texto'|trans], ['bi-alarm', 'trabalho_externo.vagas_publicas.sistema.prazos'|trans, 'trabalho_externo.vagas_publicas.sistema.prazos_texto'|trans], ['bi-stars', 'trabalho_externo.vagas_publicas.sistema.assistente'|trans, 'trabalho_externo.vagas_publicas.sistema.assistente_texto'|trans], ['bi-graph-up', 'trabalho_externo.vagas_publicas.sistema.metas'|trans, 'trabalho_externo.vagas_publicas.sistema.metas_texto'|trans]] %}
+                    <div class="vp-recurso"><i class="bi {{ r[0] }}"></i><b>{{ r[1] }}</b><span>{{ r[2] }}</span></div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="vp-faq" data-screen-label="Perguntas">
+        <h2>{{ 'trabalho_externo.vagas_publicas.faq.titulo'|trans }}</h2>
+        <div class="vp-faq-lista">
+            {% for f in [['trabalho_externo.vagas_publicas.faq.gratis'|trans, 'trabalho_externo.vagas_publicas.faq.gratis_resposta'|trans], ['trabalho_externo.vagas_publicas.faq.oab'|trans, 'trabalho_externo.vagas_publicas.faq.oab_resposta'|trans], ['trabalho_externo.vagas_publicas.faq.divulgar'|trans, 'trabalho_externo.vagas_publicas.faq.divulgar_resposta'|trans], ['trabalho_externo.vagas_publicas.faq.dados'|trans, 'trabalho_externo.vagas_publicas.faq.dados_resposta'|trans], ['trabalho_externo.vagas_publicas.faq.sistema'|trans, 'trabalho_externo.vagas_publicas.faq.sistema_resposta'|trans]] %}
+                <div class="vp-faq-item"><button type="button" aria-expanded="false"><span>{{ f[0] }}</span><i class="bi bi-plus-lg"></i></button><div class="vp-faq-r" hidden>{{ f[1] }}</div></div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="vp-barra">
+        <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-barra-1"><i class="bi bi-person-plus"></i>{{ 'trabalho_externo.vagas_publicas.procuro_vaga'|trans }}</a>
+        <a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-barra-2"><i class="bi bi-megaphone"></i>{{ 'trabalho_externo.vagas_publicas.quero_divulgar_vaga'|trans }}</a>
+    </div>
+    <footer class="vp-rodape">{{ 'trabalho_externo.vagas_publicas.rodape'|trans }}</footer>
+</div>
+<script src="{{ asset('js/vagas-publicas.js') }}" defer></script>
+</body>
+</html>

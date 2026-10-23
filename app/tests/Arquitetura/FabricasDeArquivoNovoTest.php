@@ -7,6 +7,7 @@ namespace App\Tests\Arquitetura;
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cobranca\Armazenamento\ChavesDeCobranca;
+use App\Comercial\Armazenamento\ChavesDeComercial;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
@@ -25,6 +26,8 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\NovoArquivo;
 use App\Tarefa\Armazenamento\ChavesDeTarefa;
+use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
+use App\TrabalhoExterno\Entity\DemandaExterna;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -104,6 +107,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             static fn (?Tenant $t): object => self::comTenant(new JustificativaPonto(), $t),
             CategoriaDeArquivo::JUSTIFICATIVA_ANEXO,
         ];
+        yield ChavesDeTrabalhoExterno::class . '::novoDocumento' => [
+            ChavesDeTrabalhoExterno::class . '::novoDocumento',
+            static fn (?Tenant $t): object => new DemandaExterna($t ?? new Tenant(), null),
+            CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO,
+        ];
         yield ChavesDePonto::class . '::novoAnexoDeLote' => [
             ChavesDePonto::class . '::novoAnexoDeLote',
             static fn (?Tenant $t): ?Tenant => $t,
@@ -172,11 +180,33 @@ final class FabricasDeArquivoNovoTest extends TestCase
         self::assertSame('png', $novo->extensao);
     }
 
+    #[TestDox('arquivo novo do currículo: escopo global (D1), categoria própria')]
+    public function testArquivoNovoDoCurriculoEhGlobal(): void
+    {
+        $novo = ChavesDeTrabalhoExterno::novoArquivoDoCurriculo('pdf');
+
+        self::assertSame(CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('pdf', $novo->extensao);
+    }
+
+    #[TestDox('imagem nova da campanha do Comercial: escopo global (D1), categoria própria')]
+    public function testImagemNovaDaCampanhaEhGlobal(): void
+    {
+        $novo = ChavesDeComercial::novaImagem('jpg');
+
+        self::assertSame(CategoriaDeArquivo::COMERCIAL_IMAGEM, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('jpg', $novo->extensao);
+    }
+
     #[TestDox('toda fábrica de arquivo novo tem caso neste teste, e só as documentadas recebem Tenant')]
     public function testInventarioDasFabricas(): void
     {
         $cobertas = array_keys(iterator_to_array(self::fabricas()));
         $cobertas[] = ChavesDePerfil::class . '::novaFoto';
+        $cobertas[] = ChavesDeTrabalhoExterno::class . '::novoArquivoDoCurriculo';
+        $cobertas[] = ChavesDeComercial::class . '::novaImagem';
 
         $encontradas = [];
 

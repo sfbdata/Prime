@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{# Aviso de acesso negado do Trabalho Externo. Substitui o redirect para "/", que levava a um
+   módulo talvez também fechado para a pessoa (e aí à página técnica 403). Sem link para outro
+   módulo: não sabemos qual ela pode abrir. `semEscritorio`: conta sem escritório escolhido. #}
+
+{% block title %}{{ 'trabalho_externo.sem_acesso.titulo_pagina'|trans }}{% endblock %}
+
+{% block body %}
+<div class="te-sem-acesso container py-5" style="max-width: 640px;">
+    <div class="card shadow-sm">
+        <div class="card-body p-4 text-center">
+            <i class="bi bi-shield-lock fs-1 text-secondary" aria-hidden="true"></i>
+            <h1 class="h4 mt-3">{{ 'trabalho_externo.sem_acesso.titulo'|trans }}</h1>
+            <p class="text-muted mb-0">
+                {% if semEscritorio %}
+                    {{ 'trabalho_externo.sem_acesso.sem_escritorio'|trans }}
+                {% else %}
+                    {{ 'trabalho_externo.sem_acesso.sem_permissao'|trans }}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -46,11 +46,13 @@ final class PastaMetaNovaRealceJsTest extends TestCase
         self::assertStringContainsString("params.get('meta')", $bloco);
         self::assertStringContainsString('/^\\d+$/.test(id)', $bloco, 'só id numérico vira seletor');
         self::assertStringContainsString(".ps-meta[data-meta-id=\"' + id + '\"]", $bloco);
-        self::assertStringContainsString('if (linha) { destacarNaLista(linha); }', $bloco);
+        self::assertStringContainsString("if (!linha) { return; }\n        destacarNaLista(linha);", $bloco);
 
-        // destacarNaLista é quem põe o filtro "Abertas" e mostra a aba.
-        $destacar = substr($js, (int) strpos($js, 'function destacarNaLista('), 600);
-        self::assertStringContainsString("aplicarFiltro(cartao, 'abertas')", $destacar);
+        // destacarNaLista é quem põe o filtro e mostra a aba: meta aberta (a recém-criada sempre é)
+        // fica em "Abertas"; a escolha para meta concluída é do PastaMetaRealceVindoDeMinhasMetasJsTest.
+        $destacar = substr($js, (int) strpos($js, 'function destacarNaLista('), 700);
+        self::assertStringContainsString("'abertas') ? 'abertas' : 'concluidas'", $destacar);
+        self::assertStringContainsString('aplicarFiltro(cartao, filtro)', $destacar);
         self::assertStringContainsString("getElementById('tarefas-tab')", $destacar);
     }
 

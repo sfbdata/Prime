@@ -18,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorContratoJsTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS = __DIR__ . '/../../../public/js/pasta-explorador.js';
 
     private function js(): string
@@ -59,7 +61,8 @@ final class PastaExploradorContratoJsTest extends TestCase
             "/h\('a', \{ href: a\.downloadUrl, target: '_blank', rel: 'noopener', hidden: true \}\);/",
             $js
         );
-        self::assertStringContainsString("op('Baixar', 'bi-download', function () { baixar(a); })", $js, 'item do menu de contexto');
+        self::assertStringContainsString("op(BJ_T.t('pasta_scripts.js.explorador.baixar'), 'bi-download', function () { baixar(a); })", $js, 'item do menu de contexto');
+        self::assertTextoDoScript('Baixar', 'explorador.baixar', $js);
         // Barra (L8): um arquivo baixa direto pelo mesmo link; pasta ou vários viram .zip.
         self::assertStringContainsString("case 'baixar':   baixarSelecao(sel); break;", $js);
         self::assertStringContainsString("if (sel.length === 1 && ehArquivo(sel[0])) { baixar(sel[0].dado); return; }", $js);

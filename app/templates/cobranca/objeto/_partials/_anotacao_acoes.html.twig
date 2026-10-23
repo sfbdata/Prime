@@ -15,25 +15,28 @@
    morto engana mais do que botão ausente; e nada de função se perde, porque a rota exige a mesma
    capacidade (`CasoController::excluirAnotacao`).
 
+   Edição sem prazo (spec edicao-sem-prazo, item 6): `e.seloSemPrazo` vem do servidor quando o botão só existe pelo
+   poder (Master, ou primário com a opção): sem o "(até 48h)" na dica e com o selo no hover e no foco.
+
    Contexto esperado: `e` (EventoHistoricoOutput) e `podeGerenciar` (herdados do `show`).
 ─────────────────────────────────────────────────────────────────────────── #}
 {% if e.editavel and podeGerenciar %}
 <span class="ms-auto d-flex gap-1">
-    <button type="button" class="btn btn-link btn-sm p-0 text-secondary js-editar-anotacao"
-            title="Corrigir esta anotação (até 48h)"
+    <button type="button" class="btn btn-link btn-sm p-0 text-secondary js-editar-anotacao{{ e.seloSemPrazo ? ' com-selo-sem-prazo' }}"
+            title="{{ (e.seloSemPrazo ? 'cobranca_objeto.anotacao.editar' : 'cobranca_objeto.anotacao.corrigir_dica')|trans }}"
             data-url="{{ path('cobranca_anotacao_editar', {eventoId: e.id}) }}"
             data-texto="{{ e.descricao|e('html_attr') }}">
-        <i class="bi bi-pencil"></i><span class="visually-hidden">Editar anotação</span>
+        <i class="bi bi-pencil"></i><span class="visually-hidden">{{ 'cobranca_objeto.anotacao.editar'|trans }}</span>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: e.seloSemPrazo} only %}
     </button>
     {# Excluir não dispara mais o `confirm()` do navegador: a confirmação passou a MOSTRAR um trecho da
        anotação, para o usuário saber qual vai embora (SPEC UX §10). O POST, a rota e o CSRF são os
        mesmos — só o passo de confirmação mudou. #}
-    <button type="button" class="btn btn-link btn-sm p-0 text-danger js-excluir-anotacao"
-            title="Excluir esta anotação (até 48h)"
+    <button type="button" class="btn btn-link btn-sm p-0 text-danger js-excluir-anotacao{{ e.seloSemPrazo ? ' com-selo-sem-prazo' }}"
+            title="{{ (e.seloSemPrazo ? 'cobranca_objeto.anotacao.excluir' : 'cobranca_objeto.anotacao.excluir_dica')|trans }}"
             data-url="{{ path('cobranca_anotacao_excluir', {eventoId: e.id}) }}"
             data-token="{{ csrf_token('excluir_anotacao_' ~ e.id) }}"
             data-trecho="{{ e.descricao|striptags|slice(0, 140)|e('html_attr') }}">
-        <i class="bi bi-trash"></i><span class="visually-hidden">Excluir anotação</span>
+        <i class="bi bi-trash"></i><span class="visually-hidden">{{ 'cobranca_objeto.anotacao.excluir'|trans }}</span>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: e.seloSemPrazo} only %}
     </button>
 </span>
 {% endif %}

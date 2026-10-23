@@ -9,7 +9,7 @@
 <div class="cobranca-central-detalhe-corpo">
     <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
         <span class="fw-semibold">{{ detalhe.nome }}</span>
-        <span class="text-muted small">· contatos do período</span>
+        <span class="text-muted small">· {{ 'cobranca_pessoa.detalhe.contatos_do_periodo'|trans }}</span>
     </div>
 
     {#
@@ -21,11 +21,11 @@
     {% for desfecho in detalhe.desfechos %}{% set totalDeContatos = totalDeContatos + desfecho.quantidade %}{% endfor %}
 
     {% if totalDeContatos == 0 %}
-        <p class="text-muted small mb-3">Nenhum contato registrado no período.</p>
+        <p class="text-muted small mb-3">{{ 'cobranca_pessoa.detalhe.sem_contato'|trans }}</p>
     {% else %}
         <div class="cobranca-central-grupo-pastilhas mb-3">
             <div class="cobranca-central-pastilhas-linha">
-                <span class="cobranca-central-pastilhas-titulo">Desfecho</span>
+                <span class="cobranca-central-pastilhas-titulo">{{ 'cobranca_pessoa.detalhe.desfecho'|trans }}</span>
                 <span class="cobranca-pastilhas">
                     {% for desfecho in detalhe.desfechos %}
                     <span class="cobranca-pastilha {{ desfecho.quantidade == 0 ? 'is-zerada' : '' }}">
@@ -36,7 +36,7 @@
             </div>
 
             <div class="cobranca-central-pastilhas-linha">
-                <span class="cobranca-central-pastilhas-titulo">Canal</span>
+                <span class="cobranca-central-pastilhas-titulo">{{ 'cobranca_pessoa.detalhe.canal'|trans }}</span>
                 <span class="cobranca-pastilhas">
                     {% for canal in detalhe.canais %}
                     <span class="cobranca-pastilha {{ canal.quantidade == 0 ? 'is-zerada' : '' }}">
@@ -49,12 +49,11 @@
     {% endif %}
 
     {% if detalhe.eventos is empty %}
-        <p class="text-muted small mb-0">Nenhum trabalho de cobrança registrado por esta pessoa no período.</p>
+        <p class="text-muted small mb-0">{{ 'cobranca_pessoa.detalhe.sem_trabalho'|trans }}</p>
     {% else %}
         {% if detalhe.truncado %}
         <p class="text-muted small mb-2">
-            <i class="bi bi-exclamation-triangle me-1"></i>Mostrando os {{ detalhe.limite }} eventos mais
-            recentes do período — há mais além destes.
+            <i class="bi bi-exclamation-triangle me-1"></i>{{ 'cobranca_pessoa.detalhe.truncado'|trans({limite: detalhe.limite ~ ''}) }}
         </p>
         {% endif %}
 
@@ -66,17 +65,15 @@
         <div class="cobranca-central-cadastro mt-3">
             {% if detalhe.cadastroExpandido %}
                 <p class="text-muted small mb-2">
-                    <i class="bi bi-box-seam me-1"></i>{{ detalhe.totalCadastro }}
-                    {{ detalhe.totalCadastro == 1 ? 'lançamento' : 'lançamentos' }} de cadastro/importação —
-                    não contam como trabalho de cobrança.
-                    {% if detalhe.truncadoCadastro %}Mostrando os {{ detalhe.limite }} mais recentes.{% endif %}
+                    <i class="bi bi-box-seam me-1"></i>{{ (detalhe.totalCadastro == 1 ? 'cobranca_pessoa.detalhe.lancamentos_um' : 'cobranca_pessoa.detalhe.lancamentos_varios')|trans({total: detalhe.totalCadastro ~ ''}) }}
+                    {{ 'cobranca_pessoa.detalhe.nao_contam'|trans }}
+                    {% if detalhe.truncadoCadastro %}{{ 'cobranca_pessoa.detalhe.truncado_cadastro'|trans({limite: detalhe.limite ~ ''}) }}{% endif %}
                 </p>
                 {{ include('cobranca/central/_lista_eventos.html.twig', { eventos: detalhe.eventosCadastro }) }}
             {% else %}
                 <button type="button" class="btn btn-sm btn-link p-0 js-expandir-cadastro"
                         data-url="{{ urlExpandirCadastro }}">
-                    <i class="bi bi-plus-square me-1"></i>{{ detalhe.totalCadastro }}
-                    {{ detalhe.totalCadastro == 1 ? 'lançamento' : 'lançamentos' }} de cadastro/importação
+                    <i class="bi bi-plus-square me-1"></i>{{ (detalhe.totalCadastro == 1 ? 'cobranca_pessoa.detalhe.lancamentos_um' : 'cobranca_pessoa.detalhe.lancamentos_varios')|trans({total: detalhe.totalCadastro ~ ''}) }}
                 </button>
             {% endif %}
         </div>

@@ -1,0 +1,17 @@
+{# Filtro de situação na barra do acervo, à direita de "Nova Pasta", como o desenho (dc L.83-95, AUD-08): ponto
+   que pulsa, "Todas" quando não filtra, a cor da situação quando filtra. Continua um <select> do formulário de
+   filtros (`form="formFiltrosPasta"`): o FormData, os chips e o "Limpar tudo" o enxergam onde ele estiver. Só as
+   duas situações que existem (Suspenso e Cancelado não existem no sistema, LX-TAB-18). #}
+{% set filters = filters ?? {} %}
+<span class="exp-situacao" data-valor="{{ filters.status ?? '' }}" role="button" tabindex="0" aria-haspopup="dialog" data-tip="{{ 'pasta_lista.filtro_situacao.dica'|trans }}">
+    <span class="exp-situacao-ponto" aria-hidden="true"></span>
+    <select name="status" form="formFiltrosPasta" class="js-pasta-filtro exp-situacao-select"
+            data-rotulo="{{ 'pasta_lista.filtro_situacao.rotulo'|trans }}" aria-label="{{ 'pasta_lista.filtro_situacao.dica'|trans }}" tabindex="-1">
+        <option value="">{{ 'pasta_lista.filtro_situacao.todas'|trans }}</option>
+        <option value="ativo" {% if filters.status == 'ativo' %}selected{% endif %}>{{ 'pasta_lista.ativo'|trans }}</option>
+        <option value="suspenso" {% if filters.status == 'suspenso' %}selected{% endif %}>{{ 'pasta_lista.filtro_situacao.suspenso'|trans }}</option>
+        <option value="cancelado" {% if filters.status == 'cancelado' %}selected{% endif %}>{{ 'pasta_lista.filtro_situacao.cancelado'|trans }}</option>
+        <option value="arquivado" {% if filters.status == 'arquivado' %}selected{% endif %}>{{ 'pasta_lista.arquivado'|trans }}</option>
+    </select>
+    <i class="bi bi-chevron-down exp-situacao-seta" aria-hidden="true"></i>
+</span>

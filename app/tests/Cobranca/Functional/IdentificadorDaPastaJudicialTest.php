@@ -144,7 +144,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         );
         self::assertSame(
             'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
-            trim($crawler->filter('.pasta-card-cliente')->first()->text()),
+            trim($crawler->filter('.exp-cartao-cli')->first()->text()),
             'o cartão mostra o mesmo',
         );
     }

@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * O menu do botão direito no cartão do Push (FPN-014, bloco 6 de `public/js/pasta-push.js`) lido
@@ -125,7 +126,8 @@ final class PastaPushMenuContextoJsTest extends TestCase
         $busca = substr($js, (int) strpos($js, 'function buscarTextoDaPublicacao('), 1200);
         self::assertStringContainsString("method: 'GET'", $busca);
         self::assertStringContainsString('res.dados.texto', $busca);
-        self::assertStringContainsString("'Esta publicação não trouxe teor textual.'", $busca);
+        self::assertStringContainsString("BJ_T.t('pasta_push.js.sem_teor')", $busca);
+        self::assertSame('Esta publicação não trouxe teor textual.', self::textoDoJs('sem_teor'));
         $copia = substr($js, (int) strpos($js, 'function copiarTextoDaPublicacao('), 1400);
         self::assertStringContainsString('buscarTextoDaPublicacao(url)', $copia);
         self::assertStringContainsString('new window.ClipboardItem(', $copia, 'a promessa entra na escrita ainda no gesto (Safari)');
@@ -156,6 +158,14 @@ final class PastaPushMenuContextoJsTest extends TestCase
         // O outro lado: o nota-tecnica.js mostra o bloco ao abrir o compositor e avisa as mudanças.
         $notas = (string) file_get_contents(__DIR__ . '/../../../public/js/nota-tecnica.js');
         self::assertStringContainsString("new CustomEvent('ps:notas-mudou', { bubbles: true })", $notas);
+    }
+
+    /** Texto do JS no catálogo (`pasta_push.js`, spec idioma-do-sistema, "A Pasta, aba Push"). */
+    private static function textoDoJs(string $chave): string
+    {
+        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+
+        return $catalogo['pasta_push']['js'][$chave];
     }
 
     /** O trecho do ramo `contains('<classe>')` até o primeiro `if (opcao.classList` seguinte. */
@@ -192,7 +202,8 @@ final class PastaPushMenuContextoJsTest extends TestCase
 
         // Rótulo do menu pela classe "nova" da linha.
         $bloco = $this->blocoDoMenu();
-        self::assertStringContainsString("nova ? 'Marcar como lida' : 'Marcar como não lida'", $bloco);
+        self::assertStringContainsString("nova ? BJ_T.t('pasta_push.js.marcar_lida') : BJ_T.t('pasta_push.js.marcar_nao_lida')", $bloco);
+        self::assertSame(['Marcar como lida', 'Marcar como não lida'], [self::textoDoJs('marcar_lida'), self::textoDoJs('marcar_nao_lida')]);
         self::assertStringContainsString('prepararItensDoMenu(item, cab);', $bloco);
     }
 
@@ -246,5 +257,16 @@ final class PastaPushMenuContextoJsTest extends TestCase
         self::assertStringContainsString("window.addEventListener('scroll'", $bloco);
         self::assertStringContainsString("window.addEventListener('resize'", $bloco);
         self::assertStringContainsString("'ps:fechar-popovers'", $bloco);
+    }
+
+    #[TestDox('FPN-016: "Encaminhar via Chat I.A" dispara bj-central:despachar com a pasta do item, tipo push e o id do cartão clicado')]
+    public function testEncaminharDisparaOEventoDaCentral(): void
+    {
+        $bloco = $this->blocoDoMenu();
+
+        self::assertStringContainsString("opcao.classList.contains('js-push-menu-encaminhar')", $bloco);
+        self::assertStringContainsString("Number(opcao.getAttribute('data-encaminhar-pasta'))", $bloco);
+        self::assertStringContainsString("Number(de.item.getAttribute('data-push-id'))", $bloco);
+        self::assertMatchesRegularExpression("/new CustomEvent\\('bj-central:despachar', \\{\\s*detail: \\{ pastaId: pastaDoEnvio, tipo: 'push', itemId: publicacaoId \\}/", $bloco);
     }
 }

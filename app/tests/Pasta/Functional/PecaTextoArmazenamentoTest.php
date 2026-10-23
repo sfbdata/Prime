@@ -432,7 +432,9 @@ final class PecaTextoArmazenamentoTest extends JusPrimeWebTestCase
     {
         $container = static::getContainer();
 
-        return (string) $container->getParameter('kernel.logs_dir') . '/' . $container->getParameter('kernel.environment') . '.log';
+        // O sufixo é o do processo do ParaTest (vazio na execução serial), o mesmo do monolog.yaml.
+        return (string) $container->getParameter('kernel.logs_dir') . '/' . $container->getParameter('kernel.environment')
+            . (string) getenv('TESTE_PROCESSO') . '.log';
     }
 
     private function comDiretorioIlegivel(callable $requisicao): void

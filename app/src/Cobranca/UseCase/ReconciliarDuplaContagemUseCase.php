@@ -275,7 +275,7 @@ final class ReconciliarDuplaContagemUseCase
                 $usuario,
                 sprintf(
                     'Dupla contagem de encargo corrigida em %d obrigação(ões): saldo devido reduzido '
-                    . 'em R$ %s (juros, multa, correção e honorário — todos entram no saldo).',
+                    . 'em R$ %s (juros, multa, correção e honorário, todos entram no saldo).',
                     count($linhas),
                     number_format($reduzido / 100, 2, ',', '.'),
                 ),

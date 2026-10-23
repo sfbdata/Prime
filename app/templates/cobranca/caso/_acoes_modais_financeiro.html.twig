@@ -8,8 +8,8 @@
         <div class="modal-content">
             {{ form_start(forms.registrarPagamento, {action: path('cobranca_pagamento_registrar', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloRegistrarPagamento"><i class="bi bi-cash-coin me-1"></i>Registrar pagamento</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloRegistrarPagamento"><i class="bi bi-cash-coin me-1"></i>{{ 'cobranca_objeto.financeiro.registrar_pagamento'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body" data-pagamento-modal
                  data-previa-url="{{ path('cobranca_pagamento_previa', {id: caso.id}) }}">
@@ -20,24 +20,24 @@
                 {{ form_row(forms.registrarPagamento.alocarManualmente) }}
                 <div class="alocacao-manual d-none" data-alocacao-manual>
                     <hr>
-                    <label class="form-label">Alocações do pagamento</label>
+                    <label class="form-label">{{ 'cobranca_objeto.financeiro.alocacoes'|trans }}</label>
                     <div id="alocacoesPagamentoContainer"
                          data-prototype="{{ form_widget(forms.registrarPagamento.alocacoes.vars.prototype)|e('html_attr') }}"
                          data-index="{{ forms.registrarPagamento.alocacoes|length }}">
                         {% for alocacao in forms.registrarPagamento.alocacoes %}
                         <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
-                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">{{ 'cobranca_objeto.financeiro.remover'|trans }}</button>
                         </div>
                         {% endfor %}
                     </div>
                     {{ form_errors(forms.registrarPagamento.alocacoes) }}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoPagamento"><i class="bi bi-plus-lg me-1"></i>Adicionar alocação</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoPagamento"><i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.financeiro.adicionar_alocacao'|trans }}</button>
                 </div>
-                <div class="form-text">O sistema distribui o pagamento automaticamente pela dívida mais antiga (FIFO); os honorários são calculados à parte. Marque <strong>Alocar manualmente</strong> para distribuir você mesmo.</div>
+                <div class="form-text">{{ 'cobranca_objeto.financeiro.registrar_ajuda.inicio'|trans }} <strong>{{ 'cobranca_objeto.financeiro.alocar_manualmente'|trans }}</strong> {{ 'cobranca_objeto.financeiro.alocar_manualmente_fim'|trans }}</div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar pagamento</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.financeiro.registrar_pagamento'|trans }}</button>
             </div>
             {{ form_end(forms.registrarPagamento) }}
         </div>
@@ -50,15 +50,15 @@
         <div class="modal-content">
             {{ form_start(forms.corrigirPagamento, {attr: {id: 'formCorrigirPagamento'}}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloCorrigirPagamento"><i class="bi bi-pencil-square me-1"></i>Corrigir pagamento</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloCorrigirPagamento"><i class="bi bi-pencil-square me-1"></i>{{ 'cobranca_objeto.financeiro.corrigir_pagamento'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body" data-pagamento-modal>
                 <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-exclamation-triangle-fill"></i>
-                    <div>A correção <strong>reescreve</strong> a composição do pagamento (sem estorno) e fica registrada na auditoria.</div>
+                    <div>{{ 'cobranca_objeto.financeiro.corrigir_aviso.inicio'|trans }} <strong>{{ 'cobranca_objeto.financeiro.corrigir_aviso.reescreve'|trans }}</strong> {{ 'cobranca_objeto.financeiro.corrigir_aviso.fim'|trans }}</div>
                 </div>
-                <p class="text-muted small mb-3" data-pagamento-contexto>Pagamento selecionado.</p>
+                <p class="text-muted small mb-3" data-pagamento-contexto>{{ 'cobranca_objeto.financeiro.pagamento_selecionado'|trans }}</p>
                 {{ form_row(forms.corrigirPagamento.data) }}
                 {{ form_row(forms.corrigirPagamento.valorPago) }}
                 {# Prévia ao vivo (Ajuste 6): a URL depende do pagamento, injetada por JS ao abrir. #}
@@ -66,25 +66,25 @@
                 {{ form_row(forms.corrigirPagamento.alocarManualmente) }}
                 <div class="alocacao-manual d-none" data-alocacao-manual>
                     <hr>
-                    <label class="form-label">Alocações do pagamento</label>
+                    <label class="form-label">{{ 'cobranca_objeto.financeiro.alocacoes'|trans }}</label>
                     <div id="alocacoesCorrigirContainer"
                          data-prototype="{{ form_widget(forms.corrigirPagamento.alocacoes.vars.prototype)|e('html_attr') }}"
                          data-index="{{ forms.corrigirPagamento.alocacoes|length }}">
                         {% for alocacao in forms.corrigirPagamento.alocacoes %}
                         <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
-                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">{{ 'cobranca_objeto.financeiro.remover'|trans }}</button>
                         </div>
                         {% endfor %}
                     </div>
                     {{ form_errors(forms.corrigirPagamento.alocacoes) }}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoCorrigir"><i class="bi bi-plus-lg me-1"></i>Adicionar alocação</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoCorrigir"><i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.financeiro.adicionar_alocacao'|trans }}</button>
                 </div>
-                <div class="form-text">Por padrão a nova composição é distribuída automaticamente (FIFO). Marque <strong>Alocar manualmente</strong> para distribuir você mesmo.</div>
+                <div class="form-text">{{ 'cobranca_objeto.financeiro.corrigir_ajuda.inicio'|trans }} <strong>{{ 'cobranca_objeto.financeiro.alocar_manualmente'|trans }}</strong> {{ 'cobranca_objeto.financeiro.alocar_manualmente_fim'|trans }}</div>
                 {{ form_row(forms.corrigirPagamento.motivoCorrecao) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Corrigir pagamento</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.financeiro.corrigir_pagamento'|trans }}</button>
             </div>
             {{ form_end(forms.corrigirPagamento) }}
         </div>
@@ -98,21 +98,21 @@
             <form method="post" id="formExcluirPagamento">
                 <input type="hidden" name="_token" value="">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="tituloExcluirPagamento"><i class="bi bi-trash me-1"></i>Excluir recebimento</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <h5 class="modal-title" id="tituloExcluirPagamento"><i class="bi bi-trash me-1"></i>{{ 'cobranca_objeto.financeiro.excluir_recebimento'|trans }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-3">Excluir definitivamente o recebimento de <strong data-pagamento-total-excluir></strong> de <strong data-pagamento-data-excluir></strong>?</p>
+                    <p class="mb-3">{{ 'cobranca_objeto.financeiro.excluir_pergunta.inicio'|trans }} <strong data-pagamento-total-excluir></strong> {{ 'cobranca_objeto.financeiro.excluir_pergunta.meio'|trans }} <strong data-pagamento-data-excluir></strong>{{ 'cobranca_objeto.financeiro.excluir_pergunta.fim'|trans }}</p>
                     <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
                         <i class="bi bi-exclamation-triangle-fill"></i>
-                        <div>O valor <strong>volta ao saldo devedor</strong> e a obrigação que ele quitou volta a ser cobrada, com os juros correndo de novo. A exclusão fica registrada no histórico.</div>
+                        <div>{{ 'cobranca_objeto.financeiro.excluir_aviso.inicio'|trans }} <strong>{{ 'cobranca_objeto.financeiro.excluir_aviso.volta'|trans }}</strong> {{ 'cobranca_objeto.financeiro.excluir_aviso.fim'|trans }}</div>
                     </div>
-                    <label class="form-label" for="motivoExcluirPagamento">Motivo <span class="text-muted fw-normal">(opcional)</span></label>
-                    <input type="text" name="motivo" id="motivoExcluirPagamento" class="form-control" maxlength="255" placeholder="Ex.: recebimento lançado em duplicidade">
+                    <label class="form-label" for="motivoExcluirPagamento">{{ 'cobranca_objeto.financeiro.motivo'|trans }} <span class="text-muted fw-normal">{{ 'cobranca_objeto.financeiro.opcional'|trans }}</span></label>
+                    <input type="text" name="motivo" id="motivoExcluirPagamento" class="form-control" maxlength="255" placeholder="{{ 'cobranca_objeto.financeiro.motivo_placeholder'|trans }}">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Excluir recebimento</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>{{ 'cobranca_objeto.financeiro.excluir_recebimento'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -125,21 +125,21 @@
         <div class="modal-content">
             {{ form_start(forms.registrarLiquidacao, {action: path('cobranca_liquidacao_registrar', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloRegistrarLiquidacao"><i class="bi bi-box-seam me-1"></i>Registrar liquidação</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloRegistrarLiquidacao"><i class="bi bi-box-seam me-1"></i>{{ 'cobranca_objeto.financeiro.registrar_liquidacao'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_objeto.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 {{ form_row(forms.registrarLiquidacao.tipo) }}
                 {{ form_row(forms.registrarLiquidacao.descricaoBem) }}
                 {{ form_row(forms.registrarLiquidacao.valorAtribuidoBem) }}
-                <div class="form-text mb-2">O valor do bem é opcional e pode diferir do reconhecido.</div>
+                <div class="form-text mb-2">{{ 'cobranca_objeto.financeiro.valor_bem_ajuda'|trans }}</div>
                 {{ form_row(forms.registrarLiquidacao.valorReconhecido) }}
-                <div class="form-text mb-2">O valor reconhecido é o que reduz o saldo exigível da dívida.</div>
+                <div class="form-text mb-2">{{ 'cobranca_objeto.financeiro.valor_reconhecido_ajuda'|trans }}</div>
                 {{ form_row(forms.registrarLiquidacao.data) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar liquidação</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.financeiro.registrar_liquidacao'|trans }}</button>
             </div>
             {{ form_end(forms.registrarLiquidacao) }}
         </div>

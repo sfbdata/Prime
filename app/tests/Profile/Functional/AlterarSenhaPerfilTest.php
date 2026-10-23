@@ -42,6 +42,26 @@ final class AlterarSenhaPerfilTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(405);
     }
 
+    #[TestDox('Modal no padrão do desenho 07: cabeçalho azul com ícone, os três rótulos, o placeholder e Cancelar/Salvar')]
+    public function testModalNoPadraoDoDesenho(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioComTenant();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $modal = $client->request('GET', '/perfil')->filter('#modalSenha.mp-modal');
+
+        self::assertCount(1, $modal);
+        self::assertSame('Alterar senha', trim($modal->filter('.modal-content > .mp-modal-topo > b')->text()));
+        self::assertCount(1, $modal->filter('.modal-content > .mp-modal-topo > i.bi-key'));
+        self::assertSame(
+            ['SENHA ATUAL', 'NOVA SENHA', 'CONFIRMAR NOVA SENHA'],
+            $modal->filter('#formSenha > .mp-campos > label.mp-campo > span')->each(static fn ($s): string => trim($s->text())),
+        );
+        self::assertSame('Mínimo 8 caracteres', $modal->filter('input[name="alterar_senha[senha][first]"]')->attr('placeholder'));
+        self::assertSame(['Cancelar', 'Salvar'], $modal->filter('#formSenha > .mp-modal-rodape > button')->each(static fn ($b): string => trim($b->text())));
+    }
+
     #[TestDox('Com a senha atual correta, a senha é trocada e o usuário CONTINUA logado')]
     public function testTrocaComSucesso(): void
     {

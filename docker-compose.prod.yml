@@ -53,11 +53,53 @@ services:
     entrypoint: []
     # --time-limit + --memory-limit fazem o consumidor sair periodicamente; o restart o traz de volta
     # com memória fresca (padrão recomendado para workers de longa duração).
-    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    # `scheduler_cadeias` (App\Shared\Scheduler\AgendaDasCadeias) gera as varreduras do push, do Google Agenda,
+    # das automações e do expansor de campanhas, que vão para `comercial` e `async`. Fica AQUI, não no serviço
+    # `scheduler`: o worker sobe em todo deploy, e o agendador pode ficar desligado pela trava do crontab. Vem
+    # primeiro porque é leve (só põe uma mensagem na fila, no máximo uma por minuto) e uma fila longa de e-mails
+    # não pode atrasar o relógio das varreduras.
+    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "scheduler_cadeias", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
     volumes:
       # MESMO volume de uploads do php/nginx: o worker precisa LER o arquivo recém-anexado para
       # enviá-lo ao Drive (Via A) e GRAVAR os que baixar (Via B) no armazenamento compartilhado.
       # Sem isto, o caminho aponta para o filesystem efêmero da imagem → doc não sobe / arquivo quebrado.
+      - uploads_prod:/var/www/app/public/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      php:
+        condition: service_healthy
+    networks:
+      - saas_net
+
+  # Agendador de tarefas (Symfony Scheduler; docs/specs/scheduler-tarefas-agendadas.md): roda as tarefas que
+  # antes estavam no crontab do host (purga, DJEN, resumos, relatórios, foto do Dashboard, envio ao Drive...),
+  # nos horários de App\Shared\Scheduler\AgendaDeTarefas, em Brasília. Espelha o worker: mesma imagem, env e
+  # volume, entrypoint BYPASSADO (quem roda as migrations é o php, por isso o depends_on dele saudável).
+  # Consumidor próprio, separado do worker: uma tarefa longa não atrasa a fila do Drive nem a dos e-mails.
+  # Log no stderr: `docker logs jusprime_scheduler_prod`. Certbot e backups continuam no crontab do host.
+  scheduler:
+    build:
+      context: .
+      target: prod
+      secrets:
+        - composer_auth
+    container_name: jusprime_scheduler_prod
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      APP_ENV: prod
+      APP_DEBUG: 0
+    working_dir: /var/www/app
+    entrypoint: []
+    # -d memory_limit=256M como no worker: o padrão da imagem (128M) cairia antes do --memory-limit=192M.
+    # --time-limit faz o consumidor sair de hora em hora e o restart o traz de volta; o estado (tabela
+    # cache_agendador) faz a tarefa que passou da hora durante a parada rodar ao voltar.
+    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "scheduler_default", "--time-limit=3600", "--memory-limit=192M", "-vv"]
+    volumes:
+      # Os comandos agendados leem e gravam arquivos no mesmo armazenamento do php e do worker (envio ao Drive).
       - uploads_prod:/var/www/app/public/uploads
     depends_on:
       db:

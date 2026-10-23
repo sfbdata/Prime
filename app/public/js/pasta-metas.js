@@ -134,19 +134,20 @@
 
     /* "segunda-feira, 12 de outubro, em 7 dias. Cai em fim de semana." */
     function textoDoPrazo(valor) {
-        if (!valor) { return 'Escolha a data limite.'; }
+        if (!valor) { return BJ_T.t('pasta_scripts.js.metas.prazo_escolha'); }
         var partes = valor.split('-');
-        if (partes.length !== 3) { return 'Escolha a data limite.'; }
+        if (partes.length !== 3) { return BJ_T.t('pasta_scripts.js.metas.prazo_escolha'); }
         var pz = new Date(+partes[0], +partes[1] - 1, +partes[2]);
-        if (isNaN(pz.getTime())) { return 'Escolha a data limite.'; }
+        if (isNaN(pz.getTime())) { return BJ_T.t('pasta_scripts.js.metas.prazo_escolha'); }
 
         var dias = Math.round((pz - hoje()) / 864e5);
-        var texto = pz.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
-        if (dias === 0) { texto += ', hoje'; }
-        else if (dias === 1) { texto += ', amanhã'; }
-        else if (dias > 1) { texto += ', em ' + dias + ' dias'; }
-        else { texto += ', data já passou'; }
-        if (pz.getDay() % 6 === 0) { texto += '. Cai em fim de semana.'; }
+        var data = pz.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+        var texto;
+        if (dias === 0) { texto = BJ_T.t('pasta_scripts.js.metas.prazo_hoje', { data: data }); }
+        else if (dias === 1) { texto = BJ_T.t('pasta_scripts.js.metas.prazo_amanha', { data: data }); }
+        else if (dias > 1) { texto = BJ_T.t('pasta_scripts.js.metas.prazo_em_dias', { data: data, dias: dias }); }
+        else { texto = BJ_T.t('pasta_scripts.js.metas.prazo_passou', { data: data }); }
+        if (pz.getDay() % 6 === 0) { texto = BJ_T.t('pasta_scripts.js.metas.prazo_fim_de_semana', { texto: texto }); }
 
         return texto;
     }
@@ -215,8 +216,11 @@
     }
 
     function destacarNaLista(linha) {
+        // A linha aparece no filtro dela: "Abertas", ou "Concluídas" se a meta já foi concluída
+        // (o realce vindo do ⋮ de Minhas Metas pode apontar uma concluída).
         var cartao = document.querySelector('[data-ps-metas]');
-        if (cartao) { aplicarFiltro(cartao, 'abertas'); }
+        var filtro = passaNoFiltro(linha.getAttribute('data-meta-estado'), 'abertas') ? 'abertas' : 'concluidas';
+        if (cartao) { aplicarFiltro(cartao, filtro); }
 
         var aba = document.getElementById('tarefas-tab');
         if (aba && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(aba).show(); }
@@ -243,9 +247,9 @@
                 return;
             }
             var prazo = atual.getAttribute('data-meta-prazo');
-            texto.textContent = 'Já existe a meta aberta "' + atual.getAttribute('data-meta-titulo') + '"'
-                + (prazo ? ' (prazo ' + prazo + ')' : '')
-                + '. Atualize a existente em vez de criar outra.';
+            texto.textContent = prazo
+                ? BJ_T.t('pasta_scripts.js.metas.titulo_repetido_com_prazo', { titulo: atual.getAttribute('data-meta-titulo'), prazo: prazo })
+                : BJ_T.t('pasta_scripts.js.metas.titulo_repetido', { titulo: atual.getAttribute('data-meta-titulo') });
             aviso.hidden = false;
         }
 
@@ -433,7 +437,7 @@
                     if (corpo) { corpo.scrollTop = 0; }
                 }
             });
-            pos.textContent = (i + 1) + ' de ' + ordem.length;
+            pos.textContent = BJ_T.t('pasta_scripts.js.metas.posicao', { atual: i + 1, total: ordem.length });
             anterior.disabled = i <= 0;
             proxima.disabled = i >= ordem.length - 1;
         }
@@ -569,7 +573,7 @@
             avisoBotao = document.createElement('button');
             avisoBotao.type = 'button';
             avisoBotao.className = 'ps-metas-aviso-desfazer';
-            avisoBotao.textContent = 'Desfazer';
+            avisoBotao.textContent = BJ_T.t('pasta_scripts.js.metas.desfazer');
             avisoBotao.addEventListener('click', function () {
                 var acao = avisoDesfazer;
                 esconderAviso();
@@ -727,7 +731,7 @@
                 // guarda (403/404) e o CSRF não: caem no texto genérico.
                 if (!res.ok || !d || d.sucesso !== true) {
                     liberar(form);
-                    avisar((d && d.mensagem) || 'Não foi possível alterar a meta. Recarregue a página e tente de novo.');
+                    avisar((d && d.mensagem) || BJ_T.t('pasta_scripts.js.metas.erro_alterar'));
                     return;
                 }
                 // SEC-015: quem não pode VER a pasta recebe só o resultado da própria meta, sem a
@@ -742,14 +746,14 @@
                 }
                 if (!doDrawer && id) { devolverFoco(cartao, id); }
                 if (ehDesfazer) {
-                    avisar('Desfeito');
+                    avisar(BJ_T.t('pasta_scripts.js.metas.desfeito'));
                     return;
                 }
                 avisar(d.mensagem, d.mudou && id ? function () { desfazer(cartao, id); } : null);
             })
             .catch(function () {
                 liberar(form);
-                avisar('Erro de comunicação. Recarregue a página para conferir a meta.');
+                avisar(BJ_T.t('pasta_scripts.js.metas.erro_comunicacao'));
             });
     }
 
@@ -757,7 +761,7 @@
         var linha = cartao.querySelector('.ps-metas-lista > .ps-meta[data-meta-id="' + id + '"]');
         var oposto = linha ? linha.querySelector('.ps-meta-acoes form.ps-meta-concluir, .ps-meta-acoes form.ps-meta-reabrir') : null;
         if (!oposto) {
-            avisar('Não foi possível desfazer. Recarregue a página.');
+            avisar(BJ_T.t('pasta_scripts.js.metas.erro_desfazer'));
             return;
         }
         enviarAlternancia(cartao, oposto, true);
@@ -844,15 +848,26 @@
         var params = new URLSearchParams(window.location.search);
         var id = params.get('meta');
         if (!id || !/^\d+$/.test(id)) { return; }
+        var renomear = params.get('acao') === 'renomear';
 
         params.delete('meta');
+        params.delete('acao');
         if (window.history && window.history.replaceState) {
             var busca = params.toString();
             window.history.replaceState(null, '', window.location.pathname + (busca ? '?' + busca : '') + window.location.hash);
         }
 
         var linha = document.querySelector('[data-ps-metas] .ps-metas-lista > .ps-meta[data-meta-id="' + id + '"]');
-        if (linha) { destacarNaLista(linha); }
+        if (!linha) { return; }
+        destacarNaLista(linha);
+
+        // "Editar nome" pedido pelo ⋮ de Minhas Metas (E5c): aciona o MESMO item do ⋮ desta linha,
+        // que só existe quando a meta é editável. Os ouvintes dele (renomearNaLista) ligam depois
+        // deste realce no iniciar() — o clique espera a vez.
+        var editar = renomear ? linha.querySelector('[data-ps-meta-renomear="' + id + '"]') : null;
+        if (editar) {
+            window.setTimeout(function () { editar.click(); }, 0);
+        }
     }
 
     /* ── 8. Moldura do modal "Nova meta" (PMC-038) ────────────────────────── */
@@ -864,12 +879,13 @@
        campos por `value` (sem evento), então a conta refaz ao abrir o modal.
        Recolher (botão ou duplo clique na faixa) esconde corpo e rodapé; a faixa
        arrasta a janela, sempre com 48px dela à vista. Fechar desfaz os dois. */
-    var FALTA_NENHUMA = 'Criar meta e notificar os responsáveis';
+    // Função, não constante: este script roda no parse, antes do bj-traducao.js (fim do base).
+    function faltaNenhuma() { return BJ_T.t('pasta_scripts.js.metas.criar_e_notificar'); }
 
     function faltaNaMeta(titulo, descricao) {
         var falta = [];
-        if (!titulo || titulo.value.trim() === '') { falta.push('título'); }
-        if (!descricao || descricao.value.trim() === '') { falta.push('descrição'); }
+        if (!titulo || titulo.value.trim() === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_titulo')); }
+        if (!descricao || descricao.value.trim() === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_descricao')); }
         return falta;
     }
 
@@ -886,7 +902,7 @@
         function conferir() {
             var falta = faltaNaMeta(titulo, descricao);
             botao.disabled = falta.length > 0;
-            botao.title = falta.length > 0 ? 'Preencha: ' + falta.join(', ') : FALTA_NENHUMA;
+            botao.title = falta.length > 0 ? BJ_T.t('pasta_scripts.js.metas.preencha', { campos: falta.join(', ') }) : faltaNenhuma();
         }
 
         [titulo, descricao].forEach(function (el) {
@@ -910,7 +926,7 @@
             var rec = !janela.classList.contains('is-recolhido');
             janela.classList.toggle('is-recolhido', rec);
             if (!recolher) { return; }
-            var dica = rec ? 'Expandir' : 'Recolher (continue vendo a lista)';
+            var dica = rec ? BJ_T.t('pasta_scripts.js.metas.expandir') : BJ_T.t('pasta_scripts.js.metas.recolher');
             recolher.setAttribute('aria-label', dica);
             recolher.title = dica;
             var icone = recolher.querySelector('i');
@@ -965,4 +981,32 @@
             }
         });
     }
+
+    /* "Responsáveis nas metas" (dc L.1686, L.6706): o clique abre a conversa 1:1 no Chat I.A pela API da janela
+       (`BJCentral.conversar`, spec encaminhar-via-chat-ia §4.1). Pelo evento, para não depender da ordem de carga. */
+    document.addEventListener('click', function (e) {
+        var pessoa = e.target.closest('.js-metas-conversar');
+        if (!pessoa) { return; }
+        var id = Number(pessoa.getAttribute('data-user-id'));
+        if (!id) { return; }
+        document.dispatchEvent(new CustomEvent('bj-central:conversar', { detail: { userId: id } }));
+    });
+
+    /* "Encaminhar via Chat I.A" no ⋮ da meta (D:3737): o item leva `data-encaminhar-pasta`, `-tipo` (meta) e `-id`,
+       renderizados pelo Twig, e o clique dispara `bj-central:despachar` com `{pastaId, tipo, itemId}` (spec
+       encaminhar-via-chat-ia §4.1). Pelo evento, para não depender da ordem de carga do lançador. Só ids saem da
+       tela: título e resumo vêm do servidor. Classe própria (não `.js-encaminhar`), para o ouvinte dos registros não
+       disparar o mesmo despacho de novo. O menu fecha pelo clique no `.ps-pop-item` (pasta-show.js e
+       popoversDasLinhasNovas). */
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('.js-meta-encaminhar');
+        if (!item) { return; }
+        var pastaId = Number(item.getAttribute('data-encaminhar-pasta'));
+        var itemId = Number(item.getAttribute('data-encaminhar-id'));
+        if (!pastaId || !itemId || item.getAttribute('data-encaminhar-tipo') !== 'meta') { return; }
+        e.preventDefault();
+        document.dispatchEvent(new CustomEvent('bj-central:despachar', {
+            detail: { pastaId: pastaId, tipo: 'meta', itemId: itemId }
+        }));
+    });
 }());

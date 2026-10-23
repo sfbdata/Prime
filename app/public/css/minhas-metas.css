@@ -25,6 +25,60 @@
     --mm-div:           #eef2f5;
     --mm-div-row:       #f1f4f7;
     --mm-hover:         #f2f7fa;
+    --mm-linha-hover-bg:    #3b8fc2;   /* hover da linha, dc 04 Minhas Metas L17 */
+    --mm-linha-hover-barra: #1f6f9c;
+    --mm-num:           #0a6fa0;   /* número da meta, dc L86 */
+    --mm-sem-text:      #5b7383;   /* pílula "Sem prazo" (ST.sem do dc) */
+    --mm-sem-bg:        #eef2f5;
+    --mm-faixa-andamento: #1e7b45; /* faixas de 3px sob os cartões do trilho (dc L104/L114) */
+    --mm-faixa-atencao: #a3232b;
+    --mm-ponto-vivo:    #22a05a;   /* "Atualizado às" */
+    --mm-aba-texto:         #34505f;   /* abas (dc L70, JS `abas`) */
+    --mm-aba-ativa-texto:   #0a6fa0;
+    --mm-aba-badge-bg:      #dfe6eb;
+    --mm-aba-badge-texto:   #4a6373;
+    --mm-aba-badge-ativa-bg: #e5f1f7;
+    --mm-prazo-texto:       #4a6373;   /* prazo da linha (JS `prazoCor`) */
+    --mm-prazo-atrasado:    #a3232b;
+    --mm-atencao-desc:      #5b7383;   /* descrição do item de "Precisa de atenção" (dc L117) */
+    /* Desenho de 19/10 (04 Minhas Metas 1.0): grupos em cartões, cabeçalho e cores dos grupos. As cores
+       dos grupos têm token próprio: `--mm-danger-dot`/`--mm-warn-dot` pintam outras coisas (o traço do H1). */
+    --mm-grupo-borda:        #dfe7ed;   /* cartão do grupo (dc L84) */
+    --mm-grupo-cabeca-bg:    #f5f8fa;   /* cabeçalho do grupo (dc L85) */
+    --mm-grupo-cabeca-borda: #e6edf2;
+    --mm-grupo-texto:        #34505f;
+    --mm-grupo-contagem-bg:  #e2e9ee;
+    --mm-grupo-atrasadas-cor:  #a3232b;  /* G.atr do dc */
+    --mm-grupo-proximas-cor:   #c08a12;  /* G.vence do dc */
+    --mm-grupo-em-revisao-cor: #0a6fa0;  /* G.rev do dc (desenho 04, P:154) */
+    --mm-grupo-depois-cor:     #1e7b45;  /* G.prazo do dc ("No prazo") */
+    --mm-grupo-sem-prazo-cor:  #7d909d;  /* G.sem do dc */
+    --mm-grupo-concluidas-cor: #1e7b45;  /* G.conc do dc */
+    --mm-linha-info:         #4a6373;   /* pasta, criador e comentários da linha (dc L91) */
+    --mm-criada-texto:       #7d909d;   /* "criada dd/mm/aaaa" (dc L99) */
+    --mm-vazio-borda:        #d6e0e7;   /* caixa do vazio (dc L107) */
+    --mm-vazio-texto:        #5b7383;
+    --mm-atencao-hover:      #eef6fb;   /* item de "Precisa de atenção" (dc L122) */
+    --mm-marcador:           #98a9b4;   /* marcador desligado (JS `marcaCor`) */
+    --mm-marcador-ligado:    #0a6fa0;
+    --mm-subtitulo:          #5b7383;   /* subtítulo do cabeçalho (dc L51) */
+    --mm-controle-borda:     #e2e9ee;   /* busca e selects da barra (dc L76-78) */
+    --mm-busca-icone:        #5b7383;
+    --mm-foco:               #0a6fa0;
+    --mm-foco-anel:          rgba(10,111,160,.18);
+    --mm-limpar:             #0a6fa0;   /* "Limpar filtros" (dc L79) */
+    /* Desenho 04 de 22/10 */
+    --mm-pagina:             #f3f6f8;   /* fundo da página e da faixa das metas do grupo (dc L20, L86) */
+    --mm-meta-borda:         #e3eaef;   /* borda de baixo de cada meta (dc L87) */
+    --mm-kpi-desc:           #7a8e9b;   /* descrição do indicador (dc L64) */
+    --mm-pilula-atrasada:    #a3232b;   /* pílulas do cartão (dc `ST`) */
+    --mm-pilula-atrasada-bg: #fbe7e7;
+    --mm-pilula-breve:       #8a5a12;
+    --mm-pilula-breve-bg:    #fbf1dc;
+    --mm-pilula-revisao:     #0a6fa0;
+    --mm-pilula-revisao-bg:  #e5f1f7;
+    --mm-pilula-prazo:       #1e7b45;
+    --mm-pilula-prazo-bg:    #e6f4ec;
 
     --mm-text:          #12242f;
     --mm-body:          #243845;
@@ -73,6 +127,57 @@
     --mm-div:           var(--bs-border-color-translucent);
     --mm-div-row:       var(--bs-border-color-translucent);
     --mm-hover:         rgba(255,255,255,.05);
+    --mm-linha-hover-bg:    #3b8fc2;
+    --mm-linha-hover-barra: #1f6f9c;
+    --mm-num:           #4da3ea;
+    --mm-sem-text:      var(--bs-secondary-color);
+    --mm-sem-bg:        rgba(255,255,255,.06);
+    --mm-faixa-andamento: #6ddaa2;   /* o mesmo verde de No prazo e Concluídas no escuro (7,7:1 sobre o cartão) */
+    --mm-faixa-atencao: #e0675c;
+    --mm-ponto-vivo:    #2fa36b;
+    --mm-aba-texto:         var(--bs-secondary-color);
+    --mm-aba-ativa-texto:   #4da3ea;
+    --mm-aba-badge-bg:      rgba(255,255,255,.08);
+    --mm-aba-badge-texto:   var(--bs-secondary-color);
+    --mm-aba-badge-ativa-bg: rgba(77,163,234,.14);
+    --mm-prazo-texto:       var(--bs-secondary-color);
+    --mm-prazo-atrasado:    #f08a84;
+    --mm-atencao-desc:      var(--bs-secondary-color);
+    --mm-grupo-borda:        var(--bs-border-color);
+    --mm-grupo-cabeca-bg:    var(--bs-secondary-bg);
+    --mm-grupo-cabeca-borda: var(--bs-border-color-translucent);
+    --mm-grupo-texto:        var(--bs-secondary-color);
+    --mm-grupo-contagem-bg:  rgba(255,255,255,.08);
+    --mm-grupo-atrasadas-cor:  #e0675c;
+    --mm-grupo-proximas-cor:   #e9be6c;
+    --mm-grupo-em-revisao-cor: #4da3ea;
+    --mm-grupo-depois-cor:     #6ddaa2;
+    --mm-grupo-sem-prazo-cor:  #9fb0bc;
+    --mm-grupo-concluidas-cor: #6ddaa2;
+    --mm-linha-info:         var(--bs-secondary-color);
+    --mm-criada-texto:       var(--bs-secondary-color);
+    --mm-vazio-borda:        var(--bs-border-color);
+    --mm-vazio-texto:        var(--bs-secondary-color);
+    --mm-atencao-hover:      rgba(77,163,234,.10);
+    --mm-marcador:           var(--bs-secondary-color);
+    --mm-marcador-ligado:    #4da3ea;
+    --mm-subtitulo:          var(--bs-secondary-color);
+    --mm-controle-borda:     var(--bs-border-color);
+    --mm-busca-icone:        var(--bs-secondary-color);
+    --mm-foco:               #4da3ea;
+    --mm-foco-anel:          rgba(77,163,234,.25);
+    --mm-limpar:             #4da3ea;
+    --mm-pagina:             var(--bs-body-bg);
+    --mm-meta-borda:         var(--bs-border-color-translucent);
+    --mm-kpi-desc:           var(--bs-secondary-color);
+    --mm-pilula-atrasada:    #f08a84;
+    --mm-pilula-atrasada-bg: rgba(192,57,47,.16);
+    --mm-pilula-breve:       #e9be6c;
+    --mm-pilula-breve-bg:    rgba(200,149,42,.16);
+    --mm-pilula-revisao:     #4da3ea;
+    --mm-pilula-revisao-bg:  rgba(77,163,234,.14);
+    --mm-pilula-prazo:       #6ddaa2;
+    --mm-pilula-prazo-bg:    rgba(31,157,97,.16);
 
     --mm-text:          var(--bs-body-color);
     --mm-body:          var(--bs-body-color);
@@ -103,6 +208,41 @@
     --mm-shadow-pill:   0 1px 3px rgba(0,0,0,.4);
 }
 
+/* ── Página (dc L20, L49): fundo #f3f6f8 e moldura do desenho só nesta tela ──
+   Tudo o que mexe na moldura do sistema (fundo, respiro, avisos) fica sob .mm-body, a classe do <body> de Minhas
+   Metas: a Equipe usa o mesmo .mm-page e não muda. */
+.mm-body .app-main { background: #f3f6f8; }
+[data-bs-theme="dark"] .mm-body .app-main { background: var(--bs-body-bg); }
+.mm-body .app-content,
+.mm-body .app-content-header { background: transparent; padding: 0; }
+.mm-body .app-content > .container-fluid { padding-left: 0; padding-right: 0; }
+.mm-body .mm-page {
+    padding: 24px 22px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 1600px;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+/* Cabeçalho (dc L50-51) e o filtro com o resultado, na mesma coluna de 16px. */
+.mm-topo { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.mm-topo > .mm-cabecalho { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 8px; }
+.mm-filtro { display: flex; flex-direction: column; gap: 16px; }
+
+/* Avisos (flash) do sistema nesta tela: embaixo, no centro, empilhados sem sobrepor (a pilha é o .container-fluid do
+   base.html.twig, que só tem os avisos). O de sucesso é o aviso do desenho (dc L132) e some em 3 segundos; o de erro
+   (danger/warning) fica com a cor de erro do dc (#a3232b sobre #fbe7e7) e o X, até a pessoa fechar. */
+.mm-body .app-content-header > .container-fluid { position: fixed; z-index: 9500; left: 50%; bottom: 22px; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px); padding: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.mm-body .app-content-header .alert { position: relative; margin: 0; border: none; font-size: 13.5px; padding: 10px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); pointer-events: auto; }
+.mm-body .app-content-header .alert-success { background: #12242f; color: #fff; }
+.mm-body .app-content-header .alert-success > .btn-close { display: none; }
+.mm-body .app-content-header .alert-success > .bi { color: #7fe0a8; margin-right: 6px; }
+.mm-body .app-content-header .alert:not(.alert-success) { background: #fbe7e7; color: #a3232b; padding-right: 44px; }
+.mm-body .app-content-header .alert:not(.alert-success) > .bi { color: #a3232b; margin-right: 6px; }
+.mm-body .app-content-header .alert:not(.alert-success) > .btn-close { padding: 13px 14px; filter: none; }
+
 /* ── Cabeçalho ────────────────────────────────────────────────────────────── */
 .mm-page .mm-titulo {
     font-size: 1.5rem;
@@ -112,164 +252,243 @@
     color: var(--mm-text);
     margin: 0;
 }
+/* P6 / R129 (especificação do Farlei): traço VERMELHO discreto sob o título. Geometria do dc
+   (34×3px, raio 2); a cor é a da linha de pendência das abas da pasta, que o R129 elogiou. */
+.mm-page .mm-titulo { position: relative; padding-bottom: 8px; }
+.mm-page .mm-titulo::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 34px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--mm-danger-dot);
+}
+/* "Atualizado às HH:MM" (dc L45): hora em que o servidor leu as metas. */
+.mm-atualizado { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--mm-subtitulo); white-space: nowrap; }
+.mm-atualizado-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--mm-ponto-vivo); box-shadow: 0 0 0 3px rgba(34,160,90,.18); }
 .mm-page .mm-subtitulo {
     font-size: .845rem;
     color: var(--mm-muted);
     margin: .25rem 0 0;
 }
+/* Cabeçalho de Minhas Metas (dc L52-55): H1 36px negrito sem ícone, com a sombra azul do desenho, 18px
+   até "Atualizado às" e o subtítulo 13.5px 8px abaixo. Só sob `.mm-cabecalho`: a tela de Equipe usa os
+   mesmos `.mm-titulo`/`.mm-subtitulo` e fica como estava. O traço é o AZUL do desenho (o vermelho do P6 saiu
+   desta tela por decisão do dono de 22/10; a Equipe segue com ele). */
+.mm-page .mm-cabecalho .mm-cabecalho-linha { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.mm-page .mm-cabecalho .mm-titulo {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -.5px;
+    line-height: normal;
+    color: var(--mm-text);
+    text-shadow: 0 2px 6px rgba(10,111,160,.12);
+}
+.mm-page .mm-cabecalho .mm-titulo::after { background: var(--mm-num); }
+.mm-page .mm-cabecalho .mm-subtitulo { font-size: 13.5px; color: var(--mm-subtitulo); margin: 0; }
 
-/* ── KPIs ─────────────────────────────────────────────────────────────────── */
+/* ── KPIs (dc L64): rótulo e descrição à esquerda, número 28px à direita, borda esquerda de 3px na cor do
+   indicador. Sem ícone, halo, faixa nem estado ativo (decisão do dono de 22/10). ── */
 .mm-kpis {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .875rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
 }
+.mm-kpi.tom-danger { --mm-kpi-cor: #a3232b; }
+.mm-kpi.tom-warn   { --mm-kpi-cor: #c08a12; }
+.mm-kpi.tom-accent { --mm-kpi-cor: #0a6fa0; }
+.mm-kpi.tom-cinza  { --mm-kpi-cor: #7d909d; }
 .mm-kpi {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: .375rem;
+    align-items: center;
+    gap: 14px;
     text-align: left;
     background: var(--mm-card);
-    border: 1px solid var(--mm-border);
-    border-radius: 14px;
-    padding: .875rem 1.0625rem .9375rem;
-    box-shadow: var(--mm-shadow-card);
-    font-family: inherit;
+    border: 1px solid var(--mm-grupo-borda);
+    border-left: 3px solid var(--mm-kpi-cor);
+    border-radius: 3px;
+    padding: 14px 16px;
+    box-sizing: border-box;
+    color: var(--mm-text);
     text-decoration: none;
-    transition: border-color .15s, box-shadow .15s, background .15s;
+    transition: background .15s;
     min-width: 0;
 }
-.mm-kpi:hover {
-    border-color: var(--mm-accent-border);
-    box-shadow: var(--mm-shadow-hover);
-    text-decoration: none;
-}
-.mm-kpi.is-ativo {
-    border-color: var(--mm-accent);
-    background: var(--mm-accent-bg);
-}
+.mm-kpi:hover { background: var(--mm-grupo-cabeca-bg); color: var(--mm-text); text-decoration: none; }
+.mm-kpi > .mm-kpi-texto { flex: 1; min-width: 0; }
 .mm-kpi-rotulo {
-    display: flex;
-    align-items: center;
-    gap: .4375rem;
-    font-size: .656rem;
+    display: block;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 1px;
     text-transform: uppercase;
-    color: var(--mm-label);
+    color: var(--mm-subtitulo);
 }
-.mm-kpi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.mm-kpi-sub { display: block; font-size: 12.5px; color: var(--mm-kpi-desc); margin-top: 3px; }
 .mm-kpi-valor {
-    font-variant-numeric: tabular-nums;
-    font-size: 1.625rem;
-    font-weight: 500;
-    letter-spacing: -.01em;
+    font-size: 28px;
+    font-weight: 700;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
     color: var(--mm-text);
 }
-.mm-kpi-sub { font-size: .78rem; color: var(--mm-muted); }
+/* O número das atrasadas fica vermelho só quando há atrasadas (dc `numCor`). */
+.mm-kpi-valor.is-alerta { color: var(--mm-danger-text); }
 
 /* ── Abas (controle segmentado) + modo ────────────────────────────────────── */
-.mm-barra-abas {
+/* Abas, busca, facetas e modo num cartão só (dc L65-75). A barra de filtros é o componente
+   compartilhado `filtro-tabela`: aqui só se tira a margem dela e se deixa crescer. */
+.mm-barra-cartao {
     display: flex;
     align-items: center;
-    gap: .875rem;
+    gap: 14px;
     flex-wrap: wrap;
+    background: var(--mm-card);
+    border: 1px solid var(--mm-grupo-borda);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(18,36,47,.05);
+    padding: 14px 18px;
 }
+.mm-barra-sep { width: 1px; height: 28px; background: var(--mm-controle-borda); flex-shrink: 0; }
+.mm-barra-cartao > .filtro-barra { flex: 1 1 auto; min-width: 0; margin: 0; }
+/* Busca, Status, Prioridade e Prazo numa linha só (dc L76-78: uma linha). O BlueJus tem o select
+   Status e a alternância cartões/lista a mais. Por isso a linha dos campos não quebra, e o form não
+   encolhe abaixo do próprio conteúdo (`min-width: auto`): se não couber ao lado das abas, ele desce
+   inteiro para a linha de baixo do cartão, com os quatro campos juntos. Em tela estreita, a quebra
+   continua permitida. */
+@media (min-width: 768px) {
+    .mm-barra-cartao > .filtro-barra { min-width: auto; }
+    .mm-barra-cartao .filtro-linha { flex-wrap: nowrap; }
+}
+/* Busca e selects do desenho (dc L75-77): 36px, borda #e2e9ee, raio 4, lupa 16px #5b7383, texto 13px. Só dentro
+   desta barra (como carteira-show.css faz na dela): o `filtro-tabela.css` é compartilhado e não muda.
+   A lupa fica a 11px (borda + 10px) e o texto começa 8px depois dela. A busca não tem anel de foco (dc `outline:none`);
+   os selects ficam com a seta nativa, 140 e 150px de mínimo e 8px dos lados. */
+.mm-barra-cartao .filtro-busca { flex: 1 1 220px; min-width: 180px; max-width: none; }
+.mm-barra-cartao .filtro-busca .bi-search { left: 11px; color: var(--mm-busca-icone); font-size: 16px; }
+.mm-barra-cartao .filtro-busca input.js-filtro-busca,
+.mm-barra-cartao .filtro-select {
+    height: 36px;
+    border: 1px solid var(--mm-controle-borda);
+    border-radius: 4px;
+    background-color: var(--mm-card);
+    font-size: 13px;
+}
+.mm-barra-cartao .filtro-busca input.js-filtro-busca { padding: 0 10px 0 35px; }
+.mm-barra-cartao .filtro-busca input.js-filtro-busca:focus { border-color: var(--mm-controle-borda); box-shadow: none; outline: none; }
+.mm-barra-cartao .filtro-select {
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+    padding: 0 8px;
+    appearance: auto;
+    background-image: none;
+}
+.mm-barra-cartao .filtro-select[name="prioridade"] { min-width: 140px; }
+.mm-barra-cartao .filtro-select[name="prazo"] { min-width: 150px; }
+.mm-barra-cartao .filtro-select:focus { box-shadow: none; }
+/* "Limpar filtros" (dc L79): botão de texto #0a6fa0, sem borda, 13px, 34px de altura, na MESMA linha dos
+   selects, logo depois do Prazo. O desenho não tem chips: eles continuam no DOM (o motor compartilhado os
+   monta), só não aparecem aqui. O botão só existe com filtro ativo, porque o motor só o desenha junto dos
+   chips. Tudo escopado nesta barra: o `filtro-tabela.css` e o `filtro-tabela.js` não mudam. */
+.mm-barra-cartao > .filtro-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.mm-barra-cartao > .filtro-barra > .filtro-linha { flex: 1 1 auto; }
+.mm-barra-cartao .filtro-chips { flex: 0 0 auto; gap: 0; margin-top: 0; }
+.mm-barra-cartao .filtro-chip { display: none; }
+.mm-barra-cartao .filtro-limpar {
+    height: 34px;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    color: var(--mm-limpar);
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+}
+/* O desenho não muda o botão no hover; a regra só impede o cinza do filtro-tabela.css. */
+.mm-barra-cartao .filtro-limpar:hover { color: var(--mm-limpar); }
 .mm-abas {
     position: relative;
     display: inline-flex;
-    gap: 3px;
+    gap: 2px;
     background: var(--mm-div);
-    border: 1px solid var(--mm-border);
-    border-radius: 11px;
+    border: 0;
+    border-radius: 4px;
     padding: 4px;
 }
+/* Aba do desenho (dc L70, JS `abas`): 34px, 13px; inativa #34505f normal; ativa branca, texto #0a6fa0
+   negrito e sombra curta; o ícone acompanha a cor do texto. Sem hover, como no desenho. */
 .mm-aba {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    padding: .5625rem .9375rem;
-    font-size: .845rem;
-    font-weight: 500;
-    color: var(--mm-text-2);
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--mm-aba-texto);
     background: transparent;
-    border: 1px solid transparent;
-    border-radius: 9px;
+    border: 0;
+    border-radius: 3px;
     text-decoration: none;
     white-space: nowrap;
-    transition: color .2s, background .2s;
+    transition: color .15s, background .15s;
 }
-.mm-aba:hover { color: var(--mm-text); text-decoration: none; }
+.mm-aba:hover { color: var(--mm-aba-texto); text-decoration: none; }
 .mm-aba.is-ativa {
-    font-weight: 600;
-    color: var(--mm-text);
+    font-weight: 700;
+    color: var(--mm-aba-ativa-texto);
     background: var(--mm-card);
-    border-color: var(--mm-border-ctl);
-    box-shadow: var(--mm-shadow-pill);
+    box-shadow: 0 1px 3px rgba(18,36,47,.12);
 }
-.mm-aba .bi { font-size: .875rem; color: var(--mm-faint); }
-.mm-aba.is-ativa .bi { color: var(--mm-accent); }
+.mm-aba.is-ativa:hover { color: var(--mm-aba-ativa-texto); }
+.mm-aba .bi { color: inherit; }
 .mm-aba-badge {
     font-variant-numeric: tabular-nums;
-    font-size: .656rem;
-    font-weight: 600;
-    padding: .0625rem .375rem;
-    border-radius: 5px;
-    color: var(--mm-muted);
-    background: var(--mm-border);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--mm-aba-badge-texto);
+    background: var(--mm-aba-badge-bg);
 }
-.mm-aba.is-ativa .mm-aba-badge { color: var(--mm-accent); background: var(--mm-accent-bg); }
-
-.mm-modos {
-    display: inline-flex;
-    gap: 2px;
-    background: var(--mm-div);
-    border: 1px solid var(--mm-border);
-    border-radius: 10px;
-    padding: 3px;
-}
-.mm-modo {
-    width: 32px; height: 30px;
-    display: flex; align-items: center; justify-content: center;
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--mm-faint);
-    border-radius: 8px;
-    text-decoration: none;
-}
-.mm-modo:hover { color: var(--mm-text-2); text-decoration: none; }
-.mm-modo.is-ativo {
-    background: var(--mm-card);
-    border-color: var(--mm-border-ctl);
-    color: var(--mm-accent);
-    box-shadow: 0 1px 2px rgba(16,42,58,.1);
-}
+.mm-aba.is-ativa .mm-aba-badge { color: var(--mm-aba-ativa-texto); background: var(--mm-aba-badge-ativa-bg); }
 
 /* ── Arranjo: lista + trilho ──────────────────────────────────────────────── */
+/* Lista + trilho de 340px com 16px entre eles (dc L82). */
 .mm-arranjo {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 356px;
-    gap: 1.125rem;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 16px;
     align-items: start;
 }
-.mm-arranjo.mm-sem-trilho { grid-template-columns: minmax(0, 1fr); }
-.mm-trilho { display: flex; flex-direction: column; gap: .875rem; min-width: 0; }
+/* Grupos empilhados com 12px entre os cartões (dc L83). */
+.mm-coluna-lista { display: flex; flex-direction: column; gap: 12px; }
+.mm-trilho { display: flex; flex-direction: column; gap: 16px; min-width: 0; position: sticky; top: calc(var(--header-height) + var(--subnav-height) + 16px); align-self: start; }
+/* O AdminLTE põe `overflow: auto` no `main.app-main`, que nunca rola (quem rola é a janela) mas vira
+   o contêiner do `sticky` — e o trilho nunca grudava. Só nesta página, e só se o navegador souber
+   `:has()`; sem ele o trilho apenas não fica fixo. Medido: sem isto, topo do trilho em -697px após rolar. */
+/* A regra do AdminLTE é `@media (min-width:992px) { .sidebar-expand-lg.layout-fixed .app-main { overflow:auto } }`
+   (medida no navegador: o arquivo vem de CDN). `body.layout-fixed … :has()` fica mais específico que ela. */
+body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
 
 @media (max-width: 1199.98px) {
     .mm-arranjo { grid-template-columns: minmax(0, 1fr); }
-    .mm-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mm-trilho { position: static; }   /* uma coluna: o trilho vem depois da lista, sem fixar */
 }
 @media (max-width: 575.98px) {
-    .mm-kpis { grid-template-columns: minmax(0, 1fr); }
+    /* As quatro abas (725px) não cabem no cartão do celular: quebram linha dentro dele. */
+    .mm-abas { flex-wrap: wrap; width: 100%; }
+    .mm-barra-sep { display: none; }
 }
 
 /* ── Cartão contêiner ─────────────────────────────────────────────────────── */
 .mm-cartao {
     background: var(--mm-card);
     border: 1px solid var(--mm-border);
-    border-radius: 14px;
+    border-radius: 4px;
     box-shadow: var(--mm-shadow-card);
     min-width: 0;
     overflow: hidden;
@@ -288,20 +507,53 @@
     gap: .5rem;
 }
 
-/* ── Cabeçalho de grupo ───────────────────────────────────────────────────── */
+/* ── Grupo (cartão próprio) e cabeçalho ───────────────────────────────────── */
+/* Cada grupo é uma <section> com borda, raio 4, sombra e recorte próprios (dc L84). */
+.mm-grupo {
+    background: var(--mm-card);
+    border: 1px solid var(--mm-grupo-borda);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(18,36,47,.05);
+    overflow: hidden;
+    min-width: 0;
+}
+/* A cor do grupo (ponto do cabeçalho e faixa das linhas), a do dc para os seis grupos (desenho 04, P:154).
+   Vale também no separador do modo lista, que leva a mesma classe. */
+.mm-grupo-atrasadas  { --mm-grupo-cor: var(--mm-grupo-atrasadas-cor); }
+.mm-grupo-proximas   { --mm-grupo-cor: var(--mm-grupo-proximas-cor); }
+.mm-grupo-em_revisao { --mm-grupo-cor: var(--mm-grupo-em-revisao-cor); }
+.mm-grupo-depois     { --mm-grupo-cor: var(--mm-grupo-depois-cor); }
+.mm-grupo-sem_prazo  { --mm-grupo-cor: var(--mm-grupo-sem-prazo-cor); }
+.mm-grupo-concluidas { --mm-grupo-cor: var(--mm-grupo-concluidas-cor); }
+/* Cabeçalho do grupo (dc L85): 15/20, fundo #f5f8fa, só a borda de baixo, 12px negrito 1.4px. */
 .mm-grupo-cabeca {
     display: flex;
     align-items: center;
-    gap: .5625rem;
-    padding: .6875rem 1.25rem;
-    background: var(--mm-soft);
-    border-top: 1px solid var(--mm-div);
-    border-bottom: 1px solid var(--mm-div);
+    gap: 8px;
+    padding: 15px 20px;
+    background: var(--mm-grupo-cabeca-bg);
+    border: 0;
+    border-bottom: 1px solid var(--mm-grupo-cabeca-borda);
     width: 100%;
     text-align: left;
     font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: var(--mm-grupo-texto);
 }
-.mm-grupo-cabeca:first-child { border-top: none; }
+.mm-grupo-cabeca > .mm-grupo-nome { font-size: 12px; letter-spacing: 1.4px; color: var(--mm-grupo-texto); }
+.mm-grupo-cabeca > .mm-grupo-contagem {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--mm-grupo-texto);
+    background: var(--mm-grupo-contagem-bg);
+}
+.mm-grupo-cabeca > .mm-dot { width: 7px; height: 7px; }
+.mm-grupo-cabeca > .mm-grupo-nota { font-weight: 400; letter-spacing: 0; }
 .mm-grupo-nome {
     font-size: .6875rem;
     font-weight: 700;
@@ -321,69 +573,93 @@
 .mm-grupo-nota { font-size: .75rem; color: var(--mm-muted); }
 .mm-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-button.mm-grupo-cabeca { border: none; border-top: 1px solid var(--mm-div); cursor: pointer; }
-button.mm-grupo-cabeca:hover { background: var(--mm-hover); }
-.mm-grupo-seta { margin-left: auto; color: var(--mm-faint); transition: transform .2s; }
-button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(90deg); }
-
-/* ── Linha de meta (cartões) ──────────────────────────────────────────────── */
+/* ── Metas do grupo (dc L86-87) ───────────────────────────────────────────── */
+/* Faixa cinza sob o cabeçalho; cada meta é um cartão de raio 3 com 6px entre elas, branco em todos os grupos
+   (atrasada inclusive), borda de baixo #e3eaef em todas e a faixa do grupo como sombra interna. */
+.mm-grupo-itens { display: flex; flex-direction: column; padding: 6px 6px 0; background: var(--mm-pagina); }
 .mm-meta {
     display: flex;
-    gap: .8125rem;
-    align-items: flex-start;
-    padding: .875rem .75rem .875rem 1.25rem;
-    border-bottom: 1px solid var(--mm-div-row);
-    border-left: 3px solid transparent;
-    transition: background .2s;
+    align-items: center;
+    gap: 18px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--mm-meta-borda);
+    margin: 0 0 6px;
+    border-radius: 3px;
+    background: var(--mm-card);
+    /* Faixa do grupo (dc L87): `box-shadow: inset 4px 0 0 <cor>`, posta pelos tons abaixo. */
+    transition: background .15s, box-shadow .15s;
+    cursor: pointer;   /* a linha inteira abre a meta (dc L87; delegação em minhas.html.twig) */
 }
-.mm-meta:last-child { border-bottom: none; }
-.mm-meta:hover { background: var(--mm-hover); }
-.mm-meta.tom-danger { border-left-color: var(--mm-danger-dot); }
-.mm-meta.tom-warn   { border-left-color: var(--mm-warn-dot); }
-.mm-meta.tom-accent { border-left-color: var(--mm-accent); }
-.mm-meta.tom-cinza  { border-left-color: var(--mm-cinza-dot); }
-.mm-meta.tom-ok     { border-left-color: var(--mm-ok-dot); background: var(--mm-soft); }
+.mm-meta.tom-danger { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-danger-dot)); }
+.mm-meta.tom-warn   { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-warn-dot)); }
+.mm-meta.tom-accent { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-accent)); }
+.mm-meta.tom-cinza  { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-cinza-dot)); }
+.mm-meta.tom-ok     { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-ok-dot)); }
+/* Hover do desenho (dc 04 Minhas Metas L17-18): linha azul cheia, faixa escura à esquerda, sombra
+   que sobe por cima da vizinha, e todo o conteúdo em branco sem fundo nem borda própria. Vem DEPOIS
+   dos tons para vencer o fundo da atrasada e a cor de faixa de cada grupo. */
+.mm-meta:hover {
+    position: relative;
+    z-index: 1;
+    background: var(--mm-linha-hover-bg);
+    box-shadow: inset 4px 0 0 var(--mm-linha-hover-barra), 0 4px 12px rgba(10,111,160,.16);
+}
+.mm-meta:hover .mm-meta-corpo *,
+.mm-meta:hover .mm-meta-lado *,
+.mm-meta:hover > .mm-marcador,
+.mm-meta:hover > .mm-marcador * {
+    color: #fff;
+    background: transparent;
+    border-color: transparent;
+}
+/* Número da meta dentro do título (dc L86): recomeça em 1 a cada grupo. */
+.mm-meta-num { color: var(--mm-num); margin-right: 10px; font-variant-numeric: tabular-nums; }
 
-.mm-meta-corpo { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: .375rem; }
-.mm-meta-topo { display: flex; align-items: center; gap: .5625rem; min-width: 0; flex-wrap: wrap; }
+.mm-meta-corpo { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+/* Título do desenho (dc L89): caixa alta, 14.5px negrito, uma linha com reticências. O texto
+   inteiro fica no DOM e no `title` do link. Sem sublinhado no hover; a concluída não é riscada. */
 .mm-meta-titulo {
-    font-size: .9rem;
-    font-weight: 600;
+    display: block;
+    min-width: 0;
+    font-size: 14.5px;
+    font-weight: 700;
     line-height: 1.35;
+    letter-spacing: .2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--mm-text);
     text-decoration: none;
-    text-wrap: pretty;
 }
-a.mm-meta-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
-.mm-meta.tom-ok .mm-meta-titulo {
-    color: var(--mm-muted);
-    text-decoration: line-through;
-    text-decoration-color: var(--mm-border-ctl);
-}
-.mm-meta-linha2 { display: flex; align-items: center; gap: .875rem; flex-wrap: wrap; }
+.mm-meta-linha2 { display: flex; align-items: center; gap: 6px 18px; flex-wrap: wrap; }
+/* Itens da 2ª linha (dc L91): 12.5px #4a6373, 5px entre ícone e texto. */
 .mm-meta-info {
     display: flex;
     align-items: center;
-    gap: .375rem;
-    font-size: .78rem;
-    color: var(--mm-muted);
+    gap: 5px;
+    font-size: 12.5px;
+    color: var(--mm-linha-info);
     text-decoration: none;
 }
-a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
-.mm-meta-info .bi { opacity: .8; }
+/* Nº da pasta em negrito azul (dc L92). */
+.mm-meta-pasta-num { font-weight: 700; color: var(--mm-num); }
 .mm-meta-lado {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: .375rem;
-    flex-shrink: 0;
-    min-width: 118px;
+    gap: 6px;
+    flex: none;
+    min-width: 120px;
 }
-.mm-meta-datas { font-variant-numeric: tabular-nums; font-size: .6875rem; color: var(--mm-faint); }
-.mm-meta-acoes { display: flex; gap: 2px; flex-shrink: 0; }
+.mm-meta-datas { font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--mm-criada-texto); }   /* dc L99 */
 
 /* ── Prazo ────────────────────────────────────────────────────────────────── */
-.mm-prazo { display: flex; align-items: center; gap: .375rem; font-size: .78rem; }
+/* Prazo da linha (JS `prazoCor`/`prazoPeso`): cinza normal; só a atrasada em vermelho negrito. As
+   variantes `tom-*` ficam para o modo lista e a tela de Equipe, que ainda pintam pelo `getPrazoInfo`. */
+.mm-prazo { display: flex; align-items: center; gap: .375rem; font-size: 12.5px; color: var(--mm-prazo-texto); }
+.mm-meta-linha2 > .mm-prazo { gap: 5px; }
+.mm-prazo.is-atrasado { color: var(--mm-prazo-atrasado); font-weight: 700; }
 .mm-prazo.tom-danger { color: var(--mm-danger-dot); font-weight: 600; }
 .mm-prazo.tom-warn   { color: var(--mm-warn-text); font-weight: 600; }
 .mm-prazo.tom-cinza  { color: var(--mm-cinza-text); }
@@ -392,35 +668,26 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 
 /* ── Pílulas de status e prioridade ───────────────────────────────────────── */
 .mm-pilula {
-    font-size: .6875rem;
-    font-weight: 600;
-    letter-spacing: .04em;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .6px;
     text-transform: uppercase;
     white-space: nowrap;
-    padding: .1875rem .5625rem;
-    border-radius: 999px;
-    border: 1px solid transparent;
+    padding: 3px 9px;
+    border-radius: 3px;
+    border: 0;   /* sem borda, como o dc (L93) */
 }
 .mm-pilula.tom-ok     { color: var(--mm-ok-text);     background: var(--mm-ok-bg);     border-color: var(--mm-ok-border); }
 .mm-pilula.tom-warn   { color: var(--mm-warn-text);   background: var(--mm-warn-bg);   border-color: var(--mm-warn-border); }
 .mm-pilula.tom-danger { color: var(--mm-danger-text); background: var(--mm-danger-bg); border-color: var(--mm-danger-border); }
 .mm-pilula.tom-accent { color: var(--mm-accent);      background: var(--mm-accent-bg); border-color: var(--mm-accent-border); }
-
-.mm-prioridade {
-    display: inline-flex;
-    align-items: center;
-    gap: .25rem;
-    font-size: .656rem;
-    font-weight: 600;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    padding: .125rem .5rem;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    flex-shrink: 0;
-}
-.mm-prioridade.tom-danger { color: var(--mm-danger-text); background: var(--mm-danger-bg); border-color: var(--mm-danger-border); }
-.mm-prioridade.tom-warn   { color: var(--mm-warn-text);   background: var(--mm-warn-bg);   border-color: var(--mm-warn-border); }
+.mm-pilula.tom-cinza  { color: var(--mm-sem-text);    background: var(--mm-sem-bg); }
+/* Pílulas do cartão com as cores do desenho (dc `ST`): ATRASADA, VENCE EM BREVE, EM REVISÃO, NO PRAZO e CONCLUÍDA.
+   Só no cartão de Minhas Metas: a Equipe segue com as de antes. */
+.mm-meta-lado > .mm-pilula.tom-danger { color: var(--mm-pilula-atrasada); background: var(--mm-pilula-atrasada-bg); }
+.mm-meta-lado > .mm-pilula.tom-warn   { color: var(--mm-pilula-breve);    background: var(--mm-pilula-breve-bg); }
+.mm-meta-lado > .mm-pilula.tom-accent { color: var(--mm-pilula-revisao);  background: var(--mm-pilula-revisao-bg); }
+.mm-meta-lado > .mm-pilula.tom-ok     { color: var(--mm-pilula-prazo);    background: var(--mm-pilula-prazo-bg); }
 
 /* ── Marcador de acompanhamento ───────────────────────────────────────────── */
 .mm-marcador {
@@ -429,13 +696,13 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     display: flex; align-items: center; justify-content: center;
     border: 1px solid transparent;
     background: transparent;
-    color: #b7c4cd;
-    border-radius: 7px;
+    color: var(--mm-marcador);   /* desligado #98a9b4, ligado #0a6fa0 (JS `marcaCor`) */
+    border-radius: 4px;
     cursor: pointer;
     transition: color .15s, border-color .15s;
 }
 .mm-marcador:hover { border-color: var(--mm-border-ctl); color: var(--mm-accent); }
-.mm-marcador.is-marcada { color: var(--mm-accent); }
+.mm-marcador.is-marcada { color: var(--mm-marcador-ligado); }
 .mm-marcador[disabled] { opacity: .5; cursor: default; }
 
 .mm-acao-icone {
@@ -445,49 +712,52 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     border: 1px solid transparent;
     background: transparent;
     color: var(--mm-faint);
-    border-radius: 7px;
+    border-radius: 4px;
     text-decoration: none;
 }
 .mm-acao-icone:hover { border-color: var(--mm-border-ctl); color: var(--mm-text-2); text-decoration: none; }
-
 /* ── Trilho ───────────────────────────────────────────────────────────────── */
-.mm-trilho-bloco { padding: 1rem 1.0625rem; }
+/* Trilho do desenho (dc L104-118): títulos 14px negrito, "X de Y" 34px negrito, barra verde #1e7b45
+   que cresce em .4s, legenda 12.5px com os pontos nas cores das faixas. */
+.mm-trilho > .mm-cartao { border: 1px solid var(--mm-grupo-borda); box-shadow: 0 2px 10px rgba(18,36,47,.05); }
+/* Faixas de 3px sob os cartões do trilho (dc L112 verde, L119 vermelha). */
+.mm-trilho > .mm-cartao.mm-trilho-andamento { border-bottom: 3px solid var(--mm-faixa-andamento); }
+.mm-trilho > .mm-cartao.mm-trilho-atencao   { border-bottom: 3px solid var(--mm-faixa-atencao); }
+.mm-trilho-bloco { padding: 20px; }
+.mm-andamento-cabeca { display: flex; align-items: baseline; gap: 8px; }
+.mm-andamento-numero { display: flex; align-items: baseline; gap: 8px; margin-top: 12px; }
+.mm-andamento-periodo { font-size: 12px; color: var(--mm-subtitulo); }
+.mm-andamento-numero > .mm-andamento-periodo { font-size: 13px; }
+.mm-trilho .mm-cartao-titulo { font-size: 14px; font-weight: 700; }
+.mm-trilho .mm-cartao-cabeca { padding: 13px 16px; border-bottom-color: var(--mm-grupo-cabeca-borda); }
 .mm-progresso-numero {
     font-variant-numeric: tabular-nums;
-    font-size: 1.625rem;
-    font-weight: 500;
-    letter-spacing: -.01em;
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -.5px;
+    line-height: 1.15;
     color: var(--mm-text);
 }
 .mm-progresso-barra {
     height: 7px;
-    border-radius: 999px;
-    background: var(--mm-div);
-    margin-top: .75rem;
+    border-radius: 4px;
+    background: var(--mm-grupo-cabeca-borda);
+    margin-top: 10px;
     overflow: hidden;
 }
 .mm-progresso-barra > span {
     display: block;
     height: 100%;
-    border-radius: 999px;
-    background: var(--mm-ok-dot);
+    border-radius: 4px;
+    background: var(--mm-faixa-andamento);
+    transition: width .4s;
 }
-.mm-fatias { display: flex; gap: 1rem; margin-top: .875rem; flex-wrap: wrap; }
-.mm-fatia { display: flex; align-items: center; gap: .4375rem; font-size: .78rem; color: var(--mm-text-2); }
-
-.mm-pessoa { display: flex; align-items: center; gap: .625rem; }
-.mm-pessoa-nome {
-    font-size: .845rem;
-    font-weight: 500;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--mm-body);
-}
-.mm-pessoa-conta { font-variant-numeric: tabular-nums; font-size: .72rem; color: var(--mm-muted); }
-.mm-pessoa-conta .mm-atrasadas { color: var(--mm-danger-dot); font-weight: 600; }
+.mm-fatias { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.mm-fatia { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--mm-grupo-texto); }
+.mm-fatia .mm-dot { width: 7px; height: 7px; background: var(--mm-cinza-dot); }
+.mm-fatia.tom-ok .mm-dot     { background: var(--mm-faixa-andamento); }
+.mm-fatia.tom-danger .mm-dot { background: var(--mm-faixa-atencao); }
+.mm-fatia.tom-accent .mm-dot { background: var(--mm-aba-ativa-texto); }
 
 .mm-avatar {
     width: 27px; height: 27px;
@@ -503,21 +773,29 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 [data-bs-theme="dark"] .mm-page .mm-avatar { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
 .mm-avatar.mm-avatar-sm { width: 24px; height: 24px; font-size: .5625rem; }
 
+/* Item de "Precisa de atenção" (dc L122): o item inteiro é o link, de largura inteira, com hover #eef6fb. O último
+   mantém a borda de baixo, como no desenho. */
 .mm-atencao-item {
-    padding: .75rem 1.0625rem;
-    border-bottom: 1px solid var(--mm-bg);
     display: flex;
-    gap: .6875rem;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--mm-div);
     align-items: flex-start;
+    background: var(--mm-card);
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
 }
-.mm-atencao-item:last-of-type { border-bottom: none; }
-.mm-atencao-titulo { font-size: .845rem; font-weight: 500; line-height: 1.35; color: var(--mm-text); text-decoration: none; text-wrap: pretty; }
-a.mm-atencao-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
-.mm-atencao-meta { font-size: .75rem; color: #7c4a48; margin-top: .125rem; }
-[data-bs-theme="dark"] .mm-page .mm-atencao-meta { color: var(--mm-danger-text); }
-.mm-trilho-rodape { padding: .6875rem 1.0625rem; font-size: .78rem; color: var(--mm-muted); }
+.mm-atencao-item:hover,
+.mm-atencao-item:focus-visible { background: var(--mm-atencao-hover); color: inherit; text-decoration: none; }
+.mm-atencao-icone { color: var(--mm-faixa-atencao); margin-top: 2px; font-size: 16px; }
+.mm-atencao-texto { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mm-atencao-titulo { font-size: 13.5px; font-weight: 400; line-height: 1.35; color: var(--mm-text); text-wrap: pretty; }
+.mm-atencao-meta { font-size: 12px; line-height: 1.4; color: var(--mm-atencao-desc); }
 
-/* ── Modo lista ───────────────────────────────────────────────────────────── */
+/* ── Tabela da Equipe ─────────────────────────────────────────────────────── */
 .mm-tabela-scroll { overflow-x: auto; }
 .mm-tabela { width: 100%; min-width: 940px; }
 .mm-linha {
@@ -577,7 +855,166 @@ a.mm-linha-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
 }
 
 /* ── Vazio ────────────────────────────────────────────────────────────────── */
+/* Vazio de Minhas Metas (dc L107): uma caixa só, centralizada, sem ícone. `.mm-vazio` abaixo é da Equipe. */
+.mm-vazio-caixa {
+    background: var(--mm-card);
+    border: 1px solid var(--mm-vazio-borda);
+    border-radius: 4px;
+    padding: 40px;
+    text-align: center;
+    font-size: 16px;
+    color: var(--mm-vazio-texto);
+}
 .mm-vazio { padding: 3.25rem 1.5rem; text-align: center; }
 .mm-vazio .bi { font-size: 2rem; color: var(--mm-border-ctl); display: block; margin-bottom: .625rem; }
 .mm-vazio-titulo { font-size: .9rem; font-weight: 600; color: var(--mm-text); }
 .mm-vazio-sub { font-size: .82rem; color: var(--mm-muted); margin-top: .1875rem; }
+
+/* ── Esteira da pasta (desenho 04 de 22/10, dc L22-25 e L61-63) ──
+   8 caixas numa linha; 4 abaixo de 1240px; 2 abaixo de 460px. Caixa ativa em azul cheio; gargalo com borda
+   vermelha. A caixa é um link (filtra a etapa); o rodapé "CAIXA N" + ⋮ fica por cima dele para quem configura. */
+.mm-esteira {
+    background: #fff; border: 1px solid #dfe7ed; border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(18, 36, 47, .05); overflow: hidden;
+}
+.mm-esteira-cabecalho {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 18px; background: #f5f8fa; border-bottom: 1px solid #e6edf2;
+}
+.mm-esteira-icone { color: #0a6fa0; font-size: 16px; }
+.mm-esteira-titulo { font-size: 12px; letter-spacing: 1.4px; color: #34505f; text-transform: uppercase; }
+.mm-esteira-selo {
+    height: 20px; padding: 0 8px; border-radius: 3px; background: #e5f1f7; color: #0a6fa0;
+    font-size: 10.5px; font-weight: bold; letter-spacing: .6px; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 5px;
+}
+.mm-esteira-selo.is-individual { background: #eef2f5; color: #4a6373; }
+.mm-esteira-resumo { font-size: 12.5px; color: #5b7383; flex: 1; min-width: 220px; }
+.mm-esteira-chip {
+    height: 26px; padding: 0 10px; border: 1px solid #cfe3f0; border-radius: 3px; background: #e5f1f7;
+    color: #0a6fa0; font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;
+    text-decoration: none;
+}
+.mm-esteira-chip:hover { color: #0a6fa0; background: #e5f1f7; text-decoration: none; }
+.mm-esteira-caixas { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px 0; padding: 12px; }
+@media (max-width: 1240px) { .mm-esteira-caixas { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .mm-esteira-caixas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.mm-caixa-celula { display: flex; align-items: stretch; min-width: 0; }
+.mm-caixa-seta { flex: none; width: 14px; align-self: center; text-align: center; color: #b7c6d1; font-size: 12px; }
+.mm-caixa {
+    position: relative; flex: 1; min-width: 0; min-height: 108px; padding: 9px 9px 7px;
+    display: flex; flex-direction: column; gap: 3px;
+    border: 1px solid #dfe7ed; border-radius: 4px; background: #fff; color: #12242f;
+    transition: transform .15s, box-shadow .15s;
+}
+.mm-caixa:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(10, 111, 160, .12); }
+.mm-caixa.is-gargalo { border-color: #c0392b; }
+.mm-caixa.is-ativa { border-color: #0a6fa0; background: #0a6fa0; color: #fff; }
+.mm-caixa-link { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+.mm-caixa-link:hover, .mm-caixa-link:focus { color: inherit; }
+/* O link cobre a caixa inteira (o rodapé incluso); o rodapé de quem configura sobe por cima. */
+.mm-caixa-link::after { content: ''; position: absolute; inset: 0; border-radius: 4px; }
+.mm-caixa-topo { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; }
+.mm-caixa-icone { font-size: 15px; color: #9aabb7; }
+.mm-caixa.tem-metas .mm-caixa-icone { color: #0a6fa0; }
+.mm-caixa.is-ativa .mm-caixa-icone { color: #fff; }
+.mm-caixa-total { font-size: 20px; line-height: 1; }
+.mm-caixa-gargalo {
+    font-size: 9px; font-weight: bold; letter-spacing: .4px; text-transform: uppercase;
+    color: #a3232b; background: #fbe7e7; padding: 1px 4px; border-radius: 2px;
+}
+.mm-caixa-nome { font-size: 12.5px; line-height: 1.2; overflow-wrap: normal; word-break: normal; }
+.mm-caixa-setor { font-size: 11px; color: #5b7383; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mm-caixa-atrasadas { font-size: 11px; font-weight: bold; color: #a3232b; }
+.mm-caixa-avisados { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: bold; color: #0a6fa0; min-width: 0; }
+.mm-caixa-avisados > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mm-caixa-rodape {
+    margin-top: auto; padding-top: 6px; display: flex; align-items: center; gap: 4px;
+    border-top: 1px solid rgba(18, 36, 47, .08);
+}
+.mm-caixa-rotulo {
+    flex: 1; min-width: 0; font-size: 10.5px; letter-spacing: .8px; color: #5b7383;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mm-caixa.is-ativa .mm-caixa-setor, .mm-caixa.is-ativa .mm-caixa-rotulo,
+.mm-caixa.is-ativa .mm-caixa-menu { color: rgba(255, 255, 255, .8); }
+.mm-caixa.is-ativa .mm-caixa-avisados, .mm-caixa.is-ativa .mm-caixa-atrasadas { color: #fff; }
+[data-mm-caixa-rotulo] { position: relative; z-index: 1; cursor: pointer; }
+.mm-caixa-menu {
+    position: relative; z-index: 1; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 3px;
+    background: transparent; color: #5b7383; font-size: 13px; display: inline-flex; align-items: center;
+    justify-content: center; opacity: 0; transition: opacity .15s, background .15s; cursor: pointer;
+}
+.mm-caixa:hover .mm-caixa-menu, .mm-caixa-menu:focus { opacity: 1; }
+.mm-caixa-menu:hover { background: rgba(10, 111, 160, .12); }
+
+.mm-divisor-suas { display: flex; align-items: center; gap: 10px; margin: 2px 0 -6px; }
+.mm-divisor-linha { flex: 1; height: 1px; background: #dfe7ed; }
+
+/* Selo de etapa no cartão da meta (dc L95). */
+.mm-meta-etapa { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; font-size: 12px; color: #4a6373; margin-top: 2px; }
+.mm-meta-etapa-chip {
+    display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 7px; border-radius: 3px;
+    background: #eef4f8; color: #0b5f86; font-weight: bold;
+}
+.mm-meta-etapa-proximo { display: inline-flex; align-items: center; gap: 5px; }
+.mm-meta-etapa-proximo > .bi { color: #7a8e9b; }
+
+/* Janela "Configurar caixa" (dc L133): a do desenho, não o modal do Bootstrap. Fundo .38, caixa de 460px. */
+.mm-cx-modal[hidden] { display: none; }
+.mm-cx-modal > .mm-cx-fundo { position: fixed; inset: 0; z-index: 9100; background: rgba(18, 36, 47, .38); }
+.mm-cx-modal > .mm-cx-centro {
+    position: fixed; inset: 0; z-index: 9101; display: flex; align-items: center; justify-content: center;
+    padding: 12px; pointer-events: none;
+}
+.mm-cx-centro > .mm-cx-caixa {
+    pointer-events: auto; width: min(460px, 100%); margin: 0; background: #fff; border-radius: 4px;
+    box-shadow: 0 20px 50px rgba(18, 36, 47, .28); overflow: visible;
+}
+.mm-cx-espaco { flex: 1; }
+.mm-cx-cabecalho {
+    background: #0a6fa0; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 8px;
+    border-radius: 4px 4px 0 0;
+}
+.mm-cx-titulo { flex: 1; font-size: 15px; }
+.mm-cx-fechar { width: 28px; height: 28px; border: 0; border-radius: 3px; background: rgba(255, 255, 255, .15); color: #fff; }
+.mm-cx-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.mm-cx-nomes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mm-cx-rotulo {
+    position: relative; display: flex; flex-direction: column; gap: 5px; margin: 0;
+    font-size: 11.5px; font-weight: bold; letter-spacing: .5px; text-transform: uppercase; color: #4a6373;
+}
+.mm-cx-campo {
+    height: 36px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px;
+    font-size: 14px; font-weight: normal; letter-spacing: 0; text-transform: none;
+}
+.mm-cx-ajuda, .mm-cx-nota { font-weight: normal; letter-spacing: 0; text-transform: none; color: #7a8e9b; }
+.mm-cx-nota { font-size: 11.5px; }
+.mm-cx-chips {
+    display: flex; flex-wrap: wrap; gap: 5px; align-items: center; min-height: 36px;
+    border: 1px solid #d3dde4; border-radius: 3px; padding: 4px 6px; font-weight: normal; letter-spacing: 0; text-transform: none;
+}
+.mm-cx-chip {
+    display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 4px 0 8px; border-radius: 12px;
+    background: #e5f1f7; color: #0a6fa0; font-size: 12.5px; font-weight: bold;
+}
+.mm-cx-chip > button {
+    width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #0a6fa0; font-size: 11px;
+}
+.mm-cx-busca { flex: 1; min-width: 100px; height: 26px; border: 0; outline: none; font-size: 13.5px; }
+.mm-cx-sugestoes {
+    position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px; z-index: 5; background: #fff;
+    border: 1px solid #d3dde4; border-radius: 4px; box-shadow: 0 10px 24px rgba(18, 36, 47, .18);
+    font-weight: normal; letter-spacing: 0; text-transform: none;
+}
+.mm-cx-sugestao {
+    width: 100%; display: flex; flex-direction: column; align-items: flex-start; border: 0; background: #fff;
+    padding: 7px 10px; text-align: left;
+}
+.mm-cx-sugestao:hover, .mm-cx-sugestao:focus { background: #e5f1f7; }
+.mm-cx-sugestao > b { font-size: 13px; color: #243845; }
+.mm-cx-sugestao > span { font-size: 11.5px; color: #5b7383; }
+.mm-cx-rodape { padding: 10px 16px; border-top: 1px solid #eef2f5; display: flex; gap: 8px; }
+.mm-cx-restaurar { height: 34px; padding: 0 12px; border: 0; background: transparent; color: #5b7383; font-size: 13px; }
+.mm-cx-cancelar { height: 34px; padding: 0 13px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font-size: 13.5px; }
+.mm-cx-salvar { height: 34px; padding: 0 15px; border: 0; border-radius: 3px; background: #0a6fa0; color: #fff; font-size: 13.5px; font-weight: bold; }

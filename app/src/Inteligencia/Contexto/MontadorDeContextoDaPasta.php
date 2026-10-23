@@ -11,12 +11,15 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\ContextoDaPasta;
 use App\Inteligencia\DTO\SecaoDeContexto;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\SecaoDoContexto;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Processo\Entity\Processo;
 use Psr\Clock\ClockInterface;
 
@@ -26,7 +29,7 @@ use Psr\Clock\ClockInterface;
  * itens e de caracteres, PII mascarada (se o escritório não desligou), tudo neutralizado, e um
  * orçamento total — o corte é DECLARADO (contagem de omitidos por seção), nunca silencioso.
  *
- * REGRA (D4): processo com `nivelSigilo > 0` → {@see ContextoBloqueadoException} antes de ler
+ * REGRA (D4): processo em segredo (`nivelSigilo > 0` ou "Sim" manual; `Processo::emSegredoDeJustica`) → {@see ContextoBloqueadoException} antes de ler
  * qualquer outra coisa. Nunca sai.
  *
  * `<financeiro>` só entra se a solicitação disse que a pessoa pode ver o financeiro da pasta
@@ -80,10 +83,25 @@ final class MontadorDeContextoDaPasta
     }
 
     /**
+     * `$abasOcultas`: as abas ocultas para quem pediu (spec pasta-ocultar-aba §5), decididas na
+     * solicitação e gravadas em `contexto_resumo.abasOcultas`, como o financeiro; aqui só se obedece.
+     * `$comando`: o comando do drawer que pediu (spec inteligencia-drawer-da-pasta, F1); as seções são
+     * as do agente dele, e ele entra no hash e no resumo.
+     * `$documentosSelecionados`: os documentos marcados na aba Documentos (F4), já validados na
+     * solicitação contra {@see documentosMostrados()} e gravados em `contexto_resumo.documentosSelecionados`;
+     * a seção `<documentos>` leva só esses. Nulo = sem recorte (todos os comandos menos o Índice).
+     *
+     * @param list<string>   $abasOcultas
+     * @param list<int>|null $documentosSelecionados
+     *
      * @throws ContextoBloqueadoException
      */
-    public function para(Tenant $tenant, Pasta $pasta, Agente $agente, bool $incluirFinanceiro): ContextoDaPasta
+    public function para(Tenant $tenant, Pasta $pasta, Agente $agente, bool $incluirFinanceiro, array $abasOcultas = [], ?Comando $comando = null, ?array $documentosSelecionados = null): ContextoDaPasta
     {
+        if ($comando !== null && $comando->agente() !== $agente) {
+            throw new \LogicException(sprintf('O comando "%s" é do agente "%s".', $comando->value, $comando->agente()->value));
+        }
+
         // Sigilo primeiro: o montador do Push lança antes de ler qualquer publicação; a lista de
         // processos daqui repete a conferência para o caso de o agente não ler movimentações.
         $processos = $this->processosDaPasta($tenant, $pasta);
@@ -95,10 +113,10 @@ final class MontadorDeContextoDaPasta
         $secoes = [];
         $gasto = 0;
         foreach ($agente->secoes() as $secao) {
-            if ($secao->exigeVisibilidadeDoFinanceiro() && !$incluirFinanceiro) {
+            if (($secao->exigeVisibilidadeDoFinanceiro() && !$incluirFinanceiro) || \in_array($secao->abaDaPasta()?->value, $abasOcultas, true)) {
                 continue; // a decisão foi tomada na solicitação; aqui só se obedece
             }
-            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar), $gasto);
+            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados, $incluirFinanceiro), $gasto);
         }
 
         $numeros = array_map(static fn (Processo $p): string => $p->getNumeroProcesso(), $processos);
@@ -108,10 +126,32 @@ final class MontadorDeContextoDaPasta
             cabecalho: $cabecalho,
             processos: $linhasDeProcessos,
             secoes: $secoes,
-            hash: ContextoDaPasta::hashDe($agente, $cabecalho, $linhasDeProcessos, $secoes),
+            hash: ContextoDaPasta::hashDe($agente, $cabecalho, $linhasDeProcessos, $secoes, $comando, $documentosSelecionados),
             incluiFinanceiro: $incluirFinanceiro && $agente->leFinanceiro(),
             numerosDosProcessos: $numeros,
+            abasOcultas: $abasOcultas,
+            comando: $comando,
+            documentosSelecionados: $documentosSelecionados,
         );
+    }
+
+    /**
+     * Os documentos que a aba Documentos do drawer mostra e que podem ser marcados (F4): os
+     * {@see LIMITE_DOCUMENTOS} mais recentes da pasta visíveis para quem vê, na MESMA ordem e com o
+     * MESMO corte da seção `<documentos>` do contexto. Só metadados; tenant explícito. Com a aba
+     * Documentos oculta para quem vê, nenhum (a seção também não entra no contexto).
+     *
+     * @param list<string> $abasOcultas
+     *
+     * @return list<PastaDocumento>
+     */
+    public function documentosMostrados(Tenant $tenant, Pasta $pasta, array $abasOcultas): array
+    {
+        if (\in_array(SecaoDoContexto::Documentos->abaDaPasta()?->value, $abasOcultas, true)) {
+            return [];
+        }
+
+        return \array_slice($this->documentosVisiveis($tenant, $pasta, $abasOcultas), 0, self::LIMITE_DOCUMENTOS);
     }
 
     /**
@@ -127,15 +167,19 @@ final class MontadorDeContextoDaPasta
     // Seções
     // ---------------------------------------------------------------------------------------
 
-    private function montarSecao(SecaoDoContexto $secao, Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
+    /**
+     * @param list<string>   $abasOcultas
+     * @param list<int>|null $documentosSelecionados
+     */
+    private function montarSecao(SecaoDoContexto $secao, Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $documentosSelecionados, bool $incluirFinanceiro): SecaoDeContexto
     {
         return match ($secao) {
             SecaoDoContexto::Clientes => $this->clientes($tenant, $pasta, $mascarar),
             SecaoDoContexto::Movimentacoes => $this->movimentacoes($tenant, $pasta),
             SecaoDoContexto::Metas => $this->metas($tenant, $pasta, $mascarar),
-            SecaoDoContexto::Anotacoes => $this->anotacoes($tenant, $pasta, $mascarar),
+            SecaoDoContexto::Anotacoes => $this->anotacoes($tenant, $pasta, $mascarar, $incluirFinanceiro),
             SecaoDoContexto::Observacoes => $this->observacoes($tenant, $pasta, $mascarar),
-            SecaoDoContexto::Documentos => $this->documentos($tenant, $pasta, $mascarar),
+            SecaoDoContexto::Documentos => $this->documentos($tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados),
             SecaoDoContexto::Checklist => $this->checklist($tenant, $pasta, $mascarar),
             SecaoDoContexto::Financeiro => $this->financeiro($tenant, $pasta, $mascarar),
         };
@@ -231,11 +275,12 @@ final class MontadorDeContextoDaPasta
         return new SecaoDeContexto(SecaoDoContexto::Metas, $linhas, $this->excedente($todas, self::LIMITE_METAS), $assinaturas);
     }
 
-    private function anotacoes(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
+    /** Sem o financeiro, os cartões de pró-bono e contrato do Registro não entram (regra da aba Financeiro). */
+    private function anotacoes(Tenant $tenant, Pasta $pasta, bool $mascarar, bool $incluirFinanceiro): SecaoDeContexto
     {
         $linhas = [];
         $assinaturas = [];
-        $todas = $this->dados->anotacoesDaPasta($tenant, $pasta, self::LIMITE_ANOTACOES + 1);
+        $todas = $this->dados->anotacoesDaPasta($tenant, $pasta, self::LIMITE_ANOTACOES + 1, $incluirFinanceiro);
         foreach (array_slice($todas, 0, self::LIMITE_ANOTACOES) as $mensagem) {
             $conteudo = $this->texto($mensagem->getConteudo(), self::TAMANHO_MAXIMO_DA_ANOTACAO, $mascarar);
             if ($conteudo === '') {
@@ -279,11 +324,23 @@ final class MontadorDeContextoDaPasta
         return new SecaoDeContexto(SecaoDoContexto::Observacoes, $linhas, $this->excedente($todas, self::LIMITE_OBSERVACOES), $assinaturas);
     }
 
-    private function documentos(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
+    /**
+     * Com o Financeiro oculto para quem pediu, o contrato de honorários não entra (regra
+     * `VisibilidadeDasAbasDaPasta::documentosVisiveis`, ocultar aba). Com seleção (Índice da aba
+     * Documentos, F4), só os marcados entram, buscados pelos ids e sem o corte de recência (a validação
+     * da solicitação já os limitou à lista mostrada; um documento novo depois do pedido não tira um
+     * marcado), e os não marcados não contam como omitidos por limite.
+     *
+     * @param list<string>   $abasOcultas
+     * @param list<int>|null $selecionados
+     */
+    private function documentos(Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $selecionados): SecaoDeContexto
     {
         $linhas = [];
         $assinaturas = [];
-        $todos = $this->dados->documentosDaPasta($tenant, $pasta, self::LIMITE_DOCUMENTOS + 1);
+        $todos = $selecionados === null
+            ? $this->documentosVisiveis($tenant, $pasta, $abasOcultas)
+            : VisibilidadeDasAbasDaPasta::documentosVisiveis($this->dados->documentosDaPastaPorIds($tenant, $pasta, $selecionados), $abasOcultas);
         foreach (array_slice($todos, 0, self::LIMITE_DOCUMENTOS) as $documento) {
             // Só metadados: o conteúdo do arquivo não é lido nem enviado (spec §2.2).
             $categoria = $this->rotulo($documento->getCategoria(), 'sem categoria', $mascarar);
@@ -300,7 +357,22 @@ final class MontadorDeContextoDaPasta
             $assinaturas[] = sprintf('documento:%d:%s:%s:%s:%s', (int) $documento->getId(), $documento->getCarregadoEm()->format('Y-m-d'), $categoria, $titulo, $nome);
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Documentos, $linhas, $this->excedente($todos, self::LIMITE_DOCUMENTOS), $assinaturas);
+        $omitidos = $selecionados === null ? $this->excedente($todos, self::LIMITE_DOCUMENTOS) : 0;
+
+        return new SecaoDeContexto(SecaoDoContexto::Documentos, $linhas, $omitidos, $assinaturas);
+    }
+
+    /**
+     * Os documentos da pasta visíveis para quem pediu, mais recente primeiro, um a mais que o limite
+     * (para declarar o corte). Regra única da seção e da lista da aba Documentos.
+     *
+     * @param list<string> $abasOcultas
+     *
+     * @return list<PastaDocumento>
+     */
+    private function documentosVisiveis(Tenant $tenant, Pasta $pasta, array $abasOcultas): array
+    {
+        return VisibilidadeDasAbasDaPasta::documentosVisiveis($this->dados->documentosDaPasta($tenant, $pasta, self::LIMITE_DOCUMENTOS + 1), $abasOcultas);
     }
 
     private function checklist(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
@@ -407,7 +479,7 @@ final class MontadorDeContextoDaPasta
                 continue;
             }
 
-            if (($processo->getNivelSigilo() ?? 0) > 0) {
+            if ($processo->emSegredoDeJustica()) { // tribunal OU "Sim" manual do cartão (P5b)
                 throw new ContextoBloqueadoException($processo->getNumeroProcesso());
             }
 
@@ -431,7 +503,7 @@ final class MontadorDeContextoDaPasta
 
         return [
             'pasta' => $this->rotulo($pasta->getNup(), 'sem número', $mascarar),
-            'situacao' => $pasta->getSituacao() === 'arquivado' ? 'arquivada' : 'ativa',
+            'situacao' => ['arquivado' => 'arquivada', 'suspenso' => 'suspensa', 'cancelado' => 'cancelada'][$pasta->getSituacao()] ?? 'ativa',
             'prioridade' => $this->rotulo($pasta->getPrioridadeLabel(), 'normal', $mascarar),
             'acao' => $this->rotulo($pasta->getNomeAcao(), 'não informada', $mascarar),
             'abertura' => $pasta->getDataAbertura()->format('d/m/Y'),
