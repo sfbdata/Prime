@@ -268,6 +268,32 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         self::assertFalse($this->foiRecusadaPelaBarreira());
     }
 
+    #[TestDox('Conta suspensa a pedido: o Master VINCULADO a ela age pela URL com outro escritório na sessão (R7)')]
+    public function testMasterPassaComContaSuspensaAPedido(): void
+    {
+        $master = $this->criarUsuario('Master do Sistema', ['ROLE_SUPER_ADMIN'], [$this->escritorioA, $this->escritorioB]);
+        $this->pedirExclusaoDeA();
+        $this->logarComTenant($this->client, $master, $this->escritorioB);
+
+        $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/users");
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString(BloqueioPorPedidoDeExclusao::MENSAGEM, (string) $this->client->getResponse()->getContent());
+        self::assertFalse($this->foiRecusadaPelaBarreira());
+    }
+
+    #[TestDox('Conta suspensa a pedido: sair do escritório continua liberado (R7)')]
+    public function testSairContinuaLiberadoComContaSuspensaAPedido(): void
+    {
+        $this->pedirExclusaoDeA();
+        $this->logarComTenant($this->client, $this->adminDeA, $this->escritorioB);
+
+        $this->client->request('POST', "/escritorio/{$this->escritorioA->getId()}/sair");
+
+        self::assertStringNotContainsString(BloqueioPorPedidoDeExclusao::MENSAGEM, (string) $this->client->getResponse()->getContent());
+        self::assertFalse($this->foiRecusadaPelaBarreira());
+    }
+
     /** @return array<string, Route> */
     private function rotasComEscritorio(): array
     {
