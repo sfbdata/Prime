@@ -103,7 +103,7 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
     #[TestDox('pane fora do espelho (exceção inesperada) também é "erro_de_consulta" — a rodada não aborta')]
     public function testPaneInesperadaNaoAbortaARodada(): void
     {
-        $quebrado = new class implements \App\Shared\EspelhoRemoto\EspelhoRemoto {
+        $quebrado = new class () implements \App\Shared\EspelhoRemoto\EspelhoRemoto {
             public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
             {
             }

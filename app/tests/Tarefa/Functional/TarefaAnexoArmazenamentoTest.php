@@ -198,12 +198,25 @@ final class TarefaAnexoArmazenamentoTest extends JusPrimeWebTestCase
 
     private function instalarCsrfStorage(): void
     {
-        static::getContainer()->set('security.csrf.token_storage', new class implements ClearableTokenStorageInterface {
-            public function getToken(string $tokenId): string { return 'TOKEN_' . $tokenId; }
-            public function setToken(string $tokenId, string $token): void {}
-            public function removeToken(string $tokenId): ?string { return null; }
-            public function hasToken(string $tokenId): bool { return true; }
-            public function clear(): void {}
+        static::getContainer()->set('security.csrf.token_storage', new class () implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string
+            {
+                return 'TOKEN_' . $tokenId;
+            }
+            public function setToken(string $tokenId, string $token): void
+            {
+            }
+            public function removeToken(string $tokenId): ?string
+            {
+                return null;
+            }
+            public function hasToken(string $tokenId): bool
+            {
+                return true;
+            }
+            public function clear(): void
+            {
+            }
         });
     }
 

@@ -190,7 +190,7 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
     {
         $this->gravar('b.pdf', 'x');
         $this->gravar('c.pdf', 'y');
-        $quebrado = new class implements \App\Shared\EspelhoRemoto\EspelhoRemoto {
+        $quebrado = new class () implements \App\Shared\EspelhoRemoto\EspelhoRemoto {
             public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
             {
             }
