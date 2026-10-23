@@ -4,7 +4,8 @@
    o cartão com a borda esquerda na cor do tipo, o ícone redondo, o rótulo, o título, os botões (ação azul, adiar e
    fechar) e a barra de tempo. Ícone e cor do "Regularizar ponto de ontem" (dc 03, L676-677).
 
-   Uma vez por dia por pessoa e escritório (localStorage, sempre em try/catch): mostrar marca o dia; "fechar" esconde
+   Uma vez por dia por pessoa e escritório (localStorage, sempre em try/catch): consultar marca o dia (e a resposta
+   vazia grava `vazio`), então o endpoint sai no máximo uma vez por dia; "fechar" esconde
    até amanhã; "adiar" esconde por 10 min (a duração do desenho, "Lembrar em 10 min"). Textos e link vêm prontos do
    servidor; DOM só com textContent.
    ============================================================================= */
@@ -113,19 +114,19 @@
 
     function checar() {
         if (document.getElementById('bjl-ponto-pendente') || !deveMostrar(ler(), Date.now())) { return; }
+        gravar({ dia: hoje() });   // consultado: o endpoint sai no máximo uma vez por dia (ou quando o adiamento vence)
         fetch(URL, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
             .then(function (r) { return r.ok && (r.headers.get('Content-Type') || '').indexOf('application/json') !== -1 ? r.json() : null; })
             .then(function (dados) {
-                if (!dados || !dados.cartao || document.getElementById('bjl-ponto-pendente')) { return; }
-                gravar({ dia: hoje() });   // mostrado: só amanhã de novo (ou quando o adiamento vencer)
-                desenhar(dados.cartao);
+                if (!dados || !dados.cartao) { gravar({ dia: hoje(), vazio: true }); return; }
+                if (!document.getElementById('bjl-ponto-pendente')) { desenhar(dados.cartao); }
             })
             .catch(function () { /* sem resposta: tenta na próxima página */ });
     }
 
     function iniciar() {
         checar();
-        setInterval(checar, 60000);   // o adiamento de 10 min vence com a página aberta
+        setInterval(checar, 60000);   // só para o adiamento de 10 min vencer com a página aberta: a guarda de checar() vale igual
     }
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', function () { setTimeout(iniciar, 1200); }); } else { setTimeout(iniciar, 1200); }
 }());
