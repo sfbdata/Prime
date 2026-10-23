@@ -138,3 +138,9 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
 - **PR4 em diante**: meta de pastas.
 - **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
   padrão hoje, nenhuma opção é obrigatória, roda 1x por dia.
+
+## Estado da frente (23/10, pausa)
+
+- #334 no master. #339 (branch `dashboard-2`, migration 150900 com `finalizada_em`) aberto, enviado, à espera da vigia.
+- Zerar (branch `dashboard-3`, commits b2fbd869d e ca8d71c58, revisado e corrigido, sem PR). Próximo passo: depois do merge do #339, trazer o origin/master para a `dashboard-3` (trocar o uso de `arquivada_em` por `finalizada_em` se sobrar algum), testes `Dashboard|Pasta|CatalogoDeTraducao|Arquitetura|Twig`, push e PR.
+- Depois: PR3c meta de pastas do mês (primário define e quem ele autorizar) e PR4 links do Relatório e de Pastas concluídas com o filtro do Expediente.
