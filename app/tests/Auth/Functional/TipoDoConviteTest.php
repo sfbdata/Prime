@@ -107,7 +107,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client = static::createClient();
         foreach ([Invitation::TIPO_PLATAFORMA, Invitation::TIPO_ESCRITORIO] as $tipo) {
             $convite = $this->convite($tipo, 'campo_' . uniqid() . '@adv.com');
-            $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+            $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
 
             $campo = $crawler->filter('.login-container > form[method="post"] > div.mb-3 > select#genero[name="genero"][required]');
             self::assertCount(1, $campo, $tipo);
@@ -127,7 +127,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
 
             $this->aceitarPlataforma($client, $convite, senha: 'SenhaBoa123', genero: $genero);
 
-            self::assertResponseRedirects('/convite/' . $convite->getToken());
+            self::assertResponseRedirects('/convite/' . $this->tokenDe($convite));
             $client->followRedirect();
             // O aviso vem pelo flash, que a moldura mostra no topo da página.
             self::assertSelectorTextContains('.alert', 'Informe o gênero.');
@@ -143,7 +143,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $email = 'escritorio_genero_' . uniqid() . '@adv.com';
         $convite = $this->convite(Invitation::TIPO_ESCRITORIO, $email);
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
         $form = $crawler->filter('form[method="post"]')->form(['full_name' => 'Pessoa Teste', 'senha' => 'SenhaBoa123', 'genero' => 'feminino']);
         $form['aceite_termos']->tick();
 
@@ -170,7 +170,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $convite = $this->convite(Invitation::TIPO_ESCRITORIO, $email);
         $this->logarComTenant($client, $user, $meu);
 
-        $client->request('GET', '/convite/' . $convite->getToken());
+        $client->request('GET', '/convite/' . $this->tokenDe($convite));
 
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('select[name="genero"]');
