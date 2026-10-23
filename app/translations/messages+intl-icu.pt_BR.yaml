@@ -7853,6 +7853,12 @@ pasta_documentos:
         excluir_confirmar: 'Excluir esta meta? Esta ação não pode ser desfeita.'
         excluir: Excluir
         nome: Nome da meta
+        despacho:
+            titulo: Excluir meta com despacho registrado
+            aviso: Esta meta tem despacho registrado e não pode ser excluída.
+            ciente: Entendo que o registro oficial será apagado
+            cancelar: Cancelar
+            excluir: Excluir meta
         salvar: Salvar
         cancelar: Cancelar
         filtro_vazio: Nenhuma meta neste filtro

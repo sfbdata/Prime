@@ -46,7 +46,7 @@ final class ApagarSemPrazoTest extends TestCase
     #[TestDox('O primário do escritório dono apaga a mensagem alheia fora do prazo, com o selo, se a opção estiver ligada')]
     public function testPrimarioDoDonoComAOpcao(): void
     {
-        $politica = new PoliticaDaDemanda($this->poderSemPrazo($this->vinculo($this->dono), true));
+        $politica = new PoliticaDaDemanda($this->poderSemPrazo($this->vinculo($this->dono), true, [$this->daEquipe($this->alheia)]));
         $ctx = Apoio::contexto(Perfil::Solicitante, $this->dono, usuario: $this->primario);
 
         self::assertTrue($politica->podeApagarMensagem($ctx, $this->alheia, $this->depois));
@@ -57,7 +57,7 @@ final class ApagarSemPrazoTest extends TestCase
     #[TestDox('Com a opção desligada, o primário volta à regra de sempre')]
     public function testPrimarioComAOpcaoDesligada(): void
     {
-        $politica = new PoliticaDaDemanda($this->poderSemPrazo($this->vinculo($this->dono), false));
+        $politica = new PoliticaDaDemanda($this->poderSemPrazo($this->vinculo($this->dono), false, [$this->daEquipe($this->alheia)]));
         $ctx = Apoio::contexto(Perfil::Solicitante, $this->dono, usuario: $this->primario);
 
         self::assertFalse($politica->podeApagarMensagem($ctx, $this->alheia, $this->depois));
@@ -87,6 +87,37 @@ final class ApagarSemPrazoTest extends TestCase
         self::assertFalse($politica->podeApagarMensagem($previa, $this->alheia, $this->depois));
         $sistema = new MensagemDemanda(Apoio::demanda(Situacao::Analise, $this->dono), Apoio::autor(), TipoMensagem::Sistema, 'Registro');
         self::assertFalse($politica->podeApagarMensagem($ctx, $sistema, $this->depois));
+    }
+
+    #[TestDox('O primário não apaga mensagem da Central (Master ou Equipe) nem de convidado de outro escritório (decisão do dono, 23/10)')]
+    public function testSoMensagemDaEquipeDoDono(): void
+    {
+        $ctx = Apoio::contexto(Perfil::Solicitante, $this->dono, usuario: $this->primario);
+        foreach ([Perfil::Master, Perfil::Equipe] as $central) {
+            $daCentral = $this->mensagemDe($central);
+            // Mesmo que quem atende tenha vínculo no escritório dono, a mensagem da Central fica de fora.
+            $politica = new PoliticaDaDemanda($this->poderSemPrazo($this->vinculo($this->dono), true, [$this->daEquipe($daCentral)]));
+            self::assertFalse($politica->podeApagarMensagem($ctx, $daCentral, $this->depois), $central->value);
+        }
+
+        $convidado = $this->mensagemDe(Perfil::Convidado);
+        $semVinculo = new PoliticaDaDemanda($this->poderSemPrazo($this->vinculo($this->dono), true));
+        self::assertFalse($semVinculo->podeApagarMensagem($ctx, $convidado, $this->depois), 'convidado sem vínculo no dono');
+        self::assertNull($semVinculo->seloDoApagar($ctx, $convidado, $this->depois));
+
+        $daEquipe = new PoliticaDaDemanda($this->poderSemPrazo($this->vinculo($this->dono), true, [$this->daEquipe($convidado)]));
+        self::assertTrue($daEquipe->podeApagarMensagem($ctx, $convidado, $this->depois), 'convidado com vínculo ativo no dono é da equipe');
+    }
+
+    private function mensagemDe(Perfil $perfil): MensagemDemanda
+    {
+        return new MensagemDemanda(Apoio::demanda(Situacao::Analise, $this->dono), Apoio::autor($perfil), TipoMensagem::Normal, 'Olá');
+    }
+
+    /** Vínculo ativo, secundário, do autor da mensagem no escritório dono. */
+    private function daEquipe(MensagemDemanda $m): UserTenant
+    {
+        return (new UserTenant($m->getAutor() ?? Apoio::usuario(50), $this->dono))->setTenantRole((new TenantRole())->setTenant($this->dono)->setIsSystem(false));
     }
 
     private function vinculo(Tenant $tenant): UserTenant

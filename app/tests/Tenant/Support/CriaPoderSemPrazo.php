@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Support;
 
+use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Repository\AuditLogRepository;
@@ -20,17 +21,30 @@ use App\Tenant\Service\RegraDosPrimarios;
  */
 trait CriaPoderSemPrazo
 {
-    protected function poderSemPrazo(?UserTenant $vinculoDePrimario = null, bool $opcaoLigada = true): PoderDeEdicaoSemPrazo
+    /** @param list<UserTenant> $outrosVinculos vínculos ativos de quem não é primário (ex.: o autor da mensagem do TE) */
+    protected function poderSemPrazo(?UserTenant $vinculoDePrimario = null, bool $opcaoLigada = true, array $outrosVinculos = []): PoderDeEdicaoSemPrazo
     {
         $vinculos = $this->createStub(UserTenantRepository::class);
         $vinculos->method('findAtivoPorUserETenant')->willReturnCallback(
-            static fn ($usuario, $tenant): ?UserTenant => $vinculoDePrimario !== null && $vinculoDePrimario->getUser() === $usuario
-                && self::mesmoEscritorio($vinculoDePrimario->getTenant(), $tenant) ? $vinculoDePrimario : null,
+            static function ($usuario, $tenant) use ($vinculoDePrimario, $outrosVinculos): ?UserTenant {
+                foreach (array_merge($vinculoDePrimario !== null ? [$vinculoDePrimario] : [], $outrosVinculos) as $vinculo) {
+                    if (self::mesmaPessoa($vinculo->getUser(), $usuario) && self::mesmoEscritorio($vinculo->getTenant(), $tenant)) {
+                        return $vinculo;
+                    }
+                }
+
+                return null;
+            },
         );
         $configuracoes = $this->createStub(ConfiguracaoDeEdicaoRepository::class);
         $configuracoes->method('primarioSemPrazo')->willReturn($opcaoLigada);
 
         return new PoderDeEdicaoSemPrazo(new RegraDosPrimarios($vinculos), $vinculos, $configuracoes);
+    }
+
+    private static function mesmaPessoa(User $doVinculo, User $pedido): bool
+    {
+        return $doVinculo === $pedido || ($pedido->getId() !== null && $doVinculo->getId() === $pedido->getId());
     }
 
     /** O primário só vale no escritório do vínculo (o de outro escritório não tem o poder). */

@@ -7,6 +7,7 @@ namespace App\Tarefa\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Tarefa\Exception\MetaComDespachoSemConfirmacaoException;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tenant\Enum\PoderSemPrazo;
 use App\Tenant\Service\AuditoriaDaEdicaoSemPrazo;
@@ -23,11 +24,17 @@ use Doctrine\ORM\EntityManagerInterface;
  * Edição sem prazo (spec `edicao-sem-prazo-master-primario.md`, item 5): o Master e o primário (com a opção do
  * escritório) excluem qualquer meta do escritório, a qualquer momento ({@see PoderDeEdicaoSemPrazo}); o uso do poder
  * fica também na trilha `sp_excluir`, com o papel. A tela pergunta o mesmo (`meta_pode_excluir`, `meta_selo_excluir`).
+ *
+ * Meta com despacho registrado (decisão do dono, 23/10): ninguém a exclui pela regra de sempre, nem o criador nas 24h.
+ * Só o poder sem prazo, e com a confirmação explícita da janela ("Entendo que o registro oficial será apagado");
+ * sem ela, {@see MetaComDespachoSemConfirmacaoException}. A trilha leva quantos despachos e os códigos.
  */
 final class ExcluirTarefaUseCase
 {
     /** Janela em que a meta ainda pode ser excluída, contada da criação. */
     private const JANELA_EXCLUSAO = 'PT24H';
+
+    public const COM_DESPACHO = 'Esta meta tem despacho registrado e não pode ser excluída.';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -55,18 +62,42 @@ final class ExcluirTarefaUseCase
         return $this->poder->selo($usuario, $tenant, $this->pelaRegraDeSempre($tarefa, $usuario));
     }
 
-    public function executar(Tarefa $tarefa, User $usuario, Tenant $tenant): void
+    public function executar(Tarefa $tarefa, User $usuario, Tenant $tenant, bool $confirmouDespacho = false): void
     {
+        $codigos = $this->codigosDosDespachos($tarefa);
         if (!$this->podeExcluir($tarefa, $usuario, $tenant)) {
-            throw new MetaNaoExcluivelException('Esta meta não pode ser excluída.');
+            throw new MetaNaoExcluivelException($codigos === [] ? 'Esta meta não pode ser excluída.' : self::COM_DESPACHO);
         }
-        $this->auditoria->registrar(AuditoriaDaEdicaoSemPrazo::EXCLUIR, $usuario, $tenant, $this->pelaRegraDeSempre($tarefa, $usuario), Tarefa::class, $tarefa->getId(), $tarefa->getCriadoPor()?->getId());
+        if ($codigos !== [] && !$confirmouDespacho) {
+            throw new MetaComDespachoSemConfirmacaoException(self::COM_DESPACHO);
+        }
+        $marcadores = $codigos === [] ? [] : ['despacho_registrado' => ['quantos' => count($codigos), 'codigos' => $codigos]];
+        $this->auditoria->registrar(AuditoriaDaEdicaoSemPrazo::EXCLUIR, $usuario, $tenant, $this->pelaRegraDeSempre($tarefa, $usuario), Tarefa::class, $tarefa->getId(), $tarefa->getCriadoPor()?->getId(), $marcadores);
 
         $this->em->remove($tarefa);
         $this->em->flush();
     }
 
-    /** A regra de sempre: o criador, nas 24 horas depois de criar. */
+    /** Quantos despachos registrados (com código) a meta tem: a tela pede a confirmação quando há algum. */
+    public function despachosRegistrados(Tarefa $tarefa): int
+    {
+        return count($this->codigosDosDespachos($tarefa));
+    }
+
+    /** @return list<string> os códigos dos despachos registrados da meta */
+    private function codigosDosDespachos(Tarefa $tarefa): array
+    {
+        $codigos = [];
+        foreach ($tarefa->getMensagens() as $mensagem) {
+            if ($mensagem->getCodigo() !== null) {
+                $codigos[] = $mensagem->getCodigo();
+            }
+        }
+
+        return $codigos;
+    }
+
+    /** A regra de sempre: o criador, nas 24 horas depois de criar, e sem despacho registrado. */
     private function pelaRegraDeSempre(Tarefa $tarefa, User $usuario, ?\DateTimeImmutable $agora = null): bool
     {
         $criador = $tarefa->getCriadoPor();
@@ -76,6 +107,7 @@ final class ExcluirTarefaUseCase
         $mesmaPessoa = $criador === $usuario
             || ($criador->getId() !== null && $criador->getId() === $usuario->getId());
 
-        return $mesmaPessoa && ($agora ?? new \DateTimeImmutable()) <= $tarefa->getDataCriacao()->add(new \DateInterval(self::JANELA_EXCLUSAO));
+        return $mesmaPessoa && $this->codigosDosDespachos($tarefa) === []
+            && ($agora ?? new \DateTimeImmutable()) <= $tarefa->getDataCriacao()->add(new \DateInterval(self::JANELA_EXCLUSAO));
     }
 }

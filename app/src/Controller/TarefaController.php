@@ -17,6 +17,7 @@ use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\DesfazerReaberturaRecusadoException;
+use App\Tarefa\Exception\MetaComDespachoSemConfirmacaoException;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
@@ -538,9 +539,12 @@ final class TarefaController extends AbstractController
         $pastaId = $tarefa->getPasta()->getId();
 
         try {
-            $useCase->executar($tarefa, $usuario, $tenant);
-        } catch (MetaNaoExcluivelException) {
-            $this->addFlash('danger', 'Esta meta não pode ser excluída.');
+            // A janela do despacho registrado manda `confirmar_despacho=1` (só quem tem o poder sem prazo a vê).
+            $useCase->executar($tarefa, $usuario, $tenant, $request->request->getBoolean('confirmar_despacho'));
+        } catch (MetaComDespachoSemConfirmacaoException $e) {
+            return new Response($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (MetaNaoExcluivelException $e) {
+            $this->addFlash('danger', $e->getMessage());
 
             return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
         }

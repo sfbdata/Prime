@@ -32,7 +32,8 @@ final class AuditoriaDaEdicaoSemPrazo
      *
      * @param self::EDITAR|self::EXCLUIR $acao
      */
-    public function registrar(string $acao, User $quem, Tenant $tenant, bool $pelaRegraDeSempre, string $entidade, ?int $id, ?int $autorId): void
+    /** @param array<string, mixed> $marcadores o que mais a trilha precisa dizer (ex.: o despacho registrado da meta) */
+    public function registrar(string $acao, User $quem, Tenant $tenant, bool $pelaRegraDeSempre, string $entidade, ?int $id, ?int $autorId, array $marcadores = []): void
     {
         $poder = $this->poder->selo($quem, $tenant, $pelaRegraDeSempre);
         if ($poder === null) {
@@ -50,6 +51,6 @@ final class AuditoriaDaEdicaoSemPrazo
                 'poder' => $poder->value,
                 'autor_id' => $autorId,
                 'alheio' => $autorId !== $quem->getId(),
-            ]));
+            ] + $marcadores));
     }
 }

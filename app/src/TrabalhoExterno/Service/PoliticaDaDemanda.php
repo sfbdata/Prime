@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Service;
 
+use App\Entity\Tenant\Tenant;
 use App\Tenant\Enum\PoderSemPrazo;
 use App\Tenant\Service\PoderDeEdicaoSemPrazo;
 use App\TrabalhoExterno\Entity\DemandaExterna;
@@ -382,16 +383,31 @@ final class PoliticaDaDemanda
 
     /**
      * O selo "EXCLUSIVO DO PRIMÁRIO" quando só o poder sem prazo libera o apagar: o primário do escritório DONO
-     * da demanda (não o de quem lê). O Master do TE já apaga pela regra de sempre, então não leva selo.
+     * da demanda (não o de quem lê), em mensagem de alguém da equipe do dono. O Master do TE já apaga pela regra de
+     * sempre, então não leva selo.
      */
     public function seloDoApagar(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): ?PoderSemPrazo
     {
         if ($this->poderSemPrazo === null || $ctx->somenteLeitura() || !$m->podeSerApagada() || $this->apagaPelaRegraDeSempre($ctx, $m, $agora)) {
             return null;
         }
-        $poder = $this->poderSemPrazo->de($ctx->usuario, $m->getDemanda()->getTenant());
+        $dono = $m->getDemanda()->getTenant();
+        $poder = $this->poderSemPrazo->de($ctx->usuario, $dono);
 
-        return $poder === PoderSemPrazo::Primario ? $poder : null;
+        return $poder === PoderSemPrazo::Primario && $this->autorDaEquipeDoDono($m, $dono) ? $poder : null;
+    }
+
+    /**
+     * Decisão do dono (23/10): o primário só apaga mensagem de quem tem vínculo ativo no escritório dono. Ficam de
+     * fora a Central (Master e Equipe) e os convidados de outros escritórios.
+     */
+    private function autorDaEquipeDoDono(MensagemDemanda $m, Tenant $dono): bool
+    {
+        $autor = $m->getAutor();
+
+        return $autor !== null
+            && !in_array($m->getPerfilAutor(), [Perfil::Master, Perfil::Equipe], true)
+            && $this->poderSemPrazo?->temVinculoAtivo($autor, $dono) === true;
     }
 
     /**

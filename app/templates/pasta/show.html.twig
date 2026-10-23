@@ -23,6 +23,8 @@
 {# Ocultar aba: ícone da regra na aba, modal "Ocultar aba" e o aviso sem aba (pasta/_abas_ocultas.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-abas-ocultas.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-presenca-autor.css') }}">
+{# A janela da meta com despacho registrado (aba Metas) usa o `.mp-modal` da devolução. #}
+<link rel="stylesheet" href="{{ asset('css/meta-passagem.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -4682,4 +4684,5 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-destaque.js') }}"></script>
 {# Selo "EXCLUSIVO DO MASTER / DO PRIMÁRIO" nos menus pintados pelo JS (spec edicao-sem-prazo §5). #}
 <script src="{{ asset('js/selo-sem-prazo.js') }}"></script>
+<script src="{{ asset('js/meta-excluir-despacho.js') }}"></script>
 {% endblock %}

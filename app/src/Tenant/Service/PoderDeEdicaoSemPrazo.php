@@ -57,6 +57,15 @@ final class PoderDeEdicaoSemPrazo implements ResetInterface
         return $pelaRegraDeSempre ? null : $this->de($usuario, $tenant);
     }
 
+    /**
+     * O autor do conteúdo tem vínculo ativo no escritório? O primário só mexe no que é da própria equipe (item 8 do TE:
+     * fora ficam as mensagens da Central e dos convidados de outros escritórios).
+     */
+    public function temVinculoAtivo(User $autor, Tenant $tenant): bool
+    {
+        return $this->vinculos->findAtivoPorUserETenant($autor, $tenant) !== null;
+    }
+
     public function esquecer(): void
     {
         $this->memoria = [];
