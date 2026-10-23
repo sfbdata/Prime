@@ -31,14 +31,14 @@ final class IdiomaTest extends TestCase
         self::assertSame('ltr', Idioma::Japones->direcao());
     }
 
-    #[TestDox('só português, inglês e espanhol estão liberados e oferecidos; o gravado desconhecido, nulo ou fora dos três vale como português')]
+    #[TestDox('o seletor oferece português, inglês e espanhol; só o português está liberado; o gravado desconhecido, nulo ou não liberado vale como português')]
     public function testEmUso(): void
     {
         self::assertSame([Idioma::PortuguesBrasil, Idioma::Ingles, Idioma::Espanhol], Idioma::oferecidos());
-        self::assertSame(Idioma::oferecidos(), array_values(array_filter(Idioma::cases(), static fn (Idioma $i): bool => $i->ativo())));
+        self::assertSame([Idioma::PortuguesBrasil], array_values(array_filter(Idioma::cases(), static fn (Idioma $i): bool => $i->ativo())));
         self::assertSame(Idioma::PortuguesBrasil, Idioma::emUso('pt-BR'));
-        self::assertSame(Idioma::Ingles, Idioma::emUso('en'));
-        self::assertSame(Idioma::Espanhol, Idioma::emUso('es'));
+        self::assertSame(Idioma::PortuguesBrasil, Idioma::emUso('en'));
+        self::assertSame(Idioma::PortuguesBrasil, Idioma::emUso('es'));
         self::assertSame(Idioma::PortuguesBrasil, Idioma::emUso('fr'));
         self::assertSame(Idioma::PortuguesBrasil, Idioma::emUso('ar'));
         self::assertSame(Idioma::PortuguesBrasil, Idioma::emUso('xx'));

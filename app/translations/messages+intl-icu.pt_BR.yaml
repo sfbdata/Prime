@@ -219,7 +219,7 @@ menu:
         idioma:
             titulo: Idioma do sistema
             em_breve: em breve
-            regra: Vale só para você e muda todas as telas, menus, avisos e o Chat I.A. Os Termos de Uso e a Política de Privacidade continuam em português.
+            regra: Vale só para você e muda todas as telas, menus, avisos e o Chat I.A. Por enquanto só o Português (Brasil) está disponível; os demais idiomas chegam em breve.
         preparacao:
             titulo_sufixo: em preparação
             texto: Estamos finalizando esta tela para ela chegar com tudo funcionando. Volte em breve.
