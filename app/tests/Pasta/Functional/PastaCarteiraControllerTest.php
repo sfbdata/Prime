@@ -78,6 +78,8 @@ final class PastaCarteiraControllerTest extends JusPrimeWebTestCase
 
         $menu = $this->abrir($pasta)->filter('#psMoverCarteira');
 
+        // O `gMenu` do desenho não tem X: o painel desliga o X automático das janelinhas.
+        self::assertNotNull($menu->attr('data-sem-x'));
         self::assertSame('Mover pasta ' . $pasta->getNup() . ' para', trim($menu->filter('#psMoverCarteira > .ps-pop-secao:first-child')->text()));
         $opcoes = $menu->filter('#psMoverCarteira > button.js-carteira-opt');
         self::assertSame(self::CARTEIRAS, $opcoes->each(static fn (Crawler $o): string => trim($o->filter('span')->text())));

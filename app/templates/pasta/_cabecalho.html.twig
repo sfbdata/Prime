@@ -335,9 +335,10 @@
                 </div>
                 {# Submenu "Mover pasta N para" (desenho `gMenu`/`gmVals`, dc L4577 e L4610): as seis carteiras na
                    ordem do desenho. A atual leva "· atual" e o bi-check2, e o clique nela não faz nada; as outras,
-                   bi-briefcase. Pasta sem carteira (NULL) não tem atual. O script no fim deste parcial faz o POST. #}
+                   bi-briefcase. Pasta sem carteira (NULL) não tem atual. O script no fim deste parcial faz o POST.
+                   `data-sem-x`: o `gMenu` do desenho não tem X. #}
                 {% if podeEditarPasta %}
-                <div class="ps-pop ps-pop--carteira" id="psMoverCarteira" role="menu"
+                <div class="ps-pop ps-pop--carteira" id="psMoverCarteira" role="menu" data-sem-x
                      aria-labelledby="psMoverCarteiraTitulo"
                      data-url="{{ path('pasta_mover_carteira', {id: pasta.id}) }}"
                      data-csrf="{{ csrf_token('pasta_carteira_' ~ pasta.id) }}"
