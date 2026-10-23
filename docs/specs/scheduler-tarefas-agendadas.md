@@ -164,6 +164,11 @@ diferente de 0 (`throwOnFailure` é `true` por padrão) ou lança exceção; o w
   agendador." Sem JS e sem modal: o botão "Dispensar" é um formulário POST. CSS próprio
   (`css/aviso-falha-agendada.css`) só para o botão, que repete o azul do `a.ae-aumentar` do desenho.
   Textos no catálogo (`moldura.aviso_falha_agendada.*`).
+- **Junto com o aviso de espaço**: os dois ficam num contêiner fixo único do `_globais` (`.ae-avisos`,
+  `css/avisos-do-topo.css`), no mesmo lugar do `.ae-aviso` (top 70px, centrado), empilhados com 8px de
+  intervalo, o de espaço primeiro. Cada aviso só perde o posicionamento próprio; o visual não muda.
+- **Voltar do Dispensar**: a própria página só quando ela veio de um GET; numa página montada por POST, o
+  início.
 - **Custo por página**: a função Twig `aviso_de_falha_agendada()` só consulta para quem vê o aviso, uma vez
   por requisição, `dispensada_em IS NULL ORDER BY ocorrida_em DESC LIMIT 6` no índice acima. Uma falha na
   consulta some com o aviso, nunca com a página.
