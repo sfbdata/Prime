@@ -14,6 +14,7 @@ use App\Pasta\Service\AcessoAPasta;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,6 +31,7 @@ final class DashboardController extends AbstractController
         private readonly MontarLeituraDoDashboard $montarLeitura,
         private readonly ObterPreferenciasDoDashboardUseCase $obterPreferencias,
         private readonly AcessoAPasta $acessoAPasta,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     #[Route('', name: 'dashboard_index', methods: ['GET'])]
@@ -125,6 +127,7 @@ final class DashboardController extends AbstractController
             'contagemCargo'    => $contagemCargo,
             'contagemSemCargo' => $contagemSemCargo,
             'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
+            'podeZerar'      => $this->regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant), // "Zerar" (DASH-014): Master ou primário ativo
         ]);
     }
 

@@ -265,6 +265,23 @@
         return caixa;
     }
 
+    /**
+     * Comentários com o "Zerar" do desenho (`ctx.comZerar`, só para quem pode zerar): zera a coluna
+     * Relatório desta pessoa (public/js/dashboard-zerar.js) e recarrega o cartão.
+     */
+    function linhaDosComentarios(d, recarregar) {
+        var l = linha('bi-chat-left-text-fill', window.BJ_T.t('dashboard.js.colaborador.comentarios'), d.registros);
+        if (!window.DbZerar || !window.DbZerar.pode()) { return l; }
+        var b = el('button', 'db-colab-zerar');
+        b.type = 'button';
+        b.title = window.BJ_T.t('dashboard.js.zerar.cartao_zerar_titulo');
+        b.append(icone('bi-arrow-counterclockwise'), el('span', null, window.BJ_T.t('dashboard.js.zerar.cartao_zerar')));
+        b.addEventListener('click', function () { window.DbZerar.zerar('relatorio', d.userId, d.nome, recarregar); });
+        l.appendChild(b);
+
+        return l;
+    }
+
     // ── Montagem ──
 
     function desenhar(janela, d, aoEscolher) {
@@ -275,7 +292,7 @@
         var corpo = el('div', 'db-colab-corpo');
         // Alternativa do dono (fora do desenho): o recorte do cartão; abre no período do painel.
         corpo.appendChild(segmentado('db-colab-seg-janela', t('janela_aria'), JANELAS.map(function (j) { return [j, t(j)]; }), d.janela, aoEscolher));
-        corpo.appendChild(linha('bi-chat-left-text-fill', t('comentarios'), d.registros));
+        corpo.appendChild(linhaDosComentarios(d, function () { aoEscolher(d.janela); }));
         corpo.appendChild(blocoPrimeiros(d.primeiros));
         janela.corpo.replaceChildren(corpo, blocoRendimento(d));
     }

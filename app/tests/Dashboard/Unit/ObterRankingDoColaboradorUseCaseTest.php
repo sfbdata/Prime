@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Dashboard\Unit;
 
+use App\Dashboard\Repository\DashboardZeramentoRepository;
 use App\Dashboard\Exception\ColaboradorForaDoEscritorioException;
 use App\Dashboard\Repository\HistoricoDeMetasDoDashboardRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
@@ -43,7 +44,7 @@ final class ObterRankingDoColaboradorUseCaseTest extends TestCase
         ]);
         $this->userRepo->method('findCargoPorColaboradores')->willReturn([7 => 'Advogada', 8 => null, 9 => 'Estagiária']);
 
-        $this->sut = new ObterRankingDoColaboradorUseCase($this->userRepo, $this->tarefaRepo, $this->metricas, $this->historico);
+        $this->sut = new ObterRankingDoColaboradorUseCase($this->userRepo, $this->tarefaRepo, $this->metricas, $this->historico, $this->createStub(DashboardZeramentoRepository::class));
     }
 
     private function usuario(int $id, string $nome): User

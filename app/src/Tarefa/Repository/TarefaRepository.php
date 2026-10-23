@@ -641,9 +641,10 @@ class TarefaRepository extends ServiceEntityRepository
 
     /**
      * @param list<int> $pastasOcultas metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
+     * @param \DateTimeImmutable|null $criadasDesde "Zerar" do Dashboard (DASH-014): só metas criadas a partir dele
      * @return array<int, int>  userId => total (ativas com prazo antes do dia de $referencia, RegraDoPrazo)
      */
-    public function countVencidasPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia, array $pastasOcultas = []): array
+    public function countVencidasPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia, array $pastasOcultas = [], ?\DateTimeImmutable $criadasDesde = null): array
     {
         $referencia = RegraDoPrazo::inicioDoDia($referencia);
 
@@ -661,6 +662,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->setParameter('referencia', $referencia)
             ->groupBy('u.id');
         $this->semPastasOcultas($qb, $pastasOcultas);
+        $this->aplicarContarDesde($qb, $criadasDesde);
         $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
@@ -673,9 +675,10 @@ class TarefaRepository extends ServiceEntityRepository
 
     /**
      * @param list<int> $pastasOcultas metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
+     * @param \DateTimeImmutable|null $criadasDesde "Zerar" do Dashboard (DASH-014): só metas criadas a partir dele
      * @return array<int, int>  userId => total (ativas com prazo do dia de $referencia até 7 dias depois, RegraDoPrazo)
      */
-    public function countPrazosProximosPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia, array $pastasOcultas = []): array
+    public function countPrazosProximosPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia, array $pastasOcultas = [], ?\DateTimeImmutable $criadasDesde = null): array
     {
         $limite = RegraDoPrazo::fimDoPrazoProximo($referencia);
         $referencia = RegraDoPrazo::inicioDoDia($referencia);
@@ -696,6 +699,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->setParameter('limite', $limite)
             ->groupBy('u.id');
         $this->semPastasOcultas($qb, $pastasOcultas);
+        $this->aplicarContarDesde($qb, $criadasDesde);
         $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
@@ -892,6 +896,8 @@ class TarefaRepository extends ServiceEntityRepository
             $qb->andWhere('t.dataCriacao <= :fDataAte')->setParameter('fDataAte', $dataAte);
         }
 
+        $this->aplicarContarDesde($qb, $filtros['contar_desde'] ?? null);
+
         if ($filtrarResponsavel) {
             $resp = (int) ($filtros['responsavel'] ?? 0);
             if ($resp > 0) {
@@ -899,6 +905,17 @@ class TarefaRepository extends ServiceEntityRepository
                    ->andWhere('u_dash.id = :fResp')
                    ->setParameter('fResp', $resp);
             }
+        }
+    }
+
+    /**
+     * "Zerar" do Dashboard (DASH-014): só as metas criadas a partir do ponto de corte. Junto com o
+     * `data_de`, a contagem começa no mais recente dos dois.
+     */
+    private function aplicarContarDesde(QueryBuilder $qb, mixed $desde): void
+    {
+        if ($desde instanceof \DateTimeImmutable) {
+            $qb->andWhere('t.dataCriacao >= :fContarDesde')->setParameter('fContarDesde', $desde);
         }
     }
 

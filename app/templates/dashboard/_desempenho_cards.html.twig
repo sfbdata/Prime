@@ -80,6 +80,8 @@
         : 'bi-person-badge' %}
     {% set quem = linha.nomeAdvogado %}
     {% set qPessoa = { responsavel: linha.userId } %}
+    {# "Zerar" (DASH-014): sem link e sem seta na coluna com corte desta pessoa (como na tabela). #}
+    {% set zr = linha.colunasZeradas %}
     {% set campeao = dashboard.campeaoId is not null and linha.userId == dashboard.campeaoId %}
     <div class="db-cel-card{{ campeao ? ' db-tr-campeao' : '' }}"{% if campeao %} data-db-campeao{% endif %}>
         <div class="db-cel-cab" data-db-colab-url="{{ path('dashboard_colaborador_ranking', {id: linha.userId}) }}"
@@ -104,19 +106,23 @@
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.total_metas'|trans }}</span>
                 <span class="db-cel-valor">
-                    {%- if linha.totalMetas > 0 -%}
+                    {%- if linha.totalMetas > 0 and 'metas' not in zr -%}
                         <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas' }|merge(qPessoa)|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_metas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_metas'|trans({nome: quem}) }}">{{ linha.totalMetas }}</a>
+                    {%- elseif linha.totalMetas > 0 -%}
+                        <span class="db-num">{{ linha.totalMetas }}</span>
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
-                    {{- tend.tendencia(linha.totalMetas, linha.totalMetasAnterior, 'seta') -}}
+                    {{- tend.tendencia(linha.totalMetas, 'metas' in zr ? null : linha.totalMetasAnterior, 'seta') -}}
                 </span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_ativas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.metas_ativas'|trans }}</span>
                 <span class="db-cel-valor">
-                    {%- if linha.metasAtivas > 0 -%}
+                    {%- if linha.metasAtivas > 0 and 'metas_ativas' not in zr -%}
                         <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'ativas' }|merge(qPessoa)|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_metas_ativas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_metas_ativas'|trans({nome: quem}) }}">{{ linha.metasAtivas }}</a>
+                    {%- elseif linha.metasAtivas > 0 -%}
+                        <span class="db-num">{{ linha.metasAtivas }}</span>
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
@@ -125,41 +131,49 @@
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_vencidas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.vencidas'|trans }}</span>
                 <span class="db-cel-valor">
-                    {%- if linha.metasVencidas > 0 -%}
+                    {%- if linha.metasVencidas > 0 and 'metas_vencidas' not in zr -%}
                         <a class="db-pill db-pill--venc db-num-link" href="{{ path('tarefa_equipe', { status: 'vencidas' }|merge(qPessoa)) }}" title="{{ 'dashboard.tabela.abrir_metas_vencidas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_metas_vencidas'|trans({nome: quem}) }}"><span class="db-pill-dot"></span>{{ linha.metasVencidas }}</a>
+                    {%- elseif linha.metasVencidas > 0 -%}
+                        <span class="db-num">{{ linha.metasVencidas }}</span>
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
-                    {{- tend.tendencia(linha.metasVencidas, linha.metasVencidasAnterior, 'seta', 'baixa') -}}
+                    {{- tend.tendencia(linha.metasVencidas, 'metas_vencidas' in zr ? null : linha.metasVencidasAnterior, 'seta', 'baixa') -}}
                 </span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="prazos">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.prazos_proximos'|trans }}</span>
                 <span class="db-cel-valor">
-                    {%- if linha.prazosProximos > 0 -%}
+                    {%- if linha.prazosProximos > 0 and 'prazos' not in zr -%}
                         <a class="db-pill db-pill--praz db-num-link" href="{{ path('tarefa_equipe', { status: 'prazo_proximo' }|merge(qPessoa)) }}" title="{{ 'dashboard.tabela.abrir_prazo_proximo'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_prazo_proximo'|trans({nome: quem}) }}"><span class="db-pill-dot"></span>{{ linha.prazosProximos }}</a>
+                    {%- elseif linha.prazosProximos > 0 -%}
+                        <span class="db-num">{{ linha.prazosProximos }}</span>
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
-                    {{- tend.tendencia(linha.prazosProximos, linha.prazosProximosAnterior, 'seta', 'baixa') -}}
+                    {{- tend.tendencia(linha.prazosProximos, 'prazos' in zr ? null : linha.prazosProximosAnterior, 'seta', 'baixa') -}}
                 </span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.total_demandas'|trans }}</span>
                 <span class="db-cel-valor">
-                    {%- if linha.totalDemandas > 0 -%}
+                    {%- if linha.totalDemandas > 0 and 'demandas' not in zr -%}
                         <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_pastas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_pastas'|trans({nome: quem}) }}">{{ linha.totalDemandas }}</a>
+                    {%- elseif linha.totalDemandas > 0 -%}
+                        <span class="db-num">{{ linha.totalDemandas }}</span>
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
-                    {{- tend.tendencia(linha.totalDemandas, linha.totalDemandasAnterior, 'seta') -}}
+                    {{- tend.tendencia(linha.totalDemandas, 'demandas' in zr ? null : linha.totalDemandasAnterior, 'seta') -}}
                 </span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas_ativas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.demandas_ativas'|trans }}</span>
                 <span class="db-cel-valor">
-                    {%- if linha.demandasAtivas > 0 -%}
+                    {%- if linha.demandasAtivas > 0 and 'demandas_ativas' not in zr -%}
                         <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge({ status: 'ativo' })|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_pastas_ativas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_pastas_ativas'|trans({nome: quem}) }}">{{ linha.demandasAtivas }}</a>
+                    {%- elseif linha.demandasAtivas > 0 -%}
+                        <span class="db-num">{{ linha.demandasAtivas }}</span>
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
@@ -169,23 +183,25 @@
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="pastas_criadas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.pastas_criadas'|trans }}</span>
                 <span class="db-cel-valor">
-                    {%- if linha.pastasCriadas > 0 -%}
+                    {%- if linha.pastasCriadas > 0 and 'pastas_criadas' not in zr -%}
                         <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', criado_por: linha.userId }|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_pastas_criadas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_pastas_criadas'|trans({nome: quem}) }}">{{ linha.pastasCriadas }}</a>
+                    {%- elseif linha.pastasCriadas > 0 -%}
+                        <span class="db-num">{{ linha.pastasCriadas }}</span>
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
-                    {{- tend.tendencia(linha.pastasCriadas, linha.pastasCriadasAnterior, 'seta') -}}
+                    {{- tend.tendencia(linha.pastasCriadas, 'pastas_criadas' in zr ? null : linha.pastasCriadasAnterior, 'seta') -}}
                 </span>
             </div>
             {# Extras: um bloco cada, depois dos de pastas (desenho: "bloco no card do celular"). #}
             {% for k in extras %}
             {% set sentidoX = extrasTendencia[k] ?? null %}
             {% set atualX = linha.extras[k] ?? null %}
-            {% set antX = linha.extrasAnteriores[k] ?? null %}
+            {% set antX = k in zr ? null : (linha.extrasAnteriores[k] ?? null) %}
             <div class="db-cel-bloco db-cel-bloco--extra" data-coluna="{{ k }}">
                 <span class="db-cel-rotulo">{{ extrasCatalogo[k].rotulo }}</span>
                 <span class="db-cel-valor">
-                    {{- extra.valor(k, atualX, linha.userId, quem, periodoLink) -}}
+                    {{- extra.valor(k, atualX, k in zr ? null : linha.userId, quem, periodoLink) -}}
                     {%- if sentidoX is not null and atualX is not null and antX is not null -%}
                         {{- tend.tendencia(atualX, antX, 'seta', sentidoX) -}}
                     {%- endif -%}
@@ -206,6 +222,7 @@
     {% set tDemA    = linhas|reduce((c, l) => c + l.demandasAtivas, 0) %}
     {% set tCriadas = linhas|reduce((c, l) => c + l.pastasCriadas, 0) %}
     {% set tAnt = dashboard.totaisAnteriores %}
+    {% set zc = dashboard.zeramentos|keys %}
     <div class="db-cel-card db-cel-card--total">
         <div class="db-cel-total-cab">
             <span class="db-total-icone db-cel-total-icone"><i class="bi bi-calculator" aria-hidden="true"></i></span>
@@ -214,7 +231,7 @@
         <div class="db-cel-grade">
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.total_metas'|trans }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tMetas }}</span>{{ tend.tendencia(tMetas, tAnt is null or 'metas' in zc ? null : tAnt.metas, 'pilula') }}</span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_ativas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.metas_ativas'|trans }}</span>
@@ -222,15 +239,15 @@
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_vencidas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.vencidas'|trans }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span>{{ tend.tendencia(tVenc, tAnt is null ? null : tAnt.metas_vencidas, 'pilula', 'baixa') }}</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span>{{ tend.tendencia(tVenc, tAnt is null or 'metas_vencidas' in zc ? null : tAnt.metas_vencidas, 'pilula', 'baixa') }}</span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="prazos">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.prazos_proximos'|trans }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span>{{ tend.tendencia(tPraz, tAnt is null ? null : tAnt.prazos, 'pilula', 'baixa') }}</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span>{{ tend.tendencia(tPraz, tAnt is null or 'prazos' in zc ? null : tAnt.prazos, 'pilula', 'baixa') }}</span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.total_demandas'|trans }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tDem }}</span>{{ tend.tendencia(tDem, tAnt is null or 'demandas' in zc ? null : tAnt.demandas, 'pilula') }}</span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas_ativas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.demandas_ativas'|trans }}</span>
@@ -238,14 +255,14 @@
             </div>
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="pastas_criadas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.pastas_criadas'|trans }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tCriadas }}</span>{{ tend.tendencia(tCriadas, tAnt is null or 'pastas_criadas' in zc ? null : tAnt.pastas_criadas, 'pilula') }}</span>
             </div>
             {% set tAntX = dashboard.totaisExtrasAnteriores %}
             {% for k in extras %}
             {% set tx = dashboard.totaisExtras[k] ?? null %}
             {% set tipoX = extrasCatalogo[k].tipo %}
             {% set sentidoX = extrasTendencia[k] ?? null %}
-            {% set antTx = tAntX is null ? null : (tAntX[k] ?? null) %}
+            {% set antTx = tAntX is null or k in zc ? null : (tAntX[k] ?? null) %}
             <div class="db-cel-bloco db-cel-bloco--extra" data-coluna="{{ k }}">
                 <span class="db-cel-rotulo">{{ extrasCatalogo[k].rotulo }}</span>
                 <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tx is null ? 'dashboard.extras.sem_dado'|trans : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? 'dashboard.extras.valor_dias'|trans({n: tx ~ ''}) : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% endif %}</span>
