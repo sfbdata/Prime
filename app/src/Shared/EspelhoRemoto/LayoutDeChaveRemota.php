@@ -13,7 +13,8 @@ use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
  *
  * ```
  * core/t/{tenant}/uploads/{caminho-original}    escritório
- * core/g/uploads/{caminho-original}             global (só a foto de perfil)
+ * core/g/uploads/{caminho-original}             global (foto de perfil, currículo do Trabalho Externo,
+ *                                               imagem da campanha do Comercial)
  * ```
  *
  * `{caminho-original}` é **exatamente** o caminho relativo do arquivo no volume `uploads_prod`
@@ -52,12 +53,16 @@ final class LayoutDeChaveRemota
     {
         $categoria = $chave->categoria;
 
-        if ($categoria === CategoriaDeArquivo::FOTO_PERFIL) {
+        $global = self::diretorioGlobal($categoria);
+        if ($global !== null) {
             if (!$chave->escopo->ehGlobal()) {
-                throw new ChaveDeArquivoInvalida('A foto de perfil é global (D1); escopo de escritório não tem chave remota.');
+                throw new ChaveDeArquivoInvalida(sprintf(
+                    'A categoria %s é global; escopo de escritório não tem chave remota.',
+                    $categoria->value,
+                ));
             }
 
-            return self::limitada(self::PREFIXO . 'g/uploads/perfil/' . $chave->nome);
+            return self::limitada(self::PREFIXO . 'g/uploads/' . $global . '/' . $chave->nome);
         }
 
         $tenant = $chave->escopo->tenantIdOuNull();
@@ -77,6 +82,20 @@ final class LayoutDeChaveRemota
         ));
     }
 
+    /**
+     * O diretório abaixo de `public/uploads/` das categorias GLOBAIS (sem escritório), ou null
+     * quando a categoria pertence a um escritório.
+     */
+    private static function diretorioGlobal(CategoriaDeArquivo $categoria): ?string
+    {
+        return match ($categoria) {
+            CategoriaDeArquivo::FOTO_PERFIL                => 'perfil',
+            CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO => 'trabalho-externo/curriculos',
+            CategoriaDeArquivo::COMERCIAL_IMAGEM           => 'comercial-imagens',
+            default                                        => null,
+        };
+    }
+
     /** O diretório abaixo de `public/uploads/` onde a categoria mora hoje no volume. */
     private static function diretorioOriginal(CategoriaDeArquivo $categoria, int $tenant): string
     {
@@ -89,7 +108,10 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => 'cobrancas/' . $tenant,
             CategoriaDeArquivo::KANBAN_ANEXO        => 'kanban',
             CategoriaDeArquivo::TAREFA_ANEXO        => 'tarefas/chat',
-            CategoriaDeArquivo::FOTO_PERFIL         => throw new \LogicException('global, tratada antes'),
+            CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO => 'trabalho-externo',
+            CategoriaDeArquivo::FOTO_PERFIL,
+            CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
+            CategoriaDeArquivo::COMERCIAL_IMAGEM    => throw new \LogicException('global, tratada antes'),
         };
     }
 

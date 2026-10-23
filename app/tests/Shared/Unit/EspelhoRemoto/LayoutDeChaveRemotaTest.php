@@ -21,7 +21,7 @@ use Symfony\Component\Yaml\Yaml;
  *
  * Três provas, cada uma fechando um buraco diferente:
  *  1. a tabela literal por categoria — o formato que o dono ratificou;
- *  2. a IGUALDADE com o caminho relativo do disco: para as nove categorias, o que vem depois de
+ *  2. a IGUALDADE com o caminho relativo do disco: para todas as categorias, o que vem depois de
  *     `uploads/` é exatamente o que o `ResolvedorDeCaminhoLocal` monta abaixo de `public/uploads/`
  *     com os parâmetros de produção LIDOS DO `config/services.yaml`. Se alguém mudar um diretório lá,
  *     ou o layout aqui, sozinho, cai — e o espelho deixaria de ser conferível contra a P0;
@@ -46,6 +46,9 @@ final class LayoutDeChaveRemotaTest extends TestCase
         yield 'kanban_anexo'        => [CategoriaDeArquivo::KANBAN_ANEXO, $t7, 'a1.pdf', 'core/t/7/uploads/kanban/a1.pdf'];
         yield 'tarefa_anexo'        => [CategoriaDeArquivo::TAREFA_ANEXO, $t7, 'arquivo_6abab5669fac90.42347212.pdf', 'core/t/7/uploads/tarefas/chat/arquivo_6abab5669fac90.42347212.pdf'];
         yield 'foto_perfil (global)' => [CategoriaDeArquivo::FOTO_PERFIL, EscopoDeArquivo::global(), 'a1.jpg', 'core/g/uploads/perfil/a1.jpg'];
+        yield 'trabalho_externo_documento' => [CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO, $t7, 'a1.pdf', 'core/t/7/uploads/trabalho-externo/a1.pdf'];
+        yield 'trabalho_externo_curriculo (global)' => [CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, EscopoDeArquivo::global(), 'a1.pdf', 'core/g/uploads/trabalho-externo/curriculos/a1.pdf'];
+        yield 'comercial_imagem (global)' => [CategoriaDeArquivo::COMERCIAL_IMAGEM, EscopoDeArquivo::global(), 'a1.jpg', 'core/g/uploads/comercial-imagens/a1.jpg'];
     }
 
     #[DataProvider('tabela')]
@@ -55,7 +58,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
         self::assertSame($esperada, LayoutDeChaveRemota::chaveDe(new ChaveDeArquivo($escopo, $categoria, $nome)));
     }
 
-    #[TestDox('as nove categorias estão na tabela — categoria nova obriga a decidir a chave remota aqui')]
+    #[TestDox('todas as categorias estão na tabela — categoria nova obriga a decidir a chave remota aqui')]
     public function testTodasAsCategoriasCobertas(): void
     {
         $cobertas = array_map(static fn (array $caso): CategoriaDeArquivo => $caso[0], iterator_to_array(self::tabela(), false));
@@ -90,9 +93,12 @@ final class LayoutDeChaveRemotaTest extends TestCase
     /** @return iterable<string, array{CategoriaDeArquivo, EscopoDeArquivo}> */
     public static function escoposQueNaoConcordam(): iterable
     {
-        yield 'foto de perfil com escritório' => [CategoriaDeArquivo::FOTO_PERFIL, EscopoDeArquivo::deTenant(1)];
+        $globais = [CategoriaDeArquivo::FOTO_PERFIL, CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, CategoriaDeArquivo::COMERCIAL_IMAGEM];
+        foreach ($globais as $categoria) {
+            yield $categoria->value . ' com escritório' => [$categoria, EscopoDeArquivo::deTenant(1)];
+        }
         foreach (CategoriaDeArquivo::cases() as $categoria) {
-            if ($categoria !== CategoriaDeArquivo::FOTO_PERFIL) {
+            if (!\in_array($categoria, $globais, true)) {
                 yield $categoria->value . ' global' => [$categoria, EscopoDeArquivo::global()];
             }
         }
@@ -169,7 +175,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
         return $dados;
     }
 
-    /** O resolvedor com os oito diretórios de PRODUÇÃO, lidos do `services.yaml` (não do `when@test`). */
+    /** O resolvedor com os diretórios de PRODUÇÃO, lidos do `services.yaml` (não do `when@test`). */
     private function resolvedorDeProducao(): ResolvedorDeCaminhoLocal
     {
         /** @var array{parameters: array<string, string>} $config */
@@ -185,6 +191,8 @@ final class LayoutDeChaveRemotaTest extends TestCase
             cobrancasUploadsDir: $p('cobrancas_uploads_dir'),
             kanbanUploadsDir: $p('kanban_uploads_dir'),
             tarefasUploadsDir: $p('tarefas_uploads_dir'),
+            trabalhoExternoUploadsDir: $p('trabalho_externo_uploads_dir'),
+            comercialImagensDir: $p('comercial_imagens_dir'),
         );
     }
 }

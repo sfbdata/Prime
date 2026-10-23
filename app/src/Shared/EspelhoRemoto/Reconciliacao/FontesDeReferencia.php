@@ -12,7 +12,12 @@ use Doctrine\DBAL\Connection;
 
 /**
  * Os arquivos que o BANCO diz que existem — as dez fontes (oito colunas da P1, mais os documentos de
- * acordo e de carteira da cobrança, hoje vazios em produção) (spec P2 §3.4).
+ * acordo e de carteira da cobrança, hoje vazios em produção) (spec P2 §3.4), e as três que vieram
+ * depois: documento de demanda e arquivos do currículo do Trabalho Externo e imagem da campanha do
+ * Comercial (decisão do dono de 23/10).
+ *
+ * Currículo: os arquivos moram no JSON `arquivos` (tipo → chave e nome original); cada arquivo é uma
+ * referência, com o id da linha do currículo.
  *
  * Por DBAL, sem filtro de escritório nem de lixeira: a reconciliação olha o acervo inteiro, de todos
  * os escritórios, inclusive documento na lixeira (o arquivo existe no disco e tem de existir no
@@ -36,6 +41,16 @@ final class FontesDeReferencia implements FonteDeReferencias
         'chamado_anexo' => ['sql' => 'SELECT a.id, c.tenant_id AS tenant, a.nome_arquivo AS valor FROM chamado_anexo a JOIN chamado c ON c.id = a.chamado_id WHERE a.nome_arquivo IS NOT NULL ORDER BY a.id', 'categoria' => CategoriaDeArquivo::CHAMADO_ANEXO],
         'kanban_anexo' => ['sql' => 'SELECT id, tenant_id AS tenant, caminho AS valor FROM kanban_anexo WHERE caminho IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::KANBAN_ANEXO],
         'tarefa_mensagem' => ['sql' => 'SELECT id, tenant_id AS tenant, arquivo_anexo AS valor FROM tarefa_mensagem WHERE arquivo_anexo IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::TAREFA_ANEXO],
+        'trabalho_externo_documento' => ['sql' => 'SELECT d.id, e.tenant_id AS tenant, d.nome_armazenado AS valor FROM trabalho_externo_documento d JOIN trabalho_externo_demanda e ON e.id = d.demanda_id ORDER BY d.id', 'categoria' => CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO],
+        'trabalho_externo_curriculo' => ['sql' => "SELECT c.id, NULL AS tenant, a.value->>'chave' AS valor FROM trabalho_externo_curriculo c CROSS JOIN LATERAL json_each(c.arquivos) a WHERE a.value->>'chave' IS NOT NULL ORDER BY c.id, a.key", 'categoria' => CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO],
+        'comercial_imagem' => ['sql' => 'SELECT id, NULL AS tenant, nome_arquivo AS valor FROM comercial_imagem ORDER BY id', 'categoria' => CategoriaDeArquivo::COMERCIAL_IMAGEM],
+    ];
+
+    /** As categorias sem escritório: o escopo é global, e a coluna de escritório não existe (vem NULL). */
+    private const GLOBAIS = [
+        CategoriaDeArquivo::FOTO_PERFIL,
+        CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
+        CategoriaDeArquivo::COMERCIAL_IMAGEM,
     ];
 
     public function __construct(
@@ -66,7 +81,7 @@ final class FontesDeReferencia implements FonteDeReferencias
                 throw new ChaveDeArquivoInvalida('valor de anexo de tarefa fora do formato');
             }
 
-            $escopo = $categoria === CategoriaDeArquivo::FOTO_PERFIL
+            $escopo = \in_array($categoria, self::GLOBAIS, true)
                 ? EscopoDeArquivo::global()
                 : EscopoDeArquivo::deTenant((int) ($linha['tenant'] ?? throw new ChaveDeArquivoInvalida('linha sem escritório')));
 
