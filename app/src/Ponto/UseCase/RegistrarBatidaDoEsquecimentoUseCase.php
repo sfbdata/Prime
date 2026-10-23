@@ -7,6 +7,7 @@ namespace App\Ponto\UseCase;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\BatidaJaRegistrada;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -16,6 +17,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * Só persiste: quem chama decide o flush. No "aprovar todos", a notificação de cada item faz flush dentro do
  * laço, então cada item é gravado coerente consigo mesmo (abono e batida juntos), mas o lote não é atômico
  * (já era assim antes desta correção).
+ *
+ * O esquecimento só vale para a batida que falta (spec `ponto-esquecimento-nao-trava.md` R1): com uma batida do mesmo
+ * tipo naquele dia, escritório e pessoa, `recusa()` devolve a mensagem de `BatidaJaRegistrada` e quem chama deixa o
+ * pedido pendente, para o admin decidir. Por segurança, `__invoke` também não grava nesse caso.
  */
 final class RegistrarBatidaDoEsquecimentoUseCase
 {
@@ -23,7 +28,21 @@ final class RegistrarBatidaDoEsquecimentoUseCase
 
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly BatidaJaRegistrada $batidaJaRegistrada,
     ) {
+    }
+
+    /** A recusa da aprovação quando a batida pedida já existe no dia; null quando segue ou não é esquecimento. */
+    public function recusa(JustificativaPonto $justificativa, Tenant $tenant): ?string
+    {
+        $user = $justificativa->getUser();
+        $tipo = $justificativa->getTipoRegistroEsquecido();
+        $dia = $justificativa->getData();
+        if ($justificativa->getTipo() !== 'esquecimento_registro' || $user === null || $tipo === null || $dia === null) {
+            return null;
+        }
+
+        return $this->batidaJaRegistrada->mensagem($user, $tenant, $tipo, $dia);
     }
 
     /**
@@ -43,6 +62,9 @@ final class RegistrarBatidaDoEsquecimentoUseCase
 
         if ($justificativa->getTenant()?->getId() !== $tenant->getId()) {
             throw new \DomainException('A justificativa não pertence a este escritório.');
+        }
+        if ($this->recusa($justificativa, $tenant) !== null) {
+            return null;   // a batida pedida já existe no dia: não grava a segunda (R1)
         }
 
         $dataHora = new \DateTime(

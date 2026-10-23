@@ -54,8 +54,8 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         foreach ($batidas as [$tipo, $hora]) {
             $this->batida($user, $tenant, $tipo, 'today ' . $hora);
         }
-        // Outro dia não entra. Ontem com entrada E saída: um ontem sem saída, num dia útil, poria "Regularizar ponto de
-        // ontem" na frente do estado de hoje e o teste dependeria do dia da semana em que roda.
+        // Outro dia não entra. Ontem com entrada E saída: um ontem sem saída, num dia útil, traria o aviso "Regularizar
+        // ponto de ontem" e o teste dependeria do dia da semana em que roda.
         $this->batida($user, $tenant, RegistroPonto::TIPO_ENTRADA, 'yesterday 08:00');
         $this->batida($user, $tenant, RegistroPonto::TIPO_SAIDA, 'yesterday 17:00');
 
@@ -66,6 +66,7 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
             self::assertSame($hora, $saida->hoje[$tipo], $tipo);
         }
         self::assertFalse($saida->homeOffice);
+        self::assertNull($saida->aviso);
         self::assertSame((new \DateTimeImmutable())->format('Y-m-d'), $saida->dia);
     }
 
@@ -84,15 +85,16 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertTrue($this->casoDeUso()->executar($user, $tenant)->homeOffice);
     }
 
-    #[TestDox('Regularizar ontem: entrada sem saída num dia útil vem antes do estado de hoje, com o dia de ontem')]
-    public function testRegularizarOntem(): void
+    #[TestDox('R3: com a saída de ontem esquecida, o estado oferece a batida de hoje e o regularizar vem como aviso, com o dia de ontem')]
+    public function testRegularizarOntemEAvisoEOEstadoOfereceABatida(): void
     {
         [$user, $tenant] = $this->pessoa();
         $this->batida($user, $tenant, RegistroPonto::TIPO_ENTRADA, '2026-10-19 08:00');   // segunda, sem saída
 
         $saida = $this->casoDeUsoEm('2026-10-20 10:00')->executar($user, $tenant);   // terça
 
-        self::assertSame(EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM, $saida->estado);
+        self::assertSame(EstadoDoPontoDoDiaOutput::BATER_ENTRADA, $saida->estado, 'a batida continua oferecida');
+        self::assertSame(EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM, $saida->aviso);
         self::assertSame('2026-10-19', $saida->ontemSemSaida);
     }
 
@@ -145,7 +147,7 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         self::assertNull($this->casoDeUso()->executar($user, $tenant)->interjornadaMinimaMin);
     }
 
-    #[TestDox('Regularizar ontem, as demais condições do "+": feriado e abonado bloqueiam; esquecimento de outra batida não; vem antes de hoje em jornada')]
+    #[TestDox('Regularizar ontem, as demais condições do "+": feriado e abonado bloqueiam; esquecimento de outra batida não; hoje em jornada continua no estado')]
     public function testCondicoesDoMais(): void
     {
         [$u1, $t1] = $this->pessoa();
@@ -170,7 +172,8 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         $this->batida($u3, $t3, RegistroPonto::TIPO_ENTRADA, '2026-10-20 08:00');   // hoje em jornada
         $saida = $this->casoDeUsoEm('2026-10-20 10:00')->executar($u3, $t3);
         self::assertSame('2026-10-19', $saida->ontemSemSaida, 'o esquecimento de OUTRA batida não bloqueia a saída');
-        self::assertSame(EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM, $saida->estado, 'vem antes do estado de hoje, como no dc');
+        self::assertSame(EstadoDoPontoDoDiaOutput::EM_JORNADA, $saida->estado, 'o estado de hoje segue, com a saída oferecida');
+        self::assertSame(EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM, $saida->aviso, 'o regularizar vem como aviso');
         self::assertSame('08:00', $saida->hoje['entrada']);
     }
 
@@ -190,6 +193,7 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
     private function casoDeUsoEm(string $agora): ObterEstadoDoPontoDoDiaUseCase
     {
         $c = static::getContainer();
+        $relogio = new \Symfony\Component\Clock\MockClock($agora, date_default_timezone_get());
 
         return new ObterEstadoDoPontoDoDiaUseCase(
             $c->get(\App\Ponto\Repository\RegistroPontoRepository::class),
@@ -201,8 +205,9 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
             $c->get(\App\Ponto\Repository\JustificativaPontoRepository::class),
             $c->get(\App\Ponto\Service\InicioContagemResolver::class),
             $c->get(\App\Ponto\Service\EsquecimentosRegistrados::class),
-            new \Symfony\Component\Clock\MockClock($agora, date_default_timezone_get()),   // o fuso do sistema, como o relógio real
+            $relogio,   // o fuso do sistema, como o relógio real
             $c->get(\App\Ponto\Repository\JornadaColaboradorRepository::class),
+            new \App\Ponto\Service\PublicoDosAvisosDePonto($c->get(\App\Repository\UserTenantRepository::class), $c->get(\App\Ponto\Repository\RegistroPontoRepository::class), $relogio),
         );
     }
 

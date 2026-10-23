@@ -5,6 +5,9 @@
 - **Sessão:** 5d. **Branch:** `ponto-escritorio`, worktree `.claude/worktrees/ponto-escritorio` (a antiga `ponto-por-escritorio`, cortada do master, ficou só com a spec e não tem PR).
 - **PR:** #79, empilhado sobre o #67 (`ponto-no-cabecalho`), que está sobre o #61 (`presenca-cabecalho`). Ordem de merge: **#61 → #67 → #79**. Depois de cada merge, `git merge --no-edit origin/master` na branch de cima, testes e push.
 - **Decisões do dono:** 19/10, a trava vale só para entrada aberta no mesmo dia; 19/10, P-A: o esquecimento pendente NÃO solta a trava (a liberação foi removida do código). P-B a P-F, decididas pelo coordenador por delegação (seção 6).
+- **Superada em 23/10:** a trava da entrada deixou de recusar. Decisão do dono: esquecimento nunca trava. O ponto
+  aberto hoje em outro escritório vira um aviso de pendência na resposta da batida, com o nome do escritório e o dia
+  (`docs/specs/ponto-esquecimento-nao-trava.md`, R2). A P-A abaixo fica como histórico.
 - **Contratos com outras sessões:** nenhum. Reaproveita a `batidasDoDiaNoEscritorio` do #67.
 - **Migrations:** nenhuma.
 - **Revisões:** spec v3 aprovada; implementação aprovada com ressalvas, corrigidas e re-revisadas (aprovada).
@@ -173,3 +176,7 @@ Decididas pelo coordenador, por delegação do dono:
 gestor de Y (que vira a batida de saída em Y), solta a trava. O pedido de esquecimento ainda pendente não solta: seria
 uma liberação que a própria pessoa aciona. A liberação proposta (constante, frase alternativa e a consulta da
 justificativa em Y) não foi implementada; nenhuma leitura de justificativa de outro escritório existe.
+
+**P-A superada (dono, 23/10):** não há mais trava a soltar. A entrada em X passa com Y aberto e a resposta traz o
+aviso de pendência; o pedido de esquecimento continua sendo feito em Y. Ver `docs/specs/ponto-esquecimento-nao-trava.md`
+(R2 e R5).

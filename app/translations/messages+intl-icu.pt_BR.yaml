@@ -9141,4 +9141,32 @@ edicao_sem_prazo:
         master: EXCLUSIVO DO MASTER
         primario: EXCLUSIVO DO PRIMÁRIO
 
+# ---- Ponto: pendências de registro da própria pessoa (ponto/_pendencias, spec ponto-esquecimento-nao-trava R5)
+ponto_pendencias:
+    titulo: Pendências de registro
+    explicacao: 'Dias dos últimos 30 em que faltou uma batida. Elas não impedem o registro do ponto: envie o registro de esquecimento para regularizar.'
+    falta:
+        entrada: Falta a entrada
+        repouso: Falta a ida ao repouso
+        retorno: Falta o retorno do repouso
+        saida: Falta a saída
+    enviar: Enviar registro de esquecimento
+    outro_escritorio: 'Este registro é de {escritorio}. Troque para esse escritório e envie o registro de esquecimento por lá.'
+    trocar: Trocar de escritório
+
+# ---- Ponto: sinal da folha na ficha do admin (ponto/_folha_table, spec ponto-esquecimento-nao-trava R8)
+ponto_folha:
+    registro_em_outro_escritorio: Houve registro em outro escritório neste período
+    registro_em_outro_escritorio_dica: 'Enquanto o ponto deste escritório estava aberto, a pessoa registrou ponto em outro escritório. Confira as batidas do dia.'
+
+# ---- Ponto: cartão diário de pendência de registro (layout/_globais/ponto_pendente, spec ponto-esquecimento-nao-trava R9)
+ponto_cartao:
+    rotulo: 'PONTO · {n, plural, one {# pendência} other {# pendências}}'
+    titulo: Registro de ponto pendente
+    linha: '{dia}: {falta}'
+    linha_outro: '{dia}: {falta}, em {escritorio}'
+    adiar: Lembrar em 10 min
+    dispensar: Dispensar até amanhã
+    regiao: Lembrete do ponto
+
 # ---- fim

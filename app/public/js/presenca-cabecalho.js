@@ -296,6 +296,9 @@
         var tx = el('span', 'presenca-textos');
         tx.appendChild(el('b', 'presenca-nome', x.m.nome));
         tx.appendChild(subtitulo(x));
+        var pendencia = avisoDoPonto(x);
+        if (pendencia) { tx.appendChild(pendencia); }
+        avisosDaBatida(x).forEach(function (a) { tx.appendChild(a); });
         l.appendChild(tx);
         var dir = el('span', 'presenca-dir');
         var st = el('span', 'presenca-status', ST[x.k][0]);
@@ -333,6 +336,45 @@
         }
 
         return sub;
+    }
+
+    /* Na sua linha, o "Regularizar ponto de ontem" do dc como aviso, abaixo do atalho, que continua oferecendo a batida
+       (spec ponto-esquecimento-nao-trava R3). O clique leva ao pedido de esquecimento; nenhuma batida sai daqui. */
+    function avisoDoPonto(x) {
+        var av = x.eu && ponto() && ponto().aviso ? ponto().aviso() : null;
+        if (!av) { return null; }
+        var sub = el('span', 'presenca-sub presenca-sub--aviso');
+        sub.style.color = av.cor;
+        sub.appendChild(icone(av.icone));
+        sub.appendChild(document.createTextNode(av.texto));
+        sub.setAttribute('role', 'button');
+        sub.setAttribute('tabindex', '0');
+        sub.title = av.dica;
+        var ir = function (e) { e.stopPropagation(); ponto().regularizar(); };
+        sub.addEventListener('click', ir);
+        sub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(e); } });
+
+        return sub;
+    }
+
+    /* Na sua linha, os avisos da última batida aceita (R6), com o link do aviso ("Trocar de escritório") como a tela do
+       ponto já mostra. Montados por DOM: texto por textContent, link só interno (presenca-ponto.js já filtra). */
+    function avisosDaBatida(x) {
+        var lista = x.eu && ponto() && ponto().avisosDaBatida ? ponto().avisosDaBatida() : [];
+        return lista.map(function (a) {
+            var sub = el('span', 'presenca-sub presenca-sub--aviso-batida');
+            sub.appendChild(icone('bi-exclamation-triangle'));
+            sub.appendChild(document.createTextNode(a.texto));
+            if (a.link && a.rotulo) {
+                var link = document.createElement('a');
+                link.href = a.link;
+                link.textContent = a.rotulo;
+                link.addEventListener('click', function (e) { e.stopPropagation(); });
+                sub.appendChild(link);
+            }
+
+            return sub;
+        });
     }
 
     function desenharPainel() {

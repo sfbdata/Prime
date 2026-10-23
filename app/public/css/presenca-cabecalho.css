@@ -101,6 +101,10 @@
 .presenca-sub--ponto.is-acao { font-weight: bold; cursor: pointer; }   /* dc `subPeso`, `subCur` */
 .presenca-sub--ponto.is-ocupado { opacity: .6; cursor: progress; }   /* enquanto a batida corre: posição, releitura e envio */
 .presenca-sub--ponto.is-acao:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; border-radius: 2px; }
+.presenca-sub--aviso { font-weight: bold; cursor: pointer; }   /* "Regularizar ponto de ontem" como aviso (R3) */
+.presenca-sub--aviso-batida { color: #c76a12; flex-wrap: wrap; }   /* avisos da batida aceita (R6), com o link */
+.presenca-sub--aviso-batida a { font-weight: bold; }
+.presenca-sub--aviso:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; border-radius: 2px; }
 .presenca-dir { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .presenca-status { font-size: 11px; font-weight: bold; white-space: nowrap; }
 .presenca-horas { font-size: 11px; color: var(--pc-sub); white-space: nowrap; }

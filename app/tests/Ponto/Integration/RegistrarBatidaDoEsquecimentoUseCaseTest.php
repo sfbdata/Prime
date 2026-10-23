@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Integration;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\BatidaJaRegistrada;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -64,6 +66,35 @@ final class RegistrarBatidaDoEsquecimentoUseCaseTest extends KernelTestCase
 
         $this->expectException(\DomainException::class);
         ($this->useCase)($this->justificativa($tenantB, 'esquecimento_registro', 'entrada', '08:00'), $tenantA);
+    }
+
+    #[TestDox('Guarda do __invoke: com a batida do mesmo tipo já registrada naquele dia, escritório e pessoa, devolve null e não grava nada (spec ponto-esquecimento-nao-trava R1)')]
+    public function testBatidaJaRegistradaNaoGrava(): void
+    {
+        $tenant = $this->criarTenant();
+        $pessoa = new User();
+        $pessoa->setEmail('esquecimento_guarda_' . uniqid() . '@test.com');
+        $pessoa->setFullName('Guarda do esquecimento');
+        $pessoa->setRoles(['ROLE_USER']);
+        $pessoa->setPassword('x');
+        $this->em->persist($pessoa);
+        $existente = new RegistroPonto();
+        $existente->setUser($pessoa);
+        $existente->setTenant($tenant);
+        $existente->setTipo('retorno');
+        $existente->setDataHora(new \DateTime('2026-03-10 13:00:00'));
+        $this->em->persist($existente);
+        $this->em->flush();
+        $justificativa = $this->justificativa($tenant, 'esquecimento_registro', 'retorno', '13:15');
+        $justificativa->setUser($pessoa);
+
+        self::assertSame(sprintf(BatidaJaRegistrada::MENSAGEM, 'retorno'), $this->useCase->recusa($justificativa, $tenant));
+        self::assertNull(($this->useCase)($justificativa, $tenant));
+        $this->em->flush();
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM registro_ponto WHERE user_id = ? AND tenant_id = ?',
+            [$pessoa->getId(), $tenant->getId()],
+        ), 'só a batida que já existia');
     }
 
     private function criarTenant(): Tenant

@@ -154,6 +154,8 @@
                 </div>
             </div>
 
+            {% include 'ponto/_pendencias.html.twig' with {pendencias: pendencias} only %}
+
             {% if jornadaInfo is not null %}
                 {% set horas = jornadaInfo.cargaHorariaSemanal // 60 %}
                 {% set mins  = jornadaInfo.cargaHorariaSemanal % 60 %}
@@ -611,6 +613,28 @@
         btnAtualizarPagina.classList.toggle('d-none', !oferecerAtualizar);
     }
 
+    // A batida entrou e o servidor mandou avisos (spec ponto-esquecimento-nao-trava R6): pendência em outro escritório
+    // ou interjornada contada de uma saída vinda de esquecimento. Não é erro: a confirmação fica, os avisos vêm abaixo
+    // com o link de cada um, e a página não recarrega sozinha (o botão de atualizar fica oferecido) para dar tempo de ler.
+    function mostrarSucessoComAvisos(texto, avisos) {
+        mostrarAvisoBatida(texto, 'warning', true);
+        avisos.forEach((aviso) => {
+            const linha = document.createElement('div');
+            linha.className = 'mt-2';
+            const icone = document.createElement('i');
+            icone.className = 'bi bi-exclamation-triangle me-1';
+            linha.append(icone, document.createTextNode(String(aviso.texto || '')));
+            if (typeof aviso.link === 'string' && aviso.link.startsWith('/') && !aviso.link.startsWith('//') && aviso.rotulo) {
+                const link = document.createElement('a');
+                link.href = aviso.link;
+                link.className = 'ms-1 fw-semibold';
+                link.textContent = String(aviso.rotulo);
+                linha.appendChild(link);
+            }
+            avisoBatida.appendChild(linha);
+        });
+    }
+
     function limparAvisoBatida() {
         avisoBatida.textContent = '';
         avisoBatida.className = 'alert small mt-2 mb-0 text-start d-none';
@@ -865,8 +889,13 @@
                 );
             } else if (resultado.tipo === 'sucesso') {
                 sucesso = true;
-                mostrarAvisoBatida(resultado.mensagem, 'success');
-                setTimeout(() => window.location.reload(), 1500);
+                const avisos = Array.isArray(resultado.data && resultado.data.avisos) ? resultado.data.avisos : [];
+                if (avisos.length > 0) {
+                    mostrarSucessoComAvisos(resultado.mensagem, avisos);
+                } else {
+                    mostrarAvisoBatida(resultado.mensagem, 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                }
             } else if (resultado.tipo === 'recusa') {
                 mostrarAvisoBatida(resultado.mensagem, 'danger');
             } else if (resultado.tipo === 'nao_entrou') {
