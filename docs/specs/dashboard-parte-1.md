@@ -55,8 +55,15 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
   sem mudança neste PR). Desligar as setas em "Exibição" é o PR2 (feito, ver "Fatias seguintes").
 - Zerar (PR3): qualquer coluna pode ser zerada; só o Master zera ou desfaz; quem não é Master vê
   "Pedir para zerar", que vai ao primário e à Controladoria.
-- Pastas concluídas (PR3) = "Demandas encerradas no período" do desenho, lida como "arquivadas no
-  mês": desarquivar tira da conta e pasta excluída não conta.
+- Pastas concluídas (PR3) = "Demandas encerradas no período" do desenho. Regra do dono (23/10): a
+  pasta conta quando chega à etapa **Finalizada** do andamento (a última fase da trilha, judicial ou
+  administrativa, com as extras de reativação), no mês em que chegou; voltar de fase ou reativar tira
+  da conta; reativar e finalizar de novo conta na nova data. Arquivar deixou de ser o critério (arquivar
+  leva a Finalizada, então continua contando por esse caminho). Pasta excluída não conta. Confirmado
+  pelo dono (23/10): pasta **arquivada sem andamento gravado na via atual** conta como finalizada na
+  data do arquivamento (backfill pelo Registro e pela auditoria; arquivar uma pasta cuja Finalizada é
+  só estimada grava a data do arquivamento). Na troca de via sem andamento na via nova, a arquivada
+  mantém a data que tinha e a não arquivada sai da conta.
 
 ## Padrões PROVISÓRIOS (até o dono responder)
 
@@ -86,13 +93,19 @@ Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita
   anterior equivalente (decisão do orquestrador).
 - **PR3 (feito: migration, entidades e Pastas concluídas)**: a migration `Version20261023150900`, a
   única da frente, com:
-  - `pasta.arquivada_em`: gravada pelo `Pasta::setSituacao()` ao ENTRAR em Arquivado (pílula, menu ⋮ e
-    "Editar dados"; regravar Arquivado não troca a data), apagada ao sair (e no restaurar da
-    lixeira). Backfill das arquivadas não excluídas: o arquivamento mais recente entre o cartão do
-    Registro (`sistema = 'situacao'`, "para "Arquivado"") e o `audit_log` (update `situacao → arquivado`;
-    a de criação não serve, porque sai sem o id da pasta). Vale o mais recente dos dois, e não "Registro primeiro", porque o
-    "Editar dados" arquiva sem cartão, só com auditoria. Sem fonte, fica nula e a pasta não entra em
-    período nenhum (a contagem sai no log da migration; no banco de desenvolvimento `saas`, 0 de 512; em produção, 0 de 555 em 23/10);
+  - `pasta.finalizada_em`: gravada pelo `PastaAndamento::gravar()` quando a linha é da via atual da
+    pasta (todo caminho de fase passa por ele: pílula de fase, arquivar, contrato no Financeiro): a data
+    do marco da fase atual se ela é a última da trilha, nula em qualquer outra. Na troca de via
+    (`DefinirPastaAdministrativaUseCase`) é recalculada pela linha da via nova. Situação, lápide e
+    restaurar da lixeira não mexem. O "Editar dados" que chega com outra situação ao caso de uso sai
+    como a pílula (cartão "Situação da pasta" e, ao arquivar, Finalizada); a tela já mandava a situação
+    pela pílula. Backfill em duas etapas: (a) andamento da via atual na última fase (as 10 da base mais
+    as extras, mais um "Em andamento" por "Reativada" sem ele, como o `AndamentoDaPasta::fases()`):
+    a data do marco, no horário local; (b) arquivada, não excluída e sem andamento na via atual: o
+    arquivamento mais recente entre o cartão do Registro (`sistema = 'situacao'`, "para "Arquivado"")
+    e o `audit_log` (update `situacao → arquivado`; a de criação não serve, porque sai sem o id da
+    pasta). Vale o mais recente dos dois porque o "Editar dados" antigo arquivava sem cartão, só com
+    auditoria. Sem fonte, fica nula (a contagem sai no log da migration);
   - `dashboard_zeramento` (tenant, coluna, `user_id` nulo = todos, `contar_desde`, `por_id`,
     `criado_em`, `desfeito_em`, `desfeito_por_id`; índice `(tenant_id, coluna)`) e
     `dashboard_meta_pastas` (tenant, `mes` = dia 1º da vigência, valor, `definida_por_id`,
@@ -101,10 +114,10 @@ Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita
     casos de uso de zerar e de meta ficam para os PRs seguintes.
   - Coluna extra **Pastas concluídas** (chave `pastas_concluidas`, rótulo e ajuda do desenho
     `EXTRAS.pastasConcluidas`: "Pastas concluídas", "Demandas encerradas no período", soma, entre
-    Pastas urgentes e Eventos na agenda): pastas com `arquivada_em` no período, por responsável,
-    situação Arquivado, sem lápide e sem as ocultas pelo cadeado. Tem tendência (`alta`, subir é bom).
-    Número sem link: o destino do desenho (`/expediente` com `concluida`) não filtra pela data do
-    arquivamento, e a regra B12 só deixa virar link quando a lista conta a mesma coisa.
+    Pastas urgentes e Eventos na agenda): pastas com `finalizada_em` no período, por responsável,
+    qualquer situação, sem lápide e sem as ocultas pelo cadeado. Tem tendência (`alta`, subir é bom).
+    Número sem link: o destino do desenho (`/expediente` com `concluida`) não filtra pela data da
+    finalização, e a regra B12 só deixa virar link quando a lista conta a mesma coisa.
 - **PR4 em diante**: Zerar (caso de uso, permissão do Master, "Pedir para zerar") e meta de pastas.
 - **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
   padrão hoje, nenhuma opção é obrigatória, roda 1x por dia.

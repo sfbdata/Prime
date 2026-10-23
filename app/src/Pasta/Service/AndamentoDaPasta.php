@@ -175,13 +175,19 @@ final class AndamentoDaPasta
 
     /**
      * Pasta arquivada (desenho `faseAuto('Finalizada', 'pasta arquivada')`): o andamento vai direto a Finalizada, sem
-     * marcar as intermediárias como puladas. Já finalizada, nada (clicar em Finalizada reativaria).
+     * marcar as intermediárias como puladas. Já finalizada, nada (clicar em Finalizada reativaria); se a Finalizada é
+     * só ESTIMADA (sem andamento gravado), a pasta conta como concluída na data do arquivamento (regra de "Pastas
+     * concluídas" confirmada pelo dono, spec dashboard-parte-1).
      */
     public function finalizarPorArquivamento(Pasta $pasta, User $usuario, Tenant $tenant): ?string
     {
         $e = $this->estado($pasta, $tenant);
         $ult = count($e['fases']) - 1;
         if ($e['atual'] >= $ult) {
+            if ($e['inferida'] && $pasta->getFinalizadaEm() === null) {
+                $pasta->setFinalizadaEm(new \DateTimeImmutable());
+            }
+
             return null;
         }
 
