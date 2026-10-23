@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\AbaDaPasta;
@@ -64,12 +65,17 @@ final class QuemAcompanhaAPastaTest extends TestCase
         return $this->comId((new User())->setEmail('p' . $id . '@test.com'), $id);
     }
 
+    /** @var array<int, UserTenant> userId => o vínculo que o repositório devolveu */
+    private array $vinculos = [];
+
     /** @param array<int, bool> $acesso userId => vê a pasta 41 */
     private function acesso(array $acesso): void
     {
-        $this->permissionChecker->method('canAccessResource')->willReturnCallback(
-            function (User $u, ?Tenant $t, string $tipo, int $id, string $acao) use ($acesso): bool {
-                self::assertSame($this->tenant, $t);
+        // A checagem usa o vínculo que veio na consulta dos candidatos: a mesma instância, sem buscar de novo.
+        $this->permissionChecker->expects(self::never())->method('canAccessResource');
+        $this->permissionChecker->method('canAccessResourceComVinculo')->willReturnCallback(
+            function (User $u, UserTenant $v, string $tipo, int $id, string $acao) use ($acesso): bool {
+                self::assertSame($this->vinculos[(int) $u->getId()], $v);
                 self::assertSame([AccessRequest::RESOURCE_PASTA, 41, AccessRequest::ACTION_VIEW], [$tipo, $id, $acao]);
 
                 return $acesso[(int) $u->getId()] ?? false;
@@ -80,9 +86,13 @@ final class QuemAcompanhaAPastaTest extends TestCase
     /** @param list<User> $pessoas */
     private function candidatos(array $pessoas): void
     {
-        $this->desligados->method('colaboradoresQueNaoDesligaram')
+        $this->vinculos = [];
+        foreach ($pessoas as $pessoa) {
+            $this->vinculos[(int) $pessoa->getId()] = new UserTenant($pessoa, $this->tenant);
+        }
+        $this->desligados->method('vinculosQueNaoDesligaram')
             ->with($this->identicalTo($this->pasta), $this->identicalTo($this->tenant))
-            ->willReturn($pessoas);
+            ->willReturn(array_values($this->vinculos));
     }
 
     /**
@@ -130,7 +140,8 @@ final class QuemAcompanhaAPastaTest extends TestCase
         $this->candidatos([$dois, $this->pessoa(3)]);
         $this->acesso([2 => true, 3 => true]);
         $regra = AbaOcultaDaPasta::paraAlguns($this->tenant, $this->pasta, AbaDaPasta::Dados, [2], $this->pessoa(9), new \DateTimeImmutable());
-        $this->regrasDeAba->method('daAba')
+        // A regra da aba é lida UMA vez para todos os candidatos, não uma por pessoa.
+        $this->regrasDeAba->expects(self::once())->method('daAba')
             ->willReturnCallback(static fn (Pasta $p, AbaDaPasta $aba): ?AbaOcultaDaPasta => $aba === AbaDaPasta::Dados ? $regra : null);
 
         self::assertSame([3], self::ids($this->servico()->destinatarios($this->pasta, $this->tenant, [])));
@@ -154,7 +165,7 @@ final class QuemAcompanhaAPastaTest extends TestCase
     #[TestDox('Pasta de outro escritório: ninguém, e nem consulta o banco')]
     public function testPastaDeOutroEscritorio(): void
     {
-        $this->desligados->expects(self::never())->method('colaboradoresQueNaoDesligaram');
+        $this->desligados->expects(self::never())->method('vinculosQueNaoDesligaram');
 
         self::assertSame([], $this->servico()->destinatarios($this->pasta, $this->comId(new Tenant(), 8), []));
     }

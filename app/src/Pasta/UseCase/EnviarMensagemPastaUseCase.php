@@ -20,6 +20,7 @@ use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Shared\Service\SanitizadorTextoRico;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -54,9 +55,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * mensagem é gravada do mesmo jeito — o envio nunca falha por causa do teto.
  *
  * ACOMPANHAR ALTERAÇÕES (menu ⋮ da pasta): toda mensagem nova, comum, resposta ou com menção,
- * avisa quem acompanha a pasta ({@see AvisoDePastaAcompanhada}), menos o autor, o dono do
- * comentário respondido e os mencionados, que já recebem o aviso próprio. Esse aviso não gasta a
- * cota: ele já é limitado a um não lido por pasta e por pessoa.
+ * avisa quem acompanha a pasta ({@see AvisoDePastaAcompanhada}), menos o autor e quem DE FATO
+ * recebeu o aviso próprio: o dono do comentário respondido, se o aviso de resposta foi criado, e os
+ * mencionados avisados. Com a cota estourada ou a resposta já avisada, eles recebem o de
+ * acompanhamento. Esse aviso não gasta a cota: ele já é limitado a um não lido por pasta e por
+ * pessoa. Nos DOIS caminhos ele sai DEPOIS do commit da mensagem, num try/catch: uma falha nele vai
+ * para o log (`error`) e nunca derruba nem desfaz o envio.
  */
 final class EnviarMensagemPastaUseCase
 {
@@ -81,6 +85,7 @@ final class EnviarMensagemPastaUseCase
         private readonly ResolucaoDeMencoesDoRegistro $resolucaoDeMencoes,
         private readonly CotaDeNotificacoesDoRegistro $cota,
         private readonly AvisoDePastaAcompanhada $avisoDeAcompanhamento,
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
@@ -134,7 +139,7 @@ final class EnviarMensagemPastaUseCase
         if ($raiz === null && $mencionados === []) {
             $this->em->persist($mensagem);
             $this->em->flush();
-            $this->avisoDeAcompanhamento->aoRegistrarMensagem($mensagem, $pasta, $tenant, [$autor]);
+            $this->avisarQuemAcompanha($mensagem, $pasta, $tenant, [$autor]);
 
             return $mensagem;
         }
@@ -143,39 +148,63 @@ final class EnviarMensagemPastaUseCase
         // notificação leva o id da MENSAGEM, que só existe depois do flush — por isso o flush
         // acontece DENTRO da transação, antes de criar as notificações; o
         // `wrapInTransaction` faz o flush final e o commit (ou o rollback, se algo falhar).
-        return $this->em->wrapInTransaction(function () use ($mensagem, $raiz, $pasta, $autor, $tenant, $mencionados): PastaMensagem {
+        $jaAvisados = [$autor];
+        $this->em->wrapInTransaction(function () use ($mensagem, $raiz, $pasta, $autor, $tenant, $mencionados, &$jaAvisados): void {
             $this->em->persist($mensagem);
             $this->em->flush();
 
             if ($raiz !== null) {
-                $this->notificarAutorDoComentario($raiz, $mensagem, $pasta, $autor, $tenant);
+                $jaAvisados[] = $this->notificarAutorDoComentario($raiz, $mensagem, $pasta, $autor, $tenant);
             }
-            $this->resolucaoDeMencoes->notificar($mencionados, $mensagem, $pasta, $autor, $tenant, $raiz?->getAutor());
-            $this->avisoDeAcompanhamento->aoRegistrarMensagem($mensagem, $pasta, $tenant, [$autor, $raiz?->getAutor(), ...$mencionados]);
-
-            return $mensagem;
+            array_push($jaAvisados, ...$this->resolucaoDeMencoes->notificar($mencionados, $mensagem, $pasta, $autor, $tenant, $raiz?->getAutor()));
         });
+
+        $this->avisarQuemAcompanha($mensagem, $pasta, $tenant, $jaAvisados);
+
+        return $mensagem;
+    }
+
+    /**
+     * O aviso de quem acompanha a pasta, DEPOIS do commit da mensagem: ela já está gravada, e nada
+     * aqui a desfaz nem muda a resposta do envio. A falha vai para o log.
+     *
+     * @param list<User|null> $naoAvisar o autor e quem recebeu o aviso próprio
+     */
+    private function avisarQuemAcompanha(PastaMensagem $mensagem, Pasta $pasta, Tenant $tenant, array $naoAvisar): void
+    {
+        try {
+            $this->avisoDeAcompanhamento->aoRegistrarMensagem($mensagem, $pasta, $tenant, $naoAvisar);
+        } catch (\Throwable $falha) {
+            $this->logger->error('Aviso de pasta acompanhada não saiu; a mensagem foi gravada.', [
+                'pasta_id'    => $pasta->getId(),
+                'mensagem_id' => $mensagem->getId(),
+                'tenant_id'   => $tenant->getId(),
+                'erro'        => $falha->getMessage(),
+                'exception'   => $falha,
+            ]);
+        }
     }
 
     /**
      * O destinatário é o autor da RAIZ: é a ela que a resposta fica pendurada na tela
      * ("Resposta a <nome>"), e é o id dela que o botão Responder manda.
      */
-    private function notificarAutorDoComentario(PastaMensagem $raiz, PastaMensagem $resposta, Pasta $pasta, User $quemResponde, Tenant $tenant): void
+    /** @return User|null o respondido, se o aviso de resposta foi criado */
+    private function notificarAutorDoComentario(PastaMensagem $raiz, PastaMensagem $resposta, Pasta $pasta, User $quemResponde, Tenant $tenant): ?User
     {
         $destinatario = $raiz->getAutor();
         if ($destinatario === null || self::mesmoUsuario($destinatario, $quemResponde)) {
-            return;
+            return null;
         }
 
         $pastaId = $pasta->getId();
         if ($pastaId === null || $resposta->getId() === null) {
-            return;
+            return null;
         }
 
         if (!$this->userTenantRepository->existeVinculoAtivo($destinatario, $tenant)
             || !$this->permissionChecker->canAccessResource($destinatario, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW)) {
-            return;
+            return null;
         }
 
         $titulo = sprintf('%s respondeu seu comentário', self::primeiroNome($quemResponde));
@@ -191,12 +220,12 @@ final class EnviarMensagemPastaUseCase
             'url'     => $url,
         ]);
         if ($jaExiste !== null) {
-            return;
+            return null;
         }
 
         // Depois dos filtros: só aviso que de fato sairia gasta a cota de quem respondeu.
         if (!$this->cota->permite($quemResponde, $destinatario, Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO, $resposta)) {
-            return;
+            return null;
         }
 
         $texto = sprintf(
@@ -211,6 +240,8 @@ final class EnviarMensagemPastaUseCase
         $this->notificacaoService
             ->criar($destinatario, $tenant, Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO, $titulo, $texto)
             ->setUrl($url);
+
+        return $destinatario;
     }
 
     /** O sino mostra texto: ver {@see MencoesDoRegistro::textoDoSino()}. */

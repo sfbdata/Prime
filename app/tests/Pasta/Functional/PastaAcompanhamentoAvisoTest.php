@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
+use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaAcompanhamentoDesligado;
 use App\Pasta\Repository\PastaAcompanhamentoDesligadoRepository;
 use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Pasta\Service\QuemAcompanhaAPasta;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
+use App\Service\NotificacaoService;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -170,5 +174,130 @@ final class PastaAcompanhamentoAvisoTest extends JusPrimeWebTestCase
         $this->entrar($ana, $tenant);
         $this->enviar($pasta, 'Agora sim');
         self::assertCount(1, $this->avisos($bruno));
+    }
+
+    /** Um aviso não lido de acompanhamento já existente, com o link e o escritório escolhidos. */
+    private function avisoNaoLido(User $usuario, Tenant $tenant, string $url): void
+    {
+        static::getContainer()->get(NotificacaoService::class)
+            ->criarNotificacao($usuario, $tenant, Notificacao::TIPO_PASTA_ACOMPANHADA, 'Nova mensagem na pasta X', $url);
+    }
+
+    #[TestDox('Deduplicação por pasta exata: o não lido de uma pasta cujo id começa com o desta (41 e 412), ou é prefixo dele, não segura o aviso')]
+    public function testIdsComPrefixoNaoDeduplicam(): void
+    {
+        [, $tenant] = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant, 'Ana Autora');
+        $bruno = $this->criarColaborador($tenant, 'Bruno Leitor');
+        $pasta = $this->criarPasta($tenant);
+        $id    = (int) $pasta->getId();
+        // O id da pasta seguido de um dígito (41 → 412) e o id sem o último dígito (412 → 41).
+        $this->avisoNaoLido($bruno, $tenant, '/pasta/' . $id . '2#pasta-msg-1');
+        if ($id >= 10) {
+            $this->avisoNaoLido($bruno, $tenant, '/pasta/' . intdiv($id, 10) . '#pasta-msg-1');
+        }
+        $antes = \count($this->avisos($bruno));
+
+        $this->entrar($ana, $tenant);
+        $this->enviar($pasta, 'Nova');
+
+        $avisos = $this->avisos($bruno);
+        self::assertCount($antes + 1, $avisos, 'o não lido de outra pasta não conta');
+        self::assertSame('/pasta/' . $id . '#pasta-msg-' . $this->idDaMensagem(), $avisos[\count($avisos) - 1]['url']);
+    }
+
+    #[TestDox('Deduplicação por escritório: o mesmo link não lido gravado em outro escritório não segura o aviso')]
+    public function testMesmoLinkEmOutroEscritorioNaoDeduplica(): void
+    {
+        [, $tenant] = $this->criarEscritorio();
+        [, $outro]  = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant, 'Ana Autora');
+        $bruno = $this->criarColaborador($tenant, 'Bruno Leitor');
+        $pasta = $this->criarPasta($tenant);
+        $this->avisoNaoLido($bruno, $outro, '/pasta/' . $pasta->getId() . '#pasta-msg-1');
+
+        $this->entrar($ana, $tenant);
+        $this->enviar($pasta, 'Nova');
+
+        $doEscritorio = array_values(array_filter($this->avisos($bruno), static fn (array $a): bool => $a['tenant_id'] === (int) $tenant->getId()));
+        self::assertCount(1, $doEscritorio);
+        self::assertSame('/pasta/' . $pasta->getId() . '#pasta-msg-' . $this->idDaMensagem(), $doEscritorio[0]['url']);
+    }
+
+    #[TestDox('Vínculo inativo com o escritório (usuário ativo): fica de fora')]
+    public function testVinculoInativoFora(): void
+    {
+        [, $tenant] = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant, 'Ana Autora');
+        $bruno = $this->criarColaborador($tenant, 'Bruno Saiu');
+        $carla = $this->criarColaborador($tenant, 'Carla Ficou');
+        $pasta = $this->criarPasta($tenant);
+        $this->em()->createQuery('UPDATE ' . UserTenant::class . ' v SET v.isActive = false WHERE v.user = :u AND v.tenant = :t')
+            ->setParameters(['u' => $bruno, 't' => $tenant])
+            ->execute();
+        self::assertTrue($bruno->isActive(), 'o usuário continua ativo: é só o vínculo');
+
+        $this->entrar($ana, $tenant);
+        $this->enviar($pasta, 'Nova');
+
+        self::assertSame([], $this->avisos($bruno));
+        self::assertCount(1, $this->avisos($carla));
+    }
+
+    #[TestDox('Cadeado de verdade: quem está Oculto na pasta não recebe; quem está em Visualizar recebe')]
+    public function testCadeadoOcultoNaoRecebe(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant, 'Ana Autora');
+        $bruno = $this->criarColaborador($tenant, 'Bruno Oculto');
+        $carla = $this->criarColaborador($tenant, 'Carla Visualiza');
+        $pasta = $this->criarPasta($tenant);
+        $this->trancar($pasta, $primario, [[$ana, NivelDeAcesso::Editar], [$carla, NivelDeAcesso::Visualizar], [$bruno, NivelDeAcesso::Oculto]]);
+
+        $this->entrar($ana, $tenant);
+        $this->enviar($pasta, 'Sigiloso');
+
+        self::assertSame([], $this->avisos($bruno), 'Oculto no cadeado não vê a pasta e não é avisado');
+        self::assertCount(1, $this->avisos($carla));
+    }
+
+    #[TestDox('Excluir a mensagem apaga o aviso de acompanhamento que apontava para ela')]
+    public function testExcluirAMensagemApagaOAviso(): void
+    {
+        [, $tenant] = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant, 'Ana Autora');
+        $bruno = $this->criarColaborador($tenant, 'Bruno Leitor');
+        $pasta = $this->criarPasta($tenant);
+
+        $this->entrar($ana, $tenant);
+        $this->enviar($pasta, 'Vou apagar');
+        $msg = $this->idDaMensagem();
+        self::assertCount(1, $this->avisos($bruno));
+
+        $this->client->request('POST', '/pasta/' . $pasta->getId() . '/mensagem/' . $msg . '/excluir', ['_token' => 'TOKEN_pasta_mensagem_excluir_' . $msg]);
+        self::assertResponseIsSuccessful();
+
+        self::assertSame([], $this->avisos($bruno), 'o aviso pasta_acompanhada saiu com a mensagem');
+    }
+
+    #[TestDox('Falha no aviso de acompanhamento: a mensagem fica gravada e o envio responde sucesso')]
+    public function testFalhaNoAvisoNaoDerrubaOEnvio(): void
+    {
+        [, $tenant] = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant, 'Ana Autora');
+        $bruno = $this->criarColaborador($tenant, 'Bruno Leitor');
+        $pasta = $this->criarPasta($tenant);
+        $this->entrar($ana, $tenant);
+
+        $quebrado = $this->createMock(PastaAcompanhamentoDesligadoRepository::class);
+        $quebrado->method('vinculosQueNaoDesligaram')->willThrowException(new \RuntimeException('falha simulada'));
+        static::getContainer()->set(PastaAcompanhamentoDesligadoRepository::class, $quebrado);
+
+        $antes = (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_mensagem WHERE pasta_id = :p', ['p' => $pasta->getId()]);
+        $json  = $this->enviar($pasta, 'Chega mesmo assim');
+
+        self::assertNotSame([], $json);
+        self::assertSame([], $this->avisos($bruno), 'o aviso de fato falhou (sem a falha, o Bruno seria avisado)');
+        self::assertSame($antes + 1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_mensagem WHERE pasta_id = :p', ['p' => $pasta->getId()]));
     }
 }

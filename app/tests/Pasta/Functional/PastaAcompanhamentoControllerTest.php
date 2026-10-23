@@ -201,7 +201,7 @@ final class PastaAcompanhamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame('true', $item->attr('aria-checked'), 'padrão ligado');
         self::assertCount(1, $item->filter('.ps-pop-sw.is-ligado > .ps-pop-sw-bola'));
         self::assertStringEndsWith('/pasta/' . $pasta->getId() . '/acompanhar', (string) $item->attr('data-url'));
-        self::assertSame($pasta->getNup(), $item->attr('data-nup'));
+        self::assertSame($pasta->getNup(), $item->attr('data-numero'), 'o número do aviso da tela é o NUP');
 
         $this->alternar($pasta);
         self::assertSame(['acompanha' => false], $this->json());
@@ -210,6 +210,22 @@ final class PastaAcompanhamentoControllerTest extends JusPrimeWebTestCase
         $item    = $crawler->filter('#psMenuAcoes > button.js-pasta-acompanhar');
         self::assertSame('false', $item->attr('aria-checked'));
         self::assertCount(0, $item->filter('.ps-pop-sw.is-ligado'));
+    }
+
+    #[TestDox('Pasta sem NUP: o aviso da tela usa o mesmo recuo do servidor (#id), pronto no data-numero')]
+    public function testSemNupUsaORecuoDoServidor(): void
+    {
+        [, $tenant] = $this->criarEscritorio();
+        $ana        = $this->criarColaborador($tenant);
+        $pasta      = $this->criarPasta($tenant);
+        $pasta->setNup('');
+        $this->em()->flush();
+        $this->entrar($ana, $tenant);
+
+        $crawler = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertSame('#' . $pasta->getId(), $crawler->filter('#psMenuAcoes > button.js-pasta-acompanhar')->attr('data-numero'));
     }
 
     #[TestDox('O "desligado" de um colega não desliga o meu interruptor')]

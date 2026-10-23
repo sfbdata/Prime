@@ -14,6 +14,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: NotificacaoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+// O "um não lido por pasta" do Acompanhar alterações (`NotificacaoRepository::idsDosUsuariosComNaoLidaNoLink`).
+#[ORM\Index(name: 'idx_notificacao_tenant_tipo_lida', columns: ['tenant_id', 'tipo', 'lida'])]
 class Notificacao implements Auditavel, TenantAware
 {
     public const TIPO_TAREFA_CRIADA = 'tarefa_criada';

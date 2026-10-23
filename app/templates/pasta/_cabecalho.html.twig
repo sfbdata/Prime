@@ -288,7 +288,7 @@
                             aria-checked="{{ eAcompanhada ? 'true' : 'false' }}"
                             data-url="{{ path('pasta_acompanhamento_alternar', {id: pasta.id}) }}"
                             data-csrf="{{ csrf_token('pasta_acompanhar_' ~ pasta.id) }}"
-                            data-nup="{{ pasta.nup }}">
+                            data-numero="{{ pasta.nup is not empty ? pasta.nup : '#' ~ pasta.id }}">
                         <i class="bi bi-bell"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.acompanhar'|trans }}</span>
                         <span class="ps-pop-sw{{ eAcompanhada ? ' is-ligado' : '' }}" aria-hidden="true"><span class="ps-pop-sw-bola"></span></span>
                     </button>
@@ -786,7 +786,7 @@
                 item.setAttribute('aria-checked', r.dados.acompanha ? 'true' : 'false');
                 var sw = item.querySelector('.ps-pop-sw');
                 if (sw) { sw.classList.toggle('is-ligado', r.dados.acompanha); }
-                avisar(BJ_T.t(r.dados.acompanha ? 'pasta_cabecalho.js.cabecalho.acompanhar_ligado' : 'pasta_cabecalho.js.cabecalho.acompanhar_desligado', { nup: item.dataset.nup }));
+                avisar(BJ_T.t(r.dados.acompanha ? 'pasta_cabecalho.js.cabecalho.acompanhar_ligado' : 'pasta_cabecalho.js.cabecalho.acompanhar_desligado', { nup: item.dataset.numero }));
             })
             .catch(function () { avisar(BJ_T.t('pasta_cabecalho.js.cabecalho.erro_comunicacao'), 'erro'); })
             .then(function () { item.dataset.enviando = ''; });

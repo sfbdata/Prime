@@ -18,6 +18,11 @@ use Doctrine\Migrations\AbstractMigration;
  * funcionais (`uniq_cobranca_obrigacao_ref_competencia`, `idx_cobranca_pessoa_tenant_*_digitos`,
  * `uq_confirmacao_email_lembrete`), que não são desta entrega.
  *
+ * Mais o índice `idx_notificacao_tenant_tipo_lida` em `notificacao` (tenant_id, tipo, lida): é a
+ * consulta do "um aviso não lido por pasta e por pessoa" (`idsDosUsuariosComNaoLidaNoLink`), que roda
+ * a cada mensagem nova no Registro. O `--dump-sql` propõe só ele para `notificacao` (o índice da FK
+ * em tenant_id continua).
+ *
  * Anatomia de `pasta_favorita`/`pasta_destaque`: pasta e usuário CASCADE, tenant sem ação (a purga
  * do escritório apaga explicitamente, `PurgarEscritorioUseCase::ORDEM_DELECAO`).
  */
@@ -25,7 +30,7 @@ final class Version20261020151100 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Cria pasta_acompanhamento_desligado: quem deixou de acompanhar as alterações de uma pasta';
+        return 'Cria pasta_acompanhamento_desligado (quem deixou de acompanhar uma pasta) e o índice do aviso não lido em notificacao';
     }
 
     public function up(Schema $schema): void
@@ -39,10 +44,12 @@ final class Version20261020151100 extends AbstractMigration
         $this->addSql('ALTER TABLE pasta_acompanhamento_desligado ADD CONSTRAINT FK_46690D99033212A FOREIGN KEY (tenant_id) REFERENCES tenant (id) NOT DEFERRABLE');
         $this->addSql('ALTER TABLE pasta_acompanhamento_desligado ADD CONSTRAINT FK_46690D9A76ED395 FOREIGN KEY (user_id) REFERENCES "user" (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE pasta_acompanhamento_desligado ADD CONSTRAINT FK_46690D97FCDBC8C FOREIGN KEY (pasta_id) REFERENCES pasta (id) ON DELETE CASCADE NOT DEFERRABLE');
+        $this->addSql('CREATE INDEX idx_notificacao_tenant_tipo_lida ON notificacao (tenant_id, tipo, lida)');
     }
 
     public function down(Schema $schema): void
     {
+        $this->addSql('DROP INDEX idx_notificacao_tenant_tipo_lida');
         $this->addSql('DROP TABLE pasta_acompanhamento_desligado');
     }
 }
