@@ -98,12 +98,19 @@ final class AgendaAvisoDoGoogleJsTest extends TestCase
         self::assertStringContainsString("if (alvo('#agGoogle')) { googleSincronizar(); return; }", $js, 'o botão do painel segue o mesmo caminho');
     }
 
-    #[TestDox('Abre ao carregar a Agenda, menos na volta do Google (#google=...), que tem o próprio aviso')]
+    #[TestDox('Abre ao carregar a Agenda, menos na entrada por link que já abre algo (#google= da volta do Google, #ev= do compromisso)')]
     public function testAbreAoCarregar(): void
     {
+        $js = $this->ler(self::JS);
         self::assertMatchesRegularExpression(
-            '/const voltouDoGoogle = \/google=\/\.test\(location\.hash\);\s*avisoDaVoltaDoGoogle\(\);\s*if \(!voltouDoGoogle\) \{ googleAviso\(\); \}/',
-            $this->ler(self::JS),
+            '/const abreAlgoPeloLink = \\/\\(\\?:google\\|ev\\)=\\/\\.test\\(location\\.hash\\);\\s*avisoDaVoltaDoGoogle\\(\\);\\s*if \\(!abreAlgoPeloLink\\) \\{ googleAviso\\(\\); \\}/',
+            $js,
         );
+        // O mesmo teste cobre os fragmentos que abrem algo: o do compromisso é o que o abrirDoEndereco() lê.
+        self::assertStringContainsString("location.hash.match(/ev=([^&]+)/)", $js);
+        self::assertStringContainsString("location.hash.match(/google=(", $js);
+        foreach (['#ev=123' => false, '#google=cancelado' => false, '' => true, '#outra=1' => true] as $hash => $abre) {
+            self::assertSame($abre, 1 !== preg_match('/(?:google|ev)=/', $hash), 'fragmento ' . $hash);
+        }
     }
 }

@@ -44,8 +44,10 @@ Google Agenda e lembretes no celular) e leva ao mesmo fluxo do botão "Sincroniz
 
 ## Decisão de implementação (a confirmar com o dono)
 
-- Na volta do Google (`#google=...` no endereço), a janela não abre naquela entrada: o toast ou a explicação
-  da permissão da agenda já ocupam o `#agPerg`. Na próxima entrada ela volta, se ainda couber.
+- Na entrada por link que já abre algo na Agenda, a janela não abre naquela entrada e volta na próxima, se
+  ainda couber: na volta do Google (`#google=...`), o toast ou a explicação da permissão já ocupam o `#agPerg`;
+  no link direto de compromisso (`#ev=<id>`, do Chat ou do lembrete), o compromisso aberto vem antes. Um teste
+  só no JS (`abreAlgoPeloLink`). O Esc segue como nas outras janelas do Google.
 
 ## Testes
 

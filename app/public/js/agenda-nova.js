@@ -1237,9 +1237,10 @@
     }
 
     window.addEventListener('hashchange', abrirDoEndereco);
-    // Na volta do Google (#google=...), o toast ou a explicação da permissão vêm antes; a orientação fica para a próxima entrada.
-    const voltouDoGoogle = /google=/.test(location.hash);
+    // Entrada por link que já abre algo na Agenda (volta do Google #google=..., compromisso #ev=... do Chat ou do
+    // lembrete): o que o link abre vem antes; a orientação fica para a próxima entrada.
+    const abreAlgoPeloLink = /(?:google|ev)=/.test(location.hash);
     avisoDaVoltaDoGoogle();
-    if (!voltouDoGoogle) { googleAviso(); }
+    if (!abreAlgoPeloLink) { googleAviso(); }
     abrirDoEndereco();
 })();
