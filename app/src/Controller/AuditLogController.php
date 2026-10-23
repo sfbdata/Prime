@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Auditoria\Service\GuardaDaTelaNoDesfazer;
 use App\Auditoria\UseCase\DesfazerAlteracaoAuditLogUseCase;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
@@ -30,6 +31,7 @@ final class AuditLogController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly DesfazerAlteracaoAuditLogUseCase $desfazerUseCase,
         private readonly AuditoriaDoCadeado $auditoriaDoCadeado,
+        private readonly GuardaDaTelaNoDesfazer $guardaDaTela,
     ) {}
 
     #[Route('', name: 'audit_log_index', methods: ['GET'])]
@@ -88,7 +90,7 @@ final class AuditLogController extends AbstractController
         $ocultasPeloCadeado = $tenant !== null ? $this->auditoriaDoCadeado->linhasOcultas($currentUser, $tenant, $auditLogs) : [];
         $podeDesfazerMap = [];
         foreach ($auditLogs as $auditLog) {
-            $podeDesfazerMap[(int) $auditLog->getId()] = !isset($ocultasPeloCadeado[(int) $auditLog->getId()]) && $this->podeDesfazer($auditLog, $currentUser, $tenant, $permissionChecker);
+            $podeDesfazerMap[(int) $auditLog->getId()] = !isset($ocultasPeloCadeado[(int) $auditLog->getId()]) && $this->podeDesfazer($auditLog, $currentUser, $tenant);
         }
 
         return $this->render('audit/index.html.twig', [
@@ -136,7 +138,7 @@ final class AuditLogController extends AbstractController
             throw $this->createAccessDeniedException('O usuário primário restringiu o acesso a esta pasta.');
         }
 
-        $this->exigirPermissaoDeEdicao($id, $currentUser, $tenant, $permissionChecker);
+        $this->exigirPermissaoDeEdicao($id, $currentUser, $tenant);
         $tenantId = $tenant?->getId();
         $resultado = $this->desfazerUseCase->executar($id, is_int($tenantId) ? $tenantId : 0);
 
@@ -154,26 +156,18 @@ final class AuditLogController extends AbstractController
     }
 
     /** O botão "desfazer" só aparece para quem o servidor deixaria desfazer (achado de auditoria interna F19). */
-    private function podeDesfazer(AuditLog $log, User $user, ?Tenant $tenant, PermissionChecker $permissionChecker): bool
+    private function podeDesfazer(AuditLog $log, User $user, ?Tenant $tenant): bool
     {
-        if (!$this->desfazerUseCase->podeReverter($log)) {
-            return false;
-        }
-        $permissao = $this->desfazerUseCase->permissaoDeEdicao($log, $user);
-
-        return $permissao === null || $permissionChecker->canAdminister($user, $tenant, $permissao);
+        return $this->desfazerUseCase->podeReverter($log) && $this->guardaDaTela->permite($log, $user, $tenant);
     }
 
     /**
-     * Desfazer é editar (achado de auditoria interna F19): a linha de entidade com tela de edição protegida exige também
-     * a permissão dessa tela (o criador do Evento, como em `agenda_editar`, dispensa). Sem ela, 403 e nada muda.
+     * Desfazer é editar (achado de auditoria interna F19): quem desfaz precisa da mesma guarda da tela que faria a
+     * alteração (a permissão de edição, o acesso à meta ou à pasta, a regra do campo). Sem ela, 403 e nada muda.
      */
-    private function exigirPermissaoDeEdicao(int $id, User $user, ?Tenant $tenant, PermissionChecker $permissionChecker): void
+    private function exigirPermissaoDeEdicao(int $id, User $user, ?Tenant $tenant): void
     {
-        $tenantId = $tenant?->getId();
-        $permissao = $this->desfazerUseCase->permissaoDeEdicaoPorId($id, is_int($tenantId) ? $tenantId : 0, $user);
-
-        if ($permissao !== null && !$permissionChecker->canAdminister($user, $tenant, $permissao)) {
+        if (!$this->guardaDaTela->permitePorId($id, $user, $tenant)) {
             throw $this->createAccessDeniedException('Você não tem permissão para desfazer alterações.');
         }
     }
