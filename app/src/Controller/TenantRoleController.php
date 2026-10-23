@@ -20,6 +20,7 @@ use App\Tenant\DTO\RemoverPrimarioSocioInput;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
 use App\Tenant\Service\GruposDePermissaoDoPerfil;
 use App\Tenant\Service\HierarquiaDePerfis;
+use App\Tenant\Repository\ConfiguracaoDeEdicaoRepository;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
 use App\Tenant\UseCase\PromoverPrimarioSocioUseCase;
@@ -58,6 +59,7 @@ final class TenantRoleController extends AbstractController
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly HierarquiaDePerfis $hierarquia,
         private readonly TranslatorInterface $tradutor,
+        private readonly ConfiguracaoDeEdicaoRepository $configuracaoDeEdicao,
     ) {}
 
     /** @param array<string, mixed> $parametros */
@@ -584,7 +586,17 @@ final class TenantRoleController extends AbstractController
             'primarios'         => $primarios,
             'secundarios'       => $secundarios,
             'perfisSecundarios' => $perfisSecundarios,
+            // Edição sem prazo (spec edicao-sem-prazo §3): a opção do escritório; só um primário ativo muda.
+            'edicaoSemPrazo'    => $this->configuracaoDeEdicao->primarioSemPrazo($tenant),
+            'podeMudarSemPrazo' => $ator instanceof User && $this->ehPrimarioAtivo($ator, $tenant, $userTenantRepository),
         ]);
+    }
+
+    private function ehPrimarioAtivo(User $ator, Tenant $tenant, UserTenantRepository $vinculos): bool
+    {
+        $vinculo = $vinculos->findAtivoPorUserETenant($ator, $tenant);
+
+        return $vinculo !== null && $this->regraDosPrimarios->ehPrimario($vinculo);
     }
 
     /**

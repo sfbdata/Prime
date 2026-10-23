@@ -260,6 +260,8 @@ final class PurgarEscritorioUseCase
         ['central_presenca', 'tenant_id = :tenant'],
         // Regra de ausência do escritório (presença, fase 3): uma linha por escritório, FK de tenant NO ACTION.
         ['central_configuracao_presenca', 'tenant_id = :tenant'],
+        // Opção de edição sem prazo do primário (edicao-sem-prazo §3): uma linha por escritório, FK de tenant NO ACTION.
+        ['escritorio_configuracao_edicao', 'tenant_id = :tenant'],
         // Baixa de aviso na Central (F3): cai com a notificação (CASCADE), mas a FK de tenant é NO ACTION.
         ['central_aviso_resolvido', 'tenant_id = :tenant'],
         // Descadastro de e-mail do escritório (Shared, "Não quero mais receber estes avisos"): FK de tenant

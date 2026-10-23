@@ -8,8 +8,10 @@ use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
+use App\Pasta\Enum\OrigemDaAssinatura;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\ContadorDePaginasDePdf;
+use App\Pasta\Service\DetectorDeAssinaturaDigital;
 use App\Pasta\UseCase\ResultadoUploadPeca;
 use App\Pasta\UseCase\UploadPecaUseCase;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
@@ -77,6 +79,7 @@ final class UploadPecaUseCaseTest extends TestCase
             new CompressaoDeArquivoArmazenado($this->armazenamento, $this->armazenamento, $this->compressor, new NullLogger()),
             new NullLogger(),
             $this->contador,
+            new DetectorDeAssinaturaDigital(),
         );
         $this->tenant        = $this->tenant(7);
         $this->pasta         = (new Pasta())->setTenant($this->tenant);
@@ -623,6 +626,67 @@ final class UploadPecaUseCaseTest extends TestCase
      * ("stat failed"): é a classe de defeito que derrubava o Kanban e o ServiceDesk, e a sobrescrita
      * não pode escondê-la.
      */
+    // ── Selo "Assinado" ─────────────────────────────────────────────────────────
+
+    private const PDF_ASSINADO = "%PDF-1.7\n1 0 obj << /Type /Catalog >> endobj\n"
+        . "5 0 obj\n<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /ETSI.CAdES.detached /ByteRange [0 10 20 30] /Contents <3082> >>\nendobj\n"
+        . "trailer << /Root 1 0 R >>\n%%EOF\n";
+
+    #[TestDox('PDF com assinatura digital embutida nasce com o selo, origem digital, por quem enviou')]
+    public function testPdfAssinadoNasceComSelo(): void
+    {
+        $autor = new User();
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $doc = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'contrato.pdf', self::PDF_ASSINADO), 'CONTRATO', null, null, $this->tenant, false, $autor)->documento;
+
+        self::assertTrue($doc->estaAssinado());
+        self::assertSame(OrigemDaAssinatura::Digital, $doc->getAssinaturaOrigem());
+        self::assertSame($autor, $doc->getAssinadoPor());
+        self::assertSame($doc->getCarregadoEm(), $doc->getAssinadoEm());
+    }
+
+    #[TestDox('.p7s nasce com o selo pela extensão')]
+    public function testP7sNasceComSelo(): void
+    {
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $doc = $this->useCase->executar($this->pasta, null, $this->upload('application/pkcs7-signature', 1024, 'contrato.pdf.p7s', 'binario'), 'DEMAIS', null, null, $this->tenant)->documento;
+
+        self::assertSame(OrigemDaAssinatura::Digital, $doc->getAssinaturaOrigem());
+    }
+
+    #[TestDox('PDF comum nasce sem selo')]
+    public function testPdfComumSemSelo(): void
+    {
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $doc = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 1024, 'peticao.pdf'), 'PECA', null, null, $this->tenant)->documento;
+
+        self::assertFalse($doc->estaAssinado());
+        self::assertNull($doc->getAssinaturaOrigem());
+    }
+
+    #[TestDox('PDF assinado que a compressão regravou perdeu a assinatura: nasce sem selo')]
+    public function testPdfAssinadoComprimidoSemSelo(): void
+    {
+        $this->compressor->method('comprimir')
+            ->willReturnCallback(static function (string $caminho): ResultadoCompressao {
+                file_put_contents($caminho, 'pdf menor');
+
+                return new ResultadoCompressao(5000, 1500, true, true);
+            });
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $doc = $this->useCase->executar($this->pasta, null, $this->upload('application/pdf', 5000, 'contrato.pdf', self::PDF_ASSINADO), 'CONTRATO', null, null, $this->tenant, true)->documento;
+
+        self::assertFalse($doc->estaAssinado());
+    }
+
     private function upload(string $mime, int $tamanho, string $nome, ?string $conteudo = null): UploadedFile
     {
         $caminho = $this->diretorio . '/' . bin2hex(random_bytes(4));

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -166,6 +167,7 @@ final class PastaObservacaoDetalhesControllerTest extends JusPrimeWebTestCase
         $obs    = $this->criarObservacao($pasta, $autor, $tenant);
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $outro);
         $this->logarComTenant($client, $outro, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao/{$obs->getId()}/editar", [
@@ -186,6 +188,7 @@ final class PastaObservacaoDetalhesControllerTest extends JusPrimeWebTestCase
         $obs    = $this->criarObservacao($pasta, $autor, $tenant, new \DateTimeImmutable('-20 minutes'));
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $autor);
         $this->logarComTenant($client, $autor, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao/{$obs->getId()}/editar", [
@@ -297,6 +300,7 @@ final class PastaObservacaoDetalhesControllerTest extends JusPrimeWebTestCase
         $obs    = $this->criarObservacao($pasta, $autor, $tenant);
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $outro);
         $this->logarComTenant($client, $outro, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao/{$obs->getId()}/excluir", [
@@ -316,6 +320,7 @@ final class PastaObservacaoDetalhesControllerTest extends JusPrimeWebTestCase
         $obs    = $this->criarObservacao($pasta, $autor, $tenant, new \DateTimeImmutable('-20 minutes'));
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $autor);
         $this->logarComTenant($client, $autor, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao/{$obs->getId()}/excluir", [

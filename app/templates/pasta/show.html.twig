@@ -23,6 +23,8 @@
 {# Ocultar aba: ícone da regra na aba, modal "Ocultar aba" e o aviso sem aba (pasta/_abas_ocultas.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-abas-ocultas.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-presenca-autor.css') }}">
+{# A janela da meta com despacho registrado (aba Metas) usa o `.mp-modal` da devolução. #}
+<link rel="stylesheet" href="{{ asset('css/meta-passagem.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -2693,15 +2695,22 @@ document.addEventListener('DOMContentLoaded', function () {
         if (responder) { responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta'); }
 
         const resto = minutosRestantesReg(cartao);
-        const pode  = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0;
+        const temBotao = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta');
+        const pelaRegra = temBotao && cartao.dataset.doAutor === '1' && resto > 0;
+        // Edição sem prazo (spec edicao-sem-prazo §5): Master e primário (com a opção) seguem sem prazo, com o selo.
+        const seloSemPrazo = temBotao && !pelaRegra ? (cartao.dataset.semPrazoRotulo || '') : '';
         const motivo = cartao.dataset.doAutor === '1' ? BJ_T.t('pasta_show.js.registro.motivo_prazo') : BJ_T.t('pasta_show.js.registro.motivo_autor');
         const editar  = menuReg.querySelector('.js-reg-editar');
         const excluir = menuReg.querySelector('.js-reg-excluir');
+        if (window.SeloSemPrazo) { window.SeloSemPrazo.pintar(editar, seloSemPrazo); window.SeloSemPrazo.pintar(excluir, seloSemPrazo); }
         if (!editar || !excluir) {
             // lápide: sem itens de escrita para pintar
-        } else if (pode) {
+        } else if (pelaRegra) {
             pintarItemReg(editar, true, BJ_T.t('pasta_show.js.registro.menu_editar', {min: resto}), 'bi-pencil', '');
             pintarItemReg(excluir, true, BJ_T.t('pasta_show.js.registro.menu_excluir', {min: resto}), 'bi-trash3', '');
+        } else if (seloSemPrazo) {
+            pintarItemReg(editar, true, BJ_T.t('pasta_show.js.registro.menu_editar_sem_prazo'), 'bi-pencil', '');
+            pintarItemReg(excluir, true, BJ_T.t('pasta_show.js.registro.menu_excluir_sem_prazo'), 'bi-trash3', '');
         } else {
             pintarItemReg(editar, false, BJ_T.t('pasta_show.js.registro.menu_editar_bloqueado'), 'bi-lock', motivo);
             pintarItemReg(excluir, false, BJ_T.t('pasta_show.js.registro.menu_excluir_bloqueado'), 'bi-lock', motivo);
@@ -3141,7 +3150,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cartao = `
         <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}"
                  data-janela-ate="${Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60}"
-                 data-do-autor="1" data-autor-id="{{ app.user ? app.user.id : '' }}">
+                 data-do-autor="1" data-autor-id="{{ app.user ? app.user.id : '' }}"{% if sem_prazo_selo(false) %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ sem_prazo_selo(false))|trans|e('html_attr') }}"{% endif %}>
             ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -4673,4 +4682,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-encaminhar.js') }}"></script>
 {# "Destacar comentário": a raiz #psDestaques fica no fim do bloco body. #}
 <script src="{{ asset('js/pasta-destaque.js') }}"></script>
+{# Selo "EXCLUSIVO DO MASTER / DO PRIMÁRIO" nos menus pintados pelo JS (spec edicao-sem-prazo §5). #}
+<script src="{{ asset('js/selo-sem-prazo.js') }}"></script>
+<script src="{{ asset('js/meta-excluir-despacho.js') }}"></script>
 {% endblock %}

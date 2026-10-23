@@ -11,7 +11,6 @@ use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\PedidoDeCampanha;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Service\MontadorDeEmail;
-use App\Comercial\Service\SementeDoExpansor;
 use App\Comercial\UseCase\ConfirmarCampanhaUseCase;
 use App\Tests\Comercial\Support\CriaCampanhas;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -49,7 +48,6 @@ final class ConfirmarCampanhaConcorrenteTest extends KernelTestCase
             $repositorio,
             $c->get(PublicosDaCampanha::class),
             $c->get(ComposicaoDaCampanha::class),
-            $c->get(SementeDoExpansor::class),
             $c->get(MontadorDeEmail::class),
             $c->get(ClockInterface::class),
             $c->get(\App\Comercial\Campanha\ImagensDaCampanha::class),

@@ -12,7 +12,6 @@ use App\Agenda\Message\SincronizarGoogleDaPessoa;
 use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
 use App\Agenda\Repository\ExclusaoNoGoogleRepository;
 use App\Agenda\Repository\LigacaoComGoogleRepository;
-use App\Agenda\Service\GarantirVarreduraDoGoogle;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Sync\Service\CifradorDeSegredo;
@@ -34,7 +33,6 @@ final class ConectarGoogleAgendaUseCase
         private readonly ConexaoGoogleAgendaRepository $conexoes,
         private readonly CifradorDeSegredo $cifrador,
         private readonly MessageBusInterface $bus,
-        private readonly GarantirVarreduraDoGoogle $garantir,
         private readonly ExclusaoNoGoogleRepository $exclusoes,
         private readonly LigacaoComGoogleRepository $ligacoes,
     ) {
@@ -50,7 +48,6 @@ final class ConectarGoogleAgendaUseCase
         }
         $conexao = $this->guardar($tenant, $eu, $this->cifrar($autorizacao['refresh'], $autorizacao['conta']), $autorizacao['conta'], GoogleAgendaApi::FUSO);
         $this->bus->dispatch(new SincronizarGoogleDaPessoa((int) $conexao->getId()));
-        $this->garantir->garantir();
     }
 
     /** Sem a chave do servidor não há como guardar: a autorização é revogada lá, para não ficar solta. */

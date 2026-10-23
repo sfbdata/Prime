@@ -13,7 +13,8 @@
 #   2. guarda de migration: migration nova que APAGA (DROP TABLE/COLUMN, TRUNCATE, DELETE,
 #      ALTER ... TYPE, RENAME) para o deploy automático. Essas são do dono, à mão;
 #   3. backup do banco (pg_dump -Fc) conferido com pg_restore --list;
-#   4. guarda a imagem atual do php e do worker (tag + container parado + docker save);
+#   2b. crontab do host com tarefa do sistema ativa: o deploy segue, mas SEM ligar o agendador (avisa);
+#   4. guarda a imagem atual do php, do worker e do agendador (tag + container parado + docker save);
 #   5. posiciona o checkout na tag (fast-forward) e roda scripts/deploy-prod-tls.sh;
 #   6. confere: php saudável, a versão nova dentro do container, manutenção desligada e
 #      https://bluejus.com.br/login respondendo 200;
@@ -37,6 +38,7 @@ LOGS="${JUSPRIME_LOGS_DEPLOY:-/var/log/jusprime-deploy}"
 TRAVA="${JUSPRIME_TRAVA_DEPLOY:-/var/lock/jusprime-deploy.lock}"
 PHP=jusprime_php_prod
 WORKER=jusprime_worker_prod
+SCHEDULER=jusprime_scheduler_prod
 DB=jusprime_db_prod
 COMPOSE=(docker compose -f docker-compose.prod.yml --env-file .env.prod)
 
@@ -150,6 +152,28 @@ if [[ -n "$destrutivas" ]]; then
 fi
 echo "Nenhuma migration destrutiva."
 
+# ─── 2b. Crontab do host x agendador ───────────────────────────────────────────
+# Se o dono ainda não comentou no crontab (do root: o deploy roda como root) as tarefas que o agendador
+# assumiu, ligar o agendador faria cada uma rodar DUAS vezes (uma no cron, outra no contêiner). Nesse caso
+# o deploy segue, mas sem o agendador (SEM_AGENDADOR=1 → `--scale scheduler=0` no deploy-prod-tls.sh), e
+# avisa. Sem crontab (`crontab -l` com erro "no crontab") vale como nenhuma linha: o agendador sobe.
+etapa "Crontab do host (tarefas do agendador)"
+tarefas_no_cron() {
+    { crontab -l 2>/dev/null || true; } | grep -vE '^[[:space:]]*(#|$)' | grep -E 'bin/console app:|sync-reconciliar\.sh' || true
+}
+CRON_ATIVO="$(tarefas_no_cron)"
+SEM_AGENDADOR=0
+if [[ -n "$CRON_ATIVO" ]]; then
+    SEM_AGENDADOR=1
+    echo "::warning::O crontab do host ainda roda tarefas do sistema: este deploy NÃO liga o agendador (senão elas rodariam duas vezes). As tarefas seguem no cron."
+    echo "Linhas ativas encontradas:"
+    sed 's/^/    /' <<< "$CRON_ATIVO"
+    echo "Para ligar depois: comente essas linhas (crontab -e) e rode, em $REPO:"
+    echo "    docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler"
+else
+    echo "Nenhuma tarefa do sistema ativa no crontab: o agendador sobe."
+fi
+
 # ─── 3. Backup do banco, conferido ─────────────────────────────────────────────
 etapa "Backup do banco"
 mkdir -p "$BACKUP_DB"; chmod 700 "$BACKUP_DB"
@@ -183,7 +207,14 @@ fi
 # ─── 4. Guarda a versão atual (rollback) ───────────────────────────────────────
 etapa "Guardando a versão atual para a volta automática"
 declare -A IMG_NOME IMG_ID
-for c in "$PHP" "$WORKER"; do
+# O agendador (serviço `scheduler`) entra na volta só se já rodava antes deste deploy: no primeiro
+# deploy com ele não há imagem anterior a guardar, e a volta o desliga (ver voltar()).
+# Só se estava RODANDO: parado (ou desligado por crontab ativo) ele não volta.
+GUARDADOS=("$PHP" "$WORKER")
+if [[ "$(docker inspect -f '{{.State.Running}}' "$SCHEDULER" 2>/dev/null || true)" == true ]]; then
+    GUARDADOS+=("$SCHEDULER")
+fi
+for c in "${GUARDADOS[@]}"; do
     IMG_NOME[$c]="$(docker inspect -f '{{.Config.Image}}' "$c")"
     IMG_ID[$c]="$(docker inspect -f '{{.Image}}' "$c")"
     docker tag "${IMG_ID[$c]}" "jusprime-rollback:${c}-pre-$TAG"
@@ -192,20 +223,29 @@ for c in "$PHP" "$WORKER"; do
     echo "  $c: ${IMG_ID[$c]:7:12} guardada como jusprime-rollback:${c}-pre-$TAG"
 done
 mkdir -p "$BACKUP_IMG"
-docker save "jusprime-rollback:$PHP-pre-$TAG" "jusprime-rollback:$WORKER-pre-$TAG" \
+imagens_guardadas=()
+for c in "${GUARDADOS[@]}"; do imagens_guardadas+=("jusprime-rollback:$c-pre-$TAG"); done
+docker save "${imagens_guardadas[@]}" \
     | gzip > "$BACKUP_IMG/jusprime-pre-$TAG.tar.gz"
 ls -1t "$BACKUP_IMG"/jusprime-pre-v*.tar.gz 2>/dev/null | tail -n +3 | xargs -r rm -f   # guarda 2
 echo "  cópia em arquivo: $BACKUP_IMG/jusprime-pre-$TAG.tar.gz ($(du -h "$BACKUP_IMG/jusprime-pre-$TAG.tar.gz" | cut -f1))"
 # Imagens e containers de rollback: só os dos 2 deploys mais recentes (tag com nome não é
-# apagada pelo `docker image prune` do deploy, e o disco da VPS é apertado).
+# apagada pelo `docker image prune` do deploy, e o disco da VPS é apertado). Conta por VERSÃO, não por
+# container: um deploy guarda 2 ou 3 (php, worker e, depois que ele existe, o agendador).
+declare -A versoes_mantidas=()
 while IFS= read -r antigo; do
     [[ -n "$antigo" ]] || continue
+    versao_antiga="${antigo##*_pre_v}"
+    if [[ -n "${versoes_mantidas[$versao_antiga]:-}" ]] || (( ${#versoes_mantidas[@]} < 2 )); then
+        versoes_mantidas[$versao_antiga]=1
+        continue
+    fi
     resto="${antigo#jusprime_rollback_}"                       # <container>_pre_vX.Y.Z
     docker rm -f "$antigo" >/dev/null 2>&1 || true
     docker rmi "jusprime-rollback:${resto%_pre_v*}-pre-v${resto##*_pre_v}" >/dev/null 2>&1 || true
     echo "  rollback antigo removido: $antigo"
 done < <(docker ps -a --filter name=jusprime_rollback_ --format '{{.CreatedAt}}|{{.Names}}' \
-    | grep -E '\|jusprime_rollback_.+_pre_v[0-9]+\.[0-9]+\.[0-9]+$' | sort -r | cut -d'|' -f2 | tail -n +5)
+    | grep -E '\|jusprime_rollback_.+_pre_v[0-9]+\.[0-9]+\.[0-9]+$' | sort -r | cut -d'|' -f2)
 # Só os do formato deste script (…_pre_vX.Y.Z): travas criadas à mão em outros deploys (preloop1,
 # preargv...) não são dele e ficam. Medido no deploy da v2.1.0: o filtro antigo, só por prefixo,
 # apagou os containers preloop1/preloop2 de 13/10 (as cópias em arquivo deles ficaram).
@@ -214,16 +254,28 @@ voltar() {
     trap - ERR
     etapa "VOLTANDO para a versão anterior"
     local ok=1
-    for c in "$PHP" "$WORKER"; do
+    local servicos=(php worker)
+    for c in "${GUARDADOS[@]}"; do
         docker tag "jusprime-rollback:${c}-pre-$TAG" "${IMG_NOME[$c]}" || ok=0
     done
     git reset --quiet --hard "$ANTES" || ok=0   # checkout conferido limpo no passo 1
-    "${COMPOSE[@]}" up -d --no-build php worker || ok=0
+    # Com tarefa ativa no crontab ele também não volta: rodaria junto com o cron.
+    if [[ " ${GUARDADOS[*]} " == *" $SCHEDULER "* && "$SEM_AGENDADOR" == 0 ]]; then
+        servicos+=(scheduler)
+    else
+        # Não rodava antes (primeiro deploy com ele, ou parado) ou o crontab ainda tem as tarefas: desliga o
+        # que tiver subido com a versão nova, senão ele seguiria rodando com o código da versão que falhou.
+        docker rm -f "$SCHEDULER" >/dev/null 2>&1 || true
+    fi
+    "${COMPOSE[@]}" up -d --no-build "${servicos[@]}" || ok=0
     for _ in $(seq 1 36); do
         [[ "$(docker inspect -f '{{.State.Health.Status}}' "$PHP" 2>/dev/null)" == healthy ]] && break
         sleep 5
     done
     rm -f nginx/maintenance/maintenance.on
+    # As varreduras periódicas rodam no schedule `cadeias` desde a versão que o trouxe; uma versão anterior a ele
+    # depende da semente (docs/specs/scheduler-tarefas-agendadas.md, "Cadeias no Scheduler").
+    echo "::warning::Se a versão anterior ainda não tem o schedule cadeias, as varreduras do Comercial precisam ser religadas: docker exec -w /var/www/app $WORKER php bin/console app:comercial:varredura (as da Agenda, push e Google, se religam sozinhas na primeira tela aberta)."
     if [[ "$ok" == 1 ]] && saude; then
         echo "::error::$TAG falhou e produção VOLTOU para $(git describe --tags --always "$ANTES")."
         exit 1
@@ -236,12 +288,12 @@ voltar() {
 etapa "Publicando $TAG"
 trap 'voltar' ERR
 git merge --quiet --ff-only "$SHA"
-if ! PULAR_GIT_PULL=1 bash scripts/deploy-prod-tls.sh; then
+if ! PULAR_GIT_PULL=1 SEM_AGENDADOR="$SEM_AGENDADOR" bash scripts/deploy-prod-tls.sh; then
     # Build quebrado sai ANTES da manutenção, sem tocar container: nesse caso a volta é só do git.
     if [[ ! -f nginx/maintenance/maintenance.on && "$(docker inspect -f '{{.Image}}' "$PHP")" == "${IMG_ID[$PHP]}" ]]; then
         git reset --quiet --hard "$ANTES"
         # Build parcial pode ter retagueado a imagem de um serviço: devolve o nome à imagem em uso.
-        for c in "$PHP" "$WORKER"; do docker tag "${IMG_ID[$c]}" "${IMG_NOME[$c]}" || true; done
+        for c in "${GUARDADOS[@]}"; do docker tag "${IMG_ID[$c]}" "${IMG_NOME[$c]}" || true; done
         echo "::error::o build de $TAG falhou; nenhum container foi trocado e o site seguiu no ar."
         exit 1
     fi
@@ -260,3 +312,6 @@ saude || ok=0
 
 echo
 echo "✅ Produção em $TAG ($SHA). Backup: $dump"
+if [[ "$SEM_AGENDADOR" == 1 ]]; then
+    echo "::warning::Agendador DESLIGADO: o crontab do host ainda tem as tarefas do sistema. Comente-as e rode: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler"
+fi

@@ -15,7 +15,6 @@ use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DataComemorativaRepository;
 use App\Comercial\Service\DisparoDasDatasComemorativas;
 use App\Comercial\Service\RecuperacaoDeEnvios;
-use App\Comercial\Service\SementeDoExpansor;
 use App\Comercial\Service\VarreduraDeAutomacoes;
 use App\Tests\Comercial\Support\CriaCampanhas;
 use App\Tests\Comercial\Support\LogEmMemoria;
@@ -25,7 +24,6 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
-use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
@@ -71,7 +69,7 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
         self::assertIsArray($trilha);
         self::assertSame(['publico' => 'todos', 'frequencia' => 'unica', 'total' => 0], json_decode((string) $trilha['changes'], true));
         self::assertNull($trilha['actor_user_id']);
-        self::assertNotEmpty(array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof ExpandirCampanhas), 'acorda o expansor');
+        self::assertSame([], array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof ExpandirCampanhas), 'não acorda o expansor: ele roda a cada minuto pelo schedule cadeias');
     }
 
     #[TestDox('Duas voltas no mesmo dia (e uma no fim da noite) criam uma campanha só: data:<id>:<ano>')]
@@ -176,9 +174,7 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
             $this->conexao,
             $c->get(VarreduraDeAutomacoes::class),
             $c->get(RecuperacaoDeEnvios::class),
-            $c->get(SementeDoExpansor::class),
             $this->disparo(),
-            $c->get(MessageBusInterface::class),
             new MockClock('2026-12-25 09:10', 'America/Sao_Paulo'),
             $log = new LogEmMemoria(),
         );
@@ -186,7 +182,7 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
         $handler(new VarrerAutomacoes());
         self::assertSame(['data:natal:2026'], $this->chaves());
         self::assertSame('', $log->tudo, 'nenhum passo falhou');
-        self::assertNotEmpty(array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof VarrerAutomacoes), 'a cadeia se reagenda');
+        self::assertSame([], array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof VarrerAutomacoes), 'a varredura não se reagenda: o schedule cadeias é quem dispara');
     }
 
     private function disparo(bool $ligada = true, ?LogEmMemoria $log = null): DisparoDasDatasComemorativas
@@ -199,7 +195,6 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
             new ModelosDeCampanha(),
             $c->get(ComposicaoDaCampanha::class),
             new ChaveDasCampanhas($ligada),
-            $c->get(SementeDoExpansor::class),
             $log ?? new NullLogger(),
         );
     }
