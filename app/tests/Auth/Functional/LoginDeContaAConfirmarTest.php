@@ -439,7 +439,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         $user = static::getContainer()->get(AceitarConviteEscritorioSemContaUseCase::class)->executar(
-            new AceitarConviteEscritorioSemContaInput(token: $token, fullName: 'Bia Convidada', senha: self::SENHA, aceiteTermos: true, ip: '127.0.0.1'),
+            new AceitarConviteEscritorioSemContaInput(token: $token, fullName: 'Bia Convidada', senha: self::SENHA, aceiteTermos: true, ip: '127.0.0.1', genero: 'feminino'),
         );
         self::assertTrue($user->isEmailConfirmado());
 
@@ -458,7 +458,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
 
         $client->jsonRequest('POST', '/cadastro/criar', [
             'nome' => 'Ana Souza', 'escritorio' => 'Souza ' . uniqid(), 'email' => $email,
-            'senha' => self::SENHA, 'aceite' => true, '_token' => 'token-do-cadastro',
+            'senha' => self::SENHA, 'genero' => 'masculino', 'aceite' => true, '_token' => 'token-do-cadastro',
         ]);
         self::assertSame(['ok' => true, 'confirmar' => true, 'email' => $email], json_decode((string) $client->getResponse()->getContent(), true));
         self::assertFalse($this->entrou($client));

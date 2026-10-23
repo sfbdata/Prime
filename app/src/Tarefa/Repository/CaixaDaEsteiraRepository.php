@@ -29,6 +29,9 @@ class CaixaDaEsteiraRepository extends ServiceEntityRepository
         $caixas = $this->createQueryBuilder('c')
             ->addSelect('a')
             ->leftJoin('c.avisados', 'a')
+            // O perfil vem junto: o gênero dá o "Dr./Dra." do avisado (spec genero-no-cadastro, regra 4).
+            ->addSelect('ap')
+            ->leftJoin('a.profile', 'ap')
             ->andWhere('c.tenant = :tenant')
             ->setParameter('tenant', $tenant)
             ->orderBy('a.fullName', 'ASC')

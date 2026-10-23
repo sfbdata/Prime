@@ -19,6 +19,8 @@ final readonly class CriarContaEEscritorioInput
         public string $email,
         public string $senha,
         public bool $aceite,
+        /** Valor cru do campo Gênero (spec genero-no-cadastro); só `feminino` ou `masculino` passam. */
+        public string $genero,
     ) {
     }
 }

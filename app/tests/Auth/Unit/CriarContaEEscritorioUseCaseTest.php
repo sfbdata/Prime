@@ -16,6 +16,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Legal\PoliticaPrivacidadeVigente;
+use App\Profile\Enum\Genero;
 use App\Repository\UserRepository;
 use App\Service\TenantBootstrapService;
 use App\Shared\Email\IdentidadeDeEmail;
@@ -196,8 +197,9 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         string $email = 'ana@adv.com',
         string $senha = 'segredo123',
         bool $aceite = true,
+        string $genero = 'feminino',
     ): CriarContaEEscritorioInput {
-        return new CriarContaEEscritorioInput($nome, $escritorio, $email, $senha, $aceite);
+        return new CriarContaEEscritorioInput($nome, $escritorio, $email, $senha, $aceite, $genero);
     }
 
     #[TestDox('Cria User ativo sem OAB com e-mail a confirmar, Tenant, aceite dos Termos, ciência da Política e o link')]
@@ -237,6 +239,9 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         self::assertFalse($user->isEmailConfirmado());
         self::assertEquals(new \DateTimeImmutable(self::AGORA), $user->getEmailAConfirmarDesde());
         self::assertSame('Souza Advogados', $conta->tenant->getName());
+        // O perfil nasce com o gênero do cadastro (spec genero-no-cadastro), ligado ao User para a cascata.
+        self::assertSame(Genero::Feminino, $user->getProfile()?->getGenero());
+        self::assertSame($user, $user->getProfile()?->getUser());
 
         self::assertInstanceOf(AceiteTermo::class, $aceite);
         self::assertInstanceOf(CienciaPolitica::class, $ciencia);
@@ -276,6 +281,10 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         yield 'e-mail com cópia na query' => [self::input(email: 'a@b.com?cc=c@d.com'), 'Informe um e-mail válido.'];
         yield 'dois e-mails com vírgula' => [self::input(email: 'a@b.com,c@d.com'), 'Informe um e-mail válido.'];
         yield 'aceite desmarcado' => [self::input(aceite: false), 'É preciso aceitar os Termos e a Política de privacidade.'];
+        yield 'gênero vazio' => [self::input(genero: ''), 'Informe o gênero.'];
+        yield 'gênero fora das opções' => [self::input(genero: 'outro'), 'Informe o gênero.'];
+        yield 'gênero legado "prefiro não informar"' => [self::input(genero: 'nao_informado'), 'Informe o gênero.'];
+        yield 'gênero vem antes do aceite' => [self::input(genero: '', aceite: false), 'Informe o gênero.'];
         yield 'nome vem antes do e-mail' => [self::input(nome: 'Ana', email: 'x'), 'Informe seu nome completo.'];
         yield 'senha fraca não importa: o erro é o do aceite' => [self::input(senha: 'curta', aceite: false), 'É preciso aceitar os Termos e a Política de privacidade.'];
     }

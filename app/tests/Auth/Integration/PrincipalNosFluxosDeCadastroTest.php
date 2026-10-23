@@ -94,6 +94,7 @@ final class PrincipalNosFluxosDeCadastroTest extends KernelTestCase
             oabUf: 'RJ',
             aceiteTermos: true,
             ip: '127.0.0.1',
+            genero: 'masculino',
         ));
 
         $this->assertNaFila($user, self::PENDENTES, '54321', 'RJ', StatusOab::NaoVerificada);

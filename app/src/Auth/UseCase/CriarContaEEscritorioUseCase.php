@@ -14,6 +14,8 @@ use App\Auth\Service\TetoDoReenvioDeConfirmacao;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Legal\PoliticaPrivacidadeVigente;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Enum\Genero;
 use App\Repository\UserRepository;
 use App\Service\TenantBootstrapService;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
@@ -33,9 +35,10 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 /**
  * "Criar minha conta" da tela de entrada (desenho 10, decisões a, b e c da spec `login-desenho-10.md`).
  *
- * Numa transação só: User ativo (sem OAB, e-mail a confirmar), Tenant, bootstrap (vínculo dono, perfil admin,
- * seed), aceite dos Termos, ciência da Política e o link de confirmação do e-mail. Depois do commit: o e-mail de
- * confirmação (falha só vai para o log) e o evento ContaCriadaPeloCadastro. O token em claro só vai para o e-mail.
+ * Numa transação só: User ativo (sem OAB, e-mail a confirmar) com o perfil e o gênero, Tenant, bootstrap (vínculo
+ * dono, perfil admin, seed), aceite dos Termos, ciência da Política e o link de confirmação do e-mail. Depois do
+ * commit: o e-mail de confirmação (falha só vai para o log) e o evento ContaCriadaPeloCadastro. O token em claro só
+ * vai para o e-mail.
  *
  * A senha digitada no cadastro é ignorada (spec `cadastro-senha-no-link.md`): a conta nasce com uma senha
  * inutilizável e quem clica no link de confirmação cria a senha (CriarSenhaPeloLinkUseCase). Assim um terceiro que
@@ -52,6 +55,7 @@ final class CriarContaEEscritorioUseCase
     public const ERRO_NOME = 'Informe seu nome completo.';
     public const ERRO_ESCRITORIO = 'Informe o nome do escritório.';
     public const ERRO_EMAIL = 'Informe um e-mail válido.';
+    public const ERRO_GENERO = Genero::ERRO_INFORME;
     public const ERRO_ACEITE = 'É preciso aceitar os Termos e a Política de privacidade.';
 
     public function __construct(
@@ -119,6 +123,7 @@ final class CriarContaEEscritorioUseCase
             !self::nomeCompleto($input->nome) => self::ERRO_NOME,
             !self::escritorioValido($input->escritorio) => self::ERRO_ESCRITORIO,
             !self::emailValido($input->email) => self::ERRO_EMAIL,
+            Genero::tryFrom($input->genero)?->preenchido() !== true => self::ERRO_GENERO,
             !$input->aceite => self::ERRO_ACEITE,
             default => null,
         };
@@ -191,6 +196,8 @@ final class CriarContaEEscritorioUseCase
         $user->setRoles(['ROLE_USER']);
         $user->setPassword($this->senhaInutilizavel($user));
         $user->marcarEmailAConfirmar($agora);
+        // O perfil nasce com o gênero do cadastro (spec genero-no-cadastro); vai junto com o User, em cascata.
+        UserProfile::daContaNova($user, Genero::informado($input->genero));
         $this->em->persist($user);
 
         return $user;

@@ -108,6 +108,7 @@ final class ConviteController extends AbstractController
                 aceiteTermos: $request->request->getBoolean('aceite_termos'),
                 ip: (string) $request->getClientIp(),
                 userAgent: $request->headers->get('User-Agent'),
+                genero: (string) $request->request->get('genero', ''),
             ));
             $this->addFlash('sucesso', 'Conta criada com sucesso! Faça login para continuar.');
 
@@ -133,6 +134,7 @@ final class ConviteController extends AbstractController
                 aceiteTermos: $request->request->getBoolean('aceite_termos'),
                 ip: (string) $request->getClientIp(),
                 userAgent: $request->headers->get('User-Agent'),
+                genero: (string) $request->request->get('genero', ''),
             ));
             $this->addFlash('sucesso', 'Conta criada com sucesso! Faça login para continuar.');
 

@@ -172,6 +172,7 @@
     md.querySelectorAll('[data-md-fechar]').forEach((el) => el.addEventListener('click', mdFechar));
     md.querySelectorAll('input').forEach((el) => el.addEventListener('input', () => mdErroTexto('')));
     $('lgCdAceite').addEventListener('change', () => mdErroTexto(''));
+    $('lgCdGenero').addEventListener('change', () => mdErroTexto(''));
 
     const abrirSenha = () => {
         $('lgRsEmail').value = email.value;
@@ -253,6 +254,7 @@
         if ($('lgCdNome').value.trim().split(/\s+/).length < 2) { return window.BJ_T.t('entrada.js.informe_nome'); }
         if (!$('lgCdEsc').value.trim()) { return window.BJ_T.t('entrada.js.informe_escritorio'); }
         if (!REGEX_EMAIL.test($('lgCdEmail').value.trim())) { return window.BJ_T.t('entrada.js.email_invalido'); }
+        if (!['feminino', 'masculino'].includes($('lgCdGenero').value)) { return window.BJ_T.t('entrada.js.informe_genero'); }
         if (!$('lgCdAceite').checked) { return window.BJ_T.t('entrada.js.aceite'); }
 
         return '';
@@ -288,6 +290,7 @@
             nome: $('lgCdNome').value.trim(),
             escritorio: $('lgCdEsc').value.trim(),
             email: em,
+            genero: $('lgCdGenero').value,
             aceite: $('lgCdAceite').checked,
             _token: tokens.cadastro,
         });

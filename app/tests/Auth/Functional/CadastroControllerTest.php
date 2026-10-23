@@ -15,6 +15,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Legal\PoliticaPrivacidadeVigente;
+use App\Profile\Enum\Genero;
 use App\Termo\Entity\AceiteTermo;
 use App\Termo\Entity\CienciaPolitica;
 use App\Termo\TermoVigente;
@@ -62,6 +63,7 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
             'nome' => 'Ana Souza',
             'escritorio' => 'Souza Advogados ' . uniqid(),
             'email' => 'ana_' . uniqid() . '@adv.com',
+            'genero' => 'feminino',
             'aceite' => true,
             '_token' => self::CSRF,
         ], $trocas);
@@ -116,6 +118,22 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         return $logado;
     }
 
+    #[TestDox('O passo "Criar conta" tem o campo Gênero com os componentes do desenho 10: só Feminino e Masculino, sem valor escolhido')]
+    public function testCampoGeneroNoCadastro(): void
+    {
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/login');
+
+        self::assertResponseIsSuccessful();
+        $campo = $crawler->filter('#lgMdForm > .lg-md__passo[data-passo="cad"] > label.lg-md__rotulo > select.lg-md__entrada#lgCdGenero');
+        self::assertCount(1, $campo);
+        self::assertSame(['', 'feminino', 'masculino'], $campo->filter('option')->each(static fn ($o): string => (string) $o->attr('value')));
+        self::assertSame(['Selecione', 'Feminino', 'Masculino'], $campo->filter('option')->each(static fn ($o): string => trim($o->text())));
+        self::assertCount(0, $campo->filter('option[selected]'));
+        self::assertStringContainsString('Gênero', $campo->closest('label')?->text() ?? '');
+        self::assertStringNotContainsString('Prefiro não informar', (string) $client->getResponse()->getContent());
+    }
+
     #[TestDox('GET /cadastro leva à tela de entrada com o cadastro aberto')]
     public function testGetRedirecionaParaATelaDeEntrada(): void
     {
@@ -158,6 +176,7 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertNull($user->getOabNumero());
         self::assertFalse($user->isEmailConfirmado());
         self::assertNotNull($user->getEmailAConfirmarDesde());
+        self::assertSame(Genero::Feminino, $user->getProfile()?->getGenero(), 'o perfil nasce com o gênero do cadastro');
 
         $tenant = $em->getRepository(Tenant::class)->findOneBy(['name' => $dados['escritorio']]);
         self::assertNotNull($tenant);
@@ -212,6 +231,10 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         yield 'e-mail com cópia na query' => [['email' => 'a@b.com?cc=c@d.com'], 'Informe um e-mail válido.'];
         yield 'dois e-mails com vírgula' => [['email' => 'a@b.com,c@d.com'], 'Informe um e-mail válido.'];
         yield 'sem aceite' => [['aceite' => false], 'É preciso aceitar os Termos e a Política de privacidade.'];
+        yield 'sem gênero' => [['genero' => ''], 'Informe o gênero.'];
+        yield 'gênero ausente' => [['genero' => null], 'Informe o gênero.'];
+        yield 'gênero fora das opções' => [['genero' => 'outro'], 'Informe o gênero.'];
+        yield 'gênero legado "prefiro não informar"' => [['genero' => 'nao_informado'], 'Informe o gênero.'];
         yield 'campo ausente' => [['nome' => null], 'Informe seu nome completo.'];
     }
 

@@ -58,8 +58,10 @@
                             <span class="mm-caixa-atrasadas">{{ 'metas.esteira.atrasadas'|trans({n: caixa.atrasadas}) }}</span>
                         {% endif %}
                         {% if caixa.avisados is not empty %}
-                            <span class="mm-caixa-avisados" title="{{ 'metas.esteira.avisados_dica'|trans({nomes: caixa.avisados|join(', ')}) }}">
-                                <i class="bi bi-bell" aria-hidden="true"></i><span>{{ caixa.avisados|join(', ') }}</span>
+                            {# "Dra. Nome" / "Dr. Nome" para quem tem OAB e gênero declarado (spec genero-no-cadastro, regra 4). #}
+                            {% set nomesDosAvisados = caixa.avisados|map(a => a.tratamento == 'dra' ? 'metas.esteira.tratamento_dra'|trans({nome: a.nome}) : (a.tratamento == 'dr' ? 'metas.esteira.tratamento_dr'|trans({nome: a.nome}) : a.nome))|join(', ') %}
+                            <span class="mm-caixa-avisados" title="{{ 'metas.esteira.avisados_dica'|trans({nomes: nomesDosAvisados}) }}">
+                                <i class="bi bi-bell" aria-hidden="true"></i><span>{{ nomesDosAvisados }}</span>
                             </span>
                         {% endif %}
                     </a>
