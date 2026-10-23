@@ -929,4 +929,44 @@ class CalculadoraJornadaTest extends TestCase
             );
         }
     }
+
+    /**
+     * Par invertido (spec `ponto-esquecimento-nao-trava.md`, revisão final de 23/10): a saída escolhida antes da entrada
+     * escolhida, ou um trecho do intervalo invertido, deixa o dia incompleto e com 0 minutos, como a saída solta. O
+     * `diffMinutos` não credita intervalo invertido.
+     */
+    public function testParInvertidoDeixaODiaIncompletoComZeroMinutos(): void
+    {
+        $cenarios = [
+            'saída às 07:00 e entrada às 13:00' => [['saida', '07:00'], ['entrada', '13:00']],
+            'entrada depois da ida ao repouso' => [['repouso', '12:00'], ['retorno', '12:30'], ['entrada', '13:00'], ['saida', '17:00']],
+            'saída antes do retorno' => [['entrada', '08:00'], ['repouso', '12:00'], ['saida', '17:00'], ['retorno', '18:00']],
+        ];
+
+        foreach ($cenarios as $nome => $definicao) {
+            $batidas = array_map(fn (array $b) => $this->batida($b[0], $b[1]), $definicao);
+
+            $this->assertTrue($this->calculadora->registroIncompleto($batidas), $nome . ': incompleto');
+            $this->assertSame(0, $this->calculadora->calcularMinutosTrabalhados($batidas), $nome . ': 0 minutos');
+        }
+    }
+
+    public function testDiffMinutosNaoCreditaIntervaloInvertido(): void
+    {
+        $this->assertSame(0, $this->calculadora->diffMinutos(new \DateTimeImmutable('2026-04-20 13:00'), new \DateTimeImmutable('2026-04-20 07:00')));
+        $this->assertSame(360, $this->calculadora->diffMinutos(new \DateTimeImmutable('2026-04-20 07:00'), new \DateTimeImmutable('2026-04-20 13:00')));
+        $this->assertSame(480, $this->calculadora->diffMinutos(new \DateTimeImmutable('2026-04-20 22:00'), new \DateTimeImmutable('2026-04-21 06:00')), 'turno que cruza a meia-noite');
+    }
+
+    /** Regressão: dias normais, com e sem repouso, não mudam. */
+    public function testDiasNormaisNaoMudam(): void
+    {
+        $semRepouso = [$this->batida('entrada', '08:00'), $this->batida('saida', '17:00')];
+        $comRepouso = [$this->batida('entrada', '08:00'), $this->batida('repouso', '12:00'), $this->batida('retorno', '13:00'), $this->batida('saida', '17:00')];
+
+        $this->assertFalse($this->calculadora->registroIncompleto($semRepouso));
+        $this->assertSame(540, $this->calculadora->calcularMinutosTrabalhados($semRepouso));
+        $this->assertFalse($this->calculadora->registroIncompleto($comRepouso));
+        $this->assertSame(480, $this->calculadora->calcularMinutosTrabalhados($comRepouso));
+    }
 }

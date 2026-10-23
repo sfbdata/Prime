@@ -39,6 +39,11 @@ escritório ou em outro.
   registro de esquecimento." (`TurnoAbertoNoEscritorio::AVISO_SEM_ENTRADA`), com o link do modal de esquecimento da
   entrada do dia.
 - A folha marca o dia como "Registro incompleto" e conta 0 minutos.
+- **Par invertido (revisão final, 23/10):** quando a saída escolhida do dia é anterior à entrada escolhida (saída solta às
+  07:00 e entrada às 13:00), ou um trecho do intervalo é invertido (ida ao repouso antes da entrada, saída antes do
+  retorno), o dia fica incompleto e conta 0 minutos, igual à saída solta. O `CalculadoraJornada::diffMinutos` não credita
+  intervalo invertido. O indicador "intrajornada conforme" do PDF e do XLSX segue com a distância de sempre
+  (`distanciaEmMinutos`). Vale também para o passado: um dia antigo com o par invertido deixa de creditar.
 - A entrada e o retorno do repouso continuam sujeitos à chave e ao choque.
 - O pedido de esquecimento só vale para a batida que falta: com uma batida do mesmo tipo no dia neste escritório, o
   pedido (e a edição dele) é recusado com "Já existe um registro de {tipo} neste dia." (`BatidaJaRegistrada`). Fecha o

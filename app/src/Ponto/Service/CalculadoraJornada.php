@@ -174,6 +174,9 @@ class CalculadoraJornada
         if ($escolha->entrada === null || $escolha->saida === null) {
             return true;
         }
+        if ($this->parInvertido($escolha)) {
+            return true;   // saída antes da entrada, ou trecho do intervalo invertido: igual à saída solta
+        }
 
         // Metade do intervalo batida: um `!==` entre dois booleanos é o XOR que separa "não bateu
         // almoço nenhum" (apurável) de "bateu só um lado" (duração do almoço desconhecida).
@@ -204,7 +207,7 @@ class CalculadoraJornada
         $entrada = $escolha->entrada?->getDataHora();
         $saida   = $escolha->saida?->getDataHora();
 
-        if ($entrada === null) {
+        if ($entrada === null || $this->parInvertido($escolha)) {
             return 0;
         }
 
@@ -220,9 +223,48 @@ class CalculadoraJornada
         return 0;
     }
 
+    /**
+     * Minutos de `$inicio` a `$fim`. Intervalo invertido (fim antes do início) não credita: 0 (spec
+     * `ponto-esquecimento-nao-trava.md`, revisão final de 23/10). Até então o `diff` sem o `invert` devolvia o valor
+     * absoluto, e a saída antes da entrada creditava o dia.
+     */
     public function diffMinutos(\DateTimeInterface $inicio, \DateTimeInterface $fim): int
     {
+        if ($fim < $inicio) {
+            return 0;
+        }
         $diff = $inicio->diff($fim);
         return max(0, ($diff->days * 1440) + ($diff->h * 60) + $diff->i);
+    }
+
+    /**
+     * A distância em minutos entre dois horários, em qualquer ordem: a fórmula antiga do `diffMinutos`, mantida só para o
+     * indicador "intrajornada conforme" do PDF e do XLSX (`FolhaPontoBuilder`, minutosIntervalo), que não muda. Não
+     * serve para creditar trabalho.
+     */
+    public function distanciaEmMinutos(\DateTimeInterface $a, \DateTimeInterface $b): int
+    {
+        $diff = $a->diff($b);
+
+        return ($diff->days * 1440) + ($diff->h * 60) + $diff->i;
+    }
+
+    /**
+     * A saída escolhida antes da entrada escolhida ou, com o par de intervalo, um trecho invertido (a ida ao repouso
+     * antes da entrada, ou a saída antes do retorno). O dia fica incompleto e conta 0 minutos, como a saída solta.
+     */
+    private function parInvertido(BatidasEscolhidas $escolha): bool
+    {
+        $entrada = $escolha->entrada?->getDataHora();
+        $saida = $escolha->saida?->getDataHora();
+        if ($entrada === null || $saida === null) {
+            return false;
+        }
+        if ($saida < $entrada) {
+            return true;
+        }
+
+        return $escolha->temIntervalo()
+            && ($escolha->repouso->getDataHora() < $entrada || $saida < $escolha->retorno->getDataHora());
     }
 }

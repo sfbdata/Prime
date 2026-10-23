@@ -147,9 +147,10 @@ class FolhaPontoBuilder
 
                     // minutosIntervalo: do repouso ao retorno ESCOLHIDOS (os das células). A fórmula é a
                     // de sempre, mesmo com os dois fora de ordem: é ela que alimenta o indicador
-                    // "intrajornada conforme" do PDF e do XLSX, que esta mudança não altera.
+                    // "intrajornada conforme" do PDF e do XLSX, que esta mudança não altera. Por isso a
+                    // distância absoluta, e não o `diffMinutos`, que desde 23/10 não credita intervalo invertido.
                     if ($escolha->repouso !== null && $escolha->retorno !== null) {
-                        $row['minutosIntervalo'] = $this->calculadora->diffMinutos(
+                        $row['minutosIntervalo'] = $this->calculadora->distanciaEmMinutos(
                             $escolha->repouso->getDataHora(),
                             $escolha->retorno->getDataHora()
                         );

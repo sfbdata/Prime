@@ -241,6 +241,36 @@ final class BatidaComChaveEChoqueTest extends JusPrimeWebTestCase
         self::assertSame(ChaveDoPontoEletronico::MENSAGEM_DESLIGADA, $resposta['message'] ?? null);
     }
 
+    #[TestDox('Saída solta em A no horário de B passa; seis horas depois a entrada em A passa; a folha de A fica com o dia incompleto e 0 minutos (a saída antes da entrada não credita)')]
+    public function testSaidaAntesDaEntradaNaoCredita(): void
+    {
+        if ((int) (new \DateTimeImmutable())->format('G') < 7) {
+            self::markTestSkipped('Antes das 07:00 a saída de seis horas atrás cairia em ontem.');
+        }
+        $this->jornadaDeHojeEmTornoDeAgora();
+        $saida = $this->baterEmA('saida');
+        self::assertTrue($saida['success'] ?? false, (string) ($saida['message'] ?? ''));
+        // A saída das 07:00: o mesmo registro, levado seis horas para trás (a batida grava a hora do servidor).
+        $this->em()->getConnection()->executeStatement(
+            "UPDATE registro_ponto SET data_hora = data_hora - INTERVAL '6 hours' WHERE user_id = ? AND tenant_id = ? AND tipo = 'saida'",
+            [$this->pessoa->getId(), $this->a->getId()],
+        );
+        $this->vinculoEmB->alterarRegistroDePonto(false);   // fora do horário de B: a entrada das 13:00
+        // A interjornada contada da saída solta recusaria a entrada (ponto levado à decisão do coordenador): desligada
+        // em A, o teste fica só com a conta da folha.
+        $jornadaDeA = $this->a->getJornadaTenant() ?? (new \App\Ponto\Entity\JornadaTenant())->setTenant($this->a);
+        $jornadaDeA->setValidacaoInterjornadaHabilitada(false);
+        $this->a->setJornadaTenant($jornadaDeA);
+        $this->em()->persist($jornadaDeA);
+        $this->em()->flush();
+
+        $entrada = $this->baterEmA('entrada');
+
+        self::assertTrue($entrada['success'] ?? false, (string) ($entrada['message'] ?? ''));
+        self::assertSame(2, $this->batidasEm($this->a));
+        $this->assertDiaIncompletoComZeroMinutos();
+    }
+
     #[TestDox('Saída que fecha a entrada de hoje em A não leva o aviso da entrada que faltou')]
     public function testSaidaComEntradaNoDiaSemAviso(): void
     {
