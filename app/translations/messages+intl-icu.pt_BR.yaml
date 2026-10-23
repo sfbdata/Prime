@@ -89,6 +89,13 @@ moldura:
         recomendacao: Recomendamos aumentar o espaço para não interromper o envio de documentos.
         aumentar: Aumentar espaço
         lembrar_amanha: Lembrar amanhã
+    # Aviso de falha das tarefas agendadas (layout/_globais/aviso_falha_agendada, spec scheduler-tarefas-agendadas)
+    aviso_falha_agendada:
+        titulo: Tarefa agendada falhou
+        item: '{comando} às {hora} de {data}.'
+        mais: Há outras falhas mais antigas.
+        detalhe: Detalhe no log do agendador.
+        dispensar: Dispensar
     busca_rapida:
         rotulo: Busca rápida
         campo: Buscar pasta, cliente, CPF ou processo
