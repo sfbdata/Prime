@@ -7,8 +7,11 @@ namespace App\Tests\Tenant\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
+use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use App\Tenant\EventListener\BarreiraDoEscritorioInativoNaRota;
 use App\Tenant\Service\AvisoDeContaSuspensa;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -145,6 +148,67 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         self::assertSame(['erro' => AvisoDeContaSuspensa::para('Escritório A suspenso')], $this->json());
     }
 
+    #[TestDox('Conta suspensa a pedido (ainda ativa): cada rota recusa o admin dela que não é primário, com a página 403 e o aviso do pedido (R7)')]
+    public function testTodasAsRotasRecusamComContaSuspensaAPedido(): void
+    {
+        $this->pedirExclusaoDeA();
+        $this->logarComTenant($this->client, $this->adminDeA, $this->escritorioB);
+
+        $falhas = [];
+        foreach ($this->rotasComEscritorio() as $nome => $rota) {
+            $falha = $this->conferirRecusa($nome, $rota, BloqueioPorPedidoDeExclusao::MENSAGEM);
+            if ($falha !== null) {
+                $falhas[] = $falha;
+            }
+        }
+
+        self::assertSame([], $falhas);
+    }
+
+    #[TestDox('Conta suspensa a pedido: o primário também não age pela URL, só desiste no Meu Perfil (R7); chamada de script recebe JSON')]
+    public function testPrimarioDaContaSuspensaAPedidoERecusado(): void
+    {
+        $primario = $this->criarUsuario('Primário de A', ['ROLE_USER'], [$this->escritorioB]);
+        $perfil = (new TenantRole())->setTenant($this->escritorioA)->setName('Administrador do Escritório')->setIsSystem(true);
+        $this->em->persist($perfil);
+        $this->em->persist((new UserTenant($primario, $this->escritorioA))->setTenantRole($perfil));
+        $this->em->flush();
+        $this->pedirExclusaoDeA();
+        $this->logarComTenant($this->client, $primario, $this->escritorioB);
+
+        $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/users", [], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['erro' => BloqueioPorPedidoDeExclusao::MENSAGEM], $this->json());
+    }
+
+    #[TestDox('Conta suspensa a pedido: quem não tem vínculo com ela segue para a recusa de sempre do controller, sem ver a situação')]
+    public function testSemVinculoComContaSuspensaAPedidoNaoVeASituacao(): void
+    {
+        $escritorioC = $this->criarEscritorio('Escritório C de fora');
+        $deFora = $this->criarUsuario('Pessoa de fora', ['ROLE_USER'], [$escritorioC]);
+        $this->pedirExclusaoDeA();
+        $this->logarComTenant($this->client, $deFora, $escritorioC);
+
+        $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/users");
+
+        self::assertStringNotContainsString(BloqueioPorPedidoDeExclusao::MENSAGEM, (string) $this->client->getResponse()->getContent());
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'o controller recusa como sempre');
+    }
+
+    #[TestDox('Pedido de exclusão já decidido (desistência): a conta volta a passar pela barreira')]
+    public function testPedidoDesistidoNaoRecusa(): void
+    {
+        $this->pedirExclusaoDeA()->desistir($this->adminDeA);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->adminDeA, $this->escritorioB);
+
+        $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/users");
+
+        self::assertStringNotContainsString(BloqueioPorPedidoDeExclusao::MENSAGEM, (string) $this->client->getResponse()->getContent());
+        self::assertFalse($this->foiRecusadaPelaBarreira());
+    }
+
     #[TestDox('As rotas do R2 (id do próprio escritório) existem no roteador: renomear uma delas quebra este teste')]
     public function testRotasDoR2Existem(): void
     {
@@ -204,6 +268,32 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         self::assertFalse($this->foiRecusadaPelaBarreira());
     }
 
+    #[TestDox('Conta suspensa a pedido: o Master VINCULADO a ela age pela URL com outro escritório na sessão (R7)')]
+    public function testMasterPassaComContaSuspensaAPedido(): void
+    {
+        $master = $this->criarUsuario('Master do Sistema', ['ROLE_SUPER_ADMIN'], [$this->escritorioA, $this->escritorioB]);
+        $this->pedirExclusaoDeA();
+        $this->logarComTenant($this->client, $master, $this->escritorioB);
+
+        $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/users");
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString(BloqueioPorPedidoDeExclusao::MENSAGEM, (string) $this->client->getResponse()->getContent());
+        self::assertFalse($this->foiRecusadaPelaBarreira());
+    }
+
+    #[TestDox('Conta suspensa a pedido: sair do escritório continua liberado (R7)')]
+    public function testSairContinuaLiberadoComContaSuspensaAPedido(): void
+    {
+        $this->pedirExclusaoDeA();
+        $this->logarComTenant($this->client, $this->adminDeA, $this->escritorioB);
+
+        $this->client->request('POST', "/escritorio/{$this->escritorioA->getId()}/sair");
+
+        self::assertStringNotContainsString(BloqueioPorPedidoDeExclusao::MENSAGEM, (string) $this->client->getResponse()->getContent());
+        self::assertFalse($this->foiRecusadaPelaBarreira());
+    }
+
     /** @return array<string, Route> */
     private function rotasComEscritorio(): array
     {
@@ -259,6 +349,15 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
     private function json(): array
     {
         return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+    }
+
+    private function pedirExclusaoDeA(): PedidoDeExclusaoDeConta
+    {
+        $pedido = new PedidoDeExclusaoDeConta($this->escritorioA, null, 'Teste da barreira por URL', new \DateTimeImmutable('-1 hour'));
+        $this->em->persist($pedido);
+        $this->em->flush();
+
+        return $pedido;
     }
 
     private function criarEscritorio(string $nome): Tenant
