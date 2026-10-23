@@ -92,6 +92,16 @@ final class PontoManualHoraFuturaControllerTest extends JusPrimeWebTestCase
         self::assertSame([$this->hoje . ' 12:00:00'], $this->batidas());
     }
 
+    #[TestDox('Lançamento manual com hora vazia mostra o erro de campos, não o de horário futuro, e não grava')]
+    public function testLancamentoComFormularioInvalidoMostraErroDeCampos(): void
+    {
+        $this->lancar($this->hoje, '');
+
+        self::assertResponseRedirects();
+        self::assertSame(['Erro ao registrar batida. Verifique os campos.'], $this->flashes('danger'));
+        self::assertSame([], $this->batidas());
+    }
+
     #[TestDox('Edição manual para hora futura é recusada e a batida segue como estava')]
     public function testEdicaoParaHoraFuturaNaoAltera(): void
     {
