@@ -6,6 +6,7 @@ namespace App\Ponto\Twig;
 
 use App\Entity\Auth\User;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Service\ChaveDoPontoEletronico;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\Service\ResetInterface;
@@ -14,7 +15,8 @@ use Twig\TwigFunction;
 
 /**
  * `tem_jornada_no_escritorio()`: a pessoa logada tem jornada pessoal no escritório da sessão? Decide o alerta de ponto e
- * o atalho do cabeçalho, que antes liam a jornada única da pessoa (spec seguranca-b-jornada §3.2).
+ * o atalho do cabeçalho, que antes liam a jornada única da pessoa (spec seguranca-b-jornada §3.2). Com a chave
+ * "Registra ponto eletrônico" desligada neste escritório, devolve false: quem não bate ponto aqui não é chamado a bater.
  */
 final class JornadaNoEscritorioExtension extends AbstractExtension implements ResetInterface
 {
@@ -25,6 +27,7 @@ final class JornadaNoEscritorioExtension extends AbstractExtension implements Re
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly JornadaColaboradorRepository $jornadas,
+        private readonly ChaveDoPontoEletronico $chave,
     ) {
     }
 
@@ -47,6 +50,7 @@ final class JornadaNoEscritorioExtension extends AbstractExtension implements Re
         }
         $chave = $usuario->getId() . ':' . $tenant->getId();
 
-        return $this->respostas[$chave] ??= $this->jornadas->findByUserETenant($usuario, $tenant) !== null;
+        return $this->respostas[$chave] ??= !$this->chave->estaDesligada($usuario, $tenant)
+            && $this->jornadas->findByUserETenant($usuario, $tenant) !== null;
     }
 }
