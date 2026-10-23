@@ -46,8 +46,12 @@
    - pessoa com um único escritório ativo: a jornada vai para ele;
    - pessoa sem vínculo ativo: vai para o último escritório. A fonte é o último `RegistroPonto`, porque remover o
      colaborador apaga o `user_tenant`.
-   - pessoa com vários vínculos ativos: vai só para o escritório onde ela bateu ponto por último. Nos outros, a chave
-     "Registra ponto eletrônico" fica **desligada**.
+   - pessoa com vários vínculos ativos: vai só para o escritório onde ela bateu ponto por último.
+5. **A chave "Registra ponto eletrônico"** (dono, 23/10) não depende do registro de vínculo estar preenchido.
+   - Backfill: fica **ligada** só para quem tem batida naquele escritório nos últimos 30 dias. Sem batida, fica
+     **desligada**.
+   - Daqui para a frente, toda pessoa que entra num escritório nasce com a chave **ligada**, e o administrador desliga
+     se quiser.
 
 ## 3. Depois
 
@@ -59,13 +63,13 @@
   - a entidade fica TenantAware e com ManyToOne `tenant`;
   - sai o OneToOne do `User`;
   - o repositório ganha `findByUserETenant`.
-- **`vinculo_no_escritorio`:** ganha `registra_ponto` (boolean NOT NULL), o lugar natural por ser único por pessoa e
-  escritório.
-  - **Padrão ao criar um vínculo novo:** o valor de `VinculoColaborador::batePonto()` do tipo escolhido, para manter o
-    comportamento de hoje.
-  - **Backfill:** `batePonto()` do tipo atual, menos nos casos da regra 4, em que fica desligado nos escritórios que
-    não ficaram com a jornada.
-  - **A pessoa com permissão do módulo `ponto` e sem linha em `vinculo_no_escritorio`:** ver §5.
+- **`user_tenant`:** ganha `registra_ponto` (boolean NOT NULL). Fica no `user_tenant` porque existe para toda pessoa
+  do escritório; o `vinculo_no_escritorio` nem sempre está preenchido.
+  - O padrão para entrada nova é `true`, em toda criação de `UserTenant`: convite aceito, cadastro e criação de
+    escritório.
+  - Backfill: `true` só para (user, tenant) com `RegistroPonto` nos últimos 30 dias. O resto fica `false`.
+  - Se uma pessoa ficar com a chave ligada em dois escritórios cujos horários já se chocam hoje, nada é desfeito. O
+    choque passa a ser conferido só na próxima gravação.
 - O rótulo do Meu Perfil passa a ler a chave e não o tipo.
 
 ### 3.2 Leitura da jornada
@@ -126,9 +130,9 @@
   - a chave desligada nos escritórios que não ficaram com a jornada;
   - migration aplica e reverte, e `schema:validate` fica limpo.
 
-## 5. Para o dono decidir antes da implementação
+## 5. Decisões do dono
 
-1. O padrão da chave para vínculo novo é `batePonto()` do tipo (CLT e estágio ligados), mantendo o de hoje. Ou nasce
-   sempre desligada?
-2. A pessoa com permissão do módulo `ponto` e sem linha em `vinculo_no_escritorio` é tratada como chave ligada
-   (comportamento de hoje) ou desligada?
+- 23/10: regras 1 a 5 do §2. A chave fica independente do vínculo: backfill pelas batidas dos últimos 30 dias, e
+  ligada para quem entra daqui para a frente.
+- Junto com o PR vão as contagens de chaves ligadas e desligadas, no saas_ux e em produção (só contagem, sem dado
+  pessoal).
