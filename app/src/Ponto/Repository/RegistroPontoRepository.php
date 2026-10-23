@@ -249,8 +249,9 @@ SQL;
 
     /**
      * Só os HORÁRIOS das batidas da pessoa em qualquer outro escritório no período (`RegistroEmOutroEscritorioNoTurno`,
-     * spec `ponto-esquecimento-nao-trava.md` R8): o sinal da folha do admin diz só que houve registro, nunca onde. O
-     * filtro de escritório fica suspenso de propósito; a consulta não devolve escritório nem entidade.
+     * spec `ponto-esquecimento-nao-trava.md` R8): o sinal da folha do admin diz só que houve registro, nunca onde. Só os
+     * escritórios com que a pessoa tem vínculo ativo. O filtro de escritório fica suspenso de propósito; a consulta não
+     * devolve escritório nem entidade.
      *
      * @return list<\DateTimeImmutable>
      */
@@ -260,6 +261,7 @@ SQL;
             ->select('r.dataHora AS quando')
             ->andWhere('r.user = :user')
             ->andWhere('r.tenant <> :exceto')
+            ->andWhere('EXISTS (SELECT ut.id FROM App\Entity\Auth\UserTenant ut WHERE ut.user = r.user AND ut.tenant = r.tenant AND ut.isActive = true)')
             ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
             ->setParameter('user', $user)
             ->setParameter('exceto', $exceto)

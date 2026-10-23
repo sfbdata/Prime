@@ -90,7 +90,10 @@ o alerta de horário (`#modalAlertaPonto` e `/ponto/alerta-horario`), os avisos 
 "Houve registro em outro escritório neste período" no dia em que a pessoa bateu em outro escritório enquanto o ponto de A
 estava aberto (de uma entrada ou retorno até a próxima ida ao repouso ou saída, no máximo 16 horas). Não diz qual
 escritório; mesmo padrão visual do "Registro incompleto"; só na tela (PDF e XLSX não mudam). A consulta suspende o filtro
-de escritório e lê só os horários (`RegistroEmOutroEscritorioNoTurno`).
+de escritório e lê só os horários (`RegistroEmOutroEscritorioNoTurno`). Só entram os escritórios com que a pessoa tem
+vínculo ativo, e a função da ficha confere que quem vê administra o escritório (`admin.users.manage`).
+**Risco residual, aceito:** um admin consegue deduzir por tentativa, olhando o sinal dia a dia, em que horários a
+pessoa bateu em outro escritório. Nunca sabe qual escritório.
 
 **R9. Cartão diário de pendência (dono, 23/10).** Em qualquer tela, enquanto houver pendência de registro da pessoa
 (a mesma lista de R5, o mesmo público de R7), aparece o cartão do lembrete do desenho (bj-lembretes.js: pilha `#bjl-box`,

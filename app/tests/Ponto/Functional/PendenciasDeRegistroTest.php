@@ -291,6 +291,25 @@ final class PendenciasDeRegistroTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString((string) $this->y->getName(), (string) $this->client->getResponse()->getContent());
     }
 
+    #[TestDox('R8: a batida em escritório com o qual a pessoa não tem vínculo ativo não acende o sinal na ficha do admin')]
+    public function testSinalIgnoraEscritorioSemVinculoAtivo(): void
+    {
+        $dia = $this->diaUtilAtras(3);
+        $this->batida($this->x, 'entrada', $dia->setTime(8, 0));
+        $this->batida($this->y, 'entrada', $dia->setTime(10, 0));   // com o ponto de X aberto, mas Y sem vínculo ativo
+        $this->batida($this->x, 'saida', $dia->setTime(17, 0));
+        $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$this->user->getId(), $this->y->getId()]);
+
+        $admin = $this->user(['ROLE_USER']);
+        $this->vincular($admin, $this->x, ['admin.users.manage']);
+        $this->logarComTenant($this->client, $admin, $this->x);
+        $crawler = $this->client->request('GET', sprintf('/tenant/%d/user/%d/edit-role?tab=ponto&competencia=%s', $this->x->getId(), $this->user->getId(), $dia->format('Y-m')));
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter(sprintf('tr[data-chave-dia="%s"]', $dia->format('Y-m-d'))), 'controle: a linha do dia está na folha');
+        self::assertCount(0, $crawler->filter('[data-registro-em-outro-escritorio]'));
+    }
+
     #[TestDox('R9: o cartão diário sai para o público com pendência: a mais antiga deste escritório, com o link do modal; sem pendência aqui, a de outro escritório com a orientação de trocar')]
     public function testCartaoDiarioParaOPublico(): void
     {
