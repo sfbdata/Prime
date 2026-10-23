@@ -55,6 +55,18 @@ final class DesfazerAlteracaoAuditLogUseCase
     ];
 
     /**
+     * Desfazer é editar (achado de auditoria interna F19): além de `admin.audit.view`, quem desfaz precisa da mesma
+     * permissão que a tela de edição da entidade exige. Sede: telas de sede em `TenantController` (`admin.ponto.manage`).
+     * Cargo e Lotação: aba do `app_tenant_edit` (`admin.tenant.settings.manage`). Entidade fora do mapa não exige
+     * permissão a mais. Quem confere é o controller, pelo `PermissionChecker`, antes de chamar `executar()`.
+     */
+    private const PERMISSAO_DE_EDICAO = [
+        Sede::class    => 'admin.ponto.manage',
+        Cargo::class   => 'admin.tenant.settings.manage',
+        Lotacao::class => 'admin.tenant.settings.manage',
+    ];
+
+    /**
      * Campos da lixeira (D7): a ida e a volta não se desfazem por aqui — as entidades não têm
      * setter para eles de propósito, então o desfazer "daria certo" sem mudar nada. O caminho é
      * a lixeira da pasta (restaurar), e a mensagem aponta para lá.
@@ -111,6 +123,27 @@ final class DesfazerAlteracaoAuditLogUseCase
         return $log->getAction() === 'update'
             && in_array($log->getEntityClass(), self::ENTIDADES_REVERSIVEIS, true)
             && $log->getEntityId() !== null;
+    }
+
+    /** A permissão de edição que desfazer esta linha exige, além de `admin.audit.view`; null quando não há. */
+    public function permissaoDeEdicao(AuditLog $log): ?string
+    {
+        return self::PERMISSAO_DE_EDICAO[$log->getEntityClass()] ?? null;
+    }
+
+    /**
+     * A mesma pergunta pelo id, só para uma linha do escritório. Linha de outro escritório ou inexistente devolve
+     * null: `executar()` a recusa como "não encontrado", sem revelar a entidade.
+     */
+    public function permissaoDeEdicaoPorId(int $auditLogId, int $tenantId): ?string
+    {
+        $log = $this->auditLogRepository->find($auditLogId);
+
+        if ($log === null || $log->getTenantId() !== $tenantId) {
+            return null;
+        }
+
+        return $this->permissaoDeEdicao($log);
     }
 
     public function executar(int $auditLogId, int $tenantId): DesfazerResultado

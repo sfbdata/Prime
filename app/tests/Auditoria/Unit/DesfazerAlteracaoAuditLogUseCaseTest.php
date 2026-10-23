@@ -729,4 +729,35 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         self::assertFalse($resultado->sucesso);
         self::assertNull($pasta->cadastro);
     }
+
+    // ── Permissão de edição (achado de auditoria interna F19) ─────────────────
+
+    /** @return iterable<string, array{string, ?string}> */
+    public static function permissoesDeEdicao(): iterable
+    {
+        yield 'Sede' => [Sede::class, 'admin.ponto.manage'];
+        yield 'Cargo' => [Cargo::class, 'admin.tenant.settings.manage'];
+        yield 'Lotação' => [Lotacao::class, 'admin.tenant.settings.manage'];
+        yield 'Pasta, sem permissão a mais' => [Pasta::class, null];
+    }
+
+    #[DataProvider('permissoesDeEdicao')]
+    #[TestDox('desfazer exige a permissão da tela de edição da entidade: $entityClass')]
+    public function testPermissaoDeEdicao(string $entityClass, ?string $esperada): void
+    {
+        $log = $this->criarLog('update', $entityClass, '1');
+        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
+
+        self::assertSame($esperada, $this->sut->permissaoDeEdicao($log));
+        self::assertSame($esperada, $this->sut->permissaoDeEdicaoPorId(10, 1));
+    }
+
+    #[TestDox('linha de outro escritório não revela a entidade: a permissão por id sai null')]
+    public function testPermissaoPorIdDeOutroEscritorio(): void
+    {
+        $log = $this->criarLog('update', Sede::class, '1', null, 2);
+        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
+
+        self::assertNull($this->sut->permissaoDeEdicaoPorId(10, 1));
+    }
 }

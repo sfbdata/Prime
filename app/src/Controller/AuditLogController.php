@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Auditoria\UseCase\DesfazerAlteracaoAuditLogUseCase;
+use App\Entity\Audit\AuditLog;
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\AuditoriaDoCadeado;
 use App\Shared\Contract\Auditavel;
 use App\Repository\UserRepository;
@@ -85,7 +88,7 @@ final class AuditLogController extends AbstractController
         $ocultasPeloCadeado = $tenant !== null ? $this->auditoriaDoCadeado->linhasOcultas($currentUser, $tenant, $auditLogs) : [];
         $podeDesfazerMap = [];
         foreach ($auditLogs as $auditLog) {
-            $podeDesfazerMap[(int) $auditLog->getId()] = !isset($ocultasPeloCadeado[(int) $auditLog->getId()]) && $this->desfazerUseCase->podeReverter($auditLog);
+            $podeDesfazerMap[(int) $auditLog->getId()] = !isset($ocultasPeloCadeado[(int) $auditLog->getId()]) && $this->podeDesfazer($auditLog, $currentUser, $tenant, $permissionChecker);
         }
 
         return $this->render('audit/index.html.twig', [
@@ -133,6 +136,7 @@ final class AuditLogController extends AbstractController
             throw $this->createAccessDeniedException('O usuário primário restringiu o acesso a esta pasta.');
         }
 
+        $this->exigirPermissaoDeEdicao($id, $currentUser, $tenant, $permissionChecker);
         $tenantId = $tenant?->getId();
         $resultado = $this->desfazerUseCase->executar($id, is_int($tenantId) ? $tenantId : 0);
 
@@ -147,6 +151,31 @@ final class AuditLogController extends AbstractController
         }
 
         return $this->redirectToRoute('audit_log_index');
+    }
+
+    /** O botão "desfazer" só aparece para quem o servidor deixaria desfazer (achado de auditoria interna F19). */
+    private function podeDesfazer(AuditLog $log, User $user, ?Tenant $tenant, PermissionChecker $permissionChecker): bool
+    {
+        if (!$this->desfazerUseCase->podeReverter($log)) {
+            return false;
+        }
+        $permissao = $this->desfazerUseCase->permissaoDeEdicao($log);
+
+        return $permissao === null || $permissionChecker->canAdminister($user, $tenant, $permissao);
+    }
+
+    /**
+     * Desfazer é editar (achado de auditoria interna F19): a linha de Sede, Cargo ou Lotação exige também a permissão
+     * da tela que edita a entidade. Sem ela, 403 e nada muda.
+     */
+    private function exigirPermissaoDeEdicao(int $id, User $user, ?Tenant $tenant, PermissionChecker $permissionChecker): void
+    {
+        $tenantId = $tenant?->getId();
+        $permissao = $this->desfazerUseCase->permissaoDeEdicaoPorId($id, is_int($tenantId) ? $tenantId : 0);
+
+        if ($permissao !== null && !$permissionChecker->canAdminister($user, $tenant, $permissao)) {
+            throw $this->createAccessDeniedException('Você não tem permissão para desfazer alterações.');
+        }
     }
 
     private function parseDate(string $value): ?\DateTimeImmutable
