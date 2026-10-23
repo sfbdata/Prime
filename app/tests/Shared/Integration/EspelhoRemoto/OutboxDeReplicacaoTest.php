@@ -296,6 +296,53 @@ final class OutboxDeReplicacaoTest extends KernelTestCase
         self::assertNull($this->outbox->ultimoEstadoDe('core/t/1/uploads/pastas/nunca.pdf'));
     }
 
+    #[TestDox('retenção: apaga só verificado, superado e descartado com mais de 90 dias; pendente, processando, falhou e registrado ficam')]
+    public function testRetencaoApagaSoOsConcluidos(): void
+    {
+        $velhos = [];
+        foreach (['verificado', 'superado', 'descartado', 'pendente', 'processando', 'falhou'] as $estado) {
+            $velhos[$estado] = $this->linhaNoEstado($this->outbox->registrarEnvio($this->chave($estado . '.pdf'), $this->sha($estado), 1, 'application/pdf'), $estado, 91);
+        }
+        $velhos['registrado'] = $this->linhaNoEstado($this->outbox->registrarExclusao($this->chave('excluido.pdf')), 'registrado', 400);
+
+        $contagem = $this->outbox->contarConcluidasHaMaisDe(90);
+        self::assertSame(['descartado' => 1, 'superado' => 1, 'verificado' => 1], $contagem);
+        self::assertSame(3, $this->outbox->apagarConcluidasHaMaisDe(90));
+
+        foreach ($velhos as $estado => $id) {
+            $existe = $this->conexao->fetchOne('SELECT 1 FROM armazenamento_replicacao WHERE id = ?', [$id]) !== false;
+            self::assertSame(!\in_array($estado, OutboxDeReplicacao::ESTADOS_CONCLUIDOS, true), $existe, $estado);
+        }
+    }
+
+    #[TestDox('retenção: com 90 dias, a linha concluída de 89 dias fica e a de 91 sai')]
+    public function testRetencaoRespeitaOLimite(): void
+    {
+        $de89 = $this->linhaNoEstado($this->outbox->registrarEnvio($this->chave('d89.pdf'), $this->sha('89'), 1, 'application/pdf'), 'verificado', 89);
+        $de91 = $this->linhaNoEstado($this->outbox->registrarEnvio($this->chave('d91.pdf'), $this->sha('91'), 1, 'application/pdf'), 'verificado', 91);
+
+        self::assertSame(1, $this->outbox->apagarConcluidasHaMaisDe(90));
+        self::assertSame('verificado', $this->linha($de89)['estado']);
+        self::assertFalse($this->conexao->fetchOne('SELECT 1 FROM armazenamento_replicacao WHERE id = ?', [$de91]));
+    }
+
+    #[TestDox('retenção: dias menor que 1 é recusado')]
+    public function testRetencaoRecusaDiasInvalidos(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->outbox->apagarConcluidasHaMaisDe(0);
+    }
+
+    /** Põe a linha no estado, com `atualizado_em` de `$dias` dias atrás pelo relógio da outbox (UTC). */
+    private function linhaNoEstado(int $id, string $estado, int $dias): int
+    {
+        $quando = $this->relogio->now()->setTimezone(new \DateTimeZone('UTC'))->modify(sprintf('-%d days', $dias))->format('Y-m-d H:i:s');
+        $this->conexao->executeStatement('UPDATE armazenamento_replicacao SET estado = ?, atualizado_em = ? WHERE id = ?', [$estado, $quando, $id]);
+
+        return $id;
+    }
+
     private function chave(string $nome): ChaveDeArquivo
     {
         return new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, $nome);

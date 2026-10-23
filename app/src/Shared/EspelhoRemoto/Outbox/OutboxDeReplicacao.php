@@ -9,6 +9,7 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
 
@@ -52,6 +53,13 @@ final class OutboxDeReplicacao
     public const OPERACAO_EXCLUSAO = 'exclusao_registrada';
 
     private const TABELA = 'armazenamento_replicacao';
+
+    /** Os estados finais de um envio: só eles saem pela retenção. */
+    public const ESTADOS_CONCLUIDOS = [self::ESTADO_VERIFICADO, self::ESTADO_SUPERADO, self::ESTADO_DESCARTADO];
+
+    private const CONCLUIDAS_ANTES_DE = 'operacao = :enviar AND estado IN (:estados) AND atualizado_em < :limite';
+
+    private const TIPOS_DA_RETENCAO = ['estados' => ArrayParameterType::STRING];
 
     /** Identificador da trava consultiva da reivindicação ("replica" em decimal, sem colisão prática). */
     private const TRAVA_DA_REIVINDICACAO = 7_202_610_150;
@@ -224,6 +232,55 @@ final class OutboxDeReplicacao
             'SELECT 1 FROM ' . self::TABELA . ' WHERE chave_remota = ? AND id > ? LIMIT 1',
             [$item->chaveRemota, $item->id],
         ) !== false;
+    }
+
+    /**
+     * Retenção (decisão do dono de 23/10, I4 da P2.3, LGPD): quantas linhas de envio CONCLUÍDAS
+     * (verificado, superado, descartado) estão paradas há mais de `$dias` dias, por estado. É o que
+     * `apagarConcluidasHaMaisDe()` apagaria. Pendente, processando, falhou e as exclusões
+     * (registrado, a fila da futura lixeira do espelho) nunca entram.
+     *
+     * @return array<string, int> estado => quantidade
+     */
+    public function contarConcluidasHaMaisDe(int $dias): array
+    {
+        $contagem = [];
+        foreach ($this->conexao->fetchAllAssociative(
+            'SELECT estado, count(*) AS n FROM ' . self::TABELA . ' WHERE ' . self::CONCLUIDAS_ANTES_DE . ' GROUP BY estado ORDER BY estado',
+            $this->parametrosDaRetencao($dias),
+            self::TIPOS_DA_RETENCAO,
+        ) as $linha) {
+            $contagem[(string) $linha['estado']] = (int) $linha['n'];
+        }
+
+        return $contagem;
+    }
+
+    /**
+     * Apaga as linhas que `contarConcluidasHaMaisDe()` conta e devolve quantas saíram. Exclusão de
+     * LINHA LOCAL da fila, nunca de objeto no espelho.
+     */
+    public function apagarConcluidasHaMaisDe(int $dias): int
+    {
+        return (int) $this->conexao->executeStatement(
+            'DELETE FROM ' . self::TABELA . ' WHERE ' . self::CONCLUIDAS_ANTES_DE,
+            $this->parametrosDaRetencao($dias),
+            self::TIPOS_DA_RETENCAO,
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function parametrosDaRetencao(int $dias): array
+    {
+        if ($dias < 1) {
+            throw new \InvalidArgumentException('A retenção precisa ser de pelo menos 1 dia.');
+        }
+
+        return [
+            'enviar'  => self::OPERACAO_ENVIAR,
+            'estados' => self::ESTADOS_CONCLUIDOS,
+            'limite'  => $this->agora(-$dias * 86_400),
+        ];
     }
 
     /** @return array<string, int> estado => quantidade, das linhas de envio */
