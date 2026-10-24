@@ -224,9 +224,22 @@ final readonly class PastaResumoImpressaoOutput
             'valorCausa'  => PastaFinanceiroOutput::formatarReais($pasta->getValorCausa()),
             'contrato'    => $contrato,
             'recebido'    => $resumo->recebidoFormatado,
-            'previsto'    => $resumo->previstoFormatado,
-            'lancamentos' => $resumo->total,
+            // A chave segue `previsto` (o template a lê assim), mas o número é o CONTRATADO: o
+            // previsto de êxito e sucumbência fica fora dos totais (spec pasta-exito-sucumbencia).
+            'previsto'    => $resumo->contratadoFormatado,
+            'lancamentos' => self::lancamentos($pagamentos),
         ];
+    }
+
+    /**
+     * O previsto (êxito e sucumbência não recebidos) não é lançamento: fica fora da contagem como
+     * fica fora dos totais (spec pasta-exito-sucumbencia, decisão 2).
+     *
+     * @param PastaPagamento[] $pagamentos
+     */
+    private static function lancamentos(array $pagamentos): int
+    {
+        return count(array_filter($pagamentos, static fn (PastaPagamento $p): bool => !$p->estaPrevisto()));
     }
 
     private static function documento(Cliente $cliente): ?string

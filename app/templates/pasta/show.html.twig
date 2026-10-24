@@ -389,8 +389,13 @@
    vencimento, juros → PRÉVIA das parcelas → "Gerar N lançamentos". A prévia é
    calculada no navegador só para mostrar; o POST leva os CAMPOS e o servidor
    refaz a conta (`RegistrarParcelamentoDaPastaUseCase`) — o que grava é a
-   conta dele. Êxito e sucumbência aparecem como no desenho, mas desabilitados:
-   gravá-los depende de migration (fatia 11b).
+   conta dele.
+
+   Êxito e sucumbência (spec pasta-exito-sucumbencia, dc L.2117-2124): o bloco de
+   valor some e entra o do desenho, só o % e a Base só leitura (o Total contratado,
+   C8). Grava uma linha prevista, sem vencimento. A descrição livre some nesses tipos.
+   `data-valor-causa` alimenta só o "% da causa" do contrato e das custas, que segue
+   sobre o valor da causa da pasta.
 
    DESVIO CONSCIENTE do desenho (decisão do orquestrador, P16a): o campo
    opcional "Descrição", abaixo dos campos do dc. O desenho não o tem, mas o
@@ -406,6 +411,7 @@
    servidor recusa (422) um `entradaPaga=1` que ainda chegue. #}
 <div class="modal fade ps-np-modal" id="modalNovoPagamento" tabindex="-1" aria-labelledby="modalNovoPagamentoLabel" aria-hidden="true"
      data-url-parcelar="{{ path('pasta_pagamento_parcelar', {id: pasta.id}) }}"
+     data-valor-causa="{{ financeiro.valorCausa ?? '' }}"
      data-max-parcelas="60">
     <div class="modal-dialog ps-np-dialogo">
         <div class="modal-content ps-np">
@@ -419,7 +425,7 @@
                     <i class="bi bi-cash-coin ps-np-cab-icone" aria-hidden="true"></i>
                     <div class="ps-np-cab-textos">
                         <div class="ps-np-titulo" id="modalNovoPagamentoLabel">{{ 'pasta_show.pagamento.titulo'|trans }}</div>
-                        <div class="ps-np-sub">{{ 'pasta_show.pagamento.valor_da_causa'|trans }} <span class="js-np-causa">{{ financeiro.valorCausaFormatado }}</span> {{ 'pasta_show.pagamento.calculo_automatico'|trans }}</div>
+                        <div class="ps-np-sub">{{ 'pasta_show.pagamento.total_contratado'|trans }} <span class="js-np-causa">{{ pagamentos.contratadoFormatado }}</span> {{ 'pasta_show.pagamento.calculo_automatico'|trans }}</div>
                     </div>
                     <button type="button" class="ps-np-fechar" data-bs-dismiss="modal" title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
                 </div>
@@ -431,9 +437,13 @@
                             <button type="button" class="ps-np-tipo is-ativo" data-tipo="contrato" aria-pressed="true"
                                     data-nota="{{ 'pasta_show.pagamento.nota_contratuais'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_contratuais'|trans }}"><i class="bi bi-file-earmark-text"></i>{{ 'pasta_show.pagamento.contratuais'|trans }}</button>
-                            <button type="button" class="ps-np-tipo" data-tipo="exito" aria-pressed="false" disabled
+                            <button type="button" class="ps-np-tipo" data-tipo="exito" aria-pressed="false"
+                                    data-nota="{{ 'pasta_show.pagamento.nota_exito'|trans }}"
+                                    data-rotulo-pct="{{ 'pasta_show.pagamento.pct_proveito'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_exito'|trans }}"><i class="bi bi-trophy"></i>{{ 'pasta_show.pagamento.exito'|trans }}</button>
-                            <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false" disabled
+                            <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false"
+                                    data-nota="{{ 'pasta_show.pagamento.nota_sucumbencia'|trans }}"
+                                    data-rotulo-pct="{{ 'pasta_show.pagamento.pct_sucumbencia'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_sucumbencia'|trans }}"><i class="bi bi-bank"></i>{{ 'pasta_show.pagamento.sucumbencia'|trans }}</button>
                             <button type="button" class="ps-np-tipo" data-tipo="custas" aria-pressed="false"
                                     data-nota="{{ 'pasta_show.pagamento.nota_custas'|trans }}"
@@ -442,7 +452,7 @@
                         <span class="ps-np-nota js-np-tipo-nota">{{ 'pasta_show.pagamento.nota_contratuais'|trans }}</span>
                     </div>
 
-                    <div class="ps-np-grade">
+                    <div class="ps-np-grade js-np-bloco-valor">
                         <div class="ps-np-campo">
                             <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.base'|trans }}</span>
                             <div class="ps-np-seg" role="group" aria-label="{{ 'pasta_show.pagamento.base'|trans }}">
@@ -483,7 +493,19 @@
                         </div>
                     </div>
 
-                    <label class="ps-np-campo ps-np-descricao">
+                    {# Êxito e sucumbência (dc L.2117-2124): só o % e a Base só leitura. #}
+                    <div class="ps-np-grade js-np-bloco-pct" hidden>
+                        <label class="ps-np-campo">
+                            <span class="ps-np-rotulo js-np-pct-rotulo">{{ 'pasta_show.pagamento.pct_proveito'|trans }}</span>
+                            <input type="text" class="ps-np-input" name="percentualPrevisto" inputmode="decimal" maxlength="8" value="20" autocomplete="off">
+                        </label>
+                        <div class="ps-np-campo">
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.base_previsto'|trans }}</span>
+                            <div class="ps-np-base ps-num js-np-base">{{ pagamentos.contratadoFormatado }}</div>
+                        </div>
+                    </div>
+
+                    <label class="ps-np-campo ps-np-descricao js-np-campo-descricao">
                         <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.descricao'|trans }} <span class="ps-np-opcional">{{ 'pasta_show.pagamento.opcional_parenteses'|trans }}</span></span>
                         <input type="text" class="ps-np-input" name="descricao" maxlength="110" autocomplete="off"
                                placeholder="{{ 'pasta_show.pagamento.descricao_exemplo'|trans }}">

@@ -10,6 +10,8 @@ use App\Pasta\DTO\ParcelamentoDaPastaInput;
 use App\Pasta\DTO\ParcelamentoRegistradoOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
+use App\Pasta\Service\BaseDoPercentual;
 use App\Pasta\Service\CalculadoraDeParcelamento;
 use App\Shared\Service\ValorEmReais;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,9 +19,13 @@ use Psr\Clock\ClockInterface;
 
 /**
  * "Adicionar pagamento" com entrada, parcelas e juros (desenho 1.2.3, dc
- * L.1928-2012; regra no dc L.3470-3500) — fatia 11a: honorários contratuais e
- * custas. Êxito e sucumbência (valor por percentual, sem vencimento) não cabem
- * no `PastaPagamento` de hoje e ficam para a fatia com migration (11b).
+ * L.1928-2012; regra no dc L.3470-3500): honorários contratuais e custas.
+ *
+ * ÊXITO E SUCUMBÊNCIA (spec pasta-exito-sucumbencia, desenho 02 L.3702-3705): só o
+ * percentual. Grava UMA linha prevista, sem vencimento, com a descrição do desenho
+ * ("Honorários de êxito (N%)" / "Sucumbência estimada (N%)"); o valor em reais é
+ * calculado na leitura sobre o Total contratado (`BaseDoPercentual`). A descrição livre
+ * não vale para o previsto: a tela nem mostra o campo nesse tipo.
  *
  * Quem: alguém da equipe com permissão de editar a pasta, ao fechar o contrato
  * com o cliente ("R$ 12.000 em 10 vezes, com entrada de R$ 2.000").
@@ -87,6 +93,7 @@ final class RegistrarParcelamentoDaPastaUseCase
         private readonly EntityManagerInterface $em,
         private readonly CalculadoraDeParcelamento $calculadora,
         private readonly ClockInterface $clock,
+        private readonly BaseDoPercentual $baseDoPercentual,
     ) {}
 
     /**
@@ -102,12 +109,12 @@ final class RegistrarParcelamentoDaPastaUseCase
         }
 
         $tipo = $input->tipo;
+        if (TipoDePagamento::tryFrom($tipo)?->ehCondicionado() === true) {
+            return $this->registrarPrevisto($pasta, $autor, $tenant, TipoDePagamento::from($tipo), $input->percentual);
+        }
+
         if (!isset(self::ROTULOS[$tipo])) {
-            throw new \InvalidArgumentException(
-                in_array($tipo, ['exito', 'sucumbencia'], true)
-                    ? 'Êxito e sucumbência ainda não podem ser lançados por aqui.'
-                    : 'Escolha o tipo do pagamento.'
-            );
+            throw new \InvalidArgumentException('Escolha o tipo do pagamento.');
         }
 
         $totalCentavos = $this->lerTotal($pasta, $input);
@@ -156,6 +163,44 @@ final class RegistrarParcelamentoDaPastaUseCase
         }
 
         foreach ($lancados as $pagamento) {
+            $pagamento->setTipo(TipoDePagamento::from($tipo));
+        }
+
+        return $this->gravar($lancados);
+    }
+
+    /**
+     * Êxito ou sucumbência: uma linha, percentual entre 0 e 100, sem vencimento. O valor gravado
+     * é só o retrato do cálculo de agora; quem lê calcula de novo (decisão 1 do dono).
+     */
+    private function registrarPrevisto(Pasta $pasta, User $autor, Tenant $tenant, TipoDePagamento $tipo, string $texto): ParcelamentoRegistradoOutput
+    {
+        // Duas casas, como a coluna (`NUMERIC(5,2)`): "12,345" seria gravado como outro número.
+        $lido       = self::lerDecimal($texto) ?? '0';
+        $percentual = bcadd($lido, '0', 2);
+        if (bccomp($lido, $percentual, 4) !== 0 || bccomp($percentual, '0', 2) <= 0 || bccomp($percentual, '100', 2) > 0) {
+            throw new \InvalidArgumentException('Informe um percentual entre 0 e 100.');
+        }
+
+        $rotulo    = rtrim(rtrim($percentual, '0'), '.');
+        $pagamento = $this->novo($pasta, $autor, $tenant, sprintf(
+            $tipo === TipoDePagamento::Exito ? 'Honorários de êxito (%s%%)' : 'Sucumbência estimada (%s%%)',
+            str_replace('.', ',', $rotulo),
+        ), 0, null);
+        $retrato = $this->calculadora->percentualDe($this->baseDoPercentual->daPasta($pasta), $percentual);
+        $pagamento->preverPorPercentual($tipo, $percentual, ValorEmReais::deCentavos($retrato));
+
+        return $this->gravar([$pagamento]);
+    }
+
+    /**
+     * Um persist por linha e UM flush: o Doctrine grava tudo numa transação só.
+     *
+     * @param list<PastaPagamento> $lancados
+     */
+    private function gravar(array $lancados): ParcelamentoRegistradoOutput
+    {
+        foreach ($lancados as $pagamento) {
             $this->em->persist($pagamento);
         }
 
@@ -173,7 +218,7 @@ final class RegistrarParcelamentoDaPastaUseCase
         return new ParcelamentoRegistradoOutput($ids, count($lancados), ValorEmReais::deCentavos($soma));
     }
 
-    private function novo(Pasta $pasta, User $autor, Tenant $tenant, string $descricao, int $centavos, \DateTimeImmutable $vencimento, ?string $jurosMensal = null): PastaPagamento
+    private function novo(Pasta $pasta, User $autor, Tenant $tenant, string $descricao, int $centavos, ?\DateTimeImmutable $vencimento, ?string $jurosMensal = null): PastaPagamento
     {
         $pagamento = new PastaPagamento();
         $pagamento->setPasta($pasta);

@@ -166,7 +166,7 @@ final class PastaPagamentoControllerTest extends JusPrimeWebTestCase
 
         self::assertSame(1, $dados['resumo']['total']);
         self::assertSame('R$ 0,00', $dados['resumo']['recebido'], 'nasce pendente: nada recebido ainda');
-        self::assertSame('R$ 1.500,00', $dados['resumo']['previsto']);
+        self::assertSame('R$ 1.500,00', $dados['resumo']['contratado']);
         self::assertStringContainsString('Entrada de honorários', $dados['resumo']['html']);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);

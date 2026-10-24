@@ -144,9 +144,28 @@ final class FonteDeDadosDaPastaDoctrine implements FonteDeDadosDaPasta
         return $this->daPasta(PastaChecklistItem::class, $tenant, $pasta, $limite, 'ordem', 'ASC');
     }
 
+    /**
+     * Vencimento DESC com os sem vencimento (êxito e sucumbência previstos) no FIM: no DESC o
+     * PostgreSQL põe o NULL primeiro, e com o limite os previstos tomariam o lugar das parcelas.
+     * O DQL não tem NULLS LAST; o CASE oculto faz o mesmo.
+     */
     public function pagamentosDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
     {
-        return $this->daPasta(PastaPagamento::class, $tenant, $pasta, $limite, 'vencimento', 'DESC');
+        /** @var list<PastaPagamento> */
+        return $this->em->createQueryBuilder()
+            ->select('x')
+            ->addSelect('CASE WHEN x.vencimento IS NULL THEN 1 ELSE 0 END AS HIDDEN semVencimento')
+            ->from(PastaPagamento::class, 'x')
+            ->andWhere('x.pasta = :pasta')
+            ->andWhere('x.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('semVencimento', 'ASC')
+            ->addOrderBy('x.vencimento', 'DESC')
+            ->addOrderBy('x.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
     }
 
     public function observacoesFinanceirasDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array

@@ -189,7 +189,7 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
         self::assertResponseIsSuccessful();
         $dados = $this->json($client);
         self::assertTrue($dados['alterado']);
-        self::assertSame('R$ 1.450,50', $dados['resumo']['previsto'], 'o total do card sai do servidor, já corrigido');
+        self::assertSame('R$ 1.450,50', $dados['resumo']['contratado'], 'o total do card sai do servidor, já corrigido');
         self::assertSame('1450.50', $this->valorGravado($id), 'dinheiro grava em decimal');
 
         $corpo = new Crawler((string) $dados['resumo']['html']);
@@ -237,7 +237,7 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
         $resumo = $dados['resumo'];
         unset($resumo['html']);
         self::assertSame(
-            ['total' => 2, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'previsto' => 'R$ 2.150,50', 'percentual' => 0],
+            ['total' => 2, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'contratado' => 'R$ 2.150,50', 'contratadoCentavos' => 215050, 'percentual' => 0],
             $resumo,
         );
 
