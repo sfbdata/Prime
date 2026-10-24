@@ -9,7 +9,11 @@ use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Ranking\RankingDeMetasConcluidas;
 use App\Dashboard\Repository\DashboardFotoRepository;
+use App\Dashboard\Repository\DashboardZeramentoRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
+use App\Dashboard\Zeramento\ColunasZeraveis;
+use App\Dashboard\Zeramento\CortesDoDashboard;
+use App\Dashboard\Zeramento\RecontagemComCorte;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
@@ -49,6 +53,7 @@ final class ObterDadosDashboardUseCase
         private readonly UserRepository   $userRepository,
         private readonly DashboardFotoRepository $dashboardFotoRepository,
         private readonly MetricasExtrasDoDashboardRepository $metricasExtras,
+        private readonly DashboardZeramentoRepository $zeramentos,
     ) {}
 
     /**
@@ -84,20 +89,15 @@ final class ObterDadosDashboardUseCase
             ? (int) round($global['concluidas'] / $global['total'] * 100)
             : 0;
 
-        // 7 mapas userId => count (período aplicado; vencidas/prazos são relativos à referência)
-        $mTotalTarefa  = $this->tarefaRepository->countPorResponsavel($tenant, $filtros, $pastasOcultas);
-        $mAtivasTarefa = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas);
-        $mVencidas     = $this->tarefaRepository->countVencidasPorResponsavel($tenant, $referencia, $pastasOcultas);
-        $mPrazos       = $this->tarefaRepository->countPrazosProximosPorResponsavel($tenant, $referencia, $pastasOcultas);
-        $mTotalPasta   = $this->pastaRepository->countPorResponsavel($tenant, $filtros, $pastasOcultas);
-        $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas);
-        // Por CRIADOR, não por responsável: mede quem abriu a pasta (uso do sistema e
-        // produtividade), enquanto os dois mapas acima medem quem responde por ela.
-        $mCriadasPasta = $this->pastaRepository->countCriadasPorCriador($tenant, $filtros, $pastasOcultas);
-
         $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant); // lista canônica: todos os ativos do tenant
         $mCargo        = $colaboradores === [] ? [] : $this->userRepository->findCargoPorColaboradores($tenant);
         $todosIds      = array_map(static fn ($u): int => (int) $u->getId(), $colaboradores); // universo do troféu: antes de busca, responsável e cargo
+
+        // 7 mapas userId => count (mapasDaTabela), já com o corte do "Zerar" (DASH-014) de quem tem.
+        $cortes = CortesDoDashboard::deZeramentos($this->zeramentos->listarAtivos($tenant));
+        ['metas' => $mTotalTarefa, 'metas_ativas' => $mAtivasTarefa, 'metas_vencidas' => $mVencidas, 'prazos' => $mPrazos, 'demandas' => $mTotalPasta,
+            'demandas_ativas' => $mAtivasPasta, 'pastas_criadas' => $mCriadasPasta, 'bruto' => $bruto] = $this->mapasDaTabela($tenant, $referencia, $filtros, $pastasOcultas, $cortes, $todosIds);
+        $conclusao = $this->basesDaConclusao($tenant, $filtros, $pastasOcultas, $cortes, $todosIds, $bruto); // Concluídas e Taxa: só o próprio corte
 
         // Facetas de linha: responsável reduz a um colaborador; cargo reduz ao cargo escolhido.
         $respId = (int) ($filtros['responsavel'] ?? 0);
@@ -139,13 +139,14 @@ final class ObterDadosDashboardUseCase
         $mFoto = $colaboradores === [] ? [] : $this->userRepository->findFotoPorColaboradores($tenant);
 
         // Colunas extras: os mapas userId => valor, só das ligadas (e só com gente na tabela).
-        $mExtras = $colaboradores === [] ? [] : $this->mapasExtras(
+        $mExtras = $conclusao + ($colaboradores === [] ? [] : $this->mapasExtras(
             $tenant,
             $filtros,
             $colunasExtras,
             array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
             $pastasOcultas,
-        );
+            $cortes,
+        ));
 
         // Tendência das extras com lastro por data (hoje só Eventos na agenda): a MESMA consulta
         // no período anterior de mesma duração — a regra das setas que já existem. Concluídas,
@@ -194,6 +195,7 @@ final class ObterDadosDashboardUseCase
                 ),
                 // Só extras com consulta própria (Eventos) têm tendência: total/ativas não entram.
                 extrasAnteriores:      $this->valoresExtras($extrasComTendencia, $mExtrasAnt, $id, 0, 0),
+                colunasZeradas:        $cortes->colunasDe($id),
             );
         }
 
@@ -230,12 +232,66 @@ final class ObterDadosDashboardUseCase
             totalPastasCriadasAnterior: $totalPastasCriadasAnterior,
             periodoAnterior:            $periodoAnterior,
             colunasExtras:              $colunasExtras,
-            totaisExtras:               $this->totaisExtras($colunasExtras, $linhas),
+            totaisExtras:               $this->totaisExtras($colunasExtras, $linhas, false, $mExtras[Extras::TAXA_CONCLUSAO] ?? []),
             totaisExtrasAnteriores:     $comAnterior
                 ? $this->totaisExtras($extrasComTendencia, $linhas, true)
                 : null,
-            campeaoId:                  RankingDeMetasConcluidas::campeao($todosIds, RankingDeMetasConcluidas::concluidas($mTotalTarefa, $mAtivasTarefa), $mVencidas),
+            campeaoId:                  RankingDeMetasConcluidas::campeao($todosIds, self::concluidasDaBase($conclusao[Extras::METAS_CONCLUIDAS]), $mVencidas),
+            zeramentos:                 $cortes->paraTela(),
         );
+    }
+
+    /**
+     * As 7 colunas fixas, userId => count: período aplicado (vencidas e prazos são relativos à
+     * referência) e, para quem tem "Zerar" ativo na coluna, recontadas a partir do corte. O corte
+     * vale para todo o universo do troféu, então o troféu também respeita o zeramento (desenho).
+     * Em `bruto`, os mesmos 7 mapas sem corte nenhum (a base de Concluídas e Taxa).
+     *
+     * @param array<string, mixed> $filtros
+     * @param list<int>            $pastasOcultas
+     * @param list<int>            $pessoas
+     *
+     * @return array<string, array<array-key, mixed>>
+     */
+    private function mapasDaTabela(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros, array $pastasOcultas, CortesDoDashboard $cortes, array $pessoas): array
+    {
+        $mapas = ['bruto' => []];
+        foreach (array_keys(ColunasZeraveis::FIXAS) as $coluna) {
+            $mapas['bruto'][$coluna] = $this->contarColunaFixa($coluna, $tenant, $referencia, $filtros, $pastasOcultas);
+            $mapas[$coluna] = RecontagemComCorte::aplicar(
+                $mapas['bruto'][$coluna],
+                $cortes,
+                $coluna,
+                $pessoas,
+                fn (\DateTimeImmutable $desde): array => $this->contarColunaFixa($coluna, $tenant, $referencia, ['contar_desde' => $desde] + $filtros, $pastasOcultas),
+            );
+        }
+
+        return $mapas;
+    }
+
+    /**
+     * Uma coluna fixa. "Pastas criadas" é por CRIADOR, não por responsável: mede quem abriu a pasta
+     * (uso do sistema e produtividade), enquanto Total e Demandas ativas medem quem responde por ela.
+     *
+     * @param array<string, mixed> $filtros `contar_desde` (DateTimeImmutable) = o corte do "Zerar"
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array<int, int>
+     */
+    private function contarColunaFixa(string $coluna, Tenant $tenant, \DateTimeImmutable $referencia, array $filtros, array $pastasOcultas): array
+    {
+        $desde = $filtros['contar_desde'] ?? null;
+
+        return match ($coluna) {
+            ColunasZeraveis::METAS           => $this->tarefaRepository->countPorResponsavel($tenant, $filtros, $pastasOcultas),
+            ColunasZeraveis::METAS_ATIVAS    => $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas),
+            ColunasZeraveis::METAS_VENCIDAS  => $this->tarefaRepository->countVencidasPorResponsavel($tenant, $referencia, $pastasOcultas, $desde),
+            ColunasZeraveis::PRAZOS          => $this->tarefaRepository->countPrazosProximosPorResponsavel($tenant, $referencia, $pastasOcultas, $desde),
+            ColunasZeraveis::DEMANDAS        => $this->pastaRepository->countPorResponsavel($tenant, $filtros, $pastasOcultas),
+            ColunasZeraveis::DEMANDAS_ATIVAS => $this->pastaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas),
+            default                          => $this->pastaRepository->countCriadasPorCriador($tenant, $filtros, $pastasOcultas),
+        };
     }
 
     /**
@@ -249,22 +305,86 @@ final class ObterDadosDashboardUseCase
      *
      * @return array<string, array<int, mixed>>
      */
-    private function mapasExtras(Tenant $tenant, array $filtros, array $colunasExtras, array $pessoas, array $pastasOcultas = []): array
+    private function mapasExtras(Tenant $tenant, array $filtros, array $colunasExtras, array $pessoas, array $pastasOcultas = [], ?CortesDoDashboard $cortes = null): array
     {
-        $mapas = [];
+        $cortes ??= CortesDoDashboard::nenhum();
+        $mapas  = [];
         foreach ($colunasExtras as $coluna) {
-            $mapas[$coluna] = match ($coluna) {
-                Extras::METAS_REVISAO     => $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, $filtros, $pastasOcultas),
-                Extras::TEMPO_MEDIO       => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros, $pastasOcultas),
-                Extras::PASTAS_URGENTES   => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros, $pastasOcultas),
-                Extras::PASTAS_CONCLUIDAS => $this->metricasExtras->contarFinalizadasPorResponsavel($tenant, $filtros, $pastasOcultas),
-                Extras::EVENTOS_AGENDA    => $this->metricasExtras->contarEventosPorPessoa($tenant, $filtros, $pessoas),
-                Extras::RELATORIO         => $this->metricasExtras->contarRegistrosPorAutor($tenant, $filtros, $pastasOcultas),
-                default                   => [],
-            };
+            $mapas[$coluna] = RecontagemComCorte::aplicar(
+                $this->consultarExtra($coluna, $tenant, $filtros, $pessoas, $pastasOcultas),
+                $cortes,
+                $coluna,
+                $pessoas,
+                fn (\DateTimeImmutable $desde): array => $this->consultarExtra($coluna, $tenant, ['contar_desde' => $desde] + $filtros, $pessoas, $pastasOcultas),
+            );
         }
 
         return $mapas;
+    }
+
+    /**
+     * @param array<string, mixed> $filtros
+     * @param list<int>            $pessoas
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array<int, mixed>
+     */
+    private function consultarExtra(string $coluna, Tenant $tenant, array $filtros, array $pessoas, array $pastasOcultas): array
+    {
+        return match ($coluna) {
+            Extras::METAS_REVISAO     => $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, $filtros, $pastasOcultas),
+            Extras::TEMPO_MEDIO       => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros, $pastasOcultas),
+            Extras::PASTAS_URGENTES   => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros, $pastasOcultas),
+            Extras::PASTAS_CONCLUIDAS => $this->metricasExtras->contarFinalizadasPorResponsavel($tenant, $filtros, $pastasOcultas),
+            Extras::EVENTOS_AGENDA    => $this->metricasExtras->contarEventosPorPessoa($tenant, $filtros, $pessoas),
+            Extras::RELATORIO         => $this->metricasExtras->contarRegistrosPorAutor($tenant, $filtros, $pastasOcultas),
+            default                   => [],
+        };
+    }
+
+    /**
+     * Bases de "Metas concluídas" e da "Taxa de conclusão" (Total metas e Metas ativas), por pessoa
+     * do universo, as duas com o MESMO corte: o da própria coluna (o da pessoa ou o da equipe, vale o
+     * mais recente). Zerar só Total metas ou só Metas ativas não mexe aqui (nem no troféu): a base sem
+     * corte vem do `bruto` da tabela, e só quem tem corte na coluna é recontado.
+     *
+     * @param array<string, mixed>              $filtros
+     * @param list<int>                         $pastasOcultas
+     * @param list<int>                         $pessoas
+     * @param array<array-key, mixed>          $bruto os 7 mapas da tabela sem corte (coluna => userId => n)
+     *
+     * @return array<string, array<int, array{total: int, ativas: int}>>
+     */
+    private function basesDaConclusao(Tenant $tenant, array $filtros, array $pastasOcultas, CortesDoDashboard $cortes, array $pessoas, array $bruto): array
+    {
+        $bases = [];
+        foreach ([Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO] as $coluna) {
+            $base = [];
+            foreach ($pessoas as $id) {
+                $base[$id] = ['total' => (int) ($bruto[ColunasZeraveis::METAS][$id] ?? 0), 'ativas' => (int) ($bruto[ColunasZeraveis::METAS_ATIVAS][$id] ?? 0)];
+            }
+            foreach ($cortes->grupos($coluna, $pessoas) as $grupo) {
+                $comCorte = ['contar_desde' => $grupo['desde']] + $filtros;
+                $total    = $this->tarefaRepository->countPorResponsavel($tenant, $comCorte, $pastasOcultas);
+                $ativas   = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $comCorte, $pastasOcultas);
+                foreach ($grupo['pessoas'] as $id) {
+                    $base[$id] = ['total' => $total[$id] ?? 0, 'ativas' => $ativas[$id] ?? 0];
+                }
+            }
+            $bases[$coluna] = $base;
+        }
+
+        return $bases;
+    }
+
+    /**
+     * @param array<int, array{total: int, ativas: int}> $base
+     *
+     * @return array<int, int>
+     */
+    private static function concluidasDaBase(array $base): array
+    {
+        return array_map(static fn (array $b): int => max(0, $b['total'] - $b['ativas']), $base);
     }
 
     /**
@@ -281,10 +401,11 @@ final class ObterDadosDashboardUseCase
     {
         $valores = [];
         foreach ($colunasExtras as $coluna) {
+            $base = $mExtras[$coluna][$id] ?? ['total' => $totalMetas, 'ativas' => $metasAtivas];
             $valores[$coluna] = match ($coluna) {
-                Extras::METAS_CONCLUIDAS => $totalMetas - $metasAtivas,
-                Extras::TAXA_CONCLUSAO   => $totalMetas > 0
-                    ? (int) round(($totalMetas - $metasAtivas) / $totalMetas * 100)
+                Extras::METAS_CONCLUIDAS => max(0, $base['total'] - $base['ativas']),
+                Extras::TAXA_CONCLUSAO   => $base['total'] > 0
+                    ? (int) round(max(0, $base['total'] - $base['ativas']) / $base['total'] * 100)
                     : null,
                 Extras::TEMPO_MEDIO      => isset($mExtras[$coluna][$id]) && $mExtras[$coluna][$id]['metas'] > 0
                     ? (int) round($mExtras[$coluna][$id]['dias'] / $mExtras[$coluna][$id]['metas'])
@@ -305,20 +426,21 @@ final class ObterDadosDashboardUseCase
      * `extrasAnteriores` de cada linha — só para as extras de ColunasExtrasDoDashboard::TENDENCIA
      * (hoje, Eventos na agenda: uma soma).
      *
-     * @param list<string>                   $colunasExtras
-     * @param LinhaAdvogadoDashboardOutput[] $linhas
+     * $baseDaTaxa: as bases da Taxa de conclusão com o corte da própria coluna (basesDaConclusao).
+     *
+     * @param list<string>                                 $colunasExtras
+     * @param LinhaAdvogadoDashboardOutput[]               $linhas
+     * @param array<int, array{total: int, ativas: int}>   $baseDaTaxa
      *
      * @return array<string, int|null>
      */
-    private function totaisExtras(array $colunasExtras, array $linhas, bool $anterior = false): array
+    private function totaisExtras(array $colunasExtras, array $linhas, bool $anterior = false, array $baseDaTaxa = []): array
     {
         $campo  = $anterior ? 'extrasAnteriores' : 'extras';
         $totais = [];
         foreach ($colunasExtras as $coluna) {
             if ($coluna === Extras::TAXA_CONCLUSAO) {
-                $metas      = $this->somar($linhas, 'totalMetas');
-                $concluidas = $metas - $this->somar($linhas, 'metasAtivas');
-                $totais[$coluna] = $metas > 0 ? (int) round($concluidas / $metas * 100) : null;
+                $totais[$coluna] = $this->taxaDoTotal($linhas, $baseDaTaxa);
 
                 continue;
             }
@@ -342,6 +464,25 @@ final class ObterDadosDashboardUseCase
         }
 
         return $totais;
+    }
+
+    /**
+     * Taxa do Total: Σ concluídas ÷ Σ metas das linhas visíveis; sem meta, null ("—").
+     *
+     * @param LinhaAdvogadoDashboardOutput[]             $linhas
+     * @param array<int, array{total: int, ativas: int}> $baseDaTaxa
+     */
+    private function taxaDoTotal(array $linhas, array $baseDaTaxa): ?int
+    {
+        $metas = 0;
+        $concluidas = 0;
+        foreach ($linhas as $l) {
+            $base = $baseDaTaxa[$l->userId] ?? ['total' => $l->totalMetas, 'ativas' => $l->metasAtivas];
+            $metas += $base['total'];
+            $concluidas += max(0, $base['total'] - $base['ativas']);
+        }
+
+        return $metas > 0 ? (int) round($concluidas / $metas * 100) : null;
     }
 
     /**

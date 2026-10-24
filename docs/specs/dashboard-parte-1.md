@@ -78,7 +78,7 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 
 ## Fora deste PR
 
-Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita no PR3), setas × ontem, a tabela
+Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita no PR3), setas × ontem, a tabela
 `dashboard_campeao_mes` que congelaria o "1º do mês", lista e link do Relatório (DASH-012).
 
 ## Fatias seguintes
@@ -118,6 +118,42 @@ Zerar (DASH-014), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita
     qualquer situação, sem lápide e sem as ocultas pelo cadeado. Tem tendência (`alta`, subir é bom).
     Número sem link: o destino do desenho (`/expediente` com `concluida`) não filtra pela data da
     finalização, e a regra B12 só deixa virar link quando a lista conta a mesma coisa.
-- **PR4 em diante**: Zerar (caso de uso, permissão do Master, "Pedir para zerar") e meta de pastas.
+- **PR3b (feito: Zerar, DASH-014)**. Sem migration (usa a `dashboard_zeramento` do PR3).
+  - **Abrir**: botão direito no título da coluna (equipe toda) ou na célula da pessoa (só ela, e
+    "Ver relatório" quando o número tem link), como o `comMenu`/`thMenu` do desenho. No cartão do
+    colaborador, "Zerar" nos Comentários (`ctx.comZerar`); no menu ⋮, "Zerar relatório de todos"
+    quando a coluna Relatório está na tabela.
+  - **Nada se apaga**: zerar grava o corte (`contar_desde` = agora, `por_id`); o início efetivo de
+    cada contagem é o mais tardio entre o início do período e o corte ativo da coluna (o da pessoa ou
+    o da equipe, vale o mais recente). Desfazer marca `desfeito_em`/`desfeito_por_id` em todos os
+    ativos da coluna e a contagem volta. Menu mostra "Contando desde dd/mm hh:mm".
+  - **Colunas**: todas as numéricas da tabela, como no desenho (`thMenu` nas fixas e `thExtras` nas
+    extras). Nas de estoque, o corte vale pela data de entrada: Metas ativas, Vencidas e Prazos contam
+    as metas CRIADAS depois do corte; Demandas ativas, as pastas abertas depois do corte; Pastas
+    concluídas, a chegada à Finalizada depois do corte; Eventos, o início do evento. Taxa e Metas concluídas
+    saem de Total − Ativas, as duas com o corte da PRÓPRIA coluna (Concluídas ou Taxa; o da pessoa ou
+    o da equipe, o mais recente), mínimo 0: zerar só Total metas ou só Metas ativas não muda
+    Concluídas, Taxa nem troféu. O troféu e o cartão do colaborador usam o corte de Concluídas.
+  - **Na tela**: célula zerada sem link (o destino não conta a partir do corte) e sem seta (o
+    anterior não tem corte); no Total, sem pílula. Troféu, card "Pastas criadas" e cartão do
+    colaborador (posição, Comentários, Rendimento) seguem o corte; o "1º do mês" não (é histórico).
+  - **Permissão**: zerar e desfazer só para o Master ou primário ativo (`RegraDosPrimarios::
+    podeGerirPrimarios`), 403 no servidor. Os demais veem "Pedir para zerar": aviso na Central
+    (tipo `dashboard_pedido_zerar`) a cada primário ativo e a cada pessoa com `UserTenant.controladoria`
+    (ciência, "nada foi alterado"); um pedido igual por dia (o segundo volta "Você já tinha pedido
+    isso hoje"). Sem Controladoria no escritório, o texto diz só "usuário primário". Quem já pode zerar
+    e chama o pedir recebe 403 (não se aplica). Card "Pastas criadas" sem "ver pastas" com a coluna zerada.
+  - **Multi-tenant**: escritório e autor da sessão; pessoa que não é colaboradora ativa do escritório
+    dá 404; CSRF no header em todo POST.
+  - **Desvios do desenho**: "Você recebe a resposta no Chat I.A." saiu do aviso de sem permissão (não
+    há fluxo de resposta); "Ver relatório" navega direto em vez do toast com link; o desfazer confirma
+    com `window.confirm`, como o desenho.
+- **PR4 em diante**: meta de pastas.
 - **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
   padrão hoje, nenhuma opção é obrigatória, roda 1x por dia.
+
+## Estado da frente (24/10)
+
+- #334 e #339 no master (migration 150900 com `finalizada_em`).
+- Zerar (branch `dashboard-3`): revisado, re-revisado e com o master trazido; PR aberto.
+- Próximos: PR3c meta de pastas do mês (primário define e quem ele autorizar) e PR4 links do Relatório e de Pastas concluídas com o filtro do Expediente.

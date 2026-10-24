@@ -3046,6 +3046,17 @@ dashboard:
         adicionar_coluna: Adicionar coluna
         todas_na_tabela: Todas as colunas disponíveis já estão na tabela.
         restaurar: Restaurar padrão
+        zerar_relatorio_todos: 'Zerar relatório de todos'
+        zerar_relatorio_todos_sub: 'Para uma pessoa: botão direito no nome'
+    zerar:
+        aviso:
+            titulo: 'Pedido para zerar {rotulo}'
+            texto_primario: '{destinatario}, {nome} pediu às {hora} para zerar {rotulo} {alvo} no Dashboard. É um dado estatístico: zerar recomeça a contagem a partir de agora e o histórico anterior deixa de entrar no número. Para autorizar, zere a coluna no Dashboard (botão direito no título dela).'
+            texto_controladoria: '{destinatario}, para sua análise: {nome} pediu para zerar {rotulo} {alvo} no Dashboard. A decisão é do usuário primário; nada foi alterado.'
+            alvo_pessoa: 'de {nome}'
+            alvo_todos: 'de toda a equipe'
+            sem_nome: 'Um colaborador'
+        th_titulo: 'Botão direito: relatório e zerar'
     ia:
         abrir: Abrir BlueJus Intelligence
         ponto_de_atencao: '{n} ponto de atenção'
@@ -3217,6 +3228,44 @@ dashboard:
             quando_trimestre: no trimestre
             quando_semestre: no semestre
             quando_ano: no ano
+        zerar:
+            menu_titulo: '{quem} · {rotulo}'
+            equipe: 'Equipe'
+            toda_a_equipe: 'toda a equipe'
+            contando_desde: 'Contando desde {quando}'
+            contagem_completa: 'Contagem completa do período'
+            ver_relatorio: 'Ver relatório de {nome}'
+            ver_relatorio_sub: 'Abre a lista de {rotulo}'
+            zerar_de: 'Zerar de {nome}'
+            zerar_de_sub: 'Recomeça a contagem só desta pessoa'
+            zerar_equipe: 'Zerar de toda a equipe'
+            zerar_equipe_sub: 'Recomeça a contagem de todos'
+            pedir_de: 'Pedir para zerar de {nome}'
+            pedir_equipe: 'Pedir para zerar de toda a equipe'
+            pedir_sub: 'Vai para o usuário primário e a Controladoria'
+            desfazer: 'Desfazer zeramentos'
+            desfazer_sub: 'Volta a contar desde o início'
+            desfazer_confirmar: 'Desfazer os zeramentos de {rotulo}? O contador volta a mostrar a contagem completa.'
+            sem_permissao: 'Só o usuário primário zera dados estatísticos.'
+            confirmar_aria: 'Confirmar zerar'
+            confirmar_titulo: 'Zerar {rotulo}?'
+            confirmar_texto: 'Você vai zerar {rotulo} de {nome}.'
+            confirmar_aviso: 'É um dado estatístico: a contagem recomeça agora e o histórico anterior deixa de entrar no número. A ação fica registrada e pode ser desfeita depois pelo menu.'
+            cancelar: 'Cancelar'
+            sim_zerar: 'Sim, zerar'
+            negado_aria: 'Sem permissão'
+            negado_titulo: 'Sem permissão para zerar'
+            negado_texto: '{rotulo} de {nome} é um dado estatístico do escritório. Só o usuário primário pode zerar.'
+            negado_enviado: 'Seu pedido foi enviado ao usuário primário e à Controladoria para análise.'
+            negado_enviado_primario: 'Seu pedido foi enviado ao usuário primário para análise.'
+            negado_repetido: 'Você já tinha pedido isso hoje. O pedido continua com o usuário primário e a Controladoria.'
+            negado_repetido_primario: 'Você já tinha pedido isso hoje. O pedido continua com o usuário primário.'
+            entendi: 'Entendi'
+            zerado: '{rotulo} zerado · {nome}'
+            fechar: 'Fechar'
+            erro: 'Não foi possível concluir agora. Tente de novo.'
+            cartao_zerar: 'Zerar'
+            cartao_zerar_titulo: 'Zerar o relatório desta pessoa'
 
 # ---- Agenda (agenda/nova, lista, novo, editar, show; agenda-nova.js)
 agenda:

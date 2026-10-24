@@ -305,6 +305,12 @@ class MetricasExtrasDoDashboardRepository
         if ($ate !== null) {
             $qb->andWhere($campo . ' <= :fExtraAte')->setParameter('fExtraAte', $ate);
         }
+
+        // "Zerar" (DASH-014): só o que veio a partir do ponto de corte, no mesmo campo de data.
+        $desde = $filtros['contar_desde'] ?? null;
+        if ($desde instanceof \DateTimeImmutable) {
+            $qb->andWhere($campo . ' >= :fExtraDesde')->setParameter('fExtraDesde', $desde);
+        }
     }
 
     private function lerData(string $valor, bool $fimDoDia): ?\DateTimeImmutable

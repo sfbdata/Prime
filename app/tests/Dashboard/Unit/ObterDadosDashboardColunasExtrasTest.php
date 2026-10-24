@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Dashboard\Unit;
 
+use App\Dashboard\Repository\DashboardZeramentoRepository;
 use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Repository\DashboardFotoRepository;
@@ -59,6 +60,7 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
             $this->userRepo,
             $this->createMock(DashboardFotoRepository::class),
             $this->metricas,
+            $this->createStub(DashboardZeramentoRepository::class),
         );
     }
 

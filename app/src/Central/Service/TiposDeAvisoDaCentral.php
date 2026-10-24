@@ -6,6 +6,7 @@ namespace App\Central\Service;
 
 use App\Auth\UseCase\EnviarMensagemSuporteUseCase;
 use App\Contribua\Service\AvisoAoMaster;
+use App\Dashboard\UseCase\PedirZeramentoDoDashboardUseCase;
 use App\Entity\Notificacao;
 use App\Indicacao\Service\AvisoDeDisparoAlto;
 use App\Inteligencia\MessageHandler\ProcessarAnaliseDeInteligenciaHandler;
@@ -68,6 +69,11 @@ final class TiposDeAvisoDaCentral
         LembrarMetaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'metas', 'rotulo' => 'Lembrete', 'icone' => 'bi-bell', 'cor' => self::AMBAR, 'nivel' => 2],
     ];
 
+    /** Dashboard: o "Pedir para zerar" de uma coluna (desenho 01 - Dashboard 1.2.2; bluejus-central.js `pedirZerar`). */
+    private const DO_DASHBOARD = [
+        PedirZeramentoDoDashboardUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Pedido para zerar', 'icone' => 'bi-arrow-counterclockwise', 'cor' => self::AMBAR, 'nivel' => 2],
+    ];
+
     /**
      * Pasta acompanhada ("Acompanhar alterações" do menu ⋮ da pasta, desenho 02 L4497: "Você vai receber no Chat I.A as
      * alterações da pasta"): grupo Mensagens, o sino do item do menu, azul, nível 1. Fora do `match` pelo limite de linhas.
@@ -98,7 +104,7 @@ final class TiposDeAvisoDaCentral
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
         $tipo = strtolower($tipo);
-        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? self::DA_PASTA_ACOMPANHADA[$tipo] ?? null;
+        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? self::DO_DASHBOARD[$tipo] ?? self::DA_PASTA_ACOMPANHADA[$tipo] ?? null;
         if ($doMapa !== null) {
             return $doMapa;
         }
