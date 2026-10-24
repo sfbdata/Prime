@@ -46,7 +46,7 @@ final class CandidaturasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->postarJson($this->client, self::CURRICULOS . '/meu', self::curriculo('Ana Souza'));
         $ok = $this->postarJson($this->client, self::VAGAS . "/$codigo/candidatura");
         self::assertResponseIsSuccessful();
-        self::assertSame(['titulo' => 'Candidatura enviada', 'texto' => 'Acompanhe em Meu currículo · Minhas candidaturas.'], $ok['toast']);
+        self::assertSame(['titulo' => 'Candidatura enviada', 'texto' => ''], $ok['toast'], 'P1: o toast da candidatura sem a frase "Acompanhe em ... Minhas candidaturas"');
         self::assertSame(['enviada', 'recebida', 'Recebida'], [$ok['vaga']['botaoExterno'], $ok['vaga']['minhaCandidatura']['status'], $ok['vaga']['minhaCandidatura']['statusRotulo']]);
         self::assertSame([], $ok['vaga']['candidatos'], 'o externo não vê os outros candidatos');
         $repetida = $this->postarJson($this->client, self::VAGAS . "/$codigo/candidatura");

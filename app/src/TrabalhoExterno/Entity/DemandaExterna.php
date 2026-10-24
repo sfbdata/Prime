@@ -174,6 +174,16 @@ class DemandaExterna
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $avisosWhatsapp;
 
+    /**
+     * O que aconteceu NESTA requisição e avisa as partes (desenho 06 de 24/10, `mudar` e `msgSis`): cada
+     * mudança de situação ("Andamento: {situação}{ · motivo}") e cada mensagem de sistema, arquivo ou
+     * andamento, na ordem, com a mensagem quando há (o convidado só é avisado do que leria no chat). Não é
+     * coluna: o caso de uso entrega ao `AvisosDoTrabalhoExterno`, que retira.
+     *
+     * @var list<array{texto: string, mensagem: ?MensagemDemanda}>
+     */
+    private array $andamentosParaAvisar = [];
+
     public function __construct(
         /** Escritório solicitante, dono da demanda. */
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
@@ -340,6 +350,9 @@ class DemandaExterna
     {
         $mensagem = new MensagemDemanda($this, $autor, $tipo, $texto);
         $this->mensagens->add($mensagem);
+        if (in_array($tipo, [TipoMensagem::Sistema, TipoMensagem::Arquivo, TipoMensagem::Andamento], true)) {
+            $this->andamentosParaAvisar[] = ['texto' => $texto, 'mensagem' => $mensagem];
+        }
 
         return $mensagem;
     }
@@ -360,6 +373,19 @@ class DemandaExterna
         $this->registrar($autor, ($item['ok'] ? 'Etapa concluída: ' : 'Etapa reaberta: ') . $item['t'], TipoMensagem::Andamento);
     }
 
+    /**
+     * Os andamentos ainda não avisados, e a lista volta a ficar vazia (um aviso por andamento, uma vez só).
+     *
+     * @return list<array{texto: string, mensagem: ?MensagemDemanda}>
+     */
+    public function retirarAndamentosParaAvisar(): array
+    {
+        $andamentos = $this->andamentosParaAvisar;
+        $this->andamentosParaAvisar = [];
+
+        return $andamentos;
+    }
+
     public function anexar(DocumentoDemanda $documento): void
     {
         $this->documentos->add($documento);
@@ -369,6 +395,7 @@ class DemandaExterna
     {
         $this->historico->add(new HistoricoDemanda($this, $this->situacao->value, $para->value, $autor, $motivo));
         $this->situacao = $para;
+        $this->andamentosParaAvisar[] = ['texto' => 'Andamento: ' . $para->rotulo() . ($motivo !== null ? ' · ' . $motivo : ''), 'mensagem' => null];
 
         $fase = FaseWhatsapp::tryFrom($para->value);
         if ($fase !== null) {

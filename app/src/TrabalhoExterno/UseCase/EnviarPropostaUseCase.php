@@ -10,6 +10,7 @@ use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
@@ -29,6 +30,7 @@ final class EnviarPropostaUseCase
         private readonly LocalizadorDeDemanda $localizador,
         private readonly PoliticaDaDemanda $politica,
         private readonly DemandaExternaRepository $repositorio,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -53,6 +55,7 @@ final class EnviarPropostaUseCase
             $autor,
         );
         $demanda->enviarProposta($proposta, $autor);
+        $this->avisos->andamentoDaDemanda($ctx, $demanda);
         try {
             $this->repositorio->salvar($demanda, flush: true);
         } catch (UniqueConstraintViolationException) {

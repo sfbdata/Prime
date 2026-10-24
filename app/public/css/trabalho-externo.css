@@ -175,6 +175,12 @@
 @keyframes teIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes teP { 0% { box-shadow: 0 0 0 0 rgba(10, 111, 160, .45); } 70% { box-shadow: 0 0 0 9px rgba(10, 111, 160, 0); } 100% { box-shadow: 0 0 0 0 rgba(10, 111, 160, 0); } }
 @keyframes teUp { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* Desenho 06 de 24/10, l.36 a 40: radar, avatares e pontos da animação de envio; a barra que corre; o carimbo. */
+@keyframes teRadar { from { transform: scale(.2); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
+@keyframes teParc { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes tePt { 0%, 100% { opacity: 0; } 30%, 70% { opacity: 1; } }
+@keyframes teBarra { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
+@keyframes teStamp { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-14deg) scale(1.8); } 100% { opacity: 1; transform: translate(-50%, -50%) rotate(-14deg) scale(1); } }
 
 /* ---------- Linha do título ---------- */
 .te-titulo-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -985,29 +991,43 @@ textarea.te-vf-ctl.te-cv-nota-ctl { background: #fffaf0; border-color: var(--te-
 /* ---------- "Meu currículo" do externo (l.214 a 224) ---------- */
 .te-cv-ext { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
 .te-cv-card { background: var(--te-card); border: 1px solid var(--te-border); border-radius: 4px; padding: 18px 20px; animation: teUp .25s ease; }
-.te-cv-card.is-2 { animation-duration: .3s; }
 .te-cv-card-cab { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .te-cv-card-cab > .bi { font-size: 20px; color: var(--te-azul); }
-.te-cv-card-cab > b { flex: 1; font-size: 15px; }
-.te-cv-card-cab.is-cand { margin-bottom: 12px; }
-.te-cv-card-cab.is-cand > .bi { font-size: 19px; }
-.te-cv-card-btn { height: 32px; padding: 0 12px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.te-cv-card-btn + .te-cv-card-btn { margin-left: -4px; }
+.te-cv-card-cab > b { flex: 1; font-size: 15px; white-space: nowrap; }
+.te-cv-card-acoes { display: flex; gap: 6px; }
+.te-cv-card-btn { height: 32px; padding: 0 12px; border: 1px solid var(--te-border-ctl); border-radius: 2px; background: var(--te-card); color: var(--te-text-2); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .te-cv-card-btn:hover { border-color: var(--te-azul); color: var(--te-azul); background: var(--te-azul-suave); }
-.te-cv-card-vazio { text-align: center; padding: 18px 6px 6px; }
-.te-cv-card-vazio-txt { font-size: 13.5px; color: var(--te-muted); line-height: 1.55; margin-bottom: 14px; }
-.te-cv-cadastrar { height: 36px; padding: 0 16px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background .15s, transform .15s; }
-.te-cv-cadastrar:hover { background: #0b5f86; transform: translateY(-1px); }
-.te-cv-meu { display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: var(--te-text-2); }
-.te-cv-meu-topo { display: flex; align-items: center; gap: 12px; }
-.te-cv-meu-nome { font-size: 16px; color: var(--te-text); }
-.te-cv-em { font-size: 12px; color: var(--te-muted); }
-.te-cv-pct { margin-top: 6px; }
+.te-cv-card-vazio { text-align: center; padding: 10px 0 4px; }
+.te-cv-card-vazio-txt { font-size: 13.5px; color: var(--te-cancelar); margin-bottom: 14px; }
+.te-cv-cadastrar { height: 38px; padding: 0 18px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; font-weight: bold; cursor: pointer; }
+/* "Meu currículo" compacto (desenho 06 de 24/10, l.225 e 226): avatar, nome e "{cargo} · {OAB}", e a barra. */
+.te-cv-meu-topo { display: flex; align-items: center; gap: 14px; }
+.te-cv-meu .te-cv-av.is-52 { font-size: 18px; box-shadow: none; }
+.te-cv-meu-nome { display: block; font-size: 16px; font-weight: bold; color: var(--te-text); }
+.te-cv-meu-linha { font-size: 13px; color: var(--te-cancelar); }
+.te-cv-pct { margin-top: 14px; }
 .te-cv-pct-cab { display: flex; justify-content: space-between; font-size: 12px; color: var(--te-cancelar); margin-bottom: 4px; }
 .te-cv-pct-trilho { height: 6px; border-radius: 3px; background: var(--te-div); overflow: hidden; }
-.te-cv-pct-barra { height: 100%; transition: width .6s ease; }
-.te-cv-falta { font-size: 12px; color: var(--te-muted); margin-top: 5px; }
-.te-cv-cand-vazio { font-size: 13.5px; color: var(--te-muted); padding: 8px 0; }
+.te-cv-pct-barra { height: 100%; transition: width .6s; }
+.te-cv-falta { font-size: 12px; color: var(--te-amarelo-txt); margin-top: 6px; }
+
+/* "Prévia do currículo" (desenho 06 de 24/10, l.232 a 239): o documento salvo num iframe A4, ou o esqueleto. */
+.te-cv-prev { background: var(--te-card); border: 1px solid var(--te-border); border-radius: 4px; overflow: hidden; }
+.te-cv-prev-cab { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--te-div-2); }
+.te-cv-prev-cab > .bi { color: var(--te-azul); font-size: 18px; }
+.te-cv-prev-cab > b { flex: 1; font-size: 15px; }
+.te-cv-prev-pdf { height: 32px; padding: 0 14px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font: inherit; font-size: 13px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.te-cv-prev-pdf:hover { background: #0b5f86; }
+.te-cv-prev-corpo { background: #e9eef2; padding: 16px; display: flex; justify-content: center; }
+.te-cv-prev-corpo.is-vazio { flex-direction: column; align-items: center; gap: 10px; }
+.te-cv-prev-doc { width: 100%; max-width: 794px; aspect-ratio: 210/297; height: auto; border: none; background: #fff; box-shadow: 0 4px 18px rgba(18, 36, 47, .12); }
+.te-cv-prev-a4 { width: 100%; max-width: 420px; aspect-ratio: 210/297; background: #fff; box-shadow: 0 4px 18px rgba(18, 36, 47, .08); display: grid; grid-template-columns: 34% 1fr; overflow: hidden; }
+.te-cv-prev-lado { background: #0a6fa0; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; }
+.te-cv-prev-foto { width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, .35); margin-bottom: 16px; }
+.te-cv-prev-main { padding: 20px 16px; }
+.te-cv-prev-barra { display: block; border-radius: 2px; margin-bottom: 8px; }
+.te-cv-prev-linha { display: block; height: 1px; background: #dbe5ec; margin: 10px 0 14px; }
+.te-cv-prev-vazio { font-size: 13px; color: var(--te-cancelar); text-align: center; }
 
 /* ---------- Formulário tmCvForm (l.254 a 283) ---------- */
 .te-vf-grade.is-base { align-items: end; }
@@ -1169,17 +1189,6 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-cand-st { height: 26px; padding: 0 8px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-cand-pilula); font-size: 11.5px; font-weight: bold; cursor: pointer; }
 .te-cand-st.is-on { color: #fff; cursor: default; }
 .te-cand-linha-et { flex-basis: 100%; min-width: 0; max-width: 100%; }
-
-/* ---------------------------------------------------------------- "Minhas candidaturas" (l.222 a 224) */
-.te-cand-mc-barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -4px 0 10px; }
-.te-cand-mc-filtros { display: flex; background: var(--te-seg); border-radius: 4px; padding: 3px; gap: 2px; }
-.te-cand-mc-filtro { height: 26px; padding: 0 10px; border: none; border-radius: 3px; background: transparent; color: var(--te-muted); font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: none; }
-.te-cand-mc-filtro.is-ativo { background: var(--te-seg-on); color: var(--te-azul); box-shadow: var(--te-shadow-seg); }
-.te-cand-mc-linha { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 6px; border-bottom: 1px solid var(--te-div-2); cursor: pointer; border-radius: 3px; transition: background .15s; }
-.te-cand-mc-linha:hover { background: var(--te-hover); }
-.te-cand-mc-tit { display: block; font-size: 13.5px; font-weight: normal; }
-.te-cand-mc-tit.is-naovista { font-weight: bold; }
-.te-cand-mc-em { font-size: 12px; color: var(--te-muted); }
 
 /* ---------------------------------------------------------------- modal QUASE (l.392 a 400) */
 .te-cand-quase-fundo { position: fixed; inset: 0; z-index: 1127; background: var(--te-cand-quase-fundo); }
@@ -1395,3 +1404,35 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-pn-gr-vazio { position: absolute; inset: 0 0 24px 46px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--te-pn-eixo); pointer-events: none; }
 .te-pn-gr-resumo { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--te-pn-rotulo); padding-top: 6px; border-top: 1px solid var(--te-pn-grade); }
 .te-pn-gr-resumo b { color: var(--te-text); }
+
+/* =============================================================================
+   Animação depois de enviar a solicitação (desenho 06 de 24/10, l.737 a 767). Camadas do desenho
+   (9700/9701): acima de tudo, como no protótipo. `.te-env-mapa`: o iframe do Google Maps do desenho
+   (l.740, decisão P2 do dono), maior que o diálogo e sem clique.
+   ============================================================================= */
+.te-env-fundo { position: fixed; inset: 0; z-index: 9700; background: rgba(11, 53, 80, .45); }
+.te-env-pos { position: fixed; inset: 0; z-index: 9701; display: flex; align-items: center; justify-content: center; padding: 12px; pointer-events: none; }
+.te-env { pointer-events: auto; position: relative; width: min(520px, 100%); height: min(560px, 92vh); border-radius: 8px; overflow: hidden; box-shadow: 0 24px 60px rgba(11, 53, 80, .4); background: #dfe7ec; font-family: Arial, Helvetica, sans-serif; }
+.te-env-mapa { position: absolute; left: -60px; top: -170px; width: calc(100% + 120px); height: calc(100% + 340px); border: 0; filter: saturate(.85); pointer-events: none; }
+.te-env-fechar { position: absolute; right: 10px; top: 10px; z-index: 3; width: 34px; height: 34px; border: none; border-radius: 50%; background: rgba(255, 255, 255, .92); color: #34505f; cursor: pointer; font-size: 15px; box-shadow: 0 2px 8px rgba(11, 53, 80, .25); }
+.te-env-fechar:hover { background: #fff; color: #0a6fa0; }
+.te-env-veu { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(11, 53, 80, .15), rgba(11, 53, 80, 0) 30%, rgba(11, 53, 80, 0) 55%, rgba(255, 255, 255, .9) 78%); }
+.te-env-radar { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); width: 0; height: 0; }
+.te-env-onda { position: absolute; left: -90px; top: -90px; width: 180px; height: 180px; border-radius: 50%; background: rgba(10, 99, 201, .18); animation: teRadar 1.8s ease-out infinite; }
+.te-env-alvo { position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; border-radius: 50%; background: #0a63c9; border: 4px solid #fff; box-shadow: 0 4px 14px rgba(10, 99, 201, .5); box-sizing: content-box; }
+.te-env-rodape { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 24px 26px; text-align: center; }
+.te-env-trilho { height: 4px; width: min(220px, 70%); margin: 0 auto 16px; border-radius: 2px; background: #dbe5ec; overflow: hidden; }
+.te-env-barra { display: block; height: 100%; width: 40%; background: #0a63c9; border-radius: 2px; animation: teBarra 1.2s ease-in-out infinite; }
+.te-env-parcs { display: flex; justify-content: center; margin: -4px 0 12px; }
+.te-env-parc { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; margin-left: -8px; box-shadow: 0 1px 4px rgba(11, 53, 80, .2); animation: teParc 1.2s ease-in-out infinite; box-sizing: content-box; }
+.te-env-tit { display: block; font-size: 18px; color: #0b3550; }
+.te-env-pts { display: inline-block; width: 22px; text-align: left; }
+.te-env-pt { animation: tePt 1.2s steps(1) infinite; }
+.te-env-sub { display: block; font-size: 13.5px; color: #4a6373; margin-top: 5px; }
+.te-env-ok { position: absolute; left: 50%; top: 36%; transform: translate(-50%, -50%); width: 74px; height: 74px; border-radius: 50%; background: #1e7b45; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 38px; box-shadow: 0 8px 24px rgba(30, 123, 69, .45); animation: tePop .45s cubic-bezier(.3, 1.6, .5, 1) both; }
+.te-env-final { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 24px 24px; text-align: center; background: #fff; border-top: 1px solid #e3e8ec; animation: teRise .35s ease both; }
+.te-env-final-tit { display: block; font-size: 19px; color: #0b3550; }
+.te-env-final-txt { display: block; font-size: 13.5px; color: #4a6373; margin-top: 6px; line-height: 1.5; }
+.te-env-final-botoes { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+.te-env-btn { height: 38px; padding: 0 16px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 14px; cursor: pointer; }
+.te-env-btn.is-pri { padding: 0 18px; border: none; background: #0a6fa0; color: #fff; font-weight: bold; }

@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\UseCase;
 
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\GuardaDeExecucao;
 
@@ -19,6 +20,7 @@ final class AlternarItemDoChecklistUseCase
     public function __construct(
         private readonly GuardaDeExecucao $guarda,
         private readonly DemandaExternaRepository $repositorio,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -26,6 +28,7 @@ final class AlternarItemDoChecklistUseCase
     {
         [$demanda, $ctx] = $this->guarda->demandaEmExecucao($ctx, $codigo);
         $demanda->alternarItemDoChecklist($indice, $ctx->autor());
+        $this->avisos->andamentoDaDemanda($ctx, $demanda);
         $this->repositorio->salvar($demanda, flush: true);
 
         return $demanda;

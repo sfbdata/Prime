@@ -333,14 +333,19 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $zdr);
         self::assertStringContainsString('a conta da Anthropic precisa ter a retenção zero de dados (ZDR)', $zdr->text());
         self::assertStringContainsString('claude.com/contact-sales', $zdr->text());
-        self::assertStringContainsString('Peça também a confirmação por escrito e o DPA.', $zdr->text());
-        self::assertStringContainsString('o workspace de produção deve aceitar só a região us.', $zdr->text());
-        self::assertStringContainsString('O processamento roda nos EUA (inference_geo us).', $zdr->text());
+        self::assertStringContainsString('Este pedido é seu', $zdr->text());
+        self::assertStringContainsString('peça também a confirmação por escrito e o DPA.', $zdr->text());
+        self::assertStringContainsString('A parte técnica é do desenvolvedor', $zdr->text());
+        self::assertStringContainsString('Peça ao desenvolvedor.', $zdr->text());
+        self::assertStringContainsString('O processamento roda nos EUA (região us, configurada pelo desenvolvedor).', $zdr->text());
 
         $cards = $raiz->filter('div.mp-ia-raiz > section.mp-card');
         self::assertCount(5, $cards);
-        self::assertSame(['Instalação', 'Chave geral', 'Modelo', 'Retenção das respostas', 'Escritórios'], $cards->each(static fn ($c): string => trim($c->filter('section > div.mp-cab-roxo > b')->text())));
-        self::assertStringContainsString('A chave é gravada pelo dono direto no servidor; esta tela não mostra nem recebe a chave.', $cards->eq(0)->text());
+        self::assertSame(['Instalação (feita pelo desenvolvedor)', 'Chave geral', 'Modelo', 'Retenção das respostas', 'Escritórios'], $cards->each(static fn ($c): string => trim($c->filter('section > div.mp-cab-roxo > b')->text())));
+        self::assertStringContainsString('A chave da API é gravada pelo desenvolvedor no servidor; esta tela não mostra nem recebe a chave.', $cards->eq(0)->text());
+        self::assertStringContainsString('A BlueJus IA só funciona com ela E a chave geral desta tela ligadas.', $cards->eq(0)->text());
+        self::assertStringContainsString('peça ao desenvolvedor', $cards->eq(0)->text());
+        self::assertStringNotContainsString('IA_HABILITADA', $cards->eq(0)->text(), 'nome de variável não é texto para o Master');
         self::assertCount(1, $cards->eq(1)->filter('div.mp-ia-corpo > button.mp-rec-item[role="switch"][data-mp-ia-chave-geral]'));
         self::assertSame('Ligar a BlueJus IA para todos os escritórios liberados', $cards->eq(1)->filter('span.mp-rec-item-titulo')->text());
         self::assertCount(1, $cards->eq(2)->filter('label.mp-ia-campo > select[data-mp-ia-modelo]'));
