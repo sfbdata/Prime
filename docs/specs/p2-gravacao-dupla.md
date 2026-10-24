@@ -604,6 +604,67 @@ cabe no rollback por teste do DAMA — o que se prova é a regra (uma chave por 
 que a trava consultiva + `SKIP LOCKED` aplicam; a reconciliação não cobre imagens do editor (sem linha
 no banco); o custo do SHA da reconciliação sobre 26 GB não foi medido.
 
+## P2.5 e P2.7 preparadas (r2-p25)
+
+Frente `r2-p25`, empilhada sobre a `r2-p23` (PR #372). Sem migration. **Nada liga em produção** até o
+dono preencher `ARMAZENAMENTO_ESPELHO_CATEGORIAS` (com as quatro `ESPELHO_R2_*` já preenchidas, na P2.4).
+
+**Modo agendado (`--se-ligado`).** Os três comandos ganham a opção. Sem ela, nada muda (sem `ESPELHO_R2_*`,
+replicar e reconciliar recusam com falha).
+- `armazenamento:replicar-espelho --se-ligado` e `armazenamento:reconciliar-espelho --se-ligado`: com a
+  política vazia ou sem `ESPELHO_R2_*`, saem com sucesso e a linha "Espelho desligado", sem tocar no R2 nem
+  na outbox (o teste esconde a tabela e prova que nenhum dos dois a lê).
+- `armazenamento:limpar-replicacao --se-ligado`: só pula quando a tabela da outbox não existe. Com a
+  política vazia a retenção de 90 dias continua valendo, porque as linhas antigas já existem e a decisão
+  da I4 (LGPD) não depende de a cópia estar ligada; a limpeza não fala com o R2, então a falta de
+  `ESPELHO_R2_*` também não a impede.
+
+**Agendador** (`AgendaDeTarefas`, horários de Brasília, mesmo schedule `default`, mesma trava e estado):
+
+| Tarefa | Quando |
+|---|---|
+| `armazenamento:replicar-espelho --se-ligado --limite=50` | a cada minuto |
+| `armazenamento:reconciliar-espelho --se-ligado --sem-sha` | todo dia, 3h30 |
+| `armazenamento:reconciliar-espelho --se-ligado` (com SHA; chave `#sha-semanal` na agenda) | domingo, 4h |
+| `armazenamento:limpar-replicacao --se-ligado` | todo dia, 4h30 |
+
+Duas rodadas da réplica nunca correm juntas: o consumidor do `scheduler_default` é um só e roda uma
+tarefa por vez, e uma rodada que passa do minuto não acumula atrasadas (`processOnlyLastMissedRun`).
+Entre contêineres, a trava do schedule impede gerar a mesma tarefa duas vezes; uma rodada manual no
+`jusprime_php_prod` ao mesmo tempo é segura pela reivindicação atômica da outbox. A réplica fica antes do
+envio ao Drive na lista, para a hora cheia não a atrasar. Os horários da reconciliação caem fora da janela
+dos backups (23h30 a 0h50 de Brasília).
+
+**Alerta da P2.7.** Com `--se-ligado` e o espelho ligado, a reconciliação confere só as categorias que a
+política espelha (sem o filtro, cada categoria desligada viraria "ausente") e sai com FALHA, e o aviso do
+agendador (log, e-mail de `AGENDADOR_ALERTA_EMAIL`, tela do Master) dispara, quando há:
+`ausente_no_espelho`, `tamanho_divergente`, `sha_divergente` ou linhas de envio em `falhou` na outbox (de
+qualquer categoria). Não derrubam a rodada: `presente_sem_sha_conferido` (a diária sem SHA),
+`suspeito_erro_do_drive` (os 90 conhecidos, que aparecem na contagem) e `ausente_pendente_na_outbox`. A
+mensagem é só contagem por classe e por categoria (`ausente_no_espelho: 3 (foto_perfil: 3)`), nunca nome
+de arquivo, chave remota ou nome de pessoa. Peça: `Reconciliacao\AlertaDaReconciliacao`; a categoria de
+cada referência vem da fonte (`ReferenciaDeArquivo::categoria()`), então até a chave inválida conta na
+categoria certa.
+
+**Situação.** `armazenamento:espelho-situacao`: credenciais preenchidas (só sim ou não), categorias
+ligadas (e entradas inválidas da variável), outbox por estado e idade da pendente mais antiga. Não fala
+com o R2.
+
+**Configuração.** `.env.prod.example` lista as cinco variáveis, vazias. `DEPLOY.md` descreve as tarefas e
+como desligar (esvaziar a variável, recriar php, worker e scheduler e recarregar o nginx). Os comandos
+recebem o espelho pela interface `ProvedorDoEspelhoRemoto` (a `FabricaDoEspelhoRemoto` a implementa), para
+os testes usarem o espelho em memória.
+
+**Pontos de atenção para quando ligar.**
+- Antes do backfill (P2.6), todo arquivo antigo de uma categoria recém-ligada está ausente no R2: a
+  reconciliação diária falha até o backfill daquela categoria terminar (no máximo um e-mail por hora por
+  comando, pelo limite do agendador).
+- `falhou` não sai pela retenção nem se resolve sozinho: o alerta se repete até alguém tratar a linha.
+- `erro_de_consulta` (R2 fora do ar na consulta), `local_ausente`, `chave_invalida` e `sem_sha_no_espelho`
+  não disparam o alerta neste critério.
+- A conferência com SHA lê cada arquivo inteiro; enquanto roda, segura o consumidor do agendador (a réplica
+  e o Drive esperam).
+
 ## 15. Fora de escopo da P2 inteira
 
 Leitura pelo R2 · URL pré-assinada · `X-Accel-Redirect` · coluna `storage_backend`/`storage_key` ·
