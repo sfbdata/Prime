@@ -265,20 +265,47 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->configuracaoDo($tenant));
     }
 
-    #[TestDox('escritório inexistente ou suspenso: 404')]
+    #[TestDox('escritório inexistente, suspenso ou excluído: 404')]
     public function testEscritorioInexistente(): void
     {
         $this->entrarComoMaster();
         $suspenso = $this->escritorio('Suspenso ' . uniqid());
         $suspenso->setIsActive(false);
+        $excluido = $this->escritorio('Excluído ' . uniqid());
+        $excluido->setExcluidoEm(new \DateTimeImmutable('-1 day'));
         $this->em->flush();
 
-        foreach ([999999999, (int) $suspenso->getId()] as $id) {
+        foreach ([999999999, (int) $suspenso->getId(), (int) $excluido->getId()] as $id) {
             $this->postar('/master/ia/escritorios/' . $id, ['liberada' => true, 'modoDeCobranca' => 'incluso', 'orcamento' => null]);
             self::assertResponseStatusCodeSame(404);
             self::assertSame('Escritório não encontrado.', $this->json()['erro']);
         }
         self::assertNull($this->configuracaoDo($suspenso));
+    }
+
+    #[TestDox('auditoria: a mudança no escritório vai para o escritório alterado; a da plataforma fica sem escritório')]
+    public function testAuditoriaNoEscopoCerto(): void
+    {
+        $master = $this->entrarComoMaster();
+        $tenant = $this->escritorio('Escritório auditado ' . uniqid());
+
+        $this->postar('/master/ia/escritorios/' . $tenant->getId(), ['liberada' => true, 'modoDeCobranca' => 'incluso', 'orcamento' => null]);
+        self::assertResponseIsSuccessful();
+        $this->postar('/master/ia/retencao', ['meses' => 24]);
+        self::assertResponseIsSuccessful();
+
+        $conexao = $this->em->getConnection();
+        $doEscritorio = $conexao->fetchFirstColumn(
+            'SELECT tenant_id FROM audit_log WHERE entity_class = ? AND actor_user_id = ?',
+            [ConfiguracaoDeInteligencia::class, $master->getId()],
+        );
+        self::assertSame([(int) $tenant->getId()], array_map('intval', $doEscritorio));
+        $daPlataforma = $conexao->fetchFirstColumn(
+            'SELECT tenant_id FROM audit_log WHERE entity_class = ? AND actor_user_id = ?',
+            [ConfiguracaoDaPlataformaDeIa::class, $master->getId()],
+        );
+        self::assertNotEmpty($daPlataforma);
+        self::assertSame([null], array_values(array_unique($daPlataforma)));
     }
 
     #[TestDox('tela: a aba "Configurações da I.A." entra no painel; o parcial é filho direto do painel da aba, com o aviso da ZDR, a instalação, a chave geral, o modelo, a retenção e a tabela')]

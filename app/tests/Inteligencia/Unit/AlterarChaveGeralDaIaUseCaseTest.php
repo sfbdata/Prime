@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Entity\Auth\User;
 use App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa;
 use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
@@ -31,7 +32,7 @@ final class AlterarChaveGeralDaIaUseCaseTest extends TestCase
         $repositorio = $this->createMock(ConfiguracaoDaPlataformaDeIaRepository::class);
         $repositorio->method('obterParaAlterar')->willReturn($linha);
         $repositorio->expects($this->exactly(2))->method('salvar')->with($linha, true);
-        $sut = new AlterarChaveGeralDaIaUseCase($repositorio, new MockClock('2026-10-24 09:00:00'));
+        $sut = new AlterarChaveGeralDaIaUseCase($repositorio, new MockClock('2026-10-24 09:00:00'), new EscopoDeAuditoriaDePlataforma());
         $master = self::master();
 
         $sut->executar(true, $master);
@@ -51,6 +52,6 @@ final class AlterarChaveGeralDaIaUseCaseTest extends TestCase
         $repositorio->expects($this->never())->method('salvar');
 
         $this->expectException(AccessDeniedException::class);
-        (new AlterarChaveGeralDaIaUseCase($repositorio, new MockClock()))->executar(true, (new User())->setRoles(['ROLE_ADMIN']));
+        (new AlterarChaveGeralDaIaUseCase($repositorio, new MockClock(), new EscopoDeAuditoriaDePlataforma()))->executar(true, (new User())->setRoles(['ROLE_ADMIN']));
     }
 }

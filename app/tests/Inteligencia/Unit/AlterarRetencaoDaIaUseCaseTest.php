@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Entity\Auth\User;
 use App\Inteligencia\DTO\AlterarRetencaoDaIaInput;
 use App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa;
@@ -29,7 +30,7 @@ final class AlterarRetencaoDaIaUseCaseTest extends TestCase
         $repositorio->expects($this->once())->method('salvar')->with($linha, true);
         $master = (new User())->setRoles(['ROLE_SUPER_ADMIN']);
 
-        (new AlterarRetencaoDaIaUseCase($repositorio, new MockClock()))->executar(new AlterarRetencaoDaIaInput(36), $master);
+        (new AlterarRetencaoDaIaUseCase($repositorio, new MockClock(), new EscopoDeAuditoriaDePlataforma()))->executar(new AlterarRetencaoDaIaInput(36), $master);
 
         self::assertSame(36, $linha->getMesesDeRetencao());
         self::assertSame($master, $linha->getAlteradaPor());
@@ -47,7 +48,7 @@ final class AlterarRetencaoDaIaUseCaseTest extends TestCase
         $repositorio->method('obterParaAlterar')->willReturn(new ConfiguracaoDaPlataformaDeIa());
         $repositorio->expects($this->never())->method('salvar');
         $this->expectException(\InvalidArgumentException::class);
-        (new AlterarRetencaoDaIaUseCase($repositorio, new MockClock()))->executar(new AlterarRetencaoDaIaInput(0), (new User())->setRoles(['ROLE_SUPER_ADMIN']));
+        (new AlterarRetencaoDaIaUseCase($repositorio, new MockClock(), new EscopoDeAuditoriaDePlataforma()))->executar(new AlterarRetencaoDaIaInput(0), (new User())->setRoles(['ROLE_SUPER_ADMIN']));
     }
 
     #[TestDox('quem não é Master: AccessDenied e nada é gravado')]
@@ -57,6 +58,6 @@ final class AlterarRetencaoDaIaUseCaseTest extends TestCase
         $repositorio->expects($this->never())->method('salvar');
 
         $this->expectException(AccessDeniedException::class);
-        (new AlterarRetencaoDaIaUseCase($repositorio, new MockClock()))->executar(new AlterarRetencaoDaIaInput(12), new User());
+        (new AlterarRetencaoDaIaUseCase($repositorio, new MockClock(), new EscopoDeAuditoriaDePlataforma()))->executar(new AlterarRetencaoDaIaInput(12), new User());
     }
 }

@@ -61,8 +61,10 @@ análise `pergunta_livre` só abre para quem perguntou (`VisibilidadeDaAnaliseDa
 As consultas por alvo do repositório filtram por `tipo` (e `agente`): uma pendente de agente não trava o
 Push nem vira "análise anterior" dele.
 
-Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor) → escritório (`inteligencia_configuracao`)
-→ permissão de módulo → cota diária/mensal. A Twig `ia_disponibilidade()` devolve o enum para a tela.
+Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor + chave geral do Master em
+`inteligencia_plataforma`) → liberada pelo Master no escritório (`liberada_pelo_master`) → escritório ligado com
+aceite (`inteligencia_configuracao`) → permissão de módulo → cota diária/mensal. O modelo vem do banco
+(`FonteDoModeloDeIa`, escolhido na aba "ia" do Painel do Master), com `IA_MODELO` de reserva. A Twig `ia_disponibilidade()` devolve o enum para a tela.
 
 ## Agente de Pastas (`/api/agente/*`)
 

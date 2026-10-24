@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\UseCase;
 
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\AlterarIaDoEscritorioInput;
@@ -27,6 +28,7 @@ final class AlterarIaDoEscritorioUseCase
     public function __construct(
         private readonly TenantRepository $tenants,
         private readonly ConfiguracaoDeInteligenciaRepository $configuracoes,
+        private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
     ) {
     }
 
@@ -43,7 +45,11 @@ final class AlterarIaDoEscritorioUseCase
         }
         $configuracao->definirCobranca($this->modo($input->modoDeCobranca), $input->orcamentoMensalCentavos);
 
-        $this->configuracoes->salvar($configuracao, flush: true);
+        // A auditoria vai para o escritório alterado, não para o da sessão do Master.
+        $this->escopoDePlataforma->executarComoConta(
+            (int) $tenant->getId(),
+            fn () => $this->configuracoes->salvar($configuracao, flush: true),
+        );
     }
 
     private function modo(string $valor): ModoDeCobrancaDaIa

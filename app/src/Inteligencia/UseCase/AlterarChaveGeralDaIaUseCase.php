@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\UseCase;
 
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Entity\Auth\User;
 use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Inteligencia\Service\GuardaDoMasterDaIa;
@@ -18,6 +19,7 @@ final class AlterarChaveGeralDaIaUseCase
     public function __construct(
         private readonly ConfiguracaoDaPlataformaDeIaRepository $plataforma,
         private readonly ClockInterface $relogio,
+        private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
     ) {
     }
 
@@ -30,6 +32,7 @@ final class AlterarChaveGeralDaIaUseCase
         } else {
             $configuracao->desligarParaTodos($master, $this->relogio->now());
         }
-        $this->plataforma->salvar($configuracao, flush: true);
+        // Vale para todos os escritórios: a linha de auditoria fica sem escritório.
+        $this->escopoDePlataforma->executar(fn () => $this->plataforma->salvar($configuracao, flush: true));
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\AlterarIaDoEscritorioInput;
@@ -40,7 +41,7 @@ final class AlterarIaDoEscritorioUseCaseTest extends TestCase
 
     private function sut(): AlterarIaDoEscritorioUseCase
     {
-        return new AlterarIaDoEscritorioUseCase($this->tenants, $this->configuracoes);
+        return new AlterarIaDoEscritorioUseCase($this->tenants, $this->configuracoes, new EscopoDeAuditoriaDePlataforma());
     }
 
     #[TestDox('escritório sem linha: a configuração nasce aqui, liberada, com o modo e o orçamento, e a IA segue desligada no escritório')]
