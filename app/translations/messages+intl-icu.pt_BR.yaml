@@ -2082,16 +2082,15 @@ master:
     ia:
         zdr:
             titulo: Retenção zero de dados (ZDR)
-            texto: 'Antes de ligar a IA para qualquer escritório, a conta da Anthropic precisa ter a retenção zero de dados (ZDR). Este pedido é seu: faça ao time comercial da Anthropic em claude.com/contact-sales, para a organização onde está a chave do BlueJus, e peça também a confirmação por escrito e o DPA.'
-            dev: 'A parte técnica é do desenvolvedor: deixar o workspace de produção na Console da Anthropic aceitando só a região us. Peça ao desenvolvedor.'
-            geo: O processamento roda nos EUA (região us, configurada pelo desenvolvedor).
+            texto: 'Antes de ligar a IA para qualquer escritório, a conta da Anthropic precisa ter a retenção zero de dados (ZDR). O pedido cabe ao BlueJus como contratante: é feito ao time comercial da Anthropic em claude.com/contact-sales, para a organização onde está a chave do BlueJus, com a confirmação por escrito e o DPA.'
+            geo: 'Região de processamento: EUA'
         instalacao:
-            titulo: Instalação (feita pelo desenvolvedor)
-            intro: 'Estes dois itens ficam no servidor, fora desta tela, e só o desenvolvedor altera. Se algum aparecer como não gravado ou desligado, peça ao desenvolvedor.'
-            chave_api: Chave da API da Anthropic
+            titulo: Instalação
+            intro: 'Estes dois itens ficam no servidor e são configuração técnica da equipe BlueJus; aqui aparece o estado de cada um.'
+            chave_api: Chave da API
             trava: Chave de segurança do servidor
-            trava_desc: 'É uma chave de segurança no servidor, ligada pelo desenvolvedor. A BlueJus IA só funciona com ela E a chave geral desta tela ligadas.'
-            nota: 'A chave da API é gravada pelo desenvolvedor no servidor; esta tela não mostra nem recebe a chave.'
+            trava_desc: 'A BlueJus IA só funciona com ela e com a chave geral ligadas; a parte técnica fica com a equipe BlueJus.'
+            nota: 'Esta tela não mostra nem recebe a chave da API.'
         chave_geral:
             titulo: Chave geral
             rotulo: Ligar a BlueJus IA para todos os escritórios liberados
@@ -2589,8 +2588,8 @@ master:
             erro_salvar: Não foi possível salvar.
         # Aba "Configurações da I.A." (public/js/master/ia.js).
         ia:
-            gravada: gravada
-            nao_gravada: não gravada
+            gravada: instalada
+            nao_gravada: ainda não instalada (configuração técnica da equipe BlueJus)
             ligada: ligada
             desligada: desligada
             ligada_todos: Ligada para todos os liberados
