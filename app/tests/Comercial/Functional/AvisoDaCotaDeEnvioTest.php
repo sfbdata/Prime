@@ -64,7 +64,7 @@ final class AvisoDaCotaDeEnvioTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter(self::AVISO . '[data-aviso-cota-de-envio="perto"]:not(.ae-aviso--cheio)'));
-        self::assertStringContainsString('E-mails: 8 de 10 enviados nas últimas 24 horas (limite da Hostinger). Perto do limite.', $crawler->filter(self::AVISO)->text());
+        self::assertStringContainsString('E-mails: 8 de 10 enviados nas últimas 24 horas. Perto do limite diário.', $crawler->filter(self::AVISO)->text());
         self::assertCount(1, $crawler->filter(self::AVISO . ' > form[method="post"] > button.af-dispensar'));
     }
 

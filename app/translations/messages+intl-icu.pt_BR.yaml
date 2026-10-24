@@ -92,14 +92,26 @@ moldura:
     # Aviso de falha das tarefas agendadas (layout/_globais/aviso_falha_agendada, spec scheduler-tarefas-agendadas)
     aviso_falha_agendada:
         titulo: Tarefa agendada falhou
-        item: '{comando} às {hora} de {data}.'
+        item: '{tarefa} às {hora} de {data}.'
         mais: Há outras falhas mais antigas.
-        detalhe: Detalhe no log do agendador.
+        detalhe: Os detalhes ficam registrados pela equipe BlueJus.
+        # Nome de cada tarefa no aviso (chave = comando sem "app:", com _ no lugar de : e -).
+        tarefa:
+            purgar_dados_expirados: Limpeza dos dados expirados
+            inteligencia_expirar_conteudo: Retenção das respostas da BlueJus IA
+            importar_indices_monetarios: Importação dos índices monetários
+            djen_sincronizar: Captação das publicações do DJEN
+            push_resumo_semanal_cliente: Resumo semanal ao cliente
+            pastas_relatorio_sem_processo: Relatório de pastas sem processo
+            pastas_relatorio_pastas_paradas: Relatório de pastas paradas
+            dashboard_fotografar: Foto diária do Dashboard
+            sync_reconciliar: Envio para o Google Drive
+            outra: Tarefa agendada
         dispensar: Dispensar
     # Aviso da cota de envio de e-mail (layout/_globais/aviso_cota_de_envio, spec comercial-e-emails §3.6)
     aviso_cota_de_envio:
         titulo_perto: Perto do limite de e-mail
-        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas (limite da Hostinger). Perto do limite.'
+        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas. Perto do limite diário.'
         titulo_pausadas: Limite de e-mail de campanha atingido
         texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
         dispensar: Dispensar
@@ -812,7 +824,7 @@ comercial_relatorio:
         duplicar: Duplicar como nova
         reenviar: Reenviar a quem não leu
         encaminhar: Encaminhar para um e-mail
-        encaminhar_motivo: Aguardando a decisão sobre enviar teste para outros endereços.
+        encaminhar_motivo: Envio de teste para outros endereços ainda não disponível.
         estrela: Marcar com estrela
         arquivar: Arquivar
         exportar: Exportar destinatários (CSV)
@@ -840,9 +852,9 @@ comercial_relatorio:
         confirmar_cancelar_fila: Cancelar o envio desta campanha? O que ainda está na fila não sai.
         confirmar_remover: 'Remover {n} campanha(s) do relatório?'
         confirmar_excluir: Excluir esta campanha do relatório?
-        reenvio_menu_rastreada: Reenvio disponível quando o servidor registrar as leituras.
+        reenvio_menu_rastreada: Reenvio disponível assim que as leituras forem registradas.
         reenvio_menu_sem_rastreio: Esta campanha não rastreou leitura.
-        reenvio_rastreada: Reenvio para quem não leu fica disponível assim que o servidor registrar as leituras.
+        reenvio_rastreada: Reenvio para quem não leu fica disponível assim que as leituras forem registradas.
         reenvio_sem_rastreio: 'Esta campanha não rastreou leitura; não dá para saber quem não leu.'
         erro_exportar: Não foi possível exportar. Recarregue a página.
 
@@ -2165,7 +2177,7 @@ master:
             ind: Indicações do BlueJus
             notif: Central de Notificações
         vazia:
-            aviso: DADO AINDA NÃO COLETADO · DEPENDE DE INTEGRAÇÃO NO SERVIDOR
+            aviso: DADO AINDA NÃO COLETADO · INTEGRAÇÃO AINDA NÃO DISPONÍVEL
             custos:
                 texto: Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.
                 armazenamento: Armazenamento
@@ -3885,7 +3897,7 @@ comercial:
         sub: 'clicaram em "Não quero mais receber" e saem de todas as listas automaticamente'
         buscar: Buscar e-mail
         registrar: Registrar pedido
-        limpar_dica: Limpar a lista inteira depende de decisão do dono (LGPD). Por enquanto, exclua um por vez.
+        limpar_dica: Limpar a lista inteira ainda não está disponível (LGPD). Por enquanto, a exclusão é feita um por vez.
         limpar: Limpar lista
         csv: CSV
         fechar: Fechar
@@ -3895,7 +3907,7 @@ comercial:
         fechar: Fechar
         enviar_para: ENVIAR PARA
         separe: (separe vários por vírgula)
-        trava: Por enquanto o teste vai só para o seu e-mail; enviar para outros endereços depende de decisão.
+        trava: O teste vai só para o seu e-mail. O envio para outros endereços ainda não está disponível.
         nota: O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.
         cancelar: Cancelar
         enviar: Enviar teste
@@ -4395,7 +4407,7 @@ escritorio:
     flash:
         email_em_uso: Este e-mail já está em uso. Informe outro e-mail para o administrador.
         email_cadastrado: Este e-mail já está cadastrado. Informe outro e-mail para o administrador.
-        criado_sem_email: Tenant criado, mas não foi possível enviar o e-mail de ativação do administrador agora. Verifique SMTP e reenvie o convite.
+        criado_sem_email: Escritório criado. O e-mail de ativação do administrador não saiu agora; o convite pode ser reenviado.
         link_dev: 'Link de confirmação (dev): {link}'
         criado: Tenant criado com sucesso! O administrador receberá um e-mail para criar a senha.
         nome_atualizado: Nome do Tenant atualizado com sucesso!
