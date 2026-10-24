@@ -9023,6 +9023,23 @@ pasta_cabecalho:
             em: 'Movimentado em {data}'
         nao_vinculado: não vinculado ao cadastro de clientes
         dica_cliente: 'Detalhes: clique com o botão direito'
+        foto:
+            rotulo: Foto do cliente
+            carregar: Carregar foto
+            carregar_nova: Carregar nova foto
+            ajustar: Ajustar foto
+            remover: Remover foto
+            editor_aria: Ajustar foto
+            editor_titulo: Ajustar foto do cliente
+            fechar: Fechar
+            arrastar: Arraste para posicionar
+            dica: 'Arraste para posicionar · role para aproximar'
+            zoom: Zoom
+            girar: Girar
+            girar_dica: 'Girar 90°'
+            trocar: Trocar imagem
+            cancelar: Cancelar
+            salvar: Salvar foto
         ia_dica: 'BlueJus IA: análises desta pasta por agente'
         selo:
             arquivado: ARQUIVADO
@@ -9169,6 +9186,13 @@ pasta_cabecalho:
             documento: Documento
             erro_busca: Não foi possível buscar agora. Tente de novo.
             erro_vincular: Não foi possível vincular o cliente.
+        foto:
+            carregar: Carregar foto
+            carregar_nova: Carregar nova foto
+            salva: Foto do cliente salva
+            removida: Foto removida
+            erro: Não foi possível salvar a foto. Tente de novo.
+            erro_remover: Não foi possível remover a foto. Tente de novo.
 
 edicao_sem_prazo:
     selo:

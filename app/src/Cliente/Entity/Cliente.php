@@ -56,6 +56,17 @@ abstract class Cliente implements TenantAware
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $whatsapp = null;
 
+    /**
+     * Foto do cliente (cabeçalho da pasta, desenho 02 L1255): só o NOME da chave no armazenamento, como
+     * `UserProfile.fotoUrl`; a chave inteira sai de `ChavesDeCliente::foto()`, com o escopo do escritório.
+     */
+    #[ORM\Column(name: 'foto', length: 255, nullable: true)]
+    private ?string $foto = null;
+
+    /** Quando a foto mudou: vai como `?v=` na URL, para o navegador não mostrar a anterior do cache. */
+    #[ORM\Column(name: 'foto_atualizada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $fotoAtualizadaEm = null;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $criadoAt = null;
 
@@ -286,5 +297,35 @@ abstract class Cliente implements TenantAware
         $this->whatsapp = $whatsapp !== '' ? $whatsapp : null;
 
         return $this;
+    }
+
+    public function getFoto(): ?string
+    {
+        return $this->foto;
+    }
+
+    public function getFotoAtualizadaEm(): ?\DateTimeImmutable
+    {
+        return $this->fotoAtualizadaEm;
+    }
+
+    /** Troca a foto pelo nome recém-gravado e devolve o nome da anterior (null se não havia). */
+    public function trocarFoto(string $nome, \DateTimeImmutable $em): ?string
+    {
+        $anterior = $this->foto;
+        $this->foto = $nome;
+        $this->fotoAtualizadaEm = $em;
+
+        return $anterior;
+    }
+
+    /** Tira a foto e devolve o nome da que saiu (null se não havia). */
+    public function removerFoto(\DateTimeImmutable $em): ?string
+    {
+        $anterior = $this->foto;
+        $this->foto = null;
+        $this->fotoAtualizadaEm = $anterior !== null ? $em : $this->fotoAtualizadaEm;
+
+        return $anterior;
     }
 }

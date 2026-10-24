@@ -22,6 +22,9 @@ enum CategoriaDeArquivo: string
     case PASTA_DOCUMENTO      = 'pasta_documento';
     case PASTA_IMAGEM_EDITOR  = 'pasta_imagem_editor';
     case CLIENTE_DOCUMENTO    = 'cliente_documento';
+    // A foto do cliente (cabeçalho da pasta). Plana, numa subpasta da raiz dos documentos de cliente; o escopo é o
+    // escritório dono do cliente (`ChavesDeCliente::foto`), e a purga a leva pelos registros de `cliente`.
+    case CLIENTE_FOTO         = 'cliente_foto';
     case CHAMADO_ANEXO        = 'chamado_anexo';
     case JUSTIFICATIVA_ANEXO  = 'justificativa_anexo';
     case FOTO_PERFIL          = 'foto_perfil';
