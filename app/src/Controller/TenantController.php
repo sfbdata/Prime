@@ -67,6 +67,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormInterface;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
 use Symfony\Component\HttpFoundation\Request;
@@ -987,16 +988,10 @@ final class TenantController extends AbstractController
         $form = $this->createForm(RegistroPontoManualType::class);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            /** @var \DateTime $data */
-            $data = $form->get('data')->getData();
-            /** @var \DateTime $hora */
-            $hora = $form->get('hora')->getData();
+        $valido   = $form->isSubmitted() && $form->isValid();
+        $dataHora = $valido ? $this->dataHoraManualForaDoFuturo($form) : null;
 
-            $dataHora = new \DateTime(
-                $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
-            );
-
+        if ($dataHora !== null) {
             $registro = new RegistroPonto();
             $registro->setUser($user);
             $registro->setTenant($tenant);
@@ -1009,6 +1004,8 @@ final class TenantController extends AbstractController
             $entityManager->flush();
 
             $this->addFlash('success', 'Batida registrada com sucesso.');
+        } elseif ($valido) {
+            $this->addFlash('danger', HorarioFuturoDaBatida::MENSAGEM);
         } else {
             $this->addFlash('danger', 'Erro ao registrar batida. Verifique os campos.');
         }
@@ -1021,6 +1018,24 @@ final class TenantController extends AbstractController
             'competencia' => $competencia,
             'tab'         => 'ponto',
         ]);
+    }
+
+    /**
+     * Data e hora do lançamento manual, ou null quando ficam acima de agora (a régua da batida
+     * em horário futuro). Agora passa.
+     */
+    private function dataHoraManualForaDoFuturo(FormInterface $form): ?\DateTime
+    {
+        /** @var \DateTime $data */
+        $data = $form->get('data')->getData();
+        /** @var \DateTime $hora */
+        $hora = $form->get('hora')->getData();
+
+        if ($this->horarioFuturo->estaNoFuturo($data, $hora)) {
+            return null;
+        }
+
+        return new \DateTime($data->format('Y-m-d') . ' ' . $hora->format('H:i:s'));
     }
 
     #[Route('/{tenantId}/user/{id}/ponto/{registroId}/edit', name: 'app_tenant_user_ponto_edit', methods: ['GET', 'POST'])]
@@ -1086,16 +1101,14 @@ final class TenantController extends AbstractController
 
         $competencia = $request->query->get('competencia', $registro->getDataHora()?->format('Y-m') ?? '');
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            /** @var \DateTime $data */
-            $data = $form->get('data')->getData();
-            /** @var \DateTime $hora */
-            $hora = $form->get('hora')->getData();
+        $valido   = $form->isSubmitted() && $form->isValid();
+        $dataHora = $valido ? $this->dataHoraManualForaDoFuturo($form) : null;
 
-            $dataHora = new \DateTime(
-                $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
-            );
+        if ($valido && $dataHora === null) {
+            $form->get('hora')->addError(new FormError(HorarioFuturoDaBatida::MENSAGEM));
+        }
 
+        if ($dataHora !== null) {
             $registro->setDataHora($dataHora);
             $registro->setTipo($form->get('tipo')->getData());
             $registro->setObservacao($form->get('observacao')->getData());

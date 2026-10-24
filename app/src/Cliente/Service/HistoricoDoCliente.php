@@ -19,7 +19,8 @@ use App\Entity\Tenant\Tenant;
  * {@see CamposDoCadastro::ROTULOS} é descartado, para nenhum valor entrar por engano. Documento anexado, editado ou
  * removido entra como "<quem> alterou documento de identificação" (o verbo e o tipo em minúsculas do desenho,
  * L.3496-3500), uma linha por ação (no sistema o anexo é requisição separada do Salvar), sem o nome do arquivo, que
- * pode trazer nome ou CPF da pessoa.
+ * pode trazer nome ou CPF da pessoa. A foto do cabeçalho da pasta entra no mesmo formato: "<quem> alterou foto" e
+ * "<quem> removeu foto".
  *
  * Só persiste: quem chama dá o flush junto da própria mudança, na mesma transação.
  */
@@ -89,6 +90,18 @@ final class HistoricoDoCliente
             throw new \DomainException('Documento sem cliente ou sem escritório.');
         }
         $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' vinculou ' . self::documento($documento->getCategoria()) . ' a partir do menu Documentos');
+    }
+
+    /** Foto do cliente trocada pelo cabeçalho da pasta: "<quem> alterou foto" (sem o nome do arquivo). */
+    public function fotoAlterada(Cliente $cliente, User $autor, Tenant $tenant): void
+    {
+        $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' alterou foto');
+    }
+
+    /** Foto do cliente removida pelo cabeçalho da pasta: "<quem> removeu foto". */
+    public function fotoRemovida(Cliente $cliente, User $autor, Tenant $tenant): void
+    {
+        $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' removeu foto');
     }
 
     /**

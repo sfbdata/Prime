@@ -363,6 +363,15 @@ final class PurgarEscritorioUseCase
              WHERE d.tenant_id = :tenant AND d.pasta_documento_id IS NULL
              GROUP BY d.caminho_arquivo',
         ],
+        // A foto do cliente: a linha é o próprio cliente (coluna `foto`), sem cadeia acima dele.
+        'cliente' => [
+            CategoriaDeArquivo::CLIENTE_FOTO,
+            'SELECT d.foto AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM cliente d
+             LEFT JOIN cliente o ON o.foto = d.foto AND o.tenant_id IS DISTINCT FROM d.tenant_id
+             WHERE d.tenant_id = :tenant AND d.foto IS NOT NULL
+             GROUP BY d.foto',
+        ],
         'pasta_documento' => [
             CategoriaDeArquivo::PASTA_DOCUMENTO,
             'SELECT d.caminho_arquivo AS nome,
