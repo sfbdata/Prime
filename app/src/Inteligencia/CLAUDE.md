@@ -94,3 +94,9 @@ UseCases. Porta de entrada é o módulo **Expediente** (não o da IA): a busca d
 - **Nenhum id de escritório, usuário ou pasta em metadado** da requisição.
 - Testes só com `MockHttpClient`; a suíte usa o `ProvedorFalso`. Nunca uma chamada real em teste.
 - Não usar os "Covered Models" (Fable/Mythos): exigem retenção de 30 dias do lado da Anthropic.
+- **`inference_geo`** sai de `IA_INFERENCE_GEO` (padrão `us`, decisão de 24/10/2026); valor fora de `us`/`global`/vazio
+  deixa o provedor dormente.
+- **`retry-after`** do 429/529/503 vira `FalhaDoProvedorException::esperarSegundos` (teto de 5 min); o handler re-tenta
+  com esse atraso (`RecoverableMessageHandlingException`), sempre dentro de `TENTATIVAS_MAXIMAS`.
+- **Uma chamada por entrega:** o handler trava a linha (`PESSIMISTIC_WRITE`) e relê o status antes de passar a
+  `processando`. Sem a trava, mensagem reentregue ou dois workers cobravam a mesma análise duas vezes.
