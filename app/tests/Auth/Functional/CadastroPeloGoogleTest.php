@@ -51,20 +51,23 @@ final class CadastroPeloGoogleTest extends JusPrimeWebTestCase
         self::assertStringNotContainsStringIgnoringCase('facebook', (string) $client->getResponse()->getContent());
     }
 
-    #[TestDox('Sem o cliente OAuth do Google: o Continuar com Google continua no bloco, e nada do Facebook')]
-    public function testSemGoogleOBotaoContinua(): void
+    #[TestDox('Sem o cliente OAuth do Google: o Continuar com Google sai do Criar conta (nenhum botão que não funciona), e nada do Facebook')]
+    public function testSemGoogleSemBotao(): void
     {
         $client = $this->cliente(new GoogleLoginApi(new MockHttpClient()));
 
         $crawler = $client->request('GET', '/login?abrir=cadastro');
 
-        self::assertCount(1, $crawler->filter('#lgCdSoc > a#lgCdGoogle.lg-soc__btn:first-child + .lg-soc__ou'));
-        self::assertSame('Continuar com Google', $crawler->filter('#lgCdGoogle')->text());
+        $passo = '#lgMdForm > .lg-md__passo[data-passo="cad"]';
+        self::assertCount(0, $crawler->filter('#lgCdSoc, #lgCdGoogle, a[href^="/login/google"]'));
+        self::assertCount(1, $crawler->filter($passo . ' > .lg-md__texto + #lgCdSocOk.lg-socok[hidden] + label.lg-md__rotulo > #lgCdNome'));
+        self::assertCount(1, $crawler->filter('#lgCdEmailCampo:not([hidden]) > #lgCdEmail'));
+        self::assertStringNotContainsString('Continuar com Google', (string) $client->getResponse()->getContent());
         self::assertCount(0, $crawler->filter('#lgCdFacebook'));
         self::assertNull($crawler->filter('#lgRaiz')->attr('data-aviso-cadastro'), 'o aviso só vem depois do clique');
     }
 
-    #[TestDox('Sem o cliente OAuth do Google: o clique no cadastro volta ao "Criar conta" com o aviso, sem ir ao Google; o aviso vale uma vez')]
+    #[TestDox('Sem o cliente OAuth do Google: a ida do cadastro aberta direto volta ao "Criar conta" com o aviso, sem ir ao Google; o aviso vale uma vez')]
     public function testSemGoogleAvisoNoCadastro(): void
     {
         $chamadas = 0;
@@ -73,9 +76,9 @@ final class CadastroPeloGoogleTest extends JusPrimeWebTestCase
 
             return new MockResponse('{}');
         })));
-        $href = (string) $client->request('GET', '/login?abrir=cadastro')->filter('#lgCdGoogle')->attr('href');
+        $client->request('GET', '/login?abrir=cadastro');
 
-        $client->request('GET', $href);
+        $client->request('GET', '/login/google?origem=cadastro');
 
         self::assertResponseRedirects('/login?abrir=cadastro');
         self::assertSame(0, $chamadas, 'sem chamar o Google');
