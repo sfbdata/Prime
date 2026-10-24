@@ -22,7 +22,6 @@ final class UploadPorChaveArquiteturaTest extends TestCase
      * Quem ainda move `UploadedFile` com as próprias mãos.
      *
      *  - `FonteDeUploadHttp` — é quem deve (INV-10);
-     *  - `ArquivoStorageService` — o `salvar()` do shim de D2, sem chamador; sai na E2.8;
      *  - `ImportacaoController` — a planilha de importação vai para `import-tmp`, temporário que
      *    atravessa requisições e fica como está nesta E2 (D3);
      *  (O `TarefaController` saiu da lista na Fase 2b das Metas: o anexo do despacho entra nos documentos da
@@ -31,7 +30,6 @@ final class UploadPorChaveArquiteturaTest extends TestCase
     private const QUEM_MOVE_UPLOAD = [
         'src/Cobranca/Controller/ImportacaoController.php',
         'src/Shared/Http/FonteDeUploadHttp.php',
-        'src/Shared/Service/ArquivoStorageService.php',
     ];
 
     /**

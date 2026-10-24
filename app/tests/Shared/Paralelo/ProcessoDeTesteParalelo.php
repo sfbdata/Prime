@@ -41,6 +41,7 @@ final class ProcessoDeTesteParalelo
         'kanban',
         'pastas',
         'perfil',
+        'tarefas',
         'trabalho-externo',
     ];
 

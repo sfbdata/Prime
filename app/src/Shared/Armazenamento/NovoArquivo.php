@@ -14,8 +14,8 @@ namespace App\Shared\Armazenamento;
  *
  * ## Por que o storage cunha, e não o chamador
  *
- * É o que já acontece hoje: `ArquivoStorageService::salvar()` gera
- * `bin2hex(random_bytes(16))` e **retorna** o nome (`:17`, `:27`, `:37`). Mover essa geração para
+ * É o que o `ArquivoStorageService::salvar()` (removido na E2.8) já fazia: gerava
+ * `bin2hex(random_bytes(16))` e **retornava** o nome. Mover essa geração para
  * o chamador espalharia `random_bytes` por 18 pontos de escrita e — pior — levaria
  * `UploadedFile::guessExtension()` para dentro do núcleo, contra INV-8.
  *

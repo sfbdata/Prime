@@ -154,6 +154,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Dashboard/Entity'
                 prefix: 'App\Dashboard\Entity'
                 alias: AppDashboard
+            # P2.3: só a tabela da outbox da réplica do espelho (armazenamento_replicacao).
+            AppEspelhoRemoto:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Shared/EspelhoRemoto/Entity'
+                prefix: 'App\Shared\EspelhoRemoto\Entity'
+                alias: AppEspelhoRemoto
             AppTrabalhoExterno:
                 type: attribute
                 is_bundle: false

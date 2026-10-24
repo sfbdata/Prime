@@ -27,6 +27,7 @@ use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\TenantAware;
+use App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo;
 use App\Termo\Entity\AceiteTermo;
 use App\TrabalhoExterno\Entity\AvisoWhatsapp;
 use App\TrabalhoExterno\Entity\ConfiguracaoCentral;
@@ -117,6 +118,13 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Medido em 12/08/2026: 13 linhas para 13 usuários distintos — o perfil é do USUÁRIO,
         // não do escritório. Quem atua em dois escritórios tem um perfil só.
         UserProfile::class,
+
+        // Outbox da réplica do espelho (P2.3, docs/specs/p2-gravacao-dupla.md §14). Infraestrutura:
+        // ESCRITA pelo decorador do armazenamento (na requisição do usuário, com o escopo da chave) e
+        // LIDA só pelo worker e pelos comandos de operador — sempre por DBAL (que o TenantFilter nem
+        // alcança), sem rota HTTP. O tenant de cada linha está em `escopo_tenant_id`; filtrar aqui
+        // faria o worker, que roda sem escritório na sessão, não ver a fila.
+        ReplicacaoDeArquivo::class,
 
         // Inscrições na OAB (spec docs/specs/meu-perfil-oab-inscricoes.md §2): credencial da PESSOA, como os
         // campos oab* do User de que a principal é o espelho; vale em todo escritório em que ela atua. Leitura
@@ -284,7 +292,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // do sistema, sem escritório, justificada acima.
     // 68 → 69 com a BlueJus IA no Painel do Master (24/10/2026): ConfiguracaoDaPlataformaDeIa, configuração global da
     // plataforma, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 69;
+    // 69 → 70 com a outbox da réplica do espelho no R2 (P2.3, spec p2-gravacao-dupla): ReplicacaoDeArquivo é
+    // infraestrutura lida só pelo worker, por DBAL, com o escritório na própria linha; justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 70;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

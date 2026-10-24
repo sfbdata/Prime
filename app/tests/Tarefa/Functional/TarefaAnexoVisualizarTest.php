@@ -24,11 +24,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  *
  * O upload do chat não tem lista de tipos — um `.html` entra. Antes, a rota o devolvia como
  * `text/html` na origem do BlueJus, sem CSP nem nosniff: XSS armazenado para quem abrisse o link.
- * Agora a rota segue a política da `EntregaDeArquivo` (SEC-003). Os testes passam pelo HTTP de
- * verdade, com arquivo de verdade no diretório que `CaminhoDeAnexoDeTarefa` serve.
- *
- * ⚠️ Escreve em `public/uploads/tarefas/chat` do projeto (é a raiz fixa do resolvedor), com nome
- * único por teste, e apaga em `tearDown`.
+ * Desde a E2.7 a rota entrega pela própria `EntregaDeArquivo` (SEC-003). Os testes passam pelo HTTP
+ * de verdade, com arquivo de verdade em `<tarefas_uploads_dir>/chat` — em teste,
+ * `var/uploads-test/tarefas/chat` —, com nome único por teste, apagado em `tearDown`.
  */
 #[CoversClass(TarefaController::class)]
 final class TarefaAnexoVisualizarTest extends JusPrimeWebTestCase
@@ -181,11 +179,10 @@ final class TarefaAnexoVisualizarTest extends JusPrimeWebTestCase
         return (int) $mensagem->getId();
     }
 
-    /** Grava na raiz que o resolvedor serve e devolve o caminho público, como o upload grava. */
+    /** Grava onde o armazenamento lê e devolve o valor da coluna, como o upload grava. */
     private function gravarAnexo(string $conteudo, string $extensao): string
     {
-        $projectDir = rtrim((string) static::getContainer()->getParameter('kernel.project_dir'), '/');
-        $diretorio  = $projectDir . '/public/uploads/tarefas/chat';
+        $diretorio = rtrim((string) static::getContainer()->getParameter('tarefas_uploads_dir'), '/') . '/chat';
         if (!is_dir($diretorio) && !mkdir($diretorio, 0775, true) && !is_dir($diretorio)) {
             self::fail('Não foi possível criar ' . $diretorio);
         }
