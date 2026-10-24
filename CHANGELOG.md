@@ -8,6 +8,19 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.18.0] - 2026-10-24
+
+### Alterado
+
+- BlueJus IA: a tarefa diária `app:inteligencia:expirar-conteudo` usa o prazo de guarda que o Master escolhe na aba "Configurações da I.A." (12 meses por padrão), em vez de 12 meses fixos. Decidido pelo dono em 24/10/2026. O comando e o log mostram o prazo usado.
+- Telas do Master: 9 textos passam a mostrar só o estado, sem nome técnico e sem mandar o Master acionar alguém (regra de tom de 24/10/2026). - Comercial: "depende de decisão do dono" e "Aguardando a decisão" viram "ainda não está disponível". - "Integração no servidor" vira "integração ainda não disponível". - Relatório comercial: "quando o servidor registrar as leituras" vira "assim que as leituras forem registradas". - Aviso da cota de e-mail: sai "(limite da Hostinger)". - Criar escritório sem e-mail: sai "Verifique SMTP".
+- Aviso de falha do agendador e Central de Notificações do Master mostram o nome da tarefa ("Captação das publicações do DJEN"), não o comando do console. Serviço novo `NomeDaTarefaAgendada`; um teste garante que toda tarefa da agenda tem nome. "Detalhe no log do agendador" vira "Os detalhes ficam registrados pela equipe BlueJus."
+
+### Corrigido
+
+- Pasta, cabeçalho: o círculo do cliente abre o menu "Carregar foto" também na pasta sem cliente cadastrado (desenho 02 VS 18.10.26); antes ficava inerte. A foto fica na própria pasta (migration `Version20261024150000`: `pasta.foto` e `pasta.foto_atualizada_em`, categoria `pasta_foto` em `uploads_dir/fotos`), com as mesmas regras da foto do cliente: editar a pasta, escritório, CSRF, lápide e cadeado, imagem até 3 MB, a anterior apagada depois do commit, registro na pasta e purga do escritório.
+- Com cliente vinculado depois, a foto da pasta continua aparecendo até o cliente ter foto própria. Rotas novas `pasta_foto_trocar`, `pasta_foto_remover` e `pasta_foto`; as respostas das rotas da foto passam a dizer a origem da foto mostrada.
+
 ## [2.17.0] - 2026-10-24
 
 ### Adicionado
@@ -906,7 +919,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.17.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.18.0...HEAD
+[2.18.0]: https://github.com/sfbdata/Prime/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/sfbdata/Prime/compare/v2.16.0...v2.17.0
 [2.16.0]: https://github.com/sfbdata/Prime/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/sfbdata/Prime/compare/v2.14.0...v2.15.0

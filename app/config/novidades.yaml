@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.18.0"
+  data: "2026-10-24"
+  itens:
+    - "Na pasta sem cliente cadastrado, clique no círculo ao lado do nome para carregar, ajustar ou remover a foto. Quando um cliente for vinculado, a foto continua até ele ganhar uma foto própria."
+    - "Nada muda para os escritórios."
+    - "Nada muda para os escritórios."
 - versao: "2.17.0"
   data: "2026-10-24"
   itens:
