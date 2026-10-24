@@ -63,22 +63,13 @@ final class ReconciliarEspelhoCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
-
-        $limite = $input->getOption('limite');
-        if ($limite !== null && (!ctype_digit((string) $limite) || (int) $limite < 1)) {
-            $io->error('--limite precisa ser um inteiro maior que zero.');
-
+        $io     = new SymfonyStyle($input, $output);
+        $opcoes = $this->opcoes($input, $io);
+        if ($opcoes === null) {
             return Command::INVALID;
         }
-        $limite   = $limite === null ? null : (int) $limite;
-        $seLigado = (bool) $input->getOption('se-ligado');
-        $fatia    = $this->fatia((string) $input->getOption('fatia'));
-        if ($fatia === false) {
-            $io->error(sprintf('--fatia precisa ser "todas", "auto" ou um inteiro de 0 a %d.', ReconciliadorDoEspelho::FATIAS_DO_SHA - 1));
-
-            return Command::INVALID;
-        }
+        [$limite, $fatia] = $opcoes;
+        $seLigado         = (bool) $input->getOption('se-ligado');
 
         if ($seLigado && !($this->politica->estaLigada() && $this->fabrica->estaConfigurado())) {
             $io->writeln('Espelho desligado: nada a reconciliar.');
@@ -96,7 +87,38 @@ final class ReconciliarEspelhoCommand extends Command
 
         $comSha    = !$input->getOption('sem-sha');
         $relatorio = $this->reconciliador->reconciliar($espelho, $comSha, $limite, $seLigado ? $this->politica : null, $fatia);
+        $this->mostrar($io, $relatorio, $comSha, $fatia);
 
+        $saida = $input->getOption('saida');
+        if (\is_string($saida) && $saida !== '' && !$this->gravarRelatorio($io, $relatorio, $saida)) {
+            return Command::FAILURE;
+        }
+
+        return $seLigado ? $this->alertar($io, $relatorio) : Command::SUCCESS;
+    }
+
+    /** @return array{0: ?int, 1: ?int}|null limite e fatia; null = opção inválida (o erro já saiu) */
+    private function opcoes(InputInterface $input, SymfonyStyle $io): ?array
+    {
+        $limite = $input->getOption('limite');
+        if ($limite !== null && (!ctype_digit((string) $limite) || (int) $limite < 1)) {
+            $io->error('--limite precisa ser um inteiro maior que zero.');
+
+            return null;
+        }
+
+        $fatia = $this->fatia((string) $input->getOption('fatia'));
+        if ($fatia === false) {
+            $io->error(sprintf('--fatia precisa ser "todas", "auto" ou um inteiro de 0 a %d.', ReconciliadorDoEspelho::FATIAS_DO_SHA - 1));
+
+            return null;
+        }
+
+        return [$limite === null ? null : (int) $limite, $fatia];
+    }
+
+    private function mostrar(SymfonyStyle $io, RelatorioDeReconciliacao $relatorio, bool $comSha, ?int $fatia): void
+    {
         $io->title('Reconciliação do espelho (somente leitura)');
         $io->writeln(match (true) {
             !$comSha        => 'SHA-256: não conferido (--sem-sha).',
@@ -105,13 +127,6 @@ final class ReconciliarEspelhoCommand extends Command
         });
         $io->table(['classe', 'referências'], array_map(null, array_keys($relatorio->contagem()), array_values($relatorio->contagem())));
         $io->writeln(sprintf('Total: %d referência(s); %d fora de "igual".', $relatorio->total(), \count($relatorio->divergencias())));
-
-        $saida = $input->getOption('saida');
-        if (\is_string($saida) && $saida !== '' && !$this->gravarRelatorio($io, $relatorio, $saida)) {
-            return Command::FAILURE;
-        }
-
-        return $seLigado ? $this->alertar($io, $relatorio) : Command::SUCCESS;
     }
 
     /** null = SHA de todas; int = a fatia; false = opção inválida. */
