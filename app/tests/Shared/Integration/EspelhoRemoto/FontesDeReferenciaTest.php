@@ -11,6 +11,7 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\EspelhoRemoto\Reconciliacao\FontesDeReferencia;
 use App\Shared\EspelhoRemoto\Reconciliacao\ReferenciaDeArquivo;
 use App\Tests\Factory\Auth\UserFactory;
+use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Factory\Tarefa\TarefaFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
@@ -156,6 +157,26 @@ final class FontesDeReferenciaTest extends KernelTestCase
         self::assertSame(CategoriaDeArquivo::COMERCIAL_IMAGEM, $refImagem->chave?->categoria);
         self::assertTrue($refImagem->chave?->escopo->ehGlobal());
         self::assertSame('img0001.jpg', $refImagem->chave?->nome);
+    }
+
+    #[TestDox('foto do cliente: vira chave com o escritório do cliente; cliente sem foto não gera referência')]
+    public function testFotoDoCliente(): void
+    {
+        self::bootKernel();
+        $em      = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant  = TenantFactory::createOne();
+        $comFoto = ClientePFFactory::createOne(['tenant' => $tenant])->_real();
+        $semFoto = ClientePFFactory::createOne(['tenant' => $tenant])->_real();
+        $comFoto->trocarFoto('f1a2b3c4.jpg', new \DateTimeImmutable());
+        $em->flush();
+
+        $porLinha = iterator_to_array($this->referencias());
+
+        $ref = $porLinha['cliente_foto#' . $comFoto->getId()] ?? self::fail('foto do cliente não listada');
+        self::assertSame(CategoriaDeArquivo::CLIENTE_FOTO, $ref->chave?->categoria);
+        self::assertSame($tenant->getId(), $ref->chave?->escopo->tenantIdOuNull());
+        self::assertSame('f1a2b3c4.jpg', $ref->chave?->nome);
+        self::assertArrayNotHasKey('cliente_foto#' . $semFoto->getId(), $porLinha, 'cliente sem foto não gera referência');
     }
 
     /** @return \Generator<string, ReferenciaDeArquivo> */

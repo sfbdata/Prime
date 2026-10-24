@@ -103,6 +103,7 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::PASTA_DOCUMENTO     => 'pastas',
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR => 'pastas/' . $tenant,
             CategoriaDeArquivo::CLIENTE_DOCUMENTO   => 'clientes',
+            CategoriaDeArquivo::CLIENTE_FOTO        => 'clientes/fotos',
             CategoriaDeArquivo::CHAMADO_ANEXO       => 'chamados',
             CategoriaDeArquivo::JUSTIFICATIVA_ANEXO => 'justificativas',
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => 'cobrancas/' . $tenant,

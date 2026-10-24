@@ -14,7 +14,7 @@ use Doctrine\DBAL\Connection;
  * Os arquivos que o BANCO diz que existem — as dez fontes (oito colunas da P1, mais os documentos de
  * acordo e de carteira da cobrança, hoje vazios em produção) (spec P2 §3.4), e as três que vieram
  * depois: documento de demanda e arquivos do currículo do Trabalho Externo e imagem da campanha do
- * Comercial (decisão do dono de 23/10).
+ * Comercial (decisão do dono de 23/10), e a foto do cliente (coluna `cliente.foto`, #345).
  *
  * Anexo de tarefa: só os valores LEGADOS (caminho público, começa por `/`). O anexo novo do despacho
  * é documento da pasta (`pasta_documento:<id>` na coluna) e já entra pela fonte `pasta_documento`.
@@ -47,6 +47,7 @@ final class FontesDeReferencia implements FonteDeReferencias
         'tarefa_mensagem' => ['sql' => "SELECT id, tenant_id AS tenant, arquivo_anexo AS valor FROM tarefa_mensagem WHERE arquivo_anexo LIKE '/%' ORDER BY id", 'categoria' => CategoriaDeArquivo::TAREFA_ANEXO],
         'trabalho_externo_documento' => ['sql' => 'SELECT d.id, e.tenant_id AS tenant, d.nome_armazenado AS valor FROM trabalho_externo_documento d JOIN trabalho_externo_demanda e ON e.id = d.demanda_id ORDER BY d.id', 'categoria' => CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO],
         'trabalho_externo_curriculo' => ['sql' => "SELECT c.id, NULL AS tenant, a.value->>'chave' AS valor FROM trabalho_externo_curriculo c CROSS JOIN LATERAL json_each(CASE WHEN json_typeof(c.arquivos) = 'object' THEN c.arquivos ELSE '{}'::json END) a WHERE a.value->>'chave' IS NOT NULL ORDER BY c.id, a.key", 'categoria' => CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO],
+        'cliente_foto' => ['sql' => 'SELECT id, tenant_id AS tenant, foto AS valor FROM cliente WHERE foto IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::CLIENTE_FOTO],
         'comercial_imagem' => ['sql' => 'SELECT id, NULL AS tenant, nome_arquivo AS valor FROM comercial_imagem ORDER BY id', 'categoria' => CategoriaDeArquivo::COMERCIAL_IMAGEM],
     ];
 
