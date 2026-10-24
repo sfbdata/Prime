@@ -2,33 +2,61 @@
    Foto do cliente no cabeçalho da pasta (desenho 02 VS 18.10.26: botão L1255, foto sobreposta
    L3853, menu L472-482, editor de recorte L483-505).
 
-   A foto é do CLIENTE (`pasta.clientePrincipal`), não da pasta: vale para todas as pastas dele.
-     · sem cliente cadastrado: o ícone de pessoa, inerte (`span`);
-     · quem só VÊ o cliente: a foto (ou o ícone), sem menu;
-     · quem pode EDITAR o cliente, em pasta que aceita escrita (nem lápide, nem cadeado só de
-       visualizar): o círculo é botão e abre o menu e o editor (/js/pasta-foto-cliente.js).
-   Só mostra a foto quem pode ver o cliente; a rota de entrega confere de novo.
+   Com cliente cadastrado (`pasta.clientePrincipal`) a foto é do CLIENTE e vale para todas as
+   pastas dele. Sem cliente cadastrado a foto fica na própria PASTA. Exibição: a do cliente, se
+   ele tem foto e quem olha o vê; senão a da pasta (vincular um cliente não apaga a foto da
+   pasta: ela continua valendo até o cliente ter foto própria); senão o ícone de pessoa.
+     · quem pode EDITAR (o cliente, se há cliente; a pasta, se não há), em pasta que aceita
+       escrita (nem lápide, nem cadeado só de visualizar): o círculo é botão e abre o menu e o
+       editor (/js/pasta-foto-cliente.js). A foto nova vai para o cliente ou para a pasta.
+     · os demais: a foto (ou o ícone), sem menu.
+   "Remover foto" vai para quem é dono da foto mostrada (`data-origem`): o cliente
+   (`data-url-remover`) ou a pasta (`data-url-remover-pasta`, só para quem edita a pasta).
+   As rotas de entrega conferem a visibilidade de novo.
 
    Contexto: `pasta`, `cliente` (pode ser null), `cad` (o cadeado já montado, ou null).
    ============================================================================ #}
 {% set podeVerCliente = cliente is not null and can_access_resource('cliente', cliente.id, 'view') %}
 {% set cadFoto = cad ?? cadeado_da_pasta(pasta) %}
-{% set podeTrocarFoto = podeVerCliente
-    and can_access_resource('cliente', cliente.id, 'edit')
-    and not pasta.estaExcluida
-    and not (cadFoto and cadFoto.soVer) %}
-{% set fotoUrl = podeVerCliente and cliente.foto
+{% set aceitaEscrita = not pasta.estaExcluida and not (cadFoto and cadFoto.soVer) %}
+{% set podeEditarPasta = aceitaEscrita and can_access_resource('pasta', pasta.id, 'edit') %}
+{% set podeTrocarFoto = cliente is not null
+    ? (aceitaEscrita and podeVerCliente and can_access_resource('cliente', cliente.id, 'edit'))
+    : podeEditarPasta %}
+{% set fotoCliente = podeVerCliente and cliente.foto
     ? path('cliente_foto', {id: cliente.id, nome: cliente.foto, v: cliente.fotoAtualizadaEm ? cliente.fotoAtualizadaEm|date('U') : null})
     : null %}
+{% set fotoPasta = pasta.foto
+    ? path('pasta_foto', {id: pasta.id, nome: pasta.foto, v: pasta.fotoAtualizadaEm ? pasta.fotoAtualizadaEm|date('U') : null})
+    : null %}
+{% set fotoUrl = fotoCliente ?: fotoPasta %}
+{% set origemFoto = fotoCliente ? 'cliente' : (fotoPasta ? 'pasta' : '') %}
+{# Pasta com cliente que mostra a foto guardada NA PASTA: quem edita a pasta, mesmo sem editar o cliente,
+   pode remover essa foto (decisão de 24/10 no #379). O menu traz só "Remover foto". #}
+{% set soRemover = not podeTrocarFoto and origemFoto == 'pasta' and podeEditarPasta %}
 
-{% if podeTrocarFoto %}
+{% if podeTrocarFoto or soRemover %}
     <button type="button" class="ps-cab-cliente-icone ps-cab-foto js-ps-foto"
             title="{{ 'pasta_cabecalho.cabecalho.foto.rotulo'|trans }}" aria-label="{{ 'pasta_cabecalho.cabecalho.foto.rotulo'|trans }}"
             aria-haspopup="menu" aria-expanded="false"
             data-tem-foto="{{ fotoUrl ? '1' : '0' }}"
+            data-origem="{{ origemFoto }}"
+            {%- if soRemover %}
+            {#- só a remoção da foto da pasta: sem rota de troca nem token do cliente #}
+            data-so-remover="1"
+            {%- elseif cliente %}
             data-token="{{ csrf_token('cliente_foto_' ~ cliente.id) }}"
             data-url-trocar="{{ path('pasta_cliente_foto_trocar', {id: pasta.id, cliente: cliente.id}) }}"
-            data-url-remover="{{ path('pasta_cliente_foto_remover', {id: pasta.id, cliente: cliente.id}) }}">
+            data-url-remover="{{ path('pasta_cliente_foto_remover', {id: pasta.id, cliente: cliente.id}) }}"
+            {%- else %}
+            data-token="{{ csrf_token('pasta_foto_' ~ pasta.id) }}"
+            data-url-trocar="{{ path('pasta_foto_trocar', {id: pasta.id}) }}"
+            data-url-remover="{{ path('pasta_foto_remover', {id: pasta.id}) }}"
+            {%- endif %}
+            {%- if podeEditarPasta %}
+            data-token-pasta="{{ csrf_token('pasta_foto_' ~ pasta.id) }}"
+            data-url-remover-pasta="{{ path('pasta_foto_remover', {id: pasta.id}) }}"
+            {%- endif %}>
         <i class="bi bi-person-fill" aria-hidden="true"></i>
         <img class="ps-cab-foto-img" alt=""{% if fotoUrl %} src="{{ fotoUrl }}"{% else %} hidden{% endif %}>
     </button>
@@ -36,13 +64,13 @@
     {# Menu da foto (dc L472-482): o fundo transparente fecha ao clicar fora, como o `ft.fecharMenu`. #}
     <div class="ps-foto-fundo" data-ps-foto-fundo hidden></div>
     <div class="ps-foto-menu" role="menu" data-ps-foto-menu hidden>
-        <button type="button" role="menuitem" class="ps-foto-menu-item js-ps-foto-carregar">
+        <button type="button" role="menuitem" class="ps-foto-menu-item js-ps-foto-carregar"{% if soRemover %} hidden{% endif %}>
             <i class="bi bi-upload" aria-hidden="true"></i><span class="js-ps-foto-carregar-texto">{{ (fotoUrl ? 'pasta_cabecalho.cabecalho.foto.carregar_nova' : 'pasta_cabecalho.cabecalho.foto.carregar')|trans }}</span>
         </button>
-        <button type="button" role="menuitem" class="ps-foto-menu-item js-ps-foto-ajustar" data-ps-foto-com-foto{% if not fotoUrl %} hidden{% endif %}>
+        <button type="button" role="menuitem" class="ps-foto-menu-item js-ps-foto-ajustar" data-ps-foto-com-foto{% if not fotoUrl or soRemover %} hidden{% endif %}>
             <i class="bi bi-crop" aria-hidden="true"></i><span>{{ 'pasta_cabecalho.cabecalho.foto.ajustar'|trans }}</span>
         </button>
-        <button type="button" role="menuitem" class="ps-foto-menu-item ps-foto-menu-item--perigo js-ps-foto-remover" data-ps-foto-com-foto{% if not fotoUrl %} hidden{% endif %}>
+        <button type="button" role="menuitem" class="ps-foto-menu-item ps-foto-menu-item--perigo js-ps-foto-remover" data-ps-foto-com-foto{% if not fotoUrl or (origemFoto == 'pasta' and not podeEditarPasta) %} hidden{% endif %}>
             <i class="bi bi-trash3" aria-hidden="true"></i><span>{{ 'pasta_cabecalho.cabecalho.foto.remover'|trans }}</span>
         </button>
     </div>

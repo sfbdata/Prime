@@ -102,6 +102,7 @@ final class LayoutDeChaveRemota
         return match ($categoria) {
             CategoriaDeArquivo::PASTA_DOCUMENTO     => 'pastas',
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR => 'pastas/' . $tenant,
+            CategoriaDeArquivo::PASTA_FOTO          => 'pastas/fotos',
             CategoriaDeArquivo::CLIENTE_DOCUMENTO   => 'clientes',
             CategoriaDeArquivo::CLIENTE_FOTO        => 'clientes/fotos',
             CategoriaDeArquivo::CHAMADO_ANEXO       => 'chamados',

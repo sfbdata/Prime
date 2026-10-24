@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Armazenamento;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -115,6 +116,44 @@ final class ChavesDePasta
         return new NovoArquivo(
             self::escopoDe($tenant, 'imagem nova do editor'),
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
+            $extensao,
+        );
+    }
+
+    /**
+     * A foto atual do cabeçalho da pasta sem cliente cadastrado. Escopo do escritório da pasta, como o documento: a
+     * categoria é plana no disco, e um tenant errado só apareceria no backend remoto (R1).
+     */
+    public static function foto(Pasta $pasta): ChaveDeArquivo
+    {
+        $nome = $pasta->getFoto();
+
+        if ($nome === null) {
+            throw new ChaveDeArquivoInvalida('Esta pasta não possui foto; não há chave a montar.');
+        }
+
+        return self::fotoPorNome($pasta, $nome);
+    }
+
+    /**
+     * Foto que a pasta JÁ NÃO referencia (a anterior, removida depois do COMMIT da troca ou da remoção): depois da
+     * troca, {@see foto()} devolveria a chave da NOVA. O escopo continua saindo da pasta, nunca de um tenant solto.
+     */
+    public static function fotoPorNome(Pasta $pasta, string $nome): ChaveDeArquivo
+    {
+        return new ChaveDeArquivo(
+            self::escopoDe($pasta->getTenant(), 'foto de pasta'),
+            CategoriaDeArquivo::PASTA_FOTO,
+            $nome,
+        );
+    }
+
+    /** Foto nova (D8): o nome é cunhado pelo storage; o escopo sai da pasta. */
+    public static function novaFoto(Pasta $pasta, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(
+            self::escopoDe($pasta->getTenant(), 'foto nova de pasta'),
+            CategoriaDeArquivo::PASTA_FOTO,
             $extensao,
         );
     }
