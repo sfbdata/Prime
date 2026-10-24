@@ -17,7 +17,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A decisão da trava (spec `ponto-por-escritorio.md` §2.2 e §6). A consulta das batidas em si (última batida, houve
+ * A decisão do aviso de ponto aberto em outro escritório (spec `ponto-por-escritorio.md` §2.2 e §6; desde
+ * `ponto-esquecimento-nao-trava.md` R2 é aviso, não trava). A consulta das batidas em si (última batida, houve
  * entrada, até o `agora`) é provada na integração (`PontoPorEscritorioRepositoryTest`); aqui, o que o serviço faz com o
  * resultado: quem consulta, a janela do dia, o filtro do módulo e a ordem.
  */
@@ -55,7 +56,7 @@ final class EntradaAbertaEmOutroEscritorioTest extends TestCase
         $this->vinculosEm($this->x);
         $this->registros->expects(self::never())->method('pontoAbertoHojeEmOutrosEscritorios');
 
-        self::assertNull($this->servico()->mensagem($this->user, $this->x, new \DateTimeImmutable('2026-10-19 10:00')));
+        self::assertNull($this->servico()->aviso($this->user, $this->x, new \DateTimeImmutable('2026-10-19 10:00')));
     }
 
     #[TestDox('Super admin sem vínculo no escritório atual e com vínculo em Y: consulta Y (a condição é "outro vínculo", não "um vínculo só")')]
@@ -81,7 +82,7 @@ final class EntradaAbertaEmOutroEscritorioTest extends TestCase
         self::assertNull($this->servico()->onde($this->user, $this->x, new \DateTimeImmutable('2026-10-19 10:00')));
     }
 
-    #[TestDox('A janela é o dia do agora: 23:59 começa no mesmo dia; 00:00 começa no dia novo (a virada solta a trava)')]
+    #[TestDox('A janela é o dia do agora: 23:59 começa no mesmo dia; 00:00 começa no dia novo (a virada encerra o aviso)')]
     public function testJanelaDoDia(): void
     {
         $this->vinculosEm($this->x, $this->y);
@@ -104,7 +105,7 @@ final class EntradaAbertaEmOutroEscritorioTest extends TestCase
         ], $janelas);
     }
 
-    #[TestDox('Mais de um aberto: o primeiro da consulta (que vem em ordem alfabética); a frase é a do dono')]
+    #[TestDox('Mais de um aberto: o primeiro da consulta (que vem em ordem alfabética); o aviso é a frase da spec, com o nome e o dia')]
     public function testPrimeiroEFraseDoDono(): void
     {
         $this->vinculosEm($this->x, $this->y, $this->z);
@@ -114,20 +115,19 @@ final class EntradaAbertaEmOutroEscritorioTest extends TestCase
             ->willReturn([$this->aberto($this->y), $this->aberto($this->z)]);
 
         self::assertSame(
-            sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, 'Escritório Y'),
-            $this->servico()->mensagem($this->user, $this->x, new \DateTimeImmutable('2026-10-19 10:00')),
+            'Ficou um registro em aberto em Escritório Y no dia 19/10. Envie o registro de esquecimento por lá.',
+            $this->servico()->aviso($this->user, $this->x, new \DateTimeImmutable('2026-10-19 10:00')),
         );
-        self::assertSame('Você está com o ponto aberto em Escritório Y. Registre a saída lá antes.', sprintf(EntradaAbertaEmOutroEscritorio::MENSAGEM_TRAVA, 'Escritório Y'));
     }
 
-    #[TestDox('Nada aberto: a entrada segue')]
+    #[TestDox('Nada aberto: sem aviso')]
     public function testNadaAberto(): void
     {
         $this->vinculosEm($this->x, $this->y);
         $this->permissoes->method('canAccessModule')->willReturn(true);
         $this->registros->method('pontoAbertoHojeEmOutrosEscritorios')->willReturn([]);
 
-        self::assertNull($this->servico()->mensagem($this->user, $this->x, new \DateTimeImmutable('2026-10-19 10:00')));
+        self::assertNull($this->servico()->aviso($this->user, $this->x, new \DateTimeImmutable('2026-10-19 10:00')));
     }
 
     private function servico(): EntradaAbertaEmOutroEscritorio

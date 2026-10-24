@@ -389,8 +389,13 @@
    vencimento, juros → PRÉVIA das parcelas → "Gerar N lançamentos". A prévia é
    calculada no navegador só para mostrar; o POST leva os CAMPOS e o servidor
    refaz a conta (`RegistrarParcelamentoDaPastaUseCase`) — o que grava é a
-   conta dele. Êxito e sucumbência aparecem como no desenho, mas desabilitados:
-   gravá-los depende de migration (fatia 11b).
+   conta dele.
+
+   Êxito e sucumbência (spec pasta-exito-sucumbencia, dc L.2117-2124): o bloco de
+   valor some e entra o do desenho, só o % e a Base só leitura (o Total contratado,
+   C8). Grava uma linha prevista, sem vencimento. A descrição livre some nesses tipos.
+   `data-valor-causa` alimenta só o "% da causa" do contrato e das custas, que segue
+   sobre o valor da causa da pasta.
 
    DESVIO CONSCIENTE do desenho (decisão do orquestrador, P16a): o campo
    opcional "Descrição", abaixo dos campos do dc. O desenho não o tem, mas o
@@ -406,6 +411,7 @@
    servidor recusa (422) um `entradaPaga=1` que ainda chegue. #}
 <div class="modal fade ps-np-modal" id="modalNovoPagamento" tabindex="-1" aria-labelledby="modalNovoPagamentoLabel" aria-hidden="true"
      data-url-parcelar="{{ path('pasta_pagamento_parcelar', {id: pasta.id}) }}"
+     data-valor-causa="{{ financeiro.valorCausa ?? '' }}"
      data-max-parcelas="60">
     <div class="modal-dialog ps-np-dialogo">
         <div class="modal-content ps-np">
@@ -419,7 +425,7 @@
                     <i class="bi bi-cash-coin ps-np-cab-icone" aria-hidden="true"></i>
                     <div class="ps-np-cab-textos">
                         <div class="ps-np-titulo" id="modalNovoPagamentoLabel">{{ 'pasta_show.pagamento.titulo'|trans }}</div>
-                        <div class="ps-np-sub">{{ 'pasta_show.pagamento.valor_da_causa'|trans }} <span class="js-np-causa">{{ financeiro.valorCausaFormatado }}</span> {{ 'pasta_show.pagamento.calculo_automatico'|trans }}</div>
+                        <div class="ps-np-sub">{{ 'pasta_show.pagamento.total_contratado'|trans }} <span class="js-np-causa">{{ pagamentos.contratadoFormatado }}</span> {{ 'pasta_show.pagamento.calculo_automatico'|trans }}</div>
                     </div>
                     <button type="button" class="ps-np-fechar" data-bs-dismiss="modal" title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
                 </div>
@@ -431,9 +437,13 @@
                             <button type="button" class="ps-np-tipo is-ativo" data-tipo="contrato" aria-pressed="true"
                                     data-nota="{{ 'pasta_show.pagamento.nota_contratuais'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_contratuais'|trans }}"><i class="bi bi-file-earmark-text"></i>{{ 'pasta_show.pagamento.contratuais'|trans }}</button>
-                            <button type="button" class="ps-np-tipo" data-tipo="exito" aria-pressed="false" disabled
+                            <button type="button" class="ps-np-tipo" data-tipo="exito" aria-pressed="false"
+                                    data-nota="{{ 'pasta_show.pagamento.nota_exito'|trans }}"
+                                    data-rotulo-pct="{{ 'pasta_show.pagamento.pct_proveito'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_exito'|trans }}"><i class="bi bi-trophy"></i>{{ 'pasta_show.pagamento.exito'|trans }}</button>
-                            <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false" disabled
+                            <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false"
+                                    data-nota="{{ 'pasta_show.pagamento.nota_sucumbencia'|trans }}"
+                                    data-rotulo-pct="{{ 'pasta_show.pagamento.pct_sucumbencia'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_sucumbencia'|trans }}"><i class="bi bi-bank"></i>{{ 'pasta_show.pagamento.sucumbencia'|trans }}</button>
                             <button type="button" class="ps-np-tipo" data-tipo="custas" aria-pressed="false"
                                     data-nota="{{ 'pasta_show.pagamento.nota_custas'|trans }}"
@@ -442,7 +452,7 @@
                         <span class="ps-np-nota js-np-tipo-nota">{{ 'pasta_show.pagamento.nota_contratuais'|trans }}</span>
                     </div>
 
-                    <div class="ps-np-grade">
+                    <div class="ps-np-grade js-np-bloco-valor">
                         <div class="ps-np-campo">
                             <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.base'|trans }}</span>
                             <div class="ps-np-seg" role="group" aria-label="{{ 'pasta_show.pagamento.base'|trans }}">
@@ -483,7 +493,19 @@
                         </div>
                     </div>
 
-                    <label class="ps-np-campo ps-np-descricao">
+                    {# Êxito e sucumbência (dc L.2117-2124): só o % e a Base só leitura. #}
+                    <div class="ps-np-grade js-np-bloco-pct" hidden>
+                        <label class="ps-np-campo">
+                            <span class="ps-np-rotulo js-np-pct-rotulo">{{ 'pasta_show.pagamento.pct_proveito'|trans }}</span>
+                            <input type="text" class="ps-np-input" name="percentualPrevisto" inputmode="decimal" maxlength="8" value="20" autocomplete="off">
+                        </label>
+                        <div class="ps-np-campo">
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.base_previsto'|trans }}</span>
+                            <div class="ps-np-base ps-num js-np-base">{{ pagamentos.contratadoFormatado }}</div>
+                        </div>
+                    </div>
+
+                    <label class="ps-np-campo ps-np-descricao js-np-campo-descricao">
                         <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.descricao'|trans }} <span class="ps-np-opcional">{{ 'pasta_show.pagamento.opcional_parenteses'|trans }}</span></span>
                         <input type="text" class="ps-np-input" name="descricao" maxlength="110" autocomplete="off"
                                placeholder="{{ 'pasta_show.pagamento.descricao_exemplo'|trans }}">
@@ -4278,10 +4300,11 @@ document.addEventListener('DOMContentLoaded', function () {
    com a alça de arrastar, o ícone, "Nova meta", a pasta, Recolher e Fechar; rodapé cinza com
    Cancelar e "Criar meta"; o botão fica desabilitado com "Preencha: …" enquanto falta campo
    obrigatório. Os campos, os ids e os nomes são contrato (pasta-metas.js, pasta-push.js,
-   pasta-ia-*.js e os testes) e não mudam; o que depende de decisão (prazo e responsáveis
-   obrigatórios, "Ação" só leitura, Duplicar meta: D-META) fica como está — por isso o
-   "Preencha" só cobra título e descrição, que é a regra atual do servidor. Arrastar e
-   recolher: /js/pasta-metas.js (molduraDoModalDeMeta). #}
+   pasta-ia-*.js e os testes) e não mudam. D-META (D:83-203, D:4044-4075): título, descrição,
+   prazo e responsáveis são obrigatórios (o "*" de cada rótulo), o "Preencha" cobra os quatro na
+   ordem do desenho e o servidor responde 422 quando falta algum. Aberto pelo botão "Nova meta",
+   o prazo já vem em hoje + 7 dias (D:4045). Arrastar e recolher: /js/pasta-metas.js
+   (molduraDoModalDeMeta). #}
 {% import '_partials/_avatar_usuario.html.twig' as nmAvatar %}
 {# PMC-059: o CORPO do desenho (dc L.77-188, `nm.corpoSt` e os rótulos `font-size:13px;
    font-weight:700;color:#243845`). O CSS mora aqui, junto do modal, para não tocar o
@@ -4302,6 +4325,22 @@ document.addEventListener('DOMContentLoaded', function () {
     #modalCriarTarefa .ps-nm-campo:focus { outline: none; box-shadow: inset 0 0 0 2px var(--ps-accent); }
     #modalCriarTarefa .ps-nm-campo--texto { height: auto; min-height: 84px; padding: 10px 12px; line-height: 1.5; resize: vertical; }
     #modalCriarTarefa .ps-nm-dica { font-size: 12px; color: var(--ps-label); }
+    {# Caixa / etapa (desenho 02 L179): grade de 130px, botão 6px 9px com borda de 1px e cantos de 3px, sem hover.
+       Normal, sugerido (nada escolhido e é a sugestão) e escolhido (`aria-pressed`). Tokens em pasta-show.css. #}
+    #modalCriarTarefa .ps-nm-etapa-rotulo { align-items: center; gap: 8px; flex-wrap: wrap; }
+    #modalCriarTarefa .ps-nm-etapa-sug { font-size: 11.5px; font-weight: 400; color: var(--ps-nm-etapa-dica); }
+    #modalCriarTarefa .ps-nm-etapa-sug[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-etapa-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; }
+    #modalCriarTarefa .ps-nm-etapa-op {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 9px;
+        border: 1px solid var(--ps-nm-etapa-borda); border-radius: 3px; background: var(--ps-card); color: var(--ps-body);
+        font-family: inherit; text-align: left; cursor: pointer;
+    }
+    #modalCriarTarefa .ps-nm-etapa-nome { font-size: 12.5px; }
+    #modalCriarTarefa .ps-nm-etapa-setor { font-size: 11px; color: var(--ps-muted); }
+    #modalCriarTarefa .ps-nm-etapa-op.is-sugerida { border-color: var(--ps-nm-etapa-sug-borda); background: var(--ps-nm-etapa-sug-bg); }
+    #modalCriarTarefa .ps-nm-etapa-op[aria-pressed="true"] { border-color: var(--ps-nm-etapa-on); background: var(--ps-nm-etapa-on); color: var(--ps-nm-etapa-on-tx); }
+    #modalCriarTarefa .ps-nm-etapa-op[aria-pressed="true"] .ps-nm-etapa-setor { color: var(--ps-nm-etapa-on-setor); }
     #modalCriarTarefa .ps-nm-resp-campo {
         display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 40px;
         padding: 5px 10px 5px 6px; border-radius: 4px; background: var(--ps-card); cursor: pointer;
@@ -4469,12 +4508,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
 
                     {# Atalhos de prazo e o texto do dia (desenho 1.2.3): só PREENCHEM o
-                       campo — o prazo continua opcional (tornar obrigatório é decisão
-                       pendente com o dono). O aviso de título repetido compara com as
-                       metas abertas da própria pasta, já renderizadas na aba; não
-                       bloqueia o envio. Comportamento em /js/pasta-metas.js. #}
+                       campo. O prazo é obrigatório (D-META, D:4044 `inval`). O aviso de
+                       título repetido compara com as metas abertas da própria pasta, já
+                       renderizadas na aba; não bloqueia o envio. Comportamento em
+                       /js/pasta-metas.js. #}
                     <div class="ps-nm-campo-bloco ps-nm-prazo">
-                        <label for="tarefaPrazo" class="ps-nm-rotulo">{{ 'pasta_show.meta.prazo'|trans }}</label>
+                        <label for="tarefaPrazo" class="ps-nm-rotulo">{{ 'pasta_show.meta.prazo'|trans }} <span class="ps-nm-obrig">*</span></label>
                         {# PMC-040 (dc L.81-112, `nm.cal`): o campo do desenho é um botão "dd/mm/aaaa" com o
                            calendário próprio (mês, dias, Hoje, Limpar e a legenda). O <input type="date">
                            continua sendo o campo ENVIADO (id, name e valor ISO são contrato com o servidor,
@@ -4519,6 +4558,24 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
+                    {# Desenho 02 de 22/10 (L179; L4048-4049 `inval`/`NMF`/`nmSug`; L4068 `fases`): a caixa / etapa
+                       da meta, obrigatória. As 8 etapas na ordem da esteira, com o nome que o escritório deu
+                       (NomesDasEtapas) e o setor do catálogo. O modal abre sem etapa; a sugestão pelo título (a
+                       regra do enum, no `data-regra`, para o JS não ter outra lista) só pinta o botão e mostra a
+                       dica, sem marcar nada. O clique grava o valor no `name="etapa"` enviado; troca-se de etapa,
+                       mas não se desmarca. Comportamento em /js/pasta-metas.js (`campoDaEtapa`). #}
+                    <div class="ps-nm-campo-bloco ps-nm-etapa" data-ps-nm-etapa
+                         data-regra="{{ regra_da_etapa_pelo_titulo()|json_encode|e('html_attr') }}">
+                        <span class="ps-nm-rotulo ps-nm-etapa-rotulo" id="tarefaEtapaRotulo">{{ 'pasta_show.meta.etapa'|trans }} <span class="ps-nm-obrig">*</span><span class="ps-nm-etapa-sug" data-ps-nm-etapa-sug hidden><i class="bi bi-stars" aria-hidden="true"></i> <span data-ps-nm-etapa-sug-tx></span></span></span>
+                        <div class="ps-nm-etapa-grade" role="group" aria-labelledby="tarefaEtapaRotulo">
+                            {% for etapa in etapas_da_nova_meta(pasta.tenant) %}
+                                <button type="button" class="ps-nm-etapa-op" aria-pressed="false"
+                                        data-ps-nm-etapa-op="{{ etapa.valor }}" data-nome="{{ etapa.nome }}"><b class="ps-nm-etapa-nome">{{ etapa.nome }}</b><span class="ps-nm-etapa-setor">{{ etapa.setor }}</span></button>
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" id="tarefaEtapa" name="etapa" value="">
+                    </div>
+
                     {# PMC-041 (dc L.168-186, `nm.escolhidos`/`nm.opcoes`): chips com iniciais sobre o
                        campo e a lista filtrável com "Concluir". O <select multiple> continua sendo a
                        FONTE (name, id e valores são contrato com o servidor e os testes): os chips e a
@@ -4526,10 +4583,10 @@ document.addEventListener('DOMContentLoaded', function () {
                        é desenhada aqui (nomes escapados pelo Twig); o JS só alterna classes e
                        atributos e copia o avatar da opção para o chip. A função do colaborador,
                        que o desenho mostra à direita do nome, não existe no cadastro: não entra.
-                       Responsáveis seguem opcionais (o "*" do desenho é D-META). Comportamento em
-                       /js/pasta-dialogos.js (`seletorDeResponsaveis`). #}
+                       Ao menos um responsável é obrigatório (o "*" do desenho, D-META). Comportamento
+                       em /js/pasta-dialogos.js (`seletorDeResponsaveis`). #}
                     <div class="ps-nm-campo-bloco ps-nm-resp" data-ps-nm-resp>
-                        <span class="ps-nm-rotulo" id="tarefaResponsavelRotulo">{{ 'pasta_show.meta.responsaveis'|trans }}</span>
+                        <span class="ps-nm-rotulo" id="tarefaResponsavelRotulo">{{ 'pasta_show.meta.responsaveis'|trans }} <span class="ps-nm-obrig">*</span></span>
                         <div class="ps-nm-resp-campo" role="button" tabindex="0"
                              aria-labelledby="tarefaResponsavelRotulo" aria-haspopup="listbox"
                              aria-expanded="false" aria-controls="tarefaResponsavelLista" data-ps-nm-resp-campo>

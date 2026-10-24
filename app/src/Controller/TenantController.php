@@ -9,6 +9,8 @@ use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\SaidaDeEsquecimento;
+use App\Ponto\Service\BatidaJaRegistrada;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RegraDosMasters;
@@ -29,6 +31,7 @@ use App\Ponto\Repository\FeriadoRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
@@ -84,7 +87,59 @@ final class TenantController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
         private readonly TranslatorInterface $tradutor,
+        private readonly HorarioFuturoDaBatida $horarioFuturo,
+        private readonly BatidaJaRegistrada $batidaJaRegistrada,
     ) {}
+
+    /** O sucesso do "aprovar todos"; com todos pulados (batida já registrada), só os avisos deles ficam. */
+    private function avisarAbonadas(int $abonadas): void
+    {
+        if ($abonadas > 0) {
+            $this->addFlash('success', sprintf('%d justificativa(s) abonada(s) com sucesso.', $abonadas));
+        }
+    }
+
+    /**
+     * Tira do "aprovar todos" o esquecimento cuja batida já existe no dia (spec `ponto-esquecimento-nao-trava.md` R1):
+     * ele fica pendente, para o admin decidir, e o motivo vai num aviso.
+     *
+     * @param list<JustificativaPonto> $pendentes
+     *
+     * @return list<JustificativaPonto>
+     */
+    private function semBatidaJaRegistrada(array $pendentes, Tenant $tenant, RegistrarBatidaDoEsquecimentoUseCase $registrar): array
+    {
+        $seguem = [];
+        foreach ($pendentes as $justificativa) {
+            if (($recusa = $registrar->recusa($justificativa, $tenant)) !== null) {
+                $this->addFlash('warning', $recusa);
+                continue;
+            }
+            $seguem[] = $justificativa;
+        }
+
+        return $seguem;
+    }
+
+    /**
+     * O esquecimento só vale para a batida que falta (spec `ponto-esquecimento-nao-trava.md` R1): a recusa quando a
+     * pessoa já tem, num dos dias, uma batida do tipo pedido neste escritório; null quando segue ou não é esquecimento.
+     *
+     * @param iterable<\DateTimeInterface|null> $dias
+     */
+    private function esquecimentoJaBatido(User $pessoa, Tenant $tenant, ?string $tipo, ?string $tipoRegistro, iterable $dias): ?string
+    {
+        if ($tipo !== 'esquecimento_registro' || $tipoRegistro === null || $tipoRegistro === '') {
+            return null;
+        }
+        foreach ($dias as $dia) {
+            if ($dia !== null && ($recusa = $this->batidaJaRegistrada->mensagem($pessoa, $tenant, $tipoRegistro, $dia)) !== null) {
+                return $recusa;
+            }
+        }
+
+        return null;
+    }
 
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
     public function index(TenantRepository $tenantRepository, PermissionChecker $permissionChecker): Response
@@ -1181,6 +1236,16 @@ final class TenantController extends AbstractController
             $this->addFlash('warning', 'Apenas justificativas pendentes podem ser abonadas.');
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
+        if (($jaBatida = $registrarBatidaDoEsquecimento->recusa($justificativa, $tenant)) !== null) {
+            $this->addFlash('warning', $jaBatida);   // o pedido fica pendente: o admin decide (R1)
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
+        // Pedido antigo com hora que ainda não chegou: não abona, para não gravar batida no futuro.
+        if ($registrarBatidaDoEsquecimento->pedeHorarioFuturo($justificativa)) {
+            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
 
         $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
 
@@ -1327,26 +1392,28 @@ final class TenantController extends AbstractController
         // Escopa o findBy ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
         $this->escoparFiltroNoTenant($entityManager, $tenant);
 
-        $pendentes = $justificativaRepository->findBy(['user' => $user, 'batchId' => $batchId, 'status' => 'pendente']);
-
+        $encontradas = $justificativaRepository->findBy(['user' => $user, 'batchId' => $batchId, 'status' => 'pendente']);
+        $pendentes   = $this->semBatidaNoFuturo($encontradas, $registrarBatidaDoEsquecimento);
         if (empty($pendentes)) {
-            $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
+            if ($encontradas === []) {   // lote todo no futuro não cai aqui: o aviso de horário futuro já saiu
+                $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
+            }
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
-        $urlPonto = $this->generateUrl('ponto_index');
+        $pendentes = $this->semBatidaJaRegistrada($pendentes, $tenant, $registrarBatidaDoEsquecimento);   // R1
         foreach ($pendentes as $justificativa) {
             $justificativa->setStatus('abonado');
             $justificativa->setDataAnalise(new \DateTime());
             $justificativa->setAnalisadoPor($currentUser);
             // Esquecimento de registro: grava a batida pedida, como na aprovação individual.
             $registrarBatidaDoEsquecimento($justificativa, $tenant);
-            $notificacaoService->notificarJustificativaAprovada($justificativa, $urlPonto);
+            $notificacaoService->notificarJustificativaAprovada($justificativa, $this->generateUrl('ponto_index'));
         }
 
         $entityManager->flush();
 
-        $this->addFlash('success', sprintf('%d justificativa(s) abonada(s) com sucesso.', count($pendentes)));
+        $this->avisarAbonadas(count($pendentes));
 
         return $this->redirectToRoute('app_tenant_user_edit_role', [
             'tenantId' => $tenantId,
@@ -1427,6 +1494,48 @@ final class TenantController extends AbstractController
             'id'       => $user->getId(),
             'tab'      => 'justificativas',
         ]);
+    }
+
+
+    /**
+     * Data do lote do admin que não entra: data futura (por data, não por instante, porque o
+     * createFromFormat carrega a hora corrente e hoje passava por futura) ou batida esquecida
+     * cuja data e hora ficam acima de agora (relógio do servidor, o mesmo da gravação). Avisa o motivo no flash.
+     */
+    private function dataDoLoteRecusada(\DateTimeInterface $data, \DateTimeInterface $hoje, ?\DateTimeInterface $horaEsquecida): bool
+    {
+        if ($data->format('Y-m-d') > $hoje->format('Y-m-d')) {
+            $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $data->format('d/m/Y')));
+
+            return true;
+        }
+        if ($horaEsquecida !== null && $this->horarioFuturo->estaNoFuturo($data, $horaEsquecida)) {
+            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * "Aprovar todos" deixa pendente o pedido de esquecimento com hora que ainda não chegou.
+     *
+     * @param list<JustificativaPonto> $pendentes
+     *
+     * @return list<JustificativaPonto>
+     */
+    private function semBatidaNoFuturo(array $pendentes, RegistrarBatidaDoEsquecimentoUseCase $registrar): array
+    {
+        $aprovaveis = array_values(array_filter(
+            $pendentes,
+            static fn (JustificativaPonto $j): bool => !$registrar->pedeHorarioFuturo($j),
+        ));
+        if (count($aprovaveis) < count($pendentes)) {
+            $this->addFlash('warning', HorarioFuturoDaBatida::MENSAGEM);
+        }
+
+        return $aprovaveis;
     }
 
     #[Route('/{tenantId}/user/{id}/justificativa/nova', name: 'app_tenant_user_justificativa_nova', methods: ['POST'])]
@@ -1520,15 +1629,17 @@ final class TenantController extends AbstractController
             if ($dataObj === false) {
                 continue;
             }
-            // Por data, não por instante: o createFromFormat carrega a hora corrente e hoje passava por futura.
-            if ($dataObj->format('Y-m-d') > $hoje->format('Y-m-d')) {
-                $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
+            if ($this->dataDoLoteRecusada($dataObj, $hoje, $horaRegEsquecida)) {
                 continue;
             }
             $datasValidas[] = $dataObj;
         }
 
         if (empty($datasValidas)) {
+            return $redirect();
+        }
+        if (($jaBatida = $this->esquecimentoJaBatido($user, $tenant, $tipo, $tipoRegEsquecido, $datasValidas)) !== null) {
+            $this->addFlash('danger', $jaBatida);   // o esquecimento é só da batida que falta (R1)
             return $redirect();
         }
 
@@ -1592,7 +1703,7 @@ final class TenantController extends AbstractController
                 $registro->setTenant($tenant);
                 $registro->setDataHora($dataHora);
                 $registro->setTipo($tipoRegEsquecido);
-                $registro->setObservacao('Criado pelo administrador via justificativa (Esquecimento de Registro)');
+                $registro->setObservacao(SaidaDeEsquecimento::OBSERVACAO_LANCAMENTO_DO_ADMIN);
                 $entityManager->persist($registro);
             }
         }

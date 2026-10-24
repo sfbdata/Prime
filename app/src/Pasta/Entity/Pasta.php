@@ -78,6 +78,10 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(enumType: PrioridadePasta::class, options: ['default' => 'normal'])]
     private PrioridadePasta $prioridade = PrioridadePasta::Normal;
 
+    /** Área do direito em que a pasta é tocada ("Mover para outra carteira" do ⋮). NULL = "Sem carteira". */
+    #[ORM\Column(name: 'carteira', length: 30, nullable: true, enumType: CarteiraDaPasta::class)]
+    private ?CarteiraDaPasta $carteira = null;
+
     #[Assert\NotNull]
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $dataAbertura;
@@ -319,6 +323,22 @@ $this->documentos = new ArrayCollection();
         $this->prioridade = $prioridade;
 
         return $this;
+    }
+
+    public function getCarteira(): ?CarteiraDaPasta
+    {
+        return $this->carteira;
+    }
+
+    /** Põe a pasta na carteira escolhida. Devolve se mudou (mover para a mesma carteira não muda nada). */
+    public function moverParaCarteira(CarteiraDaPasta $carteira): bool
+    {
+        if ($this->carteira === $carteira) {
+            return false;
+        }
+        $this->carteira = $carteira;
+
+        return true;
     }
 
     public function getPrioridadeBadgeClass(): string

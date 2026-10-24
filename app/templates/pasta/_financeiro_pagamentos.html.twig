@@ -7,7 +7,8 @@
    dois números da mesma tela começam a discordar: aqui os totais vêm sempre do
    servidor, do mesmo DTO que desenhou a primeira carga.
 
-   O card mostra os TRÊS próximos não pagos (desenho 1.2.3, dc 3512). As demais
+   O card mostra os TRÊS próximos não pagos (desenho 1.2.3, dc 3512): pendentes por
+   vencimento, depois os PREVISTOS de êxito e sucumbência (selo azul, desenho 02 L.3615). As demais
    linhas — pendentes além da terceira e as já pagas — são renderizadas e
    escondidas por CSS, não omitidas: o "Ver todos os lançamentos" do menu ⋮ é
    só uma classe no cartão, sem ida ao servidor. Ordem como no desenho: os não
@@ -44,13 +45,25 @@
         {% else %}
         <span class="ps-pag-recebido ps-num" style="cursor: default; background: transparent;">{{ pagamentos.recebidoFormatado }}</span>
         {% endif %}
-        <span class="ps-pag-previsto">{{ 'pasta_financeiro.corpo.recebidos_de'|trans }} {{ pagamentos.previstoFormatado }}</span>
+        <span class="ps-pag-previsto">{{ 'pasta_financeiro.corpo.recebidos_de'|trans }} {{ pagamentos.contratadoFormatado }}</span>
     </div>
     <div class="ps-pag-barra" role="progressbar"
          aria-valuenow="{{ pagamentos.percentual }}" aria-valuemin="0" aria-valuemax="100"
          aria-label="{{ 'pasta_financeiro.corpo.percentual'|trans }}">
         <div class="ps-pag-barra-cheia" style="width: {{ pagamentos.percentual }}%"></div>
     </div>
+    {# Êxito e sucumbência previstos (dc L.2011-2013): fora do total e da barra, só aqui. #}
+    {% set previstoTexto = '' %}
+    {% if pagamentos.previstoEm == 'exito' %}
+        {% set previstoTexto = 'pasta_financeiro.corpo.previsto_exito'|trans({valor: pagamentos.previstoFormatado}) %}
+    {% elseif pagamentos.previstoEm == 'sucumbencia' %}
+        {% set previstoTexto = 'pasta_financeiro.corpo.previsto_sucumbencia'|trans({valor: pagamentos.previstoFormatado}) %}
+    {% elseif pagamentos.previstoEm == 'exito_sucumbencia' %}
+        {% set previstoTexto = 'pasta_financeiro.corpo.previsto_exito_sucumbencia'|trans({valor: pagamentos.previstoFormatado}) %}
+    {% endif %}
+    {% if previstoTexto != '' %}
+    <div class="ps-pag-previsto-em"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span>{{ previstoTexto }}</span></div>
+    {% endif %}
 </div>
 
 <div class="ps-pag-secao">
@@ -162,7 +175,7 @@
        TODOS os lançamentos, pagos inclusive, como o desenho. #}
     <div class="ps-fin-extrato" id="psExtratoFolha" hidden>
         <p class="ps-fin-extrato-total">
-            <strong>{{ pagamentos.recebidoFormatado }}</strong> {{ 'pasta_financeiro.corpo.recebidos_de'|trans }} <strong>{{ pagamentos.previstoFormatado }}</strong>
+            <strong>{{ pagamentos.recebidoFormatado }}</strong> {{ 'pasta_financeiro.corpo.recebidos_de'|trans }} <strong>{{ pagamentos.contratadoFormatado }}</strong>
         </p>
         <ul class="ps-fin-extrato-lista">
             {% for linha in pagamentos.todos %}

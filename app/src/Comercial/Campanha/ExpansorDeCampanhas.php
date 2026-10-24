@@ -6,6 +6,7 @@ namespace App\Comercial\Campanha;
 
 use App\Comercial\Entity\CampanhaDeEmail;
 use App\Comercial\Envio\CarteiroInterface;
+use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\DTO\DestinatarioDaCampanha;
@@ -26,8 +27,9 @@ use Psr\Log\LoggerInterface;
  *      savepoint, e grava o `envio_id`): queda no meio = nada gravado, nada duplicado;
  *   4. a única com o último destinatário entregue vira `enviada`.
  *
- * Vazão própria (R4): lote de até 10 por volta (uma por minuto), teto diário das campanhas (1.000 por padrão, abaixo dos
- * 1.500 globais) e contrapressão (o lote só sai com menos de um lote de envios de campanha ainda na fila do Carteiro).
+ * Vazão própria (R4): lote de até 10 por volta (uma por minuto), a cota das campanhas em 24 h corridas (1.600 por
+ * padrão, sem tomar a reserva de 800 dos demais e-mails dentro dos 2.400 totais; {@see CotaDeEnvio}) e contrapressão
+ * (o lote só sai com menos de um lote de envios de campanha ainda na fila do Carteiro).
  * Logs só com ids, nunca o endereço.
  *
  * @phpstan-import-type Campanha from CampanhaDeEmailRepository
@@ -58,7 +60,7 @@ final class ExpansorDeCampanhas
         private readonly PoliticaDeDestinatarios $politica,
         private readonly ChaveDasCampanhas $chave,
         private readonly LoggerInterface $logger,
-        private readonly int $tetoDiarioDeCampanhas,
+        private readonly CotaDeEnvio $cota,
         private readonly ImagensDaCampanha $imagens,
     ) {
     }
@@ -244,15 +246,14 @@ final class ExpansorDeCampanhas
         $this->campanhas->auditar($id, CampanhaDeEmailRepository::CANCELADA, ['motivo' => $motivo, 'total' => $total], null, null, $agora);
     }
 
-    /** Contrapressão e teto diário das campanhas (§8.5): 0 = este lote espera. */
+    /** Contrapressão e cota das campanhas em 24 h corridas (§8.5, {@see CotaDeEnvio}): 0 = este lote espera. */
     private function tamanhoDoLote(\DateTimeImmutable $agora): int
     {
         if ($this->envios->contarDeCampanhaNaFila() >= self::LOTE) {
             return 0;
         }
-        $restante = $this->tetoDiarioDeCampanhas - $this->envios->contarDeCampanhaDesde($agora->setTime(0, 0));
 
-        return max(0, min(self::LOTE, $restante));
+        return min(self::LOTE, $this->cota->vagasDeCampanha($agora));
     }
 
     /**

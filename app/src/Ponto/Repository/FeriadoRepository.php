@@ -9,6 +9,8 @@ use Doctrine\Persistence\ManagerRegistry;
 
 class FeriadoRepository extends ServiceEntityRepository
 {
+    use ConsultaSemFiltroDeEscritorio;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Feriado::class);
@@ -18,6 +20,17 @@ class FeriadoRepository extends ServiceEntityRepository
     public function findByTenant(Tenant $tenant): array
     {
         return $this->findBy(['tenant' => $tenant]);
+    }
+
+    /**
+     * Os feriados NAQUELE escritório, com o filtro de escritório suspenso e o escritório escrito na consulta: a lista
+     * de pendências lê os de outro escritório da própria pessoa (spec `ponto-esquecimento-nao-trava.md` R5).
+     *
+     * @return list<Feriado>
+     */
+    public function doEscritorio(Tenant $tenant): array
+    {
+        return $this->semFiltroDeEscritorio(fn (): array => $this->findBy(['tenant' => $tenant]));
     }
 
     /** @return Feriado[] ordenados por mês/dia */

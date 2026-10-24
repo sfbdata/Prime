@@ -11,6 +11,7 @@ use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaResumoImpressaoOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
 use App\Processo\Entity\Processo;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -167,6 +168,30 @@ final class PastaResumoImpressaoOutputTest extends TestCase
         self::assertSame('R$ 1.000,00', $r->financeiro['recebido']);
         self::assertSame('R$ 1.500,00', $r->financeiro['previsto']);
         self::assertSame(2, $r->financeiro['lancamentos']);
+    }
+
+    #[TestDox('Êxito e sucumbência previstos não contam como lançamento nem entram no contratado; o êxito recebido conta')]
+    public function testFinanceiroSemPrevisto(): void
+    {
+        $pasta = new Pasta();
+        $pasta->setNup('4');
+        $exito = new PastaPagamento();
+        $exito->setDescricao('Honorários de êxito (20%)');
+        $exito->preverPorPercentual(TipoDePagamento::Exito, '20', '200.00');
+        $sucumbencia = new PastaPagamento();
+        $sucumbencia->setDescricao('Sucumbência estimada (10%)');
+        $sucumbencia->preverPorPercentual(TipoDePagamento::Sucumbencia, '10', '100.00');
+        $recebido = new PastaPagamento();
+        $recebido->setDescricao('Honorários de êxito (5%)');
+        $recebido->preverPorPercentual(TipoDePagamento::Exito, '5', '50.00');
+        $recebido->congelarValor('50.00');
+        $recebido->alternarQuitacao(new \DateTimeImmutable('2026-09-03'));
+
+        $r = $this->montar($pasta, [$this->pagamento('1000.00'), $exito, $sucumbencia, $recebido]);
+
+        self::assertNotNull($r->financeiro);
+        self::assertSame(2, $r->financeiro['lancamentos']);
+        self::assertSame('R$ 1.050,00', $r->financeiro['previsto'], 'a chave lê o contratado, sem o previsto');
     }
 
     #[TestDox('Sem financeiro liberado a seção NÃO existe — nem vazia, nem com travessão')]
