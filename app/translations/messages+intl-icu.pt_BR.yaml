@@ -2080,10 +2080,6 @@ master:
         informe_inteiros: Informe os limites em números inteiros.
     # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
     ia:
-        zdr:
-            titulo: Retenção zero de dados (ZDR)
-            texto: 'Antes de ligar a IA para qualquer escritório, a conta da Anthropic precisa ter a retenção zero de dados (ZDR). O pedido cabe ao BlueJus como contratante: é feito ao time comercial da Anthropic em claude.com/contact-sales, para a organização onde está a chave do BlueJus, com a confirmação por escrito e o DPA.'
-            geo: 'Região de processamento: EUA'
         instalacao:
             titulo: Instalação
             intro: 'Estes dois itens ficam no servidor e são configuração técnica da equipe BlueJus; aqui aparece o estado de cada um.'

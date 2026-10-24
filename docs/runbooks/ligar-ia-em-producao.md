@@ -35,8 +35,8 @@ Na organização da Console onde está a chave de produção:
 3. A ZDR é pedida pelo BlueJus ao comercial (`https://claude.com/contact-sales`) e vale por organização: a chave tem
    de ser de uma organização com a ZDR aceita.
 
-A tela do Master só mostra o estado ("Região de processamento: EUA"); estas instruções ficam aqui (regra de tom de
-24/10/2026).
+Região de processamento: EUA (`us`). A tela do Master não mostra a ZDR nem a região (decisão do dono de 24/10/2026):
+o pedido da ZDR, a região e estas instruções ficam só aqui.
 
 ## 1. O adaptador já existe (corrigido em 24/10/2026)
 
