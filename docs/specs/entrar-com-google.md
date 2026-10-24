@@ -41,7 +41,7 @@ Google Agenda (#78, #182, #183), que já tem cliente OAuth próprio. **Esta subs
 - Desvios do desenho que continuam (decididos antes pelo dono): o campo Senha e a régua de força do cadastro por
   e-mail não voltam (D1 de `cadastro-senha-no-link.md`: a senha é criada no link) e o Gênero fica
   (`genero-no-cadastro.md`). O "Entrar com o Google" do cartão de login (decisão do dono de 21/10) continua, embora
-  o desenho 24.10.26 não o mostre: **a confirmar com o dono** (ver PR).
+  o desenho 24.10.26 não o mostre: o dono decidiu **manter** (24/10, decisão 4 abaixo).
 
 ## Decisões do dono (24/10/2026, via coordenador)
 
@@ -53,6 +53,7 @@ Google Agenda (#78, #182, #183), que já tem cliente OAuth próprio. **Esta subs
 3. Confirmados os quatro pontos do "Criar conta" pelo Google: o Nome vem do Google e continua editável; E-mail e Senha
    somem; a conta pelo Google fica sem senha e com o e-mail confirmado; "Entrar com o Google" sem conta abre o
    "Criar conta" já conectado.
+4. **Manter** o "Entrar com o Google" no cartão de login, embora o desenho 24.10.26 não o mostre.
 
 ## Facebook: ponto de ligação (24/10/2026)
 
