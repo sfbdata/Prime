@@ -3950,7 +3950,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="d-flex flex-wrap gap-1 mt-1">
                                     {% for cliente in pasta.clientes %}
                                         <span class="badge text-bg-secondary fw-normal">
-                                            <i class="bi bi-person me-1"></i>{{ cliente.cpf is defined and cliente.cpf ? cliente.nomeCompleto : cliente.razaoSocial }}
+                                            <i class="bi bi-person me-1"></i>{{ cliente.nomeExibicao }}
                                         </span>
                                     {% endfor %}
                                 </div>
