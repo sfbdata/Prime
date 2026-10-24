@@ -22,7 +22,7 @@ use Symfony\Component\Security\Http\SecurityRequestAttributes;
  * e o `nonce`, e leva ao Google. "Manter conectado" só vale com o token do próprio botão da tela (um link forjado
  * não liga o lembrar-me). A volta é do `GoogleAuthenticator`, no firewall.
  *
- * Sem o cliente OAuth no servidor (decisão do dono de 24/10): os botões aparecem do mesmo jeito e a ida volta à tela
+ * Sem o cliente OAuth no servidor (decisão do dono de 24/10): a tela não mostra os botões, e a ida aberta direto volta
  * com o aviso "não está configurado", no cartão de login ou no "Criar conta" (`origem=cadastro`), sem ir ao Google.
  * O aviso é decidido aqui, no servidor, para valer também a quem abre a URL direto.
  */

@@ -336,19 +336,17 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $zdr);
         self::assertStringContainsString('a conta da Anthropic precisa ter a retenção zero de dados (ZDR)', $zdr->text());
         self::assertStringContainsString('claude.com/contact-sales', $zdr->text());
-        self::assertStringContainsString('Este pedido é seu', $zdr->text());
-        self::assertStringContainsString('peça também a confirmação por escrito e o DPA.', $zdr->text());
-        self::assertStringContainsString('A parte técnica é do desenvolvedor', $zdr->text());
-        self::assertStringContainsString('Peça ao desenvolvedor.', $zdr->text());
-        self::assertStringContainsString('O processamento roda nos EUA (região us, configurada pelo desenvolvedor).', $zdr->text());
+        self::assertStringContainsString('com a confirmação por escrito e o DPA.', $zdr->text());
+        self::assertStringContainsString('Região de processamento: EUA', $zdr->text());
+        self::assertStringNotContainsString('Console', $zdr->text(), 'instrução técnica vai para o runbook, não para a tela');
+        self::assertDoMasterSoOEstado($zdr->text());
 
         $cards = $raiz->filter('div.mp-ia-raiz > section.mp-card');
         self::assertCount(5, $cards);
-        self::assertSame(['Instalação (feita pelo desenvolvedor)', 'Chave geral', 'Modelo', 'Retenção das respostas', 'Escritórios'], $cards->each(static fn ($c): string => trim($c->filter('section > div.mp-cab-roxo > b')->text())));
-        self::assertStringContainsString('A chave da API é gravada pelo desenvolvedor no servidor; esta tela não mostra nem recebe a chave.', $cards->eq(0)->text());
-        self::assertStringContainsString('A BlueJus IA só funciona com ela E a chave geral desta tela ligadas.', $cards->eq(0)->text());
-        self::assertStringContainsString('peça ao desenvolvedor', $cards->eq(0)->text());
-        self::assertStringNotContainsString('IA_HABILITADA', $cards->eq(0)->text(), 'nome de variável não é texto para o Master');
+        self::assertSame(['Instalação', 'Chave geral', 'Modelo', 'Retenção das respostas', 'Escritórios'], $cards->each(static fn ($c): string => trim($c->filter('section > div.mp-cab-roxo > b')->text())));
+        self::assertStringContainsString('Esta tela não mostra nem recebe a chave da API.', $cards->eq(0)->text());
+        self::assertStringContainsString('A BlueJus IA só funciona com ela e com a chave geral ligadas; a parte técnica fica com a equipe BlueJus.', $cards->eq(0)->text());
+        self::assertDoMasterSoOEstado($raiz->text());
         self::assertCount(1, $cards->eq(1)->filter('div.mp-ia-corpo > button.mp-rec-item[role="switch"][data-mp-ia-chave-geral]'));
         self::assertSame('Ligar a BlueJus IA para todos os escritórios liberados', $cards->eq(1)->filter('span.mp-rec-item-titulo')->text());
         self::assertCount(1, $cards->eq(2)->filter('label.mp-ia-campo > select[data-mp-ia-modelo]'));
@@ -394,6 +392,14 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         foreach (array_unique($m[1]) as $chave) {
             self::assertNotSame($chave, $tradutor->trans($chave, [], null, 'pt_BR'), $chave . ' existe no catálogo');
             self::assertDoesNotMatchRegularExpression('/[—–]/u', $tradutor->trans($chave, [], null, 'pt_BR'));
+        }
+    }
+
+    /** Regra de tom de 24/10: a tela do Master mostra o estado e nunca manda o Master acionar alguém. */
+    private static function assertDoMasterSoOEstado(string $texto): void
+    {
+        foreach (['desenvolvedor', 'peça ao', 'Peça ao', 'avise', 'suporte', 'IA_HABILITADA', '.env'] as $proibido) {
+            self::assertStringNotContainsString($proibido, $texto, 'texto do Master não manda acionar ninguém: ' . $proibido);
         }
     }
 
