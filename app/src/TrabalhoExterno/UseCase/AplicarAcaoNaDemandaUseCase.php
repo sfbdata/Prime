@@ -28,7 +28,8 @@ use App\TrabalhoExterno\Service\PoliticaDaDemanda;
  * grava. "Excluir rascunho" apaga a demanda e, depois do COMMIT, os arquivos dela.
  * Alternativos: ação fora do perfil → AcaoNaoPermitida (403); fora do estado ou sem motivo →
  * TransicaoInvalida (409); demanda de outro escritório → DemandaNaoEncontrada (404).
- * "Solicitar informações" avisa quem solicitou no sino (desenho 06 l.784, spec §4.7).
+ * "Solicitar informações" avisa quem solicitou no sino (desenho 06 l.784, spec §4.7); toda mudança de
+ * situação e registro avisa as partes ({@see AvisosDoTrabalhoExterno::andamentoDaDemanda()}).
  */
 final class AplicarAcaoNaDemandaUseCase
 {
@@ -65,6 +66,7 @@ final class AplicarAcaoNaDemandaUseCase
         if ($acao === AcaoDemanda::SolicitarInformacoes) {
             $this->avisos->pedidoDeInformacoes($ctx, $demanda);
         }
+        $this->avisos->andamentoDaDemanda($ctx, $demanda);
         $this->repositorio->salvar($demanda, flush: true);
 
         return $demanda;
