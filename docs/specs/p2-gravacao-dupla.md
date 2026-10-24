@@ -672,7 +672,10 @@ linha pendente ou em processamento é `ausente_pendente_na_outbox` ("em fila") e
 **Pontos de atenção para quando ligar.**
 - Entre ligar a categoria e rodar a carga, os arquivos antigos dela estão ausentes no R2 sem linha na
   fila: a reconciliação diária falha se rodar nesse intervalo.
-- `falhou` não sai pela retenção nem se resolve sozinho: o alerta se repete até alguém tratar a linha.
+- `falhou` não sai pela retenção nem se resolve sozinho: o alerta se repete até alguém tratar a linha com
+  `armazenamento:reenfileirar-falhas [--categoria=X] [--simular]`, que a volta para `pendente` com
+  tentativas zeradas e próxima tentativa agora (saída só de contagens por categoria). Se houver linha mais
+  nova da mesma chave, a reivindicação a marca `superado`, como sempre.
 - `erro_de_consulta` (R2 fora do ar na consulta), `local_ausente`, `chave_invalida` e `sem_sha_no_espelho`
   não disparam o alerta neste critério.
 - A conferência com SHA lê cada arquivo inteiro; enquanto roda, segura o consumidor do agendador (a réplica

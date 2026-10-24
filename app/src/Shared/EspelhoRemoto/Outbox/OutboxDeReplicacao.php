@@ -322,6 +322,23 @@ final class OutboxDeReplicacao
         return $contagem;
     }
 
+    /**
+     * Volta as linhas de envio em `falhou` (de uma categoria, ou todas) para `pendente`, com tentativas
+     * zeradas e próxima tentativa agora. Devolve quantas voltaram. O worker trata cada uma como envio
+     * novo: se já houver linha mais nova da mesma chave, ela vira `superado` na reivindicação.
+     */
+    public function reenfileirarFalhas(?CategoriaDeArquivo $categoria = null): int
+    {
+        $agora = $this->agora();
+
+        return (int) $this->conexao->executeStatement(
+            'UPDATE ' . self::TABELA . ' SET estado = :pendente, tentativas = 0, proxima_tentativa_em = :agora, processando_ate = NULL, posse = NULL, atualizado_em = :agora
+              WHERE operacao = :enviar AND estado = :falhou' . ($categoria === null ? '' : ' AND categoria = :categoria'),
+            ['pendente' => self::ESTADO_PENDENTE, 'agora' => $agora, 'enviar' => self::OPERACAO_ENVIAR, 'falhou' => self::ESTADO_FALHOU]
+                + ($categoria === null ? [] : ['categoria' => $categoria->value]),
+        );
+    }
+
     /** Há quantos segundos espera o envio pendente mais antigo, ou null se não há pendente. */
     public function idadeDaPendenteMaisAntigaEmSegundos(): ?int
     {
