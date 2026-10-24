@@ -9,10 +9,85 @@ conflita com esta. Ela ficou desatualizada em três pontos: pedia OAB no cadastr
 citava o `ConfirmarCadastroUseCase` (hoje o cadastro é o `CriarContaEEscritorioUseCase`) e é anterior ao
 Google Agenda (#78, #182, #183), que já tem cliente OAuth próprio. **Esta substitui aquela** quando aprovada.
 
+## Estado da frente (24/10/2026): fora do STANDBY, entregas 1 e 2 juntas
+
+- 24/10: o dono tirou do STANDBY (opção 3, via coordenador) e mandou fazer junto o "Criar conta" do desenho 10 VS
+  24.10.26 (Continuar com Google / Continuar com Facebook). Branch `entrar-com-google` com o `origin/master` trazido;
+  migration renumerada para `Version20261020151700` (classe e arquivo, número dado pelo coordenador). O tema
+  comemorativo e o placeholder do mesmo desenho vieram da frente `login-24-10-26` (spec `login-desenho-10-24-10.md`).
+- **Decisão 9 aplicada** (opção 1(b), ver "Decisões do dono (24/10/2026)"): conta "a confirmar" que entra pelo
+  Google é ligada, confirmada e tem a senha antiga trocada por uma inutilizável dentro do
+  `GoogleAuthenticator::authenticate()`, antes do `UserChecker`. Conta já confirmada é ligada depois do sucesso, como
+  antes, e mantém a senha. Conta inativa não é ligada nem confirmada (o `UserChecker` recusa a entrada).
+- **Decisão 10 aplicada:** o casamento por e-mail (e o cadastro pelo Google) só com `@gmail.com` ou com `hd`
+  (Workspace). `IdentidadeDoGoogle::emailComGarantia()`; o `hd` vem do `id_token` (`GoogleLoginApi`).
+- **Entrega 2 feita** (seção 3, opção (B)), com a tela do desenho 10 VS 24.10.26:
+  - volta do Google sem conta → a identidade espera na sessão (`App\Auth\Service\CadastroPeloGoogle`, 15 minutos) e a
+    tela abre o "Criar conta" já conectado (`/login?abrir=cadastro`): cartão "nome · e-mail · conectado pelo Google"
+    com "Usar outro e-mail", Nome preenchido e editável (como no desenho), sem o campo E-mail;
+  - `POST /cadastro/google/criar` (`CadastroPeloGoogleController`): nome, escritório, gênero e aceite vêm do JSON; o
+    e-mail e o `sub`, só da sessão. `CriarContaEEscritorioUseCase::executarPeloGoogle`: a mesma criação do cadastro
+    (escritório, bootstrap, aceite dos Termos, ciência da Política, `ContaCriadaPeloCadastro`), com a conta já
+    confirmada e ligada, sem link nem e-mail de confirmação. Entra na hora (`Security::login` com o
+    `GoogleAuthenticator`, véu `/login/entrando`). E-mail que já tem conta: "Já existe uma conta com este e-mail.
+    Entre com o Google." (quem chega aqui provou o e-mail, então a resposta neutra do cadastro não se aplica);
+  - a janela é curta de propósito (revisão de 24/10): num navegador compartilhado, quem chega depois veria o cartão
+    de quem saiu da aba e poderia criar a conta com aquela identidade; a sessão do próprio Google no mesmo navegador
+    já permitiria o mesmo por muito mais tempo, então o risco que sobra é o do navegador, não do BlueJus;
+  - `POST /cadastro/google/esquecer` ("Usar outro e-mail") tira a identidade da sessão; qualquer login com sucesso
+    também tira (`EsquecerContaAConfirmarNoLoginListener`), para o navegador compartilhado;
+  - o botão "Continuar com Google" do cadastro é o mesmo `/login/google` do login: com conta, entra; sem conta,
+    volta ao cadastro conectado.
+- Desvios do desenho que continuam (decididos antes pelo dono): o campo Senha e a régua de força do cadastro por
+  e-mail não voltam (D1 de `cadastro-senha-no-link.md`: a senha é criada no link) e o Gênero fica
+  (`genero-no-cadastro.md`). O "Entrar com o Google" do cartão de login (decisão do dono de 21/10) continua, embora
+  o desenho 24.10.26 não o mostre: **a confirmar com o dono** (ver PR).
+
+## Decisões do dono (24/10/2026, via coordenador)
+
+1. **(b)** A conta "a confirmar" que entra pelo Google confirma o e-mail e tem a senha antiga apagada no mesmo passo,
+   antes do checker.
+2. **(a)** O botão do Facebook, sem credencial, mostra no modal "O acesso pelo Facebook ainda não está disponível. Use
+   o Google ou o e-mail." (Quando o cliente OAuth do Google não está configurado e o botão do Google não aparece, o
+   texto termina em "Use o e-mail.", para não mandar a um botão que não existe.)
+3. Confirmados os quatro pontos do "Criar conta" pelo Google: o Nome vem do Google e continua editável; E-mail e Senha
+   somem; a conta pelo Google fica sem senha e com o e-mail confirmado; "Entrar com o Google" sem conta abre o
+   "Criar conta" já conectado.
+
+## Facebook: ponto de ligação (24/10/2026)
+
+O botão "Continuar com Facebook" está no cadastro, como no desenho, **sem funcionar**: não há app na Meta nem
+credencial. Hoje o clique mostra no modal "O acesso pelo Facebook ainda não está disponível. Use o Google ou o
+e-mail." (`entrada.js.facebook_indisponivel`), decisão 2(a) do dono de 24/10. A coluna
+`user.facebook_id` **não** entra agora. Para a frente do Facebook (guia de 24/10 do coordenador):
+
+1. Variáveis `FACEBOOK_APP_ID` e `FACEBOOK_APP_SECRET` (e `FACEBOOK_GRAPH_VERSION`), lidas como as do Google, com
+   default vazio: um `App\Auth\Infra\FacebookLoginApi::ligado()` decide o botão.
+2. Rotas `GET /login/facebook` (`app_login_facebook`, ida: `state` na sessão, `scope=public_profile,email`) e
+   `GET /login/facebook/callback` (`app_login_facebook_volta`, um `FacebookAuthenticator` que estende
+   `AbstractAuthenticator`, como o do Google), à mão com `HttpClientInterface`: troca do `code` e `GET /me` com
+   `appsecret_proof`, sem guardar token. As duas rotas nas listas brancas (`TermoAceiteListener::ROTAS_IGNORADAS`,
+   `TenantContextValidatorListener`) e no `EntradaDoConvidadoListener`; `/login/*` já é `PUBLIC_ACCESS`.
+3. Na tela: trocar o `<button id="lgCdFacebook">` de `templates/security/login.html.twig` por um `<a>` para
+   `/login/facebook` quando `facebookLigado`, e tirar o ouvinte do clique em `public/js/auth/entrada.js` (bloco
+   "Facebook: o botão do desenho"). O cartão conectado já recebe o provedor no texto (`entrada.modal.conectado_pelo`,
+   `{provedor}`); a identidade pendente pode seguir o mesmo formato do `CadastroPeloGoogle`.
+4. **O Facebook não garante e-mail verificado: nunca ligar conta só porque o e-mail bate.** Sem conta pelo
+   `facebook_id`, o e-mail do Facebook não casa com conta existente; o cadastro pelo Facebook exige confirmar o
+   e-mail pelo link, como o cadastro por e-mail.
+
+## Material do dono (24/10/2026)
+
+O segredo nunca passa pela conversa. No Google Cloud, projeto do BlueJus: credencial OAuth "Aplicativo da Web"
+própria do login (separada da do Google Agenda), com o URI de redirecionamento autorizado
+`https://bluejus.com.br/login/google/callback`. No `.env.prod` da VPS: `GOOGLE_LOGIN_OAUTH_CLIENT_ID` e
+`GOOGLE_LOGIN_OAUTH_CLIENT_SECRET`. Sem as duas, os botões do Google não aparecem e nada quebra.
+Migration manual no deploy: `Version20261020151700` (coluna `user.google_sub`).
+
 ## Estado da frente (21/10/2026)
 
 - **Entrega 1** (login de quem já tem conta): implementada na branch `entrar-com-google`, migration
-  `Version20261020148100`. Peças: `App\Shared\Google\IdTokenDoGoogle` (conferente compartilhado com a Agenda),
+  `Version20261020151700`. Peças: `App\Shared\Google\IdTokenDoGoogle` (conferente compartilhado com a Agenda),
   `App\Auth\Infra\GoogleLoginApi`, `App\Auth\Service\ContaDoGoogle`, `App\Auth\UseCase\LigarContaAoGoogleUseCase`,
   `App\Security\GoogleAuthenticator`, `App\Security\EntradaDoUsuario` (destino extraído do `UserAuthenticator`),
   `App\Auth\Controller\EntrarComGoogleController` (ida, com limitador `login_google` em
@@ -50,7 +125,7 @@ re-revisão). Ao voltar: trazer o master, aplicar 9 e 10, re-revisar, PR.
 | E-mail "a confirmar" (seção 2) | Entrar pelo Google confirma |
 | "Manter conectado" (seção 4) | Vale também para o Google |
 
-Migration da entrega 1: `Version20261020148100` (coluna `user.google_sub`). Sem a credencial e as variáveis, o
+Migration da entrega 1: `Version20261020151700` (coluna `user.google_sub`). Sem a credencial e as variáveis, o
 botão fica escondido; o dono cria a credencial depois.
 
 ## 1. Escopos e cliente OAuth

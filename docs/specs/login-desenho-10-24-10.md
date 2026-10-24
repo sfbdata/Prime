@@ -10,7 +10,7 @@
 |---|---|---|
 | a | `<script src="./bj-tema.js">`: o tema comemorativo passa a valer no Login | entra nesta frente |
 | b | Placeholder do Nome do escritório: "Ex.: BlueJus Advogados Associados" | entra nesta frente |
-| c | Criar conta com "Continuar com Google" / "Continuar com Facebook", cartão da conta conectada ("nome · e-mail · conectado pelo X", "Usar outro e-mail") e E-mail/Senha escondidos quando conectado | **fora**: aguarda o dono (via coordenador, 24/10). O "Entrar com o Google" está em STANDBY desde 21/10 (branch `entrar-com-google`); o Facebook não tem app nem credencial. Os botões não entram até a resposta |
+| c | Criar conta com "Continuar com Google" / "Continuar com Facebook", cartão da conta conectada ("nome · e-mail · conectado pelo X", "Usar outro e-mail") e E-mail/Senha escondidos quando conectado | **entra** (dono, 24/10, opção 3): o Google saiu do STANDBY e vai no mesmo PR (branch `entrar-com-google`, spec `entrar-com-google.md`, entrega 2). O Facebook entra só como botão, sem app (ponto de ligação naquela spec) |
 
 ## (a) Tema comemorativo no login, como o `aplicar()` do bj-tema.js
 

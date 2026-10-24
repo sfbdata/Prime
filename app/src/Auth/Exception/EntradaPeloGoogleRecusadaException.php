@@ -11,4 +11,8 @@ final class EntradaPeloGoogleRecusadaException extends \RuntimeException
     public const OUTRA_CONTA_GOOGLE = 'Esta conta do BlueJus já está ligada a outra conta Google. Entre com e-mail e senha.';
     public const FALHOU = 'Não foi possível entrar com o Google. Tente de novo.';
     public const CANCELADA = 'A entrada com o Google foi cancelada.';
+    /** Decisão 10: conta Google que não é Gmail nem Workspace não casa por e-mail com conta do BlueJus. */
+    public const SEM_GARANTIA_ENTRAR = 'Para este e-mail, entre com e-mail e senha.';
+    /** Decisão 10, no cadastro: conta Google que não é Gmail nem Workspace não cria conta pelo Google. */
+    public const SEM_GARANTIA_CADASTRO = 'Para este e-mail, crie a conta preenchendo o e-mail no formulário.';
 }

@@ -7,6 +7,7 @@ namespace App\Security;
 use App\Auth\DTO\IdentidadeDoGoogle;
 use App\Auth\Exception\EntradaPeloGoogleRecusadaException;
 use App\Auth\Infra\GoogleLoginApi;
+use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ContaDoGoogle;
 use App\Auth\UseCase\LigarContaAoGoogleUseCase;
 use App\Entity\Auth\User;
@@ -31,18 +32,28 @@ use Symfony\Component\Security\Http\SecurityRequestAttributes;
  * A volta do "Entrar com o Google" (spec entrar-com-google, entrega 1). Estende `AbstractAuthenticator` puro: com dois
  * autenticadores de formulário o container não sobe (entry_point). Confere o `state` da sessão, troca o código pela
  * identidade conferida (PKCE, `nonce`, `aud`, `iss`, `exp`, e-mail confirmado), acha a conta que já existe e deixa as
- * barreiras do firewall (UserChecker) decidirem. Só depois do sucesso a conta é ligada ao Google e o e-mail
- * confirmado; o destino é o mesmo da senha (`EntradaDoUsuario`). "Manter conectado" vale quando veio do próprio botão.
+ * barreiras do firewall (UserChecker) decidirem. Só depois do sucesso a conta é ligada ao Google; o destino é o mesmo
+ * da senha (`EntradaDoUsuario`). "Manter conectado" vale quando veio do próprio botão.
+ *
+ * Conta com o e-mail "a confirmar" (decisão 9): o `UserChecker` barra toda conta assim, então a ligação, a
+ * confirmação e a troca da senha antiga por uma inutilizável acontecem aqui, antes do checker. Assim o Google
+ * confirma o e-mail sem deixar valer uma senha que um terceiro tenha escolhido ao cadastrar o e-mail alheio.
+ *
+ * Sem conta com o e-mail (entrega 2): a identidade espera na sessão (`CadastroPeloGoogle`) e a pessoa volta à tela de
+ * entrada com o "Criar conta" aberto e conectado pelo Google. Só com e-mail que tem a garantia do Google (decisão 10).
  */
 final class GoogleAuthenticator extends AbstractAuthenticator
 {
     public const SESSAO = 'login_google_oauth';
     private const ROTA = 'app_login_google_volta';
     private const IDENTIDADE = '_identidade_do_google';
+    /** Marca da falha que não é erro: leva ao "Criar conta" conectado pelo Google. */
+    private const IR_AO_CADASTRO = 'cadastro_pelo_google';
 
     public function __construct(
         private readonly GoogleLoginApi $google,
         private readonly ContaDoGoogle $contas,
+        private readonly CadastroPeloGoogle $cadastroPeloGoogle,
         private readonly LigarContaAoGoogleUseCase $ligar,
         private readonly EntradaDoUsuario $entrada,
         private readonly RouterInterface $router,
@@ -68,9 +79,22 @@ final class GoogleAuthenticator extends AbstractAuthenticator
             $request->getSession()->set(SecurityRequestAttributes::LAST_USERNAME, $identidade->email);
             $usuario = $this->contas->localizar($identidade);
         } catch (EntradaPeloGoogleRecusadaException $e) {
+            if (EntradaPeloGoogleRecusadaException::SEM_CONTA === $e->getMessage() && isset($identidade)) {
+                $this->irAoCadastro($request, $identidade);
+            }
             throw new CustomUserMessageAuthenticationException($e->getMessage(), [], 0, $e);
         }
-        $request->attributes->set(self::IDENTIDADE, $identidade);
+        // Conta inativa não é ligada nem confirmada aqui: o UserChecker recusa a entrada logo depois.
+        if ($usuario->isActive() && !$usuario->isEmailConfirmado()) {
+            try {
+                $this->ligar->executar($usuario, $identidade);
+            } catch (\Throwable $e) {
+                $this->logger->error('Entrar com o Google: a ligação da conta a confirmar falhou', ['exception' => $e]);
+                throw new CustomUserMessageAuthenticationException(EntradaPeloGoogleRecusadaException::FALHOU, [], 0, $e);
+            }
+        } else {
+            $request->attributes->set(self::IDENTIDADE, $identidade);
+        }
 
         return new SelfValidatingPassport(
             new UserBadge((string) $usuario->getUserIdentifier(), static fn (): User => $usuario),
@@ -98,9 +122,26 @@ final class GoogleAuthenticator extends AbstractAuthenticator
     /** Volta à tela de entrada com a mensagem no lugar do erro do formulário. */
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
     {
+        if (self::IR_AO_CADASTRO === $exception->getMessageKey()) {
+            return new RedirectResponse($this->router->generate('app_login', ['abrir' => 'cadastro']));
+        }
         $request->getSession()->set(SecurityRequestAttributes::AUTHENTICATION_ERROR, $exception);
 
         return new RedirectResponse($this->router->generate('app_login'));
+    }
+
+    /**
+     * E-mail sem conta: guarda a identidade para o cadastro e sai pela falha marcada (sem mensagem de erro na tela).
+     * Sem a garantia do Google no e-mail, o cadastro pelo Google é recusado com a mensagem própria.
+     */
+    private function irAoCadastro(Request $request, IdentidadeDoGoogle $identidade): never
+    {
+        if (!$identidade->emailComGarantia()) {
+            throw new CustomUserMessageAuthenticationException(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_CADASTRO);
+        }
+        $this->cadastroPeloGoogle->guardar($request->getSession(), $identidade);
+
+        throw new CustomUserMessageAuthenticationException(self::IR_AO_CADASTRO);
     }
 
     private function desfazerEntrada(Request $request, \Throwable $e): Response

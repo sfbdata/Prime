@@ -6569,6 +6569,11 @@ entrada:
         senha_alterada: Senha alterada
         senha_alterada_texto: Entre com a nova senha. Por segurança, as outras sessões foram encerradas.
         cadastro_texto: Crie seu escritório digital em 1 minuto. Você entra como usuário primário e depois convida a sua equipe.
+        continuar_google: Continuar com Google
+        continuar_facebook: Continuar com Facebook
+        ou_outro_email: ou com outro e-mail
+        conectado_pelo: '{email} · conectado pelo {provedor}'
+        usar_outro_email: Usar outro e-mail
         nome_completo: Seu nome completo
         escritorio: Nome do escritório
         escritorio_exemplo: 'Ex.: BlueJus Advogados Associados'
@@ -6624,6 +6629,8 @@ entrada:
         informe_nome: Informe seu nome completo.
         informe_escritorio: Informe o nome do escritório.
         informe_genero: Informe o gênero.
+        facebook_indisponivel: O acesso pelo Facebook ainda não está disponível. Use o Google ou o e-mail.
+        facebook_indisponivel_sem_google: O acesso pelo Facebook ainda não está disponível. Use o e-mail.
         aceite: É preciso aceitar os Termos e a Política de privacidade.
         saudacao:
             bom_dia: Bom dia

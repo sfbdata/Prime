@@ -21,6 +21,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
@@ -131,7 +132,6 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
     /** @return iterable<string, array{string, mixed, string}> */
     public static function recusas(): iterable
     {
-        yield 'e-mail sem conta' => ['email', 'outra@gmail.com', EntradaPeloGoogleRecusadaException::SEM_CONTA];
         yield 'e-mail não confirmado pelo Google' => ['emailConfirmado', false, EntradaPeloGoogleRecusadaException::FALHOU];
         yield 'id_token de outro cliente' => ['audiencia', 'outro-cliente', EntradaPeloGoogleRecusadaException::FALHOU];
         yield 'id_token de outro emissor' => ['emissor', 'https://mal.example', EntradaPeloGoogleRecusadaException::FALHOU];
@@ -176,17 +176,121 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/login');
     }
 
-    #[TestDox('Sem conta: a mensagem vem com o e-mail do Google já no campo da tela')]
-    public function testSemContaPreencheOEmail(): void
+    #[TestDox('Sem conta (entrega 2): volta ao "Criar conta" conectado pelo Google, sem erro e sem login')]
+    public function testSemContaAbreOCadastroConectado(): void
     {
         $client = $this->cliente();
         $this->google->email = 'nova@gmail.com';
+        $this->google->nome = 'Nova Pessoa';
 
         $this->voltarDoGoogle($client);
-        $crawler = $client->request('GET', '/login');
 
-        self::assertSame(EntradaPeloGoogleRecusadaException::SEM_CONTA, trim($crawler->filter('#lgErro')->text()));
-        self::assertSame('nova@gmail.com', $crawler->filter('#lgEmail')->attr('value'));
+        self::assertResponseRedirects('/login?abrir=cadastro');
+        self::assertNull(static::getContainer()->get('security.token_storage')->getToken());
+        $crawler = $client->request('GET', '/login?abrir=cadastro');
+        self::assertCount(1, $crawler->filter('#lgErro[hidden]'));
+        self::assertCount(1, $crawler->filter('#lgCdSoc[hidden]'));
+        self::assertCount(1, $crawler->filter('#lgCdSocOk:not([hidden])[data-email="nova@gmail.com"]'));
+        self::assertSame('Nova Pessoa', $crawler->filter('#lgCdSocNome')->text());
+        self::assertSame('nova@gmail.com · conectado pelo Google', $crawler->filter('#lgCdSocOk .lg-socok__txt > span')->text());
+        self::assertSame('Usar outro e-mail', $crawler->filter('#lgCdSocTrocar')->text());
+        self::assertSame('Nova Pessoa', $crawler->filter('#lgCdNome')->attr('value'));
+        self::assertCount(1, $crawler->filter('#lgCdEmailCampo[hidden]'));
+    }
+
+    #[TestDox('Decisão 10, sem conta: conta Google que não é Gmail nem Workspace não cria conta pelo Google')]
+    public function testSemContaSemGarantiaNaoVaiAoCadastro(): void
+    {
+        $client = $this->cliente();
+        $this->google->email = 'nova@empresa.com.br';
+
+        $this->voltarDoGoogle($client);
+
+        self::assertResponseRedirects('/login');
+        $crawler = $client->request('GET', '/login');
+        self::assertSame(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_CADASTRO, trim($crawler->filter('#lgErro')->text()));
+        self::assertCount(1, $crawler->filter('#lgCdSocOk[hidden]'));
+    }
+
+    #[TestDox('Decisão 10, conta existente: e-mail sem a garantia do Google não liga pelo e-mail; com hd (Workspace), liga')]
+    public function testCasamentoPorEmailSoComGarantia(): void
+    {
+        $client = $this->cliente();
+        $eu = $this->usuario('ana@empresa.com.br', escritorios: 1);
+        $this->google->email = 'ana@empresa.com.br';
+
+        $this->voltarDoGoogle($client);
+
+        self::assertResponseRedirects('/login');
+        self::assertSame(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_ENTRAR, trim($client->request('GET', '/login')->filter('#lgErro')->text()));
+        self::assertNull($this->em()->getConnection()->fetchOne('SELECT google_sub FROM "user" WHERE id = :id', ['id' => $eu->getId()]));
+
+        $this->google->dominio = 'empresa.com.br';
+        $this->voltarDoGoogle($client);
+
+        self::assertStringStartsWith('/login/entrando?para=', (string) $client->getResponse()->headers->get('Location'));
+        self::assertSame('sub-google-1', $this->em()->getConnection()->fetchOne('SELECT google_sub FROM "user" WHERE id = :id', ['id' => $eu->getId()]));
+    }
+
+    #[TestDox('Decisão 9: conta "a confirmar" entra pelo Google, e a senha antiga (de quem cadastrou o e-mail) deixa de valer')]
+    public function testContaAConfirmarPerdeASenhaAntiga(): void
+    {
+        $client = $this->cliente();
+        $eu = $this->usuario('pessoa@gmail.com', escritorios: 1);
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $eu->setPassword($hasher->hashPassword($eu, 'senha-do-terceiro-1'));
+        $eu->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->voltarDoGoogle($client);
+
+        self::assertStringStartsWith('/login/entrando?para=', (string) $client->getResponse()->headers->get('Location'));
+        $this->em()->clear();
+        $depois = $this->em()->find(User::class, $eu->getId());
+        self::assertInstanceOf(User::class, $depois);
+        self::assertTrue($depois->isEmailConfirmado());
+        self::assertFalse($hasher->isPasswordValid($depois, 'senha-do-terceiro-1'));
+    }
+
+    #[TestDox('Conta a confirmar e inativa: o Google não liga, não confirma nem troca a senha; a entrada é recusada')]
+    public function testContaAConfirmarInativaNaoELigada(): void
+    {
+        $client = $this->cliente();
+        $eu = $this->usuario('pessoa@gmail.com', escritorios: 1);
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $eu->setPassword($hasher->hashPassword($eu, 'senha-antiga-1'));
+        $eu->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $eu->setIsActive(false);
+        $this->em()->flush();
+
+        $this->voltarDoGoogle($client);
+
+        self::assertResponseRedirects('/login');
+        self::assertNull(static::getContainer()->get('security.token_storage')->getToken());
+        $this->em()->clear();
+        $depois = $this->em()->find(User::class, $eu->getId());
+        self::assertInstanceOf(User::class, $depois);
+        self::assertFalse($depois->isEmailConfirmado());
+        self::assertNull($depois->getGoogleSub());
+        self::assertTrue($hasher->isPasswordValid($depois, 'senha-antiga-1'));
+    }
+
+    #[TestDox('Conta já confirmada entra pelo Google sem perder a própria senha')]
+    public function testContaConfirmadaMantemASenha(): void
+    {
+        $client = $this->cliente();
+        $eu = $this->usuario('pessoa@gmail.com', escritorios: 1);
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $eu->setPassword($hasher->hashPassword($eu, 'minha-senha-1'));
+        $this->em()->flush();
+
+        $this->voltarDoGoogle($client);
+
+        self::assertStringStartsWith('/login/entrando?para=', (string) $client->getResponse()->headers->get('Location'));
+        $this->em()->clear();
+        $depois = $this->em()->find(User::class, $eu->getId());
+        self::assertInstanceOf(User::class, $depois);
+        self::assertTrue($hasher->isPasswordValid($depois, 'minha-senha-1'));
     }
 
     #[TestDox('Logado sem escritório escolhido e sem os Termos aceitos, as rotas do Google não caem nos portões (listas brancas)')]
@@ -230,7 +334,7 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         $this->voltarDoGoogle($client);
         self::assertStringStartsWith('/login/entrando?para=/admin', (string) $client->getResponse()->headers->get('Location'));
 
-        $client->request('GET', '/logout');
+        $client->request('GET', '/logout?_csrf_token=csrf-token', [], [], ['HTTP_SEC_FETCH_SITE' => 'same-origin']);
         $this->google->email = 'dois@gmail.com';
         $this->google->sub = 'sub-dois';
         $this->voltarDoGoogle($client);
@@ -253,7 +357,7 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         self::assertNull($client->getCookieJar()->get('REMEMBERME'), '_remember_me na URL de volta não liga o lembrar-me');
 
         // Sair invalida a sessão (e o token da tela): o botão é lido de novo, como a pessoa faria.
-        $client->request('GET', '/logout');
+        $client->request('GET', '/logout?_csrf_token=csrf-token', [], [], ['HTTP_SEC_FETCH_SITE' => 'same-origin']);
         $botao = (string) $client->request('GET', '/login')->filter('#lgGoogle')->attr('href');
         $this->voltarDoGoogle($client, $botao . '&manter=1');
         self::assertNotNull($client->getCookieJar()->get('REMEMBERME'));

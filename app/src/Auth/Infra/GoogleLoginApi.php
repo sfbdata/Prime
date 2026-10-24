@@ -69,7 +69,12 @@ final class GoogleLoginApi
             throw new EntradaPeloGoogleRecusadaException(EntradaPeloGoogleRecusadaException::FALHOU, 0, $e);
         }
 
-        return new IdentidadeDoGoogle((string) $carga['sub'], (string) $carga['email'], is_string($carga['name'] ?? null) ? trim($carga['name']) : '');
+        return new IdentidadeDoGoogle(
+            (string) $carga['sub'],
+            (string) $carga['email'],
+            is_string($carga['name'] ?? null) ? trim($carga['name']) : '',
+            is_string($carga['hd'] ?? null) ? trim($carga['hd']) : '',
+        );
     }
 
     /**

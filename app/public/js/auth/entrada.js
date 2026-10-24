@@ -186,6 +186,27 @@
     $('lgCdAceite').addEventListener('change', () => mdErroTexto(''));
     $('lgCdGenero').addEventListener('change', () => mdErroTexto(''));
 
+    /* Criar conta conectado pelo Google (desenho 10 VS 24.10.26, spec entrar-com-google, entrega 2). A identidade
+       mora na sessão do servidor; aqui só se troca a tela: o cartão da conta no lugar dos botões e sem o E-mail. */
+    const socOk = $('lgCdSocOk');
+    const conectado = () => !socOk.hidden;
+    const iniciais = (n) => String(n || '?').trim().split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+    $('lgCdSocIni').textContent = iniciais($('lgCdSocNome').textContent);
+    const desconectar = () => {
+        mostrar(socOk, false);
+        mostrar($('lgCdSoc'), true);
+        mostrar($('lgCdEmailCampo'), true);
+        $('lgCdEmail').value = '';
+        mdErroTexto('');
+    };
+    $('lgCdSocTrocar').addEventListener('click', () => {
+        postar('/cadastro/google/esquecer', { _token: tokens.cadastro });
+        desconectar();
+        $('lgCdEmail').focus();
+    });
+    /* Facebook: o botão do desenho, ainda sem app na Meta (ponto de ligação na spec entrar-com-google). */
+    $('lgCdFacebook').addEventListener('click', () => mdErroTexto(window.BJ_T.t($('lgCdGoogle') ? 'entrada.js.facebook_indisponivel' : 'entrada.js.facebook_indisponivel_sem_google')));
+
     const abrirSenha = () => {
         $('lgRsEmail').value = email.value;
         irPara('rs1');
@@ -265,7 +286,7 @@
     const validarCadastro = () => {
         if ($('lgCdNome').value.trim().split(/\s+/).length < 2) { return window.BJ_T.t('entrada.js.informe_nome'); }
         if (!$('lgCdEsc').value.trim()) { return window.BJ_T.t('entrada.js.informe_escritorio'); }
-        if (!REGEX_EMAIL.test($('lgCdEmail').value.trim())) { return window.BJ_T.t('entrada.js.email_invalido'); }
+        if (!conectado() && !REGEX_EMAIL.test($('lgCdEmail').value.trim())) { return window.BJ_T.t('entrada.js.email_invalido'); }
         if (!['feminino', 'masculino'].includes($('lgCdGenero').value)) { return window.BJ_T.t('entrada.js.informe_genero'); }
         if (!$('lgCdAceite').checked) { return window.BJ_T.t('entrada.js.aceite'); }
 
@@ -297,16 +318,19 @@
 
             return;
         }
-        const em = $('lgCdEmail').value.trim();
-        const r = await postar('/cadastro/criar', {
+        const peloGoogle = conectado();
+        const em = peloGoogle ? (socOk.dataset.email || '') : $('lgCdEmail').value.trim();
+        const campos = {
             nome: $('lgCdNome').value.trim(),
             escritorio: $('lgCdEsc').value.trim(),
-            email: em,
             genero: $('lgCdGenero').value,
             aceite: $('lgCdAceite').checked,
             _token: tokens.cadastro,
-        });
+        };
+        /* Pelo Google o e-mail não vai: o servidor usa o que o Google provou, guardado na sessão. */
+        const r = peloGoogle ? await postar('/cadastro/google/criar', campos) : await postar('/cadastro/criar', { ...campos, email: em });
         if (r.status !== 200) {
+            if (r.dados && r.dados.googleExpirou === true) { desconectar(); }
             mdErroTexto(mensagemDeErro(r));
 
             return;

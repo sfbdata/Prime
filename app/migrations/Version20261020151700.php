@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * aceita vários nulos). Escrita à mão a partir do `--dump-sql` filtrado por `google_sub`: o gerador propõe também
  * apagar o índice funcional `uq_user_email_lower`, que fica.
  */
-final class Version20261020148100 extends AbstractMigration
+final class Version20261020151700 extends AbstractMigration
 {
     public function getDescription(): string
     {

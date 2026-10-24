@@ -18,6 +18,8 @@ final class GoogleLoginFalso
     public string $email = 'pessoa@gmail.com';
     public string $nome = 'Pessoa Google';
     public bool $emailConfirmado = true;
+    /** `hd` da conta Workspace; vazio = conta comum (sem `hd` no `id_token`). */
+    public string $dominio = '';
     public string $audiencia = 'cliente-login';
     public string $emissor = 'https://accounts.google.com';
     public int $validade = 3600;
@@ -42,7 +44,7 @@ final class GoogleLoginFalso
         $carga = [
             'sub' => $this->sub, 'email' => $this->email, 'email_verified' => $this->emailConfirmado, 'name' => $this->nome,
             'aud' => $this->audiencia, 'iss' => $this->emissor, 'exp' => time() + $this->validade, 'nonce' => $this->nonce,
-        ];
+        ] + ('' !== $this->dominio ? ['hd' => $this->dominio] : []);
         $idToken = 'cab.' . rtrim(strtr(base64_encode((string) json_encode($carga)), '+/', '-_'), '=') . '.ass';
 
         return new MockResponse((string) json_encode(['access_token' => 'acesso', 'id_token' => $idToken, 'scope' => GoogleLoginApi::ESCOPOS]), ['response_headers' => ['content-type' => 'application/json']]);

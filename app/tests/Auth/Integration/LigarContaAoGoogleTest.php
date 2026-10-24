@@ -12,6 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[CoversClass(LigarContaAoGoogleUseCase::class)]
 final class LigarContaAoGoogleTest extends KernelTestCase
@@ -34,6 +35,25 @@ final class LigarContaAoGoogleTest extends KernelTestCase
         self::assertSame(1, $eventos);
         $linha = $this->em()->getConnection()->fetchAssociative('SELECT google_sub, email_a_confirmar_desde FROM "user" WHERE id = :id', ['id' => $conta->getId()]);
         self::assertSame(['google_sub' => 'sub-1', 'email_a_confirmar_desde' => null], $linha);
+    }
+
+    #[TestDox('Decisão 9: quem confirma agora perde a senha antiga; quem já estava confirmado mantém a sua')]
+    public function testSenhaAntigaSoSaiAoConfirmar(): void
+    {
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $aConfirmar = $this->conta();
+        $aConfirmar->setPassword($hasher->hashPassword($aConfirmar, 'senha-antiga-1'));
+        $aConfirmar->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $confirmada = $this->conta();
+        $confirmada->setPassword($hasher->hashPassword($confirmada, 'senha-propria-1'));
+        $this->em()->flush();
+        $sut = static::getContainer()->get(LigarContaAoGoogleUseCase::class);
+
+        $sut->executar($aConfirmar, new IdentidadeDoGoogle('sub-a', (string) $aConfirmar->getEmail(), 'Pessoa'));
+        $sut->executar($confirmada, new IdentidadeDoGoogle('sub-b', (string) $confirmada->getEmail(), 'Pessoa'));
+
+        self::assertFalse($hasher->isPasswordValid($aConfirmar, 'senha-antiga-1'));
+        self::assertTrue($hasher->isPasswordValid($confirmada, 'senha-propria-1'));
     }
 
     #[TestDox('Conta já ligada a outro sub: recusa sem trocar')]

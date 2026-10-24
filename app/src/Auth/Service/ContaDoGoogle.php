@@ -12,9 +12,9 @@ use App\Repository\UserRepository;
 /**
  * Qual conta do BlueJus é a da identidade do Google (spec entrar-com-google, seção 2), sem gravar nada:
  * 1. a que já tem este `sub`;
- * 2. senão, a do mesmo e-mail (o Google já confirmou o e-mail), ignorando a caixa; com duas contas que diferem só na
- *    caixa, a que bate exatamente; ligada a OUTRO `sub`, recusa;
- * 3. nenhuma: recusa (entrega 1: o cadastro pelo Google é a entrega 2).
+ * 2. senão, a do mesmo e-mail, ignorando a caixa, só quando o e-mail tem a garantia do Google (Gmail ou Workspace,
+ *    decisão 10); com duas contas que diferem só na caixa, a que bate exatamente; ligada a OUTRO `sub`, recusa;
+ * 3. nenhuma: SEM_CONTA (o autenticador leva ao cadastro pelo Google, entrega 2).
  */
 final class ContaDoGoogle
 {
@@ -31,6 +31,9 @@ final class ContaDoGoogle
         $peloEmail = $this->peloEmail($identidade->email);
         if (null === $peloEmail) {
             throw new EntradaPeloGoogleRecusadaException(EntradaPeloGoogleRecusadaException::SEM_CONTA);
+        }
+        if (!$identidade->emailComGarantia()) {
+            throw new EntradaPeloGoogleRecusadaException(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_ENTRAR);
         }
         if (null !== $peloEmail->getGoogleSub()) {
             throw new EntradaPeloGoogleRecusadaException(EntradaPeloGoogleRecusadaException::OUTRA_CONTA_GOOGLE);
