@@ -27,6 +27,8 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class RenomearClienteDaPastaUseCase
 {
+    public const MENSAGEM_NOME_MONTADO_PELA_CARTEIRA = 'O nome desta pasta é montado a partir do credor da carteira e não se edita aqui';
+
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
         private readonly EntityManagerInterface $em,
@@ -44,9 +46,8 @@ final class RenomearClienteDaPastaUseCase
             throw new SemPermissaoParaEditarPastaException('Sem permissão para editar esta pasta.');
         }
 
-        $derivado = $this->identificador->para($pasta);
-        if ($derivado !== null && $derivado !== $pasta->getNomeCliente()) {
-            throw new \DomainException('O nome desta pasta é montado a partir do credor da carteira e não se edita aqui');
+        if ($this->nomeEMontadoPelaCarteira($pasta)) {
+            throw new \DomainException(self::MENSAGEM_NOME_MONTADO_PELA_CARTEIRA);
         }
 
         $nome = mb_strtoupper(trim((string) preg_replace('/\s+/u', ' ', $nome)));
@@ -61,5 +62,16 @@ final class RenomearClienteDaPastaUseCase
         $this->em->flush();
 
         return $nome;
+    }
+
+    /**
+     * Pasta judicializada pela cobrança: o identificador montado do credor e do devedor vence o texto gravado, e o nome
+     * não se edita. O desfazer da auditoria (`EstadoDaTelaNoDesfazer`) chama esta mesma regra para `nomeCliente`.
+     */
+    public function nomeEMontadoPelaCarteira(Pasta $pasta): bool
+    {
+        $derivado = $this->identificador->para($pasta);
+
+        return $derivado !== null && $derivado !== $pasta->getNomeCliente();
     }
 }

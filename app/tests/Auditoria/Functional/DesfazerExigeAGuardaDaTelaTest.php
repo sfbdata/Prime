@@ -6,16 +6,11 @@ namespace App\Tests\Auditoria\Functional;
 
 use App\Auditoria\Service\GuardaDaTelaNoDesfazer;
 use App\Controller\AuditLogController;
-use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
-use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
-use App\Entity\Permission\Permission;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
-use App\Entity\Tenant\TenantRole;
-use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\NivelDeAcesso;
@@ -32,7 +27,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Spec `docs/specs/desfazer-guarda-da-tela.md`: desfazer uma alteração de meta ou de pasta exige a mesma guarda da tela
@@ -46,6 +40,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(GuardaDaTelaNoDesfazer::class)]
 final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
 {
+    use ApoioDoDesfazer;
+
     private const SO_AUDITORIA = ['admin.audit.view'];
     private const MODULO_METAS = 'modules.tarefas.view';
     private const EDITAR_PASTA = 'resources.pasta.edit';
@@ -70,27 +66,7 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         $this->colega = $this->pessoa('Colega');
         $this->em->flush();
 
-        $storage = new class () implements ClearableTokenStorageInterface {
-            public function getToken(string $tokenId): string
-            {
-                return 'TOKEN_' . $tokenId;
-            }
-            public function setToken(string $tokenId, string $token): void
-            {
-            }
-            public function removeToken(string $tokenId): ?string
-            {
-                return null;
-            }
-            public function hasToken(string $tokenId): bool
-            {
-                return true;
-            }
-            public function clear(): void
-            {
-            }
-        };
-        static::getContainer()->set('security.csrf.token_storage', $storage);
+        $this->fingirOCsrf();
     }
 
     // ── Meta ────────────────────────────────────────────────────────────────
@@ -350,8 +326,8 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         $this->em->persist($secao);
         $this->em->flush();
         $id = (int) $secao->getId();
-        $logId = $this->criarLog(PastaSecao::class, $id, ['nome' => ['from' => 'Secao anterior', 'to' => 'Secao nova']]);
         $nomeAtual = (string) $this->em->getConnection()->fetchOne('SELECT nome FROM pasta_secao WHERE id = ?', [$id]);
+        $logId = $this->criarLog(PastaSecao::class, $id, ['nome' => ['from' => 'Secao anterior', 'to' => $nomeAtual]]);
 
         $this->provarNegadoEDepoisDesfeito($logId, fn (): string => (string) $this->em->getConnection()->fetchOne('SELECT nome FROM pasta_secao WHERE id = ?', [$id]), $nomeAtual, null);
     }
@@ -560,68 +536,6 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
 
     // ── Apoio ───────────────────────────────────────────────────────────────
 
-    /** @param list<string> $permissoes */
-    private function entrarCom(array $permissoes): User
-    {
-        // Depois de um desfazer (que limpa o EntityManager), o escritório volta a ser gerenciado.
-        if (!$this->em->contains($this->tenant)) {
-            $this->tenant = $this->em->find(Tenant::class, $this->tenant->getId()) ?? $this->tenant;
-        }
-        $user = $this->pessoa('Auditora');
-
-        $role = new TenantRole();
-        $role->setTenant($this->tenant);
-        $role->setName('Auditoria ' . uniqid());
-        $role->setIsSystem(false);
-        $this->em->persist($role);
-
-        foreach ($permissoes as $codigo) {
-            $ligacao = new TenantRolePermission();
-            $ligacao->setTenantRole($role);
-            $ligacao->setPermission($this->permissao($codigo));
-            $this->em->persist($ligacao);
-            $role->getTenantRolePermissions()->add($ligacao);
-        }
-
-        $vinculo = $this->em->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $this->tenant]);
-        self::assertInstanceOf(UserTenant::class, $vinculo);
-        $vinculo->setTenantRole($role);
-        $this->em->flush();
-
-        $this->logarComTenant($this->client, $user, $this->tenant);
-
-        return $user;
-    }
-
-    private function permissao(string $codigo): Permission
-    {
-        $perm = $this->em->getRepository(Permission::class)->findOneBy(['code' => $codigo]);
-        if ($perm === null) {
-            $perm = new Permission();
-            $perm->setCode($codigo);
-            $perm->setDescription($codigo);
-            $perm->setGroup(explode('.', $codigo)[0]);
-            $this->em->persist($perm);
-        }
-
-        return $perm;
-    }
-
-    private function pessoa(string $nome): User
-    {
-        $user = new User();
-        $user->setEmail('guarda_tela_' . uniqid() . '@test.com');
-        $user->setFullName($nome);
-        $user->setRoles(['ROLE_USER']);
-        $user->setIsActive(true);
-        $user->setPassword('x');
-        $this->em->persist($user);
-        $this->em->persist(new UserTenant($user, $this->tenant));
-        $this->em->flush();
-
-        return $user;
-    }
-
     /** O colega cria a pasta: é o vínculo que o `AcessoAMeta` confere. Sem criador, ninguém da pasta tem vínculo. */
     private function pasta(bool $semCriador = false): Pasta
     {
@@ -653,6 +567,8 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         }
         $this->em->persist($meta);
         $this->em->flush();
+        // A meta nasce antes da data de conclusão do `diffDaReabertura` (o desfazer recusa reconcluir antes da criação).
+        $this->em->getConnection()->executeStatement("UPDATE tarefa SET data_criacao = '2026-01-01 00:00:00' WHERE id = ?", [$meta->getId()]);
 
         return $meta;
     }
@@ -689,7 +605,11 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
     /** @return array<string, array{from: mixed, to: mixed}> */
     private function diffDoPrazo(): array
     {
-        return ['prazo' => ['from' => '2026-11-01T00:00:00+00:00', 'to' => '2026-12-01T00:00:00+00:00']];
+        // No fuso do servidor, como o `AuditLogSubscriber` grava: o `to` é o prazo com que a meta nasce.
+        return ['prazo' => [
+            'from' => (new \DateTimeImmutable('2026-11-01 00:00:00'))->format(DATE_ATOM),
+            'to' => (new \DateTimeImmutable('2026-12-01 00:00:00'))->format(DATE_ATOM),
+        ]];
     }
 
     /**
@@ -713,33 +633,12 @@ final class DesfazerExigeAGuardaDaTelaTest extends JusPrimeWebTestCase
         $this->em->flush();
         $id = (int) $item->getId();
 
-        return [$id, $this->criarLog(PastaChecklistItem::class, $id, ['titulo' => ['from' => 'Item anterior', 'to' => 'Item novo']])];
+        return [$id, $this->criarLog(PastaChecklistItem::class, $id, ['titulo' => ['from' => 'Item anterior', 'to' => 'ITEM NOVO']])];
     }
 
     private function tituloDoItem(int $id): string
     {
         return (string) $this->em->getConnection()->fetchOne('SELECT titulo FROM pasta_checklist_item WHERE id = ?', [$id]);
-    }
-
-    /** @param array<string, array{from: mixed, to: mixed}> $diff */
-    private function criarLog(string $classe, int $entityId, array $diff): int
-    {
-        $log = (new AuditLog())
-            ->setAction('update')
-            ->setEntityClass($classe)
-            ->setEntityId((string) $entityId)
-            ->setChanges(['diff' => ['changes' => $diff], 'context' => []])
-            ->setTenantId($this->tenant->getId());
-        $this->em->persist($log);
-        $this->em->flush();
-
-        return (int) $log->getId();
-    }
-
-    private function desfazer(int $logId): void
-    {
-        $this->em->clear();
-        $this->client->request('POST', "/auditoria/{$logId}/desfazer", ['_token' => 'TOKEN_audit_desfazer_' . $logId]);
     }
 
     /** A linha aparece na página (controle), só o botão some. */
