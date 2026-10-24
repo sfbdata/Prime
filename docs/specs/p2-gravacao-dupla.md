@@ -619,13 +619,19 @@ replicar e reconciliar recusam com falha).
   da I4 (LGPD) não depende de a cópia estar ligada; a limpeza não fala com o R2, então a falta de
   `ESPELHO_R2_*` também não a impede.
 
+**SHA por fatia.** Não há tarefa semanal com o SHA do acervo inteiro (seguraria o agendador por horas). A
+diária confere presença e tamanho de tudo e o SHA-256 só de 1/7 das referências: a fatia de cada uma é
+`crc32(chave remota) mod 7` (`ReconciliadorDoEspelho::fatiaDe()`, estável), e `--fatia=auto` escolhe a do
+dia da semana em Brasília (domingo = 0). Em sete noites todas as referências têm o SHA conferido. As fora
+da fatia saem `presente_sem_sha_conferido`. `--fatia=todas` (padrão, à mão) confere o SHA de tudo; `--fatia=N`
+(0 a 6) escolhe uma; `--sem-sha` continua desligando o SHA.
+
 **Agendador** (`AgendaDeTarefas`, horários de Brasília, mesmo schedule `default`, mesma trava e estado):
 
 | Tarefa | Quando |
 |---|---|
 | `armazenamento:replicar-espelho --se-ligado --limite=50` | a cada minuto |
-| `armazenamento:reconciliar-espelho --se-ligado --sem-sha` | todo dia, 3h30 |
-| `armazenamento:reconciliar-espelho --se-ligado` (com SHA; chave `#sha-semanal` na agenda) | domingo, 4h |
+| `armazenamento:reconciliar-espelho --se-ligado --fatia=auto` | todo dia, 3h30 |
 | `armazenamento:limpar-replicacao --se-ligado` | todo dia, 4h30 |
 
 Duas rodadas da réplica nunca correm juntas: o consumidor do `scheduler_default` é um só e roda uma
@@ -680,8 +686,9 @@ linha pendente ou em processamento é `ausente_pendente_na_outbox` ("em fila") e
   `armazenamento:reenfileirar-falhas [--categoria=X] [--simular]`, que a volta para `pendente` com
   tentativas zeradas e próxima tentativa agora (saída só de contagens por categoria). Se houver linha mais
   nova da mesma chave, a reivindicação a marca `superado`, como sempre.
-- A conferência com SHA lê cada arquivo inteiro; enquanto roda, segura o consumidor do agendador (a réplica
-  e o Drive esperam).
+- A fatia do SHA lê por inteiro 1/7 dos arquivos das categorias ligadas; enquanto roda, segura o
+  consumidor do agendador (a réplica e o Drive esperam). Com o acervo todo ligado (26 GB), são uns 4 GB por
+  noite.
 
 ## 15. Fora de escopo da P2 inteira
 

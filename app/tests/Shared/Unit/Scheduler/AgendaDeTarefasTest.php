@@ -43,8 +43,7 @@ final class AgendaDeTarefasTest extends TestCase
             'app:importar-indices-monetarios' => ['app:importar-indices-monetarios --no-interaction', '0 1 11 * *', '0 4 11 * *'],
             'app:djen:sincronizar' => ['app:djen:sincronizar --dias=2 --no-interaction', '0 3 * * *', '0 6 * * *'],
             // Novas (espelho R2, P2.5 e P2.7): o "UTC antigo" é a mesma hora em UTC, para a prova do fuso.
-            'armazenamento:reconciliar-espelho' => ['armazenamento:reconciliar-espelho --se-ligado --sem-sha --no-interaction', '30 3 * * *', '30 6 * * *'],
-            'armazenamento:reconciliar-espelho#sha-semanal' => ['armazenamento:reconciliar-espelho --se-ligado --no-interaction', '0 4 * * 0', '0 7 * * 0'],
+            'armazenamento:reconciliar-espelho' => ['armazenamento:reconciliar-espelho --se-ligado --fatia=auto --no-interaction', '30 3 * * *', '30 6 * * *'],
             'armazenamento:limpar-replicacao' => ['armazenamento:limpar-replicacao --se-ligado --no-interaction', '30 4 * * *', '30 7 * * *'],
             'app:push:resumo-semanal-cliente' => ['app:push:resumo-semanal-cliente --no-interaction', '0 8 * * 1', '0 11 * * 1'],
             'app:pastas:relatorio-sem-processo' => ['app:pastas:relatorio-sem-processo --no-interaction', '5 10 * * *', '5 13 * * *'],
@@ -121,20 +120,17 @@ final class AgendaDeTarefasTest extends TestCase
         self::assertSame('2026-10-26T06:00:00+00:00', $proxima->setTimezone(new \DateTimeZone('UTC'))->format(\DATE_ATOM));
     }
 
-    public function testAsTarefasDoEspelhoSoAgemSeLigadoEOShaEDeDomingoAsQuatro(): void
+    public function testAsTarefasDoEspelhoSoAgemSeLigadoEOShaVaiPorFatia(): void
     {
         $doEspelho = array_filter(AgendaDeTarefas::tarefas(), static fn (string $nome): bool => str_starts_with($nome, 'armazenamento:'), \ARRAY_FILTER_USE_KEY);
 
-        self::assertCount(4, $doEspelho);
+        self::assertCount(3, $doEspelho);
         foreach ($doEspelho as $nome => $tarefa) {
             self::assertStringContainsString(' --se-ligado ', $tarefa['comando'], $nome . ' só age com o espelho ligado (P2.5).');
         }
-
-        // Sábado, 24/10/2026, 12h de Brasília: a próxima conferência com SHA é domingo, 25/10, 4h de Brasília.
-        $proxima = $this->recorrenteDo('armazenamento:reconciliar-espelho#sha-semanal')->getTrigger()
-            ->getNextRunDate(new \DateTimeImmutable('2026-10-24 12:00:00', new \DateTimeZone(AgendaDeTarefas::FUSO)));
-        self::assertNotNull($proxima);
-        self::assertSame('2026-10-25T04:00:00-03:00', $proxima->setTimezone(new \DateTimeZone(AgendaDeTarefas::FUSO))->format(\DATE_ATOM));
+        // Nenhuma noite confere o SHA do acervo inteiro: a diária vai pela fatia do dia, sem tarefa semanal.
+        self::assertStringContainsString(' --fatia=auto ', $doEspelho['armazenamento:reconciliar-espelho']['comando']);
+        self::assertStringNotContainsString('--sem-sha', $doEspelho['armazenamento:reconciliar-espelho']['comando']);
     }
 
     public function testTarefasQueNuncaRodaramEmProducaoFicamDesligadas(): void

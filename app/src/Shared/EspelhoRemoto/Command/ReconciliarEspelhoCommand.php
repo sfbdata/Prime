@@ -11,6 +11,7 @@ use App\Shared\EspelhoRemoto\ProvedorDoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\Reconciliacao\AlertaDaReconciliacao;
 use App\Shared\EspelhoRemoto\Reconciliacao\ReconciliadorDoEspelho;
 use App\Shared\EspelhoRemoto\Reconciliacao\RelatorioDeReconciliacao;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,6 +30,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * sucesso e "espelho desligado". Ligado, confere só as categorias da política e sai com FALHA quando há
  * divergência que exige ação ({@see AlertaDaReconciliacao}), para o e-mail do agendador avisar. A
  * mensagem é só contagem por classe e por categoria.
+ *
+ * `--fatia`: `todas` (padrão, à mão) confere o SHA de tudo; `auto` (o agendador) confere o SHA só da
+ * fatia do dia da semana em Brasília (domingo = 0), e presença e tamanho de tudo; `0` a `6` escolhe a
+ * fatia. A fatia de cada referência é estável ({@see ReconciliadorDoEspelho::fatiaDe()}).
  */
 #[AsCommand(
     name: 'armazenamento:reconciliar-espelho',
@@ -41,6 +46,7 @@ final class ReconciliarEspelhoCommand extends Command
         private readonly ProvedorDoEspelhoRemoto $fabrica,
         private readonly PoliticaDeEspelhamento $politica,
         private readonly OutboxDeReplicacao $outbox,
+        private readonly ClockInterface $relogio,
     ) {
         parent::__construct();
     }
@@ -51,6 +57,7 @@ final class ReconciliarEspelhoCommand extends Command
             ->addOption('sem-sha', null, InputOption::VALUE_NONE, 'Não calcula o SHA-256 do disco (confere só presença e tamanho).')
             ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Para depois de N referências (amostra).')
             ->addOption('saida', null, InputOption::VALUE_REQUIRED, 'Arquivo JSON com as divergências (fonte, id, classe).')
+            ->addOption('fatia', null, InputOption::VALUE_REQUIRED, 'SHA de "todas" as referências, da fatia do dia ("auto") ou de uma fatia de 0 a 6.', 'todas')
             ->addOption('se-ligado', null, InputOption::VALUE_NONE, 'Modo agendado: desligado, sai com sucesso sem fazer nada; ligado, confere só as categorias ligadas e falha quando há divergência que exige ação.');
     }
 
@@ -66,6 +73,12 @@ final class ReconciliarEspelhoCommand extends Command
         }
         $limite   = $limite === null ? null : (int) $limite;
         $seLigado = (bool) $input->getOption('se-ligado');
+        $fatia    = $this->fatia((string) $input->getOption('fatia'));
+        if ($fatia === false) {
+            $io->error(sprintf('--fatia precisa ser "todas", "auto" ou um inteiro de 0 a %d.', ReconciliadorDoEspelho::FATIAS_DO_SHA - 1));
+
+            return Command::INVALID;
+        }
 
         if ($seLigado && !($this->politica->estaLigada() && $this->fabrica->estaConfigurado())) {
             $io->writeln('Espelho desligado: nada a reconciliar.');
@@ -81,9 +94,15 @@ final class ReconciliarEspelhoCommand extends Command
             return Command::FAILURE;
         }
 
-        $relatorio = $this->reconciliador->reconciliar($espelho, !$input->getOption('sem-sha'), $limite, $seLigado ? $this->politica : null);
+        $comSha    = !$input->getOption('sem-sha');
+        $relatorio = $this->reconciliador->reconciliar($espelho, $comSha, $limite, $seLigado ? $this->politica : null, $fatia);
 
         $io->title('Reconciliação do espelho (somente leitura)');
+        $io->writeln(match (true) {
+            !$comSha        => 'SHA-256: não conferido (--sem-sha).',
+            $fatia === null => 'SHA-256: conferido em todas as referências.',
+            default         => sprintf('SHA-256: conferido na fatia %d de %d.', $fatia, ReconciliadorDoEspelho::FATIAS_DO_SHA),
+        });
         $io->table(['classe', 'referências'], array_map(null, array_keys($relatorio->contagem()), array_values($relatorio->contagem())));
         $io->writeln(sprintf('Total: %d referência(s); %d fora de "igual".', $relatorio->total(), \count($relatorio->divergencias())));
 
@@ -93,6 +112,19 @@ final class ReconciliarEspelhoCommand extends Command
         }
 
         return $seLigado ? $this->alertar($io, $relatorio) : Command::SUCCESS;
+    }
+
+    /** null = SHA de todas; int = a fatia; false = opção inválida. */
+    private function fatia(string $opcao): int|false|null
+    {
+        if ($opcao === 'todas') {
+            return null;
+        }
+        if ($opcao === 'auto') {
+            return (int) $this->relogio->now()->setTimezone(new \DateTimeZone('America/Sao_Paulo'))->format('w') % ReconciliadorDoEspelho::FATIAS_DO_SHA;
+        }
+
+        return ctype_digit($opcao) && (int) $opcao < ReconciliadorDoEspelho::FATIAS_DO_SHA ? (int) $opcao : false;
     }
 
     private function gravarRelatorio(SymfonyStyle $io, RelatorioDeReconciliacao $relatorio, string $saida): bool

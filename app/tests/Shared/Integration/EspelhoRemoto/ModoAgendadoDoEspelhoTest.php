@@ -112,7 +112,7 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
         $politica    = new PoliticaDeEspelhamento('foto_perfil');
         $semR2       = new FabricaDoEspelhoRemoto();
         $replicar    = new ReplicarEspelhoCommand(static::getContainer()->get(ReplicadorDeArquivos::class), $semR2, $this->outbox, $politica);
-        $reconciliar = new ReconciliarEspelhoCommand($this->reconciliador([]), $semR2, $politica, $this->outbox);
+        $reconciliar = new ReconciliarEspelhoCommand($this->reconciliador([]), $semR2, $politica, $this->outbox, new MockClock());
 
         foreach ([$replicar, $reconciliar] as $comando) {
             $tester = new CommandTester($comando);
@@ -165,6 +165,47 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
         self::assertStringContainsString('presente_sem_sha_conferido', $semSha->getDisplay());
     }
 
+    #[TestDox('--fatia=auto confere o SHA só da fatia do dia em Brasília (sábado = 6); "todas" confere tudo; fatia inválida é recusada')]
+    public function testFatiaDoSha(): void
+    {
+        $naFatia   = null;
+        $foraDela  = null;
+        for ($i = 0; $naFatia === null || $foraDela === null; ++$i) {
+            $chave = $this->chave(CategoriaDeArquivo::FOTO_PERFIL, 'n' . $i . '.jpg');
+            if (ReconciliadorDoEspelho::fatiaDe($chave) === 6) {
+                $naFatia ??= $chave;
+            } else {
+                $foraDela ??= $chave;
+            }
+        }
+        $refs = [];
+        foreach ([$naFatia, $foraDela] as $chave) {
+            // Mesmo tamanho, conteúdo diferente: só o SHA pega.
+            $this->local->gravar($chave, FonteDeConteudo::deTexto('aaaa'));
+            $stream = fopen('php://memory', 'r+b');
+            self::assertIsResource($stream);
+            fwrite($stream, 'bbbb');
+            $this->espelho->enviar($chave, $stream, 4, hash('sha256', 'bbbb'), 'image/jpeg');
+            $refs[] = new ReferenciaDeArquivo('user_profiles', \count($refs) + 1, $chave, CategoriaDeArquivo::FOTO_PERFIL);
+        }
+
+        // 24/10/2026, 12h UTC = sábado, 9h em Brasília: fatia 6.
+        $auto = $this->reconciliarLigado($refs);
+        self::assertSame(Command::FAILURE, $auto->execute(['--se-ligado' => true, '--fatia' => 'auto']));
+        $saida = preg_replace('/\s+/', ' ', $auto->getDisplay()) ?? '';
+        self::assertStringContainsString('fatia 6 de 7', $saida);
+        self::assertStringContainsString('sha_divergente: 1 (foto_perfil: 1)', $saida);
+        self::assertStringContainsString('presente_sem_sha_conferido', $saida);
+
+        $todas = $this->reconciliarLigado($refs);
+        self::assertSame(Command::FAILURE, $todas->execute(['--se-ligado' => true]));
+        self::assertStringContainsString('sha_divergente: 2 (foto_perfil: 2)', preg_replace('/\s+/', ' ', $todas->getDisplay()) ?? '');
+
+        foreach (['7', 'x', '-1'] as $invalida) {
+            self::assertSame(Command::INVALID, $this->reconciliarLigado($refs)->execute(['--fatia' => $invalida]), $invalida);
+        }
+    }
+
     #[TestDox('espelho-situacao: configurado sim ou não, categorias, outbox e idade da pendente; nunca imprime endpoint, bucket, chave nem segredo')]
     public function testSituacaoNaoImprimeSegredo(): void
     {
@@ -209,7 +250,7 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
             }
         };
 
-        return new CommandTester(new ReconciliarEspelhoCommand($this->reconciliador($referencias), $provedor, new PoliticaDeEspelhamento('foto_perfil,cliente_documento'), $this->outbox));
+        return new CommandTester(new ReconciliarEspelhoCommand($this->reconciliador($referencias), $provedor, new PoliticaDeEspelhamento('foto_perfil,cliente_documento'), $this->outbox, new MockClock('2026-10-24 12:00:00', 'UTC')));
     }
 
     private function noDisco(CategoriaDeArquivo $categoria, string $nome, string $conteudo, bool $noEspelho = false): ReferenciaDeArquivo

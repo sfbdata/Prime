@@ -42,8 +42,8 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
     /**
      * As tarefas, na ordem em que rodam quando duas caem no mesmo minuto (o consumidor é um só e
      * as executa em sequência). A sincronização com o Drive, de hora em hora, vai por último: é a
-     * mais demorada e não pode atrasar as diárias. Chave = nome do comando; o mesmo comando agendado
-     * duas vezes (a reconciliação do espelho, diária e semanal) leva um sufixo depois de `#`.
+     * mais demorada e não pode atrasar as diárias. Chave = nome do comando; se um dia o mesmo comando
+     * for agendado duas vezes, a segunda leva um sufixo depois de `#`.
      *
      * O que já rodava no crontab real da VPS (conferido em 23/10/2026), mais a foto do Dashboard e os
      * índices monetários (ligados por decisão do dono). Resumo diário e cobrança do checklist nunca
@@ -75,16 +75,13 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
         ],
         // Espelho R2 (P2.5 e P2.7, docs/specs/p2-gravacao-dupla.md): os quatro rodam com --se-ligado e, com
         // ARMAZENAMENTO_ESPELHO_CATEGORIAS vazia ou sem ESPELHO_R2_*, terminam com sucesso sem fazer nada.
-        // 3h30: reconciliação diária, só presença e tamanho (rápida). Falha, e avisa, quando há
-        // ausente, tamanho ou SHA divergente, ou envio em "falhou" na outbox.
+        // 3h30: reconciliação diária. Presença e tamanho de tudo; SHA-256 só da fatia do dia da semana
+        // (1/7 das referências, fatia estável), então a semana cobre tudo e nenhuma noite lê o acervo
+        // inteiro. Falha, e avisa, quando há ausente, tamanho ou SHA divergente, erro de consulta ao R2
+        // ou envio em "falhou" na outbox.
         'armazenamento:reconciliar-espelho' => [
-            'comando' => 'armazenamento:reconciliar-espelho --se-ligado --sem-sha --no-interaction',
+            'comando' => 'armazenamento:reconciliar-espelho --se-ligado --fatia=auto --no-interaction',
             'cron'    => '30 3 * * *',
-        ],
-        // Domingo, 4h: a mesma reconciliação conferindo o SHA-256 do disco (lê cada arquivo inteiro).
-        'armazenamento:reconciliar-espelho#sha-semanal' => [
-            'comando' => 'armazenamento:reconciliar-espelho --se-ligado --no-interaction',
-            'cron'    => '0 4 * * 0',
         ],
         // 4h30: retenção de 90 dias da outbox (LGPD, I4). Vale mesmo com a cópia desligada.
         'armazenamento:limpar-replicacao' => [
