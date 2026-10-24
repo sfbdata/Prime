@@ -92,6 +92,7 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::FOTO_PERFIL                => 'perfil',
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO => 'trabalho-externo/curriculos',
             CategoriaDeArquivo::COMERCIAL_IMAGEM           => 'comercial-imagens',
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => 'documentos-juridicos',
             default                                        => null,
         };
     }
@@ -113,7 +114,8 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO => 'trabalho-externo',
             CategoriaDeArquivo::FOTO_PERFIL,
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
-            CategoriaDeArquivo::COMERCIAL_IMAGEM    => throw new \LogicException('global, tratada antes'),
+            CategoriaDeArquivo::COMERCIAL_IMAGEM,
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => throw new \LogicException('global, tratada antes'),
         };
     }
 
