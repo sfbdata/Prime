@@ -235,6 +235,10 @@
         andamento: function (c) { return comCodigo(D.urlAndamento, c); },
         anexar: function (c) { return comCodigo(D.urlAnexar, c); },
         documento: function (c, id) { return comCodigo(D.urlDocumento, c).replace(/\/0$/, '/' + id); },
+        despachar: function (c) { return comCodigo(D.urlDespachar, c); },
+        despachoResponder: function (c) { return comCodigo(D.urlDespachoResponder, c); },
+        despachoRespostas: function (c) { return comCodigo(D.urlDespachoRespostas, c); },
+        despachoExtrato: function (c) { return comCodigo(D.urlDespachoExtrato, c); },
         convites: function (c, resto) { return comCodigo(D.urlConvites, c) + resto; },
         whatsapp: function (c, resto) { return comCodigo(D.urlWhatsapp, c).replace(/\/avisar-fase-atual$/, '') + resto; },
         marcacoes: function () { return D.urlMarcacoes; },
@@ -1308,6 +1312,208 @@
         if (dz.semDocumentos !== undefined ? dz.semDocumentos : !(dz.documentos || []).length) {
             alvo.appendChild(el('div', { class: 'te-nada', text: 'Nenhum documento anexado.' }));
         }
+        if (dz.despacho) {
+            despachoDoResumo(alvo, dz);
+        }
+    }
+
+    /* ---------------------------------------------------------------- DESPACHO no Resumo (desenho 06 de 24/10, l.512 a 530) */
+
+    /**
+     * O servidor decide quem despacha (`podeDespachar`, só o Master), quem responde (`podeResponder`) e o que cada
+     * um lê (`lista`, já na ordem do desenho: o mais novo em cima). O rascunho do despacho fica em `S.f` (some ao
+     * trocar de demanda, fica ao redesenhar).
+     */
+    function despachoDoResumo(alvo, dz) {
+        var P = dz.despacho, f = S.f;
+        alvo.appendChild(el('div', { class: 'te-dp-cab' }, el('div', { class: 'te-dp-cab-linha' }, [
+            el('b', { class: 'te-dp-tit', text: 'DESPACHO' }),
+            P.respInfo ? el('span', { class: 'te-dp-resp-info' }, [ic('bi-reply'), ' Respostas liberadas']) : null
+        ])));
+        var corpo = el('div', { class: 'te-dp-corpo' });
+        alvo.appendChild(corpo);
+        if (P.podeDespachar) {
+            formularioDoDespacho(corpo, dz, P, f);
+        }
+        if (P.leSem) {
+            corpo.appendChild(el('div', { class: 'te-dp-lesem' }, [ic('bi-info-circle'), ' Os despachos são publicados pela Central BlueJus.']));
+        }
+        if (P.podeResponder) {
+            var resp = el('textarea', {
+                class: 'te-dp-txt', rows: 3, maxLength: 3000, value: f.dpRTxt || '',
+                placeholder: 'Responder ao despacho. A Central BlueJus recebe na hora.',
+                oninput: function (e) { f.dpRTxt = e.target.value; }
+            });
+            corpo.appendChild(el('div', { class: 'te-dp-resp' }, [
+                resp,
+                el('div', { class: 'te-dp-resp-acoes' }, el('button', { type: 'button', class: 'te-dp-btn', onclick: function () { responderAoDespacho(dz.codigo); } }, [ic('bi-reply'), 'Responder']))
+            ]));
+        }
+        if (!(P.lista || []).length) {
+            corpo.appendChild(el('div', { class: 'te-dp-vazio' }, [ic('bi-clock-history'), 'Nenhum despacho nesta demanda.']));
+        }
+        (P.lista || []).forEach(function (x) { corpo.appendChild(itemDoDespacho(dz, x)); });
+        var on = !!P.respostasLiberadas;
+        corpo.appendChild(el('div', { class: 'te-dp-rodape' }, [
+            P.podeDespachar ? el('button', {
+                type: 'button', class: 'te-dp-chave',
+                title: on ? 'O solicitante e o profissional podem responder. Clique para bloquear.' : 'Permitir que o solicitante e o profissional respondam aos despachos',
+                attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                onclick: function () { liberarRespostas(dz.codigo, !on); }
+            }, ['Aceitar resposta', el('span', { class: 'te-dp-chave-trilho' + (on ? ' is-on' : '') }, el('span', { class: 'te-dp-chave-bola' }))]) : null,
+            el('button', { type: 'button', class: 'te-dp-extrato', onclick: function () { window.open(ROTA.despachoExtrato(dz.codigo), '_blank'); } }, [ic('bi-printer'), 'Extrato'])
+        ]));
+    }
+
+    /** O formulário do Master (l.514 a 518): natureza, prazo e dias úteis, texto com contador, anexos e "Despachar". */
+    function formularioDoDespacho(corpo, dz, P, f) {
+        var linha = el('div', { class: 'te-dp-linha' }, [el('span', { class: 'te-dp-nat-rot', text: 'Natureza' })]);
+        (P.naturezas || []).forEach(function (n) {
+            linha.appendChild(el('button', {
+                type: 'button', class: 'te-dp-nat' + (f.dpNat === n.k ? ' is-on' : ''), text: n.r,
+                attrs: { 'aria-pressed': f.dpNat === n.k ? 'true' : 'false' },
+                onclick: function () { f.dpNat = f.dpNat === n.k ? '' : n.k; renderDrawerConteudo(); }
+            }));
+        });
+        var uteis = el('span', { class: 'te-dp-uteis', text: diasUteisDoDespacho(P, f.dpPrazo) });
+        linha.appendChild(el('span', { class: 'te-espaco' }));
+        linha.appendChild(el('label', { class: 'te-dp-prazo' }, [
+            ic('bi-calendar3'), 'Prazo',
+            el('input', { type: 'date', value: f.dpPrazo || P.prazoPadrao || '', onchange: function (e) { f.dpPrazo = e.target.value; uteis.textContent = diasUteisDoDespacho(P, f.dpPrazo); } })
+        ]));
+        linha.appendChild(uteis);
+        corpo.appendChild(linha);
+
+        var n = el('span', { class: 'te-dp-n', text: String((f.dpTxt || '').length) + ' / 5.000' });
+        corpo.appendChild(el('textarea', {
+            class: 'te-dp-txt', rows: 3, maxLength: 5000, value: f.dpTxt || '',
+            placeholder: 'Escreva o despacho. Ele fica visível para o solicitante e para a equipe.',
+            oninput: function (e) { f.dpTxt = e.target.value; n.textContent = String(f.dpTxt.length) + ' / 5.000'; }
+        }));
+        var arqs = f.dpArq || [];
+        if (arqs.length) {
+            corpo.appendChild(el('div', { class: 'te-dp-arqs' }, arqs.map(function (a, i) {
+                return el('span', { class: 'te-dp-arq' }, [
+                    ic('bi-paperclip'), a.name,
+                    el('button', { type: 'button', class: 'te-dp-arq-rm', title: 'Remover', attrs: { 'aria-label': 'Remover ' + a.name }, onclick: function () { f.dpArq = arqs.filter(function (_, j) { return j !== i; }); renderDrawerConteudo(); } }, ic('bi-x'))
+                ]);
+            })));
+        }
+        corpo.appendChild(el('div', { class: 'te-dp-acoes' }, [
+            el('label', { class: 'te-dp-anexar' }, [
+                ic('bi-paperclip'), 'Anexar arquivo',
+                el('input', { type: 'file', multiple: true, onchange: function (e) {
+                    f.dpArq = (f.dpArq || []).concat(Array.prototype.slice.call(e.target.files || []));
+                    e.target.value = '';
+                    renderDrawerConteudo();
+                } })
+            ]),
+            el('span', { class: 'te-espaco' }),
+            n,
+            el('button', { type: 'button', class: 'te-dp-btn', onclick: function () { despachar(dz.codigo); } }, [ic('bi-send'), 'Despachar'])
+        ]));
+    }
+
+    /**
+     * `dpUteis` (l.1393): sem data escolhida, "5 dias úteis"; com data, os dias úteis de amanhã até ela (sábado,
+     * domingo e os feriados do sistema, que o servidor manda em `feriados`, não contam).
+     */
+    function diasUteisDoDespacho(P, alvo) {
+        if (!alvo) {
+            return '5 dias úteis';
+        }
+        var feriados = P.feriados || [], fim = new Date(alvo + 'T12:00'), d = new Date(), n = 0;
+        d.setHours(12, 0, 0, 0);
+        while (d < fim) {
+            d.setDate(d.getDate() + 1);
+            if (d.getDay() % 6 && feriados.indexOf(d.toLocaleDateString('sv-SE')) < 0) {
+                n++;
+            }
+        }
+        return n + (n === 1 ? ' dia útil' : ' dias úteis');
+    }
+
+    /** Uma linha da lista (l.521 a 527): despacho em azul ou resposta em verde, recuada. */
+    function itemDoDespacho(dz, x) {
+        var resposta = x.tipo === 'resposta', arqs = x.arqs || [];
+        var anexos = [];
+        arqs.forEach(function (a, i) {
+            if (i) {
+                anexos.push(', ');
+            }
+            anexos.push(el('a', { href: ROTA.documento(dz.codigo, a.id), target: '_blank', rel: 'noopener', text: a.nome }));
+        });
+        return el('div', { class: 'te-dp-item' + (resposta ? ' is-resposta' : '') }, [
+            el('div', { class: 'te-dp-item-cab' }, [
+                el('b', { class: 'te-dp-item-n', text: x.n }),
+                x.nat ? el('span', { class: 'te-dp-item-nat', text: x.nat }) : null,
+                el('span', { class: 'te-espaco' }),
+                x.prazo ? el('span', { class: 'te-dp-item-prazo' }, [ic('bi-calendar3'), ' ' + x.prazo]) : null
+            ]),
+            el('div', { class: 'te-dp-item-txt', text: x.txt }),
+            arqs.length ? el('div', { class: 'te-dp-item-arqs' }, [ic('bi-paperclip'), ' '].concat(anexos)) : null,
+            el('div', { class: 'te-dp-item-local', text: x.local }),
+            el('div', { class: 'te-dp-item-ass' }, [ic('bi-patch-check-fill'), x.ass])
+        ]);
+    }
+
+    /** `dpEnviar` (l.1394): ao menos 3 caracteres, senão "Escreva o despacho"; o resto o servidor confere. */
+    function despachar(codigo) {
+        var f = S.f, t = String(f.dpTxt || '').trim();
+        if (previa()) {
+            return;
+        }
+        if (t.length < 3) {
+            mostrarToast({ tit: 'Escreva o despacho', txt: 'O texto do despacho está vazio.', hora: '' });
+            return;
+        }
+        var fd = new FormData();
+        fd.append('texto', t);
+        fd.append('natureza', f.dpNat || '');
+        fd.append('prazo', f.dpPrazo || '');
+        (f.dpArq || []).forEach(function (a) { fd.append('documentos[]', a, a.name); });
+        pedir('POST', ROTA.despachar(codigo), fd).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            f.dpTxt = '';
+            f.dpNat = '';
+            f.dpPrazo = '';
+            f.dpArq = [];
+            toastDoServidor(r.toast, 'Despacho publicado', 'O solicitante vê o despacho no Resumo e recebe um aviso.');
+            aplicarDemanda(r);
+        });
+    }
+
+    /** `dpResponder`: com menos de 2 caracteres nada acontece, como no desenho. */
+    function responderAoDespacho(codigo) {
+        var f = S.f, t = String(f.dpRTxt || '').trim();
+        if (previa() || t.length < 2) {
+            return;
+        }
+        pedir('POST', ROTA.despachoResponder(codigo), { texto: t }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            f.dpRTxt = '';
+            toastDoServidor(r.toast, 'Resposta enviada', 'A Central BlueJus foi avisada.');
+            aplicarDemanda(r);
+        });
+    }
+
+    function liberarRespostas(codigo, liberar) {
+        if (previa()) {
+            return;
+        }
+        pedir('POST', ROTA.despachoRespostas(codigo), { liberar: liberar }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            aplicarDemanda(r);
+        });
     }
 
     function anexar(codigo, input) {

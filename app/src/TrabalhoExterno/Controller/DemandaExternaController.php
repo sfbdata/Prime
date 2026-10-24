@@ -19,13 +19,16 @@ use App\TrabalhoExterno\UseCase\AnexarDocumentosUseCase;
 use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\AtualizarConfiguracaoCentralUseCase;
+use App\TrabalhoExterno\UseCase\DespacharNaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\EnviarMensagemUseCase;
 use App\TrabalhoExterno\UseCase\EnviarPropostaUseCase;
+use App\TrabalhoExterno\UseCase\LiberarRespostasAoDespachoUseCase;
 use App\TrabalhoExterno\UseCase\MarcarConversaLidaUseCase;
 use App\TrabalhoExterno\UseCase\MarcarDemandasEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\MarcarMensagensEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\RegistrarAndamentoUseCase;
+use App\TrabalhoExterno\UseCase\ResponderAoDespachoUseCase;
 use App\TrabalhoExterno\UseCase\SalvarSolicitacaoUseCase;
 use App\TrabalhoExterno\UseCase\SolicitarPeloMasterUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -181,6 +184,52 @@ final class DemandaExternaController extends AbstractController
     {
         return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $anexar): array {
             $anexar->executar($ctx, $codigo, $this->arquivos($request));
+
+            return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
+        });
+    }
+
+    /** "Despachar" (desenho 06 de 24/10, l.516 e 1394): multipart com `texto`, `natureza`, `prazo` e `documentos[]`. */
+    #[Route('/demandas/{codigo}/despachos', name: 'trabalho_externo_despachar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function despachar(Request $request, string $codigo, DespacharNaDemandaUseCase $despachar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $despachar): array {
+            $despachar->executar(
+                $ctx,
+                $codigo,
+                (string) $request->request->get('texto', ''),
+                (string) $request->request->get('natureza', ''),
+                (string) $request->request->get('prazo', ''),
+                $this->arquivos($request),
+            );
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                // P4 do dono (24/10): o despacho aparece no Resumo.
+                'toast' => ['titulo' => 'Despacho publicado', 'texto' => 'O solicitante vê o despacho no Resumo e recebe um aviso.'],
+            ];
+        });
+    }
+
+    #[Route('/demandas/{codigo}/despachos/respostas', name: 'trabalho_externo_despacho_responder', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function responderAoDespacho(Request $request, string $codigo, ResponderAoDespachoUseCase $responder): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $responder): array {
+            $responder->executar($ctx, $codigo, (string) ($this->corpo($request)['texto'] ?? ''));
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                'toast' => ['titulo' => 'Resposta enviada', 'texto' => 'A Central BlueJus foi avisada.'],
+            ];
+        });
+    }
+
+    /** "Aceitar resposta" (l.529): `{"liberar": true|false}`. */
+    #[Route('/demandas/{codigo}/despachos/aceitar-resposta', name: 'trabalho_externo_despacho_respostas', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function liberarRespostas(Request $request, string $codigo, LiberarRespostasAoDespachoUseCase $liberar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $liberar): array {
+            $liberar->executar($ctx, $codigo, (bool) ($this->corpo($request)['liberar'] ?? false));
 
             return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
         });

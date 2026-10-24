@@ -298,6 +298,29 @@ final class PoliticaDaDemanda
             && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'enviar'));
     }
 
+    /**
+     * DESPACHO (desenho 06 de 24/10, `dpPode`, l.1392): publicar e ligar "Aceitar resposta" é só do Master. A
+     * Equipe não despacha (decisão do coordenador, 24/10).
+     */
+    public function podeDespachar(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Master
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d);
+    }
+
+    /**
+     * Responder ao despacho (`dpPodeResp`): quem pediu e o profissional (o Convidado do convite vigente, que vê a
+     * demanda), com "Aceitar resposta" ligado e ao menos um despacho publicado. Master e Equipe não respondem.
+     */
+    public function podeResponderAoDespacho(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return in_array($ctx->perfil, [Perfil::Solicitante, Perfil::Convidado], true)
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d)
+            && $d->aceitaRespostaAoDespacho();
+    }
+
     /** A lista de documentos: o Convidado só a vê com "Ver instruções" (`cp.ver` do desenho). */
     public function podeVerDocumentos(Contexto $ctx, DemandaExterna $d): bool
     {
