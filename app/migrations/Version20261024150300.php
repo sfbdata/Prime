@@ -20,7 +20,7 @@ use Doctrine\Migrations\AbstractMigration;
  *
  * Quem alterou, mudou ou enviou vira NULL se o usuário for apagado (SET NULL), para não travar a purga.
  */
-final class Version20261020151900 extends AbstractMigration
+final class Version20261024150300 extends AbstractMigration
 {
     public function getDescription(): string
     {

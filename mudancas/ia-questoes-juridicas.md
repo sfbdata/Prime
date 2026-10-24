@@ -7,7 +7,7 @@ tipo: novidade
 - Upload da versão ajustada de cada documento (.docx, .doc, .pdf, .md, .txt e .odt, até 20 MB, com o tipo conferido pelo conteúdo), com histórico: quem enviou, quando, nome original, documento e questão. O download das versões enviadas também vale. Arquivos na categoria nova `inteligencia_documento_juridico` (escopo global, `public/uploads/documentos-juridicos`).
 - Status de cada questão (pendente, em análise, resolvida), alterável pelo Master, com histórico de quem mudou e quando, e auditoria no escopo de plataforma.
 - Aviso no topo das telas do Master, "Questões jurídicas a serem verificadas", enquanto houver questão não resolvida, com o link para o bloco.
-- Tabelas `inteligencia_questao_juridica`, `inteligencia_questao_juridica_historico` e `inteligencia_documento_juridico_versao` na migration `Version20261020151900`. Rotas `master_ia_juridico_*`, só para o Master.
+- Tabelas `inteligencia_questao_juridica`, `inteligencia_questao_juridica_historico` e `inteligencia_documento_juridico_versao` na migration `Version20261024150300`. Rotas `master_ia_juridico_*`, só para o Master.
 
 ## Para o cliente
 - Nada visível para os escritórios.
