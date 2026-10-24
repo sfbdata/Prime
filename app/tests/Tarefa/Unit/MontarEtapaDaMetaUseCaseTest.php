@@ -147,6 +147,22 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
         self::assertFalse($saida->podeDevolver);
     }
 
+    #[TestDox('podeMexerNaEtapa (a regra que o desfazer da auditoria também chama): aberta e com a pasta viva, sim; concluída ou na lápide, não')]
+    public function testPodeMexerNaEtapa(): void
+    {
+        self::assertTrue(MontarEtapaDaMetaUseCase::podeMexerNaEtapa($this->meta));
+
+        $this->meta->setStatus(Tarefa::STATUS_EM_REVISAO);
+        self::assertTrue(MontarEtapaDaMetaUseCase::podeMexerNaEtapa($this->meta));
+
+        $this->meta->setStatus(Tarefa::STATUS_CONCLUIDA);
+        self::assertFalse(MontarEtapaDaMetaUseCase::podeMexerNaEtapa($this->meta));
+
+        $this->meta->setStatus(Tarefa::STATUS_PENDENTE);
+        $this->meta->getPasta()->marcarExcluida($this->criador, new \DateTimeImmutable('2026-10-20'));
+        self::assertFalse(MontarEtapaDaMetaUseCase::podeMexerNaEtapa($this->meta));
+    }
+
     #[TestDox('Rota: próxima pela posição, mesmo com a etapa fora da sequência do tipo')]
     public function testRota(): void
     {

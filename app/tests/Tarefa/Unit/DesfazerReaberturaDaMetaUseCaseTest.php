@@ -112,6 +112,29 @@ final class DesfazerReaberturaDaMetaUseCaseTest extends TestCase
         self::assertNull($tarefa->getDataConclusao());
     }
 
+    /** @return iterable<string, array{?string, ?string}> */
+    public static function motivosDaData(): iterable
+    {
+        yield 'sem data' => [null, DesfazerReaberturaDaMetaUseCase::MENSAGEM_SEM_DATA];
+        yield 'no futuro' => ['2026-10-07 16:00:01', DesfazerReaberturaDaMetaUseCase::MENSAGEM_DATA_INVALIDA];
+        yield 'antes da criação' => ['2026-09-01 07:59:59', DesfazerReaberturaDaMetaUseCase::MENSAGEM_DATA_INVALIDA];
+        yield 'igual à criação' => ['2026-09-01 08:00', null];
+        yield 'igual a agora' => ['2026-10-07 16:00', null];
+    }
+
+    #[DataProvider('motivosDaData')]
+    #[TestDox('motivoParaRecusarAData (a regra que o desfazer da auditoria também chama): a mensagem da recusa ou null')]
+    public function testMotivoParaRecusarAData(?string $data, ?string $esperado): void
+    {
+        $motivo = DesfazerReaberturaDaMetaUseCase::motivoParaRecusarAData(
+            $data === null ? null : new \DateTimeImmutable($data),
+            $this->metaReaberta('2026-09-01 08:00'),
+            new \DateTimeImmutable('2026-10-07 16:00'),
+        );
+
+        self::assertSame($esperado, $motivo);
+    }
+
     #[TestDox('meta de outro escritório: LogicException, nada muda')]
     public function testOutroEscritorio(): void
     {

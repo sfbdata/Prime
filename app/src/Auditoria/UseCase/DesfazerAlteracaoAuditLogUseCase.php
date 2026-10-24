@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Auditoria\UseCase;
 
+use App\Auditoria\Service\EstadoDaTelaNoDesfazer;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Sede;
@@ -15,6 +17,8 @@ use App\Repository\UserTenantRepository;
 use App\Shared\Contract\Descartavel;
 use App\Shared\Contract\TenantAware;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
+use App\Tarefa\Enum\EtapaDaPasta;
+use App\Tarefa\Service\TravaDaMeta;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
@@ -30,6 +34,10 @@ use Doctrine\ORM\Mapping\FieldMapping;
  * valor irrecuperável (enum no formato antigo), associação que sumiu ou é de outro escritório —
  * a operação inteira é recusada e nada muda. Antes, o campo era pulado em silêncio e o resultado
  * dizia "sucesso"; enum e data iam crus ao setter tipado e davam TypeError (500).
+ *
+ * Antes da fase 1, o estado: a `EstadoDaTelaNoDesfazer` recusa o que a tela não deixaria fazer no estado atual (o
+ * registro que mudou depois do log, a meta que seguiu adiante, a pasta excluída...). Na meta, a conferência e a
+ * gravação rodam numa transação, com a meta travada e relida, como na tela (spec `seguranca-d-desfazer-estado`).
  */
 final class DesfazerAlteracaoAuditLogUseCase
 {
@@ -89,6 +97,14 @@ final class DesfazerAlteracaoAuditLogUseCase
     ];
 
     /**
+     * Listas de enum gravadas como `list<string>` (json): o log traz os valores, o setter espera os casos do enum.
+     * Valor que não é caso do enum recusa como irrecuperável.
+     */
+    private const CAMPOS_DE_LISTA_DE_ENUM = [
+        Tarefa::class => ['etapasSaltadas' => EtapaDaPasta::class],
+    ];
+
+    /**
      * Comprimento do texto que o `AuditLogSubscriber::normalizeValue()` grava ao cortar:
      * `mb_substr($value, 0, MAX_STRING_LENGTH) . '…'`, com MAX_STRING_LENGTH = 500,
      * dá 501 caracteres. Se o limite de lá mudar, este tem de mudar junto.
@@ -123,6 +139,8 @@ final class DesfazerAlteracaoAuditLogUseCase
         private readonly AuditLogRepository $auditLogRepository,
         private readonly AcessoALixeira $lixeira,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly EstadoDaTelaNoDesfazer $estadoDaTela,
+        private readonly TravaDaMeta $travaDaMeta,
     ) {}
 
     public function podeReverter(AuditLog $log): bool
@@ -199,9 +217,61 @@ final class DesfazerAlteracaoAuditLogUseCase
             return new DesfazerResultado(false, 'Nada a reverter.');
         }
 
-        $metadata = $this->em->getClassMetadata($log->getEntityClass());
+        if ($entity instanceof Tarefa) {
+            // Como a tela (concluir, reabrir, passar): a meta travada e relida do banco até o COMMIT; a decisão vale
+            // pelo que está gravado, não pelo que estava em memória.
+            return $this->em->wrapInTransaction(function () use ($entity, $log, $diff, $tenantId): DesfazerResultado {
+                $this->travaDaMeta->travarERecarregar($entity);
+
+                return $this->reverter($entity, $log, $diff, $tenantId);
+            });
+        }
+
+        return $this->reverter($entity, $log, $diff, $tenantId);
+    }
+
+    /** @param array<array-key, mixed> $diff */
+    private function reverter(object $entity, AuditLog $log, array $diff, int $tenantId): DesfazerResultado
+    {
+        $recusa = $this->estadoDaTela->recusa($entity, $diff, new \DateTimeImmutable());
+
+        if ($recusa !== null) {
+            return new DesfazerResultado(false, $recusa);
+        }
 
         // Fase 1: preparar TODOS os campos sem tocar na entidade. Qualquer recusa sai daqui.
+        $aplicacoes = $this->prepararTodos($entity, $log, $diff, $tenantId);
+
+        if ($aplicacoes instanceof DesfazerResultado) {
+            return $aplicacoes;
+        }
+
+        // Fase 2: aplicar. Os tipos já foram conferidos; resta a regra do próprio setter
+        // (ex.: guarda de ciclo). Se ela recusar no meio, a entidade volta ao estado do banco.
+        try {
+            foreach ($aplicacoes as [$setter, $valor]) {
+                $entity->$setter($valor);
+            }
+        } catch (\TypeError|\ValueError|\LogicException) {
+            $this->em->refresh($entity);
+
+            return new DesfazerResultado(false, self::MENSAGEM_VALOR_RECUSADO);
+        }
+
+        $this->em->flush();
+
+        return new DesfazerResultado(sucesso: true);
+    }
+
+    /**
+     * @param array<array-key, mixed> $diff
+     *
+     * @return list<array{0: string, 1: mixed}>|DesfazerResultado os pares [setter, valor] ou a recusa
+     */
+    private function prepararTodos(object $entity, AuditLog $log, array $diff, int $tenantId): array|DesfazerResultado
+    {
+        $metadata = $this->em->getClassMetadata($log->getEntityClass());
+
         /** @var list<array{0: string, 1: mixed}> $aplicacoes */
         $aplicacoes = [];
 
@@ -225,21 +295,7 @@ final class DesfazerAlteracaoAuditLogUseCase
             $aplicacoes[] = $preparado;
         }
 
-        // Fase 2: aplicar. Os tipos já foram conferidos; resta a regra do próprio setter
-        // (ex.: guarda de ciclo). Se ela recusar no meio, a entidade volta ao estado do banco.
-        try {
-            foreach ($aplicacoes as [$setter, $valor]) {
-                $entity->$setter($valor);
-            }
-        } catch (\TypeError|\ValueError|\LogicException) {
-            $this->em->refresh($entity);
-
-            return new DesfazerResultado(false, self::MENSAGEM_VALOR_RECUSADO);
-        }
-
-        $this->em->flush();
-
-        return new DesfazerResultado(sucesso: true);
+        return $aplicacoes;
     }
 
     /**
@@ -268,7 +324,11 @@ final class DesfazerAlteracaoAuditLogUseCase
             return $naoReversivel;
         }
 
-        if ($metadata->hasField($campo)) {
+        $enumDaLista = $this->enumDaLista($entity, $campo);
+
+        if ($enumDaLista !== null) {
+            [$ok, $valor] = self::converterListaDeEnum($enumDaLista, $from);
+        } elseif ($metadata->hasField($campo)) {
             [$ok, $valor] = $this->converterCampo($metadata->getFieldMapping($campo), $from);
         } elseif ($metadata->hasAssociation($campo)) {
             if (!$metadata->isSingleValuedAssociation($campo)) {
@@ -291,6 +351,47 @@ final class DesfazerAlteracaoAuditLogUseCase
         }
 
         return [$setter->getName(), $valor];
+    }
+
+    /** @return class-string<\BackedEnum>|null */
+    private function enumDaLista(object $entity, string $campo): ?string
+    {
+        foreach (self::CAMPOS_DE_LISTA_DE_ENUM as $classe => $campos) {
+            if ($entity instanceof $classe && isset($campos[$campo])) {
+                return $campos[$campo];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param class-string<\BackedEnum> $enumClasse
+     *
+     * @return array{0: bool, 1: mixed} [conseguiu, lista de casos]
+     */
+    private static function converterListaDeEnum(string $enumClasse, mixed $from): array
+    {
+        if (!is_array($from)) {
+            return [false, null];
+        }
+
+        $casos = [];
+        foreach ($from as $valor) {
+            try {
+                $caso = is_int($valor) || is_string($valor) ? $enumClasse::tryFrom($valor) : null;
+            } catch (\TypeError) {
+                $caso = null;
+            }
+
+            if ($caso === null) {
+                return [false, null];
+            }
+
+            $casos[] = $caso;
+        }
+
+        return [true, $casos];
     }
 
     private function resolverSetter(object $entity, string $campo): ?\ReflectionMethod

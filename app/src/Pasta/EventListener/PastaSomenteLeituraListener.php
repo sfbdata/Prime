@@ -82,7 +82,8 @@ final class PastaSomenteLeituraListener
 
     private const METODOS_DE_LEITURA = ['GET', 'HEAD', 'OPTIONS'];
 
-    private const MENSAGEM = 'Esta pasta foi excluída e está somente para leitura. Restaure a pasta para voltar a editá-la.';
+    /** Também a recusa do desfazer da auditoria na pasta excluída e nas filhas dela (`EstadoDaTelaNoDesfazer`). */
+    public const MENSAGEM = 'Esta pasta foi excluída e está somente para leitura. Restaure a pasta para voltar a editá-la.';
 
     public function __construct(
         private readonly RequestStack $requestStack,
