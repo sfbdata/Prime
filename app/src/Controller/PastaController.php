@@ -1562,7 +1562,9 @@ class PastaController extends AbstractController
         $dto = new EditarPastaDTO(
             nup: (string) $request->request->get('nup', ''),
             nomeCliente: $this->textoOuMantemAtual($request, 'nome_cliente', $pasta->getNomeCliente()),
-            nomeAcao: $this->textoOuMantemAtual($request, 'nome_acao', $pasta->getNomeAcao()),
+            // A Ação NÃO muda por aqui (decisão do dono, 23/10/2026; PZ-MOD-N05): no "Editar dados" ela é só
+            // leitura e "vem do menu Processo" (`pasta_acao_salvar`). Um `nome_acao` no POST é ignorado.
+            nomeAcao: $pasta->getNomeAcao(),
             // A situação NÃO muda por aqui: vai ao mesmo caso de uso da pílula logo abaixo, para sair o
             // cartão "Situação da pasta" e, ao arquivar, o andamento ir a Finalizada.
             situacao: $pasta->getSituacao(),

@@ -3829,10 +3829,12 @@ document.addEventListener('DOMContentLoaded', function () {
    Moldura do desenho 1.2.3 (dc 560-592; auditoria 2 C2): cabeçalho em gradiente com
    o círculo da pasta, título "Pasta nnnn" e o cliente como subtítulo; rótulos em
    caixa alta; rodapé Fechar · Salvar. SÓ a moldura: os campos e o POST para
-   `pasta_edit` são os de sempre (ids, names, CSRF). O que o desenho põe e aqui
-   não entra, por ser decisão do dono ou função nova (D-META): "Ação" só leitura,
-   Tipo de documento/CPF. Responsável com "Trocar" (PAS-021), a pílula de estado,
-   o Salvar travado e "Pendências" (PAS-020): abaixo.
+   `pasta_edit` são os de sempre (ids, names, CSRF). Responsável com "Trocar" (PAS-021),
+   a pílula de estado, o Salvar travado e "Pendências" (PAS-020): abaixo. A Ação e o
+   CPF/CNPJ (decisão do dono, 23/10/2026; PZ-MOD-N05 e PZ-MOD-16) são SÓ LEITURA: a Ação
+   vem do menu Processo (edição no ⋮ da aba Processo, `pasta_acao_salvar`) e o documento
+   é do Cliente (muda no cadastro dele). O "Tipo de documento" do desenho não entra:
+   ele só existe para digitar o documento, e aqui o rótulo (CPF ou CNPJ) já diz o tipo.
 
    Abas de atalho e "Cadastro do cliente" (lote L2; dc L.570-572, 587, 4299-4301):
    são ATALHOS, não abas do form — ficam FORA do <form>, sem `name`, e nenhum campo
@@ -3871,6 +3873,11 @@ document.addEventListener('DOMContentLoaded', function () {
     .ps-pe-pendencias-linha { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ps-warn-text); }
     .ps-pe-pendencias-linha i { font-size: 12px; color: var(--ps-danger-dot); }
     #modalEditarPasta .ps-modal-pasta-btn--salvar:disabled { opacity: 1; background: var(--ps-border-ctl); color: #fff; cursor: not-allowed; }
+    /* PZ-MOD-N05/16: a mesma linha só leitura serve à Ação ("Abrir", dc L.659) e ao CPF/CNPJ; o atalho do
+       documento é um link (vai ao cadastro do cliente), com a mesma medida do botão. Vazio em cinza. */
+    a.ps-pe-resp-trocar { display: inline-flex; align-items: center; text-decoration: none; }
+    .ps-pe-resp-nome.is-vazio { color: var(--ps-muted); }
+    .ps-pe-resp-nome--num { font-variant-numeric: tabular-nums; }
 </style>
 {% set editCliente = pasta.clientePrincipal %}
 {% set editDocumento = editCliente ? (editCliente.cpf is defined ? editCliente.cpf : (editCliente.cnpj is defined ? editCliente.cnpj : null)) : null %}
@@ -3959,8 +3966,26 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
-                    {# "Ação" continua EDITÁVEL: o desenho a põe só leitura ("vem do menu
-                       Processo"), mas isso é decisão do dono (D-META). #}
+                    {# PZ-MOD-16 (dc L.652-653; máscara de `peVals`, L.4455): o CPF/CNPJ é do CLIENTE principal,
+                       não da pasta, e aqui só se LÊ, formatado (000.000.000-00 ou 00.000.000/0000-00, pela
+                       contagem de dígitos do `documento_br`). "Cadastro" abre a janela de Cadastro do
+                       cliente (`data-pe-ir="cliente"`, como `cadAbrir` no desenho, dc:4482-4483), com a pergunta
+                       das alterações não salvas. Sem cliente cadastrado ou sem documento: o
+                       vazio neutro e nenhum atalho. Sem `name`: nada daqui vai no POST. #}
+                    <div class="ps-modal-pasta-linha">
+                        <div class="ps-modal-pasta-campo ps-modal-pasta-campo--2" data-pe-documento>
+                            <span class="ps-modal-pasta-rotulo" id="editDocRotulo">{{ editDocumento ? editDocumento|documento_br_rotulo : 'pasta_show.editar.cpf_cnpj'|trans }}</span>
+                            <div class="ps-pe-resp" role="group" aria-labelledby="editDocRotulo">
+                                {% if editDocumento %}
+                                    <span class="ps-pe-resp-nome ps-pe-resp-nome--num" data-pe-doc>{{ editDocumento|documento_br }}</span>
+                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="cliente" title="{{ 'pasta_show.editar.documento_dica'|trans }}">{{ 'pasta_show.editar.documento_cadastro'|trans }}</button>
+                                {% else %}
+                                    <span class="ps-pe-resp-nome is-vazio" data-pe-doc>{{ editCliente ? 'pasta_show.editar.sem_documento'|trans : 'pasta_show.editar.sem_cliente_cadastrado'|trans }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="ps-modal-pasta-linha ps-modal-pasta-linha--larga">
                         {# PAS-021 (dc L.581, `pe.trocarResp`): Responsável só leitura com "Trocar", que
                            fecha a janela e abre o menu de responsável do cabeçalho (o mesmo do ⋮
@@ -3977,11 +4002,23 @@ document.addEventListener('DOMContentLoaded', function () {
                             </div>
                         </div>
 
-                        <div class="ps-modal-pasta-campo">
-                            <label for="edit_nome_acao" class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.acao'|trans }}</label>
-                            <input type="text" id="edit_nome_acao" name="nome_acao"
-                                   class="form-control"
-                                   value="{{ pasta.nomeAcao }}" autocomplete="off">
+                        {# PZ-MOD-N05 (dc L.659, `pe.irProcesso`): a Ação é SÓ LEITURA, "vem do menu Processo". "Abrir"
+                           fecha a janela, vai à aba Processo e, se a edição da Ação existe (EDIT na pasta), abre-a
+                           (`.js-proc-editar-acao`, pasta-processo.js). Sem `name`: o `pasta_edit` não grava mais a
+                           Ação (o controller também ignora `nome_acao`). Vazia: o texto do desenho sem processo
+                           ("Sem processo vinculado") ou, com processo, "Sem ação informada". #}
+                        <div class="ps-modal-pasta-campo" data-pe-acao>
+                            <span class="ps-modal-pasta-rotulo" id="editAcaoRotulo">{{ 'pasta_show.editar.acao_do_processo'|trans }}</span>
+                            <div class="ps-pe-resp" role="group" aria-labelledby="editAcaoRotulo">
+                                {% if pasta.nomeAcao %}
+                                    <span class="ps-pe-resp-nome" title="{{ pasta.nomeAcao }}">{{ pasta.nomeAcao }}</span>
+                                {% else %}
+                                    <span class="ps-pe-resp-nome is-vazio">{{ pasta.pastaProcessos|length > 0 ? 'pasta_show.editar.sem_acao'|trans : 'pasta_show.editar.sem_processo'|trans }}</span>
+                                {% endif %}
+                                {% if 'processo' not in abasOcultas %}
+                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="acao" title="{{ 'pasta_show.editar.acao_abrir_dica'|trans }}">{{ 'pasta_show.editar.abrir'|trans }}</button>
+                                {% endif %}
+                            </div>
                         </div>
 
                         <div class="ps-modal-pasta-campo">
@@ -4110,6 +4147,24 @@ document.addEventListener('DOMContentLoaded', function () {
         processo: function () {
             var aba = document.getElementById('processo-tab');
             if (aba) { aba.click(); aba.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        },
+        /* PZ-MOD-N05 (`pe.irProcesso`, dc L.4484): "Abrir" da Ação vai à aba Processo e abre a edição da
+           Ação pelo item do ⋮ (pasta-processo.js), quando ele existe (EDIT na pasta). Com a aba fechada,
+           espera o `shown.bs.tab`, para o foco cair no campo já visível. */
+        acao: function () {
+            var aba = document.getElementById('processo-tab');
+            var editar = document.querySelector('.js-proc-editar-acao[data-edicao]');
+            if (!aba) { return; }
+            function abrirEdicaoDaAcao() {
+                if (editar) { editar.click(); }
+            }
+            if (aba.classList.contains('active')) {
+                destinos.processo();
+                abrirEdicaoDaAcao();
+                return;
+            }
+            aba.addEventListener('shown.bs.tab', abrirEdicaoDaAcao, { once: true });
+            destinos.processo();
         },
         historico: function () {
             var abrir = document.getElementById('psHistoricoAbrir');

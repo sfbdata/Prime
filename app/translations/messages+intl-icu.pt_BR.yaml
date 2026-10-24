@@ -8437,7 +8437,18 @@ pasta_show:
         responsavel: Responsável
         sem_responsavel: Sem responsável
         trocar: Trocar
-        acao: Ação
+        # PZ-MOD-N05 (desenho 02, L.659): a Ação só leitura, com o "Abrir" que leva à aba Processo.
+        acao_do_processo: Ação · vem do menu Processo
+        abrir: Abrir
+        acao_abrir_dica: Fechar e editar a Ação na aba Processo
+        sem_acao: Sem ação informada
+        sem_processo: Sem processo vinculado
+        # PZ-MOD-16 (desenho 02, L.652-653): o CPF/CNPJ do cliente, só leitura, com atalho ao cadastro dele.
+        cpf_cnpj: CPF/CNPJ
+        documento_cadastro: Cadastro
+        documento_dica: Abrir o cadastro do cliente para alterar o documento
+        sem_documento: Cliente sem documento cadastrado
+        sem_cliente_cadastrado: Sem cliente cadastrado
         situacao: Situação
         pendencias: Pendências
         cadastro_cliente_botao: Cadastro do cliente
