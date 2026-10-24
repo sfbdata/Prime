@@ -91,6 +91,27 @@ final class PastaEditarDadosJanelaJsTest extends TestCase
         self::assertStringContainsString('window.confirmarPs({', $js, 'Descartar as alterações? continua');
     }
 
+    #[TestDox('Ação (PZ-MOD-N05, pe.irProcesso dc L.4484): "Abrir" fecha a janela, vai à aba Processo e abre a edição da Ação do ⋮')]
+    public function testAbrirDaAcao(): void
+    {
+        $js = $this->script();
+        $ini = strpos($js, 'acao: function () {');
+        self::assertNotFalse($ini, 'o destino "acao" dos atalhos existe');
+        $fim = strpos($js, "\n        },", $ini);
+        self::assertNotFalse($fim);
+        $acao = substr($js, $ini, $fim - $ini);
+
+        self::assertStringContainsString("document.getElementById('processo-tab')", $acao);
+        self::assertStringContainsString("document.querySelector('.js-proc-editar-acao[data-edicao]')", $acao, 'o item "Editar ação" do ⋮ (pasta-processo.js)');
+        self::assertStringContainsString('if (editar) { editar.click(); }', $acao);
+        self::assertStringContainsString("aba.addEventListener('shown.bs.tab', abrirEdicaoDaAcao, { once: true });", $acao, 'abre a edição com a aba já visível');
+        self::assertStringContainsString('destinos.processo();', $acao, 'vai à aba Processo');
+
+        // Fechar a janela é o caminho comum dos atalhos (`seguir`: peFechar(false) e depois o destino).
+        $twig = (string) file_get_contents(self::DIR . 'templates/pasta/show.html.twig');
+        self::assertMatchesRegularExpression('/<button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="acao"/', $twig);
+    }
+
     #[TestDox('arraste: pasta-show.js move a caixa .ps-modal-pasta e a devolve ao lugar no pe:fechada')]
     public function testArraste(): void
     {

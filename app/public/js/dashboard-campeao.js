@@ -21,6 +21,13 @@
     'use strict';
 
     var JANELAS = ['periodo', 'mes', 'trimestre', 'semestre', 'ano'];
+    var ROTULO_DA_JANELA = {
+        periodo: 'dashboard.js.colaborador.periodo',
+        mes: 'dashboard.js.colaborador.mes',
+        trimestre: 'dashboard.js.colaborador.trimestre',
+        semestre: 'dashboard.js.colaborador.semestre',
+        ano: 'dashboard.js.colaborador.ano'
+    };
     var TOQUE_LONGO_MS = 550;
     var MAX_FANFARRAS = 2;
     var INTERVALO_MS = 1400;
@@ -169,7 +176,7 @@
     function tituloMes(sit, mes, ano) {
         var curto = t('dashboard.js.colaborador.meses_curtos').split(',')[mes - 1];
 
-        return t(sit === 'aberto' ? 'mes_aberto' : sit === 'ganhou' ? 'mes_ganhou' : 'mes_nao', { mes: curto, ano: ano });
+        return t(sit === 'aberto' ? 'dashboard.js.colaborador.mes_aberto' : sit === 'ganhou' ? 'dashboard.js.colaborador.mes_ganhou' : 'dashboard.js.colaborador.mes_nao', { mes: curto, ano: ano });
     }
 
     function mesesDoAno(p, ano) {
@@ -216,7 +223,7 @@
             var vezes = todos
                 ? p.anos.reduce(function (s, a) { return s + ganhosDe(p, a).length; }, 0)
                 : ganhosDe(p, anoEscolhido).length;
-            var rotulo = t(vezes === 1 ? 'vez' : 'vezes') + ' ' + (todos ? t('dashboard.js.colaborador.no_total') : t('dashboard.js.colaborador.em_ano', { ano: anoEscolhido }));
+            var rotulo = t(vezes === 1 ? 'dashboard.js.colaborador.vez' : 'dashboard.js.colaborador.vezes') + ' ' + (todos ? t('dashboard.js.colaborador.no_total') : t('dashboard.js.colaborador.em_ano', { ano: anoEscolhido }));
             var opcoes = p.anos.map(function (a) { return [a, String(a)]; }).concat([['todos', t('dashboard.js.colaborador.todos')]]);
             caixa.replaceChildren(
                 linha('bi-trophy-fill db-colab-ico--ouro', t('dashboard.js.colaborador.primeiro_mes'), vezes, rotulo),
@@ -265,6 +272,23 @@
         return caixa;
     }
 
+    /**
+     * Comentários com o "Zerar" do desenho (`ctx.comZerar`, só para quem pode zerar): zera a coluna
+     * Relatório desta pessoa (public/js/dashboard-zerar.js) e recarrega o cartão.
+     */
+    function linhaDosComentarios(d, recarregar) {
+        var l = linha('bi-chat-left-text-fill', window.BJ_T.t('dashboard.js.colaborador.comentarios'), d.registros);
+        if (!window.DbZerar || !window.DbZerar.pode()) { return l; }
+        var b = el('button', 'db-colab-zerar');
+        b.type = 'button';
+        b.title = window.BJ_T.t('dashboard.js.zerar.cartao_zerar_titulo');
+        b.append(icone('bi-arrow-counterclockwise'), el('span', null, window.BJ_T.t('dashboard.js.zerar.cartao_zerar')));
+        b.addEventListener('click', function () { window.DbZerar.zerar('relatorio', d.userId, d.nome, recarregar); });
+        l.appendChild(b);
+
+        return l;
+    }
+
     // ── Montagem ──
 
     function desenhar(janela, d, aoEscolher) {
@@ -274,8 +298,8 @@
         }
         var corpo = el('div', 'db-colab-corpo');
         // Alternativa do dono (fora do desenho): o recorte do cartão; abre no período do painel.
-        corpo.appendChild(segmentado('db-colab-seg-janela', t('dashboard.js.colaborador.janela_aria'), JANELAS.map(function (j) { return [j, t(j)]; }), d.janela, aoEscolher));
-        corpo.appendChild(linha('bi-chat-left-text-fill', t('dashboard.js.colaborador.comentarios'), d.registros));
+        corpo.appendChild(segmentado('db-colab-seg-janela', t('dashboard.js.colaborador.janela_aria'), JANELAS.map(function (j) { return [j, t(ROTULO_DA_JANELA[j])]; }), d.janela, aoEscolher));
+        corpo.appendChild(linhaDosComentarios(d, function () { aoEscolher(d.janela); }));
         corpo.appendChild(blocoPrimeiros(d.primeiros));
         janela.corpo.replaceChildren(corpo, blocoRendimento(d));
     }

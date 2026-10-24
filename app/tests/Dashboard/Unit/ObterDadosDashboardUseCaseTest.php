@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Dashboard\Unit;
 
+use App\Dashboard\Repository\DashboardZeramentoRepository;
 use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
@@ -45,6 +46,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
             $this->userRepo,
             $this->fotoRepo,
             $this->createMock(MetricasExtrasDoDashboardRepository::class),
+            $this->createStub(DashboardZeramentoRepository::class),
         );
     }
 

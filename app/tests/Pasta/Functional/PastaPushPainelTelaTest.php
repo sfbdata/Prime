@@ -176,7 +176,7 @@ final class PastaPushPainelTelaTest extends JusPrimeWebTestCase
         self::assertSame('Próxima etapa provável', $sit->filter('.ps-push-sit-proxima .ps-push-sit-rotulo')->text());
         self::assertSame('Confiança Alta', $sit->filter('.ps-push-sit-conf-selo--alta')->text());
         self::assertSame('Base: CPC arts. 350 e 351 · histórico de 2 movimentações', $sit->filter('.ps-push-sit-base')->text());
-        self::assertSame('Previsão da I.A, não é ato oficial. Ainda sem previsão anterior para conferir.', $sit->filter('.ps-push-sit-rodape')->text());
+        self::assertSame('Previsão por regras do CPC, não é ato oficial. Ainda sem previsão anterior para conferir.', $sit->filter('.ps-push-sit-rodape')->text());
         self::assertSame(1, $this->contarPrevisoes((int) $processo->getId()));
 
         $client->request('GET', '/pasta/' . $pasta->getId());
@@ -247,7 +247,7 @@ final class PastaPushPainelTelaTest extends JusPrimeWebTestCase
         $pastaId = (int) $pasta->getId();
 
         $rodape = $this->abrir($client, $user, $tenant, $pastaId)->filter(self::PAINEL . ' .ps-push-sit-rodape')->text();
-        self::assertSame('Previsão da I.A, não é ato oficial. Ainda sem previsão anterior para conferir.', $rodape);
+        self::assertSame('Previsão por regras do CPC, não é ato oficial. Ainda sem previsão anterior para conferir.', $rodape);
 
         // A sentença previu "Apelação ou embargos de declaração"; chega a apelação.
         $this->criarPublicacao($tenant, '61000021', self::NUMERO_DA_PASTA, '2026-10-14', $processo)->setTexto('Apelação interposta pela parte ré.');
@@ -255,7 +255,7 @@ final class PastaPushPainelTelaTest extends JusPrimeWebTestCase
 
         $crawler = $client->request('GET', '/pasta/' . $pastaId);
         self::assertResponseIsSuccessful();
-        self::assertSame('Previsão da I.A, não é ato oficial. Previsões conferidas: 1 de 1 acertaram.', $crawler->filter(self::PAINEL . ' .ps-push-sit-rodape')->text());
+        self::assertSame('Previsão por regras do CPC, não é ato oficial. Previsões conferidas: 1 de 1 acertaram.', $crawler->filter(self::PAINEL . ' .ps-push-sit-rodape')->text());
         self::assertSame('Prazo para contrarrazões', $crawler->filter(self::PAINEL . ' .ps-push-sit-titulo')->text());
         self::assertSame(2, $this->contarPrevisoes((int) $processo->getId()));
 

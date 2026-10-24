@@ -101,7 +101,7 @@ final class ProvedorAnthropicTest extends TestCase
 
     private static function comFonte(MockHttpClient $http, FonteDoModeloDeIa $fonte, string $chave = 'sk-teste', string $modelo = 'modelo-do-ambiente'): ProvedorAnthropic
     {
-        return new ProvedorAnthropic($http, $chave, $modelo, 'https://api.exemplo.test', 120.0, '', ProvedorAnthropic::MARGEM_DE_RACIOCINIO_PADRAO, $fonte);
+        return new ProvedorAnthropic($http, $chave, $modelo, 'https://api.exemplo.test', 120.0, '', ProvedorAnthropic::MARGEM_DE_RACIOCINIO_PADRAO, fonteDoModelo: $fonte);
     }
 
     #[TestDox('Com a fonte do modelo (o banco), o modelo dela manda em cada chamada, não o do ambiente')]
@@ -274,6 +274,54 @@ final class ProvedorAnthropicTest extends TestCase
         } catch (FalhaDoProvedorException $e) {
             self::assertFalse($e->transitoria);
             self::assertStringContainsString('teto mensal', $e->getMessage());
+        }
+    }
+
+    #[TestDox('inference_geo vai quando configurado; valor desconhecido deixa o provedor dormente')]
+    public function testRegiaoDeInferencia(): void
+    {
+        $corpo = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$corpo): MockResponse {
+            $corpo = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR);
+
+            return self::ok();
+        });
+
+        (new ProvedorAnthropic($http, 'sk', 'modelo', 'https://api.exemplo.test', 60.0, '', 0, ' US '))->completar($this->pedido());
+
+        self::assertSame('us', $corpo['inference_geo'] ?? null);
+        self::assertTrue((new ProvedorAnthropic($http, 'sk', 'modelo', 'https://api.exemplo.test', 60.0, '', 0, 'global'))->estaConfigurado());
+        self::assertFalse((new ProvedorAnthropic($http, 'sk', 'modelo', 'https://api.exemplo.test', 60.0, '', 0, 'br'))->estaConfigurado());
+    }
+
+    /** @return iterable<string, array{int, ?string, ?int}> */
+    public static function esperas(): iterable
+    {
+        yield '429 com 30 s'         => [429, '30', 30];
+        yield '529 acima do teto'    => [529, '86400', ProvedorAnthropic::ESPERA_MAXIMA_EM_SEGUNDOS];
+        yield '429 sem cabeçalho'    => [429, null, null];
+        yield '429 com data'         => [429, 'Wed, 21 Oct 2026 07:28:00 GMT', null];
+        yield '400 não espera'       => [400, '30', null];
+    }
+
+    #[DataProvider('esperas')]
+    #[TestDox('HTTP $status com retry-after $cabecalho → espera $esperado')]
+    public function testRetryAfter(int $status, ?string $cabecalho, ?int $esperado): void
+    {
+        $cabecalhos = ['content-type' => 'application/json'];
+        if ($cabecalho !== null) {
+            $cabecalhos['retry-after'] = $cabecalho;
+        }
+        $http = new MockHttpClient(new MockResponse(json_encode([
+            'type'  => 'error',
+            'error' => ['type' => 'rate_limit_error', 'message' => 'devagar'],
+        ], JSON_THROW_ON_ERROR), ['http_code' => $status, 'response_headers' => $cabecalhos]));
+
+        try {
+            self::provedor($http)->completar($this->pedido());
+            self::fail('Deveria falhar.');
+        } catch (FalhaDoProvedorException $e) {
+            self::assertSame($esperado, $e->esperarSegundos);
         }
     }
 

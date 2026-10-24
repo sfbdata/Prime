@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Auth\Unit;
 
 use App\Auth\DTO\CriarContaEEscritorioInput;
+use App\Auth\DTO\IdentidadeDoGoogle;
 use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Event\ContaCriadaPeloCadastro;
+use App\Auth\Event\EmailDaContaConfirmado;
+use App\Auth\Exception\EntradaPeloGoogleRecusadaException;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\CadastroMailer;
 use App\Auth\Service\TetoDoReenvioDeConfirmacao;
@@ -89,6 +92,9 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         $this->confirmacaoRepository = $this->createMock(ConfirmacaoEmailRepository::class);
         $this->eventos = new EventDispatcher();
         $this->eventos->addListener(ContaCriadaPeloCadastro::class, function (object $evento): void {
+            $this->despachados[] = $evento;
+        });
+        $this->eventos->addListener(EmailDaContaConfirmado::class, function (object $evento): void {
             $this->despachados[] = $evento;
         });
         $this->hasher = new UserPasswordHasher(new PasswordHasherFactory([
@@ -300,6 +306,66 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         $this->expectExceptionMessage($mensagem);
 
         $this->useCase()->executar($input, '10.0.0.1', null);
+    }
+
+    #[TestDox('Pelo Google: e-mail do Google (não o do formulário), conta confirmada e ligada ao sub, sem link nem e-mail, com aceite e evento')]
+    public function testCriaPeloGoogle(): void
+    {
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
+        $this->aceiteRepository->expects($this->once())->method('salvar');
+        $this->cienciaRepository->expects($this->once())->method('salvar');
+        $this->confirmacaoRepository->expects($this->never())->method('salvar');
+
+        $conta = $this->useCase()->executarPeloGoogle(
+            self::input(email: 'outro@adv.com', senha: 'qualquer'),
+            new IdentidadeDoGoogle('sub-9', 'Ana.Souza@Gmail.com', 'Ana do Google'),
+            '10.0.0.1',
+            'Navegador X',
+        );
+
+        self::assertSame('ana.souza@gmail.com', $conta->user->getEmail());
+        self::assertTrue($conta->user->isEmailConfirmado());
+        self::assertSame('sub-9', $conta->user->getGoogleSub());
+        self::assertFalse($this->hasher->isPasswordValid($conta->user, 'qualquer'));
+        self::assertSame([], $this->enviados);
+        self::assertCount(2, $this->despachados);
+        self::assertInstanceOf(ContaCriadaPeloCadastro::class, $this->despachados[0]);
+        self::assertInstanceOf(EmailDaContaConfirmado::class, $this->despachados[1], 'a conta nasce confirmada');
+    }
+
+    #[TestDox('Pelo Google: e-mail sem garantia (nem Gmail nem Workspace) recusa e não grava, mesmo que chegue à sessão')]
+    public function testPeloGoogleSemGarantia(): void
+    {
+        $this->em->expects($this->never())->method('wrapInTransaction');
+
+        $this->expectExceptionMessage(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_CADASTRO);
+
+        $this->useCase()->executarPeloGoogle(self::input(), new IdentidadeDoGoogle('sub-9', 'ana@adv.com', 'Ana'), '10.0.0.1', null);
+    }
+
+    #[TestDox('Pelo Google: e-mail que já tem conta, ou sub já ligado a outra conta, recusa com a mensagem própria e não grava')]
+    public function testPeloGoogleContaExistente(): void
+    {
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([(new User())->setEmail('ana@gmail.com')]);
+        $this->em->expects($this->never())->method('wrapInTransaction');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage(CriarContaEEscritorioUseCase::ERRO_JA_TEM_CONTA_GOOGLE);
+
+        $this->useCase()->executarPeloGoogle(self::input(), new IdentidadeDoGoogle('sub-9', 'ana@gmail.com', 'Ana'), '10.0.0.1', null);
+    }
+
+    #[TestDox('Pelo Google: a validação do formulário vale igual (gênero obrigatório)')]
+    public function testPeloGoogleValida(): void
+    {
+        $this->em->expects($this->never())->method('wrapInTransaction');
+
+        $this->expectExceptionMessage(CriarContaEEscritorioUseCase::ERRO_GENERO);
+
+        $this->useCase()->executarPeloGoogle(self::input(genero: ''), new IdentidadeDoGoogle('sub-9', 'ana@gmail.com', 'Ana'), '10.0.0.1', null);
     }
 
     #[TestDox('A senha do cadastro é ignorada: fraca ou vazia, a conta nasce e a senha digitada não entra')]

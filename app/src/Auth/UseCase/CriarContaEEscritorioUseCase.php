@@ -6,8 +6,11 @@ namespace App\Auth\UseCase;
 
 use App\Auth\DTO\ContaCriadaOutput;
 use App\Auth\DTO\CriarContaEEscritorioInput;
+use App\Auth\DTO\IdentidadeDoGoogle;
 use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Event\ContaCriadaPeloCadastro;
+use App\Auth\Event\EmailDaContaConfirmado;
+use App\Auth\Exception\EntradaPeloGoogleRecusadaException;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\CadastroMailer;
 use App\Auth\Service\TetoDoReenvioDeConfirmacao;
@@ -49,6 +52,11 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * E-mail que já tem conta (achado de auditoria interna F14; spec `seguranca-a-convites.md`, raiz E): o cadastro não
  * diz que a conta existe. Nada é gravado, a dona da conta recebe um e-mail avisando que já tem conta e apontando o
  * "Esqueci a senha", e o caso de uso devolve null; o controller responde igual ao e-mail novo.
+ *
+ * Pelo Google (`executarPeloGoogle`, spec entrar-com-google, entrega 2; desenho 10 VS 24.10.26): o e-mail é o que o
+ * Google provou (lido da sessão pelo controller, nunca do navegador), a conta nasce confirmada e ligada ao `sub`, sem
+ * link de confirmação nem e-mail, e entra na hora. Quem chega aqui já provou ser dona do e-mail; por isso o e-mail que
+ * já tem conta é recusado com mensagem própria em vez da resposta neutra.
  */
 final class CriarContaEEscritorioUseCase
 {
@@ -57,6 +65,7 @@ final class CriarContaEEscritorioUseCase
     public const ERRO_EMAIL = 'Informe um e-mail válido.';
     public const ERRO_GENERO = Genero::ERRO_INFORME;
     public const ERRO_ACEITE = 'É preciso aceitar os Termos e a Política de privacidade.';
+    public const ERRO_JA_TEM_CONTA_GOOGLE = 'Já existe uma conta com este e-mail. Entre com o Google.';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -117,6 +126,42 @@ final class CriarContaEEscritorioUseCase
         return $conta;
     }
 
+    /** @throws \InvalidArgumentException|\DomainException */
+    public function executarPeloGoogle(CriarContaEEscritorioInput $input, IdentidadeDoGoogle $identidade, string $ip, ?string $userAgent): ContaCriadaOutput
+    {
+        // Decisão 10: a garantia é conferida de novo aqui, além do autenticador que gravou a identidade na sessão.
+        if (!$identidade->emailComGarantia()) {
+            throw new \DomainException(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_CADASTRO);
+        }
+        $input = new CriarContaEEscritorioInput($input->nome, $input->escritorio, $identidade->email, '', $input->aceite, $input->genero);
+        self::validar($input);
+        $email = self::normalizarEmail($identidade->email);
+
+        if ($this->userRepository->encontrarPorEmailIgnorandoCaixa($email) !== []
+            || $this->userRepository->findOneBy(['googleSub' => $identidade->sub]) !== null) {
+            throw new \DomainException(self::ERRO_JA_TEM_CONTA_GOOGLE);
+        }
+
+        try {
+            $conta = $this->em->wrapInTransaction(
+                fn (): ContaCriadaOutput => $this->criar($input, $email, null, $ip, $userAgent, $identidade->sub),
+            );
+        } catch (UniqueConstraintViolationException) {
+            // Corrida: o mesmo e-mail ou o mesmo `sub` gravou entre o SELECT e o INSERT.
+            throw new \DomainException(self::ERRO_JA_TEM_CONTA_GOOGLE);
+        }
+
+        $this->despacharEvento($conta);
+        // A conta nasce confirmada: quem ouve a confirmação do e-mail também precisa saber dela.
+        try {
+            $this->eventDispatcher->dispatch(new EmailDaContaConfirmado((int) $conta->user->getId()));
+        } catch (\Throwable $e) {
+            $this->logger->error('Um ouvinte de EmailDaContaConfirmado falhou.', ['exception' => $e, 'userId' => $conta->user->getId()]);
+        }
+
+        return $conta;
+    }
+
     private static function validar(CriarContaEEscritorioInput $input): void
     {
         $erro = match (true) {
@@ -164,10 +209,11 @@ final class CriarContaEEscritorioUseCase
             ])) === 0;
     }
 
-    private function criar(CriarContaEEscritorioInput $input, string $email, string $token, string $ip, ?string $userAgent): ContaCriadaOutput
+    /** `$token` nulo e `$googleSub` preenchido: a conta do Google, já confirmada e sem link de confirmação. */
+    private function criar(CriarContaEEscritorioInput $input, string $email, ?string $token, string $ip, ?string $userAgent, ?string $googleSub = null): ContaCriadaOutput
     {
         $agora = $this->relogio->now();
-        $user = $this->novoUsuario($input, $email, $agora);
+        $user = $this->novoUsuario($input, $email, $agora, $googleSub);
 
         $tenant = new Tenant();
         $tenant->setName(trim($input->escritorio));
@@ -176,18 +222,20 @@ final class CriarContaEEscritorioUseCase
         // bootstrap seta criadoPor, cria perfil admin + vínculo dono + seed, e faz flush().
         $this->bootstrap->bootstrap($tenant, $user);
         $this->registrarAceiteECiencia($user, $tenant, $ip, $userAgent, $agora);
-        $this->confirmacaoEmailRepository->salvar(new ConfirmacaoEmail(
-            user: $user,
-            tokenHash: ConfirmacaoEmail::hashDoToken($token),
-            expiraEm: $agora->modify(ConfirmacaoEmail::VALIDADE),
-            criadoEm: $agora,
-        ));
+        if ($token !== null) {
+            $this->confirmacaoEmailRepository->salvar(new ConfirmacaoEmail(
+                user: $user,
+                tokenHash: ConfirmacaoEmail::hashDoToken($token),
+                expiraEm: $agora->modify(ConfirmacaoEmail::VALIDADE),
+                criadoEm: $agora,
+            ));
+        }
         $this->em->flush();
 
         return new ContaCriadaOutput($user, $tenant);
     }
 
-    private function novoUsuario(CriarContaEEscritorioInput $input, string $email, \DateTimeImmutable $agora): User
+    private function novoUsuario(CriarContaEEscritorioInput $input, string $email, \DateTimeImmutable $agora, ?string $googleSub): User
     {
         $user = new User();
         $user->setEmail($email);
@@ -195,7 +243,12 @@ final class CriarContaEEscritorioUseCase
         $user->setIsActive(true);
         $user->setRoles(['ROLE_USER']);
         $user->setPassword($this->senhaInutilizavel($user));
-        $user->marcarEmailAConfirmar($agora);
+        if ($googleSub === null) {
+            $user->marcarEmailAConfirmar($agora);
+        } else {
+            // O Google provou o e-mail (decisão 10 conferida no autenticador): nasce confirmada e ligada.
+            $user->ligarAoGoogle($googleSub);
+        }
         // O perfil nasce com o gênero do cadastro (spec genero-no-cadastro); vai junto com o User, em cascata.
         UserProfile::daContaNova($user, Genero::informado($input->genero));
         $this->em->persist($user);

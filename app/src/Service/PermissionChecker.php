@@ -76,12 +76,31 @@ class PermissionChecker
 
         $userTenant = $this->resolveUserTenant($user, $tenant);
 
-        if ($userTenant?->getTenantRole()?->isSystem() === true) {
+        if ($userTenant === null) {
+            return false;
+        }
+
+        return $this->canAccessResourceComVinculo($user, $userTenant, $resourceType, $resourceId, $action);
+    }
+
+    /**
+     * O MESMO {@see canAccessResource()}, para quem já tem o vínculo da pessoa com o escritório em mãos
+     * (a consulta que o trouxe evita uma ida ao banco por pessoa, como na lista de quem acompanha a
+     * pasta). O escritório é o do vínculo. Vínculo inativo ou de outra pessoa recusa, como o
+     * `resolveUserTenant`; o super admin global passa, como lá.
+     */
+    public function canAccessResourceComVinculo(User $user, UserTenant $userTenant, string $resourceType, int $resourceId, string $action): bool
+    {
+        if ($this->isGlobalSuperAdmin($user)) {
             return true;
         }
 
-        if ($userTenant === null) {
+        if (!$userTenant->isActive() || !self::mesmoUsuario($userTenant->getUser(), $user)) {
             return false;
+        }
+
+        if ($userTenant->getTenantRole()?->isSystem() === true) {
+            return true;
         }
 
         if (!$this->cabeNoCadeadoDaPasta($user, $userTenant, $resourceType, $resourceId, $action)) {
@@ -89,6 +108,11 @@ class PermissionChecker
         }
 
         return $this->permiteORecurso($user, $userTenant, $resourceType, $resourceId, $action);
+    }
+
+    private static function mesmoUsuario(User $a, User $b): bool
+    {
+        return $a === $b || ($a->getId() !== null && $a->getId() === $b->getId());
     }
 
     /**

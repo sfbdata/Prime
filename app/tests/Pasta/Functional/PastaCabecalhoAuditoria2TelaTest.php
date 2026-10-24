@@ -110,12 +110,11 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $form->filter('.ps-modal-pasta-corpo #edit_nup[name="nup"][required]'));
         self::assertCount(1, $form->filter('.ps-modal-pasta-corpo #edit_nome_cliente[name="nome_cliente"]'));
         self::assertCount(1, $form->filter('.ps-modal-pasta-corpo select#edit_situacao[name="situacao"]'));
-        $acao = $form->filter('.ps-modal-pasta-corpo #edit_nome_acao[name="nome_acao"]');
-        self::assertCount(1, $acao, 'a Ação continua no form (decisão D-META)');
-        self::assertNull($acao->attr('readonly'), 'a Ação continua editável');
-        self::assertNull($acao->attr('disabled'));
+        // PZ-MOD-N05 (decisão do dono, 23/10/2026): a Ação saiu do form; é só leitura e vem do menu Processo.
+        self::assertCount(0, $form->filter('[name="nome_acao"], #edit_nome_acao'), 'a Ação não se edita mais aqui');
+        self::assertCount(1, $form->filter('.ps-modal-pasta-corpo > .ps-modal-pasta-linha--larga > .ps-modal-pasta-campo[data-pe-acao] > .ps-pe-resp > button.js-pe-ir[data-pe-ir="acao"]'));
         self::assertCount(1, $form->filter('.ps-modal-pasta-corpo .ps-modal-pasta-campo--2 #edit_nome_cliente'), 'o nome do cliente ocupa duas colunas');
-        self::assertCount(4, $form->filter('.ps-modal-pasta-corpo > .ps-modal-pasta-linha > .ps-modal-pasta-campo > label.ps-modal-pasta-rotulo'));
+        self::assertCount(3, $form->filter('.ps-modal-pasta-corpo > .ps-modal-pasta-linha > .ps-modal-pasta-campo > label.ps-modal-pasta-rotulo'), 'número, nome e situação; Ação, documento e responsável são só leitura (span)');
 
         $rodape = $form->filter('form > .ps-modal-pasta-rodape');
         self::assertCount(1, $rodape);

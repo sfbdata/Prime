@@ -10,8 +10,12 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Pasta\Controller\PastaAndamentoController;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaAndamento;
+use App\Pasta\UseCase\DefinirPastaAdministrativaUseCase;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
+use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -25,6 +29,9 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * carimbo, arquivar levando o andamento a Finalizada, e os caminhos antigos que devolviam Suspenso/Cancelado a Ativo.
  */
 #[CoversClass(DefinirSituacaoDaPastaUseCase::class)]
+#[CoversClass(EditarPastaUseCase::class)]
+#[CoversClass(DefinirPastaAdministrativaUseCase::class)]
+#[CoversClass(PastaAndamento::class)]
 final class PastaSituacaoControllerTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -209,7 +216,111 @@ final class PastaSituacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(9, (int) $this->em()->getConnection()->fetchOne('SELECT atual FROM pasta_andamento WHERE pasta_id = ?', [$pasta->getId()]), 'arquivar pelo modal também finaliza');
     }
 
+    #[TestDox('"Pastas concluídas" do Dashboard: chegar a Finalizada grava finalizada_em com a data do marco; voltar de fase apaga; reativar apaga e finalizar de novo grava a nova data')]
+    public function testFinalizadaEmPeloAndamento(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->mudarFase($pasta, 9);
+        self::assertResponseIsSuccessful();
+        self::assertNotNull($this->finalizadaEm($pasta));
+        self::assertSame($this->marco($pasta, 9), $this->finalizadaEm($pasta), 'a data é a da chegada a Finalizada');
+
+        $this->mudarFase($pasta, 5);
+        self::assertNull($this->finalizadaEm($pasta), 'voltar de fase tira da conta');
+
+        $this->mudarFase($pasta, 9);
+        self::assertNotNull($this->finalizadaEm($pasta));
+        // A primeira finalização "foi em janeiro": a nova tem de vir com a data dela, não com esta.
+        $conexao = $this->em()->getConnection();
+        $conexao->executeStatement("UPDATE pasta_andamento SET marcos = jsonb_set(marcos::jsonb, '{em,9}', '\"2026-01-02T03:04:05-03:00\"')::json WHERE pasta_id = ?", [$pasta->getId()]);
+        $conexao->executeStatement("UPDATE pasta SET finalizada_em = '2026-01-02 03:04:05' WHERE id = ?", [$pasta->getId()]);
+
+        $this->mudarFase($pasta, 9); // Finalizada clicada com a pasta finalizada: reativa
+        self::assertSame(11, (int) $conexao->fetchOne('SELECT atual FROM pasta_andamento WHERE pasta_id = ?', [$pasta->getId()]));
+        self::assertNull($this->finalizadaEm($pasta), 'reativar tira da conta');
+
+        $this->mudarFase($pasta, 12);
+        self::assertSame($this->marco($pasta, 12), $this->finalizadaEm($pasta), 'finalizar de novo conta na nova data');
+        self::assertNotSame('2026-01-02 03:04:05', $this->finalizadaEm($pasta));
+    }
+
+    #[TestDox('"Pastas concluídas": arquivar pela pílula e pelo "Editar dados" leva a Finalizada e conta; desarquivar não reverte a fase nem a conta')]
+    public function testFinalizadaEmPorArquivar(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pelaPilula = $this->criarPasta($tenant);
+        $peloModal = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->mudar($pelaPilula, 'arquivado');
+        self::assertSame($this->marco($pelaPilula, 9), $this->finalizadaEm($pelaPilula));
+        $this->mudar($pelaPilula, 'ativo');
+        self::assertSame($this->marco($pelaPilula, 9), $this->finalizadaEm($pelaPilula), 'desarquivar não reverte a fase');
+
+        $this->editar($peloModal, ['nup' => (string) $peloModal->getNup(), 'situacao' => 'arquivado']);
+        self::assertSame('arquivado', $this->situacao($peloModal));
+        self::assertSame($this->marco($peloModal, 9), $this->finalizadaEm($peloModal), 'arquivar pelo modal também conta');
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'situacao'", [$peloModal->getId()]), 'o mesmo cartão da pílula');
+    }
+
+    #[TestDox('"Pastas concluídas": trocar de via segue a trilha da via nova; sem andamento nela, a pasta ativa sai da conta; voltar restaura')]
+    public function testFinalizadaEmNaTrocaDeVia(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $this->mudarFase($pasta, 9);
+        $judicial = $this->finalizadaEm($pasta);
+        self::assertNotNull($judicial);
+
+        $this->definirAdministrativa($pasta, true);
+        self::assertNull($this->finalizadaEm($pasta), 'a via administrativa ainda não tem andamento');
+        $this->mudarFase($pasta, 9);
+        self::assertSame($this->marco($pasta, 9, 'administrativa'), $this->finalizadaEm($pasta));
+        $this->mudarFase($pasta, 3);
+        self::assertNull($this->finalizadaEm($pasta), 'a fase da via administrativa é a que vale');
+
+        $this->definirAdministrativa($pasta, false);
+        self::assertSame($judicial, $this->finalizadaEm($pasta), 'voltar à via judicial restaura a data dela');
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
+
+    private function finalizadaEm(Pasta $pasta): ?string
+    {
+        $valor = $this->em()->getConnection()->fetchOne('SELECT finalizada_em FROM pasta WHERE id = ?', [$pasta->getId()]);
+
+        return $valor === null ? null : (string) $valor;
+    }
+
+    /** O marco da fase no andamento, no formato da coluna (horário local, sem o fuso). */
+    private function marco(Pasta $pasta, int $fase, string $via = 'judicial'): ?string
+    {
+        $valor = $this->em()->getConnection()->fetchOne('SELECT marcos::jsonb -> \'em\' ->> ? FROM pasta_andamento WHERE pasta_id = ? AND via = ?', [(string) $fase, $pasta->getId(), $via]);
+
+        return is_string($valor) ? str_replace('T', ' ', substr($valor, 0, 19)) : null;
+    }
+
+    private function mudarFase(Pasta $pasta, int $fase): void
+    {
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/andamento', [
+            '_token' => 'TOKEN_' . PastaAndamentoController::idDoToken((int) $pasta->getId()), 'fase' => (string) $fase, 'sem_pular' => '1',
+        ]);
+        self::assertResponseIsSuccessful();
+    }
+
+    private function definirAdministrativa(Pasta $pasta, bool $administrativa): void
+    {
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/administrativa', [
+            '_token' => 'TOKEN_pasta_administrativa_' . $pasta->getId(), 'administrativa' => $administrativa ? '1' : '0',
+        ]);
+        self::assertResponseIsSuccessful();
+    }
 
     /** @param array<string, string> $dados */
     private function editar(Pasta $pasta, array $dados): void

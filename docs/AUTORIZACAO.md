@@ -517,6 +517,14 @@ o router e falha se uma rota de escrita que envolva pasta (nome `pasta_*`,
 pasta ou filha) não for alcançada nem for exceção. Rota com o id da pasta só no
 corpo da requisição não é vista por nenhum dos dois.
 
+O desfazer da auditoria (`audit_log_desfazer`) não recebe a pasta nos argumentos, e o
+listener não o vê. Quem recusa ali é a `App\Auditoria\Service\EstadoDaTelaNoDesfazer`
+(spec `docs/specs/seguranca-d-desfazer-estado.md`), com a mesma frase
+(`PastaSomenteLeituraListener::MENSAGEM`), para a pasta, as filhas, a meta e a mensagem
+da pasta excluída. O mesmo serviço aplica as demais regras de estado da tela (registro
+que mudou depois do log, meta que seguiu adiante, data de conclusão, etapa, nome montado
+pela carteira, situação da pasta). A recusa é aviso de erro e redirect, não 403.
+
 ### Cadeado da pasta: teto por pasta (spec `docs/specs/pasta-cadeado.md`)
 
 O cadeado é uma **restrição** (decisão D3, 20/10/2026): ele tira acesso de quem teria pelas camadas

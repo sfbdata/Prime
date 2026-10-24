@@ -1,0 +1,8 @@
+# Entrar com o Google (spec entrar-com-google): limita a ida ao Google por IP. Bloco próprio, fora do
+# framework.yaml (arquivo quente entre sessões); o Symfony junta os limitadores dos arquivos.
+framework:
+    rate_limiter:
+        login_google:
+            policy: sliding_window
+            limit: 20
+            interval: '15 minutes'

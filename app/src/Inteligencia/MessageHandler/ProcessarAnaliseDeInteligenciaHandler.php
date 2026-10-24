@@ -22,10 +22,12 @@ use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Pasta\Entity\Pasta;
 use App\Service\NotificacaoService;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -105,16 +107,9 @@ final class ProcessarAnaliseDeInteligenciaHandler
             return;
         }
 
-        if (!in_array($analise->getStatus(), [StatusDaAnalise::Pendente, StatusDaAnalise::Falhou], true)) {
-            return; // já processada ou em curso por outro worker — idempotente
+        if (!$this->reservar($analise)) {
+            return;
         }
-
-        if ($analise->estaExcluida()) {
-            return; // excluída antes de processar: não gastar cota com o que ninguém vai ler
-        }
-
-        $analise->iniciarProcessamento();
-        $this->em->flush();
 
         if (!$this->aindaDisponivel($analise, $tenant)) {
             return;
@@ -173,6 +168,12 @@ final class ProcessarAnaliseDeInteligenciaHandler
                     'max' => self::TENTATIVAS_MAXIMAS,
                 ]);
 
+                if ($e->esperarSegundos !== null) {
+                    // O provedor disse quando voltar: re-tenta depois disso, não no atraso padrão do transport. O
+                    // limite de tentativas continua sendo o contador da linha (a recuperável não respeita max_retries).
+                    throw new RecoverableMessageHandlingException($e->getMessage(), 0, null, $e->esperarSegundos * 1000);
+                }
+
                 throw $e; // Messenger faz o retry
             }
 
@@ -221,6 +222,31 @@ final class ProcessarAnaliseDeInteligenciaHandler
         ]);
 
         $this->notificar($analise, $pasta, $fluxo);
+    }
+
+    /**
+     * Reserva a linha para este worker: trava a linha (SELECT ... FOR UPDATE), relê o status e só então passa a
+     * `processando`. Sem a trava, uma mensagem reentregue ou dois workers liam `pendente` ao mesmo tempo e os dois
+     * chamavam o provedor, que cobra as duas vezes. O segundo espera o primeiro gravar e encontra `processando`.
+     */
+    private function reservar(AnaliseDeInteligencia $analise): bool
+    {
+        return $this->em->wrapInTransaction(function () use ($analise): bool {
+            $this->em->refresh($analise, LockMode::PESSIMISTIC_WRITE);
+
+            if (!in_array($analise->getStatus(), [StatusDaAnalise::Pendente, StatusDaAnalise::Falhou], true)) {
+                return false; // já processada ou em curso por outro worker — idempotente
+            }
+
+            if ($analise->estaExcluida()) {
+                return false; // excluída antes de processar: não gastar cota com o que ninguém vai ler
+            }
+
+            $analise->iniciarProcessamento();
+            $this->em->flush();
+
+            return true;
+        });
     }
 
     /**

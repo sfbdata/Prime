@@ -74,9 +74,9 @@ final class ProvedorFalso implements ProvedorDeLinguagem
         ));
     }
 
-    public function falharTransitoriamente(string $motivo = 'timeout do provedor'): void
+    public function falharTransitoriamente(string $motivo = 'timeout do provedor', ?int $esperarSegundos = null): void
     {
-        $this->fila[] = new FalhaDoProvedorException($motivo, transitoria: true);
+        $this->fila[] = new FalhaDoProvedorException($motivo, transitoria: true, esperarSegundos: $esperarSegundos);
     }
 
     public function falharDefinitivamente(string $motivo = 'chave recusada (401)'): void
