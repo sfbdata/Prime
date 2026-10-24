@@ -1,37 +1,454 @@
 [
     {
         "chave": "transferencia_internacional",
-        "titulo": "Transferência internacional de dados para a Anthropic (EUA)",
-        "problema": "A BlueJus IA envia dados das pastas para a Anthropic, que processa nos Estados Unidos.\n\nA LGPD só permite transferência internacional nas hipóteses do art. 33.",
+        "titulo": "1. Transferência internacional de dados aos Estados Unidos (LGPD, art. 33, e Res. CD/ANPD nº 19/2024)",
+        "problema": "Com inference_geo \"us\", todo o Conteúdo do Usuário submetido à BlueJus IA (dados da pasta, processo vinculado, movimentações, metas, anotações, nome do cliente e, a partir da fase F5, a íntegra dos documentos que o usuário mandar ler) sai do servidor da BlueJus, hospedado no Brasil (Hostinger, São Paulo), para a infraestrutura da Anthropic PBC nos EUA. Segundo a documentação de data residency, a inferência roda só nos EUA e o \"workspace geo\" (armazenamento em repouso) hoje só existe na opção \"us\". Há, portanto, transferência internacional (LGPD, art. 5º, XV), que só é lícita nas hipóteses taxativas do art. 33.\n\nOs EUA não têm decisão de adequação da ANPD (art. 33, I, c/c art. 34). A única decisão de adequação até aqui é a da União Europeia (Res. CD/ANPD nº 32/2026, de janeiro de 2026 [a confirmar a data exata no DOU]), que não aproveita ao caso. Restam, em tese: (a) cláusulas-padrão contratuais da ANPD (art. 33, II, b); (b) cláusulas específicas aprovadas pela ANPD (art. 33, II, a; arts. 21 a 24 do Regulamento); (c) normas corporativas globais ou selos (art. 33, II, c e d), que a Anthropic não tem perante a ANPD; (d) consentimento específico e em destaque do titular (art. 33, VIII); (e) necessidade para cumprimento de obrigação legal, execução de contrato do qual o titular seja parte ou exercício regular de direitos (art. 33, IX, c/c art. 7º, II, V e VI).\n\nA Res. CD/ANPD nº 19/2024 (DOU de 23/08/2024) aprovou o Regulamento e, no Anexo II, o texto das cláusulas-padrão. O art. 16 do Regulamento exige a adoção integral e sem alteração desse texto, admitindo instrumento próprio ou contrato mais amplo, desde que as demais disposições (inclusive de contratos coligados) não excluam, modifiquem ou contrariem as cláusulas (art. 16, §§ 1º a 3º). O texto acomoda exportador e importador como controlador ou operador, de modo que a BlueJus (operadora) pode figurar como exportadora e a Anthropic (suboperadora) como importadora. O art. 2º, parágrafo único, da Resolução deu prazo de até 12 meses, contados da publicação, para incorporar as cláusulas-padrão aos contratos que usam cláusulas contratuais como mecanismo: o prazo venceu em 23/08/2025. Desde então, cláusula contratual só vale como mecanismo se for a da ANPD (ou cláusula específica aprovada, ou cláusula estrangeira reconhecida como equivalente nos arts. 18 a 20, procedimento que, até onde se apurou, não reconheceu as SCC da UE [a confirmar]). O art. 17, §§ 2º e 3º, e a Cláusula 14 do Anexo II impõem publicar na internet documento sobre a transferência, que pode integrar a Política de Privacidade.\n\nO DPA da Anthropic, incorporado por referência aos Commercial Terms (Seção C), traz as SCC da UE (Módulos 2 e 3, lei irlandesa), o UK Addendum e o Swiss Addendum, mas não menciona Brasil, LGPD nem ANPD. Ou seja: hoje não há mecanismo do art. 33 formalizado entre BlueJus e Anthropic. O capítulo 14 da Política vigente diz que a transferência observará \"cláusulas contratuais padrão, cláusulas contratuais específicas ou outro mecanismo reconhecido pela ANPD\", promessa que hoje não se cumpre para a Anthropic. Observação lateral: a mesma pergunta vale para os suboperadores já listados nos EUA (Google LLC, Gmail e Drive), que devem ser conferidos à luz da Res. 19/2024 [a confirmar qual mecanismo o Google oferece para a LGPD].",
         "risco_grau": "alto",
-        "risco": "Sem base adequada e sem aviso claro na Política de Privacidade, a transferência pode ser questionada pela ANPD e pelos titulares.",
+        "risco": "Alto. Ligar a IA sem mecanismo válido configura transferência irregular, infração ao art. 33 imputável ao controlador (escritório) e ao operador que a executa (BlueJus, art. 42, § 1º, I, por não cumprir a legislação), sujeita às sanções do art. 52 (advertência, multa simples de até 2% do faturamento no Brasil, limitada a R$ 50 milhões por infração, publicização, bloqueio e eliminação), dosadas pela Res. CD/ANPD nº 4/2023. Consequência concreta e imediata: a cláusula 14 da Política fica inverídica, e o escritório contratante (advogado, com dever próprio de diligência, Recomendação CFOAB 001/2024, item 2.2) passa a ter fundamento para rescisão e regresso contra a BlueJus. O risco de fiscalização é baixo no piloto (um só escritório, o do próprio dono), mas sobe com a abertura a terceiros e com a leitura de documentos íntegros, que podem conter dados sensíveis e sigilosos (critérios de alto risco).",
         "opcoes": [
-            "Adotar as cláusulas-padrão contratuais da ANPD no contrato com a Anthropic.",
-            "Basear a transferência no consentimento específico do escritório, dado no aceite da IA.",
-            "Manter a IA desligada até a decisão."
+            "1) Pedir à Anthropic a assinatura das cláusulas-padrão da ANPD (Anexo II da Res. 19/2024), na íntegra, como anexo ao DPA (BlueJus exportadora operadora; Anthropic importadora operadora). Prós: é o mecanismo previsto para destino sem adequação, dá segurança plena e é o que a ANPD espera desde 23/08/2025. Contras: depende da vontade da Anthropic (cliente pequeno tem pouco poder de negociação), prazo incerto; a Anthropic pode resistir a cláusulas como foro brasileiro e direitos de terceiros beneficiários.",
+            "2) Consentimento específico e em destaque (art. 33, VIII). Prós: não depende da Anthropic. Contras: o consentimento tem de ser do titular (cliente do escritório, parte contrária, testemunha), não do administrador do escritório; o aceite do admin, previsto hoje, não satisfaz o inciso. Colher consentimento de partes contrárias é inviável e revogável a qualquer tempo (art. 8º, § 5º). Serve só como reforço, para os clientes do escritório, nunca como fundamento único.",
+            "3) Art. 33, IX, c/c art. 7º, VI (exercício regular de direitos em processo). Prós: dispensa contrato com a Anthropic. Contras: exige que a transferência seja necessária, e ela não é (o advogado pode trabalhar sem IA, e há alternativa sem transferência); leitura restritiva provável da ANPD; não cobre resumos administrativos fora de processo. Tese defensiva, não fundamento de lançamento.",
+            "4) Evitar a transferência: usar o Claude por provedor com região no Brasil (Amazon Bedrock na região sa-east-1 ou Google Cloud em southamerica-east1, se o modelo escolhido estiver disponível ali [a confirmar disponibilidade do Haiku 5.5 e a cobertura de ZDR equivalente]). Prós: some a questão do art. 33 (dado tratado no país) e o provedor de nuvem costuma oferecer termos de LGPD [a confirmar se AWS ou Google aderiram às cláusulas da ANPD]. Contras: muda a arquitetura decidida (API direta, inference_geo), muda o suboperador (o provedor de nuvem passa a ser o processor), e pode haver roteamento entre regiões que reintroduz a transferência."
         ],
-        "sugestao": "Cláusulas-padrão da ANPD no DPA da Anthropic e um anexo novo na Política de Privacidade, com o aceite do escritório atualizado.",
+        "sugestao": "Opção 1 como condição para abrir a IA a escritórios de terceiros, com a opção 4 como plano B se a Anthropic recusar em prazo razoável. Pedir à Anthropic, no mesmo contato da ZDR (claude.com/contact-sales), a celebração das cláusulas-padrão da ANPD em instrumento próprio, anexo ao DPA, sem alteração do texto (art. 16). Para o piloto restrito ao escritório do próprio dono, admitir o lançamento só se o Dr. Farlei, como controlador do próprio escritório, assumir documentadamente o risco residual, limitando o uso a dados de clientes que tenham dado ciência e consentimento destacado (opção 2 como reforço) e sem leitura de documentos de terceiros sensíveis até haver mecanismo. Não publicar o capítulo 14 com \"[MECANISMO A DEFINIR]\": o texto só sai quando o mecanismo existir, e então cita o mecanismo concreto e publica o documento do art. 17, § 2º (pode ser dentro da Política, art. 17, § 3º). Aproveitar para rever a base da transferência aos suboperadores Google já listados.",
         "fontes": [
-            {"rotulo": "LGPD, art. 33 (Lei 13.709/2018)", "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"},
-            {"rotulo": "Resolução CD/ANPD nº 19/2024 (transferência internacional)", "url": "https://www.gov.br/anpd/pt-br"}
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "Resolução CD/ANPD nº 19, de 23/08/2024 (Regulamento de Transferência Internacional e cláusulas-padrão), com a retificação de 18/08/2025",
+                "url": "https://www.gov.br/anpd/pt-br/acesso-a-informacao/institucional/atos-normativos/regulamentacoes_anpd/resolucao-cd-anpd-no-19-de-23-de-agosto-de-2024"
+            },
+            {
+                "rotulo": "ANPD: índice das regulamentações (Res. CD/ANPD nº 2/2022, nº 4/2023, nº 15/2024, nº 32/2026)",
+                "url": "https://www.gov.br/anpd/pt-br/acesso-a-informacao/institucional/atos-normativos/regulamentacoes_anpd"
+            },
+            {
+                "rotulo": "Anthropic Data Processing Addendum (SCC UE módulos 2 e 3, UK Addendum, Swiss Addendum; sem LGPD)",
+                "url": "https://www.anthropic.com/legal/data-processing-addendum"
+            },
+            {
+                "rotulo": "Anthropic Commercial Terms of Service (Seções B, C, L.3, M.7)",
+                "url": "https://www.anthropic.com/legal/commercial-terms"
+            },
+            {
+                "rotulo": "Anthropic: Data residency (inference_geo e workspace geo), lida em 24/10/2026",
+                "url": "https://platform.claude.com/docs/en/manage-claude/data-residency"
+            },
+            {
+                "rotulo": "Recomendação nº 001/2024 do CFOAB (Proposição 49.0000.2024.007325-9/COP, 11/11/2024), cópia do processo; URL no portal oab.org.br [a confirmar]",
+                "url": "https://www.migalhas.com.br/arquivos/2024/11/94F37C9909D4B0_49.0000.2024.007325-9-Relator-.pdf"
+            }
         ],
-        "documentos": ["politica_privacidade", "rascunho_politica_ia", "aceite_ia"]
+        "documentos": [
+            "politica_privacidade",
+            "rascunho_politica_ia",
+            "aceite_ia",
+            "termos_uso"
+        ]
+    },
+    {
+        "chave": "retencao_zero",
+        "titulo": "2. Retenção zero (ZDR): alcance, exceções, prova e risco de prometer antes do aceite",
+        "problema": "Segundo a página \"API and data retention\" da Anthropic (lida em 24/10/2026), sob ZDR \"Anthropic does not store customer prompts or responses at rest after the API response is returned\". A ZDR é habilitada por organização da Console, pela equipe de contas, e não se estende automaticamente a outras organizações. Cobre os endpoints Messages e Token Counting nas funcionalidades marcadas como elegíveis. Ficam fora, entre outros: Batch API, Files API, execução de código, chamada programática de ferramentas, Agent Skills, MCP connector, User profiles, e os modelos Fable e Mythos (exigem 30 dias de retenção). O uso de funcionalidade não elegível não é bloqueado pela API: é \"a choice to step outside your ZDR arrangement\". O bloco document em base64 dentro da mensagem (leitura de documento inline, decisão §10.1 da spec) fica dentro do Messages e, portanto, dentro da ZDR; a Files API não.\n\nExceções que valem mesmo com ZDR (\"Retention regardless of arrangement\"): a Anthropic pode reter dados \"where required by law or where it has been flagged by Anthropic's automated trust and safety systems\", e o conteúdo sinalizado pode ficar \"for up to 2 years\". Sem ZDR, a retenção padrão da organização comercial é de até 30 dias para entradas e saídas; conteúdo sinalizado por violação da Usage Policy, até 2 anos; pontuações de classificação de segurança, até 7 anos (Privacy Center). Em qualquer regime, os Commercial Terms (Seção B) vedam o treino com Customer Content.\n\nFato: a ZDR foi pedida e ainda não foi aceita. A própria documentação diz que, para saber se a organização tem ZDR, deve-se consultar \"your contract terms\" ou o representante de contas: não há, na documentação lida, indicador na Console que sirva de prova [a confirmar se a Console exibe o estado da ZDR]. Ponto agravante: o capítulo 11 da Política vigente (versão 1.0.2026) já diz que, quando a funcionalidade depender de fornecedor externo de modelo, a BlueJus \"contratará regime que vede a retenção e a reutilização dos dados submetidos para finalidade própria do fornecedor, e informará essa condição no Anexo I\". Ligar a IA sem ZDR viola o texto já publicado, não só o rascunho.",
+        "risco_grau": "alto",
+        "risco": "Alto, enquanto a ZDR não estiver aceita por escrito. Prometer retenção zero sem tê-la é informação inexata ao titular e ao contratante (LGPD, art. 6º, VI, transparência, e X, responsabilização; art. 9º, informação clara e adequada), publicidade enganosa por omissão ou comissão se o escritório for tratado como consumidor (CDC, arts. 6º, III, e 37, § 1º) e quebra de cláusula contratual (Política cap. 11 integra os Termos). Consequência concreta: em incidente na Anthropic durante a janela de 30 dias, ou em requisição judicial norte-americana sobre dados retidos, a BlueJus responde por ter garantido o que não contratou. Mesmo com ZDR, prometer \"não guarda nada\" sem as exceções também é inexato: o conteúdo sinalizado pode ficar até 2 anos, e é exatamente o tipo de conteúdo jurídico (crimes, violência, dados de menores) que tende a acionar filtros de segurança.",
+        "opcoes": [
+            "1) Não ligar a IA para ninguém até a ZDR estar aceita por escrito. Prós: elimina a contradição com o cap. 11 vigente. Contras: atrasa o piloto por prazo que depende da Anthropic.",
+            "2) Ligar o piloto (escritório do dono) já, sem ZDR, e reescrever antes o cap. 11 e o aceite para dizer a verdade: retenção de até 30 dias pela fornecedora, até 2 anos se sinalizado, sem uso para treino. Prós: transparente, permite começar. Contras: exige publicar nova versão da Política (com a antecedência de 15 dias do cap. 23) e depois outra quando a ZDR vier; a leitura de documentos íntegros com 30 dias de retenção eleva o risco do sigilo profissional.",
+            "3) Ligar o piloto sem ZDR e sem mudar o texto, tratando-o como uso interno do próprio controlador. Prós: rapidez. Contras: o cap. 11 publicado continua falso para todos os contratantes; não recomendado.",
+            "4) Redigir o texto em dois estados (com e sem ZDR), mantendo no código uma trava: o painel do Master só libera escritório de terceiro quando a flag \"ZDR confirmada\" estiver ligada, com o documento arquivado. Prós: casa o texto com o fato em cada momento. Contras: duas versões a manter."
+        ],
+        "sugestao": "Opção 1 para terceiros e opção 2 para o piloto, combinadas com a trava da opção 4. Prova por escrito exigida antes de usar a expressão \"retenção zero\" em qualquer texto: (a) e-mail ou aditivo da Anthropic, assinado pela equipe de contas, que identifique a organização (nome e ID da organização da Console), a data de início da ZDR e o escopo (Messages API, sem Files, Batch e execução de código); (b) confirmação das exceções (obrigação legal e conteúdo sinalizado, com o prazo de até 2 anos); (c) arquivamento junto ao DPA, com registro da data em que o Master ligou a flag. Na redação final, nunca escrever \"não guarda nada\": usar \"não armazena o conteúdo após devolver a resposta, ressalvados o conteúdo sinalizado pelos sistemas de segurança da fornecedora, que pode ser retido por até dois anos, e as hipóteses de obrigação legal\". No desenvolvimento, manter a proibição técnica de Files API, Batch e ferramentas não elegíveis (já prevista na spec §10.2) e um teste que a garanta, porque a API não bloqueia o uso fora da ZDR.",
+        "fontes": [
+            {
+                "rotulo": "Anthropic: API and data retention (ZDR, escopo, exceções), lida em 24/10/2026",
+                "url": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
+            },
+            {
+                "rotulo": "Anthropic Privacy Center: retenção padrão da organização comercial (30 dias; sinalizados até 2 anos; pontuações até 7 anos)",
+                "url": "https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data"
+            },
+            {
+                "rotulo": "Anthropic Commercial Terms of Service (Seções B, C, L.3, M.7)",
+                "url": "https://www.anthropic.com/legal/commercial-terms"
+            },
+            {
+                "rotulo": "Anthropic Usage Policy",
+                "url": "https://www.anthropic.com/legal/aup"
+            },
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "Lei nº 8.078/1990 (CDC), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "rascunho_politica_ia",
+            "aceite_ia"
+        ]
+    },
+    {
+        "chave": "base_legal_e_papeis",
+        "titulo": "3. Base legal do tratamento (arts. 7º e 11), papéis de controlador, operador e suboperador, e o art. 39",
+        "problema": "Papéis. A Política (cap. 4) e os Termos (Cláusula LGPD) já qualificam o escritório como controlador do Conteúdo do Usuário e a BlueJus como operadora (art. 5º, VI e VII). A Anthropic, que trata por conta da BlueJus, é suboperadora: figura que a LGPD não nomeia, mas que o Guia Orientativo da ANPD sobre agentes de tratamento (versão 2.0, 2022 [a confirmar versão vigente]) reconhece como operador contratado pelo operador, recomendando autorização do controlador. O DPA da Anthropic diz que \"Customer is the controller and Anthropic is Customer's processor\" (B.1), o que, na cadeia brasileira, deve ser lido como BlueJus \"customer\" operadora e Anthropic suboperadora. Em dois pontos a Anthropic pode agir como agente autônomo: na retenção por segurança (conteúdo sinalizado) e por obrigação legal [a confirmar como a Anthropic se qualifica nessas hipóteses]. Para a pergunta do usuário e a resposta guardadas na BlueJus, a BlueJus continua operadora quanto ao conteúdo e controladora quanto aos Dados de Conta (quem perguntou, quando, custo).\n\nArt. 39: \"O operador deverá realizar o tratamento segundo as instruções fornecidas pelo controlador, que verificará a observância das próprias instruções e das normas sobre a matéria.\" A BlueJus só pode enviar dados à Anthropic por instrução do controlador. O aceite do administrador do escritório, registrado com data e autor, é o instrumento natural dessa instrução. Art. 42, § 1º, I: o operador responde solidariamente quando descumpre a lei ou não segue as instruções lícitas.\n\nBase legal (definida pelo controlador, art. 7º e art. 11). Os dados que vão ao modelo são, em regra, de clientes, partes contrárias, testemunhas e terceiros. Hipóteses cabíveis: art. 7º, V (execução do contrato de honorários com o cliente), VI (exercício regular de direitos em processo judicial, administrativo ou arbitral) e IX (legítimo interesse do escritório, com teste de balanceamento e as garantias do art. 10), e, para quem é parte contrária, VI e IX. Documentos processuais trazem com frequência dados sensíveis (art. 5º, II: saúde, origem racial, convicção religiosa, vida sexual, biometria, filiação sindical) e dados de crianças (art. 14). Para dados sensíveis o art. 11 não admite legítimo interesse; cabe o art. 11, II, d (exercício regular de direitos, inclusive em contrato e em processo judicial, administrativo e arbitral) e, residualmente, o consentimento específico e destacado (art. 11, I). Em todos os casos, princípios da finalidade, adequação e necessidade (art. 6º, I a III): enviar a peça inteira a um modelo estrangeiro tem de ser compatível com a finalidade do mandato e limitado ao necessário.",
+        "risco_grau": "medio",
+        "risco": "Médio. A base legal é responsabilidade do controlador (escritório) e os documentos da BlueJus já a atribuem a ele; o risco direto da BlueJus está em operar sem instrução documentada (art. 39) e em responder solidariamente (art. 42, § 1º, I). Consequência concreta: sem aceite que funcione como instrução específica, um escritório pode alegar que nunca autorizou o envio de dados de seus clientes aos EUA, e a BlueJus fica sem defesa. Quanto a dados sensíveis, o risco sobe com a fase F5 (leitura de documentos), porque a seleção de \"o que vai\" passa ao usuário, e o filtro de CPF, telefone e endereço, que hoje atua sobre o cadastro, não atua sobre o texto do PDF.",
+        "opcoes": [
+            "1) Manter a qualificação atual (escritório controlador, BlueJus operadora, Anthropic suboperadora) e transformar o aceite do administrador em instrução documentada (art. 39), com lista exaustiva do que é enviado, finalidade, país, suboperador e retenção, e com declaração do escritório de que tem base legal (art. 7º, V, VI ou IX; art. 11, II, d) para os dados que mandar ler. Prós: coerente com a Política e os Termos; desloca a base legal para quem a define. Contras: depende de o aceite ser bem redigido e versionado.",
+            "2) Exigir, além disso, consentimento específico dos clientes do escritório para uso de IA (art. 7º, I, e art. 11, I), em linha com a Recomendação CFOAB 001/2024, item 4.3.1. Prós: reforça a defesa ética e o art. 33, VIII. Contras: não alcança partes contrárias; se usado como base principal, a revogação obriga a parar o tratamento.",
+            "3) Qualificar a BlueJus como controladora conjunta do tratamento por IA (por escolher fornecedor, modelo e prompt). Prós: nenhum relevante. Contras: atrai responsabilidade solidária ampla (art. 42, § 1º, II) e contradiz toda a documentação; não recomendado, mas convém saber que a escolha do modelo pelo Master aproxima a BlueJus dessa figura, o que reforça a necessidade de o escritório decidir o que envia."
+        ],
+        "sugestao": "Opção 1, com o reforço da opção 2 como boa prática recomendada ao escritório (não imposta pela BlueJus). Concretamente: (a) o aceite passa a ser \"instrução de tratamento\" do controlador, guardado com versão do texto, data, autor e escritório; (b) a Política e os Termos dizem que a Anthropic é suboperadora autorizada pelo controlador ao ligar a IA; (c) o texto informa que, ao mandar ler um documento, o usuário decide enviar a íntegra, inclusive dados sensíveis e identificadores que nele constem, e que a base legal é do escritório (art. 11, II, d, como hipótese típica); (d) o produto passa a avisar, na tela de leitura, que o documento vai íntegro; (e) o escritório mantém o registro das operações (art. 37). Sugere-se ainda bloquear por padrão documentos marcados como de saúde ou de menores, se houver essa marcação [a confirmar se o cadastro de documentos tem tipo que permita isso].",
+        "fontes": [
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "Anthropic Data Processing Addendum (SCC UE módulos 2 e 3, UK Addendum, Swiss Addendum; sem LGPD)",
+                "url": "https://www.anthropic.com/legal/data-processing-addendum"
+            },
+            {
+                "rotulo": "Recomendação nº 001/2024 do CFOAB (Proposição 49.0000.2024.007325-9/COP, 11/11/2024), cópia do processo; URL no portal oab.org.br [a confirmar]",
+                "url": "https://www.migalhas.com.br/arquivos/2024/11/94F37C9909D4B0_49.0000.2024.007325-9-Relator-.pdf"
+            },
+            {
+                "rotulo": "ANPD: Guia Orientativo para Definições dos Agentes de Tratamento e do Encarregado [a confirmar versão e URL do PDF]",
+                "url": "https://www.gov.br/anpd/pt-br/documentos-e-publicacoes"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "termos_uso",
+            "rascunho_politica_ia",
+            "aceite_ia"
+        ]
+    },
+    {
+        "chave": "politica_e_termos_item_a_item",
+        "titulo": "4. O que muda na Política de Privacidade e nos Termos de Uso, item por item",
+        "problema": "Conferi o texto vigente da Política (template _politica_privacidade_texto.html.twig, versão 1.0.2026) e dos Termos (templates/termo/_texto.html.twig, TermoVigente::VERSAO 2026-06-23). Há trechos que ficam falsos com a IA ligada, independentemente do rascunho:\n\nPolítica. (P1) Cap. 2, quadro-resumo: \"A BlueJus lê meus documentos? Não. O conteúdo armazenado pelo usuário não é acessado, em nenhuma hipótese\". Com a leitura de documentos pela IA, a frase deixa de ser verdadeira. (P2) Cap. 7.1: \"Não acessar, divulgar, compartilhar ou utilizar o Conteúdo do Usuário, salvo mediante autorização expressa do contratante\". Compatível, desde que o aceite seja essa autorização expressa. (P3) Cap. 11: promete regime que vede a retenção pela fornecedora (ver questão 2). (P4) Cap. 13: lista de categorias de suboperadores não inclui \"processamento de inteligência artificial\". (P5) Cap. 14: mecanismo de transferência genérico (ver questão 1) e \"envidará esforços para manter em território nacional a hospedagem primária\", com comunicação prévia de alteração relevante. (P6) Cap. 16: comunicação ao controlador \"em prazo razoável\", insuficiente diante dos 3 dias úteis do controlador (Res. CD/ANPD nº 15/2024, art. 6º). (P7) Cap. 23: alterações substanciais que modifiquem condições de compartilhamento exigem comunicação com 15 dias de antecedência. (P8) Anexo I: falta a Anthropic; promete comunicação prévia de novo suboperador. (P9) Anexo II: falta o prazo das respostas e perguntas da IA (12 meses) e do registro do aceite. (P10) Anexo III: versão nova.\n\nTermos. (T1) Cláusula de Sigilo Profissional: \"salvo mediante autorização expressa do titular dos dados\", redação que exige autorização do titular e não do contratante, incompatível com o modelo de aceite pelo admin. (T2) Cláusula de Inteligência Artificial: não nomeia fornecedor, não trata de envio ao exterior, de leitura de documentos, nem de deveres do usuário (não enviar segredo de justiça, revisar saída, informar cliente). (T3) Cláusula de Limitação de Responsabilidade (teto de 12 meses de mensalidade), que espelha o teto da Anthropic (Commercial Terms, L.3.a) mas não trata de falha do fornecedor de IA. (T4) Cláusula de Atualização: vigência na publicação e aceite tácito pelo uso, em tensão com os 15 dias do cap. 23 da Política. (T5) Cláusula de Compliance OAB cita o Provimento 205/2021 (publicidade), mas não a Recomendação 001/2024 sobre IA.\n\nAceite da IA (rascunho §3.4). Diz que \"CPF, CNPJ, e-mail, telefone e endereço dos clientes nunca são enviados\". Isso é verdade para o cadastro, mas é falso para o documento lido, que vai íntegro (PDF ou imagem em base64) com os dados que contiver. E diz \"A Anthropic não guarda esses dados depois da resposta (retenção zero)\", que depende da ZDR aceita.",
+        "risco_grau": "alto",
+        "risco": "Alto. Os itens P1, P3 e o trecho do aceite sobre CPF tornam-se afirmações falsas no dia em que a IA ler o primeiro documento. Consequência concreta: violação dos princípios da transparência e da responsabilização (LGPD, art. 6º, VI e X), quebra contratual perante todos os contratantes e, em incidente, prova documental contra a BlueJus. O defeito do aceite é o mais grave porque é o texto que o administrador lê no momento de decidir.",
+        "opcoes": [
+            "1) Revisão completa agora, num só pacote (Política 1.1.2026 e Termos nova versão), com comunicação prévia de 15 dias a todos os contratantes e reaceite dos Termos (troca de TermoVigente::VERSAO). Prós: uma vez só, coerente. Contras: depende de as questões 1 e 2 estarem resolvidas; atrasa.",
+            "2) Revisão em duas etapas: já, corrigir o que é falso independentemente da IA (P1 reescrito como \"a BlueJus não acessa o conteúdo; a IA lê um documento somente quando o usuário pede\", T1 trocando \"titular\" por \"contratante\", P6 com prazo objetivo); depois, ao ligar para terceiros, publicar o bloco da IA (P3, P4, P5, P8, P9, T2). Prós: tira as falsidades cedo. Contras: duas comunicações.",
+            "3) Manter a Política e criar um Termo Aditivo de Uso da BlueJus IA, aceito só por quem liga, com tudo o que é específico (fornecedor, país, retenção, deveres do usuário). Prós: não força reaceite de todos; o aditivo é a instrução do art. 39. Contras: a Política, que é pública, ainda precisa do Anexo I, do cap. 14 e do documento do art. 17, § 2º, da Res. 19/2024."
+        ],
+        "sugestao": "Opção 2 combinada com a 3. Redação mínima por item:\n\nP1 (resumo): \"A BlueJus lê meus documentos? A equipe da BlueJus não acessa o seu conteúdo. Se o escritório ligar a BlueJus IA, um documento é enviado ao modelo somente quando um usuário pede a leitura daquele documento.\"\n\nP3 (cap. 11): substituir a promessa genérica pelo regime efetivamente contratado; enquanto não houver ZDR, informar retenção de até 30 dias pela fornecedora e até 2 anos para conteúdo sinalizado; com ZDR, o texto do rascunho, mantidas as exceções e o prazo de 2 anos.\n\nP4 (cap. 13): acrescentar \"processamento de funcionalidades de inteligência artificial, quando ativadas pelo contratante\".\n\nP5 (cap. 14): nomear EUA, Anthropic e o mecanismo concreto do art. 33; inserir as informações do art. 17, § 2º, da Res. 19/2024.\n\nP6 (cap. 16): \"comunicação ao Usuário Controlador em até 24 horas da ciência\" (a Anthropic avisa a BlueJus em até 48 horas, DPA G.1, e o controlador tem 3 dias úteis).\n\nP8 e P9: linhas do rascunho, com a correção de que a categoria de dados inclui \"documentos selecionados, na íntegra, com os dados neles contidos\" e o prazo de 12 meses (mais 5 anos para o registro do aceite, como prova de conformidade).\n\nT1: trocar \"titular dos dados\" por \"contratante\". T2: incluir fornecedor, país, retenção, leitura sob demanda, deveres do usuário (revisão integral da saída, não enviar documento sob segredo, informar o cliente, Recomendação CFOAB 001/2024). T4: alinhar aos 15 dias da Política. T5: incluir a Recomendação 001/2024.\n\nAceite: reescrever o trecho para \"Do cadastro do cliente, só o nome é enviado; CPF, CNPJ, e-mail, telefone e endereço não saem do cadastro. Quando alguém pede a leitura de um documento, o documento vai inteiro, com os dados que contiver.\" E só falar em retenção zero depois da prova da questão 2.",
+        "fontes": [
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "Resolução CD/ANPD nº 19, de 23/08/2024 (Regulamento de Transferência Internacional e cláusulas-padrão), com a retificação de 18/08/2025",
+                "url": "https://www.gov.br/anpd/pt-br/acesso-a-informacao/institucional/atos-normativos/regulamentacoes_anpd/resolucao-cd-anpd-no-19-de-23-de-agosto-de-2024"
+            },
+            {
+                "rotulo": "ANPD: índice das regulamentações (Res. CD/ANPD nº 2/2022, nº 4/2023, nº 15/2024, nº 32/2026)",
+                "url": "https://www.gov.br/anpd/pt-br/acesso-a-informacao/institucional/atos-normativos/regulamentacoes_anpd"
+            },
+            {
+                "rotulo": "Anthropic Data Processing Addendum (SCC UE módulos 2 e 3, UK Addendum, Swiss Addendum; sem LGPD)",
+                "url": "https://www.anthropic.com/legal/data-processing-addendum"
+            },
+            {
+                "rotulo": "Anthropic Commercial Terms of Service (Seções B, C, L.3, M.7)",
+                "url": "https://www.anthropic.com/legal/commercial-terms"
+            },
+            {
+                "rotulo": "Recomendação nº 001/2024 do CFOAB (Proposição 49.0000.2024.007325-9/COP, 11/11/2024), cópia do processo; URL no portal oab.org.br [a confirmar]",
+                "url": "https://www.migalhas.com.br/arquivos/2024/11/94F37C9909D4B0_49.0000.2024.007325-9-Relator-.pdf"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "termos_uso",
+            "rascunho_politica_ia",
+            "aceite_ia"
+        ]
     },
     {
         "chave": "sigilo_profissional",
-        "titulo": "Sigilo profissional do advogado",
-        "problema": "Os dados das pastas estão sob o sigilo profissional do advogado.\n\nEnviar esses dados a um fornecedor externo de IA precisa respeitar o Estatuto e o Código de Ética da OAB.",
-        "risco_grau": "medio",
-        "risco": "O escritório pode responder perante a OAB se o envio não estiver claro nos Termos de Uso e no aceite.",
+        "titulo": "5. Sigilo profissional do advogado, deveres do usuário e do fornecedor, e segredo de justiça",
+        "problema": "Normas. Estatuto da Advocacia (Lei 8.906/1994): art. 7º, II, assegura a inviolabilidade do escritório e dos instrumentos de trabalho, \"de sua correspondência escrita, eletrônica, telefônica e telemática, desde que relativas ao exercício da advocacia\" (redação da Lei 11.767/2008); art. 7º, XIX, o direito de recusar-se a depor sobre fato que constitua sigilo profissional; art. 34, VII, tipifica como infração disciplinar \"violar, sem justa causa, sigilo profissional\", punida com censura (art. 36, I). Código de Ética e Disciplina (Res. CFOAB 02/2015): art. 35, dever de guardar sigilo dos fatos conhecidos no exercício da profissão; art. 36, o sigilo é de ordem pública e independe de pedido do cliente, e § 1º, presumem-se confidenciais as comunicações de qualquer natureza entre advogado e cliente; art. 37, o sigilo cede só diante de justa causa (grave ameaça à vida ou à honra, defesa própria); art. 38, o advogado não é obrigado a depor sobre fatos cobertos pelo sigilo. No plano penal, Código Penal, art. 154 (revelar segredo de que tem ciência em razão de profissão).\n\nRecomendação nº 001/2024 do Conselho Federal da OAB, aprovada em 11/11/2024 no julgamento da Proposição 49.0000.2024.007325-9/COP (relator conselheiro Francisco Queiroz Caputo Neto). Diretrizes pertinentes: item 2.1 (zelar pela confidencialidade ao inserir dados, atenção ao que torne o cliente identificável); 2.2 (diligência na escolha do fornecedor, que deve proteger as informações, adotar medidas de segurança e \"possibilitar a não utilização dos dados fornecidos para treinamento\"); 2.3 (finalidades do compartilhamento previstas na política de privacidade); 2.5 (observar a LGPD antes de inserir dados confidenciais); 3.4 (conhecer os termos de uso e as políticas de dados); 3.6 (sócios devem estabelecer políticas internas e treinamento); 3.7 (revisão integral das saídas antes de levá-las ao processo); 4.1 e 4.1.1 (transparência e formalização prévia ao cliente); 4.2.1 (documento escrito com propósito, benefícios, riscos, medidas de segurança e revisão humana); 4.3.1 a 4.3.4 (consentimento informado explícito do cliente por assinatura, respeito à recusa, arquivamento até o fim do serviço, formalização em qualquer fase, inclusive \"análise de documentos\"). É recomendação, não ato normativo sancionador, mas serve de parâmetro de diligência para os tribunais de ética. Os números 4.3.x constam da versão com as emendas acolhidas na sessão; confirmar a redação publicada [a confirmar no portal oab.org.br].\n\nSegredo de justiça. CPC, art. 189: tramitam em segredo os processos em que o exija o interesse público ou social; os de casamento, separação, divórcio, união estável, filiação, alimentos e guarda de crianças e adolescentes; os que contenham dados protegidos pelo direito constitucional à intimidade; e os que versem sobre arbitragem com confidencialidade comprovada; § 1º restringe a consulta dos autos às partes e procuradores. A regra 4 da BlueJus bloqueia o envio quando o processo está em segredo (nível de sigilo do tribunal ou marcação manual). Lacuna: a leitura de documentos (fase F5) ainda não foi implementada, e o bloqueio hoje atua sobre o processo; é preciso que alcance também documentos da pasta vinculada a processo em segredo e documentos de matérias do art. 189 ainda não ajuizadas (pré-contencioso de família).\n\nDever de cada um. O sigilo é dever pessoal do advogado usuário: ele decide o que manda ler e deve informar e, segundo a Recomendação, colher o consentimento do cliente. O fornecedor (BlueJus) não é advogado, mas assumiu contratualmente dever de sigilo (Termos, Cláusula de Sigilo; Política, cap. 7) e responde por escolha diligente do suboperador (Política, cap. 13). A Anthropic, pelos Commercial Terms e pelo DPA, tem dever de confidencialidade e veda treino com o conteúdo.",
+        "risco_grau": "alto",
+        "risco": "Alto para o advogado usuário e médio para a BlueJus. Para o advogado: envio de peça de processo em segredo ou de comunicação com o cliente a fornecedor estrangeiro, sem informação ao cliente, pode ser enquadrado como violação de sigilo sem justa causa (EAOAB, art. 34, VII; censura) e, no limite, como art. 154 do CP; em processo de família, quebra do art. 189 do CPC. Para a BlueJus: perda de confiança do mercado (produto para advogados), responsabilidade contratual pela cláusula de sigilo e pelo dever de diligência na escolha do suboperador, e exposição reputacional se uma resposta da IA, guardada 12 meses, vazar. A retenção pela Anthropic (30 dias sem ZDR, 2 anos se sinalizado) é o ponto mais sensível frente ao art. 36 do CED.",
         "opcoes": [
-            "Dizer nos Termos de Uso que o escritório decide o que envia e responde pelo sigilo.",
-            "Restringir o envio a dados que não identifiquem o cliente."
+            "1) Manter o bloqueio por processo em segredo e estendê-lo, antes da F5, a todo documento da pasta vinculada a processo em segredo e a pastas marcadas como de matéria do art. 189 do CPC; deixar ao usuário a decisão de enviar os demais. Prós: protege o caso mais grave por código. Contras: depende da marcação correta.",
+            "2) Exigir, no aceite do escritório, declaração de que o escritório adota política interna de uso de IA e informa os clientes (Recomendação 001/2024, itens 3.6 e 4.1.1), e oferecer modelo de termo de ciência e consentimento do cliente para o escritório usar. Prós: ajuda o advogado a cumprir o dever dele, com valor comercial. Contras: a BlueJus não controla se o escritório cumpre.",
+            "3) Bloquear a leitura de documentos para todos até haver ZDR e cláusulas da ANPD. Prós: risco mínimo. Contras: contraria a decisão D13 do dono (leitura liberada)."
         ],
-        "sugestao": "Ajustar os Termos de Uso e o texto do aceite para deixar claro o papel do escritório e o do BlueJus.",
+        "sugestao": "Opções 1 e 2 juntas, e a 3 apenas enquanto não houver ZDR (ler documento íntegro com 30 dias de retenção estrangeira é o cenário mais frágil diante do art. 36 do CED). Na tela de leitura, aviso curto antes do envio: \"O documento será enviado inteiro à Anthropic, nos EUA. Não envie documento de processo em segredo de justiça.\" Na Política e nos Termos, deixar explícito que o dever de sigilo e de informar o cliente é do advogado (art. 35 do CED; Recomendação 001/2024, itens 2.1 e 4.1.1), e que a BlueJus fornece os meios (bloqueio, mascaramento do cadastro, rótulo \"Gerado por IA\", registro de quem pediu). Disponibilizar ao escritório um modelo de cláusula de contrato de honorários sobre uso de IA, que é o que a Recomendação pede (itens 4.2.1 e 4.3.1).",
         "fontes": [
-            {"rotulo": "Estatuto da Advocacia, art. 7º, II (Lei 8.906/1994)", "url": "https://www.planalto.gov.br/ccivil_03/leis/l8906.htm"},
-            {"rotulo": "Código de Ética e Disciplina da OAB", "url": "https://www.oab.org.br/"}
+            {
+                "rotulo": "Lei nº 8.906/1994 (Estatuto da Advocacia e da OAB)",
+                "url": "https://www.planalto.gov.br/ccivil_03/leis/l8906.htm"
+            },
+            {
+                "rotulo": "Código de Ética e Disciplina da OAB (Resolução CFOAB nº 02/2015), arts. 35 a 38",
+                "url": "https://www.oab.org.br/arquivos/resolucao-n-022015-ced-2030601765.pdf"
+            },
+            {
+                "rotulo": "Recomendação nº 001/2024 do CFOAB (Proposição 49.0000.2024.007325-9/COP, 11/11/2024), cópia do processo; URL no portal oab.org.br [a confirmar]",
+                "url": "https://www.migalhas.com.br/arquivos/2024/11/94F37C9909D4B0_49.0000.2024.007325-9-Relator-.pdf"
+            },
+            {
+                "rotulo": "Lei nº 13.105/2015 (CPC), art. 189",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13105.htm"
+            },
+            {
+                "rotulo": "Decreto-Lei nº 2.848/1940 (Código Penal), art. 154",
+                "url": "https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm"
+            },
+            {
+                "rotulo": "Anthropic Commercial Terms of Service (Seções B, C, L.3, M.7)",
+                "url": "https://www.anthropic.com/legal/commercial-terms"
+            },
+            {
+                "rotulo": "Anthropic Data Processing Addendum (SCC UE módulos 2 e 3, UK Addendum, Swiss Addendum; sem LGPD)",
+                "url": "https://www.anthropic.com/legal/data-processing-addendum"
+            }
         ],
-        "documentos": ["termos_uso", "aceite_ia"]
+        "documentos": [
+            "politica_privacidade",
+            "termos_uso",
+            "rascunho_politica_ia",
+            "aceite_ia"
+        ]
+    },
+    {
+        "chave": "marco_civil_art_11",
+        "titulo": "6.1. Marco Civil da Internet, art. 11, e deveres do provedor de aplicação",
+        "problema": "Art. 11 da Lei 12.965/2014: em qualquer operação de coleta, armazenamento, guarda e tratamento de registros, de dados pessoais ou de comunicações por provedores de conexão e de aplicações de internet em que pelo menos um desses atos ocorra em território nacional, devem ser respeitados a legislação brasileira e os direitos à privacidade, à proteção dos dados pessoais e ao sigilo das comunicações privadas e dos registros. O § 1º estende a regra aos dados coletados no Brasil e o § 2º à pessoa jurídica sediada no exterior que oferte serviço ao público brasileiro ou tenha integrante do grupo econômico com estabelecimento no Brasil. Também são relevantes o art. 7º, VII (não fornecimento de dados pessoais a terceiros sem consentimento livre, expresso e informado do usuário, salvo hipóteses legais), VIII (informações claras sobre coleta, uso e armazenamento) e IX (consentimento expresso e destacado), e o art. 15 (guarda de registros de acesso a aplicações por 6 meses, já no Anexo II).\n\nA BlueJus é provedora de aplicação e coleta no Brasil: o tratamento integral, inclusive o que a Anthropic faz por conta dela, submete-se à lei brasileira, e a cláusula de lei da Califórnia e arbitragem em San Francisco dos Commercial Terms (M.7, J.2) não afasta isso perante o titular e o contratante. Quanto ao usuário da plataforma (advogado), a pergunta que ele escreve é dado dele e vai à Anthropic.",
+        "risco_grau": "baixo",
+        "risco": "Baixo, desde que as questões 1 e 4 sejam resolvidas: o Marco Civil não cria exigência material além da LGPD neste caso, mas reforça a aplicação da lei brasileira e as sanções do art. 12 (advertência, multa de até 10% do faturamento no Brasil, suspensão e proibição de atividades), aplicáveis ao provedor de aplicação que desrespeita os arts. 10 e 11. Consequência concreta: a BlueJus não pode invocar o contrato com a Anthropic (lei da Califórnia) para se eximir perante o usuário brasileiro.",
+        "opcoes": [
+            "1) Tratar o aceite do administrador e a informação na Política como satisfação do art. 7º, VIII e IX, para os usuários do escritório, e informar no aceite que a pergunta do usuário também vai à fornecedora. Prós: simples. Contras: o consentimento é do admin, não de cada usuário; os demais usuários dependem da informação na Política.",
+            "2) Mostrar a cada usuário, no primeiro uso da IA, aviso curto (fornecedor, país, que a pergunta vai junto) com botão de ciência. Prós: cobre o art. 7º, VIII, para cada usuário. Contras: mais uma tela."
+        ],
+        "sugestao": "Opção 2, que custa pouco e casa com o rótulo \"Gerado por IA\" já previsto. Na Política, citar expressamente que o tratamento pela suboperadora no exterior segue a lei brasileira (MCI, art. 11, e LGPD, art. 3º), e não depender, perante os contratantes, das cláusulas de lei aplicável do contrato com a Anthropic.",
+        "fontes": [
+            {
+                "rotulo": "Lei nº 12.965/2014 (Marco Civil da Internet)",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2014/lei/l12965.htm"
+            },
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "Anthropic Commercial Terms of Service (Seções B, C, L.3, M.7)",
+                "url": "https://www.anthropic.com/legal/commercial-terms"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "aceite_ia"
+        ]
+    },
+    {
+        "chave": "incidente_de_seguranca",
+        "titulo": "6.2. Incidente de segurança (Res. CD/ANPD nº 15/2024) na cadeia escritório, BlueJus e Anthropic",
+        "problema": "LGPD, art. 48: o controlador comunica à ANPD e ao titular incidente que possa acarretar risco ou dano relevante. A Res. CD/ANPD nº 15, de 24/04/2024 (publicada no DOU de 26/04/2024 [a confirmar a data no DOU]), aprovou o Regulamento de Comunicação de Incidente: art. 5º, risco ou dano relevante exige afetar significativamente interesses e direitos fundamentais e, cumulativamente, ao menos um critério, entre eles dados sensíveis, dados de crianças, adolescentes e idosos, dados financeiros, dados de autenticação, \"dados protegidos por sigilo legal, judicial ou profissional\" e larga escala; art. 6º, comunicação à ANPD em 3 dias úteis contados da ciência de que o incidente afetou dados pessoais, com complementação em 20 dias úteis; art. 9º, comunicação ao titular em 3 dias úteis; art. 10, registro de todo incidente, comunicado ou não, por no mínimo 5 anos. Agentes de pequeno porte têm prazos em dobro (arts. 6º, § 8º, e 9º, § 6º), salvo se praticarem tratamento de alto risco (Res. CD/ANPD nº 2/2022, arts. 3º e 4º, que inclui uso de tecnologia emergente ou inovadora como critério específico [a confirmar a redação]).\n\nNa cadeia: o controlador é o escritório; a BlueJus, como operadora, deve avisar o controlador a tempo de ele cumprir os 3 dias úteis; a Anthropic se obriga a avisar a BlueJus \"without undue delay\" e em até 48 horas da ciência de Security Breach (DPA, G.1). A Política (cap. 16) só promete comunicação ao controlador \"em prazo razoável\". Como quase tudo que a BlueJus IA processa é coberto por sigilo profissional, qualquer incidente que atinja esses dados tende a preencher o critério do art. 5º.",
+        "risco_grau": "medio",
+        "risco": "Médio. A probabilidade de incidente na Anthropic é baixa (SOC 2, auditorias, Trust Center), mas o impacto é alto e o prazo é curto: 48 horas da Anthropic mais o tempo da BlueJus podem consumir os 3 dias úteis do escritório. Consequência concreta: escritório que perde o prazo por demora da BlueJus terá direito de regresso (LGPD, art. 42, § 4º) e a BlueJus responde solidariamente se descumpriu obrigação legal ou contratual. Também conta o incidente local: as respostas guardadas por 12 meses (texto_bruto, texto_da_analise) podem reproduzir dados sigilosos dos documentos lidos.",
+        "opcoes": [
+            "1) Fixar na Política e nos Termos prazo objetivo de comunicação da BlueJus ao controlador (24 horas da ciência, inclusive quando a ciência vier da Anthropic), com conteúdo mínimo alinhado ao art. 6º, § 2º, do Regulamento, e manter registro próprio de incidentes por 5 anos. Prós: dá ao escritório folga para os 3 dias úteis. Contras: compromisso operacional exigente para equipe pequena.",
+            "2) Manter \"prazo razoável\". Prós: flexibilidade. Contras: não serve ao controlador e é cláusula fraca em litígio.",
+            "3) Opção 1 mais um plano de resposta escrito (quem avisa, por qual canal, modelo de comunicação ao escritório, desligamento imediato da chave geral da IA no painel do Master). Prós: transforma o compromisso em procedimento. Contras: trabalho inicial."
+        ],
+        "sugestao": "Opção 3. Prazo de 24 horas, canal e modelo definidos, chave geral do Master como medida de contenção documentada, e cadastro do contato de segurança da BlueJus na Anthropic para receber o aviso do DPA G.1. Rever se a BlueJus pode se valer do prazo em dobro de agente de pequeno porte: com IA processando dado sigiloso e possivelmente sensível, é provável que o tratamento seja de alto risco nos termos da Res. CD/ANPD nº 2/2022, o que afasta o benefício.",
+        "fontes": [
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "ANPD: índice das regulamentações (Res. CD/ANPD nº 2/2022, nº 4/2023, nº 15/2024, nº 32/2026)",
+                "url": "https://www.gov.br/anpd/pt-br/acesso-a-informacao/institucional/atos-normativos/regulamentacoes_anpd"
+            },
+            {
+                "rotulo": "Anthropic Data Processing Addendum (SCC UE módulos 2 e 3, UK Addendum, Swiss Addendum; sem LGPD)",
+                "url": "https://www.anthropic.com/legal/data-processing-addendum"
+            },
+            {
+                "rotulo": "Anthropic Trust Center (SOC 2 e certificações)",
+                "url": "https://trust.anthropic.com"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "termos_uso"
+        ]
+    },
+    {
+        "chave": "direitos_do_titular_art_20",
+        "titulo": "6.3. Direitos do titular, inclusive revisão de decisão automatizada (LGPD, art. 20)",
+        "problema": "Arts. 18 e 19: confirmação, acesso, correção, eliminação, informação sobre compartilhamento (art. 18, VII), em prazo de 15 dias para a declaração completa (art. 19, II). Art. 18, VII, e art. 9º, V: o titular tem direito a saber com quem os dados foram compartilhados, o que passa a incluir a Anthropic. A Política (cap. 18) já encaminha ao escritório as requisições sobre Conteúdo do Usuário, como deve ser (art. 18, § 6º, e art. 39). Ponto técnico: como a BlueJus não guarda o que foi enviado (regra 6: só hash e resumo), atender pedido de acesso ou eliminação sobre \"o que foi mandado à IA\" depende das respostas guardadas e do registro de auditoria; na Anthropic, sem ZDR, até 30 dias.\n\nArt. 20: o titular pode solicitar revisão de decisões tomadas unicamente com base em tratamento automatizado que afetem seus interesses, inclusive as destinadas a definir perfil pessoal, profissional, de consumo e de crédito; § 1º, o controlador deve fornecer informações claras sobre critérios e procedimentos, respeitado o segredo comercial; § 2º, auditoria da ANPD em caso de recusa. A Lei 13.853/2019 retirou a exigência de revisão por pessoa natural. A BlueJus IA, como desenhada, produz análises, resumos e respostas que o advogado revisa (Termos, Cláusula de Responsabilidade Profissional; decisão Q7: envio ao cliente só após revisão); não há decisão \"unicamente\" automatizada sobre o cliente. Atenção a dois usos futuros: a pendência do §10.3 da spec prevê \"insight\" e \"projeção\" do dashboard a partir de \"produção por pessoa por período\"; se isso virar IA, passa a avaliar o desempenho de empregados e colaboradores (perfil profissional), o que atrai o art. 20 e o direito do trabalho.",
+        "risco_grau": "baixo",
+        "risco": "Baixo no desenho atual (sempre há revisão humana). Médio se a IA vier a avaliar pessoas da equipe ou a priorizar clientes automaticamente. Consequência concreta: pedido de revisão ou de explicação que a BlueJus e o escritório não conseguem atender por falta de registro do que a IA usou.",
+        "opcoes": [
+            "1) Manter o desenho com revisão humana obrigatória e documentar na Política que a IA não toma decisão automatizada sobre titulares; guardar no registro de auditoria quais itens e documentos entraram em cada análise (ids, não conteúdo), para responder ao art. 18 e ao art. 20, § 1º. Prós: coerente com a minimização. Contras: nenhum relevante.",
+            "2) Se a IA chegar a avaliar desempenho de pessoas, exigir antes RIPD (art. 38), aviso aos empregados e canal de revisão. Prós: antecipa o problema. Contras: só se aplica se o uso surgir."
+        ],
+        "sugestao": "Opção 1 já, e a 2 como condição registrada na pendência do §10.3 da spec (o dado \"produção por pessoa\" não vira IA sem RIPD e revisão jurídica). Na Política, acrescentar a Anthropic na resposta ao art. 18, VII, via Anexo I, e manter o encaminhamento ao controlador.",
+        "fontes": [
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "termos_uso"
+        ]
+    },
+    {
+        "chave": "responsabilidade_civil_cdc",
+        "titulo": "6.4. Responsabilidade civil, CDC e limitação de responsabilidade",
+        "problema": "LGPD: arts. 42 a 45. O controlador ou operador que causar dano em violação à legislação repara (art. 42); o operador responde solidariamente quando descumprir a lei ou não seguir instruções lícitas (§ 1º, I); excludentes no art. 43; tratamento irregular no art. 44, inclusive por não fornecer a segurança esperada; art. 45, nas relações de consumo aplica-se o CDC. CDC: responsabilidade objetiva do fornecedor de serviços por defeito (art. 14), solidariedade da cadeia (arts. 7º, parágrafo único, e 25, § 1º), nulidade de cláusula que exonere ou atenue a responsabilidade (art. 51, I), com a ressalva de que, para consumidor pessoa jurídica, a indenização pode ser limitada em situações justificáveis. O STJ aplica o finalismo mitigado: escritório pequeno ou advogado autônomo pode ser tratado como consumidor por vulnerabilidade técnica perante um SaaS. Fora do CDC, Código Civil, arts. 186, 927 e 421-A (contratos empresariais paritários, presunção de paridade e alocação de riscos respeitada). Sobre dano moral por vazamento, o STJ já decidiu que não é presumido em caso de dados comuns (AREsp 2.130.619/SP, 2ª Turma, 2023 [a confirmar número e data]), mas dado sigiloso ou sensível muda a análise.\n\nContratos: os Termos limitam a responsabilidade da BlueJus a 12 meses de mensalidade e afastam garantia de exatidão da IA (Cláusula de IA). Os Commercial Terms da Anthropic limitam a dela às taxas dos 12 meses anteriores (L.3.a), excluem danos indiretos e elegem lei da Califórnia, com arbitragem JAMS em San Francisco (J.2, M.7). Na prática, a BlueJus fica entre um teto baixo do lado da Anthropic e um contratante que pode ser consumidor do seu lado.",
+        "risco_grau": "medio",
+        "risco": "Médio. Duas frentes: (a) erro de conteúdo (alucinação, prazo errado, jurisprudência inexistente) que o advogado use sem revisar: a responsabilidade principal é do advogado (EAOAB, art. 32; CPC, art. 77; Recomendação 001/2024, item 3.7), e a cláusula de IA dos Termos ajuda, mas pode ser afastada como abusiva se o escritório for consumidor e a tela induzir confiança (percentuais sem base, que a decisão Q13 já tirou); (b) incidente ou retenção indevida na Anthropic: a BlueJus responde perante o escritório e terá regresso difícil e limitado contra a Anthropic (teto de 12 meses de taxas, que no Haiku é valor irrisório, foro estrangeiro).",
+        "opcoes": [
+            "1) Manter os Termos e reforçar a cláusula de IA: rótulo \"Gerado por IA\" em toda saída, revisão humana obrigatória, proibição de percentuais sem base, registro de quem pediu e quem enviou ao cliente. Prós: reduz a chance de defeito por informação insuficiente (CDC, art. 14, § 1º). Contras: não muda o teto.",
+            "2) Contratar seguro de responsabilidade civil profissional e cyber (E&O e cyber) com cobertura para incidente em suboperador. Prós: única forma realista de cobrir a lacuna entre o teto da Anthropic e a exposição da BlueJus. Contras: custo.",
+            "3) Separar no Termo Aditivo da IA a alocação de risco: escritório reconhece que o conteúdo é sugestão sujeita a revisão e que a BlueJus não responde por uso sem revisão; limitação justificada para pessoa jurídica (CDC, art. 51, I, parte final; CC, art. 421-A). Prós: melhora a defesa. Contras: não vale contra titular terceiro (cliente do escritório) nem afasta o art. 42 da LGPD."
+        ],
+        "sugestao": "Opções 1 e 3 já; opção 2 antes de abrir a IA a escritórios de terceiros. Não prometer nada que dependa da Anthropic sem que a própria Anthropic o tenha prometido por escrito (retenção, prazo de aviso), porque o regresso contra ela é limitado.",
+        "fontes": [
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "Lei nº 8.078/1990 (CDC), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm"
+            },
+            {
+                "rotulo": "Lei nº 10.406/2002 (Código Civil), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm"
+            },
+            {
+                "rotulo": "Lei nº 8.906/1994 (Estatuto da Advocacia e da OAB)",
+                "url": "https://www.planalto.gov.br/ccivil_03/leis/l8906.htm"
+            },
+            {
+                "rotulo": "Lei nº 13.105/2015 (CPC), art. 189",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13105.htm"
+            },
+            {
+                "rotulo": "Anthropic Commercial Terms of Service (Seções B, C, L.3, M.7)",
+                "url": "https://www.anthropic.com/legal/commercial-terms"
+            },
+            {
+                "rotulo": "Recomendação nº 001/2024 do CFOAB (Proposição 49.0000.2024.007325-9/COP, 11/11/2024), cópia do processo; URL no portal oab.org.br [a confirmar]",
+                "url": "https://www.migalhas.com.br/arquivos/2024/11/94F37C9909D4B0_49.0000.2024.007325-9-Relator-.pdf"
+            }
+        ],
+        "documentos": [
+            "termos_uso",
+            "politica_privacidade",
+            "aceite_ia"
+        ]
+    },
+    {
+        "chave": "comunicacao_previa_suboperador",
+        "titulo": "6.5. Comunicação prévia de suboperador novo aos contratantes",
+        "problema": "O Anexo I da Política diz: \"A contratação de novo suboperador com acesso a Conteúdo do Usuário será precedida de comunicação aos contratantes.\" O cap. 13 promete contrato escrito com cada suboperador, com cláusulas de proteção de dados, limitação de finalidade e \"vedação de subcontratação não autorizada\". O cap. 23 exige comunicação com antecedência mínima de 15 dias para alterações que modifiquem de forma relevante as condições de compartilhamento. A LGPD não fixa prazo, mas o art. 39 exige instrução do controlador. Do lado da Anthropic, o DPA (C.1 a C.3) dá autorização geral para os suboperadores dela, com aviso razoável e direito de objeção em 15 dias; a lista fica em anthropic.com/subprocessors. A BlueJus precisa repassar essas mudanças aos escritórios, porque a cadeia é dela.\n\nNo piloto só o escritório do dono será ligado e a Anthropic só recebe dados de escritórios que ligarem a IA. Ainda assim a promessa do Anexo I é feita a \"os contratantes\", sem distinguir quem ligou.",
+        "risco_grau": "medio",
+        "risco": "Médio. Contratar a Anthropic e enviar dados sem a comunicação prometida é quebra contratual perante todos os contratantes e fragiliza a defesa do art. 39. Consequência concreta: contratante que descobre o novo suboperador pela Política nova pode alegar violação do cap. 13 e do Anexo I. O risco é menor porque o envio depende de ativação por escritório, mas o texto vigente não faz essa distinção.",
+        "opcoes": [
+            "1) Comunicar todos os contratantes por e-mail e aviso na plataforma, com 15 dias de antecedência da nova versão da Política, informando que a Anthropic só recebe dados de quem ligar a IA. Prós: cumpre literalmente o Anexo I e o cap. 23. Contras: exige o texto final pronto (depende das questões 1 e 2).",
+            "2) Tratar o aceite específico do escritório que liga a IA como a comunicação e a autorização, e ajustar o Anexo I para dizer que suboperador de funcionalidade opcional é comunicado a quem a ativa. Prós: ágil para o piloto. Contras: muda a regra para o futuro, mas não remedeia a promessa vigente para quem já aceitou a versão 1.0.2026.",
+            "3) Combinar: para o piloto (escritório do dono, que é o próprio controlador e conhece o fornecedor), o aceite basta; antes de liberar qualquer outro escritório, fazer a comunicação geral da opção 1 e publicar a Política nova."
+        ],
+        "sugestao": "Opção 3. Registrar por escrito que o piloto é do próprio controlador. Antes do segundo escritório, comunicação geral com 15 dias, Anexo I com a Anthropic, e cláusula nova no Anexo I prevendo que mudanças na lista de suboperadores da Anthropic (anthropic.com/subprocessors) serão repassadas aos escritórios que usam a IA, com prazo para desligarem a funcionalidade se discordarem (espelho do direito de objeção de 15 dias do DPA, C.3(b)). Exercer o direito de objeção do DPA quando um suboperador novo da Anthropic for problemático.",
+        "fontes": [
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "Anthropic Data Processing Addendum (SCC UE módulos 2 e 3, UK Addendum, Swiss Addendum; sem LGPD)",
+                "url": "https://www.anthropic.com/legal/data-processing-addendum"
+            },
+            {
+                "rotulo": "Anthropic: lista de suboperadores (Schedule 4 do DPA)",
+                "url": "https://www.anthropic.com/subprocessors"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "termos_uso",
+            "rascunho_politica_ia",
+            "aceite_ia"
+        ]
+    },
+    {
+        "chave": "pl_2338_marco_da_ia",
+        "titulo": "6.6. PL nº 2.338/2023 (marco legal da inteligência artificial) e normas correlatas",
+        "problema": "O PL 2.338/2023 foi aprovado pelo Senado Federal em 10/12/2024 e remetido à Câmara dos Deputados (autógrafo enviado em 17/03/2025, conforme a ficha do Senado), onde tramita em comissão especial, com relatoria do deputado Aguinaldo Ribeiro e dezenas de apensados, entre eles o PL 6.237/2025 do Poder Executivo. Em 24/10/2026 não há notícia oficial de votação na Câmara [a confirmar a situação atual na ficha de tramitação da Câmara]. Não é lei e não obriga hoje.\n\nO texto do Senado classifica sistemas por risco (excessivo, vedado; alto risco, com obrigações reforçadas), prevê avaliação preliminar de risco, direitos das pessoas afetadas (informação prévia de que interage com IA, explicação, contestação e revisão humana), regras para IA generativa e de propósito geral, e distingue agentes (desenvolvedor, distribuidor e aplicador). No rol de alto risco do texto do Senado aparece a administração da justiça, voltada a sistemas que auxiliam autoridades judiciárias [a confirmar o artigo e a redação final], não a ferramentas de apoio ao advogado. A BlueJus seria provavelmente \"aplicadora\" ou \"distribuidora\" de um sistema de propósito geral (Claude). Correlatas: a Resolução CNJ nº 615/2025, que regula o uso de IA no Poder Judiciário (não se aplica ao advogado, mas sinaliza padrões de transparência e revisão humana) [a confirmar data e número], e a Recomendação CFOAB 001/2024 (questão 5).",
+        "risco_grau": "baixo",
+        "risco": "Baixo hoje (não há lei). Médio no horizonte de 12 a 24 meses: se aprovado com regras de transparência e avaliação de risco, a BlueJus terá de documentar avaliação preliminar e informar usuários e afetados. Consequência concreta: produto lançado sem registro de riscos e sem rótulo terá de ser refeito.",
+        "opcoes": [
+            "1) Adotar já, como boa prática, o núcleo provável do marco: rótulo \"Gerado por inteligência artificial\" em toda saída, revisão humana antes de uso externo, registro de qual modelo e versão gerou cada resposta, e avaliação preliminar de risco escrita (que serve também como RIPD da LGPD, art. 38). Prós: barato agora, alinhado à Recomendação da OAB. Contras: algum trabalho de documentação.",
+            "2) Aguardar a lei. Prós: nenhum custo agora. Contras: retrabalho e exposição reputacional."
+        ],
+        "sugestao": "Opção 1. A spec já prevê o rótulo e a revisão; falta registrar o modelo e a versão por resposta (o Master pode trocar o modelo no painel) e escrever uma avaliação de risco e impacto de uma a duas páginas, que cumpre ao mesmo tempo a LGPD (art. 38, RIPD, recomendável dado o tratamento de dados sigilosos e possivelmente sensíveis com tecnologia emergente) e a expectativa do PL. Revisitar esta questão quando a Câmara votar.",
+        "fontes": [
+            {
+                "rotulo": "PL nº 2.338/2023, ficha de tramitação no Senado (remessa à Câmara)",
+                "url": "https://www25.senado.leg.br/web/atividade/materias/-/materia/157233"
+            },
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            },
+            {
+                "rotulo": "Recomendação nº 001/2024 do CFOAB (Proposição 49.0000.2024.007325-9/COP, 11/11/2024), cópia do processo; URL no portal oab.org.br [a confirmar]",
+                "url": "https://www.migalhas.com.br/arquivos/2024/11/94F37C9909D4B0_49.0000.2024.007325-9-Relator-.pdf"
+            },
+            {
+                "rotulo": "CNJ: Resolução nº 615/2025, uso de IA no Poder Judiciário [a confirmar URL do ato]",
+                "url": "https://atos.cnj.jus.br/"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "termos_uso",
+            "aceite_ia"
+        ]
+    },
+    {
+        "chave": "retencao_local_e_ripd",
+        "titulo": "6.7. Retenção local de 12 meses, registro do aceite e relatório de impacto (RIPD)",
+        "problema": "A BlueJus guardará a pergunta e a resposta por 12 meses, configurável (decisão Q5), apagando por tarefa agendada; o que foi enviado não é guardado (regra 6). A resposta pode reproduzir trechos e dados dos documentos lidos, inclusive sigilosos ou sensíveis, de modo que a resposta é, ela própria, Conteúdo do Usuário. Princípios da necessidade e da limitação de prazo (LGPD, arts. 6º, III, 15 e 16): o prazo deve ser justificado e informado (Anexo II). O registro do aceite (data, autor, versão do texto) é prova de conformidade e de instrução do controlador (arts. 37 e 39), e precisa durar mais que a resposta (o Anexo II vigente já prevê 5 anos para registros de consentimento e auditoria). Sendo configurável, convém que a configuração seja do controlador (escritório) dentro de limites, e não só do Master. RIPD: o art. 38 permite à ANPD exigi-lo; o tratamento de dados possivelmente sensíveis, sigilosos e de crianças por tecnologia emergente, com transferência internacional, é o caso típico em que convém tê-lo pronto.",
+        "risco_grau": "baixo",
+        "risco": "Baixo, se o prazo for publicado e a purga funcionar. Consequência concreta de falha: respostas guardadas além do prazo (a spec registra que hoje texto_bruto, texto_da_analise e inteligencia_pergunta ficam para sempre, até a purga do escritório) contrariam o Anexo II e ampliam o dano num incidente.",
+        "opcoes": [
+            "1) 12 meses fixos para todos, publicados no Anexo II, com purga agendada antes de abrir a terceiros. Prós: simples. Contras: rígido para escritório que queira menos.",
+            "2) 12 meses como padrão, configurável pelo administrador do escritório para menos (nunca mais sem nova versão da Política), registro do aceite por 5 anos. Prós: dá ao controlador o controle que é dele. Contras: mais uma configuração."
+        ],
+        "sugestao": "Opção 2, com a purga (PR G da spec) como condição para abrir a terceiros, e RIPD curto elaborado antes desse momento.",
+        "fontes": [
+            {
+                "rotulo": "Lei nº 13.709/2018 (LGPD), texto compilado",
+                "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+            }
+        ],
+        "documentos": [
+            "politica_privacidade",
+            "rascunho_politica_ia",
+            "aceite_ia"
+        ]
     }
 ]
