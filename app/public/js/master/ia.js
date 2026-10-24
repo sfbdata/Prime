@@ -5,7 +5,9 @@
    - Chave geral: ligar pede confirmação (window.BJMasterConf, a confirmação interna do painel); desligar é direto.
    - Modelo: grava ao mudar o select; o preço por milhão de tokens vem do servidor.
    - Retenção: por quantos meses as respostas da IA ficam guardadas (1 a 120), grava ao mudar o campo.
-   - Escritórios: uma linha por escritório ativo, com o botão Salvar da própria linha (liberado, cobrança, orçamento).
+   - Escritórios: uma linha por escritório ativo, com o botão Salvar da própria linha (liberado, cobrança, orçamento),
+     e o consumo do mês (análises e gasto estimado em US$), com o selo "orçamento atingido" (incluso e adicional) ou
+     "acima do grátis" (limite grátis). Quem decide o selo é o servidor.
    - POST JSON com X-CSRF-Token; a resposta traz o estado novo e a aba se redesenha. Recusa: a mensagem do servidor.
    - Textos no catálogo (master.js.ia.*, entregue pelo painel com catalogo_js), lidos por BJ_T.t na hora de usar.
    Nenhuma regra mora só aqui: o servidor recusa modelo fora da lista, modo inválido e orçamento negativo. */
@@ -105,6 +107,21 @@
     return b;
   }
 
+  function celulaDoGasto(e) {
+    const cel = el('div', 'mp-ia-celula mp-hv');
+    const bloco = cel.appendChild(el('div', 'mp-conta-st-bloco'));
+    bloco.appendChild(el('span', 'mp-ia-num', dinheiro(Number(e.gastoNoMes))));
+    let selo = null;
+    if (e.orcamentoAtingido) selo = el('span', 'mp-conta-sit mp-ia-selo-atingido', T('master.js.ia.orcamento_atingido'));
+    else if (e.acimaDoGratis) selo = el('span', 'mp-conta-sit mp-ia-selo-gratis', T('master.js.ia.acima_do_gratis'));
+    if (selo) {
+      selo.dataset.mpIaSelo = '';
+      selo.insertBefore(el('i'), selo.firstChild);
+      bloco.appendChild(selo);
+    }
+    return cel;
+  }
+
   function linha(d, e) {
     const lin = el('div', 'mp-ia-lin mp-lin');
     lin.dataset.mpIaLinha = String(e.tenantId);
@@ -117,6 +134,8 @@
     orc.setAttribute('aria-label', T('master.js.ia.orcamento'));
     orc.dataset.mpIaOrcamento = '';
     lin.appendChild(el('div', 'mp-ia-celula')).appendChild(orc);
+    lin.appendChild(el('div', 'mp-ia-celula mp-ia-num mp-hv', String(e.analisesNoMes)));
+    lin.appendChild(celulaDoGasto(e));
     const salvar = el('button', 'mp-btn-roxo mp-ia-salvar', T('master.js.ia.salvar'));
     salvar.type = 'button';
     salvar.addEventListener('click', () => salvarLinha(lin));

@@ -51,7 +51,7 @@ final class TrocarFotoDoClienteUseCase
     public function executar(FotoDoClienteInput $input): FotoDoClienteOutput
     {
         [$pasta, $cliente] = $this->clienteDaPasta->carregar($input->pastaId, $input->clienteId, $input->usuario, $input->tenant);
-        $arquivo = $this->exigirImagemValida($input->arquivo);
+        $arquivo = self::exigirImagemValida($input->arquivo);
 
         $chaveNova = $this->gravar($cliente, $arquivo);
         // Qualquer falha daqui até o COMMIT leva a foto nova embora (a transação decide) e deixa a anterior onde está.
@@ -66,7 +66,11 @@ final class TrocarFotoDoClienteUseCase
         return FotoDoClienteOutput::de($cliente);
     }
 
-    private function exigirImagemValida(?UploadedFile $arquivo): UploadedFile
+    /**
+     * A regra da imagem recortada do cabeçalho: JPEG, PNG ou WebP pelo conteúdo, até 3 MB. Pública para a foto da
+     * pasta sem cliente (`TrocarFotoDaPastaUseCase`) recusar exatamente o mesmo, com a mesma mensagem.
+     */
+    public static function exigirImagemValida(?UploadedFile $arquivo): UploadedFile
     {
         if ($arquivo === null) {
             throw new FotoDoClienteInvalidaException('Nenhuma imagem enviada.');

@@ -82,7 +82,7 @@ final class FonteDeUploadHttp
     /**
      * Confere o upload e lê o que precisa ser lido antes de mover.
      *
-     * A extensão é `guessExtension() ?? 'bin'` — exatamente o que `ArquivoStorageService::salvar()`
+     * A extensão é `guessExtension() ?? 'bin'` — exatamente o que o `ArquivoStorageService::salvar()`
      * usava. É adivinhada do **conteúdo**, nunca do nome enviado pelo cliente. `NovoArquivo` ainda
      * a saneia (D8).
      *

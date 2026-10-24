@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Scheduler\Twig;
 
+use App\Shared\Scheduler\NomeDaTarefaAgendada;
 use App\Shared\Scheduler\QuemVeAvisoDoAgendador;
 use App\Shared\Scheduler\Repository\FalhaAgendadaRepository;
 use Psr\Log\LoggerInterface;
@@ -29,7 +30,7 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
 
     private bool $montado = false;
 
-    /** @var array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
+    /** @var array{itens: list<array{comando: string, tarefa: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
     private ?array $aviso = null;
 
     public function __construct(
@@ -39,6 +40,7 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
         private readonly LoggerInterface $logger,
         private readonly RequestStack $requests,
         private readonly UrlGeneratorInterface $urls,
+        private readonly NomeDaTarefaAgendada $nomeDaTarefa,
     ) {
     }
 
@@ -47,7 +49,7 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
         return [new TwigFunction('aviso_de_falha_agendada', $this->avisoDeFalhaAgendada(...))];
     }
 
-    /** @return array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
+    /** @return array{itens: list<array{comando: string, tarefa: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
     public function avisoDeFalhaAgendada(): ?array
     {
         if (!$this->montado) {
@@ -64,7 +66,7 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
         $this->aviso   = null;
     }
 
-    /** @return array{itens: list<array{comando: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
+    /** @return array{itens: list<array{comando: string, tarefa: string, hora: string, data: string}>, mais: bool, voltar: string}|null */
     private function montarSemDerrubar(): ?array
     {
         try {
@@ -82,6 +84,7 @@ final class AvisoDeFalhaAgendadaExtension extends AbstractExtension implements R
         foreach (array_slice($falhas, 0, self::LIMITE) as $falha) {
             $itens[] = [
                 'comando' => $falha->getComando(),
+                'tarefa'  => $this->nomeDaTarefa->de($falha->getComando()),
                 'hora'    => $falha->getOcorridaEm()->format('H:i'),
                 'data'    => $falha->getOcorridaEm()->format('d/m'),
             ];

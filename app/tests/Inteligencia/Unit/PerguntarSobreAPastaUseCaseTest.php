@@ -187,7 +187,7 @@ final class PerguntarSobreAPastaUseCaseTest extends TestCase
         return new PerguntarSobreAPastaUseCase(
             $this->pastas,
             $this->permissoes,
-            new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa()),
+            new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us')),
             $this->financeiro,
             $montador,
             $this->analises,

@@ -30,7 +30,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  *  - quem edita o cliente: botão com menu ("Carregar foto" ou "Carregar nova foto"; "Ajustar foto" e "Remover foto"
  *    só com foto) e o editor de recorte;
  *  - quem só vê o cliente: a foto (ou o ícone), sem botão nem menu;
- *  - quem não vê o cliente, ou pasta sem cliente: o ícone, sem foto.
+ *  - quem não vê o cliente: o ícone, sem foto;
+ *  - pasta sem cliente cadastrado: o mesmo botão e menu para quem edita a PASTA, e a foto fica na pasta; com
+ *    cliente vinculado depois, a foto da pasta continua até o cliente ter foto própria.
  */
 #[CoversClass(PastaController::class)]
 #[Group('pasta')]
@@ -197,7 +199,7 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $c->filter(self::SPAN . '.ps-cab-foto > img.ps-cab-foto-img'));
     }
 
-    #[TestDox('pasta sem cliente cadastrado: o ícone inerte, sem foto nem menu')]
+    #[TestDox('pasta sem cliente cadastrado, quem edita a pasta: o botão abre o menu "Carregar foto" e grava na própria pasta')]
     public function testSemCliente(): void
     {
         $client = static::createClient();
@@ -207,8 +209,130 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $c = $this->abrir($client, $pasta);
 
+        $botao = $c->filter(self::BOTAO);
+        self::assertCount(1, $botao);
+        self::assertCount(0, $c->filter(self::SPAN));
+        self::assertSame('menu', $botao->attr('aria-haspopup'));
+        self::assertSame(['0', ''], [$botao->attr('data-tem-foto'), $botao->attr('data-origem')]);
+        self::assertSame('/pasta/' . $pasta->getId() . '/foto', $botao->attr('data-url-trocar'));
+        self::assertSame('/pasta/' . $pasta->getId() . '/foto/remover', $botao->attr('data-url-remover'));
+        self::assertSame('/pasta/' . $pasta->getId() . '/foto/remover', $botao->attr('data-url-remover-pasta'));
+        self::assertNotSame('', (string) $botao->attr('data-token'));
+        self::assertNotSame('', (string) $botao->attr('data-token-pasta'));
+        $menu = $c->filter('.ps-cab-cliente > [data-ps-foto-menu][role="menu"]');
+        self::assertSame('Carregar foto', trim($menu->filter('.js-ps-foto-carregar')->text()));
+        self::assertNotNull($menu->filter('.js-ps-foto-remover')->attr('hidden'));
+        self::assertCount(1, $c->filter('.ps-cab-cliente > [data-ps-foto-editor][hidden]'));
+        self::assertCount(1, $c->filter('script[src*="js/pasta-foto-cliente.js"]'));
+    }
+
+    #[TestDox('pasta sem cliente com foto: a foto da pasta cobre o círculo (com ?v=), origem "pasta", Ajustar e Remover visíveis')]
+    public function testSemClienteComFotoDaPasta(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $pasta->trocarFoto('p1a2.jpg', new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $c = $this->abrir($client, $pasta);
+
+        $botao = $c->filter(self::BOTAO);
+        self::assertSame(['1', 'pasta'], [$botao->attr('data-tem-foto'), $botao->attr('data-origem')]);
+        self::assertMatchesRegularExpression('#^/pasta/' . $pasta->getId() . '/foto/p1a2\.jpg\?v=\d+$#', (string) $botao->filter('button.ps-cab-foto > img.ps-cab-foto-img')->attr('src'));
+        $menu = $c->filter('.ps-cab-cliente > [data-ps-foto-menu]');
+        self::assertSame('Carregar nova foto', trim($menu->filter('.js-ps-foto-carregar')->text()));
+        self::assertNull($menu->filter('.js-ps-foto-ajustar')->attr('hidden'));
+        self::assertNull($menu->filter('.js-ps-foto-remover')->attr('hidden'));
+    }
+
+    #[TestDox('cliente vinculado sem foto própria: a foto da pasta continua; a nova vai para o cliente e "Remover" para a pasta')]
+    public function testClienteSemFotoMostraADaPasta(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta, $cliente] = $this->pastaComCliente($tenant);
+        $pasta->trocarFoto('p1a2.jpg', new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $c = $this->abrir($client, $pasta);
+
+        $botao = $c->filter(self::BOTAO);
+        self::assertSame(['1', 'pasta'], [$botao->attr('data-tem-foto'), $botao->attr('data-origem')]);
+        self::assertStringStartsWith('/pasta/' . $pasta->getId() . '/foto/p1a2.jpg', (string) $botao->filter('img.ps-cab-foto-img')->attr('src'));
+        self::assertSame('/pasta/' . $pasta->getId() . '/clientes/' . $cliente->getId() . '/foto', $botao->attr('data-url-trocar'));
+        self::assertSame('/pasta/' . $pasta->getId() . '/foto/remover', $botao->attr('data-url-remover-pasta'));
+    }
+
+    #[TestDox('pasta com cliente e foto da pasta, quem edita a pasta mas não o cliente: botão com menu só de "Remover foto"')]
+    public function testComClienteQuemEditaAPastaSoRemove(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->pastaComCliente($tenant);
+        $pasta->trocarFoto('p1a2.jpg', new \DateTimeImmutable());
+        $this->em()->flush();
+        $editor = $this->colaborador($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $c = $this->abrir($client, $pasta);
+
+        $botao = $c->filter(self::BOTAO);
+        self::assertSame(['pasta', '1'], [$botao->attr('data-origem'), $botao->attr('data-so-remover')]);
+        self::assertNull($botao->attr('data-url-trocar'), 'sem editar o cliente, não há para onde mandar foto nova');
+        self::assertSame('/pasta/' . $pasta->getId() . '/foto/remover', $botao->attr('data-url-remover-pasta'));
+        self::assertCount(1, $c->filter('[data-ps-foto-menu] .js-ps-foto-remover:not([hidden])'));
+        self::assertCount(0, $c->filter('[data-ps-foto-menu] .js-ps-foto-carregar:not([hidden]), [data-ps-foto-menu] .js-ps-foto-ajustar:not([hidden])'));
+    }
+
+    #[TestDox('pasta com cliente sem foto da pasta, quem edita a pasta mas não o cliente: só o ícone, sem menu')]
+    public function testComClienteQuemEditaAPastaSemFotoDaPasta(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->pastaComCliente($tenant);
+        $editor = $this->colaborador($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $c = $this->abrir($client, $pasta);
+
+        self::assertCount(0, $c->filter(self::BOTAO . ', [data-ps-foto-menu]'));
         self::assertCount(1, $c->filter(self::SPAN));
-        self::assertCount(0, $c->filter(self::BOTAO . ', [data-ps-foto-menu], .ps-cab-cliente img.ps-cab-foto-img'));
+    }
+
+    #[TestDox('cliente com foto própria: a do cliente vence a da pasta')]
+    public function testFotoDoClienteVence(): void
+    {
+        $client = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta, $cliente] = $this->pastaComCliente($tenant, 'a1b2c3.jpg');
+        $pasta->trocarFoto('p1a2.jpg', new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $botao = $this->abrir($client, $pasta)->filter(self::BOTAO);
+
+        self::assertSame('cliente', $botao->attr('data-origem'));
+        self::assertStringStartsWith('/clientes/' . $cliente->getId() . '/foto/a1b2c3.jpg', (string) $botao->filter('img.ps-cab-foto-img')->attr('src'));
+    }
+
+    #[TestDox('pasta sem cliente, quem só VÊ a pasta: a foto da pasta num span, sem botão nem menu')]
+    public function testSemClienteSoVer(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $pasta->trocarFoto('p1a2.jpg', new \DateTimeImmutable());
+        $this->em()->flush();
+        $leitor = $this->colaborador($tenant, ['resources.pasta.view']);
+
+        $this->logarComTenant($client, $leitor, $tenant);
+        $c = $this->abrir($client, $pasta);
+
+        self::assertCount(0, $c->filter(self::BOTAO . ', [data-ps-foto-menu], [data-ps-foto-editor]'));
+        self::assertStringStartsWith('/pasta/' . $pasta->getId() . '/foto/p1a2.jpg', (string) $c->filter(self::SPAN . '.ps-cab-foto > img.ps-cab-foto-img')->attr('src'));
     }
 
     private function abrir(KernelBrowser $client, Pasta $pasta): Crawler

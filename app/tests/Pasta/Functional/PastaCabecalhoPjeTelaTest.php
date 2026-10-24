@@ -58,7 +58,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
     // Título = cliente
     // =========================================================================
 
-    #[TestDox('o título é o identificador da pasta, com o ícone de pessoa (não clicável) e o aviso de que não é cadastro')]
+    #[TestDox('o título é o identificador da pasta, com o círculo da foto (botão do menu, desenho 02 L1255) e o aviso de que não é cadastro')]
     public function testTituloEhOIdentificadorSemCadastro(): void
     {
         $client          = static::createClient();
@@ -70,7 +70,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
 
         $bloco = $crawler->filter('.ps-cabecalho > .ps-cab-cliente');
         self::assertCount(1, $bloco, 'o bloco do cliente é filho direto do cabeçalho');
-        self::assertCount(1, $bloco->filter('.ps-cab-cliente > span.ps-cab-cliente-icone'), 'o ícone é um <span>, não um botão: a foto do cliente é função nova');
+        self::assertCount(1, $bloco->filter('.ps-cab-cliente > button.ps-cab-cliente-icone.js-ps-foto'), 'sem cliente cadastrado o círculo também abre o menu da foto (a foto fica na pasta)');
         self::assertSame(
             'MARIA DAS GRACAS',
             trim($bloco->filter('.ps-cab-cliente > .ps-cab-cliente-corpo > .ps-cab-cliente-linha > h1.ps-cab-titulo')->text())

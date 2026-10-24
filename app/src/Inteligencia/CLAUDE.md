@@ -63,11 +63,13 @@ Push nem vira "análise anterior" dele.
 
 Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor + chave geral do Master em
 `inteligencia_plataforma`) → liberada pelo Master no escritório (`liberada_pelo_master`) → escritório ligado com
-aceite (`inteligencia_configuracao`) → permissão de módulo → cota diária/mensal. O modelo vem do banco
+aceite (`inteligencia_configuracao`) → permissão de módulo → cota diária/mensal → orçamento mensal em US$ (só nos
+modos incluso e adicional; o custo é estimado pelo `CustoDaIa` a partir dos tokens gravados, e `limite_gratis` não trava). O modelo vem do banco
 (`FonteDoModeloDeIa`, escolhido na aba "ia" do Painel do Master), com `IA_MODELO` de reserva. A Twig `ia_disponibilidade()` devolve o enum para a tela.
 
-**Retenção de 12 meses** (`ExpirarConteudoDaInteligenciaUseCase`, agendado às 00:20): análise terminada há mais de
-12 meses perde o conteúdo (resumo, pontos, textos, edições, texto da pergunta) e ganha `excluida_em`; a linha fica
+**Retenção** (`ExpirarConteudoDaInteligenciaUseCase`, agendado às 00:20): o prazo é o `meses_de_retencao` de
+`inteligencia_plataforma`, escolhido pelo Master (12 por padrão, decidido pelo dono em 24/10). Análise terminada antes
+do prazo perde o conteúdo (resumo, pontos, textos, edições, texto da pergunta) e ganha `excluida_em`; a linha fica
 pelos números (modelo, tokens, datas). Campo novo de conteúdo na análise = campo novo no `expirarConteudoAntesDe`.
 
 ## Agente de Pastas (`/api/agente/*`)

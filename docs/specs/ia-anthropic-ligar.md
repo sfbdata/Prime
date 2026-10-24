@@ -334,7 +334,7 @@ marcada **"padrão adotado em 24/10, o dono pode rever"**.
 | **Q8** e percentuais | O **rótulo de IA sai das telas que são regra**, e os percentuais sem base saem. **Pendência visível** para ligar a IA nessas regras quando houver dado real (§10.3). |
 | **D12** pastas do cliente | Pode cruzar as pastas do mesmo cliente, **dentro do mesmo escritório**. Padrão adotado em 24/10, o dono pode rever. |
 | **D11** financeiro | Mantém a regra atual: só vai se quem pediu pode ver o financeiro da pasta. Padrão adotado em 24/10, o dono pode rever. |
-| **Q5** retenção local | 12 meses; depois a resposta e a pergunta são apagadas por tarefa agendada. Padrão adotado em 24/10, o dono pode rever. |
+| **Q5** retenção local | 12 meses **como padrão, configurável pelo Master** na aba "Configurações da I.A." (1 a 120 meses), decidido pelo dono em 24/10; depois do prazo a resposta e a pergunta são apagadas pela tarefa agendada, que lê o prazo do banco. |
 | **Q6** recusa | Não desviar para outro modelo: a tela diz que a IA não respondeu (o Haiku 5.5 nem tem desvio automático). Padrão adotado em 24/10, o dono pode rever. |
 | **Q3** ordem | Documentos (F5) antes do Chat I.A (F3), porque o dono liberou a leitura e ela reaproveita o drawer que já existe. Padrão adotado em 24/10, o dono pode rever. |
 | **Q7** enviar ao cliente | Entra, sempre depois da revisão do advogado e com o rótulo "Gerada por inteligência artificial". Padrão adotado em 24/10, o dono pode rever. |
@@ -405,5 +405,5 @@ IA agora; voltam a ser IA quando houver dado real para medir acerto:
 | D | rótulo de IA sai das telas de regra | não |
 | E | rascunho da Política (Anexo I) para o jurídico + aceite nomeando a Anthropic | não |
 | F | leitura de documentos (PDF e imagem inline) no drawer | talvez |
-| G | retenção local de 12 meses (tarefa agendada) | não |
+| G | retenção local, 12 meses por padrão e configurável pelo Master (tarefa agendada, #369 e o PR seguinte) | não |
 | depois | Chat I.A (F3), Agente de Pastas (F4) | sim |

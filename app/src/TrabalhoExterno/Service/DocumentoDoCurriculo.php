@@ -81,6 +81,25 @@ final class DocumentoDoCurriculo
         return $this->twig->render(self::TEMPLATE, ['x' => $x, 'pdf' => false, 'foto' => $foto, 'logo' => null]);
     }
 
+    /**
+     * O "Word" (`mcWord`): o HTML da pré-visualização aberto fora do sistema, sem sessão. A foto vem do
+     * armazenamento privado (a rota de download pede login), então vai embutida como `data:`, lida por CHAVE;
+     * o logotipo e o símbolo são estáticos e públicos e vão com a URL absoluta.
+     *
+     * @param array<string, mixed> $x
+     */
+    public function word(array $x, Curriculo $cv): string
+    {
+        $foto = null;
+        if ($cv->temArquivo(TipoArquivoDoCurriculo::Foto)) {
+            $bytes = $this->armazenamento->ler(ChavesDeTrabalhoExterno::arquivoDoCurriculo($cv, TipoArquivoDoCurriculo::Foto));
+            $tipo = (new \finfo(\FILEINFO_MIME_TYPE))->buffer($bytes);
+            $foto = 'data:' . ($tipo === 'image/png' ? 'image/png' : 'image/jpeg') . ';base64,' . base64_encode($bytes);
+        }
+
+        return $this->twig->render(self::TEMPLATE, ['x' => $x, 'pdf' => false, 'word' => true, 'foto' => $foto, 'logo' => null]);
+    }
+
     /** @param array<string, mixed> $x */
     public function pdf(array $x, Curriculo $cv): string
     {

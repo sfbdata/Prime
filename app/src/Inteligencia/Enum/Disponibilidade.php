@@ -20,6 +20,11 @@ enum Disponibilidade: string
     /** Cota DIÁRIA estourada (o nome é anterior à separação dia × mês; o valor é contrato com o JS). */
     case LimiteAtingido = 'limite_atingido';
     case LimiteMensalAtingido = 'limite_mensal_atingido';
+    /**
+     * O gasto estimado do mês em US$ chegou ao orçamento do escritório (modos `incluso` e `adicional`; spec
+     * ia-anthropic-ligar §10.1, PR C). Em `limite_gratis` o orçamento é a parte grátis e não trava.
+     */
+    case OrcamentoAtingido = 'orcamento_atingido';
 
     public function estaDisponivel(): bool
     {
@@ -37,19 +42,20 @@ enum Disponibilidade: string
             self::SemPermissao => 'Sem permissão para usar a BlueJus IA',
             self::LimiteAtingido => 'Limite diário de análises atingido',
             self::LimiteMensalAtingido => 'Limite mensal de análises atingido',
+            self::OrcamentoAtingido => 'Orçamento mensal da BlueJus IA atingido; volta no dia 1º',
         };
     }
 
-    /** Cota do escritório (dia ou mês) estourada: a recusa é 429, não 409. */
+    /** Cota do escritório (dia, mês ou orçamento em US$) estourada: a recusa é 429, não 409. */
     public function ehLimiteDeCota(): bool
     {
-        return $this === self::LimiteAtingido || $this === self::LimiteMensalAtingido;
+        return $this === self::LimiteAtingido || $this === self::LimiteMensalAtingido || $this === self::OrcamentoAtingido;
     }
 
     /**
      * Código do campo `motivo` na recusa JSON. O JS da pasta (`pasta-ia-push.js`,
      * `pasta-ia-agentes.js`) trava o botão quando o motivo está na lista dele, que só conhece
-     * `limite_atingido`: as duas cotas respondem com esse código e a `mensagem()` diz qual delas foi.
+     * `limite_atingido`: as cotas (dia, mês e orçamento) respondem com esse código e a `mensagem()` diz qual delas foi.
      * Pelo mesmo motivo a falta de liberação do Master responde `desligada_no_escritorio` (o JS trava o botão
      * igual); a `mensagem()` diz que é a liberação que falta.
      */

@@ -204,8 +204,6 @@
         desconectar();
         $('lgCdEmail').focus();
     });
-    /* Facebook: o botão do desenho, ainda sem app na Meta (ponto de ligação na spec entrar-com-google). */
-    $('lgCdFacebook').addEventListener('click', () => mdErroTexto(window.BJ_T.t($('lgCdGoogle') ? 'entrada.js.facebook_indisponivel' : 'entrada.js.facebook_indisponivel_sem_google')));
 
     const abrirSenha = () => {
         $('lgRsEmail').value = email.value;
@@ -595,5 +593,7 @@
         abrirSenha();
     } else if (raiz.dataset.abrir === 'cadastro') {
         abrirCadastro();
+        /* "Continuar com Google" sem o cliente OAuth no servidor: o aviso volta da ida, no erro do modal. */
+        if (raiz.dataset.avisoCadastro) { mdErroTexto(raiz.dataset.avisoCadastro); }
     }
 })();

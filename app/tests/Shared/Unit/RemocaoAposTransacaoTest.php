@@ -119,6 +119,7 @@ final class RemocaoAposTransacaoTest extends TestCase
             $raiz . '/perfil',
             $raiz . '/cobrancas',
             $raiz . '/kanban',
+            $raiz . '/tarefas',
         ));
         $remocao = new RemocaoAposTransacao($local, $this->logger);
         $chave   = $this->chave('a.pdf');

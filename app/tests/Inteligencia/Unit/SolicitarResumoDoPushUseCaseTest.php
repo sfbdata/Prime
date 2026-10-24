@@ -150,7 +150,7 @@ final class SolicitarResumoDoPushUseCaseTest extends TestCase
 
     private function sut(ProvedorDeLinguagem $provedor = new ProvedorFalso()): SolicitarResumoDoPushUseCase
     {
-        $disponibilidade = new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa());
+        $disponibilidade = new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us'));
 
         return new SolicitarResumoDoPushUseCase(
             $this->pastas,

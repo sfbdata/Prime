@@ -126,8 +126,6 @@
         cp: null,
         // Candidatura (spec VS 18.10.26 §4.6, fatia F2b)
         candSel: null,
-        mcFiltro: '',
-        mcSel: [],
         quase: null,
         quaseUlt: -1,
         // Visão externa, engajamento e avisos (spec VS 18.10.26 §4.7, fatia F4)
@@ -271,7 +269,6 @@
         vagaCandidatura: function (c) { return String(D.urlVagaCandidatura || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
         vagaEnviar: function (c) { return String(D.urlVagaEnviar || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
         candidaturaStatus: function (id) { return String(D.urlCandidaturaStatus || '').replace(/\/0\/status$/, '/' + encodeURIComponent(id) + '/status'); },
-        candidaturasMarcacoes: function () { return String(D.urlCandidaturasMarcacoes || ''); },
         // Engajamento (§4.7): a leitura aceita `?como=`; o aviso de vagas é escrita (nunca na prévia).
         engajamento: function (q) {
             var u = String(D.urlEngajamento || '');
@@ -448,6 +445,12 @@
         // Configuração das vagas e a campanha por e-mail (desenho, l.1265; campanha na spec §4.10).
         if (veVagas() && vgMaster() && cfgVagas()) {
             sec('VAGAS E CURRÍCULOS');
+            // D12 (desenho 06 de 24/10, l.1340): liga e desliga o `vagas.sino` direto do menu.
+            var sino = cfgVagas().sino !== false;
+            item(sino ? 'Alertas de vagas ativados' : 'Alertas de vagas desativados', sino ? 'bi-bell' : 'bi-bell-slash', sino, function () {
+                fecharHm();
+                alternarAlertasDeVagas(!sino);
+            });
             item('Ofertas, avisos e mensagens…', 'bi-sliders', false, function () { fecharHm(); abrirCfgVagas(); });
             item('Campanha por e-mail…', 'bi-envelope-paper', false, function () { fecharHm(); abrirCampanha(); });
         }
@@ -460,6 +463,29 @@
         });
 
         return menu;
+    }
+
+    /** Grava o `vagas.sino` e mostra o título do novo estado (`hmItens`, l.1340); recusado, volta e avisa. */
+    function alternarAlertasDeVagas(ligar) {
+        var c = cfgVagas();
+        if (!c || !vgMaster() || !podeEscreverVaga()) {
+            return;
+        }
+        var antes = c.sino;
+        c.sino = ligar;
+        pedir('POST', D.urlConfiguracao, { vagas: { sino: ligar } }).then(function (r) {
+            if (!r.ok) {
+                var atual = cfgVagas();
+                if (atual) {
+                    atual.sino = antes;
+                }
+                toastErro(r.mensagem);
+                return;
+            }
+            mostrarToast(ligar
+                ? { tit: 'Alertas de vagas ativados', txt: 'Os usuários voltam a receber o sininho e o aviso de vaga nova.', hora: '' }
+                : { tit: 'Alertas de vagas desativados', txt: 'Ninguém recebe o sininho nem o aviso de vaga nova até você ativar de novo.', hora: '' });
+        });
     }
 
     function copiar(texto) {
@@ -1012,22 +1038,6 @@
         if (m.tipo === 'cv') {
             caixa.style.width = m.largura + 'px';
             menuDoCv(caixa, m.codigo);
-            alvo.appendChild(caixa);
-
-            return;
-        }
-        if (m.tipo === 'mcselpor') {
-            caixa.style.width = m.largura + 'px';
-            VG_SEL_OPS.forEach(function (o) {
-                caixa.appendChild(el('button', {
-                    type: 'button', class: 'te-menu-item', text: o[0],
-                    onclick: function () {
-                        fecharMenu();
-                        S.mcSel = minhasFiltradas().filter(o[1]).map(function (a) { return a.id; });
-                        renderCurriculos();
-                    }
-                }));
-            });
             alvo.appendChild(caixa);
 
             return;
@@ -1765,7 +1775,7 @@
         if (!pv && visiveis.length) {
             var todas = S.chatSel.length === visiveis.length;
             barra.appendChild(el('button', {
-                type: 'button', class: 'te-chat-todas', title: todas ? 'Limpar seleção' : 'Selecionar todas',
+                type: 'button', class: 'te-chat-todas', title: todas ? 'Desmarcar todas' : 'Selecionar todas',
                 onclick: function () {
                     S.chatSel = todas ? [] : visiveis.map(function (m) { return m.id; });
                     redesenharChat();
@@ -2347,14 +2357,230 @@
                 mostrarErroNova();
                 return;
             }
+            var nf = N.nf || {};
             fecharNova();
-            if (r.aviso) {
+            // Enviar: a animação do desenho 06 de 24/10 (l.737 a 767) no lugar do toast "Solicitação enviada".
+            // O rascunho continua com o "Rascunho salvo".
+            if (enviar && r.codigo) {
+                abrirEnvio({ id: r.codigo, cid: nf.cidadeExecucao || '', uf: nf.ufExecucao || '', serv: nf.tipoServico || 'Trabalho externo' });
+            } else if (r.aviso) {
                 mostrarToast({ tit: r.aviso.titulo, txt: r.aviso.texto, hora: '' });
             }
             if (S.aberta && S.aberta === N.rascId) {
                 abrir(S.aberta, S.aba);
             }
             recarregarPainel();
+        });
+    }
+
+    /* ---------------------------------------------------------------- animação depois de enviar (D9) */
+
+    var temporizadoresEnvio = [];
+
+    /**
+     * Sons do envio (`envSom`, desenho 06 de 24/10, l.886 a 889): "busca" (dois toques curtos) e "ok" (três
+     * notas), com eco. Respeitam os "Sons de alerta" do Meu Perfil, como o resto do sistema.
+     */
+    function somDoEnvio(t) {
+        if (!perfilComSons()) {
+            return;
+        }
+        try {
+            var A = audioDaTela(), now = A.currentTime;
+            var out = A.createGain(); out.gain.value = 0.9;
+            var dl = A.createDelay(); dl.delayTime.value = 0.18;
+            var fb = A.createGain(); fb.gain.value = 0.22;
+            dl.connect(fb); fb.connect(dl); out.connect(A.destination); out.connect(dl); dl.connect(A.destination);
+            var nota = function (f, t0, d, v, tipo) {
+                var o = A.createOscillator(), o2 = A.createOscillator(), g = A.createGain(), lp = A.createBiquadFilter(), g2 = A.createGain();
+                lp.type = 'lowpass'; lp.frequency.value = 2600;
+                o.type = tipo || 'sine'; o2.type = 'sine';
+                o.frequency.setValueAtTime(f, now + t0); o2.frequency.setValueAtTime(f * 2, now + t0);
+                g.gain.setValueAtTime(0, now + t0);
+                g.gain.linearRampToValueAtTime(v, now + t0 + 0.012);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + t0 + d);
+                g2.gain.value = 0.18;
+                o.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp); lp.connect(out);
+                o.start(now + t0); o2.start(now + t0); o.stop(now + t0 + d + 0.05); o2.stop(now + t0 + d + 0.05);
+            };
+            if (t === 'ok') {
+                nota(783.99, 0, 0.5, 0.22, 'triangle'); nota(1174.66, 0.11, 0.55, 0.2, 'triangle'); nota(1567.98, 0.22, 0.9, 0.16, 'triangle');
+            } else {
+                nota(987.77, 0, 0.32, 0.09); nota(1318.51, 0.09, 0.4, 0.07);
+            }
+        } catch (e) { /* navegador sem áudio ou bloqueado: segue só a animação */ }
+    }
+
+    /** Fases (`criar`, l.900): `busca` na hora, `parc` em 2300 ms, `ok` em 5200 ms, cada uma com o seu som. */
+    function abrirEnvio(fx) {
+        fecharEnvio();
+        S.envFx = { fase: 'busca', id: fx.id, cid: fx.cid, uf: fx.uf, serv: fx.serv };
+        somDoEnvio('busca');
+        renderEnvio();
+        temporizadoresEnvio.push(setTimeout(function () {
+            if (S.envFx) { S.envFx.fase = 'parc'; renderEnvio(); somDoEnvio('busca'); }
+        }, 2300));
+        temporizadoresEnvio.push(setTimeout(function () {
+            if (S.envFx) { S.envFx.fase = 'ok'; renderEnvio(); somDoEnvio('ok'); }
+        }, 5200));
+    }
+
+    /** O fundo, o "x" e o "Fechar" fecham e cancelam os temporizadores (`envFechar`). */
+    function fecharEnvio() {
+        temporizadoresEnvio.forEach(clearTimeout);
+        temporizadoresEnvio = [];
+        S.envFx = null;
+        limpar($('teEnvio'));
+    }
+
+    /** `envMapaQ` (l.1419): a cidade e a UF da execução no Google Maps; sem cidade, Brasília, como no desenho. */
+    function urlDoMapa(fx) {
+        return 'https://maps.google.com/maps?q=' + encodeURIComponent((fx.cid || 'Brasília') + ' ' + (fx.uf || '') + ' Brasil') + '&z=12&output=embed';
+    }
+
+    /**
+     * O mapa por baixo da animação (l.740, decisão P2 do dono): o iframe do desenho, sem clique (`pointer-events:none`
+     * no CSS). Ele fica de uma fase para a outra (iframe reinserido recarrega): só o resto do diálogo é redesenhado.
+     */
+    function renderEnvio() {
+        var fx = S.envFx, alvo = $('teEnvio');
+        if (!fx) {
+            limpar(alvo);
+            return;
+        }
+        var src = urlDoMapa(fx), dialogo = alvo.querySelector('.te-env'), mapa = dialogo && dialogo.querySelector('.te-env-mapa');
+        if (mapa && mapa.getAttribute('src') === src) {
+            Array.prototype.slice.call(dialogo.children).forEach(function (c) {
+                if (c !== mapa) {
+                    dialogo.removeChild(c);
+                }
+            });
+        } else {
+            limpar(alvo);
+            dialogo = el('div', { class: 'te-env', attrs: { role: 'dialog', 'aria-modal': 'true' } }, [
+                el('iframe', { class: 'te-env-mapa', attrs: { src: src, title: 'Mapa' } })
+            ]);
+            alvo.appendChild(el('div', { class: 'te-env-fundo', onclick: fecharEnvio }));
+            alvo.appendChild(el('div', { class: 'te-env-pos' }, dialogo));
+        }
+        var ponto = function (atraso) { return el('span', { class: 'te-env-pt', style: { 'animation-delay': atraso } }, '.'); };
+        dialogo.appendChild(el('button', { type: 'button', class: 'te-env-fechar', title: 'Fechar', attrs: { 'aria-label': 'Fechar' }, onclick: fecharEnvio }, ic('bi-x-lg')));
+        dialogo.appendChild(el('span', { class: 'te-env-veu' }));
+        if (fx.fase === 'busca' || fx.fase === 'parc') {
+            var parc = fx.fase === 'parc';
+            var lugar = (fx.cid || 'sua cidade') + (fx.uf ? ' · ' + fx.uf : '');
+            dialogo.appendChild(el('div', { class: 'te-env-radar' }, [
+                el('span', { class: 'te-env-onda' }),
+                el('span', { class: 'te-env-onda', style: { 'animation-delay': '.6s' } }),
+                el('span', { class: 'te-env-onda', style: { 'animation-delay': '1.2s' } }),
+                el('span', { class: 'te-env-alvo' })
+            ]));
+            dialogo.appendChild(el('div', { class: 'te-env-rodape' }, [
+                el('div', { class: 'te-env-trilho' }, el('span', { class: 'te-env-barra' })),
+                parc ? el('div', { class: 'te-env-parcs' }, [
+                    el('span', { class: 'te-env-parc', style: { background: '#e5f1f7' } }),
+                    el('span', { class: 'te-env-parc', style: { background: '#d6e8f3', 'animation-delay': '.2s' } }),
+                    el('span', { class: 'te-env-parc', style: { background: '#c6deee', 'animation-delay': '.4s' } })
+                ]) : null,
+                el('b', { class: 'te-env-tit' }, [
+                    parc ? 'Procurando parceiro' : 'Localizando correspondentes em ' + lugar,
+                    el('span', { class: 'te-env-pts' }, [ponto('0s'), ponto('.3s'), ponto('.6s')])
+                ]),
+                el('span', { class: 'te-env-sub', text: parc
+                    ? 'Verificando quem atende ' + (fx.serv || 'o serviço') + ' na região…'
+                    : 'Enviando ' + (fx.serv || '') + ' para a Central BlueJus…' })
+            ]));
+        } else {
+            dialogo.appendChild(el('div', { class: 'te-env-ok' }, ic('bi-check-lg')));
+            dialogo.appendChild(el('div', { class: 'te-env-final' }, [
+                el('b', { class: 'te-env-final-tit', text: 'Solicitação recebida e em análise' }),
+                el('span', { class: 'te-env-final-txt', text: fx.id + ' chegou à Central BlueJus. Você recebe um aviso assim que a proposta estiver pronta.' }),
+                el('div', { class: 'te-env-final-botoes' }, [
+                    el('button', { type: 'button', class: 'te-env-btn', text: 'Fechar', onclick: fecharEnvio }),
+                    el('button', { type: 'button', class: 'te-env-btn is-pri', text: 'Acompanhar solicitação', onclick: function () {
+                        var id = S.envFx && S.envFx.id;
+                        fecharEnvio();
+                        if (id) { abrir(id); }
+                    } })
+                ])
+            ]));
+        }
+    }
+
+    /* ---------------------------------------------------------------- som e aviso do andamento (D10) */
+
+    var audioTela = null;
+
+    function audioDaTela() {
+        audioTela = audioTela || new (window.AudioContext || window.webkitAudioContext)();
+        if (audioTela.state === 'suspended') {
+            audioTela.resume().catch(function () { /* sem gesto do usuário ainda */ });
+        }
+        return audioTela;
+    }
+
+    /** "Sons de alerta" do Meu Perfil (`perfil.sons`, no servidor): com "0", nenhum som nesta tela. */
+    function perfilComSons() {
+        return D.perfilSons !== '0';
+    }
+
+    /** `tocarAlerta` (l.809): triangular 880 Hz em 0 s e 1174,66 Hz em 0,13 s, ganho 0,18 em 15 ms, queda até 0,45 s. */
+    function tocarAlerta() {
+        if (!perfilComSons()) {
+            return;
+        }
+        try {
+            var A = audioDaTela(), now = A.currentTime;
+            [[880, 0], [1174.66, 0.13]].forEach(function (n) {
+                var o = A.createOscillator(), g = A.createGain(), t0 = n[1];
+                o.type = 'triangle';
+                o.frequency.value = n[0];
+                g.gain.setValueAtTime(0, now + t0);
+                g.gain.linearRampToValueAtTime(0.18, now + t0 + 0.015);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + t0 + 0.45);
+                o.connect(g);
+                g.connect(A.destination);
+                o.start(now + t0);
+                o.stop(now + t0 + 0.5);
+            });
+        } catch (e) { /* navegador bloqueou o áudio: fica só o aviso */ }
+    }
+
+    /**
+     * Um som só: o lançador da Central (`central-flutuante.js`) já toca quando chega aviso novo no sino, e o andamento
+     * é um aviso. Com o lançador na página, o som é dele (com o volume, o "Avisar: Importantes" e o silêncio de lá) e
+     * esta tela só mostra o toast; sem o lançador (por exemplo, o convidado sem escritório), toca o `tocarAlerta`.
+     */
+    function centralTocaOsAvisos() {
+        return document.querySelector('[data-central-flutuante]') !== null;
+    }
+
+    var ANDAMENTOS_MS = 20000, cursorDeAndamentos = null, pedindoAndamentos = false;
+
+    /**
+     * Andamento novo numa demanda de que a pessoa é parte (o `storage` do protótipo, l.1423): a tela pergunta ao
+     * servidor de tempos em tempos, com a aba à vista, e mostra o mais novo: toque e "Andamento · {ID}" (texto até
+     * 110, hora HH:MM, "Abrir conversa"). Só para quem é de fora da Central: Master e Equipe não recebem.
+     */
+    function conferirAndamentos() {
+        if (pedindoAndamentos || vazio(D.urlAndamentos) || S.como || !ehExterno() || document.hidden) {
+            return;
+        }
+        pedindoAndamentos = true;
+        pedir('GET', D.urlAndamentos + (cursorDeAndamentos !== null ? '?desde=' + cursorDeAndamentos : '')).then(function (r) {
+            pedindoAndamentos = false;
+            if (!r.ok) {
+                return;
+            }
+            cursorDeAndamentos = typeof r.cursor === 'number' ? r.cursor : cursorDeAndamentos;
+            var lista = Array.isArray(r.andamentos) ? r.andamentos : [], ultimo = lista[lista.length - 1];
+            if (!ultimo) {
+                return;
+            }
+            if (!centralTocaOsAvisos()) {
+                tocarAlerta();
+            }
+            mostrarToast({ id: ultimo.codigo, tit: 'Andamento · ' + ultimo.codigo, txt: String(ultimo.texto || '').slice(0, 110), hora: ultimo.hora || '' });
         });
     }
 
@@ -3592,6 +3818,9 @@
                 if (bx) {
                     botoes.push(bx);
                 }
+            } else {
+                // D11a (desenho 06 de 24/10, l.1169): a vaga própria aberta, para o externo; só fecha.
+                botoes.push(botaoTlm('Sua vaga · acompanhe os candidatos acima', 'bi-people', 'pri', fecharTlm));
             }
         }
         modalVaga({ icone: 'bi-briefcase', titulo: v.titulo || 'Vaga', largura: '720px', corpo: corpo, botoes: botoes });
@@ -4492,7 +4721,7 @@
                 interno: !!L.interno, podeGerir: !!L.podeGerir, ehMaster: !!L.ehMaster,
                 meu: L.meu || null, curriculos: Array.isArray(L.curriculos) ? L.curriculos : [],
                 listas: L.listas || null, agora: L.agora || null,
-                // "Minhas candidaturas" do externo (§4.6).
+                // As candidaturas do externo (§4.6), para o convite de vaga não reaparecer.
                 minhas: Array.isArray(L.minhas) ? L.minhas : []
             };
             renderModulos();
@@ -5893,7 +6122,11 @@
 
     /* ---------------------------------------------------------------- "Meu currículo" do externo */
 
-    /** Cartão "Meu currículo" (l.214 a 221; `cvItem`, l.999; percentual l.1013, 1014 e 1108) e "Minhas candidaturas". */
+    /**
+     * "Meu currículo" compacto e "Prévia do currículo" (desenho 06 de 24/10, l.221 a 239; `cvPct`/`cvFalta`, l.1182;
+     * `mcPdf`/`mcWord`, l.1227). O cartão "Minhas candidaturas" saiu (decisão P1 do dono): a candidatura aparece no
+     * cartão da vaga ("Candidatura enviada").
+     */
     function renderMeuCv() {
         var alvo = limpar($('teCvMeu')), m = S.cv.meu, escreve = podeEscreverCv();
         var botaoCard = function (rot, icone, acao) { return el('button', { type: 'button', class: 'te-cv-card-btn', onclick: acao }, [ic(icone), rot]); };
@@ -5901,43 +6134,85 @@
         if (!m) {
             conteudo = el('div', { class: 'te-cv-card-vazio' }, [
                 el('div', { class: 'te-cv-card-vazio-txt', text: 'Cadastre seu currículo uma vez e use para se candidatar às vagas publicadas na Central.' }),
-                escreve ? el('button', { type: 'button', class: 'te-cv-cadastrar', onclick: abrirFormCv }, [ic('bi-plus-lg'), 'Cadastrar currículo']) : null
+                escreve ? el('button', { type: 'button', class: 'te-cv-cadastrar', onclick: abrirFormCv }, [ic('bi-plus-lg'), ' Cadastrar currículo']) : null
             ]);
         } else {
             var P = m.percentual || {}, n = Math.max(0, Math.min(100, parseInt(P.pct, 10) || 0));
             var cor = P.cor || (n >= 90 ? '#1e7b45' : n >= 60 ? '#0a6fa0' : '#c76a12');
             var faltas = P.faltas || m.faltas || [];
-            var arq = (m.arquivos || {}).curriculo;
+            var linha = [m.cargo || '', m.oabTxt || m.oab || ''].filter(function (t) { return !vazio(t); }).join(' · ');
             conteudo = el('div', { class: 'te-cv-meu' }, [
                 el('div', { class: 'te-cv-meu-topo' }, [
                     avatarCv(m, ' is-52'),
-                    el('div', { class: 'te-min0' }, [el('b', { class: 'te-cv-meu-nome', text: m.nome || '' }), botaoInsta(m.insta, ' is-bloco')])
+                    el('span', { class: 'te-min0' }, [el('b', { class: 'te-cv-meu-nome', text: m.nome || '' }), el('span', { class: 'te-cv-meu-linha', text: linha })])
                 ]),
-                dadoCv('bi-person-badge', m.cargo || 'Cargo não informado'),
-                dadoCv('bi-award', m.oabTxt || m.oab || ''),
-                dadoCv('bi-geo-alt', m.local || ''),
-                dadoCv('bi-bookmark', (m.areas || []).join(', ') || 'Áreas não informadas'),
-                dadoCv('bi-cash-coin', m.pretensao || 'Pretensão não informada'),
-                dadoCv('bi-heart', m.volTxt || ''),
-                arq && !vazio(arq.nome) ? dadoCv('bi-paperclip', arq.nome) : null,
-                el('span', { class: 'te-cv-em', text: 'Atualizado em ' + (m.atualizado || '') }),
                 el('div', { class: 'te-cv-pct' }, [
                     el('div', { class: 'te-cv-pct-cab' }, [el('b', { text: 'Currículo completo' }), el('b', { style: { color: cor }, text: n + '%' })]),
                     el('div', { class: 'te-cv-pct-trilho' }, el('div', { class: 'te-cv-pct-barra', style: { width: n + '%', background: cor } })),
-                    faltas.length ? el('div', { class: 'te-cv-falta', text: 'Complete: ' + faltas.join(', ') }) : null
+                    faltas.length ? el('div', { class: 'te-cv-falta', text: 'Falta: ' + faltas.join(', ') }) : null
                 ])
             ]);
         }
-        alvo.appendChild(el('div', { class: 'te-cv-card' }, [
+        alvo.appendChild(el('div', { class: 'te-cv-card', attrs: { 'data-screen-label': 'Meu currículo' } }, [
             el('div', { class: 'te-cv-card-cab' }, [
                 ic('bi-person-vcard'),
                 el('b', { text: 'Meu currículo' }),
-                m ? botaoCard('Ver e baixar', 'bi-file-earmark-pdf', function () { verCvDe(m, false); }) : null,
-                m && escreve ? botaoCard('Editar', 'bi-pencil', abrirFormCv) : null
+                m ? el('span', { class: 'te-cv-card-acoes' }, [
+                    escreve ? botaoCard('Editar', 'bi-pencil', abrirFormCv) : null,
+                    botaoCard('Word', 'bi-file-earmark-word', function () { baixar(D.urlCurriculoWord); })
+                ]) : null
             ]),
             conteudo
         ]));
-        alvo.appendChild(cartaoMinhas());
+        alvo.appendChild(cartaoPreviaCv(m));
+    }
+
+    /** "Prévia do currículo" (l.232 a 239): o documento salvo no iframe, ou o esqueleto A4 sem currículo. */
+    function cartaoPreviaCv(m) {
+        var corpo;
+        if (m) {
+            var quadro = el('iframe', { class: 'te-cv-prev-doc', title: 'Meu currículo', attrs: { sandbox: 'allow-same-origin' } });
+            var chave = (m.codigo || '') + '|' + (m.atualizadoEm || '');
+            if (S.cvPrevia && S.cvPrevia.chave === chave) {
+                quadro.srcdoc = S.cvPrevia.html;
+            } else if (!vazio(m.documentoUrl)) {
+                pedirHtml('GET', comComo(m.documentoUrl)).then(function (r) {
+                    if (r.ok) {
+                        S.cvPrevia = { chave: chave, html: r.html };
+                        quadro.srcdoc = r.html;
+                    }
+                });
+            }
+            corpo = el('div', { class: 'te-cv-prev-corpo' }, quadro);
+        } else {
+            var barra = function (h, w, fundo, extra) { return el('span', { class: 'te-cv-prev-barra', style: Object.assign({ height: h, width: w, background: fundo }, extra || {}) }); };
+            corpo = el('div', { class: 'te-cv-prev-corpo is-vazio' }, [
+                el('div', { class: 'te-cv-prev-a4', attrs: { 'aria-hidden': 'true' } }, [
+                    el('div', { class: 'te-cv-prev-lado' }, [
+                        el('span', { class: 'te-cv-prev-foto' }),
+                        barra('6px', '80%', 'rgba(255,255,255,.35)'), barra('6px', '70%', 'rgba(255,255,255,.25)'), barra('6px', '75%', 'rgba(255,255,255,.25)'),
+                        el('span', { class: 'te-cv-prev-esp', style: { height: '14px' } }),
+                        barra('6px', '60%', 'rgba(255,255,255,.35)'), barra('6px', '80%', 'rgba(255,255,255,.25)')
+                    ]),
+                    el('div', { class: 'te-cv-prev-main' }, [
+                        barra('14px', '70%', '#c9d6df'), barra('8px', '45%', '#9fc3d8'),
+                        el('span', { class: 'te-cv-prev-linha' }),
+                        barra('7px', '35%', '#9fc3d8'), barra('8px', '100%', '#e3e9ee'), barra('8px', '92%', '#e3e9ee'), barra('8px', '96%', '#e3e9ee'),
+                        el('span', { class: 'te-cv-prev-esp', style: { height: '10px', display: 'block' } }),
+                        barra('7px', '35%', '#9fc3d8'), barra('8px', '85%', '#e3e9ee'), barra('8px', '90%', '#e3e9ee'), barra('8px', '70%', '#e3e9ee')
+                    ])
+                ]),
+                el('span', { class: 'te-cv-prev-vazio', text: 'Cadastre seu currículo para vê-lo formatado aqui.' })
+            ]);
+        }
+        return el('div', { class: 'te-cv-prev', attrs: { 'data-screen-label': 'Meu currículo formatado' } }, [
+            el('div', { class: 'te-cv-prev-cab' }, [
+                ic('bi-file-earmark-person'),
+                el('b', { text: 'Prévia do currículo' }),
+                m && !vazio(m.pdfUrl) ? el('button', { type: 'button', class: 'te-cv-prev-pdf', onclick: function () { baixar(m.pdfUrl); } }, [ic('bi-download'), 'Baixar PDF']) : null
+            ]),
+            corpo
+        ]);
     }
 
     /* ---------------------------------------------------------------- formulário (tmCvForm) */
@@ -6436,7 +6711,7 @@
     /* =============================================================================
        CANDIDATURA (spec VS 18.10.26 §4.6, fatia F2b)
        Desenho "06 - Trabalho Externo - VS 18.10.26": selo de compatibilidade e rodapé do cartão
-       (l.161 e 165), "Minhas candidaturas" (l.221 a 224), "SUA CANDIDATURA" e candidatos no detalhe
+       (l.161 e 165), "SUA CANDIDATURA" e candidatos no detalhe
        da vaga (l.292 e 295 a 298), modal QUASE (l.392 a 400). Lógica do `renderVals()`: l.839, 846,
        974 a 985, 1001, 1003, 1006, 1039 a 1047, 1095, 1103, 1117, 1154, 1156 e 1190.
        O servidor decide tudo (botão do externo, etapas, quem vê quem, quem envia e muda status);
@@ -6465,11 +6740,6 @@
         ['bi-hand-thumbs-up', 'Foi quase!', 'Seu interesse foi registrado. Continue tentando, a persistência vence.'],
         ['bi-graph-up-arrow', 'Ritmo bom!', 'Cada tentativa deixa seu perfil mais visível para os escritórios.']
     ];
-    /** Filtros de "Minhas candidaturas" (`mcFiltros`, l.1154), sem contador como no desenho. */
-    var MC_FILTROS = [['', 'Todas'], ['estrela', '★ Estrela'], ['lix', 'Lixeira']];
-
-    function astDe(k) { return AST.filter(function (a) { return a[0] === k; })[0] || [k, k || '', '#6b8494']; }
-
     /**
      * Como o `pedirCv()`, mas o erro devolve o corpo inteiro (`titulo`, `semCurriculo`, `quase` do contrato
      * da §4.6), com `ok:false` e `mensagem`. Sem a URL no template, falha sem sair da página.
@@ -6538,7 +6808,7 @@
      * Visual do `etapas()`: o servidor manda os passos com `estado` (feito, atual, futuro, nao); a tela
      * pinta como o desenho. Feito vira o check a partir do segundo passo; o traço até o próximo fica
      * azul entre passos alcançados e some no último e antes de "Não selecionado". `compacto`: 26px
-     * (lista de candidatos e "Minhas candidaturas"); senão 30px ("SUA CANDIDATURA").
+     * (lista de candidatos); senão 30px ("SUA CANDIDATURA").
      */
     function linhaDoTempo(et, compacto) {
         var P = (et && et.passos) || [];
@@ -6808,7 +7078,7 @@
                 if (noDetalhe()) {
                     fecharTlm();
                 }
-                toastDoServidor(r.toast, 'Candidatura enviada', 'Acompanhe em Meu currículo · Minhas candidaturas.');
+                toastDoServidor(r.toast, 'Candidatura enviada', '');
                 carregarVagas();
                 if (S.cv) {
                     carregarCurriculos();
@@ -6919,209 +7189,8 @@
         }
     }
 
-    /* ---------------------------------------------------------------- "Minhas candidaturas" (l.221 a 224) */
-
+    /** As candidaturas do externo (`S.cv.minhas`): o convite de vaga não reaparece para quem já se candidatou nela. */
     function minhas() { return (S.cv && S.cv.minhas) || []; }
-
-    function ehIso(s) { return /^\d{4}-\d{2}-\d{2}/.test(String(s || '')); }
-
-    /** Data do "Enviada em" (`d8`): ISO vira dd/mm/aaaa; texto já formatado vai como veio. */
-    function dataDaCand(s) { return ehIso(s) ? dataBr(s) : String(s || ''); }
-
-    /** `espF` + ordem (l.1103): fora da Lixeira, nada do que está nela; a mais recente primeiro. */
-    function minhasFiltradas() {
-        var f = S.mcFiltro;
-        return minhas().filter(function (a) {
-            return f === 'lix' ? !!a.lixeira : !a.lixeira && (f !== 'estrela' || !!a.estrela);
-        }).sort(function (a, b) {
-            return ehIso(a.enviadaEm) && ehIso(b.enviadaEm) ? String(b.enviadaEm).localeCompare(String(a.enviadaEm)) : 0;
-        });
-    }
-
-    function mcSelecionada(id) { return S.mcSel.indexOf(id) >= 0; }
-
-    /** O cartão: cabeçalho, barra (seleção, "Selecionar por", Atualizar, filtros), lote, aviso da lixeira e as linhas. */
-    function cartaoMinhas() {
-        var L = minhasFiltradas(), escreve = podeEscreverCv();
-        var vistos = L.map(function (a) { return a.id; });
-        S.mcSel = S.mcSel.filter(function (id) { return vistos.indexOf(id) >= 0; });
-        var todas = L.length > 0 && S.mcSel.length === L.length;
-        var sel = el('div', { class: 'te-vg-sel' }, [
-            escreve ? el('button', {
-                type: 'button', class: 'te-sel-btn' + (S.mcSel.length ? ' is-on' : ''), title: 'Selecionar',
-                attrs: { 'aria-label': todas ? 'Limpar seleção' : 'Selecionar todas' },
-                onclick: function () {
-                    S.mcSel = todas ? [] : L.map(function (a) { return a.id; });
-                    renderCurriculos();
-                }
-            }, ic(todas ? 'bi-check-square-fill' : S.mcSel.length ? 'bi-dash-square-fill' : 'bi-square')) : null,
-            escreve ? el('button', {
-                type: 'button', class: 'te-sel-caret', title: 'Selecionar por', attrs: { 'aria-haspopup': 'menu' },
-                onclick: function (e) {
-                    var r = e.currentTarget.getBoundingClientRect();
-                    abrirMenuEspecial({ tipo: 'mcselpor' }, r.left - 30, r.bottom + 4, 170);
-                }
-            }, ic('bi-caret-down-fill')) : null,
-            el('button', { type: 'button', class: 'te-sel-atualizar', title: 'Atualizar', onclick: function () { carregarCurriculos(true); } }, ic('bi-arrow-clockwise'))
-        ]);
-        var filtros = el('div', { class: 'te-cand-mc-filtros' }, MC_FILTROS.map(function (f) {
-            var on = S.mcFiltro === f[0];
-            return el('button', {
-                type: 'button', class: 'te-cand-mc-filtro' + (on ? ' is-ativo' : ''), text: f[1],
-                attrs: { 'aria-pressed': on ? 'true' : 'false' },
-                onclick: function () { S.mcFiltro = f[0]; S.mcSel = []; renderCurriculos(); }
-            });
-        }));
-        var filhos = [
-            el('div', { class: 'te-cv-card-cab is-cand' }, [ic('bi-send-check'), el('b', { text: 'Minhas candidaturas' })]),
-            el('div', { class: 'te-cand-mc-barra' }, [sel, filtros])
-        ].concat(loteDasMinhas());
-        if (!L.length) {
-            filhos.push(el('div', { class: 'te-cv-cand-vazio', text: 'Você ainda não se candidatou. Veja as vagas abertas na aba Vagas.' }));
-        }
-        L.forEach(function (a) { filhos.push(linhaMinha(a)); });
-        return el('div', { class: 'te-cv-card is-2' }, filhos);
-    }
-
-    /** Barra de lote (`mcBulk`, l.222), igual à das vagas, e o aviso da lixeira. */
-    function loteDasMinhas() {
-        var nos = [], naLixeira = S.mcFiltro === 'lix';
-        if (S.mcSel.length && podeEscreverCv()) {
-            var sel = minhas().filter(function (a) { return mcSelecionada(a.id); });
-            var algumaNaoVista = sel.some(function (a) { return !a.vista; });
-            var todasEstrela = sel.length > 0 && sel.every(function (a) { return !!a.estrela; });
-            var acoes = naLixeira
-                ? [
-                    ['restaurar', 'Restaurar', 'bi-arrow-counterclockwise', null],
-                    ['definitivo', 'Excluir da minha lista', 'bi-x-octagon', '#a3232b']
-                ]
-                : [
-                    ['lixeira', 'Mover para a lixeira', 'bi-trash', null],
-                    algumaNaoVista ? ['lida', 'Marcar como visto', 'bi-eye', null] : ['naolida', 'Marcar como não visto', 'bi-eye-slash', null],
-                    todasEstrela ? ['semestrela', 'Remover estrela', 'bi-star-fill', '#e0a106'] : ['estrela', 'Adicionar estrela', 'bi-star', null],
-                    ['imp', 'Marcar como importante', 'bi-chevron-double-right', '#0a6fa0'],
-                    ['naoimp', 'Marcar como não importante', 'bi-chevron-right', null]
-                ];
-            var ids = S.mcSel.slice();
-            nos.push(el('div', { class: 'te-lote', attrs: { role: 'toolbar', 'aria-label': 'Ações nas candidaturas selecionadas' } }, [
-                el('b', { class: 'te-lote-n', text: S.mcSel.length + ' selecionado(s)' })
-            ].concat(acoes.map(function (a) {
-                return el('button', {
-                    type: 'button', class: 'te-lote-btn', title: a[1],
-                    style: a[3] ? { color: a[3] } : null,
-                    attrs: { 'data-tip': a[1], 'aria-label': a[1] },
-                    onclick: function () { loteMinhas(ids, a[0]); }
-                }, ic(a[2]));
-            })).concat([
-                el('span', { class: 'te-espaco' }),
-                el('button', { type: 'button', class: 'te-lote-cancelar', text: 'Cancelar', onclick: function () { S.mcSel = []; renderCurriculos(); } })
-            ])));
-        }
-        if (naLixeira) {
-            nos.push(el('div', { class: 'te-lix-aviso' }, [ic('bi-info-circle'), ' A lixeira é só sua: os itens continuam para os demais. Restaure quando quiser.']));
-        }
-        return nos;
-    }
-
-    /**
-     * Linha (l.224): selecionar, estrela e importância (com a dica), título da vaga em negrito se não
-     * vista, "Enviada em …", a situação e as etapas compactas. O clique abre a vaga e marca como vista.
-     */
-    function linhaMinha(a) {
-        var sel = mcSelecionada(a.id), pv = !podeEscreverCv();
-        var nv = nivelDaVaga(a), I = IMPORTANCIA[nv], dica = dicaDeImportancia(nv, a.importancia);
-        var parar = function (fn) { return function (e) { e.stopPropagation(); if (fn) { fn(); } }; };
-        var st = astDe(a.status);
-        return el('div', {
-            class: 'te-cand-mc-linha' + (sel ? ' is-sel' : ''),
-            onclick: function () {
-                marcarMinhaVista(a);
-                if (!vazio(a.codigoVaga)) {
-                    abrirVaga(a.codigoVaga);
-                }
-            }
-        }, [
-            el('div', { class: 'te-vg-marca', onclick: parar(null) }, [
-                pv ? null : el('button', {
-                    type: 'button', class: 'te-sel-btn' + (sel ? ' is-on' : ''), title: 'Selecionar',
-                    attrs: { 'aria-pressed': sel ? 'true' : 'false' },
-                    onclick: parar(function () {
-                        S.mcSel = sel ? S.mcSel.filter(function (y) { return y !== a.id; }) : S.mcSel.concat([a.id]);
-                        renderCurriculos();
-                    })
-                }, ic(sel ? 'bi-check-square-fill' : 'bi-square')),
-                el('button', {
-                    type: 'button', class: 'te-estrela' + (a.estrela ? ' is-on' : ''), title: 'Estrela', disabled: pv,
-                    attrs: { 'aria-pressed': a.estrela ? 'true' : 'false' },
-                    onclick: parar(function () { loteMinhas([a.id], a.estrela ? 'semestrela' : 'estrela'); })
-                }, ic(a.estrela ? 'bi-star-fill' : 'bi-star')),
-                el('button', {
-                    type: 'button', class: 'te-imp te-vg-imp', title: dica, disabled: pv,
-                    style: { background: I.bg, color: I.cor },
-                    attrs: { 'data-tip': dica, 'aria-label': dica },
-                    onclick: parar(function () { loteMinhas([a.id], nv >= 2 ? 'naoimp' : 'imp'); })
-                }, ic(I.ic))
-            ]),
-            el('div', { class: 'te-flex1 te-min0' }, [
-                el('b', { class: 'te-cand-mc-tit te-reticencias' + (a.vista ? '' : ' is-naovista'), text: a.titulo || 'Vaga removida' }),
-                el('span', { class: 'te-cand-mc-em', text: 'Enviada em ' + dataDaCand(a.enviadaEm) })
-            ]),
-            seloSituacao(a.statusRotulo || st[1], a.statusCor || st[2]),
-            el('div', { class: 'te-cand-linha-et' }, linhaDoTempo(a.etapas, true))
-        ]);
-    }
-
-    /** Marcações pela rota das candidaturas, com o mesmo corpo e resposta das vagas. */
-    function loteMinhas(ids, op) {
-        if (!ids.length || !podeEscreverCv()) {
-            return;
-        }
-        fecharMenu();
-        if (op === 'definitivo') {
-            abrirConf(null, {
-                k: '__definitivo_cand__',
-                confirmacao: {
-                    titulo: 'Excluir da minha lista',
-                    texto: 'Excluir ' + ids.length + ' item(ns) da sua lista definitivamente? Continuam existindo para os demais.',
-                    botao: 'Excluir', motivo: false, perigo: true
-                },
-                executar: function () { return enviarLoteMinhas(ids, op); }
-            });
-            return;
-        }
-        enviarLoteMinhas(ids, op);
-    }
-
-    function enviarLoteMinhas(ids, op) {
-        if (vazio(ROTA.candidaturasMarcacoes())) {
-            toastErro(null);
-            return Promise.resolve({ ok: false });
-        }
-        return pedirCv('POST', ROTA.candidaturasMarcacoes(), { codigos: ids, op: op }).then(function (r) {
-            if (!r.ok) {
-                toastErro(r.mensagem);
-                return r;
-            }
-            S.mcSel = [];
-            mostrarDesfazer(r.texto, op === 'lixeira' ? function () { enviarLoteMinhas(ids, 'restaurar'); } : null);
-            carregarCurriculos();
-            return r;
-        });
-    }
-
-    /** Abrir a linha marca a candidatura como vista (o título deixa de ficar em negrito), sem aviso. */
-    function marcarMinhaVista(a) {
-        if (a.vista || !podeEscreverCv() || vazio(ROTA.candidaturasMarcacoes())) {
-            return;
-        }
-        a.vista = true;
-        pedirCv('POST', ROTA.candidaturasMarcacoes(), { codigos: [a.id], op: 'lida' }).then(function (r) {
-            if (!r.ok) {
-                a.vista = false;
-            }
-            renderCurriculos();
-        });
-    }
 
     /* =============================================================================
        VISÃO EXTERNA, ENGAJAMENTO E AVISOS (spec VS 18.10.26 §4.7, fatia F4)
@@ -7841,7 +7910,9 @@
         if (e.key !== 'Escape') {
             return;
         }
-        if (S.conf) {
+        if (S.envFx) {
+            fecharEnvio();
+        } else if (S.conf) {
             fecharConf();
         } else if (S.quase) {
             fecharQuase();
@@ -7881,6 +7952,9 @@
         var a = S.painel.avisoDeMensagem;
         mostrarToast({ id: a.codigo, tit: a.titulo, txt: a.texto, hora: a.hora });
     }
+
+    conferirAndamentos();
+    setInterval(conferirAndamentos, ANDAMENTOS_MS);
 
     var te = new URLSearchParams(location.search).get('te');
     if (te && demandas().some(function (d) { return d.codigo === te; })) {

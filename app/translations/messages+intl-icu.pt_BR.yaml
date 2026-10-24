@@ -92,14 +92,26 @@ moldura:
     # Aviso de falha das tarefas agendadas (layout/_globais/aviso_falha_agendada, spec scheduler-tarefas-agendadas)
     aviso_falha_agendada:
         titulo: Tarefa agendada falhou
-        item: '{comando} às {hora} de {data}.'
+        item: '{tarefa} às {hora} de {data}.'
         mais: Há outras falhas mais antigas.
-        detalhe: Detalhe no log do agendador.
+        detalhe: Os detalhes ficam registrados pela equipe BlueJus.
+        # Nome de cada tarefa no aviso (chave = comando sem "app:", com _ no lugar de : e -).
+        tarefa:
+            purgar_dados_expirados: Limpeza dos dados expirados
+            inteligencia_expirar_conteudo: Retenção das respostas da BlueJus IA
+            importar_indices_monetarios: Importação dos índices monetários
+            djen_sincronizar: Captação das publicações do DJEN
+            push_resumo_semanal_cliente: Resumo semanal ao cliente
+            pastas_relatorio_sem_processo: Relatório de pastas sem processo
+            pastas_relatorio_pastas_paradas: Relatório de pastas paradas
+            dashboard_fotografar: Foto diária do Dashboard
+            sync_reconciliar: Envio para o Google Drive
+            outra: Tarefa agendada
         dispensar: Dispensar
     # Aviso da cota de envio de e-mail (layout/_globais/aviso_cota_de_envio, spec comercial-e-emails §3.6)
     aviso_cota_de_envio:
         titulo_perto: Perto do limite de e-mail
-        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas (limite da Hostinger). Perto do limite.'
+        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas. Perto do limite diário.'
         titulo_pausadas: Limite de e-mail de campanha atingido
         texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
         dispensar: Dispensar
@@ -817,7 +829,7 @@ comercial_relatorio:
         duplicar: Duplicar como nova
         reenviar: Reenviar a quem não leu
         encaminhar: Encaminhar para um e-mail
-        encaminhar_motivo: Aguardando a decisão sobre enviar teste para outros endereços.
+        encaminhar_motivo: Envio de teste para outros endereços ainda não disponível.
         estrela: Marcar com estrela
         arquivar: Arquivar
         exportar: Exportar destinatários (CSV)
@@ -845,9 +857,9 @@ comercial_relatorio:
         confirmar_cancelar_fila: Cancelar o envio desta campanha? O que ainda está na fila não sai.
         confirmar_remover: 'Remover {n} campanha(s) do relatório?'
         confirmar_excluir: Excluir esta campanha do relatório?
-        reenvio_menu_rastreada: Reenvio disponível quando o servidor registrar as leituras.
+        reenvio_menu_rastreada: Reenvio disponível assim que as leituras forem registradas.
         reenvio_menu_sem_rastreio: Esta campanha não rastreou leitura.
-        reenvio_rastreada: Reenvio para quem não leu fica disponível assim que o servidor registrar as leituras.
+        reenvio_rastreada: Reenvio para quem não leu fica disponível assim que as leituras forem registradas.
         reenvio_sem_rastreio: 'Esta campanha não rastreou leitura; não dá para saber quem não leu.'
         erro_exportar: Não foi possível exportar. Recarregue a página.
 
@@ -2085,18 +2097,13 @@ master:
         informe_inteiros: Informe os limites em números inteiros.
     # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
     ia:
-        zdr:
-            titulo: Retenção zero de dados (ZDR)
-            texto: 'Antes de ligar a IA para qualquer escritório, a conta da Anthropic precisa ter a retenção zero de dados (ZDR). Este pedido é seu: faça ao time comercial da Anthropic em claude.com/contact-sales, para a organização onde está a chave do BlueJus, e peça também a confirmação por escrito e o DPA.'
-            dev: 'A parte técnica é do desenvolvedor: deixar o workspace de produção na Console da Anthropic aceitando só a região us. Peça ao desenvolvedor.'
-            geo: O processamento roda nos EUA (região us, configurada pelo desenvolvedor).
         instalacao:
-            titulo: Instalação (feita pelo desenvolvedor)
-            intro: 'Estes dois itens ficam no servidor, fora desta tela, e só o desenvolvedor altera. Se algum aparecer como não gravado ou desligado, peça ao desenvolvedor.'
-            chave_api: Chave da API da Anthropic
+            titulo: Instalação
+            intro: 'Estes dois itens ficam no servidor e são configuração técnica da equipe BlueJus; aqui aparece o estado de cada um.'
+            chave_api: Chave da API
             trava: Chave de segurança do servidor
-            trava_desc: 'É uma chave de segurança no servidor, ligada pelo desenvolvedor. A BlueJus IA só funciona com ela E a chave geral desta tela ligadas.'
-            nota: 'A chave da API é gravada pelo desenvolvedor no servidor; esta tela não mostra nem recebe a chave.'
+            trava_desc: 'A BlueJus IA só funciona com ela e com a chave geral ligadas; a parte técnica fica com a equipe BlueJus.'
+            nota: 'Esta tela não mostra nem recebe a chave da API.'
         chave_geral:
             titulo: Chave geral
             rotulo: Ligar a BlueJus IA para todos os escritórios liberados
@@ -2110,12 +2117,14 @@ master:
             aviso: 'As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.'
         escritorios:
             titulo: Escritórios
-            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. O orçamento mensal fica gravado; o bloqueio por orçamento entra numa próxima etapa.'
+            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. Em "Incluso no plano" e "Adicional pago", a IA para quando o gasto do mês chega ao orçamento e volta no dia 1º; em "Limite grátis, depois cobra", o orçamento é a parte grátis e a IA continua. Sem orçamento, não há trava em dólares. Valores estimados pelo preço de tabela da Anthropic.'
             col_nome: Escritório
             col_liberado: Liberado
             col_aceite: Aceite do escritório
             col_cobranca: Cobrança
             col_orcamento: Orçamento mensal (US$)
+            col_analises_mes: Análises no mês
+            col_gasto_mes: Gasto no mês (US$)
         recusa:
             token_invalido: Token CSRF inválido. Recarregue a página.
             informe_ligada: Informe se a chave geral fica ligada ou desligada.
@@ -2201,7 +2210,7 @@ master:
             ind: Indicações do BlueJus
             notif: Central de Notificações
         vazia:
-            aviso: DADO AINDA NÃO COLETADO · DEPENDE DE INTEGRAÇÃO NO SERVIDOR
+            aviso: DADO AINDA NÃO COLETADO · INTEGRAÇÃO AINDA NÃO DISPONÍVEL
             custos:
                 texto: Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.
                 armazenamento: Armazenamento
@@ -2625,8 +2634,8 @@ master:
             erro_salvar: Não foi possível salvar.
         # Aba "Configurações da I.A." (public/js/master/ia.js).
         ia:
-            gravada: gravada
-            nao_gravada: não gravada
+            gravada: instalada
+            nao_gravada: ainda não instalada (configuração técnica da equipe BlueJus)
             ligada: ligada
             desligada: desligada
             ligada_todos: Ligada para todos os liberados
@@ -2635,6 +2644,8 @@ master:
             cobranca: Cobrança
             orcamento: Orçamento mensal em dólares
             sem_orcamento: sem orçamento
+            orcamento_atingido: orçamento atingido
+            acima_do_gratis: acima do grátis
             sem_aceite: sem aceite
             liberado: Liberado
             bloqueado: Bloqueado
@@ -3935,7 +3946,7 @@ comercial:
         sub: 'clicaram em "Não quero mais receber" e saem de todas as listas automaticamente'
         buscar: Buscar e-mail
         registrar: Registrar pedido
-        limpar_dica: Limpar a lista inteira depende de decisão do dono (LGPD). Por enquanto, exclua um por vez.
+        limpar_dica: Limpar a lista inteira ainda não está disponível (LGPD). Por enquanto, a exclusão é feita um por vez.
         limpar: Limpar lista
         csv: CSV
         fechar: Fechar
@@ -3945,7 +3956,7 @@ comercial:
         fechar: Fechar
         enviar_para: ENVIAR PARA
         separe: (separe vários por vírgula)
-        trava: Por enquanto o teste vai só para o seu e-mail; enviar para outros endereços depende de decisão.
+        trava: O teste vai só para o seu e-mail. O envio para outros endereços ainda não está disponível.
         nota: O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.
         cancelar: Cancelar
         enviar: Enviar teste
@@ -4445,7 +4456,7 @@ escritorio:
     flash:
         email_em_uso: Este e-mail já está em uso. Informe outro e-mail para o administrador.
         email_cadastrado: Este e-mail já está cadastrado. Informe outro e-mail para o administrador.
-        criado_sem_email: Tenant criado, mas não foi possível enviar o e-mail de ativação do administrador agora. Verifique SMTP e reenvie o convite.
+        criado_sem_email: Escritório criado. O e-mail de ativação do administrador não saiu agora; o convite pode ser reenviado.
         link_dev: 'Link de confirmação (dev): {link}'
         criado: Tenant criado com sucesso! O administrador receberá um e-mail para criar a senha.
         nome_atualizado: Nome do Tenant atualizado com sucesso!
@@ -6686,6 +6697,7 @@ entrada:
         entrar: Entrar
         ou: ou
         entrar_google: Entrar com o Google
+        google_nao_configurado: O acesso pelo Google ainda não está configurado neste ambiente. Use o e-mail.
         selo_texto: O BlueJus não tem acesso aos seus arquivos nem ao conteúdo das pastas.
         sem_conta: Não tem conta?
         criar_conta: Criar minha conta e escritório
@@ -6739,7 +6751,6 @@ entrada:
         senha_alterada_texto: Entre com a nova senha. Por segurança, as outras sessões foram encerradas.
         cadastro_texto: Crie seu escritório digital em 1 minuto. Você entra como usuário primário e depois convida a sua equipe.
         continuar_google: Continuar com Google
-        continuar_facebook: Continuar com Facebook
         ou_outro_email: ou com outro e-mail
         conectado_pelo: '{email} · conectado pelo {provedor}'
         usar_outro_email: Usar outro e-mail
@@ -6798,8 +6809,6 @@ entrada:
         informe_nome: Informe seu nome completo.
         informe_escritorio: Informe o nome do escritório.
         informe_genero: Informe o gênero.
-        facebook_indisponivel: O acesso pelo Facebook ainda não está disponível. Use o Google ou o e-mail.
-        facebook_indisponivel_sem_google: O acesso pelo Facebook ainda não está disponível. Use o e-mail.
         aceite: É preciso aceitar os Termos e a Política de privacidade.
         saudacao:
             bom_dia: Bom dia
@@ -7105,6 +7114,15 @@ inteligencia:
         consentimento: 'Aceite registrado em {quando}.'
         consentimento_por: 'Aceite registrado em {quando} por {nome}.'
         cotas: As cotas contam todo pedido feito no escritório, inclusive os que falharam.
+        consumo:
+            titulo: Consumo do mês
+            analises: Análises no mês
+            analises_valor: '{n} de {limite}'
+            gasto: Gasto estimado
+            orcamento: Orçamento mensal
+            modo: Cobrança
+            dolares: 'US$ {valor}'
+            nota: Valores estimados pelo preço de tabela da Anthropic.
         mascarar: Recomendado. O número do processo nunca é mascarado.
         salvar: Salvar
     js:

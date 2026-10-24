@@ -17,6 +17,7 @@ use App\Inteligencia\Armazenamento\ChavesDeInteligencia;
 use App\Kanban\Armazenamento\ChavesDeKanban;
 use App\Kanban\Entity\KanbanCard;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
@@ -62,6 +63,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ChavesDePasta::class . '::novoDocumento',
             static fn (?Tenant $t): object => self::comTenant(new PastaDocumento(), $t),
             CategoriaDeArquivo::PASTA_DOCUMENTO,
+        ];
+        yield ChavesDePasta::class . '::novaFoto' => [
+            ChavesDePasta::class . '::novaFoto',
+            static fn (?Tenant $t): object => self::comTenant(new Pasta(), $t),
+            CategoriaDeArquivo::PASTA_FOTO,
         ];
         yield ChavesDePasta::class . '::novaImagemDoEditor' => [
             ChavesDePasta::class . '::novaImagemDoEditor',

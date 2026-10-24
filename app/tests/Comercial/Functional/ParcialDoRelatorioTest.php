@@ -166,7 +166,7 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         self::assertSame('Encaminhar para um e-mail', trim($item->text()));
         self::assertNotNull($item->attr('disabled'));
         self::assertSame('true', $item->attr('aria-disabled'));
-        self::assertSame('Aguardando a decisão sobre enviar teste para outros endereços.', $item->attr('title'));
+        self::assertSame('Envio de teste para outros endereços ainda não disponível.', $item->attr('title'));
         self::assertNull($item->attr('data-mc-rl-ctx-acao'));
         self::assertSame(0, $this->doc->filter('[data-url-encaminhar]')->count());
     }
