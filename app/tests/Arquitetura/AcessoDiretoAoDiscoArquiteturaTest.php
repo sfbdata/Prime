@@ -60,6 +60,8 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Pasta/Service/DetectorDeAssinaturaDigital.php'        => 'só lê as pontas do upload em trânsito (selo Assinado); o acervo ele lê pelo stream que o armazenamento abre',
         'src/Comercial/Campanha/PreparadorDeImagemDaCampanha.php'  => 'GD gera os bytes em memória (destino null); grava pelo armazenamento (COMERCIAL_IMAGEM)',
         'src/Comercial/Controller/CampanhaDoMasterController.php'  => 'só lê o upload em trânsito da imagem; quem grava é o armazenamento',
+        'src/Inteligencia/Juridico/CatalogoDeQuestoesJuridicas.php' => 'catálogo do repositório (config/inteligencia), não arquivo de usuário',
+        'src/Inteligencia/Juridico/DocumentosJuridicosAtuais.php'   => 'modelos do repositório (resources/legal), não arquivo de usuário',
         'src/Master/Controller/FontesPublicasController.php'       => 'só lê o upload em trânsito da tabela do Master (vai para o cache, não para o acervo)',
         'src/TrabalhoExterno/Service/ArmazenadorDeArquivosDoCurriculo.php' => 'mede o upload em trânsito e recorta a foto em memória (GD, destino null); grava pelo armazenamento',
         'src/Master/Fontes/ArmazemDeFontes.php'                    => 'lock files das fontes públicas em var/master-fontes',

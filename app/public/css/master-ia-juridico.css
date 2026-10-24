@@ -1,0 +1,31 @@
+/* Bloco "Questões jurídicas" da aba "Configurações da I.A." do /master (master/_ia_juridico.html.twig). Sem desenho
+   próprio: só o arranjo; os componentes (.mp-card, .mp-cab-roxo, .mp-btn-roxo, .mp-ia-campo, .mp-ia-msg) vêm do
+   master.css e do master-ia.css. */
+.mp-jur-corpo { padding: 14px 18px; display: flex; flex-direction: column; gap: 14px; }
+.mp-jur-questao { border: 1px solid #e6d6ee; border-radius: 4px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 90px; }
+.mp-jur-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mp-jur-titulo { flex: 1; min-width: 220px; margin: 0; font-size: 15px; font-weight: bold; color: #4b2259; }
+.mp-jur-risco, .mp-jur-selo { font-size: 11.5px; font-weight: bold; padding: 3px 9px; border-radius: 10px; }
+.mp-jur-risco--alto { background: #fdecea; color: #a3232b; }
+.mp-jur-risco--medio { background: #fbf1dc; color: #8a5a12; }
+.mp-jur-risco--baixo { background: #e6f4ec; color: #1e7b45; }
+.mp-jur-selo--pendente { background: #eef2f5; color: #34505f; }
+.mp-jur-selo--em_analise { background: #f3e9f7; color: #7a3e8f; }
+.mp-jur-selo--resolvida { background: #e6f4ec; color: #1e7b45; }
+.mp-jur-secao > h4 { margin: 0 0 4px; font-size: 11.5px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #4a6373; }
+.mp-jur-secao > p, .mp-jur-secao li { margin: 0 0 4px; font-size: 13px; line-height: 1.5; color: #243845; }
+.mp-jur-secao > ol, .mp-jur-secao > ul { margin: 0; padding-left: 20px; }
+.mp-jur-secao a { color: #7a3e8f; }
+.mp-jur-doc { border-top: 1px solid #eef2f5; padding: 8px 0; }
+.mp-jur-doc-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.mp-jur-doc-nome { flex: 1; min-width: 200px; font-size: 13px; color: #12242f; }
+.mp .mp-jur-baixar { height: 32px; font-size: 12.5px; padding: 0 12px; text-decoration: none; }
+.mp .mp-jur-baixar:hover { color: #fff; }
+.mp-jur-enviar { position: relative; height: 32px; display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 0 12px; border: 1px solid #7a3e8f; border-radius: 4px; background: #fff; color: #7a3e8f; font-size: 12.5px; font-weight: bold; cursor: pointer; }
+.mp-jur-enviar:hover, .mp-jur-enviar:focus-within { background: #f3e9f7; }
+.mp-jur-enviar > input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.mp-jur-enviar.is-ocupado { cursor: progress; opacity: .7; }
+.mp-jur-doc > .mp-jur-versoes { margin: 6px 0 0; padding-left: 20px; }
+.mp-jur-versoes > li, .mp-jur-historico > li { font-size: 12.5px; color: #4a6373; }
+.mp-jur-historico { margin: 8px 0 0; padding-left: 20px; }
+.mp-jur-vazio { list-style: none; margin-left: -20px; font-style: italic; }
