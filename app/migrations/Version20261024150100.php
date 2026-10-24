@@ -18,7 +18,7 @@ use Doctrine\Migrations\AbstractMigration;
  *
  * Só o desta frente: o resto do `doctrine:schema:update --dump-sql` já divergia antes dela.
  */
-final class Version20261020152100 extends AbstractMigration
+final class Version20261024150100 extends AbstractMigration
 {
     public function getDescription(): string
     {
