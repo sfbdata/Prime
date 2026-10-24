@@ -2651,6 +2651,11 @@ span.ps-situacao-pill { cursor: default; }
 .ps-pag-total-linha { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .ps-pag-recebido { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
 .ps-pag-previsto { font-size: 12.5px; color: var(--ps-muted); }
+/* "+ R$ X previsto em ..." (desenho 02 L.2011-2013). */
+.ps-pag-previsto-em { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #4f6878; }
+.ps-pag-previsto-em i { font-size: 11px; color: #0a7aad; }
+[data-bs-theme="dark"] .ps-pag-previsto-em { color: var(--ps-muted); }
+[data-bs-theme="dark"] .ps-pag-previsto-em i { color: var(--ps-accent); }
 .ps-pag-barra {
     height: 6px;
     border-radius: 4px;
@@ -2707,6 +2712,11 @@ span.ps-situacao-pill { cursor: default; }
 .ps-pag-selo.ps-selo--proximo { border-color: var(--ps-warn-border); }
 /* "Vencida" (F6): o tom e do desenho, mais quente que o do prazo urgente. */
 .ps-pag-selo.ps-selo--urgente { color: var(--ps-pag-venc-tx); background: var(--ps-pag-venc-bg); border-color: var(--ps-pag-venc-bd); }
+/* "Previsto" (exito e sucumbencia, desenho 02 L.3615): o azul do desenho. */
+.ps-selo--previsto { color: #0b5f86; background: #e5f1f7; }
+.ps-pag-selo.ps-selo--previsto { border-color: #c6e0ee; }
+[data-bs-theme="dark"] .ps-selo--previsto { color: var(--ps-accent); background: rgba(69,176,214,.16); }
+[data-bs-theme="dark"] .ps-pag-selo.ps-selo--previsto { border-color: rgba(69,176,214,.45); }
 .ps-pag-excluir { flex-shrink: 0; opacity: 0; transition: opacity .15s; }
 .ps-pag-linha:hover .ps-pag-excluir,
 .ps-pag-linha:focus-within .ps-pag-excluir { opacity: 1; }
@@ -5016,8 +5026,10 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-np-cancelar-hv: #e2e9ee;
     --ps-np-gerar:       #0a7aad;
     --ps-np-gerar-off:   #c9d6de;
+    --ps-np-base-bg:     #f3f6f8;
 }
 [data-bs-theme="dark"] .ps-body {
+    --ps-np-base-bg:     rgba(255,255,255,.05);
     --ps-np-bg:          var(--bs-body-bg);
     --ps-np-sombra:      0 24px 60px -20px rgba(0,0,0,.7);
     --ps-np-cab-bg:      rgba(255,255,255,.05);
@@ -5126,6 +5138,18 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-np-tipo:disabled { opacity: .5; cursor: not-allowed; }
 
 .ps-np-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ps-np-grade[hidden] { display: none; }
+/* "Base" so leitura do exito e da sucumbencia (desenho 02 L.2121-2122). */
+.ps-np-base {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 4px;
+    background: var(--ps-np-base-bg);
+    font-size: 13.5px;
+    color: var(--ps-np-texto);
+}
 .ps-np-campo { display: flex; flex-direction: column; gap: 5px; margin: 0; }
 .ps-np-campo[hidden] { display: none; }
 .ps-np-input {
@@ -5742,4 +5766,32 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     letter-spacing: .06em;
     text-transform: uppercase;
     white-space: nowrap;
+}
+
+/* =============================================================================
+   Caixa / etapa da Nova meta (desenho 02 de 22/10, dc L179 e L4068 `fases`): a
+   borda do botão normal (#d6dde3), o sugerido pelo título (#9fc3d8 sobre
+   #f2f8fc), o escolhido (#0a6fa0, texto branco e setor a .8) e a cor da dica
+   "Sugestão pelo título". Fundo, texto e setor do normal são --ps-card,
+   --ps-body e --ps-muted. O estilo do campo fica no modal (pasta/show).
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-nm-etapa-borda:     #d6dde3;
+    --ps-nm-etapa-sug-borda: #9fc3d8;
+    --ps-nm-etapa-sug-bg:    #f2f8fc;
+    --ps-nm-etapa-on:        #0a6fa0;
+    --ps-nm-etapa-on-tx:     #fff;
+    --ps-nm-etapa-on-setor:  rgba(255,255,255,.8);
+    --ps-nm-etapa-dica:      #0a6fa0;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-nm-etapa-borda:     var(--bs-border-color);
+    --ps-nm-etapa-sug-borda: rgba(69,176,214,.55);
+    --ps-nm-etapa-sug-bg:    rgba(69,176,214,.12);
+    --ps-nm-etapa-on:        #0a6fa0;
+    --ps-nm-etapa-on-tx:     #fff;
+    --ps-nm-etapa-on-setor:  rgba(255,255,255,.8);
+    --ps-nm-etapa-dica:      #45b0d6;
 }

@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Enum\TipoDeDemanda;
 use App\Tarefa\Exception\MetaNaoDuplicavelException;
@@ -231,5 +232,17 @@ final class DuplicarMetaUseCaseTest extends TestCase
 
         self::assertSame(PrioridadeDaMeta::Normal, $this->copiaGravada()->getPrioridade());
         self::assertSame([false], $this->herdou);
+    }
+
+    #[TestDox('a cópia herda a caixa / etapa da original, mesmo contra a dedução pelo título ("Protocolar" daria Protocolo)')]
+    public function testHerdaAEtapaDaOriginal(): void
+    {
+        $original = $this->original();
+        $original->setEtapa(EtapaDaPasta::Comercial);
+
+        $this->useCase->executar($original, $this->quemDuplica, $this->tenant);
+
+        self::assertSame(EtapaDaPasta::Protocolo, EtapaDaPasta::deduzirDoTitulo($this->copiaGravada()->getTitulo()), 'controle: o título levaria a outra etapa');
+        self::assertSame(EtapaDaPasta::Comercial, $this->copiaGravada()->getEtapa());
     }
 }

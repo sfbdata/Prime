@@ -102,6 +102,7 @@ final class ColaboradoresAtribuiveisNosSeletoresTest extends JusPrimeWebTestCase
             'titulo'       => 'Meta nova',
             'descricao'    => 'Descrição da meta',
             'prazo'        => '2026-12-31',
+            'etapa'        => 'juridico',
             'responsaveis' => [$this->ana->getId(), $this->bruna->getId()],
         ]);
         self::assertResponseIsSuccessful();

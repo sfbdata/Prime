@@ -8,6 +8,48 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.16.0] - 2026-10-24
+
+### Adicionado
+
+- Pasta, aba Financeiro: os tipos "Êxito" e "Sucumbência" do "Adicionar pagamento" passam a funcionar como no desenho 02 VS 18.10.26. Pedem só o percentual (padrão 20 e 10) e gravam uma linha prevista, sem vencimento ("Honorários de êxito (N%)" / "Sucumbência estimada (N%)"), com selo azul "Previsto" e "N% sobre o total contratado · condicionado ao resultado".
+- O previsto fica fora do contratado, do recebido, da barra, dos vencidos, das pendências e do relatório de pastas paradas; aparece só como "+ R$ X previsto em êxito | sucumbência" abaixo da barra e, na impressão, como "Previsto (êxito/sucumbência)". O valor é calculado na leitura (`BaseDoPercentual`) e congela ao "Marcar como recebido" ou ao "Corrigir valor".
+- O card "Honorários contratuais" da faixa vira "Total contratado": soma automática, só leitura, dos lançamentos não previstos (base do percentual). A edição do valor da causa sai desta tela (segue no cartão do Processo).
+- Migration `Version20261020151400`: `pasta_pagamento.tipo` (padrão 'contrato'), `percentual` e `vencimento` nulo, com CHECKs de coerência. Sem backfill: lançamentos antigos ficam como contrato.
+
+### Alterado
+
+- E-mails: o limite de envio passa a contar as últimas 24 horas corridas (Hostinger Business Standard/Premium, 3.000 por caixa), com teto de 2.400 no total, 1.600 para campanhas e 800 reservados aos e-mails de conta, convite e avisos, e 10 por minuto; todos os padrões são configuráveis por ambiente.
+- E-mails: os enviados direto pelo sistema (cadastro, convite, senha, avisos, agendador) passam a contar no limite, registrados como "sistema".
+- Master: aviso no topo quando os e-mails chegam a 80% do limite e quando as campanhas ficam pausadas pelo limite, com a hora em que voltam a enviar e o botão Dispensar.
+- Pasta, Nova meta: campo obrigatório "Caixa / etapa", entre Prazo e Responsáveis (desenho 02 de 22/10, L179). Oito botões na ordem da esteira, com o nome que o escritório deu à etapa e o setor; a sugestão pelo título e pela descrição só pinta o botão e mostra a dica, sem marcar. A regra da sugestão sai do `EtapaDaPasta` por um data-attribute (fonte única). "Preencha:" cobra também a etapa, no fim.
+- `tarefa_criar_para_pasta` exige `etapa` (valor do enum): ausente ou inválida responde 422; a etapa escolhida é gravada antes do PrePersist do título.
+- Duplicar meta: a cópia herda a caixa / etapa da original.
+- Sem migration (a coluna `tarefa.etapa` já existe).
+- Agendador: o envio ao Google Drive de hora em hora (`app:sync:reconciliar`) roda sem `--tenant-id` e percorre todos os escritórios com Drive conectado; o escritório que desconecta para de enviar (decisão do dono, 24/10/2026). Sem nenhum conectado, termina com sucesso, sem aviso de falha.
+
+### Corrigido
+
+- Campos de formulário escuros em tela clara para quem usa o sistema operacional em modo escuro: `base.html.twig` passa a declarar `<meta name="color-scheme" content="light">` (antes "light dark"); o tema escuro do sistema segue pelo `data-bs-theme="dark"`.
+- Equipe > Editar Permissões, aba Dados Pessoais: os 5 campos ganham `form-control`. Cobrança > Acordo, janela Editar: o campo do valor total negociado também.
+- Ponto: batida esquecida com data e hora acima de agora no relógio do servidor (a mesma régua da gravação da batida) é recusada no lote de justificativas do admin, no pedido de esquecimento do colaborador e na aprovação desse pedido (individual e "Aprovar todos", que deixa o pedido pendente). Antes, uma batida de hoje com hora futura passava. Regra única em `App\Ponto\Service\HorarioFuturoDaBatida`. Sem migration.
+
+## [2.15.0] - 2026-10-23
+
+### Adicionado
+
+- Pasta, aba Metas: "Duplicar" no menu ⋮ da meta (desenho 02, PMC-032), entre "Editar nome" e "Encaminhar via Chat I.A". A cópia nasce na hora na mesma pasta, aberta, com descrição, prazo (mesmo vencido), prioridade exata (Normal fica Normal, sem herdar a da pasta) e tipo de demanda da original e o título com " (cópia)" (até 120 caracteres); não notifica ninguém. Dos responsáveis, só vão os que a Nova meta aceitaria (vínculo ativo); se nenhum sobrar, a duplicação é recusada com "Nenhum responsável desta meta pode receber metas agora. Crie pela Nova meta." Sem XHR, recusa e sucesso respondem com aviso e volta para a aba Metas. O aviso "Meta duplicada" traz "Desfazer", que exclui a cópia. Rota nova `tarefa_duplicar` (POST, CSRF por id, mesmas guardas da criação de meta; recusada na pasta excluída). `tarefa_excluir` passa a responder JSON por XHR.
+- Pasta, modal "Nova meta" (D-META): prazo e ao menos um responsável passam a ser obrigatórios, com o "*" nos rótulos e o "Criar meta" desabilitado com "Preencha: título, descrição, prazo, responsável" (só os que faltam). Aberto pelo botão "Nova meta", o prazo já vem em hoje + 7 dias. O servidor responde 422 sem prazo válido ou sem responsável do escritório. Sem migration.
+- Pasta, menu ⋮ do cabeçalho: "Mover para outra carteira", como no desenho 02 VS 18.10.26. O submenu "Mover pasta N para" lista as seis carteiras (Contencioso cível, Condominial, Família e sucessões, Trabalhista, Previdenciário, Empresarial), marca a atual com "· atual" e grava pela rota `pasta_mover_carteira` (POST, CSRF, permissão de editar a pasta). O Registro ganha o cartão "Carteira: movida de "X" para "Y"." e a Timeline mostra "Carteira alterada".
+- Migration `Version20261020151500`: coluna nula `pasta.carteira`. As pastas existentes ficam "Sem carteira"; nada é preenchido para trás.
+- Pasta, aba Processo: "Editar ação da pasta" no ⋮ do cartão do processo principal e no ⋮ do cabeçalho da aba (decisão do dono de 23/10/2026; desenho 02: "Ação · vem do menu Processo"). Formulário no padrão da edição no cartão (P5b), com XHR; rota `pasta_acao_salvar` (POST + CSRF), `EditarAcaoDaPastaUseCase` com a guarda de EDIT na pasta (teto do cadeado incluído) e do escritório; a lápide e o cadeado em Visualizar são recusados pelos listeners. A troca escreve o cartão do sistema "Dados da pasta: ação alterada pela aba Processo" no Registro, entra no audit_log e, se o nome da pasta mudou, enfileira a renomeação no Drive. Sem migration.
+
+### Alterado
+
+- Contribua, desenho 08 VS 21.10.26: selo "CONVÊNIO OAB" no pacote Free, que abre o modal do convênio (8 benefícios, "Uma parceria para durar", rodapé OAB + BlueJus); etiqueta "+ Espaço" com nuvem nos pacotes pagos maiores que o atual; botões dos cartões alinhados no rodapé. Sem migration.
+- Central: os avisos do Contribua mostram "Ver sugestão" no lugar de "Abrir" (campo `acao` em `/central/avisos`, nulo nos demais tipos).
+- Ponto: esquecimento nunca trava a batida. O ponto aberto em outro escritório e a interjornada contada de uma saída vinda de esquecimento viram aviso na resposta da batida; o "Regularizar ponto de ontem" do cabeçalho vira aviso ao lado do "Bater ponto"; a tela do ponto lista as pendências dos últimos 30 dias, deste e dos outros escritórios da pessoa; a saída sem entrada passa com aviso; um cartão diário lembra a pendência; os avisos só vão para quem registra ou bateu ponto no escritório; a ficha do admin sinaliza o dia com registro em outro escritório, sem dizer qual. Sem migration.
+
 ## [2.14.0] - 2026-10-23
 
 ### Adicionado
@@ -807,7 +849,9 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.14.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.16.0...HEAD
+[2.16.0]: https://github.com/sfbdata/Prime/compare/v2.15.0...v2.16.0
+[2.15.0]: https://github.com/sfbdata/Prime/compare/v2.14.0...v2.15.0
 [2.14.0]: https://github.com/sfbdata/Prime/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/sfbdata/Prime/compare/v2.12.0...v2.13.0
 [2.12.0]: https://github.com/sfbdata/Prime/compare/v2.11.1...v2.12.0

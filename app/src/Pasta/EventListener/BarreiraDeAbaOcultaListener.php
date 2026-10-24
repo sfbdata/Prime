@@ -69,6 +69,7 @@ final class BarreiraDeAbaOcultaListener
         'pasta_desvincular_processo'       => 'processo',
         'pasta_definir_processo_principal' => 'processo',
         'pasta_administrativa_definir'     => 'processo',
+        'pasta_acao_salvar'                => 'processo',
         'pasta_buscar_processos'           => 'processo',
         'pasta_prazo_*'                    => 'tarefas',
     ];

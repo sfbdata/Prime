@@ -6,6 +6,7 @@ namespace App\Auth\Service;
 
 use App\Auth\Entity\CadastroPendente;
 use App\Auth\Event\ConfirmacaoDeCadastroEnviada;
+use App\Comercial\EventListener\RegistroDeEmailSincronoListener;
 use App\Entity\Auth\User;
 use App\Shared\Email\IdentidadeDeEmail;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -43,6 +44,8 @@ final class CadastroMailer
             ->to($cadastro->getEmail())
             ->html($html);
         $this->identidadeDeEmail->aplicar($email, 'Confirme seu cadastro no BlueJus');
+        // Registrado como `automacao:cad` pelo Comercial (abaixo): o ouvinte da cota não grava outra linha.
+        $email->getHeaders()->addTextHeader(RegistroDeEmailSincronoListener::CABECALHO, '1');
 
         try {
             $this->mailer->send($email);

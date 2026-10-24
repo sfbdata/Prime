@@ -15,6 +15,7 @@ use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Tarefa\Controller\DuplicarMetaController;
+use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Enum\TipoDeDemanda;
 use App\Tarefa\UseCase\DuplicarMetaUseCase;
@@ -558,6 +559,26 @@ final class DuplicarMetaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $prioridade = $this->em()->getConnection()->fetchOne('SELECT prioridade FROM tarefa WHERE id = ?', [(int) $this->json($client)['copia']]);
         self::assertSame(PrioridadeDaMeta::Normal->value, $prioridade);
+    }
+
+    #[TestDox('a cópia herda a caixa / etapa da original, mesmo quando o título levaria a outra (Protocolar daria Protocolo)')]
+    public function testCopiaHerdaAEtapaDaOriginal(): void
+    {
+        $client   = static::createClient();
+        $tenant   = $this->criarTenant();
+        $autor    = $this->criarUsuario($tenant, 'Ana Autora');
+        $pasta    = $this->criarPasta($tenant, $autor);
+        $original = $this->criarMeta($pasta, $autor, [$autor]);
+        $original->setEtapa(EtapaDaPasta::Encerramento);
+        $this->em()->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+        $this->duplicar($client, (int) $original->getId());
+
+        self::assertResponseIsSuccessful();
+        $etapa = $this->em()->getConnection()->fetchOne('SELECT etapa FROM tarefa WHERE id = ?', [(int) $this->json($client)['copia']]);
+        self::assertSame(EtapaDaPasta::Encerramento->value, $etapa);
     }
 
     #[TestDox('sem JS: sem VER a pasta e CSRF inválido dão o 403 HTML padrão (não JSON), sem cópia')]

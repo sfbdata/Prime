@@ -962,8 +962,10 @@
        fica desabilitado, com "Preencha: …" na dica, enquanto falta campo; pronto,
        a dica é "Criar meta e notificar os responsáveis". D-META (D:4044-4048,
        `inval`/`falta`): título, descrição, prazo e ao menos um responsável, nessa
-       ordem ("responsável" no singular, como o desenho); o servidor cobra os
-       mesmos quatro. Os outros scripts preenchem os campos por `value` (sem
+       ordem ("responsável" no singular, como o desenho), e a caixa / etapa no fim
+       (o `inval` do desenho cobra a etapa, mas a lista `falta` a esquece: sem ela
+       o botão ficaria desabilitado sem explicação); o servidor cobra os mesmos
+       cinco. Os outros scripts preenchem os campos por `value` (sem
        evento), então a conta refaz ao abrir o modal; o calendário, os atalhos e os
        chips de responsáveis disparam `change` no campo enviado. Aberto pelo botão
        "Nova meta" (D:4045 `abrir`), o prazo vazio vem em hoje + 7 dias; quem abre
@@ -973,13 +975,76 @@
     // Função, não constante: este script roda no parse, antes do bj-traducao.js (fim do base).
     function faltaNenhuma() { return BJ_T.t('pasta_scripts.js.metas.criar_e_notificar'); }
 
-    function faltaNaMeta(titulo, descricao, prazo, responsaveis) {
+    function faltaNaMeta(titulo, descricao, prazo, responsaveis, etapa) {
         var falta = [];
         if (!titulo || titulo.value.trim() === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_titulo')); }
         if (!descricao || descricao.value.trim() === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_descricao')); }
         if (!prazo || prazo.value === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_prazo')); }
         if (!responsaveis || responsaveis.selectedOptions.length === 0) { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_responsavel')); }
+        if (!etapa || etapa.value === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_etapa')); }
         return falta;
+    }
+
+    /* Caixa / etapa da Nova meta (desenho 02 de 22/10: L179, L4049 `nmSug`, L4068 `fases`). A regra
+       da sugestão vem do enum EtapaDaPasta pelo `data-regra` (padrões na ordem de teste e a etapa de
+       quem não casa nenhum), para não haver uma segunda lista aqui. Sobre título + ' ' + descrição em
+       minúsculas: o primeiro padrão que casar vence; texto sem nenhum é o `padrao`; texto vazio não
+       sugere nada. */
+    function regraDaEtapa(raiz) {
+        var dado = {};
+        try { dado = JSON.parse(raiz.getAttribute('data-regra') || '{}') || {}; } catch (x) { dado = {}; }
+        var regras = (dado.regras || []).map(function (r) { return { re: new RegExp(r.padrao), etapa: r.etapa }; });
+        var padrao = dado.padrao || '';
+        return function (texto) {
+            var t = String(texto || '').toLowerCase();
+            for (var i = 0; i < regras.length; i++) {
+                if (regras[i].re.test(t)) { return regras[i].etapa; }
+            }
+            return t.trim() !== '' ? padrao : '';
+        };
+    }
+
+    /* A sugestão é refeita a cada `input` do título e da descrição e só pinta o botão e mostra a dica,
+       sem marcar nada. O clique grava a etapa no campo enviado (`name="etapa"`) e avisa com `change`;
+       troca-se de etapa, mas não se desmarca. A dica some com etapa escolhida. Toda abertura do modal
+       (botão, Push, I.A, observação) começa sem etapa: o reset é no `show.bs.modal`, que todas usam. */
+    function campoDaEtapa(modal, titulo, descricao) {
+        var raiz = modal.querySelector('[data-ps-nm-etapa]');
+        var campo = document.getElementById('tarefaEtapa');
+        if (!raiz || !campo) { return; }
+        var sugerir = regraDaEtapa(raiz);
+        var botoes = Array.prototype.slice.call(raiz.querySelectorAll('[data-ps-nm-etapa-op]'));
+        var dica = raiz.querySelector('[data-ps-nm-etapa-sug]');
+        var dicaTx = raiz.querySelector('[data-ps-nm-etapa-sug-tx]');
+
+        function pintar() {
+            var escolhida = campo.value;
+            var sugerida = escolhida === '' ? sugerir((titulo ? titulo.value : '') + ' ' + (descricao ? descricao.value : '')) : '';
+            var nomeSugerido = '';
+            botoes.forEach(function (b) {
+                var valor = b.getAttribute('data-ps-nm-etapa-op');
+                b.setAttribute('aria-pressed', valor === escolhida ? 'true' : 'false');
+                b.classList.toggle('is-sugerida', sugerida !== '' && valor === sugerida);
+                if (sugerida !== '' && valor === sugerida) { nomeSugerido = b.getAttribute('data-nome') || ''; }
+            });
+            if (dica) { dica.hidden = nomeSugerido === ''; }
+            if (dicaTx) { dicaTx.textContent = nomeSugerido === '' ? '' : BJ_T.t('pasta_scripts.js.metas.sugestao_pelo_titulo', { etapa: nomeSugerido }); }
+        }
+
+        function escolher(valor) {
+            campo.value = valor;
+            campo.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        botoes.forEach(function (b) {
+            b.addEventListener('click', function () { escolher(b.getAttribute('data-ps-nm-etapa-op') || ''); });
+        });
+        campo.addEventListener('change', pintar);
+        [titulo, descricao].forEach(function (el) {
+            if (el) { el.addEventListener('input', pintar); }
+        });
+        modal.addEventListener('show.bs.modal', function () { escolher(''); });
+        pintar();
     }
 
     /* D:4045: `Date.now() + 7 * 864e5`, sete dias corridos. */
@@ -997,21 +1062,23 @@
         var descricao = document.getElementById('tarefaDescricao');
         var prazo = document.getElementById('tarefaPrazo');
         var responsaveis = document.getElementById('tarefaResponsavel');
+        var etapa = document.getElementById('tarefaEtapa');
         var janela = modal.querySelector('.modal-dialog');
         var alca = modal.querySelector('[data-ps-nm-alca]');
         var recolher = modal.querySelector('[data-ps-nm-recolher]');
 
         function conferir() {
-            var falta = faltaNaMeta(titulo, descricao, prazo, responsaveis);
+            var falta = faltaNaMeta(titulo, descricao, prazo, responsaveis, etapa);
             botao.disabled = falta.length > 0;
             botao.title = falta.length > 0 ? BJ_T.t('pasta_scripts.js.metas.preencha', { campos: falta.join(', ') }) : faltaNenhuma();
         }
 
-        [titulo, descricao, prazo, responsaveis].forEach(function (el) {
+        [titulo, descricao, prazo, responsaveis, etapa].forEach(function (el) {
             if (!el) { return; }
             el.addEventListener('input', conferir);
             el.addEventListener('change', conferir);
         });
+        campoDaEtapa(modal, titulo, descricao);
         // Só o botão "Nova meta" da aba (o `relatedTarget` do data-api do Bootstrap); o `change` avisa o
         // calendário, o texto do dia e os atalhos, que podem ter pintado antes deste ouvinte.
         modal.addEventListener('show.bs.modal', function (e) {

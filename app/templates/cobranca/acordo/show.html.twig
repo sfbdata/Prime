@@ -266,7 +266,7 @@
             </div>
             <div class="modal-body" id="corpoEditarAcordo">
                 <div class="row g-2">
-                    <div class="col-sm-6">{{ form_row(forms.editarAcordo.valorTotalNegociado) }}</div>
+                    <div class="col-sm-6">{{ form_row(forms.editarAcordo.valorTotalNegociado, {attr: {class: 'form-control'}, label_attr: {class: 'form-label'}}) }}</div>
                 </div>
                 <div class="form-text mb-2">
                     {{ 'cobranca_objeto.acordo.editar_nota'|trans }}

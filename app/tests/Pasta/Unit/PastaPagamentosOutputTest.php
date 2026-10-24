@@ -7,6 +7,8 @@ namespace App\Tests\Pasta\Unit;
 use App\Pasta\DTO\PastaPagamentoLinhaOutput;
 use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
+use App\Pasta\Service\BaseDoPercentual;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -18,6 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(PastaPagamentosOutput::class)]
 #[CoversClass(PastaPagamentoLinhaOutput::class)]
+#[CoversClass(BaseDoPercentual::class)]
 final class PastaPagamentosOutputTest extends TestCase
 {
     private const HOJE = '2026-08-28';
@@ -49,7 +52,7 @@ final class PastaPagamentosOutputTest extends TestCase
         self::assertSame(0, $saida->total);
         self::assertSame(0, $saida->percentual, 'nada previsto não pode virar barra cheia');
         self::assertSame('R$ 0,00', $saida->recebidoFormatado);
-        self::assertSame('R$ 0,00', $saida->previstoFormatado);
+        self::assertSame('R$ 0,00', $saida->contratadoFormatado);
         self::assertSame([], $saida->proximos);
     }
 
@@ -66,7 +69,7 @@ final class PastaPagamentosOutputTest extends TestCase
         self::assertSame(4, $saida->total);
         self::assertSame(1, $saida->quantidadePagos);
         self::assertSame('R$ 1.500,00', $saida->recebidoFormatado);
-        self::assertSame('R$ 5.400,00', $saida->previstoFormatado);
+        self::assertSame('R$ 5.400,00', $saida->contratadoFormatado);
         self::assertSame(28, $saida->percentual, '1500 de 5400 é 27,8% — arredonda para 28');
         self::assertCount(3, $saida->proximos, 'os "próximos" são os que ainda não entraram');
         self::assertCount(4, $saida->todos);
@@ -87,7 +90,7 @@ final class PastaPagamentosOutputTest extends TestCase
             $this->pagamento('1300.10', '2026-11-01'),
         ], $this->hoje());
 
-        self::assertSame('R$ 3.900,30', $saida->previstoFormatado);
+        self::assertSame('R$ 3.900,30', $saida->contratadoFormatado);
     }
 
     /**
@@ -249,8 +252,98 @@ final class PastaPagamentosOutputTest extends TestCase
         $b = PastaPagamentosOutput::montar($comTaxa, $this->hoje());
 
         self::assertSame(
-            [$a->total, $a->quantidadePagos, $a->recebidoFormatado, $a->previstoFormatado, $a->percentual, $a->todos[0]->valorFormatado],
-            [$b->total, $b->quantidadePagos, $b->recebidoFormatado, $b->previstoFormatado, $b->percentual, $b->todos[0]->valorFormatado],
+            [$a->total, $a->quantidadePagos, $a->recebidoFormatado, $a->contratadoFormatado, $a->percentual, $a->todos[0]->valorFormatado],
+            [$b->total, $b->quantidadePagos, $b->recebidoFormatado, $b->contratadoFormatado, $b->percentual, $b->todos[0]->valorFormatado],
         );
     }
+
+    // ── Êxito e sucumbência: o previsto (spec pasta-exito-sucumbencia) ─────
+
+    private function previsto(TipoDePagamento $tipo, string $percentual): PastaPagamento
+    {
+        $p = new PastaPagamento();
+        $p->preverPorPercentual($tipo, $percentual, '1.00');
+        $p->setDescricao($tipo === TipoDePagamento::Exito ? 'Honorários de êxito' : 'Sucumbência estimada');
+
+        return $p;
+    }
+
+    #[TestDox('o previsto fica FORA do contratado, do recebido e da barra; só aparece no "+ R$ X previsto em"')]
+    public function testPrevistoForaDosTotais(): void
+    {
+        $saida = PastaPagamentosOutput::montar([
+            $this->pagamento('1500.00', '2026-06-18', '2026-06-18'),
+            $this->pagamento('1300.00', '2026-09-10'),
+            $this->pagamento('1300.00', '2026-10-10'),
+            $this->previsto(TipoDePagamento::Exito, '20'),
+        ], $this->hoje());
+
+        self::assertSame(4, $saida->total, 'a contagem do cabeçalho conta a linha prevista');
+        self::assertSame('R$ 4.100,00', $saida->contratadoFormatado);
+        self::assertSame(410000, $saida->contratadoCentavos);
+        self::assertSame('R$ 1.500,00', $saida->recebidoFormatado);
+        self::assertSame(37, $saida->percentual, '1500 de 4100, sem o previsto');
+        self::assertSame('R$ 820,00', $saida->previstoFormatado, '20% de 4.100,00, calculado na leitura (o retrato gravado é ignorado)');
+        self::assertSame('exito', $saida->previstoEm);
+    }
+
+    #[TestDox('"previsto em": êxito, sucumbência ou os dois')]
+    public function testPrevistoEm(): void
+    {
+        $base = [$this->pagamento('1000.00', '2026-09-10')];
+
+        self::assertSame('', PastaPagamentosOutput::montar($base, $this->hoje())->previstoEm);
+        self::assertSame('sucumbencia', PastaPagamentosOutput::montar([...$base, $this->previsto(TipoDePagamento::Sucumbencia, '10')], $this->hoje())->previstoEm);
+        $dois = PastaPagamentosOutput::montar([...$base, $this->previsto(TipoDePagamento::Sucumbencia, '10'), $this->previsto(TipoDePagamento::Exito, '20')], $this->hoje());
+        self::assertSame('exito_sucumbencia', $dois->previstoEm);
+        self::assertSame('R$ 300,00', $dois->previstoFormatado);
+    }
+
+    #[TestDox('linha prevista: selo azul "Previsto" e "N% sobre o total contratado · condicionado ao resultado"')]
+    public function testLinhaPrevista(): void
+    {
+        $saida = PastaPagamentosOutput::montar([
+            $this->pagamento('4287.00', '2026-09-10'),
+            $this->previsto(TipoDePagamento::Exito, '12.5'),
+        ], $this->hoje());
+
+        $linha = $saida->todos[1];
+        self::assertSame(PastaPagamentoLinhaOutput::ESTADO_PREVISTO, $linha->estado);
+        self::assertSame('previsto', $linha->tom);
+        self::assertSame('12,5% sobre o total contratado · condicionado ao resultado', $linha->quando);
+        self::assertSame('R$ 535,88', $linha->valorFormatado);
+        self::assertSame('535,88', $linha->valorEditavel, 'a correção abre com o valor calculado');
+        self::assertFalse($linha->pago);
+    }
+
+    #[TestDox('previsto corrigido (sem %) continua previsto: "condicionado ao resultado" com o valor fixo')]
+    public function testPrevistoCorrigido(): void
+    {
+        $exito = $this->previsto(TipoDePagamento::Exito, '20');
+        $exito->congelarValor('900.00');
+
+        $saida = PastaPagamentosOutput::montar([$this->pagamento('1000.00', '2026-09-10'), $exito], $this->hoje());
+
+        self::assertSame('condicionado ao resultado', $saida->todos[1]->quando);
+        self::assertSame('R$ 900,00', $saida->todos[1]->valorFormatado);
+        self::assertSame('R$ 1.000,00', $saida->contratadoFormatado);
+        self::assertSame('R$ 900,00', $saida->previstoFormatado);
+    }
+
+    #[TestDox('ordem dos próximos: pendentes, depois previstos; pagos depois de tudo')]
+    public function testOrdemPendentesPrevistosPagos(): void
+    {
+        $saida = PastaPagamentosOutput::montar([
+            $this->previsto(TipoDePagamento::Sucumbencia, '10'),
+            $this->pagamento('100.00', '2026-08-01', '2026-08-01'),
+            $this->pagamento('100.00', '2026-08-20'),
+            $this->pagamento('100.00', '2026-10-10'),
+        ], $this->hoje());
+
+        self::assertSame(
+            [PastaPagamentoLinhaOutput::ESTADO_VENCIDA, PastaPagamentoLinhaOutput::ESTADO_PENDENTE, PastaPagamentoLinhaOutput::ESTADO_PREVISTO],
+            array_map(static fn (PastaPagamentoLinhaOutput $l): string => $l->estado, $saida->proximos),
+        );
+    }
+
 }
