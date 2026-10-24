@@ -202,6 +202,7 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         $client = $this->cliente();
         [$user, $tenant] = $this->criarAdmin();
         [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->liberarIaSemLigarNoTenant($tenant, $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $this->solicitar($client, (int) $pasta->getId());

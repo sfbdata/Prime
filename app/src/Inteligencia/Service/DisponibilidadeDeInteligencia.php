@@ -9,13 +9,17 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Service\PermissionChecker;
+use Doctrine\DBAL\Exception as DbalException;
 
 /**
- * Feature flag em dois níveis + permissão + cota, na ordem da spec (§3.2):
- *   1. plataforma — `IA_HABILITADA` (parâmetro `ia_habilitada`) E provedor configurado;
- *   2. escritório — `inteligencia_configuracao.habilitada` do tenant (sem linha = desligada);
+ * Feature flag em dois níveis + permissão + cota, na ordem da spec (§3.2, com a ordem nova de ia-anthropic-ligar §10.1):
+ *   1. plataforma: `IA_HABILITADA` (parâmetro `ia_habilitada`, a trava de instalação) E provedor configurado E a
+ *      chave geral do Master (`inteligencia_plataforma.ligada_para_todos`);
+ *   2. escritório: liberado pelo Master (`liberada_pelo_master`; sem linha = não liberado) e depois
+ *      `inteligencia_configuracao.habilitada` com o aceite do admin;
  *   3. usuário — `modules.inteligencia.view`;
  *   4. cota — análises do dia e do mês contra os limites do escritório.
  *
@@ -31,17 +35,28 @@ final class DisponibilidadeDeInteligencia
         private readonly AnaliseDeInteligenciaRepository $analises,
         private readonly PermissionChecker $permissionChecker,
         private readonly bool $iaHabilitada,
+        private readonly ConfiguracaoDaPlataformaDeIaRepository $plataforma,
     ) {
     }
 
     /**
-     * Só o 1º nível (plataforma), sem tocar o banco. Quem renderiza tela fora do módulo (a pasta)
-     * pergunta isto ANTES de consultar as tabelas da IA: numa instalação sem IA elas podem nem
-     * existir (deploy parcial — o entrypoint de prod faz `migrate … || true`).
+     * Só o 1º nível (plataforma). Quem renderiza tela fora do módulo (a pasta) pergunta isto ANTES de
+     * consultar as tabelas da IA: numa instalação sem IA elas podem nem existir (deploy parcial, o
+     * entrypoint de prod faz `migrate … || true`). Por isso a trava do ambiente e o provedor vêm
+     * antes do banco, e a leitura da chave geral nunca lança (falha = desligada).
      */
     public function plataformaConfigurada(): bool
     {
-        return $this->iaHabilitada && $this->provedor->estaConfigurado();
+        return $this->iaHabilitada && $this->provedor->estaConfigurado() && $this->chaveGeralLigada();
+    }
+
+    private function chaveGeralLigada(): bool
+    {
+        try {
+            return $this->plataforma->obter()->isLigadaParaTodos();
+        } catch (DbalException) {
+            return false;
+        }
     }
 
     /**
@@ -66,7 +81,11 @@ final class DisponibilidadeDeInteligencia
         }
 
         $configuracao = $this->configuracoes->findDoTenant($tenant);
-        if ($configuracao === null || !$configuracao->isHabilitada()) {
+        if ($configuracao === null || !$configuracao->isLiberadaPeloMaster()) {
+            return [Disponibilidade::NaoLiberadaPeloMaster, null];
+        }
+
+        if (!$configuracao->isHabilitada()) {
             return [Disponibilidade::DesligadaNoEscritorio, null];
         }
 

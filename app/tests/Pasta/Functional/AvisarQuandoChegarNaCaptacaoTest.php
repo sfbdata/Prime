@@ -37,6 +37,7 @@ use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\RawMessage;
+use App\Tests\Inteligencia\Support\ChaveGeralDaIaNoBancoTrait;
 
 /**
  * O efeito do "Avisar quando chegar" (spec push-avisar-quando-chegar §3), pela captação real
@@ -52,6 +53,7 @@ final class AvisarQuandoChegarNaCaptacaoTest extends KernelTestCase
 {
     use CriaFixturesPushDaPastaTrait;
     use CriaUsuarioComPermissoesTrait;
+    use ChaveGeralDaIaNoBancoTrait;
 
     private const NUMERO = '07011345720258070007';
     private const TEOR = 'Fica a parte autora intimada para apresentar réplica à contestação no prazo de 15 dias. ';
@@ -207,7 +209,9 @@ final class AvisarQuandoChegarNaCaptacaoTest extends KernelTestCase
         [$admin, $tenant, $pasta] = $this->cenario();
         $responsavel = $this->criarUsuarioComPermissoes($tenant, ['modules.inteligencia.view', 'modules.djen.view']);
         $pasta->setResponsavel($responsavel);
+        $this->ligarChaveGeralDaIa($admin);
         $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->liberarPeloMaster();
         $configuracao->atualizar(true, 50, 500, true, $admin);
         $this->em()->persist($configuracao);
         $linha = new AvisoDoPushDaPasta($tenant, $pasta, $admin, new \DateTimeImmutable());
@@ -249,7 +253,9 @@ final class AvisarQuandoChegarNaCaptacaoTest extends KernelTestCase
     public function testIa(): void
     {
         [$responsavel, $tenant, $pasta] = $this->cenario();
+        $this->ligarChaveGeralDaIa($responsavel);
         $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->liberarPeloMaster();
         $configuracao->atualizar(true, 50, 500, true, $responsavel);
         $this->em()->persist($configuracao);
         $outraPasta = $this->criarPasta($tenant);

@@ -15,7 +15,12 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * Adaptador da API de Mensagens da Anthropic (Claude) para a porta {@see ProvedorDeLinguagem} — decisão D1 do
  * dono (14/10/2026): o provedor é exclusivamente a Anthropic. Contrato: `docs/specs/inteligencia-provedor-anthropic.md`.
  *
- * **Dormente sem configuração.** Sem `ANTHROPIC_API_KEY` e `IA_MODELO` no ambiente, `estaConfigurado()` é falso e
+ * **Modelo do banco.** Com a {@see FonteDoModeloDeIa} (o serviço do container), o modelo é resolvido a cada chamada
+ * a partir do que o Master escolheu no painel (spec ia-anthropic-ligar §10.1); o `IA_MODELO` do ambiente vira só a
+ * reserva (sem a linha no banco, ou se a fonte lançar). Modelo fora do formato, ou gravado fora da lista do painel,
+ * deixa o provedor dormente. Sem fonte (testes do adaptador), vale o modelo do construtor.
+ *
+ * **Dormente sem configuração.** Sem `ANTHROPIC_API_KEY` e um modelo válido, `estaConfigurado()` é falso e
  * `completar()` lança {@see ProvedorIndisponivelException} — o mesmo comportamento do `ProvedorNaoConfigurado`. Ligar
  * a IA continua exigindo, além disso, `IA_HABILITADA=1`, o escritório habilitado e o consentimento dele
  * (`DisponibilidadeDeInteligencia`). A chave nunca está no código.
@@ -60,7 +65,8 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     private readonly string $chave;
     private readonly string $modelo;
     private readonly string $esforco;
-    private readonly bool $configuracaoValida;
+    /** Chave, esforço, margem e região: o que não muda por chamada. O modelo é conferido a cada uso. */
+    private readonly bool $baseValida;
     private readonly string $regiaoDeInferencia;
 
     /**
@@ -76,15 +82,14 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
         string $esforco = '',
         private readonly int $margemDeRaciocinio = self::MARGEM_DE_RACIOCINIO_PADRAO,
         string $regiaoDeInferencia = '',
+        private readonly ?FonteDoModeloDeIa $fonteDoModelo = null,
     ) {
         $this->regiaoDeInferencia = strtolower(trim($regiaoDeInferencia));
         $this->chave = trim($chave);
         $this->modelo = trim($modelo);
         $this->esforco = strtolower(trim($esforco));
-        $this->configuracaoValida = $this->chave !== ''
-            && $this->modelo !== ''
+        $this->baseValida = $this->chave !== ''
             && preg_match('/^[\x21-\x7E]+$/', $this->chave) === 1
-            && preg_match('/^[a-z0-9.\-]+$/', $this->modelo) === 1
             && ($this->esforco === '' || in_array($this->esforco, self::ESFORCOS, true))
             && $this->margemDeRaciocinio >= 0
             && in_array($this->regiaoDeInferencia, self::REGIOES_DE_INFERENCIA, true);
@@ -93,21 +98,43 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     /** `nao_configurado` enquanto dormente: a coluna `provedor` da análise não pode dizer que algo saiu para a Anthropic. */
     public function nome(): string
     {
-        return $this->configuracaoValida ? self::NOME : ProvedorNaoConfigurado::NOME;
+        return $this->estaConfigurado() ? self::NOME : ProvedorNaoConfigurado::NOME;
     }
 
     public function estaConfigurado(): bool
     {
-        return $this->configuracaoValida;
+        // Sem chave, nem pergunta ao banco: a instalação dormente não paga consulta nenhuma.
+        return $this->baseValida && $this->configurado($this->modeloEfetivo());
+    }
+
+    /** O modelo que vai na próxima chamada: o da fonte (o banco) ou, sem ela ou se ela lançar, o do ambiente. */
+    public function modeloEfetivo(): string
+    {
+        if ($this->fonteDoModelo === null) {
+            return $this->modelo;
+        }
+
+        try {
+            return trim($this->fonteDoModelo->modelo());
+        } catch (\Throwable) {
+            // Banco fora do ar ou tabela ausente (deploy parcial): nunca derrubar a página que pergunta.
+            return $this->modelo;
+        }
+    }
+
+    private function configurado(string $modelo): bool
+    {
+        return $this->baseValida && $modelo !== '' && preg_match('/^[a-z0-9.\-]+$/', $modelo) === 1;
     }
 
     public function completar(PedidoDeLinguagem $pedido): RespostaDeLinguagem
     {
-        if (!$this->estaConfigurado()) {
+        $modelo = $this->modeloEfetivo();
+        if (!$this->configurado($modelo)) {
             throw new ProvedorIndisponivelException('Provedor de IA (Anthropic) sem chave ou modelo configurado nesta instalação.');
         }
 
-        $corpo = $this->corpo($pedido);
+        $corpo = $this->corpo($pedido, $modelo);
         $inicio = hrtime(true);
 
         try {
@@ -143,11 +170,11 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
             throw $this->falhaPorStatus($status, $dados, $requisicao, self::segundosDeEspera($cabecalhos['retry-after'][0] ?? null));
         }
 
-        return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000));
+        return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000), $modelo);
     }
 
     /** @return array<string, mixed> */
-    private function corpo(PedidoDeLinguagem $pedido): array
+    private function corpo(PedidoDeLinguagem $pedido, string $modelo): array
     {
         $mensagens = [];
         foreach ($pedido->mensagens as $mensagem) {
@@ -168,7 +195,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
         }
 
         $corpo = [
-            'model'      => $this->modelo,
+            'model'      => $modelo,
             'max_tokens' => $pedido->maxTokens + $this->margemDeRaciocinio,
             'messages'   => $mensagens,
         ];
@@ -186,7 +213,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     }
 
     /** @param array<string, mixed> $dados */
-    private function resposta(array $dados, ?string $requisicao, int $duracaoMs): RespostaDeLinguagem
+    private function resposta(array $dados, ?string $requisicao, int $duracaoMs, string $modelo): RespostaDeLinguagem
     {
         $parada = is_string($dados['stop_reason'] ?? null) ? $dados['stop_reason'] : '';
         if ($parada === 'refusal') {
@@ -211,7 +238,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
 
         return new RespostaDeLinguagem(
             texto: $texto,
-            modelo: is_string($dados['model'] ?? null) ? $dados['model'] : $this->modelo,
+            modelo: is_string($dados['model'] ?? null) ? $dados['model'] : $modelo,
             tokensEntrada: self::inteiroOuNulo($uso['input_tokens'] ?? null),
             tokensSaida: self::inteiroOuNulo($uso['output_tokens'] ?? null),
             duracaoMs: $duracaoMs,

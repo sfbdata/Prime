@@ -243,7 +243,7 @@ final class TelasERecursosTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $abas = $crawler->filter('.mp-abas > .mp-aba');
-        self::assertCount(3, $abas);
+        self::assertCount(4, $abas, 'a quarta é a "Configurações da I.A." (IaDoMasterControllerTest)');
         self::assertSame('rec', $abas->eq(2)->attr('data-aba'));
         self::assertSame('Telas e recursos', $abas->eq(2)->text());
         self::assertCount(1, $abas->eq(2)->filter('i.bi-toggles'));

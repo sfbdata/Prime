@@ -40,6 +40,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 trait CriaFixturesInteligenciaTrait
 {
     use CriaFixturesPushDaPastaTrait;
+    use ChaveGeralDaIaNoBancoTrait;
 
     private function ligarIaNoTenant(
         Tenant $tenant,
@@ -48,8 +49,25 @@ trait CriaFixturesInteligenciaTrait
         int $limiteMensal = 500,
         bool $mascarar = true,
     ): ConfiguracaoDeInteligencia {
+        $this->ligarChaveGeralDaIa($por);
         $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->liberarPeloMaster();
         $configuracao->atualizar(true, $limiteDiario, $limiteMensal, $mascarar, $por);
+        $this->em()->persist($configuracao);
+        $this->em()->flush();
+
+        return $configuracao;
+    }
+
+    /**
+     * O Master liberou e a chave geral está ligada, mas o admin do escritório NÃO ligou a IA (nem deu o aceite): o
+     * estado "desligada no escritório" depois da liberação do Master.
+     */
+    private function liberarIaSemLigarNoTenant(Tenant $tenant, User $por): ConfiguracaoDeInteligencia
+    {
+        $this->ligarChaveGeralDaIa($por);
+        $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->liberarPeloMaster();
         $this->em()->persist($configuracao);
         $this->em()->flush();
 

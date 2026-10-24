@@ -6,6 +6,7 @@ namespace App\Inteligencia\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
@@ -20,6 +21,10 @@ use Doctrine\ORM\Mapping as ORM;
  * o envio de conteúdo a um suboperador externo (decisão D3 / Anexo I da Política de Privacidade).
  * Desligar não apaga o registro — ele é histórico.
  *
+ * Liberar é do Master (spec ia-anthropic-ligar §10.1): para o escritório usar a IA, o Master liberou E o admin
+ * habilitou com o aceite. O Master também escolhe o modo de cobrança e o orçamento mensal (centavos de dólar; quem faz
+ * o orçamento valer é a disponibilidade, a partir do PR C).
+ *
  * Auditável: quem ligou/desligou e mudou cota fica no `audit_log`.
  */
 #[ORM\Entity(repositoryClass: ConfiguracaoDeInteligenciaRepository::class)]
@@ -31,6 +36,8 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
 {
     public const LIMITE_DIARIO_PADRAO = 50;
     public const LIMITE_MENSAL_PADRAO = 500;
+    /** Teto do orçamento mensal: US$ 100.000,00 em centavos. */
+    public const ORCAMENTO_MAXIMO_CENTAVOS = 10_000_000;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -55,6 +62,17 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $consentimentoPor = null;
+
+    /** O Master liberou a IA para este escritório (sem isto, o aceite do admin não basta). */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $liberadaPeloMaster = false;
+
+    #[ORM\Column(length: 20, enumType: ModoDeCobrancaDaIa::class, options: ['default' => 'incluso'])]
+    private ModoDeCobrancaDaIa $modoDeCobranca = ModoDeCobrancaDaIa::Incluso;
+
+    /** Centavos de dólar por mês; nulo = sem orçamento definido. */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $orcamentoMensalCentavos = null;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadaEm;
@@ -100,6 +118,42 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
         $this->limiteDiario = $limiteDiario;
         $this->limiteMensal = $limiteMensal;
         $this->mascararDadosPessoais = $mascararDadosPessoais;
+    }
+
+    public function liberarPeloMaster(): void
+    {
+        $this->liberadaPeloMaster = true;
+    }
+
+    /** Bloquear não mexe no aceite do escritório: ele é histórico e volta a valer se o Master liberar de novo. */
+    public function bloquearPeloMaster(): void
+    {
+        $this->liberadaPeloMaster = false;
+    }
+
+    public function definirCobranca(ModoDeCobrancaDaIa $modo, ?int $orcamentoCentavos): void
+    {
+        if ($orcamentoCentavos !== null && ($orcamentoCentavos < 0 || $orcamentoCentavos > self::ORCAMENTO_MAXIMO_CENTAVOS)) {
+            throw new \InvalidArgumentException('O orçamento mensal precisa ficar entre US$ 0,00 e US$ 100.000,00.');
+        }
+
+        $this->modoDeCobranca = $modo;
+        $this->orcamentoMensalCentavos = $orcamentoCentavos;
+    }
+
+    public function isLiberadaPeloMaster(): bool
+    {
+        return $this->liberadaPeloMaster;
+    }
+
+    public function getModoDeCobranca(): ModoDeCobrancaDaIa
+    {
+        return $this->modoDeCobranca;
+    }
+
+    public function getOrcamentoMensalCentavos(): ?int
+    {
+        return $this->orcamentoMensalCentavos;
     }
 
     public function getId(): ?int
