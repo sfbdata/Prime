@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Inteligencia\Entity\EstadoDaQuestaoJuridica;
 use App\Inteligencia\Entity\VersaoDeDocumentoJuridico;
+use App\Inteligencia\Form\ConfiguracaoDeInteligenciaType;
 use App\Inteligencia\Juridico\CatalogoDeQuestoesJuridicas;
 use App\Inteligencia\Twig\QuestoesJuridicasExtension;
 use App\Master\Controller\QuestoesJuridicasDoMasterController;
@@ -168,7 +169,7 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
     #[TestDox('upload válido: grava a versão com histórico (quem, quando, nome original, questão) e o download devolve o mesmo arquivo com o nome original')]
     public function testUploadValidoEDownload(): void
     {
-        $this->entrarComoMaster();
+        $master = $this->entrarComoMaster();
         $conteudo = "%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n";
 
         $this->enviar('/master/ia/juridico/documentos/termos_uso/versoes', $this->arquivo($conteudo, 'Termos de Uso v2.pdf'), 'segunda');
@@ -184,6 +185,9 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
         $this->arquivosGravados[] = $versao->getNomeArquivo();
         self::assertSame(['segunda', 'application/pdf', strlen($conteudo)], [$versao->getQuestao(), $versao->getMimeType(), $versao->getTamanhoBytes()]);
         self::assertSame('/master/ia/juridico/versoes/' . $versao->getId(), $d['versoes'][0]['url']);
+        $auditoria = $this->em->getConnection()->fetchFirstColumn('SELECT tenant_id FROM audit_log WHERE entity_class = ? AND actor_user_id = ?', [VersaoDeDocumentoJuridico::class, $master->getId()]);
+        self::assertNotEmpty($auditoria, 'o envio fica na auditoria');
+        self::assertSame([null], array_values(array_unique($auditoria)), 'sem escritório: é da plataforma');
 
         $this->client->request('GET', $d['versoes'][0]['url']);
         self::assertResponseIsSuccessful();
@@ -277,6 +281,8 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('- dados da pasta: número, situação, prioridade, data de abertura, ação, responsável e nomes da equipe;', $texto);
         self::assertStringContainsString('documentos (só nomes e datas)', $texto);
         self::assertStringContainsString('Processos em segredo de justiça nunca são enviados.', $texto);
+        $rotuloDoForm = static::getContainer()->get('form.factory')->create(ConfiguracaoDeInteligenciaType::class)->get('habilitada')->getConfig()->getOption('label');
+        self::assertStringStartsWith($rotuloDoForm . "\n", $texto, 'o rótulo baixado é o mesmo do form do admin');
     }
 
     #[TestDox('tela: o bloco é filho direto da aba "ia" (irmão da raiz das configurações), com as duas questões, as seções e os documentos; texto do catálogo escapado')]

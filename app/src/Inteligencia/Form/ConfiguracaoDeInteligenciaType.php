@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Inteligencia\Form;
 
 use App\Inteligencia\DTO\ConfiguracaoDeInteligenciaInput;
+use App\Inteligencia\Juridico\TextoDoAceiteDaIa;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
@@ -17,7 +18,7 @@ final class ConfiguracaoDeInteligenciaType extends AbstractType
     {
         $builder
             ->add('habilitada', CheckboxType::class, [
-                'label' => 'Ligar a BlueJus IA neste escritório',
+                'label' => TextoDoAceiteDaIa::ROTULO_DO_INTERRUPTOR,
                 'required' => false,
             ])
             ->add('limiteDiario', IntegerType::class, [

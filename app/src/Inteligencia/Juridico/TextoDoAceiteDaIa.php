@@ -12,7 +12,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * (o rótulo do interruptor e o aviso "Ao ligar, o escritório aceita enviar..."), em texto puro para o jurídico baixar.
  *
  * Gerado na hora com as MESMAS chaves do catálogo e o mesmo enum de seções que a tela usa: mudou o aceite, mudou o
- * download. O rótulo do interruptor é o do `ConfiguracaoDeInteligenciaType` (texto fixo no form).
+ * download. O rótulo do interruptor é esta constante, que o `ConfiguracaoDeInteligenciaType` também usa.
  */
 final class TextoDoAceiteDaIa
 {
