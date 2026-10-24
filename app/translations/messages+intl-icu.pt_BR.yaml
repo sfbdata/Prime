@@ -2104,7 +2104,7 @@ master:
             aviso: 'As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.'
         escritorios:
             titulo: Escritórios
-            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. Em "Incluso no plano" e "Adicional pago", a IA para quando o gasto do mês chega ao orçamento e volta no dia 1º; em "Limite grátis", o orçamento é a parte grátis e a IA continua. Sem orçamento, não há trava em dólares. Valores estimados pelo preço de tabela da Anthropic.'
+            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. Em "Incluso no plano" e "Adicional pago", a IA para quando o gasto do mês chega ao orçamento e volta no dia 1º; em "Limite grátis, depois cobra", o orçamento é a parte grátis e a IA continua. Sem orçamento, não há trava em dólares. Valores estimados pelo preço de tabela da Anthropic.'
             col_nome: Escritório
             col_liberado: Liberado
             col_aceite: Aceite do escritório
