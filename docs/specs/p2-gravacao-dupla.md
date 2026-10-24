@@ -655,10 +655,23 @@ como desligar (esvaziar a variável, recriar php, worker e scheduler e recarrega
 recebem o espelho pela interface `ProvedorDoEspelhoRemoto` (a `FabricaDoEspelhoRemoto` a implementa), para
 os testes usarem o espelho em memória.
 
+**Carga do acervo (P2.6), `armazenamento:carregar-acervo --categoria=X [--limite=N] [--simular]`.** Percorre
+as referências do banco da categoria (as mesmas fontes da reconciliação) e registra um envio na outbox para
+cada arquivo presente no disco cuja chave remota ainda não tem, como última linha, envio `verificado`,
+`pendente` ou `processando`. Idempotente: rodar de novo só conta "já na fila ou verificadas". Recusa
+categoria desligada na política. Não fala com o R2: a banda fica limitada pelo worker agendado (50 por
+minuto). Saída só de contagens (enfileiradas, já na fila, ausentes no disco, chave inválida, erro de
+leitura). Peça: `Acervo\CarregadorDoAcervo`. Como a retenção apaga `verificado` depois de 90 dias, uma carga
+repetida depois disso enfileira de novo, e o worker acha o objeto pelo HEAD sem reenviar.
+
+**Procedimento por categoria:** ligar a categoria em `ARMAZENAMENTO_ESPELHO_CATEGORIAS` (e recriar php,
+worker e scheduler), rodar `armazenamento:carregar-acervo --categoria=X` (primeiro com `--simular`) e esperar
+a fila esvaziar (`armazenamento:espelho-situacao`). Enquanto a fila anda, o arquivo ausente no R2 que tem
+linha pendente ou em processamento é `ausente_pendente_na_outbox` ("em fila") e não dispara o alerta.
+
 **Pontos de atenção para quando ligar.**
-- Antes do backfill (P2.6), todo arquivo antigo de uma categoria recém-ligada está ausente no R2: a
-  reconciliação diária falha até o backfill daquela categoria terminar (no máximo um e-mail por hora por
-  comando, pelo limite do agendador).
+- Entre ligar a categoria e rodar a carga, os arquivos antigos dela estão ausentes no R2 sem linha na
+  fila: a reconciliação diária falha se rodar nesse intervalo.
 - `falhou` não sai pela retenção nem se resolve sozinho: o alerta se repete até alguém tratar a linha.
 - `erro_de_consulta` (R2 fora do ar na consulta), `local_ausente`, `chave_invalida` e `sem_sha_no_espelho`
   não disparam o alerta neste critério.
