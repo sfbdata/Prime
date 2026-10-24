@@ -17,13 +17,12 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
- * A cadeia de varredura, a recuperação de envios parados e as purgas, contra o banco (spec comercial-e-emails.md
- * §3.1, §3.2 e §3.4): uma cadeia só (a segunda morre), o reagendamento em 15 min, o redespacho só do envio perdido,
- * e a purga de escritório apagando os envios e retendo a prova de consentimento.
+ * A varredura, a recuperação de envios parados e as purgas, contra o banco (spec comercial-e-emails.md §3.1, §3.2 e
+ * §3.4): uma volta por janela (a repetida não faz nada), sem reagendamento (quem dispara é o schedule `cadeias`), o
+ * redespacho só do envio perdido e a purga de escritório apagando os envios e retendo a prova de consentimento.
  */
 #[CoversClass(VarrerAutomacoesHandler::class)]
 #[CoversClass(RecuperacaoDeEnvios::class)]
@@ -41,19 +40,23 @@ final class VarreduraEPurgaComercialTest extends KernelTestCase
         $this->fila->reset();
     }
 
-    #[TestDox('A cadeia reivindica a vez e se reagenda em 15 min; uma segunda cadeia no mesmo intervalo morre sem se reagendar')]
-    public function testUmaCadeiaSo(): void
+    #[TestDox('A volta reivindica a vez por meio intervalo (450 s) e não se reagenda; a repetida dentro da janela não faz nada')]
+    public function testUmaVoltaPorJanela(): void
     {
         // Pela hora do PHP (a do sistema), não pelo NOW() do banco, que está em UTC.
         $this->conexao->executeStatement('UPDATE comercial_varredura SET proxima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-1 minute'))->format('Y-m-d H:i:s')]);
         $handler = static::getContainer()->get(VarrerAutomacoesHandler::class);
+        $antes = new \DateTimeImmutable();
 
         $handler(new VarrerAutomacoes());
-        $handler(new VarrerAutomacoes());
+        $proxima = new \DateTimeImmutable((string) $this->conexao->fetchOne('SELECT proxima_em FROM comercial_varredura WHERE id = 1'));
+        self::assertEqualsWithDelta($antes->getTimestamp() + VarrerAutomacoesHandler::VEZ_SEGUNDOS, $proxima->getTimestamp(), 5, 'a vez seguinte abre em meio intervalo');
 
-        $reagendadas = array_values(array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof VarrerAutomacoes));
-        self::assertCount(1, $reagendadas, 'só a primeira se reagenda');
-        self::assertSame(VarrerAutomacoesHandler::INTERVALO_SEGUNDOS * 1000, $reagendadas[0]->last(DelayStamp::class)?->getDelay());
+        $marcador = '2000-01-01 00:00:00';
+        $this->conexao->executeStatement('UPDATE comercial_varredura SET executada_em = ? WHERE id = 1', [$marcador]);
+        $handler(new VarrerAutomacoes());
+        self::assertSame($marcador, $this->conexao->fetchOne('SELECT executada_em FROM comercial_varredura WHERE id = 1'), 'a segunda, dentro da janela, não reivindica e não roda');
+        self::assertSame([], array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof VarrerAutomacoes), 'nenhuma volta se reagenda');
     }
 
     #[TestDox('Recuperação: o enviando parado volta à fila; o enfileirado perdido é redespachado; o que espera a vazão, não')]

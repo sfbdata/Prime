@@ -60,6 +60,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,
+        // "Acompanhar alterações" desligado: preferência pessoal de aviso, mesma natureza do favorito.
+        \App\Pasta\Entity\PastaAcompanhamentoDesligado::class,
         // Destaque de linha da Lista (E12): cor pessoal de quem olha, mesma natureza do favorito.
         \App\Pasta\Entity\PastaDestaque::class,
         // Estrela de arquivo/subpasta na aba Documentos (D2): mesma natureza do favorito de pasta.
@@ -318,6 +320,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // para o LOG DE DOMÍNIO da vaga (HistoricoVaga) e cada etapa guarda a própria data; é dado do
         // candidato, que some com o currículo excluído (LGPD), pelo mesmo motivo do Curriculo acima.
         \App\TrabalhoExterno\Entity\Candidatura::class,
+        // Falha de tarefa agendada (spec scheduler-tarefas-agendadas): gravada pelo agendador, sem sessão nem
+        // escritório, e o audit_log é por escritório. A própria linha guarda quem dispensou e quando.
+        \App\Shared\Scheduler\Entity\FalhaAgendada::class,
     ];
 
     private EntityManagerInterface $em;

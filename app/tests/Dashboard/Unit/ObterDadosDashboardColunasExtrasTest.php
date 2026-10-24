@@ -154,10 +154,10 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
             });
 
         // Pastas concluídas tem tendência: atual e anterior, com o cadeado repassado.
-        $arquivadas = [];
-        $this->metricas->expects(self::exactly(2))->method('contarArquivadasPorResponsavel')
-            ->willReturnCallback(function (Tenant $t, array $f) use (&$arquivadas): array {
-                $arquivadas[] = $f;
+        $finalizadas = [];
+        $this->metricas->expects(self::exactly(2))->method('contarFinalizadasPorResponsavel')
+            ->willReturnCallback(function (Tenant $t, array $f) use (&$finalizadas): array {
+                $finalizadas[] = $f;
 
                 return $f['data_de'] === '2024-01-01' ? [8 => 4] : [8 => 2];
             });
@@ -175,7 +175,7 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
         self::assertSame([$filtros, $anteriores], $eventos);
         self::assertSame(4, $x[8][Extras::PASTAS_CONCLUIDAS]);
         self::assertSame(0, $x[7][Extras::PASTAS_CONCLUIDAS]);
-        self::assertSame([$filtros, $anteriores], $arquivadas);
+        self::assertSame([$filtros, $anteriores], $finalizadas);
         self::assertSame(2, $out->porAdvogado[array_search(8, array_map(static fn ($l): int => $l->userId, $out->porAdvogado), true)]->extrasAnteriores[Extras::PASTAS_CONCLUIDAS]);
         self::assertSame(4, $out->totaisExtras[Extras::PASTAS_CONCLUIDAS]);
     }

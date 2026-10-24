@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use App\Pasta\DTO\PastaExtratoImpressaoOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -70,4 +71,40 @@ final class PastaExtratoImpressaoOutputTest extends TestCase
         $pasta->setProBono(true);
         self::assertSame('Pró-bono', PastaExtratoImpressaoOutput::montar($pasta, [])->contrato);
     }
+
+    #[TestDox('Previsto: fora do Contratado, Recebido e A receber; situação "Previsto", sem vencimento e com o % ao lado do valor')]
+    public function testPrevisto(): void
+    {
+        $exito = new PastaPagamento();
+        $exito->preverPorPercentual(TipoDePagamento::Exito, '20', '1.00');
+        $exito->setDescricao('Honorários de êxito (20%)');
+
+        $extrato = PastaExtratoImpressaoOutput::montar(new Pasta(), [
+            $this->pagamento('Entrada', '1000.00', '2026-09-01', '2026-09-02'),
+            $this->pagamento('2ª parcela', '1000.00', '2026-11-20'),
+            $exito,
+        ], new \DateTimeImmutable('2026-10-05'));
+
+        self::assertSame('R$ 2.000,00', $extrato->contratadoFormatado);
+        self::assertSame('R$ 1.000,00', $extrato->recebidoFormatado);
+        self::assertSame('R$ 1.000,00', $extrato->aReceberFormatado);
+        self::assertSame('R$ 400,00', $extrato->previstoFormatado);
+
+        $linha = $extrato->linhas[2];
+        self::assertSame('Previsto', $linha['situacao']);
+        self::assertSame('previsto', $linha['tom']);
+        self::assertSame('', $linha['vencimento']);
+        self::assertSame('R$ 400,00', $linha['valor']);
+        self::assertSame('20', $linha['percentual']);
+        self::assertSame('', $extrato->linhas[0]['percentual']);
+    }
+
+    #[TestDox('Sem previsto, o "Previsto (êxito/sucumbência)" não aparece')]
+    public function testSemPrevisto(): void
+    {
+        $extrato = PastaExtratoImpressaoOutput::montar(new Pasta(), [$this->pagamento('Entrada', '1000.00', '2026-09-01')]);
+
+        self::assertSame('', $extrato->previstoFormatado);
+    }
+
 }

@@ -196,6 +196,8 @@ final class PurgarEscritorioUseCase
         // Favoritos de pasta (por usuário): cairiam pela CASCADE de `pasta`, mas a FK de tenant é
         // NO ACTION e a deleção explícita deixa a cobertura visível aqui.
         ['pasta_favorita', 'tenant_id = :tenant'],
+        // "Acompanhar alterações" desligado (por usuário): mesmo caso do favorito.
+        ['pasta_acompanhamento_desligado', 'tenant_id = :tenant'],
         // Destaque de linha da Lista do Expediente (por usuário, E12): mesmo caso do favorito.
         ['pasta_destaque', 'tenant_id = :tenant'],
         // Destaque de comentário da pasta (spec pasta-destacar-comentario.md): FK de tenant NO ACTION; nada o referencia.
@@ -264,6 +266,8 @@ final class PurgarEscritorioUseCase
         ['central_presenca', 'tenant_id = :tenant'],
         // Regra de ausência do escritório (presença, fase 3): uma linha por escritório, FK de tenant NO ACTION.
         ['central_configuracao_presenca', 'tenant_id = :tenant'],
+        // Opção de edição sem prazo do primário (edicao-sem-prazo §3): uma linha por escritório, FK de tenant NO ACTION.
+        ['escritorio_configuracao_edicao', 'tenant_id = :tenant'],
         // Baixa de aviso na Central (F3): cai com a notificação (CASCADE), mas a FK de tenant é NO ACTION.
         ['central_aviso_resolvido', 'tenant_id = :tenant'],
         // Descadastro de e-mail do escritório (Shared, "Não quero mais receber estes avisos"): FK de tenant
@@ -362,6 +366,15 @@ final class PurgarEscritorioUseCase
                                            AND o.pasta_documento_id IS NULL
              WHERE d.tenant_id = :tenant AND d.pasta_documento_id IS NULL
              GROUP BY d.caminho_arquivo',
+        ],
+        // A foto do cliente: a linha é o próprio cliente (coluna `foto`), sem cadeia acima dele.
+        'cliente' => [
+            CategoriaDeArquivo::CLIENTE_FOTO,
+            'SELECT d.foto AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM cliente d
+             LEFT JOIN cliente o ON o.foto = d.foto AND o.tenant_id IS DISTINCT FROM d.tenant_id
+             WHERE d.tenant_id = :tenant AND d.foto IS NOT NULL
+             GROUP BY d.foto',
         ],
         'pasta_documento' => [
             CategoriaDeArquivo::PASTA_DOCUMENTO,

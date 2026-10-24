@@ -23,6 +23,8 @@
 {# Ocultar aba: ícone da regra na aba, modal "Ocultar aba" e o aviso sem aba (pasta/_abas_ocultas.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-abas-ocultas.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-presenca-autor.css') }}">
+{# A janela da meta com despacho registrado (aba Metas) usa o `.mp-modal` da devolução. #}
+<link rel="stylesheet" href="{{ asset('css/meta-passagem.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -387,8 +389,13 @@
    vencimento, juros → PRÉVIA das parcelas → "Gerar N lançamentos". A prévia é
    calculada no navegador só para mostrar; o POST leva os CAMPOS e o servidor
    refaz a conta (`RegistrarParcelamentoDaPastaUseCase`) — o que grava é a
-   conta dele. Êxito e sucumbência aparecem como no desenho, mas desabilitados:
-   gravá-los depende de migration (fatia 11b).
+   conta dele.
+
+   Êxito e sucumbência (spec pasta-exito-sucumbencia, dc L.2117-2124): o bloco de
+   valor some e entra o do desenho, só o % e a Base só leitura (o Total contratado,
+   C8). Grava uma linha prevista, sem vencimento. A descrição livre some nesses tipos.
+   `data-valor-causa` alimenta só o "% da causa" do contrato e das custas, que segue
+   sobre o valor da causa da pasta.
 
    DESVIO CONSCIENTE do desenho (decisão do orquestrador, P16a): o campo
    opcional "Descrição", abaixo dos campos do dc. O desenho não o tem, mas o
@@ -404,6 +411,7 @@
    servidor recusa (422) um `entradaPaga=1` que ainda chegue. #}
 <div class="modal fade ps-np-modal" id="modalNovoPagamento" tabindex="-1" aria-labelledby="modalNovoPagamentoLabel" aria-hidden="true"
      data-url-parcelar="{{ path('pasta_pagamento_parcelar', {id: pasta.id}) }}"
+     data-valor-causa="{{ financeiro.valorCausa ?? '' }}"
      data-max-parcelas="60">
     <div class="modal-dialog ps-np-dialogo">
         <div class="modal-content ps-np">
@@ -417,7 +425,7 @@
                     <i class="bi bi-cash-coin ps-np-cab-icone" aria-hidden="true"></i>
                     <div class="ps-np-cab-textos">
                         <div class="ps-np-titulo" id="modalNovoPagamentoLabel">{{ 'pasta_show.pagamento.titulo'|trans }}</div>
-                        <div class="ps-np-sub">{{ 'pasta_show.pagamento.valor_da_causa'|trans }} <span class="js-np-causa">{{ financeiro.valorCausaFormatado }}</span> {{ 'pasta_show.pagamento.calculo_automatico'|trans }}</div>
+                        <div class="ps-np-sub">{{ 'pasta_show.pagamento.total_contratado'|trans }} <span class="js-np-causa">{{ pagamentos.contratadoFormatado }}</span> {{ 'pasta_show.pagamento.calculo_automatico'|trans }}</div>
                     </div>
                     <button type="button" class="ps-np-fechar" data-bs-dismiss="modal" title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
                 </div>
@@ -429,9 +437,13 @@
                             <button type="button" class="ps-np-tipo is-ativo" data-tipo="contrato" aria-pressed="true"
                                     data-nota="{{ 'pasta_show.pagamento.nota_contratuais'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_contratuais'|trans }}"><i class="bi bi-file-earmark-text"></i>{{ 'pasta_show.pagamento.contratuais'|trans }}</button>
-                            <button type="button" class="ps-np-tipo" data-tipo="exito" aria-pressed="false" disabled
+                            <button type="button" class="ps-np-tipo" data-tipo="exito" aria-pressed="false"
+                                    data-nota="{{ 'pasta_show.pagamento.nota_exito'|trans }}"
+                                    data-rotulo-pct="{{ 'pasta_show.pagamento.pct_proveito'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_exito'|trans }}"><i class="bi bi-trophy"></i>{{ 'pasta_show.pagamento.exito'|trans }}</button>
-                            <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false" disabled
+                            <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false"
+                                    data-nota="{{ 'pasta_show.pagamento.nota_sucumbencia'|trans }}"
+                                    data-rotulo-pct="{{ 'pasta_show.pagamento.pct_sucumbencia'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_sucumbencia'|trans }}"><i class="bi bi-bank"></i>{{ 'pasta_show.pagamento.sucumbencia'|trans }}</button>
                             <button type="button" class="ps-np-tipo" data-tipo="custas" aria-pressed="false"
                                     data-nota="{{ 'pasta_show.pagamento.nota_custas'|trans }}"
@@ -440,7 +452,7 @@
                         <span class="ps-np-nota js-np-tipo-nota">{{ 'pasta_show.pagamento.nota_contratuais'|trans }}</span>
                     </div>
 
-                    <div class="ps-np-grade">
+                    <div class="ps-np-grade js-np-bloco-valor">
                         <div class="ps-np-campo">
                             <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.base'|trans }}</span>
                             <div class="ps-np-seg" role="group" aria-label="{{ 'pasta_show.pagamento.base'|trans }}">
@@ -481,7 +493,19 @@
                         </div>
                     </div>
 
-                    <label class="ps-np-campo ps-np-descricao">
+                    {# Êxito e sucumbência (dc L.2117-2124): só o % e a Base só leitura. #}
+                    <div class="ps-np-grade js-np-bloco-pct" hidden>
+                        <label class="ps-np-campo">
+                            <span class="ps-np-rotulo js-np-pct-rotulo">{{ 'pasta_show.pagamento.pct_proveito'|trans }}</span>
+                            <input type="text" class="ps-np-input" name="percentualPrevisto" inputmode="decimal" maxlength="8" value="20" autocomplete="off">
+                        </label>
+                        <div class="ps-np-campo">
+                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.base_previsto'|trans }}</span>
+                            <div class="ps-np-base ps-num js-np-base">{{ pagamentos.contratadoFormatado }}</div>
+                        </div>
+                    </div>
+
+                    <label class="ps-np-campo ps-np-descricao js-np-campo-descricao">
                         <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.descricao'|trans }} <span class="ps-np-opcional">{{ 'pasta_show.pagamento.opcional_parenteses'|trans }}</span></span>
                         <input type="text" class="ps-np-input" name="descricao" maxlength="110" autocomplete="off"
                                placeholder="{{ 'pasta_show.pagamento.descricao_exemplo'|trans }}">
@@ -2693,15 +2717,22 @@ document.addEventListener('DOMContentLoaded', function () {
         if (responder) { responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta'); }
 
         const resto = minutosRestantesReg(cartao);
-        const pode  = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0;
+        const temBotao = !!cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta');
+        const pelaRegra = temBotao && cartao.dataset.doAutor === '1' && resto > 0;
+        // Edição sem prazo (spec edicao-sem-prazo §5): Master e primário (com a opção) seguem sem prazo, com o selo.
+        const seloSemPrazo = temBotao && !pelaRegra ? (cartao.dataset.semPrazoRotulo || '') : '';
         const motivo = cartao.dataset.doAutor === '1' ? BJ_T.t('pasta_show.js.registro.motivo_prazo') : BJ_T.t('pasta_show.js.registro.motivo_autor');
         const editar  = menuReg.querySelector('.js-reg-editar');
         const excluir = menuReg.querySelector('.js-reg-excluir');
+        if (window.SeloSemPrazo) { window.SeloSemPrazo.pintar(editar, seloSemPrazo); window.SeloSemPrazo.pintar(excluir, seloSemPrazo); }
         if (!editar || !excluir) {
             // lápide: sem itens de escrita para pintar
-        } else if (pode) {
+        } else if (pelaRegra) {
             pintarItemReg(editar, true, BJ_T.t('pasta_show.js.registro.menu_editar', {min: resto}), 'bi-pencil', '');
             pintarItemReg(excluir, true, BJ_T.t('pasta_show.js.registro.menu_excluir', {min: resto}), 'bi-trash3', '');
+        } else if (seloSemPrazo) {
+            pintarItemReg(editar, true, BJ_T.t('pasta_show.js.registro.menu_editar_sem_prazo'), 'bi-pencil', '');
+            pintarItemReg(excluir, true, BJ_T.t('pasta_show.js.registro.menu_excluir_sem_prazo'), 'bi-trash3', '');
         } else {
             pintarItemReg(editar, false, BJ_T.t('pasta_show.js.registro.menu_editar_bloqueado'), 'bi-lock', motivo);
             pintarItemReg(excluir, false, BJ_T.t('pasta_show.js.registro.menu_excluir_bloqueado'), 'bi-lock', motivo);
@@ -3141,7 +3172,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cartao = `
         <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}"
                  data-janela-ate="${Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60}"
-                 data-do-autor="1" data-autor-id="{{ app.user ? app.user.id : '' }}">
+                 data-do-autor="1" data-autor-id="{{ app.user ? app.user.id : '' }}"{% if sem_prazo_selo(false) %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ sem_prazo_selo(false))|trans|e('html_attr') }}"{% endif %}>
             ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -3798,10 +3829,12 @@ document.addEventListener('DOMContentLoaded', function () {
    Moldura do desenho 1.2.3 (dc 560-592; auditoria 2 C2): cabeçalho em gradiente com
    o círculo da pasta, título "Pasta nnnn" e o cliente como subtítulo; rótulos em
    caixa alta; rodapé Fechar · Salvar. SÓ a moldura: os campos e o POST para
-   `pasta_edit` são os de sempre (ids, names, CSRF). O que o desenho põe e aqui
-   não entra, por ser decisão do dono ou função nova (D-META): "Ação" só leitura,
-   Tipo de documento/CPF. Responsável com "Trocar" (PAS-021), a pílula de estado,
-   o Salvar travado e "Pendências" (PAS-020): abaixo.
+   `pasta_edit` são os de sempre (ids, names, CSRF). Responsável com "Trocar" (PAS-021),
+   a pílula de estado, o Salvar travado e "Pendências" (PAS-020): abaixo. A Ação e o
+   CPF/CNPJ (decisão do dono, 23/10/2026; PZ-MOD-N05 e PZ-MOD-16) são SÓ LEITURA: a Ação
+   vem do menu Processo (edição no ⋮ da aba Processo, `pasta_acao_salvar`) e o documento
+   é do Cliente (muda no cadastro dele). O "Tipo de documento" do desenho não entra:
+   ele só existe para digitar o documento, e aqui o rótulo (CPF ou CNPJ) já diz o tipo.
 
    Abas de atalho e "Cadastro do cliente" (lote L2; dc L.570-572, 587, 4299-4301):
    são ATALHOS, não abas do form — ficam FORA do <form>, sem `name`, e nenhum campo
@@ -3840,13 +3873,22 @@ document.addEventListener('DOMContentLoaded', function () {
     .ps-pe-pendencias-linha { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ps-warn-text); }
     .ps-pe-pendencias-linha i { font-size: 12px; color: var(--ps-danger-dot); }
     #modalEditarPasta .ps-modal-pasta-btn--salvar:disabled { opacity: 1; background: var(--ps-border-ctl); color: #fff; cursor: not-allowed; }
+    /* PZ-MOD-N05/16: a mesma linha só leitura serve à Ação ("Abrir", dc L.659) e ao CPF/CNPJ; o atalho do
+       documento é um link (vai ao cadastro do cliente), com a mesma medida do botão. Vazio em cinza. */
+    a.ps-pe-resp-trocar { display: inline-flex; align-items: center; text-decoration: none; }
+    .ps-pe-resp-nome.is-vazio { color: var(--ps-muted); }
+    .ps-pe-resp-nome--num { font-variant-numeric: tabular-nums; }
 </style>
 {% set editCliente = pasta.clientePrincipal %}
 {% set editDocumento = editCliente ? (editCliente.cpf is defined ? editCliente.cpf : (editCliente.cnpj is defined ? editCliente.cnpj : null)) : null %}
 {% set editNomeSub = editCliente ? editCliente.nomeExibicao : pasta.nomeCliente %}
-<div class="modal fade" id="modalEditarPasta" tabindex="-1" aria-labelledby="modalEditarPastaLabel" aria-hidden="true">
-    <div class="modal-dialog ps-modal-pasta">
-        <div class="modal-content">
+{# Janela do desenho 02 (VS 18.10.26, L.634-668), não o modal do Bootstrap: sobreposição própria (L.635,
+   `pe.fundo` no mousedown do fundo), caixa de 720px com role=dialog (L.636, `pe.tecla`: Esc fecha) e, dentro
+   dela, cabeçalho, atalhos, corpo e rodapé de sempre. Abre pelos `[data-pe-abrir]` (item "Editar dados" do ⋮,
+   atalho E); fecha no X, no Fechar, no clique no fundo e no Esc. Mesmo padrão da janela "Vincular processo"
+   (`vp-sobre`). Os campos, os names, o CSRF e o POST para `pasta_edit` não mudam. #}
+<div class="ps-pe-sobre" id="modalEditarPasta" hidden>
+        <div class="ps-modal-pasta" role="dialog" aria-modal="true" aria-labelledby="modalEditarPastaLabel">
             <div class="ps-modal-pasta-cab">
                 <span class="ps-modal-pasta-cab-icone" aria-hidden="true"><i class="bi bi-folder2-open"></i></span>
                 <div class="ps-modal-pasta-cab-corpo">
@@ -3865,7 +3907,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <span class="ps-pe-estado" data-pe-estado><span class="ps-pe-estado-ponto" aria-hidden="true"></span><span data-pe-estado-txt>{{ 'pasta_show.editar.dados_da_pasta'|trans }}</span></span>
                     </div>
                 </div>
-                <button type="button" class="ps-modal-pasta-fechar" data-bs-dismiss="modal" title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="ps-modal-pasta-fechar" data-pe-fechar title="{{ 'pasta_show.fechar'|trans }}" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             <nav class="ps-modal-pasta-abas" aria-label="{{ 'pasta_show.editar.atalhos'|trans }}">
                 <button type="button" class="ps-modal-pasta-aba is-ativa" aria-current="true"><i class="bi bi-folder2" aria-hidden="true"></i>{{ 'pasta_show.editar.dados_da_pasta'|trans }}</button>
@@ -3915,7 +3957,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="d-flex flex-wrap gap-1 mt-1">
                                     {% for cliente in pasta.clientes %}
                                         <span class="badge text-bg-secondary fw-normal">
-                                            <i class="bi bi-person me-1"></i>{{ cliente.cpf is defined and cliente.cpf ? cliente.nomeCompleto : cliente.razaoSocial }}
+                                            <i class="bi bi-person me-1"></i>{{ cliente.nomeExibicao }}
                                         </span>
                                     {% endfor %}
                                 </div>
@@ -3924,8 +3966,26 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
-                    {# "Ação" continua EDITÁVEL: o desenho a põe só leitura ("vem do menu
-                       Processo"), mas isso é decisão do dono (D-META). #}
+                    {# PZ-MOD-16 (dc L.652-653; máscara de `peVals`, L.4455): o CPF/CNPJ é do CLIENTE principal,
+                       não da pasta, e aqui só se LÊ, formatado (000.000.000-00 ou 00.000.000/0000-00, pela
+                       contagem de dígitos do `documento_br`). "Cadastro" abre a janela de Cadastro do
+                       cliente (`data-pe-ir="cliente"`, como `cadAbrir` no desenho, dc:4482-4483), com a pergunta
+                       das alterações não salvas. Sem cliente cadastrado ou sem documento: o
+                       vazio neutro e nenhum atalho. Sem `name`: nada daqui vai no POST. #}
+                    <div class="ps-modal-pasta-linha">
+                        <div class="ps-modal-pasta-campo ps-modal-pasta-campo--2" data-pe-documento>
+                            <span class="ps-modal-pasta-rotulo" id="editDocRotulo">{{ editDocumento ? editDocumento|documento_br_rotulo : 'pasta_show.editar.cpf_cnpj'|trans }}</span>
+                            <div class="ps-pe-resp" role="group" aria-labelledby="editDocRotulo">
+                                {% if editDocumento %}
+                                    <span class="ps-pe-resp-nome ps-pe-resp-nome--num" data-pe-doc>{{ editDocumento|documento_br }}</span>
+                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="cliente" title="{{ 'pasta_show.editar.documento_dica'|trans }}">{{ 'pasta_show.editar.documento_cadastro'|trans }}</button>
+                                {% else %}
+                                    <span class="ps-pe-resp-nome is-vazio" data-pe-doc>{{ editCliente ? 'pasta_show.editar.sem_documento'|trans : 'pasta_show.editar.sem_cliente_cadastrado'|trans }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="ps-modal-pasta-linha ps-modal-pasta-linha--larga">
                         {# PAS-021 (dc L.581, `pe.trocarResp`): Responsável só leitura com "Trocar", que
                            fecha a janela e abre o menu de responsável do cabeçalho (o mesmo do ⋮
@@ -3942,11 +4002,23 @@ document.addEventListener('DOMContentLoaded', function () {
                             </div>
                         </div>
 
-                        <div class="ps-modal-pasta-campo">
-                            <label for="edit_nome_acao" class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.acao'|trans }}</label>
-                            <input type="text" id="edit_nome_acao" name="nome_acao"
-                                   class="form-control"
-                                   value="{{ pasta.nomeAcao }}" autocomplete="off">
+                        {# PZ-MOD-N05 (dc L.659, `pe.irProcesso`): a Ação é SÓ LEITURA, "vem do menu Processo". "Abrir"
+                           fecha a janela, vai à aba Processo e, se a edição da Ação existe (EDIT na pasta), abre-a
+                           (`.js-proc-editar-acao`, pasta-processo.js). Sem `name`: o `pasta_edit` não grava mais a
+                           Ação (o controller também ignora `nome_acao`). Vazia: o texto do desenho sem processo
+                           ("Sem processo vinculado") ou, com processo, "Sem ação informada". #}
+                        <div class="ps-modal-pasta-campo" data-pe-acao>
+                            <span class="ps-modal-pasta-rotulo" id="editAcaoRotulo">{{ 'pasta_show.editar.acao_do_processo'|trans }}</span>
+                            <div class="ps-pe-resp" role="group" aria-labelledby="editAcaoRotulo">
+                                {% if pasta.nomeAcao %}
+                                    <span class="ps-pe-resp-nome" title="{{ pasta.nomeAcao }}">{{ pasta.nomeAcao }}</span>
+                                {% else %}
+                                    <span class="ps-pe-resp-nome is-vazio">{{ pasta.pastaProcessos|length > 0 ? 'pasta_show.editar.sem_acao'|trans : 'pasta_show.editar.sem_processo'|trans }}</span>
+                                {% endif %}
+                                {% if 'processo' not in abasOcultas %}
+                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="acao" title="{{ 'pasta_show.editar.acao_abrir_dica'|trans }}">{{ 'pasta_show.editar.abrir'|trans }}</button>
+                                {% endif %}
+                            </div>
                         </div>
 
                         <div class="ps-modal-pasta-campo">
@@ -3969,7 +4041,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 </div>
                 <div class="ps-modal-pasta-rodape">
-                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-bs-dismiss="modal">{{ 'pasta_show.fechar'|trans }}</button>
+                    <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--fechar" data-pe-fechar>{{ 'pasta_show.fechar'|trans }}</button>
                     <button type="button" class="ps-modal-pasta-btn ps-modal-pasta-btn--cadastro js-pe-ir" data-pe-ir="cliente"><i class="bi bi-person-vcard" aria-hidden="true"></i>{{ 'pasta_show.editar.cadastro_cliente_botao'|trans }}</button>
                     <button type="submit" class="ps-modal-pasta-btn ps-modal-pasta-btn--salvar">
                         <i class="bi bi-check2"></i>{{ 'pasta_show.salvar'|trans }}
@@ -3977,23 +4049,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             </form>
         </div>
-    </div>
 </div>
 
 <script>
-/* Atalhos do "Editar dados" (lote L2): fecham o modal e SÓ DEPOIS de fechado abrem o
-   destino — abrir a janela ou o drawer com o modal ainda na tela deixaria o foco
-   preso no modal (focus trap do Bootstrap) e o fundo escuro por cima. Os destinos
-   são os gatilhos que a tela já tem: o botão Cadastro do cabeçalho (#psCadastroAbrir,
-   pasta-clientes.js), a aba #processo-tab e o #psHistoricoAbrir (pasta-show.js).
+/* Janela "Editar dados" do desenho 02 (VS 18.10.26, L.634-668 e `peVals` L.4449-4485), sem o modal do
+   Bootstrap. Abrir (`peAbrir`, L.4451): mostra a sobreposição e põe o foco no número com o texto
+   selecionado (`pe.foco`). Fechar (`pe.fechar`): X, Fechar, mousedown no fundo (`pe.fundo`) e Esc
+   (`pe.tecla`); o foco volta para quem abriu (ou para o ⋮, se o item do menu já sumiu). Fechar não
+   descarta o que foi digitado: reabrir continua "Alterações não salvas", como antes.
 
-   E7: roda no DOMContentLoaded. Este script fica no corpo da página e o Bootstrap só carrega no
-   fim do base.html.twig: rodando na hora, o `typeof bootstrap === 'undefined'` saía cedo e o
-   bloco inteiro ficava morto — sem pergunta ao trocar o número (o POST saía direto), sem o
-   estado do Salvar e sem o "Descartar as alterações?". Medido no navegador (master e frente). */
+   Atalhos (lote L2): fecham a janela e então abrem o destino, os gatilhos que a tela já tem: o botão
+   Cadastro do cabeçalho (#psCadastroAbrir, pasta-clientes.js), a aba #processo-tab e o
+   #psHistoricoAbrir (pasta-show.js).
+
+   E7: roda no DOMContentLoaded, para achar o pasta-dialogos.js (janela azul do número, "Descartar
+   as alterações?") já carregado no fim do base.html.twig. */
 document.addEventListener('DOMContentLoaded', function () {
     var modal = document.getElementById('modalEditarPasta');
-    if (!modal || typeof bootstrap === 'undefined') { return; }
+    if (!modal) { return; }
     var form = modal.querySelector('form');
 
     function serializar() {
@@ -4032,7 +4105,6 @@ document.addEventListener('DOMContentLoaded', function () {
         form.addEventListener('input', conferir);
         form.addEventListener('change', conferir);
     }
-    modal.addEventListener('show.bs.modal', conferir);
     conferir();
 
     /* PAS-019 (dc L.4287/4416): trocar o NÚMERO pede confirmação antes de gravar, com o texto do
@@ -4076,6 +4148,24 @@ document.addEventListener('DOMContentLoaded', function () {
             var aba = document.getElementById('processo-tab');
             if (aba) { aba.click(); aba.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
         },
+        /* PZ-MOD-N05 (`pe.irProcesso`, dc L.4484): "Abrir" da Ação vai à aba Processo e abre a edição da
+           Ação pelo item do ⋮ (pasta-processo.js), quando ele existe (EDIT na pasta). Com a aba fechada,
+           espera o `shown.bs.tab`, para o foco cair no campo já visível. */
+        acao: function () {
+            var aba = document.getElementById('processo-tab');
+            var editar = document.querySelector('.js-proc-editar-acao[data-edicao]');
+            if (!aba) { return; }
+            function abrirEdicaoDaAcao() {
+                if (editar) { editar.click(); }
+            }
+            if (aba.classList.contains('active')) {
+                destinos.processo();
+                abrirEdicaoDaAcao();
+                return;
+            }
+            aba.addEventListener('shown.bs.tab', abrirEdicaoDaAcao, { once: true });
+            destinos.processo();
+        },
         historico: function () {
             var abrir = document.getElementById('psHistoricoAbrir');
             if (abrir && abrir.getAttribute('aria-expanded') !== 'true') { abrir.click(); }
@@ -4087,11 +4177,54 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    modal.addEventListener('show.bs.modal', function () {
+    /* ── Abrir e fechar (desenho: `peAbrir`, `pe.fechar`, `pe.fundo`, `pe.tecla`, `pe.foco`) ── */
+    var peGatilho = null;
+
+    function peAbrir(gatilho) {
+        peGatilho = gatilho || null;
+        // O nome do responsável é relido do chip do cabeçalho: a troca pode ter vindo depois da carga.
         var nome = modal.querySelector('[data-pe-resp-nome]');
         var doChip = document.querySelector('.ps-cab-resp .pasta-resp-chip .pasta-resp-nome');
         if (nome && doChip) { nome.textContent = doChip.textContent.trim(); }
+        modal.hidden = false;
+        conferir();
+        if (nup) { nup.focus(); nup.select(); }
+    }
+
+    /* `devolver` falso: quem chamou leva o foco para outro lugar (atalhos). */
+    function peFechar(devolver) {
+        if (modal.hidden) { return; }
+        modal.hidden = true;
+        modal.dispatchEvent(new CustomEvent('pe:fechada'));
+        var destino = devolver === false ? null : peDestinoDoFoco(peGatilho);
+        if (destino) { destino.focus(); }
+        peGatilho = null;
+    }
+
+    /* O foco volta ao botão que abriu; se ele sumiu (item do ⋮, fechado junto), ao botão que abre o menu. */
+    function peDestinoDoFoco(gatilho) {
+        if (!gatilho || !document.contains(gatilho)) { return null; }
+        if (gatilho.getClientRects().length) { return gatilho; }
+        var menu = gatilho.closest('.ps-pop[id], [role="menu"][id]');
+        var abre = menu ? document.querySelector('[data-ps-pop="' + CSS.escape(menu.id) + '"], [aria-controls="' + CSS.escape(menu.id) + '"]') : null;
+
+        return abre && abre.getClientRects().length ? abre : null;
+    }
+
+    document.addEventListener('click', function (e) {
+        var gatilho = e.target.closest('[data-pe-abrir]');
+        if (gatilho) { e.preventDefault(); peAbrir(gatilho); }
     });
+    modal.addEventListener('mousedown', function (e) {
+        if (e.target === modal) { peFechar(); }
+    });
+    modal.addEventListener('click', function (e) {
+        if (e.target.closest('[data-pe-fechar]')) { peFechar(); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.hidden) { peFechar(); }
+    });
+    window.psEditarDados = { abrir: peAbrir, fechar: peFechar };
 
     modal.addEventListener('click', function (e) {
         var gatilho = e.target.closest('.js-pe-ir');
@@ -4100,11 +4233,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!destino) { return; }
 
         function seguir() {
-            modal.addEventListener('hidden.bs.modal', function aoFechar() {
-                modal.removeEventListener('hidden.bs.modal', aoFechar);
-                destino();
-            });
-            bootstrap.Modal.getOrCreateInstance(modal).hide();
+            peFechar(false);
+            destino();
         }
 
         if (serializar() === foto) { seguir(); return; }
@@ -4225,10 +4355,11 @@ document.addEventListener('DOMContentLoaded', function () {
    com a alça de arrastar, o ícone, "Nova meta", a pasta, Recolher e Fechar; rodapé cinza com
    Cancelar e "Criar meta"; o botão fica desabilitado com "Preencha: …" enquanto falta campo
    obrigatório. Os campos, os ids e os nomes são contrato (pasta-metas.js, pasta-push.js,
-   pasta-ia-*.js e os testes) e não mudam; o que depende de decisão (prazo e responsáveis
-   obrigatórios, "Ação" só leitura, Duplicar meta: D-META) fica como está — por isso o
-   "Preencha" só cobra título e descrição, que é a regra atual do servidor. Arrastar e
-   recolher: /js/pasta-metas.js (molduraDoModalDeMeta). #}
+   pasta-ia-*.js e os testes) e não mudam. D-META (D:83-203, D:4044-4075): título, descrição,
+   prazo e responsáveis são obrigatórios (o "*" de cada rótulo), o "Preencha" cobra os quatro na
+   ordem do desenho e o servidor responde 422 quando falta algum. Aberto pelo botão "Nova meta",
+   o prazo já vem em hoje + 7 dias (D:4045). Arrastar e recolher: /js/pasta-metas.js
+   (molduraDoModalDeMeta). #}
 {% import '_partials/_avatar_usuario.html.twig' as nmAvatar %}
 {# PMC-059: o CORPO do desenho (dc L.77-188, `nm.corpoSt` e os rótulos `font-size:13px;
    font-weight:700;color:#243845`). O CSS mora aqui, junto do modal, para não tocar o
@@ -4249,6 +4380,22 @@ document.addEventListener('DOMContentLoaded', function () {
     #modalCriarTarefa .ps-nm-campo:focus { outline: none; box-shadow: inset 0 0 0 2px var(--ps-accent); }
     #modalCriarTarefa .ps-nm-campo--texto { height: auto; min-height: 84px; padding: 10px 12px; line-height: 1.5; resize: vertical; }
     #modalCriarTarefa .ps-nm-dica { font-size: 12px; color: var(--ps-label); }
+    {# Caixa / etapa (desenho 02 L179): grade de 130px, botão 6px 9px com borda de 1px e cantos de 3px, sem hover.
+       Normal, sugerido (nada escolhido e é a sugestão) e escolhido (`aria-pressed`). Tokens em pasta-show.css. #}
+    #modalCriarTarefa .ps-nm-etapa-rotulo { align-items: center; gap: 8px; flex-wrap: wrap; }
+    #modalCriarTarefa .ps-nm-etapa-sug { font-size: 11.5px; font-weight: 400; color: var(--ps-nm-etapa-dica); }
+    #modalCriarTarefa .ps-nm-etapa-sug[hidden] { display: none; }
+    #modalCriarTarefa .ps-nm-etapa-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; }
+    #modalCriarTarefa .ps-nm-etapa-op {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 9px;
+        border: 1px solid var(--ps-nm-etapa-borda); border-radius: 3px; background: var(--ps-card); color: var(--ps-body);
+        font-family: inherit; text-align: left; cursor: pointer;
+    }
+    #modalCriarTarefa .ps-nm-etapa-nome { font-size: 12.5px; }
+    #modalCriarTarefa .ps-nm-etapa-setor { font-size: 11px; color: var(--ps-muted); }
+    #modalCriarTarefa .ps-nm-etapa-op.is-sugerida { border-color: var(--ps-nm-etapa-sug-borda); background: var(--ps-nm-etapa-sug-bg); }
+    #modalCriarTarefa .ps-nm-etapa-op[aria-pressed="true"] { border-color: var(--ps-nm-etapa-on); background: var(--ps-nm-etapa-on); color: var(--ps-nm-etapa-on-tx); }
+    #modalCriarTarefa .ps-nm-etapa-op[aria-pressed="true"] .ps-nm-etapa-setor { color: var(--ps-nm-etapa-on-setor); }
     #modalCriarTarefa .ps-nm-resp-campo {
         display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 40px;
         padding: 5px 10px 5px 6px; border-radius: 4px; background: var(--ps-card); cursor: pointer;
@@ -4416,12 +4563,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
 
                     {# Atalhos de prazo e o texto do dia (desenho 1.2.3): só PREENCHEM o
-                       campo — o prazo continua opcional (tornar obrigatório é decisão
-                       pendente com o dono). O aviso de título repetido compara com as
-                       metas abertas da própria pasta, já renderizadas na aba; não
-                       bloqueia o envio. Comportamento em /js/pasta-metas.js. #}
+                       campo. O prazo é obrigatório (D-META, D:4044 `inval`). O aviso de
+                       título repetido compara com as metas abertas da própria pasta, já
+                       renderizadas na aba; não bloqueia o envio. Comportamento em
+                       /js/pasta-metas.js. #}
                     <div class="ps-nm-campo-bloco ps-nm-prazo">
-                        <label for="tarefaPrazo" class="ps-nm-rotulo">{{ 'pasta_show.meta.prazo'|trans }}</label>
+                        <label for="tarefaPrazo" class="ps-nm-rotulo">{{ 'pasta_show.meta.prazo'|trans }} <span class="ps-nm-obrig">*</span></label>
                         {# PMC-040 (dc L.81-112, `nm.cal`): o campo do desenho é um botão "dd/mm/aaaa" com o
                            calendário próprio (mês, dias, Hoje, Limpar e a legenda). O <input type="date">
                            continua sendo o campo ENVIADO (id, name e valor ISO são contrato com o servidor,
@@ -4466,6 +4613,24 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
 
+                    {# Desenho 02 de 22/10 (L179; L4048-4049 `inval`/`NMF`/`nmSug`; L4068 `fases`): a caixa / etapa
+                       da meta, obrigatória. As 8 etapas na ordem da esteira, com o nome que o escritório deu
+                       (NomesDasEtapas) e o setor do catálogo. O modal abre sem etapa; a sugestão pelo título (a
+                       regra do enum, no `data-regra`, para o JS não ter outra lista) só pinta o botão e mostra a
+                       dica, sem marcar nada. O clique grava o valor no `name="etapa"` enviado; troca-se de etapa,
+                       mas não se desmarca. Comportamento em /js/pasta-metas.js (`campoDaEtapa`). #}
+                    <div class="ps-nm-campo-bloco ps-nm-etapa" data-ps-nm-etapa
+                         data-regra="{{ regra_da_etapa_pelo_titulo()|json_encode|e('html_attr') }}">
+                        <span class="ps-nm-rotulo ps-nm-etapa-rotulo" id="tarefaEtapaRotulo">{{ 'pasta_show.meta.etapa'|trans }} <span class="ps-nm-obrig">*</span><span class="ps-nm-etapa-sug" data-ps-nm-etapa-sug hidden><i class="bi bi-stars" aria-hidden="true"></i> <span data-ps-nm-etapa-sug-tx></span></span></span>
+                        <div class="ps-nm-etapa-grade" role="group" aria-labelledby="tarefaEtapaRotulo">
+                            {% for etapa in etapas_da_nova_meta(pasta.tenant) %}
+                                <button type="button" class="ps-nm-etapa-op" aria-pressed="false"
+                                        data-ps-nm-etapa-op="{{ etapa.valor }}" data-nome="{{ etapa.nome }}"><b class="ps-nm-etapa-nome">{{ etapa.nome }}</b><span class="ps-nm-etapa-setor">{{ etapa.setor }}</span></button>
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" id="tarefaEtapa" name="etapa" value="">
+                    </div>
+
                     {# PMC-041 (dc L.168-186, `nm.escolhidos`/`nm.opcoes`): chips com iniciais sobre o
                        campo e a lista filtrável com "Concluir". O <select multiple> continua sendo a
                        FONTE (name, id e valores são contrato com o servidor e os testes): os chips e a
@@ -4473,10 +4638,10 @@ document.addEventListener('DOMContentLoaded', function () {
                        é desenhada aqui (nomes escapados pelo Twig); o JS só alterna classes e
                        atributos e copia o avatar da opção para o chip. A função do colaborador,
                        que o desenho mostra à direita do nome, não existe no cadastro: não entra.
-                       Responsáveis seguem opcionais (o "*" do desenho é D-META). Comportamento em
-                       /js/pasta-dialogos.js (`seletorDeResponsaveis`). #}
+                       Ao menos um responsável é obrigatório (o "*" do desenho, D-META). Comportamento
+                       em /js/pasta-dialogos.js (`seletorDeResponsaveis`). #}
                     <div class="ps-nm-campo-bloco ps-nm-resp" data-ps-nm-resp>
-                        <span class="ps-nm-rotulo" id="tarefaResponsavelRotulo">{{ 'pasta_show.meta.responsaveis'|trans }}</span>
+                        <span class="ps-nm-rotulo" id="tarefaResponsavelRotulo">{{ 'pasta_show.meta.responsaveis'|trans }} <span class="ps-nm-obrig">*</span></span>
                         <div class="ps-nm-resp-campo" role="button" tabindex="0"
                              aria-labelledby="tarefaResponsavelRotulo" aria-haspopup="listbox"
                              aria-expanded="false" aria-controls="tarefaResponsavelLista" data-ps-nm-resp-campo>
@@ -4673,4 +4838,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-encaminhar.js') }}"></script>
 {# "Destacar comentário": a raiz #psDestaques fica no fim do bloco body. #}
 <script src="{{ asset('js/pasta-destaque.js') }}"></script>
+{# Selo "EXCLUSIVO DO MASTER / DO PRIMÁRIO" nos menus pintados pelo JS (spec edicao-sem-prazo §5). #}
+<script src="{{ asset('js/selo-sem-prazo.js') }}"></script>
+<script src="{{ asset('js/meta-excluir-despacho.js') }}"></script>
 {% endblock %}

@@ -66,16 +66,21 @@ class Pasta implements Auditavel, TenantAware
     private string $situacao = self::SITUACAO_ATIVA;
 
     /**
-     * Quando a pasta entrou em Arquivado pela última vez ("Pastas concluídas" do Dashboard, spec
-     * dashboard-parte-1). Nula em qualquer outra situação: desarquivar apaga a data, e arquivar de
-     * novo grava a nova. Quem mantém é o setSituacao(); a lápide (marcarExcluida) não mexe, e a
-     * pasta excluída fica fora da contagem pelo excluida_em.
+     * Quando a pasta chegou à etapa Finalizada do andamento ("Pastas concluídas" do Dashboard, spec
+     * dashboard-parte-1). Nula fora de Finalizada: voltar de fase ou reativar apaga, finalizar de novo
+     * grava a nova data. Quem mantém é o {@see PastaAndamento::gravar()} da via atual (e a troca de via);
+     * a pasta arquivada sem andamento gravado guarda a data do arquivamento. A situação e a lápide não
+     * mexem nela: a pasta excluída fica fora da contagem pelo excluida_em.
      */
-    #[ORM\Column(name: 'arquivada_em', type: 'datetime_immutable', nullable: true)]
-    private ?\DateTimeImmutable $arquivadaEm = null;
+    #[ORM\Column(name: 'finalizada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $finalizadaEm = null;
 
     #[ORM\Column(enumType: PrioridadePasta::class, options: ['default' => 'normal'])]
     private PrioridadePasta $prioridade = PrioridadePasta::Normal;
+
+    /** Área do direito em que a pasta é tocada ("Mover para outra carteira" do ⋮). NULL = "Sem carteira". */
+    #[ORM\Column(name: 'carteira', length: 30, nullable: true, enumType: CarteiraDaPasta::class)]
+    private ?CarteiraDaPasta $carteira = null;
 
     #[Assert\NotNull]
     #[ORM\Column(type: 'datetime_immutable')]
@@ -285,26 +290,27 @@ $this->documentos = new ArrayCollection();
         return self::ROTULOS_SITUACAO[$this->situacao] ?? 'Ativo';
     }
 
-    /**
-     * Entrar em Arquivado grava a data ($em, ou agora); continuar arquivada não mexe nela (o "Editar
-     * dados" regrava a mesma situação a cada salvamento, e a arquivada antiga sem data não ganha a
-     * data da edição); sair de Arquivado apaga.
-     */
-    public function setSituacao(string $situacao, ?\DateTimeImmutable $em = null): self
+    public function setSituacao(string $situacao): self
     {
-        if ($situacao !== self::SITUACAO_ARQUIVADA) {
-            $this->arquivadaEm = null;
-        } elseif ($this->situacao !== self::SITUACAO_ARQUIVADA) {
-            $this->arquivadaEm = $em ?? new \DateTimeImmutable();
-        }
         $this->situacao = $situacao;
 
         return $this;
     }
 
-    public function getArquivadaEm(): ?\DateTimeImmutable
+    public function getFinalizadaEm(): ?\DateTimeImmutable
     {
-        return $this->arquivadaEm;
+        return $this->finalizadaEm;
+    }
+
+    /** A mesma data (até o segundo, como a coluna guarda) não troca o objeto: nada de UPDATE nem auditoria à toa. */
+    public function setFinalizadaEm(?\DateTimeImmutable $finalizadaEm): self
+    {
+        if ($finalizadaEm?->format('Y-m-d H:i:s') === $this->finalizadaEm?->format('Y-m-d H:i:s')) {
+            return $this;
+        }
+        $this->finalizadaEm = $finalizadaEm;
+
+        return $this;
     }
 
     public function getPrioridade(): PrioridadePasta
@@ -317,6 +323,22 @@ $this->documentos = new ArrayCollection();
         $this->prioridade = $prioridade;
 
         return $this;
+    }
+
+    public function getCarteira(): ?CarteiraDaPasta
+    {
+        return $this->carteira;
+    }
+
+    /** Põe a pasta na carteira escolhida. Devolve se mudou (mover para a mesma carteira não muda nada). */
+    public function moverParaCarteira(CarteiraDaPasta $carteira): bool
+    {
+        if ($this->carteira === $carteira) {
+            return false;
+        }
+        $this->carteira = $carteira;
+
+        return true;
     }
 
     public function getPrioridadeBadgeClass(): string
@@ -430,7 +452,7 @@ $this->documentos = new ArrayCollection();
 
         $this->excluidaEm  = null;
         $this->excluidaPor = null;
-        $this->setSituacao(self::SITUACAO_ATIVA);
+        $this->situacao    = self::SITUACAO_ATIVA;
 
         return $this;
     }

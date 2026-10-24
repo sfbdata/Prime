@@ -89,6 +89,20 @@ moldura:
         recomendacao: Recomendamos aumentar o espaço para não interromper o envio de documentos.
         aumentar: Aumentar espaço
         lembrar_amanha: Lembrar amanhã
+    # Aviso de falha das tarefas agendadas (layout/_globais/aviso_falha_agendada, spec scheduler-tarefas-agendadas)
+    aviso_falha_agendada:
+        titulo: Tarefa agendada falhou
+        item: '{comando} às {hora} de {data}.'
+        mais: Há outras falhas mais antigas.
+        detalhe: Detalhe no log do agendador.
+        dispensar: Dispensar
+    # Aviso da cota de envio de e-mail (layout/_globais/aviso_cota_de_envio, spec comercial-e-emails §3.6)
+    aviso_cota_de_envio:
+        titulo_perto: Perto do limite de e-mail
+        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas (limite da Hostinger). Perto do limite.'
+        titulo_pausadas: Limite de e-mail de campanha atingido
+        texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
+        dispensar: Dispensar
     busca_rapida:
         rotulo: Busca rápida
         campo: Buscar pasta, cliente, CPF ou processo
@@ -513,6 +527,10 @@ pasta_processo:
         nao_informado: Não informado
         cancelar: Cancelar
         salvar: Salvar
+    acao:
+        editar: Editar ação da pasta
+        dica: 'A ação é da pasta: aparece no cartão do processo principal, no resumo do processo e no nome da pasta. Deixe vazio para apagar.'
+        placeholder: 'Ex.: Ação de cobrança'
     vazio:
         acao_registrada: 'Ação registrada:'
         titulo: Nenhum processo judicial vinculado
@@ -529,6 +547,8 @@ pasta_processo:
         administrativa_sem_comunicacao: Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.
         dados_falhou: Não foi possível salvar os dados do processo.
         dados_sem_comunicacao: Erro de comunicação. Os dados podem não ter sido salvos. Recarregue a página.
+        acao_falhou: Não foi possível salvar a ação da pasta.
+        acao_sem_comunicacao: Erro de comunicação. A ação pode não ter sido salva. Recarregue a página.
 
 # ---- Processo (processo/index, _resultado, new, show, _notas_tecnicas, _nota_tecnica_item; o JS do formulário em
 # processo.form.js, entregue pelo new). A situação gravada (EM_ANDAMENTO...) continua o valor; só o rótulo sai daqui.
@@ -738,6 +758,8 @@ processo:
         editar_min: 'Editar · {minutos} min'
         exclusao_liberada: 'Exclusão liberada por mais {minutos} min'
         excluir_min: 'Excluir · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir
         so_autor_edita: Só o autor edita a nota, em até 15 minutos
         so_autor_exclui: Só o autor exclui a nota, em até 15 minutos
         editar_bloqueado: Editar · bloqueado
@@ -1471,7 +1493,6 @@ metas:
         so_comentar: Só comentar
         devolver: Devolver
         sem_eventos: Nenhum evento registrado ainda.
-        editado: '(editado)'
         visualizar_arquivo: Visualizar arquivo
         baixar: Baixar
         acompanhando: Acompanhando
@@ -1775,6 +1796,10 @@ perfis:
         destino_rotulo: PASSA A TER O PERFIL
         sem_destino: Não há perfil secundário para este usuário. Crie um perfil secundário antes de remover um primário.
         nota_primario: 'O usuário primário tem acesso total ao escritório: as {total} permissões estão sempre ativas e não podem ser desmarcadas.'
+        sem_prazo:
+            titulo: Edição sem prazo
+            rotulo: Usuário primário pode editar e excluir qualquer registro sem limite de tempo
+            salvo: A opção de edição sem prazo foi salva.
     form:
         faixa: Perfil de usuário secundário (colaborador). Defina o que ele pode acessar.
         nome: NOME DO PERFIL
@@ -3631,6 +3656,12 @@ agenda:
             sem_permissao_texto: Marque a permissão da agenda na tela do Google e tente de novo. Sem ela, o BlueJus não consegue criar a agenda do escritório na sua conta Google.
             agora_nao: Agora não
             tentar_de_novo: Tentar de novo
+            aviso:
+                titulo: Sincronize com o Google Agenda
+                texto: Conecte a sua conta Google para ver os compromissos do BlueJus no seu Google Agenda e receber os lembretes no celular. Use o botão Sincronizar com o Google Agenda, aqui na Agenda.
+                nao_mostrar: Não mostrar esta mensagem novamente
+                agora_nao: Agora não
+                sincronizar: Sincronizar agora
 
 # ---- Comercial do Master (master/_comercial*, master/comercial*.js)
 comercial:
@@ -4087,11 +4118,6 @@ publicas:
         lista:
             titulo: SUAS INDICAÇÕES
             vazio: Nenhuma indicação ainda.
-    convite:
-        titulo: Convite de Usuário
-        enviar: Enviar Convite
-        placeholder_nome: Digite o nome completo
-        placeholder_email: Digite o e-mail
     js:
         # indicacao.js
         indicacao:
@@ -4715,11 +4741,10 @@ pasta_financeiro:
         ativo: Pró-bono ativo
         inativo: Não é pró-bono
         alternar: Alternar caso pró-bono
-    honorarios:
-        rotulo: Honorários contratuais
-        editar: Editar honorários contratuais
-        clique_editar: Clique para editar
-        nota: valor cadastrado na pasta
+    total_contratado:
+        rotulo: Total contratado
+        nota: total dos pagamentos · sincronizado
+        dica: Soma dos lançamentos contratados em Pagamentos. Atualiza sozinho ao incluir, editar ou excluir um pagamento.
     media:
         dica: Média das pastas deste cliente
         sem_cliente: Vincule o cliente para calcular
@@ -4766,6 +4791,9 @@ pasta_financeiro:
         email_corpo: 'Segue o arquivo "{titulo}" referente à pasta {pasta}.'
         ver_documentos: Ver em Documentos
         excluir: Excluir
+        assinado: Assinado
+        marcar_assinado: Marcar como assinado
+        desmarcar_assinado: Desmarcar assinatura
         ver_outros: 'ver os outros {quantidade} no gerenciador'
         reduzir: Reduzir tamanho ao enviar
         reduzir_nota: Envios mantêm o arquivo original, recomendado para contratos assinados.
@@ -4803,6 +4831,9 @@ pasta_financeiro:
         corrigir: Corrigir valor
         desfazer: Desfazer recebimento
         marcar_recebido: Marcar como recebido
+        previsto_exito: '+ {valor} previsto em êxito'
+        previsto_sucumbencia: '+ {valor} previsto em sucumbência'
+        previsto_exito_sucumbencia: '+ {valor} previsto em êxito e sucumbência'
     js:
         # selos e honorários
         contrato_assinado: Assinado
@@ -4836,6 +4867,10 @@ pasta_financeiro:
         arquivos_vazio: Nenhum arquivo financeiro anexado.
         erro_enviar_arquivo: Erro ao enviar arquivo.
         erro_renomear: Erro ao renomear.
+        assinado: Assinado
+        marcar_assinado: Marcar como assinado
+        desmarcar_assinado: Desmarcar assinatura
+        erro_assinatura: Não foi possível alterar a assinatura.
         excluir_arquivo_nome: 'Excluir o arquivo "{nome}" do Financeiro?'
         excluir_arquivo: Excluir este arquivo? Esta ação não pode ser desfeita.
         # menus
@@ -4849,6 +4884,8 @@ pasta_financeiro:
         excluir_bloqueado: Excluir · bloqueado
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         nao_copiou: Não foi possível copiar
         nome_copiado: Nome copiado
         resumo_copiado: Resumo copiado
@@ -4914,6 +4951,9 @@ pasta_financeiro:
         adicionar: Adicionar
         sem_dado: Sem dado
         erro_lancar: Erro ao lançar o pagamento.
+        previsto: previsto
+        exito_descricao: 'Honorários de êxito ({percentual}%)'
+        sucumbencia_descricao: 'Sucumbência estimada ({percentual}%)'
 
 # ---- Pasta, aba Push (pasta/_push_*, pasta-push*.js)
 pasta_push:
@@ -6610,13 +6650,6 @@ entrada:
         ola: 'Olá, {nome}!'
         ola_sem_nome: Olá!
         continuar: Continuar
-    registration:
-        titulo: Criar senha
-        bem_vindo: 'Bem-vindo, {nome}!'
-        texto: 'Você foi convidado para acessar o sistema. Para ativar sua conta, crie uma senha abaixo:'
-        senha: Senha
-        confirme: Confirme a senha
-        criar: Criar senha
     js:
         erro_generico: Não foi possível concluir. Tente novamente.
         email_invalido: Informe um e-mail válido.
@@ -7199,6 +7232,7 @@ pasta_resp:
         lancamentos: Lançamentos
         recebidos_de: recebidos de
         fin_linha: '{contrato} · Contratado {contratado} · Recebido {recebido} · A receber {receber}'
+        fin_previsto: ' · Previsto (êxito/sucumbência) {previsto}'
         lancamento: Lançamento
         vencimento: Vencimento
         valor: Valor
@@ -7615,49 +7649,7 @@ pasta_lista:
     acao: Ação
     prioridade: Prioridade
     metas: Metas
-    mover_para: Mover para…
-    excluida: Excluída
-    excluida_em: 'Excluída em {data}'
-    excluida_em_por: 'Excluída em {data} por {nome}'
-    alternar_situacao: Dê duplo-clique para alternar entre ativo e arquivado
     metas_resumo: '{total} meta(s) · {ativas} ativa(s)'
-    fixada_favoritos: Fixada nos favoritos
-    tirar_favoritos: Tirar dos favoritos
-    marcar_favorito: Marcar como favorito
-    index:
-        titulo: Pastas
-        nova: Nova Pasta
-    tabela:
-        ordenar_por: Ordenar por
-        ordenar_por_opcao: Ordenar por…
-        nup_crescente: NUP (crescente)
-        nup_decrescente: NUP (decrescente)
-        cliente_az: Cliente (A-Z)
-        cliente_za: Cliente (Z-A)
-        prioridade_maior: Prioridade (maior primeiro)
-        prioridade_menor: Prioridade (menor primeiro)
-        acao_az: Ação (A-Z)
-        responsavel_az: Responsável (A-Z)
-        situacao: Situação
-        visualizar_dica: Escolher como exibir as pastas
-        visualizar: Visualizar
-        detalhes_dica: Tabela com todas as colunas
-        detalhes: Detalhes
-        cartoes_dica: Pastas em cartões
-        cartoes: Cartões
-        painel_marcadores: Painel de marcadores
-        intervalo: '{primeira} de {ultima}'
-        total_uma: 'Total: {total} pasta'
-        total_varias: 'Total: {total} pastas'
-        contagem_uma: '{total} pasta'
-        contagem_varias: '{total} pastas'
-        responsavel: Responsável
-        marcadores: Marcadores
-        sem_metas: Sem metas
-        vazio_filtro: Nenhuma pasta encontrada com esses filtros.
-        vazio: Nenhuma pasta cadastrada.
-    card:
-        dias: '{dias}d'
     cliente_linha:
         cad_completo: Cadastro completo · abrir detalhes do cliente
         cad_incompleto_uma: 'Cadastro incompleto: {total} pendência · abrir detalhes do cliente'
@@ -7717,12 +7709,6 @@ pasta_lista:
         vazio_filtro_texto: Tente ajustar ou limpar os filtros aplicados.
         vazio_titulo: Tudo em dia por aqui
         vazio_texto: Você não possui demandas no momento.
-    js:
-        favoritos_erro: Não foi possível alterar os favoritos.
-        tirar_favoritos: Tirar dos favoritos
-        marcar_favorito: Marcar como favorito
-        fixada_favoritos: Fixada nos favoritos
-        erro_comunicacao: Erro de comunicação. Tente novamente.
 
 # ---- Pasta: documentos, metas e anotações (pasta/_documentos_*, _metas, _dados_anotacoes)
 pasta_documentos:
@@ -7968,6 +7954,7 @@ pasta_documentos:
         reabrir: Reabrir meta
         concluir: Marcar como concluída
         editar_nome: Editar nome
+        duplicar: Duplicar
         encaminhar: Encaminhar via Chat I.A
         link_copiado: Link da meta copiado
         copiar_link: Copiar link
@@ -7975,6 +7962,12 @@ pasta_documentos:
         excluir_confirmar: 'Excluir esta meta? Esta ação não pode ser desfeita.'
         excluir: Excluir
         nome: Nome da meta
+        despacho:
+            titulo: Excluir meta com despacho registrado
+            aviso: Esta meta tem despacho registrado e não pode ser excluída.
+            ciente: Entendo que o registro oficial será apagado
+            cancelar: Cancelar
+            excluir: Excluir meta
         salvar: Salvar
         cancelar: Cancelar
         filtro_vazio: Nenhuma meta neste filtro
@@ -8093,6 +8086,8 @@ pasta_detalhes:
         imprimir: Imprimir
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         editar_dica: 'Edição liberada por mais {minutos} min'
         excluir_dica: 'Exclusão liberada por mais {minutos} min'
         editar_bloqueado: Editar · bloqueado
@@ -8137,6 +8132,8 @@ pasta_detalhes:
         imprimir: Imprimir
         editar_min: 'Editar · {minutos} min'
         excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
         editar_dica: 'Edição liberada por mais {minutos} min'
         excluir_dica: 'Exclusão liberada por mais {minutos} min'
         editar_bloqueado: Editar · bloqueado
@@ -8312,15 +8309,15 @@ pasta_show:
         ver_historico: Ver histórico do sistema
     pagamento:
         titulo: Adicionar pagamento
-        valor_da_causa: Valor da causa
+        total_contratado: Total contratado
         calculo_automatico: '· cálculo automático'
         tipo: Tipo
         tipo_rotulo: Tipo do pagamento
         nota_contratuais: Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros.
         contratuais: Contratuais
-        nota_exito: 'Participação no proveito econômico: % sobre o valor da causa, recebido só se houver resultado. Ainda não disponível.'
+        nota_exito: 'Participação no proveito econômico: % sobre o total contratado, recebido só se houver resultado. Entra como previsto.'
         exito: Êxito
-        nota_sucumbencia: Fixada pelo juízo, em regra entre 10% e 20% (art. 85 CPC). Ainda não disponível.
+        nota_sucumbencia: Fixada pelo juízo, em regra entre 10% e 20% (art. 85 CPC). Estimada sobre o total contratado e paga pela parte contrária.
         sucumbencia: Sucumbência
         nota_custas: Custas e despesas adiantadas a reembolsar pelo cliente.
         custas: Custas
@@ -8329,6 +8326,9 @@ pasta_show:
         pct_da_causa: '% da causa'
         valor_total: Valor total (R$)
         pct_do_valor: '% do valor da causa'
+        pct_proveito: '% sobre o proveito'
+        pct_sucumbencia: '% de sucumbência'
+        base_previsto: Base
         entrada: Entrada (R$)
         opcional: opcional
         parcelas: Parcelas
@@ -8486,7 +8486,18 @@ pasta_show:
         responsavel: Responsável
         sem_responsavel: Sem responsável
         trocar: Trocar
-        acao: Ação
+        # PZ-MOD-N05 (desenho 02, L.659): a Ação só leitura, com o "Abrir" que leva à aba Processo.
+        acao_do_processo: Ação · vem do menu Processo
+        abrir: Abrir
+        acao_abrir_dica: Fechar e editar a Ação na aba Processo
+        sem_acao: Sem ação informada
+        sem_processo: Sem processo vinculado
+        # PZ-MOD-16 (desenho 02, L.652-653): o CPF/CNPJ do cliente, só leitura, com atalho ao cadastro dele.
+        cpf_cnpj: CPF/CNPJ
+        documento_cadastro: Cadastro
+        documento_dica: Abrir o cadastro do cliente para alterar o documento
+        sem_documento: Cliente sem documento cadastrado
+        sem_cliente_cadastrado: Sem cliente cadastrado
         situacao: Situação
         pendencias: Pendências
         cadastro_cliente_botao: Cadastro do cliente
@@ -8519,6 +8530,7 @@ pasta_show:
         legenda_fds: Fim de semana em cinza
         escolha_data: Escolha a data limite.
         abrir_existente: Abrir meta existente
+        etapa: Caixa / etapa
         responsaveis: Responsáveis
         selecionar_responsaveis: Selecionar responsáveis
         responsaveis_dica: Selecione um ou mais responsáveis pela meta.
@@ -8632,6 +8644,8 @@ pasta_show:
             menu_excluir: 'Excluir comentário · {min} min'
             menu_editar_bloqueado: Editar · bloqueado
             menu_excluir_bloqueado: Excluir · bloqueado
+            menu_editar_sem_prazo: Editar
+            menu_excluir_sem_prazo: Excluir comentário
             copiado: Texto copiado
             nao_copiou: Não foi possível copiar
             visivel_equipe: Visível para a equipe
@@ -8990,6 +9004,11 @@ pasta_scripts:
             criar_e_notificar: Criar meta e notificar os responsáveis
             falta_titulo: título
             falta_descricao: descrição
+            falta_prazo: prazo
+            falta_responsavel: responsável
+            falta_etapa: etapa
+            sugestao_pelo_titulo: 'Sugestão pelo título: {etapa}'
+            erro_duplicar: Não foi possível duplicar a meta. Recarregue a página e tente de novo.
             preencha: 'Preencha: {campos}'
             expandir: Expandir
             recolher: Recolher (continue vendo a lista)
@@ -9035,11 +9054,15 @@ pasta_cabecalho:
             duplicar_confirmar: 'Duplicar a pasta {nup}? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.'
             vincular_processo: Vincular processo
             trocar_responsavel: Trocar responsável
+            mover_carteira: Mover para outra carteira
+            carteira_titulo: 'Mover pasta {nup} para'
+            carteira_atual: '{carteira} · atual'
             compartilhar: Compartilhar
             copiar_link: Copiar link da pasta
             link_push: Link externo do Push
             imprimir: Imprimir resumo
             preferencias: Preferências
+            acompanhar: Acompanhar alterações
             favoritos: Fixar nos favoritos
             arquivar: Arquivar pasta
             desarquivar: Desarquivar pasta
@@ -9061,6 +9084,23 @@ pasta_cabecalho:
             em: 'Movimentado em {data}'
         nao_vinculado: não vinculado ao cadastro de clientes
         dica_cliente: 'Detalhes: clique com o botão direito'
+        foto:
+            rotulo: Foto do cliente
+            carregar: Carregar foto
+            carregar_nova: Carregar nova foto
+            ajustar: Ajustar foto
+            remover: Remover foto
+            editor_aria: Ajustar foto
+            editor_titulo: Ajustar foto do cliente
+            fechar: Fechar
+            arrastar: Arraste para posicionar
+            dica: 'Arraste para posicionar · role para aproximar'
+            zoom: Zoom
+            girar: Girar
+            girar_dica: 'Girar 90°'
+            trocar: Trocar imagem
+            cancelar: Cancelar
+            salvar: Salvar foto
         ia_dica: 'BlueJus IA: análises desta pasta por agente'
         selo:
             arquivado: ARQUIVADO
@@ -9173,7 +9213,12 @@ pasta_cabecalho:
             restaurar_pergunta: 'Restaurar a pasta {nup}?'
             restaurar: Restaurar
             favoritos_erro: Não foi possível alterar os favoritos.
+            acompanhar_erro: Não foi possível alterar o acompanhamento.
+            acompanhar_ligado: 'Você vai receber no Chat I.A as alterações da pasta {nup}'
+            acompanhar_desligado: 'Você deixou de acompanhar a pasta {nup}'
             erro_comunicacao: Erro de comunicação. Tente novamente.
+            carteira_movida: 'Pasta {nup} movida para a carteira {carteira}'
+            carteira_erro: Não foi possível mover a pasta de carteira.
         prazos:
             titulo_novo: Novo prazo ou audiência
             titulo_editar: Editar prazo
@@ -9205,5 +9250,45 @@ pasta_cabecalho:
             documento: Documento
             erro_busca: Não foi possível buscar agora. Tente de novo.
             erro_vincular: Não foi possível vincular o cliente.
+        foto:
+            carregar: Carregar foto
+            carregar_nova: Carregar nova foto
+            salva: Foto do cliente salva
+            removida: Foto removida
+            erro: Não foi possível salvar a foto. Tente de novo.
+            erro_remover: Não foi possível remover a foto. Tente de novo.
+
+edicao_sem_prazo:
+    selo:
+        master: EXCLUSIVO DO MASTER
+        primario: EXCLUSIVO DO PRIMÁRIO
+
+# ---- Ponto: pendências de registro da própria pessoa (ponto/_pendencias, spec ponto-esquecimento-nao-trava R5)
+ponto_pendencias:
+    titulo: Pendências de registro
+    explicacao: 'Dias dos últimos 30 em que faltou uma batida. Elas não impedem o registro do ponto: envie o registro de esquecimento para regularizar.'
+    falta:
+        entrada: Falta a entrada
+        repouso: Falta a ida ao repouso
+        retorno: Falta o retorno do repouso
+        saida: Falta a saída
+    enviar: Enviar registro de esquecimento
+    outro_escritorio: 'Este registro é de {escritorio}. Troque para esse escritório e envie o registro de esquecimento por lá.'
+    trocar: Trocar de escritório
+
+# ---- Ponto: sinal da folha na ficha do admin (ponto/_folha_table, spec ponto-esquecimento-nao-trava R8)
+ponto_folha:
+    registro_em_outro_escritorio: Houve registro em outro escritório neste período
+    registro_em_outro_escritorio_dica: 'Enquanto o ponto deste escritório estava aberto, a pessoa registrou ponto em outro escritório. Confira as batidas do dia.'
+
+# ---- Ponto: cartão diário de pendência de registro (layout/_globais/ponto_pendente, spec ponto-esquecimento-nao-trava R9)
+ponto_cartao:
+    rotulo: 'PONTO · {n, plural, one {# pendência} other {# pendências}}'
+    titulo: Registro de ponto pendente
+    linha: '{dia}: {falta}'
+    linha_outro: '{dia}: {falta}, em {escritorio}'
+    adiar: Lembrar em 10 min
+    dispensar: Dispensar até amanhã
+    regiao: Lembrete do ponto
 
 # ---- fim

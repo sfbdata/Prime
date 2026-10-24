@@ -13,8 +13,8 @@ use App\Cobranca\Entity\PessoaTelefone;
 use App\Cobranca\Enum\EstadoCivil;
 use App\Cobranca\Enum\QualificacaoContato;
 use App\Cobranca\Enum\StatusCaso;
-use App\Cobranca\Enum\TipoTelefone;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Enum\TipoTelefone;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -24,6 +24,7 @@ use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
 use App\Tests\Factory\Cobranca\PessoaFactory;
 use App\Tests\Factory\Cobranca\VinculoPessoaObjetoFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -1388,6 +1389,22 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         self::assertNotSame('', (string) $form->filter('input[name="_token"]')->attr('value'));
     }
 
+    #[TestDox('Edição sem prazo: a qualificação alheia mais recente ganha o desfazer com o selo do primário (opção ligada)')]
+    public function testDesfazerComSeloParaOPrimario(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $this->cobradaVinculada($tenant, $caso);
+        $this->qualificar($tenant, $caso, $this->outroUsuario(), QualificacaoContato::RecusaPagamento, new \DateTimeImmutable('-3 days'));
+
+        $painel = $this->abrirAba($client, $caso)->filter('[data-painel="qualificacao"]');
+
+        $selo = $painel->filter('.cob-qualif-item form > button[data-acao="desfazer-qualificacao"].com-selo-sem-prazo > .selo-sem-prazo[data-selo-sem-prazo="primario"]');
+        self::assertCount(1, $selo);
+        self::assertSame('EXCLUSIVO DO PRIMÁRIO', trim($selo->text()));
+    }
+
     #[TestDox('§3.5: qualificação de OUTRO usuário não ganha desfazer, mesmo sendo a mais recente')]
     public function testDesfazerNaoApareceParaQualificacaoDeOutroUsuario(): void
     {
@@ -1395,6 +1412,8 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
         $this->cobradaVinculada($tenant, $caso);
+        // O admin daqui é primário: com a opção desligada, vale a regra de sempre (spec edicao-sem-prazo).
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer());
 
         $colega = $this->outroUsuario();
         $this->qualificar($tenant, $caso, $colega, QualificacaoContato::RecusaPagamento, new \DateTimeImmutable('-1 minute'));

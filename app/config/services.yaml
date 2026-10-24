@@ -59,6 +59,10 @@ parameters:
     # para registro criado a partir desta data (AAAA-MM-DD). Vazio = desligado. O default mora AQUI porque o build
     # de produção faz `rm .env` (docs/specs/prazo-feriado-calendario.md).
     prazos_calendario_desde: '%env(string:default::PRAZOS_CALENDARIO_DESDE)%'
+    # Ponto: substituição OPCIONAL da data de corte do par invertido (AAAA-MM-DD). Vazia ou inválida, vale o padrão
+    # seguro do código (CalculadoraJornada::PAR_INVERTIDO_DESDE_PADRAO); o deploy não precisa fazer nada
+    # (docs/specs/ponto-esquecimento-nao-trava.md).
+    ponto_par_invertido_desde: '%env(string:default::PONTO_PAR_INVERTIDO_DESDE)%'
     # Sincronização Google Drive. Vazios em dev/test. Dois modos de auth:
     #  - service account (Shared Drive): google_drive_credentials = caminho do JSON.
     #  - OAuth login de usuário (ex.: conta do rclone; ponte atual + futuro "Conectar meu Drive"):
@@ -90,20 +94,25 @@ parameters:
     ia_anthropic_margem_raciocinio: '%env(int:default:default_ia_anthropic_margem_raciocinio:IA_MARGEM_RACIOCINIO)%'
     default_ia_anthropic_margem_raciocinio: 8000
     # Comercial e e-mails (spec comercial-e-emails §3.6 e §3.8). Defaults AQUI, não no .env (o build de produção faz
-    # `rm .env`). Vazão: e-mails por minuto e teto diário (o diário conta tudo o que saiu; os transacionais do ciclo da
-    # conta só respeitam o por minuto). Rastreio: só liga com esta flag E PoliticaPrivacidadeVigente::CITA_RASTREIO_DE_EMAIL.
+    # `rm .env`). Cota da caixa: Hostinger Business Standard/Premium, 3.000 por caixa em 24 h CORRIDAS. O teto conta
+    # TUDO o que saiu nas últimas 24 h (inclusive os e-mails síncronos, origem `sistema`), com margem até os 3.000; as
+    # campanhas têm teto próprio e a reserva dos demais é a diferença (2.400 - 1.600 = 800). Os transacionais do ciclo
+    # da conta só respeitam o por minuto. O aviso do Master acende no percentual do teto. Rastreio: só liga com esta flag
+    # E PoliticaPrivacidadeVigente::CITA_RASTREIO_DE_EMAIL.
     comercial.envios_por_minuto: '%env(int:default:default_comercial_envios_por_minuto:COMERCIAL_ENVIOS_POR_MINUTO)%'
-    default_comercial_envios_por_minuto: 20
+    default_comercial_envios_por_minuto: 10
     comercial.teto_diario: '%env(int:default:default_comercial_teto_diario:COMERCIAL_TETO_DIARIO)%'
-    default_comercial_teto_diario: 1500
+    default_comercial_teto_diario: 2400
+    comercial.aviso_da_cota_percentual: '%env(int:default:default_comercial_aviso_da_cota_percentual:COMERCIAL_AVISO_DA_COTA_PERCENTUAL)%'
+    default_comercial_aviso_da_cota_percentual: 80
     comercial.rastreio_ligado: '%env(default:default_comercial_rastreio_ligado:bool:COMERCIAL_RASTREIO_LIGADO)%'
     default_comercial_rastreio_ligado: false
     # Campanhas (spec comercial-e-emails §8.1.2 e §8.5): a chave da instalação nasce DESLIGADA (o "Enviar campanha" é
-    # recusado e o expansor cancela as ativas; trocar exige reiniciar o worker) e o teto diário só das campanhas.
+    # recusado e o expansor cancela as ativas; trocar exige reiniciar o worker) e o teto só das campanhas em 24 h corridas.
     comercial.campanhas_ligadas: '%env(default:default_comercial_campanhas_ligadas:bool:COMERCIAL_CAMPANHAS_LIGADAS)%'
     default_comercial_campanhas_ligadas: false
     comercial.teto_diario_campanhas: '%env(int:default:default_comercial_teto_diario_campanhas:COMERCIAL_TETO_DIARIO_CAMPANHAS)%'
-    default_comercial_teto_diario_campanhas: 1000
+    default_comercial_teto_diario_campanhas: 1600
 
 services:
     # default configuration for services in *this* file
@@ -141,6 +150,7 @@ services:
             bool $rastreioLigado: '%comercial.rastreio_ligado%'
             bool $campanhasLigadas: '%comercial.campanhas_ligadas%'
             int $tetoDiarioDeCampanhas: '%comercial.teto_diario_campanhas%'
+            int $avisoDaCotaPercentual: '%comercial.aviso_da_cota_percentual%'
             Symfony\Component\HttpFoundation\UriSigner $assinadorDeClique: '@comercial.assinador_de_clique'
 
     # makes classes in src/ available to be used as services

@@ -34,9 +34,10 @@ final class PastaCadastroCabecalhoTelaTest extends JusPrimeWebTestCase
     /**
      * Os `name` do form do Editar dados ANTES do lote L2 (contrato do
      * `PastaController::edit`). Atalho que entrasse no form com `name` — ou campo
-     * que saísse — mudaria esta lista.
+     * que saísse — mudaria esta lista. O `nome_acao` saiu de propósito (PZ-MOD-N05,
+     * decisão do dono de 23/10/2026): a Ação é só leitura e vem do menu Processo.
      */
-    private const NAMES_DO_FORM = ['_token', 'nup', 'nome_cliente', 'nome_acao', 'situacao'];
+    private const NAMES_DO_FORM = ['_token', 'nup', 'nome_cliente', 'situacao'];
 
     /**
      * Cliente PF com tudo o que o `PendenciasDoCadastro` cobra, menos o que vier em
@@ -207,11 +208,11 @@ final class PastaCadastroCabecalhoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        $conteudo = $crawler->filter('#modalEditarPasta > .modal-dialog.ps-modal-pasta > .modal-content');
+        $conteudo = $crawler->filter('#modalEditarPasta > .ps-modal-pasta[role="dialog"]');
         self::assertCount(1, $conteudo);
-        self::assertCount(1, $conteudo->filter('.modal-content > .ps-modal-pasta-cab + nav.ps-modal-pasta-abas + form'), 'cabeçalho · atalhos · form, nessa ordem');
+        self::assertCount(1, $conteudo->filter('.ps-modal-pasta > .ps-modal-pasta-cab + nav.ps-modal-pasta-abas + form'), 'cabeçalho · atalhos · form, nessa ordem');
 
-        $abas = $conteudo->filter('.modal-content > nav.ps-modal-pasta-abas > button.ps-modal-pasta-aba');
+        $abas = $conteudo->filter('.ps-modal-pasta > nav.ps-modal-pasta-abas > button.ps-modal-pasta-aba');
         self::assertCount(4, $abas);
         $esperado = [
             ['Dados da pasta', 'bi-folder2',       null],
@@ -276,7 +277,7 @@ final class PastaCadastroCabecalhoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        self::assertCount(4, $crawler->filter('#modalEditarPasta .modal-content > nav.ps-modal-pasta-abas > button.ps-modal-pasta-aba'));
+        self::assertCount(4, $crawler->filter('#modalEditarPasta > .ps-modal-pasta > nav.ps-modal-pasta-abas > button.ps-modal-pasta-aba'));
         self::assertCount(1, $crawler->filter('#modalEditarPasta form > .ps-modal-pasta-rodape > .ps-modal-pasta-btn--cadastro[data-pe-ir="cliente"]'));
         // O destino de reserva existe na página.
         self::assertCount(1, $crawler->filter('#dados-tab'));

@@ -26,6 +26,7 @@ use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
 use App\Processo\DTO\DadosManuaisDoProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Inteligencia\Support\DefineId;
@@ -390,6 +391,27 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         self::assertStringContainsString('vencimento 20/10/2026', $linhas[1]);
         self::assertStringContainsString('EM ABERTO', $linhas[1]);
         self::assertStringContainsString('Parcelado em 3x.', $linhas[2]);
+    }
+
+    #[TestDox('êxito previsto (sem vencimento): sai o % do total contratado, vencimento "nenhum" e PREVISTO, nunca EM ABERTO')]
+    public function testFinanceiroComExitoPrevistoSemVencimento(): void
+    {
+        $exito = new PastaPagamento();
+        $exito->setTenant($this->tenant);
+        $exito->setPasta($this->pasta);
+        $exito->setDescricao('Honorários de êxito (20%)');
+        $exito->preverPorPercentual(TipoDePagamento::Exito, '20', '300.00');
+        $this->dados->pagamentos = [$exito];
+
+        $contexto = $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+        $linha = self::secao($contexto, SecaoDoContexto::Financeiro)->linhas[1];
+
+        self::assertStringContainsString('Honorários de êxito (20%)', $linha);
+        self::assertStringContainsString('20.00% do total contratado', $linha);
+        self::assertStringContainsString('vencimento nenhum', $linha);
+        self::assertStringContainsString('PREVISTO, condicionado ao resultado', $linha);
+        self::assertStringNotContainsString('EM ABERTO', $linha);
+        self::assertStringNotContainsString('R$ 300.00', $linha, 'o retrato do lançamento não é o valor');
     }
 
     #[TestDox('cliente: sai o nome e a natureza, NUNCA CPF, e-mail, telefone ou endereço')]

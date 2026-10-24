@@ -74,12 +74,37 @@ final class TiposDeAvisoDaCentral
         PedirZeramentoDoDashboardUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Pedido para zerar', 'icone' => 'bi-arrow-counterclockwise', 'cor' => self::AMBAR, 'nivel' => 2],
     ];
 
+    /**
+     * Pasta acompanhada ("Acompanhar alterações" do menu ⋮ da pasta, desenho 02 L4497: "Você vai receber no Chat I.A as
+     * alterações da pasta"): grupo Mensagens, o sino do item do menu, azul, nível 1. Fora do `match` pelo limite de linhas.
+     */
+    private const DA_PASTA_ACOMPANHADA = [
+        Notificacao::TIPO_PASTA_ACOMPANHADA => ['grupo' => 'mensagens', 'rotulo' => 'Pasta acompanhada', 'icone' => 'bi-bell', 'cor' => self::AZUL, 'nivel' => 1],
+    ];
+
+    /**
+     * Rótulo da ação de abrir o aviso, quando o desenho dá um próprio: os avisos do Contribua ao Master usam
+     * "Ver sugestão" (desenho 08, `avisaMaster`: `acao: 'Ver sugestão'`). Os demais ficam com o "Abrir" genérico (null).
+     */
+    private const ACOES = [
+        AvisoAoMaster::TIPO_SUGESTAO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_APOIO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_MOTIVO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO => 'Ver sugestão',
+    ];
+
+    /** O rótulo da ação de abrir o aviso, ou null para o "Abrir" genérico da Central. */
+    public function acao(string $tipo): ?string
+    {
+        return self::ACOES[strtolower($tipo)] ?? null;
+    }
+
     /** @return array{grupo: ?string, rotulo: string, icone: string, cor: string, nivel: int} */
     public function para(string $tipo): array
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
         $tipo = strtolower($tipo);
-        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? self::DO_DASHBOARD[$tipo] ?? null;
+        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? self::DO_DASHBOARD[$tipo] ?? self::DA_PASTA_ACOMPANHADA[$tipo] ?? null;
         if ($doMapa !== null) {
             return $doMapa;
         }

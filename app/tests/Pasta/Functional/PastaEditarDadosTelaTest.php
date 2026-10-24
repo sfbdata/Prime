@@ -49,7 +49,7 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha);
         $campos = $linha->filter('.ps-modal-pasta-linha--larga > .ps-modal-pasta-campo');
         self::assertSame('Responsável', trim($campos->eq(0)->filter('.ps-modal-pasta-campo > .ps-modal-pasta-rotulo')->text()), 'o Responsável vem antes da Ação, como no desenho');
-        self::assertCount(1, $campos->eq(1)->filter('#edit_nome_acao'));
+        self::assertCount(1, $campos->eq(1)->filter('.ps-modal-pasta-campo[data-pe-acao]'), 'a Ação (só leitura) vem logo depois');
 
         $resp = $campos->eq(0)->filter('.ps-modal-pasta-campo > .ps-pe-resp[aria-labelledby="editRespRotulo"]');
         self::assertSame($user->getFullName(), trim($resp->filter('.ps-pe-resp > [data-pe-resp-nome]')->text()));
@@ -73,7 +73,7 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $leitor, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $resp = $crawler->filter('#modalEditarPasta .ps-pe-resp');
+        $resp = $crawler->filter('#modalEditarPasta .ps-pe-resp[aria-labelledby="editRespRotulo"]');
         self::assertSame('Sem responsável', trim($resp->filter('[data-pe-resp-nome]')->text()));
         self::assertCount(0, $resp->filter('.ps-pe-resp-trocar'), 'quem só lê não troca o responsável');
     }

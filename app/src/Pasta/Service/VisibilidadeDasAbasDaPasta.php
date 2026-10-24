@@ -57,18 +57,39 @@ final class VisibilidadeDasAbasDaPasta
 
     public function ocultaPara(Pasta $pasta, AbaDaPasta $aba, User $user): bool
     {
+        return isset($this->quemNaoVeAAba($pasta, $aba, [$user])[(int) $user->getId()]);
+    }
+
+    /**
+     * {@see ocultaPara()} para várias pessoas de uma vez (a lista de quem acompanha a pasta): a regra
+     * da aba é lida UMA vez; o vínculo só é consultado para quem a regra alcança.
+     *
+     * @param list<User> $pessoas
+     *
+     * @return array<int, true> id de quem NÃO vê a aba → true
+     */
+    public function quemNaoVeAAba(Pasta $pasta, AbaDaPasta $aba, array $pessoas): array
+    {
         $tenant = $pasta->getTenant();
-        if ($tenant === null) {
-            return false;
+        if ($tenant === null || $pessoas === []) {
+            return [];
         }
 
         $regra = $this->regras->daAba($pasta, $aba, $tenant);
-        if ($regra === null || !$regra->alcanca((int) $user->getId())) {
-            return false;
+        if ($regra === null) {
+            return [];
         }
 
-        // Só consulta o vínculo quando a regra alcançaria a pessoa: o caso comum (sem regra) é uma consulta.
-        return !$this->podeConfigurar($user, $tenant);
+        $naoVeem = [];
+        foreach ($pessoas as $pessoa) {
+            $id = (int) $pessoa->getId();
+            // Só consulta o vínculo quando a regra alcançaria a pessoa: o caso comum (sem regra) é uma consulta.
+            if ($regra->alcanca($id) && !$this->podeConfigurar($pessoa, $tenant)) {
+                $naoVeem[$id] = true;
+            }
+        }
+
+        return $naoVeem;
     }
 
     /**

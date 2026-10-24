@@ -15,9 +15,10 @@ namespace App\Dashboard\Preferencia;
  *   - tempo_medio      → dias entre `Tarefa.dataCriacao` e `Tarefa.dataConclusao`, só nas
  *                        concluídas que TÊM data de conclusão (as do legado não têm);
  *   - pastas_urgentes  → `Pasta.prioridade = urgente`, por responsável, no período;
- *   - pastas_concluidas → `Pasta.arquivadaEm` no período, por responsável ("Demandas encerradas
- *                        no período" do desenho, lida como arquivadas no período; spec
- *                        dashboard-parte-1): desarquivar tira da conta, pasta excluída não conta;
+ *   - pastas_concluidas → `Pasta.finalizadaEm` no período, por responsável ("Demandas encerradas
+ *                        no período" do desenho, lida como pastas que chegaram à etapa Finalizada
+ *                        do andamento no período; spec dashboard-parte-1): voltar de fase ou
+ *                        reativar tira da conta, pasta excluída não conta;
  *   - eventos_agenda   → `Evento` visível à equipe em que a pessoa é criadora ou participante,
  *                        no período;
  *   - relatorio        → registros por autor em Dados da pasta, Financeiro e Detalhes, no

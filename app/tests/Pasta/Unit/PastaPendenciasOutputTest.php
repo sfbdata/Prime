@@ -10,6 +10,7 @@ use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
 use App\Pasta\Service\PontosDoRelatorioInicial;
 use App\Processo\Entity\Processo;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -138,6 +139,25 @@ final class PastaPendenciasOutputTest extends TestCase
         $pasta->setSituacaoContrato('REGULAR');
         $out = PastaPendenciasOutput::montar($pasta, 0, $pagamentos, $hoje, veFinanceiro: true);
         self::assertArrayNotHasKey('financeiro', $out->porAba);
+    }
+
+    #[TestDox('Financeiro: o previsto (êxito, sucumbência) nunca conta como vencido, mesmo sem vencimento')]
+    public function testPrevistoNuncaVence(): void
+    {
+        $pasta = $this->pastaRegular();
+        $pasta->setSituacaoContrato('PENDENTE');
+        $exito = new PastaPagamento();
+        $exito->preverPorPercentual(TipoDePagamento::Exito, '20', '0.00');
+        $sucumbencia = new PastaPagamento();
+        $sucumbencia->preverPorPercentual(TipoDePagamento::Sucumbencia, '10', '0.00');
+        $sucumbencia->congelarValor('500.00'); // corrigida: segue prevista, sem vencimento
+
+        $out = PastaPendenciasOutput::montar($pasta, 0, [$exito, $sucumbencia, $this->pagamento('2026-09-01')], new \DateTimeImmutable(self::HOJE), veFinanceiro: true);
+
+        self::assertSame(
+            ['n' => 2, 'txt' => 'contrato de honorários pendente de assinatura e 1 pagamento vencido'],
+            $out->porAba['financeiro'],
+        );
     }
 
     #[TestDox('Financeiro: quem NÃO vê o financeiro não recebe a pendência — nem o contrato, nem os vencidos; o padrão é fechado')]

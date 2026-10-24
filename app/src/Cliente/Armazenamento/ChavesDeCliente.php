@@ -48,6 +48,45 @@ final class ChavesDeCliente
         );
     }
 
+    /**
+     * A foto atual do cliente (cabeçalho da pasta). Escopo do escritório do cliente, como o documento: a
+     * categoria é plana no disco, e um tenant errado só apareceria no backend remoto (R1).
+     */
+    public static function foto(Cliente $cliente): ChaveDeArquivo
+    {
+        $nome = $cliente->getFoto();
+
+        if ($nome === null) {
+            throw new ChaveDeArquivoInvalida('Este cliente não possui foto; não há chave a montar.');
+        }
+
+        return self::fotoPorNome($cliente, $nome);
+    }
+
+    /**
+     * Foto que o cliente JÁ NÃO referencia (a anterior, removida depois do COMMIT da troca ou da remoção). Existe
+     * pelo mesmo motivo de `ChavesDePerfil::fotoPorNome()`: depois da troca, {@see foto()} devolveria a chave da
+     * NOVA. O escopo continua saindo do cliente, nunca de um tenant solto.
+     */
+    public static function fotoPorNome(Cliente $cliente, string $nome): ChaveDeArquivo
+    {
+        return new ChaveDeArquivo(
+            self::escopoDe($cliente->getTenant()?->getId(), 'foto de cliente'),
+            CategoriaDeArquivo::CLIENTE_FOTO,
+            $nome,
+        );
+    }
+
+    /** Foto nova (D8): o nome é cunhado pelo storage; o escopo sai do cliente. */
+    public static function novaFoto(Cliente $cliente, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(
+            self::escopoDe($cliente->getTenant()?->getId(), 'foto nova de cliente'),
+            CategoriaDeArquivo::CLIENTE_FOTO,
+            $extensao,
+        );
+    }
+
     private static function escopoDe(?int $tenantId, string $oQue): EscopoDeArquivo
     {
         if ($tenantId === null) {

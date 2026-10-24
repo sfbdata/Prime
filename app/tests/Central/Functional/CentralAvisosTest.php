@@ -9,6 +9,7 @@ use App\Central\Service\AvisosDaCentral;
 use App\Central\Service\ContadorDeAvisos;
 use App\Central\UseCase\ListarAvisosDaCentralUseCase;
 use App\Central\UseCase\MarcarAvisoUseCase;
+use App\Contribua\Service\AvisoAoMaster;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
@@ -79,6 +80,25 @@ final class CentralAvisosTest extends JusPrimeWebTestCase
         foreach (['GESTAO-NAO-ENTRA', 'CENTRAL-NAO-ENTRA', 'OUTRO-ESCRITORIO', 'DA-BIA'] as $fora) {
             self::assertStringNotContainsString($fora, $bruto);
         }
+    }
+
+    #[TestDox('Ação de abrir: "Ver sugestão" nos avisos do Contribua, nula (o "Abrir" genérico) nos demais')]
+    public function testAcaoDoAviso(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $this->aviso($ana, $tenant, AvisoAoMaster::TIPO_SUGESTAO, 'Sugestão nova');
+        $this->aviso($ana, $tenant, Notificacao::TIPO_TAREFA_CRIADA, 'Meta nova');
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('GET', '/central/avisos');
+        self::assertResponseIsSuccessful();
+        $porTitulo = array_column($this->json($client)['avisos'], 'acao', 'titulo');
+
+        self::assertSame('Ver sugestão', $porTitulo['Sugestão nova']);
+        self::assertArrayHasKey('Meta nova', $porTitulo);
+        self::assertNull($porTitulo['Meta nova']);
     }
 
     #[TestDox('Acesso rechecado: aviso de pasta que a pessoa não vê não sai na lista nem conta; quem vê a pasta recebe')]

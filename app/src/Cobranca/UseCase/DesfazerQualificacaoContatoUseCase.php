@@ -9,6 +9,9 @@ use App\Cobranca\Exception\QualificacaoNaoDesfazivelException;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Cobranca\Entity\EventoHistorico;
+use App\Tenant\Service\AuditoriaDaEdicaoSemPrazo;
+use App\Tenant\Service\PoderDeEdicaoSemPrazo;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -58,6 +61,8 @@ final class DesfazerQualificacaoContatoUseCase
     public function __construct(
         private readonly EventoHistoricoRepository $eventoRepository,
         private readonly ClockInterface $clock,
+        private readonly PoderDeEdicaoSemPrazo $poder,
+        private readonly AuditoriaDaEdicaoSemPrazo $auditoria,
     ) {
     }
 
@@ -77,10 +82,7 @@ final class DesfazerQualificacaoContatoUseCase
             throw new EventoNaoEncontradoException($eventoId);
         }
 
-        // Condições 1 a 3.
-        if (!$evento->podeSerDesfeitaPor($usuario, $this->clock->now())) {
-            throw new QualificacaoNaoDesfazivelException();
-        }
+        $pelaRegra = $this->exigirCondicoesDoEvento($evento, $usuario, $tenant);
 
         $caso = $evento->getCaso();
         $idDoEvento = $evento->getId();
@@ -101,6 +103,24 @@ final class DesfazerQualificacaoContatoUseCase
             throw new QualificacaoNaoDesfazivelException();
         }
 
+        $this->auditoria->registrar(AuditoriaDaEdicaoSemPrazo::EXCLUIR, $usuario, $tenant, $pelaRegra, EventoHistorico::class, $idDoEvento, $evento->getUsuario()?->getId());
         $this->eventoRepository->remover($evento, true);
+    }
+
+    /**
+     * Condições 1 a 3. Edição sem prazo (spec edicao-sem-prazo, item 7): o Master e o primário (com a opção) passam
+     * por cima da autoria e dos 5 minutos; a condição 4 (só a mais recente) continua para todos.
+     *
+     * @return bool se passou pela regra de sempre (sem o poder); serve à auditoria
+     */
+    private function exigirCondicoesDoEvento(EventoHistorico $evento, User $usuario, Tenant $tenant): bool
+    {
+        $agora = $this->clock->now();
+        $pelaRegra = $evento->podeSerDesfeitaPor($usuario, $agora);
+        if (!$pelaRegra && !$evento->podeSerDesfeitaPor($usuario, $agora, $this->poder->de($usuario, $tenant) !== null)) {
+            throw new QualificacaoNaoDesfazivelException();
+        }
+
+        return $pelaRegra;
     }
 }

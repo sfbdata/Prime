@@ -41,7 +41,6 @@ final class CantosAte4pxTelasLegadasTest extends TestCase
             'templates/kanban/board.html.twig',
             'templates/kanban/index.html.twig',
             'templates/notificacao/index.html.twig',
-            'templates/pasta/_tabela.html.twig',
             'templates/pasta/demandas.html.twig',
             'templates/pasta/zip_recusado.html.twig',
             'templates/termo/aceite.html.twig',

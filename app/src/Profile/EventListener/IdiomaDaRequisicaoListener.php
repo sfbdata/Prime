@@ -21,6 +21,9 @@ use Symfony\Component\Translation\LocaleSwitcher;
  *
  * O idioma fica guardado na sessão junto com o id da pessoa (um banco só na primeira requisição); quem troca o
  * idioma regrava a sessão. Idioma gravado mas ainda não liberado vale como português ({@see Idioma::emUso()}).
+ *
+ * Rota com locale fixo (`#[Route(locale: 'pt_BR')]`, o `_locale` da rota) fica nele: é o caso dos Termos de Uso e da
+ * Política de Privacidade, que só existem em português (o aceite e a ciência estão amarrados ao texto pt).
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 7)]
 final class IdiomaDaRequisicaoListener
@@ -41,7 +44,8 @@ final class IdiomaDaRequisicaoListener
         }
 
         $request = $event->getRequest();
-        $locale = $this->idiomaDe($request)->locale();
+        $fixo = $request->attributes->get('_locale');
+        $locale = is_string($fixo) && $fixo !== '' ? $fixo : $this->idiomaDe($request)->locale();
         $request->setLocale($locale);
         $this->localeSwitcher->setLocale($locale);
     }

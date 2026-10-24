@@ -10,21 +10,50 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Dashboard PR3 (spec `docs/specs/dashboard-parte-1.md`), a única migration da frente:
  *
- * - `pasta.arquivada_em`: quando a pasta entrou em Arquivado pela última vez ("Pastas concluídas").
- *   Backfill só das pastas arquivadas hoje e não excluídas (a lápide não conta): o arquivamento mais
- *   recente entre o cartão do Registro (`pasta_mensagem`, sistema `situacao`, "para "Arquivado"") e o
- *   `audit_log` (update com situacao → arquivado; a auditoria de criação não guarda o id da pasta). Vale o mais recente dos
- *   dois porque o "Editar dados" arquiva sem cartão no Registro, só com auditoria. Sem nenhuma fonte,
- *   fica nula (a contagem sai no log da migration) e a pasta não entra em período nenhum.
+ * - `pasta.finalizada_em`: quando a pasta chegou à etapa Finalizada do andamento ("Pastas concluídas"),
+ *   mantida pelo `PastaAndamento::gravar()` da via atual. Backfill em duas etapas:
+ *   (a) pasta com andamento gravado na via atual (`administrativa` → via `administrativa`, senão
+ *       `judicial`) cuja fase atual é a ÚLTIMA da trilha: a data do marco dela (`marcos.em[atual]`). A
+ *       última da trilha é a do `AndamentoDaPasta::fases()`: as 10 da base (judicial e administrativa têm
+ *       10) mais as extras de reativação, mais um "Em andamento" para cada "Reativada" que não vem seguida
+ *       dele. O marco guarda o horário local com o fuso (DATE_ATOM): os 19 primeiros caracteres são o
+ *       horário local, o mesmo que o PHP grava na coluna. Vale também para a pasta excluída: a lápide não
+ *       mexe no andamento, e a contagem a tira pelo excluida_em;
+ *   (b) pasta arquivada, não excluída, SEM andamento gravado na via atual (regra confirmada pelo dono
+ *       em 23/10): a data do arquivamento, o mais recente entre o cartão do Registro (`pasta_mensagem`,
+ *       sistema `situacao`, "para "Arquivado"") e o `audit_log` (update com situacao → arquivado; a
+ *       auditoria de criação não guarda o id da pasta). Vale o mais recente dos dois porque o "Editar
+ *       dados" já arquivou sem cartão no Registro, só com auditoria. Sem nenhuma fonte, fica nula (a
+ *       contagem sai no log da migration) e a pasta não entra em período nenhum.
  * - `dashboard_zeramento`: o "Zerar" de coluna (DASH-014), por pessoa ou para todos (`user_id` nulo).
  * - `dashboard_meta_pastas`: meta de pastas do escritório a partir de um mês (DASH-016).
  *
- * Os SQL do backfill são constantes públicas para o teste de integração (`BackfillDaArquivadaEmTest`).
+ * Os SQL do backfill são constantes públicas para o teste de integração (`BackfillDaFinalizadaEmTest`).
  */
 final class Version20261023150900 extends AbstractMigration
 {
-    /** Último arquivamento de cada pasta arquivada e não excluída, pelo Registro ou pela auditoria. */
-    public const SQL_BACKFILL_ARQUIVADA_EM = <<<'SQL'
+    /** Etapa (a): pastas cuja fase gravada na via atual é a Finalizada (última da trilha, com as extras). */
+    public const SQL_BACKFILL_PELO_ANDAMENTO = <<<'SQL'
+        WITH trilha AS (
+            SELECT a.pasta_id, a.atual, a.atualizado_em, a.marcos::jsonb -> 'em' AS em,
+                   10 + (SELECT COUNT(*) + COUNT(*) FILTER (WHERE x.nome = 'Reativada' AND COALESCE(x.proxima, '') <> 'Em andamento')
+                           FROM (SELECT e.fase ->> 0 AS nome, LEAD(e.fase ->> 0) OVER (ORDER BY e.ordem) AS proxima
+                                   FROM jsonb_array_elements(CASE WHEN jsonb_typeof(a.marcos::jsonb -> 'extra') = 'array'
+                                                                  THEN a.marcos::jsonb -> 'extra' ELSE '[]'::jsonb END)
+                                        WITH ORDINALITY AS e(fase, ordem)) x) AS fases
+              FROM pasta_andamento a
+              JOIN pasta p ON p.id = a.pasta_id
+             WHERE a.via = CASE WHEN p.administrativa THEN 'administrativa' ELSE 'judicial' END
+        )
+        UPDATE pasta p
+           SET finalizada_em = COALESCE(LEFT(NULLIF(t.em ->> t.atual::text, ''), 19)::timestamp, t.atualizado_em)
+          FROM trilha t
+         WHERE t.pasta_id = p.id
+           AND t.atual = t.fases - 1
+        SQL;
+
+    /** Etapa (b): último arquivamento das pastas arquivadas, não excluídas e sem andamento na via atual. */
+    public const SQL_BACKFILL_PELO_ARQUIVAMENTO = <<<'SQL'
         WITH pelo_registro AS (
             SELECT m.pasta_id, MAX(m.criada_em) AS em
               FROM pasta_mensagem m
@@ -41,19 +70,25 @@ final class Version20261023150900 extends AbstractMigration
              GROUP BY a.entity_id
         )
         UPDATE pasta p
-           SET arquivada_em = GREATEST(
+           SET finalizada_em = GREATEST(
                    (SELECT r.em FROM pelo_registro r WHERE r.pasta_id = p.id),
                    (SELECT a.em FROM pela_auditoria a WHERE a.entity_id = p.id::text))
          WHERE p.situacao = 'arquivado'
            AND p.excluida_em IS NULL
+           AND NOT EXISTS (SELECT 1 FROM pasta_andamento a
+                            WHERE a.pasta_id = p.id
+                              AND a.via = CASE WHEN p.administrativa THEN 'administrativa' ELSE 'judicial' END)
         SQL;
 
-    /** Pastas arquivadas e não excluídas sem nenhuma das duas fontes: ficam com arquivada_em nula. */
+    /** Pastas da etapa (b) sem nenhuma das duas fontes: ficam com finalizada_em nula. */
     public const SQL_CONTA_SEM_FONTE = <<<'SQL'
         SELECT COUNT(*)
           FROM pasta p
          WHERE p.situacao = 'arquivado'
            AND p.excluida_em IS NULL
+           AND NOT EXISTS (SELECT 1 FROM pasta_andamento a
+                            WHERE a.pasta_id = p.id
+                              AND a.via = CASE WHEN p.administrativa THEN 'administrativa' ELSE 'judicial' END)
            AND NOT EXISTS (SELECT 1 FROM pasta_mensagem m
                             WHERE m.pasta_id = p.id AND m.sistema = 'situacao'
                               AND (m.conteudo LIKE '%para &quot;Arquivado&quot;%' OR m.conteudo LIKE '%para "Arquivado"%'))
@@ -65,15 +100,16 @@ final class Version20261023150900 extends AbstractMigration
 
     public function getDescription(): string
     {
-        return 'Dashboard: pasta.arquivada_em, zeramento de coluna e meta de pastas';
+        return 'Dashboard: pasta.finalizada_em, zeramento de coluna e meta de pastas';
     }
 
     public function up(Schema $schema): void
     {
         $this->contarPastasSemFonte();
 
-        $this->addSql('ALTER TABLE pasta ADD arquivada_em TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
-        $this->addSql(self::SQL_BACKFILL_ARQUIVADA_EM);
+        $this->addSql('ALTER TABLE pasta ADD finalizada_em TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
+        $this->addSql(self::SQL_BACKFILL_PELO_ANDAMENTO);
+        $this->addSql(self::SQL_BACKFILL_PELO_ARQUIVAMENTO);
 
         $this->criarZeramento();
         $this->criarMetaDePastas();
@@ -83,7 +119,7 @@ final class Version20261023150900 extends AbstractMigration
     {
         $this->addSql('DROP TABLE dashboard_zeramento');
         $this->addSql('DROP TABLE dashboard_meta_pastas');
-        $this->addSql('ALTER TABLE pasta DROP arquivada_em');
+        $this->addSql('ALTER TABLE pasta DROP finalizada_em');
     }
 
     private function criarZeramento(): void
@@ -114,6 +150,6 @@ final class Version20261023150900 extends AbstractMigration
     {
         $semFonte = (int) $this->connection->fetchOne(self::SQL_CONTA_SEM_FONTE);
 
-        $this->write(sprintf('Pastas arquivadas sem data de arquivamento (sem cartão no Registro nem auditoria): %d', $semFonte));
+        $this->write(sprintf('Pastas arquivadas sem andamento na via atual e sem data de arquivamento (sem cartão no Registro nem auditoria): %d', $semFonte));
     }
 }

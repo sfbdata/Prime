@@ -205,39 +205,38 @@ final class MetricasExtrasDoDashboardRepositoryTest extends KernelTestCase
 
     // ─── Pastas concluídas ───────────────────────────────────────────
 
-    private function arquivada(Tenant $tenant, User $responsavel, string $em): Pasta
+    private function finalizada(Tenant $tenant, User $responsavel, string $em): Pasta
     {
         $pasta = PastaFactory::createOne(['tenant' => $tenant, 'responsavel' => $responsavel])->_real();
-        $pasta->setSituacao(Pasta::SITUACAO_ARQUIVADA, new \DateTimeImmutable($em));
+        $pasta->setFinalizadaEm(new \DateTimeImmutable($em));
         $this->em->flush();
 
         return $pasta;
     }
 
-    #[TestDox('Pastas concluídas: arquivadas no período por responsável; desarquivada, excluída, oculta, sem data e outro escritório ficam fora')]
+    #[TestDox('Pastas concluídas: finalizadas no período por responsável, qualquer situação; sem data, excluída, oculta e outro escritório ficam fora')]
     public function testConcluidasPorResponsavel(): void
     {
         $tenant = TenantFactory::createOne()->_real();
         $outro  = TenantFactory::createOne()->_real();
         $ana    = UserFactory::createOne()->_real();
 
-        $this->arquivada($tenant, $ana, '2024-01-10 09:00');
-        $this->arquivada($tenant, $ana, '2024-01-31 22:00');               // data_ate inclusiva até o fim do dia
-        $this->arquivada($tenant, $ana, '2023-12-31 23:00');               // antes do período
-        $this->arquivada($outro, $ana, '2024-01-10 09:00');                // outro escritório
-        $this->arquivada($tenant, $ana, '2024-01-12 09:00')->setSituacao(Pasta::SITUACAO_ATIVA); // desarquivada
-        $this->arquivada($tenant, $ana, '2024-01-13 09:00')->marcarExcluida($ana, new \DateTimeImmutable());
-        $oculta = $this->arquivada($tenant, $ana, '2024-01-14 09:00');
-        PastaFactory::createOne(['tenant' => $tenant, 'responsavel' => $ana, 'situacao' => Pasta::SITUACAO_ATIVA]);
-        $semData = $this->arquivada($tenant, $ana, '2024-01-15 09:00');
+        $this->finalizada($tenant, $ana, '2024-01-10 09:00');
+        $this->finalizada($tenant, $ana, '2024-01-31 22:00');               // data_ate inclusiva até o fim do dia
+        $this->finalizada($tenant, $ana, '2023-12-31 23:00');               // antes do período
+        $this->finalizada($outro, $ana, '2024-01-10 09:00');                // outro escritório
+        $this->finalizada($tenant, $ana, '2024-01-12 09:00')->setSituacao(Pasta::SITUACAO_ARQUIVADA); // a situação não importa
+        $this->finalizada($tenant, $ana, '2024-01-13 09:00')->marcarExcluida($ana, new \DateTimeImmutable());
+        $oculta = $this->finalizada($tenant, $ana, '2024-01-14 09:00');
+        PastaFactory::createOne(['tenant' => $tenant, 'responsavel' => $ana, 'situacao' => Pasta::SITUACAO_ARQUIVADA]); // arquivada sem data
+        $this->finalizada($tenant, $ana, '2024-01-15 09:00')->setFinalizadaEm(null); // voltou de fase
         $this->em->flush();
-        $this->em->getConnection()->executeStatement('UPDATE pasta SET arquivada_em = NULL WHERE id = ?', [$semData->getId()]);
 
         $janeiro = ['data_de' => '2024-01-01', 'data_ate' => '2024-01-31'];
-        self::assertSame(2, $this->repo->contarArquivadasPorResponsavel($tenant, $janeiro, [(int) $oculta->getId()])[$ana->getId()] ?? 0);
-        self::assertSame(3, $this->repo->contarArquivadasPorResponsavel($tenant, $janeiro)[$ana->getId()] ?? 0, 'sem cadeado, a oculta volta');
-        self::assertSame(4, $this->repo->contarArquivadasPorResponsavel($tenant)[$ana->getId()] ?? 0, 'sem período: todas com data');
-        self::assertSame(1, $this->repo->contarArquivadasPorResponsavel($outro, $janeiro)[$ana->getId()] ?? 0);
+        self::assertSame(3, $this->repo->contarFinalizadasPorResponsavel($tenant, $janeiro, [(int) $oculta->getId()])[$ana->getId()] ?? 0);
+        self::assertSame(4, $this->repo->contarFinalizadasPorResponsavel($tenant, $janeiro)[$ana->getId()] ?? 0, 'sem cadeado, a oculta volta');
+        self::assertSame(5, $this->repo->contarFinalizadasPorResponsavel($tenant)[$ana->getId()] ?? 0, 'sem período: todas com data');
+        self::assertSame(1, $this->repo->contarFinalizadasPorResponsavel($outro, $janeiro)[$ana->getId()] ?? 0);
     }
 
     // ─── Eventos na agenda ───────────────────────────────────────────

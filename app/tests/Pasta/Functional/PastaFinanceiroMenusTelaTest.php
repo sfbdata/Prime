@@ -200,7 +200,7 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         $menu    = $crawler->filter("#financeiro-doc-menu-{$doc->getId()}");
 
         self::assertSame(
-            ['Abrir', 'Baixar', 'Copiar nome do arquivo', 'Encaminhar via Chat I.A', 'Renomear', 'Enviar por e-mail ao cliente', 'Ver em Documentos', 'Excluir'],
+            ['Abrir', 'Baixar', 'Copiar nome do arquivo', 'Encaminhar via Chat I.A', 'Renomear', 'Marcar como assinado', 'Enviar por e-mail ao cliente', 'Ver em Documentos', 'Excluir'],
             $this->rotulos($menu),
         );
         // D:6958: "Encaminhar via Chat I.A" (com a Central) vem logo depois de "Copiar nome do arquivo"

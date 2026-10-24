@@ -14,6 +14,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: NotificacaoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+// O "um não lido por pasta" do Acompanhar alterações (`NotificacaoRepository::idsDosUsuariosComNaoLidaNoLink`).
+#[ORM\Index(name: 'idx_notificacao_tenant_tipo_lida', columns: ['tenant_id', 'tipo', 'lida'])]
 class Notificacao implements Auditavel, TenantAware
 {
     public const TIPO_TAREFA_CRIADA = 'tarefa_criada';
@@ -35,6 +37,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_PASTA_RESPOSTA_REGISTRO = 'pasta_resposta_registro';
     /** Alguém @mencionou o destinatário num registro (ou resposta) do Registro da pasta. */
     public const TIPO_PASTA_MENCAO_REGISTRO = 'pasta_mencao_registro';
+    /** Alteração numa pasta que o destinatário acompanha ("Acompanhar alterações" do menu ⋮; hoje, mensagem nova no Registro). */
+    public const TIPO_PASTA_ACOMPANHADA = 'pasta_acompanhada';
     /** Alguém @mencionou o destinatário numa nota técnica de processo (escrita numa pasta). */
     public const TIPO_NOTA_TECNICA_MENCAO = 'nota_tecnica_mencao';
     // Pedido de acesso a pasta com cadeado (spec pasta-cadeado K5): vai para cada primário ativo e o Master.
@@ -265,6 +269,7 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_CENTRAL_DESPACHO => 'bi-person-check text-warning',
             // Desenho (bluejus-central.js, tipo "mencao"): `bi-at` em azul.
             self::TIPO_PASTA_MENCAO_REGISTRO => 'bi-at text-primary',
+            self::TIPO_PASTA_ACOMPANHADA => 'bi-bell text-primary',
             // Menção numa nota técnica: o mesmo tipo "mencao" do desenho — `bi-at` em azul.
             self::TIPO_NOTA_TECNICA_MENCAO => 'bi-at text-primary',
             self::TIPO_CENTRAL_MENCAO => 'bi-at text-primary',

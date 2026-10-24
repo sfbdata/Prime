@@ -31,6 +31,12 @@
    desenho oferece "Desfazer" depois de excluir; aqui NÃO há: a exclusão é
    física, e desfazer exigiria lápide de meta (decisão em aberto).
 
+   "Duplicar" (PMC-032, D:3725 `duplicar` e D:3736): entre "Editar nome" e "Encaminhar via Chat I.A", só com a
+   meta editável (fora da lápide). POST `tarefa_duplicar` (DuplicarMetaController), token `duplicar_tarefa_<id>`,
+   sem janela de confirmação: a cópia nasce na hora, no fim da lista, sem notificar ninguém. Com JS vai por XHR
+   (pasta-metas.js) e a aba volta renderizada; o aviso "Meta duplicada" traz "Desfazer", que manda o "Excluir"
+   da linha da cópia. Sem JS, volta para a pasta com a cópia realçada.
+
    Concluir e Reabrir sem recarregar (PMC-031): com JS, o pasta-metas.js manda os
    MESMOS formulários (⋮ e rodapé do drawer) por XHR; `tarefa_concluir` e
    `tarefa_reabrir` respondem JSON com esta aba renderizada de novo
@@ -38,12 +44,12 @@
    "Desfazer", que manda o formulário oposto da linha nova (mesma guarda e CSRF).
    Sem JS, continua o POST + redirect.
 
-   "Encaminhar via Chat I.A" (D:3737, `metaMenu`): no ⋮, depois de "Editar nome" (o desenho o põe depois de
-   "Duplicar", que não existe aqui) e antes de "Copiar link". Leva só ids em `data-*` (`.js-meta-encaminhar`,
+   "Encaminhar via Chat I.A" (D:3737, `metaMenu`): no ⋮, depois de "Duplicar" (ou de "Editar nome", quando a
+   meta não é editável e o "Duplicar" não aparece) e antes de "Copiar link". Leva só ids em `data-*` (`.js-meta-encaminhar`,
    tipo `meta`); o pasta-metas.js dispara `bj-central:despachar`. Só com a Central (`central_disponivel()`) e
    fora da lápide (o despacho dá 404 na pasta excluída, spec §2.11).
 
-   O que não tem lastro NÃO aparece: número global e duplicar. #}
+   O que não tem lastro NÃO aparece: número global. #}
 {# Aviso com "Desfazer" (dc L.1509-1510): fixo, centrado, 24px do rodapé, raio 4,
    13px; "Desfazer" #7cc4ff/700. O `.ps-l7-aviso` da tela não serve: tem
    `pointer-events: none` e o botão precisa de clique. Nasce no <body> pelo
@@ -126,7 +132,7 @@
            o botão não é oferecido. #}
         {% if not pasta.estaExcluida %}
             <button type="button" class="ps-btn ps-btn--primario ps-btn--alto" title="{{ 'pasta_documentos.metas.nova_dica'|trans }}" aria-label="{{ 'pasta_documentos.metas.nova'|trans }}"
-                    data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
+                    data-bs-toggle="modal" data-bs-target="#modalCriarTarefa" data-ps-nova-meta>
                 <i class="bi bi-plus-lg"></i><span>{{ 'pasta_documentos.metas.nova'|trans }}</span>
             </button>
         {% endif %}
@@ -253,9 +259,16 @@
                                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-meta-renomear="{{ tarefa.id }}">
                                         <i class="bi bi-pencil"></i><span>{{ 'pasta_documentos.metas.editar_nome'|trans }}</span>
                                     </button>
+                                    {# D:3736: "Duplicar" logo depois de "Editar nome", sem confirmação (a cópia nasce na hora). #}
+                                    <form method="post" action="{{ path('tarefa_duplicar', {id: tarefa.id}) }}" class="ps-meta-duplicar">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('duplicar_tarefa_' ~ tarefa.id) }}">
+                                        <button type="submit" class="ps-pop-item" role="menuitem">
+                                            <i class="bi bi-copy"></i><span>{{ 'pasta_documentos.metas.duplicar'|trans }}</span>
+                                        </button>
+                                    </form>
                                 {% endif %}
                                 {% if encaminharPasta %}
-                                    {# D:3737: depois de "Editar nome" ("Duplicar" não existe aqui), antes de "Copiar link". #}
+                                    {# D:3737: depois de "Duplicar", antes de "Copiar link". #}
                                     <button type="button" class="ps-pop-item js-meta-encaminhar" role="menuitem"
                                             data-encaminhar-pasta="{{ encaminharPasta }}"
                                             data-encaminhar-tipo="meta"
@@ -279,12 +292,24 @@
                                     <div class="ps-pop-sep"></div>
                                     {# E7: pergunta na janela da tela (pasta-dialogos.js, `data-ps-cf`), vermelha por
                                        ser exclusão. O `onsubmit` só pergunta pelo navegador se a janela não carregou. #}
+                                    {# Meta com despacho registrado (decisão do dono, 23/10): só o poder sem prazo chega aqui, e a
+                                       exclusão passa pela janela "Entendo que o registro oficial será apagado"
+                                       (#psMetaExcluirDespacho, meta-excluir-despacho.js), que manda `confirmar_despacho=1`. #}
+                                    {% set despachosMeta = meta_despachos_registrados(tarefa) %}
+                                    {% if despachosMeta > 0 %}
+                                    <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
+                                          data-meta-despacho="{{ despachosMeta }}">
+                                        <input type="hidden" name="confirmar_despacho" value="">
+                                    {% else %}
                                     <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}" class="ps-meta-excluir"
                                           data-ps-cf="{{ 'pasta_documentos.metas.excluir_confirmar'|trans }}" data-ps-cf-perigo
                                           onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);">
+                                    {% endif %}
                                         <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
-                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
-                                            <i class="bi bi-trash3"></i><span>{{ 'pasta_documentos.metas.excluir'|trans }}</span>
+                                        {# Edição sem prazo (spec §5): o selo quando só o poder libera (outro criador ou depois de 24h). #}
+                                        {% set seloMeta = meta_selo_excluir(tarefa) %}
+                                        <button type="submit" class="ps-pop-item ps-pop-item--perigo{{ seloMeta ? ' com-selo-sem-prazo' }}" role="menuitem">
+                                            <i class="bi bi-trash3"></i><span>{{ 'pasta_documentos.metas.excluir'|trans }}</span>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloMeta} only %}
                                         </button>
                                     </form>
                                 {% endif %}
@@ -466,4 +491,29 @@
             </div>
         {% endfor %}
     </aside>
+{% endif %}
+
+{# A janela da meta com despacho registrado (desenho da devolução, 04B L106, `.mp-modal`, sem Bootstrap): o aviso, a caixa
+   "Entendo que o registro oficial será apagado" e o botão que só habilita com ela marcada. #}
+{% if not pasta.estaExcluida %}
+<div class="mp-modal mp-devolucao ps-meta-excluir-despacho" id="psMetaExcluirDespacho" hidden>
+    <div class="mp-modal-fundo" data-mp-fechar></div>
+    <div class="mp-modal-centro">
+        <div class="mp-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="psMetaExcluirDespachoTitulo">
+            <div class="mp-modal-cabeca">
+                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                <b id="psMetaExcluirDespachoTitulo" class="mp-modal-cabeca-titulo">{{ 'pasta_documentos.metas.despacho.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-mp-fechar aria-label="{{ 'pasta_documentos.metas.despacho.cancelar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mp-modal-corpo">
+                <div class="mp-dev-texto">{{ 'pasta_documentos.metas.despacho.aviso'|trans }}</div>
+                <label class="ps-meta-despacho-ciente"><input type="checkbox" data-meta-despacho-ciente> {{ 'pasta_documentos.metas.despacho.ciente'|trans }}</label>
+            </div>
+            <div class="mp-modal-pe">
+                <button type="button" class="mp-cancelar" data-mp-fechar>{{ 'pasta_documentos.metas.despacho.cancelar'|trans }}</button>
+                <button type="button" class="mp-confirmar ps-meta-despacho-excluir" data-meta-despacho-ok disabled><i class="bi bi-trash3" aria-hidden="true"></i> {{ 'pasta_documentos.metas.despacho.excluir'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}

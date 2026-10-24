@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
 use App\Entity\Permission\AccessRequest;
 use App\Pasta\Entity\Pasta;
@@ -13,7 +14,14 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
+use App\Pasta\Repository\AbaOcultaDaPastaRepository;
+use App\Pasta\Repository\PastaAcompanhamentoDesligadoRepository;
+use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Pasta\Service\CotaDeNotificacoesDoRegistro;
+use App\Pasta\Service\EquipeQuePodeTerAbaOculta;
+use App\Pasta\Service\QuemAcompanhaAPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Pasta\Service\MencoesDoRegistro;
 use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
@@ -42,6 +50,8 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
     private UserTenantRepository&MockObject $userTenantRepository;
     private PermissionChecker&MockObject $permissionChecker;
     private UserRepository&MockObject $userRepository;
+    /** Quem não desligou o "Acompanhar alterações": vazio por padrão (os casos antigos não são sobre isso). */
+    private PastaAcompanhamentoDesligadoRepository&MockObject $desligados;
     private CotaDeNotificacoesDoRegistro $cota;
     private EnviarMensagemPastaUseCase $useCase;
     private Pasta $pasta;
@@ -50,6 +60,9 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
     /** A última mensagem passada ao `persist` — o dublê do flush dá id a ela, como o banco. */
     private ?PastaMensagem $persistida = null;
     private int $proximoId = 950;
+    private LoggerEmMemoria $logger;
+    /** Vira true quando o `wrapInTransaction` devolve: o commit da mensagem. */
+    private bool $transacaoFechada = false;
 
     protected function setUp(): void
     {
@@ -59,11 +72,18 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
         $this->userTenantRepository  = $this->createMock(UserTenantRepository::class);
         $this->permissionChecker     = $this->createMock(PermissionChecker::class);
         $this->userRepository        = $this->createMock(UserRepository::class);
+        $this->desligados            = $this->createMock(PastaAcompanhamentoDesligadoRepository::class);
         // Cota que aceita sempre: os casos daqui não são sobre o teto (SEC-008 tem os próprios).
         $this->cota                  = new CotaDeNotificacoesDoRegistro(new RateLimiterFactoryEspiao(), new NullLogger());
 
         // Como o real: roda o callback (o flush final e o commit não importam ao dublê).
-        $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $fn): mixed => $fn($this->em));
+        $this->em->method('wrapInTransaction')->willReturnCallback(function (callable $fn): mixed {
+            $resultado              = $fn($this->em);
+            $this->transacaoFechada = true;
+
+            return $resultado;
+        });
+        $this->logger = new LoggerEmMemoria();
         // O id da resposta só nasce no flush — é o que o link da notificação usa.
         $this->em->method('persist')->willReturnCallback(function (object $o): void {
             if ($o instanceof PastaMensagem) {
@@ -103,6 +123,8 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
                 $this->createStub(VisibilidadeDoFinanceiroDaPasta::class),
             ),
             $this->cota,
+            $this->avisoDeAcompanhamento($urlGenerator),
+            $this->logger,
         );
 
         $this->tenant = new Tenant();
@@ -579,7 +601,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             ->willReturn($colegas);
     }
 
-    /** @param array<int, bool> $acesso userId => vê a pasta 41 */
+    /** @param array<int, bool> $acesso userId => vê a pasta 41 (pela checagem comum e pela com vínculo) */
     private function acessoAPasta(array $acesso): void
     {
         $this->permissionChecker->method('canAccessResource')->willReturnCallback(
@@ -590,6 +612,26 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
                 return $acesso[(int) $u->getId()] ?? false;
             },
         );
+        $this->permissionChecker->method('canAccessResourceComVinculo')->willReturnCallback(
+            function (User $u, UserTenant $v, string $tipo, int $id, string $acao) use ($acesso): bool {
+                self::assertSame($u, $v->getUser());
+                self::assertSame($this->tenant, $v->getTenant());
+                self::assertSame([AccessRequest::RESOURCE_PASTA, 41, AccessRequest::ACTION_VIEW], [$tipo, $id, $acao]);
+
+                return $acesso[(int) $u->getId()] ?? false;
+            },
+        );
+    }
+
+    /**
+     * Quem acompanha a pasta (o recorte do repositório), como vínculos deste escritório.
+     *
+     * @param list<User> $pessoas
+     */
+    private function acompanham(array $pessoas): void
+    {
+        $this->desligados->method('vinculosQueNaoDesligaram')
+            ->willReturn(array_map(fn (User $u): UserTenant => new UserTenant($u, $this->tenant), $pessoas));
     }
 
     private function pessoa(int $id, string $nome): User
@@ -834,6 +876,28 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             $mencoes,
             new ResolucaoDeMencoesDoRegistro($mencoes, $this->userRepository, $this->permissionChecker, $this->notificacaoRepository, $this->notificacaoService, $urlGenerator, $cota, $this->createStub(VisibilidadeDoFinanceiroDaPasta::class)),
             $cota,
+            $this->avisoDeAcompanhamento($urlGenerator),
+            $this->logger,
+        );
+    }
+
+    /**
+     * O aviso de "Acompanhar alterações" real, com os mesmos dublês: sem regra de aba oculta (ninguém tem a aba
+     * Dados escondida) e com a lista de quem acompanha vinda de `$this->desligados`.
+     */
+    private function avisoDeAcompanhamento(UrlGeneratorInterface $urlGenerator): AvisoDePastaAcompanhada
+    {
+        $vinculos  = $this->createStub(UserTenantRepository::class);
+        $primarios = new RegraDosPrimarios($vinculos);
+        $abas      = new VisibilidadeDasAbasDaPasta($this->createStub(AbaOcultaDaPastaRepository::class), $primarios, new EquipeQuePodeTerAbaOculta($vinculos, $primarios));
+
+        return new AvisoDePastaAcompanhada(
+            new QuemAcompanhaAPasta($this->desligados, $this->permissionChecker, $abas),
+            $this->notificacaoRepository,
+            $this->notificacaoService,
+            $urlGenerator,
+            $this->em,
+            $this->logger,
         );
     }
 
@@ -897,6 +961,170 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
             ->executar($this->pasta, $this->autor, '<p>Nota para @[Eu](user:1)</p>', $this->tenant);
 
         self::assertSame([], $espiao->chavesConsumidas);
+    }
+
+    // ── Acompanhar alterações (menu ⋮ da pasta) ─────────────────────────────
+
+    #[TestDox('Acompanhar: registro comum (caminho sem transação) avisa quem acompanha, menos o autor, sem gastar a cota')]
+    public function testRegistroComumAvisaQuemAcompanha(): void
+    {
+        $this->cenarioDeMencao();
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->acompanham([$this->autor, $bruno]);
+        $this->acessoAPasta([1 => true, 2 => true]);
+        $this->notificacaoRepository->expects($this->once())->method('idsDosUsuariosComNaoLidaNoLink')
+            ->with($this->identicalTo($this->tenant), Notificacao::TIPO_PASTA_ACOMPANHADA, '/pasta/41#')
+            ->willReturn([]);
+        $this->notificacaoService->expects($this->once())->method('prepararNotificacao')
+            ->with($this->identicalTo($bruno), $this->identicalTo($this->tenant), Notificacao::TIPO_PASTA_ACOMPANHADA, 'Nova mensagem na pasta 1232', '/pasta/41#pasta-msg-950')
+            ->willReturn(new Notificacao());
+        $this->em->expects($this->never())->method('wrapInTransaction');
+        $espiao = new RateLimiterFactoryEspiao(aceita: true);
+
+        $this->useCaseComCota(new CotaDeNotificacoesDoRegistro($espiao, new NullLogger()))
+            ->executar($this->pasta, $this->autor, 'Cliente ligou', $this->tenant);
+
+        self::assertSame([], $espiao->chavesConsumidas, 'o aviso de acompanhamento não gasta a cota do autor');
+    }
+
+    #[TestDox('Acompanhar: numa resposta com menção, o respondido e o mencionado ficam só com o aviso próprio; um terceiro recebe o de acompanhamento')]
+    public function testRespostaComMencaoNaoDuplicaOAviso(): void
+    {
+        $dono  = $this->dono();
+        $raiz  = $this->cenarioDeResposta($dono);
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $diego = $this->pessoa(4, 'Diego Reis');
+        $this->colegasDoEscritorio([$this->autor, $dono, $carla, $diego]);
+        $this->acompanham([$this->autor, $dono, $carla, $diego]);
+        $this->acessoAPasta([1 => true, 2 => true, 3 => true, 4 => true]);
+        $this->userTenantRepository->method('existeVinculoAtivo')->willReturn(true);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+        $this->notificacaoRepository->method('idsDosUsuariosComNaoLidaNoLink')->willReturn([]);
+        $this->notificacaoService->expects($this->exactly(2))->method('criar')->willReturnCallback(static fn (): Notificacao => new Notificacao());
+        $this->notificacaoService->expects($this->once())->method('prepararNotificacao')
+            ->with($this->identicalTo($diego), $this->anything(), Notificacao::TIPO_PASTA_ACOMPANHADA)
+            ->willReturn(new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, '<p>Feito, @[Carla](user:3)</p>', $this->tenant, $raiz);
+    }
+
+    #[TestDox('Acompanhar: quem ainda não leu o aviso anterior desta pasta não ganha outro')]
+    public function testAvisoNaoLidoNaoDuplica(): void
+    {
+        $this->cenarioDeMencao();
+        $bruno = $this->pessoa(2, 'Bruno Lima');
+        $this->acompanham([$bruno]);
+        $this->acessoAPasta([2 => true]);
+        $this->notificacaoRepository->method('idsDosUsuariosComNaoLidaNoLink')->willReturn([2 => true]);
+        $this->notificacaoService->expects($this->never())->method('prepararNotificacao');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Mais uma', $this->tenant);
+    }
+
+    #[TestDox('Acompanhar: quem acompanha mas não vê a pasta não é avisado')]
+    public function testQuemNaoVeAPastaNaoEAvisado(): void
+    {
+        $this->cenarioDeMencao();
+        $this->acompanham([$this->pessoa(2, 'Bruno Lima')]);
+        $this->acessoAPasta([2 => false]);
+        $this->notificacaoService->expects($this->never())->method('prepararNotificacao');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Sigiloso', $this->tenant);
+    }
+
+    #[TestDox('Acompanhar: com a cota estourada, o respondido e a mencionada ficam sem o aviso próprio e recebem o de acompanhamento')]
+    public function testCotaEstouradaDevolveOsDoisAoAcompanhamento(): void
+    {
+        $raiz  = $this->cenarioDeRespostaComMencao();
+        $dono  = $raiz->getAutor();
+        $carla = $this->pessoa(3, 'Carla Dias');
+        $this->acompanham([$this->autor, $dono, $carla]);
+        $this->notificacaoRepository->method('idsDosUsuariosComNaoLidaNoLink')->willReturn([]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $avisados = [];
+        $this->notificacaoService->expects($this->exactly(2))->method('prepararNotificacao')
+            ->willReturnCallback(static function (User $u, Tenant $t, string $tipo) use (&$avisados): Notificacao {
+                $avisados[] = [(int) $u->getId(), $tipo];
+
+                return new Notificacao();
+            });
+
+        $this->useCaseComCota(new CotaDeNotificacoesDoRegistro(new RateLimiterFactoryEspiao(aceita: false), new NullLogger()))
+            ->executar($this->pasta, $this->autor, '<p>Feito, @[Carla](user:3)</p>', $this->tenant, $raiz);
+
+        self::assertSame([[2, Notificacao::TIPO_PASTA_ACOMPANHADA], [3, Notificacao::TIPO_PASTA_ACOMPANHADA]], $avisados, 'o autor (1) nunca');
+    }
+
+    #[TestDox('Acompanhar: resposta já avisada (o aviso de resposta não foi criado agora) devolve o respondido ao acompanhamento')]
+    public function testRespostaJaAvisadaDevolveORespondidoAoAcompanhamento(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono);
+        $this->acessoAPasta([1 => true, 2 => true]);
+        $this->userTenantRepository->method('existeVinculoAtivo')->willReturn(true);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(new Notificacao());
+        $this->acompanham([$this->autor, $dono]);
+        $this->notificacaoRepository->method('idsDosUsuariosComNaoLidaNoLink')->willReturn([]);
+        $this->notificacaoService->expects($this->never())->method('criar');
+        $this->notificacaoService->expects($this->once())->method('prepararNotificacao')
+            ->with($this->identicalTo($dono), $this->identicalTo($this->tenant), Notificacao::TIPO_PASTA_ACOMPANHADA)
+            ->willReturn(new Notificacao());
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Feito', $this->tenant, $raiz);
+    }
+
+    #[TestDox('Acompanhar: os avisos de várias pessoas são gravados com UM flush, depois do da mensagem')]
+    public function testAvisosGravadosComUmFlushSo(): void
+    {
+        $this->cenarioDeMencao();
+        $this->acompanham([$this->pessoa(2, 'Bruno Lima'), $this->pessoa(3, 'Carla Dias'), $this->pessoa(4, 'Diego Reis')]);
+        $this->acessoAPasta([2 => true, 3 => true, 4 => true]);
+        $this->notificacaoRepository->method('idsDosUsuariosComNaoLidaNoLink')->willReturn([]);
+        $this->notificacaoService->expects($this->exactly(3))->method('prepararNotificacao')->willReturn(new Notificacao());
+        $this->notificacaoService->expects($this->never())->method('criarNotificacao');
+        $this->em->expects($this->exactly(2))->method('flush');
+
+        $this->useCase->executar($this->pasta, $this->autor, 'Cliente ligou', $this->tenant);
+    }
+
+    #[TestDox('Acompanhar: falha no aviso (registro comum) vai para o log e a mensagem fica gravada, sem exceção')]
+    public function testFalhaNoAvisoNaoDerrubaORegistroComum(): void
+    {
+        $this->cenarioDeMencao();
+        $this->acompanham([$this->pessoa(2, 'Bruno Lima')]);
+        $this->acessoAPasta([2 => true]);
+        $this->notificacaoRepository->method('idsDosUsuariosComNaoLidaNoLink')->willThrowException(new \RuntimeException('banco fora'));
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, 'Cliente ligou', $this->tenant);
+
+        self::assertSame($msg, $this->persistida, 'a mensagem foi gravada');
+        self::assertSame(950, $msg->getId());
+        $erros = $this->logger->doNivel('error');
+        self::assertCount(1, $erros);
+        self::assertSame(['pasta_id' => 41, 'mensagem_id' => 950, 'tenant_id' => 7, 'erro' => 'banco fora'], array_diff_key($erros[0]['contexto'], ['exception' => true]));
+    }
+
+    #[TestDox('Acompanhar: na resposta, o aviso sai DEPOIS do commit; a falha nele vai para o log e não desfaz a resposta nem o aviso de resposta')]
+    public function testFalhaNoAvisoDepoisDoCommitDaResposta(): void
+    {
+        $dono = $this->dono();
+        $raiz = $this->cenarioDeResposta($dono);
+        $this->donoComAcesso($dono);
+        $this->notificacaoRepository->method('findOneBy')->willReturn(null);
+        $this->notificacaoService->expects($this->once())->method('criar')->willReturn(new Notificacao());
+        $this->acompanham([$this->pessoa(3, 'Carla Dias')]);
+        $this->permissionChecker->method('canAccessResourceComVinculo')->willReturn(true);
+        $this->notificacaoRepository->method('idsDosUsuariosComNaoLidaNoLink')->willReturnCallback(function (): array {
+            self::assertTrue($this->transacaoFechada, 'o aviso de acompanhamento só roda depois do commit da mensagem');
+
+            throw new \RuntimeException('banco fora');
+        });
+
+        $msg = $this->useCase->executar($this->pasta, $this->autor, 'Feito', $this->tenant, $raiz);
+
+        self::assertSame(950, $msg->getId());
+        self::assertSame($raiz, $msg->getRespostaA());
+        self::assertCount(1, $this->logger->doNivel('error'));
     }
 
     /**

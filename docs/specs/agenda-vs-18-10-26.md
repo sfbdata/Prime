@@ -537,7 +537,11 @@ Cumpre a promessa do `bj-lembretes.js`, linha 3 (seção 15). Mesmos lembretes d
   aviso, uma **cadeia única** que se reagenda a cada 60 s. Motivo: compromisso editado, movido ou
   apagado mudaria a hora já agendada; a varredura sempre lê o estado atual. Continua sem cron, no
   transporte `async` (`doctrine://`) que já existe.
-- **Como a cadeia começa:** a primeira mensagem é enviada por `GarantirVarreduraDePush`, chamado na
+- **Mudou em 23/10/2026** (`docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler"): quem dispara a varredura a cada 60 s é o
+  schedule `cadeias` do Symfony Scheduler, consumido pelo worker. Saíram o `GarantirVarreduraDePush`, o comando
+  `app:agenda:push-varredura` e o reagendamento com `DelayStamp`; a janela da vez passou de 45 s para 30 s. Os três
+  itens abaixo descrevem o desenho original.
+- **Como a cadeia começava:** a primeira mensagem é enviada por `GarantirVarreduraDePush`, chamado na
   inscrição de um navegador, a cada consulta de `GET /agenda/lembretes` (toda tela aberta, a cada 5 min)
   e pelo comando `app:agenda:push-varredura` (para o deploy). Só despacha se a marca
   `agenda_push_varredura.ultima_em` estiver nula ou com mais de 180 s.

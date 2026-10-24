@@ -47,6 +47,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Pasta\Service\ConflitoDeNumeroCnj;
+use App\Pasta\Service\DetectorDeAssinaturaDigital;
 use App\Pasta\Service\OrganizacaoSugeridaPorFase;
 use App\Pasta\Service\PastaTimelineAssembler;
 use App\Pasta\Entity\PastaMensagem;
@@ -1561,7 +1562,9 @@ class PastaController extends AbstractController
         $dto = new EditarPastaDTO(
             nup: (string) $request->request->get('nup', ''),
             nomeCliente: $this->textoOuMantemAtual($request, 'nome_cliente', $pasta->getNomeCliente()),
-            nomeAcao: $this->textoOuMantemAtual($request, 'nome_acao', $pasta->getNomeAcao()),
+            // A Ação NÃO muda por aqui (decisão do dono, 23/10/2026; PZ-MOD-N05): no "Editar dados" ela é só
+            // leitura e "vem do menu Processo" (`pasta_acao_salvar`). Um `nome_acao` no POST é ignorado.
+            nomeAcao: $pasta->getNomeAcao(),
             // A situação NÃO muda por aqui: vai ao mesmo caso de uso da pílula logo abaixo, para sair o
             // cartão "Situação da pasta" e, ao arquivar, o andamento ir a Finalizada.
             situacao: $pasta->getSituacao(),
@@ -1990,7 +1993,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Upload de documento de contrato ──────────────────────────
 
     #[Route('/{id}/financeiro/upload', name: 'pasta_financeiro_upload', methods: ['POST'])]
-    public function financeiroUpload(Pasta $pasta, Request $request): JsonResponse
+    public function financeiroUpload(Pasta $pasta, Request $request, DetectorDeAssinaturaDigital $detectorDeAssinatura): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2034,6 +2037,7 @@ class PastaController extends AbstractController
 
         // Hash do upload ANTES de mover; recalculado pela chave só se a compressão trocar o binário.
         $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
+        $assinado = $detectorDeAssinatura->arquivoAssinado($file->getPathname(), $file->getClientOriginalName(), $mimeType);
 
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
@@ -2057,6 +2061,7 @@ class PastaController extends AbstractController
         $doc->setMimeType($mimeType);
         $doc->setTamanhoBytes($tamanhoFinal);
         $doc->setSha256($sha256);
+        $doc->marcarAssinaturaDoUpload($assinado, $compressao !== null && $compressao->comprimido, $currentUser);
 
         $this->em->persist($doc);
         $this->em->flush();
@@ -2077,6 +2082,8 @@ class PastaController extends AbstractController
             'urlDownload'   => $this->generateUrl('pasta_financeiro_documento_download', ['id' => $pastaId, 'docId' => $doc->getId()]),
             'csrfRenomear' => $this->csrfTokenManager->getToken('pasta_financeiro_renomear_' . $doc->getId())->getValue(),
             'csrfExcluir'  => $this->csrfTokenManager->getToken('pasta_financeiro_excluir_' . $doc->getId())->getValue(),
+            'csrfAssinatura' => $this->csrfTokenManager->getToken('pasta_financeiro_assinatura_' . $doc->getId())->getValue(),
+            'assinatura'     => $doc->getAssinaturaOrigem()?->value, // null = sem o selo "Assinado"
             'compressao'   => $compressao !== null ? [
                 'comprimido'      => $compressao->comprimido,
                 'tamanhoOriginal' => $compressao->tamanhoOriginal,

@@ -21,12 +21,11 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
- * Push dos lembretes no banco de verdade (entrega 5b): a cadeia não duplica e o envio é idempotente pela
- * chave do lembrete, mesmo com duas varreduras ao mesmo tempo.
+ * Push dos lembretes no banco de verdade (entrega 5b): uma volta por janela (a marca do banco) e o envio
+ * idempotente pela chave do lembrete, mesmo com duas varreduras ao mesmo tempo.
  */
 #[CoversClass(VarrerLembretesDePushUseCase::class)]
 #[CoversClass(VarrerLembretesDePushHandler::class)]
@@ -54,23 +53,30 @@ final class PushDosLembretesTest extends KernelTestCase
         self::assertFalse(static::getContainer()->get(PushEnviadoRepository::class)->reservar($eu[1], $eu[0], $falso->enviados[0]['conteudo']['tag'], new \DateTimeImmutable()), 'a chave já está reservada no banco');
     }
 
-    #[TestDox('A cadeia: só uma mensagem reivindica a vez e agenda a próxima; a outra morre sem se reagendar')]
-    public function testCadeiaUnica(): void
+    #[TestDox('Quem dispara é o Scheduler: o handler não se reagenda, e uma volta repetida dentro da janela de 30 s não varre de novo')]
+    public function testUmaVoltaPorJanela(): void
     {
         static::getContainer()->set(EnviadorDePush::class, new EnviadorDePushFalso());
-        $this->em()->getConnection()->executeStatement('UPDATE agenda_push_varredura SET ultima_em = NULL WHERE id = 1');
+        $conexao = $this->em()->getConnection();
+        $conexao->executeStatement('UPDATE agenda_push_varredura SET ultima_em = NULL WHERE id = 1');
         $handler = static::getContainer()->get(VarrerLembretesDePushHandler::class);
         /** @var InMemoryTransport $fila */
         $fila = static::getContainer()->get('messenger.transport.async');
+        $fila->reset();
+        $marca = static fn (): string => (string) $conexao->fetchOne('SELECT ultima_em FROM agenda_push_varredura WHERE id = 1');
 
         $handler(new VarrerLembretesDePush());
+        self::assertNotSame('', $marca(), 'a primeira volta reivindica a vez');
+        $dentro = (new \DateTimeImmutable('-' . (VarreduraDePushRepository::VEZ_SEGUNDOS - 10) . ' seconds'))->format('Y-m-d H:i:s');
+        $conexao->executeStatement('UPDATE agenda_push_varredura SET ultima_em = ? WHERE id = 1', [$dentro]);
         $handler(new VarrerLembretesDePush());
+        self::assertSame($dentro, $marca(), 'dentro da janela, a segunda volta não reivindica e não varre');
 
-        $agendadas = $fila->getSent();
-        self::assertCount(1, $agendadas, 'só a cadeia que reivindicou a vez se reagenda');
-        self::assertSame(60000, $agendadas[0]->last(DelayStamp::class)?->getDelay());
-        self::assertFalse(static::getContainer()->get(VarreduraDePushRepository::class)->estaParada(new \DateTimeImmutable()));
-        self::assertTrue(static::getContainer()->get(VarreduraDePushRepository::class)->estaParada(new \DateTimeImmutable('+4 minutes')), 'sem volta há mais de 3 min, conta como parada e é religada');
+        $fora = (new \DateTimeImmutable('-' . (VarreduraDePushRepository::VEZ_SEGUNDOS + 10) . ' seconds'))->format('Y-m-d H:i:s');
+        $conexao->executeStatement('UPDATE agenda_push_varredura SET ultima_em = ? WHERE id = 1', [$fora]);
+        $handler(new VarrerLembretesDePush());
+        self::assertGreaterThan($fora, $marca(), 'passada a janela, a volta seguinte varre');
+        self::assertCount(0, $fila->getSent(), 'nenhuma volta se reagenda: o schedule cadeias é quem dispara');
     }
 
     #[TestDox('Sem chaves VAPID o push fica desligado: nada é enviado e a cadeia não anda')]
@@ -84,7 +90,7 @@ final class PushDosLembretesTest extends KernelTestCase
 
         self::assertSame(0, static::getContainer()->get(VarrerLembretesDePushUseCase::class)->executar(new \DateTimeImmutable('+30 minutes')));
         static::getContainer()->get(VarrerLembretesDePushHandler::class)(new VarrerLembretesDePush());
-        self::assertCount(0, $fila->getSent(), 'desligado, o handler não se reagenda');
+        self::assertCount(0, $fila->getSent(), 'desligado, o handler não despacha nada');
     }
 
     #[TestDox('Escritório desativado não recebe push')]

@@ -7,6 +7,7 @@ namespace App\Dashboard\Entity;
 use App\Dashboard\Repository\DashboardZeramentoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -29,7 +30,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_dashboard_zeramento_user', columns: ['user_id'])]
 #[ORM\Index(name: 'idx_dashboard_zeramento_por', columns: ['por_id'])]
 #[ORM\Index(name: 'idx_dashboard_zeramento_desfeito_por', columns: ['desfeito_por_id'])]
-class DashboardZeramento implements TenantAware
+class DashboardZeramento implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

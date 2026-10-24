@@ -6,6 +6,7 @@ namespace App\Pasta\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Enum\OrigemDaAssinatura;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\Descartavel;
@@ -116,6 +117,23 @@ class PastaDocumento implements Auditavel, TenantAware, Descartavel
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'excluido_por_id', nullable: true, onDelete: 'SET NULL')]
     private ?User $excluidoPor = null;
+
+    /**
+     * Selo "Assinado" (aba Financeiro). NULL = não assinado. Preenchido junto com a origem: no
+     * upload, quando o arquivo traz assinatura digital (`OrigemDaAssinatura::Digital`), ou pelo ⋮
+     * da linha (`Manual`, assinado à caneta e escaneado). Sem setter de propósito: entra pelos
+     * `marcarAssinado*()` e só a marcação manual sai, pela `desmarcarAssinaturaManual()`.
+     */
+    #[ORM\Column(name: 'assinado_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $assinadoEm = null;
+
+    #[ORM\Column(name: 'assinatura_origem', length: 10, nullable: true, enumType: OrigemDaAssinatura::class)]
+    private ?OrigemDaAssinatura $assinaturaOrigem = null;
+
+    /** Quem marcou (manual) ou enviou o arquivo assinado (digital). `SET NULL`: sair não apaga o selo. */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'assinado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $assinadoPor = null;
 
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false)]
@@ -412,6 +430,82 @@ class PastaDocumento implements Auditavel, TenantAware, Descartavel
 
         $this->excluidoEm  = null;
         $this->excluidoPor = null;
+
+        return $this;
+    }
+
+    // ── Selo "Assinado" ─────────────────────────────────────────────────────────
+
+    public function estaAssinado(): bool
+    {
+        return $this->assinadoEm !== null;
+    }
+
+    public function getAssinadoEm(): ?\DateTimeImmutable
+    {
+        return $this->assinadoEm;
+    }
+
+    public function getAssinaturaOrigem(): ?OrigemDaAssinatura
+    {
+        return $this->assinaturaOrigem;
+    }
+
+    public function getAssinadoPor(): ?User
+    {
+        return $this->assinadoPor;
+    }
+
+    /** A assinatura que o próprio arquivo traz, vista no upload. `$por` é NULL nos caminhos sem usuário. */
+    public function marcarAssinadoDigitalmente(\DateTimeImmutable $em, ?User $por): self
+    {
+        $this->assinadoEm       = $em;
+        $this->assinaturaOrigem = OrigemDaAssinatura::Digital;
+        $this->assinadoPor      = $por;
+
+        return $this;
+    }
+
+    /**
+     * O selo que nasce no upload: o arquivo chegou assinado E a compressão não o regravou (o PDF
+     * reescrito pelo Ghostscript perde a assinatura; o que ficou no storage não está assinado).
+     */
+    public function marcarAssinaturaDoUpload(bool $chegouAssinado, bool $foiComprimido, ?User $por): self
+    {
+        if ($chegouAssinado && !$foiComprimido) {
+            $this->marcarAssinadoDigitalmente($this->carregadoEm, $por);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Marcação pela tela (assinado à caneta e escaneado). Recusa documento já assinado: remarcar
+     * apagaria quem marcou e quando, e uma assinatura digital não vira manual.
+     */
+    public function marcarAssinadoManualmente(User $por, \DateTimeImmutable $em): self
+    {
+        if ($this->estaAssinado()) {
+            throw new \LogicException('Este documento já está marcado como assinado.');
+        }
+
+        $this->assinadoEm       = $em;
+        $this->assinaturaOrigem = OrigemDaAssinatura::Manual;
+        $this->assinadoPor      = $por;
+
+        return $this;
+    }
+
+    /** Só a marcação manual sai pela tela: a assinatura digital é do arquivo, não de quem o enviou. */
+    public function desmarcarAssinaturaManual(): self
+    {
+        if ($this->assinaturaOrigem !== OrigemDaAssinatura::Manual) {
+            throw new \LogicException('Só a assinatura marcada manualmente pode ser desmarcada.');
+        }
+
+        $this->assinadoEm       = null;
+        $this->assinaturaOrigem = null;
+        $this->assinadoPor      = null;
 
         return $this;
     }

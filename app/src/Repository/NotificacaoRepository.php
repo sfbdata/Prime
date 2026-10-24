@@ -283,6 +283,31 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Quem, neste escritório, tem aviso NÃO LIDO do tipo informado com o link começando por
+     * `$inicioDoLink` (ex.: `/pasta/41#`, que não casa `/pasta/412#`). É a deduplicação do
+     * "Acompanhar alterações" da pasta: um aviso não lido por pasta e por pessoa. Escritório
+     * explícito: não depende do TenantFilter.
+     *
+     * @return array<int, true> id do usuário → true
+     */
+    public function idsDosUsuariosComNaoLidaNoLink(Tenant $tenant, string $tipo, string $inicioDoLink): array
+    {
+        $ids = $this->createQueryBuilder('n')
+            ->select('DISTINCT IDENTITY(n.usuario) AS usuario_id')
+            ->where('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.lida = false')
+            ->andWhere('n.url LIKE :inicio')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('inicio', addcslashes($inicioDoLink, '%_\\') . '%')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_fill_keys(array_map('intval', $ids), true);
+    }
+
+    /**
      * Apaga os avisos cujo link termina EXATAMENTE na âncora informada (`#pasta-msg-12`,
      * `#nota-tecnica-7`), dos tipos informados, no escritório informado (NOT-01): quando a
      * mensagem do Registro ou a nota técnica é excluída, a menção/resposta que apontava para ela

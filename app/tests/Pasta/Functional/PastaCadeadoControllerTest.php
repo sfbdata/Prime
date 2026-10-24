@@ -143,7 +143,7 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $c->filter('header.ps-cabecalho > div[role="status"] button[data-cad-pedir="1"]'), 'a faixa fica dentro do cabeçalho, logo abaixo do cliente');
         self::assertCount(1, $c->filter('button[data-cad-pedir="1"]'));
         self::assertCount(1, $c->filter('#psMenuAcoes'));
-        self::assertCount(0, $c->filter('#psMenuAcoes [data-bs-target="#modalEditarPasta"]'), 'sem "Editar dados"');
+        self::assertCount(0, $c->filter('#psMenuAcoes [data-pe-abrir][aria-controls="modalEditarPasta"]'), 'sem "Editar dados"');
         self::assertCount(0, $c->filter('.js-cadeado-abrir'), 'o cadeado é só de quem configura');
     }
 
@@ -160,7 +160,7 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('você pode visualizar, mas não alterar', $c->text());
-        self::assertCount(1, $c->filter('#psMenuAcoes [data-bs-target="#modalEditarPasta"]'));
+        self::assertCount(1, $c->filter('#psMenuAcoes [data-pe-abrir][aria-controls="modalEditarPasta"]'));
     }
 
     #[TestDox('quem configura vê o item "Cadeado" no ⋮ com o selo, o selo grande e o modal com a grade da equipe')]

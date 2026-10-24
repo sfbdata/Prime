@@ -341,5 +341,6 @@ final class PastaSomenteLeituraRotasArquiteturaTest extends KernelTestCase
         // Exceção é decisão, não esquecimento: as estrelas seguem recusadas (precedente PastaFavorita).
         self::assertNotContains('pasta_favorito_alternar', self::excecoes());
         self::assertNotContains('pasta_documentos_favorito', self::excecoes());
+        self::assertNotContains('pasta_acompanhamento_alternar', self::excecoes());
     }
 }

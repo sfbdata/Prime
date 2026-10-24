@@ -222,7 +222,10 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertSame('0', $crawler->filter("#pasta-msg-{$alheio->getId()}")->attr('data-do-autor'));
         // As ações reais que o menu aciona continuam no cartão do autor dentro da janela.
         self::assertCount(1, $crawler->filter("#pasta-msg-{$meu->getId()} .ps-anotacao-acoes > .btn-editar-msg-pasta"));
-        self::assertCount(0, $crawler->filter("#pasta-msg-{$alheio->getId()} .ps-anotacao-acoes"));
+        self::assertCount(0, $crawler->filter("#pasta-msg-{$meu->getId()} .selo-sem-prazo"), 'pela regra de sempre não há selo');
+        // O admin daqui é o Master: o conteúdo alheio abre pelo poder sem prazo, com o selo (spec edicao-sem-prazo).
+        self::assertCount(1, $crawler->filter("#pasta-msg-{$alheio->getId()} .ps-anotacao-acoes > .btn-editar-msg-pasta.com-selo-sem-prazo > .selo-sem-prazo"));
+        self::assertSame('EXCLUSIVO DO MASTER', $crawler->filter("#pasta-msg-{$alheio->getId()}")->attr('data-sem-prazo-rotulo'));
     }
 
     #[TestDox('PAS-025: o cartão montado em JS (registro recém-enviado) tem o mesmo ⋮ e os dados da janela')]
@@ -344,7 +347,7 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         $client->request('GET', '/pasta/' . $pasta->getId());
         $html = $this->html($client);
 
-        $abrir = $this->trecho($html, 'function abrirMenuReg(cartao, gatilho, x, y)', 3600);
+        $abrir = $this->trecho($html, 'function abrirMenuReg(cartao, gatilho, x, y)', 4400);
         // O texto vem do catálogo do idioma (`pasta_show.js.registro.*`); o catálogo guarda o texto de antes.
         self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_editar', {min: resto}), 'bi-pencil'", $abrir);
         self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_excluir', {min: resto}), 'bi-trash3'", $abrir);
@@ -355,7 +358,7 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Excluir comentário · {min} min', $registro['menu_excluir']);
         self::assertSame('Editar · bloqueado', $registro['menu_editar_bloqueado']);
         self::assertSame('Excluir · bloqueado', $registro['menu_excluir_bloqueado']);
-        self::assertStringContainsString("cartao.querySelector('.ps-anotacao-acoes .btn-editar-msg-pasta') && resto > 0", $abrir);
+        self::assertStringContainsString("const pelaRegra = temBotao && cartao.dataset.doAutor === '1' && resto > 0;", $abrir);
         self::assertStringContainsString("cartao.dataset.doAutor === '1' ? BJ_T.t('pasta_show.js.registro.motivo_prazo') : BJ_T.t('pasta_show.js.registro.motivo_autor')", $abrir);
         self::assertStringContainsString("responder.hidden = !cartao.querySelector('.btn-responder-msg-pasta')", $abrir);
         self::assertStringContainsString(':not([disabled])', $abrir, 'o foco não cai num item bloqueado');

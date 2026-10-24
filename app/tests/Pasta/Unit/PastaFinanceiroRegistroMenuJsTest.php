@@ -91,7 +91,7 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringNotContainsString('.ps-anotacao-janela', $prep, 'o texto do cartão para no tempo');
         // Item que nasceu bloqueado não reabre; o que nasceu liberado bloqueia quando a janela fecha.
         self::assertStringContainsString('const resto = nasceuLiberado ? minutosRestantesObs(registro) : 0;', $prep);
-        self::assertStringContainsString('const podeGerenciar = resto > 0;', $prep);
+        self::assertStringContainsString('const podeGerenciar = pelaRegra || selo !== \'\';', $prep);
 
         $minutos = $this->trecho('function minutosRestantesObs(', 'let obsAlvo');
         self::assertStringContainsString('Number(artigo ? artigo.dataset.janelaAte : 0) * 1000', $minutos);

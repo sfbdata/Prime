@@ -216,8 +216,8 @@ do sistema não são enviados.
    console ao adicionar o escopo.
 2. No `.env.prod` do servidor: `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` e `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`.
    `SYNC_CRYPTO_KEY` já existe (é a do Drive) e cifra o token.
-3. Worker da fila `async` rodando (o mesmo da 5b). Depois do deploy, `php bin/console
-   app:agenda:google-varredura` para não esperar a primeira consulta de lembretes.
+3. Worker de produção rodando (o mesmo da 5b): ele consome o schedule `cadeias`, que dispara a sincronia a cada
+   5 min (desde 23/10/2026; o `app:agenda:google-varredura` saiu, ver `docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler").
 
 ## 7. Prazos e audiências no Google (78b-2, decisão M7 do dono)
 

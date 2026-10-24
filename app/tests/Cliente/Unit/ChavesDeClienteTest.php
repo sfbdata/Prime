@@ -6,6 +6,7 @@ namespace App\Tests\Cliente\Unit;
 
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\ClienteDocumento;
+use App\Cliente\Entity\ClientePF;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
@@ -69,6 +70,50 @@ final class ChavesDeClienteTest extends TestCase
 
         self::assertCount(1, $parametros);
         self::assertSame(ClienteDocumento::class, (string) $parametros[0]->getType());
+    }
+
+    #[TestDox('foto(): categoria CLIENTE_FOTO, escopo do escritório do cliente e o nome guardado')]
+    public function testFotoUsaCategoriaEEscopoDoCliente(): void
+    {
+        $cliente = $this->cliente($this->tenant(7));
+        $cliente->trocarFoto('a1b2.jpg', new \DateTimeImmutable());
+
+        $chave = ChavesDeCliente::foto($cliente);
+
+        self::assertSame(CategoriaDeArquivo::CLIENTE_FOTO, $chave->categoria);
+        self::assertSame(7, $chave->escopo->tenantIdOuNull());
+        self::assertSame('a1b2.jpg', $chave->nome);
+    }
+
+    #[TestDox('foto(): cliente sem foto não tem chave')]
+    public function testFotoSemFotoLanca(): void
+    {
+        $this->expectException(ChaveDeArquivoInvalida::class);
+
+        ChavesDeCliente::foto($this->cliente($this->tenant(7)));
+    }
+
+    #[TestDox('fotoPorNome() e novaFoto(): escopo do cliente; cliente sem escritório é recusado')]
+    public function testFotoPorNomeENovaFotoUsamOEscopoDoCliente(): void
+    {
+        $cliente = $this->cliente($this->tenant(9));
+
+        $anterior = ChavesDeCliente::fotoPorNome($cliente, 'velha.png');
+        $nova     = ChavesDeCliente::novaFoto($cliente, 'jpg');
+
+        self::assertSame([9, CategoriaDeArquivo::CLIENTE_FOTO, 'velha.png'], [$anterior->escopo->tenantIdOuNull(), $anterior->categoria, $anterior->nome]);
+        self::assertSame([9, CategoriaDeArquivo::CLIENTE_FOTO, 'jpg'], [$nova->escopo->tenantIdOuNull(), $nova->categoria, $nova->extensao]);
+
+        $this->expectException(ChaveDeArquivoInvalida::class);
+        ChavesDeCliente::novaFoto(new ClientePF(), 'jpg');
+    }
+
+    private function cliente(Tenant $tenant): ClientePF
+    {
+        $cliente = new ClientePF();
+        $cliente->setTenant($tenant);
+
+        return $cliente;
     }
 
     private function tenant(int $id): Tenant

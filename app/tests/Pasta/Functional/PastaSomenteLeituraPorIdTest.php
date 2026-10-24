@@ -132,7 +132,7 @@ final class PastaSomenteLeituraPorIdTest extends JusPrimeWebTestCase
         $id = (int) $this->criarPasta($tenant, $user, false)->getId();
         $this->em()->clear();
 
-        $client->request('POST', "/tarefas/pasta/{$id}/criar", $this->corpoDaMeta($id), [], self::XHR);
+        $client->request('POST', "/tarefas/pasta/{$id}/criar", $this->corpoDaMeta($id, (int) $user->getId()), [], self::XHR);
 
         self::assertResponseIsSuccessful();
         $dados = json_decode((string) $client->getResponse()->getContent(), true);
@@ -166,12 +166,16 @@ final class PastaSomenteLeituraPorIdTest extends JusPrimeWebTestCase
     }
 
     /** @return array<string, string> */
-    private function corpoDaMeta(int $pastaId): array
+    /** D-META: com prazo e responsável, para só a lápide (e não a validação) decidir. */
+    private function corpoDaMeta(int $pastaId, int $responsavelId = 0): array
     {
         return [
-            '_token'    => $this->csrf('tarefa_criar_' . $pastaId),
-            'titulo'    => 'Meta da lápide',
-            'descricao' => 'Não deveria nascer em pasta excluída',
+            '_token'       => $this->csrf('tarefa_criar_' . $pastaId),
+            'titulo'       => 'Meta da lápide',
+            'descricao'    => 'Não deveria nascer em pasta excluída',
+            'prazo'        => '2026-12-31',
+            'etapa'        => 'juridico',
+            'responsaveis' => [$responsavelId],
         ];
     }
 

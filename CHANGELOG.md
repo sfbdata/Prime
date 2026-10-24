@@ -8,6 +8,113 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.16.0] - 2026-10-24
+
+### Adicionado
+
+- Pasta, aba Financeiro: os tipos "Êxito" e "Sucumbência" do "Adicionar pagamento" passam a funcionar como no desenho 02 VS 18.10.26. Pedem só o percentual (padrão 20 e 10) e gravam uma linha prevista, sem vencimento ("Honorários de êxito (N%)" / "Sucumbência estimada (N%)"), com selo azul "Previsto" e "N% sobre o total contratado · condicionado ao resultado".
+- O previsto fica fora do contratado, do recebido, da barra, dos vencidos, das pendências e do relatório de pastas paradas; aparece só como "+ R$ X previsto em êxito | sucumbência" abaixo da barra e, na impressão, como "Previsto (êxito/sucumbência)". O valor é calculado na leitura (`BaseDoPercentual`) e congela ao "Marcar como recebido" ou ao "Corrigir valor".
+- O card "Honorários contratuais" da faixa vira "Total contratado": soma automática, só leitura, dos lançamentos não previstos (base do percentual). A edição do valor da causa sai desta tela (segue no cartão do Processo).
+- Migration `Version20261020151400`: `pasta_pagamento.tipo` (padrão 'contrato'), `percentual` e `vencimento` nulo, com CHECKs de coerência. Sem backfill: lançamentos antigos ficam como contrato.
+
+### Alterado
+
+- E-mails: o limite de envio passa a contar as últimas 24 horas corridas (Hostinger Business Standard/Premium, 3.000 por caixa), com teto de 2.400 no total, 1.600 para campanhas e 800 reservados aos e-mails de conta, convite e avisos, e 10 por minuto; todos os padrões são configuráveis por ambiente.
+- E-mails: os enviados direto pelo sistema (cadastro, convite, senha, avisos, agendador) passam a contar no limite, registrados como "sistema".
+- Master: aviso no topo quando os e-mails chegam a 80% do limite e quando as campanhas ficam pausadas pelo limite, com a hora em que voltam a enviar e o botão Dispensar.
+- Pasta, Nova meta: campo obrigatório "Caixa / etapa", entre Prazo e Responsáveis (desenho 02 de 22/10, L179). Oito botões na ordem da esteira, com o nome que o escritório deu à etapa e o setor; a sugestão pelo título e pela descrição só pinta o botão e mostra a dica, sem marcar. A regra da sugestão sai do `EtapaDaPasta` por um data-attribute (fonte única). "Preencha:" cobra também a etapa, no fim.
+- `tarefa_criar_para_pasta` exige `etapa` (valor do enum): ausente ou inválida responde 422; a etapa escolhida é gravada antes do PrePersist do título.
+- Duplicar meta: a cópia herda a caixa / etapa da original.
+- Sem migration (a coluna `tarefa.etapa` já existe).
+- Agendador: o envio ao Google Drive de hora em hora (`app:sync:reconciliar`) roda sem `--tenant-id` e percorre todos os escritórios com Drive conectado; o escritório que desconecta para de enviar (decisão do dono, 24/10/2026). Sem nenhum conectado, termina com sucesso, sem aviso de falha.
+
+### Corrigido
+
+- Campos de formulário escuros em tela clara para quem usa o sistema operacional em modo escuro: `base.html.twig` passa a declarar `<meta name="color-scheme" content="light">` (antes "light dark"); o tema escuro do sistema segue pelo `data-bs-theme="dark"`.
+- Equipe > Editar Permissões, aba Dados Pessoais: os 5 campos ganham `form-control`. Cobrança > Acordo, janela Editar: o campo do valor total negociado também.
+- Ponto: batida esquecida com data e hora acima de agora no relógio do servidor (a mesma régua da gravação da batida) é recusada no lote de justificativas do admin, no pedido de esquecimento do colaborador e na aprovação desse pedido (individual e "Aprovar todos", que deixa o pedido pendente). Antes, uma batida de hoje com hora futura passava. Regra única em `App\Ponto\Service\HorarioFuturoDaBatida`. Sem migration.
+
+## [2.15.0] - 2026-10-23
+
+### Adicionado
+
+- Pasta, aba Metas: "Duplicar" no menu ⋮ da meta (desenho 02, PMC-032), entre "Editar nome" e "Encaminhar via Chat I.A". A cópia nasce na hora na mesma pasta, aberta, com descrição, prazo (mesmo vencido), prioridade exata (Normal fica Normal, sem herdar a da pasta) e tipo de demanda da original e o título com " (cópia)" (até 120 caracteres); não notifica ninguém. Dos responsáveis, só vão os que a Nova meta aceitaria (vínculo ativo); se nenhum sobrar, a duplicação é recusada com "Nenhum responsável desta meta pode receber metas agora. Crie pela Nova meta." Sem XHR, recusa e sucesso respondem com aviso e volta para a aba Metas. O aviso "Meta duplicada" traz "Desfazer", que exclui a cópia. Rota nova `tarefa_duplicar` (POST, CSRF por id, mesmas guardas da criação de meta; recusada na pasta excluída). `tarefa_excluir` passa a responder JSON por XHR.
+- Pasta, modal "Nova meta" (D-META): prazo e ao menos um responsável passam a ser obrigatórios, com o "*" nos rótulos e o "Criar meta" desabilitado com "Preencha: título, descrição, prazo, responsável" (só os que faltam). Aberto pelo botão "Nova meta", o prazo já vem em hoje + 7 dias. O servidor responde 422 sem prazo válido ou sem responsável do escritório. Sem migration.
+- Pasta, menu ⋮ do cabeçalho: "Mover para outra carteira", como no desenho 02 VS 18.10.26. O submenu "Mover pasta N para" lista as seis carteiras (Contencioso cível, Condominial, Família e sucessões, Trabalhista, Previdenciário, Empresarial), marca a atual com "· atual" e grava pela rota `pasta_mover_carteira` (POST, CSRF, permissão de editar a pasta). O Registro ganha o cartão "Carteira: movida de "X" para "Y"." e a Timeline mostra "Carteira alterada".
+- Migration `Version20261020151500`: coluna nula `pasta.carteira`. As pastas existentes ficam "Sem carteira"; nada é preenchido para trás.
+- Pasta, aba Processo: "Editar ação da pasta" no ⋮ do cartão do processo principal e no ⋮ do cabeçalho da aba (decisão do dono de 23/10/2026; desenho 02: "Ação · vem do menu Processo"). Formulário no padrão da edição no cartão (P5b), com XHR; rota `pasta_acao_salvar` (POST + CSRF), `EditarAcaoDaPastaUseCase` com a guarda de EDIT na pasta (teto do cadeado incluído) e do escritório; a lápide e o cadeado em Visualizar são recusados pelos listeners. A troca escreve o cartão do sistema "Dados da pasta: ação alterada pela aba Processo" no Registro, entra no audit_log e, se o nome da pasta mudou, enfileira a renomeação no Drive. Sem migration.
+
+### Alterado
+
+- Contribua, desenho 08 VS 21.10.26: selo "CONVÊNIO OAB" no pacote Free, que abre o modal do convênio (8 benefícios, "Uma parceria para durar", rodapé OAB + BlueJus); etiqueta "+ Espaço" com nuvem nos pacotes pagos maiores que o atual; botões dos cartões alinhados no rodapé. Sem migration.
+- Central: os avisos do Contribua mostram "Ver sugestão" no lugar de "Abrir" (campo `acao` em `/central/avisos`, nulo nos demais tipos).
+- Ponto: esquecimento nunca trava a batida. O ponto aberto em outro escritório e a interjornada contada de uma saída vinda de esquecimento viram aviso na resposta da batida; o "Regularizar ponto de ontem" do cabeçalho vira aviso ao lado do "Bater ponto"; a tela do ponto lista as pendências dos últimos 30 dias, deste e dos outros escritórios da pessoa; a saída sem entrada passa com aviso; um cartão diário lembra a pendência; os avisos só vão para quem registra ou bateu ponto no escritório; a ficha do admin sinaliza o dia com registro em outro escritório, sem dizer qual. Sem migration.
+
+## [2.14.0] - 2026-10-23
+
+### Adicionado
+
+- Agenda: janela que orienta a conectar o Google Agenda ao abrir a tela, para quem ainda não conectou, com "Agora não", "Sincronizar agora" (mesmo fluxo do botão do painel) e a caixa "Não mostrar esta mensagem novamente". A dispensa fica em `preferencia_usuario` (chave `agenda.google_aviso_dispensado`, por escritório e usuário), gravada por `POST /agenda/google/aviso/dispensar` com CSRF. Não abre com o servidor sem as credenciais do Google. Sem migration.
+- Relatório da Central de envios: "Cancelar envio" também nas campanhas na fila, enviando e enviadas com e-mails ainda na fila (antes só em agendada e recorrente), com a pergunta "Cancelar o envio desta campanha? O que ainda está na fila não sai.".
+- Dashboard: o painel abre no período Este mês; "Limpar filtros" só aparece quando o filtro muda e volta para Este mês.
+- Dashboard: nova coluna "Relatório" no Adicionar coluna, com os registros de cada pessoa em Dados da pasta, Financeiro e Detalhes no período.
+- Dashboard: troféu para quem concluiu mais metas no período (empate: menos vencidas), com fanfarra no máximo duas vezes por página, desligável em Sons.
+- Dashboard: botão direito no nome (ou toque longo no celular) abre o cartão do colaborador: posição no período, Comentários, 1º do mês por ano e Rendimento contra a média dos outros, com recorte por mês, trimestre, semestre ou ano.
+- Dashboard: a coluna Relatório mostra a seta de tendência contra o período anterior.
+- Pasta, aba Financeiro: selo "Assinado" na linha de cada arquivo, entre o nome e o menu ⋮, como no desenho 02 VS 18.10.26 (L1974-1976).
+- Upload de documento da pasta (Financeiro, aba Documentos e peticionar): `.p7s`/`.p7m` e PDF com assinatura digital embutida (PAdES, ICP-Brasil, gov.br: `/Type /Sig` ou `/FT /Sig` com `/ByteRange` e `/SubFilter` conhecido) nascem assinados, origem `digital` (`DetectorDeAssinaturaDigital`, lê só o começo e o fim do arquivo, sem biblioteca nova). PDF assinado que a opção "reduzir tamanho" regravou nasce sem o selo, porque a assinatura não sobrevive à compressão.
+- Menu ⋮ do arquivo no Financeiro: "Marcar como assinado" (assinado à caneta e escaneado) e, na marcação manual, "Desmarcar assinatura". Assinatura digital não se desmarca pela tela. Exige editar a pasta; pasta excluída fica somente leitura.
+- Migration `Version20261020151000`: `pasta_documento.assinado_em`, `assinatura_origem` ('digital' ou 'manual') e `assinado_por_id` (FK user, ON DELETE SET NULL), todas nulas.
+- Comando `app:pasta:detectar-assinatura-antigos` para os documentos que já existiam: sem `--aplicar` só lista e conta por escritório; com `--aplicar` grava a origem `digital`. Idempotente (pula o já marcado, digital ou manual, e nunca sobrescreve a marca manual), em lotes, lendo pelo armazenamento; arquivo ausente ou ilegível conta como erro e segue. Rodar uma vez depois da publicação, primeiro a simulação e depois `--aplicar` (DEPLOY.md, passo do dono).
+- Gênero obrigatório (Feminino ou Masculino) na criação da conta: cadastro da tela de entrada, aceite de convite do escritório e da plataforma sem conta e convite do Trabalho Externo. O perfil nasce com o gênero, sem migration.
+- Janela "Como devemos tratar você?" no layout para quem está logado sem gênero preenchido (sem perfil, nulo ou o legado `nao_informado`); Salvar grava no próprio perfil (`POST /perfil/genero`, CSRF) e o X fecha só na sessão (`POST /perfil/genero/fechar`).
+- "Prefiro não informar" saiu das opções em todo lugar, inclusive no Meu Perfil; o valor `nao_informado` fica no enum como legado e conta como não preenchido (decisão do dono de 23/10).
+- Esteira de Minhas Metas: avisado com OAB no cadastro e gênero declarado aparece como "Dra. Nome" ou "Dr. Nome" (desenho 04, `trat()`), sem adivinhar o gênero pelo nome.
+- Menu da nota técnica do processo (aba Processo e Push Processual da pasta): novo item "Encaminhar via Chat I.A", depois de "Copiar texto", que abre o despacho da Central com a nota como item (tipo `nota_tecnica`, relido no servidor preso à pasta e ao escritório). Só com a Central disponível e fora da pasta excluída.
+
+### Alterado
+
+- Editar e excluir sem prazo para Master e usuário primário (spec `docs/specs/edicao-sem-prazo-master-primario.md`): - Nos 8 pontos com prazo (registro e mensagem da pasta, observações dos Detalhes e do Financeiro, nota técnica, exclusão da meta, anotação e desfazer qualificação da cobrança, apagar mensagem do Trabalho Externo), o Master edita e exclui qualquer conteúdo a qualquer momento; o primário também, quando a opção do escritório está ligada (padrão). Os demais seguem o prazo de sempre. - Opção na página do perfil "Usuário Primário" em Perfis: "Usuário primário pode editar e excluir qualquer registro sem limite de tempo". Só um primário altera. - Selo dourado "EXCLUSIVO DO MASTER" ou "EXCLUSIVO DO PRIMÁRIO" ao passar o mouse no botão liberado por esse poder. - Despacho da meta com código continua imutável para todos. Meta com despacho registrado só é excluída pelo Master ou primário, com confirmação explícita. - Toda edição ou exclusão feita por esse poder fica na auditoria. - Na página da meta saiu o "(editado)".
+- Migration `Version20261020150600`: tabela `escritorio_configuracao_edicao`.
+- Idioma do sistema: o seletor (menu do usuário e Meu Perfil) lista só Português (Brasil), Inglês e Espanhol (`Idioma::oferecidos()`); os outros sete saem da lista, sem apagar caso do enum nem catálogo. Só o português está liberado: inglês e espanhol seguem "em breve" e o `POST /perfil/idioma` continua recusando tudo que não é `pt-BR` (422). Quem tinha outro idioma gravado no perfil cai em português, sem erro. Sem migration.
+- Termos de Uso (`/termos/aceitar`, GET e POST) e Política de Privacidade (página e PDF) fixam o locale `pt_BR` na rota, e o `IdiomaDaRequisicaoListener` respeita: o aceite e a ciência ficam amarrados ao texto em português, qualquer que seja o idioma da pessoa.
+- Pasta, "Editar dados": a janela do desenho 02 (VS 18.10.26) no lugar do modal do Bootstrap. Sobreposição e caixa próprias, X, Fechar, clique no fundo e Esc fecham, foco no número com o texto selecionado ao abrir. Campos, regras e o POST para `pasta_edit` não mudam. Ação só leitura e CPF/CNPJ seguem com o dono (matriz PZ-MOD-N05 e PZ-MOD-16).
+- Excluir pasta passa a mandá-la sempre para a lixeira (lápide restaurável), inclusive a última da sequência, que antes era apagada de verdade com os arquivos; o número da pasta excluída continua ocupado.
+- Confirmação e aviso da exclusão com os textos do desenho 02 Expedientes, sem o prazo (decisão do dono em 23/10): "Essa ação vai para a lixeira e fica registrada no histórico." e "Pasta {n} enviada para a lixeira (restaurável a qualquer momento)".
+- Sai o caminho de remoção definitiva do ExcluirPastaUseCase (ResultadoExclusaoPasta, NumeracaoDePasta::existeNumeroMaiorQue, PastaDocumentoRepository::listarParaRemocaoDaPasta). Sem purga (decisão do dono em 23/10): a pasta fica na lixeira até ser restaurada e o espaço dos arquivos dela continua contando no armazenamento.
+- As varreduras periódicas (push dos lembretes a cada minuto, Google Agenda a cada 5 minutos, automações do Comercial a cada 15 minutos e expansor de campanhas a cada minuto) passam a ser disparadas pelo Symfony Scheduler, no worker de produção, em vez de se reagendarem sozinhas. Uma volta que falha não interrompe mais a varredura.
+- Saem os comandos `app:agenda:push-varredura`, `app:agenda:google-varredura` e `app:comercial:varredura`: não é mais preciso semear nem religar as varreduras.
+- Uma campanha confirmada começa a sair na volta do minuto seguinte do expansor.
+- A importação dos índices monetários do BCB (INPC, IPCA e taxa legal) passa a rodar sozinha todo dia 11, à 1h de Brasília, pelo agendador. O resumo diário e a cobrança do checklist seguem desligados.
+- As tarefas agendadas do sistema que estavam no crontab real da VPS (purga, DJEN, resumo semanal aos clientes, relatórios mensais de pastas e envio ao Drive) saem do crontab do host e passam ao Symfony Scheduler, no contêiner `jusprime_scheduler_prod`, com horários em Brasília, trava e estado no banco (migration `Version20261023150800`).
+- O resumo diário, a cobrança do checklist e a importação de índices monetários, que nunca rodaram em produção, ficam desligados até decisão do dono.
+- Falha de tarefa agendada gera erro no log e, com `AGENDADOR_ALERTA_EMAIL` preenchida, um e-mail de aviso.
+- Falha de tarefa agendada aparece num aviso vermelho no topo da tela para o Master e para quem tem o e-mail de alerta, com o botão Dispensar, e fica listada na Central do Master.
+- A foto diária do Dashboard passa a ser agendada (23h55), o que liga as tendências de Vencidas e Prazos.
+- O deploy automático guarda e devolve também a imagem do agendador na volta.
+- Se o crontab do host ainda tiver as tarefas do sistema, o deploy publica a versão sem ligar o agendador e avisa, para nada rodar duas vezes.
+- Trabalho Externo, modal "Equipe e privacidade": a 6ª chave da Equipe, "Publicar vagas e analisar currículos" (`equipe.talentos`), como no desenho VS 18.10.26. O backend já respeitava a permissão (nasce ligada); faltava a chave na tela. Sem migration.
+
+### Corrigido
+
+- Ponto: o "Aprovar todos" do lote de justificativas passa a gravar a batida dos pedidos de esquecimento de registro, igual à aprovação individual. A gravação saiu do `TenantController` para `App\Ponto\UseCase\RegistrarBatidaDoEsquecimentoUseCase`, chamado pelos dois caminhos, com guarda de escritório. As outras justificativas seguem só abonadas. Sem migration.
+- Ponto: a justificativa em lote lançada pelo administrador aceita de novo a data de hoje, que era ignorada como se fosse futura.
+- Painel do Master: os itens "Exclusivo do Master" do menu do usuário passam a abrir a aba e a seção certas também quando o painel já está aberto (a âncora é relida no hashchange).
+- Convites: as telas de quem gerencia convites (escritório e plataforma) e as listas do convidado logado deixam de levar o código do link do convite; revogar, reenviar, aceitar e recusar passam a usar o número do convite (achados de auditoria interna).
+- Convites: quem gerencia convites só vê e mexe no convite de perfil que ele próprio poderia atribuir; convite de outro escritório ou fora do alcance responde 404.
+- Convites: o e-mail do convite é validado na criação (mesma regra do cadastro) e a confirmação de reenviar e revogar sai do JavaScript da página.
+- Convites: o banco guarda só o hash do código do link do convite; os links já enviados continuam valendo (achado de auditoria interna).
+- Convites: reenviar um convite gera um link novo, e o link anterior deixa de valer.
+- Auditoria: o código do link do convite não entra mais no registro de auditoria, e o que já estava gravado foi apagado.
+- Cadastro: criar conta com um e-mail que já tem conta dá a mesma resposta do e-mail novo; a dona da conta recebe um e-mail avisando que já tem conta, com o caminho do "Esqueci a senha" (achado de auditoria interna).
+
+### Segurança
+
+- Auditoria: desfazer uma alteração de meta ou de pasta passa a exigir a mesma regra da tela que faria a alteração; a resposta da meta e a notificação deixam de ser desfeitas por aqui.
+- A jornada pessoal e a chave "Registra ponto eletrônico" passam a valer por escritório, sem choque de horário entre escritórios (achado de auditoria interna F8/F11).
+- Ponto eletrônico: correções de segurança no nome da sede, na planilha da folha e no desfazer da auditoria.
+- Conta com pedido de exclusão não acessa as telas do escritório pelo endereço direto; o botão Sair passa a exigir a confirmação de segurança da sessão.
+
 ## [2.13.0] - 2026-10-22
 
 ### Adicionado
@@ -742,7 +849,10 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.13.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.16.0...HEAD
+[2.16.0]: https://github.com/sfbdata/Prime/compare/v2.15.0...v2.16.0
+[2.15.0]: https://github.com/sfbdata/Prime/compare/v2.14.0...v2.15.0
+[2.14.0]: https://github.com/sfbdata/Prime/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/sfbdata/Prime/compare/v2.12.0...v2.13.0
 [2.12.0]: https://github.com/sfbdata/Prime/compare/v2.11.1...v2.12.0
 [2.11.1]: https://github.com/sfbdata/Prime/compare/v2.11.0...v2.11.1
