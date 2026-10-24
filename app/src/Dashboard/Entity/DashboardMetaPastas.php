@@ -7,6 +7,7 @@ namespace App\Dashboard\Entity;
 use App\Dashboard\Repository\DashboardMetaPastasRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -26,7 +27,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'dashboard_meta_pastas')]
 #[ORM\Index(name: 'idx_dashboard_meta_pastas_tenant_mes', columns: ['tenant_id', 'mes'])]
 #[ORM\Index(name: 'idx_dashboard_meta_pastas_definida_por', columns: ['definida_por_id'])]
-class DashboardMetaPastas implements TenantAware
+class DashboardMetaPastas implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
