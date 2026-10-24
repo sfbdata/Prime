@@ -27,6 +27,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *
  * O que vai e o que não vai na requisição:
  * - vai `model`, `max_tokens`, `system` e `messages` (papel `usuario` → `user`, `assistente` → `assistant`);
+ * - os `anexos` do pedido (PR F, PDF e imagem) vão inline, em base64, na ÚLTIMA mensagem do usuário
+ *   ({@see MontadorDeBlocosDaAnthropic}); nunca em turno do assistente, nunca pela Files API;
  * - **não vai `temperature`**: os modelos atuais (Opus 4.7 em diante) recusam com 400 os parâmetros de amostragem.
  *   A `temperatura` do pedido fica como intenção do prompt, não como parâmetro de rede;
  * - **não vai formato estruturado**: `exigeJson` é cumprido pela instrução do prompt e verificado pelos
@@ -57,6 +59,11 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     private const STATUS_TRANSITORIOS = [408, 429, 500, 502, 503, 504, 529];
     private const ESFORCOS = ['low', 'medium', 'high', 'xhigh', 'max'];
     public const MARGEM_DE_RACIOCINIO_PADRAO = 8000;
+    /**
+     * O "Ler N documentos" (PR F) manda até 20 MB e 100 páginas: a resposta demora mais que a de um comando sobre
+     * metadados. Só o pedido com anexos usa este teto; o resto segue o configurado.
+     */
+    public const TIMEOUT_DA_LEITURA_EM_SEGUNDOS = 300.0;
     /** Vazio = não envia (vale o padrão do workspace na Console). */
     private const REGIOES_DE_INFERENCIA = ['', 'us', 'global'];
     /** Teto da espera pedida pelo `retry-after`: cinco minutos. */
@@ -145,7 +152,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
                     'content-type'      => 'application/json',
                 ],
                 'json'          => $corpo,
-                'timeout'       => $this->timeoutEmSegundos,
+                'timeout'       => $pedido->temAnexos() ? self::TIMEOUT_DA_LEITURA_EM_SEGUNDOS : $this->timeoutEmSegundos,
                 'max_redirects' => 0,
             ]);
             $status = $resposta->getStatusCode();
@@ -176,6 +183,32 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     /** @return array<string, mixed> */
     private function corpo(PedidoDeLinguagem $pedido, string $modelo): array
     {
+        $corpo = [
+            'model'      => $modelo,
+            'max_tokens' => $pedido->maxTokens + $this->margemDeRaciocinio,
+            'messages'   => self::mensagens($pedido),
+        ];
+        if ($this->esforco !== '') {
+            $corpo['output_config'] = ['effort' => $this->esforco];
+        }
+        if ($this->regiaoDeInferencia !== '') {
+            $corpo['inference_geo'] = $this->regiaoDeInferencia;
+        }
+        if (trim($pedido->sistema) !== '') {
+            $corpo['system'] = $pedido->sistema;
+        }
+
+        return $corpo;
+    }
+
+    /**
+     * As mensagens no formato da API. Com anexos (PR F), a última mensagem do usuário leva os blocos dos arquivos
+     * ({@see MontadorDeBlocosDaAnthropic}); as outras continuam string.
+     *
+     * @return list<array{role: string, content: string|list<array<string, mixed>>}>
+     */
+    private static function mensagens(PedidoDeLinguagem $pedido): array
+    {
         $mensagens = [];
         foreach ($pedido->mensagens as $mensagem) {
             $mensagens[] = [
@@ -193,23 +226,12 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
         if ($mensagens === [] || $mensagens[array_key_last($mensagens)]['role'] !== 'user') {
             throw new FalhaDoProvedorException('Anthropic: o pedido precisa terminar com uma mensagem do usuário.', false);
         }
-
-        $corpo = [
-            'model'      => $modelo,
-            'max_tokens' => $pedido->maxTokens + $this->margemDeRaciocinio,
-            'messages'   => $mensagens,
-        ];
-        if ($this->esforco !== '') {
-            $corpo['output_config'] = ['effort' => $this->esforco];
-        }
-        if ($this->regiaoDeInferencia !== '') {
-            $corpo['inference_geo'] = $this->regiaoDeInferencia;
-        }
-        if (trim($pedido->sistema) !== '') {
-            $corpo['system'] = $pedido->sistema;
+        if ($pedido->temAnexos()) {
+            $ultima = array_key_last($mensagens);
+            $mensagens[$ultima]['content'] = MontadorDeBlocosDaAnthropic::conteudo((string) $mensagens[$ultima]['content'], $pedido->anexos);
         }
 
-        return $corpo;
+        return $mensagens;
     }
 
     /** @param array<string, mixed> $dados */

@@ -60,6 +60,17 @@ trait CriaFixturesInteligenciaTrait
     }
 
     /**
+     * O aceite do escritório dado na versão do texto que NÃO cita os documentos (PR F, `VersaoDoAceiteDaIa`, 1):
+     * a IA segue valendo, mas o "Ler N documentos" fica bloqueado. Grava a versão direto (não há setter de
+     * propósito), como as linhas que a migration `Version20261024150400` encontrou.
+     */
+    private function envelhecerAceite(ConfiguracaoDeInteligencia $configuracao): void
+    {
+        (new \ReflectionProperty(ConfiguracaoDeInteligencia::class, 'consentimentoVersao'))->setValue($configuracao, 1);
+        $this->em()->flush();
+    }
+
+    /**
      * O Master liberou e a chave geral está ligada, mas o admin do escritório NÃO ligou a IA (nem deu o aceite): o
      * estado "desligada no escritório" depois da liberação do Master.
      */

@@ -1,28 +1,40 @@
 {# ============================================================================
-   Aba Documentos do drawer BlueJus IA (spec inteligencia-drawer-da-pasta, F4;
-   desenho 02 - EXPEDIENTES - VS 18.10.26, dc L1041-1058 e L5961-5968).
+   Aba Documentos do drawer BlueJus IA (spec inteligencia-drawer-da-pasta, F4,
+   e PR F da spec ia-anthropic-ligar; desenho 02 - EXPEDIENTES - VS 22.10.26,
+   dc L1044-1058 e L5961-5972).
 
    O conteúdo desta aba mora dentro do `tabpanel` do `_agentes_painel.html.twig`
-   (cada bloco é filho direto do painel da aba):
-   · o texto do topo, honesto: a IA monta o índice pelos dados de cada arquivo.
-     O do desenho promete leitura e OCR; a regra 7 do domínio (o conteúdo dos
-     documentos não é lido) corrige o protótipo;
+   (cada bloco é filho direto do painel da aba), na ordem do desenho:
+   · o texto do topo, honesto: a IA lê PDF e imagem. O do desenho promete OCR
+     ("com OCR para digitalizados"), que não fazemos (spec ia-anthropic-ligar
+     §3.1); o texto diz o que é lido e os limites;
    · o cartão da lista: "Selecionar todos" com a contagem "N de M", a divisória e
      uma linha por documento (caixa de marcar, ícone do arquivo pelo tipo, nome
      numa linha e "1,2 MB · 18/08" ou "240 KB · hoje", como o `meta` do
-     desenho, dc L6578-6580; o tipo está no ícone). Só metadados;
-   · a seção do "Índice inteligente" (`_comando_secao.html.twig`): o botão na
-     largura toda, desabilitado sem documento marcado, e embaixo o resultado e o
-     histórico do comando. "Ler N documentos" do desenho NÃO entra (D13).
+     desenho, dc L6578-6580; o tipo está no ícone);
+   · a grade de dois botões do desenho (`ia.ler` e `ia.indice`, L1053-1056):
+     "Ler N documentos" (CTA cheio; "Selecione" sem nada marcado) e "Índice
+     inteligente" (CTA secundário), os dois desabilitados sem seleção. Cada um
+     aponta para a sua seção por `data-ia-secao`;
+   · o aviso do aceite, só quando o aceite do escritório é anterior ao texto que
+     cita os documentos: o "Ler" fica bloqueado (o Índice continua);
+   · as seções dos dois comandos (`_comando_secao.html.twig` com `semBotao`):
+     o "Lê:" e a lista das análises. Só a do último botão usado aparece; a do
+     Índice abre primeiro.
 
    O `pasta-ia-agentes.js` marca e desmarca (`data-ia-doc`, `data-ia-docs-todos`),
-   atualiza a contagem e manda os ids marcados como `documentos[]` no POST.
+   atualiza a contagem e o rótulo do "Ler" e manda os ids marcados como
+   `documentos[]` no POST. Os limites (3 documentos, PDF até 10 MB, imagem até
+   3 MB, 20 MB juntos, 100 páginas somadas) são conferidos no servidor, que
+   responde com a mensagem.
 
    Contexto: `documentos` (App\Inteligencia\DTO\DocumentosDoIndiceOutput, ou null
    no HTML da pasta, antes de o painel carregar), `comando` (o Índice, enum
-   Comando), `saida` (AnalisesDoComandoOutput ou null), `pastaId` (int), `ia`
-   (enum Disponibilidade).
+   Comando), `saida` (AnalisesDoComandoOutput ou null), `leitura` (o Ler, enum
+   Comando), `saidaLeitura` (AnalisesDoComandoOutput ou null), `pastaId` (int),
+   `ia` (enum Disponibilidade).
    ============================================================================ #}
+{% set leituraPermitida = documentos is null or documentos.leituraPermitida %}
 <p class="ia-aba-intro">{{ 'inteligencia.documentos.intro'|trans }}</p>
 <div class="ia-docs" role="group" aria-label="{{ 'inteligencia.documentos.grupo'|trans }}" data-ia-docs>
     {% if documentos is null %}
@@ -48,4 +60,47 @@
         {% endfor %}
     {% endif %}
 </div>
-{{ include('inteligencia/_comando_secao.html.twig', {comando: comando, saida: saida, pastaId: pastaId, ia: ia, escolhido: true}, with_context = false) }}
+<div class="ia-docs-acoes">
+    {% for c in [leitura, comando] %}
+        {% set s = c.leConteudoDosArquivos ? saidaLeitura : saida %}
+        {% set emAndamento = s is not null and s.temEmAndamento %}
+        {% set rotulo = c.leConteudoDosArquivos ? 'inteligencia.documentos.ler_selecione'|trans : c.rotulo %}
+        {% if ia.estaDisponivel and (leituraPermitida or not c.leConteudoDosArquivos) %}
+            <button type="button"
+                    class="ia-cta{{ c.leConteudoDosArquivos ? '' : ' ia-cta--secundario' }}{{ emAndamento ? ' is-carregando' : '' }}"
+                    data-ia-gerar data-ia-exige-selecao
+                    data-ia-secao="{{ c.value }}"
+                    {{ c.leConteudoDosArquivos ? 'data-ia-ler' : '' }}
+                    data-ia-disponivel="1"
+                    data-ia-rotulo="{{ rotulo }}"
+                    data-ia-rotulo-de-novo="{{ rotulo }}"
+                    data-ia-url="{{ path('inteligencia_comando_solicitar', {id: pastaId, comando: c.value}) }}"
+                    title="{{ emAndamento ? 'inteligencia.comando.em_andamento'|trans : (c.leConteudoDosArquivos ? 'inteligencia.documentos.dica_ler'|trans : 'inteligencia.comando.dica_indice'|trans) }}"
+                    disabled>
+                <i class="bi {{ c.icone }}" aria-hidden="true"></i>
+                <span class="ia-cta-rotulo">{{ emAndamento ? 'inteligencia.comando.analisando'|trans : rotulo }}</span>
+            </button>
+        {% elseif ia.estaDisponivel %}
+            {# O aceite do escritório é anterior ao texto que cita os documentos: o "Ler" não sai. #}
+            <button type="button" class="ia-cta ia-cta--indisponivel"
+                    data-ia-gerar data-ia-secao="{{ c.value }}" data-ia-disponivel="0" data-ia-motivo="aceite_desatualizado"
+                    title="{{ 'inteligencia.documentos.aceite_antigo'|trans }}" disabled aria-disabled="true">
+                <i class="bi {{ c.icone }}" aria-hidden="true"></i>
+                <span class="ia-cta-rotulo">{{ 'inteligencia.documentos.ler_bloqueado'|trans }}</span>
+            </button>
+        {% else %}
+            {# Nunca um botão que finge funcionar: o motivo REAL da Disponibilidade. #}
+            <button type="button" class="ia-cta ia-cta--indisponivel{{ c.leConteudoDosArquivos ? '' : ' ia-cta--secundario' }}"
+                    data-ia-gerar data-ia-secao="{{ c.value }}" data-ia-disponivel="0" data-ia-motivo="{{ ia.value }}"
+                    title="{{ ia.mensagem }}" disabled aria-disabled="true">
+                <i class="bi {{ c.icone }}" aria-hidden="true"></i>
+                <span class="ia-cta-rotulo">{{ ia.mensagem }}</span>
+            </button>
+        {% endif %}
+    {% endfor %}
+</div>
+{% if ia.estaDisponivel and not leituraPermitida %}
+    <p class="ia-docs-aceite" data-ia-aviso-aceite>{{ 'inteligencia.documentos.aceite_antigo'|trans }}</p>
+{% endif %}
+{{ include('inteligencia/_comando_secao.html.twig', {comando: leitura, saida: saidaLeitura, pastaId: pastaId, ia: ia, escolhido: false, semBotao: true}, with_context = false) }}
+{{ include('inteligencia/_comando_secao.html.twig', {comando: comando, saida: saida, pastaId: pastaId, ia: ia, escolhido: true, semBotao: true}, with_context = false) }}

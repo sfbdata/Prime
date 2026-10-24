@@ -7,6 +7,7 @@ namespace App\Inteligencia\Entity;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
+use App\Inteligencia\Enum\VersaoDoAceiteDaIa;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
@@ -59,6 +60,10 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $consentimentoEnvioExternoEm = null;
 
+    /** A versão do texto do aceite ({@see VersaoDoAceiteDaIa}) com que o aceite acima foi dado. */
+    #[ORM\Column(type: 'integer', options: ['default' => 1])]
+    private int $consentimentoVersao = VersaoDoAceiteDaIa::SemDocumentos->value;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $consentimentoPor = null;
@@ -97,6 +102,8 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     /**
      * Aplica o formulário do admin. Ligar (de desligada para ligada) grava o consentimento com
      * quem ligou; religar depois de desligar grava de novo — é o aceite mais recente que vale.
+     * Salvar com a IA ligada quando o aceite é de versão anterior à do texto vigente ({@see VersaoDoAceiteDaIa}) também
+     * grava de novo: é a renovação do aceite (o admin salvou vendo o texto novo, que cita os documentos).
      */
     public function atualizar(
         bool $habilitada,
@@ -109,8 +116,9 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
             throw new \DomainException('Os limites de análises não podem ser negativos.');
         }
 
-        if ($habilitada && !$this->habilitada) {
+        if ($habilitada && (!$this->habilitada || $this->consentimentoVersao < VersaoDoAceiteDaIa::atual()->value)) {
             $this->consentimentoEnvioExternoEm = new \DateTimeImmutable();
+            $this->consentimentoVersao = VersaoDoAceiteDaIa::atual()->value;
             $this->consentimentoPor = $por;
         }
 
@@ -189,6 +197,17 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     public function getConsentimentoEnvioExternoEm(): ?\DateTimeImmutable
     {
         return $this->consentimentoEnvioExternoEm;
+    }
+
+    /** O aceite foi dado com o texto que cita os documentos escolhidos (PR F)? Sem aceite, não. */
+    public function aceiteCobreDocumentos(): bool
+    {
+        return $this->consentimentoEnvioExternoEm !== null && VersaoDoAceiteDaIa::cobreDocumentos($this->consentimentoVersao);
+    }
+
+    public function getConsentimentoVersao(): int
+    {
+        return $this->consentimentoVersao;
     }
 
     public function getConsentimentoPor(): ?User

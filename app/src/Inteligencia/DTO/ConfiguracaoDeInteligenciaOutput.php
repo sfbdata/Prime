@@ -26,6 +26,8 @@ final readonly class ConfiguracaoDeInteligenciaOutput
         public bool $plataformaHabilitada,
         public int $usoHoje,
         public int $usoMes,
+        /** O aceite já cobre a leitura de documentos (PR F)? Falso = a tela pede a renovação. */
+        public bool $aceiteCobreDocumentos = false,
     ) {
     }
 
@@ -51,6 +53,7 @@ final readonly class ConfiguracaoDeInteligenciaOutput
             plataformaHabilitada: $plataformaHabilitada,
             usoHoje: $usoHoje,
             usoMes: $usoMes,
+            aceiteCobreDocumentos: $configuracao?->aceiteCobreDocumentos() ?? false,
         );
     }
 

@@ -12,12 +12,17 @@
    largura toda, nasce desabilitado (nenhum documento marcado) e o JS o libera
    quando há seleção (`data-ia-exige-selecao`).
 
+   Na aba Documentos, os dois botões (Ler e Índice) ficam juntos na grade do
+   desenho, fora das seções (`_documentos_indice.html.twig`, `semBotao`): a
+   seção leva só o "Lê:" e a lista, e o botão aponta para ela por
+   `data-ia-secao`.
+
    Só a seção escolhida aparece (o desenho mostra um resultado por vez); o
    `pasta-ia-agentes.js` troca a escolhida pelo botão do comando na grade.
 
    Contexto: `comando` (App\Inteligencia\Enum\Comando), `saida`
    (App\Inteligencia\DTO\AnalisesDoComandoOutput ou null), `pastaId` (int),
-   `ia` (enum Disponibilidade), `escolhido` (bool).
+   `ia` (enum Disponibilidade), `escolhido` (bool), `semBotao` (bool, opcional).
    ============================================================================ #}
 {% set emAndamento = saida is not null and saida.temEmAndamento %}
 {% set temConcluida = saida is not null and saida.ultimaConcluida is not null %}
@@ -38,8 +43,10 @@
         </header>
     {% endif %}
     {# Transparência: é isto que sai do escritório quando se clica. #}
-    <p class="ia-agente-le"><i class="bi bi-eye" aria-hidden="true"></i>{{ 'inteligencia.comando.le'|trans({agente: agente.nome, secoes: le}) }}</p>
-    {% if ia.estaDisponivel %}
+    <p class="ia-agente-le"><i class="bi bi-eye" aria-hidden="true"></i>{{ comando.leConteudoDosArquivos ? 'inteligencia.comando.le_leitura'|trans({agente: agente.nome}) : 'inteligencia.comando.le'|trans({agente: agente.nome, secoes: le}) }}</p>
+    {% if semBotao|default(false) %}
+        {# o botão mora na grade da aba Documentos #}
+    {% elseif ia.estaDisponivel %}
         <button type="button"
                 class="ia-cta{{ ehIndice ? ' ia-cta--secundario' : '' }}{{ emAndamento ? ' is-carregando' : '' }}"
                 data-ia-gerar
