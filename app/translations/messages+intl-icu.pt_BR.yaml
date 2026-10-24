@@ -1270,7 +1270,7 @@ expediente:
             rotulo: Relatório geral de processos
             voltar_ao_expediente: Voltar ao Expediente
         resumo_para_despacho: Resumo para despacho
-        abertura: Situação das pastas quanto ao processo vinculado em {data}. A BlueJus I.A lê registros, documentos, metas e checklist de cada pasta para indicar onde o cadastro precisa de atenção da Controladoria.
+        abertura: Situação das pastas quanto ao processo vinculado em {data}. O BlueJus confere, por regras, registros, documentos, metas e checklist de cada pasta para indicar onde o cadastro precisa de atenção da Controladoria.
         evolucao:
             titulo: Evolução
             mes: Mês
@@ -1294,7 +1294,7 @@ expediente:
             decisao_anterior: 'Decisão anterior: {decisao} por {por}'
         com_processo_vinculado: Com processo vinculado ({n})
         nota_final:
-            inicio: Classificação gerada pela BlueJus I.A com os dados disponíveis no sistema;
+            inicio: Classificação feita por regras com os dados disponíveis no sistema;
             provavel: Provável
             e: e
             hipotese: Hipótese
@@ -4990,7 +4990,7 @@ pasta_push:
             proxima: Próxima etapa provável
             confianca: 'Confiança {conf}'
             base: 'Base: {base}'
-            rodape: 'Previsão da I.A, não é ato oficial. {aprendizado}.'
+            rodape: 'Previsão por regras do CPC, não é ato oficial. {aprendizado}.'
         avisos:
             titulo: Avisar quando chegar
             so_quem_edita: Só quem edita a pasta muda os avisos.
