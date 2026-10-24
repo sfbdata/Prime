@@ -7,6 +7,7 @@ namespace App\Dashboard\UseCase;
 use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
+use App\Dashboard\Ranking\RankingDeMetasConcluidas;
 use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Entity\Tenant\Tenant;
@@ -94,9 +95,9 @@ final class ObterDadosDashboardUseCase
         // produtividade), enquanto os dois mapas acima medem quem responde por ela.
         $mCriadasPasta = $this->pastaRepository->countCriadasPorCriador($tenant, $filtros, $pastasOcultas);
 
-        // Lista canônica: todos os colaboradores ativos do tenant
-        $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant);
+        $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant); // lista canônica: todos os ativos do tenant
         $mCargo        = $colaboradores === [] ? [] : $this->userRepository->findCargoPorColaboradores($tenant);
+        $todosIds      = array_map(static fn ($u): int => (int) $u->getId(), $colaboradores); // universo do troféu: antes de busca, responsável e cargo
 
         // Facetas de linha: responsável reduz a um colaborador; cargo reduz ao cargo escolhido.
         $respId = (int) ($filtros['responsavel'] ?? 0);
@@ -233,6 +234,7 @@ final class ObterDadosDashboardUseCase
             totaisExtrasAnteriores:     $comAnterior
                 ? $this->totaisExtras($extrasComTendencia, $linhas, true)
                 : null,
+            campeaoId:                  RankingDeMetasConcluidas::campeao($todosIds, RankingDeMetasConcluidas::concluidas($mTotalTarefa, $mAtivasTarefa), $mVencidas),
         );
     }
 
@@ -256,6 +258,7 @@ final class ObterDadosDashboardUseCase
                 Extras::TEMPO_MEDIO     => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros, $pastasOcultas),
                 Extras::PASTAS_URGENTES => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros, $pastasOcultas),
                 Extras::EVENTOS_AGENDA  => $this->metricasExtras->contarEventosPorPessoa($tenant, $filtros, $pessoas),
+                Extras::RELATORIO       => $this->metricasExtras->contarRegistrosPorAutor($tenant, $filtros, $pastasOcultas),
                 default                 => [],
             };
         }

@@ -10,10 +10,10 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Exception\MensagemPastaNaoExcluivelException;
-use App\Pasta\Service\JanelaDeEdicaoDeComentario;
 use App\Pasta\UseCase\ExcluirMensagemPastaUseCase;
 use App\Repository\NotificacaoRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Pasta\Support\CriaPrazoDoComentario;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -22,6 +22,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ExcluirMensagemPastaUseCase::class)]
 final class ExcluirMensagemPastaUseCaseTest extends TestCase
 {
+    use CriaPrazoDoComentario;
+
     private EntityManagerInterface&MockObject $em;
     private NotificacaoRepository&MockObject $notificacoes;
     private ExcluirMensagemPastaUseCase $useCase;
@@ -34,7 +36,7 @@ final class ExcluirMensagemPastaUseCaseTest extends TestCase
         $this->notificacoes = $this->createMock(NotificacaoRepository::class);
         // A transação roda o bloco de verdade: o que se confere é o que acontece DENTRO dela.
         $this->em->method('wrapInTransaction')->willReturnCallback(fn (callable $bloco): mixed => $bloco($this->em));
-        $this->useCase = new ExcluirMensagemPastaUseCase($this->em, new JanelaDeEdicaoDeComentario(), $this->notificacoes);
+        $this->useCase = new ExcluirMensagemPastaUseCase($this->em, $this->prazoDoComentario(), $this->notificacoes);
         $this->tenant  = new Tenant();
         $this->autor   = (new User())->setEmail('autor@test.com');
     }

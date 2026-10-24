@@ -246,7 +246,14 @@
     {# Autor, dentro da janela de 15 min: as mesmas condições do endpoint (o prazo vem
        do MESMO serviço que o UseCase usa — `JanelaDeEdicaoDeComentario`). Vale igual
        para a resposta. #}
-    {% set podeGerenciar = item.mensagemId and app.user and item.usuarioId == app.user.id and comentario_editavel(item.dataHora) %}
+    {% set doAutorReg = item.mensagemId and app.user and item.usuarioId == app.user.id %}
+    {% set pelaRegraReg = doAutorReg and comentario_editavel(item.dataHora) %}
+    {# Edição sem prazo (spec edicao-sem-prazo §1 e §5): o Master e o primário (com a opção) também editam e excluem,
+       fora do prazo e o registro dos outros; o selo dourado aparece quando é o poder que libera. Mesma resposta do
+       servidor (`PrazoDoComentario`). `poderReg` vai ao cartão para o menu do botão direito não travar no prazo. #}
+    {% set poderReg = item.mensagemId and app.user ? sem_prazo_selo(false) : null %}
+    {% set seloReg = item.mensagemId and app.user ? sem_prazo_selo(pelaRegraReg) : null %}
+    {% set podeGerenciar = item.mensagemId and app.user and sem_prazo_libera(pelaRegraReg) %}
     {# PAS-025b: na pasta excluída (lápide) toda escrita é recusada pelo servidor
        (`PastaSomenteLeituraListener`): sem Editar, Excluir nem Responder, como em Detalhes. #}
     {% set lapide = pasta.estaExcluida %}
@@ -264,7 +271,8 @@
     <article class="ps-anotacao{{ doSistema ? ' ps-anotacao--sistema' : '' }}{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
              {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"
              data-janela-ate="{{ item.dataHora|date('U') + comentario_janela_minutos() * 60 }}"
-             data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"{% endif %}
+             data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"
+             {%- if poderReg and podeGerenciar %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ poderReg)|trans }}"{% endif %}{% endif %}
              {#- Presença do autor (pasta-presenca-autor.js). O registro do sistema também tem autor (dc `autoReg`, L6170). #}
              {%- if item.usuarioId %} data-autor-id="{{ item.usuarioId }}"{% endif %}>
         {% if item.ehResposta %}
@@ -291,21 +299,21 @@
                 {% set minRest = comentario_minutos_restantes(item.dataHora) %}
                 <span class="ps-anotacao-acoes">
                     <button type="button"
-                            class="ps-anotacao-acao btn-editar-msg-pasta"
-                            title="{{ (minRest == 1 ? 'pasta_documentos.anotacoes.editavel_um' : 'pasta_documentos.anotacoes.editavel_varios')|trans({total: minRest ~ ''}) }}" aria-label="{{ 'pasta_documentos.anotacoes.editar_registro'|trans }}"
+                            class="ps-anotacao-acao btn-editar-msg-pasta{{ seloReg ? ' com-selo-sem-prazo' }}"
+                            title="{{ seloReg ? 'pasta_documentos.anotacoes.editar_registro'|trans : (minRest == 1 ? 'pasta_documentos.anotacoes.editavel_um' : 'pasta_documentos.anotacoes.editavel_varios')|trans({total: minRest ~ ''}) }}" aria-label="{{ 'pasta_documentos.anotacoes.editar_registro'|trans }}"
                             data-msg-id="{{ item.mensagemId }}"
                             data-conteudo="{{ item.detalhe|e('html_attr') }}"
                             data-csrf="{{ csrf_token('pasta_mensagem_editar_' ~ item.mensagemId) }}"
                             data-url="{{ path('pasta_editar_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
-                        <i class="bi bi-pencil"></i>
+                        <i class="bi bi-pencil"></i>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloReg} only %}
                     </button>
                     <button type="button" hidden
-                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta"
+                            class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-msg-pasta{{ seloReg ? ' com-selo-sem-prazo' }}"
                             title="{{ 'pasta_documentos.anotacoes.excluir_registro'|trans }}" aria-label="{{ 'pasta_documentos.anotacoes.excluir_registro'|trans }}"
                             data-msg-id="{{ item.mensagemId }}"
                             data-csrf="{{ csrf_token('pasta_mensagem_excluir_' ~ item.mensagemId) }}"
                             data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
-                        <i class="bi bi-trash3"></i>
+                        <i class="bi bi-trash3"></i>{% include '_partials/_selo_sem_prazo.html.twig' with {poder: seloReg} only %}
                     </button>
                 </span>
             {% endif %}
@@ -347,8 +355,8 @@
         </div>
         <div class="ps-anotacao-corpo">
             {# Ícones do `Component.SYS` do desenho 02 (dc L6168); o cadeado usa o mesmo `bi-lock-fill` da faixa de
-               somente visualização (`_cadeado_faixa`). #}
-            <i class="bi {{ {fase: 'bi-signpost-split', prazo: 'bi-calendar-event', contrato: 'bi-pen', situacao: 'bi-flag', cadastro: 'bi-person-vcard', proc: 'bi-link-45deg', resp: 'bi-person-badge', probono: 'bi-heart', pasta: 'bi-folder2-open', cadeado: 'bi-lock-fill'}[doSistema] ?? 'bi-megaphone-fill' }} ps-anotacao-icone" aria-hidden="true"></i>
+               somente visualização (`_cadeado_faixa`); a carteira, o `bi-folder-symlink` do item do ⋮ (o SYS não a tem). #}
+            <i class="bi {{ {fase: 'bi-signpost-split', prazo: 'bi-calendar-event', contrato: 'bi-pen', situacao: 'bi-flag', cadastro: 'bi-person-vcard', proc: 'bi-link-45deg', resp: 'bi-person-badge', probono: 'bi-heart', pasta: 'bi-folder2-open', cadeado: 'bi-lock-fill', carteira: 'bi-folder-symlink'}[doSistema] ?? 'bi-megaphone-fill' }} ps-anotacao-icone" aria-hidden="true"></i>
             <div class="ps-anotacao-texto pasta-msg-conteudo">
                 {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. O
                    `registro_texto` é o `texto_rico` com as @menções (`@[Nome](user:ID)`) em

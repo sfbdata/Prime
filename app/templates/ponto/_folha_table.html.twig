@@ -11,6 +11,9 @@
 {% set editarBatidasRotaDelete = editarBatidasRotaDelete|default('') %}
 {% set editarBatidasParametros = editarBatidasParametros|default({}) %}
 {% set jornadaInfo = jornadaInfo|default(null) %}
+{# Ficha do admin: dias em que a pessoa bateu em OUTRO escritório com o ponto daqui aberto (spec
+   ponto-esquecimento-nao-trava R8). Só o sinal, sem dizer qual escritório; só na tela, como o "Registro incompleto". #}
+{% set diasComRegistroEmOutroEscritorio = diasComRegistroEmOutroEscritorio|default({}) %}
 {# Atalho do colaborador: "+" na batida faltante abre o modal de Esquecimento de Registro.
    Inerte por padrão — quem não passa os parâmetros renderiza exatamente o HTML de antes. #}
 {% set justificarFaltanteHabilitado = justificarFaltanteHabilitado|default(false) %}
@@ -271,6 +274,14 @@
                                         {% else %}
                                             <span class="text-muted">0:00</span>
                                         {% endif %}
+                                    {% endif %}
+                                    {% if diasComRegistroEmOutroEscritorio[linha.chaveDia] is defined %}
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal"
+                                              data-registro-em-outro-escritorio
+                                              data-bs-toggle="tooltip"
+                                              title="{{ 'ponto_folha.registro_em_outro_escritorio_dica'|trans }}">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>{{ 'ponto_folha.registro_em_outro_escritorio'|trans }}
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td class="text-nowrap fw-semibold">

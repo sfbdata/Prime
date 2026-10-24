@@ -55,6 +55,7 @@
         feriados: raiz.dataset.urlFeriados,
         googleConectar: raiz.dataset.urlGoogleConectar,
         googleDesconectar: raiz.dataset.urlGoogleDesconectar,
+        googleAvisoDispensar: raiz.dataset.urlGoogleAvisoDispensar,
     };
     const lerJson = (texto, padrao) => { try { return JSON.parse(texto || ''); } catch (e) { return padrao; } };
     const eu = lerJson(raiz.dataset.eu, {});
@@ -962,6 +963,8 @@
         if (alvo('[data-google-perm="tentar"]')) { document.getElementById('agPerg').innerHTML = ''; irAoGoogle(); }
         if (alvo('[data-google-ir="cancelar"]')) { document.getElementById('agPerg').innerHTML = ''; }
         if (alvo('[data-google-ir="continuar"]')) { document.getElementById('agPerg').innerHTML = ''; irAoGoogle(); }
+        if (alvo('[data-google-orientar="fechar"]')) { fecharAvisoDoGoogle(false); return; }
+        if (alvo('[data-google-orientar="sincronizar"]')) { fecharAvisoDoGoogle(true); }
     });
 
     raiz.addEventListener('contextmenu', ev => {
@@ -1203,6 +1206,28 @@
         const tentar = document.querySelector('#agPerg [data-google-perm="tentar"]');
         if (tentar) { tentar.focus(); }
     }
+    /* Janela que orienta a conectar (pedido do dono, 23/10/2026, spec docs/specs/agenda-aviso-google.md). O servidor
+       decide se abre (data-google-aviso: não conectado e sem dispensa). A caixa "Não mostrar" fora do desenho (l.125)
+       é pedido do dono. */
+    function googleAviso() {
+        if ('1' !== raiz.dataset.googleAviso || !url.googleConectar) { return; }
+        const titulo = BJ_T.t('agenda.js.google.aviso.titulo');
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="' + esc(titulo) + '">'
+            + '<div class="ag-perg-cab ag-perg-cab-x"><span><i class="bi bi-google"></i> ' + esc(titulo) + '</span><button type="button" class="ag-modal-x" data-google-orientar="fechar" title="' + esc(BJ_T.t('agenda.js.comum.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
+            + '<div class="ag-perg-txt">' + esc(BJ_T.t('agenda.js.google.aviso.texto')) + '</div>'
+            + '<div class="ag-perg-txt ag-perg-opcao"><label><input type="checkbox" id="agGoogleAvisoNao"> ' + esc(BJ_T.t('agenda.js.google.aviso.nao_mostrar')) + '</label></div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-orientar="fechar"><i class="bi bi-x"></i>' + esc(BJ_T.t('agenda.js.google.aviso.agora_nao')) + '</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-google-orientar="sincronizar"><i class="bi bi-arrow-repeat"></i>' + esc(BJ_T.t('agenda.js.google.aviso.sincronizar')) + '</button></div></div></div>';
+        const sincronizar = document.querySelector('#agPerg [data-google-orientar="sincronizar"]');
+        if (sincronizar) { sincronizar.focus(); }
+    }
+    /* Grava a dispensa só com a caixa marcada; "Sincronizar agora" segue o mesmo caminho do botão #agGoogle. */
+    function fecharAvisoDoGoogle(sincronizar) {
+        const naoMostrar = !!document.querySelector('#agGoogleAvisoNao:checked');
+        document.getElementById('agPerg').innerHTML = '';
+        if (naoMostrar) { postar(url.googleAvisoDispensar, {}).catch(() => { /* volta a aparecer na próxima entrada */ }); }
+        if (sincronizar) { googleSincronizar(); }
+    }
     function avisoDaVoltaDoGoogle() {
         const m = location.hash.match(/google=(conectado|cancelado|falhou|limite|sem-permissao)/);
         if (!m) { return; }
@@ -1212,6 +1237,10 @@
     }
 
     window.addEventListener('hashchange', abrirDoEndereco);
+    // Entrada por link que já abre algo na Agenda (volta do Google #google=..., compromisso #ev=... do Chat ou do
+    // lembrete): o que o link abre vem antes; a orientação fica para a próxima entrada.
+    const abreAlgoPeloLink = /(?:google|ev)=/.test(location.hash);
     avisoDaVoltaDoGoogle();
+    if (!abreAlgoPeloLink) { googleAviso(); }
     abrirDoEndereco();
 })();

@@ -15,6 +15,8 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class JustificativaPontoRepository extends ServiceEntityRepository
 {
+    use ConsultaSemFiltroDeEscritorio;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, JustificativaPonto::class);
@@ -283,6 +285,58 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             ->addOrderBy('j.batchId', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Há esquecimento ABONADO da pessoa neste escritório para a batida `$tipo` no dia e na hora de `$quando`
+     * (`SaidaDeEsquecimento`, spec ponto-esquecimento-nao-trava R4). Escritório explícito, além do filtro: é regra
+     * da batida e não pode depender do filtro estar ligado.
+     */
+    public function existeEsquecimentoAbonado(User $user, Tenant $tenant, \DateTimeImmutable $quando, string $tipo): bool
+    {
+        $achadas = $this->createQueryBuilder('j')
+            ->select('COUNT(j.id)')
+            ->andWhere('j.user = :user')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.tipo = :esquecimento')
+            ->andWhere('j.status = :abonado')
+            ->andWhere('j.tipoRegistroEsquecido = :tipo')
+            ->andWhere('j.data = :dia')
+            ->andWhere('j.horaRegistroEsquecido = :hora')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('esquecimento', TipoJustificativa::EsquecimentoRegistro->value)
+            ->setParameter('abonado', 'abonado')
+            ->setParameter('tipo', $tipo)
+            ->setParameter('dia', $quando->format('Y-m-d'))
+            ->setParameter('hora', $quando->format('H:i:s'))
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $achadas > 0;
+    }
+
+    /**
+     * Os pedidos de esquecimento da pessoa NAQUELE escritório no período (lista de pendências, spec
+     * `ponto-esquecimento-nao-trava.md` R5): esconde a pendência que já tem pedido. Cross-tenant de propósito, como
+     * `RegistroPontoRepository::batidasDoPeriodoNoEscritorio`: filtro suspenso e escritório escrito na consulta.
+     *
+     * @return list<JustificativaPonto>
+     */
+    public function esquecimentosDoPeriodoNoEscritorio(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        return $this->semFiltroDeEscritorio(fn (): array => $this->createQueryBuilder('j')
+            ->andWhere('j.user = :user')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.tipo = :esquecimento')
+            ->andWhere('j.data BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('esquecimento', TipoJustificativa::EsquecimentoRegistro->value)
+            ->setParameter('inicio', $inicio->format('Y-m-d'))
+            ->setParameter('fim', $fim->format('Y-m-d'))
+            ->getQuery()
+            ->getResult());
     }
 
     /**

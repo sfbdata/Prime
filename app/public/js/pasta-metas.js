@@ -6,7 +6,7 @@
         (a lista da pasta não é paginada; o estado de cada linha vem pronto em
         `data-meta-estado`, calculado por `PastaMetasResumoOutput`);
      2. atalhos de prazo do modal (Hoje · Amanhã · +5 úteis · +15 úteis) e o
-        texto do dia escolhido — só PREENCHEM o campo; nada fica obrigatório;
+        texto do dia escolhido: só PREENCHEM o campo (a obrigação é do item 8);
      3. aviso de meta aberta com título parecido — alerta, não bloqueia;
      4. "Editar nome" no ⋮: mostra o formulário de renomear sobre o título da
         linha (Enter salva, Esc ou "Cancelar" desiste);
@@ -17,13 +17,17 @@
      6. botão direito na linha (PMC-027): abre o MESMO ⋮ da linha no cursor;
      7. meta recém-criada (PMC-044): `?meta=<id>` na URL abre a aba Metas no
         filtro "Abertas" com a linha realçada (destino do POST do modal);
-     8. moldura do modal "Nova meta" (PMC-038): "Criar meta" desabilitado com
-        "Preencha: …" enquanto falta título ou descrição; Recolher e arrastar
-        pela faixa azul;
+     8. moldura do modal "Nova meta" (PMC-038, D-META): "Criar meta" desabilitado
+        com "Preencha: …" enquanto falta título, descrição, prazo ou responsável;
+        aberto pelo botão "Nova meta", o prazo vem em hoje + 7 dias; Recolher e
+        arrastar pela faixa azul;
      9. concluir e reabrir sem recarregar (PMC-031): os MESMOS formulários do ⋮
         e do rodapé do drawer vão por XHR; o servidor devolve a aba renderizada
         de novo e aqui só se trocam os pedaços (cartão, trilho, seções do
-        drawer), com o aviso "Meta concluída" / "Meta reaberta" + "Desfazer".
+        drawer), com o aviso "Meta concluída" / "Meta reaberta" + "Desfazer";
+    10. "Duplicar" no ⋮ (PMC-032): o MESMO formulário vai por XHR, a aba volta
+        com a cópia no fim da lista e o aviso "Meta duplicada" + "Desfazer", que
+        manda o "Excluir" da linha da cópia.
 
    Concluir, reabrir, renomear e o sino são <form> comuns (POST + CSRF); os menus
    que os contêm são abertos pelo pasta-show.js (`data-ps-pop`). Linha trocada
@@ -45,6 +49,7 @@
         menuNoBotaoDireito();
         popoversDasLinhasNovas();
         alternarSemRecarregar();
+        duplicarSemRecarregar();
     }
 
     if (document.readyState === 'loading') {
@@ -782,6 +787,88 @@
         });
     }
 
+    /* ── 10. Duplicar sem recarregar (PMC-032) ────────────────────────────── */
+    /* Desenho (dc `metaVals.duplicar`, D:3725): a cópia entra no fim da lista na
+       hora, com o aviso "Meta duplicada" e "Desfazer" (D:1637), que a apaga. Aqui
+       o formulário do ⋮ (`form.ps-meta-duplicar`) vai por XHR para `tarefa_duplicar`
+       e o servidor devolve a aba renderizada de novo, como no item 9, com o id da
+       cópia em `copia`. "Desfazer" manda o "Excluir" da LINHA DA CÓPIA (mesma rota,
+       mesmo CSRF; sem a janela de confirmação, que é do clique em "Excluir"). */
+    function postarNaLista(url, corpo) {
+        return fetch(url, {
+            method: 'POST',
+            body: corpo,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        }).then(function (r) {
+            return r.json().then(
+                function (d) { return { ok: r.ok, dados: d }; },
+                function () { return { ok: false, dados: null }; }
+            );
+        });
+    }
+
+    function aplicarRespostaDaLista(cartao, res) {
+        var d = res.dados;
+        if (!res.ok || !d || d.sucesso !== true) { return false; }
+        if (typeof d.html !== 'string' || !aplicarAbaNova(cartao, d.html)) { window.location.reload(); }
+
+        return true;
+    }
+
+    function desfazerDuplicacao(cartao, copiaId) {
+        var excluir = cartao.querySelector('.ps-metas-lista > .ps-meta[data-meta-id="' + copiaId + '"] .ps-meta-acoes form.ps-meta-excluir');
+        if (!excluir) {
+            avisar(BJ_T.t('pasta_scripts.js.metas.erro_desfazer'));
+            return;
+        }
+        postarNaLista(excluir.action, new FormData(excluir))
+            .then(function (res) {
+                if (!aplicarRespostaDaLista(cartao, res)) {
+                    avisar((res.dados && res.dados.mensagem) || BJ_T.t('pasta_scripts.js.metas.erro_desfazer'));
+                    return;
+                }
+                avisar(BJ_T.t('pasta_scripts.js.metas.desfeito'));
+            })
+            .catch(function () { avisar(BJ_T.t('pasta_scripts.js.metas.erro_comunicacao')); });
+    }
+
+    function enviarDuplicacao(cartao, form) {
+        if (form.hasAttribute('data-ps-enviando')) { return; }
+        form.setAttribute('data-ps-enviando', '1');
+        Array.prototype.forEach.call(form.querySelectorAll('button'), function (b) { b.disabled = true; });
+        var id = metaDoFormulario(form);
+
+        postarNaLista(form.action, new FormData(form))
+            .then(function (res) {
+                // Recusa da lápide ou do cadeado vem com `mensagem`; guarda e CSRF caem no texto genérico.
+                if (!aplicarRespostaDaLista(cartao, res)) {
+                    liberar(form);
+                    avisar((res.dados && res.dados.mensagem) || BJ_T.t('pasta_scripts.js.metas.erro_duplicar'));
+                    return;
+                }
+                if (id) { devolverFoco(cartao, id); }
+                var copia = res.dados.copia;
+                avisar(res.dados.mensagem, copia ? function () { desfazerDuplicacao(cartao, copia); } : null);
+            })
+            .catch(function () {
+                liberar(form);
+                avisar(BJ_T.t('pasta_scripts.js.metas.erro_comunicacao'));
+            });
+    }
+
+    function duplicarSemRecarregar() {
+        var cartao = document.querySelector('[data-ps-metas]');
+        if (!cartao || !window.fetch || !window.FormData || !('content' in document.createElement('template'))) { return; }
+
+        cartao.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!form || !form.matches || !form.matches('form.ps-meta-duplicar')) { return; }
+            e.preventDefault();
+            enviarDuplicacao(cartao, form);
+        });
+    }
+
     /* ── 6. Botão direito na linha da meta (PMC-027) ─────────────────────── */
     /* Desenho (dc L.1430, `onContextMenu={m.menuCtx}`): o botão direito na linha
        abre o mesmo menu do ⋮, no cursor. Nada é duplicado: quem abre e fecha o
@@ -873,20 +960,98 @@
     /* ── 8. Moldura do modal "Nova meta" (PMC-038) ────────────────────────── */
     /* Desenho (dc `salvarSt`, `faltaTxt`, `recolher`, `arrastar`): o "Criar meta"
        fica desabilitado, com "Preencha: …" na dica, enquanto falta campo; pronto,
-       a dica é "Criar meta e notificar os responsáveis". Só título e descrição
-       são cobrados: prazo e responsáveis obrigatórios são D-META (decisão
-       pendente), e o servidor só exige os dois. Os outros scripts preenchem os
-       campos por `value` (sem evento), então a conta refaz ao abrir o modal.
+       a dica é "Criar meta e notificar os responsáveis". D-META (D:4044-4048,
+       `inval`/`falta`): título, descrição, prazo e ao menos um responsável, nessa
+       ordem ("responsável" no singular, como o desenho), e a caixa / etapa no fim
+       (o `inval` do desenho cobra a etapa, mas a lista `falta` a esquece: sem ela
+       o botão ficaria desabilitado sem explicação); o servidor cobra os mesmos
+       cinco. Os outros scripts preenchem os campos por `value` (sem
+       evento), então a conta refaz ao abrir o modal; o calendário, os atalhos e os
+       chips de responsáveis disparam `change` no campo enviado. Aberto pelo botão
+       "Nova meta" (D:4045 `abrir`), o prazo vazio vem em hoje + 7 dias; quem abre
+       por script (Push, I.A, observação) decide o próprio prazo.
        Recolher (botão ou duplo clique na faixa) esconde corpo e rodapé; a faixa
        arrasta a janela, sempre com 48px dela à vista. Fechar desfaz os dois. */
     // Função, não constante: este script roda no parse, antes do bj-traducao.js (fim do base).
     function faltaNenhuma() { return BJ_T.t('pasta_scripts.js.metas.criar_e_notificar'); }
 
-    function faltaNaMeta(titulo, descricao) {
+    function faltaNaMeta(titulo, descricao, prazo, responsaveis, etapa) {
         var falta = [];
         if (!titulo || titulo.value.trim() === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_titulo')); }
         if (!descricao || descricao.value.trim() === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_descricao')); }
+        if (!prazo || prazo.value === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_prazo')); }
+        if (!responsaveis || responsaveis.selectedOptions.length === 0) { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_responsavel')); }
+        if (!etapa || etapa.value === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_etapa')); }
         return falta;
+    }
+
+    /* Caixa / etapa da Nova meta (desenho 02 de 22/10: L179, L4049 `nmSug`, L4068 `fases`). A regra
+       da sugestão vem do enum EtapaDaPasta pelo `data-regra` (padrões na ordem de teste e a etapa de
+       quem não casa nenhum), para não haver uma segunda lista aqui. Sobre título + ' ' + descrição em
+       minúsculas: o primeiro padrão que casar vence; texto sem nenhum é o `padrao`; texto vazio não
+       sugere nada. */
+    function regraDaEtapa(raiz) {
+        var dado = {};
+        try { dado = JSON.parse(raiz.getAttribute('data-regra') || '{}') || {}; } catch (x) { dado = {}; }
+        var regras = (dado.regras || []).map(function (r) { return { re: new RegExp(r.padrao), etapa: r.etapa }; });
+        var padrao = dado.padrao || '';
+        return function (texto) {
+            var t = String(texto || '').toLowerCase();
+            for (var i = 0; i < regras.length; i++) {
+                if (regras[i].re.test(t)) { return regras[i].etapa; }
+            }
+            return t.trim() !== '' ? padrao : '';
+        };
+    }
+
+    /* A sugestão é refeita a cada `input` do título e da descrição e só pinta o botão e mostra a dica,
+       sem marcar nada. O clique grava a etapa no campo enviado (`name="etapa"`) e avisa com `change`;
+       troca-se de etapa, mas não se desmarca. A dica some com etapa escolhida. Toda abertura do modal
+       (botão, Push, I.A, observação) começa sem etapa: o reset é no `show.bs.modal`, que todas usam. */
+    function campoDaEtapa(modal, titulo, descricao) {
+        var raiz = modal.querySelector('[data-ps-nm-etapa]');
+        var campo = document.getElementById('tarefaEtapa');
+        if (!raiz || !campo) { return; }
+        var sugerir = regraDaEtapa(raiz);
+        var botoes = Array.prototype.slice.call(raiz.querySelectorAll('[data-ps-nm-etapa-op]'));
+        var dica = raiz.querySelector('[data-ps-nm-etapa-sug]');
+        var dicaTx = raiz.querySelector('[data-ps-nm-etapa-sug-tx]');
+
+        function pintar() {
+            var escolhida = campo.value;
+            var sugerida = escolhida === '' ? sugerir((titulo ? titulo.value : '') + ' ' + (descricao ? descricao.value : '')) : '';
+            var nomeSugerido = '';
+            botoes.forEach(function (b) {
+                var valor = b.getAttribute('data-ps-nm-etapa-op');
+                b.setAttribute('aria-pressed', valor === escolhida ? 'true' : 'false');
+                b.classList.toggle('is-sugerida', sugerida !== '' && valor === sugerida);
+                if (sugerida !== '' && valor === sugerida) { nomeSugerido = b.getAttribute('data-nome') || ''; }
+            });
+            if (dica) { dica.hidden = nomeSugerido === ''; }
+            if (dicaTx) { dicaTx.textContent = nomeSugerido === '' ? '' : BJ_T.t('pasta_scripts.js.metas.sugestao_pelo_titulo', { etapa: nomeSugerido }); }
+        }
+
+        function escolher(valor) {
+            campo.value = valor;
+            campo.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        botoes.forEach(function (b) {
+            b.addEventListener('click', function () { escolher(b.getAttribute('data-ps-nm-etapa-op') || ''); });
+        });
+        campo.addEventListener('change', pintar);
+        [titulo, descricao].forEach(function (el) {
+            if (el) { el.addEventListener('input', pintar); }
+        });
+        modal.addEventListener('show.bs.modal', function () { escolher(''); });
+        pintar();
+    }
+
+    /* D:4045: `Date.now() + 7 * 864e5`, sete dias corridos. */
+    function daquiASeteDias() {
+        var d = hoje();
+        d.setDate(d.getDate() + 7);
+        return paraIso(d);
     }
 
     function molduraDoModalDeMeta() {
@@ -895,18 +1060,32 @@
         if (!modal || !botao) { return; }
         var titulo = document.getElementById('tarefaTitulo');
         var descricao = document.getElementById('tarefaDescricao');
+        var prazo = document.getElementById('tarefaPrazo');
+        var responsaveis = document.getElementById('tarefaResponsavel');
+        var etapa = document.getElementById('tarefaEtapa');
         var janela = modal.querySelector('.modal-dialog');
         var alca = modal.querySelector('[data-ps-nm-alca]');
         var recolher = modal.querySelector('[data-ps-nm-recolher]');
 
         function conferir() {
-            var falta = faltaNaMeta(titulo, descricao);
+            var falta = faltaNaMeta(titulo, descricao, prazo, responsaveis, etapa);
             botao.disabled = falta.length > 0;
             botao.title = falta.length > 0 ? BJ_T.t('pasta_scripts.js.metas.preencha', { campos: falta.join(', ') }) : faltaNenhuma();
         }
 
-        [titulo, descricao].forEach(function (el) {
-            if (el) { el.addEventListener('input', conferir); }
+        [titulo, descricao, prazo, responsaveis, etapa].forEach(function (el) {
+            if (!el) { return; }
+            el.addEventListener('input', conferir);
+            el.addEventListener('change', conferir);
+        });
+        campoDaEtapa(modal, titulo, descricao);
+        // Só o botão "Nova meta" da aba (o `relatedTarget` do data-api do Bootstrap); o `change` avisa o
+        // calendário, o texto do dia e os atalhos, que podem ter pintado antes deste ouvinte.
+        modal.addEventListener('show.bs.modal', function (e) {
+            var gatilho = e.relatedTarget;
+            if (!prazo || prazo.value !== '' || !gatilho || !gatilho.closest || !gatilho.closest('[data-ps-nova-meta]')) { return; }
+            prazo.value = daquiASeteDias();
+            prazo.dispatchEvent(new Event('change', { bubbles: true }));
         });
         modal.addEventListener('show.bs.modal', conferir);
         modal.addEventListener('shown.bs.modal', conferir);

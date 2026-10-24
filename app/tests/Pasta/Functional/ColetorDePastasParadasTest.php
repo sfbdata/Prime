@@ -6,7 +6,10 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PastaParada;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
 use App\Pasta\Service\AnalisadorDePastasParadas;
 use App\Pasta\Service\ColetorDePastasParadas;
 use App\Pasta\Service\MontagemDoRelatorioPastasParadas;
@@ -148,6 +151,46 @@ final class ColetorDePastasParadasTest extends KernelTestCase
 
         self::assertSame(['total' => 3, 'vencidos' => 1], $porNumero['40']);
         self::assertSame(['total' => 1, 'vencidos' => 0], $porNumero['41'], 'vence hoje: ainda não venceu');
+    }
+
+    #[TestDox('Êxito e sucumbência previstos (sem vencimento): fora do total e nunca vencidos; o recebido conta')]
+    public function testPrevistoForaDoResumoDePagamentos(): void
+    {
+        $soPrevisto = $this->pastaAbertaEm($this->tenant, '42', '2026-01-10');
+        $this->previsto($soPrevisto, TipoDePagamento::Exito);
+        $this->previsto($soPrevisto, TipoDePagamento::Sucumbencia);
+        $misto = $this->pastaAbertaEm($this->tenant, '43', '2026-01-10');
+        $this->pagamento($misto, '2026-09-01');
+        $this->previsto($misto, TipoDePagamento::Exito);
+        $recebido = $this->previsto($misto, TipoDePagamento::Exito);
+        $recebido->congelarValor('500.00');
+        $recebido->alternarQuitacao(new \DateTimeImmutable('2026-09-10'));
+        $this->em()->flush();
+
+        $this->em()->clear();
+        $tenant  = $this->em()->find(Tenant::class, $this->tenant->getId());
+        self::assertNotNull($tenant);
+        $coleta  = static::getContainer()->get(ColetorDePastasParadas::class)->coletar($tenant, null, new \DateTimeImmutable(self::HOJE));
+        $porNumero = [];
+        foreach ($coleta as $p) {
+            $porNumero[$p->numero] = $p->pagamentos;
+        }
+
+        self::assertSame(['total' => 0, 'vencidos' => 0], $porNumero['42'], 'só previsto: como se não houvesse lançamento');
+        self::assertSame(['total' => 2, 'vencidos' => 1], $porNumero['43'], 'a parcela vencida e o êxito recebido');
+    }
+
+    private function previsto(Pasta $pasta, TipoDePagamento $tipo): PastaPagamento
+    {
+        $p = new PastaPagamento();
+        $p->setTenant($pasta->getTenant());
+        $p->setPasta($pasta);
+        $p->setDescricao('Previsto');
+        $p->preverPorPercentual($tipo, '20', '0.00');
+        $this->em()->persist($p);
+        $this->em()->flush();
+
+        return $p;
     }
 
     #[TestDox('Só as pastas ativas e não excluídas do escritório pedido')]

@@ -7,16 +7,39 @@ use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\RegistroPonto;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class CalculadoraJornada
 {
     // Tolerância negativa: atrasos menores que este valor são ignorados (não descontam)
     private const TOLERANCIA_ATRASO_MINUTOS = 5;
 
+    /**
+     * O padrão seguro da data de corte do par invertido (spec `ponto-esquecimento-nao-trava.md`): o dia seguinte ao
+     * merge. Nenhum dia antes dela muda, e o deploy não precisa fazer nada. Para aplicar ao passado (opção (a) do dono),
+     * troque esta constante ou defina `PONTO_PAR_INVERTIDO_DESDE` numa data antiga.
+     */
+    public const PAR_INVERTIDO_DESDE_PADRAO = '2026-10-24';
+
+    /**
+     * O primeiro dia em que o par invertido deixa o dia incompleto e com 0 minutos: `PONTO_PAR_INVERTIDO_DESDE` quando
+     * válida (substituição opcional); vazia ou inválida, a constante `PAR_INVERTIDO_DESDE_PADRAO`.
+     */
+    private readonly \DateTimeImmutable $parInvertidoDesde;
+
     public function __construct(
         private readonly JornadaResolver $jornadaResolver,
         private readonly EscolhaDasBatidasDoDia $escolhaDasBatidas = new EscolhaDasBatidasDoDia(),
-    ) {}
+        #[Autowire('%ponto_par_invertido_desde%')]
+        string $parInvertidoDesde = '',
+    ) {
+        $desde = trim($parInvertidoDesde);
+        $corte = \DateTimeImmutable::createFromFormat('!Y-m-d', $desde);
+        // Vazia ou inválida: o padrão seguro do código.
+        $this->parInvertidoDesde = $corte !== false && $corte->format('Y-m-d') === $desde
+            ? $corte
+            : new \DateTimeImmutable(self::PAR_INVERTIDO_DESDE_PADRAO . ' 00:00:00');
+    }
 
     /**
      * Quais batidas do dia valem — a decisão ÚNICA, a mesma que a folha exibe (a calculadora não tem
@@ -174,6 +197,9 @@ class CalculadoraJornada
         if ($escolha->entrada === null || $escolha->saida === null) {
             return true;
         }
+        if ($this->parInvertido($escolha)) {
+            return true;   // saída antes da entrada, ou trecho do intervalo invertido: igual à saída solta
+        }
 
         // Metade do intervalo batida: um `!==` entre dois booleanos é o XOR que separa "não bateu
         // almoço nenhum" (apurável) de "bateu só um lado" (duração do almoço desconhecida).
@@ -204,25 +230,72 @@ class CalculadoraJornada
         $entrada = $escolha->entrada?->getDataHora();
         $saida   = $escolha->saida?->getDataHora();
 
-        if ($entrada === null) {
+        if ($entrada === null || $this->parInvertido($escolha)) {
             return 0;
         }
+        // Antes da data de corte, a conta de sempre: a distância, mesmo com o par invertido.
+        $minutos = $this->regraDoParInvertido($entrada) ? $this->diffMinutos(...) : $this->distanciaEmMinutos(...);
 
         if ($escolha->temIntervalo() && $saida !== null) {
-            return $this->diffMinutos($entrada, $escolha->repouso->getDataHora())
-                 + $this->diffMinutos($escolha->retorno->getDataHora(), $saida);
+            return $minutos($entrada, $escolha->repouso->getDataHora())
+                 + $minutos($escolha->retorno->getDataHora(), $saida);
         }
 
         if ($saida !== null) {
-            return $this->diffMinutos($entrada, $saida);
+            return $minutos($entrada, $saida);
         }
 
         return 0;
     }
 
+    /**
+     * Minutos de `$inicio` a `$fim`. Intervalo invertido (fim antes do início) não credita: 0 (spec
+     * `ponto-esquecimento-nao-trava.md`, revisão final de 23/10). Até então o `diff` sem o `invert` devolvia o valor
+     * absoluto, e a saída antes da entrada creditava o dia.
+     */
     public function diffMinutos(\DateTimeInterface $inicio, \DateTimeInterface $fim): int
     {
+        if ($fim < $inicio) {
+            return 0;
+        }
         $diff = $inicio->diff($fim);
         return max(0, ($diff->days * 1440) + ($diff->h * 60) + $diff->i);
+    }
+
+    /**
+     * A distância em minutos entre dois horários, em qualquer ordem: a fórmula antiga do `diffMinutos`, mantida só para o
+     * indicador "intrajornada conforme" do PDF e do XLSX (`FolhaPontoBuilder`, minutosIntervalo), que não muda. Não
+     * serve para creditar trabalho.
+     */
+    public function distanciaEmMinutos(\DateTimeInterface $a, \DateTimeInterface $b): int
+    {
+        $diff = $a->diff($b);
+
+        return ($diff->days * 1440) + ($diff->h * 60) + $diff->i;
+    }
+
+    /** O dia da entrada está a partir da data de corte do par invertido. */
+    private function regraDoParInvertido(\DateTimeInterface $entrada): bool
+    {
+        return \DateTimeImmutable::createFromInterface($entrada)->setTime(0, 0) >= $this->parInvertidoDesde;
+    }
+
+    /**
+     * A saída escolhida antes da entrada escolhida ou, com o par de intervalo, um trecho invertido (a ida ao repouso
+     * antes da entrada, ou a saída antes do retorno). O dia fica incompleto e conta 0 minutos, como a saída solta.
+     */
+    private function parInvertido(BatidasEscolhidas $escolha): bool
+    {
+        $entrada = $escolha->entrada?->getDataHora();
+        $saida = $escolha->saida?->getDataHora();
+        if ($entrada === null || $saida === null || !$this->regraDoParInvertido($entrada)) {
+            return false;
+        }
+        if ($saida < $entrada) {
+            return true;
+        }
+
+        return $escolha->temIntervalo()
+            && ($escolha->repouso->getDataHora() < $entrada || $saida < $escolha->retorno->getDataHora());
     }
 }

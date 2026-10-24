@@ -12,19 +12,17 @@ use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Envio\CarteiroInterface;
+use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\ResultadoDoEnvio;
 use App\Comercial\Message\EnviarEmail;
 use App\Comercial\Message\ExpandirCampanhas;
-use App\Comercial\Message\VarrerAutomacoes;
 use App\Comercial\MessageHandler\EnviarEmailHandler;
 use App\Comercial\MessageHandler\ExpandirCampanhasHandler;
-use App\Comercial\MessageHandler\VarrerAutomacoesHandler;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DestinoDaCampanhaRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
 use App\Comercial\Service\RecuperacaoDeEnvios;
-use App\Comercial\Service\SementeDoExpansor;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use App\Comercial\UseCase\EncerrarCampanhaUseCase;
 use App\Comercial\UseCase\PurgarDadosDoComercialUseCase;
@@ -36,21 +34,20 @@ use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Tester\CommandTester;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
  * O expansor de campanhas contra o banco (spec comercial-e-emails.md §8.1, §8.5 e §8.7): materialização idempotente
  * (UNIQUE), lote numa transação (queda no meio = nada gravado), contrapressão, teto diário das campanhas, a agendada
  * atrasada cancelada, a recorrente pulando, o "+1 mês" no fim do mês, a chave desligada cancelando (e o envio já na
- * fila virando `cancelado`), o comando de encerrar, a cadeia única, a rede de segurança e a retenção de 24 meses.
+ * fila virando `cancelado`), o comando de encerrar, uma volta por janela (sem reagendamento) e a retenção de 24 meses.
  */
 #[CoversClass(ExpansorDeCampanhas::class)]
 #[CoversClass(ExpandirCampanhasHandler::class)]
 #[CoversClass(CampanhaDeEmailRepository::class)]
 #[CoversClass(DestinoDaCampanhaRepository::class)]
-#[CoversClass(SementeDoExpansor::class)]
 #[CoversClass(RecuperacaoDeEnvios::class)]
 #[CoversClass(EncerrarCampanhaUseCase::class)]
 #[CoversClass(\App\Comercial\Command\EncerrarCampanhaCommand::class)]
@@ -221,6 +218,25 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame(2, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NULL', [$id]));
     }
 
+    #[TestDox('Cota corrida: os demais e-mails acima da reserva encolhem o lote da campanha (teto 10, campanhas 8, reserva 2, demais 5)')]
+    public function testDemaisAcimaDaReservaEncolhemACampanha(): void
+    {
+        $id = $this->campanha($this->emailsDeAtivos(8));
+        $agora = new \DateTimeImmutable();
+        for ($i = 0; $i < 5; ++$i) {
+            $this->conexao->executeStatement(
+                "INSERT INTO comercial_envio (token, destinatario, assunto, tipo, origem, situacao, criado_em, enviado_em, aberturas, cliques)
+                 VALUES (:token, 'outro@exemplo.com', 'x', 'transacional', 'sistema', 'enviado', :em, :em, 0, 0)",
+                ['token' => bin2hex(random_bytes(16)), 'em' => $agora->modify('-2 hours')->format('Y-m-d H:i:s')],
+            );
+        }
+        $expansor = $this->expansor(teto: 8, tetoTotal: 10);
+        $expansor->materializarDevidas($agora);
+
+        self::assertSame(5, $expansor->liberarLote($agora), 'cabem 10 - 5 = 5, não os 8 do teto das campanhas');
+        self::assertSame(3, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NULL', [$id]));
+    }
+
     #[TestDox('Nada é recuperado: a agendada que acorda mais de 24 h atrasada é cancelada sem enviar; com 23 h, sai')]
     public function testAgendadaAtrasada(): void
     {
@@ -388,7 +404,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame(0, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ?', [$id]));
         self::assertSame(0, (int) $this->conexao->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE origem LIKE 'campanha:%'"));
         self::assertSame([], $this->despachados(EnviarEmail::class));
-        self::assertSame([], $this->despachados(ExpandirCampanhas::class), 'sem ativa, a cadeia para');
+        self::assertSame([], $this->despachados(ExpandirCampanhas::class), 'o handler não se reagenda');
         self::assertEmailCount(0);
     }
 
@@ -522,42 +538,29 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame(Command::INVALID, $comando->execute(['id' => 'abc']));
     }
 
-    #[TestDox('A cadeia: só um passo por intervalo se reagenda (60 s); sem campanha ativa, a cadeia para')]
-    public function testCadeiaUnica(): void
+    #[TestDox('Uma volta por janela: com ativa, reivindica por meio intervalo (30 s) e não se reagenda; a repetida não roda; sem ativa, sai sem tocar na linha')]
+    public function testUmaVoltaPorJanela(): void
     {
         static::getContainer()->set(ChaveDasCampanhas::class, new ChaveDasCampanhas(true));
         $this->campanha($this->emailsDeAtivos(1), ['estado' => 'agendada', 'agendada_para' => new \DateTimeImmutable('+3 days'), 'proxima' => new \DateTimeImmutable('+3 days')]);
         $this->conexao->executeStatement('UPDATE comercial_expansor SET proxima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-1 minute'))->format('Y-m-d H:i:s')]);
         $handler = static::getContainer()->get(ExpandirCampanhasHandler::class);
+        $antes = new \DateTimeImmutable();
 
         $handler(new ExpandirCampanhas());
-        $handler(new ExpandirCampanhas());
+        $proxima = new \DateTimeImmutable((string) $this->conexao->fetchOne('SELECT proxima_em FROM comercial_expansor WHERE id = 1'));
+        self::assertEqualsWithDelta($antes->getTimestamp() + ExpandirCampanhasHandler::VEZ_SEGUNDOS, $proxima->getTimestamp(), 5, 'a vez seguinte abre em meio intervalo');
 
-        $passos = $this->despachados(ExpandirCampanhas::class);
-        self::assertCount(1, $passos, 'o segundo não reivindica e morre');
-        self::assertSame(60000, $passos[0]->last(DelayStamp::class)?->getDelay());
+        $marcador = '2000-01-01 00:00:00';
+        $this->conexao->executeStatement('UPDATE comercial_expansor SET executada_em = ? WHERE id = 1', [$marcador]);
+        $handler(new ExpandirCampanhas());
+        self::assertSame($marcador, $this->conexao->fetchOne('SELECT executada_em FROM comercial_expansor WHERE id = 1'), 'a segunda, dentro da janela, não reivindica e não roda');
+        self::assertSame([], $this->despachados(ExpandirCampanhas::class), 'nenhuma volta se reagenda');
 
         $this->conexao->executeStatement("UPDATE comercial_campanha SET estado = 'enviada'");
         $this->conexao->executeStatement('UPDATE comercial_expansor SET proxima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-1 minute'))->format('Y-m-d H:i:s')]);
-        $this->fila->reset();
         $handler(new ExpandirCampanhas());
-        self::assertCount(0, $this->despachados(ExpandirCampanhas::class), 'sem ativa, a cadeia para');
-    }
-
-    #[TestDox('Rede de segurança: a varredura de 15 min despacha o expansor se há ativa e ele está mais de 5 min atrasado; senão, não')]
-    public function testRedeDeSeguranca(): void
-    {
-        $semente = static::getContainer()->get(SementeDoExpansor::class);
-        $this->conexao->executeStatement('UPDATE comercial_expansor SET proxima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-10 minutes'))->format('Y-m-d H:i:s')]);
-        self::assertFalse($semente->socorrer(new \DateTimeImmutable()), 'sem campanha ativa, nada');
-
-        $this->campanha($this->emailsDeAtivos(1), ['estado' => 'agendada', 'agendada_para' => new \DateTimeImmutable('+1 day'), 'proxima' => new \DateTimeImmutable('+1 day')]);
-        $this->conexao->executeStatement('UPDATE comercial_varredura SET proxima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-1 minute'))->format('Y-m-d H:i:s')]);
-        static::getContainer()->get(VarrerAutomacoesHandler::class)(new VarrerAutomacoes());
-        self::assertCount(1, $this->despachados(ExpandirCampanhas::class));
-
-        $this->conexao->executeStatement('UPDATE comercial_expansor SET proxima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-2 minutes'))->format('Y-m-d H:i:s')]);
-        self::assertFalse($semente->socorrer(new \DateTimeImmutable()), 'atraso de 2 min: a cadeia ainda vive');
+        self::assertSame($marcador, $this->conexao->fetchOne('SELECT executada_em FROM comercial_expansor WHERE id = 1'), 'sem ativa, sai cedo: nem reivindica');
     }
 
     #[TestDox('Retenção: o destinatário com mais de 24 meses fica com o e-mail em SHA-256 com o sal e sem o nome; o recente não muda')]
@@ -579,7 +582,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame($antes - 1, $purga->executar(new \DateTimeImmutable(), true), 'o já anonimizado não conta de novo');
     }
 
-    private function expansor(bool $ligada = true, int $teto = 1000, ?CarteiroInterface $carteiro = null): ExpansorDeCampanhas
+    private function expansor(bool $ligada = true, int $teto = 1000, ?CarteiroInterface $carteiro = null, int $tetoTotal = 1500): ExpansorDeCampanhas
     {
         $c = static::getContainer();
 
@@ -593,7 +596,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
             new PoliticaDeDestinatarios(),
             new ChaveDasCampanhas($ligada),
             new NullLogger(),
-            $teto,
+            new CotaDeEnvio($c->get(EnvioDeEmailRepository::class), $c->get(DestinoDaCampanhaRepository::class), new MockClock(), $tetoTotal, $teto, 10, 80),
             $c->get(\App\Comercial\Campanha\ImagensDaCampanha::class),
         );
     }

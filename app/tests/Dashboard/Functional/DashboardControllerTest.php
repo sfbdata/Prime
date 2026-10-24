@@ -194,7 +194,7 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         PastaFactory::createMany(2, ['tenant' => $tenant, 'criadoPor' => $user, 'responsavel' => $outro]);
 
         $this->logarComTenant($client, $user, $tenant);
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
 
         self::assertResponseIsSuccessful();
         // Rótulo em sentence case ("Pastas criadas"): o desenho aprovado manda (trilha A, A9).

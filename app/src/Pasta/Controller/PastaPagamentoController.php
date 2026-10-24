@@ -9,6 +9,7 @@ use App\Pasta\DTO\ParcelamentoDaPastaInput;
 use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaPagamentoRepository;
+use App\Pasta\Service\BaseDoPercentual;
 use App\Pasta\UseCase\AlternarQuitacaoDoPagamentoUseCase;
 use App\Pasta\UseCase\CorrigirValorDoPagamentoUseCase;
 use App\Pasta\UseCase\ExcluirPagamentoDaPastaUseCase;
@@ -43,6 +44,7 @@ final class PastaPagamentoController extends AbstractController
         private readonly ExcluirPagamentoDaPastaUseCase $excluirUseCase,
         private readonly CorrigirValorDoPagamentoUseCase $corrigirValorUseCase,
         private readonly RegistrarParcelamentoDaPastaUseCase $parcelamentoUseCase,
+        private readonly BaseDoPercentual $baseDoPercentual,
     ) {
     }
 
@@ -184,7 +186,12 @@ final class PastaPagamentoController extends AbstractController
             return $this->json(['erro' => 'Pagamento não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
-        $this->alternarUseCase->executar($pagamento);
+        try {
+            $this->alternarUseCase->executar($pagamento);
+        } catch (\DomainException $e) {
+            // Previsto sobre um Total contratado zerado: nada foi gravado.
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         return $this->json([
             'pago'   => $pagamento->estaPago(),
@@ -275,7 +282,7 @@ final class PastaPagamentoController extends AbstractController
             // relido, para a tela passar a mostrar o valor que vale agora.
             return $this->json([
                 'erro'       => $e->getMessage(),
-                'valorAtual' => str_replace('.', ',', $pagamento->getValor()),
+                'valorAtual' => str_replace('.', ',', $this->baseDoPercentual->valorCalculado($pagamento)),
                 'resumo'     => $this->resumo($pasta),
             ], Response::HTTP_CONFLICT);
         } catch (\InvalidArgumentException $e) {
@@ -310,12 +317,14 @@ final class PastaPagamentoController extends AbstractController
         );
 
         return [
-            'total'           => $saida->total,
-            'quantidadePagos' => $saida->quantidadePagos,
-            'recebido'        => $saida->recebidoFormatado,
-            'previsto'        => $saida->previstoFormatado,
-            'percentual'      => $saida->percentual,
-            'html'            => $this->renderView('pasta/_financeiro_pagamentos.html.twig', [
+            'total'              => $saida->total,
+            'quantidadePagos'    => $saida->quantidadePagos,
+            'recebido'           => $saida->recebidoFormatado,
+            // O "Total contratado" da faixa e a Base do modal acompanham cada resposta (C8).
+            'contratado'         => $saida->contratadoFormatado,
+            'contratadoCentavos' => $saida->contratadoCentavos,
+            'percentual'         => $saida->percentual,
+            'html'               => $this->renderView('pasta/_financeiro_pagamentos.html.twig', [
                 'pagamentos' => $saida,
             ]),
         ];

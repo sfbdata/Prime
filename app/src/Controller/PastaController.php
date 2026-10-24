@@ -47,6 +47,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Pasta\Service\ConflitoDeNumeroCnj;
+use App\Pasta\Service\DetectorDeAssinaturaDigital;
 use App\Pasta\Service\OrganizacaoSugeridaPorFase;
 use App\Pasta\Service\PastaTimelineAssembler;
 use App\Pasta\Entity\PastaMensagem;
@@ -117,7 +118,6 @@ use App\Pasta\UseCase\ExcluirObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
 use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
-use App\Pasta\UseCase\ResultadoExclusaoPasta;
 use App\Pasta\UseCase\RestaurarPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
 use App\Pasta\Service\CobrancasDoChecklistDaPasta;
@@ -1735,27 +1735,13 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }
 
-        $resultado = $this->excluirPastaUseCase->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant());
+        $this->excluirPastaUseCase->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant());
 
-        // Os dois desfechos precisam de mensagens diferentes: a lápide continua existindo e pode
-        // ser aberta (e restaurada), a removida não. Dizer "removida" nos dois casos faria a
-        // pessoa procurar na lixeira uma pasta que está bem ali na lista, riscada.
-        if ($resultado === ResultadoExclusaoPasta::Lapide) {
-            $this->addFlash(
-                'success',
-                sprintf(
-                    'Pasta %s excluída. Ela continua na lista, riscada, porque o número dela não pode '
-                    . 'ser reaproveitado: já existem pastas posteriores.',
-                    $pasta->getNup(),
-                ),
-            );
+        // Toda exclusão vai para a lixeira (lápide restaurável): a pasta continua existindo, então
+        // a volta é para ela, onde estão a faixa de excluída e o botão Restaurar.
+        $this->addFlash('success', sprintf('Pasta %s enviada para a lixeira (restaurável a qualquer momento)', $pasta->getNup()));
 
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-        }
-
-        $this->addFlash('success', 'Pasta removida com sucesso.');
-
-        return $this->redirectToRoute('expediente_index');
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }
 
     #[Route('/{id}/restaurar', name: 'pasta_restaurar', methods: ['POST'])]
@@ -2005,7 +1991,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Upload de documento de contrato ──────────────────────────
 
     #[Route('/{id}/financeiro/upload', name: 'pasta_financeiro_upload', methods: ['POST'])]
-    public function financeiroUpload(Pasta $pasta, Request $request): JsonResponse
+    public function financeiroUpload(Pasta $pasta, Request $request, DetectorDeAssinaturaDigital $detectorDeAssinatura): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2049,6 +2035,7 @@ class PastaController extends AbstractController
 
         // Hash do upload ANTES de mover; recalculado pela chave só se a compressão trocar o binário.
         $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
+        $assinado = $detectorDeAssinatura->arquivoAssinado($file->getPathname(), $file->getClientOriginalName(), $mimeType);
 
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
@@ -2072,6 +2059,7 @@ class PastaController extends AbstractController
         $doc->setMimeType($mimeType);
         $doc->setTamanhoBytes($tamanhoFinal);
         $doc->setSha256($sha256);
+        $doc->marcarAssinaturaDoUpload($assinado, $compressao !== null && $compressao->comprimido, $currentUser);
 
         $this->em->persist($doc);
         $this->em->flush();
@@ -2092,6 +2080,8 @@ class PastaController extends AbstractController
             'urlDownload'   => $this->generateUrl('pasta_financeiro_documento_download', ['id' => $pastaId, 'docId' => $doc->getId()]),
             'csrfRenomear' => $this->csrfTokenManager->getToken('pasta_financeiro_renomear_' . $doc->getId())->getValue(),
             'csrfExcluir'  => $this->csrfTokenManager->getToken('pasta_financeiro_excluir_' . $doc->getId())->getValue(),
+            'csrfAssinatura' => $this->csrfTokenManager->getToken('pasta_financeiro_assinatura_' . $doc->getId())->getValue(),
+            'assinatura'     => $doc->getAssinaturaOrigem()?->value, // null = sem o selo "Assinado"
             'compressao'   => $compressao !== null ? [
                 'comprimido'      => $compressao->comprimido,
                 'tamanhoOriginal' => $compressao->tamanhoOriginal,

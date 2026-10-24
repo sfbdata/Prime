@@ -186,6 +186,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Shared/Email/Descadastro/Entity'
                 prefix: 'App\Shared\Email\Descadastro\Entity'
                 alias: AppSharedEmailDescadastro
+            # Falhas das tarefas agendadas (spec scheduler-tarefas-agendadas, "Aviso de falha"): dado do sistema.
+            AppSharedScheduler:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Shared/Scheduler/Entity'
+                prefix: 'App\Shared\Scheduler\Entity'
+                alias: AppSharedScheduler
         controller_resolver:
             auto_mapping: false
         dql:

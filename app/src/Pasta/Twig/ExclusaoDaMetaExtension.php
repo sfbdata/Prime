@@ -33,6 +33,10 @@ final class ExclusaoDaMetaExtension extends AbstractExtension
     {
         return [
             new TwigFunction('meta_pode_excluir', $this->podeExcluir(...)),
+            // Edição sem prazo (spec edicao-sem-prazo §5): 'master' | 'primario' quando é o poder que libera.
+            new TwigFunction('meta_selo_excluir', $this->selo(...)),
+            // Quantos despachos registrados a meta tem: com algum, o Excluir passa pela janela de confirmação.
+            new TwigFunction('meta_despachos_registrados', $this->excluirTarefa->despachosRegistrados(...)),
         ];
     }
 
@@ -45,5 +49,16 @@ final class ExclusaoDaMetaExtension extends AbstractExtension
         }
 
         return $this->excluirTarefa->podeExcluir($tarefa, $usuario, $tenant);
+    }
+
+    public function selo(Tarefa $tarefa): ?string
+    {
+        $usuario = $this->security->getUser();
+        $tenant  = $this->tenantContext->getCurrentTenant();
+        if (!$usuario instanceof User || $tenant === null) {
+            return null;
+        }
+
+        return $this->excluirTarefa->seloDaExclusao($tarefa, $usuario, $tenant)?->value;
     }
 }

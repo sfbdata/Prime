@@ -6,6 +6,7 @@ namespace App\Cobranca\DTO;
 
 use App\Cobranca\Entity\EventoHistorico;
 use App\Entity\Auth\User;
+use App\Tenant\Enum\PoderSemPrazo;
 
 /**
  * Leitura de um evento do Histórico operacional do Caso (SPEC §13) para a timeline do detalhe
@@ -38,12 +39,19 @@ final class EventoHistoricoOutput
          * senão a tela e o servidor poderiam discordar.
          */
         public readonly bool $editavel = false,
+        /**
+         * Edição sem prazo (spec edicao-sem-prazo §5): 'master' | 'primario' quando só o poder libera a linha (fora
+         * das 48h ou anotação de outra pessoa); a tela mostra o selo dourado. Null no resto.
+         */
+        public readonly ?string $seloSemPrazo = null,
     ) {
     }
 
-    public static function fromEntity(EventoHistorico $e, ?User $usuarioAtual = null, ?\DateTimeImmutable $agora = null): self
+    public static function fromEntity(EventoHistorico $e, ?User $usuarioAtual = null, ?\DateTimeImmutable $agora = null, ?PoderSemPrazo $poder = null): self
     {
         $usuario = $e->getUsuario();
+        $pelaRegra = $agora !== null && $e->podeSerEditadaPor($usuarioAtual, $agora);
+        $peloPoder = !$pelaRegra && $agora !== null && $poder !== null && $e->podeSerEditadaPor($usuarioAtual, $agora, true);
 
         return new self(
             id: $e->getId() ?? 0,
@@ -55,7 +63,8 @@ final class EventoHistoricoOutput
             usuarioNome: $usuario?->getFullName() ?? $usuario?->getEmail(),
             descricao: $e->getDescricao(),
             editadoEm: $e->getEditadoEm(),
-            editavel: $agora !== null && $e->podeSerEditadaPor($usuarioAtual, $agora),
+            editavel: $pelaRegra || $peloPoder,
+            seloSemPrazo: $peloPoder ? $poder->value : null,
         );
     }
 }

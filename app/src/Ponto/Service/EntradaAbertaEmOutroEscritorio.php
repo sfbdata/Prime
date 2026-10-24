@@ -11,20 +11,23 @@ use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 
 /**
- * Trava da entrada (spec `docs/specs/ponto-por-escritorio.md` §2.2, risco ALTO): quem está com o ponto aberto HOJE
- * num escritório Y não bate a entrada no escritório X. "Aberto" é a última batida do dia em Y até o `agora` não ser
- * saída, havendo entrada (reentrada e repouso sem retorno contam). Só os Y em que a pessoa tem vínculo ativo, com o
- * escritório ativo e o módulo de ponto (P-C); mais de um, o primeiro em ordem alfabética (P-E).
+ * Aviso de pendência na entrada (spec `docs/specs/ponto-esquecimento-nao-trava.md` R2, risco ALTO): quem está com o
+ * ponto aberto HOJE num escritório Y bate a entrada no escritório X normalmente, e a resposta da batida traz o aviso de
+ * que ficou um registro em aberto em Y. Esquecimento nunca trava (decisão do dono, 23/10); até então era uma recusa
+ * (`ponto-por-escritorio.md` §2.2, P-A). "Aberto" é a última batida do dia em Y até o `agora` não ser saída, havendo
+ * entrada (reentrada e repouso sem retorno contam). Só os Y em que a pessoa tem vínculo ativo, com o escritório ativo e
+ * o módulo de ponto (P-C); mais de um, o primeiro em ordem alfabética (P-E).
  *
- * Só a saída batida em Y, ou a aprovação do esquecimento pelo gestor de Y (que vira batida de saída), solta a trava:
- * o pedido de esquecimento ainda pendente não solta (P-A, decisão do dono de 19/10).
- *
- * Só a própria pessoa vê a resposta, e dela só sai o nome do escritório.
+ * O aviso leva o nome de Y porque só a própria pessoa o vê, na resposta da batida dela. Ninguém mais (admin, gestor
+ * ou aprovador de X) recebe esse nome.
  */
 final class EntradaAbertaEmOutroEscritorio
 {
-    /** A frase do dono. */
-    public const MENSAGEM_TRAVA = 'Você está com o ponto aberto em %s. Registre a saída lá antes.';
+    /** O rótulo do link do aviso: o pedido de esquecimento se faz no escritório onde ficou o registro em aberto. */
+    public const ROTULO_TROCAR = 'Trocar de escritório';
+
+    /** A frase da spec (R2): o escritório e o dia (dd/mm). */
+    public const AVISO_PENDENCIA = 'Ficou um registro em aberto em %s no dia %s. Envie o registro de esquecimento por lá.';
 
     public function __construct(
         private readonly RegistroPontoRepository $registros,
@@ -33,15 +36,15 @@ final class EntradaAbertaEmOutroEscritorio
     ) {
     }
 
-    /** A recusa da entrada em `$atual`, ou null quando ela pode seguir. */
-    public function mensagem(User $user, Tenant $atual, \DateTimeImmutable $agora): ?string
+    /** O aviso para a entrada em `$atual`, ou null quando não há ponto aberto em outro escritório. Nunca recusa. */
+    public function aviso(User $user, Tenant $atual, \DateTimeImmutable $agora): ?string
     {
         $nome = $this->onde($user, $atual, $agora);
         if ($nome === null) {
             return null;
         }
 
-        return sprintf(self::MENSAGEM_TRAVA, $nome);
+        return sprintf(self::AVISO_PENDENCIA, $nome, $agora->format('d/m'));
     }
 
     /** O nome do escritório em que o ponto está aberto hoje, ou null. */
@@ -64,7 +67,7 @@ final class EntradaAbertaEmOutroEscritorio
     }
 
     /**
-     * A janela da trava: o mesmo dia (variante fixada pelo dono). "Qualquer entrada aberta" seria trocar este início.
+     * A janela do aviso: o mesmo dia (variante fixada pelo dono). "Qualquer entrada aberta" seria trocar este início.
      */
     private function inicioDaJanela(\DateTimeImmutable $agora): \DateTimeImmutable
     {

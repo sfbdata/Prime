@@ -80,6 +80,7 @@ final class ListarAvisosDaCentralUseCase
             lido: $aviso->isLida(),
             criadoEm: $aviso->getCriadaEm()->format(\DATE_ATOM),
             resolvidoEm: $resolvidaEm?->format(\DATE_ATOM),
+            acao: $this->tipos->acao($aviso->getTipo()),
         );
     }
 }

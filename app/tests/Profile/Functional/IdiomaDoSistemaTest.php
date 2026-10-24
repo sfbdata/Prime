@@ -23,8 +23,9 @@ use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * Idioma do sistema, entrega 1 (spec docs/specs/idioma-do-sistema.md): o idioma fica no perfil, vale para a
- * requisição (`<html lang/dir>`), o Meu Perfil mostra o nome e o modal sai da lista do enum. Só o português está
- * liberado; o resto aparece "em breve", como hoje.
+ * requisição (`<html lang/dir>`), o Meu Perfil mostra o nome e o modal sai da lista do enum. O seletor oferece só
+ * Português (Brasil), Inglês e Espanhol (decisão do dono, 23/10/2026), com só o português liberado; quem tem outro
+ * idioma gravado vale como português. Os Termos de Uso e a Política de Privacidade ficam sempre em português.
  */
 #[CoversClass(PreferenciasDoPerfilController::class)]
 #[CoversClass(DefinirIdiomaDoPerfilUseCase::class)]
@@ -52,7 +53,7 @@ final class IdiomaDoSistemaTest extends JusPrimeWebTestCase
         $this->em->flush();
     }
 
-    #[TestDox('a página sai com lang="pt-BR" e dir="ltr"; o Meu Perfil mostra "Português (Brasil)"; o modal lista os 10 idiomas, só o português liberado e marcado')]
+    #[TestDox('a página sai com lang="pt-BR" e dir="ltr"; o Meu Perfil mostra "Português (Brasil)"; o modal oferece só português, inglês e espanhol, o português liberado e marcado, os outros dois "em breve"')]
     public function testTelaEmPortugues(): void
     {
         $tela = $this->abrir();
@@ -63,13 +64,15 @@ final class IdiomaDoSistemaTest extends JusPrimeWebTestCase
         self::assertSame('Português (Brasil)', trim($tela->filter('.mp-prefs > button[data-mu-idioma] > .mp-pref-valor')->text()));
 
         $botoes = $tela->filter('#modalIdioma .mu-idiomas > button.mu-idioma');
-        self::assertCount(10, $botoes);
-        self::assertSame(array_map(static fn (Idioma $i): string => $i->nome(), Idioma::cases()), $botoes->each(static fn (Crawler $b): string => trim($b->filter('.mu-idioma-nome')->text())));
+        self::assertCount(3, $botoes);
+        self::assertSame(['Português (Brasil)', 'English', 'Español'], $botoes->each(static fn (Crawler $b): string => trim($b->filter('.mu-idioma-nome')->text())));
+        self::assertSame(['pt-BR', 'en', 'es'], $botoes->each(static fn (Crawler $b): string => (string) $b->attr('data-mu-idioma-escolher')));
         self::assertCount(1, $tela->filter('#modalIdioma .mu-idiomas > button.mu-idioma.atual[data-mu-idioma-escolher="pt-BR"]:not([disabled])'));
-        self::assertCount(9, $tela->filter('#modalIdioma .mu-idiomas > button.mu-idioma[disabled] > .mu-idioma-breve'));
+        self::assertSame(['en', 'es'], $tela->filter('#modalIdioma .mu-idiomas > button.mu-idioma[disabled]')->each(static fn (Crawler $b): string => (string) $b->attr('data-mu-idioma-escolher')));
+        self::assertCount(2, $tela->filter('#modalIdioma .mu-idiomas > button.mu-idioma[disabled] > .mu-idioma-breve'));
     }
 
-    #[TestDox('POST /perfil/idioma: o português grava no perfil; idioma "em breve" ou desconhecido dá 422 e não grava; sem o token, 403')]
+    #[TestDox('POST /perfil/idioma: o português grava no perfil; inglês e espanhol ("em breve"), idioma fora dos três ou desconhecido dão 422 e não gravam; sem o token, 403')]
     public function testGravarIdioma(): void
     {
         $tela = $this->abrir();
@@ -78,29 +81,61 @@ final class IdiomaDoSistemaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('pt-BR', $this->idiomaGravado());
 
-        $this->postar($tela, ['idioma' => 'en']);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(['erro' => 'Este idioma ainda não está disponível.'], json_decode((string) $this->client->getResponse()->getContent(), true));
-        $this->postar($tela, ['idioma' => 'xx']);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('pt-BR', $this->idiomaGravado());
+        foreach (['en', 'es', 'fr', 'ar', 'xx', 'pt_BR'] as $valor) {
+            $this->postar($tela, ['idioma' => $valor]);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame(['erro' => 'Este idioma ainda não está disponível.'], json_decode((string) $this->client->getResponse()->getContent(), true));
+            self::assertSame('pt-BR', $this->idiomaGravado());
+        }
 
         $this->client->request('POST', '/perfil/idioma', [], [], ['CONTENT_TYPE' => 'application/json'], '{"idioma":"pt-BR"}');
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('idioma gravado mas ainda não liberado (ex.: inglês gravado antes) vale como português na tela')]
-    public function testIdiomaNaoLiberadoValeComoPortugues(): void
+    #[TestDox('idioma gravado que saiu do seletor (francês, árabe) carrega sem erro e vale como português na tela')]
+    public function testIdiomaQueSaiuDoSeletorValeComoPortugues(): void
     {
-        $perfil = (new UserProfile($this->usuario))->setIdioma(Idioma::Ingles);
+        $perfil = new UserProfile($this->usuario);
         $this->em->persist($perfil);
+        foreach ([Idioma::Frances, Idioma::Arabe] as $antigo) {
+            // O valor fica gravado no perfil, como antes de o idioma sair do seletor; a sessão nova lê do banco.
+            $perfil->setIdioma($antigo);
+            $this->em->flush();
+            $this->client->restart();
+
+            $tela = $this->abrir();
+
+            self::assertSame('pt-BR', $tela->filter('html')->attr('lang'), $antigo->value);
+            self::assertSame('ltr', $tela->filter('html')->attr('dir'), $antigo->value);
+            self::assertSame('Português (Brasil)', trim($tela->filter('.mp-prefs > button[data-mu-idioma] > .mp-pref-valor')->text()));
+            self::assertSame('pt_BR', $this->client->getRequest()->getLocale());
+            self::assertCount(1, $tela->filter('#modalIdioma .mu-idiomas > button.mu-idioma.atual[data-mu-idioma-escolher="pt-BR"]'));
+        }
+    }
+
+    #[TestDox('Termos de Uso e Política de Privacidade: as quatro rotas fixam o locale pt_BR e, com inglês gravado no perfil, saem em português')]
+    public function testTermosEPoliticaEmPortuguesComInglesGravado(): void
+    {
+        $rotas = static::getContainer()->get('router')->getRouteCollection();
+        foreach (['termo_aceite', 'termo_aceite_registrar', 'legal_politica_privacidade', 'legal_politica_privacidade_pdf'] as $nome) {
+            self::assertSame('pt_BR', $rotas->get($nome)?->getDefault('_locale'), $nome);
+        }
+
+        $this->em->persist((new UserProfile($this->usuario))->setIdioma(Idioma::Ingles));
         $this->em->flush();
+        $this->abrir();
 
-        $tela = $this->abrir();
-
-        self::assertSame('pt-BR', $tela->filter('html')->attr('lang'));
-        self::assertSame('Português (Brasil)', trim($tela->filter('.mp-prefs > button[data-mu-idioma] > .mp-pref-valor')->text()));
+        $politica = $this->client->request('GET', '/politica-de-privacidade');
+        self::assertResponseIsSuccessful();
         self::assertSame('pt_BR', $this->client->getRequest()->getLocale());
+        self::assertSame('pt-BR', $politica->filter('html')->attr('lang'));
+        self::assertStringContainsString('Política de Privacidade', $politica->filter('title')->text());
+
+        $termos = $this->client->request('GET', '/termos/aceitar');
+        self::assertResponseIsSuccessful();
+        self::assertSame('pt_BR', $this->client->getRequest()->getLocale());
+        self::assertSame('pt-BR', $termos->filter('html')->attr('lang'));
+        self::assertSame('Termos e Condições Gerais de Uso', trim($termos->filter('.termo-header h1')->text()));
     }
 
     private function abrir(): Crawler

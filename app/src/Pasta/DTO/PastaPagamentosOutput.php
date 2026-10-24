@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\DTO;
 
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Service\BaseDoPercentual;
 use App\Shared\Service\ValorEmReais;
 
 /**
@@ -13,6 +14,11 @@ use App\Shared\Service\ValorEmReais;
  * Os totais são somados em CENTAVOS INTEIROS. Somar `decimal` como float é
  * como se perde centavo em silêncio, e aqui o número somado é mostrado ao lado
  * das parcelas que o compõem — a divergência apareceria na tela.
+ *
+ * ÊXITO E SUCUMBÊNCIA (spec pasta-exito-sucumbencia, decisão 2 do dono): o previsto fica FORA
+ * do contratado, do recebido e da barra. Ele só aparece como linha e no
+ * "+ R$ X previsto em …" (`previstoFormatado` + `previstoEm`). O contratado é o mesmo número
+ * do card "Total contratado" da faixa e a base do percentual (`BaseDoPercentual`, C8).
  */
 final readonly class PastaPagamentosOutput
 {
@@ -20,13 +26,19 @@ final readonly class PastaPagamentosOutput
         public int $total,
         public int $quantidadePagos,
         public string $recebidoFormatado,
-        public string $previstoFormatado,
+        /** Total contratado: a soma das linhas não previstas, pagas ou não. */
+        public string $contratadoFormatado,
+        public int $contratadoCentavos,
         /** Inteiro de 0 a 100, para a largura da barra. */
         public int $percentual,
-        /** @var PastaPagamentoLinhaOutput[] pendentes e vencidos, do mais próximo ao mais distante */
+        /** @var PastaPagamentoLinhaOutput[] pendentes e vencidos (por vencimento), depois os previstos */
         public array $proximos,
-        /** @var PastaPagamentoLinhaOutput[] todos, na mesma ordem, para o "ver todos" */
+        /** @var PastaPagamentoLinhaOutput[] todos, na ordem do repositório, para o "ver todos" e o extrato */
         public array $todos,
+        /** Soma dos previstos (êxito e sucumbência não recebidos). */
+        public string $previstoFormatado = 'R$ 0,00',
+        /** `''` (sem previsto), `exito`, `sucumbencia` ou `exito_sucumbencia`: o "previsto em …". */
+        public string $previstoEm = '',
     ) {}
 
     /**
@@ -36,46 +48,54 @@ final readonly class PastaPagamentosOutput
      */
     public static function montar(array $pagamentos, ?\DateTimeImmutable $hoje = null, array $correcoesPorPagamento = []): self
     {
-        $hoje = $hoje ?? new \DateTimeImmutable('today');
+        $hoje  = $hoje ?? new \DateTimeImmutable('today');
+        $base  = new BaseDoPercentual();
+        $total = $base->centavosDaBase($pagamentos);
 
-        $previstoCentavos = 0;
-        $recebidoCentavos = 0;
-        $quantidadePagos  = 0;
-        $todos            = [];
-        $proximos         = [];
+        $recebido = 0;
+        $previsto = 0;
+        $tipos    = [];
+        $linhas   = ['todos' => [], 'pendentes' => [], 'previstos' => []];
 
         foreach ($pagamentos as $pagamento) {
-            $centavos          = ValorEmReais::paraCentavos($pagamento->getValor());
-            $previstoCentavos += $centavos;
+            $centavos = $base->centavosDe($pagamento, $total);
+            $linha    = PastaPagamentoLinhaOutput::montar($pagamento, $hoje, $correcoesPorPagamento[(int) $pagamento->getId()] ?? [], $centavos);
+            $linhas['todos'][] = $linha;
 
             if ($pagamento->estaPago()) {
-                $recebidoCentavos += $centavos;
-                ++$quantidadePagos;
-            }
-
-            $linha   = PastaPagamentoLinhaOutput::montar(
-                $pagamento,
-                $hoje,
-                $correcoesPorPagamento[(int) $pagamento->getId()] ?? [],
-            );
-            $todos[] = $linha;
-
-            if (!$pagamento->estaPago()) {
-                $proximos[] = $linha;
+                $recebido += $centavos;
+            } elseif ($pagamento->estaPrevisto()) {
+                $previsto += $centavos;
+                $tipos[$pagamento->getTipo()->value] = true;
+                $linhas['previstos'][] = $linha;
+            } else {
+                $linhas['pendentes'][] = $linha;
             }
         }
 
         return new self(
             total: count($pagamentos),
-            quantidadePagos: $quantidadePagos,
-            recebidoFormatado: PastaFinanceiroOutput::formatarReais(ValorEmReais::deCentavos($recebidoCentavos)),
-            previstoFormatado: PastaFinanceiroOutput::formatarReais(ValorEmReais::deCentavos($previstoCentavos)),
-            // Sem nada previsto a barra fica vazia: 0/0 não é 100% de nada.
-            percentual: $previstoCentavos > 0
-                ? (int) round($recebidoCentavos * 100 / $previstoCentavos)
-                : 0,
-            proximos: $proximos,
-            todos: $todos,
+            quantidadePagos: count(array_filter($pagamentos, static fn (PastaPagamento $p): bool => $p->estaPago())),
+            recebidoFormatado: PastaFinanceiroOutput::formatarReais(ValorEmReais::deCentavos($recebido)),
+            contratadoFormatado: PastaFinanceiroOutput::formatarReais(ValorEmReais::deCentavos($total)),
+            contratadoCentavos: $total,
+            // Sem nada contratado a barra fica vazia: 0/0 não é 100% de nada.
+            percentual: $total > 0 ? (int) round($recebido * 100 / $total) : 0,
+            proximos: [...$linhas['pendentes'], ...$linhas['previstos']],
+            todos: $linhas['todos'],
+            previstoFormatado: PastaFinanceiroOutput::formatarReais(ValorEmReais::deCentavos($previsto)),
+            previstoEm: self::previstoEm($tipos),
         );
+    }
+
+    /** @param array<string, true> $tipos os tipos com previsto */
+    private static function previstoEm(array $tipos): string
+    {
+        return match (true) {
+            isset($tipos['exito'], $tipos['sucumbencia']) => 'exito_sucumbencia',
+            isset($tipos['exito'])                        => 'exito',
+            isset($tipos['sucumbencia'])                  => 'sucumbencia',
+            default                                       => '',
+        };
     }
 }

@@ -76,6 +76,23 @@ final class TiposDeAvisoDaCentral
         Notificacao::TIPO_PASTA_ACOMPANHADA => ['grupo' => 'mensagens', 'rotulo' => 'Pasta acompanhada', 'icone' => 'bi-bell', 'cor' => self::AZUL, 'nivel' => 1],
     ];
 
+    /**
+     * Rótulo da ação de abrir o aviso, quando o desenho dá um próprio: os avisos do Contribua ao Master usam
+     * "Ver sugestão" (desenho 08, `avisaMaster`: `acao: 'Ver sugestão'`). Os demais ficam com o "Abrir" genérico (null).
+     */
+    private const ACOES = [
+        AvisoAoMaster::TIPO_SUGESTAO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_APOIO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_MOTIVO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO => 'Ver sugestão',
+    ];
+
+    /** O rótulo da ação de abrir o aviso, ou null para o "Abrir" genérico da Central. */
+    public function acao(string $tipo): ?string
+    {
+        return self::ACOES[strtolower($tipo)] ?? null;
+    }
+
     /** @return array{grupo: ?string, rotulo: string, icone: string, cor: string, nivel: int} */
     public function para(string $tipo): array
     {

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Comercial\Functional;
 
 use App\Comercial\Campanha\ChaveDasCampanhas;
+use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Message\EnviarEmail;
 use App\Comercial\MessageHandler\EnviarEmailHandler;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
+use App\Comercial\Repository\DestinoDaCampanhaRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
 use App\Comercial\Service\Carteiro;
 use App\Repository\TenantRepository;
@@ -35,6 +37,7 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
  */
 #[CoversClass(EnviarEmailHandler::class)]
 #[CoversClass(EnvioDeEmailRepository::class)]
+#[CoversClass(CotaDeEnvio::class)]
 final class EnviarEmailHandlerTest extends KernelTestCase
 {
     use MontaOMontador;
@@ -57,7 +60,7 @@ final class EnviarEmailHandlerTest extends KernelTestCase
         $this->relogio = new MockClock(self::AGORA);
     }
 
-    private function handler(int $porMinuto = 20, int $teto = 1500, ?MailerInterface $mailer = null): EnviarEmailHandler
+    private function handler(int $porMinuto = 20, int $teto = 1500, ?MailerInterface $mailer = null, int $tetoDeCampanhas = 1000): EnviarEmailHandler
     {
         $c = static::getContainer();
 
@@ -70,8 +73,7 @@ final class EnviarEmailHandlerTest extends KernelTestCase
             $this->bus,
             $this->relogio,
             new NullLogger(),
-            $porMinuto,
-            $teto,
+            new CotaDeEnvio($this->envios, $c->get(DestinoDaCampanhaRepository::class), $this->relogio, $teto, $tetoDeCampanhas, $porMinuto, 80),
             $c->get(CampanhaDeEmailRepository::class),
             new ChaveDasCampanhas(true),
         );
@@ -212,30 +214,43 @@ final class EnviarEmailHandlerTest extends KernelTestCase
         self::assertSame('enviado', $this->situacao($id));
     }
 
-    #[TestDox('Teto diário: sem vaga no dia, a lista espera até 00:05 do dia seguinte')]
+    #[TestDox('Teto em 24 h corridas: sem vaga, o envio espera o mais antigo da janela sair dela (+ 60 s), não a meia-noite')]
     public function testTetoDiario(): void
     {
-        $this->semearEnviados(3, '2030-01-15 08:00:00');
-        $this->semearEnviados(5, '2030-01-14 23:00:00');
-        $id = $this->enfileirar();
+        $this->semearEnviados(1, '2030-01-14 11:00:00');
+        $this->semearEnviados(2, '2030-01-15 08:00:00');
+        $this->semearEnviados(5, '2030-01-14 09:00:00');
+        $id = $this->enfileirar(TipoDeEnvio::Transacional, 'consumidor:push');
 
         ($this->handler(porMinuto: 100, teto: 3))(new EnviarEmail($id));
 
         self::assertEmailCount(0);
         self::assertSame('enfileirado', $this->situacao($id));
-        self::assertSame((14 * 3600 + 5 * 60) * 1000, $this->unicoAtraso());
-        self::assertSame('2030-01-16 00:05:00', $this->proximaTentativa($id));
+        self::assertSame((3600 + 60) * 1000, $this->unicoAtraso());
+        self::assertSame('2030-01-15 11:01:00', $this->proximaTentativa($id));
     }
 
-    #[TestDox('Teto diário só conta o que saiu hoje: ontem não ocupa vaga')]
-    public function testTetoDiarioIgnoraOntem(): void
+    #[TestDox('Teto em 24 h corridas: o que saiu há mais de 24 h não ocupa vaga, mesmo sendo "hoje" no calendário anterior')]
+    public function testTetoDiarioIgnoraForaDaJanela(): void
     {
-        $this->semearEnviados(5, '2030-01-14 23:00:00');
-        $id = $this->enfileirar();
+        $this->semearEnviados(5, '2030-01-14 09:59:00');
+        $id = $this->enfileirar(TipoDeEnvio::Transacional, 'consumidor:push');
 
         ($this->handler(porMinuto: 100, teto: 3))(new EnviarEmail($id));
 
         self::assertEmailCount(1);
+    }
+
+    #[TestDox('Campanha no handler: com o próprio teto cheio na janela, espera o envio de campanha mais antigo sair dela')]
+    public function testCampanhaEsperaOProprioTeto(): void
+    {
+        $this->semearEnviados(2, '2030-01-15 06:00:00');
+        $id = $this->enfileirar();
+
+        ($this->handler(porMinuto: 100, teto: 10, tetoDeCampanhas: 2))(new EnviarEmail($id));
+
+        self::assertEmailCount(0);
+        self::assertSame('2030-01-16 06:01:00', $this->proximaTentativa($id));
     }
 
     #[TestDox('Transacional do ciclo da conta não espera o teto diário (prioridade N6)')]

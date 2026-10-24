@@ -66,6 +66,20 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Marcar atendida', $html);
     }
 
+    #[TestDox('O pacote Free mostra o selo do convênio OAB, que abre o modal; os pagos mostram "+ Espaço"')]
+    public function testConvenioOabEMaisEspaco(): void
+    {
+        $this->abrir($this->primario);
+
+        self::assertSelectorCount(1, '.ct-pacote > .ct-oab-selo[data-abrir-oab]');
+        self::assertSelectorTextContains('.ct-oab-selo', 'CONVÊNIO OAB');
+        self::assertSelectorExists('[data-modal-oab][hidden] [role="dialog"]');
+        self::assertSelectorTextContains('[data-modal-oab]', 'Parabéns! Você tem o BlueJus completo, sem pagar nada.');
+        self::assertSelectorCount(8, '[data-modal-oab] .ct-oab-beneficio');
+        self::assertSelectorExists('.ct-pacote > .ct-nuvem');
+        self::assertSelectorNotExists('.ct-pacote--atual > .ct-nuvem');
+    }
+
     #[TestDox('O escritório não vê as sugestões de outro; o Master vê todas e pode atender')]
     public function testIsolamentoDasSugestoes(): void
     {

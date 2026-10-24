@@ -21,7 +21,8 @@ use Symfony\Component\Mime\Address;
  * montador do envio ({@see ComposicaoDaCampanha::previa()}, com o nome de exemplo no `{nome}`) e até 200
  * destinatários com o estado do envio. Null se a campanha não existe.
  *
- * "Cancelar envio" só na agendada e na recorrente, como o dc L711 (`rlVerAg`).
+ * "Cancelar envio" só onde o {@see EncerrarCampanhaUseCase} aceita: estado ativo (na fila, agendada, enviando,
+ * recorrente) ou `enviada` com envio ainda na fila do Carteiro (freio aprovado pelo dono em 23/10).
  *
  * @phpstan-import-type Campanha from CampanhaDeEmailRepository
  */
@@ -64,7 +65,7 @@ final class AbrirCampanhaDoRelatorioUseCase
             ListarRelatorioDeCampanhasUseCase::rotuloDoPublico($c['publico'], $c['total']),
             $c['modelo_nome'],
             (new \DateTimeImmutable($c['agendada_para'] ?? $c['criada_em']))->format('d/m/Y H:i'),
-            self::cancelavel($c['estado']),
+            self::cancelavel($c['estado'], fn (): bool => $this->relatorio->temEnvioNaFila($id)),
             $c['execucoes'] > 0,
             $metricas,
             $this->html($c),
@@ -73,10 +74,18 @@ final class AbrirCampanhaDoRelatorioUseCase
         );
     }
 
-    /** O botão do dc L711: só o envio programado (agendada ou recorrente). */
-    public static function cancelavel(string $estado): bool
+    /**
+     * O que o EncerrarCampanhaUseCase aceita (§8.1.5): estado ativo, ou `enviada` com envio na fila.
+     *
+     * @param \Closure(): bool $temFila só consultada na `enviada`
+     */
+    public static function cancelavel(string $estado, \Closure $temFila): bool
     {
-        return \in_array($estado, [CampanhaDeEmail::AGENDADA, CampanhaDeEmail::RECORRENTE], true);
+        if (\in_array($estado, CampanhaDeEmail::ATIVAS, true)) {
+            return true;
+        }
+
+        return $estado === CampanhaDeEmail::ENVIADA && $temFila();
     }
 
     /** O estado ao lado do assunto (dc L713: "E-mail de teste", "Recorrente · freq", "Agendada", "Na fila de envio"). */

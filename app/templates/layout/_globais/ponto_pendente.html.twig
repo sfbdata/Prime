@@ -1,0 +1,14 @@
+{#
+    Cartão diário de pendência de registro de ponto (spec docs/specs/ponto-esquecimento-nao-trava.md R9), no componente
+    do lembrete do desenho (bj-lembretes.js, a mesma pilha `#bjl-box` e o lembretes.css da Agenda), com o ícone e a cor
+    do "Regularizar ponto de ontem" (dc 03). Só para o público dos avisos de ponto (R7): os dados vêm do endpoint, que o
+    JS pede no máximo uma vez por dia (fechar esconde até amanhã; adiar, 10 min). Textos pelo catálogo, já traduzidos na
+    resposta; o JS só usa textContent. Lógica em public/js/ponto-pendente.js.
+#}
+{% if app.user and current_tenant() and can_access_module('ponto') and recebe_avisos_de_ponto() %}
+    <div id="bjPontoPendente" hidden
+         data-url="{{ path('ponto_pendencia_do_dia') }}"
+         data-eu="{{ app.user.id }}:{{ current_tenant().id }}"></div>
+    <link rel="stylesheet" href="{{ asset('css/lembretes.css') }}">
+    <script src="{{ asset('js/ponto-pendente.js') }}" defer></script>
+{% endif %}

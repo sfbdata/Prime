@@ -88,6 +88,15 @@ class DestinoDaCampanhaRepository extends ServiceEntityRepository
         ], $linhas);
     }
 
+    /** O aviso da cota (§3.6): há destinatário da execução corrente de uma campanha ativa ainda sem envio? */
+    public function haPendentes(): bool
+    {
+        return $this->conexao()->fetchOne(
+            "SELECT 1 FROM comercial_campanha_destino d JOIN comercial_campanha c ON c.id = d.campanha_id
+             WHERE d.envio_id IS NULL AND d.execucao = c.execucoes AND c.estado IN ('enviando', 'recorrente') LIMIT 1",
+        ) !== false;
+    }
+
     /** O envio de teste (F3f): a campanha tem um destinatário só, e o envio dele vem do Carteiro na hora. */
     public function vincularEnvioDaCampanha(int $campanhaId, int $envioId): void
     {

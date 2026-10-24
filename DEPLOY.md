@@ -193,57 +193,135 @@ Adicione a linha (executa todo dia às 02:00):
 ### Comandos do console no container de produção
 
 O container `jusprime_php_prod` começa em `/var/www` (estágio de produção do `Dockerfile`), e o
-`bin/console` mora em `/var/www/app`. Por isso toda chamada do console nas crons abaixo leva
-`-w /var/www/app`; sem ele, o `docker exec` responde "Could not open input file: bin/console".
+`bin/console` mora em `/var/www/app`. Por isso toda chamada manual do console (simulações, comandos de
+uma vez) leva `-w /var/www/app`; sem ele, o `docker exec` responde "Could not open input file: bin/console".
 
-**Horários em UTC.** O relógio da VPS está em UTC e o cron dela não garante o `CRON_TZ`, então as
-linhas abaixo já vêm em UTC, com a hora de Brasília num comentário logo acima (Brasília é UTC-3, sem
-horário de verão).
+### Tarefas agendadas (Symfony Scheduler, contêiner `jusprime_scheduler_prod`)
 
-### Purga de dados expirados (crontab na VPS)
+As tarefas do sistema não moram mais no crontab do host: quem as roda é o serviço `scheduler` do
+`docker-compose.prod.yml` (`messenger:consume scheduler_default`), que o deploy sobe e recria junto com o
+php e o worker. A lista e os horários estão em `app/src/Shared/Scheduler/AgendaDeTarefas.php` e na spec
+`docs/specs/scheduler-tarefas-agendadas.md`. **Horários em Brasília** (o gatilho recebe o fuso
+`America/Sao_Paulo`; não depende do relógio da VPS, que está em UTC).
 
-Job diário que apaga cadastros pendentes expirados (senha_hash + PII) e faz o hard delete
-definitivo de escritórios em quarentena vencida (soft delete há mais de 365 dias — RN09).
-Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o escritório
-(janela de recuperação). `--force` é obrigatório (cron não tem TTY para a confirmação).
+| Tarefa | Quando (Brasília) | O que faz |
+|---|---|---|
+| `app:purgar-dados-expirados --force` | todo dia, 0h | apaga cadastros pendentes expirados e escritórios em quarentena vencida (RN09); depois dos backups das 23h e 23h30 |
+| `app:importar-indices-monetarios` | dia 11, 1h | importa os índices do BCB (INPC, IPCA e taxa legal) |
+| `app:djen:sincronizar --dias=2` | todo dia, 3h | captação das comunicações do DJEN dos últimos 2 dias |
+| `app:push:resumo-semanal-cliente` | segunda, 8h | resumo semanal das movimentações aos clientes |
+| `app:pastas:relatorio-sem-processo` | todo dia, 10h05 | relatório mensal de pastas sem processo (só envia na primeira segunda-feira do mês, uma vez por escritório) |
+| `app:pastas:relatorio-pastas-paradas` | todo dia, 10h15 | relatório mensal de pastas paradas (mesma regra de envio) |
+| `app:dashboard:fotografar` | todo dia, 23h55 | foto diária do estoque do Dashboard (tendências de Vencidas e Prazos) |
+| `app:sync:reconciliar --usuario-id=1 --modo=enviar` | de hora em hora, no minuto 0 | envia ao Drive o que falta (só sistema para Drive), em todos os escritórios com Drive conectado; o escritório que desconecta para de enviar |
 
-```
-# 03h UTC = 00h de Brasília, uma hora depois do backup
-0 3 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:purgar-dados-expirados --force >> /var/log/jusprime-purga.log 2>&1
-```
+Todas levam `--no-interaction`. Tabela conferida com o crontab real da VPS em 23/10/2026. A foto do
+Dashboard e os índices monetários (ligados pelo dono em 23/10) são novos (não estavam no crontab). Duas
+tarefas documentadas antes (`app:perfil:resumo-diario` e `app:pasta:cobrar-checklist`) **não estavam no
+crontab real** e ficam desligadas até o dono decidir (spec, seção "Desligadas, aguardando o dono"). O consumidor é um só: duas tarefas no mesmo minuto rodam uma depois da
+outra, na ordem da lista (o envio ao Drive por último).
 
-> **Antes de agendar:** rode uma vez em simulação para conferir o que seria apagado —
-> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:purgar-dados-expirados --dry-run`.
->
-> A carência de quarentena (padrão 365 dias) é configurável sem deploy via
-> `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
-
-### Cobrança automática do checklist das pastas (crontab na VPS)
-
-Job de manhã, de segunda a sexta (desenho 02, aba Documentos): cobra do responsável os documentos pendentes
-do checklist (no máximo 2 por pasta por dia, o tom sobe a cada aviso, a controladoria vai junto no 4º),
-avisa itens marcados sem o documento anexado e lembra de revisar checklist desativado há 30 dias. Cada
-escritório pula feriado (calendário da Agenda). Idempotente no dia.
+**Ver o que está agendado e a próxima execução:**
 
 ```
-# segunda a sexta, 12h UTC = 9h de Brasília
-0 12 * * 1-5 docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist >> /var/log/jusprime-checklist.log 2>&1
+docker exec -w /var/www/app jusprime_scheduler_prod php bin/console debug:scheduler
 ```
 
-> **Primeira rodada (piloto):** simule num escritório antes de ligar o cron. O `--simular` lista quem seria
-> cobrado e não envia nem grava nada; depois, rode de verdade só nele:
-> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID --simular`
-> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID`
-> A primeira rodada audita todo item já marcado sem anexo e começa a cobrar toda pasta com pendência.
-
-### Resumo semanal ao cliente (crontab na VPS)
-
-Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; simule antes com `--dry-run`; configurar é do dono):
+**Logs** (início, fim e falha de cada tarefa, no stderr do contêiner; a saída do comando em si só aparece
+quando ele falha):
 
 ```
-# segunda, 11h UTC = 8h de Brasília
-0 11 * * 1 docker exec -w /var/www/app jusprime_php_prod php bin/console app:push:resumo-semanal-cliente >> /var/log/jusprime-resumo-semanal-cliente.log 2>&1
+docker logs --since 24h jusprime_scheduler_prod
+docker logs -f jusprime_scheduler_prod
 ```
+
+**Aviso de falha.** Uma tarefa que termina com código diferente de 0 (ou lança exceção) gera sempre um
+`ERROR` no log ("Tarefa agendada falhou: app:..."). Com `AGENDADOR_ALERTA_EMAIL` no `.env.prod` (um
+endereço, ou vários separados por vírgula), vai também um e-mail "[BlueJus] Tarefa agendada falhou: app:..."
+pelo remetente `MAILER_FROM`. O e-mail não traz dado de cliente: só o comando, o horário, a classe do erro e o
+código de saída; a mensagem e a saída do comando ficam no `docker logs jusprime_scheduler_prod`. No máximo um
+e-mail por comando a cada 60 min (falhas seguidas do mesmo comando só aparecem no log, na tela e na Central). Vazia ou
+ausente: só o log. Mudou a variável: recrie o contêiner
+(`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler`). Não há nova tentativa
+automática: a próxima execução é a do horário seguinte. Toda falha também é gravada (tabela `falha_agendada`, só comando, hora, classe do erro e código) e aparece
+num aviso vermelho no topo de toda tela para o Master e para quem tem o e-mail de `AGENDADOR_ALERTA_EMAIL`,
+com o botão "Dispensar" (tira o aviso de todos), e na Central do Master (origem "Tarefa agendada falhou"). Para rodar uma tarefa na hora, use o `docker exec`
+de sempre no `jusprime_php_prod`.
+
+**Trava e estado.** A trava (tabela `lock_keys`) impede que dois consumidores gerem a mesma tarefa; o
+estado (tabela `cache_agendador`) guarda a última execução de cada uma, então uma tarefa que passou da
+hora durante um deploy ou uma parada roda quando o contêiner volta (só a última execução perdida). As duas
+tabelas nascem da migration `Version20261023150800`, junto com a `falha_agendada`.
+
+**Simular antes** continua igual, no `jusprime_php_prod` e sem tocar no agendador:
+`app:purgar-dados-expirados --dry-run`, `app:pasta:cobrar-checklist --escritorio=ID --simular`,
+`app:push:resumo-semanal-cliente --dry-run`, `app:pastas:relatorio-sem-processo --dry-run`,
+`app:pastas:relatorio-pastas-paradas --dry-run`, `app:perfil:resumo-diario --dry-run` (os de escritório
+aceitam `--tenant=ID`). A carência da quarentena (padrão 365 dias) segue em `TENANT_CARENCIA_PURGA_DIAS`.
+
+#### Varreduras periódicas (no worker, não no agendador)
+
+O push dos lembretes (a cada 60 s), a sincronia do Google Agenda (5 min), as automações do Comercial (15 min) e o
+expansor de campanhas (60 s) são o schedule `cadeias` (`app/src/Shared/Scheduler/AgendaDasCadeias.php`). Quem o
+consome é o **worker** (`jusprime_worker_prod`, `messenger:consume scheduler_cadeias comercial async`), que sobe em
+todo deploy: as varreduras seguem mesmo com o agendador desligado pela trava do crontab. Cada volta só põe a mensagem
+na fila de sempre (`async` ou `comercial`), com a nova tentativa e a fila `failed` de sempre. Não há comando para
+"semear" nem para religar: os antigos `app:agenda:push-varredura`, `app:agenda:google-varredura` e
+`app:comercial:varredura` saíram. Spec: `docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler".
+
+**Conferir** (o `debug:scheduler` lista os dois schedules, `cadeias` e `default`, com a próxima volta de cada um):
+
+```
+docker exec -w /var/www/app jusprime_worker_prod php bin/console debug:scheduler cadeias
+docker logs --since 1h jusprime_worker_prod 2>&1 | grep -E "RedispatchMessage|Varrer|ExpandirCampanhas"
+```
+
+Com o worker no ar, o log mostra a cada minuto a volta recebida do `scheduler_cadeias` e, logo depois, a mensagem
+tratada na fila. Depois de um deploy, a primeira volta pode levar até cerca de 2 min (a trava do worker antigo,
+morto sem soltá-la, expira em 60 s mais o intervalo). Na virada não há passo manual: as mensagens antigas que se
+reagendavam rodam uma última vez, sem continuação, e a trava no banco barra a volta em dobro.
+
+**Se a publicação voltar para a versão anterior** (a volta automática do deploy), o código antigo depende da semente:
+push e Google se religam sozinhos na primeira tela aberta; as do Comercial precisam de
+`docker exec -w /var/www/app jusprime_worker_prod php bin/console app:comercial:varredura`. A própria volta automática
+lembra disso num `::warning::` no log do deploy.
+
+#### Virada do crontab para o agendador (passo do dono, uma vez)
+
+O deploy da versão que traz o agendador já o liga, e o deploy só acontece com o merge do PR de release
+("Lança a vX.Y.Z"). Por isso a hora da virada é a do merge, e o crontab sai **antes** dele: assim nenhuma
+tarefa roda em dobro (uma em cada contêiner, que o `flock` de cada comando não enxerga). O custo é no
+máximo uma hora cheia sem o envio ao Drive entre o comentar e o agendador subir, o que é aceitável.
+
+1. Guarde o crontab: `crontab -l > ~/crontab-antes-do-agendador.bak`.
+2. O crontab real já foi conferido em 23/10/2026; a tabela acima veio dele.
+3. Comente no crontab (`crontab -e`) **só** estas linhas: `app:djen:sincronizar` (`0 6 * * *`),
+   `scripts/sync-reconciliar.sh` (`0 * * * *`), `app:purgar-dados-expirados` (`0 3 * * *`),
+   `app:push:resumo-semanal-cliente` (`0 11 * * 1`), `app:pastas:relatorio-sem-processo` (`5 13 * * *`) e
+   `app:pastas:relatorio-pastas-paradas` (`15 13 * * *`). **Continuam no crontab: certbot,
+   `scripts/backup-db.sh` e os backups dos outros sistemas** (a linha do `scripts/backup.sh` já está
+   comentada).
+4. Só então mergeie o PR de release.
+5. Depois do deploy: `docker ps --filter name=jusprime_scheduler_prod` (deve estar `Up`, sem reiniciar
+   sem parar), o `debug:scheduler` acima (7 tarefas, próxima execução em `-0300`) e
+   `docker logs jusprime_scheduler_prod`. Na hora cheia seguinte, o `app:sync:reconciliar` aparece recebido
+   e tratado, sem `ERROR`. No dia seguinte, confira as diárias.
+6. Se o deploy falhar e voltar para a versão anterior (que não tem o agendador), descomente o crontab:
+   `crontab ~/crontab-antes-do-agendador.bak`. O mesmo se o agendador não ficar de pé: restaure o crontab e
+   `docker stop jusprime_scheduler_prod` (com o crontab restaurado, o próximo deploy também não o liga).
+
+**Se esquecer o crontab, o deploy não liga o agendador e avisa.** Antes de subir os contêineres, o
+`deploy-automatico.sh` lê o `crontab -l` do root. Com alguma linha ativa (não comentada) com
+`bin/console app:` ou `sync-reconciliar.sh`, a publicação segue normalmente, mas o agendador não nasce
+(`--scale scheduler=0` no `deploy-prod-tls.sh`), e o log do deploy (e o GitHub Actions) mostra um
+`::warning::` com as linhas encontradas. As tarefas continuam no cron e nada roda duas vezes. Para ligar
+depois: comente essas linhas (`crontab -e`) e rode, em `/opt/jusprime`,
+`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d scheduler`. Certbot e backups não
+contam; sem crontab nenhum, o agendador sobe. A volta automática só religa o agendador se ele estava
+rodando antes do deploy e o crontab não tem as tarefas.
+
+Os arquivos de log antigos (`/var/log/jusprime-*.log` das tarefas) param de crescer; o histórico passa a
+ser o `docker logs` do agendador.
 
 ### Encargos de cobrança (sem cron)
 
@@ -251,64 +329,6 @@ Não há cron de encargos. Os juros, a multa, a correção e os honorários das 
 ao vivo, na leitura; o antigo `app:cobranca:atualizar-encargos` foi removido (commit a5583f7f, "F4:
 remover o cron de encargos") e não existe mais no console. Se o crontab da VPS ainda tiver essa linha,
 apague-a.
-
-### Relatório mensal de pastas sem processo (crontab na VPS)
-
-Envia à Controladoria (e aos primários) o relatório de pastas sem processo vinculado, e a cada
-responsável as pastas dele que pedem atenção (spec `docs/specs/relatorio-processos-controladoria.md`,
-D5). O cron roda **todo dia às 10h05 de Brasília**; quem decide se é dia de envio é o próprio comando:
-só na **primeira segunda-feira do mês**, a partir das 10h, e **uma vez por mês por escritório** (o
-histórico `relatorio_sem_processo_envio` trava a repetição). Nos outros dias ele passa e não envia nada.
-
-```
-# todo dia, 13h05 UTC = 10h05 de Brasília
-5 13 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:pastas:relatorio-sem-processo >> /var/log/jusprime-relatorio-sem-processo.log 2>&1
-```
-
-> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
-> app:pastas:relatorio-sem-processo --dry-run` (conta os avisos e não grava nada). Para um escritório
-> só: `--tenant=1`.
->
-> Configurar o cron é do dono (D5).
-
-### Relatório mensal de pastas paradas (crontab na VPS)
-
-Avisa cada responsável das pastas dele que estão sem movimentação há mais de 30 dias (para dizer se
-vão receber movimentação ou ser arquivadas), e a Controladoria e os primários da lista inteira (spec
-`docs/specs/pastas-paradas.md`, "Envio automático"). O cron roda **todo dia às 10h15 de Brasília**;
-quem decide se é dia de envio é o próprio comando: só na **primeira segunda-feira do mês**, a partir
-das 10h, e **uma vez por mês por escritório** (a gravação em `relatorio_pastas_paradas_envio` vem antes
-dos avisos e trava a repetição). Nos outros dias ele passa e não envia nada.
-
-```
-# todo dia, 13h15 UTC = 10h15 de Brasília
-15 13 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:pastas:relatorio-pastas-paradas >> /var/log/jusprime-relatorio-pastas-paradas.log 2>&1
-```
-
-> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
-> app:pastas:relatorio-pastas-paradas --dry-run` (não grava nada). A simulação só conta as pastas
-> paradas e os avisos no dia do envio (primeira segunda-feira do mês, a partir das 10h); em outro dia,
-> só mostra o motivo de não enviar. Para um escritório só: `--tenant=1`.
->
-> Configurar o cron é do dono.
-
-### Resumo diário por e-mail (crontab na VPS)
-
-Manda a cada pessoa, por escritório, os prazos, as audiências e as metas do dia, para quem deixou ligado o "Resumo
-diário por e-mail" no Meu Perfil (spec `docs/specs/resumo-diario-por-email.md`). O cron roda **todo dia às 8h de
-Brasília**; o comando só envia em **dia útil do escritório** (sábado, domingo e feriado passam), não manda e-mail vazio
-e grava em `resumo_diario_envio` antes de cada envio, então rodar de novo no mesmo dia não manda outra vez.
-
-```
-# todo dia, 11h UTC = 8h de Brasília
-0 11 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:perfil:resumo-diario >> /var/log/jusprime-resumo-diario.log 2>&1
-```
-
-> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
-> app:perfil:resumo-diario --dry-run` (não grava nem envia; mostra, por escritório, quantos receberiam). Para um
-> escritório só: `--tenant=1`.
->
-> Configurar o cron é do dono.
 
 ### Número das metas antigas (uma vez, depois da publicação)
 
@@ -345,6 +365,31 @@ quantas metas cada escritório teria atualizadas e não grava nada. Só mexe em 
 de novo não muda nada. Para um escritório só: `--escritorio=ID`. Não vai para o cron. Enquanto o comando não
 roda, o filtro "Prioridade" só acha as metas criadas depois da publicação. O comando grava por SQL direto,
 então a mudança não aparece na trilha de auditoria da meta.
+
+### Selo "Assinado" dos documentos antigos (uma vez, depois da publicação)
+
+Os documentos de pasta ganharam o selo "Assinado" (aba Financeiro). O upload já marca sozinho os arquivos com
+assinatura digital (`.p7s`, `.p7m` e PDF assinado: PAdES, ICP-Brasil, gov.br). Os que já existiam nascem sem o
+selo até este comando rodar. Rode **uma vez depois da publicação** da versão com a migration
+`Version20261020151000`, primeiro a simulação e depois a gravação:
+
+```
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:detectar-assinatura-antigos
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:detectar-assinatura-antigos --aplicar
+```
+
+Sem `--aplicar` o comando lê os arquivos, lista por escritório quantos têm assinatura e não grava nada. Com
+`--aplicar` marca esses com a origem `digital`. Só olha documento ainda sem selo (PDF, `.p7s`, `.p7m`): o já
+marcado, digital ou à mão, é contado como pulado e nunca é sobrescrito, então rodar de novo não muda nada. Lê
+cada arquivo pelo armazenamento (só o começo e o fim do PDF); arquivo ausente ou ilegível conta como erro, vai
+para o log e o comando segue (o documento volta à fila na próxima execução). No fim mostra lidos, assinados,
+pulados e erros. Para um escritório só: `--escritorio=ID`; para fatiar: `--limite=N`. Não vai para o cron.
+
+**Atenção com o armazenamento remoto (R2).** Lá o arquivo chega por um stream sem seek, e aí o detector não
+consegue pular para o fim: **baixa o arquivo inteiro** para ler o começo e o fim (a memória continua limitada
+às pontas, mas o tráfego e o tempo são os do acervo todo). Com acervo grande, rode em partes: um escritório
+por vez (`--escritorio=ID`) e/ou fatias com `--limite=N` (cada execução retoma de onde a anterior parou,
+porque a fila é "quem ainda está sem selo"), primeiro na simulação para medir o tempo.
 
 ### Personalizar configuração
 

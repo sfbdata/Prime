@@ -102,11 +102,20 @@
   }
   raiz.querySelectorAll('[data-aba]').forEach(b => b.addEventListener('click', () => { S.aba = b.dataset.aba; mostrarAba(); }));
 
-  // Estado inicial pelo hash (desenho 1.2): aba=(\w+) e sec=(\w+). Valor desconhecido fica no padrão.
+  // Aba e seção pelo hash (desenho 1.2): aba=(\w+) e sec=(\w+). Valor desconhecido é ignorado (no carregamento, fica no padrão).
+  // Vale no carregamento e no hashchange (itens "Exclusivo do Master" do menu do usuário com a página já aberta).
+  // Devolve true quando a seção mudou; o painel não escreve no hash, então não há laço.
   const doHash = chave => (location.hash.match(new RegExp(chave + '=(\\w+)')) || [])[1];
-  if (raiz.querySelector('[data-aba="' + doHash('aba') + '"]')) S.aba = doHash('aba');
-  if (SECS.some(([k]) => k === doHash('sec'))) S.sec = doHash('sec');
-  mostrarAba();
+  function aplicarAncora() {
+    if (raiz.querySelector('[data-aba="' + doHash('aba') + '"]')) S.aba = doHash('aba');
+    mostrarAba();
+    const sec = doHash('sec');
+    if (!SECS.some(([k]) => k === sec) || sec === S.sec) return false;
+    S.sec = sec;
+    return true;
+  }
+  aplicarAncora();
+  window.addEventListener('hashchange', () => { if (aplicarAncora()) irPara(S.sec); });
 
   /* ---------- seções ---------- */
   function renderSecs() {

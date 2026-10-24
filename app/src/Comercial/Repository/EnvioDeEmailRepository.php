@@ -176,8 +176,8 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
     }
 
     /**
-     * Teto diário das campanhas (spec §8.5): os envios de campanha registrados desde o instante dado, sem os que não
-     * saíram nem vão sair (bloqueados pelo descadastro, cancelados).
+     * Teto das campanhas em 24 h corridas (spec §8.5): os envios de campanha registrados desde o instante dado, sem os
+     * que não saíram nem vão sair (bloqueados pelo descadastro, cancelados).
      */
     public function contarDeCampanhaDesde(\DateTimeImmutable $desde): int
     {
@@ -201,6 +201,45 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
             "SELECT COUNT(*) FROM comercial_envio WHERE situacao = 'enviado' AND enviado_em >= :desde",
             ['desde' => self::data($desde)],
         );
+    }
+
+    /** A cota corrida (§3.6): quantos envios de campanha saíram de fato desde o instante dado (inclusive). */
+    public function contarEnviadosDeCampanhaDesde(\DateTimeImmutable $desde): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            "SELECT COUNT(*) FROM comercial_envio WHERE situacao = 'enviado' AND enviado_em >= :desde AND origem LIKE 'campanha:%'",
+            ['desde' => self::data($desde)],
+        );
+    }
+
+    /**
+     * A cota corrida (§3.6): o envio mais antigo que saiu desde o instante dado (todas as origens ou só campanha). É ele
+     * que sai primeiro da janela de 24 h e devolve a vaga. Null se nada saiu.
+     */
+    public function enviadoMaisAntigoDesde(\DateTimeImmutable $desde, bool $soCampanha): ?\DateTimeImmutable
+    {
+        $valor = $this->conexao()->fetchOne(
+            "SELECT MIN(enviado_em) FROM comercial_envio WHERE situacao = 'enviado' AND enviado_em >= :desde"
+            . ($soCampanha ? " AND origem LIKE 'campanha:%'" : ''),
+            ['desde' => self::data($desde)],
+        );
+
+        return \is_string($valor) ? new \DateTimeImmutable($valor, $desde->getTimezone()) : null;
+    }
+
+    /**
+     * A cota corrida (§3.6): o registro de campanha mais antigo desde o instante dado, contado como em
+     * {@see self::contarDeCampanhaDesde()} (a reserva do que já está na fila). Null se não há.
+     */
+    public function registradoDeCampanhaMaisAntigoDesde(\DateTimeImmutable $desde): ?\DateTimeImmutable
+    {
+        $valor = $this->conexao()->fetchOne(
+            "SELECT MIN(criado_em) FROM comercial_envio WHERE origem LIKE 'campanha:%' AND criado_em >= :desde
+               AND situacao NOT IN ('bloqueado_descadastro', 'cancelado')",
+            ['desde' => self::data($desde)],
+        );
+
+        return \is_string($valor) ? new \DateTimeImmutable($valor, $desde->getTimezone()) : null;
     }
 
     /**

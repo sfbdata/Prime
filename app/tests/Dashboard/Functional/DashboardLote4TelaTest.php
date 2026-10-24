@@ -328,7 +328,7 @@ final class DashboardLote4TelaTest extends DashboardWebTestCase
         $client = static::createClient();
         $this->montarCenario($client);
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('.db-table-card .db-tend'));
         self::assertCount(0, $crawler->filter('.db-table-card .db-seta'));
@@ -404,7 +404,7 @@ final class DashboardLote4TelaTest extends DashboardWebTestCase
         [, $ana] = $this->montarCenario($client);
         $id      = (string) $ana->getId();
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
         self::assertResponseIsSuccessful();
         $tds = $this->linhaDe($crawler, 'Ana Lima')->filter('td');
 
@@ -433,7 +433,7 @@ final class DashboardLote4TelaTest extends DashboardWebTestCase
         $client = static::createClient();
         [, $ana] = $this->montarCenario($client);
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
         self::assertResponseIsSuccessful();
         $sel = '.db-cards-row > * > .db-stat-card--urgentes > .db-card-corpo > .db-card-valor-linha > a.db-card-ver';
         $ver = $crawler->filter($sel);
