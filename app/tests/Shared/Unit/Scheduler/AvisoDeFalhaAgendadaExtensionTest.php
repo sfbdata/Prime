@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Unit\Scheduler;
 
+use App\Shared\Scheduler\NomeDaTarefaAgendada;
+use Symfony\Component\Translation\IdentityTranslator;
 use App\Entity\Auth\User;
 use App\Shared\Scheduler\Entity\FalhaAgendada;
 use App\Shared\Scheduler\QuemVeAvisoDoAgendador;
@@ -55,7 +57,7 @@ final class AvisoDeFalhaAgendadaExtensionTest extends TestCase
         $pilha = new RequestStack();
         $pilha->push($request);
 
-        return (new AvisoDeFalhaAgendadaExtension($security, new QuemVeAvisoDoAgendador(''), $falhas, new LoggerEmMemoria(), $pilha, $urls))
+        return (new AvisoDeFalhaAgendadaExtension($security, new QuemVeAvisoDoAgendador(''), $falhas, new LoggerEmMemoria(), $pilha, $urls, new NomeDaTarefaAgendada(new IdentityTranslator())))
             ->avisoDeFalhaAgendada();
     }
 }

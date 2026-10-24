@@ -62,7 +62,7 @@ final class ParcialDosDescadastradosTest extends KernelTestCase
         self::assertSame(['Registrar pedido', 'Limpar lista', 'CSV'], $bloco->filter('.mc-dsc-cabeca > .mc-dsc-botao')->each(static fn (Crawler $b): string => trim($b->text())));
         $limpar = $bloco->filter('.mc-dsc-botao-perigo');
         self::assertNotNull($limpar->attr('disabled'));
-        self::assertStringContainsString('dono', (string) $limpar->attr('title'));
+        self::assertSame('Limpar a lista inteira ainda não está disponível (LGPD). Por enquanto, a exclusão é feita um por vez.', $limpar->attr('title'));
         self::assertSame('Ninguém se descadastrou ainda.', trim($bloco->filter('[data-mc-dsc-vazio]')->text()));
         self::assertSame('/master/comercial/descadastrados.csv', $bloco->filter('a[data-mc-dsc-csv]')->attr('href'));
     }
