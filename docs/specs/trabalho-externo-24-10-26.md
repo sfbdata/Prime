@@ -16,11 +16,13 @@ Três PRs, nesta ordem (decisão do coordenador, 24/10):
 vaga expirada esconde os selos AO VIVO e NOVA (P6); a recusa não zera em "Ofertar novamente" e o
 aviso prometido vai ao sino do dono da vaga e da Central (P7); a imagem de `uploads/` fica de fora.
 
-**Pendentes com o dono** (não implementar até a resposta):
-- P1: tirar o cartão "Minhas candidaturas" e a frase "Acompanhe em ... Minhas candidaturas" do toast.
-- P2: mapa da animação de envio (Google como no desenho, sem mapa ou OSM).
-- P3: o corte de 30 dias das expiradas vale também para o Master.
-- P4: "Recusar" com diálogo da tela e toast do despacho com "no Resumo".
+**Decisões do dono** (via coordenador, 24/10, todas as recomendações):
+- P1: sai o cartão "Minhas candidaturas" e a frase "Acompanhe em ... Minhas candidaturas" do toast
+  da candidatura (PR 1). O externo vê "Candidatura enviada" no cartão da vaga.
+- P2: mapa do Google em iframe como no desenho, com `maps.google.com` liberado no frame (PR 1).
+- P3: o corte de 30 dias das expiradas vale para todos, inclusive o Master (PR 3).
+- P4: "Recusar" usa o diálogo de confirmação da tela, com o texto do desenho (PR 3); o toast do
+  despacho diz "O solicitante vê o despacho no Resumo e recebe um aviso." (PR 2).
 
 Fora desta frente, sem mudança no desenho: Termo de Voluntariado (parado no jurídico), "Salvar
 edição"/"Novo escritório" do SOLICITANTE, toast "Nova vaga" entre abas. Moldura do protótipo
@@ -86,7 +88,7 @@ border-bottom:1px solid #eef2f5`, `bi-file-earmark-person` #0a6fa0 18px, "Prévi
   grid-template-columns:34% 1fr`, lateral `#0a6fa0`, círculo 56px `rgba(255,255,255,.35)`, barras
   de 6px `#c9d6df`, `#9fc3d8`, `#e3e9ee`, `#dbe5ec`) e "Cadastre seu currículo para vê-lo
   formatado aqui." 13px #4a6373.
-- Saída do cartão "Minhas candidaturas": aguarda P1.
+- Sai o cartão "Minhas candidaturas" e a frase do toast da candidatura (P1).
 
 ### D7. Documento do currículo na tela, PR 1
 Em `curriculo_documento.html.twig`, antes do `@media print`: `@media screen{html,body{overflow-x:hidden;
@@ -107,7 +109,7 @@ Só no Enviar (Rascunho continua com "Rascunho salvo"); o toast "Solicitação e
 aparecer. Fases: `busca` na hora (som busca), `parc` em 2300 ms (som busca), `ok` em 5200 ms (som ok).
 Fundo `fixed; inset:0; z-index:9700; rgba(11,53,80,.45)`, clique fecha e cancela os temporizadores.
 Diálogo `z-index:9701; width:min(520px,100%); height:min(560px,92vh); border-radius:8px;
-box-shadow:0 24px 60px rgba(11,53,80,.4); background:#dfe7ec`. Mapa: aguarda P2 (o resto não depende).
+box-shadow:0 24px 60px rgba(11,53,80,.4); background:#dfe7ec`. Mapa (P2): iframe `https://maps.google.com/maps?q={cidade} {UF} Brasil&z=12&output=embed`, `left:-60px; top:-170px; width:calc(100% + 120px); height:calc(100% + 340px); filter:saturate(.85); pointer-events:none`.
 Fechar "x" 34px redondo `rgba(255,255,255,.92)`, `right:10px; top:10px`, hover #fff/#0a6fa0.
 Gradiente `linear-gradient(180deg, rgba(11,53,80,.15), rgba(11,53,80,0) 30%, rgba(11,53,80,0) 55%,
 rgba(255,255,255,.9) 78%)`. Radar, barra, avatares, textos ("Localizando correspondentes em {cidade
