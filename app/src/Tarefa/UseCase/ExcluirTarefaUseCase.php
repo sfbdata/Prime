@@ -74,6 +74,8 @@ final class ExcluirTarefaUseCase
         $marcadores = $codigos === [] ? [] : ['despacho_registrado' => ['quantos' => count($codigos), 'codigos' => $codigos]];
         $this->auditoria->registrar(AuditoriaDaEdicaoSemPrazo::EXCLUIR, $usuario, $tenant, $this->pelaRegraDeSempre($tarefa, $usuario), Tarefa::class, $tarefa->getId(), $tarefa->getCriadoPor()?->getId(), $marcadores);
 
+        // A aba devolvida na mesma requisição (Desfazer da duplicação, por XHR) lê a coleção da pasta.
+        $tarefa->getPasta()->getTarefas()->removeElement($tarefa);
         $this->em->remove($tarefa);
         $this->em->flush();
     }

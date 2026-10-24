@@ -121,7 +121,7 @@ final class PastaFinanceiroEscritaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $painel->filter('#financeiroRelatorio > #financeiroObsMenu > .js-fin-obs-copiar'));
         self::assertCount(1, $painel->filter('.ps-fin-faixa > .ps-fin-bloco > .ps-fin-corpo--selo > span#financeiro-situacao-selo.ps-fin-selo'));
         self::assertCount(1, $painel->filter('.ps-fin-faixa > .ps-fin-bloco > .ps-fin-corpo--selo > span#financeiro-probono-selo.ps-fin-selo'));
-        self::assertCount(1, $painel->filter('#financeiro-valor-causa-bloco > .ps-fin-corpo > #financeiro-valor-causa:not([role])'));
+        self::assertCount(1, $painel->filter('#financeiro-total-contratado-bloco > .ps-fin-corpo > #financeiro-total-contratado:not([role])'));
 
         $menuDoc = $painel->filter('#financeiro-doc-' . $doc->getId() . ' #financeiro-doc-menu-' . $doc->getId());
         self::assertCount(1, $menuDoc);
@@ -210,8 +210,8 @@ final class PastaFinanceiroEscritaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $painel->filter('#financeiroRelatorio > #financeiroObsMenu > .js-fin-obs-excluir'));
         self::assertCount(1, $painel->filter('.ps-fin-corpo--selo > button#financeiro-situacao-btn'));
         self::assertCount(1, $painel->filter('.ps-fin-corpo--selo > button#financeiro-probono-btn'));
-        self::assertCount(1, $painel->filter('#financeiro-valor-causa-bloco > .ps-fin-rotulo-linha > #financeiro-valor-causa-lapis'));
-        self::assertCount(1, $painel->filter('#financeiro-valor-causa-bloco > .ps-fin-corpo > #financeiro-valor-causa-input'));
+        // C8 (23/10/2026): o Total contratado é soma, só leitura, até para quem escreve.
+        self::assertCount(0, $painel->filter('#financeiro-total-contratado-bloco input, #financeiro-total-contratado-bloco button'));
         self::assertCount(1, $painel->filter('[data-trilho="arquivos"] > .ps-card-cab > .ps-fin-adicionar > #financeiro-upload-input'));
         self::assertCount(1, $painel->filter('#financeiro-doc-menu-' . $doc->getId() . ' > .btn-renomear-doc'));
         self::assertCount(1, $painel->filter('#financeiro-doc-menu-' . $doc->getId() . ' > .btn-excluir-doc'));

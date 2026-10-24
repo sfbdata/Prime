@@ -36,7 +36,8 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   - C4: "Enviar teste" vai ao Master logado.
   - P3a: o `e90` oferece 80, 85 e 90% como no dc. P3b: o `lemb` manda um link novo, uma vez só.
   - P5: migrar os e-mails antigos para o Carteiro é follow-up fora desta frente.
-  - Vazão 20/min e 1.500/dia, configurável, até o dono responder.
+  - Vazão 20/min e 1.500/dia, configurável, até o dono responder. **Revisto em 23/10/2026** (Q1 respondida: Hostinger
+    Business Standard/Premium, 3.000 por caixa em 24 h corridas): 10/min e 2.400 em 24 h corridas, ver §3.6.
 - **Decisões do coordenador sobre a v3 (19/10):** Q2 ok (pendente vencido guardado 72 h a mais); Q3 e Q4 seguem o
   dc: as boas-vindas saem ao confirmar e ao aceitar qualquer convite (de escritório, de primário ou de plataforma);
   Q5 (código de 6 dígitos) entra, mas com a frente do desenho 10 (Login e cadastro), fora desta; Q7 sim, destinatário
@@ -480,18 +481,44 @@ seguintes), com:
   são curtos, e a vazão faz um lote esperar com `DelayStamp` em vez de ocupar o worker (`docker-compose.prod.yml`: muda
   o comando do `jusprime_worker_prod`; é deploy, o dono aplica). No `when@test`, `comercial` é `in-memory` (M-l).
 - **Vazão sem cache (I6):** a fonte é o próprio `comercial_envio`, que sobrevive a deploy e a `cache:clear`:
+  - **Cota da caixa (revista em 23/10/2026):** produção envia por `smtps://smtp.hostinger.com:465` (caixa
+    `infra@bluejus.com.br`), plano Hostinger Business Standard/Premium: **3.000 envios por caixa em 24 h CORRIDAS**. A
+    regra mora na `App\Comercial\Envio\CotaDeEnvio`, com margem:
   - por minuto: `COUNT(*) WHERE situacao = 'enviado' AND enviado_em > agora - 60 s` < `COMERCIAL_ENVIOS_POR_MINUTO`
-    (padrão 20);
-  - por dia: `COUNT(*) WHERE situacao = 'enviado' AND enviado_em >= hoje 00:00` < `COMERCIAL_TETO_DIARIO` (padrão
-    1.500).
-  - Sem vaga no minuto: `DelayStamp` de 60 s. Sem vaga no dia: `DelayStamp` até 00:05 do dia seguinte.
-  - **Prioridade (N6):** só os transacionais **do ciclo da conta** (`automacao:cad`, `lemb`, `val`, `conv`, `e90`,
-    `e100`, `ped`) respeitam apenas o limite por minuto (as boas-vindas nunca esperam o dia seguinte por causa de
-    campanha). Todo o resto (`lista`, confirmações de endereço, consumidores) respeita os dois. Emenda da fatia 2: o
-    "Enviar teste" da campanha (`teste_campanha`) também fica isento do teto diário, e a lista passa a se chamar
-    `ORIGENS_ISENTAS_DO_TETO_DIARIO` (§8.4). O teto diário conta tudo o que saiu.
-  - Os e-mails antigos síncronos não passam pela conta nem pelo limite (P5); o padrão conservador deixa folga para
-    eles. Se o provedor for Gmail gratuito, o teto de 1.500 é alto demais (Q1).
+    (padrão **10**); sem vaga, `DelayStamp` de 60 s;
+  - teto total em 24 h corridas: `COUNT(*) WHERE situacao = 'enviado' AND enviado_em >= agora - 24 h` (todas as
+    origens) < `COMERCIAL_TETO_DIARIO` (padrão **2.400**, 600 abaixo dos 3.000). Janela corrida, nunca o dia do
+    calendário: sem vaga, a mensagem espera o enviado mais antigo da janela sair dela (`+ 24 h + 60 s`); ao reavaliar
+    ainda sem vaga, adia de novo;
+  - campanhas (`origem LIKE 'campanha:%'`): teto próprio `COMERCIAL_TETO_DIARIO_CAMPANHAS` (padrão **1.600**) e uma
+    **reserva** dos demais e-mails, derivada (teto − teto das campanhas = **800**). No handler, a campanha sai se os
+    enviados de campanha na janela < 1.600 E `enviados de campanha + max(demais, 800) < 2.400`. No expansor (§8.5),
+    `vagas = min(1.600 − registrados de campanha, 2.400 − max(demais, 800) − registrados de campanha)`, mínimo 0
+    (registrados = `criado_em` na janela, sem bloqueado e cancelado: reserva o que já está na fila). Assim a campanha
+    nunca toma os 800 dos transacionais, e se eles passam de 800 a campanha encolhe;
+  - **Prioridade (N6):** os transacionais **do ciclo da conta** (`automacao:cad`, `lemb`, `val`, `conv`, `e90`,
+    `e100`, `ped`), o "Enviar teste" (`teste_campanha`, §8.4) e o `resumo_diario` respeitam só o limite por minuto
+    (`CotaDeEnvio::ORIGENS_ISENTAS`, espelhada em `EnviarEmailHandler::ORIGENS_ISENTAS_DO_TETO_DIARIO`), mas **contam no
+    total** (a margem até os 3.000 os cobre). Todo o resto (`lista`, confirmações de endereço, consumidores) respeita
+    os dois;
+  - **Conta TODOS os e-mails:** os síncronos (`MailerInterface::send` direto: cadastro, convite, senha, exclusão,
+    Push, envio ao cliente, trabalho externo, falha do agendador, `app:test-mailer`) viram uma linha `sistema`
+    (transacional, `enviado`, sem conteúdo) pelo
+    `RegistroDeEmailSincronoListener` (`SentMessageEvent`). O do Carteiro e a confirmação do cadastro (já gravada como
+    `automacao:cad`) levam o cabeçalho interno `X-Bluejus-Registrado`, que o ouvinte tira antes de a mensagem sair
+    (`MessageEvent` do transporte, prioridade −1024) e usa para não duplicar. Falha ao registrar vai ao log e nunca
+    derruba o envio. **LGPD (decisão do coordenador, 23/10/2026):** a linha `sistema` não guarda o endereço nem o
+    assunto (a cota só precisa da situação, da origem e de `enviado_em`): `destinatario` é obrigatório e leva o marcador
+    fixo `sistema`, e o assunto, o fixo "E-mail do sistema" (`RegistroDeEnvioExterno::registrarSemDados`). Ela não
+    aparece em "Últimos disparos" (filtra `automacao:` e `simulacao:`);
+  - **Aviso ao Master** (só `ROLE_SUPER_ADMIN`, no topo de toda tela, componente `ae-aviso` do desenho 08, como o da
+    falha do agendador), calculado na hora (sem tabela): com os enviados em 24 h ≥ `COMERCIAL_AVISO_DA_COTA_PERCENTUAL`
+    (padrão **80**%) do teto, o visual de atenção ("E-mails: X de 2.400 enviados nas últimas 24 horas (limite da
+    Hostinger). Perto do limite."); com as campanhas pausadas (campanha esperando e sem vaga), o visual cheio com a
+    hora em que a vaga volta (e-mails de conta e convite continuam saindo). "Dispensar" (POST com CSRF,
+    `master_comercial_cota_dispensar`) manda a chave do episódio que o Master viu (`perto:AAAA-MM-DD` com o dia de hoje,
+    ou `pausadas:AAAA-MM-DD` com o dia da volta); o controller só aceita esse formato, grava na sessão sem recalcular
+    a situação, e o aviso some até o episódio mudar. Sem origem na Central de Notificações.
 
 ### 3.7 Layout base e rodapé
 
@@ -593,6 +620,7 @@ Ao dono, pelo coordenador (do pacote anterior): **P1** provedor de envio; **P2**
 ligado; **P4** retenção de 24 meses. Novas:
 Decididas pelo coordenador em 19/10: Q2, Q3, Q4, Q5 (frente do desenho 10), Q6 (com a f6), Q7. Só a Q1 vai ao dono.
 - **Q1.** A conta do `MAILER_DSN` de produção é Gmail gratuito, Workspace ou Hostinger? Define se 1.500/dia é seguro.
+  **Respondida (23/10/2026):** Hostinger Business Standard/Premium, 3.000 por caixa em 24 h corridas; ver §3.6.
 - **Q2.** Guardar o cadastro pendente vencido por mais 72 h (com nome, OAB e hash da senha) para o lembrete de 48 e 72 h
   funcionar. Alternativa: o lembrete só oferece 24 h (desvio do dc).
 - **Q3.** Quem entra por convite de plataforma (`AceitarConvitePlataformaUseCase`, conta sem escritório) recebe
@@ -750,15 +778,16 @@ primeira execução). (A9) Rótulos e cores do dc (L586) para
   `envio_id`; UNIQUE nos três primeiros); libera um lote dentro de **uma transação da conexão**: `SELECT ... WHERE
   envio_id IS NULL FOR UPDATE SKIP LOCKED LIMIT n`, `Carteiro::enviar` e grava o `envio_id` (o Carteiro vira savepoint
   dentro dela, `use_savepoints: true`). Queda no meio = nada gravado, nada duplicado.
-- **Vazão própria da campanha** (R4): lote de até **10 por minuto** (metade do limite global, sobra para o ciclo da
-  conta e os opt-ins), **teto diário de campanhas 1.000** (configurável, abaixo dos 1.500 globais), e **contrapressão**:
+- **Vazão própria da campanha** (R4): lote de até **10 por minuto** (o limite por minuto do handler vale para todos e
+  segura a vazão real), **teto das campanhas em 24 h corridas de 1.600** (configurável, sem tomar a reserva de 800 dos
+  demais dentro dos 2.400; regra completa em §3.6, `CotaDeEnvio::vagasDeCampanha`), e **contrapressão**:
   o próximo lote só sai se os envios de campanha ainda `enfileirado` ou `enviando` forem menos que um lote. Assim o conteúdo não se
   acumula em `comercial_envio_conteudo`.
 - **No máximo uma vez** (decisão do coordenador, 20/10): campanha em massa nunca sai duas vezes para a mesma pessoa.
   O handler marca `enviando` (a reivindicação) antes do SMTP; se o worker morre ali, a recuperação de 15 min marca o
   envio de campanha como `incerto` (nova situação de `comercial_envio`, coluna VARCHAR sem CHECK, sem migration), apaga o
   conteúdo e não reenvia. Uma exceção do SMTP num envio de campanha também vira `incerto`, com o conteúdo apagado, e
-  não relança para o retry do Messenger (um timeout depois de o servidor aceitar duplicaria a mensagem). O `incerto` não conta na contrapressão e conta no teto diário. Os transacionais, os
+  não relança para o retry do Messenger (um timeout depois de o servidor aceitar duplicaria a mensagem). O `incerto` não conta na contrapressão nem nos enviados da janela, mas ocupa a vaga do expansor (é registrado de campanha). Os transacionais, os
   consumidores e o `teste_campanha` continuam "pelo menos uma vez" (§3.1). O freio do console só cancela o
   `enfileirado`; o `enviando` fica com o worker.
 - **Retenção** (R9): `comercial_campanha_destino` segue a da §3.2 (P4, 24 meses; depois `email` vira hash e `nome`
@@ -1100,7 +1129,7 @@ L678-682 (estado). Risco MÉDIO. Migration `Version20261020149800`.
 
 ### Para o dono (nota, sem bloquear)
 - Ligar a chave geral solta a próxima data para todos, sem confirmação nova.
-- Vazão: com o teto de 1.000 por dia, uma base maior que isso recebe o Natal em dois dias.
+- Vazão: com o teto de 1.600 campanhas em 24 h corridas, uma base maior que isso recebe o Natal em dois dias.
 - O Réveillon e o Ano Novo saem em dias seguidos.
 - As campanhas das datas aparecem no Relatório e no KPI "Campanhas". Um selo "Data comemorativa" no Relatório fica
   para depois.

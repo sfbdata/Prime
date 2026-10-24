@@ -6,6 +6,7 @@ namespace App\Tests\Central\Unit;
 
 use App\Central\Service\TiposDeAvisoDaCentral;
 use App\Contribua\Service\AvisoAoMaster;
+use App\Entity\Notificacao;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -23,5 +24,16 @@ final class TiposDeAvisoContribuaTest extends TestCase
                 $tipo,
             );
         }
+    }
+
+    #[TestDox('Avisos do Contribua abrem com "Ver sugestão", como no desenho; os demais ficam com o "Abrir" genérico')]
+    public function testAcaoVerSugestao(): void
+    {
+        $tipos = new TiposDeAvisoDaCentral();
+        foreach ([AvisoAoMaster::TIPO_SUGESTAO, AvisoAoMaster::TIPO_APOIO, AvisoAoMaster::TIPO_MOTIVO, AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO] as $tipo) {
+            self::assertSame('Ver sugestão', $tipos->acao($tipo), $tipo);
+        }
+        self::assertNull($tipos->acao(Notificacao::TIPO_TAREFA_CRIADA));
+        self::assertNull($tipos->acao('tipo_que_nao_existe'));
     }
 }

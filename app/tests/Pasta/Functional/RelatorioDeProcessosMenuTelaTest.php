@@ -52,7 +52,7 @@ final class RelatorioDeProcessosMenuTelaTest extends JusPrimeWebTestCase
         $menu    = '#processo .ps-processos > #psProcHdMenu' . $pasta->getId();
 
         self::assertSame(
-            ['Relatório geral de processos', 'Enviar à Controladoria agora', 'Marcar como administrativo sem processo'],
+            ['Relatório geral de processos', 'Enviar à Controladoria agora', 'Marcar como administrativo sem processo', 'Editar ação da pasta'],
             self::textos($crawler->filter($menu . ' .ps-processo-menu-item')),
         );
         $relatorio = $crawler->filter($menu . ' > a.ps-processo-menu-item.js-relatorio-processos');

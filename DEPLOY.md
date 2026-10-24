@@ -213,7 +213,7 @@ php e o worker. A lista e os horários estão em `app/src/Shared/Scheduler/Agend
 | `app:pastas:relatorio-sem-processo` | todo dia, 10h05 | relatório mensal de pastas sem processo (só envia na primeira segunda-feira do mês, uma vez por escritório) |
 | `app:pastas:relatorio-pastas-paradas` | todo dia, 10h15 | relatório mensal de pastas paradas (mesma regra de envio) |
 | `app:dashboard:fotografar` | todo dia, 23h55 | foto diária do estoque do Dashboard (tendências de Vencidas e Prazos) |
-| `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar` | de hora em hora, no minuto 0 | envia ao Drive o que falta (só sistema para Drive) |
+| `app:sync:reconciliar --usuario-id=1 --modo=enviar` | de hora em hora, no minuto 0 | envia ao Drive o que falta (só sistema para Drive), em todos os escritórios com Drive conectado; o escritório que desconecta para de enviar |
 
 Todas levam `--no-interaction`. Tabela conferida com o crontab real da VPS em 23/10/2026. A foto do
 Dashboard e os índices monetários (ligados pelo dono em 23/10) são novos (não estavam no crontab). Duas

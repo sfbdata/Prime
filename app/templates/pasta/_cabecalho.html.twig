@@ -12,11 +12,11 @@
         Situação (Ativo / Arquivado) à direita.
 
    As ações (Editar dados, Histórico, Timeline inteligente, Duplicar, Vincular
-   processo, Trocar responsável, Copiar link, Imprimir resumo, Fixar nos
+   processo, Trocar responsável, Mover para outra carteira, Copiar link, Imprimir resumo, Fixar nos
    favoritos, Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul
-   do desenho. O que o desenho mostra e o sistema ainda não tem (Mover carteira,
-   Acompanhar, Cadeado, Intelligence) NÃO é renderizado: item inerte ensina o
-   usuário a desconfiar do menu inteiro. A foto do cliente (desenho 02 VS 18.10.26,
+   do desenho. O que o desenho mostra e o sistema ainda não tem (Acompanhar,
+   Cadeado, Intelligence) NÃO é renderizado: item inerte ensina o usuário a
+   desconfiar do menu inteiro. A foto do cliente (desenho 02 VS 18.10.26,
    L1255 e L472-505) é real: o círculo ao lado do nome, com menu e editor de recorte
    (/js/pasta-foto-cliente.js) para quem pode editar o cliente.
    "Fixar nos favoritos" (seção Preferências) é real: POST
@@ -248,6 +248,12 @@
                     <button type="button" class="ps-pop-item" role="menuitem" id="psMenuTrocarResponsavel">
                         <i class="bi bi-person-gear"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.trocar_responsavel'|trans }}</span>
                     </button>
+                    {# Mover para outra carteira (desenho 02 VS 18.10.26, dc L1228, `menuPasta('mover')`): fecha o ⋮ e
+                       abre o submenu das carteiras (#psMoverCarteira, logo abaixo), como o `gMenu` do desenho. #}
+                    <button type="button" class="ps-pop-item" role="menuitem" id="psMenuMoverCarteira"
+                            data-ps-pop="psMoverCarteira" aria-haspopup="menu" aria-expanded="false" aria-controls="psMoverCarteira">
+                        <i class="bi bi-folder-symlink"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.mover_carteira'|trans }}</span>
+                    </button>
                     {% endif %}
 
                     <div class="ps-pop-sep"></div>
@@ -329,6 +335,30 @@
                     </form>
                     {% endif %}
                 </div>
+                {# Submenu "Mover pasta N para" (desenho `gMenu`/`gmVals`, dc L4577 e L4610): as seis carteiras na
+                   ordem do desenho. A atual leva "· atual" e o bi-check2, e o clique nela não faz nada; as outras,
+                   bi-briefcase. Pasta sem carteira (NULL) não tem atual. O script no fim deste parcial faz o POST.
+                   `data-sem-x`: o `gMenu` do desenho não tem X. #}
+                {% if podeEditarPasta %}
+                <div class="ps-pop ps-pop--carteira" id="psMoverCarteira" role="menu" data-sem-x
+                     aria-labelledby="psMoverCarteiraTitulo"
+                     data-url="{{ path('pasta_mover_carteira', {id: pasta.id}) }}"
+                     data-csrf="{{ csrf_token('pasta_carteira_' ~ pasta.id) }}"
+                     data-nup="{{ pasta.nup }}">
+                    <div class="ps-pop-secao" id="psMoverCarteiraTitulo">{{ 'pasta_cabecalho.cabecalho.menu.carteira_titulo'|trans({nup: pasta.nup}) }}</div>
+                    {% for carteira in enum_cases('App\\Pasta\\Entity\\CarteiraDaPasta') %}
+                        {% set eAtual = pasta.carteira is same as(carteira) %}
+                        {% set rotuloAtual = 'pasta_cabecalho.cabecalho.menu.carteira_atual'|trans({carteira: carteira.rotulo}) %}
+                        <button type="button" class="ps-pop-item js-carteira-opt" role="menuitemradio"
+                                aria-checked="{{ eAtual ? 'true' : 'false' }}"
+                                data-carteira="{{ carteira.value }}"
+                                data-rotulo="{{ carteira.rotulo }}"
+                                data-rotulo-atual="{{ rotuloAtual }}">
+                            <i class="bi {{ eAtual ? 'bi-check2' : 'bi-briefcase' }}"></i><span>{{ eAtual ? rotuloAtual : carteira.rotulo }}</span>
+                        </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             {% endif %}
         </div>
@@ -736,6 +766,60 @@
             })
             .catch(function () { avisarErro(BJ_T.t('pasta_cabecalho.js.cabecalho.erro_comunicacao')); })
             .then(function () { item.dataset.enviando = ''; });
+    });
+})();
+
+(function () {
+    /* "Mover para outra carteira" (desenho `menuPasta('mover')`): a opção escolhida vai ao servidor e, com a
+       RESPOSTA, o "· atual" e o bi-check2 passam para ela, sem recarregar, e sai o aviso do desenho ("Pasta N movida
+       para a carteira X"). O cartão do Registro aparece na próxima abertura, como o do responsável. A atual não faz
+       nada ao clique. O clique num item fecha o submenu (pasta-show.js, `popovers`). */
+    var painel = document.getElementById('psMoverCarteira');
+    if (!painel) { return; }
+
+    function avisarErro(mensagem) {
+        if (window.avisarPs) { window.avisarPs(mensagem, 'erro'); }
+    }
+
+    function marcarAtual(valor) {
+        painel.querySelectorAll('.js-carteira-opt').forEach(function (opt) {
+            var eAtual = opt.dataset.carteira === valor;
+            opt.setAttribute('aria-checked', eAtual ? 'true' : 'false');
+            opt.querySelector('i').className = 'bi ' + (eAtual ? 'bi-check2' : 'bi-briefcase');
+            opt.querySelector('span').textContent = eAtual ? opt.dataset.rotuloAtual : opt.dataset.rotulo;
+        });
+    }
+
+    painel.addEventListener('click', function (e) {
+        var opt = e.target.closest('.js-carteira-opt');
+        if (!opt || opt.getAttribute('aria-checked') === 'true' || painel.dataset.enviando === '1') { return; }
+        painel.dataset.enviando = '1';
+
+        var corpo = new FormData();
+        corpo.append('_token', painel.dataset.csrf);
+        corpo.append('carteira', opt.dataset.carteira);
+
+        fetch(painel.dataset.url, {
+            method: 'POST',
+            body: corpo,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+            .then(function (resposta) {
+                return resposta.json().then(function (dados) { return { ok: resposta.ok, dados: dados }; });
+            })
+            .then(function (r) {
+                if (!r.ok || !r.dados.sucesso) {
+                    avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || BJ_T.t('pasta_cabecalho.js.cabecalho.carteira_erro'));
+                    return;
+                }
+                marcarAtual(r.dados.carteira);
+                if (window.avisarPs) {
+                    window.avisarPs(BJ_T.t('pasta_cabecalho.js.cabecalho.carteira_movida', { nup: painel.dataset.nup, carteira: r.dados.rotulo }));
+                }
+            })
+            .catch(function () { avisarErro(BJ_T.t('pasta_cabecalho.js.cabecalho.erro_comunicacao')); })
+            .then(function () { painel.dataset.enviando = ''; });
     });
 })();
 

@@ -175,19 +175,19 @@
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-12">
-                                        {{ form_row(formDadosPessoais.nomeCompleto, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                        {{ form_row(formDadosPessoais.nomeCompleto, {attr: {class: 'form-control'}, label_attr: {class: 'form-label fw-bold'}}) }}
                                     </div>
                                     <div class="col-md-6">
-                                        {{ form_row(formDadosPessoais.cpf, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                        {{ form_row(formDadosPessoais.cpf, {attr: {class: 'form-control'}, label_attr: {class: 'form-label fw-bold'}}) }}
                                     </div>
                                     <div class="col-md-6">
-                                        {{ form_row(formDadosPessoais.dataNascimento, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                        {{ form_row(formDadosPessoais.dataNascimento, {attr: {class: 'form-control'}, label_attr: {class: 'form-label fw-bold'}}) }}
                                     </div>
                                     <div class="col-8">
-                                        {{ form_row(formDadosPessoais.ctps, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                        {{ form_row(formDadosPessoais.ctps, {attr: {class: 'form-control'}, label_attr: {class: 'form-label fw-bold'}}) }}
                                     </div>
                                     <div class="col-4">
-                                        {{ form_row(formDadosPessoais.serie, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                        {{ form_row(formDadosPessoais.serie, {attr: {class: 'form-control'}, label_attr: {class: 'form-label fw-bold'}}) }}
                                     </div>
                                 </div>
                                 {{ form_rest(formDadosPessoais) }}
@@ -306,6 +306,7 @@
                             editarBatidasRotaDelete: 'app_tenant_user_ponto_delete',
                             editarBatidasParametros: {tenantId: tenantId, id: user.id},
                             mostrarJustificativas: true,
+                            diasComRegistroEmOutroEscritorio: dias_com_registro_em_outro_escritorio(user, tenantId, competenciaSelecionada),
                             jornadaInfo: jornadaInfo,
                             horasPagasMinutos: horasPagasMinutosPonto,
                             saldoMesMinutos: saldoMesMinutosPonto

@@ -73,6 +73,9 @@
     .rp-tom-ok { color: #1e7b45; }
     .rp-tom-urgente { color: #a3232b; }
     .rp-tom-proximo { color: #8a5a00; }
+    /* Êxito e sucumbência previstos (desenho 02, `impFinanceiro` L.4853-4854). */
+    .rp-tom-previsto { color: #6b8494; }
+    .rp-pct { color: #8aa0ad; }
     .rp-rodape { margin-top: 18px; border-top: 1px solid #dfe4e8; padding-top: 4px; font-size: 8pt; color: #8aa0ad; }
     .rp-sem-cabecalho [data-rp-parte="cabecalho"],
     .rp-sem-dados [data-rp-parte="dados"],
@@ -278,7 +281,7 @@
             {# Bloco "Financeiro" da opção do mesmo nome (`impFinanceiro`), fora do tamanho escolhido. #}
             <div data-rp-parte="financeiro">
                 <div class="rp-fin-titulo">{{ 'pasta_resp.folha.financeiro'|trans }}</div>
-                <div class="rp-fin-linha">{{ 'pasta_resp.folha.fin_linha'|trans({contrato: extrato.contrato, contratado: extrato.contratadoFormatado, recebido: extrato.recebidoFormatado, receber: extrato.aReceberFormatado}) }}</div>
+                <div class="rp-fin-linha">{{ 'pasta_resp.folha.fin_linha'|trans({contrato: extrato.contrato, contratado: extrato.contratadoFormatado, recebido: extrato.recebidoFormatado, receber: extrato.aReceberFormatado}) }}{% if extrato.previstoFormatado != '' %}{{ 'pasta_resp.folha.fin_previsto'|trans({previsto: extrato.previstoFormatado}) }}{% endif %}</div>
                 <table class="rp-fin-tabela">
                     <thead>
                         <tr><th>{{ 'pasta_resp.folha.lancamento'|trans }}</th><th>{{ 'pasta_resp.folha.vencimento'|trans }}</th><th class="rp-valor">{{ 'pasta_resp.folha.valor'|trans }}</th><th>{{ 'pasta_resp.folha.situacao'|trans }}</th></tr>
@@ -288,7 +291,7 @@
                             <tr>
                                 <td>{{ linha.descricao }}</td>
                                 <td class="rp-num">{{ linha.vencimento }}</td>
-                                <td class="rp-valor rp-num">{{ linha.valor }}</td>
+                                <td class="rp-valor rp-num">{{ linha.valor }}{% if linha.percentual != '' %} <span class="rp-pct">({{ linha.percentual }}%)</span>{% endif %}</td>
                                 <td class="rp-situacao rp-tom-{{ linha.tom }}">{{ linha.situacao }}</td>
                             </tr>
                         {% endfor %}

@@ -1096,7 +1096,19 @@
             "T",
             "Content-Type",
             "Escape",
-            "Enter"
+            "Enter",
+            "App\\\\Pasta\\\\Entity\\\\CarteiraDaPasta"
         ]
+    },
+
+    "ponto_pendencias": {
+        "templates": [
+            "ponto/_pendencias.html.twig",
+            "layout/_globais/ponto_pendente.html.twig"
+        ],
+        "js": [
+            "ponto-pendente.js"
+        ],
+        "permitidos": ["·", "×", "Content-Type"]
     }
 }
