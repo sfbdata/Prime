@@ -222,7 +222,7 @@ final class LoginTelaTest extends JusPrimeWebTestCase
         self::assertSame('000000', $crawler->filter('#lgRsCod')->attr('placeholder'));
         self::assertSame('one-time-code', $crawler->filter('#lgRsCod')->attr('autocomplete'));
         self::assertSame('Mínimo de 8 caracteres', $crawler->filter('#lgRsNova')->attr('placeholder'));
-        self::assertSame('Ex.: Silva Advogados Associados', $crawler->filter('#lgCdEsc')->attr('placeholder'));
+        self::assertSame('Ex.: BlueJus Advogados Associados', $crawler->filter('#lgCdEsc')->attr('placeholder'));
         self::assertSame('Seu nome', $crawler->filter('#lgSupNome')->attr('placeholder'));
         self::assertSame('E-mail para resposta', $crawler->filter('#lgSupEmail')->attr('placeholder'));
         self::assertSame('Como podemos ajudar?', $crawler->filter('#lgSupMsg')->attr('placeholder'));

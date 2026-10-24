@@ -184,6 +184,8 @@ final class EditarPastaControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($atualizada);
         self::assertSame($novoNup, $atualizada->getNup());
         self::assertSame(Pasta::SITUACAO_ARQUIVADA, $atualizada->getSituacao());
+        // PZ-MOD-N05 (decisão do dono, 23/10/2026): o `nome_acao` do POST é ignorado; a Ação muda só pelo menu Processo.
+        self::assertNull($atualizada->getNomeAcao(), 'o pasta_edit não grava mais a Ação');
     }
 
     #[TestDox('POST /{id}/editar com CSRF inválido retorna 403')]

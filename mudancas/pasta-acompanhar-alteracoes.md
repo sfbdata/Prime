@@ -1,0 +1,10 @@
+---
+tipo: novidade
+---
+## Changelog
+- Pasta, menu ⋮: item "Acompanhar alterações" na seção Preferências, antes de "Fixar nos favoritos", como no desenho 02 EXPEDIENTES VS 18.10.26. Padrão ligado para quem vê a pasta; desligar grava a exceção em `pasta_acompanhamento_desligado` (migration `Version20261020151100`). Rota `pasta_acompanhamento_alternar` (POST, CSRF, guardas de escritório e de VER; passa no cadeado em Visualizar, recusada em Oculto e na pasta excluída).
+- Mensagem nova no Registro da pasta avisa quem acompanha (tipo `pasta_acompanhada`, no sino e na Caixa da Central), menos o autor e quem recebeu o aviso próprio (o respondido e os mencionados avisados); no máximo um aviso não lido por pasta e pessoa, com o índice `idx_notificacao_tenant_tipo_lida` na mesma migration. O aviso sai depois do commit da mensagem: se falhar, vai para o log e a mensagem fica gravada.
+- Documento novo na pasta (upload e peça de texto) e troca de situação pela pílula também avisam quem acompanha: "Novo documento na pasta N" (link da aba Documentos) e "Situação da pasta N alterada para X" (link do cartão no Registro). Sai o autor; quem tem a aba do evento oculta (Documentos ou Dados) não recebe; o limite de um não lido por pasta soma os três eventos. Meta e Push ficam de fora, porque já têm aviso próprio.
+
+## Para o cliente
+- Na pasta, o menu ⋮ ganhou "Acompanhar alterações": quem acompanha recebe no Chat I.A um aviso quando chega mensagem nova no Registro, quando entra documento novo ou quando a situação da pasta muda. Vem ligado; dá para desligar pasta a pasta.

@@ -11,6 +11,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\Service\AndamentoDaPasta;
+use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,6 +23,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * Registro ganha "Situação da pasta: alterada de "Ativo" para "Suspenso".". Como no desenho, não há confirmação nem
  * motivo, toda transição vale e Suspenso/Cancelado não travam a pasta nem a tiram das listas. Arquivar leva o
  * andamento a Finalizada ("Motivo: pasta arquivada."); desarquivar não reverte a fase. Precisa poder EDITAR a pasta.
+ *
+ * Acompanhar alterações: depois do commit, quem acompanha a pasta recebe "Situação da pasta N alterada para X", com
+ * link para o cartão do Registro ({@see AvisoDePastaAcompanhada::aoMudarSituacao()}, que nunca lança). Sai só o
+ * autor: a troca de situação não tem outro aviso.
  */
 final class DefinirSituacaoDaPastaUseCase
 {
@@ -30,6 +35,7 @@ final class DefinirSituacaoDaPastaUseCase
         private readonly RegistroDoSistemaNaPasta $registro,
         private readonly AndamentoDaPasta $andamento,
         private readonly EntityManagerInterface $em,
+        private readonly ?AvisoDePastaAcompanhada $avisoDeAcompanhamento = null,
     ) {
     }
 
@@ -55,11 +61,12 @@ final class DefinirSituacaoDaPastaUseCase
         }
 
         $pasta->setSituacao($situacao);
-        $this->registro->registrar($pasta, $usuario, 'situacao', 'alterada de "' . $de . '" para "' . $pasta->getSituacaoRotulo() . '".');
+        $cartao = $this->registro->registrar($pasta, $usuario, 'situacao', 'alterada de "' . $de . '" para "' . $pasta->getSituacaoRotulo() . '".');
         if ($situacao === Pasta::SITUACAO_ARQUIVADA) {
             $this->andamento->finalizarPorArquivamento($pasta, $usuario, $tenant);
         }
         $this->em->flush();
+        $this->avisoDeAcompanhamento?->aoMudarSituacao($pasta, $tenant, $usuario, $cartao);
 
         return $situacao;
     }

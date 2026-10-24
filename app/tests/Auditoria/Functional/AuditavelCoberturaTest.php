@@ -61,6 +61,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,
+        // "Acompanhar alterações" desligado: preferência pessoal de aviso, mesma natureza do favorito.
+        \App\Pasta\Entity\PastaAcompanhamentoDesligado::class,
         // Destaque de linha da Lista (E12): cor pessoal de quem olha, mesma natureza do favorito.
         \App\Pasta\Entity\PastaDestaque::class,
         // Estrela de arquivo/subpasta na aba Documentos (D2): mesma natureza do favorito de pasta.

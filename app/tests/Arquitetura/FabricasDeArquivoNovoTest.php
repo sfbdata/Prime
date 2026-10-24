@@ -72,6 +72,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             static fn (?Tenant $t): object => self::comTenant(new ClientePF(), $t),
             CategoriaDeArquivo::CLIENTE_DOCUMENTO,
         ];
+        yield ChavesDeCliente::class . '::novaFoto' => [
+            ChavesDeCliente::class . '::novaFoto',
+            static fn (?Tenant $t): object => self::comTenant(new ClientePF(), $t),
+            CategoriaDeArquivo::CLIENTE_FOTO,
+        ];
         yield ChavesDeCobranca::class . '::novoDocumentoDeCaso' => [
             ChavesDeCobranca::class . '::novoDocumentoDeCaso',
             static fn (?Tenant $t): object => self::comTenant(new CasoCobranca(), $t),

@@ -40,6 +40,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 
 /**
@@ -379,6 +380,53 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $pendente = static::getContainer()->get(AnaliseDeInteligenciaRepository::class)
             ->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, (int) $pasta->getId());
         self::assertSame($relida->getId(), $pendente?->getId());
+    }
+
+    #[TestDox('outro worker já reservou a linha (status no banco mudou depois da leitura) → não chama o provedor')]
+    public function testOutroWorkerJaReservouNaoChamaOProvedor(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        // A entidade em memória ainda diz `pendente`; no banco, outro worker já passou a linha a `processando`.
+        $this->em()->getConnection()->executeStatement(
+            "UPDATE inteligencia_analise SET status = 'processando', tentativas = tentativas + 1 WHERE id = ?",
+            [(int) $analise->getId()],
+        );
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('Não deveria ser pedido.');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado(), 'o provedor cobraria a mesma análise duas vezes');
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Processando, $relida->getStatus());
+        self::assertSame(1, $relida->getTentativas());
+    }
+
+    #[TestDox('falha transitória com prazo do provedor (retry-after) → volta à fila com o atraso pedido')]
+    public function testFalhaTransitoriaComPrazoDoProvedor(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->falharTransitoriamente('HTTP 429', esperarSegundos: 30);
+
+        try {
+            $this->handler($falso)($this->mensagem($analise));
+            self::fail('deveria re-lançar');
+        } catch (RecoverableMessageHandlingException $e) {
+            self::assertSame(30_000, $e->getRetryDelay());
+        }
+
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Pendente, $relida->getStatus());
+        self::assertSame(1, $relida->getTentativas());
     }
 
     #[TestDox('na ÚLTIMA tentativa (max_retries do async), a falha transitória vira falhou e re-lança (vai para failed)')]

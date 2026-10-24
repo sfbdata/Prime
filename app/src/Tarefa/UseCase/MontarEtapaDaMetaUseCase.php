@@ -45,8 +45,7 @@ final class MontarEtapaDaMetaUseCase
         $proxima = $aberta ? RotaDaPassagem::proximaPadrao($tipo, $meta->getEtapa()) : null;
         [$trilho, $saltadas] = $this->trilho($meta, $escritorio, $proxima);
         $criador = $meta->getCriadoPor();
-        // Pasta na lápide é somente leitura: sem Concluir nem Devolver (o listener recusaria o POST de todo jeito).
-        $mexe = $aberta && !$meta->getPasta()->estaExcluida();
+        $mexe = self::podeMexerNaEtapa($meta);
 
         return new EtapaDaMetaOutput(
             $trilho,
@@ -58,6 +57,17 @@ final class MontarEtapaDaMetaUseCase
             $proxima === null ? null : $this->nomes->setor($proxima),
             $criador === null ? '' : self::doisNomes($criador),
         );
+    }
+
+    /**
+     * A etapa só se mexe (concluir e passar, devolver) em meta aberta. Pasta na lápide é somente leitura: sem Concluir
+     * nem Devolver (o listener recusaria o POST de todo jeito). O desfazer da auditoria (`EstadoDaTelaNoDesfazer`)
+     * chama esta mesma regra para `etapa` e `etapasSaltadas`, com o status que a meta terá depois de desfeita
+     * (`$status`; sem ele, o atual).
+     */
+    public static function podeMexerNaEtapa(Tarefa $meta, ?string $status = null): bool
+    {
+        return ($status ?? $meta->getStatus()) !== Tarefa::STATUS_CONCLUIDA && !$meta->getPasta()->estaExcluida();
     }
 
     /**

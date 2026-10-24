@@ -2,6 +2,7 @@
 
 @keyframes ctUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes ctPop { 0% { transform: scale(.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes ctNuvem { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
 .ct-pagina { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 clamp(10px, 3vw, 18px) 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
 .ct-pagina a { color: #0a6fa0; }
@@ -45,9 +46,27 @@
 .ct-pacote-preco span { font-size: 12.5px; color: #5b7383; }
 .ct-pacote-dia { font-size: 12px; color: #1e7b45; min-height: 16px; }
 .ct-pacote-desc { font-size: 12.5px; color: #4a6373; min-height: 34px; }
-.ct-pacote-botao { margin-top: 4px; height: 40px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; font-weight: bold; cursor: pointer; }
+.ct-pacote-botao { margin-top: auto; height: 40px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; font-weight: bold; cursor: pointer; }
 .ct-pacote--recomendado .ct-pacote-botao { background: #1e7b45; }
 .ct-pacote-botao:disabled { background: #f1f3f5; color: #7a8e9b; cursor: default; }
+
+/* Selo do convênio OAB no plano gratuito (desenho 21.10.26) */
+.ct-oab-selo { display: flex; align-items: center; gap: 9px; margin: 2px 0 4px; padding: 6px 9px; box-sizing: border-box; border: 1px solid #e1e5ef; border-radius: 4px; background: #fff; cursor: pointer; font: inherit; text-align: left; width: 100%; transition: border-color .15s, box-shadow .15s; }
+.ct-oab-selo:hover { border-color: #2a2a6e; box-shadow: 0 3px 10px rgba(42, 42, 110, .12); }
+.ct-oab-selo img { height: 26px; width: auto; display: block; flex: none; }
+.ct-oab-selo-texto { flex: 1; min-width: 0; line-height: 1.3; }
+.ct-oab-selo-texto b { display: block; font-size: 11.5px; color: #2a2a6e; letter-spacing: .3px; white-space: nowrap; }
+.ct-oab-selo-texto span { display: block; font-size: 11px; color: #4a6373; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-oab-selo-texto .ct-oab-selo-ver { color: #0a6fa0; overflow: visible; }
+.ct-oab-selo > i { font-size: 10px; color: #7a8e9b; flex: none; }
+
+/* Nuvem "+ Espaço" nos pagos maiores que o atual; verde no recomendado */
+.ct-nuvem { --ct-nuvem-cor: #0a6fa0; display: flex; align-items: center; justify-content: center; gap: 12px; margin: 4px 0 8px; padding: 8px 0; }
+.ct-nuvem--recomendada { --ct-nuvem-cor: #1e7b45; }
+.ct-nuvem-rotulo { font-size: 15px; font-weight: bold; color: var(--ct-nuvem-cor); }
+.ct-nuvem-icone { position: relative; display: inline-flex; color: var(--ct-nuvem-cor); animation: ctNuvem 3s ease-in-out infinite; }
+.ct-nuvem-icone .bi-cloud-fill { font-size: 46px; line-height: 1; }
+.ct-nuvem-icone .bi-arrow-up { position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%); font-size: 19px; color: #fff; -webkit-text-stroke: 1px #fff; }
 .ct-garantias { margin: 0 20px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 10px; }
 .ct-garantia { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #e6edf2; border-radius: 4px; }
 .ct-garantia i { color: #0a6fa0; font-size: 17px; }
@@ -169,6 +188,54 @@
 .ct-modal-rodape { padding: 12px 18px; border-top: 1px solid #eef2f5; display: flex; justify-content: flex-end; gap: 8px; }
 .ct-botao-cancelar { height: 36px; padding: 0 14px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 14px; cursor: pointer; }
 .ct-botao-enviar { height: 36px; padding: 0 16px; font-size: 14px; gap: 7px; }
+
+/* Modal do convênio OAB (desenho 21.10.26) */
+.ct-oab[hidden] { display: none; }
+.ct-oab-fundo { position: fixed; inset: 0; z-index: 9200; background: rgba(16, 24, 56, .5); }
+.ct-oab-camada { position: fixed; inset: 0; z-index: 9201; display: flex; align-items: center; justify-content: center; padding: 14px; pointer-events: none; }
+.ct-oab-janela { pointer-events: auto; width: min(720px, 100%); max-height: 94vh; overflow: auto; background: #fff; border-radius: 8px; box-shadow: 0 28px 70px rgba(16, 24, 56, .35); animation: ctPop .3s ease both; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+.ct-oab-cabeca { position: relative; background: linear-gradient(135deg, #2a2a6e 0%, #0a6fa0 100%); color: #fff; padding: 28px 30px 26px; overflow: hidden; }
+.ct-oab-circulo { position: absolute; border-radius: 50%; }
+.ct-oab-circulo--1 { right: -60px; top: -70px; width: 240px; height: 240px; background: rgba(255, 255, 255, .07); }
+.ct-oab-circulo--2 { right: 60px; bottom: -90px; width: 180px; height: 180px; background: rgba(255, 255, 255, .05); }
+.ct-oab-fechar { position: absolute; right: 12px; top: 12px; width: 32px; height: 32px; border: none; border-radius: 4px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; }
+.ct-oab-cabeca-conteudo { position: relative; display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.ct-oab-medalha { position: relative; width: 124px; height: 150px; flex: none; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .3)); }
+.ct-oab-fita { position: absolute; top: 78px; width: 30px; height: 68px; background: linear-gradient(180deg, #e0242f, #a3121c); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); transform-origin: top center; }
+.ct-oab-fita--esquerda { left: 28px; transform: rotate(20deg); }
+.ct-oab-fita--direita { right: 28px; transform: rotate(-20deg); }
+.ct-oab-roseta { position: absolute; left: 2px; top: 0; width: 120px; height: 120px; background: radial-gradient(circle at 50% 40%, #e83a45, #b0141f 70%); clip-path: polygon(50.0% 0.0%, 54.9% 6.3%, 61.1% 1.3%, 64.5% 8.5%, 71.7% 5.0%, 73.4% 12.7%, 81.2% 10.9%, 81.1% 18.9%, 89.1% 18.8%, 87.3% 26.6%, 95.0% 28.3%, 91.5% 35.5%, 98.7% 38.9%, 93.7% 45.1%, 100.0% 50.0%, 93.7% 54.9%, 98.7% 61.1%, 91.5% 64.5%, 95.0% 71.7%, 87.3% 73.4%, 89.1% 81.2%, 81.1% 81.1%, 81.2% 89.1%, 73.4% 87.3%, 71.7% 95.0%, 64.5% 91.5%, 61.1% 98.7%, 54.9% 93.7%, 50.0% 100.0%, 45.1% 93.7%, 38.9% 98.7%, 35.5% 91.5%, 28.3% 95.0%, 26.6% 87.3%, 18.8% 89.1%, 18.9% 81.1%, 10.9% 81.2%, 12.7% 73.4%, 5.0% 71.7%, 8.5% 64.5%, 1.3% 61.1%, 6.3% 54.9%, 0.0% 50.0%, 6.3% 45.1%, 1.3% 38.9%, 8.5% 35.5%, 5.0% 28.3%, 12.7% 26.6%, 10.9% 18.8%, 18.9% 18.9%, 18.8% 10.9%, 26.6% 12.7%, 28.3% 5.0%, 35.5% 8.5%, 38.9% 1.3%, 45.1% 6.3%); }
+.ct-oab-moeda { position: absolute; left: 14px; top: 12px; width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3b0 0%, #f6c843 30%, #d99a17 65%, #a96d0b 100%); box-shadow: inset 0 0 0 3px #b9800f, inset 0 0 0 5px #f8dc7a; }
+.ct-oab-inscricao { position: absolute; left: 22px; top: 20px; width: 80px; height: 80px; border-radius: 50%; border: 1.5px solid rgba(110, 64, 6, .55); box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #5a3304; font-family: Arial, Helvetica, sans-serif; }
+.ct-oab-inscricao b { font-size: 13px; line-height: 1; }
+.ct-oab-inscricao .ct-oab-inscricao-faixa { font-size: 12px; letter-spacing: .4px; line-height: 1; padding: 3px 2px; margin: 3px 0; border-top: 1.5px solid #5a3304; border-bottom: 1.5px solid #5a3304; }
+.ct-oab-inscricao i { font-family: Georgia, 'Times New Roman', serif; font-size: 9px; line-height: 1; }
+.ct-oab-titulos { flex: 1; min-width: 240px; }
+.ct-oab-tag { display: inline-flex; align-items: center; gap: 7px; background: rgba(255, 255, 255, .16); border-radius: 3px; padding: 4px 10px; font-size: 11.5px; font-weight: bold; letter-spacing: .8px; }
+.ct-oab-titulo { font-size: clamp(21px, 3.2vw, 27px); font-weight: bold; line-height: 1.22; margin-top: 10px; text-wrap: balance; }
+.ct-oab-sub { font-size: 14.5px; line-height: 1.55; opacity: .94; margin-top: 8px; text-wrap: pretty; }
+.ct-oab-corpo { padding: 22px 30px 6px; }
+.ct-oab-rotulo { font-size: 12px; font-weight: bold; letter-spacing: 1px; color: #2a2a6e; margin-bottom: 12px; }
+.ct-oab-beneficios { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px 20px; }
+.ct-oab-beneficio { display: flex; gap: 12px; align-items: flex-start; }
+.ct-oab-beneficio-icone { width: 36px; height: 36px; flex: none; border-radius: 8px; background: #eef0fa; color: #2a2a6e; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.ct-oab-beneficio-texto { min-width: 0; }
+.ct-oab-beneficio-texto b { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #12242f; }
+.ct-oab-beneficio-texto b i { color: #1e7b45; font-size: 12px; }
+.ct-oab-beneficio-texto span { font-size: 12.5px; color: #4a6373; line-height: 1.5; }
+.ct-oab-parceria { margin: 20px 30px 0; border: 1px solid #e1e5ef; border-radius: 6px; background: #f7f8fc; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+.ct-oab-parceria > i { font-size: 24px; color: #2a2a6e; line-height: 1; }
+.ct-oab-parceria b { display: block; font-size: 14.5px; color: #2a2a6e; }
+.ct-oab-parceria span { font-size: 13px; color: #34505f; line-height: 1.55; }
+.ct-oab-acao { margin: 18px 30px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.ct-oab-acao > span { flex: 1; min-width: 220px; font-size: 13.5px; color: #34505f; line-height: 1.5; }
+.ct-oab-crescer { height: 42px; padding: 0 20px; border: none; border-radius: 4px; background: #2a2a6e; color: #fff; font: inherit; font-size: 14.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.ct-oab-crescer:hover { background: #1f1f55; }
+.ct-oab-rodape { margin-top: 22px; padding: 16px 30px 18px; border-top: 1px solid #edf0f3; display: flex; align-items: center; justify-content: center; gap: 22px; flex-wrap: wrap; background: #fcfcfe; }
+.ct-oab-rodape img { width: auto; display: block; }
+.ct-oab-rodape-oab { height: 38px; }
+.ct-oab-rodape-bluejus { height: 40px; }
+.ct-oab-rodape > span { font-size: 20px; color: #b7bdd6; font-weight: 300; }
 
 /* Toast */
 .ct-toast { position: fixed; z-index: 9500; left: 50%; bottom: 22px; transform: translateX(-50%); background: #12242f; color: #fff; font-size: 13.5px; padding: 10px 16px; border-radius: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); animation: ctUp .2s ease both; max-width: calc(100vw - 24px); font-family: Arial, Helvetica, sans-serif; }

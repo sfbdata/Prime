@@ -132,6 +132,8 @@ final readonly class ResolvedorDeCaminhoLocal
         return match ($categoria) {
             CategoriaDeArquivo::PASTA_DOCUMENTO     => $this->raiz($this->uploadsDir),
             CategoriaDeArquivo::CLIENTE_DOCUMENTO   => $this->raiz($this->clientesUploadsDir),
+            // Subpasta da mesma raiz: as fotos não se misturam com os documentos do cadastro.
+            CategoriaDeArquivo::CLIENTE_FOTO        => $this->raiz($this->clientesUploadsDir) . '/fotos',
             CategoriaDeArquivo::CHAMADO_ANEXO       => $this->raiz($this->chamadosUploadsDir),
             CategoriaDeArquivo::JUSTIFICATIVA_ANEXO => $this->raiz($this->justificativasUploadsDir),
             CategoriaDeArquivo::FOTO_PERFIL         => $this->raiz($this->fotosPerfilDir),

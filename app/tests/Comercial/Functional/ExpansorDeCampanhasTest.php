@@ -12,6 +12,7 @@ use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Envio\CarteiroInterface;
+use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\ResultadoDoEnvio;
 use App\Comercial\Message\EnviarEmail;
@@ -33,6 +34,7 @@ use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
@@ -214,6 +216,25 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         $this->conexao->executeStatement("UPDATE comercial_envio SET situacao = 'enviado', enviado_em = ? WHERE origem = ?", [(new \DateTimeImmutable())->format('Y-m-d H:i:s'), 'campanha:' . $id]);
         self::assertSame(0, $expansor->liberarLote(new \DateTimeImmutable()));
         self::assertSame(2, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NULL', [$id]));
+    }
+
+    #[TestDox('Cota corrida: os demais e-mails acima da reserva encolhem o lote da campanha (teto 10, campanhas 8, reserva 2, demais 5)')]
+    public function testDemaisAcimaDaReservaEncolhemACampanha(): void
+    {
+        $id = $this->campanha($this->emailsDeAtivos(8));
+        $agora = new \DateTimeImmutable();
+        for ($i = 0; $i < 5; ++$i) {
+            $this->conexao->executeStatement(
+                "INSERT INTO comercial_envio (token, destinatario, assunto, tipo, origem, situacao, criado_em, enviado_em, aberturas, cliques)
+                 VALUES (:token, 'outro@exemplo.com', 'x', 'transacional', 'sistema', 'enviado', :em, :em, 0, 0)",
+                ['token' => bin2hex(random_bytes(16)), 'em' => $agora->modify('-2 hours')->format('Y-m-d H:i:s')],
+            );
+        }
+        $expansor = $this->expansor(teto: 8, tetoTotal: 10);
+        $expansor->materializarDevidas($agora);
+
+        self::assertSame(5, $expansor->liberarLote($agora), 'cabem 10 - 5 = 5, não os 8 do teto das campanhas');
+        self::assertSame(3, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NULL', [$id]));
     }
 
     #[TestDox('Nada é recuperado: a agendada que acorda mais de 24 h atrasada é cancelada sem enviar; com 23 h, sai')]
@@ -561,7 +582,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame($antes - 1, $purga->executar(new \DateTimeImmutable(), true), 'o já anonimizado não conta de novo');
     }
 
-    private function expansor(bool $ligada = true, int $teto = 1000, ?CarteiroInterface $carteiro = null): ExpansorDeCampanhas
+    private function expansor(bool $ligada = true, int $teto = 1000, ?CarteiroInterface $carteiro = null, int $tetoTotal = 1500): ExpansorDeCampanhas
     {
         $c = static::getContainer();
 
@@ -575,7 +596,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
             new PoliticaDeDestinatarios(),
             new ChaveDasCampanhas($ligada),
             new NullLogger(),
-            $teto,
+            new CotaDeEnvio($c->get(EnvioDeEmailRepository::class), $c->get(DestinoDaCampanhaRepository::class), new MockClock(), $tetoTotal, $teto, 10, 80),
             $c->get(\App\Comercial\Campanha\ImagensDaCampanha::class),
         );
     }

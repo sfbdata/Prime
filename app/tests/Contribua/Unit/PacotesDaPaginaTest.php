@@ -7,6 +7,7 @@ namespace App\Tests\Contribua\Unit;
 use App\Contribua\DTO\RetratoDoEspaco;
 use App\Contribua\DTO\Solicitante;
 use App\Contribua\Entity\ConfiguracaoDoEspaco;
+use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Repository\ApoioRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
@@ -66,7 +67,36 @@ final class PacotesDaPaginaTest extends TestCase
         self::assertSame('100%', $pagina['espaco']['largura']);
     }
 
-    private function pagina(int $usados): array
+    #[TestDox('Selo do convênio OAB só no plano gratuito')]
+    public function testSeloOabSoNoGratuito(): void
+    {
+        $pacotes = array_column($this->pagina((int) (9.3 * RetratoDoEspaco::BYTES_POR_GB))['pacotes'], 'oab', 'codigo');
+
+        self::assertSame(['free' => true, 'essencial' => false, 'profissional' => false, 'avancado' => false], $pacotes);
+    }
+
+    #[TestDox('Nuvem "+ Espaço" só nos pagos maiores que o plano atual, verde só no recomendado')]
+    public function testNuvemNosPagosMaioresQueOAtual(): void
+    {
+        $pacotes = array_column($this->pagina((int) (9.3 * RetratoDoEspaco::BYTES_POR_GB))['pacotes'], null, 'codigo');
+
+        self::assertSame(['free' => false, 'essencial' => true, 'profissional' => true, 'avancado' => true], array_column($pacotes, 'temNuvem', 'codigo'));
+        self::assertSame(['free' => false, 'essencial' => true, 'profissional' => false, 'avancado' => false], array_column($pacotes, 'nuvemRecomendada', 'codigo'));
+    }
+
+    #[TestDox('No Profissional: sem nuvem no atual nem nos menores, nuvem verde no recomendado acima dele')]
+    public function testNuvemComPlanoPagoAtual(): void
+    {
+        $pacotes = array_column($this->pagina(30 * RetratoDoEspaco::BYTES_POR_GB, 'profissional')['pacotes'], null, 'codigo');
+
+        self::assertSame(['free' => false, 'essencial' => false, 'profissional' => false, 'avancado' => true], array_column($pacotes, 'temNuvem', 'codigo'));
+        self::assertTrue($pacotes['profissional']['atual']);
+        self::assertSame('Menor que o atual', $pacotes['essencial']['botao']);
+        self::assertTrue($pacotes['avancado']['nuvemRecomendada']);
+        self::assertFalse($pacotes['profissional']['nuvemRecomendada']);
+    }
+
+    private function pagina(int $usados, ?string $planoAtual = null): array
     {
         $planos = [
             new Plano('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1),
@@ -81,7 +111,14 @@ final class PacotesDaPaginaTest extends TestCase
         $consumo->method('bytesDoEscritorio')->willReturn($usados);
         $configuracoes = $this->createStub(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn(new ConfiguracaoDoEspaco());
-        $situacao = new SituacaoDoEspaco($consumo, $this->createStub(EspacoDoEscritorioRepository::class), $repositorioDePlanos, $configuracoes);
+        $escritorio = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($escritorio, 7);
+        $espacos = $this->createStub(EspacoDoEscritorioRepository::class);
+        if ($planoAtual !== null) {
+            $plano = array_values(array_filter($planos, static fn (Plano $p): bool => $p->getCodigo() === $planoAtual))[0];
+            $espacos->method('doTenant')->willReturn(new EspacoDoEscritorio($escritorio, $plano));
+        }
+        $situacao = new SituacaoDoEspaco($consumo, $espacos, $repositorioDePlanos, $configuracoes);
         $sugestoes = $this->createStub(SugestaoRepository::class);
         $sugestoes->method('doEscritorio')->willReturn([]);
 
@@ -94,8 +131,6 @@ final class PacotesDaPaginaTest extends TestCase
             // Quem pede não é o Master: a visão de todos os escritórios nunca é usada aqui.
             (new \ReflectionClass(VisaoDoMaster::class))->newInstanceWithoutConstructor(),
         );
-        $escritorio = new Tenant();
-        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($escritorio, 7);
 
         return $useCase->executar(new Solicitante(new User(), $escritorio->setName('Escritório'), false, true));
     }

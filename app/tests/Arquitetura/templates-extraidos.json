@@ -1078,13 +1078,15 @@
     "pasta_cabecalho": {
         "templates": [
             "pasta/_cabecalho.html.twig",
+            "pasta/_cabecalho_foto_cliente.html.twig",
             "pasta/_dados_trilho.html.twig",
             "pasta/_dados_trilho_topo.html.twig"
         ],
         "js": [
             "pasta-prazos.js",
             "pasta-clientes.js",
-            "pasta-clientes-busca.js"
+            "pasta-clientes-busca.js",
+            "pasta-foto-cliente.js"
         ],
         "permitidos": [
             "BLUEJUS",
@@ -1094,7 +1096,19 @@
             "T",
             "Content-Type",
             "Escape",
-            "Enter"
+            "Enter",
+            "App\\\\Pasta\\\\Entity\\\\CarteiraDaPasta"
         ]
+    },
+
+    "ponto_pendencias": {
+        "templates": [
+            "ponto/_pendencias.html.twig",
+            "layout/_globais/ponto_pendente.html.twig"
+        ],
+        "js": [
+            "ponto-pendente.js"
+        ],
+        "permitidos": ["·", "×", "Content-Type"]
     }
 }

@@ -1,7 +1,8 @@
 # Implementar a partir de um desenho
 
 Texto integral que morava no CLAUDE.md raiz até 18/10/2026. A regra resumida continua lá; aqui ficam
-a origem, os exemplos e as armadilhas.
+a origem, os exemplos e as armadilhas. O método passo a passo (inventário com script, conferência
+✓/✗, armadilhas com PR) está na skill `desenho-fiel` (`.claude/skills/desenho-fiel/`).
 
 Vale sempre que existir um desenho aprovado (Claude Design, captura, maquete). Escrito depois de uma
 sessão em que a tela entregue não se parecia com o que o dono tinha aprovado, em **quatro** frentes

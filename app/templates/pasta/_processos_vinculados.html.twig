@@ -65,6 +65,7 @@
    (#7b93a2) desligado e laranja (#b4460a) ligado; trilho 34×18 (#c5d0d8 / #e8873a), bola 14px.
    O CSS mora no pasta-show.css (seção Processo, PMC-026), com tokens `--ps-adm-*` e par escuro. #}
 {% set administrativa = pasta.administrativa %}
+{% set acaoEdicaoId = 'psAcaoEdicao' ~ pasta.id %}
 {% set vinculos = pasta.pastaProcessos %}
 <section class="ps-card ps-processos">
     <div class="ps-card-cab ps-card-cab--painel">
@@ -154,7 +155,39 @@
         <button type="submit" form="psAdmForm{{ pasta.id }}" class="ps-processo-menu-item js-proc-hd-adm" role="menuitem">
             <i class="bi bi-briefcase"></i><span>{{ administrativa ? 'pasta_processo.administrativa.desmarcar'|trans : 'pasta_processo.administrativa.marcar'|trans }}</span>
         </button>
+        {# Ação da pasta (decisão do dono, 23/10/2026): abre o MESMO formulário do ⋮ do cartão principal. Aqui
+           ele vale também para a pasta sem processo, que não tem cartão. #}
+        <button type="button" class="ps-processo-menu-item js-proc-editar-acao" role="menuitem"
+                data-edicao="#{{ acaoEdicaoId }}">
+            <i class="bi bi-pencil-square"></i><span>{{ 'pasta_processo.acao.editar'|trans }}</span>
+        </button>
     </div>
+    {% endif %}
+    {# Edição da Ação da pasta (`Pasta.nomeAcao`; decisão do dono de 23/10/2026, desenho 02: "Ação · vem do menu
+       Processo"). O desenho não tem formulário para ela: segue o padrão da edição no cartão (P5b), o
+       `.ps-processo-edicao` escondido que o ⋮ abre, com Cancelar e Salvar; com JS, o pasta-processo.js manda por
+       XHR e troca a aba. Mora no cartão do processo principal (onde a Ação aparece) ou, sem ele, no fim da aba.
+       Mesma guarda da rota `pasta_acao_salvar`: EDIT na pasta, fora da lápide. #}
+    {% set temCartaoPrincipal = vinculos|length > 0 and pasta.vinculoPrincipal is not null %}
+    {% if podeMexerNoVinculo %}
+        {% set formAcao %}
+            <form method="post" action="{{ path('pasta_acao_salvar', {id: pasta.id}) }}"
+                  class="ps-processo-edicao ps-processo-edicao--acao js-proc-edicao-acao" id="{{ acaoEdicaoId }}" hidden>
+                <input type="hidden" name="_token" value="{{ csrf_token('pasta_acao_' ~ pasta.id) }}">
+                <p class="ps-processo-edicao-dica">{{ 'pasta_processo.acao.dica'|trans }}</p>
+                <div class="ps-processo-edicao-grade">
+                    <div class="ps-processo-edicao-campo">
+                        <label class="ps-rotulo" for="{{ acaoEdicaoId }}-nome">{{ 'pasta_processo.dados.acao'|trans }}</label>
+                        <input type="text" id="{{ acaoEdicaoId }}-nome" name="nome_acao" value="{{ pasta.nomeAcao }}"
+                               placeholder="{{ 'pasta_processo.acao.placeholder'|trans }}" maxlength="255">
+                    </div>
+                </div>
+                <div class="ps-processo-edicao-acoes">
+                    <button type="button" class="ps-processo-edicao-cancelar js-proc-edicao-cancelar">{{ 'pasta_processo.edicao.cancelar'|trans }}</button>
+                    <button type="submit" class="ps-processo-edicao-salvar">{{ 'pasta_processo.edicao.salvar'|trans }}</button>
+                </div>
+            </form>
+        {% endset %}
     {% endif %}
 
     {% if vinculos|length > 0 %}
@@ -317,6 +350,14 @@
                         </button>
                         {% if podeMexerNoVinculo %}
                         <div class="ps-processo-menu-sep" role="separator"></div>
+                        {# Ação da pasta (decisão do dono, 23/10/2026): só no principal, o cartão que mostra `pasta.nomeAcao`;
+                           guarda de EDIT na pasta, como as ações do vínculo deste grupo. #}
+                        {% if ehPrincipal %}
+                            <button type="button" class="ps-processo-menu-item js-proc-editar-acao" role="menuitem"
+                                    data-edicao="#{{ acaoEdicaoId }}">
+                                <i class="bi bi-pencil-square"></i><span>{{ 'pasta_processo.acao.editar'|trans }}</span>
+                            </button>
+                        {% endif %}
                         {% if not ehPrincipal %}
                             <form method="post" action="{{ path('pasta_definir_processo_principal', {id: pasta.id}) }}" class="js-ajax-processo-principal m-0">
                                 <input type="hidden" name="_token" value="{{ csrf_token('pasta_definir_principal_processo_' ~ pasta.id) }}">
@@ -533,6 +574,7 @@
                             </div>
                         </form>
                     {% endif %}
+                    {% if ehPrincipal and podeMexerNoVinculo %}{{ formAcao }}{% endif %}
                 </article>
                 {{ include('processo/_notas_tecnicas.html.twig', {
                     notas: notas_tecnicas_do_processo(proc),
@@ -565,6 +607,7 @@
             </div>
         </div>
     {% endif %}
+    {% if podeMexerNoVinculo and not temCartaoPrincipal %}{{ formAcao }}{% endif %}
     <div class="ps-processos-nota">
         <i class="bi bi-info-circle" aria-hidden="true"></i>
         <span>{{ 'pasta_processo.nota'|trans }}</span>

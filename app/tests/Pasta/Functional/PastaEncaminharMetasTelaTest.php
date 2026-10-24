@@ -102,14 +102,14 @@ final class PastaEncaminharMetasTelaTest extends JusPrimeWebTestCase
     // ⋮ da meta (D:3737)
     // =========================================================================
 
-    #[TestDox('D:3737: no ⋮ da meta, "Encaminhar via Chat I.A" vem depois de "Editar nome" e antes de "Copiar link", tipo meta e o id da meta')]
+    #[TestDox('D:3737: no ⋮ da meta, "Encaminhar via Chat I.A" vem depois de "Duplicar" (que segue "Editar nome") e antes de "Copiar link", tipo meta e o id da meta')]
     public function testItemNoMenuDaMeta(): void
     {
         [$crawler, $pasta, $aberta, $concluida] = $this->abrir();
 
         foreach ([$aberta, $concluida] as $meta) {
             $id   = (int) $meta->getId();
-            $item = $crawler->filter("article.ps-meta[data-meta-id=\"{$id}\"] > .ps-meta-acoes > #psMetaMenu{$id} > button[data-ps-meta-renomear=\"{$id}\"] + button.js-meta-encaminhar");
+            $item = $crawler->filter("article.ps-meta[data-meta-id=\"{$id}\"] > .ps-meta-acoes > #psMetaMenu{$id} > button[data-ps-meta-renomear=\"{$id}\"] + form.ps-meta-duplicar + button.js-meta-encaminhar");
             $this->assertItemDoDesenho($item, 'meta', $id, (int) $pasta->getId());
             self::assertCount(1, $crawler->filter("#psMetaMenu{$id} > button.js-meta-encaminhar + button.js-ps-copiar"), 'logo antes de "Copiar link"');
             self::assertCount(1, $crawler->filter("#psMetaMenu{$id} > .js-meta-encaminhar"), 'um item por menu');

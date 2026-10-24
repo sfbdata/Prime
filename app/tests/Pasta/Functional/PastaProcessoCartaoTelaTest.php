@@ -348,7 +348,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // há "Tornar processo principal". Desvincular é o último, como no desenho. "Editar dados
         // do processo" (PMC-004) aparece porque o admin tem EDIT no processo.
         self::assertSame(
-            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Encaminhar via Chat I.A', 'Relatório geral de processos', 'Imprimir resumo', 'Desvincular da pasta'],
+            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Encaminhar via Chat I.A', 'Relatório geral de processos', 'Imprimir resumo', 'Editar ação da pasta', 'Desvincular da pasta'],
             $this->textos($menu->filter('.ps-processo-menu .ps-processo-menu-item')),
         );
         self::assertSame(

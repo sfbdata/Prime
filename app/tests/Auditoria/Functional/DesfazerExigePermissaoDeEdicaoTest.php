@@ -297,7 +297,7 @@ final class DesfazerExigePermissaoDeEdicaoTest extends JusPrimeWebTestCase
         $this->em->persist($pasta);
         $this->em->flush();
         $id = (int) $pasta->getId();
-        $logId = $this->criarLog(Pasta::class, $id, ['nomeAcao' => ['from' => 'acao anterior', 'to' => 'acao atual']]);
+        $logId = $this->criarLog(Pasta::class, $id, ['nomeAcao' => ['from' => 'acao anterior', 'to' => 'ACAO ATUAL']]);
         $this->entrarCom([...self::SO_AUDITORIA, 'resources.pasta.edit']);
 
         $this->desfazer($logId);

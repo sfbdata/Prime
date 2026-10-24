@@ -34,9 +34,10 @@ final class PastaCadastroCabecalhoTelaTest extends JusPrimeWebTestCase
     /**
      * Os `name` do form do Editar dados ANTES do lote L2 (contrato do
      * `PastaController::edit`). Atalho que entrasse no form com `name` — ou campo
-     * que saísse — mudaria esta lista.
+     * que saísse — mudaria esta lista. O `nome_acao` saiu de propósito (PZ-MOD-N05,
+     * decisão do dono de 23/10/2026): a Ação é só leitura e vem do menu Processo.
      */
-    private const NAMES_DO_FORM = ['_token', 'nup', 'nome_cliente', 'nome_acao', 'situacao'];
+    private const NAMES_DO_FORM = ['_token', 'nup', 'nome_cliente', 'situacao'];
 
     /**
      * Cliente PF com tudo o que o `PendenciasDoCadastro` cobra, menos o que vier em

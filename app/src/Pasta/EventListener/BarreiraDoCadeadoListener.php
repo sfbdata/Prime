@@ -49,8 +49,9 @@ final class BarreiraDoCadeadoListener
     /**
      * Escritas que quem está em `Visualizar` ainda faz, cada uma pelo seu motivo (K4):
      *  - preferências pessoais, só da pessoa e de mais ninguém: `pasta_favorito_alternar` (fixar nos
-     *    favoritos), `pasta_documentos_favorito` (estrela do documento), `pasta_timeline_visita` (a
-     *    última visita à Timeline inteligente) e `expediente_pasta_destaque` (destaque de linha na Lista);
+     *    favoritos), `pasta_acompanhamento_alternar` (acompanhar alterações), `pasta_documentos_favorito`
+     *    (estrela do documento), `pasta_timeline_visita` (a última visita à Timeline inteligente) e
+     *    `expediente_pasta_destaque` (destaque de linha na Lista);
      *  - leituras por POST: `pasta_documentos_zip` (baixar o que se vê; a seleção vai no corpo) e
      *    `inteligencia_analise_registro` (grava só a linha de auditoria de baixar ou imprimir a análise);
      *  - o pedido: `pasta_acesso_pedir` ("Pedir para editar"; a mesma rota serve à Lista e à busca).
@@ -62,6 +63,7 @@ final class BarreiraDoCadeadoListener
      */
     public const ROTAS_DO_VISUALIZAR = [
         'pasta_favorito_alternar',
+        'pasta_acompanhamento_alternar',
         'pasta_documentos_favorito',
         'pasta_timeline_visita',
         'expediente_pasta_destaque',

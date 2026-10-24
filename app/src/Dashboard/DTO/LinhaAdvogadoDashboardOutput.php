@@ -44,5 +44,6 @@ final class LinhaAdvogadoDashboardOutput
         // da TENDENCIA não tem chave aqui: sem seta, nada inventado.
         /** @var array<string, int|null> */
         public readonly array  $extrasAnteriores = [],
+        /** @var list<string> colunas com "Zerar" ativo (DASH-014): sem link e sem seta */ public readonly array $colunasZeradas = [],
     ) {}
 }

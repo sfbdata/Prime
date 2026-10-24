@@ -13,6 +13,7 @@ use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Service\PermissionChecker;
 use App\Pasta\Entity\PastaAndamento;
 use App\Pasta\Repository\PastaAndamentoRepository;
+use App\Pasta\Service\AndamentoDaPasta;
 use App\Pasta\Service\RegistroDeDecisaoSemProcesso;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use Doctrine\ORM\EntityManagerInterface;
@@ -75,9 +76,31 @@ final class DefinirPastaAdministrativaUseCase
             : ($this->andamentos?->daPasta($pasta, PastaAndamento::VIA_JUDICIAL, $tenant) !== null
                 ? 'pasta voltou para a via judicial: o andamento judicial anterior foi restaurado.'
                 : 'pasta voltou para a via judicial.'));
+        $this->recalcularFinalizadaEm($pasta, $tenant);
         $this->em->flush();
         $this->decisoes?->registrar($pasta, $administrativa, $usuario, $tenant);
 
         return true;
+    }
+
+    /**
+     * "Pastas concluídas" do Dashboard (spec dashboard-parte-1): a data de finalização segue a trilha da via
+     * NOVA. Sem andamento gravado nela, a pasta arquivada mantém a data que tinha (regra do dono: arquivada sem
+     * trilho conta na data do arquivamento) e a não arquivada deixa de contar.
+     */
+    private function recalcularFinalizadaEm(Pasta $pasta, Tenant $tenant): void
+    {
+        if ($this->andamentos === null) {
+            return;
+        }
+        $linha = $this->andamentos->daPasta($pasta, AndamentoDaPasta::via($pasta), $tenant);
+        if ($linha !== null) {
+            $pasta->setFinalizadaEm($linha->finalizadaEm());
+
+            return;
+        }
+        if ($pasta->getSituacao() !== Pasta::SITUACAO_ARQUIVADA) {
+            $pasta->setFinalizadaEm(null);
+        }
     }
 }

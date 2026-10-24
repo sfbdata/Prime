@@ -93,7 +93,7 @@ final class CatalogoDePreferenciasDoDashboardTest extends TestCase
         yield 'coluna aninhada'                   => [Catalogo::COLUNAS_OCULTAS, [['cargo']]];
         yield 'todas as numéricas ocultas'        => [Catalogo::COLUNAS_OCULTAS, Catalogo::COLUNAS_NUMERICAS];
         yield 'todas as ocultáveis'               => [Catalogo::COLUNAS_OCULTAS, Catalogo::COLUNAS_OCULTAVEIS];
-        yield 'extra sem lastro (Pastas concluídas)' => [Catalogo::COLUNAS_EXTRAS, ['pastas_concluidas']];
+        yield 'extra fora do catálogo'            => [Catalogo::COLUNAS_EXTRAS, ['demandas_encerradas']];
         yield 'extra "Relatório" (zerar, D-DASH)' => [Catalogo::COLUNAS_EXTRAS, ['comentarios']];
         yield 'extra no nome do protótipo'        => [Catalogo::COLUNAS_EXTRAS, ['metasConcluidas']];
         yield 'extra numérica fixa'               => [Catalogo::COLUNAS_EXTRAS, ['metas']];

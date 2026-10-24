@@ -91,5 +91,25 @@ class PastaAndamento implements TenantAware, Auditavel
         $this->marcos = ['em' => (object) $marcos['em'], 'pul' => array_values(array_unique($marcos['pul'])), 'extra' => array_values($marcos['extra'])];
         $this->passouProtocolo = $atual >= \App\Pasta\Service\AndamentoDaPasta::IDX_PROTOCOLO && !in_array(\App\Pasta\Service\AndamentoDaPasta::IDX_PROTOCOLO, $marcos['pul'], true);
         $this->atualizadoEm = new \DateTimeImmutable();
+        if ($this->via === \App\Pasta\Service\AndamentoDaPasta::via($this->pasta)) {
+            $this->pasta->setFinalizadaEm($this->finalizadaEm());
+        }
+    }
+
+    /**
+     * Quando a pasta chegou à Finalizada desta trilha ("Pastas concluídas" do Dashboard): a data do marco
+     * da fase atual se ela é a última da trilha (com as extras de reativação), nula em qualquer outra fase.
+     * Sem o marco (não acontece pelo {@see \App\Pasta\Service\AndamentoDaPasta}), vale a última gravação.
+     * O marco guarda o horário local com o fuso (DATE_ATOM); a coluna da pasta guarda o mesmo horário local.
+     */
+    public function finalizadaEm(): ?\DateTimeImmutable
+    {
+        $m = $this->getMarcos();
+        if ($this->atual !== count(\App\Pasta\Service\AndamentoDaPasta::fases($this->via, $m['extra'])) - 1) {
+            return null;
+        }
+        $marco = $m['em'][$this->atual] ?? '';
+
+        return $marco !== '' ? new \DateTimeImmutable(substr($marco, 0, 19)) : $this->atualizadoEm;
     }
 }

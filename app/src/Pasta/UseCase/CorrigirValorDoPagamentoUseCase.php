@@ -8,6 +8,8 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\PastaFinanceiroOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Service\BaseDoPercentual;
+use App\Pasta\Service\LancamentosDaPastaSobTrava;
 use App\Shared\Service\ValorEmReais;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -45,11 +47,18 @@ use Doctrine\ORM\EntityManagerInterface;
  * ("· juros N% a.m."), gravado no parcelamento para o valor DAQUELE cálculo.
  * Com o valor corrigido à mão, a taxa já não explica o valor — então é zerada
  * (null) no mesmo flush e o sufixo some. Nenhum cálculo usa a taxa.
+ *
+ * ÊXITO E SUCUMBÊNCIA (decisão 3 do dono): o valor de um previsto com percentual é
+ * calculado na leitura (`BaseDoPercentual`), e é ESSE que a tela mostrou. Corrigir grava o
+ * valor digitado e zera o percentual (o valor congela); a linha segue prevista até ser recebida.
+ * A base é a dos lançamentos relidos sob a trava da pasta (`LancamentosDaPastaSobTrava`).
  */
 final class CorrigirValorDoPagamentoUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly BaseDoPercentual $baseDoPercentual,
+        private readonly LancamentosDaPastaSobTrava $lancamentosSobTrava,
     ) {}
 
     /**
@@ -93,11 +102,13 @@ final class CorrigirValorDoPagamentoUseCase
         $this->em->beginTransaction();
 
         try {
-            // Trava a linha e relê do banco. Sem isto o getter devolveria o valor
-            // de quando a entidade foi carregada, antes de qualquer trava.
+            // Primeiro a pasta (a mesma ordem da quitação, sem deadlock) e os lançamentos dela
+            // relidos: a base do percentual de agora. Depois a linha, relida do banco: sem isto o
+            // getter devolveria o valor de quando a entidade foi carregada, antes de qualquer trava.
+            $lancamentos = $this->lancamentosSobTrava->travarPastaELerLancamentos($pasta);
             $this->em->refresh($pagamento, LockMode::PESSIMISTIC_WRITE);
 
-            $alterado = $this->aplicar($pagamento, $decimal, $exibido);
+            $alterado = $this->aplicar($pagamento, $decimal, $exibido, $lancamentos);
 
             $this->em->commit();
         } catch (\Throwable $e) {
@@ -109,22 +120,30 @@ final class CorrigirValorDoPagamentoUseCase
         return $alterado;
     }
 
-    /** Já sob a trava: o valor do pagamento é o do banco. */
-    private function aplicar(PastaPagamento $pagamento, string $decimal, string $exibido): bool
+    /**
+     * Já sob a trava: o valor do pagamento é o do banco.
+     *
+     * @param list<PastaPagamento> $lancamentos os da pasta, relidos sob a trava
+     */
+    private function aplicar(PastaPagamento $pagamento, string $decimal, string $exibido, array $lancamentos): bool
     {
+        // O valor que vale agora: o gravado ou, no previsto com percentual, o calculado.
+        $atual = $this->baseDoPercentual->valorCalculadoSobre($pagamento, $lancamentos);
+
         // Comparação em centavos: "1.300" e "1300,00" são o mesmo dinheiro.
-        if (ValorEmReais::paraCentavos($exibido) !== ValorEmReais::paraCentavos($pagamento->getValor())) {
+        if (ValorEmReais::paraCentavos($exibido) !== ValorEmReais::paraCentavos($atual)) {
             throw new \UnexpectedValueException(sprintf(
                 'O valor foi alterado por outra pessoa (agora %s). Recarregue e confira antes de corrigir.',
-                PastaFinanceiroOutput::formatarReais($pagamento->getValor()),
+                PastaFinanceiroOutput::formatarReais($atual),
             ));
         }
 
-        if (ValorEmReais::paraCentavos($decimal) === ValorEmReais::paraCentavos($pagamento->getValor())) {
+        if (ValorEmReais::paraCentavos($decimal) === ValorEmReais::paraCentavos($atual)) {
             return false;
         }
 
-        $pagamento->setValor($decimal);
+        // Grava o valor e larga o percentual, se havia: o valor congela.
+        $pagamento->congelarValor($decimal);
         // O rótulo de juros descrevia o valor antigo; com o valor à mão, deixa de valer.
         $pagamento->setJurosMensal(null);
         $this->em->flush();

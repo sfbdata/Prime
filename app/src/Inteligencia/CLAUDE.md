@@ -64,6 +64,10 @@ Push nem vira "análise anterior" dele.
 Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor) → escritório (`inteligencia_configuracao`)
 → permissão de módulo → cota diária/mensal. A Twig `ia_disponibilidade()` devolve o enum para a tela.
 
+**Retenção de 12 meses** (`ExpirarConteudoDaInteligenciaUseCase`, agendado às 00:20): análise terminada há mais de
+12 meses perde o conteúdo (resumo, pontos, textos, edições, texto da pergunta) e ganha `excluida_em`; a linha fica
+pelos números (modelo, tokens, datas). Campo novo de conteúdo na análise = campo novo no `expirarConteudoAntesDe`.
+
 ## Agente de Pastas (`/api/agente/*`)
 
 Spec: `docs/specs/designer-central-ia.md` §3 (origem: `ESPEC_AGENTE_PASTAS.md` do Designer 13/10). Fase 1 = só
@@ -94,3 +98,9 @@ UseCases. Porta de entrada é o módulo **Expediente** (não o da IA): a busca d
 - **Nenhum id de escritório, usuário ou pasta em metadado** da requisição.
 - Testes só com `MockHttpClient`; a suíte usa o `ProvedorFalso`. Nunca uma chamada real em teste.
 - Não usar os "Covered Models" (Fable/Mythos): exigem retenção de 30 dias do lado da Anthropic.
+- **`inference_geo`** sai de `IA_INFERENCE_GEO` (padrão `us`, decisão de 24/10/2026); valor fora de `us`/`global`/vazio
+  deixa o provedor dormente.
+- **`retry-after`** do 429/529/503 vira `FalhaDoProvedorException::esperarSegundos` (teto de 5 min); o handler re-tenta
+  com esse atraso (`RecoverableMessageHandlingException`), sempre dentro de `TENTATIVAS_MAXIMAS`.
+- **Uma chamada por entrega:** o handler trava a linha (`PESSIMISTIC_WRITE`) e relê o status antes de passar a
+  `processando`. Sem a trava, mensagem reentregue ou dois workers cobravam a mesma análise duas vezes.

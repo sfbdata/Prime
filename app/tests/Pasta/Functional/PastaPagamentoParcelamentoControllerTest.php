@@ -324,7 +324,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         unset($resumo['html']);
         self::assertSame(11, $dados['quantidade']);
         self::assertSame(
-            ['total' => 11, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'previsto' => 'R$ 12.843,42', 'percentual' => 0],
+            ['total' => 11, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'contratado' => 'R$ 12.843,42', 'contratadoCentavos' => 1284342, 'percentual' => 0],
             $resumo,
             'o resumo do card é o mesmo de antes da coluna',
         );
@@ -455,7 +455,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         yield 'parcelas acima do teto (61)' => [['parcelas' => '61', 'entrada' => '500,00']];
         yield 'taxa acima do teto'          => [['parcelas' => '5', 'juros' => '1', 'taxa' => '50', 'entrada' => '500,00']];
         yield 'vencimento inexistente'      => [['parcelas' => '5', 'vencimento' => '2027-02-31', 'entrada' => '500,00']];
-        yield 'êxito ainda não grava'       => [['tipo' => 'exito']];
+        yield 'êxito com percentual zero'   => [['tipo' => 'exito', 'percentual' => '0']];
         yield 'pequeno demais'              => [['total' => '0,50', 'parcelas' => '60']];
     }
 
@@ -621,8 +621,9 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
 
         // Cabeçalho (dc L.1932-1938).
         self::assertSame('Adicionar pagamento', trim($crawler->filter("{$form} > .ps-np-cab > .ps-np-cab-textos > .ps-np-titulo")->text()));
+        // C8 (23/10/2026): o cabeçalho fala do Total contratado, a base do % de êxito e sucumbência.
         self::assertSame(
-            'Valor da causa R$ 12.860,00 · cálculo automático',
+            'Total contratado R$ 0,00 · cálculo automático',
             trim((string) preg_replace('/\s+/u', ' ', $crawler->filter("{$form} > .ps-np-cab > .ps-np-cab-textos > .ps-np-sub")->text())),
         );
         self::assertCount(1, $crawler->filter("{$form} > .ps-np-cab > button.ps-np-fechar[data-bs-dismiss=\"modal\"]"));
@@ -631,7 +632,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         // recebida hoje" do desenho (desvio por decisão do dono, 07/10/2026).
         $corpo = "{$form} > .ps-np-corpo";
         self::assertSame(
-            ['ps-np-bloco', 'ps-np-grade', 'ps-np-campo ps-np-descricao', 'ps-np-previa'],
+            ['ps-np-bloco', 'ps-np-grade js-np-bloco-valor', 'ps-np-grade js-np-bloco-pct', 'ps-np-campo ps-np-descricao js-np-campo-descricao', 'ps-np-previa'],
             $crawler->filter("{$corpo} > *")->each(static fn (Crawler $d): string => (string) $d->attr('class')),
         );
         self::assertCount(0, $crawler->filter('#modalNovoPagamento .js-np-entrada-paga'), 'sem o controle de entrada recebida');
@@ -642,16 +643,26 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame(['Contratuais', 'Êxito', 'Sucumbência', 'Custas'], $tipos->each(static fn (Crawler $b): string => trim($b->text())));
         self::assertSame(['contrato', 'exito', 'sucumbencia', 'custas'], $tipos->each(static fn (Crawler $b): string => (string) $b->attr('data-tipo')));
         self::assertSame(
-            [false, true, true, false],
+            [false, false, false, false],
             $tipos->each(static fn (Crawler $b): bool => $b->attr('disabled') !== null),
-            'êxito e sucumbência aparecem, mas não gravam nesta fatia',
+            'os quatro tipos gravam (êxito e sucumbência: spec pasta-exito-sucumbencia)',
         );
         self::assertSame('true', $tipos->first()->attr('aria-pressed'), 'abre em Contratuais');
 
         self::assertSame(
             ['Base do valor', 'Valor total (R$)', '% do valor da causa', 'Entrada (R$)', 'Parcelas', '1º vencimento', 'Juros'],
-            $crawler->filter("{$corpo} > .ps-np-grade > .ps-np-campo > .ps-np-rotulo")->each(static fn (Crawler $s): string => trim($s->text())),
+            $crawler->filter("{$corpo} > .ps-np-grade.js-np-bloco-valor > .ps-np-campo > .ps-np-rotulo")->each(static fn (Crawler $s): string => trim($s->text())),
         );
+        // Êxito e sucumbência (dc L.2117-2124): o % e a Base só leitura, escondidos até escolher o tipo.
+        $pct = "{$corpo} > .ps-np-grade.js-np-bloco-pct";
+        self::assertNotNull($crawler->filter($pct)->attr('hidden'));
+        self::assertSame(
+            ['% sobre o proveito', 'Base'],
+            $crawler->filter("{$pct} > .ps-np-campo > .ps-np-rotulo")->each(static fn (Crawler $s): string => trim($s->text())),
+        );
+        self::assertCount(1, $crawler->filter("{$pct} > .ps-np-campo > input[name=\"percentualPrevisto\"]"));
+        self::assertSame('R$ 0,00', trim($crawler->filter("{$pct} > .ps-np-campo > .ps-np-base")->text()));
+
         $parcelas = $crawler->filter("{$corpo} > .ps-np-grade > .ps-np-campo > input[name=\"parcelas\"]");
         self::assertSame(['1', '60', '1'], [$parcelas->attr('min'), $parcelas->attr('max'), $parcelas->attr('value')], 'campo de 1 a 60, como no desenho');
         self::assertSame(['Valor fixo', '% da causa'], $crawler->filter("{$corpo} > .ps-np-grade > .ps-np-campo > .ps-np-seg > [data-base]")->each(static fn (Crawler $b): string => trim($b->text())));
@@ -679,20 +690,27 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame('submit', $crawler->filter("{$form} > .ps-np-rodape > button.ps-np-gerar")->attr('type'));
     }
 
-    #[TestDox('pasta sem valor da causa mostra o travessão no cabeçalho do modal')]
-    public function testCabecalhoSemValorDaCausa(): void
+    #[TestDox('C8: o cabeçalho do modal e a Base mostram o Total contratado, nunca o valor da causa')]
+    public function testCabecalhoMostraTotalContratado(): void
     {
         $client          = $this->cliente();
         [$user, $tenant] = $this->criarUsuario();
-        $pastaId         = (int) $this->criarPasta($tenant)->getId();
+        $pasta           = $this->criarPasta($tenant, '99999.00');
+        $pastaId         = (int) $pasta->getId();
         $this->logarComTenant($client, $user, $tenant);
+        $this->parcelar($client, $pastaId, ['total' => '1.300,00']);
 
         $crawler = $client->request('GET', "/pasta/{$pastaId}");
 
-        self::assertStringStartsWith(
-            'Valor da causa ',
-            trim($crawler->filter('#formNovoPagamento > .ps-np-cab > .ps-np-cab-textos > .ps-np-sub')->text()),
+        self::assertSame(
+            'Total contratado R$ 1.300,00 · cálculo automático',
+            trim((string) preg_replace('/\s+/u', ' ', $crawler->filter('#formNovoPagamento > .ps-np-cab > .ps-np-cab-textos > .ps-np-sub')->text())),
         );
-        self::assertStringNotContainsString('R$', $crawler->filter('#formNovoPagamento .js-np-causa')->text());
+        self::assertSame('R$ 1.300,00', trim($crawler->filter('#formNovoPagamento .js-np-bloco-pct .ps-np-base')->text()));
+        foreach (['exito', 'sucumbencia'] as $tipo) {
+            $nota = (string) $crawler->filter('.ps-np-tipos > button.ps-np-tipo[data-tipo="' . $tipo . '"]')->attr('data-nota');
+            self::assertStringContainsString('sobre o total contratado', $nota, "dica do {$tipo}");
+            self::assertStringNotContainsString('valor da causa', $nota, "dica do {$tipo}");
+        }
     }
 }

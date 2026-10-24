@@ -55,6 +55,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:purgar-dados-expirados --force --no-interaction',
             'cron'    => '0 0 * * *',
         ],
+        // 0h20: retenção da BlueJus IA. O conteúdo das análises com mais de 12 meses é apagado (decisão de
+        // 24/10/2026, docs/specs/ia-anthropic-ligar.md §10, Q5); ficam modelo, tokens e datas.
+        'app:inteligencia:expirar-conteudo' => [
+            'comando' => 'app:inteligencia:expirar-conteudo --force --no-interaction',
+            'cron'    => '20 0 * * *',
+        ],
         // Dia 11, 1h: importação dos índices do BCB (INPC, IPCA e taxa legal), como no DEPLOY.md
         // (04h UTC). Ligada por decisão do dono em 23/10/2026.
         'app:importar-indices-monetarios' => [
@@ -88,9 +94,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'cron'    => '55 23 * * *',
         ],
         // De hora em hora: envio do sistema para o Drive (só sistema para Drive; importar nunca
-        // é automático). Tenant e usuário são os do script antigo sync-reconciliar.sh.
+        // é automático). Sem --tenant-id: percorre todos os escritórios com Drive conectado; o
+        // escritório que desconecta para de enviar (decisão do dono, 24/10/2026). Sem nenhum
+        // conectado, termina com sucesso. O --usuario-id é obrigatório no comando (só o modo
+        // importar o usa).
         'app:sync:reconciliar' => [
-            'comando' => 'app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar --no-interaction',
+            'comando' => 'app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction',
             'cron'    => '0 * * * *',
         ],
     ];

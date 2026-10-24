@@ -11,6 +11,8 @@ use App\Entity\Tenant\Tenant;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
 use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -110,7 +112,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         foreach ([
             '#financeiro-situacao-btn'  => 'Contrato',
             '#financeiro-probono-btn'   => 'Pró-bono',
-            '#financeiro-valor-causa'   => 'Honorários contratuais',
+            '#financeiro-total-contratado' => 'Total contratado',
             '#financeiro-media-cpf'     => 'Média por CPF',
         ] as $seletor => $rotulo) {
             self::assertSame(
@@ -121,43 +123,56 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('O card do valor mostra "Honorários contratuais", não mais "Valor da causa"')]
-    public function testRotuloDoCardEHonorariosContratuais(): void
+    /**
+     * C8 (dono, 23/10/2026): o card "Valor da causa" do desenho (dc L.1878-1892) se chama
+     * "Total contratado" e é a SOMA dos lançamentos não previstos, só leitura, com a sublinha
+     * "total dos pagamentos · sincronizado". Sai o card editável "Honorários contratuais".
+     */
+    #[TestDox('C8: o card "Total contratado" soma contrato e custas (o previsto fora) e não tem campo editável')]
+    public function testCardTotalContratado(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta($tenant, '12860.00');
+        $pasta           = $this->criarPasta($tenant, '99999.00');
+        $em              = static::getContainer()->get(EntityManagerInterface::class);
+        foreach ([['contrato', '10000.00', false], ['custas', '2860.00', true], ['exito', null, false]] as [$tipo, $valor, $pago]) {
+            $p = new PastaPagamento();
+            $p->setPasta($pasta);
+            $p->setTenant($tenant);
+            $p->setDescricao($tipo);
+            if ($valor === null) {
+                $p->preverPorPercentual(TipoDePagamento::from($tipo), '20', '0.00');
+            } else {
+                $p->setTipo(TipoDePagamento::from($tipo));
+                $p->setValor($valor);
+                $p->setVencimento(new \DateTimeImmutable('2026-12-10'));
+            }
+            if ($pago) {
+                $p->alternarQuitacao(new \DateTimeImmutable('2026-10-01'));
+            }
+            $em->persist($p);
+        }
+        $em->flush();
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
-        $bloco = $crawler->filter('#financeiro-valor-causa-bloco');
-        self::assertSame(1, $bloco->count());
-        self::assertSame(
-            'Honorários contratuais',
-            trim($bloco->filter('.ps-fin-rotulo')->text()),
-            'o rótulo do card não é o nome que o dono pediu'
-        );
+        $bloco = $crawler->filter('.ps-fin-faixa > #financeiro-total-contratado-bloco');
+        self::assertCount(1, $bloco, 'o card é filho direto da faixa');
+        self::assertSame('Total contratado', trim($bloco->filter('.ps-fin-rotulo-linha > .ps-fin-rotulo')->text()));
+        self::assertSame('R$ 12.860,00', trim($bloco->filter('.ps-fin-corpo > #financeiro-total-contratado')->text()), 'pagos ou não, sem o previsto e sem o valor da causa');
+        self::assertSame('1286000', $bloco->filter('#financeiro-total-contratado')->attr('data-centavos'));
+        $sub = $bloco->filter('.ps-fin-corpo > .ps-fin-sub');
+        self::assertSame('total dos pagamentos · sincronizado', trim($sub->text()));
+        self::assertSame('Soma dos lançamentos contratados em Pagamentos. Atualiza sozinho ao incluir, editar ou excluir um pagamento.', $sub->attr('title'));
 
-        /* O nome antigo não pode sobrar em canto nenhum do card — nem no rótulo,
-           nem no lápis, nem no rótulo acessível do campo de edição. O escopo é o
-           card, não a página: ids e rota seguem chamando `valor-causa`. */
-        self::assertStringNotContainsStringIgnoringCase(
-            'Valor da causa',
-            $bloco->html(),
-            'o nome antigo continua visível em algum ponto do card'
-        );
-        self::assertSame(
-            'Editar honorários contratuais',
-            $bloco->filter('#financeiro-valor-causa-lapis')->attr('title')
-        );
-        self::assertSame(
-            'Honorários contratuais',
-            $bloco->filter('#financeiro-valor-causa-input')->attr('aria-label')
-        );
+        self::assertCount(0, $bloco->filter('input, button, [role="button"], [tabindex]'), 'só leitura: nada para editar');
+        self::assertNull($bloco->attr('data-url'));
+        self::assertCount(0, $crawler->filter('#financeiro-valor-causa-bloco, #financeiro-valor-causa-input, #financeiro-valor-causa-lapis'));
+        self::assertStringNotContainsString('Honorários contratuais', $crawler->filter('.ps-fin-faixa')->text());
     }
 
-    #[TestDox('A ordem dos cards segue o desenho: Contrato, Pró-bono, Honorários contratuais, Média')]
+    #[TestDox('A ordem dos cards segue o desenho: Contrato, Pró-bono, Total contratado, Média')]
     public function testOrdemDosCardsSegueODesenho(): void
     {
         $client          = static::createClient();
@@ -170,7 +185,7 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         $marcadores = [
             '#financeiro-situacao-btn'  => 'contrato',
             '#financeiro-probono-btn'   => 'probono',
-            '#financeiro-valor-causa'   => 'valor',
+            '#financeiro-total-contratado' => 'valor',
             '#financeiro-media-cpf'     => 'media',
         ];
 
@@ -444,21 +459,8 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         self::assertSame('R$ 50.000,00', trim($crawler->filter('#financeiro-media-cpf')->text()));
     }
 
-    #[TestDox('Pasta sem honorários contratuais mostra travessão no lugar do número')]
-    public function testSemValorMostraTravessao(): void
-    {
-        $client          = static::createClient();
-        [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta($tenant);
-        $this->logarComTenant($client, $user, $tenant);
-
-        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
-
-        self::assertSame('Sem dado', trim($crawler->filter('#financeiro-valor-causa')->text()));
-    }
-
-    #[TestDox('Os honorários contratuais são editáveis na própria tela, com token CSRF e rota de gravação')]
-    public function testValorCausaTemGanchoDeEdicao(): void
+    #[TestDox('Pasta sem lançamento: Total contratado R$ 0,00 (é soma, não "Sem dado")')]
+    public function testSemLancamentoTotalZero(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
@@ -466,14 +468,8 @@ final class PastaFinanceiroArranjoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
-        $bloco   = $crawler->filter('.ps-fin-faixa > #financeiro-valor-causa-bloco');
 
-        self::assertSame(1, $bloco->count());
-        self::assertNotEmpty($bloco->attr('data-csrf'));
-        self::assertStringContainsString(
-            "/pasta/{$pasta->getId()}/valor-causa",
-            (string) $bloco->attr('data-url')
-        );
+        self::assertSame('R$ 0,00', trim($crawler->filter('#financeiro-total-contratado')->text()));
     }
 
     /**

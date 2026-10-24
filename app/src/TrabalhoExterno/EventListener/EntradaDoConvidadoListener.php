@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\EventListener;
 
 use App\Entity\Auth\User;
 use App\Repository\UserTenantRepository;
+use App\Security\GoogleAuthenticator;
 use App\Security\UserAuthenticator;
 use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -25,7 +26,7 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
  * autenticador de todos: quem tem escritório, o super admin e quem não tem convite seguem o
  * caminho de sempre. Não concede acesso nenhum: o perfil continua resolvido em cada requisição.
  *
- * Só o login pelo FORMULÁRIO (`UserAuthenticator`) tem destino a trocar. O login automático
+ * Só o login pelo FORMULÁRIO (`UserAuthenticator`) ou pelo Google (`GoogleAuthenticator`) tem destino a trocar. O login automático
  * pelo cookie de "manter conectado" acontece no meio de uma requisição qualquer (um GET com
  * `?te=`, um POST da API) e deve deixá-la seguir: redirecionar ali perderia a ação.
  */
@@ -42,7 +43,7 @@ final class EntradaDoConvidadoListener
     public function __invoke(LoginSuccessEvent $event): void
     {
         $usuario = $event->getUser();
-        if (!$event->getAuthenticator() instanceof UserAuthenticator
+        if (!($event->getAuthenticator() instanceof UserAuthenticator || $event->getAuthenticator() instanceof GoogleAuthenticator)
             || !$usuario instanceof User
             || in_array('ROLE_SUPER_ADMIN', $usuario->getRoles(), true)
             || $this->vinculos->findActiveByUser($usuario) !== []

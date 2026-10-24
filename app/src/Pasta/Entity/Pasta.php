@@ -65,8 +65,22 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(length: 20, options: ['default' => self::SITUACAO_ATIVA])]
     private string $situacao = self::SITUACAO_ATIVA;
 
+    /**
+     * Quando a pasta chegou à etapa Finalizada do andamento ("Pastas concluídas" do Dashboard, spec
+     * dashboard-parte-1). Nula fora de Finalizada: voltar de fase ou reativar apaga, finalizar de novo
+     * grava a nova data. Quem mantém é o {@see PastaAndamento::gravar()} da via atual (e a troca de via);
+     * a pasta arquivada sem andamento gravado guarda a data do arquivamento. A situação e a lápide não
+     * mexem nela: a pasta excluída fica fora da contagem pelo excluida_em.
+     */
+    #[ORM\Column(name: 'finalizada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $finalizadaEm = null;
+
     #[ORM\Column(enumType: PrioridadePasta::class, options: ['default' => 'normal'])]
     private PrioridadePasta $prioridade = PrioridadePasta::Normal;
+
+    /** Área do direito em que a pasta é tocada ("Mover para outra carteira" do ⋮). NULL = "Sem carteira". */
+    #[ORM\Column(name: 'carteira', length: 30, nullable: true, enumType: CarteiraDaPasta::class)]
+    private ?CarteiraDaPasta $carteira = null;
 
     #[Assert\NotNull]
     #[ORM\Column(type: 'datetime_immutable')]
@@ -283,6 +297,22 @@ $this->documentos = new ArrayCollection();
         return $this;
     }
 
+    public function getFinalizadaEm(): ?\DateTimeImmutable
+    {
+        return $this->finalizadaEm;
+    }
+
+    /** A mesma data (até o segundo, como a coluna guarda) não troca o objeto: nada de UPDATE nem auditoria à toa. */
+    public function setFinalizadaEm(?\DateTimeImmutable $finalizadaEm): self
+    {
+        if ($finalizadaEm?->format('Y-m-d H:i:s') === $this->finalizadaEm?->format('Y-m-d H:i:s')) {
+            return $this;
+        }
+        $this->finalizadaEm = $finalizadaEm;
+
+        return $this;
+    }
+
     public function getPrioridade(): PrioridadePasta
     {
         return $this->prioridade;
@@ -293,6 +323,22 @@ $this->documentos = new ArrayCollection();
         $this->prioridade = $prioridade;
 
         return $this;
+    }
+
+    public function getCarteira(): ?CarteiraDaPasta
+    {
+        return $this->carteira;
+    }
+
+    /** Põe a pasta na carteira escolhida. Devolve se mudou (mover para a mesma carteira não muda nada). */
+    public function moverParaCarteira(CarteiraDaPasta $carteira): bool
+    {
+        if ($this->carteira === $carteira) {
+            return false;
+        }
+        $this->carteira = $carteira;
+
+        return true;
     }
 
     public function getPrioridadeBadgeClass(): string

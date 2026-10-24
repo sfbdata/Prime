@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\DTO;
 
 use App\Pasta\Entity\PastaPagamento;
+use App\Shared\Service\ValorEmReais;
 
 /**
  * Uma linha do card Pagamentos, já pronta para impressão — a tela não decide
@@ -15,6 +16,7 @@ final readonly class PastaPagamentoLinhaOutput
     public const ESTADO_PAGO     = 'Pago';
     public const ESTADO_PENDENTE = 'Pendente';
     public const ESTADO_VENCIDA  = 'Vencida';
+    public const ESTADO_PREVISTO = 'Previsto';
 
     public function __construct(
         public int $id,
@@ -22,13 +24,15 @@ final readonly class PastaPagamentoLinhaOutput
         public string $valorFormatado,
         public string $quando,
         public string $estado,
-        /** `ok` (verde), `proximo` (âmbar) ou `urgente` (vermelho) — os tons de selo que a tela já tem. */
+        /** `ok` (verde), `proximo` (âmbar), `urgente` (vermelho) ou `previsto` (azul, êxito e sucumbência). */
         public string $tom,
         public bool $pago,
         /** O valor como o campo de correção abre: "1300,00" (pt-BR, sem milhar). */
         public string $valorEditavel = '',
         /** @var list<CorrecaoDeValorDoPagamentoOutput> correções de valor, da mais antiga à mais recente */
         public array $correcoes = [],
+        /** Percentual do previsto como se lê ("20", "12,5"); vazio sem percentual. */
+        public string $percentualTexto = '',
     ) {}
 
     public function foiCorrigido(): bool
@@ -62,30 +66,49 @@ final readonly class PastaPagamentoLinhaOutput
      * continua derivado da data de pagamento e do vencimento (`estaVencido`),
      * nada é gravado. O selo segue sendo o botão de quitar nos três casos.
      *
+     * Previsto (êxito e sucumbência ainda não recebidos, desenho 02 L.3615): selo azul e
+     * "N% sobre o total contratado · condicionado ao resultado" (C8). O valor dele é o
+     * calculado na leitura, que chega pronto em `$centavos`.
+     *
      * @param list<CorrecaoDeValorDoPagamentoOutput> $correcoes do audit_log, já filtradas para ESTE pagamento
+     * @param ?int $centavos o valor que vale agora (`BaseDoPercentual::centavosDe`); nulo = o gravado
      */
-    public static function montar(PastaPagamento $pagamento, \DateTimeImmutable $hoje, array $correcoes = []): self
+    public static function montar(PastaPagamento $pagamento, \DateTimeImmutable $hoje, array $correcoes = [], ?int $centavos = null): self
     {
-        $pago    = $pagamento->estaPago();
-        $vencido = $pagamento->estaVencido($hoje);
+        $pago  = $pagamento->estaPago();
+        $valor = $centavos !== null ? ValorEmReais::deCentavos($centavos) : $pagamento->getValor();
 
         [$estado, $tom] = match (true) {
-            $pago    => [self::ESTADO_PAGO, 'ok'],
-            $vencido => [self::ESTADO_VENCIDA, 'urgente'],
-            default  => [self::ESTADO_PENDENTE, 'proximo'],
+            $pago                          => [self::ESTADO_PAGO, 'ok'],
+            $pagamento->estaPrevisto()     => [self::ESTADO_PREVISTO, 'previsto'],
+            $pagamento->estaVencido($hoje) => [self::ESTADO_VENCIDA, 'urgente'],
+            default                        => [self::ESTADO_PENDENTE, 'proximo'],
         };
 
         return new self(
             id: (int) $pagamento->getId(),
             descricao: $pagamento->getDescricao(),
-            valorFormatado: PastaFinanceiroOutput::formatarReais($pagamento->getValor()),
+            valorFormatado: PastaFinanceiroOutput::formatarReais($valor),
             quando: self::quando($pagamento, $hoje),
             estado: $estado,
             tom: $tom,
             pago: $pago,
-            valorEditavel: str_replace('.', ',', $pagamento->getValor()),
+            valorEditavel: str_replace('.', ',', $valor),
             correcoes: $correcoes,
+            percentualTexto: self::percentualTexto($pagamento->getPercentual()),
         );
+    }
+
+    /** "20.00" → "20"; "12.50" → "12,5"; nulo → vazio. */
+    public static function percentualTexto(?string $percentual): string
+    {
+        if ($percentual === null) {
+            return '';
+        }
+
+        $texto = str_contains($percentual, '.') ? rtrim(rtrim($percentual, '0'), '.') : $percentual;
+
+        return str_replace('.', ',', $texto);
     }
 
     /**
@@ -121,6 +144,13 @@ final readonly class PastaPagamentoLinhaOutput
         }
 
         $vencimento = $pagamento->getVencimento();
+        if ($pagamento->estaPrevisto() || $vencimento === null) {
+            // Congelado por correção, o previsto perde o percentual e fica só a condição.
+            return $pagamento->getPercentual() !== null
+                ? self::percentualTexto($pagamento->getPercentual()) . '% sobre o total contratado · condicionado ao resultado'
+                : 'condicionado ao resultado';
+        }
+
         $dias       = (int) $hoje->diff($vencimento)->format('%r%a');
         $data       = $vencimento->format('d/m/Y');
 
