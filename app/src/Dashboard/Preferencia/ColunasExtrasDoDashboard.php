@@ -15,14 +15,16 @@ namespace App\Dashboard\Preferencia;
  *   - tempo_medio      → dias entre `Tarefa.dataCriacao` e `Tarefa.dataConclusao`, só nas
  *                        concluídas que TÊM data de conclusão (as do legado não têm);
  *   - pastas_urgentes  → `Pasta.prioridade = urgente`, por responsável, no período;
+ *   - pastas_concluidas → `Pasta.finalizadaEm` no período, por responsável ("Demandas encerradas
+ *                        no período" do desenho, lida como pastas que chegaram à etapa Finalizada
+ *                        do andamento no período; spec dashboard-parte-1): voltar de fase ou
+ *                        reativar tira da conta, pasta excluída não conta;
  *   - eventos_agenda   → `Evento` visível à equipe em que a pessoa é criadora ou participante,
  *                        no período;
  *   - relatorio        → registros por autor em Dados da pasta, Financeiro e Detalhes, no
  *                        período (chave `comentarios` no desenho; spec dashboard-parte-1).
  *
- * "Pastas concluídas" (do desenho) NÃO está aqui: a pasta só tem ativo/arquivado, não existe
- * "concluída" — sem lastro (pendencias-pos-documentos, item 17). O "zerar" do Relatório também não
- * (DASH-014, fatia seguinte).
+ * O "zerar" das colunas não está aqui (DASH-014, fatia seguinte).
  *
  * A ordem do catálogo é a ordem da lista "Adicionar coluna" no menu (a do desenho). A ordem das
  * colunas NA TABELA é a da preferência do usuário: cada "+" acrescenta no fim.
@@ -37,6 +39,7 @@ final class ColunasExtrasDoDashboard
     public const METAS_REVISAO    = 'metas_revisao';
     public const TEMPO_MEDIO      = 'tempo_medio';
     public const PASTAS_URGENTES  = 'pastas_urgentes';
+    public const PASTAS_CONCLUIDAS = 'pastas_concluidas';
     public const EVENTOS_AGENDA   = 'eventos_agenda';
     public const RELATORIO        = 'relatorio';
 
@@ -81,6 +84,12 @@ final class ColunasExtrasDoDashboard
             'tipo'   => self::TIPO_SOMA,
             'nota'   => '',
         ],
+        self::PASTAS_CONCLUIDAS => [
+            'rotulo' => 'Pastas concluídas',
+            'ajuda'  => 'Demandas encerradas no período',
+            'tipo'   => self::TIPO_SOMA,
+            'nota'   => 'Pastas arquivadas no período em que a pessoa é a responsável; desarquivar tira da conta e pasta excluída não conta. As arquivadas antes de o sistema registrar a data do arquivamento, sem registro de quando foi, ficam fora.',
+        ],
         self::EVENTOS_AGENDA => [
             'rotulo' => 'Eventos na agenda',
             'ajuda'  => 'Compromissos no período',
@@ -103,6 +112,9 @@ final class ColunasExtrasDoDashboard
      *     ('fila'; desenho `neutra`).
      *   - relatório: a data de criação do registro é um fato do passado; subir é bom ('alta',
      *     o padrão do desenho para quem não é `neutra` nem SOBE_RUIM; spec dashboard-parte-1).
+     *   - pastas concluídas: a data do arquivamento cai no período em que aconteceu; subir é bom
+     *     ('alta', o desenho não a marca `neutra` nem `sobeRuim`). Desarquivar tira a pasta do
+     *     período em que ela tinha sido arquivada, nos dois lados da comparação.
      *
      * Ficam SEM tendência (DASH-010b), com o espaço da seta reservado como nas de estoque:
      *   - Em revisão e Pastas urgentes: são estoque (o que está em revisão/urgente agora), não
@@ -121,8 +133,9 @@ final class ColunasExtrasDoDashboard
      * @var array<string, string>
      */
     public const TENDENCIA = [
-        self::EVENTOS_AGENDA => 'fila',
-        self::RELATORIO      => 'alta',
+        self::PASTAS_CONCLUIDAS => 'alta',
+        self::EVENTOS_AGENDA    => 'fila',
+        self::RELATORIO         => 'alta',
     ];
 
     /**

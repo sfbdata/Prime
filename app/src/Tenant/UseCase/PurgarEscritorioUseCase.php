@@ -253,6 +253,10 @@ final class PurgarEscritorioUseCase
         // Foto diária do estoque do Dashboard (dado derivado, por usuário): FK de tenant NO ACTION,
         // nada a referencia — deleção explícita antes de apagar o tenant.
         ['dashboard_foto', 'tenant_id = :tenant'],
+        // Zerar de coluna e meta de pastas do Dashboard (dashboard-parte-1, PR3): FKs de tenant NO
+        // ACTION, nada as referencia.
+        ['dashboard_zeramento', 'tenant_id = :tenant'],
+        ['dashboard_meta_pastas', 'tenant_id = :tenant'],
         // Central de Comunicação (A1): mensagem e participante caem pela CASCADE da conversa, mas as FKs de
         // tenant são NO ACTION — deleção explícita de baixo para cima, antes de apagar o tenant.
         ['central_mensagem', 'tenant_id = :tenant'],

@@ -81,11 +81,11 @@ final class PreferenciasDoDashboardOutputTest extends TestCase
         self::assertSame('', $prefs->classesCss());
     }
 
-    #[TestDox('Lista de extras gravada com coluna que saiu do catálogo (ex.: "Pastas concluídas") cai no padrão: nenhuma extra')]
+    #[TestDox('Lista de extras gravada com coluna fora do catálogo (ex.: "demandas_encerradas") cai no padrão: nenhuma extra')]
     public function testColunasExtrasEstragadasCaemNoPadrao(): void
     {
         $prefs = PreferenciasDoDashboardOutput::deValores([
-            'dashboard.colunas_extras' => ['metas_concluidas', 'pastas_concluidas'],
+            'dashboard.colunas_extras' => ['metas_concluidas', 'demandas_encerradas'],
         ]);
 
         self::assertSame([], $prefs->colunasExtras);

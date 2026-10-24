@@ -24,7 +24,7 @@ use Doctrine\ORM\QueryBuilder;
  * ele EXPLICITAMENTE (além do TenantFilter): nenhum número de outro escritório entra.
  *
  * Período: a MESMA régua das colunas que já existem — metas por `t.dataCriacao`, pastas por
- * `p.dataAbertura` — com o mesmo formato estrito ('!Y-m-d', fim do dia na borda final). Agenda
+ * `p.dataAbertura` (as concluídas por `p.finalizadaEm`) — com o mesmo formato estrito ('!Y-m-d', fim do dia na borda final). Agenda
  * usa `e.dataInicio` (o compromisso cai no período em que acontece). Sem período, conta tudo,
  * como as outras colunas.
  *
@@ -131,6 +131,37 @@ class MetricasExtrasDoDashboardRepository
             ->groupBy('r.id');
 
         $this->aplicarPeriodo($qb, 'p.dataAbertura', $filtros);
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
+        }
+
+        return $this->mapaDeContagem($qb);
+    }
+
+    /**
+     * "Pastas concluídas" ("Demandas encerradas no período" do desenho): pastas que chegaram à etapa
+     * Finalizada do andamento no período, por responsável, pela data da chegada (`finalizadaEm`), e
+     * não pela abertura nem pela situação. Voltar de fase ou reativar apaga a data, então a pasta sai
+     * da conta; pasta excluída (lápide) e pasta oculta pelo cadeado para quem olha ficam fora.
+     *
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array<int, int> userId => quantidade
+     */
+    public function contarFinalizadasPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
+    {
+        $qb = $this->em->createQueryBuilder()
+            ->select('r.id AS pessoa_id, COUNT(p.id) AS total')
+            ->from(Pasta::class, 'p')
+            ->join('p.responsavel', 'r')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.finalizadaEm IS NOT NULL')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('r.id');
+
+        $this->aplicarPeriodo($qb, 'p.finalizadaEm', $filtros);
         if ($pastasOcultas !== []) {
             $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
         }

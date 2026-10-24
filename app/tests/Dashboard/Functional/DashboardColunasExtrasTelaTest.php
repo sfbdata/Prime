@@ -275,7 +275,7 @@ final class DashboardColunasExtrasTelaTest extends DashboardWebTestCase
 
     // ─── menu ⋮ ──────────────────────────────────────────────────────
 
-    #[TestDox('Menu: "Adicionar coluna" lista as 6 métricas com lastro (sem "Pastas concluídas"); as ligadas aparecem em Colunas como "(extra)"')]
+    #[TestDox('Menu: "Adicionar coluna" lista as métricas do catálogo, com "Pastas concluídas"; as ligadas aparecem em Colunas como "(extra)"')]
     public function testMenuAdicionarColuna(): void
     {
         $client = static::createClient();
@@ -287,8 +287,8 @@ final class DashboardColunasExtrasTelaTest extends DashboardWebTestCase
         self::assertResponseIsSuccessful();
         $add = $crawler->filter(self::MENU . ' > button.db-pref-add[data-pref-extra-adicionar]');
         self::assertSame(ColunasExtrasDoDashboard::chaves(), $add->each(static fn (Crawler $b): string => (string) $b->attr('data-pref-extra-adicionar')));
-        self::assertNotContains('pastas_concluidas', ColunasExtrasDoDashboard::chaves());
-        self::assertStringNotContainsString('Pastas concluídas', $crawler->filter(self::MENU)->text());
+        self::assertContains('pastas_concluidas', ColunasExtrasDoDashboard::chaves());
+        self::assertStringContainsString('Pastas concluídas', $crawler->filter(self::MENU)->text());
         // as ligadas somem de "Adicionar coluna"…
         self::assertCount(2, $crawler->filter(self::MENU . ' > button.db-pref-add[hidden]'));
         self::assertCount(1, $crawler->filter(self::MENU . ' > button.db-pref-add[data-pref-extra-adicionar="taxa_conclusao"][hidden]'));
@@ -339,7 +339,7 @@ final class DashboardColunasExtrasTelaTest extends DashboardWebTestCase
         self::assertSame(['pastas_urgentes', 'metas_concluidas'], $crawler->filter('.db-table > thead > tr > th[data-extra]')->each(static fn (Crawler $th): string => (string) $th->attr('data-coluna')));
     }
 
-    #[TestDox('POST recusa extra fora do catálogo ("Pastas concluídas", inventada, formato errado) com 400 e não grava nada')]
+    #[TestDox('POST recusa extra fora do catálogo ("demandas_encerradas", inventada, formato errado) com 400 e não grava nada')]
     public function testRecusaInvalida(): void
     {
         $client = static::createClient();
@@ -347,7 +347,7 @@ final class DashboardColunasExtrasTelaTest extends DashboardWebTestCase
         $this->instalarCsrfStorage();
         [$user, $tenant] = $this->criarGestorLogado($client);
 
-        foreach ([['pastas_concluidas'], ['metas_concluidas', 'salario'], 'tempo_medio', ['tempo_medio' => true], [null]] as $valor) {
+        foreach ([['demandas_encerradas'], ['metas_concluidas', 'salario'], 'tempo_medio', ['tempo_medio' => true], [null]] as $valor) {
             $this->postar($client, ['chave' => 'dashboard.colunas_extras', 'valor' => $valor]);
             self::assertResponseStatusCodeSame(400, 'valor: ' . json_encode($valor));
         }
