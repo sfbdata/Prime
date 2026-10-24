@@ -11,7 +11,7 @@ contradições do README do Designer).
 
 **Estado do provedor:** NÃO escolhido (decisão D1 do dono). A fatia entrega a cadeia inteira com
 `ProvedorNaoConfigurado` em dev/prod e `ProvedorFalso` só em teste. Ligar em produção = escrever o adaptador
-(~80 linhas), trocar o alias, definir `IA_API_KEY`/`IA_MODELO`/`IA_HABILITADA=1`, rebuild, Anexo I da Política.
+(~80 linhas), trocar o alias, definir `ANTHROPIC_API_KEY`/`IA_MODELO`/`IA_HABILITADA=1` (nome corrigido em 24/10: o código lê `ANTHROPIC_API_KEY`), rebuild, Anexo I da Política.
 
 **Etapas desta fatia:**
 - **1A (backend):** domínio `app/src/Inteligencia/`, migration, config, admin `/admin/inteligencia`, comando de
@@ -44,7 +44,7 @@ Inteligencia/DTO/RespostaDeLinguagem.php (readonly) texto, modelo, tokensEntrada
 
 `services.yaml`: `App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorNaoConfigurado'`
 (mesmo padrão do OAB). Quando o dono escolher: `ProvedorAnthropic`/`ProvedorOpenAi` com `HttpClientInterface` +
-binds `string $iaApiKey: '%env(string:default::IA_API_KEY)%'`, `string $iaModelo`, `string $iaBaseUrl` e troca do
+binds `string $iaApiKey: '%env(string:default::IA_API_KEY)%'`, `string $iaModelo`, `string $iaBaseUrl` (histórico: o adaptador real lê `ANTHROPIC_API_KEY` e não tem URL base) e troca do
 alias. Em `when@test`: alias para `App\Tests\Inteligencia\Support\ProvedorFalso` (respostas programadas, registra
 pedidos) — igual ao `FakeGoogleDriveClientFactory` do Sync.
 
@@ -196,7 +196,7 @@ Resultado esperado ao fim da fatia, **sem provedor**: a aba Push mostra o botão
 nesta instalação"; o admin vê `/admin/inteligencia` e consegue ligar/desligar e definir limites; a suíte prova a
 cadeia inteira com `ProvedorFalso`; `app:inteligencia:status` mostra "provedor: nao_configurado". Quando o dono
 escolher o provedor: escrever `ProvedorXxx` (≈ 80 linhas, `HttpClientInterface`), trocar o alias em `services.yaml`,
-definir `IA_API_KEY`/`IA_MODELO`/`IA_HABILITADA=1` no `.env.prod`, rebuild (prod é imagem baked), atualizar o Anexo I.
+definir `ANTHROPIC_API_KEY`/`IA_MODELO`/`IA_HABILITADA=1` (nome corrigido em 24/10: o código lê `ANTHROPIC_API_KEY`) no `.env.prod`, rebuild (prod é imagem baked), atualizar o Anexo I.
 
 ### 4.1 Arquivos (novos, salvo indicação)
 

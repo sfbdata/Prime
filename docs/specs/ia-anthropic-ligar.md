@@ -1,7 +1,7 @@
 # BlueJus IA: ligar a API da Anthropic e os recursos de IA dos desenhos
 
 Frente "Reserva D", aberta em 24/10/2026 pelo coordenador. Etapa 1: **só investigação e plano, nada
-implementado**. Base: `master` em `6063a69e3`. Risco: MÉDIO (dado de cliente sai para um operador externo;
+implementado**. **As respostas do dono (24/10) estão no §10 e valem sobre as propostas dos §5 a §8.** Base: `master` em `6063a69e3`. Risco: MÉDIO (dado de cliente sai para um operador externo;
 não toca ponto nem identidade User/Tenant).
 
 Esta spec **retoma** a `docs/specs/inteligencia-provedor-anthropic.md` (D1, 14/10/2026), que continua valendo
@@ -316,3 +316,94 @@ em nenhuma fase de IA: são regras e seguem nas frentes das suas telas.
     2195) não têm histórico que os sustente. Saem da tela até haver dado medido?
 14. **D-IA2 · Quem usa.** Quais perfis recebem "Usar a BlueJus IA" e "Configurar a BlueJus IA" (hoje só o admin,
     pelo bypass)?
+
+## 10. Decisões do dono (24/10/2026)
+
+Respostas recebidas pelo coordenador em 24/10. Onde o dono não respondeu, vale a recomendação desta spec,
+marcada **"padrão adotado em 24/10, o dono pode rever"**.
+
+| Pergunta | Decisão |
+|---|---|
+| **Q1** piloto | O escritório do Farlei, **só ele** no começo. Ligar e desligar **por escritório** e uma **chave geral** para todos, no painel do Master. |
+| **D1-b** modelo | **`claude-haiku-5-5`** como padrão. O **Master escolhe o modelo** no painel (Haiku 5.5, Sonnet 5.5, Opus 5.5; Fable fica fora por exigir retenção de 30 dias). |
+| **Q4** quem paga | O **Master escolhe no painel**: incluso no plano, adicional pago ou limite grátis, com **orçamento por escritório**. |
+| Itens Q1, D1-b, Q4 | Uma **aba própria "Configurações da I.A."** no painel do Master, com os componentes que o painel já usa; se algum desenho tiver essa tela, o desenho manda. |
+| **D13 / Q2** documentos | **Liberado: a IA lê o conteúdo dos documentos**, como no desenho. |
+| **D1-c** ZDR | **Sim.** O dono pede a retenção zero à Anthropic (§10.2). Isso fica escrito na aba de configurações e num rascunho da Política de Privacidade para o jurídico. |
+| `inference_geo` | Padrão recomendado: **`us`** (§10.2). |
+| **Q8** e percentuais | O **rótulo de IA sai das telas que são regra**, e os percentuais sem base saem. **Pendência visível** para ligar a IA nessas regras quando houver dado real (§10.3). |
+| **D12** pastas do cliente | Pode cruzar as pastas do mesmo cliente, **dentro do mesmo escritório**. Padrão adotado em 24/10, o dono pode rever. |
+| **D11** financeiro | Mantém a regra atual: só vai se quem pediu pode ver o financeiro da pasta. Padrão adotado em 24/10, o dono pode rever. |
+| **Q5** retenção local | 12 meses; depois a resposta e a pergunta são apagadas por tarefa agendada. Padrão adotado em 24/10, o dono pode rever. |
+| **Q6** recusa | Não desviar para outro modelo: a tela diz que a IA não respondeu (o Haiku 5.5 nem tem desvio automático). Padrão adotado em 24/10, o dono pode rever. |
+| **Q3** ordem | Documentos (F5) antes do Chat I.A (F3), porque o dono liberou a leitura e ela reaproveita o drawer que já existe. Padrão adotado em 24/10, o dono pode rever. |
+| **Q7** enviar ao cliente | Entra, sempre depois da revisão do advogado e com o rótulo "Gerada por inteligência artificial". Padrão adotado em 24/10, o dono pode rever. |
+| **Q13** percentuais | Saem da tela até haver dado medido (junto da Q8). |
+| **D-IA2** quem usa | "Usar a BlueJus IA" para todos os perfis do escritório e "Configurar a BlueJus IA" só para o administrador. Padrão adotado em 24/10, o dono pode rever. |
+
+### 10.1 Consequências no desenho técnico
+
+- **O modelo sai do `.env` e vai para o banco** (configuração da plataforma, editada pelo Master). `IA_MODELO` no
+  ambiente vira só o valor inicial. A **chave continua só no `.env.prod`**, gravada pelo dono; o painel mostra se
+  ela existe, nunca o valor.
+- **A chave geral** do painel substitui o `IA_HABILITADA` como interruptor do dia a dia (o `IA_HABILITADA` do
+  ambiente fica como trava de instalação: desligado no ambiente, nada liga pelo painel).
+- **Ligar por escritório** sai do admin do escritório e passa ao Master (o admin do escritório continua vendo o
+  estado e dando o consentimento).
+- **Orçamento por escritório** em US$ por mês, com o modo de cobrança (incluso, adicional, limite grátis) gravado
+  por escritório. A cota em número de análises continua como segunda trava.
+- **Leitura de documentos sem OCR nosso:** PDF e imagem vão **inline** no corpo da mensagem (bloco `document` em
+  base64), que é coberto pela retenção zero. A Files API **não** entra (não é coberta).
+- O esforço padrão do Haiku 5.5 é `medium`; o adaptador manda `IA_ESFORCO` explícito.
+
+### 10.2 Retenção zero (ZDR) e `inference_geo`: o que o dono pede e onde
+
+Conferido em 24/10/2026 em `platform.claude.com/docs/en/manage-claude/api-and-data-retention` e
+`.../data-residency`.
+
+**O que pedir** (formulário de vendas da Anthropic, `https://claude.com/contact-sales`, com o e-mail da
+organização da Console):
+
+1. **Zero Data Retention (ZDR) para a organização** da API onde fica a chave do BlueJus. É por organização: uma
+   organização nova precisa de pedido novo.
+2. **Confirmação por escrito** de que, com ZDR, prompts e respostas não ficam guardados depois da resposta, e das
+   exceções: conteúdo sinalizado pelos sistemas de segurança e obrigação legal.
+3. **O DPA** (adendo de tratamento de dados) assinado, para anexar ao contrato do BlueJus com os escritórios.
+
+**O que fica fora da ZDR** (o BlueJus não usa nenhum): Batch, Files API, execução de código, chamada
+programática de ferramentas. Os modelos Fable e Mythos exigem 30 dias de retenção e ficam fora do painel.
+
+**Na Console** (`platform.claude.com/settings/workspaces`): criar um workspace só para o BlueJus de produção, com
+`allowed_inference_geos: ["us"]` e `default_inference_geo: "us"`, e um teto de gasto mensal. A chave nasce
+nesse workspace.
+
+**`inference_geo: "us"`**: o processamento fica nos EUA, o que deixa a Política dizer um país só. Custa 1,1x o
+preço padrão; com o Haiku 5.5 isso é centavos por mês. (`global` deixaria o país em aberto.)
+
+### 10.3 Pendência visível: IA nas regras
+
+Registrada também no topo de `docs/specs/PROGRESSO-PENDENCIAS.md`. Estas telas são **regra** e perdem o rótulo de
+IA agora; voltam a ser IA quando houver dado real para medir acerto:
+
+| Tela | Regra hoje | Dado que falta para virar IA |
+|---|---|---|
+| Previsão do próximo ato (Push) | tabela fixa do CPC | histórico de previsões conferidas contra o ato que veio |
+| Prazo interno da meta (`AnaliseDoPrazoDaMeta`) | cálculo local | prazos sugeridos contra prazos cumpridos |
+| Sugerir documentos (checklist) | regras | checklists aceitos e recusados pelo advogado |
+| Dashboard: insight, projeção | regras | produção por pessoa por período |
+| Lembretes "da BlueJus IA" | eventos | nenhum: continuam regra, só perdem o nome |
+| Percentuais ("chance", "calibração") | não existem | histórico de previsões contra resultado |
+
+### 10.4 Plano de PRs (cada um pequeno)
+
+| PR | Conteúdo | Migration |
+|---|---|---|
+| #362 | esta spec + runbook com o nome certo da variável | não |
+| A | preparo do worker: trava ao iniciar a análise, respeitar `retry-after`, `inference_geo`, `ResumoDocumento` | não |
+| B | aba "Configurações da I.A." no Master: chave geral, modelo, por escritório (ligar, modo de cobrança, orçamento), aviso da ZDR | sim (pedir número) |
+| C | orçamento em US$ valendo na disponibilidade + painel de consumo | talvez |
+| D | rótulo de IA sai das telas de regra | não |
+| E | rascunho da Política (Anexo I) para o jurídico + aceite nomeando a Anthropic | não |
+| F | leitura de documentos (PDF e imagem inline) no drawer | talvez |
+| G | retenção local de 12 meses (tarefa agendada) | não |
+| depois | Chat I.A (F3), Agente de Pastas (F4) | sim |
