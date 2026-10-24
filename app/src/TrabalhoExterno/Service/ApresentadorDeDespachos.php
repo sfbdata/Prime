@@ -96,9 +96,19 @@ final class ApresentadorDeDespachos
             'txt' => $x->getTexto(),
             'arqs' => $docs ? array_map(static fn (DocumentoDemanda $doc): array => ['id' => $doc->getId(), 'nome' => $doc->getNomeOriginal()], $x->getDocumentos()) : [],
             'local' => $x->getCidade() . ', ' . self::porExtenso($x->getEm()) . '.',
-            'ass' => 'Assinado eletronicamente por ' . mb_strtoupper($por !== '' ? $por : 'Master') . ($resposta ? '' : ' (Central BlueJus)')
-                . ' em ' . $x->getEm()->format('d/m/Y, H:i') . ' · Cód. ' . $x->codigoCurto(),
+            'ass' => 'Assinado eletronicamente por ' . self::assinante($x, $por) . ' em ' . $x->getEm()->format('d/m/Y, H:i') . ' · Cód. ' . $x->codigoCurto(),
         ];
+    }
+
+    /**
+     * Quem assina na lista (`String(x.por || 'Master').toUpperCase() + ' (Central BlueJus)'`): o ÚNICO ponto que
+     * monta o assinante. Em decisão com o dono (item 3 da revisão do PR 2): para o leitor externo sem
+     * `priv.nomeResp`, `$por` já vem "Central BlueJus" e a assinatura sai "CENTRAL BLUEJUS (Central BlueJus)".
+     * Se a decisão mudar isso, a troca é só aqui.
+     */
+    private static function assinante(DespachoDemanda $x, string $por): string
+    {
+        return mb_strtoupper($por !== '' ? $por : 'Master') . ($x->ehResposta() ? '' : ' (Central BlueJus)');
     }
 
     private function por(Contexto $ctx, DespachoDemanda $x): string

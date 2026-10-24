@@ -1361,7 +1361,7 @@
                 attrs: { 'aria-pressed': on ? 'true' : 'false' },
                 onclick: function () { liberarRespostas(dz.codigo, !on); }
             }, ['Aceitar resposta', el('span', { class: 'te-dp-chave-trilho' + (on ? ' is-on' : '') }, el('span', { class: 'te-dp-chave-bola' }))]) : null,
-            el('button', { type: 'button', class: 'te-dp-extrato', onclick: function () { window.open(ROTA.despachoExtrato(dz.codigo), '_blank'); } }, [ic('bi-printer'), 'Extrato'])
+            el('button', { type: 'button', class: 'te-dp-extrato', onclick: function () { window.open(comComo(ROTA.despachoExtrato(dz.codigo)), '_blank'); } }, [ic('bi-printer'), 'Extrato'])
         ]));
     }
 

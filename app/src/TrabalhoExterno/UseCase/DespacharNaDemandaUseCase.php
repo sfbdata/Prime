@@ -60,6 +60,7 @@ final class DespacharNaDemandaUseCase
         return $this->transacao->executar(
             function () use ($ctx, $demanda, $texto, $nat, $data, $arquivos, $gravados): DespachoDemanda {
                 $despacho = $demanda->despachar($ctx->autor(), $texto, $nat, $data);
+                $despacho->usarCodigo($this->repositorio->codigoDeDespachoLivre($despacho->getCodigo()));
                 if ($arquivos !== []) {
                     $this->documentos->anexar($demanda, $arquivos, $ctx->autor(), $despacho, $gravados);
                 }

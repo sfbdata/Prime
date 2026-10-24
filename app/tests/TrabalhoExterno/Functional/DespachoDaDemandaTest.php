@@ -188,6 +188,120 @@ final class DespachoDaDemandaTest extends JusPrimeWebTestCase
         self::assertCount(2, $crawler->filter('body > div'));
     }
 
+    #[TestDox('o anexo do despacho não se baixa pelo convidado sem "Ver instruções" nem por outro escritório (404)')]
+    public function testDownloadDoAnexoDoDespacho(): void
+    {
+        [$client, $codigo] = $this->demandaEmExecucao();
+        $r = $this->despachar($client, $codigo, ['texto' => 'Leve o mapa.'], [$this->arquivo('mapa.pdf')]);
+        $id = $r['demanda']['despacho']['lista'][0]['arqs'][0]['id'];
+        $url = "/trabalho-externo/demandas/$codigo/documentos/$id";
+        $token = $this->convidar($client, $codigo, 'semver@test.com', ['ver' => false, 'baixar' => false, 'enviar' => false, 'chat' => true, 'andamento' => false, 'concluir' => false]);
+        $convidado = $this->contaDoConvidado($client, $token, 'semver@test.com');
+
+        $this->logarComoConvidado($client, $convidado);
+        $client->request('GET', $url);
+        self::assertResponseStatusCodeSame(404, 'convidado sem "ver"');
+
+        $outro = $this->criarTenant('Outro');
+        $this->logarComTenant($client, $this->criarUsuario($outro), $outro);
+        $client->request('GET', $url);
+        self::assertResponseStatusCodeSame(404, 'outro escritório');
+    }
+
+    #[TestDox('convite revogado e convite vencido: 404 em responder e no Extrato daquela demanda (o convidado segue com outro convite vigente); sem convite nenhum, a conta perde o módulo (403)')]
+    public function testConviteRevogadoOuVencido(): void
+    {
+        [$client, $codigo, $master, $central] = $this->demandaEmExecucao();
+        $this->despachar($client, $codigo, ['texto' => 'Confirme a audiência.']);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/despachos/aceitar-resposta", ['liberar' => true]);
+        $token = $this->convidar($client, $codigo, 'conv@test.com');
+        $convidado = $this->contaDoConvidado($client, $token, 'conv@test.com');
+        $outra = $this->outraDemandaEmExecucao($client);
+        $this->logarComTenant($client, $master, $central);
+        $this->aceitarLogado($client, $convidado, $this->convidar($client, $outra, 'conv@test.com'));
+
+        $responder = function () use ($client, $codigo): void {
+            $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/despachos/respostas", ['texto' => 'Estarei lá']);
+        };
+        $this->logarComoConvidado($client, $convidado);
+        $client->request('GET', "/trabalho-externo/demandas/$codigo/despachos/extrato");
+        self::assertResponseIsSuccessful('com o convite vigente, lê o Extrato');
+
+        // Revogado.
+        $this->logarComTenant($client, $master, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $convite = $this->json($client)['demanda']['convites'][0];
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites/{$convite['id']}/revogar");
+        self::assertResponseIsSuccessful();
+        $this->logarComoConvidado($client, $convidado);
+        $responder();
+        self::assertResponseStatusCodeSame(404, 'revogado: responder');
+        $client->request('GET', "/trabalho-externo/demandas/$codigo/despachos/extrato");
+        self::assertResponseStatusCodeSame(404, 'revogado: Extrato');
+
+        // Vencido: o da outra demanda vence ontem e o da primeira volta a valer, para provar o vencido nela.
+        $this->em()->getConnection()->executeStatement('UPDATE trabalho_externo_convite SET revogado_em = NULL WHERE id = ?', [$convite['id']]);
+        $this->em()->getConnection()->executeStatement('UPDATE trabalho_externo_convite SET validade = ? WHERE id = ?', [(new \DateTimeImmutable('yesterday'))->format('Y-m-d'), $convite['id']]);
+        $this->em()->clear();
+        $responder();
+        self::assertResponseStatusCodeSame(404, 'vencido: responder');
+        $client->request('GET', "/trabalho-externo/demandas/$codigo/despachos/extrato");
+        self::assertResponseStatusCodeSame(404, 'vencido: Extrato');
+
+        // Sem convite vigente nenhum: a conta deixa de ter o módulo, como no resto do Trabalho Externo.
+        $this->em()->getConnection()->executeStatement('UPDATE trabalho_externo_convite SET validade = ? WHERE email = ?', [(new \DateTimeImmutable('yesterday'))->format('Y-m-d'), 'conv@test.com']);
+        $this->em()->clear();
+        $responder();
+        self::assertResponseStatusCodeSame(403);
+        $client->request('GET', "/trabalho-externo/demandas/$codigo/despachos/extrato");
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Extrato na prévia do Master (?como=): o recorte de quem é pré-visualizado, com o nome pela regra do nomeVisivel')]
+    public function testExtratoNaPrevia(): void
+    {
+        [$client, $codigo] = $this->demandaEmExecucao();
+        $this->despachar($client, $codigo, ['texto' => 'Primeiro']);
+
+        $ass = function (string $query) use ($client, $codigo): string {
+            $crawler = $client->request('GET', "/trabalho-externo/demandas/$codigo/despachos/extrato$query");
+            self::assertResponseIsSuccessful($query);
+
+            return $crawler->filter('body > div > small')->first()->text();
+        };
+        self::assertMatchesRegularExpression('/^Assinado eletronicamente por Master \\S+ em /', $ass(''), 'o Master vê o nome de quem despachou');
+        self::assertStringStartsWith('Assinado eletronicamente por Central BlueJus em ', $ass('?como=solicitante'), 'o solicitante vê "Central BlueJus"');
+        self::assertMatchesRegularExpression('/^Assinado eletronicamente por Master \\S+ em /', $ass('?como=equipe'), 'a Equipe é interna');
+
+        $client->request('GET', "/trabalho-externo/demandas/$codigo/despachos/extrato?como=convidado");
+        self::assertResponseStatusCodeSame(404, 'sem convite aceito, a prévia do convidado não tem a demanda');
+
+        $js = (string) file_get_contents(dirname(__DIR__, 3) . '/public/js/trabalho-externo.js');
+        self::assertStringContainsString('window.open(comComo(ROTA.despachoExtrato(dz.codigo)), \'_blank\')', $js, 'a tela passa o ?como= ao abrir o Extrato');
+    }
+
+    #[TestDox('o código da assinatura não se repete: com os 8 dígitos já em uso, o seguinte livre')]
+    public function testCodigoUnico(): void
+    {
+        [$client, $codigo] = $this->demandaEmExecucao();
+        $this->despachar($client, $codigo, ['texto' => 'Primeiro']);
+        $usado = (int) $this->em()->getConnection()->fetchOne('SELECT codigo FROM trabalho_externo_despacho ORDER BY id DESC LIMIT 1');
+        $repo = static::getContainer()->get(\App\TrabalhoExterno\Repository\DemandaExternaRepository::class);
+
+        self::assertSame($usado + 1, $repo->codigoDeDespachoLivre($usado));
+        self::assertSame($usado + 100_000_001, $repo->codigoDeDespachoLivre($usado + 100_000_000), 'os mesmos 8 dígitos de outro ciclo também colidem');
+        self::assertSame($usado + 5, $repo->codigoDeDespachoLivre($usado + 5));
+
+        $this->em()->getConnection()->executeStatement('UPDATE trabalho_externo_despacho SET codigo = codigo + 1 WHERE codigo = ?', [$usado]);
+        self::assertSame($usado + 2, $repo->codigoDeDespachoLivre($usado + 1), 'anda até o primeiro livre');
+
+        try {
+            $this->em()->getConnection()->executeStatement('INSERT INTO trabalho_externo_despacho (codigo, nome_autor, perfil_autor, em, tipo, texto, cidade, demanda_id) SELECT codigo, nome_autor, perfil_autor, em, tipo, texto, cidade, demanda_id FROM trabalho_externo_despacho LIMIT 1');
+            self::fail('o índice único barra o código repetido');
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+        }
+    }
+
     #[TestDox('Extrato sem despacho: "Nenhum despacho."')]
     public function testExtratoVazio(): void
     {
@@ -271,6 +385,36 @@ final class DespachoDaDemandaTest extends JusPrimeWebTestCase
         self::assertResponseRedirects();
 
         return $this->em()->getRepository(User::class)->findOneBy(['email' => $email]);
+    }
+
+    /** Uma segunda demanda em execução, de outro escritório, no mesmo cliente. */
+    private function outraDemandaEmExecucao(KernelBrowser $client): string
+    {
+        $escritorio = $this->criarTenant('Solicitante 2');
+        $central = $this->criarTenant('Central 2');
+        $solicitante = $this->criarUsuario($escritorio);
+        $master = $this->criarMaster($central);
+
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $codigo = $this->solicitar($client, self::solicitacaoValida())['codigo'];
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/analise");
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/propostas", ['valor' => '300']);
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/aceitar");
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/acoes/iniciar");
+
+        return $codigo;
+    }
+
+    /** A conta que já existe aceita mais um convite pelo link. */
+    private function aceitarLogado(KernelBrowser $client, User $usuario, string $token): void
+    {
+        $this->logarComoConvidado($client, $usuario);
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$token");
+        $client->request('POST', "/trabalho-externo/convite/$token/aceitar", ['_token' => $crawler->filter('form[action$="/aceitar"] input[name="_token"]')->attr('value')]);
+        self::assertResponseRedirects();
     }
 
     private function logarComoConvidado(KernelBrowser $client, User $convidado): void

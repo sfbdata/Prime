@@ -55,6 +55,7 @@ final class DespachoDaDemandaTest extends TestCase
     private DemandaExterna $demanda;
     private int $salvos = 0;
     private int $transacoes = 0;
+    private int $codigoLivre = 0;
 
     protected function setUp(): void
     {
@@ -135,6 +136,8 @@ final class DespachoDaDemandaTest extends TestCase
         self::assertSame(NaturezaDoDespacho::CumpraSe, $x->getNatureza());
         self::assertSame('2026-11-06', $x->getPrazo()?->format('Y-m-d'));
         self::assertSame([1, 1], [$this->transacoes, $this->salvos]);
+        self::assertSame($this->codigoLivre, $x->getCodigo(), 'o código da assinatura é o livre que o repositório achou');
+        self::assertSame(str_pad((string) ($this->codigoLivre % DespachoDemanda::CICLO_DO_CODIGO), 8, '0', STR_PAD_LEFT), $x->codigoCurto());
 
         $y = $this->despachar()->executar(Apoio::contexto(Perfil::Master), 'TE-0007', 'Com prazo', '', '2026-12-01', []);
         self::assertSame('2026-12-01', $y->getPrazo()?->format('Y-m-d'));
@@ -204,6 +207,7 @@ final class DespachoDaDemandaTest extends TestCase
 
         $r = $responder->executar(Apoio::contexto(Perfil::Solicitante), 'TE-0007', 'Segue a procuração');
         self::assertTrue($r->ehResposta());
+        self::assertSame($this->codigoLivre, $r->getCodigo(), 'a resposta também assina com código livre');
         self::assertSame(1, $this->salvos);
     }
 
@@ -293,6 +297,8 @@ final class DespachoDaDemandaTest extends TestCase
         $r = $this->createMock(DemandaExternaRepository::class);
         $r->method('daCentralPorId')->willReturnCallback(fn (int $id): ?DemandaExterna => $id === 7 ? $this->demanda : null);
         $r->method('doEscritorioPorId')->willReturnCallback(fn (int $id, $tenant): ?DemandaExterna => $id === 7 && $tenant->getId() === $this->demanda->getTenant()->getId() ? $this->demanda : null);
+        // Simula a colisão: o candidato está em uso e o seguinte livre fica 7 adiante.
+        $r->method('codigoDeDespachoLivre')->willReturnCallback(fn (int $candidato): int => $this->codigoLivre = $candidato + 7);
         $r->method('salvar')->willReturnCallback(function (): void {
             ++$this->salvos;
         });

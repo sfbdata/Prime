@@ -137,17 +137,21 @@ final class TrabalhoExternoController extends AbstractController
         throw $this->createNotFoundException();
     }
 
-    /** "Extrato" do DESPACHO (desenho 06 de 24/10, `dpExtrato`): a página que abre numa aba e chama a impressão. */
+    /**
+     * "Extrato" do DESPACHO (desenho 06 de 24/10, `dpExtrato`): a página que abre numa aba e chama a impressão.
+     * Aceita o `?como=` da prévia do Master, como as outras leituras.
+     */
     #[Route('/demandas/{codigo}/despachos/extrato', name: 'trabalho_externo_despacho_extrato', methods: ['GET'], requirements: ['codigo' => 'TE-\d{1,9}'])]
-    public function extratoDeDespachos(string $codigo, MontarExtratoDeDespachosUseCase $montar): Response
+    public function extratoDeDespachos(Request $request, string $codigo, MontarExtratoDeDespachosUseCase $montar): Response
     {
         $ctx = $this->contextoOuNulo();
         if ($ctx === null) {
             return $this->paginaSemAcesso();
         }
+        $como = $this->previa->perfilPedido($ctx, $request->query->get('como'));
 
         try {
-            $extrato = $montar->executar($ctx, $codigo);
+            $extrato = $como !== null ? $montar->executarPrevia($ctx, $codigo, $como) : $montar->executar($ctx, $codigo);
         } catch (DemandaNaoEncontrada) {
             throw $this->createNotFoundException();
         }

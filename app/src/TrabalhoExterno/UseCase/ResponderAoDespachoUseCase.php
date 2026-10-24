@@ -39,6 +39,7 @@ final class ResponderAoDespachoUseCase
         }
 
         $resposta = $demanda->responderAoDespacho($ctx->autor(), $texto);
+        $resposta->usarCodigo($this->repositorio->codigoDeDespachoLivre($resposta->getCodigo()));
         $this->avisos->andamentoDaDemanda($ctx, $demanda);
         $this->repositorio->salvar($demanda, flush: true);
 

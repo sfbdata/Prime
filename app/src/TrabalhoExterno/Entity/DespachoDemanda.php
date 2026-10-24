@@ -19,16 +19,21 @@ use Doctrine\ORM\Mapping as ORM;
  * nem apaga um despacho publicado.
  *
  * `codigo` é o `id: Date.now()` do protótipo, o instante da publicação em milissegundos, gravado uma vez: a
- * assinatura eletrônica mostra os 8 últimos dígitos ("Cód. 12345678"), e ele não muda ao reler.
+ * assinatura eletrônica mostra os 8 últimos dígitos ("Cód. 12345678"), e ele não muda ao reler. Não se repete:
+ * o caso de uso troca o candidato pelo primeiro livre ({@see \App\TrabalhoExterno\Repository\DemandaExternaRepository::codigoDeDespachoLivre()},
+ * que confere os 8 dígitos da assinatura), e o índice único barra o código inteiro repetido.
  * `cidade` é o lugar da assinatura ("{Cidade}, 24 de outubro de 2026."), a cidade de execução no momento.
  * Os anexos são `DocumentoDemanda` com este despacho (a mesma guarda e a mesma purga dos documentos).
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'trabalho_externo_despacho')]
+#[ORM\UniqueConstraint(name: 'uniq_te_despacho_codigo', columns: ['codigo'])]
 class DespachoDemanda
 {
     public const MAX_TEXTO = 5000;
     public const MAX_RESPOSTA = 3000;
+    /** A assinatura mostra os 8 últimos dígitos: o código é único dentro deste ciclo. */
+    public const CICLO_DO_CODIGO = 100_000_000;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -90,10 +95,21 @@ class DespachoDemanda
         return $this->demanda;
     }
 
+    public function getCodigo(): int
+    {
+        return (int) $this->codigo;
+    }
+
+    /** Só antes do primeiro flush: o código livre que o repositório achou no lugar do candidato. */
+    public function usarCodigo(int $codigo): void
+    {
+        $this->codigo = $codigo;
+    }
+
     /** Os 8 últimos dígitos do código, como na assinatura do desenho (`String(x.id).slice(-8)`). */
     public function codigoCurto(): string
     {
-        return substr((string) $this->codigo, -8);
+        return str_pad((string) ((int) $this->codigo % self::CICLO_DO_CODIGO), 8, '0', STR_PAD_LEFT);
     }
 
     public function getTipo(): TipoDeDespacho
