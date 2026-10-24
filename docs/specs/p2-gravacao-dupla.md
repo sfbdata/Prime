@@ -682,8 +682,23 @@ minuto). Saída só de contagens (enfileiradas, já na fila, ausentes no disco, 
 leitura). Peça: `Acervo\CarregadorDoAcervo`. Como a retenção apaga `verificado` depois de 90 dias, uma carga
 repetida depois disso enfileira de novo, e o worker acha o objeto pelo HEAD sem reenviar.
 
+Quando a última linha da chave é de outro estado, a carga registra um envio novo (se o arquivo estiver no
+disco):
+- `falhou`: a linha nova entra `pendente`, mas a antiga continua `falhou` (a reivindicação só olha linhas
+  pendentes ou em processamento) e segue contando no alerta. Por isso o procedimento roda
+  `armazenamento:reenfileirar-falhas --categoria=X` ANTES da carga: a falha volta a `pendente`, e a carga a
+  conta como "já na fila" em vez de duplicar. Se a carga rodar primeiro, o reenfileirar depois resolve: a
+  antiga volta a `pendente` e, na reivindicação, vira `superado` (há linha mais nova da mesma chave).
+- `descartado` (o arquivo sumiu do disco quando o worker foi enviar): se ele voltou, a carga o enfileira; se
+  não, conta "ausente no disco local" e não registra nada.
+- `superado` (havia linha mais nova, ou o conteúdo do disco mudou): a carga enfileira o conteúdo atual,
+  medido na hora; o worker relê o disco antes do PUT, como sempre.
+- `registrado` (exclusão registrada): se o arquivo existe no disco de novo, a carga o enfileira, porque o
+  banco ainda o referencia.
+
 **Procedimento por categoria:** ligar a categoria em `ARMAZENAMENTO_ESPELHO_CATEGORIAS` (e recriar php,
-worker e scheduler), rodar `armazenamento:carregar-acervo --categoria=X` (primeiro com `--simular`) e esperar
+worker e scheduler), rodar `armazenamento:reenfileirar-falhas --categoria=X` (se houver falhas antigas dela),
+rodar `armazenamento:carregar-acervo --categoria=X` (primeiro com `--simular`) e esperar
 a fila esvaziar (`armazenamento:espelho-situacao`). Enquanto a fila anda, o arquivo ausente no R2 que tem
 linha pendente ou em processamento é `ausente_pendente_na_outbox` ("em fila") e não dispara o alerta.
 
