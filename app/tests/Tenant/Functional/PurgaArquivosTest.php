@@ -148,6 +148,34 @@ final class PurgaArquivosTest extends KernelTestCase
         self::assertSame(0, $resultado->arquivosRemovidos);
     }
 
+    #[TestDox('foto do cliente: a do escritório purgado sai, a do vizinho fica, e a de nome compartilhado fica e é reportada')]
+    public function testFotoDoCliente(): void
+    {
+        $a          = $this->tenantEmQuarentena();
+        $b          = $this->tenantEmQuarentena();
+        $deA        = $this->nome();
+        $deB        = $this->nome();
+        $dividida   = $this->nome();
+        $caminhoA   = $this->arquivo('clientes_uploads_dir', 'fotos/' . $deA);
+        $caminhoB   = $this->arquivo('clientes_uploads_dir', 'fotos/' . $deB);
+        $caminhoDiv = $this->arquivo('clientes_uploads_dir', 'fotos/' . $dividida);
+        $this->clienteComFoto($a, $deA);
+        $this->clienteComFoto($a, $dividida);
+        $this->clienteComFoto($b, $deB);
+        $this->clienteComFoto($b, $dividida);
+
+        $resultado = $this->purgar($a);
+
+        self::assertFileDoesNotExist($caminhoA, 'a foto do cliente do escritório purgado ficou');
+        self::assertFileExists($caminhoB, 'a purga do A apagou a foto do cliente do B');
+        self::assertFileExists($caminhoDiv, 'o B ainda referencia a foto');
+        self::assertSame(1, $resultado->arquivosRemovidos);
+        self::assertCount(1, $resultado->arquivosNaoRemovidos);
+        self::assertStringContainsString($dividida, $resultado->arquivosNaoRemovidos[0]);
+        self::assertStringContainsString('outro escritório', $resultado->arquivosNaoRemovidos[0]);
+        self::assertSame(0, $this->existeTenant($a));
+    }
+
     /**
      * Linha de OUTRO escritório que cai por CASCADE de um pai deste: pela seção da pasta, e pela
      * coluna do Kanban. A prova exige a cadeia inteira; sem ela o arquivo fica — e é reportado.
@@ -670,6 +698,11 @@ final class PurgaArquivosTest extends KernelTestCase
             'kanban_anexo' => $this->ins('kanban_anexo', ['nome_original' => 'k.pdf', 'caminho' => $nome, 'tamanho' => 1, 'mime_type' => 'application/pdf', 'criado_em' => $ts, 'criado_por_id' => $this->userId, 'tenant_id' => $t,
                 'card_id' => $this->mural($t)[1]]),
         };
+    }
+
+    private function clienteComFoto(int $t, string $foto): int
+    {
+        return $this->ins('cliente', ['email' => 'cli' . uniqid() . '@x.com', 'cep' => '00000-000', 'endereco' => 'Rua', 'cidade' => 'Cidade', 'estado' => 'SP', 'criado_at' => '2020-01-01 00:00:00', 'tipo' => 'PF', 'tenant_id' => $t, 'foto' => $foto]);
     }
 
     private function purgaCom(ConsultaDeDestinoDaTransacao $consulta, LoggerEmMemoria $logger): PurgarEscritorioUseCase
