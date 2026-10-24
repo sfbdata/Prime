@@ -85,6 +85,27 @@ própria do login (separada da do Google Agenda), com o URI de redirecionamento 
 `GOOGLE_LOGIN_OAUTH_CLIENT_SECRET`. Sem as duas, os botões do Google não aparecem e nada quebra.
 Migration manual no deploy: `Version20261020151700` (coluna `user.google_sub`).
 
+### Pendências do dono depois do merge do #366 (24/10/2026)
+
+O #366 entrou no master em 24/10; a migration `Version20261020151700` já foi aplicada no 8080 (saas_ux). Falta:
+
+1. **Credencial do Google** (o segredo nunca passa pela conversa): no Google Cloud, projeto do BlueJus, criar a
+   credencial OAuth "Aplicativo da Web" só do login (separada da do Google Agenda), cadastrar o URI de
+   redirecionamento `https://bluejus.com.br/login/google/callback` e gravar `GOOGLE_LOGIN_OAUTH_CLIENT_ID` e
+   `GOOGLE_LOGIN_OAUTH_CLIENT_SECRET` no `.env.prod` da VPS. Para o smoke no 8080, a mesma coisa no `.env.local`
+   com o URI `http://localhost:8080/login/google/callback` cadastrado na credencial.
+2. **Migration em produção** no deploy da versão que levar o #366: `Version20261020151700`.
+3. **Smoke na tela** (8080, depois em produção):
+   - tema comemorativo ligado: Login e véu "Abrindo o seu escritório digital" com as cores na tarja, a fita, os
+     ícones e o brilho do logo; conferir se o tema pisca ao abrir;
+   - modal "Criar conta": "Continuar com Google", "Continuar com Facebook", o divisor "ou com outro e-mail" e o
+     placeholder "Ex.: BlueJus Advogados Associados";
+   - "Continuar com Google" com um Gmail sem conta: o modal abre conectado (cartão com as iniciais, nome, e-mail
+     "conectado pelo Google"), sem o campo E-mail e com o Nome preenchido; "Criar minha conta" entra direto;
+   - "Usar outro e-mail" volta aos botões e ao campo E-mail;
+   - "Entrar com o Google" no cartão de login com uma conta que já existe: entra pelo véu;
+   - clique no Facebook: o aviso "O acesso pelo Facebook ainda não está disponível..." no modal.
+
 ## Estado da frente (21/10/2026)
 
 - **Entrega 1** (login de quem já tem conta): implementada na branch `entrar-com-google`, migration
