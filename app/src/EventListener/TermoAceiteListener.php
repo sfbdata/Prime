@@ -33,6 +33,9 @@ final class TermoAceiteListener
 
     private const ROTAS_IGNORADAS = [
         'app_login',
+        // Entrar com o Google: a ida e a volta acontecem antes de haver escritório ou aceite.
+        'app_login_google',
+        'app_login_google_volta',
         'app_logout',
         'tenant_selecionar',
         'termo_aceite',

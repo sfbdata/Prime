@@ -65,6 +65,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     #[ORM\Column(name: 'email_a_confirmar_desde', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $emailAConfirmarDesde = null;
 
+    /**
+     * Identificador estável da conta Google ligada (`sub` do OpenID Connect), gravado no primeiro "Entrar com o
+     * Google" (spec entrar-com-google). Único: um `sub` pertence a uma conta só.
+     */
+    #[ORM\Column(name: 'google_sub', length: 255, unique: true, nullable: true)]
+    private ?string $googleSub = null;
+
     // -------------------------
     // Construtor
     // -------------------------
@@ -169,6 +176,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     public function confirmarEmail(): void
     {
         $this->emailAConfirmarDesde = null;
+    }
+
+    public function getGoogleSub(): ?string
+    {
+        return $this->googleSub;
+    }
+
+    /** Liga a conta Google; uma vez ligada, não troca por outra (o "Entrar com o Google" recusa antes). */
+    public function ligarAoGoogle(string $sub): void
+    {
+        if (null !== $this->googleSub && $this->googleSub !== $sub) {
+            throw new \DomainException('Esta conta já está ligada a outra conta Google.');
+        }
+        $this->googleSub = $sub;
     }
 
     public function isActive(): bool

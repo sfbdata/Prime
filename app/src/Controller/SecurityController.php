@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Auth\Infra\GoogleLoginApi;
+use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\PaginaDeEntrada;
 use App\Entity\Auth\User;
@@ -34,7 +36,7 @@ final class SecurityController extends AbstractController
      * com as ferramentas SÓ MASTER; qualquer outro logado segue para o sistema.
      */
     #[Route(path: '/login', name: 'app_login')]
-    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, UserRepository $userRepository, ContaAConfirmar $contaAConfirmar): Response
+    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, UserRepository $userRepository, ContaAConfirmar $contaAConfirmar, GoogleLoginApi $googleLogin, CadastroPeloGoogle $cadastroPeloGoogle): Response
     {
         $logado = $this->getUser();
         $usuario = $logado instanceof User ? $logado : null;
@@ -51,6 +53,10 @@ final class SecurityController extends AbstractController
             'pagina' => $paginaDeEntrada->montar($usuario),
             'abrir' => $this->passoParaAbrir($request),
             'frase' => self::FRASES[intdiv(time(), 86400) % count(self::FRASES)],
+            // Entrar com o Google (spec entrar-com-google): sem o cliente OAuth no servidor, o botão não aparece.
+            'googleLigado' => $googleLogin->ligado(),
+            // Criar conta conectado pelo Google (entrega 2): a identidade que espera o cadastro, só para o anônimo.
+            'cadastroGoogle' => $usuario === null && $request->hasSession() ? $cadastroPeloGoogle->ler($request->getSession()) : null,
         ]);
     }
 

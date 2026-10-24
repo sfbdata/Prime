@@ -30,6 +30,9 @@ final class TenantContextValidatorListener
 {
     private const ROTAS_IGNORADAS = [
         'app_login',
+        // Entrar com o Google: a ida e a volta acontecem antes de haver escritório ou aceite.
+        'app_login_google',
+        'app_login_google_volta',
         'app_logout',
         'tenant_selecionar',
         // Criar escritório não exige tenant ativo — quem tem 0 escritórios precisa

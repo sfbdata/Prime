@@ -1,5 +1,6 @@
 {#
-    Tela de entrada: desenho "10 - Login - VS 19.10.26" (spec docs/specs/login-desenho-10.md).
+    Tela de entrada: desenho "10 - Login - VS 24.10.26" (specs docs/specs/login-desenho-10.md e
+    docs/specs/login-desenho-10-24-10.md, o delta da VS 24.10.26).
 
     Página autônoma, sem o base.html.twig: o Master logado também vê esta tela (com as ferramentas
     SÓ MASTER), e o base trocaria a tela do desenho pelo layout do sistema. A tela é sempre clara.
@@ -46,8 +47,8 @@
      {% endif %}>
 
     {# ------------------------------------------------------------------ tarja ---- #}
-    <header class="lg-tarja">
-        <span class="lg-tarja__logo"><img src="/images/logo/bluejus-logo-branco-completo.png" alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
+    <header class="lg-tarja" data-bjt-cabecalho>
+        <span class="lg-tarja__logo"><img src="/images/logo/bluejus-logo-branco-completo.png" data-bjt-logo alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
         <span class="lg-tarja__div" aria-hidden="true"></span>
         {# Frase do dia: o servidor escolhe; cada palavra entra com lgPal, 0,9 s + i × 0,07 s, como no desenho. #}
         <span class="lg-frase" id="lgFrase">{% for p in frase|split(' ') %}<span class="lg-pal" style="animation-delay:{{ '%.2F'|format(0.9 + loop.index0 * 0.07) }}s">{{ p }}{{ loop.last ? '' : ' ' }}</span>{% endfor %}</span>
@@ -70,7 +71,7 @@
         <div class="lg-cartao-caixa" id="lgCartao">
             <form class="lg-cartao" id="lgForm" method="post" action="{{ path('app_login') }}" novalidate>
                 <div class="lg-cartao__topo">
-                    <span class="lg-cartao__logo"><img src="/images/logo/bluejus-logo-cor-completo.png" alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
+                    <span class="lg-cartao__logo"><img src="/images/logo/bluejus-logo-cor-completo.png" data-bjt-logo alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
                     <h1 class="lg-cartao__titulo">{{ 'entrada.login.bem_vindo'|trans }}</h1>
                     <div class="lg-cartao__sub">{{ 'entrada.login.acesse'|trans }}</div>
                 </div>
@@ -89,6 +90,12 @@
                     {% endif %}
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
                     <button type="submit" class="lg-entrar" id="lgEntrar"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>{{ 'entrada.login.entrar'|trans }}</button>
+                    {% if googleLigado %}
+                        {# Entrar com o Google (spec entrar-com-google, decisão do dono 21/10): abaixo do Entrar, com "ou". O token só
+                           deixa o "Manter conectado" valer quando a ida sai deste botão. #}
+                        <div class="lg-ou" aria-hidden="true"><span>{{ 'entrada.login.ou'|trans }}</span></div>
+                        <a class="lg-google" id="lgGoogle" href="{{ path('app_login_google', {_token: csrf_token('login_google')}) }}"><svg class="lg-google__g" viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92a8.78 8.78 0 0 0 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.41 5.41 0 0 1 3.69 9c0-.6.1-1.18.28-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59A9 9 0 0 0 9 0 9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>{{ 'entrada.login.entrar_google'|trans }}</a>
+                    {% endif %}
 
                     <button type="button" class="lg-selo" data-seg-abrir><span class="lg-selo__icone" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span><span class="lg-selo__texto"><b>{{ 'entrada.login.criptografia'|trans }}</b><span>{{ 'entrada.login.selo_texto'|trans }}</span></span><i class="bi bi-chevron-down lg-selo__seta" aria-hidden="true"></i></button>
 
@@ -131,7 +138,7 @@
             <div class="lg-seg" role="dialog" aria-modal="true" aria-label="{{ 'entrada.seguranca.rotulo'|trans }}">
                 <div class="lg-seg__topo">
                     <button type="button" class="lg-seg__x" data-seg-fechar aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-                    <img class="lg-seg__logo" src="/images/logo/bluejus-logo-branco-completo.png" alt="BlueJus">
+                    <img class="lg-seg__logo" src="/images/logo/bluejus-logo-branco-completo.png" data-bjt-logo alt="BlueJus">
                     <div class="lg-seg__tag"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i>{{ 'entrada.seguranca.tag'|trans }}</div>
                     <div class="lg-seg__titulo">{{ 'entrada.seguranca.titulo'|trans }}</div>
                     <div class="lg-seg__lead">{{ 'entrada.seguranca.lead'|trans }}</div>
@@ -172,7 +179,7 @@
         <div class="lg-centro lg-md-centro">
             <div class="lg-md" role="dialog" aria-modal="true" aria-labelledby="lgMdTit">
                 <div class="lg-md__topo">
-                    <div class="lg-md__barra"><img src="/images/logo/bluejus-logo-branco-completo.png" alt="BlueJus"><span class="lg-mola"></span><button type="button" class="lg-md__x" data-md-fechar aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+                    <div class="lg-md__barra"><img src="/images/logo/bluejus-logo-branco-completo.png" data-bjt-logo alt="BlueJus"><span class="lg-mola"></span><button type="button" class="lg-md__x" data-md-fechar aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
                     <div class="lg-md__titulo" id="lgMdTit"><i class="bi" id="lgMdIc" aria-hidden="true"></i><span id="lgMdTitTxt"></span></div>
                 </div>
                 <form class="lg-md__corpo" id="lgMdForm" novalidate>
@@ -193,9 +200,24 @@
                     </div>
                     <div class="lg-md__passo" data-passo="cad" hidden>
                         <div class="lg-md__texto">{{ 'entrada.modal.cadastro_texto'|trans }}</div>
-                        <label class="lg-md__rotulo">{{ 'entrada.modal.nome_completo'|trans }}<input class="lg-md__entrada" id="lgCdNome" type="text" autocomplete="name"></label>
+                        {# Desenho 10 VS 24.10.26: Continuar com Google/Facebook acima dos campos; conectado, o cartão da conta
+                           no lugar dos botões e sem o campo E-mail (spec entrar-com-google, entrega 2). O Google só aparece
+                           com o cliente OAuth no servidor; o Facebook ainda não tem app (ponto de ligação na spec). #}
+                        <div class="lg-soc" id="lgCdSoc"{% if cadastroGoogle %} hidden{% endif %}>
+                            {% if googleLigado %}
+                                <a class="lg-soc__btn" id="lgCdGoogle" href="{{ path('app_login_google', {_token: csrf_token('login_google')}) }}"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>{{ 'entrada.modal.continuar_google'|trans }}</a>
+                            {% endif %}
+                            <button type="button" class="lg-soc__btn" id="lgCdFacebook"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#1877F2" d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/><path fill="#fff" d="M16.67 15.56l.53-3.49h-3.33V9.82c0-.96.47-1.89 1.96-1.89h1.51V4.96s-1.37-.24-2.68-.24c-2.74 0-4.53 1.67-4.53 4.69v2.66H7.08v3.49h3.05V24c.61.1 1.24.14 1.87.14s1.26-.05 1.87-.14v-8.44h2.8z"/></svg>{{ 'entrada.modal.continuar_facebook'|trans }}</button>
+                            <div class="lg-soc__ou"><span></span>{{ 'entrada.modal.ou_outro_email'|trans }}<span></span></div>
+                        </div>
+                        <div class="lg-socok" id="lgCdSocOk" data-email="{{ cadastroGoogle ? cadastroGoogle.email }}"{% if not cadastroGoogle %} hidden{% endif %}>
+                            <span class="lg-socok__ini" id="lgCdSocIni" aria-hidden="true"></span>
+                            <span class="lg-socok__txt"><b id="lgCdSocNome">{{ cadastroGoogle ? (cadastroGoogle.nome ?: cadastroGoogle.email) }}</b><span>{{ 'entrada.modal.conectado_pelo'|trans({email: cadastroGoogle ? cadastroGoogle.email : '', provedor: 'Google'}) }}</span></span>
+                            <button type="button" class="lg-socok__trocar" id="lgCdSocTrocar">{{ 'entrada.modal.usar_outro_email'|trans }}</button>
+                        </div>
+                        <label class="lg-md__rotulo">{{ 'entrada.modal.nome_completo'|trans }}<input class="lg-md__entrada" id="lgCdNome" type="text" autocomplete="name" value="{{ cadastroGoogle ? cadastroGoogle.nome }}"></label>
                         <label class="lg-md__rotulo">{{ 'entrada.modal.escritorio'|trans }}<input class="lg-md__entrada" id="lgCdEsc" type="text" placeholder="{{ 'entrada.modal.escritorio_exemplo'|trans }}" autocomplete="organization"></label>
-                        <label class="lg-md__rotulo">{{ 'entrada.login.email'|trans }}<input class="lg-md__entrada" id="lgCdEmail" type="email" placeholder="{{ 'entrada.login.email_exemplo'|trans }}" autocomplete="email"></label>
+                        <label class="lg-md__rotulo" id="lgCdEmailCampo"{% if cadastroGoogle %} hidden{% endif %}>{{ 'entrada.login.email'|trans }}<input class="lg-md__entrada" id="lgCdEmail" type="email" placeholder="{{ 'entrada.login.email_exemplo'|trans }}" autocomplete="email"></label>
                         {# Gênero obrigatório, sem valor escolhido (spec genero-no-cadastro; desvio autorizado do desenho 10). #}
                         <label class="lg-md__rotulo">{{ 'entrada.modal.genero'|trans }}<select class="lg-md__entrada" id="lgCdGenero" name="genero"><option value="">{{ 'entrada.modal.genero_escolha'|trans }}</option><option value="feminino">{{ 'entrada.modal.genero_feminino'|trans }}</option><option value="masculino">{{ 'entrada.modal.genero_masculino'|trans }}</option></select></label>
                         <label class="lg-aceite"><input type="checkbox" id="lgCdAceite"><span>{{ 'entrada.modal.li_e_aceito_os'|trans }} <a href="{{ termos_href }}" target="_blank" rel="noopener">{{ 'entrada.seguranca.termos'|trans }}</a> {{ 'entrada.modal.e_a'|trans }} <a href="{{ priv_href }}" target="_blank" rel="noopener">{{ 'entrada.seguranca.privacidade'|trans }}</a>.</span></label>
@@ -284,5 +306,7 @@
 {{ catalogo_js('entrada.js', 'auth.js.forca') }}
 <script src="{{ asset('js/bj-traducao.js') }}"></script>
 <script src="{{ asset('js/auth/entrada.js') }}" defer></script>
+{# Tema comemorativo (desenho 10 VS 24.10.26, bj-tema.js): cores, fita e ícones na tarja; no login não há selo. #}
+{% include 'layout/_globais/tema_comemorativo.html.twig' with {bjtSemSelo: true} only %}
 </body>
 </html>
