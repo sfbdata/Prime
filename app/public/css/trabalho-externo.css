@@ -991,13 +991,10 @@ textarea.te-vf-ctl.te-cv-nota-ctl { background: #fffaf0; border-color: var(--te-
 /* ---------- "Meu currículo" do externo (l.214 a 224) ---------- */
 .te-cv-ext { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
 .te-cv-card { background: var(--te-card); border: 1px solid var(--te-border); border-radius: 4px; padding: 18px 20px; animation: teUp .25s ease; }
-.te-cv-card.is-2 { animation-duration: .3s; }
 .te-cv-card-cab { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .te-cv-card-cab > .bi { font-size: 20px; color: var(--te-azul); }
 .te-cv-card-cab > b { flex: 1; font-size: 15px; white-space: nowrap; }
 .te-cv-card-acoes { display: flex; gap: 6px; }
-.te-cv-card-cab.is-cand { margin-bottom: 12px; }
-.te-cv-card-cab.is-cand > .bi { font-size: 19px; }
 .te-cv-card-btn { height: 32px; padding: 0 12px; border: 1px solid var(--te-border-ctl); border-radius: 2px; background: var(--te-card); color: var(--te-text-2); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .te-cv-card-btn:hover { border-color: var(--te-azul); color: var(--te-azul); background: var(--te-azul-suave); }
 .te-cv-card-vazio { text-align: center; padding: 10px 0 4px; }
@@ -1031,7 +1028,6 @@ textarea.te-vf-ctl.te-cv-nota-ctl { background: #fffaf0; border-color: var(--te-
 .te-cv-prev-barra { display: block; border-radius: 2px; margin-bottom: 8px; }
 .te-cv-prev-linha { display: block; height: 1px; background: #dbe5ec; margin: 10px 0 14px; }
 .te-cv-prev-vazio { font-size: 13px; color: var(--te-cancelar); text-align: center; }
-.te-cv-cand-vazio { font-size: 13.5px; color: var(--te-muted); padding: 8px 0; }
 
 /* ---------- Formulário tmCvForm (l.254 a 283) ---------- */
 .te-vf-grade.is-base { align-items: end; }
@@ -1193,17 +1189,6 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-cand-st { height: 26px; padding: 0 8px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-cand-pilula); font-size: 11.5px; font-weight: bold; cursor: pointer; }
 .te-cand-st.is-on { color: #fff; cursor: default; }
 .te-cand-linha-et { flex-basis: 100%; min-width: 0; max-width: 100%; }
-
-/* ---------------------------------------------------------------- "Minhas candidaturas" (l.222 a 224) */
-.te-cand-mc-barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -4px 0 10px; }
-.te-cand-mc-filtros { display: flex; background: var(--te-seg); border-radius: 4px; padding: 3px; gap: 2px; }
-.te-cand-mc-filtro { height: 26px; padding: 0 10px; border: none; border-radius: 3px; background: transparent; color: var(--te-muted); font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: none; }
-.te-cand-mc-filtro.is-ativo { background: var(--te-seg-on); color: var(--te-azul); box-shadow: var(--te-shadow-seg); }
-.te-cand-mc-linha { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 6px; border-bottom: 1px solid var(--te-div-2); cursor: pointer; border-radius: 3px; transition: background .15s; }
-.te-cand-mc-linha:hover { background: var(--te-hover); }
-.te-cand-mc-tit { display: block; font-size: 13.5px; font-weight: normal; }
-.te-cand-mc-tit.is-naovista { font-weight: bold; }
-.te-cand-mc-em { font-size: 12px; color: var(--te-muted); }
 
 /* ---------------------------------------------------------------- modal QUASE (l.392 a 400) */
 .te-cand-quase-fundo { position: fixed; inset: 0; z-index: 1127; background: var(--te-cand-quase-fundo); }
@@ -1422,8 +1407,8 @@ textarea.te-vf-ctl { font-family: inherit; }
 
 /* =============================================================================
    Animação depois de enviar a solicitação (desenho 06 de 24/10, l.737 a 767). Camadas do desenho
-   (9700/9701): acima de tudo, como no protótipo. O mapa aguarda a decisão P2 do dono; `.te-env-mapa`
-   já tem a posição do iframe do desenho para quando ele for ligado.
+   (9700/9701): acima de tudo, como no protótipo. `.te-env-mapa`: o iframe do Google Maps do desenho
+   (l.740, decisão P2 do dono), maior que o diálogo e sem clique.
    ============================================================================= */
 .te-env-fundo { position: fixed; inset: 0; z-index: 9700; background: rgba(11, 53, 80, .45); }
 .te-env-pos { position: fixed; inset: 0; z-index: 9701; display: flex; align-items: center; justify-content: center; padding: 12px; pointer-events: none; }

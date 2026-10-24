@@ -252,6 +252,15 @@ final class CurriculosDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('attachment', $disposicao);
         self::assertStringContainsString("filename*=utf-8''Curr%C3%ADculo%20-%20Ana%20Souza.doc", $disposicao);
         self::assertStringContainsString('filename="Curriculo - Ana Souza.doc"', $disposicao);
+        self::assertStringContainsString('src="http://localhost/images/logo/bluejus-logo-nav.png"', $conteudo, 'fora do sistema: o logo com a URL absoluta');
+        self::assertStringContainsString('src="http://localhost/images/logo/bluejus_simbolo.svg"', $conteudo);
+        self::assertStringNotContainsString('src="/', $conteudo, 'nenhum caminho relativo');
+
+        $this->enviar('foto', $this->png(600, 300));
+        $this->client->request('GET', '/trabalho-externo/curriculos/meu/word');
+        $conteudo = (string) $this->client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('#<img class="ft" src="data:image/jpeg;base64,[A-Za-z0-9+/=]{100,}"#', $conteudo, 'a foto é privada (download pede login): vai embutida');
+        self::assertStringNotContainsString('/arquivos/foto', $conteudo);
 
         $this->logarComTenant($this->client, $doB, $b);
         $this->client->request('GET', '/trabalho-externo/curriculos/meu/word');

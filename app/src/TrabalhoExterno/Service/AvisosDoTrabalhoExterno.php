@@ -11,6 +11,7 @@ use App\Service\NotificacaoService;
 use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\ConfiguracaoCentral;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\Perfil;
@@ -49,6 +50,7 @@ final class AvisosDoTrabalhoExterno
         private readonly ResolvedorDePerfil $perfis,
         private readonly PoliticaDaVaga $politicaDaVaga,
         private readonly ConviteDemandaRepository $convites,
+        private readonly PoliticaDaDemanda $politicaDaDemanda,
     ) {
     }
 
@@ -148,29 +150,26 @@ final class AvisosDoTrabalhoExterno
      * da demanda; senão os Solicitantes dele) e o convidado de cada convite aceito e vigente, no primeiro
      * escritório dele (sem escritório, no da demanda: o aviso é só dele). Quem agiu e Master/Equipe ficam de
      * fora. Um andamento novo não é "o mesmo aviso" do anterior: aqui o pendente igual não segura o próximo.
+     * Cada pessoa recebe UM aviso por andamento (quem pediu e também é o convidado, ou dois convites dela), e o
+     * convidado só recebe o que leria no chat ({@see PoliticaDaDemanda::mensagemVisivel()}: sem a permissão
+     * "ver", nem o nome dos documentos).
      */
     public function andamentoDaDemanda(Contexto $ctx, DemandaExterna $demanda): void
     {
-        $textos = $demanda->retirarAndamentosParaAvisar();
-        if ($textos === []) {
+        $andamentos = $demanda->retirarAndamentosParaAvisar();
+        if ($andamentos === []) {
             return;
         }
-        $cfg = $ctx->configuracao;
         $servico = trim($demanda->getTipoServico());
-        $titulo = $demanda->getCodigo() . ' · ' . ($servico !== '' ? $servico : 'Trabalho externo');
+        $titulo = mb_substr($demanda->getCodigo() . ' · ' . ($servico !== '' ? $servico : 'Trabalho externo'), 0, 255);
         $url = self::TELA . '?te=' . $demanda->getCodigo();
-        $escritorio = $demanda->getTenant();
-        $solicitantes = $this->semAInterna($this->solicitantesDaDemanda($demanda, $cfg), $escritorio, $cfg);
-        $hoje = new \DateTimeImmutable('today');
-        foreach ($textos as $texto) {
-            $this->avisar($ctx, $solicitantes, $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO, $titulo, $url, $texto, repetir: true);
-            foreach ($demanda->getConvites() as $convite) {
-                $convidado = $convite->getConvidado();
-                if ($convidado === null || !$convite->vigente($hoje)) {
+        $partes = $this->partesDaDemanda($ctx, $demanda);
+        foreach ($andamentos as $andamento) {
+            foreach ($partes as [$pessoa, $escritorio, $comoConvidado]) {
+                if ($comoConvidado !== null && !$this->convidadoLeria($comoConvidado, $demanda, $andamento['mensagem'])) {
                     continue;
                 }
-                $seu = $this->destinatarios->primeiroEscritorio($convidado) ?? $escritorio;
-                $this->avisar($ctx, $this->semAInterna([$convidado], $seu, $cfg), $seu, Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO, $titulo, $url, $texto, repetir: true);
+                $this->notificacoes->criar($pessoa, $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO, $titulo, $andamento['texto'])->setUrl($url);
             }
         }
     }
@@ -208,6 +207,49 @@ final class AvisosDoTrabalhoExterno
         if ($quemPediu !== null && $seu !== null) {
             $this->avisar($ctx, [$quemPediu], $seu, $tipo, $titulo, self::urlDaVaga($vaga), $mensagem);
         }
+    }
+
+    /**
+     * Quem recebe o andamento, uma vez cada: os solicitantes no escritório da demanda e o convidado de cada
+     * convite aceito e vigente no primeiro escritório dele (ou no da demanda), sem quem agiu nem Master/Equipe.
+     * O terceiro item é o contexto de Convidado (null para quem pediu, que lê o chat inteiro).
+     *
+     * @return list<array{0: User, 1: Tenant, 2: ?Contexto}>
+     */
+    private function partesDaDemanda(Contexto $ctx, DemandaExterna $demanda): array
+    {
+        $cfg = $ctx->configuracao;
+        $escritorio = $demanda->getTenant();
+        $vistos = [(int) $ctx->usuario->getId() => true];
+        $partes = [];
+        foreach ($this->semAInterna($this->solicitantesDaDemanda($demanda, $cfg), $escritorio, $cfg) as $pessoa) {
+            if (!isset($vistos[(int) $pessoa->getId()])) {
+                $vistos[(int) $pessoa->getId()] = true;
+                $partes[] = [$pessoa, $escritorio, null];
+            }
+        }
+        $hoje = new \DateTimeImmutable('today');
+        foreach ($demanda->getConvites() as $convite) {
+            $convidado = $convite->getConvidado();
+            if ($convidado === null || isset($vistos[(int) $convidado->getId()]) || !$convite->vigente($hoje)) {
+                continue;
+            }
+            $seu = $this->destinatarios->primeiroEscritorio($convidado) ?? $escritorio;
+            if ($this->semAInterna([$convidado], $seu, $cfg) === []) {
+                continue;
+            }
+            $vistos[(int) $convidado->getId()] = true;
+            $partes[] = [$convidado, $seu, new Contexto($convidado, $seu, Perfil::Convidado, $cfg, $convite)];
+        }
+
+        return $partes;
+    }
+
+    /** O convidado leria este andamento no chat? A mudança de situação, se vê a demanda; a mensagem, pela regra do chat. */
+    private function convidadoLeria(Contexto $comoConvidado, DemandaExterna $demanda, ?MensagemDemanda $mensagem): bool
+    {
+        return $this->politicaDaDemanda->podeVer($comoConvidado, $demanda)
+            && ($mensagem === null || $this->politicaDaDemanda->mensagemVisivel($comoConvidado, $demanda, $mensagem));
     }
 
     /** Quem pediu, se ainda tem vínculo ativo no escritório da demanda; senão os Solicitantes dele (como em {@see pedidoDeInformacoes()}). @return list<User> */
@@ -289,18 +331,14 @@ final class AvisosDoTrabalhoExterno
             && $this->politicaDaVaga->veAba(new Contexto($pessoa, $escritorio, $perfil, $cfg));
     }
 
-    /**
-     * `$repetir`: cria mesmo com aviso igual ainda não lido (o andamento da demanda, em que cada aviso é um fato novo).
-     *
-     * @param list<User> $pessoas
-     */
-    private function avisar(Contexto $ctx, array $pessoas, Tenant $escritorio, string $tipo, string $titulo, string $url, ?string $mensagem = null, bool $repetir = false): void
+    /** @param list<User> $pessoas */
+    private function avisar(Contexto $ctx, array $pessoas, Tenant $escritorio, string $tipo, string $titulo, string $url, ?string $mensagem = null): void
     {
         $titulo = mb_substr($titulo, 0, 255);
         $vistos = [(int) $ctx->usuario->getId() => true];
         foreach ($pessoas as $pessoa) {
             $id = (int) $pessoa->getId();
-            if (isset($vistos[$id]) || (!$repetir && $this->destinatarios->temPendente($pessoa, $escritorio, $tipo, $url))) {
+            if (isset($vistos[$id]) || $this->destinatarios->temPendente($pessoa, $escritorio, $tipo, $url)) {
                 continue;
             }
             $vistos[$id] = true;

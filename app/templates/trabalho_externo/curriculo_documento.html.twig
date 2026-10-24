@@ -5,13 +5,15 @@
     - pdf: o Dompdf não desenha grade nem flex, então a moldura vira tabela e os alinhamentos viram
       float; as seções, a ordem e os textos são os mesmos da pré-visualização;
     - foto: a URL da rota de download (HTML) ou o arquivo da área temporária (PDF); null = iniciais;
-    - logo: o arquivo da área temporária no PDF; no HTML vêm os do próprio sistema.
+    - logo: o arquivo da área temporária no PDF; no HTML vêm os do próprio sistema;
+    - word: o .doc baixado abre fora do sistema; a foto já vem como `data:` e o logo e o símbolo, com a URL absoluta.
     "Disponibilidade" some quando vazia (decisão 9). O período usa "a" no lugar do travessão.
     Na tela (desenho 06 de 24/10, `cvHTML`, l.1002), a folha encolhe para caber no iframe da "Prévia do
     currículo" e, até 640px, a lateral vai para cima. Fora do PDF: o Dompdf lê `@media screen`.
 #}
-{% set logoSrc = pdf ? logo : asset('images/logo/bluejus-logo-nav.png') %}
-{% set simboloSrc = pdf ? null : asset('images/logo/bluejus_simbolo.svg') %}
+{% set word = word|default(false) %}
+{% set logoSrc = pdf ? logo : (word ? absolute_url(asset('images/logo/bluejus-logo-nav.png')) : asset('images/logo/bluejus-logo-nav.png')) %}
+{% set simboloSrc = pdf ? null : (word ? absolute_url(asset('images/logo/bluejus_simbolo.svg')) : asset('images/logo/bluejus_simbolo.svg')) %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -26,7 +28,7 @@
 {% if pdf %}<div class="fundo"></div><table class="pg"><tr><td class="sd">{% else %}<div class="pg"><aside class="sd">{% endif %}
 {% if foto is null %}
 <div class="ft ini">{{ x.iniciais }}</div>
-{% elseif pdf %}
+{% elseif pdf or word %}{# o Word não desenha imagem de fundo #}
 <img class="ft" src="{{ foto }}" alt="">
 {% else %}
 <div class="ft" style="background-image:url('{{ foto }}')"></div>

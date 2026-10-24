@@ -265,7 +265,7 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         $this->limpar();
         $demanda->registrar(Apoio::autor(), 'Documento entregue', \App\TrabalhoExterno\Enum\TipoMensagem::Arquivo);
         $this->avisos()->andamentoDaDemanda($this->ctx($this->master), $demanda);
-        self::assertSame([[10, 2], [20, 5]], $this->quem(), 'o convidado com escritório recebe no primeiro dele');
+        self::assertSame([[10, 2]], $this->quem(), 'convidado sem a permissão "ver" não lê o registro de arquivo no chat: nem o nome dos documentos no aviso');
 
         $this->limpar();
         $this->primeiroEscritorio = $this->sede;
@@ -274,6 +274,38 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         $demanda->registrar(Apoio::autor(), 'Conversa comum', \App\TrabalhoExterno\Enum\TipoMensagem::Normal);
         $this->avisos()->andamentoDaDemanda($this->ctx($this->equipe, Perfil::Equipe), $demanda);
         self::assertSame([[3, 2]], $this->quem(), 'quem pediu saiu: os Solicitantes; o convidado que é Equipe na sede fica de fora; a mensagem comum não avisa');
+    }
+
+    #[TestDox('andamento da demanda (D10): o convidado com "ver" recebe o registro de arquivo, no primeiro escritório dele')]
+    public function testAndamentoDeArquivoComVer(): void
+    {
+        $demanda = Apoio::demanda(Situacao::Execucao, $this->escritorio);
+        $this->doEscritorio[2][] = $demanda->getCriadoPor();
+        $this->convidarEAceitar($demanda, Apoio::usuario(20), ['ver' => true]);
+        $demanda->retirarAndamentosParaAvisar();
+        $this->primeiroEscritorio = $this->tenants[5];
+
+        $demanda->registrar(Apoio::autor(), 'Documento entregue', \App\TrabalhoExterno\Enum\TipoMensagem::Arquivo);
+        $this->avisos()->andamentoDaDemanda($this->ctx($this->master), $demanda);
+        self::assertSame([[10, 2], [20, 5]], $this->quem());
+        self::assertSame(['Documento entregue', 'Documento entregue'], array_column($this->criadas, 'mensagem'));
+    }
+
+    #[TestDox('andamento da demanda (D10): quem pediu e também é o convidado recebe um aviso só por andamento')]
+    public function testAndamentoSemAvisoEmDobro(): void
+    {
+        $demanda = Apoio::demanda(Situacao::Execucao, $this->escritorio);
+        $quemPediu = $demanda->getCriadoPor();
+        $this->doEscritorio[2][] = $quemPediu;
+        $this->primeiroEscritorio = $this->tenants[2];
+        $this->convidarEAceitar($demanda, $quemPediu, ['ver' => true]);
+        $demanda->retirarAndamentosParaAvisar();
+
+        $demanda->registrar(Apoio::autor(), 'Protocolo feito', \App\TrabalhoExterno\Enum\TipoMensagem::Andamento);
+        $demanda->registrar(Apoio::autor(), 'Documento entregue', \App\TrabalhoExterno\Enum\TipoMensagem::Arquivo);
+        $this->avisos()->andamentoDaDemanda($this->ctx($this->master), $demanda);
+        self::assertSame([[10, 2], [10, 2]], $this->quem(), 'dois andamentos, um aviso de cada para a mesma pessoa');
+        self::assertSame(['Protocolo feito', 'Documento entregue'], array_column($this->criadas, 'mensagem'));
     }
 
     #[TestDox('cada tipo novo tem ícone no sino e grupo, rótulo, ícone e cor na Caixa da Central')]
@@ -291,9 +323,10 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         self::assertSame('Abrir a demanda', (new TiposDeAvisoDaCentral())->acao(Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO), 'a ação do desenho (`avisarPartes`)');
     }
 
-    private function convidarEAceitar(\App\TrabalhoExterno\Entity\DemandaExterna $demanda, User $pessoa): void
+    /** @param array<string, bool> $permissoes */
+    private function convidarEAceitar(\App\TrabalhoExterno\Entity\DemandaExterna $demanda, User $pessoa, array $permissoes = []): void
     {
-        $convite = new ConviteDemanda($demanda, 'Convidado ' . $pessoa->getId(), (string) $pessoa->getEmail(), null, new \DateTimeImmutable('+30 days'), str_repeat('a', 64), [], Apoio::autor());
+        $convite = new ConviteDemanda($demanda, 'Convidado ' . $pessoa->getId(), (string) $pessoa->getEmail(), null, new \DateTimeImmutable('+30 days'), str_repeat('a', 64), $permissoes, Apoio::autor());
         $demanda->convidar($convite, Apoio::autor());
         $convite->aceitar($pessoa, new \DateTimeImmutable('today'));
     }
@@ -324,7 +357,7 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         $permissoes = $this->createMock(PermissionChecker::class);
         $permissoes->method('canAccessModule')->willReturnCallback(fn (User $u): bool => in_array('ROLE_SUPER_ADMIN', $u->getRoles(), true) || in_array((int) $u->getId(), $this->comPermissao, true) || (int) $u->getId() >= 10);
 
-        return new AvisosDoTrabalhoExterno($notificacoes, $destinatarios, $preferencias, $curriculos, new ResolvedorDePerfil($permissoes), new PoliticaDaVaga(new PoliticaDaDemanda()), $convites);
+        return new AvisosDoTrabalhoExterno($notificacoes, $destinatarios, $preferencias, $curriculos, new ResolvedorDePerfil($permissoes), new PoliticaDaVaga(new PoliticaDaDemanda()), $convites, new PoliticaDaDemanda());
     }
 
     private function ctx(User $usuario, Perfil $perfil = Perfil::Master): Contexto
