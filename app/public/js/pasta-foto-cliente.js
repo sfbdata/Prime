@@ -38,6 +38,9 @@
 
     function temFoto() { return botao.getAttribute('data-tem-foto') === '1'; }
 
+    // Pasta com cliente que mostra a foto da pasta, para quem edita a pasta mas não o cliente: só "Remover foto".
+    function soRemover() { return botao.getAttribute('data-so-remover') === '1'; }
+
     // Quem é dono da foto mostrada decide para onde vai o "Remover foto": a pasta ou o cliente (ou a pasta sem cliente).
     function alvoDaRemocao() {
         if (botao.getAttribute('data-origem') === 'pasta') {
@@ -54,6 +57,10 @@
         menu.querySelector('.js-ps-foto-carregar-texto').textContent = BJ_T.t(tem ? 'pasta_cabecalho.js.foto.carregar_nova' : 'pasta_cabecalho.js.foto.carregar');
         menu.querySelectorAll('[data-ps-foto-com-foto]').forEach(function (item) { item.hidden = !tem; });
         if (tem && !alvoDaRemocao().url) { menu.querySelector('.js-ps-foto-remover').hidden = true; }
+        if (soRemover()) {
+            menu.querySelector('.js-ps-foto-carregar').hidden = true;
+            menu.querySelector('.js-ps-foto-ajustar').hidden = true;
+        }
     }
 
     function abrirMenu() {
@@ -218,7 +225,11 @@
 
     /* ── Ligações ─────────────────────────────────────────────────────── */
 
-    botao.addEventListener('click', function () { if (menu.hidden) { abrirMenu(); } else { fecharMenu(); } });
+    botao.addEventListener('click', function () {
+        // Sem a foto da pasta na tela, quem só pode remover não tem o que fazer no menu.
+        if (soRemover() && botao.getAttribute('data-origem') !== 'pasta') { return; }
+        if (menu.hidden) { abrirMenu(); } else { fecharMenu(); }
+    });
     fundo.addEventListener('click', fecharMenu);
     menu.querySelector('.js-ps-foto-carregar').addEventListener('click', function () { fecharMenu(); entrada.click(); });
     menu.querySelector('.js-ps-foto-ajustar').addEventListener('click', function () { if (foto.getAttribute('src')) { abrirEditor(foto.getAttribute('src')); } });

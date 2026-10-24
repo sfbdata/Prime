@@ -17,7 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * ou com cliente que ainda não tem foto própria): sem confirmação, o cabeçalho volta ao ícone de pessoa e aparece
  * "Foto removida" (desenho 02 VS 18.10.26, L479 e `ft.remover`).
  *
- * O Registro da pasta ganha "Dados da pasta: Foto do cliente removida". O arquivo sai do disco só depois do COMMIT.
+ * O Registro da pasta ganha "Dados da pasta: Foto da pasta removida". O arquivo sai do disco só depois do COMMIT.
  * Pasta sem foto: nada muda e nada é registrado. Guardas em {@see PastaParaFoto}.
  */
 final class RemoverFotoDaPastaUseCase
@@ -39,7 +39,7 @@ final class RemoverFotoDaPastaUseCase
             return FotoDaPastaOutput::de($pasta);
         }
 
-        $this->registro->registrar($pasta, $input->usuario, 'pasta', 'Foto do cliente removida');
+        $this->registro->registrar($pasta, $input->usuario, 'pasta', 'Foto da pasta removida');
         $this->em->flush();
 
         $this->remocao->remover(

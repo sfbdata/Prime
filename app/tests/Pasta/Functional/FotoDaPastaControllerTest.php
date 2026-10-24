@@ -106,7 +106,7 @@ final class FotoDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertFileExists($this->caminho($nome));
         $cartao = (string) $this->em()->getConnection()->fetchOne("SELECT conteudo FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'pasta'", [$pasta->getId()]);
         self::assertStringContainsString('Dados da pasta:', $cartao);
-        self::assertStringContainsString('Foto do cliente alterada', $cartao);
+        self::assertStringContainsString('Foto da pasta alterada', $cartao);
     }
 
     #[TestDox('trocar de novo: a foto anterior sai do disco depois do COMMIT e a nova é entregue inline')]
@@ -146,7 +146,7 @@ final class FotoDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame(['ok' => true, 'url' => null, 'origem' => null], $this->json());
         self::assertNull($this->fotoNoBanco($pasta));
         self::assertFileDoesNotExist($this->caminho($nome));
-        self::assertStringContainsString('Foto do cliente removida', (string) $this->em()->getConnection()->fetchOne("SELECT conteudo FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'pasta' ORDER BY id DESC LIMIT 1", [$pasta->getId()]));
+        self::assertStringContainsString('Foto da pasta removida', (string) $this->em()->getConnection()->fetchOne("SELECT conteudo FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'pasta' ORDER BY id DESC LIMIT 1", [$pasta->getId()]));
     }
 
     #[TestDox('CSRF inválido (inclusive o token da foto do cliente): 403 e nada muda')]
@@ -270,6 +270,25 @@ final class FotoDaPastaControllerTest extends JusPrimeWebTestCase
         $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/clientes/' . $cliente->getId() . '/foto/remover', ['_token' => 'TOKEN_cliente_foto_' . $cliente->getId()]);
         self::assertResponseIsSuccessful();
         self::assertSame(['ok' => true, 'url' => $urlDaPasta, 'origem' => 'pasta'], $this->json());
+    }
+
+    #[TestDox('pasta com cliente: quem edita a pasta, sem editar o cliente, remove a foto guardada na pasta')]
+    public function testComClienteQuemEditaAPastaRemoveAFotoDaPasta(): void
+    {
+        [$tenant, $gestor, $pasta] = $this->cenario();
+        $this->logarComTenant($this->client, $gestor, $tenant);
+        $this->trocar($pasta, $this->jpeg());
+        $nome = (string) $this->fotoNoBanco($pasta);
+        $this->vincularCliente($pasta, $tenant);
+
+        $editor = $this->criarColaborador($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+        $this->logarComTenant($this->client, $editor, $tenant);
+        $this->remover($pasta);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->fotoNoBanco($pasta));
+        self::assertFileDoesNotExist($this->caminho($nome));
+        self::assertStringContainsString('Foto da pasta removida', (string) $this->em()->getConnection()->fetchOne("SELECT conteudo FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'pasta' ORDER BY id DESC LIMIT 1", [$pasta->getId()]));
     }
 
     #[TestDox('entrega: nome com caminho e nome que não é o da pasta são 404')]

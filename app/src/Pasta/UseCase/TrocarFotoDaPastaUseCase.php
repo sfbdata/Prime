@@ -27,7 +27,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  *
  * História: a advogada abre a pasta de Gleisson, que ainda não tem cadastro de cliente, clica no círculo ao lado do
  * nome, escolhe "Carregar foto", ajusta o recorte e salva. A foto fica na própria pasta; o Registro dela ganha
- * "Dados da pasta: Foto do cliente alterada". Mesma regra de imagem da foto do cliente (JPEG, PNG ou WebP pelo
+ * "Dados da pasta: Foto da pasta alterada". Mesma regra de imagem da foto do cliente (JPEG, PNG ou WebP pelo
  * conteúdo, até 3 MB) e a foto anterior só sai do disco depois do COMMIT.
  *
  * Pasta com cliente cadastrado recusa: a foto nova é do cliente (`TrocarFotoDoClienteUseCase`). Guardas em
@@ -93,7 +93,7 @@ final class TrocarFotoDaPastaUseCase
     private function apontarParaANova(Pasta $pasta, ChaveDeArquivo $chaveNova, FotoDaPastaInput $input): ?string
     {
         $anterior = $pasta->trocarFoto($chaveNova->nome, new \DateTimeImmutable());
-        $this->registro->registrar($pasta, $input->usuario, 'pasta', 'Foto do cliente alterada');
+        $this->registro->registrar($pasta, $input->usuario, 'pasta', 'Foto da pasta alterada');
 
         return $anterior;
     }

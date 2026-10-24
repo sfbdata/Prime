@@ -83,7 +83,7 @@ final class FotoDaPastaUseCaseTest extends TestCase
         @rmdir($this->dirTemp);
     }
 
-    #[TestDox('trocar: grava no escopo do escritório (PASTA_FOTO), aponta a pasta e registra "Dados da pasta: Foto do cliente alterada"')]
+    #[TestDox('trocar: grava no escopo do escritório (PASTA_FOTO), aponta a pasta e registra "Dados da pasta: Foto da pasta alterada"')]
     public function testTrocaGravaERegistra(): void
     {
         $saida = $this->trocar()->executar($this->input($this->jpeg()));
@@ -97,7 +97,7 @@ final class FotoDaPastaUseCaseTest extends TestCase
         $cartoes = $this->cartoes();
         self::assertCount(1, $cartoes);
         self::assertSame('pasta', $cartoes[0]->getSistema());
-        self::assertStringContainsString('Foto do cliente alterada', (string) $cartoes[0]->getConteudo());
+        self::assertStringContainsString('Foto da pasta alterada', (string) $cartoes[0]->getConteudo());
     }
 
     #[TestDox('trocar: grava a nova, COMMIT, e só depois apaga a anterior (pelo nome guardado)')]
@@ -198,7 +198,7 @@ final class FotoDaPastaUseCaseTest extends TestCase
         self::assertTrue($this->armazenamento->existe($antiga));
     }
 
-    #[TestDox('remover: a pasta deixa de apontar, registra "Foto do cliente removida" e o arquivo sai depois do flush')]
+    #[TestDox('remover: a pasta deixa de apontar, registra "Foto da pasta removida" e o arquivo sai depois do flush')]
     public function testRemover(): void
     {
         $antiga = $this->comFotoAnterior('antiga.jpg');
@@ -208,7 +208,7 @@ final class FotoDaPastaUseCaseTest extends TestCase
         self::assertNull($saida->nome);
         self::assertNull($this->pasta->getFoto());
         self::assertFalse($this->armazenamento->existe($antiga));
-        self::assertStringContainsString('Foto do cliente removida', (string) $this->cartoes()[0]->getConteudo());
+        self::assertStringContainsString('Foto da pasta removida', (string) $this->cartoes()[0]->getConteudo());
     }
 
     #[TestDox('remover: pasta sem foto não muda nada nem registra')]

@@ -266,6 +266,42 @@ final class PastaCabecalhoFotoClienteTelaTest extends JusPrimeWebTestCase
         self::assertSame('/pasta/' . $pasta->getId() . '/foto/remover', $botao->attr('data-url-remover-pasta'));
     }
 
+    #[TestDox('pasta com cliente e foto da pasta, quem edita a pasta mas não o cliente: botão com menu só de "Remover foto"')]
+    public function testComClienteQuemEditaAPastaSoRemove(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->pastaComCliente($tenant);
+        $pasta->trocarFoto('p1a2.jpg', new \DateTimeImmutable());
+        $this->em()->flush();
+        $editor = $this->colaborador($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $c = $this->abrir($client, $pasta);
+
+        $botao = $c->filter(self::BOTAO);
+        self::assertSame(['pasta', '1'], [$botao->attr('data-origem'), $botao->attr('data-so-remover')]);
+        self::assertNull($botao->attr('data-url-trocar'), 'sem editar o cliente, não há para onde mandar foto nova');
+        self::assertSame('/pasta/' . $pasta->getId() . '/foto/remover', $botao->attr('data-url-remover-pasta'));
+        self::assertCount(1, $c->filter('[data-ps-foto-menu] .js-ps-foto-remover:not([hidden])'));
+        self::assertCount(0, $c->filter('[data-ps-foto-menu] .js-ps-foto-carregar:not([hidden]), [data-ps-foto-menu] .js-ps-foto-ajustar:not([hidden])'));
+    }
+
+    #[TestDox('pasta com cliente sem foto da pasta, quem edita a pasta mas não o cliente: só o ícone, sem menu')]
+    public function testComClienteQuemEditaAPastaSemFotoDaPasta(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->pastaComCliente($tenant);
+        $editor = $this->colaborador($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+
+        $this->logarComTenant($client, $editor, $tenant);
+        $c = $this->abrir($client, $pasta);
+
+        self::assertCount(0, $c->filter(self::BOTAO . ', [data-ps-foto-menu]'));
+        self::assertCount(1, $c->filter(self::SPAN));
+    }
+
     #[TestDox('cliente com foto própria: a do cliente vence a da pasta')]
     public function testFotoDoClienteVence(): void
     {

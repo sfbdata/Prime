@@ -27,13 +27,16 @@ caso. O desenho mostra o botão sempre ativo (`ft.abrirMenu`) e guarda a foto po
 - **Cliente vinculado depois:** a foto da pasta não é apagada nem copiada. Ela continua aparecendo até o cliente
   ter foto própria; aí a do cliente vence. Removida a foto do cliente, a da pasta volta a aparecer. "Remover foto"
   vai para o dono da foto mostrada (`data-origem`): a da pasta exige editar a pasta (sem permissão, o item some).
+  Quem edita a pasta pode remover a foto guardada NA PASTA mesmo com cliente e sem poder editar o cliente
+  (decisão de 24/10 no #379): o círculo vira botão com o menu só com "Remover foto" (`data-so-remover`); removida,
+  o círculo volta a ser só a foto (ou o ícone).
 - Rotas novas: `pasta_foto_trocar` (POST `/pasta/{id}/foto`), `pasta_foto_remover` (POST `/pasta/{id}/foto/remover`),
   `pasta_foto` (GET `/pasta/{id}/foto/{nome}`). CSRF `pasta_foto_<id>`; `#[PastaPorId]` (lápide e cadeado pela rota);
   guardas em `PastaParaFoto`: escritório (404), ver a pasta, EDITAR a pasta (`pasta` + `edit`, o cadeado em
   Visualizar recusa), lápide. Entrega só a quem vê a pasta, só o nome que ela guarda; outro escritório é 404.
 - Mesma regra de imagem do #345 (JPEG, PNG ou WebP pelo conteúdo, até 3 MB; `TrocarFotoDoClienteUseCase::exigirImagemValida`).
   Arquivo anterior sai só depois do COMMIT (`TransacaoComArquivoNovo` + `RemocaoAposTransacao`).
-- Registro da pasta: "Dados da pasta: Foto do cliente alterada/removida" (sem cliente não há Histórico de cadastro).
+- Registro da pasta: "Dados da pasta: Foto da pasta alterada/removida" ("Foto do cliente" só quando a foto é do cliente; decisão de 24/10 no #379) (sem cliente não há Histórico de cadastro).
 - Purga do escritório: `ARQUIVOS_POR_REGISTRO['pasta']`, com a prova de pertencimento das categorias planas.
 - As respostas JSON das duas rotas passaram a `{ok, url, origem}`: a foto que o círculo mostra depois da ação
   (`FotoDoCabecalhoDaPasta`).
