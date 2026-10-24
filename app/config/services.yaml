@@ -93,6 +93,10 @@ parameters:
     # Folga somada ao max_tokens de cada prompt: o raciocínio adaptativo dos modelos atuais conta no max_tokens.
     ia_anthropic_margem_raciocinio: '%env(int:default:default_ia_anthropic_margem_raciocinio:IA_MARGEM_RACIOCINIO)%'
     default_ia_anthropic_margem_raciocinio: 8000
+    # Onde a inferência roda (inference_geo): `us` (decisão de 24/10/2026, docs/specs/ia-anthropic-ligar.md §10.2),
+    # `global` ou vazio (vale o padrão do workspace). Valor desconhecido deixa o provedor dormente.
+    ia_anthropic_regiao_inferencia: '%env(string:default:default_ia_anthropic_regiao_inferencia:IA_INFERENCE_GEO)%'
+    default_ia_anthropic_regiao_inferencia: 'us'
     # Comercial e e-mails (spec comercial-e-emails §3.6 e §3.8). Defaults AQUI, não no .env (o build de produção faz
     # `rm .env`). Cota da caixa: Hostinger Business Standard/Premium, 3.000 por caixa em 24 h CORRIDAS. O teto conta
     # TUDO o que saiu nas últimas 24 h (inclusive os e-mails síncronos, origem `sistema`), com margem até os 3.000; as
@@ -182,6 +186,7 @@ services:
             $modelo: '%ia_anthropic_modelo%'
             $esforco: '%ia_anthropic_esforco%'
             $margemDeRaciocinio: '%ia_anthropic_margem_raciocinio%'
+            $regiaoDeInferencia: '%ia_anthropic_regiao_inferencia%'
     App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorAnthropic'
     # Leitura das movimentações para o contexto da IA (publicações + Datajud), tenant explícito.
     App\Inteligencia\Contexto\FonteDeMovimentacoesDoPush: '@App\Inteligencia\Contexto\FonteDeMovimentacoesDoPushDoctrine'
