@@ -140,15 +140,18 @@ final class ResolucaoDeMencoesDoRegistro
      * @param list<User> $mencionados saída de {@see resolver()}
      * @param User|null  $pular       quem já recebe aviso mais específico por esta mensagem (o autor
      *                                do comentário respondido)
+     *
+     * @return list<User> os mencionados que de fato receberam o aviso (o Acompanhar alterações
+     *                    avisa os outros)
      */
-    public function notificar(array $mencionados, PastaMensagem $mensagem, Pasta $pasta, User $autor, Tenant $tenant, ?User $pular = null): void
+    public function notificar(array $mencionados, PastaMensagem $mensagem, Pasta $pasta, User $autor, Tenant $tenant, ?User $pular = null): array
     {
         $pastaId = $pasta->getId();
         if ($mencionados === [] || $pastaId === null || $mensagem->getId() === null) {
-            return;
+            return [];
         }
 
-        $this->avisar(
+        return $this->avisar(
             $mencionados,
             $pasta,
             $autor,
@@ -410,6 +413,8 @@ final class ResolucaoDeMencoesDoRegistro
      * cota (só aviso que de fato sairia gasta a cota do autor).
      *
      * @param list<User> $mencionados
+     *
+     * @return list<User> quem recebeu o aviso
      */
     private function avisar(
         array $mencionados,
@@ -422,7 +427,7 @@ final class ResolucaoDeMencoesDoRegistro
         ?string $conteudo,
         PastaMensagem|NotaTecnica|PastaObservacaoFinanceira|PastaObservacaoDetalhes|TarefaMensagem $origem,
         ?User $pular,
-    ): void {
+    ): array {
         $pastaId = (int) $pasta->getId();
         $titulo  = sprintf(
             '%s mencionou você na Pasta %s · %s',
@@ -434,6 +439,8 @@ final class ResolucaoDeMencoesDoRegistro
         if (mb_strlen($previa) > self::LIMITE_PREVIA) {
             $previa = mb_substr($previa, 0, self::LIMITE_PREVIA) . '…';
         }
+
+        $avisados = [];
 
         foreach ($mencionados as $pessoa) {
             if (self::mesmoUsuario($pessoa, $autor) || ($pular !== null && self::mesmoUsuario($pessoa, $pular))) {
@@ -468,7 +475,10 @@ final class ResolucaoDeMencoesDoRegistro
             $this->notificacaoService
                 ->criar($pessoa, $tenant, $tipo, $titulo, $previa)
                 ->setUrl($url);
+            $avisados[] = $pessoa;
         }
+
+        return $avisados;
     }
 
     private static function primeiroNome(User $usuario): string

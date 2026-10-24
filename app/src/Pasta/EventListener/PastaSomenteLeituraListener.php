@@ -63,7 +63,8 @@ final class PastaSomenteLeituraListener
      * `pasta_documentos_favorito`. Estrela é preferência pessoal, mas o precedente da casa é o
      * `PastaFavorita`, que recebe a recusa deste listener na pasta riscada (está escrito no
      * `PastaFavoritoController`); a estrela de documento segue o mesmo critério para a tela não
-     * ter duas regras para o mesmo gesto.
+     * ter duas regras para o mesmo gesto. Também fica de fora `pasta_acompanhamento_alternar`
+     * ("Acompanhar alterações"), preferência pessoal com o mesmo precedente do favorito.
      *
      * @var list<string>
      */

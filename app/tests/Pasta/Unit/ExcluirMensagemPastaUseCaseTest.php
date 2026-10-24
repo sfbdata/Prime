@@ -52,7 +52,7 @@ final class ExcluirMensagemPastaUseCaseTest extends TestCase
         $this->notificacoes->expects($this->once())->method('excluirPelaAncoraDoLink')
             ->with(
                 $this->identicalTo($this->tenant),
-                [Notificacao::TIPO_PASTA_MENCAO_REGISTRO, Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO],
+                [Notificacao::TIPO_PASTA_MENCAO_REGISTRO, Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO, Notificacao::TIPO_PASTA_ACOMPANHADA],
                 '#pasta-msg-12',
             )
             ->willReturnCallback(static function () use (&$ordem): int { $ordem[] = 'avisos'; return 2; });

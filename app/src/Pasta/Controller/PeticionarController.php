@@ -211,7 +211,7 @@ final class PeticionarController extends AbstractController
         }
 
         try {
-            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho, $currentUser);
+            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho, $currentUser, avisarQuemAcompanha: true);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -309,7 +309,7 @@ final class PeticionarController extends AbstractController
         }
 
         try {
-            $doc = $this->salvarPecaTextoUseCase->executar($pasta, $secao, $conteudoHtml, $titulo, $categoria, $tenant);
+            $doc = $this->salvarPecaTextoUseCase->executar($pasta, $secao, $conteudoHtml, $titulo, $categoria, $tenant, $currentUser);
         } catch (ChaveDeArquivoInvalida $e) {
             // Estende InvalidArgumentException, mas não é pedido inválido: é o escritório sem id
             // para montar a chave. Erro do sistema, não 400 com mensagem interna.

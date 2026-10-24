@@ -48,6 +48,13 @@ final class NotificacaoIconeTest extends TestCase
         self::assertSame('bi-at text-primary', $this->icone(Notificacao::TIPO_NOTA_TECNICA_MENCAO));
     }
 
+    #[TestDox('Pasta acompanhada: o sino do item "Acompanhar alterações" do menu ⋮ (desenho 02, bi-bell), em azul')]
+    public function testPastaAcompanhadaEhSinoAzul(): void
+    {
+        self::assertSame('pasta_acompanhada', Notificacao::TIPO_PASTA_ACOMPANHADA, 'o tipo gravado no banco não muda');
+        self::assertSame('bi-bell text-primary', $this->icone(Notificacao::TIPO_PASTA_ACOMPANHADA));
+    }
+
     /** @return iterable<string, array{string, string}> */
     public static function tiposQueJaExistiam(): iterable
     {

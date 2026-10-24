@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Entity\Auth\User;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Exception\TituloDePecaLongoDemaisException;
+use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\FonteDeConteudo;
@@ -32,6 +34,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *
  * O MIME é fixo `text/html`, e não o medido: o libmagic mede `text/plain` para um fragmento HTML
  * curto, e editar, exportar e a listagem de peças decidem por `text/html`.
+ *
+ * Acompanhar alterações: depois do flush, quem acompanha a pasta recebe "Novo documento na pasta N"
+ * ({@see AvisoDePastaAcompanhada::aoIncluirDocumento()}, que nunca lança), menos o `$autor`.
  */
 final class SalvarPecaTextoUseCase
 {
@@ -43,6 +48,7 @@ final class SalvarPecaTextoUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ArmazenamentoDeArquivos $armazenamento,
+        private readonly ?AvisoDePastaAcompanhada $avisoDeAcompanhamento = null,
     ) {}
 
     public function executar(
@@ -52,6 +58,7 @@ final class SalvarPecaTextoUseCase
         string $titulo,
         string $categoria,
         Tenant $tenant,
+        ?User $autor = null,
     ): PastaDocumento {
         if ($secao !== null && $secao->getTenant() !== $tenant) {
             throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
@@ -90,6 +97,7 @@ final class SalvarPecaTextoUseCase
 
         $this->em->persist($doc);
         $this->em->flush();
+        $this->avisoDeAcompanhamento?->aoIncluirDocumento($doc, $pasta, $tenant, $autor);
 
         return $doc;
     }

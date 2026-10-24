@@ -10,6 +10,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Pasta\Service\DetectorDeAssinaturaDigital;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
@@ -55,6 +56,12 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * `aoGravar` (opcional) recebe a chave assim que o arquivo é gravado, antes de qualquer outro passo que possa
  * falhar. É assim que o despacho da meta entrega a chave à `TransacaoComArquivoNovo`, que só apaga o arquivo quando
  * o COMMIT comprovadamente não aconteceu.
+ *
+ * ## Acompanhar alterações
+ *
+ * Com `avisarQuemAcompanha` (só o upload da pasta, `pasta_peticionar_upload`), quem acompanha a pasta recebe "Novo
+ * documento na pasta N" depois do flush ({@see AvisoDePastaAcompanhada::aoIncluirDocumento()}, que nunca lança).
+ * Sem ele, nada: o anexo do despacho roda dentro da transação da meta, que já tem aviso próprio.
  *
  * ## Tipo pelo conteúdo (DOC-115)
  *
@@ -137,6 +144,7 @@ final class UploadPecaUseCase
         private readonly LoggerInterface $logger,
         private readonly ContadorDePaginasDePdf $contadorDePaginas,
         private readonly DetectorDeAssinaturaDigital $detectorDeAssinatura,
+        private readonly ?AvisoDePastaAcompanhada $avisoDeAcompanhamento = null,
     ) {}
 
     /** @param (\Closure(\App\Shared\Armazenamento\ChaveDeArquivo): void)|null $aoGravar recebe a chave logo depois da gravação */
@@ -151,6 +159,7 @@ final class UploadPecaUseCase
         bool $reduzirTamanho = false,
         ?User $enviadoPor = null,
         ?\Closure $aoGravar = null,
+        bool $avisarQuemAcompanha = false,
     ): ResultadoUploadPeca {
         if ($secao !== null && $secao->getTenant() !== $tenant) {
             throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
@@ -231,10 +240,22 @@ final class UploadPecaUseCase
         $doc->setEnviadoPor($enviadoPor);
         $doc->marcarAssinaturaDoUpload($assinado, $compressao->comprimido, $enviadoPor);
 
-        $this->em->persist($doc);
-        $this->em->flush();
+        $this->gravarEAvisar($avisarQuemAcompanha, $doc, $pasta, $tenant, $enviadoPor);
 
         return new ResultadoUploadPeca($doc, $compressao);
+    }
+
+    /**
+     * Grava o documento e, depois do flush, avisa quem acompanha. Só o upload da pasta avisa (ver "Acompanhar
+     * alterações" no PHPDoc da classe); o aviso nunca lança.
+     */
+    private function gravarEAvisar(bool $avisar, PastaDocumento $doc, Pasta $pasta, Tenant $tenant, ?User $autor): void
+    {
+        $this->em->persist($doc);
+        $this->em->flush();
+        if ($avisar) {
+            $this->avisoDeAcompanhamento?->aoIncluirDocumento($doc, $pasta, $tenant, $autor);
+        }
     }
 
     /**

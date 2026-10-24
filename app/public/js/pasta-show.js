@@ -242,8 +242,9 @@
             // Clique num ITEM do menu fecha o menu — a acao do item segue o seu
             // curso (modal, drawer, POST). Clique no corpo do painel, nao. O
             // "Copiar link" e a excecao: fica aberto o tempo de mostrar "Link
-            // copiado" e fecha sozinho (ver acoesDoMenu).
-            if (dentro && (!e.target.closest('.ps-pop-item') || e.target.closest('.js-copiar-link'))) { return; }
+            // copiado" e fecha sozinho (ver acoesDoMenu). "Acompanhar
+            // alteracoes" tambem: o desenho (D:4493) alterna sem fechar o menu.
+            if (dentro && (!e.target.closest('.ps-pop-item') || e.target.closest('.js-copiar-link, .js-pasta-acompanhar'))) { return; }
             fecharTodos(null);
         });
         document.addEventListener('ps:fechar-popovers', function () { fecharTodos(null); });

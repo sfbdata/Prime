@@ -9002,6 +9002,7 @@ pasta_cabecalho:
             link_push: Link externo do Push
             imprimir: Imprimir resumo
             preferencias: Preferências
+            acompanhar: Acompanhar alterações
             favoritos: Fixar nos favoritos
             arquivar: Arquivar pasta
             desarquivar: Desarquivar pasta
@@ -9152,6 +9153,9 @@ pasta_cabecalho:
             restaurar_pergunta: 'Restaurar a pasta {nup}?'
             restaurar: Restaurar
             favoritos_erro: Não foi possível alterar os favoritos.
+            acompanhar_erro: Não foi possível alterar o acompanhamento.
+            acompanhar_ligado: 'Você vai receber no Chat I.A as alterações da pasta {nup}'
+            acompanhar_desligado: 'Você deixou de acompanhar a pasta {nup}'
             erro_comunicacao: Erro de comunicação. Tente novamente.
             carteira_movida: 'Pasta {nup} movida para a carteira {carteira}'
             carteira_erro: Não foi possível mover a pasta de carteira.
