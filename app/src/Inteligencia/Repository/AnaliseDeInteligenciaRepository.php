@@ -316,6 +316,46 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Retenção (decisão de 24/10/2026, `docs/specs/ia-anthropic-ligar.md` §10, Q5): análise terminada antes de
+     * `$limite` perde o conteúdo (resposta, pontos, edição e o texto das perguntas da conversa) e sai das telas
+     * (`excluida_em`). A linha fica com status, modelo, tokens e datas: é o que o custo e a auditoria usam.
+     * Varre todos os escritórios de propósito: o filtro é a data, nada de um escritório vai para outro.
+     *
+     * @return array{analises: int, perguntas: int}
+     */
+    public function expirarConteudoAntesDe(\DateTimeImmutable $limite, \DateTimeImmutable $agora): array
+    {
+        $em = $this->getEntityManager();
+        $terminadas = array_map(
+            static fn (StatusDaAnalise $s): string => $s->value,
+            [StatusDaAnalise::Concluida, StatusDaAnalise::Falhou, StatusDaAnalise::Indisponivel],
+        );
+
+        return $em->wrapInTransaction(static function () use ($em, $limite, $agora, $terminadas): array {
+            $perguntas = $em->createQuery(
+                "UPDATE App\\Inteligencia\\Entity\\PerguntaDaConversa p SET p.texto = ''
+                 WHERE p.texto <> '' AND p.analise IN (
+                     SELECT a.id FROM App\\Inteligencia\\Entity\\AnaliseDeInteligencia a
+                     WHERE a.criadaEm < :limite AND a.status IN (:terminadas)
+                 )",
+            )->setParameter('limite', $limite)->setParameter('terminadas', $terminadas)->execute();
+
+            $analises = $em->createQuery(
+                'UPDATE App\\Inteligencia\\Entity\\AnaliseDeInteligencia a
+                 SET a.resumo = NULL, a.pontos = NULL, a.quemAge = NULL, a.textoDaAnalise = NULL, a.textoBruto = NULL,
+                     a.resumoEditado = NULL, a.pontosEditados = NULL,
+                     a.excluidaEm = COALESCE(a.excluidaEm, :agora)
+                 WHERE a.criadaEm < :limite AND a.status IN (:terminadas)
+                   AND (a.resumo IS NOT NULL OR a.pontos IS NOT NULL OR a.quemAge IS NOT NULL OR a.textoDaAnalise IS NOT NULL
+                        OR a.textoBruto IS NOT NULL OR a.resumoEditado IS NOT NULL OR a.pontosEditados IS NOT NULL
+                        OR a.excluidaEm IS NULL)',
+            )->setParameter('limite', $limite)->setParameter('agora', $agora)->setParameter('terminadas', $terminadas)->execute();
+
+            return ['analises' => (int) $analises, 'perguntas' => (int) $perguntas];
+        });
+    }
+
+    /**
      * As análises do alvo (inclusive excluídas: a trilha fica), indexadas pelo id em texto, com o
      * que o rótulo do registro precisa. Tenant explícito.
      *

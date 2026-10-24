@@ -55,6 +55,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:purgar-dados-expirados --force --no-interaction',
             'cron'    => '0 0 * * *',
         ],
+        // 0h20: retenção da BlueJus IA. O conteúdo das análises com mais de 12 meses é apagado (decisão de
+        // 24/10/2026, docs/specs/ia-anthropic-ligar.md §10, Q5); ficam modelo, tokens e datas.
+        'app:inteligencia:expirar-conteudo' => [
+            'comando' => 'app:inteligencia:expirar-conteudo --force --no-interaction',
+            'cron'    => '20 0 * * *',
+        ],
         // Dia 11, 1h: importação dos índices do BCB (INPC, IPCA e taxa legal), como no DEPLOY.md
         // (04h UTC). Ligada por decisão do dono em 23/10/2026.
         'app:importar-indices-monetarios' => [

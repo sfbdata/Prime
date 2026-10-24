@@ -37,6 +37,8 @@ final class AgendaDeTarefasTest extends TestCase
     {
         return [
             'app:purgar-dados-expirados' => ['app:purgar-dados-expirados --force --no-interaction', '0 0 * * *', '0 3 * * *'],
+            // Nova, não estava no crontab: retenção de 12 meses da BlueJus IA (decisão de 24/10/2026).
+            'app:inteligencia:expirar-conteudo' => ['app:inteligencia:expirar-conteudo --force --no-interaction', '20 0 * * *', '20 3 * * *'],
             // Não estava no crontab real: o UTC é o da linha do DEPLOY.md, ligada por decisão do dono (23/10).
             'app:importar-indices-monetarios' => ['app:importar-indices-monetarios --no-interaction', '0 1 11 * *', '0 4 11 * *'],
             'app:djen:sincronizar' => ['app:djen:sincronizar --dias=2 --no-interaction', '0 3 * * *', '0 6 * * *'],

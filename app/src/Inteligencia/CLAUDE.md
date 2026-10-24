@@ -64,6 +64,10 @@ Push nem vira "análise anterior" dele.
 Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor) → escritório (`inteligencia_configuracao`)
 → permissão de módulo → cota diária/mensal. A Twig `ia_disponibilidade()` devolve o enum para a tela.
 
+**Retenção de 12 meses** (`ExpirarConteudoDaInteligenciaUseCase`, agendado às 00:20): análise terminada há mais de
+12 meses perde o conteúdo (resumo, pontos, textos, edições, texto da pergunta) e ganha `excluida_em`; a linha fica
+pelos números (modelo, tokens, datas). Campo novo de conteúdo na análise = campo novo no `expirarConteudoAntesDe`.
+
 ## Agente de Pastas (`/api/agente/*`)
 
 Spec: `docs/specs/designer-central-ia.md` §3 (origem: `ESPEC_AGENTE_PASTAS.md` do Designer 13/10). Fase 1 = só
