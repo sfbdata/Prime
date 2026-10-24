@@ -8,6 +8,32 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.16.0] - 2026-10-24
+
+### Adicionado
+
+- Pasta, aba Financeiro: os tipos "Êxito" e "Sucumbência" do "Adicionar pagamento" passam a funcionar como no desenho 02 VS 18.10.26. Pedem só o percentual (padrão 20 e 10) e gravam uma linha prevista, sem vencimento ("Honorários de êxito (N%)" / "Sucumbência estimada (N%)"), com selo azul "Previsto" e "N% sobre o total contratado · condicionado ao resultado".
+- O previsto fica fora do contratado, do recebido, da barra, dos vencidos, das pendências e do relatório de pastas paradas; aparece só como "+ R$ X previsto em êxito | sucumbência" abaixo da barra e, na impressão, como "Previsto (êxito/sucumbência)". O valor é calculado na leitura (`BaseDoPercentual`) e congela ao "Marcar como recebido" ou ao "Corrigir valor".
+- O card "Honorários contratuais" da faixa vira "Total contratado": soma automática, só leitura, dos lançamentos não previstos (base do percentual). A edição do valor da causa sai desta tela (segue no cartão do Processo).
+- Migration `Version20261020151400`: `pasta_pagamento.tipo` (padrão 'contrato'), `percentual` e `vencimento` nulo, com CHECKs de coerência. Sem backfill: lançamentos antigos ficam como contrato.
+
+### Alterado
+
+- E-mails: o limite de envio passa a contar as últimas 24 horas corridas (Hostinger Business Standard/Premium, 3.000 por caixa), com teto de 2.400 no total, 1.600 para campanhas e 800 reservados aos e-mails de conta, convite e avisos, e 10 por minuto; todos os padrões são configuráveis por ambiente.
+- E-mails: os enviados direto pelo sistema (cadastro, convite, senha, avisos, agendador) passam a contar no limite, registrados como "sistema".
+- Master: aviso no topo quando os e-mails chegam a 80% do limite e quando as campanhas ficam pausadas pelo limite, com a hora em que voltam a enviar e o botão Dispensar.
+- Pasta, Nova meta: campo obrigatório "Caixa / etapa", entre Prazo e Responsáveis (desenho 02 de 22/10, L179). Oito botões na ordem da esteira, com o nome que o escritório deu à etapa e o setor; a sugestão pelo título e pela descrição só pinta o botão e mostra a dica, sem marcar. A regra da sugestão sai do `EtapaDaPasta` por um data-attribute (fonte única). "Preencha:" cobra também a etapa, no fim.
+- `tarefa_criar_para_pasta` exige `etapa` (valor do enum): ausente ou inválida responde 422; a etapa escolhida é gravada antes do PrePersist do título.
+- Duplicar meta: a cópia herda a caixa / etapa da original.
+- Sem migration (a coluna `tarefa.etapa` já existe).
+- Agendador: o envio ao Google Drive de hora em hora (`app:sync:reconciliar`) roda sem `--tenant-id` e percorre todos os escritórios com Drive conectado; o escritório que desconecta para de enviar (decisão do dono, 24/10/2026). Sem nenhum conectado, termina com sucesso, sem aviso de falha.
+
+### Corrigido
+
+- Campos de formulário escuros em tela clara para quem usa o sistema operacional em modo escuro: `base.html.twig` passa a declarar `<meta name="color-scheme" content="light">` (antes "light dark"); o tema escuro do sistema segue pelo `data-bs-theme="dark"`.
+- Equipe > Editar Permissões, aba Dados Pessoais: os 5 campos ganham `form-control`. Cobrança > Acordo, janela Editar: o campo do valor total negociado também.
+- Ponto: batida esquecida com data e hora acima de agora no relógio do servidor (a mesma régua da gravação da batida) é recusada no lote de justificativas do admin, no pedido de esquecimento do colaborador e na aprovação desse pedido (individual e "Aprovar todos", que deixa o pedido pendente). Antes, uma batida de hoje com hora futura passava. Regra única em `App\Ponto\Service\HorarioFuturoDaBatida`. Sem migration.
+
 ## [2.15.0] - 2026-10-23
 
 ### Adicionado
@@ -823,7 +849,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.15.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.16.0...HEAD
+[2.16.0]: https://github.com/sfbdata/Prime/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/sfbdata/Prime/compare/v2.14.0...v2.15.0
 [2.14.0]: https://github.com/sfbdata/Prime/compare/v2.13.0...v2.14.0
 [2.13.0]: https://github.com/sfbdata/Prime/compare/v2.12.0...v2.13.0

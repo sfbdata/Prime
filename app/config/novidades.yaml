@@ -1,6 +1,15 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.16.0"
+  data: "2026-10-24"
+  itens:
+    - "Os campos de preenchimento voltam a aparecer claros nas telas claras, mesmo com o computador em modo escuro."
+    - "Ao criar uma meta na pasta, você escolhe em que caixa ela entra. O sistema sugere uma pelo título, e você confirma com um clique."
+    - "No Financeiro da pasta, agora dá para lançar honorários de êxito e de sucumbência: basta informar o percentual. Eles aparecem como previstos e só entram no recebido quando forem marcados como recebidos."
+    - "O card do topo passou a mostrar o \"Total contratado\", somado automaticamente a partir dos pagamentos."
+    - "O ponto não aceita mais registrar uma batida esquecida num horário que ainda não chegou; aparece o aviso \"Não é possível registrar batida em horário futuro.\"."
+    - "A cópia automática para o Google Drive passa a valer para todo escritório que conectar o próprio Drive e para quando o escritório desconecta."
 - versao: "2.15.0"
   data: "2026-10-23"
   itens:
