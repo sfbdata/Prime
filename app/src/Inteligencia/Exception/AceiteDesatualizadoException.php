@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Inteligencia\Exception;
 
 /**
- * O escritório deu o aceite da BlueJus IA antes de o texto citar os documentos ({@see \App\Inteligencia\Service\TextoDoAceiteDaIa}):
+ * O escritório deu o aceite da BlueJus IA numa versão do texto que não cita os documentos ({@see \App\Inteligencia\Enum\VersaoDoAceiteDaIa}):
  * a IA segue valendo para o resto, mas o "Ler N documentos" não sai. O controller responde 409 com a mensagem;
  * nada é persistido nem conta no limitador.
  */

@@ -56,15 +56,15 @@ enum Comando: string
     private const SEM_CONTEUDO_DE_ARQUIVO = 'O conteúdo dos arquivos não foi lido: use só os metadados dos documentos e não descreva o que está dentro deles.';
 
     /**
-     * O pedido canônico do Documental (`Agente::pedido`) restrito aos documentos marcados na aba, com a
-     * frase de não leitura. A lista dos marcados vai no bloco de documentos do contexto, nunca aqui.
-     */
-    /**
      * O pedido do desenho para o "Ler N documentos" (dc `ia.ler`). Os arquivos vão anexados à mensagem, na
      * ordem do bloco DOCUMENTOS ANEXADOS; a lista com nome e data vai no bloco de documentos, nunca aqui.
      */
     private const PEDIDO_DA_LEITURA = 'Leia os documentos selecionados, que estão anexados a esta mensagem na ordem de DOCUMENTOS ANEXADOS, e identifique em cada um tipo, data, autor, partes, processo, assunto, valores, obrigações, prazos e determinações. Cite o documento de onde saiu cada informação. Se um arquivo estiver ilegível ou não tiver texto, diga isso em vez de supor o conteúdo.';
 
+    /**
+     * O pedido canônico do Documental (`Agente::pedido`) restrito aos documentos marcados na aba, com a
+     * frase de não leitura. A lista dos marcados vai no bloco de documentos do contexto, nunca aqui.
+     */
     private const PEDIDO_DO_INDICE = 'Monte um índice inteligente dos documentos selecionados, que são os listados em DOCUMENTOS JUNTADOS, com: documento, data, tipo, relevância, processo relacionado, providência. Indique documentos faltantes ou duplicados, se houver base no checklist e nos metadados. O conteúdo dos arquivos não foi lido: não descreva o que está dentro deles.';
 
     public static function deRota(string $valor): ?self

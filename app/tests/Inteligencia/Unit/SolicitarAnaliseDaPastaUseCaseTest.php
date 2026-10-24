@@ -738,7 +738,7 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         $this->dados->documentos = [$this->documentoDaPasta(1)];
         $config = $this->configuracoes->findDoTenant($this->tenant);
         self::assertNotNull($config);
-        (new \ReflectionProperty($config, 'consentimentoEnvioExternoEm'))->setValue($config, new \DateTimeImmutable('2026-10-01 10:00:00'));
+        (new \ReflectionProperty($config, 'consentimentoVersao'))->setValue($config, 1);
 
         $this->esperarRecusaDaLeitura($this->inputDaLeitura(['1']), AceiteDesatualizadoException::class, 'aceite_desatualizado', 'renova o aceite');
     }

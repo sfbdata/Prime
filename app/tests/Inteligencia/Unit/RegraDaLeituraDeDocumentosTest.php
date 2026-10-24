@@ -11,7 +11,7 @@ use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Exception\SelecaoDeDocumentosInvalidaException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
-use App\Inteligencia\Service\TextoDoAceiteDaIa;
+use App\Inteligencia\Enum\VersaoDoAceiteDaIa;
 use App\Pasta\Entity\PastaDocumento;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -20,10 +20,10 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A regra do "Ler N documentos" (PR F): limites conferidos antes da fila, o tipo pelo conteúdo (o que vai
- * como `media_type`) e o aceite do escritório, que só cobre a leitura se for posterior ao texto novo.
+ * como `media_type`) e o aceite do escritório, que só cobre a leitura na versão 2 do texto.
  */
 #[CoversClass(RegraDaLeituraDeDocumentos::class)]
-#[CoversClass(TextoDoAceiteDaIa::class)]
+#[CoversClass(VersaoDoAceiteDaIa::class)]
 final class RegraDaLeituraDeDocumentosTest extends TestCase
 {
     private const MB = RegraDaLeituraDeDocumentos::MEGABYTE;
@@ -49,9 +49,13 @@ final class RegraDaLeituraDeDocumentosTest extends TestCase
     public function testSelecaoValidaPassa(): void
     {
         $this->regra()->conferir([
-            self::documento('a.pdf', 'application/pdf', 10 * self::MB, 100),
+            self::documento('a.pdf', 'application/pdf', 10 * self::MB, 60),
             self::documento('b.jpg', 'image/jpg', 3 * self::MB),
             self::documento('c.webp', 'IMAGE/WEBP ', 1000),
+        ]);
+        $this->regra()->conferir([
+            self::documento('a.pdf', 'application/pdf', 1000, 60),
+            self::documento('b.pdf', 'application/pdf', 1000, 40),
         ]);
         $this->addToAssertionCount(1);
     }
@@ -66,6 +70,11 @@ final class RegraDaLeituraDeDocumentosTest extends TestCase
         yield 'PDF grande' => [[self::documento('grande.pdf', 'application/pdf', 10 * self::MB + 1)], '10 MB'];
         yield 'imagem grande' => [[self::documento('foto.png', 'image/png', 3 * self::MB + 1)], '3 MB'];
         yield 'páginas demais' => [[self::documento('longo.pdf', 'application/pdf', 1000, 101)], '100 páginas'];
+        yield 'páginas somadas' => [[
+            self::documento('a.pdf', 'application/pdf', 1000, 50),
+            self::documento('foto.png', 'image/png', 1000),
+            self::documento('b.pdf', 'application/pdf', 1000, 51),
+        ], '100 páginas juntos'];
         yield 'total acima de 20 MB' => [[
             self::documento('a.pdf', 'application/pdf', 9 * self::MB),
             self::documento('b.pdf', 'application/pdf', 9 * self::MB),
@@ -119,6 +128,8 @@ final class RegraDaLeituraDeDocumentosTest extends TestCase
         self::assertNull(RegraDaLeituraDeDocumentos::tipoPeloConteudo('<svg xmlns="..."/>'));
         self::assertNull(RegraDaLeituraDeDocumentos::tipoPeloConteudo("PK\x03\x04 docx"));
         self::assertNull(RegraDaLeituraDeDocumentos::tipoPeloConteudo(''));
+        self::assertSame(AnexoDeDocumento::PDF, RegraDaLeituraDeDocumentos::tipoPeloConteudo(str_repeat("\0", 1019) . '%PDF-1.4'), '%PDF- até o byte 1024');
+        self::assertNull(RegraDaLeituraDeDocumentos::tipoPeloConteudo(str_repeat("\0", 1020) . '%PDF-1.4'), 'depois do byte 1024, não');
     }
 
     #[TestDox('Aceite: sem configuração, sem aceite ou aceite antigo não cobre; aceite novo cobre')]
@@ -128,16 +139,20 @@ final class RegraDaLeituraDeDocumentosTest extends TestCase
         self::assertFalse($this->regra(null)->aceiteCobre($tenant));
 
         $semAceite = new ConfiguracaoDeInteligencia($tenant);
-        self::assertFalse($this->regra($semAceite)->aceiteCobre($tenant));
+        self::assertFalse($this->regra($semAceite)->aceiteCobre($tenant), 'sem aceite, nem a versão importa');
+        $this->definirVersao($semAceite, 2);
+        self::assertFalse($semAceite->aceiteCobreDocumentos());
 
         $antigo = new ConfiguracaoDeInteligencia($tenant);
-        $this->definirAceite($antigo, new \DateTimeImmutable('2026-10-01 10:00:00'));
+        $antigo->atualizar(true, 10, 100, true, new User());
+        $this->definirVersao($antigo, 1);
         self::assertFalse($this->regra($antigo)->aceiteCobre($tenant));
 
         $novo = new ConfiguracaoDeInteligencia($tenant);
-        $this->definirAceite($novo, TextoDoAceiteDaIa::comDocumentosDesde());
-        self::assertTrue($this->regra($novo)->aceiteCobre($tenant), 'no instante do texto novo já cobre');
-        self::assertFalse(TextoDoAceiteDaIa::cobreDocumentos(TextoDoAceiteDaIa::comDocumentosDesde()->modify('-1 second')));
+        $novo->atualizar(true, 10, 100, true, new User());
+        self::assertSame(VersaoDoAceiteDaIa::atual()->value, $novo->getConsentimentoVersao());
+        self::assertTrue($this->regra($novo)->aceiteCobre($tenant));
+        self::assertTrue(VersaoDoAceiteDaIa::cobreDocumentos(3), 'versão futura também cobre');
     }
 
     #[TestDox('Renovação: salvar com a IA ligada e aceite antigo grava o aceite de novo; com aceite novo, não mexe')]
@@ -146,7 +161,7 @@ final class RegraDaLeituraDeDocumentosTest extends TestCase
         $config = new ConfiguracaoDeInteligencia(new Tenant());
         $admin = new User();
         $config->atualizar(true, 10, 100, true, $admin);
-        $this->definirAceite($config, new \DateTimeImmutable('2026-10-01 10:00:00'));
+        $this->definirVersao($config, 1);
         self::assertFalse($config->aceiteCobreDocumentos());
 
         $config->atualizar(true, 10, 100, true, $admin);
@@ -161,9 +176,8 @@ final class RegraDaLeituraDeDocumentosTest extends TestCase
         self::assertNull($desligada->getConsentimentoEnvioExternoEm(), 'salvar desligada não dá aceite');
     }
 
-    private function definirAceite(ConfiguracaoDeInteligencia $config, \DateTimeImmutable $em): void
+    private function definirVersao(ConfiguracaoDeInteligencia $config, int $versao): void
     {
-        $prop = new \ReflectionProperty(ConfiguracaoDeInteligencia::class, 'consentimentoEnvioExternoEm');
-        $prop->setValue($config, $em);
+        (new \ReflectionProperty(ConfiguracaoDeInteligencia::class, 'consentimentoVersao'))->setValue($config, $versao);
     }
 }

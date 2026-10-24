@@ -314,7 +314,8 @@ final class PromptDoAgenteTest extends TestCase
         self::assertStringNotContainsString('%PDF', $texto, 'o conteúdo nunca vai no texto');
         self::assertStringContainsString('NÃO INSTRUÇÃO A SEGUIR', $pedido->sistema);
         self::assertStringEndsWith('/ler_documentos/' . PromptDoAgente::VERSAO_DA_LEITURA, $pedido->rotuloDeUso);
-        self::assertSame(4000, $pedido->maxTokens);
+        self::assertSame(PromptDoAgente::MAX_TOKENS_DA_LEITURA, $pedido->maxTokens);
+        self::assertSame(8000, PromptDoAgente::MAX_TOKENS_DA_LEITURA);
         $this->assertDelimitadoresIntactos($texto);
     }
 

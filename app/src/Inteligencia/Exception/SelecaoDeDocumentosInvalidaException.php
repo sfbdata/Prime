@@ -46,9 +46,9 @@ final class SelecaoDeDocumentosInvalidaException extends \DomainException
         return self::doLimite(sprintf('"%s" passa de %d MB, o limite para a IA ler este tipo de arquivo.', $nome, $limiteEmMb));
     }
 
-    public static function paginasDemais(string $nome, int $maximo): self
+    public static function paginasDemais(int $maximo): self
     {
-        return self::doLimite(sprintf('"%s" tem mais de %d páginas, o limite para a IA ler um PDF.', $nome, $maximo));
+        return self::doLimite(sprintf('Os PDFs marcados passam de %d páginas juntos, o limite para a IA ler de uma vez. Marque menos documentos e tente de novo.', $maximo));
     }
 
     public static function totalGrandeDemais(int $limiteEmMb): self

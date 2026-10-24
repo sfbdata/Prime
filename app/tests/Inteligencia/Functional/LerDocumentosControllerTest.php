@@ -155,7 +155,7 @@ final class LerDocumentosControllerTest extends JusPrimeWebTestCase
         $this->semNadaNaFila((int) $pasta->getId());
     }
 
-    #[TestDox('formato que não é PDF nem imagem (DOCX), PDF acima de 10 MB, imagem acima de 3 MB e PDF com mais de 100 páginas → 422 citando o arquivo')]
+    #[TestDox('formato que não é PDF nem imagem (DOCX), PDF acima de 10 MB e imagem acima de 3 MB → 422 citando o arquivo')]
     public function testFormatoETamanho(): void
     {
         $client = $this->cliente();
@@ -166,7 +166,6 @@ final class LerDocumentosControllerTest extends JusPrimeWebTestCase
             [$this->arquivo($tenant, $pasta, 'contrato.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'), 'A IA lê só PDF e imagem (JPG, PNG, GIF ou WEBP): "contrato.docx" não é um desses formatos.'],
             [$this->arquivo($tenant, $pasta, 'grande.pdf', 'application/pdf', RegraDaLeituraDeDocumentos::TAMANHO_MAXIMO_DO_PDF + 1), '"grande.pdf" passa de 10 MB, o limite para a IA ler este tipo de arquivo.'],
             [$this->arquivo($tenant, $pasta, 'foto.png', 'image/png', RegraDaLeituraDeDocumentos::TAMANHO_MAXIMO_DA_IMAGEM + 1), '"foto.png" passa de 3 MB, o limite para a IA ler este tipo de arquivo.'],
-            [$this->arquivo($tenant, $pasta, 'autos.pdf', 'application/pdf', 4096, 101), '"autos.pdf" tem mais de 100 páginas, o limite para a IA ler um PDF.'],
         ];
         $this->limitadorRecusando();
         $this->logarComTenant($client, $user, $tenant);
@@ -192,12 +191,37 @@ final class LerDocumentosControllerTest extends JusPrimeWebTestCase
         foreach (['a.pdf', 'b.pdf', 'c.pdf'] as $nome) {
             $ids[] = (int) $this->arquivo($tenant, $pasta, $nome, 'application/pdf', 7 * RegraDaLeituraDeDocumentos::MEGABYTE)->getId();
         }
+        $this->limitadorRecusando();
         $this->logarComTenant($client, $user, $tenant);
 
         $this->ler($client, (int) $pasta->getId(), $ids);
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Os documentos marcados passam de 20 MB juntos. Marque menos documentos e tente de novo.', $this->json($client)['mensagem']);
+        $this->semNadaNaFila((int) $pasta->getId());
+    }
+
+    #[TestDox('PDFs que somam mais de 100 páginas → 422; um só com 101 também; páginas desconhecidas não barram aqui (o worker conta)')]
+    public function testPaginasNoTotal(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $soma = [
+            (int) $this->arquivo($tenant, $pasta, 'a.pdf', 'application/pdf', 4096, 60)->getId(),
+            (int) $this->arquivo($tenant, $pasta, 'b.pdf', 'application/pdf', 4096, 41)->getId(),
+        ];
+        $um = (int) $this->arquivo($tenant, $pasta, 'autos.pdf', 'application/pdf', 4096, 101)->getId();
+        $this->limitadorRecusando();
+        $this->logarComTenant($client, $user, $tenant);
+
+        foreach ([$soma, [$um]] as $ids) {
+            $this->ler($client, (int) $pasta->getId(), $ids);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame('limite_da_leitura', $this->json($client)['motivo']);
+            self::assertSame('Os PDFs marcados passam de 100 páginas juntos, o limite para a IA ler de uma vez. Marque menos documentos e tente de novo.', $this->json($client)['mensagem']);
+        }
         $this->semNadaNaFila((int) $pasta->getId());
     }
 

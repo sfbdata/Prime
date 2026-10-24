@@ -55,7 +55,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
 {
     use CriaFixturesInteligenciaTrait;
 
-    private function handler(ProvedorDeLinguagem $provedor, ?LoggerInterface $logger = null, bool $iaHabilitada = true): ProcessarAnaliseDeInteligenciaHandler
+    private function handler(ProvedorDeLinguagem $provedor, ?LoggerInterface $logger = null, bool $iaHabilitada = true, ?LeitorDeDocumentosDaPasta $leitor = null): ProcessarAnaliseDeInteligenciaHandler
     {
         $c = static::getContainer();
 
@@ -73,7 +73,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $this->em(),
             $repositorio,
             new FluxoDoResumoDoPush($c->get(MontadorDeContextoDoPush::class), new PromptResumoDoPush(), new InterpretadorDeRespostaDePush(), $repositorio),
-            new FluxoDaAnaliseDaPasta($c->get(MontadorDeContextoDaPasta::class), new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio, $c->get(LeitorDeDocumentosDaPasta::class)),
+            new FluxoDaAnaliseDaPasta($c->get(MontadorDeContextoDaPasta::class), new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio, $leitor ?? $c->get(LeitorDeDocumentosDaPasta::class)),
             new FluxoDaPerguntaLivre($c->get(MontadorDeContextoDaPasta::class), new PromptDaPergunta(new PromptDoAgente()), new InterpretadorDeRespostaDoAgente(), $c->get(PerguntaDaConversaRepository::class)),
             $provedor,
             $c->get(NotificacaoService::class),
@@ -1078,10 +1078,11 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         return \App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
     }
 
-    private function arquivoSemeado(\App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer $disco, \App\Entity\Tenant\Tenant $tenant, \App\Pasta\Entity\Pasta $pasta, string $nome, string $bytes): \App\Pasta\Entity\PastaDocumento
+    private function arquivoSemeado(\App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer $disco, \App\Entity\Tenant\Tenant $tenant, \App\Pasta\Entity\Pasta $pasta, string $nome, string $bytes, ?int $paginas = 1): \App\Pasta\Entity\PastaDocumento
     {
         $documento = $this->criarDocumento($tenant, $pasta, $nome);
         $documento->setNomeOriginal($nome);
+        $documento->setPaginas($paginas);
         $documento->setCaminhoArquivo(uniqid('doc', true) . '.bin');
         $this->em()->flush();
         $disco->memoria->semear(\App\Pasta\Armazenamento\ChavesDePasta::documento($documento), $bytes);
@@ -1213,6 +1214,116 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $sigilo = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::LerDocumentos, documentosSelecionados: [(int) $pdf->getId()]);
         $this->handler($falso)($this->mensagem($sigilo));
         self::assertStringContainsString('contexto bloqueado', (string) $this->reler($sigilo)->getErroMotivo());
+        self::assertNull($falso->ultimoPedido());
+    }
+
+    /**
+     * O leitor do container com outro armazenamento e/ou materializador: o dublê do container não materializa
+     * (a entrega é testada contra o disco real), então a contagem de páginas usa o `ArmazenamentoEmMemoria`.
+     */
+    private function leitorCom(\App\Shared\Armazenamento\ArmazenamentoDeArquivos $armazenamento, \App\Shared\Armazenamento\MaterializadorDeArquivo $materializador): LeitorDeDocumentosDaPasta
+    {
+        $c = static::getContainer();
+
+        return new LeitorDeDocumentosDaPasta(
+            $c->get(\App\Inteligencia\Contexto\FonteDeDadosDaPasta::class),
+            $armazenamento,
+            $materializador,
+            $c->get(\App\Pasta\Service\ContadorDePaginasDePdf::class),
+            $c->get(\App\Inteligencia\Service\RegraDaLeituraDeDocumentos::class),
+            $c->get(PermissionChecker::class),
+            $c->get(\App\Pasta\Service\VisibilidadeDasAbasDaPasta::class),
+        );
+    }
+
+    #[TestDox('Ler no worker: PDF acima de 10 MB e arquivos que juntos passam de 20 MB, medidos pelo CONTEÚDO (o banco dizia pouco) → falhou sem provedor')]
+    public function testLerTetosPeloConteudoNoWorker(): void
+    {
+        self::bootKernel();
+        $disco = $this->armazenamentoEmMemoria();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $mb = \App\Inteligencia\Service\RegraDaLeituraDeDocumentos::MEGABYTE;
+        $grande = $this->arquivoSemeado($disco, $tenant, $pasta, 'grande.pdf', '%PDF-1.7' . str_repeat('g', 10 * $mb));
+        $juntos = [];
+        foreach (['a', 'b', 'c'] as $letra) {
+            $juntos[] = (int) $this->arquivoSemeado($disco, $tenant, $pasta, $letra . '.pdf', '%PDF-1.7' . str_repeat($letra, 7 * $mb))->getId();
+        }
+        $casos = [
+            [$this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::LerDocumentos, documentosSelecionados: [(int) $grande->getId()]), 'passa do tamanho máximo'],
+            [$this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::LerDocumentos, documentosSelecionados: $juntos), 'juntos passam do limite de tamanho'],
+        ];
+        $falso = new ProvedorFalso();
+
+        foreach ($casos as [$analise, $motivo]) {
+            $this->handler($falso)($this->mensagem($analise));
+            $relida = $this->reler($analise);
+            self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus(), $motivo);
+            self::assertStringContainsString($motivo, (string) $relida->getErroMotivo());
+        }
+        self::assertNull($falso->ultimoPedido());
+    }
+
+    #[TestDox('Ler no worker: PDF sem contagem de páginas é contado pelo arquivo (o contador do upload); sem contagem possível, falhou')]
+    public function testLerContaAsPaginasQueFaltam(): void
+    {
+        if (!\App\Tests\Shared\Doubles\GhostscriptDeTeste::disponivel()) {
+            self::markTestSkipped('Ghostscript ausente.');
+        }
+        self::bootKernel();
+        $disco = $this->armazenamentoEmMemoria();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $caminho = sys_get_temp_dir() . '/ia-paginas-' . uniqid('', true) . '.pdf';
+        \App\Tests\Shared\Doubles\GhostscriptDeTeste::pdfReal($caminho, 2);
+        $real = (string) file_get_contents($caminho);
+        unlink($caminho);
+        $contavel = $this->arquivoSemeado($disco, $tenant, $pasta, 'real.pdf', $real, null);
+        $muitas = $this->arquivoSemeado($disco, $tenant, $pasta, 'muitas.pdf', self::PDF, 99);
+        $incontavel = $this->arquivoSemeado($disco, $tenant, $pasta, 'quebrado.pdf', self::PDF, null);
+        $ok = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::LerDocumentos, documentosSelecionados: [(int) $contavel->getId()]);
+        $acima = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::LerDocumentos, documentosSelecionados: [(int) $contavel->getId(), (int) $muitas->getId()]);
+        $semContagem = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::LerDocumentos, documentosSelecionados: [(int) $incontavel->getId()]);
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"ok","pontos":[],"quem":"","texto":"CONCLUSÃO\n• ok"}');
+        $leitor = $this->leitorCom($disco, $disco->memoria);
+
+        $this->handler($falso, null, true, $leitor)($this->mensagem($ok));
+        self::assertSame(StatusDaAnalise::Concluida, $this->reler($ok)->getStatus(), '2 páginas contadas pelo arquivo: ' . $this->reler($ok)->getErroMotivo());
+        $this->handler($falso, null, true, $leitor)($this->mensagem($acima));
+        self::assertStringContainsString('limite de páginas', (string) $this->reler($acima)->getErroMotivo(), '2 + 99 > 100');
+        $this->handler($falso, null, true, $leitor)($this->mensagem($semContagem));
+        self::assertStringContainsString('não foi possível contar as páginas', (string) $this->reler($semContagem)->getErroMotivo());
+    }
+
+    #[TestDox('Ler no worker: falha de I/O do armazenamento é transitória → volta a PENDENTE e re-lança para o Messenger retentar')]
+    public function testLerFalhaDeArmazenamentoEhTransitoria(): void
+    {
+        self::bootKernel();
+        $disco = $this->armazenamentoEmMemoria();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $pdf = $this->arquivoSemeado($disco, $tenant, $pasta, 'peticao.pdf', self::PDF);
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::LerDocumentos, documentosSelecionados: [(int) $pdf->getId()]);
+        $quebrado = $this->createStub(\App\Shared\Armazenamento\ArmazenamentoDeArquivos::class);
+        $quebrado->method('ler')->willThrowException(new \App\Shared\Armazenamento\Exception\FalhaDeArmazenamento('E/S no disco'));
+        $leitor = $this->leitorCom($quebrado, $disco->memoria);
+        $falso = new ProvedorFalso();
+
+        try {
+            $this->handler($falso, null, true, $leitor)($this->mensagem($analise));
+            self::fail('deveria re-lançar');
+        } catch (\App\Inteligencia\Exception\ArmazenamentoIndisponivelException $e) {
+            self::assertStringContainsString('documento ' . $pdf->getId(), $e->getMessage());
+        }
+
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Pendente, $relida->getStatus());
+        self::assertStringContainsString('falha transitória', (string) $relida->getErroMotivo());
+        self::assertSame(1, $relida->getTentativas());
         self::assertNull($falso->ultimoPedido());
     }
 }

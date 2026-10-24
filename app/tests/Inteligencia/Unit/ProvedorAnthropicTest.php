@@ -203,12 +203,14 @@ final class ProvedorAnthropicTest extends TestCase
         self::assertArrayNotHasKey('metadata', $corpo, 'nenhum identificador de escritório/usuário sai');
     }
 
-    #[TestDox('Com anexos: PDF e imagem vão como blocos base64 só na última mensagem do usuário; o resto continua string')]
+    #[TestDox('Com anexos: PDF e imagem vão como blocos base64 só na última mensagem do usuário, com timeout de 300 s; o resto continua string')]
     public function testAnexosVaoComoBlocosNaUltimaMensagem(): void
     {
         $capturado = null;
-        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado): MockResponse {
+        $timeout = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado, &$timeout): MockResponse {
             $capturado = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR);
+            $timeout = $opcoes['timeout'];
 
             return self::ok();
         });
@@ -229,14 +231,18 @@ final class ProvedorAnthropicTest extends TestCase
         self::assertSame('image/jpeg', $ultima['content'][3]['source']['media_type']);
         self::assertSame('Resuma.', $ultima['content'][4]['text']);
         self::assertSame(['model', 'max_tokens', 'messages', 'system'], array_keys($capturado), 'nada além disso sai (sem Files API, sem metadado)');
+        self::assertSame(ProvedorAnthropic::TIMEOUT_DA_LEITURA_EM_SEGUNDOS, $timeout, 'a leitura espera até 300 s');
+        self::assertSame(300.0, ProvedorAnthropic::TIMEOUT_DA_LEITURA_EM_SEGUNDOS);
     }
 
-    #[TestDox('Sem anexos: a última mensagem continua string, como sempre')]
+    #[TestDox('Sem anexos: a última mensagem continua string e o timeout é o configurado')]
     public function testSemAnexosContinuaString(): void
     {
         $capturado = null;
-        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado): MockResponse {
+        $timeout = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado, &$timeout): MockResponse {
             $capturado = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR);
+            $timeout = $opcoes['timeout'];
 
             return self::ok();
         });
@@ -244,6 +250,7 @@ final class ProvedorAnthropicTest extends TestCase
         self::provedor($http)->completar($this->pedido());
 
         self::assertSame('Resuma.', $capturado['messages'][2]['content']);
+        self::assertSame(120.0, $timeout, 'sem anexos, o timeout configurado');
     }
 
     #[TestDox('A resposta: texto dos blocos de texto, modelo e tokens')]

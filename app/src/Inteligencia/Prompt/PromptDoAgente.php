@@ -35,8 +35,8 @@ final class PromptDoAgente
     public const ROTULO_DE_USO = 'analise_pasta';
 
     private const MAX_TOKENS = 2500;
-    /** Ler até três arquivos pede mais resposta que um comando sobre metadados. */
-    private const MAX_TOKENS_DA_LEITURA = 4000;
+    /** Ler até três arquivos (100 páginas) pede mais resposta que um comando sobre metadados. */
+    public const MAX_TOKENS_DA_LEITURA = 8000;
     private const TEMPERATURA = 0.2;
 
     private const SISTEMA = <<<'TXT'

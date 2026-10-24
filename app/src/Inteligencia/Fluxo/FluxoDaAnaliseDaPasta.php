@@ -64,7 +64,7 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
         }
 
         $anexos = $comando?->leConteudoDosArquivos() === true
-            ? $this->leitor->anexos($tenant, $pasta, self::documentosSelecionadosDo($analise) ?? [], self::abasOcultasDo($analise))
+            ? $this->leitor->anexos($tenant, $pasta, self::documentosSelecionadosDo($analise) ?? [], self::abasOcultasDo($analise), $analise->getSolicitante())
             : [];
         $anterior = $this->anteriorQuePodeVoltar($analise, $tenant);
         $analise->registrarContexto($contexto->hash, $contexto->resumo() + self::registroDaLeitura($anexos));

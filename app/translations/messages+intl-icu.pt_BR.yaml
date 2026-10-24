@@ -6935,7 +6935,7 @@ inteligencia:
         analisando: Analisando…
         carregando: Carregando as análises…
     documentos:
-        intro: 'A IA lê os arquivos PDF e imagem que você marcar (até 3 por vez) e extrai tipo, data, partes, valores, prazos e providências. O Índice inteligente usa só o nome, o título, a categoria e a data de cada arquivo.'
+        intro: 'A IA lê os arquivos PDF e imagem que você marcar (até 3 por vez, 10 MB por arquivo, imagem até 3 MB e 100 páginas no total) e extrai tipo, data, partes, valores, prazos e providências. O Índice inteligente usa só o nome, o título, a categoria e a data de cada arquivo.'
         ler_selecione: Selecione
         ler_bloqueado: Ler documentos
         dica_ler: Marque os documentos para a IA ler

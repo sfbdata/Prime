@@ -9,6 +9,7 @@ use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\ResultadoDaAnalise;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Exception\ArmazenamentoIndisponivelException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\DocumentoIlegivelException;
 use App\Inteligencia\Exception\RespostaInvalidaException;
@@ -34,6 +35,7 @@ interface FluxoDeAnalise
      *
      * @throws ContextoBloqueadoException sigilo: nunca sai
      * @throws DocumentoIlegivelException "Ler N documentos" (PR F): um arquivo pedido não pode ir ao provedor
+     * @throws ArmazenamentoIndisponivelException "Ler N documentos" (PR F): o armazenamento falhou ao ler (transitória)
      */
     public function preparar(AnaliseDeInteligencia $analise, Tenant $tenant, Pasta $pasta): ?PedidoDeLinguagem;
 

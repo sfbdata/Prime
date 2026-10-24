@@ -36,10 +36,10 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
    financeiro só entra se `VisibilidadeDoFinanceiroDaPasta` disse sim na solicitação (decisão gravada em
    `contexto_resumo.financeiro`; o worker obedece, não decide). **Conteúdo de documento** só sai no
    comando `ler_documentos` ("Ler N documentos", PR F da spec `ia-anthropic-ligar`): só os arquivos que a
-   pessoa marcou, visíveis na aba Documentos dela, fora da lixeira, da pasta e do escritório da análise
-   (o worker relê por id + tenant), PDF ou imagem conferidos pelo conteúdo, até 3 por vez
-   (`RegraDaLeituraDeDocumentos`), lidos pela chave do armazenamento e mandados inline (sem Files API,
-   sem OCR nosso), com o aceite do escritório posterior a `TextoDoAceiteDaIa::COM_DOCUMENTOS_DESDE`.
+   pessoa marcou, visíveis na aba Documentos dela (abas gravadas e as de agora), fora da lixeira, da pasta
+   e do escritório da análise (o worker relê por id + tenant e reconfere o acesso de quem pediu), PDF ou
+   imagem conferidos pelo conteúdo, até 3 por vez e 100 páginas somadas (`RegraDaLeituraDeDocumentos`), lidos pela chave do armazenamento e mandados inline (sem Files API,
+   sem OCR nosso), com o aceite do escritório na versão `VersaoDoAceiteDaIa::ComDocumentos` (2) ou maior.
    Grava-se só id + sha256 (`contexto_resumo.documentosLidos`); log e motivo de falha nunca levam nome
    nem conteúdo. Todo outro comando lê só metadados, e o prompt diz isso.
 

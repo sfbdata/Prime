@@ -32,7 +32,7 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
     private const DRAWER = 'aside.ia-drawer#psIaDrawer[data-ia-drawer]';
     private const ABA_NA_PASTA = self::DRAWER . ' > .ia-drawer-corpo > .ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="documentos"]';
     private const ABA_NO_PAINEL = '.ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="documentos"]';
-    private const TEXTO_DO_TOPO = 'A IA lê os arquivos PDF e imagem que você marcar (até 3 por vez) e extrai tipo, data, partes, valores, prazos e providências. O Índice inteligente usa só o nome, o título, a categoria e a data de cada arquivo.';
+    private const TEXTO_DO_TOPO = 'A IA lê os arquivos PDF e imagem que você marcar (até 3 por vez, 10 MB por arquivo, imagem até 3 MB e 100 páginas no total) e extrai tipo, data, partes, valores, prazos e providências. O Índice inteligente usa só o nome, o título, a categoria e a data de cada arquivo.';
     private const ACOES = ' > .ia-docs-acoes';
 
     private function cliente(): KernelBrowser

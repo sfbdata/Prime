@@ -59,6 +59,11 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     private const STATUS_TRANSITORIOS = [408, 429, 500, 502, 503, 504, 529];
     private const ESFORCOS = ['low', 'medium', 'high', 'xhigh', 'max'];
     public const MARGEM_DE_RACIOCINIO_PADRAO = 8000;
+    /**
+     * O "Ler N documentos" (PR F) manda até 20 MB e 100 páginas: a resposta demora mais que a de um comando sobre
+     * metadados. Só o pedido com anexos usa este teto; o resto segue o configurado.
+     */
+    public const TIMEOUT_DA_LEITURA_EM_SEGUNDOS = 300.0;
     /** Vazio = não envia (vale o padrão do workspace na Console). */
     private const REGIOES_DE_INFERENCIA = ['', 'us', 'global'];
     /** Teto da espera pedida pelo `retry-after`: cinco minutos. */
@@ -147,7 +152,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
                     'content-type'      => 'application/json',
                 ],
                 'json'          => $corpo,
-                'timeout'       => $this->timeoutEmSegundos,
+                'timeout'       => $pedido->temAnexos() ? self::TIMEOUT_DA_LEITURA_EM_SEGUNDOS : $this->timeoutEmSegundos,
                 'max_redirects' => 0,
             ]);
             $status = $resposta->getStatusCode();

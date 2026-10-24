@@ -60,12 +60,13 @@ trait CriaFixturesInteligenciaTrait
     }
 
     /**
-     * O aceite do escritório dado ANTES do texto que cita os documentos (PR F, `TextoDoAceiteDaIa`): a IA segue
-     * valendo, mas o "Ler N documentos" fica bloqueado. Grava a data direto (não há setter de propósito).
+     * O aceite do escritório dado na versão do texto que NÃO cita os documentos (PR F, `VersaoDoAceiteDaIa`, 1):
+     * a IA segue valendo, mas o "Ler N documentos" fica bloqueado. Grava a versão direto (não há setter de
+     * propósito), como as linhas que a migration `Version20261024150400` encontrou.
      */
-    private function envelhecerAceite(ConfiguracaoDeInteligencia $configuracao, string $quando = '2026-10-01 10:00:00'): void
+    private function envelhecerAceite(ConfiguracaoDeInteligencia $configuracao): void
     {
-        (new \ReflectionProperty(ConfiguracaoDeInteligencia::class, 'consentimentoEnvioExternoEm'))->setValue($configuracao, new \DateTimeImmutable($quando));
+        (new \ReflectionProperty(ConfiguracaoDeInteligencia::class, 'consentimentoVersao'))->setValue($configuracao, 1);
         $this->em()->flush();
     }
 

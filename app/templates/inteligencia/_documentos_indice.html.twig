@@ -25,7 +25,8 @@
    O `pasta-ia-agentes.js` marca e desmarca (`data-ia-doc`, `data-ia-docs-todos`),
    atualiza a contagem e o rótulo do "Ler" e manda os ids marcados como
    `documentos[]` no POST. Os limites (3 documentos, PDF até 10 MB, imagem até
-   3 MB, 20 MB juntos) são conferidos no servidor, que responde com a mensagem.
+   3 MB, 20 MB juntos, 100 páginas somadas) são conferidos no servidor, que
+   responde com a mensagem.
 
    Contexto: `documentos` (App\Inteligencia\DTO\DocumentosDoIndiceOutput, ou null
    no HTML da pasta, antes de o painel carregar), `comando` (o Índice, enum
