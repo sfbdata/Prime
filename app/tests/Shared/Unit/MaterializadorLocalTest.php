@@ -48,6 +48,7 @@ final class MaterializadorLocalTest extends TestCase
             fotosPerfilDir: $this->raiz . '/perfil',
             cobrancasUploadsDir: $this->raiz . '/cobrancas',
             kanbanUploadsDir: $this->raiz . '/kanban',
+            tarefasUploadsDir: $this->raiz . '/tarefas',
         );
         $this->local = new ArmazenamentoLocal($this->resolvedor);
     }

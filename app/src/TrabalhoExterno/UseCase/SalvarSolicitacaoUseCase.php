@@ -13,6 +13,7 @@ use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Service\ArmazenadorDeDocumentos;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -39,6 +40,7 @@ final class SalvarSolicitacaoUseCase
         private readonly ArmazenadorDeDocumentos $documentos,
         private readonly ValidatorInterface $validator,
         private readonly PoliticaDaDemanda $politica,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -74,6 +76,7 @@ final class SalvarSolicitacaoUseCase
 
         if ($enviar) {
             $demanda->enviar($ctx->autor());
+            $this->avisos->andamentoDaDemanda($ctx, $demanda);
         }
 
         $this->repositorio->salvar($demanda, flush: true);

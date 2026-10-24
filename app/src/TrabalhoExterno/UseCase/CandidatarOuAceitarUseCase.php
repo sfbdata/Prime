@@ -104,7 +104,7 @@ final class CandidatarOuAceitarUseCase
         $this->avisos->candidatura($ctx, $candidatura);
         $vaga->registrarCandidatura($cv->texto('nome'), $agora);
 
-        return new ResultadoDaCandidatura(true, false, 'Candidatura enviada', 'Acompanhe em Meu currículo · Minhas candidaturas.', $vaga->getTitulo());
+        return new ResultadoDaCandidatura(true, false, 'Candidatura enviada', '', $vaga->getTitulo());
     }
 
     /** O aceite conta só a rodada atual ("Ofertar novamente" e "Reabrir" recomeçam do zero). */

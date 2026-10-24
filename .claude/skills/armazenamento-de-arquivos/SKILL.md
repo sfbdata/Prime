@@ -144,7 +144,9 @@ Regras que acompanham os exemplos:
   temporário privado do processo, que se apaga inteiro no `finally`. É onde o export materializa as
   imagens da peça (e é o `chroot` que o Dompdf recebe) e onde o Ghostscript escreve os temporários
   dele.
-- `Service\ArquivoStorageInterface` / `ArquivoStorageService` — **em extinção** (shim de D2): desde a
-  E2.6C não há mais consumidor de produção; a interface e o serviço saem na E2.8. Não usar em código
-  novo — gravar, ler, excluir, entregar e comprimir já são por chave. Em teste ele também não está
-  mais disponível: sem consumidor, o container de teste não o expõe.
+- ~~`Service\ArquivoStorageInterface` / `ArquivoStorageService`~~ — o shim de D2 **saiu na E2.8**
+  (spec P2 §10.2). Arquivo do usuário é gravado, lido, excluído, entregue e comprimido por
+  `ChaveDeArquivo`; as exceções são temporárias e estão listadas, com o motivo, em
+  `tests/Arquitetura/AcessoDiretoAoDiscoArquiteturaTest` (o `import-tmp` da cobrança, o temporário do
+  Drive, os temporários privados, os Commands de operador). Acesso novo ao disco fora da lista
+  derruba o teste — escrita que contorna o armazenamento escapa do espelho no R2 (P2).

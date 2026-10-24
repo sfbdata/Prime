@@ -121,9 +121,6 @@ final class NucleoDeArmazenamentoArquiteturaTest extends TestCase
             if (CategoriaComIsolamentoFisico::deCategoriaOuNull($categoria) !== null) {
                 continue;
             }
-            if ($categoria === CategoriaDeArquivo::TAREFA_ANEXO) {
-                continue; // não resolvível até a E2.7 (D5)
-            }
 
             yield $categoria->value => [$categoria];
         }
@@ -316,6 +313,7 @@ final class NucleoDeArmazenamentoArquiteturaTest extends TestCase
             fotosPerfilDir: '/raiz/perfil',
             cobrancasUploadsDir: '/raiz/cobrancas',
             kanbanUploadsDir: '/raiz/kanban',
+            tarefasUploadsDir: '/raiz/tarefas',
             trabalhoExternoUploadsDir: '/raiz/trabalho-externo',
             comercialImagensDir: '/raiz/comercial-imagens',
         );

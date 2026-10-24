@@ -123,10 +123,13 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
             'data-url-campanha-csv' => '/trabalho-externo/campanha/destinatarios.csv',
             'data-url-campanha-html' => '/trabalho-externo/campanha/email.html',
             'data-url-campanha-registro' => '/trabalho-externo/api/campanha/registro',
+            'data-url-curriculo-word' => '/trabalho-externo/curriculos/meu/word',
+            'data-url-andamentos' => '/trabalho-externo/api/andamentos',
         ];
         foreach ($esperadas as $atributo => $url) {
             self::assertSame($url, $raiz->attr($atributo), $atributo);
         }
+        self::assertContains($raiz->attr('data-perfil-sons'), ['0', '1'], '"Sons de alerta" do Meu Perfil, para o toque do andamento (D10)');
     }
 
     #[TestDox('esqueleto fixo em filhos diretos: título, bloqueio, área liberada com período, KPIs, filtros, barra de lote e tabela de 9 colunas (a primeira é a de marcação), e as camadas do JS')]
@@ -170,7 +173,7 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
         );
         self::assertCount(1, $crawler->filter('#tePagina > #teVagas > .te-vg-barra + #teVgLote + #teVgVazio + #teVgGrade.te-vg-grade'));
 
-        foreach (['teMenu', 'teDrawer', 'teNova', 'teCfg', 'teConf', 'teToast', 'teDesfazer', 'teVagaModal'] as $camada) {
+        foreach (['teMenu', 'teDrawer', 'teNova', 'teCfg', 'teConf', 'teToast', 'teDesfazer', 'teVagaModal', 'teEnvio'] as $camada) {
             self::assertCount(1, $crawler->filter("#tePagina > #{$camada}"), "camada {$camada} dentro do .te-page, para herdar os tokens do tema");
         }
     }

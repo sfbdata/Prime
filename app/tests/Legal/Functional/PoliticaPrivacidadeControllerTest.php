@@ -143,7 +143,7 @@ final class PoliticaPrivacidadeControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('duplo fator', $html);
         self::assertStringNotContainsString('dupla autenticação', $html);
 
-        // 2) Arquivos criptografados: ArquivoStorageService grava o upload em claro.
+        // 2) Arquivos criptografados: o armazenamento (ArmazenamentoLocal) grava o upload em claro.
         self::assertStringNotContainsString('arquivos criptografados', $html);
 
         // O que continua verdadeiro e deve permanecer: a senha é guardada com hash.

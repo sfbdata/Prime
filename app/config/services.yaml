@@ -28,6 +28,9 @@ parameters:
     # (/var/www/app em prod), portanto FORA do volume uploads_prod: o arquivo sobrevivia só até
     # o próximo deploy. Agora é absoluto e explícito, como os outros seis.
     kanban_uploads_dir: '%kernel.project_dir%/public/uploads/kanban'
+    # Anexos de mensagem de tarefa (E2.7): o arquivo mora em <dir>/chat/<nome>, o mesmo lugar que o
+    # TarefaController sempre usou; só o ResolvedorDeCaminhoLocal lê este parâmetro.
+    tarefas_uploads_dir: '%kernel.project_dir%/public/uploads/tarefas'
     # Documentos das demandas do Trabalho Externo (categoria plana, nome opaco cunhado pelo storage).
     trabalho_externo_uploads_dir: '%kernel.project_dir%/public/uploads/trabalho-externo'
     # Imagens das campanhas do modo simples do Comercial (F3i). Mesmo volume, sem acesso direto pelo nginx:
@@ -137,6 +140,7 @@ services:
             string $fotosPerfilDir: '%fotos_perfil_dir%'
             string $cobrancasUploadsDir: '%cobrancas_uploads_dir%'
             string $kanbanUploadsDir: '%kanban_uploads_dir%'
+            string $tarefasUploadsDir: '%tarefas_uploads_dir%'
             string $trabalhoExternoUploadsDir: '%trabalho_externo_uploads_dir%'
             string $comercialImagensDir: '%comercial_imagens_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
@@ -168,10 +172,10 @@ services:
             # parâmetro opcional do `ArmazenamentoLocal` e o container quebraria na compilação.
             - '../src/Shared/Armazenamento/DiretorioTemporarioPrivado.php'
 
-    # A interface do armazenamento tem duas implementações (o disco e o decorador de cota do Contribua,
-    # que o envolve por #[AsDecorator]). Sem este alias o autowiring não sabe qual é a de baixo. O alias
-    # fica aqui, e não num atributo no backend, porque o núcleo não pode depender do Symfony (INV-8).
-    App\Shared\Armazenamento\ArmazenamentoDeArquivos: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+    # A interface do armazenamento tem várias implementações (o disco, o decorador do espelho no R2 e o
+    # decorador de cota do Contribua, que envolve o alias por #[AsDecorator]). O alias que diz qual é a de
+    # baixo está mais abaixo, no bloco do espelho (P2.3): a cadeia fica cota → espelho → disco. O alias
+    # fica no YAML, e não num atributo no backend, porque o núcleo não pode depender do Symfony (INV-8).
 
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
@@ -255,6 +259,26 @@ services:
             $debug: '%kernel.debug%'
             $ambiente: '%kernel.environment%'
 
+    # Espelho no R2 (P2.3, spec docs/specs/p2-gravacao-dupla.md §14). O armazenamento ativo é o
+    # decorador, por cima do disco local. Com ARMAZENAMENTO_ESPELHO_CATEGORIAS vazia — o padrão —
+    # ele é repasse puro: nenhuma linha na outbox, nenhuma chamada ao R2. Leitura é sempre do disco.
+    App\Shared\EspelhoRemoto\ArmazenamentoEspelhado:
+        arguments:
+            $interno: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+    App\Shared\Armazenamento\ArmazenamentoDeArquivos: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
+    App\Shared\Armazenamento\MaterializadorDeArquivo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
+    App\Shared\Armazenamento\ArmazenamentoComPrefixo: '@App\Shared\EspelhoRemoto\ArmazenamentoEspelhado'
+    App\Shared\EspelhoRemoto\PoliticaDeEspelhamento:
+        arguments: ['%env(string:default::ARMAZENAMENTO_ESPELHO_CATEGORIAS)%']
+    # Só o worker e a reconciliação montam o cliente R2; sem estas variáveis eles recusam, e o resto
+    # da aplicação nem percebe. Valores só em variável de ambiente de produção, nunca no repositório.
+    App\Shared\EspelhoRemoto\FabricaDoEspelhoRemoto:
+        arguments:
+            $endpoint: '%env(string:default::ESPELHO_R2_ENDPOINT)%'
+            $bucket: '%env(string:default::ESPELHO_R2_BUCKET)%'
+            $chaveDeAcesso: '%env(string:default::ESPELHO_R2_CHAVE)%'
+            $segredo: '%env(string:default::ESPELHO_R2_SEGREDO)%'
+
     # Comercial e e-mails: a porta de envio e o registro (contratos para a 0d e a a7). `public` para os testes de
     # contrato alcançarem as portas pelo container mesmo enquanto nenhum consumidor as usa (serviço privado sem
     # consumidor é removido na compilação; ver o comentário do ConexaoLeitura acima).
@@ -291,6 +315,7 @@ when@test:
         fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/perfil'
         cobrancas_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/cobrancas'
         kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/kanban'
+        tarefas_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/tarefas'
         trabalho_externo_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/trabalho-externo'
         comercial_imagens_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/comercial-imagens'
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
