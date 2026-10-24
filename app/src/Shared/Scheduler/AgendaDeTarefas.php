@@ -42,8 +42,7 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
     /**
      * As tarefas, na ordem em que rodam quando duas caem no mesmo minuto (o consumidor é um só e
      * as executa em sequência). A sincronização com o Drive, de hora em hora, vai por último: é a
-     * mais demorada e não pode atrasar as diárias. Chave = nome do comando; se um dia o mesmo comando
-     * for agendado duas vezes, a segunda leva um sufixo depois de `#`.
+     * mais demorada e não pode atrasar as diárias. Chave = nome do comando.
      *
      * O que já rodava no crontab real da VPS (conferido em 23/10/2026), mais a foto do Dashboard e os
      * índices monetários (ligados por decisão do dono). Resumo diário e cobrança do checklist nunca
@@ -73,7 +72,7 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:djen:sincronizar --dias=2 --no-interaction',
             'cron'    => '0 3 * * *',
         ],
-        // Espelho R2 (P2.5 e P2.7, docs/specs/p2-gravacao-dupla.md): os quatro rodam com --se-ligado e, com
+        // Espelho R2 (P2.5 e P2.7, docs/specs/p2-gravacao-dupla.md): os três rodam com --se-ligado e, com
         // ARMAZENAMENTO_ESPELHO_CATEGORIAS vazia ou sem ESPELHO_R2_*, terminam com sucesso sem fazer nada.
         // 3h30: reconciliação diária. Presença e tamanho de tudo; SHA-256 só da fatia do dia da semana
         // (1/7 das referências, fatia estável), então a semana cobre tudo e nenhuma noite lê o acervo
@@ -137,7 +136,7 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
     ) {
     }
 
-    /** @return array<string, array{comando: string, cron: string}> chave = nome do comando (com sufixo `#...` quando repete) */
+    /** @return array<string, array{comando: string, cron: string}> chave = nome do comando */
     public static function tarefas(): array
     {
         return self::TAREFAS;
