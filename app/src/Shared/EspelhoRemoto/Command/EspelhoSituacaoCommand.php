@@ -45,9 +45,14 @@ final class EspelhoSituacaoCommand extends Command
             ['Cópia em funcionamento' => $configurado && $ligadas !== [] ? 'sim' : 'não'],
         );
 
-        $invalidas = $this->politica->entradasInvalidas();
-        if ($invalidas !== []) {
-            $io->warning(sprintf('%d entrada(s) de ARMAZENAMENTO_ESPELHO_CATEGORIAS não são categoria e foram ignoradas: %s', \count($invalidas), implode(', ', $invalidas)));
+        // Só quantidade e posição: o texto da entrada pode ser um segredo colado no lugar errado.
+        $posicoes = $this->politica->posicoesInvalidas();
+        if ($posicoes !== []) {
+            $io->warning(sprintf(
+                '%d entrada(s) inválida(s) em ARMAZENAMENTO_ESPELHO_CATEGORIAS, na(s) posição(ões) %s: foram ignoradas.',
+                \count($posicoes),
+                implode(', ', $posicoes),
+            ));
         }
 
         if (!$this->outbox->tabelaExiste()) {

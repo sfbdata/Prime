@@ -243,6 +243,21 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
         self::assertMatchesRegularExpression('/Categorias ligadas\s+nenhuma/', $desligado->getDisplay());
     }
 
+    #[TestDox('espelho-situacao: entrada inválida da variável sai só com quantidade e posição, nunca o texto (pode ser um segredo colado)')]
+    public function testSituacaoNaoImprimeEntradaInvalida(): void
+    {
+        $politica = new PoliticaDeEspelhamento('foto_perfil,,cliente_documento,sk-r2-a8F3kQ9zX1,kanban_anexo,AKIAEXEMPLO123');
+        $tester   = new CommandTester(new EspelhoSituacaoCommand(new FabricaDoEspelhoRemoto(), $politica, $this->outbox));
+
+        self::assertSame(Command::SUCCESS, $tester->execute([]));
+        $saida = preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '';
+        self::assertStringContainsString('2 entrada(s) inválida(s)', $saida);
+        self::assertStringContainsString('posição(ões) 4, 6', $saida);
+        self::assertStringNotContainsString('sk-r2', $saida);
+        self::assertStringNotContainsString('a8F3kQ9zX1', $saida);
+        self::assertStringNotContainsString('AKIAEXEMPLO', $saida);
+    }
+
     /** @param list<ReferenciaDeArquivo> $referencias */
     private function reconciliarLigado(array $referencias): CommandTester
     {
