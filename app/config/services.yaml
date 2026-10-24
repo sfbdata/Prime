@@ -194,6 +194,10 @@ services:
             $regiaoDeInferencia: '%ia_anthropic_regiao_inferencia%'
             $fonteDoModelo: '@App\Inteligencia\Service\FonteDoModeloDeIa'
     App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorAnthropic'
+    # Custo estimado (orçamento mensal e painéis de consumo): a região `us` custa 1,1x o preço de tabela.
+    App\Inteligencia\Service\CustoDaIa:
+        arguments:
+            $regiaoDeInferencia: '%ia_anthropic_regiao_inferencia%'
     # O modelo vem do banco (escolhido pelo Master na aba "Configurações da I.A."); IA_MODELO é só a reserva sem a
     # linha da plataforma (spec ia-anthropic-ligar §10.1).
     App\Inteligencia\Service\ModeloDaPlataformaDeIa:

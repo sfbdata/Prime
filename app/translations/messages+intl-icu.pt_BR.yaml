@@ -2112,12 +2112,14 @@ master:
             aviso: 'As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.'
         escritorios:
             titulo: Escritórios
-            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. O orçamento mensal fica gravado; o bloqueio por orçamento entra numa próxima etapa.'
+            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. Em "Incluso no plano" e "Adicional pago", a IA para quando o gasto do mês chega ao orçamento e volta no dia 1º; em "Limite grátis, depois cobra", o orçamento é a parte grátis e a IA continua. Sem orçamento, não há trava em dólares. Valores estimados pelo preço de tabela da Anthropic.'
             col_nome: Escritório
             col_liberado: Liberado
             col_aceite: Aceite do escritório
             col_cobranca: Cobrança
             col_orcamento: Orçamento mensal (US$)
+            col_analises_mes: Análises no mês
+            col_gasto_mes: Gasto no mês (US$)
         recusa:
             token_invalido: Token CSRF inválido. Recarregue a página.
             informe_ligada: Informe se a chave geral fica ligada ou desligada.
@@ -2606,6 +2608,8 @@ master:
             cobranca: Cobrança
             orcamento: Orçamento mensal em dólares
             sem_orcamento: sem orçamento
+            orcamento_atingido: orçamento atingido
+            acima_do_gratis: acima do grátis
             sem_aceite: sem aceite
             liberado: Liberado
             bloqueado: Bloqueado
@@ -7060,6 +7064,15 @@ inteligencia:
         consentimento: 'Aceite registrado em {quando}.'
         consentimento_por: 'Aceite registrado em {quando} por {nome}.'
         cotas: As cotas contam todo pedido feito no escritório, inclusive os que falharam.
+        consumo:
+            titulo: Consumo do mês
+            analises: Análises no mês
+            analises_valor: '{n} de {limite}'
+            gasto: Gasto estimado
+            orcamento: Orçamento mensal
+            modo: Cobrança
+            dolares: 'US$ {valor}'
+            nota: Valores estimados pelo preço de tabela da Anthropic.
         mascarar: Recomendado. O número do processo nunca é mascarado.
         salvar: Salvar
     js:
