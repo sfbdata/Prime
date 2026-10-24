@@ -305,16 +305,24 @@ final class OutboxDeReplicacao
 
     /**
      * Linhas de envio em `falhou`, por categoria (alerta da reconciliação, P2.7). Só contagem: nome e
-     * chave remota não saem daqui.
+     * chave remota não saem daqui. `$soCategorias`: só estas (as ligadas na política); null = todas.
+     *
+     * @param list<string>|null $soCategorias
      *
      * @return array<string, int> categoria => quantidade
      */
-    public function contarFalhasPorCategoria(): array
+    public function contarFalhasPorCategoria(?array $soCategorias = null): array
     {
+        if ($soCategorias === []) {
+            return [];
+        }
+
         $contagem = [];
         foreach ($this->conexao->fetchAllAssociative(
-            'SELECT categoria, count(*) AS n FROM ' . self::TABELA . ' WHERE operacao = ? AND estado = ? GROUP BY categoria ORDER BY categoria',
-            [self::OPERACAO_ENVIAR, self::ESTADO_FALHOU],
+            'SELECT categoria, count(*) AS n FROM ' . self::TABELA . ' WHERE operacao = :enviar AND estado = :falhou'
+                . ($soCategorias === null ? '' : ' AND categoria IN (:categorias)') . ' GROUP BY categoria ORDER BY categoria',
+            ['enviar' => self::OPERACAO_ENVIAR, 'falhou' => self::ESTADO_FALHOU] + ($soCategorias === null ? [] : ['categorias' => $soCategorias]),
+            ['categorias' => ArrayParameterType::STRING],
         ) as $linha) {
             $contagem[(string) $linha['categoria']] = (int) $linha['n'];
         }

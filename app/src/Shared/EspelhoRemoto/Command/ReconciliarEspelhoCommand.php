@@ -158,7 +158,7 @@ final class ReconciliarEspelhoCommand extends Command
     /** O critério da P2.7: falha (e o agendador avisa) quando há divergência que exige ação. */
     private function alertar(SymfonyStyle $io, RelatorioDeReconciliacao $relatorio): int
     {
-        $alerta = AlertaDaReconciliacao::avaliar($relatorio, $this->outbox->contarFalhasPorCategoria());
+        $alerta = AlertaDaReconciliacao::avaliar($relatorio, $this->outbox->contarFalhasPorCategoria($this->politica->categoriasLigadas()));
         if (!$alerta->disparou()) {
             $io->writeln('Sem divergência que exija ação nas categorias ligadas.');
 

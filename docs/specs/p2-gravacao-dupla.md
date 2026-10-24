@@ -645,7 +645,8 @@ dos backups (23h30 a 0h50 de Brasília).
 política espelha (sem o filtro, cada categoria desligada viraria "ausente") e sai com FALHA, e o aviso do
 agendador (log, e-mail de `AGENDADOR_ALERTA_EMAIL`, tela do Master) dispara, quando há:
 `ausente_no_espelho`, `tamanho_divergente`, `sha_divergente`, `erro_de_consulta` (o R2 fora do ar precisa
-avisar) ou linhas de envio em `falhou` na outbox (de qualquer categoria). Não derrubam a rodada:
+avisar) ou linhas de envio em `falhou` na outbox das categorias ligadas (desligar uma categoria é decisão deliberada,
+um rollback; as falhas dela voltam a contar quando ela religar). Não derrubam a rodada:
 `presente_sem_sha_conferido` (fora da fatia do SHA), `suspeito_erro_do_drive` (os 90 conhecidos, que
 aparecem na contagem), `ausente_pendente_na_outbox` (em fila) e `local_ausente`, `chave_invalida` e
 `sem_sha_no_espelho`: estes três são problemas conhecidos do acervo local (os 73 sem rastro, os de lápide,

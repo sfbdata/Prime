@@ -9,7 +9,7 @@ namespace App\Shared\EspelhoRemoto\Reconciliacao;
  * avisa por e-mail, quando há divergência que exige ação.
  *
  * Exigem ação: ausente no espelho sem envio na fila, tamanho diferente, SHA diferente, erro de consulta
- * (o R2 fora do ar precisa avisar) e linhas de envio em `falhou` na outbox. NÃO exigem:
+ * (o R2 fora do ar precisa avisar) e linhas de envio em `falhou` na outbox, só das categorias ligadas. NÃO exigem:
  * `presente_sem_sha_conferido` (fora da fatia do SHA), `suspeito_erro_do_drive` (os 90 conhecidos da P1),
  * `ausente_pendente_na_outbox` (em fila) e `local_ausente`, `chave_invalida` e `sem_sha_no_espelho`:
  * problemas conhecidos do acervo local (P1), não do espelho. Todos aparecem na contagem.

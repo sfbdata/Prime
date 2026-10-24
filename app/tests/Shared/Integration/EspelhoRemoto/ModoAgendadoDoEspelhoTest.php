@@ -150,6 +150,19 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
         }
     }
 
+    #[TestDox('falhou de categoria desligada não derruba a rodada (desligar é rollback deliberado)')]
+    public function testFalhouDeCategoriaDesligadaNaoAlerta(): void
+    {
+        $igual = $this->noDisco(CategoriaDeArquivo::FOTO_PERFIL, 'igual.jpg', 'foto', noEspelho: true);
+        $falha = $this->outbox->registrarEnvio($this->chave(CategoriaDeArquivo::PASTA_DOCUMENTO, 'x.pdf'), hash('sha256', 'p'), 1, 'application/pdf');
+        $this->conexao->executeStatement("UPDATE armazenamento_replicacao SET estado = 'falhou' WHERE id = ?", [$falha]);
+
+        $tester = $this->reconciliarLigado([$igual]);
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['--se-ligado' => true]));
+        self::assertStringNotContainsString('falhou_na_outbox', $tester->getDisplay());
+    }
+
     #[TestDox('ligado, sem divergência que exija ação (igual, suspeito conhecido do Drive, presente sem SHA): SUCESSO')]
     public function testSemDivergenciaPassa(): void
     {
