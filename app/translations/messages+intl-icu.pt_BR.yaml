@@ -2087,17 +2087,20 @@ master:
     ia:
         zdr:
             titulo: Retenção zero de dados (ZDR)
-            texto: 'Antes de ligar a IA para qualquer escritório, a conta da Anthropic precisa ter a retenção zero de dados (ZDR). O pedido é feito ao time comercial da Anthropic em claude.com/contact-sales, para a organização onde está a chave do BlueJus. Peça também a confirmação por escrito e o DPA. Na Console da Anthropic, o workspace de produção deve aceitar só a região us.'
-            geo: O processamento roda nos EUA (inference_geo us).
+            texto: 'Antes de ligar a IA para qualquer escritório, a conta da Anthropic precisa ter a retenção zero de dados (ZDR). Este pedido é seu: faça ao time comercial da Anthropic em claude.com/contact-sales, para a organização onde está a chave do BlueJus, e peça também a confirmação por escrito e o DPA.'
+            dev: 'A parte técnica é do desenvolvedor: deixar o workspace de produção na Console da Anthropic aceitando só a região us. Peça ao desenvolvedor.'
+            geo: O processamento roda nos EUA (região us, configurada pelo desenvolvedor).
         instalacao:
-            titulo: Instalação
-            chave_api: Chave da Anthropic no servidor
-            trava: Trava do servidor (IA_HABILITADA)
-            nota: 'A chave é gravada pelo dono direto no servidor; esta tela não mostra nem recebe a chave.'
+            titulo: Instalação (feita pelo desenvolvedor)
+            intro: 'Estes dois itens ficam no servidor, fora desta tela, e só o desenvolvedor altera. Se algum aparecer como não gravado ou desligado, peça ao desenvolvedor.'
+            chave_api: Chave da API da Anthropic
+            trava: Chave de segurança do servidor
+            trava_desc: 'É uma chave de segurança no servidor, ligada pelo desenvolvedor. A BlueJus IA só funciona com ela E a chave geral desta tela ligadas.'
+            nota: 'A chave da API é gravada pelo desenvolvedor no servidor; esta tela não mostra nem recebe a chave.'
         chave_geral:
             titulo: Chave geral
             rotulo: Ligar a BlueJus IA para todos os escritórios liberados
-            desc: 'Desligada, nenhum escritório usa a IA, mesmo liberado, e o que estiver na fila é cancelado.'
+            desc: 'Esta chave é sua. Desligada, nenhum escritório usa a IA, mesmo liberado, e o que estiver na fila é cancelado.'
         modelo:
             titulo: Modelo
             campo: MODELO DA ANTHROPIC
