@@ -14,15 +14,6 @@
      data-url-escritorio="{{ path('master_ia_escritorio', {tenantId: 0}) }}"
      data-token="{{ csrf_token('master_ia') }}">
 
-    <div class="mp-ia-aviso" role="note" data-mp-ia-zdr>
-        <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
-        <div class="mp-ia-aviso-texto">
-            <b>{{ 'master.ia.zdr.titulo'|trans }}</b>
-            <p>{{ 'master.ia.zdr.texto'|trans }}</p>
-            <p>{{ 'master.ia.zdr.geo'|trans }}</p>
-        </div>
-    </div>
-
     <div class="mp-ia-msg" data-mp-ia-msg role="status" hidden></div>
 
     <section class="mp-card mp-ia-card" aria-labelledby="mp-ia-instalacao">
