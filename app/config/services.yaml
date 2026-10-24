@@ -83,8 +83,9 @@ parameters:
     # no alias abaixo + Anexo I da Política de Privacidade (decisões D1/D3 da spec).
     ia_habilitada: '%env(default:default_ia_habilitada:bool:IA_HABILITADA)%'
     default_ia_habilitada: false
-    # Provedor da BlueJus IA = Anthropic (decisão D1, 14/10/2026). Chave e modelo SÓ por ambiente (.env.prod na
-    # VPS, nunca no repositório); vazios = provedor dormente, mesmo com IA_HABILITADA=1. Proposta de modelo e
+    # Provedor da BlueJus IA = Anthropic (decisão D1, 14/10/2026). Chave SÓ por ambiente (.env.prod na VPS, nunca
+    # no repositório nem no banco); vazia = provedor dormente, mesmo com IA_HABILITADA=1. O modelo vem do banco
+    # (inteligencia_plataforma, escolhido pelo Master); IA_MODELO é só a reserva sem a linha. Proposta de modelo e
     # cotas: docs/specs/inteligencia-provedor-anthropic.md.
     ia_anthropic_chave: '%env(string:default::ANTHROPIC_API_KEY)%'
     ia_anthropic_modelo: '%env(string:default::IA_MODELO)%'
@@ -182,7 +183,18 @@ services:
             $modelo: '%ia_anthropic_modelo%'
             $esforco: '%ia_anthropic_esforco%'
             $margemDeRaciocinio: '%ia_anthropic_margem_raciocinio%'
+            $fonteDoModelo: '@App\Inteligencia\Service\FonteDoModeloDeIa'
     App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorAnthropic'
+    # O modelo vem do banco (escolhido pelo Master na aba "Configurações da I.A."); IA_MODELO é só a reserva sem a
+    # linha da plataforma (spec ia-anthropic-ligar §10.1).
+    App\Inteligencia\Service\ModeloDaPlataformaDeIa:
+        arguments:
+            $modeloDoAmbiente: '%ia_anthropic_modelo%'
+    App\Inteligencia\Service\FonteDoModeloDeIa: '@App\Inteligencia\Service\ModeloDaPlataformaDeIa'
+    # A aba do Master só pergunta se a chave está gravada: o valor nunca sai do UseCase.
+    App\Inteligencia\UseCase\ObterPainelDaIaDoMasterUseCase:
+        arguments:
+            $chaveDaApi: '%ia_anthropic_chave%'
     # Leitura das movimentações para o contexto da IA (publicações + Datajud), tenant explícito.
     App\Inteligencia\Contexto\FonteDeMovimentacoesDoPush: '@App\Inteligencia\Contexto\FonteDeMovimentacoesDoPushDoctrine'
 

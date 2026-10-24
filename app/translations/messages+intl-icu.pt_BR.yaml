@@ -1862,6 +1862,7 @@ master:
             painel: Painel do sistema
             permissoes: Permissões
             recursos: Telas e recursos
+            ia: Configurações da I.A.
         faixa: Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.
         carregando: Carregando o painel…
         masters:
@@ -2077,6 +2078,45 @@ master:
         token_invalido: Token CSRF inválido. Recarregue a página.
         informe_pausa: Informe se os convites ficam pausados ou liberados.
         informe_inteiros: Informe os limites em números inteiros.
+    # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
+    ia:
+        zdr:
+            titulo: Retenção zero de dados (ZDR)
+            texto: 'Antes de ligar a IA para qualquer escritório, a conta da Anthropic precisa ter a retenção zero de dados (ZDR). O pedido é feito ao time comercial da Anthropic em claude.com/contact-sales, para a organização onde está a chave do BlueJus. Peça também a confirmação por escrito e o DPA. Na Console da Anthropic, o workspace de produção deve aceitar só a região us.'
+            geo: O processamento roda nos EUA (inference_geo us).
+        instalacao:
+            titulo: Instalação
+            chave_api: Chave da Anthropic no servidor
+            trava: Trava do servidor (IA_HABILITADA)
+            nota: 'A chave é gravada pelo dono direto no servidor; esta tela não mostra nem recebe a chave.'
+        chave_geral:
+            titulo: Chave geral
+            rotulo: Ligar a BlueJus IA para todos os escritórios liberados
+            desc: 'Desligada, nenhum escritório usa a IA, mesmo liberado, e o que estiver na fila é cancelado.'
+        modelo:
+            titulo: Modelo
+            campo: MODELO DA ANTHROPIC
+        retencao:
+            titulo: Retenção das respostas
+            campo: GUARDAR AS RESPOSTAS DA IA POR N MESES
+            aviso: 'As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.'
+        escritorios:
+            titulo: Escritórios
+            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. O orçamento mensal fica gravado; o bloqueio por orçamento entra numa próxima etapa.'
+            col_nome: Escritório
+            col_liberado: Liberado
+            col_aceite: Aceite do escritório
+            col_cobranca: Cobrança
+            col_orcamento: Orçamento mensal (US$)
+        recusa:
+            token_invalido: Token CSRF inválido. Recarregue a página.
+            informe_ligada: Informe se a chave geral fica ligada ou desligada.
+            modelo_invalido: Escolha um modelo da lista.
+            informe_liberada: Informe se o escritório fica liberado ou bloqueado.
+            modo_invalido: Escolha um modo de cobrança da lista.
+            orcamento_invalido: Informe o orçamento em dólares, com até duas casas decimais.
+            escritorio_nao_encontrado: Escritório não encontrado.
+            retencao_invalida: Informe os meses em número inteiro.
     # P3: flashes do MastersDoSistemaController (Masters do sistema, aba Permissões) e as recusas da
     # OperacaoDeMasterRecusada. As RECUSA_* da RegraDosMasters ficam fora: o Tenant (EscritorioController) também usa.
     masters:
@@ -2543,6 +2583,33 @@ master:
             pausados: Convites pausados para todos
             liberados: Convites liberados
             erro_carregar: Não foi possível carregar as indicações. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+        # Aba "Configurações da I.A." (public/js/master/ia.js).
+        ia:
+            gravada: gravada
+            nao_gravada: não gravada
+            ligada: ligada
+            desligada: desligada
+            ligada_todos: Ligada para todos os liberados
+            preco: 'US$ {entrada} por milhão de tokens de entrada, US$ {saida} por milhão de tokens de saída'
+            contagem: '{n} ativo(s)'
+            cobranca: Cobrança
+            orcamento: Orçamento mensal em dólares
+            sem_orcamento: sem orçamento
+            sem_aceite: sem aceite
+            liberado: Liberado
+            bloqueado: Bloqueado
+            salvar: Salvar
+            salvo: '"{nome}" salvo.'
+            modelo_salvo: Modelo salvo.
+            retencao_salva: Retenção salva.
+            ligou: A BlueJus IA foi ligada para os escritórios liberados.
+            desligou: A BlueJus IA foi desligada para todos.
+            ligar_titulo: Ligar a BlueJus IA para todos
+            ligar_texto: 'A IA passa a funcionar em todos os escritórios liberados que deram o aceite. Ligue só depois que a Anthropic confirmar por escrito a retenção zero (ZDR).'
+            ligar_botao: Ligar para todos
+            vazio: Nenhum escritório ativo.
+            erro_carregar: Não foi possível carregar as configurações da I.A. Recarregue a página.
             erro_salvar: Não foi possível salvar.
         # P3: masters.js (Masters do sistema e a confirmação que o painel.js também usa). A palavra digitada vem de
         # quem abre a confirmação (EXCLUIR, que não se traduz).

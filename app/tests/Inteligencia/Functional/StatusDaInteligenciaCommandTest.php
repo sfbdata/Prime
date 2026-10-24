@@ -6,7 +6,10 @@ namespace App\Tests\Inteligencia\Functional;
 
 use App\Inteligencia\Command\StatusDaInteligenciaCommand;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
+use App\Inteligencia\Enum\ModeloDeIa;
+use App\Inteligencia\Service\FonteDoModeloDeIa;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use App\Tests\Inteligencia\Support\ProvedorFalso;
@@ -31,6 +34,8 @@ final class StatusDaInteligenciaCommandTest extends KernelTestCase
             $c->get(AnaliseDeInteligenciaRepository::class),
             $c->get(ConfiguracaoDeInteligenciaRepository::class),
             false,
+            $c->get(ConfiguracaoDaPlataformaDeIaRepository::class),
+            $c->get(FonteDoModeloDeIa::class),
         ));
     }
 
@@ -48,6 +53,26 @@ final class StatusDaInteligenciaCommandTest extends KernelTestCase
         self::assertStringContainsString('não configurado', $saida);
         self::assertStringContainsString('desligada', $saida);
         self::assertStringContainsString('Nenhuma análise registrada', $saida);
+    }
+
+    #[TestDox('mostra a chave geral do Master e o modelo efetivo (o do banco), nunca a chave da API')]
+    public function testChaveGeralEModelo(): void
+    {
+        self::bootKernel();
+        $repositorio = static::getContainer()->get(ConfiguracaoDaPlataformaDeIaRepository::class);
+        $plataforma = $repositorio->obterParaAlterar();
+        $master = $this->criarAdmin()[0];
+        $plataforma->ligarParaTodos($master, new \DateTimeImmutable());
+        $plataforma->escolherModelo(ModeloDeIa::Sonnet55, $master, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $tester = $this->testerSemProvedor();
+        $tester->execute([]);
+
+        $saida = $tester->getDisplay();
+        self::assertMatchesRegularExpression('/Chave geral \(painel do Master\)\s+ligada/u', $saida);
+        self::assertMatchesRegularExpression('/Modelo efetivo\s+claude-sonnet-5-5/u', $saida);
+        self::assertStringNotContainsString('ANTHROPIC_API_KEY', $saida);
     }
 
     #[TestDox('conta as análises por escritório e status e os escritórios com a IA ligada')]

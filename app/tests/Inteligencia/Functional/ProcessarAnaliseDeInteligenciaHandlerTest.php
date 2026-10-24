@@ -26,6 +26,7 @@ use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Repository\PerguntaDaConversaRepository;
 use App\Inteligencia\Service\InterpretadorDeRespostaDePush;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoAgente;
+use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
@@ -63,6 +64,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $repositorio,
             $c->get(PermissionChecker::class),
             $iaHabilitada,
+            $c->get(ConfiguracaoDaPlataformaDeIaRepository::class),
         );
 
         return new ProcessarAnaliseDeInteligenciaHandler(
@@ -174,6 +176,48 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringContainsString('desligada neste escritório', (string) $relida->getErroMotivo());
     }
 
+    #[TestDox('IA-034L: o Master bloqueou o escritório com a análise na fila → falhou com o motivo, provedor não chamado')]
+    public function testEscritorioBloqueadoPeloMasterCortaAFila(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $configuracao = $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $configuracao->bloquearPeloMaster();
+        $this->em()->flush();
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertSame('cancelada antes do provedor: ' . Disponibilidade::NaoLiberadaPeloMaster->mensagem(), $relida->getErroMotivo());
+    }
+
+    #[TestDox('IA-034L: o Master desligou a chave geral com a análise na fila → indisponivel com o motivo, provedor não chamado')]
+    public function testChaveGeralDesligadaCortaAFila(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        static::getContainer()->get(ConfiguracaoDaPlataformaDeIaRepository::class)->obterParaAlterar()->desligarParaTodos($user, new \DateTimeImmutable());
+        $this->em()->flush();
+        $falso = new ProvedorFalso();
+        $falso->responderComResumo('não devia sair', []);
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertFalse($falso->foiChamado());
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Indisponivel, $relida->getStatus());
+        self::assertSame('cancelada antes do provedor: IA não configurada nesta instalação', $relida->getErroMotivo());
+    }
+
     #[TestDox('IA-034L: a permissão do módulo foi retirada de quem pediu com a análise na fila → falhou com o motivo, provedor não chamado')]
     public function testPermissaoRetiradaCortaAFila(): void
     {
@@ -270,6 +314,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $repo,
             static::getContainer()->get(PermissionChecker::class),
             true,
+            static::getContainer()->get(ConfiguracaoDaPlataformaDeIaRepository::class),
         );
         self::assertSame(Disponibilidade::Disponivel, $disponibilidade->para($user, $tenant), 'limite 2, uma contada: ainda dá para pedir');
     }

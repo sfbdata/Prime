@@ -212,6 +212,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
         // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
         \App\Master\Entity\TemaConfig::class,
+        // BlueJus IA no Painel do Master (frente ia-anthropic-ligar, PR B, 24/10/2026): linha única de configuração da
+        // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
+        // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
+        \App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa::class,
 
         // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
         // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
@@ -278,7 +282,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 66 → 67 com as datas comemorativas do Comercial (21/10/2026, F4): DataComemorativa (plataforma), justificada acima.
     // 67 → 68 com as falhas das tarefas agendadas (23/10/2026, spec scheduler-tarefas-agendadas): FalhaAgendada é dado
     // do sistema, sem escritório, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 68;
+    // 68 → 69 com a BlueJus IA no Painel do Master (24/10/2026): ConfiguracaoDaPlataformaDeIa, configuração global da
+    // plataforma, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 69;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
