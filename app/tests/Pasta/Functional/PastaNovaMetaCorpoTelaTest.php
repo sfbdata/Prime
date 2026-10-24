@@ -8,6 +8,8 @@ use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\Entity\Pasta;
+use App\Tarefa\Entity\CaixaDaEsteira;
+use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -52,7 +54,7 @@ final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    #[TestDox('rótulos do desenho (.ps-nm-rotulo) em Título, Descrição, Prazo e Responsáveis, os quatro com "*" (D-META, o servidor exige os quatro)')]
+    #[TestDox('rótulos do desenho (.ps-nm-rotulo) em Título, Descrição, Prazo, Caixa / etapa e Responsáveis, os cinco com "*" (D-META e desenho 02 L179, o servidor exige os cinco)')]
     public function testRotulosDoDesenho(): void
     {
         $client          = static::createClient();
@@ -64,13 +66,14 @@ final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
 
         $blocos = $corpo->filter('.ps-modal-meta-corpo > .ps-nm-campo-bloco');
         self::assertSame(
-            ['Título', 'Descrição', 'Prazo', 'Responsáveis'],
+            ['Título', 'Descrição', 'Prazo', 'Caixa / etapa', 'Responsáveis'],
             $blocos->each(static fn ($b): string => trim((string) preg_replace('/\s*\*.*$/u', '', $b->filter('.ps-nm-campo-bloco > .ps-nm-rotulo')->text()))),
         );
         self::assertCount(1, $corpo->filter('label.ps-nm-rotulo[for="tarefaTitulo"] > .ps-nm-obrig'));
         self::assertCount(1, $corpo->filter('label.ps-nm-rotulo[for="tarefaDescricao"] > .ps-nm-obrig'));
         self::assertCount(1, $corpo->filter('label.ps-nm-rotulo[for="tarefaPrazo"] > .ps-nm-obrig'), 'prazo obrigatório (D-META, D:4044)');
         self::assertCount(1, $corpo->filter('span.ps-nm-rotulo#tarefaResponsavelRotulo > .ps-nm-obrig'), 'responsáveis obrigatórios (D-META, D:4044)');
+        self::assertCount(1, $corpo->filter('span.ps-nm-rotulo#tarefaEtapaRotulo > .ps-nm-obrig'), 'caixa / etapa obrigatória (desenho 02 L179 e L4048 `inval`)');
         self::assertSame('*', trim($corpo->filter('label.ps-nm-rotulo[for="tarefaPrazo"] > .ps-nm-obrig')->text()));
         self::assertSame('*', trim($corpo->filter('span.ps-nm-rotulo#tarefaResponsavelRotulo > .ps-nm-obrig')->text()));
         self::assertCount(0, $corpo->filter('.form-label-sm, .form-control-sm'), 'sai o tamanho pequeno do Bootstrap');
@@ -190,5 +193,63 @@ final class PastaNovaMetaCorpoTelaTest extends JusPrimeWebTestCase
         // O campo enviado está fora da vista (visually-hidden, tabindex -1): o `required` nativo mostraria o balão
         // do navegador sobre nada. Quem cobra o prazo é o "Criar meta" desabilitado (pasta-metas.js) e o 422.
         self::assertNull($prazo->filter('#tarefaPrazo')->attr('required'), 'sem required nativo no campo escondido');
+    }
+
+    #[TestDox('Desenho 02 L179: a Caixa / etapa fica entre Prazo e Responsáveis, com 8 botões na ordem da esteira (nome e setor), a dica escondida, a regra do enum e o campo etapa vazio')]
+    public function testCaixaEtapaEntrePrazoEResponsaveis(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $corpo = $this->abrir($client, $pasta)->filter('#formCriarTarefa > .modal-body.ps-modal-meta-corpo');
+
+        $filhos = $corpo->filter('.ps-modal-meta-corpo > .ps-nm-campo-bloco')->each(static fn ($b): string => (string) $b->attr('class'));
+        $posEtapa = array_key_first(array_filter($filhos, static fn (string $c): bool => str_contains($c, 'ps-nm-etapa')));
+        self::assertNotNull($posEtapa);
+        self::assertStringContainsString('ps-nm-prazo', $filhos[$posEtapa - 1], 'logo depois do Prazo');
+        self::assertStringContainsString('ps-nm-resp', $filhos[$posEtapa + 1], 'logo antes dos Responsáveis');
+
+        $bloco = $corpo->filter('.ps-modal-meta-corpo > .ps-nm-campo-bloco.ps-nm-etapa[data-ps-nm-etapa]');
+        self::assertCount(1, $bloco);
+        $rotulo = $bloco->filter('.ps-nm-etapa > span.ps-nm-rotulo#tarefaEtapaRotulo');
+        self::assertSame('*', trim($rotulo->filter('#tarefaEtapaRotulo > .ps-nm-obrig')->text()));
+        $dica = $rotulo->filter('#tarefaEtapaRotulo > .ps-nm-etapa-sug[data-ps-nm-etapa-sug]');
+        self::assertNotNull($dica->attr('hidden'), 'a dica nasce escondida: o modal abre sem título');
+        self::assertCount(1, $dica->filter('.ps-nm-etapa-sug > i.bi.bi-stars'));
+        self::assertCount(1, $dica->filter('.ps-nm-etapa-sug > [data-ps-nm-etapa-sug-tx]'));
+
+        $botoes = $bloco->filter('.ps-nm-etapa > .ps-nm-etapa-grade[role="group"] > button.ps-nm-etapa-op[type="button"]');
+        self::assertSame(array_map(static fn (EtapaDaPasta $e): string => $e->value, EtapaDaPasta::cases()), $botoes->each(static fn ($b) => $b->attr('data-ps-nm-etapa-op')), '8 botões, na ordem do enum');
+        self::assertSame(['Comercial', 'Abertura e relatório', 'Controladoria', 'Documentação', 'Jurídico', 'Protocolo', 'Acompanhamento', 'Encerramento'], $botoes->each(static fn ($b) => trim($b->filter('button > b.ps-nm-etapa-nome')->text())));
+        self::assertSame(['Comercial', 'Atendimento', 'Controladoria', 'Secretaria', 'Advogado(a)', 'Advogado(a)', 'Advogado(a)', 'Controladoria'], $botoes->each(static fn ($b) => trim($b->filter('button > span.ps-nm-etapa-setor')->text())));
+        self::assertSame(['false'], array_values(array_unique($botoes->each(static fn ($b) => $b->attr('aria-pressed')))), 'nenhuma etapa escolhida ao abrir');
+
+        $campo = $bloco->filter('.ps-nm-etapa > input#tarefaEtapa[type="hidden"][name="etapa"]');
+        self::assertCount(1, $campo, 'o campo enviado mora dentro do form');
+        self::assertSame('', $campo->attr('value'));
+
+        $regra = json_decode((string) $bloco->attr('data-regra'), true);
+        self::assertSame(['regras' => EtapaDaPasta::regrasDoTitulo(), 'padrao' => 'juridico'], $regra, 'a regra da sugestão sai do enum');
+    }
+
+    #[TestDox('o botão leva o nome que o escritório deu à etapa (Configurar caixa), não só o do catálogo')]
+    public function testCaixaEtapaComONomeDoEscritorio(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $caixa           = new CaixaDaEsteira($tenant, EtapaDaPasta::Documentacao);
+        $caixa->configurar(null, 'Papelada', []);
+        $this->em()->persist($caixa);
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $botao = $this->abrir($client, $pasta)->filter('#formCriarTarefa .ps-nm-etapa-grade > button[data-ps-nm-etapa-op="documentacao"]');
+
+        self::assertSame('Papelada', trim($botao->filter('button > b.ps-nm-etapa-nome')->text()));
+        self::assertSame('Papelada', $botao->attr('data-nome'), 'a dica "Sugestão pelo título" usa o mesmo nome');
+        self::assertSame('Secretaria', trim($botao->filter('button > span.ps-nm-etapa-setor')->text()));
     }
 }

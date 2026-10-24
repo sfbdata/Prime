@@ -45,7 +45,8 @@ final class AgendaDeTarefasTest extends TestCase
             'app:pastas:relatorio-pastas-paradas' => ['app:pastas:relatorio-pastas-paradas --no-interaction', '15 10 * * *', '15 13 * * *'],
             // A recomendação antiga era 02h55 UTC (23h55 de Brasília do dia anterior): mesma hora.
             'app:dashboard:fotografar' => ['app:dashboard:fotografar --no-interaction', '55 23 * * *', '55 2 * * *'],
-            'app:sync:reconciliar' => ['app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar --no-interaction', '0 * * * *', '0 * * * *'],
+            // Sem --tenant-id: todos os escritórios com Drive conectado (decisão do dono, 24/10/2026).
+            'app:sync:reconciliar' => ['app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction', '0 * * * *', '0 * * * *'],
         ];
     }
 

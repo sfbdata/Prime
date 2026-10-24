@@ -14,6 +14,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\HorarioFuturoDaBatida;
 use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
@@ -85,6 +86,7 @@ final class PontoController extends AbstractController
         private readonly JornadaColaboradorRepository $jornadas,
         private readonly ChaveDoPontoEletronico $chaveDoPonto,
         private readonly TurnoAbertoNoEscritorio $turnoAberto,
+        private readonly HorarioFuturoDaBatida $horarioFuturo,
         private readonly SaidaDeEsquecimento $saidaDeEsquecimento,
         private readonly BatidaJaRegistrada $batidaJaRegistrada,
         private readonly PublicoDosAvisosDePonto $publico,
@@ -317,8 +319,8 @@ final class PontoController extends AbstractController
             if (empty($datasValidas)) {
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
-            if ($tipo === 'esquecimento_registro' && ($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, (string) $tipoRegEsquecido, $datasValidas[0])) !== null) {
-                $this->addFlash('warning', $jaBatida);   // o esquecimento é só da batida que falta
+            if ($tipo === 'esquecimento_registro' && ($recusa = $this->recusaDoEsquecimento($user, $tenant, (string) $tipoRegEsquecido, $datasValidas[0], $horaRegEsquecida)) !== null) {
+                $this->addFlash('warning', $recusa);
                 return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
@@ -404,6 +406,18 @@ final class PontoController extends AbstractController
         }
 
         return $this->redirectToRoute('ponto_index', $voltaParaFolha);
+    }
+
+    /**
+     * O esquecimento é só da batida que falta e nunca de um horário que ainda não chegou.
+     */
+    private function recusaDoEsquecimento(User $user, Tenant $tenant, string $tipo, \DateTimeInterface $dia, ?\DateTimeInterface $hora): ?string
+    {
+        if (($jaBatida = $this->batidaJaRegistrada->mensagem($user, $tenant, $tipo, $dia)) !== null) {
+            return $jaBatida;
+        }
+
+        return $hora !== null && $this->horarioFuturo->estaNoFuturo($dia, $hora) ? HorarioFuturoDaBatida::MENSAGEM : null;
     }
 
     #[Route('/justificativa/{id}/editar', name: 'ponto_justificativa_editar', methods: ['GET', 'POST'])]

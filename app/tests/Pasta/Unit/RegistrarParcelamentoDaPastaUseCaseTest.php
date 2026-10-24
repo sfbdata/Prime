@@ -9,6 +9,8 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\ParcelamentoDaPastaInput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
+use App\Pasta\Service\BaseDoPercentual;
 use App\Pasta\Service\CalculadoraDeParcelamento;
 use App\Pasta\UseCase\RegistrarParcelamentoDaPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +28,7 @@ use Symfony\Component\Clock\MockClock;
  */
 #[CoversClass(RegistrarParcelamentoDaPastaUseCase::class)]
 #[CoversClass(CalculadoraDeParcelamento::class)]
+#[CoversClass(BaseDoPercentual::class)]
 final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
 {
     private const HOJE = '2026-10-06 15:30:00';
@@ -51,6 +54,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
             $this->em,
             new CalculadoraDeParcelamento(),
             new MockClock(self::HOJE),
+            new BaseDoPercentual(),
         );
 
         $this->tenant = new Tenant();
@@ -95,7 +99,7 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         return array_map(static fn (PastaPagamento $p): array => [
             $p->getDescricao(),
             $p->getValor(),
-            $p->getVencimento()->format('Y-m-d'),
+            $p->getVencimento()?->format('Y-m-d'),
             $p->getPagoEm()?->format('Y-m-d'),
         ], $this->persistidos);
     }
@@ -288,11 +292,87 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
         self::assertCount(2, $this->persistidos);
     }
 
+
+    // =========================================================================
+    // Êxito e sucumbência: o previsto (spec pasta-exito-sucumbencia)
+    // =========================================================================
+
+    /** Põe na pasta um lançamento já gravado, para formar o Total contratado. */
+    private function jaLancado(TipoDePagamento $tipo, string $valor): void
+    {
+        $p = new PastaPagamento();
+        $p->setTipo($tipo);
+        $p->setValor($valor);
+        $p->setPasta($this->pasta);
+        $this->pasta->getPagamentos()->add($p);
+    }
+
+    #[TestDox('êxito grava UMA linha prevista: tipo, %, vencimento nulo, descrição do desenho e retrato do valor')]
+    public function testExitoGravaPrevisto(): void
+    {
+        $this->jaLancado(TipoDePagamento::Contrato, '10000.00');
+        $this->jaLancado(TipoDePagamento::Custas, '2860.00');
+        $this->em->expects($this->once())->method('flush');
+
+        $saida = $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input([
+            'tipo' => 'exito', 'percentual' => '20', 'total' => '', 'vencimento' => '', 'parcelas' => '',
+        ]));
+
+        self::assertCount(1, $this->persistidos);
+        $p = $this->persistidos[0];
+        self::assertSame(TipoDePagamento::Exito, $p->getTipo());
+        self::assertSame('20.00', $p->getPercentual());
+        self::assertNull($p->getVencimento(), 'o previsto não tem vencimento');
+        self::assertSame('Honorários de êxito (20%)', $p->getDescricao());
+        self::assertSame('2572.00', $p->getValor(), 'retrato: 20% do Total contratado (12.860,00) no lançamento');
+        self::assertTrue($p->estaPrevisto());
+        self::assertFalse($p->estaVencido(new \DateTimeImmutable('2030-01-01')));
+        self::assertSame(1, $saida->quantidade);
+    }
+
+    #[TestDox('sucumbência: "Sucumbência estimada (N%)", com vírgula e sem zeros à direita')]
+    public function testSucumbenciaDescricao(): void
+    {
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input([
+            'tipo' => 'sucumbencia', 'percentual' => '12,5', 'descricao' => 'ignorada no previsto',
+        ]));
+
+        $p = $this->persistidos[0];
+        self::assertSame(TipoDePagamento::Sucumbencia, $p->getTipo());
+        self::assertSame('12.50', $p->getPercentual());
+        self::assertSame('Sucumbência estimada (12,5%)', $p->getDescricao());
+        self::assertSame('0.00', $p->getValor(), 'sem nada contratado a base é zero');
+    }
+
+    #[TestDox('percentual fora de 0 a 100 recusa com a mensagem do desenho')]
+    public function testMensagemDoPercentual(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Informe um percentual entre 0 e 100.');
+
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input(['tipo' => 'exito', 'percentual' => '100,01']));
+    }
+
+    #[TestDox('contrato e custas passam a gravar o tipo; nunca com percentual')]
+    public function testContratoECustasGravamTipo(): void
+    {
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input(['entrada' => '100', 'parcelas' => '2']));
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input(['tipo' => 'custas', 'total' => '300']));
+
+        $tipos = array_map(static fn (PastaPagamento $p): TipoDePagamento => $p->getTipo(), $this->persistidos);
+        self::assertSame([TipoDePagamento::Contrato, TipoDePagamento::Contrato, TipoDePagamento::Contrato, TipoDePagamento::Custas], $tipos);
+        foreach ($this->persistidos as $p) {
+            self::assertNull($p->getPercentual());
+        }
+    }
+
     /** @return iterable<string, array{array<string, string|bool>}> */
     public static function camposInvalidos(): iterable
     {
-        yield 'êxito ainda não'          => [['tipo' => 'exito']];
-        yield 'sucumbência ainda não'    => [['tipo' => 'sucumbencia']];
+        yield 'êxito com 0%'             => [['tipo' => 'exito', 'percentual' => '0']];
+        yield 'êxito acima de 100%'      => [['tipo' => 'exito', 'percentual' => '101']];
+        yield 'sucumbência sem %'        => [['tipo' => 'sucumbencia', 'percentual' => '']];
+        yield 'sucumbência não é número' => [['tipo' => 'sucumbencia', 'percentual' => 'dez']];
         yield 'tipo desconhecido'        => [['tipo' => 'outro']];
         yield 'base desconhecida'        => [['base' => 'x']];
         yield 'total vazio'              => [['total' => '']];

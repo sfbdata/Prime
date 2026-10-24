@@ -3,13 +3,13 @@
    Desenho aprovado: docs/design/pasta-show/ ("Pasta 1A.dc.html"), Aba 4, na
    revisão de 28/08/2026. Spec: docs/specs/pasta-show-financeiro-fatia2.md.
 
-   Arranjo: faixa de QUATRO cards iguais no topo (Contrato · Pró-bono · Valor da
-   causa · Média), depois grade de duas colunas — Relatório financeiro ao centro,
+   Arranjo: faixa de QUATRO cards iguais no topo (Contrato · Pró-bono · Total
+   contratado · Média), depois grade de duas colunas — Relatório financeiro ao centro,
    Arquivos e Pagamentos no trilho.
 
    Os `id` desta tela são contrato com o JS do fim deste arquivo. Renomear
    qualquer um quebra o envio em silêncio:
-   #financeiro-situacao-btn · #financeiro-probono-btn · #financeiro-valor-causa
+   #financeiro-situacao-btn · #financeiro-probono-btn · #financeiro-total-contratado
    #financeiro-media-cpf · #financeiro-docs-lista · #financeiro-upload-input
    #formFinanceiroObservacao · #financeiroObsLista · #psPagamentosCorpo
 
@@ -25,7 +25,7 @@
 {% import _self as fin %}
 
 {# C7-FPN-01 (convenção PAS-014/PAS-025c: o que o servidor recusa não aparece): toda escrita
-   desta aba — selos de Contrato e Pró-bono, honorários, Relatório financeiro (enviar, responder,
+   desta aba — selos de Contrato e Pró-bono, Relatório financeiro (enviar, responder,
    editar, excluir), arquivos (adicionar, renomear, excluir) e Pagamentos (adicionar, corrigir,
    quitar, excluir) — exige EDIT na pasta, e na lápide o `PastaSomenteLeituraListener` recusa
    todo POST. Sem os dois, nada disso é montado; ficam ver, copiar, baixar e imprimir. Os selos
@@ -124,49 +124,21 @@
         </div>
     </div>
 
-    {# Honorários contratuais — editável no lugar: clique no número, digite, Enter grava.
-       O dado por trás segue sendo o `valor_causa` da pasta (rota, coluna e ids
-       inalterados); o dono renomeou só o que a tela mostra.
-       Sem escrita (C7-FPN-01): o número fica, sem lápis, sem campo e sem cara de botão — sem o
-       `#financeiro-valor-causa-input` o JS da edição nem se liga. O `#financeiro-valor-causa`
-       continua: o modal de pagamento e a média leem dele. #}
-    <div class="ps-fin-bloco"
-         id="financeiro-valor-causa-bloco"
-         {%- if podeEscreverFin %}
-         data-csrf="{{ csrf_token('pasta_valor_causa_' ~ pasta.id) }}"
-         data-url="{{ path('pasta_atualizar_valor_causa', {id: pasta.id}) }}"
-         {%- endif %}>
+    {# Total contratado (decisão C8 do dono, 23/10/2026): o card "Valor da causa" do desenho 02
+       (dc L.1878-1892), com o nome aprovado. É SOMA, só leitura: os lançamentos não previstos do
+       card Pagamentos, pagos ou não (`PastaPagamentosOutput::contratadoFormatado`, a mesma base
+       do % de êxito e sucumbência). Sem lápis, sem campo, sem rota: o valor da causa da pasta
+       continua editável no modal do Processo. O script de Pagamentos atualiza o número a cada
+       resposta (`#financeiro-total-contratado`, `data-centavos` lido pelo modal). #}
+    <div class="ps-fin-bloco" id="financeiro-total-contratado-bloco">
         <div class="ps-fin-rotulo-linha">
-            <span class="ps-fin-rotulo">{{ 'pasta_financeiro.honorarios.rotulo'|trans }}</span>
-            {% if podeEscreverFin %}
-            <span class="ps-cab-espaco"></span>
-            <button type="button" class="ps-fin-lapis" id="financeiro-valor-causa-lapis" title="{{ 'pasta_financeiro.honorarios.editar'|trans }}">
-                <i class="bi bi-pencil"></i>
-            </button>
-            {% endif %}
+            <span class="ps-fin-rotulo">{{ 'pasta_financeiro.total_contratado.rotulo'|trans }}</span>
         </div>
         <div class="ps-fin-corpo">
-            {% if podeEscreverFin %}
-            <div id="financeiro-valor-causa"
+            <div id="financeiro-total-contratado"
                  class="ps-fin-numero ps-num"
-                 tabindex="0"
-                 role="button"
-                 title="{{ 'pasta_financeiro.honorarios.clique_editar'|trans }}"
-                 data-valor="{{ financeiro.valorCausa ?? '' }}">{{ financeiro.valorCausaFormatado }}</div>
-            <input type="text"
-                   id="financeiro-valor-causa-input"
-                   class="form-control form-control-sm d-none"
-                   inputmode="decimal"
-                   maxlength="20"
-                   placeholder="0,00"
-                   aria-label="{{ 'pasta_financeiro.honorarios.rotulo'|trans }}">
-            {% else %}
-            <div id="financeiro-valor-causa"
-                 class="ps-fin-numero ps-num"
-                 data-valor="{{ financeiro.valorCausa ?? '' }}">{{ financeiro.valorCausaFormatado }}</div>
-            {% endif %}
-            <div class="ps-fin-sub">{{ 'pasta_financeiro.honorarios.nota'|trans }}</div>
-            <div id="financeiro-valor-causa-erro" class="ps-fin-sub ps-fin-sub--erro d-none"></div>
+                 data-centavos="{{ pagamentos.contratadoCentavos }}">{{ pagamentos.contratadoFormatado }}</div>
+            <div class="ps-fin-sub" title="{{ 'pasta_financeiro.total_contratado.dica'|trans }}">{{ 'pasta_financeiro.total_contratado.nota'|trans }}</div>
         </div>
     </div>
 
@@ -724,107 +696,6 @@
             } catch (_) {
                 (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede_tente'));
             }
-        });
-    }
-
-    // ── Honorários contratuais (edição no lugar; campo valor_causa) ──────────
-    const vcBloco  = document.getElementById('financeiro-valor-causa-bloco');
-    const vcTexto  = document.getElementById('financeiro-valor-causa');
-    const vcInput  = document.getElementById('financeiro-valor-causa-input');
-    const vcErro   = document.getElementById('financeiro-valor-causa-erro');
-    const vcLapis  = document.getElementById('financeiro-valor-causa-lapis');
-    const vcMedia  = document.getElementById('financeiro-media-cpf');
-
-    if (vcBloco && vcTexto && vcInput) {
-        // O que já está gravado vem em decimal ("12860.00"); o campo de edição
-        // fala pt-BR, que é como o humano digita e como o back aceita de volta.
-        function paraPtBr(decimal) {
-            if (!decimal) return '';
-            const [inteiro, centavos] = decimal.split('.');
-            return inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + (centavos ?? '00');
-        }
-
-        // Guarda o que estava no campo ao abrir: sair sem mexer não é edição, e
-        // não pode virar gravação nem linha de auditoria.
-        let vcValorAoAbrir = '';
-        let vcGravando     = false;
-
-        function abrirEdicao() {
-            vcErro.classList.add('d-none');
-            vcInput.value  = paraPtBr(vcTexto.dataset.valor);
-            vcValorAoAbrir = vcInput.value;
-            vcTexto.classList.add('d-none');
-            vcInput.classList.remove('d-none');
-            vcInput.focus();
-            vcInput.select();
-        }
-
-        function fecharEdicao() {
-            vcInput.classList.add('d-none');
-            vcTexto.classList.remove('d-none');
-        }
-
-        async function gravar() {
-            if (vcGravando) { return; }
-            vcGravando = true;
-
-            const fd = new FormData();
-            fd.append('_token', vcBloco.dataset.csrf);
-            fd.append('valor_causa', vcInput.value);
-
-            try {
-                const resp = await fetch(vcBloco.dataset.url, {
-                    method: 'POST',
-                    body: fd,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const data = await resp.json();
-
-                if (!resp.ok) {
-                    vcErro.textContent = data.erro ?? BJ_T.t('pasta_financeiro.js.erro_salvar');
-                    vcErro.classList.remove('d-none');
-                    vcInput.focus();
-                    return;
-                }
-
-                vcTexto.dataset.valor = data.valor ?? '';
-                vcTexto.textContent   = data.valorFormatado;
-                vcValorAoAbrir        = vcInput.value;
-                // A média é do cliente, não da pasta: mudar o valor aqui muda o
-                // número ao lado, que volta recalculado do servidor.
-                if (vcMedia && typeof data.mediaFormatada !== 'undefined') {
-                    vcMedia.textContent = data.mediaFormatada;
-                }
-                vcErro.classList.add('d-none');
-                fecharEdicao();
-            } catch (_) {
-                vcErro.textContent = BJ_T.t('pasta_financeiro.js.erro_rede_tente');
-                vcErro.classList.remove('d-none');
-            } finally {
-                vcGravando = false;
-            }
-        }
-
-        vcTexto.addEventListener('click', abrirEdicao);
-        vcTexto.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirEdicao(); }
-        });
-        if (vcLapis) { vcLapis.addEventListener('click', abrirEdicao); }
-
-        vcInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); gravar(); }
-            if (e.key === 'Escape') { e.preventDefault(); fecharEdicao(); }
-        });
-        vcInput.addEventListener('blur', function () {
-            if (vcInput.classList.contains('d-none')) { return; }
-
-            // Abrir e sair sem mexer não é edição: fecha e pronto, sem gravar e sem
-            // gerar linha de auditoria com o valor que já estava lá.
-            if (vcInput.value === vcValorAoAbrir) { fecharEdicao(); return; }
-
-            // Mudou de verdade: grava, como o resto da aba já faz (pró-bono e
-            // contrato salvam sozinhos). Com erro na tela o campo fica aberto.
-            gravar();
         });
     }
 

@@ -23,11 +23,19 @@
     const corpo    = document.getElementById('psPagamentosCorpo');
     const contagem = document.getElementById('psPagamentosTotal');
 
-    /** Troca o card inteiro pelo HTML que o servidor acabou de renderizar. */
+    /**
+     * Troca o card inteiro pelo HTML que o servidor acabou de renderizar. O "Total
+     * contratado" da faixa (C8) é soma do card: acompanha a mesma resposta.
+     */
     function aplicarResumo(resumo) {
         if (!resumo) { return; }
         corpo.innerHTML = resumo.html;
         if (contagem) { contagem.textContent = String(resumo.total); }
+        const totalContratado = document.getElementById('financeiro-total-contratado');
+        if (totalContratado && typeof resumo.contratado !== 'undefined') {
+            totalContratado.textContent = resumo.contratado;
+            totalContratado.dataset.centavos = String(resumo.contratadoCentavos);
+        }
     }
 
     async function postar(url, csrf, extras) {
@@ -299,6 +307,11 @@
         const btnGerar     = document.getElementById('btnSalvarPagamento');
         const el = {
             causa:     modalEl.querySelector('.js-np-causa'),
+            base:      modalEl.querySelector('.js-np-base'),
+            blocoVal:  modalEl.querySelector('.js-np-bloco-valor'),
+            blocoPct:  modalEl.querySelector('.js-np-bloco-pct'),
+            pctRotulo: modalEl.querySelector('.js-np-pct-rotulo'),
+            descricao: modalEl.querySelector('.js-np-campo-descricao'),
             nota:      modalEl.querySelector('.js-np-tipo-nota'),
             campoTot:  modalEl.querySelector('.js-np-campo-total'),
             campoPct:  modalEl.querySelector('.js-np-campo-pct'),
@@ -382,16 +395,46 @@
             return Array.from({ length: n }, (_, k) => (k === n - 1 ? ultima : parcela));
         }
 
+        /** O valor da causa da pasta: só o "% da causa" do contrato e das custas usa. */
         function causaCentavos() {
-            const vc = document.getElementById('financeiro-valor-causa');
-            const c  = centavosDe(String(vc?.dataset.valor ?? '').replace('.', ','));
+            const c = centavosDe(String(modalEl.dataset.valorCausa ?? '').replace('.', ','));
 
             return Number.isFinite(c) ? c : 0;
+        }
+
+        /** O Total contratado (C8): a base do % de êxito e sucumbência, o número da faixa. */
+        function contratadoCentavos() {
+            const c = parseInt(document.getElementById('financeiro-total-contratado')?.dataset.centavos ?? '0', 10);
+
+            return Number.isFinite(c) ? c : 0;
+        }
+
+        const ehPrevisto = (tipo) => tipo === 'exito' || tipo === 'sucumbencia';
+
+        /**
+         * Êxito e sucumbência (dc L.3702-3705): só o %, uma linha "previsto" sem
+         * vencimento, valor = round(base × pct) / 100. O servidor refaz a conta.
+         */
+        function calcularPrevisto(tipo) {
+            // Duas casas no máximo, como a coluna do servidor (NUMERIC 5,2).
+            const texto = valorDe('percentualPrevisto').replace(/[\s%]/g, '');
+            const pct   = /^\d{1,3}([.,]\d{1,2})?$/.test(texto) ? decimalCurto(texto) : null;
+            if (pct === null || !(pct > 0 && pct <= 100)) {
+                return { novos: [], erro: BJ_T.t('pasta_financeiro.js.erro_percentual') };
+            }
+            const rotulo = String(pct).replace('.', ',');
+            const chave  = tipo === 'exito' ? 'pasta_financeiro.js.exito_descricao' : 'pasta_financeiro.js.sucumbencia_descricao';
+
+            return {
+                novos: [{ d: BJ_T.t(chave, { percentual: rotulo }), q: BJ_T.t('pasta_financeiro.js.previsto'), v: Math.round(contratadoCentavos() * pct / 100) }],
+                erro: '',
+            };
         }
 
         /** O que a prévia mostra e o botão promete. Espelho da regra do dc L.3470-3500. */
         function calcular() {
             const tipo   = valorDe('tipo');
+            if (ehPrevisto(tipo)) { return calcularPrevisto(tipo); }
             const rotulo = tipo === 'custas' ? BJ_T.t('pasta_financeiro.js.tipo_custas') : BJ_T.t('pasta_financeiro.js.tipo_honorarios');
             const base   = valorDe('base');
             let total;
@@ -450,10 +493,14 @@
         }
 
         function renderizar() {
-            const pct = valorDe('base') === 'pct';
-            el.campoTot.hidden = pct;
-            el.campoPct.hidden = !pct;
-            el.taxa.hidden     = valorDe('juros') !== '1';
+            const pct      = valorDe('base') === 'pct';
+            const previsto = ehPrevisto(valorDe('tipo'));
+            el.campoTot.hidden  = pct;
+            el.campoPct.hidden  = !pct;
+            el.taxa.hidden      = valorDe('juros') !== '1';
+            el.blocoVal.hidden  = previsto;
+            el.blocoPct.hidden  = !previsto;
+            el.descricao.hidden = previsto;
 
             const { novos, erro } = calcular();
             const soma = novos.reduce((t, x) => t + x.v, 0);
@@ -484,6 +531,10 @@
                 definir('tipo', tipo.dataset.tipo);
                 marcar(modalEl.querySelectorAll('.ps-np-tipo'), tipo);
                 el.nota.textContent = tipo.dataset.nota ?? '';
+                // Como o desenho (`set`): sucumbência abre em 10; êxito mantém o que havia, ou 20.
+                if (tipo.dataset.tipo === 'sucumbencia') { definir('percentualPrevisto', '10'); }
+                if (tipo.dataset.tipo === 'exito' && valorDe('percentualPrevisto').trim() === '') { definir('percentualPrevisto', '20'); }
+                if (tipo.dataset.rotuloPct) { el.pctRotulo.textContent = tipo.dataset.rotuloPct; }
                 renderizar();
                 return;
             }
@@ -515,9 +566,11 @@
             el.nota.textContent = modalEl.querySelector('.ps-np-tipo[data-tipo="contrato"]').dataset.nota ?? '';
             definir('vencimento', somarMeses(hojeIso(), 1));
 
-            // O valor da causa pode ter sido editado nesta tela depois da carga.
-            const causa = causaCentavos();
-            el.causa.textContent = causa > 0 ? brlCentavos(causa) : BJ_T.t('pasta_financeiro.js.sem_dado');
+            // O Total contratado muda a cada lançamento desta tela: lido na hora de abrir.
+            const contratado = brlCentavos(contratadoCentavos());
+            el.causa.textContent = contratado;
+            el.base.textContent  = contratado;
+            el.pctRotulo.textContent = modalEl.querySelector('.ps-np-tipo[data-tipo="exito"]').dataset.rotuloPct ?? '';
             renderizar();
         });
 
@@ -529,6 +582,9 @@
             const fd = new FormData(form);
             // A mesma quantidade que a prévia usou (o campo é limitado a 1–MAX).
             if (n) { fd.set('parcelas', String(n)); }
+            // Êxito e sucumbência mandam o % do bloco deles no campo que o servidor lê.
+            if (ehPrevisto(valorDe('tipo'))) { fd.set('percentual', valorDe('percentualPrevisto')); }
+            fd.delete('percentualPrevisto');
             btnGerar.disabled = true;
 
             try {
