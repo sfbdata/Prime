@@ -12,6 +12,7 @@ use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
+use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 
 /**
  * Reconciliação banco × disco × espelho — **só leitura** (spec P2 §3.4). Não enfileira, não envia,
@@ -37,12 +38,22 @@ final class ReconciliadorDoEspelho
     ) {
     }
 
-    public function reconciliar(EspelhoRemoto $espelho, bool $conferirSha = true, ?int $limite = null): RelatorioDeReconciliacao
+    /**
+     * `$soAsLigadas`: confere só as referências das categorias que a política espelha (o modo agendado,
+     * P2.5). Sem ela, todas as fontes, como no dry-run da P2.3. O limite conta só o que foi conferido.
+     */
+    public function reconciliar(EspelhoRemoto $espelho, bool $conferirSha = true, ?int $limite = null, ?PoliticaDeEspelhamento $soAsLigadas = null): RelatorioDeReconciliacao
     {
         $relatorio = new RelatorioDeReconciliacao();
         $vistos    = 0;
 
         foreach ($this->fontes->referencias() as $referencia) {
+            if ($soAsLigadas !== null) {
+                $categoria = $referencia->categoria();
+                if ($categoria === null || !$soAsLigadas->espelha($categoria)) {
+                    continue;
+                }
+            }
             if ($limite !== null && $vistos >= $limite) {
                 break;
             }

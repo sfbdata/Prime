@@ -294,6 +294,51 @@ final class OutboxDeReplicacao
         return $contagem;
     }
 
+    /**
+     * A tabela existe neste banco? O modo agendado (`--se-ligado`) da retenção pula, em silêncio, um
+     * banco que ainda não recebeu a migration da outbox.
+     */
+    public function tabelaExiste(): bool
+    {
+        return $this->conexao->createSchemaManager()->tablesExist([self::TABELA]);
+    }
+
+    /**
+     * Linhas de envio em `falhou`, por categoria (alerta da reconciliação, P2.7). Só contagem: nome e
+     * chave remota não saem daqui.
+     *
+     * @return array<string, int> categoria => quantidade
+     */
+    public function contarFalhasPorCategoria(): array
+    {
+        $contagem = [];
+        foreach ($this->conexao->fetchAllAssociative(
+            'SELECT categoria, count(*) AS n FROM ' . self::TABELA . ' WHERE operacao = ? AND estado = ? GROUP BY categoria ORDER BY categoria',
+            [self::OPERACAO_ENVIAR, self::ESTADO_FALHOU],
+        ) as $linha) {
+            $contagem[(string) $linha['categoria']] = (int) $linha['n'];
+        }
+
+        return $contagem;
+    }
+
+    /** Há quantos segundos espera o envio pendente mais antigo, ou null se não há pendente. */
+    public function idadeDaPendenteMaisAntigaEmSegundos(): ?int
+    {
+        $maisAntiga = $this->conexao->fetchOne(
+            'SELECT min(criado_em) FROM ' . self::TABELA . ' WHERE operacao = ? AND estado = ?',
+            [self::OPERACAO_ENVIAR, self::ESTADO_PENDENTE],
+        );
+        if ($maisAntiga === false || $maisAntiga === null) {
+            return null;
+        }
+
+        $utc   = new \DateTimeZone('UTC');
+        $desde = new \DateTimeImmutable((string) $maisAntiga, $utc);
+
+        return max(0, $this->relogio->now()->setTimezone($utc)->getTimestamp() - $desde->getTimestamp());
+    }
+
     /** O estado da linha mais recente de uma chave remota, ou null se a chave nunca passou pela outbox. */
     public function ultimoEstadoDe(string $chaveRemota): ?string
     {

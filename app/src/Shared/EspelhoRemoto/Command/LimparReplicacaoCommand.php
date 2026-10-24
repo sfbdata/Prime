@@ -19,6 +19,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  * Apaga só a LINHA LOCAL da fila, nunca objeto no espelho. A saída é só contagem: nome de arquivo e
  * chave remota não saem aqui.
+ *
+ * `--se-ligado` é o modo do agendador: só pula (sucesso, "espelho desligado") quando a tabela da outbox
+ * não existe. Com a política vazia a retenção continua valendo, porque as linhas antigas já existem e
+ * a LGPD (I4) não depende de a cópia estar ligada; a limpeza também não fala com o R2, então a falta de
+ * `ESPELHO_R2_*` não a impede.
  */
 #[AsCommand(
     name: 'armazenamento:limpar-replicacao',
@@ -35,7 +40,8 @@ final class LimparReplicacaoCommand extends Command
     {
         $this
             ->addOption('dias', null, InputOption::VALUE_REQUIRED, 'Idade mínima, em dias, da linha concluída que sai.', '90')
-            ->addOption('simular', null, InputOption::VALUE_NONE, 'Só conta o que sairia, sem apagar nada.');
+            ->addOption('simular', null, InputOption::VALUE_NONE, 'Só conta o que sairia, sem apagar nada.')
+            ->addOption('se-ligado', null, InputOption::VALUE_NONE, 'Modo agendado: sem a tabela da outbox neste banco, sai com sucesso sem fazer nada.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -46,6 +52,12 @@ final class LimparReplicacaoCommand extends Command
             $io->error('--dias precisa ser um número inteiro de pelo menos 1.');
 
             return Command::INVALID;
+        }
+
+        if ($input->getOption('se-ligado') && !$this->outbox->tabelaExiste()) {
+            $io->writeln('Espelho desligado (sem a tabela da outbox): nada a limpar.');
+
+            return Command::SUCCESS;
         }
 
         $contagem = $this->outbox->contarConcluidasHaMaisDe($dias);
