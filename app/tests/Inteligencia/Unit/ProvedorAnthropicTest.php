@@ -7,6 +7,7 @@ namespace App\Tests\Inteligencia\Unit;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
+use App\Inteligencia\Service\FonteDoModeloDeIa;
 use App\Inteligencia\Service\ProvedorAnthropic;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -78,6 +79,97 @@ final class ProvedorAnthropicTest extends TestCase
                 self::assertSame(0, $http->getRequestsCount());
             }
         }
+    }
+
+    private static function fonte(\Closure $modelo): FonteDoModeloDeIa
+    {
+        return new class ($modelo) implements FonteDoModeloDeIa {
+            public int $chamadas = 0;
+
+            public function __construct(private readonly \Closure $modelo)
+            {
+            }
+
+            public function modelo(): string
+            {
+                ++$this->chamadas;
+
+                return ($this->modelo)();
+            }
+        };
+    }
+
+    private static function comFonte(MockHttpClient $http, FonteDoModeloDeIa $fonte, string $chave = 'sk-teste', string $modelo = 'modelo-do-ambiente'): ProvedorAnthropic
+    {
+        return new ProvedorAnthropic($http, $chave, $modelo, 'https://api.exemplo.test', 120.0, '', ProvedorAnthropic::MARGEM_DE_RACIOCINIO_PADRAO, fonteDoModelo: $fonte);
+    }
+
+    #[TestDox('Com a fonte do modelo (o banco), o modelo dela manda em cada chamada, não o do ambiente')]
+    public function testModeloDoBancoManda(): void
+    {
+        $modelos = [];
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$modelos): MockResponse {
+            $modelos[] = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR)['model'];
+
+            return self::ok();
+        });
+        $atual = 'claude-haiku-5-5';
+        $provedor = self::comFonte($http, self::fonte(static function () use (&$atual): string {
+            return $atual;
+        }));
+
+        self::assertTrue($provedor->estaConfigurado());
+        self::assertSame('claude-haiku-5-5', $provedor->modeloEfetivo());
+        $provedor->completar($this->pedido());
+        $atual = 'claude-opus-5-5';
+        $provedor->completar($this->pedido());
+
+        self::assertSame(['claude-haiku-5-5', 'claude-opus-5-5'], $modelos, 'o Master troca o modelo sem reiniciar o worker');
+    }
+
+    #[TestDox('Fonte do modelo que lança (banco fora, tabela ausente): cai no modelo do ambiente, sem derrubar quem pergunta')]
+    public function testFonteQueLancaCaiNoAmbiente(): void
+    {
+        $capturado = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado): MockResponse {
+            $capturado = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR)['model'];
+
+            return self::ok();
+        });
+        $provedor = self::comFonte($http, self::fonte(static fn (): string => throw new \RuntimeException('banco fora')));
+
+        self::assertTrue($provedor->estaConfigurado());
+        self::assertSame('modelo-do-ambiente', $provedor->modeloEfetivo());
+        $provedor->completar($this->pedido());
+        self::assertSame('modelo-do-ambiente', $capturado);
+    }
+
+    #[TestDox('Modelo da fonte vazio ou fora do formato: dormente, nome "nao_configurado", nenhuma chamada sai')]
+    public function testModeloInvalidoDaFonteEhDormente(): void
+    {
+        foreach (['', '  ', 'claude; DROP', 'Claude-Haiku'] as $invalido) {
+            $http = new MockHttpClient(static fn () => throw new \LogicException('não deveria chamar a rede'));
+            $provedor = self::comFonte($http, self::fonte(static fn (): string => $invalido));
+
+            self::assertFalse($provedor->estaConfigurado(), $invalido);
+            self::assertSame(ProvedorNaoConfigurado::NOME, $provedor->nome());
+            try {
+                $provedor->completar($this->pedido());
+                self::fail('Deveria ser indisponível.');
+            } catch (ProvedorIndisponivelException) {
+                self::assertSame(0, $http->getRequestsCount());
+            }
+        }
+    }
+
+    #[TestDox('Sem chave, a fonte do modelo nem é consultada (instalação dormente não vai ao banco)')]
+    public function testSemChaveNaoConsultaAFonte(): void
+    {
+        $fonte = self::fonte(static fn (): string => 'claude-haiku-5-5');
+        $provedor = self::comFonte(new MockHttpClient(), $fonte, chave: '');
+
+        self::assertFalse($provedor->estaConfigurado());
+        self::assertSame(0, $fonte->chamadas);
     }
 
     #[TestDox('A requisição: endpoint, cabeçalhos, modelo, sistema, papéis traduzidos — e sem temperature')]

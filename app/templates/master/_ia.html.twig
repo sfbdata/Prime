@@ -1,0 +1,86 @@
+{# Aba "Configurações da I.A." do /master (spec docs/specs/ia-anthropic-ligar.md §10, decisões do dono de 24/10).
+   Nenhum desenho tem esta tela: os componentes são os que o painel já usa (.mp-card, .mp-cab-roxo, a chave do
+   .mp-rec-item, .mp-btn-roxo, a grade das contas e a confirmação interna window.BJMasterConf).
+   Incluída pelo painel.html.twig dentro de <div class="mp-ia" data-painel-aba="ia">. O estado vem por JSON quando a aba
+   abre (public/js/master/ia.js); as regras moram nos UseCases do domínio Inteligencia.
+   A chave da API NUNCA aparece aqui: a tela só diz se ela está gravada no servidor, e não há campo para ela.
+   Textos no catálogo (master.ia.*; os do JS em master.js.ia.*, entregues pelo catalogo_js do painel). #}
+<link rel="stylesheet" href="{{ asset('css/master-ia.css') }}">
+<div class="mp-ia-raiz" data-mp-ia
+     data-url-dados="{{ path('master_ia_dados') }}"
+     data-url-chave-geral="{{ path('master_ia_chave_geral') }}"
+     data-url-modelo="{{ path('master_ia_modelo') }}"
+     data-url-retencao="{{ path('master_ia_retencao') }}"
+     data-url-escritorio="{{ path('master_ia_escritorio', {tenantId: 0}) }}"
+     data-token="{{ csrf_token('master_ia') }}">
+
+    <div class="mp-ia-aviso" role="note" data-mp-ia-zdr>
+        <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+        <div class="mp-ia-aviso-texto">
+            <b>{{ 'master.ia.zdr.titulo'|trans }}</b>
+            <p>{{ 'master.ia.zdr.texto'|trans }}</p>
+            <p>{{ 'master.ia.zdr.geo'|trans }}</p>
+        </div>
+    </div>
+
+    <div class="mp-ia-msg" data-mp-ia-msg role="status" hidden></div>
+
+    <section class="mp-card mp-ia-card" aria-labelledby="mp-ia-instalacao">
+        <div class="mp-cab-roxo"><i class="bi bi-hdd-network"></i><b id="mp-ia-instalacao">{{ 'master.ia.instalacao.titulo'|trans }}</b></div>
+        <div class="mp-ia-corpo">
+            <div class="mp-ia-estado">{{ 'master.ia.instalacao.chave_api'|trans }}: <b data-mp-ia-chave-api>…</b></div>
+            <div class="mp-ia-estado">{{ 'master.ia.instalacao.trava'|trans }}: <b data-mp-ia-trava>…</b></div>
+            <p class="mp-ia-nota">{{ 'master.ia.instalacao.nota'|trans }}</p>
+        </div>
+    </section>
+
+    <section class="mp-card mp-ia-card" aria-labelledby="mp-ia-geral">
+        <div class="mp-cab-roxo"><i class="bi bi-power"></i><b id="mp-ia-geral">{{ 'master.ia.chave_geral.titulo'|trans }}</b></div>
+        <div class="mp-ia-corpo">
+            <button type="button" class="mp-rec-item is-off mp-ia-chave" role="switch" aria-checked="false" data-mp-ia-chave-geral disabled>
+                <i class="bi bi-stars mp-rec-item-ic" aria-hidden="true"></i>
+                <span class="mp-rec-item-corpo">
+                    <span class="mp-rec-item-titulo">{{ 'master.ia.chave_geral.rotulo'|trans }}</span>
+                    <span class="mp-rec-item-desc">{{ 'master.ia.chave_geral.desc'|trans }}</span>
+                </span>
+                <span class="mp-rec-item-st" data-mp-ia-chave-geral-st>…</span>
+                <span class="mp-rec-chave"><span></span></span>
+            </button>
+        </div>
+    </section>
+
+    <section class="mp-card mp-ia-card" aria-labelledby="mp-ia-modelo">
+        <div class="mp-cab-roxo"><i class="bi bi-cpu"></i><b id="mp-ia-modelo">{{ 'master.ia.modelo.titulo'|trans }}</b></div>
+        <div class="mp-ia-corpo mp-ia-modelo">
+            <label class="mp-ia-campo">{{ 'master.ia.modelo.campo'|trans }}<select data-mp-ia-modelo disabled></select></label>
+            <span class="mp-ia-preco" data-mp-ia-preco></span>
+        </div>
+    </section>
+
+    <section class="mp-card mp-ia-card" aria-labelledby="mp-ia-retencao">
+        <div class="mp-cab-roxo"><i class="bi bi-clock-history"></i><b id="mp-ia-retencao">{{ 'master.ia.retencao.titulo'|trans }}</b></div>
+        <div class="mp-ia-corpo mp-ia-modelo">
+            <label class="mp-ia-campo">{{ 'master.ia.retencao.campo'|trans }}<input type="number" min="1" max="120" step="1" inputmode="numeric" class="mp-ia-entrada mp-ia-meses" data-mp-ia-retencao disabled></label>
+            <p class="mp-ia-nota">{{ 'master.ia.retencao.aviso'|trans }}</p>
+        </div>
+    </section>
+
+    <section class="mp-card mp-ia-card" aria-labelledby="mp-ia-escritorios">
+        <div class="mp-cab-roxo"><i class="bi bi-building"></i><b id="mp-ia-escritorios">{{ 'master.ia.escritorios.titulo'|trans }}</b><span data-mp-ia-contagem></span></div>
+        <p class="mp-ia-nota mp-ia-nota-tabela">{{ 'master.ia.escritorios.nota'|trans }}</p>
+        <div class="mp-rolagem">
+            <div class="mp-ia-grade">
+                <div class="mp-ia-cab">
+                    <div>{{ 'master.ia.escritorios.col_nome'|trans }}</div>
+                    <div>{{ 'master.ia.escritorios.col_liberado'|trans }}</div>
+                    <div>{{ 'master.ia.escritorios.col_aceite'|trans }}</div>
+                    <div>{{ 'master.ia.escritorios.col_cobranca'|trans }}</div>
+                    <div>{{ 'master.ia.escritorios.col_orcamento'|trans }}</div>
+                    <div></div>
+                </div>
+                <div data-mp-ia-linhas><div class="mp-carregando">{{ 'master.painel.carregando'|trans }}</div></div>
+            </div>
+        </div>
+    </section>
+</div>
+<script src="{{ asset('js/master/ia.js') }}"></script>

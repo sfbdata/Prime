@@ -1,0 +1,38 @@
+/* Aba "Configurações da I.A." do /master (spec ia-anthropic-ligar §10). Sem desenho próprio: só o arranjo; os
+   componentes (.mp-card, .mp-cab-roxo, .mp-rec-item, .mp-rec-chave, .mp-btn-roxo, .mp-rolagem) vêm do master.css. */
+.mp-ia { display: flex; flex-direction: column; gap: 16px; }
+.mp-ia-raiz { display: flex; flex-direction: column; gap: 16px; }
+.mp-ia-aviso { display: flex; gap: 12px; align-items: flex-start; padding: 14px 18px; border-radius: 4px; background: #fbf1dc; color: #6b4610; border: 1px solid #f0dcb0; }
+.mp-ia-aviso > .bi { font-size: 20px; color: #8a5a12; }
+.mp-ia-aviso-texto > b { display: block; font-size: 14px; margin-bottom: 4px; }
+.mp-ia-aviso-texto > p { margin: 0 0 4px; font-size: 13px; line-height: 1.5; }
+.mp-ia-msg { padding: 9px 14px; border-radius: 4px; background: #e6f4ec; color: #1e7b45; font-size: 13px; font-weight: bold; }
+.mp-ia-msg.is-erro { background: #fdecea; color: #a3232b; }
+.mp-ia-card { overflow: hidden; }
+.mp-ia-corpo { padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+.mp-ia-estado { font-size: 13.5px; color: #243845; }
+.mp-ia-nota { margin: 0; font-size: 12.5px; color: #5b7383; line-height: 1.5; }
+.mp-ia-nota-tabela { padding: 12px 18px 0; }
+.mp-ia-chave { width: 100%; text-align: left; }
+.mp-ia-modelo { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
+.mp-ia-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: bold; color: #4a6373; margin: 0; }
+.mp-ia-campo > select, .mp-ia-entrada { height: 34px; border: 1px solid #d6e0e7; border-radius: 4px; padding: 0 8px; font: inherit; font-size: 13px; font-weight: normal; background: #fff; color: #12242f; min-width: 0; }
+.mp-ia-campo > select { min-width: 280px; }
+.mp-ia-preco { font-size: 12.5px; color: #5b7383; padding-bottom: 8px; }
+.mp-ia-grade { min-width: 900px; }
+.mp-ia-cab, .mp-ia-lin { display: grid; grid-template-columns: minmax(220px,2fr) 140px 150px minmax(190px,1.2fr) 170px 110px; align-items: center; }
+.mp-ia-cab { font-size: 11px; font-weight: bold; letter-spacing: 1px; color: #34505f; border-bottom: 2px solid #e2e9ee; text-transform: uppercase; }
+.mp-ia-cab > div { padding: 11px 8px; }
+.mp-ia-cab > div:first-child, .mp-ia-nome { padding-left: 18px; }
+.mp-ia-lin { border-bottom: 1px solid #eef2f5; }
+.mp-ia-nome { padding: 12px 8px 12px 18px; font-size: 13.5px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-ia-celula { padding: 8px; min-width: 0; }
+.mp-ia-celula > .mp-ia-entrada { width: 100%; }
+.mp-ia-aceite { font-size: 12.5px; color: #4a6373; }
+.mp-ia-chave-linha { display: inline-flex; align-items: center; gap: 8px; border: none; background: transparent; padding: 0; font: inherit; font-size: 12.5px; font-weight: bold; color: #1e7b45; cursor: pointer; }
+.mp-ia-chave-linha.is-off { color: #a3232b; }
+.mp-ia-chave-linha.is-off .mp-rec-chave { background: #c9d3da; }
+.mp-ia-chave-linha.is-off .mp-rec-chave > span { left: 3px; }
+.mp-ia-chave-linha:disabled, .mp-ia-salvar:disabled { cursor: progress; opacity: .7; }
+.mp .mp-ia-salvar { height: 32px; font-size: 12.5px; padding: 0 12px; }
+.mp-ia-meses { width: 120px; }

@@ -53,11 +53,14 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use App\Tests\Inteligencia\Support\PlataformaDeIaNoTesteTrait;
 
 #[CoversClass(SolicitarAnaliseDaPastaUseCase::class)]
 #[CoversClass(EnfileiradorDeAnalise::class)]
 final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
 {
+    use PlataformaDeIaNoTesteTrait;
+
     private const PASTA_ID = 7;
 
     private Tenant $tenant;
@@ -105,6 +108,7 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         $this->permissoes->method('canAccessModule')->willReturn(true);
 
         $configuracao = new ConfiguracaoDeInteligencia($this->tenant);
+        $configuracao->liberarPeloMaster();
         $configuracao->atualizar(true, 50, 500, true, $this->user);
         $this->configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
         $this->configuracoes->method('findDoTenant')->willReturn($configuracao);
@@ -170,7 +174,7 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         return new SolicitarAnaliseDaPastaUseCase(
             $this->pastas,
             $this->permissoes,
-            new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true),
+            new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa()),
             $this->financeiro,
             $montador,
             $this->analises,
