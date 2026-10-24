@@ -8,9 +8,12 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
+use App\Inteligencia\Enum\ModeloDeIa;
 use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
+use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Master\Controller\IaDoMasterController;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -65,7 +68,7 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(['valor' => 'claude-haiku-5-5', 'rotulo' => 'Claude Haiku 5.5 (mais barato)', 'entrada' => 0.1, 'saida' => 0.5], $d['modelos'][0]);
         self::assertSame(['incluso', 'adicional', 'limite_gratis'], array_column($d['modos'], 'valor'));
         $linha = $this->linhaDe($d, $tenant);
-        self::assertSame(['tenantId' => $tenant->getId(), 'nome' => $tenant->getName(), 'liberada' => false, 'aceiteEm' => null, 'modoDeCobranca' => 'incluso', 'orcamento' => null], $linha);
+        self::assertSame(['tenantId' => $tenant->getId(), 'nome' => $tenant->getName(), 'liberada' => false, 'aceiteEm' => null, 'modoDeCobranca' => 'incluso', 'orcamento' => null, 'analisesNoMes' => 0, 'gastoNoMes' => '0.00', 'orcamentoAtingido' => false, 'acimaDoGratis' => false], $linha);
         self::assertNull($this->linhaDe($d, $suspenso, false), 'escritório suspenso não entra na tabela');
     }
 
@@ -349,7 +352,7 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $cards->eq(2)->filter('label.mp-ia-campo > select[data-mp-ia-modelo]'));
         self::assertCount(1, $cards->eq(3)->filter('label.mp-ia-campo > input[type="number"][min="1"][max="120"][data-mp-ia-retencao]'));
         self::assertStringContainsString('As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.', $cards->eq(3)->text());
-        self::assertSame(['Escritório', 'Liberado', 'Aceite do escritório', 'Cobrança', 'Orçamento mensal (US$)', ''], $cards->eq(4)->filter('div.mp-rolagem > div.mp-ia-grade > div.mp-ia-cab > div')->each(static fn ($c): string => trim($c->text())));
+        self::assertSame(['Escritório', 'Liberado', 'Aceite do escritório', 'Cobrança', 'Orçamento mensal (US$)', 'Análises no mês', 'Gasto no mês (US$)', ''], $cards->eq(4)->filter('div.mp-rolagem > div.mp-ia-grade > div.mp-ia-cab > div')->each(static fn ($c): string => trim($c->text())));
 
         self::assertCount(1, $crawler->filter('script[src*="js/master/ia.js"]'));
         self::assertCount(1, $crawler->filter('link[href*="css/master-ia.css"]'));
@@ -419,6 +422,58 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         $tenant->setCriadoPor($user);
         $this->em->flush();
         $this->logarComTenant($this->client, $user, $tenant);
+    }
+
+    #[TestDox('consumo do mês por escritório: análises, gasto em US$ e os selos "orçamento atingido" (incluso) e "acima do grátis" (limite grátis)')]
+    public function testConsumoDoMes(): void
+    {
+        $this->entrarComoMaster();
+        $incluso = $this->escritorioComOrcamento('Escritório incluso ' . uniqid(), ModoDeCobrancaDaIa::Incluso, 1);
+        $gratis = $this->escritorioComOrcamento('Escritório grátis ' . uniqid(), ModoDeCobrancaDaIa::LimiteGratis, 1);
+        $semUso = $this->escritorioComOrcamento('Escritório sem uso ' . uniqid(), ModoDeCobrancaDaIa::Adicional, 1);
+        // 100 mil tokens de entrada do Haiku = 1 centavo; os 10 de saída e a região us (padrão) passam disso: 2 centavos.
+        $this->analiseCobrada($incluso, 100_000);
+        $this->analiseCobrada($incluso, 0);
+        $this->analiseCobrada($gratis, 100_000);
+
+        $this->client->request('GET', '/master/ia', server: ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseIsSuccessful();
+        $campos = array_flip(['analisesNoMes', 'gastoNoMes', 'orcamentoAtingido', 'acimaDoGratis']);
+        self::assertSame(['analisesNoMes' => 2, 'gastoNoMes' => '0.02', 'orcamentoAtingido' => true, 'acimaDoGratis' => false], array_intersect_key($this->linhaDe($this->json(), $incluso), $campos));
+        self::assertSame(['analisesNoMes' => 1, 'gastoNoMes' => '0.02', 'orcamentoAtingido' => false, 'acimaDoGratis' => true], array_intersect_key($this->linhaDe($this->json(), $gratis), $campos));
+        self::assertSame(['analisesNoMes' => 0, 'gastoNoMes' => '0.00', 'orcamentoAtingido' => false, 'acimaDoGratis' => false], array_intersect_key($this->linhaDe($this->json(), $semUso), $campos));
+    }
+
+    private function escritorioComOrcamento(string $nome, ModoDeCobrancaDaIa $modo, ?int $centavos): Tenant
+    {
+        $tenant = $this->escritorio($nome);
+        $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->liberarPeloMaster();
+        $configuracao->definirCobranca($modo, $centavos);
+        $this->em->persist($configuracao);
+        $this->em->flush();
+
+        return $tenant;
+    }
+
+    /** Uma análise concluída neste mês com o Haiku 5.5, `$entrada` tokens de entrada e 10 de saída. */
+    private function analiseCobrada(Tenant $tenant, int $entrada): void
+    {
+        $analise = new AnaliseDeInteligencia(
+            tenant: $tenant,
+            solicitante: null,
+            tipo: TipoDeAnalise::ResumoPush,
+            alvoTipo: AnaliseDeInteligencia::ALVO_PASTA,
+            alvoId: 1,
+            versaoDoPrompt: 'teste',
+            contextoHash: hash('sha256', uniqid('', true)),
+            contextoResumo: [],
+        );
+        $analise->iniciarProcessamento();
+        $analise->concluir('Resumo.', [], null, '{}', 'falso', ModeloDeIa::Haiku55->value, $entrada, 10, 1);
+        $this->em->persist($analise);
+        $this->em->flush();
     }
 
     private function escritorio(string $nome): Tenant
