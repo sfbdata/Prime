@@ -201,6 +201,32 @@ final class DesfazerSegueOEstadoDaTelaTest extends JusPrimeWebTestCase
         self::assertSame(EtapaDaPasta::Abertura->value, $this->colunaDaMeta($meta, 'etapa'));
     }
 
+    #[TestDox('c) A etapa de meta aberta que o mesmo desfazer reconcluiria: recusa (vale o status de depois)')]
+    public function testEtapaDeMetaQueFicariaConcluidaRecusa(): void
+    {
+        $meta = $this->meta($this->pasta(), $this->colega, $this->entrarComAMeta());
+        $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDaReabertura($this->atom(self::DATA_DA_CONCLUSAO)) + $this->diffDaEtapa());
+
+        $this->desfazer($logId);
+
+        $this->assertRecusado(PassagemRecusadaException::jaConcluida()->getMessage());
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->colunaDaMeta($meta, 'status'));
+        self::assertSame(EtapaDaPasta::Controladoria->value, $this->colunaDaMeta($meta, 'etapa'));
+    }
+
+    #[TestDox('c) A etapa de meta concluída que o mesmo desfazer reabre: desfaz (vale o status de depois)')]
+    public function testEtapaDeMetaQueFicariaAbertaDesfaz(): void
+    {
+        $meta = $this->metaConcluida($this->entrarComAMeta(), seguiuAdiante: false);
+        $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), $this->diffDaConclusao() + $this->diffDaEtapa());
+
+        $this->desfazer($logId);
+
+        $this->assertDesfeito();
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->colunaDaMeta($meta, 'status'));
+        self::assertSame(EtapaDaPasta::Abertura->value, $this->colunaDaMeta($meta, 'etapa'));
+    }
+
     // ── e) Coerência entre o status e a data de conclusão ───────────────────
 
     #[TestDox('e) Só o status volta a concluída, sem a data: recusa (ficaria concluída sem data)')]
@@ -365,6 +391,18 @@ final class DesfazerSegueOEstadoDaTelaTest extends JusPrimeWebTestCase
     {
         $meta = $this->meta($this->pasta(), $this->colega, $this->entrarComAMeta());
         $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['etapasSaltadas' => ['from' => ['inexistente'], 'to' => []]]);
+
+        $this->desfazer($logId);
+
+        $this->assertRecusado(sprintf(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_VALOR_IRRECUPERAVEL, 'etapasSaltadas'));
+        self::assertSame([], json_decode($this->colunaDaMeta($meta, 'etapas_saltadas'), true));
+    }
+
+    #[TestDox('Lista cortada pelo subscriber (_truncated) no to: recusa como irrecuperável, não como "o registro mudou"')]
+    public function testListaCortadaNoLogRecusaComoIrrecuperavel(): void
+    {
+        $meta = $this->meta($this->pasta(), $this->colega, $this->entrarComAMeta());
+        $logId = $this->criarLog(Tarefa::class, (int) $meta->getId(), ['etapasSaltadas' => ['from' => [EtapaDaPasta::Comercial->value], 'to' => [EtapaDaPasta::Abertura->value, '_truncated' => true]]]);
 
         $this->desfazer($logId);
 

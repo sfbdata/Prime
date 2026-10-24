@@ -11,6 +11,8 @@ a mesma mudança no estado atual do registro. Sem migration.
   desfazer foram para o trait `tests/Auditoria/Functional/ApoioDoDesfazer.php`. Dados de testes antigos ajustados ao
   `to` real (maiúsculas do setter, fuso do servidor, criação da meta antes da data de conclusão). Suítes Auditoria,
   Tarefa, Pasta e Arquitetura verdes (5423); `scripts/qa.sh` limpo.
+- 24/10: revisão: a regra c olha o status de depois do desfazer; `_truncated` no `to` recusa como irrecuperável;
+  `executar` dividido (até 40 linhas, saiu da lista de tolerados). `DesfazerSegueOEstadoDaTelaTest` (24).
 
 ## O problema
 
@@ -37,7 +39,8 @@ Todas as entidades reversíveis:
 
 - **Mudou depois.** O valor atual de cada campo do diff tem de ser igual ao `to` do log (pela forma normalizada do
   `AuditLogSubscriber`; data pelo instante; associação pelo id). Senão: "O registro mudou depois desta alteração. Nada
-  foi alterado." Campo que não é coluna nem associação a um não entra aqui (a fase 1 o recusa como antes).
+  foi alterado." Campo que não é coluna nem associação a um não entra aqui (a fase 1 o recusa como antes). Lista
+  que o subscriber cortou (`_truncated` no `to`) não se compara: recusa com `MENSAGEM_VALOR_IRRECUPERAVEL`.
 
 Tarefa (meta):
 
@@ -53,9 +56,17 @@ Tarefa (meta):
   `MontarEtapaDaMetaUseCase.php:51`; é o `$mexe` que mostra ou esconde Concluir e Devolver). Os UseCases de passar e
   devolver já recusam a meta concluída (`PassagemRecusadaException::jaConcluida`) e a pasta excluída é barrada pelo
   `PastaSomenteLeituraListener`; a mensagem do desfazer é a de `jaConcluida`.
+  Vale o status que a meta TERÁ depois do desfazer: com `status` no diff, o `from`; sem ele, o atual.
+  Diferença com o `DevolverMetaUseCase`: a devolução só aceita meta `pendente` (recusa `em_revisao` com
+  `devolucaoForaDePendente`), e o `podeMexerNaEtapa` aceita qualquer status aberto, inclusive `em_revisao` (o Concluir
+  e passar da tela também aceita). O desfazer da etapa segue o `podeMexerNaEtapa`; a devolução não muda `etapa` nem
+  `etapasSaltadas`, então não há regra dela a herdar aqui.
 - **e)** Coerência: depois da reversão, concluída exige `dataConclusao` não nula e aberta exige nula. Senão: "A meta
   ficaria concluída sem data de conclusão, ou aberta com data de conclusão. Nada foi alterado." (nenhuma tela tem essa
   frase: nenhuma tela chega a esse estado).
+  Em produção (consulta de 24/10 pelo MCP `jusprime-prod`, informada pelo coordenador) as metas estão coerentes: 374
+  concluídas, todas com data; 180 abertas (`pendente` ou `em_revisao`), todas sem data. A regra não trava nenhuma
+  meta existente.
 
 Pasta e filhas (inclusive a meta e a mensagem da pasta):
 

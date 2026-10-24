@@ -195,6 +195,25 @@ final class DesfazerAlteracaoAuditLogUseCase
             return new DesfazerResultado(false, self::MENSAGEM_ALTERACAO_DA_LIXEIRA);
         }
 
+        $entity = $this->carregarEntidade($log, $tenantId);
+
+        if ($entity instanceof DesfazerResultado) {
+            return $entity;
+        }
+
+        if (!is_array($diff) || $diff === []) {
+            return new DesfazerResultado(false, 'Nada a reverter.');
+        }
+
+        return $this->reverterComATravaDaMeta($entity, $log, $diff, $tenantId);
+    }
+
+    /**
+     * A entidade do log, do mesmo escritório; ou a recusa, um `DesfazerResultado` (na lixeira, não existe mais, de
+     * outro escritório).
+     */
+    private function carregarEntidade(AuditLog $log, int $tenantId): object
+    {
         $entity = $this->em->find($log->getEntityClass(), $log->getEntityId());
 
         if ($entity === null) {
@@ -213,21 +232,26 @@ final class DesfazerAlteracaoAuditLogUseCase
             return new DesfazerResultado(false, 'Registro não encontrado.');
         }
 
-        if (!is_array($diff) || $diff === []) {
-            return new DesfazerResultado(false, 'Nada a reverter.');
+        return $entity;
+    }
+
+    /**
+     * Na meta, como a tela (concluir, reabrir, passar): travada e relida do banco até o COMMIT; a decisão vale pelo que
+     * está gravado, não pelo que estava em memória. As demais entidades revertem direto.
+     *
+     * @param array<array-key, mixed> $diff
+     */
+    private function reverterComATravaDaMeta(object $entity, AuditLog $log, array $diff, int $tenantId): DesfazerResultado
+    {
+        if (!$entity instanceof Tarefa) {
+            return $this->reverter($entity, $log, $diff, $tenantId);
         }
 
-        if ($entity instanceof Tarefa) {
-            // Como a tela (concluir, reabrir, passar): a meta travada e relida do banco até o COMMIT; a decisão vale
-            // pelo que está gravado, não pelo que estava em memória.
-            return $this->em->wrapInTransaction(function () use ($entity, $log, $diff, $tenantId): DesfazerResultado {
-                $this->travaDaMeta->travarERecarregar($entity);
+        return $this->em->wrapInTransaction(function () use ($entity, $log, $diff, $tenantId): DesfazerResultado {
+            $this->travaDaMeta->travarERecarregar($entity);
 
-                return $this->reverter($entity, $log, $diff, $tenantId);
-            });
-        }
-
-        return $this->reverter($entity, $log, $diff, $tenantId);
+            return $this->reverter($entity, $log, $diff, $tenantId);
+        });
     }
 
     /** @param array<array-key, mixed> $diff */

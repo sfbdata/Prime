@@ -62,11 +62,12 @@ final class MontarEtapaDaMetaUseCase
     /**
      * A etapa só se mexe (concluir e passar, devolver) em meta aberta. Pasta na lápide é somente leitura: sem Concluir
      * nem Devolver (o listener recusaria o POST de todo jeito). O desfazer da auditoria (`EstadoDaTelaNoDesfazer`)
-     * chama esta mesma regra para `etapa` e `etapasSaltadas`.
+     * chama esta mesma regra para `etapa` e `etapasSaltadas`, com o status que a meta terá depois de desfeita
+     * (`$status`; sem ele, o atual).
      */
-    public static function podeMexerNaEtapa(Tarefa $meta): bool
+    public static function podeMexerNaEtapa(Tarefa $meta, ?string $status = null): bool
     {
-        return $meta->getStatus() !== Tarefa::STATUS_CONCLUIDA && !$meta->getPasta()->estaExcluida();
+        return ($status ?? $meta->getStatus()) !== Tarefa::STATUS_CONCLUIDA && !$meta->getPasta()->estaExcluida();
     }
 
     /**

@@ -158,7 +158,11 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
         $this->meta->setStatus(Tarefa::STATUS_CONCLUIDA);
         self::assertFalse(MontarEtapaDaMetaUseCase::podeMexerNaEtapa($this->meta));
 
+        // O status de depois (o do desfazer) vence o atual.
+        self::assertTrue(MontarEtapaDaMetaUseCase::podeMexerNaEtapa($this->meta, Tarefa::STATUS_PENDENTE));
         $this->meta->setStatus(Tarefa::STATUS_PENDENTE);
+        self::assertFalse(MontarEtapaDaMetaUseCase::podeMexerNaEtapa($this->meta, Tarefa::STATUS_CONCLUIDA));
+
         $this->meta->getPasta()->marcarExcluida($this->criador, new \DateTimeImmutable('2026-10-20'));
         self::assertFalse(MontarEtapaDaMetaUseCase::podeMexerNaEtapa($this->meta));
     }

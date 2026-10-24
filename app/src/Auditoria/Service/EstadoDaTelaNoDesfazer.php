@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auditoria\Service;
 
+use App\Auditoria\UseCase\DesfazerAlteracaoAuditLogUseCase;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaChecklistItem;
@@ -73,8 +74,10 @@ final class EstadoDaTelaNoDesfazer
             return self::MENSAGEM_SO_PELA_TELA_DA_PASTA;
         }
 
-        if (!$this->continuaComoOLogDeixou($entidade, $diff)) {
-            return self::MENSAGEM_REGISTRO_MUDOU;
+        $mudou = $this->recusaDoQueMudouDepois($entidade, $diff);
+
+        if ($mudou !== null) {
+            return $mudou;
         }
 
         if ($entidade instanceof Pasta && in_array('nomeCliente', $campos, true) && $this->renomearCliente->nomeEMontadoPelaCarteira($entidade)) {
@@ -101,7 +104,9 @@ final class EstadoDaTelaNoDesfazer
             return $this->tradutor->trans(MetaJaSeguiuAdianteException::CHAVE);
         }
 
-        if (array_intersect(self::CAMPOS_DA_ETAPA, $campos) !== [] && !MontarEtapaDaMetaUseCase::podeMexerNaEtapa($meta)) {
+        // A meta como ficará depois do desfazer: com o status do diff, o `from`; sem ele, o atual.
+        if (array_intersect(self::CAMPOS_DA_ETAPA, $campos) !== []
+            && !MontarEtapaDaMetaUseCase::podeMexerNaEtapa($meta, is_string($statusFinal) ? $statusFinal : null)) {
             return PassagemRecusadaException::jaConcluida()->getMessage();
         }
 
@@ -132,11 +137,12 @@ final class EstadoDaTelaNoDesfazer
     /**
      * Cada campo do diff tem de estar hoje como o log o deixou (o `to`): senão alguém mudou depois, e voltar ao `from`
      * apagaria essa mudança em silêncio. Campo que não é coluna nem associação a um fica de fora: a fase 1 do desfazer
-     * o recusa com a mensagem dele.
+     * o recusa com a mensagem dele. Lista que o `AuditLogSubscriber` cortou (`_truncated`) não se compara: o valor do
+     * log é irrecuperável.
      *
      * @param array<array-key, mixed> $diff
      */
-    private function continuaComoOLogDeixou(object $entidade, array $diff): bool
+    private function recusaDoQueMudouDepois(object $entidade, array $diff): ?string
     {
         $metadata = $this->em->getClassMetadata($entidade::class);
 
@@ -144,9 +150,13 @@ final class EstadoDaTelaNoDesfazer
             $campo = (string) $campo;
             $to = is_array($mudanca) ? ($mudanca['to'] ?? null) : null;
 
+            if (is_array($to) && self::foiCortada($to)) {
+                return sprintf(DesfazerAlteracaoAuditLogUseCase::MENSAGEM_VALOR_IRRECUPERAVEL, $campo);
+            }
+
             if ($metadata->hasField($campo)) {
                 if (!self::igual($metadata->getFieldValue($entidade, $campo), $to)) {
-                    return false;
+                    return self::MENSAGEM_REGISTRO_MUDOU;
                 }
 
                 continue;
@@ -154,11 +164,28 @@ final class EstadoDaTelaNoDesfazer
 
             if ($metadata->hasAssociation($campo) && $metadata->isSingleValuedAssociation($campo)
                 && !self::mesmaReferencia($metadata->getFieldValue($entidade, $campo), $to)) {
-                return false;
+                return self::MENSAGEM_REGISTRO_MUDOU;
             }
         }
 
-        return true;
+        return null;
+    }
+
+    /**
+     * A marca do corte de coleção do `AuditLogSubscriber::normalizeValue()`: `['_truncated' => true]` no array, ou um
+     * item `['_truncated' => true]` no fim da lista vinda de um Traversable. Em qualquer nível.
+     *
+     * @param array<array-key, mixed> $valor
+     */
+    private static function foiCortada(array $valor): bool
+    {
+        foreach ($valor as $chave => $item) {
+            if ($chave === '_truncated' || (is_array($item) && self::foiCortada($item))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** O valor atual na forma em que o `AuditLogSubscriber` o gravaria, comparado ao `to`. */
