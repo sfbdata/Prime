@@ -3946,8 +3946,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     {# PZ-MOD-16 (dc L.652-653; máscara de `peVals`, L.4455): o CPF/CNPJ é do CLIENTE principal,
                        não da pasta, e aqui só se LÊ, formatado (000.000.000-00 ou 00.000.000/0000-00, pela
-                       contagem de dígitos do `documento_br`). "Cadastro" leva à edição do cliente
-                       (`cliente_edit`), onde o documento muda. Sem cliente cadastrado ou sem documento: o
+                       contagem de dígitos do `documento_br`). "Cadastro" abre a janela de Cadastro do
+                       cliente (`data-pe-ir="cliente"`, como `cadAbrir` no desenho, dc:4482-4483), com a pergunta
+                       das alterações não salvas. Sem cliente cadastrado ou sem documento: o
                        vazio neutro e nenhum atalho. Sem `name`: nada daqui vai no POST. #}
                     <div class="ps-modal-pasta-linha">
                         <div class="ps-modal-pasta-campo ps-modal-pasta-campo--2" data-pe-documento>
@@ -3955,7 +3956,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             <div class="ps-pe-resp" role="group" aria-labelledby="editDocRotulo">
                                 {% if editDocumento %}
                                     <span class="ps-pe-resp-nome ps-pe-resp-nome--num" data-pe-doc>{{ editDocumento|documento_br }}</span>
-                                    <a class="ps-pe-resp-trocar" href="{{ path('cliente_edit', {id: editCliente.id}) }}" title="{{ 'pasta_show.editar.documento_dica'|trans }}">{{ 'pasta_show.editar.documento_cadastro'|trans }}</a>
+                                    <button type="button" class="ps-pe-resp-trocar js-pe-ir" data-pe-ir="cliente" title="{{ 'pasta_show.editar.documento_dica'|trans }}">{{ 'pasta_show.editar.documento_cadastro'|trans }}</button>
                                 {% else %}
                                     <span class="ps-pe-resp-nome is-vazio" data-pe-doc>{{ editCliente ? 'pasta_show.editar.sem_documento'|trans : 'pasta_show.editar.sem_cliente_cadastrado'|trans }}</span>
                                 {% endif %}

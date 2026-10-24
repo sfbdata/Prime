@@ -140,13 +140,13 @@ final class PastaDadosSomenteLeituraTelaTest extends JusPrimeWebTestCase
         self::assertSame('Sem processo vinculado', trim($nome->text()));
     }
 
-    #[TestDox('CPF do cliente principal, só leitura e formatado 000.000.000-00, com o atalho "Cadastro" para a edição do cliente')]
+    #[TestDox('CPF do cliente principal, só leitura e formatado 000.000.000-00, com o atalho "Cadastro" para a janela de Cadastro do cliente')]
     public function testDocumentoCpfFormatadoComAtalho(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
         $pasta           = $this->criarPasta($tenant);
-        $cliente         = $this->clientePF($tenant, $pasta, '12345678901');
+        $this->clientePF($tenant, $pasta, '12345678901');
 
         $this->logarComTenant($client, $user, $tenant);
         $campo = $this->campoDoDocumento($this->abrir($client, $pasta));
@@ -154,9 +154,8 @@ final class PastaDadosSomenteLeituraTelaTest extends JusPrimeWebTestCase
         self::assertSame('CPF', trim($campo->filter('.ps-modal-pasta-campo > span.ps-modal-pasta-rotulo#editDocRotulo')->text()));
         $linha = $campo->filter('.ps-modal-pasta-campo > .ps-pe-resp[aria-labelledby="editDocRotulo"]');
         self::assertSame('123.456.789-01', trim($linha->filter('.ps-pe-resp > .ps-pe-resp-nome[data-pe-doc]')->text()));
-        $atalho = $linha->filter('.ps-pe-resp > a.ps-pe-resp-trocar');
-        self::assertCount(1, $atalho);
-        self::assertSame('/clientes/' . $cliente->getId() . '/editar', $atalho->attr('href'));
+        $atalho = $linha->filter('.ps-pe-resp > button.ps-pe-resp-trocar.js-pe-ir[data-pe-ir="cliente"]');
+        self::assertCount(1, $atalho, 'o atalho vai à janela de Cadastro do cliente, pela pergunta das alterações não salvas');
         self::assertSame('Cadastro', trim($atalho->text()));
         self::assertCount(0, $campo->filter('[name], input'), 'o documento não se edita aqui');
     }
@@ -167,14 +166,14 @@ final class PastaDadosSomenteLeituraTelaTest extends JusPrimeWebTestCase
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
         $pasta           = $this->criarPasta($tenant);
-        $empresa         = $this->clientePJ($tenant, $pasta, '12345678000190');
+        $this->clientePJ($tenant, $pasta, '12345678000190');
 
         $this->logarComTenant($client, $user, $tenant);
         $campo = $this->campoDoDocumento($this->abrir($client, $pasta));
 
         self::assertSame('CNPJ', trim($campo->filter('.ps-modal-pasta-campo > .ps-modal-pasta-rotulo')->text()));
         self::assertSame('12.345.678/0001-90', trim($campo->filter('.ps-pe-resp > [data-pe-doc]')->text()));
-        self::assertSame('/clientes/' . $empresa->getId() . '/editar', $campo->filter('.ps-pe-resp > a.ps-pe-resp-trocar')->attr('href'));
+        self::assertCount(1, $campo->filter('.ps-pe-resp > button.ps-pe-resp-trocar.js-pe-ir[data-pe-ir="cliente"]'));
     }
 
     #[TestDox('Sem cliente cadastrado (só o nome livre): "Sem cliente cadastrado" e nenhum atalho')]
