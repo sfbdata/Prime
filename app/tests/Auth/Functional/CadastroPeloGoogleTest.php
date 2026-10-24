@@ -17,11 +17,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 /**
  * "Criar conta" conectado pelo Google (spec entrar-com-google, entrega 2; desenho 10 VS 24.10.26): a identidade vem
  * da sessão gravada na volta do Google, a conta nasce confirmada e ligada ao `sub`, sem link de confirmação, e entra
- * pelo véu. O botão do Facebook está na tela, sem app (ponto de ligação na spec).
+ * pelo véu. O botão do Facebook saiu até o app existir (decisão do dono de 24/10; ponto de ligação na spec).
  */
 #[CoversClass(CadastroPeloGoogleController::class)]
 #[CoversClass(CadastroPeloGoogle::class)]
@@ -29,7 +31,7 @@ final class CadastroPeloGoogleTest extends JusPrimeWebTestCase
 {
     private GoogleLoginFalso $google;
 
-    #[TestDox('Com o Google ligado: Continuar com Google, Continuar com Facebook e "ou com outro e-mail" acima do Nome, como no desenho')]
+    #[TestDox('Com o Google ligado: Continuar com Google e "ou com outro e-mail" acima do Nome, como no desenho; sem o Facebook')]
     public function testBotoesNoCadastro(): void
     {
         $client = $this->cliente();
@@ -38,24 +40,49 @@ final class CadastroPeloGoogleTest extends JusPrimeWebTestCase
 
         $passo = '#lgMdForm > .lg-md__passo[data-passo="cad"]';
         self::assertCount(1, $crawler->filter($passo . ' > .lg-md__texto + #lgCdSoc.lg-soc + #lgCdSocOk.lg-socok[hidden] + label.lg-md__rotulo > #lgCdNome'));
-        self::assertCount(1, $crawler->filter('#lgCdSoc > a#lgCdGoogle.lg-soc__btn + button#lgCdFacebook.lg-soc__btn[type="button"] + .lg-soc__ou'));
+        self::assertCount(1, $crawler->filter('#lgCdSoc > a#lgCdGoogle.lg-soc__btn:first-child + .lg-soc__ou'));
         self::assertSame('Continuar com Google', $crawler->filter('#lgCdGoogle')->text());
         self::assertStringStartsWith('/login/google?_token=', (string) $crawler->filter('#lgCdGoogle')->attr('href'));
-        self::assertSame('Continuar com Facebook', $crawler->filter('#lgCdFacebook')->text());
+        self::assertStringContainsString('origem=cadastro', (string) $crawler->filter('#lgCdGoogle')->attr('href'));
         self::assertSame('ou com outro e-mail', $crawler->filter('#lgCdSoc .lg-soc__ou')->text());
         self::assertCount(1, $crawler->filter('#lgCdEmailCampo:not([hidden]) > #lgCdEmail'));
         self::assertSame('Ex.: BlueJus Advogados Associados', $crawler->filter('#lgCdEsc')->attr('placeholder'));
+        self::assertCount(0, $crawler->filter('#lgCdFacebook'));
+        self::assertStringNotContainsStringIgnoringCase('facebook', (string) $client->getResponse()->getContent());
     }
 
-    #[TestDox('Sem o cliente OAuth do Google: só o Facebook fica no bloco')]
-    public function testSemGoogleSoFacebook(): void
+    #[TestDox('Sem o cliente OAuth do Google: o Continuar com Google continua no bloco, e nada do Facebook')]
+    public function testSemGoogleOBotaoContinua(): void
     {
-        $client = $this->cliente(new GoogleLoginApi(new \Symfony\Component\HttpClient\MockHttpClient()));
+        $client = $this->cliente(new GoogleLoginApi(new MockHttpClient()));
 
         $crawler = $client->request('GET', '/login?abrir=cadastro');
 
-        self::assertCount(0, $crawler->filter('#lgCdGoogle'));
-        self::assertCount(1, $crawler->filter('#lgCdSoc > button#lgCdFacebook:first-child'));
+        self::assertCount(1, $crawler->filter('#lgCdSoc > a#lgCdGoogle.lg-soc__btn:first-child + .lg-soc__ou'));
+        self::assertSame('Continuar com Google', $crawler->filter('#lgCdGoogle')->text());
+        self::assertCount(0, $crawler->filter('#lgCdFacebook'));
+        self::assertNull($crawler->filter('#lgRaiz')->attr('data-aviso-cadastro'), 'o aviso só vem depois do clique');
+    }
+
+    #[TestDox('Sem o cliente OAuth do Google: o clique no cadastro volta ao "Criar conta" com o aviso, sem ir ao Google; o aviso vale uma vez')]
+    public function testSemGoogleAvisoNoCadastro(): void
+    {
+        $chamadas = 0;
+        $client = $this->cliente(new GoogleLoginApi(new MockHttpClient(static function () use (&$chamadas): MockResponse {
+            ++$chamadas;
+
+            return new MockResponse('{}');
+        })));
+        $href = (string) $client->request('GET', '/login?abrir=cadastro')->filter('#lgCdGoogle')->attr('href');
+
+        $client->request('GET', $href);
+
+        self::assertResponseRedirects('/login?abrir=cadastro');
+        self::assertSame(0, $chamadas, 'sem chamar o Google');
+        $crawler = $client->followRedirect();
+        self::assertSame('O acesso pelo Google ainda não está configurado neste ambiente. Use o e-mail.', $crawler->filter('#lgRaiz')->attr('data-aviso-cadastro'));
+        self::assertTrue($crawler->filter('#lgErro')->matches('[hidden]'), 'no cadastro, o aviso não vai ao cartão de login');
+        self::assertNull($client->request('GET', '/login?abrir=cadastro')->filter('#lgRaiz')->attr('data-aviso-cadastro'));
     }
 
     #[TestDox('Cria a conta pelo Google: e-mail do Google, confirmada, ligada ao sub, sem link de confirmação, aceite gravado e já entra pelo véu')]
