@@ -16,9 +16,11 @@ namespace App\Inteligencia\Enum;
  * separa "FATO ENCONTRADO NOS DADOS", não "NO DOCUMENTO"); e nenhum pedido carrega dado da pasta
  * (os dados vão nos blocos delimitados do prompt, nunca no pedido).
  *
- * O "Índice inteligente" da aba Documentos (F4) é um comando à parte ({@see daAbaDocumentos()}): fora da
- * grade de 10 comandos e dos relatórios, pedido pelo Agente Documental só sobre os documentos que a
- * pessoa marcou, e só pelos metadados (o conteúdo dos arquivos não é lido, regra 7 do domínio).
+ * Os dois comandos da aba Documentos ficam fora da grade de 10 comandos e dos relatórios, pedidos pelo
+ * Agente Documental só sobre os documentos que a pessoa marcou: o "Índice inteligente" (F4,
+ * {@see daAbaDocumentos()}), só pelos metadados, e o "Ler N documentos" (PR F da spec ia-anthropic-ligar,
+ * {@see leituraDeDocumentos()}), o ÚNICO que manda o conteúdo dos arquivos (PDF e imagem) ao provedor
+ * ({@see leConteudoDosArquivos()}, regra 7 do domínio).
  *
  * Fora daqui: o "Relatório do cliente" do desenho (todas as pastas do cliente) espera a decisão D12.
  *
@@ -46,7 +48,8 @@ enum Comando: string
     case RelatorioRisco = 'relatorio_risco';
     case RelatorioLinhaDoTempo = 'relatorio_linha_do_tempo';
 
-    // Aba Documentos (F4)
+    // Aba Documentos (F4 e PR F)
+    case LerDocumentos = 'ler_documentos';
     case IndiceDosDocumentos = 'indice_documentos';
 
     /** Frase que a Jurídica e o Raio-X acrescentam: o que está nos arquivos não chega ao modelo. */
@@ -56,6 +59,12 @@ enum Comando: string
      * O pedido canônico do Documental (`Agente::pedido`) restrito aos documentos marcados na aba, com a
      * frase de não leitura. A lista dos marcados vai no bloco de documentos do contexto, nunca aqui.
      */
+    /**
+     * O pedido do desenho para o "Ler N documentos" (dc `ia.ler`). Os arquivos vão anexados à mensagem, na
+     * ordem do bloco DOCUMENTOS ANEXADOS; a lista com nome e data vai no bloco de documentos, nunca aqui.
+     */
+    private const PEDIDO_DA_LEITURA = 'Leia os documentos selecionados, que estão anexados a esta mensagem na ordem de DOCUMENTOS ANEXADOS, e identifique em cada um tipo, data, autor, partes, processo, assunto, valores, obrigações, prazos e determinações. Cite o documento de onde saiu cada informação. Se um arquivo estiver ilegível ou não tiver texto, diga isso em vez de supor o conteúdo.';
+
     private const PEDIDO_DO_INDICE = 'Monte um índice inteligente dos documentos selecionados, que são os listados em DOCUMENTOS JUNTADOS, com: documento, data, tipo, relevância, processo relacionado, providência. Indique documentos faltantes ou duplicados, se houver base no checklist e nos metadados. O conteúdo dos arquivos não foi lido: não descreva o que está dentro deles.';
 
     public static function deRota(string $valor): ?self
@@ -73,6 +82,12 @@ enum Comando: string
     public static function daAbaDocumentos(): self
     {
         return self::IndiceDosDocumentos;
+    }
+
+    /** O "Ler N documentos" da aba Documentos (PR F): o conteúdo dos marcados vai ao provedor. */
+    public static function leituraDeDocumentos(): self
+    {
+        return self::LerDocumentos;
     }
 
     /** @return list<self> os 5 relatórios da aba Relatórios, na ordem do desenho */
@@ -113,10 +128,19 @@ enum Comando: string
         };
     }
 
-    /** O comando que só existe na aba Documentos e só roda com documentos marcados. */
+    /** Os comandos que só existem na aba Documentos e só rodam com documentos marcados. */
     public function ehDaAbaDocumentos(): bool
     {
-        return $this === self::IndiceDosDocumentos;
+        return $this === self::IndiceDosDocumentos || $this === self::LerDocumentos;
+    }
+
+    /**
+     * O único comando que manda o CONTEÚDO dos arquivos marcados ao provedor (PDF e imagem, inline): exige o
+     * aceite com o texto que cita os documentos e respeita os limites da `RegraDaLeituraDeDocumentos`.
+     */
+    public function leConteudoDosArquivos(): bool
+    {
+        return $this === self::LerDocumentos;
     }
 
     public function rotulo(): string
@@ -138,6 +162,7 @@ enum Comando: string
             self::RelatorioRisco => 'Relatório de risco',
             self::RelatorioLinhaDoTempo => 'Linha do tempo',
             self::IndiceDosDocumentos => 'Índice inteligente',
+            self::LerDocumentos => 'Ler documentos',
         };
     }
 
@@ -174,6 +199,7 @@ enum Comando: string
             self::RelatorioRisco => 'bi-shield-exclamation',
             self::RelatorioLinhaDoTempo => 'bi-clock-history',
             self::IndiceDosDocumentos => 'bi-list-columns-reverse',
+            self::LerDocumentos => 'bi-stars',
         };
     }
 
@@ -187,7 +213,7 @@ enum Comando: string
             self::Briefing, self::RelatorioPasta, self::ResumoCliente => Agente::Relatorios,
             self::AnalisarHistorico => Agente::Cliente,
             self::AnaliseJuridica => Agente::Juridico,
-            self::IndiceDosDocumentos => Agente::Documental,
+            self::IndiceDosDocumentos, self::LerDocumentos => Agente::Documental,
         };
     }
 
@@ -213,6 +239,7 @@ enum Comando: string
             self::AnalisarHistorico => 'Analise o histórico de registros e atendimento desta pasta.',
             self::RaioX => 'Faça o raio-X jurídico: verifique documentos, prazos, decisões, manifestações, movimentações, tarefas, cadastro e histórico, classificando cada item como OK, ATENÇÃO, PENDÊNCIA, INCONSISTÊNCIA ou URGENTE. ' . self::SEM_CONTEUDO_DE_ARQUIVO,
             self::IndiceDosDocumentos => self::PEDIDO_DO_INDICE,
+            self::LerDocumentos => self::PEDIDO_DA_LEITURA,
             self::AnaliseJuridica => 'Faça a análise jurídica profunda: 1 contexto, 2 fatos relevantes, 3 questão jurídica, 4 documentos relevantes, 5 fase processual, 6 fundamentos jurídicos identificados, 7 argumentos favoráveis, 8 argumentos contrários, 9 pontos de atenção, 10 riscos, 11 providências possíveis, 12 documentos necessários, 13 próximas tarefas. Separe FATO ENCONTRADO NOS DADOS, INTERPRETAÇÃO DA IA, ARGUMENTO JURÍDICO e SUGESTÃO. Não cite jurisprudência ou artigo que não esteja nos dados; quando precisar, diga quais informações faltam. ' . self::SEM_CONTEUDO_DE_ARQUIVO,
             default => throw new \LogicException('Relatório sem pedido.'),
         };

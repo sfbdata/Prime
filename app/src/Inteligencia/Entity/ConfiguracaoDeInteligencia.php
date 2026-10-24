@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
+use App\Inteligencia\Service\TextoDoAceiteDaIa;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
@@ -97,6 +98,8 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     /**
      * Aplica o formulário do admin. Ligar (de desligada para ligada) grava o consentimento com
      * quem ligou; religar depois de desligar grava de novo — é o aceite mais recente que vale.
+     * Salvar com a IA ligada quando o aceite é anterior ao texto vigente ({@see TextoDoAceiteDaIa}) também
+     * grava de novo: é a renovação do aceite (o admin salvou vendo o texto novo, que cita os documentos).
      */
     public function atualizar(
         bool $habilitada,
@@ -109,7 +112,7 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
             throw new \DomainException('Os limites de análises não podem ser negativos.');
         }
 
-        if ($habilitada && !$this->habilitada) {
+        if ($habilitada && (!$this->habilitada || !$this->aceiteCobreDocumentos())) {
             $this->consentimentoEnvioExternoEm = new \DateTimeImmutable();
             $this->consentimentoPor = $por;
         }
@@ -189,6 +192,12 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     public function getConsentimentoEnvioExternoEm(): ?\DateTimeImmutable
     {
         return $this->consentimentoEnvioExternoEm;
+    }
+
+    /** O aceite foi dado com o texto que cita os documentos escolhidos (PR F)? Sem aceite, não. */
+    public function aceiteCobreDocumentos(): bool
+    {
+        return TextoDoAceiteDaIa::cobreDocumentos($this->consentimentoEnvioExternoEm);
     }
 
     public function getConsentimentoPor(): ?User

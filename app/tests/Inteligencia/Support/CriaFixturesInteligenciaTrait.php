@@ -60,6 +60,16 @@ trait CriaFixturesInteligenciaTrait
     }
 
     /**
+     * O aceite do escritório dado ANTES do texto que cita os documentos (PR F, `TextoDoAceiteDaIa`): a IA segue
+     * valendo, mas o "Ler N documentos" fica bloqueado. Grava a data direto (não há setter de propósito).
+     */
+    private function envelhecerAceite(ConfiguracaoDeInteligencia $configuracao, string $quando = '2026-10-01 10:00:00'): void
+    {
+        (new \ReflectionProperty(ConfiguracaoDeInteligencia::class, 'consentimentoEnvioExternoEm'))->setValue($configuracao, new \DateTimeImmutable($quando));
+        $this->em()->flush();
+    }
+
+    /**
      * O Master liberou e a chave geral está ligada, mas o admin do escritório NÃO ligou a IA (nem deu o aceite): o
      * estado "desligada no escritório" depois da liberação do Master.
      */

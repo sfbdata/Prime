@@ -57,7 +57,7 @@ final class ListarAnalisesDosComandosUseCaseTest extends TestCase
         $vistos = [];
         $repo = $this->createMock(AnaliseDeInteligenciaRepository::class);
         // 10 comandos, 5 relatórios e o Índice da aba Documentos (F4).
-        $repo->expects(self::exactly(16))->method('listarPorComando')->willReturnCallback(
+        $repo->expects(self::exactly(17))->method('listarPorComando')->willReturnCallback(
             function (Tenant $t, string $alvo, int $id, Comando $comando, int $limite) use (&$vistos): array {
                 self::assertSame($this->tenant, $t);
                 self::assertSame(AnaliseDeInteligencia::ALVO_PASTA, $alvo);

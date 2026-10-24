@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Inteligencia\DTO\AnexoDeDocumento;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
@@ -200,6 +201,49 @@ final class ProvedorAnthropicTest extends TestCase
         self::assertSame(['user', 'assistant', 'user'], array_column($corpo['messages'], 'role'));
         self::assertArrayNotHasKey('temperature', $corpo, 'os modelos atuais recusam parâmetros de amostragem');
         self::assertArrayNotHasKey('metadata', $corpo, 'nenhum identificador de escritório/usuário sai');
+    }
+
+    #[TestDox('Com anexos: PDF e imagem vão como blocos base64 só na última mensagem do usuário; o resto continua string')]
+    public function testAnexosVaoComoBlocosNaUltimaMensagem(): void
+    {
+        $capturado = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado): MockResponse {
+            $capturado = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR);
+
+            return self::ok();
+        });
+        $base = $this->pedido();
+        $pedido = new PedidoDeLinguagem($base->sistema, $base->mensagens, $base->maxTokens, $base->temperatura, $base->exigeJson, $base->rotuloDeUso, [
+            new AnexoDeDocumento(3, 'inicial.pdf', AnexoDeDocumento::PDF, '%PDF-1.7 conteudo'),
+            new AnexoDeDocumento(4, 'print.jpg', 'image/jpeg', "\xFF\xD8\xFFimagem"),
+        ]);
+
+        self::provedor($http)->completar($pedido);
+
+        self::assertIsString($capturado['messages'][0]['content'], 'só a última mensagem leva os arquivos');
+        self::assertIsString($capturado['messages'][1]['content']);
+        $ultima = $capturado['messages'][2];
+        self::assertSame('user', $ultima['role']);
+        self::assertSame(['text', 'document', 'text', 'image', 'text'], array_column($ultima['content'], 'type'));
+        self::assertSame(['type' => 'base64', 'media_type' => 'application/pdf', 'data' => base64_encode('%PDF-1.7 conteudo')], $ultima['content'][1]['source']);
+        self::assertSame('image/jpeg', $ultima['content'][3]['source']['media_type']);
+        self::assertSame('Resuma.', $ultima['content'][4]['text']);
+        self::assertSame(['model', 'max_tokens', 'messages', 'system'], array_keys($capturado), 'nada além disso sai (sem Files API, sem metadado)');
+    }
+
+    #[TestDox('Sem anexos: a última mensagem continua string, como sempre')]
+    public function testSemAnexosContinuaString(): void
+    {
+        $capturado = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado): MockResponse {
+            $capturado = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR);
+
+            return self::ok();
+        });
+
+        self::provedor($http)->completar($this->pedido());
+
+        self::assertSame('Resuma.', $capturado['messages'][2]['content']);
     }
 
     #[TestDox('A resposta: texto dos blocos de texto, modelo e tokens')]

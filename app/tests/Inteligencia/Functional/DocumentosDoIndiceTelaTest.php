@@ -14,10 +14,12 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 
 /**
- * A aba Documentos do drawer BlueJus IA (spec inteligencia-drawer-da-pasta, F4; desenho dc
- * L1041-1058): o texto honesto do topo (o conteúdo não é lido), o cartão da lista ("Selecionar
- * todos", divisória, uma linha por documento com caixa, ícone pelo tipo, nome e dados) e o "Índice
- * inteligente" na largura toda, desabilitado sem seleção. "Ler N documentos" não existe (D13).
+ * A aba Documentos do drawer BlueJus IA (spec inteligencia-drawer-da-pasta, F4, e PR F da spec
+ * ia-anthropic-ligar; desenho dc L1044-1058): o texto honesto do topo (lê PDF e imagem, sem prometer
+ * OCR), o cartão da lista ("Selecionar todos", divisória, uma linha por documento com caixa, ícone pelo
+ * tipo, nome e dados) e a grade de dois botões do desenho: "Ler N documentos" (CTA cheio, "Selecione"
+ * sem seleção) e "Índice inteligente" (secundário), os dois desabilitados sem seleção e apontando para a
+ * sua seção. Com o aceite anterior ao texto que cita os documentos, o "Ler" fica bloqueado com aviso.
  *
  * Arranjo com combinador de FILHO DIRETO a partir do painel da aba. A seleção e o envio são do JS,
  * que não roda aqui: o que se prova é o HTML de onde ele parte.
@@ -30,7 +32,8 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
     private const DRAWER = 'aside.ia-drawer#psIaDrawer[data-ia-drawer]';
     private const ABA_NA_PASTA = self::DRAWER . ' > .ia-drawer-corpo > .ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="documentos"]';
     private const ABA_NO_PAINEL = '.ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="documentos"]';
-    private const TEXTO_DO_TOPO = 'A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos não é lido.';
+    private const TEXTO_DO_TOPO = 'A IA lê os arquivos PDF e imagem que você marcar (até 3 por vez) e extrai tipo, data, partes, valores, prazos e providências. O Índice inteligente usa só o nome, o título, a categoria e a data de cada arquivo.';
+    private const ACOES = ' > .ia-docs-acoes';
 
     private function cliente(): KernelBrowser
     {
@@ -48,14 +51,13 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
         return $crawler;
     }
 
-    /** Nenhum texto promete ler o conteúdo, nem o "Ler N documentos" do desenho. */
+    /** Nenhum texto promete o OCR do desenho (spec ia-anthropic-ligar §3.1). */
     private static function semPromessaDeLeitura(string $html): void
     {
-        self::assertDoesNotMatchRegularExpression('/Ler \d+ documentos?|\bOCR\b|lê os arquivos|Leia os documentos/u', $html);
-        self::assertStringNotContainsString('data-ia-ler', $html);
+        self::assertDoesNotMatchRegularExpression('/\bOCR\b|digitalizados/u', $html);
     }
 
-    #[TestDox('HTML da pasta: aba Documentos com o texto do topo, a lista "carregando" e o "Índice inteligente" desabilitado, sem cabeçalho de comando')]
+    #[TestDox('HTML da pasta: aba Documentos com o texto do topo, a lista "carregando", a grade "Selecione" + "Índice inteligente" desabilitada e as duas seções sem botão nem cabeçalho')]
     public function testAbaNoHtmlDaPasta(): void
     {
         $client = $this->cliente();
@@ -70,17 +72,33 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
 
         self::assertSame(self::TEXTO_DO_TOPO, trim($crawler->filter(self::ABA_NA_PASTA . ' > p.ia-aba-intro')->text()));
         self::assertSame(1, $crawler->filter(self::ABA_NA_PASTA . ' > .ia-docs[data-ia-docs] > [data-ia-docs-carregando]')->count());
-        $secao = $crawler->filter(self::ABA_NA_PASTA . ' > section.ia-comando.ia-comando--indice[data-ia-comando="indice_documentos"]');
-        self::assertSame(1, $secao->count());
-        self::assertNull($secao->attr('hidden'));
-        self::assertSame(0, $secao->filter('.ia-agente-cab')->count(), 'o Índice não tem cabeçalho de comando');
-        $botao = $secao->filter('section > button.ia-cta.ia-cta--secundario[data-ia-gerar][data-ia-exige-selecao]');
-        self::assertSame(1, $botao->count());
+        // A grade do desenho (dc L1053-1056): Ler (CTA cheio) e Índice (secundário), nessa ordem.
+        $botoes = $crawler->filter(self::ABA_NA_PASTA . self::ACOES . ' > button.ia-cta[data-ia-gerar][data-ia-exige-selecao]');
+        self::assertSame(['ler_documentos', 'indice_documentos'], $botoes->each(static fn (Crawler $b): ?string => $b->attr('data-ia-secao')));
+        $ler = $botoes->eq(0);
+        self::assertStringNotContainsString('ia-cta--secundario', (string) $ler->attr('class'));
+        self::assertNotNull($ler->attr('data-ia-ler'));
+        self::assertSame('Selecione', trim($ler->text()), 'sem seleção, o rótulo do desenho (`lerTxt`)');
+        self::assertSame(1, $ler->filter('i.bi-stars')->count());
+        self::assertNotNull($ler->attr('disabled'));
+        self::assertSame("/pasta/{$pasta->getId()}/ia/comandos/ler_documentos/analises", $ler->attr('data-ia-url'));
+        $botao = $botoes->eq(1);
+        self::assertStringContainsString('ia-cta--secundario', (string) $botao->attr('class'));
         self::assertSame('Índice inteligente', trim($botao->text()));
         self::assertSame(1, $botao->filter('i.bi-list-columns-reverse')->count());
         self::assertNotNull($botao->attr('disabled'), 'nasce desabilitado: nenhum documento marcado');
         self::assertSame("/pasta/{$pasta->getId()}/ia/comandos/indice_documentos/analises", $botao->attr('data-ia-url'));
+
+        $secao = $crawler->filter(self::ABA_NA_PASTA . ' > section.ia-comando.ia-comando--indice[data-ia-comando="indice_documentos"]');
+        self::assertSame(1, $secao->count());
+        self::assertNull($secao->attr('hidden'), 'a seção do Índice abre primeiro');
+        self::assertSame(0, $secao->filter('.ia-agente-cab, button[data-ia-gerar]')->count(), 'sem cabeçalho e sem botão: o botão mora na grade');
         self::assertStringContainsString('Agente Documental. Lê: dados da pasta, processos, documentos (só nomes e datas), checklist.', $secao->filter('.ia-agente-le')->text());
+        $leitura = $crawler->filter(self::ABA_NA_PASTA . ' > section.ia-comando.ia-comando--indice[data-ia-comando="ler_documentos"]');
+        self::assertSame(1, $leitura->count());
+        self::assertNotNull($leitura->attr('hidden'));
+        self::assertStringContainsString('Lê: o conteúdo dos documentos marcados (PDF e imagem)', $leitura->filter('.ia-agente-le')->text());
+        self::assertSame(0, $crawler->filter('[data-ia-aviso-aceite]')->count(), 'aceite dado agora: sem aviso');
         self::semPromessaDeLeitura($crawler->filter(self::DRAWER)->html());
     }
 
@@ -141,7 +159,31 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
 
         self::assertSame('Nenhum documento nesta pasta.', trim($crawler->filter(self::ABA_NO_PAINEL . ' > .ia-docs > [data-ia-docs-vazio]')->text()));
         self::assertSame(0, $crawler->filter('[data-ia-doc], [data-ia-docs-todos]')->count());
-        self::assertNotNull($crawler->filter(self::ABA_NO_PAINEL . ' > section.ia-comando--indice > button[data-ia-gerar]')->attr('disabled'));
+        $crawler->filter(self::ABA_NO_PAINEL . self::ACOES . ' > button[data-ia-gerar]')->each(static function (Crawler $b): void {
+            self::assertNotNull($b->attr('disabled'));
+        });
+    }
+
+    #[TestDox('PR F: aceite do escritório anterior ao texto que cita os documentos: o "Ler" bloqueado com o aviso, o Índice continua')]
+    public function testAceiteAntigoBloqueiaOLer(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $configuracao = $this->ligarIaNoTenant($tenant, $user);
+        $this->envelhecerAceite($configuracao);
+        $this->criarDocumento($tenant, $pasta, 'Procuracao');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->painel($client, (int) $pasta->getId());
+
+        $ler = $crawler->filter(self::ABA_NO_PAINEL . self::ACOES . ' > button.ia-cta--indisponivel[data-ia-secao="ler_documentos"]');
+        self::assertSame(1, $ler->count());
+        self::assertSame('aceite_desatualizado', $ler->attr('data-ia-motivo'));
+        self::assertNotNull($ler->attr('disabled'));
+        self::assertNull($ler->attr('data-ia-url'), 'sem a rota do pedido');
+        self::assertSame(1, $crawler->filter(self::ABA_NO_PAINEL . self::ACOES . ' > button[data-ia-secao="indice_documentos"][data-ia-url]')->count(), 'o Índice não depende do aceite novo');
+        self::assertStringContainsString('o administrador renova o aceite', $crawler->filter(self::ABA_NO_PAINEL . ' > p.ia-docs-aceite[data-ia-aviso-aceite]')->text());
     }
 
     #[TestDox('IA indisponível: o botão do Índice carrega o motivo real, desabilitado e sem a rota do pedido')]
@@ -157,8 +199,9 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
 
         $crawler = $this->painel($client, (int) $pasta->getId());
 
-        $botao = $crawler->filter(self::ABA_NO_PAINEL . ' > section.ia-comando--indice > button.ia-cta--indisponivel[data-ia-gerar]');
+        $botao = $crawler->filter(self::ABA_NO_PAINEL . self::ACOES . ' > button.ia-cta--indisponivel[data-ia-gerar][data-ia-secao="indice_documentos"]');
         self::assertSame(1, $botao->count());
+        self::assertSame(2, $crawler->filter(self::ABA_NO_PAINEL . self::ACOES . ' > button.ia-cta--indisponivel[data-ia-gerar]')->count(), 'o Ler também');
         self::assertNotNull($botao->attr('disabled'));
         self::assertSame('nao_configurada_na_plataforma', $botao->attr('data-ia-motivo'));
         self::assertStringContainsString('IA não configurada nesta instalação', $botao->text());

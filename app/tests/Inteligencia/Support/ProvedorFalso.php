@@ -15,6 +15,9 @@ use App\Inteligencia\Service\ProvedorDeLinguagem;
  * Fila de respostas/falhas, registro dos pedidos recebidos e um modo "não configurado" que imita
  * o `ProvedorNaoConfigurado` sem trocar o alias do container.
  *
+ * Os anexos do pedido (PR F) ficam no pedido registrado, para o teste conferir o que iria ao provedor; o falso não
+ * os lê.
+ *
  * Igual ao `FakeGoogleDriveClientFactory` do Sync: entra pelo `when@test` do services.yaml.
  */
 final class ProvedorFalso implements ProvedorDeLinguagem

@@ -9,6 +9,7 @@ use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
+use App\Inteligencia\Exception\DocumentoIlegivelException;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 use App\Inteligencia\Exception\RespostaInvalidaException;
@@ -133,6 +134,10 @@ final class ProcessarAnaliseDeInteligenciaHandler
             $pedido = $fluxo->preparar($analise, $tenant, $pasta);
         } catch (ContextoBloqueadoException $e) {
             $this->falhar($analise, 'contexto bloqueado: ' . $e->getMessage());
+
+            return;
+        } catch (DocumentoIlegivelException $e) {
+            $this->falhar($analise, $e->getMessage());
 
             return;
         } catch (\LogicException $e) {

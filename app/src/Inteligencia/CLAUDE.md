@@ -33,9 +33,15 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
 6. **O que foi enviado não é persistido** (D5): `contexto_hash` + `contexto_resumo` (ids, chaves,
    contagens). A resposta integral fica em `texto_bruto`; a análise integral do agente, em `texto_da_analise`.
 7. **Do cliente sai só o nome.** CPF/CNPJ, e-mail, telefone e endereço nunca entram no contexto; o
-   conteúdo de documentos não é lido (só metadados, e o prompt diz isso); o financeiro só entra se
-   `VisibilidadeDoFinanceiroDaPasta` disse sim na solicitação (decisão gravada em
-   `contexto_resumo.financeiro`; o worker obedece, não decide).
+   financeiro só entra se `VisibilidadeDoFinanceiroDaPasta` disse sim na solicitação (decisão gravada em
+   `contexto_resumo.financeiro`; o worker obedece, não decide). **Conteúdo de documento** só sai no
+   comando `ler_documentos` ("Ler N documentos", PR F da spec `ia-anthropic-ligar`): só os arquivos que a
+   pessoa marcou, visíveis na aba Documentos dela, fora da lixeira, da pasta e do escritório da análise
+   (o worker relê por id + tenant), PDF ou imagem conferidos pelo conteúdo, até 3 por vez
+   (`RegraDaLeituraDeDocumentos`), lidos pela chave do armazenamento e mandados inline (sem Files API,
+   sem OCR nosso), com o aceite do escritório posterior a `TextoDoAceiteDaIa::COM_DOCUMENTOS_DESDE`.
+   Grava-se só id + sha256 (`contexto_resumo.documentosLidos`); log e motivo de falha nunca levam nome
+   nem conteúdo. Todo outro comando lê só metadados, e o prompt diz isso.
 
 ## Cadeia
 

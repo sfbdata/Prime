@@ -15,6 +15,8 @@ final readonly class DocumentosDoIndiceOutput
      */
     public function __construct(
         public array $documentos,
+        /** O aceite do escritório cobre o "Ler N documentos" (PR F)? */
+        public bool $leituraPermitida = true,
     ) {
     }
 

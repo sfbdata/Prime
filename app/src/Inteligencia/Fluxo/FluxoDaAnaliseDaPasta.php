@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Inteligencia\Fluxo;
 
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Contexto\LeitorDeDocumentosDaPasta;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
+use App\Inteligencia\DTO\AnexoDeDocumento;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\ResultadoDaAnalise;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
@@ -24,6 +26,10 @@ use App\Pasta\Entity\Pasta;
  * documentos marcados no "Índice inteligente" (F4) vêm de `contexto_resumo.documentosSelecionados`,
  * também decididos e validados na solicitação.
  *
+ * No "Ler N documentos" (PR F da spec ia-anthropic-ligar) os mesmos ids viram ARQUIVOS anexados ao pedido
+ * ({@see LeitorDeDocumentosDaPasta}, que confere tudo de novo com tenant explícito). Do que foi lido fica gravado
+ * só o id e o sha256 de cada arquivo (`contexto_resumo.documentosLidos`), nunca o conteúdo.
+ *
  * Linha de `analise_pasta` sem agente não existe pelo UseCase; se aparecer, é dado corrompido e
  * o fluxo recusa com `\LogicException` (o handler a trata como falha, sem chamar o provedor).
  */
@@ -34,6 +40,7 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
         private readonly PromptDoAgente $prompt,
         private readonly InterpretadorDeRespostaDoAgente $interpretador,
         private readonly AnaliseDeInteligenciaRepository $analises,
+        private readonly LeitorDeDocumentosDaPasta $leitor,
     ) {
     }
 
@@ -56,17 +63,36 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
             return null;
         }
 
+        $anexos = $comando?->leConteudoDosArquivos() === true
+            ? $this->leitor->anexos($tenant, $pasta, self::documentosSelecionadosDo($analise) ?? [], self::abasOcultasDo($analise))
+            : [];
         $anterior = $this->anteriorQuePodeVoltar($analise, $tenant);
-        $analise->registrarContexto($contexto->hash, $contexto->resumo());
+        $analise->registrarContexto($contexto->hash, $contexto->resumo() + self::registroDaLeitura($anexos));
 
         // A resposta anterior volta ao provedor: passa pela máscara do montador (IA-033).
-        return $this->prompt->montar($contexto, $this->montador->analiseAnterior($tenant, $anterior?->getResumo()));
+        return $this->prompt->montar($contexto, $this->montador->analiseAnterior($tenant, $anterior?->getResumo()), $anexos);
+    }
+
+    /**
+     * O que fica da leitura (PR F): id e sha256 de cada arquivo enviado, na ordem dos anexos. Sem anexos, nada.
+     *
+     * @param list<AnexoDeDocumento> $anexos
+     *
+     * @return array{documentosLidos?: list<array{id: int, sha256: string}>}
+     */
+    private static function registroDaLeitura(array $anexos): array
+    {
+        if ($anexos === []) {
+            return [];
+        }
+
+        return ['documentosLidos' => array_map(static fn (AnexoDeDocumento $a): array => ['id' => $a->documentoId, 'sha256' => $a->sha256()], $anexos)];
     }
 
     /**
      * A anterior é a do MESMO comando (sem comando, a do mesmo agente, como antes), se puder voltar
-     * ({@see podeVoltar()}). O "Índice inteligente" (F4) nunca recebe anterior: a seleção muda de um
-     * pedido para outro, e um índice antigo citaria documentos que a pessoa não marcou agora.
+     * ({@see podeVoltar()}). Os comandos da aba Documentos (Índice, F4, e Ler, PR F) nunca recebem anterior: a
+     * seleção muda de um pedido para outro, e um resultado antigo citaria documentos que a pessoa não marcou agora.
      */
     private function anteriorQuePodeVoltar(AnaliseDeInteligencia $analise, Tenant $tenant): ?AnaliseDeInteligencia
     {
