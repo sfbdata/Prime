@@ -25,7 +25,7 @@ final class RelatorioDeReconciliacao
     {
         $this->contagem[$classe->value] = ($this->contagem[$classe->value] ?? 0) + 1;
 
-        $categoria = $referencia->categoria()?->value ?? self::SEM_CATEGORIA;
+        $categoria = $referencia->categoria()->value ?? self::SEM_CATEGORIA;
         $this->porCategoria[$classe->value][$categoria] = ($this->porCategoria[$classe->value][$categoria] ?? 0) + 1;
 
         if ($classe !== ClasseDeReconciliacao::IGUAL) {

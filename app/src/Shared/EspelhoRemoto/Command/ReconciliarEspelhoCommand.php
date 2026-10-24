@@ -10,6 +10,7 @@ use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use App\Shared\EspelhoRemoto\ProvedorDoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\Reconciliacao\AlertaDaReconciliacao;
 use App\Shared\EspelhoRemoto\Reconciliacao\ReconciliadorDoEspelho;
+use App\Shared\EspelhoRemoto\Reconciliacao\RelatorioDeReconciliacao;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -87,20 +88,29 @@ final class ReconciliarEspelhoCommand extends Command
         $io->writeln(sprintf('Total: %d referência(s); %d fora de "igual".', $relatorio->total(), \count($relatorio->divergencias())));
 
         $saida = $input->getOption('saida');
-        if (\is_string($saida) && $saida !== '') {
-            $json = json_encode(['contagem' => $relatorio->contagem(), 'divergencias' => $relatorio->divergencias()], \JSON_PRETTY_PRINT | \JSON_THROW_ON_ERROR);
-            if (file_put_contents($saida, $json) === false) {
-                $io->error('Não foi possível gravar o relatório em ' . $saida);
-
-                return Command::FAILURE;
-            }
-            $io->writeln('Relatório gravado em ' . $saida);
+        if (\is_string($saida) && $saida !== '' && !$this->gravarRelatorio($io, $relatorio, $saida)) {
+            return Command::FAILURE;
         }
 
-        if (!$seLigado) {
-            return Command::SUCCESS;
-        }
+        return $seLigado ? $this->alertar($io, $relatorio) : Command::SUCCESS;
+    }
 
+    private function gravarRelatorio(SymfonyStyle $io, RelatorioDeReconciliacao $relatorio, string $saida): bool
+    {
+        $json = json_encode(['contagem' => $relatorio->contagem(), 'divergencias' => $relatorio->divergencias()], \JSON_PRETTY_PRINT | \JSON_THROW_ON_ERROR);
+        if (file_put_contents($saida, $json) === false) {
+            $io->error('Não foi possível gravar o relatório em ' . $saida);
+
+            return false;
+        }
+        $io->writeln('Relatório gravado em ' . $saida);
+
+        return true;
+    }
+
+    /** O critério da P2.7: falha (e o agendador avisa) quando há divergência que exige ação. */
+    private function alertar(SymfonyStyle $io, RelatorioDeReconciliacao $relatorio): int
+    {
         $alerta = AlertaDaReconciliacao::avaliar($relatorio, $this->outbox->contarFalhasPorCategoria());
         if (!$alerta->disparou()) {
             $io->writeln('Sem divergência que exija ação nas categorias ligadas.');

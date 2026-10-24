@@ -24,6 +24,6 @@ final readonly class ReferenciaDeArquivo
 
     public function categoria(): ?CategoriaDeArquivo
     {
-        return $this->chave?->categoria ?? $this->categoriaDaFonte;
+        return $this->chave->categoria ?? $this->categoriaDaFonte;
     }
 }
