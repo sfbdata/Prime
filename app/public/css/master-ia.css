@@ -2,10 +2,6 @@
    componentes (.mp-card, .mp-cab-roxo, .mp-rec-item, .mp-rec-chave, .mp-btn-roxo, .mp-rolagem) vêm do master.css. */
 .mp-ia { display: flex; flex-direction: column; gap: 16px; }
 .mp-ia-raiz { display: flex; flex-direction: column; gap: 16px; }
-.mp-ia-aviso { display: flex; gap: 12px; align-items: flex-start; padding: 14px 18px; border-radius: 4px; background: #fbf1dc; color: #6b4610; border: 1px solid #f0dcb0; }
-.mp-ia-aviso > .bi { font-size: 20px; color: #8a5a12; }
-.mp-ia-aviso-texto > b { display: block; font-size: 14px; margin-bottom: 4px; }
-.mp-ia-aviso-texto > p { margin: 0 0 4px; font-size: 13px; line-height: 1.5; }
 .mp-ia-msg { padding: 9px 14px; border-radius: 4px; background: #e6f4ec; color: #1e7b45; font-size: 13px; font-weight: bold; }
 .mp-ia-msg.is-erro { background: #fdecea; color: #a3232b; }
 .mp-ia-card { overflow: hidden; }

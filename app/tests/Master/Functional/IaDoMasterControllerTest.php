@@ -308,7 +308,7 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame([null], array_values(array_unique($daPlataforma)));
     }
 
-    #[TestDox('tela: a aba "Configurações da I.A." entra no painel; o parcial é filho direto do painel da aba, com o aviso da ZDR, a instalação, a chave geral, o modelo, a retenção e a tabela')]
+    #[TestDox('tela: a aba "Configurações da I.A." entra no painel; o parcial é filho direto do painel da aba, sem o aviso da ZDR nem a região, com a instalação, a chave geral, o modelo, a retenção e a tabela')]
     public function testAbaNoPainel(): void
     {
         $this->entrarComoMaster();
@@ -329,14 +329,11 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('/master/ia', $raiz->attr('data-url-dados'));
         self::assertSame('/master/ia/retencao', $raiz->attr('data-url-retencao'));
 
-        $zdr = $raiz->filter('div.mp-ia-raiz > div.mp-ia-aviso[data-mp-ia-zdr]');
-        self::assertCount(1, $zdr);
-        self::assertStringContainsString('a conta da Anthropic precisa ter a retenção zero de dados (ZDR)', $zdr->text());
-        self::assertStringContainsString('claude.com/contact-sales', $zdr->text());
-        self::assertStringContainsString('com a confirmação por escrito e o DPA.', $zdr->text());
-        self::assertStringContainsString('Região de processamento: EUA', $zdr->text());
-        self::assertStringNotContainsString('Console', $zdr->text(), 'instrução técnica vai para o runbook, não para a tela');
-        self::assertDoMasterSoOEstado($zdr->text());
+        self::assertCount(0, $crawler->filter('[data-mp-ia-zdr], .mp-ia-aviso'), 'o aviso da ZDR saiu da tela (decisão do dono de 24/10); fica no runbook');
+        self::assertStringNotContainsString('ZDR', $raiz->text());
+        self::assertStringNotContainsString('retenção zero', $raiz->text());
+        self::assertStringNotContainsString('Região de processamento', $raiz->text());
+        self::assertStringNotContainsString('contact-sales', $raiz->text());
 
         $cards = $raiz->filter('div.mp-ia-raiz > section.mp-card');
         self::assertCount(5, $cards);
