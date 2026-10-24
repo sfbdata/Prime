@@ -8,8 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
+use App\Inteligencia\Enum\ModeloDeIa;
+use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
+use App\Inteligencia\Service\CustoDaIa;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
@@ -17,13 +20,14 @@ use App\Service\PermissionChecker;
 use App\Tests\Inteligencia\Support\PlataformaDeIaNoTesteTrait;
 use App\Tests\Inteligencia\Support\ProvedorFalso;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
  * A ordem dos motivos é o contrato: plataforma (trava do ambiente, provedor e chave geral do Master) → liberação do
- * Master → escritório → permissão → cota. A UI mostra o
+ * Master → escritório → permissão → cota → orçamento em US$. A UI mostra o
  * primeiro que falhar, então trocar a ordem muda o que o usuário lê.
  */
 #[CoversClass(DisponibilidadeDeInteligencia::class)]
@@ -48,7 +52,7 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
 
     private function sut(ProvedorDeLinguagem $provedor, bool $flag = true, bool $chaveGeral = true): DisponibilidadeDeInteligencia
     {
-        return new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, $flag, $this->plataformaDeIa($chaveGeral));
+        return new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, $flag, $this->plataformaDeIa($chaveGeral), new CustoDaIa('global'));
     }
 
     private function configuracao(bool $habilitada, int $diario = 50, int $mensal = 500, bool $liberada = true): ConfiguracaoDeInteligencia
@@ -117,7 +121,7 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
     {
         $plataforma = $this->createMock(\App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository::class);
         $plataforma->expects($this->never())->method('obter');
-        $sut = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, false, $plataforma);
+        $sut = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, false, $plataforma, new CustoDaIa('global'));
 
         self::assertFalse($sut->plataformaConfigurada());
     }
@@ -130,7 +134,7 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
             new class ('relation "inteligencia_plataforma" does not exist') extends \Doctrine\DBAL\Driver\AbstractException {},
             null,
         ));
-        $sut = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, true, $plataforma);
+        $sut = new DisponibilidadeDeInteligencia(new ProvedorFalso(), $this->configuracoes, $this->analises, $this->permissoes, true, $plataforma, new CustoDaIa('global'));
 
         self::assertSame(Disponibilidade::NaoConfiguradaNaPlataforma, $sut->paraEscritorio($this->tenant));
     }
@@ -224,6 +228,7 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
         self::assertSame('Sem permissão para usar a BlueJus IA', Disponibilidade::SemPermissao->mensagem());
         self::assertSame('Limite diário de análises atingido', Disponibilidade::LimiteAtingido->mensagem());
         self::assertSame('Limite mensal de análises atingido', Disponibilidade::LimiteMensalAtingido->mensagem());
+        self::assertSame('Orçamento mensal da BlueJus IA atingido; volta no dia 1º', Disponibilidade::OrcamentoAtingido->mensagem());
     }
 
     #[TestDox('nenhuma mensagem da tela usa travessão (regra do README)')]
@@ -235,11 +240,11 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
         }
     }
 
-    #[TestDox('só as cotas viram 429; o código da recusa das duas é "limite_atingido" e o da falta de liberação é "desligada_no_escritorio" (contrato com o JS)')]
+    #[TestDox('só as cotas (dia, mês e orçamento) viram 429; o código da recusa delas é "limite_atingido" e o da falta de liberação é "desligada_no_escritorio" (contrato com o JS)')]
     public function testCodigoDaRecusa(): void
     {
         foreach (Disponibilidade::cases() as $motivo) {
-            $ehCota = \in_array($motivo, [Disponibilidade::LimiteAtingido, Disponibilidade::LimiteMensalAtingido], true);
+            $ehCota = \in_array($motivo, [Disponibilidade::LimiteAtingido, Disponibilidade::LimiteMensalAtingido, Disponibilidade::OrcamentoAtingido], true);
             $esperado = match (true) {
                 $ehCota => 'limite_atingido',
                 $motivo === Disponibilidade::NaoLiberadaPeloMaster => 'desligada_no_escritorio',
@@ -249,6 +254,70 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
             self::assertSame($ehCota, $motivo->ehLimiteDeCota(), $motivo->name);
             self::assertSame($esperado, $motivo->codigoDaRecusa(), $motivo->name);
         }
+    }
+
+    /**
+     * Gasto do mês em centavos com o Haiku 5.5 na região global: 10 centavos por milhão de tokens de entrada, então
+     * 10 milhões de tokens = US$ 1,00 (100 centavos) exatos.
+     *
+     * @return iterable<string, array{ModoDeCobrancaDaIa, ?int, int, Disponibilidade}>
+     */
+    public static function orcamentos(): iterable
+    {
+        foreach ([ModoDeCobrancaDaIa::Incluso, ModoDeCobrancaDaIa::Adicional] as $modo) {
+            yield $modo->value . ', orçamento nulo' => [$modo, null, 500, Disponibilidade::Disponivel];
+            yield $modo->value . ', abaixo' => [$modo, 101, 100, Disponibilidade::Disponivel];
+            yield $modo->value . ', no limite' => [$modo, 100, 100, Disponibilidade::OrcamentoAtingido];
+            yield $modo->value . ', acima' => [$modo, 99, 100, Disponibilidade::OrcamentoAtingido];
+        }
+        yield 'limite_gratis, orçamento nulo' => [ModoDeCobrancaDaIa::LimiteGratis, null, 500, Disponibilidade::Disponivel];
+        yield 'limite_gratis, abaixo' => [ModoDeCobrancaDaIa::LimiteGratis, 101, 100, Disponibilidade::Disponivel];
+        yield 'limite_gratis, no limite (a parte grátis não trava)' => [ModoDeCobrancaDaIa::LimiteGratis, 100, 100, Disponibilidade::Disponivel];
+        yield 'limite_gratis, acima (a parte grátis não trava)' => [ModoDeCobrancaDaIa::LimiteGratis, 99, 100, Disponibilidade::Disponivel];
+    }
+
+    #[DataProvider('orcamentos')]
+    #[TestDox('orçamento em US$ nos três modos: nulo, abaixo, no limite e acima (o nome do caso diz qual)')]
+    public function testOrcamentoMensal(ModoDeCobrancaDaIa $modo, ?int $orcamento, int $gasto, Disponibilidade $esperado): void
+    {
+        $configuracao = $this->configuracao(true);
+        $configuracao->definirCobranca($modo, $orcamento);
+        $this->configuracoes->method('findDoTenant')->willReturn($configuracao);
+        $this->permissoes->method('canAccessModule')->willReturn(true);
+        $this->analises->method('contarDesde')->willReturn(0);
+        $somaPedida = $orcamento !== null && $modo !== ModoDeCobrancaDaIa::LimiteGratis;
+        $this->analises->expects($somaPedida ? $this->once() : $this->never())->method('somarTokensPorModeloDesde')
+            ->with($this->tenant, new \DateTimeImmutable('first day of this month midnight'))
+            ->willReturn([['modelo' => ModeloDeIa::Haiku55->value, 'tokensEntrada' => $gasto * 100_000, 'tokensSaida' => 0]]);
+
+        $resultado = $this->sut(new ProvedorFalso())->para($this->user, $this->tenant);
+
+        self::assertSame($esperado, $resultado);
+    }
+
+    #[TestDox('a cota mensal vem antes do orçamento: com os dois estourados, a tela diz o limite de análises')]
+    public function testCotaMensalAntesDoOrcamento(): void
+    {
+        $configuracao = $this->configuracao(true, mensal: 10);
+        $configuracao->definirCobranca(ModoDeCobrancaDaIa::Incluso, 0);
+        $this->configuracoes->method('findDoTenant')->willReturn($configuracao);
+        $this->permissoes->method('canAccessModule')->willReturn(true);
+        $this->analises->method('contarDesde')->willReturnOnConsecutiveCalls(1, 10);
+        $this->analises->expects($this->never())->method('somarTokensPorModeloDesde');
+
+        self::assertSame(Disponibilidade::LimiteMensalAtingido, $this->sut(new ProvedorFalso())->para($this->user, $this->tenant));
+    }
+
+    #[TestDox('paraProcessamento (worker) não confere o orçamento, igual à cota')]
+    public function testParaProcessamentoIgnoraOOrcamento(): void
+    {
+        $configuracao = $this->configuracao(true);
+        $configuracao->definirCobranca(ModoDeCobrancaDaIa::Adicional, 0);
+        $this->configuracoes->method('findDoTenant')->willReturn($configuracao);
+        $this->permissoes->method('canAccessModule')->willReturn(true);
+        $this->analises->expects($this->never())->method('somarTokensPorModeloDesde');
+
+        self::assertSame(Disponibilidade::Disponivel, $this->sut(new ProvedorFalso())->paraProcessamento($this->user, $this->tenant));
     }
 
     #[TestDox('paraProcessamento (worker, IA-034L): mesmos três níveis, mas a cota não é consultada')]
