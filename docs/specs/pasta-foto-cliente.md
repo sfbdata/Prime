@@ -20,7 +20,7 @@ caso. O desenho mostra o botão sempre ativo (`ft.abrirMenu`) e guarda a foto po
 **Decisão do dono (via coordenador):** o botão sempre abre o menu "Carregar foto", como no desenho.
 
 - Pasta SEM cliente cadastrado: a foto fica na própria pasta (`pasta.foto`, `pasta.foto_atualizada_em`, migration
-  `Version20261020152000`), categoria `pasta_foto` (`uploads_dir/fotos`, plana, escopo do escritório da pasta,
+  `Version20261024150000`), categoria `pasta_foto` (`uploads_dir/fotos`, plana, escopo do escritório da pasta,
   `ChavesDePasta::foto/fotoPorNome/novaFoto`). Fora da cota, como a do cliente.
 - Pasta COM cliente: continua guardando no cliente (rotas do #345). A rota da pasta recusa a troca (403).
 - Exibição: a foto do cliente, se ele tem foto e quem olha o vê; senão a da pasta; senão o ícone.

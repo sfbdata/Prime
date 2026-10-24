@@ -18,7 +18,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Só as duas colunas: o resto do `schema:update --dump-sql` do banco da frente é ruído de outras frentes e
  * índices funcionais que o Doctrine não representa (skill criar-migration). Nada é preenchido para trás.
  */
-final class Version20261020152000 extends AbstractMigration
+final class Version20261024150000 extends AbstractMigration
 {
     public function getDescription(): string
     {
