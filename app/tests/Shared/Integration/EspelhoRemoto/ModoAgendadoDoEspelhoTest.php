@@ -178,14 +178,14 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
         self::assertStringContainsString('presente_sem_sha_conferido', $semSha->getDisplay());
     }
 
-    #[TestDox('--fatia=auto confere o SHA só da fatia do dia em Brasília (sábado = 6); "todas" confere tudo; fatia inválida é recusada')]
+    #[TestDox('--fatia=auto confere o SHA só da fatia do dia em Brasília (domingo = 0, ainda que em UTC já seja segunda); "todas" confere tudo; fatia inválida é recusada')]
     public function testFatiaDoSha(): void
     {
         $naFatia   = null;
         $foraDela  = null;
         for ($i = 0; $naFatia === null || $foraDela === null; ++$i) {
             $chave = $this->chave(CategoriaDeArquivo::FOTO_PERFIL, 'n' . $i . '.jpg');
-            if (ReconciliadorDoEspelho::fatiaDe($chave) === 6) {
+            if (ReconciliadorDoEspelho::fatiaDe($chave) === 0) {
                 $naFatia ??= $chave;
             } else {
                 $foraDela ??= $chave;
@@ -202,11 +202,11 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
             $refs[] = new ReferenciaDeArquivo('user_profiles', \count($refs) + 1, $chave, CategoriaDeArquivo::FOTO_PERFIL);
         }
 
-        // 24/10/2026, 12h UTC = sábado, 9h em Brasília: fatia 6.
-        $auto = $this->reconciliarLigado($refs);
+        // Segunda, 26/10/2026, 1h UTC = domingo, 25/10, 22h em Brasília: fatia 0 (em UTC seria a 1).
+        $auto = $this->reconciliarLigado($refs, new MockClock('2026-10-26 01:00:00', 'UTC'));
         self::assertSame(Command::FAILURE, $auto->execute(['--se-ligado' => true, '--fatia' => 'auto']));
         $saida = preg_replace('/\s+/', ' ', $auto->getDisplay()) ?? '';
-        self::assertStringContainsString('fatia 6 de 7', $saida);
+        self::assertStringContainsString('fatia 0 de 7', $saida);
         self::assertStringContainsString('sha_divergente: 1 (foto_perfil: 1)', $saida);
         self::assertStringContainsString('presente_sem_sha_conferido', $saida);
 
@@ -259,7 +259,7 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
     }
 
     /** @param list<ReferenciaDeArquivo> $referencias */
-    private function reconciliarLigado(array $referencias): CommandTester
+    private function reconciliarLigado(array $referencias, ?MockClock $relogio = null): CommandTester
     {
         $espelho  = $this->espelho;
         $provedor = new class ($espelho) implements ProvedorDoEspelhoRemoto {
@@ -278,7 +278,7 @@ final class ModoAgendadoDoEspelhoTest extends KernelTestCase
             }
         };
 
-        return new CommandTester(new ReconciliarEspelhoCommand($this->reconciliador($referencias), $provedor, new PoliticaDeEspelhamento('foto_perfil,cliente_documento'), $this->outbox, new MockClock('2026-10-24 12:00:00', 'UTC')));
+        return new CommandTester(new ReconciliarEspelhoCommand($this->reconciliador($referencias), $provedor, new PoliticaDeEspelhamento('foto_perfil,cliente_documento'), $this->outbox, $relogio ?? new MockClock('2026-10-24 12:00:00', 'UTC')));
     }
 
     private function noDisco(CategoriaDeArquivo $categoria, string $nome, string $conteudo, bool $noEspelho = false): ReferenciaDeArquivo
