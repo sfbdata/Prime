@@ -54,7 +54,7 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         self::assertStringEndsWith('/login/google/callback', (string) $q['redirect_uri']);
     }
 
-    #[TestDox('Sem o cliente OAuth no servidor: o botão aparece igual e a ida volta ao login com o aviso exato, sem ir ao Google')]
+    #[TestDox('Sem o cliente OAuth no servidor: nenhum botão do Google na tela (nem o "ou"); a URL aberta direto volta ao login com o aviso exato, sem ir ao Google')]
     public function testDesligado(): void
     {
         $chamadas = 0;
@@ -64,11 +64,14 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
             return new MockResponse('{}');
         })));
         $crawler = $client->request('GET', '/login');
-        self::assertCount(1, $crawler->filter('form#lgForm > .lg-cartao__corpo > #lgEntrar + .lg-ou + a#lgGoogle.lg-google + button.lg-selo'));
-        self::assertStringContainsString('Entrar com o Google', $crawler->filter('#lgGoogle')->text());
+        self::assertCount(0, $crawler->filter('a[href^="/login/google"]'), 'nenhum link para app_login_google');
+        self::assertCount(0, $crawler->filter('#lgGoogle, #lgCdGoogle, #lgCdSoc, .lg-ou'));
+        self::assertCount(1, $crawler->filter('form#lgForm > .lg-cartao__corpo > #lgEntrar + button.lg-selo'));
+        self::assertStringNotContainsString('Entrar com o Google', (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString('Continuar com Google', (string) $client->getResponse()->getContent());
         self::assertTrue($crawler->filter('#lgErro')->matches('[hidden]'));
 
-        $client->request('GET', (string) $crawler->filter('#lgGoogle')->attr('href'));
+        $client->request('GET', '/login/google');
 
         self::assertResponseRedirects('/login');
         self::assertSame(0, $chamadas, 'sem chamar o Google');
@@ -114,6 +117,7 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('form#lgForm > .lg-cartao__corpo > #lgEntrar + .lg-ou + a#lgGoogle.lg-google + button.lg-selo'));
         self::assertStringContainsString('Entrar com o Google', $crawler->filter('#lgGoogle')->text());
         self::assertStringStartsWith('/login/google?_token=', (string) $crawler->filter('#lgGoogle')->attr('href'));
+        self::assertCount(1, $crawler->filter('#lgCdSoc > a#lgCdGoogle[href^="/login/google?"][href*="origem=cadastro"]'), 'o Continuar com Google do Criar conta');
         self::assertCount(1, $crawler->filter('form#lgForm button#lgEntrar > i.bi-box-arrow-in-right'));
         self::assertCount(1, $crawler->filter('a[href="/senha/esqueci"]'));
         self::assertCount(1, $crawler->filter('a[href="/cadastro"]'));
