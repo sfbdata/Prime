@@ -15,12 +15,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Apaga o conteúdo das análises da BlueJus IA com mais de 12 meses ({@see ExpirarConteudoDaInteligenciaUseCase}).
+ * Apaga o conteúdo das análises da BlueJus IA mais antigas que o prazo escolhido pelo Master (12 meses por padrão,
+ * {@see ExpirarConteudoDaInteligenciaUseCase}).
  * Destrutivo: sem `--force` recusa. O agendador roda com `--force`.
  */
 #[AsCommand(
     name: 'app:inteligencia:expirar-conteudo',
-    description: 'Apaga o conteúdo (respostas e perguntas) das análises da BlueJus IA com mais de 12 meses.',
+    description: 'Apaga o conteúdo (respostas e perguntas) das análises da BlueJus IA mais antigas que o prazo do Master (12 meses por padrão).',
 )]
 final class ExpirarConteudoDaInteligenciaCommand extends Command
 {
@@ -49,13 +50,15 @@ final class ExpirarConteudoDaInteligenciaCommand extends Command
 
         $resultado = $this->expirar->executar(new \DateTimeImmutable());
 
-        $this->logger->info('Retenção da IA: conteúdo de {analises} análise(s) e {perguntas} pergunta(s) anteriores a {limite} apagado.', [
+        $this->logger->info('Retenção da IA ({meses} meses): conteúdo de {analises} análise(s) e {perguntas} pergunta(s) anteriores a {limite} apagado.', [
+            'meses'     => $resultado['meses'],
             'analises'  => $resultado['analises'],
             'perguntas' => $resultado['perguntas'],
             'limite'    => $resultado['limite']->format('Y-m-d'),
         ]);
         $io->success(sprintf(
-            'Conteúdo apagado: %d análise(s) e %d pergunta(s) anteriores a %s.',
+            'Conteúdo apagado (prazo de %d meses): %d análise(s) e %d pergunta(s) anteriores a %s.',
+            $resultado['meses'],
             $resultado['analises'],
             $resultado['perguntas'],
             $resultado['limite']->format('d/m/Y'),
