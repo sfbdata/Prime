@@ -63,7 +63,8 @@ Push nem vira "análise anterior" dele.
 
 Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor + chave geral do Master em
 `inteligencia_plataforma`) → liberada pelo Master no escritório (`liberada_pelo_master`) → escritório ligado com
-aceite (`inteligencia_configuracao`) → permissão de módulo → cota diária/mensal. O modelo vem do banco
+aceite (`inteligencia_configuracao`) → permissão de módulo → cota diária/mensal → orçamento mensal em US$ (só nos
+modos incluso e adicional; o custo é estimado pelo `CustoDaIa` a partir dos tokens gravados, e `limite_gratis` não trava). O modelo vem do banco
 (`FonteDoModeloDeIa`, escolhido na aba "ia" do Painel do Master), com `IA_MODELO` de reserva. A Twig `ia_disponibilidade()` devolve o enum para a tela.
 
 **Retenção de 12 meses** (`ExpirarConteudoDaInteligenciaUseCase`, agendado às 00:20): análise terminada há mais de
