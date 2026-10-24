@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
-use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Exception\TituloDePecaLongoDemaisException;
+use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\FonteDeConteudo;

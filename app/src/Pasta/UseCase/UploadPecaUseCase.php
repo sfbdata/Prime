@@ -240,16 +240,19 @@ final class UploadPecaUseCase
         $doc->setEnviadoPor($enviadoPor);
         $doc->marcarAssinaturaDoUpload($assinado, $compressao->comprimido, $enviadoPor);
 
-        $this->em->persist($doc);
-        $this->em->flush();
-        $this->avisarQuemAcompanha($avisarQuemAcompanha, $doc, $pasta, $tenant, $enviadoPor);
+        $this->gravarEAvisar($avisarQuemAcompanha, $doc, $pasta, $tenant, $enviadoPor);
 
         return new ResultadoUploadPeca($doc, $compressao);
     }
 
-    /** Só o upload da pasta avisa (ver "Acompanhar alterações" no PHPDoc da classe). Nunca lança. */
-    private function avisarQuemAcompanha(bool $avisar, PastaDocumento $doc, Pasta $pasta, Tenant $tenant, ?User $autor): void
+    /**
+     * Grava o documento e, depois do flush, avisa quem acompanha. Só o upload da pasta avisa (ver "Acompanhar
+     * alterações" no PHPDoc da classe); o aviso nunca lança.
+     */
+    private function gravarEAvisar(bool $avisar, PastaDocumento $doc, Pasta $pasta, Tenant $tenant, ?User $autor): void
     {
+        $this->em->persist($doc);
+        $this->em->flush();
         if ($avisar) {
             $this->avisoDeAcompanhamento?->aoIncluirDocumento($doc, $pasta, $tenant, $autor);
         }
