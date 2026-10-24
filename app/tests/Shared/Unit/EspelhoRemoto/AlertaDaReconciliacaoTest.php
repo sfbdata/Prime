@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ReferenciaDeArquivo::class)]
 final class AlertaDaReconciliacaoTest extends TestCase
 {
-    #[TestDox('ausente no espelho, tamanho e SHA divergentes disparam, com contagem por categoria')]
+    #[TestDox('ausente no espelho, tamanho e SHA divergentes e erro de consulta (R2 fora do ar) disparam, com contagem por categoria')]
     public function testClassesQueExigemAcao(): void
     {
         $relatorio = new RelatorioDeReconciliacao();
@@ -30,6 +30,7 @@ final class AlertaDaReconciliacaoTest extends TestCase
         $relatorio->registrar($this->ref(CategoriaDeArquivo::CLIENTE_DOCUMENTO), ClasseDeReconciliacao::AUSENTE_NO_ESPELHO);
         $relatorio->registrar($this->ref(CategoriaDeArquivo::CLIENTE_DOCUMENTO), ClasseDeReconciliacao::TAMANHO_DIVERGENTE);
         $relatorio->registrar($this->ref(CategoriaDeArquivo::FOTO_PERFIL), ClasseDeReconciliacao::SHA_DIVERGENTE);
+        $relatorio->registrar($this->ref(CategoriaDeArquivo::FOTO_PERFIL), ClasseDeReconciliacao::ERRO_DE_CONSULTA);
 
         $alerta = AlertaDaReconciliacao::avaliar($relatorio, []);
 
@@ -38,6 +39,7 @@ final class AlertaDaReconciliacaoTest extends TestCase
             'ausente_no_espelho: 3 (cliente_documento: 1, foto_perfil: 2)',
             'tamanho_divergente: 1 (cliente_documento: 1)',
             'sha_divergente: 1 (foto_perfil: 1)',
+            'erro_de_consulta: 1 (foto_perfil: 1)',
         ], $alerta->linhas());
     }
 
@@ -49,7 +51,7 @@ final class AlertaDaReconciliacaoTest extends TestCase
         self::assertSame(['falhou_na_outbox: 3 (cliente_documento: 1, foto_perfil: 2)'], $alerta->linhas());
     }
 
-    #[TestDox('igual, presente sem SHA, suspeito do Drive e ausente com envio na fila não disparam')]
+    #[TestDox('igual, presente sem SHA, suspeito do Drive, em fila, local ausente, chave inválida e sem SHA no espelho não disparam')]
     public function testNaoDisparam(): void
     {
         $relatorio = new RelatorioDeReconciliacao();
@@ -58,6 +60,10 @@ final class AlertaDaReconciliacaoTest extends TestCase
             ClasseDeReconciliacao::PRESENTE_SEM_SHA_CONFERIDO,
             ClasseDeReconciliacao::SUSPEITO_ERRO_DO_DRIVE,
             ClasseDeReconciliacao::AUSENTE_PENDENTE_OUTBOX,
+            // Problemas conhecidos do acervo local (P1), não do espelho: só contagem.
+            ClasseDeReconciliacao::LOCAL_AUSENTE,
+            ClasseDeReconciliacao::CHAVE_INVALIDA,
+            ClasseDeReconciliacao::SEM_SHA_NO_ESPELHO,
         ] as $classe) {
             $relatorio->registrar($this->ref(CategoriaDeArquivo::FOTO_PERFIL), $classe);
         }

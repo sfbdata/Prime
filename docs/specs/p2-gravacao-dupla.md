@@ -638,9 +638,13 @@ dos backups (23h30 a 0h50 de Brasília).
 **Alerta da P2.7.** Com `--se-ligado` e o espelho ligado, a reconciliação confere só as categorias que a
 política espelha (sem o filtro, cada categoria desligada viraria "ausente") e sai com FALHA, e o aviso do
 agendador (log, e-mail de `AGENDADOR_ALERTA_EMAIL`, tela do Master) dispara, quando há:
-`ausente_no_espelho`, `tamanho_divergente`, `sha_divergente` ou linhas de envio em `falhou` na outbox (de
-qualquer categoria). Não derrubam a rodada: `presente_sem_sha_conferido` (a diária sem SHA),
-`suspeito_erro_do_drive` (os 90 conhecidos, que aparecem na contagem) e `ausente_pendente_na_outbox`. A
+`ausente_no_espelho`, `tamanho_divergente`, `sha_divergente`, `erro_de_consulta` (o R2 fora do ar precisa
+avisar) ou linhas de envio em `falhou` na outbox (de qualquer categoria). Não derrubam a rodada:
+`presente_sem_sha_conferido` (fora da fatia do SHA), `suspeito_erro_do_drive` (os 90 conhecidos, que
+aparecem na contagem), `ausente_pendente_na_outbox` (em fila) e `local_ausente`, `chave_invalida` e
+`sem_sha_no_espelho`: estes três são problemas conhecidos do acervo local (os 73 sem rastro, os de lápide,
+os valores fora do formato da P1), não do espelho; corrigi-los é outra frente, e alertar por eles todo dia
+só esconderia o alerta que importa. Todos aparecem na contagem. A
 mensagem é só contagem por classe e por categoria (`ausente_no_espelho: 3 (foto_perfil: 3)`), nunca nome
 de arquivo, chave remota ou nome de pessoa. Peça: `Reconciliacao\AlertaDaReconciliacao`; a categoria de
 cada referência vem da fonte (`ReferenciaDeArquivo::categoria()`), então até a chave inválida conta na
@@ -676,8 +680,6 @@ linha pendente ou em processamento é `ausente_pendente_na_outbox` ("em fila") e
   `armazenamento:reenfileirar-falhas [--categoria=X] [--simular]`, que a volta para `pendente` com
   tentativas zeradas e próxima tentativa agora (saída só de contagens por categoria). Se houver linha mais
   nova da mesma chave, a reivindicação a marca `superado`, como sempre.
-- `erro_de_consulta` (R2 fora do ar na consulta), `local_ausente`, `chave_invalida` e `sem_sha_no_espelho`
-  não disparam o alerta neste critério.
 - A conferência com SHA lê cada arquivo inteiro; enquanto roda, segura o consumidor do agendador (a réplica
   e o Drive esperam).
 
