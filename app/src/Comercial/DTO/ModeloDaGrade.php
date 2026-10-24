@@ -57,6 +57,6 @@ final class ModeloDaGrade
      */
     private static function completo(array $modelo): array
     {
-        return $modelo + ['corpo' => '', 'itens' => [], 'cta' => '', 'link' => '', 'blocos' => [], 'html' => ''];
+        return $modelo + ['corpo' => '', 'itens' => [], 'cta' => '', 'link' => '', 'blocos' => [], 'html' => '', 'imagem' => ''];
     }
 }

@@ -11,7 +11,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Correção de segurança: o "Buscar no CNJ" da janela de vincular monta as linhas de partes e movimentações
  * com template literal + insertAdjacentHTML, e o texto vem do Datajud (fonte externa). Sem escape, um nome
- * de parte com `"><script>` virava HTML na tela. Agora todo valor passa por `mpEsc`.
+ * de parte com `"><script>` virava HTML na tela. Agora todo valor passa por `mpEsc`. Desde o desenho de 18/10
+ * as linhas saem de `mpParteRowHtml`/`mpMovRowHtml` (as mesmas do "Adicionar"), que recebem o valor do Datajud.
  *
  * O container de testes não tem Node: o teste lê o script (como os outros testes de JS do repo), prova que
  * nenhum valor do Datajud entra cru e confere a tabela de escape de `mpEsc` contra o `htmlspecialchars` do
@@ -32,13 +33,19 @@ final class VincularProcessoEscapeDoDatajudTest extends TestCase
     {
         $js = $this->script();
 
+        $linhas = $this->trechoDasLinhas($js);
         foreach (['parte.nome', 'parte.documento', 'parte.papel', 'mov.dataMovimentacao', 'mov.descricao', 'mov.tipo', 'mov.orgao'] as $campo) {
-            self::assertStringContainsString('value="${mpEsc(' . $campo . ')}"', $js, $campo);
-            self::assertStringNotContainsString('${' . $campo . "||''}", $js, $campo . ' cru');
+            self::assertStringContainsString('value="${mpEsc(' . $campo . ')}"', $linhas, $campo);
+            self::assertStringNotContainsString('${' . $campo, $linhas, $campo . ' cru');
         }
-        // Só sobram interpolações seguras: o índice (número) e as comparações do tipo da parte.
-        preg_match_all('/\$\{(?!mpEsc\(|idx\}|\(parte\.tipo\|\|\'\'\)===|partesList\.length|movsList\.length)[^}]*\}/', $this->trechoDaBusca($js), $cruas);
-        self::assertSame([], $cruas[0], 'interpolação sem escape no "Buscar no CNJ"');
+        // Só sobram interpolações seguras: o índice (número) e as opções do tipo, montadas com valor fixo e mpEsc.
+        preg_match_all('/\$\{(?!mpEsc\(|idx\}|opcoes\})[^}]*\}/', $linhas, $cruas);
+        self::assertSame([], $cruas[0], 'interpolação sem escape nas linhas do "Buscar no CNJ"');
+        self::assertStringContainsString("'>' + mpEsc(T(o[1])) + '</option>'", $linhas, 'rótulo da opção escapado');
+        // O "Buscar no CNJ" entrega partes e movimentações a esses construtores.
+        self::assertStringContainsString('mpPreencherLinhas(pd.partes, pd.movimentacoes);', $this->trechoDaBusca($js));
+        self::assertStringContainsString('mpParteRowHtml(mpProxIdx++, parte)', $js);
+        self::assertStringContainsString('mpMovRowHtml(mpProxIdx++, mov)', $js);
     }
 
     #[TestDox('mpEsc troca os 5 caracteres como o htmlspecialchars: <script> e aspas viram texto')]
@@ -62,10 +69,21 @@ final class VincularProcessoEscapeDoDatajudTest extends TestCase
 
     private function trechoDaBusca(string $js): string
     {
-        $inicio = strpos($js, "document.getElementById('mp-btn-datajud').addEventListener");
+        $inicio = strpos($js, "btnCnj.addEventListener('click'");
         self::assertNotFalse($inicio);
-        $fim = strpos($js, 'mpAttachRemovePartes();', $inicio);
+        $fim = strpos($js, 'function mpFaltando()', $inicio);
+        self::assertNotFalse($fim);
 
-        return substr($js, $inicio, $fim !== false ? $fim - $inicio : null);
+        return substr($js, $inicio, $fim - $inicio);
+    }
+
+    private function trechoDasLinhas(string $js): string
+    {
+        $inicio = strpos($js, 'function mpParteRowHtml(idx, parte)');
+        self::assertNotFalse($inicio);
+        $fim = strpos($js, 'function mpUpdateRemoveButtons()', $inicio);
+        self::assertNotFalse($fim);
+
+        return substr($js, $inicio, $fim - $inicio);
     }
 }

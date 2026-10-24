@@ -246,6 +246,8 @@ final class DesfazerAlteracaoAuditLogControllerTest extends JusPrimeWebTestCase
         $tarefa->setDescricao('...');
         $tarefa->setTenant($this->tenant);
         $tarefa->setPasta($this->criarPasta());
+        // A guarda da tela da meta (`AcessoAMeta`) pede alguém da pasta com vínculo no escritório.
+        $tarefa->getPasta()->setCriadoPor($this->admin);
         $this->em->persist($tarefa);
         $this->em->flush();
         $pastaOriginal = $tarefa->getPasta()->getId();

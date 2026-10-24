@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L7 (cabeçalho, CSS da pasta e aba Processo), lido como FOLHA: não há navegador no
@@ -106,10 +107,14 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
 
         // Os três botões ainda são .ps-btn com o rótulo num <span> filho, dentro do cabeçalho do cartão.
         $proc = self::ler(__DIR__ . '/../../../templates/pasta/_processos_vinculados.html.twig');
-        self::assertStringContainsString('<i class="bi bi-link-45deg"></i><span>Vincular processo</span>', $proc);
-        self::assertStringContainsString('<i class="bi bi-file-earmark-text"></i><span>Peticionar na pasta</span>', $proc);
+        self::assertStringContainsString("<i class=\"bi bi-link-45deg\"></i><span>{{ 'pasta_processo.cabecalho.vincular'|trans }}</span>", $proc);
+        self::assertStringContainsString("<i class=\"bi bi-file-earmark-text\"></i><span>{{ 'pasta_processo.cabecalho.peticionar'|trans }}</span>", $proc);
+        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        self::assertSame('Vincular processo', $catalogo['pasta_processo']['cabecalho']['vincular']);
+        self::assertSame('Peticionar na pasta', $catalogo['pasta_processo']['cabecalho']['peticionar']);
         $metas = self::ler(__DIR__ . '/../../../templates/pasta/_metas.html.twig');
-        self::assertStringContainsString('<i class="bi bi-plus-lg"></i><span>Nova meta</span>', $metas);
+        self::assertStringContainsString("<i class=\"bi bi-plus-lg\"></i><span>{{ 'pasta_documentos.metas.nova'|trans }}</span>", $metas);
+        self::assertSame('Nova meta', $catalogo['pasta_documentos']['metas']['nova']);
     }
 
     #[TestDox('PMC-026: o interruptor Administrativo saiu do <style> do parcial e usa tokens com par escuro')]
@@ -206,9 +211,9 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
 
         $uso = self::trecho($js, 'function arrasteDasJanelas()', '/* ── 4. Atalhos do trilho');
         self::assertStringContainsString("cabecalho: '.ps-pop.is-aberto > .ps-pop-tarja'", $uso);
-        self::assertStringContainsString("cabecalho: '#modalEditarPasta .ps-modal-pasta-cab'", $uso);
-        self::assertStringContainsString("cab.closest('.modal-dialog')", $uso);
-        self::assertStringContainsString("modal.addEventListener('hidden.bs.modal'", $uso, 'o modal volta ao centro ao fechar');
+        self::assertStringContainsString("cabecalho: '#modalEditarPasta:not([hidden]) .ps-modal-pasta-cab'", $uso);
+        self::assertStringContainsString("cab.closest('.ps-modal-pasta')", $uso);
+        self::assertStringContainsString("modal.addEventListener('pe:fechada'", $uso, 'a janela volta ao lugar ao fechar');
         self::assertStringContainsString('if (vaiAbrir) { window.PsArrastar.zerar(alvo); }', self::trecho($js, 'function popovers()', 'function botaoFechar('), 'o menu reabre junto do gatilho');
 
         $cli = self::ler(__DIR__ . '/../../../public/js/pasta-clientes.js');
@@ -219,7 +224,7 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         // Os ganchos existem nos templates.
         self::assertStringContainsString('data-ps-cli-arrastar', self::ler(__DIR__ . '/../../../templates/cliente/_resumo.html.twig'));
         $show = self::ler(__DIR__ . '/../../../templates/pasta/show.html.twig');
-        self::assertMatchesRegularExpression('/id="modalEditarPasta"[^>]*>\s*<div class="modal-dialog ps-modal-pasta">\s*<div class="modal-content">\s*<div class="ps-modal-pasta-cab">/', $show);
+        self::assertMatchesRegularExpression('/id="modalEditarPasta"[^>]*>\s*<div class="ps-modal-pasta" role="dialog"[^>]*>\s*<div class="ps-modal-pasta-cab">/', $show);
 
         $css = self::ler(self::CSS);
         self::assertStringContainsString("#modalEditarPasta .ps-modal-pasta-cab { cursor: grab; touch-action: none; user-select: none; }", $css);

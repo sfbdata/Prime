@@ -10,6 +10,7 @@ use App\Ponto\DTO\EstadoDoPontoDoDiaOutput;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Repository\FeriadoRepository;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Ponto\Service\BatidasEscolhidas;
@@ -18,6 +19,7 @@ use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Ponto\Service\HomeOfficeResolver;
 use App\Ponto\Service\InicioContagemResolver;
+use App\Ponto\Service\PublicoDosAvisosDePonto;
 use App\Ponto\Service\SedesDaCercaDoPonto;
 use Psr\Clock\ClockInterface;
 
@@ -26,7 +28,8 @@ use Psr\Clock\ClockInterface;
  * linha oferece e os dados que a tela precisa para avaliar a cerca antes do envio. Usa a escolha ÚNICA da folha
  * (`ponto-folha-uma-batida-por-tipo.md` §9.9), nunca "a última batida", e só as batidas deste escritório. Não grava e
  * não cria regra: a batida continua sendo decidida pelo servidor em `PontoController::batida()`, e o "Regularizar
- * ponto de ontem" só leva ao pedido de justificativa de esquecimento que já existe (decisão do dono, 19/10).
+ * ponto de ontem" só leva ao pedido de justificativa de esquecimento que já existe (decisão do dono, 19/10). Ele é um
+ * aviso ao lado do estado de hoje e nunca tira a batida (`ponto-esquecimento-nao-trava.md` R3, dono 23/10).
  */
 final class ObterEstadoDoPontoDoDiaUseCase
 {
@@ -43,6 +46,8 @@ final class ObterEstadoDoPontoDoDiaUseCase
         private readonly InicioContagemResolver $inicioContagem,
         private readonly EsquecimentosRegistrados $esquecimentos,
         private readonly ClockInterface $clock,
+        private readonly JornadaColaboradorRepository $jornadas,
+        private readonly PublicoDosAvisosDePonto $publico,
     ) {
     }
 
@@ -52,16 +57,18 @@ final class ObterEstadoDoPontoDoDiaUseCase
         // O dia de hoje vai para a escolha, como no `index`: a vigência da regra depende dele.
         $escolhidas = $this->escolha->escolher($this->registros->batidasDoDiaNoEscritorio($eu, $tenant, $agora), $agora);
         $hoje = $this->horariosDe($escolhidas);
-        $ontemSemSaida = $this->ontemSemSaida($eu, $tenant, $agora);
+        // R7: o "Regularizar ponto de ontem" só para o público dos avisos de ponto.
+        $ontemSemSaida = $this->publico->recebe($eu, $tenant) ? $this->ontemSemSaida($eu, $tenant, $agora) : null;
 
         return new EstadoDoPontoDoDiaOutput(
             dia: $agora->format('Y-m-d'),
-            estado: $ontemSemSaida !== null ? EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM : self::estadoDe($hoje),
+            estado: self::estadoDe($hoje),
             hoje: $hoje,
             homeOffice: $this->homeOffice->estaLiberado($eu, $tenant, $agora),
             sedes: $this->sedes->doEscritorio($tenant),
             ontemSemSaida: $ontemSemSaida,
             interjornadaMinimaMin: self::interjornadaMinima($tenant),
+            aviso: $ontemSemSaida !== null ? EstadoDoPontoDoDiaOutput::REGULARIZAR_ONTEM : null,
         );
     }
 
@@ -100,7 +107,7 @@ final class ObterEstadoDoPontoDoDiaUseCase
      */
     private function linhaDaFolha(User $eu, Tenant $tenant, \DateTimeImmutable $dia, array $batidas): ?array
     {
-        $jornada = $eu->getJornadaColaborador() ?? (new JornadaColaborador())->setUser($eu);
+        $jornada = $this->jornadas->findByUserETenant($eu, $tenant) ?? (new JornadaColaborador())->setUser($eu);
         $linhas = $this->folha->buildRows(
             $dia->setTime(0, 0, 0),
             $dia->setTime(23, 59, 59),

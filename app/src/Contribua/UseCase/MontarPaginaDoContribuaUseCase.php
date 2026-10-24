@@ -144,6 +144,11 @@ final class MontarPaginaDoContribuaUseCase
             'recomendado' => $topo,
             'atual' => $atual,
             'desabilitado' => $desabilitado,
+            // Selo do convênio OAB: só no plano gratuito, o que o convênio dá sem custo.
+            'oab' => $p->ehGratuito(),
+            // Nuvem "+ Espaço": só nos pagos que ampliam o espaço de hoje; verde no recomendado.
+            'temNuvem' => !$p->ehGratuito() && !$atual && !$menor,
+            'nuvemRecomendada' => $topo,
             'botao' => $atual ? 'Seu plano atual' : ($p->ehGratuito() ? 'Incluído' : ($menor ? 'Menor que o atual' : 'Quero +' . $ganho . ' GB')),
         ];
     }

@@ -1,0 +1,19 @@
+# Estado do agendador de tarefas (docs/specs/scheduler-tarefas-agendadas.md, "Estado").
+#
+# O Schedule é `stateful`: guarda a última execução de cada tarefa para, depois de uma parada (o deploy
+# recria o contêiner), rodar a execução que passou da hora em vez de pulá-la. O estado precisa
+# sobreviver ao contêiner, então mora no banco: pool `cache.agendador`, adaptador Doctrine DBAL, tabela
+# própria `cache_agendador` (criada pela migration Version20261023150800, nunca pela auto-criação).
+services:
+    app.cache.adapter.agendador:
+        parent: cache.adapter.doctrine_dbal
+        abstract: true
+        arguments:
+            index_3: { db_table: cache_agendador }
+
+framework:
+    cache:
+        pools:
+            cache.agendador:
+                adapter: app.cache.adapter.agendador
+                provider: doctrine.dbal.default_connection

@@ -22,6 +22,9 @@ enum CategoriaDeArquivo: string
     case PASTA_DOCUMENTO      = 'pasta_documento';
     case PASTA_IMAGEM_EDITOR  = 'pasta_imagem_editor';
     case CLIENTE_DOCUMENTO    = 'cliente_documento';
+    // A foto do cliente (cabeçalho da pasta). Plana, numa subpasta da raiz dos documentos de cliente; o escopo é o
+    // escritório dono do cliente (`ChavesDeCliente::foto`), e a purga a leva pelos registros de `cliente`.
+    case CLIENTE_FOTO         = 'cliente_foto';
     case CHAMADO_ANEXO        = 'chamado_anexo';
     case JUSTIFICATIVA_ANEXO  = 'justificativa_anexo';
     case FOTO_PERFIL          = 'foto_perfil';
@@ -35,6 +38,10 @@ enum CategoriaDeArquivo: string
     // Escopo GLOBAL, como a foto de perfil: o currículo é do usuário, não de um escritório, e a
     // purga de escritório não o leva (`ChavesDeTrabalhoExterno::arquivoDoCurriculo`).
     case TRABALHO_EXTERNO_CURRICULO = 'trabalho_externo_curriculo';
+    // A imagem da campanha do modo simples do Comercial (spec comercial-e-emails.md §12, F3i). Escopo
+    // GLOBAL: é da plataforma (só o Master envia), não de um escritório, e sai por endereço público
+    // (`/e/i/{token}.{ext}`) até vencer (`ChavesDeComercial`).
+    case COMERCIAL_IMAGEM = 'comercial_imagem';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

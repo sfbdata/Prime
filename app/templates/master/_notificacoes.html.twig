@@ -1,0 +1,87 @@
+{# Seção "Central de Notificações" do /master (desenho 05 Perfis 1.2 VS 21.10.26, SECS L565, template L309-322 e
+   lógica nfVals L724-749; spec docs/specs/master-central-de-notificacoes.md).
+   Incluída pelo painel.html.twig num <div data-sec-externa="notif">, como a Comercial: o painel.js só mostra o botão
+   da seção com este parcial presente e avisa a troca de seção pelo evento `mp:secao`. O esqueleto (barra, abas, lista
+   e a janela da mensagem) é estático; o public/js/master/notificacoes.js preenche com o JSON de /master/notificacoes.
+   Todo texto de mensagem vem de fora (visitante da tela de entrada, autor de sugestão): o JS só escreve com
+   textContent. As URLs com parâmetro levam o marcador `xorigemx`/`0` que o JS troca.
+   Textos no catálogo (master.notificacoes.*; os do JS em master.js.notificacoes.*, spec idioma-do-sistema §8). #}
+<div class="nf" data-nf
+     data-url-listar="{{ path('master_notificacoes_listar') }}"
+     data-url-marcar="{{ path('master_notificacoes_marcar') }}"
+     data-url-abrir="{{ path('master_notificacoes_abrir', {origem: 'xorigemx', id: 0}) }}"
+     data-url-responder="{{ path('master_notificacoes_responder', {origem: 'xorigemx', id: 0}) }}"
+     data-token="{{ csrf_token('master_notificacoes') }}"
+     data-eu="{{ app.user ? app.user.id : '' }}">
+    <div class="nf-caixa">
+        <div class="nf-barra">
+            <button type="button" class="nf-ico" title="{{ 'master.notificacoes.selecionar'|trans }}" aria-label="{{ 'master.notificacoes.selecionar'|trans }}" data-nf-sel-todos><i class="bi bi-square" data-nf-sel-ic aria-hidden="true"></i></button>
+            <button type="button" class="nf-ico nf-ico-redondo" title="{{ 'master.notificacoes.atualizar'|trans }}" aria-label="{{ 'master.notificacoes.atualizar'|trans }}" data-nf-atualizar><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+            <span class="nf-acoes" data-nf-acoes hidden>
+                <button type="button" class="nf-acao" title="{{ 'master.notificacoes.marcar_lida'|trans }}" data-nf-lote="lida"><i class="bi bi-envelope-open" aria-hidden="true"></i> {{ 'master.notificacoes.marcar_lida'|trans }}</button>
+                <button type="button" class="nf-acao" title="{{ 'master.notificacoes.nao_lida'|trans }}" data-nf-lote="nao_lida"><i class="bi bi-envelope" aria-hidden="true"></i> {{ 'master.notificacoes.nao_lida'|trans }}</button>
+                <button type="button" class="nf-acao" data-nf-lote="arquivar" data-nf-arq><i class="bi bi-archive" aria-hidden="true"></i> <span data-nf-arq-txt>{{ 'master.notificacoes.arquivar'|trans }}</span></button>
+                <span class="nf-sel-n"><span data-nf-sel-n>0</span> {{ 'master.notificacoes.selecionadas'|trans }}</span>
+            </span>
+            <span class="nf-espaco"></span>
+            <label class="nf-busca"><i class="bi bi-search" aria-hidden="true"></i><input type="search" placeholder="{{ 'master.notificacoes.buscar'|trans }}" aria-label="{{ 'master.notificacoes.buscar'|trans }}" maxlength="200" data-nf-busca></label>
+            <span class="nf-pag" data-nf-pag>{{ 'master.notificacoes.pagina_vazia'|trans }}</span>
+            <span class="nf-paginas" data-nf-paginas hidden>
+                <button type="button" class="nf-ico nf-ico-redondo" title="{{ 'master.notificacoes.mais_novas'|trans }}" aria-label="{{ 'master.notificacoes.mais_novas'|trans }}" data-nf-pag-ant><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+                <button type="button" class="nf-ico nf-ico-redondo" title="{{ 'master.notificacoes.mais_antigas'|trans }}" aria-label="{{ 'master.notificacoes.mais_antigas'|trans }}" data-nf-pag-prox><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+            </span>
+        </div>
+        <div class="nf-abas" role="tablist">
+            {% for a in [
+                ['rec', 'bi-inbox'],
+                ['nl', 'bi-envelope'],
+                ['est', 'bi-star'],
+                ['resp', 'bi-reply'],
+                ['arq', 'bi-archive'],
+            ] %}
+                <button type="button" class="nf-aba{{ loop.first ? ' on' : '' }}" role="tab" aria-selected="{{ loop.first ? 'true' : 'false' }}" data-nf-aba="{{ a[0] }}"><i class="bi {{ a[1] }}" aria-hidden="true"></i><span class="nf-aba-txt"><b class="nf-aba-rot">{{ ('master.notificacoes.aba.' ~ a[0])|trans }}{% if a[0] in ['rec', 'nl'] %}<span class="nf-aba-n" data-nf-n hidden></span>{% endif %}</b><span class="nf-aba-sub">{{ ('master.notificacoes.aba.' ~ a[0] ~ '_sub')|trans }}</span></span></button>
+            {% endfor %}
+        </div>
+        <div class="nf-vazio" data-nf-vazio hidden><i class="bi bi-inbox" aria-hidden="true"></i>{{ 'master.notificacoes.vazio'|trans }}</div>
+        <div class="nf-msg" data-nf-msg hidden></div>
+        <div class="nf-lista" data-nf-lista aria-busy="true"></div>
+    </div>
+
+    <div class="nf-ver" data-nf-ver hidden>
+        <div class="nf-ver-fundo" data-nf-fechar></div>
+        <div class="nf-ver-centro">
+            <div class="nf-ver-janela" role="dialog" aria-modal="true" aria-labelledby="nf-ver-ass">
+                <div class="nf-ver-topo">
+                    <button type="button" class="nf-ico nf-ico-redondo nf-ver-btn" title="{{ 'master.notificacoes.voltar'|trans }}" aria-label="{{ 'master.notificacoes.voltar'|trans }}" data-nf-fechar><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
+                    <button type="button" class="nf-ico nf-ico-redondo nf-ver-btn" title="{{ 'master.notificacoes.arquivar'|trans }}" aria-label="{{ 'master.notificacoes.arquivar'|trans }}" data-nf-arq-um><i class="bi bi-archive" aria-hidden="true"></i></button>
+                    <button type="button" class="nf-ico nf-ico-redondo nf-ver-btn nf-ver-estrela" title="{{ 'master.notificacoes.estrela'|trans }}" aria-label="{{ 'master.notificacoes.estrela'|trans }}" data-nf-est-um><i class="bi bi-star" data-nf-est-um-ic aria-hidden="true"></i></button>
+                    <span class="nf-espaco"></span>
+                    <span class="nf-ver-em" data-nf-ver-em></span>
+                </div>
+                <div class="nf-ver-corpo">
+                    <div class="nf-ver-cab"><b class="nf-ver-ass" id="nf-ver-ass" data-nf-ver-ass></b><span class="nf-ver-tag" data-nf-ver-tag></span></div>
+                    <div class="nf-ver-de">
+                        <span class="nf-ver-ini" data-nf-ver-ini></span>
+                        <span class="nf-ver-quem">
+                            <b class="nf-ver-nome" data-nf-ver-de></b>
+                            <span class="nf-ver-para">{{ 'master.notificacoes.para'|trans({papel: 'termos.master'|trans}) }}</span>
+                            <div class="nf-ver-txt" data-nf-ver-txt></div>
+                            {# Alerta de disparo alto (decisão do dono no #185): leva à seção Indicações, onde o Master pausa a pessoa. #}
+                            <a class="nf-ver-ir" href="{{ path('master_painel') }}#aba=painel&amp;sec=ind" data-nf-ir-ind hidden><i class="bi bi-share" aria-hidden="true"></i>{{ 'master.notificacoes.abrir_indicacoes'|trans }}</a>
+                        </span>
+                    </div>
+                </div>
+                <div class="nf-hist" data-nf-hist hidden></div>
+                <div class="nf-resp" data-nf-resp hidden>
+                    <div class="nf-resp-cab"><i class="bi bi-reply" aria-hidden="true"></i><span data-nf-resp-para></span></div>
+                    <textarea rows="4" maxlength="5000" class="nf-resp-txt" aria-label="{{ 'master.notificacoes.resposta'|trans }}" data-nf-resp-txt></textarea>
+                    <div class="nf-resp-rodape">
+                        <button type="button" class="nf-enviar" data-nf-enviar><i class="bi bi-send" aria-hidden="true"></i>{{ 'master.notificacoes.enviar'|trans }}</button>
+                        <span class="nf-resp-msg" data-nf-resp-msg hidden></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{{ asset('js/master/notificacoes.js') }}"></script>

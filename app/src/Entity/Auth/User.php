@@ -3,7 +3,6 @@
 namespace App\Entity\Auth;
 
 use App\Auth\Enum\StatusOab;
-use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Repository\UserRepository;
 use App\Shared\Contract\Auditavel;
@@ -40,9 +39,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
 
     #[ORM\Column(type: 'string', length: 64, nullable: true)]
     private ?string $invitationToken = null;
-
-    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
-    private ?JornadaColaborador $jornadaColaborador = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?UserProfile $profile = null;
@@ -215,20 +211,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     public function setInvitationToken(?string $token): static
     {
         $this->invitationToken = $token;
-        return $this;
-    }
-
-    public function getJornadaColaborador(): ?JornadaColaborador
-    {
-        return $this->jornadaColaborador;
-    }
-
-    public function setJornadaColaborador(?JornadaColaborador $jornadaColaborador): static
-    {
-        if ($jornadaColaborador !== null && $jornadaColaborador->getUser() !== $this) {
-            $jornadaColaborador->setUser($this);
-        }
-        $this->jornadaColaborador = $jornadaColaborador;
         return $this;
     }
 

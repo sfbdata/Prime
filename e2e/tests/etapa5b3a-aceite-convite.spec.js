@@ -172,6 +172,7 @@ test.describe('Etapa 5b.3a — Plataforma: criar conta com OAB', () => {
 
         await page.fill('input[name="full_name"]', 'Advogado Teste Plataforma');
         await page.fill('input[name="senha"]', 'Senha@1234567');
+        await page.selectOption('select[name="genero"]', 'masculino');
         await page.fill('input[name="oab_numero"]', '987654');
         await page.fill('input[name="oab_uf"]', 'RJ');
         await page.click('button[type="submit"]');
@@ -193,6 +194,7 @@ test.describe('Etapa 5b.3a — Escritório: criar conta sem OAB', () => {
 
         await page.fill('input[name="full_name"]', 'Colaborador Teste Escritório');
         await page.fill('input[name="senha"]', 'Senha@1234567');
+        await page.selectOption('select[name="genero"]', 'feminino');
         await page.click('button[type="submit"]');
 
         await expect(page).toHaveURL(/\/login/);

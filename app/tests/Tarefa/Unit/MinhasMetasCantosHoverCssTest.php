@@ -12,10 +12,8 @@ use PHPUnit\Framework\TestCase;
  * E5 da frente de fidelidade (`docs/specs/fidelidade-designer-1310.md` §9): Minhas Metas contra
  * `04 - Minhas Metas 1.0.dc.html` (pacote do Claude Designer de 13/10).
  *
- * - Cantos: cartões, KPIs, abas, campos e botões com 4px; abas internas e status com 3px; o trilho e o
- *   preenchimento de "Seu andamento" com 4px. O que só o BlueJus tem (alternância cartões/lista e a
- *   pílula de prioridade) segue os irmãos mais próximos — o desenho é omisso e o README do pacote manda
- *   cantos de no máximo 4px.
+ * - Cantos: cartões, abas, campos e botões com 4px; KPIs (desenho de 22/10), abas internas e status com 3px; o
+ *   trilho e o preenchimento de "Seu andamento" com 4px.
  * - Hover da linha (dc L17-18): fundo #3b8fc2, faixa interna 4px #1f6f9c, sombra 0 4px 12px, e todo o
  *   conteúdo da linha em branco, sem fundo nem borda própria.
  * - Número da meta antes do título (dc L86): #0a6fa0, 10px de respiro.
@@ -50,15 +48,12 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
     /** @return iterable<string, array{string, string}> */
     public static function raios(): iterable
     {
-        yield 'KPI (dc L54)' => ['.mm-kpi', '4px'];
+        yield 'KPI (dc 22/10 L64)' => ['.mm-kpi', '3px'];
         yield 'faixa das abas (dc L68)' => ['.mm-abas', '4px'];
         yield 'aba (dc L70)' => ['.mm-aba', '3px'];
         yield 'contagem da aba' => ['.mm-aba-badge', '3px'];
-        yield 'alternância cartões/lista (só BlueJus, segue a faixa das abas)' => ['.mm-modos', '4px'];
-        yield 'botão da alternância (só BlueJus, segue a aba)' => ['.mm-modo', '3px'];
         yield 'cartão dos grupos (dc L81)' => ['.mm-cartao', '4px'];
         yield 'status da meta (dc L93)' => ['.mm-pilula', '3px'];
-        yield 'prioridade (só BlueJus, segue o status)' => ['.mm-prioridade', '3px'];
         yield 'marcador de acompanhamento (dc L96)' => ['.mm-marcador', '4px'];
         yield 'ícone de ação (dc L97)' => ['.mm-acao-icone', '4px'];
         yield 'trilho de Seu andamento (dc L108)' => ['.mm-progresso-barra', '4px'];
@@ -79,8 +74,8 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         $regra = $this->regras('.mm-meta:hover');
 
         self::assertMatchesRegularExpression('/background:\s*var\(--mm-linha-hover-bg\)/', $regra);
-        self::assertMatchesRegularExpression('/border-left-color:\s*var\(--mm-linha-hover-barra\)/', $regra);
-        self::assertStringContainsString('0 4px 12px rgba(10,111,160,.16)', $regra);
+        self::assertStringContainsString('box-shadow: inset 4px 0 0 var(--mm-linha-hover-barra), 0 4px 12px rgba(10,111,160,.16);', $regra, 'faixa e sombra na mesma declaração');
+        self::assertStringNotContainsString('border-left', $regra);
         self::assertMatchesRegularExpression('/z-index:\s*1;/', $regra);
         self::assertMatchesRegularExpression('/--mm-linha-hover-bg:\s*#3b8fc2;/', $this->css());
         self::assertMatchesRegularExpression('/--mm-linha-hover-barra:\s*#1f6f9c;/', $this->css());
@@ -94,7 +89,7 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         self::assertMatchesRegularExpression('/color:\s*#fff/', $regra);
         self::assertMatchesRegularExpression('/background:\s*transparent/', $regra);
         self::assertMatchesRegularExpression('/border-color:\s*transparent/', $regra);
-        foreach (['.mm-meta:hover .mm-meta-lado *', '.mm-meta:hover .mm-meta-acoes *'] as $seletor) {
+        foreach (['.mm-meta:hover .mm-meta-lado *', '.mm-meta:hover > .mm-marcador', '.mm-meta:hover > .mm-marcador *'] as $seletor) {
             self::assertSame($regra, $this->regras($seletor), $seletor . ' vai na mesma regra');
         }
     }
@@ -109,25 +104,28 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         self::assertMatchesRegularExpression('/margin-right:\s*10px;/', $regra);
     }
 
-    #[TestDox('E5b: linha com faixa de 4px; atrasada com fundo rosado #fdf3f3 (dc L84, FUNDO.atr); o hover continua vencendo')]
+    #[TestDox('Desenho de 22/10 (dc L87): faixa de 4px em sombra interna, sem border-left; atrasada também branca; o hover continua vencendo')]
     public function testLinhaAtrasadaEFaixa(): void
     {
-        self::assertMatchesRegularExpression('/border-left:\s*4px solid transparent;/', $this->regras('.mm-meta'));
-        self::assertMatchesRegularExpression('/background:\s*var\(--mm-linha-atrasada-bg\)/', $this->regras('.mm-meta.tom-danger'));
-        self::assertMatchesRegularExpression('/--mm-linha-atrasada-bg:\s*#fdf3f3;/', $this->css());
+        $linha = $this->regras('.mm-meta');
+        self::assertStringNotContainsString('border-left', $linha);
+        self::assertMatchesRegularExpression('/padding:\s*18px 22px;/', $linha);
+        self::assertMatchesRegularExpression('/transition:\s*background \.15s, box-shadow \.15s;/', $linha);
+        self::assertStringNotContainsString('background', $this->regras('.mm-meta.tom-danger'), 'a atrasada não tem fundo próprio');
+        self::assertStringNotContainsString('--mm-linha-atrasada-bg', $this->css());
         self::assertGreaterThan(strpos($this->css(), '.mm-meta.tom-danger'), strpos($this->css(), '.mm-meta:hover {'), 'hover depois dos tons');
     }
 
-    #[TestDox('E5b: título da meta em caixa alta, 14.5px negrito, uma linha com reticências (dc L86); concluída segue mais clara e riscada (R238)')]
+    #[TestDox('Título da meta em caixa alta, 14.5px negrito, uma linha com reticências (dc L89); a concluída não é riscada nem clareada')]
     public function testTituloEmCaixaAlta(): void
     {
         $regra = $this->regras('.mm-meta-titulo');
         foreach (['/text-transform:\s*uppercase;/', '/font-size:\s*14\.5px;/', '/font-weight:\s*700;/', '/white-space:\s*nowrap;/', '/text-overflow:\s*ellipsis;/', '/overflow:\s*hidden;/'] as $re) {
             self::assertMatchesRegularExpression($re, $regra);
         }
-        $concluida = $this->regras('.mm-meta.tom-ok .mm-meta-titulo');
-        self::assertMatchesRegularExpression('/color:\s*var\(--mm-muted\)/', $concluida);
-        self::assertMatchesRegularExpression('/text-decoration:\s*line-through/', $concluida);
+        self::assertStringNotContainsString('.mm-meta.tom-ok .mm-meta-titulo', $this->css());
+        self::assertStringNotContainsString('line-through', $this->css());
+        self::assertStringNotContainsString('a.mm-meta-titulo:hover', $this->css(), 'sem sublinhado no hover');
     }
 
     #[TestDox('E5b: pílula de status sem borda (dc L93) e com os tons novos (Sem prazo cinza)')]
@@ -154,28 +152,27 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         $css = $this->css();
         self::assertMatchesRegularExpression('/\.mm-trilho\s*\{[^}]*position:\s*sticky;[^}]*top:\s*calc\(var\(--header-height\) \+ var\(--subnav-height\) \+ 16px\)/', $css);
         self::assertMatchesRegularExpression('/overflow:\s*visible;/', $this->regras('body.layout-fixed .app-main:has(.mm-page)'), 'sem isto o main do AdminLTE prende o sticky');
-        self::assertMatchesRegularExpression('/border-bottom:\s*3px solid var\(--mm-faixa-andamento\)/', $this->regras('.mm-cartao.mm-trilho-andamento'));
-        self::assertMatchesRegularExpression('/border-bottom:\s*3px solid var\(--mm-faixa-atencao\)/', $this->regras('.mm-cartao.mm-trilho-atencao'));
+        self::assertMatchesRegularExpression('/border-bottom:\s*3px solid var\(--mm-faixa-andamento\)/', $this->regras('.mm-trilho > .mm-cartao.mm-trilho-andamento'));
+        self::assertMatchesRegularExpression('/border-bottom:\s*3px solid var\(--mm-faixa-atencao\)/', $this->regras('.mm-trilho > .mm-cartao.mm-trilho-atencao'));
     }
 
-    #[TestDox('E5b: indicador com halo, ícone 46px raio 12 e número 46px; vermelho só com atrasadas (dc L54-61)')]
+    #[TestDox('Indicador do desenho de 22/10 (dc L64) sem halo, ícone nem faixa; número 28px, vermelho só com atrasadas')]
     public function testIndicadores(): void
     {
-        self::assertMatchesRegularExpression('/width:\s*130px;/', $this->regras('.mm-kpi-halo'));
-        $icone = $this->regras('.mm-kpi-icone');
-        self::assertMatchesRegularExpression('/width:\s*46px;/', $icone);
-        self::assertMatchesRegularExpression('/border-radius:\s*12px;/', $icone);
-        self::assertMatchesRegularExpression('/font-size:\s*46px;/', $this->regras('.mm-kpi-valor'));
+        foreach (['.mm-kpi-halo', '.mm-kpi-icone', '.mm-kpi-faixa', '.mm-kpi.is-ativo'] as $saiu) {
+            self::assertStringNotContainsString($saiu, $this->css());
+        }
+        self::assertMatchesRegularExpression('/font-size:\s*28px;/', $this->regras('.mm-kpi-valor'));
         self::assertMatchesRegularExpression('/color:\s*var\(--mm-danger-text\)/', $this->regras('.mm-kpi-valor.is-alerta'));
-        self::assertMatchesRegularExpression('/height:\s*3px;/', $this->regras('.mm-kpi-faixa'));
     }
 
-    #[TestDox('P6 / R129: traço VERMELHO discreto sob o título (34×3px, geometria do desenho, cor da especificação)')]
-    public function testTracoVermelhoSobOTitulo(): void
+    #[TestDox('Traço de 34×3px sob o título: o vermelho do P6 segue no .mm-titulo geral (Equipe); em Minhas Metas é o azul do desenho (dono, 22/10)')]
+    public function testTracoSobOTitulo(): void
     {
         $traco = $this->regras('.mm-page .mm-titulo::after');
         self::assertMatchesRegularExpression('/width:\s*34px;/', $traco);
         self::assertMatchesRegularExpression('/height:\s*3px;/', $traco);
         self::assertMatchesRegularExpression('/background:\s*var\(--mm-danger-dot\)/', $traco);
+        self::assertMatchesRegularExpression('/background:\s*var\(--mm-num\)/', $this->regras('.mm-page .mm-cabecalho .mm-titulo::after'));
     }
 }

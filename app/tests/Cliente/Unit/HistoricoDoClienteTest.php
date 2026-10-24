@@ -66,6 +66,30 @@ final class HistoricoDoClienteTest extends TestCase
         self::assertSame([], $this->gravadas);
     }
 
+    #[TestDox('foto (cabeçalho da pasta): "<autor> alterou foto" e "<autor> removeu foto", sem o nome do arquivo')]
+    public function testFoto(): void
+    {
+        [$sut, $cliente, $tenant, $autor] = $this->montar();
+
+        $sut->fotoAlterada($cliente, $autor, $tenant);
+        $sut->fotoRemovida($cliente, $autor, $tenant);
+
+        self::assertSame(['Ana Souza alterou foto', 'Ana Souza removeu foto'], array_map(static fn (ClienteHistorico $h): string => $h->getTexto(), $this->gravadas));
+    }
+
+    #[TestDox('foto de cliente de outro escritório: recusa, nada é gravado')]
+    public function testFotoDeOutroEscritorio(): void
+    {
+        [$sut, $cliente, , $autor] = $this->montar();
+
+        $this->expectException(\DomainException::class);
+        try {
+            $sut->fotoAlterada($cliente, $autor, self::tenant(2));
+        } finally {
+            self::assertSame([], $this->gravadas);
+        }
+    }
+
     #[TestDox('criou: "<autor> criou o cadastro"; sem nome, "Usuário"')]
     public function testCriou(): void
     {

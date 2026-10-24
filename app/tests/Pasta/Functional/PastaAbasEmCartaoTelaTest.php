@@ -86,9 +86,9 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Processos vinculados', trim($cartao->filter('.ps-processos > .ps-card-cab--painel > h2')->text()));
         self::assertSame('2', trim($cartao->filter('.ps-card-cab--painel > .ps-contagem')->text()));
         self::assertCount(1, $cartao->filter('.ps-card-cab--painel > a.ps-btn--caps[href*="peticionar"]'), 'Peticionar continua');
-        self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalVincularProcesso"]:not([data-vincular-modo])'));
+        self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-vp-abrir][aria-controls="modalVincularProcesso"]:not([data-vincular-modo])'));
         // P4f (N:1710): "Vincular apensado" logo depois, no mesmo modal em modo apenso.
-        self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalVincularProcesso"] + button[data-vincular-modo="apenso"]'));
+        self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-vp-abrir][aria-controls="modalVincularProcesso"] + button[data-vincular-modo="apenso"]'));
 
         self::assertCount(2, $cartao->filter('.ps-processos > .ps-registro > .ps-dia + article.ps-processo'), 'cada processo vem logo depois da sua pílula');
         $pilulas = $cartao->filter('.ps-registro > .ps-dia > .ps-dia-pilula')->each(static fn ($n) => trim($n->text()));

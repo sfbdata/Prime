@@ -143,8 +143,8 @@
     function vazioDaLista() {
         const v = el('div', 'petic-tl-vazio');
         v.appendChild(icone('bi-folder2-open'));
-        v.appendChild(document.createTextNode('Nenhum documento na pasta.'));
-        v.appendChild(el('span', 'petic-tl-vazio-dica', 'Use "Adicionar peça" ou arraste arquivos para cá.'));
+        v.appendChild(document.createTextNode(BJ_T.t('pasta_peticionar.js.vazio')));
+        v.appendChild(el('span', 'petic-tl-vazio-dica', BJ_T.t('pasta_peticionar.js.vazio_dica')));
         return v;
     }
 
@@ -206,8 +206,8 @@
         base.appendChild(el('span', 'petic-tl-time', hora));
         const mais = el('button', 'petic-doc-mais');
         mais.type = 'button';
-        mais.title = 'Mais opções';
-        mais.setAttribute('aria-label', 'Mais opções');
+        mais.title = BJ_T.t('pasta_peticionar.js.mais_opcoes');
+        mais.setAttribute('aria-label', BJ_T.t('pasta_peticionar.js.mais_opcoes'));
         mais.setAttribute('aria-haspopup', 'menu');
         mais.appendChild(icone('bi-three-dots-vertical'));
         card.appendChild(topo);
@@ -247,12 +247,12 @@
 
     function abrirMenu(row, x, y) {
         fecharMenu();
-        const itens = [['Abrir', 'bi-eye', function () { selecionar(row); }]];
-        if (cfg.podeEditar) itens.push(['Renomear', 'bi-input-cursor-text', function () { renomear(row); }]);
-        itens.push(['Baixar', 'bi-download', function () { baixar(row); }]);
+        const itens = [[BJ_T.t('pasta_peticionar.js.abrir'), 'bi-eye', function () { selecionar(row); }]];
+        if (cfg.podeEditar) itens.push([BJ_T.t('pasta_peticionar.js.renomear'), 'bi-input-cursor-text', function () { renomear(row); }]);
+        itens.push([BJ_T.t('pasta_peticionar.js.baixar'), 'bi-download', function () { baixar(row); }]);
         if (cfg.podeEditar) {
-            itens.push(['Classificar: ' + rotuloDaCategoria(row), 'bi-tag', function () { classificar(row); }]);
-            itens.push(['Excluir', 'bi-trash3', function () { excluir(row); }, true]);
+            itens.push([BJ_T.t('pasta_peticionar.js.classificar', { categoria: rotuloDaCategoria(row) }), 'bi-tag', function () { classificar(row); }]);
+            itens.push([BJ_T.t('pasta_peticionar.js.excluir'), 'bi-trash3', function () { excluir(row); }, true]);
         }
 
         const fundo = el('div', 'petic-ctx-fundo');
@@ -326,7 +326,7 @@
             descricao: row.dataset.descricao || '',
             numero:    row.dataset.numero || '',
         }).then(function (res) {
-            if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && (res.j.erro || res.j.mensagem)) || 'Não foi possível salvar.');
+            if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && (res.j.erro || res.j.mensagem)) || BJ_T.t('pasta_peticionar.js.erro_salvar_nome'));
             return res.j.documento;
         });
     }
@@ -374,7 +374,7 @@
         input.type = 'text';
         input.maxLength = 255;
         input.value = original;
-        input.setAttribute('aria-label', 'Novo nome');
+        input.setAttribute('aria-label', BJ_T.t('pasta_peticionar.js.novo_nome'));
         alvo.hidden = true;
         alvo.insertAdjacentElement('afterend', input);
         renomeando = { row: row, alvo: alvo };
@@ -411,7 +411,7 @@
         if (base === '') return;
         editarDocumento(row, { nomeBase: base }).then(function (doc) {
             aplicarNome(row, nomeExibido(row, doc.nome));
-        }).catch(function (err) { avisar(err.message || 'Erro de comunicação.', true); });
+        }).catch(function (err) { avisar(err.message || BJ_T.t('pasta_peticionar.js.erro_comunicacao_curto'), true); });
     }
 
     // Classificar (L161): cada clique passa à próxima categoria, como no desenho; a lista é a que
@@ -422,8 +422,8 @@
         const proxima = lista_[(lista_.indexOf(row.dataset.categoria) + 1) % lista_.length];
         editarDocumento(row, { categoria: proxima }).then(function (doc) {
             aplicarCategoria(row, doc.categoria || proxima);
-            avisar('Classificado como ' + rotuloDaCategoria(row));
-        }).catch(function (err) { avisar(err.message || 'Erro de comunicação.', true); });
+            avisar(BJ_T.t('pasta_peticionar.js.classificado', { categoria: rotuloDaCategoria(row) }));
+        }).catch(function (err) { avisar(err.message || BJ_T.t('pasta_peticionar.js.erro_comunicacao_curto'), true); });
     }
 
     function trocarClasse(alvo, mapa, nova, padrao) {
@@ -451,14 +451,14 @@
 
     function excluir(row) {
         const nome = row.dataset.titulo || '';
-        const pergunta = 'Excluir a peça "' + nome + '"? Ela vai para a lixeira e pode ser restaurada na aba Documentos da pasta.';
+        const pergunta = BJ_T.t('pasta_peticionar.js.excluir_pergunta', { nome: nome });
         confirmar(pergunta).then(function (sim) {
             if (!sim) return;
             postJson(cfg.urlExcluir, { _token: cfg.csrfLote, documentos: [Number(row.dataset.docId)], secoes: [] }).then(function (res) {
-                if (!res.ok || !res.j.ok) throw new Error((res.j && (res.j.erro || res.j.mensagem)) || 'Não foi possível excluir.');
+                if (!res.ok || !res.j.ok) throw new Error((res.j && (res.j.erro || res.j.mensagem)) || BJ_T.t('pasta_peticionar.js.erro_excluir'));
                 removerLinha(row);
-                avisar('Peça excluída');
-            }).catch(function (err) { avisar(err.message || 'Erro de comunicação.', true); });
+                avisar(BJ_T.t('pasta_peticionar.js.peca_excluida'));
+            }).catch(function (err) { avisar(err.message || BJ_T.t('pasta_peticionar.js.erro_comunicacao_curto'), true); });
         });
     }
 
@@ -514,7 +514,7 @@
         barra.icone.className = 'bi petic-selbar-icone ' + (icRow ? Array.prototype.filter.call(icRow.classList, function (c) { return c.indexOf('bi-') === 0; }).join(' ') : '');
         barra.icone.style.color = icRow ? icRow.style.color : '';
         if (!(renomeando && renomeando.alvo === barra.nome)) barra.nome.textContent = row.dataset.titulo || '';
-        barra.sub.textContent = (texto ? 'Texto' : (row.dataset.tamanhoTexto || '')) + ' · ' + (row.dataset.carregadoEm || '');
+        barra.sub.textContent = (texto ? BJ_T.t('pasta_peticionar.js.texto') : (row.dataset.tamanhoTexto || '')) + ' · ' + (row.dataset.carregadoEm || '');
     }
 
     if (barra) {
@@ -557,7 +557,7 @@
                 if (!aviso) {
                     aviso = el('div', 'petic-tl-vazio petic-tl-vazio--busca');
                     aviso.appendChild(icone('bi-folder2-open'));
-                    aviso.appendChild(document.createTextNode('Nenhum documento encontrado.'));
+                    aviso.appendChild(document.createTextNode(BJ_T.t('pasta_peticionar.js.nenhum_encontrado')));
                     tl.appendChild(aviso);
                 }
             } else if (aviso) {
@@ -589,16 +589,16 @@
 
     async function enviarArquivos(arquivos) {
         if (!arquivos.length) return;
-        if (enviando) { avisar('Aguarde o envio em andamento.'); return; }
+        if (enviando) { avisar(BJ_T.t('pasta_peticionar.js.aguarde_envio')); return; }
         const regras = regrasDoModal();
         const recusados = arquivos.filter(function (f) { return regras.aceitos.length && regras.aceitos.indexOf(extensaoDe(f.name)) === -1; });
         const validos = arquivos.filter(function (f) { return recusados.indexOf(f) === -1; });
-        const erros = recusados.map(function (f) { return f.name + ': formato não aceito.'; });
+        const erros = recusados.map(function (f) { return BJ_T.t('pasta_peticionar.js.formato_nao_aceito', { arquivo: f.name }); });
 
         enviando = true;
         lista.classList.add('petic-enviando');
         const novos = [];
-        if (validos.length) avisar('Enviando ' + validos.length + ' arquivo(s)...');
+        if (validos.length) avisar(BJ_T.t('pasta_peticionar.js.enviando', { total: validos.length }));
         for (const f of validos) {
             const fd = new FormData();
             fd.append('arquivo', f, f.name);
@@ -611,10 +611,10 @@
                 // Com o X-Requested-With a recusa da pasta excluída vem em JSON ({mensagem}), não em 302.
                 const r = await fetch(cfg.urlUpload, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const j = await r.json().catch(function () { return {}; });
-                if (!j.success || !j.documento) { erros.push(f.name + ': ' + (j.error || j.mensagem || 'erro ao enviar.')); continue; }
+                if (!j.success || !j.documento) { erros.push(BJ_T.t('pasta_peticionar.js.arquivo_erro', { arquivo: f.name, erro: j.error || j.mensagem || BJ_T.t('pasta_peticionar.js.erro_ao_enviar') })); continue; }
                 novos.push(inserirLinha(j.documento));
             } catch (err) {
-                erros.push(f.name + ': erro de comunicação.');
+                erros.push(BJ_T.t('pasta_peticionar.js.arquivo_sem_conexao', { arquivo: f.name }));
             }
         }
         enviando = false;
@@ -622,9 +622,9 @@
 
         if (novos.length) selecionar(novos[0]);
         if (erros.length) {
-            avisar((novos.length ? novos.length + ' peça(s) adicionada(s). ' : '') + erros.join(' '), true);
+            avisar((novos.length ? BJ_T.t('pasta_peticionar.js.adicionadas', { total: novos.length }) + '. ' : '') + erros.join(' '), true);
         } else if (novos.length) {
-            avisar(novos.length + ' peça(s) adicionada(s)');
+            avisar(BJ_T.t('pasta_peticionar.js.adicionadas', { total: novos.length }));
         }
     }
 

@@ -24,7 +24,7 @@
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalMoverParaLabel">
-                    <i class="bi bi-tags me-1"></i> Marcadores da pasta
+                    <i class="bi bi-tags me-1"></i> {{ 'comum.mover_marcador.titulo'|trans }}
                 </h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
@@ -42,9 +42,9 @@
                             <i class="bi bi-search text-muted" style="font-size:.8rem;"></i>
                         </span>
                         <input type="text" id="moverParaBusca" class="form-control border-start-0 ps-1"
-                               placeholder="Buscar marcador…" autocomplete="off">
+                               placeholder="{{ 'comum.mover_marcador.buscar'|trans }}" autocomplete="off">
                         <button type="button" class="btn btn-outline-secondary border-start-0" id="moverParaBuscaLimpar"
-                                style="display:none;" title="Limpar busca">
+                                style="display:none;" title="{{ 'comum.mover_marcador.limpar_busca'|trans }}">
                             <i class="bi bi-x" style="font-size:.8rem;"></i>
                         </button>
                     </div>
@@ -56,7 +56,7 @@
                 {# Estado vazio #}
                 <div id="moverParaVazio" class="text-muted small text-center py-4 px-3" style="display:none;">
                     <i class="bi bi-tags d-block mb-1" style="font-size:1.6rem;opacity:.3;"></i>
-                    <span id="moverParaVazioTexto">Nenhum marcador criado ainda.</span>
+                    <span id="moverParaVazioTexto">{{ 'comum.mover_marcador.nenhum_criado'|trans }}</span>
                 </div>
 
                 <div id="moverParaErro" class="text-danger small px-3 pt-2" style="display:none;"></div>
@@ -64,9 +64,9 @@
             <div class="modal-footer py-2 justify-content-between align-items-center">
                 <span class="text-muted small" id="moverParaContador" style="display:none;"></span>
                 <div class="d-flex gap-2 ms-auto">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
                     <button type="button" class="btn btn-primary btn-sm" id="btnSalvarMoverPara">
-                        <i class="bi bi-check-lg me-1"></i> Salvar
+                        <i class="bi bi-check-lg me-1"></i> {{ 'comum.salvar'|trans }}
                     </button>
                 </div>
             </div>
@@ -314,7 +314,7 @@
             contadorEl.style.display = 'none';
         } else {
             contadorEl.style.display = '';
-            contadorEl.innerHTML = '<i class="bi bi-check2-circle"></i> ' + n + ' selecionado' + (n !== 1 ? 's' : '');
+            contadorEl.innerHTML = '<i class="bi bi-check2-circle"></i> ' + escHtml(BJ_T.t(n !== 1 ? 'comum.js.mover_marcador.selecionados' : 'comum.js.mover_marcador.selecionado', { n: n }));
         }
     }
 
@@ -442,7 +442,7 @@
         if (totalVisiveis === 0 && !podeCriar) {
             vazioEl.style.display = '';
             document.getElementById('moverParaVazioTexto').textContent =
-                filtro ? 'Nenhum marcador encontrado para "' + digitado + '".' : 'Nenhum marcador criado ainda.';
+                filtro ? BJ_T.t('comum.js.mover_marcador.nenhum_encontrado', { busca: digitado }) : BJ_T.t('comum.js.mover_marcador.nenhum_criado');
         } else {
             vazioEl.style.display = 'none';
         }
@@ -454,7 +454,7 @@
         btn.className = 'mover-criar';
         btn.id = 'moverParaCriar';
         btn.innerHTML = '<i class="bi bi-plus-circle" aria-hidden="true"></i><span class="mover-criar-nome"></span>';
-        btn.querySelector('.mover-criar-nome').textContent = 'Criar marcador "' + nome + '"';
+        btn.querySelector('.mover-criar-nome').textContent = BJ_T.t('comum.js.mover_marcador.criar', { nome: nome });
         btn.addEventListener('click', function () { criarMarcador(nome, btn); });
 
         return btn;
@@ -478,13 +478,13 @@
         .then(function (r) {
             return r.text().then(function (txt) {
                 try { return { ok: r.ok, data: JSON.parse(txt) }; }
-                catch (_) { return { ok: false, data: { erro: 'Resposta inválida do servidor.' } }; }
+                catch (_) { return { ok: false, data: { erro: BJ_T.t('comum.js.mover_marcador.resposta_invalida') } }; }
             });
         })
         .then(function (res) {
             btn.disabled = false;
             if (!res.ok) {
-                erroEl.textContent   = res.data.erro || 'Não foi possível criar o marcador.';
+                erroEl.textContent   = res.data.erro || BJ_T.t('comum.js.mover_marcador.erro_criar');
                 erroEl.style.display = '';
                 return;
             }
@@ -499,7 +499,7 @@
         })
         .catch(function (err) {
             btn.disabled = false;
-            erroEl.textContent   = 'Erro de comunicação.';
+            erroEl.textContent   = BJ_T.t('comum.js.mover_marcador.erro_comunicacao');
             erroEl.style.display = '';
             console.error('[mover-para] erro ao criar marcador:', err);
         });
@@ -568,13 +568,13 @@
         .then(function (r) {
             return r.text().then(function (txt) {
                 try { return { ok: r.ok, data: JSON.parse(txt) }; }
-                catch (_) { return { ok: false, data: { erro: 'Resposta inválida do servidor.' } }; }
+                catch (_) { return { ok: false, data: { erro: BJ_T.t('comum.js.mover_marcador.resposta_invalida') } }; }
             });
         })
         .then(function (res) {
             btn.disabled = false;
             if (!res.ok) {
-                erroEl.textContent   = res.data.erro || res.data.mensagem || 'Erro ao salvar.';
+                erroEl.textContent   = res.data.erro || res.data.mensagem || BJ_T.t('comum.js.mover_marcador.erro_salvar');
                 erroEl.style.display = '';
                 return;
             }
@@ -592,7 +592,7 @@
         })
         .catch(function (err) {
             btn.disabled = false;
-            erroEl.textContent   = 'Erro de comunicação.';
+            erroEl.textContent   = BJ_T.t('comum.js.mover_marcador.erro_comunicacao');
             erroEl.style.display = '';
             console.error('[mover-para] erro inesperado:', err);
         });

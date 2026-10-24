@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Service;
 
+use App\Entity\Tenant\Tenant;
+use App\Tenant\Enum\PoderSemPrazo;
+use App\Tenant\Service\PoderDeEdicaoSemPrazo;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
@@ -19,9 +22,18 @@ use App\TrabalhoExterno\Enum\Visibilidade;
  *
  * O navegador recebe o resultado (botões, abas, permissões) só para desenhar; **toda ação é
  * conferida de novo aqui** antes de executar.
+ *
+ * A única pergunta que sai do `Contexto` é a da edição sem prazo (spec `edicao-sem-prazo-master-primario.md`,
+ * item 8): o primário do escritório dono da demanda, com a opção ligada, apaga qualquer mensagem. Sem o serviço
+ * (testes que montam a política à mão), ninguém tem esse poder e vale a regra de sempre.
  */
 final class PoliticaDaDemanda
 {
+    public function __construct(
+        private readonly ?PoderDeEdicaoSemPrazo $poderSemPrazo = null,
+    ) {
+    }
+
     /** Marcos de antes do aceite que o Convidado pode ver (só o marco e a data). */
     private const MARCOS_ADMINISTRATIVOS = ['nova', 'aceita', 'execucao'];
 
@@ -84,7 +96,7 @@ final class PoliticaDaDemanda
      */
     public function botoes(Contexto $ctx, DemandaExterna $d): array
     {
-        if ($ctx->previa) {
+        if ($ctx->somenteLeitura()) {
             return [];
         }
         $s = $d->getSituacao();
@@ -253,7 +265,7 @@ final class PoliticaDaDemanda
 
     public function podeConversar(Contexto $ctx, DemandaExterna $d): bool
     {
-        if ($ctx->previa || !$this->podeVer($ctx, $d) || $d->getSituacao() === Situacao::Rascunho) {
+        if ($ctx->somenteLeitura() || !$this->podeVer($ctx, $d) || $d->getSituacao() === Situacao::Rascunho) {
             return false;
         }
 
@@ -272,7 +284,7 @@ final class PoliticaDaDemanda
     /** Checklist e "Registrar andamento": só em execução, pela Central ou pelo Convidado com "andamento". */
     public function podeRegistrarAndamento(Contexto $ctx, DemandaExterna $d): bool
     {
-        return !$ctx->previa
+        return !$ctx->somenteLeitura()
             && $this->podeVer($ctx, $d)
             && $d->getSituacao() === Situacao::Execucao
             && ($ctx->ehInterno() || $this->convidadoPode($ctx, 'andamento'));
@@ -280,7 +292,7 @@ final class PoliticaDaDemanda
 
     public function podeAnexar(Contexto $ctx, DemandaExterna $d): bool
     {
-        return !$ctx->previa
+        return !$ctx->somenteLeitura()
             && $this->podeVer($ctx, $d)
             && $d->getSituacao() !== Situacao::Rascunho
             && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'enviar'));
@@ -346,11 +358,18 @@ final class PoliticaDaDemanda
 
     /**
      * "Apagar para todos" (spec VS 18.10.26 §3.4, desenho l.1233): o Master em qualquer mensagem; o
-     * autor nas próprias, até 60 min após o envio. Registro do sistema não se apaga.
+     * autor nas próprias, até 60 min após o envio; e, pela edição sem prazo, o primário do escritório dono
+     * da demanda (com a opção ligada). Registro do sistema não se apaga.
      */
     public function podeApagarMensagem(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): bool
     {
-        if ($ctx->previa || !$m->podeSerApagada()) {
+        return $this->apagaPelaRegraDeSempre($ctx, $m, $agora) || $this->seloDoApagar($ctx, $m, $agora) !== null;
+    }
+
+    /** A regra de antes da edição sem prazo: o Master do TE sempre; o autor até 60 min. */
+    public function apagaPelaRegraDeSempre(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): bool
+    {
+        if ($ctx->somenteLeitura() || !$m->podeSerApagada()) {
             return false;
         }
         if ($ctx->perfil === Perfil::Master) {
@@ -360,6 +379,35 @@ final class PoliticaDaDemanda
 
         return $m->getAutor()?->getId() === $ctx->usuario->getId()
             && $m->getEm() >= $agora->modify('-' . self::MINUTOS_PARA_O_AUTOR_APAGAR . ' minutes');
+    }
+
+    /**
+     * O selo "EXCLUSIVO DO PRIMÁRIO" quando só o poder sem prazo libera o apagar: o primário do escritório DONO
+     * da demanda (não o de quem lê), em mensagem de alguém da equipe do dono. O Master do TE já apaga pela regra de
+     * sempre, então não leva selo.
+     */
+    public function seloDoApagar(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): ?PoderSemPrazo
+    {
+        if ($this->poderSemPrazo === null || $ctx->somenteLeitura() || !$m->podeSerApagada() || $this->apagaPelaRegraDeSempre($ctx, $m, $agora)) {
+            return null;
+        }
+        $dono = $m->getDemanda()->getTenant();
+        $poder = $this->poderSemPrazo->de($ctx->usuario, $dono);
+
+        return $poder === PoderSemPrazo::Primario && $this->autorDaEquipeDoDono($m, $dono) ? $poder : null;
+    }
+
+    /**
+     * Decisão do dono (23/10): o primário só apaga mensagem de quem tem vínculo ativo no escritório dono. Ficam de
+     * fora a Central (Master e Equipe) e os convidados de outros escritórios.
+     */
+    private function autorDaEquipeDoDono(MensagemDemanda $m, Tenant $dono): bool
+    {
+        $autor = $m->getAutor();
+
+        return $autor !== null
+            && !in_array($m->getPerfilAutor(), [Perfil::Master, Perfil::Equipe], true)
+            && $this->poderSemPrazo?->temVinculoAtivo($autor, $dono) === true;
     }
 
     /**

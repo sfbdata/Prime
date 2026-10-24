@@ -653,11 +653,11 @@ final class VisualizadorDocumentoArquiteturaTest extends TestCase
     {
         yield 'pasta'   => ['templates/pasta/show.html.twig'];
         yield 'cliente' => ['templates/cliente/show.html.twig'];
-        yield 'tarefa'  => ['templates/tarefa/show.html.twig'];
+        // A página da meta não tem mais preview: o anexo antigo abre o arquivo em aba nova, como o anexo juntado (04B L161).
     }
 
     #[DataProvider('telasComPreview')]
-    #[TestDox('as telas de pasta, cliente e tarefa não têm mais cópia própria do preview — delegam ao módulo')]
+    #[TestDox('as telas de pasta e cliente não têm mais cópia própria do preview — delegam ao módulo')]
     public function testTelaNaoTemCopiaDoPreview(string $template): void
     {
         $twig = file_get_contents(self::raiz() . '/' . $template);

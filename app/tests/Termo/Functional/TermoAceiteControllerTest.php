@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Termo\Controller\TermoController;
 use App\Termo\Entity\AceiteTermo;
+use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\Repository\AceiteTermoRepository;
 use App\Termo\TermoVigente;
 use Doctrine\ORM\EntityManagerInterface;
@@ -109,6 +110,8 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('input[name="aceito"]');
+        // Sem ciência do cadastro a ratificar (D2b), a caixa continua só dos Termos.
+        self::assertSelectorTextSame('label.aceite-check', 'Li e aceito os Termos e Condições Gerais de Uso do BlueJus.');
     }
 
     #[TestDox('POST aceite com checkbox marcado registra o aceite e libera o acesso')]
@@ -128,6 +131,7 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
 
         $repo = static::getContainer()->get(AceiteTermoRepository::class);
         self::assertTrue($repo->existeAceiteVigente($user, TermoVigente::VERSAO));
+        self::assertSame(OrigemDoAceite::Reaceite, $repo->findOneBy(['user' => $user, 'versao' => TermoVigente::VERSAO])?->getOrigem());
     }
 
     #[TestDox('POST aceite sem marcar o checkbox volta para a tela de aceite')]

@@ -6,7 +6,7 @@
    promoção de sócio e as caixas marcadas e travadas (D5), sem campos de nome.
 #}
 
-{% block title %}Editar Perfil: {{ role.nomeExibido }}{% endblock %}
+{% block title %}{{ 'perfis.editar.titulo'|trans({nome: role.nomeExibido}) }}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/perfis.css') }}">
@@ -16,31 +16,31 @@
 {% set ehPrimario = role.isSystem %}
 <div class="pf-page">
     <div class="pf-cabecalho">
-        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>Editar Perfil: {{ role.nomeExibido }}
-            {%- if ehPrimario %}<span class="pf-selo-titulo pf-selo-primario">PRIMÁRIO</span>{% else %}<span class="pf-selo-titulo pf-selo-secundario">SECUNDÁRIO</span>{% endif -%}
+        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>{{ 'perfis.editar.titulo'|trans({nome: role.nomeExibido}) }}
+            {%- if ehPrimario %}<span class="pf-selo-titulo pf-selo-primario">{{ 'termos.primario'|trans|upper }}</span>{% else %}<span class="pf-selo-titulo pf-selo-secundario">{{ 'termos.secundario'|trans|upper }}</span>{% endif -%}
             <span class="pf-titulo-barra"></span></h1>
-        <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-arrow-left"></i>Voltar</a>
+        <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-arrow-left"></i>{{ 'perfis.voltar'|trans }}</a>
     </div>
 
     {% if not ehPrimario %}
-        {% include 'tenant_role/_form.html.twig' with {salvarRotulo: 'Salvar alterações'} %}
+        {% include 'tenant_role/_form.html.twig' with {salvarRotulo: 'perfis.editar.salvar'|trans} %}
     {% else %}
         <div class="pf-card pf-card-primarios" data-pf-primarios>
-            <div class="pf-primarios-cab"><i class="bi bi-people-fill"></i><b>Primários do escritório</b><span>{{ primarios|length }} primário(s)</span></div>
+            <div class="pf-primarios-cab"><i class="bi bi-people-fill"></i><b>{{ 'perfis.editar.primarios_titulo'|trans }}</b><span>{{ 'perfis.editar.primarios_contagem'|trans({n: primarios|length}) }}</span></div>
             {% for p in primarios %}
                 <div class="pf-primario" data-pf-primario>
                     <span class="pf-avatar {{ p.titular ? 'pf-avatar-titular' : 'pf-avatar-socio' }}">{{ p.iniciais }}</span>
-                    <span class="pf-primario-quem"><b>{{ p.nome }}</b><span>{{ p.email }}{% if p.oab %} · OAB {{ p.oab }}{% endif %}</span></span>
+                    <span class="pf-primario-quem"><b>{{ p.nome }}</b><span>{{ p.email }}{% if p.oab %} · {{ 'perfis.editar.oab'|trans({numero: p.oab}) }}{% endif %}</span></span>
                     {% if p.titular %}
-                        <span class="pf-tag pf-tag-titular">PRIMÁRIO TITULAR</span>
-                        <i class="bi bi-lock-fill pf-cadeado-titular" title="O primário titular (quem abriu a conta) não pode ser excluído"></i>
+                        <span class="pf-tag pf-tag-titular">{{ 'perfis.editar.tag_titular'|trans({papel: 'termos.primario'|trans})|upper }}</span>
+                        <i class="bi bi-lock-fill pf-cadeado-titular" title="{{ 'perfis.editar.titular_dica'|trans }}"></i>
                     {% else %}
-                        <span class="pf-tag pf-tag-socio">PRIMÁRIO SÓCIO</span>
+                        <span class="pf-tag pf-tag-socio">{{ 'perfis.editar.tag_socio'|trans({papel: 'termos.primario'|trans})|upper }}</span>
                         {% if podeGerirPrimarios and not p.protegido %}
                         <form method="post" action="{{ path('app_tenant_role_primario_remover', {tenantId: tenantId, userId: p.userId}) }}" class="d-inline" data-pf-form-remover-primario>
                             <input type="hidden" name="_token" value="{{ csrf_token('remover_primario_' ~ p.userId) }}">
                             <input type="hidden" name="perfil_destino" value="" data-pf-destino>
-                            <button type="button" class="pf-acao pf-acao-excluir" title="Remover este primário" aria-label="Remover este primário"
+                            <button type="button" class="pf-acao pf-acao-excluir" title="{{ 'perfis.editar.remover_primario'|trans }}" aria-label="{{ 'perfis.editar.remover_primario'|trans }}"
                                     data-pf-remover-primario data-nome="{{ p.nome }}"><i class="bi bi-trash3"></i></button>
                         </form>
                         {% endif %}
@@ -53,33 +53,43 @@
             {% if podeGerirPrimarios %}
             <form method="post" action="{{ path('app_tenant_role_primario_promover', {tenantId: tenantId}) }}" class="pf-promover" data-pf-form-promover>
                 <input type="hidden" name="_token" value="{{ csrf_token('promover_primario_' ~ tenantId) }}">
-                <b>Promover a primário (sócio do escritório)</b>
+                <b>{{ 'perfis.editar.promover_titulo'|trans }}</b>
                 <div class="pf-promover-grade">
-                    <select name="usuario" data-pf-promover-select aria-label="Usuário secundário a promover">
-                        <option value="">Escolha um usuário secundário da conta *</option>
+                    <select name="usuario" data-pf-promover-select aria-label="{{ 'perfis.editar.promover_campo'|trans }}">
+                        <option value="">{{ 'perfis.editar.promover_escolha'|trans }}</option>
                         {% for s in secundarios %}
-                            <option value="{{ s.userId }}" data-nome="{{ s.nome }}" data-info="{{ s.email }}{{ s.oab ? ' · OAB ' ~ s.oab : ' · sem OAB' }}">{{ s.nome }} · {{ s.perfil }}</option>
+                            <option value="{{ s.userId }}" data-nome="{{ s.nome }}" data-info="{{ s.email }} · {{ s.oab ? 'perfis.editar.oab'|trans({numero: s.oab}) : 'perfis.editar.sem_oab'|trans }}">{{ s.nome }} · {{ s.perfil }}</option>
                         {% endfor %}
                     </select>
-                    <span class="pf-promover-info" data-pf-promover-info data-padrao="Só usuários já cadastrados nesta conta podem ser promovidos.">Só usuários já cadastrados nesta conta podem ser promovidos.</span>
-                    <button type="button" class="pf-btn-azul" data-pf-promover><i class="bi bi-person-badge"></i>Promover</button>
+                    <span class="pf-promover-info" data-pf-promover-info data-padrao="{{ 'perfis.editar.promover_info'|trans }}">{{ 'perfis.editar.promover_info'|trans }}</span>
+                    <button type="button" class="pf-btn-azul" data-pf-promover><i class="bi bi-person-badge"></i>{{ 'perfis.editar.promover'|trans }}</button>
                 </div>
-                <span class="pf-promover-msg" data-pf-promover-msg data-padrao="O sócio promovido tem as mesmas competências de gestão do escritório, mas não pode excluir o primário titular. Promoções e remoções vão para a auditoria da conta.">O sócio promovido tem as mesmas competências de gestão do escritório, mas não pode excluir o primário titular. Promoções e remoções vão para a auditoria da conta.</span>
+                <span class="pf-promover-msg" data-pf-promover-msg data-padrao="{{ 'perfis.editar.promover_msg'|trans }}">{{ 'perfis.editar.promover_msg'|trans }}</span>
             </form>
             {% endif %}
         </div>
 
         <template data-pf-perfis-destino>
             {% if perfisSecundarios|length %}
-                <label class="pf-campo"><span class="pf-campo-rotulo">PASSA A TER O PERFIL</span>
+                <label class="pf-campo"><span class="pf-campo-rotulo">{{ 'perfis.editar.destino_rotulo'|trans }}</span>
                     <select data-pf-destino-select>
                         {% for perfil in perfisSecundarios %}<option value="{{ perfil.id }}">{{ perfil.nome }}</option>{% endfor %}
                     </select>
                 </label>
             {% else %}
-                <span class="pf-campo-erro" data-pf-sem-destino>Não há perfil secundário para este usuário. Crie um perfil secundário antes de remover um primário.</span>
+                <span class="pf-campo-erro" data-pf-sem-destino>{{ 'perfis.editar.sem_destino'|trans }}</span>
             {% endif %}
         </template>
+
+        {# Edição sem prazo (spec edicao-sem-prazo §3; linha de checkbox do desenho Perfis 1.2, 21.10 L448). Vale para
+           todos os primários do escritório; só um primário ativo muda (o Master vê travado). Envia ao marcar (perfis.js). #}
+        <div class="pf-card pf-cartao pf-sem-prazo" data-pf-sem-prazo>
+            <div class="pf-cartao-cab"><i class="bi bi-clock-history"></i><b>{{ 'perfis.editar.sem_prazo.titulo'|trans }}</b></div>
+            <form method="post" action="{{ path('app_tenant_role_edicao_sem_prazo', {tenantId: tenantId}) }}" data-pf-sem-prazo-form>
+                <input type="hidden" name="_token" value="{{ csrf_token('edicao_sem_prazo_' ~ tenantId) }}">
+                <label class="pf-item{{ podeMudarSemPrazo ? '' : ' is-travado' }}"><input type="checkbox" name="ligado" value="1" data-pf-sem-prazo-caixa{{ edicaoSemPrazo ? ' checked' : '' }}{{ podeMudarSemPrazo ? '' : ' disabled' }}>{{ 'perfis.editar.sem_prazo.rotulo'|trans }}</label>
+            </form>
+        </div>
 
         <div class="pf-cartoes">
             {% for cartao in cartoes %}
@@ -93,8 +103,8 @@
         </div>
 
         <div class="pf-rodape">
-            <span class="pf-resumo" data-pf-nota-primario>O usuário primário tem acesso total ao escritório: as {{ total }} permissões estão sempre ativas e não podem ser desmarcadas.</span>
-            <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cancelar">Voltar</a>
+            <span class="pf-resumo" data-pf-nota-primario>{{ 'perfis.editar.nota_primario'|trans({total: total}) }}</span>
+            <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cancelar">{{ 'perfis.voltar'|trans }}</a>
         </div>
     {% endif %}
 
@@ -103,5 +113,6 @@
 {% endblock %}
 
 {% block javascripts %}
+{{ catalogo_js('perfis.js') }}
 <script src="{{ asset('js/perfis.js') }}" defer></script>
 {% endblock %}

@@ -43,7 +43,10 @@ final class PastaApensadoJsTest extends TestCase
             self::assertStringContainsString("getElementById('{$id}')", $js);
             self::assertStringContainsString('id="' . $id . '"', $show, "#{$id} é contrato com o JS");
         }
-        self::assertStringContainsString("'show.bs.modal'", $js);
+        // A janela é a do desenho, não o modal do Bootstrap: o show avisa a abertura com o botão que abriu.
+        self::assertStringContainsString("modal.addEventListener('vp:abrir'", $js);
+        self::assertStringContainsString("new CustomEvent('vp:abrir', { detail: { gatilho: mpGatilho } })", $show);
+        self::assertStringNotContainsString('bs.modal', $js);
         self::assertStringContainsString("getAttribute('data-vincular-modo') === 'apenso'", $js);
         self::assertStringContainsString('data-vincular-modo="apenso"', (string) file_get_contents(self::PROCESSOS));
         // O envio continua o do show: ele avisa o sucesso por este evento.

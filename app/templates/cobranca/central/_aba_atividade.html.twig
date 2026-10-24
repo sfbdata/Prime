@@ -15,8 +15,8 @@
 {% if atividade.pessoas is empty %}
     <div class="cobranca-empty">
         <div class="empty-ico"><i class="bi bi-people"></i></div>
-        <div class="empty-title">Nenhuma pessoa com acesso ao módulo de Cobranças</div>
-        <div class="text-muted">Libere o módulo para a equipe e a atividade dela aparece aqui.</div>
+        <div class="empty-title">{{ 'cobranca_pessoa.atividade.sem_pessoas'|trans }}</div>
+        <div class="text-muted">{{ 'cobranca_pessoa.atividade.sem_pessoas_texto'|trans }}</div>
     </div>
 {% else %}
     {% if atividade.vazia %}
@@ -26,15 +26,13 @@
            seria falso justamente na primeira frase da tela.
         #}
         <p class="cobranca-central-aviso text-muted small mb-2">
-            <i class="bi bi-info-circle me-1"></i>Nenhum trabalho de cobrança registrado no período
-            selecionado. Lançamentos de cadastro e importação não entram nesta conta: a tela mostra o
-            que a equipe registra, então a linha zerada também pode ser trabalho não registrado.
+            <i class="bi bi-info-circle me-1"></i>{{ 'cobranca_pessoa.atividade.vazia'|trans }}
         </p>
     {% endif %}
 
     {# Faixa de canais (spec §4): "quantos contatos e por qual meio", a pergunta direta do dono. #}
     <div class="cobranca-central-canais mb-3">
-        <span class="cobranca-central-canais-total">Contatos no período: <strong>{{ atividade.totalContatos }}</strong></span>
+        <span class="cobranca-central-canais-total">{{ 'cobranca_pessoa.atividade.contatos_no_periodo'|trans }} <strong>{{ atividade.totalContatos }}</strong></span>
         <span class="cobranca-central-canais-sep" aria-hidden="true">·</span>
         <span class="cobranca-pastilhas">
             {% for canal in atividade.canais %}
@@ -49,23 +47,23 @@
         <table class="table table-sm align-middle mb-0" id="tabelaAtividade">
             <thead>
                 <tr>
-                    <th scope="col">Quem</th>
-                    <th scope="col" class="text-end">Contatos</th>
-                    <th scope="col" class="text-end">Falou com o devedor</th>
-                    <th scope="col" class="text-end">Acordos fechados</th>
-                    <th scope="col" class="text-end">Baixas registradas</th>
-                    <th scope="col" class="text-end d-none d-md-table-cell">Última ação</th>
+                    <th scope="col">{{ 'cobranca_pessoa.atividade.coluna.quem'|trans }}</th>
+                    <th scope="col" class="text-end">{{ 'cobranca_pessoa.atividade.coluna.contatos'|trans }}</th>
+                    <th scope="col" class="text-end">{{ 'cobranca_pessoa.atividade.coluna.atendidos'|trans }}</th>
+                    <th scope="col" class="text-end">{{ 'cobranca_pessoa.atividade.coluna.acordos'|trans }}</th>
+                    <th scope="col" class="text-end">{{ 'cobranca_pessoa.atividade.coluna.baixas'|trans }}</th>
+                    <th scope="col" class="text-end d-none d-md-table-cell">{{ 'cobranca_pessoa.atividade.coluna.ultima_acao'|trans }}</th>
                 </tr>
             </thead>
             <tbody>
                 <tr class="cobranca-central-total">
-                    <th scope="row">Total do setor</th>
+                    <th scope="row">{{ 'cobranca_pessoa.atividade.total_do_setor'|trans }}</th>
                     <td class="text-end">{{ atividade.totalContatos }}</td>
                     <td class="text-end">{{ atividade.totalAtendidos }}</td>
                     <td class="text-end">{{ atividade.totalAcordos }}</td>
                     <td class="text-end">{{ atividade.totalBaixas }}</td>
                     <td class="text-end d-none d-md-table-cell">
-                        {% if atividade.ultimaAcaoDoSetor %}{{ include('cobranca/central/_momento.html.twig', { momento: atividade.ultimaAcaoDoSetor }) }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}
+                        {% if atividade.ultimaAcaoDoSetor %}{{ include('cobranca/central/_momento.html.twig', { momento: atividade.ultimaAcaoDoSetor }) }}{% else %}<span class="text-muted small">{{ 'cobranca_pessoa.atividade.sem_registro'|trans }}</span>{% endif %}
                     </td>
                 </tr>
 
@@ -81,7 +79,7 @@
                             <span class="text-muted fst-italic">{{ pessoa.nome }}</span>
                             <i class="bi bi-question-circle text-muted ms-1"
                                data-bs-toggle="tooltip"
-                               title="Eventos cujo autor não está mais registrado. Nunca são atribuídos a alguém."></i>
+                               title="{{ 'cobranca_pessoa.atividade.sem_responsavel_dica'|trans }}"></i>
                         {% else %}
                             {{ pessoa.nome }}
                         {% endif %}
@@ -91,7 +89,7 @@
                     <td class="text-end">{{ pessoa.acordos }}</td>
                     <td class="text-end">{{ pessoa.baixas }}</td>
                     <td class="text-end d-none d-md-table-cell">
-                        {% if pessoa.ultimaAcao %}{{ include('cobranca/central/_momento.html.twig', { momento: pessoa.ultimaAcao }) }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}
+                        {% if pessoa.ultimaAcao %}{{ include('cobranca/central/_momento.html.twig', { momento: pessoa.ultimaAcao }) }}{% else %}<span class="text-muted small">{{ 'cobranca_pessoa.atividade.sem_registro'|trans }}</span>{% endif %}
                     </td>
                 </tr>
                 <tr class="js-linha-detalhe cobranca-central-detalhe" id="detalhe-{{ chave }}" hidden>

@@ -19,6 +19,7 @@ use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Processo\Entity\Processo;
 use Psr\Clock\ClockInterface;
@@ -116,7 +117,7 @@ final class MontadorDeContextoDaPasta
             if (($secao->exigeVisibilidadeDoFinanceiro() && !$incluirFinanceiro) || \in_array($secao->abaDaPasta()?->value, $abasOcultas, true)) {
                 continue; // a decisão foi tomada na solicitação; aqui só se obedece
             }
-            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados), $gasto);
+            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados, $incluirFinanceiro), $gasto);
         }
 
         $numeros = array_map(static fn (Processo $p): string => $p->getNumeroProcesso(), $processos);
@@ -171,13 +172,13 @@ final class MontadorDeContextoDaPasta
      * @param list<string>   $abasOcultas
      * @param list<int>|null $documentosSelecionados
      */
-    private function montarSecao(SecaoDoContexto $secao, Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $documentosSelecionados): SecaoDeContexto
+    private function montarSecao(SecaoDoContexto $secao, Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $documentosSelecionados, bool $incluirFinanceiro): SecaoDeContexto
     {
         return match ($secao) {
             SecaoDoContexto::Clientes => $this->clientes($tenant, $pasta, $mascarar),
             SecaoDoContexto::Movimentacoes => $this->movimentacoes($tenant, $pasta),
             SecaoDoContexto::Metas => $this->metas($tenant, $pasta, $mascarar),
-            SecaoDoContexto::Anotacoes => $this->anotacoes($tenant, $pasta, $mascarar),
+            SecaoDoContexto::Anotacoes => $this->anotacoes($tenant, $pasta, $mascarar, $incluirFinanceiro),
             SecaoDoContexto::Observacoes => $this->observacoes($tenant, $pasta, $mascarar),
             SecaoDoContexto::Documentos => $this->documentos($tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados),
             SecaoDoContexto::Checklist => $this->checklist($tenant, $pasta, $mascarar),
@@ -275,11 +276,12 @@ final class MontadorDeContextoDaPasta
         return new SecaoDeContexto(SecaoDoContexto::Metas, $linhas, $this->excedente($todas, self::LIMITE_METAS), $assinaturas);
     }
 
-    private function anotacoes(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
+    /** Sem o financeiro, os cartões de pró-bono e contrato do Registro não entram (regra da aba Financeiro). */
+    private function anotacoes(Tenant $tenant, Pasta $pasta, bool $mascarar, bool $incluirFinanceiro): SecaoDeContexto
     {
         $linhas = [];
         $assinaturas = [];
-        $todas = $this->dados->anotacoesDaPasta($tenant, $pasta, self::LIMITE_ANOTACOES + 1);
+        $todas = $this->dados->anotacoesDaPasta($tenant, $pasta, self::LIMITE_ANOTACOES + 1, $incluirFinanceiro);
         foreach (array_slice($todas, 0, self::LIMITE_ANOTACOES) as $mensagem) {
             $conteudo = $this->texto($mensagem->getConteudo(), self::TAMANHO_MAXIMO_DA_ANOTACAO, $mascarar);
             if ($conteudo === '') {
@@ -393,6 +395,27 @@ final class MontadorDeContextoDaPasta
         return new SecaoDeContexto(SecaoDoContexto::Checklist, $linhas, $this->excedente($todos, self::LIMITE_CHECKLIST), $assinaturas);
     }
 
+    /**
+     * Êxito e sucumbência previstos: o valor é um % do total contratado, não um R$ fixo
+     * (spec pasta-exito-sucumbencia).
+     */
+    private function valorDoPagamento(PastaPagamento $pagamento, string $valor, bool $mascarar): string
+    {
+        return $pagamento->getPercentual() !== null
+            ? $this->rotulo($pagamento->getPercentual(), '0', $mascarar) . '% do total contratado'
+            : 'R$ ' . $valor;
+    }
+
+    /** O previsto não está "em aberto": depende do resultado do processo. */
+    private function situacaoDoPagamento(PastaPagamento $pagamento): string
+    {
+        return match (true) {
+            $pagamento->getPagoEm() !== null => 'pago em ' . $pagamento->getPagoEm()->format('d/m/Y'),
+            $pagamento->estaPrevisto()       => 'PREVISTO, condicionado ao resultado',
+            default                          => 'EM ABERTO',
+        };
+    }
+
     private function financeiro(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
         $linhas = [];
@@ -421,11 +444,11 @@ final class MontadorDeContextoDaPasta
             $descricao = $this->rotulo($pagamento->getDescricao(), 'sem descrição', $mascarar);
             $valor = $this->rotulo($pagamento->getValor(), '0', $mascarar);
             $linhas[] = sprintf(
-                'pagamento · %s · R$ %s · vencimento %s · %s [nível %d, registro interno]',
+                'pagamento · %s · %s · vencimento %s · %s [nível %d, registro interno]',
                 $descricao,
-                $valor,
-                $pagamento->getVencimento()->format('d/m/Y'),
-                $pagamento->getPagoEm() !== null ? 'pago em ' . $pagamento->getPagoEm()->format('d/m/Y') : 'EM ABERTO',
+                $this->valorDoPagamento($pagamento, $valor, $mascarar),
+                $pagamento->getVencimento()?->format('d/m/Y') ?? 'nenhum',
+                $this->situacaoDoPagamento($pagamento),
                 SecaoDoContexto::Financeiro->nivel(),
             );
             $assinaturas[] = sprintf(
@@ -433,7 +456,7 @@ final class MontadorDeContextoDaPasta
                 (int) $pagamento->getId(),
                 $descricao,
                 $valor,
-                $pagamento->getVencimento()->format('Y-m-d'),
+                $pagamento->getVencimento()?->format('Y-m-d') ?? '-',
                 $pagamento->getPagoEm()?->format('Y-m-d') ?? '-',
             );
         }

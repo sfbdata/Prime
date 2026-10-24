@@ -150,7 +150,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrir($client, $pasta);
 
         $celula = $crawler->filter('[data-trilho="processo"] > [data-campo="processo"]');
-        self::assertCount(1, $celula->filter('button.ps-link-btn[data-bs-target="#modalVincularProcesso"]'));
+        self::assertCount(1, $celula->filter('button.ps-link-btn[data-vp-abrir][aria-controls="modalVincularProcesso"]'));
         self::assertCount(0, $celula->filter('.ps-chip-vinc'));
         self::assertCount(0, $crawler->filter('[data-trilho="processo"] a[href="#"]'), 'nenhum link morto na faixa');
     }
@@ -252,13 +252,13 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
 
         $itens = $menu->filter('.ps-pop-item')->each(fn ($n) => trim($n->filter('span')->first()->text()));
         self::assertSame(
-            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Copiar link da pasta', 'Link externo do Push', 'Imprimir resumo', 'Cadeado', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
+            ['Editar dados', 'Histórico', 'Timeline inteligente', 'Duplicar pasta', 'Vincular processo', 'Trocar responsável', 'Mover para outra carteira', 'Copiar link da pasta', 'Link externo do Push', 'Imprimir resumo', 'Cadeado', 'Fixar nos favoritos', 'Arquivar pasta', 'Excluir pasta'],
             $itens
         );
         // L18: a Timeline inteligente ganhou back-end (`pasta_timeline`) e entrou no menu, com o T do desenho.
         self::assertSame('t', $menu->filter('#psTimelineAbrir')->attr('data-ps-atalho'));
 
-        self::assertSame('e', $menu->filter('.ps-pop-item[data-bs-target="#modalEditarPasta"]')->attr('data-ps-atalho'));
+        self::assertSame('e', $menu->filter('.ps-pop-item[data-pe-abrir][aria-controls="modalEditarPasta"]')->attr('data-ps-atalho'));
         self::assertSame('h', $menu->filter('#psHistoricoAbrir')->attr('data-ps-atalho'));
 
         $copiar = $menu->filter('.js-copiar-link');

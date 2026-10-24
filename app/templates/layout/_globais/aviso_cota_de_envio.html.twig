@@ -1,0 +1,31 @@
+{#
+    Aviso da cota de envio de e-mail (spec comercial-e-emails §3.6), no topo de toda tela, com o componente do
+    aviso do desenho 08 (o mesmo .ae-aviso do espaço e da falha do agendador). Só para o Master;
+    aviso_da_cota_de_envio() devolve null para os demais sem consultar o banco. Perto do limite: visual de
+    atenção (⚠️); campanhas pausadas: visual cheio (⛔) com a hora em que a vaga volta. "Dispensar" esconde o
+    aviso na sessão até o estado mudar.
+#}
+{% set cota_de_envio = aviso_da_cota_de_envio() %}
+{% if cota_de_envio %}
+    {% set pausadas = cota_de_envio.estado == 'pausadas' %}
+    <link rel="stylesheet" href="{{ asset('css/aviso-espaco.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/aviso-falha-agendada.css') }}">
+    <div class="ae-aviso{{ pausadas ? ' ae-aviso--cheio' }}" data-aviso-cota-de-envio="{{ cota_de_envio.estado }}" data-print="hide" role="{{ pausadas ? 'alert' : 'status' }}">
+        <span class="ae-icone" aria-hidden="true">{{ pausadas ? '⛔' : '⚠️' }}</span>
+        <div class="ae-texto">
+            {% if pausadas %}
+                <b>{{ 'moldura.aviso_cota_de_envio.titulo_pausadas'|trans }}</b>
+                <div>{{ 'moldura.aviso_cota_de_envio.texto_pausadas'|trans({hora: cota_de_envio.hora, data: cota_de_envio.data}) }}</div>
+            {% else %}
+                <b>{{ 'moldura.aviso_cota_de_envio.titulo_perto'|trans }}</b>
+                <div>{{ 'moldura.aviso_cota_de_envio.texto_perto'|trans({enviados: cota_de_envio.enviados, teto: cota_de_envio.teto}) }}</div>
+            {% endif %}
+        </div>
+        <form method="post" action="{{ path('master_comercial_cota_dispensar') }}" class="af-form">
+            <input type="hidden" name="_token" value="{{ csrf_token('dispensar_aviso_da_cota') }}">
+            <input type="hidden" name="chave" value="{{ cota_de_envio.chave }}">
+            <input type="hidden" name="voltar" value="{{ cota_de_envio.voltar }}">
+            <button type="submit" class="af-dispensar">{{ 'moldura.aviso_cota_de_envio.dispensar'|trans }}</button>
+        </form>
+    </div>
+{% endif %}

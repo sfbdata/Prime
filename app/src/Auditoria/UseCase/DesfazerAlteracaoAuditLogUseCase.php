@@ -33,7 +33,10 @@ use Doctrine\ORM\Mapping\FieldMapping;
  */
 final class DesfazerAlteracaoAuditLogUseCase
 {
-    /** Entidades de risco BAIXO — únicas reversíveis. */
+    /**
+     * Entidades de risco BAIXO, únicas reversíveis. A resposta da meta (`TarefaMensagem`) e a `Notificacao` saíram
+     * (spec `desfazer-guarda-da-tela`): nenhuma tela edita a resposta, e a notificação só o dono mexe.
+     */
     private const ENTIDADES_REVERSIVEIS = [
         \App\Pasta\Entity\Pasta::class,
         \App\Pasta\Entity\PastaDocumento::class,
@@ -42,16 +45,32 @@ final class DesfazerAlteracaoAuditLogUseCase
         \App\Pasta\Entity\PastaMensagem::class,
         \App\Pasta\Entity\PastaObservacaoDetalhes::class,
         \App\Entity\Tarefa\Tarefa::class,
-        \App\Entity\Tarefa\TarefaMensagem::class,
         \App\Entity\ServiceDesk\Chamado::class,
         \App\Entity\ServiceDesk\ChamadoAnexo::class,
         \App\Entity\ServiceDesk\ChamadoInteracao::class,
         \App\Agenda\Entity\Evento::class,
-        \App\Entity\Agenda\LegendaCor::class,
-        \App\Entity\Notificacao::class,
         \App\Entity\Tenant\Cargo::class,
         \App\Entity\Tenant\Lotacao::class,
         \App\Entity\Tenant\Sede::class,
+    ];
+
+    /**
+     * Desfazer é editar (achado de auditoria interna F19): além de `admin.audit.view`, quem desfaz precisa da mesma
+     * permissão que a tela de edição da entidade exige. Sede: telas de sede em `TenantController` (`admin.ponto.manage`).
+     * Cargo e Lotação: aba do `app_tenant_edit` (`admin.tenant.settings.manage`). Chamado e o que pende dele: atribuir e
+     * mudar o estado no `ServiceDeskController` (`admin.servicedesk.manage`). Evento: `agenda_editar` aceita
+     * `admin.users.manage` ou o criador, e a exceção do criador mora em `permissaoDeEdicao()`. Entidade fora do mapa
+     * não exige permissão a mais. Quem confere é a `GuardaDaTelaNoDesfazer`, junto com as guardas por item da tela,
+     * antes de o controller chamar `executar()`.
+     */
+    private const PERMISSAO_DE_EDICAO = [
+        Sede::class                                    => 'admin.ponto.manage',
+        Cargo::class                                   => 'admin.tenant.settings.manage',
+        Lotacao::class                                 => 'admin.tenant.settings.manage',
+        \App\Entity\ServiceDesk\Chamado::class          => 'admin.servicedesk.manage',
+        \App\Entity\ServiceDesk\ChamadoAnexo::class     => 'admin.servicedesk.manage',
+        \App\Entity\ServiceDesk\ChamadoInteracao::class => 'admin.servicedesk.manage',
+        \App\Agenda\Entity\Evento::class                => 'admin.users.manage',
     ];
 
     /**
@@ -111,6 +130,32 @@ final class DesfazerAlteracaoAuditLogUseCase
         return $log->getAction() === 'update'
             && in_array($log->getEntityClass(), self::ENTIDADES_REVERSIVEIS, true)
             && $log->getEntityId() !== null;
+    }
+
+    /**
+     * A permissão de edição que desfazer esta linha exige do ator, além de `admin.audit.view`; null quando não exige.
+     * Evento segue a regra do `agenda_editar`: `admin.users.manage` OU ser o criador. Para o criador, nada a mais.
+     */
+    public function permissaoDeEdicao(AuditLog $log, User $ator): ?string
+    {
+        $permissao = self::PERMISSAO_DE_EDICAO[$log->getEntityClass()] ?? null;
+
+        if ($permissao !== null && $this->eCriadorDoEvento($log, $ator)) {
+            return null;
+        }
+
+        return $permissao;
+    }
+
+    private function eCriadorDoEvento(AuditLog $log, User $ator): bool
+    {
+        if ($log->getEntityClass() !== \App\Agenda\Entity\Evento::class || $log->getEntityId() === null) {
+            return false;
+        }
+        $evento = $this->em->find(\App\Agenda\Entity\Evento::class, $log->getEntityId());
+        $criador = $evento instanceof \App\Agenda\Entity\Evento ? $evento->getCriador() : null;
+
+        return $criador !== null && ($criador === $ator || ($criador->getId() !== null && $criador->getId() === $ator->getId()));
     }
 
     public function executar(int $auditLogId, int $tenantId): DesfazerResultado

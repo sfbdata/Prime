@@ -203,7 +203,7 @@ final class DashboardColunasExtrasTelaTest extends DashboardWebTestCase
         $this->meta($pasta, $user, Tarefa::STATUS_PENDENTE, '2024-01-01 09:00');
         $this->meta($pasta, $user, Tarefa::STATUS_EM_REVISAO, '2024-01-01 09:00');
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
 
         self::assertResponseIsSuccessful();
         $gestora = $this->linhaDe($crawler, 'Gestora da Tela');
@@ -232,7 +232,7 @@ final class DashboardColunasExtrasTelaTest extends DashboardWebTestCase
         $outro = $this->criarTenant();
         PastaFactory::createMany(5, ['tenant' => $outro, 'responsavel' => $user, 'prioridade' => PrioridadePasta::Urgente]);
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
 
         $cel  = $this->linhaDe($crawler, 'Gestora da Tela')->filter('td[data-coluna="pastas_urgentes"] > a.db-num-link');
         self::assertCount(1, $cel);

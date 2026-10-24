@@ -173,7 +173,7 @@ final class DashboardPreferenciasTelaTest extends DashboardWebTestCase
 
         self::assertStringNotContainsString('Zerar', $texto);
         self::assertStringNotContainsString('Pastas concluídas', $texto);
-        self::assertStringNotContainsString('Relatório', $texto);
+        // "Relatório" entrou no "Adicionar coluna" (spec dashboard-parte-1); o zerar dele segue fora.
         self::assertSame(1, $crawler->filter('section.db-page > .db-pref [data-pref-mostrar-todas][hidden]')->count(), 'sem coluna oculta, "Mostrar todas" fica escondido');
     }
 

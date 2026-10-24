@@ -344,11 +344,11 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($menu->attr('hidden'));
         self::assertSame('Processo ' . self::NUMERO_MASCARA, trim($menu->filter('.ps-processo-menu > .ps-processo-menu-titulo')->text()));
 
-        // Ordem do procMenu do desenho (dc L.2914); o único processo é o principal, então não
+        // Ordem do procMenu do desenho (dc L.2914; o Encaminhar via Chat I.A de L3069 entra com a Central); o único processo é o principal, então não
         // há "Tornar processo principal". Desvincular é o último, como no desenho. "Editar dados
         // do processo" (PMC-004) aparece porque o admin tem EDIT no processo.
         self::assertSame(
-            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Relatório geral de processos', 'Imprimir resumo', 'Desvincular da pasta'],
+            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Encaminhar via Chat I.A', 'Relatório geral de processos', 'Imprimir resumo', 'Editar ação da pasta', 'Desvincular da pasta'],
             $this->textos($menu->filter('.ps-processo-menu .ps-processo-menu-item')),
         );
         self::assertSame(
@@ -471,7 +471,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // EDT-005/PMC-003 (dc L.2930): "Imprimir resumo" depois de Compartilhar e do "Relatório geral de
         // processos" (spec relatorio-processos-controladoria), com o MESMO resumo (o pasta-processo.js
         // reaproveita `linhasDoResumo`) e o título "Processo N".
-        $imprimir = $menu->filter('.ps-processo-menu > .js-proc-compartilhar + a.js-relatorio-processos + button.js-proc-imprimir[role="menuitem"]');
+        $imprimir = $menu->filter('.ps-processo-menu > .js-proc-compartilhar + button.js-encaminhar + a.js-relatorio-processos + button.js-proc-imprimir[role="menuitem"]');
         self::assertCount(1, $imprimir);
         self::assertSame('Imprimir resumo', trim($imprimir->text()));
         self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));

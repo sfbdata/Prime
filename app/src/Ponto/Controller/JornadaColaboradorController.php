@@ -7,12 +7,20 @@ namespace App\Ponto\Controller;
 use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Ponto\Repository\JornadaTenantRepository;
+use App\Ponto\DTO\AlterarRegistroDePontoInput;
+use App\Ponto\Exception\ChoqueDeJornadaException;
+use App\Ponto\Service\ChoqueDeJornadaEntreEscritorios;
+use App\Ponto\UseCase\AlterarRegistroDePontoUseCase;
+use App\Ponto\Service\IntervalosDeTrabalho;
 use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -25,10 +33,17 @@ final class JornadaColaboradorController extends AbstractController
 {
     use ValidaCsrfAjaxTrait;
 
+    /** Dois salvamentos da mesma jornada ao mesmo tempo: o segundo bate no índice único (spec seguranca-b-jornada). */
+    public const JORNADA_ALTERADA_AO_MESMO_TEMPO = 'Esta jornada acabou de ser alterada; recarregue e tente de novo.';
+
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantRepository $tenantRepository,
+        private readonly JornadaColaboradorRepository $jornadas,
+        private readonly JornadaTenantRepository $padroes,
+        private readonly IntervalosDeTrabalho $intervalos,
+        private readonly ChoqueDeJornadaEntreEscritorios $choque,
     ) {}
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_get', methods: ['GET'])]
@@ -58,7 +73,7 @@ final class JornadaColaboradorController extends AbstractController
             throw $this->createNotFoundException('Usuário não pertence a este tenant.');
         }
 
-        $jornada       = $user->getJornadaColaborador();
+        $jornada       = $this->jornadas->findByUserETenant($user, $urlTenant);
         $jornadaTenant = $urlTenant->getJornadaTenant();
 
         $blocosTenant = [];
@@ -167,10 +182,12 @@ final class JornadaColaboradorController extends AbstractController
             return $this->json(['erro' => $erros], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $jornada = $user->getJornadaColaborador();
+        $jornada = $this->jornadas->findByUserETenant($user, $urlTenant);
+        if (($choque = $this->choqueDaProposta($user, $urlTenant, $jornada, array_map($this->blocoDaRequisicao(...), $blocos))) !== null) {
+            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // regra 3: quem marcou primeiro fica
+        }
         if ($jornada === null) {
-            $jornada = new JornadaColaborador();
-            $jornada->setUser($user);
+            $jornada = (new JornadaColaborador())->setUser($user)->setTenant($urlTenant);
             $entityManager->persist($jornada);
         }
 
@@ -182,19 +199,10 @@ final class JornadaColaboradorController extends AbstractController
         }
 
         foreach ($blocos as $blocoData) {
-            $bloco = new BlocoJornadaColaborador();
-            $bloco->setDiasSemana(array_map('intval', (array) ($blocoData['diasSemana'] ?? [])));
-            $bloco->setEntrada((string) ($blocoData['entrada'] ?? '09:00'));
-            $bloco->setRepouso($blocoData['repouso'] !== '' ? (string) ($blocoData['repouso'] ?? null) : null);
-            $bloco->setRetorno($blocoData['retorno'] !== '' ? (string) ($blocoData['retorno'] ?? null) : null);
-            $bloco->setSaida((string) ($blocoData['saida'] ?? '18:00'));
-            $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
-            $jornada->addBloco($bloco);
+            $jornada->addBloco($this->blocoDaRequisicao($blocoData));
         }
 
-        $entityManager->flush();
-
-        return $this->json(['ok' => true]);
+        return $this->gravarJornada($entityManager);   // dois salvamentos ao mesmo tempo: 409, não 500
     }
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_delete', methods: ['DELETE'])]
@@ -229,9 +237,12 @@ final class JornadaColaboradorController extends AbstractController
         // CSRF após os guards de autorização (a falha de autz/tenant tem prioridade e fica testável).
         $this->validarCsrfAjax($request);
 
-        $jornada = $user->getJornadaColaborador();
+        $jornada = $this->jornadas->findByUserETenant($user, $urlTenant);
         if ($jornada === null) {
             return $this->json(['ok' => true]);
+        }
+        if (($choque = $this->choqueDaProposta($user, $urlTenant, $jornada, [])) !== null) {
+            return $this->json(['erro' => $choque], Response::HTTP_UNPROCESSABLE_ENTITY);   // sem a pessoal vale a padrão
         }
 
         foreach ($jornada->getBlocos()->toArray() as $bloco) {
@@ -240,6 +251,98 @@ final class JornadaColaboradorController extends AbstractController
 
         $jornada->setCargaHorariaSemanal(null);
         $entityManager->flush();
+
+        return $this->json(['ok' => true]);
+    }
+
+    /**
+     * Liga ou desliga a chave "Registra ponto eletrônico" da pessoa NESTE escritório (spec seguranca-b-jornada, regras 2
+     * e 3). Mesma guarda da jornada: `admin.users.manage` no escritório da sessão (ou Master) e vínculo ativo da pessoa
+     * no escritório da URL. Ligar recusa com 422 quando a jornada daqui bate com outro escritório.
+     */
+    #[Route('/registra-ponto', name: 'app_jornada_colaborador_registra_ponto', methods: ['POST'])]
+    public function registraPonto(
+        int $tenantId,
+        User $user,
+        Request $request,
+        PermissionChecker $permissionChecker,
+        AlterarRegistroDePontoUseCase $alterarRegistroDePonto,
+    ): JsonResponse {
+        $urlTenant = $this->exigirAdminDoEscritorioDaPessoa($tenantId, $user, $permissionChecker);
+        $this->validarCsrfAjax($request);
+
+        $data = json_decode((string) $request->getContent(), true);
+        if (!is_array($data) || !is_bool($data['registraPonto'] ?? null)) {
+            return $this->json(['erro' => 'Payload inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $alterarRegistroDePonto->executar(new AlterarRegistroDePontoInput($user, $urlTenant, $data['registraPonto']));
+        } catch (ChoqueDeJornadaException $choque) {
+            return $this->json(['erro' => $choque->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['ok' => true, 'registraPonto' => $data['registraPonto']]);
+    }
+
+    /** A guarda das rotas da página do colaborador: devolve o escritório da URL, onde a pessoa tem vínculo ativo. */
+    private function exigirAdminDoEscritorioDaPessoa(int $tenantId, User $user, PermissionChecker $permissionChecker): Tenant
+    {
+        $currentUser = $this->getUser();
+        if (!$currentUser instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant = $tenant?->getId() === $tenantId;
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para gerenciar o ponto.');
+        }
+        $urlTenant = $this->tenantRepository->find($tenantId);
+        if ($urlTenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $urlTenant)) {
+            throw $this->createNotFoundException('Usuário não pertence a este tenant.');
+        }
+
+        return $urlTenant;
+    }
+
+    /**
+     * O choque da jornada proposta com outro escritório onde a pessoa registra ponto (spec seguranca-b-jornada §3.3).
+     * Só conta quando a chave do ponto dela está ligada neste escritório: desligada, a jornada daqui não marca horário.
+     *
+     * @param list<BlocoJornadaColaborador> $blocos os blocos propostos; vazio é "sem jornada pessoal em blocos"
+     */
+    private function choqueDaProposta(User $user, Tenant $tenant, ?JornadaColaborador $atual, array $blocos): ?string
+    {
+        if ($this->userTenantRepository->findAtivoPorUserETenant($user, $tenant)?->isRegistraPonto() !== true) {
+            return null;
+        }
+        $proposta = ($atual ?? new JornadaColaborador())->propostaComBlocos($blocos);
+
+        return $this->choque->mensagem($user, $tenant, $this->intervalos->daJornada($proposta, $this->padroes->doEscritorio($tenant)));
+    }
+
+    /** @param array<string, mixed> $blocoData */
+    private function blocoDaRequisicao(array $blocoData): BlocoJornadaColaborador
+    {
+        $bloco = new BlocoJornadaColaborador();
+        $bloco->setDiasSemana(array_map('intval', (array) ($blocoData['diasSemana'] ?? [])));
+        $bloco->setEntrada((string) ($blocoData['entrada'] ?? '09:00'));
+        $bloco->setRepouso(($blocoData['repouso'] ?? '') !== '' ? (string) $blocoData['repouso'] : null);
+        $bloco->setRetorno(($blocoData['retorno'] ?? '') !== '' ? (string) $blocoData['retorno'] : null);
+        $bloco->setSaida((string) ($blocoData['saida'] ?? '18:00'));
+        $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
+
+        return $bloco;
+    }
+
+    private function gravarJornada(EntityManagerInterface $entityManager): JsonResponse
+    {
+        try {
+            $entityManager->flush();
+        } catch (UniqueConstraintViolationException) {
+            return $this->json(['erro' => self::JORNADA_ALTERADA_AO_MESMO_TEMPO], Response::HTTP_CONFLICT);
+        }
 
         return $this->json(['ok' => true]);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Processo\Functional;
 
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -16,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
@@ -129,6 +131,12 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('id="nota-tecnica-' . $data['id'] . '"', (string) $data['html']);
         self::assertStringContainsString('Nota técnica', (string) $data['html']);
         self::assertStringContainsString('· 15 min', (string) $data['html']);
+        // PMC-018: o cartão novo já traz o "Encaminhar via Chat I.A" com a pasta conferida.
+        $item = (new Crawler((string) $data['html']))->filter('.ps-nota-menu > .js-nota-copiar + button.js-encaminhar.js-nota-encaminhar');
+        self::assertCount(1, $item);
+        self::assertSame('nota_tecnica', $item->attr('data-encaminhar-tipo'));
+        self::assertSame((string) $data['id'], $item->attr('data-encaminhar-id'));
+        self::assertSame((string) $pasta->getId(), $item->attr('data-encaminhar-pasta'));
 
         $this->em()->clear();
         $nota = $this->em()->find(NotaTecnica::class, $data['id']);
@@ -153,6 +161,8 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(201);
+        // PMC-018: sem pasta não há para onde despachar; o item não entra no cartão.
+        self::assertStringNotContainsString('js-nota-encaminhar', (string) $this->json($client)['html']);
     }
 
     #[TestDox('CSRF inválido devolve 403 e não grava')]
@@ -419,6 +429,7 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         $nota            = $this->criarNota($processo, $outro, $tenant);
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', "/processos/{$processo->getId()}/nota-tecnica/{$nota->getId()}/editar", [
             '_token'   => $this->csrf('processo_nota_tecnica_editar_' . $nota->getId()),
@@ -438,6 +449,7 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         $nota            = $this->criarNota($processo, $user, $tenant, new \DateTimeImmutable('-20 minutes'));
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/processos/{$processo->getId()}/nota-tecnica/{$nota->getId()}/editar", [
@@ -556,6 +568,7 @@ final class NotaTecnicaControllerTest extends JusPrimeWebTestCase
         $nota            = $this->criarNota($processo, $outro, $tenant);
 
         $this->instalarCsrfStorage();
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', "/processos/{$processo->getId()}/nota-tecnica/{$nota->getId()}/excluir", [
             '_token' => $this->csrf('processo_nota_tecnica_excluir_' . $nota->getId()),

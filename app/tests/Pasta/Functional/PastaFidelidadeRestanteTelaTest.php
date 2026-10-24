@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote P13 — resto da fidelidade da Pasta (3ª passada, `pendencias-pos-documentos.md` §3.1)
@@ -97,7 +98,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         $cab = '#processo .ps-processos > .ps-card-cab--painel';
         self::assertCount(
             1,
-            $crawler->filter($cab . ' > form.js-pasta-administrativa + button.js-proc-menu-gatilho[aria-label="Mais opções de processos"] + button[data-bs-target="#modalVincularProcesso"]'),
+            $crawler->filter($cab . ' > form.js-pasta-administrativa + button.js-proc-menu-gatilho[aria-label="Mais opções de processos"] + button[data-vp-abrir][aria-controls="modalVincularProcesso"]'),
             'interruptor · ⋮ · Vincular, nessa ordem e como filhos diretos do cabeçalho'
         );
 
@@ -119,8 +120,9 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         $id   = $pasta->getId();
         $menu = $crawler->filter('#processo .ps-processos > #psProcHdMenu' . $id . '[role="menu"]');
         self::assertCount(1, $menu, 'o menu é filho direto do cartão (dentro dele, para voltar junto no XHR)');
-        // Relatório geral e Enviar à Controladoria entraram com a spec relatorio-processos-controladoria.
-        self::assertCount(3, $menu->filter('[role="menuitem"]'));
+        // Relatório geral e Enviar à Controladoria entraram com a spec relatorio-processos-controladoria; "Editar ação
+        // da pasta", com a decisão do dono de 23/10/2026.
+        self::assertCount(4, $menu->filter('[role="menuitem"]'));
 
         $item = $menu->filter('#psProcHdMenu' . $id . ' > button[type="submit"][form="psAdmForm' . $id . '"]');
         self::assertCount(1, $item);
@@ -215,7 +217,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
 
         // EDT-003 (dc L.6466) + C6-EDT-04 (dc L.5958): "Imprimir" fecha os extras — logo depois de
         // "Criar meta…" e antes do separador de Editar/Excluir —, com autor · data · tipo para a
-        // linha da folha ("Atendimento" é o tipo do relatório de Detalhes no desenho).
+        // linha da folha (o tipo é a tag fixa "Observação" do desenho 02, dc L6874).
         $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-criar-meta + .js-obs-enviar-chat + button.js-obs-imprimir[role="menuitem"]');
         self::assertCount(1, $imprimir, '"Imprimir" vem depois de "Criar meta…" e "Enviar no Chat I.A" (dc L.6872)');
         self::assertCount(1, $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-imprimir + .ps-processo-menu-sep[role="separator"]'), 'e logo antes do separador');
@@ -223,7 +225,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
         self::assertSame($user->getFullName(), $imprimir->attr('data-autor'));
         self::assertSame($obs->getCriadaEm()->format('d/m/Y, H:i'), $imprimir->attr('data-quando'));
-        self::assertSame('Atendimento', $imprimir->attr('data-tipo'));
+        self::assertSame('Observação', $imprimir->attr('data-tipo'));
     }
 
     #[TestDox('N7: o cartão montado em JS (observação recém-enviada) tem o MESMO ⋮ que o Twig')]
@@ -257,16 +259,20 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         $citar  = strpos($montador, 'class="ps-processo-menu-item js-obs-citar" role="menuitem"');
         self::assertNotFalse($citar, 'o cartão do JS não tem "Citar no novo registro"');
         self::assertLessThan($citar, $copiar, 'Citar vem depois de Copiar texto, como no Twig');
-        self::assertStringContainsString('<i class="bi bi-quote"></i><span>Citar no novo registro</span>', $montador);
+        self::assertStringContainsString('<i class="bi bi-quote"></i><span>${esc(BJ_T.t(\'pasta_detalhes.js.citar\'))}</span>', $montador);
 
         // EDT-003: o cartão do JS também tem "Imprimir", depois de Citar, com os mesmos data-*.
         $imprimir = strpos($montador, 'class="ps-processo-menu-item js-obs-imprimir" role="menuitem"');
         self::assertNotFalse($imprimir, 'o cartão do JS não tem "Imprimir"');
         self::assertLessThan($imprimir, $citar);
-        self::assertStringContainsString('<i class="bi bi-printer"></i><span>Imprimir</span>', $montador);
-        foreach (['data-autor="${esc(', 'data-quando="${esc(', 'data-tipo="Atendimento"'] as $atributo) {
+        self::assertStringContainsString('<i class="bi bi-printer"></i><span>${esc(BJ_T.t(\'pasta_detalhes.js.imprimir\'))}</span>', $montador);
+        foreach (['data-autor="${esc(', 'data-quando="${esc(', 'data-tipo="${esc(BJ_T.t(\'pasta_detalhes.js.tag\'))}"'] as $atributo) {
             self::assertStringContainsString($atributo, $montador);
         }
+        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        self::assertSame('Citar no novo registro', $catalogo['citar']);
+        self::assertSame('Imprimir', $catalogo['imprimir']);
+        self::assertSame('Observação', $catalogo['tag']);
     }
 
     // =========================================================================

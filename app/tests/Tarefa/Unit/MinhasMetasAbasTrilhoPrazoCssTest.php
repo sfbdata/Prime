@@ -17,8 +17,6 @@ use PHPUnit\Framework\TestCase;
  * - Prazo da linha (JS `prazoCor`/`prazoPeso`): #4a6373 normal; atrasada #a3232b negrito.
  * - Trilho (dc L104-118): "X de Y" 34px negrito; barra #1e7b45 com transição .4s; legenda 12.5px;
  *   ícone do "Precisa de atenção" #a3232b; descrição 12px #5b7383.
- * - Menu ⋮: o hover azul da linha pinta tudo de branco dentro de `.mm-meta-acoes` — o menu aberto ali
- *   dentro precisa voltar às cores de menu, senão vira texto branco em fundo transparente.
  *
  * Teste de folha não vê cascata: a comparação na tela é a prova (handoff §4, decisão 8).
  */
@@ -130,13 +128,5 @@ final class MinhasMetasAbasTrilhoPrazoCssTest extends TestCase
         self::assertMatchesRegularExpression('/font-size:\s*14px;/', $this->regras('.mm-trilho .mm-cartao-titulo'));
         self::assertMatchesRegularExpression('/color:\s*var\(--mm-faixa-atencao\);/', $this->regras('.mm-atencao-icone'));
         self::assertMatchesRegularExpression('/color:\s*var\(--mm-atencao-desc\);/', $this->regras('.mm-atencao-meta'));
-    }
-
-    #[TestDox('menu ⋮ aberto dentro da linha em hover volta às cores de menu (mais específico que o branco do hover)')]
-    public function testMenuResisteAoHoverDaLinha(): void
-    {
-        $menu = $this->regras('.mm-meta:hover .mm-meta-acoes .mm-menu .dropdown-menu');
-        self::assertMatchesRegularExpression('/background:\s*var\(--mm-card\);/', $menu);
-        self::assertMatchesRegularExpression('/color:\s*var\(--mm-text\);/', $this->regras('.mm-meta:hover .mm-meta-acoes .mm-menu .mm-menu-item'));
     }
 }

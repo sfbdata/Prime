@@ -122,6 +122,22 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
         self::assertTrue($this->sut->podeReverter($log));
     }
 
+    #[TestDox('A resposta da meta não se desfaz: nenhuma tela a edita (spec desfazer-guarda-da-tela)')]
+    public function testUpdateTarefaMensagemNaoEhReversivel(): void
+    {
+        $log = $this->criarLog('update', \App\Entity\Tarefa\TarefaMensagem::class, '9');
+
+        self::assertFalse($this->sut->podeReverter($log));
+    }
+
+    #[TestDox('A notificação não se desfaz: só o dono mexe nela pela tela (spec desfazer-guarda-da-tela)')]
+    public function testUpdateNotificacaoNaoEhReversivel(): void
+    {
+        $log = $this->criarLog('update', \App\Entity\Notificacao::class, '9');
+
+        self::assertFalse($this->sut->podeReverter($log));
+    }
+
     public function testUpdateUserRetornaFalsePorRiscoAlto(): void
     {
         $log = $this->criarLog('update', \App\Entity\Auth\User::class, '1');
@@ -728,5 +744,54 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
 
         self::assertFalse($resultado->sucesso);
         self::assertNull($pasta->cadastro);
+    }
+
+    // ── Permissão de edição (achado de auditoria interna F19) ─────────────────
+
+    /** @return iterable<string, array{string, ?string}> */
+    public static function permissoesDeEdicao(): iterable
+    {
+        yield 'Sede' => [Sede::class, 'admin.ponto.manage'];
+        yield 'Cargo' => [Cargo::class, 'admin.tenant.settings.manage'];
+        yield 'Lotação' => [Lotacao::class, 'admin.tenant.settings.manage'];
+        yield 'Chamado' => [\App\Entity\ServiceDesk\Chamado::class, 'admin.servicedesk.manage'];
+        yield 'Anexo do chamado' => [\App\Entity\ServiceDesk\ChamadoAnexo::class, 'admin.servicedesk.manage'];
+        yield 'Interação do chamado' => [\App\Entity\ServiceDesk\ChamadoInteracao::class, 'admin.servicedesk.manage'];
+        yield 'Evento' => [\App\Agenda\Entity\Evento::class, 'admin.users.manage'];
+        yield 'Pasta, sem permissão a mais' => [Pasta::class, null];
+    }
+
+    #[DataProvider('permissoesDeEdicao')]
+    #[TestDox('desfazer exige a permissão da tela de edição da entidade: $entityClass')]
+    public function testPermissaoDeEdicao(string $entityClass, ?string $esperada): void
+    {
+        $log = $this->criarLog('update', $entityClass, '1');
+
+        self::assertSame($esperada, $this->sut->permissaoDeEdicao($log, new User()));
+    }
+
+    #[TestDox('Evento: o criador desfaz sem admin.users.manage, como na tela agenda_editar; outra pessoa precisa dela')]
+    public function testCriadorDoEventoDispensaPermissao(): void
+    {
+        $criador = new User();
+        $evento = (new \App\Agenda\Entity\Evento())->setCriador($criador);
+        $log = $this->criarLog('update', \App\Agenda\Entity\Evento::class, '7');
+        $this->em->method('find')->with(\App\Agenda\Entity\Evento::class, '7')->willReturn($evento);
+
+        self::assertNull($this->sut->permissaoDeEdicao($log, $criador));
+        self::assertSame('admin.users.manage', $this->sut->permissaoDeEdicao($log, new User()));
+    }
+
+    #[TestDox('LegendaCor não se desfaz: nenhuma tela a edita, então o desfazer seria o único caminho de escrita')]
+    public function testLegendaCorNaoEReversivel(): void
+    {
+        $log = $this->criarLog('update', \App\Entity\Agenda\LegendaCor::class, '3', ['nome' => ['from' => 'a', 'to' => 'b']]);
+        $this->auditLogRepository->method('find')->with(10)->willReturn($log);
+        $this->em->expects(self::never())->method('find');
+
+        self::assertFalse($this->sut->podeReverter($log));
+        $resultado = $this->sut->executar(10, 1);
+        self::assertFalse($resultado->sucesso);
+        self::assertSame('Esta alteração não pode ser desfeita automaticamente.', $resultado->erro);
     }
 }

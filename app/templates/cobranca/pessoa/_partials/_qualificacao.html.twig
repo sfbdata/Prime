@@ -6,7 +6,7 @@
 ─────────────────────────────────────────────────────────────────────────── #}
 <div class="card cobranca-card mb-3">
     <div class="card-header fw-semibold">
-        <i class="bi bi-person-badge me-1"></i>Qualificação
+        <i class="bi bi-person-badge me-1"></i>{{ 'cobranca_pessoa.qualificacao.titulo'|trans }}
     </div>
     <div class="card-body">
         {{ form_start(formQualificacao, {
@@ -29,7 +29,7 @@
         </div>
         {{ form_row(formQualificacao.observacao) }}
         <div class="mt-2">
-            <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar qualificação</button>
+            <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_pessoa.qualificacao.salvar'|trans }}</button>
         </div>
         {{ form_end(formQualificacao) }}
     </div>

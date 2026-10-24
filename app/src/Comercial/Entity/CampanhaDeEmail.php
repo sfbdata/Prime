@@ -14,8 +14,9 @@ use Doctrine\ORM\Mapping as ORM;
  * (UNIQUE: clique duplo não cria duas campanhas).
  *
  * Guarda a cópia congelada do conteúdo (`modelo_chave`, `modelo_nome`, `modo`, `assunto`, `selo`, `titulo`, `conteudo`):
- * excluir ou editar o modelo depois não muda a campanha. `publico_parametros` são só os e-mails do CSV ou digitados que
- * passaram no filtro, apagados quando a campanha vira `enviada` ou `cancelada`.
+ * excluir ou editar o modelo depois não muda a campanha. `publico_parametros`: sem filtro, os e-mails do CSV ou digitados
+ * que passaram no B1; com o "Filtrar destinatários" (§9), `{informados, filtro}`, com a busca livre. Apagados quando a
+ * campanha vira `enviada` ou `cancelada`.
  *
  * Plataforma (sem escritório, do Master): não é TenantAware. NÃO é `Auditavel`: a trilha é manual, na confirmação e no
  * encerramento, com `changes` só `{publico, frequencia, total}` (R6). Gravada e lida por SQL
@@ -106,6 +107,13 @@ class CampanhaDeEmail
     /** Os destinatários da última execução (na confirmação, os da hora). */
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $total = 0;
+
+    /**
+     * A confirmação de leitura escolhida na campanha (F3g, desenho 05 VS 21.10.26 L291). Só rastreia de fato com as
+     * duas chaves globais ({@see \App\Comercial\Service\RastreioDaLeitura}); gravada já, para ligar sem migrar de novo.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $rastrearLeitura = false;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'criada_por_id', nullable: true, onDelete: 'SET NULL')]

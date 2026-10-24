@@ -9,6 +9,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Aba Detalhes × desenho "02 - EXPEDIENTES 1.2.3" (auditoria 2 da Pasta, lote L6).
@@ -58,7 +59,8 @@ final class PastaDetalhesEdicaoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('moldura.appendChild(textarea);', $js);
         self::assertStringContainsString('moldura.appendChild(rodape);', $js);
         self::assertStringContainsString('caixa.appendChild(moldura);', $js);
-        self::assertStringContainsString("nota.textContent = 'Visível para a equipe'", $js);
+        self::assertStringContainsString("nota.textContent = BJ_T.t('pasta_detalhes.js.visivel_equipe')", $js);
+        self::assertSame('Visível para a equipe', Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js']['visivel_equipe']);
         self::assertStringNotContainsString('acoesBtns', $js, 'a fileira antiga de botões fora do editor saiu');
     }
 

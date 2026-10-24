@@ -43,10 +43,11 @@
     var resultados = [];
     var vinculando = false;
 
+    // `texto` é a chave do catálogo, traduzida no uso.
     var SELO = {
-        completo:     { texto: 'Completo',     classe: 'ps-vinc-selo--completo' },
-        incompleto:   { texto: 'Incompleto',   classe: 'ps-vinc-selo--incompleto' },
-        ja_vinculado: { texto: 'Já vinculado', classe: 'ps-vinc-selo--vinculado' }
+        completo:     { texto: 'pasta_cabecalho.js.busca.selo_completo',     classe: 'ps-vinc-selo--completo' },
+        incompleto:   { texto: 'pasta_cabecalho.js.busca.selo_incompleto',   classe: 'ps-vinc-selo--incompleto' },
+        ja_vinculado: { texto: 'pasta_cabecalho.js.busca.selo_ja_vinculado', classe: 'ps-vinc-selo--vinculado' }
     };
 
     function soDigitos(v) { return String(v || '').replace(/\D/g, ''); }
@@ -99,13 +100,13 @@
         if (c.documento) {
             var doc = document.createElement('span');
             doc.className = 'ps-vinc-item-doc';
-            doc.textContent = (c.documentoRotulo || 'Documento') + ' ' + c.documento;
+            doc.textContent = (c.documentoRotulo || BJ_T.t('pasta_cabecalho.js.busca.documento')) + ' ' + c.documento;
             corpo.appendChild(doc);
         }
 
         var tag = document.createElement('span');
         tag.className = 'ps-vinc-selo ' + selo.classe;
-        tag.textContent = selo.texto;
+        tag.textContent = BJ_T.t(selo.texto);
 
         item.appendChild(corpo);
         item.appendChild(tag);
@@ -135,7 +136,7 @@
             .catch(function () {
                 if (minha !== sequencia) { return; }
                 limpar();
-                mostrarErro('Não foi possível buscar agora. Tente de novo.');
+                mostrarErro(BJ_T.t('pasta_cabecalho.js.busca.erro_busca'));
             });
     }
 
@@ -177,7 +178,7 @@
             .then(function (r) {
                 if (!r.ok || !r.dados.sucesso) {
                     vinculando = false;
-                    mostrarErro(r.dados.erro || 'Não foi possível vincular o cliente.');
+                    mostrarErro(r.dados.erro || BJ_T.t('pasta_cabecalho.js.busca.erro_vincular'));
                     return;
                 }
                 vinculando = false;
@@ -191,7 +192,7 @@
             })
             .catch(function () {
                 vinculando = false;
-                mostrarErro('Não foi possível vincular o cliente.');
+                mostrarErro(BJ_T.t('pasta_cabecalho.js.busca.erro_vincular'));
             });
     }
 

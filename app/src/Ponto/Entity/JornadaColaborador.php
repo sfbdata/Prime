@@ -3,23 +3,35 @@
 namespace App\Ponto\Entity;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
+/**
+ * A jornada pessoal de um colaborador NUM escritório (spec `docs/specs/seguranca-b-jornada.md`, regra 1): cada
+ * escritório tem a sua, e um escritório nunca altera a do outro. Por cima dela vale a padrão do escritório.
+ */
 #[ORM\Entity(repositoryClass: \App\Ponto\Repository\JornadaColaboradorRepository::class)]
 #[ORM\Table(name: 'jornada_colaborador')]
-class JornadaColaborador implements Auditavel
+#[ORM\UniqueConstraint(name: 'uq_jornada_colaborador_user_tenant', columns: ['user_id', 'tenant_id'])]
+class JornadaColaborador implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\OneToOne(inversedBy: 'jornadaColaborador')]
+    #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
+
+    /** Sem valor só na jornada proposta, que nunca é gravada (`propostaComBlocos`). */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private Tenant $tenant;
 
     // Horários em formato HH:mm
     #[ORM\Column(length: 5, nullable: true)]
@@ -80,6 +92,17 @@ class JornadaColaborador implements Auditavel
     public function setUser(User $user): static
     {
         $this->user = $user;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant ?? null;
+    }
+
+    public function setTenant(Tenant $tenant): static
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 
@@ -219,6 +242,24 @@ class JornadaColaborador implements Auditavel
             $bloco->setJornadaColaborador($this);
         }
         return $this;
+    }
+
+    /**
+     * Cópia solta (nunca persistida) com outros blocos e os mesmos campos legados: a jornada proposta que o choque entre
+     * escritórios confere antes de gravar (spec seguranca-b-jornada §3.3).
+     *
+     * @param iterable<BlocoJornadaColaborador> $blocos
+     */
+    public function propostaComBlocos(iterable $blocos): self
+    {
+        $proposta = clone $this;
+        $proposta->id = null;
+        $proposta->blocos = new ArrayCollection();
+        foreach ($blocos as $bloco) {
+            $proposta->blocos->add($bloco);
+        }
+
+        return $proposta;
     }
 
     public function removeBloco(BlocoJornadaColaborador $bloco): static

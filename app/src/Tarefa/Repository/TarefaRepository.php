@@ -10,8 +10,10 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Processo\Entity\Processo;
-use App\Tarefa\DTO\PessoaNoTrilhoOutput;
+use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\EtapaDaPasta;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -62,15 +64,26 @@ class TarefaRepository extends ServiceEntityRepository
      * `$pastasOcultas`: ids das pastas ocultas pelo cadeado para o usuário (spec pasta-cadeado D3); as metas
      * delas não entram aqui nem nas contagens abaixo.
      *
-     * @param array<string, string> $filtros  busca, status, prioridade, prazo
+     * `etapa` (o clique numa caixa da esteira, desenho 04 de 22/10): a esteira é do escritório, então a lista
+     * passa a ser a das metas ABERTAS daquela etapa de toda a equipe ("Clique numa caixa para ver as metas dela
+     * de toda a equipe"), no lugar do papel da aba. Só com o `$escritorio` explícito: o escopo deixa de ser o
+     * usuário, e o filtro de tenant não fica só a cargo do TenantFilter.
+     *
+     * @param array<string, string> $filtros  busca, prioridade (da meta), prazo, etapa
      * @param list<int>             $pastasOcultas
      * @return Tarefa[]
      */
-    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = []): array
+    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = [], ?Tenant $escritorio = null): array
     {
-        $qb = $this->createQueryBuilder('t')->setParameter('usuario', $usuario);
+        $qb = $this->createQueryBuilder('t');
 
-        $this->escoparPelaAba($qb, $aba);
+        $etapa = EtapaDaPasta::tryFrom((string) ($filtros['etapa'] ?? ''));
+        if ($etapa !== null && $escritorio !== null) {
+            $this->escoparPelaEtapa($qb, $etapa, $escritorio);
+        } else {
+            $qb->setParameter('usuario', $usuario);
+            $this->escoparPelaAba($qb, $aba);
+        }
         $this->semPastasOcultas($qb, $pastasOcultas);
         $this->cortarConcluidasAntigas($qb);
         $this->aplicarFiltrosDaTela($qb, $filtros);
@@ -145,23 +158,112 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Quais destas metas o usuário acompanha, e quantas mensagens cada uma tem.
+     * Números do "Seu andamento" (desenho 04, dc L112-118): sobre TODAS as metas da pessoa, sem a aba
+     * aberta e sem os filtros da tela. Uma consulta só, agregada.
      *
-     * Existe para matar dois N+1 do template: `meta.ehAcompanhadaPor(app.user)` e
-     * `meta.mensagens|length` inicializavam a coleção meta a meta — com 87 linhas na tela isso
-     * era 174 idas ao banco. Aqui são duas, e o Twig só consulta arrays.
+     * Mesmo universo da aba Todas: concluídas só dos últimos 30 dias (o "últimos 30 dias" do cartão)
+     * e sem as pastas do cadeado. Atrasada pelo mesmo recorte dos KPIs (`FORA_DA_FILA`, prazo antes de
+     * hoje), e "hoje" vem do relógio do PHP, como no resto da tela, nunca do `NOW()` do banco.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    public function contarAndamento(User $usuario, array $pastasOcultas = []): AndamentoDasMetasOutput
+    {
+        $qb = $this->universoDoAndamento($usuario, $pastasOcultas)
+            ->select('COUNT(t.id) AS total')
+            ->addSelect('COALESCE(SUM(CASE WHEN t.status = :concluida THEN 1 ELSE 0 END), 0) AS concluidas')
+            ->addSelect('COALESCE(SUM(CASE WHEN t.status = :emRevisao THEN 1 ELSE 0 END), 0) AS emRevisao')
+            ->addSelect('COALESCE(SUM(CASE WHEN t.status NOT IN (:foraDaFila) AND t.prazo IS NOT NULL AND t.prazo < :hoje THEN 1 ELSE 0 END), 0) AS atrasadas')
+            ->setParameter('emRevisao', Tarefa::STATUS_EM_REVISAO)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('hoje', new \DateTimeImmutable('today'));
+
+        $linha = $qb->getQuery()->getSingleResult();
+
+        return new AndamentoDasMetasOutput(
+            concluidas: (int) $linha['concluidas'],
+            total: (int) $linha['total'],
+            atrasadas: (int) $linha['atrasadas'],
+            emRevisao: (int) $linha['emRevisao'],
+        );
+    }
+
+    /**
+     * "Precisa de atenção" (desenho 04, dc `atencao`): as atrasadas de TODAS as metas da pessoa, da
+     * que venceu primeiro, até `$limite`. Mesmo universo e mesmo recorte de `contarAndamento`.
+     *
+     * Duas idas ao banco, nenhuma por linha: os ids com o limite (o LIMIT não convive com junção de
+     * coleção) e depois as metas com pasta e criador já carregados, que o cartão lê.
+     *
+     * @param list<int> $pastasOcultas
+     * @return Tarefa[]
+     */
+    public function findAtrasadasParaAtencao(User $usuario, int $limite, array $pastasOcultas = []): array
+    {
+        $ids = $this->universoDoAndamento($usuario, $pastasOcultas)
+            ->select('t.id')
+            // Pasta excluída (lápide) não pede atenção: o item abre a pasta, e ela não existe mais na tela.
+            ->innerJoin('t.pasta', 'pastaDaAtencao', 'WITH', 'pastaDaAtencao.excluidaEm IS NULL')
+            ->andWhere('t.status NOT IN (:foraDaFila)')
+            ->andWhere('t.prazo IS NOT NULL AND t.prazo < :hoje')
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('hoje', new \DateTimeImmutable('today'))
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('t')
+            ->addSelect('p', 'c')
+            ->leftJoin('t.pasta', 'p')
+            ->leftJoin('t.criadoPor', 'c')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Base de `contarAndamento` e `findAtrasadasParaAtencao`: a aba Todas, sem cadeado e sem as
+     * concluídas antigas. Sem filtro da tela de propósito.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    private function universoDoAndamento(User $usuario, array $pastasOcultas): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('t')->setParameter('usuario', $usuario);
+
+        $this->escoparPelaAba($qb, AbaMetas::TODAS);
+        $this->semPastasOcultas($qb, $pastasOcultas);
+        $this->cortarConcluidasAntigas($qb);
+
+        return $qb;
+    }
+
+    /**
+     * Quais destas metas o usuário acompanha.
+     *
+     * Existe para matar o N+1 do template: `meta.ehAcompanhadaPor(app.user)` inicializava a coleção meta a
+     * meta. Aqui é uma consulta, e o Twig só consulta o array.
      *
      * @param int[] $metaIds
-     * @return array{acompanhadas: int[], mensagens: array<int, int>}
+     * @return array{acompanhadas: int[]}
      */
     public function carregarMarcadoresDaLista(User $usuario, array $metaIds): array
     {
         if ($metaIds === []) {
-            return ['acompanhadas' => [], 'mensagens' => []];
+            return ['acompanhadas' => []];
         }
 
-        // A raiz das duas consultas é `Tarefa` (TenantAware) de propósito: assim o TenantFilter
-        // prende o escopo, e um id forjado na lista não alcançaria meta de outro escritório.
+        // A raiz da consulta é `Tarefa` (TenantAware) de propósito: assim o TenantFilter prende o escopo, e um id
+        // forjado na lista não alcançaria meta de outro escritório.
         $acompanhadas = $this->createQueryBuilder('t')
             ->select('t.id')
             ->andWhere('t.id IN (:ids)')
@@ -171,148 +273,9 @@ class TarefaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleColumnResult();
 
-        $linhas = $this->createQueryBuilder('t')
-            ->select('t.id AS id, COUNT(m.id) AS total')
-            ->join('t.mensagens', 'm')
-            ->andWhere('t.id IN (:ids)')
-            ->setParameter('ids', $metaIds)
-            ->groupBy('t.id')
-            ->getQuery()
-            ->getArrayResult();
-
-        $mensagens = [];
-        foreach ($linhas as $linha) {
-            $mensagens[(int) $linha['id']] = (int) $linha['total'];
-        }
-
         return [
             'acompanhadas' => array_map('intval', $acompanhadas),
-            'mensagens'    => $mensagens,
         ];
-    }
-
-    /**
-     * Número de cada meta DENTRO da sua pasta (R239: `{nº na pasta} Título`), pela mesma regra da aba
-     * Metas da pasta (`PastaMetasResumoOutput::emOrdemDeCriacao`): ordem de criação, id como desempate.
-     * Não há campo gravado — o número é a posição, e é a mesma nas duas telas.
-     *
-     * Raiz e junção em `Tarefa` (TenantAware): o TenantFilter prende as duas pontas ao escritório, e a
-     * junção só olha metas da MESMA pasta. Uma consulta para a lista inteira.
-     *
-     * @param int[] $metaIds
-     * @return array<int, int> id da meta => número na pasta
-     */
-    public function numerosNaPasta(array $metaIds): array
-    {
-        if ($metaIds === []) {
-            return [];
-        }
-
-        $linhas = $this->createQueryBuilder('t')
-            ->select('t.id AS id, COUNT(o.id) AS numero')
-            ->join(
-                Tarefa::class,
-                'o',
-                'WITH',
-                'o.pasta = t.pasta AND (o.dataCriacao < t.dataCriacao OR (o.dataCriacao = t.dataCriacao AND o.id <= t.id))',
-            )
-            ->andWhere('t.id IN (:ids)')
-            ->setParameter('ids', $metaIds)
-            ->groupBy('t.id')
-            ->getQuery()
-            ->getArrayResult();
-
-        $numeros = [];
-        foreach ($linhas as $linha) {
-            $numeros[(int) $linha['id']] = (int) $linha['numero'];
-        }
-
-        return $numeros;
-    }
-
-    /**
-     * As pessoas do trilho lateral, com quantas metas em aberto e quantas atrasadas cada uma.
-     *
-     * A pergunta muda com a aba, e é essa a razão de o trilho existir:
-     *  - "Sou responsável" → QUEM DELEGOU para mim (agrupa pelo criador);
-     *  - as demais         → COM QUEM ESTÃO as metas (agrupa pelo responsável).
-     *
-     * Concluída não entra: o bloco mede carga de hoje. Meta com dois responsáveis conta para
-     * os dois — é o que o usuário espera ao ler "com quem estão".
-     *
-     * @param list<int> $pastasOcultas
-     * @return PessoaNoTrilhoOutput[]  em ordem decrescente de metas em aberto
-     */
-    public function contarPessoasDoTrilho(User $usuario, AbaMetas $aba, array $pastasOcultas = []): array
-    {
-        $porCriador = $aba === AbaMetas::RESPONSAVEL;
-
-        $qb = $this->createQueryBuilder('t')
-            ->andWhere('t.status != :concluida')
-            ->setParameter('usuario', $usuario)
-            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
-
-        if ($porCriador) {
-            $qb->select('u.id AS id, u.fullName AS nome, COUNT(DISTINCT t.id) AS abertas')
-               ->join('t.criadoPor', 'u')
-               ->andWhere(':usuario MEMBER OF t.responsaveis');
-        } else {
-            $qb->select('u.id AS id, u.fullName AS nome, COUNT(DISTINCT t.id) AS abertas')
-               ->join('t.responsaveis', 'u');
-            $this->escoparPelaAba($qb, $aba);
-        }
-        $this->semPastasOcultas($qb, $pastasOcultas);
-
-        $linhas = $qb->groupBy('u.id, u.fullName')
-            ->orderBy('abertas', 'DESC')
-            ->getQuery()
-            ->getArrayResult();
-
-        $atrasadas = $this->contarAtrasadasPorPessoa($usuario, $aba, $porCriador, $pastasOcultas);
-
-        return array_map(
-            static fn (array $l): PessoaNoTrilhoOutput => new PessoaNoTrilhoOutput(
-                id: (int) $l['id'],
-                nome: (string) $l['nome'],
-                abertas: (int) $l['abertas'],
-                atrasadas: $atrasadas[(int) $l['id']] ?? 0,
-            ),
-            $linhas,
-        );
-    }
-
-    /**
-     * Companheira da consulta acima — sai em query própria porque contar duas condições
-     * diferentes no mesmo GROUP BY exigiria CASE dentro do COUNT, que o DQL não expressa
-     * bem e que ficaria ilegível para quem vier depois.
-     *
-     * @return array<int, int>  userId => atrasadas
-     */
-    /** @param list<int> $pastasOcultas */
-    private function contarAtrasadasPorPessoa(User $usuario, AbaMetas $aba, bool $porCriador, array $pastasOcultas = []): array
-    {
-        $qb = $this->createQueryBuilder('t')
-            ->select('u.id AS id, COUNT(DISTINCT t.id) AS total')
-            ->andWhere('t.status NOT IN (:foraDaFila)')
-            ->andWhere('t.prazo IS NOT NULL AND t.prazo < :hoje')
-            ->setParameter('usuario', $usuario)
-            ->setParameter('foraDaFila', self::FORA_DA_FILA)
-            ->setParameter('hoje', new \DateTimeImmutable('today'));
-
-        if ($porCriador) {
-            $qb->join('t.criadoPor', 'u')->andWhere(':usuario MEMBER OF t.responsaveis');
-        } else {
-            $qb->join('t.responsaveis', 'u');
-            $this->escoparPelaAba($qb, $aba);
-        }
-        $this->semPastasOcultas($qb, $pastasOcultas);
-
-        $contagens = [];
-        foreach ($qb->groupBy('u.id')->getQuery()->getArrayResult() as $linha) {
-            $contagens[(int) $linha['id']] = (int) $linha['total'];
-        }
-
-        return $contagens;
     }
 
     /**
@@ -359,6 +322,52 @@ class TarefaRepository extends ServiceEntityRepository
             $qb->andWhere('IDENTITY(t.pasta) NOT IN (:pastasOcultas)')
                ->setParameter('pastasOcultas', $pastasOcultas);
         }
+    }
+
+    /** As metas abertas de uma caixa da esteira, de todo o escritório. */
+    private function escoparPelaEtapa(QueryBuilder $qb, EtapaDaPasta $etapa, Tenant $escritorio): void
+    {
+        // Pasta excluída (lápide) fica fora, como na contagem da caixa e no Dashboard.
+        $qb->innerJoin('t.pasta', 'pastaDaEtapa', 'WITH', 'pastaDaEtapa.excluidaEm IS NULL')
+           ->andWhere('t.tenant = :escritorioDaEtapa')
+           ->andWhere('t.etapa = :etapaDaEsteira')
+           ->andWhere('t.status != :concluidaDaEtapa')
+           ->setParameter('escritorioDaEtapa', $escritorio)
+           ->setParameter('etapaDaEsteira', $etapa)
+           ->setParameter('concluidaDaEtapa', Tarefa::STATUS_CONCLUIDA);
+    }
+
+    /**
+     * A esteira da pasta (desenho 04 de 22/10, dc L163-167): por caixa, quantas metas ABERTAS o escritório tem
+     * (em revisão conta) e quantas delas estão atrasadas, pelo mesmo recorte dos KPIs (`FORA_DA_FILA`, prazo
+     * antes de hoje), sem pasta excluída. Uma consulta agregada; caixa sem meta não vem (quem lê completa com zero).
+     *
+     * @param list<int> $pastasOcultas
+     * @return array<string, array{total: int, atrasadas: int}> chave = valor de `EtapaDaPasta`
+     */
+    public function contarEsteira(Tenant $escritorio, \DateTimeImmutable $hoje, array $pastasOcultas = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->select('t.etapa AS etapa')
+            ->addSelect('COUNT(t.id) AS total')
+            ->addSelect('COALESCE(SUM(CASE WHEN t.status NOT IN (:foraDaFila) AND t.prazo IS NOT NULL AND t.prazo < :hoje THEN 1 ELSE 0 END), 0) AS atrasadas')
+            ->innerJoin('t.pasta', 'p', 'WITH', 'p.excluidaEm IS NULL') // pasta excluída (lápide) não conta, como no Dashboard
+            ->andWhere('t.tenant = :escritorio')
+            ->andWhere('t.status != :concluida')
+            ->setParameter('escritorio', $escritorio)
+            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('hoje', $hoje->setTime(0, 0))
+            ->groupBy('t.etapa');
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        $porEtapa = [];
+        foreach ($qb->getQuery()->getArrayResult() as $linha) {
+            $etapa = $linha['etapa'] instanceof EtapaDaPasta ? $linha['etapa']->value : (string) $linha['etapa'];
+            $porEtapa[$etapa] = ['total' => (int) $linha['total'], 'atrasadas' => (int) $linha['atrasadas']];
+        }
+
+        return $porEtapa;
     }
 
     /**
@@ -411,25 +420,18 @@ class TarefaRepository extends ServiceEntityRepository
     private function aplicarFiltrosDaTela(QueryBuilder $qb, array $filtros): void
     {
         $busca      = trim((string) ($filtros['busca'] ?? ''));
-        $prioridade = !empty($filtros['prioridade']) ? PrioridadePasta::tryFrom((string) $filtros['prioridade']) : null;
-
-        // Busca e prioridade leem a pasta da meta: um join só, com um alias só, quando qualquer
-        // das duas pede. É ManyToOne, então não duplica linha.
-        if ($busca !== '' || $prioridade !== null) {
-            $qb->leftJoin('t.pasta', 'p_tela');
-        }
+        // Prioridade PRÓPRIA da meta (desenho 04, P:77): uma meta normal numa pasta urgente não entra em
+        // "Urgente". Valor fora do enum (o antigo `prioridade` da pasta, num link guardado) é ignorado.
+        $prioridade = PrioridadeDaMeta::tryFrom((string) ($filtros['prioridade'] ?? ''));
 
         if ($busca !== '') {
+            // A busca lê a pasta da meta (nº e cliente). É ManyToOne, então o join não duplica linha.
+            $qb->leftJoin('t.pasta', 'p_tela');
             $this->aplicarBuscaDaTela($qb, $busca);
         }
 
-        if (!empty($filtros['status'])) {
-            $qb->andWhere('t.status = :statusFiltro')
-               ->setParameter('statusFiltro', $filtros['status']);
-        }
-
         if ($prioridade !== null) {
-            $qb->andWhere('p_tela.prioridade = :prioridade')
+            $qb->andWhere('t.prioridade = :prioridade')
                ->setParameter('prioridade', $prioridade);
         }
 
@@ -705,6 +707,37 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Metas abertas da pessoa com prazo no dia (resumo diário por e-mail, spec docs/specs/resumo-diario-por-email.md):
+     * os mesmos critérios dos números acima (pasta do escritório e fora da lixeira, fora da fila em revisão ou
+     * concluída) e o cadeado. Tenant explícito: no comando de console o TenantFilter não vale.
+     *
+     * @param list<int> $pastasOcultas
+     *
+     * @return list<Tarefa>
+     */
+    public function abertasDoResponsavelNoDia(Tenant $tenant, User $responsavel, \DateTimeImmutable $dia, array $pastasOcultas = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->addSelect('p')
+            ->join('t.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('t.status NOT IN (:foraDaFila)')
+            ->andWhere(':responsavel MEMBER OF t.responsaveis')
+            ->andWhere('t.prazo >= :de AND t.prazo < :ate')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('responsavel', $responsavel)
+            ->setParameter('de', RegraDoPrazo::inicioDoDia($dia))
+            ->setParameter('ate', RegraDoPrazo::inicioDoDia($dia)->modify('+1 day'))
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * Lista "Metas da equipe" (/tarefas/equipe): as metas que cada número da tabela Desempenho
      * do Dashboard conta. Os critérios de status são OS MESMOS dos count*PorResponsavel acima —
      * se um mudar, o outro muda junto, senão o número clicado deixa de bater com a lista
@@ -915,5 +948,77 @@ class TarefaRepository extends ServiceEntityRepository
         }
 
         return $porPasta;
+    }
+
+    /**
+     * Metas que o backfill `app:tarefa:herdar-prioridade-da-pasta` mudaria, por escritório: ainda
+     * `normal` e numa pasta de prioridade que vira outra coisa (`PrioridadeDaMeta::daPasta`). Roda sem
+     * sessão (sem TenantFilter): o recorte por escritório é explícito, na meta e na pasta.
+     *
+     * @return array<int, int> tenant_id => metas a herdar
+     */
+    public function contarHerancaDePrioridadePendente(?int $tenantId = null): array
+    {
+        $dePara = $this->deParaDaPrioridadeDaPasta();
+        $sql    = 'SELECT t.tenant_id, COUNT(*) AS total FROM tarefa t JOIN pasta p ON p.id = t.pasta_id AND p.tenant_id = t.tenant_id'
+            . ' WHERE t.prioridade = ? AND p.prioridade IN (' . $this->marcadores(count($dePara)) . ')';
+        $valores = [PrioridadeDaMeta::Normal->value, ...array_keys($dePara)];
+        if ($tenantId !== null) {
+            $sql .= ' AND t.tenant_id = ?';
+            $valores[] = $tenantId;
+        }
+
+        $pendentes = [];
+        foreach ($this->getEntityManager()->getConnection()->fetchAllAssociative($sql . ' GROUP BY t.tenant_id ORDER BY t.tenant_id', $valores) as $linha) {
+            $pendentes[(int) $linha['tenant_id']] = (int) $linha['total'];
+        }
+
+        return $pendentes;
+    }
+
+    /**
+     * Grava a herança da prioridade da pasta nas metas de UM escritório que ainda estão `normal`.
+     * Idempotente: a meta que já herdou (ou que alguém mudou) não é mais `normal` e não volta a ser
+     * tocada. SQL direto, como o `numerar-metas`: não passa pela trilha de auditoria.
+     *
+     * @return int metas atualizadas
+     */
+    public function herdarPrioridadeDaPasta(int $tenantId): int
+    {
+        $dePara = $this->deParaDaPrioridadeDaPasta();
+        $quando = [];
+        foreach ($dePara as $daPasta => $daMeta) {
+            array_push($quando, $daPasta, $daMeta);
+        }
+        $sql = 'UPDATE tarefa AS t SET prioridade = CASE p.prioridade ' . str_repeat('WHEN ? THEN ? ', count($dePara)) . 'END FROM pasta AS p'
+            . ' WHERE p.id = t.pasta_id AND p.tenant_id = t.tenant_id AND t.tenant_id = ? AND t.prioridade = ?'
+            . ' AND p.prioridade IN (' . $this->marcadores(count($dePara)) . ')';
+        $valores = [...$quando, $tenantId, PrioridadeDaMeta::Normal->value, ...array_keys($dePara)];
+
+        return (int) $this->getEntityManager()->getConnection()->executeStatement($sql, $valores);
+    }
+
+    /**
+     * O de-para vem do enum (`PrioridadeDaMeta::daPasta`), para o SQL nunca discordar da criação. Só as
+     * prioridades de pasta que mudam a meta entram.
+     *
+     * @return array<string, string> prioridade da pasta => prioridade da meta
+     */
+    private function deParaDaPrioridadeDaPasta(): array
+    {
+        $dePara = [];
+        foreach (PrioridadePasta::cases() as $daPasta) {
+            $daMeta = PrioridadeDaMeta::daPasta($daPasta);
+            if ($daMeta !== PrioridadeDaMeta::Normal) {
+                $dePara[$daPasta->value] = $daMeta->value;
+            }
+        }
+
+        return $dePara;
+    }
+
+    private function marcadores(int $quantos): string
+    {
+        return implode(', ', array_fill(0, $quantos, '?'));
     }
 }

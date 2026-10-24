@@ -21,6 +21,7 @@ use App\TrabalhoExterno\Enum\SituacaoConvite;
 use App\TrabalhoExterno\Enum\SituacaoProposta;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Converte a demanda no que a tela desenha, já com o recorte do perfil: notas internas fora para
@@ -47,6 +48,7 @@ final class ApresentadorDeDemanda
         private readonly PoliticaDaDemanda $politica,
         private readonly UrlGeneratorInterface $urls,
         private readonly CalculadoraDeImportancia $importancia,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -125,6 +127,7 @@ final class ApresentadorDeDemanda
             'tipo' => $d->getTipoServico(),
             'destino' => $this->local($d->getCidadeExecucao(), $d->getUfExecucao()) . ($d->getOrgao() !== null ? ' · ' . $d->getOrgao() : ''),
             'botoes' => $this->politica->botoes($ctx, $d),
+            'pausada' => $ctx->donoForaDoAr ? 'Esta demanda está pausada. Fale com a Central.' : null,
             'abas' => $this->abas($ctx),
             'campos' => $this->campos($ctx, $d),
             // "Ver instruções" do convite: sem ele, o Convidado não lê descrição, objetivo nem instruções.
@@ -292,6 +295,24 @@ final class ApresentadorDeDemanda
         ));
     }
 
+    /** A dica do apagar: sem o "até 60 min" quando quem libera é o Master ou o poder sem prazo do primário. */
+    private function dicaDoApagar(Contexto $ctx, MensagemDemanda $m, bool $meu, \DateTimeImmutable $agora): string
+    {
+        if ($ctx->perfil === Perfil::Master && !$meu) {
+            return 'Apagar para todos (Master)';
+        }
+
+        return $this->politica->seloDoApagar($ctx, $m, $agora) !== null ? 'Apagar para todos' : 'Apagar para todos · até 60 min após o envio';
+    }
+
+    /** O texto do selo "EXCLUSIVO DO PRIMÁRIO" do apagar, ou vazio quando a regra de sempre já libera (ou nada libera). */
+    private function rotuloDoSelo(Contexto $ctx, MensagemDemanda $m, \DateTimeImmutable $agora): string
+    {
+        $selo = $this->politica->seloDoApagar($ctx, $m, $agora);
+
+        return $selo === null ? '' : $this->tradutor->trans($selo->chaveDoSelo());
+    }
+
     /** @return array<string, mixed> */
     private function mensagem(Contexto $ctx, MensagemDemanda $m, ?MarcacaoDeMensagem $marca, \DateTimeImmutable $agora): array
     {
@@ -322,8 +343,10 @@ final class ApresentadorDeDemanda
                 ? 'Mensagem apagada por ' . $this->politica->nomeVisivel($ctx, (string) $m->getApagadaPor(), $m->getApagadaPorPerfil() ?? Perfil::Master) . ' em ' . $this->dataHora($m->getApagadaEm())
                 : '',
             'podeApagar' => $this->politica->podeApagarMensagem($ctx, $m, $agora),
+            // Edição sem prazo (item 8): o rótulo do selo quando só o poder do primário do escritório dono libera.
+            'seloSemPrazo' => $this->rotuloDoSelo($ctx, $m, $agora),
             // Dica e item travado do menu da mensagem (desenho l.1239).
-            'apagarDica' => $ctx->perfil === Perfil::Master && !$meu ? 'Apagar para todos (Master)' : 'Apagar para todos · até 60 min após o envio',
+            'apagarDica' => $this->dicaDoApagar($ctx, $m, $meu, $agora),
             'apagarBloqueado' => $m->foiApagada() || $tipo === TipoMensagem::Sistema || $this->politica->podeApagarMensagem($ctx, $m, $agora)
                 ? ''
                 : ($meu ? 'Apagar (prazo de 60 min encerrado)' : 'Só o autor ou o Master apagam'),

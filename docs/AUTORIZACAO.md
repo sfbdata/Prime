@@ -169,6 +169,42 @@ tela de seleção de escritório.
   `RemoverColaboradorDoEscritorioUseCase`): "O titular do escritório não pode sair. Fale com o suporte
   do BlueJus." (D4: o titular nunca é rebaixado nem removido). A barra superior nem mostra o botão
   "Sair deste escritório" para o titular do escritório atual (`base.html.twig`).
+- **Hierarquia de perfis** (spec `docs/specs/perfis-1.2-permissoes-e-hierarquia.md`, parte C): a regra mora
+  num lugar só, `App\Tenant\Service\HierarquiaDePerfis`, que usa a `RegraDosMasters` (nível 3, Master) e a
+  `RegraDosPrimarios::podeGerirPrimarios()` (nível 2, primário ativo); os demais são nível 1. O perfil de
+  sistema é nível 2; os secundários, nível 1. Só mexe em perfil quem tem nível MAIOR que o dele, no servidor:
+  - lista (`TenantRoleController::index`): primário, Master ou `admin.roles.manage`; mostra só perfis de nível
+    até o do ator (o secundário não vê o perfil de sistema). Quem não tem acesso recebe a tela "Acesso
+    restrito" (403) com "Pedir acesso", que avisa os primários ativos pela Central (tipo
+    `perfis_pedido_acesso`), um pedido por pessoa por dia (o teto é o próprio aviso: o link dele é a lista de
+    Perfis com `?pedido=<id de quem pediu>`). Vale também no GET de `new` e `edit`. Primário de outro escritório
+    não recebe;
+  - criar (`new`): só nível >= 2 (o perfil novo é sempre secundário);
+  - editar (`edit`) e excluir (`delete`): só perfil de nível abaixo do ator. Na prática, o secundário com
+    `admin.roles.manage` fica só com a leitura da lista de secundários: não edita nem exclui nenhum perfil,
+    nem o próprio. A tela do perfil de sistema continua sendo a gestão de primários (`podeGerirPrimarios`,
+    sem mudança). Recusa: 403 com "Seu perfil não pode editar um perfil do mesmo nível ou acima.";
+  - **subconjunto** no edit-role (`TenantController::editUserRole`, `admin.users.manage`) e no convite
+    (`GerenciarConvitesController` + `CriarConviteEscritorioUseCase`, `admin.users.invite`): quem não é
+    primário nem Master não troca o próprio perfil e só atribui perfil cujas permissões estão TODAS no perfil
+    dele (`HierarquiaDePerfis::podeAtribuirPerfil`). Sem vínculo ativo ou com perfil nulo, só o perfil vazio
+    cabe. Manter o perfil atual do alvo não é atribuir. No edit-role, também não mexe em quem tem o perfil atual
+    FORA do subconjunto dele (`podeMexerNoAlvo`): não troca o perfil (nem rebaixa, nem deixa sem perfil) e não troca
+    a senha ("Seu perfil não pode mexer em quem tem permissões que ele não tem."); alvo sem perfil passa. A senha
+    soma essa barreira à `RegraDosPrimarios::podeTrocarSenhaDe()`, sem mudá-la (`HierarquiaDePerfis::podeTrocarSenha`).
+    A mesma barreira vale ao remover do escritório (`TenantController::removerColaborador`, rota
+    `app_tenant_user_remover`): flash com a mensagem e nada muda.
+  - **senha de quem usa outro escritório** (C8, `HierarquiaDePerfis::recusaDaSenha`): a senha é da CONTA (`User`) e
+    vale em todos os escritórios, mas o edit-role só olha o vínculo do escritório da URL. Quem NÃO é Master
+    (secundário ou primário) não troca, pelo edit-role, a senha de quem tem vínculo em outro escritório
+    (qualquer perfil, com o escritório no ar ou não): "Esta pessoa também usa outro escritório. A senha só pode
+    ser trocada por ela, em Meu Perfil, ou pelo suporte." Sem isso, um gestor de A trocaria a senha de quem é
+    primário em B e entraria em B. O vínculo suspenso ou em análise também bloqueia (pode voltar a valer; o removido some da tabela); a própria pessoa e o Master
+    passam. Primário e Master atribuem
+    qualquer secundário e trocam senhas como antes; o perfil
+    de sistema segue a regra dos primários acima. O select esconde o que não pode e o POST forjado é recusado.
+    **Não cobre:** o aceite do convite não revalida o subconjunto (só a regra dos primários); o convite do
+    Trabalho Externo é outro fluxo.
 - **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
   (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega toda permissão de perfil** no
   `PermissionChecker` (módulos, admin e `resources.*` por tipo) até alguém atribuir outro. Só
@@ -203,6 +239,12 @@ Exemplos confirmados:
   (`app/src/Cliente/Controller/ClienteController.php`, linhas ~115 e ~145)
 - `ExpedienteController::assertAccess()` — `canAccessModule('expediente')`
   (`app/src/Expediente/Controller/ExpedienteController.php`, l. 262)
+
+Exceção registrada (spec `processo-cadastro-pela-pasta`, a4, 21/10/2026): o "Buscar no CNJ"
+(`ProcessoController::datajudSearch`, `POST /processos/api/search`) exige o módulo `processos`, **ou** chega
+encaminhado pela pasta: `POST /pasta/{id}/processo/buscar-cnj` exige EDIT na pasta (`canAccessResource`, com o
+cadeado) e faz `forward` com o atributo `_cnj_pela_pasta`, que só nasce no servidor. Quem pode vincular processo
+na pasta consulta o CNJ por ela, mesmo sem o módulo; fora da pasta, nada muda.
 
 ### Twig — função de template
 
@@ -273,14 +315,14 @@ canAccessModule($u, $t, 'clientes')          == hasPermission($u, $t, 'modules.c
 
 | Permissão | Controller | Tipo de proteção | Observação |
 |---|---|---|---|
-| `admin.roles.manage` | `TenantRoleController::assertAccess()` | Listagem + CRUD de roles | Um guard cobre tudo |
+| `admin.roles.manage` | `TenantRoleController` via `HierarquiaDePerfis::podeVerALista()` | Só a leitura da lista de secundários | Criar, editar e excluir exigem nível acima do perfil (primário ou Master); ver §2b, Hierarquia de perfis |
 | `admin.users.manage` | `TenantController::listUsers()` (l. 329) + `TenantUserProfileController` (l. 54) + ações em `TenantController` | Listagem + ações de gestão | Mistura "ver lista" e "executar ação" numa permissão só |
 | `admin.users.invite` | `GerenciarConvitesController::assertAccess()` | Listagem + CRUD de convites | — |
 | `admin.access_requests.approve` | `AccessRequestController` (l. 50) | Listagem + aprovação | — |
 | `admin.tenant.settings.manage` | `TenantController` (l. 80, 174, 200) + `FeriadoController` (l. 39) | Cobre tenant index, show, edit e feriados | Uma permissão protege 4 telas e 2 itens de sidebar distintos |
 | `admin.servicedesk.manage` | `ServiceDeskController` (l. 74, 209, 246, 286, 333) | Dashboard + 4 ações | — |
 | `admin.ponto.manage` | `TenantController` (l. 1516, 1570, 1636) | Criar/editar/excluir sede — sem listagem protegida | — |
-| `admin.audit.view` | `AuditLogController` (l. 38) | Apenas listagem | — |
+| `admin.audit.view` | `AuditLogController` (l. 38) | Listagem e desfazer | Desfazer Sede exige também `admin.ponto.manage`; Cargo e Lotação, `admin.tenant.settings.manage`; Chamado, anexo e interação, `admin.servicedesk.manage`; Evento, `admin.users.manage` ou ser o criador; LegendaCor não se desfaz (achado de auditoria interna F19). Meta e pasta pedem a guarda da tela (`GuardaDaTelaNoDesfazer`: na meta, módulo `tarefas`, `AcessoAMeta` e a barreira do cadeado para qualquer campo, e por campo o que a rota pede (prazo pelo criador; conclusão e reabertura por quem cuida e com edição da pasta; etapa por quem cuida; título com edição da pasta); `AcessoAPasta::podeEditar` na pasta-mãe, e a observação dos Detalhes também pelo `EditarObservacaoDetalhesUseCase::podeEditar`; mensagem da pasta: ver a pasta, cadeado em `Editar` e `EditarMensagemPastaUseCase::podeEditar`); TarefaMensagem e Notificacao não se desfazem |
 | `admin.tarefas.manage` | **NENHUM** | — | **Permissão fantasma** — existe no catálogo e na sidebar mas nenhum controller a verifica |
 
 ### Seção admin da sidebar
@@ -620,6 +662,14 @@ Em produção (migration) e em desenvolvimento (fixtures), o catálogo
 Na sidebar, o item "Financeiro" usa `can_access_module('clientes')` e
 aponta para `cliente_index`. O label exibido é "Financeiro" mas a
 chave de permissão e a rota são do módulo `clientes`.
+
+### L1. Posição da batida informada pelo navegador (limitação conhecida)
+
+A numeração desta seção é do documento; o achado citado é o da auditoria interna.
+
+Achado de auditoria interna F17: a cerca do ponto decide pela posição informada pelo navegador; o
+servidor não confirma a posição; alcance limitado à batida do próprio funcionário; mitigação futura
+possível: IP da batida (exige migration e decisão do dono). Spec `docs/specs/seguranca-b-ponto.md` §1.4.
 
 ---
 

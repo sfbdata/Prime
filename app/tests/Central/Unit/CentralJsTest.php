@@ -34,4 +34,12 @@ final class CentralJsTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/\b(window\.)?(alert|confirm|prompt)\s*\(/', $js);
         self::assertDoesNotMatchRegularExpression('/\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML|document\.write/', $js);
     }
+
+    #[TestDox('central.js: conversa 1:1 fora da lista (excluída da minha caixa) não vira "Você não participa mais"; só o grupo')]
+    public function testConversaExcluidaNaoBloqueiaO1a1(): void
+    {
+        $js = (string) file_get_contents(self::DIR . 'central.js');
+        self::assertMatchesRegularExpression('/function sincronizarAberta\(\)[\s\S]*?if \(!atual\) \{\s*estado\.aberta\.fora = estado\.aberta\.grupo;/', $js);
+        self::assertStringContainsString("'Você não participa mais desta conversa.'", $js, 'o aviso segue para quem saiu do grupo');
+    }
 }

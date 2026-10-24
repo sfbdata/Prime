@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\Feriado;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\JornadaColaboradorRepository;
 use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\LancamentoHorasPagasRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
@@ -24,13 +26,20 @@ final class FolhaPontoBuilderTest extends TestCase
 {
     private FolhaPontoBuilder $builder;
 
+    /** A jornada pessoal que o repositório devolve para o escritório da folha (spec seguranca-b-jornada §3.2). */
+    private ?JornadaColaborador $jornadaNoEscritorio = null;
+
     protected function setUp(): void
     {
+        $jornadas = $this->createStub(JornadaColaboradorRepository::class);
+        $jornadas->method('findByUserETenant')->willReturnCallback(fn (): ?JornadaColaborador => $this->jornadaNoEscritorio);
+
         $this->builder = new FolhaPontoBuilder(
             new CalculadoraJornada(new JornadaResolver()),
             $this->createStub(RegistroPontoRepository::class),
             $this->createStub(JustificativaPontoRepository::class),
             $this->createStub(LancamentoHorasPagasRepository::class),
+            $jornadas,
         );
     }
 
@@ -199,10 +208,10 @@ final class FolhaPontoBuilderTest extends TestCase
         $user = new User();
         $user->setEmail('a@b.com')->setFullName('Teste');
 
-        // Início da contagem válido: isola o guard de jornada como ÚNICO motivo do zero.
-        // Tenant null = "não há tenant": nenhum lançamento de horas pagas soma, então o zero
-        // continua vindo só do guard de jornada, que é o que este teste prova.
-        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, $this->contagemAntiga(), null);
+        // Início da contagem válido: isola o guard de jornada como ÚNICO motivo do zero. O stub de
+        // horas pagas soma zero, então o zero continua vindo só do guard de jornada, que é o que
+        // este teste prova (o escritório não tem jornada pessoal da pessoa).
+        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, $this->contagemAntiga(), new Tenant());
 
         self::assertSame(0, $resultado);
     }
@@ -317,10 +326,10 @@ final class FolhaPontoBuilderTest extends TestCase
         // Cenário do veterano: admitido há anos, mas só passou a registrar ponto no fim de 2025.
         $user = $this->usuarioComJornada();
 
-        // Tenant null (= "não há tenant") mantém a comparação isolada nas batidas: sem lançamento
-        // de horas pagas no meio, a diferença medida vem só da janela de contagem.
-        $soNovembroEDezembro = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'), null);
-        $anoInteiro          = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-01-01'), null);
+        // O stub de horas pagas soma zero e mantém a comparação isolada nas batidas: a diferença
+        // medida vem só da janela de contagem.
+        $soNovembroEDezembro = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'), new Tenant());
+        $anoInteiro          = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-01-01'), new Tenant());
 
         self::assertLessThan(0, $soNovembroEDezembro);
         // Contar o ano inteiro seria MUITO mais negativo — é exatamente o débito fantasma que a regra evita.
@@ -331,14 +340,14 @@ final class FolhaPontoBuilderTest extends TestCase
     {
         $user = $this->usuarioComJornada();
 
-        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, [], null, null, null));
+        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, [], null, null, new Tenant()));
     }
 
     public function testCalcularSaldoAteMesSemPrimeiroRegistroRetornaZero(): void
     {
         $user = $this->usuarioComJornada();
 
-        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, null, null));
+        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, null, new Tenant()));
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -372,7 +381,7 @@ final class FolhaPontoBuilderTest extends TestCase
     {
         $jornada = $this->jornadaSimples();
         $user    = $jornada->getUser();
-        $user->setJornadaColaborador($jornada); // linka os dois lados: getJornadaColaborador() != null
+        $this->jornadaNoEscritorio = $jornada;   // é a jornada da pessoa no escritório da folha
 
         // createdAt ANTIGO de propósito: é o que faz os testes de saldo discriminarem a regra nova
         // da que quebrou a produção. Com o createdAt padrão (= agora), a regra antiga

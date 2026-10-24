@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Auth\Controller;
 
 use App\Auth\Enum\ReenvioDeConfirmacao;
-use App\Auth\Repository\ConfirmacaoEmailRepository;
+use App\Auth\Service\TetoDoReenvioDeConfirmacao;
 use App\Auth\UseCase\ReenviarConfirmacaoDeEmailUseCase;
 use App\Entity\Auth\User;
-use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,34 +18,29 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Botão "Reenviar o link de confirmação" (desenho 10), que aparece junto da recusa por e-mail a confirmar (convite
  * de escritório, convite do Trabalho Externo, link externo do Push). Só a própria conta logada pede para si.
  *
- * Os tetos (um link a cada 2 minutos e 5 a cada 24 h por conta) moram AQUI, e não no UseCase: a automação do servidor pode chamar
- * o UseCase direto, sem CSRF e sem teto. A resposta volta para a página de origem com um flash.
+ * Os tetos (um link a cada 2 minutos e 5 a cada 24 h por conta) moram no `TetoDoReenvioDeConfirmacao`, e não no UseCase:
+ * a automação do servidor pode chamar o UseCase direto, sem CSRF e sem teto. O reenvio público da tela de entrada
+ * (`ReenvioPublicoDeConfirmacaoController`) usa os mesmos tetos. A resposta volta para a página de origem com um flash.
  */
 #[IsGranted('IS_AUTHENTICATED')]
 final class ContaConfirmacaoController extends AbstractController
 {
     public const CSRF = 'conta_confirmacao_reenviar';
 
-    /** Teto curto: um link a cada 2 minutos por conta. */
-    public const INTERVALO = '-2 minutes';
-
-    /**
-     * Teto diário: com 5 links nas últimas 24 h (contando o do cadastro), não sai outro. Sem ele, uma conta criada
-     * com o e-mail de outra pessoa mandaria 30 e-mails por hora à vítima, sem fim.
-     */
-    public const TETO_DIARIO = 5;
-    public const JANELA_DIARIA = '-24 hours';
+    /** Os tetos e os textos deles moram no serviço, usado também pelo reenvio público. */
+    public const INTERVALO = TetoDoReenvioDeConfirmacao::INTERVALO;
+    public const TETO_DIARIO = TetoDoReenvioDeConfirmacao::TETO_DIARIO;
+    public const JANELA_DIARIA = TetoDoReenvioDeConfirmacao::JANELA_DIARIA;
 
     public const FLASH_ENVIADO = 'Enviamos um novo link de confirmação para o seu e-mail.';
-    public const FLASH_AGUARDE = 'Aguarde um instante antes de pedir outro link de confirmação.';
-    public const FLASH_TETO_DIARIO = 'Você já pediu vários links hoje. Confira a caixa de spam ou tente de novo amanhã.';
+    public const FLASH_AGUARDE = TetoDoReenvioDeConfirmacao::AGUARDE;
+    public const FLASH_TETO_DIARIO = TetoDoReenvioDeConfirmacao::TETO_DIARIO_ATINGIDO;
     public const FLASH_JA_CONFIRMADO = 'O seu e-mail já está confirmado.';
     public const FLASH_FALHA = 'Não foi possível enviar o e-mail agora. Tente de novo em instantes.';
 
     public function __construct(
         private readonly ReenviarConfirmacaoDeEmailUseCase $reenviar,
-        private readonly ConfirmacaoEmailRepository $confirmacaoEmailRepository,
-        private readonly ClockInterface $relogio,
+        private readonly TetoDoReenvioDeConfirmacao $teto,
     ) {
     }
 
@@ -62,7 +56,7 @@ final class ContaConfirmacaoController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $recusa = $user->isEmailConfirmado() ? null : $this->recusaDoTeto($user);
+        $recusa = $user->isEmailConfirmado() ? null : $this->teto->recusa($user);
         if ($recusa !== null) {
             $this->addFlash('warning', $recusa);
 
@@ -77,22 +71,6 @@ final class ContaConfirmacaoController extends AbstractController
         $this->addFlash($tipo, $texto);
 
         return $this->voltar($request);
-    }
-
-    /** O texto do flash se a conta bateu num dos tetos (diário ou de 2 minutos); null se pode reenviar. */
-    private function recusaDoTeto(User $user): ?string
-    {
-        $agora = $this->relogio->now();
-
-        if ($this->confirmacaoEmailRepository->contarEmissoesDesde($user, $agora->modify(self::JANELA_DIARIA)) >= self::TETO_DIARIO) {
-            return self::FLASH_TETO_DIARIO;
-        }
-
-        if ($this->confirmacaoEmailRepository->houveEmissaoDesde($user, $agora->modify(self::INTERVALO))) {
-            return self::FLASH_AGUARDE;
-        }
-
-        return null;
     }
 
     /**

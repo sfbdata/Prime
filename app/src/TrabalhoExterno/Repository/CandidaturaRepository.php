@@ -202,6 +202,60 @@ class CandidaturaRepository extends ServiceEntityRepository
         return array_column(array_map(static fn (array $l): array => ['id' => (int) $l['curriculo'], 'n' => (int) $l['n']], $linhas), 'n', 'id');
     }
 
+    /** Candidaturas e aceites enviados desde o instante (o chip "na semana" da Central, l.1019). */
+    public function contarDesde(\DateTimeImmutable $desde): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->andWhere('c.enviadaEm > :desde')
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * O primeiro aceite da rodada atual de cada oferta, com o início da rodada (o chip "Ofertas são aceitas
+     * em X min, em média", l.1018). Só a rodada atual guarda o início.
+     *
+     * @return list<array{inicio: \DateTimeImmutable, aceite: \DateTimeImmutable}>
+     */
+    public function primeirosAceitesDasRodadas(): array
+    {
+        $linhas = $this->createQueryBuilder('c')
+            ->select('v.inicioDaRodada AS inicio', 'MIN(c.enviadaEm) AS aceite')
+            ->join('c.vaga', 'v')
+            ->andWhere('c.aceiteDeOferta = true')
+            ->andWhere('c.rodada = v.rodada')
+            ->andWhere('v.inicioDaRodada IS NOT NULL')
+            ->groupBy('v.id', 'v.inicioDaRodada')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'inicio' => $l['inicio'] instanceof \DateTimeImmutable ? $l['inicio'] : new \DateTimeImmutable((string) $l['inicio']),
+            'aceite' => new \DateTimeImmutable((string) $l['aceite']),
+        ], $linhas);
+    }
+
+    /**
+     * O status e a data de envio de todas as candidaturas, sem dado do candidato: o funil e a curva de
+     * candidaturas do painel do Master (spec §4.9). Quem chama confere que é o Master.
+     *
+     * @return list<array{status: string, enviadaEm: \DateTimeImmutable}>
+     */
+    public function statusEEnvios(): array
+    {
+        $linhas = $this->createQueryBuilder('c')
+            ->select('c.status AS status', 'c.enviadaEm AS enviadaEm')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'status' => $l['status'] instanceof \BackedEnum ? (string) $l['status']->value : (string) $l['status'],
+            'enviadaEm' => $l['enviadaEm'] instanceof \DateTimeImmutable ? $l['enviadaEm'] : new \DateTimeImmutable((string) $l['enviadaEm']),
+        ], $linhas);
+    }
+
     /** @return list<int> os ids das candidaturas da vaga, para apagar as marcações antes dela */
     public function idsDaVaga(Vaga $vaga): array
     {

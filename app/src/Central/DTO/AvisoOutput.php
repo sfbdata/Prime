@@ -22,6 +22,8 @@ final class AvisoOutput
         public readonly string $criadoEm,
         /** F3: quando a pessoa deu baixa (null = em aberto). */
         public readonly ?string $resolvidoEm = null,
+        /** Rótulo da ação de abrir o aviso (ex.: "Ver sugestão" no Contribua); null = o "Abrir" genérico. */
+        public readonly ?string $acao = null,
     ) {
     }
 }

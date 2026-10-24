@@ -16,6 +16,7 @@ use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
 use App\Pasta\Service\MontadorDaTimelineInteligente;
 use App\Pasta\Service\RegrasDaTimelineInteligente;
 use App\Repository\NotificacaoRepository;
@@ -428,6 +429,32 @@ final class PastaTimelineControllerTest extends JusPrimeWebTestCase
         self::assertSame('critico', $porId['mp' . $meta->getId()]['prioridade']);
         self::assertSame('info', $porId['mp' . $emDia->getId()]['prioridade']);
         self::assertSame(1, $dados['contagens']['pendente']);
+    }
+
+    #[TestDox('Êxito previsto (sem vencimento): lançado com "% do total contratado", nunca vencido nem pendente')]
+    public function testExitoPrevistoSemVencimento(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $exito           = (new PastaPagamento())
+            ->setPasta($pasta)
+            ->setTenant($tenant)
+            ->setDescricao('Honorários de êxito (12,5%)');
+        $exito->preverPorPercentual(TipoDePagamento::Exito, '12.5', '0.00');
+        $this->em()->persist($exito);
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $dados = $this->timeline($client, $pasta);
+
+        $lancado = $this->evento($dados, 'pl' . $exito->getId());
+        self::assertNotNull($lancado);
+        self::assertSame('Honorários de êxito (12,5%) · 12,5% do total contratado · condicionado ao resultado', $lancado['texto']);
+        self::assertNull($this->evento($dados, 'pv' . $exito->getId()), 'previsto não vence');
+        self::assertNotContains('pl' . $exito->getId(), $this->ids($dados, 'atencao'));
+        self::assertSame(0, $dados['contagens']['pendente']);
     }
 
     #[TestDox('Financeiro quitado: a última quitação vira marco só quando todos os pagamentos estão pagos')]

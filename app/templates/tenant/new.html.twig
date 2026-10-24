@@ -1,29 +1,29 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Novo Tenant{% endblock %}
+{% block title %}{{ 'escritorio.novo.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <div class="login-wrapper">
     <div class="login-container">
-        <h1>Criar novo escritório</h1>
+        <h1>{{ 'escritorio.novo.titulo'|trans }}</h1>
 
         {{ form_start(form) }}
 
         <div class="mb-3">
-            {{ form_label(form.name, 'Nome do Escritório', {'label_attr': {'class': 'form-label'}}) }}
+            {{ form_label(form.name, 'escritorio.novo.nome'|trans, {'label_attr': {'class': 'form-label'}}) }}
             {{ form_widget(form.name, {'attr': {'class': 'form-control'}}) }}
             {{ form_errors(form.name) }}
         </div>
 
         <div class="mb-3">
-            {{ form_label(form.adminEmail, 'Email do Administrador', {'label_attr': {'class': 'form-label'}}) }}
+            {{ form_label(form.adminEmail, 'escritorio.novo.email_admin'|trans, {'label_attr': {'class': 'form-label'}}) }}
             {{ form_widget(form.adminEmail, {'attr': {'class': 'form-control'}}) }}
             {{ form_errors(form.adminEmail) }}
         </div>
 
-        <button class="btn-login" type="submit">Criar Escritório</button>
+        <button class="btn-login" type="submit">{{ 'escritorio.novo.criar'|trans }}</button>
         <div class="extra-links mt-3">
-            <a href="{{ path('app_tenant_index') }}">Voltar</a>
+            <a href="{{ path('app_tenant_index') }}">{{ 'escritorio.novo.voltar'|trans }}</a>
         </div>
 
         {{ form_end(form) }}

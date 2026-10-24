@@ -41,8 +41,8 @@ use Psr\Log\LoggerInterface;
  *    via information_schema, que nenhuma tabela tenant-scoped sobrou — falha segura e clara
  *    caso uma tabela nova não tenha sido adicionada à ordem (drift de schema).
  *  - PRESERVADOS: User (nunca apagado — decisão de produto), audit_log (retido; a própria
- *    purga é registrada como evento), permission (catálogo global), cadastro_pendente e
- *    jornada_colaborador (per-user, sem tenant_id).
+ *    purga é registrada como evento), permission (catálogo global) e cadastro_pendente.
+ *    A jornada pessoal é por escritório desde a spec seguranca-b-jornada e sai na purga.
  *
  * ## Arquivos (E2.5)
  *
@@ -94,6 +94,7 @@ final class PurgarEscritorioUseCase
     private const ORDEM_DELECAO = [
         // Fase 1 — bloqueadores intermediários (NO ACTION): apagar antes do pai.
         ['bloco_jornada', 'jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
+        ['bloco_jornada_colaborador', 'jornada_colaborador_id IN (SELECT id FROM jornada_colaborador WHERE tenant_id = :tenant)'],
         ['tenant_role_permission', 'tenant_role_id IN (SELECT id FROM tenant_role WHERE tenant_id = :tenant)'],
         ['cliente_documento', 'tenant_id = :tenant'],
         // Histórico do cadastro (E12 3d): cairia pela CASCADE de `cliente`, mas a FK de tenant é NO ACTION.
@@ -107,6 +108,7 @@ final class PurgarEscritorioUseCase
         ['parte_processo', 'tenant_id = :tenant'],
         ['assunto_processo', 'tenant_id = :tenant'],
         ['saida_da_equipe', 'tenant_id = :tenant'],
+        ['resumo_diario_envio', 'tenant_id = :tenant'],
         ['user_tenant', 'tenant_id = :tenant'],
         // Notas técnicas do processo (tenant_id direto). Cairiam por cascata do processo, mas a FK à
         // publicação é SET NULL: apagar antes evita o UPDATE inútil e deixa a deleção explícita.
@@ -196,6 +198,8 @@ final class PurgarEscritorioUseCase
         ['pasta_favorita', 'tenant_id = :tenant'],
         // Destaque de linha da Lista do Expediente (por usuário, E12): mesmo caso do favorito.
         ['pasta_destaque', 'tenant_id = :tenant'],
+        // Destaque de comentário da pasta (spec pasta-destacar-comentario.md): FK de tenant NO ACTION; nada o referencia.
+        ['pasta_comentario_destaque', 'tenant_id = :tenant'],
         // Chaves do "Avisar quando chegar" do Push (por pasta): cairiam pela CASCADE de `pasta`, mas a FK
         // de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_aviso_push', 'tenant_id = :tenant'],
@@ -256,6 +260,8 @@ final class PurgarEscritorioUseCase
         ['central_presenca', 'tenant_id = :tenant'],
         // Regra de ausência do escritório (presença, fase 3): uma linha por escritório, FK de tenant NO ACTION.
         ['central_configuracao_presenca', 'tenant_id = :tenant'],
+        // Opção de edição sem prazo do primário (edicao-sem-prazo §3): uma linha por escritório, FK de tenant NO ACTION.
+        ['escritorio_configuracao_edicao', 'tenant_id = :tenant'],
         // Baixa de aviso na Central (F3): cai com a notificação (CASCADE), mas a FK de tenant é NO ACTION.
         ['central_aviso_resolvido', 'tenant_id = :tenant'],
         // Descadastro de e-mail do escritório (Shared, "Não quero mais receber estes avisos"): FK de tenant
@@ -266,6 +272,20 @@ final class PurgarEscritorioUseCase
         ['comercial_envio', 'tenant_id = :tenant'],
         ['comercial_confirmacao_endereco', 'tenant_id = :tenant'],
         ['comercial_ciclo_conta', 'tenant_id = :tenant'],
+        // A vez dos avisos de espaço do escritório (comercial-e-emails.md §4): FK NO ACTION, nada a referencia.
+        ['comercial_aviso_espaco', 'tenant_id = :tenant'],
+        // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md, D3): estado por Master e
+        // respostas de mensagens deste escritório. `tenant_id` sem FK (o Master lê todos os escritórios, as tabelas
+        // não são TenantAware); sai explicitamente para não ficar órfão.
+        ['central_master_estado', 'tenant_id = :tenant'],
+        ['central_master_resposta', 'tenant_id = :tenant'],
+        // Contador da sequência de metas do escritório ("Nº 0001"): FK de tenant NO ACTION, nada o referencia.
+        ['tarefa_numeracao', 'tenant_id = :tenant'],
+        // Caixas da esteira de Minhas Metas (nome e avisados): os avisados caem por CASCADE da caixa.
+        ['tarefa_caixa_esteira', 'tenant_id = :tenant'],
+        // Aprendizado de Minhas Metas (Fase 4): por usuário e escritório, FK de tenant NO ACTION, nada o referencia.
+        ['tarefa_aprendizado_despacho', 'tenant_id = :tenant'],
+        ['tarefa_aprendizado_pendencia', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
@@ -290,9 +310,11 @@ final class PurgarEscritorioUseCase
         // Agenda (6): conexões com o Google Agenda (refresh token cifrado), ligações e exclusões pendentes. FKs CASCADE; explícito por convenção.
         ['agenda_google_ligacao', 'tenant_id = :tenant'],
         ['agenda_google_prazo', 'tenant_id = :tenant'],
+        ['agenda_google_data', 'tenant_id = :tenant'],
         ['agenda_google_exclusao', 'tenant_id = :tenant'],
         ['agenda_google_conexao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
+        ['jornada_colaborador', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],
         // Horas pagas (ajuste manual do banco de horas): FK tenant_id/user_id NOT DEFERRABLE, sem
@@ -329,13 +351,24 @@ final class PurgarEscritorioUseCase
      * @var array<string, array{0: CategoriaDeArquivo, 1: string}>
      */
     private const ARQUIVOS_POR_REGISTRO = [
+        // O documento VINCULADO do cadastro (pasta_documento_id) não tem arquivo próprio: o arquivo é o da pasta.
         'cliente_documento' => [
             CategoriaDeArquivo::CLIENTE_DOCUMENTO,
             'SELECT d.caminho_arquivo AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
              FROM cliente_documento d
              LEFT JOIN cliente_documento o ON o.caminho_arquivo = d.caminho_arquivo AND o.tenant_id IS DISTINCT FROM d.tenant_id
-             WHERE d.tenant_id = :tenant
+                                           AND o.pasta_documento_id IS NULL
+             WHERE d.tenant_id = :tenant AND d.pasta_documento_id IS NULL
              GROUP BY d.caminho_arquivo',
+        ],
+        // A foto do cliente: a linha é o próprio cliente (coluna `foto`), sem cadeia acima dele.
+        'cliente' => [
+            CategoriaDeArquivo::CLIENTE_FOTO,
+            'SELECT d.foto AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
+             FROM cliente d
+             LEFT JOIN cliente o ON o.foto = d.foto AND o.tenant_id IS DISTINCT FROM d.tenant_id
+             WHERE d.tenant_id = :tenant AND d.foto IS NOT NULL
+             GROUP BY d.foto',
         ],
         'pasta_documento' => [
             CategoriaDeArquivo::PASTA_DOCUMENTO,

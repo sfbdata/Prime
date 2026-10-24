@@ -14,6 +14,7 @@ use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -85,9 +86,26 @@ final class FonteDeDadosDaPastaDoctrine implements FonteDeDadosDaPasta
         return array_merge($abertas, $concluidas);
     }
 
-    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
+    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite, bool $comFinanceiro = true): array
     {
-        return $this->daPasta(PastaMensagem::class, $tenant, $pasta, $limite, 'criadaEm', 'DESC');
+        if ($comFinanceiro) {
+            return $this->daPasta(PastaMensagem::class, $tenant, $pasta, $limite, 'criadaEm', 'DESC');
+        }
+
+        return $this->em->createQueryBuilder()
+            ->select('x')
+            ->from(PastaMensagem::class, 'x')
+            ->andWhere('x.pasta = :pasta')
+            ->andWhere('x.tenant = :tenant')
+            ->andWhere('x.sistema IS NULL OR x.sistema NOT IN (:doFinanceiro)')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('doFinanceiro', RegistroDoSistemaNaPasta::DO_FINANCEIRO)
+            ->orderBy('x.criadaEm', 'DESC')
+            ->addOrderBy('x.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
     }
 
     public function observacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
@@ -126,9 +144,28 @@ final class FonteDeDadosDaPastaDoctrine implements FonteDeDadosDaPasta
         return $this->daPasta(PastaChecklistItem::class, $tenant, $pasta, $limite, 'ordem', 'ASC');
     }
 
+    /**
+     * Vencimento DESC com os sem vencimento (êxito e sucumbência previstos) no FIM: no DESC o
+     * PostgreSQL põe o NULL primeiro, e com o limite os previstos tomariam o lugar das parcelas.
+     * O DQL não tem NULLS LAST; o CASE oculto faz o mesmo.
+     */
     public function pagamentosDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
     {
-        return $this->daPasta(PastaPagamento::class, $tenant, $pasta, $limite, 'vencimento', 'DESC');
+        /** @var list<PastaPagamento> */
+        return $this->em->createQueryBuilder()
+            ->select('x')
+            ->addSelect('CASE WHEN x.vencimento IS NULL THEN 1 ELSE 0 END AS HIDDEN semVencimento')
+            ->from(PastaPagamento::class, 'x')
+            ->andWhere('x.pasta = :pasta')
+            ->andWhere('x.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('semVencimento', 'ASC')
+            ->addOrderBy('x.vencimento', 'DESC')
+            ->addOrderBy('x.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
     }
 
     public function observacoesFinanceirasDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array

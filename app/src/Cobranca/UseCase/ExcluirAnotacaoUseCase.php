@@ -10,6 +10,9 @@ use App\Cobranca\Exception\EventoNaoEncontradoException;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Cobranca\Entity\EventoHistorico;
+use App\Tenant\Service\AuditoriaDaEdicaoSemPrazo;
+use App\Tenant\Service\PoderDeEdicaoSemPrazo;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -29,6 +32,8 @@ final class ExcluirAnotacaoUseCase
     public function __construct(
         private readonly EventoHistoricoRepository $eventoRepository,
         private readonly ClockInterface $clock,
+        private readonly PoderDeEdicaoSemPrazo $poder,
+        private readonly AuditoriaDaEdicaoSemPrazo $auditoria,
     ) {
     }
 
@@ -47,13 +52,25 @@ final class ExcluirAnotacaoUseCase
             throw new CasoEncerradoException((int) $caso->getId());
         }
 
-        if (!$evento->podeSerEditadaPor($usuario, $this->clock->now())) {
-            throw new AnotacaoNaoEditavelException();
-        }
+        $this->exigirPermissao($evento, $usuario, $tenant);
 
         $casoId = (int) $caso?->getId();
         $this->eventoRepository->remover($evento, true);
 
         return $casoId;
+    }
+
+    /**
+     * Autor dentro das 48h, OU o poder sem prazo (spec edicao-sem-prazo, item 6: Master; primário com a opção). O uso do
+     * poder vai para a trilha.
+     */
+    private function exigirPermissao(EventoHistorico $evento, User $usuario, Tenant $tenant): void
+    {
+        $agora = $this->clock->now();
+        $pelaRegra = $evento->podeSerEditadaPor($usuario, $agora);
+        if (!$pelaRegra && !$evento->podeSerEditadaPor($usuario, $agora, $this->poder->de($usuario, $tenant) !== null)) {
+            throw new AnotacaoNaoEditavelException();
+        }
+        $this->auditoria->registrar(AuditoriaDaEdicaoSemPrazo::EXCLUIR, $usuario, $tenant, $pelaRegra, EventoHistorico::class, $evento->getId(), $evento->getUsuario()?->getId());
     }
 }

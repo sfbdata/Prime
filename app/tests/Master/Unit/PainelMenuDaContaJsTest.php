@@ -6,11 +6,14 @@ namespace App\Tests\Master\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Menu da conta e confirmação de suspender/reativar (spec perfis-1.2-contas C7 e C8; desenho 05 -
  * Perfis 1.2, linhas 624 e 735), lidos como FOLHA: não há navegador no PHPUnit, então o que se prova
- * é o contrato do public/js/master/painel.js com o desenho, com o template e com o masters.js.
+ * é o contrato do public/js/master/painel.js com o desenho, com o template e com o masters.js. Desde a P2b do
+ * idioma (spec idioma-do-sistema), o texto mora no catálogo (master.js.menu.*, conf.*, contas.*): o teste confere a
+ * chave no JS e o português no catálogo.
  */
 final class PainelMenuDaContaJsTest extends TestCase
 {
@@ -19,6 +22,20 @@ final class PainelMenuDaContaJsTest extends TestCase
     private static function js(string $arquivo): string
     {
         return (string) file_get_contents(self::RAIZ . 'public/js/master/' . $arquivo);
+    }
+
+    /** Texto em português de uma chave do catálogo. */
+    private static function catalogo(string $chave): string
+    {
+        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        foreach (explode('.', $chave) as $parte) {
+            self::assertIsArray($no, $chave);
+            self::assertArrayHasKey($parte, $no, $chave);
+            $no = $no[$parte];
+        }
+        self::assertIsString($no, $chave);
+
+        return $no;
     }
 
     private static function menuDaConta(): string
@@ -37,15 +54,19 @@ final class PainelMenuDaContaJsTest extends TestCase
     {
         $menu = self::menuDaConta();
 
-        $posicoes = array_map(static fn (string $rotulo): int|false => strpos($menu, $rotulo), ['Editar limite de armazenamento', 'Definir limite de usuários', 'Estatísticas de uso', 'Histórico de alterações', 'Suspender conta', 'Reativar conta', 'Excluir conta']);
+        $rotulos = ['lim_arm' => 'Editar limite de armazenamento', 'lim_usu' => 'Definir limite de usuários', 'estat' => 'Estatísticas de uso', 'hist' => 'Histórico de alterações', 'suspender' => 'Suspender conta', 'reativar' => 'Reativar conta', 'excluir' => 'Excluir conta'];
+        foreach ($rotulos as $chave => $rotulo) {
+            self::assertSame($rotulo, self::catalogo('master.js.menu.' . $chave));
+        }
+        $posicoes = array_map(static fn (string $chave): int|false => strpos($menu, "T('master.js.menu." . $chave . "')"), array_keys($rotulos));
         self::assertNotContains(false, $posicoes);
         self::assertSame($posicoes, array_values(array_unique($posicoes)));
         $ordenadas = $posicoes;
         sort($ordenadas);
         self::assertSame($ordenadas, $posicoes, 'a ordem do desenho (linha 735)');
-        self::assertMatchesRegularExpression("/c\\.situacao === 'Ativa'\\s*\\?\\s*opMenu\\('suspender'[^\\n]*\\n\\s*:\\s*opMenu\\('reativar'/", $menu, 'Suspender só na ativa; Reativar na suspensa e na quarentena');
-        self::assertStringContainsString("(c.situacao !== QUARENTENA && !c.ehDoMaster ? opMenu('excluir', ' mp-menu-excluir', 'bi-trash3', 'Excluir conta', c) : '')", $menu, 'Excluir some na conta do Master (C5) e na quarentena (C4b)');
-        self::assertStringContainsString("(c.situacao !== QUARENTENA ? opMenu('limArm', '', 'bi-hdd', 'Editar limite de armazenamento', c) + opMenu('limUsu', '', 'bi-people', 'Definir limite de usuários', c) : '')", $menu, 'ícones e cor padrão do desenho; quarentena sem limites');
+        self::assertMatchesRegularExpression("/c\\.situacao === ATIVA\\s*\\?\\s*opMenu\\('suspender'[^\\n]*\\n\\s*:\\s*opMenu\\('reativar'/", $menu, 'Suspender só na ativa; Reativar na suspensa e na quarentena');
+        self::assertStringContainsString("(c.situacao !== QUARENTENA && !c.ehDoMaster ? opMenu('excluir', ' mp-menu-excluir', 'bi-trash3', T('master.js.menu.excluir'), c) : '')", $menu, 'Excluir some na conta do Master (C5) e na quarentena (C4b)');
+        self::assertStringContainsString("(c.situacao !== QUARENTENA ? opMenu('limArm', '', 'bi-hdd', T('master.js.menu.lim_arm'), c) + opMenu('limUsu', '', 'bi-people', T('master.js.menu.lim_usu'), c) : '')", $menu, 'ícones e cor padrão do desenho; quarentena sem limites');
 
         $css = (string) file_get_contents(self::RAIZ . 'public/css/master.css');
         self::assertStringContainsString('.mp-menu-op.mp-menu-excluir { color: #a3232b; }', $css);
@@ -57,10 +78,12 @@ final class PainelMenuDaContaJsTest extends TestCase
     {
         $js = self::js('painel.js');
 
-        self::assertStringContainsString("const QUARENTENA = 'Em quarentena';", $js);
-        self::assertStringContainsString(">Em quarentena</option></select>'", $js);
+        self::assertStringContainsString("const ATIVA = 'Ativa', SUSPENSA = 'Suspensa', QUARENTENA = 'Em quarentena';", $js, 'o valor gravado que o servidor manda');
+        self::assertStringContainsString("'>' + rotuloDaSituacao(QUARENTENA) + '</option></select>'", $js);
+        self::assertSame('Em quarentena', self::catalogo('master.js.situacao.quarentena'));
         self::assertStringContainsString('(S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA)', $js);
-        self::assertStringContainsString(">apagada a partir de<br>' + esc(dataBr(c.purgaEm))", $js, 'a purga roda às 03h do primeiro dia depois da carência: "a partir de" é exato');
+        self::assertSame('apagada a partir de', self::catalogo('master.js.contas.purga'));
+        self::assertStringContainsString(">' + T('master.js.contas.purga') + '<br>' + esc(dataBr(c.purgaEm))", $js, 'a purga roda às 03h do primeiro dia depois da carência: "a partir de" é exato');
 
         $css = (string) file_get_contents(self::RAIZ . 'public/css/master.css');
         self::assertStringContainsString('font-weight: bold; color: var(--cor); white-space: nowrap; }', $css, 'a situação não quebra');
@@ -76,7 +99,11 @@ final class PainelMenuDaContaJsTest extends TestCase
     public function testModalDeExcluir(): void
     {
         $js = self::js('painel.js');
-        self::assertStringContainsString("excluir: c => ({ titulo: 'Excluir conta', icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: 'Excluir conta', palavra: 'EXCLUIR', texto: 'A conta \"' + c.nome + '\" sai do ar agora e é apagada de vez em ' + D.contas.carenciaPurgaDias + ' dias. Até lá, pode ser recuperada pelo Master.' })", $js);
+        self::assertStringContainsString("excluir: c => ({ titulo: T('master.js.conf.excluir.titulo'), icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: T('master.js.conf.excluir.botao'), palavra: 'EXCLUIR', texto: T('master.js.conf.excluir.texto', { nome: c.nome, dias: D.contas.carenciaPurgaDias, papel: T('termos.master') }) })", $js, 'a palavra EXCLUIR não se traduz: o servidor confere ela');
+        self::assertSame('Excluir conta', self::catalogo('master.js.conf.excluir.titulo'));
+        self::assertSame('Excluir conta', self::catalogo('master.js.conf.excluir.botao'));
+        self::assertSame('A conta "{nome}" sai do ar agora e é apagada de vez em {dias} dias. Até lá, pode ser recuperada pelo {papel}.', self::catalogo('master.js.conf.excluir.texto'));
+        self::assertSame('Master', self::catalogo('termos.master'));
         self::assertStringNotContainsString('em 365 dias', $js, 'a carência vem do servidor, não fica fixa no JS');
         self::assertStringContainsString("if (tipo === 'excluir') corpo.append('confirmacao', digitado || '');", $js);
         self::assertStringContainsString('excluir: () => URLS.contaExcluir', $js);
@@ -86,7 +113,8 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString("qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() !== palavraExigida;", $masters, 'só habilita quando a palavra bate');
         self::assertStringContainsString('.mp .mp-conf-ok:disabled { background: #9fb3c0; cursor: not-allowed; }', (string) file_get_contents(self::RAIZ . 'public/css/master.css'), 'desabilitado na convenção do desenho (linha 625)');
         self::assertStringContainsString('if (palavraExigida && digitado !== palavraExigida) return;', $masters);
-        self::assertStringContainsString("'Digite ' + palavraExigida + ' para confirmar'", $masters);
+        self::assertStringContainsString("T('master.js.masters.digite', { palavra: palavraExigida })", $masters);
+        self::assertSame('Digite {palavra} para confirmar', self::catalogo('master.js.masters.digite'));
 
         $twig = (string) file_get_contents(self::RAIZ . 'templates/master/painel.html.twig');
         self::assertStringContainsString("contaExcluir: path('master_conta_excluir', {id: 0})", $twig);
@@ -99,8 +127,14 @@ final class PainelMenuDaContaJsTest extends TestCase
     {
         $js = self::js('painel.js');
 
-        self::assertStringContainsString("suspender: c => ({ titulo: 'Suspender conta', icone: 'bi-pause-circle', cor: '#c08a12', botao: 'Suspender', texto: 'Os usuários de \"' + c.nome + '\" ficam sem acesso até a reativação. Nenhum dado é apagado.' })", $js);
-        self::assertStringContainsString("reativar: c => ({ titulo: 'Reativar conta', icone: 'bi-play-circle', cor: '#1e7b45', botao: 'Reativar', texto: 'A conta \"' + c.nome + '\" volta a ter acesso normal.' })", $js);
+        self::assertStringContainsString("suspender: c => ({ titulo: T('master.js.conf.suspender.titulo'), icone: 'bi-pause-circle', cor: '#c08a12', botao: T('master.js.conf.suspender.botao'), texto: T('master.js.conf.suspender.texto', { nome: c.nome }) })", $js);
+        self::assertStringContainsString("reativar: c => ({ titulo: T('master.js.conf.reativar.titulo'), icone: 'bi-play-circle', cor: '#1e7b45', botao: T('master.js.conf.reativar.botao'), texto: T('master.js.conf.reativar.texto', { nome: c.nome }) })", $js);
+        foreach ([
+            'suspender.titulo' => 'Suspender conta', 'suspender.botao' => 'Suspender', 'suspender.texto' => 'Os usuários de "{nome}" ficam sem acesso até a reativação. Nenhum dado é apagado.',
+            'reativar.titulo' => 'Reativar conta', 'reativar.botao' => 'Reativar', 'reativar.texto' => 'A conta "{nome}" volta a ter acesso normal.',
+        ] as $chave => $texto) {
+            self::assertSame($texto, self::catalogo('master.js.conf.' . $chave), $chave);
+        }
     }
 
     #[TestDox('envia por POST com o token da conta e usa a confirmação do masters.js; as rotas vêm do template')]
@@ -133,7 +167,8 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString("const json = !r.redirected && j !== null && typeof j === 'object';", $envio);
         self::assertStringContainsString('if (json && r.ok && j.conta) {', $envio, 'verde só com a conta no corpo');
         self::assertStringContainsString('avisar(false, json && !r.ok ? j.erro : null);', $envio);
-        self::assertStringContainsString("'Não foi possível concluir a ação. Recarregue a página.'", $js);
+        self::assertStringContainsString("T('master.js.erro_acao')", $js);
+        self::assertSame('Não foi possível concluir a ação. Recarregue a página.', self::catalogo('master.js.erro_acao'));
     }
 
     #[TestDox('menu fora do card e da rolagem, em position: fixed na janela, 260px, com as coordenadas do clique ou do botão')]

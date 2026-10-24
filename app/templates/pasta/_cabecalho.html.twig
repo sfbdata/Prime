@@ -12,11 +12,13 @@
         Situação (Ativo / Arquivado) à direita.
 
    As ações (Editar dados, Histórico, Timeline inteligente, Duplicar, Vincular
-   processo, Trocar responsável, Copiar link, Imprimir resumo, Fixar nos
+   processo, Trocar responsável, Mover para outra carteira, Copiar link, Imprimir resumo, Fixar nos
    favoritos, Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul
-   do desenho. O que o desenho mostra e o sistema ainda não tem (Mover carteira,
-   Acompanhar, Cadeado, Intelligence, foto do cliente) NÃO é
-   renderizado: item inerte ensina o usuário a desconfiar do menu inteiro.
+   do desenho. O que o desenho mostra e o sistema ainda não tem (Acompanhar,
+   Cadeado, Intelligence) NÃO é renderizado: item inerte ensina o usuário a
+   desconfiar do menu inteiro. A foto do cliente (desenho 02 VS 18.10.26,
+   L1255 e L472-505) é real: o círculo ao lado do nome, com menu e editor de recorte
+   (/js/pasta-foto-cliente.js) para quem pode editar o cliente.
    "Fixar nos favoritos" (seção Preferências) é real: POST
    `pasta_favorito_alternar`.
 
@@ -48,13 +50,13 @@
     {# ── Linha 1 ─────────────────────────────────────────────────────────── #}
     <div class="ps-cab-linha1">
         <div class="ps-cab-identidade">
-            <a href="{{ path('expediente_index') }}" class="ps-btn ps-btn--voltar ps-cab-voltar" title="Voltar à lista de pastas">
-                <i class="bi bi-arrow-left"></i><span>Voltar</span>
+            <a href="{{ path('expediente_index') }}" class="ps-btn ps-btn--voltar ps-cab-voltar" title="{{ 'pasta_cabecalho.cabecalho.voltar_dica'|trans }}">
+                <i class="bi bi-arrow-left"></i><span>{{ 'pasta_cabecalho.cabecalho.voltar'|trans }}</span>
             </a>
 
             {# dc 1052 (auditoria 2 C5): "PASTA" e o número são itens do inline-flex
                (6px no CSS); o espaço entre eles só existe para o texto copiado. #}
-            <span class="ps-cab-nup"><span>PASTA</span> <span class="ps-num">{{ pasta.nup }}</span></span>
+            <span class="ps-cab-nup"><span>{{ 'pasta_cabecalho.cabecalho.pasta'|trans }}</span> <span class="ps-num">{{ pasta.nup }}</span></span>
 
             {# Divisoria · prioridade · divisoria · etiquetas · "+": o grupo do desenho. #}
             <div class="ps-cab-etiquetas">
@@ -64,7 +66,7 @@
             <div class="ps-pop-wrap">
                 <button type="button"
                         class="ps-prio ps-prio--{{ pasta.prioridade.value }} pasta-prioridade-btn"
-                        title="Alterar prioridade"
+                        title="{{ 'pasta_cabecalho.cabecalho.prioridade.alterar'|trans }}"
                         data-ps-pop="psPrioridade"
                         aria-haspopup="true" aria-expanded="false"
                         data-pasta-id="{{ pasta.id }}"
@@ -78,7 +80,7 @@
                     {% for opcao in ['normal', 'prioridade', 'urgente'] %}
                         <button type="button" class="ps-pop-item prioridade-opt" role="menuitem" data-valor="{{ opcao }}">
                             <i class="bi bi-flag-fill"></i>
-                            <span>{{ opcao == 'normal' ? 'Normal' : (opcao == 'prioridade' ? 'Prioridade' : 'Urgente') }}</span>
+                            <span>{{ ('pasta_cabecalho.cabecalho.prioridade.' ~ opcao)|trans }}</span>
                             <span class="ps-pop-check{{ pasta.prioridade.value == opcao ? '' : ' d-none' }}">&check;</span>
                         </button>
                     {% endfor %}
@@ -86,7 +88,7 @@
             </div>
             {% else %}
             {# Sem EDIT: o selo mostra a prioridade, sem menu para trocá-la. #}
-            <span class="ps-prio ps-prio--{{ pasta.prioridade.value }}" title="Prioridade">
+            <span class="ps-prio ps-prio--{{ pasta.prioridade.value }}" title="{{ 'pasta_cabecalho.cabecalho.prioridade.dica'|trans }}">
                 <i class="bi bi-flag-fill"></i>
                 <span class="ps-prio-label">{{ pasta.prioridadeLabel }}</span>
             </span>
@@ -97,18 +99,19 @@
             {% for marcador in pasta.marcadores %}
                 {# A cor cadastrada do marcador tinge o chip (desenho); sem cor, cinza neutro. #}
                 <button type="button" class="ps-etiqueta js-etiqueta-abrir{{ marcador.cor ? ' ps-etiqueta--cor' : '' }}"
-                        title="Editar marcadores da pasta"{% if marcador.cor %} style="--etq: {{ marcador.cor|e('html_attr') }}"{% endif %}>
+                        title="{{ 'pasta_cabecalho.cabecalho.marcadores_editar'|trans }}"{% if marcador.cor %} style="--etq: {{ marcador.cor|e('html_attr') }}"{% endif %}>
                     <i class="bi bi-tag-fill"></i>{{ marcador.nome }}
                 </button>
             {% endfor %}
 
             {# O "+" das etiquetas: só ícone, quadrado tracejado (desenho). O contrato
                com o JS das etiquetas (`.js-mover-para` + data-*) é o mesmo da lista. #}
+            {% set marcadoresAtivos = pasta.marcadores|map(m => m.id)|join(',') %}
             <button type="button" class="ps-etiqueta-add js-mover-para"
-                    title="Marcadores da pasta" aria-label="Marcadores da pasta"
+                    title="{{ 'pasta_cabecalho.cabecalho.marcadores'|trans }}" aria-label="{{ 'pasta_cabecalho.cabecalho.marcadores'|trans }}"
                     data-pasta-id="{{ pasta.id }}"
                     data-pasta-nome="{{ pasta.nup }}"
-                    data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
+                    data-marcadores-ativos="{{ marcadoresAtivos }}"
                     data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}">
                 <i class="bi bi-plus"></i>
             </button>
@@ -133,7 +136,7 @@
             }) }}
         </div>
 
-        <nav class="ps-cab-nav" aria-label="Navegar entre pastas do acervo">
+        <nav class="ps-cab-nav" aria-label="{{ 'pasta_cabecalho.cabecalho.navegar'|trans }}">
             {% if vizinhas.anteriorId %}
                 <a href="{{ path('pasta_show', {id: vizinhas.anteriorId}) }}"
                    class="ps-btn ps-btn--seta" data-nav="anterior"
@@ -150,7 +153,7 @@
                e mesmo conjunto das setas. Aparece sempre que a posição é conhecida — inclusive
                "1 de 1": as setas não somem na ponta, o contador também não. #}
             {% if vizinhas.total %}
-                <span class="ps-cab-pos">{{ vizinhas.posicao }} de {{ vizinhas.total }}</span>
+                <span class="ps-cab-pos">{{ 'pasta_cabecalho.cabecalho.posicao'|trans({posicao: vizinhas.posicao ~ '', total: vizinhas.total ~ ''}) }}</span>
             {% endif %}
             {% if vizinhas.proximaId %}
                 <a href="{{ path('pasta_show', {id: vizinhas.proximaId}) }}"
@@ -178,47 +181,47 @@
             <form method="post" action="{{ path('pasta_restaurar', {id: pasta.id}) }}"
                   class="js-restaurar-pasta" data-nup="{{ pasta.nup }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('restaurar_pasta_' ~ pasta.id) }}">
-                <button type="submit" class="ps-btn" title="Restaurar pasta excluída">
-                    <i class="bi bi-arrow-counterclockwise"></i><span>Restaurar</span>
+                <button type="submit" class="ps-btn" title="{{ 'pasta_cabecalho.cabecalho.restaurar_dica'|trans }}">
+                    <i class="bi bi-arrow-counterclockwise"></i><span>{{ 'pasta_cabecalho.cabecalho.restaurar'|trans }}</span>
                 </button>
             </form>
             {% endif %}
             <button type="button" class="ps-btn" id="psHistoricoAbrir"
-                    title="Histórico do sistema"
+                    title="{{ 'pasta_cabecalho.cabecalho.historico_sistema'|trans }}"
                     aria-controls="psHistorico" aria-expanded="false">
-                <i class="bi bi-clock-history"></i><span>Histórico</span>
+                <i class="bi bi-clock-history"></i><span>{{ 'pasta_cabecalho.cabecalho.historico'|trans }}</span>
             </button>
             {% else %}
             <div class="ps-pop-wrap">
-                <button type="button" class="ps-btn ps-btn--icone ps-cab-mais" title="Mais ações"
+                <button type="button" class="ps-btn ps-btn--icone ps-cab-mais" title="{{ 'pasta_cabecalho.cabecalho.menu.mais_acoes'|trans }}"
                         data-ps-pop="psMenuAcoes" aria-haspopup="true" aria-expanded="false">
                     <i class="bi bi-three-dots-vertical"></i>
                 </button>
                 <div class="ps-pop ps-pop--menu" id="psMenuAcoes" role="menu">
-                    <div class="ps-pop-tarja"><i class="bi bi-folder2-open"></i>Pasta {{ pasta.nup }}</div>
+                    <div class="ps-pop-tarja"><i class="bi bi-folder2-open"></i>{{ 'pasta_cabecalho.cabecalho.menu.tarja'|trans({nup: pasta.nup}) }}</div>
 
                     {# Os atalhos E e H são do desenho; quem os escuta é o pasta-show.js
                        (`data-ps-atalho`), com o menu aberto. #}
                     {% if podeEditarPasta %}
                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="e"
-                            title="Editar dados (E)"
-                            data-bs-toggle="modal" data-bs-target="#modalEditarPasta">
-                        <i class="bi bi-pencil"></i><span>Editar dados</span><kbd class="ps-pop-atalho">E</kbd>
+                            title="{{ 'pasta_cabecalho.cabecalho.menu.editar_dica'|trans }}"
+                            data-pe-abrir aria-haspopup="dialog" aria-controls="modalEditarPasta">
+                        <i class="bi bi-pencil"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.editar'|trans }}</span><kbd class="ps-pop-atalho">E</kbd>
                     </button>
                     {% endif %}
                     {# O histórico automático do sistema vive no drawer; o botão mantém o id
                        que o pasta-show.js procura. #}
                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="h"
-                            id="psHistoricoAbrir" title="Histórico (H)"
+                            id="psHistoricoAbrir" title="{{ 'pasta_cabecalho.cabecalho.menu.historico_dica'|trans }}"
                             aria-controls="psHistorico" aria-expanded="false">
-                        <i class="bi bi-clock-history"></i><span>Histórico</span><kbd class="ps-pop-atalho">H</kbd>
+                        <i class="bi bi-clock-history"></i><span>{{ 'pasta_cabecalho.cabecalho.historico'|trans }}</span><kbd class="ps-pop-atalho">H</kbd>
                     </button>
                     {# Timeline inteligente (desenho dc L.1096, `mTimeline`): painel por REGRAS,
                        sem IA. O atalho T é escutado pelo pasta-timeline.js com o menu aberto. #}
                     <button type="button" class="ps-pop-item" role="menuitem" data-ps-atalho="t"
-                            id="psTimelineAbrir" title="Timeline inteligente (T)"
+                            id="psTimelineAbrir" title="{{ 'pasta_cabecalho.cabecalho.menu.timeline_dica'|trans }}"
                             aria-controls="psTimeline" aria-expanded="false">
-                        <i class="bi bi-activity"></i><span>Timeline inteligente</span><kbd class="ps-pop-atalho">T</kbd>
+                        <i class="bi bi-activity"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.timeline'|trans }}</span><kbd class="ps-pop-atalho">T</kbd>
                     </button>
                     {# Duplicar (desenho, `menuPasta('duplicar')`): abre uma pasta nova pelo mesmo
                        caminho da criação normal, com número novo — o "aguardando número" do
@@ -229,30 +232,36 @@
                        só pergunta pelo navegador se a janela não carregou. #}
                     <form method="post" action="{{ path('pasta_duplicar', {id: pasta.id}) }}"
                           class="js-duplicar-pasta" data-nup="{{ pasta.nup }}"
-                          data-ps-cf="{{ 'Duplicar a pasta ' ~ pasta.nup ~ '? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.' }}"
+                          data-ps-cf="{{ 'pasta_cabecalho.cabecalho.menu.duplicar_confirmar'|trans({nup: pasta.nup}) }}"
                           onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);">
                         <input type="hidden" name="_token" value="{{ csrf_token('pasta_duplicar_' ~ pasta.id) }}">
                         <button type="submit" class="ps-pop-item" role="menuitem">
-                            <i class="bi bi-files"></i><span>Duplicar pasta</span>
+                            <i class="bi bi-files"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.duplicar'|trans }}</span>
                         </button>
                     </form>
                     {% endif %}
                     {% if podeEditarPasta %}
                     <button type="button" class="ps-pop-item" role="menuitem"
-                            data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
-                        <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
+                            data-vp-abrir aria-haspopup="dialog" aria-controls="modalVincularProcesso">
+                        <i class="bi bi-link-45deg"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.vincular_processo'|trans }}</span>
                     </button>
                     <button type="button" class="ps-pop-item" role="menuitem" id="psMenuTrocarResponsavel">
-                        <i class="bi bi-person-gear"></i><span>Trocar responsável</span>
+                        <i class="bi bi-person-gear"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.trocar_responsavel'|trans }}</span>
+                    </button>
+                    {# Mover para outra carteira (desenho 02 VS 18.10.26, dc L1228, `menuPasta('mover')`): fecha o ⋮ e
+                       abre o submenu das carteiras (#psMoverCarteira, logo abaixo), como o `gMenu` do desenho. #}
+                    <button type="button" class="ps-pop-item" role="menuitem" id="psMenuMoverCarteira"
+                            data-ps-pop="psMoverCarteira" aria-haspopup="menu" aria-expanded="false" aria-controls="psMoverCarteira">
+                        <i class="bi bi-folder-symlink"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.mover_carteira'|trans }}</span>
                     </button>
                     {% endif %}
 
                     <div class="ps-pop-sep"></div>
-                    <div class="ps-pop-secao">Compartilhar</div>
+                    <div class="ps-pop-secao">{{ 'pasta_cabecalho.cabecalho.menu.compartilhar'|trans }}</div>
                     {# Copiar link é real: a URL desta pasta vai para a área de transferência. #}
                     <button type="button" class="ps-pop-item js-copiar-link" role="menuitem"
                             data-link="{{ url('pasta_show', {id: pasta.id}) }}">
-                        <i class="bi bi-link"></i><span class="js-copiar-link-rotulo">Copiar link da pasta</span>
+                        <i class="bi bi-link"></i><span class="js-copiar-link-rotulo">{{ 'pasta_cabecalho.cabecalho.menu.copiar_link'|trans }}</span>
                     </button>
                     {# Link externo do Push ([EXP] L.1104, `mPushLink`): abre o #modalLinkExternoPush
                        (pasta/_push_link_externo.html.twig). O selo conta os links ATIVOS; quem o
@@ -262,7 +271,7 @@
                     {% if (abasDaPasta is null or abasDaPasta.visivel('push')) and recurso_visivel('pushpub') %}
                     <button type="button" class="ps-pop-item js-ppl-abrir {{ recurso_marca('pushpub') }}" role="menuitem"
                             aria-haspopup="dialog" aria-controls="modalLinkExternoPush">
-                        <i class="bi bi-broadcast"></i><span>Link externo do Push</span>
+                        <i class="bi bi-broadcast"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.link_push'|trans }}</span>
                         <span class="ppl-badge js-ppl-badge-ativos ps-num" hidden></span>
                     </button>
                     {% endif %}
@@ -272,12 +281,12 @@
                        folha A4 em aba nova. #}
                     <a class="ps-pop-item" role="menuitem" target="_blank" rel="noopener"
                        href="{{ path('pasta_resumo_imprimir', {id: pasta.id}) }}">
-                        <i class="bi bi-printer"></i><span>Imprimir resumo</span>
+                        <i class="bi bi-printer"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.imprimir'|trans }}</span>
                     </a>
 
                     <div class="ps-pop-sep"></div>
                     {{ include('pasta/_cadeado_menu.html.twig', {cad: cad is defined ? cad : cadeado_da_pasta(pasta)}) }}
-                    <div class="ps-pop-secao">Preferências</div>
+                    <div class="ps-pop-secao">{{ 'pasta_cabecalho.cabecalho.menu.preferencias'|trans }}</div>
                     {# Desenho: `prefPasta('fav')` — estrela fixa, rótulo fixo e o interruptor
                        mostrando o estado. É do USUÁRIO: a pasta sobe para o topo da listagem do
                        Expediente só para quem fixou. O script no fim deste parcial faz o POST. #}
@@ -286,7 +295,7 @@
                             aria-checked="{{ eFavorita ? 'true' : 'false' }}"
                             data-url="{{ path('pasta_favorito_alternar', {id: pasta.id}) }}"
                             data-csrf="{{ csrf_token('pasta_favorito_' ~ pasta.id) }}">
-                        <i class="bi bi-star"></i><span>Fixar nos favoritos</span>
+                        <i class="bi bi-star"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.favoritos'|trans }}</span>
                         <span class="ps-pop-sw{{ eFavorita ? ' is-ligado' : '' }}" aria-hidden="true"><span class="ps-pop-sw-bola"></span></span>
                     </button>
 
@@ -298,29 +307,58 @@
                     <button type="button" class="ps-pop-item js-situacao-opt js-situacao-alternar" role="menuitem"
                             data-situacao="{{ eArquivada ? 'ativo' : 'arquivado' }}">
                         <i class="bi {{ eArquivada ? 'bi-box-arrow-up' : 'bi-archive' }}"></i>
-                        <span class="js-situacao-alternar-rotulo">{{ eArquivada ? 'Desarquivar' : 'Arquivar' }} pasta</span>
+                        <span class="js-situacao-alternar-rotulo">{{ (eArquivada ? 'pasta_cabecalho.cabecalho.menu.desarquivar' : 'pasta_cabecalho.cabecalho.menu.arquivar')|trans }}</span>
                     </button>
                     {% endif %}
                     {# Excluir pede o NÚMERO da pasta digitado (desenho, `menuPasta('excluir')`).
                        O prompt é só o primeiro filtro: o servidor confere `confirmar_nup` com o
-                       número gravado e recusa se não bater. O texto não promete "lixeira por
-                       30 dias" como o desenho: aqui a pasta vira lápide (ou some, se for a
-                       última da sequência). Trocar o prompt() nativo por modal é frente própria.
+                       número gravado e recusa se não bater. Os textos são os do desenho: toda
+                       exclusão vira lápide restaurável (a "lixeira" da pasta), inclusive a última
+                       da sequência. Trocar o prompt() nativo por modal é frente própria.
                        Número errado: o aviso da tela (`avisarPs`, PAS-034b), neutro como o `gmAviso` do
                        desenho (dc L.4337), e não o `alert` do navegador. O prompt leva o cliente entre
                        parênteses, como o desenho (dc L.4336), o mesmo nome do título do cabeçalho. #}
                     {% if podeExcluirPasta %}
+                    {% set excluirCliente = cliente ? cliente.nomeExibicao : pasta.nomeCliente %}
+                    {% set excluirPergunta = (excluirCliente
+                        ? 'pasta_cabecalho.cabecalho.menu.excluir_pergunta_cliente'|trans({nup: pasta.nup, cliente: excluirCliente})
+                        : 'pasta_cabecalho.cabecalho.menu.excluir_pergunta'|trans({nup: pasta.nup}))
+                        ~ "\n" ~ 'pasta_cabecalho.cabecalho.menu.excluir_registro'|trans ~ "\n\n" ~ 'pasta_cabecalho.cabecalho.menu.excluir_digite'|trans %}
                     <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
-                          class="js-excluir-pasta" data-nup="{{ pasta.nup }}" data-cliente="{{ cliente ? cliente.nomeExibicao : pasta.nomeCliente }}"
-                          onsubmit="var n = this.dataset.nup, c = this.dataset.cliente, txt = window.prompt('Excluir a pasta ' + n + (c ? ' (' + c + ')' : '') + '?\nA exclusão fica registrada no histórico.\n\nPara confirmar, digite o número da pasta:'); if (txt === null) { return false; } if (String(txt).trim().toUpperCase() !== n) { if (window.avisarPs) { window.avisarPs('Número não confere. A pasta não foi excluída.'); } return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
+                          class="js-excluir-pasta" data-nup="{{ pasta.nup }}" data-cliente="{{ excluirCliente }}"
+                          onsubmit="var n = this.dataset.nup, txt = window.prompt('{{ excluirPergunta|e('js') }}'); if (txt === null) { return false; } if (String(txt).trim().toUpperCase() !== n) { if (window.avisarPs) { window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans|e('js') }}'); } return false; } this.elements.confirmar_nup.value = String(txt).trim(); return true;">
                         <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
                         <input type="hidden" name="confirmar_nup" value="">
                         <button type="submit" class="ps-pop-item ps-pop-item--perigo" role="menuitem">
-                            <i class="bi bi-trash3"></i><span>Excluir pasta</span>
+                            <i class="bi bi-trash3"></i><span>{{ 'pasta_cabecalho.cabecalho.menu.excluir'|trans }}</span>
                         </button>
                     </form>
                     {% endif %}
                 </div>
+                {# Submenu "Mover pasta N para" (desenho `gMenu`/`gmVals`, dc L4577 e L4610): as seis carteiras na
+                   ordem do desenho. A atual leva "· atual" e o bi-check2, e o clique nela não faz nada; as outras,
+                   bi-briefcase. Pasta sem carteira (NULL) não tem atual. O script no fim deste parcial faz o POST.
+                   `data-sem-x`: o `gMenu` do desenho não tem X. #}
+                {% if podeEditarPasta %}
+                <div class="ps-pop ps-pop--carteira" id="psMoverCarteira" role="menu" data-sem-x
+                     aria-labelledby="psMoverCarteiraTitulo"
+                     data-url="{{ path('pasta_mover_carteira', {id: pasta.id}) }}"
+                     data-csrf="{{ csrf_token('pasta_carteira_' ~ pasta.id) }}"
+                     data-nup="{{ pasta.nup }}">
+                    <div class="ps-pop-secao" id="psMoverCarteiraTitulo">{{ 'pasta_cabecalho.cabecalho.menu.carteira_titulo'|trans({nup: pasta.nup}) }}</div>
+                    {% for carteira in enum_cases('App\\Pasta\\Entity\\CarteiraDaPasta') %}
+                        {% set eAtual = pasta.carteira is same as(carteira) %}
+                        {% set rotuloAtual = 'pasta_cabecalho.cabecalho.menu.carteira_atual'|trans({carteira: carteira.rotulo}) %}
+                        <button type="button" class="ps-pop-item js-carteira-opt" role="menuitemradio"
+                                aria-checked="{{ eAtual ? 'true' : 'false' }}"
+                                data-carteira="{{ carteira.value }}"
+                                data-rotulo="{{ carteira.rotulo }}"
+                                data-rotulo-atual="{{ rotuloAtual }}">
+                            <i class="bi {{ eAtual ? 'bi-check2' : 'bi-briefcase' }}"></i><span>{{ eAtual ? rotuloAtual : carteira.rotulo }}</span>
+                        </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             {% endif %}
         </div>
@@ -332,11 +370,13 @@
     <div class="ps-cab-excluida" role="status">
         <i class="bi bi-trash3"></i>
         <span>
-            <strong>Pasta excluída</strong>
-            em {{ pasta.excluidaEm|date('d/m/Y') }} às {{ pasta.excluidaEm|date('H:i') }}
-            {%- if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}.
-            Ela continua aqui porque o número {{ pasta.nup }} não pode ser reaproveitado:
-            já existem pastas posteriores. Somente leitura até ser restaurada.
+            <strong>{{ 'pasta_cabecalho.cabecalho.excluida.titulo'|trans }}</strong>
+            {% if pasta.excluidaPor -%}
+                {{ 'pasta_cabecalho.cabecalho.excluida.quando_por'|trans({data: pasta.excluidaEm|data, hora: pasta.excluidaEm|hora, nome: pasta.excluidaPor.fullName}) }}
+            {%- else -%}
+                {{ 'pasta_cabecalho.cabecalho.excluida.quando'|trans({data: pasta.excluidaEm|data, hora: pasta.excluidaEm|hora}) }}
+            {%- endif %}
+            {{ 'pasta_cabecalho.cabecalho.excluida.motivo'|trans({nup: pasta.nup}) }}
         </span>
     </div>
     {% endif %}
@@ -344,10 +384,9 @@
     {# ── Linha 2: o cliente é o título ───────────────────────────────────── #}
     {# `nomeCliente` é o IDENTIFICADOR da pasta (decisão do dono, 01/09/2026): é ele
        que vira o título quando não há cliente cadastrado — o estado real de quase
-       todas as pastas. O ícone de pessoa não é clicável: a foto do cliente é função
-       nova e botão sem função é mentira na tela. #}
+       todas as pastas. Sem cliente cadastrado o ícone de pessoa fica inerte. #}
     <div class="ps-cab-cliente" data-cad-ate="1">
-        <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+        {{ include('pasta/_cabecalho_foto_cliente.html.twig', {pasta: pasta, cliente: cliente, cad: cad is defined ? cad : null}) }}
         <div class="ps-cab-cliente-corpo">
             <div class="ps-cab-cliente-linha">
                 {# Com cliente cadastrado, o botão direito no nome abre a janela "Detalhes do
@@ -360,19 +399,19 @@
                     {%- elseif pasta.nomeCliente -%}
                         {{ pasta.nomeCliente }}
                     {%- else -%}
-                        <span class="ps-dado--vazio">Cliente não informado</span>
+                        <span class="ps-dado--vazio">{{ 'pasta_cabecalho.cabecalho.cliente_nao_informado'|trans }}</span>
                     {%- endif -%}
                 </h1>
                 {# É o mesmo dado que a faixa chamava de "Última movimentação" (a última
                    alteração da pasta); só mudou de lugar e de formato, como no desenho. #}
                 {% if pasta.modificadoEm %}
                     <span class="ps-cab-mov" data-campo="movimentacao"
-                          title="Última movimentação: {{ pasta.modificadoEm|date('d/m/Y H:i') }}">
+                          title="{{ 'pasta_cabecalho.cabecalho.movimentacao.dica'|trans({quando: pasta.modificadoEm|data_hora}) }}">
                         <span class="ps-cab-mov-ponto" aria-hidden="true"></span>
                         {%- if pasta.modificadoEm|date('Y-m-d') == 'now'|date('Y-m-d') -%}
-                            Movimentado hoje, {{ pasta.modificadoEm|date('H:i') }}
+                            {{ 'pasta_cabecalho.cabecalho.movimentacao.hoje'|trans({hora: pasta.modificadoEm|hora}) }}
                         {%- else -%}
-                            Movimentado em {{ pasta.modificadoEm|date('d/m/Y') }}
+                            {{ 'pasta_cabecalho.cabecalho.movimentacao.em'|trans({data: pasta.modificadoEm|data}) }}
                         {%- endif -%}
                     </span>
                 {% endif %}
@@ -380,12 +419,12 @@
             {% if documento %}
                 <span class="ps-cab-doc ps-num">{{ documento|documento_br_rotulo }} {{ documento|documento_br }}</span>
             {% elseif cliente is null and pasta.nomeCliente %}
-                <span class="ps-cab-doc ps-cab-doc--aviso">não vinculado ao cadastro de clientes</span>
+                <span class="ps-cab-doc ps-cab-doc--aviso">{{ 'pasta_cabecalho.cabecalho.nao_vinculado'|trans }}</span>
             {% endif %}
         </div>
         {# Dica do desenho (dc L.1135-1137, `tipVis`): aparece ao parar o mouse no nome. Só CSS. #}
         {% if cliente %}
-            <span class="ps-cab-dica" id="psCabDicaCliente" role="tooltip"><i class="bi bi-mouse2" aria-hidden="true"></i>Detalhes: clique com o botão direito</span>
+            <span class="ps-cab-dica" id="psCabDicaCliente" role="tooltip"><i class="bi bi-mouse2" aria-hidden="true"></i>{{ 'pasta_cabecalho.cabecalho.dica_cliente'|trans }}</span>
         {% endif %}
 
         {# ── BlueJus Intelligence (desenho 1.2.3, dc L.1139): à direita da linha do cliente ──
@@ -396,7 +435,7 @@
         {% if can_access_module('inteligencia') and recurso_visivel('assistente') %}
             {% set iaDisp = ia_disponibilidade() %}
             <button type="button" class="ps-cab-ia {{ recurso_marca('assistente') }}" id="psIaAbrir"
-                    title="{{ iaDisp.estaDisponivel ? 'BlueJus IA: análises desta pasta por agente' : iaDisp.mensagem }}"
+                    title="{{ iaDisp.estaDisponivel ? 'pasta_cabecalho.cabecalho.ia_dica'|trans : iaDisp.mensagem }}"
                     aria-controls="psIaDrawer" aria-expanded="false"
                     data-ia-abrir
                     data-ia-disponivel="{{ iaDisp.estaDisponivel ? '1' : '0' }}"
@@ -426,49 +465,51 @@
        sistema arquiva ao excluir), Suspenso e Cancelado. Fica por cima do bloco sem roubar
        clique. Trocar a situação recarrega a tela (o Registro ganha o cartão e, ao arquivar, o
        andamento vai a Finalizada), então o selo sai sempre do servidor. #}
+    {# Os textos do selo são chaves do catálogo (`selo.<situação>`, `selo.aria_<situação>`, `situacao.<situação>`),
+       traduzidas no uso. #}
     {% set selosPermanentes = {
-        arquivado: {texto: 'ARQUIVADO', icone: 'bi-archive-fill',      aria: 'Pasta arquivada', titulo: 'Arquivado'},
-        suspenso:  {texto: 'SUSPENSO',  icone: 'bi-pause-circle-fill', aria: 'Pasta suspensa',  titulo: 'Suspenso'},
-        cancelado: {texto: 'CANCELADO', icone: 'bi-x-octagon-fill',    aria: 'Pasta cancelada', titulo: 'Cancelado'},
+        arquivado: {icone: 'bi-archive-fill'},
+        suspenso:  {icone: 'bi-pause-circle-fill'},
+        cancelado: {icone: 'bi-x-octagon-fill'},
     } %}
     {% set seloArquivado %}
-        <div class="ps-cab-selo ps-cab-selo--arquivado" role="img" aria-label="Pasta arquivada" title="Situação da pasta: Arquivado">
+        <div class="ps-cab-selo ps-cab-selo--arquivado" role="img" aria-label="{{ 'pasta_cabecalho.cabecalho.selo.aria_arquivado'|trans }}" title="{{ 'pasta_cabecalho.cabecalho.situacao.dica'|trans({situacao: 'pasta_cabecalho.cabecalho.situacao.arquivado'|trans}) }}">
             <span class="ps-cab-selo-onda" aria-hidden="true"></span>
             <span class="ps-cab-selo-onda" aria-hidden="true"></span>
             <span class="ps-cab-selo-onda" aria-hidden="true"></span>
             <span class="ps-cab-selo-aro" aria-hidden="true"></span>
-            <span class="ps-cab-selo-faixa"><i class="bi bi-archive-fill" aria-hidden="true"></i>ARQUIVADO</span>
+            <span class="ps-cab-selo-faixa"><i class="bi bi-archive-fill" aria-hidden="true"></i>{{ 'pasta_cabecalho.cabecalho.selo.arquivado'|trans }}</span>
         </div>
     {% endset %}
     {# PAS-002: ao REATIVAR (arquivado → ativo pela pílula), o desenho carimba "ATIVO" por
        3,3 s (`ativoSeloMostrar`) e o selo some sozinho. Nunca vem do servidor: só existe
        como modelo, e o script do fim do parcial o põe e o tira. #}
     {% set seloAtivo %}
-        <div class="ps-cab-selo ps-cab-selo--ativo" role="img" aria-label="Pasta ativa" title="Situação da pasta: Ativo">
+        <div class="ps-cab-selo ps-cab-selo--ativo" role="img" aria-label="{{ 'pasta_cabecalho.cabecalho.selo.aria_ativo'|trans }}" title="{{ 'pasta_cabecalho.cabecalho.situacao.dica'|trans({situacao: 'pasta_cabecalho.cabecalho.situacao.ativo'|trans}) }}">
             <span class="ps-cab-selo-onda" aria-hidden="true"></span>
             <span class="ps-cab-selo-onda" aria-hidden="true"></span>
             <span class="ps-cab-selo-onda" aria-hidden="true"></span>
             <span class="ps-cab-selo-aro" aria-hidden="true"></span>
-            <span class="ps-cab-selo-faixa"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>ATIVO</span>
+            <span class="ps-cab-selo-faixa"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>{{ 'pasta_cabecalho.cabecalho.selo.ativo'|trans }}</span>
         </div>
     {% endset %}
     <div class="ps-cab-palco" data-ps-selo-modelo="{{ seloArquivado|e('html_attr') }}"
          data-ps-selo-ativo-modelo="{{ seloAtivo|e('html_attr') }}">
         {% if eArquivada %}{{ seloArquivado }}{% elseif selosPermanentes[pasta.situacao] is defined %}
             {% set sp = selosPermanentes[pasta.situacao] %}
-            <div class="ps-cab-selo ps-cab-selo--{{ pasta.situacao }}" role="img" aria-label="{{ sp.aria }}" title="Situação da pasta: {{ sp.titulo }}">
+            <div class="ps-cab-selo ps-cab-selo--{{ pasta.situacao }}" role="img" aria-label="{{ ('pasta_cabecalho.cabecalho.selo.aria_' ~ pasta.situacao)|trans }}" title="{{ 'pasta_cabecalho.cabecalho.situacao.dica'|trans({situacao: ('pasta_cabecalho.cabecalho.situacao.' ~ pasta.situacao)|trans}) }}">
                 <span class="ps-cab-selo-onda" aria-hidden="true"></span>
                 <span class="ps-cab-selo-onda" aria-hidden="true"></span>
                 <span class="ps-cab-selo-onda" aria-hidden="true"></span>
                 <span class="ps-cab-selo-aro" aria-hidden="true"></span>
-                <span class="ps-cab-selo-faixa"><i class="bi {{ sp.icone }}" aria-hidden="true"></i>{{ sp.texto }}</span>
+                <span class="ps-cab-selo-faixa"><i class="bi {{ sp.icone }}" aria-hidden="true"></i>{{ ('pasta_cabecalho.cabecalho.selo.' ~ pasta.situacao)|trans }}</span>
             </div>
         {% endif %}
         {# Selo do cadeado (desenho 02 L1300, `cd.seloEl`): só para quem configura, em pasta com cadeado; abre o
            modal. Fica à esquerda do carimbo da situação quando ele existe (136px), como no desenho. #}
         {% set cadSelo = cad is defined ? cad : cadeado_da_pasta(pasta) %}
         {% if cadSelo and cadSelo.podeConfigurar and cadSelo.temCadeado %}
-            <div class="js-cadeado-abrir" role="button" tabindex="0" aria-label="Cadeado da pasta" title="{{ cadSelo.seloTitulo }}" data-cad-onda
+            <div class="js-cadeado-abrir" role="button" tabindex="0" aria-label="{{ 'pasta_cabecalho.cabecalho.cadeado'|trans }}" title="{{ cadSelo.seloTitulo }}" data-cad-onda
                  style="position:absolute;right:{{ pasta.situacao != 'ativo' ? 136 : 8 }}px;top:50%;transform:translateY(-50%);z-index:2;pointer-events:auto;cursor:pointer">
                 {{ include('pasta/_cadeado_icone.html.twig', {px: 64, ondas: true}) }}
             </div>
@@ -491,14 +532,15 @@
        nada, só mostra. Metas = meta não concluída; Processo = nenhum processo vinculado;
        Financeiro = contrato pendente sem pró-bono (+ pagamentos vencidos); Push = não lidas. #}
     {% set pushNaoLidas = push.naoLidas|default(0) %}
+    {# O rótulo de cada aba é a chave `abas.<id>` do catálogo, traduzida no uso. #}
     {% set abas = [
-        {id: 'dados',      painel: 'dados',      rotulo: 'Dados da pasta', icone: 'bi-folder2-open',  contagem: null},
-        {id: 'tarefas',    painel: 'tarefas',    rotulo: 'Metas',          icone: 'bi-check2-square', contagem: pasta.tarefas|length},
-        {id: 'processo',   painel: 'processo',   rotulo: 'Processo',       icone: 'bi-bank',          contagem: null},
-        {id: 'financeiro', painel: 'financeiro', rotulo: 'Financeiro',     icone: 'bi-cash-coin',     contagem: null},
-        {id: 'detalhes',   painel: 'detalhes',   rotulo: 'Detalhes',       icone: 'bi-info-circle',   contagem: null},
-        {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: (abasDaPasta ? pasta.documentos|filter(d => abasDaPasta.documentoVisivel(d.categoria)) : pasta.documentos)|length},
-        {id: 'push',       painel: 'push',       rotulo: 'Push Processual', icone: 'bi-broadcast',     contagem: pushNaoLidas},
+        {id: 'dados',      painel: 'dados',      icone: 'bi-folder2-open',  contagem: null},
+        {id: 'tarefas',    painel: 'tarefas',    icone: 'bi-check2-square', contagem: pasta.tarefas|length},
+        {id: 'processo',   painel: 'processo',   icone: 'bi-bank',          contagem: null},
+        {id: 'financeiro', painel: 'financeiro', icone: 'bi-cash-coin',     contagem: null},
+        {id: 'detalhes',   painel: 'detalhes',   icone: 'bi-info-circle',   contagem: null},
+        {id: 'documentos', painel: 'documentos', icone: 'bi-paperclip',     contagem: (abasDaPasta ? pasta.documentos|filter(d => abasDaPasta.documentoVisivel(d.categoria)) : pasta.documentos)|length},
+        {id: 'push',       painel: 'push',       icone: 'bi-broadcast',     contagem: pushNaoLidas},
     ] %}
     {# Abas ocultas (spec pasta-ocultar-aba §5): para quem está oculto, a aba nem é desenhada, e a
        primeira visível nasce ativa (o `loop.first` abaixo). `abasDaPasta` vem do servidor
@@ -512,6 +554,7 @@
             <div class="ps-abas-ind" aria-hidden="true"></div>
             {% for aba in abas %}
                 {% set pend = pendencias.porAba[aba.id]|default(null) %}
+                {% set abaRotulo = ('pasta_cabecalho.cabecalho.abas.' ~ aba.id)|trans %}
                 <button class="ps-aba{{ loop.first ? ' active' : '' }}{{ pend ? ' ps-aba--pend' : '' }}"
                         id="{{ aba.id }}-tab"
                         data-bs-toggle="tab"
@@ -519,7 +562,7 @@
                         type="button" role="tab"
                         aria-controls="{{ aba.painel }}"
                         aria-selected="{{ loop.first ? 'true' : 'false' }}"
-                        title="{{ aba.rotulo }}{% if pend %} · {{ pend.txt }}{% endif %}"
+                        title="{{ abaRotulo }}{% if pend %} · {{ pend.txt }}{% endif %}"
                         {#- Botão direito (ou Shift+F10 / tecla de menu) na aba Push abre o menu
                             "PUSH PROCESSUAL" do link externo ([EXP] L.1241 `onContextMenu`,
                             `abaMenu` L.4409). Quem escuta é o pasta-push-link.js. Com a tela `pushpub`
@@ -527,7 +570,7 @@
                         {%- if aba.id == 'push' and recurso_visivel('pushpub') %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}
                         {#- Botão direito em qualquer aba: ocultar para a equipe ([EXP] L.4409-4419). Quem
                             escuta é o pasta-abas-ocultas.js; o rótulo e a regra vão para o menu. #}
-                        data-pao-aba="{{ aba.id }}" data-pao-rotulo="{{ aba.rotulo }}"
+                        data-pao-aba="{{ aba.id }}" data-pao-rotulo="{{ abaRotulo }}"
                         {%- if configuraAbas and abasDaPasta.temRegra(aba.id) %} data-pao-regra="1" data-pao-sufixo="{{ abasDaPasta.sufixoDoMenu(aba.id) }}"{% endif %}>
                     {# Ícone da regra, só para quem configura ([EXP] L.1243, title L.6088). #}
                     {% if configuraAbas and abasDaPasta.temRegra(aba.id) %}<i class="bi bi-eye-slash ps-aba-oculta-ind" title="{{ abasDaPasta.dicaDoIcone(aba.id) }}" aria-label="{{ abasDaPasta.dicaDoIcone(aba.id) }}"></i>{% endif %}
@@ -535,7 +578,7 @@
                        Bootstrap alterna): quem está olhando a aba já vê a pendência. #}
                     {% if pend %}<span class="ps-aba-pend" aria-hidden="true"></span>{% endif %}
                     <i class="bi {{ aba.icone }}"></i>
-                    <span>{{ aba.rotulo }}</span>
+                    <span>{{ abaRotulo }}</span>
                     {# Selo só com contagem > 0: o "0" já foi bug corrigido duas vezes na revisão do desenho (PastaDadosArranjoTelaTest). #}
                     {% if aba.contagem %}<span class="ps-aba-badge ps-num">{{ aba.contagem }}</span>{% endif %}
                 </button>
@@ -555,8 +598,8 @@
             {% set cadPendencias = cliente_pendencias(cliente) %}
             {% set cadCompleto = cadPendencias is empty %}
             {% set cadDica = cadCompleto
-                ? 'Cadastro completo · abrir qualificação do cliente'
-                : 'Cadastro incompleto: ' ~ cadPendencias|length ~ (cadPendencias|length == 1 ? ' pendência' : ' pendências') ~ ' · clique para completar' %}
+                ? 'pasta_cabecalho.cabecalho.cadastro.completo'|trans
+                : (cadPendencias|length == 1 ? 'pasta_cabecalho.cabecalho.cadastro.incompleto_um' : 'pasta_cabecalho.cabecalho.cadastro.incompleto_varios')|trans({n: cadPendencias|length ~ ''}) %}
             <button type="button" id="psCadastroAbrir"
                     class="ps-cad-btn js-cad-abrir"
                     data-cliente-id="{{ cliente.id }}"
@@ -564,7 +607,7 @@
                     data-pendencias="{{ cadPendencias|length }}"
                     title="{{ cadDica }}" aria-label="{{ cadDica }}">
                 <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--{{ cadCompleto ? 'completo' : 'pendente' }}"></span></span>
-                <span>Cadastro</span>
+                <span>{{ 'pasta_cabecalho.cabecalho.cadastro.rotulo'|trans }}</span>
             </button>
         {% elseif podeEditarPasta and not pasta.estaExcluida %}
             {# E12i (regra do dono, como o desenho): o Cadastro existe em toda pasta. Sem cliente vinculado, abre o
@@ -573,9 +616,9 @@
                     class="ps-cad-btn js-cad-abrir"
                     data-url="{{ path('pasta_cadastro_novo', {id: pasta.id}) }}"
                     data-pendencias="1"
-                    title="Sem cliente cadastrado · clique para cadastrar" aria-label="Sem cliente cadastrado · clique para cadastrar">
+                    title="{{ 'pasta_cabecalho.cabecalho.cadastro.sem_cliente'|trans }}" aria-label="{{ 'pasta_cabecalho.cabecalho.cadastro.sem_cliente'|trans }}">
                 <span class="ps-cad-btn-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i><span class="ps-cad-ponto ps-cad-ponto--pendente"></span></span>
-                <span>Cadastro</span>
+                <span>{{ 'pasta_cabecalho.cabecalho.cadastro.rotulo'|trans }}</span>
             </button>
         {% endif %}
 
@@ -589,7 +632,7 @@
                 <button type="button"
                         id="btn-alternar-status"
                         class="ps-situacao-pill ps-situacao-pill--{{ pasta.situacao }}"
-                        title="Situação da pasta: {{ pasta.situacaoRotulo }}"
+                        title="{{ 'pasta_cabecalho.cabecalho.situacao.dica'|trans({situacao: pasta.situacaoRotulo}) }}"
                         data-ps-pop="psSituacao"
                         aria-haspopup="menu" aria-expanded="false"
                         data-pasta-id="{{ pasta.id }}"
@@ -601,20 +644,16 @@
                     <i class="bi bi-chevron-down"></i>
                 </button>
                 <div class="ps-pop ps-pop--situacao" id="psSituacao" role="menu">
-                    <div class="ps-pop-tarja"><i class="bi bi-toggles"></i>Situação da pasta</div>
-                    {% for opcao in [
-                        {v: 'ativo',     rotulo: 'Ativo',     desc: 'Pasta em andamento'},
-                        {v: 'suspenso',  rotulo: 'Suspenso',  desc: 'Pausada temporariamente'},
-                        {v: 'cancelado', rotulo: 'Cancelado', desc: 'Encerrada sem conclusão'},
-                        {v: 'arquivado', rotulo: 'Arquivado', desc: 'Sai das listas de trabalho'},
-                    ] %}
+                    <div class="ps-pop-tarja"><i class="bi bi-toggles"></i>{{ 'pasta_cabecalho.cabecalho.situacao.titulo'|trans }}</div>
+                    {# Rótulo e descrição: chaves `situacao.<v>` e `situacao.desc_<v>` do catálogo. #}
+                    {% for opcao in [{v: 'ativo'}, {v: 'suspenso'}, {v: 'cancelado'}, {v: 'arquivado'}] %}
                         <button type="button" class="ps-pop-item ps-pop-item--situacao js-situacao-opt"
                                 role="menuitemradio" aria-checked="{{ pasta.situacao == opcao.v ? 'true' : 'false' }}"
                                 data-situacao="{{ opcao.v }}">
                             <span class="ps-situacao-ponto ps-situacao-ponto--{{ opcao.v }}" aria-hidden="true"></span>
                             <span class="ps-pop-item-corpo">
-                                <span class="ps-pop-item-titulo">{{ opcao.rotulo }}</span>
-                                <span class="ps-pop-item-desc">{{ opcao.desc }}</span>
+                                <span class="ps-pop-item-titulo">{{ ('pasta_cabecalho.cabecalho.situacao.' ~ opcao.v)|trans }}</span>
+                                <span class="ps-pop-item-desc">{{ ('pasta_cabecalho.cabecalho.situacao.desc_' ~ opcao.v)|trans }}</span>
                             </span>
                             <i class="bi bi-check2 ps-pop-check{{ pasta.situacao == opcao.v ? '' : ' d-none' }}"></i>
                         </button>
@@ -623,7 +662,7 @@
             </div>
         {% else %}
             <div class="ps-situacao-wrap">
-                <span class="ps-situacao-pill ps-situacao-pill--{{ pasta.situacao }}" title="Situação da pasta">
+                <span class="ps-situacao-pill ps-situacao-pill--{{ pasta.situacao }}" title="{{ 'pasta_cabecalho.cabecalho.situacao.titulo'|trans }}">
                     <span class="ps-situacao-ponto" aria-hidden="true"></span>
                     <span class="ps-situacao-label">{{ pasta.situacaoRotulo }}</span>
                 </span>
@@ -663,6 +702,7 @@
 }
 @media (hover: none) { .ps-cab-dica { display: none; } }
 </style>
+{{ catalogo_js('pasta_cabecalho.js') }}
 <script>
 (function () {
     /* PAS-034b: "Restaurar" pergunta na janela da tela (`confirmarPs`, pasta-dialogos.js), não
@@ -677,8 +717,8 @@
         // E7: restaurar não tem perigo → variante azul (regra do dc `confirmarUI`/`cfVals`; o
         // desenho não tem esta pergunta — a convenção dele decide a cor).
         window.confirmarPs({
-            titulo: 'Restaurar a pasta ' + form.dataset.nup + '?',
-            rotulo: 'Restaurar',
+            titulo: BJ_T.t('pasta_cabecalho.js.cabecalho.restaurar_pergunta', { nup: form.dataset.nup }),
+            rotulo: BJ_T.t('pasta_cabecalho.js.cabecalho.restaurar'),
             icone: 'bi-arrow-counterclockwise',
             variante: 'azul'
         }).then(function (sim) {
@@ -717,15 +757,69 @@
             })
             .then(function (r) {
                 if (!r.ok || typeof r.dados.favorita !== 'boolean') {
-                    avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || 'Não foi possível alterar os favoritos.');
+                    avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || BJ_T.t('pasta_cabecalho.js.cabecalho.favoritos_erro'));
                     return;
                 }
                 item.setAttribute('aria-checked', r.dados.favorita ? 'true' : 'false');
                 var sw = item.querySelector('.ps-pop-sw');
                 if (sw) { sw.classList.toggle('is-ligado', r.dados.favorita); }
             })
-            .catch(function () { avisarErro('Erro de comunicação. Tente novamente.'); })
+            .catch(function () { avisarErro(BJ_T.t('pasta_cabecalho.js.cabecalho.erro_comunicacao')); })
             .then(function () { item.dataset.enviando = ''; });
+    });
+})();
+
+(function () {
+    /* "Mover para outra carteira" (desenho `menuPasta('mover')`): a opção escolhida vai ao servidor e, com a
+       RESPOSTA, o "· atual" e o bi-check2 passam para ela, sem recarregar, e sai o aviso do desenho ("Pasta N movida
+       para a carteira X"). O cartão do Registro aparece na próxima abertura, como o do responsável. A atual não faz
+       nada ao clique. O clique num item fecha o submenu (pasta-show.js, `popovers`). */
+    var painel = document.getElementById('psMoverCarteira');
+    if (!painel) { return; }
+
+    function avisarErro(mensagem) {
+        if (window.avisarPs) { window.avisarPs(mensagem, 'erro'); }
+    }
+
+    function marcarAtual(valor) {
+        painel.querySelectorAll('.js-carteira-opt').forEach(function (opt) {
+            var eAtual = opt.dataset.carteira === valor;
+            opt.setAttribute('aria-checked', eAtual ? 'true' : 'false');
+            opt.querySelector('i').className = 'bi ' + (eAtual ? 'bi-check2' : 'bi-briefcase');
+            opt.querySelector('span').textContent = eAtual ? opt.dataset.rotuloAtual : opt.dataset.rotulo;
+        });
+    }
+
+    painel.addEventListener('click', function (e) {
+        var opt = e.target.closest('.js-carteira-opt');
+        if (!opt || opt.getAttribute('aria-checked') === 'true' || painel.dataset.enviando === '1') { return; }
+        painel.dataset.enviando = '1';
+
+        var corpo = new FormData();
+        corpo.append('_token', painel.dataset.csrf);
+        corpo.append('carteira', opt.dataset.carteira);
+
+        fetch(painel.dataset.url, {
+            method: 'POST',
+            body: corpo,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+            .then(function (resposta) {
+                return resposta.json().then(function (dados) { return { ok: resposta.ok, dados: dados }; });
+            })
+            .then(function (r) {
+                if (!r.ok || !r.dados.sucesso) {
+                    avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || BJ_T.t('pasta_cabecalho.js.cabecalho.carteira_erro'));
+                    return;
+                }
+                marcarAtual(r.dados.carteira);
+                if (window.avisarPs) {
+                    window.avisarPs(BJ_T.t('pasta_cabecalho.js.cabecalho.carteira_movida', { nup: painel.dataset.nup, carteira: r.dados.rotulo }));
+                }
+            })
+            .catch(function () { avisarErro(BJ_T.t('pasta_cabecalho.js.cabecalho.erro_comunicacao')); })
+            .then(function () { painel.dataset.enviando = ''; });
     });
 })();
 

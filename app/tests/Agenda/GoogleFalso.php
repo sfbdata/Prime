@@ -27,6 +27,8 @@ final class GoogleFalso
     public array $pedidos = [];
     public string $conta = 'pessoa@gmail.com';
     public bool $recusarAutorizacao = false;
+    /** Código de erro do OAuth na troca do código (ex.: invalid_client); vazio = sem erro. */
+    public string $erroDoToken = '';
     public bool $emailConfirmado = true;
     public string $audiencia = 'cliente-teste';
     public int $validadeDoIdToken = 3600;
@@ -80,6 +82,9 @@ final class GoogleFalso
         parse_str($corpo, $campos);
         if ($this->recusarAutorizacao) {
             return $this->json(['error' => 'invalid_grant'], 400);
+        }
+        if ('' !== $this->erroDoToken) {
+            return $this->json(['error' => $this->erroDoToken, 'error_description' => 'Descrição livre do Google'], 401);
         }
         if ('authorization_code' === ($campos['grant_type'] ?? null)) {
             $carga = rtrim(strtr(base64_encode((string) json_encode(['sub' => 'sub-' . md5($this->conta), 'email' => $this->conta, 'email_verified' => $this->emailConfirmado, 'aud' => $this->audiencia, 'iss' => 'https://accounts.google.com', 'exp' => time() + $this->validadeDoIdToken])), '+/', '-_'), '=');

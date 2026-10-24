@@ -69,7 +69,6 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString("if (onde.situacao === 'fora') { avisar(mensagemDaCerca(onde)); return; }", $js, 'só recusa quando certamente fora');
         self::assertStringContainsString("return { texto: 'Em intervalo desde ' + h.repouso, cor: '#5b7383', icone: 'bi-pause-circle', acao: '', dica: '' };", $js);
         self::assertStringContainsString("if (base.interjornadaMinimaMin) { texto += ' A próxima entrada só será aceita depois de ' + descanso(base.interjornadaMinimaMin) + ' de descanso.'; }", $js, 'decisão do dono 19/10: o valor do escritório, só com a validação ligada');
-        self::assertStringContainsString("if (atual.acao === 'regularizar') { regularizarOntem(base.ontemSemSaida); return; }", $js, 'regularizar não envia batida');
         self::assertStringContainsString("'?competencia=' + dia.slice(0, 7) + '&esquecimento=' + dia + ':saida'", $js);
         foreach (['nao_entrou: AVISO_NAO_ENTROU', 'sem_confirmacao: AVISO_SEM_CONFIRMACAO', 'sem_rede: AVISO_SEM_REDE', 'atrasado: AVISO_ATRASADO'] as $caso) {
             self::assertStringContainsString($caso, $js);
@@ -78,5 +77,43 @@ final class AtalhoDoPontoNoCabecalhoJsTest extends TestCase
         self::assertStringContainsString("resultado.data.data.hora", $js, 'a hora do aviso é a do servidor');
         self::assertStringNotContainsString('innerHTML', $js);
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $js);
+    }
+
+    #[TestDox('R3: o "Regularizar ponto de ontem" é aviso ao lado da linha; a linha nunca o troca pela batida, e o clique nele só leva ao pedido de esquecimento')]
+    public function testRegularizarOntemEAviso(): void
+    {
+        $js = self::js();
+        self::assertStringNotContainsString("case 'regularizar_ontem':", $js, 'não é mais estado da linha');
+        self::assertStringNotContainsString("acao: 'regularizar'", $js, 'a linha não perde a batida');
+        self::assertStringContainsString("if (!estado || estado.aviso !== 'regularizar_ontem' || !estado.ontemSemSaida) { return null; }", $js);
+        self::assertStringContainsString("regularizar: function () { if (aviso()) { regularizarOntem(estado.ontemSemSaida); } },", $js);
+
+        $cabecalho = (string) file_get_contents(__DIR__ . '/../../../public/js/presenca-cabecalho.js');
+        self::assertStringContainsString('var pendencia = avisoDoPonto(x);', $cabecalho, 'o aviso entra abaixo do atalho, que continua');
+        self::assertStringContainsString('ponto().regularizar();', $cabecalho);
+    }
+
+    #[TestDox('R6: os avisos da batida aceita seguem a confirmação, no cabeçalho e em #batida-aviso da tela do ponto, sem virar erro; com aviso, a tela não recarrega sozinha')]
+    public function testAvisosDepoisDoSucesso(): void
+    {
+        $js = self::js();
+        self::assertStringContainsString('var avisos = resultado && resultado.data && resultado.data.avisos;', $js);
+        self::assertStringContainsString("+ (extra ? '.' + extra : ''));", $js, 'o aviso vai junto da confirmação');
+        self::assertStringContainsString("var interno = typeof a.link === 'string' && a.link.charAt(0) === '/' && a.link.charAt(1) !== '/' && a.rotulo;", $js, 'só link interno');
+        self::assertStringContainsString('avisosDaBatida: function () { return avisosDaBatida; },', $js);
+
+        $cabecalho = (string) file_get_contents(__DIR__ . '/../../../public/js/presenca-cabecalho.js');
+        self::assertStringContainsString('avisosDaBatida(x).forEach(function (a) { tx.appendChild(a); });', $cabecalho, 'o cabeçalho mostra o aviso da batida');
+        self::assertStringContainsString('link.href = a.link;', $cabecalho);
+        self::assertStringContainsString('link.textContent = a.rotulo;', $cabecalho, 'o link do aviso, por DOM');
+        self::assertStringNotContainsString('innerHTML', $cabecalho . $js);
+
+        $tela = (string) file_get_contents(__DIR__ . '/../../../templates/ponto/index.html.twig');
+        self::assertStringContainsString('const avisos = Array.isArray(resultado.data && resultado.data.avisos) ? resultado.data.avisos : [];', $tela);
+        self::assertStringContainsString("mostrarAvisoBatida(texto, 'warning', true);", $tela, 'aviso, não erro (danger), com o botão de atualizar');
+        self::assertStringContainsString("aviso.link.startsWith('/') && !aviso.link.startsWith('//')", $tela, 'só link interno');
+        self::assertStringContainsString('link.textContent = String(aviso.rotulo);', $tela, 'DOM só com textContent');
+        $sucesso = substr($tela, (int) strpos($tela, "} else if (resultado.tipo === 'sucesso') {"), 600);
+        self::assertMatchesRegularExpression('/if \(avisos\.length > 0\) \{\s+mostrarSucessoComAvisos\(resultado\.mensagem, avisos\);\s+\} else \{\s+mostrarAvisoBatida\(resultado\.mensagem, \'success\'\);\s+setTimeout/', $sucesso, 'o recarregamento automático só sem aviso');
     }
 }

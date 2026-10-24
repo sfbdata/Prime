@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorModosTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS  = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS = __DIR__ . '/../../../public/css/pasta-explorador.css';
 
@@ -228,8 +230,11 @@ final class PastaExploradorModosTest extends TestCase
 
         // Painel só com o que #pexDados tem (dc `pProps` L4953; detalhe no PastaExploradorPainelDetalhesTest).
         $js = $this->js();
-        self::assertStringContainsString("['Modificado', formatarDataHora(dataModificacao(d))],", $js);
-        self::assertStringContainsString("['Conteúdo', partes.length ? partes.join(' · ') : 'Vazia'],", $js);
+        self::assertStringContainsString("[BJ_T.t('pasta_scripts.js.explorador.col_data'), formatarDataHora(dataModificacao(d))],", $js);
+        self::assertStringContainsString("[BJ_T.t('pasta_scripts.js.explorador.prop_conteudo'), partes.length ? partes.join(' · ') : BJ_T.t('pasta_scripts.js.explorador.vazia')],", $js);
+        self::assertTextoDoScript('Modificado', 'explorador.col_data', $js);
+        self::assertTextoDoScript('Conteúdo', 'explorador.prop_conteudo', $js);
+        self::assertTextoDoScript('Vazia', 'explorador.vazia', $js);
     }
 
     #[TestDox('375px: no celular a Lista vira uma coluna e o painel desce para baixo da lista — nada rola para o lado')]

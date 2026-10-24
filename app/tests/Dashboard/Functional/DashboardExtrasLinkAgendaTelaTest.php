@@ -214,7 +214,8 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
      */
     private function assertParidade(KernelBrowser $client, array $filtros, array $nomes, array $ocultos = []): array
     {
-        $dashboard = $client->request('GET', '/dashboard' . ($filtros !== [] ? '?' . http_build_query($filtros) : ''));
+        // Sem filtro = sem período: as datas vão vazias, senão o painel abriria em Este mês.
+        $dashboard = $client->request('GET', '/dashboard' . ($filtros !== [] ? '?' . http_build_query($filtros) : '?data_de=&data_ate='));
         self::assertResponseIsSuccessful();
 
         $vistos = [];
@@ -401,7 +402,7 @@ final class DashboardExtrasLinkAgendaTelaTest extends DashboardWebTestCase
         $client = static::createClient();
         [, , $bruno] = $this->semear($client, false);
 
-        $dash   = $client->request('GET', '/dashboard');
+        $dash   = $client->request('GET', '/dashboard?data_de=&data_ate=');
         $celula = $this->linhaDe($dash, 'Bruno Agenda')->filter('td[data-coluna="eventos_agenda"]');
         self::assertSame('4', trim($celula->filter(self::NUMERO)->text()), 'o número continua lá');
         self::assertCount(0, $celula->filter('a'), 'sem Agenda, não há lista que bata');

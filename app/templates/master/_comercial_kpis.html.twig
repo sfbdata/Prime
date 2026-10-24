@@ -1,0 +1,25 @@
+{# KPIs do fim da seção Comercial, antes das Automações (desenho 05 VS 21.10.26, L325 e L690; spec comercial-e-emails
+   §10, item 10). Os números vêm de `master_comercial_resumo` (comercial-descadastrados.js, que também avisa o
+   cabeçalho da Central pelo evento `mc:resumo`). O DESCADASTRADOS abre o bloco da lista. #}
+<div class="mc-kpis" data-mc-kpis>
+    {% for k in [
+        ['campanhas', 'comercial.kpis.campanhas'|trans, 'comercial.kpis.campanhas_desc'|trans],
+        ['naFila', 'comercial.kpis.na_fila'|trans, 'comercial.kpis.na_fila_desc'|trans],
+        ['base', 'comercial.kpis.base'|trans, 'comercial.kpis.base_desc'|trans],
+        ['descadastrados', 'comercial.kpis.descadastrados'|trans, 'comercial.kpis.descadastrados_desc'|trans],
+    ] %}
+        {% if k[0] == 'descadastrados' %}
+            <button type="button" class="mc-kpi mc-kpi-clicavel" data-mc-kpi="{{ k[0] }}" data-mc-kpi-abrir aria-expanded="false">
+        {% else %}
+            <div class="mc-kpi" data-mc-kpi="{{ k[0] }}">
+        {% endif %}
+            <span class="mc-kpi-rotulo">{{ k[1] }}</span>
+            <b class="mc-kpi-valor" data-mc-kpi-valor>…</b>
+            <span class="mc-kpi-desc">{{ k[2] }}</span>
+        {% if k[0] == 'descadastrados' %}</button>{% else %}</div>{% endif %}
+    {% endfor %}
+</div>
+{# Aqui, e não no bloco dos Descadastrados: este parcial vem depois na página, com os dois blocos já no DOM. #}
+<script src="{{ asset('js/master/comercial-descadastrados.js') }}"></script>
+{# A chave "Confirmação de leitura" (F3g) mora na barra de envio; o script vem aqui, fora da barra (os filhos dela são contados). #}
+<script src="{{ asset('js/master/comercial-leitura.js') }}"></script>

@@ -9,6 +9,9 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaMensagem;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PrioridadePasta;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
@@ -175,6 +178,58 @@ class MetricasExtrasDoDashboardRepository
         $this->aplicarPeriodo($qb, 'e.dataInicio', $filtros);
 
         return $this->mapaDeContagem($qb);
+    }
+
+    /**
+     * "Relatório" (spec dashboard-parte-1, item 2): registros por AUTOR, criados no período, nas três
+     * abas que o desenho soma: Dados da pasta (`PastaMensagem`, sem os cartões do sistema),
+     * Financeiro e Detalhes. Resposta é um registro e conta; edição não conta de novo (a linha é a
+     * mesma). Uma consulta agregada por tabela; pasta excluída (lápide) e pasta oculta pelo
+     * cadeado para quem olha ficam fora.
+     *
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array<int, int> userId => quantidade
+     */
+    public function contarRegistrosPorAutor(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
+    {
+        $mapa = [];
+        foreach ([PastaMensagem::class, PastaObservacaoFinanceira::class, PastaObservacaoDetalhes::class] as $classe) {
+            foreach ($this->mapaDeContagem($this->registrosDe($classe, $tenant, $filtros, $pastasOcultas)) as $id => $n) {
+                $mapa[$id] = ($mapa[$id] ?? 0) + $n;
+            }
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * @param class-string         $classe
+     * @param array<string, mixed> $filtros
+     * @param list<int>            $pastasOcultas
+     */
+    private function registrosDe(string $classe, Tenant $tenant, array $filtros, array $pastasOcultas): QueryBuilder
+    {
+        $qb = $this->em->createQueryBuilder()
+            ->select('IDENTITY(r.autor) AS pessoa_id, COUNT(r.id) AS total')
+            ->from($classe, 'r')
+            ->join('r.pasta', 'p')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('r.autor');
+
+        if ($classe === PastaMensagem::class) {
+            $qb->andWhere('r.sistema IS NULL'); // cartão do sistema não é registro de ninguém
+        }
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
+        }
+        $this->aplicarPeriodo($qb, 'r.criadaEm', $filtros);
+
+        return $qb;
     }
 
     /**

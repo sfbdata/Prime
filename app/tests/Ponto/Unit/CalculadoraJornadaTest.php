@@ -32,9 +32,8 @@ class CalculadoraJornadaTest extends TestCase
     {
         $user = new User();
         $user->setEmail('teste@jusprime.com')->setFullName('Teste');
-        if ($jornada !== null) {
-            $user->setJornadaColaborador($jornada);
-        }
+        $jornada?->setUser($user);
+
         return $user;
     }
 
@@ -826,7 +825,8 @@ class CalculadoraJornadaTest extends TestCase
 
     public function testSaldoDoDiaSaiDaEscolhaPronta(): void
     {
-        $user = $this->novoUsuario($this->jornadaComIntervalo());
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
             $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00'),
@@ -836,8 +836,8 @@ class CalculadoraJornadaTest extends TestCase
         $escolha = $this->calculadora->escolherBatidas($batidas, $this->segunda());
 
         // 09:00→12:00 (180) + 13:00→18:30 (330) = 510, contra a meta de 528 do bloco: −18.
-        $this->assertSame(-18, $this->calculadora->calcularSaldoDiaDaEscolha($user, $this->segunda(), $escolha, $user->getJornadaColaborador(), []));
-        $this->assertSame(-18, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $user->getJornadaColaborador(), []));
+        $this->assertSame(-18, $this->calculadora->calcularSaldoDiaDaEscolha($user, $this->segunda(), $escolha, $jornada, []));
+        $this->assertSame(-18, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []));
         $this->assertFalse($this->calculadora->registroIncompletoDaEscolha($escolha));
     }
 
@@ -854,8 +854,9 @@ class CalculadoraJornadaTest extends TestCase
         $this->assertSame(540, $this->calculadora->calcularMinutosTrabalhados($foraDeOrdem), '08:00→17:00');
 
         // E o saldo também: 540 contra a meta de 528 do bloco. Pela primeira da lista (09:00) seria −48.
-        $user = $this->novoUsuario($this->jornadaComIntervalo());
-        $this->assertSame(12, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $foraDeOrdem, $user->getJornadaColaborador(), []));
+        $jornada = $this->jornadaComIntervalo();
+        $user = $this->novoUsuario($jornada);
+        $this->assertSame(12, $this->calculadora->calcularSaldoDia($user, $this->segunda(), $foraDeOrdem, $jornada, []));
     }
 
     public function testDiaSoComBatidaDeTipoDesconhecidoContinuaIncompleto(): void
@@ -927,5 +928,72 @@ class CalculadoraJornadaTest extends TestCase
                 sprintf('"%s" apurou mais tempo do que cabe entre a entrada e a saída', $nome)
             );
         }
+    }
+
+    /**
+     * Par invertido (spec `ponto-esquecimento-nao-trava.md`, revisão final de 23/10): a saída escolhida antes da entrada
+     * escolhida, ou um trecho do intervalo invertido, deixa o dia incompleto e com 0 minutos, como a saída solta. O
+     * `diffMinutos` não credita intervalo invertido.
+     */
+    public function testParInvertidoDeixaODiaIncompletoComZeroMinutos(): void
+    {
+        $cenarios = [
+            'saída às 07:00 e entrada às 13:00' => [['saida', '07:00'], ['entrada', '13:00']],
+            'entrada depois da ida ao repouso' => [['repouso', '12:00'], ['retorno', '12:30'], ['entrada', '13:00'], ['saida', '17:00']],
+            'saída antes do retorno' => [['entrada', '08:00'], ['repouso', '12:00'], ['saida', '17:00'], ['retorno', '18:00']],
+        ];
+
+        foreach ($cenarios as $nome => $definicao) {
+            // Depois da data de corte padrão (PAR_INVERTIDO_DESDE_PADRAO): a regra nova vale.
+            $batidas = array_map(fn (array $b) => $this->batida($b[0], $b[1], '2026-11-02'), $definicao);
+
+            $this->assertTrue($this->calculadora->registroIncompleto($batidas), $nome . ': incompleto');
+            $this->assertSame(0, $this->calculadora->calcularMinutosTrabalhados($batidas), $nome . ': 0 minutos');
+        }
+    }
+
+    public function testDiffMinutosNaoCreditaIntervaloInvertido(): void
+    {
+        $this->assertSame(0, $this->calculadora->diffMinutos(new \DateTimeImmutable('2026-04-20 13:00'), new \DateTimeImmutable('2026-04-20 07:00')));
+        $this->assertSame(360, $this->calculadora->diffMinutos(new \DateTimeImmutable('2026-04-20 07:00'), new \DateTimeImmutable('2026-04-20 13:00')));
+        $this->assertSame(480, $this->calculadora->diffMinutos(new \DateTimeImmutable('2026-04-20 22:00'), new \DateTimeImmutable('2026-04-21 06:00')), 'turno que cruza a meia-noite');
+    }
+
+    /** Regressão: dias normais, com e sem repouso, não mudam. */
+    public function testDiasNormaisNaoMudam(): void
+    {
+        $semRepouso = [$this->batida('entrada', '08:00'), $this->batida('saida', '17:00')];
+        $comRepouso = [$this->batida('entrada', '08:00'), $this->batida('repouso', '12:00'), $this->batida('retorno', '13:00'), $this->batida('saida', '17:00')];
+
+        $this->assertFalse($this->calculadora->registroIncompleto($semRepouso));
+        $this->assertSame(540, $this->calculadora->calcularMinutosTrabalhados($semRepouso));
+        $this->assertFalse($this->calculadora->registroIncompleto($comRepouso));
+        $this->assertSame(480, $this->calculadora->calcularMinutosTrabalhados($comRepouso));
+    }
+
+    /**
+     * Data de corte do par invertido (padrão seguro no código, `PAR_INVERTIDO_DESDE_PADRAO`; `PONTO_PAR_INVERTIDO_DESDE`
+     * é substituição opcional): antes da data o dia invertido conta como antes; a partir dela, incompleto com 0 minutos.
+     */
+    public function testParInvertidoRespeitaADataDeCorte(): void
+    {
+        $antesDoPadrao = [$this->batida('saida', '07:00', '2026-10-23'), $this->batida('entrada', '13:00', '2026-10-23')];
+        $noPadrao = [$this->batida('saida', '07:00', '2026-10-24'), $this->batida('entrada', '13:00', '2026-10-24')];
+        $antigo = [$this->batida('saida', '07:00', '2026-04-20'), $this->batida('entrada', '13:00', '2026-04-20')];
+
+        $semVariavel = new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia(), '');
+        $this->assertSame('2026-10-24', CalculadoraJornada::PAR_INVERTIDO_DESDE_PADRAO);
+        $this->assertFalse($semVariavel->registroIncompleto($antesDoPadrao), 'sem a variável, antes de 24/10: como antes');
+        $this->assertSame(360, $semVariavel->calcularMinutosTrabalhados($antesDoPadrao), 'sem a variável, antes de 24/10: credita');
+        $this->assertTrue($semVariavel->registroIncompleto($noPadrao), 'sem a variável, a partir de 24/10: incompleto');
+        $this->assertSame(0, $semVariavel->calcularMinutosTrabalhados($noPadrao), 'sem a variável, a partir de 24/10: 0 minutos');
+
+        $invalida = new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia(), '24/10/2026');
+        $this->assertSame(360, $invalida->calcularMinutosTrabalhados($antesDoPadrao), 'variável inválida: vale o padrão');
+
+        $comVariavel = new CalculadoraJornada(new JornadaResolver(), new EscolhaDasBatidasDoDia(), '2026-04-01');
+        $this->assertTrue($comVariavel->registroIncompleto($antigo), 'com a variável numa data antiga: o passado também');
+        $this->assertSame(0, $comVariavel->calcularMinutosTrabalhados($antigo));
+        $this->assertSame(0, $comVariavel->calcularMinutosTrabalhados($antesDoPadrao));
     }
 }

@@ -7,7 +7,8 @@
    dois números da mesma tela começam a discordar: aqui os totais vêm sempre do
    servidor, do mesmo DTO que desenhou a primeira carga.
 
-   O card mostra os TRÊS próximos não pagos (desenho 1.2.3, dc 3512). As demais
+   O card mostra os TRÊS próximos não pagos (desenho 1.2.3, dc 3512): pendentes por
+   vencimento, depois os PREVISTOS de êxito e sucumbência (selo azul, desenho 02 L.3615). As demais
    linhas — pendentes além da terceira e as já pagas — são renderizadas e
    escondidas por CSS, não omitidas: o "Ver todos os lançamentos" do menu ⋮ é
    só uma classe no cartão, sem ida ao servidor. Ordem como no desenho: os não
@@ -40,36 +41,48 @@
         {% if podeEscreverPag %}
         <button type="button"
                 class="ps-pag-recebido ps-num js-pag-entrar-edicao"
-                title="Editar ou corrigir os valores dos lançamentos">{{ pagamentos.recebidoFormatado }}</button>
+                title="{{ 'pasta_financeiro.corpo.editar_valores_dica'|trans }}">{{ pagamentos.recebidoFormatado }}</button>
         {% else %}
         <span class="ps-pag-recebido ps-num" style="cursor: default; background: transparent;">{{ pagamentos.recebidoFormatado }}</span>
         {% endif %}
-        <span class="ps-pag-previsto">recebidos de {{ pagamentos.previstoFormatado }}</span>
+        <span class="ps-pag-previsto">{{ 'pasta_financeiro.corpo.recebidos_de'|trans }} {{ pagamentos.contratadoFormatado }}</span>
     </div>
     <div class="ps-pag-barra" role="progressbar"
          aria-valuenow="{{ pagamentos.percentual }}" aria-valuemin="0" aria-valuemax="100"
-         aria-label="Percentual recebido">
+         aria-label="{{ 'pasta_financeiro.corpo.percentual'|trans }}">
         <div class="ps-pag-barra-cheia" style="width: {{ pagamentos.percentual }}%"></div>
     </div>
+    {# Êxito e sucumbência previstos (dc L.2011-2013): fora do total e da barra, só aqui. #}
+    {% set previstoTexto = '' %}
+    {% if pagamentos.previstoEm == 'exito' %}
+        {% set previstoTexto = 'pasta_financeiro.corpo.previsto_exito'|trans({valor: pagamentos.previstoFormatado}) %}
+    {% elseif pagamentos.previstoEm == 'sucumbencia' %}
+        {% set previstoTexto = 'pasta_financeiro.corpo.previsto_sucumbencia'|trans({valor: pagamentos.previstoFormatado}) %}
+    {% elseif pagamentos.previstoEm == 'exito_sucumbencia' %}
+        {% set previstoTexto = 'pasta_financeiro.corpo.previsto_exito_sucumbencia'|trans({valor: pagamentos.previstoFormatado}) %}
+    {% endif %}
+    {% if previstoTexto != '' %}
+    <div class="ps-pag-previsto-em"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span>{{ previstoTexto }}</span></div>
+    {% endif %}
 </div>
 
 <div class="ps-pag-secao">
-    <span class="ps-fin-rotulo">Próximos vencimentos</span>
+    <span class="ps-fin-rotulo">{{ 'pasta_financeiro.corpo.proximos'|trans }}</span>
     <span class="ps-cab-espaco"></span>
     <span class="ps-pag-nota">
         {%- if pagamentos.quantidadePagos > 0 -%}
-            {{ pagamentos.quantidadePagos }} já pago{{ pagamentos.quantidadePagos == 1 ? '' : 's' }}
+            {{ pagamentos.quantidadePagos == 1 ? 'pasta_financeiro.corpo.ja_pago'|trans({quantidade: pagamentos.quantidadePagos ~ ''}) : 'pasta_financeiro.corpo.ja_pagos'|trans({quantidade: pagamentos.quantidadePagos ~ ''}) }}
         {%- else -%}
-            nenhum pago
+            {{ 'pasta_financeiro.corpo.nenhum_pago'|trans }}
         {%- endif -%}
     </span>
 </div>
 
 {% if pagamentos.total == 0 %}
-    <div class="ps-pag-vazio-linha">Nenhum lançamento.{% if podeEscreverPag %} Use Adicionar pagamento.{% endif %}</div>
+    <div class="ps-pag-vazio-linha">{{ 'pasta_financeiro.corpo.vazio'|trans }}{% if podeEscreverPag %} {{ 'pasta_financeiro.corpo.vazio_convite'|trans }}{% endif %}</div>
 {% else %}
     {% if pagamentos.proximos is empty %}
-        <div class="ps-pag-quitado">Tudo pago. Nada a vencer.</div>
+        <div class="ps-pag-quitado">{{ 'pasta_financeiro.corpo.quitado'|trans }}</div>
     {% endif %}
 
     {% set linhasEmOrdem = pagamentos.proximos|merge(pagamentos.todos|filter(l => l.pago)) %}
@@ -97,12 +110,12 @@
                         class="ps-pag-valor-editar ps-num"
                         data-acao="corrigir"
                         data-pagamento-id="{{ linha.id }}"
-                        title="Clique para editar ou corrigir o valor{{ linha.foiCorrigido ? ' · já corrigido ' ~ linha.correcoes|length ~ 'x' : '' }}">
+                        title="{{ 'pasta_financeiro.corpo.corrigir_dica'|trans }}{{ linha.foiCorrigido ? 'pasta_financeiro.corpo.ja_corrigido'|trans({vezes: linha.correcoes|length ~ ''}) : '' }}">
                     <span>{{ linha.valorFormatado }}</span><i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
                 {% endif %}
                 {% if linha.foiCorrigido %}
-                    <span class="ps-pag-ajuste" title="{{ linha.historicoDeCorrecoes }}">corrigido · era {{ linha.valorOriginalFormatado }}</span>
+                    <span class="ps-pag-ajuste" title="{{ linha.historicoDeCorrecoes }}">{{ 'pasta_financeiro.corpo.corrigido_era'|trans }} {{ linha.valorOriginalFormatado }}</span>
                 {% endif %}
                 {% if podeEscreverPag %}
                 {# O selo é o botão de quitar, como o do Contrato na faixa. #}
@@ -111,7 +124,7 @@
                         data-acao="quitacao"
                         data-pagamento-id="{{ linha.id }}"
                         data-csrf="{{ csrf_token('pasta_pagamento_quitacao_' ~ linha.id) }}"
-                        title="{{ linha.pago ? 'Pago. Clique para desfazer o recebimento' : 'Clique para marcar como recebido' }}">{{ linha.estado }}</button>
+                        title="{{ linha.pago ? 'pasta_financeiro.corpo.pago_dica'|trans : 'pasta_financeiro.corpo.receber_dica'|trans }}">{{ linha.estado }}</button>
                 {% else %}
                 {# Sem escrita: o mesmo selo, só o estado. #}
                 <span class="ps-selo ps-selo--{{ linha.tom }} ps-pag-selo" style="cursor: default;">{{ linha.estado }}</span>
@@ -124,7 +137,7 @@
                     data-acao="excluir"
                     data-pagamento-id="{{ linha.id }}"
                     data-csrf="{{ csrf_token('pasta_pagamento_excluir_' ~ linha.id) }}"
-                    title="Excluir lançamento">
+                    title="{{ 'pasta_financeiro.corpo.excluir'|trans }}">
                 <i class="bi bi-trash3"></i>
             </button>
 
@@ -136,19 +149,19 @@
                 <button type="button" class="ps-fin-menu-item" role="menuitem"
                         data-acao="corrigir"
                         data-pagamento-id="{{ linha.id }}">
-                    <i class="bi bi-pencil"></i><span>Corrigir valor</span>
+                    <i class="bi bi-pencil"></i><span>{{ 'pasta_financeiro.corpo.corrigir'|trans }}</span>
                 </button>
                 <button type="button" class="ps-fin-menu-item" role="menuitem"
                         data-acao="quitacao"
                         data-pagamento-id="{{ linha.id }}"
                         data-csrf="{{ csrf_token('pasta_pagamento_quitacao_' ~ linha.id) }}">
-                    <i class="bi {{ linha.pago ? 'bi-arrow-counterclockwise' : 'bi-check2-circle' }}"></i><span>{{ linha.pago ? 'Desfazer recebimento' : 'Marcar como recebido' }}</span>
+                    <i class="bi {{ linha.pago ? 'bi-arrow-counterclockwise' : 'bi-check2-circle' }}"></i><span>{{ linha.pago ? 'pasta_financeiro.corpo.desfazer'|trans : 'pasta_financeiro.corpo.marcar_recebido'|trans }}</span>
                 </button>
                 <button type="button" class="ps-fin-menu-item ps-fin-menu-item--perigo" role="menuitem"
                         data-acao="excluir"
                         data-pagamento-id="{{ linha.id }}"
                         data-csrf="{{ csrf_token('pasta_pagamento_excluir_' ~ linha.id) }}">
-                    <i class="bi bi-trash3"></i><span>Excluir lançamento</span>
+                    <i class="bi bi-trash3"></i><span>{{ 'pasta_financeiro.corpo.excluir'|trans }}</span>
                 </button>
             </div>
             {% endif %}
@@ -162,7 +175,7 @@
        TODOS os lançamentos, pagos inclusive, como o desenho. #}
     <div class="ps-fin-extrato" id="psExtratoFolha" hidden>
         <p class="ps-fin-extrato-total">
-            <strong>{{ pagamentos.recebidoFormatado }}</strong> recebidos de <strong>{{ pagamentos.previstoFormatado }}</strong>
+            <strong>{{ pagamentos.recebidoFormatado }}</strong> {{ 'pasta_financeiro.corpo.recebidos_de'|trans }} <strong>{{ pagamentos.contratadoFormatado }}</strong>
         </p>
         <ul class="ps-fin-extrato-lista">
             {% for linha in pagamentos.todos %}

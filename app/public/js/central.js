@@ -661,7 +661,7 @@
         }
 
         function menuDoAviso(a, x, y, origem) {   // menuNotif: abrir, resolver/reabrir, lida/não lida, excluir
-            var itens = [{ icone: 'bi-box-arrow-up-right', rotulo: 'Abrir', acao: function () { abrirAviso(a); } }];
+            var itens = [{ icone: 'bi-box-arrow-up-right', rotulo: a.acao || 'Abrir', acao: function () { abrirAviso(a); } }];   /* "Ver sugestão" no Contribua */
             itens.push(a.resolvidoEm
                 ? { icone: 'bi-arrow-counterclockwise', rotulo: 'Reabrir', acao: function () { resolverAviso(a, false); } }
                 : { icone: 'bi-check2-circle', rotulo: 'Resolver (dar baixa)', corIcone: '#1e8a4c', acao: function () { resolverAviso(a, true); } });
@@ -677,7 +677,7 @@
             var c = criar('div', 'bj-central-aviso-cartao' + (a.lido ? ' bj-central-aviso-cartao--lido' : '') + (ok ? ' bj-central-aviso-cartao--resolvido' : ''));
             c.setAttribute('role', 'button');
             c.tabIndex = 0;
-            c.title = 'Clique para abrir. Botão direito: mais opções';
+            c.title = 'Clique para ' + (a.acao ? a.acao.toLowerCase() : 'abrir') + '. Botão direito: mais opções';
             var cor = ok ? VERDE : a.cor;
             var fundo = ok ? '#f4f9f5' : a.cor + (a.lido ? '08' : '14');   // L5605: a cor do tipo bem clara (alfa em hexadecimal)
             c.style.setProperty('--bjc-aviso', cor);
@@ -1165,14 +1165,16 @@
         }
 
         /**
-         * A conversa aberta acompanha a lista: nome e participantes do grupo mudam; e, se ela sumiu da minha lista
-         * (fui removido ou saí em outra aba), deixa de dar para escrever.
+         * A conversa aberta acompanha a lista: nome e participantes do grupo mudam; e, se o GRUPO sumiu da minha lista
+         * (fui removido ou saí em outra aba), deixa de dar para escrever. A conversa 1:1 não tem saída (sair e remover
+         * só valem para grupo, no servidor): se ela não está na lista, é porque eu a excluí da minha caixa
+         * (`limpa_ate_id`) e ainda não chegou mensagem nova. Sigo participando e posso escrever de novo.
          */
         function sincronizarAberta() {
             if (!estado.aberta) { return; }
             var atual = estado.conversas.filter(function (c) { return c.id === estado.aberta.id; })[0];
             if (!atual) {
-                estado.aberta.fora = true;
+                estado.aberta.fora = estado.aberta.grupo;
             } else {
                 estado.aberta.fora = false;
                 estado.aberta.nome = nomeDaConversa(atual);

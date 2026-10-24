@@ -11,6 +11,7 @@ use App\TrabalhoExterno\Enum\SituacaoVaga;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Query;
+use Doctrine\ORM\Query\Expr\Orx;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -40,7 +41,42 @@ class VagaRepository extends ServiceEntityRepository
     /** @return list<Vaga> */
     public function daCentral(): array
     {
-        return $this->createQueryBuilder('v')->orderBy('v.id', 'DESC')->getQuery()->getResult();
+        // A pendente de escritório fora do ar não entra na fila de aprovação (decisão do coordenador em 20/10, até o
+        // dono responder; docs/specs/te-convidado-escritorio-fora-do-ar.md).
+        $qb = $this->createQueryBuilder('v')->setParameter('pendente', SituacaoVaga::Pendente);
+
+        return $qb->andWhere($qb->expr()->orX('v.situacao <> :pendente', self::donoNoAr($qb)))
+            ->orderBy('v.id', 'DESC')->getQuery()->getResult();
+    }
+
+    /**
+     * Sem escritório (da Central ou de pessoa) ou com o escritório no ar: o mesmo critério da
+     * `SituacaoDaConta::foraDoAr`, em DQL. Junta o escritório da vaga como `donoDaVaga`.
+     */
+    private static function donoNoAr(QueryBuilder $qb): Orx
+    {
+        $qb->leftJoin('v.escritorio', 'donoDaVaga');
+
+        return $qb->expr()->orX('v.escritorio IS NULL', $qb->expr()->andX('donoDaVaga.isActive = true', 'donoDaVaga.excluidoEm IS NULL'));
+    }
+
+    /**
+     * As vagas abertas no banco, da mais nova para a mais antiga: o e-mail da campanha do Master
+     * (spec §4.10). Quem chama ainda confere o vencimento ({@see Vaga::situacaoEm()}).
+     *
+     * @return list<Vaga>
+     */
+    public function abertas(): array
+    {
+        $qb = $this->createQueryBuilder('v');
+
+        return $qb
+            ->andWhere('v.situacao = :aberta')
+            ->andWhere(self::donoNoAr($qb))
+            ->setParameter('aberta', SituacaoVaga::Aberta)
+            ->orderBy('v.id', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 
     public function daCentralPorId(int $id): ?Vaga
@@ -121,14 +157,39 @@ class VagaRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('v')
             ->setParameter('aberta', SituacaoVaga::Aberta)
             ->setParameter('usuario', $usuario);
+        // A vaga aberta de escritório fora do ar (suspenso ou excluído) sai da lista de quem é de fora
+        // (docs/specs/te-convidado-escritorio-fora-do-ar.md); quem se candidatou a abre pela candidatura.
+        $aberta = $qb->expr()->andX('v.situacao = :aberta', self::donoNoAr($qb));
         $dele = $qb->expr()->andX('v.daCentral = false', 'v.escritorio IS NULL', 'v.criadaPor = :usuario');
         if ($tenant === null) {
-            return $qb->andWhere($qb->expr()->orX('v.situacao = :aberta', $dele));
+            return $qb->andWhere($qb->expr()->orX($aberta, $dele));
         }
 
         return $qb
-            ->andWhere($qb->expr()->orX('v.situacao = :aberta', 'v.escritorio = :tenant', $dele))
+            ->andWhere($qb->expr()->orX($aberta, 'v.escritorio = :tenant', $dele))
             ->setParameter('tenant', $tenant);
+    }
+
+    /**
+     * As vagas entre os ids que já foram publicadas (abertas ou não): a situação das ofertas que a tela
+     * acompanha (spec §4.7). A pendente e a reprovada nunca foram públicas e não entram.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<Vaga>
+     */
+    public function publicadasEntre(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('v')
+            ->andWhere('v.id IN (:ids)')
+            ->andWhere('v.publicadaEm IS NOT NULL')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
     }
 
     /**
@@ -145,9 +206,12 @@ class VagaRepository extends ServiceEntityRepository
             return [];
         }
 
-        return $this->createQueryBuilder('v')
+        $qb = $this->createQueryBuilder('v');
+
+        return $qb
             ->andWhere('v.id IN (:ids)')
             ->andWhere('v.situacao = :aberta')
+            ->andWhere(self::donoNoAr($qb))
             ->setParameter('ids', $ids)
             ->setParameter('aberta', SituacaoVaga::Aberta)
             ->getQuery()

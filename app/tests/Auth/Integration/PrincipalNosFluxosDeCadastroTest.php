@@ -79,7 +79,7 @@ final class PrincipalNosFluxosDeCadastroTest extends KernelTestCase
         $token   = bin2hex(random_bytes(16));
         $convite = new Invitation(
             email: 'convidado_' . uniqid() . '@adv.com',
-            token: $token,
+            tokenHash: Invitation::hashDoToken($token),
             type: 'platform',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
@@ -94,6 +94,7 @@ final class PrincipalNosFluxosDeCadastroTest extends KernelTestCase
             oabUf: 'RJ',
             aceiteTermos: true,
             ip: '127.0.0.1',
+            genero: 'masculino',
         ));
 
         $this->assertNaFila($user, self::PENDENTES, '54321', 'RJ', StatusOab::NaoVerificada);

@@ -1,0 +1,53 @@
+{#
+    Extrato de tramitação da meta (desenho 04B de 22/10, L150; spec minhas-metas-esteira-2210, L9). Folha própria:
+    abre em janela nova e já pede a impressão (public/js/meta-extrato.js); "Salvar como PDF" é do diálogo do navegador.
+    Recebe `extrato` (ExtratoDaMetaOutput). Cada item usa a mesma linha do tempo da tela: "DESPACHO N · tipo", data,
+    "quem → para", texto (a @menção como texto legível, nunca o token), "Cumprir até", "Ciente: nome" e a certidão em
+    destaque. Como no desenho: sem linha de anexo, sem hora na ciência e sem botão de imprimir (a impressão é automática).
+#}
+{% set m = 'metas.despacho.extrato_folha.' %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex">
+    <title>{{ (m ~ 'titulo')|trans }} · {{ 'metas.despacho.registro.meta_numero'|trans({numero: extrato.numero ~ ''}) }}</title>
+    <link rel="stylesheet" href="{{ asset('css/meta-extrato.css') }}">
+    <script src="{{ asset('js/meta-extrato.js') }}" defer></script>
+</head>
+<body>
+    <div class="ext-topo">
+        <div>
+            <h1>{{ (m ~ 'titulo')|trans }}</h1>
+            <div class="ext-m">{{ (m ~ 'cabeca')|trans({numero: extrato.numero ~ '', titulo: extrato.titulo, pasta: extrato.pasta}) }}</div>
+        </div>
+        <div class="ext-m">{{ (m ~ 'emitido_em')|trans({quando: 'metas.despacho.quando'|trans({data: extrato.emitidoEm|data, hora: extrato.emitidoEm|hora})}) }}</div>
+    </div>
+
+    <div class="ext-d">
+        <div class="ext-h"><b>{{ (m ~ 'demanda')|trans }}</b><span>{{ (m ~ 'demanda_quem')|trans({data: extrato.criadaEm|data, autor: extrato.autor}) }}</span></div>
+        <div>{{ extrato.descricao is not empty ? extrato.descricao|nl2br : 'metas.detalhe.sem_descricao'|trans }}</div>
+    </div>
+
+    {% for l in extrato.itens %}
+        {% set item = l.item %}
+        {% set d = l.despacho %}
+        <div class="ext-d">
+            <div class="ext-h">
+                <span><b>{{ 'metas.despacho.numero'|trans({n: l.numero}) }}</b> · {{ l.tipo|trans }}</span>
+                {% set em = d ? d.registradoEm : item.dataHora %}<span>{{ 'metas.despacho.quando'|trans({data: em|data, hora: em|hora}) }}</span>
+            </div>
+            {% set quem = d ? d.autor : (item.autorNome ?? item.autorEmail) %}
+            {% if quem %}<div><b>{{ quem }}</b>{% if d and d.para %} → <b>{{ d.para|join(', ') }}</b>{% endif %}</div>{% endif %}
+            {% if d %}
+                {% if item.detalhe %}<div class="ext-texto">{{ item.detalhe|registro_texto }}</div>{% endif %}
+                {% if d.cumprirAte %}<div class="ext-m">{{ (m ~ 'cumprir_ate')|trans({data: d.cumprirAte|data}) }}</div>{% endif %}
+                {% if d.ciente %}<div class="ext-m">{{ (m ~ 'ciente')|trans({nome: d.ciente}) }}</div>{% endif %}
+                {% if d.certidao %}<div class="ext-c">{{ (m ~ 'certidao')|trans({texto: d.certidao, nome: d.certificadoPor ?? '', quando: 'metas.despacho.quando'|trans({data: d.certificadoEm|data, hora: d.certificadoEm|hora})}) }}</div>{% endif %}
+            {% elseif item.detalhe %}
+                <div>{{ item.detalhe|nl2br }}</div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</body>
+</html>

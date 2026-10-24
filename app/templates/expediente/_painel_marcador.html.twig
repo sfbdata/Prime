@@ -2,13 +2,13 @@
    acervo geral sem filtros. O total fica no resumo da lista. #}
 <div class="exp-painel" id="painel-marcador-wrapper" data-marcador-id="{{ marcador.id }}">
     <div class="exp-barra">
-        <h2 class="exp-barra-titulo" role="button" tabindex="0" data-tip="Voltar ao acervo geral (ordem padrão)">
+        <h2 class="exp-barra-titulo" role="button" tabindex="0" data-tip="{{ 'expediente.acervo.voltar_dica'|trans }}">
             <i class="bi bi-folder2" aria-hidden="true"></i>
             {{ marcador.nome }}
         </h2>
         <button type="button" class="exp-nova-pasta" data-bs-toggle="modal" data-bs-target="#modalNovaPasta"
-                data-tip="Abrir uma nova pasta (o número é gerado automaticamente)">
-            <i class="bi bi-folder-plus" aria-hidden="true"></i>Nova Pasta
+                data-tip="{{ 'expediente.acervo.nova_pasta_dica'|trans }}">
+            <i class="bi bi-folder-plus" aria-hidden="true"></i>{{ 'expediente.acervo.nova_pasta'|trans }}
         </button>
         {{ include('pasta/_filtro_situacao.html.twig') }}
     </div>

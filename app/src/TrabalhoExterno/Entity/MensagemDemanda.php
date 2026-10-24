@@ -63,6 +63,12 @@ class MensagemDemanda
         $this->em = new \DateTimeImmutable();
     }
 
+    /** A demanda da mensagem: o escritório dono dela decide o primário da edição sem prazo. */
+    public function getDemanda(): DemandaExterna
+    {
+        return $this->demanda;
+    }
+
     public function getId(): ?int
     {
         return $this->id;

@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Auth\Infra\GoogleLoginApi;
+use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\PaginaDeEntrada;
 use App\Entity\Auth\User;
+use App\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\Exception\CustomUserMessageAccountStatusException;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
 final class SecurityController extends AbstractController
@@ -31,7 +35,7 @@ final class SecurityController extends AbstractController
      * com as ferramentas SÓ MASTER; qualquer outro logado segue para o sistema.
      */
     #[Route(path: '/login', name: 'app_login')]
-    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, GoogleLoginApi $googleLogin): Response
+    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, UserRepository $userRepository, ContaAConfirmar $contaAConfirmar, GoogleLoginApi $googleLogin): Response
     {
         $logado = $this->getUser();
         $usuario = $logado instanceof User ? $logado : null;
@@ -39,15 +43,46 @@ final class SecurityController extends AbstractController
             return $this->redirectToRoute('homepage');
         }
 
+        $erro = $authenticationUtils->getLastAuthenticationError();
+
         return $this->render('security/login.html.twig', [
             'last_username' => $authenticationUtils->getLastUsername(),
-            'error' => $authenticationUtils->getLastAuthenticationError(),
+            'error' => $erro,
+            'a_confirmar' => $this->avisoDeContaAConfirmar($request, $erro, $userRepository, $contaAConfirmar),
             'pagina' => $paginaDeEntrada->montar($usuario),
             'abrir' => $this->passoParaAbrir($request),
             'frase' => self::FRASES[intdiv(time(), 86400) % count(self::FRASES)],
             // Entrar com o Google (spec entrar-com-google): sem o cliente OAuth no servidor, o botão não aparece.
             'googleLigado' => $googleLogin->ligado(),
         ]);
+    }
+
+    /**
+     * O aviso "Confirme o seu e-mail para entrar..." com o botão de reenviar (spec `cadastro-exige-confirmacao.md`),
+     * quando a sessão guarda uma conta ainda a confirmar e o erro da tela, se houver, é essa mesma recusa. Outro erro
+     * (senha errada de outra conta, por exemplo) não leva o botão. Conta que já confirmou sai da sessão.
+     */
+    private function avisoDeContaAConfirmar(Request $request, ?AuthenticationException $erro, UserRepository $userRepository, ContaAConfirmar $contaAConfirmar): ?string
+    {
+        if (!$request->hasSession() || ($erro !== null && !$erro instanceof CustomUserMessageAccountStatusException)) {
+            return null;
+        }
+
+        // Marcador neutro do cadastro de um e-mail que já tem conta: o mesmo aviso da conta nova, com o e-mail digitado.
+        $neutro = $contaAConfirmar->neutroNaSessao($request->getSession());
+        if ($neutro !== null) {
+            return ContaAConfirmar::mensagemDeLogin($neutro['email']);
+        }
+
+        $id = $contaAConfirmar->idNaSessao($request->getSession());
+        $conta = $id === null ? null : $userRepository->find($id);
+        if (!$conta instanceof User || $conta->isEmailConfirmado()) {
+            ContaAConfirmar::esquecer($request->getSession());
+
+            return null;
+        }
+
+        return ContaAConfirmar::mensagemDeLogin((string) $conta->getEmail());
     }
 
     private function passoParaAbrir(Request $request): ?string

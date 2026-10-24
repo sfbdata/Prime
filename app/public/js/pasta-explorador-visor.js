@@ -66,7 +66,7 @@
         aviso:    document.getElementById('pexVisorAviso'),
     };
 
-    const pastaTxt = 'Pasta ' + (visor.dataset.pastaRotulo || '')
+    const pastaTxt = BJ_T.t('pasta_documentos.js.visor_pasta', { pasta: visor.dataset.pastaRotulo || '' })
         + (visor.dataset.pastaCliente ? ' · ' + visor.dataset.pastaCliente : '');
 
     // dc `zoom`: de 10 em 10, de 50% a 200% (DOC-49).
@@ -86,10 +86,10 @@
     const CSS_TARJA = '.cab{font-size:9pt;color:#6b8494;border-bottom:1px solid #c9d6de;padding-bottom:4px;margin-bottom:10px}';
     // Sem a propriedade CSS `zoom`, o grupo some (o CSS tem o @supports correspondente).
     const ZOOM_SUPORTADO = !window.CSS || typeof window.CSS.supports !== 'function' || window.CSS.supports('zoom', '1');
-    const MSG_PREPARANDO = 'Preparando impressão…';
-    const MOTIVO_SEM_IMPRESSAO = 'Este tipo de arquivo não tem conteúdo para imprimir daqui. Baixe o arquivo para imprimir.';
-    const MSG_ABRA_O_CONTEUDO = 'Abra o conteúdo do arquivo para imprimir'; // dc L4659
-    const MSG_FALHA_IMPRESSAO = 'Não foi possível imprimir neste navegador. Baixe o arquivo para imprimir.';
+    const MSG_PREPARANDO = BJ_T.t('pasta_documentos.js.visor_preparando');
+    const MOTIVO_SEM_IMPRESSAO = BJ_T.t('pasta_documentos.js.visor_sem_impressao');
+    const MSG_ABRA_O_CONTEUDO = BJ_T.t('pasta_documentos.js.visor_abra_conteudo'); // dc L4659
+    const MSG_FALHA_IMPRESSAO = BJ_T.t('pasta_documentos.js.visor_falha_impressao');
 
     let lista = [];
     let indice = 0;
@@ -165,7 +165,7 @@
         el.nome.title = a.nome;
         el.meta.textContent = [a.tipo, a.tamanho, a.data].filter(Boolean).concat([pastaTxt]).join(' · ');
 
-        el.posicao.textContent = (indice + 1) + ' de ' + lista.length;
+        el.posicao.textContent = BJ_T.t('pasta_documentos.js.visor_posicao', { n: indice + 1, total: lista.length });
         el.anterior.disabled = indice === 0;
         el.proximo.disabled = indice === lista.length - 1;
 
@@ -174,8 +174,8 @@
 
         const imprimivel = ehImprimivel(tipo);
         el.imprimir.setAttribute('aria-disabled', imprimivel ? 'false' : 'true');
-        el.imprimir.title = imprimivel ? 'Imprimir' : MOTIVO_SEM_IMPRESSAO;
-        el.imprimir.setAttribute('aria-label', imprimivel ? 'Imprimir' : 'Imprimir (indisponível): ' + MOTIVO_SEM_IMPRESSAO);
+        el.imprimir.title = imprimivel ? BJ_T.t('pasta_documentos.js.visor_imprimir') : MOTIVO_SEM_IMPRESSAO;
+        el.imprimir.setAttribute('aria-label', imprimivel ? BJ_T.t('pasta_documentos.js.visor_imprimir') : BJ_T.t('pasta_documentos.js.visor_imprimir_indisponivel', { motivo: MOTIVO_SEM_IMPRESSAO }));
 
         el.area.scrollTop = 0;
         el.area.scrollLeft = 0;
@@ -199,11 +199,11 @@
         const div = document.createElement('div');
         div.className = 'pex-visor-indisponivel';
         const p = document.createElement('p');
-        p.textContent = 'Não foi possível abrir a pré-visualização deste arquivo.';
+        p.textContent = BJ_T.t('pasta_documentos.js.visor_sem_previa');
         const l = document.createElement('a');
         l.className = 'btn btn-primary';
         l.href = a.downloadUrl;
-        l.textContent = 'Baixar arquivo';
+        l.textContent = BJ_T.t('pasta_documentos.js.visor_baixar_arquivo');
         div.appendChild(p);
         div.appendChild(l);
         el.alvo.replaceChildren(div);
@@ -240,8 +240,7 @@
     function tarjaDeImpressao(d, a) {
         const cab = d.createElement('div');
         cab.className = 'cab';
-        cab.textContent = 'BlueJus · Pasta ' + (visor.dataset.pastaRotulo || '') + ' · ' + a.nome
-            + ' · impresso em ' + new Date().toLocaleString('pt-BR');
+        cab.textContent = BJ_T.t('pasta_documentos.js.visor_tarja', { pasta: visor.dataset.pastaRotulo || '', nome: a.nome, quando: new Date().toLocaleString('pt-BR') });
         return cab;
     }
 
@@ -315,7 +314,7 @@
         fr.className = 'pex-visor-impressao';
         fr.setAttribute('aria-hidden', 'true');
         fr.tabIndex = -1;
-        fr.title = 'Impressão de ' + a.nome;
+        fr.title = BJ_T.t('pasta_documentos.js.visor_impressao_de', { nome: a.nome });
 
         let removido = false;
         const remover = function () {
@@ -379,7 +378,7 @@
         img.alt = a.nome;
         img.addEventListener('load', disparar, { once: true });
         img.addEventListener('error', function () {
-            mostrarAviso('Não foi possível carregar a imagem para imprimir.');
+            mostrarAviso(BJ_T.t('pasta_documentos.js.visor_falha_imagem'));
             remover();
         }, { once: true });
         img.src = a.viewUrl;

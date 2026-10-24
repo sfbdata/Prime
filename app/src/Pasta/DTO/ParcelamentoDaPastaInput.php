@@ -25,13 +25,16 @@ final class ParcelamentoDaPastaInput
     public const BASE_PERCENTUAL = 'pct';
 
     public function __construct(
-        /** `contrato` ou `custas`. Êxito e sucumbência dependem de migration (item 11b). */
+        /** `contrato`, `custas`, `exito` ou `sucumbencia` (os dois últimos: só o percentual). */
         public readonly string $tipo,
         /** `valor` (valor fixo) ou `pct` (% do valor da causa). */
         public readonly string $base,
         /** Valor total em reais, como digitado ("12.860,00"). Usado quando a base é `valor`. */
         public readonly string $valorTotal,
-        /** Percentual sobre o valor da causa ("20"). Usado quando a base é `pct`. */
+        /**
+         * Percentual ("20"). Em contrato/custas com base `pct`, sobre o valor da causa; em êxito e
+         * sucumbência, sobre o Total contratado (`BaseDoPercentual`).
+         */
         public readonly string $percentual,
         /** Entrada em reais; em branco = sem entrada. */
         public readonly string $entrada,

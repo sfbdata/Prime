@@ -16,6 +16,7 @@ use App\TrabalhoExterno\Enum\StatusCurriculo;
  */
 final class FiltroDeCurriculos
 {
+    public const COM_OAB = 'oab';
     public const ABAS = ['ativos', 'novo', 'favorito', 'voluntarios', 'arquivado', 'estrela', 'imp', 'lix'];
 
     public function __construct(
@@ -59,6 +60,16 @@ final class FiltroDeCurriculos
         };
     }
 
+    /** `oab` é o filtro do KPI "COM OAB" do painel (spec §4.9, lacuna 1): advogado(a) e estagiário(a) com OAB. */
+    private function passaNaSituacao(Curriculo $cv, string $situacao): bool
+    {
+        return match ($situacao) {
+            '' => true,
+            self::COM_OAB => $cv->getSituacao()->temOab(),
+            default => $cv->getSituacao()->value === $situacao,
+        };
+    }
+
     /** @param array<string, string> $f */
     private function passaNosCampos(Curriculo $cv, array $f): bool
     {
@@ -68,7 +79,7 @@ final class FiltroDeCurriculos
             $cv->texto('uf'), $cv->texto('cargo'), implode(' ', $cv->getAreas()),
         ]));
 
-        return (($f['situacao'] ?? '') === '' || $cv->getSituacao()->value === $f['situacao'])
+        return $this->passaNaSituacao($cv, $f['situacao'] ?? '')
             && (($f['uf'] ?? '') === '' || $cv->texto('uf') === $f['uf'])
             && in_array($f['termo'] ?? '', ['', 'sem'], true)
             && (($f['area'] ?? '') === '' || in_array($f['area'], $cv->getAreas(), true))

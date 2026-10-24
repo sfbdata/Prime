@@ -6,6 +6,7 @@ namespace App\Auth\Service;
 
 use App\Auth\Entity\CadastroPendente;
 use App\Auth\Event\ConfirmacaoDeCadastroEnviada;
+use App\Comercial\EventListener\RegistroDeEmailSincronoListener;
 use App\Entity\Auth\User;
 use App\Shared\Email\IdentidadeDeEmail;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -43,6 +44,8 @@ final class CadastroMailer
             ->to($cadastro->getEmail())
             ->html($html);
         $this->identidadeDeEmail->aplicar($email, 'Confirme seu cadastro no BlueJus');
+        // Registrado como `automacao:cad` pelo Comercial (abaixo): o ouvinte da cota não grava outra linha.
+        $email->getHeaders()->addTextHeader(RegistroDeEmailSincronoListener::CABECALHO, '1');
 
         try {
             $this->mailer->send($email);
@@ -82,6 +85,29 @@ final class CadastroMailer
             $this->mailer->send($email);
         } catch (TransportExceptionInterface $e) {
             throw new \RuntimeException('Falha ao enviar e-mail de confirmação da conta: ' . $e->getMessage(), previous: $e);
+        }
+    }
+
+    /**
+     * Cadastro com um e-mail que já tem conta (spec `seguranca-a-convites.md`, raiz E): a tela não diz nada, e a
+     * dona da conta fica sabendo por aqui, com o caminho do "Esqueci a senha". Não leva link de confirmação.
+     */
+    public function enviarAvisoDeContaExistente(User $user): void
+    {
+        $link = $this->urlGenerator->generate('auth_senha_esqueci', [], UrlGeneratorInterface::ABSOLUTE_URL);
+
+        $email = (new Email())
+            ->to((string) $user->getEmail())
+            ->html($this->twig->render('auth/cadastro/email_conta_existente.html.twig', [
+                'nome' => $user->getFullName(),
+                'link' => $link,
+            ]));
+        $this->identidadeDeEmail->aplicar($email, 'Você já tem uma conta no BlueJus');
+
+        try {
+            $this->mailer->send($email);
+        } catch (TransportExceptionInterface $e) {
+            throw new \RuntimeException('Falha ao enviar o aviso de conta existente: ' . $e->getMessage(), previous: $e);
         }
     }
 }

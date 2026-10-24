@@ -29,6 +29,9 @@
  *    `ordenar`/`direcao` e recarrega). O botão de inverter
  *    (`.js-db-ordem-inverter`) só troca o valor da opção escolhida pela direção
  *    oposta (vem pronta em `data-ordem`) e dispara o MESMO `change` no select;
+ *  - período padrão (spec dashboard-parte-1): "Limpar filtros" volta para Este mês (as datas do
+ *    botão `data-periodo="mes"` do segmentado), não para "sem período", e só aparece quando o
+ *    filtro difere disso (outro período, responsável, cargo ou busca);
  *  - Exportar PDF (`.js-db-exportar-pdf`): window.print() com o document.title
  *    trocado pelo nome do arquivo do desenho. No `beforeprint` (botão ou Ctrl+P)
  *    o cabeçalho só-impressão é reescrito com o período/filtros do momento e o
@@ -175,6 +178,68 @@
         }
 
         marcarPeriodoAtivo(root);
+    }
+
+    // ── período padrão: Este mês ──────────────────────────────────────────
+
+    function esteMes(root) {
+        var btn = root.querySelector('.db-seg-btn[data-periodo="mes"]');
+
+        return btn ? { de: btn.getAttribute('data-de') || '', ate: btn.getAttribute('data-ate') || '' } : null;
+    }
+
+    function ehPadrao(root, form) {
+        var mes = esteMes(root);
+        var campos = camposDeData(root);
+        var vazio = function (nome) {
+            var c = form.querySelector('[name="' + nome + '"]');
+
+            return !c || String(c.value || '').trim() === '';
+        };
+
+        return !!(mes && campos) && campos.de.value === mes.de && campos.ate.value === mes.ate
+            && vazio('responsavel') && vazio('cargo') && vazio('busca');
+    }
+
+    /** O motor recria os chips a cada mudança: o "Limpar filtros" some quando nada difere de Este mês. */
+    function esconderLimparNoPadrao(root, form) {
+        var box = form.querySelector('[data-filtro-chips]');
+        if (!box) {
+            return;
+        }
+        var aplicar = function () {
+            var limpar = box.querySelector('.js-filtro-limpar');
+            if (limpar) {
+                limpar.hidden = ehPadrao(root, form);
+            }
+        };
+        if (window.MutationObserver) {
+            new MutationObserver(aplicar).observe(box, { childList: true });
+        }
+        aplicar();
+    }
+
+    function ligarPeriodoPadrao(root) {
+        var form = root.querySelector('[data-filtro-form]');
+        var mes = esteMes(root);
+        if (!form || !mes) {
+            return;
+        }
+        // Captura: roda ANTES do filtro-tabela.js (que zeraria as datas) e para o clique ali. O
+        // `change` no Até faz o motor aplicar o form inteiro, e os ouvintes de `change` do
+        // segmentado e dos selects próprios se sincronizam como em qualquer escolha.
+        root.addEventListener('click', function (e) {
+            if (!e.target.closest('.js-filtro-limpar')) {
+                return;
+            }
+            e.stopPropagation();
+            form.querySelectorAll('.js-filtro-busca, .js-filtro-campo').forEach(function (el) { el.value = ''; });
+            var campos = camposDeData(root);
+            campos.de.value = mes.de;
+            campos.ate.value = mes.ate;
+            campos.ate.dispatchEvent(new Event('change', { bubbles: true }));
+        }, true);
+        esconderLimparNoPadrao(root, form);
     }
 
     // ── legendas em toque ─────────────────────────────────────────────────
@@ -360,22 +425,27 @@
         var quando  = root.querySelector('.db-print-quando');
 
         if (periodo && campos) {
-            periodo.textContent = (dataBr(campos.de.value) || 'início') + ' a ' + (dataBr(campos.ate.value) || 'hoje');
+            periodo.textContent = window.BJ_T.t('dashboard.js.impressao.intervalo', {
+                de: dataBr(campos.de.value) || window.BJ_T.t('dashboard.js.impressao.inicio'),
+                ate: dataBr(campos.ate.value) || window.BJ_T.t('dashboard.js.impressao.hoje')
+            });
         }
         if (facetas) {
-            facetas.textContent = textoDoSelect(form, 'responsavel', 'Todos os responsáveis')
-                + ' · ' + textoDoSelect(form, 'cargo', 'Todos os cargos');
+            facetas.textContent = textoDoSelect(form, 'responsavel', window.BJ_T.t('dashboard.js.impressao.todos_responsaveis'))
+                + ' · ' + textoDoSelect(form, 'cargo', window.BJ_T.t('dashboard.js.impressao.todos_cargos'));
             // desenho (printFiltros): "· Busca: <texto>" só quando há busca
             var busca = form ? form.querySelector('.js-filtro-busca') : null;
             var termo = busca ? busca.value.trim() : '';
             if (termo !== '') {
-                facetas.textContent += ' · Busca: ' + termo;
+                facetas.textContent += ' · ' + window.BJ_T.t('dashboard.js.impressao.busca', { termo: termo });
             }
         }
         if (quando) {
             var d = new Date();
-            quando.textContent = p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear()
-                + ' às ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+            quando.textContent = window.BJ_T.t('dashboard.js.impressao.data_as_hora', {
+                data: p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear(),
+                hora: p2(d.getHours()) + ':' + p2(d.getMinutes())
+            });
         }
     }
 
@@ -422,7 +492,7 @@
             }
             var tituloAntes = document.title;
             var d = new Date();
-            document.title = 'BlueJus Relatorio de desempenho ' + p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear();
+            document.title = window.BJ_T.t('dashboard.js.impressao.nome_do_arquivo', { data: p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() });
             window.setTimeout(function () {
                 window.print();
                 window.setTimeout(function () { document.title = tituloAntes; }, 400);
@@ -432,6 +502,7 @@
 
     function iniciar(root) {
         ligarSegmentado(root);
+        ligarPeriodoPadrao(root);
         ligarLegendasEmToque(root);
         ligarExportarPdf(root);
         ligarBusca(root);

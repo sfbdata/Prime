@@ -7,6 +7,9 @@ namespace App\Tests\Pasta\Unit;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Entity\TipoDePagamento;
+use App\Pasta\Service\BaseDoPercentual;
+use App\Pasta\Service\LancamentosDaPastaSobTrava;
 use App\Pasta\UseCase\CorrigirValorDoPagamentoUseCase;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,13 +31,33 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
     private CorrigirValorDoPagamentoUseCase $useCase;
     private Pasta $pasta;
     private Tenant $tenant;
+    /** O que o banco devolve sob a trava; `null` = os lançamentos da própria pasta. */
+    private ?array $doBanco = null;
+    /** @var list<string> */
+    public array $ordem = [];
 
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new CorrigirValorDoPagamentoUseCase($this->em);
+        $trava         = new class($this) implements LancamentosDaPastaSobTrava {
+            public function __construct(private readonly CorrigirValorDoPagamentoUseCaseTest $teste) {}
+
+            public function travarPastaELerLancamentos(Pasta $pasta): array
+            {
+                return $this->teste->sobTrava($pasta);
+            }
+        };
+        $this->useCase = new CorrigirValorDoPagamentoUseCase($this->em, new BaseDoPercentual(), $trava);
         $this->pasta   = new Pasta();
         $this->tenant  = new Tenant();
+    }
+
+    /** @return list<PastaPagamento> */
+    public function sobTrava(Pasta $pasta): array
+    {
+        $this->ordem[] = 'trava';
+
+        return $this->doBanco ?? array_values($pasta->getPagamentos()->toArray());
     }
 
     private function pagamento(string $valor = '1300.00', ?Pasta $pasta = null, ?Tenant $tenant = null): PastaPagamento
@@ -203,21 +226,20 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
      * `refresh` com PESSIMISTIC_WRITE é o que trava E relê; a prova contra o banco
      * está em `CorrigirValorDoPagamentoTravaTest`.
      */
-    #[TestDox('relê o pagamento com PESSIMISTIC_WRITE dentro de uma transação, antes do flush')]
+    #[TestDox('trava a pasta e relê o pagamento com PESSIMISTIC_WRITE dentro de uma transação, antes do flush')]
     public function testReleSobTravaAntesDeGravar(): void
     {
         $pagamento = $this->pagamento('1300.00');
-        $ordem     = [];
-        $this->em->expects($this->once())->method('beginTransaction')->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'begin'; });
+        $this->em->expects($this->once())->method('beginTransaction')->willReturnCallback(function (): void { $this->ordem[] = 'begin'; });
         $this->em->expects($this->once())->method('refresh')
             ->with($pagamento, LockMode::PESSIMISTIC_WRITE)
-            ->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'refresh'; });
-        $this->em->expects($this->once())->method('flush')->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'flush'; });
-        $this->em->expects($this->once())->method('commit')->willReturnCallback(static function () use (&$ordem): void { $ordem[] = 'commit'; });
+            ->willReturnCallback(function (): void { $this->ordem[] = 'refresh'; });
+        $this->em->expects($this->once())->method('flush')->willReturnCallback(function (): void { $this->ordem[] = 'flush'; });
+        $this->em->expects($this->once())->method('commit')->willReturnCallback(function (): void { $this->ordem[] = 'commit'; });
         $this->em->expects($this->never())->method('rollback');
 
         self::assertTrue($this->useCase->executar($pagamento, $this->pasta, $this->tenant, '900,00', '1.300,00'));
-        self::assertSame(['begin', 'refresh', 'flush', 'commit'], $ordem);
+        self::assertSame(['begin', 'trava', 'refresh', 'flush', 'commit'], $this->ordem, 'a pasta antes da linha, como na quitação');
     }
 
     #[TestDox('conflito sob a trava: desfaz a transação, sem commit')]
@@ -230,5 +252,54 @@ final class CorrigirValorDoPagamentoUseCaseTest extends TestCase
         $this->expectException(\UnexpectedValueException::class);
 
         $this->useCase->executar($pagamento, $this->pasta, $this->tenant, '900,00', '1.300,00');
+    }
+
+    // ── Êxito e sucumbência: corrigir congela (decisão 3 do dono) ──────────
+
+    /** Previsto de 20% sobre um contrato de R$ 10.000,00 já lançado na pasta: vale R$ 2.000,00. */
+    private function previstoSobreDezMil(): PastaPagamento
+    {
+        $contrato = $this->pagamento('10000.00');
+        $this->pasta->getPagamentos()->add($contrato);
+
+        $exito = $this->pagamento();
+        $exito->preverPorPercentual(TipoDePagamento::Exito, '20', '1500.00');
+        $this->pasta->getPagamentos()->add($exito);
+
+        return $exito;
+    }
+
+    #[TestDox('previsto com %: o "valor exibido" é o CALCULADO; corrigir grava o novo valor e zera o percentual')]
+    public function testCorrigirCongelaOPrevisto(): void
+    {
+        $exito = $this->previstoSobreDezMil();
+        $this->em->expects($this->once())->method('flush');
+
+        self::assertTrue($this->useCase->executar($exito, $this->pasta, $this->tenant, '2.500,00', '2.000,00'));
+        self::assertSame('2500.00', $exito->getValor());
+        self::assertNull($exito->getPercentual(), 'o valor congela: o % deixa de valer');
+        self::assertTrue($exito->estaPrevisto(), 'continua previsto até ser recebido');
+    }
+
+    #[TestDox('previsto com %: o retrato gravado no lançamento não serve de "valor exibido" (409)')]
+    public function testPrevistoComparaComOCalculado(): void
+    {
+        $exito = $this->previstoSobreDezMil();
+        $this->em->expects($this->never())->method('flush');
+        $this->expectException(\UnexpectedValueException::class);
+
+        $this->useCase->executar($exito, $this->pasta, $this->tenant, '2.500,00', '1.500,00');
+    }
+
+    #[TestDox('previsto com %: o "valor exibido" confere com a base relida sob a trava, não com a da memória')]
+    public function testPrevistoUsaABaseRelida(): void
+    {
+        $exito = $this->previstoSobreDezMil();
+        $maior = $this->pagamento('20000.00');
+        $this->doBanco = [$maior, $exito];
+        $this->em->expects($this->once())->method('flush');
+
+        self::assertTrue($this->useCase->executar($exito, $this->pasta, $this->tenant, '2.500,00', '4.000,00'), '20% de 20.000,00 (o banco)');
+        self::assertSame('2500.00', $exito->getValor());
     }
 }

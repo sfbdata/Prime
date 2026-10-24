@@ -129,19 +129,24 @@ final class AuditoriaDoSoEuTest extends JusPrimeWebTestCase
     public function testSoEuNaoAvisaParticipantes(): void
     {
         $this->logarComTenant($this->client, $this->admin, $this->tenant);
-        $this->client->request('POST', '/agenda/criar-ajax', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], (string) json_encode([
-            'titulo' => self::SEGREDO, 'dataInicio' => '2030-03-10T10:00', 'dataFim' => '2030-03-10T11:00',
-            'visibilidade' => Evento::VISIBILIDADE_SOMENTE_EU, 'participantes' => [$this->pessoa->getId()],
-        ]));
+        $this->criarPelaTelaAntiga(self::SEGREDO, Evento::VISIBILIDADE_SOMENTE_EU);
 
-        self::assertResponseIsSuccessful();
         self::assertSame(0, $this->avisosDaPessoa());
 
-        $this->client->request('POST', '/agenda/criar-ajax', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], (string) json_encode([
-            'titulo' => 'Reunião de equipe', 'dataInicio' => '2030-03-10T10:00', 'dataFim' => '2030-03-10T11:00',
-            'visibilidade' => Evento::VISIBILIDADE_TODOS, 'participantes' => [$this->pessoa->getId()],
-        ]));
+        $this->criarPelaTelaAntiga('Reunião de equipe', Evento::VISIBILIDADE_TODOS);
         self::assertSame(1, $this->avisosDaPessoa(), 'visível à equipe continua avisando');
+    }
+
+    /** O formulário "Novo evento" da tela antiga (`/agenda/novo`), com a pessoa como participante. */
+    private function criarPelaTelaAntiga(string $titulo, string $visibilidade): void
+    {
+        $form = $this->client->request('GET', '/agenda/novo')->filter('form[name="evento"]')->form();
+        $form['evento[titulo]'] = $titulo;
+        $form['evento[visibilidade]'] = $visibilidade;
+        $form['evento[participantes]'] = [(string) $this->pessoa->getId()];
+        $this->client->submit($form);
+
+        self::assertResponseRedirects();
     }
 
     private function avisosDaPessoa(): int

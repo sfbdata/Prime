@@ -20,6 +20,17 @@
   }
   window.bjAviso = window.bjAviso || aviso;
 
+  /* Idioma do sistema (spec idioma-do-sistema, entrega 1): grava no perfil e recarrega no idioma novo. */
+  function escolherIdioma(botao) {
+    if (botao.disabled || botao.classList.contains('atual')) return;
+    const token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    botao.disabled = true;
+    fetch('/perfil/idioma', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token }, body: JSON.stringify({ idioma: botao.dataset.muIdiomaEscolher }) })
+      .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => { if (ok) { location.reload(); return; } botao.disabled = false; aviso(d.erro || BJ_T.t('menu.usuario.js.idioma_erro')); })
+      .catch(() => { botao.disabled = false; aviso(BJ_T.t('menu.usuario.js.idioma_erro')); });
+  }
+
   /* ---------- tema escuro (chave liga/desliga; persiste em localStorage 'tema', lido pelo anti-flash do base) ---------- */
   function sincronizarTema() {
     const escuro = document.documentElement.getAttribute('data-bs-theme') === 'dark', b = document.getElementById('toggleTema');
@@ -44,7 +55,7 @@
     fetch(url, { credentials: 'same-origin', redirect: 'manual', headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' } })
       .then(r => (r.ok && r.type !== 'opaqueredirect' ? r.text() : Promise.reject(r.status)))
       .then(html => { painel.innerHTML = html; estadoAba[aba] = 'pronto'; })
-      .catch(() => { estadoAba[aba] = 'nada'; painel.innerHTML = '<div class="mu-nota">Não foi possível carregar agora. Recarregue a página e tente de novo.</div>'; });
+      .catch(() => { estadoAba[aba] = 'nada'; const nota = document.createElement('div'); nota.className = 'mu-nota'; nota.textContent = BJ_T.t('menu.usuario.js.aba_erro'); painel.replaceChildren(nota); });
   }
   function abrirAba(aba) {
     const raiz = document.getElementById('modalContaEscritorio'); if (!raiz) return;
@@ -55,7 +66,7 @@
   }
 
   /* ---------- equipe da conta: menu da pessoa (⋮ ou botão direito), desenho bj-contas.js abrirMnu ---------- */
-  const SIT = { aprovado: 'aprovado', em_analise: 'em análise', suspenso: 'suspenso' };
+  const SIT = { aprovado: BJ_T.t('menu.usuario.js.situacao.aprovado'), em_analise: BJ_T.t('menu.usuario.js.situacao.em_analise'), suspenso: BJ_T.t('menu.usuario.js.situacao.suspenso') };
   let focoAntesDoMenu = null;
   function fecharMenuMembro() {
     const m = document.getElementById('muMenuMembro'); if (!m) return;
@@ -75,16 +86,16 @@
     const sit = linha.dataset.situacao, m = document.createElement('div');
     m.id = 'muMenuMembro'; m.className = 'mu-menu-membro'; m.setAttribute('role', 'menu'); m.dataset.membro = linha.dataset.membro; m.dataset.semX = '1';
     const topo = document.createElement('div'); topo.className = 'mu-mm-topo';
-    topo.textContent = linha.dataset.nome + (linha.dataset.primario === '1' ? ' · primário' : ' · ' + (SIT[sit] || sit));
+    topo.textContent = linha.dataset.nome + ' · ' + (linha.dataset.primario === '1' ? BJ_T.t('termos.primario') : (SIT[sit] || sit));
     m.append(topo);
     if (linha.dataset.acoes === '1') {
-      if (sit !== 'aprovado') m.append(itemMenu('aprovado', '✓', sit === 'suspenso' ? 'Reativar (aprovar)' : 'Aprovar', 'verde'));
-      if (sit !== 'em_analise') m.append(itemMenu('em_analise', '↺', 'Voltar para análise'));
-      if (sit !== 'suspenso') m.append(itemMenu('suspenso', '⏸', 'Suspender acesso', 'ambar'));
+      if (sit !== 'aprovado') m.append(itemMenu('aprovado', '✓', sit === 'suspenso' ? BJ_T.t('menu.usuario.js.acao_reativar') : BJ_T.t('menu.usuario.js.acao_aprovar'), 'verde'));
+      if (sit !== 'em_analise') m.append(itemMenu('em_analise', '↺', BJ_T.t('menu.usuario.js.acao_voltar_analise')));
+      if (sit !== 'suspenso') m.append(itemMenu('suspenso', '⏸', BJ_T.t('menu.usuario.js.acao_suspender'), 'ambar'));
       const sep = document.createElement('div'); sep.className = 'mu-mm-sep'; m.append(sep);
-      m.append(itemMenu('demitir', '✕', 'Demitir (remover da conta)', 'vermelho'));
+      m.append(itemMenu('demitir', '✕', BJ_T.t('menu.usuario.js.acao_demitir'), 'vermelho'));
     } else {
-      const v = document.createElement('div'); v.className = 'mu-mm-vazio'; v.textContent = 'Sem ações disponíveis'; m.append(v);
+      const v = document.createElement('div'); v.className = 'mu-mm-vazio'; v.textContent = BJ_T.t('menu.usuario.js.sem_acoes'); m.append(v);
     }
     m.style.left = Math.min(x, innerWidth - 250) + 'px'; m.style.top = Math.min(y, innerHeight - 230) + 'px';
     focoAntesDoMenu = document.activeElement;
@@ -95,13 +106,13 @@
     const raiz = document.querySelector('.mu-minha-conta'); if (!raiz) return;
     const linha = raiz.querySelector('[data-membro="' + CSS.escape(menu.dataset.membro) + '"]'); if (!linha) return;
     const nome = linha.dataset.nome, demitir = op === 'demitir';
-    if (demitir && !window.confirm('Demitir ' + nome + '? A pessoa perde o acesso a esta conta. É a mesma ação de "Remover do escritório" da tela de equipe.')) return;
-    if (op === 'suspenso' && !window.confirm('Suspender o acesso de ' + nome + '? Os dados e o histórico continuam guardados.')) return;
+    if (demitir && !window.confirm(BJ_T.t('menu.usuario.js.confirmar_demitir', { nome }))) return;
+    if (op === 'suspenso' && !window.confirm(BJ_T.t('menu.usuario.js.confirmar_suspender', { nome }))) return;
     const url = (demitir ? raiz.dataset.urlDemitir : raiz.dataset.urlSituacao).replace(/\/0\//, '/' + encodeURIComponent(menu.dataset.membro) + '/');
     fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: demitir ? '{}' : JSON.stringify({ situacao: op }) })
       .then(r => r.json().then(j => (r.ok ? j : Promise.reject(j))))
-      .then(j => { aviso(j.mensagem || 'Feito'); carregarAba('conta', document.querySelector('[data-mu-painel="conta"]'), true); })
-      .catch(j => aviso((j && j.erro) || 'Não foi possível concluir agora.'));
+      .then(j => { aviso(j.mensagem || BJ_T.t('menu.usuario.js.feito')); carregarAba('conta', document.querySelector('[data-mu-painel="conta"]'), true); })
+      .catch(j => aviso((j && j.erro) || BJ_T.t('menu.usuario.js.acao_erro')));
   }
 
   function abrirConta(aba) { abrirAba(aba); const m = modal('modalContaEscritorio'); if (m) m.show(); }
@@ -111,7 +122,7 @@
     const m = modal('modalEmPreparacao'); if (m) m.show();
   }
 
-  const AJUDA = 'Atalhos: clique direito numa linha para ações, Esc fecha janelas, ⋮ abre as opções de cada área.';
+  const AJUDA = BJ_T.t('menu.usuario.js.ajuda');
 
   document.addEventListener('click', e => {
     const t = e.target;
@@ -128,6 +139,8 @@
     const aba = t.closest('[data-mu-aba]');
     if (aba) return abrirAba(aba.dataset.muAba);
     if (t.closest('[data-mu-idioma]')) { e.preventDefault(); fecharMenu(); const m = modal('modalIdioma'); if (m) m.show(); return; }
+    const idioma = t.closest('[data-mu-idioma-escolher]');
+    if (idioma) { e.preventDefault(); return escolherIdioma(idioma); }
     if (t.closest('[data-mu-ajuda]')) { e.preventDefault(); fecharMenu(); return aviso(AJUDA); }
     const prep = t.closest('[data-em-preparacao]');
     if (prep) { e.preventDefault(); fecharMenu(); return emPreparacao(prep.dataset.emPreparacao); }
@@ -136,7 +149,7 @@
     const botaoMembro = t.closest('[data-membro-menu]');
     if (botaoMembro) { e.preventDefault(); e.stopPropagation(); const r = botaoMembro.getBoundingClientRect(); return abrirMenuMembro(botaoMembro.closest('[data-membro]'), r.right - 240, r.bottom + 4); }
     if (!t.closest('#muMenuMembro')) fecharMenuMembro();
-    if (t.closest('[data-mu-sair]') && !window.confirm('Sair do BlueJus?')) { e.preventDefault(); return; }
+    if (t.closest('[data-mu-sair]') && !window.confirm(BJ_T.t('menu.usuario.js.confirmar_sair'))) { e.preventDefault(); return; }
     // Link que abre outra aba e o instalador (tratado no base) não navegam esta página: fecham o menu.
     if (t.closest('.mu-menu a[target="_blank"], #linkInstalarApp')) fecharMenu();
   });

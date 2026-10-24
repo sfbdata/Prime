@@ -14,8 +14,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * O cadastro do desenho 10 entra antes de o e-mail ser confirmado. Quem cria a conta com o e-mail de outra pessoa
- * não pode, por isso, ver o convite de escritório mandado para aquele e-mail: as listas entregam o token do aceite.
+ * Quem cria a conta com o e-mail de outra pessoa não pode ver o convite de escritório mandado para aquele e-mail. As
+ * listas levam o convite pelo id, nunca o token do link (achado de auditoria interna F6).
+ *
+ * Desde a spec `cadastro-exige-confirmacao.md`, a conta a confirmar nem fica logada: a sessão dela termina no
+ * primeiro pedido (`SessaoDeContaAConfirmarListener`). O filtro das listas (`isEmailConfirmado`) fica como defesa.
  */
 #[CoversClass(ConviteController::class)]
 final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
@@ -28,27 +31,29 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
     }
 
     #[DataProvider('listas')]
-    #[TestDox('E-mail a confirmar: o convite para o mesmo e-mail não aparece com o token')]
+    #[TestDox('E-mail a confirmar: a sessão termina antes da lista, e o convite para o mesmo e-mail não aparece com o token')]
     public function testEmailAConfirmarNaoVeOToken(string $lista): void
     {
         $client = static::createClient();
-        [$user, $convite] = $this->cenario(emailConfirmado: false);
+        [$user, $convite, $token] = $this->cenario(emailConfirmado: false);
         $client->loginUser($user);
         $this->marcarTermosAceitos($client);
-        $client->followRedirects(true);
 
         $client->request('GET', $lista);
 
+        self::assertResponseRedirects('/login');
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
+        $client->followRedirect();
         self::assertResponseIsSuccessful();
-        self::assertStringNotContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString($token, (string) $client->getResponse()->getContent());
     }
 
     #[DataProvider('listas')]
-    #[TestDox('E-mail confirmado: o convite continua aparecendo como antes')]
+    #[TestDox('E-mail confirmado: o convite continua aparecendo, com o link pelo id e sem o token')]
     public function testEmailConfirmadoVeOConvite(string $lista): void
     {
         $client = static::createClient();
-        [$user, $convite] = $this->cenario(emailConfirmado: true);
+        [$user, $convite, $token] = $this->cenario(emailConfirmado: true);
         $client->loginUser($user);
         $this->marcarTermosAceitos($client);
         $client->followRedirects(true);
@@ -56,10 +61,11 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
         $client->request('GET', $lista);
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
+        self::assertSelectorExists(sprintf('a[href="/convites/%d"]', $convite->getId()));
+        self::assertStringNotContainsString($token, (string) $client->getResponse()->getContent());
     }
 
-    /** @return array{User, Invitation} */
+    /** @return array{User, Invitation, string} */
     private function cenario(bool $emailConfirmado): array
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -79,11 +85,12 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
         $tenant->setName('Escritório que convidou');
         $em->persist($tenant);
 
-        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(16)), type: 'escritorio', expiresAt: new \DateTimeImmutable('+7 days'));
+        $token = bin2hex(random_bytes(16));
+        $convite = new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+7 days'));
         $convite->setTenant($tenant);
         $em->persist($convite);
         $em->flush();
 
-        return [$user, $convite];
+        return [$user, $convite, $token];
     }
 }

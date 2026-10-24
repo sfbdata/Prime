@@ -13,6 +13,9 @@ use App\Pasta\Service\AvisoDoChecklist;
 use App\Pasta\UseCase\EnviarRelatorioPastasParadasUseCase;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
+use App\Tarefa\UseCase\LembrarMetaUseCase;
+use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
+use App\Master\UseCase\ResponderNaCentralUseCase;
 
 /**
  * O mapa único entre os tipos REAIS do sino e os tipos do desenho (`bluejus-central.js` L61-87, `TIPOS`/`GRUPOS`), para
@@ -33,11 +36,66 @@ final class TiposDeAvisoDaCentral
     private const VERDE = '#1f9d61';
     private const AMBAR = '#c8952a';
 
+    /**
+     * Fora do `match` para ele caber no limite de linhas: o "Pedir acesso" da tela "Acesso restrito" dos Perfis
+     * (desenho 05 - Perfis 1.2, L822: tipo "pedido", para o primário) e a resposta do Master a quem escreveu ao
+     * BlueJus pela Central de Notificações (sem e-mail para responder).
+     */
+    private const DOS_PERFIS_E_DA_CENTRAL_DO_MASTER = [
+        PedirAcessoAosPerfisUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Pedido de acesso', 'icone' => 'bi-shield-lock', 'cor' => self::AMBAR, 'nivel' => 2],
+        ResponderNaCentralUseCase::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Resposta do BlueJus', 'icone' => 'bi-reply', 'cor' => self::AZUL, 'nivel' => 2],
+    ];
+
+    /** Trabalho Externo (F4): avisos de vagas e candidaturas, fora do `match` para ele caber no limite de linhas. */
+    private const DO_TRABALHO_EXTERNO = [
+        Notificacao::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => ['grupo' => 'atencao', 'rotulo' => 'Pedido de vaga', 'icone' => 'bi-inbox', 'cor' => self::AMBAR, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA => ['grupo' => 'atencao', 'rotulo' => 'Candidatura', 'icone' => 'bi-send-check', 'cor' => self::AZUL, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_ACEITA => ['grupo' => 'atencao', 'rotulo' => 'Oferta aceita', 'icone' => 'bi-hand-thumbs-up', 'cor' => self::VERDE, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATOS_ENVIADOS => ['grupo' => 'atencao', 'rotulo' => 'Candidatos', 'icone' => 'bi-people', 'cor' => self::AZUL, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_APROVADA => ['grupo' => 'atencao', 'rotulo' => 'Vaga aprovada', 'icone' => 'bi-check2-circle', 'cor' => self::VERDE, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA => ['grupo' => 'atencao', 'rotulo' => 'Vaga não aprovada', 'icone' => 'bi-x-circle', 'cor' => self::AMBAR, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS => ['grupo' => 'atencao', 'rotulo' => 'Andamento', 'icone' => 'bi-arrow-repeat', 'cor' => self::PETROLEO, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA => ['grupo' => 'atencao', 'rotulo' => 'Vaga nova', 'icone' => 'bi-megaphone', 'cor' => self::AZUL, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => ['grupo' => 'atencao', 'rotulo' => 'Pedido de informações', 'icone' => 'bi-question-circle', 'cor' => self::AMBAR, 'nivel' => 2],
+    ];
+
+    /**
+     * Metas, fora do `match` para ele caber no limite de linhas. O "Lembrar" da página da meta (desenho 04B L133:
+     * `notificar({ tipo: 'lembrete', … })`) não tem par no `TIPOS` do bluejus-central.js: entra no grupo Metas, com o
+     * sino do botão e o âmbar de "aguardando".
+     */
+    private const DAS_METAS = [
+        LembrarMetaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'metas', 'rotulo' => 'Lembrete', 'icone' => 'bi-bell', 'cor' => self::AMBAR, 'nivel' => 2],
+    ];
+
+    /**
+     * Rótulo da ação de abrir o aviso, quando o desenho dá um próprio: os avisos do Contribua ao Master usam
+     * "Ver sugestão" (desenho 08, `avisaMaster`: `acao: 'Ver sugestão'`). Os demais ficam com o "Abrir" genérico (null).
+     */
+    private const ACOES = [
+        AvisoAoMaster::TIPO_SUGESTAO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_APOIO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_MOTIVO => 'Ver sugestão',
+        AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO => 'Ver sugestão',
+    ];
+
+    /** O rótulo da ação de abrir o aviso, ou null para o "Abrir" genérico da Central. */
+    public function acao(string $tipo): ?string
+    {
+        return self::ACOES[strtolower($tipo)] ?? null;
+    }
+
     /** @return array{grupo: ?string, rotulo: string, icone: string, cor: string, nivel: int} */
     public function para(string $tipo): array
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
-        return match (strtolower($tipo)) {
+        $tipo = strtolower($tipo);
+        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? self::DAS_METAS[$tipo] ?? null;
+        if ($doMapa !== null) {
+            return $doMapa;
+        }
+
+        return match ($tipo) {
             AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO,
             // "Disparo alto de convites" do Indicar o BlueJus: no desenho é o tipo 'alerta' (bj-contas.js L126).
             AvisoDeDisparoAlto::TIPO_NOTIFICACAO => ['grupo' => 'urgente', 'rotulo' => 'Alerta', 'icone' => 'bi-bell-fill', 'cor' => '#e8590c', 'nivel' => 3],

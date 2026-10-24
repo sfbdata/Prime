@@ -18,14 +18,14 @@
         {% set start = max(1, end - max_botoes + 1) %}
     {% endif %}
 
-    <nav aria-label="Paginação" class="d-flex align-items-center justify-content-end my-0">
+    <nav aria-label="{{ 'expediente.paginacao.rotulo'|trans }}" class="d-flex align-items-center justify-content-end my-0">
         <ul class="pagination pagination-sm mb-0">
 
             <li class="page-item {{ pagination.current_page <= 1 ? 'disabled' : '' }}">
                 <button type="button"
                         class="page-link btn-pagina"
                         data-page="1"
-                        aria-label="Primeira página" data-tip="Primeira página"
+                        aria-label="{{ 'expediente.paginacao.primeira'|trans }}" data-tip="{{ 'expediente.paginacao.primeira'|trans }}"
                         {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
                     <i class="bi bi-chevron-double-left" aria-hidden="true"></i>
                 </button>
@@ -35,7 +35,7 @@
                 <button type="button"
                         class="page-link btn-pagina"
                         data-page="{{ pagination.current_page - 1 }}"
-                        aria-label="Página anterior" data-tip="Página anterior"
+                        aria-label="{{ 'expediente.paginacao.anterior'|trans }}" data-tip="{{ 'expediente.paginacao.anterior'|trans }}"
                         {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
                     <i class="bi bi-chevron-left" aria-hidden="true"></i>
                 </button>
@@ -46,29 +46,29 @@
                     <button type="button"
                             class="page-link btn-pagina"
                             data-page="{{ p }}"
-                            aria-label="Página {{ p }} de {{ total }}" data-tip="Página {{ p }} de {{ total }}"
+                            aria-label="{{ 'expediente.paginacao.pagina_n_de_m'|trans({pagina: p ~ '', total: total ~ ''}) }}" data-tip="{{ 'expediente.paginacao.pagina_n_de_m'|trans({pagina: p ~ '', total: total ~ ''}) }}"
                             {% if p == pagination.current_page %}aria-current="page"{% endif %}>
                         {{ p }}
                     </button>
                 </li>
             {% endfor %}
 
-            <li class="page-item {{ pagination.current_page >= pagination.total_pages ? 'disabled' : '' }}">
+            <li class="page-item {{ pagination.total_pages <= pagination.current_page ? 'disabled' : '' }}">
                 <button type="button"
                         class="page-link btn-pagina"
                         data-page="{{ pagination.current_page + 1 }}"
-                        aria-label="Próxima página" data-tip="Próxima página"
-                        {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
+                        aria-label="{{ 'expediente.paginacao.proxima'|trans }}" data-tip="{{ 'expediente.paginacao.proxima'|trans }}"
+                        {% if pagination.total_pages <= pagination.current_page %}aria-disabled="true" tabindex="-1"{% endif %}>
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
                 </button>
             </li>
 
-            <li class="page-item {{ pagination.current_page >= pagination.total_pages ? 'disabled' : '' }}">
+            <li class="page-item {{ pagination.total_pages <= pagination.current_page ? 'disabled' : '' }}">
                 <button type="button"
                         class="page-link btn-pagina"
                         data-page="{{ pagination.total_pages }}"
-                        aria-label="Última página" data-tip="Última página"
-                        {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
+                        aria-label="{{ 'expediente.paginacao.ultima'|trans }}" data-tip="{{ 'expediente.paginacao.ultima'|trans }}"
+                        {% if pagination.total_pages <= pagination.current_page %}aria-disabled="true" tabindex="-1"{% endif %}>
                     <i class="bi bi-chevron-double-right" aria-hidden="true"></i>
                 </button>
             </li>

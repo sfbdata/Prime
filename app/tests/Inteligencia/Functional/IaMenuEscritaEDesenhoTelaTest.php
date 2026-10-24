@@ -73,7 +73,7 @@ final class IaMenuEscritaEDesenhoTelaTest extends JusPrimeWebTestCase
         return [$push, $agente];
     }
 
-    #[TestDox('C6-IA-03: quem edita recebe "Criar tarefa da providência" no ⋮ do Push e do agente')]
+    #[TestDox('C6-IA-03: quem edita recebe "Criar tarefa da providência" no ⋮ do Push e "Criar tarefa" embaixo do resultado do agente (F5)')]
     public function testQuemEditaRecebeCriarTarefa(): void
     {
         $client = $this->cliente();
@@ -85,7 +85,7 @@ final class IaMenuEscritaEDesenhoTelaTest extends JusPrimeWebTestCase
         [$push, $agente] = $this->cartoes($client, (int) $pasta->getId(), $pushId, $agenteId);
 
         self::assertCount(1, $push->filter('.ps-ia-menu > [data-ia-criar-meta]'));
-        self::assertCount(1, $agente->filter('.ia-menu > [data-ia-criar-meta]'));
+        self::assertCount(1, $agente->filter('.ia-corpo > .ia-res-acoes > [data-ia-criar-meta]'));
     }
 
     #[TestDox('C6-IA-03: quem só VÊ a pasta (com a IA) não recebe "Criar tarefa da providência" — nem no Push, nem no agente')]
@@ -102,7 +102,8 @@ final class IaMenuEscritaEDesenhoTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(0, $push->filter('[data-ia-criar-meta]'));
         self::assertCount(0, $agente->filter('[data-ia-criar-meta]'));
-        self::assertStringNotContainsString('Criar tarefa da providência', $push->text() . $agente->text());
+        self::assertStringNotContainsString('Criar tarefa da providência', $push->text());
+        self::assertStringNotContainsString('Criar tarefa', $agente->text());
         // O resto do ⋮ (leitura e lida) continua: só a escrita na pasta sai.
         self::assertCount(1, $push->filter('.ps-ia-menu form[data-ia-acao="lida"]'));
         self::assertCount(1, $agente->filter('.ia-menu form[data-ia-acao="lida"]'));

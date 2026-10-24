@@ -118,6 +118,8 @@ montar_sandbox() {
 raiz="$(dirname "$(dirname "$0")")"
 reg="$raiz/chamadas.log"
 todos="$*"
+# Toda chamada, à parte (o chamadas.log só nasce quando um container ou imagem é tocado).
+echo "$todos" >> "$raiz/todas-as-chamadas.log"
 case "$todos" in
   "compose version") exit 0 ;;
   *" build"*)
@@ -128,7 +130,7 @@ case "$todos" in
       fi
       [[ -f "$raiz/FALHAR_BUILD" ]] && { echo "BUILD:FALHOU" >> "$reg"; exit 1; }
       echo "BUILD:OK" >> "$reg"; exit 0 ;;
-  *"up -d"*)       echo "UP" >> "$reg"; exit 0 ;;
+  *"up -d"*)       echo "UP" >> "$reg"; echo "UP_ARGS:$todos" >> "$reg"; exit 0 ;;
   *pg_isready*)    exit 0 ;;
   *Health.Status*) echo healthy; exit 0 ;;
   *migrations:migrate*) echo "MIGRATE" >> "$reg"; exit 0 ;;
@@ -211,6 +213,54 @@ for SCRIPT in deploy-prod.sh deploy-prod-tls.sh; do
       || verde "build quebrado: nenhum container foi recriado"
   rm -rf "$dir"
 done
+
+# Agendador desligado pelo deploy-automatico.sh (tarefas ainda no crontab do host): o up não o cria.
+echo
+echo "  ▸ deploy-prod-tls.sh com SEM_AGENDADOR"
+for sem in 1 0; do
+  dir="$(mktemp -d)"; montar_sandbox "$dir"
+  printf '{"github-oauth":{"github.com":"ghp_0123456789abcdefghijABCDEFGHIJ012345"}}' > "$dir/.composer-auth.json"
+  rc="$( cd "$dir" && PATH="$dir/bin:$PATH" LETSENCRYPT_DIR="$dir/letsencrypt" COMPOSER_AUTH_SEM_REDE=1 \
+      SEM_AGENDADOR="$sem" bash scripts/deploy-prod-tls.sh >saida.log 2>&1; echo $? )"
+  # O worker consome o scheduler_cadeias (push, Google, Comercial): desligar o agendador não pode levá-lo junto.
+  [[ -s "$dir/todas-as-chamadas.log" ]] && ! grep -qE "(scale|stop|rm|kill|down).*worker|worker.*(=0|stop)" "$dir/todas-as-chamadas.log" \
+      && verde "SEM_AGENDADOR=$sem: o worker não é escalado, parado nem removido" \
+      || vermelho "SEM_AGENDADOR=$sem: o deploy mexeu no worker: $(grep -E 'worker' "$dir/todas-as-chamadas.log" | tr '\n' ' ')"
+  if [[ "$sem" == 1 ]]; then
+    [[ "$rc" -eq 0 ]] && grep -q "^UP_ARGS:.*up -d --remove-orphans --scale scheduler=0$" "$dir/chamadas.log" \
+        && verde "SEM_AGENDADOR=1: sobe tudo com --scale scheduler=0" || vermelho "SEM_AGENDADOR=1: o up não desligou o agendador (rc=$rc)"
+    ! grep -q "^UP_ARGS:.* \(php\|nginx\|worker\|db\)\( \|$\)" "$dir/chamadas.log" \
+        && verde "SEM_AGENDADOR=1: o up não escolhe serviços (o worker sobe junto com os outros)" \
+        || vermelho "SEM_AGENDADOR=1: o up lista serviços e pode deixar o worker de fora"
+  else
+    [[ "$rc" -eq 0 ]] && grep -q "^UP_ARGS:" "$dir/chamadas.log" && ! grep -q "scale scheduler" "$dir/chamadas.log" \
+        && verde "SEM_AGENDADOR=0: sobe tudo, agendador incluído" || vermelho "SEM_AGENDADOR=0: up inesperado (rc=$rc)"
+  fi
+  rm -rf "$dir"
+done
+
+# As quatro varreduras (push, Google Agenda, automações e expansor do Comercial) vêm do schedule `cadeias`, que só
+# o worker consome. O agendador (`scheduler`) pode ficar de fora de um deploy pela trava do crontab; o worker não.
+echo
+echo "  ▸ docker-compose.prod.yml: quem consome o scheduler_cadeias"
+comando_do_servico() {   # $1 = serviço; imprime a linha `command:` dele
+    awk -v alvo="  $1:" '
+        $0 == alvo { dentro = 1; next }
+        dentro && /^  [a-z_]+:/ { dentro = 0 }
+        dentro && /^    command:/ { print; exit }
+    ' "$RAIZ/docker-compose.prod.yml"
+}
+cmd_worker="$(comando_do_servico worker)"
+cmd_scheduler="$(comando_do_servico scheduler)"
+[[ "$cmd_worker" == *'"messenger:consume", "scheduler_cadeias", "comercial", "async"'* ]] \
+    && verde "o worker consome scheduler_cadeias, comercial e async (nesta ordem)" \
+    || vermelho "o worker não consome o scheduler_cadeias: $cmd_worker"
+[[ "$cmd_scheduler" == *'"messenger:consume", "scheduler_default", "--time-limit'* && "$cmd_scheduler" != *scheduler_cadeias* ]] \
+    && verde "o agendador consome só o scheduler_default" \
+    || vermelho "o command do agendador mudou: $cmd_scheduler"
+[[ "$(grep -c 'scheduler_cadeias' "$RAIZ/docker-compose.prod.yml")" -ge 1 && "$(grep -cE '^\s+command:.*scheduler_cadeias' "$RAIZ/docker-compose.prod.yml")" -eq 1 ]] \
+    && verde "um consumidor só do scheduler_cadeias" \
+    || vermelho "scheduler_cadeias em mais de um command (ou em nenhum)"
 
 echo
 echo "── Resultado: $ok passaram, $falhou falharam ──"

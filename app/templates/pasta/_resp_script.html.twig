@@ -1,6 +1,8 @@
 {# Comportamento do chip de responsavel. Ja era escrito para reuso: delega tudo
    no document e guarda o bind em document.__pastaRespMenuBound, entao incluir em
    mais de uma pagina (ou duas vezes na mesma) nao duplica listener. #}
+{# Textos do script abaixo; o BJ_T so e lido no clique, depois do bj-traducao.js do base. #}
+{{ catalogo_js('pasta_resp.js.resp') }}
 <script>
 (function () {
     /* Chip de responsável (avatar + nome) + menu compartilhado #pastaRespMenu.
@@ -39,14 +41,14 @@
         var html;
         if (userId) {
             html = avatarHtml(nome, fotoUrl) + '<span class="pasta-resp-nome">' + escResp(nome) + '</span>';
-            dica(chip, nome, nome + ' · clique para alterar');
+            dica(chip, nome, BJ_T.t('pasta_resp.js.resp.dica_alterar', { nome: nome }));
         } else {
             // PAS-013b: o chip vazio redesenhado é o MESMO que o _resp_chip monta no contexto
             // dele — na pasta `bi-person-dash` sem `.text-muted` (desenho); no Expediente como era.
             var naPasta = chip.dataset.contexto === 'pasta';
             html = '<span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi ' + (naPasta ? 'bi-person-dash' : 'bi-person') + '"></i></span>' +
-                   '<span class="pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '">Sem responsável</span>';
-            dica(chip, 'Definir responsável', 'Clique para atribuir um responsável');
+                   '<span class="pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '">' + escResp(BJ_T.t('pasta_resp.js.resp.sem_responsavel')) + '</span>';
+            dica(chip, BJ_T.t('pasta_resp.js.resp.definir'), BJ_T.t('pasta_resp.js.resp.dica_atribuir'));
         }
         html += '<i class="bi bi-chevron-down pasta-resp-caret"></i>';
         chip.innerHTML = html;
@@ -178,7 +180,7 @@
             if (!res.ok || !res.data.sucesso) {
                 chip.innerHTML = prevHtml;
                 chip.dataset.respId = prevId;
-                alert((res.data && res.data.erro) || 'Erro ao alterar responsável.');
+                (window.avisarErroPs || window.alert)((res.data && res.data.erro) || BJ_T.t('pasta_resp.js.resp.erro_alterar'));
             }
         })
         .catch(function () {

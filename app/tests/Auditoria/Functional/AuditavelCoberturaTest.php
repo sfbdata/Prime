@@ -67,11 +67,22 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Cobrança automática do checklist (desenho 02): estado operacional da rotina (datas dos envios,
         // previsão); cada aviso que sai já fica na caixa da pessoa. Auditar daria uma linha por dia por item.
         \App\Pasta\Entity\PastaChecklistCobranca::class,
+        // Contador da sequência de metas do escritório: estado operacional (o último número entregue), gravado
+        // só por SQL. O número que vale fica na própria meta, que é Auditavel e já entra na trilha ao nascer.
+        \App\Tarefa\Entity\NumeracaoDeMetas::class,
+        // Aprendizado de Minhas Metas (Fase 4, D4): texto de despacho e linhas de pendência guardados só para as
+        // sugestões da própria pessoa. Auditar daria uma linha por despacho e deixaria metadados no audit_log depois do
+        // "Apagar o que foi aprendido"; o ato que importa (o despacho, a passagem) já é auditado na meta.
+        \App\Tarefa\Entity\AprendizadoDoDespacho::class,
+        \App\Tarefa\Entity\AprendizadoDaPendencia::class,
 
         // Preferência pessoal de tela (densidade, animações, setas, colunas ocultas do Dashboard):
         // estilo de quem olha, sem efeito sobre dado nenhum do escritório. Auditar cada clique no
         // menu ⋮ encheria o audit_log de ruído sem valor de prova.
         \App\Dashboard\Entity\PreferenciaDoUsuario::class,
+
+        // Resumo diário por e-mail: a trava do envio (uma linha por pessoa e dia); o próprio envio fica em comercial_envio.
+        \App\Profile\Entity\ResumoDiarioEnvio::class,
 
         // Saída da equipe: o próprio registro já é a trilha (só inclusão, nunca alterado), e a remoção que o
         // cria já entra no audit_log (RemoverColaboradorDoEscritorioUseCase::registrarAuditoria).
@@ -97,6 +108,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+        // A vez dos avisos de espaço (comercial-e-emails.md §4): só um marcador de deduplicação, gravado por SQL no
+        // ouvinte, sem sessão (não há autor) e nunca editado.
+        \App\Comercial\Entity\AvisoDeEspaco::class,
         // Modelo de campanha (comercial-e-emails.md §8.2, R6): o subscriber gravaria até 500 caracteres do conteúdo do
         // e-mail. A trilha é manual (modelo_new, modelo_upd, modelo_del) com `changes` só {nome, modo}.
         \App\Comercial\Entity\ModeloDeCampanha::class,
@@ -106,6 +120,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\CampanhaDeEmail::class,
         \App\Comercial\Entity\DestinoDaCampanha::class,
         \App\Comercial\Entity\ControleDoExpansor::class,
+        // Marcas do Relatório (comercial-marcas.md): estrela, arquivo e "remover" de cada Master, só organizam a lista
+        // dele e não mudam campanha nem envio. O que importa já tem trilha manual (camp_csv na exportação).
+        \App\Comercial\Entity\CampanhaMarca::class,
+        // Imagem da campanha do modo simples (comercial-e-emails.md §12, F3i): a própria linha diz quem enviou e quando, e
+        // a validade é renovada pelo worker, sem sessão (não há autor).
+        \App\Comercial\Entity\ImagemDaCampanha::class,
         // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
         // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
         // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.
@@ -121,6 +141,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Indicacao\Entity\IndicacaoConfig::class,
         \App\Indicacao\Entity\IndicacaoPausa::class,
         \App\Indicacao\Entity\IndicacaoAlerta::class,
+        // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md D1, D3): dado de plataforma,
+        // lido e gravado só pelo Master, fora do audit_log por escritório. O estado é marcador pessoal de leitura
+        // (lida, estrela, arquivada), como a PastaTimelineVisita; a resposta é ela própria o registro (quem, quando,
+        // canal e destino), nunca editada.
+        \App\Master\Entity\CentralMasterEstado::class,
+        \App\Master\Entity\CentralMasterResposta::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,
@@ -166,6 +192,7 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\ConexaoGoogleAgenda::class,
         \App\Agenda\Entity\LigacaoComGoogle::class,
         \App\Agenda\Entity\PrazoNoGoogle::class,
+        \App\Agenda\Entity\DataNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber
@@ -279,6 +306,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // consentimento (data e versão do texto), que é o registro que a LGPD pede.
         \App\TrabalhoExterno\Entity\LinkDeVagas::class,
         \App\TrabalhoExterno\Entity\InteressadoEmVagas::class,
+        // Contadores anônimos da página pública (spec VS 18.10.26 §4.9): somados por UPSERT a cada visita
+        // e clique, sem ator nem dado pessoal. Auditar seria uma linha de log por visita anônima.
+        \App\TrabalhoExterno\Entity\MetricaPublica::class,
         // Currículo do banco de talentos (spec VS 18.10.26 §4.5): é dado pessoal do candidato, que pode
         // excluí-lo a qualquer momento (LGPD). Auditar copiaria nome, contato e resumo para o audit_log
         // do escritório de quem age, e a cópia sobreviveria à exclusão pedida pelo titular. O registro de
@@ -288,6 +318,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // para o LOG DE DOMÍNIO da vaga (HistoricoVaga) e cada etapa guarda a própria data; é dado do
         // candidato, que some com o currículo excluído (LGPD), pelo mesmo motivo do Curriculo acima.
         \App\TrabalhoExterno\Entity\Candidatura::class,
+        // Falha de tarefa agendada (spec scheduler-tarefas-agendadas): gravada pelo agendador, sem sessão nem
+        // escritório, e o audit_log é por escritório. A própria linha guarda quem dispensou e quando.
+        \App\Shared\Scheduler\Entity\FalhaAgendada::class,
     ];
 
     private EntityManagerInterface $em;

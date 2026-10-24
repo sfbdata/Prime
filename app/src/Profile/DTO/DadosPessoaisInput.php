@@ -63,7 +63,8 @@ final class DadosPessoaisInput
         $input->telefone       = $perfil->telefone;
         $input->cpf            = $perfil->cpf;
         $input->dataNascimento = $perfil->dataNascimento;
-        $input->genero         = $perfil->genero;
+        // O legado `nao_informado` (D1 da spec genero-no-cadastro) abre como vazio: não é mais uma opção.
+        $input->genero         = $perfil->genero?->preenchido() === true ? $perfil->genero : null;
         $input->atuacao        = $perfil->atuacao;
         $input->vinculo        = $perfil->vinculo;
         $input->ctps           = $perfil->ctps;

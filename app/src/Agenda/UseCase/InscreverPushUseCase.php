@@ -7,15 +7,14 @@ namespace App\Agenda\UseCase;
 use App\Agenda\DTO\InscricaoDePushInput;
 use App\Agenda\Entity\InscricaoDePush;
 use App\Agenda\Repository\InscricaoDePushRepository;
-use App\Agenda\Service\GarantirVarreduraDePush;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
 /**
  * História: depois de a pessoa permitir as notificações (clique em "Testar lembretes" ou "Salvar" na
  * Agenda), o navegador se inscreve no push e manda o endereço e as chaves. Guardamos uma linha por
- * navegador: se o mesmo navegador passa a outra pessoa ou outro escritório, a linha muda de dono. A cadeia
- * da varredura é posta para andar se estiver parada.
+ * navegador: se o mesmo navegador passa a outra pessoa ou outro escritório, a linha muda de dono. A varredura
+ * do push roda a cada minuto pelo schedule `cadeias`, com ou sem inscrição nova.
  *
  * O servidor vai fazer POST nesse endereço e cifrar com essas chaves: só aceitamos endereço https de um
  * serviço de push conhecido (o servidor não sai chamando endereço qualquer) e chaves com o tamanho certo
@@ -33,7 +32,6 @@ final class InscreverPushUseCase
 
     public function __construct(
         private readonly InscricaoDePushRepository $inscricoes,
-        private readonly GarantirVarreduraDePush $garantir,
     ) {
     }
 
@@ -43,7 +41,6 @@ final class InscreverPushUseCase
         $this->exigirChaves($input->p256dh, $input->auth);
         $fuso = in_array($input->fuso, \DateTimeZone::listIdentifiers(), true) ? $input->fuso : self::FUSO_PADRAO;
         $this->inscricoes->gravar(new InscricaoDePush($tenant, $eu, $input->endpoint, $input->p256dh, $input->auth, $fuso));
-        $this->garantir->garantir();
     }
 
     private function exigirServicoDePush(string $endpoint): void

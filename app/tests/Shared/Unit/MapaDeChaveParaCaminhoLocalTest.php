@@ -47,6 +47,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             cobrancasUploadsDir: $raiz . '/cobrancas',
             kanbanUploadsDir: $raiz . '/kanban',
             trabalhoExternoUploadsDir: $raiz . '/trabalho-externo',
+            comercialImagensDir: $raiz . '/comercial-imagens',
         );
     }
 
@@ -67,6 +68,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'cliente_documento (plano)' => [
             CategoriaDeArquivo::CLIENTE_DOCUMENTO, $tenant, 'a1b2.pdf',
             $raiz . '/clientes/a1b2.pdf',
+        ];
+        yield 'cliente_foto (plano, subpasta própria)' => [
+            CategoriaDeArquivo::CLIENTE_FOTO, $tenant, 'a1b2.jpg',
+            $raiz . '/clientes/fotos/a1b2.jpg',
         ];
         yield 'chamado_anexo (plano)' => [
             CategoriaDeArquivo::CHAMADO_ANEXO, $tenant, 'a1b2.pdf',
@@ -95,6 +100,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'trabalho_externo_curriculo (plano, escopo global, subpasta própria)' => [
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, EscopoDeArquivo::global(), 'a1b2.pdf',
             $raiz . '/trabalho-externo/curriculos/a1b2.pdf',
+        ];
+        yield 'comercial_imagem (plano, escopo global)' => [
+            CategoriaDeArquivo::COMERCIAL_IMAGEM, EscopoDeArquivo::global(), 'a1b2.jpg',
+            $raiz . '/comercial-imagens/a1b2.jpg',
         ];
     }
 
@@ -166,7 +175,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         $this->resolvedorDeProducao()->caminhoDe($chave);
     }
 
-    #[TestDox('as 10 categorias do enum estão cobertas: 9 resolvem, 1 lança')]
+    #[TestDox('todas as categorias do enum estão cobertas: só tarefa_anexo lança')]
     public function testTodasAsCategoriasEstaoCobertas(): void
     {
         $cobertas = [];
@@ -201,6 +210,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             'cobrancas_uploads_dir'      => '%kernel.project_dir%/public/uploads/cobrancas',
             'kanban_uploads_dir'         => '%kernel.project_dir%/public/uploads/kanban',
             'trabalho_externo_uploads_dir' => '%kernel.project_dir%/public/uploads/trabalho-externo',
+            'comercial_imagens_dir'      => '%kernel.project_dir%/public/uploads/comercial-imagens',
         ];
 
         foreach ($esperados as $parametro => $valor) {

@@ -15,6 +15,8 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class RegistroPontoRepository extends ServiceEntityRepository
 {
+    use ConsultaSemFiltroDeEscritorio;
+
     /** A consulta de `pontoAbertoHojeEmOutrosEscritorios`: o escopo inteiro escrito à mão (SQL nativo, sem filtro). */
     private const SQL_PONTO_ABERTO_EM_OUTROS_ESCRITORIOS = <<<'SQL'
 SELECT ultima.tenant_id, t.name AS nome
@@ -37,6 +39,26 @@ JOIN user_tenant ut ON ut.user_id = :usuario AND ut.tenant_id = ultima.tenant_id
 JOIN tenant t ON t.id = ultima.tenant_id AND t.is_active
 WHERE ultima.tipo <> 'saida'
 ORDER BY t.name, t.id
+SQL;
+
+    /**
+     * A consulta de `ultimaSaidaQueFechouTurno`: a batida imediatamente anterior a cada saída (LAG, por hora e id) da
+     * pessoa NESTE escritório; vale a saída mais recente cuja anterior é entrada ou retorno, dentro da janela do turno.
+     */
+    private const SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO = <<<'SQL'
+SELECT b.id
+FROM (
+    SELECT rp.id, rp.tipo, rp.data_hora,
+           LAG(rp.tipo) OVER (ORDER BY rp.data_hora, rp.id) AS tipo_anterior,
+           LAG(rp.data_hora) OVER (ORDER BY rp.data_hora, rp.id) AS quando_anterior
+    FROM registro_ponto rp
+    WHERE rp.user_id = :usuario AND rp.tenant_id = :escritorio
+) b
+WHERE b.tipo = 'saida'
+  AND b.tipo_anterior IN ('entrada', 'retorno')
+  AND b.quando_anterior >= b.data_hora - make_interval(hours => :janela)
+ORDER BY b.data_hora DESC, b.id DESC
+LIMIT 1
 SQL;
 
     public function __construct(ManagerRegistry $registry)
@@ -157,6 +179,27 @@ SQL;
     }
 
     /**
+     * A última batida da pessoa NESTE escritório entre `$inicio` e `$ate` (por hora e depois id), com o escritório escrito
+     * na consulta: decide se a saída ou a ida ao repouso fecham um turno aberto aqui (spec seguranca-b-jornada §3.3).
+     */
+    public function ultimaBatidaNoTenant(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $ate): ?RegistroPonto
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :ate')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio)
+            ->setParameter('ate', $ate)
+            ->orderBy('r.dataHora', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * O primeiro repouso do dia NESTE escritório (repouso mínimo, regra da batida): tenant explícito além do filtro
      * (spec `ponto-por-escritorio.md` §2.1).
      */
@@ -198,6 +241,85 @@ SQL;
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * A última saída da pessoa NESTE escritório que FECHOU um turno: a batida imediatamente anterior a ela (por hora e
+     * id, no mesmo escritório) é entrada ou retorno, no máximo `$janelaHoras` antes (interjornada, spec
+     * `ponto-esquecimento-nao-trava.md` R4). A saída solta não conta. Sem limite de quantas saídas olhar. SQL nativo com
+     * usuário e escritório explícitos: não depende do filtro.
+     */
+    public function ultimaSaidaQueFechouTurno(User $user, Tenant $tenant, int $janelaHoras): ?RegistroPonto
+    {
+        $id = $this->getEntityManager()->getConnection()->fetchOne(self::SQL_ULTIMA_SAIDA_QUE_FECHOU_TURNO, [
+            'usuario' => $user->getId(),
+            'escritorio' => $tenant->getId(),
+            'janela' => $janelaHoras,
+        ]);
+        if ($id === false || $id === null) {
+            return null;
+        }
+
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.id = :id')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->setParameter('id', (int) $id)
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * As batidas da pessoa NAQUELE escritório no período, em ordem de horário (lista de pendências, spec
+     * `ponto-esquecimento-nao-trava.md` R5). Cross-tenant de propósito: a lista mostra à própria pessoa os outros
+     * escritórios dela, então o filtro de escritório fica suspenso e o escritório vai escrito na consulta. Quem chama
+     * já conferiu o vínculo ativo e o módulo de ponto.
+     *
+     * @return list<RegistroPonto>
+     */
+    public function batidasDoPeriodoNoEscritorio(User $user, Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        return $this->semFiltroDeEscritorio(fn (): array => $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio)
+            ->setParameter('fim', $fim)
+            ->orderBy('r.dataHora', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * Só os HORÁRIOS das batidas da pessoa em qualquer outro escritório no período (`RegistroEmOutroEscritorioNoTurno`,
+     * spec `ponto-esquecimento-nao-trava.md` R8): o sinal da folha do admin diz só que houve registro, nunca onde. Só os
+     * escritórios com que a pessoa tem vínculo ativo. O filtro de escritório fica suspenso de propósito; a consulta não
+     * devolve escritório nem entidade.
+     *
+     * @return list<\DateTimeImmutable>
+     */
+    public function horariosEmOutrosEscritorios(User $user, Tenant $exceto, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        $linhas = $this->semFiltroDeEscritorio(fn (): array => $this->createQueryBuilder('r')
+            ->select('r.dataHora AS quando')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant <> :exceto')
+            ->andWhere('EXISTS (SELECT ut.id FROM App\Entity\Auth\UserTenant ut WHERE ut.user = r.user AND ut.tenant = r.tenant AND ut.isActive = true)')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('exceto', $exceto)
+            ->setParameter('inicio', $inicio)
+            ->setParameter('fim', $fim)
+            ->orderBy('r.dataHora', 'ASC')
+            ->getQuery()
+            ->getArrayResult());
+
+        return array_map(static fn (array $l): \DateTimeImmutable => \DateTimeImmutable::createFromInterface($l['quando']), $linhas);
     }
 
     /**

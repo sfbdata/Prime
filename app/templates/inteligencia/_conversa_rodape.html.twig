@@ -18,10 +18,10 @@
     <p class="ia-conversa-aviso{{ ia.estaDisponivel ? '' : ' is-motivo' }}" data-ia-conversa-aviso role="status"{{ ia.estaDisponivel ? ' hidden' : '' }}>{{ ia.estaDisponivel ? '' : ia.mensagem }}</p>
     <div class="ia-conversa-campo">
         <input type="text" class="ia-conversa-input" data-ia-conversa-input maxlength="2000" autocomplete="off"
-               placeholder="Pergunte sobre esta pasta..." aria-label="Pergunta para a IA"
+               placeholder="{{ 'inteligencia.conversa.placeholder'|trans }}" aria-label="{{ 'inteligencia.conversa.campo'|trans }}"
                {% if not ia.estaDisponivel %}disabled title="{{ ia.mensagem }}"{% endif %}>
-        <button type="button" class="ia-conversa-enviar" data-ia-conversa-enviar aria-label="Enviar"
-                title="{{ ia.estaDisponivel ? 'Enviar' : ia.mensagem }}" disabled>
+        <button type="button" class="ia-conversa-enviar" data-ia-conversa-enviar aria-label="{{ 'inteligencia.conversa.enviar'|trans }}"
+                title="{{ ia.estaDisponivel ? 'inteligencia.conversa.enviar'|trans : ia.mensagem }}" disabled>
             <i class="bi bi-send-fill" aria-hidden="true"></i>
         </button>
     </div>

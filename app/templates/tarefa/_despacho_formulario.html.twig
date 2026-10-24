@@ -1,0 +1,80 @@
+{#
+    Bloco DESPACHO da meta (desenho 04B de 22/10, L58-66; spec minhas-metas-esteira-2210, C10 a C12).
+    Recebe `formulario` (FormularioDoDespachoOutput) e `tarefa`. Natureza em seleção única (clicar de novo desmarca),
+    prazo padrão de 5 dias úteis calculado no servidor e "N dias úteis" recontado no navegador pela lista de dias não
+    úteis (`data-nao-uteis`). O comportamento é do public/js/meta-despacho.js.
+    Aprendizado (Fase 4, L61 e L151-156): `sugestoes` (SugestoesDaMetaOutput) já marca a natureza preferida, troca o
+    prazo padrão pelo usual e mostra as frases da natureza marcada com o campo vazio; a lista inteira, por natureza,
+    vai em `data-sugestoes` para a tela trocar quando a pessoa marca outra natureza.
+#}
+{% set sugestoes = sugestoes ?? null %}
+{% set preferida = sugestoes ? sugestoes.natureza : null %}
+{% set prazoInicial = sugestoes and sugestoes.prazo ? sugestoes.prazo : formulario.prazoPadrao %}
+{% set uteisIniciais = sugestoes and sugestoes.prazo ? sugestoes.prazoUsual : formulario.uteisDoPrazoPadrao %}
+<div class="despacho-bloco">
+    <form id="formTarefaMensagem" method="post"
+          action="{{ path('tarefa_mensagem', {id: tarefa.id}) }}"
+          enctype="multipart/form-data"
+          data-despacho
+          data-hoje="{{ formulario.hoje }}"
+          data-nao-uteis="{{ formulario.naoUteis|json_encode|e('html_attr') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('mensagem_tarefa_' ~ tarefa.id) }}">
+        <input type="hidden" name="acao" id="acaoMensagem" value="">
+        <input type="hidden" name="natureza" id="despachoNatureza" value="{{ preferida ?? '' }}">
+
+        <div class="despacho-linha">
+            <span class="despacho-rotulo">{{ 'metas.despacho.natureza_rotulo'|trans }}</span>
+            {% for n in formulario.naturezas %}
+                <button type="button" class="despacho-chip" aria-pressed="{{ preferida == n.valor ? 'true' : 'false' }}"
+                        data-natureza="{{ n.valor }}"
+                        data-inicio="{{ n.inicio|trans|e('html_attr') }}">{{ n.rotulo|trans }}</button>
+            {% endfor %}
+            <span class="despacho-espaco"></span>
+            <label class="despacho-prazo" title="{{ 'metas.despacho.prazo_dica'|trans }}">
+                <i class="bi bi-calendar-event"></i>{{ 'metas.despacho.prazo_rotulo'|trans }}
+                <input type="date" name="prazo" id="despachoPrazo"
+                       value="{{ prazoInicial }}" min="{{ formulario.hoje }}">
+                <span id="despachoUteis">{{ 'metas.despacho.dias_uteis'|trans({n: uteisIniciais}) }}</span>
+            </label>
+        </div>
+
+        {# @menção (C3): o mesmo pasta-mencoes.js do Registro da pasta, no campo simples (`data-mencoes-simples`); a
+           lista vem dos colegas que veem a pasta da meta. #}
+        <div class="despacho-campo" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: tarefa.pasta.id}) }}">
+            <textarea name="mensagem" id="tarefaMensagemConteudo"
+                      class="despacho-texto-campo"
+                      rows="3" maxlength="5000" data-mencoes-simples
+                      placeholder="{{ 'metas.despacho.placeholder'|trans }}"></textarea>
+        </div>
+
+        {% if sugestoes and sugestoes.temFrases %}
+            {% set iniciais = sugestoes.frasesIniciais %}
+            <div class="despacho-sugestoes" data-sugestoes="{{ sugestoes.frases|json_encode|e('html_attr') }}"{% if iniciais is empty %} hidden{% endif %}>
+                <span class="despacho-sugestoes-dica"><i class="bi bi-lightbulb"></i> {% if sugestoes.naEtapa %}{{ sugestoes.prazoUsual > 0 ? 'metas.despacho.aprendizado.dica_etapa_prazo'|trans({n: sugestoes.prazoUsual}) : 'metas.despacho.aprendizado.dica_etapa'|trans }}{% else %}{{ 'metas.despacho.aprendizado.dica_geral'|trans }}{% endif %}</span>
+                <div class="despacho-sugestoes-lista">
+                    {% for f in iniciais %}
+                        <button type="button" class="despacho-sugestao" data-texto="{{ f.texto }}" data-natureza="{{ f.natureza ?? '' }}"><span class="despacho-sugestao-texto">{{ f.rotulo }}</span><span class="despacho-sugestao-vezes">{{ f.vezes > 1 ? 'metas.despacho.js.vezes'|trans({n: f.vezes}) : '' }}</span></button>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="despacho-linha despacho-acoes">
+            <label class="despacho-anexo">
+                <i class="bi bi-paperclip"></i><span id="despachoAnexoNome" data-vazio="{{ 'metas.despacho.anexar'|trans|e('html_attr') }}">{{ 'metas.despacho.anexar'|trans }}</span>
+                <input type="file" name="arquivo_mensagem" id="despachoAnexo" class="despacho-anexo-campo">
+            </label>
+            <span class="despacho-espaco"></span>
+            <span class="despacho-contador" id="despachoContador">{{ 'metas.despacho.contador'|trans({n: '0'}) }}</span>
+
+            {# Botões (04B L65-66): Despachar e Enviar para revisão sempre; fora da pendente, o servidor recusa o
+               envio com aviso. O Devolver saiu daqui: é o "Devolver para X" da lateral (L81, Fase 3). #}
+            <button type="button" class="despacho-botao" data-acao="">
+                <i class="bi bi-chat-left-text"></i>{{ 'metas.despacho.despachar'|trans }}
+            </button>
+            <button type="button" class="despacho-botao despacho-botao--principal" data-acao="enviar">
+                <i class="bi bi-send"></i>{{ 'metas.despacho.enviar_para_revisao'|trans }}
+            </button>
+        </div>
+    </form>
+</div>

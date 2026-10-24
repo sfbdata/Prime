@@ -10,8 +10,6 @@ use App\Agenda\Entity\InscricaoDePush;
 use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Agenda\Repository\InscricaoDePushRepository;
 use App\Agenda\Repository\PushEnviadoRepository;
-use App\Agenda\Repository\VarreduraDePushRepository;
-use App\Agenda\Service\GarantirVarreduraDePush;
 use App\Agenda\Service\OcorrenciasDoEvento;
 use App\Agenda\Service\PermissoesDaAgenda;
 use App\Agenda\UseCase\CancelarInscricaoDePushUseCase;
@@ -29,7 +27,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Messenger\MessageBusInterface;
 
 #[CoversClass(VarrerLembretesDePushUseCase::class)]
 #[CoversClass(InscreverPushUseCase::class)]
@@ -128,9 +125,8 @@ final class PushUseCasesTest extends TestCase
         $repo->method('gravar')->willReturnCallback(static function (InscricaoDePush $i) use (&$salvas): void {
             $salvas[] = $i;
         });
-        $garantir = new GarantirVarreduraDePush($this->createStub(VarreduraDePushRepository::class), new EnviadorDePushFalso(), $this->createStub(MessageBusInterface::class));
 
-        return new InscreverPushUseCase($repo, $garantir);
+        return new InscreverPushUseCase($repo);
     }
 
     /** @param list<PastaPrazo> $prazos */

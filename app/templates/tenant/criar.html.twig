@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Criar escritório{% endblock %}
+{% block title %}{{ 'escritorio.criar.titulo'|trans({termo: 'termos.escritorio'|trans}) }}{% endblock %}
 
 {% block stylesheets %}
 <style>
@@ -42,8 +42,8 @@
     <div class="criar-esc-card">
         <div class="criar-esc-head">
             <div class="criar-esc-icon"><i class="bi bi-building-add"></i></div>
-            <h1 class="criar-esc-title h4">Criar escritório</h1>
-            <p class="criar-esc-sub">Você será o administrador do novo escritório.</p>
+            <h1 class="criar-esc-title h4">{{ 'escritorio.criar.titulo'|trans({termo: 'termos.escritorio'|trans}) }}</h1>
+            <p class="criar-esc-sub">{{ 'escritorio.criar.subtitulo'|trans }}</p>
         </div>
         <div class="criar-esc-body">
             {{ form_start(form) }}
@@ -53,8 +53,8 @@
                         <div class="criar-oab-panel-head">
                             <div class="criar-oab-panel-seal"><i class="bi bi-patch-check-fill"></i></div>
                             <div>
-                                <div class="criar-oab-panel-title">Sua OAB</div>
-                                <div class="criar-oab-panel-hint">Necessária para abrir um escritório.</div>
+                                <div class="criar-oab-panel-title">{{ 'escritorio.criar.oab_titulo'|trans }}</div>
+                                <div class="criar-oab-panel-hint">{{ 'escritorio.criar.oab_dica'|trans }}</div>
                             </div>
                         </div>
                         <div class="row g-3">
@@ -64,9 +64,9 @@
                     </div>
                 {% endif %}
                 <div class="d-flex gap-2 justify-content-end mt-4">
-                    <a href="{{ path('tenant_selecionar') }}" class="btn btn-outline-secondary">Cancelar</a>
+                    <a href="{{ path('tenant_selecionar') }}" class="btn btn-outline-secondary">{{ 'escritorio.criar.cancelar'|trans }}</a>
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-building-add me-1"></i> Criar escritório
+                        <i class="bi bi-building-add me-1"></i> {{ 'escritorio.criar.titulo'|trans({termo: 'termos.escritorio'|trans}) }}
                     </button>
                 </div>
             {{ form_end(form) }}

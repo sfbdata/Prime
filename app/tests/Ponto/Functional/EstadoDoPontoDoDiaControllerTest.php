@@ -49,7 +49,7 @@ final class EstadoDoPontoDoDiaControllerTest extends JusPrimeWebTestCase
         self::assertSame('em_jornada', $estado['estado']);
         self::assertSame(['entrada' => '08:02', 'repouso' => null, 'retorno' => null, 'saida' => null], $estado['hoje']);
         self::assertSame(660, $estado['interjornadaMinimaMin'], 'sem configuração, os 660 min do servidor');
-        self::assertSame(['dia', 'estado', 'hoje', 'homeOffice', 'sedes', 'ontemSemSaida', 'interjornadaMinimaMin'], array_keys($estado));
+        self::assertSame(['dia', 'estado', 'hoje', 'homeOffice', 'sedes', 'ontemSemSaida', 'interjornadaMinimaMin', 'aviso'], array_keys($estado));
     }
 
     #[TestDox('Sem o módulo ponto: 403, como a batida; sem sessão: não responde o estado')]

@@ -95,8 +95,8 @@
             var tirar = document.createElement('button');
             tirar.type = 'button';
             tirar.className = 'ps-nm-resp-chip-tirar';
-            tirar.title = 'Remover';
-            tirar.setAttribute('aria-label', 'Remover ' + nome.textContent);
+            tirar.title = BJ_T.t('comum.js.dialogos.remover');
+            tirar.setAttribute('aria-label', BJ_T.t('comum.js.dialogos.remover_nome', { nome: nome.textContent }));
             tirar.setAttribute('data-ps-nm-resp-tirar', option.value);
             var x = document.createElement('i');
             x.className = 'bi bi-x';
@@ -216,8 +216,14 @@
     }
 
     /* ── 3. Calendário do prazo ───────────────────────────────────────────── */
-    var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto',
-        'setembro', 'outubro', 'novembro', 'dezembro'];
+    var MESES = ['comum.js.dialogos.mes.janeiro', 'comum.js.dialogos.mes.fevereiro', 'comum.js.dialogos.mes.marco',
+        'comum.js.dialogos.mes.abril', 'comum.js.dialogos.mes.maio', 'comum.js.dialogos.mes.junho',
+        'comum.js.dialogos.mes.julho', 'comum.js.dialogos.mes.agosto', 'comum.js.dialogos.mes.setembro',
+        'comum.js.dialogos.mes.outubro', 'comum.js.dialogos.mes.novembro', 'comum.js.dialogos.mes.dezembro'];
+
+    function nomeDoMes(i) {
+        return BJ_T.t(MESES[i]);
+    }
 
     function isoDe(d) {
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -248,7 +254,7 @@
 
         function pintarCampo() {
             var d = dataDe(input.value);
-            txt.textContent = d ? d.toLocaleDateString('pt-BR') : 'dd/mm/aaaa';
+            txt.textContent = d ? BJFormato.data(d) : BJ_T.t('comum.js.dialogos.data_vazia');
             campo.classList.toggle('tem-valor', !!d);
         }
 
@@ -257,7 +263,7 @@
         function desenhar() {
             var h = hoje();
             var hojeIso = isoDe(h);
-            mesTxt.textContent = MESES[base.getMonth()] + ' de ' + base.getFullYear();
+            mesTxt.textContent = BJ_T.t('comum.js.dialogos.mes_ano', { mes: nomeDoMes(base.getMonth()), ano: String(base.getFullYear()) });
             dias.textContent = '';
             var ini = new Date(base);
             ini.setDate(1 - base.getDay());
@@ -276,7 +282,8 @@
                 b.textContent = String(d.getDate());
                 b.disabled = passado;
                 b.setAttribute('aria-pressed', input.value === iso ? 'true' : 'false');
-                b.setAttribute('aria-label', d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }) + (passado ? ', indisponível' : ''));
+                var rotuloDia = d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+                b.setAttribute('aria-label', passado ? BJ_T.t('comum.js.dialogos.dia_indisponivel', { dia: rotuloDia }) : rotuloDia);
                 b.setAttribute('data-ps-nm-cal-dia', iso);
                 dias.appendChild(b);
             }
@@ -384,9 +391,9 @@
         var azul = o.variante === 'azul';
         caixa.classList.toggle('is-azul', azul);
         fundo.classList.toggle('is-alerta', o.moldura === 'alerta');
-        document.getElementById('psConfirmarTitulo').textContent = o.titulo || 'Confirmar';
+        document.getElementById('psConfirmarTitulo').textContent = o.titulo || BJ_T.t('comum.js.dialogos.confirmar');
         document.getElementById('psConfirmarTexto').textContent = o.texto || '';
-        ok.querySelector('span').textContent = o.rotulo || (azul ? 'Confirmar' : 'Excluir');
+        ok.querySelector('span').textContent = o.rotulo || (azul ? BJ_T.t('comum.js.dialogos.confirmar') : BJ_T.t('comum.js.dialogos.excluir'));
         ok.querySelector('i').className = 'bi ' + (o.icone || (azul ? 'bi-check2' : 'bi-trash3'));
         var lugar = hospedarNoModalAberto(fundo);
         fundo.hidden = false;
@@ -478,9 +485,9 @@
         var temTitulo = i > 0 && i < 90;
 
         return {
-            titulo: temTitulo ? t.slice(0, i).trim() : (perigo ? 'Confirmar exclusão' : 'Confirmar'),
+            titulo: temTitulo ? t.slice(0, i).trim() : (perigo ? BJ_T.t('comum.js.dialogos.confirmar_exclusao') : BJ_T.t('comum.js.dialogos.confirmar')),
             texto: (temTitulo ? t.slice(i + 1) : t).trim(),
-            rotulo: 'Confirmar',
+            rotulo: BJ_T.t('comum.js.dialogos.confirmar'),
             icone: perigo ? 'bi-exclamation-triangle' : 'bi-check2',
             variante: perigo ? 'perigo' : 'azul'
         };
@@ -605,6 +612,9 @@
     window.confirmarUIPs = confirmarUIPs;
     window.psConfirmarEnvio = psConfirmarEnvio;
     window.avisarPs = avisarPs;
+    /* O aviso de erro da tela no lugar do alert() do navegador (vistoria do desenho 02, c5). Quem roda também fora
+       da pasta chama `(window.avisarErroPs || window.alert)(...)`: sem este arquivo, volta o alert. */
+    window.avisarErroPs = function (mensagem) { avisarPs(mensagem, 'erro'); };
 
     contadores();
     seletorDeResponsaveis();

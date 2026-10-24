@@ -26,7 +26,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * novo cadastro com o nome da pasta já escrito; ela confere, digita o CPF e salva. O cliente é criado no cadastro do
  * escritório, ligado à pasta (principal, se a pasta ainda não tinha) e o Registro ganha "Cadastro do cliente:
  * cadastro de FULANO criado.", e o Histórico do cadastro nasce com "<quem> criou o cadastro". Como no editar,
- * pendência não impede: só nome e CPF/CNPJ válido são exigidos, e CPF de outro cadastro do escritório recusa
+ * pendência não impede: nada é exigido (decisão do dono, 21/10/2026), só o CPF/CNPJ informado precisa ser válido, e CPF de outro cadastro do escritório recusa
  * oferecendo usar o existente. Precisa poder EDITAR a pasta (a mesma regra do "Cadastrar cliente" de sempre).
  */
 final class CriarClienteDaPastaUseCase
@@ -56,9 +56,7 @@ final class CriarClienteDaPastaUseCase
         $cliente = $tipo === 'pj' ? self::pjEmBranco() : self::pfEmBranco();
         $cliente->setTenant($tenant);
         $cliente->setCriadoPor($usuario);
-        // Nome e documento são exigidos mesmo que não venham no envio (vazio = "Informe…").
-        $obrigatorios = $tipo === 'pj' ? ['razao_social' => '', 'cnpj' => ''] : ['nome' => '', 'cpf' => ''];
-        $this->campos->aplicar($cliente, $campos + $obrigatorios, $tenant);
+        $this->campos->aplicar($cliente, $campos, $tenant);
 
         $this->em->persist($cliente);
         $pasta->addCliente($cliente);
@@ -69,7 +67,7 @@ final class CriarClienteDaPastaUseCase
         return $cliente;
     }
 
-    private static function pfEmBranco(): ClientePF
+    public static function pfEmBranco(): ClientePF
     {
         $c = new ClientePF();
         $c->setNomeCompleto('')->setCpf('')->setRg('')->setRgOrgaoExpedidor('');
@@ -78,7 +76,7 @@ final class CriarClienteDaPastaUseCase
         return $c;
     }
 
-    private static function pjEmBranco(): ClientePJ
+    public static function pjEmBranco(): ClientePJ
     {
         $c = new ClientePJ();
         $c->setRazaoSocial('')->setCnpj('')->setEnderecSede('')->setRepresentanteLegal('')

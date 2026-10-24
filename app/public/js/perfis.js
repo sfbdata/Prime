@@ -9,6 +9,7 @@
  * - "Marcar todos / Desmarcar todos" por cartão e o rodapé "N de M permissões ativas".
  *
  * Nenhum texto de decisão mora só aqui: o servidor revalida tudo (CSRF, posse, regras).
+ * Os textos vêm do catálogo da página ({{ catalogo_js('perfis.js') }}) por BJ_T.t (spec idioma-do-sistema).
  */
 (function () {
     'use strict';
@@ -61,11 +62,34 @@
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !conf.hidden) { fecharConf(); } });
     }
 
+    // ── Lista: aviso da hierarquia (C6, desenho L823) ──────────────────────
+    // O que o perfil não pode mexer não abre: o clique mostra a mensagem do servidor por alguns segundos.
+    var aviso = qs('[data-pf-aviso]');
+    var avisoTimer = null;
+    function mostrarAviso(texto) {
+        if (!aviso) { return; }
+        aviso.textContent = texto;
+        aviso.hidden = false;
+        window.clearTimeout(avisoTimer);
+        avisoTimer = window.setTimeout(function () { aviso.hidden = true; }, 3500);
+    }
+    qsa('button[data-pf-recusa]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            mostrarAviso(btn.getAttribute('data-pf-recusa'));
+        });
+    });
+
     // ── Lista: linha clicável ──────────────────────────────────────────────
     qsa('[data-pf-linha]').forEach(function (linha) {
         linha.addEventListener('click', function (e) {
             if (e.target.closest('a, button, form, input, select')) { return; }
-            window.location.href = linha.getAttribute('data-href');
+            var href = linha.getAttribute('data-href');
+            if (!href) {
+                mostrarAviso(linha.getAttribute('data-pf-recusa') || '');
+                return;
+            }
+            window.location.href = href;
         });
     });
 
@@ -91,10 +115,10 @@
             e.stopPropagation();
             var nome = btn.getAttribute('data-nome');
             var usu = parseInt(btn.getAttribute('data-usuarios') || '0', 10);
-            var texto = 'O perfil "' + nome + '" será excluído.'
-                + (usu ? ' Os ' + usu + ' usuário(s) com este perfil ficam sem perfil até você atribuir outro.' : '');
+            var texto = BJ_T.t('perfis.js.excluir_texto', { nome: nome })
+                + (usu ? ' ' + BJ_T.t('perfis.js.excluir_usuarios', { n: usu }) : '');
             abrirConf({
-                titulo: 'Excluir perfil', icone: 'bi-trash3', cor: COR_PERIGO, texto: texto, botao: 'Excluir perfil',
+                titulo: BJ_T.t('perfis.js.excluir_titulo'), icone: 'bi-trash3', cor: COR_PERIGO, texto: texto, botao: BJ_T.t('perfis.js.excluir_titulo'),
                 aoConfirmar: function () { btn.closest('form').submit(); }
             });
         });
@@ -105,13 +129,13 @@
     function atualizarResumo() {
         if (!resumo) { return; }
         var ativos = qsa('[data-pf-permissao]').filter(function (c) { return c.checked; }).length;
-        resumo.textContent = ativos + ' de ' + resumo.getAttribute('data-total') + ' permissões ativas';
+        resumo.textContent = BJ_T.t('perfis.js.resumo', { ativos: ativos, total: resumo.getAttribute('data-total') });
     }
     function atualizarCartao(cartao) {
         var caixas = qsa('[data-pf-permissao]', cartao);
         var todos = caixas.length > 0 && caixas.every(function (c) { return c.checked; });
         var btn = qs('[data-pf-todos]', cartao);
-        if (btn) { btn.textContent = todos ? 'Desmarcar todos' : 'Marcar todos'; }
+        if (btn) { btn.textContent = todos ? BJ_T.t('perfis.js.desmarcar_todos') : BJ_T.t('perfis.js.marcar_todos'); }
     }
     qsa('[data-pf-cartao]').forEach(function (cartao) {
         atualizarCartao(cartao);
@@ -144,16 +168,16 @@
         });
         qs('[data-pf-promover]', formPromover).addEventListener('click', function () {
             if (!sel.value) {
-                msg.textContent = 'Escolha um usuário secundário da conta.';
+                msg.textContent = BJ_T.t('perfis.js.escolha_secundario');
                 msg.classList.add('is-erro');
 
                 return;
             }
             var nome = sel.options[sel.selectedIndex].getAttribute('data-nome');
             abrirConf({
-                titulo: 'Promover a primário', icone: 'bi-person-badge', cor: COR_AZUL,
-                texto: '"' + nome + '" passará a gerir o escritório como primário sócio: secundários, perfis, permissões e módulos. Ele não poderá excluir o primário titular.',
-                botao: 'Confirmar promoção',
+                titulo: BJ_T.t('perfis.js.promover_titulo'), icone: 'bi-person-badge', cor: COR_AZUL,
+                texto: BJ_T.t('perfis.js.promover_texto', { nome: nome }),
+                botao: BJ_T.t('perfis.js.promover_confirmar'),
                 aoConfirmar: function () { formPromover.submit(); }
             });
         });
@@ -167,9 +191,9 @@
             var extra = modeloDestino ? modeloDestino.content.cloneNode(true) : document.createDocumentFragment();
             var semDestino = !!extra.querySelector('[data-pf-sem-destino]');
             abrirConf({
-                titulo: 'Remover primário', icone: 'bi-person-dash', cor: COR_PERIGO,
-                texto: '"' + btn.getAttribute('data-nome') + '" deixa de ser primário e volta a ser secundário. A remoção fica na auditoria da conta.',
-                botao: 'Remover primário',
+                titulo: BJ_T.t('perfis.js.remover_titulo'), icone: 'bi-person-dash', cor: COR_PERIGO,
+                texto: BJ_T.t('perfis.js.remover_texto', { nome: btn.getAttribute('data-nome') }),
+                botao: BJ_T.t('perfis.js.remover_titulo'),
                 extra: extra,
                 semBotao: semDestino,
                 aoConfirmar: function () {
@@ -179,6 +203,14 @@
                     form.submit();
                 }
             });
+        });
+    });
+
+    /* Edição sem prazo do primário (spec edicao-sem-prazo §3): marcar ou desmarcar grava na hora. Desmarcado, o
+       navegador não manda o campo e o servidor lê "desligado". */
+    document.querySelectorAll('[data-pf-sem-prazo-caixa]').forEach(function (caixa) {
+        caixa.addEventListener('change', function () {
+            if (caixa.form) { caixa.form.submit(); }
         });
     });
 })();

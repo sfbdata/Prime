@@ -20,7 +20,7 @@
 (function () {
     'use strict';
 
-    var TXT_SEM_EMAIL = 'Cadastre um e-mail para enviar a análise.';
+    var TXT_SEM_EMAIL = BJ_T.t('pasta_push.js.cliente.sem_email');
 
     function cartao() { return document.querySelector('[data-push-cliente]'); }
 
@@ -72,7 +72,7 @@
 
     function abrirFormulario(erro) {
         var form = formulario();
-        if (!form) { avisar(erro || 'Sem permissão para cadastrar e-mail.', 'erro'); return; }
+        if (!form) { avisar(erro || BJ_T.t('pasta_push.js.cliente.sem_permissao_cadastrar'), 'erro'); return; }
         form.hidden = false;
         erroDoFormulario(erro || '');
         var campo = form.querySelector('[data-push-cliente-campo]');
@@ -96,10 +96,10 @@
         dados.append('email', form.querySelector('[data-push-cliente-campo]').value);
         dados.append('rotulo', ativo ? ativo.dataset.pushClienteRotulo : 'pessoal');
         postar(c.dataset.cadastrarUrl, dados).then(function (res) {
-            if (!res.ok || !res.dados.sucesso) { erroDoFormulario(res.dados.erro || 'Não foi possível cadastrar o e-mail.'); return; }
+            if (!res.ok || !res.dados.sucesso) { erroDoFormulario(res.dados.erro || BJ_T.t('pasta_push.js.cliente.cadastrar_falhou')); return; }
             trocarCartao(res.dados.html);
             if (res.dados.mensagem) { avisar(res.dados.mensagem); }
-        }).catch(function () { erroDoFormulario('Não foi possível cadastrar o e-mail.'); });
+        }).catch(function () { erroDoFormulario(BJ_T.t('pasta_push.js.cliente.cadastrar_falhou')); });
     }
 
     function urlDoEmail(c, id, acao) {
@@ -115,7 +115,7 @@
         if (acao === 'avisos') { dados.append('ligado', botao.getAttribute('aria-checked') === 'true' ? '0' : '1'); }
         botao.disabled = true;
         postar(urlDoEmail(c, item.dataset.pushClienteEmail, acao), dados).then(function (res) {
-            if (!res.ok || !res.dados.sucesso) { throw new Error(res.dados.erro || 'Não foi possível alterar o e-mail.'); }
+            if (!res.ok || !res.dados.sucesso) { throw new Error(res.dados.erro || BJ_T.t('pasta_push.js.cliente.email_falhou')); }
             trocarCartao(res.dados.html);
             if (res.dados.mensagem) { avisar(res.dados.mensagem); }
         }).catch(function (e) {
@@ -135,7 +135,7 @@
         dados.append('ligado', botao.getAttribute('aria-checked') === 'true' ? '0' : '1');
         botao.disabled = true;
         postar(c.dataset.automaticoUrl, dados).then(function (res) {
-            if (!res.ok || !res.dados.sucesso) { throw new Error(res.dados.erro || 'Não foi possível alterar o envio automático.'); }
+            if (!res.ok || !res.dados.sucesso) { throw new Error(res.dados.erro || BJ_T.t('pasta_push.js.cliente.automatico_falhou')); }
             trocarCartao(res.dados.html);
         }).catch(function (e) {
             botao.disabled = false;
@@ -145,7 +145,7 @@
 
     function perguntarERemover(botao) {
         var item = botao.closest('[data-push-cliente-email]');
-        var pergunta = 'Remover ' + item.dataset.email + ' dos avisos ao cliente?';
+        var pergunta = BJ_T.t('pasta_push.js.cliente.remover_pergunta', { email: item.dataset.email });
         var resposta = window.confirmarUIPs ? window.confirmarUIPs(pergunta, true) : Promise.resolve(window.confirm(pergunta));
         resposta.then(function (sim) { if (sim) { agirNoEmail(botao); } });
     }
@@ -203,7 +203,7 @@
         revisei.setAttribute('aria-checked', envio.ok ? 'true' : 'false');
         revisei.querySelector('i').className = 'bi ' + (envio.ok ? 'bi-check-square-fill' : 'bi-square');
         m.querySelector('[data-push-envio-confirmar]').classList.toggle('is-pronto', envio.ok && envio.para.length > 0);
-        m.querySelector('[data-push-envio-confirmar-txt]').textContent = envio.enviando ? 'Enviando…' : 'Enviar e-mail';
+        m.querySelector('[data-push-envio-confirmar-txt]').textContent = envio.enviando ? BJ_T.t('pasta_push.js.envio.enviando') : BJ_T.t('pasta_push.js.envio.enviar');
         m.querySelectorAll('[data-push-envio-chip]').forEach(function (chip) {
             var on = envio.para.indexOf(chip.dataset.pushEnvioChip) !== -1;
             chip.classList.toggle('is-on', on);
@@ -230,7 +230,7 @@
     function abrirEnvio(botao) {
         if (botao.getAttribute('aria-disabled') === 'true') { avisar(botao.title, 'erro'); return; }
         var c = cartao();
-        if (!c || !modal()) { avisar('Sem permissão para enviar ao cliente.', 'erro'); return; }
+        if (!c || !modal()) { avisar(BJ_T.t('pasta_push.js.envio.sem_permissao'), 'erro'); return; }
         if (c.querySelectorAll('[data-push-cliente-email]').length === 0) { abrirFormulario(TXT_SEM_EMAIL); return; }
 
         var itens = Array.prototype.filter.call(c.querySelectorAll('[data-push-cliente-email]'), function (i) { return i.dataset.descadastrado !== '1'; });
@@ -261,9 +261,9 @@
 
     /* As validações do desenho, na ordem dele (dc N:5281-5283); o servidor repete. */
     function validarEnvio(assunto, corpo) {
-        if (!envio.para.length) { return 'Escolha ao menos um destinatário.'; }
-        if (!corpo.trim() || !assunto.trim()) { return 'Assunto e mensagem não podem ficar vazios.'; }
-        if (!envio.ok) { return 'Confirme que revisou o conteúdo antes de enviar.'; }
+        if (!envio.para.length) { return BJ_T.t('pasta_push.js.envio.sem_destinatario'); }
+        if (!corpo.trim() || !assunto.trim()) { return BJ_T.t('pasta_push.js.envio.vazio'); }
+        if (!envio.ok) { return BJ_T.t('pasta_push.js.envio.sem_revisao'); }
 
         return '';
     }
@@ -271,7 +271,7 @@
     function marcarEnviada(dados) {
         var cartaoDaAnalise = envio.botao.closest('footer') || envio.botao.parentElement;
         var txt = envio.botao.querySelector('[data-cliente-enviar-txt]');
-        if (txt) { txt.textContent = 'Reenviar ao cliente'; }
+        if (txt) { txt.textContent = BJ_T.t('pasta_push.js.envio.reenviar'); }
         var selo = cartaoDaAnalise.querySelector('[data-cliente-enviado]');
         if (selo) {
             selo.querySelector('[data-cliente-enviado-txt]').textContent = dados.enviado || '';
@@ -304,7 +304,7 @@
                 (res.dados.enviados || []).forEach(function (email) { envio.para = envio.para.filter(function (p) { return p !== email; }); });
                 if ((res.dados.enviados || []).length) { marcarEnviada({}); }
                 desenharEstado();
-                erroDoEnvio(res.dados.erro || 'Falha no envio. O texto foi mantido; tente de novo.');
+                erroDoEnvio(res.dados.erro || BJ_T.t('pasta_push.js.envio.falhou'));
                 return;
             }
             marcarEnviada(res.dados);
@@ -314,7 +314,7 @@
         }).catch(function () {
             envio.enviando = false;
             desenharEstado();
-            erroDoEnvio('Falha no envio. O texto foi mantido; tente de novo.');
+            erroDoEnvio(BJ_T.t('pasta_push.js.envio.falhou'));
         });
     }
 

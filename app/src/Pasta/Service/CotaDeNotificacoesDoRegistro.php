@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Service;
 
 use App\Entity\Auth\User;
+use App\Entity\Tarefa\TarefaMensagem;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
@@ -48,7 +49,7 @@ final class CotaDeNotificacoesDoRegistro
      * Consome uma ficha da cota do autor. `false` = estourou: quem chama NÃO cria o aviso, e o
      * resto do envio segue.
      */
-    public function permite(User $autor, User $destinatario, string $tipo, PastaMensagem|NotaTecnica|PastaObservacaoFinanceira|PastaObservacaoDetalhes $origem): bool
+    public function permite(User $autor, User $destinatario, string $tipo, PastaMensagem|NotaTecnica|PastaObservacaoFinanceira|PastaObservacaoDetalhes|TarefaMensagem $origem): bool
     {
         $aceito = $this->pastaRegistroNotificacaoLimiter
             ->create((string) $autor->getId())
@@ -65,6 +66,7 @@ final class CotaDeNotificacoesDoRegistro
                     $origem instanceof NotaTecnica               => ['nota_tecnica_id' => $origem->getId()],
                     $origem instanceof PastaObservacaoFinanceira => ['observacao_financeira_id' => $origem->getId()],
                     $origem instanceof PastaObservacaoDetalhes   => ['observacao_detalhes_id' => $origem->getId()],
+                    $origem instanceof TarefaMensagem            => ['despacho_id' => $origem->getId()],
                     default                                      => ['mensagem_id' => $origem->getId()],
                 });
             } catch (\Throwable) {
