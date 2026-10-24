@@ -76,7 +76,7 @@ Pasta e filhas (inclusive a meta e a mensagem da pasta):
   `RenomearClienteDaPastaUseCase::nomeEMontadoPelaCarteira(Pasta)` e a mensagem
   `MENSAGEM_NOME_MONTADO_PELA_CARTEIRA`. Vale para `nomeCliente` no diff da Pasta.
 - **i)** `situacao` e `situacaoContrato` da Pasta têm efeitos (registro, andamento) que o setter não faz: o desfazer
-  recusa com "Esta alteração só pode ser desfeita pela tela da pasta."
+  recusa com "Esta alteração só pode ser desfeita pela tela da pasta." Decidido pelo dono em 24/10.
 
 Bug à parte:
 
