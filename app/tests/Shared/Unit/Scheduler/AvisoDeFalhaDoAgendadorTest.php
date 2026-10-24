@@ -157,7 +157,7 @@ final class AvisoDeFalhaDoAgendadorTest extends TestCase
 
     public function testExcecaoDoComandoSemRunCommandFailedAindaLogaONome(): void
     {
-        $mensagem = new RunCommandMessage('app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar --no-interaction');
+        $mensagem = new RunCommandMessage('app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction');
         $erro     = new HandlerFailedException(new EnvelopeDoMessenger($mensagem), ['console.messenger.execute_command_handler' => new \RuntimeException('banco fora do ar')]);
 
         (new AvisoDeFalhaDoAgendador($this->logger, new MailerQueGuarda(), $this->identidade, $this->falhas, ''))

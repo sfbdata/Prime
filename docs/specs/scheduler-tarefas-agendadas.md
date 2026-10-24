@@ -38,7 +38,7 @@ A coluna "crontab antigo" foi **conferida com o crontab real da VPS em 23/10/202
 | `app:pastas:relatorio-sem-processo --no-interaction` | `5 13 * * *` | `5 10 * * *` (10h05) |
 | `app:pastas:relatorio-pastas-paradas --no-interaction` | `15 13 * * *` | `15 10 * * *` (10h15) |
 | `app:dashboard:fotografar --no-interaction` | não estava no crontab (recomendada em `trilha-b-designer.md`, D-CRON: `55 2 * * *`) | `55 23 * * *` (23h55) |
-| `app:sync:reconciliar --tenant-id=1 --usuario-id=1 --modo=enviar --no-interaction` | `0 * * * *` via `scripts/sync-reconciliar.sh` | `0 * * * *` (de hora em hora) |
+| `app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction` | `0 * * * *` via `scripts/sync-reconciliar.sh` (com `--tenant-id=1`) | `0 * * * *` (de hora em hora) |
 
 A foto do Dashboard é comportamento **novo** em produção (nunca rodou); as outras seis só mudam de lugar.
 
@@ -59,8 +59,11 @@ e no `AgendaDeTarefasTest` (o teste `testTarefasQueNuncaRodaramEmProducaoFicamDe
 
 Notas:
 
-- **Opções**: as mesmas que o crontab passava (`--force` da purga; `--tenant-id=1 --usuario-id=1
-  --modo=enviar` do script do Drive). `--no-interaction` em todas: sem TTY o Symfony já desliga a
+- **Opções**: as mesmas que o crontab passava (`--force` da purga; `--usuario-id=1 --modo=enviar` do
+  script do Drive), menos o `--tenant-id=1` do Drive: sem ele, o comando percorre todos os escritórios com
+  Drive conectado; o escritório que desconecta para de enviar (decisão do dono, 24/10/2026). Sem nenhum
+  conectado, termina com sucesso ("Nenhum tenant com Drive conectado"), sem aviso de falha. O
+  `--usuario-id` segue porque o comando o exige (só o modo importar o usa). `--no-interaction` em todas: sem TTY o Symfony já desliga a
   interação, a opção só deixa isso explícito. A spec do DJEN cita `--force` num parágrafo, mas o comando não
   tem essa opção (a F4 da mesma spec registra "Sem `--force`") e a linha de crontab documentada também não.
 - **Foto do Dashboard**: o comando fotografa "hoje" no fuso do PHP (`date.timezone = America/Sao_Paulo`
