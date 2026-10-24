@@ -3,7 +3,9 @@
    O círculo abre o menu ("Carregar foto" / "Carregar nova foto", "Ajustar foto", "Remover foto"); o editor recorta no
    navegador (arrastar, roda ou faixa de 1 a 3 para o zoom, girar 90°) e "Salvar foto" envia um JPEG 320x320 de
    qualidade 0,88. Quem confere tudo (permissão, escritório, tipo e tamanho) é o servidor: pasta_cliente_foto_trocar
-   e pasta_cliente_foto_remover. Sem foto original guardada: "Ajustar foto" reabre o editor sobre a foto atual.
+   e pasta_cliente_foto_remover (pasta com cliente cadastrado) ou pasta_foto_trocar e pasta_foto_remover (sem). A foto
+   mostrada pode ser a da pasta mesmo com cliente (`data-origem`): "Remover foto" vai para quem é dono dela.
+   Sem foto original guardada: "Ajustar foto" reabre o editor sobre a foto atual.
    Os avisos são os da tela (`avisarPs`, pasta-dialogos.js). Nada de HTML montado aqui: só atributos e textContent. */
 (function () {
     'use strict';
@@ -36,12 +38,22 @@
 
     function temFoto() { return botao.getAttribute('data-tem-foto') === '1'; }
 
+    // Quem é dono da foto mostrada decide para onde vai o "Remover foto": a pasta ou o cliente (ou a pasta sem cliente).
+    function alvoDaRemocao() {
+        if (botao.getAttribute('data-origem') === 'pasta') {
+            return { url: botao.getAttribute('data-url-remover-pasta'), token: botao.getAttribute('data-token-pasta') };
+        }
+
+        return { url: botao.getAttribute('data-url-remover'), token: botao.getAttribute('data-token') };
+    }
+
     /* ── Menu ─────────────────────────────────────────────────────────── */
 
     function pintarMenu() {
         var tem = temFoto();
         menu.querySelector('.js-ps-foto-carregar-texto').textContent = BJ_T.t(tem ? 'pasta_cabecalho.js.foto.carregar_nova' : 'pasta_cabecalho.js.foto.carregar');
         menu.querySelectorAll('[data-ps-foto-com-foto]').forEach(function (item) { item.hidden = !tem; });
+        if (tem && !alvoDaRemocao().url) { menu.querySelector('.js-ps-foto-remover').hidden = true; }
     }
 
     function abrirMenu() {
@@ -154,8 +166,8 @@
 
     /* ── Servidor ─────────────────────────────────────────────────────── */
 
-    function enviar(url, corpo, aoDarCerto, chaveDoErro) {
-        corpo.append('_token', botao.getAttribute('data-token'));
+    function enviar(url, token, corpo, aoDarCerto, chaveDoErro) {
+        corpo.append('_token', token);
         return fetch(url, { method: 'POST', body: corpo, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
             .then(function (res) {
@@ -166,7 +178,7 @@
             .catch(function () { avisar(BJ_T.t(chaveDoErro), 'erro'); return false; });
     }
 
-    function mostrarFoto(url) {
+    function mostrarFoto(url, origem) {
         if (url) {
             foto.src = url;
             foto.hidden = false;
@@ -175,6 +187,7 @@
             foto.hidden = true;
         }
         botao.setAttribute('data-tem-foto', url ? '1' : '0');
+        botao.setAttribute('data-origem', url && origem ? origem : '');
     }
 
     function salvarFoto() {
@@ -184,8 +197,8 @@
             if (!blob) { salvar.disabled = false; avisar(BJ_T.t('pasta_cabecalho.js.foto.erro'), 'erro'); return; }
             var corpo = new FormData();
             corpo.append('foto', blob, 'foto.jpg');
-            enviar(botao.getAttribute('data-url-trocar'), corpo, function (j) {
-                mostrarFoto(j.url);
+            enviar(botao.getAttribute('data-url-trocar'), botao.getAttribute('data-token'), corpo, function (j) {
+                mostrarFoto(j.url, j.origem);
                 fecharEditor();
                 avisar(BJ_T.t('pasta_cabecalho.js.foto.salva'));
             }, 'pasta_cabecalho.js.foto.erro').then(function (deu) { if (!deu) { salvar.disabled = false; } });
@@ -193,9 +206,12 @@
     }
 
     function removerFoto() {
+        var alvo = alvoDaRemocao();
         fecharMenu();
-        enviar(botao.getAttribute('data-url-remover'), new FormData(), function () {
-            mostrarFoto(null);
+        if (!alvo.url) { return; }
+        enviar(alvo.url, alvo.token, new FormData(), function (j) {
+            // Removida a do cliente, a da pasta pode voltar a aparecer (o servidor diz qual).
+            mostrarFoto(j.url, j.origem);
             avisar(BJ_T.t('pasta_cabecalho.js.foto.removida'));
         }, 'pasta_cabecalho.js.foto.erro_remover');
     }

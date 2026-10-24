@@ -61,6 +61,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             CategoriaDeArquivo::PASTA_DOCUMENTO, $tenant, 'a1b2.pdf',
             $raiz . '/pastas/a1b2.pdf',
         ];
+        yield 'pasta_foto (plano, subpasta própria)' => [
+            CategoriaDeArquivo::PASTA_FOTO, $tenant, 'a1b2.jpg',
+            $raiz . '/pastas/fotos/a1b2.jpg',
+        ];
         yield 'pasta_imagem_editor (subpasta do tenant)' => [
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, $tenant, 'a1b2.png',
             $raiz . '/pastas/7/a1b2.png',

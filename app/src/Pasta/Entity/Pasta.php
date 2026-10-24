@@ -159,6 +159,18 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\JoinColumn(name: 'cliente_principal_id', nullable: true, onDelete: 'SET NULL')]
     private ?Cliente $clientePrincipal = null;
 
+    /**
+     * Foto do cabeçalho da pasta SEM cliente cadastrado (desenho 02 L1255): só o NOME da chave no armazenamento,
+     * como `Cliente::$foto`; a chave inteira sai de `ChavesDePasta::foto()`, com o escopo do escritório. Com cliente
+     * cadastrado a foto que vale é a dele; esta continua aparecendo enquanto o cliente não tiver foto própria.
+     */
+    #[ORM\Column(name: 'foto', length: 255, nullable: true)]
+    private ?string $foto = null;
+
+    /** Quando a foto mudou: vai como `?v=` na URL, para o navegador não mostrar a anterior do cache. */
+    #[ORM\Column(name: 'foto_atualizada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $fotoAtualizadaEm = null;
+
 #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaDocumento::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['ordem' => 'ASC'])]
     private Collection $documentos;
@@ -1060,5 +1072,35 @@ $this->documentos = new ArrayCollection();
         $this->tenant = $tenant;
 
         return $this;
+    }
+
+    public function getFoto(): ?string
+    {
+        return $this->foto;
+    }
+
+    public function getFotoAtualizadaEm(): ?\DateTimeImmutable
+    {
+        return $this->fotoAtualizadaEm;
+    }
+
+    /** Troca a foto pelo nome recém-gravado e devolve o nome da anterior (null se não havia). */
+    public function trocarFoto(string $nome, \DateTimeImmutable $em): ?string
+    {
+        $anterior = $this->foto;
+        $this->foto = $nome;
+        $this->fotoAtualizadaEm = $em;
+
+        return $anterior;
+    }
+
+    /** Tira a foto e devolve o nome da que saiu (null se não havia). */
+    public function removerFoto(\DateTimeImmutable $em): ?string
+    {
+        $anterior = $this->foto;
+        $this->foto = null;
+        $this->fotoAtualizadaEm = $anterior !== null ? $em : $this->fotoAtualizadaEm;
+
+        return $anterior;
     }
 }
