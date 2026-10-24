@@ -334,8 +334,8 @@ final class IaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('a conta da Anthropic precisa ter a retenção zero de dados (ZDR)', $zdr->text());
         self::assertStringContainsString('claude.com/contact-sales', $zdr->text());
         self::assertStringContainsString('com a confirmação por escrito e o DPA.', $zdr->text());
-        self::assertStringContainsString('fica com a equipe BlueJus.', $zdr->text());
-        self::assertStringContainsString('O processamento roda nos EUA (região us).', $zdr->text());
+        self::assertStringContainsString('Região de processamento: EUA', $zdr->text());
+        self::assertStringNotContainsString('Console', $zdr->text(), 'instrução técnica vai para o runbook, não para a tela');
         self::assertDoMasterSoOEstado($zdr->text());
 
         $cards = $raiz->filter('div.mp-ia-raiz > section.mp-card');

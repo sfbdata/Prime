@@ -25,6 +25,19 @@ Cada item abaixo é do dono. Enquanto qualquer um estiver aberto, `IA_HABILITADA
 | **D-IA / D4** (o que sai) | Confirmar o que os agentes enviam (nomes de clientes, metas, anotações, observações, metadados de documentos, checklist e, quando permitido, financeiro). `nivelSigilo > 0` nunca sai. | `SecaoDoContexto`, `MontadorDeContextoDaPasta` |
 | **D-IA2** (quem usa) | A quais papéis conceder `modules.inteligencia.view` e `admin.inteligencia.manage`. Hoje **nenhum papel recebe por padrão**: só o Administrador do Escritório (bypass) e o super admin usam. | Papéis de cada escritório |
 
+## 0.1 Console da Anthropic (tarefa técnica, nunca na tela do Master)
+
+Na organização da Console onde está a chave de produção:
+
+1. Workspace de produção com `allowed_inference_geos: ["us"]` e `default_inference_geo: "us"` (o adaptador já envia
+   `inference_geo: "us"` por `IA_INFERENCE_GEO`, padrão `us`).
+2. Teto de gasto mensal da organização (o 429 `enforced_spend_limit_reached` já é tratado como definitivo).
+3. A ZDR é pedida pelo BlueJus ao comercial (`https://claude.com/contact-sales`) e vale por organização: a chave tem
+   de ser de uma organização com a ZDR aceita.
+
+A tela do Master só mostra o estado ("Região de processamento: EUA"); estas instruções ficam aqui (regra de tom de
+24/10/2026).
+
 ## 1. O adaptador já existe (corrigido em 24/10/2026)
 
 O adaptador da Anthropic está pronto: `App\Inteligencia\Service\ProvedorAnthropic` é o alias da porta
