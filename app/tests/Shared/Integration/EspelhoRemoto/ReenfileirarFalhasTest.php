@@ -9,6 +9,7 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\EspelhoRemoto\Command\ReenfileirarFalhasCommand;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
+use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -39,7 +40,7 @@ final class ReenfileirarFalhasTest extends KernelTestCase
     {
         $foto   = $this->falhou(CategoriaDeArquivo::FOTO_PERFIL, 'Foto de Antônio.jpg');
         $doc    = $this->falhou(CategoriaDeArquivo::CLIENTE_DOCUMENTO, 'CPF de Antônio.pdf');
-        $tester = new CommandTester(new ReenfileirarFalhasCommand($this->outbox));
+        $tester = new CommandTester(new ReenfileirarFalhasCommand($this->outbox, new PoliticaDeEspelhamento('foto_perfil,cliente_documento')));
 
         self::assertSame(Command::SUCCESS, $tester->execute(['--simular' => true]));
         self::assertSame('falhou', $this->estado($foto)['estado']);
@@ -53,6 +54,22 @@ final class ReenfileirarFalhasTest extends KernelTestCase
         self::assertSame('falhou', $this->estado($doc)['estado'], 'outra categoria fica');
 
         self::assertSame(Command::INVALID, $tester->execute(['--categoria' => 'nao_existe']));
+    }
+
+    #[TestDox('só categoria ligada: sem --categoria, a falha da desligada fica; com --categoria desligada, recusa')]
+    public function testSoCategoriaLigada(): void
+    {
+        $ligada    = $this->falhou(CategoriaDeArquivo::FOTO_PERFIL, 'a.jpg');
+        $desligada = $this->falhou(CategoriaDeArquivo::CLIENTE_DOCUMENTO, 'b.pdf');
+        $tester    = new CommandTester(new ReenfileirarFalhasCommand($this->outbox, new PoliticaDeEspelhamento('foto_perfil')));
+
+        self::assertSame(Command::FAILURE, $tester->execute(['--categoria' => 'cliente_documento']));
+        self::assertSame('falhou', $this->estado($desligada)['estado']);
+
+        self::assertSame(Command::SUCCESS, $tester->execute([]));
+        self::assertSame('pendente', $this->estado($ligada)['estado']);
+        self::assertSame('falhou', $this->estado($desligada)['estado'], 'categoria desligada não se mexe');
+        self::assertStringNotContainsString('cliente_documento', $tester->getDisplay());
     }
 
     #[TestDox('a retenção continua sem apagar falhou, por mais antiga que seja')]

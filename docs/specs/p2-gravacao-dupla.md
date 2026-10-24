@@ -626,6 +626,13 @@ dia da semana em Brasília (domingo = 0). Em sete noites todas as referências t
 da fatia saem `presente_sem_sha_conferido`. `--fatia=todas` (padrão, à mão) confere o SHA de tudo; `--fatia=N`
 (0 a 6) escolhe uma; `--sem-sha` continua desligando o SHA.
 
+**Categoria desligada não sobe, nem pela fila.** O worker (`ReplicadorDeArquivos`) passa à reivindicação a
+lista das categorias ligadas, e a consulta filtra por ela (`categoria IN (...)`): a linha de categoria
+desligada fica `pendente`, intocada (sem tentativa gasta), e volta a andar quando a categoria religar. Com
+a política vazia, nada sai da fila. Uma linha de categoria que não existe nunca é ligada, então também fica
+parada. O `armazenamento:reenfileirar-falhas` também só mexe nas categorias ligadas e recusa `--categoria`
+desligada.
+
 **Agendador** (`AgendaDeTarefas`, horários de Brasília, mesmo schedule `default`, mesma trava e estado):
 
 | Tarefa | Quando |

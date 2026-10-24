@@ -81,14 +81,25 @@ final class OutboxDeReplicacao
         return $this->registrar($chave, self::OPERACAO_EXCLUSAO, self::ESTADO_REGISTRADO, null, null, null);
     }
 
-    public function reivindicarProxima(int $posseEmSegundos, int $maximoDeTentativas): ?ItemDeReplicacao
+    /**
+     * `$categorias`: só entrega linhas destas categorias (as ligadas na política). A linha de categoria
+     * desligada fica `pendente`, sem subir ao espelho, e volta a andar quando a categoria religar.
+     * Null = qualquer categoria (só os testes da fila usam).
+     *
+     * @param list<string>|null $categorias
+     */
+    public function reivindicarProxima(int $posseEmSegundos, int $maximoDeTentativas, ?array $categorias = null): ?ItemDeReplicacao
     {
-        return $this->conexao->transactional(function (Connection $c) use ($posseEmSegundos, $maximoDeTentativas): ?ItemDeReplicacao {
+        if ($categorias === []) {
+            return null;
+        }
+
+        return $this->conexao->transactional(function (Connection $c) use ($posseEmSegundos, $maximoDeTentativas, $categorias): ?ItemDeReplicacao {
             $c->executeStatement('SELECT pg_advisory_xact_lock(?)', [self::TRAVA_DA_REIVINDICACAO]);
             $agora = $this->agora();
 
             while (true) {
-                $linha = $this->proximaCandidata($c, $agora);
+                $linha = $this->proximaCandidata($c, $agora, $categorias);
                 if ($linha === false) {
                     return null;
                 }
@@ -103,17 +114,21 @@ final class OutboxDeReplicacao
 
     /**
      * A próxima linha de envio vencida (pendente na hora, ou em processamento com a posse vencida),
-     * sem outra em processamento válido para a mesma chave remota.
+     * sem outra em processamento válido para a mesma chave remota, de uma das categorias (null = todas).
+     *
+     * @param list<string>|null $categorias
      *
      * @return array<string, mixed>|false
      */
-    private function proximaCandidata(Connection $c, string $agora): array|false
+    private function proximaCandidata(Connection $c, string $agora, ?array $categorias): array|false
     {
+        $soAsLigadas = $categorias === null ? '' : ' AND r.categoria IN (:categorias)';
+
         return $c->fetchAssociative(
             'SELECT * FROM ' . self::TABELA . ' r
               WHERE r.operacao = :enviar
                 AND ((r.estado = :pendente AND r.proxima_tentativa_em <= :agora)
-                     OR (r.estado = :processando AND r.processando_ate < :agora))
+                     OR (r.estado = :processando AND r.processando_ate < :agora))' . $soAsLigadas . '
                 AND NOT EXISTS (
                     SELECT 1 FROM ' . self::TABELA . ' o
                      WHERE o.chave_remota = r.chave_remota AND o.id <> r.id
@@ -121,7 +136,9 @@ final class OutboxDeReplicacao
               ORDER BY r.id
               LIMIT 1
               FOR UPDATE SKIP LOCKED',
-            ['enviar' => self::OPERACAO_ENVIAR, 'pendente' => self::ESTADO_PENDENTE, 'processando' => self::ESTADO_PROCESSANDO, 'agora' => $agora],
+            ['enviar' => self::OPERACAO_ENVIAR, 'pendente' => self::ESTADO_PENDENTE, 'processando' => self::ESTADO_PROCESSANDO, 'agora' => $agora]
+                + ($categorias === null ? [] : ['categorias' => $categorias]),
+            ['categorias' => ArrayParameterType::STRING],
         );
     }
 
@@ -331,19 +348,25 @@ final class OutboxDeReplicacao
     }
 
     /**
-     * Volta as linhas de envio em `falhou` (de uma categoria, ou todas) para `pendente`, com tentativas
-     * zeradas e próxima tentativa agora. Devolve quantas voltaram. O worker trata cada uma como envio
-     * novo: se já houver linha mais nova da mesma chave, ela vira `superado` na reivindicação.
+     * Volta as linhas de envio em `falhou` das categorias dadas (as ligadas, ou uma delas) para
+     * `pendente`, com tentativas zeradas e próxima tentativa agora. Devolve quantas voltaram. O worker
+     * trata cada uma como envio novo: se já houver linha mais nova da mesma chave, ela vira `superado`
+     * na reivindicação.
+     *
+     * @param list<string> $categorias
      */
-    public function reenfileirarFalhas(?CategoriaDeArquivo $categoria = null): int
+    public function reenfileirarFalhas(array $categorias): int
     {
+        if ($categorias === []) {
+            return 0;
+        }
         $agora = $this->agora();
 
         return (int) $this->conexao->executeStatement(
             'UPDATE ' . self::TABELA . ' SET estado = :pendente, tentativas = 0, proxima_tentativa_em = :agora, processando_ate = NULL, posse = NULL, atualizado_em = :agora
-              WHERE operacao = :enviar AND estado = :falhou' . ($categoria === null ? '' : ' AND categoria = :categoria'),
-            ['pendente' => self::ESTADO_PENDENTE, 'agora' => $agora, 'enviar' => self::OPERACAO_ENVIAR, 'falhou' => self::ESTADO_FALHOU]
-                + ($categoria === null ? [] : ['categoria' => $categoria->value]),
+              WHERE operacao = :enviar AND estado = :falhou AND categoria IN (:categorias)',
+            ['pendente' => self::ESTADO_PENDENTE, 'agora' => $agora, 'enviar' => self::OPERACAO_ENVIAR, 'falhou' => self::ESTADO_FALHOU, 'categorias' => $categorias],
+            ['categorias' => ArrayParameterType::STRING],
         );
     }
 
