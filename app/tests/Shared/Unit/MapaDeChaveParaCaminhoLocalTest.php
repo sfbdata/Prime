@@ -48,6 +48,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             kanbanUploadsDir: $raiz . '/kanban',
             trabalhoExternoUploadsDir: $raiz . '/trabalho-externo',
             comercialImagensDir: $raiz . '/comercial-imagens',
+            documentosJuridicosDir: $raiz . '/documentos-juridicos',
         );
     }
 
@@ -104,6 +105,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'comercial_imagem (plano, escopo global)' => [
             CategoriaDeArquivo::COMERCIAL_IMAGEM, EscopoDeArquivo::global(), 'a1b2.jpg',
             $raiz . '/comercial-imagens/a1b2.jpg',
+        ];
+        yield 'inteligencia_documento_juridico (plano, escopo global)' => [
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, EscopoDeArquivo::global(), 'a1b2.docx',
+            $raiz . '/documentos-juridicos/a1b2.docx',
         ];
     }
 
@@ -211,6 +216,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             'kanban_uploads_dir'         => '%kernel.project_dir%/public/uploads/kanban',
             'trabalho_externo_uploads_dir' => '%kernel.project_dir%/public/uploads/trabalho-externo',
             'comercial_imagens_dir'      => '%kernel.project_dir%/public/uploads/comercial-imagens',
+            'documentos_juridicos_dir'   => '%kernel.project_dir%/public/uploads/documentos-juridicos',
         ];
 
         foreach ($esperados as $parametro => $valor) {

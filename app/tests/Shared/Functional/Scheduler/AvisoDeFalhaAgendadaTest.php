@@ -131,7 +131,9 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', '/novidades');
 
         self::assertCount(1, $crawler->filter('body > .ae-avisos'));
-        $avisos = $crawler->filter('body > .ae-avisos > .ae-aviso');
+        // O aviso das questões jurídicas da IA também aparece para o Master enquanto houver questão em aberto
+        // no catálogo real; fica fora da conta, que é a da ordem espaço/falha.
+        $avisos = $crawler->filter('body > .ae-avisos > .ae-aviso:not([data-aviso-questoes-juridicas])');
         self::assertCount(2, $avisos);
         self::assertNotNull($avisos->eq(0)->attr('data-aviso-espaco'), 'o de espaço vem primeiro');
         self::assertNotNull($avisos->eq(1)->attr('data-aviso-falha-agendada'));

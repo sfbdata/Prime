@@ -1,0 +1,37 @@
+[
+    {
+        "chave": "transferencia_internacional",
+        "titulo": "Transferência internacional de dados para a Anthropic (EUA)",
+        "problema": "A BlueJus IA envia dados das pastas para a Anthropic, que processa nos Estados Unidos.\n\nA LGPD só permite transferência internacional nas hipóteses do art. 33.",
+        "risco_grau": "alto",
+        "risco": "Sem base adequada e sem aviso claro na Política de Privacidade, a transferência pode ser questionada pela ANPD e pelos titulares.",
+        "opcoes": [
+            "Adotar as cláusulas-padrão contratuais da ANPD no contrato com a Anthropic.",
+            "Basear a transferência no consentimento específico do escritório, dado no aceite da IA.",
+            "Manter a IA desligada até a decisão."
+        ],
+        "sugestao": "Cláusulas-padrão da ANPD no DPA da Anthropic e um anexo novo na Política de Privacidade, com o aceite do escritório atualizado.",
+        "fontes": [
+            {"rotulo": "LGPD, art. 33 (Lei 13.709/2018)", "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"},
+            {"rotulo": "Resolução CD/ANPD nº 19/2024 (transferência internacional)", "url": "https://www.gov.br/anpd/pt-br"}
+        ],
+        "documentos": ["politica_privacidade", "rascunho_politica_ia", "aceite_ia"]
+    },
+    {
+        "chave": "sigilo_profissional",
+        "titulo": "Sigilo profissional do advogado",
+        "problema": "Os dados das pastas estão sob o sigilo profissional do advogado.\n\nEnviar esses dados a um fornecedor externo de IA precisa respeitar o Estatuto e o Código de Ética da OAB.",
+        "risco_grau": "medio",
+        "risco": "O escritório pode responder perante a OAB se o envio não estiver claro nos Termos de Uso e no aceite.",
+        "opcoes": [
+            "Dizer nos Termos de Uso que o escritório decide o que envia e responde pelo sigilo.",
+            "Restringir o envio a dados que não identifiquem o cliente."
+        ],
+        "sugestao": "Ajustar os Termos de Uso e o texto do aceite para deixar claro o papel do escritório e o do BlueJus.",
+        "fontes": [
+            {"rotulo": "Estatuto da Advocacia, art. 7º, II (Lei 8.906/1994)", "url": "https://www.planalto.gov.br/ccivil_03/leis/l8906.htm"},
+            {"rotulo": "Código de Ética e Disciplina da OAB", "url": "https://www.oab.org.br/"}
+        ],
+        "documentos": ["termos_uso", "aceite_ia"]
+    }
+]

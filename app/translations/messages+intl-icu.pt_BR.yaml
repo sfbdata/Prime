@@ -103,6 +103,11 @@ moldura:
         titulo_pausadas: Limite de e-mail de campanha atingido
         texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
         dispensar: Dispensar
+    # Aviso das questões jurídicas da BlueJus IA (layout/_globais/aviso_questoes_juridicas), só para o Master
+    aviso_questoes_juridicas:
+        titulo: Questões jurídicas a serem verificadas
+        texto: '{n, plural, one {# questão jurídica da BlueJus IA ainda não foi resolvida.} other {# questões jurídicas da BlueJus IA ainda não foram resolvidas.}}'
+        ver: Ver as questões
     busca_rapida:
         rotulo: Busca rápida
         campo: Buscar pasta, cliente, CPF ou processo
@@ -2117,6 +2122,37 @@ master:
             orcamento_invalido: Informe o orçamento em dólares, com até duas casas decimais.
             escritorio_nao_encontrado: Escritório não encontrado.
             retencao_invalida: Informe os meses em número inteiro.
+        # Bloco "Questões jurídicas" (master/_ia_juridico.html.twig; o JS em master.js.ia_juridico.*).
+        juridico:
+            titulo: Questões jurídicas
+            em_aberto: 'Em aberto: {n}'
+            nota: 'Para o Dr. Farlei: cada questão traz o problema, o risco, as opções, a sugestão e as fontes. Baixe o documento atual, envie a versão ajustada e marque o status. Enquanto houver questão não resolvida, o aviso fica no topo das telas do Master.'
+            vazio: Nenhuma questão jurídica no catálogo.
+            problema: Problema
+            risco: Risco
+            opcoes: Opções
+            sugestao: Sugestão
+            fontes: Fontes
+            documentos: Documentos a atualizar
+            status: Status
+            risco_alto: Risco alto
+            risco_medio: Risco médio
+            risco_baixo: Risco baixo
+            baixar_atual: Baixar o atual
+            enviar: Enviar versão ajustada
+            versoes: Versões enviadas
+            versao_item: '{nome}, enviado por {por} em {quando}'
+            versao_questao: '(questão: {questao})'
+            baixar: Baixar
+            sem_versao: Nenhuma versão enviada.
+            campo_status: SITUAÇÃO DA QUESTÃO
+            historico_item: '{de} para {para}, por {por} em {quando}'
+            sem_historico: Sem mudanças de status.
+            recusa:
+                documento_nao_encontrado: Documento não encontrado.
+                questao_nao_encontrada: Questão jurídica não encontrada.
+                sem_arquivo: Escolha o arquivo a enviar.
+                status_invalido: Escolha um status da lista.
     # P3: flashes do MastersDoSistemaController (Masters do sistema, aba Permissões) e as recusas da
     # OperacaoDeMasterRecusada. As RECUSA_* da RegraDosMasters ficam fora: o Tenant (EscritorioController) também usa.
     masters:
@@ -2611,6 +2647,20 @@ master:
             vazio: Nenhum escritório ativo.
             erro_carregar: Não foi possível carregar as configurações da I.A. Recarregue a página.
             erro_salvar: Não foi possível salvar.
+        # Bloco "Questões jurídicas" da aba "Configurações da I.A." (public/js/master/ia-juridico.js).
+        ia_juridico:
+            em_aberto: 'Em aberto: {n}'
+            status_salvo: 'Status de "{titulo}": {status}.'
+            enviando: Enviando…
+            enviado: '"{nome}" enviado.'
+            erro_salvar: Não foi possível salvar.
+            erro_enviar: Não foi possível enviar o arquivo.
+            versao_item: '{nome}, enviado por {por} em {quando}'
+            versao_questao: '(questão: {questao})'
+            baixar: Baixar
+            sem_versao: Nenhuma versão enviada.
+            historico_item: '{de} para {para}, por {por} em {quando}'
+            sem_historico: Sem mudanças de status.
         # P3: masters.js (Masters do sistema e a confirmação que o painel.js também usa). A palavra digitada vem de
         # quem abre a confirmação (EXCLUIR, que não se traduz).
         masters:

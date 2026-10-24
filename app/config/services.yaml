@@ -33,6 +33,9 @@ parameters:
     # Imagens das campanhas do modo simples do Comercial (F3i). Mesmo volume, sem acesso direto pelo nginx:
     # saem só pela rota pública /e/i/{token}.{ext}, que confere o token e a validade.
     comercial_imagens_dir: '%kernel.project_dir%/public/uploads/comercial-imagens'
+    # Versões ajustadas dos documentos jurídicos (bloco "Questões jurídicas" do Master). Mesmo volume, sem acesso
+    # direto pelo nginx: saem só pela rota do Master (ROLE_SUPER_ADMIN).
+    documentos_juridicos_dir: '%kernel.project_dir%/public/uploads/documentos-juridicos'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -139,6 +142,7 @@ services:
             string $kanbanUploadsDir: '%kanban_uploads_dir%'
             string $trabalhoExternoUploadsDir: '%trabalho_externo_uploads_dir%'
             string $comercialImagensDir: '%comercial_imagens_dir%'
+            string $documentosJuridicosDir: '%documentos_juridicos_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
             string $bcbSgsBaseUrl: '%bcb_sgs_base_url%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
@@ -293,6 +297,7 @@ when@test:
         kanban_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/kanban'
         trabalho_externo_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/trabalho-externo'
         comercial_imagens_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/comercial-imagens'
+        documentos_juridicos_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/documentos-juridicos'
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true

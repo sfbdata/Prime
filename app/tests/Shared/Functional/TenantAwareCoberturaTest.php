@@ -216,6 +216,12 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
         // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
         \App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa::class,
+        // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
+        // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
+        // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
+        \App\Inteligencia\Entity\EstadoDaQuestaoJuridica::class,
+        \App\Inteligencia\Entity\MudancaDeStatusDaQuestaoJuridica::class,
+        \App\Inteligencia\Entity\VersaoDeDocumentoJuridico::class,
 
         // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
         // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
@@ -284,7 +290,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // do sistema, sem escritório, justificada acima.
     // 68 → 69 com a BlueJus IA no Painel do Master (24/10/2026): ConfiguracaoDaPlataformaDeIa, configuração global da
     // plataforma, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 69;
+    // 69 → 72 com as questões jurídicas do Master (24/10/2026): EstadoDaQuestaoJuridica, MudancaDeStatusDaQuestaoJuridica
+    // e VersaoDeDocumentoJuridico (plataforma), justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 72;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

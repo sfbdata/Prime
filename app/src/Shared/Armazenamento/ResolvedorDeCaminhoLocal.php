@@ -47,6 +47,9 @@ final readonly class ResolvedorDeCaminhoLocal
         // As imagens das campanhas do Comercial (F3i), com o mesmo padrão vazio e a mesma recusa
         // de virar caminho (ver `comercialImagensRaiz()`).
         private string $comercialImagensDir = '',
+        // As versões ajustadas dos documentos jurídicos do Master, com o mesmo padrão vazio e a mesma
+        // recusa de virar caminho (ver `documentosJuridicosRaiz()`).
+        private string $documentosJuridicosDir = '',
     ) {
     }
 
@@ -98,6 +101,7 @@ final readonly class ResolvedorDeCaminhoLocal
             $this->kanbanUploadsDir,
             ...($this->trabalhoExternoUploadsDir !== '' ? [$this->trabalhoExternoUploadsDir] : []),
             ...($this->comercialImagensDir !== '' ? [$this->comercialImagensDir] : []),
+            ...($this->documentosJuridicosDir !== '' ? [$this->documentosJuridicosDir] : []),
         ]);
     }
 
@@ -133,6 +137,7 @@ final readonly class ResolvedorDeCaminhoLocal
             // Subpasta da mesma raiz: os currículos não se misturam com os documentos das demandas.
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO => $this->trabalhoExternoRaiz() . '/curriculos',
             CategoriaDeArquivo::COMERCIAL_IMAGEM => $this->comercialImagensRaiz(),
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => $this->documentosJuridicosRaiz(),
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),
@@ -180,6 +185,15 @@ final readonly class ResolvedorDeCaminhoLocal
         }
 
         return $this->raiz($this->comercialImagensDir);
+    }
+
+    private function documentosJuridicosRaiz(): string
+    {
+        if ($this->documentosJuridicosDir === '') {
+            throw new \LogicException('Diretório dos documentos jurídicos do Master não configurado (documentos_juridicos_dir).');
+        }
+
+        return $this->raiz($this->documentosJuridicosDir);
     }
 
     private function raiz(string $diretorio): string

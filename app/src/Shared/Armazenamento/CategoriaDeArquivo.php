@@ -42,6 +42,10 @@ enum CategoriaDeArquivo: string
     // GLOBAL: é da plataforma (só o Master envia), não de um escritório, e sai por endereço público
     // (`/e/i/{token}.{ext}`) até vencer (`ChavesDeComercial`).
     case COMERCIAL_IMAGEM = 'comercial_imagem';
+    // As versões ajustadas dos documentos jurídicos (Política de Privacidade, Termos de Uso, aceite da IA) que o
+    // Master envia no bloco "Questões jurídicas" da aba "Configurações da I.A.". Escopo GLOBAL: são documentos da
+    // plataforma, não de um escritório, e a purga de escritório não os leva (`ChavesDeInteligencia`).
+    case INTELIGENCIA_DOCUMENTO_JURIDICO = 'inteligencia_documento_juridico';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

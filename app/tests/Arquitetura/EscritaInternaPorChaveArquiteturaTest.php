@@ -55,13 +55,18 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *  - `GeradorDePdfComDompdf` (EDT-002, 07/10; extraído do PastaResumoController na spec
      *    relatorio-processos-controladoria) — lê o LOGO estático da aplicação
      *    (`public/images/logo/bluejus_simbolo.svg`) para embutir nos PDFs; não é arquivo do
-     *    usuário nem passa pelo armazenamento (o Dompdf roda sem recurso remoto).
+     *    usuário nem passa pelo armazenamento (o Dompdf roda sem recurso remoto);
+     *  - `CatalogoDeQuestoesJuridicas` e `DocumentosJuridicosAtuais` (questões jurídicas do Master, 24/10) — leem
+     *    arquivos versionados da APLICAÇÃO (`config/inteligencia/questoes_juridicas.json` e `resources/legal/*`), não
+     *    do usuário; as versões ajustadas que o Master envia vão por chave para o armazenamento.
      */
     private const QUEM_LE_CRU = [
         'src/Cobranca/DTO/ImportarRelatorioInput.php',
         'src/Comercial/Controller/CampanhaDoMasterController.php',
         'src/Command/MapearAcervoCommand.php',
         'src/Command/ParsearAcervoCommand.php',
+        'src/Inteligencia/Juridico/CatalogoDeQuestoesJuridicas.php',
+        'src/Inteligencia/Juridico/DocumentosJuridicosAtuais.php',
         'src/Master/Controller/FontesPublicasController.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
         'src/Shared/Service/GeradorDePdfComDompdf.php',

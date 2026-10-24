@@ -318,6 +318,7 @@ final class NucleoDeArmazenamentoArquiteturaTest extends TestCase
             kanbanUploadsDir: '/raiz/kanban',
             trabalhoExternoUploadsDir: '/raiz/trabalho-externo',
             comercialImagensDir: '/raiz/comercial-imagens',
+            documentosJuridicosDir: '/raiz/documentos-juridicos',
         );
     }
 
