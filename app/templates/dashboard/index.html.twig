@@ -16,6 +16,8 @@
 <link rel="stylesheet" href="{{ asset('css/dashboard-inteligencia.css') }}">
 {# Janelas flutuantes (DASH-020): moram no <body>, fora da região que o XHR troca. #}
 <link rel="stylesheet" href="{{ asset('css/dashboard-janelas.css') }}">
+{# "Zerar" das colunas (DASH-014): menu do botão direito, confirmação, aviso e toast do desenho. #}
+<link rel="stylesheet" href="{{ asset('css/dashboard-zerar.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -27,11 +29,24 @@
    confirmação "Ativar Modo Avançado?" (só na primeira vez).
    `data-perfil-sons`: "Sons de alerta" do Meu Perfil (perfil_sons()); com "0" o calendário do
    dashboard-filtros.js fica mudo, mesmo com `dashboard.sons` ligado. #}
+{# Rótulo de cada coluna que aceita "Zerar" (DASH-014), para o menu do botão direito: as fixas e as
+   métricas extras do catálogo. Montado fora da tag porque a seta de função do Twig quebraria o atributo. #}
+{% set zerarRotulos = {
+    metas: 'dashboard.tabela.total_metas'|trans, metas_ativas: 'dashboard.tabela.metas_ativas'|trans,
+    metas_vencidas: 'dashboard.tabela.metas_vencidas'|trans, prazos: 'dashboard.tabela.prazos_proximos'|trans,
+    demandas: 'dashboard.tabela.total_demandas'|trans, demandas_ativas: 'dashboard.tabela.demandas_ativas'|trans,
+    pastas_criadas: 'dashboard.tabela.pastas_criadas'|trans,
+}|merge(constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO')|map(c => c.rotulo)) %}
 <section class="db-page{{ preferencias.classesCss() != '' ? ' ' ~ preferencias.classesCss() : '' }}"
          data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}"
          data-preferencias="{{ preferencias.paraArray()|json_encode|e('html_attr') }}"
          data-preferencias-endpoint="{{ path('dashboard_preferencias_salvar') }}"
-         data-ia-avancado-escolhido="{{ preferencias.iaAvancadoEscolhido ? 'sim' : 'nao' }}">
+         data-ia-avancado-escolhido="{{ preferencias.iaAvancadoEscolhido ? 'sim' : 'nao' }}"
+         data-db-zerar-pode="{{ podeZerar ? '1' : '0' }}"
+         data-db-zerar-rotulos="{{ zerarRotulos|json_encode|e('html_attr') }}"
+         data-db-zerar-url="{{ path('dashboard_zerar') }}"
+         data-db-zerar-desfazer-url="{{ path('dashboard_zerar_desfazer') }}"
+         data-db-zerar-pedir-url="{{ path('dashboard_zerar_pedir') }}">
     {% set respOpcoes = [] %}
     {% for u in responsaveis %}
         {% set respOpcoes = respOpcoes|merge([{ valor: u.id, label: u.nome }]) %}
@@ -433,6 +448,20 @@
                 </button>
             {% endfor %}
             <div class="db-pref-add-vazio" data-pref-extras-todas{% if prefExtras|length < extrasCatalogo|length %} hidden{% endif %}>{{ 'dashboard.pref.todas_na_tabela'|trans }}</div>
+            {# "Zerar relatório de todos" (desenho: `comZerarTodosOn`): só para quem pode zerar e com a
+               coluna Relatório na tabela (o dashboard-zerar.js acompanha a coluna entrar e sair). #}
+            {% if podeZerar %}
+            <div class="db-pref-zerar-grupo" data-db-zerar-todos-grupo{% if 'relatorio' not in prefExtras %} hidden{% endif %}>
+                <div class="db-pref-div" aria-hidden="true"></div>
+                <button type="button" class="db-pref-item db-pref-zerar" role="menuitem" data-db-zerar-todos="relatorio">
+                    <i class="bi bi-chat-left-text db-pref-zerar-ico" aria-hidden="true"></i>
+                    <span class="db-pref-add-txt">
+                        <span class="db-pref-zerar-rotulo">{{ 'dashboard.pref.zerar_relatorio_todos'|trans }}</span>
+                        <span class="db-pref-add-ajuda">{{ 'dashboard.pref.zerar_relatorio_todos_sub'|trans }}</span>
+                    </span>
+                </button>
+            </div>
+            {% endif %}
 
             <div class="db-pref-div" aria-hidden="true"></div>
             <button type="button" class="db-pref-item db-pref-restaurar" role="menuitem" data-pref-restaurar>
@@ -460,4 +489,6 @@
 <script src="{{ asset('js/dashboard-filtros.js') }}"></script>
 {# Menu ⋮ da tabela Desempenho: move o .db-pref para o cabeçalho da tabela e grava o estilo. #}
 <script src="{{ asset('js/dashboard-preferencias.js') }}"></script>
+{# "Zerar" das colunas (DASH-014): botão direito no cabeçalho ou no número da coluna. #}
+<script src="{{ asset('js/dashboard-zerar.js') }}"></script>
 {% endblock %}

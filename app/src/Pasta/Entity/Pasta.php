@@ -65,6 +65,16 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(length: 20, options: ['default' => self::SITUACAO_ATIVA])]
     private string $situacao = self::SITUACAO_ATIVA;
 
+    /**
+     * Quando a pasta chegou à etapa Finalizada do andamento ("Pastas concluídas" do Dashboard, spec
+     * dashboard-parte-1). Nula fora de Finalizada: voltar de fase ou reativar apaga, finalizar de novo
+     * grava a nova data. Quem mantém é o {@see PastaAndamento::gravar()} da via atual (e a troca de via);
+     * a pasta arquivada sem andamento gravado guarda a data do arquivamento. A situação e a lápide não
+     * mexem nela: a pasta excluída fica fora da contagem pelo excluida_em.
+     */
+    #[ORM\Column(name: 'finalizada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $finalizadaEm = null;
+
     #[ORM\Column(enumType: PrioridadePasta::class, options: ['default' => 'normal'])]
     private PrioridadePasta $prioridade = PrioridadePasta::Normal;
 
@@ -283,6 +293,22 @@ $this->documentos = new ArrayCollection();
     public function setSituacao(string $situacao): self
     {
         $this->situacao = $situacao;
+
+        return $this;
+    }
+
+    public function getFinalizadaEm(): ?\DateTimeImmutable
+    {
+        return $this->finalizadaEm;
+    }
+
+    /** A mesma data (até o segundo, como a coluna guarda) não troca o objeto: nada de UPDATE nem auditoria à toa. */
+    public function setFinalizadaEm(?\DateTimeImmutable $finalizadaEm): self
+    {
+        if ($finalizadaEm?->format('Y-m-d H:i:s') === $this->finalizadaEm?->format('Y-m-d H:i:s')) {
+            return $this;
+        }
+        $this->finalizadaEm = $finalizadaEm;
 
         return $this;
     }

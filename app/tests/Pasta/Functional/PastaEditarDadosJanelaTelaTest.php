@@ -52,7 +52,7 @@ final class PastaEditarDadosJanelaTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#psMenuAcoes > button.ps-pop-item[data-pe-abrir][aria-haspopup="dialog"][aria-controls="modalEditarPasta"][data-ps-atalho="e"]'));
     }
 
-    #[TestDox('Salvar continua igual: o formulário da janela manda os mesmos campos ao pasta_edit e grava número, nome e ação')]
+    #[TestDox('Salvar: o formulário da janela manda número, nome e situação ao pasta_edit e grava; a Ação saiu (só leitura, PZ-MOD-N05)')]
     public function testSalvarPeloFormularioDaJanela(): void
     {
         $client          = static::createClient();
@@ -68,12 +68,11 @@ final class PastaEditarDadosJanelaTelaTest extends JusPrimeWebTestCase
         self::assertSame('/pasta/' . $pastaId . '/editar', parse_url($form->getUri(), PHP_URL_PATH));
         $nomes = array_keys($form->getValues());
         sort($nomes);
-        self::assertSame(['_token', 'nome_acao', 'nome_cliente', 'nup', 'situacao'], $nomes, 'os mesmos names de antes');
+        self::assertSame(['_token', 'nome_cliente', 'nup', 'situacao'], $nomes, 'os names de antes, menos a Ação (só leitura)');
 
         $novoNup = 'JAN-' . strtoupper(uniqid());
         $form['nup']          = $novoNup;
         $form['nome_cliente'] = 'Cliente da Janela';
-        $form['nome_acao']    = 'Ação da Janela';
         $client->submit($form);
 
         self::assertResponseRedirects('/pasta/' . $pastaId);
@@ -82,6 +81,6 @@ final class PastaEditarDadosJanelaTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($gravada);
         self::assertSame($novoNup, $gravada->getNup());
         self::assertSame('CLIENTE DA JANELA', $gravada->getNomeCliente(), 'a entidade grava em maiúsculas, como antes');
-        self::assertSame('AÇÃO DA JANELA', $gravada->getNomeAcao());
+        self::assertNull($gravada->getNomeAcao(), 'a Ação não muda pelo Editar dados');
     }
 }

@@ -74,5 +74,7 @@ final class DashboardOutput
         public readonly ?array $totaisExtrasAnteriores = null,
         /** Quem leva o troféu (mais metas concluídas no período, total menos ativas; spec dashboard-parte-1). Null = ninguém. */
         public readonly ?int   $campeaoId = null,
+        /** @var array<string, array{todos: ?string, pessoas: array<int, string>}> cortes ativos do "Zerar" (CortesDoDashboard::paraTela) */
+        public readonly array  $zeramentos = [],
     ) {}
 }

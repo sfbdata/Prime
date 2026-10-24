@@ -46,6 +46,8 @@ UseCase + functional do controller); (3) só então o resto. Skills por camada: 
 > Onde o desenho é **omisso**, a convenção do sistema manda.
 > **Desviar do desenho aprovado exige perguntar antes**, nunca decidir e entregar.
 
+Método passo a passo, inventário com script e conferência ✓/✗ → skill `desenho-fiel` (carregue antes de qualquer tela com desenho).
+
 Antes: tire tamanhos, cores e espaçamentos do CSS do próprio desenho do Claude Design (`.dc.html`
 em `docs/design/`; valor do documento não é opinião) e use os **componentes do desenho**, nunca os do
 sistema (modal Bootstrap, Select2, cartão/KPI/moldura do AdminLTE); o que o sistema tem e o desenho

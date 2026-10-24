@@ -87,6 +87,12 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-reenviar:hover{text-decoration:underline}
 .lg-entrar{height:46px; border:none; border-radius:6px; background:#0d6efd; color:#fff; font:inherit; font-size:16px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:background .15s, transform .15s}
 .lg-entrar:hover{background:#0b5ed7; transform:translateY(-1px)}
+/* Entrar com o Google (spec entrar-com-google): secundário, de contorno, abaixo do Entrar, com a linha "ou". */
+.lg-ou{display:flex; align-items:center; gap:10px; color:#6c757d; font-size:13px}
+.lg-ou::before,.lg-ou::after{content:""; flex:1; height:1px; background:#dee2e6}
+.lg-google{height:46px; border:1px solid #dadce0; border-radius:6px; background:#fff; color:#3c4043; font-size:15px; font-weight:600; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:10px; transition:background .15s, border-color .15s}
+.lg-google:hover{background:#f8f9fa; border-color:#c6c9cc; color:#3c4043}
+.lg-google:focus-visible{outline:2px solid #0d6efd; outline-offset:2px}
 
 .lg-selo{display:flex; align-items:center; gap:11px; border:1px solid #cfe7d8; border-radius:6px; background:#f3faf5; padding:10px 12px; font:inherit; color:#12242f; cursor:pointer; text-align:left; transition:background .15s}
 .lg-selo:hover{background:#e9f6ee}
@@ -138,6 +144,18 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-md__titulo{display:flex; align-items:center; gap:9px; margin-top:12px; font-size:17px; font-weight:bold}
 .lg-md__corpo{padding:18px 20px 20px; display:flex; flex-direction:column; gap:12px; margin:0}
 .lg-md__passo{display:flex; flex-direction:column; gap:12px}
+/* Criar conta pelo Google/Facebook (desenho 10 VS 24.10.26): botões acima dos campos e o cartão da conta conectada. */
+.lg-soc{display:flex; flex-direction:column; gap:10px}
+.lg-soc__btn{width:100%; height:44px; display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid #d6dde3; border-radius:6px; background:#fff; color:#1f2d36; font:inherit; font-size:14.5px; font-weight:bold; cursor:pointer; transition:background .15s, border-color .15s; text-decoration:none; box-sizing:border-box}
+.lg-soc__btn:hover{background:#f5f8fa; border-color:#b7c3cc; color:#1f2d36}
+.lg-soc__ou{display:flex; align-items:center; gap:10px; font-size:12.5px; color:#7a8e9b; margin:4px 0}
+.lg-soc__ou span{flex:1; height:1px; background:#e3e8ec}
+.lg-socok{display:flex; align-items:center; gap:10px; border:1px solid #cfe3f0; background:#f2f8fc; border-radius:6px; padding:9px 11px}
+.lg-socok__ini{width:34px; height:34px; flex:none; border-radius:50%; background:#0a63c9; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px}
+.lg-socok__txt{flex:1; min-width:0; font-size:13px; line-height:1.35}
+.lg-socok__txt b{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.lg-socok__txt span{color:#4a6373}
+.lg-socok__trocar{border:none; background:none; color:#0a63c9; font:inherit; font-size:12.5px; cursor:pointer; white-space:nowrap}
 .lg-md__texto{font-size:13.5px; color:#34505f; line-height:1.5}
 .lg-md__rotulo{display:flex; flex-direction:column; gap:6px; font-size:13.5px; color:#12242f}
 .lg-md__entrada{height:42px; border:1px solid #d6dde3; border-radius:6px; padding:0 12px; font:inherit; font-size:14.5px; outline:none; width:100%; box-sizing:border-box; color:#12242f; background:#fff}
@@ -231,6 +249,19 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-sup-btn__icone{width:58px; height:58px; flex:none; border-radius:50%; background:#1565c0; color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px}
 .lg-sup-btn:hover, .lg-sup-btn:focus{max-width:260px}
 .lg-sup-btn:hover .lg-sup-btn__texto, .lg-sup-btn:focus .lg-sup-btn__texto{opacity:1}
+
+/* ---------------------------------------------------- tema comemorativo -- */
+/* Desenho 10 VS 24.10.26 (bj-tema.js, css()): com tema ativo (o parcial põe #bjtCss com --bjt-p e --bjt-d), os
+   azuis #0a76a8 e #0a6fa0 viram a cor do tema e os degradês viram 135deg do primário ao escuro. A fita e o CSS dos
+   ícones vêm de /css/tema-comemorativo.css; os ícones, aqui, ocupam a tarja inteira (inset:0 no desenho). */
+html:has(#bjtCss) .lg-tarja,
+html:has(#bjtCss) .lg-md__topo,
+html:has(#bjtCss) .lg-lk__topo,
+html:has(#bjtCss) .lg-sup__topo{background-color:var(--bjt-p); background-image:none}
+html:has(#bjtCss) .lg-seg__topo,
+html:has(#bjtCss) .lg-veu{background-image:linear-gradient(135deg, var(--bjt-p), var(--bjt-d))}
+html:has(#bjtCss) .lg-seg__item-icone{color:var(--bjt-p)}
+.lg-tarja .bjtDeco{height:auto; bottom:0}
 
 /* ------------------------------------------------------- acessibilidade -- */
 .lg-raiz :focus-visible, .lg-camada :focus-visible{outline:2px solid #0a63c9; outline-offset:2px}

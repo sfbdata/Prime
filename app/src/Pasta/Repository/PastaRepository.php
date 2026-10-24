@@ -779,6 +779,12 @@ class PastaRepository extends ServiceEntityRepository
             $qb->andWhere('p.dataAbertura <= :fDataAte')->setParameter('fDataAte', $dataAte);
         }
 
+        // "Zerar" do Dashboard (DASH-014): só as pastas abertas a partir do ponto de corte.
+        $contarDesde = $filtros['contar_desde'] ?? null;
+        if ($contarDesde instanceof \DateTimeImmutable) {
+            $qb->andWhere('p.dataAbertura >= :fContarDesde')->setParameter('fContarDesde', $contarDesde);
+        }
+
         if ($filtrarResponsavel) {
             $resp = (int) ($filtros['responsavel'] ?? 0);
             if ($resp > 0) {

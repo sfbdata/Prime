@@ -1270,7 +1270,7 @@ expediente:
             rotulo: Relatório geral de processos
             voltar_ao_expediente: Voltar ao Expediente
         resumo_para_despacho: Resumo para despacho
-        abertura: Situação das pastas quanto ao processo vinculado em {data}. A BlueJus I.A lê registros, documentos, metas e checklist de cada pasta para indicar onde o cadastro precisa de atenção da Controladoria.
+        abertura: Situação das pastas quanto ao processo vinculado em {data}. O BlueJus confere, por regras, registros, documentos, metas e checklist de cada pasta para indicar onde o cadastro precisa de atenção da Controladoria.
         evolucao:
             titulo: Evolução
             mes: Mês
@@ -1294,7 +1294,7 @@ expediente:
             decisao_anterior: 'Decisão anterior: {decisao} por {por}'
         com_processo_vinculado: Com processo vinculado ({n})
         nota_final:
-            inicio: Classificação gerada pela BlueJus I.A com os dados disponíveis no sistema;
+            inicio: Classificação feita por regras com os dados disponíveis no sistema;
             provavel: Provável
             e: e
             hipotese: Hipótese
@@ -3046,6 +3046,17 @@ dashboard:
         adicionar_coluna: Adicionar coluna
         todas_na_tabela: Todas as colunas disponíveis já estão na tabela.
         restaurar: Restaurar padrão
+        zerar_relatorio_todos: 'Zerar relatório de todos'
+        zerar_relatorio_todos_sub: 'Para uma pessoa: botão direito no nome'
+    zerar:
+        aviso:
+            titulo: 'Pedido para zerar {rotulo}'
+            texto_primario: '{destinatario}, {nome} pediu às {hora} para zerar {rotulo} {alvo} no Dashboard. É um dado estatístico: zerar recomeça a contagem a partir de agora e o histórico anterior deixa de entrar no número. Para autorizar, zere a coluna no Dashboard (botão direito no título dela).'
+            texto_controladoria: '{destinatario}, para sua análise: {nome} pediu para zerar {rotulo} {alvo} no Dashboard. A decisão é do usuário primário; nada foi alterado.'
+            alvo_pessoa: 'de {nome}'
+            alvo_todos: 'de toda a equipe'
+            sem_nome: 'Um colaborador'
+        th_titulo: 'Botão direito: relatório e zerar'
     ia:
         abrir: Abrir BlueJus Intelligence
         ponto_de_atencao: '{n} ponto de atenção'
@@ -3217,6 +3228,44 @@ dashboard:
             quando_trimestre: no trimestre
             quando_semestre: no semestre
             quando_ano: no ano
+        zerar:
+            menu_titulo: '{quem} · {rotulo}'
+            equipe: 'Equipe'
+            toda_a_equipe: 'toda a equipe'
+            contando_desde: 'Contando desde {quando}'
+            contagem_completa: 'Contagem completa do período'
+            ver_relatorio: 'Ver relatório de {nome}'
+            ver_relatorio_sub: 'Abre a lista de {rotulo}'
+            zerar_de: 'Zerar de {nome}'
+            zerar_de_sub: 'Recomeça a contagem só desta pessoa'
+            zerar_equipe: 'Zerar de toda a equipe'
+            zerar_equipe_sub: 'Recomeça a contagem de todos'
+            pedir_de: 'Pedir para zerar de {nome}'
+            pedir_equipe: 'Pedir para zerar de toda a equipe'
+            pedir_sub: 'Vai para o usuário primário e a Controladoria'
+            desfazer: 'Desfazer zeramentos'
+            desfazer_sub: 'Volta a contar desde o início'
+            desfazer_confirmar: 'Desfazer os zeramentos de {rotulo}? O contador volta a mostrar a contagem completa.'
+            sem_permissao: 'Só o usuário primário zera dados estatísticos.'
+            confirmar_aria: 'Confirmar zerar'
+            confirmar_titulo: 'Zerar {rotulo}?'
+            confirmar_texto: 'Você vai zerar {rotulo} de {nome}.'
+            confirmar_aviso: 'É um dado estatístico: a contagem recomeça agora e o histórico anterior deixa de entrar no número. A ação fica registrada e pode ser desfeita depois pelo menu.'
+            cancelar: 'Cancelar'
+            sim_zerar: 'Sim, zerar'
+            negado_aria: 'Sem permissão'
+            negado_titulo: 'Sem permissão para zerar'
+            negado_texto: '{rotulo} de {nome} é um dado estatístico do escritório. Só o usuário primário pode zerar.'
+            negado_enviado: 'Seu pedido foi enviado ao usuário primário e à Controladoria para análise.'
+            negado_enviado_primario: 'Seu pedido foi enviado ao usuário primário para análise.'
+            negado_repetido: 'Você já tinha pedido isso hoje. O pedido continua com o usuário primário e a Controladoria.'
+            negado_repetido_primario: 'Você já tinha pedido isso hoje. O pedido continua com o usuário primário.'
+            entendi: 'Entendi'
+            zerado: '{rotulo} zerado · {nome}'
+            fechar: 'Fechar'
+            erro: 'Não foi possível concluir agora. Tente de novo.'
+            cartao_zerar: 'Zerar'
+            cartao_zerar_titulo: 'Zerar o relatório desta pessoa'
 
 # ---- Agenda (agenda/nova, lista, novo, editar, show; agenda-nova.js)
 agenda:
@@ -4990,7 +5039,7 @@ pasta_push:
             proxima: Próxima etapa provável
             confianca: 'Confiança {conf}'
             base: 'Base: {base}'
-            rodape: 'Previsão da I.A, não é ato oficial. {aprendizado}.'
+            rodape: 'Previsão por regras do CPC, não é ato oficial. {aprendizado}.'
         avisos:
             titulo: Avisar quando chegar
             so_quem_edita: Só quem edita a pasta muda os avisos.
@@ -6515,6 +6564,8 @@ entrada:
         manter_conectado: Manter conectado
         esqueceu: Esqueceu a senha?
         entrar: Entrar
+        ou: ou
+        entrar_google: Entrar com o Google
         selo_texto: O BlueJus não tem acesso aos seus arquivos nem ao conteúdo das pastas.
         sem_conta: Não tem conta?
         criar_conta: Criar minha conta e escritório
@@ -6567,9 +6618,14 @@ entrada:
         senha_alterada: Senha alterada
         senha_alterada_texto: Entre com a nova senha. Por segurança, as outras sessões foram encerradas.
         cadastro_texto: Crie seu escritório digital em 1 minuto. Você entra como usuário primário e depois convida a sua equipe.
+        continuar_google: Continuar com Google
+        continuar_facebook: Continuar com Facebook
+        ou_outro_email: ou com outro e-mail
+        conectado_pelo: '{email} · conectado pelo {provedor}'
+        usar_outro_email: Usar outro e-mail
         nome_completo: Seu nome completo
         escritorio: Nome do escritório
-        escritorio_exemplo: 'Ex.: Silva Advogados Associados'
+        escritorio_exemplo: 'Ex.: BlueJus Advogados Associados'
         genero: Gênero
         genero_escolha: Selecione
         genero_feminino: Feminino
@@ -6622,6 +6678,8 @@ entrada:
         informe_nome: Informe seu nome completo.
         informe_escritorio: Informe o nome do escritório.
         informe_genero: Informe o gênero.
+        facebook_indisponivel: O acesso pelo Facebook ainda não está disponível. Use o Google ou o e-mail.
+        facebook_indisponivel_sem_google: O acesso pelo Facebook ainda não está disponível. Use o e-mail.
         aceite: É preciso aceitar os Termos e a Política de privacidade.
         saudacao:
             bom_dia: Bom dia
@@ -8437,7 +8495,18 @@ pasta_show:
         responsavel: Responsável
         sem_responsavel: Sem responsável
         trocar: Trocar
-        acao: Ação
+        # PZ-MOD-N05 (desenho 02, L.659): a Ação só leitura, com o "Abrir" que leva à aba Processo.
+        acao_do_processo: Ação · vem do menu Processo
+        abrir: Abrir
+        acao_abrir_dica: Fechar e editar a Ação na aba Processo
+        sem_acao: Sem ação informada
+        sem_processo: Sem processo vinculado
+        # PZ-MOD-16 (desenho 02, L.652-653): o CPF/CNPJ do cliente, só leitura, com atalho ao cadastro dele.
+        cpf_cnpj: CPF/CNPJ
+        documento_cadastro: Cadastro
+        documento_dica: Abrir o cadastro do cliente para alterar o documento
+        sem_documento: Cliente sem documento cadastrado
+        sem_cliente_cadastrado: Sem cliente cadastrado
         situacao: Situação
         pendencias: Pendências
         cadastro_cliente_botao: Cadastro do cliente
@@ -9002,6 +9071,7 @@ pasta_cabecalho:
             link_push: Link externo do Push
             imprimir: Imprimir resumo
             preferencias: Preferências
+            acompanhar: Acompanhar alterações
             favoritos: Fixar nos favoritos
             arquivar: Arquivar pasta
             desarquivar: Desarquivar pasta
@@ -9023,6 +9093,23 @@ pasta_cabecalho:
             em: 'Movimentado em {data}'
         nao_vinculado: não vinculado ao cadastro de clientes
         dica_cliente: 'Detalhes: clique com o botão direito'
+        foto:
+            rotulo: Foto do cliente
+            carregar: Carregar foto
+            carregar_nova: Carregar nova foto
+            ajustar: Ajustar foto
+            remover: Remover foto
+            editor_aria: Ajustar foto
+            editor_titulo: Ajustar foto do cliente
+            fechar: Fechar
+            arrastar: Arraste para posicionar
+            dica: 'Arraste para posicionar · role para aproximar'
+            zoom: Zoom
+            girar: Girar
+            girar_dica: 'Girar 90°'
+            trocar: Trocar imagem
+            cancelar: Cancelar
+            salvar: Salvar foto
         ia_dica: 'BlueJus IA: análises desta pasta por agente'
         selo:
             arquivado: ARQUIVADO
@@ -9135,6 +9222,9 @@ pasta_cabecalho:
             restaurar_pergunta: 'Restaurar a pasta {nup}?'
             restaurar: Restaurar
             favoritos_erro: Não foi possível alterar os favoritos.
+            acompanhar_erro: Não foi possível alterar o acompanhamento.
+            acompanhar_ligado: 'Você vai receber no Chat I.A as alterações da pasta {nup}'
+            acompanhar_desligado: 'Você deixou de acompanhar a pasta {nup}'
             erro_comunicacao: Erro de comunicação. Tente novamente.
             carteira_movida: 'Pasta {nup} movida para a carteira {carteira}'
             carteira_erro: Não foi possível mover a pasta de carteira.
@@ -9169,6 +9259,13 @@ pasta_cabecalho:
             documento: Documento
             erro_busca: Não foi possível buscar agora. Tente de novo.
             erro_vincular: Não foi possível vincular o cliente.
+        foto:
+            carregar: Carregar foto
+            carregar_nova: Carregar nova foto
+            salva: Foto do cliente salva
+            removida: Foto removida
+            erro: Não foi possível salvar a foto. Tente de novo.
+            erro_remover: Não foi possível remover a foto. Tente de novo.
 
 edicao_sem_prazo:
     selo:

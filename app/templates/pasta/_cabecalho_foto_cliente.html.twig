@@ -1,0 +1,86 @@
+{# ============================================================================
+   Foto do cliente no cabeçalho da pasta (desenho 02 VS 18.10.26: botão L1255, foto sobreposta
+   L3853, menu L472-482, editor de recorte L483-505).
+
+   A foto é do CLIENTE (`pasta.clientePrincipal`), não da pasta: vale para todas as pastas dele.
+     · sem cliente cadastrado: o ícone de pessoa, inerte (`span`);
+     · quem só VÊ o cliente: a foto (ou o ícone), sem menu;
+     · quem pode EDITAR o cliente, em pasta que aceita escrita (nem lápide, nem cadeado só de
+       visualizar): o círculo é botão e abre o menu e o editor (/js/pasta-foto-cliente.js).
+   Só mostra a foto quem pode ver o cliente; a rota de entrega confere de novo.
+
+   Contexto: `pasta`, `cliente` (pode ser null), `cad` (o cadeado já montado, ou null).
+   ============================================================================ #}
+{% set podeVerCliente = cliente is not null and can_access_resource('cliente', cliente.id, 'view') %}
+{% set cadFoto = cad ?? cadeado_da_pasta(pasta) %}
+{% set podeTrocarFoto = podeVerCliente
+    and can_access_resource('cliente', cliente.id, 'edit')
+    and not pasta.estaExcluida
+    and not (cadFoto and cadFoto.soVer) %}
+{% set fotoUrl = podeVerCliente and cliente.foto
+    ? path('cliente_foto', {id: cliente.id, nome: cliente.foto, v: cliente.fotoAtualizadaEm ? cliente.fotoAtualizadaEm|date('U') : null})
+    : null %}
+
+{% if podeTrocarFoto %}
+    <button type="button" class="ps-cab-cliente-icone ps-cab-foto js-ps-foto"
+            title="{{ 'pasta_cabecalho.cabecalho.foto.rotulo'|trans }}" aria-label="{{ 'pasta_cabecalho.cabecalho.foto.rotulo'|trans }}"
+            aria-haspopup="menu" aria-expanded="false"
+            data-tem-foto="{{ fotoUrl ? '1' : '0' }}"
+            data-token="{{ csrf_token('cliente_foto_' ~ cliente.id) }}"
+            data-url-trocar="{{ path('pasta_cliente_foto_trocar', {id: pasta.id, cliente: cliente.id}) }}"
+            data-url-remover="{{ path('pasta_cliente_foto_remover', {id: pasta.id, cliente: cliente.id}) }}">
+        <i class="bi bi-person-fill" aria-hidden="true"></i>
+        <img class="ps-cab-foto-img" alt=""{% if fotoUrl %} src="{{ fotoUrl }}"{% else %} hidden{% endif %}>
+    </button>
+
+    {# Menu da foto (dc L472-482): o fundo transparente fecha ao clicar fora, como o `ft.fecharMenu`. #}
+    <div class="ps-foto-fundo" data-ps-foto-fundo hidden></div>
+    <div class="ps-foto-menu" role="menu" data-ps-foto-menu hidden>
+        <button type="button" role="menuitem" class="ps-foto-menu-item js-ps-foto-carregar">
+            <i class="bi bi-upload" aria-hidden="true"></i><span class="js-ps-foto-carregar-texto">{{ (fotoUrl ? 'pasta_cabecalho.cabecalho.foto.carregar_nova' : 'pasta_cabecalho.cabecalho.foto.carregar')|trans }}</span>
+        </button>
+        <button type="button" role="menuitem" class="ps-foto-menu-item js-ps-foto-ajustar" data-ps-foto-com-foto{% if not fotoUrl %} hidden{% endif %}>
+            <i class="bi bi-crop" aria-hidden="true"></i><span>{{ 'pasta_cabecalho.cabecalho.foto.ajustar'|trans }}</span>
+        </button>
+        <button type="button" role="menuitem" class="ps-foto-menu-item ps-foto-menu-item--perigo js-ps-foto-remover" data-ps-foto-com-foto{% if not fotoUrl %} hidden{% endif %}>
+            <i class="bi bi-trash3" aria-hidden="true"></i><span>{{ 'pasta_cabecalho.cabecalho.foto.remover'|trans }}</span>
+        </button>
+    </div>
+    <input type="file" accept="image/*" class="ps-foto-arquivo" data-ps-foto-arquivo hidden>
+
+    {# Editor de recorte (dc L483-505): círculo de 240px, arrastar, roda ou faixa para o zoom, girar 90°. #}
+    <div class="ps-foto-editor" data-ps-foto-editor hidden>
+        <div class="ps-foto-editor-janela" role="dialog" aria-modal="true" aria-label="{{ 'pasta_cabecalho.cabecalho.foto.editor_aria'|trans }}">
+            <div class="ps-foto-editor-topo">
+                <i class="bi bi-person-bounding-box" aria-hidden="true"></i>
+                <span class="ps-foto-editor-titulo">{{ 'pasta_cabecalho.cabecalho.foto.editor_titulo'|trans }}</span>
+                <button type="button" class="ps-foto-editor-fechar js-ps-foto-cancelar" aria-label="{{ 'pasta_cabecalho.cabecalho.foto.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="ps-foto-editor-corpo">
+                <div class="ps-foto-editor-circulo js-ps-foto-area" title="{{ 'pasta_cabecalho.cabecalho.foto.arrastar'|trans }}">
+                    <img class="ps-foto-editor-imagem js-ps-foto-imagem" alt="" draggable="false">
+                </div>
+                <span class="ps-foto-editor-dica">{{ 'pasta_cabecalho.cabecalho.foto.dica'|trans }}</span>
+                <div class="ps-foto-editor-zoom">
+                    <i class="bi bi-zoom-out" aria-hidden="true"></i>
+                    <input type="range" min="1" max="3" step="0.01" value="1" class="js-ps-foto-zoom" aria-label="{{ 'pasta_cabecalho.cabecalho.foto.zoom'|trans }}">
+                    <i class="bi bi-zoom-in" aria-hidden="true"></i>
+                    <button type="button" class="ps-foto-editor-girar js-ps-foto-girar" title="{{ 'pasta_cabecalho.cabecalho.foto.girar_dica'|trans }}" aria-label="{{ 'pasta_cabecalho.cabecalho.foto.girar'|trans }}"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+                </div>
+            </div>
+            <div class="ps-foto-editor-rodape">
+                <button type="button" class="ps-foto-editor-btn ps-foto-editor-btn--trocar js-ps-foto-trocar">{{ 'pasta_cabecalho.cabecalho.foto.trocar'|trans }}</button>
+                <button type="button" class="ps-foto-editor-btn ps-foto-editor-btn--cancelar js-ps-foto-cancelar">{{ 'pasta_cabecalho.cabecalho.foto.cancelar'|trans }}</button>
+                <button type="button" class="ps-foto-editor-btn ps-foto-editor-btn--salvar js-ps-foto-salvar">{{ 'pasta_cabecalho.cabecalho.foto.salvar'|trans }}</button>
+            </div>
+        </div>
+    </div>
+    <script src="{{ asset('js/pasta-foto-cliente.js') }}" defer></script>
+{% elseif fotoUrl %}
+    <span class="ps-cab-cliente-icone ps-cab-foto ps-cab-foto--so-ver" aria-hidden="true">
+        <i class="bi bi-person-fill"></i>
+        <img class="ps-cab-foto-img" alt="" src="{{ fotoUrl }}">
+    </span>
+{% else %}
+    <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
+{% endif %}
