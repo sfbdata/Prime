@@ -9,6 +9,8 @@
      troca o tema da página pelo da prévia; vencida, volta ao tema do servidor. Nada vai para o banco.
    - o evento "bj-tema-comemorativo" do card de controle (public/js/master/temas.js): {tema} com o tema novo do
      servidor depois de salvar, ou {} quando a prévia mudou.
+   - na tela de entrada (data-sem-selo, desenho 10 VS 24.10.26): sem selo nem botão redondo; os ícones vão na
+     tarja ([data-bjt-cabecalho]) e o brilho do tema animado em todo logo marcado com data-bjt-logo.
    Nada de innerHTML: createElement + textContent. A chave "bj-tema" do localStorage é do tema escuro e não é usada. */
 (() => {
   'use strict';
@@ -21,6 +23,7 @@
   const catalogo = ler('data-catalogo');
   const reduzidas = raiz.getAttribute('data-reduzidas') === '1';
   const urlCss = raiz.getAttribute('data-css') || '';
+  const semSelo = raiz.getAttribute('data-sem-selo') === '1';
   const hojeLocal = () => new Date().toLocaleDateString('sv-SE');
   let previaAtual = null;
 
@@ -91,11 +94,15 @@
     mini.textContent = t.ic;
     mini.hidden = true;
 
+    if (semSelo) {
+      raiz.after(link, estilo, fita);
+      return;
+    }
     raiz.after(link, estilo, fita, selo, mini);
   }
 
   function decorarCabecalho(t) {
-    const cab = document.getElementById('mainHeader');
+    const cab = document.getElementById('mainHeader') || document.querySelector('[data-bjt-cabecalho]');
     if (!cab || cab.querySelector('.bjtDeco')) return;
     const deco = document.createElement('span');
     deco.className = 'bjtDeco';
@@ -116,7 +123,7 @@
   function ligar(t) {
     decorarCabecalho(t);
     if (t.anim && !reduzidas) {
-      document.querySelectorAll('.navtop-brand-logo').forEach(el => el.classList.add('bjt-logo-anim'));
+      document.querySelectorAll('.navtop-brand-logo, [data-bjt-logo]').forEach(el => el.classList.add('bjt-logo-anim'));
     }
 
     const selo = document.getElementById('bjtSelo');

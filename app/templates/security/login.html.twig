@@ -1,5 +1,6 @@
 {#
-    Tela de entrada: desenho "10 - Login - VS 19.10.26" (spec docs/specs/login-desenho-10.md).
+    Tela de entrada: desenho "10 - Login - VS 24.10.26" (specs docs/specs/login-desenho-10.md e
+    docs/specs/login-desenho-10-24-10.md, o delta da VS 24.10.26).
 
     Página autônoma, sem o base.html.twig: o Master logado também vê esta tela (com as ferramentas
     SÓ MASTER), e o base trocaria a tela do desenho pelo layout do sistema. A tela é sempre clara.
@@ -46,8 +47,8 @@
      {% endif %}>
 
     {# ------------------------------------------------------------------ tarja ---- #}
-    <header class="lg-tarja">
-        <span class="lg-tarja__logo"><img src="/images/logo/bluejus-logo-branco-completo.png" alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
+    <header class="lg-tarja" data-bjt-cabecalho>
+        <span class="lg-tarja__logo"><img src="/images/logo/bluejus-logo-branco-completo.png" data-bjt-logo alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
         <span class="lg-tarja__div" aria-hidden="true"></span>
         {# Frase do dia: o servidor escolhe; cada palavra entra com lgPal, 0,9 s + i × 0,07 s, como no desenho. #}
         <span class="lg-frase" id="lgFrase">{% for p in frase|split(' ') %}<span class="lg-pal" style="animation-delay:{{ '%.2F'|format(0.9 + loop.index0 * 0.07) }}s">{{ p }}{{ loop.last ? '' : ' ' }}</span>{% endfor %}</span>
@@ -70,7 +71,7 @@
         <div class="lg-cartao-caixa" id="lgCartao">
             <form class="lg-cartao" id="lgForm" method="post" action="{{ path('app_login') }}" novalidate>
                 <div class="lg-cartao__topo">
-                    <span class="lg-cartao__logo"><img src="/images/logo/bluejus-logo-cor-completo.png" alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
+                    <span class="lg-cartao__logo"><img src="/images/logo/bluejus-logo-cor-completo.png" data-bjt-logo alt="{{ 'entrada.login.logo_alt'|trans }}"></span>
                     <h1 class="lg-cartao__titulo">{{ 'entrada.login.bem_vindo'|trans }}</h1>
                     <div class="lg-cartao__sub">{{ 'entrada.login.acesse'|trans }}</div>
                 </div>
@@ -137,7 +138,7 @@
             <div class="lg-seg" role="dialog" aria-modal="true" aria-label="{{ 'entrada.seguranca.rotulo'|trans }}">
                 <div class="lg-seg__topo">
                     <button type="button" class="lg-seg__x" data-seg-fechar aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-                    <img class="lg-seg__logo" src="/images/logo/bluejus-logo-branco-completo.png" alt="BlueJus">
+                    <img class="lg-seg__logo" src="/images/logo/bluejus-logo-branco-completo.png" data-bjt-logo alt="BlueJus">
                     <div class="lg-seg__tag"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i>{{ 'entrada.seguranca.tag'|trans }}</div>
                     <div class="lg-seg__titulo">{{ 'entrada.seguranca.titulo'|trans }}</div>
                     <div class="lg-seg__lead">{{ 'entrada.seguranca.lead'|trans }}</div>
@@ -178,7 +179,7 @@
         <div class="lg-centro lg-md-centro">
             <div class="lg-md" role="dialog" aria-modal="true" aria-labelledby="lgMdTit">
                 <div class="lg-md__topo">
-                    <div class="lg-md__barra"><img src="/images/logo/bluejus-logo-branco-completo.png" alt="BlueJus"><span class="lg-mola"></span><button type="button" class="lg-md__x" data-md-fechar aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+                    <div class="lg-md__barra"><img src="/images/logo/bluejus-logo-branco-completo.png" data-bjt-logo alt="BlueJus"><span class="lg-mola"></span><button type="button" class="lg-md__x" data-md-fechar aria-label="{{ 'entrada.login.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
                     <div class="lg-md__titulo" id="lgMdTit"><i class="bi" id="lgMdIc" aria-hidden="true"></i><span id="lgMdTitTxt"></span></div>
                 </div>
                 <form class="lg-md__corpo" id="lgMdForm" novalidate>
@@ -290,5 +291,7 @@
 {{ catalogo_js('entrada.js', 'auth.js.forca') }}
 <script src="{{ asset('js/bj-traducao.js') }}"></script>
 <script src="{{ asset('js/auth/entrada.js') }}" defer></script>
+{# Tema comemorativo (desenho 10 VS 24.10.26, bj-tema.js): cores, fita e ícones na tarja; no login não há selo. #}
+{% include 'layout/_globais/tema_comemorativo.html.twig' with {bjtSemSelo: true} only %}
 </body>
 </html>

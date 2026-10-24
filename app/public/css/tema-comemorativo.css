@@ -127,7 +127,7 @@ html:not(.jp-sem-anim) #bjtFita.bjt-anim { animation: bjtF 6s linear infinite; }
 html:not(.jp-sem-anim) #bjtMini.bjt-anim { animation: bjtB 2.4s ease-in-out infinite; }
 html:not(.jp-sem-anim) #bjtSelo { animation: bjtIn .4s ease both; }
 html:not(.jp-sem-anim) .bjtDeco i { animation: bjtD 5s ease-in-out infinite; }
-html:not(.jp-sem-anim) .navtop-brand-logo.bjt-logo-anim { animation: bjtL 4s linear infinite; }
+html:not(.jp-sem-anim) .bjt-logo-anim { animation: bjtL 4s linear infinite; }
 
 @keyframes bjtF { to { background-position: 200% 0; } }
 @keyframes bjtB { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
@@ -145,5 +145,5 @@ html:not(.jp-sem-anim) .navtop-brand-logo.bjt-logo-anim { animation: bjtL 4s lin
     #bjtMini,
     #bjtSelo,
     .bjtDeco i,
-    .navtop-brand-logo.bjt-logo-anim { animation: none !important; }
+    .bjt-logo-anim { animation: none !important; }
 }
