@@ -232,11 +232,55 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         self::assertSame([[3, 2]], $this->quem());
     }
 
+    #[TestDox('andamento da demanda (D10): solicitante e convidado vigente, um aviso por andamento, sem quem agiu nem Master/Equipe; pendente igual não segura')]
+    public function testAndamentoDaDemanda(): void
+    {
+        $demanda = Apoio::demanda(Situacao::Execucao, $this->escritorio);
+        $quemPediu = $demanda->getCriadoPor();
+        $this->doEscritorio[2][] = $quemPediu;
+        [$revogado, $convidado] = [Apoio::usuario(21), Apoio::usuario(20)];
+        $this->convidarEAceitar($demanda, $revogado);
+        $this->convidarEAceitar($demanda, $convidado);
+        $demanda->retirarAndamentosParaAvisar();
+        $this->avisos()->andamentoDaDemanda($this->ctx($this->master), $demanda);
+        self::assertSame([], $this->criadas, 'sem andamento novo, nada');
+
+        $demanda->registrar(Apoio::autor(), 'Cheguei ao fórum', \App\TrabalhoExterno\Enum\TipoMensagem::Andamento);
+        $this->pendente = true;
+        $this->avisos()->andamentoDaDemanda($this->ctx($this->master), $demanda);
+        self::assertSame([[10, 2], [20, 2]], $this->quem(), 'quem pediu e o convidado vigente (sem escritório: no da demanda); o revogado e o Master não');
+        $codigo = $demanda->getCodigo();
+        self::assertSame(
+            ['trabalho_externo_demanda_andamento', $codigo . ' · Advocacia correspondente presencial', 'Cheguei ao fórum', '/trabalho-externo?te=' . $codigo],
+            [$this->criadas[0]['tipo'], $this->criadas[0]['titulo'], $this->criadas[0]['mensagem'], $this->notificacoes[0]->getUrl()],
+        );
+
+        $this->limpar();
+        $demanda->aplicar(\App\TrabalhoExterno\Enum\AcaoDemanda::EnviarParaValidacao, Apoio::autor(Perfil::Convidado), null);
+        $this->primeiroEscritorio = $this->tenants[5];
+        $this->avisos()->andamentoDaDemanda($this->ctx($convidado, Perfil::Convidado), $demanda);
+        self::assertSame('Andamento: Aguardando validação', $this->criadas[0]['mensagem'], 'a mudança de situação, com o rótulo');
+        self::assertSame([10], array_values(array_unique(array_column($this->criadas, 'u'))), 'quem agiu (o convidado) fica de fora');
+
+        $this->limpar();
+        $demanda->registrar(Apoio::autor(), 'Documento entregue', \App\TrabalhoExterno\Enum\TipoMensagem::Arquivo);
+        $this->avisos()->andamentoDaDemanda($this->ctx($this->master), $demanda);
+        self::assertSame([[10, 2], [20, 5]], $this->quem(), 'o convidado com escritório recebe no primeiro dele');
+
+        $this->limpar();
+        $this->primeiroEscritorio = $this->sede;
+        $this->doEscritorio[2] = [$this->master, $this->solicitante];
+        $demanda->registrar(Apoio::autor(), 'Mais um', \App\TrabalhoExterno\Enum\TipoMensagem::Sistema);
+        $demanda->registrar(Apoio::autor(), 'Conversa comum', \App\TrabalhoExterno\Enum\TipoMensagem::Normal);
+        $this->avisos()->andamentoDaDemanda($this->ctx($this->equipe, Perfil::Equipe), $demanda);
+        self::assertSame([[3, 2]], $this->quem(), 'quem pediu saiu: os Solicitantes; o convidado que é Equipe na sede fica de fora; a mensagem comum não avisa');
+    }
+
     #[TestDox('cada tipo novo tem ícone no sino e grupo, rótulo, ícone e cor na Caixa da Central')]
     public function testTiposNovos(): void
     {
         $tipos = array_filter((new \ReflectionClass(Notificacao::class))->getConstants(), static fn (mixed $v, string $k): bool => str_starts_with($k, 'TIPO_TRABALHO_EXTERNO_'), ARRAY_FILTER_USE_BOTH);
-        self::assertCount(9, $tipos);
+        self::assertCount(10, $tipos);
         foreach ($tipos as $tipo) {
             self::assertLessThanOrEqual(50, strlen($tipo), 'a coluna tipo tem 50 caracteres');
             self::assertNotSame('bi-bell text-secondary', (new Notificacao())->setTipo($tipo)->getIcone(), $tipo);
@@ -244,6 +288,14 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
             self::assertSame('atencao', $mapa['grupo'], $tipo);
             self::assertNotSame('Aviso', $mapa['rotulo'], $tipo);
         }
+        self::assertSame('Abrir a demanda', (new TiposDeAvisoDaCentral())->acao(Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO), 'a ação do desenho (`avisarPartes`)');
+    }
+
+    private function convidarEAceitar(\App\TrabalhoExterno\Entity\DemandaExterna $demanda, User $pessoa): void
+    {
+        $convite = new ConviteDemanda($demanda, 'Convidado ' . $pessoa->getId(), (string) $pessoa->getEmail(), null, new \DateTimeImmutable('+30 days'), str_repeat('a', 64), [], Apoio::autor());
+        $demanda->convidar($convite, Apoio::autor());
+        $convite->aceitar($pessoa, new \DateTimeImmutable('today'));
     }
 
     private function avisos(): AvisosDoTrabalhoExterno

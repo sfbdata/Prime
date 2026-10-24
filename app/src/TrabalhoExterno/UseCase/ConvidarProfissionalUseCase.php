@@ -9,6 +9,7 @@ use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\GuardaDeConvites;
 use App\TrabalhoExterno\Service\TrabalhoExternoMailer;
@@ -28,6 +29,7 @@ final class ConvidarProfissionalUseCase
         private readonly GuardaDeConvites $guarda,
         private readonly DemandaExternaRepository $repositorio,
         private readonly TrabalhoExternoMailer $mailer,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -59,6 +61,7 @@ final class ConvidarProfissionalUseCase
         $token = bin2hex(random_bytes(32));
         $convite = new ConviteDemanda($demanda, $nome, $email, $funcao !== '' ? $funcao : null, $validade, ConviteDemanda::hashDoToken($token), $permissoes, $ctx->autor());
         $demanda->convidar($convite, $ctx->autor());
+        $this->avisos->andamentoDaDemanda($ctx, $demanda);
         $this->repositorio->salvar($demanda, flush: true);
 
         try {

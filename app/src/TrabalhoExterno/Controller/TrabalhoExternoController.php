@@ -14,6 +14,7 @@ use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
+use App\TrabalhoExterno\UseCase\ListarAndamentosRecebidosUseCase;
 use App\TrabalhoExterno\UseCase\MontarPainelUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -72,6 +73,22 @@ final class TrabalhoExternoController extends AbstractController
         return $this->responder(fn (): array => ['painel' => $como !== null
             ? $this->montarPainel->executarPrevia($ctx, $como)
             : $this->montarPainel->executar($ctx)]);
+    }
+
+    /**
+     * Os avisos de andamento que chegaram para quem está com a tela aberta (D10 do desenho 24.10.26): sem
+     * `desde`, só o cursor; com `desde`, os novos. A tela toca e mostra "Andamento · {ID}".
+     */
+    #[Route('/api/andamentos', name: 'trabalho_externo_andamentos', methods: ['GET'])]
+    public function andamentos(Request $request, ListarAndamentosRecebidosUseCase $listar): JsonResponse
+    {
+        $ctx = $this->contextoOuNulo();
+        if ($ctx === null) {
+            return $this->semAcesso();
+        }
+        $desde = $request->query->get('desde');
+
+        return $this->responder(static fn (): array => $listar->executar($ctx, is_string($desde) && ctype_digit($desde) ? (int) $desde : null));
     }
 
     #[Route('/api/demandas/{codigo}', name: 'trabalho_externo_detalhe', methods: ['GET'], requirements: ['codigo' => 'TE-\d{1,9}'])]

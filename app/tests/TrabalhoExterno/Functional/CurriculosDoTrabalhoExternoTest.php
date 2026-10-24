@@ -217,6 +217,7 @@ final class CurriculosDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('<h1>Ana Souza</h1>', $html);
         self::assertStringContainsString('Advogada | Professora', $html);
         self::assertStringContainsString('2019 a Atual', $html);
+        self::assertStringContainsString('@media screen{html,body{overflow-x:hidden;margin:0}.pg{width:100%;max-width:210mm;min-height:0;aspect-ratio:210/297;margin:0 auto}}@media screen and (max-width:640px){.pg{grid-template-columns:1fr}.sd{padding:8mm 6mm}.mn{padding:8mm 6mm}.hd h1{font-size:18pt}}@media print', $html, 'D7: a folha cabe no iframe da prévia');
         self::assertStringContainsString("default-src 'none'", (string) $this->client->getResponse()->headers->get('Content-Security-Policy'));
 
         $this->client->request('GET', $cv['pdfUrl']);
@@ -228,6 +229,42 @@ final class CurriculosDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('Nome &lt;b&gt;Novo&lt;/b&gt;', (string) $this->client->getResponse()->getContent());
         self::assertSame('Ana Souza', $this->lista()['meu']['nome'], 'a pré-visualização não grava');
+    }
+
+    #[TestDox('Word (D5): o dono baixa o MESMO documento com BOM, como application/msword e "Currículo - {nome}.doc"; outro usuário baixa só o dele; sem currículo e o Master: 404')]
+    public function testWordDoMeuCurriculo(): void
+    {
+        [$sede, $a, $b] = [$this->criarTenant('Sede'), $this->criarTenant('A'), $this->criarTenant('B')];
+        $master = $this->criarMaster($sede);
+        [$doA, $doB] = [$this->criarUsuario($a), $this->criarUsuario($b)];
+        $this->logarComTenant($this->client, $doA, $a);
+        $this->postarJson($this->client, self::API . '/meu', self::curriculo());
+
+        $this->client->request('GET', '/trabalho-externo/curriculos/meu/word');
+        self::assertResponseIsSuccessful();
+        $resposta = $this->client->getResponse();
+        $conteudo = (string) $resposta->getContent();
+        self::assertStringStartsWith("\u{FEFF}<!doctype html>", $conteudo, 'BOM e o HTML do documento');
+        self::assertStringContainsString('<h1>Ana Souza</h1>', $conteudo);
+        self::assertStringContainsString('@media screen and (max-width:640px)', $conteudo, 'o documento da tela (D7)');
+        self::assertSame('application/msword', $resposta->headers->get('Content-Type'));
+        $disposicao = (string) $resposta->headers->get('Content-Disposition');
+        self::assertStringStartsWith('attachment', $disposicao);
+        self::assertStringContainsString("filename*=utf-8''Curr%C3%ADculo%20-%20Ana%20Souza.doc", $disposicao);
+        self::assertStringContainsString('filename="Curriculo - Ana Souza.doc"', $disposicao);
+
+        $this->logarComTenant($this->client, $doB, $b);
+        $this->client->request('GET', '/trabalho-externo/curriculos/meu/word');
+        self::assertResponseStatusCodeSame(404, 'sem currículo próprio, nada (o de outra pessoa não sai)');
+        $this->postarJson($this->client, self::API . '/meu', ['nome' => 'Bruno Lima'] + self::curriculo());
+        $this->client->request('GET', '/trabalho-externo/curriculos/meu/word');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('<h1>Bruno Lima</h1>', (string) $this->client->getResponse()->getContent());
+        self::assertStringNotContainsString('Ana Souza', (string) $this->client->getResponse()->getContent());
+
+        $this->logarComTenant($this->client, $master, $sede);
+        $this->client->request('GET', '/trabalho-externo/curriculos/meu/word?como=solicitante');
+        self::assertResponseStatusCodeSame(404, 'o Master não tem "Meu currículo", nem pela prévia');
     }
 
     protected function setUp(): void

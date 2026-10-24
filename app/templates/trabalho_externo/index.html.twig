@@ -71,6 +71,10 @@
      data-url-curriculo-nota="{{ path('trabalho_externo_curriculo_nota', {codigo: 'CV-0'}) }}"
      data-url-curriculos-marcacoes="{{ path('trabalho_externo_curriculos_marcacoes') }}"
      data-url-curriculo-previa="{{ path('trabalho_externo_curriculo_previa') }}"
+     data-url-curriculo-word="{{ path('trabalho_externo_curriculo_word') }}"
+     data-url-andamentos="{{ path('trabalho_externo_andamentos') }}"
+     {#- "Sons de alerta" do Meu Perfil (perfil_sons()): com "0" o toque do andamento (D10 do desenho 24.10.26) não soa. #}
+     data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}"
      data-url-curriculos-csv="{{ path('trabalho_externo_curriculos_csv') }}"
      data-url-curriculos-painel="{{ path('trabalho_externo_curriculos_painel') }}"
      data-url-alertas-csv="{{ path('trabalho_externo_alertas_csv') }}"
@@ -161,6 +165,8 @@
     <div id="teToast"></div>
     <div id="teDesfazer"></div>
     <div id="teVagaModal"></div>
+    {# Animação depois de enviar a solicitação (desenho 06 de 24/10, l.737 a 767). #}
+    <div id="teEnvio"></div>
 </div>
 {% endblock %}
 

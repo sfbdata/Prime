@@ -448,6 +448,12 @@
         // Configuração das vagas e a campanha por e-mail (desenho, l.1265; campanha na spec §4.10).
         if (veVagas() && vgMaster() && cfgVagas()) {
             sec('VAGAS E CURRÍCULOS');
+            // D12 (desenho 06 de 24/10, l.1340): liga e desliga o `vagas.sino` direto do menu.
+            var sino = cfgVagas().sino !== false;
+            item(sino ? 'Alertas de vagas ativados' : 'Alertas de vagas desativados', sino ? 'bi-bell' : 'bi-bell-slash', sino, function () {
+                fecharHm();
+                alternarAlertasDeVagas(!sino);
+            });
             item('Ofertas, avisos e mensagens…', 'bi-sliders', false, function () { fecharHm(); abrirCfgVagas(); });
             item('Campanha por e-mail…', 'bi-envelope-paper', false, function () { fecharHm(); abrirCampanha(); });
         }
@@ -460,6 +466,29 @@
         });
 
         return menu;
+    }
+
+    /** Grava o `vagas.sino` e mostra o título do novo estado (`hmItens`, l.1340); recusado, volta e avisa. */
+    function alternarAlertasDeVagas(ligar) {
+        var c = cfgVagas();
+        if (!c || !vgMaster() || !podeEscreverVaga()) {
+            return;
+        }
+        var antes = c.sino;
+        c.sino = ligar;
+        pedir('POST', D.urlConfiguracao, { vagas: { sino: ligar } }).then(function (r) {
+            if (!r.ok) {
+                var atual = cfgVagas();
+                if (atual) {
+                    atual.sino = antes;
+                }
+                toastErro(r.mensagem);
+                return;
+            }
+            mostrarToast(ligar
+                ? { tit: 'Alertas de vagas ativados', txt: 'Os usuários voltam a receber o sininho e o aviso de vaga nova.', hora: '' }
+                : { tit: 'Alertas de vagas desativados', txt: 'Ninguém recebe o sininho nem o aviso de vaga nova até você ativar de novo.', hora: '' });
+        });
     }
 
     function copiar(texto) {
@@ -1765,7 +1794,7 @@
         if (!pv && visiveis.length) {
             var todas = S.chatSel.length === visiveis.length;
             barra.appendChild(el('button', {
-                type: 'button', class: 'te-chat-todas', title: todas ? 'Limpar seleção' : 'Selecionar todas',
+                type: 'button', class: 'te-chat-todas', title: todas ? 'Desmarcar todas' : 'Selecionar todas',
                 onclick: function () {
                     S.chatSel = todas ? [] : visiveis.map(function (m) { return m.id; });
                     redesenharChat();
@@ -2347,14 +2376,208 @@
                 mostrarErroNova();
                 return;
             }
+            var nf = N.nf || {};
             fecharNova();
-            if (r.aviso) {
+            // Enviar: a animação do desenho 06 de 24/10 (l.737 a 767) no lugar do toast "Solicitação enviada".
+            // O rascunho continua com o "Rascunho salvo".
+            if (enviar && r.codigo) {
+                abrirEnvio({ id: r.codigo, cid: nf.cidadeExecucao || '', uf: nf.ufExecucao || '', serv: nf.tipoServico || 'Trabalho externo' });
+            } else if (r.aviso) {
                 mostrarToast({ tit: r.aviso.titulo, txt: r.aviso.texto, hora: '' });
             }
             if (S.aberta && S.aberta === N.rascId) {
                 abrir(S.aberta, S.aba);
             }
             recarregarPainel();
+        });
+    }
+
+    /* ---------------------------------------------------------------- animação depois de enviar (D9) */
+
+    var temporizadoresEnvio = [];
+
+    /**
+     * Sons do envio (`envSom`, desenho 06 de 24/10, l.886 a 889): "busca" (dois toques curtos) e "ok" (três
+     * notas), com eco. Respeitam os "Sons de alerta" do Meu Perfil, como o resto do sistema.
+     */
+    function somDoEnvio(t) {
+        if (!perfilComSons()) {
+            return;
+        }
+        try {
+            var A = audioDaTela(), now = A.currentTime;
+            var out = A.createGain(); out.gain.value = 0.9;
+            var dl = A.createDelay(); dl.delayTime.value = 0.18;
+            var fb = A.createGain(); fb.gain.value = 0.22;
+            dl.connect(fb); fb.connect(dl); out.connect(A.destination); out.connect(dl); dl.connect(A.destination);
+            var nota = function (f, t0, d, v, tipo) {
+                var o = A.createOscillator(), o2 = A.createOscillator(), g = A.createGain(), lp = A.createBiquadFilter(), g2 = A.createGain();
+                lp.type = 'lowpass'; lp.frequency.value = 2600;
+                o.type = tipo || 'sine'; o2.type = 'sine';
+                o.frequency.setValueAtTime(f, now + t0); o2.frequency.setValueAtTime(f * 2, now + t0);
+                g.gain.setValueAtTime(0, now + t0);
+                g.gain.linearRampToValueAtTime(v, now + t0 + 0.012);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + t0 + d);
+                g2.gain.value = 0.18;
+                o.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp); lp.connect(out);
+                o.start(now + t0); o2.start(now + t0); o.stop(now + t0 + d + 0.05); o2.stop(now + t0 + d + 0.05);
+            };
+            if (t === 'ok') {
+                nota(783.99, 0, 0.5, 0.22, 'triangle'); nota(1174.66, 0.11, 0.55, 0.2, 'triangle'); nota(1567.98, 0.22, 0.9, 0.16, 'triangle');
+            } else {
+                nota(987.77, 0, 0.32, 0.09); nota(1318.51, 0.09, 0.4, 0.07);
+            }
+        } catch (e) { /* navegador sem áudio ou bloqueado: segue só a animação */ }
+    }
+
+    /** Fases (`criar`, l.900): `busca` na hora, `parc` em 2300 ms, `ok` em 5200 ms, cada uma com o seu som. */
+    function abrirEnvio(fx) {
+        fecharEnvio();
+        S.envFx = { fase: 'busca', id: fx.id, cid: fx.cid, uf: fx.uf, serv: fx.serv };
+        somDoEnvio('busca');
+        renderEnvio();
+        temporizadoresEnvio.push(setTimeout(function () {
+            if (S.envFx) { S.envFx.fase = 'parc'; renderEnvio(); somDoEnvio('busca'); }
+        }, 2300));
+        temporizadoresEnvio.push(setTimeout(function () {
+            if (S.envFx) { S.envFx.fase = 'ok'; renderEnvio(); somDoEnvio('ok'); }
+        }, 5200));
+    }
+
+    /** O fundo, o "x" e o "Fechar" fecham e cancelam os temporizadores (`envFechar`). */
+    function fecharEnvio() {
+        temporizadoresEnvio.forEach(clearTimeout);
+        temporizadoresEnvio = [];
+        S.envFx = null;
+        limpar($('teEnvio'));
+    }
+
+    /**
+     * O mapa por baixo da animação (`envMapaQ`, l.740) aguarda a decisão P2 do dono (Google, OpenStreetMap ou
+     * sem mapa). Até lá, nada de terceiro: o diálogo fica no fundo #dfe7ec do desenho. Para ligar, devolva aqui
+     * o elemento do mapa (iframe com `class: 'te-env-mapa'`, já posicionado no CSS) a partir de `fx.cid`/`fx.uf`.
+     */
+    function mapaDoEnvio() {
+        return null;
+    }
+
+    function renderEnvio() {
+        var fx = S.envFx, alvo = limpar($('teEnvio'));
+        if (!fx) {
+            return;
+        }
+        var ponto = function (atraso) { return el('span', { class: 'te-env-pt', style: { 'animation-delay': atraso } }, '.'); };
+        var dialogo = el('div', { class: 'te-env', attrs: { role: 'dialog', 'aria-modal': 'true' } }, [
+            mapaDoEnvio(fx),
+            el('button', { type: 'button', class: 'te-env-fechar', title: 'Fechar', attrs: { 'aria-label': 'Fechar' }, onclick: fecharEnvio }, ic('bi-x-lg')),
+            el('span', { class: 'te-env-veu' })
+        ]);
+        if (fx.fase === 'busca' || fx.fase === 'parc') {
+            var parc = fx.fase === 'parc';
+            var lugar = (fx.cid || 'sua cidade') + (fx.uf ? ' · ' + fx.uf : '');
+            dialogo.appendChild(el('div', { class: 'te-env-radar' }, [
+                el('span', { class: 'te-env-onda' }),
+                el('span', { class: 'te-env-onda', style: { 'animation-delay': '.6s' } }),
+                el('span', { class: 'te-env-onda', style: { 'animation-delay': '1.2s' } }),
+                el('span', { class: 'te-env-alvo' })
+            ]));
+            dialogo.appendChild(el('div', { class: 'te-env-rodape' }, [
+                el('div', { class: 'te-env-trilho' }, el('span', { class: 'te-env-barra' })),
+                parc ? el('div', { class: 'te-env-parcs' }, [
+                    el('span', { class: 'te-env-parc', style: { background: '#e5f1f7' } }),
+                    el('span', { class: 'te-env-parc', style: { background: '#d6e8f3', 'animation-delay': '.2s' } }),
+                    el('span', { class: 'te-env-parc', style: { background: '#c6deee', 'animation-delay': '.4s' } })
+                ]) : null,
+                el('b', { class: 'te-env-tit' }, [
+                    parc ? 'Procurando parceiro' : 'Localizando correspondentes em ' + lugar,
+                    el('span', { class: 'te-env-pts' }, [ponto('0s'), ponto('.3s'), ponto('.6s')])
+                ]),
+                el('span', { class: 'te-env-sub', text: parc
+                    ? 'Verificando quem atende ' + (fx.serv || 'o serviço') + ' na região…'
+                    : 'Enviando ' + (fx.serv || '') + ' para a Central BlueJus…' })
+            ]));
+        } else {
+            dialogo.appendChild(el('div', { class: 'te-env-ok' }, ic('bi-check-lg')));
+            dialogo.appendChild(el('div', { class: 'te-env-final' }, [
+                el('b', { class: 'te-env-final-tit', text: 'Solicitação recebida e em análise' }),
+                el('span', { class: 'te-env-final-txt', text: fx.id + ' chegou à Central BlueJus. Você recebe um aviso assim que a proposta estiver pronta.' }),
+                el('div', { class: 'te-env-final-botoes' }, [
+                    el('button', { type: 'button', class: 'te-env-btn', text: 'Fechar', onclick: fecharEnvio }),
+                    el('button', { type: 'button', class: 'te-env-btn is-pri', text: 'Acompanhar solicitação', onclick: function () {
+                        var id = S.envFx && S.envFx.id;
+                        fecharEnvio();
+                        if (id) { abrir(id); }
+                    } })
+                ])
+            ]));
+        }
+        alvo.appendChild(el('div', { class: 'te-env-fundo', onclick: fecharEnvio }));
+        alvo.appendChild(el('div', { class: 'te-env-pos' }, dialogo));
+    }
+
+    /* ---------------------------------------------------------------- som e aviso do andamento (D10) */
+
+    var audioTela = null;
+
+    function audioDaTela() {
+        audioTela = audioTela || new (window.AudioContext || window.webkitAudioContext)();
+        if (audioTela.state === 'suspended') {
+            audioTela.resume().catch(function () { /* sem gesto do usuário ainda */ });
+        }
+        return audioTela;
+    }
+
+    /** "Sons de alerta" do Meu Perfil (`perfil.sons`, no servidor): com "0", nenhum som nesta tela. */
+    function perfilComSons() {
+        return D.perfilSons !== '0';
+    }
+
+    /** `tocarAlerta` (l.809): triangular 880 Hz em 0 s e 1174,66 Hz em 0,13 s, ganho 0,18 em 15 ms, queda até 0,45 s. */
+    function tocarAlerta() {
+        if (!perfilComSons()) {
+            return;
+        }
+        try {
+            var A = audioDaTela(), now = A.currentTime;
+            [[880, 0], [1174.66, 0.13]].forEach(function (n) {
+                var o = A.createOscillator(), g = A.createGain(), t0 = n[1];
+                o.type = 'triangle';
+                o.frequency.value = n[0];
+                g.gain.setValueAtTime(0, now + t0);
+                g.gain.linearRampToValueAtTime(0.18, now + t0 + 0.015);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + t0 + 0.45);
+                o.connect(g);
+                g.connect(A.destination);
+                o.start(now + t0);
+                o.stop(now + t0 + 0.5);
+            });
+        } catch (e) { /* navegador bloqueou o áudio: fica só o aviso */ }
+    }
+
+    var ANDAMENTOS_MS = 20000, cursorDeAndamentos = null, pedindoAndamentos = false;
+
+    /**
+     * Andamento novo numa demanda de que a pessoa é parte (o `storage` do protótipo, l.1423): a tela pergunta ao
+     * servidor de tempos em tempos, com a aba à vista, e mostra o mais novo: toque e "Andamento · {ID}" (texto até
+     * 110, hora HH:MM, "Abrir conversa"). Só para quem é de fora da Central: Master e Equipe não recebem.
+     */
+    function conferirAndamentos() {
+        if (pedindoAndamentos || vazio(D.urlAndamentos) || S.como || !ehExterno() || document.hidden) {
+            return;
+        }
+        pedindoAndamentos = true;
+        pedir('GET', D.urlAndamentos + (cursorDeAndamentos !== null ? '?desde=' + cursorDeAndamentos : '')).then(function (r) {
+            pedindoAndamentos = false;
+            if (!r.ok) {
+                return;
+            }
+            cursorDeAndamentos = typeof r.cursor === 'number' ? r.cursor : cursorDeAndamentos;
+            var lista = Array.isArray(r.andamentos) ? r.andamentos : [], ultimo = lista[lista.length - 1];
+            if (!ultimo) {
+                return;
+            }
+            tocarAlerta();
+            mostrarToast({ id: ultimo.codigo, tit: 'Andamento · ' + ultimo.codigo, txt: String(ultimo.texto || '').slice(0, 110), hora: ultimo.hora || '' });
         });
     }
 
@@ -3592,6 +3815,9 @@
                 if (bx) {
                     botoes.push(bx);
                 }
+            } else {
+                // D11a (desenho 06 de 24/10, l.1169): a vaga própria aberta, para o externo; só fecha.
+                botoes.push(botaoTlm('Sua vaga · acompanhe os candidatos acima', 'bi-people', 'pri', fecharTlm));
             }
         }
         modalVaga({ icone: 'bi-briefcase', titulo: v.titulo || 'Vaga', largura: '720px', corpo: corpo, botoes: botoes });
@@ -5893,7 +6119,10 @@
 
     /* ---------------------------------------------------------------- "Meu currículo" do externo */
 
-    /** Cartão "Meu currículo" (l.214 a 221; `cvItem`, l.999; percentual l.1013, 1014 e 1108) e "Minhas candidaturas". */
+    /**
+     * "Meu currículo" compacto e "Prévia do currículo" (desenho 06 de 24/10, l.221 a 239; `cvPct`/`cvFalta`, l.1182;
+     * `mcPdf`/`mcWord`, l.1227) e, até a decisão P1 do dono, o cartão "Minhas candidaturas" depois deles.
+     */
     function renderMeuCv() {
         var alvo = limpar($('teCvMeu')), m = S.cv.meu, escreve = podeEscreverCv();
         var botaoCard = function (rot, icone, acao) { return el('button', { type: 'button', class: 'te-cv-card-btn', onclick: acao }, [ic(icone), rot]); };
@@ -5901,43 +6130,86 @@
         if (!m) {
             conteudo = el('div', { class: 'te-cv-card-vazio' }, [
                 el('div', { class: 'te-cv-card-vazio-txt', text: 'Cadastre seu currículo uma vez e use para se candidatar às vagas publicadas na Central.' }),
-                escreve ? el('button', { type: 'button', class: 'te-cv-cadastrar', onclick: abrirFormCv }, [ic('bi-plus-lg'), 'Cadastrar currículo']) : null
+                escreve ? el('button', { type: 'button', class: 'te-cv-cadastrar', onclick: abrirFormCv }, [ic('bi-plus-lg'), ' Cadastrar currículo']) : null
             ]);
         } else {
             var P = m.percentual || {}, n = Math.max(0, Math.min(100, parseInt(P.pct, 10) || 0));
             var cor = P.cor || (n >= 90 ? '#1e7b45' : n >= 60 ? '#0a6fa0' : '#c76a12');
             var faltas = P.faltas || m.faltas || [];
-            var arq = (m.arquivos || {}).curriculo;
+            var linha = [m.cargo || '', m.oabTxt || m.oab || ''].filter(function (t) { return !vazio(t); }).join(' · ');
             conteudo = el('div', { class: 'te-cv-meu' }, [
                 el('div', { class: 'te-cv-meu-topo' }, [
                     avatarCv(m, ' is-52'),
-                    el('div', { class: 'te-min0' }, [el('b', { class: 'te-cv-meu-nome', text: m.nome || '' }), botaoInsta(m.insta, ' is-bloco')])
+                    el('span', { class: 'te-min0' }, [el('b', { class: 'te-cv-meu-nome', text: m.nome || '' }), el('span', { class: 'te-cv-meu-linha', text: linha })])
                 ]),
-                dadoCv('bi-person-badge', m.cargo || 'Cargo não informado'),
-                dadoCv('bi-award', m.oabTxt || m.oab || ''),
-                dadoCv('bi-geo-alt', m.local || ''),
-                dadoCv('bi-bookmark', (m.areas || []).join(', ') || 'Áreas não informadas'),
-                dadoCv('bi-cash-coin', m.pretensao || 'Pretensão não informada'),
-                dadoCv('bi-heart', m.volTxt || ''),
-                arq && !vazio(arq.nome) ? dadoCv('bi-paperclip', arq.nome) : null,
-                el('span', { class: 'te-cv-em', text: 'Atualizado em ' + (m.atualizado || '') }),
                 el('div', { class: 'te-cv-pct' }, [
                     el('div', { class: 'te-cv-pct-cab' }, [el('b', { text: 'Currículo completo' }), el('b', { style: { color: cor }, text: n + '%' })]),
                     el('div', { class: 'te-cv-pct-trilho' }, el('div', { class: 'te-cv-pct-barra', style: { width: n + '%', background: cor } })),
-                    faltas.length ? el('div', { class: 'te-cv-falta', text: 'Complete: ' + faltas.join(', ') }) : null
+                    faltas.length ? el('div', { class: 'te-cv-falta', text: 'Falta: ' + faltas.join(', ') }) : null
                 ])
             ]);
         }
-        alvo.appendChild(el('div', { class: 'te-cv-card' }, [
+        alvo.appendChild(el('div', { class: 'te-cv-card', attrs: { 'data-screen-label': 'Meu currículo' } }, [
             el('div', { class: 'te-cv-card-cab' }, [
                 ic('bi-person-vcard'),
                 el('b', { text: 'Meu currículo' }),
-                m ? botaoCard('Ver e baixar', 'bi-file-earmark-pdf', function () { verCvDe(m, false); }) : null,
-                m && escreve ? botaoCard('Editar', 'bi-pencil', abrirFormCv) : null
+                m ? el('span', { class: 'te-cv-card-acoes' }, [
+                    escreve ? botaoCard('Editar', 'bi-pencil', abrirFormCv) : null,
+                    botaoCard('Word', 'bi-file-earmark-word', function () { baixar(D.urlCurriculoWord); })
+                ]) : null
             ]),
             conteudo
         ]));
+        alvo.appendChild(cartaoPreviaCv(m));
         alvo.appendChild(cartaoMinhas());
+    }
+
+    /** "Prévia do currículo" (l.232 a 239): o documento salvo no iframe, ou o esqueleto A4 sem currículo. */
+    function cartaoPreviaCv(m) {
+        var corpo;
+        if (m) {
+            var quadro = el('iframe', { class: 'te-cv-prev-doc', title: 'Meu currículo', attrs: { sandbox: 'allow-same-origin' } });
+            var chave = (m.codigo || '') + '|' + (m.atualizadoEm || '');
+            if (S.cvPrevia && S.cvPrevia.chave === chave) {
+                quadro.srcdoc = S.cvPrevia.html;
+            } else if (!vazio(m.documentoUrl)) {
+                pedirHtml('GET', comComo(m.documentoUrl)).then(function (r) {
+                    if (r.ok) {
+                        S.cvPrevia = { chave: chave, html: r.html };
+                        quadro.srcdoc = r.html;
+                    }
+                });
+            }
+            corpo = el('div', { class: 'te-cv-prev-corpo' }, quadro);
+        } else {
+            var barra = function (h, w, fundo, extra) { return el('span', { class: 'te-cv-prev-barra', style: Object.assign({ height: h, width: w, background: fundo }, extra || {}) }); };
+            corpo = el('div', { class: 'te-cv-prev-corpo is-vazio' }, [
+                el('div', { class: 'te-cv-prev-a4', attrs: { 'aria-hidden': 'true' } }, [
+                    el('div', { class: 'te-cv-prev-lado' }, [
+                        el('span', { class: 'te-cv-prev-foto' }),
+                        barra('6px', '80%', 'rgba(255,255,255,.35)'), barra('6px', '70%', 'rgba(255,255,255,.25)'), barra('6px', '75%', 'rgba(255,255,255,.25)'),
+                        el('span', { class: 'te-cv-prev-esp', style: { height: '14px' } }),
+                        barra('6px', '60%', 'rgba(255,255,255,.35)'), barra('6px', '80%', 'rgba(255,255,255,.25)')
+                    ]),
+                    el('div', { class: 'te-cv-prev-main' }, [
+                        barra('14px', '70%', '#c9d6df'), barra('8px', '45%', '#9fc3d8'),
+                        el('span', { class: 'te-cv-prev-linha' }),
+                        barra('7px', '35%', '#9fc3d8'), barra('8px', '100%', '#e3e9ee'), barra('8px', '92%', '#e3e9ee'), barra('8px', '96%', '#e3e9ee'),
+                        el('span', { class: 'te-cv-prev-esp', style: { height: '10px', display: 'block' } }),
+                        barra('7px', '35%', '#9fc3d8'), barra('8px', '85%', '#e3e9ee'), barra('8px', '90%', '#e3e9ee'), barra('8px', '70%', '#e3e9ee')
+                    ])
+                ]),
+                el('span', { class: 'te-cv-prev-vazio', text: 'Cadastre seu currículo para vê-lo formatado aqui.' })
+            ]);
+        }
+        return el('div', { class: 'te-cv-prev', attrs: { 'data-screen-label': 'Meu currículo formatado' } }, [
+            el('div', { class: 'te-cv-prev-cab' }, [
+                ic('bi-file-earmark-person'),
+                el('b', { text: 'Prévia do currículo' }),
+                m && !vazio(m.pdfUrl) ? el('button', { type: 'button', class: 'te-cv-prev-pdf', onclick: function () { baixar(m.pdfUrl); } }, [ic('bi-download'), 'Baixar PDF']) : null
+            ]),
+            corpo
+        ]);
     }
 
     /* ---------------------------------------------------------------- formulário (tmCvForm) */
@@ -7841,7 +8113,9 @@
         if (e.key !== 'Escape') {
             return;
         }
-        if (S.conf) {
+        if (S.envFx) {
+            fecharEnvio();
+        } else if (S.conf) {
             fecharConf();
         } else if (S.quase) {
             fecharQuase();
@@ -7881,6 +8155,9 @@
         var a = S.painel.avisoDeMensagem;
         mostrarToast({ id: a.codigo, tit: a.titulo, txt: a.texto, hora: a.hora });
     }
+
+    conferirAndamentos();
+    setInterval(conferirAndamentos, ANDAMENTOS_MS);
 
     var te = new URLSearchParams(location.search).get('te');
     if (te && demandas().some(function (d) { return d.codigo === te; })) {

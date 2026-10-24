@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\UseCase;
 
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\GuardaDeConvites;
 
@@ -18,6 +19,7 @@ final class RevogarConviteUseCase
     public function __construct(
         private readonly GuardaDeConvites $guarda,
         private readonly DemandaExternaRepository $repositorio,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -25,6 +27,7 @@ final class RevogarConviteUseCase
     {
         [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo);
         $demanda->revogarConvite($this->guarda->convite($demanda, $convite), $ctx->autor());
+        $this->avisos->andamentoDaDemanda($ctx, $demanda);
         $this->repositorio->salvar($demanda, flush: true);
 
         return $demanda;
