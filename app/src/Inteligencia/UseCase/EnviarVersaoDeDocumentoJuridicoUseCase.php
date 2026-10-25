@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * política da IA ou texto do aceite), a partir de uma questão ou solto. O sistema guarda o arquivo (chave global,
  * nome cunhado pelo storage) e o histórico: quem enviou, quando, o nome original, o documento e a questão.
  *
- * Aceita .docx, .doc, .pdf, .md, .txt e .odt até 20 MB. A extensão do nome tem de estar na lista E o tipo lido do
+ * Aceita .docx, .pdf, .md, .txt e .odt até 20 MB. A extensão do nome tem de estar na lista E o tipo lido do
  * CONTEÚDO tem de bater com ela (um .pdf que é HTML por dentro é recusado). Recusa = {@see DocumentoJuridicoRecusadoException}
  * (422), antes de gravar qualquer coisa. Enviar de novo cria outra versão; nenhuma é apagada.
  *
@@ -39,7 +39,6 @@ final class EnviarVersaoDeDocumentoJuridicoUseCase
     /** Extensão aceita => tipos que o conteúdo pode ter (o que o libmagic do servidor responde). */
     public const TIPOS_POR_EXTENSAO = [
         'pdf' => ['application/pdf'],
-        'doc' => ['application/msword', 'application/x-ole-storage', 'application/cdfv2'],
         'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
         'odt' => ['application/vnd.oasis.opendocument.text', 'application/zip'],
         'md' => ['text/plain', 'text/markdown', 'text/x-markdown'],
@@ -99,7 +98,7 @@ final class EnviarVersaoDeDocumentoJuridicoUseCase
         $extensao = strtolower(pathinfo($arquivo->getClientOriginalName(), \PATHINFO_EXTENSION));
         $mime = strtolower((string) $arquivo->getMimeType());
         if (!in_array($mime, self::TIPOS_POR_EXTENSAO[$extensao] ?? [], true)) {
-            throw new DocumentoJuridicoRecusadoException('Envie um arquivo .docx, .doc, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.');
+            throw new DocumentoJuridicoRecusadoException('Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.');
         }
 
         return [$extensao, $mime];

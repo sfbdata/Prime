@@ -114,10 +114,11 @@ final class EnviarVersaoDeDocumentoJuridicoUseCaseTest extends TestCase
     /** @return iterable<string, array{string, string, string}> */
     public static function recusados(): iterable
     {
-        yield 'HTML com extensão .pdf' => ["<html><body><script>alert(1)</script></body></html>\n", 'politica.pdf', 'Envie um arquivo .docx, .doc, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
-        yield 'extensão fora da lista (.html)' => ["texto\n", 'politica.html', 'Envie um arquivo .docx, .doc, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
-        yield 'sem extensão' => ["texto\n", 'politica', 'Envie um arquivo .docx, .doc, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
-        yield 'PDF com extensão .docx' => ["%PDF-1.4\n%%EOF\n", 'termos.docx', 'Envie um arquivo .docx, .doc, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
+        yield 'HTML com extensão .pdf' => ["<html><body><script>alert(1)</script></body></html>\n", 'politica.pdf', 'Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
+        yield 'extensão fora da lista (.html)' => ["texto\n", 'politica.html', 'Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
+        yield 'sem extensão' => ["texto\n", 'politica', 'Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
+        yield 'PDF com extensão .docx' => ["%PDF-1.4\n%%EOF\n", 'termos.docx', 'Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
+        yield 'formato antigo .doc' => ["texto qualquer\n", 'termos.doc', 'Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
         yield 'vazio' => ['', 'aceite.txt', 'O arquivo está vazio.'];
     }
 
