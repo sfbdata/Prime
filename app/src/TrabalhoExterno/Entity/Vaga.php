@@ -109,6 +109,13 @@ class Vaga
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $motivo = null;
 
+    /**
+     * Quando "Encerrar vaga" ou "Finalizar oferta" fechou a vaga (`v.encerradaEm` do desenho 06 de 24/10, l.1124):
+     * a data de "Expirou em" da encerrada. O fim automático da divulgação não grava (cai em `inscricoesAte`).
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $encerradaEm = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadaEm;
 
@@ -238,6 +245,9 @@ class Vaga
             AcaoVaga::Reabrir, AcaoVaga::OfertarNovamente => $this->reabrir($agora),
             default => $this->situacao = $acao->destino(),
         };
+        if ($acao === AcaoVaga::Encerrar) {
+            $this->encerradaEm = $agora;
+        }
         if ($acao->pedeMotivo()) {
             $this->motivo = $motivo;
         }
@@ -341,6 +351,12 @@ class Vaga
             $this->situacao = SituacaoVaga::Ocupada;
             $this->registrar('bi-check2-all', '#0b5f86', 'Oferta preenchida em ' . self::mmss($agora, $this->inicioDaRodada ?? $agora) . ' min', $agora);
         }
+    }
+
+    /** "Oferta recusada por {quem}" no histórico (`recusar`, desenho 06 de 24/10, l.1169). */
+    public function registrarRecusa(string $quem, \DateTimeImmutable $agora): void
+    {
+        $this->registrar('bi-x-circle', '#a3232b', 'Oferta recusada por ' . $quem, $agora);
     }
 
     /** "{n} candidato(s) enviado(s) ao escritório por {quem}" (`enviarCands`, l.981). */
@@ -525,6 +541,11 @@ class Vaga
     public function getExpiraEm(): ?\DateTimeImmutable
     {
         return $this->expiraEm;
+    }
+
+    public function getEncerradaEm(): ?\DateTimeImmutable
+    {
+        return $this->encerradaEm;
     }
 
     public function getMotivo(): ?string

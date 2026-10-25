@@ -308,11 +308,37 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         self::assertSame(['Protocolo feito', 'Documento entregue'], array_column($this->criadas, 'mensagem'));
     }
 
+    #[TestDox('oferta recusada (D11b, P7): os Solicitantes do escritório dono, no escritório da vaga, e os Master da Central, na sede; quem recusou, a Equipe e quem não tem permissão ficam de fora; vaga da Central só os Master; sem sede só o dono')]
+    public function testOfertaRecusada(): void
+    {
+        $quemRecusou = Apoio::usuario(9);
+        $vaga = $this->vagaDoEscritorio(['oferta' => true]);
+        $this->avisos()->ofertaRecusada($this->ctx($quemRecusou, Perfil::Solicitante), $vaga, 'Bia Lima');
+        self::assertSame([[3, 2], [1, 1]], $this->quem());
+        self::assertSame(['trabalho_externo_oferta_recusada', 'Oferta recusada na vaga Advogado cível', 'Oferta recusada por Bia Lima', '/trabalho-externo#vaga=VG-0040'], [$this->criadas[0]['tipo'], $this->criadas[0]['titulo'], $this->criadas[0]['mensagem'], $this->notificacoes[0]->getUrl()]);
+        self::assertSame('trabalho_externo_oferta_recusada', $this->criadas[1]['tipo']);
+
+        $this->limpar();
+        $daCentral = $this->comId(Vaga::daCentral($this->master, 'Ana', $this->dados(['oferta' => true]), new \DateTimeImmutable()), 41);
+        $this->avisos()->ofertaRecusada($this->ctx($quemRecusou, Perfil::Solicitante), $daCentral, 'Bia Lima');
+        self::assertSame([[1, 1]], $this->quem(), 'vaga da Central: só os Master');
+
+        $this->limpar();
+        $this->pendente = true;
+        $this->avisos()->ofertaRecusada($this->ctx($quemRecusou, Perfil::Solicitante), $vaga, 'Bia Lima');
+        self::assertSame([], $this->criadas, 'o aviso igual ainda não lido não se repete');
+
+        $this->pendente = false;
+        $this->cfg->definirSede(null);
+        $this->avisos()->ofertaRecusada($this->ctx($quemRecusou, Perfil::Solicitante), $vaga, 'Bia Lima');
+        self::assertSame([[3, 2]], $this->quem(), 'sem sede: só o dono');
+    }
+
     #[TestDox('cada tipo novo tem ícone no sino e grupo, rótulo, ícone e cor na Caixa da Central')]
     public function testTiposNovos(): void
     {
         $tipos = array_filter((new \ReflectionClass(Notificacao::class))->getConstants(), static fn (mixed $v, string $k): bool => str_starts_with($k, 'TIPO_TRABALHO_EXTERNO_'), ARRAY_FILTER_USE_BOTH);
-        self::assertCount(11, $tipos, 'o 11º é a resposta ao despacho (D8)');
+        self::assertCount(12, $tipos, 'o 11º é a resposta ao despacho (D8); o 12º, a oferta recusada (D11b)');
         foreach ($tipos as $tipo) {
             self::assertLessThanOrEqual(50, strlen($tipo), 'a coluna tipo tem 50 caracteres');
             self::assertNotSame('bi-bell text-secondary', (new Notificacao())->setTipo($tipo)->getIcone(), $tipo);

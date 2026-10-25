@@ -107,6 +107,21 @@ final class AvisosDoTrabalhoExterno
         $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA, 'Sua vaga não foi aprovada: ' . $vaga->getTitulo(), $motivo !== null ? 'Motivo: ' . $motivo : null);
     }
 
+    /**
+     * "Recusar" a oferta (D11b, l.1169; P7): o dono da vaga (os solicitantes do escritório que pediu, ou quem
+     * divulgou sem escritório) e os Master da Central, no escritório da Central. Quem recusou fica de fora.
+     */
+    public function ofertaRecusada(Contexto $ctx, Vaga $vaga, string $quem): void
+    {
+        $titulo = 'Oferta recusada na vaga ' . $vaga->getTitulo();
+        $mensagem = 'Oferta recusada por ' . $quem;
+        $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA, $titulo, $mensagem);
+        $sede = $ctx->configuracao->getSede();
+        if ($sede !== null) {
+            $this->avisar($ctx, $this->destinatarios->masters(), $sede, Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA, $titulo, self::urlDaVaga($vaga), $mensagem);
+        }
+    }
+
     /** Mudança de status do candidato (l.985, 1040), no escritório dele ({@see escritorioDoCandidato()}). */
     public function andamentoDaCandidatura(Contexto $ctx, Candidatura $candidatura): void
     {

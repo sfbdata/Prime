@@ -12,9 +12,11 @@ use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\DetalheDaVaga;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\UseCase\CandidatarOuAceitarUseCase;
+use App\TrabalhoExterno\UseCase\DesfazerRecusaDeOfertaUseCase;
 use App\TrabalhoExterno\UseCase\EnviarCandidatosAoEscritorioUseCase;
 use App\TrabalhoExterno\UseCase\MarcarCandidaturasEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\MudarStatusDaCandidaturaUseCase;
+use App\TrabalhoExterno\UseCase\RecusarOfertaUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -47,6 +49,28 @@ final class CandidaturasController extends AbstractController
             $resultado = $candidatar->executar($ctx, $codigo);
 
             return ['vaga' => $this->detalhe->detalhar($ctx, $codigo), 'toast' => $resultado->toast()];
+        });
+    }
+
+    /** "Recusar" a oferta (D11b, l.1169), depois da confirmação da tela. */
+    #[Route('/vagas/{codigo}/recusa', name: 'trabalho_externo_vaga_recusar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function recusar(Request $request, string $codigo, RecusarOfertaUseCase $recusar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($codigo, $recusar): array {
+            $recusar->executar($ctx, $codigo);
+
+            return ['vaga' => $this->detalhe->detalhar($ctx, $codigo), 'toast' => ['titulo' => 'Oferta recusada', 'texto' => 'Obrigado por responder. Você continua recebendo novas oportunidades.']];
+        });
+    }
+
+    /** "Você recusou · aceitar mesmo assim": apaga a recusa; a tela candidata em seguida. */
+    #[Route('/vagas/{codigo}/recusa/desfazer', name: 'trabalho_externo_vaga_recusa_desfazer', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function desfazerRecusa(Request $request, string $codigo, DesfazerRecusaDeOfertaUseCase $desfazer): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($codigo, $desfazer): array {
+            $desfazer->executar($ctx, $codigo);
+
+            return ['ok' => true];
         });
     }
 

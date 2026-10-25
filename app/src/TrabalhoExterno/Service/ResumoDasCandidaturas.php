@@ -10,6 +10,7 @@ use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\StatusCandidatura;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\CurriculoRepository;
+use App\TrabalhoExterno\Repository\RecusaDeOfertaRepository;
 
 /**
  * Junta, para as vagas que quem lê já alcançou, o que elas mostram das candidaturas: na lista, uma
@@ -23,6 +24,7 @@ final class ResumoDasCandidaturas
         private readonly CandidaturaRepository $candidaturas,
         private readonly CurriculoRepository $curriculos,
         private readonly CompatibilidadeDaVaga $compatibilidade,
+        private readonly RecusaDeOfertaRepository $recusas,
     ) {
     }
 
@@ -65,6 +67,7 @@ final class ResumoDasCandidaturas
             $this->compatibilidade->calcular($v, $meu),
             $todas,
             array_map(static fn (Candidatura $c): string => $c->getCurriculo()->texto('nome'), $aceites),
+            !$ctx->ehInterno() && $this->recusas->daVagaEDoUsuario($v, $ctx->usuario) !== null,
         );
     }
 
