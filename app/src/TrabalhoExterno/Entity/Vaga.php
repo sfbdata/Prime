@@ -275,6 +275,7 @@ class Vaga
     private function reabrir(\DateTimeImmutable $agora): void
     {
         $this->situacao = SituacaoVaga::Aberta;
+        $this->encerradaEm = null;
         $this->inicioDaRodada = $agora;
         ++$this->rodada;
         if ($this->oferta) {
@@ -302,6 +303,9 @@ class Vaga
         $situacao = $this->situacaoEm($agora);
         if ($situacao === $this->situacao) {
             return;
+        }
+        if ($situacao === SituacaoVaga::Encerrada) {
+            $this->encerradaEm = $this->fimDivulgacao ?? $agora;
         }
         $situacao === SituacaoVaga::Expirada
             ? $this->registrar('bi-hourglass-bottom', '#a3232b', 'Oferta expirou' . ($aceitesNaRodada > 0

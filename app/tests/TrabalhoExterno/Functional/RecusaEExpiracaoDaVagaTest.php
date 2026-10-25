@@ -82,7 +82,7 @@ final class RecusaEExpiracaoDaVagaTest extends JusPrimeWebTestCase
         self::assertSame('recusou', $this->detalhe($codigo)['botaoExterno'], 'P7: "Ofertar novamente" não zera a recusa');
     }
 
-    #[TestDox('recusar na vaga de escritório: os Solicitantes do escritório dono e os Master recebem; quem recusou não')]
+    #[TestDox('recusar na vaga de escritório: os Solicitantes do escritório dono recebem sem o nome de quem recusou; os Master, com o nome; quem recusou não')]
     public function testAvisoAoDono(): void
     {
         [$sede, $a, $b] = [$this->criarTenant('Sede'), $this->criarTenant('A'), $this->criarTenant('B')];
@@ -96,7 +96,11 @@ final class RecusaEExpiracaoDaVagaTest extends JusPrimeWebTestCase
         $this->postarJson($this->client, self::VAGAS . "/$codigo/recusa");
         self::assertResponseIsSuccessful();
         self::assertSame([1, 1, 0], [$this->avisos($dono), $this->avisos($master), $this->avisos($doB)]);
-        self::assertSame('Oferta recusada por ' . $doB->getFullName(), $this->em()->getConnection()->fetchOne("SELECT mensagem FROM notificacao WHERE usuario_id = ? AND tenant_id = ? AND tipo = 'trabalho_externo_oferta_recusada'", [$dono->getId(), $a->getId()]), 'no escritório da vaga');
+        $conexao = $this->em()->getConnection();
+        $sql = "SELECT mensagem FROM notificacao WHERE usuario_id = ? AND tenant_id = ? AND tipo = 'trabalho_externo_oferta_recusada'";
+        self::assertSame('Uma oferta sua foi recusada.', $conexao->fetchOne($sql, [$dono->getId(), $a->getId()]), 'o dono não sabe quem recusou');
+        self::assertSame('Oferta recusada por ' . $doB->getFullName(), $conexao->fetchOne($sql, [$master->getId(), $sede->getId()]), 'o Master vê o nome');
+        self::assertStringNotContainsString($doB->getFullName(), (string) $conexao->fetchOne("SELECT STRING_AGG(titulo || ' ' || COALESCE(mensagem, ''), ' ') FROM notificacao WHERE usuario_id = ?", [$dono->getId()]));
     }
 
     #[TestDox('recusar e desfazer: interno (Master, Equipe e ?como=, que a escrita não lê) e o dono levam 403; vaga de outro escritório ainda pendente e código inexistente, 404; nada gravado')]
@@ -181,6 +185,32 @@ final class RecusaEExpiracaoDaVagaTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $master, $sede);
         $this->client->request('GET', self::VAGAS . "/$recente");
         self::assertResponseIsSuccessful('o interno abre a expirada normalmente');
+    }
+
+    #[TestDox('encerrada pelo fim da divulgação: o externo a vê com "Expirou em" no fim da divulgação (não na criação) até 30 dias; depois some')]
+    public function testEncerradaPeloFimDaDivulgacao(): void
+    {
+        [$sede, $b] = [$this->criarTenant('Sede'), $this->criarTenant('B')];
+        $master = $this->criarMaster($sede);
+        $this->definirSede($sede);
+        $doB = $this->criarUsuario($b, nome: 'Bia');
+        $codigo = $this->publicar($master, $sede, ['periodoDias' => 7] + self::comum('Fim da divulgação'));
+        $id = Vaga::idDoCodigo($codigo);
+        $conexao = $this->em()->getConnection();
+        $fim = new \DateTimeImmutable('-5 days');
+        $conexao->executeStatement('UPDATE trabalho_externo_vaga SET criada_em = ?, publicada_em = ?, fim_divulgacao = ?, inscricoes_ate = NULL WHERE id = ?', [
+            $fim->modify('-7 days')->format('Y-m-d H:i:s'), $fim->modify('-7 days')->format('Y-m-d H:i:s'), $fim->format('Y-m-d H:i:s'), $id,
+        ]);
+
+        $this->logarComTenant($this->client, $doB, $b);
+        $cartao = $this->porCodigo()[$codigo] ?? null;
+        self::assertNotNull($cartao, 'a vaga encerrada há 5 dias aparece, como a criação foi há 12 dias nada a esconde');
+        self::assertSame([true, 'Expirou em ' . $fim->format('d/m/Y')], [$cartao['expOn'], $cartao['expTxt']]);
+
+        $conexao->executeStatement('UPDATE trabalho_externo_vaga SET fim_divulgacao = ? WHERE id = ?', [(new \DateTimeImmutable('-31 days'))->format('Y-m-d H:i:s'), $id]);
+        self::assertArrayNotHasKey($codigo, $this->porCodigo(), 'passados 30 dias, some');
+        $this->logarComTenant($this->client, $master, $sede);
+        self::assertArrayNotHasKey($codigo, $this->porCodigo(), 'inclusive para o Master');
     }
 
     /** @return array<string, array<string, mixed>> os cartões da lista de quem está logado, por código */

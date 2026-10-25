@@ -109,13 +109,14 @@ final class AvisosDoTrabalhoExterno
 
     /**
      * "Recusar" a oferta (D11b, l.1169; P7): o dono da vaga (os solicitantes do escritório que pediu, ou quem
-     * divulgou sem escritório) e os Master da Central, no escritório da Central. Quem recusou fica de fora.
+     * divulgou sem escritório) e os Master da Central, no escritório da Central. Quem recusou fica de fora; o dono não vê o nome dela, os Master veem.
      */
     public function ofertaRecusada(Contexto $ctx, Vaga $vaga, string $quem): void
     {
         $titulo = 'Oferta recusada na vaga ' . $vaga->getTitulo();
         $mensagem = 'Oferta recusada por ' . $quem;
-        $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA, $titulo, $mensagem);
+        // O escritório dono não sabe quem recusou (como na "Oferta aceita"); o nome fica no histórico e no aviso aos Master.
+        $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA, $titulo, 'Uma oferta sua foi recusada.');
         $sede = $ctx->configuracao->getSede();
         if ($sede !== null) {
             $this->avisar($ctx, $this->destinatarios->masters(), $sede, Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA, $titulo, self::urlDaVaga($vaga), $mensagem);

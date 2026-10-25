@@ -315,7 +315,8 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
         $vaga = $this->vagaDoEscritorio(['oferta' => true]);
         $this->avisos()->ofertaRecusada($this->ctx($quemRecusou, Perfil::Solicitante), $vaga, 'Bia Lima');
         self::assertSame([[3, 2], [1, 1]], $this->quem());
-        self::assertSame(['trabalho_externo_oferta_recusada', 'Oferta recusada na vaga Advogado cível', 'Oferta recusada por Bia Lima', '/trabalho-externo#vaga=VG-0040'], [$this->criadas[0]['tipo'], $this->criadas[0]['titulo'], $this->criadas[0]['mensagem'], $this->notificacoes[0]->getUrl()]);
+        self::assertSame(['trabalho_externo_oferta_recusada', 'Oferta recusada na vaga Advogado cível', 'Uma oferta sua foi recusada.', '/trabalho-externo#vaga=VG-0040'], [$this->criadas[0]['tipo'], $this->criadas[0]['titulo'], $this->criadas[0]['mensagem'], $this->notificacoes[0]->getUrl()], 'o dono sem o nome');
+        self::assertSame('Oferta recusada por Bia Lima', $this->criadas[1]['mensagem'], 'o Master com o nome');
         self::assertSame('trabalho_externo_oferta_recusada', $this->criadas[1]['tipo']);
 
         $this->limpar();

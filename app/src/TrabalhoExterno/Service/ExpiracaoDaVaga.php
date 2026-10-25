@@ -75,10 +75,10 @@ final class ExpiracaoDaVaga
         return \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', ((string) $v->getInscricoesAte()?->format('Y-m-d')) . ' 23:59:59') ?: new \DateTimeImmutable();
     }
 
-    /** `v.encerradaEm || v.expira || v.em`. */
+    /** `v.encerradaEm || v.expira || v.em`; a encerrada pelo fim da divulgação sem a data gravada usa o `fimDivulgacao`. */
     private static function dataDaFechada(Vaga $v): \DateTimeImmutable
     {
-        return $v->getEncerradaEm() ?? $v->getExpiraEm() ?? $v->getCriadaEm();
+        return $v->getEncerradaEm() ?? ($v->getSituacao() !== SituacaoVaga::Expirada ? $v->getFimDivulgacao() : null) ?? $v->getExpiraEm() ?? $v->getCriadaEm();
     }
 
     private static function fechada(SituacaoVaga $s): bool

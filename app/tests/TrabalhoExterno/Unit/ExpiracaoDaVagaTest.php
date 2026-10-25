@@ -93,7 +93,7 @@ final class ExpiracaoDaVagaTest extends TestCase
         self::assertTrue($this->exp->velha($v, $encerrou->modify('+30 days +1 second')));
     }
 
-    #[TestDox('ramo 3: "Finalizar oferta" grava o `encerradaEm`; sem ele (encerrada pelo fim da divulgação) cai no `expira` e depois na criação')]
+    #[TestDox('ramo 3: "Finalizar oferta" grava o `encerradaEm`; sem ele (encerrada pelo fim da divulgação, ainda não gravada) cai no fim da divulgação')]
     public function testEncerradaSemData(): void
     {
         $oferta = Vaga::daCentral(Apoio::usuario(1), 'Ana', $this->dados(['oferta' => true, 'duracaoDaOferta' => 10, 'periodoDias' => 0]), $this->t0);
@@ -103,7 +103,7 @@ final class ExpiracaoDaVagaTest extends TestCase
         $comum = Vaga::daCentral(Apoio::usuario(1), 'Ana', $this->dados(['periodoDias' => 7]), $this->t0);
         $depois = $this->t0->modify('+8 days');
         self::assertNull($comum->getEncerradaEm());
-        self::assertEquals($comum->getCriadaEm(), $this->exp->expiradaEm($comum, $depois), 'sem encerradaEm nem expira: a criação');
+        self::assertEquals($this->t0->modify('+7 days'), $this->exp->expiradaEm($comum, $depois), 'sem encerradaEm gravado: o fim da divulgação');
     }
 
     #[TestDox('aberta no prazo e sem tempo vencido: não expirou')]
@@ -125,6 +125,32 @@ final class ExpiracaoDaVagaTest extends TestCase
 
         self::assertNull($this->exp->expiradaEm($v, $agora));
         self::assertTrue($this->exp->recente($v, $agora));
+    }
+
+    #[TestDox('encerrada pelo fim da divulgação: "Expirou em" é o fim da divulgação (gravado ou, sem gravar, calculado); some depois de 30 dias; reabrir zera e a nova data vale')]
+    public function testEncerradaPeloFimDaDivulgacao(): void
+    {
+        $v = Vaga::daCentral(Apoio::usuario(1), 'Ana', $this->dados(['periodoDias' => 7]), $this->t0);
+        $fim = $this->t0->modify('+7 days');
+        $depois = $fim->modify('+2 days');
+
+        self::assertEquals($fim, $this->exp->expiradaEm($v, $depois), 'ainda não gravada: usa o fim da divulgação, não a criação');
+        $v->gravarVencimento($depois);
+        self::assertEquals($fim, $v->getEncerradaEm());
+        self::assertEquals($fim, $this->exp->expiradaEm($v, $depois));
+        self::assertTrue($this->exp->recente($v, $fim->modify('+30 days')));
+        self::assertFalse($this->exp->velha($v, $fim->modify('+30 days')));
+        self::assertTrue($this->exp->velha($v, $fim->modify('+30 days +1 second')));
+
+        $v->aplicar(AcaoVaga::Reabrir, null, 'Ana', 0, 0, $depois);
+        self::assertNull($v->getEncerradaEm(), 'reabrir zera a data velha');
+
+        $w = Vaga::daCentral(Apoio::usuario(1), 'Ana', $this->dados(['periodoDias' => 1]), $this->t0);
+        $w->aplicar(AcaoVaga::Encerrar, null, 'Ana', 0, 0, $this->t0->modify('+1 hour'));
+        $w->aplicar(AcaoVaga::OfertarNovamente, null, 'Ana', 0, 0, $this->t0->modify('+2 hours'));
+        self::assertNull($w->getEncerradaEm(), '"Ofertar novamente" também zera');
+        $w->gravarVencimento($this->t0->modify('+3 days'));
+        self::assertEquals($this->t0->modify('+1 day'), $w->getEncerradaEm(), 'encerrar, reabrir e encerrar pelo prazo mostra a data nova (o fim da divulgação)');
     }
 
     private function dados(array $extra = []): DadosDaVaga

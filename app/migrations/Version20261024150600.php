@@ -13,9 +13,9 @@ use Doctrine\Migrations\AbstractMigration;
  * - `trabalho_externo_vaga_recusa`: quem recusou a oferta, uma vez por vaga e usuário (único). Some com a vaga
  *   e com a conta (CASCADE).
  * - `trabalho_externo_vaga.encerrada_em`: quando "Encerrar vaga" ou "Finalizar oferta" fechou a vaga (a data de
- *   "Expirou em" da encerrada). Backfill: das encerradas, a última linha "Encerrada por {quem}" do histórico,
- *   que é a que essas duas ações gravam; sem ela (encerrada pelo fim da divulgação), fica nula e a regra cai no
- *   próximo da ordem (`expira`, depois a criação).
+ *   "Expirou em" da encerrada). Backfill: das encerradas, a última linha do histórico entre "Encerrada por {quem}"
+ *   (as duas ações) e "Período de divulgação de N dia(s) encerrado" (o fim da divulgação, com em = fimDivulgacao);
+ *   sem nenhuma, fica nula e a regra cai no próximo da ordem.
  *
  * Só o desta frente: o resto do `doctrine:schema:update --dump-sql` já divergia antes dela.
  */
@@ -40,7 +40,7 @@ final class Version20261024150600 extends AbstractMigration
                SET encerrada_em = h.em
               FROM (SELECT vaga_id, MAX(em) AS em
                       FROM trabalho_externo_vaga_historico
-                     WHERE texto LIKE 'Encerrada por %'
+                     WHERE texto LIKE 'Encerrada por %' OR texto LIKE 'Período de divulgação de % encerrado'
                      GROUP BY vaga_id) h
              WHERE h.vaga_id = v.id
                AND v.situacao = 'encerrada'
