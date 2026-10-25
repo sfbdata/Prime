@@ -60,6 +60,7 @@ final class TiposDeAvisoDaCentral
         Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => ['grupo' => 'atencao', 'rotulo' => 'Pedido de informações', 'icone' => 'bi-question-circle', 'cor' => self::AMBAR, 'nivel' => 2],
         Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO => ['grupo' => 'atencao', 'rotulo' => 'Andamento da demanda', 'icone' => 'bi-briefcase', 'cor' => self::PETROLEO, 'nivel' => 1],
         Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA => ['grupo' => 'atencao', 'rotulo' => 'Resposta ao despacho', 'icone' => 'bi-reply', 'cor' => self::VERDE, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA => ['grupo' => 'atencao', 'rotulo' => 'Oferta recusada', 'icone' => 'bi-x-circle', 'cor' => self::AMBAR, 'nivel' => 1],
     ];
 
     /**

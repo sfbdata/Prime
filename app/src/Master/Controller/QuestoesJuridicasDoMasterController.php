@@ -146,11 +146,9 @@ final class QuestoesJuridicasDoMasterController extends AbstractController
     /** @return list<array<string, mixed>> */
     private function versoesDe(DocumentoJuridico $documento): array
     {
-        foreach ($this->listar->executar() as $questao) {
-            foreach ($questao->documentos as $doc) {
-                if ($doc->documento === $documento) {
-                    return array_map($this->versaoEmJson(...), $doc->versoes);
-                }
+        foreach ($this->listar->documentos() as $doc) {
+            if ($doc->documento === $documento) {
+                return array_map($this->versaoEmJson(...), $doc->versoes);
             }
         }
 

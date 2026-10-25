@@ -1,8 +1,8 @@
 /* BlueJus · Painel do Master, aba "Configurações da I.A.", bloco "Questões jurídicas" (master/_ia_juridico.html.twig).
    - O bloco vem desenhado do servidor; aqui só as ações, que redesenham o que mudou, só com textContent e createElement.
    - Status: grava ao mudar o select (POST JSON); a resposta traz o rótulo, o histórico e quantas seguem em aberto.
-   - Versão ajustada: grava ao escolher o arquivo (POST multipart com "arquivo" e "questao"); a resposta traz as
-     versões do documento, redesenhadas em todas as questões que pedem o mesmo documento.
+   - Versão ajustada: grava ao escolher o arquivo (POST multipart com "arquivo"), no bloco único dos documentos
+     (fim da página); a resposta traz as versões do documento, redesenhadas ali.
    - Âncora #aba=ia&bloco=questoes-juridicas (o botão do aviso do topo): rola até o bloco depois que o painel.js
      abre a aba.
    - X-CSRF-Token em todo POST; recusa: a mensagem do servidor. Textos no catálogo (master.js.ia_juridico.*), lidos
@@ -83,7 +83,7 @@
       .finally(() => { ocupado = false; select.disabled = false; });
   }
 
-  function enviarArquivo(questao, doc, campo) {
+  function enviarArquivo(doc, campo) {
     const arquivo = campo.files && campo.files[0];
     if (!arquivo || ocupado) return;
     ocupado = true;
@@ -93,7 +93,6 @@
     avisar(T('master.js.ia_juridico.enviando'));
     const corpo = new FormData();
     corpo.append('arquivo', arquivo);
-    corpo.append('questao', questao.dataset.mpJurQuestao);
     enviar(doc.dataset.urlEnviar, { body: corpo })
       .then(d => { desenharVersoes(d.documento, d.versoes || []); avisar(T('master.js.ia_juridico.enviado', { nome: arquivo.name })); })
       .catch(e => avisar(e.message || T('master.js.ia_juridico.erro_enviar'), true))
@@ -104,10 +103,12 @@
     const select = questao.querySelector('[data-mp-jur-status]');
     select.dataset.anterior = select.value;
     select.addEventListener('change', () => mudarStatus(questao, select));
-    questao.querySelectorAll('[data-mp-jur-doc]').forEach(doc => {
-      const campo = doc.querySelector('[data-mp-jur-arquivo]');
-      campo.addEventListener('change', () => enviarArquivo(questao, doc, campo));
-    });
+  });
+
+  // Os documentos ficam num bloco único depois das questões: o envio vale para o documento, não para uma questão.
+  raiz.querySelectorAll('[data-mp-jur-doc]').forEach(doc => {
+    const campo = doc.querySelector('[data-mp-jur-arquivo]');
+    campo.addEventListener('change', () => enviarArquivo(doc, campo));
   });
 
   // O painel.js mostra a aba pelo hash no fim da página; a rolagem vem depois dele.

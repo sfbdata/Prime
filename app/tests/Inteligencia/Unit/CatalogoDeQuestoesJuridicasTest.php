@@ -34,6 +34,46 @@ final class CatalogoDeQuestoesJuridicasTest extends TestCase
         }
     }
 
+    #[TestDox('questão com "oculta": true some do catálogo (todas, chaves, porChave), sem renumerar as outras; a chave repetida ainda é vista')]
+    public function testQuestaoOculta(): void
+    {
+        $catalogo = CatalogoJuridicoDeTeste::criar([
+            CatalogoJuridicoDeTeste::questao('a'),
+            CatalogoJuridicoDeTeste::questao('b', oculta: true),
+            CatalogoJuridicoDeTeste::questao('c'),
+        ]);
+
+        self::assertSame(['a', 'c'], $catalogo->chaves());
+        self::assertNull($catalogo->porChave('b'));
+        self::assertSame(['Questão a', 'Questão c'], array_map(static fn ($q) => $q->titulo, $catalogo->todas()));
+
+        $this->expectException(\UnexpectedValueException::class);
+        CatalogoJuridicoDeTeste::criar([CatalogoJuridicoDeTeste::questao('a'), CatalogoJuridicoDeTeste::questao('a', oculta: true)])->todas();
+    }
+
+    #[TestDox('"oculta" que não é booleano lança; ausente vale visível')]
+    public function testOcultaInvalida(): void
+    {
+        self::assertSame(['a'], CatalogoJuridicoDeTeste::criar([CatalogoJuridicoDeTeste::questao('a')])->chaves());
+
+        $this->expectException(\UnexpectedValueException::class);
+        CatalogoJuridicoDeTeste::criar([['oculta' => 'sim'] + CatalogoJuridicoDeTeste::questao('a')])->todas();
+    }
+
+    #[TestDox('o catálogo entregue deixa a retencao_zero oculta (texto preservado no arquivo) e não renumera as demais')]
+    public function testRetencaoZeroOculta(): void
+    {
+        $arquivo = \dirname(__DIR__, 3) . '/config/inteligencia/questoes_juridicas.json';
+        $bruto = json_decode((string) file_get_contents($arquivo), true, 16, \JSON_THROW_ON_ERROR);
+        $zdr = array_values(array_filter($bruto, static fn (array $q): bool => $q['chave'] === 'retencao_zero'));
+
+        self::assertCount(1, $zdr, 'o texto continua no arquivo');
+        self::assertTrue($zdr[0]['oculta']);
+        $catalogo = new CatalogoDeQuestoesJuridicas($arquivo);
+        self::assertNotContains('retencao_zero', $catalogo->chaves());
+        self::assertStringStartsWith('3. ', $catalogo->porChave('base_legal_e_papeis')?->titulo ?? '');
+    }
+
     #[TestDox('lê os campos do JSON na ordem, com os documentos como enum e a busca por chave')]
     public function testLeOsCampos(): void
     {

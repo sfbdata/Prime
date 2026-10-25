@@ -68,6 +68,7 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES = 'trabalho_externo_demanda_informacoes';
     public const TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO = 'trabalho_externo_demanda_andamento';
     public const TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA = 'trabalho_externo_despacho_resposta';
+    public const TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA = 'trabalho_externo_oferta_recusada';
     /** Os ícones desses tipos no sino (fora do `match` de getIcone, que já está no limite de tamanho). */
     public const ICONES_DO_TRABALHO_EXTERNO = [
         self::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => 'bi-inbox text-warning',
@@ -81,6 +82,7 @@ class Notificacao implements Auditavel, TenantAware
         self::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => 'bi-question-circle text-warning',
         self::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO => 'bi-briefcase text-primary',
         self::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA => 'bi-reply text-success',
+        self::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA => 'bi-x-circle text-danger',
     ];
 
     /** Categorias de notificação (derivadas do tipo). */

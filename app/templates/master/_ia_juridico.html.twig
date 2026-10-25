@@ -1,6 +1,7 @@
 {# Bloco "Questões jurídicas" da aba "Configurações da I.A." do /master (pedido do dono de 24/10/2026). Nenhum desenho
    tem esta tela: os componentes são os do painel (.mp-card, .mp-cab-roxo, .mp-btn-roxo, .mp-ia-campo, .mp-ia-msg).
-   Incluído pelo master/_ia.html.twig, irmão da .mp-ia-raiz, dentro de <div class="mp-ia" data-painel-aba="ia">.
+   Cada questão mostra só o NOME dos documentos afetados; os 4 documentos, com baixar e enviar, ficam num bloco único depois
+   de todas as questões (pedido do dono). Incluído pelo master/_ia.html.twig, irmão da .mp-ia-raiz, dentro de <div class="mp-ia" data-painel-aba="ia">.
    O conteúdo das questões vem do catálogo em código (config/inteligencia/questoes_juridicas.json), escapado: cada
    parágrafo (separado por linha em branco) vira um <p>, sem |raw. O status e as versões vêm do banco. As ações
    (status e envio) são do public/js/master/ia-juridico.js, que redesenha só o que mudou; o aviso do topo
@@ -45,23 +46,7 @@
                 </div>
                 <div class="mp-jur-secao" data-mp-jur-secao="documentos">
                     <h4>{{ 'master.ia.juridico.documentos'|trans }}</h4>
-                    {% for d in item.documentos %}
-                        <div class="mp-jur-doc" data-mp-jur-doc="{{ d.documento.value }}"
-                             data-url-enviar="{{ path('master_ia_juridico_versao_enviar', {documento: d.documento.value}) }}">
-                            <div class="mp-jur-doc-linha">
-                                <b class="mp-jur-doc-nome">{{ d.documento.rotulo }}</b>
-                                <a class="mp-btn-roxo mp-jur-baixar" href="{{ path('master_ia_juridico_documento_atual', {documento: d.documento.value}) }}"><i class="bi bi-download" aria-hidden="true"></i>{{ 'master.ia.juridico.baixar_atual'|trans }}</a>
-                                <label class="mp-jur-enviar"><i class="bi bi-upload" aria-hidden="true"></i><span>{{ 'master.ia.juridico.enviar'|trans }}</span><input type="file" accept=".docx,.pdf,.md,.txt,.odt" data-mp-jur-arquivo></label>
-                            </div>
-                            <ul class="mp-jur-versoes" data-mp-jur-versoes aria-label="{{ 'master.ia.juridico.versoes'|trans }}">
-                                {% for v in d.versoes %}
-                                    <li>{{ 'master.ia.juridico.versao_item'|trans({nome: v.nomeOriginal, por: v.enviadaPor, quando: v.enviadaEm|date('d/m/Y H:i')}) }}{% if v.questaoTitulo %} {{ 'master.ia.juridico.versao_questao'|trans({questao: v.questaoTitulo}) }}{% endif %} <a href="{{ path('master_ia_juridico_versao_baixar', {id: v.id}) }}">{{ 'master.ia.juridico.baixar'|trans }}</a></li>
-                                {% else %}
-                                    <li class="mp-jur-vazio">{{ 'master.ia.juridico.sem_versao'|trans }}</li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    {% endfor %}
+                    <ul class="mp-jur-nomes">{% for d in q.documentosJuridicos %}<li data-mp-jur-nome="{{ d.value }}">{{ d.rotulo }}</li>{% endfor %}</ul>
                 </div>
                 <div class="mp-jur-secao" data-mp-jur-secao="status">
                     <h4>{{ 'master.ia.juridico.status'|trans }}</h4>
@@ -82,6 +67,27 @@
         {% else %}
             <div class="mp-carregando">{{ 'master.ia.juridico.vazio'|trans }}</div>
         {% endfor %}
+        <div class="mp-jur-docs" id="documentos-juridicos" data-mp-jur-docs>
+            <h3 class="mp-jur-docs-titulo">{{ 'master.ia.juridico.documentos_titulo'|trans }}</h3>
+            <p class="mp-ia-nota">{{ 'master.ia.juridico.documentos_aviso'|trans }}</p>
+            {% for d in documentos_juridicos_do_master() %}
+                <div class="mp-jur-doc" data-mp-jur-doc="{{ d.documento.value }}"
+                     data-url-enviar="{{ path('master_ia_juridico_versao_enviar', {documento: d.documento.value}) }}">
+                    <div class="mp-jur-doc-linha">
+                        <b class="mp-jur-doc-nome">{{ d.documento.rotulo }}</b>
+                        <a class="mp-btn-roxo mp-jur-baixar" href="{{ path('master_ia_juridico_documento_atual', {documento: d.documento.value}) }}"><i class="bi bi-download" aria-hidden="true"></i>{{ 'master.ia.juridico.baixar_atual'|trans }}</a>
+                        <label class="mp-jur-enviar"><i class="bi bi-upload" aria-hidden="true"></i><span>{{ 'master.ia.juridico.enviar'|trans }}</span><input type="file" accept=".docx,.pdf,.md,.txt,.odt" data-mp-jur-arquivo></label>
+                    </div>
+                    <ul class="mp-jur-versoes" data-mp-jur-versoes aria-label="{{ 'master.ia.juridico.versoes'|trans }}">
+                        {% for v in d.versoes %}
+                            <li>{{ 'master.ia.juridico.versao_item'|trans({nome: v.nomeOriginal, por: v.enviadaPor, quando: v.enviadaEm|date('d/m/Y H:i')}) }}{% if v.questaoTitulo %} {{ 'master.ia.juridico.versao_questao'|trans({questao: v.questaoTitulo}) }}{% endif %} <a href="{{ path('master_ia_juridico_versao_baixar', {id: v.id}) }}">{{ 'master.ia.juridico.baixar'|trans }}</a></li>
+                        {% else %}
+                            <li class="mp-jur-vazio">{{ 'master.ia.juridico.sem_versao'|trans }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
+        </div>
     </div>
 </section>
 <script src="{{ asset('js/master/ia-juridico.js') }}"></script>

@@ -29,3 +29,5 @@
 .mp-jur-versoes > li, .mp-jur-historico > li { font-size: 12.5px; color: #4a6373; }
 .mp-jur-historico { margin: 8px 0 0; padding-left: 20px; }
 .mp-jur-vazio { list-style: none; margin-left: -20px; font-style: italic; }
+.mp-jur-docs { margin-top: 18px; padding-top: 14px; border-top: 2px solid #ece3f1; }
+.mp-jur-docs-titulo { margin: 0 0 6px; font-size: 15px; font-weight: bold; color: #12242f; }

@@ -35,8 +35,17 @@ final class ListarQuestoesJuridicasUseCaseTest extends TestCase
         self::assertSame(['primeira', 'segunda'], array_map(static fn ($q) => $q->questao->chave, $saida));
         self::assertSame([StatusDaQuestaoJuridica::Pendente, StatusDaQuestaoJuridica::Pendente], array_map(static fn ($q) => $q->status, $saida));
         self::assertSame([], $saida[0]->historico);
-        self::assertSame([DocumentoJuridico::PoliticaDePrivacidade, DocumentoJuridico::AceiteDaIa], array_map(static fn ($d) => $d->documento, $saida[0]->documentos));
-        self::assertSame([], $saida[0]->documentos[0]->versoes);
+        self::assertSame([DocumentoJuridico::PoliticaDePrivacidade, DocumentoJuridico::AceiteDaIa], $saida[0]->questao->documentosJuridicos());
+    }
+
+    #[TestDox('documentos: os 4 do enum, uma vez cada, mesmo com a Política em várias questões e mesmo sem questão que os peça')]
+    public function testDocumentosUmaVezCada(): void
+    {
+        $saida = $this->sut([], [], [])->documentos();
+
+        self::assertSame(DocumentoJuridico::cases(), array_map(static fn ($d) => $d->documento, $saida));
+        self::assertCount(4, $saida);
+        self::assertSame([[], [], [], []], array_map(static fn ($d) => $d->versoes, $saida));
     }
 
     #[TestDox('com estado, histórico e versões: o status gravado, o histórico da chave e as versões do documento com o título da questão')]
@@ -55,10 +64,33 @@ final class ListarQuestoesJuridicasUseCaseTest extends TestCase
         self::assertSame(StatusDaQuestaoJuridica::Pendente, $saida[1]->status);
         self::assertCount(1, $saida[0]->historico);
         self::assertSame([StatusDaQuestaoJuridica::Pendente, StatusDaQuestaoJuridica::EmAnalise, 'Dra. Master'], [$saida[0]->historico[0]->de, $saida[0]->historico[0]->para, $saida[0]->historico[0]->por]);
-        $versoes = $saida[0]->documentos[0]->versoes;
+        $documentos = $this->sut(['primeira' => $estado], [], ['politica_privacidade' => [$solta, $versao]])->documentos();
+        $versoes = $documentos[0]->versoes;
+        self::assertSame(DocumentoJuridico::PoliticaDePrivacidade, $documentos[0]->documento);
         self::assertSame(['solta.pdf', 'politica-v2.docx'], array_map(static fn ($v) => $v->nomeOriginal, $versoes));
         self::assertSame([null, 'Questão primeira'], array_map(static fn ($v) => $v->questaoTitulo, $versoes));
-        self::assertSame([], $saida[0]->documentos[1]->versoes, 'o aceite não tem versão');
+        self::assertSame([], $documentos[3]->versoes, 'o aceite não tem versão');
+    }
+
+    #[TestDox('questão oculta: fora da listagem e da contagem de em aberto')]
+    public function testQuestaoOcultaForaDaListaEDaContagem(): void
+    {
+        $catalogo = CatalogoJuridicoDeTeste::criar([
+            CatalogoJuridicoDeTeste::questao('a'),
+            CatalogoJuridicoDeTeste::questao('b', oculta: true),
+        ]);
+        $e = $this->createMock(EstadoDaQuestaoJuridicaRepository::class);
+        $e->method('todasPorChave')->willReturn([]);
+        $e->method('chavesResolvidas')->willReturn([]);
+        $h = $this->createMock(MudancaDeStatusDaQuestaoJuridicaRepository::class);
+        $h->method('todasPorChave')->willReturn([]);
+        $v = $this->createMock(VersaoDeDocumentoJuridicoRepository::class);
+        $v->method('todasPorDocumento')->willReturn([]);
+
+        $saida = (new ListarQuestoesJuridicasUseCase($catalogo, $e, $h, $v))->executar();
+
+        self::assertSame(['a'], array_map(static fn ($q) => $q->questao->chave, $saida));
+        self::assertSame(1, (new ContarQuestoesJuridicasEmAbertoUseCase($catalogo, $e))->executar());
     }
 
     #[TestDox('em aberto: as chaves do catálogo menos as resolvidas (chave resolvida fora do catálogo não conta)')]
@@ -71,6 +103,10 @@ final class ListarQuestoesJuridicasUseCaseTest extends TestCase
         self::assertSame(2, $sut->executar());
         self::assertSame(1, $sut->executar());
         self::assertSame(0, $sut->executar());
+
+        $estados2 = $this->createMock(EstadoDaQuestaoJuridicaRepository::class);
+        $estados2->method('chavesResolvidas')->willReturn(['primeira']);
+        self::assertSame(['segunda'], (new ContarQuestoesJuridicasEmAbertoUseCase(CatalogoJuridicoDeTeste::criar(), $estados2))->chaves());
     }
 
     /**

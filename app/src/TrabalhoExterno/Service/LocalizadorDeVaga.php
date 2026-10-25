@@ -27,6 +27,7 @@ final class LocalizadorDeVaga
         private readonly PoliticaDaVaga $politica,
         private readonly CurriculoRepository $curriculos,
         private readonly CandidaturaRepository $candidaturas,
+        private readonly ExpiracaoDaVaga $expiracao = new ExpiracaoDaVaga(),
     ) {
     }
 
@@ -77,10 +78,25 @@ final class LocalizadorDeVaga
         if (!$this->politica->veAba($ctx)) {
             return [];
         }
-        $vagas = $this->politica->ehInterno($ctx)
-            ? $this->repositorio->daCentral()
-            : $this->repositorio->visiveisAoExterno($ctx->perfil === Perfil::Convidado ? null : $ctx->tenant, $ctx->usuario);
+        if ($this->politica->ehInterno($ctx)) {
+            $vagas = array_filter($this->repositorio->daCentral(), fn (Vaga $v): bool => $this->politica->podeVer($ctx, $v, $agora));
+        } else {
+            // D4: além das abertas e das dele, as expiradas há até 30 dias (`expRec`), que ele vê sem abrir.
+            $vagas = [];
+            foreach ($this->repositorio->visiveisAoExterno($ctx->perfil === Perfil::Convidado ? null : $ctx->tenant, $ctx->usuario) as $v) {
+                if ($this->politica->podeVer($ctx, $v, $agora)) {
+                    $vagas[(int) $v->getId()] = $v;
+                }
+            }
+            foreach ($this->repositorio->publicadasAoExterno() as $v) {
+                if (!isset($vagas[(int) $v->getId()]) && $this->expiracao->recente($v, $agora)) {
+                    $vagas[(int) $v->getId()] = $v;
+                }
+            }
+            krsort($vagas);
+        }
 
-        return array_values(array_filter($vagas, fn (Vaga $v): bool => $this->politica->podeVer($ctx, $v, $agora)));
+        // P3: a expirada há mais de 30 dias sai da lista de todos, inclusive dos filtros do interno (o dado fica).
+        return array_values(array_filter($vagas, fn (Vaga $v): bool => !$this->expiracao->velha($v, $agora)));
     }
 }

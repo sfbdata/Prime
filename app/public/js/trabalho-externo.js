@@ -271,6 +271,8 @@
         curriculosCsv: function (q) { return comComo(D.urlCurriculosCsv + (q ? (D.urlCurriculosCsv.indexOf('?') >= 0 ? '&' : '?') + q : '')); },
         // Candidatura (§4.6): só escrita, nunca com `?como=`. A de status vem com o id 0 no lugar do da candidatura.
         vagaCandidatura: function (c) { return String(D.urlVagaCandidatura || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
+        vagaRecusa: function (c) { return String(D.urlVagaRecusa || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
+        vagaRecusaDesfazer: function (c) { return String(D.urlVagaRecusaDesfazer || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
         vagaEnviar: function (c) { return String(D.urlVagaEnviar || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
         candidaturaStatus: function (id) { return String(D.urlCandidaturaStatus || '').replace(/\/0\/status$/, '/' + encodeURIComponent(id) + '/status'); },
         // Engajamento (§4.7): a leitura aceita `?como=`; o aviso de vagas é escrita (nunca na prévia).
@@ -3077,7 +3079,8 @@
                 ['encerrada', 'Encerradas', sit('encerrada')],
                 ['todas', 'Todas', function () { return true; }]
             ])
-            : [['aberta', 'Abertas', sit('aberta')]].concat(L.some(function (v) { return !!v.minha; }) ? [['minhas', 'Minhas vagas enviadas', function (v) { return !!v.minha; }]] : []);
+            // D4 (l.1126): o externo vê, junto com as abertas, as expiradas há até 30 dias (`expRec`).
+            : [['aberta', 'Abertas', function (v) { return v.situacao === 'aberta' || !!v.expRec; }]].concat(L.some(function (v) { return !!v.minha; }) ? [['minhas', 'Minhas vagas enviadas', function (v) { return !!v.minha; }]] : []);
         return base.concat([
             ['estrela', '★ Estrela', function (v) { return !!v.estrela; }],
             ['imp', 'Importantes', vagaImportante],
@@ -3295,6 +3298,11 @@
             class: 'te-vg-card' + (sel ? ' is-sel' : ''),
             attrs: { 'data-codigo': v.codigo },
             onclick: function () {
+                // D4 (l.1191): o externo não abre a expirada; o interno abre normalmente.
+                if (v.expOn && !vgInterno()) {
+                    mostrarToast({ tit: 'Vaga expirada', txt: 'As inscrições desta vaga se encerraram em ' + String(v.expTxt || '').replace('Expirou em ', '') + '. Ative os alertas para não perder as próximas.', hora: '' });
+                    return;
+                }
                 marcarVagaVista(v);
                 abrirVaga(v.codigo);
             },
@@ -3303,6 +3311,9 @@
                 abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 250);
             }
         }, [
+            // D4 (l.164): véu e carimbo "EXPIRADA", sem clique.
+            v.expOn ? el('span', { class: 'te-vg-veu', attrs: { 'aria-hidden': 'true' } }) : null,
+            v.expOn ? el('span', { class: 'te-vg-carimbo', text: 'EXPIRADA', attrs: { 'aria-hidden': 'true' } }) : null,
             el('div', { class: 'te-vg-topo' }, [
                 el('span', { class: 'te-vg-ic' }, ic('bi-briefcase')),
                 el('div', { class: 'te-flex1 te-min0' }, [
@@ -3341,7 +3352,7 @@
                 el('span', null, [ic('bi-cash-stack'), v.remuneracao || ''])
             ]),
             (v.areas || []).length ? el('div', { class: 'te-vg-areas' }, v.areas.slice(0, 4).map(function (a) { return el('span', { class: 'te-vg-area', text: a }); })) : null,
-            v.oferta ? relogioDaVaga(v, false, relogiosGrade) : null,
+            v.oferta && !v.expOn ? relogioDaVaga(v, false, relogiosGrade) : null,
             el('div', { class: 'te-vg-rodape' }, [
                 ic('bi-calendar3'),
                 el('span', { class: 'te-flex1', text: v.prazoTxt || '' }),
@@ -3349,7 +3360,9 @@
                 vgInterno() && v.nCand !== undefined && v.nCand !== null ? el('b', { class: 'te-cand-n' }, [ic('bi-people'), ' ' + v.nCand]) : null,
                 !vgInterno() && v.minha && typeof v.indicadosN === 'number' ? el('b', { class: 'te-cand-n' }, [ic('bi-people'), ' ' + v.indicadosN + ' indicado(s) pelo BlueJus']) : null,
                 !vgInterno() && v.jaFoi ? el('b', { class: 'te-cand-foi' }, [ic('bi-check2-circle'), ' Candidatura enviada']) : null
-            ])
+            ]),
+            // D4 (l.172): "Expirou em dd/mm/aaaa" no pé do cartão.
+            v.expOn ? el('div', { class: 'te-vg-expirou', text: v.expTxt }) : null
         ]);
     }
 
@@ -3883,7 +3896,7 @@
     function botaoTlm(rot, icone, tipo, acao) {
         return el('button', {
             type: 'button',
-            class: 'te-tlm-btn' + (tipo === 'pri' ? ' is-pri' : tipo === 'verde' ? ' is-pri is-verde' : tipo === 'perigo' ? ' is-pri is-perigo' : tipo === 'cinza' ? ' is-pri te-cand-cinza' : ''),
+            class: 'te-tlm-btn' + (tipo === 'pri' ? ' is-pri' : tipo === 'verde' ? ' is-pri is-verde' : tipo === 'perigo' ? ' is-pri is-perigo' : tipo === 'cinza' ? ' is-pri te-cand-cinza' : tipo === 'recusar' ? ' is-recusar' : ''),
             onclick: acao
         }, [ic(icone), rot]);
     }
@@ -4021,9 +4034,7 @@
                 }
             } else if (!v.minha) {
                 var bx = botaoDoExterno(v);
-                if (bx) {
-                    botoes.push(bx);
-                }
+                (Array.isArray(bx) ? bx : bx ? [bx] : []).forEach(function (b) { botoes.push(b); });
             } else {
                 // D11a (desenho 06 de 24/10, l.1169): a vaga própria aberta, para o externo; só fecha.
                 botoes.push(botaoTlm('Sua vaga · acompanhe os candidatos acima', 'bi-people', 'pri', fecharTlm));
@@ -7245,7 +7256,10 @@
             case 'enviada':
                 return botaoTlm('Candidatura enviada', 'bi-check2-circle', 'verde', fecharTlm);
             case 'aceitar':
-                return botaoTlm('Aceitar oferta', 'bi-hand-thumbs-up', 'verde', ir);
+                // D11b (l.1169): "Recusar" (secundário) ao lado de "Aceitar oferta".
+                return [botaoTlm('Recusar', 'bi-x-circle', 'recusar', function () { recusarOferta(v); }), botaoTlm('Aceitar oferta', 'bi-hand-thumbs-up', 'verde', ir)];
+            case 'recusou':
+                return botaoTlm('Você recusou · aceitar mesmo assim', 'bi-arrow-counterclockwise', 'verde', function () { aceitarMesmoAssim(v); });
             case 'indisponivel':
                 return botaoTlm('Oferta indisponível', 'bi-slash-circle', 'cinza', fecharTlm);
             case 'candidatar':
@@ -7253,6 +7267,46 @@
             default:
                 return null;
         }
+    }
+
+    /**
+     * `recusar` (l.1169): a confirmação da tela (não o `confirm()` do navegador), depois a recusa no servidor,
+     * que grava, registra no histórico e avisa o dono e a Central. Fecha o detalhe e mostra o toast do desenho.
+     */
+    function recusarOferta(v) {
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        abrirConf(null, {
+            k: '__recusar_oferta__',
+            confirmacao: { titulo: 'Recusar', texto: 'Recusar esta oferta? O escritório e a Central BlueJus serão avisados.', botao: 'Recusar', perigo: true, motivo: false },
+            executar: function () {
+                return pedir('POST', ROTA.vagaRecusa(v.codigo), {}).then(function (r) {
+                    if (!r.ok) {
+                        toastErro(r.mensagem);
+                        return r;
+                    }
+                    fecharTlm();
+                    toastDoServidor(r.toast, 'Oferta recusada', 'Obrigado por responder. Você continua recebendo novas oportunidades.');
+                    carregarVagas();
+                    return r;
+                });
+            }
+        });
+    }
+
+    /** "Você recusou · aceitar mesmo assim" (l.1169): tira a recusa e candidata, como no desenho. */
+    function aceitarMesmoAssim(v) {
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        pedir('POST', ROTA.vagaRecusaDesfazer(v.codigo), {}).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            candidatar(v.codigo);
+        });
     }
 
     /* ---------------------------------------------------------------- candidatar-se e aceitar oferta */
