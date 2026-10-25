@@ -2138,7 +2138,7 @@ master:
         juridico:
             titulo: Questões jurídicas
             em_aberto: 'Em aberto: {n}'
-            nota: 'Para o Dr. Farlei: cada questão traz o problema, o risco, as opções, a sugestão e as fontes. Marque o status de cada questão. Os documentos para baixar e enviar a versão ajustada estão no fim da página. Enquanto houver questão não resolvida, o aviso fica no topo das telas do Master.'
+            nota: 'Para o Dr. Farlei: cada questão traz o problema, o risco, as opções, a sugestão e as fontes. Marque o status de cada questão. Os documentos para baixar e enviar a versão ajustada estão no fim da página. Enquanto houver questão não resolvida, um aviso aparece no topo das telas do Master. Ele some depois que você clica em "ver as questões" e só volta se surgir questão em aberto nova.'
             vazio: Nenhuma questão jurídica no catálogo.
             problema: Problema
             risco: Risco
