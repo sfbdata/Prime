@@ -8,6 +8,47 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.18.0] - 2026-10-24
+
+### Adicionado
+
+- BlueJus IA: comando "Ler N documentos" na aba Documentos do drawer da pasta (`ler_documentos`, versão `agente-leitura-v1`). PDF e imagem (até 3 por vez; PDF até 10 MB, imagem até 3 MB, 20 MB juntos, 100 páginas somadas) vão inline ao provedor como blocos `document`/`image` em base64, com o tipo medido pelo conteúdo; sem Files API e sem OCR próprio; timeout de 300 s e `max_tokens` 8000 só nessa leitura. O worker relê cada documento por id e escritório, fora da lixeira, reconfere o acesso de quem pediu e as abas ocultas de agora, e conta as páginas que o upload não contou; falha de I/O do armazenamento volta à fila. Pasta em segredo nunca envia; `contexto_resumo` guarda só id e sha256. Versão do texto do aceite em `inteligencia_configuracao.consentimento_versao` (migration aditiva `Version20261024150400`, linhas atuais na 1): só a versão 2, que cita os documentos, libera a leitura; o administrador renova salvando a configuração com a IA ligada.
+- BlueJus IA (ia-anthropic-ligar, PR C, sem migration): o orçamento mensal em US$ de cada escritório passa a valer. `DisponibilidadeDeInteligencia::para()` ganha, depois da cota mensal, o caso `orcamento_atingido` ("Orçamento mensal da BlueJus IA atingido; volta no dia 1º"), que responde 429 com o código `limite_atingido`, como as cotas. Vale nos modos `incluso` e `adicional`; orçamento vazio não trava; o worker (`paraProcessamento`) não confere o orçamento.
+- BlueJus IA: no modo `limite_gratis` o orçamento é a parte grátis e NÃO bloqueia; o painel do Master mostra "acima do grátis". Padrão adotado em 24/10/2026, o dono pode rever.
+- BlueJus IA: serviço `CustoDaIa` com o custo estimado em centavos de dólar, pelo preço de tabela de `ModeloDeIa` (modelo fora da lista paga o preço do Opus 5.5; região `us` custa 1,1x; arredonda para cima). O gasto do mês soma todas as análises com tokens desde o dia 1º, inclusive as excluídas e as que falharam, numa consulta agrupada por modelo com tenant explícito.
+- Painel do Master, aba "Configurações da I.A.": colunas "Análises no mês" e "Gasto no mês (US$)" na tabela de escritórios, com os selos "orçamento atingido" e "acima do grátis" (uma consulta para todos os escritórios).
+- `/admin/inteligencia`: bloco "Consumo do mês" com as análises e o limite mensal, o gasto estimado, o orçamento (quando houver) e o modo de cobrança, só do próprio escritório.
+- Painel do Master, aba "Configurações da I.A.": bloco novo "Questões jurídicas". Cada questão mostra problema, risco, opções, sugestão e fontes. O conteúdo vem do catálogo em código (`config/inteligencia/questoes_juridicas.json`, lido por `CatalogoDeQuestoesJuridicas`).
+- Download da versão atual de cada documento: Política de Privacidade, Termos de Uso, rascunho da política da IA (cópias em `app/resources/legal/`, porque `docs/` não vai para a imagem de produção) e o texto do aceite da IA, gerado na hora em .txt com os mesmos textos da tela do aceite.
+- Upload da versão ajustada de cada documento (.docx, .doc, .pdf, .md, .txt e .odt, até 20 MB, com o tipo conferido pelo conteúdo), com histórico: quem enviou, quando, nome original, documento e questão. O download das versões enviadas também vale. Arquivos na categoria nova `inteligencia_documento_juridico` (escopo global, `public/uploads/documentos-juridicos`).
+- Status de cada questão (pendente, em análise, resolvida), alterável pelo Master, com histórico de quem mudou e quando, e auditoria no escopo de plataforma.
+- Aviso no topo das telas do Master, "Questões jurídicas a serem verificadas", enquanto houver questão não resolvida, com o link para o bloco.
+- Tabelas `inteligencia_questao_juridica`, `inteligencia_questao_juridica_historico` e `inteligencia_documento_juridico_versao` na migration `Version20261024150300`. Rotas `master_ia_juridico_*`, só para o Master.
+- Trabalho Externo (desenho 06 de 24/10, D8, PR 2): DESPACHO no Resumo da demanda. Só o Master despacha: natureza (5 opções que desmarcam), prazo (padrão hoje mais 5 dias úteis, pulando sábado, domingo e os feriados nacionais do calendário do sistema), texto até 5.000 com contador, anexos (arquivos de verdade, baixáveis pela rota dos documentos e fora da lista DOCUMENTOS) e o registro "Novo despacho da Central BlueJus{ · natureza}." no chat, que avisa as partes.
+- Trabalho Externo: chave "Aceitar resposta" do Master; com ela ligada e um despacho publicado, o solicitante, a Equipe e o convidado vigente respondem (até 3.000), com o registro "Resposta ao despacho de {quem}.". Cada resposta avisa no sino os Master da Central, menos quem respondeu (tipo novo `trabalho_externo_despacho_resposta`, ação "Abrir a demanda").
+- Trabalho Externo: lista numerada (o mais novo em cima), respostas recuadas em verde, "{Cidade}, {data por extenso}." e a assinatura eletrônica com o código (único), que segue a privacidade do nome do responsável e não repete "Central BlueJus"; "Extrato" para impressão (também na pré-visualização do Master) em `GET /trabalho-externo/demandas/{codigo}/despachos/extrato`.
+- Rotas novas: `POST /trabalho-externo/api/demandas/{codigo}/despachos`, `.../despachos/respostas` e `.../despachos/aceitar-resposta`.
+- Migration `Version20261024150500`: tabela `trabalho_externo_despacho`, `trabalho_externo_documento.despacho_id` e `trabalho_externo_demanda.respostas_ao_despacho_liberadas`.
+- Trabalho Externo (desenho 06 de 24/10, D11b, PR 3): botão "Recusar" ao lado de "Aceitar oferta" na oferta com tempo, com a confirmação da própria tela ("Recusar esta oferta? O escritório e a Central BlueJus serão avisados."). A recusa fica gravada por vaga e pessoa, entra no histórico como "Oferta recusada por {quem}" e avisa no sino o dono da vaga (sem o nome de quem recusou) e os Master da Central (com o nome; tipo novo `trabalho_externo_oferta_recusada`). Depois, o botão vira "Você recusou · aceitar mesmo assim", que tira a recusa e aceita. "Ofertar novamente" não apaga a recusa.
+- Trabalho Externo (D4): o profissional externo vê, junto com as abertas, as vagas expiradas há até 30 dias, com véu, carimbo EXPIRADA, faixa "Expirou em dd/mm/aaaa", selo "Expirada" e sem cronômetro, AO VIVO nem NOVA; o clique mostra o aviso "Vaga expirada" em vez de abrir. A vaga expirada há mais de 30 dias sai da lista de todos, inclusive da Central (o dado continua no banco).
+- Rotas novas: `POST /trabalho-externo/api/vagas/{codigo}/recusa` e `.../recusa/desfazer`.
+- Migration `Version20261024150600`: tabela `trabalho_externo_vaga_recusa` (única por vaga e usuário) e `trabalho_externo_vaga.encerrada_em`, gravada em "Encerrar vaga", "Finalizar oferta" e no fim da divulgação (reabrir zera), com o backfill das encerradas pelo histórico.
+
+### Alterado
+
+- BlueJus IA: a tarefa diária `app:inteligencia:expirar-conteudo` usa o prazo de guarda que o Master escolhe na aba "Configurações da I.A." (12 meses por padrão), em vez de 12 meses fixos. Decidido pelo dono em 24/10/2026. O comando e o log mostram o prazo usado.
+- Telas do Master: 9 textos passam a mostrar só o estado, sem nome técnico e sem mandar o Master acionar alguém (regra de tom de 24/10/2026). - Comercial: "depende de decisão do dono" e "Aguardando a decisão" viram "ainda não está disponível". - "Integração no servidor" vira "integração ainda não disponível". - Relatório comercial: "quando o servidor registrar as leituras" vira "assim que as leituras forem registradas". - Aviso da cota de e-mail: sai "(limite da Hostinger)". - Criar escritório sem e-mail: sai "Verifique SMTP".
+- Aviso de falha do agendador e Central de Notificações do Master mostram o nome da tarefa ("Captação das publicações do DJEN"), não o comando do console. Serviço novo `NomeDaTarefaAgendada`; um teste garante que toda tarefa da agenda tem nome. "Detalhe no log do agendador" vira "Os detalhes ficam registrados pela equipe BlueJus."
+- Painel do Master, bloco "Questões jurídicas": cada questão mostra só o nome dos documentos afetados. Um bloco único no fim da página lista os 4 documentos (Política de Privacidade, Termos de Uso, rascunho da política da IA e texto do aceite), cada um com baixar e enviar, e avisa que cada envio substitui o documento em todas as questões. O envio pelo bloco não vincula a versão a uma questão.
+- Catálogo de questões jurídicas: campo opcional `oculta` no JSON. Questão oculta some da listagem, da contagem de "em aberto" e do aviso do topo, sem apagar o texto e sem renumerar as demais. A questão `retencao_zero` (2. Retenção zero) foi ocultada.
+- Aviso do topo "Questões jurídicas a serem verificadas": some depois do clique em "ver as questões" e só volta quando surge uma questão em aberto que o Master ainda não viu (guardado no navegador, por usuário).
+- Envio de versão de documento jurídico no Master deixa de aceitar o formato antigo .doc (binário legado, sem validação confiável de conteúdo). Continuam aceitos .docx, .pdf, .md, .txt e .odt.
+
+### Corrigido
+
+- Pasta, cabeçalho: o círculo do cliente abre o menu "Carregar foto" também na pasta sem cliente cadastrado (desenho 02 VS 18.10.26); antes ficava inerte. A foto fica na própria pasta (migration `Version20261024150000`: `pasta.foto` e `pasta.foto_atualizada_em`, categoria `pasta_foto` em `uploads_dir/fotos`), com as mesmas regras da foto do cliente: editar a pasta, escritório, CSRF, lápide e cadeado, imagem até 3 MB, a anterior apagada depois do commit, registro na pasta e purga do escritório.
+- Com cliente vinculado depois, a foto da pasta continua aparecendo até o cliente ter foto própria. Rotas novas `pasta_foto_trocar`, `pasta_foto_remover` e `pasta_foto`; as respostas das rotas da foto passam a dizer a origem da foto mostrada.
+
 ## [2.17.0] - 2026-10-24
 
 ### Adicionado
@@ -906,7 +947,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.17.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.18.0...HEAD
+[2.18.0]: https://github.com/sfbdata/Prime/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/sfbdata/Prime/compare/v2.16.0...v2.17.0
 [2.16.0]: https://github.com/sfbdata/Prime/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/sfbdata/Prime/compare/v2.14.0...v2.15.0
