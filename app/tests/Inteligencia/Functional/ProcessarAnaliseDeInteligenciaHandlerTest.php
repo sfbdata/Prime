@@ -67,6 +67,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $c->get(PermissionChecker::class),
             $iaHabilitada,
             $c->get(ConfiguracaoDaPlataformaDeIaRepository::class),
+            new \App\Inteligencia\Service\CustoDaIa('us'),
         );
 
         return new ProcessarAnaliseDeInteligenciaHandler(
@@ -317,6 +318,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             static::getContainer()->get(PermissionChecker::class),
             true,
             static::getContainer()->get(ConfiguracaoDaPlataformaDeIaRepository::class),
+            new \App\Inteligencia\Service\CustoDaIa('us'),
         );
         self::assertSame(Disponibilidade::Disponivel, $disponibilidade->para($user, $tenant), 'limite 2, uma contada: ainda dá para pedir');
     }

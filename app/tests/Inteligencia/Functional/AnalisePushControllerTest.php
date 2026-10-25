@@ -245,6 +245,29 @@ final class AnalisePushControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
     }
 
+    #[TestDox('orçamento mensal em US$ atingido (modo incluso) → 429 limite_atingido com a mensagem do orçamento, sem linha nova, sem fila e sem provedor')]
+    public function testOrcamentoAtingido(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $configuracao = $this->ligarIaNoTenant($tenant, $user);
+        $configuracao->definirCobranca(\App\Inteligencia\Enum\ModoDeCobrancaDaIa::Incluso, 1);
+        // Uma análise já cobrada neste mês, em outra pasta: 100 + 30 tokens do modelo falso (preço do Opus) = 1 centavo.
+        $this->concluirAnalise($this->criarAnalisePendente($tenant, $user, $this->criarPasta($tenant)));
+        $this->provedorFalso()->limpar();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->solicitar($client, (int) $pasta->getId());
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame('limite_atingido', $this->json($client)['motivo']);
+        self::assertSame('Orçamento mensal da BlueJus IA atingido; volta no dia 1º', $this->json($client)['mensagem']);
+        self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
+        self::assertCount(0, $this->transporteAsync()->getSent());
+        self::assertFalse($this->provedorFalso()->foiChamado());
+    }
+
     #[TestDox('pasta sem movimentação → 409 sem_movimentacoes, nada persistido')]
     public function testSemMovimentacoes(): void
     {

@@ -92,17 +92,34 @@ moldura:
     # Aviso de falha das tarefas agendadas (layout/_globais/aviso_falha_agendada, spec scheduler-tarefas-agendadas)
     aviso_falha_agendada:
         titulo: Tarefa agendada falhou
-        item: '{comando} às {hora} de {data}.'
+        item: '{tarefa} às {hora} de {data}.'
         mais: Há outras falhas mais antigas.
-        detalhe: Detalhe no log do agendador.
+        detalhe: Os detalhes ficam registrados pela equipe BlueJus.
+        # Nome de cada tarefa no aviso (chave = comando sem "app:", com _ no lugar de : e -).
+        tarefa:
+            purgar_dados_expirados: Limpeza dos dados expirados
+            inteligencia_expirar_conteudo: Retenção das respostas da BlueJus IA
+            importar_indices_monetarios: Importação dos índices monetários
+            djen_sincronizar: Captação das publicações do DJEN
+            push_resumo_semanal_cliente: Resumo semanal ao cliente
+            pastas_relatorio_sem_processo: Relatório de pastas sem processo
+            pastas_relatorio_pastas_paradas: Relatório de pastas paradas
+            dashboard_fotografar: Foto diária do Dashboard
+            sync_reconciliar: Envio para o Google Drive
+            outra: Tarefa agendada
         dispensar: Dispensar
     # Aviso da cota de envio de e-mail (layout/_globais/aviso_cota_de_envio, spec comercial-e-emails §3.6)
     aviso_cota_de_envio:
         titulo_perto: Perto do limite de e-mail
-        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas (limite da Hostinger). Perto do limite.'
+        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas. Perto do limite diário.'
         titulo_pausadas: Limite de e-mail de campanha atingido
         texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
         dispensar: Dispensar
+    # Aviso das questões jurídicas da BlueJus IA (layout/_globais/aviso_questoes_juridicas), só para o Master
+    aviso_questoes_juridicas:
+        titulo: Questões jurídicas a serem verificadas
+        texto: '{n, plural, one {# questão jurídica da BlueJus IA ainda não foi resolvida.} other {# questões jurídicas da BlueJus IA ainda não foram resolvidas.}}'
+        ver: Ver as questões
     busca_rapida:
         rotulo: Busca rápida
         campo: Buscar pasta, cliente, CPF ou processo
@@ -812,7 +829,7 @@ comercial_relatorio:
         duplicar: Duplicar como nova
         reenviar: Reenviar a quem não leu
         encaminhar: Encaminhar para um e-mail
-        encaminhar_motivo: Aguardando a decisão sobre enviar teste para outros endereços.
+        encaminhar_motivo: Envio de teste para outros endereços ainda não disponível.
         estrela: Marcar com estrela
         arquivar: Arquivar
         exportar: Exportar destinatários (CSV)
@@ -840,9 +857,9 @@ comercial_relatorio:
         confirmar_cancelar_fila: Cancelar o envio desta campanha? O que ainda está na fila não sai.
         confirmar_remover: 'Remover {n} campanha(s) do relatório?'
         confirmar_excluir: Excluir esta campanha do relatório?
-        reenvio_menu_rastreada: Reenvio disponível quando o servidor registrar as leituras.
+        reenvio_menu_rastreada: Reenvio disponível assim que as leituras forem registradas.
         reenvio_menu_sem_rastreio: Esta campanha não rastreou leitura.
-        reenvio_rastreada: Reenvio para quem não leu fica disponível assim que o servidor registrar as leituras.
+        reenvio_rastreada: Reenvio para quem não leu fica disponível assim que as leituras forem registradas.
         reenvio_sem_rastreio: 'Esta campanha não rastreou leitura; não dá para saber quem não leu.'
         erro_exportar: Não foi possível exportar. Recarregue a página.
 
@@ -2100,12 +2117,14 @@ master:
             aviso: 'As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.'
         escritorios:
             titulo: Escritórios
-            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. O orçamento mensal fica gravado; o bloqueio por orçamento entra numa próxima etapa.'
+            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. Em "Incluso no plano" e "Adicional pago", a IA para quando o gasto do mês chega ao orçamento e volta no dia 1º; em "Limite grátis, depois cobra", o orçamento é a parte grátis e a IA continua. Sem orçamento, não há trava em dólares. Valores estimados pelo preço de tabela da Anthropic.'
             col_nome: Escritório
             col_liberado: Liberado
             col_aceite: Aceite do escritório
             col_cobranca: Cobrança
             col_orcamento: Orçamento mensal (US$)
+            col_analises_mes: Análises no mês
+            col_gasto_mes: Gasto no mês (US$)
         recusa:
             token_invalido: Token CSRF inválido. Recarregue a página.
             informe_ligada: Informe se a chave geral fica ligada ou desligada.
@@ -2115,6 +2134,37 @@ master:
             orcamento_invalido: Informe o orçamento em dólares, com até duas casas decimais.
             escritorio_nao_encontrado: Escritório não encontrado.
             retencao_invalida: Informe os meses em número inteiro.
+        # Bloco "Questões jurídicas" (master/_ia_juridico.html.twig; o JS em master.js.ia_juridico.*).
+        juridico:
+            titulo: Questões jurídicas
+            em_aberto: 'Em aberto: {n}'
+            nota: 'Para o Dr. Farlei: cada questão traz o problema, o risco, as opções, a sugestão e as fontes. Baixe o documento atual, envie a versão ajustada e marque o status. Enquanto houver questão não resolvida, o aviso fica no topo das telas do Master.'
+            vazio: Nenhuma questão jurídica no catálogo.
+            problema: Problema
+            risco: Risco
+            opcoes: Opções
+            sugestao: Sugestão
+            fontes: Fontes
+            documentos: Documentos a atualizar
+            status: Status
+            risco_alto: Risco alto
+            risco_medio: Risco médio
+            risco_baixo: Risco baixo
+            baixar_atual: Baixar o atual
+            enviar: Enviar versão ajustada
+            versoes: Versões enviadas
+            versao_item: '{nome}, enviado por {por} em {quando}'
+            versao_questao: '(questão: {questao})'
+            baixar: Baixar
+            sem_versao: Nenhuma versão enviada.
+            campo_status: SITUAÇÃO DA QUESTÃO
+            historico_item: '{de} para {para}, por {por} em {quando}'
+            sem_historico: Sem mudanças de status.
+            recusa:
+                documento_nao_encontrado: Documento não encontrado.
+                questao_nao_encontrada: Questão jurídica não encontrada.
+                sem_arquivo: Escolha o arquivo a enviar.
+                status_invalido: Escolha um status da lista.
     # P3: flashes do MastersDoSistemaController (Masters do sistema, aba Permissões) e as recusas da
     # OperacaoDeMasterRecusada. As RECUSA_* da RegraDosMasters ficam fora: o Tenant (EscritorioController) também usa.
     masters:
@@ -2160,7 +2210,7 @@ master:
             ind: Indicações do BlueJus
             notif: Central de Notificações
         vazia:
-            aviso: DADO AINDA NÃO COLETADO · DEPENDE DE INTEGRAÇÃO NO SERVIDOR
+            aviso: DADO AINDA NÃO COLETADO · INTEGRAÇÃO AINDA NÃO DISPONÍVEL
             custos:
                 texto: Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.
                 armazenamento: Armazenamento
@@ -2594,6 +2644,8 @@ master:
             cobranca: Cobrança
             orcamento: Orçamento mensal em dólares
             sem_orcamento: sem orçamento
+            orcamento_atingido: orçamento atingido
+            acima_do_gratis: acima do grátis
             sem_aceite: sem aceite
             liberado: Liberado
             bloqueado: Bloqueado
@@ -2609,6 +2661,20 @@ master:
             vazio: Nenhum escritório ativo.
             erro_carregar: Não foi possível carregar as configurações da I.A. Recarregue a página.
             erro_salvar: Não foi possível salvar.
+        # Bloco "Questões jurídicas" da aba "Configurações da I.A." (public/js/master/ia-juridico.js).
+        ia_juridico:
+            em_aberto: 'Em aberto: {n}'
+            status_salvo: 'Status de "{titulo}": {status}.'
+            enviando: Enviando…
+            enviado: '"{nome}" enviado.'
+            erro_salvar: Não foi possível salvar.
+            erro_enviar: Não foi possível enviar o arquivo.
+            versao_item: '{nome}, enviado por {por} em {quando}'
+            versao_questao: '(questão: {questao})'
+            baixar: Baixar
+            sem_versao: Nenhuma versão enviada.
+            historico_item: '{de} para {para}, por {por} em {quando}'
+            sem_historico: Sem mudanças de status.
         # P3: masters.js (Masters do sistema e a confirmação que o painel.js também usa). A palavra digitada vem de
         # quem abre a confirmação (EXCLUIR, que não se traduz).
         masters:
@@ -3880,7 +3946,7 @@ comercial:
         sub: 'clicaram em "Não quero mais receber" e saem de todas as listas automaticamente'
         buscar: Buscar e-mail
         registrar: Registrar pedido
-        limpar_dica: Limpar a lista inteira depende de decisão do dono (LGPD). Por enquanto, exclua um por vez.
+        limpar_dica: Limpar a lista inteira ainda não está disponível (LGPD). Por enquanto, a exclusão é feita um por vez.
         limpar: Limpar lista
         csv: CSV
         fechar: Fechar
@@ -3890,7 +3956,7 @@ comercial:
         fechar: Fechar
         enviar_para: ENVIAR PARA
         separe: (separe vários por vírgula)
-        trava: Por enquanto o teste vai só para o seu e-mail; enviar para outros endereços depende de decisão.
+        trava: O teste vai só para o seu e-mail. O envio para outros endereços ainda não está disponível.
         nota: O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.
         cancelar: Cancelar
         enviar: Enviar teste
@@ -4390,7 +4456,7 @@ escritorio:
     flash:
         email_em_uso: Este e-mail já está em uso. Informe outro e-mail para o administrador.
         email_cadastrado: Este e-mail já está cadastrado. Informe outro e-mail para o administrador.
-        criado_sem_email: Tenant criado, mas não foi possível enviar o e-mail de ativação do administrador agora. Verifique SMTP e reenvie o convite.
+        criado_sem_email: Escritório criado. O e-mail de ativação do administrador não saiu agora; o convite pode ser reenviado.
         link_dev: 'Link de confirmação (dev): {link}'
         criado: Tenant criado com sucesso! O administrador receberá um e-mail para criar a senha.
         nome_atualizado: Nome do Tenant atualizado com sucesso!
@@ -7056,6 +7122,15 @@ inteligencia:
         consentimento: 'Aceite registrado em {quando}.'
         consentimento_por: 'Aceite registrado em {quando} por {nome}.'
         cotas: As cotas contam todo pedido feito no escritório, inclusive os que falharam.
+        consumo:
+            titulo: Consumo do mês
+            analises: Análises no mês
+            analises_valor: '{n} de {limite}'
+            gasto: Gasto estimado
+            orcamento: Orçamento mensal
+            modo: Cobrança
+            dolares: 'US$ {valor}'
+            nota: Valores estimados pelo preço de tabela da Anthropic.
         mascarar: Recomendado. O número do processo nunca é mascarado.
         salvar: Salvar
     js:

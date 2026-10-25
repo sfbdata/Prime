@@ -176,6 +176,34 @@ final class PurgaArquivosTest extends KernelTestCase
         self::assertSame(0, $this->existeTenant($a));
     }
 
+    #[TestDox('foto da pasta sem cliente: a do escritório purgado sai, a do vizinho fica, e a de nome compartilhado fica e é reportada')]
+    public function testFotoDaPasta(): void
+    {
+        $a          = $this->tenantEmQuarentena();
+        $b          = $this->tenantEmQuarentena();
+        $deA        = $this->nome();
+        $deB        = $this->nome();
+        $dividida   = $this->nome();
+        $caminhoA   = $this->arquivo('uploads_dir', 'fotos/' . $deA);
+        $caminhoB   = $this->arquivo('uploads_dir', 'fotos/' . $deB);
+        $caminhoDiv = $this->arquivo('uploads_dir', 'fotos/' . $dividida);
+        $this->pastaComFoto($a, $deA);
+        $this->pastaComFoto($a, $dividida);
+        $this->pastaComFoto($b, $deB);
+        $this->pastaComFoto($b, $dividida);
+
+        $resultado = $this->purgar($a);
+
+        self::assertFileDoesNotExist($caminhoA, 'a foto da pasta do escritório purgado ficou');
+        self::assertFileExists($caminhoB, 'a purga do A apagou a foto da pasta do B');
+        self::assertFileExists($caminhoDiv, 'o B ainda referencia a foto');
+        self::assertSame(1, $resultado->arquivosRemovidos);
+        self::assertCount(1, $resultado->arquivosNaoRemovidos);
+        self::assertStringContainsString('pasta/' . $dividida, $resultado->arquivosNaoRemovidos[0]);
+        self::assertStringContainsString('outro escritório', $resultado->arquivosNaoRemovidos[0]);
+        self::assertSame(0, $this->existeTenant($a));
+    }
+
     /**
      * Linha de OUTRO escritório que cai por CASCADE de um pai deste: pela seção da pasta, e pela
      * coluna do Kanban. A prova exige a cadeia inteira; sem ela o arquivo fica — e é reportado.
@@ -698,6 +726,11 @@ final class PurgaArquivosTest extends KernelTestCase
             'kanban_anexo' => $this->ins('kanban_anexo', ['nome_original' => 'k.pdf', 'caminho' => $nome, 'tamanho' => 1, 'mime_type' => 'application/pdf', 'criado_em' => $ts, 'criado_por_id' => $this->userId, 'tenant_id' => $t,
                 'card_id' => $this->mural($t)[1]]),
         };
+    }
+
+    private function pastaComFoto(int $t, string $foto): int
+    {
+        return $this->ins('pasta', ['nup' => 'NUP-' . uniqid(), 'data_abertura' => '2020-01-01 00:00:00', 'created_at' => '2020-01-01 00:00:00', 'tenant_id' => $t, 'foto' => $foto]);
     }
 
     private function clienteComFoto(int $t, string $foto): int

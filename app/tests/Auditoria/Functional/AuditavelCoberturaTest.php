@@ -202,6 +202,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // gravaria o texto da pergunta no audit_log, que quem administra o escritório lê (mesmo motivo da Central).
         // A análise da pergunta continua auditada, sem o texto do modelo (ConteudoParticular).
         \App\Inteligencia\Entity\PerguntaDaConversa::class,
+        // Histórico do status das questões jurídicas da IA (Master): é o LOG DE DOMÍNIO da questão (de, para, quem,
+        // quando), nunca editado, como o HistoricoDemanda. O estado da questão (EstadoDaQuestaoJuridica) É auditado.
+        // Auditar o histórico seria log de log.
+        \App\Inteligencia\Entity\MudancaDeStatusDaQuestaoJuridica::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,

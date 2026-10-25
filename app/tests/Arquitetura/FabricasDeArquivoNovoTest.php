@@ -13,9 +13,11 @@ use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Armazenamento\ChavesDeInteligencia;
 use App\Kanban\Armazenamento\ChavesDeKanban;
 use App\Kanban\Entity\KanbanCard;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
@@ -61,6 +63,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ChavesDePasta::class . '::novoDocumento',
             static fn (?Tenant $t): object => self::comTenant(new PastaDocumento(), $t),
             CategoriaDeArquivo::PASTA_DOCUMENTO,
+        ];
+        yield ChavesDePasta::class . '::novaFoto' => [
+            ChavesDePasta::class . '::novaFoto',
+            static fn (?Tenant $t): object => self::comTenant(new Pasta(), $t),
+            CategoriaDeArquivo::PASTA_FOTO,
         ];
         yield ChavesDePasta::class . '::novaImagemDoEditor' => [
             ChavesDePasta::class . '::novaImagemDoEditor',
@@ -197,6 +204,16 @@ final class FabricasDeArquivoNovoTest extends TestCase
         self::assertSame('jpg', $novo->extensao);
     }
 
+    #[TestDox('versão nova de documento jurídico do Master: escopo global (D1), categoria própria')]
+    public function testVersaoNovaDeDocumentoJuridicoEhGlobal(): void
+    {
+        $novo = ChavesDeInteligencia::novaVersaoDeDocumentoJuridico('docx');
+
+        self::assertSame(CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('docx', $novo->extensao);
+    }
+
     #[TestDox('toda fábrica de arquivo novo tem caso neste teste, e só as documentadas recebem Tenant')]
     public function testInventarioDasFabricas(): void
     {
@@ -204,6 +221,7 @@ final class FabricasDeArquivoNovoTest extends TestCase
         $cobertas[] = ChavesDePerfil::class . '::novaFoto';
         $cobertas[] = ChavesDeTrabalhoExterno::class . '::novoArquivoDoCurriculo';
         $cobertas[] = ChavesDeComercial::class . '::novaImagem';
+        $cobertas[] = ChavesDeInteligencia::class . '::novaVersaoDeDocumentoJuridico';
 
         $encontradas = [];
 

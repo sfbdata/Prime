@@ -174,8 +174,18 @@ final class IaDoMasterController extends AbstractController
             'liberada' => $e->liberada,
             'aceiteEm' => $e->aceiteEm?->format('Y-m-d'),
             'modoDeCobranca' => $e->modoDeCobranca->value,
-            'orcamento' => $e->orcamentoMensalCentavos === null ? null : sprintf('%d.%02d', intdiv($e->orcamentoMensalCentavos, 100), $e->orcamentoMensalCentavos % 100),
+            'orcamento' => $e->orcamentoMensalCentavos === null ? null : self::dolares($e->orcamentoMensalCentavos),
+            'analisesNoMes' => $e->analisesNoMes,
+            'gastoNoMes' => self::dolares($e->gastoNoMesCentavos),
+            'orcamentoAtingido' => $e->orcamentoAtingido(),
+            'acimaDoGratis' => $e->acimaDoGratis(),
         ];
+    }
+
+    /** Centavos em dólares com duas casas e ponto ("12.50"), o formato do campo do orçamento. */
+    private static function dolares(int $centavos): string
+    {
+        return sprintf('%d.%02d', intdiv($centavos, 100), $centavos % 100);
     }
 
     private function recusa(string $chave, int $status): JsonResponse

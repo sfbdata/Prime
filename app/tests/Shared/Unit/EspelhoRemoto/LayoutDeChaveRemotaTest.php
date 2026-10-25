@@ -39,6 +39,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
 
         yield 'pasta_documento'     => [CategoriaDeArquivo::PASTA_DOCUMENTO, $t7, 'a1.pdf', 'core/t/7/uploads/pastas/a1.pdf'];
         yield 'pasta_imagem_editor' => [CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, $t7, 'a1.png', 'core/t/7/uploads/pastas/7/a1.png'];
+        yield 'pasta_foto'          => [CategoriaDeArquivo::PASTA_FOTO, $t7, 'a1.jpg', 'core/t/7/uploads/pastas/fotos/a1.jpg'];
         yield 'cliente_documento'   => [CategoriaDeArquivo::CLIENTE_DOCUMENTO, $t7, 'a1.pdf', 'core/t/7/uploads/clientes/a1.pdf'];
         yield 'cliente_foto'        => [CategoriaDeArquivo::CLIENTE_FOTO, $t7, 'a1.jpg', 'core/t/7/uploads/clientes/fotos/a1.jpg'];
         yield 'chamado_anexo'       => [CategoriaDeArquivo::CHAMADO_ANEXO, $t7, 'a1.pdf', 'core/t/7/uploads/chamados/a1.pdf'];
@@ -50,6 +51,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
         yield 'trabalho_externo_documento' => [CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO, $t7, 'a1.pdf', 'core/t/7/uploads/trabalho-externo/a1.pdf'];
         yield 'trabalho_externo_curriculo (global)' => [CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, EscopoDeArquivo::global(), 'a1.pdf', 'core/g/uploads/trabalho-externo/curriculos/a1.pdf'];
         yield 'comercial_imagem (global)' => [CategoriaDeArquivo::COMERCIAL_IMAGEM, EscopoDeArquivo::global(), 'a1.jpg', 'core/g/uploads/comercial-imagens/a1.jpg'];
+        yield 'inteligencia_documento_juridico (global)' => [CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, EscopoDeArquivo::global(), 'a1.pdf', 'core/g/uploads/documentos-juridicos/a1.pdf'];
     }
 
     #[DataProvider('tabela')]
@@ -94,7 +96,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
     /** @return iterable<string, array{CategoriaDeArquivo, EscopoDeArquivo}> */
     public static function escoposQueNaoConcordam(): iterable
     {
-        $globais = [CategoriaDeArquivo::FOTO_PERFIL, CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, CategoriaDeArquivo::COMERCIAL_IMAGEM];
+        $globais = [CategoriaDeArquivo::FOTO_PERFIL, CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, CategoriaDeArquivo::COMERCIAL_IMAGEM, CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO];
         foreach ($globais as $categoria) {
             yield $categoria->value . ' com escritório' => [$categoria, EscopoDeArquivo::deTenant(1)];
         }
@@ -194,6 +196,7 @@ final class LayoutDeChaveRemotaTest extends TestCase
             tarefasUploadsDir: $p('tarefas_uploads_dir'),
             trabalhoExternoUploadsDir: $p('trabalho_externo_uploads_dir'),
             comercialImagensDir: $p('comercial_imagens_dir'),
+            documentosJuridicosDir: $p('documentos_juridicos_dir'),
         );
     }
 }

@@ -19,7 +19,10 @@ use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
+use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\FotoDoCabecalhoDaPasta;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
@@ -36,7 +39,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * Foto do cliente no cabeçalho da pasta (desenho 02 VS 18.10.26, L1255, L472-505 e L3853-3884).
  *
  * Trocar e remover vêm da pasta (`#[PastaPorId]`: a lápide e o cadeado recusam pela rota) e respondem JSON
- * `{ok, url}`, no molde da foto de perfil. A entrega é inline, para quem VÊ o cliente no escritório da sessão, e só
+ * `{ok, url, origem}`, no molde da foto de perfil: a foto que o círculo passa a mostrar ({@see FotoDoCabecalhoDaPasta}),
+ * que depois de remover a do cliente pode ser a da pasta. A entrega é inline, para quem VÊ o cliente no escritório da sessão, e só
  * do nome que o cliente guarda. Escritório errado, cliente fora da pasta ou nome que não é o dele: 404.
  */
 final class FotoDoClienteController extends AbstractController
@@ -54,6 +58,8 @@ final class FotoDoClienteController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly EntregaDeArquivo $entrega,
+        private readonly PastaRepository $pastas,
+        private readonly FotoDoCabecalhoDaPasta $fotoDoCabecalho,
     ) {
     }
 
@@ -111,7 +117,7 @@ final class FotoDoClienteController extends AbstractController
         }
 
         try {
-            $foto = $acao(new FotoDoClienteInput($pastaId, $clienteId, $usuario, $tenant, $arquivo));
+            $acao(new FotoDoClienteInput($pastaId, $clienteId, $usuario, $tenant, $arquivo));
         } catch (PastaDeOutroEscritorioException|ClienteNaoEncontradoException) {
             return $this->json(['erro' => 'Cliente não encontrado nesta pasta.'], Response::HTTP_NOT_FOUND);
         } catch (SemPermissaoParaVerPastaException|SemPermissaoParaEditarClienteException|FotoDoClienteRecusadaException $e) {
@@ -120,20 +126,10 @@ final class FotoDoClienteController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return $this->json(['ok' => true, 'url' => $this->urlDa($foto)]);
-    }
+        $pasta = $this->pastas->find($pastaId);
+        \assert($pasta instanceof Pasta);
 
-    private function urlDa(FotoDoClienteOutput $foto): ?string
-    {
-        if ($foto->nome === null) {
-            return null;
-        }
-
-        return $this->generateUrl('cliente_foto', [
-            'id'   => $foto->clienteId,
-            'nome' => $foto->nome,
-            'v'    => $foto->atualizadaEm?->getTimestamp(),
-        ]);
+        return $this->json(['ok' => true] + $this->fotoDoCabecalho->para($pasta, $usuario, $tenant));
     }
 
     private function clienteVisivel(int $id): ?Cliente

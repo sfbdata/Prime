@@ -1,0 +1,87 @@
+{# Bloco "Questões jurídicas" da aba "Configurações da I.A." do /master (pedido do dono de 24/10/2026). Nenhum desenho
+   tem esta tela: os componentes são os do painel (.mp-card, .mp-cab-roxo, .mp-btn-roxo, .mp-ia-campo, .mp-ia-msg).
+   Incluído pelo master/_ia.html.twig, irmão da .mp-ia-raiz, dentro de <div class="mp-ia" data-painel-aba="ia">.
+   O conteúdo das questões vem do catálogo em código (config/inteligencia/questoes_juridicas.json), escapado: cada
+   parágrafo (separado por linha em branco) vira um <p>, sem |raw. O status e as versões vêm do banco. As ações
+   (status e envio) são do public/js/master/ia-juridico.js, que redesenha só o que mudou; o aviso do topo
+   ("Questões jurídicas a serem verificadas") traz o Master para cá pela âncora #aba=ia&bloco=questoes-juridicas. #}
+{% set questoes = questoes_juridicas_do_master() %}
+{% set em_aberto = questoes|filter(q => not q.resolvida)|length %}
+<link rel="stylesheet" href="{{ asset('css/master-ia-juridico.css') }}">
+<section class="mp-card mp-ia-card mp-jur" id="questoes-juridicas" aria-labelledby="mp-jur-titulo" data-mp-jur
+         data-token="{{ csrf_token('master_ia_juridico') }}">
+    <div class="mp-cab-roxo"><i class="bi bi-bank"></i><b id="mp-jur-titulo">{{ 'master.ia.juridico.titulo'|trans }}</b><span class="mp-jur-contagem" data-mp-jur-contagem>{{ 'master.ia.juridico.em_aberto'|trans({n: em_aberto}) }}</span></div>
+    <div class="mp-jur-corpo">
+        <p class="mp-ia-nota">{{ 'master.ia.juridico.nota'|trans }}</p>
+        <div class="mp-ia-msg" data-mp-jur-msg role="status" hidden></div>
+        {% for item in questoes %}
+            {% set q = item.questao %}
+            <article class="mp-jur-questao" id="questao-{{ q.chave }}" data-mp-jur-questao="{{ q.chave }}"
+                     data-url-status="{{ path('master_ia_juridico_status', {chave: q.chave}) }}">
+                <header class="mp-jur-cab">
+                    <h3 class="mp-jur-titulo" data-mp-jur-titulo>{{ q.titulo }}</h3>
+                    <span class="mp-jur-risco mp-jur-risco--{{ q.riscoGrau }}">{{ ('master.ia.juridico.risco_' ~ q.riscoGrau)|trans }}</span>
+                    <span class="mp-jur-selo mp-jur-selo--{{ item.status.value }}" data-mp-jur-selo>{{ item.status.rotulo }}</span>
+                </header>
+                <div class="mp-jur-secao" data-mp-jur-secao="problema">
+                    <h4>{{ 'master.ia.juridico.problema'|trans }}</h4>
+                    {% for p in q.paragrafos(q.problema) %}<p>{{ p }}</p>{% endfor %}
+                </div>
+                <div class="mp-jur-secao" data-mp-jur-secao="risco">
+                    <h4>{{ 'master.ia.juridico.risco'|trans }}</h4>
+                    {% for p in q.paragrafos(q.risco) %}<p>{{ p }}</p>{% endfor %}
+                </div>
+                <div class="mp-jur-secao" data-mp-jur-secao="opcoes">
+                    <h4>{{ 'master.ia.juridico.opcoes'|trans }}</h4>
+                    <ol>{% for opcao in q.opcoes %}<li>{{ opcao }}</li>{% endfor %}</ol>
+                </div>
+                <div class="mp-jur-secao" data-mp-jur-secao="sugestao">
+                    <h4>{{ 'master.ia.juridico.sugestao'|trans }}</h4>
+                    {% for p in q.paragrafos(q.sugestao) %}<p>{{ p }}</p>{% endfor %}
+                </div>
+                <div class="mp-jur-secao" data-mp-jur-secao="fontes">
+                    <h4>{{ 'master.ia.juridico.fontes'|trans }}</h4>
+                    <ul>{% for fonte in q.fontes %}<li><a href="{{ fonte.url }}" target="_blank" rel="noopener noreferrer">{{ fonte.rotulo }}</a></li>{% endfor %}</ul>
+                </div>
+                <div class="mp-jur-secao" data-mp-jur-secao="documentos">
+                    <h4>{{ 'master.ia.juridico.documentos'|trans }}</h4>
+                    {% for d in item.documentos %}
+                        <div class="mp-jur-doc" data-mp-jur-doc="{{ d.documento.value }}"
+                             data-url-enviar="{{ path('master_ia_juridico_versao_enviar', {documento: d.documento.value}) }}">
+                            <div class="mp-jur-doc-linha">
+                                <b class="mp-jur-doc-nome">{{ d.documento.rotulo }}</b>
+                                <a class="mp-btn-roxo mp-jur-baixar" href="{{ path('master_ia_juridico_documento_atual', {documento: d.documento.value}) }}"><i class="bi bi-download" aria-hidden="true"></i>{{ 'master.ia.juridico.baixar_atual'|trans }}</a>
+                                <label class="mp-jur-enviar"><i class="bi bi-upload" aria-hidden="true"></i><span>{{ 'master.ia.juridico.enviar'|trans }}</span><input type="file" accept=".docx,.doc,.pdf,.md,.txt,.odt" data-mp-jur-arquivo></label>
+                            </div>
+                            <ul class="mp-jur-versoes" data-mp-jur-versoes aria-label="{{ 'master.ia.juridico.versoes'|trans }}">
+                                {% for v in d.versoes %}
+                                    <li>{{ 'master.ia.juridico.versao_item'|trans({nome: v.nomeOriginal, por: v.enviadaPor, quando: v.enviadaEm|date('d/m/Y H:i')}) }}{% if v.questaoTitulo %} {{ 'master.ia.juridico.versao_questao'|trans({questao: v.questaoTitulo}) }}{% endif %} <a href="{{ path('master_ia_juridico_versao_baixar', {id: v.id}) }}">{{ 'master.ia.juridico.baixar'|trans }}</a></li>
+                                {% else %}
+                                    <li class="mp-jur-vazio">{{ 'master.ia.juridico.sem_versao'|trans }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="mp-jur-secao" data-mp-jur-secao="status">
+                    <h4>{{ 'master.ia.juridico.status'|trans }}</h4>
+                    <label class="mp-ia-campo">{{ 'master.ia.juridico.campo_status'|trans }}<select data-mp-jur-status>
+                        {% for s in enum_cases('App\\Inteligencia\\Enum\\StatusDaQuestaoJuridica') %}
+                            <option value="{{ s.value }}"{{ s == item.status ? ' selected' }}>{{ s.rotulo }}</option>
+                        {% endfor %}
+                    </select></label>
+                    <ul class="mp-jur-historico" data-mp-jur-historico>
+                        {% for m in item.historico %}
+                            <li>{{ 'master.ia.juridico.historico_item'|trans({de: m.de.rotulo, para: m.para.rotulo, por: m.por, quando: m.em|date('d/m/Y H:i')}) }}</li>
+                        {% else %}
+                            <li class="mp-jur-vazio">{{ 'master.ia.juridico.sem_historico'|trans }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </article>
+        {% else %}
+            <div class="mp-carregando">{{ 'master.ia.juridico.vazio'|trans }}</div>
+        {% endfor %}
+    </div>
+</section>
+<script src="{{ asset('js/master/ia-juridico.js') }}"></script>

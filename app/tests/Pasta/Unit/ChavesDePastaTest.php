@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
@@ -114,6 +115,40 @@ final class ChavesDePastaTest extends TestCase
     }
 
     // ------------------------------------------------------------------ helpers
+
+    #[TestDox('foto(): categoria PASTA_FOTO, escopo do escritório da pasta e o nome guardado')]
+    public function testFotoUsaCategoriaEEscopoDaPasta(): void
+    {
+        $pasta = (new Pasta())->setTenant($this->tenant(7));
+        $pasta->trocarFoto('a1b2.jpg', new \DateTimeImmutable());
+
+        $chave = ChavesDePasta::foto($pasta);
+
+        self::assertSame([7, CategoriaDeArquivo::PASTA_FOTO, 'a1b2.jpg'], [$chave->escopo->tenantIdOuNull(), $chave->categoria, $chave->nome]);
+    }
+
+    #[TestDox('foto(): pasta sem foto não tem chave')]
+    public function testFotoSemFotoLanca(): void
+    {
+        $this->expectException(ChaveDeArquivoInvalida::class);
+
+        ChavesDePasta::foto((new Pasta())->setTenant($this->tenant(7)));
+    }
+
+    #[TestDox('fotoPorNome() e novaFoto(): escopo da pasta; pasta sem escritório é recusada')]
+    public function testFotoPorNomeENovaFotoUsamOEscopoDaPasta(): void
+    {
+        $pasta = (new Pasta())->setTenant($this->tenant(9));
+
+        $anterior = ChavesDePasta::fotoPorNome($pasta, 'velha.png');
+        $nova     = ChavesDePasta::novaFoto($pasta, 'jpg');
+
+        self::assertSame([9, CategoriaDeArquivo::PASTA_FOTO, 'velha.png'], [$anterior->escopo->tenantIdOuNull(), $anterior->categoria, $anterior->nome]);
+        self::assertSame([9, CategoriaDeArquivo::PASTA_FOTO, 'jpg'], [$nova->escopo->tenantIdOuNull(), $nova->categoria, $nova->extensao]);
+
+        $this->expectException(ChaveDeArquivoInvalida::class);
+        ChavesDePasta::novaFoto(new Pasta(), 'jpg');
+    }
 
     private function tenant(int $id): Tenant
     {

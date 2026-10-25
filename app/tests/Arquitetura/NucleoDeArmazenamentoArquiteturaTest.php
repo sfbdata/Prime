@@ -316,6 +316,7 @@ final class NucleoDeArmazenamentoArquiteturaTest extends TestCase
             tarefasUploadsDir: '/raiz/tarefas',
             trabalhoExternoUploadsDir: '/raiz/trabalho-externo',
             comercialImagensDir: '/raiz/comercial-imagens',
+            documentosJuridicosDir: '/raiz/documentos-juridicos',
         );
     }
 
