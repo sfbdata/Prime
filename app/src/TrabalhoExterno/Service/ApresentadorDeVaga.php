@@ -25,11 +25,37 @@ final class ApresentadorDeVaga
         private readonly PoliticaDaVaga $politica,
         private readonly CalculadoraDeImportanciaDaVaga $importancia,
         private readonly ApresentadorDeCandidatura $candidaturas,
+        private readonly ExpiracaoDaVaga $expiracao,
     ) {
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * O cartão da lista (l.1191). Expirada (`expDe`, {@see ExpiracaoDaVaga}): véu, carimbo e "Expirou em
+     * dd/mm/aaaa" (`expOn`/`expTxt`), selo "Expirada" em #6b8494, sem AO VIVO nem NOVA (P6) e sem cronômetro;
+     * `expRec` diz ao filtro do externo que ela entra junto com as abertas (l.1126).
+     *
+     * @return array<string, mixed>
+     */
     public function cartao(Contexto $ctx, Vaga $v, ?MarcacaoDoUsuario $marca, ?\DateTimeImmutable $ultimaVisita, \DateTimeImmutable $agora, ?CandidaturasDaVaga $cand = null): array
+    {
+        $base = $this->dadosDoCartao($ctx, $v, $marca, $ultimaVisita, $agora, $cand);
+        $ex = $this->expiracao->expiradaEm($v, $agora);
+        $exp = [
+            'expOn' => $ex !== null,
+            'expTxt' => $ex !== null ? 'Expirou em ' . $ex->format('d/m/Y') : '',
+            'expRec' => !$this->politica->ehInterno($ctx) && $this->expiracao->recente($v, $agora),
+        ];
+
+        return $ex === null ? $base + $exp : array_replace($base, $exp, [
+            'vivo' => false,
+            'nova' => false,
+            'situacaoRotulo' => 'Expirada',
+            'situacaoCor' => '#6b8494',
+        ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function dadosDoCartao(Contexto $ctx, Vaga $v, ?MarcacaoDoUsuario $marca, ?\DateTimeImmutable $ultimaVisita, \DateTimeImmutable $agora, ?CandidaturasDaVaga $cand = null): array
     {
         $s = $v->situacaoEm($agora);
         $nova = $s === SituacaoVaga::Aberta && $ultimaVisita !== null && $v->getCriadaEm() > $ultimaVisita;
@@ -103,7 +129,7 @@ final class ApresentadorDeVaga
         $interno = $this->politica->ehInterno($ctx);
         $cand ??= new CandidaturasDaVaga();
 
-        return $this->cartao($ctx, $v, $marca, $ultimaVisita, $agora, $cand) + $this->candidatos($ctx, $v, $cand, $agora) + [
+        return $this->dadosDoCartao($ctx, $v, $marca, $ultimaVisita, $agora, $cand) + $this->candidatos($ctx, $v, $cand, $agora) + [
             'requisitos' => $v->getRequisitos() !== '' ? $v->getRequisitos() : 'Sem descrição.',
             'oab' => $v->isExigeOab() ? 'Exige OAB ativa' : 'OAB não obrigatória',
             'prazoDetalhe' => $this->prazoDoDetalhe($v),
@@ -189,15 +215,17 @@ final class ApresentadorDeVaga
         ];
     }
 
-    /** O botão principal do externo no detalhe (l.1095); a vaga própria não mostra "Candidatar-se". */
+    /** O botão principal do externo no detalhe (l.1095 e 1169); a vaga própria não mostra "Candidatar-se". */
     private function botaoExterno(Contexto $ctx, Vaga $v, CandidaturasDaVaga $cand, \DateTimeImmutable $agora): ?string
     {
         return match (true) {
             $this->politica->ehInterno($ctx), $this->politica->ehDono($ctx, $v) => null,
             $cand->minha !== null => 'enviada',
             !$v->isOferta() => 'candidatar',
-            $v->situacaoEm($agora) === SituacaoVaga::Aberta => 'aceitar',
-            default => 'indisponivel',
+            $v->situacaoEm($agora) !== SituacaoVaga::Aberta => 'indisponivel',
+            // D11b (l.1169): quem recusou vê "Você recusou · aceitar mesmo assim"; os demais, "Recusar" e "Aceitar oferta".
+            $cand->recusei => 'recusou',
+            default => 'aceitar',
         };
     }
 

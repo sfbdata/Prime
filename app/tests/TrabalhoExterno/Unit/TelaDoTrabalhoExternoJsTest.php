@@ -111,4 +111,45 @@ final class TelaDoTrabalhoExternoJsTest extends TestCase
             self::assertStringContainsString($regra, $css, $regra);
         }
     }
+
+    #[TestDox('D11b (l.1169): "Recusar" ao lado de "Aceitar oferta", confirmação pelo diálogo da tela (sem confirm()), toast do desenho; "Você recusou · aceitar mesmo assim" desfaz e candidata')]
+    public function testRecusaDaOferta(): void
+    {
+        $js = $this->js();
+        self::assertStringContainsString("return [botaoTlm('Recusar', 'bi-x-circle', 'recusar', function () { recusarOferta(v); }), botaoTlm('Aceitar oferta', 'bi-hand-thumbs-up', 'verde', ir)];", $js);
+        self::assertStringContainsString("return botaoTlm('Você recusou · aceitar mesmo assim', 'bi-arrow-counterclockwise', 'verde', function () { aceitarMesmoAssim(v); });", $js);
+
+        $recusar = $this->funcao('recusarOferta');
+        self::assertStringContainsString('abrirConf(null, {', $recusar);
+        self::assertStringContainsString("texto: 'Recusar esta oferta? O escritório e a Central BlueJus serão avisados.'", $recusar);
+        self::assertStringContainsString("toastDoServidor(r.toast, 'Oferta recusada', 'Obrigado por responder. Você continua recebendo novas oportunidades.');", $recusar);
+        self::assertStringNotContainsString('confirm(', str_replace('abrirConf(', '', $recusar), 'o diálogo da tela, não o do navegador');
+
+        $mesmoAssim = $this->funcao('aceitarMesmoAssim');
+        self::assertStringContainsString('ROTA.vagaRecusaDesfazer(v.codigo)', $mesmoAssim);
+        self::assertStringContainsString('candidatar(v.codigo);', $mesmoAssim);
+    }
+
+    #[TestDox('D4 (l.164, 172, 1126, 1191): véu, carimbo EXPIRADA, faixa "Expirou em", sem cronômetro; o externo filtra as abertas com as expiradas recentes e não abre a expirada (toast)')]
+    public function testVagaExpirada(): void
+    {
+        $cartao = $this->funcao('cartaoVaga');
+        self::assertStringContainsString("v.expOn ? el('span', { class: 'te-vg-veu'", $cartao);
+        self::assertStringContainsString("v.expOn ? el('span', { class: 'te-vg-carimbo', text: 'EXPIRADA'", $cartao);
+        self::assertStringContainsString("v.expOn ? el('div', { class: 'te-vg-expirou', text: v.expTxt }) : null", $cartao);
+        self::assertStringContainsString('v.oferta && !v.expOn ? relogioDaVaga(', $cartao, 'sem cronômetro na expirada');
+        self::assertStringContainsString('if (v.expOn && !vgInterno()) {', $cartao);
+        self::assertStringContainsString("mostrarToast({ tit: 'Vaga expirada', txt: 'As inscrições desta vaga se encerraram em ' + String(v.expTxt || '').replace('Expirou em ', '') + '. Ative os alertas para não perder as próximas.'", $cartao);
+        self::assertStringContainsString("[['aberta', 'Abertas', function (v) { return v.situacao === 'aberta' || !!v.expRec; }]]", $this->js());
+
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/trabalho-externo.css');
+        foreach ([
+            '.te-vg-card { position: relative; overflow: hidden;',
+            '.te-vg-veu { position: absolute; inset: 0; z-index: 2; background: rgba(243,246,248,.62); backdrop-filter: grayscale(.9); -webkit-backdrop-filter: grayscale(.9); pointer-events: none; }',
+            '.te-vg-carimbo { position: absolute; z-index: 3; left: 50%; top: 46%; transform: translate(-50%,-50%) rotate(-14deg); border: 3px solid #a3232b; color: #a3232b; border-radius: 6px; padding: 4px 16px; font: bold 22px/1 Arial,Helvetica,sans-serif; letter-spacing: 4px; background: rgba(255,255,255,.55); pointer-events: none; animation: teStamp .45s cubic-bezier(.3,1.6,.5,1) both; }',
+            '.te-vg-expirou { position: relative; z-index: 3; margin: 2px -18px -16px; padding: 7px 12px; background: #fdf1f2; border-top: 1px solid #f3c9cf; color: #842029; font-size: 11.5px; font-weight: bold; text-align: center; }',
+        ] as $regra) {
+            self::assertStringContainsString($regra, $css, $regra);
+        }
+    }
 }

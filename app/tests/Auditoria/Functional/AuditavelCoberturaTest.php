@@ -306,6 +306,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Despachos e respostas da Central: já ficam registrados no chat da demanda (mensagem de sistema) e
         // têm assinatura eletrônica com código; auditar seria log de log.
         \App\TrabalhoExterno\Entity\DespachoDemanda::class,
+        // Recusa de oferta: já deixa rastro no histórico da vaga ("Oferta recusada por"); auditar seria log de log.
+        \App\TrabalhoExterno\Entity\RecusaDeOferta::class,
         \App\TrabalhoExterno\Entity\ConviteDemanda::class,
         \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
         \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,

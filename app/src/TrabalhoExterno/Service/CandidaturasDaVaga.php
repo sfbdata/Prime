@@ -26,6 +26,8 @@ final readonly class CandidaturasDaVaga
         public ?int $compat = null,
         public array $candidatos = [],
         public array $aceitosPor = [],
+        /** Só no detalhe do externo: ele recusou esta oferta (D11b). */
+        public bool $recusei = false,
     ) {
     }
 }

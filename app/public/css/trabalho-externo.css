@@ -730,7 +730,7 @@ select.te-ctl { padding: 0 7px; }
 .te-vg-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
 
 /* ---------------------------------------------------------------- cartão */
-.te-vg-card { background: var(--te-card); border: 1px solid var(--te-border); border-radius: 4px; padding: 16px 18px; cursor: pointer; display: flex; flex-direction: column; gap: 10px; transition: box-shadow .2s, transform .2s, border-color .2s; animation: teUp .25s ease; min-width: 0; }
+.te-vg-card { position: relative; overflow: hidden; background: var(--te-card); border: 1px solid var(--te-border); border-radius: 4px; padding: 16px 18px; cursor: pointer; display: flex; flex-direction: column; gap: 10px; transition: box-shadow .2s, transform .2s, border-color .2s; animation: teUp .25s ease; min-width: 0; }
 .te-vg-card:hover { box-shadow: 0 8px 22px rgba(10, 111, 160, .12); transform: translateY(-2px); border-color: #b9d6e8; }
 .te-vg-card.is-sel { border-color: var(--te-azul); }
 /* O desenho não define altura de linha (fica a do navegador); o 1,5 do Bootstrap afastava as linhas. */
@@ -1485,3 +1485,8 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-dp-chave-trilho.is-on > .te-dp-chave-bola { left: 19px; }
 .te-dp-extrato { height: 28px; padding: 0 8px; border: none; background: transparent; color: #5b7383; font: inherit; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
 .te-dp-extrato:hover { color: #0a6fa0; }
+
+/* ---------------------------------------------------------------- vaga expirada (desenho 06 de 24/10, D4, l.164 e 172) */
+.te-vg-veu { position: absolute; inset: 0; z-index: 2; background: rgba(243,246,248,.62); backdrop-filter: grayscale(.9); -webkit-backdrop-filter: grayscale(.9); pointer-events: none; }
+.te-vg-carimbo { position: absolute; z-index: 3; left: 50%; top: 46%; transform: translate(-50%,-50%) rotate(-14deg); border: 3px solid #a3232b; color: #a3232b; border-radius: 6px; padding: 4px 16px; font: bold 22px/1 Arial,Helvetica,sans-serif; letter-spacing: 4px; background: rgba(255,255,255,.55); pointer-events: none; animation: teStamp .45s cubic-bezier(.3,1.6,.5,1) both; }
+.te-vg-expirou { position: relative; z-index: 3; margin: 2px -18px -16px; padding: 7px 12px; background: #fdf1f2; border-top: 1px solid #f3c9cf; color: #842029; font-size: 11.5px; font-weight: bold; text-align: center; }

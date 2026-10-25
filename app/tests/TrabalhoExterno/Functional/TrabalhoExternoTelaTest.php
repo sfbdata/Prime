@@ -122,6 +122,8 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
             'data-url-vagas-divulgacao' => '/trabalho-externo/api/vagas/divulgacao',
             'data-url-vaga-editar' => '/trabalho-externo/api/vagas/VG-0/editar',
             'data-url-vaga-excluir' => '/trabalho-externo/api/vagas/VG-0/excluir',
+            'data-url-vaga-recusa' => '/trabalho-externo/api/vagas/VG-0/recusa',
+            'data-url-vaga-recusa-desfazer' => '/trabalho-externo/api/vagas/VG-0/recusa/desfazer',
             'data-url-vagas-visita' => '/trabalho-externo/api/vagas/visita',
             'data-url-campanha' => '/trabalho-externo/api/campanha',
             'data-url-campanha-csv' => '/trabalho-externo/campanha/destinatarios.csv',
