@@ -9,13 +9,14 @@ use App\Master\DTO\DestinoDaResposta;
 use App\Master\DTO\MensagemDaCentral;
 use App\Master\DTO\RespostaNaOrigem;
 use App\Shared\Scheduler\Entity\FalhaAgendada;
+use App\Shared\Scheduler\NomeDaTarefaAgendada;
 use App\Shared\Scheduler\Repository\FalhaAgendadaRepository;
 
 /**
  * Origem `falha_agendada`: as falhas das tarefas agendadas (spec scheduler-tarefas-agendadas, "Aviso de
  * falha"). Vem do "Sistema BlueJus", sem escritório, e não aceita resposta. Lista as recentes, dispensadas
- * ou não: dispensar tira o aviso da moldura, não a mensagem da Central. Só o comando e a hora; o detalhe
- * fica no log do agendador.
+ * ou não: dispensar tira o aviso da moldura, não a mensagem da Central. Só o nome da tarefa (nunca o comando)
+ * e a hora; o detalhe técnico fica no log do agendador.
  */
 final class LeitorDeFalhasAgendadas implements OrigemDaCentral
 {
@@ -23,6 +24,7 @@ final class LeitorDeFalhasAgendadas implements OrigemDaCentral
 
     public function __construct(
         private readonly FalhaAgendadaRepository $falhas,
+        private readonly NomeDaTarefaAgendada $nomeDaTarefa,
     ) {
     }
 
@@ -73,8 +75,8 @@ final class LeitorDeFalhasAgendadas implements OrigemDaCentral
             tenantId: null,
             assunto: 'Tarefa agendada falhou',
             texto: sprintf(
-                'Tarefa agendada falhou: %s às %s de %s. Detalhe no log do agendador.',
-                $falha->getComando(),
+                'Tarefa agendada falhou: %s às %s de %s. Os detalhes ficam registrados pela equipe BlueJus.',
+                $this->nomeDaTarefa->de($falha->getComando()),
                 $em->format('H:i'),
                 $em->format('d/m'),
             ),

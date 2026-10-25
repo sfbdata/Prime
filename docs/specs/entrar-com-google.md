@@ -55,12 +55,27 @@ Google Agenda (#78, #182, #183), que já tem cliente OAuth próprio. **Esta subs
    "Criar conta" já conectado.
 4. **Manter** o "Entrar com o Google" no cartão de login, embora o desenho 24.10.26 não o mostre.
 
+## Ajustes do dono (24/10/2026, depois do merge do #366)
+
+1. **O botão "Continuar com Facebook" saiu** do "Criar conta" até o app na Meta existir (o cartão de login nunca
+   teve). Saíram junto o ouvinte do clique em `public/js/auth/entrada.js` e as chaves `entrada.modal.continuar_facebook`,
+   `entrada.js.facebook_indisponivel` e `entrada.js.facebook_indisponivel_sem_google`. A decisão 2(a) acima fica sem
+   efeito. Para religar, ver "Facebook: ponto de ligação" logo abaixo.
+2. **Os botões do Google aparecem sempre**, com ou sem `GOOGLE_LOGIN_OAUTH_CLIENT_ID`/`_SECRET` (dev igual a produção):
+   o `googleLigado` saiu do `SecurityController` e do template. O aviso é **no servidor**, para valer também a quem
+   abre a URL direto: sem o cliente OAuth, `GET /login/google` não chama o Google, grava na sessão
+   `EntrarComGoogleController::AVISO_SESSAO` (`login` ou `cadastro`) e volta a `/login` (ou a `/login?abrir=cadastro`
+   quando a ida veio do "Continuar com Google", que leva `origem=cadastro`; qualquer outro valor vale `login`). A tela
+   lê uma vez e apaga (`EntrarComGoogleController::avisoNaoConfigurado`) e mostra "O acesso pelo Google ainda não está
+   configurado neste ambiente. Use o e-mail." (`entrada.login.google_nao_configurado`): no cartão, no `#lgErro`, sem
+   marcar os campos como inválidos; no cadastro, no erro do modal (`#lgMdErro`), via `data-aviso-cadastro` do
+   `#lgRaiz`. Com a credencial, o fluxo é o de antes (o `origem` é ignorado).
+
 ## Facebook: ponto de ligação (24/10/2026)
 
-O botão "Continuar com Facebook" está no cadastro, como no desenho, **sem funcionar**: não há app na Meta nem
-credencial. Hoje o clique mostra no modal "O acesso pelo Facebook ainda não está disponível. Use o Google ou o
-e-mail." (`entrada.js.facebook_indisponivel`), decisão 2(a) do dono de 24/10. A coluna
-`user.facebook_id` **não** entra agora. Para a frente do Facebook (guia de 24/10 do coordenador):
+O botão "Continuar com Facebook" do desenho **saiu** da tela (ajuste 1 acima): não há app na Meta nem credencial.
+A coluna `user.facebook_id` **não** entra agora. Não há rota, controller nem variável de ambiente do Facebook no
+código. Para a frente do Facebook (guia de 24/10 do coordenador):
 
 1. Variáveis `FACEBOOK_APP_ID` e `FACEBOOK_APP_SECRET` (e `FACEBOOK_GRAPH_VERSION`), lidas como as do Google, com
    default vazio: um `App\Auth\Infra\FacebookLoginApi::ligado()` decide o botão.
@@ -69,10 +84,13 @@ e-mail." (`entrada.js.facebook_indisponivel`), decisão 2(a) do dono de 24/10. A
    `AbstractAuthenticator`, como o do Google), à mão com `HttpClientInterface`: troca do `code` e `GET /me` com
    `appsecret_proof`, sem guardar token. As duas rotas nas listas brancas (`TermoAceiteListener::ROTAS_IGNORADAS`,
    `TenantContextValidatorListener`) e no `EntradaDoConvidadoListener`; `/login/*` já é `PUBLIC_ACCESS`.
-3. Na tela: trocar o `<button id="lgCdFacebook">` de `templates/security/login.html.twig` por um `<a>` para
-   `/login/facebook` quando `facebookLigado`, e tirar o ouvinte do clique em `public/js/auth/entrada.js` (bloco
-   "Facebook: o botão do desenho"). O cartão conectado já recebe o provedor no texto (`entrada.modal.conectado_pelo`,
-   `{provedor}`); a identidade pendente pode seguir o mesmo formato do `CadastroPeloGoogle`.
+3. Na tela: em `templates/security/login.html.twig`, bloco `<div class="lg-soc" id="lgCdSoc">` do passo `cad`, pôr
+   um `<a class="lg-soc__btn" id="lgCdFacebook">` para `/login/facebook` logo depois do `#lgCdGoogle` (o desenho
+   24.10.26 tem o SVG e o texto "Continuar com Facebook"; a chave `entrada.modal.continuar_facebook` volta ao catálogo
+   pt_BR). Sem credencial, seguir o padrão do Google: o botão aparece e a ida volta com o aviso de "não configurado"
+   (sessão + `data-aviso-cadastro`). O cartão conectado já recebe o provedor no texto (`entrada.modal.conectado_pelo`,
+   `{provedor}`); a identidade pendente pode seguir o mesmo formato do `CadastroPeloGoogle`. Os testes do cadastro
+   (`CadastroPeloGoogleTest`) hoje travam a ausência do Facebook: ajustar junto.
 4. **O Facebook não garante e-mail verificado: nunca ligar conta só porque o e-mail bate.** Sem conta pelo
    `facebook_id`, o e-mail do Facebook não casa com conta existente; o cadastro pelo Facebook exige confirmar o
    e-mail pelo link, como o cadastro por e-mail.
@@ -82,7 +100,8 @@ e-mail." (`entrada.js.facebook_indisponivel`), decisão 2(a) do dono de 24/10. A
 O segredo nunca passa pela conversa. No Google Cloud, projeto do BlueJus: credencial OAuth "Aplicativo da Web"
 própria do login (separada da do Google Agenda), com o URI de redirecionamento autorizado
 `https://bluejus.com.br/login/google/callback`. No `.env.prod` da VPS: `GOOGLE_LOGIN_OAUTH_CLIENT_ID` e
-`GOOGLE_LOGIN_OAUTH_CLIENT_SECRET`. Sem as duas, os botões do Google não aparecem e nada quebra.
+`GOOGLE_LOGIN_OAUTH_CLIENT_SECRET`. Sem as duas, os botões do Google aparecem e o clique mostra o aviso de "não
+configurado" (ajuste 2 de 24/10); nada quebra.
 Migration manual no deploy: `Version20261020151700` (coluna `user.google_sub`).
 
 ### Pendências do dono depois do merge do #366 (24/10/2026)
@@ -98,13 +117,14 @@ O #366 entrou no master em 24/10; a migration `Version20261020151700` já foi ap
 3. **Smoke na tela** (8080, depois em produção):
    - tema comemorativo ligado: Login e véu "Abrindo o seu escritório digital" com as cores na tarja, a fita, os
      ícones e o brilho do logo; conferir se o tema pisca ao abrir;
-   - modal "Criar conta": "Continuar com Google", "Continuar com Facebook", o divisor "ou com outro e-mail" e o
+   - modal "Criar conta": "Continuar com Google" (sem o Facebook, ajuste 1 de 24/10), o divisor "ou com outro e-mail" e o
      placeholder "Ex.: BlueJus Advogados Associados";
    - "Continuar com Google" com um Gmail sem conta: o modal abre conectado (cartão com as iniciais, nome, e-mail
      "conectado pelo Google"), sem o campo E-mail e com o Nome preenchido; "Criar minha conta" entra direto;
    - "Usar outro e-mail" volta aos botões e ao campo E-mail;
    - "Entrar com o Google" no cartão de login com uma conta que já existe: entra pelo véu;
-   - clique no Facebook: o aviso "O acesso pelo Facebook ainda não está disponível..." no modal.
+   - sem a credencial: "Entrar com o Google" e "Continuar com Google" aparecem, e o clique mostra "O acesso pelo
+     Google ainda não está configurado neste ambiente. Use o e-mail." (no cartão e no modal, respectivamente).
 
 ## Estado da frente (21/10/2026)
 
@@ -148,7 +168,7 @@ re-revisão). Ao voltar: trazer o master, aplicar 9 e 10, re-revisar, PR.
 | "Manter conectado" (seção 4) | Vale também para o Google |
 
 Migration da entrega 1: `Version20261020151700` (coluna `user.google_sub`). Sem a credencial e as variáveis, o
-botão fica escondido; o dono cria a credencial depois.
+botão aparece e o clique mostra o aviso de "não configurado" (ajuste 2 de 24/10); o dono cria a credencial depois.
 
 ## 1. Escopos e cliente OAuth
 
@@ -159,8 +179,8 @@ botão fica escondido; o dono cria a credencial depois.
   `include_granted_scopes=false` (#183): o login não herda a agenda e a agenda não herda o login.
   Revogar a autorização de um não derruba o outro.
 - Variáveis próprias: `GOOGLE_LOGIN_OAUTH_CLIENT_ID` e `GOOGLE_LOGIN_OAUTH_CLIENT_SECRET` (credencial
-  "Aplicativo da Web" no mesmo projeto do Google Cloud). Faltando uma, o botão não aparece (como o painel
-  do Google na Agenda); nada quebra.
+  "Aplicativo da Web" no mesmo projeto do Google Cloud). Faltando uma, o botão aparece do mesmo jeito e a
+  ida volta com o aviso de "não configurado" (ajuste 2 de 24/10); nada quebra.
 - `openid email profile` não é escopo sensível: sem tela de "app não verificado" e sem limite de 100
   usuários (apurado na spec de 31/08).
 
@@ -292,4 +312,4 @@ Cada invariante da spec de 31/08 continua (e-mail não verificado recusa; `state
 entra; e-mail desconhecido não vira conta na entrega 1; conta só-Google não entra por senha; `sub` de outro
 recusa; 2+ escritórios vão à seleção; rotas nas duas listas brancas; caixa do e-mail). Mais: `nonce`,
 `aud`, `iss` e `exp` errados recusam; Master entra pelo Google (decisão do dono); e-mail "a confirmar" vira confirmado;
-convidado do Trabalho Externo vai ao lugar certo; sem as variáveis, o botão some.
+convidado do Trabalho Externo vai ao lugar certo; sem as variáveis, o botão fica e a ida volta com o aviso (ajuste 2 de 24/10).

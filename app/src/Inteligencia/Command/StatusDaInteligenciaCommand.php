@@ -6,7 +6,9 @@ namespace App\Inteligencia\Command;
 
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
+use App\Inteligencia\Service\FonteDoModeloDeIa;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,7 +17,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Runbook do operador: qual provedor está ligado, se a flag da plataforma está ativa, quantos
+ * Runbook do operador: qual provedor está ligado, se a flag da plataforma está ativa, a chave geral e o
+ * modelo efetivo do painel do Master (nunca a chave da API), quantos
  * escritórios ligaram a IA e as análises por escritório e status (pendentes/falhas são o que
  * interessa quando o worker parou). Lista TODOS os tenants de propósito — é visão de plataforma.
  */
@@ -30,6 +33,8 @@ final class StatusDaInteligenciaCommand extends Command
         private readonly AnaliseDeInteligenciaRepository $analises,
         private readonly ConfiguracaoDeInteligenciaRepository $configuracoes,
         private readonly bool $iaHabilitada,
+        private readonly ConfiguracaoDaPlataformaDeIaRepository $plataforma,
+        private readonly FonteDoModeloDeIa $fonteDoModelo,
     ) {
         parent::__construct();
     }
@@ -42,9 +47,27 @@ final class StatusDaInteligenciaCommand extends Command
         $io->definitionList(
             ['Provedor' => sprintf('%s (%s)', $this->provedor->nome(), $this->provedor->estaConfigurado() ? 'configurado' : 'não configurado')],
             ['Flag da plataforma (IA_HABILITADA)' => $this->iaHabilitada ? 'ligada' : 'desligada'],
+            ['Chave geral (painel do Master)' => $this->plataforma->obter()->isLigadaParaTodos() ? 'ligada' : 'desligada'],
+            ['Modelo efetivo' => $this->modeloEfetivo()],
             ['Escritórios com a IA ligada' => (string) count($this->configuracoes->listarHabilitadas())],
         );
 
+        return $this->imprimirAnalises($io);
+    }
+
+    private function modeloEfetivo(): string
+    {
+        try {
+            $modelo = $this->fonteDoModelo->modelo();
+        } catch (\Throwable $e) {
+            return sprintf('não lido (%s)', (new \ReflectionClass($e))->getShortName());
+        }
+
+        return $modelo !== '' ? $modelo : 'nenhum (provedor dormente)';
+    }
+
+    private function imprimirAnalises(SymfonyStyle $io): int
+    {
         $porTenant = [];
         foreach ($this->analises->contarPorTenantEStatus() as $linha) {
             $id = $linha['tenantId'];

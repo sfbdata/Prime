@@ -787,7 +787,11 @@ a.ia-icone { text-decoration: none; }
 .ia-doc-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ia-doc-nome { font-size: 13px; font-weight: 600; color: var(--ia-doc-nome); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ia-doc-dados { font-size: 11.5px; color: var(--ia-descricao); }
-/* O Índice não tem cartão: o botão fica direto na aba, como no desenho, e a lista embaixo. */
+/* "Ler N documentos" e "Índice inteligente" lado a lado (dc L1053: grid 1fr 1fr, gap 7px; `cta(dis)` e `cta(dis, true)`). */
+.ia-docs-acoes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 7px; }
+.ia-docs-acoes > .ia-cta { width: 100%; }
+.ia-docs-aceite { margin: 0; font-size: 11.5px; color: var(--ia-texto-4); line-height: 1.45; }
+/* As seções da aba não têm cartão: os botões ficam na grade acima e a lista embaixo. */
 .ia-comando.ia-comando--indice { padding: 0; background: transparent; box-shadow: none; }
 .ia-cta--secundario {
     width: 100%;

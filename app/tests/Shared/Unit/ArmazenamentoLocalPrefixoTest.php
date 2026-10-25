@@ -601,6 +601,7 @@ final class ArmazenamentoLocalPrefixoTest extends TestCase
             fotosPerfilDir: $this->raiz . '/perfil',
             cobrancasUploadsDir: $cobrancas ?? $this->raiz . '/cobrancas',
             kanbanUploadsDir: $this->raiz . '/kanban',
+            tarefasUploadsDir: $this->raiz . '/tarefas',
         ));
     }
 

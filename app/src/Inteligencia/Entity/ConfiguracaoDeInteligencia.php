@@ -6,6 +6,8 @@ namespace App\Inteligencia\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Enum\ModoDeCobrancaDaIa;
+use App\Inteligencia\Enum\VersaoDoAceiteDaIa;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
@@ -20,6 +22,10 @@ use Doctrine\ORM\Mapping as ORM;
  * o envio de conteúdo a um suboperador externo (decisão D3 / Anexo I da Política de Privacidade).
  * Desligar não apaga o registro — ele é histórico.
  *
+ * Liberar é do Master (spec ia-anthropic-ligar §10.1): para o escritório usar a IA, o Master liberou E o admin
+ * habilitou com o aceite. O Master também escolhe o modo de cobrança e o orçamento mensal (centavos de dólar; quem faz
+ * o orçamento valer é a disponibilidade, a partir do PR C).
+ *
  * Auditável: quem ligou/desligou e mudou cota fica no `audit_log`.
  */
 #[ORM\Entity(repositoryClass: ConfiguracaoDeInteligenciaRepository::class)]
@@ -31,6 +37,8 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
 {
     public const LIMITE_DIARIO_PADRAO = 50;
     public const LIMITE_MENSAL_PADRAO = 500;
+    /** Teto do orçamento mensal: US$ 100.000,00 em centavos. */
+    public const ORCAMENTO_MAXIMO_CENTAVOS = 10_000_000;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -52,9 +60,24 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $consentimentoEnvioExternoEm = null;
 
+    /** A versão do texto do aceite ({@see VersaoDoAceiteDaIa}) com que o aceite acima foi dado. */
+    #[ORM\Column(type: 'integer', options: ['default' => 1])]
+    private int $consentimentoVersao = VersaoDoAceiteDaIa::SemDocumentos->value;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $consentimentoPor = null;
+
+    /** O Master liberou a IA para este escritório (sem isto, o aceite do admin não basta). */
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $liberadaPeloMaster = false;
+
+    #[ORM\Column(length: 20, enumType: ModoDeCobrancaDaIa::class, options: ['default' => 'incluso'])]
+    private ModoDeCobrancaDaIa $modoDeCobranca = ModoDeCobrancaDaIa::Incluso;
+
+    /** Centavos de dólar por mês; nulo = sem orçamento definido. */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $orcamentoMensalCentavos = null;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadaEm;
@@ -79,6 +102,8 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     /**
      * Aplica o formulário do admin. Ligar (de desligada para ligada) grava o consentimento com
      * quem ligou; religar depois de desligar grava de novo — é o aceite mais recente que vale.
+     * Salvar com a IA ligada quando o aceite é de versão anterior à do texto vigente ({@see VersaoDoAceiteDaIa}) também
+     * grava de novo: é a renovação do aceite (o admin salvou vendo o texto novo, que cita os documentos).
      */
     public function atualizar(
         bool $habilitada,
@@ -91,8 +116,9 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
             throw new \DomainException('Os limites de análises não podem ser negativos.');
         }
 
-        if ($habilitada && !$this->habilitada) {
+        if ($habilitada && (!$this->habilitada || $this->consentimentoVersao < VersaoDoAceiteDaIa::atual()->value)) {
             $this->consentimentoEnvioExternoEm = new \DateTimeImmutable();
+            $this->consentimentoVersao = VersaoDoAceiteDaIa::atual()->value;
             $this->consentimentoPor = $por;
         }
 
@@ -100,6 +126,42 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
         $this->limiteDiario = $limiteDiario;
         $this->limiteMensal = $limiteMensal;
         $this->mascararDadosPessoais = $mascararDadosPessoais;
+    }
+
+    public function liberarPeloMaster(): void
+    {
+        $this->liberadaPeloMaster = true;
+    }
+
+    /** Bloquear não mexe no aceite do escritório: ele é histórico e volta a valer se o Master liberar de novo. */
+    public function bloquearPeloMaster(): void
+    {
+        $this->liberadaPeloMaster = false;
+    }
+
+    public function definirCobranca(ModoDeCobrancaDaIa $modo, ?int $orcamentoCentavos): void
+    {
+        if ($orcamentoCentavos !== null && ($orcamentoCentavos < 0 || $orcamentoCentavos > self::ORCAMENTO_MAXIMO_CENTAVOS)) {
+            throw new \InvalidArgumentException('O orçamento mensal precisa ficar entre US$ 0,00 e US$ 100.000,00.');
+        }
+
+        $this->modoDeCobranca = $modo;
+        $this->orcamentoMensalCentavos = $orcamentoCentavos;
+    }
+
+    public function isLiberadaPeloMaster(): bool
+    {
+        return $this->liberadaPeloMaster;
+    }
+
+    public function getModoDeCobranca(): ModoDeCobrancaDaIa
+    {
+        return $this->modoDeCobranca;
+    }
+
+    public function getOrcamentoMensalCentavos(): ?int
+    {
+        return $this->orcamentoMensalCentavos;
     }
 
     public function getId(): ?int
@@ -135,6 +197,17 @@ class ConfiguracaoDeInteligencia implements TenantAware, Auditavel
     public function getConsentimentoEnvioExternoEm(): ?\DateTimeImmutable
     {
         return $this->consentimentoEnvioExternoEm;
+    }
+
+    /** O aceite foi dado com o texto que cita os documentos escolhidos (PR F)? Sem aceite, não. */
+    public function aceiteCobreDocumentos(): bool
+    {
+        return $this->consentimentoEnvioExternoEm !== null && VersaoDoAceiteDaIa::cobreDocumentos($this->consentimentoVersao);
+    }
+
+    public function getConsentimentoVersao(): int
+    {
+        return $this->consentimentoVersao;
     }
 
     public function getConsentimentoPor(): ?User

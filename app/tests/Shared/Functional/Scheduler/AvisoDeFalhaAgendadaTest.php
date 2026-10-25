@@ -74,7 +74,7 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
         parent::tearDown();
     }
 
-    #[TestDox('Master com falha pendente vê o aviso no topo: comando, hora e data, sem a mensagem do erro')]
+    #[TestDox('Master com falha pendente vê o aviso no topo: nome da tarefa (nunca o comando), hora e data, sem a mensagem do erro')]
     public function testMasterVeOAviso(): void
     {
         $this->registrarFalha('app:djen:sincronizar', '2026-10-23 03:00:00');
@@ -86,8 +86,9 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter(self::AVISO));
         $texto = $crawler->filter(self::AVISO)->text();
         self::assertStringContainsString('Tarefa agendada falhou', $texto);
-        self::assertStringContainsString('app:djen:sincronizar às 03:00 de 23/10.', $texto);
-        self::assertStringContainsString('Detalhe no log do agendador.', $texto);
+        self::assertStringContainsString('Captação das publicações do DJEN às 03:00 de 23/10.', $texto);
+        self::assertStringNotContainsString('app:', $texto, 'nome técnico não aparece ao Master');
+        self::assertStringContainsString('Os detalhes ficam registrados pela equipe BlueJus.', $texto);
         self::assertStringNotContainsString('RunCommandFailedException', $texto);
         self::assertCount(1, $crawler->filter(self::AVISO . ' > form[method="post"] > button.af-dispensar'));
     }
@@ -96,14 +97,14 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
     public function testLimiteDoAviso(): void
     {
         for ($i = 1; $i <= 6; ++$i) {
-            $this->registrarFalha('app:tarefa:' . $i, sprintf('2026-10-%02d 10:00:00', $i));
+            $this->registrarFalha('app:tarefa:' . $i, sprintf('2026-10-%02d 10:%02d:00', $i, $i));
         }
         $this->entrar($this->usuario(['ROLE_SUPER_ADMIN']));
 
         $texto = $this->client->request('GET', '/novidades')->filter(self::AVISO)->text();
 
-        self::assertStringContainsString('app:tarefa:6 às 10:00 de 06/10.', $texto);
-        self::assertStringNotContainsString('app:tarefa:1 ', $texto);
+        self::assertStringContainsString('Tarefa agendada às 10:06 de 06/10.', $texto, 'comando sem nome traduzido vira "Tarefa agendada"');
+        self::assertStringNotContainsString('10:01 de 01/10', $texto);
         self::assertStringContainsString('Há outras falhas mais antigas.', $texto);
     }
 
@@ -131,7 +132,9 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', '/novidades');
 
         self::assertCount(1, $crawler->filter('body > .ae-avisos'));
-        $avisos = $crawler->filter('body > .ae-avisos > .ae-aviso');
+        // O aviso das questões jurídicas da IA também aparece para o Master enquanto houver questão em aberto
+        // no catálogo real; fica fora da conta, que é a da ordem espaço/falha.
+        $avisos = $crawler->filter('body > .ae-avisos > .ae-aviso:not([data-aviso-questoes-juridicas])');
         self::assertCount(2, $avisos);
         self::assertNotNull($avisos->eq(0)->attr('data-aviso-espaco'), 'o de espaço vem primeiro');
         self::assertNotNull($avisos->eq(1)->attr('data-aviso-falha-agendada'));
@@ -216,14 +219,14 @@ final class AvisoDeFalhaAgendadaTest extends JusPrimeWebTestCase
         $this->entrar($master);
         $this->dispensar('/novidades');
 
-        $this->client->request('GET', '/master/notificacoes?' . http_build_query(['aba' => 'rec', 'q' => 'app:djen']));
+        $this->client->request('GET', '/master/notificacoes?' . http_build_query(['aba' => 'rec', 'q' => 'DJEN']));
         self::assertResponseIsSuccessful();
         $itens = array_column((array) json_decode((string) $this->client->getResponse()->getContent(), true)['itens'], null, 'chave');
         $item = $itens[LeitorDeFalhasAgendadas::ORIGEM . ':' . $id] ?? null;
 
         self::assertNotNull($item);
         self::assertSame(['alerta', 'Sistema BlueJus', 'Tarefa agendada falhou', false], [$item['tipo'], $item['de'], $item['assunto'], $item['podeResponder']]);
-        self::assertSame('Tarefa agendada falhou: app:djen:sincronizar às 03:00 de 23/10. Detalhe no log do agendador.', $item['texto']);
+        self::assertSame('Tarefa agendada falhou: Captação das publicações do DJEN às 03:00 de 23/10. Os detalhes ficam registrados pela equipe BlueJus.', $item['texto']);
     }
 
     private function registrarFalha(string $comando, string $em): int

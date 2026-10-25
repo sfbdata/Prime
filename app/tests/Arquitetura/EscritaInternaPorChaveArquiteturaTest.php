@@ -28,7 +28,6 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
     /**
      * Quem ainda escreve arquivo com `file_put_contents()`:
      *
-     *  - `ArquivoStorageService` — o `salvarConteudo()` do shim de D2, sem chamador; sai na E2.8;
      *  - `AreaTemporariaPrivada` (E2.6C) — escreve SÓ dentro da própria área temporária, que ela
      *    mesma criou com nome aleatório; nunca toca no armazenamento. É onde as imagens do export
      *    são materializadas, e é por isso que o `chroot` do Dompdf pode ser um diretório só daquela
@@ -36,7 +35,9 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      */
     private const QUEM_ESCREVE_CRU = [
         'src/Shared/Armazenamento/AreaTemporariaPrivada.php',
-        'src/Shared/Service/ArquivoStorageService.php',
+        // P2.3: grava o RELATÓRIO da reconciliação (JSON de contagens, ids e classes) no caminho que
+        // o operador pediu com `--saida` — não é arquivo do usuário nem passa pelo armazenamento.
+        'src/Shared/EspelhoRemoto/Command/ReconciliarEspelhoCommand.php',
     ];
 
     /**
@@ -55,24 +56,27 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      *  - `GeradorDePdfComDompdf` (EDT-002, 07/10; extraído do PastaResumoController na spec
      *    relatorio-processos-controladoria) — lê o LOGO estático da aplicação
      *    (`public/images/logo/bluejus_simbolo.svg`) para embutir nos PDFs; não é arquivo do
-     *    usuário nem passa pelo armazenamento (o Dompdf roda sem recurso remoto).
+     *    usuário nem passa pelo armazenamento (o Dompdf roda sem recurso remoto);
+     *  - `CatalogoDeQuestoesJuridicas` e `DocumentosJuridicosAtuais` (questões jurídicas do Master, 24/10) — leem
+     *    arquivos versionados da APLICAÇÃO (`config/inteligencia/questoes_juridicas.json` e `resources/legal/*`), não
+     *    do usuário; as versões ajustadas que o Master envia vão por chave para o armazenamento.
      */
     private const QUEM_LE_CRU = [
         'src/Cobranca/DTO/ImportarRelatorioInput.php',
         'src/Comercial/Controller/CampanhaDoMasterController.php',
         'src/Command/MapearAcervoCommand.php',
         'src/Command/ParsearAcervoCommand.php',
+        'src/Inteligencia/Juridico/CatalogoDeQuestoesJuridicas.php',
+        'src/Inteligencia/Juridico/DocumentosJuridicosAtuais.php',
         'src/Master/Controller/FontesPublicasController.php',
         'src/Shared/Armazenamento/ArmazenamentoLocal.php',
         'src/Shared/Service/GeradorDePdfComDompdf.php',
     ];
 
     /**
-     * Quem ainda depende de `ArquivoStorageInterface`/`ArquivoStorageService` (fora comentários), e
-     * por quê. A lista só pode diminuir; cada entrada sai na fatia indicada.
-     *
-     *  - E2.8: a própria interface e o serviço — desde a E2.6C não sobra consumidor nenhum de
-     *    produção (a Via A do Drive passou a materializar por chave).
+     * Quem ainda depende de `ArquivoStorageInterface`/`ArquivoStorageService` (fora comentários):
+     * ninguém. A interface e o serviço saíram na E2.8 (spec P2 §10.2) — desde a E2.6C não sobrava
+     * consumidor de produção (a Via A do Drive passou a materializar por chave).
      *
      * Na E2.6B saíram os quatro consumidores do compressor — `ClienteController`, `PastaController`,
      * `UploadPecaUseCase` e `EnviarDocumentoUseCase` —, que agora comprimem pela CHAVE, com o
@@ -87,18 +91,10 @@ final class EscritaInternaPorChaveArquiteturaTest extends TestCase
      * `PurgarEscritorioUseCase`. Nenhum deles pode voltar; os três que ficam não chamam mais o
      * `excluir()` antigo (`ExclusaoAposTransacaoArquiteturaTest`).
      */
-    private const QUEM_AINDA_USA_O_SHIM = [
-        'src/Shared/Service/ArquivoStorageInterface.php',
-        'src/Shared/Service/ArquivoStorageService.php',
-    ];
-
-    #[TestDox('só os consumidores conhecidos ainda dependem do storage antigo — a lista só diminui')]
-    public function testQuemAindaUsaOShimEhAListaConhecida(): void
+    #[TestDox('ninguém em src/ depende mais do storage antigo — o shim saiu na E2.8 e não volta')]
+    public function testNinguemUsaOShim(): void
     {
-        self::assertSame(
-            self::QUEM_AINDA_USA_O_SHIM,
-            $this->arquivosQueCasam('/\bArquivoStorage(?:Interface|Service)\b/'),
-        );
+        self::assertSame([], $this->arquivosQueCasam('/\bArquivoStorage(?:Interface|Service)\b/'));
     }
 
     #[TestDox('ninguém em src/ grava mais por salvarConteudo() nem moverParaArmazenamento()')]

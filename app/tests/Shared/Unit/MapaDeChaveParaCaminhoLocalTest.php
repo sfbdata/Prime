@@ -7,7 +7,6 @@ namespace App\Tests\Shared\Unit;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
-use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\ResolvedorDeCaminhoLocal;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -23,7 +22,7 @@ use PHPUnit\Framework\TestCase;
  *
  * ## Por que os parâmetros são fixados à mão, e não lidos do container
  *
- * Em `APP_ENV=test` os sete parâmetros apontam para `var/uploads-test/*`
+ * Em `APP_ENV=test` os oito parâmetros apontam para `var/uploads-test/*`
  * (`config/services.yaml:161-169`). Um teste que lesse o container provaria concatenação de
  * strings, não o layout de PRODUÇÃO — que é o que INV-1 promete. Por isso aqui os valores de
  * produção entram literais, e um segundo teste confere que o `services.yaml` ainda os declara
@@ -46,8 +45,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             fotosPerfilDir: $raiz . '/perfil',
             cobrancasUploadsDir: $raiz . '/cobrancas',
             kanbanUploadsDir: $raiz . '/kanban',
+            tarefasUploadsDir: $raiz . '/tarefas',
             trabalhoExternoUploadsDir: $raiz . '/trabalho-externo',
             comercialImagensDir: $raiz . '/comercial-imagens',
+            documentosJuridicosDir: $raiz . '/documentos-juridicos',
         );
     }
 
@@ -60,6 +61,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'pasta_documento (plano)' => [
             CategoriaDeArquivo::PASTA_DOCUMENTO, $tenant, 'a1b2.pdf',
             $raiz . '/pastas/a1b2.pdf',
+        ];
+        yield 'pasta_foto (plano, subpasta própria)' => [
+            CategoriaDeArquivo::PASTA_FOTO, $tenant, 'a1b2.jpg',
+            $raiz . '/pastas/fotos/a1b2.jpg',
         ];
         yield 'pasta_imagem_editor (subpasta do tenant)' => [
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, $tenant, 'a1b2.png',
@@ -93,6 +98,12 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             CategoriaDeArquivo::KANBAN_ANEXO, $tenant, 'a1b2.pdf',
             $raiz . '/kanban/a1b2.pdf',
         ];
+        // E2.7: o caminho que `TarefaController::uploadFiles()` montava — `kernel.project_dir` +
+        // `/public/uploads/tarefas/chat/` + nome — e que `CaminhoDeAnexoDeTarefa` resolvia.
+        yield 'tarefa_anexo (plano, subpasta chat)' => [
+            CategoriaDeArquivo::TAREFA_ANEXO, $tenant, 'arquivo_6abab5669fac90.42347212.pdf',
+            $raiz . '/tarefas/chat/arquivo_6abab5669fac90.42347212.pdf',
+        ];
         yield 'trabalho_externo_documento (plano)' => [
             CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO, $tenant, 'a1b2.pdf',
             $raiz . '/trabalho-externo/a1b2.pdf',
@@ -104,6 +115,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'comercial_imagem (plano, escopo global)' => [
             CategoriaDeArquivo::COMERCIAL_IMAGEM, EscopoDeArquivo::global(), 'a1b2.jpg',
             $raiz . '/comercial-imagens/a1b2.jpg',
+        ];
+        yield 'inteligencia_documento_juridico (plano, escopo global)' => [
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, EscopoDeArquivo::global(), 'a1b2.docx',
+            $raiz . '/documentos-juridicos/a1b2.docx',
         ];
     }
 
@@ -156,33 +171,13 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         $this->resolvedorDeProducao()->caminhoDe($chave);
     }
 
-    /**
-     * A nona categoria não é resolvível nesta fatia — e o teste existe para que isso continue
-     * EXPLÍCITO. A coluna `tarefa_mensagem.arquivo_anexo` guarda caminho público com `/`, que
-     * `ChaveDeArquivo` recusa (D5). A decisão está reservada à E2.7.
-     */
-    #[TestDox('tarefa_anexo lança com mensagem que aponta para a E2.7, em vez de resolver errado')]
-    public function testTarefaAnexoAindaNaoEhResolvivel(): void
-    {
-        $chave = new ChaveDeArquivo(
-            EscopoDeArquivo::deTenant(1),
-            CategoriaDeArquivo::TAREFA_ANEXO,
-            'arquivo_68b.pdf',
-        );
-
-        $this->expectException(FalhaDeArmazenamento::class);
-        $this->expectExceptionMessage('E2.7');
-        $this->resolvedorDeProducao()->caminhoDe($chave);
-    }
-
-    #[TestDox('todas as categorias do enum estão cobertas: só tarefa_anexo lança')]
+    #[TestDox('todas as categorias do enum estão cobertas e todas resolvem')]
     public function testTodasAsCategoriasEstaoCobertas(): void
     {
         $cobertas = [];
         foreach (self::categoriasResolviveis() as [$categoria, , , ]) {
             $cobertas[] = $categoria;
         }
-        $cobertas[] = CategoriaDeArquivo::TAREFA_ANEXO;
 
         self::assertEqualsCanonicalizing(
             CategoriaDeArquivo::cases(),
@@ -196,7 +191,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
      * `services.yaml` declara para produção. Sem isto, mudar o `services.yaml` deixaria este
      * arquivo verde e errado.
      */
-    #[TestDox('os sete parâmetros de produção do services.yaml continuam sendo os assumidos aqui')]
+    #[TestDox('os oito parâmetros de produção do services.yaml continuam sendo os assumidos aqui')]
     public function testParametrosDeProducaoNaoMudaram(): void
     {
         $yaml = (string) file_get_contents(\dirname(__DIR__, 3) . '/config/services.yaml');
@@ -209,8 +204,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             'fotos_perfil_dir'           => '%kernel.project_dir%/public/uploads/perfil',
             'cobrancas_uploads_dir'      => '%kernel.project_dir%/public/uploads/cobrancas',
             'kanban_uploads_dir'         => '%kernel.project_dir%/public/uploads/kanban',
+            'tarefas_uploads_dir'        => '%kernel.project_dir%/public/uploads/tarefas',
             'trabalho_externo_uploads_dir' => '%kernel.project_dir%/public/uploads/trabalho-externo',
             'comercial_imagens_dir'      => '%kernel.project_dir%/public/uploads/comercial-imagens',
+            'documentos_juridicos_dir'   => '%kernel.project_dir%/public/uploads/documentos-juridicos',
         ];
 
         foreach ($esperados as $parametro => $valor) {

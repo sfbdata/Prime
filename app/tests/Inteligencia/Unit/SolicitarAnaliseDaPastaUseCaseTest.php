@@ -17,6 +17,7 @@ use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Exception\AceiteDesatualizadoException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
@@ -31,6 +32,7 @@ use App\Inteligencia\Service\EnfileiradorDeAnalise;
 use App\Inteligencia\Service\MascaradorDeDadosPessoais;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
+use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Inteligencia\UseCase\SolicitarAnaliseDaPastaUseCase;
 use App\Pasta\Entity\AbaDaPasta;
@@ -53,11 +55,14 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use App\Tests\Inteligencia\Support\PlataformaDeIaNoTesteTrait;
 
 #[CoversClass(SolicitarAnaliseDaPastaUseCase::class)]
 #[CoversClass(EnfileiradorDeAnalise::class)]
 final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
 {
+    use PlataformaDeIaNoTesteTrait;
+
     private const PASTA_ID = 7;
 
     private Tenant $tenant;
@@ -105,6 +110,7 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         $this->permissoes->method('canAccessModule')->willReturn(true);
 
         $configuracao = new ConfiguracaoDeInteligencia($this->tenant);
+        $configuracao->liberarPeloMaster();
         $configuracao->atualizar(true, 50, 500, true, $this->user);
         $this->configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
         $this->configuracoes->method('findDoTenant')->willReturn($configuracao);
@@ -170,12 +176,13 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         return new SolicitarAnaliseDaPastaUseCase(
             $this->pastas,
             $this->permissoes,
-            new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true),
+            new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us')),
             $this->financeiro,
             $montador,
             $this->analises,
             new EnfileiradorDeAnalise($this->analises, $this->bus, new NullLogger()),
             $this->visibilidadeDasAbas(),
+            new RegraDaLeituraDeDocumentos($this->configuracoes),
         );
     }
 
@@ -649,6 +656,91 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
             self::assertStringContainsString($trecho, $e->getMessage());
         }
         self::assertSame([], $this->despachadas);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // "Ler N documentos" (PR F da spec ia-anthropic-ligar)
+    // ---------------------------------------------------------------------------------------
+
+    /** @param list<string> $documentos */
+    private function inputDaLeitura(array $documentos): SolicitarAnaliseDaPastaInput
+    {
+        return SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::LerDocumentos, $documentos);
+    }
+
+    private function esperarRecusaDaLeitura(SolicitarAnaliseDaPastaInput $input, string $classe, string $motivo, string $trecho): void
+    {
+        $this->analises->expects($this->never())->method('salvar');
+        $this->analises->expects($this->never())->method('findPendenteDoAlvo');
+
+        try {
+            $this->sut()->executar($input, $this->user, $this->tenant, $this->semCriar());
+            self::fail('deveria ter recusado a leitura');
+        } catch (SelecaoDeDocumentosInvalidaException|AceiteDesatualizadoException $e) {
+            self::assertInstanceOf($classe, $e);
+            self::assertSame($motivo, $e->motivo());
+            self::assertStringContainsString($trecho, $e->getMessage());
+        }
+        self::assertSame([], $this->despachadas);
+    }
+
+    #[TestDox('Ler: seleção válida → comando Ler, Documental, versão da leitura, ids ordenados e despacho')]
+    public function testLeituraSelecaoValida(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(2), $this->documentoDaPasta(1)];
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $saida = $this->sut()->executar($this->inputDaLeitura(['2', '1']), $this->user, $this->tenant);
+
+        /** @var AnaliseDeInteligencia $gravada */
+        $gravada = $salvas[0];
+        self::assertSame(Comando::LerDocumentos, $gravada->getComando());
+        self::assertSame(Agente::Documental, $gravada->getAgente());
+        self::assertSame(PromptDoAgente::VERSAO_DA_LEITURA, $gravada->getVersaoDoPrompt());
+        self::assertSame([1, 2], $gravada->getContextoResumo()['documentosSelecionados']);
+        self::assertArrayNotHasKey('documentosLidos', $gravada->getContextoResumo(), 'o sha256 é do worker, que lê o arquivo');
+        self::assertSame('ler_documentos', $saida->comando);
+        self::assertCount(1, $this->despachadas);
+    }
+
+    #[TestDox('Ler: mais de 3 documentos → limite_da_leitura, nada persistido nem despachado')]
+    public function testLeituraMaisDeTres(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(4), $this->documentoDaPasta(3), $this->documentoDaPasta(2), $this->documentoDaPasta(1)];
+
+        $this->esperarRecusaDaLeitura($this->inputDaLeitura(['1', '2', '3', '4']), SelecaoDeDocumentosInvalidaException::class, 'limite_da_leitura', 'no máximo 3');
+    }
+
+    #[TestDox('Ler: formato que não é PDF nem imagem → limite_da_leitura com o nome do arquivo')]
+    public function testLeituraFormatoNaoLido(): void
+    {
+        $planilha = $this->documentoDaPasta(1);
+        $planilha->setNomeOriginal('contas.xlsx');
+        $planilha->setMimeType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->dados->documentos = [$planilha];
+
+        $this->esperarRecusaDaLeitura($this->inputDaLeitura(['1']), SelecaoDeDocumentosInvalidaException::class, 'limite_da_leitura', 'contas.xlsx');
+    }
+
+    #[TestDox('Ler: id de outra pasta ou escritório → selecao_invalida, como no Índice')]
+    public function testLeituraIdDeOutraPasta(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(1)];
+
+        $this->esperarRecusaDaLeitura($this->inputDaLeitura(['999']), SelecaoDeDocumentosInvalidaException::class, 'selecao_invalida', 'não está mais na lista');
+    }
+
+    #[TestDox('Ler: aceite anterior ao texto que cita os documentos → AceiteDesatualizado; o Índice segue')]
+    public function testLeituraComAceiteAntigo(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(1)];
+        $config = $this->configuracoes->findDoTenant($this->tenant);
+        self::assertNotNull($config);
+        (new \ReflectionProperty($config, 'consentimentoVersao'))->setValue($config, 1);
+
+        $this->esperarRecusaDaLeitura($this->inputDaLeitura(['1']), AceiteDesatualizadoException::class, 'aceite_desatualizado', 'renova o aceite');
     }
 
     #[TestDox('Índice: seleção válida → Documental, ids ordenados e sem repetição em documentosSelecionados, e a seção leva só os marcados')]

@@ -21,6 +21,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
@@ -53,16 +54,58 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         self::assertStringEndsWith('/login/google/callback', (string) $q['redirect_uri']);
     }
 
-    #[TestDox('Sem o cliente OAuth no servidor: a ida volta ao login e a tela não mostra o botão')]
+    #[TestDox('Sem o cliente OAuth no servidor: nenhum botão do Google na tela (nem o "ou"); a URL aberta direto volta ao login com o aviso exato, sem ir ao Google')]
     public function testDesligado(): void
+    {
+        $chamadas = 0;
+        $client = $this->cliente(new GoogleLoginApi(new MockHttpClient(static function () use (&$chamadas): MockResponse {
+            ++$chamadas;
+
+            return new MockResponse('{}');
+        })));
+        $crawler = $client->request('GET', '/login');
+        self::assertCount(0, $crawler->filter('a[href^="/login/google"]'), 'nenhum link para app_login_google');
+        self::assertCount(0, $crawler->filter('#lgGoogle, #lgCdGoogle, #lgCdSoc, .lg-ou'));
+        self::assertCount(1, $crawler->filter('form#lgForm > .lg-cartao__corpo > #lgEntrar + button.lg-selo'));
+        self::assertStringNotContainsString('Entrar com o Google', (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString('Continuar com Google', (string) $client->getResponse()->getContent());
+        self::assertTrue($crawler->filter('#lgErro')->matches('[hidden]'));
+
+        $client->request('GET', '/login/google');
+
+        self::assertResponseRedirects('/login');
+        self::assertSame(0, $chamadas, 'sem chamar o Google');
+        $crawler = $client->followRedirect();
+        self::assertSame('O acesso pelo Google ainda não está configurado neste ambiente. Use o e-mail.', $crawler->filter('#lgErro:not([hidden])')->text());
+        self::assertCount(0, $crawler->filter('#lgEmail[aria-invalid], #lgSenha[aria-invalid]'), 'aviso, não erro de senha');
+        self::assertNull($crawler->filter('#lgRaiz')->attr('data-aviso-cadastro'));
+        $html = (string) $client->getResponse()->getContent();
+        foreach (['GOOGLE_LOGIN', 'client_id', 'accounts.google.com', 'redirect_uri', 'OAuth'] as $vazamento) {
+            self::assertStringNotContainsString($vazamento, $html, 'o aviso não revela nada além do texto');
+        }
+        self::assertTrue($client->request('GET', '/login')->filter('#lgErro')->matches('[hidden]'), 'o aviso vale uma vez');
+    }
+
+    #[TestDox('Sem o cliente OAuth no servidor, a URL aberta direto (sem token, origem qualquer) cai no aviso do cartão de login')]
+    public function testDesligadoUrlDireta(): void
     {
         $client = $this->cliente(new GoogleLoginApi(new MockHttpClient()));
 
-        $client->request('GET', '/login/google');
-        self::assertResponseRedirects('/login');
-        $crawler = $client->request('GET', '/login');
+        $client->request('GET', '/login/google?origem=qualquer');
 
-        self::assertCount(0, $crawler->filter('#lgGoogle'));
+        self::assertResponseRedirects('/login');
+        self::assertSame('O acesso pelo Google ainda não está configurado neste ambiente. Use o e-mail.', $client->followRedirect()->filter('#lgErro')->text());
+    }
+
+    #[TestDox('Com o cliente OAuth, a ida do cadastro (origem=cadastro) vai ao Google como antes, sem aviso')]
+    public function testLigadoComOrigemCadastro(): void
+    {
+        $client = $this->cliente();
+
+        $client->request('GET', '/login/google?origem=cadastro');
+
+        self::assertStringStartsWith('https://accounts.google.com/o/oauth2/v2/auth?', (string) $client->getResponse()->headers->get('Location'));
+        self::assertNull($client->request('GET', '/login?abrir=cadastro')->filter('#lgRaiz')->attr('data-aviso-cadastro'));
     }
 
     #[TestDox('Com o Google ligado, o botão fica logo abaixo do Entrar, com a linha "ou", e acima do selo; o contrato do formulário não muda')]
@@ -74,6 +117,7 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('form#lgForm > .lg-cartao__corpo > #lgEntrar + .lg-ou + a#lgGoogle.lg-google + button.lg-selo'));
         self::assertStringContainsString('Entrar com o Google', $crawler->filter('#lgGoogle')->text());
         self::assertStringStartsWith('/login/google?_token=', (string) $crawler->filter('#lgGoogle')->attr('href'));
+        self::assertCount(1, $crawler->filter('#lgCdSoc > a#lgCdGoogle[href^="/login/google?"][href*="origem=cadastro"]'), 'o Continuar com Google do Criar conta');
         self::assertCount(1, $crawler->filter('form#lgForm button#lgEntrar > i.bi-box-arrow-in-right'));
         self::assertCount(1, $crawler->filter('a[href="/senha/esqueci"]'));
         self::assertCount(1, $crawler->filter('a[href="/cadastro"]'));

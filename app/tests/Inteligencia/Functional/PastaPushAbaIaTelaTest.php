@@ -185,7 +185,8 @@ final class PastaPushAbaIaTelaTest extends JusPrimeWebTestCase
         $client = $this->cliente();
         [$user, $tenant] = $this->criarAdmin();
         [$pasta] = $this->criarPastaComPublicacao($tenant);
-        // Sem configuração do escritório = desligada (default seguro).
+        // Liberada pelo Master, mas o admin não ligou: desligada no escritório. (Sem linha nenhuma = não liberada.)
+        $this->liberarIaSemLigarNoTenant($tenant, $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $this->abrirPasta($client, (int) $pasta->getId());

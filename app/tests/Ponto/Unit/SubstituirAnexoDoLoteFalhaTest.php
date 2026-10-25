@@ -329,6 +329,7 @@ final class SubstituirAnexoDoLoteFalhaTest extends TestCase
             fotosPerfilDir: $this->diretorio,
             cobrancasUploadsDir: $this->diretorio,
             kanbanUploadsDir: $this->diretorio,
+            tarefasUploadsDir: $this->diretorio,
         ));
     }
 

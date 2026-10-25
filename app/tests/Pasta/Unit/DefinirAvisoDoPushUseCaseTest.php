@@ -21,6 +21,7 @@ use App\Pasta\Service\DisponibilidadeDaIaNoAvisoDoPush;
 use App\Pasta\UseCase\DefinirAvisoDoPushUseCase;
 use App\Pasta\UseCase\MontarAvisosDoPushUseCase;
 use App\Service\PermissionChecker;
+use App\Tests\Inteligencia\Support\PlataformaDeIaNoTesteTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -38,6 +39,8 @@ use Symfony\Component\Clock\MockClock;
 #[CoversClass(DisponibilidadeDaIaNoAvisoDoPush::class)]
 final class DefinirAvisoDoPushUseCaseTest extends TestCase
 {
+    use PlataformaDeIaNoTesteTrait;
+
     private AvisoDoPushDaPastaRepository&MockObject $avisos;
     private PermissionChecker&MockObject $permissoes;
     private Tenant $tenant;
@@ -64,7 +67,7 @@ final class DefinirAvisoDoPushUseCaseTest extends TestCase
         $provedor->method('estaConfigurado')->willReturn(true);
         $configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
         $configuracoes->method('findDoTenant')->willReturnCallback(fn (): ?ConfiguracaoDeInteligencia => $this->configuracao);
-        $disponibilidade = new DisponibilidadeDeInteligencia($provedor, $configuracoes, $this->createMock(AnaliseDeInteligenciaRepository::class), $this->permissoes, $plataforma);
+        $disponibilidade = new DisponibilidadeDeInteligencia($provedor, $configuracoes, $this->createMock(AnaliseDeInteligenciaRepository::class), $this->permissoes, $plataforma, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us'));
 
         return new DisponibilidadeDaIaNoAvisoDoPush($disponibilidade, $this->permissoes);
     }
@@ -77,6 +80,7 @@ final class DefinirAvisoDoPushUseCaseTest extends TestCase
     private function ligarIaNoEscritorio(): void
     {
         $this->configuracao = new ConfiguracaoDeInteligencia($this->tenant);
+        $this->configuracao->liberarPeloMaster();
         $this->configuracao->atualizar(true, 50, 500, true, $this->usuario);
     }
 
@@ -129,14 +133,14 @@ final class DefinirAvisoDoPushUseCaseTest extends TestCase
         self::assertFalse($this->sut()->executar($this->pasta, ChaveDoAvisoDoPush::Email, false, $this->usuario, $this->tenant)->itens[1]->ligado);
     }
 
-    #[TestDox('IA desligada no escritório: ligar dá 422 com o motivo real; ligada no escritório, a chave liga')]
+    #[TestDox('IA não liberada para o escritório (sem configuração): ligar dá 422 com o motivo real; ligada no escritório, a chave liga')]
     public function testIaNoEscritorio(): void
     {
         try {
             $this->sut()->executar($this->pasta, ChaveDoAvisoDoPush::Ia, true, $this->usuario, $this->tenant);
             self::fail('deveria recusar');
         } catch (ChaveDoAvisoTravadaException $e) {
-            self::assertSame('BlueJus IA desligada neste escritório. Peça ao administrador.', $e->getMessage());
+            self::assertSame('A BlueJus IA ainda não foi liberada para este escritório.', $e->getMessage());
         }
 
         $this->ligarIaNoEscritorio();

@@ -14,6 +14,7 @@ use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Exception\AceiteDesatualizadoException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
@@ -24,6 +25,7 @@ use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\EnfileiradorDeAnalise;
+use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
@@ -48,6 +50,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * "Índice inteligente" da aba Documentos (F4): os ids marcados são validados AQUI, antes de qualquer
  * gasto (seleção vazia ou id fora da lista que a aba mostra para quem pede → 422), e vão ordenados em
  * `contexto_resumo.documentosSelecionados`, que o worker obedece. Nos outros comandos o campo é ignorado.
+ * "Ler N documentos" (PR F da spec ia-anthropic-ligar): a mesma seleção, mais o aceite do escritório com o texto
+ * que cita os documentos (409 `aceite_desatualizado`) e os limites da {@see RegraDaLeituraDeDocumentos} (422
+ * `limite_da_leitura`), tudo antes de ir à fila. Só esse comando manda o conteúdo dos arquivos.
  * Pós-condição: linha `pendente` com `agente` (e `comando`, quando houver) e `contexto_resumo.financeiro` (a decisão sobre o
  * financeiro é tomada AQUI, com sessão — o worker só obedece) + 1 mensagem no `async`.
  *
@@ -57,6 +62,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * @throws ContextoBloqueadoException
  * @throws ContextoVazioException
  * @throws SelecaoDeDocumentosInvalidaException
+ * @throws AceiteDesatualizadoException
  * @throws FilaIndisponivelException
  */
 final class SolicitarAnaliseDaPastaUseCase
@@ -70,6 +76,7 @@ final class SolicitarAnaliseDaPastaUseCase
         private readonly AnaliseDeInteligenciaRepository $analises,
         private readonly EnfileiradorDeAnalise $enfileirador,
         private readonly VisibilidadeDasAbasDaPasta $abas,
+        private readonly RegraDaLeituraDeDocumentos $leitura,
     ) {
     }
 
@@ -117,7 +124,7 @@ final class SolicitarAnaliseDaPastaUseCase
             tipo: TipoDeAnalise::AnalisePasta,
             alvoTipo: AnaliseDeInteligencia::ALVO_PASTA,
             alvoId: $alvoId,
-            versaoDoPrompt: PromptDoAgente::VERSAO,
+            versaoDoPrompt: $comando?->leConteudoDosArquivos() === true ? PromptDoAgente::VERSAO_DA_LEITURA : PromptDoAgente::VERSAO,
             contextoHash: $contexto->hash,
             contextoResumo: $contexto->resumo(),
             agente: $contexto->agente,
@@ -150,14 +157,31 @@ final class SolicitarAnaliseDaPastaUseCase
             throw SelecaoDeDocumentosInvalidaException::vazia();
         }
 
-        $mostrados = array_map(static fn (PastaDocumento $d): int => (int) $d->getId(), $this->montador->documentosMostrados($tenant, $pasta, $ocultas));
+        $mostrados = $this->montador->documentosMostrados($tenant, $pasta, $ocultas);
         $ids = array_values(array_unique($pedidos));
         sort($ids);
-        if (array_diff($ids, $mostrados) !== []) {
+        if (array_diff($ids, array_map(static fn (PastaDocumento $d): int => (int) $d->getId(), $mostrados)) !== []) {
             throw SelecaoDeDocumentosInvalidaException::foraDaLista();
+        }
+        if ($input->comando?->leConteudoDosArquivos() === true) {
+            $this->conferirLeitura($tenant, array_values(array_filter($mostrados, static fn (PastaDocumento $d): bool => \in_array((int) $d->getId(), $ids, true))));
         }
 
         return $ids;
+    }
+
+    /**
+     * "Ler N documentos" (PR F): o aceite do escritório cobre a leitura? Os marcados cabem nos limites (quantos,
+     * formato, tamanho, páginas)? Pelo que o banco sabe; o worker confere de novo pelo arquivo.
+     *
+     * @param list<PastaDocumento> $marcados
+     */
+    private function conferirLeitura(Tenant $tenant, array $marcados): void
+    {
+        if (!$this->leitura->aceiteCobre($tenant)) {
+            throw new AceiteDesatualizadoException();
+        }
+        $this->leitura->conferir($marcados);
     }
 
     /** A pasta do escritório que quem pede pode ver, com a IA disponível para ele. */
@@ -189,7 +213,9 @@ final class SolicitarAnaliseDaPastaUseCase
     private static function avisoEmAndamento(Agente $agente, ?Comando $comando, AnaliseDeInteligencia $emAndamento, ?array $selecionados): string
     {
         if ($selecionados !== null && ($emAndamento->getContextoResumo()['documentosSelecionados'] ?? null) !== $selecionados) {
-            return 'Já há um índice em andamento com outra seleção de documentos. Espere terminar para pedir outro.';
+            return $comando?->leConteudoDosArquivos() === true
+                ? 'Já há uma leitura em andamento com outra seleção de documentos. Espere terminar para pedir outra.'
+                : 'Já há um índice em andamento com outra seleção de documentos. Espere terminar para pedir outro.';
         }
 
         return $comando !== null

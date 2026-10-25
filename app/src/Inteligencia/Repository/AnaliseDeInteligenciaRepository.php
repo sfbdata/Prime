@@ -288,6 +288,67 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Tokens gastos pelo escritório desde um instante, somados por modelo (o orçamento mensal em US$, PR C de
+     * ia-anthropic-ligar). Entram TODAS as análises com tokens, inclusive as excluídas e as que falharam: a Anthropic
+     * cobrou. Tenant explícito (o worker e o console rodam sem TenantFilter); o índice `(tenant_id, criada_em)` cobre.
+     *
+     * @return list<array{modelo: ?string, tokensEntrada: int, tokensSaida: int}>
+     */
+    public function somarTokensPorModeloDesde(Tenant $tenant, \DateTimeImmutable $desde): array
+    {
+        $linhas = $this->createQueryBuilder('a')
+            ->select('a.modelo AS modelo', 'COALESCE(SUM(a.tokensEntrada), 0) AS tokensEntrada', 'COALESCE(SUM(a.tokensSaida), 0) AS tokensSaida')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.criadaEm >= :desde')
+            ->andWhere('(a.tokensEntrada IS NOT NULL OR a.tokensSaida IS NOT NULL)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('desde', $desde)
+            ->groupBy('a.modelo')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'modelo' => $l['modelo'] === null ? null : (string) $l['modelo'],
+            'tokensEntrada' => (int) $l['tokensEntrada'],
+            'tokensSaida' => (int) $l['tokensSaida'],
+        ], $linhas);
+    }
+
+    /**
+     * O consumo de TODOS os escritórios desde um instante, numa consulta só (a tabela da aba do Master, sem N+1):
+     * por escritório e modelo, as análises que contam na cota (a mesma regra do {@see contarDesde}) e os tokens de
+     * todas, inclusive excluídas e falhas. Varre todos os tenants de propósito: quem chama é o Master.
+     *
+     * @return list<array{tenantId: int, modelo: ?string, analises: int, tokensEntrada: int, tokensSaida: int}>
+     */
+    public function consumoDosEscritoriosDesde(\DateTimeImmutable $desde): array
+    {
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT tenant_id, modelo,
+                    COUNT(*) FILTER (WHERE status NOT IN (:indisponivel, :falhou) OR erro_motivo IS NULL OR erro_motivo NOT LIKE :cancelada) AS analises,
+                    COALESCE(SUM(tokens_entrada), 0) AS tokens_entrada,
+                    COALESCE(SUM(tokens_saida), 0) AS tokens_saida
+               FROM inteligencia_analise
+              WHERE criada_em >= :desde
+           GROUP BY tenant_id, modelo',
+            [
+                'indisponivel' => StatusDaAnalise::Indisponivel->value,
+                'falhou' => StatusDaAnalise::Falhou->value,
+                'cancelada' => self::MOTIVO_CANCELADA_ANTES_DO_PROVEDOR . '%',
+                'desde' => $desde->format('Y-m-d H:i:s'),
+            ],
+        );
+
+        return array_map(static fn (array $l): array => [
+            'tenantId' => (int) $l['tenant_id'],
+            'modelo' => $l['modelo'] === null ? null : (string) $l['modelo'],
+            'analises' => (int) $l['analises'],
+            'tokensEntrada' => (int) $l['tokens_entrada'],
+            'tokensSaida' => (int) $l['tokens_saida'],
+        ], $linhas);
+    }
+
+    /**
      * Contagem por escritório e status, para o comando de status (CLI, sem TenantFilter — lista
      * todos os tenants de propósito).
      *

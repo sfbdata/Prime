@@ -49,6 +49,7 @@
         <button type="button" class="mp-aba on" data-aba="painel" role="tab" aria-selected="true"><i class="bi bi-speedometer2"></i>{{ 'master.painel.aba.painel'|trans }}</button>
         <button type="button" class="mp-aba" data-aba="perm" role="tab" aria-selected="false"><i class="bi bi-key"></i>{{ 'master.painel.aba.permissoes'|trans }}</button>
         <button type="button" class="mp-aba" data-aba="rec" role="tab" aria-selected="false"><i class="bi bi-toggles"></i>{{ 'master.painel.aba.recursos'|trans }}</button>
+        <button type="button" class="mp-aba" data-aba="ia" role="tab" aria-selected="false"><i class="bi bi-stars"></i>{{ 'master.painel.aba.ia'|trans }}</button>
     </div>
 
     <div class="mp-painel" data-painel-aba="painel">
@@ -169,6 +170,12 @@
             <div class="mp-rec-aviso" data-mp-rec-aviso role="status" hidden></div>
             <div class="mp-rec-grupos" data-mp-rec-grupos></div>
         </div>
+    </div>
+
+    {# Aba "Configurações da I.A." (spec ia-anthropic-ligar §10; nenhum desenho tem esta tela, então os componentes são
+       os do próprio painel). O parcial traz o próprio <link> e <script> (CSP 'self', sem inline) e lê o estado por JSON. #}
+    <div class="mp-ia" data-painel-aba="ia" hidden>
+        {% include 'master/_ia.html.twig' %}
     </div>
 
     {# Modal de limite (desenho 1.2, linhas 397-410) e "Editar plano" (convenção), montados pelo painel.js. #}

@@ -23,20 +23,14 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      * Quem ainda pode montar `BinaryFileResponse` com as próprias mãos.
      *
      *  - `EntregaDeArquivo` — é quem deve;
-     *  - `ArquivoStorageService` — o shim de D2, com o `servir()` que ninguém mais chama; sai na E2.8;
-     *  - `TarefaController` — o anexo de tarefa guarda caminho com `/`, que `ChaveDeArquivo` recusa
-     *    (D5); a decisão é da E2.7. Enquanto a exceção durar, a visualização inline aplica a
-     *    política da entrega (SEC-012) — travado em {@see self::testTarefaAplicaAPoliticaDeSandbox()};
      *  - `EntregaDeArquivoGerado` (aba Documentos, D5 do .zip) — entrega arquivo GERADO pela
      *    aplicação, nunca persistido: o tipo do parâmetro (`ArquivoGeradoParaEntrega`) só nasce de
      *    uma `AreaTemporariaPrivada`, e é o único lugar que liga `deleteFileAfterSend` — o .zip
      *    tem de sumir depois de enviado, e um documento nunca passa por aqui.
      */
     private const QUEM_MONTA_RESPOSTA_DE_ARQUIVO = [
-        'src/Controller/TarefaController.php',
         'src/Shared/Http/EntregaDeArquivo.php',
         'src/Shared/Http/EntregaDeArquivoGerado.php',
-        'src/Shared/Service/ArquivoStorageService.php',
     ];
 
     #[TestDox('ninguém em src/ chama mais o servir() antigo — as 15 rotas passam pela EntregaDeArquivo')]
@@ -51,7 +45,7 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      * `StreamedResponse` montado à mão — hoje o único do sistema é exportação gerada (folha de
      * ponto), não arquivo persistido.
      */
-    #[TestDox('só a EntregaDeArquivo despeja arquivo: BinaryFileResponse, file(), readfile(), fpassthru() (fora as duas exceções datadas)')]
+    #[TestDox('só a EntregaDeArquivo despeja arquivo: BinaryFileResponse, file(), readfile(), fpassthru() (e a entrega de arquivo gerado)')]
     public function testSoAEntregaMontaRespostaDeArquivo(): void
     {
         $achados = $this->arquivosQueCasam('/\bnew\s+\\\\?(?:Symfony\\\\Component\\\\HttpFoundation\\\\)?BinaryFileResponse\b|\$this->file\s*\(|\b(?:readfile|fpassthru)\s*\(/');
@@ -64,19 +58,17 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
     }
 
     /**
-     * SEC-012: a exceção do `TarefaController` não pode virar porta para HTML ativo na origem. Se
-     * alguém reescrever a visualização do anexo sem a política da entrega, isto cai — o teste
-     * funcional (`TarefaAnexoVisualizarTest`) prova o comportamento pela rota.
+     * SEC-012 + E2.7: o anexo de tarefa deixou de ser exceção. Visualizar e baixar passam pela
+     * `EntregaDeArquivo` — e é dela que vêm nosniff e a sandbox; o teste funcional
+     * (`TarefaAnexoVisualizarTest`) prova o comportamento pela rota.
      */
-    #[TestDox('a exceção do TarefaController aplica a política da entrega: nosniff e sandbox por exigeSandbox() (SEC-012)')]
-    public function testTarefaAplicaAPoliticaDeSandbox(): void
+    #[TestDox('o anexo de tarefa sai pela EntregaDeArquivo, sem resposta de arquivo montada à mão (E2.7, SEC-012)')]
+    public function testTarefaEntregaPelaEntregaDeArquivo(): void
     {
         $codigo = $this->semComentarios((string) file_get_contents(\dirname(__DIR__, 2) . '/src/Controller/TarefaController.php'));
 
-        self::assertMatchesRegularExpression('/EntregaDeArquivo::exigeSandbox\s*\(/', $codigo);
-        self::assertMatchesRegularExpression('/EntregaDeArquivo::CSP_SANDBOX\b/', $codigo);
-        self::assertMatchesRegularExpression("/'X-Content-Type-Options',\s*'nosniff'/", $codigo);
-        self::assertDoesNotMatchRegularExpression('/\bmime_content_type\s*\(/', $codigo, 'o Content-Type é o palpite da própria resposta, o mesmo que a decisão de sandbox consulta');
+        self::assertMatchesRegularExpression('/\$this->entrega->resposta\s*\(/', $codigo);
+        self::assertDoesNotMatchRegularExpression('/\bBinaryFileResponse\b|\$this->file\s*\(/', $codigo);
     }
 
     #[TestDox('fora do núcleo, ninguém conhece o backend local nem o resolvedor de caminho (D11)')]
@@ -105,6 +97,10 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
      * que o `chroot` do Dompdf pode ser um diretório que só tem o que este export colocou lá.
      */
     private const QUEM_PODE_MATERIALIZAR = [
+        // "Ler N documentos" (PR F da spec ia-anthropic-ligar): o PDF sem contagem do upload é contado no
+        // worker com o MESMO `ContadorDePaginasDePdf` (Ghostscript, só por caminho local); o arquivo é
+        // EMPRESTADO (`paraLeitura`, cópia zero, sem posse), nada é apagado nem reescrito.
+        'src/Inteligencia/Contexto/LeitorDeDocumentosDaPasta.php',
         // `--paginas` (D1 da aba Documentos): o Ghostscript só conta por caminho local; o arquivo
         // é EMPRESTADO (`paraLeitura`, cópia zero, sem posse) — nada é apagado nem reescrito.
         'src/Pasta/Command/CalcularHashDosDocumentosCommand.php',
@@ -112,6 +108,9 @@ final class EntregaDeArquivoArquiteturaTest extends TestCase
         // documento entra EMPRESTADO (`paraLeitura`, cópia zero) e o empréstimo vive até o
         // `close()`. Nada é apagado nem reescrito; o .zip nasce numa área temporária própria.
         'src/Pasta/UseCase/MontarZipDeDocumentosUseCase.php',
+        // O decorador da gravação dupla (P2.3) É um armazenamento: só repassa ao disco local, que é
+        // quem materializa. Não pede caminho para si — repassa o pedido de quem chamou.
+        'src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php',
         'src/Shared/Http/EntregaDeArquivo.php',
         'src/Shared/Service/CompressaoDeArquivoArmazenado.php',
         'src/Sync/Service/ReconciliadorDePasta.php',

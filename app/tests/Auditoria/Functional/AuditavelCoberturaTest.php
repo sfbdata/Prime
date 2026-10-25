@@ -35,6 +35,7 @@ use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\Auditavel;
+use App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo;
 use App\Termo\Entity\AceiteTermo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -201,6 +202,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // gravaria o texto da pergunta no audit_log, que quem administra o escritório lê (mesmo motivo da Central).
         // A análise da pergunta continua auditada, sem o texto do modelo (ConteudoParticular).
         \App\Inteligencia\Entity\PerguntaDaConversa::class,
+        // Histórico do status das questões jurídicas da IA (Master): é o LOG DE DOMÍNIO da questão (de, para, quem,
+        // quando), nunca editado, como o HistoricoDemanda. O estado da questão (EstadoDaQuestaoJuridica) É auditado.
+        // Auditar o histórico seria log de log.
+        \App\Inteligencia\Entity\MudancaDeStatusDaQuestaoJuridica::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
@@ -279,6 +284,14 @@ final class AuditavelCoberturaTest extends KernelTestCase
         RelatorioImportado::class,
         RelatorioLinha::class,
         RelatorioTotalizador::class,
+
+        // Outbox da réplica do espelho no R2 (P2.3, spec `p2-gravacao-dupla.md` §3.2/§14): o mapeamento
+        // existe só para o Doctrine conhecer a tabela. Toda escrita é por DBAL (`OutboxDeReplicacao`),
+        // então o listener do ORM nunca a veria: `Auditavel` seria promessa vazia. Auditar ainda
+        // copiaria `nome`/`chave_remota` (nome de pessoa nos legados) para o audit_log, o oposto da
+        // retenção pedida na decisão I4. O próprio estado da linha (tentativas, erro com nome e chave
+        // mascarados quando aparecem literais) é o registro da réplica.
+        ReplicacaoDeArquivo::class,
 
         // Trabalho Externo (spec docs/specs/trabalho-externo.md): domínio novo, mesma decisão de
         // Processo/Cliente/DJEN. A demanda já tem o LOG DE DOMÍNIO próprio (HistoricoDemanda: de, para,
