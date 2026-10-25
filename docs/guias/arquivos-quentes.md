@@ -15,21 +15,23 @@ entrou antes (`git merge --no-edit origin/master`).
 Sem script, só com o `gh`:
 
 ```bash
-gh pr list --state open                      # lista os PRs abertos e os números
+gh pr list --state open --limit 200         # lista os PRs abertos e os números
 gh pr view <N> --json files --jq '.files[].path'   # arquivos que o PR <N> altera
 ```
 
 Para varrer todos de uma vez e procurar um arquivo:
 
 ```bash
-for n in $(gh pr list --state open --json number --jq '.[].number'); do
+for n in $(gh pr list --state open --limit 200 --json number --jq '.[].number'); do
   gh pr view "$n" --json number,title,files \
     --jq 'select(.files[].path == "app/config/services.yaml") | "#\(.number) \(.title)"'
 done
 ```
 
 Troque o caminho do `select` pelo arquivo que você vai tocar. Saída vazia quer dizer que nenhum
-PR aberto mexe nele.
+PR aberto mexe nele. Sem o `--limit`, o `gh pr list` devolve só 30 PRs. O `gh pr view` também
+corta a lista de arquivos de um PR muito grande (em torno de 100), então, num PR grande, confira
+o arquivo na aba "Files changed".
 
 ## Tabela
 
@@ -40,8 +42,8 @@ PR aberto mexe nele.
 | app/config/services.yaml | 5 | |
 | app/tests/Shared/Functional/TenantAwareCoberturaTest.php (teto) | 4 | o teto sobe a cada entidade nova; trazer o master antes de subir |
 | app/tests/Auditoria/Functional/AuditavelCoberturaTest.php (teto) | 4 | idem |
-| app/tests/Shared/Unit/MapaDeChaveParaCaminhoLocalTest.php, ResolvedorDeCaminhoLocal.php | 4, 4 | categorias de arquivo do R2 |
-| app/src/Tenant/UseCase/PurgarEscritorioUseCase.php, TarefaController.php | 4, 4 | |
+| app/tests/Shared/Unit/MapaDeChaveParaCaminhoLocalTest.php, app/src/Shared/Armazenamento/ResolvedorDeCaminhoLocal.php | 4, 4 | categorias de arquivo do R2 |
+| app/src/Tenant/UseCase/PurgarEscritorioUseCase.php, app/src/Controller/TarefaController.php | 4, 4 | |
 | app/tests/Arquitetura/templates-extraidos.json | 3 | |
 | migrations (app/migrations) | | número pedido à coordenação |
 
