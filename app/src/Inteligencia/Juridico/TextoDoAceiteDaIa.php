@@ -36,6 +36,7 @@ final class TextoDoAceiteDaIa
             '- ' . $this->t('agentes') . ' ' . $this->juntar(array_map(static fn (SecaoDoContexto $s): string => $s->rotuloCurto(), SecaoDoContexto::cases())) . ';',
             '- ' . $this->t('push'),
             '- ' . $this->t('analise_anterior'),
+            '- ' . $this->t('documentos'),
             '',
             $this->t('fim'),
         ];
