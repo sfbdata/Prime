@@ -1,6 +1,18 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.18.0"
+  data: "2026-10-24"
+  itens:
+    - "Na pasta sem cliente cadastrado, clique no círculo ao lado do nome para carregar, ajustar ou remover a foto. Quando um cliente for vinculado, a foto continua até ele ganhar uma foto própria."
+    - "A BlueJus IA agora lê os PDFs e imagens que você marcar na aba Documentos da pasta (até 3 por vez) e aponta tipo, datas, partes, valores, prazos e providências. Para liberar, o administrador renova o aceite na configuração da BlueJus IA."
+    - "O administrador do escritório vê o consumo da BlueJus IA no mês: quantas análises, o gasto estimado e o orçamento."
+    - "Quando o orçamento mensal da BlueJus IA é atingido, a IA para e volta no dia 1º do mês seguinte."
+    - "Nada visível para os escritórios."
+    - "Nada muda para os escritórios."
+    - "Nada muda para os escritórios."
+    - "No Trabalho Externo, a Central BlueJus publica despachos no Resumo da demanda, com natureza, prazo e anexos, e pode liberar a resposta de quem pediu, da equipe e do profissional; cada resposta chega como aviso. O extrato dos despachos sai pronto para imprimir."
+    - "No Trabalho Externo, o profissional pode recusar uma oferta com um clique, e o escritório e a Central BlueJus ficam sabendo. As vagas que expiraram há pouco continuam visíveis, marcadas como expiradas; as de mais de 30 dias saem da lista."
 - versao: "2.17.0"
   data: "2026-10-24"
   itens:
