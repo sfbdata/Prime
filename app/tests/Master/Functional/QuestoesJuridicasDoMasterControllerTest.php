@@ -202,8 +202,9 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
     /** @return iterable<string, array{string, string, ?string, int, string}> */
     public static function uploadsInvalidos(): iterable
     {
-        yield 'HTML disfarçado de .pdf' => ['<html><body><script>alert(1)</script></body></html>', 'termos.pdf', null, 422, 'Envie um arquivo .docx, .doc, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
-        yield 'extensão .exe' => ["MZ texto qualquer\n", 'termos.exe', null, 422, 'Envie um arquivo .docx, .doc, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
+        yield 'HTML disfarçado de .pdf' => ['<html><body><script>alert(1)</script></body></html>', 'termos.pdf', null, 422, 'Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
+        yield 'formato antigo .doc' => ["texto qualquer\n", 'termos.doc', null, 422, 'Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
+        yield 'extensão .exe' => ["MZ texto qualquer\n", 'termos.exe', null, 422, 'Envie um arquivo .docx, .pdf, .md, .txt ou .odt; o conteúdo precisa ser do tipo da extensão.'];
         yield 'questão que não pede os Termos' => ["Termos ajustados.\n", 'termos.txt', 'primeira', 422, 'Esta questão não pede este documento.'];
         yield 'questão fora do catálogo' => ["Termos ajustados.\n", 'termos.txt', 'nao_existe', 404, 'Questão jurídica não encontrada.'];
     }
@@ -326,7 +327,7 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(['politica_privacidade', 'termos_uso', 'rascunho_politica_ia', 'aceite_ia'], $docs->each(static fn ($d) => $d->attr('data-mp-jur-doc')));
         self::assertSame('/master/ia/juridico/documentos/politica_privacidade/versoes', $docs->eq(0)->attr('data-url-enviar'));
         self::assertSame('/master/ia/juridico/documentos/politica_privacidade', $docs->eq(0)->filter('div.mp-jur-doc > div.mp-jur-doc-linha > a.mp-btn-roxo')->attr('href'));
-        self::assertCount(1, $docs->eq(0)->filter('div.mp-jur-doc > div.mp-jur-doc-linha > label.mp-jur-enviar > input[type="file"][accept=".docx,.doc,.pdf,.md,.txt,.odt"]'));
+        self::assertCount(1, $docs->eq(0)->filter('div.mp-jur-doc > div.mp-jur-doc-linha > label.mp-jur-enviar > input[type="file"][accept=".docx,.pdf,.md,.txt,.odt"]'));
         self::assertSame('Nenhuma versão enviada.', $docs->eq(0)->filter('div.mp-jur-doc > ul.mp-jur-versoes > li.mp-jur-vazio')->text());
         self::assertSame(['pendente', 'em_analise', 'resolvida'], $primeira->filter('div[data-mp-jur-secao="status"] > label.mp-ia-campo > select[data-mp-jur-status] > option')->each(static fn ($o) => $o->attr('value')));
         self::assertSame('pendente', $primeira->filter('select[data-mp-jur-status] > option[selected]')->attr('value'));

@@ -76,7 +76,7 @@
                     <div class="mp-jur-doc-linha">
                         <b class="mp-jur-doc-nome">{{ d.documento.rotulo }}</b>
                         <a class="mp-btn-roxo mp-jur-baixar" href="{{ path('master_ia_juridico_documento_atual', {documento: d.documento.value}) }}"><i class="bi bi-download" aria-hidden="true"></i>{{ 'master.ia.juridico.baixar_atual'|trans }}</a>
-                        <label class="mp-jur-enviar"><i class="bi bi-upload" aria-hidden="true"></i><span>{{ 'master.ia.juridico.enviar'|trans }}</span><input type="file" accept=".docx,.doc,.pdf,.md,.txt,.odt" data-mp-jur-arquivo></label>
+                        <label class="mp-jur-enviar"><i class="bi bi-upload" aria-hidden="true"></i><span>{{ 'master.ia.juridico.enviar'|trans }}</span><input type="file" accept=".docx,.pdf,.md,.txt,.odt" data-mp-jur-arquivo></label>
                     </div>
                     <ul class="mp-jur-versoes" data-mp-jur-versoes aria-label="{{ 'master.ia.juridico.versoes'|trans }}">
                         {% for v in d.versoes %}
