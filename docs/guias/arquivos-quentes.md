@@ -33,6 +33,9 @@ PR aberto mexe nele. Sem o `--limit`, o `gh pr list` devolve só 30 PRs. O `gh p
 corta a lista de arquivos de um PR muito grande (em torno de 100), então, num PR grande, confira
 o arquivo na aba "Files changed".
 
+A consulta só enxerga PRs já abertos. Alterações locais ainda não publicadas não aparecem. O aviso à
+coordenação continua necessário, mesmo com a saída vazia.
+
 ## Tabela
 
 | Arquivo | Resoluções manuais | Cuidado |
@@ -46,16 +49,6 @@ o arquivo na aba "Files changed".
 | app/src/Tenant/UseCase/PurgarEscritorioUseCase.php, app/src/Controller/TarefaController.php | 4, 4 | |
 | app/tests/Arquitetura/templates-extraidos.json | 3 | |
 | migrations (app/migrations) | | número pedido à coordenação |
-
-## Tradução pt_BR
-
-É o campo de maior conflito (32 resoluções em 2 dias). Ao tocar em
-`messages+intl-icu.pt_BR.yaml`:
-
-1. Mande à coordenação a linha "vou tocar em messages+intl-icu.pt_BR.yaml para Y".
-2. Espere a resposta de quem mais mexe nele.
-3. Acrescente as chaves no fim do bloco do próprio domínio, sem reordenar.
-4. Traga o `origin/master` para a branch antes do push.
 
 ## Medição repetível
 
