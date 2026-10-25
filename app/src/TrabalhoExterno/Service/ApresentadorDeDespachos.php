@@ -102,13 +102,16 @@ final class ApresentadorDeDespachos
 
     /**
      * Quem assina na lista (`String(x.por || 'Master').toUpperCase() + ' (Central BlueJus)'`): o ÚNICO ponto que
-     * monta o assinante. Em decisão com o dono (item 3 da revisão do PR 2): para o leitor externo sem
-     * `priv.nomeResp`, `$por` já vem "Central BlueJus" e a assinatura sai "CENTRAL BLUEJUS (Central BlueJus)".
-     * Se a decisão mudar isso, a troca é só aqui.
+     * monta o assinante. O nome segue a privacidade que já existe ({@see PoliticaDaDemanda::nomeVisivel()},
+     * `priv.nomeResp`); quando o leitor vê "Central BlueJus" no lugar do nome, o "(Central BlueJus)" sairia
+     * repetido e fica de fora (decisão do dono de 24/10): "CENTRAL BLUEJUS".
      */
     private static function assinante(DespachoDemanda $x, string $por): string
     {
-        return mb_strtoupper($por !== '' ? $por : 'Master') . ($x->ehResposta() ? '' : ' (Central BlueJus)');
+        $nome = $por !== '' ? $por : 'Master';
+        $daCentral = !$x->ehResposta() && $nome !== PoliticaDaDemanda::NOME_DA_CENTRAL;
+
+        return mb_strtoupper($nome) . ($daCentral ? ' (Central BlueJus)' : '');
     }
 
     private function por(Contexto $ctx, DespachoDemanda $x): string

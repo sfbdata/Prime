@@ -29,6 +29,9 @@ use App\TrabalhoExterno\Enum\Visibilidade;
  */
 final class PoliticaDaDemanda
 {
+    /** O nome que o leitor externo vê no lugar de quem é da Central, sem `priv.nomeResp` ({@see self::nomeVisivel()}). */
+    public const NOME_DA_CENTRAL = 'Central BlueJus';
+
     public function __construct(
         private readonly ?PoderDeEdicaoSemPrazo $poderSemPrazo = null,
     ) {
@@ -310,12 +313,13 @@ final class PoliticaDaDemanda
     }
 
     /**
-     * Responder ao despacho (`dpPodeResp`): quem pediu e o profissional (o Convidado do convite vigente, que vê a
-     * demanda), com "Aceitar resposta" ligado e ao menos um despacho publicado. Master e Equipe não respondem.
+     * Responder ao despacho (`dpPodeResp: p !== 'master'`): todo perfil menos o Master (quem pediu, a Equipe e o
+     * profissional do convite vigente, que vê a demanda), com "Aceitar resposta" ligado e ao menos um despacho
+     * publicado. Decisão do dono de 24/10: a Equipe responde, como no desenho.
      */
     public function podeResponderAoDespacho(Contexto $ctx, DemandaExterna $d): bool
     {
-        return in_array($ctx->perfil, [Perfil::Solicitante, Perfil::Convidado], true)
+        return $ctx->perfil !== Perfil::Master
             && !$ctx->somenteLeitura()
             && $this->podeVer($ctx, $d)
             && $d->aceitaRespostaAoDespacho();
@@ -471,7 +475,7 @@ final class PoliticaDaDemanda
     public function nomeVisivel(Contexto $ctx, string $nome, Perfil $perfilDoAutor): string
     {
         if (!$ctx->ehInterno() && $perfilDoAutor->ehInterno() && !$ctx->configuracao->privacidade('nomeResp')) {
-            return 'Central BlueJus';
+            return self::NOME_DA_CENTRAL;
         }
 
         return $nome;

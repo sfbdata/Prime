@@ -148,6 +148,57 @@ final class DespachoDaDemandaTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403, 'desligada de novo');
     }
 
+    #[TestDox('decisões do dono de 24/10: a Equipe responde com a chave ligada; cada resposta avisa no sino os Master da Central, menos quem respondeu; a assinatura do externo não repete "Central BlueJus"')]
+    public function testEquipeRespondeEAvisaOsMaster(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaEmExecucao();
+        $this->definirSede($central);
+        $outroMaster = $this->criarMaster($central);
+        $equipe = $this->criarUsuario($central, nome: 'Colaborador');
+        $this->logarComTenant($client, $master, $central);
+        $this->despachar($client, $codigo, ['texto' => 'Confirme a audiência.']);
+
+        $this->logarComTenant($client, $equipe, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $bloco = $this->json($client)['demanda']['despacho'];
+        self::assertFalse($bloco['podeResponder'], 'chave desligada');
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/despachos/respostas", ['texto' => 'Da equipe']);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/despachos/aceitar-resposta", ['liberar' => true]);
+        $this->logarComTenant($client, $equipe, $central);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $bloco = $this->json($client)['demanda']['despacho'];
+        self::assertTrue($bloco['podeResponder'], 'com a chave ligada, a Equipe vê a caixa de resposta');
+        self::assertTrue($bloco['respInfo']);
+        $r = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/despachos/respostas", ['texto' => 'Da equipe']);
+        self::assertResponseIsSuccessful();
+        self::assertSame('resposta', $r['demanda']['despacho']['lista'][0]['tipo']);
+
+        $avisados = fn (): array => array_map('intval', $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT usuario_id FROM notificacao WHERE tipo = ? ORDER BY id',
+            [\App\Entity\Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA],
+        ));
+        $todos = array_map('intval', $this->em()->getConnection()->fetchFirstColumn('SELECT id FROM "user" WHERE CAST(roles AS TEXT) LIKE ? AND is_active = true ORDER BY id', ['%"ROLE_SUPER_ADMIN"%']));
+        self::assertSame($todos, $avisados(), 'todos os Master da Central');
+        self::assertContains($master->getId(), $avisados());
+        self::assertContains($outroMaster->getId(), $avisados());
+        self::assertNotContains($equipe->getId(), $avisados(), 'nem a Equipe nem quem respondeu');
+        self::assertNotContains($solicitante->getId(), $avisados());
+        $aviso = $this->em()->getConnection()->fetchAssociative('SELECT tenant_id, titulo, mensagem, url FROM notificacao WHERE tipo = ? AND usuario_id = ?', [\App\Entity\Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA, $master->getId()]);
+        self::assertSame([$central->getId(), 'Resposta ao despacho de ' . $equipe->getFullName() . '.', '/trabalho-externo?te=' . $codigo], [(int) $aviso['tenant_id'], $aviso['mensagem'], $aviso['url']]);
+        self::assertStringStartsWith($codigo . ' · ', $aviso['titulo']);
+        self::assertSame('Abrir a demanda', (new \App\Central\Service\TiposDeAvisoDaCentral())->acao(\App\Entity\Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA));
+
+        // O solicitante responde: os Master são avisados de novo; e a assinatura que ele lê não repete o nome.
+        $this->logarComTenant($client, $solicitante, $escritorio);
+        $r = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/despachos/respostas", ['texto' => 'Confirmada']);
+        self::assertCount(2 * count($todos), $avisados());
+        $ass = end($r['demanda']['despacho']['lista'])['ass'];
+        self::assertMatchesRegularExpression('/^Assinado eletronicamente por CENTRAL BLUEJUS em \d{2}\/\d{2}\/\d{4}, \d{2}:\d{2} · Cód\. \d{8}$/u', $ass);
+    }
+
     #[TestDox('o convidado sem "Ver instruções" lê o despacho sem o nome dos anexos')]
     public function testConvidadoSemVerNaoVeAnexos(): void
     {

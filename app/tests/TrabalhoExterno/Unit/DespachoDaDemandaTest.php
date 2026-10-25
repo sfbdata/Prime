@@ -6,6 +6,9 @@ namespace App\Tests\TrabalhoExterno\Unit;
 
 use App\Agenda\Service\CalendarioDoSistema;
 use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
+use App\Entity\Auth\User;
+use App\Entity\Notificacao;
+use App\Entity\Tenant\Tenant;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Tenant\Service\SituacaoDaConta;
@@ -56,6 +59,10 @@ final class DespachoDaDemandaTest extends TestCase
     private int $salvos = 0;
     private int $transacoes = 0;
     private int $codigoLivre = 0;
+    /** @var list<array{u: int, t: int, tipo: string, titulo: string, mensagem: ?string}> */
+    private array $avisados = [];
+    /** @var list<User> */
+    private array $masters = [];
 
     protected function setUp(): void
     {
@@ -179,7 +186,7 @@ final class DespachoDaDemandaTest extends TestCase
         $this->despachar()->executar(Apoio::contexto(Perfil::Solicitante, Apoio::tenant(2)), 'TE-0007', 'Texto', '', '', []);
     }
 
-    #[TestDox('o solicitante responde só com a chave ligada; o Master e a Equipe não respondem')]
+    #[TestDox('o solicitante e a Equipe respondem só com a chave ligada; o Master não responde')]
     public function testResponderUseCase(): void
     {
         $this->demanda->despachar(Apoio::autor(), 'Junte a procuração', null, new \DateTimeImmutable('2026-11-06'));
@@ -192,13 +199,15 @@ final class DespachoDaDemandaTest extends TestCase
         }
 
         $this->demanda->liberarRespostasAoDespacho(true);
-        foreach ([Perfil::Master, Perfil::Equipe] as $perfil) {
-            try {
-                $responder->executar(Apoio::contexto($perfil), 'TE-0007', 'Segue a procuração');
-                self::fail('não responde: ' . $perfil->value);
-            } catch (AcaoNaoPermitida) {
-            }
+        try {
+            $responder->executar(Apoio::contexto(Perfil::Master), 'TE-0007', 'Segue a procuração');
+            self::fail('o Master não responde');
+        } catch (AcaoNaoPermitida) {
         }
+        // Decisão do dono de 24/10 (`dpPodeResp: p !== 'master'`): a Equipe responde.
+        self::assertTrue($responder->executar(Apoio::contexto(Perfil::Equipe), 'TE-0007', 'Da equipe')->ehResposta());
+        self::assertSame(1, $this->salvos);
+        $this->salvos = 0;
         try {
             $responder->executar(Apoio::contexto(Perfil::Solicitante), 'TE-0007', 'a');
             self::fail('texto curto');
@@ -270,6 +279,51 @@ final class DespachoDaDemandaTest extends TestCase
         self::assertSame('Assinado eletronicamente por Fulano em ' . $em->format('d/m/Y, H:i:s'), $ex[2]['ass']);
     }
 
+    #[TestDox('resposta ao despacho: aviso no sino a cada Master da Central, no escritório da Central, menos quem respondeu; sem sede, ninguém')]
+    public function testAvisoDaRespostaAosMaster(): void
+    {
+        $this->demanda->despachar(Apoio::autor(), 'Junte a procuração', null, new \DateTimeImmutable('2026-11-06'));
+        $this->demanda->liberarRespostasAoDespacho(true);
+        $sede = Apoio::tenant(3);
+        $cfg = new ConfiguracaoCentral();
+        $cfg->definirSede($sede);
+        $quemResponde = Apoio::usuario(21, ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $this->masters = [Apoio::usuario(20, ['ROLE_USER', 'ROLE_SUPER_ADMIN']), $quemResponde, Apoio::usuario(22, ['ROLE_USER', 'ROLE_SUPER_ADMIN'])];
+        $responder = new ResponderAoDespachoUseCase($this->localizador(), new PoliticaDaDemanda(), $this->repositorio(), $this->avisos());
+
+        // O Master que também é usuário do escritório responde como Solicitante dele.
+        $responder->executar(Apoio::contexto(Perfil::Solicitante, null, $cfg, $quemResponde), 'TE-0007', 'Segue a procuração');
+        $paraMaster = array_values(array_filter($this->avisados, static fn (array $a): bool => $a['tipo'] === Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA));
+        self::assertSame([20, 22], array_column($paraMaster, 'u'), 'todos os Master, menos quem respondeu');
+        self::assertSame([3, 3], array_column($paraMaster, 't'), 'no escritório da Central');
+        self::assertSame('Resposta ao despacho de Usuário 21.', $paraMaster[0]['mensagem']);
+        self::assertSame('TE-0007 · ', mb_substr($paraMaster[0]['titulo'], 0, 10));
+
+        $this->avisados = [];
+        $responder->executar(Apoio::contexto(Perfil::Solicitante), 'TE-0007', 'Sem sede');
+        self::assertSame([], array_filter($this->avisados, static fn (array $a): bool => $a['tipo'] === Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA), 'sem sede não há onde avisar');
+    }
+
+    #[TestDox('assinatura (decisão do dono de 24/10): com o nome real, "{NOME} (Central BlueJus)"; quando o leitor vê "Central BlueJus", sem repetir; o Extrato segue o desenho, sem o sufixo')]
+    public function testAssinaturaSemRepeticao(): void
+    {
+        $d = $this->demanda;
+        $d->despachar(Apoio::autor(), 'Primeiro', null, new \DateTimeImmutable('2026-11-06'));
+        $ap = new ApresentadorDeDespachos(new PoliticaDaDemanda(), new PrazoDoDespacho(new CalendarioDoSistema()));
+
+        self::assertStringStartsWith('Assinado eletronicamente por FULANO (Central BlueJus) em ', $ap->bloco(Apoio::contexto(Perfil::Master), $d)['lista'][0]['ass']);
+        $externo = $ap->bloco(Apoio::contexto(Perfil::Solicitante), $d)['lista'][0]['ass'];
+        self::assertStringStartsWith('Assinado eletronicamente por CENTRAL BLUEJUS em ', $externo);
+        self::assertSame(1, substr_count(mb_strtolower($externo), 'central bluejus'), 'sem a repetição');
+
+        $comNome = new ConfiguracaoCentral();
+        $comNome->definirPrivacidade('nomeResp', true);
+        self::assertStringStartsWith('Assinado eletronicamente por FULANO (Central BlueJus) em ', $ap->bloco(Apoio::contexto(Perfil::Solicitante, null, $comNome), $d)['lista'][0]['ass'], 'com priv.nomeResp, o nome real');
+
+        self::assertStringStartsWith('Assinado eletronicamente por Central BlueJus em ', $ap->extrato(Apoio::contexto(Perfil::Solicitante), $d)[0]['ass']);
+        self::assertStringStartsWith('Assinado eletronicamente por Fulano em ', $ap->extrato(Apoio::contexto(Perfil::Master), $d)[0]['ass']);
+    }
+
     private function despachar(): DespacharNaDemandaUseCase
     {
         $transacao = $this->createMock(TransacaoDoDespacho::class);
@@ -314,9 +368,18 @@ final class DespachoDaDemandaTest extends TestCase
     /** Os avisos com o sino vazio: o que cada evento cria se prova no `AvisosDoTrabalhoExternoTest`. */
     private function avisos(): AvisosDoTrabalhoExterno
     {
+        $notificacoes = $this->createMock(NotificacaoService::class);
+        $notificacoes->method('criar')->willReturnCallback(function (User $u, Tenant $t, string $tipo, string $titulo, ?string $mensagem = null): Notificacao {
+            $this->avisados[] = ['u' => (int) $u->getId(), 't' => (int) $t->getId(), 'tipo' => $tipo, 'titulo' => $titulo, 'mensagem' => $mensagem];
+
+            return (new Notificacao())->setUsuario($u)->setTenant($t)->setTipo($tipo)->setTitulo($titulo)->setMensagem($mensagem);
+        });
+        $destinatarios = $this->createMock(DestinatariosDosAvisosRepository::class);
+        $destinatarios->method('masters')->willReturnCallback(fn (): array => $this->masters);
+
         return new AvisosDoTrabalhoExterno(
-            $this->createStub(NotificacaoService::class),
-            $this->createStub(DestinatariosDosAvisosRepository::class),
+            $notificacoes,
+            $destinatarios,
             $this->createStub(PreferenciaDoUsuarioRepository::class),
             $this->createStub(CurriculoRepository::class),
             new ResolvedorDePerfil($this->createStub(PermissionChecker::class)),
