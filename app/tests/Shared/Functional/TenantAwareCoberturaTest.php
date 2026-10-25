@@ -48,6 +48,7 @@ use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\MetricaPublica;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
+use App\TrabalhoExterno\Entity\RecusaDeOferta;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Entity\Vaga;
 use Doctrine\ORM\EntityManagerInterface;
@@ -159,6 +160,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escopadas) e da PoliticaDaVaga, provado em VagasDoTrabalhoExternoTest (pendente de outro
         // escritório é 404). O histórico só é lido pela vaga.
         Vaga::class,          // vaga publicada pela Central para todos os escritórios; VagaRepository só consulta escopado e LocalizadorDeVaga confere a PoliticaDaVaga (VagasDoTrabalhoExternoTest::testFluxoDeDivulgacao)
+        RecusaDeOferta::class, // só é lida pela vaga já localizada no escopo e pelo próprio usuário que recusou (RecusaEExpiracaoDaVagaTest: outro escritório é 404, interno é 403)
         DespachoDemanda::class, // só é lido pela demanda já localizada no escopo (DemandaExterna::getDespachos); toda rota passa pelo LocalizadorDeDemanda (DespachoDaDemandaTest, outro escritório é 404)
         HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só pelo interno (ApresentadorDeVaga::detalhe, desenho l.1190)
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
@@ -305,7 +307,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 70 → 73 com as questões jurídicas do Master (24/10/2026): EstadoDaQuestaoJuridica, MudancaDeStatusDaQuestaoJuridica
     // e VersaoDeDocumentoJuridico (plataforma), justificadas acima.
     // 73 → 74 com o despacho da Central no Trabalho Externo (24/10/2026): DespachoDemanda, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 74;
+    // 74 → 75 com a recusa de oferta do Trabalho Externo (24/10/2026): RecusaDeOferta, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 75;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
