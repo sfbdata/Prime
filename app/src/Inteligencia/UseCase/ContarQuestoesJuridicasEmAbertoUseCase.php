@@ -21,6 +21,17 @@ final class ContarQuestoesJuridicasEmAbertoUseCase
 
     public function executar(): int
     {
-        return count(array_diff($this->catalogo->chaves(), $this->estados->chavesResolvidas()));
+        return count($this->chaves());
+    }
+
+    /**
+     * As chaves em aberto, na ordem do catálogo. O aviso do topo as leva ao navegador, que guarda as que o Master já
+     * viu e só mostra o aviso de novo quando surge uma chave nova.
+     *
+     * @return list<string>
+     */
+    public function chaves(): array
+    {
+        return array_values(array_diff($this->catalogo->chaves(), $this->estados->chavesResolvidas()));
     }
 }

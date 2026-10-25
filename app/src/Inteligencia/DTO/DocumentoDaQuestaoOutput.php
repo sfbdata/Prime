@@ -6,7 +6,7 @@ namespace App\Inteligencia\DTO;
 
 use App\Inteligencia\Enum\DocumentoJuridico;
 
-/** Um documento que a questão manda atualizar, com todas as versões ajustadas dele (de qualquer questão). */
+/** Um documento jurídico com todas as versões ajustadas dele (de qualquer questão), para o bloco único do fim da tela. */
 final readonly class DocumentoDaQuestaoOutput
 {
     /** @param list<VersaoDeDocumentoJuridicoOutput> $versoes a mais recente primeiro */
