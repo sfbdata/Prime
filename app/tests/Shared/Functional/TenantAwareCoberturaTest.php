@@ -34,6 +34,7 @@ use App\TrabalhoExterno\Entity\ConfiguracaoCentral;
 use App\TrabalhoExterno\Entity\ContatoWhatsapp;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\Curriculo;
@@ -158,6 +159,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escopadas) e da PoliticaDaVaga, provado em VagasDoTrabalhoExternoTest (pendente de outro
         // escritório é 404). O histórico só é lido pela vaga.
         Vaga::class,          // vaga publicada pela Central para todos os escritórios; VagaRepository só consulta escopado e LocalizadorDeVaga confere a PoliticaDaVaga (VagasDoTrabalhoExternoTest::testFluxoDeDivulgacao)
+        DespachoDemanda::class, // só é lido pela demanda já localizada no escopo (DemandaExterna::getDespachos); toda rota passa pelo LocalizadorDeDemanda (DespachoDaDemandaTest, outro escritório é 404)
         HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só pelo interno (ApresentadorDeVaga::detalhe, desenho l.1190)
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
@@ -302,7 +304,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // infraestrutura lida só pelo worker, por DBAL, com o escritório na própria linha; justificada acima.
     // 70 → 73 com as questões jurídicas do Master (24/10/2026): EstadoDaQuestaoJuridica, MudancaDeStatusDaQuestaoJuridica
     // e VersaoDeDocumentoJuridico (plataforma), justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 73;
+    // 73 → 74 com o despacho da Central no Trabalho Externo (24/10/2026): DespachoDemanda, justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 74;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
