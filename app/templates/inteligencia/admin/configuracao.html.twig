@@ -135,9 +135,16 @@
                                     <li id="ia-aviso-envio-analise-anterior" data-ia-bloco="analise_anterior">
                                         {{ 'inteligencia.admin.envio.analise_anterior'|trans }}
                                     </li>
+                                    {# PR F: o texto do aceite cita os documentos desde VersaoDoAceiteDaIa::ComDocumentos (2). #}
+                                    <li id="ia-aviso-envio-documentos" data-ia-bloco="documentos_anexados">
+                                        {{ 'inteligencia.admin.envio.documentos'|trans }}
+                                    </li>
                                 </ul>
                                 {{ 'inteligencia.admin.envio.fim'|trans }}
                             </div>
+                            {% if configuracao.habilitada and not configuracao.aceiteCobreDocumentos %}
+                                <div class="form-text text-warning" id="ia-aceite-documentos">{{ 'inteligencia.admin.aceite_documentos'|trans }}</div>
+                            {% endif %}
                             {% if configuracao.consentimentoEnvioExternoEm %}
                                 <div class="form-text" id="ia-consentimento">
                                     {% if configuracao.consentimentoPorNome %}{{ 'inteligencia.admin.consentimento_por'|trans({quando: configuracao.consentimentoEnvioExternoEm|data_hora, nome: configuracao.consentimentoPorNome}) }}{% else %}{{ 'inteligencia.admin.consentimento'|trans({quando: configuracao.consentimentoEnvioExternoEm|data_hora}) }}{% endif %}

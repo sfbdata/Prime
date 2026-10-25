@@ -211,6 +211,37 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $atualizacoes);
     }
 
+    #[TestDox('PR F: o aviso cita os documentos escolhidos; aceite antigo mostra o alerta e salvar ligada renova o aceite')]
+    public function testAceiteAntigoRenovadoAoSalvar(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $configuracao = $this->ligarIaNoTenant($tenant, $admin);
+        $this->envelhecerAceite($configuracao);
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $crawler = $client->request('GET', '/admin/inteligencia');
+        self::assertResponseIsSuccessful();
+        $item = $crawler->filter('#ia-aviso-envio #ia-aviso-envio-documentos[data-ia-bloco="documentos_anexados"]');
+        self::assertSame(1, $item->count());
+        self::assertStringContainsString('documentos', $item->text());
+        $alerta = $crawler->filter('#ia-aceite-documentos');
+        self::assertSame(1, $alerta->count());
+        self::assertStringNotContainsString('—', $alerta->text());
+
+        $form = $crawler->selectButton('Salvar')->form();
+        $client->submit($form);
+        self::assertResponseRedirects('/admin/inteligencia');
+        $crawler = $client->followRedirect();
+        self::assertSame(0, $crawler->filter('#ia-aceite-documentos')->count(), 'renovado, o alerta some');
+
+        $this->em()->clear();
+        $relida = $this->em()->find(ConfiguracaoDeInteligencia::class, $configuracao->getId());
+        self::assertNotNull($relida);
+        self::assertTrue($relida->aceiteCobreDocumentos());
+        self::assertSame($admin->getId(), $relida->getConsentimentoPor()?->getId());
+    }
+
     #[TestDox('limite negativo é recusado pelo formulário, nada gravado')]
     public function testLimiteNegativoRecusado(): void
     {

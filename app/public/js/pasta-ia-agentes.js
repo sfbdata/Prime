@@ -13,10 +13,12 @@
         (`inteligencia_comando_solicitar`) e o retorno honesto (202 em andamento,
         200 "nada novo", 409/429 motivo); motivo de disponibilidade trava TODOS
         os botões até a página recarregar;
-     2b. aba Documentos (F4): marcar e desmarcar (`data-ia-doc`), "Selecionar
-        todos" (`data-ia-docs-todos`), a contagem "N de M" e o "Índice
-        inteligente" (`data-ia-exige-selecao`) liberado só com seleção; o POST
-        leva os ids marcados como `documentos[]`;
+     2b. aba Documentos (F4 e PR F): marcar e desmarcar (`data-ia-doc`), "Selecionar
+        todos" (`data-ia-docs-todos`), a contagem "N de M", o "Ler N documentos"
+        (`data-ia-ler`, rótulo pela contagem) e o "Índice inteligente", os dois
+        `data-ia-exige-selecao`, liberados só com seleção; o POST leva os ids
+        marcados como `documentos[]`. Os dois botões moram fora das seções e
+        apontam para a sua por `data-ia-secao`;
      3. polling do status (GET `inteligencia_analise_status`) enquanto houver
         análise pendente/processando no drawer — 2 s, 5 s depois de 30 s, 10 s
         depois de 2 min; PAUSA com a página oculta ou o drawer fechado —, e
@@ -262,9 +264,19 @@
         });
 
         /* ── Botões e listas por comando (ou agente) ──────────────────────── */
-        function secaoDe(el) { return el ? (el.closest('[data-ia-comando]') || el.closest('[data-ia-agente]')) : null; }
+        // O botão da aba Documentos fica fora da seção e aponta para ela (`data-ia-secao`).
+        function secaoDe(el) {
+            if (!el) { return null; }
+            var alvo = el.closest('[data-ia-secao]');
+            if (alvo) { return drawer.querySelector('[data-ia-comando="' + alvo.getAttribute('data-ia-secao') + '"]'); }
+            return el.closest('[data-ia-comando]') || el.closest('[data-ia-agente]');
+        }
         function listaDe(secao) { return secao ? secao.querySelector('[data-ia-lista]') : null; }
-        function botaoDe(secao) { return secao ? secao.querySelector('[data-ia-gerar]') : null; }
+        function botaoDe(secao) {
+            if (!secao) { return null; }
+            var valor = secao.getAttribute('data-ia-comando');
+            return secao.querySelector('[data-ia-gerar]') || (valor ? drawer.querySelector('[data-ia-gerar][data-ia-secao="' + valor + '"]') : null);
+        }
 
         function rotuloDoBotao(botao, texto) {
             var r = botao ? botao.querySelector('.ia-cta-rotulo') : null;
@@ -305,6 +317,7 @@
             rotuloDoBotao(botao, temConcluida ? deNovo : rotulo);
             botao.title = temConcluida ? BJ_T.t('inteligencia.js.agentes.dica_nova') : BJ_T.t('inteligencia.js.agentes.dica_primeira');
             if (botao.hasAttribute('data-ia-exige-selecao')) { botao.title = tituloDoIndice(botao); }
+            if (botao.hasAttribute('data-ia-ler')) { rotuloDoBotao(botao, rotuloDaLeitura(idsMarcados().length)); }
         }
 
         // Um 409/429 de disponibilidade vale para todos os botões até a página recarregar.
@@ -437,9 +450,18 @@
             return botao.hasAttribute('data-ia-exige-selecao') && idsMarcados().length === 0;
         }
 
-        // O title do Índice segue a seleção, não o histórico (o índice nunca recebe o anterior).
+        // O title do Índice (e do Ler) segue a seleção, não o histórico (nenhum dos dois recebe o anterior).
         function tituloDoIndice(botao) {
+            if (botao.hasAttribute('data-ia-ler')) {
+                return semSelecao(botao) ? BJ_T.t('inteligencia.js.agentes.dica_ler_marque') : BJ_T.t('inteligencia.js.agentes.dica_ler');
+            }
             return semSelecao(botao) ? BJ_T.t('inteligencia.js.agentes.dica_indice_marque') : BJ_T.t('inteligencia.js.agentes.dica_indice_monta');
+        }
+
+        // "Selecione" / "Ler 1 documento" / "Ler N documentos", como o `lerTxt` do desenho.
+        function rotuloDaLeitura(n) {
+            if (n === 0) { return BJ_T.t('inteligencia.js.agentes.ler_selecione'); }
+            return n === 1 ? BJ_T.t('inteligencia.js.agentes.ler_um') : BJ_T.t('inteligencia.js.agentes.ler_varios', { n: String(n) });
         }
 
         function atualizarSelecao() {
@@ -453,6 +475,7 @@
                 if (botao.getAttribute('data-ia-disponivel') !== '1' || botao.classList.contains('is-carregando')) { return; }
                 botao.disabled = marcados === 0;
                 botao.title = tituloDoIndice(botao);
+                if (botao.hasAttribute('data-ia-ler')) { rotuloDoBotao(botao, rotuloDaLeitura(marcados)); }
             });
         }
 
@@ -475,6 +498,7 @@
             if (!botao || !drawer.contains(botao)) { return; }
             if (botao.disabled || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
             if (semSelecao(botao)) { return; }
+            if (botao.hasAttribute('data-ia-secao')) { escolher(botao.getAttribute('data-ia-secao')); }
             var secao = secaoDe(botao);
 
             var dados = new FormData();

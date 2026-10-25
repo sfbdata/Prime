@@ -33,7 +33,7 @@ navegador (sem tenant, sigilo, delimitação nem máscara; manda CPF do cliente)
 | 6 relatórios | 5 sim | F2: mesmo mecanismo; Copiar, Baixar .txt e Imprimir já existem. "Relatório do cliente" com TODAS as pastas espera a D12 |
 | Perguntar (conversa) | sim | F3: tipo `PerguntaLivre` com fluxo, conversa guardada por pasta e pessoa, histórico curto no prompt, assíncrono com polling |
 | Aba Documentos: lista e seleção | sim (metadados) | F4: lista com nome, tipo, data e tamanho; "Índice" só por metadados (o Agente Documental de hoje), dizendo que o conteúdo não foi lido |
-| "Ler N documentos", índice com leitura, OCR | **não** | depende de LER CONTEÚDO: com o dono (regra 7, D13) |
+| "Ler N documentos" | sim (PR F) | lê o conteúdo dos PDFs e imagens marcados, sem OCR nosso: spec `ia-anthropic-ligar` §10.5 (regra 7). Índice com leitura e OCR seguem fora |
 | Fase, inconsistência, situação, providências marcáveis, memória, indicadores | **não, por ora** | regra apresentada como IA (regra 1); a regra precisa vir do dono/Farlei (IA-020 a IA-025) e, se for regra, o rótulo diz "por regras" (precedente S-4). Com o dono |
 | "Criar tarefa" do resultado | sim | F5: abre a nova meta pré-preenchida, UMA por clique, com confirmação (sem lote) |
 | "Criar N tarefas em Metas" (lista por regra, em lote) | **não** | lote a partir de lista por regra: fora (regra do coordenador) |
@@ -90,8 +90,9 @@ Desenho: aba "Perguntar" (`bi bi-chat-dots`, dc L5945), painel em L1072-1084, ro
 Desenho: aba "Documentos" (`bi bi-file-earmark-text`, dc L5945), painel em L1041-1058, lógica em L5915 e L5961-5968.
 
 - **Tela.** Aba entre Análise e Relatórios (ordem do desenho). Não aparece para quem tem a aba Documentos da pasta oculta.
-  Texto do topo: "A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos
-  não é lido." (é o que vai ao modelo; o tamanho só aparece na lista; o do desenho promete leitura e OCR: regra 7 e D13, a lei do domínio corrige o protótipo). Lista num cartão:
+  Texto do topo (desde o PR F, spec `ia-anthropic-ligar` §10.5): diz que a IA lê os PDFs e imagens marcados, com os
+  limites, e que o Índice usa só nome, título, categoria e data (o do desenho promete OCR, que não fazemos: a lei do
+  domínio corrige o protótipo). Lista num cartão:
   linha "Todos" que marca e desmarca tudo, divisória, e cada documento com a caixa de marcar, o ícone do arquivo com a
   letra do tipo, o nome (uma linha, reticências) e a linha de dados do desenho, "tamanho · data" (`meta`, dc L6578-6580:
   "240 KB · 18/08", "1,2 MB · hoje"; de outro ano, com o ano). O tipo está no ícone. Embaixo, um botão só,

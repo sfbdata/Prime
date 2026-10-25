@@ -117,7 +117,7 @@ final class MontadorDeContextoDaPasta
             if (($secao->exigeVisibilidadeDoFinanceiro() && !$incluirFinanceiro) || \in_array($secao->abaDaPasta()?->value, $abasOcultas, true)) {
                 continue; // a decisão foi tomada na solicitação; aqui só se obedece
             }
-            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados, $incluirFinanceiro), $gasto);
+            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados, $incluirFinanceiro, $comando?->leConteudoDosArquivos() === true), $gasto);
         }
 
         $numeros = array_map(static fn (Processo $p): string => $p->getNumeroProcesso(), $processos);
@@ -172,7 +172,7 @@ final class MontadorDeContextoDaPasta
      * @param list<string>   $abasOcultas
      * @param list<int>|null $documentosSelecionados
      */
-    private function montarSecao(SecaoDoContexto $secao, Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $documentosSelecionados, bool $incluirFinanceiro): SecaoDeContexto
+    private function montarSecao(SecaoDoContexto $secao, Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $documentosSelecionados, bool $incluirFinanceiro, bool $conteudoAnexado = false): SecaoDeContexto
     {
         return match ($secao) {
             SecaoDoContexto::Clientes => $this->clientes($tenant, $pasta, $mascarar),
@@ -180,7 +180,7 @@ final class MontadorDeContextoDaPasta
             SecaoDoContexto::Metas => $this->metas($tenant, $pasta, $mascarar),
             SecaoDoContexto::Anotacoes => $this->anotacoes($tenant, $pasta, $mascarar, $incluirFinanceiro),
             SecaoDoContexto::Observacoes => $this->observacoes($tenant, $pasta, $mascarar),
-            SecaoDoContexto::Documentos => $this->documentos($tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados),
+            SecaoDoContexto::Documentos => $this->documentos($tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados, $conteudoAnexado),
             SecaoDoContexto::Checklist => $this->checklist($tenant, $pasta, $mascarar),
             SecaoDoContexto::Financeiro => $this->financeiro($tenant, $pasta, $mascarar),
         };
@@ -332,10 +332,13 @@ final class MontadorDeContextoDaPasta
      * da solicitação já os limitou à lista mostrada; um documento novo depois do pedido não tira um
      * marcado), e os não marcados não contam como omitidos por limite.
      *
+     * No "Ler N documentos" (PR F, `$conteudoAnexado`), a linha diz que o conteúdo vai anexado à mensagem em vez
+     * de "conteúdo não lido"; quem lê e anexa é o {@see LeitorDeDocumentosDaPasta}, não este montador.
+     *
      * @param list<string>   $abasOcultas
      * @param list<int>|null $selecionados
      */
-    private function documentos(Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $selecionados): SecaoDeContexto
+    private function documentos(Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $selecionados, bool $conteudoAnexado = false): SecaoDeContexto
     {
         $linhas = [];
         $assinaturas = [];
@@ -343,16 +346,17 @@ final class MontadorDeContextoDaPasta
             ? $this->documentosVisiveis($tenant, $pasta, $abasOcultas)
             : VisibilidadeDasAbasDaPasta::documentosVisiveis($this->dados->documentosDaPastaPorIds($tenant, $pasta, $selecionados), $abasOcultas);
         foreach (array_slice($todos, 0, self::LIMITE_DOCUMENTOS) as $documento) {
-            // Só metadados: o conteúdo do arquivo não é lido nem enviado (spec §2.2).
+            // Só metadados aqui: o conteúdo do arquivo só vai no "Ler N documentos", como anexo (PR F).
             $categoria = $this->rotulo($documento->getCategoria(), 'sem categoria', $mascarar);
             $titulo = $this->rotulo($documento->getTitulo(), 'sem título', $mascarar);
             $nome = $this->rotulo($documento->getNomeOriginal(), 'sem nome', $mascarar);
             $linhas[] = sprintf(
-                '%s · %s · "%s" (arquivo %s) · conteúdo não lido [nível %d, documento juntado]',
+                '%s · %s · "%s" (arquivo %s) · %s [nível %d, documento juntado]',
                 $documento->getCarregadoEm()->format('d/m/Y'),
                 $categoria,
                 $titulo,
                 $nome,
+                $conteudoAnexado ? 'conteúdo anexado a esta mensagem' : 'conteúdo não lido',
                 SecaoDoContexto::Documentos->nivel(),
             );
             $assinaturas[] = sprintf('documento:%d:%s:%s:%s:%s', (int) $documento->getId(), $documento->getCarregadoEm()->format('Y-m-d'), $categoria, $titulo, $nome);

@@ -6989,6 +6989,7 @@ inteligencia:
         gerar_analise: Gerar análise
         gerar_nova: Gerar nova análise
         le: '{agente}. Lê: dados da pasta, processos, {secoes}.'
+        le_leitura: '{agente}. Lê: o conteúdo dos documentos marcados (PDF e imagem), dados da pasta, processos, nomes e datas dos documentos, checklist.'
         em_andamento: Análise em andamento
         dica_indice: Marque os documentos do índice
         dica_nova: Nova análise considerando o histórico
@@ -6996,7 +6997,11 @@ inteligencia:
         analisando: Analisando…
         carregando: Carregando as análises…
     documentos:
-        intro: 'A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos não é lido.'
+        intro: 'A IA lê os arquivos PDF e imagem que você marcar (até 3 por vez, 10 MB por arquivo, imagem até 3 MB e 100 páginas no total) e extrai tipo, data, partes, valores, prazos e providências. O Índice inteligente usa só o nome, o título, a categoria e a data de cada arquivo.'
+        ler_selecione: Selecione
+        ler_bloqueado: Ler documentos
+        dica_ler: Marque os documentos para a IA ler
+        aceite_antigo: 'A leitura de documentos espera o aceite novo do escritório: o administrador renova o aceite na configuração da BlueJus IA.'
         grupo: Documentos desta pasta
         carregando: Carregando os documentos…
         vazio: Nenhum documento nesta pasta.
@@ -7024,6 +7029,7 @@ inteligencia:
         vazia_agente: Nenhuma análise deste agente ainda.
         vazia_relatorio: Nenhum relatório gerado ainda.
         vazia_indice: Nenhum índice gerado ainda.
+        vazia_leitura: Nenhuma leitura feita ainda.
         vazia_comando: Nenhuma análise deste comando ainda.
     push:
         recolher: Recolher a análise
@@ -7109,8 +7115,10 @@ inteligencia:
             processo_situacao: situação do processo
             agentes: 'o que os agentes leem da pasta:'
             push: 'no Resumir com IA do Push: as publicações do DJEN e as movimentações do Datajud dos processos vinculados (data, tipo, tribunal, órgão e texto);'
-            analise_anterior: o resumo da análise anterior feita pela própria IA na mesma pasta, reenviado para que ela não se repita.
+            analise_anterior: o resumo da análise anterior feita pela própria IA na mesma pasta, reenviado para que ela não se repita;
+            documentos: 'no Ler documentos da pasta: o conteúdo dos arquivos PDF e imagem que a pessoa escolher, até 3 por vez, com o nome de cada um.'
             fim: 'O financeiro só é enviado quando quem pede a análise pode vê-lo. Dados pessoais (CPF, CNPJ, telefone e e-mail) são mascarados por padrão. Processos em segredo de justiça nunca são enviados.'
+        aceite_documentos: 'O texto do aceite mudou em 24/10/2026 e passou a citar a leitura dos documentos escolhidos. Salve com a IA ligada para renovar o aceite; até lá, a IA não lê documentos.'
         consentimento: 'Aceite registrado em {quando}.'
         consentimento_por: 'Aceite registrado em {quando} por {nome}.'
         cotas: As cotas contam todo pedido feito no escritório, inclusive os que falharam.
@@ -7138,6 +7146,11 @@ inteligencia:
             demorando: A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.
             dica_indice_marque: Marque os documentos do índice
             dica_indice_monta: Monta o índice dos documentos marcados
+            dica_ler_marque: Marque os documentos para a IA ler
+            dica_ler: Envia à IA o conteúdo dos documentos marcados
+            ler_selecione: Selecione
+            ler_um: Ler 1 documento
+            ler_varios: 'Ler {n} documentos'
             contagem: '{marcados} de {total}'
             falha_pedir: Não foi possível pedir a análise agora. Tente novamente.
             falha_atualizar_analise: Não foi possível atualizar a análise.

@@ -31,6 +31,8 @@ final readonly class ConfiguracaoDeInteligenciaOutput
         public ModoDeCobrancaDaIa $modoDeCobranca = ModoDeCobrancaDaIa::Incluso,
         public ?int $orcamentoMensalCentavos = null,
         public int $gastoMesCentavos = 0,
+        /** O aceite já cobre a leitura de documentos (PR F)? Falso = a tela pede a renovação. */
+        public bool $aceiteCobreDocumentos = false,
     ) {
     }
 
@@ -60,6 +62,7 @@ final readonly class ConfiguracaoDeInteligenciaOutput
             modoDeCobranca: $configuracao?->getModoDeCobranca() ?? ModoDeCobrancaDaIa::Incluso,
             orcamentoMensalCentavos: $configuracao?->getOrcamentoMensalCentavos(),
             gastoMesCentavos: $gastoMesCentavos,
+            aceiteCobreDocumentos: $configuracao?->aceiteCobreDocumentos() ?? false,
         );
     }
 

@@ -22,6 +22,6 @@
     {% for a in saida.analises %}
         {{ include('inteligencia/_analise_cartao_agente.html.twig', {a: a, pastaId: pastaId, podeVerMotivoTecnico: podeVerMotivoTecnico, hojeIa: hojeIa, iaPodeCriarTarefa: iaPodeCriarTarefa}, with_context = false) }}
     {% else %}
-        <p class="ia-ag-vazio" data-ia-vazio>{{ saida.comando.ehRelatorio ? 'inteligencia.lista.vazia_relatorio'|trans : (saida.comando.ehDaAbaDocumentos ? 'inteligencia.lista.vazia_indice'|trans : 'inteligencia.lista.vazia_comando'|trans) }}</p>
+        <p class="ia-ag-vazio" data-ia-vazio>{{ saida.comando.ehRelatorio ? 'inteligencia.lista.vazia_relatorio'|trans : (saida.comando.leConteudoDosArquivos ? 'inteligencia.lista.vazia_leitura'|trans : (saida.comando.ehDaAbaDocumentos ? 'inteligencia.lista.vazia_indice'|trans : 'inteligencia.lista.vazia_comando'|trans)) }}</p>
     {% endfor %}
 </div>
