@@ -26,9 +26,9 @@ final class CatalogoJuridicoDeTeste
      *
      * @return array<string, mixed>
      */
-    public static function questao(string $chave, string $grau = 'medio', array $documentos = ['termos_uso']): array
+    public static function questao(string $chave, string $grau = 'medio', array $documentos = ['termos_uso'], bool $oculta = false): array
     {
-        return [
+        return ($oculta ? ['oculta' => true] : []) + [
             'chave' => $chave,
             'titulo' => 'Questão ' . $chave,
             'problema' => "Primeiro parágrafo de {$chave}.\n\nSegundo parágrafo.",

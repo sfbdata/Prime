@@ -8,7 +8,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * O conteúdo das questões jurídicas do Master, lido de `config/inteligencia/questoes_juridicas.json` (uma lista de
- * objetos com `chave`, `titulo`, `problema`, `risco_grau`, `risco`, `opcoes`, `sugestao`, `fontes` e `documentos`).
+ * objetos com `chave`, `titulo`, `problema`, `risco_grau`, `risco`, `opcoes`, `sugestao`, `fontes` e `documentos`, mais `oculta` opcional).
+ * Questão com `"oculta": true` fica no arquivo (para o dono recolocá-la depois), mas o catálogo não a entrega: some da
+ * listagem, da contagem de "em aberto" e do aviso global. A numeração dos títulos não é refeita.
  * O texto muda por PR, com revisão; o banco guarda só o status e o histórico de cada chave.
  *
  * Lido uma vez por processo. Arquivo ausente, JSON quebrado, campo faltando ou chave repetida lançam
@@ -65,10 +67,12 @@ final class CatalogoDeQuestoesJuridicas
             throw new \UnexpectedValueException('Catálogo de questões jurídicas inválido: a raiz precisa ser uma lista.');
         }
 
-        return self::semChaveRepetida(array_map(
+        $todas = self::semChaveRepetida(array_map(
             static fn (mixed $item): QuestaoJuridica => QuestaoJuridica::doCatalogo(is_array($item) ? $item : []),
             $dados,
         ));
+
+        return array_values(array_filter($todas, static fn (QuestaoJuridica $q): bool => !$q->oculta));
     }
 
     /**

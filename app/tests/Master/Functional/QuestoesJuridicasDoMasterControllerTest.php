@@ -58,6 +58,7 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
         static::getContainer()->set(CatalogoDeQuestoesJuridicas::class, CatalogoJuridicoDeTeste::criar([
             ['problema' => "Primeiro parágrafo.\n\n<script>alert(1)</script>"] + CatalogoJuridicoDeTeste::questao('primeira', 'alto', ['politica_privacidade', 'aceite_ia']),
             CatalogoJuridicoDeTeste::questao('segunda', 'baixo', ['termos_uso']),
+            CatalogoJuridicoDeTeste::questao('escondida', 'baixo', ['termos_uso'], oculta: true),
         ]));
     }
 
@@ -314,8 +315,16 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
         $fonte = $primeira->filter('div[data-mp-jur-secao="fontes"] > ul > li > a');
         self::assertSame(['https://exemplo.gov.br/primeira', '_blank', 'noopener noreferrer'], [$fonte->attr('href'), $fonte->attr('target'), $fonte->attr('rel')]);
 
-        $docs = $primeira->filter('div[data-mp-jur-secao="documentos"] > div.mp-jur-doc');
-        self::assertSame(['politica_privacidade', 'aceite_ia'], $docs->each(static fn ($d) => $d->attr('data-mp-jur-doc')));
+        self::assertSame(['Política de Privacidade', 'Texto do aceite da IA'], $primeira->filter('div[data-mp-jur-secao="documentos"] > ul.mp-jur-nomes > li')->each(static fn ($l) => $l->text()), 'só os nomes dos documentos afetados');
+        self::assertCount(0, $questoes->filter('.mp-jur-doc, a.mp-jur-baixar, input[type="file"]'), 'nenhuma questão tem baixar nem enviar');
+
+        $final = $bloco->filter('section > div.mp-jur-corpo > div.mp-jur-docs[data-mp-jur-docs]');
+        self::assertCount(1, $final, 'um bloco único, filho direto do corpo');
+        self::assertCount(1, $crawler->filter('div.mp-jur-corpo > article.mp-jur-questao ~ div.mp-jur-docs'), 'depois de todas as questões');
+        self::assertSame('Cada envio substitui o documento em todas as questões.', $final->filter('div.mp-jur-docs > p.mp-ia-nota')->text());
+        $docs = $final->filter('div.mp-jur-docs > div.mp-jur-doc');
+        self::assertSame(['politica_privacidade', 'termos_uso', 'rascunho_politica_ia', 'aceite_ia'], $docs->each(static fn ($d) => $d->attr('data-mp-jur-doc')));
+        self::assertSame('/master/ia/juridico/documentos/politica_privacidade/versoes', $docs->eq(0)->attr('data-url-enviar'));
         self::assertSame('/master/ia/juridico/documentos/politica_privacidade', $docs->eq(0)->filter('div.mp-jur-doc > div.mp-jur-doc-linha > a.mp-btn-roxo')->attr('href'));
         self::assertCount(1, $docs->eq(0)->filter('div.mp-jur-doc > div.mp-jur-doc-linha > label.mp-jur-enviar > input[type="file"][accept=".docx,.doc,.pdf,.md,.txt,.odt"]'));
         self::assertSame('Nenhuma versão enviada.', $docs->eq(0)->filter('div.mp-jur-doc > ul.mp-jur-versoes > li.mp-jur-vazio')->text());
@@ -335,16 +344,47 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
         $this->enviar('/master/ia/juridico/documentos/termos_uso/versoes', $this->arquivo("Termos ajustados.\n", 'termos-v2.txt'), 'segunda');
         $this->guardarArquivosGravados();
 
-        $segunda = $this->client->request('GET', '/master')->filter(self::BLOCO . ' > div.mp-jur-corpo > article[data-mp-jur-questao="segunda"]');
+        $crawler = $this->client->request('GET', '/master');
+        $segunda = $crawler->filter(self::BLOCO . ' > div.mp-jur-corpo > article[data-mp-jur-questao="segunda"]');
 
         self::assertSame('Em análise', $segunda->filter('article > header > span.mp-jur-selo--em_analise')->text());
         self::assertSame('em_analise', $segunda->filter('select[data-mp-jur-status] > option[selected]')->attr('value'));
         self::assertMatchesRegularExpression('#^Pendente para Em análise, por Dra\. Master em \d{2}/\d{2}/\d{4} \d{2}:\d{2}$#', trim($segunda->filter('div[data-mp-jur-secao="status"] > ul.mp-jur-historico > li')->text()));
-        $versao = $segunda->filter('div.mp-jur-doc[data-mp-jur-doc="termos_uso"] > ul.mp-jur-versoes > li');
+        $versao = $crawler->filter(self::BLOCO . ' > div.mp-jur-corpo > div.mp-jur-docs > div.mp-jur-doc[data-mp-jur-doc="termos_uso"] > ul.mp-jur-versoes > li');
         self::assertCount(1, $versao);
         self::assertStringContainsString('termos-v2.txt, enviado por Dra. Master em', $versao->text());
         self::assertStringContainsString('(questão: Questão segunda)', $versao->text());
         self::assertStringStartsWith('/master/ia/juridico/versoes/', (string) $versao->filter('li > a')->attr('href'));
+    }
+
+    #[TestDox('upload sem questão (bloco único): grava a versão sem questão e o bloco a mostra sem o sufixo de questão')]
+    public function testUploadSemQuestao(): void
+    {
+        $this->entrarComoMaster();
+        $this->enviar('/master/ia/juridico/documentos/politica_privacidade/versoes', $this->arquivo("Política ajustada.\n", 'politica-v2.txt'));
+        $this->guardarArquivosGravados();
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->json()['versoes'][0]['questao']);
+        $li = $this->client->request('GET', '/master')->filter('div.mp-jur-docs > div.mp-jur-doc[data-mp-jur-doc="politica_privacidade"] > ul.mp-jur-versoes > li');
+        self::assertStringNotContainsString('(questão:', $li->text());
+    }
+
+    #[TestDox('questão oculta no catálogo: não aparece na tela, não conta no aviso e o status dela dá 404; os 4 documentos seguem no bloco')]
+    public function testQuestaoOcultaNaTela(): void
+    {
+        $this->entrarComoMaster();
+
+        $crawler = $this->client->request('GET', '/master');
+        $bloco = $crawler->filter(self::BLOCO);
+        self::assertSame('Em aberto: 2', trim($bloco->filter('span[data-mp-jur-contagem]')->text()));
+        self::assertCount(2, $bloco->filter('article.mp-jur-questao'));
+        self::assertCount(0, $bloco->filter('#questao-escondida'));
+        self::assertCount(4, $bloco->filter('div.mp-jur-docs > div.mp-jur-doc'));
+        self::assertSame('2 questões jurídicas da BlueJus IA ainda não foram resolvidas.', $this->client->request('GET', '/novidades')->filter(self::AVISO . ' > div.ae-texto > div')->text());
+
+        $this->postarJson('/master/ia/juridico/questoes/escondida/status', ['status' => 'resolvida']);
+        self::assertResponseStatusCodeSame(404);
     }
 
     #[TestDox('aviso do topo: com questão não resolvida o Master vê "Questões jurídicas a serem verificadas" com o link para o bloco; some quando todas estão resolvidas')]
@@ -359,6 +399,9 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('Questões jurídicas a serem verificadas', $crawler->filter(self::AVISO . ' > div.ae-texto > b')->text());
         self::assertSame('2 questões jurídicas da BlueJus IA ainda não foram resolvidas.', $crawler->filter(self::AVISO . ' > div.ae-texto > div')->text());
         self::assertSame('/master#aba=ia&bloco=questoes-juridicas', $crawler->filter(self::AVISO . ' > a.ae-aumentar')->attr('href'));
+        self::assertSame('primeira,segunda', $aviso->attr('data-chaves'), 'as chaves em aberto vão ao navegador, que guarda as já vistas');
+        self::assertNotSame('', (string) $aviso->attr('data-usuario'), 'a guarda no navegador é por usuário');
+        self::assertCount(1, $crawler->filter('script[src*="js/aviso-questoes-juridicas.js"]'));
 
         $this->postarJson('/master/ia/juridico/questoes/primeira/status', ['status' => 'resolvida']);
         $this->postarJson('/master/ia/juridico/questoes/segunda/status', ['status' => 'em_analise']);

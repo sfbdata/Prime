@@ -23,6 +23,7 @@ final readonly class QuestaoJuridica
      * @param list<string>                              $opcoes
      * @param list<array{rotulo: string, url: string}> $fontes
      * @param list<string>                              $documentos chaves de {@see DocumentoJuridico}
+     * @param bool                                      $oculta     questão retirada da tela de forma reversível (o texto fica no catálogo)
      */
     public function __construct(
         public string $chave,
@@ -34,6 +35,7 @@ final readonly class QuestaoJuridica
         public string $sugestao,
         public array $fontes,
         public array $documentos,
+        public bool $oculta = false,
     ) {
         self::exigir(preg_match('/^[a-z0-9_]{1,80}$/', $chave) === 1, 'chave fora do formato: ' . $chave);
         self::exigir(trim($titulo) !== '', 'título vazio em ' . $chave);
@@ -59,6 +61,7 @@ final readonly class QuestaoJuridica
             self::texto($dados, 'sugestao'),
             self::fontes($dados),
             self::listaDeTextos($dados, 'documentos'),
+            self::oculta($dados),
         );
     }
 
@@ -84,6 +87,14 @@ final readonly class QuestaoJuridica
     public function pedeODocumento(DocumentoJuridico $documento): bool
     {
         return in_array($documento->value, $this->documentos, true);
+    }
+
+    /** Campo opcional `oculta`: ausente = visível; presente precisa ser booleano. */
+    private static function oculta(array $dados): bool
+    {
+        self::exigir(!array_key_exists('oculta', $dados) || is_bool($dados['oculta']), 'campo "oculta" não é booleano');
+
+        return $dados['oculta'] ?? false;
     }
 
     /** @param array<mixed> $dados */

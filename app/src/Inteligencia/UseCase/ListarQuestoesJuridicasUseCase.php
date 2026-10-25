@@ -9,6 +9,7 @@ use App\Inteligencia\DTO\MudancaDeStatusDaQuestaoOutput;
 use App\Inteligencia\DTO\QuestaoJuridicaNoPainelOutput;
 use App\Inteligencia\DTO\VersaoDeDocumentoJuridicoOutput;
 use App\Inteligencia\Entity\VersaoDeDocumentoJuridico;
+use App\Inteligencia\Enum\DocumentoJuridico;
 use App\Inteligencia\Enum\StatusDaQuestaoJuridica;
 use App\Inteligencia\Juridico\CatalogoDeQuestoesJuridicas;
 use App\Inteligencia\Juridico\QuestaoJuridica;
@@ -18,8 +19,8 @@ use App\Inteligencia\Repository\VersaoDeDocumentoJuridicoRepository;
 
 /**
  * O bloco "Questões jurídicas" da aba "Configurações da I.A." do Master: cada questão do catálogo, na ordem dele, com o
- * status (sem linha no banco = pendente), o histórico de status e, por documento a atualizar, as versões ajustadas já
- * enviadas. Só leitura; quem chama já exigiu o Master. Três consultas, sem N+1.
+ * status (sem linha no banco = pendente), o histórico de status. Os documentos (com as versões ajustadas já enviadas) vêm à parte, em
+ * {@see documentos()}. Só leitura; quem chama já exigiu o Master. Poucas consultas, sem N+1.
  */
 final class ListarQuestoesJuridicasUseCase
 {
@@ -43,8 +44,23 @@ final class ListarQuestoesJuridicasUseCase
             $q,
             ($estados[$q->chave] ?? null)?->getStatus() ?? StatusDaQuestaoJuridica::Pendente,
             array_map(MudancaDeStatusDaQuestaoOutput::daLinha(...), $historico[$q->chave] ?? []),
-            array_map(static fn ($d): DocumentoDaQuestaoOutput => new DocumentoDaQuestaoOutput($d, $versoes[$d->value] ?? []), $q->documentosJuridicos()),
         ), $questoes);
+    }
+
+    /**
+     * Os documentos jurídicos (todos os do enum, uma vez cada), cada um com as versões ajustadas já enviadas: o bloco
+     * único no fim da página. Independe das questões, então ocultar uma questão não tira documento daqui.
+     *
+     * @return list<DocumentoDaQuestaoOutput>
+     */
+    public function documentos(): array
+    {
+        $versoes = $this->versoesPorDocumento($this->catalogo->todas());
+
+        return array_map(
+            static fn (DocumentoJuridico $d): DocumentoDaQuestaoOutput => new DocumentoDaQuestaoOutput($d, $versoes[$d->value] ?? []),
+            DocumentoJuridico::cases(),
+        );
     }
 
     /**
