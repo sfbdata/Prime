@@ -9,8 +9,8 @@ Risco: BAIXO (domínio TrabalhoExterno). Linhas "l." são do desenho novo.
 Três PRs, nesta ordem (decisão do coordenador, 24/10):
 
 1. **Tela sem banco** (`trabalho-externo-24-10-26`): D2, D5, D6 (parte), D7, D9, D10, D11a, D12, L1.
-2. **Despacho** (D8), migration `Version20261024150100`.
-3. **Recusa de oferta e expiradas** (D4, D11b), migration `Version20261024150200`.
+2. **Despacho** (D8), migration `Version20261024150500`.
+3. **Recusa de oferta e expiradas** (D4, D11b), migration `Version20261024150600`.
 
 **Decisões** (coordenador, 24/10): prazo do despacho pula também os feriados do sistema (P5);
 vaga expirada esconde os selos AO VIVO e NOVA (P6); a recusa não zera em "Ofertar novamente" e o
