@@ -11,7 +11,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Documento anexado à demanda. `nomeArmazenado` é só o NOME cunhado pelo storage (D8); o escopo
- * do arquivo é o escritório solicitante, dono da demanda (ver `ChavesDeTrabalhoExterno`).
+ * do arquivo é o escritório solicitante, dono da demanda (ver `ChavesDeTrabalhoExterno`). Com `despacho`,
+ * é anexo de um despacho da Central: a mesma guarda de download e a mesma purga, fora da lista DOCUMENTOS.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'trabalho_externo_documento')]
@@ -48,6 +49,10 @@ class DocumentoDemanda
         #[ORM\Column(length: 120)]
         private string $mimeType,
         Autor $autor,
+        /** Anexo de um despacho da Central (desenho 06 de 24/10, l.516): aparece no despacho, não em DOCUMENTOS. */
+        #[ORM\ManyToOne(targetEntity: DespachoDemanda::class, inversedBy: 'documentos')]
+        #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+        private ?DespachoDemanda $despacho = null,
     ) {
         $this->enviadoPor = $autor->usuario;
         $this->nomeAutor = $autor->nome;
@@ -98,5 +103,10 @@ class DocumentoDemanda
     public function getEm(): \DateTimeImmutable
     {
         return $this->em;
+    }
+
+    public function getDespacho(): ?DespachoDemanda
+    {
+        return $this->despacho;
     }
 }

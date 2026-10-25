@@ -303,6 +303,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\TrabalhoExterno\Entity\LeituraDemanda::class,
         \App\TrabalhoExterno\Entity\PropostaDemanda::class,
         \App\TrabalhoExterno\Entity\DocumentoDemanda::class,
+        // Despachos e respostas da Central: já ficam registrados no chat da demanda (mensagem de sistema) e
+        // têm assinatura eletrônica com código; auditar seria log de log.
+        \App\TrabalhoExterno\Entity\DespachoDemanda::class,
         \App\TrabalhoExterno\Entity\ConviteDemanda::class,
         \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
         \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,

@@ -49,6 +49,7 @@ final class ApresentadorDeDemanda
         private readonly UrlGeneratorInterface $urls,
         private readonly CalculadoraDeImportancia $importancia,
         private readonly TranslatorInterface $tradutor,
+        private readonly ApresentadorDeDespachos $despachos,
     ) {
     }
 
@@ -137,10 +138,11 @@ final class ApresentadorDeDemanda
                 ['INSTRUÇÕES ESPECÍFICAS', (string) $d->getInstrucoes()],
             ]),
             'documentos' => $this->politica->podeVerDocumentos($ctx, $d)
-                ? array_map(fn (DocumentoDemanda $doc): array => $this->documento($ctx, $doc), $d->getDocumentos())
+                ? array_map(fn (DocumentoDemanda $doc): array => $this->documento($ctx, $doc), $this->documentosDaDemanda($d))
                 : [],
             // Sem "ver": nem lista nem "Nenhum documento anexado." (seria falso e diria se há algum).
-            'semDocumentos' => $this->politica->podeVerDocumentos($ctx, $d) && $d->getDocumentos() === [],
+            'semDocumentos' => $this->politica->podeVerDocumentos($ctx, $d) && $this->documentosDaDemanda($d) === [],
+            'despacho' => $this->despachos->bloco($ctx, $d),
             'podeAnexar' => $this->politica->podeAnexar($ctx, $d),
             // O Convidado não tem a aba Proposta: valores e condições NÃO saem para ele, nem no JSON.
             'propostas' => $ctx->perfil === Perfil::Convidado ? [] : $this->propostas($ctx, $d),
@@ -197,6 +199,12 @@ final class ApresentadorDeDemanda
             ['PRIORIDADE', $prioridade],
             ['RESPONSÁVEL PELA EXECUÇÃO', $this->responsavelNoResumo($ctx, $d)],
         ]);
+    }
+
+    /** DOCUMENTOS sem os anexos dos despachos (eles aparecem no próprio despacho). @return list<DocumentoDemanda> */
+    private function documentosDaDemanda(DemandaExterna $d): array
+    {
+        return array_values(array_filter($d->getDocumentos(), static fn (DocumentoDemanda $doc): bool => $doc->getDespacho() === null));
     }
 
     /** @return array<string, mixed> */
@@ -513,7 +521,7 @@ final class ApresentadorDeDemanda
             'prioridade' => $d->getPrioridade(), 'prazoFinal' => $d->getPrazoFinal()?->format('Y-m-d') ?? '',
             'dataPretendida' => $d->getDataPretendida()?->format('Y-m-d\TH:i') ?? '', 'descricao' => $d->getDescricao(),
             'objetivo' => (string) $d->getObjetivo(), 'instrucoes' => (string) $d->getInstrucoes(), 'urgente' => $d->isUrgente(),
-            'documentos' => array_map(static fn (DocumentoDemanda $doc): string => $doc->getNomeOriginal(), $d->getDocumentos()),
+            'documentos' => array_map(static fn (DocumentoDemanda $doc): string => $doc->getNomeOriginal(), $this->documentosDaDemanda($d)),
         ];
     }
 

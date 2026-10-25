@@ -10,8 +10,10 @@ use App\TrabalhoExterno\DTO\Autor;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Enum\FaseWhatsapp;
+use App\TrabalhoExterno\Enum\NaturezaDoDespacho;
 use App\TrabalhoExterno\Enum\Situacao;
 use App\TrabalhoExterno\Enum\SituacaoConvite;
+use App\TrabalhoExterno\Enum\TipoDeDespacho;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
@@ -129,6 +131,10 @@ class DemandaExterna
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $pagoEm = null;
 
+    /** "Aceitar resposta" do DESPACHO (desenho 06 de 24/10, `dpResp`, l.1392): só o Master liga e desliga. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $respostasAoDespachoLiberadas = false;
+
     /** Momento do ENVIO (o rascunho ainda não foi enviado). É o que o filtro de período usa. */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $enviadaEm = null;
@@ -163,6 +169,11 @@ class DemandaExterna
     #[ORM\OneToMany(targetEntity: ConviteDemanda::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $convites;
+
+    /** @var Collection<int, DespachoDemanda> */
+    #[ORM\OneToMany(targetEntity: DespachoDemanda::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $despachos;
 
     /** @var Collection<int, ContatoWhatsapp> */
     #[ORM\OneToMany(targetEntity: ContatoWhatsapp::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
@@ -200,6 +211,7 @@ class DemandaExterna
         $this->propostas = new ArrayCollection();
         $this->documentos = new ArrayCollection();
         $this->convites = new ArrayCollection();
+        $this->despachos = new ArrayCollection();
         $this->contatosWhatsapp = new ArrayCollection();
         $this->avisosWhatsapp = new ArrayCollection();
     }
@@ -389,6 +401,75 @@ class DemandaExterna
     public function anexar(DocumentoDemanda $documento): void
     {
         $this->documentos->add($documento);
+    }
+
+    /**
+     * Publica um despacho da Central (`dpEnviar`, l.1394): o texto até 5.000, a natureza opcional, o prazo e o
+     * lugar da assinatura (a cidade de execução, ou Brasília). O chat recebe "Novo despacho da Central
+     * BlueJus{ · natureza}." como registro, que avisa as partes. Quem pode é decidido antes, na política.
+     */
+    public function despachar(Autor $autor, string $texto, ?NaturezaDoDespacho $natureza, \DateTimeImmutable $prazo): DespachoDemanda
+    {
+        $despacho = new DespachoDemanda($this, TipoDeDespacho::Despacho, $natureza, mb_substr(trim($texto), 0, DespachoDemanda::MAX_TEXTO), $prazo, $this->cidadeDaAssinatura(), $autor);
+        $this->despachos->add($despacho);
+        $this->registrar($autor, 'Novo despacho da Central BlueJus' . ($natureza !== null ? ' · ' . $natureza->rotulo() : '') . '.', TipoMensagem::Sistema);
+
+        return $despacho;
+    }
+
+    /**
+     * Resposta de uma parte (`dpResponder`, l.1392): só com "Aceitar resposta" ligado e pelo menos um despacho
+     * publicado; o texto até 3.000. O chat recebe "Resposta ao despacho de {quem}.".
+     */
+    public function responderAoDespacho(Autor $autor, string $texto): DespachoDemanda
+    {
+        if (!$this->aceitaRespostaAoDespacho()) {
+            throw new TransicaoInvalida('As respostas ao despacho não estão liberadas nesta demanda.');
+        }
+        $resposta = new DespachoDemanda($this, TipoDeDespacho::Resposta, null, mb_substr(trim($texto), 0, DespachoDemanda::MAX_RESPOSTA), null, $this->cidadeDaAssinatura(), $autor);
+        $this->despachos->add($resposta);
+        $this->registrar($autor, 'Resposta ao despacho de ' . $autor->nome . '.', TipoMensagem::Sistema);
+
+        return $resposta;
+    }
+
+    public function liberarRespostasAoDespacho(bool $liberar): void
+    {
+        $this->respostasAoDespachoLiberadas = $liberar;
+    }
+
+    public function respostasAoDespachoLiberadas(): bool
+    {
+        return $this->respostasAoDespachoLiberadas;
+    }
+
+    /** `rOn && nD > 0` do desenho: a chave ligada e ao menos um despacho (resposta não conta). */
+    public function aceitaRespostaAoDespacho(): bool
+    {
+        if (!$this->respostasAoDespachoLiberadas) {
+            return false;
+        }
+        foreach ($this->despachos as $d) {
+            if (!$d->ehResposta()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return list<DespachoDemanda> na ordem de publicação */
+    public function getDespachos(): array
+    {
+        return array_values($this->despachos->toArray());
+    }
+
+    /** `((cur.form || {}).cidD) || 'Brasília'`: o lugar que assina o despacho. */
+    private function cidadeDaAssinatura(): string
+    {
+        $cidade = trim($this->cidadeExecucao);
+
+        return $cidade !== '' ? $cidade : 'Brasília';
     }
 
     private function mudarPara(Situacao $para, Autor $autor, ?string $motivo): void

@@ -312,7 +312,7 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
     public function testTiposNovos(): void
     {
         $tipos = array_filter((new \ReflectionClass(Notificacao::class))->getConstants(), static fn (mixed $v, string $k): bool => str_starts_with($k, 'TIPO_TRABALHO_EXTERNO_'), ARRAY_FILTER_USE_BOTH);
-        self::assertCount(10, $tipos);
+        self::assertCount(11, $tipos, 'o 11º é a resposta ao despacho (D8)');
         foreach ($tipos as $tipo) {
             self::assertLessThanOrEqual(50, strlen($tipo), 'a coluna tipo tem 50 caracteres');
             self::assertNotSame('bi-bell text-secondary', (new Notificacao())->setTipo($tipo)->getIcone(), $tipo);
@@ -321,6 +321,7 @@ final class AvisosDoTrabalhoExternoTest extends TestCase
             self::assertNotSame('Aviso', $mapa['rotulo'], $tipo);
         }
         self::assertSame('Abrir a demanda', (new TiposDeAvisoDaCentral())->acao(Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO), 'a ação do desenho (`avisarPartes`)');
+        self::assertSame('Abrir a demanda', (new TiposDeAvisoDaCentral())->acao(Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA), 'a resposta ao despacho abre a demanda');
     }
 
     /** @param array<string, bool> $permissoes */

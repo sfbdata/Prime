@@ -11,6 +11,7 @@ use App\Service\NotificacaoService;
 use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\ConfiguracaoCentral;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\Vaga;
@@ -171,6 +172,31 @@ final class AvisosDoTrabalhoExterno
                 }
                 $this->notificacoes->criar($pessoa, $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO, $titulo, $andamento['texto'])->setUrl($url);
             }
+        }
+    }
+
+    /**
+     * Resposta ao despacho (D8, decisão do dono de 24/10): cada Master da Central recebe um aviso no sino, menos
+     * quem respondeu (o Master que age também como solicitante do próprio escritório), no escritório da Central.
+     * Sem sede definida não há onde avisar. Cada resposta é um aviso (não segura no pendente igual).
+     */
+    public function respostaAoDespacho(Contexto $ctx, DemandaExterna $demanda, DespachoDemanda $resposta): void
+    {
+        $sede = $ctx->configuracao->getSede();
+        if ($sede === null) {
+            return;
+        }
+        $servico = trim($demanda->getTipoServico());
+        $titulo = mb_substr($demanda->getCodigo() . ' · ' . ($servico !== '' ? $servico : 'Trabalho externo'), 0, 255);
+        $mensagem = 'Resposta ao despacho de ' . $resposta->getNomeAutor() . '.';
+        $url = self::TELA . '?te=' . $demanda->getCodigo();
+        $vistos = [(int) $ctx->usuario->getId() => true];
+        foreach ($this->destinatarios->masters() as $master) {
+            if (isset($vistos[(int) $master->getId()])) {
+                continue;
+            }
+            $vistos[(int) $master->getId()] = true;
+            $this->notificacoes->criar($master, $sede, Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA, $titulo, $mensagem)->setUrl($url);
         }
     }
 

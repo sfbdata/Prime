@@ -1436,3 +1436,52 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-env-final-botoes { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
 .te-env-btn { height: 38px; padding: 0 16px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 14px; cursor: pointer; }
 .te-env-btn.is-pri { padding: 0 18px; border: none; background: #0a6fa0; color: #fff; font-weight: bold; }
+
+/* ---------------------------------------------------------------- DESPACHO no Resumo (desenho 06 de 24/10, l.512 a 529) */
+.te-dp-cab { margin: 18px -2px 0; border-top: 1px solid #e6edf2; background: #f5f8fa; padding: 12px 12px 2px; }
+.te-dp-cab-linha { display: flex; align-items: center; gap: 8px; }
+.te-dp-tit { flex: 1; font-size: 15px; letter-spacing: .3px; color: #12242f; }
+.te-dp-resp-info { font-size: 12px; color: #1e7b45; }
+.te-dp-corpo { padding: 12px 0 4px; }
+.te-dp-corpo .te-espaco { flex: 1; }
+.te-dp-linha { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.te-dp-nat-rot { font-size: 12px; color: #5b7383; margin-right: 2px; }
+.te-dp-nat { height: 26px; padding: 0 9px; border: 1px solid #d3dde4; border-radius: 2px; background: #fff; color: #34505f; font: inherit; font-size: 12px; cursor: pointer; }
+.te-dp-nat.is-on { border-color: #0a6fa0; background: #0a6fa0; color: #fff; }
+.te-dp-prazo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #5b7383; margin: 0; font-weight: normal; }
+.te-dp-prazo > input { height: 28px; border: 1px solid #d3dde4; border-radius: 2px; padding: 0 6px; font: inherit; font-size: 12.5px; }
+.te-dp-uteis { font-size: 12px; color: #5b7383; }
+.te-dp-txt { display: block; width: 100%; box-sizing: border-box; border: 1px solid #d3dde4; border-radius: 2px; padding: 10px 12px; font: inherit; font-size: 14px; line-height: 1.5; resize: vertical; }
+.te-dp-arqs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.te-dp-arq { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 1px solid #d3dde4; border-radius: 2px; font-size: 12px; color: #34505f; }
+.te-dp-arq-rm { border: none; background: none; color: #a3232b; cursor: pointer; padding: 0; }
+.te-dp-acoes { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.te-dp-anexar { height: 34px; padding: 0 12px; border: 1px solid #d3dde4; border-radius: 2px; background: #fff; color: #34505f; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: 0; font-weight: normal; }
+.te-dp-anexar > input { display: none; }
+.te-dp-n { font-size: 11.5px; color: #9aabb7; }
+.te-dp-btn { height: 34px; padding: 0 16px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+.te-dp-btn:hover { background: #0b5f86; }
+.te-dp-lesem { font-size: 12.5px; color: #5b7383; margin-bottom: 8px; }
+.te-dp-resp { margin-bottom: 8px; }
+.te-dp-resp-acoes { display: flex; justify-content: flex-end; margin-top: 8px; }
+.te-dp-vazio { padding: 16px 0; text-align: center; color: #9aabb7; font-size: 13px; }
+.te-dp-vazio > .bi { display: block; font-size: 22px; margin-bottom: 4px; }
+.te-dp-item { border: 1px solid #dde5eb; border-left: 3px solid #0a6fa0; border-radius: 2px; background: #fff; padding: 12px 14px; margin-top: 10px; margin-left: 0; }
+.te-dp-item.is-resposta { border-left-color: #1e7b45; background: #f6fbf8; margin-left: 24px; }
+.te-dp-item-cab { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.te-dp-item-n { font-size: 12px; letter-spacing: 1px; color: #0b3550; }
+.te-dp-item-nat { height: 20px; padding: 0 7px; border: 1px solid #cfe3f0; border-radius: 2px; background: #f2f8fc; color: #0a6fa0; font-size: 11px; display: inline-flex; align-items: center; }
+.te-dp-item-prazo { font-size: 12px; font-weight: bold; color: #9a5b00; }
+.te-dp-item-txt { font-size: 14px; color: #243845; line-height: 1.55; white-space: pre-line; }
+.te-dp-item-arqs { font-size: 12px; color: #5b7383; margin-top: 6px; }
+.te-dp-item-local { text-align: right; font-size: 13px; color: #34505f; margin-top: 8px; }
+.te-dp-item-ass { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eef2f5; font-size: 11.5px; color: #5b7383; }
+.te-dp-item-ass > .bi { color: #1e7b45; }
+.te-dp-rodape { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #eef2f5; }
+.te-dp-chave { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 6px; border: none; background: transparent; font: inherit; font-size: 12.5px; color: #5b7383; cursor: pointer; }
+.te-dp-chave-trilho { width: 36px; height: 20px; border-radius: 10px; background: #c9d3da; position: relative; transition: background .2s; }
+.te-dp-chave-trilho.is-on { background: #e8703a; }
+.te-dp-chave-bola { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.te-dp-chave-trilho.is-on > .te-dp-chave-bola { left: 19px; }
+.te-dp-extrato { height: 28px; padding: 0 8px; border: none; background: transparent; color: #5b7383; font: inherit; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.te-dp-extrato:hover { color: #0a6fa0; }

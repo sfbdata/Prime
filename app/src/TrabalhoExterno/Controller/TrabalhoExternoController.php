@@ -15,6 +15,7 @@ use App\TrabalhoExterno\Service\PoliticaDaDemanda;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
 use App\TrabalhoExterno\UseCase\ListarAndamentosRecebidosUseCase;
+use App\TrabalhoExterno\UseCase\MontarExtratoDeDespachosUseCase;
 use App\TrabalhoExterno\UseCase\MontarPainelUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -134,6 +135,28 @@ final class TrabalhoExternoController extends AbstractController
         }
 
         throw $this->createNotFoundException();
+    }
+
+    /**
+     * "Extrato" do DESPACHO (desenho 06 de 24/10, `dpExtrato`): a página que abre numa aba e chama a impressão.
+     * Aceita o `?como=` da prévia do Master, como as outras leituras.
+     */
+    #[Route('/demandas/{codigo}/despachos/extrato', name: 'trabalho_externo_despacho_extrato', methods: ['GET'], requirements: ['codigo' => 'TE-\d{1,9}'])]
+    public function extratoDeDespachos(Request $request, string $codigo, MontarExtratoDeDespachosUseCase $montar): Response
+    {
+        $ctx = $this->contextoOuNulo();
+        if ($ctx === null) {
+            return $this->paginaSemAcesso();
+        }
+        $como = $this->previa->perfilPedido($ctx, $request->query->get('como'));
+
+        try {
+            $extrato = $como !== null ? $montar->executarPrevia($ctx, $codigo, $como) : $montar->executar($ctx, $codigo);
+        } catch (DemandaNaoEncontrada) {
+            throw $this->createNotFoundException();
+        }
+
+        return $this->render('trabalho_externo/extrato_despachos.html.twig', $extrato);
     }
 
     /**
