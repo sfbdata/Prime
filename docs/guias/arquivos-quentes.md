@@ -40,7 +40,7 @@ coordenação continua necessário, mesmo com a saída vazia.
 
 | Arquivo | Resoluções manuais | Cuidado |
 |---|--:|---|
-| app/translations/messages+intl-icu.pt_BR.yaml | 32 | acrescentar chaves no fim do bloco do próprio domínio; nunca reordenar |
+| app/translations/messages+intl-icu.pt_BR.yaml | 32 | **deixou de ser quente em 26/10/2026**: virou um arquivo por bloco em `app/translations/<bloco>/` (ver `app/translations/LEIA-ME.md`). Área nova = pasta nova. Chaves antigas na sua branch: `scripts/traducao-rebaixar.py` |
 | app/templates/pasta/_cabecalho.html.twig, show.html.twig, app/public/css/pasta-show.css | 5, 4, 5 | só uma sessão por vez na tela da pasta |
 | app/config/services.yaml | 5 | |
 | app/tests/Shared/Functional/TenantAwareCoberturaTest.php (teto) | 4 | o teto sobe a cada entidade nova; trazer o master antes de subir |

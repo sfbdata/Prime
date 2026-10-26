@@ -1,0 +1,11 @@
+# ---- Política de Privacidade (a7, spec idioma-do-sistema §26b): só a moldura da página e do PDF. O corpo da Política
+# (legal/_politica_privacidade_texto) fica fixo no template, de propósito: é o texto jurídico versionado (§26b).
+legal:
+    politica:
+        titulo_pagina: Política de Privacidade | BlueJus
+        abrir_pdf: Abrir em PDF
+        termos: Termos e Condições de Uso
+        voltar_topo: Voltar ao topo
+    pdf:
+        titulo_pagina: 'Política de Privacidade | BlueJus (versão {versao})'
+        rodape: 'BlueJus · Política de Privacidade · versão {versao} · publicada em {data}'

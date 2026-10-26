@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Número da conta no Painel do Master (spec perfis-1.2-permissoes-e-hierarquia A3; desenho 05 - Perfis 1.2 - VS
@@ -28,7 +28,7 @@ final class PainelNumeroDaContaJsTest extends TestCase
     /** Texto em português de uma chave do catálogo. */
     private static function catalogo(string $chave): string
     {
-        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             self::assertIsArray($no, $chave);
             self::assertArrayHasKey($parte, $no, $chave);

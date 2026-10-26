@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * `public/js/pasta-push-link.js` lido como folha (o container de teste não tem motor de JS). Para
@@ -28,7 +28,7 @@ final class PastaPushLinkJsTest extends TestCase
     /** Os textos do JS no catálogo (`pasta_push.js.link`, spec idioma-do-sistema, "A Pasta, aba Push"). */
     private static function texto(string $chave): string
     {
-        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = CatalogoPtBr::carregar();
 
         return $catalogo['pasta_push']['js']['link'][$chave];
     }
@@ -304,7 +304,7 @@ final class PastaPushLinkJsTest extends TestCase
         self::assertSame('Link copiado · válido até {data} · com código de acesso. Análises com cadeado fechado não aparecem.', self::texto('copiado_menu_com_codigo'));
         self::assertSame('Link copiado · válido até {data}. Análises com cadeado fechado não aparecem.', self::texto('copiado_menu'));
         self::assertStringNotContainsString('sem código de acesso', $codigo);
-        self::assertStringNotContainsString('sem código de acesso', (string) json_encode(Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_push'], JSON_UNESCAPED_UNICODE));
+        self::assertStringNotContainsString('sem código de acesso', (string) json_encode(CatalogoPtBr::carregar()['pasta_push'], JSON_UNESCAPED_UNICODE));
 
         $sub = $this->funcao('subDaLinha');
         self::assertStringContainsString("BJ_T.t('pasta_push.js.link.ate', { data: link.expiraEm })", $sub);

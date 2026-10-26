@@ -1,0 +1,131 @@
+# ---- Auth: convites, link de confirmação, senha e mensagens de suporte (auth/*, auth/criar-senha.js)
+auth:
+    comum:
+        nao_foi_possivel_confirmar: Não foi possível confirmar
+        ir_para_login: Ir para o login
+        entrar: Entrar
+        li_e_aceito_os: Li e aceito os
+        expira_em: Expira em
+        email: E-mail
+        nome: Nome
+    meus_convites:
+        titulo: Meus Convites
+        cabecalho: Meus Convites Pendentes
+        vazio: Nenhum convite pendente.
+        escritorio: Escritório
+        convidado_por: Convidado por
+        nao_informado: Não informado
+        ver_convite: Ver convite
+    cadastro:
+        titulo: Cadastro
+        refazer: Refazer cadastro
+    link:
+        titulo_criar: Crie sua senha
+        titulo_confirmacao: Confirmação de e-mail
+        nova_senha: Nova senha
+        minimo_caracteres: Mínimo de 8 caracteres
+        confirmacao_da_nova: Confirmar nova senha
+        termos_de_uso: Termos de uso
+        e_a: e a
+        politica: Política de privacidade
+        criar_e_confirmar: Criar senha e confirmar
+        confirmado: E-mail confirmado.
+        senha_criada: Sua senha foi criada.
+    reenviar_confirmacao: Reenviar o link de confirmação
+    convite:
+        erro:
+            titulo: Convite inválido
+            expirado_titulo: Convite expirado
+            expirado_texto: 'Este convite não é mais válido: o prazo encerrou. Solicite um novo convite ao administrador do escritório.'
+            usado_titulo: Convite já utilizado
+            usado_texto: Este convite já foi aceito, recusado ou revogado e não pode ser usado novamente.
+            nao_encontrado_titulo: Convite não encontrado
+            nao_encontrado_texto: O link que você usou é inválido ou não existe. Verifique se copiou o link completo do e-mail.
+        nao_pertence:
+            titulo: Convite de outra conta
+            enviado_para: Este convite foi enviado para
+            outra_conta: Você está logado com uma conta diferente. Para aceitar este convite, saia e entre com o e-mail correto.
+            sair: Sair desta conta
+        ver:
+            titulo: Aceitar Convite
+            para_escritorio: 'Convite para {escritorio}'
+            para_bluejus: Convite para o BlueJus
+            te_convidou: '{nome} te convidou para colaborar'
+            em: em
+            expira: 'Convite expira em {data} às {hora}'
+            nome_completo: Nome completo
+            senha: Senha
+            oab_numero: Número da OAB
+            oab_numero_exemplo: 'Ex: 123456'
+            oab_uf: UF da OAB
+            oab_uf_exemplo: 'Ex: SP'
+            genero: Gênero
+            genero_escolha: Selecione
+            genero_feminino: Feminino
+            genero_masculino: Masculino
+            termos: Termos e Condições Gerais de Uso
+            ciencia: Ao criar a conta você declara ciência da
+            politica: Política de Privacidade
+            criar_e_aceitar: Criar conta e aceitar
+        ver_logado:
+            titulo: Convite de Escritório
+            cabecalho: Convite de escritório
+            colaborar_em: Você foi convidado para colaborar em
+            convidado_por: 'Convidado por: {nome}'
+            expira: 'Expira em {data}'
+            aceitar: Aceitar convite
+            recusar: Recusar
+    gerenciar:
+        titulo: Gerenciar Convites
+        novo: Novo convite
+        nome_opcional: Nome (opcional)
+        perfil: Perfil
+        selecione: Selecione...
+        convidar: Convidar
+        enviados: Convites enviados
+        status: Status
+        enviado_em: Enviado em
+        reenvios: Reenvios
+        sem_informacao: sem informação
+        situacao:
+            pendente: Pendente
+            aceito: Aceito
+            recusado: Recusado
+            revogado: Revogado
+            expirado: Expirado
+        reenviar: Reenviar
+        confirmar_reenviar: Reenviar convite para
+        revogar: Revogar
+        confirmar_revogar: Revogar convite de
+        vazio: Nenhum convite enviado ainda.
+    senha:
+        erro:
+            titulo: Link inválido
+            cabecalho: Não foi possível usar este link
+            recuperar: Recuperar a senha por código
+            voltar: Voltar ao login
+        redefinir:
+            titulo: Criar nova senha
+            subtitulo: Use no mínimo 8 caracteres. Ao salvar, você sairá das outras sessões.
+            salvar: Salvar nova senha
+    suporte:
+        titulo: Mensagens de suporte
+        subtitulo_antes: Enviadas pelo
+        falar_com_suporte: Falar com suporte
+        subtitulo_depois: da tela de entrada. Responda pelo e-mail informado.
+        vazio: Nenhuma mensagem de suporte por enquanto.
+        data: Data
+        assunto: Assunto
+        mensagem: Mensagem
+        origem: Origem
+        sem_nome: (sem nome)
+        sem_assunto: Mensagem
+        responder: Responder por e-mail
+        assunto_do_email: Suporte BlueJus
+        origem_login: Tela de entrada
+    js:
+        forca:
+            fraca: Fraca
+            media: Média
+            boa: Boa
+            forte: Forte

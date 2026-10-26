@@ -8,11 +8,11 @@ use App\Cobranca\Controller\ObjetoController;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Enum\StatusCaso;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Menu da LINHA da obrigação (desenho "Objeto 1A" de 19/10, L165/181/214-224 e `omVals` L578-592).
@@ -232,7 +232,7 @@ final class ObjetoMenuLinhaObrigacaoTest extends CobrancaWebTestCase
         self::assertStringContainsString('[data-obr-menu-abrir]', $js);
         self::assertStringContainsString('navigator.clipboard', $js);
         self::assertStringContainsString("aviso(BJ_T.t('cobranca_objeto.js.copiado'))", $js);
-        self::assertSame('Copiado', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['cobranca_objeto']['js']['copiado']);
+        self::assertSame('Copiado', CatalogoPtBr::carregar()['cobranca_objeto']['js']['copiado']);
         // Receber e Marcar reusam o botão e a checkbox da linha, não reimplementam.
         self::assertStringContainsString('[data-acao="receber"]', $js);
         self::assertStringContainsString('.jp-check', $js);

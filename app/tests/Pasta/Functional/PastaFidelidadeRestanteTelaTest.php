@@ -14,12 +14,12 @@ use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote P13 — resto da fidelidade da Pasta (3ª passada, `pendencias-pos-documentos.md` §3.1)
@@ -269,7 +269,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         foreach (['data-autor="${esc(', 'data-quando="${esc(', 'data-tipo="${esc(BJ_T.t(\'pasta_detalhes.js.tag\'))}"'] as $atributo) {
             self::assertStringContainsString($atributo, $montador);
         }
-        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
         self::assertSame('Citar no novo registro', $catalogo['citar']);
         self::assertSame('Imprimir', $catalogo['imprimir']);
         self::assertSame('Observação', $catalogo['tag']);

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L10 da aba Documentos: o visor em tela cheia (DOC-47..50; dc L299-329 e `visorVals`
@@ -24,12 +24,11 @@ final class PastaExploradorVisorTest extends TestCase
     private const EXPLORADOR = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS        = __DIR__ . '/../../../public/css/pasta-explorador.css';
     private const TWIG       = __DIR__ . '/../../../templates/pasta/_documentos_explorador.html.twig';
-    private const CATALOGO   = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     /** @return array<string, string> o bloco `pasta_documentos.js` do catálogo */
     private function catalogoJs(): array
     {
-        return Yaml::parseFile(self::CATALOGO)['pasta_documentos']['js'];
+        return CatalogoPtBr::carregar()['pasta_documentos']['js'];
     }
 
     private function ler(string $arquivo): string

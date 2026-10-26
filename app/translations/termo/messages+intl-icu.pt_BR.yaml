@@ -1,0 +1,16 @@
+# ---- Aceite dos Termos de Uso (a7, spec idioma-do-sistema §26b): só a moldura da tela de aceite. O corpo dos Termos
+# (termo/_texto) fica fixo no template, de propósito: é o texto jurídico versionado (§26b).
+termo:
+    aceite:
+        titulo_pagina: Termos e Condições de Uso | BlueJus
+        titulo: Termos e Condições Gerais de Uso
+        instrucao: Para continuar, leia e aceite os termos abaixo.
+        versao: 'Versão {versao}'
+        declaracao: Li e aceito os Termos e Condições Gerais de Uso do BlueJus.
+        # Frase partida em volta do link da Política: "<antes> <link>." (pontuação e link no template).
+        declaracao_com_politica_antes: Li e aceito os Termos e Condições Gerais de Uso do BlueJus e a
+        declaracao_com_politica_link: Política de privacidade
+        baixar_pdf: Baixar em PDF
+        politica: Política de Privacidade
+        sair: Sair
+        aceitar: Aceitar e continuar

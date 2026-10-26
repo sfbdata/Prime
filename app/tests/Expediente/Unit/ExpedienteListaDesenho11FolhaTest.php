@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Expediente\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * E8d da frente de fidelidade: as 30 divergências da auditoria da Lista do Expediente contra o desenho 1.1
@@ -21,7 +21,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     /** O texto da chave no catálogo do português (desde a extração do idioma, o template e o JS só têm a chave). */
     private static function texto(string $chave): string
     {
-        $no = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             $no = $no[$parte];
         }
