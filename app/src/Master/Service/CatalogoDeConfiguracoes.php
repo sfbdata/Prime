@@ -122,44 +122,67 @@ final class CatalogoDeConfiguracoes
      */
     private static function normalizarCampo(string $chave, array $campo, string $valor): string
     {
-        switch ($campo['tipo']) {
-            case self::NUMERO:
-                if (!preg_match('/^\d{1,9}$/', $valor) || (int) $valor < $campo['min'] || (int) $valor > $campo['max']) {
-                    throw new ConfiguracaoRecusada(sprintf('Informe um número de %d a %d em "%s".', $campo['min'], $campo['max'], $chave));
-                }
+        return match ($campo['tipo']) {
+            self::NUMERO => self::numero($chave, $campo['min'] ?? 0, $campo['max'] ?? 0, $valor),
+            self::OPCOES => self::opcao($chave, $campo['opcoes'] ?? [], $valor),
+            self::EMAIL => self::email($campo['max'] ?? 0, $valor),
+            self::DATA_HORA => self::dataHora($valor),
+            default => self::texto($chave, $campo['padrao'], $campo['max'] ?? 0, $valor),
+        };
+    }
 
-                return (string) (int) $valor;
-            case self::OPCOES:
-                if (!in_array($valor, $campo['opcoes'], true)) {
-                    throw new ConfiguracaoRecusada(sprintf('Opção inválida em "%s".', $chave));
-                }
-
-                return $valor;
-            case self::EMAIL:
-                if ($valor === '' || mb_strlen($valor) > $campo['max'] || filter_var($valor, \FILTER_VALIDATE_EMAIL) === false) {
-                    throw new ConfiguracaoRecusada('Informe um e-mail válido.');
-                }
-
-                return $valor;
-            case self::DATA_HORA:
-                if ($valor === '') {
-                    return '';
-                }
-                $data = \DateTimeImmutable::createFromFormat('!' . self::FORMATO_DATA_HORA, $valor);
-                if ($data === false || $data->format(self::FORMATO_DATA_HORA) !== $valor) {
-                    throw new ConfiguracaoRecusada('Informe uma data e hora válidas.');
-                }
-
-                return $valor;
-            default:
-                if ($valor === '' && $campo['padrao'] !== '') {
-                    throw new ConfiguracaoRecusada(sprintf('Preencha "%s".', $chave));
-                }
-                if (mb_strlen($valor) > $campo['max']) {
-                    throw new ConfiguracaoRecusada(sprintf('Use até %d caracteres em "%s".', $campo['max'], $chave));
-                }
-
-                return $valor;
+    private static function numero(string $chave, int $min, int $max, string $valor): string
+    {
+        if (!preg_match('/^\d{1,9}$/', $valor) || (int) $valor < $min || (int) $valor > $max) {
+            throw new ConfiguracaoRecusada(sprintf('Informe um número de %d a %d em "%s".', $min, $max, $chave));
         }
+
+        return (string) (int) $valor;
+    }
+
+    /** @param list<string> $opcoes */
+    private static function opcao(string $chave, array $opcoes, string $valor): string
+    {
+        if (!in_array($valor, $opcoes, true)) {
+            throw new ConfiguracaoRecusada(sprintf('Opção inválida em "%s".', $chave));
+        }
+
+        return $valor;
+    }
+
+    private static function email(int $max, string $valor): string
+    {
+        if ($valor === '' || mb_strlen($valor) > $max || filter_var($valor, \FILTER_VALIDATE_EMAIL) === false) {
+            throw new ConfiguracaoRecusada('Informe um e-mail válido.');
+        }
+
+        return $valor;
+    }
+
+    /** Em branco vale: sem prazo. */
+    private static function dataHora(string $valor): string
+    {
+        if ($valor === '') {
+            return '';
+        }
+
+        $data = \DateTimeImmutable::createFromFormat('!' . self::FORMATO_DATA_HORA, $valor);
+        if ($data === false || $data->format(self::FORMATO_DATA_HORA) !== $valor) {
+            throw new ConfiguracaoRecusada('Informe uma data e hora válidas.');
+        }
+
+        return $valor;
+    }
+
+    private static function texto(string $chave, string $padrao, int $max, string $valor): string
+    {
+        if ($valor === '' && $padrao !== '') {
+            throw new ConfiguracaoRecusada(sprintf('Preencha "%s".', $chave));
+        }
+        if (mb_strlen($valor) > $max) {
+            throw new ConfiguracaoRecusada(sprintf('Use até %d caracteres em "%s".', $max, $chave));
+        }
+
+        return $valor;
     }
 }
