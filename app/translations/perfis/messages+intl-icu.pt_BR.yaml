@@ -1,0 +1,106 @@
+# ---- perfis: Perfis do escritório (tenant_role/*, perfis.js), com os flashes, as recusas da hierarquia e o aviso do
+# pedido de acesso. O termo que entra numa frase curta (selo, nome da linha Master) vem de termos.* por parâmetro.
+perfis:
+    titulo: Perfis do Escritório
+    voltar: Voltar
+    cancelar: Cancelar
+    lista:
+        ver_como_dica: 'Simulação: o perfil Master só aparece para o Master'
+        ver_como: Ver como
+        novo_perfil: Novo Perfil
+        chip:
+            perfis: perfis
+            usuarios: usuários
+            fixos: fixos do sistema
+            personalizados: personalizados
+        coluna:
+            perfil: PERFIL
+            classificacao: CLASSIFICAÇÃO
+            permissoes: PERMISSÕES
+            usuarios: USUÁRIOS
+            acoes: AÇÕES
+        acesso_total: Acesso total
+        sistema: sistema
+        permissoes: '{n} permissões'
+        permissoes_de: 'de {total}'
+        editar: Editar perfil
+        excluir: Excluir perfil
+        vazio: Nenhum perfil encontrado.
+        fixo: FIXO
+        fixo_dica: 'Perfil do sistema: não pode ser excluído'
+        master_nome: '{papel} do Sistema'
+        descricao_master: O criador do BlueJus (Master primário) e quem ele promover (Master secundário).
+        descricao_primario: Quem abriu a conta. Gestor do escritório; cadastra e administra os secundários. Não pode ser excluído.
+        descricao_secundario_vazia: Usuário secundário
+    novo:
+        titulo: Novo Perfil
+        salvar: Salvar perfil
+    editar:
+        titulo: 'Editar Perfil: {nome}'
+        salvar: Salvar alterações
+        primarios_titulo: Primários do escritório
+        primarios_contagem: '{n} primário(s)'
+        oab: 'OAB {numero}'
+        sem_oab: sem OAB
+        sem_perfil: sem perfil
+        tag_titular: '{papel} titular'
+        tag_socio: '{papel} sócio'
+        titular_dica: O primário titular (quem abriu a conta) não pode ser excluído
+        remover_primario: Remover este primário
+        promover_titulo: Promover a primário (sócio do escritório)
+        promover_campo: Usuário secundário a promover
+        promover_escolha: Escolha um usuário secundário da conta *
+        promover_info: Só usuários já cadastrados nesta conta podem ser promovidos.
+        promover_msg: O sócio promovido tem as mesmas competências de gestão do escritório, mas não pode excluir o primário titular. Promoções e remoções vão para a auditoria da conta.
+        promover: Promover
+        destino_rotulo: PASSA A TER O PERFIL
+        sem_destino: Não há perfil secundário para este usuário. Crie um perfil secundário antes de remover um primário.
+        nota_primario: 'O usuário primário tem acesso total ao escritório: as {total} permissões estão sempre ativas e não podem ser desmarcadas.'
+        sem_prazo:
+            titulo: Edição sem prazo
+            rotulo: Usuário primário pode editar e excluir qualquer registro sem limite de tempo
+            salvo: A opção de edição sem prazo foi salva.
+    form:
+        faixa: Perfil de usuário secundário (colaborador). Defina o que ele pode acessar.
+        nome: NOME DO PERFIL
+        descricao: DESCRIÇÃO
+        marcar_todos: Marcar todos
+        resumo: '{ativos} de {total} permissões ativas'
+        nome_repetido: Já existe um perfil com esse nome.
+    restrito:
+        titulo: Acesso restrito
+        texto: O menu Perfis é exclusivo do usuário primário do escritório e do Master. Para usar, peça a permissão ao primário.
+        enviado: Pedido enviado ao primário
+        pedir: Pedir acesso
+    flash:
+        criado: Perfil criado com sucesso!
+        atualizado: Perfil atualizado com sucesso!
+        excluido: Perfil excluído.
+        sistema_nao_exclui: Perfis de sistema não podem ser excluídos.
+        escolha_secundario: Escolha um usuário secundário da conta.
+        promovido: '"{nome}" agora é primário sócio do escritório.'
+        removido: '"{nome}" deixou de ser primário e voltou a ser secundário.'
+        sem_primario: Não há usuário primário ativo para receber o pedido.
+    aviso_pedido:
+        titulo: Pedido de acesso aos Perfis
+        texto: '{nome} pediu acesso ao menu Perfis do Escritório.'
+        sem_nome: Um colaborador
+    recusa:
+        mesmo_nivel_ou_acima: Seu perfil não pode editar um perfil do mesmo nível ou acima.
+        proprio_perfil: Seu perfil não pode trocar o próprio perfil. Peça ao usuário primário do escritório.
+        perfil_acima_do_seu: Seu perfil só pode atribuir perfis com permissões que ele também tem.
+        alvo_acima_do_seu: Seu perfil não pode mexer em quem tem permissões que ele não tem.
+        senha_de_outro_escritorio: Esta pessoa também usa outro escritório. A senha só pode ser trocada por ela, em Meu Perfil, ou pelo suporte.
+    js:
+        excluir_titulo: Excluir perfil
+        excluir_texto: 'O perfil "{nome}" será excluído.'
+        excluir_usuarios: Os {n} usuário(s) com este perfil ficam sem perfil até você atribuir outro.
+        marcar_todos: Marcar todos
+        desmarcar_todos: Desmarcar todos
+        resumo: '{ativos} de {total} permissões ativas'
+        escolha_secundario: Escolha um usuário secundário da conta.
+        promover_titulo: Promover a primário
+        promover_texto: '"{nome}" passará a gerir o escritório como primário sócio: secundários, perfis, permissões e módulos. Ele não poderá excluir o primário titular.'
+        promover_confirmar: Confirmar promoção
+        remover_titulo: Remover primário
+        remover_texto: '"{nome}" deixa de ser primário e volta a ser secundário. A remoção fica na auditoria da conta.'

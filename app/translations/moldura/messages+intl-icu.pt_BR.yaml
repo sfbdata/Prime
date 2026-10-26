@@ -1,0 +1,168 @@
+# ---- moldura: base, barra lateral e avisos comuns (layout/_globais)
+moldura:
+    comum:
+        fechar: Fechar
+    cabecalho:
+        menu_lateral_alternar: Abrir/fechar menu
+        menu_lateral_dica: Menu
+        titulo_pagina:
+            clientes: Clientes
+            processos: Processos
+            pastas: Pastas
+            metas: Metas
+            agenda: Agenda
+            service_desk: Service Desk
+            perfis: Perfis
+            tenants: Tenants
+            auditoria: Auditoria
+            convidar_usuarios: Convidar Usuários
+            meu_perfil: Meu Perfil
+            expediente: Expediente
+            cobrancas: Cobranças
+            quem_somos_e_contribua: Quem somos e contribua
+        escritorio_trocar_conta: '{escritorio}: trocar de conta'
+        instalar_aplicativo: Instalar aplicativo
+        tela_cheia: Tela cheia
+        menu_usuario: Menu do usuário
+        subnav:
+            expediente: Expediente
+            demandas: Demandas
+            minhas_metas: Minhas Metas
+            agenda: Agenda
+            trabalho_externo: Trabalho Externo
+    notificacoes:
+        rotulo: Notificações
+        aba_minhas: Minhas
+        aba_gestao: Gestão
+        contagem_sufixo: notificação(ões)
+        nenhuma: Nenhuma notificação
+        ver_todas: Ver todas as notificações
+    instalar_ios:
+        titulo: Instalar BlueJus
+        introducao: 'Para instalar o BlueJus no seu iPhone ou iPad:'
+        passo1_inicio: Toque no botão
+        passo1_compartilhar: Compartilhar
+        passo1_fim: na barra do Safari
+        passo2_inicio: Role para baixo e toque em
+        passo2_adicionar_tela_inicio: Adicionar à Tela de Início
+        passo3_inicio: Toque em
+        passo3_adicionar: Adicionar
+        passo3_fim: para confirmar
+    menu_lateral:
+        busca: Acesso rápido
+        dashboard: Painel
+        expediente: Expediente
+        push_processual: Push Processual
+        processos: Processos
+        trabalho_externo: Trabalho Externo
+        selo_novo: NOVO
+        cobrancas: Cobranças
+        minhas_metas: Minhas Metas
+        demandas: Demandas
+        agenda: Agenda
+        kanban: Kanban
+        service_desk: Service Desk
+        ponto_eletronico: Ponto Eletrônico
+        secao_admin: ADMIN
+        convidar_usuarios: Convidar Usuários
+        colaboradores: Colaboradores
+        meu_escritorio: Meu Escritório
+        perfis: Perfis
+        solicitacoes_acesso: Solicitações de Acesso
+        service_desk_ti: Service Desk (TI)
+        sedes_ponto: Sedes (Ponto)
+        feriados_folgas: Feriados e Folgas
+        bluejus_ia: BlueJus IA
+        trilha_auditoria: Trilha de Auditoria
+    aviso_espaco:
+        titulo_esgotado: 'Espaço esgotado: novos envios estão pausados'
+        titulo_ocupado: Seu espaço está {percentual}% ocupado
+        uso_do_plano: '{uso} de {limite} no plano {plano}.'
+        consulta_liberada: Consultar e baixar arquivos continua liberado.
+        faltam: Faltam {faltam}.
+        recomendacao: Recomendamos aumentar o espaço para não interromper o envio de documentos.
+        aumentar: Aumentar espaço
+        lembrar_amanha: Lembrar amanhã
+    # Aviso de falha das tarefas agendadas (layout/_globais/aviso_falha_agendada, spec scheduler-tarefas-agendadas)
+    aviso_falha_agendada:
+        titulo: Tarefa agendada falhou
+        item: '{tarefa} às {hora} de {data}.'
+        mais: Há outras falhas mais antigas.
+        detalhe: Os detalhes ficam registrados pela equipe BlueJus.
+        # Nome de cada tarefa no aviso (chave = comando sem "app:", com _ no lugar de : e -).
+        tarefa:
+            purgar_dados_expirados: Limpeza dos dados expirados
+            inteligencia_expirar_conteudo: Retenção das respostas da BlueJus IA
+            importar_indices_monetarios: Importação dos índices monetários
+            djen_sincronizar: Captação das publicações do DJEN
+            push_resumo_semanal_cliente: Resumo semanal ao cliente
+            pastas_relatorio_sem_processo: Relatório de pastas sem processo
+            pastas_relatorio_pastas_paradas: Relatório de pastas paradas
+            dashboard_fotografar: Foto diária do Dashboard
+            sync_reconciliar: Envio para o Google Drive
+            armazenamento_replicar_espelho: Cópia dos arquivos para o R2
+            armazenamento_reconciliar_espelho: Conferência da cópia no R2
+            armazenamento_limpar_replicacao: Limpeza da fila de envio ao R2
+            outra: Tarefa agendada
+        dispensar: Dispensar
+    # Aviso da cota de envio de e-mail (layout/_globais/aviso_cota_de_envio, spec comercial-e-emails §3.6)
+    aviso_cota_de_envio:
+        titulo_perto: Perto do limite de e-mail
+        texto_perto: 'E-mails: {enviados} de {teto} enviados nas últimas 24 horas. Perto do limite diário.'
+        titulo_pausadas: Limite de e-mail de campanha atingido
+        texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
+        dispensar: Dispensar
+    # Aviso das questões jurídicas da BlueJus IA (layout/_globais/aviso_questoes_juridicas), só para o Master
+    aviso_questoes_juridicas:
+        titulo: Questões jurídicas a serem verificadas
+        texto: '{n, plural, one {# questão jurídica da BlueJus IA ainda não foi resolvida.} other {# questões jurídicas da BlueJus IA ainda não foram resolvidas.}}'
+        ver: Ver as questões
+    busca_rapida:
+        rotulo: Busca rápida
+        campo: Buscar pasta, cliente, CPF ou processo
+        resultados: Resultados da busca rápida
+        nada_encontrado: Nada encontrado.
+        dica_navegar: ↑ ↓ navegar
+        dica_abrir: Enter abrir
+        dica_alternar: Ctrl + K abrir ou fechar
+    # Janela "Como devemos tratar você?" (layout/_globais/genero, spec genero-no-cadastro)
+    genero:
+        titulo: Como devemos tratar você?
+        texto: Usamos essa informação para escrever o seu nome corretamente no sistema (por exemplo, Dr. ou Dra.).
+        feminino: Feminino
+        masculino: Masculino
+        salvar: Salvar
+        fechar: Fechar
+        informe: Informe o gênero.
+        sessao_expirada: Sessão expirada. Recarregue a página.
+    js:
+        busca_sem_resultado: Nenhum resultado
+        instalar_sem_pedido: 'Para instalar: no Chrome ou Edge, use o ícone de instalar na barra de endereço. No celular, "Adicionar à tela inicial".'
+        lembretes:
+            tipo_audiencia: AUDIÊNCIA
+            tipo_reuniao: REUNIÃO DE EQUIPE
+            tipo_prazo: PRAZO
+            tipo_compromisso: COMPROMISSO
+            dica_audiencia: Confira a pauta, os documentos e o link da sala virtual.
+            dica_reuniao: A equipe vai se reunir. Leve as pendências da semana.
+            dica_prazo: 'Prazo com horário: confirme o protocolo antes do limite.'
+            em_horas: Em {horas}h · {hora}
+            em_minutos: Em {minutos} min · às {hora}
+            agora: Agora · {hora}
+            comecou: Começou às {hora}
+            notificacao_titulo: BlueJus · {titulo}
+            regiao: Lembretes
+            dispensar: Dispensar
+            abrir_pasta: Abrir pasta
+            ver_na_agenda: Ver na agenda
+            lembrar_em_10_min: Lembrar em 10 min
+            exemplo_audiencia: Audiência de conciliação · Pasta 1180
+            exemplo_reuniao: Reunião de equipe semanal
+            exemplo_prazo: Prazo de contestação · Pasta 1180
+            exemplo_compromisso: Atendimento ao cliente
+        genero:
+            informe: Informe o gênero.
+            falha: Não foi possível salvar. Tente de novo.
+    # Faixa do Master numa tela desligada (_recurso_faixa_master, incluída pelo base, layout_peticionar e push_compartilhado/show)
+    faixa_master:
+        aviso: Esta tela está desativada para os usuários. Só o Master está vendo.

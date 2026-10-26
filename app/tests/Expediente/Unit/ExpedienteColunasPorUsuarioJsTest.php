@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Expediente\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Menu "Colunas da tabela" da Lista: o ajuste vem do servidor (`data-colunas`) e é gravado por POST; o JS não lê
@@ -41,7 +41,7 @@ final class ExpedienteColunasPorUsuarioJsTest extends TestCase
         self::assertStringContainsString("aviso(BJ_T.t('expediente.js.lista.colunas.falha_gravar'))", $js);
         self::assertStringContainsString('function aplicar() { agendado = 0; pintarCampos(); trazerAjusteLocal(); aplicarColunas(); }', $js);
 
-        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = CatalogoPtBr::carregar();
         self::assertSame('Falha de conexão ao guardar as colunas', $catalogo['expediente']['js']['lista']['colunas']['falha_gravar']);
     }
 

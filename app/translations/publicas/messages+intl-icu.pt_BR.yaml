@@ -1,0 +1,70 @@
+# ---- publicas: páginas abertas pelos e-mails (comercial/confirmacao, email_descadastro, indicacao/_janela, invitation)
+# Abrem sem login: o locale é o português (IdiomaDaRequisicaoListener). Frase com <b>/<strong> no meio vai partida
+# em chaves, com a marcação no template (spec §9, "Frase partida").
+publicas:
+    confirmacao:
+        confirmado:
+            titulo: Endereço confirmado
+            texto: 'Endereço confirmado. Você vai receber {lista}.'
+            mudou_de_ideia: Mudou de ideia?
+            nao_quero_mais: Não quero mais receber
+        confirmar:
+            titulo: Confirme seu e-mail
+            csrf_invalido: Não foi possível confirmar. Clique em Confirmar de novo.
+            texto: Clique no botão abaixo para confirmar que quer receber os e-mails que você pediu.
+            botao: Confirmar
+            nao_foi_voce: Se não foi você quem pediu, é só fechar esta página.
+        vencido:
+            titulo: Não foi possível confirmar
+            texto: Este link venceu ou já foi usado. Peça a confirmação de novo.
+    descadastro:
+        confirmado:
+            titulo: Descadastro confirmado
+            todos: 'Você não vai mais receber nenhum e-mail de {remetente}.'
+            estes_avisos: 'Você não vai mais receber estes avisos por e-mail de {remetente}.'
+            pode_fechar: Pode fechar esta página.
+            demais: 'Os demais e-mails de {remetente} continuam chegando.'
+        confirmar:
+            titulo: Não quero mais receber estes avisos
+            # O endereço <strong>{email}</strong> deixará de receber...
+            endereco: O endereço
+            deixara: 'deixará de receber estes avisos por e-mail de {remetente}.'
+            nenhum: 'Não quero receber nenhum e-mail de {remetente}'
+            botao: Confirmar
+            fechar: Se não quiser deixar de receber, é só fechar esta página.
+    indicacao:
+        titulo: Indicar o BlueJus
+        fechar: Fechar
+        dica:
+            # Convide colegas e outros escritórios para <b>criar a própria conta</b> no BlueJus. Quem aceitar...
+            inicio: Convide colegas e outros escritórios para
+            negrito: criar a própria conta
+            fim: no BlueJus. Quem aceitar abre um escritório novo e não entra na sua equipe.
+            # Para chamar alguém para a <b>sua equipe</b>, use <b>Convites do escritório</b>.
+            equipe_inicio: Para chamar alguém para a
+            equipe_negrito: sua equipe
+            equipe_use: ', use'
+            equipe_convites: Convites do escritório
+            secundario: Quem chama pessoas para a equipe deste escritório é o usuário primário.
+        pendencias:
+            titulo: Complete seu cadastro para enviar convites
+            completar: Completar meu cadastro
+        envio:
+            em_seu_nome: 'O convite é enviado em seu nome:'
+            link_curto: link curto
+            nome: Nome (opcional)
+            email: E-mail
+            mensagem: Mensagem do convite
+            por_email: Enviar convite por e-mail
+            copiar: Copiar link curto
+        lista:
+            titulo: SUAS INDICAÇÕES
+            vazio: Nenhuma indicação ainda.
+    js:
+        # indicacao.js
+        indicacao:
+            conta_criada: CONTA CRIADA
+            enviada: ENVIADA
+            vazio: Nenhuma indicação ainda.
+            falhou: Não foi possível concluir agora. Recarregue a página e tente de novo.
+            abrir_falhou: Não foi possível abrir a janela agora. Recarregue a página e tente de novo.

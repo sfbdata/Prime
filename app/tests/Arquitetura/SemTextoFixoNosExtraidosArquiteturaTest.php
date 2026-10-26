@@ -47,7 +47,7 @@ final class SemTextoFixoNosExtraidosArquiteturaTest extends TestCase
             }
         }
 
-        self::assertSame([], $falhas, "Texto fixo em arquivo já extraído. Ponha a chave no catálogo (translations/messages+intl-icu.pt_BR.yaml) e use |trans ou BJ_T.t(). Marca ou sigla que fica como está vai em 'permitidos' do templates-extraidos.json.");
+        self::assertSame([], $falhas, "Texto fixo em arquivo já extraído. Ponha a chave no catálogo (translations/<bloco>/messages+intl-icu.pt_BR.yaml) e use |trans ou BJ_T.t(). Marca ou sigla que fica como está vai em 'permitidos' do templates-extraidos.json.");
     }
 
     #[TestDox('O detector acha texto, atributo lido e literal de frase, e ignora tradução, comentário, script e marca')]

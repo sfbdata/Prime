@@ -1,0 +1,330 @@
+# ---- Pasta: scripts do explorador, do checklist e das metas (pasta-explorador.js, pasta-checklist.js, pasta-metas.js)
+pasta_scripts:
+    js:
+        explorador:
+            col_nome: Nome
+            col_tipo: Tipo
+            col_cat: Categoria
+            col_tam: Tamanho
+            col_data: Modificado
+            qtd_arquivo_um: '{n} arquivo'
+            qtd_arquivo_varios: '{n} arquivos'
+            qtd_pasta_um: '{n} pasta'
+            qtd_pasta_varios: '{n} pastas'
+            qtd_subpasta_um: '{n} subpasta'
+            qtd_subpasta_varios: '{n} subpastas'
+            qtd_item_um: '{n} item'
+            qtd_item_varios: '{n} itens'
+            qtd_resultado_um: '{n} resultado'
+            qtd_resultado_varios: '{n} resultados'
+            qtd_favorito_um: '{n} favorito'
+            qtd_favorito_varios: '{n} favoritos'
+            tipo_pdf: Documento PDF
+            tipo_word: Documento do Word
+            tipo_odt: Documento ODT
+            tipo_rtf: Documento RTF
+            tipo_texto: Texto
+            tipo_excel: Planilha do Excel
+            tipo_csv: Planilha CSV
+            tipo_ods: Planilha ODS
+            tipo_apresentacao: Apresentação
+            tipo_compactada: Pasta compactada
+            tipo_jpeg: Imagem JPEG
+            tipo_png: Imagem PNG
+            tipo_tiff: Imagem TIFF
+            tipo_heic: Imagem HEIC
+            tipo_audio: Áudio
+            tipo_audio_whatsapp: Áudio (WhatsApp)
+            tipo_video: Vídeo
+            tipo_email: E-mail
+            tipo_email_outlook: E-mail do Outlook
+            tipo_assinatura: Assinatura digital
+            tipo_assinado: Documento assinado
+            tipo_json: Arquivo JSON
+            tipo_xml: Arquivo XML
+            tipo_html: Página HTML
+            tipo_kml: Mapa KML
+            tipo_com_extensao: '{tipo} ({ext})'
+            tipo_arquivo_ext: 'Arquivo {ext}'
+            tipo_arquivo: Arquivo
+            tipo_pasta: Pasta de arquivos
+            busca_info: '{resultados} para "{busca}"'
+            vazio_busca: Nenhum arquivo ou pasta com esse nome.
+            vazio_filtro_pasta: 'Nenhum item do tipo {tipo} nesta pasta.'
+            vazio_filtro_raiz: 'Nenhum item do tipo {tipo} aqui.'
+            vazio_pasta: Pasta vazia.
+            vazio_raiz: Nenhum arquivo ainda.
+            vazio_pasta_editar: Pasta vazia. Arraste arquivos para cá ou use Colar (Ctrl+V).
+            vazio_raiz_editar: Nenhum arquivo ainda. Arraste arquivos para cá ou clique em Anexar.
+            dica_classificar: 'Clique para classificar · arraste para mover a coluna'
+            dica_alca: 'Arraste para ajustar a largura · clique duplo para voltar ao padrão'
+            documentos: Documentos
+            rodape_raiz: '{arquivos} e {pastas} · {total} no total, contando subpastas'
+            rodape_pasta: '{nome} · {itens} nesta pasta'
+            rodape_pasta_vazia: '{nome} · vazia'
+            mover_esquerda: Mover para a esquerda
+            mover_coluna_esquerda: 'Mover {coluna} para a esquerda'
+            mover_direita: Mover para a direita
+            mover_coluna_direita: 'Mover {coluna} para a direita'
+            vazia: Vazia
+            acoes_pasta: Ações da pasta
+            acoes_arquivo: Ações do arquivo
+            selecionar: 'Selecionar {nome}'
+            favorito: Favorito
+            tirar_favorito: Tirar dos favoritos
+            marcar_favorito: Marcar como favorito
+            marcar_favoritos: Marcar como favoritos
+            mais_acoes: Mais ações
+            rotulo_pasta: 'Pasta {nome}'
+            prop_conteudo: Conteúdo
+            prop_local: Local
+            prop_adicionado: Adicionado em
+            prop_paginas: Páginas
+            prop_enviado_por: Enviado por
+            prop_numero: Número
+            prop_descricao: Descrição
+            prop_nome_parecido: Nome parecido
+            prop_pastas: Pastas
+            prop_arquivos: Arquivos
+            prop_tamanho_arquivos: Tamanho dos arquivos
+            painel_selecionados: '{n} itens selecionados'
+            selo_vazio: Vazio
+            selo_copia_processo: Ver no PJe
+            selo_muito_grande: Muito grande
+            identico_este_fica: 'Conteúdo idêntico a: {nomes}. Este é o mais antigo (sugerido manter).'
+            identico_outro_fica: 'Conteúdo idêntico a: {nomes}. Sugestão: manter "{fica}".'
+            selo_identico: Idêntico
+            selo_sugestao_titulo: 'Sugestão para ganhar espaço: {motivo}'
+            motivo_identico: 'Conteúdo idêntico a "{nome}". Fica o mais antigo.'
+            motivo_identico_outro_nome: 'Conteúdo idêntico a "{nome}" (nome diferente). Fica o mais antigo.'
+            motivo_vazio: 'Arquivo vazio (0 KB): não tem conteúdo.'
+            motivo_copia_paginas: 'Cópia do processo com {paginas} páginas: os autos ficam disponíveis no PJe, sem ocupar espaço aqui. Guarde só as peças importantes.'
+            motivo_copia_grande: 'Cópia do processo muito grande ({tamanho}): os autos ficam disponíveis no PJe.'
+            motivo_muito_grande: 'Arquivo muito grande ({tamanho}). Confira se precisa ficar na pasta.'
+            nome_parecido: '{nome} ({percentual}% parecido; confira se é o mesmo documento)'
+            regra_identico_um: '{n} cópia idêntica'
+            regra_identico_varios: '{n} cópias idênticas'
+            regra_vazio_um: '{n} vazio'
+            regra_vazio_varios: '{n} vazios'
+            regra_copia_processo_um: '{n} cópia do processo'
+            regra_copia_processo_varios: '{n} cópias do processo'
+            regra_muito_grande_um: '{n} muito grande'
+            regra_muito_grande_varios: '{n} muito grandes'
+            limpeza_texto: 'Ganhe espaço: {regras} · libera cerca de {tamanho}'
+            fechar: Fechar
+            revisar: Revisar
+            limpeza_excluir: 'Excluir {n} selecionado(s) · {tamanho}'
+            limpeza_confirmacao: 'Excluir {n} arquivo(s) sugerido(s)? Você pode desfazer logo em seguida.'
+            limpeza_aviso: '{n} arquivo(s) excluído(s) · {tamanho} liberados'
+            selecao_um: 1 selecionado
+            selecao_varios: '{n} selecionados'
+            selecao_com_tamanho: '{contagem} · {tamanho}'
+            baixar_itens_zip: 'Baixar {n} itens (.zip)'
+            baixar: Baixar
+            baixar_zip: Baixar (.zip)
+            baixar_arquivo: Baixar o arquivo
+            baixar_tudo_zip: Baixar tudo que está selecionado em um arquivo .zip
+            copiar_atalho: Copiar (Ctrl+C)
+            menu_nova_pasta: Nova pasta
+            menu_colar: Colar
+            menu_selecionar_tudo: Selecionar tudo
+            menu_classificar_nome: Classificar por nome
+            menu_classificar_data: Classificar por data
+            menu_classificar_tamanho: Classificar por tamanho
+            menu_classificar_tipo: Classificar por tipo
+            menu_ocultar_painel: Ocultar painel de detalhes
+            menu_mostrar_painel: Mostrar painel de detalhes
+            menu_baixar_zip_n: 'Baixar como .zip ({n})'
+            menu_copiar_links_n: 'Copiar links ({n})'
+            menu_copiar_links: Copiar links
+            menu_recortar: Recortar
+            menu_mover_para: Mover para…
+            menu_copiar_caminhos: Copiar caminhos
+            menu_excluir_n: 'Excluir {n} itens'
+            menu_propriedades: Propriedades
+            menu_abrir: Abrir
+            menu_baixar_zip: Baixar como .zip
+            menu_copiar_link: Copiar link
+            menu_visualizar: Visualizar
+            atalho_espaco: Espaço
+            atalho_ctrl_v: Ctrl+V
+            atalho_ctrl_a: Ctrl+A
+            atalho_ctrl_x: Ctrl+X
+            atalho_ctrl_c: Ctrl+C
+            atalho_del: Del
+            atalho_enter: Enter
+            atalho_f2: F2
+            menu_copiar_caminho: Copiar caminho
+            menu_renomear: Renomear
+            menu_editar: Editar…
+            menu_excluir: Excluir
+            menu_encaminhar: Encaminhar via Chat I.A
+            copiar_so_pastas: Pastas não são copiadas
+            menu_copiar: Copiar
+            erro_comunicacao: Erro de comunicação.
+            algo_errado: Algo deu errado.
+            n_itens: '{n} itens'
+            link_copiado: Link copiado
+            links_copiados: Links copiados
+            erro_copiar: Não foi possível copiar.
+            caminho_copiado: 'BlueJus › Pasta {pasta} › {local} › {nome}'
+            caminho_copiado_aviso: Caminho copiado
+            caminhos_copiados_aviso: Caminhos copiados
+            recortado: 'Recortado: {rotulo}'
+            copiar_sem_arquivo: 'Pastas não são copiadas: selecione arquivos.'
+            copiado: 'Copiado: {rotulo}'
+            copiado_sem_pastas: 'Copiado: {rotulo} (pastas não são copiadas)'
+            nada_para_colar: Nada para colar
+            acima_do_teto: 'Seleção acima do limite de {teto} itens por ação. Selecione menos itens.'
+            ja_nesta_pasta: Os itens já estão nesta pasta
+            pasta_dentro_dela: Uma pasta não pode ir para dentro dela mesma.
+            falha_mover: Falha ao mover.
+            um_item: 1 item
+            movido_um: '"{nome}" movido para {local}'
+            movidos_varios: '{n} itens movidos para {local}'
+            acima_do_teto_bytes: 'A seleção soma {soma}; o limite por ação é {teto}.'
+            copiar_indisponivel: Copiar indisponível nesta pasta.
+            falha_copiar: Falha ao copiar.
+            copiados_atualizando: Itens copiados. Atualizando a lista…
+            colado: 'Colado: {rotulo}'
+            copiado_para_um: '{rotulo} copiado para {local}'
+            copiado_para_varios: '{rotulo} copiados para {local}'
+            zip_sem_arquivos: A seleção não tem arquivos para baixar.
+            zip_acima_do_teto: 'A seleção tem {n} arquivos; o limite por .zip é {teto}.'
+            zip_indisponivel: Download em .zip indisponível nesta pasta.
+            zip_preparando: 'Preparando {itens} para download…'
+            zip_baixando: 'Baixando {nome} · {arquivos}'
+            zip_baixando_com_pastas: 'Baixando {nome} · {arquivos}, {pastas}'
+            favoritos_indisponiveis: Favoritos indisponíveis nesta pasta.
+            favorito_topo_um: '★ "{nome}" foi para o topo da lista'
+            favorito_topo_varios: '★ {n} itens foram para o topo da lista'
+            favorito_saiu_um: '"{nome}" saiu dos favoritos'
+            favorito_saiu_varios: '{n} itens saíram dos favoritos'
+            favorito_falha_um: '{erro} "{nome}" voltou como estava.'
+            favorito_falha_padrao: Não foi possível atualizar o favorito.
+            favorito_falha_varios_um: 'Não foi possível atualizar {favoritos} de {total}; esse voltou como estava.'
+            favorito_falha_varios: 'Não foi possível atualizar {favoritos} de {total}; esses voltaram como estavam.'
+            aviso_lixeira: Os itens vão para a lixeira e podem ser restaurados.
+            lista_e: '{a} e {b}'
+            excluir_pasta_vazia: 'A pasta "{nome}" está vazia. Excluir mesmo assim? {lixeira}'
+            excluir_pasta: 'Excluir a pasta "{nome}" e todo o conteúdo dela? Ao todo: {conteudo}. {lixeira}'
+            excluir_arquivo: 'Excluir "{nome}"? {lixeira}'
+            excluir_lote: 'Excluir {n} itens? Ao todo: {conteudo}. {lixeira}'
+            falha_favorito: Falha ao atualizar o favorito.
+            excluido_um: 'Excluído: {nome}'
+            excluidos_varios: '{n} itens excluídos'
+            falha_excluir: Falha ao excluir.
+            erro_desfazer: Não foi possível desfazer.
+            restaurados_atualizando: Itens restaurados. Atualizando a lista…
+            restaurados_varios: '{n} itens restaurados'
+            restaurado: Restaurado
+            lixeira: Lixeira
+            lixeira_n: 'Lixeira ({n})'
+            lix_erro_abrir: Não foi possível abrir a lixeira.
+            lix_itens: Itens na lixeira
+            lix_vazia: A lixeira está vazia.
+            lix_nota: Itens na lixeira podem ser restaurados. Nada é apagado de vez automaticamente.
+            lix_lapide: 'Esta pasta está excluída: restaure a pasta para restaurar os documentos dela.'
+            lix_restaurar_selecionados: Restaurar selecionados
+            lix_restaurar_selecionados_n: 'Restaurar selecionados ({n})'
+            lix_excluido_em: 'Excluído em {data}'
+            lix_excluido_sem_data: Excluído (data sem registro)
+            lix_excluido_por: '{quando} por {nome}'
+            lix_junto_com: 'Excluído junto com a pasta "{nome}"'
+            lix_pai_na_lixeira: 'Estava em "{nome}", que também está na lixeira'
+            lix_local_original: 'Local original: {local}'
+            raiz: Raiz
+            lix_volta_raiz: 'Sozinho, volta para a raiz da pasta: a pasta de origem está na lixeira'
+            lix_volta_para: 'Volta para: {local}'
+            lix_restaurar: Restaurar
+            lix_restaurado_um: 1 item restaurado
+            lix_restaurados_varios: '{n} itens restaurados'
+            lix_restaurado_na_raiz: '{texto} ({n} na raiz da pasta: a pasta de origem continua na lixeira)'
+            lix_restaurado_fim: '{texto}. A lista de documentos é atualizada ao fechar.'
+            mover_um_para: 'Mover "{nome}" para'
+            mover_varios_para: 'Mover {n} itens para'
+            atualizando_documentos: Atualizando a lista de documentos…
+            carregando: Carregando…
+            restaurando: Restaurando…
+            lix_erro_restaurar: Não foi possível restaurar.
+            ren_nome_arquivo: Novo nome do arquivo
+            ren_nome_pasta: Nome da pasta
+            falha_renomear: Falha ao renomear.
+            falha_criar_pasta: Falha ao criar a pasta.
+            sem_extensao: '(sem extensão)'
+            falha_salvar: Falha ao salvar.
+            documento_atualizado: 'Documento atualizado: {nome}'
+            destino_proibido: Uma pasta não pode ir para dentro dela mesma
+            destino_ja_aqui: Já está aqui
+            destino_atual: atual
+            destino_raiz: Documentos (raiz da pasta)
+            upload_indisponivel: Upload indisponível.
+            upload_concluido_erros: Concluído com erros
+            upload_concluido: Concluído
+            anexado_um: 'Anexado: {nome}'
+            anexados_varios: '{n} arquivos anexados'
+            falha_anexar: 'Falha ao anexar "{nome}": {erro}'
+        checklist:
+            selo_itens: '{concluidos}/{total} itens'
+            marcar_pendente: Marcar como pendente
+            marcar_concluido: Marcar como concluído
+            vazio_antes: 'Nenhum item. Clique em '
+            vazio_depois: ' para adicionar.'
+            erro: Erro
+            concluir_edicao: Concluir edição
+            editar_checklist: Editar checklist (remover, renomear e reordenar itens)
+            excluir_item_pergunta: Excluir este item do checklist?
+            titulo_vazio: O título não pode ser vazio.
+            erro_adicionar: Erro ao adicionar item.
+            arrastar: Arrastar para reordenar
+            renomear_item: Renomear item do checklist
+            remover_item: Remover item
+            erro_comunicacao: Erro de comunicação.
+            erro_ponto: Erro.
+            modelo_itens_um: '{total} item'
+            modelo_itens_varios: '{total} itens'
+            aplicar: Aplicar
+            renomear_modelo: Renomear modelo
+            excluir_modelo: Excluir modelo
+            erro_carregar_modelos: Erro ao carregar os modelos.
+            modelo_sem_nome: Dê um nome ao modelo.
+            substituir_pergunta: "Substituir modelo\nJá existe o modelo \"{nome}\". Substituir os itens dele pelo checklist desta pasta?"
+            modelo_salvo: 'Modelo "{nome}" salvo com {total} itens.'
+            erro_salvar_modelo: Erro ao salvar o modelo.
+            erro_aplicar_modelo: Erro ao aplicar o modelo.
+            erro_renomear_modelo: Erro ao renomear o modelo.
+            erro_excluir_modelo: Erro ao excluir o modelo.
+            nada_a_adicionar: 'Nada a adicionar: esta pasta já tinha todos os itens de "{nome}".'
+            criados_um: '{total} item adicionado'
+            criados_varios: '{total} itens adicionados'
+            ignorados_um: '{recado}, {total} já existia'
+            ignorados_varios: '{recado}, {total} já existiam'
+            recado_fim: '{recado}.'
+            excluir_modelo_pergunta: 'Excluir o modelo "{nome}"? Os checklists já aplicados nas pastas não mudam.'
+            erro_alterar_checklist: Não foi possível alterar o checklist.
+        metas:
+            prazo_escolha: Escolha a data limite.
+            prazo_hoje: '{data}, hoje'
+            prazo_amanha: '{data}, amanhã'
+            prazo_em_dias: '{data}, em {dias} dias'
+            prazo_passou: '{data}, data já passou'
+            prazo_fim_de_semana: '{texto}. Cai em fim de semana.'
+            titulo_repetido: 'Já existe a meta aberta "{titulo}". Atualize a existente em vez de criar outra.'
+            titulo_repetido_com_prazo: 'Já existe a meta aberta "{titulo}" (prazo {prazo}). Atualize a existente em vez de criar outra.'
+            posicao: '{atual} de {total}'
+            desfazer: Desfazer
+            erro_alterar: Não foi possível alterar a meta. Recarregue a página e tente de novo.
+            desfeito: Desfeito
+            erro_comunicacao: Erro de comunicação. Recarregue a página para conferir a meta.
+            erro_desfazer: Não foi possível desfazer. Recarregue a página.
+            criar_e_notificar: Criar meta e notificar os responsáveis
+            falta_titulo: título
+            falta_descricao: descrição
+            falta_prazo: prazo
+            falta_responsavel: responsável
+            falta_etapa: etapa
+            sugestao_pelo_titulo: 'Sugestão pelo título: {etapa}'
+            erro_duplicar: Não foi possível duplicar a meta. Recarregue a página e tente de novo.
+            preencha: 'Preencha: {campos}'
+            expandir: Expandir
+            recolher: Recolher (continue vendo a lista)

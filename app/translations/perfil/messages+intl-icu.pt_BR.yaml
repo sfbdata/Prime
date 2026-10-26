@@ -1,0 +1,182 @@
+# ---- Meu Perfil (profile/*, meu-perfil.js)
+perfil:
+    titulo: Meu Perfil
+    nao_informado: Não informado
+    abas:
+        rotulo: Abas do perfil
+        meu_perfil: Meu Perfil
+        convites: Convites do escritório
+        trocar_conta: Trocar de conta
+        exclusivo_master: EXCLUSIVO DO MASTER
+        fechar_menu: Fechar menu
+    acoes:
+        fechar: Fechar
+        cancelar: Cancelar
+        salvar: Salvar
+    identificacao:
+        trocar_foto: Trocar foto
+        foto_alt: Foto de perfil
+        usuario_primario: USUÁRIO PRIMÁRIO
+        cargo_nao_definido: Cargo não definido
+        lotacao_nao_definida: Lotação não definida
+        editar: Editar informações
+        frase_vazia: Adicione uma frase ao seu perfil
+    incompleto:
+        titulo: Seu cadastro está incompleto
+        percentual: '{pct}% preenchido'
+        falta: 'Falta:'
+        completar: Completar agora
+    grade:
+        email: E-mail
+        vinculo: Vínculo
+        vinculo_bate_ponto: '{vinculo} · bate ponto'
+        vinculo_sem_ponto: '{vinculo} · sem ponto'
+        cpf: CPF
+        ctps: CTPS
+        serie: Série
+        admissao: Admissão
+        cnpj: CNPJ
+        nascimento: Nascimento
+        membro_desde: Membro desde
+        telefone: Telefone
+        copiar: Copiar
+        copiar_campo: 'Copiar {campo}'
+    oab:
+        titulo: Registro OAB
+        sub_varias: '{total} inscrições · {suplementares} suplementar(es)'
+        sub_ordem: Ordem dos Advogados do Brasil
+        adicionar_titulo: Adicionar inscrição suplementar
+        adicionar: Adicionar OAB
+        verificada_em: 'Verificada em {data}'
+        aguardando_validacao: Aguardando validação do Master
+        selo_principal: PRINCIPAL
+        selo_suplementar: SUPLEMENTAR
+        vazio: 'Nenhuma inscrição informada. Use "Adicionar OAB" para cadastrar a principal.'
+        modal:
+            titulo: Inscrição na OAB
+            tipo: TIPO DE INSCRIÇÃO
+            tipo_principal: Principal
+            tipo_suplementar: Suplementar
+            ajuda_principal: 'Seccional do seu domicílio profissional. Só pode haver uma; se você mudar, a atual passa a suplementar.'
+            ajuda_suplementar: Para atuar com habitualidade em outro estado. Uma por seccional.
+            numero: NÚMERO DA OAB
+            numero_placeholder: Somente números
+            uf: UF (SECCIONAL)
+            uf_vazio: UF
+            remover: Remover esta inscrição
+    preferencias:
+        titulo: Preferências
+        sub: Valem só para você
+        idioma_rotulo: Idioma do sistema
+        idioma_sub: Muda todas as telas, menus e o Chat I.A
+        notificacoes_rotulo: Notificações no sistema
+        notificacoes_sub: Sininho de prazos, metas e menções
+        sons_rotulo: Sons de alerta
+        sons_sub: Toque ao receber mensagem ou alerta
+        resumo_email_rotulo: Resumo diário por e-mail
+        resumo_email_sub: Prazos e metas do dia, às 8h
+        sugestoes_despachos_rotulo: Sugestões a partir dos meus despachos
+        sugestoes_despachos_sub: Frases, natureza e prazo usual nas metas, só para você
+        apagar_aprendizado_rotulo: Apagar o que foi aprendido
+        apagar_aprendizado_sub: Os despachos e as pendências guardados neste escritório
+        apagar_aprendizado_confirmar: Apagar tudo o que foi aprendido com seus despachos neste escritório? As sugestões começam do zero.
+        apagar_aprendizado_feito: O que foi aprendido com seus despachos foi apagado.
+    seguranca:
+        titulo: Segurança
+        sub: Senha de acesso à sua conta
+        aviso: 'Ao alterar a senha, todas as outras sessões conectadas são encerradas, inclusive as que usam "manter conectado".'
+        alterar_senha: Alterar senha
+    exclusao:
+        titulo: Excluir conta do escritório
+        pendente_sub: 'Pedido feito em {data} · motivo: {motivo}. A equipe está sem acesso até o Master concluir.'
+        sub: Suspende a conta para toda a equipe e envia o pedido ao Master do BlueJus, que decide a exclusão. Exclusivo do usuário primário.
+        suspensa: Suspensa · aguardando o Master
+        desistir: Desistir e reativar
+        excluir: Excluir conta
+        motivo:
+            nao_uso: Não uso mais
+            caro: Achei caro
+            faltou_recurso: Faltou um recurso
+            mudei_sistema: Mudei de sistema
+            encerrando: Encerrando o escritório
+            outro: Outro motivo
+        modal:
+            etapa_antes: Excluir conta · etapa
+            etapa_depois: de 2
+            motivo_pedido: Conte em poucas palavras o motivo. Isso nos ajuda a melhorar.
+            motivo_rotulo: Motivo
+            observacao: Algo a mais? (opcional)
+            info_antes: A conta fica
+            info_suspensa: suspensa
+            info_depois: 'até o BlueJus analisar o pedido. Depois da exclusão, os dados ficam guardados por 365 dias e o suporte do BlueJus pode recuperá-la nesse prazo; depois disso, tudo é apagado. Os usuários não são apagados.'
+            codigo_enviado: Enviamos um código de 6 dígitos para
+            codigo_digite: '. Digite o código e a palavra'
+            codigo_palavra: EXCLUIR
+            codigo_confirmar: para confirmar.
+            codigo_rotulo: CÓDIGO
+            palavra_rotulo: DIGITE EXCLUIR
+            manter: Manter conta
+            continuar: Continuar
+    foto:
+        titulo: Foto de perfil
+        atual_alt: Foto atual
+        alterar: Alterar imagem
+        editar: Editar imagem
+        editar_titulo: Editar imagem
+        cropper_alt: Editar foto
+        zoom: Zoom
+        rotacao: Rotação
+        salvar: Salvar foto
+    editar:
+        titulo: Editar informações
+        vinculo: VÍNCULO COM O ESCRITÓRIO
+        vinculo_travado: Definido pelo escritório. Para alterar, fale com o usuário primário.
+        nome_completo: NOME COMPLETO
+        frase: FRASE DO PERFIL
+        telefone: TELEFONE / WHATSAPP
+        cpf: CPF
+        cpf_placeholder: Somente números
+        cpf_ajuda: Usado nos relatórios e estatísticas do escritório
+        nascimento: NASCIMENTO
+        genero: GÊNERO
+        genero_ajuda: Usado nas estatísticas do escritório
+        atuacao: ATUAÇÃO
+        atuacao_sugestao: 'Sugestão do sistema: {rotulo}.'
+        atuacao_usar: Usar
+        ctps: CTPS
+        ctps_ajuda: Só para empregado CLT
+        serie: SÉRIE
+        data_admissao: DATA DE ADMISSÃO
+        cnpj: CNPJ (SE HOUVER)
+        contrato_inicio_ajuda: Data em que o vínculo começou
+    revisao:
+        titulo: Seu cadastro está atualizado?
+        mensal: Revisão mensal
+        ultima_confirmacao: 'Última confirmação: {data}'
+        primeira: Primeira revisão do cadastro
+        texto_completo: Confira se telefone, vínculo e documentos continuam corretos. Esses dados alimentam relatórios, estatísticas e o controle de ponto do escritório.
+        texto_faltam: 'Faltam: {itens}. Esses dados alimentam relatórios, estatísticas e o controle de ponto do escritório.'
+        telefone: Telefone
+        vinculo: Vínculo
+        oab_principal: OAB principal
+        oab_nao_informada: Não informada
+        tudo_certo: Está tudo certo
+        atualizar: Atualizar agora
+    senha:
+        titulo: Alterar senha
+        atual: SENHA ATUAL
+        nova: NOVA SENHA
+        nova_placeholder: Mínimo 8 caracteres
+        confirmar: CONFIRMAR NOVA SENHA
+    js:
+        confirmar_remover_oab: 'Remover a inscrição OAB/{uf}?'
+        preferencia_falhou: Não foi possível gravar a preferência agora.
+        revisao_confirmada: Obrigado! Cadastro confirmado para este mês.
+        revisao_falhou: Não foi possível confirmar agora. Tente de novo.
+        copiado: Copiado
+        imagem_carregando: A imagem ainda está carregando. Aguarde um instante e tente novamente.
+        imagem_falhou: Não foi possível processar a imagem. Tente novamente.
+        foto_alt: Foto de perfil
+        foto_atual_alt: Foto atual
+        erro_salvar_foto: Erro ao salvar foto.
+        erro_comunicacao: Erro de comunicação.

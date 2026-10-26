@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Aba Documentos do drawer (spec inteligencia-drawer-da-pasta, F4) no `pasta-ia-agentes.js`. Regex não
@@ -17,7 +17,6 @@ use Symfony\Component\Yaml\Yaml;
 final class PastaIaDocumentosJsTest extends TestCase
 {
     private const JS = __DIR__ . '/../../../public/js/pasta-ia-agentes.js';
-    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     private function js(): string
     {
@@ -60,7 +59,7 @@ final class PastaIaDocumentosJsTest extends TestCase
         self::assertGreaterThan($historico, strpos($sincronizar, 'tituloDoIndice(botao)'), 'o title do Índice sobrescreve o do histórico');
         self::assertStringContainsString("semSelecao(botao) ? BJ_T.t('inteligencia.js.agentes.dica_indice_marque')", $titulo);
         // O texto mora no catálogo (spec idioma-do-sistema, §25).
-        $js = Yaml::parseFile(self::CATALOGO)['inteligencia']['js']['agentes'];
+        $js = CatalogoPtBr::carregar()['inteligencia']['js']['agentes'];
         self::assertSame('Nova análise considerando o histórico', $js['dica_nova']);
         self::assertSame('Marque os documentos do índice', $js['dica_indice_marque']);
         self::assertStringContainsString('botao.title = tituloDoIndice(botao);', $this->funcao('atualizarSelecao'));
