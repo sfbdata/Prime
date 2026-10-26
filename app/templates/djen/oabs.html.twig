@@ -3,6 +3,7 @@
 {% block title %}{{ 'djen.oabs.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
+{% include 'djen/_abas.html.twig' with {ativa: 'oabs'} %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0">{{ 'djen.oabs.titulo'|trans }}</h1>

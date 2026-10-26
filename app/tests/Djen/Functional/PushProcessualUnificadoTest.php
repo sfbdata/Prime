@@ -133,12 +133,12 @@ final class PushProcessualUnificadoTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/push-processual');
 
         self::assertResponseIsSuccessful();
-        // Mesmo grupo de botões do "Sincronizar agora" (irmãos diretos), não só "em algum lugar".
-        $grupo = 'section.content-header .container-fluid > .d-flex';
+        // Mesmo grupo do topo do desenho (irmãos diretos), não só "em algum lugar".
+        $grupo = '.pp-pagina > .pp-topo';
         self::assertCount(1, $crawler->filter($grupo . ' > a[data-push-cadastrar-processo][href="/processos/novo"] ~ form[action="/push-processual/sincronizar"]'));
-        $lista = $crawler->filter($grupo . ' > a[data-push-processos][href="/processos/"]');
-        self::assertCount(1, $lista);
-        self::assertSame('1', trim($lista->filter('.badge')->text()), 'conta só o processo sem baixa (o que a sincronização consulta)');
+        $aba = $crawler->filter('nav[data-pp-abas] a[data-pp-aba="processos"][href="/processos/"]');
+        self::assertCount(1, $aba, 'a lista de processos é a aba Processos da OAB');
+        self::assertSame('1', trim($aba->filter('.pp-aba__n')->text()), 'conta só o processo sem baixa (o que a sincronização consulta)');
     }
 
     #[Test]
@@ -153,7 +153,7 @@ final class PushProcessualUnificadoTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('[data-push-cadastrar-processo]'));
-        self::assertCount(0, $crawler->filter('[data-push-processos]'));
+        self::assertCount(0, $crawler->filter('a[data-pp-aba="processos"]'));
         self::assertCount(1, $crawler->filter('form[action="/push-processual/sincronizar"]'), 'o resto do Push segue igual');
     }
 
