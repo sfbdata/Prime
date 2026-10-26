@@ -397,12 +397,12 @@ final class AbaPagamentoTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contar('trabalho_externo_documento WHERE comprovante = true'));
     }
 
-    #[TestDox('CSRF: as três escritas sem o token são 403 e nada muda')]
+    #[TestDox('CSRF: as quatro escritas sem o token são 403 e nada muda')]
     public function testCsrf(): void
     {
         [$client, $codigo] = $this->demandaAceita();
 
-        foreach (['confirmacao', 'aviso', 'comprovante'] as $rota) {
+        foreach (['confirmacao', 'aviso', 'comprovante', 'valor'] as $rota) {
             $client->request('POST', "/trabalho-externo/api/demandas/$codigo/pagamento/$rota", [], [], ['HTTP_X_CSRF_TOKEN' => 'errado']);
             self::assertResponseStatusCodeSame(403, $rota);
         }
