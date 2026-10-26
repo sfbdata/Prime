@@ -8,7 +8,7 @@ Risco: **MÉDIO** (dinheiro; QR e confirmação de recebimento). Linhas "l." sã
 
 1. **Aba "Pagamento"** (l.620 a 637 e JS `pg:` l.1417 a 1427, `crc16`/`pix` l.825).
 2. Aba entra entre Chat e Histórico; Convidado não a vê (l.1361).
-3. Menu lateral "Dashboard" vira **"Painel do Escritório"** (l.1365), mesmo ícone e link.
+3. Menu lateral "Dashboard" vira **"Painel do Escritório"** (l.1365), mesmo ícone e link. Feito no PR do Dashboard, não aqui.
 4. Scripts `bj-monitor`, `bj-contas`, `bj-compartilhar`: moldura do protótipo, fora.
 Nenhuma outra linha mudou. O toast do despacho ainda diz "aba Despacho" no desenho; segue o texto "no Resumo" já decidido.
 
@@ -41,7 +41,7 @@ Só em situação em que a ação já vale (Aceita, Execução, Validação, Con
 
 **Enviar no chat**: mensagem de sistema "💳 Pagamento disponível: R$ x via PIX para BlueJus Gestão e Tecnologia LTDA (CNPJ 66.803.163/0001-10), identificação {txid}. Veja o QR Code na aba Pagamento." e abre a aba Chat.
 
-**Painel do Escritório**: chave `moldura.menu_lateral.dashboard` passa a "Painel do Escritório".
+**Painel do Escritório**: fora desta frente. O PR do Dashboard troca a chave `moldura.menu_lateral.dashboard` (decisão do coordenador, 25/10). Esta frente não mexe no rótulo.
 
 ## Segurança (dinheiro)
 - O valor e o txid saem só da proposta aceita no servidor; o cliente nunca informa valor.
