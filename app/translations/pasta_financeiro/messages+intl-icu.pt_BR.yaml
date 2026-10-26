@@ -1,0 +1,230 @@
+# ---- pasta_financeiro: aba Financeiro da pasta (pasta/_financeiro*, os scripts dela em pasta_financeiro.js)
+pasta_financeiro:
+    comum:
+        encaminhar: Encaminhar via Chat I.A
+    contrato:
+        rotulo: Contrato
+        assinado: Assinado
+        pendente: Pendente
+        assinado_titulo: Contrato assinado
+        pendente_titulo: Contrato pendente
+        assinado_dica: Contrato assinado. Clique para reabrir como pendente
+        pendente_dica: Contrato pendente. Clique para marcar como assinado
+    pro_bono:
+        rotulo: Pró-bono
+        ativo: Pró-bono ativo
+        inativo: Não é pró-bono
+        alternar: Alternar caso pró-bono
+    total_contratado:
+        rotulo: Total contratado
+        nota: total dos pagamentos · sincronizado
+        dica: Soma dos lançamentos contratados em Pagamentos. Atualiza sozinho ao incluir, editar ou excluir um pagamento.
+    media:
+        dica: Média das pastas deste cliente
+        sem_cliente: Vincule o cliente para calcular
+    relatorio:
+        titulo: Relatório financeiro
+        contagem_dica: Registros principais (respostas não contam)
+        somente_leitura: 'Pasta excluída: o relatório financeiro fica só para leitura.'
+        placeholder: Registrar combinado, honorário ou movimento financeiro do caso…
+        visivel_equipe: Visível para a equipe
+        enviar_dica: Enviar (Ctrl+Enter)
+        enviar: Enviar
+        vazio_titulo: Nada registrado ainda
+        vazio_nota: Anote acima o que foi combinado de honorário, custas ou reembolso.
+    menu_registro:
+        rotulo: Ações do registro
+        responder: Responder
+        copiar: Copiar texto
+        editar: Editar
+        excluir: Excluir comentário
+    registro:
+        resposta_a: 'Resposta a {nome}'
+        resposta_orfa: Resposta a uma mensagem excluída
+        autor_desconhecido: Autor desconhecido
+        editado: editado
+        editado_em: 'Editado em {quando}'
+        editar: Editar registro
+        excluir: Excluir registro
+        janela_dica: 'Edição e exclusão liberadas por mais {minutos} min'
+        janela: '· {minutos} min'
+        responder: Responder
+    arquivos:
+        titulo: Arquivos
+        adicionar: Adicionar
+        adicionar_dica: Adicionar arquivo (PDF, DOCX, JPEG, PNG, máx. 10 MB)
+        vazio: Nenhum arquivo financeiro anexado.
+        mais_acoes: Mais ações do arquivo
+        visualizar: Visualizar
+        abrir: Abrir
+        baixar: Baixar
+        copiar_nome: Copiar nome do arquivo
+        renomear: Renomear
+        enviar_email: Enviar por e-mail ao cliente
+        email_assunto: 'Pasta {pasta} · {titulo}'
+        email_corpo: 'Segue o arquivo "{titulo}" referente à pasta {pasta}.'
+        ver_documentos: Ver em Documentos
+        excluir: Excluir
+        assinado: Assinado
+        marcar_assinado: Marcar como assinado
+        desmarcar_assinado: Desmarcar assinatura
+        ver_outros: 'ver os outros {quantidade} no gerenciador'
+        reduzir: Reduzir tamanho ao enviar
+        reduzir_nota: Envios mantêm o arquivo original, recomendado para contratos assinados.
+        enviando: Enviando…
+    pagamentos:
+        titulo: Pagamentos
+        concluir_edicao: Concluir edição
+        mais_opcoes: Mais opções
+        mais_opcoes_rotulo: Mais opções de pagamentos
+        adicionar: Adicionar pagamento
+        editar_valores: Editar ou corrigir valores
+        ver_todos: Ver todos os lançamentos
+        copiar_resumo: Copiar resumo
+        imprimir_extrato: Imprimir extrato
+        extrato_titulo: Extrato de pagamentos
+        extrato_pasta: 'Pasta {pasta}'
+        emitido_em: Emitido em
+    corpo:
+        editar_valores_dica: Editar ou corrigir os valores dos lançamentos
+        recebidos_de: recebidos de
+        percentual: Percentual recebido
+        proximos: Próximos vencimentos
+        ja_pago: '{quantidade} já pago'
+        ja_pagos: '{quantidade} já pagos'
+        nenhum_pago: nenhum pago
+        vazio: Nenhum lançamento.
+        vazio_convite: Use Adicionar pagamento.
+        quitado: Tudo pago. Nada a vencer.
+        corrigir_dica: Clique para editar ou corrigir o valor
+        ja_corrigido: ' · já corrigido {vezes}x'
+        corrigido_era: corrigido · era
+        pago_dica: Pago. Clique para desfazer o recebimento
+        receber_dica: Clique para marcar como recebido
+        excluir: Excluir lançamento
+        corrigir: Corrigir valor
+        desfazer: Desfazer recebimento
+        marcar_recebido: Marcar como recebido
+        previsto_exito: '+ {valor} previsto em êxito'
+        previsto_sucumbencia: '+ {valor} previsto em sucumbência'
+        previsto_exito_sucumbencia: '+ {valor} previsto em êxito e sucumbência'
+    js:
+        # selos e honorários
+        contrato_assinado: Assinado
+        contrato_pendente: Pendente
+        contrato_assinado_dica: Contrato assinado. Clique para reabrir como pendente
+        contrato_pendente_dica: Contrato pendente. Clique para marcar como assinado
+        pro_bono_ativo: Pró-bono ativo
+        pro_bono_inativo: Não é pró-bono
+        erro_situacao: Erro ao alterar situação.
+        erro_pro_bono: Erro ao salvar pró-bono.
+        erro_salvar: Erro ao salvar.
+        erro_rede: Erro de rede.
+        erro_rede_tente: Erro de rede. Tente novamente.
+        erro_excluir: Erro ao excluir.
+        # arquivos
+        reduzir_aviso: 'Atenção: um PDF assinado digitalmente pode perder a assinatura ao ser reduzido.'
+        reduzir_nota: Envios mantêm o arquivo original, recomendado para contratos assinados.
+        ver_demais: ver os demais no gerenciador
+        email_assunto: 'Pasta {pasta} · {titulo}'
+        email_corpo: 'Segue o arquivo "{titulo}" referente à pasta {pasta}.'
+        enviar_email: Enviar por e-mail ao cliente
+        encaminhar: Encaminhar via Chat I.A
+        mais_acoes: Mais ações do arquivo
+        visualizar: Visualizar
+        abrir: Abrir
+        baixar: Baixar
+        copiar_nome: Copiar nome do arquivo
+        renomear: Renomear
+        ver_documentos: Ver em Documentos
+        excluir: Excluir
+        arquivos_vazio: Nenhum arquivo financeiro anexado.
+        erro_enviar_arquivo: Erro ao enviar arquivo.
+        erro_renomear: Erro ao renomear.
+        assinado: Assinado
+        marcar_assinado: Marcar como assinado
+        desmarcar_assinado: Desmarcar assinatura
+        erro_assinatura: Não foi possível alterar a assinatura.
+        excluir_arquivo_nome: 'Excluir o arquivo "{nome}" do Financeiro?'
+        excluir_arquivo: Excluir este arquivo? Esta ação não pode ser desfeita.
+        # menus
+        concluir_edicao: Concluir edição
+        editar_valores: Editar ou corrigir valores
+        mostrar_proximos: Mostrar só os próximos
+        ver_todos: Ver todos os lançamentos
+        motivo_prazo: O prazo de 15 minutos para editar ou excluir terminou.
+        motivo_autor: Só o autor pode editar ou excluir, nos 15 minutos após publicar.
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
+        editar_min: 'Editar · {minutos} min'
+        excluir_min: 'Excluir comentário · {minutos} min'
+        editar_sem_prazo: Editar
+        excluir_sem_prazo: Excluir comentário
+        nao_copiou: Não foi possível copiar
+        nome_copiado: Nome copiado
+        resumo_copiado: Resumo copiado
+        texto_copiado: Texto copiado
+        resumo_pagamentos: 'Pagamentos · {total}'
+        email_sem_cadastro: Cadastre um e-mail do cliente para enviar
+        # Relatório financeiro
+        registro_vazio: O registro não pode ser vazio.
+        enviar: Enviar
+        enviando: Enviando…
+        erro_enviar: Erro ao enviar.
+        erro_editar: Erro ao editar.
+        erro_enviar_resposta: Erro ao enviar a resposta.
+        excluir_comentario_titulo: 'Excluir o comentário de {autor}?'
+        excluir_comentario_texto: '"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.'
+        colaborador: colaborador
+        autor_desconhecido: Autor desconhecido
+        resposta_a: 'Resposta a {nome}'
+        resposta_orfa: Resposta a uma mensagem excluída
+        editar_registro: Editar registro
+        excluir_registro: Excluir registro
+        janela_dica: 'Edição e exclusão liberadas por mais {minutos} min'
+        janela: '· {minutos} min'
+        responder: Responder
+        respondendo_a: 'Respondendo a {nome}'
+        resposta_placeholder: Escreva a resposta…
+        cancelar: Cancelar
+        salvar: Salvar
+        vazio_titulo: Nada registrado ainda
+        vazio_nota: Anote acima o que foi combinado de honorário, custas ou reembolso.
+        # Pagamentos: correção, quitação, exclusão e o modal de novo lançamento
+        erro_formato: Informe apenas números, como 12.860,00.
+        erro_casas: Use no máximo duas casas decimais, como 12.860,00.
+        novo_valor_de: 'Novo valor de {descricao}'
+        salvar_enter: Salvar (Enter)
+        salvar_valor: Salvar valor
+        cancelar_esc: Cancelar (Esc)
+        corrigir_pergunta: 'Corrigir "{descricao}" de {de} para {para}?'
+        corrigir_historico: A alteração fica registrada no histórico com seu nome, data e hora.
+        erro_conflito: O valor foi alterado por outra pessoa. Recarregue e confira antes de corrigir.
+        erro_corrigir: Erro ao corrigir o valor.
+        erro_quitacao: Erro ao alterar o pagamento.
+        excluir_lancamento_titulo: Excluir lançamento
+        excluir_lancamento_pergunta: 'Excluir "{descricao}" ({valor})?'
+        excluir_lancamento_generico: Excluir este lançamento?
+        tipo_custas: custas
+        tipo_honorarios: honorários
+        erro_percentual: Informe um percentual entre 0 e 100.
+        erro_causa: Informe o valor da causa antes de calcular por percentual.
+        erro_total: Informe o valor total.
+        erro_vencimento: Informe o 1º vencimento.
+        erro_juros: Informe os juros ao mês entre 0 e 10%.
+        erro_pequeno: 'O valor é pequeno demais para {n} parcelas. Diminua o número de parcelas.'
+        entrada_de: 'Entrada · {tipo}'
+        livre_entrada: '{descricao} · entrada'
+        parcela_de: '{numero}ª parcela · {tipo}'
+        custas_e_despesas: Custas e despesas
+        honorarios_contratuais: Honorários contratuais
+        resumo_um: '{quantidade} lançamento · {total}'
+        resumo_varios: '{quantidade} lançamentos · {total}'
+        mais_parcelas: '+ {quantidade} parcelas'
+        gerar: 'Gerar {quantidade} lançamentos'
+        adicionar: Adicionar
+        sem_dado: Sem dado
+        erro_lancar: Erro ao lançar o pagamento.
+        previsto: previsto
+        exito_descricao: 'Honorários de êxito ({percentual}%)'
+        sucumbencia_descricao: 'Sucumbência estimada ({percentual}%)'

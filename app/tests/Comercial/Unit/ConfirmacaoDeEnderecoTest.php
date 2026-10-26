@@ -14,6 +14,7 @@ use App\Comercial\Repository\ConfirmacaoDeEnderecoRepository;
 use App\Comercial\Repository\FatoDeConsentimentoRepository;
 use App\Comercial\Service\ConfirmacaoDeEndereco;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -83,7 +84,7 @@ final class ConfirmacaoDeEnderecoTest extends TestCase
         // O texto do e-mail mora no catálogo (bloco `emails.comercial`): o tradutor de verdade do português.
         $tradutor = new Translator('pt_BR');
         $tradutor->addLoader('yaml', new YamlFileLoader());
-        $tradutor->addResource('yaml', \dirname(__DIR__, 3) . '/translations/messages+intl-icu.pt_BR.yaml', 'pt_BR', 'messages+intl-icu');
+        CatalogoPtBr::registrarEm($tradutor);
         $twig->addExtension(new TranslationExtension($tradutor));
 
         return new ConfirmacaoDeEndereco($this->estados, $this->fatos, $this->descadastro, $this->carteiro, $twig, $urls, $this->logger, $this->relogio);

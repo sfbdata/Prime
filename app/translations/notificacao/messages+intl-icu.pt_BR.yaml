@@ -1,0 +1,27 @@
+# ---- Telas avulsas: Notificações (notificacao/index, com o script inline em notificacao.js), Novidades (novidades/index;
+# o conteúdo das versões vem do config/novidades.yaml e não passa pelo catálogo), Solicitações de Acesso
+# (access_request/index) e Trilha de Auditoria (audit/index, com o script inline em auditoria.js)
+notificacao:
+    titulo: Notificações
+    inicio: Home
+    central: Central de notificações
+    subtitulo: Acompanhe demandas, prazos e atualizações do escritório
+    aba_minhas: Minhas
+    aba_gestao: Gestão
+    selecionar: Selecionar notificação
+    tarefa_numero: 'Tarefa #{id}'
+    ver_detalhes: Ver detalhes
+    nova: Nova
+    marcar_lida: Marcar como lida
+    lida: Lida
+    paginacao: Paginação das notificações
+    anterior: Anterior
+    proxima: Próxima
+    selecionar_todos: Selecionar todos
+    marcar_todas_lidas: Marcar todas como lidas
+    vazio_titulo: Tudo em dia por aqui
+    vazio_texto: Você não tem notificações nesta aba.
+    js:
+        lida: Lida
+        confirmar_exclusao: 'Excluir {n} notificação(ões)? Esta ação não pode ser desfeita.'
+        erro_excluir: Erro ao excluir notificações.

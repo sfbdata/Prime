@@ -1,0 +1,71 @@
+# ---- Pasta: lista de pastas e demandas (pasta/index, _tabela, _card, _filtros, demandas...)
+pasta_lista:
+    nao_informado: Não informado
+    hoje: Hoje
+    ativo: Ativo
+    arquivado: Arquivado
+    nup: NUP
+    cliente: Cliente
+    acao: Ação
+    prioridade: Prioridade
+    metas: Metas
+    metas_resumo: '{total} meta(s) · {ativas} ativa(s)'
+    cliente_linha:
+        cad_completo: Cadastro completo · abrir detalhes do cliente
+        cad_incompleto_uma: 'Cadastro incompleto: {total} pendência · abrir detalhes do cliente'
+        cad_incompleto_varias: 'Cadastro incompleto: {total} pendências · abrir detalhes do cliente'
+        duplicado_dica: 'Outro cliente vinculado tem o mesmo {doc}'
+        duplicado: '{doc} duplicado'
+        principal: Principal
+        principal_dica: Cliente principal desta pasta. A Média por CPF é dele
+        principal_dica_trocar: Cliente principal desta pasta. A Média por CPF é dele. Clique na estrela de outro para trocar
+        tornar_principal: Tornar cliente principal (a Média por CPF passa a ser dele)
+        abrir_dica: Abrir ficha do cliente (documentos e anexos ficam lá)
+        abrir_rotulo: 'Abrir cliente {nome}'
+        desvincular: Desvincular cliente da pasta
+    filtro_situacao:
+        dica: Filtrar pela situação da pasta
+        rotulo: Situação
+        todas: Todas
+        suspenso: Suspenso
+        cancelado: Cancelado
+    filtros:
+        busca_dica: Buscar por número da pasta, nome do cliente, ação ou número do processo
+        busca_placeholder: Buscar pasta, cliente, ação ou processo
+        responsavel_dica: Filtrar pelo responsável da pasta
+        responsavel: Responsável
+        responsavel_rotulo: Filtrar por responsável
+        sem_responsavel: Sem responsável
+        prioridade_dica: 'Prioridade: Normal, Alta ou Urgente'
+        prioridade_rotulo: Filtrar por prioridade
+        normal: Normal
+        alta: Alta
+        urgente: Urgente
+        periodo_dica: Período de abertura da pasta
+        de: De
+        de_rotulo: Aberta a partir de
+        ate: Até
+        ate_rotulo: Aberta até
+        periodo_sep: a
+        abrir_calendario: Abrir calendário
+        limpar: Limpar todos os filtros
+    demandas:
+        titulo: Minhas Demandas
+        busca_placeholder: Buscar por cliente, ação, NUP ou processo…
+        status: Status
+        normal: Normal
+        urgente: Urgente
+        de: De
+        ate: Até
+    resultado:
+        encontradas: demanda(s) encontrada(s)
+        modificada: Mod.
+        nenhuma: Nenhuma
+        sem_registro: Sem registro
+        um_dia: 1 dia atrás
+        dias: '{dias}d atrás'
+        ver: Ver
+        vazio_filtro_titulo: Nenhuma demanda encontrada
+        vazio_filtro_texto: Tente ajustar ou limpar os filtros aplicados.
+        vazio_titulo: Tudo em dia por aqui
+        vazio_texto: Você não possui demandas no momento.

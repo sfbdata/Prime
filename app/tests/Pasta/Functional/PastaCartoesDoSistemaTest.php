@@ -16,6 +16,7 @@ use App\Pasta\UseCase\AlterarResponsavelDaPastaUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -23,7 +24,6 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Cartões do sistema que faltavam no Registro da pasta (desenho 02, `autoReg` dc L6169-6172 e `Component.SYS`
@@ -269,7 +269,7 @@ final class PastaCartoesDoSistemaTest extends JusPrimeWebTestCase
         self::assertSame($doCatalogo, trim($tag->text()));
         self::assertStringEndsWith(' · ' . $doCatalogo, trim($molde->filter($topo . ' > .ps-obs-menu > .ps-processo-menu-titulo')->text()));
         self::assertSame($doCatalogo, $molde->filter($topo . ' > .ps-obs-menu > button.js-obs-imprimir')->attr('data-tipo'));
-        self::assertSame('Observação', Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js']['tag']);
+        self::assertSame('Observação', CatalogoPtBr::carregar()['pasta_detalhes']['js']['tag']);
     }
 
     // ── helpers ─────────────────────────────────────────────────────────

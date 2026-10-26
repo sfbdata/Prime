@@ -7,10 +7,10 @@ namespace App\Tests\Pasta\Functional;
 use App\Controller\PastaController;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * PAS-034 — a janela de confirmação e o aviso do desenho (dc L.280-288 `cf`, L.597 `edAviso`)
@@ -96,10 +96,10 @@ final class PastaDialogosTelaTest extends JusPrimeWebTestCase
             }
             self::assertStringContainsString('window.confirmarPs ? confirmarPs(opcoes)', $corpo);
         }
-        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
         self::assertSame('Excluir o comentário de {autor}?', $catalogo['excluir_titulo']);
         self::assertSame('"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.', $catalogo['excluir_texto']);
-        $registro = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['registro'];
+        $registro = CatalogoPtBr::carregar()['pasta_show']['js']['registro'];
         self::assertSame('Excluir o comentário de {autor}?', $registro['excluir_titulo']);
         self::assertSame('"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.', $registro['excluir_texto']);
         foreach (["alert('A mensagem não pode ser vazia.')", "alert('A observação não pode ser vazia.')"] as $antigo) {
@@ -111,7 +111,7 @@ final class PastaDialogosTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("avisarErroReg(data.erro ?? BJ_T.t('pasta_show.js.registro.erro_excluir'))", $html);
         self::assertSame(2, substr_count($html, "avisarErroReg(BJ_T.t('pasta_show.js.erro_rede'))"), 'editar e excluir');
         self::assertStringContainsString("avisarErroReg(BJ_T.t('pasta_show.js.registro.vazia'))", $html);
-        $show = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js'];
+        $show = CatalogoPtBr::carregar()['pasta_show']['js'];
         self::assertSame('Erro ao editar.', $show['registro']['erro_editar']);
         self::assertSame('Erro ao excluir.', $show['registro']['erro_excluir']);
         self::assertSame('Erro de rede.', $show['erro_rede']);
