@@ -8,6 +8,7 @@ use App\Cliente\Entity\ClientePJ;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Pasta\Criterio\PastaFinalizadaNoPeriodo;
 use App\Pasta\DTO\OcorrenciaDaBuscaRapida;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
@@ -60,7 +61,7 @@ class PastaRepository extends ServiceEntityRepository
      * "é do Fulano"). Número (`nup`), cliente (`cliente`) e a busca livre não estão aqui: a oculta continua
      * casando por eles. O marcador também é atributo (ver `buildQbPorMarcador`).
      */
-    private const FILTROS_DE_ATRIBUTO = ['responsavel', 'status', 'prioridade', 'criado_por', 'data_de', 'data_ate', 'expediente', 'acao'];
+    private const FILTROS_DE_ATRIBUTO = ['responsavel', 'status', 'prioridade', 'criado_por', 'concluida', 'data_de', 'data_ate', 'expediente', 'acao'];
 
     public function __construct(
         ManagerRegistry $registry,
@@ -972,13 +973,23 @@ class PastaRepository extends ServiceEntityRepository
             }
         }
 
-        $dataDe = $this->parseDataFiltro($filters['data_de'] ?? '', false);
+        $dataDe  = $this->parseDataFiltro($filters['data_de'] ?? '', false);
+        $dataAte = $this->parseDataFiltro($filters['data_ate'] ?? '', true);
+
+        // "Concluídas no período" (destino do número da coluna Pastas concluídas do Dashboard, regra B12):
+        // as datas passam a valer sobre a CHEGADA À FINALIZADA, e não sobre a abertura, com o critério
+        // compartilhado com a coluna (PastaFinalizadaNoPeriodo). Sem o filtro, nada muda.
+        if (($filters['concluida'] ?? '') === '1') {
+            PastaFinalizadaNoPeriodo::aplicar($qb, 'p', $dataDe, $dataAte);
+
+            return;
+        }
+
         if ($dataDe !== null) {
             $qb->andWhere('p.dataAbertura >= :dataDe')
                ->setParameter('dataDe', $dataDe);
         }
 
-        $dataAte = $this->parseDataFiltro($filters['data_ate'] ?? '', true);
         if ($dataAte !== null) {
             $qb->andWhere('p.dataAbertura <= :dataAte')
                ->setParameter('dataAte', $dataAte);

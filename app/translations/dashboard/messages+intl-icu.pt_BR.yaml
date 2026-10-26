@@ -97,6 +97,7 @@ dashboard:
         abrir_tempo_medio: 'Abrir: Tempo médio de {nome}'
         abrir_metas_revisao: 'Abrir: Metas em revisão de {nome}'
         abrir_eventos_agenda: 'Abrir: Eventos na agenda de {nome}'
+        abrir_pastas_concluidas: 'Abrir: Pastas concluídas de {nome}'
     tendencia:
         sem_movimento_titulo: Sem movimento nos dois períodos
         sem_movimento: sem movimento

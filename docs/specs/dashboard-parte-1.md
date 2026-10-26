@@ -81,9 +81,12 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 
 - **Empate total** (mesmas concluídas e mesmas vencidas): **ninguém recebe o troféu** e o ranking
   divide a posição (1º, 1º, 3º). O desenho é omisso.
-- "Relatório" sem link: o destino do desenho (Expediente filtrado por autor do registro e pelas
-  abas Dados da pasta, Financeiro e Detalhes) não existe, e a regra B12 só deixa o número virar link
-  quando a lista de destino conta a mesma coisa. Fica com a DASH-012 (lista da pessoa).
+- "Relatório" sem link (decidido no PR4): o destino do desenho (Expediente filtrado por autor do
+  registro e pelas abas Dados da pasta, Financeiro e Detalhes) lista PASTAS, e o número conta
+  REGISTROS (mensagens, observações financeiras e de detalhes, respostas incluídas). Uma pasta com 3
+  registros da pessoa é 1 linha na lista, então os totais só coincidiriam por acaso; a regra B12 só
+  deixa o número virar link quando a lista conta a mesma coisa. Filtro de autor/aba no Expediente
+  não foi criado (código morto sem link). Fica com a DASH-012 (lista da pessoa, por registro).
 - Universo do troféu e do cartão: vínculo ativo no escritório (`UserTenant.isActive`). Usuário com
   `User.isActive = false` e vínculo ainda ativo continua no universo (não mudado aqui). Escritório em
   quarentena de exclusão não abre o painel, então não há universo a filtrar.
@@ -91,7 +94,7 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 ## Fora deste PR
 
 Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita no PR3), setas × ontem, a tabela
-`dashboard_campeao_mes` que congelaria o "1º do mês", lista e link do Relatório (DASH-012).
+`dashboard_campeao_mes` que congelaria o "1º do mês", lista por registro e link do Relatório (DASH-012).
 
 ## Fatias seguintes
 
@@ -128,8 +131,7 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     `EXTRAS.pastasConcluidas`: "Pastas concluídas", "Demandas encerradas no período", soma, entre
     Pastas urgentes e Eventos na agenda): pastas com `finalizada_em` no período, por responsável,
     qualquer situação, sem lápide e sem as ocultas pelo cadeado. Tem tendência (`alta`, subir é bom).
-    Número sem link: o destino do desenho (`/expediente` com `concluida`) não filtra pela data da
-    finalização, e a regra B12 só deixa virar link quando a lista conta a mesma coisa.
+    Link no PR4 (ver abaixo).
 - **PR3b (feito: Zerar, DASH-014)**. Sem migration (usa a `dashboard_zeramento` do PR3).
   - **Abrir**: botão direito no título da coluna (equipe toda) ou na célula da pessoa (só ela, e
     "Ver relatório" quando o número tem link), como o `comMenu`/`thMenu` do desenho. No cartão do
@@ -160,7 +162,24 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
   - **Desvios do desenho**: "Você recebe a resposta no Chat I.A." saiu do aviso de sem permissão (não
     há fluxo de resposta); "Ver relatório" navega direto em vez do toast com link; o desfazer confirma
     com `window.confirm`, como o desenho.
-- **PR4 em diante**: meta de pastas.
+- **PR4 (feito: links de Pastas concluídas, sem migration)**. O número > 0 da pessoa abre
+  `/expediente?painel=acervo-geral&concluida=1&responsavel=<id>&data_de&data_ate`, na mesma aba, com o
+  tooltip "Abrir: Pastas concluídas de {nome}" (o "Ver relatório" do menu da célula passa a existir
+  também para essa coluna, pois depende do link). O Expediente ganhou o filtro `concluida=1`
+  ("Concluídas no período", chip e campo oculto como o `criado_por`): as datas passam a valer sobre
+  `finalizada_em` (não a abertura), em qualquer situação, sem lápide, com o cadeado já aplicado pelo
+  filtro de atributo (D1). O critério é UM só, `App\Pasta\Criterio\PastaFinalizadaNoPeriodo`, usado
+  por `MetricasExtrasDoDashboardRepository::contarFinalizadasPorResponsavel` e por
+  `PastaRepository::aplicarFiltrosPasta`; teste de paridade (célula = total da lista, para quem vê
+  tudo e para quem tem pasta oculta) em `ExpedientePastasConcluidasLinkTest`.
+  - **Zerar**: célula com corte ativo continua sem link (o destino não conta a partir do corte);
+    o corte não viaja na URL.
+  - **Desvios do desenho**: o desenho usa `status=concluida`; aqui `status` segue sendo a situação da
+    pasta (ativo/arquivado), e o filtro novo é `concluida=1`. No Total, o desenho linka; aqui o Total
+    segue sem link, como todos os do Total (ele soma só as linhas exibidas, filtradas por cargo ou
+    pessoa, e não inclui pasta de quem saiu do escritório, então a lista não contaria o mesmo).
+  - **Relatório**: sem link, pela razão acima. Só destrava com uma lista por registro (DASH-012).
+- **PR5 em diante**: meta de pastas.
 - **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
   padrão hoje, nenhuma opção é obrigatória, roda 1x por dia.
 

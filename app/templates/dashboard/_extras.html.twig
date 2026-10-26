@@ -22,6 +22,14 @@
        participantes. O número continua sendo a contagem agregada (sob o guarda `bi`, sem
        título), então para quem não participa de todos os eventos da pessoa o número pode ser
        MAIOR que a lista. Sigilo > paridade; decisão pendente do Samuel.
+     - Pastas concluídas > 0 abre o Acervo geral com `concluida=1`, a pessoa e o período: as datas
+       passam a valer sobre a chegada à Finalizada (`finalizada_em`), com o MESMO critério da
+       coluna (App\Pasta\Criterio\PastaFinalizadaNoPeriodo). Célula com "Zerar" ativo não é link
+       (o destino não conta a partir do corte), como as demais.
+     - Relatório NÃO é link, de propósito: o número conta REGISTROS (um por mensagem/observação,
+       respostas incluídas) e a lista do Expediente conta PASTAS; os dois só coincidiriam por
+       acaso (uma pasta com 3 registros da pessoa é 1 linha na lista). Regra B12: sem link.
+       A lista por registro (modal "Ver relatório" do desenho) fica com a DASH-012.
      - Taxa de conclusão e Tempo médio (DASH-008r, desenho: dc script l.1847) não são
        contagem de itens; o link abre a lista do DENOMINADOR, com a pessoa e o período:
        taxa → `todas` (o total da lista = Total metas da linha, a base do %);
@@ -51,6 +59,8 @@
         <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'em_revisao', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_metas_revisao'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_metas_revisao'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'eventos_agenda' and valor > 0 and can_access_module('agenda') -%}
         <a class="db-num db-num-link" href="{{ path('agenda_lista', { responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_eventos_agenda'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_eventos_agenda'|trans({nome: quem}) }}">{{ texto }}</a>
+    {%- elseif userId is not null and chave == 'pastas_concluidas' and valor > 0 -%}
+        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', concluida: '1', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_pastas_concluidas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_pastas_concluidas'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif valor == 0 -%}
         <span class="db-num db-num--zero">{{ texto }}</span>
     {%- else -%}
