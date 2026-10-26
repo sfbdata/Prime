@@ -26,9 +26,9 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * Bloco "Questões jurídicas" da aba "Configurações da I.A." do Master: baixar o documento atual, enviar e baixar a
- * versão ajustada (com histórico), mudar o status (com histórico), a tela do bloco e o aviso do topo
- * "Questões jurídicas a serem verificadas". Só o Master.
+ * Rotas das questões jurídicas do Master: baixar o documento atual, enviar e baixar a
+ * versão ajustada (com histórico) e mudar o status (com histórico). Só o Master. A tela do bloco e o aviso do topo
+ * saíram (25/10); as rotas ficam dormentes.
  *
  * O catálogo é o de teste ({@see CatalogoJuridicoDeTeste}: "primeira" pede a Política e o aceite, "segunda" os Termos),
  * para o teste não depender do texto real, que o jurídico troca. O armazém de CSRF é fixo ('TOKEN_<id>' sempre
@@ -39,9 +39,6 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
 {
     private const TOKEN = 'TOKEN_' . QuestoesJuridicasDoMasterController::TOKEN;
-    /** Filho direto do contêiner dos avisos do topo, que o _globais põe logo dentro do <body>. */
-    private const AVISO = 'body > .ae-avisos > .ae-aviso[data-aviso-questoes-juridicas]';
-    private const BLOCO = '#master-painel > div.mp-ia[data-painel-aba="ia"] > section.mp-card#questoes-juridicas[data-mp-jur]';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -287,78 +284,7 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringStartsWith($rotuloDoForm . "\n", $texto, 'o rótulo baixado é o mesmo do form do admin');
     }
 
-    #[TestDox('tela: o bloco é filho direto da aba "ia" (irmão da raiz das configurações), com as duas questões, as seções e os documentos; texto do catálogo escapado')]
-    public function testBlocoNoPainel(): void
-    {
-        $this->entrarComoMaster();
-
-        $crawler = $this->client->request('GET', '/master');
-
-        self::assertResponseIsSuccessful();
-        $bloco = $crawler->filter(self::BLOCO);
-        self::assertCount(1, $bloco);
-        self::assertCount(1, $crawler->filter('#master-painel > div.mp-ia > div.mp-ia-raiz[data-mp-ia] ~ section#questoes-juridicas'), 'depois da raiz das configurações');
-        self::assertSame('Questões jurídicas', trim($bloco->filter('section > div.mp-cab-roxo > b')->text()));
-        self::assertSame('Em aberto: 2', trim($bloco->filter('section > div.mp-cab-roxo > span[data-mp-jur-contagem]')->text()));
-        self::assertNotSame('', (string) $bloco->attr('data-token'), 'o token CSRF do bloco vem na tela');
-
-        $questoes = $bloco->filter('section > div.mp-jur-corpo > article.mp-jur-questao');
-        self::assertCount(2, $questoes);
-        $primeira = $questoes->eq(0);
-        self::assertSame('primeira', $primeira->attr('data-mp-jur-questao'));
-        self::assertSame('/master/ia/juridico/questoes/primeira/status', $primeira->attr('data-url-status'));
-        self::assertSame('Questão primeira', $primeira->filter('article > header.mp-jur-cab > h3')->text());
-        self::assertSame('Risco alto', $primeira->filter('article > header.mp-jur-cab > span.mp-jur-risco--alto')->text());
-        self::assertSame('Pendente', $primeira->filter('article > header.mp-jur-cab > span.mp-jur-selo--pendente')->text());
-        self::assertSame(['problema', 'risco', 'opcoes', 'sugestao', 'fontes', 'documentos', 'status'], $primeira->filter('article > div.mp-jur-secao')->each(static fn ($s) => $s->attr('data-mp-jur-secao')));
-        self::assertSame(['Primeiro parágrafo.', '<script>alert(1)</script>'], $primeira->filter('article > div[data-mp-jur-secao="problema"] > p')->each(static fn ($p) => $p->text()), 'um <p> por parágrafo, com o texto escapado');
-        self::assertCount(2, $primeira->filter('div[data-mp-jur-secao="opcoes"] > ol > li'));
-        $fonte = $primeira->filter('div[data-mp-jur-secao="fontes"] > ul > li > a');
-        self::assertSame(['https://exemplo.gov.br/primeira', '_blank', 'noopener noreferrer'], [$fonte->attr('href'), $fonte->attr('target'), $fonte->attr('rel')]);
-
-        self::assertSame(['Política de Privacidade', 'Texto do aceite da IA'], $primeira->filter('div[data-mp-jur-secao="documentos"] > ul.mp-jur-nomes > li')->each(static fn ($l) => $l->text()), 'só os nomes dos documentos afetados');
-        self::assertCount(0, $questoes->filter('.mp-jur-doc, a.mp-jur-baixar, input[type="file"]'), 'nenhuma questão tem baixar nem enviar');
-
-        $final = $bloco->filter('section > div.mp-jur-corpo > div.mp-jur-docs[data-mp-jur-docs]');
-        self::assertCount(1, $final, 'um bloco único, filho direto do corpo');
-        self::assertCount(1, $crawler->filter('div.mp-jur-corpo > article.mp-jur-questao ~ div.mp-jur-docs'), 'depois de todas as questões');
-        self::assertSame('Cada envio substitui o documento em todas as questões.', $final->filter('div.mp-jur-docs > p.mp-ia-nota')->text());
-        $docs = $final->filter('div.mp-jur-docs > div.mp-jur-doc');
-        self::assertSame(['politica_privacidade', 'termos_uso', 'rascunho_politica_ia', 'aceite_ia'], $docs->each(static fn ($d) => $d->attr('data-mp-jur-doc')));
-        self::assertSame('/master/ia/juridico/documentos/politica_privacidade/versoes', $docs->eq(0)->attr('data-url-enviar'));
-        self::assertSame('/master/ia/juridico/documentos/politica_privacidade', $docs->eq(0)->filter('div.mp-jur-doc > div.mp-jur-doc-linha > a.mp-btn-roxo')->attr('href'));
-        self::assertCount(1, $docs->eq(0)->filter('div.mp-jur-doc > div.mp-jur-doc-linha > label.mp-jur-enviar > input[type="file"][accept=".docx,.pdf,.md,.txt,.odt"]'));
-        self::assertSame('Nenhuma versão enviada.', $docs->eq(0)->filter('div.mp-jur-doc > ul.mp-jur-versoes > li.mp-jur-vazio')->text());
-        self::assertSame(['pendente', 'em_analise', 'resolvida'], $primeira->filter('div[data-mp-jur-secao="status"] > label.mp-ia-campo > select[data-mp-jur-status] > option')->each(static fn ($o) => $o->attr('value')));
-        self::assertSame('pendente', $primeira->filter('select[data-mp-jur-status] > option[selected]')->attr('value'));
-
-        self::assertCount(1, $crawler->filter('script[src*="js/master/ia-juridico.js"]'));
-        self::assertCount(1, $crawler->filter('link[href*="css/master-ia-juridico.css"]'));
-        self::assertStringNotContainsString('<script>alert(1)</script>', (string) $this->client->getResponse()->getContent());
-    }
-
-    #[TestDox('tela: depois de mudar o status e enviar versão, o bloco mostra o selo, o histórico e a versão com o link de download')]
-    public function testBlocoComHistoricoEVersao(): void
-    {
-        $this->entrarComoMaster();
-        $this->postarJson('/master/ia/juridico/questoes/segunda/status', ['status' => 'em_analise']);
-        $this->enviar('/master/ia/juridico/documentos/termos_uso/versoes', $this->arquivo("Termos ajustados.\n", 'termos-v2.txt'), 'segunda');
-        $this->guardarArquivosGravados();
-
-        $crawler = $this->client->request('GET', '/master');
-        $segunda = $crawler->filter(self::BLOCO . ' > div.mp-jur-corpo > article[data-mp-jur-questao="segunda"]');
-
-        self::assertSame('Em análise', $segunda->filter('article > header > span.mp-jur-selo--em_analise')->text());
-        self::assertSame('em_analise', $segunda->filter('select[data-mp-jur-status] > option[selected]')->attr('value'));
-        self::assertMatchesRegularExpression('#^Pendente para Em análise, por Dra\. Master em \d{2}/\d{2}/\d{4} \d{2}:\d{2}$#', trim($segunda->filter('div[data-mp-jur-secao="status"] > ul.mp-jur-historico > li')->text()));
-        $versao = $crawler->filter(self::BLOCO . ' > div.mp-jur-corpo > div.mp-jur-docs > div.mp-jur-doc[data-mp-jur-doc="termos_uso"] > ul.mp-jur-versoes > li');
-        self::assertCount(1, $versao);
-        self::assertStringContainsString('termos-v2.txt, enviado por Dra. Master em', $versao->text());
-        self::assertStringContainsString('(questão: Questão segunda)', $versao->text());
-        self::assertStringStartsWith('/master/ia/juridico/versoes/', (string) $versao->filter('li > a')->attr('href'));
-    }
-
-    #[TestDox('upload sem questão (bloco único): grava a versão sem questão e o bloco a mostra sem o sufixo de questão')]
+    #[TestDox('upload sem questão (bloco único): grava a versão sem questão')]
     public function testUploadSemQuestao(): void
     {
         $this->entrarComoMaster();
@@ -367,78 +293,15 @@ final class QuestoesJuridicasDoMasterControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertNull($this->json()['versoes'][0]['questao']);
-        $li = $this->client->request('GET', '/master')->filter('div.mp-jur-docs > div.mp-jur-doc[data-mp-jur-doc="politica_privacidade"] > ul.mp-jur-versoes > li');
-        self::assertStringNotContainsString('(questão:', $li->text());
     }
 
-    #[TestDox('questão oculta no catálogo: não aparece na tela, não conta no aviso e o status dela dá 404; os 4 documentos seguem no bloco')]
+    #[TestDox('questão oculta no catálogo: o status dela dá 404')]
     public function testQuestaoOcultaNaTela(): void
     {
         $this->entrarComoMaster();
 
-        $crawler = $this->client->request('GET', '/master');
-        $bloco = $crawler->filter(self::BLOCO);
-        self::assertSame('Em aberto: 2', trim($bloco->filter('span[data-mp-jur-contagem]')->text()));
-        self::assertCount(2, $bloco->filter('article.mp-jur-questao'));
-        self::assertCount(0, $bloco->filter('#questao-escondida'));
-        self::assertCount(4, $bloco->filter('div.mp-jur-docs > div.mp-jur-doc'));
-        self::assertSame('2 questões jurídicas da BlueJus IA ainda não foram resolvidas.', $this->client->request('GET', '/novidades')->filter(self::AVISO . ' > div.ae-texto > div')->text());
-
         $this->postarJson('/master/ia/juridico/questoes/escondida/status', ['status' => 'resolvida']);
         self::assertResponseStatusCodeSame(404);
-    }
-
-    #[TestDox('aviso do topo: com questão não resolvida o Master vê "Questões jurídicas a serem verificadas" com o link para o bloco; some quando todas estão resolvidas')]
-    public function testAvisoApareceESome(): void
-    {
-        $this->entrarComoMaster();
-
-        $crawler = $this->client->request('GET', '/novidades');
-        self::assertResponseIsSuccessful();
-        $aviso = $crawler->filter(self::AVISO);
-        self::assertCount(1, $aviso);
-        self::assertSame('Questões jurídicas a serem verificadas', $crawler->filter(self::AVISO . ' > div.ae-texto > b')->text());
-        self::assertSame('2 questões jurídicas da BlueJus IA ainda não foram resolvidas.', $crawler->filter(self::AVISO . ' > div.ae-texto > div')->text());
-        self::assertSame('/master#aba=ia&bloco=questoes-juridicas', $crawler->filter(self::AVISO . ' > a.ae-aumentar')->attr('href'));
-        self::assertSame('primeira,segunda', $aviso->attr('data-chaves'), 'as chaves em aberto vão ao navegador, que guarda as já vistas');
-        self::assertNotSame('', (string) $aviso->attr('data-usuario'), 'a guarda no navegador é por usuário');
-        self::assertCount(1, $crawler->filter('script[src*="js/aviso-questoes-juridicas.js"]'));
-
-        $this->postarJson('/master/ia/juridico/questoes/primeira/status', ['status' => 'resolvida']);
-        $this->postarJson('/master/ia/juridico/questoes/segunda/status', ['status' => 'em_analise']);
-        $crawler = $this->client->request('GET', '/novidades');
-        self::assertSame('1 questão jurídica da BlueJus IA ainda não foi resolvida.', $crawler->filter(self::AVISO . ' > div.ae-texto > div')->text(), 'em análise ainda conta');
-
-        $this->postarJson('/master/ia/juridico/questoes/segunda/status', ['status' => 'resolvida']);
-        self::assertSame(0, $this->json()['emAberto']);
-        self::assertCount(0, $this->client->request('GET', '/novidades')->filter('[data-aviso-questoes-juridicas]'));
-        self::assertCount(0, $this->client->request('GET', '/master')->filter('[data-aviso-questoes-juridicas]'));
-    }
-
-    #[TestDox('aviso do topo: quem não é Master não o vê, mesmo com questões pendentes')]
-    public function testAvisoSoParaOMaster(): void
-    {
-        $this->entrarComoPrimarioDeEscritorio();
-
-        $crawler = $this->client->request('GET', '/novidades');
-
-        self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('[data-aviso-questoes-juridicas]'));
-    }
-
-    #[TestDox('JS do bloco: sem texto cru (tudo pelo catálogo master.js.ia_juridico.*), sem innerHTML, e as chaves usadas existem no catálogo sem travessão')]
-    public function testJsUsaOCatalogo(): void
-    {
-        $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/ia-juridico.js');
-        preg_match_all("/T\\('(master\\.js\\.ia_juridico\\.[a-z_]+)'/", $js, $m);
-        $tradutor = static::getContainer()->get('translator');
-
-        self::assertNotEmpty($m[1]);
-        self::assertStringNotContainsString('innerHTML', $js);
-        foreach (array_unique($m[1]) as $chave) {
-            self::assertNotSame($chave, $tradutor->trans($chave, [], null, 'pt_BR'), $chave . ' existe no catálogo');
-            self::assertDoesNotMatchRegularExpression('/[—–]/u', $tradutor->trans($chave, [], null, 'pt_BR'));
-        }
     }
 
     private function entrarComoMaster(): User
