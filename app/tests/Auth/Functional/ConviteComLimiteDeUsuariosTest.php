@@ -52,6 +52,8 @@ final class ConviteComLimiteDeUsuariosTest extends JusPrimeWebTestCase
         $this->client = static::createClient();
         $this->client->disableReboot();
         $this->em = static::getContainer()->get(EntityManagerInterface::class);
+        // D5 revogada: os planos nascem sem limite de usuários; estes testes precisam de planos com limite.
+        $this->em->getConnection()->executeStatement("UPDATE contribua_plano SET limite_usuarios = CASE codigo WHEN 'free' THEN 3 WHEN 'essencial' THEN 8 WHEN 'profissional' THEN 15 ELSE NULL END");
         static::getContainer()->set('security.csrf.token_storage', new class () implements ClearableTokenStorageInterface {
             public function getToken(string $tokenId): string
             {

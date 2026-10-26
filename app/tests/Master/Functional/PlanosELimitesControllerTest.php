@@ -66,6 +66,8 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         $this->client->disableReboot();
         $this->em = static::getContainer()->get(EntityManagerInterface::class);
         $this->instalarCsrfFixo();
+        // D5 revogada: os planos nascem sem limite de usuários; estes testes precisam de planos com limite.
+        $this->em->getConnection()->executeStatement("UPDATE contribua_plano SET limite_usuarios = CASE codigo WHEN 'free' THEN 3 WHEN 'essencial' THEN 8 WHEN 'profissional' THEN 15 ELSE NULL END");
 
         $this->master = $this->usuario('Farlei Master', ['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
         $this->contaDoMaster = $this->conta('Escritório do Master', $this->master);

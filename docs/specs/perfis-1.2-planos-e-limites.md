@@ -174,7 +174,6 @@ Implementação (21/10, branch `master-saidas-tendencia`; decisões aprovadas pe
 ## Revogação da D5 (dono, 26/10/2026)
 
 O dono decidiu que "usuários ilimitados" do desenho 05 de 25/10 vale: a regra D5 (3 / 8 / 15 / sem limite
-de usuários por plano) está revogada. A tela de Planos do Master já mostra "usuários ilimitados" em todos os
-cartões (PR "Planos: visual do desenho 05 de 25/10"). O limite efetivo no código (`Plano.limiteUsuarios` e a
-checagem ao criar usuário) NÃO mudou: fica em PR próprio, com aviso ao Coordenador antes, porque afeta
-cobrança e quem hoje está no limite.
+de usuários por plano) está revogada. A migration 20261026152000 zera `contribua_plano.limite_usuarios` (os quatro planos ficam sem limite) e a tela de
+Planos mostra "usuários ilimitados". Limite próprio de uma conta (definido pelo Master em
+`contribua_espaco_do_escritorio`) não é tocado e continua valendo. Em produção (26/10) só uma conta existe, no Free.

@@ -17,14 +17,14 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 #[CoversClass(PlanoRepository::class)]
 final class CatalogoDePlanosTest extends KernelTestCase
 {
-    #[TestDox('Carga da C1 (decisão do dono, D5): preços do 08 e usuários do 05')]
+    #[TestDox('Carga da C1: preços do 08; usuários sem limite em todos (D5 revogada pelo dono em 26/10/2026)')]
     public function testCargaDosPlanos(): void
     {
         self::bootKernel();
         $catalogo = static::getContainer()->get(PlanoRepository::class)->findBy([], ['ordem' => 'ASC']);
 
         self::assertSame(
-            [['free', 10, 0, 3], ['essencial', 20, 1990, 8], ['profissional', 50, 3990, 15], ['avancado', 100, 6990, null]],
+            [['free', 10, 0, null], ['essencial', 20, 1990, null], ['profissional', 50, 3990, null], ['avancado', 100, 6990, null]],
             array_map(static fn ($p): array => [$p->getCodigo(), $p->getCotaGb(), $p->getPrecoCentavos(), $p->getLimiteUsuarios()], $catalogo),
         );
     }
