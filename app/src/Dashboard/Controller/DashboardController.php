@@ -43,6 +43,10 @@ final class DashboardController extends AbstractController
 
         $filtros = $this->lerFiltros($request);
 
+        // Quem gere o escritório (Master ou primário ativo): zera colunas (DASH-014) e define a meta de pastas
+        // do mês (DASH-016). Os demais veem a meta, sem o botão de editar.
+        $podeGerir = $this->regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant);
+
         // Estilo pessoal do menu ⋮ do usuário LOGADO neste escritório. Lido também no XHR: as
         // colunas extras ("Adicionar coluna") mudam o HTML da tabela, então o fragmento tem de
         // sair com as colunas que ele ligou — e o servidor só calcula essas.
@@ -69,6 +73,7 @@ final class DashboardController extends AbstractController
                 'filtros'      => $filtros,
                 'inteligencia' => $leitura,
                 'preferencias' => $preferencias,
+                'podeMeta'     => $podeGerir,
             ];
 
             // O XHR devolve o conteúdo de [data-filtro-resultado]: cards + tabela e, na mesma
@@ -127,7 +132,8 @@ final class DashboardController extends AbstractController
             'contagemCargo'    => $contagemCargo,
             'contagemSemCargo' => $contagemSemCargo,
             'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
-            'podeZerar'      => $this->regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant), // "Zerar" (DASH-014): Master ou primário ativo
+            'podeZerar'      => $podeGerir, // "Zerar" (DASH-014): Master ou primário ativo
+            'podeMeta'       => $podeGerir, // meta de pastas do mês (DASH-016)
         ]);
     }
 

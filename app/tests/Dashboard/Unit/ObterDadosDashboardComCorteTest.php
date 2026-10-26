@@ -9,6 +9,8 @@ use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\Repository\DashboardZeramentoRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
+use App\Dashboard\DTO\MetaDePastasDoMesOutput;
+use App\Dashboard\Meta\MontarMetaDePastasDoMes;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -62,6 +64,7 @@ final class ObterDadosDashboardComCorteTest extends TestCase
             $this->createMock(DashboardFotoRepository::class),
             $this->metricas,
             $this->zeramentos,
+            $this->createConfiguredStub(MontarMetaDePastasDoMes::class, ['montar' => new MetaDePastasDoMesOutput(null, null, '2026-10', 0, 22, 1, false)]),
         );
     }
 
