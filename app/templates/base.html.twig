@@ -627,6 +627,7 @@
         <script src="{{ asset('js/bj-traducao.js') }}"></script>
         <script src="{{ asset('js/novidades.js') }}" defer></script>
         <script src="{{ asset('js/menu-usuario.js') }}" defer></script>
+        {% if app.user %}<script src="{{ asset('js/bj-monitor.js') }}" data-url="{{ path('monitor_evento') }}" data-token="{{ csrf_token('monitor_evento') }}"></script>{% endif %}
         {% block javascripts %}{% endblock %}
         {#
             SCRIPT CONFLITANTE REMOVIDO.
