@@ -3,7 +3,7 @@
 .pp-acao:hover { border-color: #0a6fa0; color: #0a6fa0; }
 .pp-acao--perigo { border-color: #f0c9cd; color: #a3232b; }
 .pp-acao--perigo:hover { background: #fdecee; border-color: #f0c9cd; color: #a3232b; }
-.pp-c-acoes { display: flex; justify-content: flex-end; gap: 6px; align-items: center; }
+.pp-c-acoes { flex-wrap: nowrap; display: flex; justify-content: flex-end; gap: 6px; align-items: center; }
 .pp-c-acoes form { margin: 0; }
 .pp-ver { display: flex; }
 .pp-topo__texto { font-size: 13px; color: #5b7383; }
@@ -41,12 +41,13 @@
 .pp-exportar { height: 36px; padding: 0 12px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .pp-exportar:hover { border-color: #0a6fa0; color: #0a6fa0; }
 
-.pp-tabela__corpo--proc { min-width: 1080px; }
-.pp-linha--proc { grid-template-columns: minmax(220px, 1.2fr) minmax(200px, 1.3fr) 130px 170px 120px 110px 120px; }
-.pp-linha--proc > span { padding: 10px 8px; min-width: 0; }
-.pp-linha--proc.pp-linha--cab > span { padding: 11px 8px; }
-.pp-linha--proc > span:first-child { padding-left: 18px; }
-.pp-linha--proc > span:last-child { padding-right: 18px; }
+.pp-tabela .pp-tabela__corpo--proc { min-width: 1110px; }
+/* push-processual.css chega depois (a faixa de abas o carrega no corpo): o seletor composto garante a vez. */
+.pp-tabela__corpo--proc .pp-linha.pp-linha--proc { grid-template-columns: minmax(220px, 1.2fr) minmax(200px, 1.3fr) 130px 170px 120px 110px 150px; }
+.pp-tabela__corpo--proc .pp-linha.pp-linha--proc > span { padding: 10px 8px; min-width: 0; }
+.pp-tabela__corpo--proc .pp-linha--proc.pp-linha--cab > span { padding: 11px 8px; }
+.pp-tabela__corpo--proc .pp-linha.pp-linha--proc > span:first-child { padding-left: 18px; }
+.pp-tabela__corpo--proc .pp-linha.pp-linha--proc > span:last-child { padding-right: 18px; }
 .pp-c-numero { display: flex; gap: 8px; align-items: flex-start; }
 .pp-c-numero b { display: block; white-space: nowrap; }
 .pp-marca { margin-top: 3px; accent-color: #0a6fa0; }
@@ -61,7 +62,7 @@
 .pp-par--ambar { color: #9a5b00; }
 .pp-pasta { text-decoration: none; font-weight: bold; }
 .pp-sem-pasta { font-size: 12px; color: #9a5b00; }
-.pp-linha--proc > .pp-c-acoes { padding: 8px 18px; }
+.pp-tabela__corpo--proc .pp-linha.pp-linha--proc > .pp-c-acoes { padding: 8px 18px; }
 .pp-acao--verde { border-color: #1e7b45; color: #1e7b45; padding: 0 9px; }
 .pp-acao--verde:hover { background: #e9f6ee; border-color: #1e7b45; color: #1e7b45; }
 .pp-acao--link { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; padding: 0 9px; line-height: 28px; }
