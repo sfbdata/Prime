@@ -976,23 +976,25 @@
 
   /* ================= PLANOS E LIMITES ================= */
   // Cartões (desenho 1.2, linhas 205-210 e 697). Cores do desenho; o 4º plano (Avançado) é convenção, o desenho tem 3.
-  const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#7a3e8f' };
+  const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#5b3f9e' };
   const reais = cent => 'R$ ' + (cent % 100 === 0 ? num(cent / 100) : window.BJFormato.numero(cent / 100, 2));
   const nomeDoPlano = p => (p.codigo === 'free' ? T('master.js.planos.plano_free', { nome: p.nome }) : p.nome);
-  // "usuários sem limite", e não "sem limite usuários" (o desenho sempre acrescenta " usuários"): convenção.
-  const usuariosDoPlano = p => (p.limiteUsuarios === null ? T('master.js.planos.usuarios_sem_limite') : T('master.js.planos.usuarios', { n: num(p.limiteUsuarios) }));
+  const TAG_PLANO = { free: 'master.js.planos.tag_free', profissional: 'master.js.planos.tag_escolhido' };
 
   function montarPlanos() {
     const ativas = D.contas.contas.filter(c => c.situacao !== QUARENTENA);
-    elSecao.innerHTML = '<div id="mp-planos-aviso"></div><div class="mp-planos">' + D.planos.planos.map(p => {
+    elSecao.innerHTML = '<div id="mp-planos-aviso"></div>'
+      + '<div class="mp-convenio-faixa"><img src="' + esc(URLS.logoOab) + '" alt="OAB"><div><b>' + T('master.js.planos.faixa_titulo') + '</b><span>' + T('master.js.planos.faixa_texto') + '</span></div></div>'
+      + '<div class="mp-planos-rotulo">' + T('master.js.planos.rotulo') + '</div><div class="mp-planos">' + D.planos.planos.map(p => {
       const acima = ativas.filter(c => c.espaco.planoCodigo === p.codigo && pertoDaFranquia(c)).length;
       return '<div class="mp-card mp-plano" style="--cor:' + (COR_PLANO[p.codigo] || '#4a6373') + '"><div class="mp-plano-topo"><b>' + esc(nomeDoPlano(p)) + '</b>'
-        + (p.codigo === 'free' ? '<span class="mp-plano-tag">' + T('master.js.planos.padrao') + '</span>' : '')
-        + (p.ativo ? '' : '<span class="mp-plano-inativo">' + T('master.js.planos.inativo') + '</span>') + '</div>'
+        + (TAG_PLANO[p.codigo] ? '<span class="mp-plano-tag">' + T(TAG_PLANO[p.codigo]) + '</span>' : '')
+        + (p.ativo ? '' : '<span class="mp-plano-inativo">' + T('master.js.planos.inativo') + '</span>')
+        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '" title="' + esc(T('master.js.planos.ajustar_dica')) + '"><i class="bi bi-pencil"></i> ' + T('master.js.planos.ajustar') + '</button></div>'
         + '<span class="mp-plano-preco">' + esc(reais(p.precoCentavos)) + '<span> ' + T('master.js.planos.por_mes') + '</span></span>'
-        + '<span class="mp-plano-cap">' + esc(T('master.js.planos.cap', { gb: num(p.cotaGb), usuarios: usuariosDoPlano(p) })) + '</span>'
-        + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span>'
-        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '"><i class="bi bi-pencil"></i>' + T('master.js.planos.editar') + '</button></div>';
+        + '<span class="mp-plano-cap">' + T('master.js.planos.cap', { gb: num(p.cotaGb) }) + '</span>'
+        + '<span class="mp-plano-recursos"><i class="bi bi-check2"></i> ' + T('master.js.planos.recursos') + '</span>'
+        + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>';
     }).join('') + '</div>'
       + '<span class="mp-nota">' + T('master.js.planos.nota') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();

@@ -170,3 +170,11 @@ Implementação (21/10, branch `master-saidas-tendencia`; decisões aprovadas pe
 - Trilha da primeira mudança de limite: o anterior sai em número ("10 GB → 12 GB", "3 usuários → 5 usuários"),
   com a cota e o limite de HOJE do plano da conta (o `audit_log` não guarda os de então).
 - Medidas dos campos como no desenho (content-box): caixa das faixas 72x30, campos do modal com 40px.
+
+## Revogação da D5 (dono, 26/10/2026)
+
+O dono decidiu que "usuários ilimitados" do desenho 05 de 25/10 vale: a regra D5 (3 / 8 / 15 / sem limite
+de usuários por plano) está revogada. A tela de Planos do Master já mostra "usuários ilimitados" em todos os
+cartões (PR "Planos: visual do desenho 05 de 25/10"). O limite efetivo no código (`Plano.limiteUsuarios` e a
+checagem ao criar usuário) NÃO mudou: fica em PR próprio, com aviso ao Coordenador antes, porque afeta
+cobrança e quem hoje está no limite.

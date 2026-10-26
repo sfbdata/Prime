@@ -61,17 +61,19 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertStringNotContainsString('Preços de exemplo', $js);
         self::assertStringContainsString("const nomeDoPlano = p => (p.codigo === 'free' ? T('master.js.planos.plano_free', { nome: p.nome }) : p.nome);", $js);
         self::assertSame('Plano {nome}', self::catalogo('master.js.planos.plano_free'));
-        self::assertStringContainsString("'<span class=\"mp-plano-tag\">' + T('master.js.planos.padrao') + '</span>'", $js);
-        self::assertSame('Padrão: toda conta nova começa aqui', self::catalogo('master.js.planos.padrao'));
+        self::assertStringContainsString("T(TAG_PLANO[p.codigo])", $js);
+        self::assertSame('Convênio OAB · toda conta nova começa aqui', self::catalogo('master.js.planos.tag_free'));
+        self::assertSame('Mais escolhido', self::catalogo('master.js.planos.tag_escolhido'));
+        self::assertSame('Todos os recursos liberados', self::catalogo('master.js.planos.recursos'));
+        self::assertSame('Ajustar', self::catalogo('master.js.planos.ajustar'));
+        self::assertStringContainsString('URLS.logoOab', $js);
         self::assertStringContainsString("'<span> ' + T('master.js.planos.por_mes') + '</span></span>'", $js);
         self::assertSame('/ mês', self::catalogo('master.js.planos.por_mes'));
-        self::assertStringContainsString("p.limiteUsuarios === null ? T('master.js.planos.usuarios_sem_limite') : T('master.js.planos.usuarios', { n: num(p.limiteUsuarios) })", $js);
-        self::assertSame('usuários sem limite', self::catalogo('master.js.planos.usuarios_sem_limite'));
-        self::assertSame('{n} usuários', self::catalogo('master.js.planos.usuarios'));
-        self::assertStringContainsString("T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span>'", $js);
+        self::assertSame('<b>{gb} GB</b> de armazenamento · usuários ilimitados', self::catalogo('master.js.planos.cap'));
+        self::assertStringContainsString("T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>'", $js);
         self::assertSame('{n} conta(s) · {acima} perto ou acima da franquia', self::catalogo('master.js.planos.contas'));
-        self::assertStringContainsString("const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#7a3e8f' };", $js);
-        self::textoNoCatalogo($js, 'master.js.planos.nota', 'Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail recomendando ampliar o espaço; em 100% novos envios ficam bloqueados, mas consultar e baixar arquivos continua liberado. Mudanças de plano com impacto comercial exigem confirmação e ficam registradas na auditoria.');
+        self::assertStringContainsString("const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#5b3f9e' };", $js);
+        self::textoNoCatalogo($js, 'master.js.planos.nota', 'Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.');
 
         $css = self::css();
         self::assertStringContainsString('.mp-planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }', $css);
