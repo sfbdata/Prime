@@ -1060,3 +1060,57 @@ master:
             aproximar: Aproximar
             afastar: Afastar
             ajustar: Ajustar ao mapa
+        # Seção "Configurações globais" (public/js/master/configuracoes.js; desenho 05 VS 25.10.26, cgGrupos).
+        config:
+            restaurar: Restaurar padrão
+            descartar: Descartar
+            salvar: Salvar
+            confirmar_padrao: Voltar todas as configurações ao padrão?
+            nao_salvas: Alterações não salvas
+            salvas: Configurações salvas ✓
+            ultima: 'Última alteração em {data}'
+            erro_carregar: Não foi possível carregar as configurações. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+            grupo:
+                identidade: Identidade
+                contas: Contas novas
+                seguranca: Segurança
+                regiao: Região
+                manutencao: Manutenção programada
+            campo:
+                nome: Nome do sistema
+                remetente: E-mail remetente
+                suporte: E-mail do suporte
+                cadastro: Cadastro de novas contas
+                freeGb: Espaço do Plano Free (GB)
+                aviso: Aviso de espaço a partir de (%)
+                sessao: Sessão expira após (min sem uso)
+                tentativas: Bloquear login após (tentativas)
+                dois: Verificação em duas etapas
+                retencao: Guardar auditoria por (dias)
+                idioma: Idioma padrão
+                fuso: Fuso horário
+                manut: Aviso para todos os usuários
+                manutAte: Mostrar o aviso até
+            ajuda:
+                remetente: Usado em campanhas e avisos
+                manut: 'Ex.: o sistema ficará indisponível das 22h às 23h. Em branco, nenhum aviso.'
+            opcao:
+                cadastro:
+                    'on': Aberto
+                    convite: Só por convite
+                    'off': Fechado
+                dois:
+                    master: Obrigatória para o Master
+                    prim: Master e primários
+                    todos: Todos os usuários
+                    opc: Opcional
+                idioma:
+                    pt-BR: Português (Brasil)
+                    en: English
+                    es: Español
+                fuso:
+                    America/Sao_Paulo: Brasília (GMT-3)
+                    America/Manaus: Manaus (GMT-4)
+                    America/Rio_Branco: Rio Branco (GMT-5)
+                    America/Noronha: Noronha (GMT-2)

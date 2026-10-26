@@ -230,6 +230,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
         // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
         \App\Master\Entity\TemaConfig::class,
+        // Configurações globais do Master (Perfis 1.2 VS 25.10.26, P2): linha única (id 1) da PLATAFORMA, escrita só pelo
+        // Master, como o TemaConfig. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\ConfiguracaoGlobal::class,
         // BlueJus IA no Painel do Master (frente ia-anthropic-ligar, PR B, 24/10/2026): linha única de configuração da
         // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
         // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
@@ -330,7 +333,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
     // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
     // 80 → 82 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 82;
+    // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 83;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
