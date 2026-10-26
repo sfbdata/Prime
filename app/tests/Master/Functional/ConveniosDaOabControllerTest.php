@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Functional;
 
+use App\Comercial\Envio\CarteiroInterface;
+use App\Comercial\Envio\MensagemDeEmail;
+use App\Comercial\Envio\ResultadoDoEnvio;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -181,6 +184,38 @@ final class ConveniosDaOabControllerTest extends JusPrimeWebTestCase
         $this->postar(['uf' => 'SP', 'modo' => 'livre']);
         self::assertSame(2, $this->enviosPara($deSp));
         self::assertNotEmpty(static::getContainer()->get('messenger.transport.comercial')->getSent(), 'a fila é em memória: nada saiu de verdade');
+    }
+
+    #[TestDox('falha no meio do enfileiramento desfaz a gravação: 500 com a mensagem, nada alterado, nenhum aviso')]
+    public function testFalhaNoMeioDesfaz(): void
+    {
+        $this->entrarComoMaster();
+        $a = $this->escritorioComPrimario('SP', true);
+        $this->escritorioComPrimario('SP', true);
+        static::getContainer()->set(CarteiroInterface::class, new class (static::getContainer()) implements CarteiroInterface {
+            private int $n = 0;
+
+            public function __construct(private readonly \Psr\Container\ContainerInterface $container)
+            {
+            }
+
+            public function enviar(MensagemDeEmail $mensagem): ResultadoDoEnvio
+            {
+                if (++$this->n === 2) {
+                    throw new \RuntimeException('fila fora');
+                }
+
+                return $this->container->get(\App\Comercial\Service\Carteiro::class)->enviar($mensagem);
+            }
+        });
+
+        $this->postar(['uf' => 'SP', 'modo' => 'dif', 'valor' => '9,90', 'desde' => '2026-11-01']);
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame('Não foi possível enfileirar os avisos. Nada foi alterado.', $this->json()['erro']);
+        $this->em->clear();
+        self::assertNull($this->gravada());
+        self::assertSame(0, $this->enviosPara($a));
     }
 
     #[TestDox('pedido recusado não avisa ninguém')]

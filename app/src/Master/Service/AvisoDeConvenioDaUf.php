@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace App\Master\Service;
 
 use App\Comercial\Envio\CarteiroInterface;
-use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Master\Entity\ConvenioDaUf;
-use App\Master\Exception\ConvenioRecusado;
 use App\Master\Repository\PrimariosDosEscritoriosRepository;
 use App\Master\Repository\PainelMasterRepository;
-use Psr\Log\LoggerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -20,9 +17,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * (desenho 05 Perfis 1.2 VS 25.10.26, P4c). Pela porta única de envio: um e-mail por pessoa, na fila `comercial`.
  *
  * Tipo `transacional` (aviso do contrato da própria conta, como a resposta da Central) e origem `convenio_oab`. A origem
- * NÃO é isenta da {@see CotaDeEnvio}: o handler só envia com vaga no teto de 24 h, dentro da reserva dos que não são
- * campanha. Para uma alteração não consumir a reserva inteira, o teto de destinatários é metade dela (a alteração acima
- * disso é recusada antes de gravar).
+ * NÃO é isenta da {@see \App\Comercial\Envio\CotaDeEnvio}: todos entram na fila e o handler só envia com vaga no
+ * teto de 24 h, adiando o que passar. Em estado grande a entrega pode se espalhar por mais de um dia.
+ * Sem teto de destinatários: uma UF grande nunca fica sem poder mudar o convênio.
  */
 final class AvisoDeConvenioDaUf
 {
@@ -32,14 +29,12 @@ final class AvisoDeConvenioDaUf
         private readonly PainelMasterRepository $painel,
         private readonly PrimariosDosEscritoriosRepository $primarios,
         private readonly CarteiroInterface $carteiro,
-        private readonly CotaDeEnvio $cota,
         private readonly TranslatorInterface $tradutor,
-        private readonly LoggerInterface $logger,
     ) {
     }
 
     /**
-     * Quem receberia o aviso. Recusa quando passa do teto, para o UseCase falhar antes de gravar o convênio.
+     * Quem recebe o aviso: primários ativos dos escritórios ativos da UF.
      *
      * @return list<array{email: string, nome: string}>
      */
@@ -52,23 +47,12 @@ final class AvisoDeConvenioDaUf
             }
         }
 
-        $destinatarios = $this->primarios->dos($escritorios);
-        $teto = $this->tetoDeDestinatarios();
-        if (count($destinatarios) > $teto) {
-            throw new ConvenioRecusado($this->tradutor->trans('master.convenio_email.recusa_teto', ['uf' => $uf, 'n' => count($destinatarios), 'teto' => $teto]));
-        }
-
-        return $destinatarios;
-    }
-
-    public function tetoDeDestinatarios(): int
-    {
-        return max(1, intdiv($this->cota->reserva(), 2));
+        return $this->primarios->dos($escritorios);
     }
 
     /**
-     * Enfileira um aviso por destinatário. `$convenio` nulo = voltou a ser gratuito. Falha de um envio vai ao log (só
-     * com a UF) e não impede os outros nem desfaz a mudança, que já foi gravada.
+     * Enfileira um aviso por destinatário, dentro da transação do chamador. `$convenio` nulo = voltou a ser gratuito.
+     * Qualquer falha propaga: o UseCase desfaz a gravação, para nunca ficar mudança sem aviso.
      *
      * @param list<array{email: string, nome: string}> $destinatarios
      *
@@ -76,17 +60,11 @@ final class AvisoDeConvenioDaUf
      */
     public function avisar(string $uf, ?ConvenioDaUf $convenio, array $destinatarios): int
     {
-        $enfileirados = 0;
         foreach ($destinatarios as $d) {
-            try {
-                $this->carteiro->enviar($this->mensagem($uf, $convenio, $d['email'], $d['nome']));
-                ++$enfileirados;
-            } catch (\Throwable $erro) {
-                $this->logger->error('Aviso de convênio OAB: um e-mail não entrou na fila.', ['uf' => $uf, 'erro' => $erro::class]);
-            }
+            $this->carteiro->enviar($this->mensagem($uf, $convenio, $d['email'], $d['nome']));
         }
 
-        return $enfileirados;
+        return count($destinatarios);
     }
 
     public function mensagem(string $uf, ?ConvenioDaUf $convenio, string $email, string $nome): MensagemDeEmail

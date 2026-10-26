@@ -5,20 +5,18 @@ declare(strict_types=1);
 namespace App\Tests\Master\Unit;
 
 use App\Comercial\Envio\CarteiroInterface;
-use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\ResultadoDoEnvio;
-use App\Comercial\Repository\DestinoDaCampanhaRepository;
-use App\Comercial\Repository\EnvioDeEmailRepository;
 use App\Master\DTO\AlterarConvenioDaUfInput;
 use App\Master\Entity\ConvenioDaUf;
-use App\Master\Exception\ConvenioRecusado;
 use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\Repository\PrimariosDosEscritoriosRepository;
 use App\Master\Service\AvisoDeConvenioDaUf;
 use App\Master\UseCase\AlterarConvenioDaUfUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Master\Exception\AvisoDeConvenioNaoEnfileirado;
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -37,7 +35,7 @@ final class AlterarConvenioDaUfUseCaseTest extends TestCase
     private int $remocoes = 0;
 
     /** @param list<array{email: string, nome: string}> $primarios */
-    private function useCase(?ConvenioDaUf $atual, array $primarios, int $tetoTotal = 2400): AlterarConvenioDaUfUseCase
+    private function useCase(?ConvenioDaUf $atual, array $primarios, ?\Throwable $falhaNoEnvio = null): AlterarConvenioDaUfUseCase
     {
         $convenios = $this->createStub(ConvenioDaUfRepository::class);
         $convenios->method('buscar')->willReturn($atual);
@@ -53,17 +51,21 @@ final class AlterarConvenioDaUfUseCaseTest extends TestCase
         $repo = $this->createStub(PrimariosDosEscritoriosRepository::class);
         $repo->method('dos')->willReturn($primarios);
         $carteiro = $this->createStub(CarteiroInterface::class);
-        $carteiro->method('enviar')->willReturnCallback(function (MensagemDeEmail $m): ResultadoDoEnvio {
+        $carteiro->method('enviar')->willReturnCallback(function (MensagemDeEmail $m) use ($falhaNoEnvio): ResultadoDoEnvio {
+            if ($falhaNoEnvio !== null) {
+                throw $falhaNoEnvio;
+            }
             $this->enviadas[] = $m;
 
             return new ResultadoDoEnvio(1, ResultadoDoEnvio::ENFILEIRADO);
         });
-        $cota = new CotaDeEnvio($this->createStub(EnvioDeEmailRepository::class), $this->createStub(DestinoDaCampanhaRepository::class), new MockClock(), $tetoTotal, 1600, 10, 80);
         $tradutor = $this->createStub(TranslatorInterface::class);
         $tradutor->method('trans')->willReturnCallback(static fn (string $id): string => $id);
-        $aviso = new AvisoDeConvenioDaUf($painel, $repo, $carteiro, $cota, $tradutor, new NullLogger());
+        $aviso = new AvisoDeConvenioDaUf($painel, $repo, $carteiro, $tradutor);
+        $conexao = $this->createStub(Connection::class);
+        $conexao->method('transactional')->willReturnCallback(static fn (\Closure $f): mixed => $f());
 
-        return new AlterarConvenioDaUfUseCase($convenios, new MockClock(new \DateTimeImmutable('2026-10-26 10:00:00')), new EscopoDeAuditoriaDePlataforma(), $aviso);
+        return new AlterarConvenioDaUfUseCase($convenios, new MockClock(new \DateTimeImmutable('2026-10-26 10:00:00')), new EscopoDeAuditoriaDePlataforma(), $aviso, $conexao, new NullLogger());
     }
 
     private function pedido(string $modo, float $valor = 9.9, string $desde = '2026-11-01', ?string $motivo = null): AlterarConvenioDaUfInput
@@ -119,19 +121,20 @@ final class AlterarConvenioDaUfUseCaseTest extends TestCase
         self::assertSame([], $this->enviadas);
     }
 
-    #[TestDox('acima do teto: recusa antes de gravar e não envia')]
-    public function testTeto(): void
+    #[TestDox('UF grande: sem teto, todos entram na fila')]
+    public function testSemTeto(): void
     {
-        // total 2400, campanhas 1600: reserva 800, teto 400.
-        $muitos = array_map(static fn (int $i): array => ['email' => "p$i@x.com", 'nome' => "P$i"], range(1, 401));
+        $muitos = array_map(static fn (int $i): array => ['email' => "p$i@x.com", 'nome' => "P$i"], range(1, 1500));
 
-        $this->expectException(ConvenioRecusado::class);
-        try {
-            $this->useCase(null, $muitos)->executar($this->pedido('dif'));
-        } finally {
-            self::assertSame(0, $this->gravacoes);
-            self::assertSame([], $this->enviadas);
-        }
+        self::assertSame(1500, $this->useCase(null, $muitos)->executar($this->pedido('dif')));
+    }
+
+    #[TestDox('falha ao enfileirar propaga como AvisoDeConvenioNaoEnfileirado (a transação desfaz a gravação)')]
+    public function testFalhaAoEnfileirar(): void
+    {
+        $this->expectException(AvisoDeConvenioNaoEnfileirado::class);
+
+        $this->useCase(null, self::PRIMARIOS, new \RuntimeException('fila fora'))->executar($this->pedido('dif'));
     }
 
     #[TestDox('sem primários no estado: grava e avisa zero')]

@@ -5,22 +5,16 @@ declare(strict_types=1);
 namespace App\Tests\Master\Unit;
 
 use App\Comercial\Envio\CarteiroInterface;
-use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\ResultadoDoEnvio;
 use App\Comercial\Envio\TipoDeEnvio;
-use App\Comercial\Repository\DestinoDaCampanhaRepository;
-use App\Comercial\Repository\EnvioDeEmailRepository;
 use App\Master\Entity\ConvenioDaUf;
-use App\Master\Exception\ConvenioRecusado;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\Repository\PrimariosDosEscritoriosRepository;
 use App\Master\Service\AvisoDeConvenioDaUf;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
-use Symfony\Component\Clock\MockClock;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[CoversClass(AvisoDeConvenioDaUf::class)]
@@ -33,7 +27,7 @@ final class AvisoDeConvenioDaUfTest extends TestCase
     private array $escritoriosConsultados = [];
 
     /** @param list<array{email: string, nome: string}> $primarios */
-    private function servico(array $primarios, int $tetoTotal = 10, int $tetoCampanhas = 6): AvisoDeConvenioDaUf
+    private function servico(array $primarios): AvisoDeConvenioDaUf
     {
         $painel = $this->createStub(PainelMasterRepository::class);
         $painel->method('escritorios')->willReturn([
@@ -55,11 +49,10 @@ final class AvisoDeConvenioDaUfTest extends TestCase
 
             return new ResultadoDoEnvio(1, ResultadoDoEnvio::ENFILEIRADO);
         });
-        $cota = new CotaDeEnvio($this->createStub(EnvioDeEmailRepository::class), $this->createStub(DestinoDaCampanhaRepository::class), new MockClock(), $tetoTotal, $tetoCampanhas, 10, 80);
         $tradutor = $this->createStub(TranslatorInterface::class);
         $tradutor->method('trans')->willReturnCallback(static fn (string $id, array $p = []): string => $id . ($p === [] ? '' : '|' . json_encode($p, \JSON_UNESCAPED_UNICODE)));
 
-        return new AvisoDeConvenioDaUf($painel, $repo, $carteiro, $cota, $tradutor, new NullLogger());
+        return new AvisoDeConvenioDaUf($painel, $repo, $carteiro, $tradutor);
     }
 
     private function convenio(string $modo, ?string $motivo = null): ConvenioDaUf
@@ -117,44 +110,26 @@ final class AvisoDeConvenioDaUfTest extends TestCase
         self::assertSame('master.convenio_email.assunto_livre|{"uf":"SP","valor":"0,00","data":""}', $this->enviadas[0]->assunto);
     }
 
-    #[TestDox('acima do teto (metade da reserva da cota) recusa com mensagem, sem enviar')]
-    public function testTeto(): void
+    #[TestDox('sem teto de destinatários: enfileira todos, por maior que seja a UF')]
+    public function testSemTeto(): void
     {
-        // total 10, campanhas 6: reserva 4, teto 2 destinatários.
-        $s = $this->servico([['email' => 'a@x.com', 'nome' => 'A'], ['email' => 'b@x.com', 'nome' => 'B'], ['email' => 'c@x.com', 'nome' => 'C']]);
+        $muitos = array_map(static fn (int $i): array => ['email' => "p$i@x.com", 'nome' => "P$i"], range(1, 1500));
+        $s = $this->servico($muitos);
 
-        self::assertSame(2, $s->tetoDeDestinatarios());
-        try {
-            $s->destinatarios('SP');
-            self::fail('Devia recusar');
-        } catch (ConvenioRecusado $e) {
-            self::assertStringContainsString('recusa_teto', $e->getMessage());
-        }
-        self::assertSame([], $this->enviadas);
+        self::assertCount(1500, $s->destinatarios('SP'));
+        self::assertSame(1500, $s->avisar('SP', null, $muitos));
     }
 
-    #[TestDox('falha de um envio não derruba os outros e não conta como enfileirado')]
-    public function testFalhaIsolada(): void
+    #[TestDox('falha de um envio propaga, para o UseCase desfazer a gravação')]
+    public function testFalhaPropaga(): void
     {
         $carteiro = $this->createStub(CarteiroInterface::class);
-        $carteiro->method('enviar')->willReturnCallback(static function (MensagemDeEmail $m): ResultadoDoEnvio {
-            if ($m->para === 'a@x.com') {
-                throw new \RuntimeException('falha');
-            }
-
-            return new ResultadoDoEnvio(1, ResultadoDoEnvio::ENFILEIRADO);
-        });
+        $carteiro->method('enviar')->willThrowException(new \RuntimeException('falha'));
         $tradutor = $this->createStub(TranslatorInterface::class);
         $tradutor->method('trans')->willReturnCallback(static fn (string $id): string => $id);
-        $s = new AvisoDeConvenioDaUf(
-            $this->createStub(PainelMasterRepository::class),
-            $this->createStub(PrimariosDosEscritoriosRepository::class),
-            $carteiro,
-            new CotaDeEnvio($this->createStub(EnvioDeEmailRepository::class), $this->createStub(DestinoDaCampanhaRepository::class), new MockClock(), 10, 6, 10, 80),
-            $tradutor,
-            new NullLogger(),
-        );
+        $s = new AvisoDeConvenioDaUf($this->createStub(PainelMasterRepository::class), $this->createStub(PrimariosDosEscritoriosRepository::class), $carteiro, $tradutor);
 
-        self::assertSame(1, $s->avisar('SP', null, [['email' => 'a@x.com', 'nome' => 'A'], ['email' => 'b@x.com', 'nome' => 'B']]));
+        $this->expectException(\RuntimeException::class);
+        $s->avisar('SP', null, [['email' => 'a@x.com', 'nome' => 'A']]);
     }
 }

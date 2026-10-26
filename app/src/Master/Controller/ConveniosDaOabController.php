@@ -6,6 +6,7 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Master\DTO\AlterarConvenioDaUfInput;
+use App\Master\Exception\AvisoDeConvenioNaoEnfileirado;
 use App\Master\Exception\ConvenioRecusado;
 use App\Master\UseCase\AlterarConvenioDaUfUseCase;
 use App\Master\UseCase\ConsultarConveniosDaOabUseCase;
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Painel "Convênio OAB por estado" da seção Contas do /master (desenho 05 Perfis 1.2 VS 25.10.26; spec
@@ -36,7 +38,7 @@ final class ConveniosDaOabController extends AbstractController
     }
 
     #[Route('/master/convenios', name: 'master_convenios_alterar', methods: ['POST'])]
-    public function alterar(Request $request, AlterarConvenioDaUfUseCase $alterar, ConsultarConveniosDaOabUseCase $consultar): JsonResponse
+    public function alterar(Request $request, AlterarConvenioDaUfUseCase $alterar, ConsultarConveniosDaOabUseCase $consultar, TranslatorInterface $tradutor): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF, (string) $request->headers->get('X-CSRF-Token', ''))) {
             return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
@@ -46,6 +48,8 @@ final class ConveniosDaOabController extends AbstractController
             $avisados = $alterar->executar(AlterarConvenioDaUfInput::doJson($this->ator(), $this->corpo($request)));
         } catch (ConvenioRecusado $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (AvisoDeConvenioNaoEnfileirado) {
+            return $this->json(['erro' => $tradutor->trans('master.convenio_email.falha_ao_enfileirar')], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         return $this->json($consultar->executar()->paraArray() + ['avisados' => $avisados]);
