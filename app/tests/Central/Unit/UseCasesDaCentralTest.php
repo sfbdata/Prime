@@ -16,7 +16,9 @@ use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\Service\AvisoDeMencaoNaCentral;
 use App\Central\Service\MencoesDaCentral;
+use App\Central\UseCase\AbrirConversaComAIaUseCase;
 use App\Central\UseCase\AbrirConversaUseCase;
+use App\Central\Exception\SemAcessoACentralException;
 use App\Central\UseCase\EnviarMensagemUseCase;
 use App\Central\UseCase\LimparConversaUseCase;
 use App\Central\UseCase\MarcarConversaComoLidaUseCase;
@@ -40,6 +42,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /** Regras dos UseCases da Central (A1 e A2) que o teste HTTP não isola. */
 #[CoversClass(AbrirConversaUseCase::class)]
+#[CoversClass(AbrirConversaComAIaUseCase::class)]
 #[CoversClass(MarcarConversaComoNaoLidaUseCase::class)]
 #[CoversClass(\App\Central\UseCase\AdicionarParticipanteUseCase::class)]
 #[CoversClass(EnviarMensagemUseCase::class)]
@@ -104,6 +107,81 @@ final class UseCasesDaCentralTest extends TestCase
 
         $this->expectException(PedidoInvalidoNaCentralException::class);
         $useCase->executar($eu, $tenant, 2);
+    }
+
+    #[TestDox('IA: sem vínculo ativo é recusado e nada é gravado')]
+    public function testIaSemVinculo(): void
+    {
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::never())->method('flush');
+        $conversas = $this->createMock(ConversaRepository::class);
+        $conversas->expects(self::never())->method('salvar');
+
+        $this->expectException(SemAcessoACentralException::class);
+        (new AbrirConversaComAIaUseCase($this->acesso(static fn (): bool => false), $conversas, $this->createStub(ParticipanteRepository::class), $em, $this->relogio()))
+            ->executar($this->usuario(1), new Tenant());
+    }
+
+    #[TestDox('IA: conversa que já existe é devolvida, sem criar outra')]
+    public function testIaIdempotente(): void
+    {
+        $tenant = new Tenant();
+        $eu = $this->usuario(1);
+        $existente = Conversa::comAIa($tenant, $eu, new \DateTimeImmutable());
+        DefineId::em($existente, 50);
+        $conversas = $this->createMock(ConversaRepository::class);
+        $conversas->method('daIaDe')->with($tenant, $eu)->willReturn($existente);
+        $conversas->expects(self::never())->method('salvar');
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::never())->method('flush');
+
+        $id = (new AbrirConversaComAIaUseCase($this->acesso(static fn (): bool => true), $conversas, $this->createStub(ParticipanteRepository::class), $em, $this->relogio()))
+            ->executar($eu, $tenant);
+
+        self::assertSame(50, $id);
+    }
+
+    #[TestDox('IA: conversa nova grava a conversa (menor = maior = o usuário) e UMA participação, só dele')]
+    public function testIaCriaComUmParticipante(): void
+    {
+        $tenant = new Tenant();
+        $eu = $this->usuario(1);
+        $conversas = $this->createMock(ConversaRepository::class);
+        $conversas->method('daIaDe')->willReturn(null);
+        $criada = null;
+        $conversas->expects(self::once())->method('salvar')->willReturnCallback(static function (Conversa $c) use (&$criada): void {
+            DefineId::em($c, 51);
+            $criada = $c;
+        });
+        $gravados = [];
+        $participantes = $this->createMock(ParticipanteRepository::class);
+        $participantes->expects(self::once())->method('salvar')->willReturnCallback(function (Participante $p) use (&$gravados): void {
+            $gravados[] = $p->getUsuario()->getId();
+        });
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::once())->method('flush');
+
+        $id = (new AbrirConversaComAIaUseCase($this->acesso(static fn (): bool => true), $conversas, $participantes, $em, $this->relogio()))
+            ->executar($eu, $tenant);
+
+        self::assertSame(51, $id);
+        self::assertSame([1], $gravados);
+        self::assertTrue($criada->isIa());
+        self::assertSame($eu, $criada->getUsuarioMenor());
+        self::assertSame($eu, $criada->getUsuarioMaior());
+    }
+
+    #[TestDox('IA: a corrida vira "tente de novo", não erro 500')]
+    public function testIaCorrida(): void
+    {
+        $conversas = $this->createStub(ConversaRepository::class);
+        $conversas->method('daIaDe')->willReturn(null);
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('flush')->willThrowException($this->createStub(UniqueConstraintViolationException::class));
+
+        $this->expectException(ConversaCriadaAoMesmoTempoException::class);
+        (new AbrirConversaComAIaUseCase($this->acesso(static fn (): bool => true), $conversas, $this->createStub(ParticipanteRepository::class), $em, $this->relogio()))
+            ->executar($this->usuario(1), new Tenant());
     }
 
     #[TestDox('Abrir: conversa que já existe é devolvida, sem criar outra')]

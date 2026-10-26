@@ -359,6 +359,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     data_de:     fd.get('data_de')     || '',
                     data_ate:    fd.get('data_ate')    || '',
                     criado_por:  fd.get('criado_por')  || '', // só existe quando veio por deep-link
+                    concluida:   fd.get('concluida')   || '', // idem: "concluídas no período" (coluna Pastas concluídas do Dashboard)
                     expediente:  fd.get('expediente')  || '', // filtro do sistema do trilho (E12)
                     por_pagina:  fd.get('por_pagina')  || '',
                     ordenar:     fd.get('ordenar')     || '',
@@ -404,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var params = new URLSearchParams();
         var f = estado.filtros || {};
-        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'expediente', 'por_pagina', 'ordenar', 'direcao'].forEach(function (k) {
+        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'concluida', 'expediente', 'por_pagina', 'ordenar', 'direcao'].forEach(function (k) {
             if (f[k]) params.set(k, f[k]);
         });
         if (estado.page && estado.page > 1) params.set('page', estado.page);
@@ -448,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!window.history || typeof window.history.replaceState !== 'function') return;
         var atual;
         try { atual = new URL(window.location.href); } catch (e) { return; }
-        ['painel', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'expediente', 'por_pagina', 'ordenar', 'direcao', 'page']
+        ['painel', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'concluida', 'expediente', 'por_pagina', 'ordenar', 'direcao', 'page']
             .forEach(function (chave) { atual.searchParams.delete(chave); });
         window.history.replaceState(window.history.state, '', atual.pathname + atual.search + atual.hash);
     }
@@ -473,6 +474,26 @@ document.addEventListener('DOMContentLoaded', function () {
         // js-pasta-filtro: o "Limpar tudo" zera junto com os outros filtros.
         campo.className = 'js-pasta-filtro';
         campo.dataset.rotulo = BJ_T.t('expediente.js.lista.criado_por');
+        form.appendChild(campo);
+    }
+
+    // "Concluídas no período" também só chega por deep-link (coluna Pastas concluídas do Dashboard):
+    // mesmo tratamento do "Criado por", para a paginação, a ordenação e as datas não o perderem.
+    function garantirCampoConcluida(urlCarregada) {
+        var form = document.getElementById('formFiltrosPasta');
+        if (!form || form.querySelector('[name="concluida"]')) return;
+
+        var valor = '';
+        try { valor = new URL(urlCarregada, window.location.origin).searchParams.get('concluida') || ''; }
+        catch (e) { return; }
+        if (valor !== '1') return;
+
+        var campo = document.createElement('input');
+        campo.type  = 'hidden';
+        campo.name  = 'concluida';
+        campo.value = valor;
+        campo.className = 'js-pasta-filtro';
+        campo.dataset.rotulo = BJ_T.t('expediente.js.lista.concluida_no_periodo');
         form.appendChild(campo);
     }
 
@@ -540,6 +561,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Pós-processamento não-crítico: se algo aqui falhar, a tabela já foi
                 // injetada e continua visível — não escondemos tudo atrás do erro.
                 try { garantirCampoCriadoPor(url); } catch (e) { /* ignora */ }
+                try { garantirCampoConcluida(url); } catch (e) { /* ignora */ }
                 try { salvarEstadoPainel(); } catch (e) { /* ignora */ }
                 try { construirChipsPastas(); } catch (e) { /* ignora */ }
             })
@@ -595,6 +617,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 campo: 'criado_por',
                 rotulo: criadoPor.dataset.rotulo || BJ_T.t('expediente.js.lista.criado_por'),
                 valor: valorCriador
+            });
+        }
+
+        // "Concluídas no período" (hidden, só via deep-link): as datas do filtro passam a valer sobre a conclusão.
+        var concluida = form.querySelector('input[type="hidden"][name="concluida"]');
+        if (concluida && concluida.value === '1') {
+            chips.push({
+                campo: 'concluida',
+                rotulo: '',
+                valor: concluida.dataset.rotulo || BJ_T.t('expediente.js.lista.concluida_no_periodo')
             });
         }
 

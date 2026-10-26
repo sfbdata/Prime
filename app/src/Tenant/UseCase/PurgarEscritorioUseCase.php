@@ -123,6 +123,7 @@ final class PurgarEscritorioUseCase
         // são SET NULL, então não caem por cascata — precisam de deleção explícita).
         ['publicacao_djen', 'tenant_id = :tenant'],
         ['oab_monitorada', 'tenant_id = :tenant'],
+        ['djen_processo_acompanhado', 'tenant_id = :tenant'],
         // Sync — conexão de Drive do escritório (guarda o refresh_token CIFRADO). FK tenant NO ACTION
         // (bloqueia apagar o tenant) + tenant_id direto → deleção explícita. Apaga o segredo junto.
         ['sync_drive_conexao', 'tenant_id = :tenant'],
@@ -139,6 +140,10 @@ final class PurgarEscritorioUseCase
         // SET NULL; nada as referencia).
         ['contribua_sugestao', 'tenant_id = :tenant'],
         ['contribua_apoio', 'tenant_id = :tenant'],
+        // Service Desk (desenho 12): razão do saldo. Apagado como o apoio do Contribua (decisão do dono: exclusão apaga
+        // na hora). Sem FK entre as duas; a FK de tenant é CASCADE, mas a deleção explícita deixa a cobertura visível.
+        ['service_desk_movimento', 'tenant_id = :tenant'],
+        ['service_desk_saldo', 'tenant_id = :tenant'],
         ['contribua_motivo_de_nao_apoiar', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem

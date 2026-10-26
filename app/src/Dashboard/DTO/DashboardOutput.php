@@ -76,5 +76,6 @@ final class DashboardOutput
         public readonly ?int   $campeaoId = null,
         /** @var array<string, array{todos: ?string, pessoas: array<int, string>}> cortes ativos do "Zerar" (CortesDoDashboard::paraTela) */
         public readonly array  $zeramentos = [],
+        public readonly ?MetaDePastasDoMesOutput $metaDePastas = null, // meta de pastas do mês (DASH-016)
     ) {}
 }

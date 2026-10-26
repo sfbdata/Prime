@@ -7,6 +7,7 @@ namespace App\Central\Repository;
 use App\Central\Entity\Conversa;
 use App\Central\Entity\Mensagem;
 use App\Central\Entity\Participante;
+use App\Central\Entity\TipoDeConversa;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -54,7 +55,8 @@ class MensagemRepository extends ServiceEntityRepository
     }
 
     /**
-     * A última mensagem de cada conversa informada (para a prévia da lista), indexada pelo id da conversa.
+     * A última mensagem de cada conversa informada (para a prévia da lista), indexada pelo id da conversa. Depende de
+     * ids já filtrados por `ParticipanteRepository::doUsuario` (que exclui a conversa IA); não filtra o tipo sozinha.
      *
      * @param list<int> $conversaIds
      *
@@ -98,13 +100,16 @@ class MensagemRepository extends ServiceEntityRepository
         $linhas = $this->getEntityManager()->createQuery(
             'SELECT IDENTITY(m.conversa) AS conversa, COUNT(m.id) AS total
              FROM ' . Mensagem::class . ' m
+             JOIN m.conversa c
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
                 AND p.saiuEm IS NULL' . ($semSilenciadas ? ' AND p.silenciada = false' : '') . '
-             WHERE m.tenant = :tenant AND m.autor <> :usuario AND m.sistema = false AND m.id > p.ultimaLidaId
+             WHERE m.tenant = :tenant AND c.tenant = :tenant AND c.tipo <> :ia
+                AND (m.autor <> :usuario OR m.deIa = true) AND m.sistema = false AND m.id > p.ultimaLidaId
              GROUP BY m.conversa'
         )
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
+            ->setParameter('ia', TipoDeConversa::Ia)
             ->getArrayResult();
 
         $porConversa = [];
@@ -133,12 +138,15 @@ class MensagemRepository extends ServiceEntityRepository
         $linhas = $this->getEntityManager()->createQuery(
             'SELECT IDENTITY(p.usuario) AS usuario, COUNT(m.id) AS total
              FROM ' . Mensagem::class . ' m
+             JOIN m.conversa c
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.tenant = :tenant
                 AND p.usuario IN (:ids) AND p.saiuEm IS NULL
-             WHERE m.tenant = :tenant AND m.autor <> p.usuario AND m.sistema = false AND m.id > p.ultimaLidaId
+             WHERE m.tenant = :tenant AND c.tenant = :tenant AND c.tipo <> :ia
+                AND (m.autor <> p.usuario OR m.deIa = true) AND m.sistema = false AND m.id > p.ultimaLidaId
              GROUP BY p.usuario'
         )
             ->setParameter('tenant', $tenant)
+            ->setParameter('ia', TipoDeConversa::Ia)
             ->setParameter('ids', $usuarioIds)
             ->getArrayResult();
 
@@ -186,13 +194,15 @@ class MensagemRepository extends ServiceEntityRepository
              JOIN m.autor a
              LEFT JOIN m.respostaA r
              LEFT JOIN r.autor ra
+             JOIN m.conversa c
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
                 AND p.saiuEm IS NULL
-             WHERE m.tenant = :tenant AND m.id > p.limpaAteId AND ' . $condicao . '
+             WHERE m.tenant = :tenant AND c.tenant = :tenant AND c.tipo <> :ia AND m.id > p.limpaAteId AND ' . $condicao . '
              ORDER BY m.id ASC'
         )
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
+            ->setParameter('ia', TipoDeConversa::Ia)
             ->setMaxResults($limite);
         foreach ($parametros as $nome => $valor) {
             $query->setParameter($nome, $valor);
@@ -209,12 +219,14 @@ class MensagemRepository extends ServiceEntityRepository
     {
         return (int) $this->getEntityManager()->createQuery(
             'SELECT MAX(m.id) FROM ' . Mensagem::class . ' m
+             JOIN m.conversa c
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
                 AND p.saiuEm IS NULL
-             WHERE m.tenant = :tenant'
+             WHERE m.tenant = :tenant AND c.tenant = :tenant AND c.tipo <> :ia'
         )
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
+            ->setParameter('ia', TipoDeConversa::Ia)
             ->getSingleScalarResult();
     }
 

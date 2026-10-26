@@ -16,6 +16,7 @@ use App\Cobranca\Entity\RelatorioImportado;
 use App\Cobranca\Entity\RelatorioLinha;
 use App\Cobranca\Entity\RelatorioTotalizador;
 use App\Djen\Entity\OabMonitorada;
+use App\Djen\Entity\ProcessoAcompanhado;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Audit\AuditLog;
 use App\Expediente\Entity\Marcador;
@@ -73,6 +74,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Contador da sequência de metas do escritório: estado operacional (o último número entregue), gravado
         // só por SQL. O número que vale fica na própria meta, que é Auditavel e já entra na trilha ao nascer.
         \App\Tarefa\Entity\NumeracaoDeMetas::class,
+        // Evento do monitor de saúde (Desempenho do Master): telemetria com retenção de 90 dias, uma linha por erro,
+        // carga, ping ou login. Auditar encheria o audit_log de ruído sem valor de prova; incidentes e registros
+        // de backup, que são decisão do Master, são Auditavel.
+        \App\Master\Entity\EventoDeDesempenho::class,
         // Aprendizado de Minhas Metas (Fase 4, D4): texto de despacho e linhas de pendência guardados só para as
         // sugestões da própria pessoa. Auditar daria uma linha por despacho e deixaria metadados no audit_log depois do
         // "Apagar o que foi aprendido"; o ato que importa (o despacho, a passagem) já é auditado na meta.
@@ -263,6 +268,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // PublicacaoDjen é captada em lote pelo sync (alto volume); OabMonitorada é config do escritório.
         OabMonitorada::class,
         PublicacaoDjen::class,
+        // ProcessoAcompanhado é anotação do Push (observação, área, fase) e número incluído à mão.
+        ProcessoAcompanhado::class,
 
         // Cobranças — EventoHistorico é o LOG DE DOMÍNIO (linha do tempo operacional, SPEC §13):
         // histórico de negócio visível ao usuário, distinto da auditoria técnica (invariável 26).

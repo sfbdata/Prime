@@ -1,0 +1,212 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'djen.processos.titulo_pagina'|trans }}{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/push-processos.css') }}">
+{% endblock %}
+
+{% block body %}
+{% include 'djen/_abas.html.twig' with {ativa: 'processos'} %}
+
+{% set no_relatorio = sub == 'relatorio' %}
+<div class="pp-pagina" data-pp-processos>
+    <div class="pp-topo">
+        <i class="bi bi-folder2-open"></i>
+        <h1>{{ 'djen.processos.titulo'|trans }}</h1>
+        <span class="pp-topo__texto">{% if oabs_opcoes|length > 0 %}{{ 'djen.processos.capturados_das'|trans({oabs: oabs_opcoes|join(', ')}) }}{% else %}{{ 'djen.processos.sem_oab'|trans }}{% endif %}</span>
+        <a href="{{ path('processo_new') }}" class="pp-btn pp-btn--verde" data-push-cadastrar-processo><i class="bi bi-plus-lg"></i>{{ 'djen.index.cadastrar_processo'|trans }}</a>
+        <form method="POST" action="{{ path('push_processual_sincronizar') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
+            <button type="submit" class="pp-btn pp-btn--azul"><i class="bi bi-cloud-download"></i>{{ 'djen.processos.buscar'|trans }}</button>
+        </form>
+    </div>
+
+    <div class="pp-kpis pp-kpis--cinco" data-pp-kpis>
+        <a class="pp-kpi" href="{{ path('push_processual_processos') }}" data-pp-kpi="processos">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_processos'|trans }}</span><b class="pp-kpi__valor">{{ indicadores.processos }}</b></span><i class="bi bi-folder2"></i>
+        </a>
+        <a class="pp-kpi{{ criterios.mov == '7' ? ' pp-kpi--ativo pp-kpi--verde' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == '7' ? '' : '7'}) }}" data-pp-kpi="movidos7">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_movidos'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--verde">{{ indicadores.movidos7 }}</b></span><i class="bi bi-activity"></i>
+        </a>
+        <a class="pp-kpi{{ criterios.mov == 'p30' ? ' pp-kpi--ativo pp-kpi--vermelho' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == 'p30' ? '' : 'p30'}) }}" data-pp-kpi="parados30">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_parados'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--alerta">{{ indicadores.parados30 }}</b></span><i class="bi bi-hourglass-split"></i>
+        </a>
+        <a class="pp-kpi{{ criterios.mov == 'nc' ? ' pp-kpi--ativo pp-kpi--ambar' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == 'nc' ? '' : 'nc'}) }}" data-pp-kpi="nunca">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_nunca'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--ambar">{{ indicadores.nuncaCapturados }}</b></span><i class="bi bi-question-circle"></i>
+        </a>
+        <a class="pp-kpi{{ criterios.pasta == 's' ? ' pp-kpi--ativo pp-kpi--roxo' : '' }}" href="{{ path('push_processual_processos', {pasta: criterios.pasta == 's' ? '' : 's'}) }}" data-pp-kpi="sem_pasta">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_sem_pasta'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--roxo">{{ indicadores.semPasta }}</b></span><i class="bi bi-folder-x"></i>
+        </a>
+    </div>
+
+    <section class="pp-caixa pp-caixa--filtros pp-inclusao" data-pp-inclusao>
+        <div class="pp-inclusao__titulo">{{ 'djen.processos.inclusao_titulo'|trans }}</div>
+        <form method="POST" action="{{ path('push_processual_processos_incluir') }}" class="pp-inclusao__form">
+            <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+            <label class="pp-rotulo2">{{ 'djen.processos.numero_do_processo'|trans }} *<input type="text" name="numero" inputmode="numeric" placeholder="_______-__.____._.__.____" class="pp-entrada pp-entrada--numero" required></label>
+            <label class="pp-rotulo2">{{ 'djen.processos.email_alternativo'|trans }}<input type="email" name="email" placeholder="{{ 'djen.processos.opcional'|trans }}" class="pp-entrada"></label>
+            <label class="pp-rotulo2">{{ 'djen.processos.observacao'|trans }}<input type="text" name="observacao" maxlength="150" placeholder="{{ 'djen.processos.observacao_dica'|trans }}" class="pp-entrada"></label>
+            <div class="pp-inclusao__acao">
+                <button type="submit" class="pp-btn pp-btn--azul pp-btn--incluir">{{ 'djen.processos.incluir'|trans }}</button>
+                <span class="pp-inclusao__dica"><i class="bi bi-info-circle"></i> {{ 'djen.processos.email_padrao'|trans({email: email_padrao}) }}</span>
+            </div>
+        </form>
+    </section>
+
+    <div class="pp-subabas" data-pp-subabas>
+        <a href="{{ path('push_processual_processos', {sub: 'acompanhados'}) }}" class="pp-subaba{{ sub == 'acompanhados' ? ' is-ativa' : '' }}">{{ 'djen.processos.sub_acompanhados'|trans }} <span>({{ sub_contagens.acompanhados }})</span></a>
+        <a href="{{ path('push_processual_processos', {sub: 'relatorio'}) }}" class="pp-subaba{{ sub == 'relatorio' ? ' is-ativa' : '' }}">{{ 'djen.processos.sub_relacionados'|trans }} <span>({{ sub_contagens.relatorio }})</span></a>
+    </div>
+
+    {% if not no_relatorio %}
+        <div class="pp-selecao pp-selecao--solta">
+            <button type="button" class="pp-selecao__btn" data-pp-marcar-todos><i class="bi bi-square"></i>{{ 'djen.diario.selecionar'|trans }}</button>
+            <span data-pp-selecao-barra hidden>
+                <span class="pp-selecao__n"><span data-pp-selecao-n>0</span> {{ 'djen.processos.selecionadas'|trans }}</span>
+                <form method="POST" action="{{ path('push_processual_processos_parar') }}" class="pp-selecao__form" data-pp-numeros data-pp-confirmar="{{ 'djen.processos.parar_confirmar'|trans|e('html_attr') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+                    <button type="submit" class="pp-selecao__btn pp-selecao__btn--perigo"><i class="bi bi-trash3"></i> {{ 'djen.processos.parar'|trans }}</button>
+                </form>
+            </span>
+        </div>
+    {% else %}
+        <div class="pp-relatorio-barra">
+            <button type="button" class="pp-selecao__btn" data-pp-marcar-todos><i class="bi bi-square"></i>{{ 'djen.processos.selecionar_todos'|trans }}</button>
+            <span>{{ 'djen.processos.relatorio_texto'|trans }}</span>
+            <span class="pp-selecao__esp"></span>
+            <span data-pp-selecao-barra hidden>
+                <form method="POST" action="{{ path('push_processual_processos_incluir_relatorio') }}" class="pp-selecao__form" data-pp-numeros>
+                    <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+                    <button type="submit" class="pp-btn pp-btn--verde pp-btn--pequeno"><i class="bi bi-plus-lg"></i> {{ 'djen.processos.incluir_n'|trans({n: '0'}) }}</button>
+                </form>
+            </span>
+            <span hidden data-pp-selecao-n>0</span>
+        </div>
+    {% endif %}
+
+    <section class="pp-caixa pp-caixa--filtros">
+        <form method="GET" action="{{ path('push_processual_processos') }}" class="pp-filtros" data-pp-filtros>
+            <input type="hidden" name="sub" value="{{ sub }}">
+            <label class="pp-busca"><i class="bi bi-search"></i><input type="search" name="busca" value="{{ criterios.busca }}" placeholder="{{ 'djen.processos.busca'|trans }}"></label>
+            <select name="oab" class="pp-campo" onchange="this.form.submit()">
+                <option value="">{{ 'djen.processos.oab_todas'|trans }}</option>
+                {% for o in oabs_opcoes %}<option value="{{ o }}" {{ criterios.oab == o ? 'selected' : '' }}>{{ o }}</option>{% endfor %}
+            </select>
+            <select name="mov" class="pp-campo" onchange="this.form.submit()">
+                <option value="">{{ 'djen.processos.mov_todas'|trans }}</option>
+                {% for chave, rotulo in {h: 'djen.processos.mov_hoje', '7': 'djen.processos.mov_7', '30': 'djen.processos.mov_30', p30: 'djen.processos.mov_p30', p45: 'djen.processos.mov_p45', p90: 'djen.processos.mov_p90', nc: 'djen.processos.mov_nc'} %}
+                    <option value="{{ chave }}" {{ criterios.mov == chave ? 'selected' : '' }}>{{ rotulo|trans }}</option>
+                {% endfor %}
+            </select>
+            <select name="area" class="pp-campo" onchange="this.form.submit()">
+                <option value="">{{ 'djen.processos.area_todas'|trans }}</option>
+                {% for a in areas %}<option value="{{ a }}" {{ criterios.area == a ? 'selected' : '' }}>{{ a }}</option>{% endfor %}
+            </select>
+            <select name="fase" class="pp-campo" onchange="this.form.submit()">
+                <option value="">{{ 'djen.processos.fase_todas'|trans }}</option>
+                {% for grupo, lista in fases %}{% for f in lista %}<option value="{{ f }}" {{ criterios.fase == f ? 'selected' : '' }}>{{ f }}</option>{% endfor %}{% endfor %}
+            </select>
+            <select name="pasta" class="pp-campo" onchange="this.form.submit()">
+                <option value="">{{ 'djen.processos.pasta_todos'|trans }}</option>
+                <option value="c" {{ criterios.pasta == 'c' ? 'selected' : '' }}>{{ 'djen.processos.com_pasta'|trans }}</option>
+                <option value="s" {{ criterios.pasta == 's' ? 'selected' : '' }}>{{ 'djen.processos.sem_pasta'|trans }}</option>
+            </select>
+            {% if tem_filtro %}<a href="{{ path('push_processual_processos', {sub: sub}) }}" class="pp-limpar" data-pp-limpar>{{ 'djen.index.limpar_filtros'|trans }}</a>{% endif %}
+            <span class="pp-selecao__esp"></span>
+            <a href="{{ path('push_processual_processos_exportar', criterios) }}" class="pp-exportar" data-pp-exportar><i class="bi bi-filetype-csv"></i>{{ 'djen.processos.exportar'|trans }}</a>
+        </form>
+    </section>
+
+    <section class="pp-caixa pp-tabela" data-pp-tabela>
+        <div class="pp-tabela__corpo pp-tabela__corpo--proc">
+            <div class="pp-linha pp-linha--proc pp-linha--cab">
+                <span>{{ 'djen.comum.processo_maiusculo'|trans }}</span>
+                <span>{{ 'djen.processos.col_partes'|trans }}</span>
+                <span>{{ 'djen.processos.col_area'|trans }}</span>
+                <span>{{ 'djen.processos.col_fase'|trans }}</span>
+                <span>{{ 'djen.processos.col_ultimo'|trans }}</span>
+                <span>{{ 'djen.processos.col_pasta'|trans }}</span>
+                <span>{{ 'djen.comum.acoes_maiusculo'|trans }}</span>
+            </div>
+            {% for l in linhas %}
+                {% set dias = l.diasParado(hoje) %}
+                <div class="pp-linha pp-linha--proc pp-linha--dado">
+                    <span class="pp-c-numero">
+                        <input type="checkbox" class="pp-marca" value="{{ l.numero }}" data-pp-marca aria-label="{{ 'djen.processos.selecionar_processo'|trans }}">
+                        <span>
+                            <b>{{ l.numeroComMascara }}</b>
+                            <span class="pp-fino">{{ l.tribunal|upper }}{% if l.fase and grupo_da_fase[l.fase] is defined %} · {{ grupo_da_fase[l.fase] }}{% endif %}{% if criterios.oab == '' and oabs_opcoes|length > 1 and l.oab %} · OAB {{ l.oab }}{% endif %}</span>
+                        </span>
+                    </span>
+                    <span class="pp-c-partes">
+                        <span class="pp-corta" title="{{ l.partes }}">{{ l.partes != '' ? l.partes : ('djen.processos.sem_partes'|trans) }}</span>
+                        <span class="pp-corta pp-fino" title="{{ l.orgao }}">{{ l.orgao != '' ? l.orgao : ('djen.processos.sem_orgao'|trans) }}</span>
+                        {% if l.observacao %}<span class="pp-corta pp-obs" title="{{ l.observacao }}"><i class="bi bi-chat-left-text"></i> {{ l.observacao }}</span>{% endif %}
+                    </span>
+                    <span>{{ l.area ?? '' }}</span>
+                    <span class="pp-fase">{{ l.fase ?? '' }}</span>
+                    <span>
+                        {% if l.ultimoMovimento %}<span class="pp-bloco">{{ l.ultimoMovimento|date('d/m/Y') }}</span>{% endif %}
+                        <span class="pp-par {{ dias is null ? 'pp-par--ambar' : (dias > 30 ? 'pp-par--vermelho' : 'pp-par--verde') }}">{{ dias is null ? ('djen.processos.nunca_capturado'|trans) : (dias == 0 ? ('djen.processos.hoje'|trans) : ('djen.processos.ha_dias'|trans({n: dias ~ ''}))) }}</span>
+                    </span>
+                    <span>
+                        {% if l.pastaId %}<a href="{{ path('pasta_show', {id: l.pastaId}) }}" class="pp-pasta">{{ l.pastaNup }}</a>{% else %}<span class="pp-sem-pasta">{{ 'djen.processos.sem_pasta'|trans }}</span>{% endif %}
+                    </span>
+                    <span class="pp-c-acoes">
+                        {% if no_relatorio %}
+                            <form method="POST" action="{{ path('push_processual_processos_incluir_relatorio') }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+                                <input type="hidden" name="numeros[]" value="{{ l.numero }}">
+                                <button type="submit" class="pp-acao pp-acao--verde" title="{{ 'djen.processos.incluir_acompanhamento'|trans }}"><i class="bi bi-plus-lg"></i></button>
+                            </form>
+                        {% else %}
+                            <button type="button" class="pp-acao" data-pp-editar data-numero="{{ l.numero }}" data-numero-exibicao="{{ l.numeroComMascara }}" data-observacao="{{ l.observacao }}" data-area="{{ l.area }}" data-fase="{{ l.fase }}" data-email="{{ l.emailAlternativo }}" title="{{ 'djen.processos.editar_obs'|trans }}"><i class="bi bi-pencil"></i></button>
+                            <form method="POST" action="{{ path('push_processual_processos_parar') }}" data-pp-confirmar="{{ 'djen.processos.parar_um_confirmar'|trans({numero: l.numeroComMascara})|e('html_attr') }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+                                <input type="hidden" name="numeros[]" value="{{ l.numero }}">
+                                <button type="submit" class="pp-acao pp-acao--perigo" title="{{ 'djen.processos.parar'|trans }}"><i class="bi bi-trash3"></i></button>
+                            </form>
+                        {% endif %}
+                        {% if l.pastaId is null and l.processoId %}<a href="{{ path('processo_show', {id: l.processoId}) }}" class="pp-acao pp-acao--link"><i class="bi bi-link-45deg"></i>{{ 'djen.processos.pasta_curto'|trans }}</a>{% endif %}
+                        {% if l.ultimoMovimento %}<a href="{{ path('push_processual_index', {busca: l.numero}) }}" class="pp-acao pp-acao--link" title="{{ 'djen.processos.ver_publicacoes'|trans }}"><i class="bi bi-broadcast"></i></a>{% endif %}
+                    </span>
+                </div>
+            {% else %}
+                <div class="pp-vazio">{{ 'djen.processos.vazio'|trans }}</div>
+            {% endfor %}
+        </div>
+        {% if total_paginas > 1 %}
+            <div class="pp-rodape">
+                <span>{{ 'djen.processos.paginacao'|trans({total: total ~ '', pagina: pagina ~ '', paginas: total_paginas ~ ''}) }}</span>
+                <span class="pp-rodape__nav">
+                    {% if pagina > 1 %}<a href="{{ path('push_processual_processos', app.request.query.all|merge({pagina: pagina - 1})) }}">{{ 'djen.index.anterior'|trans }}</a>{% endif %}
+                    {% if pagina < total_paginas %}<a href="{{ path('push_processual_processos', app.request.query.all|merge({pagina: pagina + 1})) }}">{{ 'djen.index.proxima'|trans }}</a>{% endif %}
+                </span>
+            </div>
+        {% endif %}
+    </section>
+
+    <div class="pp-janela" data-pp-janela hidden>
+        <div class="pp-janela__fundo" data-pp-fechar></div>
+        <form method="POST" action="{{ path('push_processual_processos_anotacoes') }}" class="pp-janela__caixa" role="dialog" aria-modal="true">
+            <div class="pp-janela__topo"><i class="bi bi-pencil"></i><b>{{ 'djen.processos.janela_titulo'|trans }}</b><span data-pp-janela-numero></span><button type="button" data-pp-fechar aria-label="{{ 'djen.processos.fechar'|trans }}"><i class="bi bi-x-lg"></i></button></div>
+            <div class="pp-janela__corpo">
+                <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+                <input type="hidden" name="numero" value="">
+                <label class="pp-rotulo2">{{ 'djen.processos.observacao'|trans }}<input type="text" name="observacao" maxlength="150" class="pp-entrada"></label>
+                <label class="pp-rotulo2">{{ 'djen.processos.col_area'|trans }}<select name="area" class="pp-entrada"><option value=""></option>{% for a in areas %}<option value="{{ a }}">{{ a }}</option>{% endfor %}</select></label>
+                <label class="pp-rotulo2">{{ 'djen.processos.col_fase'|trans }}<select name="fase" class="pp-entrada"><option value=""></option>{% for grupo, lista in fases %}<optgroup label="{{ grupo }}">{% for f in lista %}<option value="{{ f }}">{{ f }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+                <label class="pp-rotulo2">{{ 'djen.processos.email_alternativo'|trans }}<input type="email" name="email" class="pp-entrada"></label>
+            </div>
+            <div class="pp-janela__rodape"><button type="button" class="pp-btn" data-pp-fechar>{{ 'djen.processos.cancelar'|trans }}</button><button type="submit" class="pp-btn pp-btn--azul">{{ 'djen.processos.salvar'|trans }}</button></div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/push-processos.js') }}"></script>
+{% endblock %}

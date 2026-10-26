@@ -292,6 +292,7 @@ expediente:
                 cliente_existe: Cliente já cadastrado em {total} pasta(s).
                 cliente_vinculo: A nova pasta será vinculada ao mesmo cadastro.
                 proximo_numero: PASTA {numero}
+            concluida_no_periodo: Concluídas no período
         trilho:
             expandir_painel: Expandir painel
             recolher_painel: Recolher painel

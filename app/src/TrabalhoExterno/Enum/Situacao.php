@@ -27,6 +27,9 @@ enum Situacao: string
     /** Marco do histórico que não é situação (registro de pagamento). */
     public const MARCO_PAGO = 'pago';
 
+    /** Marco do histórico (não é situação): o Master ajustou o valor do pagamento. */
+    public const MARCO_VALOR = 'valor';
+
     public function rotulo(): string
     {
         return match ($this) {

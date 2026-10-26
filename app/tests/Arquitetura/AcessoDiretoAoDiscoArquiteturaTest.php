@@ -69,6 +69,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Pasta/UseCase/ExportarPecaTextoUseCase.php'           => 'escritor do PhpWord para php://output (imagens só pela AreaTemporariaPrivada)',
         'src/Ponto/Service/FolhaPontoXlsxExporter.php'             => 'escritor Xlsx para php://output',
         'src/Cobranca/Service/ListaCarteiraXlsxExporter.php'       => 'escritor Xlsx para php://output',
+        'src/Djen/Controller/ProcessosDaOabController.php'         => 'CSV da lista de processos escrito em php://output',
         // Drive: o temporário do download e do upload em blocos (DT-8: descarte do download que falhou).
         'src/Sync/Service/GoogleDriveClient.php'                   => 'temporário do download/upload do Drive',
         'src/Sync/Service/ReconciliadorDePasta.php'                => 'cria e descarta o temporário do download',

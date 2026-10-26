@@ -45,7 +45,9 @@
 <div class="db-cards-row">
 
     <div class="db-card-wrap db-card-wrap--esq">
-        <div class="db-stat-card db-stat-card--pastas" data-historico="pastas" data-historico-url="{{ path('dashboard_historico', { card: 'pastas' }) }}" data-dica="3" data-tip="{{ 'dashboard.dicas_cards.pastas_criadas'|trans }}">
+        <div class="db-stat-card db-stat-card--pastas" data-historico="pastas" data-historico-url="{{ path('dashboard_historico', { card: 'pastas' }) }}"{% if dashboard.metaDePastas is not null and podeMeta|default(false) %}
+             data-db-meta-valor="{{ dashboard.metaDePastas.meta ?? 0 }}" data-db-meta-desde="{{ dashboard.metaDePastas.desde }}"
+             data-db-meta-mes="{{ dashboard.metaDePastas.mes }}" data-db-meta-uteis="{{ dashboard.metaDePastas.diasUteisTotal }}"{% endif %} data-dica="3" data-tip="{{ 'dashboard.dicas_cards.pastas_criadas'|trans }}">
             <div class="db-card-glow"></div>
             <div class="db-card-grid"></div>
             <div class="db-card-linha"></div>
@@ -75,7 +77,11 @@
                         <a class="db-card-ver" href="{{ path('expediente_index', pastasQuery) }}" title="{{ 'dashboard.cards.abrir_pastas_criadas'|trans }}">{{ 'dashboard.cards.ver_pastas'|trans }}<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     {% endif %}
                 </div>
-                {# Sem legenda: o desenho mostra só o rótulo e o número neste card. #}
+                {# Sem legenda: o desenho mostra só o rótulo e o número neste card. Abaixo do número, a meta
+                   de pastas do mês (DASH-016; só no mês inteiro, sem responsável nem cargo). #}
+                {% if dashboard.metaDePastas is not null %}
+                    {% include 'dashboard/_meta_pastas.html.twig' with { meta: dashboard.metaDePastas, podeMeta: podeMeta|default(false) } only %}
+                {% endif %}
             </div>
         </div>
     </div>

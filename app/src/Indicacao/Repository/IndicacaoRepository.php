@@ -179,6 +179,25 @@ class IndicacaoRepository extends ServiceEntityRepository
         ];
     }
 
+    /**
+     * Uma linha por indicação, para o mapa do Master (modo Indicações): quem indicou, se foi envio e se virou conta.
+     * Sem nome nem e-mail; o painel só conta, por UF e cidade de quem indicou.
+     *
+     * @return list<array{indicadorId: int, enviada: bool, virouConta: bool}>
+     */
+    public function paraOMapa(): array
+    {
+        $linhas = $this->conexao()->fetchAllAssociative(
+            'SELECT i.indicado_por_id, (' . self::SO_ENVIOS . ') AS enviada, (' . self::VIROU_CONTA . ') AS virou_conta FROM indicacao i',
+        );
+
+        return array_map(static fn (array $l): array => [
+            'indicadorId' => (int) $l['indicado_por_id'],
+            'enviada' => (bool) $l['enviada'],
+            'virouConta' => (bool) $l['virou_conta'],
+        ], $linhas);
+    }
+
     public function contarIndicadores(): int
     {
         return (int) $this->conexao()->fetchOne('SELECT COUNT(DISTINCT indicado_por_id) FROM indicacao');
