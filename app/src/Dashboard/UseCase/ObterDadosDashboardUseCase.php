@@ -6,6 +6,7 @@ namespace App\Dashboard\UseCase;
 
 use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
+use App\Dashboard\Meta\MontarMetaDePastasDoMes;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Ranking\RankingDeMetasConcluidas;
 use App\Dashboard\Repository\DashboardFotoRepository;
@@ -54,6 +55,7 @@ final class ObterDadosDashboardUseCase
         private readonly DashboardFotoRepository $dashboardFotoRepository,
         private readonly MetricasExtrasDoDashboardRepository $metricasExtras,
         private readonly DashboardZeramentoRepository $zeramentos,
+        private readonly MontarMetaDePastasDoMes $metaDePastas,
     ) {}
 
     /**
@@ -238,6 +240,8 @@ final class ObterDadosDashboardUseCase
                 : null,
             campeaoId:                  RankingDeMetasConcluidas::campeao($todosIds, self::concluidasDaBase($conclusao[Extras::METAS_CONCLUIDAS]), $mVencidas),
             zeramentos:                 $cortes->paraTela(),
+            // O realizado da meta é o número do card (antes da busca), sem regra de contagem própria.
+            metaDePastas:               $this->metaDePastas->montar($tenant, $referencia, $filtros, $totalPastasCriadas),
         );
     }
 
