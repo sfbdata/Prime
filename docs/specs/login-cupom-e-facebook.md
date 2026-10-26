@@ -81,7 +81,14 @@ O `id` do Facebook prova quem é a pessoa **para o app**, nunca o e-mail dela. L
 3. **Conta nova pelo Facebook nasce não confirmada**, igual ao cadastro por e-mail: não faz login até confirmar.
    Reaproveita `CriarContaEEscritorioUseCase::executar`, que já esconde se o e-mail tem conta (anti-enumeração); o que
    muda é só gravar o `facebook_id` na conta nova. **Não** reaproveita `executarPeloGoogle` (cria confirmada).
-4. E-mail que já tem conta: nada é ligado. A pessoa recebe o aviso que o cadastro por e-mail já manda e a tela
+4. **Pré-sequestro (achado da revisão):** o e-mail digitado não é do Facebook. Quem cria a conta com o `facebook_id`
+   dele e o e-mail de outra pessoa não pode herdar a conta quando essa pessoa confirmar o link e criar a senha. Regra: o
+   `facebook_id` só continua valendo depois da confirmação se o link for aberto **no mesmo navegador (mesma sessão)** que
+   criou a conta pelo Facebook (o `CadastroPeloFacebookController` marca a sessão com o id da conta nova). Em qualquer
+   outro caso (outro navegador, outro aparelho, sessão vencida) a confirmação **apaga o `facebook_id`** da conta: ela
+   vira conta só de e-mail e senha, e quem quiser o Facebook liga depois (fora deste PR). Falha para o lado seguro: no
+   pior caso a pessoa entra com a senha que acabou de criar.
+5. E-mail que já tem conta: nada é ligado. A pessoa recebe o aviso que o cadastro por e-mail já manda e a tela
    responde igual a um cadastro novo.
 
 (Divergência declarada: o coordenador falou em "confirmar por código"; o cadastro por e-mail do sistema confirma por
@@ -124,7 +131,7 @@ link, e o código existe só no "Esqueci a senha". Seguimos o mecanismo que exis
 ### Dados
 
 - Migration `Version20261026150800` (número 150800, dado pelo coordenador): `ALTER TABLE "user" ADD facebook_id
-  VARCHAR(255) DEFAULT NULL` e `CREATE UNIQUE INDEX UNIQ_8D93D649_FACEBOOK_ID ON "user" (facebook_id)` (nome conferido
+  VARCHAR(255) DEFAULT NULL` e `CREATE UNIQUE INDEX UNIQ_8D93D6499BE8FD98 ON "user" (facebook_id)` (nome que o Doctrine calcula, conferido
   com a skill `criar-migration`, como a do `google_sub`). Reversível (`down` apaga índice e coluna).
 - `User::getFacebookId()` e `ligarAoFacebook(string $id)` (lança `DomainException` se já ligado a outro id), espelhando
   o Google. O `id` do Facebook é por app: se a Meta trocar de app, os ids mudam (risco operacional anotado, sem

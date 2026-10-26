@@ -57,6 +57,11 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * Google provou (lido da sessão pelo controller, nunca do navegador), a conta nasce confirmada e ligada ao `sub`, sem
  * link de confirmação nem e-mail, e entra na hora. Quem chega aqui já provou ser dona do e-mail; por isso o e-mail que
  * já tem conta é recusado com mensagem própria em vez da resposta neutra.
+ *
+ * Pelo Facebook (`executar` com `$facebookId`, spec `login-cupom-e-facebook.md`, PR B): o Facebook não prova e-mail,
+ * então é o mesmo cadastro por e-mail (conta NÃO confirmada, link de confirmação, resposta neutra para e-mail com
+ * conta), só gravando o `facebook_id` na conta nova. `facebook_id` já ligado a outra conta: a mesma resposta neutra,
+ * sem criar nada.
  */
 final class CriarContaEEscritorioUseCase
 {
@@ -91,7 +96,7 @@ final class CriarContaEEscritorioUseCase
     }
 
     /** @return ContaCriadaOutput|null null quando o e-mail já tinha conta (nada gravado; a dona recebe o aviso) */
-    public function executar(CriarContaEEscritorioInput $input, string $ip, ?string $userAgent): ?ContaCriadaOutput
+    public function executar(CriarContaEEscritorioInput $input, string $ip, ?string $userAgent, ?string $facebookId = null): ?ContaCriadaOutput
     {
         self::validar($input);
         $email = self::normalizarEmail($input->email);
@@ -107,15 +112,21 @@ final class CriarContaEEscritorioUseCase
 
             return null;
         }
+        if ($facebookId !== null && $this->userRepository->findOneBy(['facebookId' => $facebookId]) !== null) {
+            // Este `id` do Facebook já é de outra conta: nada é criado nem ligado, e a resposta é a neutra.
+            $this->senhaInutilizavel(new User());
+
+            return null;
+        }
 
         $token = bin2hex(random_bytes(32));
 
         try {
             $conta = $this->em->wrapInTransaction(
-                fn (): ContaCriadaOutput => $this->criar($input, $email, $token, $ip, $userAgent),
+                fn (): ContaCriadaOutput => $this->criar($input, $email, $token, $ip, $userAgent, null, $facebookId),
             );
         } catch (UniqueConstraintViolationException) {
-            // Corrida: outro cadastro do mesmo e-mail gravou entre o SELECT e o INSERT. A mesma resposta do e-mail que
+            // Corrida: outro cadastro do mesmo e-mail (ou do mesmo `id` do Facebook) gravou entre o SELECT e o INSERT. A mesma resposta do e-mail que
             // já tem conta; sem o aviso, porque o outro cadastro já mandou a confirmação para a mesma caixa.
             return null;
         }
@@ -210,10 +221,10 @@ final class CriarContaEEscritorioUseCase
     }
 
     /** `$token` nulo e `$googleSub` preenchido: a conta do Google, já confirmada e sem link de confirmação. */
-    private function criar(CriarContaEEscritorioInput $input, string $email, ?string $token, string $ip, ?string $userAgent, ?string $googleSub = null): ContaCriadaOutput
+    private function criar(CriarContaEEscritorioInput $input, string $email, ?string $token, string $ip, ?string $userAgent, ?string $googleSub = null, ?string $facebookId = null): ContaCriadaOutput
     {
         $agora = $this->relogio->now();
-        $user = $this->novoUsuario($input, $email, $agora, $googleSub);
+        $user = $this->novoUsuario($input, $email, $agora, $googleSub, $facebookId);
 
         $tenant = new Tenant();
         $tenant->setName(trim($input->escritorio));
@@ -235,7 +246,7 @@ final class CriarContaEEscritorioUseCase
         return new ContaCriadaOutput($user, $tenant);
     }
 
-    private function novoUsuario(CriarContaEEscritorioInput $input, string $email, \DateTimeImmutable $agora, ?string $googleSub): User
+    private function novoUsuario(CriarContaEEscritorioInput $input, string $email, \DateTimeImmutable $agora, ?string $googleSub, ?string $facebookId = null): User
     {
         $user = new User();
         $user->setEmail($email);
@@ -248,6 +259,10 @@ final class CriarContaEEscritorioUseCase
         } else {
             // O Google provou o e-mail (decisão 10 conferida no autenticador): nasce confirmada e ligada.
             $user->ligarAoGoogle($googleSub);
+        }
+        if ($facebookId !== null) {
+            // Só o `id` (prova da pessoa para o app); o e-mail segue a confirmar, pelo link.
+            $user->ligarAoFacebook($facebookId);
         }
         // O perfil nasce com o gênero do cadastro (spec genero-no-cadastro); vai junto com o User, em cascata.
         UserProfile::daContaNova($user, Genero::informado($input->genero));

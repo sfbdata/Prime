@@ -7,6 +7,7 @@ namespace App\Auth\Controller;
 use App\Auth\DTO\CriarContaEEscritorioInput;
 use App\Auth\DTO\CriarSenhaPeloLinkInput;
 use App\Auth\Enum\SituacaoDoLinkDeConfirmacao;
+use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\LinkDeConfirmacaoDeEmail;
 use App\Auth\Service\PaginaDeEntrada;
@@ -130,7 +131,7 @@ final class CadastroController extends AbstractController
         );
 
         try {
-            $situacao = $this->criarSenha->executar($input);
+            $situacao = $this->criarSenha->executar($input, $this->criadaNestaSessaoPeloFacebook($request, $token));
         } catch (\DomainException $e) {
             return $this->telaDoLink(['motivo' => $e->getMessage()]);
         } catch (\InvalidArgumentException $e) {
@@ -138,6 +139,23 @@ final class CadastroController extends AbstractController
         }
 
         return $this->telaDoLink(['situacao' => $situacao]);
+    }
+
+    /**
+     * O link foi aberto na mesma sessão que criou, pelo Facebook, a conta do token? Só então o `facebook_id` dela
+     * sobrevive à confirmação (pré-sequestro, spec login-cupom-e-facebook). Qualquer dúvida: não.
+     */
+    private function criadaNestaSessaoPeloFacebook(Request $request, string $token): bool
+    {
+        $marcada = CadastroPeloFacebook::contaDaSessao($request->getSession());
+        if ($marcada === null) {
+            return false;
+        }
+        try {
+            return $this->linkDeConfirmacao->pendente($token)?->getUser()->getId() === $marcada;
+        } catch (\DomainException) {
+            return false;
+        }
     }
 
     /** CSRF inválido: nada é gravado, e a tela mostra a situação real do link (o formulário só se ele ainda vale). */

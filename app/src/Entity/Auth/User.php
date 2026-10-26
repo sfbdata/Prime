@@ -72,6 +72,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     #[ORM\Column(name: 'google_sub', length: 255, unique: true, nullable: true)]
     private ?string $googleSub = null;
 
+    /**
+     * `id` do Facebook ligado à conta, gravado só no cadastro pelo "Continuar com Facebook" (spec login-cupom-e-facebook,
+     * PR B). Prova quem é a pessoa para o app, nunca o e-mail dela. Único: um `id` pertence a uma conta só. Não aparece
+     * em tela.
+     */
+    #[ORM\Column(name: 'facebook_id', length: 255, unique: true, nullable: true)]
+    private ?string $facebookId = null;
+
     // -------------------------
     // Construtor
     // -------------------------
@@ -173,9 +181,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
         $this->emailAConfirmarDesde = $agora;
     }
 
-    public function confirmarEmail(): void
+    /**
+     * Confirma o e-mail. O `facebook_id` NÃO sobrevive à confirmação, salvo `$manterFacebook` (só o link aberto na mesma
+     * sessão que criou a conta pelo Facebook): o e-mail digitado no cadastro pelo Facebook não é do Facebook, e quem
+     * o confirma pode ser outra pessoa (spec login-cupom-e-facebook, pré-sequestro).
+     */
+    public function confirmarEmail(bool $manterFacebook = false): void
     {
         $this->emailAConfirmarDesde = null;
+        if (!$manterFacebook) {
+            $this->facebookId = null;
+        }
     }
 
     public function getGoogleSub(): ?string
@@ -190,6 +206,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
             throw new \DomainException('Esta conta já está ligada a outra conta Google.');
         }
         $this->googleSub = $sub;
+    }
+
+    public function getFacebookId(): ?string
+    {
+        return $this->facebookId;
+    }
+
+    /** Liga a conta ao Facebook; uma vez ligada, não troca por outro `id`. */
+    public function ligarAoFacebook(string $id): void
+    {
+        if (null !== $this->facebookId && $this->facebookId !== $id) {
+            throw new \DomainException('Esta conta já está ligada a outra conta do Facebook.');
+        }
+        $this->facebookId = $id;
     }
 
     public function isActive(): bool

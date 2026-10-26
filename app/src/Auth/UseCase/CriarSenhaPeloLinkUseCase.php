@@ -35,6 +35,9 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * link. Numa transação só, a senha, a confirmação, a marca de uso do link e um aceite novo dos Termos e da ciência da
  * Política (D2: origem `link_confirmacao`, versão vigente, IP e user agent do pedido; os do cadastro ficam); só quem
  * ganha a corrida grava. EmailDaContaConfirmado sai depois do commit, uma vez só. Não faz login.
+ *
+ * `$manterFacebook` (spec login-cupom-e-facebook, pré-sequestro): o `facebook_id` da conta só sobrevive à confirmação
+ * quando o controller diz que o link foi aberto na mesma sessão que criou a conta pelo Facebook; senão é apagado.
  */
 final class CriarSenhaPeloLinkUseCase
 {
@@ -54,7 +57,7 @@ final class CriarSenhaPeloLinkUseCase
      * @throws \DomainException         link inválido ou vencido (a página de erro)
      * @throws \InvalidArgumentException sem o aceite, senha fraca ou diferente da confirmação (volta ao formulário)
      */
-    public function executar(CriarSenhaPeloLinkInput $input): SituacaoDoLinkDeConfirmacao
+    public function executar(CriarSenhaPeloLinkInput $input, bool $manterFacebook = false): SituacaoDoLinkDeConfirmacao
     {
         $confirmacao = $this->link->pendente($input->token);
 
@@ -68,7 +71,7 @@ final class CriarSenhaPeloLinkUseCase
 
         self::exigirSenhaValida($input);
 
-        if (!$this->criarSenhaEConfirmar($confirmacao, $input)) {
+        if (!$this->criarSenhaEConfirmar($confirmacao, $input, $manterFacebook)) {
             return SituacaoDoLinkDeConfirmacao::JaConfirmado;
         }
 
@@ -93,7 +96,7 @@ final class CriarSenhaPeloLinkUseCase
      * O hash é calculado fora da transação (é a parte cara); o UPDATE condicional do repositório decide quem ganhou.
      * Quem perdeu não troca nada; quem ganhou só alinha os objetos em memória ao que o banco já tem.
      */
-    private function criarSenhaEConfirmar(ConfirmacaoEmail $confirmacao, CriarSenhaPeloLinkInput $input): bool
+    private function criarSenhaEConfirmar(ConfirmacaoEmail $confirmacao, CriarSenhaPeloLinkInput $input, bool $manterFacebook): bool
     {
         $user = $confirmacao->getUser();
         $hash = $this->passwordHasher->hashPassword($user, $input->senha);
@@ -118,6 +121,7 @@ final class CriarSenhaPeloLinkUseCase
                 cienteEm: $agora,
                 origem: OrigemDoAceite::LinkConfirmacao,
             ),
+            $manterFacebook,
         );
 
         if (!$ganhou) {
@@ -125,7 +129,7 @@ final class CriarSenhaPeloLinkUseCase
         }
 
         $user->setPassword($hash);
-        $user->confirmarEmail();
+        $user->confirmarEmail($manterFacebook);
         $confirmacao->marcarUsado($agora);
 
         return true;
