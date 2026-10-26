@@ -1,6 +1,24 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.19.0"
+  data: "2026-10-26"
+  itens:
+    - "Ao digitar o cupom de indicação no cadastro, a tela já avisa se o cupom é válido."
+    - "Quem recebe uma indicação agora pode digitar o cupom ao criar a conta."
+    - "Quem prefere pode começar o cadastro pelo Facebook; o e-mail continua sendo confirmado por link."
+    - "No Painel, o card \"Pastas criadas\" agora mostra a meta de pastas do mês, quanto já foi feito e se o escritório está no ritmo. O usuário primário define e altera a meta; os outros acompanham."
+    - "O Dashboard agora se chama Painel do Escritório e ganhou um visual mais limpo, com dicas nos cartões."
+    - "O período \"Este mês\" mostra o mês inteiro, do dia 1º ao último dia."
+    - "Agora dá para indicar o BlueJus direto pelo botão de compartilhar no topo da tela."
+    - "Nada muda para os escritórios. Só o Master vê este bloco."
+    - "O Push Processual tem novo visual, com abas no topo e atalhos nos cartões para ver só as publicações não lidas, de hoje, vinculadas ou avulsas."
+    - "A tela de OABs monitoradas mostra quantas publicações cada OAB já trouxe e ganhou o novo visual do Push Processual."
+    - "A aba Processos do Push Processual ganhou a tela nova: cartões de resumo, inclusão de processo por número, lista com filtros (busca, OAB, movimentação, área, fase, pasta) e exportação em CSV."
+    - "Dá para incluir um processo para acompanhamento só pelo número, parar de acompanhar vários de uma vez e anotar observação, área, fase e e-mail de cada processo."
+    - "Nova sub-aba Relatório: lista os processos que aparecem nas publicações das suas OABs e ainda não estão sendo acompanhados, com botão para incluir."
+    - "Nova aba \"Pagamento\" na demanda: veja o valor combinado, pague pelo QR Code ou pelo código PIX e envie o comprovante. A Central confirma o recebimento e você é avisado."
+    - "O valor do pagamento pode ser corrigido pela Central BlueJus antes do pagamento. Você é avisado no chat e a aba Pagamento já mostra o QR Code e o código PIX com o valor novo."
 - versao: "2.18.0"
   data: "2026-10-24"
   itens:
