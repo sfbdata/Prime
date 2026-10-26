@@ -13,6 +13,7 @@ use App\TrabalhoExterno\Enum\FaseWhatsapp;
 use App\TrabalhoExterno\Enum\NaturezaDoDespacho;
 use App\TrabalhoExterno\Enum\Situacao;
 use App\TrabalhoExterno\Enum\SituacaoConvite;
+use App\TrabalhoExterno\Enum\SituacaoProposta;
 use App\TrabalhoExterno\Enum\TipoDeDespacho;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
@@ -312,9 +313,7 @@ class DemandaExterna
             if ($this->pagoEm !== null) {
                 throw new TransicaoInvalida('O pagamento desta demanda já foi registrado.');
             }
-            $this->pagoEm = new \DateTimeImmutable();
-            $this->historico->add(new HistoricoDemanda($this, null, Situacao::MARCO_PAGO, $autor, null));
-            $this->enfileirarAvisos(FaseWhatsapp::Pago);
+            $this->marcarComoPago($autor, null);
         }
 
         $destino = $acao->destino();
@@ -325,6 +324,75 @@ class DemandaExterna
         if ($acao->confirma()) {
             $this->registrar($autor, $acao->registro() . ($motivo !== null ? ': ' . $motivo : '.'), TipoMensagem::Sistema);
         }
+    }
+
+    /** O recebimento: `pagoEm`, o marco `pago` no histórico (com o motivo, se houver) e o aviso de WhatsApp da fase Pago. */
+    private function marcarComoPago(Autor $autor, ?string $motivo): void
+    {
+        $this->pagoEm = new \DateTimeImmutable();
+        $this->historico->add(new HistoricoDemanda($this, null, Situacao::MARCO_PAGO, $autor, $motivo));
+        $this->enfileirarAvisos(FaseWhatsapp::Pago);
+    }
+
+    /**
+     * "Confirmar recebimento" da aba Pagamento (desenho 25/10, `pg.confirmar`): a mesma ação `RegistrarPagamento`
+     * (mesmas origens, mesma recusa se já pago), com o histórico "PIX R$ x" e o registro do desenho no lugar do
+     * "Pagamento registrado." genérico. `$valor` já vem formatado (R$ 1.500,00), da proposta aceita.
+     */
+    public function confirmarRecebimentoDoPix(Autor $autor, string $valor): void
+    {
+        $acao = AcaoDemanda::RegistrarPagamento;
+        if (!in_array($this->situacao, $acao->origens(), true)) {
+            throw new TransicaoInvalida(sprintf('"%s" não se aplica a uma demanda %s.', $acao->rotulo($autor->perfil), mb_strtolower($this->situacao->rotulo())));
+        }
+        if ($this->pagoEm !== null) {
+            throw new TransicaoInvalida('O pagamento desta demanda já foi registrado.');
+        }
+
+        $this->marcarComoPago($autor, 'PIX ' . $valor);
+        $this->registrar($autor, sprintf('✅ Pagamento de %s confirmado via PIX. A execução pode começar.', $valor), TipoMensagem::Pagamento);
+    }
+
+    /** A proposta aceita mais recente (`PA` do desenho): é dela que saem o valor e a forma do pagamento. Sem aceite, sem valor. */
+    public function propostaAceita(): ?PropostaDemanda
+    {
+        $aceita = null;
+        foreach ($this->propostas as $proposta) {
+            if ($proposta->getSituacao() === SituacaoProposta::Aceita) {
+                $aceita = $proposta;
+            }
+        }
+
+        return $aceita;
+    }
+
+    /** O comprovante de pagamento enviado, se houver (no máximo um). */
+    public function comprovante(): ?DocumentoDemanda
+    {
+        foreach ($this->documentos as $documento) {
+            if ($documento->isComprovante()) {
+                return $documento;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Guarda o comprovante do PIX (já gravado no storage) e deixa o aviso no chat (`pg.onComp`). Um só por demanda,
+     * e só enquanto não pago ("aguardando"). Quem pode enviar é decidido antes, na política.
+     */
+    public function enviarComprovante(DocumentoDemanda $comprovante, Autor $autor): void
+    {
+        if ($this->pagoEm !== null) {
+            throw new TransicaoInvalida('O pagamento desta demanda já foi confirmado.');
+        }
+        if ($this->comprovante() !== null) {
+            throw new TransicaoInvalida('O comprovante desta demanda já foi enviado.');
+        }
+
+        $this->documentos->add($comprovante);
+        $this->registrar($autor, sprintf('💳 Comprovante de pagamento PIX enviado (%s). Aguardando confirmação.', $comprovante->getNomeOriginal()), TipoMensagem::Pagamento);
     }
 
     /** Nova versão da proposta: as anteriores ainda em aberto viram "substituída". */
@@ -362,7 +430,7 @@ class DemandaExterna
     {
         $mensagem = new MensagemDemanda($this, $autor, $tipo, $texto);
         $this->mensagens->add($mensagem);
-        if (in_array($tipo, [TipoMensagem::Sistema, TipoMensagem::Arquivo, TipoMensagem::Andamento], true)) {
+        if (in_array($tipo, [TipoMensagem::Sistema, TipoMensagem::Pagamento, TipoMensagem::Arquivo, TipoMensagem::Andamento], true)) {
             $this->andamentosParaAvisar[] = ['texto' => $texto, 'mensagem' => $mensagem];
         }
 

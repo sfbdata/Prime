@@ -1490,3 +1490,24 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-vg-veu { position: absolute; inset: 0; z-index: 2; background: rgba(243,246,248,.62); backdrop-filter: grayscale(.9); -webkit-backdrop-filter: grayscale(.9); pointer-events: none; }
 .te-vg-carimbo { position: absolute; z-index: 3; left: 50%; top: 46%; transform: translate(-50%,-50%) rotate(-14deg); border: 3px solid #a3232b; color: #a3232b; border-radius: 6px; padding: 4px 16px; font: bold 22px/1 Arial,Helvetica,sans-serif; letter-spacing: 4px; background: rgba(255,255,255,.55); pointer-events: none; animation: teStamp .45s cubic-bezier(.3,1.6,.5,1) both; }
 .te-vg-expirou { position: relative; z-index: 3; margin: 2px -18px -16px; padding: 7px 12px; background: #fdf1f2; border-top: 1px solid #f3c9cf; color: #842029; font-size: 11.5px; font-weight: bold; text-align: center; }
+
+/* ---------------------------------------------------------------- aba Pagamento (desenho 06 de 25/10, l.620 a 637), medidas do CSS do desenho */
+.te-pg { display: flex; flex-direction: column; gap: 12px; }
+.te-pg-st { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-radius: 2px; font-size: 13.5px; font-weight: bold; }
+.te-pg-sem { font-size: 13.5px; color: #5b7383; line-height: 1.5; }
+.te-pg-linha { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.te-pg-qr { width: 170px; height: 170px; flex: none; border: 1px solid #e1e8ed; border-radius: 2px; padding: 8px; box-sizing: border-box; background: #fff; }
+.te-pg-dados { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: #243845; }
+.te-pg-rot { font-size: 11px; font-weight: bold; letter-spacing: .6px; color: #4a6373; }
+.te-pg-valor { font-size: 24px; color: #12242f; }
+.te-pg-forma { font-size: 12.5px; color: #5b7383; }
+.te-pg-cod { font: 11px/1.45 monospace; color: #34505f; background: #f5f8fa; border: 1px solid #e1e8ed; border-radius: 2px; padding: 6px 8px; word-break: break-all; max-height: 54px; overflow: auto; user-select: all; }
+.te-pg-botoes { display: flex; gap: 6px; flex-wrap: wrap; }
+.te-pg-copiar { height: 32px; padding: 0 11px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font: inherit; font-size: 13px; font-weight: bold; cursor: pointer; }
+.te-pg-chat { height: 32px; padding: 0 11px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font: inherit; font-size: 13px; cursor: pointer; }
+.te-pg-comp { display: flex; align-items: center; gap: 9px; height: 40px; border: 1px dashed #9fc3d8; border-radius: 2px; padding: 0 12px; background: #f5fafd; color: #0a6fa0; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.te-pg-comp > input { display: none; }
+.te-pg-baixar { align-self: flex-start; height: 32px; padding: 0 11px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font: inherit; font-size: 13px; cursor: pointer; }
+.te-pg-conf { align-self: flex-start; height: 36px; padding: 0 15px; border: none; border-radius: 2px; background: #1e7b45; color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.te-pg-copiar:hover { background: #0b5f86; }
+.te-pg-chat:hover { background: #f5f8fa; }

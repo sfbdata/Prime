@@ -9,6 +9,7 @@ use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Enum\Situacao;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -33,6 +34,32 @@ class DemandaExternaRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    /**
+     * Roda `$trabalho` numa transação com a demanda travada (`SELECT … FOR UPDATE`) e relida do banco: duas
+     * escritas de dinheiro na mesma demanda (confirmar recebimento, enviar comprovante) se enfileiram em vez de
+     * decidir cada uma sobre um estado velho.
+     *
+     * @template T
+     *
+     * @param callable(): T $trabalho
+     *
+     * @return T
+     */
+    public function comADemandaTravada(DemandaExterna $demanda, callable $trabalho): mixed
+    {
+        return $this->getEntityManager()->wrapInTransaction(function () use ($demanda, $trabalho): mixed {
+            $this->travar($demanda);
+
+            return $trabalho();
+        });
+    }
+
+    /** O `SELECT … FOR UPDATE` de {@see comADemandaTravada()}, para quem já abriu a transação (a do arquivo novo). */
+    public function travar(DemandaExterna $demanda): void
+    {
+        $this->getEntityManager()->refresh($demanda, LockMode::PESSIMISTIC_WRITE);
     }
 
     public function remover(DemandaExterna $demanda, bool $flush = false): void

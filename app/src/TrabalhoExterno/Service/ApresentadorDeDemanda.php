@@ -50,6 +50,7 @@ final class ApresentadorDeDemanda
         private readonly CalculadoraDeImportancia $importancia,
         private readonly TranslatorInterface $tradutor,
         private readonly ApresentadorDeDespachos $despachos,
+        private readonly ApresentadorDoPagamento $pagamento,
     ) {
     }
 
@@ -167,15 +168,23 @@ final class ApresentadorDeDemanda
             'encerradaTexto' => $fim ? $s->rotulo() . ' · ' . $this->dataHora($ultimoDaSituacao) : '',
             'whatsapp' => $this->politica->podeUsarWhatsapp($ctx, $d) ? $this->whatsapp($d) : null,
             'rascunho' => $ctx->perfil === Perfil::Solicitante && $s === Situacao::Rascunho ? $this->formulario($d) : null,
-        ];
+        ] + $this->campoDoPagamento($ctx, $d);
     }
 
     /** @return list<string> */
     private function abas(Contexto $ctx): array
     {
-        $abas = ['resumo', 'proposta', 'exec', 'chat', 'hist', 'whats'];
+        $abas = ['resumo', 'proposta', 'exec', 'chat', 'pag', 'hist', 'whats'];
 
-        return $ctx->perfil === Perfil::Convidado ? array_values(array_diff($abas, ['proposta', 'whats'])) : $abas;
+        return $ctx->perfil === Perfil::Convidado ? array_values(array_diff($abas, ['proposta', 'pag', 'whats'])) : $abas;
+    }
+
+    /** O Convidado não recebe nem a chave `pagamento` (valor, QR e comprovante são de quem paga e de quem recebe). @return array<string, mixed> */
+    private function campoDoPagamento(Contexto $ctx, DemandaExterna $d): array
+    {
+        $bloco = $this->pagamento->bloco($ctx, $d);
+
+        return $bloco === null ? [] : ['pagamento' => $bloco];
     }
 
     /** @return list<array{r: string, v: string}> */
@@ -201,10 +210,10 @@ final class ApresentadorDeDemanda
         ]);
     }
 
-    /** DOCUMENTOS sem os anexos dos despachos (eles aparecem no próprio despacho). @return list<DocumentoDemanda> */
+    /** DOCUMENTOS sem os anexos dos despachos (eles aparecem no próprio despacho) nem o comprovante (aba Pagamento). @return list<DocumentoDemanda> */
     private function documentosDaDemanda(DemandaExterna $d): array
     {
-        return array_values(array_filter($d->getDocumentos(), static fn (DocumentoDemanda $doc): bool => $doc->getDespacho() === null));
+        return array_values(array_filter($d->getDocumentos(), static fn (DocumentoDemanda $doc): bool => $doc->getDespacho() === null && !$doc->isComprovante()));
     }
 
     /** @return array<string, mixed> */
@@ -335,7 +344,7 @@ final class ApresentadorDeDemanda
             'tipo' => $tipo->sufixo(),
             'estilo' => match (true) {
                 $tipo === TipoMensagem::Interna => 'interna',
-                $tipo === TipoMensagem::Sistema => 'sistema',
+                $tipo->ehRegistroDoSistema() => 'sistema',
                 $meu => 'meu',
                 default => 'outro',
             },
@@ -355,7 +364,7 @@ final class ApresentadorDeDemanda
             'seloSemPrazo' => $this->rotuloDoSelo($ctx, $m, $agora),
             // Dica e item travado do menu da mensagem (desenho l.1239).
             'apagarDica' => $this->dicaDoApagar($ctx, $m, $meu, $agora),
-            'apagarBloqueado' => $m->foiApagada() || $tipo === TipoMensagem::Sistema || $this->politica->podeApagarMensagem($ctx, $m, $agora)
+            'apagarBloqueado' => $m->foiApagada() || $tipo->ehRegistroDoSistema() || $this->politica->podeApagarMensagem($ctx, $m, $agora)
                 ? ''
                 : ($meu ? 'Apagar (prazo de 60 min encerrado)' : 'Só o autor ou o Master apagam'),
             'favorita' => $marca?->isFavorita() ?? false,
@@ -387,7 +396,8 @@ final class ApresentadorDeDemanda
                 'de' => $h->getDe() !== null ? 'de ' . $this->marco($h->getDe())[0] : '',
                 'quem' => $this->politica->nomeVisivel($ctx, $h->getNomeAutor(), $h->getPerfilAutor()),
                 'em' => $this->dataHora($h->getEm()),
-                'motivo' => (string) $h->getMotivo(),
+                // O motivo do marco "pago" traz o valor do PIX ("PIX R$ x"): o Convidado não o lê.
+                'motivo' => $ctx->perfil === Perfil::Convidado && $h->getPara() === Situacao::MARCO_PAGO ? '' : (string) $h->getMotivo(),
                 'cor' => $cor,
                 'ic' => $icone,
             ];

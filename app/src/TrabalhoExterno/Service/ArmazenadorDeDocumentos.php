@@ -24,6 +24,8 @@ final class ArmazenadorDeDocumentos
 {
     public const MAX_ARQUIVOS = 10;
     public const MAX_BYTES = 20 * 1024 * 1024;
+    /** PDF e imagens que o navegador exibe; sem SVG (marcação executável quando servido inline). */
+    private const MIMES_DO_COMPROVANTE = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif', 'image/bmp'];
 
     public function __construct(
         private readonly ArmazenamentoDeArquivos $armazenamento,
@@ -45,12 +47,7 @@ final class ArmazenadorDeDocumentos
             throw new DadosInvalidos(sprintf('Envie no máximo %d arquivos por vez.', self::MAX_ARQUIVOS));
         }
         foreach ($arquivos as $arquivo) {
-            if (!$arquivo->isValid()) {
-                throw new DadosInvalidos(sprintf('O arquivo "%s" não chegou inteiro. Tente de novo.', $arquivo->getClientOriginalName()));
-            }
-            if (($arquivo->getSize() ?: 0) > self::MAX_BYTES) {
-                throw new DadosInvalidos(sprintf('O arquivo "%s" passa de 20 MB.', $arquivo->getClientOriginalName()));
-            }
+            $this->conferir($arquivo);
         }
 
         $documentos = [];
@@ -71,5 +68,40 @@ final class ArmazenadorDeDocumentos
         }
 
         return $documentos;
+    }
+
+    /**
+     * O comprovante de pagamento PIX (aba Pagamento, desenho 25/10): UM arquivo, só PDF ou imagem (o `accept=".pdf,image/*"`
+     * do desenho, conferido pelo CONTEÚDO, não pelo nome; SVG fica de fora porque a rota entrega o arquivo inline).
+     * O documento nasce marcado como comprovante, fora de DOCUMENTOS. Não anexa à demanda: quem chama faz isso
+     * ({@see DemandaExterna::enviarComprovante()}), na mesma transação.
+     *
+     * @param \ArrayObject<int, ChaveDeArquivo> $gravados
+     */
+    public function gravarComprovante(DemandaExterna $demanda, UploadedFile $arquivo, Autor $autor, \ArrayObject $gravados): DocumentoDemanda
+    {
+        $this->conferir($arquivo);
+        $mime = (string) $arquivo->getMimeType();
+        if (!in_array($mime, self::MIMES_DO_COMPROVANTE, true)) {
+            throw new DadosInvalidos('O comprovante precisa ser um PDF ou uma imagem.');
+        }
+
+        $nome = mb_substr($arquivo->getClientOriginalName() ?: 'comprovante', 0, 255);
+        $tamanho = $arquivo->getSize() ?: 0;
+        $upload = FonteDeUploadHttp::de($arquivo);
+        $armazenado = $upload->gravarEm($this->armazenamento, ChavesDeTrabalhoExterno::novoDocumento($demanda, $upload->extensao));
+        $gravados->append($armazenado->chave);
+
+        return new DocumentoDemanda($demanda, $nome, $armazenado->chave->nome, $tamanho, mb_substr($mime, 0, 120), $autor, null, true);
+    }
+
+    private function conferir(UploadedFile $arquivo): void
+    {
+        if (!$arquivo->isValid()) {
+            throw new DadosInvalidos(sprintf('O arquivo "%s" não chegou inteiro. Tente de novo.', $arquivo->getClientOriginalName()));
+        }
+        if (($arquivo->getSize() ?: 0) > self::MAX_BYTES) {
+            throw new DadosInvalidos(sprintf('O arquivo "%s" passa de 20 MB.', $arquivo->getClientOriginalName()));
+        }
     }
 }

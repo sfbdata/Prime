@@ -19,8 +19,11 @@ use App\TrabalhoExterno\UseCase\AnexarDocumentosUseCase;
 use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\AtualizarConfiguracaoCentralUseCase;
+use App\TrabalhoExterno\UseCase\AvisarPagamentoNoChatUseCase;
+use App\TrabalhoExterno\UseCase\ConfirmarRecebimentoDoPixUseCase;
 use App\TrabalhoExterno\UseCase\DespacharNaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
+use App\TrabalhoExterno\UseCase\EnviarComprovanteDePagamentoUseCase;
 use App\TrabalhoExterno\UseCase\EnviarMensagemUseCase;
 use App\TrabalhoExterno\UseCase\EnviarPropostaUseCase;
 use App\TrabalhoExterno\UseCase\LiberarRespostasAoDespachoUseCase;
@@ -230,6 +233,43 @@ final class DemandaExternaController extends AbstractController
     {
         return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $liberar): array {
             $liberar->executar($ctx, $codigo, (bool) ($this->corpo($request)['liberar'] ?? false));
+
+            return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
+        });
+    }
+
+    /** Aba Pagamento (desenho 25/10), "Já paguei · enviar comprovante": multipart com UM arquivo em `comprovante`. */
+    #[Route('/demandas/{codigo}/pagamento/comprovante', name: 'trabalho_externo_pagamento_comprovante', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function comprovante(Request $request, string $codigo, EnviarComprovanteDePagamentoUseCase $enviar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $enviar): array {
+            $arquivo = $request->files->get('comprovante');
+            $enviar->executar($ctx, $codigo, $arquivo instanceof UploadedFile ? $arquivo : null);
+
+            return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
+        });
+    }
+
+    /** "Confirmar recebimento": sem corpo. O valor sai da proposta aceita, nunca do cliente. */
+    #[Route('/demandas/{codigo}/pagamento/confirmacao', name: 'trabalho_externo_pagamento_confirmar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function confirmarRecebimento(Request $request, string $codigo, ConfirmarRecebimentoDoPixUseCase $confirmar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($codigo, $confirmar): array {
+            $confirmar->executar($ctx, $codigo);
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                'toast' => ['titulo' => 'Pagamento confirmado', 'texto' => 'O solicitante foi avisado no chat e por e-mail.'],
+            ];
+        });
+    }
+
+    /** "Enviar no chat": grava o aviso do PIX no chat (sem corpo). */
+    #[Route('/demandas/{codigo}/pagamento/aviso', name: 'trabalho_externo_pagamento_avisar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function avisarPagamento(Request $request, string $codigo, AvisarPagamentoNoChatUseCase $avisar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($codigo, $avisar): array {
+            $avisar->executar($ctx, $codigo);
 
             return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
         });
