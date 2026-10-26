@@ -110,6 +110,18 @@ final class AlterarConvenioDaUfUseCaseTest extends TestCase
         self::assertSame(12.5, $atual->getValor());
     }
 
+    #[TestDox('mudou só motivo e data: grava e não avisa')]
+    public function testMudouSoMotivoEData(): void
+    {
+        $atual = $this->existente();
+        $n = $this->useCase($atual, self::PRIMARIOS)->executar($this->pedido('dif', 9.9, '2026-12-15', 'Novo motivo'));
+
+        self::assertSame(0, $n);
+        self::assertSame([], $this->enviadas);
+        self::assertSame(1, $this->gravacoes);
+        self::assertSame('2026-12-15', $atual->getDesde()->format('Y-m-d'));
+    }
+
     #[TestDox('livre: remove e avisa; livre sem linha não faz nada')]
     public function testLivre(): void
     {

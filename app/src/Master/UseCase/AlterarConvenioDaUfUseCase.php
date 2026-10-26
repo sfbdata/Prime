@@ -23,7 +23,7 @@ use Psr\Log\LoggerInterface;
  * Fluxo principal: `livre` apaga a linha do estado; `dif` e `sem` criam ou trocam a linha. Grava no escopo de
  * plataforma. Auditoria: ConvenioDaUf é Auditavel, cada criação, troca e remoção entra na trilha do Master.
  * Depois de gravar, enfileira um e-mail a cada primário ativo dos escritórios do estado ({@see AvisoDeConvenioDaUf}, P4c),
- * só se o convênio realmente mudou; Não muda cobrança (frente própria).
+ * só se o estado ou o valor mudou (motivo e data sozinhos gravam sem avisar); não muda cobrança (frente própria).
  * Fluxos alternativos: dado fora da regra recusa (422), sem gravar.
  */
 final class AlterarConvenioDaUfUseCase
@@ -74,7 +74,8 @@ final class AlterarConvenioDaUfUseCase
             return 0;
         }
 
-        $destinatarios = $this->aviso->destinatarios($uf);
+        $avisar = $atual === null || !$atual->mesmoAvisoQue($novo);
+        $destinatarios = $avisar ? $this->aviso->destinatarios($uf) : [];
         if ($atual === null) {
             $atual = $novo;
         } else {
@@ -82,7 +83,7 @@ final class AlterarConvenioDaUfUseCase
         }
         $this->escopoDePlataforma->executar(fn () => $this->convenios->salvar($atual, flush: true));
 
-        return $this->aviso->avisar($uf, $atual, $destinatarios);
+        return $avisar ? $this->aviso->avisar($uf, $atual, $destinatarios) : 0;
     }
 
     private function tornarGratuito(string $uf, ConvenioDaUf $atual): int

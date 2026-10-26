@@ -92,6 +92,12 @@ class ConvenioDaUf implements Auditavel
             && $this->motivo === $outro->motivo;
     }
 
+    /** O que o e-mail diz ao cliente (estado e valor); motivo e data sozinhos não geram novo aviso. */
+    public function mesmoAvisoQue(self $outro): bool
+    {
+        return $this->modo === $outro->modo && $this->valor === $outro->valor;
+    }
+
     public static function exigirUf(string $uf): string
     {
         $uf = strtoupper(trim($uf));
