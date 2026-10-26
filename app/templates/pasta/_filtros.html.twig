@@ -39,6 +39,14 @@
                 <option value="sem" {% if filters.responsavel == 'sem' %}selected{% endif %}>{{ 'pasta_lista.filtros.sem_responsavel'|trans }}</option>
                 {# dc L.146-148 e L.652 (`avBg`): com foto, o avatar do menu e do botão é a foto; sem, as iniciais. #}
                 {% set fotosDoFiltro = fotosResponsaveis|default({}) %}
+                {# Total de Pastas concluídas do Dashboard: `equipe` / `equipe:<cargo>` (colaboradores ativos, opcionalmente de um
+                   cargo). Não é uma pessoa: a opção só existe quando o filtro vem assim, fica fora do menu (data-equipe) e mostra
+                   o rótulo da equipe no campo. Sem ela, o select perderia o valor e a paginação e o "Limpar" o soltariam. #}
+                {% set respEquipe = (filters.responsavel ?? '') starts with 'equipe' ? (filters.responsavel|trim) : '' %}
+                {% if respEquipe == 'equipe' or respEquipe starts with 'equipe:' %}
+                    {% set cargoEquipe = respEquipe == 'equipe' ? '' : (respEquipe|slice(7)|trim) %}
+                    <option value="{{ respEquipe }}" selected data-equipe="1">{{ cargoEquipe == '' ? 'pasta_lista.filtro_equipe.equipe'|trans : 'pasta_lista.filtro_equipe.equipe_cargo'|trans({cargo: (cargoEquipe == '__sem__' ? 'pasta_lista.filtro_equipe.sem_cargo'|trans : cargoEquipe)}) }}</option>
+                {% endif %}
                 {% for usuario in responsaveis %}
                     {% set fotoF = fotosDoFiltro[usuario.id]|default(null) %}
                     <option value="{{ usuario.id }}" {% if filters.responsavel == usuario.id ~ '' %}selected{% endif %}{% if fotoF %} data-foto="{{ path('app_profile_foto_serve', {nome: fotoF}) }}"{% endif %}>{{ usuario.fullName }}</option>

@@ -885,8 +885,12 @@ class PastaRepository extends ServiceEntityRepository
         // "Sem responsável" (E8 da fidelidade, decisão do dono 14/10; o desenho de 13/10 tem a opção no
         // filtro de responsável): a pasta sem ninguém atribuído. Antes, `responsavel=sem` virava
         // `(int) 0` e devolvia lista vazia — nenhum chamador dependia disso.
-        if (($filters['responsavel'] ?? '') === 'sem') {
+        // `responsavel=equipe[:cargo]`: destino do Total de Pastas concluídas do Dashboard (ver filtrarPorEquipe).
+        $respFiltro = trim((string) ($filters['responsavel'] ?? ''));
+        if ($respFiltro === 'sem') {
             $qb->andWhere('p.responsavel IS NULL');
+        } elseif ($respFiltro === 'equipe' || str_starts_with($respFiltro, 'equipe:')) {
+            $this->filtrarPorEquipe($qb, $respFiltro);
         } elseif (!empty($filters['responsavel'])) {
             $qb->join('p.responsavel', 'r')
                ->andWhere('r.id = :responsavel')
@@ -992,6 +996,28 @@ class PastaRepository extends ServiceEntityRepository
                    ->setParameter('dataAte', $dataAte);
             }
         }
+    }
+
+    /**
+     * `responsavel=equipe` (ou `equipe:<cargo>`): pastas cujo responsável é colaborador ATIVO do escritório da
+     * consulta (`:tenant`), opcionalmente de um cargo (`__sem__` = sem cargo). O Total do Dashboard soma só as linhas exibidas (colaboradores ativos), então a lista conta o mesmo:
+     * pasta sem responsável ou de quem saiu do escritório fica fora dos dois lados. Mesma lógica do `criado_por=equipe`.
+     */
+    private function filtrarPorEquipe(QueryBuilder $qb, string $respFiltro): void
+    {
+        $cargoResp = $respFiltro === 'equipe' ? '' : trim(substr($respFiltro, strlen('equipe:')));
+
+        $sub = 'SELECT 1 FROM ' . UserTenant::class . ' ut_rse LEFT JOIN ut_rse.cargo cg_rse'
+            . ' WHERE ut_rse.user = resp_eq AND ut_rse.tenant = :tenant AND ut_rse.isActive = true';
+        if ($cargoResp === '__sem__') {
+            $sub .= " AND (cg_rse.id IS NULL OR TRIM(cg_rse.nome) = '')";
+        } elseif ($cargoResp !== '') {
+            $sub .= ' AND cg_rse.nome = :cargoResp';
+            $qb->setParameter('cargoResp', $cargoResp);
+        }
+
+        $qb->join('p.responsavel', 'resp_eq')
+           ->andWhere('EXISTS (' . $sub . ')');
     }
 
     /**

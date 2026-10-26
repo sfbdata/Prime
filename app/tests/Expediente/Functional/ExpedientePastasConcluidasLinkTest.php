@@ -23,8 +23,8 @@ use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * Pastas concluídas: o número da coluna do Dashboard vira link para o Acervo do Expediente com
- * `concluida=1` (regra B12: o número clicado = o tamanho da lista). O Relatório NÃO vira link: conta
- * registros, e a lista conta pastas.
+ * `concluida=1` (regra B12: o número clicado = o tamanho da lista). O Relatório não vira link do Expediente: conta
+ * registros e abre o modal "Ver relatório" (RelatorioDoDashboardControllerTest).
  */
 #[CoversClass(ExpedienteController::class)]
 #[CoversClass(PastaRepository::class)]
@@ -196,7 +196,7 @@ final class ExpedientePastasConcluidasLinkTest extends JusPrimeWebTestCase
         self::assertContains($c['nups']['aberta'], $todas);
     }
 
-    #[TestDox('TELA: Pastas concluídas > 0 é link direto com href exato; zero não; Relatório e Total sem link')]
+    #[TestDox('TELA: Pastas concluídas > 0 é link direto com href exato; zero não; Relatório sem link, Total com link da equipe')]
     public function testTelaDoPainel(): void
     {
         $c = $this->cenario();
@@ -230,7 +230,12 @@ final class ExpedientePastasConcluidasLinkTest extends JusPrimeWebTestCase
         self::assertCount(0, $linha('Gestora Concluidas')->filter('td[data-coluna="pastas_concluidas"] a'));
         // Relatório (registros ≠ pastas) e o Total não são link.
         self::assertCount(0, $crawler->filter('table.db-table > tbody td[data-coluna="relatorio"] a'));
-        self::assertCount(0, $crawler->filter('table.db-table > tfoot td[data-coluna="pastas_concluidas"] a'));
+        // O Total soma só as linhas exibidas e agora é link para a equipe (a paridade está em ExpedienteTotalPastasConcluidasLinkTest).
+        $total = $crawler->filter('table.db-table > tfoot td[data-coluna="pastas_concluidas"] a.db-num-link');
+        self::assertCount(1, $total);
+        self::assertSame('4', trim($total->text()));
+        parse_str((string) parse_url((string) $total->attr('href'), PHP_URL_QUERY), $qTotal);
+        self::assertSame('equipe', $qTotal['responsavel']);
         self::assertCount(0, $crawler->filter('table.db-table > tfoot td[data-coluna="relatorio"] a'));
     }
 }
