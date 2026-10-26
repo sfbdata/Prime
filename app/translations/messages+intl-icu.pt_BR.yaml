@@ -3184,8 +3184,8 @@ dashboard:
     zerar:
         aviso:
             titulo: 'Pedido para zerar {rotulo}'
-            texto_primario: '{destinatario}, {nome} pediu às {hora} para zerar {rotulo} {alvo} no Dashboard. É um dado estatístico: zerar recomeça a contagem a partir de agora e o histórico anterior deixa de entrar no número. Para autorizar, zere a coluna no Dashboard (botão direito no título dela).'
-            texto_controladoria: '{destinatario}, para sua análise: {nome} pediu para zerar {rotulo} {alvo} no Dashboard. A decisão é do usuário primário; nada foi alterado.'
+            texto_primario: '{destinatario}, {nome} pediu às {hora} para zerar {rotulo} {alvo} no Painel do Escritório. É um dado estatístico: zerar recomeça a contagem a partir de agora e o histórico anterior deixa de entrar no número. Para autorizar, zere a coluna no Painel do Escritório (botão direito no título dela).'
+            texto_controladoria: '{destinatario}, para sua análise: {nome} pediu para zerar {rotulo} {alvo} no Painel do Escritório. A decisão é do usuário primário; nada foi alterado.'
             alvo_pessoa: 'de {nome}'
             alvo_todos: 'de toda a equipe'
             sem_nome: 'Um colaborador'
