@@ -345,9 +345,38 @@ dashboard:
             erro: 'Não foi possível concluir agora. Tente de novo.'
             cartao_zerar: 'Zerar'
             cartao_zerar_titulo: 'Zerar o relatório desta pessoa'
+        # Meta de pastas do mês (DASH-016; dashboard-meta.js; desenho VS 25.10.26, `metaEd` e menu do card)
+        meta:
+            menu_alterar: 'Alterar meta do mês'
+            menu_definir: 'Definir meta do mês'
+            menu_historico: 'Ver histórico'
+            aria: 'Meta de pastas do mês'
+            titulo: 'Meta de pastas'
+            a_partir_de: 'A partir de {mes}'
+            pergunta: 'Quantas pastas precisam ser abertas no mês.'
+            placeholder: 'Ex.: 40'
+            previa: '≈ {dia} por dia útil · {semana} por semana'
+            vigencia_herdada: 'Meta herdada de {desde}. Ao salvar, vale de {mes} em diante.'
+            vigencia_nova: 'Vale para toda a equipe e segue para os próximos meses até ser alterada.'
+            remover: 'Remover meta'
+            cancelar: 'Cancelar'
+            salvar: 'Salvar'
+            erro: 'Não foi possível salvar a meta agora. Tente de novo.'
+            sem_permissao: 'Só o usuário primário pode alterar a meta de pastas.'
     # Dica de cada card (data-tip, dc VS 25.10.26 L2816-2819); some depois de 3 passagens (dashboard.js).
     dicas_cards:
         pastas_criadas: 'Soma das pastas abertas no período escolhido. Clique para ver a lista. Botão direito: histórico.'
         metas_ativas: 'Metas em andamento no período. Clique para abrir. Botão direito: histórico.'
         demandas_urgentes: 'Pastas marcadas como urgentes. Clique para ver quais são. Botão direito: histórico.'
         meta_global: 'Percentual das metas concluídas no período. Botão direito: histórico.'
+    # Meta de pastas do mês no card Pastas criadas (DASH-016; _meta_pastas.html.twig). O ritmo conta dias úteis.
+    meta:
+        definir: 'Definir meta do mês'
+        alterar: 'Alterar meta do mês'
+        de: 'de'
+        no_mes: 'no mês'
+        status_batida: 'Meta batida'
+        status_no_ritmo: 'No ritmo'
+        status_abaixo: 'Abaixo do ritmo'
+        dica_batida: 'Meta do mês alcançada'
+        dica: 'Previsto até hoje: {esperado} (dia útil {dia} de {total}). Faltam {faltam} em {restam} dias úteis: {porDia, number, ::.#} por dia útil, {porSemana} por semana. O traço marca onde a equipe deveria estar hoje.'

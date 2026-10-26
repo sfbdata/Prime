@@ -86,6 +86,20 @@ class Conversa implements TenantAware
         return new self($tenant, TipoDeConversa::Individual, $menor, $maior, $quemAbre, $em);
     }
 
+    /**
+     * A conversa da pessoa com o BlueJus IA (F3): uma por (escritório, usuário). Só ele participa. Para o único
+     * `(tenant, usuario_menor, usuario_maior)` garantir "uma só", grava menor = maior = o usuário (conversa
+     * individual nunca tem os dois iguais, então os tipos não colidem).
+     */
+    public static function comAIa(Tenant $tenant, User $usuario, \DateTimeImmutable $em): self
+    {
+        if ($usuario->getId() === null) {
+            throw new \LogicException('Conversa exige usuários persistidos.');
+        }
+
+        return new self($tenant, TipoDeConversa::Ia, $usuario, $usuario, $usuario, $em);
+    }
+
     /** Grupo novo: quem cria é o administrador. O nome é obrigatório (1–60, sem espaço sobrando). */
     public static function grupo(Tenant $tenant, User $criador, string $nome, \DateTimeImmutable $em): self
     {
@@ -101,9 +115,17 @@ class Conversa implements TenantAware
         return $this->tipo === TipoDeConversa::Grupo;
     }
 
+    public function isIa(): bool
+    {
+        return $this->tipo === TipoDeConversa::Ia;
+    }
+
     /** O participante que não é `$eu` — só existe em conversa individual. */
     public function outroAlemDe(User $eu): User
     {
+        if ($this->isIa()) {
+            throw new \LogicException('Conversa com a IA não tem "o outro".');
+        }
         if ($this->usuarioMenor === null || $this->usuarioMaior === null) {
             throw new \LogicException('Conversa em grupo não tem "o outro".');
         }
