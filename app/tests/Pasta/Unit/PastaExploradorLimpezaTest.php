@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L9 da aba Documentos: duplicados e limpeza na tela (DOC-62..66; desenho 02 - EXPEDIENTES
@@ -23,12 +23,11 @@ final class PastaExploradorLimpezaTest extends TestCase
     private const JS   = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS  = __DIR__ . '/../../../public/css/pasta-explorador.css';
     private const TWIG = __DIR__ . '/../../../templates/pasta/_documentos_explorador.html.twig';
-    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     /** @return array<string, mixed> o bloco `pasta_documentos.explorador` do catálogo */
     private function catalogo(): array
     {
-        return Yaml::parseFile(self::CATALOGO)['pasta_documentos']['explorador'];
+        return CatalogoPtBr::carregar()['pasta_documentos']['explorador'];
     }
 
     private function js(): string

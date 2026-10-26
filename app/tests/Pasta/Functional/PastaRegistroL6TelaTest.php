@@ -10,10 +10,10 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L6 no Registro dos expedientes (desenho 1.2.3, dc L.1300-1325 e `regsItens` L.5966-5978):
@@ -253,6 +253,6 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
     /** @return array<string, string> o texto do script do Registro, no catálogo do idioma (`pasta_show.js.registro`) */
     private static function catalogoDoRegistro(): array
     {
-        return Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['registro'];
+        return CatalogoPtBr::carregar()['pasta_show']['js']['registro'];
     }
 }

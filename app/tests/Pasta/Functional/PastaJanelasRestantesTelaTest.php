@@ -6,10 +6,10 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote S6-JS do Ciclo 6 na página renderizada: o X (PAS-022r) e o arraste (PAS-023r) moram em
@@ -109,6 +109,6 @@ final class PastaJanelasRestantesTelaTest extends JusPrimeWebTestCase
     /** @return array<string, string> */
     private static function catalogoDoMenu(): array
     {
-        return Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_cabecalho']['cabecalho']['menu'];
+        return CatalogoPtBr::carregar()['pasta_cabecalho']['cabecalho']['menu'];
     }
 }
