@@ -71,9 +71,11 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
   "Limpar filtros"); **60 dias** e **90 dias** contam hoje incluído (hoje − 59 e hoje − 89 até
   hoje); **Este ano** segue de 1º/jan até hoje. As janelas do cartão do colaborador (Mês,
   Trimestre, Semestre, Ano) continuam terminando hoje. Consequências: o período anterior
-  equivalente do Este mês passa a ter a duração do mês inteiro (as setas comparam o mês corrente,
-  ainda em curso, com um período completo), e o que conta por data futura (início de evento na
-  agenda) entra até o fim do mês.
+  só conta os dias já corridos quando o período termina no futuro (visto em 26/10, 01/10 a 31/10
+  compara com os 26 dias antes de 01/10; `ObterDadosDashboardUseCase::fimJaCorrido`), para a seta
+  não apontar queda no começo de todo mês; o que conta por data futura (início de evento na agenda)
+  entra até o fim do mês; e a Inteligência passa a ver o período padrão como em andamento ("Dia 26
+  de 31", nota de qualidade com "Período em andamento") em vez de encerrado.
 
 ## Padrões PROVISÓRIOS (até o dono responder)
 

@@ -790,6 +790,21 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         return $porId;
     }
 
+    #[TestDox('período que termina no futuro ("Este mês" até o fim do mês): o anterior tem só os dias já corridos')]
+    public function testPeriodoAnteriorDoMesEmCursoContaSoOsDiasCorridos(): void
+    {
+        $chamadas = [];
+        $this->cenarioComPeriodo('2024-01-01', $chamadas);
+
+        $output = $this->sut->executar($this->tenant, new \DateTimeImmutable('2024-01-10 15:30'), [
+            'data_de'  => '2024-01-01',
+            'data_ate' => '2024-01-31',
+        ]);
+
+        // Visto em 10/01: 10 dias corridos (01 a 10) → os 10 dias antes de 01/01, não um mês cheio.
+        self::assertSame(['data_de' => '2023-12-22', 'data_ate' => '2023-12-31'], $output->periodoAnterior);
+    }
+
     #[TestDox('com período, expõe o anterior de mesma duração por linha e nos totais')]
     public function testPeriodoAnteriorPreencheLinhasETotais(): void
     {
