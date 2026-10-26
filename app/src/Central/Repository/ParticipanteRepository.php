@@ -6,6 +6,7 @@ namespace App\Central\Repository;
 
 use App\Central\Entity\Conversa;
 use App\Central\Entity\Participante;
+use App\Central\Entity\TipoDeConversa;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -21,7 +22,7 @@ class ParticipanteRepository extends ServiceEntityRepository
 
     /**
      * A participação ATIVA do usuário na conversa — é ELA que dá acesso. Conversa inexistente, de outro escritório,
-     * de que o usuário não participa ou de que saiu (B) dão o mesmo `null`: quem chama responde 404 sem distinguir.
+     * de que o usuário não participa, de que saiu (B) ou do tipo IA (invisível até a tela da F3) dão o mesmo `null`: quem chama responde 404 sem distinguir.
      */
     public function daConversa(int $conversaId, User $usuario, Tenant $tenant): ?Participante
     {
@@ -33,9 +34,11 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.tipo <> :ia')
             ->setParameter('conversa', $conversaId)
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
+            ->setParameter('ia', TipoDeConversa::Ia)
             ->getQuery()
             ->getOneOrNullResult();
     }
@@ -84,8 +87,10 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.tipo <> :ia')
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
+            ->setParameter('ia', TipoDeConversa::Ia)
             ->orderBy('p.fixada', 'DESC')
             ->addOrderBy('ordem', 'DESC')
             ->addOrderBy('c.id', 'DESC')
@@ -161,11 +166,15 @@ class ParticipanteRepository extends ServiceEntityRepository
     {
         $ids = $this->createQueryBuilder('p')
             ->select('IDENTITY(p.conversa) AS conversa')
+            ->join('p.conversa', 'c')
             ->andWhere('p.usuario = :usuario')
             ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.tipo <> :ia')
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
+            ->setParameter('ia', TipoDeConversa::Ia)
             ->getQuery()
             ->getSingleColumnResult();
 
