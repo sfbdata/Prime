@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * `public/js/pasta-impressao.js` lido como FOLHA (não há navegador no PHPUnit): o que se prova é
@@ -163,7 +163,7 @@ final class PastaImpressaoJsTest extends TestCase
         self::assertStringContainsString("[item.getAttribute('data-autor'), item.getAttribute('data-quando'), item.getAttribute('data-tipo')]", $bloco);
         self::assertStringContainsString(".join(' · ')", $bloco);
         self::assertStringContainsString("abrir({ secao: 'moldura', titulo: BJ_T.t('pasta_resp.js.impressao.registro_titulo'), autor: linha, corpo: corpo, pdf: pdf })", $bloco);
-        self::assertSame('Registro do expediente', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_resp']['js']['impressao']['registro_titulo']);
+        self::assertSame('Registro do expediente', CatalogoPtBr::carregar()['pasta_resp']['js']['impressao']['registro_titulo']);
         self::assertStringContainsString("{{ catalogo_js('pasta_resp.js.impressao') }}", (string) file_get_contents(self::MODAL), 'o parcial que carrega o script entrega o catálogo dele');
     }
 

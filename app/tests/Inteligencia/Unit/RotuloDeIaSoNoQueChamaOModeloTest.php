@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Decisão do dono (24/10/2026, `docs/specs/ia-anthropic-ligar.md` §10): tela que é regra não leva o rótulo de IA.
@@ -38,7 +38,7 @@ final class RotuloDeIaSoNoQueChamaOModeloTest extends TestCase
 
     private static function texto(string $chave): string
     {
-        $no = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             $no = $no[$parte];
         }

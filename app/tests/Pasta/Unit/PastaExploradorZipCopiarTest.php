@@ -6,9 +6,9 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Pasta\UseCase\CopiarDocumentosDaPastaUseCase;
 use App\Pasta\UseCase\MontarZipDeDocumentosUseCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L8-UI da aba Documentos (D5 zip, D6 copiar/colar): os contratos do `pasta-explorador.js`
@@ -24,7 +24,6 @@ final class PastaExploradorZipCopiarTest extends TestCase
 
     private const JS  = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const TPL = __DIR__ . '/../../../templates/pasta/_documentos_explorador.html.twig';
-    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     private function js(): string
     {
@@ -123,7 +122,7 @@ final class PastaExploradorZipCopiarTest extends TestCase
         preg_match_all('/data-pex-sel="([a-z]+)"/', $barra, $m);
         self::assertSame(['baixar', 'copiar', 'recortar', 'renomear', 'tudo', 'excluir'], $m[1]);
         self::assertStringContainsString("<button type=\"button\" class=\"pex-selecao-acao\" data-pex-sel=\"copiar\" title=\"{{ 'pasta_documentos.explorador.selecao.copiar_dica'|trans }}\" hidden><i class=\"bi bi-copy\" aria-hidden=\"true\"></i><span>{{ 'pasta_documentos.explorador.selecao.copiar'|trans }}</span></button>", $barra);
-        $selecao = Yaml::parseFile(self::CATALOGO)['pasta_documentos']['explorador']['selecao'];
+        $selecao = CatalogoPtBr::carregar()['pasta_documentos']['explorador']['selecao'];
         self::assertSame('Copiar (Ctrl+C)', $selecao['copiar_dica']);
         self::assertSame('Copiar', $selecao['copiar']);
 

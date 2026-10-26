@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
-use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 
 /**
@@ -104,7 +104,7 @@ final class ParcialDoModoVendaTest extends KernelTestCase
         self::assertStringContainsString('.mc-cp-lead-add { height: 26px; padding: 0 10px; border: 1px dashed var(--mc-cp-novo-borda); border-radius: 13px; background: var(--mc-cp-novo-bg); color: var(--mc-azul);', $css);
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-campanha.js');
         self::assertStringContainsString("window.prompt(BJ_T.t('comercial.js.contatos_pergunta'), '')", $js);
-        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = CatalogoPtBr::carregar();
         self::assertSame('E-mail(s) de novos contatos (separe por vírgula). Só cadastre quem autorizou receber (LGPD):', $catalogo['comercial']['js']['contatos_pergunta'], 'o texto do prompt do dc (L644), no catálogo');
     }
 

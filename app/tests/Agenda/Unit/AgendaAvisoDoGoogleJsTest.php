@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Agenda\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Teste de FOLHA do agenda-nova.js (lê o JS, o CSS e o catálogo; sem navegador) para a janela que orienta a
@@ -19,7 +19,6 @@ final class AgendaAvisoDoGoogleJsTest extends TestCase
     private const APP = __DIR__ . '/../../..';
     private const JS = self::APP . '/public/js/agenda-nova.js';
     private const CSS = self::APP . '/public/css/agenda-nova.css';
-    private const CATALOGO = self::APP . '/translations/messages+intl-icu.pt_BR.yaml';
 
     private function ler(string $caminho): string
     {
@@ -69,7 +68,7 @@ final class AgendaAvisoDoGoogleJsTest extends TestCase
     public function testTextosDoCatalogo(): void
     {
         $aviso = $this->funcao('googleAviso');
-        $catalogo = Yaml::parseFile(self::CATALOGO)['agenda']['js']['google']['aviso'];
+        $catalogo = CatalogoPtBr::carregar()['agenda']['js']['google']['aviso'];
         self::assertSame([
             'titulo' => 'Sincronize com o Google Agenda',
             'texto' => 'Conecte a sua conta Google para ver os compromissos do BlueJus no seu Google Agenda e receber os lembretes no celular. Use o botão Sincronizar com o Google Agenda, aqui na Agenda.',

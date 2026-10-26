@@ -16,6 +16,7 @@ use App\Indicacao\Service\RegistroDeIndicacao;
 use App\Indicacao\UseCase\IndicarPorEmailUseCase;
 use App\Tests\Indicacao\Support\CenarioDeIndicacao;
 use App\Tests\Indicacao\Support\Pessoas;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -54,7 +55,7 @@ final class IndicarPorEmailUseCaseTest extends TestCase
         // O texto do convite mora no catálogo (bloco `emails`): o tradutor de verdade do português, como o do sistema.
         $tradutor = new Translator('pt_BR');
         $tradutor->addLoader('yaml', new YamlFileLoader());
-        $tradutor->addResource('yaml', dirname(__DIR__, 3) . '/translations/messages+intl-icu.pt_BR.yaml', 'pt_BR', 'messages+intl-icu');
+        CatalogoPtBr::registrarEm($tradutor);
         $twig->addExtension(new TranslationExtension($tradutor));
 
         return new IndicarPorEmailUseCase($this->registro(), $this->indicacoes, $this->codigo(), $carteiro, $twig, $this->relogio);

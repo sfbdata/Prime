@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * O comercial-datas.js (F4; desenho 05 VS 21.10.26 L337 e L678-682): o contrato do "Ver mensagem" com a Central
@@ -44,7 +44,7 @@ final class ComercialDatasJsTest extends TestCase
     #[TestDox('Os textos do dc (L679-681) estão no catálogo, sem travessão')]
     public function testTextosDoDesenho(): void
     {
-        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['comercial']['js'];
+        $catalogo = CatalogoPtBr::carregar()['comercial']['js'];
 
         self::assertSame(
             ['hoje', 'amanhã', 'em {n} dias', 'envio {data} às 9h', 'No dia', '1 dia antes', '3 dias antes', 'Todos', 'Primários', 'Base de contatos', 'Ver mensagem', 'Prévia da mensagem de {nome}. Use Duplicar para personalizar o texto.'],
