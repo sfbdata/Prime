@@ -8,6 +8,33 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.20.0] - 2026-10-26
+
+### Adicionado
+
+- Painel do Master: a seção "Configurações globais" deixa de ser vazia e ganha os 14 campos do desenho (identidade, contas novas, segurança, região, manutenção programada), com Restaurar padrão, Descartar e Salvar. O espaço do Plano Free e o aviso de espaço gravam em Planos e Faixas; os outros 12 ficam na nova tabela configuracao_global, com auditoria.
+- Aviso de manutenção: o texto escrito em "Manutenção programada" aparece no topo de toda tela de quem está logado, até a data e hora escolhidas.
+- Os demais campos (cadastro, sessão, tentativas de login, verificação em duas etapas, retenção da auditoria, idioma, fuso, nomes e e-mails) já são gravados, mas ainda não mudam o comportamento do sistema: serão ligados um a um.
+- Ao mudar o convênio OAB de um estado no painel do Master (valor diferenciado, sem convênio ou grátis de novo), o sistema enfileira um e-mail para cada usuário primário ativo dos escritórios daquele estado, com o valor em reais, a data de vigência e, quando houver, o motivo.
+- Só avisa quando o convênio realmente mudou: salvar o mesmo estado duas vezes não repete o e-mail. Um e-mail por pessoa, sem expor a lista de destinatários, pela fila de envio e dentro da cota diária: todos entram na fila e o envio adia o que passar da cota, então em estado grande a entrega pode se espalhar por mais de um dia. A mudança e a fila andam juntas: se os avisos não entram na fila, nada é alterado.
+- A resposta de POST /master/convenios ganhou o campo `avisados` (quantos e-mails entraram na fila). Sem migration.
+- Painel do Master, seção Contas: novo painel recolhível "Convênio OAB por estado". Para cada um dos 27 estados o Master escolhe convênio grátis, convênio com valor diferenciado (valor por mês e data de início) ou sem convênio (mensalidade, data e motivo). Cada mudança fica na auditoria.
+- Na lista de contas, abaixo do plano, aparece o convênio do estado da conta (verde grátis, azul valor diferenciado, vermelho sem convênio). Conta sem estado cadastrado fica sem rótulo.
+- Por enquanto o convênio só é registrado e mostrado: o aviso por e-mail aos primários do estado e o efeito na cobrança entram em outra entrega.
+- Painel do Master, mapa "Onde estamos atuando": novo botão "Indicações" ao lado de Pessoas, Escritórios e OAB (só no Brasil), com três visões: Indicações enviadas, Contas abertas e Recompensas pagas (R$). Cada indicação conta no estado e na cidade de quem indicou.
+- Recompensas pagas aparece zerada até existir o extrato de recompensas.
+- Painel do Master, Planos e limites: faixa do convênio OAB com a logo, rótulo "Planos de espaço", selos "Convênio OAB · toda conta nova começa aqui" (Free) e "Mais escolhido" (Profissional), botão "Ajustar" no topo do cartão, linhas "usuários ilimitados" e "Todos os recursos liberados", cor roxa do Avançado e nota de rodapé nova, conforme o desenho 05 de 25/10.
+- Os planos Free, Essencial e Profissional deixam de limitar o número de usuários (antes 3, 8 e 15), como o Avançado: a tela passa a dizer "usuários ilimitados" e o convite de usuários não é mais recusado por limite de plano. O Master ainda pode definir um limite próprio para uma conta.
+- Painel do Master: nova seção "Recompensas" (ícone de presente), com as regras do programa Indique e ganhe: chave de programa ativo ou pausado, recompensa por escritório (em reais), quantos escritórios ativos liberam, carência em dias, alerta antifraude e a opção "Só conta escritório com pastas abertas".
+- A seção traz os KPIs (Indicadores, Contas abertas, Liberados, A pagar e Já pago) e a lista de Indicadores com busca, filtros e a situação de cada um (Liberado, em carência ou em andamento). O valor é calculado na hora da leitura: nada é gravado nem pago ainda.
+- Condição individual por indicador (valor, "libera com", carência, parceiro recorrente e motivo), que não muda quando a regra geral muda, e "Voltar à regra geral". Tudo registrado na auditoria da plataforma.
+- Novas tabelas `programa_de_recompensa` e `condicao_de_recompensa` (dado da plataforma, sem escritório). Baixa de pagamento, caixa, extrato e Fechamento do mês ficam para as próximas entregas.
+
+### Corrigido
+
+- Link de indicação `/i/{codigo}`: o código só é guardado na sessão quando a pessoa abre o link como página (navegação). Requisição vinda de `<img>`, `<iframe>` ou `fetch` de outro site deixa de atribuir a conta nova a quem indicou.
+- Push Processual: corrige a grade da lista de Processos da OAB, que desalinhava cabeçalhos e células, sobrepunha número e órgão e quebrava os ícones de ação.
+
 ## [2.19.0] - 2026-10-26
 
 ### Adicionado
@@ -988,7 +1015,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.19.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.20.0...HEAD
+[2.20.0]: https://github.com/sfbdata/Prime/compare/v2.19.0...v2.20.0
 [2.19.0]: https://github.com/sfbdata/Prime/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/sfbdata/Prime/compare/v2.17.0...v2.18.0
 [2.17.0]: https://github.com/sfbdata/Prime/compare/v2.16.0...v2.17.0

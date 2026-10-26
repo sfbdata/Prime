@@ -1,6 +1,16 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.20.0"
+  data: "2026-10-26"
+  itens:
+    - "Se você é usuário primário de um escritório e o convênio da OAB do seu estado mudar, você recebe um e-mail com o novo valor da mensalidade e a data em que passa a valer."
+    - "Nada muda para os escritórios nesta entrega."
+    - "Nada muda para quem clica no link de indicação. Fecha uma brecha por onde alguém poderia plantar o link em outro site para ser contado como indicador."
+    - "Nada muda para os escritórios. Só o Master vê o mapa."
+    - "Nada muda para os escritórios. Só o Master vê esta tela."
+    - "Nada muda para os escritórios. Só o Master vê e altera as regras de recompensa."
+    - "A lista de Processos da OAB voltou a ficar alinhada: cabeçalhos sobre as colunas, número separado do órgão e botões de ação na mesma linha."
 - versao: "2.19.0"
   data: "2026-10-26"
   itens:
