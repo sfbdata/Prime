@@ -202,6 +202,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // gravaria o texto da pergunta no audit_log, que quem administra o escritório lê (mesmo motivo da Central).
         // A análise da pergunta continua auditada, sem o texto do modelo (ConteudoParticular).
         \App\Inteligencia\Entity\PerguntaDaConversa::class,
+        // Histórico do status das questões jurídicas da IA (Master): é o LOG DE DOMÍNIO da questão (de, para, quem,
+        // quando), nunca editado, como o HistoricoDemanda. O estado da questão (EstadoDaQuestaoJuridica) É auditado.
+        // Auditar o histórico seria log de log.
+        \App\Inteligencia\Entity\MudancaDeStatusDaQuestaoJuridica::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
@@ -299,6 +303,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\TrabalhoExterno\Entity\LeituraDemanda::class,
         \App\TrabalhoExterno\Entity\PropostaDemanda::class,
         \App\TrabalhoExterno\Entity\DocumentoDemanda::class,
+        // Despachos e respostas da Central: já ficam registrados no chat da demanda (mensagem de sistema) e
+        // têm assinatura eletrônica com código; auditar seria log de log.
+        \App\TrabalhoExterno\Entity\DespachoDemanda::class,
+        // Recusa de oferta: já deixa rastro no histórico da vaga ("Oferta recusada por"); auditar seria log de log.
+        \App\TrabalhoExterno\Entity\RecusaDeOferta::class,
         \App\TrabalhoExterno\Entity\ConviteDemanda::class,
         \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
         \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,

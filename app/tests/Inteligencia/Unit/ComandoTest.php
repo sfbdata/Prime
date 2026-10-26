@@ -92,6 +92,7 @@ final class ComandoTest extends TestCase
             'relatorio_risco' => Agente::Gestor,
             'relatorio_linha_do_tempo' => Agente::Processual,
             'indice_documentos' => Agente::Documental,
+            'ler_documentos' => Agente::Documental,
         ];
 
         foreach (Comando::cases() as $comando) {
@@ -155,11 +156,17 @@ final class ComandoTest extends TestCase
         self::assertSame('Gerar linha do tempo', Comando::RelatorioLinhaDoTempo->rotuloDoBotao());
     }
 
-    #[TestDox('nenhum pedido afirma ler o conteúdo de documento; quem fala de documentos diz que não foram lidos')]
+    #[TestDox('nenhum pedido afirma ler o conteúdo de documento, menos o "Ler documentos" (PR F); quem fala de documentos diz que não foram lidos')]
     #[DataProvider('todos')]
     public function testPedidoNaoAfirmaLerDocumento(Comando $comando): void
     {
         $pedido = $comando->pedido();
+        if ($comando->leConteudoDosArquivos()) {
+            // O único que lê: diz que os arquivos estão anexados, na ordem do bloco do prompt.
+            self::assertStringContainsString('anexados a esta mensagem na ordem de DOCUMENTOS ANEXADOS', $pedido);
+
+            return;
+        }
 
         self::assertDoesNotMatchRegularExpression('/\bleia\b|\bleitura\b|\bOCR\b|ENCONTRADO NO DOCUMENTO|lê os arquivos/iu', $pedido);
         if (preg_match('/verifique documentos|documentos relevantes/u', $pedido) === 1) {
@@ -202,7 +209,24 @@ final class ComandoTest extends TestCase
         self::assertNotContains($indice, Comando::relatorios());
         self::assertCount(10, Comando::comandos());
         self::assertCount(5, Comando::relatorios());
-        self::assertSame([Comando::IndiceDosDocumentos], array_values(array_filter(Comando::cases(), static fn (Comando $c): bool => $c->ehDaAbaDocumentos())));
+        self::assertSame([Comando::LerDocumentos, Comando::IndiceDosDocumentos], array_values(array_filter(Comando::cases(), static fn (Comando $c): bool => $c->ehDaAbaDocumentos())));
+    }
+
+    #[TestDox('PR F: o "Ler documentos" é do Documental, fica fora da grade e dos relatórios, e é o ÚNICO que lê o conteúdo dos arquivos')]
+    public function testLerDocumentos(): void
+    {
+        $ler = Comando::leituraDeDocumentos();
+
+        self::assertSame(Comando::LerDocumentos, $ler);
+        self::assertSame('ler_documentos', $ler->value);
+        self::assertSame('Ler documentos', $ler->rotulo());
+        self::assertSame('bi-stars', $ler->icone());
+        self::assertSame(Agente::Documental, $ler->agente());
+        self::assertTrue($ler->ehDaAbaDocumentos());
+        self::assertNotContains($ler, Comando::comandos());
+        self::assertNotContains($ler, Comando::relatorios());
+        self::assertSame([Comando::LerDocumentos], array_values(array_filter(Comando::cases(), static fn (Comando $c): bool => $c->leConteudoDosArquivos())));
+        self::assertSame($ler, Comando::deRota('ler_documentos'));
     }
 
     #[TestDox('F4: o pedido do Índice é o canônico do Documental restrito aos selecionados, com a frase de não leitura e sem dado da pasta')]

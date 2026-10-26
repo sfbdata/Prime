@@ -28,7 +28,7 @@ final class NeutralizadorDeConteudo
     public const DELIMITADORES = [
         'movimentacoes', 'processo', 'equipe', 'analise_anterior',
         'pasta', 'processos_vinculados', 'clientes', 'metas', 'anotacoes', 'observacoes',
-        'documentos', 'checklist', 'financeiro',
+        'documentos', 'documentos_anexados', 'checklist', 'financeiro',
         'conversa_anterior', 'pergunta',
     ];
 

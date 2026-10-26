@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\Repository;
 
 use App\Entity\Tenant\Tenant;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Enum\Situacao;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -90,5 +91,24 @@ class DemandaExternaRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * O código da assinatura do despacho que ainda não está em uso (D8): a partir do candidato (o instante em ms),
+     * o primeiro cujos 8 últimos dígitos, os que a assinatura mostra, nenhum despacho tem. Vale para todos os
+     * escritórios: o código identifica a assinatura, não a demanda.
+     */
+    public function codigoDeDespachoLivre(int $candidato): int
+    {
+        $emUso = $this->getEntityManager()->createQuery(
+            'SELECT COUNT(x.id) FROM ' . DespachoDemanda::class . ' x WHERE MOD(x.codigo, :ciclo) = :curto',
+        )->setParameter('ciclo', DespachoDemanda::CICLO_DO_CODIGO);
+        $codigo = $candidato;
+        // Colidir é raro (dois despachos no mesmo milissegundo do ciclo): quase sempre uma consulta só.
+        while ((int) $emUso->setParameter('curto', $codigo % DespachoDemanda::CICLO_DO_CODIGO)->getSingleScalarResult() > 0) {
+            ++$codigo;
+        }
+
+        return $codigo;
     }
 }

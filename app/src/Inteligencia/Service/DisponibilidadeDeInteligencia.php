@@ -9,15 +9,22 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Service\PermissionChecker;
+use Doctrine\DBAL\Exception as DbalException;
 
 /**
- * Feature flag em dois níveis + permissão + cota, na ordem da spec (§3.2):
- *   1. plataforma — `IA_HABILITADA` (parâmetro `ia_habilitada`) E provedor configurado;
- *   2. escritório — `inteligencia_configuracao.habilitada` do tenant (sem linha = desligada);
+ * Feature flag em dois níveis + permissão + cota, na ordem da spec (§3.2, com a ordem nova de ia-anthropic-ligar §10.1):
+ *   1. plataforma: `IA_HABILITADA` (parâmetro `ia_habilitada`, a trava de instalação) E provedor configurado E a
+ *      chave geral do Master (`inteligencia_plataforma.ligada_para_todos`);
+ *   2. escritório: liberado pelo Master (`liberada_pelo_master`; sem linha = não liberado) e depois
+ *      `inteligencia_configuracao.habilitada` com o aceite do admin;
  *   3. usuário — `modules.inteligencia.view`;
- *   4. cota — análises do dia e do mês contra os limites do escritório.
+ *   4. cota — análises do dia e do mês contra os limites do escritório;
+ *   5. orçamento: o gasto estimado do mês em US$ ({@see CustoDaIa}) contra `orcamento_mensal_centavos`. Só trava nos
+ *      modos `incluso` e `adicional`; em `limite_gratis` o orçamento é a parte grátis e NÃO bloqueia (o painel do
+ *      Master mostra "acima do grátis"). Padrão adotado em 24/10/2026, o dono pode rever. Orçamento nulo não trava.
  *
  * O primeiro motivo encontrado é o devolvido: a UI diz exatamente por que o botão não funciona.
  */
@@ -31,17 +38,29 @@ final class DisponibilidadeDeInteligencia
         private readonly AnaliseDeInteligenciaRepository $analises,
         private readonly PermissionChecker $permissionChecker,
         private readonly bool $iaHabilitada,
+        private readonly ConfiguracaoDaPlataformaDeIaRepository $plataforma,
+        private readonly CustoDaIa $custo,
     ) {
     }
 
     /**
-     * Só o 1º nível (plataforma), sem tocar o banco. Quem renderiza tela fora do módulo (a pasta)
-     * pergunta isto ANTES de consultar as tabelas da IA: numa instalação sem IA elas podem nem
-     * existir (deploy parcial — o entrypoint de prod faz `migrate … || true`).
+     * Só o 1º nível (plataforma). Quem renderiza tela fora do módulo (a pasta) pergunta isto ANTES de
+     * consultar as tabelas da IA: numa instalação sem IA elas podem nem existir (deploy parcial, o
+     * entrypoint de prod faz `migrate … || true`). Por isso a trava do ambiente e o provedor vêm
+     * antes do banco, e a leitura da chave geral nunca lança (falha = desligada).
      */
     public function plataformaConfigurada(): bool
     {
-        return $this->iaHabilitada && $this->provedor->estaConfigurado();
+        return $this->iaHabilitada && $this->provedor->estaConfigurado() && $this->chaveGeralLigada();
+    }
+
+    private function chaveGeralLigada(): bool
+    {
+        try {
+            return $this->plataforma->obter()->isLigadaParaTodos();
+        } catch (DbalException) {
+            return false;
+        }
     }
 
     /**
@@ -66,7 +85,11 @@ final class DisponibilidadeDeInteligencia
         }
 
         $configuracao = $this->configuracoes->findDoTenant($tenant);
-        if ($configuracao === null || !$configuracao->isHabilitada()) {
+        if ($configuracao === null || !$configuracao->isLiberadaPeloMaster()) {
+            return [Disponibilidade::NaoLiberadaPeloMaster, null];
+        }
+
+        if (!$configuracao->isHabilitada()) {
             return [Disponibilidade::DesligadaNoEscritorio, null];
         }
 
@@ -76,7 +99,7 @@ final class DisponibilidadeDeInteligencia
     /**
      * Os três primeiros níveis (plataforma → escritório → permissão), sem a cota. É a pergunta do
      * worker antes de chamar o provedor (IA-034L): desligar a IA tem de cortar também o que já está
-     * na fila. A cota fica de fora porque a análise que o worker vai processar já foi contada na
+     * na fila. A cota (e o orçamento) fica de fora porque a análise que o worker vai processar já foi contada na
      * solicitação — reconferir aqui a recusaria por ela mesma no limite exato.
      */
     public function paraProcessamento(User $user, Tenant $tenant): Disponibilidade
@@ -119,6 +142,23 @@ final class DisponibilidadeDeInteligencia
             return Disponibilidade::LimiteMensalAtingido;
         }
 
+        if ($this->orcamentoAtingido($configuracao, $tenant, $inicioDoMes)) {
+            return Disponibilidade::OrcamentoAtingido;
+        }
+
         return Disponibilidade::Disponivel;
+    }
+
+    /** Sem orçamento ou em modo que não trava, nem soma o gasto. */
+    private function orcamentoAtingido(ConfiguracaoDeInteligencia $configuracao, Tenant $tenant, \DateTimeImmutable $inicioDoMes): bool
+    {
+        $modo = $configuracao->getModoDeCobranca();
+        $orcamento = $configuracao->getOrcamentoMensalCentavos();
+        if ($orcamento === null || !$modo->travaNoOrcamento()) {
+            return false;
+        }
+        $gasto = $this->custo->centavosDoConsumo($this->analises->somarTokensPorModeloDesde($tenant, $inicioDoMes));
+
+        return $modo->orcamentoAtingido($orcamento, $gasto);
     }
 }

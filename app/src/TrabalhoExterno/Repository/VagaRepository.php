@@ -99,6 +99,27 @@ class VagaRepository extends ServiceEntityRepository
         return $this->doExterno($tenant, $usuario)->orderBy('v.id', 'DESC')->getQuery()->getResult();
     }
 
+    /**
+     * As que já foram publicadas e não estão pendentes nem reprovadas, de escritório no ar: as candidatas a
+     * "expirada há até 30 dias" na lista do externo (D4, `expRec`). Quem chama aplica a regra
+     * ({@see \App\TrabalhoExterno\Service\ExpiracaoDaVaga::recente()}).
+     *
+     * @return list<Vaga>
+     */
+    public function publicadasAoExterno(): array
+    {
+        $qb = $this->createQueryBuilder('v');
+
+        return $qb
+            ->andWhere('v.publicadaEm IS NOT NULL')
+            ->andWhere('v.situacao NOT IN (:fora)')
+            ->andWhere(self::donoNoAr($qb))
+            ->setParameter('fora', [SituacaoVaga::Pendente, SituacaoVaga::Reprovada])
+            ->orderBy('v.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function visivelAoExternoPorId(int $id, ?Tenant $tenant, User $usuario): ?Vaga
     {
         return $this->doExterno($tenant, $usuario)->andWhere('v.id = :id')->setParameter('id', $id)->getQuery()->getOneOrNullResult();

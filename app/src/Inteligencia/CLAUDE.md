@@ -33,9 +33,15 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
 6. **O que foi enviado não é persistido** (D5): `contexto_hash` + `contexto_resumo` (ids, chaves,
    contagens). A resposta integral fica em `texto_bruto`; a análise integral do agente, em `texto_da_analise`.
 7. **Do cliente sai só o nome.** CPF/CNPJ, e-mail, telefone e endereço nunca entram no contexto; o
-   conteúdo de documentos não é lido (só metadados, e o prompt diz isso); o financeiro só entra se
-   `VisibilidadeDoFinanceiroDaPasta` disse sim na solicitação (decisão gravada em
-   `contexto_resumo.financeiro`; o worker obedece, não decide).
+   financeiro só entra se `VisibilidadeDoFinanceiroDaPasta` disse sim na solicitação (decisão gravada em
+   `contexto_resumo.financeiro`; o worker obedece, não decide). **Conteúdo de documento** só sai no
+   comando `ler_documentos` ("Ler N documentos", PR F da spec `ia-anthropic-ligar`): só os arquivos que a
+   pessoa marcou, visíveis na aba Documentos dela (abas gravadas e as de agora), fora da lixeira, da pasta
+   e do escritório da análise (o worker relê por id + tenant e reconfere o acesso de quem pediu), PDF ou
+   imagem conferidos pelo conteúdo, até 3 por vez e 100 páginas somadas (`RegraDaLeituraDeDocumentos`), lidos pela chave do armazenamento e mandados inline (sem Files API,
+   sem OCR nosso), com o aceite do escritório na versão `VersaoDoAceiteDaIa::ComDocumentos` (2) ou maior.
+   Grava-se só id + sha256 (`contexto_resumo.documentosLidos`); log e motivo de falha nunca levam nome
+   nem conteúdo. Todo outro comando lê só metadados, e o prompt diz isso.
 
 ## Cadeia
 
@@ -61,11 +67,15 @@ análise `pergunta_livre` só abre para quem perguntou (`VisibilidadeDaAnaliseDa
 As consultas por alvo do repositório filtram por `tipo` (e `agente`): uma pendente de agente não trava o
 Push nem vira "análise anterior" dele.
 
-Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor) → escritório (`inteligencia_configuracao`)
-→ permissão de módulo → cota diária/mensal. A Twig `ia_disponibilidade()` devolve o enum para a tela.
+Disponibilidade, na ordem: plataforma (`ia_habilitada` + provedor + chave geral do Master em
+`inteligencia_plataforma`) → liberada pelo Master no escritório (`liberada_pelo_master`) → escritório ligado com
+aceite (`inteligencia_configuracao`) → permissão de módulo → cota diária/mensal → orçamento mensal em US$ (só nos
+modos incluso e adicional; o custo é estimado pelo `CustoDaIa` a partir dos tokens gravados, e `limite_gratis` não trava). O modelo vem do banco
+(`FonteDoModeloDeIa`, escolhido na aba "ia" do Painel do Master), com `IA_MODELO` de reserva. A Twig `ia_disponibilidade()` devolve o enum para a tela.
 
-**Retenção de 12 meses** (`ExpirarConteudoDaInteligenciaUseCase`, agendado às 00:20): análise terminada há mais de
-12 meses perde o conteúdo (resumo, pontos, textos, edições, texto da pergunta) e ganha `excluida_em`; a linha fica
+**Retenção** (`ExpirarConteudoDaInteligenciaUseCase`, agendado às 00:20): o prazo é o `meses_de_retencao` de
+`inteligencia_plataforma`, escolhido pelo Master (12 por padrão, decidido pelo dono em 24/10). Análise terminada antes
+do prazo perde o conteúdo (resumo, pontos, textos, edições, texto da pergunta) e ganha `excluida_em`; a linha fica
 pelos números (modelo, tokens, datas). Campo novo de conteúdo na análise = campo novo no `expirarConteudoAntesDe`.
 
 ## Agente de Pastas (`/api/agente/*`)

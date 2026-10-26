@@ -48,6 +48,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             tarefasUploadsDir: $raiz . '/tarefas',
             trabalhoExternoUploadsDir: $raiz . '/trabalho-externo',
             comercialImagensDir: $raiz . '/comercial-imagens',
+            documentosJuridicosDir: $raiz . '/documentos-juridicos',
         );
     }
 
@@ -60,6 +61,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'pasta_documento (plano)' => [
             CategoriaDeArquivo::PASTA_DOCUMENTO, $tenant, 'a1b2.pdf',
             $raiz . '/pastas/a1b2.pdf',
+        ];
+        yield 'pasta_foto (plano, subpasta própria)' => [
+            CategoriaDeArquivo::PASTA_FOTO, $tenant, 'a1b2.jpg',
+            $raiz . '/pastas/fotos/a1b2.jpg',
         ];
         yield 'pasta_imagem_editor (subpasta do tenant)' => [
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR, $tenant, 'a1b2.png',
@@ -110,6 +115,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
         yield 'comercial_imagem (plano, escopo global)' => [
             CategoriaDeArquivo::COMERCIAL_IMAGEM, EscopoDeArquivo::global(), 'a1b2.jpg',
             $raiz . '/comercial-imagens/a1b2.jpg',
+        ];
+        yield 'inteligencia_documento_juridico (plano, escopo global)' => [
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, EscopoDeArquivo::global(), 'a1b2.docx',
+            $raiz . '/documentos-juridicos/a1b2.docx',
         ];
     }
 
@@ -198,6 +207,7 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             'tarefas_uploads_dir'        => '%kernel.project_dir%/public/uploads/tarefas',
             'trabalho_externo_uploads_dir' => '%kernel.project_dir%/public/uploads/trabalho-externo',
             'comercial_imagens_dir'      => '%kernel.project_dir%/public/uploads/comercial-imagens',
+            'documentos_juridicos_dir'   => '%kernel.project_dir%/public/uploads/documentos-juridicos',
         ];
 
         foreach ($esperados as $parametro => $valor) {

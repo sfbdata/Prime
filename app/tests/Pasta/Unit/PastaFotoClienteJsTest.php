@@ -43,7 +43,7 @@ final class PastaFotoClienteJsTest extends TestCase
         foreach ($usados as $nome) {
             self::assertMatchesRegularExpression('/[\s"]' . preg_quote($nome, '/') . '[\s">{]/', $partial, "{$nome} é contrato com o partial");
         }
-        foreach (['data-token', 'data-url-trocar', 'data-url-remover', 'data-tem-foto'] as $atributo) {
+        foreach (['data-token', 'data-url-trocar', 'data-url-remover', 'data-tem-foto', 'data-origem', 'data-token-pasta', 'data-url-remover-pasta'] as $atributo) {
             self::assertStringContainsString("getAttribute('{$atributo}')", $this->js());
             self::assertStringContainsString($atributo . '="', $partial);
         }
@@ -57,8 +57,20 @@ final class PastaFotoClienteJsTest extends TestCase
         self::assertStringContainsString('var QUALIDADE = 0.88;', $js);
         self::assertStringContainsString("toBlob(feito, 'image/jpeg', QUALIDADE)", $js);
         self::assertStringContainsString("append('foto', blob, 'foto.jpg')", $js);
-        self::assertStringContainsString("append('_token', botao.getAttribute('data-token'))", $js);
+        self::assertStringContainsString("append('_token', token)", $js);
+        self::assertStringContainsString("enviar(botao.getAttribute('data-url-trocar'), botao.getAttribute('data-token'), corpo", $js);
         self::assertStringContainsString("'X-Requested-With'", $js);
+    }
+
+    #[TestDox('Remover vai para o dono da foto mostrada: data-origem "pasta" usa a rota e o token da pasta; a resposta diz a foto e a origem')]
+    public function testRemoverPelaOrigem(): void
+    {
+        $js = $this->js();
+        self::assertStringContainsString("botao.getAttribute('data-origem') === 'pasta'", $js);
+        self::assertStringContainsString("url: botao.getAttribute('data-url-remover-pasta'), token: botao.getAttribute('data-token-pasta')", $js);
+        self::assertStringContainsString('enviar(alvo.url, alvo.token, new FormData()', $js);
+        self::assertSame(2, substr_count($js, 'mostrarFoto(j.url, j.origem)'), 'troca e remoção mostram o que o servidor responde');
+        self::assertStringContainsString("botao.setAttribute('data-origem'", $js);
     }
 
     #[TestDox('Avisos: os da tela (avisarPs), com os textos do catálogo pasta_cabecalho.js.foto')]

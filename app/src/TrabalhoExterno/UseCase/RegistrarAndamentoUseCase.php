@@ -8,6 +8,7 @@ use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\GuardaDeExecucao;
 
@@ -17,6 +18,7 @@ final class RegistrarAndamentoUseCase
     public function __construct(
         private readonly GuardaDeExecucao $guarda,
         private readonly DemandaExternaRepository $repositorio,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -29,6 +31,7 @@ final class RegistrarAndamentoUseCase
 
         [$demanda, $ctx] = $this->guarda->demandaEmExecucao($ctx, $codigo);
         $demanda->registrar($ctx->autor(), $texto, TipoMensagem::Andamento);
+        $this->avisos->andamentoDaDemanda($ctx, $demanda);
         $this->repositorio->salvar($demanda, flush: true);
 
         return $demanda;

@@ -21,6 +21,9 @@ enum CategoriaDeArquivo: string
 {
     case PASTA_DOCUMENTO      = 'pasta_documento';
     case PASTA_IMAGEM_EDITOR  = 'pasta_imagem_editor';
+    // A foto do cabeçalho da pasta sem cliente cadastrado. Plana, numa subpasta da raiz dos documentos de pasta; o
+    // escopo é o escritório dono da pasta (`ChavesDePasta::foto`), e a purga a leva pelos registros de `pasta`.
+    case PASTA_FOTO           = 'pasta_foto';
     case CLIENTE_DOCUMENTO    = 'cliente_documento';
     // A foto do cliente (cabeçalho da pasta). Plana, numa subpasta da raiz dos documentos de cliente; o escopo é o
     // escritório dono do cliente (`ChavesDeCliente::foto`), e a purga a leva pelos registros de `cliente`.
@@ -42,6 +45,10 @@ enum CategoriaDeArquivo: string
     // GLOBAL: é da plataforma (só o Master envia), não de um escritório, e sai por endereço público
     // (`/e/i/{token}.{ext}`) até vencer (`ChavesDeComercial`).
     case COMERCIAL_IMAGEM = 'comercial_imagem';
+    // As versões ajustadas dos documentos jurídicos (Política de Privacidade, Termos de Uso, aceite da IA) que o
+    // Master envia no bloco "Questões jurídicas" da aba "Configurações da I.A.". Escopo GLOBAL: são documentos da
+    // plataforma, não de um escritório, e a purga de escritório não os leva (`ChavesDeInteligencia`).
+    case INTELIGENCIA_DOCUMENTO_JURIDICO = 'inteligencia_documento_juridico';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

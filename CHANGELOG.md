@@ -8,6 +8,104 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.18.0] - 2026-10-24
+
+### Adicionado
+
+- BlueJus IA: comando "Ler N documentos" na aba Documentos do drawer da pasta (`ler_documentos`, versão `agente-leitura-v1`). PDF e imagem (até 3 por vez; PDF até 10 MB, imagem até 3 MB, 20 MB juntos, 100 páginas somadas) vão inline ao provedor como blocos `document`/`image` em base64, com o tipo medido pelo conteúdo; sem Files API e sem OCR próprio; timeout de 300 s e `max_tokens` 8000 só nessa leitura. O worker relê cada documento por id e escritório, fora da lixeira, reconfere o acesso de quem pediu e as abas ocultas de agora, e conta as páginas que o upload não contou; falha de I/O do armazenamento volta à fila. Pasta em segredo nunca envia; `contexto_resumo` guarda só id e sha256. Versão do texto do aceite em `inteligencia_configuracao.consentimento_versao` (migration aditiva `Version20261024150400`, linhas atuais na 1): só a versão 2, que cita os documentos, libera a leitura; o administrador renova salvando a configuração com a IA ligada.
+- BlueJus IA (ia-anthropic-ligar, PR C, sem migration): o orçamento mensal em US$ de cada escritório passa a valer. `DisponibilidadeDeInteligencia::para()` ganha, depois da cota mensal, o caso `orcamento_atingido` ("Orçamento mensal da BlueJus IA atingido; volta no dia 1º"), que responde 429 com o código `limite_atingido`, como as cotas. Vale nos modos `incluso` e `adicional`; orçamento vazio não trava; o worker (`paraProcessamento`) não confere o orçamento.
+- BlueJus IA: no modo `limite_gratis` o orçamento é a parte grátis e NÃO bloqueia; o painel do Master mostra "acima do grátis". Padrão adotado em 24/10/2026, o dono pode rever.
+- BlueJus IA: serviço `CustoDaIa` com o custo estimado em centavos de dólar, pelo preço de tabela de `ModeloDeIa` (modelo fora da lista paga o preço do Opus 5.5; região `us` custa 1,1x; arredonda para cima). O gasto do mês soma todas as análises com tokens desde o dia 1º, inclusive as excluídas e as que falharam, numa consulta agrupada por modelo com tenant explícito.
+- Painel do Master, aba "Configurações da I.A.": colunas "Análises no mês" e "Gasto no mês (US$)" na tabela de escritórios, com os selos "orçamento atingido" e "acima do grátis" (uma consulta para todos os escritórios).
+- `/admin/inteligencia`: bloco "Consumo do mês" com as análises e o limite mensal, o gasto estimado, o orçamento (quando houver) e o modo de cobrança, só do próprio escritório.
+- Painel do Master, aba "Configurações da I.A.": bloco novo "Questões jurídicas". Cada questão mostra problema, risco, opções, sugestão e fontes. O conteúdo vem do catálogo em código (`config/inteligencia/questoes_juridicas.json`, lido por `CatalogoDeQuestoesJuridicas`).
+- Download da versão atual de cada documento: Política de Privacidade, Termos de Uso, rascunho da política da IA (cópias em `app/resources/legal/`, porque `docs/` não vai para a imagem de produção) e o texto do aceite da IA, gerado na hora em .txt com os mesmos textos da tela do aceite.
+- Upload da versão ajustada de cada documento (.docx, .doc, .pdf, .md, .txt e .odt, até 20 MB, com o tipo conferido pelo conteúdo), com histórico: quem enviou, quando, nome original, documento e questão. O download das versões enviadas também vale. Arquivos na categoria nova `inteligencia_documento_juridico` (escopo global, `public/uploads/documentos-juridicos`).
+- Status de cada questão (pendente, em análise, resolvida), alterável pelo Master, com histórico de quem mudou e quando, e auditoria no escopo de plataforma.
+- Aviso no topo das telas do Master, "Questões jurídicas a serem verificadas", enquanto houver questão não resolvida, com o link para o bloco.
+- Tabelas `inteligencia_questao_juridica`, `inteligencia_questao_juridica_historico` e `inteligencia_documento_juridico_versao` na migration `Version20261024150300`. Rotas `master_ia_juridico_*`, só para o Master.
+- Trabalho Externo (desenho 06 de 24/10, D8, PR 2): DESPACHO no Resumo da demanda. Só o Master despacha: natureza (5 opções que desmarcam), prazo (padrão hoje mais 5 dias úteis, pulando sábado, domingo e os feriados nacionais do calendário do sistema), texto até 5.000 com contador, anexos (arquivos de verdade, baixáveis pela rota dos documentos e fora da lista DOCUMENTOS) e o registro "Novo despacho da Central BlueJus{ · natureza}." no chat, que avisa as partes.
+- Trabalho Externo: chave "Aceitar resposta" do Master; com ela ligada e um despacho publicado, o solicitante, a Equipe e o convidado vigente respondem (até 3.000), com o registro "Resposta ao despacho de {quem}.". Cada resposta avisa no sino os Master da Central, menos quem respondeu (tipo novo `trabalho_externo_despacho_resposta`, ação "Abrir a demanda").
+- Trabalho Externo: lista numerada (o mais novo em cima), respostas recuadas em verde, "{Cidade}, {data por extenso}." e a assinatura eletrônica com o código (único), que segue a privacidade do nome do responsável e não repete "Central BlueJus"; "Extrato" para impressão (também na pré-visualização do Master) em `GET /trabalho-externo/demandas/{codigo}/despachos/extrato`.
+- Rotas novas: `POST /trabalho-externo/api/demandas/{codigo}/despachos`, `.../despachos/respostas` e `.../despachos/aceitar-resposta`.
+- Migration `Version20261024150500`: tabela `trabalho_externo_despacho`, `trabalho_externo_documento.despacho_id` e `trabalho_externo_demanda.respostas_ao_despacho_liberadas`.
+- Trabalho Externo (desenho 06 de 24/10, D11b, PR 3): botão "Recusar" ao lado de "Aceitar oferta" na oferta com tempo, com a confirmação da própria tela ("Recusar esta oferta? O escritório e a Central BlueJus serão avisados."). A recusa fica gravada por vaga e pessoa, entra no histórico como "Oferta recusada por {quem}" e avisa no sino o dono da vaga (sem o nome de quem recusou) e os Master da Central (com o nome; tipo novo `trabalho_externo_oferta_recusada`). Depois, o botão vira "Você recusou · aceitar mesmo assim", que tira a recusa e aceita. "Ofertar novamente" não apaga a recusa.
+- Trabalho Externo (D4): o profissional externo vê, junto com as abertas, as vagas expiradas há até 30 dias, com véu, carimbo EXPIRADA, faixa "Expirou em dd/mm/aaaa", selo "Expirada" e sem cronômetro, AO VIVO nem NOVA; o clique mostra o aviso "Vaga expirada" em vez de abrir. A vaga expirada há mais de 30 dias sai da lista de todos, inclusive da Central (o dado continua no banco).
+- Rotas novas: `POST /trabalho-externo/api/vagas/{codigo}/recusa` e `.../recusa/desfazer`.
+- Migration `Version20261024150600`: tabela `trabalho_externo_vaga_recusa` (única por vaga e usuário) e `trabalho_externo_vaga.encerrada_em`, gravada em "Encerrar vaga", "Finalizar oferta" e no fim da divulgação (reabrir zera), com o backfill das encerradas pelo histórico.
+
+### Alterado
+
+- BlueJus IA: a tarefa diária `app:inteligencia:expirar-conteudo` usa o prazo de guarda que o Master escolhe na aba "Configurações da I.A." (12 meses por padrão), em vez de 12 meses fixos. Decidido pelo dono em 24/10/2026. O comando e o log mostram o prazo usado.
+- Telas do Master: 9 textos passam a mostrar só o estado, sem nome técnico e sem mandar o Master acionar alguém (regra de tom de 24/10/2026). - Comercial: "depende de decisão do dono" e "Aguardando a decisão" viram "ainda não está disponível". - "Integração no servidor" vira "integração ainda não disponível". - Relatório comercial: "quando o servidor registrar as leituras" vira "assim que as leituras forem registradas". - Aviso da cota de e-mail: sai "(limite da Hostinger)". - Criar escritório sem e-mail: sai "Verifique SMTP".
+- Aviso de falha do agendador e Central de Notificações do Master mostram o nome da tarefa ("Captação das publicações do DJEN"), não o comando do console. Serviço novo `NomeDaTarefaAgendada`; um teste garante que toda tarefa da agenda tem nome. "Detalhe no log do agendador" vira "Os detalhes ficam registrados pela equipe BlueJus."
+- Painel do Master, bloco "Questões jurídicas": cada questão mostra só o nome dos documentos afetados. Um bloco único no fim da página lista os 4 documentos (Política de Privacidade, Termos de Uso, rascunho da política da IA e texto do aceite), cada um com baixar e enviar, e avisa que cada envio substitui o documento em todas as questões. O envio pelo bloco não vincula a versão a uma questão.
+- Catálogo de questões jurídicas: campo opcional `oculta` no JSON. Questão oculta some da listagem, da contagem de "em aberto" e do aviso do topo, sem apagar o texto e sem renumerar as demais. A questão `retencao_zero` (2. Retenção zero) foi ocultada.
+- Aviso do topo "Questões jurídicas a serem verificadas": some depois do clique em "ver as questões" e só volta quando surge uma questão em aberto que o Master ainda não viu (guardado no navegador, por usuário).
+- Envio de versão de documento jurídico no Master deixa de aceitar o formato antigo .doc (binário legado, sem validação confiável de conteúdo). Continuam aceitos .docx, .pdf, .md, .txt e .odt.
+
+### Corrigido
+
+- Pasta, cabeçalho: o círculo do cliente abre o menu "Carregar foto" também na pasta sem cliente cadastrado (desenho 02 VS 18.10.26); antes ficava inerte. A foto fica na própria pasta (migration `Version20261024150000`: `pasta.foto` e `pasta.foto_atualizada_em`, categoria `pasta_foto` em `uploads_dir/fotos`), com as mesmas regras da foto do cliente: editar a pasta, escritório, CSRF, lápide e cadeado, imagem até 3 MB, a anterior apagada depois do commit, registro na pasta e purga do escritório.
+- Com cliente vinculado depois, a foto da pasta continua aparecendo até o cliente ter foto própria. Rotas novas `pasta_foto_trocar`, `pasta_foto_remover` e `pasta_foto`; as respostas das rotas da foto passam a dizer a origem da foto mostrada.
+
+## [2.17.0] - 2026-10-24
+
+### Adicionado
+
+- Dashboard: nova coluna "Pastas concluídas" no Adicionar coluna, com as pastas que chegaram à etapa Finalizada do andamento no período, por responsável, e a seta de tendência contra o período anterior; voltar de fase ou reativar tira a pasta da conta, finalizar de novo conta na nova data e pasta excluída não conta.
+- Pasta: a data de chegada à Finalizada passa a ser guardada (`pasta.finalizada_em`), também na troca entre via judicial e administrativa; as pastas já finalizadas recebem a data do andamento, e as arquivadas sem andamento, a do último arquivamento pelo Registro ou pela auditoria.
+- Pasta: arquivar pelo "Editar dados" sai como na pílula (cartão "Situação da pasta" e andamento em Finalizada) também no caso de uso.
+- Dashboard: tabelas `dashboard_zeramento` e `dashboard_meta_pastas` criadas para o Zerar de coluna e a meta de pastas (as telas vêm nos próximos PRs).
+- Dashboard: botão direito no título de uma coluna (ou na célula de uma pessoa) abre o menu Zerar, que recomeça a contagem a partir de agora para a equipe ou só para aquela pessoa; nada é apagado e o menu mostra "Contando desde".
+- Dashboard: "Desfazer zeramentos" devolve a contagem completa da coluna.
+- Dashboard: só o usuário primário ou o Master zera; os demais veem "Pedir para zerar", que avisa o primário e a Controladoria pela Central (um pedido igual por dia).
+- Dashboard: "Zerar" nos Comentários do cartão do colaborador e "Zerar relatório de todos" no menu da tabela.
+- Login: "Entrar com o Google" para quem já tem conta. Pede só `openid email profile`, com `state`, `nonce` e PKCE; o `id_token` tem cliente, emissor, validade e e-mail confirmado conferidos. A conta é ligada pelo identificador do Google (coluna nova `user.google_sub`, migration `Version20261020151700`) ou, na primeira vez, pelo e-mail, só para conta Gmail ou Workspace (`hd`). Conta com o e-mail "a confirmar" que entra pelo Google é confirmada e tem a senha antiga trocada por uma inutilizável, antes do `UserChecker`. Mesmo destino e barreiras do login por senha; "Manter conectado" vale quando a ida sai do próprio botão. Cliente OAuth próprio (`GOOGLE_LOGIN_OAUTH_CLIENT_ID/SECRET`); sem ele, os botões do Google não aparecem. O conferente do `id_token` passa a ser compartilhado com o Google Agenda.
+- Criar conta (desenho 10 VS 24.10.26): "Continuar com Google" e "Continuar com Facebook" acima dos campos. Pelo Google, a conta nasce confirmada e ligada, com o e-mail do Google guardado na sessão (`CadastroPeloGoogle`, 15 minutos), e entra na hora: cartão "conectado pelo Google" com "Usar outro e-mail", sem o campo E-mail. Rotas `POST /cadastro/google/criar` e `POST /cadastro/google/esquecer`. O botão do Facebook está na tela, sem app na Meta: o clique avisa que ainda não está disponível.
+- Painel do Master: aba nova "Configurações da I.A." (`data-aba="ia"`). Ela tem: - o aviso da retenção zero (ZDR) com o que pedir à Anthropic; - o estado da instalação, que diz só se a chave está gravada, nunca o valor; - a chave geral para todos os escritórios; - a escolha do modelo, Haiku 5.5 por padrão; - o prazo de guarda das respostas, de 1 a 120 meses, 12 por padrão; - a tabela de escritórios: liberar, modo de cobrança e orçamento mensal em US$.
+- Configuração da plataforma em linha única: `inteligencia_plataforma`, Auditavel.
+- Três colunas novas em `inteligencia_configuracao`, todas na migration `Version20261020151800`.
+- Rotas `master_ia_*`: POST JSON com CSRF no header.
+- A disponibilidade ganhou o caso `nao_liberada_pelo_master`: a IA só funciona com a chave geral ligada E o escritório liberado pelo Master.
+- Depois do deploy a IA fica desligada para todos até o Master ligar a chave geral e liberar o escritório piloto.
+- O orçamento ainda não bloqueia (PR C).
+- Pasta, menu ⋮: item "Acompanhar alterações" na seção Preferências, antes de "Fixar nos favoritos", como no desenho 02 EXPEDIENTES VS 18.10.26. Padrão ligado para quem vê a pasta; desligar grava a exceção em `pasta_acompanhamento_desligado` (migration `Version20261020151100`). Rota `pasta_acompanhamento_alternar` (POST, CSRF, guardas de escritório e de VER; passa no cadeado em Visualizar, recusada em Oculto e na pasta excluída).
+- Mensagem nova no Registro da pasta avisa quem acompanha (tipo `pasta_acompanhada`, no sino e na Caixa da Central), menos o autor e quem recebeu o aviso próprio (o respondido e os mencionados avisados); no máximo um aviso não lido por pasta e pessoa, com o índice `idx_notificacao_tenant_tipo_lida` na mesma migration. O aviso sai depois do commit da mensagem: se falhar, vai para o log e a mensagem fica gravada.
+- Documento novo na pasta (upload e peça de texto) e troca de situação pela pílula também avisam quem acompanha: "Novo documento na pasta N" (link da aba Documentos) e "Situação da pasta N alterada para X" (link do cartão no Registro). Sai o autor; quem tem a aba do evento oculta (Documentos ou Dados) não recebe; o limite de um não lido por pasta soma os três eventos. Meta e Push ficam de fora, porque já têm aviso próprio.
+- Pasta, cabeçalho: foto do cliente (desenho 02 VS 18.10.26). O círculo do cliente vira botão para quem edita o cliente, com o menu "Carregar foto" / "Carregar nova foto", "Ajustar foto" e "Remover foto" e o editor de recorte do desenho (arrastar, zoom de 1 a 3, girar 90°); o navegador salva um JPEG 320x320. Quem só vê o cliente vê a foto sem menu; pasta excluída ou só de visualizar não deixa trocar.
+- Migration `Version20261020151200`: colunas `cliente.foto` e `cliente.foto_atualizada_em`. Arquivo na categoria nova `cliente_foto` (`clientes_uploads_dir/fotos`), entregue por `cliente_foto` só a quem vê o cliente; a foto antiga sai do disco depois do commit; a purga do escritório apaga as fotos.
+- Rotas `pasta_cliente_foto_trocar` e `pasta_cliente_foto_remover` (JSON, CSRF, editar cliente + escritório + cliente da pasta). A troca e a remoção ficam registradas no histórico da pasta e no do cliente.
+- Trabalho Externo (desenho 06 de 24/10, PR 1, sem migration): "Meu currículo" compacto (Editar e Word), com o cartão "Prévia do currículo" (o documento formatado e "Baixar PDF"); o cartão "Minhas candidaturas" sai da aba e o toast da candidatura fica só com "Candidatura enviada".
+- Trabalho Externo: rota `GET /trabalho-externo/curriculos/meu/word` (`.doc` com BOM, "Currículo - {nome}.doc", só o próprio currículo), com a foto embutida e o logotipo com URL absoluta.
+- Trabalho Externo: animação depois de enviar a solicitação (busca, parceiro e confirmação, com som e o mapa do Google da cidade da execução).
+- Trabalho Externo: aviso novo `trabalho_externo_demanda_andamento` a quem pediu e ao convidado vigente a cada mudança de situação e registro da demanda (um por pessoa, sem quem agiu nem a Central; o convidado só recebe o que leria no chat). A tela aberta lê os novos por `GET /trabalho-externo/api/andamentos` e mostra "Andamento · {ID}", com um som só (o da Central, quando o lançador está na página).
+- Trabalho Externo: "Alertas de vagas" no menu do Master liga e desliga o sininho das vagas; "Sua vaga · acompanhe os candidatos acima" no detalhe da própria vaga; dica "Desmarcar todas" no chat.
+
+### Alterado
+
+- Telas que são regra deixam de dizer que são IA (decisão do dono de 24/10): rodapé da previsão do Push ("Previsão por regras do CPC, não é ato oficial.") e a abertura e a nota final do relatório de processos ("por regras"). Guarda nova: `RotuloDeIaSoNoQueChamaOModeloTest`. A volta da IA nessas telas, quando houver dado real, está em `docs/specs/ia-anthropic-ligar.md` §10.3.
+- Painel do Master, aba Configurações da I.A.: saem o aviso da retenção zero (ZDR) e a linha da região de processamento; ficam no runbook.
+- Painel do Master, aba "Configurações da I.A.": os textos separam o que é do Master (as chaves e as opções da aba, o pedido da ZDR) do que é do desenvolvedor (a chave da API no servidor, a chave de segurança do servidor e a região na Console da Anthropic), com "peça ao desenvolvedor". - "Trava do servidor (IA_HABILITADA)" passou a se chamar "Chave de segurança do servidor", com a explicação de que a IA só funciona com ela E a chave geral ligadas. - Nenhum nome de variável aparece mais no texto da tela.
+- Painel do Master, aba "Configurações da I.A.": os textos mostram só o estado, em tom neutro, sem mandar o Master acionar o desenvolvedor (regra de 24/10/2026, substitui o "peça ao desenvolvedor" do #375). - A chave da API não instalada aparece como "ainda não instalada (configuração técnica da equipe BlueJus)". - A instrução técnica da Console da Anthropic saiu da tela e foi para o runbook (`docs/runbooks/ligar-ia-em-producao.md` §0.1); na tela fica "Região de processamento: EUA". - O teste da aba recusa "desenvolvedor", "peça ao", "avise", "suporte" e nome de variável no texto.
+- Login (desenho 10, VS 24.10.26): o tema comemorativo ativo vale na tela de entrada e no véu "Abrindo o seu escritório digital": cores do tema na tarja, nos topos dos painéis e no véu, fita no topo, ícones na tarja e brilho no logo no tema animado. Sem selo nas telas de entrada, como no desenho. Reaproveita o parcial e o JS do tema com o modo `bjtSemSelo`. Placeholder do Nome do escritório no Criar conta: "Ex.: BlueJus Advogados Associados". Sem migration.
+- Login: o botão "Continuar com Facebook" sai do "Criar conta" até existir o app na Meta (ponto de ligação na spec `entrar-com-google.md`).
+- Login: "Entrar com o Google" (cartão) e "Continuar com Google" (Criar conta) aparecem sempre; sem `GOOGLE_LOGIN_OAUTH_CLIENT_ID`/`GOOGLE_LOGIN_OAUTH_CLIENT_SECRET`, a ida `/login/google` não vai ao Google e volta à tela com o aviso "O acesso pelo Google ainda não está configurado neste ambiente. Use o e-mail." (no cartão, ou no modal com `origem=cadastro`). Com a credencial, nada muda.
+- Pasta, janela "Editar dados" (desenho 02, VS 18.10.26): a Ação vira só leitura ("Ação · vem do menu Processo"), com o botão "Abrir", que fecha a janela, vai à aba Processo e abre a edição da Ação. O campo `nome_acao` saiu do formulário e o `pasta_edit` passa a ignorá-lo no servidor.
+- O CPF/CNPJ do cliente principal aparece só leitura, formatado (000.000.000-00 ou 00.000.000/0000-00), com atalho "Cadastro" para a edição do cliente; sem cliente ou sem documento, texto neutro e sem atalho. Sem migration.
+
+### Corrigido
+
+- Pasta: a página dava erro 500 quando a pasta tinha um cliente pessoa física com o CPF vazio. A lista de clientes da janela "Editar dados" lia a razão social, que a pessoa física não tem; agora usa o nome de exibição do cliente (`nomeExibicao`). Teste `PastaClienteSemCpfTelaTest`.
+- Login: o botão "Entrar com o Google" e o "Continuar com Google" do Criar conta só aparecem quando o cliente OAuth do login com o Google está configurado.
+- Ponto: o lançamento manual e a edição manual de batida pelo admin (aba Ponto do colaborador) recusam data e hora acima de agora no relógio do servidor, com a mesma régua de `App\Ponto\Service\HorarioFuturoDaBatida`. O lançamento volta com o aviso; a edição reabre o formulário com o aviso no campo Hora. Nada é gravado. A hora exata de agora passa. Sem migration.
+- Auditoria: o desfazer passa a seguir as regras de estado da tela, pelo novo `App\Auditoria\Service\EstadoDaTelaNoDesfazer`. Recusa, com aviso e sem mudar nada: o registro que mudou depois do log; a pasta excluída (lápide) e as filhas, a meta e a mensagem dela; a reabertura da meta que seguiu adiante; a reconclusão com data impossível; a etapa de meta concluída; a meta que ficaria concluída sem data ou aberta com data; o nome do cliente montado pela carteira; a situação e a situação do contrato da pasta. Na meta, roda com a meta travada numa transação. As regras foram extraídas das telas (`ReabrirMetaUseCase::seguiuAdiante`, `DesfazerReaberturaDaMetaUseCase::motivoParaRecusarAData`, `MontarEtapaDaMetaUseCase::podeMexerNaEtapa`, `RenomearClienteDaPastaUseCase::nomeEMontadoPelaCarteira`, `PastaSomenteLeituraListener::MENSAGEM`), que passam a chamá-las também. Sem migration.
+- Auditoria: desfazer as etapas saltadas de uma meta dava erro 500; os valores voltam como etapas.
+
+### Segurança
+
+- Infra: imagem base fixada em `php:8.2.35-fpm` (correções de segurança do PHP; o deploy não faz `--pull` e a tag flutuante podia reusar a 8.2.34 do cache) e `session.upload_progress.enabled = Off` em `conf.d/seguranca.ini`, conforme o aviso de segurança do PHP de 23/10/2026. Sem mudança de comportamento no app.
+
 ## [2.16.0] - 2026-10-24
 
 ### Adicionado
@@ -849,7 +947,9 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.16.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.18.0...HEAD
+[2.18.0]: https://github.com/sfbdata/Prime/compare/v2.17.0...v2.18.0
+[2.17.0]: https://github.com/sfbdata/Prime/compare/v2.16.0...v2.17.0
 [2.16.0]: https://github.com/sfbdata/Prime/compare/v2.15.0...v2.16.0
 [2.15.0]: https://github.com/sfbdata/Prime/compare/v2.14.0...v2.15.0
 [2.14.0]: https://github.com/sfbdata/Prime/compare/v2.13.0...v2.14.0

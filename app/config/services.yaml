@@ -36,6 +36,9 @@ parameters:
     # Imagens das campanhas do modo simples do Comercial (F3i). Mesmo volume, sem acesso direto pelo nginx:
     # saem só pela rota pública /e/i/{token}.{ext}, que confere o token e a validade.
     comercial_imagens_dir: '%kernel.project_dir%/public/uploads/comercial-imagens'
+    # Versões ajustadas dos documentos jurídicos (bloco "Questões jurídicas" do Master). Mesmo volume, sem acesso
+    # direto pelo nginx: saem só pela rota do Master (ROLE_SUPER_ADMIN).
+    documentos_juridicos_dir: '%kernel.project_dir%/public/uploads/documentos-juridicos'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -86,8 +89,9 @@ parameters:
     # no alias abaixo + Anexo I da Política de Privacidade (decisões D1/D3 da spec).
     ia_habilitada: '%env(default:default_ia_habilitada:bool:IA_HABILITADA)%'
     default_ia_habilitada: false
-    # Provedor da BlueJus IA = Anthropic (decisão D1, 14/10/2026). Chave e modelo SÓ por ambiente (.env.prod na
-    # VPS, nunca no repositório); vazios = provedor dormente, mesmo com IA_HABILITADA=1. Proposta de modelo e
+    # Provedor da BlueJus IA = Anthropic (decisão D1, 14/10/2026). Chave SÓ por ambiente (.env.prod na VPS, nunca
+    # no repositório nem no banco); vazia = provedor dormente, mesmo com IA_HABILITADA=1. O modelo vem do banco
+    # (inteligencia_plataforma, escolhido pelo Master); IA_MODELO é só a reserva sem a linha. Proposta de modelo e
     # cotas: docs/specs/inteligencia-provedor-anthropic.md.
     ia_anthropic_chave: '%env(string:default::ANTHROPIC_API_KEY)%'
     ia_anthropic_modelo: '%env(string:default::IA_MODELO)%'
@@ -142,6 +146,7 @@ services:
             string $tarefasUploadsDir: '%tarefas_uploads_dir%'
             string $trabalhoExternoUploadsDir: '%trabalho_externo_uploads_dir%'
             string $comercialImagensDir: '%comercial_imagens_dir%'
+            string $documentosJuridicosDir: '%documentos_juridicos_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
             string $bcbSgsBaseUrl: '%bcb_sgs_base_url%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
@@ -191,7 +196,22 @@ services:
             $esforco: '%ia_anthropic_esforco%'
             $margemDeRaciocinio: '%ia_anthropic_margem_raciocinio%'
             $regiaoDeInferencia: '%ia_anthropic_regiao_inferencia%'
+            $fonteDoModelo: '@App\Inteligencia\Service\FonteDoModeloDeIa'
     App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Inteligencia\Service\ProvedorAnthropic'
+    # Custo estimado (orçamento mensal e painéis de consumo): a região `us` custa 1,1x o preço de tabela.
+    App\Inteligencia\Service\CustoDaIa:
+        arguments:
+            $regiaoDeInferencia: '%ia_anthropic_regiao_inferencia%'
+    # O modelo vem do banco (escolhido pelo Master na aba "Configurações da I.A."); IA_MODELO é só a reserva sem a
+    # linha da plataforma (spec ia-anthropic-ligar §10.1).
+    App\Inteligencia\Service\ModeloDaPlataformaDeIa:
+        arguments:
+            $modeloDoAmbiente: '%ia_anthropic_modelo%'
+    App\Inteligencia\Service\FonteDoModeloDeIa: '@App\Inteligencia\Service\ModeloDaPlataformaDeIa'
+    # A aba do Master só pergunta se a chave está gravada: o valor nunca sai do UseCase.
+    App\Inteligencia\UseCase\ObterPainelDaIaDoMasterUseCase:
+        arguments:
+            $chaveDaApi: '%ia_anthropic_chave%'
     # Leitura das movimentações para o contexto da IA (publicações + Datajud), tenant explícito.
     App\Inteligencia\Contexto\FonteDeMovimentacoesDoPush: '@App\Inteligencia\Contexto\FonteDeMovimentacoesDoPushDoctrine'
 
@@ -306,6 +326,7 @@ when@test:
         tarefas_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/tarefas'
         trabalho_externo_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/trabalho-externo'
         comercial_imagens_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/comercial-imagens'
+        documentos_juridicos_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/documentos-juridicos'
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true

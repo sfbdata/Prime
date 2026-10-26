@@ -14,6 +14,8 @@ use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
+use App\TrabalhoExterno\UseCase\ListarAndamentosRecebidosUseCase;
+use App\TrabalhoExterno\UseCase\MontarExtratoDeDespachosUseCase;
 use App\TrabalhoExterno\UseCase\MontarPainelUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -74,6 +76,22 @@ final class TrabalhoExternoController extends AbstractController
             : $this->montarPainel->executar($ctx)]);
     }
 
+    /**
+     * Os avisos de andamento que chegaram para quem está com a tela aberta (D10 do desenho 24.10.26): sem
+     * `desde`, só o cursor; com `desde`, os novos. A tela toca e mostra "Andamento · {ID}".
+     */
+    #[Route('/api/andamentos', name: 'trabalho_externo_andamentos', methods: ['GET'])]
+    public function andamentos(Request $request, ListarAndamentosRecebidosUseCase $listar): JsonResponse
+    {
+        $ctx = $this->contextoOuNulo();
+        if ($ctx === null) {
+            return $this->semAcesso();
+        }
+        $desde = $request->query->get('desde');
+
+        return $this->responder(static fn (): array => $listar->executar($ctx, is_string($desde) && ctype_digit($desde) ? (int) $desde : null));
+    }
+
     #[Route('/api/demandas/{codigo}', name: 'trabalho_externo_detalhe', methods: ['GET'], requirements: ['codigo' => 'TE-\d{1,9}'])]
     public function detalhe(Request $request, string $codigo): JsonResponse
     {
@@ -117,6 +135,28 @@ final class TrabalhoExternoController extends AbstractController
         }
 
         throw $this->createNotFoundException();
+    }
+
+    /**
+     * "Extrato" do DESPACHO (desenho 06 de 24/10, `dpExtrato`): a página que abre numa aba e chama a impressão.
+     * Aceita o `?como=` da prévia do Master, como as outras leituras.
+     */
+    #[Route('/demandas/{codigo}/despachos/extrato', name: 'trabalho_externo_despacho_extrato', methods: ['GET'], requirements: ['codigo' => 'TE-\d{1,9}'])]
+    public function extratoDeDespachos(Request $request, string $codigo, MontarExtratoDeDespachosUseCase $montar): Response
+    {
+        $ctx = $this->contextoOuNulo();
+        if ($ctx === null) {
+            return $this->paginaSemAcesso();
+        }
+        $como = $this->previa->perfilPedido($ctx, $request->query->get('como'));
+
+        try {
+            $extrato = $como !== null ? $montar->executarPrevia($ctx, $codigo, $como) : $montar->executar($ctx, $codigo);
+        } catch (DemandaNaoEncontrada) {
+            throw $this->createNotFoundException();
+        }
+
+        return $this->render('trabalho_externo/extrato_despachos.html.twig', $extrato);
     }
 
     /**

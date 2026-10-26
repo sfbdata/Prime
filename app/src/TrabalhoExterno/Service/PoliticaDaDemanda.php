@@ -29,6 +29,9 @@ use App\TrabalhoExterno\Enum\Visibilidade;
  */
 final class PoliticaDaDemanda
 {
+    /** O nome que o leitor externo vê no lugar de quem é da Central, sem `priv.nomeResp` ({@see self::nomeVisivel()}). */
+    public const NOME_DA_CENTRAL = 'Central BlueJus';
+
     public function __construct(
         private readonly ?PoderDeEdicaoSemPrazo $poderSemPrazo = null,
     ) {
@@ -298,6 +301,30 @@ final class PoliticaDaDemanda
             && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'enviar'));
     }
 
+    /**
+     * DESPACHO (desenho 06 de 24/10, `dpPode`, l.1392): publicar e ligar "Aceitar resposta" é só do Master. A
+     * Equipe não despacha (decisão do coordenador, 24/10).
+     */
+    public function podeDespachar(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Master
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d);
+    }
+
+    /**
+     * Responder ao despacho (`dpPodeResp: p !== 'master'`): todo perfil menos o Master (quem pediu, a Equipe e o
+     * profissional do convite vigente, que vê a demanda), com "Aceitar resposta" ligado e ao menos um despacho
+     * publicado. Decisão do dono de 24/10: a Equipe responde, como no desenho.
+     */
+    public function podeResponderAoDespacho(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil !== Perfil::Master
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d)
+            && $d->aceitaRespostaAoDespacho();
+    }
+
     /** A lista de documentos: o Convidado só a vê com "Ver instruções" (`cp.ver` do desenho). */
     public function podeVerDocumentos(Contexto $ctx, DemandaExterna $d): bool
     {
@@ -448,7 +475,7 @@ final class PoliticaDaDemanda
     public function nomeVisivel(Contexto $ctx, string $nome, Perfil $perfilDoAutor): string
     {
         if (!$ctx->ehInterno() && $perfilDoAutor->ehInterno() && !$ctx->configuracao->privacidade('nomeResp')) {
-            return 'Central BlueJus';
+            return self::NOME_DA_CENTRAL;
         }
 
         return $nome;

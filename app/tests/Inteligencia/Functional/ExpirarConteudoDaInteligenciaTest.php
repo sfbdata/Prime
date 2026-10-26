@@ -7,6 +7,7 @@ namespace App\Tests\Inteligencia\Functional;
 use App\Inteligencia\Command\ExpirarConteudoDaInteligenciaCommand;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Inteligencia\UseCase\ExpirarConteudoDaInteligenciaUseCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -104,6 +105,27 @@ final class ExpirarConteudoDaInteligenciaTest extends KernelTestCase
         self::assertSame(['analises' => 1, 'perguntas' => 1], ['analises' => $primeira['analises'], 'perguntas' => $primeira['perguntas']]);
         self::assertSame(['analises' => 0, 'perguntas' => 0], ['analises' => $segunda['analises'], 'perguntas' => $segunda['perguntas']]);
         self::assertSame(0, $this->contarNoBanco("SELECT COUNT(*) FROM inteligencia_pergunta WHERE texto <> ''"));
+    }
+
+    #[TestDox('o prazo escolhido pelo Master manda: com 3 meses, a análise de 4 meses atrás expira')]
+    public function testPrazoDoMaster(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $analise = $this->criarAnalisePendente($tenant, $user, $pasta);
+        $this->concluirAnalise($analise, 'Resumo de quatro meses.');
+        $this->envelhecer($analise, '-4 months');
+        $plataforma = static::getContainer()->get(ConfiguracaoDaPlataformaDeIaRepository::class);
+        $configuracao = $plataforma->obterParaAlterar();
+        $configuracao->definirRetencao(3, $user, new \DateTimeImmutable());
+        $plataforma->salvar($configuracao, flush: true);
+
+        $resultado = static::getContainer()->get(ExpirarConteudoDaInteligenciaUseCase::class)->executar(new \DateTimeImmutable());
+
+        self::assertSame(3, $resultado['meses']);
+        self::assertSame(1, $resultado['analises']);
+        self::assertNull($this->linha($analise)['resumo']);
     }
 
     #[TestDox('o comando recusa sem --force e apaga com --force')]

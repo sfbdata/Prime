@@ -98,6 +98,7 @@ final class FotoDoClienteControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $j = $this->json();
         self::assertTrue($j['ok']);
+        self::assertSame('cliente', $j['origem']);
         $nome = $this->fotoNoBanco($cliente);
         self::assertNotNull($nome);
         self::assertMatchesRegularExpression('#^/clientes/' . $cliente->getId() . '/foto/' . preg_quote($nome, '#') . '\?v=\d+$#', $j['url']);
@@ -147,7 +148,7 @@ final class FotoDoClienteControllerTest extends JusPrimeWebTestCase
         $this->remover($pasta, $cliente);
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['ok' => true, 'url' => null], $this->json());
+        self::assertSame(['ok' => true, 'url' => null, 'origem' => null], $this->json());
         self::assertNull($this->fotoNoBanco($cliente));
         self::assertFileDoesNotExist($this->caminho($nome));
         $conn = $this->em()->getConnection();

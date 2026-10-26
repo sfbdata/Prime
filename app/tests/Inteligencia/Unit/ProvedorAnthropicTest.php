@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Unit;
 
+use App\Inteligencia\DTO\AnexoDeDocumento;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
+use App\Inteligencia\Service\FonteDoModeloDeIa;
 use App\Inteligencia\Service\ProvedorAnthropic;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -80,6 +82,97 @@ final class ProvedorAnthropicTest extends TestCase
         }
     }
 
+    private static function fonte(\Closure $modelo): FonteDoModeloDeIa
+    {
+        return new class ($modelo) implements FonteDoModeloDeIa {
+            public int $chamadas = 0;
+
+            public function __construct(private readonly \Closure $modelo)
+            {
+            }
+
+            public function modelo(): string
+            {
+                ++$this->chamadas;
+
+                return ($this->modelo)();
+            }
+        };
+    }
+
+    private static function comFonte(MockHttpClient $http, FonteDoModeloDeIa $fonte, string $chave = 'sk-teste', string $modelo = 'modelo-do-ambiente'): ProvedorAnthropic
+    {
+        return new ProvedorAnthropic($http, $chave, $modelo, 'https://api.exemplo.test', 120.0, '', ProvedorAnthropic::MARGEM_DE_RACIOCINIO_PADRAO, fonteDoModelo: $fonte);
+    }
+
+    #[TestDox('Com a fonte do modelo (o banco), o modelo dela manda em cada chamada, não o do ambiente')]
+    public function testModeloDoBancoManda(): void
+    {
+        $modelos = [];
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$modelos): MockResponse {
+            $modelos[] = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR)['model'];
+
+            return self::ok();
+        });
+        $atual = 'claude-haiku-5-5';
+        $provedor = self::comFonte($http, self::fonte(static function () use (&$atual): string {
+            return $atual;
+        }));
+
+        self::assertTrue($provedor->estaConfigurado());
+        self::assertSame('claude-haiku-5-5', $provedor->modeloEfetivo());
+        $provedor->completar($this->pedido());
+        $atual = 'claude-opus-5-5';
+        $provedor->completar($this->pedido());
+
+        self::assertSame(['claude-haiku-5-5', 'claude-opus-5-5'], $modelos, 'o Master troca o modelo sem reiniciar o worker');
+    }
+
+    #[TestDox('Fonte do modelo que lança (banco fora, tabela ausente): cai no modelo do ambiente, sem derrubar quem pergunta')]
+    public function testFonteQueLancaCaiNoAmbiente(): void
+    {
+        $capturado = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado): MockResponse {
+            $capturado = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR)['model'];
+
+            return self::ok();
+        });
+        $provedor = self::comFonte($http, self::fonte(static fn (): string => throw new \RuntimeException('banco fora')));
+
+        self::assertTrue($provedor->estaConfigurado());
+        self::assertSame('modelo-do-ambiente', $provedor->modeloEfetivo());
+        $provedor->completar($this->pedido());
+        self::assertSame('modelo-do-ambiente', $capturado);
+    }
+
+    #[TestDox('Modelo da fonte vazio ou fora do formato: dormente, nome "nao_configurado", nenhuma chamada sai')]
+    public function testModeloInvalidoDaFonteEhDormente(): void
+    {
+        foreach (['', '  ', 'claude; DROP', 'Claude-Haiku'] as $invalido) {
+            $http = new MockHttpClient(static fn () => throw new \LogicException('não deveria chamar a rede'));
+            $provedor = self::comFonte($http, self::fonte(static fn (): string => $invalido));
+
+            self::assertFalse($provedor->estaConfigurado(), $invalido);
+            self::assertSame(ProvedorNaoConfigurado::NOME, $provedor->nome());
+            try {
+                $provedor->completar($this->pedido());
+                self::fail('Deveria ser indisponível.');
+            } catch (ProvedorIndisponivelException) {
+                self::assertSame(0, $http->getRequestsCount());
+            }
+        }
+    }
+
+    #[TestDox('Sem chave, a fonte do modelo nem é consultada (instalação dormente não vai ao banco)')]
+    public function testSemChaveNaoConsultaAFonte(): void
+    {
+        $fonte = self::fonte(static fn (): string => 'claude-haiku-5-5');
+        $provedor = self::comFonte(new MockHttpClient(), $fonte, chave: '');
+
+        self::assertFalse($provedor->estaConfigurado());
+        self::assertSame(0, $fonte->chamadas);
+    }
+
     #[TestDox('A requisição: endpoint, cabeçalhos, modelo, sistema, papéis traduzidos — e sem temperature')]
     public function testFormatoDaRequisicao(): void
     {
@@ -108,6 +201,56 @@ final class ProvedorAnthropicTest extends TestCase
         self::assertSame(['user', 'assistant', 'user'], array_column($corpo['messages'], 'role'));
         self::assertArrayNotHasKey('temperature', $corpo, 'os modelos atuais recusam parâmetros de amostragem');
         self::assertArrayNotHasKey('metadata', $corpo, 'nenhum identificador de escritório/usuário sai');
+    }
+
+    #[TestDox('Com anexos: PDF e imagem vão como blocos base64 só na última mensagem do usuário, com timeout de 300 s; o resto continua string')]
+    public function testAnexosVaoComoBlocosNaUltimaMensagem(): void
+    {
+        $capturado = null;
+        $timeout = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado, &$timeout): MockResponse {
+            $capturado = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR);
+            $timeout = $opcoes['timeout'];
+
+            return self::ok();
+        });
+        $base = $this->pedido();
+        $pedido = new PedidoDeLinguagem($base->sistema, $base->mensagens, $base->maxTokens, $base->temperatura, $base->exigeJson, $base->rotuloDeUso, [
+            new AnexoDeDocumento(3, 'inicial.pdf', AnexoDeDocumento::PDF, '%PDF-1.7 conteudo'),
+            new AnexoDeDocumento(4, 'print.jpg', 'image/jpeg', "\xFF\xD8\xFFimagem"),
+        ]);
+
+        self::provedor($http)->completar($pedido);
+
+        self::assertIsString($capturado['messages'][0]['content'], 'só a última mensagem leva os arquivos');
+        self::assertIsString($capturado['messages'][1]['content']);
+        $ultima = $capturado['messages'][2];
+        self::assertSame('user', $ultima['role']);
+        self::assertSame(['text', 'document', 'text', 'image', 'text'], array_column($ultima['content'], 'type'));
+        self::assertSame(['type' => 'base64', 'media_type' => 'application/pdf', 'data' => base64_encode('%PDF-1.7 conteudo')], $ultima['content'][1]['source']);
+        self::assertSame('image/jpeg', $ultima['content'][3]['source']['media_type']);
+        self::assertSame('Resuma.', $ultima['content'][4]['text']);
+        self::assertSame(['model', 'max_tokens', 'messages', 'system'], array_keys($capturado), 'nada além disso sai (sem Files API, sem metadado)');
+        self::assertSame(ProvedorAnthropic::TIMEOUT_DA_LEITURA_EM_SEGUNDOS, $timeout, 'a leitura espera até 300 s');
+        self::assertSame(300.0, ProvedorAnthropic::TIMEOUT_DA_LEITURA_EM_SEGUNDOS);
+    }
+
+    #[TestDox('Sem anexos: a última mensagem continua string e o timeout é o configurado')]
+    public function testSemAnexosContinuaString(): void
+    {
+        $capturado = null;
+        $timeout = null;
+        $http = new MockHttpClient(function (string $metodo, string $url, array $opcoes) use (&$capturado, &$timeout): MockResponse {
+            $capturado = json_decode($opcoes['body'], true, flags: JSON_THROW_ON_ERROR);
+            $timeout = $opcoes['timeout'];
+
+            return self::ok();
+        });
+
+        self::provedor($http)->completar($this->pedido());
+
+        self::assertSame('Resuma.', $capturado['messages'][2]['content']);
+        self::assertSame(120.0, $timeout, 'sem anexos, o timeout configurado');
     }
 
     #[TestDox('A resposta: texto dos blocos de texto, modelo e tokens')]

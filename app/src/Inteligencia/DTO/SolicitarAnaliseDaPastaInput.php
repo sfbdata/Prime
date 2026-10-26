@@ -11,8 +11,8 @@ use App\Inteligencia\Enum\Comando;
  * Pedido de análise da pasta. Com `comando` (drawer, F1/F2), o agente é o do comando e o que vier
  * em `agente` é ignorado; sem comando (rotas `/ia/agentes/{agente}`), vale o agente.
  *
- * `documentos`: os ids marcados na aba Documentos (F4). Só o "Índice inteligente"
- * ({@see Comando::ehDaAbaDocumentos()}) os usa; nos outros comandos e nas rotas por agente o campo é
+ * `documentos`: os ids marcados na aba Documentos. Só os comandos dela, o "Índice inteligente" (F4) e o "Ler N
+ * documentos" (PR F) ({@see Comando::ehDaAbaDocumentos()}), os usam; nos outros comandos e nas rotas por agente o campo é
  * ignorado ({@see documentosDoPedido()}).
  */
 final readonly class SolicitarAnaliseDaPastaInput

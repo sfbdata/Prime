@@ -29,7 +29,8 @@ use Twig\TwigFunction;
  * `ia_comandos()` e `ia_relatorios()` — os 10 comandos (aba Análise) e os 5 relatórios (aba
  * Relatórios) do drawer (enum `Comando`, spec inteligencia-drawer-da-pasta F1/F2), pelo mesmo motivo.
  *
- * `ia_comando_indice()`: o "Índice inteligente" da aba Documentos (F4). `ia_aba_documentos_visivel(pasta)`:
+ * `ia_comando_indice()`: o "Índice inteligente" da aba Documentos (F4); `ia_comando_leitura()`: o "Ler N
+ * documentos" dela (PR F). `ia_aba_documentos_visivel(pasta)`:
  * se a aba Documentos do drawer aparece para quem está logado; some quando a aba Documentos da pasta
  * está oculta para ele (spec pasta-ocultar-aba; a mesma regra que corta os documentos do contexto).
  *
@@ -56,6 +57,7 @@ final class InteligenciaExtension extends AbstractExtension
             new TwigFunction('ia_comandos', $this->iaComandos(...)),
             new TwigFunction('ia_relatorios', $this->iaRelatorios(...)),
             new TwigFunction('ia_comando_indice', static fn (): Comando => Comando::daAbaDocumentos()),
+            new TwigFunction('ia_comando_leitura', static fn (): Comando => Comando::leituraDeDocumentos()),
             new TwigFunction('ia_aba_documentos_visivel', $this->iaAbaDocumentosVisivel(...)),
             new TwigFunction('ia_push_recolhidas', $this->iaPushRecolhidas(...)),
         ];

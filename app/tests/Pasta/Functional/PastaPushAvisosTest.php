@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
+use App\Tests\Inteligencia\Support\ChaveGeralDaIaNoBancoTrait;
 
 /**
  * O cartão "Avisar quando chegar" (desenho 1.2.3, dc L.2629-2636; spec push-avisar-quando-chegar §2):
@@ -33,6 +34,7 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
 {
     use CriaFixturesPushDaPastaTrait;
     use CriaUsuarioComPermissoesTrait;
+    use ChaveGeralDaIaNoBancoTrait;
 
     private const CARTAO = '#push > .ps-push-grade > aside.ps-push-coluna > .ps-push-avisos';
 
@@ -76,6 +78,16 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
         return [$client, $user, $tenant, $pasta];
     }
 
+    /** Chave geral ligada e o escritório liberado pelo Master, mas o admin não ligou a IA: "desligada no escritório". */
+    private function liberarIaSemLigar(Tenant $tenant, User $user): void
+    {
+        $this->ligarChaveGeralDaIa($user);
+        $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->liberarPeloMaster();
+        $this->em()->persist($configuracao);
+        $this->em()->flush();
+    }
+
     /** @param string $ligado o estado DESEJADO ('1' ou '0') */
     private function postar(KernelBrowser $client, Pasta $pasta, string $chave, string $ligado, ?string $token = null): void
     {
@@ -111,6 +123,7 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
     public function testCartaoNaTela(): void
     {
         [$client, $user, $tenant, $pasta] = $this->cenario();
+        $this->liberarIaSemLigar($tenant, $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $cartao = $this->cartao($client, $pasta);
@@ -174,6 +187,7 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
     public function testRecusas(): void
     {
         [$client, $user, $tenant, $pasta] = $this->cenario();
+        $this->liberarIaSemLigar($tenant, $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $this->postar($client, $pasta, 'responsavel', '0', 'errado');
@@ -192,7 +206,9 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
     public function testResponsavelSemIa(): void
     {
         [$client, $user, $tenant, $pasta] = $this->cenario();
+        $this->ligarChaveGeralDaIa($user);
         $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->liberarPeloMaster();
         $configuracao->atualizar(true, 50, 500, true, $user);
         $this->em()->persist($configuracao);
         $pasta->setResponsavel($this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view']));

@@ -58,6 +58,9 @@ final class TiposDeAvisoDaCentral
         Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS => ['grupo' => 'atencao', 'rotulo' => 'Andamento', 'icone' => 'bi-arrow-repeat', 'cor' => self::PETROLEO, 'nivel' => 1],
         Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA => ['grupo' => 'atencao', 'rotulo' => 'Vaga nova', 'icone' => 'bi-megaphone', 'cor' => self::AZUL, 'nivel' => 1],
         Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => ['grupo' => 'atencao', 'rotulo' => 'Pedido de informações', 'icone' => 'bi-question-circle', 'cor' => self::AMBAR, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO => ['grupo' => 'atencao', 'rotulo' => 'Andamento da demanda', 'icone' => 'bi-briefcase', 'cor' => self::PETROLEO, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA => ['grupo' => 'atencao', 'rotulo' => 'Resposta ao despacho', 'icone' => 'bi-reply', 'cor' => self::VERDE, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA => ['grupo' => 'atencao', 'rotulo' => 'Oferta recusada', 'icone' => 'bi-x-circle', 'cor' => self::AMBAR, 'nivel' => 1],
     ];
 
     /**
@@ -91,6 +94,10 @@ final class TiposDeAvisoDaCentral
         AvisoAoMaster::TIPO_APOIO => 'Ver sugestão',
         AvisoAoMaster::TIPO_MOTIVO => 'Ver sugestão',
         AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO => 'Ver sugestão',
+        // Desenho 06 de 24/10 (`avisarPartes`): `acao: 'Abrir a demanda'`.
+        Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO => 'Abrir a demanda',
+        // Resposta ao despacho, aos Master da Central (decisão do dono de 24/10).
+        Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA => 'Abrir a demanda',
     ];
 
     /** O rótulo da ação de abrir o aviso, ou null para o "Abrir" genérico da Central. */

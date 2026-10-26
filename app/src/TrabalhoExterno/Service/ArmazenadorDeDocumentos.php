@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\TrabalhoExterno\Service;
 
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
 use App\TrabalhoExterno\DTO\Autor;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -29,11 +31,15 @@ final class ArmazenadorDeDocumentos
     }
 
     /**
-     * @param list<UploadedFile> $arquivos
+     * `$despacho`: os anexos de um despacho da Central (ficam nele, fora de DOCUMENTOS). `$gravados` recebe a
+     * chave de cada arquivo assim que ele é gravado, para a transação de quem chama decidir o destino dele.
+     *
+     * @param list<UploadedFile>                     $arquivos
+     * @param \ArrayObject<int, ChaveDeArquivo>|null $gravados
      *
      * @return list<DocumentoDemanda>
      */
-    public function anexar(DemandaExterna $demanda, array $arquivos, Autor $autor): array
+    public function anexar(DemandaExterna $demanda, array $arquivos, Autor $autor, ?DespachoDemanda $despacho = null, ?\ArrayObject $gravados = null): array
     {
         if (count($arquivos) > self::MAX_ARQUIVOS) {
             throw new DadosInvalidos(sprintf('Envie no máximo %d arquivos por vez.', self::MAX_ARQUIVOS));
@@ -56,9 +62,11 @@ final class ArmazenadorDeDocumentos
 
             $upload = FonteDeUploadHttp::de($arquivo);
             $armazenado = $upload->gravarEm($this->armazenamento, ChavesDeTrabalhoExterno::novoDocumento($demanda, $upload->extensao));
+            $gravados?->append($armazenado->chave);
 
-            $documento = new DocumentoDemanda($demanda, $nome, $armazenado->chave->nome, $tamanho, $mime, $autor);
+            $documento = new DocumentoDemanda($demanda, $nome, $armazenado->chave->nome, $tamanho, $mime, $autor, $despacho);
             $demanda->anexar($documento);
+            $despacho?->anexar($documento);
             $documentos[] = $documento;
         }
 

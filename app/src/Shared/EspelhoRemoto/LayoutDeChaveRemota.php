@@ -92,6 +92,7 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::FOTO_PERFIL                => 'perfil',
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO => 'trabalho-externo/curriculos',
             CategoriaDeArquivo::COMERCIAL_IMAGEM           => 'comercial-imagens',
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => 'documentos-juridicos',
             default                                        => null,
         };
     }
@@ -102,6 +103,7 @@ final class LayoutDeChaveRemota
         return match ($categoria) {
             CategoriaDeArquivo::PASTA_DOCUMENTO     => 'pastas',
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR => 'pastas/' . $tenant,
+            CategoriaDeArquivo::PASTA_FOTO          => 'pastas/fotos',
             CategoriaDeArquivo::CLIENTE_DOCUMENTO   => 'clientes',
             CategoriaDeArquivo::CLIENTE_FOTO        => 'clientes/fotos',
             CategoriaDeArquivo::CHAMADO_ANEXO       => 'chamados',
@@ -112,7 +114,8 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO => 'trabalho-externo',
             CategoriaDeArquivo::FOTO_PERFIL,
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
-            CategoriaDeArquivo::COMERCIAL_IMAGEM    => throw new \LogicException('global, tratada antes'),
+            CategoriaDeArquivo::COMERCIAL_IMAGEM,
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => throw new \LogicException('global, tratada antes'),
         };
     }
 

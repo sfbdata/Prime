@@ -43,6 +43,7 @@ use Psr\Log\NullLogger;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use App\Tests\Inteligencia\Support\PlataformaDeIaNoTesteTrait;
 
 /**
  * Dublê do bus: guarda o que foi despachado e, armado, lança no dispatch (o caminho "fila fora do
@@ -68,6 +69,8 @@ final class BusEspiao implements MessageBusInterface
 #[CoversClass(SolicitarResumoDoPushUseCase::class)]
 final class SolicitarResumoDoPushUseCaseTest extends TestCase
 {
+    use PlataformaDeIaNoTesteTrait;
+
     private const PASTA_ID = 7;
 
     private Tenant $tenant;
@@ -111,6 +114,7 @@ final class SolicitarResumoDoPushUseCaseTest extends TestCase
         $this->permissoes->method('canAccessModule')->willReturn(true);
 
         $configuracao = new ConfiguracaoDeInteligencia($this->tenant);
+        $configuracao->liberarPeloMaster();
         $configuracao->atualizar(true, 50, 500, true, $this->user);
         $this->configuracoes = $this->createMock(ConfiguracaoDeInteligenciaRepository::class);
         $this->configuracoes->method('findDoTenant')->willReturn($configuracao);
@@ -146,7 +150,7 @@ final class SolicitarResumoDoPushUseCaseTest extends TestCase
 
     private function sut(ProvedorDeLinguagem $provedor = new ProvedorFalso()): SolicitarResumoDoPushUseCase
     {
-        $disponibilidade = new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true);
+        $disponibilidade = new DisponibilidadeDeInteligencia($provedor, $this->configuracoes, $this->analises, $this->permissoes, true, $this->plataformaDeIa(), new \App\Inteligencia\Service\CustoDaIa('us'));
 
         return new SolicitarResumoDoPushUseCase(
             $this->pastas,
