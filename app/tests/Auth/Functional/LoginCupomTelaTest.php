@@ -78,7 +78,23 @@ final class LoginCupomTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($crawler->filter('#lgCdIndCampo')->attr('hidden'), 'o campo começa fechado');
     }
 
-    #[TestDox('sem os textos que aguardam o dono: nada de "5 GB extras", "Cupom válido" nem "Cupom não encontrado"')]
+    #[TestDox('o texto de status da conferência ao vivo existe vazio e escondido, dentro do rótulo do cupom, depois do campo (desenho 10)')]
+    public function testTextoDeStatusDoCupom(): void
+    {
+        $client = static::createClient();
+
+        $crawler = $client->request('GET', '/login?abrir=cadastro');
+
+        $status = $crawler->filter('#lgCdIndCampo > #lgCdInd + #lgCdIndStatus');
+        self::assertSame(1, $status->count(), 'o status é o irmão logo depois do campo, dentro do rótulo');
+        self::assertSame('', trim($status->text()));
+        self::assertNotNull($status->attr('hidden'));
+        self::assertSame('/cadastro/cupom/conferir', $status->attr('data-url'));
+        self::assertSame('Cupom válido', $status->attr('data-valido'));
+        self::assertSame('Cupom não encontrado. Confira com quem te indicou.', $status->attr('data-nao-encontrado'));
+    }
+
+    #[TestDox('sem o "5 GB extras" nem o nome de quem indicou (decisões do dono)')]
     public function testSemOsTextosQueAguardamODono(): void
     {
         $client = static::createClient();
@@ -87,7 +103,6 @@ final class LoginCupomTelaTest extends JusPrimeWebTestCase
 
         $html = (string) $client->getResponse()->getContent();
         self::assertStringNotContainsString('5 GB', $html);
-        self::assertStringNotContainsString('Cupom válido', $html);
-        self::assertStringNotContainsString('Cupom não encontrado', $html);
+        self::assertStringNotContainsString('indicado por', $html);
     }
 }

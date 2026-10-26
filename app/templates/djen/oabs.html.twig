@@ -4,97 +4,64 @@
 
 {% block body %}
 {% include 'djen/_abas.html.twig' with {ativa: 'oabs'} %}
-<section class="content-header">
-    <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">{{ 'djen.oabs.titulo'|trans }}</h1>
-        <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> {{ 'djen.oabs.voltar'|trans }}
+
+<div class="pp-pagina" data-pp-oabs>
+    <div class="pp-topo">
+        <i class="bi bi-person-badge"></i>
+        <h1>{{ 'djen.oabs.titulo'|trans }}</h1>
+        <a href="{{ path('push_processual_index') }}" class="pp-btn">
+            <i class="bi bi-arrow-left"></i>{{ 'djen.oabs.voltar'|trans }}
         </a>
     </div>
-</section>
 
-<section class="content">
-    <div class="container-fluid">
-        <div class="card card-outline card-success mb-3">
-            <div class="card-header"><h3 class="card-title"><i class="bi bi-plus-circle me-1"></i> {{ 'djen.oabs.adicionar_oab'|trans }}</h3></div>
-            <div class="card-body">
-                {{ form_start(form) }}
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-3">
-                            {{ form_label(form.numero) }}
-                            {{ form_widget(form.numero) }}
-                            {{ form_errors(form.numero) }}
-                        </div>
-                        <div class="col-md-2">
-                            {{ form_label(form.uf) }}
-                            {{ form_widget(form.uf) }}
-                            {{ form_errors(form.uf) }}
-                        </div>
-                        <div class="col-md-4">
-                            {{ form_label(form.apelido) }}
-                            {{ form_widget(form.apelido) }}
-                            {{ form_errors(form.apelido) }}
-                        </div>
-                        <div class="col-md-3">
-                            <button type="submit" class="btn btn-success w-100"><i class="bi bi-plus-lg me-1"></i> {{ 'djen.oabs.adicionar'|trans }}</button>
-                        </div>
-                    </div>
-                {{ form_end(form) }}
-            </div>
+    <section class="pp-caixa pp-caixa--verde" data-pp-oab-adicionar>
+        <div class="pp-caixa__titulo">
+            <i class="bi bi-plus-circle"></i><b>{{ 'djen.oabs.adicionar_oab'|trans }}</b>
+            <span>{{ 'djen.oabs.adicionar_dica'|trans }}</span>
         </div>
+        {{ form_start(form, {attr: {class: 'pp-oab-form'}}) }}
+            <label class="pp-rotulo" for="{{ form.numero.vars.id }}">{{ 'djen.oabs.numero_da_oab'|trans }}{{ form_widget(form.numero) }}</label>
+            <label class="pp-rotulo" for="{{ form.uf.vars.id }}">{{ 'djen.oabs.uf'|trans }}{{ form_widget(form.uf) }}</label>
+            <label class="pp-rotulo" for="{{ form.apelido.vars.id }}">{{ 'djen.oabs.apelido_maiusculo'|trans }} <span class="pp-rotulo__opc">{{ 'djen.oabs.opcional'|trans }}</span>{{ form_widget(form.apelido) }}</label>
+            <button type="submit" class="pp-btn pp-btn--verde pp-oab-form__enviar"><i class="bi bi-plus-lg"></i>{{ 'djen.oabs.adicionar'|trans }}</button>
+        {{ form_end(form) }}
+        {% set erros = [form.numero.vars.errors, form.uf.vars.errors, form.apelido.vars.errors] %}
+        {% for lista in erros %}{% for erro in lista %}<div class="pp-erro">{{ erro.message }}</div>{% endfor %}{% endfor %}
+    </section>
 
-        <div class="card">
-            <div class="card-body p-0">
-                <table class="table table-hover mb-0 align-middle">
-                    <thead>
-                        <tr>
-                            <th>{{ 'djen.oabs.oab'|trans }}</th>
-                            <th>{{ 'djen.oabs.apelido'|trans }}</th>
-                            <th>{{ 'djen.oabs.status'|trans }}</th>
-                            <th>{{ 'djen.oabs.desde'|trans }}</th>
-                            <th class="text-end">{{ 'djen.comum.acoes'|trans }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for oab in oabs %}
-                            <tr>
-                                <td>{{ oab.numero }}/{{ oab.uf }}</td>
-                                <td>{% if (oab.apelido ?? null) is not null %}{{ oab.apelido }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</td>
-                                <td>
-                                    {% if oab.ativo %}
-                                        <span class="badge bg-success">{{ 'djen.oabs.ativa'|trans }}</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">{{ 'djen.oabs.pausada'|trans }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>{% if (oab.criadoEm ?? null) is not null %}{{ oab.criadoEm }}{% else %}<span class="text-muted small">{{ 'djen.comum.sem_registro'|trans }}</span>{% endif %}</td>
-                                <td class="text-end">
-                                    <form method="POST" action="{{ path('push_processual_oab_alternar', {id: oab.id}) }}" class="d-inline">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                            {{ (oab.ativo ? 'djen.oabs.pausar' : 'djen.oabs.reativar')|trans }}
-                                        </button>
-                                    </form>
-                                    <form method="POST" action="{{ path('push_processual_oab_remover', {id: oab.id}) }}" class="d-inline"
-                                          onsubmit="return confirm('{{ 'djen.oabs.remover_confirmar'|trans|e('js') }}');">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-4">
-                                    {{ 'djen.oabs.vazio'|trans }}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <section class="pp-caixa pp-tabela" data-pp-oab-tabela>
+        <div class="pp-tabela__corpo pp-tabela__corpo--oab">
+            <div class="pp-linha pp-linha--oab pp-linha--cab">
+                <span>{{ 'djen.oabs.oab_maiusculo'|trans }}</span>
+                <span>{{ 'djen.oabs.apelido_maiusculo'|trans }}</span>
+                <span>{{ 'djen.oabs.status_maiusculo'|trans }}</span>
+                <span>{{ 'djen.oabs.publicacoes_maiusculo'|trans }}</span>
+                <span>{{ 'djen.oabs.desde_maiusculo'|trans }}</span>
+                <span>{{ 'djen.comum.acoes_maiusculo'|trans }}</span>
             </div>
+            {% for oab in oabs %}
+                <div class="pp-linha pp-linha--oab pp-linha--dado">
+                    <b>{{ oab.numero }}/{{ oab.uf }}</b>
+                    <span>{% if oab.apelido is not null and oab.apelido != '' %}{{ oab.apelido }}{% else %}<span class="pp-mudo">{{ 'djen.oabs.sem_apelido'|trans }}</span>{% endif %}</span>
+                    <span><span class="pp-selo pp-selo--status {{ oab.ativo ? 'pp-selo--vinc' : 'pp-selo--pausada' }}">{{ (oab.ativo ? 'djen.oabs.ativa' : 'djen.oabs.pausada')|trans }}</span></span>
+                    <span>{{ oab.publicacoes }}</span>
+                    <span>{{ oab.criadoEm }}</span>
+                    <span class="pp-c-acoes">
+                        <form method="POST" action="{{ path('push_processual_oab_alternar', {id: oab.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
+                            <button type="submit" class="pp-acao">{{ (oab.ativo ? 'djen.oabs.pausar' : 'djen.oabs.retomar')|trans }}</button>
+                        </form>
+                        <form method="POST" action="{{ path('push_processual_oab_remover', {id: oab.id}) }}"
+                              onsubmit="return confirm('{{ 'djen.oabs.remover_confirmar'|trans({oab: oab.numero ~ '/' ~ oab.uf})|e('js') }}');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('push_processual_oab_' ~ oab.id) }}">
+                            <button type="submit" class="pp-acao pp-acao--perigo" title="{{ 'djen.oabs.remover'|trans }}"><i class="bi bi-trash3"></i></button>
+                        </form>
+                    </span>
+                </div>
+            {% else %}
+                <div class="pp-vazio">{{ 'djen.oabs.vazio'|trans }}</div>
+            {% endfor %}
         </div>
-    </div>
-</section>
+    </section>
+</div>
 {% endblock %}

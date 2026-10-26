@@ -1,0 +1,50 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Meta de pastas do mês dentro do card "Pastas criadas" (DASH-016). Desenho
+   "01 - Dashboard - VS 25.10.26": `nv.ativo` (barra, traço do ritmo, "X de Y no mês" e
+   status, dc L446-460) e `nv.semMeta` (botão "Definir meta do mês", dc L461-463).
+
+   Recebe `meta` (MetaDePastasDoMesOutput) e `podeMeta` (só o primário edita). Quem não edita
+   vê a meta e o ritmo, sem o lápis; sem meta, vê nada. O número "X" é o do próprio card
+   (pastas criadas no mês); o ritmo conta dias úteis (decisão provisória do coordenador).
+   Os botões são ganchos do public/js/dashboard-meta.js (`data-db-meta-editar`).
+─────────────────────────────────────────────────────────────────────────── #}
+{% if meta.visivel %}
+    {% if meta.temMeta %}
+        {% set esperado = meta.esperado %}
+        {% if meta.batida %}
+            {% set dica = 'dashboard.meta.dica_batida'|trans %}
+            {% set statusRotulo = 'dashboard.meta.status_batida'|trans %}
+            {% set statusIcone = 'bi-check-circle-fill' %}
+        {% else %}
+            {% set dica = 'dashboard.meta.dica'|trans({
+                esperado: esperado, dia: meta.diasUteisDecorridos, total: meta.diasUteisTotal,
+                faltam: meta.faltam, restam: meta.diasUteisRestantes, porDia: meta.porDia, porSemana: meta.porSemana,
+            }) %}
+            {% set statusRotulo = meta.noRitmo ? 'dashboard.meta.status_no_ritmo'|trans : 'dashboard.meta.status_abaixo'|trans %}
+            {% set statusIcone = meta.noRitmo ? 'bi-arrow-up-right' : 'bi-arrow-down-right' %}
+        {% endif %}
+        <div class="db-meta" data-db-meta title="{{ dica }}">
+            <div class="db-meta-trilho">
+                <div class="db-meta-fill{{ meta.noRitmo ? '' : ' db-meta-fill--abaixo' }}" style="--db-meta-pct:{{ meta.percentual|round(2) }}%"></div>
+                <div class="db-meta-quarto" style="left:25%"></div>
+                <div class="db-meta-quarto" style="left:50%"></div>
+                <div class="db-meta-quarto" style="left:75%"></div>
+                <div class="db-meta-marco" style="left:{{ meta.percentualEsperado|round(2) }}%"></div>
+            </div>
+            <div class="db-meta-linha">
+                {% if podeMeta %}
+                    <button type="button" class="db-meta-feitas db-meta-feitas--botao" data-db-meta-editar title="{{ 'dashboard.meta.alterar'|trans }}">
+                        <b>{{ meta.realizado }}</b><span>{{ 'dashboard.meta.de'|trans }}</span><b>{{ meta.meta }}</b><span>{{ 'dashboard.meta.no_mes'|trans }}</span><i class="bi bi-pencil" aria-hidden="true"></i>
+                    </button>
+                {% else %}
+                    <span class="db-meta-feitas">
+                        <b>{{ meta.realizado }}</b><span>{{ 'dashboard.meta.de'|trans }}</span><b>{{ meta.meta }}</b><span>{{ 'dashboard.meta.no_mes'|trans }}</span>
+                    </span>
+                {% endif %}
+                <span class="db-meta-status{{ meta.noRitmo ? '' : ' db-meta-status--abaixo' }}"><i class="bi {{ statusIcone }}" aria-hidden="true"></i>{{ statusRotulo }}</span>
+            </div>
+        </div>
+    {% elseif podeMeta %}
+        <button type="button" class="db-meta-definir" data-db-meta-editar><i class="bi bi-bullseye" aria-hidden="true"></i>{{ 'dashboard.meta.definir'|trans }}</button>
+    {% endif %}
+{% endif %}

@@ -139,11 +139,13 @@ final class DjenController extends AbstractController
             }
         }
 
+        $publicacoesPorOab = $this->publicacaoRepository->contarPorOabMonitoradaDoTenant($tenant);
+
         return $this->render('djen/oabs.html.twig', [
             'abas' => $this->contagensDasAbas($tenant),
             'form' => $form,
             'oabs' => array_map(
-                static fn ($oab): OabMonitoradaOutput => OabMonitoradaOutput::fromEntity($oab),
+                static fn ($oab): OabMonitoradaOutput => OabMonitoradaOutput::fromEntity($oab, $publicacoesPorOab[$oab->getId()] ?? 0),
                 $this->oabRepository->listarDoTenant($tenant),
             ),
         ]);
