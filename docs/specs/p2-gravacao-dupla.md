@@ -604,6 +604,115 @@ cabe no rollback por teste do DAMA — o que se prova é a regra (uma chave por 
 que a trava consultiva + `SKIP LOCKED` aplicam; a reconciliação não cobre imagens do editor (sem linha
 no banco); o custo do SHA da reconciliação sobre 26 GB não foi medido.
 
+## P2.5 e P2.7 preparadas (r2-p25)
+
+Frente `r2-p25`, empilhada sobre a `r2-p23` (PR #372). Sem migration. **Nada liga em produção** até o
+dono preencher `ARMAZENAMENTO_ESPELHO_CATEGORIAS` (com as quatro `ESPELHO_R2_*` já preenchidas, na P2.4).
+
+**Modo agendado (`--se-ligado`).** Os três comandos ganham a opção. Sem ela, nada muda (sem `ESPELHO_R2_*`,
+replicar e reconciliar recusam com falha).
+- `armazenamento:replicar-espelho --se-ligado` e `armazenamento:reconciliar-espelho --se-ligado`: com a
+  política vazia ou sem `ESPELHO_R2_*`, saem com sucesso e a linha "Espelho desligado", sem tocar no R2 nem
+  na outbox (o teste esconde a tabela e prova que nenhum dos dois a lê).
+- `armazenamento:limpar-replicacao --se-ligado`: só pula quando a tabela da outbox não existe. Com a
+  política vazia a retenção de 90 dias continua valendo, porque as linhas antigas já existem e a decisão
+  da I4 (LGPD) não depende de a cópia estar ligada; a limpeza não fala com o R2, então a falta de
+  `ESPELHO_R2_*` também não a impede.
+
+**SHA por fatia.** Não há tarefa semanal com o SHA do acervo inteiro (seguraria o agendador por horas). A
+diária confere presença e tamanho de tudo e o SHA-256 só de 1/7 das referências: a fatia de cada uma é
+`crc32(chave remota) mod 7` (`ReconciliadorDoEspelho::fatiaDe()`, estável), e `--fatia=auto` escolhe a do
+dia da semana em Brasília (domingo = 0). Em sete noites todas as referências têm o SHA conferido. As fora
+da fatia saem `presente_sem_sha_conferido`. `--fatia=todas` (padrão, à mão) confere o SHA de tudo; `--fatia=N`
+(0 a 6) escolhe uma; `--sem-sha` continua desligando o SHA.
+
+**Categoria desligada não sobe, nem pela fila.** O worker (`ReplicadorDeArquivos`) passa à reivindicação a
+lista das categorias ligadas, e a consulta filtra por ela (`categoria IN (...)`): a linha de categoria
+desligada fica `pendente`, intocada (sem tentativa gasta), e volta a andar quando a categoria religar. Com
+a política vazia, nada sai da fila. Uma linha de categoria que não existe nunca é ligada, então também fica
+parada. O `armazenamento:reenfileirar-falhas` também só mexe nas categorias ligadas e recusa `--categoria`
+desligada.
+
+**Agendador** (`AgendaDeTarefas`, horários de Brasília, mesmo schedule `default`, mesma trava e estado):
+
+| Tarefa | Quando |
+|---|---|
+| `armazenamento:replicar-espelho --se-ligado --limite=50` | a cada minuto |
+| `armazenamento:reconciliar-espelho --se-ligado --fatia=auto` | todo dia, 3h30 |
+| `armazenamento:limpar-replicacao --se-ligado` | todo dia, 4h30 |
+
+Duas rodadas da réplica nunca correm juntas: o consumidor do `scheduler_default` é um só e roda uma
+tarefa por vez, e uma rodada que passa do minuto não acumula atrasadas (`processOnlyLastMissedRun`).
+Entre contêineres, a trava do schedule impede gerar a mesma tarefa duas vezes; uma rodada manual no
+`jusprime_php_prod` ao mesmo tempo é segura pela reivindicação atômica da outbox. A réplica fica antes do
+envio ao Drive na lista, para a hora cheia não a atrasar. Os horários da reconciliação caem fora da janela
+dos backups (23h30 a 0h50 de Brasília).
+
+**Alerta da P2.7.** Com `--se-ligado` e o espelho ligado, a reconciliação confere só as categorias que a
+política espelha (sem o filtro, cada categoria desligada viraria "ausente") e sai com FALHA, e o aviso do
+agendador (log, e-mail de `AGENDADOR_ALERTA_EMAIL`, tela do Master) dispara, quando há:
+`ausente_no_espelho`, `tamanho_divergente`, `sha_divergente`, `erro_de_consulta` (o R2 fora do ar precisa
+avisar) ou linhas de envio em `falhou` na outbox das categorias ligadas (desligar uma categoria é decisão deliberada,
+um rollback; as falhas dela voltam a contar quando ela religar). Não derrubam a rodada:
+`presente_sem_sha_conferido` (fora da fatia do SHA), `suspeito_erro_do_drive` (os 90 conhecidos, que
+aparecem na contagem), `ausente_pendente_na_outbox` (em fila) e `local_ausente`, `chave_invalida` e
+`sem_sha_no_espelho`: estes três são problemas conhecidos do acervo local (os 73 sem rastro, os de lápide,
+os valores fora do formato da P1), não do espelho; corrigi-los é outra frente, e alertar por eles todo dia
+só esconderia o alerta que importa. Todos aparecem na contagem. A
+mensagem é só contagem por classe e por categoria (`ausente_no_espelho: 3 (foto_perfil: 3)`), nunca nome
+de arquivo, chave remota ou nome de pessoa. Peça: `Reconciliacao\AlertaDaReconciliacao`; a categoria de
+cada referência vem da fonte (`ReferenciaDeArquivo::categoria()`), então até a chave inválida conta na
+categoria certa.
+
+**Situação.** `armazenamento:espelho-situacao`: credenciais preenchidas (só sim ou não), categorias
+ligadas (e entradas inválidas da variável), outbox por estado e idade da pendente mais antiga. Não fala
+com o R2.
+
+**Configuração.** `.env.prod.example` lista as cinco variáveis, vazias. `DEPLOY.md` descreve as tarefas e
+como desligar (esvaziar a variável, recriar php, worker e scheduler e recarregar o nginx). Os comandos
+recebem o espelho pela interface `ProvedorDoEspelhoRemoto` (a `FabricaDoEspelhoRemoto` a implementa), para
+os testes usarem o espelho em memória.
+
+**Carga do acervo (P2.6), `armazenamento:carregar-acervo --categoria=X [--limite=N] [--simular]`.** Percorre
+as referências do banco da categoria (as mesmas fontes da reconciliação) e registra um envio na outbox para
+cada arquivo presente no disco cuja chave remota ainda não tem, como última linha, envio `verificado`,
+`pendente` ou `processando`. Idempotente: rodar de novo só conta "já na fila ou verificadas". Recusa
+categoria desligada na política. Não fala com o R2: a banda fica limitada pelo worker agendado (50 por
+minuto). Saída só de contagens (enfileiradas, já na fila, ausentes no disco, chave inválida, erro de
+leitura). Peça: `Acervo\CarregadorDoAcervo`. Como a retenção apaga `verificado` depois de 90 dias, uma carga
+repetida depois disso enfileira de novo, e o worker acha o objeto pelo HEAD sem reenviar.
+
+Quando a última linha da chave é de outro estado, a carga registra um envio novo (se o arquivo estiver no
+disco):
+- `falhou`: a linha nova entra `pendente`, mas a antiga continua `falhou` (a reivindicação só olha linhas
+  pendentes ou em processamento) e segue contando no alerta. Por isso o procedimento roda
+  `armazenamento:reenfileirar-falhas --categoria=X` ANTES da carga: a falha volta a `pendente`, e a carga a
+  conta como "já na fila" em vez de duplicar. Se a carga rodar primeiro, o reenfileirar depois resolve: a
+  antiga volta a `pendente` e, na reivindicação, vira `superado` (há linha mais nova da mesma chave).
+- `descartado` (o arquivo sumiu do disco quando o worker foi enviar): se ele voltou, a carga o enfileira; se
+  não, conta "ausente no disco local" e não registra nada.
+- `superado` (havia linha mais nova, ou o conteúdo do disco mudou): a carga enfileira o conteúdo atual,
+  medido na hora; o worker relê o disco antes do PUT, como sempre.
+- `registrado` (exclusão registrada): se o arquivo existe no disco de novo, a carga o enfileira, porque o
+  banco ainda o referencia.
+
+**Procedimento por categoria:** ligar a categoria em `ARMAZENAMENTO_ESPELHO_CATEGORIAS` (e recriar php,
+worker e scheduler), rodar `armazenamento:reenfileirar-falhas --categoria=X` (se houver falhas antigas dela),
+rodar `armazenamento:carregar-acervo --categoria=X` (primeiro com `--simular`) e esperar
+a fila esvaziar (`armazenamento:espelho-situacao`). Enquanto a fila anda, o arquivo ausente no R2 que tem
+linha pendente ou em processamento é `ausente_pendente_na_outbox` ("em fila") e não dispara o alerta.
+
+**Pontos de atenção para quando ligar.**
+- Entre ligar a categoria e rodar a carga, os arquivos antigos dela estão ausentes no R2 sem linha na
+  fila: a reconciliação diária falha se rodar nesse intervalo.
+- `falhou` não sai pela retenção nem se resolve sozinho: o alerta se repete até alguém tratar a linha com
+  `armazenamento:reenfileirar-falhas [--categoria=X] [--simular]`, que a volta para `pendente` com
+  tentativas zeradas e próxima tentativa agora (saída só de contagens por categoria). Se houver linha mais
+  nova da mesma chave, a reivindicação a marca `superado`, como sempre.
+- A fatia do SHA lê por inteiro 1/7 dos arquivos das categorias ligadas; enquanto roda, segura o
+  consumidor do agendador (a réplica e o Drive esperam). Com o acervo todo ligado (26 GB), são uns 4 GB por
+  noite.
+
 ## 15. Fora de escopo da P2 inteira
 
 Leitura pelo R2 · URL pré-assinada · `X-Accel-Redirect` · coluna `storage_backend`/`storage_key` ·

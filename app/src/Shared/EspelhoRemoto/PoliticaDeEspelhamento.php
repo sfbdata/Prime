@@ -24,9 +24,12 @@ final class PoliticaDeEspelhamento
     /** @var list<string> */
     private array $invalidas = [];
 
+    /** @var list<int> */
+    private array $posicoesInvalidas = [];
+
     public function __construct(string $categorias = '')
     {
-        foreach (explode(',', $categorias) as $entrada) {
+        foreach (explode(',', $categorias) as $indice => $entrada) {
             $entrada = trim($entrada);
             if ($entrada === '') {
                 continue;
@@ -34,7 +37,8 @@ final class PoliticaDeEspelhamento
 
             $categoria = CategoriaDeArquivo::tryFrom($entrada);
             if ($categoria === null) {
-                $this->invalidas[] = $entrada;
+                $this->invalidas[]         = $entrada;
+                $this->posicoesInvalidas[] = $indice + 1;
 
                 continue;
             }
@@ -62,6 +66,17 @@ final class PoliticaDeEspelhamento
     public function categoriasLigadas(): array
     {
         return array_keys($this->ligadas);
+    }
+
+    /**
+     * Onde estão as entradas inválidas na lista separada por vírgula (1 = a primeira). É o que a tela de
+     * situação mostra: o texto da entrada pode ser qualquer coisa colada por engano, até um segredo.
+     *
+     * @return list<int>
+     */
+    public function posicoesInvalidas(): array
+    {
+        return $this->posicoesInvalidas;
     }
 
     /** @return list<string> */

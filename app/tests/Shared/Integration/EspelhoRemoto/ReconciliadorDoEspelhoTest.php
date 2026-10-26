@@ -151,6 +151,23 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
         self::assertStringNotContainsString('core/t/', (string) $json);
     }
 
+    #[TestDox('fatia do SHA: estável, de 0 a 6, e só a fatia pedida tem o SHA conferido')]
+    public function testFatiaDoSha(): void
+    {
+        $chave = $this->chave('a.pdf');
+        self::assertSame(ReconciliadorDoEspelho::fatiaDe($chave), ReconciliadorDoEspelho::fatiaDe($this->chave('a.pdf')));
+        self::assertSame(crc32(LayoutDeChaveRemota::chaveDe($chave)) % 7, ReconciliadorDoEspelho::fatiaDe($chave));
+
+        $ref   = $this->comLocal('a.pdf', 'x', remoto: ['y', hash('sha256', 'y')]);
+        $fatia = ReconciliadorDoEspelho::fatiaDe($chave);
+
+        self::assertSame(1, $this->reconciliador([$ref])->reconciliar($this->espelho, true, null, null, $fatia)->quantos(ClasseDeReconciliacao::SHA_DIVERGENTE));
+        self::assertSame(1, $this->reconciliador([$ref])->reconciliar($this->espelho, true, null, null, ($fatia + 1) % 7)->quantos(ClasseDeReconciliacao::PRESENTE_SEM_SHA_CONFERIDO));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->reconciliador([$ref])->reconciliar($this->espelho, true, null, null, 7);
+    }
+
     #[TestDox('limite: para depois de N referências')]
     public function testLimite(): void
     {

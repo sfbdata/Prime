@@ -14,6 +14,7 @@ use App\Shared\EspelhoRemoto\MedidaDeConteudo;
 use App\Shared\EspelhoRemoto\R2\ClienteR2;
 use App\Shared\EspelhoRemoto\Outbox\ItemDeReplicacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
+use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -56,6 +57,7 @@ final class ReplicadorDeArquivos
         private readonly OutboxDeReplicacao $outbox,
         private readonly ArmazenamentoDeArquivos $local,
         private readonly LoggerInterface $logger,
+        private readonly PoliticaDeEspelhamento $politica,
     ) {
     }
 
@@ -64,7 +66,8 @@ final class ReplicadorDeArquivos
         $resumo = new ResumoDaRodada();
 
         for ($i = 0; $i < $limite; $i++) {
-            $item = $this->outbox->reivindicarProxima(self::POSSE_EM_SEGUNDOS, self::MAXIMO_DE_TENTATIVAS);
+            // Só categoria ligada sobe: a desligada fica pendente na fila até religar.
+            $item = $this->outbox->reivindicarProxima(self::POSSE_EM_SEGUNDOS, self::MAXIMO_DE_TENTATIVAS, $this->politica->categoriasLigadas());
             if ($item === null) {
                 break;
             }

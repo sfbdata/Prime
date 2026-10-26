@@ -18,7 +18,7 @@ use Psr\Log\NullLogger;
  * O cliente S3 recebe `NullLogger`: o log do `async-aws` carrega a URL, e a URL carrega a chave
  * remota — que, nos legados de texto livre, contém nome de pessoa.
  */
-final class FabricaDoEspelhoRemoto
+final class FabricaDoEspelhoRemoto implements ProvedorDoEspelhoRemoto
 {
     public function __construct(
         private readonly string $endpoint = '',

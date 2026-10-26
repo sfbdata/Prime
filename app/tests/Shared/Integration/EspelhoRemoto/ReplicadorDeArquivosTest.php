@@ -57,7 +57,7 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
         $this->espelhado  = new ArmazenamentoEspelhado($this->local, $this->outbox, new PoliticaDeEspelhamento('pasta_documento'), $this->logger);
         $this->s3         = new S3Simulado();
         $this->espelho    = new EspelhoRemotoR2(ClienteR2::criar($this->s3->endpoint, $this->s3->chaveDeAcesso, self::SEGREDO, $this->s3->cliente()), $this->s3->bucket);
-        $this->replicador = new ReplicadorDeArquivos($this->outbox, $this->local, $this->logger);
+        $this->replicador = new ReplicadorDeArquivos($this->outbox, $this->local, $this->logger, new PoliticaDeEspelhamento('pasta_documento'));
     }
 
     #[TestDox('gravou no disco → o worker envia, o objeto fica igual no espelho e a linha vira "verificado"')]
@@ -289,6 +289,22 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
     #[TestDox('linha que não vira chave é falha permanente, sem tentar de novo')]
     public function testLinhaInvalidaFalhaNaHora(): void
     {
+        // Categoria ligada, nome que não vira chave (caminho com "..").
+        $this->conexao->executeStatement(
+            "INSERT INTO armazenamento_replicacao (operacao, escopo_tenant_id, categoria, nome, chave_remota, sha256, tamanho_bytes, mime_type, estado, tentativas, proxima_tentativa_em, criado_em, atualizado_em)
+             VALUES ('enviar', 1, 'pasta_documento', '../x.pdf', 'core/t/1/uploads/x/x.pdf', :sha, 1, 'application/pdf', 'pendente', 0, '2026-10-15 12:00:00', '2026-10-15 12:00:00', '2026-10-15 12:00:00')",
+            ['sha' => hash('sha256', 'x')],
+        );
+
+        $this->replicador->processar($this->espelho, 10);
+
+        self::assertSame(['falhou' => 1], $this->outbox->contarPorEstado());
+        self::assertSame([], $this->s3->requisicoes());
+    }
+
+    #[TestDox('linha de categoria que não existe nunca é reivindicada pelo worker (não é categoria ligada); a fila sem filtro a marca falhou')]
+    public function testCategoriaDesconhecidaNaoSaiPeloWorker(): void
+    {
         $this->conexao->executeStatement(
             "INSERT INTO armazenamento_replicacao (operacao, escopo_tenant_id, categoria, nome, chave_remota, sha256, tamanho_bytes, mime_type, estado, tentativas, proxima_tentativa_em, criado_em, atualizado_em)
              VALUES ('enviar', 1, 'categoria_que_nao_existe', 'x.pdf', 'core/t/1/uploads/x/x.pdf', :sha, 1, 'application/pdf', 'pendente', 0, '2026-10-15 12:00:00', '2026-10-15 12:00:00', '2026-10-15 12:00:00')",
@@ -296,7 +312,9 @@ final class ReplicadorDeArquivosTest extends KernelTestCase
         );
 
         $this->replicador->processar($this->espelho, 10);
+        self::assertSame(['pendente' => 1], $this->outbox->contarPorEstado());
 
+        self::assertNull($this->outbox->reivindicarProxima(ReplicadorDeArquivos::POSSE_EM_SEGUNDOS, ReplicadorDeArquivos::MAXIMO_DE_TENTATIVAS));
         self::assertSame(['falhou' => 1], $this->outbox->contarPorEstado());
         self::assertSame([], $this->s3->requisicoes());
     }

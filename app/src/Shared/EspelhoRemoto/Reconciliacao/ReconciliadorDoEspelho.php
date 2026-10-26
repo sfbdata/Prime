@@ -12,6 +12,7 @@ use App\Shared\Armazenamento\Sha256DeArquivo;
 use App\Shared\EspelhoRemoto\EspelhoRemoto;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
+use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
 
 /**
  * Reconciliação banco × disco × espelho — **só leitura** (spec P2 §3.4). Não enfileira, não envia,
@@ -29,6 +30,12 @@ final class ReconciliadorDoEspelho
     /** SHA-256 da resposta de erro 401 do Google gravada como documento (P1, 15/10/2026). */
     public const SHA_DO_ERRO_401_DO_DRIVE = '0a93453f82f4d413ae29ad3ecb8d334e2d5d7484f0253674203c0413a268a459';
 
+    /**
+     * Em quantas fatias estáveis o SHA se divide: a rodada diária confere o SHA de uma (a do dia da
+     * semana), e a semana cobre tudo sem nenhuma noite ler o acervo inteiro.
+     */
+    public const FATIAS_DO_SHA = 7;
+
     public function __construct(
         private readonly FonteDeReferencias $fontes,
         private readonly ArmazenamentoDeArquivos $local,
@@ -37,24 +44,52 @@ final class ReconciliadorDoEspelho
     ) {
     }
 
-    public function reconciliar(EspelhoRemoto $espelho, bool $conferirSha = true, ?int $limite = null): RelatorioDeReconciliacao
-    {
+    /**
+     * `$soAsLigadas`: confere só as referências das categorias que a política espelha (o modo agendado,
+     * P2.5). Sem ela, todas as fontes, como no dry-run da P2.3. O limite conta só o que foi conferido.
+     *
+     * `$fatiaDoSha` (0 a 6): com SHA ligado, confere o SHA só das referências daquela fatia
+     * ({@see fatiaDe()}); as outras saem como na rodada sem SHA. Null: SHA de todas.
+     */
+    public function reconciliar(
+        EspelhoRemoto $espelho,
+        bool $conferirSha = true,
+        ?int $limite = null,
+        ?PoliticaDeEspelhamento $soAsLigadas = null,
+        ?int $fatiaDoSha = null,
+    ): RelatorioDeReconciliacao {
+        if ($fatiaDoSha !== null && ($fatiaDoSha < 0 || $fatiaDoSha >= self::FATIAS_DO_SHA)) {
+            throw new \InvalidArgumentException(sprintf('A fatia do SHA vai de 0 a %d.', self::FATIAS_DO_SHA - 1));
+        }
+
         $relatorio = new RelatorioDeReconciliacao();
         $vistos    = 0;
 
         foreach ($this->fontes->referencias() as $referencia) {
+            if ($soAsLigadas !== null) {
+                $categoria = $referencia->categoria();
+                if ($categoria === null || !$soAsLigadas->espelha($categoria)) {
+                    continue;
+                }
+            }
             if ($limite !== null && $vistos >= $limite) {
                 break;
             }
             $vistos++;
 
-            $relatorio->registrar($referencia, $this->classificar($espelho, $referencia, $conferirSha));
+            $relatorio->registrar($referencia, $this->classificar($espelho, $referencia, $conferirSha, $fatiaDoSha));
         }
 
         return $relatorio;
     }
 
-    private function classificar(EspelhoRemoto $espelho, ReferenciaDeArquivo $referencia, bool $conferirSha): ClasseDeReconciliacao
+    /** A fatia estável de uma chave: crc32 da chave remota, módulo {@see FATIAS_DO_SHA}. */
+    public static function fatiaDe(ChaveDeArquivo $chave): int
+    {
+        return crc32(LayoutDeChaveRemota::chaveDe($chave)) % self::FATIAS_DO_SHA;
+    }
+
+    private function classificar(EspelhoRemoto $espelho, ReferenciaDeArquivo $referencia, bool $conferirSha, ?int $fatiaDoSha): ClasseDeReconciliacao
     {
         $chave = $referencia->chave;
         if ($chave === null) {
@@ -62,7 +97,7 @@ final class ReconciliadorDoEspelho
         }
 
         try {
-            return $this->comparar($espelho, $chave, $conferirSha);
+            return $this->comparar($espelho, $chave, $conferirSha && ($fatiaDoSha === null || self::fatiaDe($chave) === $fatiaDoSha));
         } catch (ArquivoNaoEncontrado) {
             return ClasseDeReconciliacao::LOCAL_AUSENTE;
         } catch (ChaveDeArquivoInvalida) {

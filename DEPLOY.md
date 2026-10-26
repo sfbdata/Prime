@@ -259,6 +259,22 @@ tabelas nascem da migration `Version20261023150800`, junto com a `falha_agendada
 `app:pastas:relatorio-pastas-paradas --dry-run`, `app:perfil:resumo-diario --dry-run` (os de escritório
 aceitam `--tenant=ID`). A carência da quarentena (padrão 365 dias) segue em `TENANT_CARENCIA_PURGA_DIAS`.
 
+**Espelho dos arquivos no R2** (spec `docs/specs/p2-gravacao-dupla.md`, seção "P2.5 e P2.7 preparadas"). O
+agendador tem três tarefas do espelho, todas com `--se-ligado`: `armazenamento:replicar-espelho --limite=50` a
+cada minuto, `armazenamento:reconciliar-espelho --fatia=auto` todo dia às 3h30 (presença e tamanho de tudo, SHA de
+1/7 dos arquivos por noite) e `armazenamento:limpar-replicacao` (retenção de 90 dias da fila) todo dia às 4h30. Com
+`ARMAZENAMENTO_ESPELHO_CATEGORIAS` vazia ou sem as `ESPELHO_R2_*`, elas terminam com sucesso sem fazer nada (a
+limpeza da fila roda mesmo assim). Ligado, a reconciliação falha, e o aviso do agendador chega, quando há arquivo
+ausente no R2 sem estar na fila, tamanho ou SHA diferente, erro de consulta ao R2 ou envio em `falhou`; o log
+traz só contagens por classe e por categoria. Ao ligar uma categoria, rode
+`armazenamento:carregar-acervo --categoria=X` (primeiro com `--simular`) e espere a fila esvaziar; envios em
+`falhou` voltam à fila com `armazenamento:reenfileirar-falhas [--categoria=X]`.
+Situação: `docker exec -w /var/www/app jusprime_php_prod php bin/console armazenamento:espelho-situacao` (mostra se
+está configurado, sem valor nenhum). **Desligar:** esvazie `ARMAZENAMENTO_ESPELHO_CATEGORIAS` no `.env.prod` e
+recrie php, worker e scheduler (`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d php worker
+scheduler`), depois recarregue o nginx (`docker exec jusprime_nginx_prod nginx -s reload`): sem o reload, o nginx
+segue apontando para o php antigo e responde 502. Os objetos já enviados ficam no R2, sem efeito.
+
 #### Varreduras periódicas (no worker, não no agendador)
 
 O push dos lembretes (a cada 60 s), a sincronia do Google Agenda (5 min), as automações do Comercial (15 min) e o
