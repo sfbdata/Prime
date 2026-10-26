@@ -123,6 +123,7 @@ final class PurgarEscritorioUseCase
         // são SET NULL, então não caem por cascata — precisam de deleção explícita).
         ['publicacao_djen', 'tenant_id = :tenant'],
         ['oab_monitorada', 'tenant_id = :tenant'],
+        ['djen_processo_acompanhado', 'tenant_id = :tenant'],
         // Sync — conexão de Drive do escritório (guarda o refresh_token CIFRADO). FK tenant NO ACTION
         // (bloqueia apagar o tenant) + tenant_id direto → deleção explícita. Apaga o segredo junto.
         ['sync_drive_conexao', 'tenant_id = :tenant'],

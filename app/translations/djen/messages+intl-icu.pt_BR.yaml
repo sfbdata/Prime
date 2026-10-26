@@ -123,3 +123,68 @@ djen:
         teor: Teor da comunicação
         inteiro_teor: Inteiro teor na origem
         sem_teor: Sem teor textual disponível.
+    processos:
+        titulo_pagina: 'Push Processual | Processos da OAB'
+        titulo: Processos da OAB
+        capturados_das: 'Capturados das OABs {oabs}'
+        sem_oab: 'Nenhuma OAB ativa: cadastre em OABs monitoradas'
+        buscar: Buscar processos da OAB
+        kpi_processos: PROCESSOS
+        kpi_movidos: MOVIDOS EM 7 DIAS
+        kpi_parados: PARADOS +30 DIAS
+        kpi_nunca: NUNCA CAPTURADOS
+        kpi_sem_pasta: SEM PASTA
+        inclusao_titulo: Inclusão de processos para acompanhamento
+        numero_do_processo: Número do processo
+        email_alternativo: E-mail alternativo
+        opcional: Opcional
+        observacao: Observação
+        observacao_dica: 'Ex.: cliente, assunto ou parte contrária'
+        incluir: Incluir
+        email_padrao: 'Sem e-mail alternativo, os avisos vão para {email}.'
+        sub_acompanhados: Processos acompanhados
+        sub_relacionados: Processos relacionados
+        selecionadas: selecionada(s)
+        selecionar_todos: Selecionar todos
+        selecionar_processo: Selecionar processo
+        parar: Parar de acompanhar
+        parar_confirmar: 'Parar de acompanhar os processos selecionados? As publicações já recebidas continuam.'
+        parar_um_confirmar: 'Parar de acompanhar {numero}? As publicações já recebidas continuam.'
+        relatorio_texto: Processos em que a OAB aparece e que ainda não estão sendo acompanhados.
+        incluir_n: 'Incluir {n} no acompanhamento'
+        busca: Número, cliente, parte ou órgão
+        oab_todas: 'OAB: todas'
+        mov_todas: 'Movimentação: todas'
+        mov_hoje: Movimentados hoje
+        mov_7: Últimos 7 dias
+        mov_30: Últimos 30 dias
+        mov_p30: Parados há +30 dias
+        mov_p45: Parados há +45 dias
+        mov_p90: Parados há +90 dias
+        mov_nc: Nunca capturados
+        area_todas: 'Área: todas'
+        fase_todas: 'Fase: todas'
+        pasta_todos: 'Pasta: todos'
+        com_pasta: Com pasta
+        sem_pasta: Sem pasta
+        exportar: Exportar
+        col_partes: PARTES · ÓRGÃO
+        col_area: ÁREA
+        col_fase: FASE
+        col_ultimo: ÚLT. MOVIMENTO
+        col_pasta: PASTA
+        sem_partes: Partes não informadas
+        sem_orgao: Órgão não informado
+        nunca_capturado: Nunca capturado
+        hoje: hoje
+        ha_dias: 'há {n} dia(s)'
+        pasta_curto: Pasta
+        editar_obs: Editar anotações
+        incluir_acompanhamento: Incluir no acompanhamento
+        ver_publicacoes: Ver publicações
+        vazio: Nenhum processo com esses filtros.
+        paginacao: '{total} processo(s) · página {pagina} de {paginas}'
+        janela_titulo: Anotações do processo
+        fechar: Fechar
+        cancelar: Cancelar
+        salvar: Salvar

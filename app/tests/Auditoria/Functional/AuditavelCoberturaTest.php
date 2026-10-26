@@ -16,6 +16,7 @@ use App\Cobranca\Entity\RelatorioImportado;
 use App\Cobranca\Entity\RelatorioLinha;
 use App\Cobranca\Entity\RelatorioTotalizador;
 use App\Djen\Entity\OabMonitorada;
+use App\Djen\Entity\ProcessoAcompanhado;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Audit\AuditLog;
 use App\Expediente\Entity\Marcador;
@@ -267,6 +268,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // PublicacaoDjen é captada em lote pelo sync (alto volume); OabMonitorada é config do escritório.
         OabMonitorada::class,
         PublicacaoDjen::class,
+        // ProcessoAcompanhado é anotação do Push (observação, área, fase) e número incluído à mão.
+        ProcessoAcompanhado::class,
 
         // Cobranças — EventoHistorico é o LOG DE DOMÍNIO (linha do tempo operacional, SPEC §13):
         // histórico de negócio visível ao usuário, distinto da auditoria técnica (invariável 26).

@@ -84,7 +84,7 @@ final class ExpedienteController extends AbstractController
      * deve viajar pela barra de endereço (ver a persistência do painel no index.html.twig).
      */
     private const PARAMS_DEEP_LINK_ACERVO = [
-        'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'ordenar', 'direcao', 'page',
+        'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'criado_por', 'concluida', 'ordenar', 'direcao', 'page',
         'expediente', 'por_pagina',
     ];
 
@@ -622,6 +622,8 @@ final class ExpedienteController extends AbstractController
             'data_de'     => $request->query->get('data_de', ''),
             'data_ate'    => $request->query->get('data_ate', ''),
             'criado_por'  => $request->query->get('criado_por', ''),
+            // "Concluídas no período" (destino da coluna Pastas concluídas do Dashboard): só o valor 1 liga.
+            'concluida'   => $request->query->get('concluida', '') === '1' ? '1' : '',
             'expediente'  => in_array($request->query->get('expediente', ''), PastaRepository::FILTROS_EXPEDIENTE, true)
                 ? (string) $request->query->get('expediente')
                 : '',

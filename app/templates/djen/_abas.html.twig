@@ -7,7 +7,7 @@
             <i class="bi bi-broadcast"></i>{{ 'djen.abas.publicacoes'|trans }}<span class="pp-aba__n">{{ 'djen.abas.novas'|trans({n: abas.publicacoesNovas ~ ''}) }}</span>
         </a>
         {% if can_access_module('processos') %}
-            <a href="{{ path('processo_index') }}" class="pp-aba{{ ativa == 'processos' ? ' is-ativa' : '' }}" data-pp-aba="processos">
+            <a href="{{ path('push_processual_processos') }}" class="pp-aba{{ ativa == 'processos' ? ' is-ativa' : '' }}" data-pp-aba="processos">
                 <i class="bi bi-folder2-open"></i>{{ 'djen.abas.processos'|trans }}<span class="pp-aba__n">{{ abas.processos }}</span>
             </a>
         {% endif %}

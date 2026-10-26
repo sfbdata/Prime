@@ -14,6 +14,7 @@ use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Entity\Tenant\Tenant;
+use App\Indicacao\Repository\IndicacaoRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\UseCase\ConsultarContasUseCase;
 use App\Master\UseCase\ConsultarVisaoGeralUseCase;
@@ -83,7 +84,7 @@ final class RetratosEmLoteNoPainelTest extends TestCase
         $configuracoes = $this->createMock(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn(new ConfiguracaoDoEspaco());
 
-        $kpi = (new ConsultarVisaoGeralUseCase($this->repositorio, $this->relogio(), $this->situacao, $configuracoes))->executar()['armazenamento'];
+        $kpi = (new ConsultarVisaoGeralUseCase($this->repositorio, $this->relogio(), $this->situacao, $configuracoes, $this->createStub(IndicacaoRepository::class)))->executar()['armazenamento'];
 
         self::assertSame([20, 9 * self::GB, 45, 1, 0], [$kpi['cotaGb'], $kpi['bytesUsados'], $kpi['percentual'], $kpi['contasSemLimite'], $kpi['bytesSemLimite']]);
     }
