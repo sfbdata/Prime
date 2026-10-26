@@ -785,6 +785,78 @@ master:
             rotulo_conta: 'Convênio OAB/{uf}'
             rotulo_conta_dif: 'Convênio OAB/{uf} · valor diferenciado {valor}/mês'
             rotulo_conta_sem: 'Sem convênio ({uf}) · {valor}/mês'
+        # P3: metas-divulgacao.js (Metas de divulgação, na Visão geral).
+        metas:
+            titulo: Metas de divulgação
+            mercado_pre: 'Mercado:'
+            mercado_pos: advogados regulares
+            quadro: Quadro da Advocacia
+            ajustar: Ajustar
+            auto: Atualização automática
+            freq:
+                semanal: semanal
+                mensal: mensal
+                trimestral: trimestral
+            ultima: 'última: {ultima} · próxima: {proxima}'
+            nunca: ainda não executada
+            agora: Atualizar agora
+            fase: Avançar de fase ao bater a meta
+            manual: mercado fixado manualmente · voltar a automático
+            fase1: Fase 1
+            fase2: Fase 2
+            chip: '{rotulo} · {valor}'
+            chip_dica: '{valor} advogados'
+            usuarios_de: 'de {alvo} advogados · {pct} da meta · faltam {faltam}'
+            estados: '{n} de 27 estados alcançados'
+            cab:
+                uf: UF
+                estado: Estado
+                meta_estado: Meta do estado
+                bluejus: BlueJus
+                oab: OAB
+                alcance: Alcance
+            linha_dica: Clique para ver as cidades
+            meta_uf_dica: Ajustar meta do estado
+            meta_n: '{n} advogados'
+            alcancado: 'alcançado {pct}'
+            mais_10: Ver só os 10 maiores
+            mais_27: Ver os 27 estados
+            nota: 'Advogados por estado vêm da tabela da OAB do mapa (⋮ › Atualizar dados). BlueJus e OAB se atualizam sozinhos pelo banco de dados.'
+            cid_cab:
+                cidade: Cidade
+                bluejus: BlueJus
+                pct_meta: '% do estado'
+                meta: Meta
+                progresso: Progresso
+            buscar: Buscar cidade
+            cid_total: '{n} cidades'
+            carregando: Carregando cidades do IBGE…
+            sem_conta: Nenhuma cidade com conta ou meta ainda. Busque uma cidade ou veja todas para definir metas.
+            todas_cidades: 'Ver todas as {n} cidades'
+            outra: Meta para outra cidade
+            meta_fixa_dica: Meta fixada. Clique para alterar
+            meta_sugerida_dica: Meta sugerida pelo que falta no estado. Clique para fixar
+            destacar: Destacar
+            cor:
+                amarelo: Amarelo
+                azul: Azul
+                verde: Verde
+                laranja: Laranja
+                vermelho: Vermelho
+                roxo: Roxo
+            ver_cidades: Ver cidades no mapa
+            remover: Remover destaque
+            mapa_titulo: Mapa do Brasil
+            p_mercado: 'Quantos advogados existem no mercado? (total da OAB)'
+            p_alvo: 'Meta de usuários do BlueJus:'
+            p_invalido: Informe números maiores que zero.
+            p_meta_uf: 'Meta de usuários em {estado} (vazio volta ao cálculo automático):'
+            p_meta_cid: 'Meta de usuários em {cidade} ({uf}) (vazio volta à sugestão):'
+            p_cidade: 'Nome da cidade em {estado}:'
+            p_meta_nova: 'Meta de usuários em {cidade}:'
+            confirma_fase: 'A meta de {alvo} usuários foi batida. Avançar para a próxima fase ({proxima})?'
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_carregar: Não foi possível carregar as metas de divulgação.
         # P3: indicacoes.js (seção Indicações).
         indicacoes:
             resumo: '{enviadas} enviadas · {hoje} hoje · {conta} viraram conta'

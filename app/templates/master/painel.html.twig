@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="{{ asset('css/master.css') }}">
     <link rel="stylesheet" href="{{ asset('css/master-seccionais.css') }}">
     <link rel="stylesheet" href="{{ asset('css/master-convenio-oab.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/master-metas-divulgacao.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -36,6 +37,9 @@
     mapaMundo: path('master_mapa_mundo'),
     convenios: path('master_convenios_dados'),
     conveniosToken: csrf_token('master_convenios_oab'),
+    metasDivulgacao: path('master_metas_divulgacao_dados'),
+    metasToken: csrf_token('master_metas_divulgacao'),
+    populacaoIbge: path('master_ibge_populacao', {uf: 'XX'}),
     seccionais: path('master_dados_seccionais'),
     revisaoOab: path('admin_platform_oab_index'),
     convites: path('admin_platform_convite_index'),
@@ -208,6 +212,7 @@
     <script src="{{ asset('js/master/bj-dica.js') }}"></script>
     {{ catalogo_js('master.js', 'termos') }}
     <script src="{{ asset('js/master/convenio-oab.js') }}"></script>
+    <script src="{{ asset('js/master/metas-divulgacao.js') }}"></script>
     <script src="{{ asset('js/master/painel.js') }}"></script>
     <script src="{{ asset('js/master/masters.js') }}"></script>
     <script src="{{ asset('js/master/recursos.js') }}"></script>
