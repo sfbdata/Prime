@@ -43,6 +43,7 @@
     seccionais: path('master_dados_seccionais'),
     revisaoOab: path('admin_platform_oab_index'),
     convites: path('admin_platform_convite_index'),
+    logoOab: asset('images/logo/oab-logo.png'),
     logo: asset('images/logo/bluejus-logo-nav.png')
 } %}
 <div class="mp" id="master-painel" data-urls="{{ urls|json_encode|e('html_attr') }}" data-quem="{{ app.user ? app.user.fullName : '' }}">
