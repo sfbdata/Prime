@@ -32,6 +32,14 @@ Seção "Desempenho" do painel `/master` (botão novo na barra de seções):
   purga por comando agendado (entra no scheduler em PR próprio, arquivo quente).
 - D7. A mensagem de erro de JS é texto de fora: sempre `textContent`, nunca `innerHTML`.
 
+## 2.1 Dado pessoal (LGPD)
+
+- Guarda só `usuario_id` (nulo se anônimo; vira nulo se o usuário for excluído). NÃO guarda IP, user agent, e-mail
+  digitado nem corpo de requisição; falha de login com e-mail desconhecido entra sem usuário.
+- `pagina` é só o caminho, sem query string; `mensagem` truncada em 160 e sem dado de formulário.
+- Retenção 90 dias, purga diária por comando (nasce no PR 2, agendado no PR 5) e "Limpar registros" do Master; o PR 2
+  só vai a produção com o comando pronto. Incidentes e backups não têm dado pessoal além de quem registrou.
+
 ## 3. Modelo
 
 - `desempenho_evento` (id, tipo [erro|carga|ping|login|upload], ok bool null, ms int null, mensagem varchar(160) null,
