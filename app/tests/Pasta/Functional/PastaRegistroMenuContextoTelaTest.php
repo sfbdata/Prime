@@ -10,10 +10,10 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * PAS-025: o menu do botão direito no cartão do Registro (desenho dc L.5958, `menu` de
@@ -353,7 +353,7 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_excluir', {min: resto}), 'bi-trash3'", $abrir);
         self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_editar_bloqueado'), 'bi-lock', motivo", $abrir);
         self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.menu_excluir_bloqueado'), 'bi-lock', motivo", $abrir);
-        $registro = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['registro'];
+        $registro = CatalogoPtBr::carregar()['pasta_show']['js']['registro'];
         self::assertSame('Editar · {min} min', $registro['menu_editar']);
         self::assertSame('Excluir comentário · {min} min', $registro['menu_excluir']);
         self::assertSame('Editar · bloqueado', $registro['menu_editar_bloqueado']);

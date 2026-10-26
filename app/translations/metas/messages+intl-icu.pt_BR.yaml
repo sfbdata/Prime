@@ -1,0 +1,406 @@
+# ---- Minhas Metas (tarefa/minhas, _metas_lista, _meta_cartao, _resultado, equipe, _numero_global, show)
+metas:
+    titulo: Minhas Metas
+    subtitulo: O que está com você, o que você delegou e o que você acompanha.
+    atualizado_as: Atualizado às
+    migalha:
+        home: Home
+    comum:
+        nao_informado: Não informado
+        sem_prazo: sem prazo
+        abrir_a_meta: Abrir a meta
+        de_criador: 'de {nome}'
+    marcador:
+        parar_de_acompanhar: Parar de acompanhar
+        acompanhar_esta_meta: Acompanhar esta meta
+    prazo:
+        atrasadas: Atrasadas
+        vencem_em_7_dias: Vencem em 7 dias
+        sem_prazo: Sem prazo
+    grupos:
+        atrasadas: Atrasadas
+        proximas: Vencem em 7 dias
+        em_revisao: Aguardando revisão
+        depois: No prazo
+        sem_prazo: Sem prazo
+        concluidas: Concluídas
+    status:
+        pendente: Pendente
+        em_revisao: Em revisão
+        concluida: Concluída
+        atrasada: Atrasada
+        vence_em_breve: Vence em breve
+        no_prazo: No prazo
+        sem_prazo: Sem prazo
+    prioridade:
+        normal: Normal
+        alta: Alta
+        urgente: Urgente
+    kpis:
+        ver: 'Ver {rotulo}'
+        sob_sua_responsabilidade: sob sua responsabilidade
+        ainda_da_tempo: ainda dá tempo
+        aguardando_sua_revisao: Aguardando sua revisão
+        criadas_por_voce: criadas por você
+        abertas_sem_data: abertas sem data definida
+    abas:
+        rotulo: Papel nas metas
+        responsavel: Sou responsável
+        criei: Criei
+        acompanhando: Em acompanhamento
+        todas: Todas
+    filtros:
+        limpar: Limpar filtros
+        busca_placeholder: Buscar por título, pasta ou cliente
+        prioridade: Prioridade
+        prazo: Prazo
+    lista:
+        cabecalho:
+            meta: Meta
+            responsavel: Responsável
+            prazo: Prazo
+            status: Status
+            criada: Criada
+    cartao:
+        abrir_a_pasta: Abrir a pasta
+        quem_delegou: Quem delegou esta meta
+        sem_criador: sem criador
+        prazo_dica: 'Prazo: {data}'
+        criada_em: 'criada {data}'
+        etapa: '{posicao}/{total} · {etapa}'
+        etapa_dica: Etapa da pasta em que esta meta está
+        proximo: 'próximo: {etapa} · {setor}'
+    numero:
+        dica: 'Meta {local} desta pasta · nº {numero} na sequência do escritório'
+        selo: 'Nº {numero}'
+    vazio:
+        com_filtro: Nenhuma meta com esses filtros.
+    trilho:
+        seu_andamento: Seu andamento
+        ultimos_30_dias: últimos 30 dias
+        x_de_y: '{concluidas} de {total}'
+        concluidas: concluídas
+        percentual_concluidas: Percentual de metas concluídas
+        legenda:
+            concluidas: '{total} concluída(s)'
+            atrasadas: '{total} atrasada(s)'
+            em_revisao: '{total} em revisão'
+    atencao:
+        titulo: Precisa de atenção
+        titulo_e_pasta: '{titulo} · Pasta {nup}'
+        prazo: 'prazo {data}'
+        prazo_nao_informado: não informado
+    equipe:
+        migalha_dashboard: Painel do Escritório
+        migalha_atual: Metas da equipe
+        vazio_titulo: Nenhuma meta encontrada com esses filtros
+        vazio_sub: Volte ao Painel do Escritório e escolha outro colaborador, cargo ou período.
+        total_uma: '{total} meta'
+        total_varias: '{total} metas'
+        paginacao: Paginação das metas
+        pagina_anterior: Página anterior
+        proxima_pagina: Próxima página
+    linha:
+        tipo:
+            prazo: Prazo alterado
+            responsaveis: Responsáveis alterados
+            concluida: Meta concluída
+            criada: Meta criada
+            reaberta: Meta reaberta
+            removida: Meta removida
+            atualizada: Meta atualizada
+            evento: Evento registrado
+    detalhe:
+        titulo: 'Meta #{id}'
+        voltar_as_metas: Voltar às metas
+        trilha:
+            rotulo: Trilha
+            expediente: Expediente
+            pasta: 'Pasta {nup}'
+            meta: Meta
+        aguardando:
+            despacho: AGUARDANDO DESPACHO DE
+            revisao: AGUARDANDO REVISÃO DE
+            hoje: hoje
+            dias: '{n, plural, one {# dia} other {# dias}}'
+            com_a_demanda: com a demanda
+            desde_o_envio: desde o envio para revisão
+            lembrar: Lembrar
+            lembrar_dica: Enviar lembrete no Chat I.A
+            lembrete_enviado: Lembrete enviado no Chat I.A.
+        situacao:
+            pendente: Pendente
+            revisao: Aguardando revisão
+            atrasada: 'Atrasada · {n} dia(s)'
+            concluida: Concluída
+            etapa: 'Etapa {posicao}/{total} · {etapa}'
+        detalhes:
+            titulo: DETALHES DA META
+            prazo: PRAZO
+            alterar: Alterar
+            alterar_prazo_dica: Clique para alterar o prazo
+            atrasada: Atrasada
+            venceu_em: 'venceu em {data}'
+            dias: '{n, plural, one {dia} other {dias}}'
+            sem_prazo: Sem prazo
+            responsaveis: RESPONSÁVEIS
+            alterar_responsaveis_dica: Clique para alterar os responsáveis
+            criada_em: CRIADA EM
+            criada_hoje: hoje
+            criada_ha: '{n, plural, one {há 1 dia} other {há # dias}}'
+            despachante: DESPACHANTE
+        responsaveis: Responsáveis
+        pasta: 'Pasta: {nup}'
+        abrir_a_pasta: Abrir a pasta
+        demanda: DEMANDA
+        sem_descricao: Sem descrição.
+        historico: Histórico
+        observacao_placeholder: Escreva uma observação… (Ctrl+Enter para enviar)
+        enviar_para_revisao: Enviar para Revisão
+        so_comentar: Só comentar
+        devolver: Devolver
+        sem_eventos: Nenhum evento registrado ainda.
+        visualizar_arquivo: Visualizar arquivo
+        baixar: Baixar
+        acompanhando: Acompanhando
+        acompanhar: Acompanhar
+        so_voce_ve: Só você vê esta marcação.
+        confirmar_conclusao: Confirma a conclusão desta meta?
+        concluir_meta: Concluir meta
+        responsaveis_titulo: Responsáveis pela Meta
+        responsaveis_sub: Pesquise e selecione os membros da equipe
+        fechar: Fechar
+        buscar_membro: Buscar membro…
+        sem_membro: Nenhum membro encontrado.
+        responsaveis_selecionados: responsável(is) selecionado(s)
+        cancelar: Cancelar
+        salvar_responsaveis: Salvar Responsáveis
+        prazo_titulo: Prazo da Meta
+        prazo_sub: Deixe em branco para remover o prazo
+        salvar_prazo: Salvar Prazo
+        despacho_titulo: DESPACHO
+        js:
+            acompanhando: Acompanhando
+            acompanhar: Acompanhar
+            permita_popups: Permita pop-ups para gerar o extrato.
+    despacho:
+        natureza_rotulo: Natureza
+        prazo_rotulo: Prazo
+        prazo_dica: Prazo para cumprimento
+        dias_uteis: '{n, plural, one {# dia útil} other {# dias úteis}}'
+        placeholder: Escreva o despacho. Digite @ para marcar alguém da equipe.
+        juntado_a_pasta: juntado à pasta
+        extrato: Extrato
+        extrato_dica: Imprimir ou salvar a tramitação em PDF
+        contador: '{n} / 5.000'
+        anexar: Anexar arquivo
+        despachar: Despachar
+        enviar_para_revisao: Enviar para revisão
+        aprendizado:
+            dica_etapa: Aprendido com seus despachos nesta etapa
+            dica_etapa_prazo: 'Aprendido com seus despachos nesta etapa · prazo usual: {n} dias úteis'
+            dica_geral: Sugestões dos seus despachos anteriores
+        natureza:
+            ciencia: Para ciência
+            providencia: Para providência
+            manifestacao: Para manifestação
+            conferencia: Para conferência
+            cumpra_se: Cumpra-se
+        inicio:
+            ciencia: 'Para ciência: '
+            providencia: 'Encaminho para providência quanto a '
+            manifestacao: 'Encaminho para manifestação sobre '
+            conferencia: 'Para conferência: '
+            cumpra_se: 'Cumpra-se: '
+        numero: 'DESPACHO {n}'
+        tipo:
+            despacho: Comentário
+            envio: Enviado para revisão
+            devolucao: Devolvida
+            etapa: Etapa concluída
+        mais_recente: MAIS RECENTE
+        local_e_data: '{cidade}, {data, date, ::yMMMMd}.'
+        registrado_por: Registrado por
+        registrado_em: 'em {data} às {hora}'
+        codigo: 'Cód. {codigo}'
+        conferir_registro: Conferir o registro deste despacho
+        cumprir_ate: 'Cumprir até {data}'
+        ciente: 'Ciente · {nome}, {quando}'
+        quando: '{data}, {hora}'
+        certificar: Certificar cumprimento
+        certidao_assinatura: '{nome}, {quando}'
+        certidao_rotulo: 'Certidão de cumprimento (o que foi feito):'
+        certidao_inicio: 'Certifico que '
+        certidao_dica: 'Comece por "Certifico que" e diga o que foi feito. Até 1.000 caracteres.'
+        registro:
+            titulo: Registro do despacho
+            confere: 'O código {codigo} confere com este despacho.'
+            meta: Meta
+            meta_numero: 'Meta #{numero}'
+            autor: Registrado por
+            cargo: Cargo
+            data: Data
+            data_hora: '{data} às {hora}'
+            natureza: Natureza
+            sem_natureza: Sem natureza
+            sem_texto: O texto do despacho não aparece aqui. Abra a meta para lê-lo.
+            abrir_meta: Abrir a meta
+            nao_encontrado_titulo: Registro não encontrado
+            nao_encontrado: 'Nenhum despacho deste escritório tem o código {codigo}.'
+        extrato_folha:
+            titulo: Extrato de tramitação
+            cabeca: 'Meta #{numero} · {titulo} · Pasta {pasta}'
+            emitido_em: 'Emitido em {quando}'
+            demanda: DEMANDA
+            demanda_quem: '{data} · {autor}'
+            cumprir_ate: 'Cumprir até {data}'
+            ciente: 'Ciente: {nome}'
+            certidao: '{texto} · {nome}, {quando}'
+        js:
+            um_dia_util: 1 dia útil
+            dias_uteis: '{n} dias úteis'
+            contador: '{n} / 5.000'
+            vezes: '{n}x'
+    etapa:
+        comercial:
+            nome: Comercial
+            setor: Comercial
+            descricao: Contrato assinado e honorários definidos
+        abertura:
+            nome: Abertura e relatório
+            setor: Atendimento
+            descricao: Pasta aberta, relato inicial e objetivo do cliente
+        controladoria:
+            nome: Controladoria
+            setor: Controladoria
+            descricao: Conferir pasta, cadastro e listar pendências
+        documentacao:
+            nome: Documentação
+            setor: Secretaria
+            descricao: Reunir documentos e procuração que faltam
+        juridico:
+            nome: Jurídico
+            setor: Advogado(a)
+            descricao: Análise, estratégia e elaboração da peça ou parecer
+        protocolo:
+            nome: Protocolo
+            setor: Advogado(a)
+            descricao: Ajuizar, protocolar requerimento ou entregar parecer
+        acompanhamento:
+            nome: Acompanhamento
+            setor: Advogado(a)
+            descricao: Prazos, publicações, audiências e diligências
+        encerramento:
+            nome: Encerramento
+            setor: Controladoria
+            descricao: Resultado, prestação de contas e arquivamento
+    tipo_de_demanda:
+        judicial: Judicial
+        administrativo: Administrativo / Previdenciário
+        consultoria: Consultoria
+    # Passagem de etapa e devolução (desenhos 04 e 04B de 22/10, Fase 3): trilho, lateral, modais e cartão.
+    passagem:
+        trilho:
+            rotulo: ETAPA DA PASTA
+            dica_saltada: etapa saltada, sem registro
+            dica_concluida: concluída
+            saltadas: '{n, plural, one {# etapa saltada} other {# etapas saltadas}}: {nomes}'
+        concluir_e_passar: 'Concluir e passar para {etapa}'
+        concluir_meta: Concluir meta
+        proximo_passo: 'Próximo passo: {etapa} ({setor}). Você escolhe o responsável, o prazo e as pendências.'
+        ultima_etapa: 'Última etapa: a pasta será encerrada.'
+        devolver_para: 'Devolver para {nome}'
+        ja_seguiu_adiante: Esta meta foi concluída na passagem de etapa e não pode ser reaberta.
+        cartao:
+            concluir_etapa: Concluir etapa
+            dica_passar: 'Concluir esta etapa e passar para {etapa}'
+            dica_encerrar: Concluir e encerrar a pasta
+        modal:
+            titulo: Concluir etapa e passar adiante
+            concluida: CONCLUÍDA
+            proximo_passo: PRÓXIMO PASSO
+            tipo: TIPO DE DEMANDA
+            responsavel: PASSAR PARA RESPONSÁVEL
+            prazo: PRAZO DA PRÓXIMA ETAPA
+            prazo_meta: PRAZO
+            responsavel_placeholder_meta: Membro da equipe
+            pendencias: PENDÊNCIAS PARA O PRÓXIMO SETOR
+            pendencias_placeholder: 'Uma por linha: falta procuração, comprovante de residência...'
+            pendencias_placeholder_meta: Uma por linha
+            costuma_pedir: 'Você costuma pedir:'
+            feito: O QUE FOI FEITO
+            feito_placeholder: Resumo para o registro da pasta
+            menu_dica: Escolher outra etapa (saltar)
+            menu_titulo: PASSAR PARA A ETAPA
+            cancelar: Cancelar
+            fechar: Fechar
+        devolucao:
+            explicacao: A meta volta para quem enviou, com o motivo registrado no histórico. A etapa da pasta não muda.
+            motivo: MOTIVO
+            o_que_falta: O QUE FALTA PARA AVANÇAR
+            placeholder: 'Ex.: preciso do contrato assinado e do comprovante de endereço'
+            cancelar: Cancelar
+            devolver: Devolver
+            fechar: Fechar
+        js:
+            pasta: 'Pasta {pasta} · {cliente}'
+            pasta_sem_cliente: 'Pasta {pasta}'
+            proximo_passo: PRÓXIMO PASSO
+            saltar_para: SALTAR PARA
+            voltar_para: VOLTAR PARA
+            encerramento: Encerramento da pasta
+            sem_proxima: Nenhuma etapa depois desta.
+            responsavel_placeholder: 'Escolha um membro da equipe ({setor})'
+            saltando: 'Saltando: {nomes}. As etapas saltadas ficam marcadas na esteira da pasta.'
+            voltando: 'Voltando para {etapa}. A meta volta para essa etapa e o motivo deve ir nas pendências.'
+            salta: salta
+            volta: volta
+            botao_passar: 'Concluir e passar para {etapa}'
+            botao_voltar: 'Voltar para {etapa}'
+            botao_encerrar: Concluir e encerrar
+            botao_concluir_meta: Concluir meta
+            toast_passou: 'Etapa concluída. Pasta {pasta} passou para {etapa}.'
+            toast_encerrou: 'Pasta {pasta} encerrada.'
+            toast_meta_concluida: Meta concluída.
+            toast_devolvida: 'Meta devolvida para {nome}. O aviso foi enviado no Chat I.A.'
+            toast_devolvida_sem_aviso: 'Meta devolvida para {nome}.'
+            erro_motivo: Escolha o motivo da devolução.
+            erro_falta: Explique o que falta para conseguir avançar.
+            erro_rede: Não foi possível gravar. Tente de novo.
+            erro_responsavel: Escolha um membro da equipe para o responsável.
+    esteira:
+        titulo: Esteira da pasta
+        geral: Geral do escritório
+        geral_dica: 'A esteira é única do escritório: todos veem as mesmas caixas e números, de toda a equipe.'
+        resumo: '{abertas, plural, one {# meta aberta} other {# metas abertas}} no escritório{atrasadas, plural, =0 {} one { · # atrasada} other { · # atrasadas}}. Clique numa caixa para ver as metas dela de toda a equipe.'
+        so_a_etapa: Só a etapa {etapa}
+        limpar_etapa: Mostrar todas as etapas
+        caixa_padrao: CAIXA {numero}
+        caixa_dica: '{descricao} · responsável: {setor}'
+        gargalo: Gargalo
+        gargalo_dica: Etapa com mais metas atrasadas
+        atrasadas: '{n, plural, one {# atrasada} other {# atrasadas}}'
+        avisados_dica: 'Avisados quando chega demanda: {nomes}'
+        # Título de quem tem OAB e gênero declarado (desenho 04, trat(); spec genero-no-cadastro, regra 4)
+        tratamento_dra: Dra. {nome}
+        tratamento_dr: Dr. {nome}
+        renomear: Renomear caixa e etapa
+        suas_metas: Suas metas
+        individual: Individual
+        individual_dica: Estes números contam só as metas em que você é responsável ou que você criou.
+        modal:
+            titulo: Configurar caixa
+            fechar: Fechar
+            nome_da_caixa: Nome da caixa
+            nome_da_etapa: Nome da etapa
+            avisar: Avisar quando chegar demanda
+            avisar_ajuda: digite @ para marcar membros da equipe
+            avisar_placeholder: '@nome'
+            remover: Remover {nome}
+            nota: Quem for marcado como responsável na passagem recebe só um aviso.
+            restaurar: Restaurar padrão
+            cancelar: Cancelar
+            salvar: Salvar
+    js:
+        parar_de_acompanhar: Parar de acompanhar
+        acompanhar_esta_meta: Acompanhar esta meta

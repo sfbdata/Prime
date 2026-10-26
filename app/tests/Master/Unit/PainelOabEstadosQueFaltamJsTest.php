@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Master\Unit;
 
 use App\Master\Service\CapitaisDosEstados;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Estados que faltam clicáveis e a janela da OAB (desenho 05, Perfis 1.2, VS 21.10.26, L118, L140 e L481-495; spec
@@ -27,7 +27,7 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
     /** Texto em português (a fonte) de uma chave do catálogo: o literal do desenho mora lá desde a P2a do idioma. */
     private static function texto(string $chave): string
     {
-        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             self::assertIsArray($no, $chave);
             self::assertArrayHasKey($parte, $no, $chave);

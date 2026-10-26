@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L7 (cabeçalho, CSS da pasta e aba Processo), lido como FOLHA: não há navegador no
@@ -109,7 +109,7 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         $proc = self::ler(__DIR__ . '/../../../templates/pasta/_processos_vinculados.html.twig');
         self::assertStringContainsString("<i class=\"bi bi-link-45deg\"></i><span>{{ 'pasta_processo.cabecalho.vincular'|trans }}</span>", $proc);
         self::assertStringContainsString("<i class=\"bi bi-file-earmark-text\"></i><span>{{ 'pasta_processo.cabecalho.peticionar'|trans }}</span>", $proc);
-        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = CatalogoPtBr::carregar();
         self::assertSame('Vincular processo', $catalogo['pasta_processo']['cabecalho']['vincular']);
         self::assertSame('Peticionar na pasta', $catalogo['pasta_processo']['cabecalho']['peticionar']);
         $metas = self::ler(__DIR__ . '/../../../templates/pasta/_metas.html.twig');

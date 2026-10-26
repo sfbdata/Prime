@@ -1,0 +1,5 @@
+novidades:
+    titulo: Novidades
+    intro: 'O que mudou no BlueJus a cada versão. Você está na versão {versao}.'
+    versao: 'Versão {versao}'
+    vazio: Ainda não há novidades registradas.

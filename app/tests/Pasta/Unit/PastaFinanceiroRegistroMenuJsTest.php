@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * O menu do botão direito no registro do Relatório financeiro (FPN-006), no script do fim de
@@ -20,12 +20,11 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
 {
     private const TWIG       = __DIR__ . '/../../../templates/pasta/_financeiro.html.twig';
     private const OBS_SCRIPT = __DIR__ . '/../../../templates/pasta/_financeiro_obs_script.html.twig';
-    private const CATALOGO   = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     /** @return array<string, string> o texto do JS desta aba (desde a extração do Financeiro, idioma-do-sistema). */
     private static function textosDoJs(): array
     {
-        return Yaml::parseFile(self::CATALOGO)['pasta_financeiro']['js'];
+        return CatalogoPtBr::carregar()['pasta_financeiro']['js'];
     }
 
     private function fonte(): string

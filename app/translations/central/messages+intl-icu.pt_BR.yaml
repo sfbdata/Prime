@@ -1,0 +1,41 @@
+# ---- Central de Comunicação (a7, spec idioma-do-sistema §26): a página /central, a janela e o lançador flutuante.
+# O texto montado pelo central.js (conversas, painel, avisos, grupos, despacho) ainda é fixo no JS.
+central:
+    comum:
+        nome: Central de Comunicação
+    flutuante:
+        lancador_aria: Central de Comunicação, tudo em dia
+        lancador_title: Central de Comunicação · tudo em dia
+    janela:
+        voltar_aria: Voltar para as conversas
+        voltar: Voltar
+        info_aria: Informações do grupo
+        ver_info: Ver informações
+        mais_opcoes: Mais opções
+        destacar_title: 'Destacar: levar o chat para qualquer lugar da tela'
+        destacar: Destacar
+        minimizar_title: 'Minimizar: recolher para o ícone de conversas'
+        minimizar: Minimizar
+        maximizar: Maximizar
+        fechar: Fechar
+        busca_placeholder: Pesquisar usuário...
+        busca_aria: Pesquisar usuário
+        aba_entrada: Caixa de entrada
+        aba_painel: Painel
+        filtrar: 'Filtrar: {rotulo}'
+        filtro:
+            tudo: Tudo
+            conversas: Conversas
+            urgente: Urgente
+            atencao: Atenção
+            mencoes: Menções
+            metas: Metas
+        mostrando_arquivadas: Mostrando arquivadas
+        ocultar: Ocultar
+        cancelar_resposta: Cancelar resposta
+        cancelar: Cancelar
+        mencionar: Mencionar
+        mensagem_placeholder: Digite uma mensagem…
+        mensagem: Mensagem
+        enviar: Enviar
+        enviar_title: Enviar (Enter)
