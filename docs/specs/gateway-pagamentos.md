@@ -3,6 +3,8 @@
 > Spec de risco **ALTO** (dinheiro). Investigação de 26/10/2026, somente leitura. Nenhum código escrito.
 > Substitui o "o Master marca que o PIX caiu" por confirmação do banco, sem quebrar o fluxo manual.
 
+> **Decisões do dono (26/10):** (a) CNPJ e chave PIX do desenho do Service Desk são os da BlueJus; (b) migrar **todos** os métodos (Trabalho Externo, Service Desk, Contribua/apoio, planos/cartão) para o gateway, com rastreio automático de quem, quando e quanto pagou; (c) valor da proposta do TE editável pelo Master **só antes de pago**: quem já pagou mantém o valor antigo, quem vai pagar paga o novo.
+
 ## 1. Estado real (medido em `origin/master` 971cd3f6c + PRs abertos)
 
 | Item | Situação |
@@ -43,12 +45,16 @@ Interface `App\Contribua\Banco\BancoPix` (do #88), estendida só por adição (c
 6. **Estorno/devolução.** Fora do automático na v1: o Master pede, o sistema registra `DevolucaoPix` (valor, motivo, quem, `endToEndId` da devolução) e chama a API de devolução do banco. Efeito no consumidor: TE volta a demanda para "aguardando pagamento" só com ação humana explícita; SD debita o saldo (nunca deixa negativo sem alerta). Aviso do banco de devolução (`invoice.refunded` ou equivalente) entra pelo mesmo webhook e registra, **sem desfazer sozinho**.
 7. **Expiração.** Cobrança vence (padrão 24 h TE, 1 h SD), vira `expirada`; QR novo gera nova cobrança (nova referência de tentativa), nunca reabre a antiga.
 
-## 4. Modelo de dados (proposta)
+## 4. Modelo de dados: registro único de pagamentos
 
-- `pix_cobranca` (por tenant): `id`, `tenant_id`, `origem` (`trabalho_externo`|`service_desk`), `origem_id`, `referencia` única, `valor_centavos`, `txid`, `id_no_banco`, `status` (`aguardando`|`paga`|`expirada`|`divergente`|`devolvida`), `pago_em`, `valor_pago_centavos`, `end_to_end_id` único (nulo até pagar), `idempotency_key` única, `criada_em`, `expira_em`. Índice `(status, expira_em)`.
-- `pix_devolucao`: `cobranca_id`, `valor_centavos`, `motivo`, `solicitada_por`, `id_no_banco`, `status`.
-- `NotificacaoRecebida` já existe na C3 (#95); reaproveitar (`idEvento` único). Não criar outra.
-- **Sem migration que apague nada.** `ConfirmarRecebimentoDoPixUseCase` continua como **plano B manual** (§5.1).
+Uma tabela é a verdade de "quem pagou, quando e quanto", para qualquer origem. As demais (`AssinaturaDeEspaco`, `Apoio`, recarga do Service Desk, `pagoEm` da demanda) viram **consumidoras** dela, não fontes.
+
+- `pagamento` (por tenant): `id`, `tenant_id` (escritório), `origem` (`trabalho_externo`|`service_desk`|`contribua_apoio`|`contribua_plano`), `origem_id`, `referencia` única (`TE<codigo>-<n>`, `BJSD...`, `BJ<conta>-...`), `pagador_user_id` nulo-se-externo, `pagador_nome` e `pagador_documento_final` (4 últimos dígitos, §6.8), `metodo` (`pix`|`cartao`|`boleto`|`manual`), `provedor` (`cora`|`asaas`|`manual`), `valor_centavos` (**congelado na criação**), `valor_pago_centavos`, `status` (`aguardando`|`paga`|`expirada`|`divergente`|`devolvida`|`cancelada`), `criado_em`, `pago_em`, `expira_em`, `id_externo` (id no banco), `end_to_end_id` único, `idempotency_key` única, `confirmado_por` (`banco`|`manual:<userId>`), `motivo_manual`. Índices: `(tenant_id, origem, origem_id)`, `(status, expira_em)`.
+- `pagamento_devolucao`: `pagamento_id`, `valor_centavos`, `motivo`, `solicitada_por`, `id_externo`, `status`, datas.
+- `pagamento_evento` (trilha imutável): `pagamento_id`, `tipo` (criado, aviso, reconsultado, confirmado, divergente, devolvido, manual), `em`, `quem`, `resumo` sem PII. É o "rastreio automático".
+- `NotificacaoRecebida` (já existe no #95) segue para a idempotência do webhook.
+- `pix_cobranca` das seções anteriores = esta tabela `pagamento` (renomeada: um só registro). Consumidor liga a `pagamento` por `origem`/`origem_id`; sem FK entre domínios.
+- Leitura: tela "Pagamentos" do Master (filtro por escritório, origem, status, período) e extrato do escritório; ambas só leitura sobre `pagamento`. Layout dela: desenho a pedir ao dono (não inventar).
 
 ## 5. Pontos de integração
 
@@ -56,6 +62,7 @@ Interface `App\Contribua\Banco\BancoPix` (do #88), estendida só por adição (c
 - `PixDaDemanda` continua como **fallback estático** quando a integração está desligada (o dono liga por recurso, como o §7 do Contribua).
 - Com integração: `ApresentadorDoPagamento` pede cobrança dinâmica por demanda (`TE<codigo>`) e mostra `brCode` dela; o QR passa a identificar o pagamento sem olho humano.
 - `ConfirmarRecebimentoDoPixUseCase`: extrair o miolo (marco `pago`, aviso WhatsApp da fase Pago, andamento) para método reutilizável chamado por `ConfirmarPagamentoPixUseCase`. O botão manual **permanece** (Master/Equipe com "Alterar a situação"), mas passa a recusar se existir `pix_cobranca` `aguardando` ainda válida sem aviso do banco, exceto com motivo registrado (evita pagar duas vezes por engano). Mensagem do chat: "Pagamento de R$ x confirmado via PIX" mantida; agora autor = "Sistema (banco)".
+- **Valor editável pelo Master (decisão do dono):** a edição da proposta aceita só vale com **nenhum `pagamento` `paga`** da demanda. `valor_centavos` é congelado em cada `pagamento` na criação, então quem já pagou mantém o valor antigo. Editar valor com cobrança `aguardando`: cancela a cobrança (`cancelada`, cancelada também no banco) e a próxima gera `pagamento` novo com o valor novo; QR antigo já impresso paga a cobrança cancelada: o aviso cai em `divergente` e o Master decide (devolver ou aceitar). Com `paga`, a edição é recusada (409) e o Master usa devolução + nova cobrança. Registrar o valor antigo e novo em `pagamento_evento` (quem editou, quando).
 - Comprovante enviado pelo cliente deixa de ser exigido para liberar, mas continua aceito.
 
 ### 5.2 Service Desk (razão e carteira são da sessão ServiceDesk)
@@ -68,6 +75,22 @@ Interface `App\Contribua\Banco\BancoPix` (do #88), estendida só por adição (c
   - Binding: `RecargaManual` é o padrão; este PR troca o alias de `ProvedorDeRecarga` em `services.yaml`.
   - **Consequência no §3.4:** para `service_desk`, pagamento de valor diferente do pedido **não credita** (vira `divergente` aqui, e a exceção dela é capturada e registrada); pagamento a maior também fica `divergente` (decisão do §9.2 vale para o TE).
 - O mínimo de R$ 20 é validado por ela; o adaptador só repassa valor.
+
+### 5.3 Plano de migração por método (um por PR, ordem de menor para maior risco)
+
+Cada etapa é reversível por chave liga/desliga (`ConfiguracaoDePagamento`); o caminho antigo continua até a etapa seguinte estar estável por 2 semanas.
+
+| # | Método | Hoje | Passa a | Pré-requisito |
+|---|---|---|---|---|
+| M0 | Base | nada | `pagamento`, `pagamento_evento`, `BancoPix` (reuso #88), webhook, conciliação, tela Master, **sem consumidor** | #74/#95/#88 mergeados; credenciais Cora; migration 151000 |
+| M1 | Trabalho Externo (PIX) | PIX estático + comprovante + confirmação manual | cobrança dinâmica por demanda; confirmação automática; manual com motivo | M0; decisão §9.3 |
+| M2 | Service Desk (recarga PIX) | `RecargaManual` (pendente) | `RecargaPorPixCora` (contrato do §5.2) | M0 e PR 1 da bluejus-ef |
+| M3 | Contribua apoio (PIX) | BR Code estático + "informei" | `Apoio` ligado a `pagamento`; prêmio ao confirmar | M0 (já previsto na C4) |
+| M4 | Contribua planos (cartão, Asaas) | assinatura Asaas (#95), `AssinaturaDeEspaco` | cada cobrança do Asaas vira `pagamento` (`origem=contribua_plano`, `provedor=asaas`) por webhook/reconsulta; `AssinaturaDeEspaco` mantém a vigência | M0; Asaas em produção |
+| M5 | Retirada do manual | botões "confirmar à mão" | só com motivo e perfil Master | M1 a M4 estáveis |
+
+**Histórico:** pagamentos anteriores (`pagoEm` do TE, `Apoio` confirmados, pedidos de espaço) entram por comando único `app:pagamento:importar-historico` (dry-run por padrão), com `provedor=manual`, `confirmado_por=manual:importacao`, sem inventar `end_to_end_id`. Só depois da decisão do dono (§9.7).
+**Cartão:** número, CVV e validade nunca tocam servidor, log ou banco; só bandeira e 4 últimos dígitos se o Asaas devolver.
 
 ## 6. Segurança
 
@@ -90,9 +113,11 @@ Interface `App\Contribua\Banco\BancoPix` (do #88), estendida só por adição (c
 
 ## 8. Migrations
 
-**Uma**, reservada pelo Coordenador: `Version20261026151000`, só `pix_cobranca` e `pix_devolucao`. Nada de carteira/razão (é da sessão ServiceDesk). As migrations do #88 (`Version20261019230000`) e #95 (`...235700`) são renomeadas na vez delas.
+**Uma** por etapa de código, nunca duas abertas. Reservada: `Version20261026151000` = M0, só `pagamento`, `pagamento_devolucao`, `pagamento_evento`. Nada de carteira/razão (sessão ServiceDesk). Colunas de ligação nos consumidores (se necessárias) vão na migration da própria etapa. As do #88 (`Version20261019230000`) e #95 (`...235700`) são renomeadas na vez delas.
 
 ## 9. Perguntas de negócio ao dono
+
+Respondida: CNPJ/chave do Service Desk são os da BlueJus (26/10). As abaixo seguem abertas.
 
 1. Confirma **Cora para PIX** (e Asaas só cartão)? Já existe certificado mTLS e Client ID de produção?
 2. Pagamento **a menor** libera, fica pendente ou devolve? E a **maior**?
@@ -100,3 +125,4 @@ Interface `App\Contribua\Banco\BancoPix` (do #88), estendida só por adição (c
 4. (Service Desk: saldo, mínimo e custo do chamado são da spec da sessão ServiceDesk; a pergunta fica com ela.) O recebedor das recargas do Service Desk é a mesma conta Cora?
 5. Depois da confirmação automática, o botão manual do Master permanece (só com motivo) ou sai?
 6. Prazo de validade da cobrança (TE 24 h? SD 1 h?) e quem absorve tarifa do banco, se houver.
+7. Importar o histórico de pagamentos antigos (TE, apoios, pedidos de espaço) para o registro único, ou o registro começa do zero na data da virada?
