@@ -132,6 +132,14 @@ class DemandaExterna
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $pagoEm = null;
 
+    /**
+     * Valor do pagamento ajustado pelo Master (aba Pagamento) enquanto não pago e sem comprovante. A proposta aceita
+     * não muda; o valor efetivo é este, se houver, senão o da proposta ({@see valorEfetivoDoPagamento()}). Trocar a
+     * proposta aceita zera o ajuste.
+     */
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $valorPagamentoAjustado = null;
+
     /** "Aceitar resposta" do DESPACHO (desenho 06 de 24/10, `dpResp`, l.1392): só o Master liga e desliga. */
     #[ORM\Column(options: ['default' => false])]
     private bool $respostasAoDespachoLiberadas = false;
@@ -303,7 +311,7 @@ class DemandaExterna
 
         $proposta = $this->propostaVigente();
         match ($acao) {
-            AcaoDemanda::AceitarProposta => $proposta?->aceitar($autor),
+            AcaoDemanda::AceitarProposta => $this->aceitarProposta($proposta, $autor),
             AcaoDemanda::SolicitarAjustes => $proposta?->pedirAjustes(),
             AcaoDemanda::RecusarProposta => $proposta?->recusar(),
             default => null,
@@ -324,6 +332,13 @@ class DemandaExterna
         if ($acao->confirma()) {
             $this->registrar($autor, $acao->registro() . ($motivo !== null ? ': ' . $motivo : '.'), TipoMensagem::Sistema);
         }
+    }
+
+    /** Aceitar uma proposta troca a base do pagamento: o ajuste do Master sobre a anterior deixa de valer. */
+    private function aceitarProposta(?PropostaDemanda $proposta, Autor $autor): void
+    {
+        $proposta?->aceitar($autor);
+        $this->valorPagamentoAjustado = null;
     }
 
     /** O recebimento: `pagoEm`, o marco `pago` no histórico (com o motivo, se houver) e o aviso de WhatsApp da fase Pago. */
@@ -364,6 +379,62 @@ class DemandaExterna
         }
 
         return $aceita;
+    }
+
+    /**
+     * O valor a cobrar ("1500.00"): o ajustado pelo Master, se houver, senão o da proposta aceita. Nulo sem aceite ou
+     * com valor zerado. É o ÚNICO ponto de leitura do valor do pagamento (tela, QR, txid, chat, histórico, confirmação).
+     */
+    public function valorEfetivoDoPagamento(): ?string
+    {
+        $valor = $this->valorPagamentoAjustado ?? $this->propostaAceita()?->getValor();
+
+        return $valor !== null && (float) $valor > 0 ? $valor : null;
+    }
+
+    public function getValorPagamentoAjustado(): ?string
+    {
+        return $this->valorPagamentoAjustado;
+    }
+
+    /** O Master pode ajustar o valor: proposta aceita, nas situações do pagamento, sem pagar e sem comprovante enviado. */
+    public function valorDoPagamentoEditavel(): bool
+    {
+        return $this->valorEfetivoDoPagamento() !== null
+            && $this->pagoEm === null
+            && $this->comprovante() === null
+            && in_array($this->situacao, AcaoDemanda::RegistrarPagamento->origens(), true);
+    }
+
+    /**
+     * Ajusta o valor do pagamento. `$novo` já vem validado e normalizado ("1800.00"); `$motivo` já aparado (10 a 300).
+     * Recusas (409): fora das situações do pagamento, já pago, sem proposta aceita, comprovante enviado (o cliente pode
+     * ter pago o valor velho) e valor igual ao efetivo. Grava o marco `valor` no histórico (antigo, novo e motivo) e a
+     * mensagem de sistema do tipo Pagamento, sem o motivo.
+     */
+    public function ajustarValorDoPagamento(Autor $autor, string $novo, string $motivo): void
+    {
+        $acao = AcaoDemanda::RegistrarPagamento;
+        if (!in_array($this->situacao, $acao->origens(), true)) {
+            throw new TransicaoInvalida(sprintf('A demanda está %s: o valor do pagamento não pode mais ser alterado. Recarregue a tela.', mb_strtolower($this->situacao->rotulo())));
+        }
+        if ($this->pagoEm !== null) {
+            throw new TransicaoInvalida('O pagamento desta demanda já foi registrado.');
+        }
+        $antigo = $this->valorEfetivoDoPagamento()
+            ?? throw new TransicaoInvalida('O pagamento fica disponível quando uma proposta for aceita.');
+        if ($this->comprovante() !== null) {
+            throw new TransicaoInvalida('Já há comprovante enviado: o valor não pode mais ser alterado.');
+        }
+        if (round((float) $antigo * 100) === round((float) $novo * 100)) {
+            throw new TransicaoInvalida('O novo valor é igual ao valor atual do pagamento.');
+        }
+
+        $de = PropostaDemanda::brl($antigo);
+        $para = PropostaDemanda::brl($novo);
+        $this->valorPagamentoAjustado = $novo;
+        $this->historico->add(new HistoricoDemanda($this, null, Situacao::MARCO_VALOR, $autor, sprintf('De %s para %s. Motivo: %s', $de, $para, $motivo)));
+        $this->registrar($autor, sprintf('Valor do pagamento alterado de %s para %s.', $de, $para), TipoMensagem::Pagamento);
     }
 
     /** O comprovante de pagamento enviado, se houver (no máximo um). */

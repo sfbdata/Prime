@@ -224,6 +224,7 @@
         indTg.setAttribute('aria-checked', sim ? 'true' : 'false');
         mostrar(indCampo, sim);
         ind.value = sim ? (valor || '') : '';
+        conferirCupomAoVivo();
     };
     indTg.addEventListener('click', () => {
         const ligar = !cupomLigado();
@@ -233,7 +234,44 @@
     });
     ind.addEventListener('input', () => {
         ind.value = ind.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 11);
+        conferirCupomAoVivo();
     });
+    /* Conferência ao vivo (spec login-cupom-ao-vivo): com o formato de cupom e 400 ms parado, uma consulta por valor;
+       resposta de valor já trocado (ou chave desligada) é ignorada. Limite (429), falha de rede ou resposta estranha:
+       silêncio, o cupom é conferido de novo ao enviar. */
+    const indStatus = $('lgCdIndStatus');
+    let indTemporizador = null;
+    let indValorConferido = '';
+    const mostrarStatusDoCupom = (valido) => {
+        indStatus.textContent = '';
+        const icone = document.createElement('i');
+        icone.className = valido ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle';
+        icone.setAttribute('aria-hidden', 'true');
+        indStatus.appendChild(icone);
+        indStatus.appendChild(document.createTextNode(' ' + (valido ? indStatus.dataset.valido : indStatus.dataset.naoEncontrado)));
+        indStatus.dataset.estado = valido ? 'valido' : 'ruim';
+        mostrar(indStatus, true);
+    };
+    const limparStatusDoCupom = () => { indStatus.textContent = ''; delete indStatus.dataset.estado; mostrar(indStatus, false); };
+    function conferirCupomAoVivo() {
+        clearTimeout(indTemporizador);
+        const valor = ind.value.trim();
+        if (valor !== indValorConferido) { indValorConferido = ''; limparStatusDoCupom(); }
+        if (!cupomLigado() || valor === indValorConferido || !/^BJ-[A-Z0-9]{4,12}$/.test(valor)) { return; }
+        indTemporizador = setTimeout(() => {
+            fetch(indStatus.dataset.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigo: valor }),
+                credentials: 'same-origin',
+            }).then((r) => (r.ok ? r.json() : null)).then((dados) => {
+                if (!dados || typeof dados.valido !== 'boolean') { return; }
+                if (!cupomLigado() || ind.value.trim() !== valor) { return; }
+                indValorConferido = valor;
+                mostrarStatusDoCupom(dados.valido);
+            }).catch(() => { /* sem rede ou limite: silêncio */ });
+        }, 400);
+    }
     [$('lgCdGoogle'), $('lgCdFacebook')].forEach((botao) => {
         if (!botao) { return; }
         botao.addEventListener('click', () => {

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote S6-JS do Ciclo 6, lido como FOLHA (não há navegador no PHPUnit): o que se prova é o
@@ -143,7 +143,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
     public function testCabecalhoSemConfirmNemAlert(): void
     {
         $cab = self::ler(self::CABECALHO);
-        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_cabecalho'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_cabecalho'];
 
         // Restaurar: o form não pergunta no onsubmit; o script segura e pergunta na janela.
         $form = self::trecho($cab, "<form method=\"post\" action=\"{{ path('pasta_restaurar'", '</form>');
@@ -189,7 +189,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         self::assertStringNotContainsString('window.confirm(', $bloco);
         self::assertStringContainsString("titulo: BJ_T.t('pasta_show.js.editar.descartar_titulo'),", $bloco);
         self::assertStringContainsString("rotulo: BJ_T.t('pasta_show.js.editar.descartar'),", $bloco);
-        $editar = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['editar'];
+        $editar = CatalogoPtBr::carregar()['pasta_show']['js']['editar'];
         self::assertSame('Descartar as alterações?', $editar['descartar_titulo']);
         self::assertSame('Descartar', $editar['descartar']);
         // Com o "sim": desfaz, reconfere e só então segue para o destino.

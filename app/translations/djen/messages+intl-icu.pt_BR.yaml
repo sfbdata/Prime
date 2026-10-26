@@ -1,0 +1,125 @@
+# ---- Push Processual: publicações, OABs monitoradas e publicação (djen/index, oabs, show)
+djen:
+    comum:
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        avulsa: Avulsa
+        tribunal: Tribunal
+        tipo: Tipo
+        processo: Processo
+        orgao: Órgão
+        meio: Meio
+        acoes: Ações
+        tribunal_maiusculo: TRIBUNAL
+        tipo_maiusculo: TIPO
+        processo_maiusculo: PROCESSO
+        orgao_maiusculo: ÓRGÃO
+        acoes_maiusculo: AÇÕES
+    abas:
+        rotulo: Seções do Push Processual
+        publicacoes: Publicações
+        processos: Processos da OAB
+        diario: Diário da OAB
+        oabs: OABs monitoradas
+        novas: '{n} novas'
+    kpi:
+        nao_lidas: NÃO LIDAS
+        hoje: HOJE
+        vinculadas: VINCULADAS
+        avulsas: AVULSAS
+    diario:
+        titulo_pagina: 'Push Processual | Diário da OAB'
+        titulo: Diário Eletrônico da OAB
+        sigilo: 'Publicações do Diário Eletrônico da OAB (DEOAB) para as OABs monitoradas. Nos processos ético-disciplinares a publicação traz só o número do processo, o órgão, as iniciais das partes e o nome do procurador, por causa do sigilo (art. 72 da Lei nº 8.906/1994). Todo prazo é de 15 dias úteis e começa no 1º dia útil após a publicação, que é o dia útil seguinte à disponibilização (art. 69, § 2º). Só você vê esta aba.'
+        busca_placeholder: Processo, ato ou texto
+        filtro_todas: Todas
+        filtro_eticas: Ético-disciplinares
+        filtro_comunicados: Comunicados
+        seccional: SECCIONAL
+        ato: ATO
+        prazo: PRAZO
+        selecionar: Selecionar
+        limpar_lidas: Limpar lidas
+        vazio: Nenhuma publicação.
+    index:
+        titulo_pagina: 'Push Processual | Publicações'
+        titulo: 'Push Processual: Publicações'
+        processos_monitorados: Processos monitorados
+        cadastrar_processo: Cadastrar processo
+        sincronizar: Sincronizar agora
+        filtros: Filtros
+        busca: Busca
+        busca_placeholder: Nº processo, tribunal, tipo...
+        todos: Todos
+        todas: Todas
+        diario: Diário
+        edital: Edital
+        vinculo: Vínculo
+        vinculadas: Vinculadas
+        avulsas: Avulsas
+        de: De
+        ate: Até
+        filtrar: Filtrar
+        limpar: Limpar
+        data: Data
+        vinculada: Vinculada
+        ver: Ver
+        vazio: 'Nenhuma publicação encontrada. Cadastre uma OAB ou um processo e clique em "Sincronizar agora".'
+        paginacao: '{total} publicação(ões) · página {pagina} de {paginas}'
+        anterior: Anterior
+        proxima: Próxima
+        tribunal_todos: 'Tribunal: todos'
+        vinculo_todos: 'Vínculo: todos'
+        vinculadas_pasta: Vinculadas a pasta
+        leitura_todas: 'Leitura: todas'
+        nao_lidas: Não lidas
+        lidas: Lidas
+        a: a
+        limpar_filtros: Limpar filtros
+        data_maiusculo: DATA
+        vazio_filtros: Nenhuma publicação com esses filtros.
+        avulsa_dica: Publicação sem pasta vinculada
+        vinculada_dica: Publicação vinculada a uma pasta
+    oabs:
+        titulo_pagina: 'Push Processual | OABs monitoradas'
+        titulo: OABs monitoradas
+        voltar: Voltar às publicações
+        adicionar_oab: Adicionar OAB
+        adicionar: Adicionar
+        oab: OAB
+        apelido: Apelido
+        status: Status
+        desde: Desde
+        ativa: Ativa
+        pausada: Pausada
+        pausar: Pausar
+        reativar: Reativar
+        remover_confirmar: 'Parar de monitorar a OAB {oab}? As publicações já recebidas continuam.'
+        vazio: Nenhuma OAB monitorada.
+        adicionar_dica: o sistema busca diariamente as publicações em nome desta inscrição
+        numero_da_oab: NÚMERO DA OAB
+        uf: UF
+        apelido_maiusculo: APELIDO
+        opcional: (opcional)
+        oab_maiusculo: OAB
+        status_maiusculo: STATUS
+        publicacoes_maiusculo: PUBLICAÇÕES
+        desde_maiusculo: DESDE
+        retomar: Retomar
+        remover: Remover
+        sem_apelido: Sem apelido
+    show:
+        titulo_pagina: 'Push Processual | Publicação'
+        titulo: 'Push Processual: Publicação'
+        voltar: Voltar
+        voltar_publicacoes: Voltar para as publicações
+        disponibilizacao: Disponibilização
+        ver_processo: Ver processo
+        classe: Classe
+        captada_pela_oab: Captada pela OAB
+        destinatarios: Destinatários
+        nome: Nome
+        polo: Polo
+        teor: Teor da comunicação
+        inteiro_teor: Inteiro teor na origem
+        sem_teor: Sem teor textual disponível.

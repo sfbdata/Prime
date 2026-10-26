@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * `public/js/pasta-abas-ocultas.js` lido como folha (o container de teste não tem motor de JS): a
@@ -23,7 +23,6 @@ final class PastaAbasOcultasJsTest extends TestCase
     private const TWIG = __DIR__ . '/../../../templates/pasta/_abas_ocultas.html.twig';
     private const CABECALHO = __DIR__ . '/../../../templates/pasta/_cabecalho.html.twig';
     private const SHOW = __DIR__ . '/../../../templates/pasta/show.html.twig';
-    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     private function js(): string
     {
@@ -100,7 +99,7 @@ final class PastaAbasOcultasJsTest extends TestCase
     public function testQuemNaoConfigura(): void
     {
         self::assertStringContainsString("var AVISO_SO_PRIMARIO = BJ_T.t('pasta_avisos.js.abas_so_primario');", $this->js());
-        self::assertSame('Só o usuário primário pode ocultar abas', Yaml::parseFile(self::CATALOGO)['pasta_avisos']['js']['abas_so_primario']);
+        self::assertSame('Só o usuário primário pode ocultar abas', CatalogoPtBr::carregar()['pasta_avisos']['js']['abas_so_primario']);
         self::assertStringContainsString("{{ catalogo_js('pasta_avisos.js') }}", (string) file_get_contents(self::TWIG), 'o parcial entrega o catálogo do JS');
         self::assertStringContainsString('avisar(AVISO_SO_PRIMARIO);', $this->js(), 'estilo neutro do gmAviso (L.4411), não o de erro');
         self::assertStringContainsString("!aba.hasAttribute('data-ppl-menu')", $this->js());

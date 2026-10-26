@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Planos e limites no painel (spec perfis-1.2-planos-e-limites P1 a P6, P9 e P10; desenho 05 - Perfis 1.2,
@@ -29,7 +29,7 @@ final class PainelPlanosELimitesJsTest extends TestCase
     /** Texto em português de uma chave do catálogo. */
     private static function catalogo(string $chave): string
     {
-        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             self::assertIsArray($no, $chave);
             self::assertArrayHasKey($parte, $no, $chave);
@@ -150,7 +150,7 @@ final class PainelPlanosELimitesJsTest extends TestCase
         // Os textos do KPI estão no catálogo desde a P2a do idioma (spec idioma-do-sistema).
         self::assertStringContainsString("desc: T('master.js.visao.kpi.arm_desc', { cota: num(a.cotaGb), livre: gb(a.bytesLivres) }) + sem, cor: (FAIXA[a.faixa] || FAIXA.livre)[1], pct: a.percentual + '%'", $js);
         self::assertStringContainsString("a.contasSemLimite > 0 ? ' · ' + T('master.js.visao.kpi.arm_sem_limite', { gb: gb(a.bytesSemLimite), n: num(a.contasSemLimite) }) : ''", $js, 'decisão L do orquestrador');
-        $kpi = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml')['master']['js']['visao']['kpi'];
+        $kpi = CatalogoPtBr::carregar()['master']['js']['visao']['kpi'];
         self::assertSame('de {cota} GB contratados · livre {livre}', $kpi['arm_desc']);
         self::assertSame('+ {gb} em {n} conta(s) sem limite', $kpi['arm_sem_limite']);
         self::assertStringContainsString("return Object.assign(base, { n: gb(a.bytesUsados), desc:", $js, 'o número grande soma só as contas com limite');

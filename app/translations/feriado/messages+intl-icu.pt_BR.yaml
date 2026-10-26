@@ -1,0 +1,30 @@
+# ---- Feriados e folgas do escritório (feriado/index, new, edit, _form)
+feriado:
+    comum:
+        voltar: Voltar
+        cancelar: Cancelar
+    index:
+        titulo: Feriados e Folgas
+        data: Data
+        nome: Nome
+        recorrencia: Recorrência
+        acoes: Ações
+        todo_ano: (todo ano)
+        recorrente: Recorrente
+        pontual: Pontual
+        editar: Editar
+        editar_feriado: Editar feriado
+        excluir: Excluir
+        excluir_feriado: Excluir feriado
+        excluir_confirmar: "Excluir o feriado ''{nome}''?"
+        vazio: Nenhum feriado cadastrado.
+    novo:
+        titulo: Novo Feriado
+        salvar: Salvar Feriado
+    editar:
+        titulo_pagina: 'Editar Feriado | {nome}'
+        titulo: 'Editar:'
+        salvar: Salvar Alterações
+    form:
+        ajuda_data: 'Para feriados recorrentes, o ano da data é ignorado: apenas o dia e o mês importam.'
+        ajuda_recorrente: 'Marque para feriados que caem sempre na mesma data todo ano (ex: Natal, Tiradentes). Deixe desmarcado para folgas e dispensas pontuais.'

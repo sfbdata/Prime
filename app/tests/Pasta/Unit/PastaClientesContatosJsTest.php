@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * O salvar de contato da janela "Detalhes do cliente" (`ctGravar` em `public/js/pasta-clientes.js`)
@@ -82,6 +82,6 @@ final class PastaClientesContatosJsTest extends TestCase
     /** @return array<string, string> */
     private static function catalogoJs(): array
     {
-        return Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_cabecalho']['js']['clientes'];
+        return CatalogoPtBr::carregar()['pasta_cabecalho']['js']['clientes'];
     }
 }

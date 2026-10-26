@@ -15,6 +15,7 @@ use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\UseCase\AlternarItemDoChecklistUseCase;
+use App\TrabalhoExterno\UseCase\AjustarValorDoPagamentoUseCase;
 use App\TrabalhoExterno\UseCase\AnexarDocumentosUseCase;
 use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaDemandaUseCase;
@@ -260,6 +261,23 @@ final class DemandaExternaController extends AbstractController
             return [
                 'demanda' => $this->detalhar->executar($ctx, $codigo),
                 'toast' => ['titulo' => 'Pagamento confirmado', 'texto' => 'O solicitante foi avisado no chat e por e-mail.'],
+            ];
+        });
+    }
+
+    /** Lápis do valor (só Master): `{"valor": "1.234,56", "motivo": "..."}`. O valor é lido e validado no servidor. */
+    #[Route('/demandas/{codigo}/pagamento/valor', name: 'trabalho_externo_pagamento_valor', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function ajustarValor(Request $request, string $codigo, AjustarValorDoPagamentoUseCase $ajustar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $ajustar): array {
+            $corpo = $this->corpo($request);
+            $valor = $corpo['valor'] ?? '';
+            $motivo = $corpo['motivo'] ?? '';
+            $ajustar->executar($ctx, $codigo, is_scalar($valor) ? (string) $valor : '', is_scalar($motivo) ? (string) $motivo : '');
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                'toast' => ['titulo' => 'Valor alterado', 'texto' => 'O solicitante foi avisado no chat e por e-mail.'],
             ];
         });
     }

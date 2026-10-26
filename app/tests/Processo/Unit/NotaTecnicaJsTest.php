@@ -239,7 +239,7 @@ final class NotaTecnicaJsTest extends TestCase
         // O aviso mora no catálogo (spec idioma-do-sistema §23b); o texto em português segue o mesmo.
         self::assertStringContainsString('data-aviso="{{ \'processo.nota.so_autor_edita\'|trans }}"', $item);
         self::assertStringContainsString('data-aviso="{{ \'processo.nota.so_autor_exclui\'|trans }}"', $item);
-        $catalogo = $this->ler(self::APP . '/translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = $this->ler(self::APP . '/translations/processo/messages+intl-icu.pt_BR.yaml');
         self::assertStringContainsString('so_autor_edita: Só o autor edita a nota, em até 15 minutos', $catalogo);
         self::assertStringContainsString('so_autor_exclui: Só o autor exclui a nota, em até 15 minutos', $catalogo);
         self::assertStringNotContainsString('disabled aria-disabled', $item, 'o `disabled` engolia o clique');

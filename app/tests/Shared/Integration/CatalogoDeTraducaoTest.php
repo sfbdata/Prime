@@ -43,7 +43,7 @@ final class CatalogoDeTraducaoTest extends KernelTestCase
 
         $faltam = array_values(array_filter(self::chavesUsadas(), static fn (string $chave): bool => !$catalogo->has($chave)));
 
-        self::assertSame([], $faltam, 'chave usada sem texto em translations/messages+intl-icu.pt_BR.yaml');
+        self::assertSame([], $faltam, 'chave usada sem texto em translations/<bloco>/messages+intl-icu.pt_BR.yaml');
     }
 
     /** @return list<string> */

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * O menu do botão direito no cartão do Push (FPN-014, bloco 6 de `public/js/pasta-push.js`) lido
@@ -163,7 +163,7 @@ final class PastaPushMenuContextoJsTest extends TestCase
     /** Texto do JS no catálogo (`pasta_push.js`, spec idioma-do-sistema, "A Pasta, aba Push"). */
     private static function textoDoJs(string $chave): string
     {
-        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = CatalogoPtBr::carregar();
 
         return $catalogo['pasta_push']['js'][$chave];
     }

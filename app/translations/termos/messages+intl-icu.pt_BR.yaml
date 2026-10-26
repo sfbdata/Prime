@@ -1,0 +1,13 @@
+# ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
+# O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
+# ('perfis.x'|trans({papel: 'termos.master'|trans})).
+termos:
+    master: Master
+    primario: primário
+    secundario: secundário
+    perfil: perfil
+    escritorio: escritório
+    usuario: usuário
+    colaborador: colaborador
+    pasta: pasta
+    processo: processo
