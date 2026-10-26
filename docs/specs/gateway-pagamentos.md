@@ -61,7 +61,12 @@ Interface `App\Contribua\Banco\BancoPix` (do #88), estendida só por adição (c
 ### 5.2 Service Desk (razão e carteira são da sessão ServiceDesk)
 - Dono do razão, da carteira e do mínimo de R$ 20: `docs/specs/service-desk-chamados-e-saldo.md` (interface `ProvedorDeRecarga::iniciar(pedido): InstrucaoDePagamento`, hoje só `RecargaManual`; confirmação por `ConfirmarRecargaDeSaldo`, idempotente por `referencia_externa`). **Esta frente não cria tabela nem regra de saldo.**
 - Esta frente entrega o adaptador **`RecargaPorPixCora`** que implementa `ProvedorDeRecarga`: `iniciar` cria `pix_cobranca` (`origem = service_desk`, `origem_id` = id do pedido de recarga) e devolve o `brCode` dinâmico; o webhook/reconsulta, ao confirmar (§3.4), chama `ConfirmarRecargaDeSaldo` com `referencia_externa = end_to_end_id`.
-- Contrato a alinhar com a sessão ServiceDesk: assinatura de `iniciar`, formato de `InstrucaoDePagamento` (brCode, expiraEm, referência), e `ConfirmarRecargaDeSaldo(referenciaExterna, valorCentavos)`. Mudança na interface dela é contrato compartilhado: avisar antes.
+- **Contrato final (bluejus-ef, 26/10; código no PR 1 dela, namespace `App\ServiceDesk\Pagamento`):**
+  - `ProvedorDeRecarga::iniciar(PedidoDeRecarga): InstrucaoDePagamento`. `PedidoDeRecarga` (readonly): `int tenantId`, `string referencia` (id da recarga, ex. `BJSD1A2B3C4D5E6F`, **usar como txid** e como `referencia` da `pix_cobranca`), `int valorCentavos`, `FormaDeRecarga forma` (pix|cartao), `string descricao`. Exceção em `iniciar()` = nada gravado.
+  - `InstrucaoDePagamento` (readonly): `?string copiaECola` (brCode), `?\DateTimeImmutable expiraEm`, `string mensagem`.
+  - `ConfirmarRecargaDeSaldoUseCase::executar(ConfirmarRecargaInput(string referencia, int valorCentavos, ?string idExterno))`: `referencia` = a do pedido; `idExterno` = `end_to_end_id` (índice único do lado dela). Idempotente: já confirmada devolve `confirmada=false` sem creditar; mesmo `idExterno` em outra recarga = exceção; `valorCentavos` diferente do pedido = exceção e nada creditado; referência inexistente = `RecargaNaoEncontrada`. Usa `wrapInTransaction` próprio; aninhado na transação do webhook funciona (mesmo EntityManager).
+  - Binding: `RecargaManual` é o padrão; este PR troca o alias de `ProvedorDeRecarga` em `services.yaml`.
+  - **Consequência no §3.4:** para `service_desk`, pagamento de valor diferente do pedido **não credita** (vira `divergente` aqui, e a exceção dela é capturada e registrada); pagamento a maior também fica `divergente` (decisão do §9.2 vale para o TE).
 - O mínimo de R$ 20 é validado por ela; o adaptador só repassa valor.
 
 ## 6. Segurança
