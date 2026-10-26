@@ -132,8 +132,8 @@ final class DashboardController extends AbstractController
     }
 
     /**
-     * Filtros da URL. Sem `data_de` e sem `data_ate`, o painel abre em "Este mês" (1º do mês até
-     * hoje; spec dashboard-parte-1, item 1). Data vazia enviada (o usuário apagou) deixa o período aberto.
+     * Filtros da URL. Sem `data_de` e sem `data_ate`, o painel abre em "Este mês" (do dia 1º ao
+     * último dia do mês; spec dashboard-parte-1, item 1). Data vazia enviada (o usuário apagou) deixa o período aberto.
      *
      * @return array<string, mixed>
      */
