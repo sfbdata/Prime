@@ -18,8 +18,8 @@ use App\TrabalhoExterno\Service\PoliticaDaDemanda;
 /**
  * "Enviar no chat" da aba Pagamento (desenho 25/10, `pg.avisarChat`): grava no chat o aviso "💳 Pagamento
  * disponível: R$ x via PIX para BlueJus Gestão e Tecnologia LTDA (CNPJ 66.803.163/0001-10), identificação {código}.
- * Veja o QR Code na aba Pagamento." (a tela abre a aba Chat). Só quem confirma o recebimento (interno), enquanto não
- * pago. O valor sai da proposta aceita, no servidor. O Convidado não lê este registro (tem o valor).
+ * Veja o QR Code na aba Pagamento." (a tela abre a aba Chat). Só quem confirma o recebimento (interno) e pode escrever no chat, enquanto
+ * não pago. O valor sai da proposta aceita, no servidor. O Convidado não lê este registro (tem o valor).
  */
 final class AvisarPagamentoNoChatUseCase
 {
@@ -34,7 +34,7 @@ final class AvisarPagamentoNoChatUseCase
     public function executar(Contexto $ctx, string $codigo): DemandaExterna
     {
         [$demanda, $ctx] = $this->localizador->localizar($ctx, $codigo);
-        if (!$this->politica->podeConfirmarRecebimento($ctx, $demanda)) {
+        if (!$this->politica->podeConfirmarRecebimento($ctx, $demanda) || !$this->politica->podeConversar($ctx, $demanda)) {
             throw new AcaoNaoPermitida('Você não pode avisar o pagamento desta demanda.');
         }
         $valor = ApresentadorDoPagamento::valorDaDemanda($demanda)

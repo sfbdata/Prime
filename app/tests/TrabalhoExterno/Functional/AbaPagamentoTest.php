@@ -267,9 +267,53 @@ final class AbaPagamentoTest extends JusPrimeWebTestCase
         $repo->salvar($cfg, flush: true);
         $this->logarComTenant($client, $equipe, $central);
         self::assertTrue($this->detalhe($client, $codigo)['pagamento']['podeConfirmar']);
+
+        // "Enviar no chat" também exige o chat: com "Alterar a situação" mas sem "Responder no chat", 403.
+        $cfg = $repo->atual();
+        $cfg->definirEquipe('chat', false);
+        $repo->salvar($cfg, flush: true);
+        $this->logarComTenant($client, $equipe, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/aviso");
+        self::assertResponseStatusCodeSame(403, 'sem chat, a Equipe não escreve o aviso');
+        self::assertSame(0, $this->contar("trabalho_externo_mensagem WHERE texto LIKE '%Pagamento disponível%'"));
+        $cfg = $repo->atual();
+        $cfg->definirEquipe('chat', true);
+        $repo->salvar($cfg, flush: true);
+        $this->logarComTenant($client, $equipe, $central);
         $r = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/pagamento/confirmacao");
         self::assertResponseIsSuccessful();
         self::assertSame('pago', $r['demanda']['pagamento']['estado']);
+    }
+
+    #[TestDox('corrida do comprovante: o índice único parcial barra o segundo, a transação desfaz e o arquivo do perdedor sai do storage')]
+    public function testCorridaDoComprovante(): void
+    {
+        [$client, $codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita();
+        $id = (int) substr($codigo, 3);
+        $demanda = $this->em()->getRepository(\App\TrabalhoExterno\Entity\DemandaExterna::class)->find($id);
+        self::assertCount(0, $demanda->getDocumentos(), 'a coleção velha, sem comprovante, é o estado que o perdedor enxerga');
+
+        // O vencedor gravou o dele por outra conexão de fato: a linha entra no banco sem passar por esta entidade.
+        $this->em()->getConnection()->executeStatement("INSERT INTO trabalho_externo_documento (demanda_id, nome_original, nome_armazenado, tamanho, mime_type, nome_autor, perfil_autor, em, comprovante) VALUES (?, 'vencedor.pdf', 'vencedor.pdf', 10, 'application/pdf', 'X', 'solicitante', now(), true)", [$id]);
+
+        $armazenador = static::getContainer()->get(\App\TrabalhoExterno\Service\ArmazenadorDeDocumentos::class);
+        $transacao = static::getContainer()->get(\App\TrabalhoExterno\Service\TransacaoDoComprovante::class);
+        $armazenamento = static::getContainer()->get(\App\Shared\Armazenamento\ArmazenamentoDeArquivos::class);
+        $repo = static::getContainer()->get(\App\TrabalhoExterno\Repository\DemandaExternaRepository::class);
+        $gravados = new \ArrayObject();
+        $autor = \App\TrabalhoExterno\DTO\Autor::de($this->em()->find(User::class, $solicitante->getId()), \App\TrabalhoExterno\Enum\Perfil::Solicitante);
+
+        try {
+            $transacao->executar(function () use ($armazenador, $demanda, $autor, $gravados, $repo): void {
+                $demanda->enviarComprovante($armazenador->gravarComprovante($demanda, $this->pdf('perdedor.pdf'), $autor, $gravados), $autor);
+                $repo->salvar($demanda);
+            }, static fn (): array => array_values($gravados->getArrayCopy()));
+            self::fail('o índice único barra o segundo comprovante');
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+        }
+
+        self::assertCount(1, $gravados, 'o perdedor chegou a gravar o arquivo');
+        self::assertFalse($armazenamento->existe($gravados[0]), 'e ele foi removido, porque o COMMIT não aconteceu');
     }
 
     #[TestDox('Convidado: sem a aba, sem o campo `pagamento`, sem o valor no chat nem no histórico; as três rotas e o download do comprovante negam')]

@@ -17,6 +17,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'trabalho_externo_documento')]
+#[ORM\UniqueConstraint(name: 'uniq_te_documento_comprovante', columns: ['demanda_id'], options: ['where' => '(comprovante = true)'])]
 class DocumentoDemanda
 {
     #[ORM\Id]

@@ -24,6 +24,8 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * uma vez, enquanto não pago, e só com proposta aceita (é dela que sai o valor). O arquivo (PDF ou imagem, 20 MB) é
  * gravado na mesma transação do registro "💳 Comprovante de pagamento PIX enviado ({arquivo}). Aguardando
  * confirmação." (que avisa as partes, menos o Convidado).
+ * A demanda é travada (`FOR UPDATE`) dentro da transação antes de conferir "já pago" e "já enviado"; o índice único
+ * parcial do banco é a segunda barreira, e o arquivo de quem perde a corrida sai do storage.
  * Alternativos: outro perfil → AcaoNaoPermitida (403); outro escritório → DemandaNaoEncontrada (404); já pago, já
  * enviado, sem aceite ou fora das situações do pagamento → TransicaoInvalida (409); sem arquivo ou de tipo
  * errado → DadosInvalidos (422).
@@ -49,12 +51,6 @@ final class EnviarComprovanteDePagamentoUseCase
         if (ApresentadorDoPagamento::valorDaDemanda($demanda) === null) {
             throw new TransicaoInvalida('O pagamento fica disponível quando uma proposta for aceita.');
         }
-        if ($demanda->getPagoEm() !== null) {
-            throw new TransicaoInvalida('O pagamento desta demanda já foi confirmado.');
-        }
-        if ($demanda->comprovante() !== null) {
-            throw new TransicaoInvalida('O comprovante desta demanda já foi enviado.');
-        }
         if ($arquivo === null) {
             throw new DadosInvalidos('Nenhum arquivo enviado.');
         }
@@ -64,6 +60,17 @@ final class EnviarComprovanteDePagamentoUseCase
 
         return $this->transacao->executar(
             function () use ($ctx, $demanda, $arquivo, $gravados): DemandaExterna {
+                // Travada e relida: dois envios (ou um envio e a confirmação) se enfileiram aqui, antes de gravar arquivo.
+                $this->repositorio->travar($demanda);
+                if (ApresentadorDoPagamento::valorDaDemanda($demanda) === null) {
+                    throw new TransicaoInvalida('O pagamento fica disponível quando uma proposta for aceita.');
+                }
+                if ($demanda->getPagoEm() !== null) {
+                    throw new TransicaoInvalida('O pagamento desta demanda já foi confirmado.');
+                }
+                if ($demanda->comprovante() !== null) {
+                    throw new TransicaoInvalida('O comprovante desta demanda já foi enviado.');
+                }
                 $demanda->enviarComprovante($this->documentos->gravarComprovante($demanda, $arquivo, $ctx->autor(), $gravados), $ctx->autor());
                 $this->avisos->andamentoDaDemanda($ctx, $demanda);
                 $this->repositorio->salvar($demanda);

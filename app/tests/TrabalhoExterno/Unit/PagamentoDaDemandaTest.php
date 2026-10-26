@@ -442,6 +442,7 @@ final class PagamentoDaDemandaTest extends TestCase
         $r = $this->createMock(DemandaExternaRepository::class);
         $r->method('daCentralPorId')->willReturnCallback(fn (int $id): ?DemandaExterna => $id === 7 ? $this->demanda : null);
         $r->method('doEscritorioPorId')->willReturnCallback(fn (int $id, Tenant $tenant): ?DemandaExterna => $id === 7 && $tenant->getId() === $this->demanda->getTenant()->getId() ? $this->demanda : null);
+        $r->method('comADemandaTravada')->willReturnCallback(static fn (DemandaExterna $d, callable $trabalho): mixed => $trabalho());
         $r->method('salvar')->willReturnCallback(function (): void {
             ++$this->salvos;
         });
