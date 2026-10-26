@@ -655,6 +655,8 @@ master:
             arm_em_uso: '{gb} em uso'
             arm_de: '{gb} de {limite} GB'
             arm_livre: '{faixa} · livre {livre}'
+            arm_bonus: 'Inclui {gb} GB de bônus ({origem}) até {data}'
+            arm_bonus_indicacao: indicação
             aviso_ok: Situação da conta atualizada.
         pedidos:
             titulo: 'Pedidos de exclusão de conta · {n}'

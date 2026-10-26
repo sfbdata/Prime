@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
@@ -25,6 +26,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * Guardas do lado do Master antes de chegar à Contribua (spec perfis-1.2-planos-e-limites P4). O caminho
@@ -42,7 +44,7 @@ final class DefinirLimiteDaContaUseCaseTest extends TestCase
         $this->contas = $this->createMock(ContasDoSistemaRepository::class);
         $this->espacos = $this->createMock(EspacoDoEscritorioRepository::class);
         $planos = $this->createMock(PlanoRepository::class);
-        $situacao = new SituacaoDoEspaco($this->createMock(ConsumoDeArmazenamentoRepository::class), $this->espacos, $planos, $this->createMock(ConfiguracaoDoEspacoRepository::class));
+        $situacao = new SituacaoDoEspaco($this->createMock(ConsumoDeArmazenamentoRepository::class), $this->espacos, $planos, $this->createMock(ConfiguracaoDoEspacoRepository::class), $this->createStub(BonusDeEspacoRepository::class), new MockClock());
 
         $this->useCase = new DefinirLimiteDaContaUseCase(
             $this->contas,
