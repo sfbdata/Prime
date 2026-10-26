@@ -234,6 +234,47 @@ master:
         token_invalido: Token CSRF inválido. Recarregue a página.
         informe_pausa: Informe se os convites ficam pausados ou liberados.
         informe_inteiros: Informe os limites em números inteiros.
+    # Seção Recompensas (master/_recompensas, F1; desenho 05 Perfis 1.2 VS 25.10.26) e as recusas do
+    # RecompensasDoMasterController. Os textos do JS ficam em master.js.recompensas.*.
+    recompensas:
+        titulo: Regras do programa Indique e ganhe
+        campo_valor: RECOMPENSA POR ESCRITÓRIO (R$)
+        campo_libera: LIBERA COM (ESCRITÓRIOS ATIVOS)
+        campo_carencia: CARÊNCIA (DIAS DE USO ATIVO)
+        campo_alerta: ALERTA ANTIFRAUDE (CONTAS EM 7 DIAS)
+        so_com_pasta: Só conta escritório com pastas abertas
+        unico: Pagamento único por escritório liberado · recorrente só para parceiros ★
+        unico_dica: 'Recorrência mensal só por condição individual de parceiro (menu ⋮ › Condição individual)'
+        nota: A recompensa só fica disponível quando o usuário atinge o número de escritórios ativos. Use ★ Ajustar para definir um valor individual.
+        indicadores: Indicadores
+        busca: Nome, e-mail ou escritório
+        vazio: Nenhum indicador neste filtro.
+        col_usuario: USUÁRIO
+        col_envios: ENVIOS
+        col_contas: CONTAS
+        col_ativos: ATIVOS P/ LIBERAR
+        col_por_conta: POR CONTA
+        col_saldo: SALDO
+        col_pago: PAGO
+        col_situacao: SITUAÇÃO
+        col_acoes: AÇÕES
+        dialogo:
+            titulo: Condição individual do indicador
+            valor: Recompensa por escritório (R$)
+            libera: LIBERA COM (ESCRITÓRIOS)
+            carencia: CARÊNCIA (DIAS)
+            vazio_geral: Vazio = regra geral
+            recorrente: Parceiro recorrente (crédito mensal)
+            mensal: POR MÊS, POR ESCRITÓRIO ATIVO (R$)
+            mensal_dica: Só conta escritório ativo, que abriu pasta nos últimos 30 dias e sem suspeita.
+            aviso: Condição individual é mantida mesmo quando a regra geral muda.
+            motivo: Motivo (contrato, parceria, convênio…)
+            cancelar: Cancelar
+            salvar: Salvar condição
+            fechar: Fechar
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        indicador_nao_encontrado: Indicador não encontrado.
+        corpo_invalido: Corpo da requisição inválido.
     # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
     ia:
         instalacao:
@@ -349,6 +390,7 @@ master:
             config: Configurações globais
             com: Comercial e e-mails
             ind: Indicações do BlueJus
+            recomp: Recompensas
             notif: Central de Notificações
         vazia:
             aviso: DADO AINDA NÃO COLETADO · INTEGRAÇÃO AINDA NÃO DISPONÍVEL
@@ -881,6 +923,45 @@ master:
             pausados: Convites pausados para todos
             liberados: Convites liberados
             erro_carregar: Não foi possível carregar as indicações. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+        # Seção Recompensas (public/js/master/recompensas.js).
+        recompensas:
+            ativo: Programa ativo
+            pausado: Programa pausado
+            kpi:
+                indicadores: INDICADORES
+                contas: CONTAS ABERTAS
+                liberados: LIBERADOS
+                a_pagar: A PAGAR
+                ja_pago: JÁ PAGO
+            filtro:
+                todos: Todos
+                pagar: A pagar
+                lib: Liberados
+                nao: Ainda não liberados
+                priv: ★ Condição individual
+            priv_n: '{n} com condição individual · não mudam com a regra geral'
+            sit:
+                liberado: Liberado
+                carencia: '{n} em carência'
+                andamento: Em andamento
+            sit_dica_carencia: '{n} conta(s) aguardando {dias} dias de uso ativo para gerar crédito'
+            por_mes: '+ {valor}/mês ↻'
+            dica_geral: Segue a regra geral
+            dica_priv: 'Condição individual. Não muda quando a regra geral é alterada.'
+            dica_priv_motivo: 'Condição individual: {motivo}. Não muda quando a regra geral é alterada.'
+            dica_recorrente: 'Parceiro recorrente: {valor} por mês para cada escritório ativo que abriu pasta nos últimos 30 dias. {motivo}'
+            linha_dica: Botão direito para mais opções
+            ajustar: Ajustar
+            ajustar_dica: Ajustar valor da recompensa
+            mais_opcoes: Mais opções
+            menu_condicao: Condição individual (★)
+            menu_geral: Voltar à regra geral
+            vazio_geral: 'Vazio = regra geral ({valor})'
+            salvo: 'Condição individual de {nome} salva.'
+            voltou: '{nome} voltou para a regra geral.'
+            regras_salvas: Regras do programa salvas.
+            erro_carregar: Não foi possível carregar as recompensas. Recarregue a página.
             erro_salvar: Não foi possível salvar.
         # Aba "Configurações da I.A." (public/js/master/ia.js).
         ia:
