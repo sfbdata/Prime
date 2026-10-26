@@ -8,6 +8,7 @@ use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Criterio\PastaFinalizadaNoPeriodo;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
@@ -156,12 +157,18 @@ class MetricasExtrasDoDashboardRepository
             ->from(Pasta::class, 'p')
             ->join('p.responsavel', 'r')
             ->andWhere('p.tenant = :tenant')
-            ->andWhere('p.finalizadaEm IS NOT NULL')
-            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->groupBy('r.id');
 
-        $this->aplicarPeriodo($qb, 'p.finalizadaEm', $filtros);
+        // O critério é o mesmo do filtro `concluida` do Expediente (regra B12: o número = a lista).
+        $desde = $filtros['contar_desde'] ?? null;
+        PastaFinalizadaNoPeriodo::aplicar(
+            $qb,
+            'p',
+            $this->lerData((string) ($filtros['data_de'] ?? ''), false),
+            $this->lerData((string) ($filtros['data_ate'] ?? ''), true),
+            $desde instanceof \DateTimeImmutable ? $desde : null,
+        );
         if ($pastasOcultas !== []) {
             $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
         }
