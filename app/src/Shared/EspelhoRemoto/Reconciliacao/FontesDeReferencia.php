@@ -90,9 +90,9 @@ final class FontesDeReferencia implements FonteDeReferencias
                 ? EscopoDeArquivo::global()
                 : EscopoDeArquivo::deTenant((int) ($linha['tenant'] ?? throw new ChaveDeArquivoInvalida('linha sem escritório')));
 
-            return new ReferenciaDeArquivo($fonte, $id, new ChaveDeArquivo($escopo, $categoria, $nome));
+            return new ReferenciaDeArquivo($fonte, $id, new ChaveDeArquivo($escopo, $categoria, $nome), $categoria);
         } catch (ChaveDeArquivoInvalida $e) {
-            return new ReferenciaDeArquivo($fonte, $id, null);
+            return new ReferenciaDeArquivo($fonte, $id, null, $categoria);
         }
     }
 }

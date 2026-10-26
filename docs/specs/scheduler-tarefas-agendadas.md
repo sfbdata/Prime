@@ -39,6 +39,13 @@ A coluna "crontab antigo" foi **conferida com o crontab real da VPS em 23/10/202
 | `app:pastas:relatorio-pastas-paradas --no-interaction` | `15 13 * * *` | `15 10 * * *` (10h15) |
 | `app:dashboard:fotografar --no-interaction` | não estava no crontab (recomendada em `trilha-b-designer.md`, D-CRON: `55 2 * * *`) | `55 23 * * *` (23h55) |
 | `app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction` | `0 * * * *` via `scripts/sync-reconciliar.sh` (com `--tenant-id=1`) | `0 * * * *` (de hora em hora) |
+| `armazenamento:reconciliar-espelho --se-ligado --fatia=auto --no-interaction` | não estava no crontab (espelho R2, P2.7) | `30 3 * * *` (3h30; SHA de 1/7 por noite) |
+| `armazenamento:limpar-replicacao --se-ligado --no-interaction` | não estava no crontab (retenção da outbox, I4) | `30 4 * * *` (4h30) |
+| `armazenamento:replicar-espelho --se-ligado --limite=50 --no-interaction` | não estava no crontab (espelho R2, P2.5) | `* * * * *` (a cada minuto, antes do Drive na ordem) |
+
+As três do espelho R2 (r2-p25) só agem com o espelho ligado: com `ARMAZENAMENTO_ESPELHO_CATEGORIAS` vazia
+ou sem `ESPELHO_R2_*`, terminam com sucesso ("espelho desligado"). Detalhes em `docs/specs/p2-gravacao-dupla.md`,
+seção "P2.5 e P2.7 preparadas (r2-p25)".
 
 A foto do Dashboard é comportamento **novo** em produção (nunca rodou); as outras seis só mudam de lugar.
 

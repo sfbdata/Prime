@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Shared\EspelhoRemoto\Command;
 
 use App\Shared\EspelhoRemoto\EspelhoRemotoNaoConfigurado;
-use App\Shared\EspelhoRemoto\FabricaDoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
+use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
+use App\Shared\EspelhoRemoto\ProvedorDoEspelhoRemoto;
 use App\Shared\EspelhoRemoto\Replica\ReplicadorDeArquivos;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,6 +22,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * uma chave nunca fica com duas linhas em processamento.
  *
  * A saída é só contagem. Nome de arquivo e chave remota não saem aqui.
+ *
+ * `--se-ligado` é o modo do agendador (P2.5): sem `ESPELHO_R2_*` ou sem categoria ligada, sai com
+ * sucesso e uma linha "espelho desligado", sem tocar no R2 nem na outbox. Sem a opção, a falta de
+ * configuração continua sendo recusa com falha.
  */
 #[AsCommand(
     name: 'armazenamento:replicar-espelho',
@@ -30,15 +35,18 @@ final class ReplicarEspelhoCommand extends Command
 {
     public function __construct(
         private readonly ReplicadorDeArquivos $replicador,
-        private readonly FabricaDoEspelhoRemoto $fabrica,
+        private readonly ProvedorDoEspelhoRemoto $fabrica,
         private readonly OutboxDeReplicacao $outbox,
+        private readonly PoliticaDeEspelhamento $politica,
     ) {
         parent::__construct();
     }
 
     protected function configure(): void
     {
-        $this->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Quantas linhas processar nesta rodada.', '100');
+        $this
+            ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Quantas linhas processar nesta rodada.', '100')
+            ->addOption('se-ligado', null, InputOption::VALUE_NONE, 'Modo agendado: com o espelho desligado (sem ESPELHO_R2_* ou sem categoria), sai com sucesso sem fazer nada.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -49,6 +57,12 @@ final class ReplicarEspelhoCommand extends Command
             $io->error('--limite precisa ser pelo menos 1.');
 
             return Command::INVALID;
+        }
+
+        if ($input->getOption('se-ligado') && !($this->politica->estaLigada() && $this->fabrica->estaConfigurado())) {
+            $io->writeln('Espelho desligado: nada a replicar.');
+
+            return Command::SUCCESS;
         }
 
         try {

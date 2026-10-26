@@ -106,6 +106,9 @@ moldura:
             pastas_relatorio_pastas_paradas: Relatório de pastas paradas
             dashboard_fotografar: Foto diária do Dashboard
             sync_reconciliar: Envio para o Google Drive
+            armazenamento_replicar_espelho: Cópia dos arquivos para o R2
+            armazenamento_reconciliar_espelho: Conferência da cópia no R2
+            armazenamento_limpar_replicacao: Limpeza da fila de envio ao R2
             outra: Tarefa agendada
         dispensar: Dispensar
     # Aviso da cota de envio de e-mail (layout/_globais/aviso_cota_de_envio, spec comercial-e-emails §3.6)

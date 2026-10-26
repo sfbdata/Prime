@@ -72,6 +72,21 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:djen:sincronizar --dias=2 --no-interaction',
             'cron'    => '0 3 * * *',
         ],
+        // Espelho R2 (P2.5 e P2.7, docs/specs/p2-gravacao-dupla.md): os três rodam com --se-ligado e, com
+        // ARMAZENAMENTO_ESPELHO_CATEGORIAS vazia ou sem ESPELHO_R2_*, terminam com sucesso sem fazer nada.
+        // 3h30: reconciliação diária. Presença e tamanho de tudo; SHA-256 só da fatia do dia da semana
+        // (1/7 das referências, fatia estável), então a semana cobre tudo e nenhuma noite lê o acervo
+        // inteiro. Falha, e avisa, quando há ausente, tamanho ou SHA divergente, erro de consulta ao R2
+        // ou envio em "falhou" na outbox.
+        'armazenamento:reconciliar-espelho' => [
+            'comando' => 'armazenamento:reconciliar-espelho --se-ligado --fatia=auto --no-interaction',
+            'cron'    => '30 3 * * *',
+        ],
+        // 4h30: retenção de 90 dias da outbox (LGPD, I4). Vale mesmo com a cópia desligada.
+        'armazenamento:limpar-replicacao' => [
+            'comando' => 'armazenamento:limpar-replicacao --se-ligado --no-interaction',
+            'cron'    => '30 4 * * *',
+        ],
         // Segunda, 8h: resumo semanal ao cliente.
         'app:push:resumo-semanal-cliente' => [
             'comando' => 'app:push:resumo-semanal-cliente --no-interaction',
@@ -92,6 +107,13 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
         'app:dashboard:fotografar' => [
             'comando' => 'app:dashboard:fotografar --no-interaction',
             'cron'    => '55 23 * * *',
+        ],
+        // A cada minuto: o worker do espelho leva ao R2 até 50 envios pendentes e sai. O consumidor é um só
+        // e roda uma tarefa por vez, então duas rodadas nunca correm juntas; uma rodada que passa do
+        // minuto não acumula atrasadas (processOnlyLastMissedRun). Antes do Drive, que é o mais demorado.
+        'armazenamento:replicar-espelho' => [
+            'comando' => 'armazenamento:replicar-espelho --se-ligado --limite=50 --no-interaction',
+            'cron'    => '* * * * *',
         ],
         // De hora em hora: envio do sistema para o Drive (só sistema para Drive; importar nunca
         // é automático). Sem --tenant-id: percorre todos os escritórios com Drive conectado; o

@@ -42,5 +42,6 @@ final class PoliticaDeEspelhamentoTest extends TestCase
 
         self::assertFalse($politica->estaLigada(), 'nem curinga, nem maiúscula, nem plural ligam algo');
         self::assertSame(['todas', '*', 'PASTA_DOCUMENTO', 'pasta_documentos'], $politica->entradasInvalidas());
+        self::assertCount(4, $politica->posicoesInvalidas());
     }
 }
