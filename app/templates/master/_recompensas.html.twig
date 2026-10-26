@@ -12,6 +12,9 @@
      data-url-regras="{{ path('master_recompensas_regras') }}"
      data-url-condicao="{{ path('master_recompensas_condicao', {id: 0}) }}"
      data-url-lancamento="{{ path('master_recompensas_lancamento', {id: 0}) }}"
+     data-url-aprovar="{{ path('master_recompensas_suspeitas_aprovar', {id: 0}) }}"
+     data-url-bloqueio="{{ path('master_recompensas_bloqueio', {id: 0}) }}"
+     data-url-apagar="{{ path('master_recompensas_apagar', {id: 0}) }}"
      data-url-extrato="{{ path('master_recompensas_extrato') }}"
      data-url-csv="{{ path('master_recompensas_extrato_csv') }}"
      data-token="{{ csrf_token('master_recompensas') }}">
@@ -65,15 +68,18 @@
         <div class="mrc-extrato-rolagem"><div class="mrc-extrato-tabela" data-mrc-ext-lista></div></div>
     </section>
 
-    {# Menu ⋮ (desenho L611): condição individual, lançamento, extrato e regra geral. #}
+    {# Menu ⋮ (desenho L611 e L879): condição individual, lançamento, revisar suspeitas, extrato, regra geral, bloqueio e apagar. #}
     <div class="mrc-menu-fundo" data-mrc-menu-fundo hidden></div>
     <div class="mrc-menu" data-mrc-menu role="menu" hidden>
         <div class="mrc-menu-titulo" data-mrc-menu-titulo></div>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="condicao"><i class="bi bi-star" aria-hidden="true"></i><span data-mrc-menu-txt="condicao"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="lancamento"><i class="bi bi-plus-slash-minus" aria-hidden="true"></i><span data-mrc-menu-txt="lancamento"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item mrc-menu-item-aviso" data-mrc-menu-acao="aprovar" hidden><i class="bi bi-shield-check" aria-hidden="true"></i><span data-mrc-menu-txt="aprovar"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="extrato"><i class="bi bi-receipt" aria-hidden="true"></i><span data-mrc-menu-txt="extrato"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="csv"><i class="bi bi-download" aria-hidden="true"></i><span data-mrc-menu-txt="csv"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="geral"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span data-mrc-menu-txt="geral"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item mrc-menu-item-aviso" data-mrc-menu-acao="bloquear"><i class="bi bi-slash-circle" aria-hidden="true" data-mrc-menu-bloqueio-ic></i><span data-mrc-menu-txt="bloquear"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item mrc-menu-item-perigo" data-mrc-menu-acao="apagar"><i class="bi bi-trash3" aria-hidden="true"></i><span data-mrc-menu-txt="apagar"></span></button>
     </div>
 
     {# Janela "Condição individual do indicador" (desenho L612, ramo `ajustar`). #}
@@ -123,6 +129,26 @@
             <div class="mrc-dlg-rodape">
                 <button type="button" class="mrc-dlg-cancelar" data-mrc-lan-fechar>{{ 'master.recompensas.lancamento.cancelar'|trans }}</button>
                 <button type="button" class="mrc-dlg-salvar" data-mrc-lan-enviar>{{ 'master.recompensas.lancamento.lancar'|trans }}</button>
+            </div>
+        </div>
+    </div>
+
+    {# Janela "Apagar indicador da lista" (desenho L884, ramo `apagar`): digitar APAGAR; o botão é vermelho como no desenho. #}
+    <div class="mrc-dlg-fundo" data-mrc-apg-fundo hidden></div>
+    <div class="mrc-dlg-posicao" data-mrc-apg hidden>
+        <div class="mrc-dlg" role="dialog" aria-modal="true" aria-labelledby="mrc-apg-titulo">
+            <div class="mrc-dlg-cabeca">
+                <i class="bi bi-trash3" aria-hidden="true"></i><b id="mrc-apg-titulo">{{ 'master.recompensas.apagar.titulo'|trans }}</b>
+                <button type="button" class="mrc-dlg-x" data-mrc-apg-fechar aria-label="{{ 'master.recompensas.dialogo.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="mrc-dlg-corpo">
+                <div><b class="mrc-dlg-nome" data-mrc-apg-nome></b><div class="mrc-dlg-sub" data-mrc-apg-sub></div></div>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.apagar.rotulo'|trans }}<input type="text" autocomplete="off" data-mrc-apg-palavra><span class="mrc-dlg-dica">{{ 'master.recompensas.apagar.dica'|trans }}</span></label>
+                <div class="mrc-dlg-erro" data-mrc-apg-erro role="alert" hidden></div>
+            </div>
+            <div class="mrc-dlg-rodape">
+                <button type="button" class="mrc-dlg-cancelar" data-mrc-apg-fechar>{{ 'master.recompensas.apagar.cancelar'|trans }}</button>
+                <button type="button" class="mrc-dlg-salvar mrc-dlg-perigo" data-mrc-apg-enviar>{{ 'master.recompensas.apagar.apagar'|trans }}</button>
             </div>
         </div>
     </div>

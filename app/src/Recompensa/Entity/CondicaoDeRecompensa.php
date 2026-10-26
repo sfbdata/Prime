@@ -16,6 +16,9 @@ use Doctrine\ORM\Mapping as ORM;
  * Campo nulo usa a regra geral ({@see ProgramaDeRecompensa}). A recorrência (crédito mensal por escritório ativo) só é
  * guardada aqui; quem lança o crédito mensal é a F6.
  *
+ * F3 (antifraude): a mesma linha guarda se a recompensa do indicador está bloqueada (`bloqueadoEm`) e se ele foi apagado da
+ * lista (`apagadoEm`). Os dois independem da condição individual, então "voltar à regra geral" não os desfaz.
+ *
  * GLOBAL, sem tenant: a chave é o usuário que indica (PK = user_id, apagada junto com ele). Dinheiro em centavos.
  */
 #[ORM\Entity(repositoryClass: CondicaoDeRecompensaRepository::class)]
@@ -45,6 +48,12 @@ class CondicaoDeRecompensa implements Auditavel
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $motivo = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $bloqueadoEm = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $apagadoEm = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'alterada_por_id', nullable: true, onDelete: 'SET NULL')]
@@ -87,10 +96,56 @@ class CondicaoDeRecompensa implements Auditavel
         $this->motivo = $motivo === '' ? null : $motivo;
     }
 
-    /** Sem nenhum campo próprio nem recorrência a condição não muda nada: o UseCase a descarta. */
+    /** Sem condição própria, recorrência, bloqueio nem apagado a linha não muda nada: o UseCase a descarta. */
     public function semEfeito(): bool
     {
-        return $this->valorCentavos === null && $this->minEscritorios === null && $this->carenciaDias === null && !$this->recorrente;
+        return !$this->temCondicaoPropria() && $this->bloqueadoEm === null && $this->apagadoEm === null;
+    }
+
+    public function temCondicaoPropria(): bool
+    {
+        return $this->valorCentavos !== null || $this->minEscritorios !== null || $this->carenciaDias !== null || $this->recorrente;
+    }
+
+    /** "Voltar à regra geral": zera só a condição individual; bloqueio e apagado continuam. */
+    public function voltarParaARegraGeral(): void
+    {
+        $this->definir(null, null, null, false, null, null);
+    }
+
+    public function bloquear(\DateTimeImmutable $em): void
+    {
+        $this->bloqueadoEm ??= $em;
+    }
+
+    public function desbloquear(): void
+    {
+        $this->bloqueadoEm = null;
+    }
+
+    public function apagar(\DateTimeImmutable $em): void
+    {
+        $this->apagadoEm ??= $em;
+    }
+
+    public function isBloqueada(): bool
+    {
+        return $this->bloqueadoEm !== null;
+    }
+
+    public function isApagada(): bool
+    {
+        return $this->apagadoEm !== null;
+    }
+
+    public function getBloqueadoEm(): ?\DateTimeImmutable
+    {
+        return $this->bloqueadoEm;
+    }
+
+    public function getApagadoEm(): ?\DateTimeImmutable
+    {
+        return $this->apagadoEm;
     }
 
     public function registrarAlteracao(?User $por, \DateTimeImmutable $em): void
