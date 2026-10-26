@@ -97,4 +97,21 @@ final class PushProcessualDesenhoOnzeTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('nav.pp-abas a.pp-aba.is-ativa[data-pp-aba="oabs"]'));
     }
+
+    #[Test]
+    public function abaOabsMostraFormularioETabelaDoDesenho(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/oabs');
+
+        self::assertCount(1, $crawler->filter('.pp-pagina > section[data-pp-oab-adicionar] > form.pp-oab-form'));
+        self::assertCount(1, $crawler->filter('form.pp-oab-form select option[value="DF"]'), 'UF em lista, como no desenho');
+        self::assertCount(0, $crawler->filter('.pp-pagina .card, .pp-pagina .form-control, .pp-pagina .table'));
+        self::assertSame('Nenhuma OAB monitorada.', trim($crawler->filter('[data-pp-oab-tabela] .pp-vazio')->text()));
+        self::assertCount(6, $crawler->filter('.pp-linha--cab > span'), 'OAB, apelido, status, publicações, desde, ações');
+    }
 }
