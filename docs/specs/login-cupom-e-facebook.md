@@ -64,3 +64,93 @@ Testes:
 ## PR B: Continuar com Facebook
 
 Escrita antes do código do PR B. Migration de número 150800 (dado pelo coordenador; a 150700 é de outra frente).
+
+Base: `docs/specs/entrar-com-google.md`, seção "Facebook: ponto de ligação" (itens 1 a 4), e o fluxo do Google
+(`GoogleLoginApi`, `GoogleAuthenticator`, `CadastroPeloGoogle`, `CadastroPeloGoogleController`). Credenciais da Meta são
+do dono: sem `FACEBOOK_APP_ID` e `FACEBOOK_APP_SECRET` o botão **some** (decisão do coordenador de 26/10; difere do
+Google, que mostra o aviso de "não configurado").
+
+### Princípio (o Facebook não prova e-mail)
+
+O `id` do Facebook prova quem é a pessoa **para o app**, nunca o e-mail dela. Logo:
+
+1. **Nunca ligar nem logar conta existente pelo e-mail do Facebook.** Só o `facebook_id` (já ligado) entra.
+2. **O e-mail do Facebook é só sugestão** para preencher o campo. Quem cria a conta digita ou confere o e-mail e ele é
+   confirmado pelo mesmo caminho do cadastro por e-mail (link de confirmação por e-mail, que também define a senha). Se o
+   Facebook não mandar e-mail, o campo vem vazio e a pessoa informa.
+3. **Conta nova pelo Facebook nasce não confirmada**, igual ao cadastro por e-mail: não faz login até confirmar.
+   Reaproveita `CriarContaEEscritorioUseCase::executar`, que já esconde se o e-mail tem conta (anti-enumeração); o que
+   muda é só gravar o `facebook_id` na conta nova. **Não** reaproveita `executarPeloGoogle` (cria confirmada).
+4. **Pré-sequestro (achado da revisão):** o e-mail digitado não é do Facebook. Quem cria a conta com o `facebook_id`
+   dele e o e-mail de outra pessoa não pode herdar a conta quando essa pessoa confirmar o link e criar a senha. Regra: o
+   `facebook_id` só continua valendo depois da confirmação se o link for aberto **no mesmo navegador (mesma sessão)** que
+   criou a conta pelo Facebook (o `CadastroPeloFacebookController` marca a sessão com o id da conta nova). Em qualquer
+   outro caso (outro navegador, outro aparelho, sessão vencida) a confirmação **apaga o `facebook_id`** da conta: ela
+   vira conta só de e-mail e senha, e quem quiser o Facebook liga depois (fora deste PR). Falha para o lado seguro: no
+   pior caso a pessoa entra com a senha que acabou de criar.
+5. E-mail que já tem conta: nada é ligado. A pessoa recebe o aviso que o cadastro por e-mail já manda e a tela
+   responde igual a um cadastro novo.
+
+(Divergência declarada: o coordenador falou em "confirmar por código"; o cadastro por e-mail do sistema confirma por
+link, e o código existe só no "Esqueci a senha". Seguimos o mecanismo que existe, com a mesma garantia.)
+
+### Comportamento
+
+1. `FacebookLoginApi` (`App\Auth\Infra`), à mão com `HttpClientInterface`: `ligado()` (app id e secret não vazios),
+   `urlDeAutorizacao()` (`state` na sessão, `scope=public_profile,email`, versão em `FACEBOOK_GRAPH_VERSION`),
+   `identidade($code)`: troca o `code` em `graph.facebook.com/{v}/oauth/access_token`, depois `GET /me?fields=id,name,email`
+   com `appsecret_proof` (HMAC-SHA256 do token com o secret). O token não é guardado. Devolve `IdentidadeDoFacebook`
+   (`id`, `nome`, `email` nulo se não vier).
+2. Rotas `GET /login/facebook` (`app_login_facebook`) e `GET /login/facebook/callback` (`app_login_facebook_volta`),
+   com limiter próprio (`login_facebook`, 20 por 15 min, como o do Google), CSRF `login_facebook` na ida, `state`
+   comparado com `hash_equals` e consumido uma vez. `error`, `error_reason` e retorno sem `code` valem como cancelado.
+   Sem credencial a rota responde 404 (o botão nem aparece).
+3. `FacebookAuthenticator` (como o do Google): `ContaDoFacebook::localizar(id)` só pelo `facebook_id`.
+   - Conta ligada, confirmada e ativa: login (mesmo destino, termo de aceite e manter conectado do Google).
+   - Conta ligada ainda não confirmada: não loga; volta ao login com o aviso de confirmar o e-mail (a mensagem e o
+     reenvio que já existem para o cadastro por e-mail).
+   - Conta ligada e inativa: recusa, como o Google.
+   - Sem conta: guarda `IdentidadeDoFacebook` na sessão (`CadastroPeloFacebook`, chave `cadastro_pelo_facebook`,
+     validade de 15 min, como o `CadastroPeloGoogle`) e volta a `app_login?abrir=cadastro`.
+4. Tela: `User.facebook_id` não aparece. No passo `cad`, o botão `#lgCdFacebook` (`<a class="lg-soc__btn">`, SVG e texto
+   "Continuar com Facebook" do desenho) logo depois do `#lgCdGoogle`, dentro de `{% if facebookDisponivel %}`. Com a
+   identidade na sessão, o cartão conectado `#lgCdSocOk` mostra o provedor ("Conectado pelo Facebook", chave
+   `entrada.modal.conectado_pelo` com `{provedor}`) e o nome; **o campo de e-mail continua visível** (diferente do Google),
+   preenchido com a sugestão do Facebook se houver. O cartão generaliza `cadastroGoogle` para `cadastroSocial`
+   (provedor, nome, e-mail sugerido). "Desconectar" chama o `esquecer` do provedor.
+5. `POST /cadastro/facebook/criar` (`auth_cadastro_facebook_criar`): lê a identidade **da sessão, nunca do navegador**;
+   CSRF `cadastro_criar`; limiter `cadastroAutoLimiter`; bloqueia logado; identidade ausente ou expirada vira 422
+   `facebookExpirou`; o e-mail vem do corpo (campo da tela) e passa pela validação do cadastro por e-mail. Cria pela
+   `executar` (conta não confirmada, link por e-mail) e grava o `facebook_id`. `facebook_id` já ligado a outra conta:
+   mesma resposta neutra do e-mail existente, sem criar. Depois do POST, a sessão esquece a identidade e a tela mostra
+   o mesmo "confirme seu e-mail" do cadastro por e-mail. O cupom (PR A) segue valendo pelo mesmo `CadastroPeloLinkListener`.
+6. `POST /cadastro/facebook/esquecer` (`auth_cadastro_facebook_esquecer`), como o do Google. Qualquer outro login
+   esquece a identidade pendente (`EsquecerContaAConfirmarNoLoginListener` conhece os dois provedores).
+7. `ContaCriadaPeloCadastro` continua despachado só uma vez por conta criada (pelo `executar`).
+
+### Dados
+
+- Migration `Version20261026150800` (número 150800, dado pelo coordenador): `ALTER TABLE "user" ADD facebook_id
+  VARCHAR(255) DEFAULT NULL` e `CREATE UNIQUE INDEX UNIQ_8D93D6499BE8FD98 ON "user" (facebook_id)` (nome que o Doctrine calcula, conferido
+  com a skill `criar-migration`, como a do `google_sub`). Reversível (`down` apaga índice e coluna).
+- `User::getFacebookId()` e `ligarAoFacebook(string $id)` (lança `DomainException` se já ligado a outro id), espelhando
+  o Google. O `id` do Facebook é por app: se a Meta trocar de app, os ids mudam (risco operacional anotado, sem
+  mitigação no código).
+- Env: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_GRAPH_VERSION` (default `v21.0`), com default vazio, declaradas
+  em `.env.prod.example` como as do Google. Rotas nas listas brancas (`TermoAceiteListener::ROTAS_IGNORADAS`,
+  `TenantContextValidatorListener`, `EntradaDoConvidadoListener`).
+
+### Testes (com `FacebookLoginFalso`, como o `GoogleLoginFalso`)
+
+- Ida: redireciona com `state`; sem credencial 404; limitador; sem CSRF recusa.
+- Volta: `state` errado, replay, cancelado e `error=access_denied` não logam; `facebook_id` ligado e confirmado loga;
+  ligado e não confirmado não loga e avisa; inativo recusa.
+- **Anti-tomada de conta:** `/me` devolve o e-mail de uma conta existente com outro `id`: não loga, não liga, não
+  confirma nada; vai ao cadastro com a sugestão.
+- Cadastro: identidade sem e-mail, e-mail sugerido editado, e-mail de conta existente (resposta neutra, nada ligado,
+  `facebook_id` intacto), `facebook_id` já usado, identidade ausente ou expirada, logado, CSRF inválido, outro login
+  esquece a identidade; conta nasce não confirmada, com `facebook_id`, e o link confirma.
+- Tela: botão some sem credencial; com credencial vem logo depois do Google; cartão conectado mostra o provedor e o
+  campo de e-mail segue visível.
+- Unit: `ContaDoFacebook`, `CadastroPeloFacebook`, `IdentidadeDoFacebook`, `appsecret_proof` (vetor conhecido).
+- Ajustar `CadastroPeloGoogleTest`: o Facebook deixa de ser ausência travada (some só sem credencial).

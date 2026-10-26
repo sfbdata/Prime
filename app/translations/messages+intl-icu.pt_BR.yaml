@@ -6777,6 +6777,8 @@ entrada:
         ja_tem_conta: Já tem conta?
         cupom: Tenho um cupom de indicação
         cupom_exemplo: BJ-XXXXXX
+        continuar_facebook: Continuar com Facebook
+        conectado_pelo_sem_email: 'Conectado pelo {provedor}'
     abrindo: Abrindo o seu escritório digital…
     suporte:
         falar: Falar com suporte

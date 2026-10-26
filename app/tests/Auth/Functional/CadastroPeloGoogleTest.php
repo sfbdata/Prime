@@ -24,7 +24,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 /**
  * "Criar conta" conectado pelo Google (spec entrar-com-google, entrega 2; desenho 10 VS 24.10.26): a identidade vem
  * da sessão gravada na volta do Google, a conta nasce confirmada e ligada ao `sub`, sem link de confirmação, e entra
- * pelo véu. O botão do Facebook saiu até o app existir (decisão do dono de 24/10; ponto de ligação na spec).
+ * pelo véu. O botão do Facebook não é ausência travada: some só sem a credencial da Meta (no teste, sem `FACEBOOK_*`).
  */
 #[CoversClass(CadastroPeloGoogleController::class)]
 #[CoversClass(CadastroPeloGoogle::class)]
@@ -32,7 +32,7 @@ final class CadastroPeloGoogleTest extends JusPrimeWebTestCase
 {
     private GoogleLoginFalso $google;
 
-    #[TestDox('Com o Google ligado: Continuar com Google e "ou com outro e-mail" acima do Nome, como no desenho; sem o Facebook')]
+    #[TestDox('Com o Google ligado: Continuar com Google e "ou com outro e-mail" acima do Nome, como no desenho; o Facebook some sem a credencial da Meta')]
     public function testBotoesNoCadastro(): void
     {
         $client = $this->cliente();
@@ -48,11 +48,10 @@ final class CadastroPeloGoogleTest extends JusPrimeWebTestCase
         self::assertSame('ou com outro e-mail', $crawler->filter('#lgCdSoc .lg-soc__ou')->text());
         self::assertCount(1, $crawler->filter('#lgCdEmailCampo:not([hidden]) > #lgCdEmail'));
         self::assertSame('Ex.: BlueJus Advogados Associados', $crawler->filter('#lgCdEsc')->attr('placeholder'));
-        self::assertCount(0, $crawler->filter('#lgCdFacebook'));
-        self::assertStringNotContainsStringIgnoringCase('facebook', (string) $client->getResponse()->getContent());
+        self::assertCount(0, $crawler->filter('#lgCdFacebook, a[href^="/login/facebook"]'), 'sem FACEBOOK_APP_ID e FACEBOOK_APP_SECRET o botão não existe');
     }
 
-    #[TestDox('Sem o cliente OAuth do Google: o Continuar com Google sai do Criar conta (nenhum botão que não funciona), e nada do Facebook')]
+    #[TestDox('Sem o cliente OAuth do Google: o Continuar com Google sai do Criar conta (nenhum botão que não funciona); o Facebook segue a própria credencial')]
     public function testSemGoogleSemBotao(): void
     {
         $client = $this->cliente(new GoogleLoginApi(new MockHttpClient()));
@@ -64,7 +63,7 @@ final class CadastroPeloGoogleTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter($passo . ' > .lg-md__texto + #lgCdSocOk.lg-socok[hidden] + label.lg-md__rotulo > #lgCdNome'));
         self::assertCount(1, $crawler->filter('#lgCdEmailCampo:not([hidden]) > #lgCdEmail'));
         self::assertStringNotContainsString('Continuar com Google', (string) $client->getResponse()->getContent());
-        self::assertCount(0, $crawler->filter('#lgCdFacebook'));
+        self::assertCount(0, $crawler->filter('#lgCdFacebook'), 'o Facebook sem credencial também some');
         self::assertNull($crawler->filter('#lgRaiz')->attr('data-aviso-cadastro'), 'o aviso só vem depois do clique');
     }
 

@@ -48,13 +48,14 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
         \DateTimeImmutable $agora,
         AceiteTermo $aceite,
         CienciaPolitica $ciencia,
+        bool $manterFacebook = false,
     ): bool {
         $em = $this->getEntityManager();
 
         return $em->getConnection()->transactional(
-            static function (Connection $conexao) use ($em, $confirmacao, $hashDaSenha, $agora, $aceite, $ciencia): bool {
+            static function (Connection $conexao) use ($em, $confirmacao, $hashDaSenha, $agora, $aceite, $ciencia, $manterFacebook): bool {
                 $ganhou = $conexao->executeStatement(
-                    'UPDATE "user" SET password = :senha, email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
+                    'UPDATE "user" SET password = :senha, email_a_confirmar_desde = NULL' . ($manterFacebook ? '' : ', facebook_id = NULL') . ' WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
                     ['id' => $confirmacao->getUser()->getId(), 'senha' => $hashDaSenha],
                 ) === 1;
                 if ($ganhou) {
@@ -115,7 +116,7 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
     public function confirmarEmailDaConta(User $user): bool
     {
         return $this->getEntityManager()->getConnection()->executeStatement(
-            'UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
+            'UPDATE "user" SET email_a_confirmar_desde = NULL, facebook_id = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
             ['id' => $user->getId()],
         ) === 1;
     }

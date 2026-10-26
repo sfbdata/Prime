@@ -18,11 +18,12 @@ security:
             lazy: true
             provider: app_user_provider
             user_checker: App\Security\UserChecker
-            # Senha (formulário) e "Entrar com o Google" (spec entrar-com-google). O Google estende
+            # Senha (formulário), "Entrar com o Google" (spec entrar-com-google) e "Continuar com Facebook". Os dois estendem
             # AbstractAuthenticator puro: só o formulário é ponto de entrada.
             custom_authenticators:
                 - App\Security\UserAuthenticator
                 - App\Security\GoogleAuthenticator
+                - App\Security\FacebookAuthenticator
             entry_point: App\Security\UserAuthenticator
             login_throttling:
                 max_attempts: 5

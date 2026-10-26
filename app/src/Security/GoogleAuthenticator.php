@@ -7,6 +7,7 @@ namespace App\Security;
 use App\Auth\DTO\IdentidadeDoGoogle;
 use App\Auth\Exception\EntradaPeloGoogleRecusadaException;
 use App\Auth\Infra\GoogleLoginApi;
+use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ContaDoGoogle;
 use App\Auth\UseCase\LigarContaAoGoogleUseCase;
@@ -140,6 +141,8 @@ final class GoogleAuthenticator extends AbstractAuthenticator
             throw new CustomUserMessageAuthenticationException(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_CADASTRO);
         }
         $this->cadastroPeloGoogle->guardar($request->getSession(), $identidade);
+        // Só um provedor espera o cadastro por vez: a identidade pendente do Facebook sai.
+        CadastroPeloFacebook::esquecer($request->getSession());
 
         throw new CustomUserMessageAuthenticationException(self::IR_AO_CADASTRO);
     }

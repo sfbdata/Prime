@@ -336,6 +336,64 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         self::assertInstanceOf(EmailDaContaConfirmado::class, $this->despachados[1], 'a conta nasce confirmada');
     }
 
+    #[TestDox('Pelo Facebook: é o cadastro por e-mail (NÃO confirmada, com link e e-mail, e-mail do corpo) e só acrescenta o facebook_id')]
+    public function testCriaComFacebookId(): void
+    {
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->userRepository->method('findOneBy')->with(['facebookId' => 'fb-9'])->willReturn(null);
+        $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
+        $this->confirmacaoRepository->expects($this->once())->method('salvar');
+
+        $conta = $this->useCase()->executar(self::input(email: 'Digitado@Adv.com'), '10.0.0.1', null, 'fb-9');
+
+        self::assertSame('digitado@adv.com', $conta->user->getEmail());
+        self::assertSame('fb-9', $conta->user->getFacebookId());
+        self::assertFalse($conta->user->isEmailConfirmado(), 'o Facebook não prova e-mail');
+        self::assertNull($conta->user->getGoogleSub());
+        self::assertCount(1, $this->enviados);
+        self::assertCount(1, $this->despachados, 'ContaCriadaPeloCadastro uma vez só, e nenhum EmailDaContaConfirmado');
+        self::assertInstanceOf(ContaCriadaPeloCadastro::class, $this->despachados[0]);
+    }
+
+    #[TestDox('Sem facebookId o cadastro por e-mail segue igual: nenhuma conta ligada ao Facebook')]
+    public function testSemFacebookIdNaoLiga(): void
+    {
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->userRepository->expects($this->never())->method('findOneBy');
+        $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
+
+        $conta = $this->useCase()->executar(self::input(), '10.0.0.1', null);
+
+        self::assertNull($conta->user->getFacebookId());
+    }
+
+    #[TestDox('Pelo Facebook: e-mail que já tem conta devolve null e não liga o facebook_id à conta existente')]
+    public function testFacebookComEmailExistenteNaoLiga(): void
+    {
+        $dona = (new User())->setEmail('ana@adv.com')->setFullName('Ana Dona');
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([$dona]);
+        $this->em->expects($this->never())->method('wrapInTransaction');
+
+        self::assertNull($this->useCase()->executar(self::input(email: 'ana@adv.com'), '10.0.0.1', null, 'fb-9'));
+
+        self::assertNull($dona->getFacebookId());
+    }
+
+    #[TestDox('Pelo Facebook: facebook_id já ligado a outra conta devolve null (resposta neutra) e não cria nada')]
+    public function testFacebookIdJaUsado(): void
+    {
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->userRepository->method('findOneBy')->willReturn((new User())->setEmail('outra@adv.com'));
+        $this->em->expects($this->never())->method('wrapInTransaction');
+
+        self::assertNull($this->useCase()->executar(self::input(), '10.0.0.1', null, 'fb-9'));
+
+        self::assertSame([], $this->enviados);
+        self::assertSame([], $this->despachados);
+    }
+
     #[TestDox('Pelo Google: e-mail sem garantia (nem Gmail nem Workspace) recusa e não grava, mesmo que chegue à sessão')]
     public function testPeloGoogleSemGarantia(): void
     {

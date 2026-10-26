@@ -24,6 +24,7 @@ use App\Termo\TermoVigente;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -124,6 +125,28 @@ final class CriarSenhaPeloLinkUseCaseTest extends TestCase
         self::assertEquals(new \DateTimeImmutable(self::AGORA), $confirmacao->getUsadoEm());
         self::assertCount(1, $this->despachados);
         self::assertSame(42, $this->despachados[0]->userId);
+    }
+
+    #[TestDox('Pré-sequestro: o facebook_id só sobrevive à confirmação com $manterFacebook verdadeiro; o padrão apaga')]
+    #[TestWith([true, 'fb-1'])]
+    #[TestWith([false, null])]
+    public function testFacebookIdSoSobreviveSeOControllerMandar(bool $manter, ?string $esperado): void
+    {
+        $confirmacao = $this->confirmacao();
+        $confirmacao->getUser()->ligarAoFacebook('fb-1');
+        $this->repository->method('encontrarPorToken')->willReturn($confirmacao);
+        $repassado = null;
+        $this->repository->method('criarSenhaEConfirmarComLink')
+            ->willReturnCallback(static function (ConfirmacaoEmail $c, string $h, \DateTimeImmutable $a, AceiteTermo $ac, CienciaPolitica $ci, bool $m = false) use (&$repassado): bool {
+                $repassado = $m;
+
+                return true;
+            });
+
+        $this->useCase()->executar(self::input(), $manter);
+
+        self::assertSame($manter, $repassado, 'o repositório recebe o mesmo valor (ele decide o UPDATE)');
+        self::assertSame($esperado, $confirmacao->getUser()->getFacebookId());
     }
 
     #[TestDox('Com a caixa marcada: o aceite dos Termos e a ciência da Política vão na mesma chamada que grava a senha (origem link, versão vigente, IP, user agent, escritório do dono)')]

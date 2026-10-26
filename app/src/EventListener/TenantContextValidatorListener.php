@@ -33,6 +33,9 @@ final class TenantContextValidatorListener
         // Entrar com o Google: a ida e a volta acontecem antes de haver escritório ou aceite.
         'app_login_google',
         'app_login_google_volta',
+        // Continuar com Facebook (PR B): a ida e a volta também acontecem antes de haver escritório ou aceite.
+        'app_login_facebook',
+        'app_login_facebook_volta',
         'app_logout',
         'tenant_selecionar',
         // Criar escritório não exige tenant ativo — quem tem 0 escritórios precisa

@@ -188,10 +188,14 @@
     $('lgCdAceite').addEventListener('change', () => mdErroTexto(''));
     $('lgCdGenero').addEventListener('change', () => mdErroTexto(''));
 
-    /* Criar conta conectado pelo Google (desenho 10 VS 24.10.26, spec entrar-com-google, entrega 2). A identidade
-       mora na sessão do servidor; aqui só se troca a tela: o cartão da conta no lugar dos botões e sem o E-mail. */
+    /* Criar conta conectado pelo Google (desenho 10 VS 24.10.26, spec entrar-com-google, entrega 2) ou pelo Facebook
+       (spec login-cupom-e-facebook, PR B). A identidade mora na sessão do servidor; aqui só se troca a tela: o cartão da
+       conta no lugar dos botões. Pelo Google o E-mail some (o Google o provou); pelo Facebook o campo continua visível,
+       porque o Facebook não prova e-mail e o que vale é o digitado. */
     const socOk = $('lgCdSocOk');
     const conectado = () => !socOk.hidden;
+    const provedor = () => (socOk.dataset.provedor === 'facebook' ? 'facebook' : 'google');
+    const peloGoogleConectado = () => conectado() && provedor() === 'google';
     const iniciais = (n) => String(n || '?').trim().split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
     $('lgCdSocIni').textContent = iniciais($('lgCdSocNome').textContent);
     const desconectar = () => {
@@ -202,13 +206,14 @@
         mdErroTexto('');
     };
     $('lgCdSocTrocar').addEventListener('click', () => {
-        postar('/cadastro/google/esquecer', { _token: tokens.cadastro });
+        postar('/cadastro/' + provedor() + '/esquecer', { _token: tokens.cadastro });
         desconectar();
         $('lgCdEmail').focus();
     });
 
     /* Cupom de indicação (desenho 10 VS 25.10.26). Desligar a chave apaga o campo. Validado só no servidor, ao enviar
-       (spec login-cupom-e-facebook, D5). O sessionStorage só leva o cupom na ida e volta do "Continuar com Google". */
+       (spec login-cupom-e-facebook, D5). O sessionStorage só leva o cupom na ida e volta do "Continuar com Google" ou
+       "Continuar com Facebook". */
     const CUPOM_GUARDADO = 'bj-cupom';
     const DESLIGADO = '-';
     const indTg = $('lgCdIndTg');
@@ -229,19 +234,19 @@
     ind.addEventListener('input', () => {
         ind.value = ind.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 11);
     });
-    const cdGoogle = $('lgCdGoogle');
-    if (cdGoogle) {
-        cdGoogle.addEventListener('click', () => {
+    [$('lgCdGoogle'), $('lgCdFacebook')].forEach((botao) => {
+        if (!botao) { return; }
+        botao.addEventListener('click', () => {
             // DESLIGADO marca o cupom da URL que a pessoa desligou: sem ele, a volta perde o "desliguei" e o link curto vale de novo.
             try {
                 if (cupomLigado() && ind.value) { sessionStorage.setItem(CUPOM_GUARDADO, ind.value); } else if (cupomDaUrl) { sessionStorage.setItem(CUPOM_GUARDADO, DESLIGADO); }
             } catch (e) { /* sem storage, segue */ }
         });
-    }
+    });
     /* O "indicacao" só vai quando há cupom ligado, ou quando a pessoa desligou o cupom que veio na URL: assim quem chegou
        pelo link curto e cria a conta em outra aba não perde a indicação da sessão. */
     const cupomDaUrl = raiz.dataset.ind || '';
-    let cupomVoltaDoGoogle = '';
+    let cupomVoltaDoGoogle = ''; /* vale também para a volta do Facebook */
     try {
         cupomVoltaDoGoogle = !$('lgCdSocOk').hidden ? (sessionStorage.getItem(CUPOM_GUARDADO) || '') : '';
         sessionStorage.removeItem(CUPOM_GUARDADO);
@@ -329,7 +334,7 @@
     const validarCadastro = () => {
         if ($('lgCdNome').value.trim().split(/\s+/).length < 2) { return window.BJ_T.t('entrada.js.informe_nome'); }
         if (!$('lgCdEsc').value.trim()) { return window.BJ_T.t('entrada.js.informe_escritorio'); }
-        if (!conectado() && !REGEX_EMAIL.test($('lgCdEmail').value.trim())) { return window.BJ_T.t('entrada.js.email_invalido'); }
+        if (!peloGoogleConectado() && !REGEX_EMAIL.test($('lgCdEmail').value.trim())) { return window.BJ_T.t('entrada.js.email_invalido'); }
         if (!['feminino', 'masculino'].includes($('lgCdGenero').value)) { return window.BJ_T.t('entrada.js.informe_genero'); }
         if (!$('lgCdAceite').checked) { return window.BJ_T.t('entrada.js.aceite'); }
 
@@ -361,7 +366,8 @@
 
             return;
         }
-        const peloGoogle = conectado();
+        const peloGoogle = peloGoogleConectado();
+        const peloFacebook = conectado() && provedor() === 'facebook';
         const em = peloGoogle ? (socOk.dataset.email || '') : $('lgCdEmail').value.trim();
         const campos = {
             nome: $('lgCdNome').value.trim(),
@@ -371,16 +377,19 @@
             _token: tokens.cadastro,
         };
         if (cupomLigado()) { campos.indicacao = ind.value.trim(); } else if (cupomDaUrl || desligouAntesDoGoogle) { campos.indicacao = ''; }
-        /* Pelo Google o e-mail não vai: o servidor usa o que o Google provou, guardado na sessão. */
-        const r = peloGoogle ? await postar('/cadastro/google/criar', campos) : await postar('/cadastro/criar', { ...campos, email: em });
+        /* Pelo Google o e-mail não vai: o servidor usa o que o Google provou, guardado na sessão. Pelo Facebook vai o do
+           campo (o Facebook só sugere); o `id` do Facebook o servidor lê da sessão. */
+        const destinoDoPost = peloGoogle ? '/cadastro/google/criar' : (peloFacebook ? '/cadastro/facebook/criar' : '/cadastro/criar');
+        const r = peloGoogle ? await postar(destinoDoPost, campos) : await postar(destinoDoPost, { ...campos, email: em });
         if (r.status !== 200) {
-            if (r.dados && r.dados.googleExpirou === true) { desconectar(); }
+            if (r.dados && (r.dados.googleExpirou === true || r.dados.facebookExpirou === true)) { desconectar(); }
             mdErroTexto(mensagemDeErro(r));
 
             return;
         }
         email.value = em;
         if (r.dados.confirmar === true) {
+            if (peloFacebook) { desconectar(); }
             mostrarConfirmacao(typeof r.dados.email === 'string' && r.dados.email !== '' ? r.dados.email : em);
 
             return;
