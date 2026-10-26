@@ -139,6 +139,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/master/dados/mapa');
         self::assertResponseIsSuccessful();
         $mapa = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['env', 'ok', 'pago'], array_keys($mapa['indicacoes']));
         $nomes = array_merge(
             ...array_map('array_keys', array_values($mapa['pessoas']['geral']['C'])),
             ...array_map('array_keys', array_values($mapa['escritorios']['C'])),
