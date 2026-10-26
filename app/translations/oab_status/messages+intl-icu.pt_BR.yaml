@@ -1,0 +1,7 @@
+# ---- Templates da raiz: chip de OAB e layout do Peticionar (_oab_status, layout_peticionar). O cabeçalho do
+# Peticionar reaproveita moldura.notificacoes/cabecalho e menu.usuario.dropdown (mesmo rótulo, mesmo sentido).
+oab_status:
+    confirmada: Confirmada
+    divergente: Divergente
+    nao_verificada: Não verificada
+    sem_oab: Sem OAB

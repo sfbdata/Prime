@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Tests\Support\CatalogoPtBr;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Controller\PastaController;
@@ -16,7 +17,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\DomCrawler\Crawler;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * PAS-041: os itens do ⋮ da observação de Detalhes que o desenho tem e o sistema sabe fazer
@@ -219,7 +219,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('<i class="bi bi-check2-square"></i><span>${esc(BJ_T.t(\'pasta_detalhes.js.criar_meta\'))}</span>', $montador);
         self::assertMatchesRegularExpression('/<span>\$\{esc\(BJ_T\.t\(\'pasta_detalhes\.js\.editar_min\', \{ minutos: \d+ \}\)\)\}<\/span>/', $montador);
         self::assertMatchesRegularExpression('/<span>\$\{esc\(BJ_T\.t\(\'pasta_detalhes\.js\.excluir_min\', \{ minutos: \d+ \}\)\)\}<\/span>/', $montador);
-        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
         self::assertSame('Criar meta a partir deste registro', $catalogo['criar_meta']);
         self::assertSame('Editar · {minutos} min', $catalogo['editar_min']);
         self::assertSame('Excluir comentário · {minutos} min', $catalogo['excluir_min']);
@@ -272,7 +272,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("getElementById('detalhesObsLista')", $fn);
         self::assertStringContainsString("BJ_T.t('pasta_detalhes.js.chat_texto', { pasta: nup, cabecalho: cab })", $fn);
         self::assertStringContainsString("aviso(BJ_T.t('pasta_detalhes.js.chat_copiado'))", $fn);
-        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
         self::assertSame('Pasta {pasta} · {cabecalho}', $catalogo['chat_texto']);
         self::assertSame('Chat I.A aberto. Texto copiado para colar na conversa', $catalogo['chat_copiado']);
 

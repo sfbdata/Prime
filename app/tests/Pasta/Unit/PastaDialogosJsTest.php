@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Teste de FOLHA do `public/js/pasta-dialogos.js` (lote L6): lê o JS, sem navegador. Trava o
@@ -80,7 +80,7 @@ final class PastaDialogosJsTest extends TestCase
         self::assertStringContainsString("input.value = iso;\n            input.dispatchEvent(new Event('change', { bubbles: true }));", $f);
         self::assertStringContainsString('b.disabled = passado;', $f);
         self::assertStringContainsString("passado ? BJ_T.t('comum.js.dialogos.dia_indisponivel', { dia: rotuloDia }) : rotuloDia", $f);
-        self::assertSame('{dia}, indisponível', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos']['dia_indisponivel']);
+        self::assertSame('{dia}, indisponível', CatalogoPtBr::carregar()['comum']['js']['dialogos']['dia_indisponivel']);
         self::assertStringContainsString("escolher(isoDe(hoje()))", $f, 'Hoje');
         self::assertStringContainsString("escolher('')", $f, 'Limpar');
         self::assertStringContainsString("if (i === 35 && d.getMonth() !== base.getMonth()) { break; }", $f, 'a grade de 5 ou 6 semanas do desenho');
@@ -110,7 +110,7 @@ final class PastaDialogosJsTest extends TestCase
         $c = $this->funcao('confirmarPs');
         self::assertStringContainsString("Promise.resolve(window.confirm(", $c, 'sem a marcação, a pergunta continua sendo feita');
         self::assertStringContainsString("o.rotulo || (azul ? BJ_T.t('comum.js.dialogos.confirmar') : BJ_T.t('comum.js.dialogos.excluir'))", $c, 'sem rótulo: "Excluir" no perigo (o padrão de antes), "Confirmar" no azul');
-        $cat = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        $cat = CatalogoPtBr::carregar()['comum']['js']['dialogos'];
         self::assertSame(['Confirmar', 'Excluir'], [$cat['confirmar'], $cat['excluir']]);
         self::assertStringContainsString(".textContent = o.texto || ''", $c, 'o trecho entra como TEXTO');
     }
