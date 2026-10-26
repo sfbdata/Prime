@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace App\Contribua\Service;
 
 use App\Contribua\DTO\RetratoDoEspaco;
+use App\Contribua\Entity\BonusDeEspaco;
 use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Enum\FaixaDoEspaco;
 use App\Contribua\Enum\OrigemDoLimite;
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\PlanoRepository;
+use Psr\Clock\ClockInterface;
 
 /**
  * Monta o retrato do espaço de um escritório: uso medido, limite efetivo, faixa e plano.
@@ -28,6 +31,8 @@ final class SituacaoDoEspaco
         private readonly EspacoDoEscritorioRepository $espacos,
         private readonly PlanoRepository $planos,
         private readonly ConfiguracaoDoEspacoRepository $configuracoes,
+        private readonly BonusDeEspacoRepository $bonus,
+        private readonly ClockInterface $relogio,
     ) {
     }
 
@@ -41,11 +46,13 @@ final class SituacaoDoEspaco
     {
         $espaco = $this->espacos->doTenant($tenantId);
 
-        return self::montar($tenantId, $bytesUsados, $espaco, $espaco?->getPlano() ?? $this->planos->free(), $this->configuracoes->atual());
+        $bonus = $this->bonus->vigentesDosTenants([$tenantId], \DateTimeImmutable::createFromInterface($this->relogio->now()))[$tenantId] ?? [];
+
+        return self::montar($tenantId, $bytesUsados, $espaco, $espaco?->getPlano() ?? $this->planos->free(), $this->configuracoes->atual(), $bonus);
     }
 
     /**
-     * Vários escritórios de uma vez (painel do Master, b5): uma consulta para os espaços, o Free e a
+     * Vários escritórios de uma vez (painel do Master, b5): uma consulta para os espaços e outra para os bônus vigentes, o Free e a
      * configuração lidos uma vez só, em vez de N a 2N consultas.
      *
      * @param array<int, int> $bytesPorTenant id do escritório → bytes usados
@@ -60,19 +67,25 @@ final class SituacaoDoEspaco
         $espacos = $this->espacos->dosTenants(array_keys($bytesPorTenant));
         $free = null;
         $configuracao = $this->configuracoes->atual();
+        $bonus = $this->bonus->vigentesDosTenants(array_keys($bytesPorTenant), \DateTimeImmutable::createFromInterface($this->relogio->now()));
         $retratos = [];
         foreach ($bytesPorTenant as $tenantId => $bytes) {
             $espaco = $espacos[$tenantId] ?? null;
             $plano = $espaco?->getPlano() ?? ($free ??= $this->planos->free());
-            $retratos[$tenantId] = self::montar($tenantId, $bytes, $espaco, $plano, $configuracao);
+            $retratos[$tenantId] = self::montar($tenantId, $bytes, $espaco, $plano, $configuracao, $bonus[$tenantId] ?? []);
         }
 
         return $retratos;
     }
 
-    private static function montar(int $tenantId, int $bytesUsados, ?EspacoDoEscritorio $espaco, Plano $plano, ConfiguracaoDoEspaco $configuracao): RetratoDoEspaco
+    /** @param list<BonusDeEspaco> $bonus os vigentes do escritório */
+    private static function montar(int $tenantId, int $bytesUsados, ?EspacoDoEscritorio $espaco, Plano $plano, ConfiguracaoDoEspaco $configuracao, array $bonus = []): RetratoDoEspaco
     {
         [$bytesLimite, $origem] = self::limiteEmBytes($espaco, $plano);
+        // Sem limite ignora o bônus; com limite, o bônus vigente soma ao limite resolvido (plano ou Master).
+        $bytesBonus = $bytesLimite === null ? 0 : array_sum(array_map(static fn (BonusDeEspaco $b): int => $b->getGigabytes() * RetratoDoEspaco::BYTES_POR_GB, $bonus));
+        $bonus = $bytesBonus > 0 ? $bonus : [];
+        $bytesLimite = $bytesLimite === null ? null : $bytesLimite + $bytesBonus;
         $percentual = $bytesLimite === null ? null : (int) round($bytesUsados / $bytesLimite * 100);
         [$limiteUsuarios, $origemDoLimiteDeUsuarios] = self::limiteDeUsuarios($espaco, $plano);
         $bytesBloqueio = $bytesLimite === null ? null : intdiv($bytesLimite * $configuracao->getFaixaBloqueio(), 100);
@@ -90,6 +103,9 @@ final class SituacaoDoEspaco
             $origemDoLimiteDeUsuarios,
             $configuracao->isBloqueioAtivo(),
             $bytesBloqueio,
+            $bytesBonus,
+            $bonus === [] ? null : max(array_map(static fn (BonusDeEspaco $b): \DateTimeImmutable => $b->getExpiraEm(), $bonus)),
+            $bonus === [] ? null : $bonus[0]->getOrigem(),
         );
     }
 

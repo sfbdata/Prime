@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Auth\Functional;
 
+use App\Contribua\Entity\BonusDeEspaco;
 use App\Controller\SecurityController;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -90,19 +91,22 @@ final class LoginCupomTelaTest extends JusPrimeWebTestCase
         self::assertSame('', trim($status->text()));
         self::assertNotNull($status->attr('hidden'));
         self::assertSame('/cadastro/cupom/conferir', $status->attr('data-url'));
-        self::assertSame('Cupom válido', $status->attr('data-valido'));
+        self::assertSame(
+            sprintf('Cupom válido · você ganha %d GB extras no 1º mês', BonusDeEspaco::GIGABYTES_DA_INDICACAO),
+            $status->attr('data-valido'),
+            'o valor prometido vem da constante do bônus concedido',
+        );
         self::assertSame('Cupom não encontrado. Confira com quem te indicou.', $status->attr('data-nao-encontrado'));
     }
 
-    #[TestDox('sem o "5 GB extras" nem o nome de quem indicou (decisões do dono)')]
-    public function testSemOsTextosQueAguardamODono(): void
+    #[TestDox('sem o nome de quem indicou (decisão do dono); o bônus de 5 GB é o real e vem da constante')]
+    public function testSemONomeDeQuemIndicou(): void
     {
         $client = static::createClient();
 
         $client->request('GET', '/login?abrir=cadastro&ind=QWER2345');
 
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringNotContainsString('5 GB', $html);
         self::assertStringNotContainsString('indicado por', $html);
     }
 }

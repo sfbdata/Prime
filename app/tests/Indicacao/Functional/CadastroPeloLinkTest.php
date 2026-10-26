@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Indicacao\Functional;
 
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Entity\Auth\User;
 use App\Auth\Event\ContaCriadaPeloCadastro;
+use App\Auth\Event\EmailDaContaConfirmado;
 use App\Indicacao\Controller\IndicacaoController;
 use App\Indicacao\Entity\IndicacaoConfig;
 use App\Indicacao\Entity\IndicacaoPausa;
+use App\Indicacao\EventListener\BonusDeEspacoPorIndicacaoListener;
 use App\Indicacao\EventListener\CadastroPeloLinkListener;
 use App\Indicacao\Repository\IndicacaoCodigoRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
@@ -32,6 +35,7 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
  * (spec indicar-bluejus.md, comportamento 7). DAMA desfaz no fim de cada teste.
  */
 #[CoversClass(CadastroPeloLinkListener::class)]
+#[CoversClass(BonusDeEspacoPorIndicacaoListener::class)]
 #[CoversClass(AtribuirCadastroPeloLinkUseCase::class)]
 #[CoversClass(IndicacaoRepository::class)]
 final class CadastroPeloLinkTest extends JusPrimeWebTestCase
@@ -325,5 +329,93 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/cadastro?ind[]=QWER2345');
 
         self::assertResponseRedirects('/login?abrir=cadastro');
+    }
+
+    /** @return list<array<string, mixed>> os bônus de espaço do escritório da conta */
+    private function bonusDe(int $contaId): array
+    {
+        return $this->conexao->fetchAllAssociative(
+            'SELECT b.* FROM contribua_bonus_de_espaco b JOIN user_tenant ut ON ut.tenant_id = b.tenant_id WHERE ut.user_id = ?',
+            [$contaId],
+        );
+    }
+
+    private function confirmarEmail(int $contaId): void
+    {
+        $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$contaId]);
+        // O SQL direto passa por fora do EntityManager: sem limpar, ele devolveria a conta ainda não confirmada.
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new EmailDaContaConfirmado($contaId));
+    }
+
+    #[TestDox('Bônus: cupom + cadastro por e-mail não concede; ao confirmar o e-mail concede 5 GB por 30 dias ao escritório da conta nova, uma vez só')]
+    public function testBonusSoDepoisDeConfirmarOEmail(): void
+    {
+        $nova = $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
+        self::assertSame([], $this->bonusDe($nova), 'sem confirmar o e-mail não há bônus');
+
+        $this->confirmarEmail($nova);
+        $this->confirmarEmail($nova);
+
+        $bonus = $this->bonusDe($nova);
+        self::assertCount(1, $bonus, 'repetir o evento não duplica');
+        self::assertSame(5, (int) $bonus[0]['gigabytes']);
+        self::assertSame('indicacao', $bonus[0]['origem']);
+        $dias = (new \DateTimeImmutable($bonus[0]['concedido_em']))->diff(new \DateTimeImmutable($bonus[0]['expira_em']))->days;
+        self::assertSame(30, $dias);
+        self::assertSame((int) $this->atribuicoesDe($nova)[0]['id'], (int) $bonus[0]['indicacao_id']);
+        self::assertSame([], $this->bonusDe((int) $this->ana->getId()), 'quem indicou não ganha');
+    }
+
+    #[TestDox('Bônus: conta que já nasce confirmada (Google) ganha logo no evento do cadastro, e o evento de confirmação depois não duplica')]
+    public function testBonusNaContaQueNasceConfirmada(): void
+    {
+        $nova = $this->cadastrar();
+        $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$nova]);
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        $tenantId = (int) $this->conexao->fetchOne('SELECT tenant_id FROM user_tenant WHERE user_id = ?', [$nova]);
+        $sessao = new Session(new MockArraySessionStorage());
+        $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, self::CODIGO);
+        $request = new Request();
+        $request->setSession($sessao);
+        $pilha = static::getContainer()->get(RequestStack::class);
+        $pilha->push($request);
+
+        try {
+            static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new ContaCriadaPeloCadastro($nova, $tenantId));
+        } finally {
+            $pilha->pop();
+        }
+        static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new EmailDaContaConfirmado($nova));
+
+        $bonus = $this->bonusDe($nova);
+        self::assertCount(1, $bonus);
+        self::assertSame($tenantId, (int) $bonus[0]['tenant_id']);
+    }
+
+    #[TestDox('Bônus: sem cupom, ou com cupom inválido, a confirmação do e-mail não concede nada')]
+    public function testSemCupomOuCupomInvalidoNaoConcede(): void
+    {
+        $semCupom = $this->cadastrar();
+        $invalido = $this->cadastrar(['indicacao' => 'BJ-NAOEXIST']);
+
+        $this->confirmarEmail($semCupom);
+        $this->confirmarEmail($invalido);
+
+        self::assertSame([], $this->bonusDe($semCupom));
+        self::assertSame([], $this->bonusDe($invalido));
+    }
+
+    #[TestDox('Bônus: falha ao conceder vira log e não derruba a confirmação do e-mail')]
+    public function testFalhaNoBonusNaoDerrubaAConfirmacao(): void
+    {
+        $quebrado = $this->createStub(BonusDeEspacoRepository::class);
+        $quebrado->method('emTransacaoTravada')->willThrowException(new \RuntimeException('banco fora do ar'));
+        static::getContainer()->set(BonusDeEspacoRepository::class, $quebrado);
+        $nova = $this->cadastrar(['indicacao' => self::CODIGO]);
+
+        $this->confirmarEmail($nova);
+
+        self::assertSame([], $this->bonusDe($nova));
     }
 }
