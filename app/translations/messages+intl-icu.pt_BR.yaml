@@ -6936,8 +6936,20 @@ djen:
         pausada: Pausada
         pausar: Pausar
         reativar: Reativar
-        remover_confirmar: Remover esta OAB do monitoramento?
-        vazio: Nenhuma OAB monitorada ainda. Adicione uma acima para captar as publicações.
+        remover_confirmar: 'Parar de monitorar a OAB {oab}? As publicações já recebidas continuam.'
+        vazio: Nenhuma OAB monitorada.
+        adicionar_dica: o sistema busca diariamente as publicações em nome desta inscrição
+        numero_da_oab: NÚMERO DA OAB
+        uf: UF
+        apelido_maiusculo: APELIDO
+        opcional: (opcional)
+        oab_maiusculo: OAB
+        status_maiusculo: STATUS
+        publicacoes_maiusculo: PUBLICAÇÕES
+        desde_maiusculo: DESDE
+        retomar: Retomar
+        remover: Remover
+        sem_apelido: Sem apelido
     show:
         titulo_pagina: 'Push Processual | Publicação'
         titulo: 'Push Processual: Publicação'

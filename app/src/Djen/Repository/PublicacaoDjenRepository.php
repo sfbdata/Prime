@@ -166,6 +166,30 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Quantas publicações cada OAB monitorada captou (coluna Publicações da aba OABs monitoradas).
+     *
+     * @return array<int, int> id da OAB monitorada => total
+     */
+    public function contarPorOabMonitoradaDoTenant(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.oabMonitorada) AS oabId', 'COUNT(p.id) AS total')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.oabMonitorada IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('p.oabMonitorada')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porOab = [];
+        foreach ($linhas as $linha) {
+            $porOab[(int) $linha['oabId']] = (int) $linha['total'];
+        }
+
+        return $porOab;
+    }
+
+    /**
      * Siglas de tribunal presentes nas publicações do escritório (opções da faceta).
      *
      * @return string[]
