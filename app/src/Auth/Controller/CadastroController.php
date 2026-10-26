@@ -13,6 +13,7 @@ use App\Auth\Service\PaginaDeEntrada;
 use App\Auth\UseCase\ConfirmarCadastroUseCase;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
 use App\Auth\UseCase\CriarSenhaPeloLinkUseCase;
+use App\Indicacao\Service\CodigoDeIndicacao;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -46,13 +47,15 @@ final class CadastroController extends AbstractController
     ) {}
 
     #[Route('/cadastro', name: 'auth_cadastro', methods: ['GET'])]
-    public function cadastrar(): Response
+    public function cadastrar(Request $request): Response
     {
         if ($this->getUser() !== null) {
             return $this->redirectToRoute('tenant_selecionar');
         }
+        // O cupom do link curto segue para o "Criar conta" (desenho 10 VS 25.10.26); `all()` para `?ind[]=` não lançar.
+        $cupom = CodigoDeIndicacao::doCupom($request->query->all()['ind'] ?? null);
 
-        return $this->redirectToRoute('app_login', ['abrir' => 'cadastro']);
+        return $this->redirectToRoute('app_login', ['abrir' => 'cadastro'] + ($cupom !== null ? ['ind' => $cupom] : []));
     }
 
     #[Route('/cadastro/criar', name: 'auth_cadastro_criar', methods: ['POST'])]

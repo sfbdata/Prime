@@ -6766,6 +6766,8 @@ entrada:
         li_e_aceito_os: Li e aceito os
         e_a: e a
         ja_tem_conta: Já tem conta?
+        cupom: Tenho um cupom de indicação
+        cupom_exemplo: BJ-XXXXXX
     abrindo: Abrindo o seu escritório digital…
     suporte:
         falar: Falar com suporte
