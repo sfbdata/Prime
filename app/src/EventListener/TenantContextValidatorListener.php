@@ -36,6 +36,8 @@ final class TenantContextValidatorListener
         // Continuar com Facebook (PR B): a ida e a volta também acontecem antes de haver escritório ou aceite.
         'app_login_facebook',
         'app_login_facebook_volta',
+        // Conferência ao vivo do cupom do Criar conta (spec login-cupom-ao-vivo): pública, vale a anônimo e a logado sem escritório.
+        'auth_cadastro_cupom_conferir',
         'app_logout',
         'tenant_selecionar',
         // Criar escritório não exige tenant ativo — quem tem 0 escritórios precisa
