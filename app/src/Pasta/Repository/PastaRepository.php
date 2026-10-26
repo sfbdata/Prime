@@ -981,18 +981,16 @@ class PastaRepository extends ServiceEntityRepository
         // compartilhado com a coluna (PastaFinalizadaNoPeriodo). Sem o filtro, nada muda.
         if (($filters['concluida'] ?? '') === '1') {
             PastaFinalizadaNoPeriodo::aplicar($qb, 'p', $dataDe, $dataAte);
+        } else {
+            if ($dataDe !== null) {
+                $qb->andWhere('p.dataAbertura >= :dataDe')
+                   ->setParameter('dataDe', $dataDe);
+            }
 
-            return;
-        }
-
-        if ($dataDe !== null) {
-            $qb->andWhere('p.dataAbertura >= :dataDe')
-               ->setParameter('dataDe', $dataDe);
-        }
-
-        if ($dataAte !== null) {
-            $qb->andWhere('p.dataAbertura <= :dataAte')
-               ->setParameter('dataAte', $dataAte);
+            if ($dataAte !== null) {
+                $qb->andWhere('p.dataAbertura <= :dataAte')
+                   ->setParameter('dataAte', $dataAte);
+            }
         }
     }
 
