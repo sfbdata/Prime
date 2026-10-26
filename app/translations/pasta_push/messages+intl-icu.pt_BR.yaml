@@ -1,0 +1,304 @@
+# ---- Pasta, aba Push (pasta/_push_*, pasta-push*.js)
+pasta_push:
+    processual:
+        titulo: Movimentações recebidas
+        ver_no_modulo: ver no módulo
+        ia:
+            analisando: Analisando…
+            gerar_nova: Gerar nova análise
+            resumir: Resumir com IA
+            dica_primeira: A IA lê as movimentações e indica prazos e providências
+            dica_nao_analisadas: '{n} movimentação(ões) ainda não analisada(s)'
+            dica_nova: Nova análise considerando o histórico
+        filtros:
+            por_processo: Filtrar por processo
+            todos_dica: Movimentações de todos os processos da pasta
+            somente: 'Somente {numero}'
+            rotulo: Filtrar movimentações
+            todas: Todas
+            novas: Novas
+            prazo: Geram prazo
+        vazio:
+            sem_processo: Esta pasta não tem processo vinculado.
+            sem_processo_como: O Push Processual acompanha as publicações pelo número do processo.
+            vincule: Vincule um processo
+            vincule_resto: para que as publicações dele apareçam aqui.
+            sem_publicacao: Nenhuma publicação captada para este caso.
+            sem_publicacao_como: O sistema capta o que sai no DJEN para as OABs monitoradas do escritório.
+            sem_publicacao_oab: Se o processo não estiver sob uma OAB monitorada, nada chega aqui.
+            filtro: Nenhuma movimentação neste filtro.
+        # Pílula do dia do cartão ("5 out 2026"): a abreviação de cada mês.
+        meses:
+            jan: jan
+            fev: fev
+            mar: mar
+            abr: abr
+            mai: mai
+            jun: jun
+            jul: jul
+            ago: ago
+            set: set
+            out: out
+            nov: nov
+            dez: dez
+        cartao:
+            sem_data: Sem data
+            ponto_juizo: Ato do juízo (decisão, despacho, sentença, mandado)
+            ponto_cartorio: Cartório / servidor (certidão, diligência, intimação)
+            dica_nota: Clique com o botão direito para adicionar uma nota técnica
+            publicacao: Publicação
+            nao_lida: Não lida
+            novo: Novo
+            djen: DJEN
+            apensado: 'Apensado · {tipo} {numero}'
+        menu:
+            rotulo: Ações da movimentação
+            nota: Adicionar nota técnica
+            tarefa: Criar tarefa
+            encaminhar: Encaminhar via Chat I.A
+            marcar_lida: Marcar como lida
+            documento: Abrir documento
+            copiar: Copiar texto
+        teto:
+            exibindo: 'Exibindo as {total} publicações mais recentes deste caso.'
+            ver_todas: Ver todas no módulo
+    painel:
+        rotulo: Monitoramento do processo
+        switch: Monitoramento
+        switch_do_processo: 'Monitoramento do processo {numero}'
+        excluida: 'Pasta excluída: somente leitura.'
+        so_quem_edita: Só quem edita a pasta pausa ou retoma o monitoramento
+        principal: Principal
+        sem_processo: Sem processo vinculado
+        buscar: Buscar agora
+        buscar_dica: 'Busca, lê e audita o processo: prazos, decursos, pendências e próximos atos'
+        situacao:
+            titulo: Situação atual
+            ultimo: Último evento
+            proximo: Próximo ato
+            quem: Quem age
+            prazo: Prazo
+            previsao: Previsão
+            proxima: Próxima etapa provável
+            confianca: 'Confiança {conf}'
+            base: 'Base: {base}'
+            rodape: 'Previsão por regras do CPC, não é ato oficial. {aprendizado}.'
+        avisos:
+            titulo: Avisar quando chegar
+            so_quem_edita: Só quem edita a pasta muda os avisos.
+    cliente:
+        titulo: Avisar cliente
+        excluida: 'Pasta excluída: somente leitura.'
+        so_quem_edita: Só quem edita a pasta muda os e-mails do cliente.
+        cadastrar: Cadastrar e-mail
+        cadastrar_dica: Cadastrar e-mail do cliente
+        sem_cliente: A pasta não tem cliente vinculado.
+        vazio: 'Nenhum e-mail cadastrado para {cliente}. Cadastre para manter o cliente informado sobre o processo.'
+        descadastrado: Descadastrado pelo cliente
+        email_principal: E-mail principal
+        tornar_principal: Tornar principal
+        avisos_para: 'Avisos para {email}'
+        remover: Remover e-mail
+        form:
+            exemplo: email@cliente.com.br
+            email: E-mail do cliente
+            rotulo: Rótulo do e-mail
+            pessoal: Pessoal
+            trabalho: Trabalho
+            familiar: Familiar
+            outro: Outro
+            cancelar: Cancelar
+            adicionar: Adicionar
+        controladoria:
+            dica: Todo e-mail ao cliente sai com cópia para a Controladoria, para conferência e controle dos atos
+            copia: 'Cópia para a Controladoria:'
+            sempre: Sempre
+        automatico:
+            titulo: Envio automático
+            ia: Análise da BlueJus IA
+            ia_dica: A análise depende de correção e revisão do advogado antes de chegar ao cliente
+            so_manual: Só manual
+    envio:
+        rotulo: Enviar análise ao cliente
+        titulo: Enviar ao cliente
+        fechar: Fechar
+        para: Para
+        cc: Cópia (CC) · Controladoria
+        cc_dica: 'Cópia obrigatória: garante a conferência e o controle dos atos enviados ao cliente'
+        cc_obrigatoria: Cópia obrigatória, não pode ser removida
+        sem_cc: Nenhum usuário com perfil de Controladoria cadastrado.
+        assunto: Assunto
+        mensagem: Mensagem
+        selo_ia: texto da análise, revise antes de enviar
+        revisei: Revisei e corrigi o conteúdo. Autorizo o envio ao cliente em nome do escritório.
+        cancelar: Cancelar
+        enviar: Enviar e-mail
+    teor:
+        publicacao: Publicação
+        documento: Documento
+        rotulo_doc: '{documento} - {tipo}'
+        abrir_documento: Abrir documento no PJe
+        copiar_id_dica: Copiar ID do documento
+        copiar_id: Copiar ID
+        abrir_pje: Abrir no PJe
+        criar_tarefa: Criar tarefa
+        encaminhar_dica: Encaminhar via Chat I.A
+        encaminhar: Encaminhar
+        marcar_lida: Marcar como lida
+        marcar_nao_lida: Marcar como não lida
+        sem_teor: Esta publicação não trouxe teor textual.
+        abrir_no_modulo: Abrir no módulo
+    link:
+        fechar: Fechar
+        pasta: 'Pasta {nup}'
+        acessos_no_total: acessos no total
+        menu:
+            titulo: Push Processual
+            fechar_dica: Fechar (Esc)
+            copiar: Copiar link externo ativo
+            acessos: Ver acessos ao link
+            gerar: Gerar link externo do Push
+            indisponivel: Link externo indisponível
+            carregando: Carregando…
+        modal:
+            titulo: Link externo do Push
+            processo: 'Processo {numero}'
+            sem_processo: Esta pasta não tem processo vinculado. Vincule um processo para compartilhar o Push.
+            aviso_antes: Quem receber o link vê
+            aviso_destaque: somente o Push Processual
+            aviso_depois: deste processo, sem login e sem poder alterar nada. Documentos, financeiro, metas e registros internos da pasta não aparecem.
+            gerar: Gerar e copiar link
+        criado:
+            titulo: Link criado e copiado
+            endereco: Endereço do link externo
+            copiar: Copiar
+            codigo: Código de acesso
+            codigo_dica: Envie por outro canal, separado do link.
+            ver_como_terceiro: Ver como terceiro
+            criar_outro: Criar outro
+        form:
+            validade: Válido por 30 dias.
+            validade_depois: Depois disso, quem tiver o link pode pedir renovação e você recebe um aviso para aceitar ou não.
+            o_que_ve: O que o terceiro vê
+            movimentacoes: Movimentações oficiais do processo
+            hoje: hoje · atualiza sozinho
+            codigo: Exigir código de acesso
+            codigo_desc: Gera um código de 6 dígitos para enviar separado do link.
+            cliente: Mostrar o nome do cliente
+            cliente_desc: Sem isso, o link mostra só o número do processo.
+            ia: Incluir Análises IA
+            ia_sem: Esta pasta ainda não tem Análise IA.
+        lista:
+            titulo: Links desta pasta
+            abrir_acessos: Abrir o painel de acessos
+        acessos:
+            titulo: Acessos ao link do Push
+            nenhum: Nenhum acesso ainda
+            rodape: Conta cada abertura do link (depois do código, quando houver).
+    # O JS (pasta-push.js, pasta-push-painel.js, pasta-push-cliente.js e pasta-push-link.js) lê este bloco
+    # pelo catalogo_js('pasta_push.js'): só {x}, sem plural ICU (o singular e o plural são chaves separadas).
+    js:
+        aba_titulo: Push Processual
+        aba_titulo_uma_nova: Push Processual · 1 movimentação nova sem leitura
+        aba_titulo_novas: 'Push Processual · {n} movimentações novas sem leitura'
+        nao_lida: Não lida
+        novo: Novo
+        id_copiado: 'ID {id} copiado'
+        copiar_falhou: Não foi possível copiar
+        marcar_lida: Marcar como lida
+        marcar_nao_lida: Marcar como não lida
+        marcada_lida: Marcada como lida
+        marcada_nao_lida: Marcada como não lida
+        lida_falhou: Não foi possível atualizar a publicação.
+        texto_falhou: Não foi possível copiar o texto.
+        texto_copiado: Texto copiado
+        sem_teor: Esta publicação não trouxe teor textual.
+        teor_falhou: Não foi possível carregar o teor. Tente de novo.
+        sem_documento: Esta movimentação não tem documento para abrir.
+        tarefa_falhou: Não foi possível criar a tarefa por aqui.
+        sem_nota: Esta movimentação não aceita nota técnica.
+        tarefa:
+            publicacao: Publicação
+            titulo: 'Providência: {tipo}'
+            titulo_com_data: 'Providência: {tipo} de {data}'
+            recebida: Movimentação recebida pelo Push Processual.
+            tipo: 'Tipo: {tipo}'
+            orgao: 'Órgão: {orgao}'
+            processo: 'Processo: {processo}'
+            disponibilizada: 'Disponibilizada em: {data}'
+            documento: 'ID do documento: {documento}'
+            link: 'Documento no PJe: {link}'
+        painel:
+            monitoramento_falhou: Não foi possível alterar o monitoramento.
+            lendo: Lendo o processo...
+            buscar: Buscar agora
+            buscar_falhou: Não foi possível buscar agora.
+            aviso_falhou: Não foi possível alterar o aviso.
+        cliente:
+            sem_email: Cadastre um e-mail para enviar a análise.
+            sem_permissao_cadastrar: Sem permissão para cadastrar e-mail.
+            cadastrar_falhou: Não foi possível cadastrar o e-mail.
+            email_falhou: Não foi possível alterar o e-mail.
+            automatico_falhou: Não foi possível alterar o envio automático.
+            remover_pergunta: 'Remover {email} dos avisos ao cliente?'
+        envio:
+            enviando: Enviando…
+            enviar: Enviar e-mail
+            sem_permissao: Sem permissão para enviar ao cliente.
+            sem_destinatario: Escolha ao menos um destinatário.
+            vazio: Assunto e mensagem não podem ficar vazios.
+            sem_revisao: Confirme que revisou o conteúdo antes de enviar.
+            reenviar: Reenviar ao cliente
+            falhou: Falha no envio. O texto foi mantido; tente de novo.
+        link:
+            erro_geral: Não foi possível falar com o servidor. Tente de novo.
+            carregar_falhou: Não foi possível carregar os links desta pasta.
+            um_link_ativo: 1 link ativo
+            links_ativos: '{n} links ativos'
+            reenviar_confirmacao: Reenviar o link de confirmação
+            ia_com: '{n} análise(s) desta pasta. Marcadas como análise, não ato oficial.'
+            criado_copiado: Link criado e copiado
+            criado: Link criado
+            copiado: Copiado
+            copiar: Copiar
+            valido_ate: 'Válido até {data}'
+            indisponivel: Link externo indisponível.
+            ninguem_abriu: Ninguém abriu este link ainda.
+            um_acesso: 1 acesso
+            acessos: '{n} acessos'
+            acesso: acesso
+            acessos_sem_numero: acessos
+            ultimos_acessos: Últimos acessos
+            ate: 'até {data}'
+            expirou_em: 'expirou em {data}'
+            criado_por: 'Criado por {quem} em {quando}'
+            com_codigo: com código
+            sem_codigo: sem código
+            renovacao_pedida: 'Renovação pedida por {quem} em {quando}'
+            quem_recebeu: quem recebeu o link
+            ultimo_em: 'último em {data}'
+            clique_detalhes: clique para ver os detalhes
+            copiar_link: Copiar link
+            revogar: Revogar
+            renovar: Renovar 30 dias
+            nao_renovar: Não renovar
+            acesso_no_total: acesso no total
+            acessos_no_total: acessos no total
+            revogar_titulo: Revogar link externo
+            revogar_pergunta: Revogar este link? Quem tiver o endereço perde o acesso na hora.
+            revogado: Link revogado
+            copiar_falhou_lista: Não foi possível copiar. Copie o endereço pela lista do link externo.
+            copiar_falhou_selecione: Não foi possível copiar. Selecione o endereço e copie.
+            copiado_aviso: Link copiado
+            renovado: Link renovado por 30 dias
+            recusado: Renovação recusada
+            pasta: 'Pasta {nup}'
+            um_link: 1 link
+            links: '{n} links'
+            ultimo_acesso_em: 'Último acesso em {data}'
+            nenhum_acesso: Nenhum acesso ainda
+            ver_acessos: Ver acessos ao link
+            gerar_novo: Gerar novo link externo
+            gerar: Gerar link externo do Push
+            copiado_menu: 'Link copiado · válido até {data}. Análises com cadeado fechado não aparecem.'
+            copiado_menu_com_codigo: 'Link copiado · válido até {data} · com código de acesso. Análises com cadeado fechado não aparecem.'

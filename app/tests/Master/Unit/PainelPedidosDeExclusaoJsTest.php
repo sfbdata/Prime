@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Bloco "Pedidos de exclusão de conta" do public/js/master/painel.js (desenho 05 - Perfis 1.2, linhas 148 e
@@ -27,7 +27,7 @@ final class PainelPedidosDeExclusaoJsTest extends TestCase
     /** Texto em português de uma chave do catálogo. */
     private static function catalogo(string $chave): string
     {
-        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             self::assertIsArray($no, $chave);
             self::assertArrayHasKey($parte, $no, $chave);

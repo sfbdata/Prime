@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * "Instalar aplicativo" do menu do usuário (desenho 03 VS 18.10.26, dc L.690): com o pedido do navegador, o prompt;
@@ -20,7 +20,7 @@ final class InstalarAplicativoFolhaTest extends TestCase
     {
         $base = (string) file_get_contents(__DIR__ . '/../../../templates/base.html.twig');
 
-        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = CatalogoPtBr::carregar();
 
         self::assertSame('Para instalar: no Chrome ou Edge, use o ícone de instalar na barra de endereço. No celular, "Adicionar à tela inicial".', $catalogo['moldura']['js']['instalar_sem_pedido'], 'o texto do desenho mora no catálogo (entrega 3 do idioma)');
         self::assertStringContainsString("if (isStandalone) { marcarInstalado(); return; }", $base);

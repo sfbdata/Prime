@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Caixas de seleção nos itens do explorador da aba Documentos (pedido do dono, 07/10/2026; o
@@ -25,7 +25,6 @@ final class PastaExploradorCaixaSelecaoTest extends TestCase
 
     private const JS   = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS  = __DIR__ . '/../../../public/css/pasta-explorador.css';
-    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
     private const TWIG = __DIR__ . '/../../../templates/pasta/_documentos_explorador.html.twig';
 
     private function js(): string
@@ -305,7 +304,7 @@ final class PastaExploradorCaixaSelecaoTest extends TestCase
         self::assertStringContainsString('<div class="pex-col pex-col-nome" aria-sort="none"><span class="pex-chk pex-chk--todos"><input type="checkbox" class="pex-chk-in pex-chk-todos" id="pexTodosCab" aria-label="{{ \'pasta_documentos.explorador.selecionar_visiveis\'|trans }}" disabled>', $twig);
         self::assertStringContainsString('<input type="checkbox" class="pex-chk-in pex-chk-todos" id="pexTodosFaixa" aria-label="{{ \'pasta_documentos.explorador.selecionar_visiveis\'|trans }}" disabled>', $twig);
         self::assertStringContainsString("<label class=\"pex-todos-txt\" for=\"pexTodosFaixa\">{{ 'pasta_documentos.explorador.selecionar_todos'|trans }}</label>", $twig);
-        $explorador = Yaml::parseFile(self::CATALOGO)['pasta_documentos']['explorador'];
+        $explorador = CatalogoPtBr::carregar()['pasta_documentos']['explorador'];
         self::assertSame('Selecionar todos os itens visíveis', $explorador['selecionar_visiveis']);
         self::assertSame('Selecionar todos', $explorador['selecionar_todos']);
     }

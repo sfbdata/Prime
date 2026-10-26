@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Vincular cliente sem recarregar (item 6 das pendências da Trilha B), lido como FOLHA: o JS da
@@ -101,7 +101,7 @@ final class PastaClientesVincularJsTest extends TestCase
 
         $ramoErro = substr($resposta, $guarda, $entrega - $guarda);
         self::assertStringContainsString("mostrarErro(r.dados.erro || BJ_T.t('pasta_cabecalho.js.busca.erro_vincular'));", $ramoErro);
-        self::assertSame('Não foi possível vincular o cliente.', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_cabecalho']['js']['busca']['erro_vincular']);
+        self::assertSame('Não foi possível vincular o cliente.', CatalogoPtBr::carregar()['pasta_cabecalho']['js']['busca']['erro_vincular']);
         self::assertStringContainsString('return;', $ramoErro);
         self::assertStringContainsString('vinculando = false;', $ramoErro, 'libera nova tentativa');
     }
