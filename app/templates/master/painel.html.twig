@@ -14,6 +14,7 @@
 {% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('css/master.css') }}">
     <link rel="stylesheet" href="{{ asset('css/master-seccionais.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/master-convenio-oab.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -33,6 +34,8 @@
     faixas: path('master_faixas_configurar'),
     mapaBrasil: path('master_mapa_brasil'),
     mapaMundo: path('master_mapa_mundo'),
+    convenios: path('master_convenios_dados'),
+    conveniosToken: csrf_token('master_convenios_oab'),
     seccionais: path('master_dados_seccionais'),
     revisaoOab: path('admin_platform_oab_index'),
     convites: path('admin_platform_convite_index'),
@@ -204,6 +207,7 @@
 {% block javascripts %}
     <script src="{{ asset('js/master/bj-dica.js') }}"></script>
     {{ catalogo_js('master.js', 'termos') }}
+    <script src="{{ asset('js/master/convenio-oab.js') }}"></script>
     <script src="{{ asset('js/master/painel.js') }}"></script>
     <script src="{{ asset('js/master/masters.js') }}"></script>
     <script src="{{ asset('js/master/recursos.js') }}"></script>

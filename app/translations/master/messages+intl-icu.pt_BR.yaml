@@ -761,6 +761,30 @@ master:
             respondeu: '{nome} respondeu'
             enviada_email: Resposta registrada e enviada para a fila de e-mail.
             enviada_central: Resposta registrada e enviada como aviso na Central.
+        # P4b: convenio-oab.js (painel Convênio OAB por estado, na seção Contas).
+        convenio:
+            titulo: Convênio OAB por estado
+            resumo_todos: Convênio ativo nos 27 estados · todos os advogados usam grátis
+            resumo_gratis: '{n} grátis'
+            resumo_dif: '{n} com valor diferenciado ({ufs})'
+            resumo_sem: '{n} sem convênio ({ufs})'
+            ajuda: 'Clique no estado para escolher: convênio grátis, convênio com valor diferenciado ou sem convênio (mensalidade cheia).'
+            desde: ' desde {data}'
+            st_livre: Convênio ativo · grátis
+            st_dif: 'Convênio · valor diferenciado {valor}/mês'
+            st_sem: 'Sem convênio · {valor}/mês'
+            p_menu: "OAB/{uf} · {estado} ({contas} conta(s))\n\n1 · Convênio ativo, grátis\n2 · Convênio com valor diferenciado\n3 · Sem convênio (mensalidade cheia)\n\nEscolha 1, 2 ou 3:"
+            p_valor_dif: 'Valor diferenciado pelo convênio OAB/{uf} (R$ por mês):'
+            p_valor_sem: "Convênio OAB/{uf} encerrado ou não renovado.\nMensalidade cobrada das contas de {estado} (R$):"
+            p_desde: 'A partir de (AAAA-MM-DD):'
+            p_motivo: 'Motivo (opcional):'
+            motivo_padrao: Convênio não renovado
+            valor_invalido: Valor inválido.
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_carregar: Não foi possível carregar os convênios.
+            rotulo_conta: 'Convênio OAB/{uf}'
+            rotulo_conta_dif: 'Convênio OAB/{uf} · valor diferenciado {valor}/mês'
+            rotulo_conta_sem: 'Sem convênio ({uf}) · {valor}/mês'
         # P3: indicacoes.js (seção Indicações).
         indicacoes:
             resumo: '{enviadas} enviadas · {hoje} hoje · {conta} viraram conta'
