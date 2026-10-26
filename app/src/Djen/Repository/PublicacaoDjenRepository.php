@@ -138,6 +138,34 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Contadores dos cartões do topo da tela (não lidas, do dia, vinculadas, avulsas), sobre todas as
+     * publicações visíveis do escritório, sem os filtros da lista.
+     *
+     * @param list<string> $numerosOcultos
+     * @return array{naoLidas: int, hoje: int, vinculadas: int, avulsas: int}
+     */
+    public function contarIndicadoresDoTenant(Tenant $tenant, \DateTimeImmutable $hoje, array $numerosOcultos = []): array
+    {
+        $linha = $this->buildQbFiltros($tenant, [], $numerosOcultos)
+            ->select(
+                'SUM(CASE WHEN p.lida = false THEN 1 ELSE 0 END) AS naoLidas',
+                'SUM(CASE WHEN p.dataDisponibilizacao = :hoje THEN 1 ELSE 0 END) AS hoje',
+                'SUM(CASE WHEN p.processo IS NOT NULL THEN 1 ELSE 0 END) AS vinculadas',
+                'SUM(CASE WHEN p.processo IS NULL THEN 1 ELSE 0 END) AS avulsas',
+            )
+            ->setParameter('hoje', $hoje->setTime(0, 0))
+            ->getQuery()
+            ->getSingleResult();
+
+        return [
+            'naoLidas' => (int) $linha['naoLidas'],
+            'hoje' => (int) $linha['hoje'],
+            'vinculadas' => (int) $linha['vinculadas'],
+            'avulsas' => (int) $linha['avulsas'],
+        ];
+    }
+
+    /**
      * Siglas de tribunal presentes nas publicações do escritório (opções da faceta).
      *
      * @return string[]
@@ -459,6 +487,13 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             $qb->andWhere('p.processo IS NOT NULL');
         } elseif ($vinculo === 'avulsa') {
             $qb->andWhere('p.processo IS NULL');
+        }
+
+        $leitura = (string) ($filtros['leitura'] ?? '');
+        if ($leitura === 'nao_lidas') {
+            $qb->andWhere('p.lida = false');
+        } elseif ($leitura === 'lidas') {
+            $qb->andWhere('p.lida = true');
         }
 
         $dataDe = $this->parseDataFiltro($filtros['data_de'] ?? '');

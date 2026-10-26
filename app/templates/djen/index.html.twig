@@ -3,151 +3,122 @@
 {% block title %}{{ 'djen.index.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
-<section class="content-header">
-    <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">{{ 'djen.index.titulo'|trans }}</h1>
-        <div class="d-flex gap-2 flex-wrap justify-content-end">
-            <a href="{{ path('push_processual_oabs') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-person-badge me-1"></i> {{ 'djen.oabs.titulo'|trans }}
+{% include 'djen/_abas.html.twig' with {ativa: 'publicacoes'} %}
+
+{% set temFiltro = filtros.busca or filtros.tribunal or filtros.vinculo or filtros.leitura or filtros.data_de or filtros.data_ate %}
+{% set hoje = 'now'|date('Y-m-d') %}
+<div class="pp-pagina" data-pp-publicacoes>
+    <div class="pp-topo">
+        <i class="bi bi-broadcast"></i>
+        <h1>{{ 'djen.index.titulo'|trans }}</h1>
+        <a href="{{ path('push_processual_oabs') }}" class="pp-btn" data-pp-oabs>
+            <i class="bi bi-person-badge"></i>{{ 'djen.abas.oabs'|trans }}<span class="pp-btn__n">{{ abas.oabs }}</span>
+        </a>
+        {# Processos e Push Processual unificados: o cadastro mora aqui. Todo processo cadastrado
+           sem baixa também é acompanhado pelo número na sincronização. #}
+        {% if can_access_module('processos') %}
+            <a href="{{ path('processo_new') }}" class="pp-btn pp-btn--verde" data-push-cadastrar-processo>
+                <i class="bi bi-plus-lg"></i>{{ 'djen.index.cadastrar_processo'|trans }}
             </a>
-            {# Processos e Push Processual unificados: o cadastro mora aqui. Todo processo cadastrado
-               sem baixa também é acompanhado pelo número na sincronização. #}
-            {% if can_access_module('processos') %}
-                <a href="{{ path('processo_index') }}" class="btn btn-outline-secondary" data-push-processos>
-                    <i class="bi bi-briefcase me-1"></i> {{ 'djen.index.processos_monitorados'|trans }}
-                    <span class="badge bg-secondary ms-1">{{ processosAcompanhados }}</span>
-                </a>
-                <a href="{{ path('processo_new') }}" class="btn btn-success" data-push-cadastrar-processo>
-                    <i class="bi bi-plus-lg me-1"></i> {{ 'djen.index.cadastrar_processo'|trans }}
-                </a>
-            {% endif %}
-            <form method="POST" action="{{ path('push_processual_sincronizar') }}" class="d-inline">
-                <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-arrow-repeat me-1"></i> {{ 'djen.index.sincronizar'|trans }}
-                </button>
-            </form>
-        </div>
+        {% endif %}
+        <form method="POST" action="{{ path('push_processual_sincronizar') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
+            <button type="submit" class="pp-btn pp-btn--azul">
+                <i class="bi bi-arrow-repeat"></i>{{ 'djen.index.sincronizar'|trans }}
+            </button>
+        </form>
     </div>
-</section>
 
-<section class="content">
-    <div class="container-fluid">
-        <div class="card card-outline card-primary mb-3">
-            <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosDjen">
-                <h3 class="card-title"><i class="bi bi-funnel me-1"></i> {{ 'djen.index.filtros'|trans }}</h3>
-            </div>
-            <div class="collapse{% if filtros.busca or filtros.tribunal or filtros.meio or filtros.vinculo or filtros.data_de or filtros.data_ate %} show{% endif %}" id="filtrosDjen">
-                <div class="card-body">
-                    <form method="GET" action="{{ path('push_processual_index') }}">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label for="f_busca" class="form-label">{{ 'djen.index.busca'|trans }}</label>
-                                <input type="text" id="f_busca" name="busca" value="{{ filtros.busca }}" class="form-control" placeholder="{{ 'djen.index.busca_placeholder'|trans }}">
-                            </div>
-                            <div class="col-md-2">
-                                <label for="f_tribunal" class="form-label">{{ 'djen.comum.tribunal'|trans }}</label>
-                                <select id="f_tribunal" name="tribunal" class="form-control">
-                                    <option value="">{{ 'djen.index.todos'|trans }}</option>
-                                    {% for sigla in tribunais %}
-                                        <option value="{{ sigla }}" {% if filtros.tribunal == sigla %}selected{% endif %}>{{ sigla }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="f_meio" class="form-label">{{ 'djen.comum.meio'|trans }}</label>
-                                <select id="f_meio" name="meio" class="form-control">
-                                    <option value="">{{ 'djen.index.todos'|trans }}</option>
-                                    <option value="D" {% if filtros.meio == 'D' %}selected{% endif %}>{{ 'djen.index.diario'|trans }}</option>
-                                    <option value="E" {% if filtros.meio == 'E' %}selected{% endif %}>{{ 'djen.index.edital'|trans }}</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="f_vinculo" class="form-label">{{ 'djen.index.vinculo'|trans }}</label>
-                                <select id="f_vinculo" name="vinculo" class="form-control">
-                                    <option value="">{{ 'djen.index.todas'|trans }}</option>
-                                    <option value="vinculada" {% if filtros.vinculo == 'vinculada' %}selected{% endif %}>{{ 'djen.index.vinculadas'|trans }}</option>
-                                    <option value="avulsa" {% if filtros.vinculo == 'avulsa' %}selected{% endif %}>{{ 'djen.index.avulsas'|trans }}</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 row g-1">
-                                <div class="col-6">
-                                    <label for="f_de" class="form-label">{{ 'djen.index.de'|trans }}</label>
-                                    <input type="date" id="f_de" name="data_de" value="{{ filtros.data_de }}" class="form-control">
-                                </div>
-                                <div class="col-6">
-                                    <label for="f_ate" class="form-label">{{ 'djen.index.ate'|trans }}</label>
-                                    <input type="date" id="f_ate" name="data_ate" value="{{ filtros.data_ate }}" class="form-control">
-                                </div>
-                            </div>
-                            <div class="col-12 d-flex gap-2">
-                                <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i> {{ 'djen.index.filtrar'|trans }}</button>
-                                <a href="{{ path('push_processual_index') }}" class="btn btn-outline-secondary">{{ 'djen.index.limpar'|trans }}</a>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-body p-0">
-                <table class="table table-hover mb-0 align-middle">
-                    <thead>
-                        <tr>
-                            <th>{{ 'djen.index.data'|trans }}</th>
-                            <th>{{ 'djen.comum.tribunal'|trans }}</th>
-                            <th>{{ 'djen.comum.tipo'|trans }}</th>
-                            <th>{{ 'djen.comum.processo'|trans }}</th>
-                            <th>{{ 'djen.comum.orgao'|trans }}</th>
-                            <th class="text-end">{{ 'djen.comum.acoes'|trans }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for pub in publicacoes %}
-                            <tr {% if not pub.lida %}class="fw-semibold"{% endif %}>
-                                <td>{% if (pub.dataDisponibilizacao ?? null) is not null %}{{ pub.dataDisponibilizacao }}{% else %}<span class="text-muted small">{{ 'djen.comum.sem_registro'|trans }}</span>{% endif %}</td>
-                                <td>{{ pub.siglaTribunal }}</td>
-                                <td>{% if (pub.tipoComunicacao ?? null) is not null %}{{ pub.tipoComunicacao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</td>
-                                <td>
-                                    {% if (pub.numeroProcessoExibicao ?? null) is not null %}{{ pub.numeroProcessoExibicao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}
-                                    {% if pub.avulsa %}
-                                        <span class="badge bg-secondary">{{ 'djen.comum.avulsa'|trans }}</span>
-                                    {% else %}
-                                        <span class="badge bg-success">{{ 'djen.index.vinculada'|trans }}</span>
-                                    {% endif %}
-                                </td>
-                                <td>{% if (pub.nomeOrgao ?? null) is not null %}{{ pub.nomeOrgao }}{% else %}<span class="text-muted small">{{ 'djen.comum.nao_informado'|trans }}</span>{% endif %}</td>
-                                <td class="text-end">
-                                    <a href="{{ path('push_processual_show', {id: pub.id}) }}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i> {{ 'djen.index.ver'|trans }}
-                                    </a>
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-4">
-                                    {{ 'djen.index.vazio'|trans }}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% if totalPaginas > 1 %}
-                <div class="card-footer d-flex justify-content-between align-items-center">
-                    <small class="text-muted">{{ 'djen.index.paginacao'|trans({total: total ~ '', pagina: pagina ~ '', paginas: totalPaginas ~ ''}) }}</small>
-                    <div class="btn-group">
-                        {% if pagina > 1 %}
-                            <a href="{{ path('push_processual_index', app.request.query.all|merge({'pagina': pagina - 1})) }}" class="btn btn-outline-secondary btn-sm">{{ 'djen.index.anterior'|trans }}</a>
-                        {% endif %}
-                        {% if pagina < totalPaginas %}
-                            <a href="{{ path('push_processual_index', app.request.query.all|merge({'pagina': pagina + 1})) }}" class="btn btn-outline-secondary btn-sm">{{ 'djen.index.proxima'|trans }}</a>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endif %}
-        </div>
+    <div class="pp-kpis" data-pp-kpis>
+        <a class="pp-kpi" href="{{ path('push_processual_index', {leitura: 'nao_lidas'}) }}" data-pp-kpi="nao_lidas">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.nao_lidas'|trans }}</span><b class="pp-kpi__valor" style="color: {{ indicadores.naoLidas > 0 ? '#c0392b' : '#12242f' }}">{{ indicadores.naoLidas }}</b></span>
+            <i class="bi bi-envelope"></i>
+        </a>
+        <a class="pp-kpi" href="{{ path('push_processual_index', {data_de: hoje, data_ate: hoje}) }}" data-pp-kpi="hoje">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.hoje'|trans }}</span><b class="pp-kpi__valor" style="color: #12242f">{{ indicadores.hoje }}</b></span>
+            <i class="bi bi-calendar-event"></i>
+        </a>
+        <a class="pp-kpi" href="{{ path('push_processual_index', {vinculo: 'vinculada'}) }}" data-pp-kpi="vinculadas">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.vinculadas'|trans }}</span><b class="pp-kpi__valor" style="color: #1e7b45">{{ indicadores.vinculadas }}</b></span>
+            <i class="bi bi-link-45deg"></i>
+        </a>
+        <a class="pp-kpi" href="{{ path('push_processual_index', {vinculo: 'avulsa'}) }}" data-pp-kpi="avulsas">
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.avulsas'|trans }}</span><b class="pp-kpi__valor" style="color: #9a5b00">{{ indicadores.avulsas }}</b></span>
+            <i class="bi bi-exclamation-diamond"></i>
+        </a>
     </div>
-</section>
+
+    <section class="pp-caixa pp-caixa--filtros">
+        <form method="GET" action="{{ path('push_processual_index') }}" class="pp-filtros" data-pp-filtros>
+            <label class="pp-busca"><i class="bi bi-search"></i><input type="search" name="busca" value="{{ filtros.busca }}" placeholder="{{ 'djen.index.busca_placeholder'|trans }}"></label>
+            <select name="tribunal" class="pp-campo" onchange="this.form.submit()">
+                <option value="">{{ 'djen.index.tribunal_todos'|trans }}</option>
+                {% for sigla in tribunais %}
+                    <option value="{{ sigla }}" {% if filtros.tribunal == sigla %}selected{% endif %}>{{ sigla }}</option>
+                {% endfor %}
+            </select>
+            <select name="vinculo" class="pp-campo" onchange="this.form.submit()">
+                <option value="">{{ 'djen.index.vinculo_todos'|trans }}</option>
+                <option value="vinculada" {% if filtros.vinculo == 'vinculada' %}selected{% endif %}>{{ 'djen.index.vinculadas_pasta'|trans }}</option>
+                <option value="avulsa" {% if filtros.vinculo == 'avulsa' %}selected{% endif %}>{{ 'djen.index.avulsas'|trans }}</option>
+            </select>
+            <select name="leitura" class="pp-campo" onchange="this.form.submit()">
+                <option value="">{{ 'djen.index.leitura_todas'|trans }}</option>
+                <option value="nao_lidas" {% if filtros.leitura == 'nao_lidas' %}selected{% endif %}>{{ 'djen.index.nao_lidas'|trans }}</option>
+                <option value="lidas" {% if filtros.leitura == 'lidas' %}selected{% endif %}>{{ 'djen.index.lidas'|trans }}</option>
+            </select>
+            <input type="date" name="data_de" value="{{ filtros.data_de }}" class="pp-campo" title="{{ 'djen.index.de'|trans }}" onchange="this.form.submit()">
+            <span class="pp-ate">{{ 'djen.index.a'|trans }}</span>
+            <input type="date" name="data_ate" value="{{ filtros.data_ate }}" class="pp-campo" title="{{ 'djen.index.ate'|trans }}" onchange="this.form.submit()">
+            {% if temFiltro %}
+                <a href="{{ path('push_processual_index') }}" class="pp-limpar" data-pp-limpar>{{ 'djen.index.limpar_filtros'|trans }}</a>
+            {% endif %}
+        </form>
+    </section>
+
+    <section class="pp-caixa pp-tabela" data-pp-tabela>
+        <div class="pp-tabela__corpo">
+            <div class="pp-linha pp-linha--cab">
+                <span>{{ 'djen.index.data_maiusculo'|trans }}</span>
+                <span>{{ 'djen.comum.tribunal_maiusculo'|trans }}</span>
+                <span>{{ 'djen.comum.tipo_maiusculo'|trans }}</span>
+                <span>{{ 'djen.comum.processo_maiusculo'|trans }}</span>
+                <span>{{ 'djen.comum.orgao_maiusculo'|trans }}</span>
+                <span>{{ 'djen.comum.acoes_maiusculo'|trans }}</span>
+            </div>
+            {% for pub in publicacoes %}
+                <div class="pp-linha pp-linha--dado{{ pub.lida ? '' : ' pp-linha--nova' }}">
+                    <span>{% if (pub.dataDisponibilizacao ?? null) is not null %}{{ pub.dataDisponibilizacao }}{% else %}{{ 'djen.comum.sem_registro'|trans }}{% endif %}</span>
+                    <span>{{ pub.siglaTribunal }}</span>
+                    <span>{% if (pub.tipoComunicacao ?? null) is not null %}{{ pub.tipoComunicacao }}{% else %}{{ 'djen.comum.nao_informado'|trans }}{% endif %}</span>
+                    <span class="pp-c-proc">
+                        <span class="pp-c-proc__linha">
+                            <span class="pp-c-proc__num">{% if (pub.numeroProcessoExibicao ?? null) is not null %}{{ pub.numeroProcessoExibicao }}{% else %}{{ 'djen.comum.nao_informado'|trans }}{% endif %}</span>
+                            {% if pub.avulsa %}
+                                <span class="pp-selo pp-selo--avulsa" title="{{ 'djen.index.avulsa_dica'|trans }}">{{ 'djen.comum.avulsa'|trans }}</span>
+                            {% else %}
+                                <span class="pp-selo pp-selo--vinc" title="{{ 'djen.index.vinculada_dica'|trans }}">{{ 'djen.index.vinculada'|trans }}</span>
+                            {% endif %}
+                        </span>
+                    </span>
+                    <span class="pp-c-orgao" title="{{ pub.nomeOrgao ?? '' }}">{% if (pub.nomeOrgao ?? null) is not null %}{{ pub.nomeOrgao }}{% else %}{{ 'djen.comum.nao_informado'|trans }}{% endif %}</span>
+                    <span class="pp-c-acoes">
+                        <a href="{{ path('push_processual_show', {id: pub.id}) }}" class="pp-ver"><i class="bi bi-eye"></i>{{ 'djen.index.ver'|trans }}</a>
+                    </span>
+                </div>
+            {% else %}
+                <div class="pp-vazio">{{ 'djen.index.vazio_filtros'|trans }}</div>
+            {% endfor %}
+        </div>
+        {% if totalPaginas > 1 %}
+            <div class="pp-rodape">
+                <span>{{ 'djen.index.paginacao'|trans({total: total ~ '', pagina: pagina ~ '', paginas: totalPaginas ~ ''}) }}</span>
+                <span class="pp-rodape__nav">
+                    {% if pagina > 1 %}<a href="{{ path('push_processual_index', app.request.query.all|merge({'pagina': pagina - 1})) }}">{{ 'djen.index.anterior'|trans }}</a>{% endif %}
+                    {% if pagina < totalPaginas %}<a href="{{ path('push_processual_index', app.request.query.all|merge({'pagina': pagina + 1})) }}">{{ 'djen.index.proxima'|trans }}</a>{% endif %}
+                </span>
+            </div>
+        {% endif %}
+    </section>
+</div>
 {% endblock %}
