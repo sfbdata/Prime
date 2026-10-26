@@ -87,6 +87,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // ver o Y como Free. Só o repositório do Contribua a consulta
         // (EspacoDoEscritorioSoNoContribuaArquiteturaTest).
         \App\Contribua\Entity\EspacoDoEscritorio::class,
+        // Bônus de espaço por indicação: mesmo motivo do espaço do escritório (lido por tenantId explícito
+        // no SituacaoDoEspaco, inclusive em lote para o painel do Master). Só o Contribua o cita
+        // (BonusDeEspacoSoNoContribuaArquiteturaTest).
+        \App\Contribua\Entity\BonusDeEspaco::class,
 
         // Identidade: existe antes e acima do vínculo com escritório.
         User::class,
@@ -308,7 +312,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // e VersaoDeDocumentoJuridico (plataforma), justificadas acima.
     // 73 → 74 com o despacho da Central no Trabalho Externo (24/10/2026): DespachoDemanda, justificado acima.
     // 74 → 75 com a recusa de oferta do Trabalho Externo (24/10/2026): RecusaDeOferta, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 75;
+    // 75 → 76 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
+    // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
+    private const MAX_FORA_DO_ESCOPO = 76;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

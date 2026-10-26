@@ -1,0 +1,5 @@
+# ---- contribua: página "Quem somos e contribua" (desenho 08). Só o texto novo do bônus de espaço está aqui; o
+# restante da página ainda é fixo no Twig.
+contribua:
+    espaco:
+        bonus_ate: 'Inclui {gb} GB de bônus até {data}'

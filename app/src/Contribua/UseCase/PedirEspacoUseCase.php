@@ -56,7 +56,9 @@ final class PedirEspacoUseCase
     private function planoQueAmplia(int $tenantId, string $codigo): Plano
     {
         $plano = $this->planos->findOneBy(['codigo' => $codigo, 'ativo' => true]);
-        $limite = $this->situacao->doEscritorio($tenantId)->bytesLimite;
+        $retrato = $this->situacao->doEscritorio($tenantId);
+        // Compara com o limite BASE: o bônus temporário não pode recusar um plano pago que amplia o espaço de verdade.
+        $limite = $retrato->bytesLimite === null ? null : $retrato->bytesLimite - $retrato->bytesBonus;
         if (!$plano instanceof Plano || $plano->ehGratuito() || $limite === null || $plano->getCotaGb() * 1024 ** 3 <= $limite) {
             throw new \DomainException('Escolha um plano maior que o espaço atual.');
         }

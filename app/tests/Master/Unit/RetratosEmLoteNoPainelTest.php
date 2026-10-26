@@ -7,6 +7,7 @@ namespace App\Tests\Master\Unit;
 use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
@@ -21,6 +22,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * O painel monta os retratos do espaço EM LOTE (`SituacaoDoEspaco::retratarVarios`, commit c29b7a8c da f6):
@@ -54,7 +56,7 @@ final class RetratosEmLoteNoPainelTest extends TestCase
         $configuracoes = $this->createMock(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn(new ConfiguracaoDoEspaco());
 
-        $this->situacao = new SituacaoDoEspaco($this->createMock(ConsumoDeArmazenamentoRepository::class), $this->espacos, $this->planos, $configuracoes);
+        $this->situacao = new SituacaoDoEspaco($this->createMock(ConsumoDeArmazenamentoRepository::class), $this->espacos, $this->planos, $configuracoes, $this->createStub(BonusDeEspacoRepository::class), new MockClock());
     }
 
     #[TestDox('lista de contas: uma consulta de espaços para as três contas, o Free uma vez, e o espaço de cada uma')]
