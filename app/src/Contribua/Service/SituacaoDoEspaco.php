@@ -108,7 +108,9 @@ final class SituacaoDoEspaco
             return [$espaco->getLimiteUsuarios(), OrigemDoLimite::Master];
         }
 
-        return [$plano->getLimiteUsuarios(), OrigemDoLimite::Plano];
+        // D5 revogada (dono, 26/10/2026): o plano não limita usuários. A coluna do plano fica como está; só o limite
+        // próprio que o Master define para a conta ainda vale.
+        return [null, OrigemDoLimite::Plano];
     }
 
     /** @return array{0: ?int, 1: OrigemDoLimite} */
