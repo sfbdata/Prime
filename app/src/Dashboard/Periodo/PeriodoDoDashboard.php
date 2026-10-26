@@ -7,9 +7,10 @@ namespace App\Dashboard\Periodo;
 /**
  * Períodos do Dashboard (spec dashboard-parte-1).
  *
- * - Período padrão: sem `data_de` e sem `data_ate` na URL, o painel abre em "Este mês", de 1º do
- *   mês até hoje (decisão do dono, DASH-001). Data vazia ENVIADA (o usuário apagou) não é "sem data":
- *   o período fica aberto, como sempre foi.
+ * - Período padrão: sem `data_de` e sem `data_ate` na URL, o painel abre em "Este mês" (decisão do
+ *   dono, DASH-001), do dia 1º ao ÚLTIMO dia do mês, como o desenho VS 25.10.26 (MES_DE/MES_ATE,
+ *   decisão do coordenador em 26/10). Data vazia ENVIADA (o usuário apagou) não é "sem data": o
+ *   período fica aberto, como sempre foi.
  * - Cartão do colaborador: abre no período do painel; as janelas Mês, Trimestre, Semestre e Ano
  *   (decisão do dono) são a alternativa, em calendário civil, do primeiro dia da janela até hoje.
  *
@@ -27,10 +28,18 @@ final class PeriodoDoDashboard
     /** Ordem do seletor do cartão. */
     public const JANELAS = [self::MES, self::TRIMESTRE, self::SEMESTRE, self::ANO];
 
-    /** @return array{data_de: string, data_ate: string} */
+    /**
+     * "Este mês" do painel: do dia 1º ao último dia do mês de hoje. As janelas do cartão
+     * (daJanela) continuam terminando hoje.
+     *
+     * @return array{data_de: string, data_ate: string}
+     */
     public static function esteMes(\DateTimeImmutable $hoje): array
     {
-        return self::daJanela(self::MES, $hoje);
+        return [
+            'data_de'  => $hoje->format('Y-m-01'),
+            'data_ate' => $hoje->format('Y-m-t'),
+        ];
     }
 
     /**

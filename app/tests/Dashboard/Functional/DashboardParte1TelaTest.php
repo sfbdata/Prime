@@ -83,7 +83,7 @@ final class DashboardParte1TelaTest extends DashboardWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame((new \DateTimeImmutable())->format('Y-m-01'), $crawler->filter('form[data-filtro-form] input[name="data_de"]')->attr('value'));
-        self::assertSame((new \DateTimeImmutable())->format('Y-m-d'), $crawler->filter('form[data-filtro-form] input[name="data_ate"]')->attr('value'));
+        self::assertSame((new \DateTimeImmutable())->format('Y-m-t'), $crawler->filter('form[data-filtro-form] input[name="data_ate"]')->attr('value'));
         self::assertSame('true', $crawler->filter('.db-seg > .db-seg-btn[data-periodo="mes"]')->attr('aria-pressed'));
     }
 

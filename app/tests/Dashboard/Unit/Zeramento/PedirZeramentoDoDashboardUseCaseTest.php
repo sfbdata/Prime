@@ -89,8 +89,8 @@ final class PedirZeramentoDoDashboardUseCaseTest extends TestCase
         self::assertSame(['avisados' => 2, 'controladoria' => true, 'repetido' => false], $saida->paraArray());
         self::assertSame([1, 2], array_column($avisos, 0));
         self::assertSame('Pedido para zerar Metas vencidas', $avisos[0][2]);
-        self::assertStringStartsWith('Ana, Bruna Lima pediu às 15:40 para zerar Metas vencidas de Carla Souza no Dashboard.', $avisos[0][4]);
-        self::assertSame('Davi, para sua análise: Bruna Lima pediu para zerar Metas vencidas de Carla Souza no Dashboard. A decisão é do usuário primário; nada foi alterado.', $avisos[1][4]);
+        self::assertStringStartsWith('Ana, Bruna Lima pediu às 15:40 para zerar Metas vencidas de Carla Souza no Painel do Escritório.', $avisos[0][4]);
+        self::assertSame('Davi, para sua análise: Bruna Lima pediu para zerar Metas vencidas de Carla Souza no Painel do Escritório. A decisão é do usuário primário; nada foi alterado.', $avisos[1][4]);
         self::assertSame('/dashboard?pedido_zerar=metas_vencidas&alvo=7&de=3', $avisos[0][3]);
         self::assertSame(PedirZeramentoDoDashboardUseCase::TIPO_NOTIFICACAO, $avisos[0][1]);
     }

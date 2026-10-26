@@ -109,7 +109,7 @@ final class ObterDadosDashboardUseCase
 
         // Período anterior de mesma duração (só com período completo). Roda os MESMOS count*
         // das três métricas reconstruíveis por data de criação, trocando apenas as datas.
-        $periodoAnterior = $this->periodoAnterior($filtros);
+        $periodoAnterior = $this->periodoAnterior($filtros, $referencia);
         $comAnterior     = $periodoAnterior !== null;
         $mAntTarefa      = [];
         $mAntPasta       = [];
@@ -519,6 +519,10 @@ final class ObterDadosDashboardUseCase
      * vira 30/01/2024 a 29/02/2024. Exige as duas datas válidas e em ordem; qualquer outra
      * coisa devolve null — sem período não há "anterior", e o painel não inventa um.
      *
+     * Período que termina depois de hoje (o "Este mês" padrão vai até o último dia do mês) conta só
+     * os dias já corridos: 01/10 a 31/10 visto em 26/10 compara com os 26 dias antes de 01/10.
+     * Sem isso, o mês em curso, que ainda não tem os dias futuros, perderia sempre para um mês cheio.
+     *
      * Mesmo formato estrito ('!Y-m-d') que os repositórios usam para ler as datas, para que
      * só se compare quando o período atual de fato foi aplicado.
      *
@@ -526,7 +530,7 @@ final class ObterDadosDashboardUseCase
      *
      * @return array{data_de: string, data_ate: string}|null
      */
-    private function periodoAnterior(array $filtros): ?array
+    private function periodoAnterior(array $filtros, \DateTimeImmutable $referencia): ?array
     {
         $de  = $this->lerData((string) ($filtros['data_de'] ?? ''));
         $ate = $this->lerData((string) ($filtros['data_ate'] ?? ''));
@@ -534,12 +538,21 @@ final class ObterDadosDashboardUseCase
             return null;
         }
 
-        $dias = (int) $de->diff($ate)->days + 1;
+        $dias = (int) $de->diff($this->fimJaCorrido($de, $ate, $referencia))->days + 1;
 
         return [
             'data_de'  => $de->modify(sprintf('-%d days', $dias))->format('Y-m-d'),
             'data_ate' => $de->modify('-1 day')->format('Y-m-d'),
         ];
+    }
+
+    /** O fim do período limitado a hoje, quando o período já começou e termina no futuro. */
+    private function fimJaCorrido(\DateTimeImmutable $de, \DateTimeImmutable $ate, \DateTimeImmutable $referencia): \DateTimeImmutable
+    {
+        // Mesma leitura (UTC, meia-noite) das datas do filtro, para a comparação ser de dia com dia.
+        $hoje = $this->lerData($referencia->format('Y-m-d')) ?? $ate;
+
+        return $de <= $hoje && $hoje < $ate ? $hoje : $ate;
     }
 
     private function lerData(string $valor): ?\DateTimeImmutable

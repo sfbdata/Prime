@@ -7,7 +7,7 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 ## Escopo deste PR
 
 1. **Período padrão "Este mês"**: sem `data_de` e sem `data_ate` na URL, o painel abre de 1º do mês
-   até hoje. "Limpar filtros" só aparece quando o filtro difere disso (outro período, datas manuais,
+   até o último dia do mês (desde o PR-A visual, ver "Regras registradas"; antes ia até hoje). "Limpar filtros" só aparece quando o filtro difere disso (outro período, datas manuais,
    responsável, cargo ou busca) e volta para Este mês (não para "sem período").
 2. **Coluna extra "Relatório"** (chave `relatorio`, tipo soma, no "Adicionar coluna"): registros por
    AUTOR, criados no período, somando três tabelas do escritório:
@@ -64,6 +64,18 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
   data do arquivamento (backfill pelo Registro e pela auditoria; arquivar uma pasta cuja Finalizada é
   só estimada grava a data do arquivamento). Na troca de via sem andamento na via nova, a arquivada
   mantém a data que tinha e a não arquivada sai da conta.
+
+- Períodos do segmentado (decisão do coordenador, 26/10, PR-A "visual do Painel", desenho
+  `01 - Dashboard - VS 25.10.26`, L1707/L1710/L3118-3121/L3140): **Este mês** vai do dia 1º ao
+  **último** dia do mês (`PeriodoDoDashboard::esteMes`, padrão sem data na URL e destino do
+  "Limpar filtros"); **60 dias** e **90 dias** contam hoje incluído (hoje − 59 e hoje − 89 até
+  hoje); **Este ano** segue de 1º/jan até hoje. As janelas do cartão do colaborador (Mês,
+  Trimestre, Semestre, Ano) continuam terminando hoje. Consequências: o período anterior
+  só conta os dias já corridos quando o período termina no futuro (visto em 26/10, 01/10 a 31/10
+  compara com os 26 dias antes de 01/10; `ObterDadosDashboardUseCase::fimJaCorrido`), para a seta
+  não apontar queda no começo de todo mês; o que conta por data futura (início de evento na agenda)
+  entra até o fim do mês; e a Inteligência passa a ver o período padrão como em andamento ("Dia 26
+  de 31", nota de qualidade com "Período em andamento") em vez de encerrado.
 
 ## Padrões PROVISÓRIOS (até o dono responder)
 

@@ -99,20 +99,22 @@
            dashboard.js só lê os atributos. Ativo = as duas datas batem com os campos.
            Período padrão (decisão do dono, spec dashboard-parte-1): sem datas na URL, o
            controller abre em Este mês; "Limpar filtros" volta para ele (dashboard.js).
-           `data_ate` é sempre hoje; só o começo varia. #}
+           Faixas do desenho VS 25.10.26 (L1707, L3118-3121): Este mês vai do dia 1º ao
+           ÚLTIMO dia do mês (o mesmo PeriodoDoDashboard::esteMes do controller); 60 e 90
+           dias contam hoje incluído (hoje − 59 e hoje − 89 até hoje); Este ano, 1º/jan até hoje. #}
         {% set hoje = 'now'|date('Y-m-d') %}
         {% set periodos = [
-            { chave: 'mes', rotulo: 'dashboard.periodo.este_mes'|trans, de: 'now'|date('Y-m-01') },
-            { chave: 'd60', rotulo: 'dashboard.periodo.d60'|trans,  de: '-60 days'|date('Y-m-d') },
-            { chave: 'd90', rotulo: 'dashboard.periodo.d90'|trans,  de: '-90 days'|date('Y-m-d') },
-            { chave: 'ano', rotulo: 'dashboard.periodo.este_ano'|trans, de: 'now'|date('Y-01-01') },
+            { chave: 'mes', rotulo: 'dashboard.periodo.este_mes'|trans, de: 'now'|date('Y-m-01'), ate: 'last day of this month'|date('Y-m-d') },
+            { chave: 'd60', rotulo: 'dashboard.periodo.d60'|trans,  de: '-59 days'|date('Y-m-d'), ate: hoje },
+            { chave: 'd90', rotulo: 'dashboard.periodo.d90'|trans,  de: '-89 days'|date('Y-m-d'), ate: hoje },
+            { chave: 'ano', rotulo: 'dashboard.periodo.este_ano'|trans, de: 'now'|date('Y-01-01'), ate: hoje },
         ] %}
         <div class="db-seg db-seg--sem-js" role="group" aria-label="{{ 'dashboard.periodo.rotulo'|trans }}">
             <span class="db-seg-ind" aria-hidden="true"></span>
             {% for p in periodos %}
-                {% set ativo = filtros.data_de|default('') == p.de and filtros.data_ate|default('') == hoje %}
+                {% set ativo = filtros.data_de|default('') == p.de and filtros.data_ate|default('') == p.ate %}
                 <button type="button" class="db-seg-btn{{ ativo ? ' is-ativo' : '' }}"
-                        data-periodo="{{ p.chave }}" data-de="{{ p.de }}" data-ate="{{ hoje }}"
+                        data-periodo="{{ p.chave }}" data-de="{{ p.de }}" data-ate="{{ p.ate }}"
                         aria-pressed="{{ ativo ? 'true' : 'false' }}">{{ p.rotulo }}</button>
             {% endfor %}
         </div>
