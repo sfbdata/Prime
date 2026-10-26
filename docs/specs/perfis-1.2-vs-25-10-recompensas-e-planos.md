@@ -77,6 +77,31 @@ Empilhada na F1 (#420). Migration 20261026152000. Risco ALTO (dinheiro): só liv
 - POST `/master/recompensas/usuarios/{id}/lancamento` (CSRF `master_recompensas`), 422 com `{erro}`, 404 se o
   usuário nunca indicou, resposta com o painel novo.
 
+### F3 (antifraude)
+
+Empilhada na F2 (#422). Migration 20261026152100 (CREATE TABLE e ALTER TABLE ADD COLUMN; sem UPDATE/DELETE). Sem
+dinheiro novo: só decide quais contas contam.
+
+- Sinais que o sistema tem (o desenho também cita CPF e aparelho, que o BlueJus não guarda; entram só depois de o dono
+  decidir a LGPD): conta indicada que pertence ao MESMO escritório de quem indicou; mesmo CNPJ de escritório (qualquer
+  escritório do indicador e qualquer do indicado, CNPJ não nulo); mesmo domínio de e-mail, exceto provedor público
+  (gmail, hotmail, outlook, yahoo, icloud, bol, uol, como no desenho). "Mesmo e-mail" não existe (e-mail é único).
+- Conta com suspeita NÃO conta (nem ativa, nem em carência) até o Master aprovar. Aprovação por conta, tabela
+  `aprovacao_de_conta_de_recompensa` (`indicador_id`, `conta_id` únicos juntos, `aprovada_em`, `aprovada_por_id`; FKs
+  CASCADE; auditável de plataforma). Item do menu "Revisar suspeitas e aprovar" (só quando há suspeita): confirma com
+  a quantidade e os motivos (sem nome nem e-mail do indicado) e aprova todas as pendentes do indicador.
+- Alerta: aceitas nos últimos 7 dias >= `alertaQtd` (do programa; individual não existe) => situação "Alerta: N
+  contas em 7 dias", em vermelho, como no desenho. Só sinaliza; não bloqueia.
+- Situação, na ordem do desenho: Bloqueado, Em análise (N suspeitas), Alerta, Liberado, Pronto para liberar, N em
+  carência, Em andamento. Dica (title) com os motivos agregados.
+- Bloquear/desbloquear recompensa e "Apagar da lista" (digitar APAGAR; o extrato continua guardado): colunas
+  `bloqueado_em` e `apagado_em` (nulas) em `condicao_de_recompensa`; a condição só some quando não tem nenhum efeito
+  (incluindo bloqueio e apagado). Bloqueado: o indicador sai do filtro "A pagar" e mostra "Bloqueado". Apagado: sai da
+  lista e dos KPIs; reaparece se fizer nova indicação? NÃO: fica fora até o Master reverter (sem tela de reversão
+  nesta fatia; pendência anotada).
+- Auto-indicação: a conta indicada que é o próprio indicador já é ignorada na atribuição; a F3 não muda isso.
+- Fora: alerta na Central (a Notificacao é por escritório; vira fatia própria depois de decidir o destinatário).
+
 ## Planos: fatias
 
 | Fatia | Conteúdo | Estado |
