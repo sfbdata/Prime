@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Dashboard\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Meta de pastas do mês (DASH-016), lado do navegador: as chaves do JS existem no catálogo, o texto entra por
@@ -16,9 +16,8 @@ use Symfony\Component\Yaml\Yaml;
 #[CoversNothing]
 final class DashboardMetaJsTest extends TestCase
 {
-    private const JS      = __DIR__ . '/../../../public/js/dashboard-meta.js';
-    private const CSS     = __DIR__ . '/../../../public/css/dashboard-meta.css';
-    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
+    private const JS  = __DIR__ . '/../../../public/js/dashboard-meta.js';
+    private const CSS = __DIR__ . '/../../../public/css/dashboard-meta.css';
 
     private function js(): string
     {
@@ -30,7 +29,7 @@ final class DashboardMetaJsTest extends TestCase
     {
         preg_match_all("/BJ_T\\.t\\(\\s*'(dashboard\\.js\\.meta\\.[a-z_]+)'/", $this->js(), $m);
         $usadas = array_unique($m[1]);
-        $catalogo = Yaml::parseFile(self::CATALOGO)['dashboard']['js']['meta'];
+        $catalogo = CatalogoPtBr::carregar()['dashboard']['js']['meta'];
 
         self::assertNotEmpty($usadas);
         foreach ($usadas as $chave) {
@@ -42,7 +41,7 @@ final class DashboardMetaJsTest extends TestCase
     #[TestDox('Textos do desenho no catálogo: editor, menu do botão direito e mensagens, sem travessão')]
     public function testTextosDoDesenho(): void
     {
-        $js = Yaml::parseFile(self::CATALOGO)['dashboard']['js']['meta'];
+        $js = CatalogoPtBr::carregar()['dashboard']['js']['meta'];
 
         self::assertSame('Meta de pastas', $js['titulo']);
         self::assertSame('Quantas pastas precisam ser abertas no mês.', $js['pergunta']);
@@ -51,7 +50,7 @@ final class DashboardMetaJsTest extends TestCase
         self::assertSame('Definir meta do mês', $js['menu_definir']);
         self::assertSame('Ver histórico', $js['menu_historico']);
         self::assertSame('Vale para toda a equipe e segue para os próximos meses até ser alterada.', $js['vigencia_nova']);
-        foreach (array_merge($js, Yaml::parseFile(self::CATALOGO)['dashboard']['meta']) as $chave => $texto) {
+        foreach (array_merge($js, CatalogoPtBr::carregar()['dashboard']['meta']) as $chave => $texto) {
             self::assertDoesNotMatchRegularExpression('/[—–]/u', (string) $texto, $chave);
         }
     }
