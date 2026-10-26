@@ -68,6 +68,13 @@ Ponto aberto ao dono: o desenho tem CNPJ e chave PIX fixos; confirmar que são o
 4. Ponta Master "Chamados recebidos" (+ confirmar recarga, debitar, estornar).
 5. Recarga (PIX copia e cola / pedido de cartão) via `ProvedorDeRecarga`.
 
+## Exclusão do escritório (purga)
+`service_desk_movimento` e `service_desk_saldo` entram na `ORDEM_DELECAO` (apagados), como o apoio do
+Contribua: vale a decisão do dono de que a exclusão da conta apaga na hora (dado só do escritório, sem
+nota fiscal emitida por este módulo). **Ponto aberto ao dono**: se o contador exigir guarda do registro de
+recebimentos por 5 anos, passa para `TABELAS_RETIDAS` e a FK de tenant deixa de ser CASCADE (migration nova).
+Ambas as entidades são `Auditavel` (todo crédito, débito e confirmação entra na trilha).
+
 ## Permissões / tenant
 Escritório: módulo `servicedesk` (existente) para ver e abrir. Master: gate de Master existente.
 Todo repositório filtra por tenant; teste de isolamento entre dois escritórios obrigatório.

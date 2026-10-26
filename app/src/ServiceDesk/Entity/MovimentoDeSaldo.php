@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\ServiceDesk\Enum\FormaDeRecarga;
 use App\ServiceDesk\Enum\TipoDeMovimento;
 use App\ServiceDesk\Repository\MovimentoDeSaldoRepository;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -22,7 +23,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_service_desk_movimento_tenant_criado', columns: ['tenant_id', 'criado_em'])]
 #[ORM\UniqueConstraint(name: 'uniq_service_desk_movimento_referencia', columns: ['referencia'])]
 #[ORM\UniqueConstraint(name: 'uniq_service_desk_movimento_id_externo', columns: ['id_externo'])]
-class MovimentoDeSaldo implements TenantAware
+class MovimentoDeSaldo implements TenantAware, Auditavel
 {
     /** Recarga: de R$ 20,00 (mínimo do desenho) a R$ 10.000,00 (acima disso é engano de digitação). */
     public const RECARGA_MINIMA_CENTAVOS = 2_000;

@@ -7,6 +7,7 @@ namespace App\ServiceDesk\Entity;
 use App\Entity\Tenant\Tenant;
 use App\ServiceDesk\Exception\SaldoInsuficiente;
 use App\ServiceDesk\Repository\SaldoDoEscritorioRepository;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -18,7 +19,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: SaldoDoEscritorioRepository::class)]
 #[ORM\Table(name: 'service_desk_saldo')]
 #[ORM\UniqueConstraint(name: 'uniq_service_desk_saldo_tenant', columns: ['tenant_id'])]
-class SaldoDoEscritorio implements TenantAware
+class SaldoDoEscritorio implements TenantAware, Auditavel
 {
     /** Saldo mínimo para abrir um chamado (R$ 20,00). */
     public const MINIMO_PARA_ABRIR_CENTAVOS = 2_000;
