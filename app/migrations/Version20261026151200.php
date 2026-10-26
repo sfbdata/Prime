@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  * novo `ia` de `central_conversa.tipo` cabe no VARCHAR(20) existente (sem CHECK nem enum no banco). Escrita à mão: o
  * gerador mistura divergência de outras frentes e propõe apagar índices funcionais.
  */
-final class Version20261024151200 extends AbstractMigration
+final class Version20261026151200 extends AbstractMigration
 {
     public function getDescription(): string
     {

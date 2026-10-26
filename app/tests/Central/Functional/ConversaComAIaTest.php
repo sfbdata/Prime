@@ -120,7 +120,29 @@ final class ConversaComAIaTest extends JusPrimeWebTestCase
         self::assertSame(0, $mensagens->ultimoIdVisivelPara($ana, $a));
     }
 
-    #[TestDox('Mensagem de_ia conta como não lida de OUTRA pessoa, mesmo com o dono como autor')]
+    #[TestDox('A fala da IA só existe na conversa IA; a conversa IA não entra na contagem, mesmo com de_ia')]
+    public function testDaIaSoNaConversaIa(): void
+    {
+        [$a, , $ana, $bia] = $this->cenario();
+        $agora = new \DateTimeImmutable();
+        $individual = Conversa::individual($a, $ana, $bia, $agora);
+        try {
+            Mensagem::daIA($a, $individual, $ana, 'x', $agora);
+            self::fail('daIA em conversa comum deveria recusar');
+        } catch (\DomainException) {
+            $this->addToAssertionCount(1);
+        }
+
+        $ia = $this->iaDe($a, $ana);
+        $this->em()->persist(Mensagem::daIA($a, $ia, $ana, 'da-ia', $agora));
+        $this->em()->flush();
+        /** @var MensagemRepository $mensagens */
+        $mensagens = $this->em()->getRepository(Mensagem::class);
+        self::assertTrue($mensagens->findOneBy(['conteudo' => 'da-ia'])?->isDeIa());
+        self::assertSame([], $mensagens->naoLidasPorConversa($ana, $a));
+    }
+
+    #[TestDox('Regra de consulta: mensagem de_ia conta como não lida de OUTRA pessoa, mesmo com o dono como autor')]
     public function testDeIaContaComoDeOutraPessoa(): void
     {
         [$a, , $ana, $bia] = $this->cenario();
@@ -130,7 +152,10 @@ final class ConversaComAIaTest extends JusPrimeWebTestCase
         $this->em()->persist(new Participante($a, $individual, $ana, $agora));
         $this->em()->persist(new Participante($a, $individual, $bia, $agora));
         $this->em()->persist(new Mensagem($a, $individual, $ana, 'minha', $agora));
-        $this->em()->persist(Mensagem::daIA($a, $individual, $ana, 'da-ia', $agora));
+        // `daIA` recusa conversa comum (de propósito); o flag é forçado aqui só para provar a regra da consulta.
+        $deIa = new Mensagem($a, $individual, $ana, 'da-ia', $agora);
+        (new \ReflectionProperty(Mensagem::class, 'deIa'))->setValue($deIa, true);
+        $this->em()->persist($deIa);
         $this->em()->flush();
 
         /** @var MensagemRepository $mensagens */

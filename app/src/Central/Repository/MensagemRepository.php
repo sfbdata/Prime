@@ -55,7 +55,8 @@ class MensagemRepository extends ServiceEntityRepository
     }
 
     /**
-     * A última mensagem de cada conversa informada (para a prévia da lista), indexada pelo id da conversa.
+     * A última mensagem de cada conversa informada (para a prévia da lista), indexada pelo id da conversa. Depende de
+     * ids já filtrados por `ParticipanteRepository::doUsuario` (que exclui a conversa IA); não filtra o tipo sozinha.
      *
      * @param list<int> $conversaIds
      *

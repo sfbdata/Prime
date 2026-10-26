@@ -182,7 +182,8 @@ class ParticipanteRepository extends ServiceEntityRepository
     }
 
     /**
-     * Quantos participantes ATIVOS cada conversa tem (para a lista: "N participantes").
+     * Quantos participantes ATIVOS cada conversa tem (para a lista: "N participantes"). Depende de ids já filtrados
+     * por `doUsuario` (que exclui a conversa IA); não filtra o tipo sozinha.
      *
      * @param list<int> $conversaIds
      *

@@ -108,9 +108,12 @@ class Mensagem implements TenantAware
         return $mensagem;
     }
 
-    /** Fala da IA na conversa de `$dono` (o autor gravado). */
+    /** Fala da IA na conversa IA de `$dono` (o autor gravado). Em outro tipo de conversa não existe. */
     public static function daIA(Tenant $tenant, Conversa $conversa, User $dono, string $texto, \DateTimeImmutable $em): self
     {
+        if (!$conversa->isIa()) {
+            throw new \DomainException('Só a conversa com a IA recebe fala da IA.');
+        }
         $mensagem = new self($tenant, $conversa, $dono, $texto, $em);
         $mensagem->deIa = true;
 
