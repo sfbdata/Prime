@@ -3,7 +3,7 @@
  * `comMenu`, `zerarCol`, `dzConf`, `dzNegado` e o toast).
  *
  * Botão direito no TÍTULO de uma coluna numérica abre o menu da equipe; no NÚMERO de uma pessoa, o
- * menu dela (com "Ver relatório", quando o número tem lista). Quem pode zerar (Master ou primário
+ * menu dela (com "Ver relatório": a lista do número ou, na coluna Relatório, o modal com os registros). Quem pode zerar (Master ou primário
  * ativo, `data-db-zerar-pode="1"` no `.db-page`) vê "Zerar"; os outros veem "Pedir para zerar", que
  * avisa o primário e a Controladoria. O servidor decide de novo em cada POST (403 para quem não pode).
  *
@@ -254,7 +254,10 @@
     function itensDoMenu(alvo) {
         var itens = [];
         var curto = primeiroNome(alvo.nome);
-        if (alvo.pessoa && alvo.href) {
+        if (alvo.pessoa && alvo.coluna === 'relatorio' && alvo.relatorioUrl && window.DbRelatorio) {
+            // Relatório: o "Ver relatório" abre o modal com os registros da pessoa (dashboard-relatorio.js).
+            itens.push(itemDoMenu('bi-list-ul', window.BJ_T.t('dashboard.js.zerar.ver_relatorio', { nome: curto }), window.BJ_T.t('dashboard.relatorio.js.menu_sub'), false, function () { window.DbRelatorio.abrir(alvo.relatorioUrl, alvo.nome, null); }));
+        } else if (alvo.pessoa && alvo.href) {
             itens.push(itemDoMenu('bi-list-ul', window.BJ_T.t('dashboard.js.zerar.ver_relatorio', { nome: curto }), window.BJ_T.t('dashboard.js.zerar.ver_relatorio_sub', { rotulo: alvo.rotulo.toLowerCase() }), false, function () { window.location.href = alvo.href; }));
         }
         if (alvo.pessoa) {
@@ -319,8 +322,9 @@
         var tr = cel.closest('tr[data-db-pessoa]');
         var colab = tr ? tr.querySelector('[data-db-colab-nome]') : null;
         var link = cel.querySelector('a.db-num-link');
+        var rel = cel.querySelector('[data-db-relatorio-url]');
 
-        return tr ? { coluna: coluna, pessoa: parseInt(tr.getAttribute('data-db-pessoa'), 10), nome: colab ? colab.getAttribute('data-db-colab-nome') : '', href: link ? link.href : null } : null;
+        return tr ? { coluna: coluna, pessoa: parseInt(tr.getAttribute('data-db-pessoa'), 10), nome: colab ? colab.getAttribute('data-db-colab-nome') : '', href: link ? link.href : null, relatorioUrl: rel ? rel.getAttribute('data-db-relatorio-url') : null } : null;
     }
 
     function ligarMenu(root) {

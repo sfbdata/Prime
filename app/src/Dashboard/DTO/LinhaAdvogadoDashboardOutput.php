@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace App\Dashboard\DTO;
 
+/**
+ * Uma linha da tabela Desempenho.
+ *
+ * `estoque` (PR-F): o ESTOQUE com seta pela foto diária, por coluna (metas_ativas, demandas_ativas,
+ * metas_revisao, pastas_urgentes). `atual` é o estoque de HOJE sem período (o mesmo da foto, e NÃO o
+ * número da célula, que o painel recorta por criação); `anterior` é o da foto de `data_de − 1`.
+ * Anterior null = sem lastro (sem foto, ou foto de antes do PR-F): sem seta, nunca zero inventado.
+ */
 final class LinhaAdvogadoDashboardOutput
 {
     public function __construct(
@@ -38,12 +46,11 @@ final class LinhaAdvogadoDashboardOutput
         // tempo médio (dias) são null quando não há o que medir — a tela mostra "—".
         /** @var array<string, int|null> */
         public readonly array  $extras = [],
-        // TENDÊNCIA DAS EXTRAS — o valor de cada extra com tendência
-        // (ColunasExtrasDoDashboard::TENDENCIA) no período anterior de mesma duração, pela
-        // MESMA fórmula (hoje só Eventos na agenda). Vazio sem período completo. Extra fora
-        // da TENDENCIA não tem chave aqui: sem seta, nada inventado.
+        // TENDÊNCIA DAS EXTRAS — o valor de cada extra de ColunasExtrasDoDashboard::TENDENCIA no período
+        // anterior de mesma duração, pela MESMA fórmula. Vazio sem período completo; fora dela, sem chave.
         /** @var array<string, int|null> */
         public readonly array  $extrasAnteriores = [],
+        /** @var array{atual?: array<string, int>, anterior?: array<string, int|null>} estoque com seta pela foto (ver a classe) */ public readonly array $estoque = [],
         /** @var list<string> colunas com "Zerar" ativo (DASH-014): sem link e sem seta */ public readonly array $colunasZeradas = [],
     ) {}
 }

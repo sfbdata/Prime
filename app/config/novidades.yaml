@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.21.0"
+  data: "2026-10-26"
+  itens:
+    - "Quem cria a conta com o cupom de uma indicação e confirma o e-mail ganha 5 GB extras no primeiro mês."
+    - "No Painel, o Total de Pastas concluídas e os números da coluna Relatório passam a ser clicáveis e mostram exatamente os itens que foram contados."
+    - "Nada muda para os escritórios. Só o Master vê, lança e exporta o extrato de recompensas."
 - versao: "2.20.0"
   data: "2026-10-26"
   itens:

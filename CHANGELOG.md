@@ -8,6 +8,25 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.21.0] - 2026-10-26
+
+### Adicionado
+
+- Bônus de espaço por indicação: a conta nova que chegou por indicação e confirmou o e-mail ganha 5 GB extras por 30 dias, uma vez só. O bônus soma ao limite do plano (ou ao limite definido pelo Master) e vence sozinho pela data; nada é apagado.
+- Página do espaço (Contribua): linha "Inclui 5 GB de bônus até dd/mm/aaaa" enquanto o bônus vale.
+- Painel do Master: a conta mostra a origem (indicação) e a validade do bônus.
+- Nova tabela `contribua_bonus_de_espaco` (migration `Version20261026151600`, reversível). Contas já confirmadas antes desta versão não recebem o bônus.
+- Painel: o Total de "Pastas concluídas" agora abre o Expediente com as pastas da equipe (ou só do cargo escolhido no filtro), com o mesmo número do Total. Fica sem link quando há busca, quando a coluna foi zerada ou quando o Total é 0.
+- Painel: na coluna "Relatório", clicar no número (ou usar "Ver relatório de X" no botão direito) abre uma janela com os registros da pessoa agrupados por pasta, com data e hora de cada um. O total da janela é igual ao número da célula e respeita o período, o "Zerar" e as pastas ocultas pelo cadeado. Nas abas Financeiro e Detalhes (e Dados) que a pessoa não pode ver, a linha e o total aparecem, mas o texto do registro é trocado por um aviso.
+- Expediente: o filtro de responsável entende "Equipe" e "Equipe · cargo" (vindos do Painel) e mostra o rótulo no campo.
+- Sem migration.
+- Painel do Master, seção "Recompensas": novo bloco "Extrato de pagamentos e liberações" com os 60 lançamentos mais recentes (data, indicador, tipo e valor) e o botão "Exportar CSV" com o extrato completo.
+- Menu ⋮ de cada indicador ganha "Lançar crédito ou estorno" (valor em reais, negativo para estornar, com observação), "Ver extrato deste indicador" (filtra o extrato, com o botão para mostrar todos) e "Baixar extrato (CSV)".
+- O saldo e o "A pagar" passam a somar os créditos e estornos manuais. O saldo nunca fica negativo: estorno maior que o crédito zera o saldo.
+- O extrato é um livro: lançamento não se edita nem se apaga, só se corrige com outro de sinal oposto. Cada pedido leva uma chave única, então um duplo clique ou reenvio não lança duas vezes. Tudo entra na auditoria da plataforma.
+- O CSV usa ponto e vírgula, abre com acentos no Excel e protege células que começam com =, +, - ou @ contra fórmulas. Não traz dado de quem foi indicado.
+- Nova tabela `lancamento_de_recompensa` (dado da plataforma, sem escritório). Ninguém é pago nesta entrega: a baixa de pagamento fica para a próxima.
+
 ## [2.20.0] - 2026-10-26
 
 ### Adicionado
@@ -1015,7 +1034,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.20.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.21.0...HEAD
+[2.21.0]: https://github.com/sfbdata/Prime/compare/v2.20.0...v2.21.0
 [2.20.0]: https://github.com/sfbdata/Prime/compare/v2.19.0...v2.20.0
 [2.19.0]: https://github.com/sfbdata/Prime/compare/v2.18.0...v2.19.0
 [2.18.0]: https://github.com/sfbdata/Prime/compare/v2.17.0...v2.18.0

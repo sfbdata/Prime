@@ -63,7 +63,7 @@
             if (b.valor === null) { col.classList.add('is-vazio'); }
             if (b.melhor) { col.classList.add('is-melhor'); }
             if (b.atual) { col.classList.add('is-atual'); }
-            col.appendChild(el('span', 'db-hist-valor', b.mostrarValor ? b.valor : ''));
+            col.appendChild(el('span', 'db-hist-valor', b.mostrarValor ? (b.texto !== undefined ? b.texto : b.valor) : ''));
             var barra = el('span', 'db-hist-barra');
             barra.style.height = Number(b.altura) + 'px';
             barra.style.animationDelay = (i * 0.03).toFixed(2) + 's';

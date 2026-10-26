@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Dashboard\Functional;
 
 use App\Dashboard\Controller\HistoricoDoDashboardController;
+use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\Repository\HistoricoDoDashboardRepository;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Dashboard\UseCase\ObterHistoricoDoCardUseCase;
@@ -140,8 +141,8 @@ final class HistoricoDoDashboardControllerTest extends DashboardWebTestCase
         self::assertStringContainsStringIgnoringCase('Ana Do Escritorio', $d['subtitulo']);
     }
 
-    #[TestDox('Metas ativas, Urgentes e Meta global: sem série (retrato do momento) — texto honesto e nenhum número')]
-    public function testCardsSemSerieNaoInventamNumero(): void
+    #[TestDox('Metas ativas, Urgentes e Meta global sem nenhuma foto: janela indisponível, texto honesto e nenhum número')]
+    public function testCardsSemFotoNaoInventamNumero(): void
     {
         $client = static::createClient();
         $this->criarGestorLogado($client);
@@ -154,6 +155,34 @@ final class HistoricoDoDashboardControllerTest extends DashboardWebTestCase
             self::assertNull($d['inicial']);
             self::assertStringContainsString('foto diária', $d['nota']);
         }
+    }
+
+    #[TestDox('Com foto: a série traz só os meses fotografados (a última foto de cada mês), o outro escritório não entra e a foto antiga (NULL) não vira zero')]
+    public function testSerieDaFoto(): void
+    {
+        $client = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        $ano   = (int) (new \DateTimeImmutable())->format('Y') - 1;
+        $outro = $this->criarTenant();
+        $this->em()->persist(new UserTenant($gestora, $outro));
+        $this->em()->flush();
+        $id   = (int) $gestora->getId();
+        $repo = static::getContainer()->get(DashboardFotoRepository::class);
+
+        // maio: duas fotos, vale a do dia 28; junho: foto antiga (sem o lastro novo)
+        $repo->gravar($tenant, new \DateTimeImmutable($ano . '-05-10'), [$id => ['metas_ativas' => 3, 'demandas_ativas' => 0, 'metas_vencidas' => 0, 'prazos_proximos' => 0, 'metas_em_revisao' => 0, 'pastas_urgentes' => 7, 'metas_total' => 10]]);
+        $repo->gravar($tenant, new \DateTimeImmutable($ano . '-05-28'), [$id => ['metas_ativas' => 5, 'demandas_ativas' => 0, 'metas_vencidas' => 0, 'prazos_proximos' => 0, 'metas_em_revisao' => 0, 'pastas_urgentes' => 2, 'metas_total' => 10]]);
+        $repo->gravar($tenant, new \DateTimeImmutable($ano . '-06-20'), [$id => ['metas_ativas' => 4, 'demandas_ativas' => 0, 'metas_vencidas' => 0, 'prazos_proximos' => 0]]);
+        $repo->gravar($outro, new \DateTimeImmutable($ano . '-05-29'), [$id => ['metas_ativas' => 99, 'demandas_ativas' => 0, 'metas_vencidas' => 0, 'prazos_proximos' => 0, 'metas_em_revisao' => 0, 'pastas_urgentes' => 99, 'metas_total' => 99]]);
+
+        $metas = array_column($this->opcao($this->historico($client, 'metas'), (string) $ano)['barras'], 'valor');
+        self::assertSame([null, null, null, null, 5, 4, null, null, null, null, null, null], $metas, 'maio = a foto do dia 28; junho vale (a coluna metas_ativas existe na foto antiga); o vizinho fora');
+
+        $urgentes = array_column($this->opcao($this->historico($client, 'urgentes'), (string) $ano)['barras'], 'valor');
+        self::assertSame([null, null, null, null, 2, null, null, null, null, null, null, null], $urgentes, 'junho: foto antiga sem pastas_urgentes = sem histórico, não zero');
+
+        $global = array_column($this->opcao($this->historico($client, 'global'), (string) $ano)['barras'], 'valor');
+        self::assertSame([null, null, null, null, 50, null, null, null, null, null, null, null], $global, '(10 − 5) ÷ 10');
     }
 
     // ------------------------------------------------------------------ apoio
