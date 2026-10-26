@@ -7,6 +7,7 @@
 
 {% set temFiltro = filtros.busca or filtros.tribunal or filtros.vinculo or filtros.leitura or filtros.data_de or filtros.data_ate %}
 {% set hoje = 'now'|date('Y-m-d') %}
+{% set classeNaoLidas = indicadores.naoLidas > 0 ? 'pp-kpi__valor pp-kpi__valor--alerta' : 'pp-kpi__valor' %}
 <div class="pp-pagina" data-pp-publicacoes>
     <div class="pp-topo">
         <i class="bi bi-broadcast"></i>
@@ -31,19 +32,19 @@
 
     <div class="pp-kpis" data-pp-kpis>
         <a class="pp-kpi" href="{{ path('push_processual_index', {leitura: 'nao_lidas'}) }}" data-pp-kpi="nao_lidas">
-            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.nao_lidas'|trans }}</span><b class="pp-kpi__valor" style="color: {{ indicadores.naoLidas > 0 ? '#c0392b' : '#12242f' }}">{{ indicadores.naoLidas }}</b></span>
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.nao_lidas'|trans }}</span><b class="{{ classeNaoLidas }}">{{ indicadores.naoLidas }}</b></span>
             <i class="bi bi-envelope"></i>
         </a>
         <a class="pp-kpi" href="{{ path('push_processual_index', {data_de: hoje, data_ate: hoje}) }}" data-pp-kpi="hoje">
-            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.hoje'|trans }}</span><b class="pp-kpi__valor" style="color: #12242f">{{ indicadores.hoje }}</b></span>
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.hoje'|trans }}</span><b class="pp-kpi__valor">{{ indicadores.hoje }}</b></span>
             <i class="bi bi-calendar-event"></i>
         </a>
         <a class="pp-kpi" href="{{ path('push_processual_index', {vinculo: 'vinculada'}) }}" data-pp-kpi="vinculadas">
-            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.vinculadas'|trans }}</span><b class="pp-kpi__valor" style="color: #1e7b45">{{ indicadores.vinculadas }}</b></span>
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.vinculadas'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--verde">{{ indicadores.vinculadas }}</b></span>
             <i class="bi bi-link-45deg"></i>
         </a>
         <a class="pp-kpi" href="{{ path('push_processual_index', {vinculo: 'avulsa'}) }}" data-pp-kpi="avulsas">
-            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.avulsas'|trans }}</span><b class="pp-kpi__valor" style="color: #9a5b00">{{ indicadores.avulsas }}</b></span>
+            <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.kpi.avulsas'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--ambar">{{ indicadores.avulsas }}</b></span>
             <i class="bi bi-exclamation-diamond"></i>
         </a>
     </div>
