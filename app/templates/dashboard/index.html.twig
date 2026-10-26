@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="{{ asset('css/dashboard-janelas.css') }}">
 {# "Zerar" das colunas (DASH-014): menu do botão direito, confirmação, aviso e toast do desenho. #}
 <link rel="stylesheet" href="{{ asset('css/dashboard-zerar.css') }}">
+<link rel="stylesheet" href="{{ asset('css/dashboard-relatorio.css') }}">
 {# Meta de pastas do mês (DASH-016): barra no card Pastas criadas, editor e menu do botão direito. #}
 <link rel="stylesheet" href="{{ asset('css/dashboard-meta.css') }}">
 {% endblock %}
@@ -496,6 +497,9 @@
 <script src="{{ asset('js/dashboard-filtros.js') }}"></script>
 {# Menu ⋮ da tabela Desempenho: move o .db-pref para o cabeçalho da tabela e grava o estilo. #}
 <script src="{{ asset('js/dashboard-preferencias.js') }}"></script>
+{# Modal "Ver relatório" da coluna Relatório (PR-D): antes do Zerar, que chama window.DbRelatorio. #}
+{{ catalogo_js('dashboard.relatorio.js') }}
+<script src="{{ asset('js/dashboard-relatorio.js') }}"></script>
 {# "Zerar" das colunas (DASH-014): botão direito no cabeçalho ou no número da coluna. #}
 <script src="{{ asset('js/dashboard-zerar.js') }}"></script>
 {# Meta de pastas do mês (DASH-016): editor do lápis e menu do botão direito no card Pastas criadas. #}

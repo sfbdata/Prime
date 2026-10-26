@@ -911,7 +911,7 @@
     }
     function popResponsavel(caixa) {
         var sel = caixa.querySelector('select');
-        var itens = Array.prototype.filter.call(sel.options, function (op) { return op.value !== ''; }).map(function (op) {
+        var itens = Array.prototype.filter.call(sel.options, function (op) { return op.value !== '' && !op.hasAttribute('data-equipe'); }).map(function (op) {
             var sem = op.value === 'sem';
             return { rotulo: op.textContent.trim(), avatar: sem ? null : ini2(op.textContent), foto: op.getAttribute('data-foto') || '', marcado: sel.value === op.value,
                 acao: function () { escolherNoSelect(sel, sel.value === op.value ? '' : op.value); } };
@@ -936,9 +936,11 @@
             var rot = caixaR.querySelector('.exp-filtro-rotulo');
             if (!rot) { rot = el('span', 'exp-filtro-rotulo'); caixaR.insertBefore(rot, resp); }
             var op = resp.options[resp.selectedIndex];
-            var nome = resp.value === '' ? BJ_T.t('expediente.js.lista.responsavel.rotulo') : (resp.value === 'sem' ? BJ_T.t('expediente.js.lista.responsavel.sem') : op.textContent.trim().split(/\s+/).slice(0, 2).join(' '));
+            // `equipe` / `equipe:<cargo>` (Total de Pastas concluídas do Dashboard): o rótulo inteiro, sem avatar de pessoa.
+            var ehEquipe = !!op && op.hasAttribute('data-equipe');
+            var nome = resp.value === '' ? BJ_T.t('expediente.js.lista.responsavel.rotulo') : (resp.value === 'sem' ? BJ_T.t('expediente.js.lista.responsavel.sem') : (ehEquipe ? op.textContent.trim() : op.textContent.trim().split(/\s+/).slice(0, 2).join(' ')));
             rot.textContent = '';
-            if (resp.value !== '' && resp.value !== 'sem') {
+            if (resp.value !== '' && resp.value !== 'sem' && !ehEquipe) {
                 var avR = el('span', 'exp-filtro-av', ini2(op.textContent));
                 if (op.getAttribute('data-foto')) { fotoNoAvatar(avR, op.getAttribute('data-foto')); }
                 rot.appendChild(avR);

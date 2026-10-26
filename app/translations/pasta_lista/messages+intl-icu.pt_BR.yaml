@@ -69,3 +69,8 @@ pasta_lista:
         vazio_filtro_texto: Tente ajustar ou limpar os filtros aplicados.
         vazio_titulo: Tudo em dia por aqui
         vazio_texto: Você não possui demandas no momento.
+    # Responsável "equipe" (Total de Pastas concluídas do Dashboard): rótulo do campo e da opção que só existe com o link.
+    filtro_equipe:
+        equipe: Equipe
+        equipe_cargo: 'Equipe · {cargo}'
+        sem_cargo: Sem cargo
