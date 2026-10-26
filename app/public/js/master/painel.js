@@ -41,6 +41,7 @@
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
     faltamOn: false, faltamCid: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
+  let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
 
@@ -701,7 +702,7 @@
   function montarContas() {
     // O bloco "Pedidos de exclusão de conta" (desenho 1.2, linha 148) vem antes da tabela. Escondido (hidden,
     // sem pedidos), ele não ocupa lugar nem abre o espaçamento da seção.
-    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>' + T('master.js.secao.contas') + ' <span id="mp-contas-n"></span></b>'
+    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div id="mp-convenio"></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>' + T('master.js.secao.contas') + ' <span id="mp-contas-n"></span></b>'
       + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>' + T('master.js.contas.convites') + '</a>'
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">' + T('master.js.contas.todas_situacoes') + '</option>'
       + [ATIVA, SUSPENSA].map(v => '<option value="' + v + '"' + (S.fSit === v ? ' selected' : '') + '>' + rotuloDaSituacao(v) + '</option>').join('')
@@ -715,6 +716,29 @@
       + '<div id="mp-menu-conta"></div>';
     renderPedidosDeExclusao();
     renderContasLista();
+    renderConvenio();
+  }
+
+  // Convênio OAB por estado (desenho 05 VS 25.10.26, L175-178): o módulo convenio-oab.js cuida do painel; cada gravação
+  // devolve os 27 estados e o rótulo "Convênio OAB/UF" da linha de cada conta se atualiza.
+  function renderConvenio() {
+    const el = document.getElementById('mp-convenio');
+    if (!el || !window.BJConvenioOab) return;
+    window.BJConvenioOab.montar(el, {
+      url: URLS.convenios, token: URLS.conveniosToken,
+      aoMudar: estados => { CONVENIO = Object.fromEntries(estados.map(x => [x.uf, x])); renderContasLista(); },
+    });
+  }
+
+  // Rótulo do convênio sob o plano da conta (desenho L194): verde (grátis), azul (valor diferenciado) ou vermelho
+  // (sem convênio). Conta sem estado válido não tem rótulo.
+  function rotuloDoConvenio(c) {
+    const v = c.uf && (CONVENIO[c.uf] || c.convenio);
+    if (!v) return '';
+    const p = { uf: c.uf, valor: 'R$ ' + window.BJFormato.numero(v.valor, 2) };
+    const [cor, texto] = v.modo === 'dif' ? ['#0a6fa0', T('master.js.convenio.rotulo_conta_dif', p)]
+      : v.modo === 'sem' ? ['#a3232b', T('master.js.convenio.rotulo_conta_sem', p)] : ['#1e7b45', T('master.js.convenio.rotulo_conta', p)];
+    return '<span class="mp-conta-conv" style="color:' + cor + '">' + esc(texto) + '</span>';
   }
 
   // Pedidos de exclusão de conta (desenho 1.2, linhas 148 e 679), de /master/dados/contas (`pedidosExclusao`).
@@ -872,7 +896,7 @@
       const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="' + esc(T('master.js.contas.numero_dica')) + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
-        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
+        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span>' + rotuloDoConvenio(c) + '</div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? T('master.js.sem_limite') : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
         + celulaArm(c)

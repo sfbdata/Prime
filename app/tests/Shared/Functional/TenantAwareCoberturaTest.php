@@ -234,6 +234,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
         // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
         \App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa::class,
+        // Convênio OAB por estado do Master (P4b, 26/10/2026): uma linha por UF não gratuita, configuração da PLATAFORMA
+        // escrita só pelo Master. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\ConvenioDaUf::class,
         // Metas de divulgação do Painel do Master (desenho 05 VS 25.10.26, P3): linha única de configuração da PLATAFORMA
         // (id 1), escrita só pelo Master. Sem dado de escritório nem de cliente.
         \App\Master\Entity\MetaDeDivulgacao::class,
@@ -320,7 +323,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 75 → 78 com o Desempenho do Master (26/10/2026): EventoDeDesempenho, IncidenteDeDesempenho e RegistroDeBackup
     // (plataforma), justificadas acima.
     // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
-    private const MAX_FORA_DO_ESCOPO = 79;
+    // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
+    private const MAX_FORA_DO_ESCOPO = 80;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
