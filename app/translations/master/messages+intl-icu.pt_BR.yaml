@@ -1114,3 +1114,17 @@ master:
                     America/Manaus: Manaus (GMT-4)
                     America/Rio_Branco: Rio Branco (GMT-5)
                     America/Noronha: Noronha (GMT-2)
+    # P4c: e-mail aos primários do estado quando o Master muda o convênio OAB (AvisoDeConvenioDaUf).
+    convenio_email:
+        titulo: 'Convênio OAB/{uf}'
+        ola: 'Olá, {nome}.'
+        assunto_dif: 'Convênio OAB/{uf}: valor diferenciado de R$ {valor}/mês a partir de {data}'
+        assunto_sem: 'Aviso: o convênio OAB/{uf} foi encerrado · nova mensalidade a partir de {data}'
+        assunto_livre: 'Convênio OAB/{uf}: sua conta volta a usar grátis'
+        corpo_dif: 'O convênio da OAB/{uf} passou a ter valor diferenciado: R$ {valor} por mês, a partir de {data}.'
+        corpo_sem: 'O convênio da OAB/{uf} foi encerrado. A partir de {data}, a mensalidade da sua conta passa a ser de R$ {valor} por mês.'
+        corpo_livre: 'O convênio da OAB/{uf} está ativo de novo. Sua conta volta a usar o BlueJus grátis.'
+        motivo: 'Motivo: {motivo}'
+        fecho: Qualquer dúvida, responda este e-mail ou fale com o suporte pelo BlueJus.
+        motivo_do_envio: 'Você recebe este aviso porque é usuário primário de um escritório de {uf} no BlueJus.'
+        recusa_teto: 'Esta mudança avisaria {n} pessoas em {uf}, e o máximo por alteração é {teto} (para não esgotar a cota diária de e-mail). Nada foi gravado.'

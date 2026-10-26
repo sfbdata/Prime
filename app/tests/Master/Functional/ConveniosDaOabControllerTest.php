@@ -158,6 +158,63 @@ final class ConveniosDaOabControllerTest extends JusPrimeWebTestCase
         self::assertSame(['modo' => 'dif', 'valor' => 9.9], $contas[$tenant->getId()]['convenio']);
     }
 
+    #[TestDox('mudar o convênio enfileira um e-mail por primário ativo da UF, sem enviar de verdade, e repetir não duplica')]
+    public function testEnfileiraAvisos(): void
+    {
+        $this->entrarComoMaster();
+        $deSp = $this->escritorioComPrimario('SP', true);
+        $inativo = $this->escritorioComPrimario('SP', false);
+        $deRj = $this->escritorioComPrimario('RJ', true);
+
+        $this->postar(['uf' => 'SP', 'modo' => 'dif', 'valor' => '9,90', 'desde' => '2026-11-01']);
+        self::assertResponseIsSuccessful();
+        self::assertGreaterThanOrEqual(1, $this->json()['avisados']);
+        self::assertSame([1, 0, 0], [$this->enviosPara($deSp), $this->enviosPara($inativo), $this->enviosPara($deRj)]);
+
+        $this->postar(['uf' => 'SP', 'modo' => 'dif', 'valor' => '9,90', 'desde' => '2026-11-01']);
+        self::assertSame(0, $this->json()['avisados']);
+        self::assertSame(1, $this->enviosPara($deSp));
+
+        $assunto = (string) $this->em->getConnection()->fetchOne('SELECT assunto FROM comercial_envio WHERE destinatario = ?', [$deSp]);
+        self::assertSame('Convênio OAB/SP: valor diferenciado de R$ 9,90/mês a partir de 01/11/2026', $assunto);
+
+        $this->postar(['uf' => 'SP', 'modo' => 'livre']);
+        self::assertSame(2, $this->enviosPara($deSp));
+        self::assertNotEmpty(static::getContainer()->get('messenger.transport.comercial')->getSent(), 'a fila é em memória: nada saiu de verdade');
+    }
+
+    #[TestDox('pedido recusado não avisa ninguém')]
+    public function testRecusaNaoAvisa(): void
+    {
+        $this->entrarComoMaster();
+        $email = $this->escritorioComPrimario('SP', true);
+
+        $this->postar(['uf' => 'SP', 'modo' => 'dif', 'valor' => 'abc', 'desde' => '2026-11-01']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->enviosPara($email));
+    }
+
+    private function enviosPara(string $email): int
+    {
+        return (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE origem = 'convenio_oab' AND destinatario = ?", [$email]);
+    }
+
+    /** @return string o e-mail do primário */
+    private function escritorioComPrimario(string $uf, bool $ativo): string
+    {
+        $tenant = (new Tenant())->setName('Conta do aviso ' . uniqid())->setEstado($uf);
+        $this->em->persist($tenant);
+        $papel = (new TenantRole())->setTenant($tenant)->setName('Administrador do Escritório')->setIsSystem(true);
+        $this->em->persist($papel);
+        $user = $this->usuario(['ROLE_USER']);
+        $user->setIsActive($ativo);
+        $this->em->persist((new UserTenant($user, $tenant))->setTenantRole($papel));
+        $this->em->flush();
+
+        return (string) $user->getEmail();
+    }
+
     /** @return array<string, mixed> */
     private function estado(string $uf): array
     {

@@ -82,6 +82,16 @@ class ConvenioDaUf implements Auditavel
         $this->alteradoEm = $em;
     }
 
+    /** Mesmo estado (UF, modo, valor, data e motivo): a base de não avisar duas vezes a mesma mudança. */
+    public function igualA(self $outro): bool
+    {
+        return $this->uf === $outro->uf
+            && $this->modo === $outro->modo
+            && $this->valor === $outro->valor
+            && $this->desde->format('Y-m-d') === $outro->desde->format('Y-m-d')
+            && $this->motivo === $outro->motivo;
+    }
+
     public static function exigirUf(string $uf): string
     {
         $uf = strtoupper(trim($uf));

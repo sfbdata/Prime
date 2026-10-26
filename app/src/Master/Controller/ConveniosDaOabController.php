@@ -21,7 +21,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * docs/specs/perfis-1.2-vs-25-10-metas-mapa-config.md, P4b). Só o Master: ROLE_SUPER_ADMIN na classe.
  *
  * Token CSRF `master_convenios_oab` no header `X-CSRF-Token`. As duas rotas respondem o estado dos 27 estados
- * ({@see \App\Master\DTO\ConveniosDaOabOutput::paraArray()}); 422 para pedido recusado.
+ * ({@see \App\Master\DTO\ConveniosDaOabOutput::paraArray()}); o POST traz também `avisados` (e-mails
+ * enfileirados aos primários do estado, P4c); 422 para pedido recusado.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class ConveniosDaOabController extends AbstractController
@@ -42,12 +43,12 @@ final class ConveniosDaOabController extends AbstractController
         }
 
         try {
-            $alterar->executar(AlterarConvenioDaUfInput::doJson($this->ator(), $this->corpo($request)));
+            $avisados = $alterar->executar(AlterarConvenioDaUfInput::doJson($this->ator(), $this->corpo($request)));
         } catch (ConvenioRecusado $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return $this->json($consultar->executar()->paraArray());
+        return $this->json($consultar->executar()->paraArray() + ['avisados' => $avisados]);
     }
 
     private function ator(): ?User
