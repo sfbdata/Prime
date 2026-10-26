@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
-use Symfony\Component\Yaml\Yaml;
+use App\Tests\Support\CatalogoPtBr;
 
 /**
  * O texto do `pasta-explorador.js`, do `pasta-checklist.js` e do `pasta-metas.js` mora no catálogo, sob
@@ -20,7 +20,7 @@ trait TextoDosScriptsDaPasta
     private static function textoDoScript(string $chave): string
     {
         if (self::$catalogoDosScriptsDaPasta === null) {
-            $catalogo                       = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+            $catalogo                       = CatalogoPtBr::carregar();
             self::$catalogoDosScriptsDaPasta = $catalogo['pasta_scripts']['js'];
         }
         $no = self::$catalogoDosScriptsDaPasta;

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Menu da conta e confirmação de suspender/reativar (spec perfis-1.2-contas C7 e C8; desenho 05 -
@@ -27,7 +27,7 @@ final class PainelMenuDaContaJsTest extends TestCase
     /** Texto em português de uma chave do catálogo. */
     private static function catalogo(string $chave): string
     {
-        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             self::assertIsArray($no, $chave);
             self::assertArrayHasKey($parte, $no, $chave);

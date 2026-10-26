@@ -1,0 +1,105 @@
+# ---- Service Desk (a7, spec idioma-do-sistema §26): painel, meus chamados, abrir chamado e detalhe.
+# Rótulos de status, prioridade, categoria e tipo vêm do PHP (statusLabel, prioridadeLabel...) e ficam como estão.
+servicedesk:
+    comum:
+        abertos: Abertos
+        em_andamento: Em Andamento
+        resolvidos: Resolvidos
+        fechados: Fechados
+        titulo: Título
+        solicitante: Solicitante
+        categoria: Categoria
+        prioridade: Prioridade
+        status: Status
+        responsavel: Responsável
+        aberto_em: Aberto em
+        acoes: Ações
+        nao_atribuido: Não atribuído
+        visualizar_chamado: Visualizar chamado
+        meus_chamados: Meus Chamados
+        abrir_chamado: Abrir Chamado
+        voltar: Voltar
+        horas: '{valor} horas'
+    index:
+        titulo_pagina: Service Desk - Dashboard
+        service_desk: Service Desk
+        urgentes: Urgentes
+        # Frase partida em volta do <strong> com o número (spec §8).
+        aguardando_atribuicao: chamado(s) aguardando atribuição.
+        todos: Todos
+        todas: Todas
+        busca: Busca
+        busca_placeholder: Título, descrição...
+        filtrar: Filtrar
+        chamados: Chamados ({total})
+        nenhum_chamado: Nenhum chamado encontrado.
+        por_categoria: Chamados por Categoria
+        tempo_medio: 'Tempo médio de resolução:'
+    meus_chamados:
+        ultima_atualizacao: Última atualização
+        vazio_titulo: Você ainda não abriu nenhum chamado
+        vazio_texto: Precisa de ajuda com algo? Abra um chamado e nossa equipe de TI irá auxiliá-lo.
+        primeiro_chamado: Abrir meu primeiro chamado
+    novo:
+        dados_do_chamado: Dados do Chamado
+        # Legenda das prioridades: frases partidas em volta dos <b> (spec §8).
+        prioridade_critica: 'Crítica:'
+        prioridade_critica_ajuda: Sistema parado
+        prioridade_alta: 'Alta:'
+        prioridade_alta_ajuda: Impacto significativo
+        prioridade_media: 'Média:'
+        prioridade_media_ajuda: Problema comum
+        prioridade_baixa: 'Baixa:'
+        prioridade_baixa_ajuda: Pode aguardar
+        descricao_ajuda: 'Descreva o problema com o máximo de detalhes possível: o que estava fazendo, mensagens de erro, quando começou, etc.'
+        anexos_ajuda: 'Arquivos permitidos: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, ZIP, TXT (máx. 10MB cada)'
+        cancelar: Cancelar
+        dicas: Dicas
+        dica_especifico: Seja específico
+        dica_especifico_texto: Descreva exatamente o que aconteceu e quando o problema começou.
+        dica_detalhes: Inclua detalhes
+        dica_detalhes_texto: Mensagens de erro, nome do programa, horário do problema, etc.
+        dica_imagens: Anexe imagens
+        dica_imagens_texto: Capturas de tela ajudam muito a identificar o problema.
+        dica_prioridade: Prioridade adequada
+        dica_prioridade_texto: Use prioridade crítica apenas para problemas que pararam o trabalho completamente.
+        categorias: Categorias
+        categoria:
+            software: Software
+            software_ajuda: Programas, sistemas, aplicativos
+            hardware: Hardware
+            hardware_ajuda: Computador, monitor, teclado, mouse
+            impressora: Impressora
+            impressora_ajuda: Impressão, scanner, toner
+            rede: Rede/Internet
+            rede_ajuda: Conexão, VPN, lentidão
+            acesso: Acesso/Permissões
+            acesso_ajuda: Login, senhas, liberações
+            email: E-mail
+            email_ajuda: Outlook, caixa postal, calendário
+    show:
+        chamado: 'Chamado #{id}'
+        voltar_dashboard: Voltar ao Dashboard
+        descricao: Descrição
+        anexos: Anexos
+        historico: Histórico ({total})
+        interno: Interno
+        sistema: Sistema
+        nenhuma_interacao: Nenhuma interação ainda.
+        adicionar_resposta: Adicionar Resposta
+        mensagem_placeholder: Digite sua mensagem...
+        interno_ajuda: Comentários internos são visíveis apenas para a equipe de TI.
+        enviar: Enviar
+        informacoes: Informações
+        departamento: Departamento
+        resolvido_em: Resolvido em
+        fechado_em: Fechado em
+        tempo_resolucao: Tempo de resolução
+        atribuir_para: Atribuir para
+        alterar_status: Alterar Status
+        acoes_rapidas: Ações Rápidas
+        iniciar_atendimento: Iniciar Atendimento
+        marcar_resolvido: Marcar como Resolvido
+        fechar_chamado: Fechar Chamado
+        reabrir: Reabrir
+        reabrir_chamado: Reabrir Chamado

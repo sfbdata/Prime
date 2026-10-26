@@ -1,0 +1,81 @@
+# ---- Kanban (kanban/index, board, _partials/_card_mini, _card_modal_body, _comentario; JS inline em kanban.js)
+kanban:
+    nome: Kanban
+    comum:
+        participantes: Participantes
+        cancelar: Cancelar
+        criar: Criar
+        salvar: Salvar
+    index:
+        titulo_aba: 'Kanban | BlueJus'
+        criar_mural: Criar Mural
+        vazio_titulo: Nenhum mural ainda
+        vazio_texto: Crie seu primeiro mural para organizar tarefas em colunas e acompanhar o progresso do time.
+        criar_primeiro: Criar primeiro mural
+        cards_um: '{total} card'
+        cards_varios: '{total} cards'
+        novo_mural: Novo mural
+    modal_criar:
+        titulo: Novo Mural
+        cor: Cor do mural
+        participantes_ajuda: Quem terá acesso a este mural.
+    mural:
+        titulo_aba: '{nome} | Kanban'
+        titulo_card_placeholder: Título do card...
+        adicionar: Adicionar
+        adicionar_card: Adicionar card
+    modal_checklist:
+        titulo: Nova Checklist
+        campo_titulo: Título
+        placeholder: 'Ex.: Documentos necessários'
+    modal_editar:
+        titulo: Configurações do Mural
+        zona_de_perigo: Zona de perigo
+        excluir_mural: Excluir mural
+    card:
+        editar_titulo: Editar título
+        descricao: Descrição
+        checklists: Checklists
+        excluir_checklist: Excluir checklist
+        remover_item: Remover item
+        novo_item: Novo item...
+        adicionar_item: Adicionar item
+        comentarios: Comentários
+        sem_comentarios: Sem comentários ainda.
+        comentar: Comentar
+        responsaveis: Responsáveis
+        nenhum_responsavel: Nenhum responsável
+        gerenciar: Gerenciar
+        marcadores: Marcadores
+        sem_marcadores: Sem marcadores criados
+        criar_marcador: Criar marcador
+        nome_marcador: Nome...
+        vencimento: Vencimento
+        vencido: Vencido
+        anexos: Anexos
+        remover_anexo: Remover
+        nenhum_anexo: Nenhum anexo
+        adicionar_arquivo: Adicionar arquivo
+        checklist: Checklist
+        adicionar_checklist: Adicionar checklist
+        criado_em: 'Criado em {data}'
+        excluir_card: Excluir card
+    comentario:
+        editado: '(editado)'
+        editar: Editar
+        excluir: Excluir
+    js:
+        selecionar_participantes: Selecionar participantes...
+        erro_criar_mural: Erro ao criar mural.
+        erro_comunicacao: Erro de comunicação. Tente novamente.
+        erro_carregar_card: Erro ao carregar o card.
+        confirmar_excluir_mural: Tem certeza que deseja excluir este mural? Todos os cards serão removidos permanentemente.
+        erro_salvar: Erro ao salvar.
+        descricao_placeholder: Adicionar descrição...
+        comentario_placeholder: Escrever comentário...
+        confirmar_excluir_comentario: Excluir comentário?
+        confirmar_excluir_checklist: Excluir esta checklist?
+        informe_titulo_checklist: Informe um título para a checklist.
+        erro_criar_checklist: Erro ao criar checklist. Tente novamente.
+        confirmar_excluir_anexo: Excluir anexo?
+        confirmar_excluir_card: Excluir este card permanentemente?

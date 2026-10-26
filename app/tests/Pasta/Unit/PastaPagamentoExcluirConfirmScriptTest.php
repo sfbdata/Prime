@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * FPN-008: o `confirm` de excluir lançamento é o texto do desenho (dc 3456):
@@ -19,7 +19,6 @@ final class PastaPagamentoExcluirConfirmScriptTest extends TestCase
 {
     private const SCRIPT = __DIR__ . '/../../../templates/pasta/_financeiro_pagamentos_script.html.twig';
     private const CARTAO = __DIR__ . '/../../../templates/pasta/_financeiro_pagamentos.html.twig';
-    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     #[TestDox('a pergunta tem o nome e o valor do lançamento, como no desenho, e a frase antiga sem nome nem valor saiu')]
     public function testFraseDoDesenho(): void
@@ -34,7 +33,7 @@ final class PastaPagamentoExcluirConfirmScriptTest extends TestCase
         self::assertStringContainsString('if (!excluirLanc) { return; }', $js);
         self::assertStringNotContainsString('Excluir este lançamento? Esta ação não pode ser desfeita.', $js);
 
-        $catalogo = Yaml::parseFile(self::CATALOGO)['pasta_financeiro']['js'];
+        $catalogo = CatalogoPtBr::carregar()['pasta_financeiro']['js'];
         self::assertSame('Excluir "{descricao}" ({valor})?', $catalogo['excluir_lancamento_pergunta']);
         self::assertSame('Excluir lançamento', $catalogo['excluir_lancamento_titulo']);
         self::assertNotContains('Excluir este lançamento? Esta ação não pode ser desfeita.', $catalogo);

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * E7 da frente de fidelidade (`docs/specs/fidelidade-designer-1310.md` §12): a janela de confirmação da
@@ -52,7 +52,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         self::assertStringContainsString("var azul = o.variante === 'azul';", $c);
         self::assertStringContainsString("caixa.classList.toggle('is-azul', azul);", $c, 'a classe sai também no perigo — a janela é reaproveitada');
         self::assertStringContainsString("o.rotulo || (azul ? BJ_T.t('comum.js.dialogos.confirmar') : BJ_T.t('comum.js.dialogos.excluir'))", $c);
-        $cat = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        $cat = CatalogoPtBr::carregar()['comum']['js']['dialogos'];
         self::assertSame('Confirmar', $cat['confirmar']);
         self::assertSame('Excluir', $cat['excluir']);
         self::assertStringContainsString("o.icone || (azul ? 'bi-check2' : 'bi-trash3')", $c);
@@ -66,7 +66,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         self::assertStringContainsString('var temTitulo = i > 0 && i < 90;', $f);
         self::assertStringContainsString("(perigo ? BJ_T.t('comum.js.dialogos.confirmar_exclusao') : BJ_T.t('comum.js.dialogos.confirmar'))", $f);
         self::assertStringContainsString("rotulo: BJ_T.t('comum.js.dialogos.confirmar'),", $f);
-        $cat = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        $cat = CatalogoPtBr::carregar()['comum']['js']['dialogos'];
         self::assertSame('Confirmar exclusão', $cat['confirmar_exclusao']);
         self::assertSame('Confirmar', $cat['confirmar']);
         self::assertStringContainsString("icone: perigo ? 'bi-exclamation-triangle' : 'bi-check2',", $f);
@@ -190,7 +190,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
     public function testTextosDoFinanceiroNoCatalogo(): void
     {
         // Desde a extração do Financeiro (idioma-do-sistema) o texto mora no catálogo: o script tem a chave, o catálogo o texto do desenho.
-        $js = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_financeiro']['js'];
+        $js = CatalogoPtBr::carregar()['pasta_financeiro']['js'];
         self::assertSame('Excluir lançamento', $js['excluir_lancamento_titulo']);
         self::assertSame('Excluir o arquivo "{nome}" do Financeiro?', $js['excluir_arquivo_nome']);
     }
@@ -198,7 +198,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
     #[TestDox('Checklist: as três perguntas (item, substituir e excluir modelo) moram no catálogo, com o texto de antes')]
     public function testPerguntasDoChecklistNoCatalogo(): void
     {
-        $checklist = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_scripts']['js']['checklist'];
+        $checklist = CatalogoPtBr::carregar()['pasta_scripts']['js']['checklist'];
         self::assertSame('Excluir este item do checklist?', $checklist['excluir_item_pergunta']);
         self::assertSame("Substituir modelo\nJá existe o modelo \"{nome}\". Substituir os itens dele pelo checklist desta pasta?", $checklist['substituir_pergunta']);
         self::assertSame('Excluir o modelo "{nome}"? Os checklists já aplicados nas pastas não mudam.', $checklist['excluir_modelo_pergunta']);
@@ -207,14 +207,14 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
     #[TestDox('Metas: a pergunta de excluir meta mora no catálogo, com o texto de antes')]
     public function testPerguntaDeExcluirMetaNoCatalogo(): void
     {
-        $metas = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_documentos']['metas'];
+        $metas = CatalogoPtBr::carregar()['pasta_documentos']['metas'];
         self::assertSame('Excluir esta meta? Esta ação não pode ser desfeita.', $metas['excluir_confirmar']);
     }
 
     #[TestDox('Editar dados: a pergunta de alterar o número mora no catálogo, com o texto de antes')]
     public function testPerguntaDeAlterarNumeroNoCatalogo(): void
     {
-        $editar = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['editar'];
+        $editar = CatalogoPtBr::carregar()['pasta_show']['js']['editar'];
         self::assertSame('Alterar número da pasta', $editar['numero_titulo']);
         self::assertSame('Alterar o número da pasta de {antes} para {depois}? Links e referências antigas passam a apontar para o novo número.', $editar['numero_pergunta']);
     }
@@ -229,7 +229,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
     #[TestDox('O título da pergunta do administrativo sem processo mora no catálogo, com o texto do desenho (dc L.6878)')]
     public function testTituloDoAdministrativoNoCatalogo(): void
     {
-        $catalogo = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = CatalogoPtBr::carregar();
 
         self::assertSame('Marcar como administrativo', $catalogo['pasta_processo']['js']['administrativa_titulo']);
         self::assertSame('Duplicar a pasta {nup}? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.', $catalogo['pasta_cabecalho']['cabecalho']['menu']['duplicar_confirmar']);
