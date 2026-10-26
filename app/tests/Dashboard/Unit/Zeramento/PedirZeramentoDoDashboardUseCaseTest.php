@@ -19,6 +19,7 @@ use App\Tenant\Service\RegraDosPrimarios;
 use App\Dashboard\Exception\ZeramentoNaoPermitidoException;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\TenantRole;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -150,7 +151,7 @@ final class PedirZeramentoDoDashboardUseCaseTest extends TestCase
     {
         $tradutor = new Translator('pt_BR');
         $tradutor->addLoader('yaml', new YamlFileLoader());
-        $tradutor->addResource('yaml', __DIR__ . '/../../../../translations/messages+intl-icu.pt_BR.yaml', 'pt_BR', 'messages+intl-icu');
+        CatalogoPtBr::registrarEm($tradutor);
 
         return $tradutor;
     }

@@ -1,0 +1,194 @@
+# ---- Trabalho Externo (a7, spec idioma-do-sistema §26): casca do painel, convite, sem acesso, currículo formatado e
+# a página pública de vagas. O que o trabalho-externo.js e o vagas-publicas.js desenham ainda é fixo no JS.
+trabalho_externo:
+    painel:
+        titulo_pagina: Trabalho Externo · BlueJus
+        nome: Trabalho Externo
+        subtitulo: Central de demandas, vagas e talentos jurídicos
+        busca_placeholder: Buscar demanda, cidade, processo
+        vagas_busca_placeholder: Buscar vaga, cargo, área ou cidade
+        coluna:
+            id: ID
+            servico: SERVIÇO
+            origem_execucao: ORIGEM → EXECUÇÃO
+            prazo: PRAZO
+            responsavel: RESPONSÁVEL
+            situacao: SITUAÇÃO
+            chat: CHAT
+    sem_acesso:
+        titulo_pagina: Sem acesso · Trabalho Externo
+        titulo: Você não tem acesso ao Trabalho Externo
+        sem_escritorio: Esta conta não tem escritório nem convite vigente. Se você recebeu um convite por e-mail, abra o link do convite para entrar na demanda.
+        sem_permissao: O seu perfil não tem permissão para este módulo. Se precisar dele, peça ao administrador do seu escritório para liberar o acesso.
+    convite:
+        titulo_pagina: Convite · Trabalho Externo
+        indisponivel: Convite indisponível
+        indisponivel_texto: Este convite não existe, foi revogado ou passou da validade. Peça um novo convite a quem enviou.
+        titulo: Convite para trabalho externo
+        # Frase partida em volta dos <strong> do serviço e do local (spec §8).
+        convidado_para: Você foi convidado para executar
+        em: em
+        acesso_somente: 'O acesso é somente a esta demanda: instruções, documentos autorizados, checklist e chat.'
+        para_validade: Convite para {email}, válido até {validade}.
+        nome_completo: Nome completo
+        senha: Senha (mínimo de 8 caracteres)
+        genero: Gênero
+        genero_escolha: Selecione
+        genero_feminino: Feminino
+        genero_masculino: Masculino
+        # Frases partidas em volta dos links (spec §8).
+        li_e_aceito: Li e aceito os
+        termos_de_uso: Termos e Condições Gerais de Uso
+        declara_ciencia: Ao criar a conta você declara ciência da
+        politica_de_privacidade: Política de Privacidade
+        criar_conta_e_aceitar: Criar conta e aceitar
+        conta_existente: Já existe uma conta no BlueJus para este e-mail. Entre com ela e depois abra este link de novo para aceitar o convite.
+        entrar: Entrar
+        outro_email: Este convite é para outro e-mail. Saia da conta atual e entre com {email}.
+        sair: Sair
+        aceitar: Aceitar convite
+    curriculo:
+        titulo_pagina: Currículo · {nome}
+        contato: Contato
+        habilidades: Habilidades
+        idiomas: Idiomas
+        disponibilidade: Disponibilidade
+        gerado_no_bluejus: Currículo gerado no BlueJus
+        perfil_profissional: Perfil profissional
+        experiencia: Experiência
+        formacao: Formação
+        areas_de_atuacao: Áreas de atuação
+    vagas_publicas:
+        titulo_pagina: Vagas para Advogados e área Jurídica · BlueJus
+        og_descricao: Vagas abertas para advogados, estagiários, correspondentes e equipe jurídica. Crie sua conta grátis e candidate-se.
+        entrar: Entrar
+        criar_conta_gratis: Criar conta grátis
+        procuro_vaga: Procuro vaga
+        quero_contratar: Quero contratar
+        quero_divulgar_vaga: Quero divulgar vaga
+        selo:
+            vagas_abertas: '{total} vaga(s) aberta(s)'
+            atualizado_em: atualizado em {data}
+            central: Central de vagas jurídicas
+            escritorios: Para escritórios · divulgação gratuita
+        h1:
+            com_vagas: Vagas para Advogados e área Jurídica
+            sem_vagas: Sua próxima vaga na área jurídica começa aqui
+            escritorios: Encontre advogados e profissionais jurídicos sem gastar com anúncio
+        sub:
+            contratando: Escritórios da rede BlueJus estão contratando {cargos}
+            profissionais: profissionais da área jurídica
+            em_ufs: em {ufs}
+            ver_detalhes: Crie sua conta grátis para ver os detalhes e se candidatar em 1 clique.
+            sem_vagas: Vagas para advogados, estagiários, correspondentes e equipe jurídica. Crie sua conta grátis para acompanhar.
+            escritorios: Divulgue grátis para advogados, estagiários, correspondentes e equipe jurídica de todo o Brasil. A equipe BlueJus revisa a vaga e entrega a você uma seleção dos candidatos mais compatíveis.
+        cta:
+            candidatar: Criar conta grátis e me candidatar
+            receber_por_email: Receber vagas por e-mail
+            divulgar: Divulgar minha vaga grátis
+            como_funciona: Como funciona
+        # Números do topo: valor e legenda de cada caixinha.
+        num:
+            vaga_aberta: vaga aberta
+            vagas_abertas: vagas abertas
+            cargo: cargo
+            cargos: cargos
+            estado: estado
+            estados: estados
+            gratis: Grátis
+            para_se_candidatar: para se candidatar
+            um_clique: 1 clique
+            pdf: PDF
+            curriculo_profissional: currículo profissional
+            avisos: Avisos
+            de_vaga_nova: de vaga nova
+            sem_pegadinha: sem pegadinha
+            rs_zero: R$ 0
+            para_divulgar: para divulgar
+            selecao: Seleção
+            melhores_candidatos: dos melhores candidatos
+            revisada: Revisada
+            pela_equipe: pela equipe BlueJus
+            rede: Rede
+            canais: WhatsApp, e-mail e LinkedIn
+        preenchidas:
+            titulo: As vagas deste link já foram preenchidas
+            texto: Novas vagas entram na Central o tempo todo. Crie sua conta e ative os avisos para chegar primeiro na próxima.
+        lista:
+            vaga_compartilhada: Vaga compartilhada com você
+            vagas_compartilhadas: Vagas compartilhadas com você
+            indicadas_por: Indicadas por {nome}
+        card:
+            qtd_vagas: '{qtd} vagas'
+            # Bloco borrado de enfeite (sem dado da vaga), uma chave por linha.
+            borrado_remuneracao: 'Remuneração: R$ ●●●●'
+            borrado_escritorio: 'Escritório: ●●●●●●●● ●●●●●'
+            borrado_requisitos: Requisitos e atividades da vaga ●●●●●●
+            ver_detalhes: Crie sua conta para ver os detalhes
+            candidatar: Quero me candidatar
+        escritorios:
+            chapeu: PARA ESCRITÓRIOS DE ADVOCACIA
+            titulo: Divulgue sua vaga grátis e receba os melhores candidatos
+            texto: Você envia a vaga, a equipe BlueJus revisa, divulga para advogados, estagiários e correspondentes e entrega uma seleção dos candidatos mais compatíveis. Sem anúncio pago, sem triagem de centenas de currículos.
+        passo:
+            conta: Crie a conta do escritório
+            conta_texto: Leva 2 minutos e é gratuito.
+            envie: Envie a vaga
+            envie_texto: 'Formulário padrão: cargo, local, requisitos e por quanto tempo divulgar.'
+            revisa: BlueJus revisa e divulga
+            revisa_texto: Publicada na Central e compartilhada com a rede.
+            receba: Receba os melhores candidatos
+            receba_texto: A equipe seleciona os mais compatíveis e envia para você.
+        beneficios:
+            titulo: Por que criar sua conta no BlueJus
+            subtitulo: É grátis e leva poucos minutos.
+            um_clique: Candidatura em 1 clique
+            um_clique_texto: Cadastre o currículo uma vez e use em todas as vagas.
+            curriculo: Currículo profissional grátis
+            curriculo_texto: Gere seu currículo formatado em PDF, pronto para enviar.
+            avisos: Avisos de vaga nova
+            avisos_texto: Receba primeiro as vagas da sua área e da sua cidade.
+            rede: Rede de escritórios
+            rede_texto: Vagas de escritórios revisadas pela equipe BlueJus.
+        alertas:
+            pronto: Pronto! Você vai receber as vagas por e-mail
+            criar_conta_agora: Criar conta agora
+            titulo: Receba vagas da sua área por e-mail
+            subtitulo: Seja um dos primeiros a saber. Você pode cancelar quando quiser.
+            email_placeholder: Seu e-mail
+            todo_o_brasil: Todo o Brasil
+            areas_de_interesse: ÁREAS DE INTERESSE
+            quero_receber: Quero receber as vagas
+        compartilhar:
+            titulo: Conhece alguém que procura vaga jurídica?
+            texto: Compartilhe estas vagas com colegas, grupos da faculdade e da OAB.
+            # Texto da mensagem do WhatsApp (vai na URL do wa.me).
+            whatsapp_com_vagas: '⚖️ Vagas para Advogados e área Jurídica disponíveis no BlueJus! {total} vaga(s): {cargos}. Veja: {url}'
+            whatsapp_sem_vagas: '⚖️ Vagas para Advogados e área Jurídica disponíveis no BlueJus! Veja: {url}'
+            enviar_whatsapp: Enviar no WhatsApp
+        sistema:
+            chapeu: MAIS QUE UMA CENTRAL DE VAGAS
+            titulo: O sistema que organiza o escritório inteiro
+            texto: Pastas e expedientes, prazos e publicações do PJe, metas da equipe, financeiro e um assistente com inteligência artificial que avisa o que precisa de atenção. Tudo em um só lugar.
+            criar_conta: Criar conta e conhecer
+            pastas: Pastas e expedientes
+            pastas_texto: Tudo do cliente em um lugar.
+            prazos: Prazos e PJe
+            prazos_texto: Publicações e prazos sob controle.
+            assistente: Assistente com IA
+            assistente_texto: Avisa o que precisa de atenção.
+            metas: Metas e financeiro
+            metas_texto: Produtividade e honorários.
+        faq:
+            titulo: Perguntas frequentes
+            gratis: É grátis mesmo?
+            gratis_resposta: Sim. Criar a conta, cadastrar o currículo, gerar o PDF, se candidatar e divulgar vagas não tem custo.
+            oab: Preciso ter OAB?
+            oab_resposta: Não para todas as vagas. Há vagas para advogados, estagiários, estudantes, bacharéis e equipe administrativa. Cada vaga informa se exige OAB ativa.
+            divulgar: Como meu escritório divulga uma vaga?
+            divulgar_resposta: Crie a conta, clique em Divulgar uma vaga e preencha os dados. A equipe BlueJus revisa, publica e envia ao escritório uma seleção dos candidatos mais compatíveis.
+            dados: Meus dados ficam protegidos?
+            dados_resposta: 'Sim. Seguimos a LGPD: o currículo só é compartilhado com o escritório da vaga a que você se candidatar, e você pode excluir tudo quando quiser.'
+            sistema: O que mais o BlueJus faz?
+            sistema_resposta: 'É um sistema completo de gestão para escritórios: pastas, prazos, publicações, metas, financeiro e assistente com inteligência artificial.'
+        rodape: BlueJus · gestão para escritórios de advocacia · As vagas são publicadas por escritórios da rede e revisadas pela equipe BlueJus.

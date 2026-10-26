@@ -13,6 +13,7 @@ use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tenant\DTO\PedirAcessoAosPerfisInput;
 use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -116,7 +117,7 @@ final class PedirAcessoAosPerfisUseCaseTest extends TestCase
     {
         $tradutor = new Translator('pt_BR');
         $tradutor->addLoader('yaml', new YamlFileLoader());
-        $tradutor->addResource('yaml', __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml', 'pt_BR', 'messages+intl-icu');
+        CatalogoPtBr::registrarEm($tradutor);
 
         return $tradutor;
     }

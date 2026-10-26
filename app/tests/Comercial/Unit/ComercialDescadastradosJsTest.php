@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /** O contrato do comercial-descadastrados.js com a 5d (eventos) e os textos do desenho (L694 e L697). */
 #[CoversNothing]
@@ -32,7 +32,7 @@ final class ComercialDescadastradosJsTest extends TestCase
 
         self::assertStringContainsString("window.confirm(BJ_T.t('comercial.js.dsc_confirmar_excluir', { email: item.email }))", $js);
         self::assertStringContainsString("window.prompt(BJ_T.t('comercial.js.dsc_registrar_pergunta'), '')", $js);
-        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['comercial']['js'];
+        $catalogo = CatalogoPtBr::carregar()['comercial']['js'];
         self::assertSame('Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).', $catalogo['dsc_confirmar_excluir']);
         self::assertSame('E-mail que pediu para não receber (por telefone, WhatsApp etc.):', $catalogo['dsc_registrar_pergunta']);
         self::assertStringNotContainsString('innerHTML', $js);

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Dashboard\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * DASH-020: o componente de janelas flutuantes (`public/js/dashboard-janelas.js`) lido como
@@ -19,7 +19,6 @@ final class DashboardJanelasJsTest extends TestCase
     private const JS  = __DIR__ . '/../../../public/js/dashboard-janelas.js';
     private const CSS = __DIR__ . '/../../../public/css/dashboard-janelas.css';
     private const TWIG = __DIR__ . '/../../../templates/dashboard/index.html.twig';
-    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     private function js(): string
     {
@@ -92,7 +91,7 @@ final class DashboardJanelasJsTest extends TestCase
         self::assertStringContainsString("x.type = 'button';", $abrir);
         // O texto mora no catálogo do idioma (spec idioma-do-sistema): a chave no código, "Fechar" no catálogo.
         self::assertStringContainsString("x.setAttribute('aria-label', window.BJ_T.t('dashboard.js.janelas.fechar'));", $abrir);
-        self::assertSame('Fechar', Yaml::parseFile(self::CATALOGO)['dashboard']['js']['janelas']['fechar']);
+        self::assertSame('Fechar', CatalogoPtBr::carregar()['dashboard']['js']['janelas']['fechar']);
         self::assertStringContainsString("x.addEventListener('click', function () { fechar(j); });", $abrir);
     }
 
