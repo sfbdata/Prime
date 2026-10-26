@@ -11,8 +11,10 @@ use App\Entity\Tenant\TenantRole;
 use App\Indicacao\Entity\Indicacao;
 use App\Master\Controller\RecompensasDoMasterController;
 use App\Recompensa\Entity\CondicaoDeRecompensa;
+use App\Recompensa\Entity\LancamentoDeRecompensa;
 use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Recompensa\Repository\CondicaoDeRecompensaRepository;
+use App\Recompensa\Repository\LancamentoDeRecompensaRepository;
 use App\Recompensa\Repository\ProgramaDeRecompensaRepository;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,13 +24,17 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * Seção Recompensas do /master, F1 (desenho 05 VS 25.10.26): leitura, regras, condição individual, as recusas
+ * Seção Recompensas do /master, F1 e F2 (extrato e lançamentos; desenho 05 VS 25.10.26): leitura, regras, condição individual, as recusas
  * (403 sem token ou sem ser Master, 404, 422) e a auditoria de plataforma. O armazém de CSRF é fixo (padrão do painel).
  */
 #[CoversClass(RecompensasDoMasterController::class)]
 final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
 {
     private const TOKEN = 'TOKEN_' . RecompensasDoMasterController::TOKEN;
+    private const CHAVE_A = 'aaaaaaaa-0000-4000-8000-000000000001';
+    private const CHAVE_B = 'bbbbbbbb-0000-4000-8000-000000000002';
+    private const CHAVE_C = 'cccccccc-0000-4000-8000-000000000003';
+    private const CHAVE_D = 'dddddddd-0000-4000-8000-000000000004';
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -239,6 +245,240 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('script[src*="js/master/recompensas.js"]'));
         self::assertCount(1, $crawler->filter('link[href*="css/master-recompensas.css"]'));
         self::assertNotSame('', (string) $crawler->filter('[data-mrc]')->attr('data-token'));
+    }
+
+    #[TestDox('F2: crédito aumenta o saldo e o A PAGAR, entra no extrato com o indicador e deixa trilha de auditoria de plataforma')]
+    public function testCreditoAumentaSaldo(): void
+    {
+        $master = $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+
+        $this->lancar($ana, '25,50', 'Convênio', self::CHAVE_A);
+
+        self::assertResponseIsSuccessful();
+        $d = $this->json();
+        self::assertSame(2550, $this->linhaDe($d, (int) $ana->getId())['saldoCentavos']);
+        self::assertSame(2550, $d['kpis']['aPagarCentavos']);
+        self::assertSame(0, $d['kpis']['jaPagoCentavos']);
+        $this->client->request('GET', '/master/recompensas/extrato');
+        $extrato = $this->json()['extrato'];
+        self::assertCount(1, $extrato);
+        self::assertSame([(int) $ana->getId(), 'Usuária das Recompensas', $ana->getEmail(), 'bonus', 2550, 'Convênio'], [$extrato[0]['userId'], $extrato[0]['nome'], $extrato[0]['email'], $extrato[0]['tipo'], $extrato[0]['valorCentavos'], $extrato[0]['observacao']]);
+        $acoes = $this->em->getConnection()->fetchAllAssociative('SELECT action, tenant_id FROM audit_log WHERE entity_class = ? AND actor_user_id = ?', [LancamentoDeRecompensa::class, $master->getId()]);
+        self::assertCount(1, $acoes);
+        self::assertNull($acoes[0]['tenant_id'], 'plataforma, sem escritório');
+        $linha = $this->em->getConnection()->fetchAssociative('SELECT criado_por_id, tipo FROM lancamento_de_recompensa');
+        self::assertSame([$master->getId(), 'bonus'], [$linha['criado_por_id'], $linha['tipo']]);
+    }
+
+    #[TestDox('F2: estorno diminui o saldo e, maior que o crédito, deixa zero (nunca negativo); o KPI soma só saldos reais')]
+    public function testEstornoENuncaNegativo(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $this->lancar($ana, '30,00', null, self::CHAVE_A);
+
+        $this->lancar($ana, '-10,00', 'Erro de lançamento', self::CHAVE_B);
+        self::assertSame(2000, $this->linhaDe($this->json(), (int) $ana->getId())['saldoCentavos']);
+
+        $this->lancar($ana, '-500,00', null, self::CHAVE_C);
+        self::assertResponseIsSuccessful();
+        $d = $this->json();
+        self::assertSame(0, $this->linhaDe($d, (int) $ana->getId())['saldoCentavos']);
+        self::assertSame(0, $d['kpis']['aPagarCentavos']);
+        self::assertSame(3, $this->totalDeLancamentos(), 'o livro guarda os três: o estorno é outro lançamento');
+    }
+
+    #[TestDox('F2: idempotência: a mesma chave duas vezes grava um lançamento só e as duas respostas são sucesso')]
+    public function testIdempotencia(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+
+        $this->lancar($ana, '10,00', 'Bônus', self::CHAVE_A);
+        self::assertResponseIsSuccessful();
+        $this->lancar($ana, '10,00', 'Bônus', self::CHAVE_A);
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(1, $this->totalDeLancamentos());
+        self::assertSame(1000, $this->linhaDe($this->json(), (int) $ana->getId())['saldoCentavos']);
+        $this->lancar($ana, '99,00', 'Bônus', self::CHAVE_A);
+        self::assertResponseStatusCodeSame(422, 'mesma chave com outro valor não passa');
+        self::assertSame(1, $this->totalDeLancamentos());
+    }
+
+    #[TestDox('F2: lançamento recusado: 422 com {erro} (zero, texto, três casas, acima do teto, chave ruim, observação longa, corpo que não é JSON) e nada é gravado')]
+    public function testLancamentoRecusado(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+
+        foreach ([
+            ['valor' => '0', 'chave' => self::CHAVE_A],
+            ['valor' => '', 'chave' => self::CHAVE_A],
+            ['valor' => 'dez', 'chave' => self::CHAVE_A],
+            ['valor' => '10,999', 'chave' => self::CHAVE_A],
+            ['valor' => '100000,01', 'chave' => self::CHAVE_A],
+            ['valor' => '-100000,01', 'chave' => self::CHAVE_A],
+            ['valor' => '10,00', 'chave' => 'curta'],
+            ['valor' => '10,00'],
+            ['valor' => '10,00', 'chave' => self::CHAVE_A, 'observacao' => str_repeat('a', 256)],
+            ['valor' => [1], 'chave' => self::CHAVE_A],
+        ] as $i => $corpo) {
+            $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/lancamento', $corpo);
+            self::assertResponseStatusCodeSame(422, 'caso ' . $i);
+            self::assertNotSame('', $this->json()['erro'], 'caso ' . $i);
+        }
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/lancamento');
+        self::assertResponseStatusCodeSame(422, 'corpo que não é JSON');
+        self::assertSame('Informe o valor do crédito (use negativo para estornar).', $this->lancarERetornarErro($ana, '0'));
+        self::assertSame(0, $this->totalDeLancamentos());
+    }
+
+    #[TestDox('F2: valor no teto de R$ 100.000,00 passa; 404 para quem nunca indicou e para id que não existe')]
+    public function testTetoE404(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $semIndicacao = $this->usuario(['ROLE_USER']);
+
+        $this->lancar($ana, '100.000,00', null, self::CHAVE_A);
+        self::assertResponseIsSuccessful();
+        $this->lancar($semIndicacao, '10,00', null, self::CHAVE_B);
+        self::assertResponseStatusCodeSame(404);
+        $this->enviar('POST', '/master/recompensas/usuarios/999999999/lancamento', ['valor' => '10,00', 'chave' => self::CHAVE_C]);
+        self::assertResponseStatusCodeSame(404);
+
+        self::assertSame(1, $this->totalDeLancamentos());
+    }
+
+    #[TestDox('F2: sem token CSRF ou sem ser Master: 403 em lançamento, extrato e CSV, e nada é gravado')]
+    public function testLancamentoProtegido(): void
+    {
+        $ana = $this->indicadoraComContaAntiga();
+        $this->entrarComoMaster();
+
+        $this->lancar($ana, '10,00', null, self::CHAVE_A, 'errado');
+        self::assertResponseStatusCodeSame(403);
+        $this->lancar($ana, '10,00', null, self::CHAVE_A, '');
+        self::assertResponseStatusCodeSame(403);
+
+        $this->entrarComoPrimarioDeEscritorio();
+        $this->lancar($ana, '10,00', null, self::CHAVE_A);
+        self::assertResponseStatusCodeSame(403);
+        $this->client->request('GET', '/master/recompensas/extrato');
+        self::assertResponseStatusCodeSame(403);
+        $this->client->request('GET', '/master/recompensas/extrato.csv');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->totalDeLancamentos());
+    }
+
+    #[TestDox('F2: extrato mostra os 60 mais recentes, do mais novo ao mais antigo, e o filtro ?usuario= traz só o indicador')]
+    public function testExtratoSessentaEFiltro(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $bia = $this->indicadoraComContaAntiga();
+        for ($i = 1; $i <= 62; ++$i) {
+            $this->lancar($ana, (string) $i, null, sprintf('chave-de-teste-%04d', $i));
+        }
+        $this->lancar($bia, '7,00', null, self::CHAVE_B);
+
+        $this->client->request('GET', '/master/recompensas/extrato');
+        $todos = $this->json()['extrato'];
+        $this->client->request('GET', '/master/recompensas/extrato?usuario=' . $ana->getId());
+        $daAna = $this->json()['extrato'];
+        $this->client->request('GET', '/master/recompensas/extrato?usuario=' . $bia->getId());
+        $daBia = $this->json()['extrato'];
+
+        self::assertCount(60, $todos);
+        self::assertSame(700, $todos[0]['valorCentavos'], 'o mais recente primeiro');
+        self::assertCount(60, $daAna);
+        self::assertSame([6200, 6100], [$daAna[0]['valorCentavos'], $daAna[1]['valorCentavos']]);
+        self::assertSame([700], array_column($daBia, 'valorCentavos'));
+        self::assertSame(63, $this->totalDeLancamentos());
+    }
+
+    #[TestDox('F2: CSV completo: cabeçalhos de download, BOM, ";" , todos os lançamentos (mais que 60), filtro por indicador, sem dado do indicado')]
+    public function testCsv(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $bia = $this->indicadoraComContaAntiga();
+        for ($i = 1; $i <= 61; ++$i) {
+            $this->lancar($ana, (string) $i, null, sprintf('chave-de-teste-%04d', $i));
+        }
+        $this->lancar($bia, '-7,00', 'Estorno da Bia', self::CHAVE_B);
+
+        $this->client->request('GET', '/master/recompensas/extrato.csv');
+
+        self::assertResponseIsSuccessful();
+        $r = $this->client->getResponse();
+        self::assertSame('text/csv; charset=utf-8', $r->headers->get('Content-Type'));
+        self::assertSame('attachment; filename="extrato-recompensas-bluejus.csv"', $r->headers->get('Content-Disposition'));
+        $csv = (string) $r->getContent();
+        self::assertStringStartsWith("\u{FEFF}\"Data\";\"Usuário\";\"E-mail\";\"Tipo\";\"Valor\";\"Observação\"\n", $csv);
+        self::assertCount(1 + 62, explode("\n", rtrim($csv, "\n")), 'cabeçalho mais os 62, sem o limite de 60 da tela');
+        self::assertStringContainsString('"Estorno";"-7,00";"Estorno da Bia"', $csv);
+        self::assertStringNotContainsString('conta_nova', $csv, 'nada do e-mail do indicado');
+
+        $this->client->request('GET', '/master/recompensas/extrato.csv?usuario=' . $bia->getId());
+        self::assertSame('attachment; filename="extrato-recompensas-bluejus-' . $bia->getId() . '.csv"', $this->client->getResponse()->headers->get('Content-Disposition'));
+        self::assertCount(2, explode("\n", rtrim((string) $this->client->getResponse()->getContent(), "\n")));
+    }
+
+    #[TestDox('F2: CSV escapa injeção de fórmula na observação e no nome, e dobra as aspas')]
+    public function testCsvInjecaoDeFormula(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraComContaAntiga();
+        $ana->setFullName('=HYPERLINK("http://x","Ana")');
+        $this->em->flush();
+
+        $this->lancar($ana, '10,00', '=cmd|calc', self::CHAVE_A);
+        $this->lancar($ana, '10,00', '@SOMA(A1)', self::CHAVE_B);
+        $this->lancar($ana, '10,00', '+1', self::CHAVE_C);
+        $this->lancar($ana, '10,00', '-1+1', self::CHAVE_D);
+        $this->client->request('GET', '/master/recompensas/extrato.csv');
+
+        $csv = (string) $this->client->getResponse()->getContent();
+        foreach (['=cmd|calc', '@SOMA(A1)', '+1', '-1+1'] as $obs) {
+            self::assertStringContainsString("\"'" . $obs . '"', $csv, $obs);
+            self::assertStringNotContainsString(';"' . $obs . '"', $csv, $obs);
+        }
+        self::assertStringContainsString('"\'=HYPERLINK(""http://x"",""Ana"")"', $csv);
+    }
+
+    #[TestDox('F2: o painel traz as URLs do lançamento e do extrato e o bloco do extrato')]
+    public function testPainelComExtrato(): void
+    {
+        $this->entrarComoMaster();
+
+        $crawler = $this->client->request('GET', '/master');
+
+        self::assertSame('/master/recompensas/usuarios/0/lancamento', $crawler->filter('[data-mrc]')->attr('data-url-lancamento'));
+        self::assertSame('/master/recompensas/extrato', $crawler->filter('[data-mrc]')->attr('data-url-extrato'));
+        self::assertSame('/master/recompensas/extrato.csv', $crawler->filter('[data-mrc]')->attr('data-url-csv'));
+        self::assertCount(1, $crawler->filter('.mrc > section.mrc-caixa [data-mrc-ext-lista]'));
+        self::assertCount(1, $crawler->filter('.mrc > [data-mrc-lan] .mrc-dlg[role="dialog"]'));
+    }
+
+    private function lancar(User $indicador, string $valor, ?string $observacao, string $chave, string $token = self::TOKEN): void
+    {
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $indicador->getId() . '/lancamento', ['valor' => $valor, 'observacao' => $observacao, 'chave' => $chave], $token);
+    }
+
+    private function lancarERetornarErro(User $indicador, string $valor): string
+    {
+        $this->lancar($indicador, $valor, null, self::CHAVE_A);
+        self::assertResponseStatusCodeSame(422);
+
+        return $this->json()['erro'];
+    }
+
+    private function totalDeLancamentos(): int
+    {
+        return (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM lancamento_de_recompensa');
     }
 
     /** @return array<string, mixed> */

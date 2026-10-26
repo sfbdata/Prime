@@ -6,6 +6,7 @@ namespace App\Tests\Contribua\Functional;
 
 use App\Contribua\Armazenamento\ArmazenamentoComCota;
 use App\Contribua\DTO\RetratoDoEspaco;
+use App\Contribua\Entity\BonusDeEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\EventListener\EspacoEsgotadoListener;
 use App\Contribua\Exception\EspacoEsgotado;
@@ -15,6 +16,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Indicacao\Entity\Indicacao;
 use App\Kanban\Entity\KanbanBoard;
 use App\Kanban\Entity\KanbanCard;
 use App\Kanban\Entity\KanbanColuna;
@@ -110,8 +112,58 @@ final class BloqueioDeEnvioPorEspacoTest extends JusPrimeWebTestCase
         self::assertSame(0, $consumo->bytesDoEscritorio((int) $outro->getId()));
     }
 
+    #[TestDox('Bônus vigente soma ao limite: acima do limite base (1 GB) e abaixo do limite com o bônus (6 GB), o envio passa')]
+    public function testBonusVigenteDeixaPassar(): void
+    {
+        [$client, $c] = $this->preparar(usoSimulado: 3 * RetratoDoEspaco::BYTES_POR_GB, bloqueioAtivo: true, bonusExpiraEm: new \DateTimeImmutable('+10 days'));
+
+        $this->subirAnexo($client, $c['cardId']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->anexosDoCard($c['cardId']));
+    }
+
+    #[TestDox('Bônus vencido não soma: o limite volta ao base e o mesmo envio é recusado, sem job nenhum')]
+    public function testBonusVencidoBloqueia(): void
+    {
+        [$client, $c] = $this->preparar(usoSimulado: 3 * RetratoDoEspaco::BYTES_POR_GB, bloqueioAtivo: true, bonusExpiraEm: new \DateTimeImmutable('-1 minute'));
+
+        $this->subirAnexo($client, $c['cardId']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->anexosDoCard($c['cardId']));
+    }
+
+    #[TestDox('Bônus de outro escritório não vale para este')]
+    public function testBonusDeOutroEscritorioNaoVale(): void
+    {
+        [$client, $c] = $this->preparar(usoSimulado: 3 * RetratoDoEspaco::BYTES_POR_GB, bloqueioAtivo: true);
+        $outro = $this->criarCenario();
+        $this->darBonus($outro['tenant'], $outro['gestor'], new \DateTimeImmutable('+10 days'));
+
+        $this->subirAnexo($client, $c['cardId']);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    private function darBonus(Tenant $tenant, User $conta, \DateTimeImmutable $expiraEm): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $indicador = new User();
+        $indicador->setEmail('indicador_bonus_' . uniqid() . '@test.com');
+        $indicador->setFullName('Indicador Bonus');
+        $indicador->setRoles(['ROLE_USER']);
+        $indicador->setPassword('x');
+        $em->persist($indicador);
+        $agora = new \DateTimeImmutable();
+        $indicacao = Indicacao::porCadastroDoLink($indicador, null, $conta, $agora);
+        $em->persist($indicacao);
+        $em->persist(new BonusDeEspaco($tenant, $indicacao, BonusDeEspaco::GIGABYTES_DA_INDICACAO, $agora->modify('-1 day'), $expiraEm));
+        $em->flush();
+    }
+
     /** @return array{0: KernelBrowser, 1: array{tenant: Tenant, cardId: int}} */
-    private function preparar(?int $usoSimulado, bool $bloqueioAtivo): array
+    private function preparar(?int $usoSimulado, bool $bloqueioAtivo, ?\DateTimeImmutable $bonusExpiraEm = null): array
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -125,6 +177,9 @@ final class BloqueioDeEnvioPorEspacoTest extends JusPrimeWebTestCase
 
         $cenario = $this->criarCenario();
         $this->darLimiteDeUmGb($cenario['tenant']);
+        if ($bonusExpiraEm !== null) {
+            $this->darBonus($cenario['tenant'], $cenario['gestor'], $bonusExpiraEm);
+        }
         static::getContainer()->get(Connection::class)
             ->executeStatement('UPDATE contribua_configuracao SET bloqueio_ativo = :ligado', ['ligado' => $bloqueioAtivo], ['ligado' => 'boolean']);
         $this->logarComTenant($client, $cenario['gestor'], $cenario['tenant']);

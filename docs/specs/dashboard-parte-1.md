@@ -81,12 +81,10 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 
 - **Empate total** (mesmas concluídas e mesmas vencidas): **ninguém recebe o troféu** e o ranking
   divide a posição (1º, 1º, 3º). O desenho é omisso.
-- "Relatório" sem link (decidido no PR4): o destino do desenho (Expediente filtrado por autor do
-  registro e pelas abas Dados da pasta, Financeiro e Detalhes) lista PASTAS, e o número conta
-  REGISTROS (mensagens, observações financeiras e de detalhes, respostas incluídas). Uma pasta com 3
-  registros da pessoa é 1 linha na lista, então os totais só coincidiriam por acaso; a regra B12 só
-  deixa o número virar link quando a lista conta a mesma coisa. Filtro de autor/aba no Expediente
-  não foi criado (código morto sem link). Fica com a DASH-012 (lista da pessoa, por registro).
+- "Relatório" e o modal (PR-D, destravado): o destino do desenho (Expediente filtrado por autor do
+  registro e pelas abas) listava PASTAS e o número conta REGISTROS, então a regra B12 só deixa o
+  número ser clicável quando a lista conta a mesma coisa. Agora o clique no número (ou "Ver relatório de X"
+  do botão direito) abre o modal do desenho (`comVer`) com a lista por REGISTRO: ver "PR-D" abaixo.
 - Universo do troféu e do cartão: vínculo ativo no escritório (`UserTenant.isActive`). Usuário com
   `User.isActive = false` e vínculo ainda ativo continua no universo (não mudado aqui). Escritório em
   quarentena de exclusão não abre o painel, então não há universo a filtrar.
@@ -94,7 +92,7 @@ e o README do handoff (seções "Período padrão", "Troféu de melhor resultado
 ## Fora deste PR
 
 Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (DASH-013, feita no PR3), setas × ontem, a tabela
-`dashboard_campeao_mes` que congelaria o "1º do mês", lista por registro e link do Relatório (DASH-012).
+`dashboard_campeao_mes` que congelaria o "1º do mês". A lista por registro e o modal do Relatório (DASH-012) saíram no PR-D.
 
 ## Fatias seguintes
 
@@ -206,10 +204,40 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
   - **Zerar**: célula com corte ativo continua sem link (o destino não conta a partir do corte);
     o corte não viaja na URL.
   - **Desvios do desenho**: o desenho usa `status=concluida`; aqui `status` segue sendo a situação da
-    pasta (ativo/arquivado), e o filtro novo é `concluida=1`. No Total, o desenho linka; aqui o Total
-    segue sem link, como todos os do Total (ele soma só as linhas exibidas, filtradas por cargo ou
-    pessoa, e não inclui pasta de quem saiu do escritório, então a lista não contaria o mesmo).
-  - **Relatório**: sem link, pela razão acima. Só destrava com uma lista por registro (DASH-012).
+    pasta (ativo/arquivado), e o filtro novo é `concluida=1`. No Total, o desenho linka, e agora o Total
+    também linka (PR-D, abaixo).
+- **PR-D (feito: Total de Pastas concluídas e modal do Relatório, sem migration)**.
+  - **Total de Pastas concluídas** vira link: `/expediente?painel=acervo-geral&concluida=1&responsavel=equipe`
+    (`equipe:<cargo>` com cargo filtrado; `equipe:__sem__` para "sem cargo") e as datas do painel. O Total soma
+    só as linhas exibidas (colaboradores ATIVOS); `PastaRepository::aplicarFiltrosPasta` aceita
+    `responsavel=equipe[:cargo]` com a mesma lógica do `criado_por=equipe` (EXISTS em `UserTenant` ativo do
+    escritório da consulta + cargo), então a lista conta o mesmo número (paridade em
+    `ExpedienteTotalPastasConcluidasLinkTest`: equipe, cargo, sem cargo, cadeado D1, quem saiu e pasta sem
+    responsável, fora dos dois lados). **Decisão do coordenador**: pasta de responsável que saiu do escritório
+    fica fora do Total e do link. Sem link quando há busca (filtra as linhas), "Zerar" na coluna (o
+    Expediente não aplica o corte) ou Total 0; com uma pessoa só na tabela usa o destino da pessoa. Tooltip
+    "Abrir: Pastas concluídas da equipe filtrada" (ou "...da equipe do cargo X"; o dc diz "de a equipe
+    filtrada"). O select de responsável do Expediente ganha uma opção `data-equipe` (fora do menu) com o rótulo
+    "Equipe" / "Equipe · cargo" para o valor sobreviver à paginação e ao "Limpar".
+  - **Modal "Ver relatório de X"** (dc `comVer`, L1500-1527): `GET /dashboard/relatorio/{userId}`
+    (`dashboard_relatorio`, JSON, módulo `bi`; pessoa de outro escritório ou vínculo inativo = 404),
+    `ObterRelatorioDeRegistrosDoColaboradorUseCase`, `RelatorioDoColaboradorOutput`. Os registros (pasta, data e
+    hora) vêm agrupados por pasta, do mais novo ao mais antigo, com trecho em texto puro (sem HTML, 120
+    caracteres, `textContent` no JS) e link para `/pasta/{id}#dados`. Total no cabeçalho e no rodapé = número da
+    célula. **Mesmo critério da contagem**: `App\Pasta\Criterio\RegistroDePastaNoPeriodo` (escritório, lápide,
+    cartão do sistema fora, cadeado D1, período por `criadaEm`, corte do Zerar) usado por
+    `contarRegistrosPorAutor` (GROUP BY) e por `listarRegistrosDoAutor` (lista). Limite de 200 linhas
+    (`LIMITE_DE_LINHAS`, as mais novas): o resto vira "Mostrando os N mais recentes. Os outros M também entram no
+    total", e o total continua exato. Com Zerar ativo na célula o modal aplica o mesmo corte (o do Relatório da
+    equipe ou da pessoa, o mais recente). **Decisão do coordenador**: a CONTAGEM inclui as três abas; o TEXTO só
+    aparece onde a pessoa logada vê a aba da pasta (Financeiro: `VisibilidadeDoFinanceiroDaPasta::podeVer`; Dados e
+    Detalhes: `VisibilidadeDasAbasDaPasta::ocultaPara`; decisão uma vez por pasta e aba). Onde não vê, a linha e o total
+    ficam (paridade com a célula) e o trecho vira "Conteúdo de uma aba que você não pode ver". O link do grupo usa a
+    âncora da aba (`#financeiro`, `#detalhes`, `#dados`) quando todos os itens são da mesma aba visível; senão `#dados`. O clique no número (botão `[data-db-relatorio-url]`) e o "Ver relatório" do menu da
+    célula (dashboard-zerar.js) abrem o modal; o menu também o oferece com 0 registros (modal vazio), como o dc.
+    Arquivos: `dashboard-relatorio.js/.css`, chaves em `dashboard.relatorio` (catálogo `dashboard`).
+  - **Desvios do desenho**: rodapé com o total e o "e mais N" (o dc tem rodapé só para o texto de referência
+    local); sem a "base de referência" do protótipo.
 - **PR-E (feito: setas de tendência nas colunas)**. Regra única do desenho (`tendencia()`, dc
   L1819+; `tendCor`/`setaWrap`): delta relativo em %, limiar de 2% para "estável", "novo" quando o
   anterior é 0, cor pelo sentido (subir é bom; `sobeRuim`: subir é ruim; `neutra`: sempre cinza). O
@@ -261,4 +289,4 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
 
 - #334 e #339 no master (migration 150900 com `finalizada_em`).
 - Zerar (branch `dashboard-3`): revisado, re-revisado e com o master trazido; PR aberto.
-- Meta de pastas do mês (PR-B, antes PR3c): feita, ver acima (hoje só o primário edita; "quem ele autorizar" ficou fora). Próximo: PR4 links do Relatório e de Pastas concluídas com o filtro do Expediente.
+- Meta de pastas do mês (PR-B, antes PR3c): feita, ver acima (hoje só o primário edita; "quem ele autorizar" ficou fora). PR4 (links de Pastas concluídas) e PR-D (Total e modal do Relatório) feitos.

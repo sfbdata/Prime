@@ -114,3 +114,20 @@
 .mrc-dlg-cancelar { height: 34px; padding: 0 13px; border: 1px solid var(--mrc-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 13.5px; cursor: pointer; }
 .mrc-dlg-salvar { height: 34px; padding: 0 15px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font-size: 13.5px; font-weight: bold; cursor: pointer; }
 .mrc-dlg-salvar:disabled { cursor: progress; opacity: .75; }
+
+/* F2: extrato (desenho L329-337) e diálogo de crédito ou estorno (diálogo `bonus`, L875-886). */
+.mrc-extrato-cabeca { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--mrc-div); }
+.mrc-extrato-cabeca > .bi { color: var(--mrc-azul); }
+.mrc-extrato-titulo { font-size: 15px; flex: 1; }
+.mrc-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 2px; background: var(--mrc-hover); color: var(--mrc-azul); font-size: 12.5px; font-weight: bold; }
+.mrc-chip button { border: none; background: none; color: var(--mrc-azul); cursor: pointer; padding: 0; }
+.mrc-exportar { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 12.5px; cursor: pointer; text-decoration: none; }
+.mrc-exportar:hover { color: var(--mrc-botao-tx); text-decoration: none; }
+.mrc-extrato-vazio { padding: 24px; text-align: center; color: var(--mrc-ic); }
+.mrc-extrato-linha { display: grid; grid-template-columns: 150px minmax(200px, 1fr) 150px 110px; gap: 8px; align-items: center; padding: 9px 18px; border-bottom: 1px solid var(--mrc-div-linha); font-size: 13px; }
+.mrc-extrato-linha-zebra { background: var(--mrc-zebra); }
+.mrc-extrato-data { color: var(--mrc-rotulo); }
+.mrc-extrato-tipo { font-weight: bold; color: var(--mrc-azul); }
+.mrc-extrato-tipo-estorno { color: var(--mrc-vermelho); }
+.mrc-extrato-rolagem { overflow-x: auto; }
+.mrc-extrato-tabela { min-width: 640px; }

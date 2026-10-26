@@ -1,6 +1,6 @@
-{# Seção "Recompensas" do /master (#sec=recomp), F1. Desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html:
-   marcação L306-338 (sem a caixa, o extrato, o Fechamento do mês, "Dar baixa" e "Simular indicação", que entram nas fatias
-   seguintes) e lógica L854-964. Spec docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md.
+{# Seção "Recompensas" do /master (#sec=recomp), F1 e F2. Desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html:
+   marcação L306-338 (sem a caixa, o Fechamento do mês, "Dar baixa" e "Simular indicação", que entram nas fatias seguintes; o extrato
+   e o diálogo de lançamento são da F2) e lógica L854-964. Spec docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md.
    Incluída pelo painel.html.twig num <div data-sec-externa="recomp"> (o mesmo mecanismo da seção Indicações): o painel.js
    só mostra a sub-aba com este parcial presente e avisa a troca de seção pelo evento `mp:secao`. Traz o próprio <link> e
    <script> (a CSP do /master aceita 'self', sem inline). Os números vêm por JSON quando a seção abre
@@ -11,6 +11,9 @@
      data-url-dados="{{ path('master_recompensas_dados') }}"
      data-url-regras="{{ path('master_recompensas_regras') }}"
      data-url-condicao="{{ path('master_recompensas_condicao', {id: 0}) }}"
+     data-url-lancamento="{{ path('master_recompensas_lancamento', {id: 0}) }}"
+     data-url-extrato="{{ path('master_recompensas_extrato') }}"
+     data-url-csv="{{ path('master_recompensas_extrato_csv') }}"
      data-token="{{ csrf_token('master_recompensas') }}">
     <div class="mrc-aviso" data-mrc-aviso role="status" hidden></div>
     <div class="mrc-kpis" data-mrc-kpis aria-busy="true"></div>
@@ -50,11 +53,26 @@
         </div></div>
     </section>
 
-    {# Menu ⋮ (desenho L611): só "Condição individual" e "Voltar à regra geral" nesta fatia. #}
+    {# Extrato (desenho L329-337): sem os botões de aviso, a forma, o comprovante e o e-mail enviado, que entram nas fatias F4 e F7. #}
+    <section class="mrc-caixa" aria-labelledby="mrc-extrato">
+        <div class="mrc-extrato-cabeca">
+            <i class="bi bi-receipt" aria-hidden="true"></i>
+            <b class="mrc-extrato-titulo" id="mrc-extrato">{{ 'master.recompensas.extrato.titulo'|trans }}</b>
+            <span class="mrc-chip" data-mrc-ext-chip hidden><span data-mrc-ext-nome></span><button type="button" data-mrc-ext-limpar><i class="bi bi-x-lg" aria-hidden="true"></i></button></span>
+            <a class="mrc-exportar" href="{{ path('master_recompensas_extrato_csv') }}" download><i class="bi bi-filetype-csv" aria-hidden="true"></i> {{ 'master.recompensas.extrato.exportar'|trans }}</a>
+        </div>
+        <div class="mrc-extrato-vazio" data-mrc-ext-vazio hidden>{{ 'master.recompensas.extrato.vazio'|trans }}</div>
+        <div class="mrc-extrato-rolagem"><div class="mrc-extrato-tabela" data-mrc-ext-lista></div></div>
+    </section>
+
+    {# Menu ⋮ (desenho L611): condição individual, lançamento, extrato e regra geral. #}
     <div class="mrc-menu-fundo" data-mrc-menu-fundo hidden></div>
     <div class="mrc-menu" data-mrc-menu role="menu" hidden>
         <div class="mrc-menu-titulo" data-mrc-menu-titulo></div>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="condicao"><i class="bi bi-star" aria-hidden="true"></i><span data-mrc-menu-txt="condicao"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="lancamento"><i class="bi bi-plus-slash-minus" aria-hidden="true"></i><span data-mrc-menu-txt="lancamento"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="extrato"><i class="bi bi-receipt" aria-hidden="true"></i><span data-mrc-menu-txt="extrato"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="csv"><i class="bi bi-download" aria-hidden="true"></i><span data-mrc-menu-txt="csv"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="geral"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span data-mrc-menu-txt="geral"></span></button>
     </div>
 
@@ -84,6 +102,27 @@
             <div class="mrc-dlg-rodape">
                 <button type="button" class="mrc-dlg-cancelar" data-mrc-dlg-fechar>{{ 'master.recompensas.dialogo.cancelar'|trans }}</button>
                 <button type="button" class="mrc-dlg-salvar" data-mrc-dlg-salvar>{{ 'master.recompensas.dialogo.salvar'|trans }}</button>
+            </div>
+        </div>
+    </div>
+
+    {# Janela "Lançar crédito ou estorno" (desenho L875-886, ramo `bonus`). #}
+    <div class="mrc-dlg-fundo" data-mrc-lan-fundo hidden></div>
+    <div class="mrc-dlg-posicao" data-mrc-lan hidden>
+        <div class="mrc-dlg" role="dialog" aria-modal="true" aria-labelledby="mrc-lan-titulo">
+            <div class="mrc-dlg-cabeca">
+                <i class="bi bi-plus-slash-minus" aria-hidden="true"></i><b id="mrc-lan-titulo">{{ 'master.recompensas.lancamento.titulo'|trans }}</b>
+                <button type="button" class="mrc-dlg-x" data-mrc-lan-fechar aria-label="{{ 'master.recompensas.dialogo.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="mrc-dlg-corpo">
+                <div><b class="mrc-dlg-nome" data-mrc-lan-nome></b><div class="mrc-dlg-sub" data-mrc-lan-sub></div></div>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.lancamento.valor'|trans }}<input type="text" inputmode="decimal" autocomplete="off" data-mrc-lan-valor><span class="mrc-dlg-dica">{{ 'master.recompensas.lancamento.dica'|trans }}</span></label>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.lancamento.observacao'|trans }}<textarea rows="3" maxlength="255" data-mrc-lan-obs></textarea></label>
+                <div class="mrc-dlg-erro" data-mrc-lan-erro role="alert" hidden></div>
+            </div>
+            <div class="mrc-dlg-rodape">
+                <button type="button" class="mrc-dlg-cancelar" data-mrc-lan-fechar>{{ 'master.recompensas.lancamento.cancelar'|trans }}</button>
+                <button type="button" class="mrc-dlg-salvar" data-mrc-lan-enviar>{{ 'master.recompensas.lancamento.lancar'|trans }}</button>
             </div>
         </div>
     </div>

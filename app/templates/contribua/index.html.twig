@@ -45,6 +45,7 @@
         <div class="ct-espaco-uso">
             <div class="ct-barra"><div style="width: {{ e.largura }}"></div></div>
             <div class="ct-espaco-uso-texto"><span><b>{{ e.uso }}</b> de {{ e.limite }} no plano {{ e.plano }}</span><b>{{ e.percentual }}% ocupado</b></div>
+            {% if e.bonusAte is not null %}<div class="ct-espaco-bonus" data-ct-bonus><i class="bi bi-gift"></i> {{ 'contribua.espaco.bonus_ate'|trans({gb: e.bonusGb, data: e.bonusAte}) }}</div>{% endif %}
         </div>
         <div class="ct-pacotes">
             {% for pac in p.pacotes %}

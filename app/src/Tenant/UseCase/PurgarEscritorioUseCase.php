@@ -136,6 +136,8 @@ final class PurgarEscritorioUseCase
         // Contribua — plano e limites de espaço do escritório (tenant_id direto; FK tenant NO ACTION, nada a
         // referencia). O catálogo de planos e a configuração são globais e ficam.
         ['contribua_espaco_do_escritorio', 'tenant_id = :tenant'],
+        // Bônus de espaço por indicação (tenant_id direto; FK tenant NO ACTION, nada o referencia).
+        ['contribua_bonus_de_espaco', 'tenant_id = :tenant'],
         // Contribua C2: sugestões, apoios informados e motivos anônimos (tenant_id direto; FKs a "user"
         // SET NULL; nada as referencia).
         ['contribua_sugestao', 'tenant_id = :tenant'],

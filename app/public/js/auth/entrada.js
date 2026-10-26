@@ -257,7 +257,9 @@
         clearTimeout(indTemporizador);
         const valor = ind.value.trim();
         if (valor !== indValorConferido) { indValorConferido = ''; limparStatusDoCupom(); }
-        if (!cupomLigado() || valor === indValorConferido || !/^BJ-[A-Z0-9]{4,12}$/.test(valor)) { return; }
+        /* Como no desenho 10: o prefixo "BJ-" é opcional e a conferência começa em 6 caracteres do código. O servidor
+           normaliza o prefixo (CodigoDeIndicacao::doCupom), então o valor vai como foi digitado. */
+        if (!cupomLigado() || valor === indValorConferido || !/^[A-Z0-9]{6,12}$/.test(valor.replace(/^BJ-/, ''))) { return; }
         indTemporizador = setTimeout(() => {
             fetch(indStatus.dataset.url, {
                 method: 'POST',
