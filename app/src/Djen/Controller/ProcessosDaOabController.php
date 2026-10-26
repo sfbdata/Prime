@@ -88,6 +88,7 @@ final class ProcessosDaOabController extends AbstractController
             'oabs_opcoes' => $this->oabsDoFiltro($tenant),
             'areas' => ClassificacaoDoProcesso::AREAS,
             'fases' => ClassificacaoDoProcesso::FASES,
+            'grupo_da_fase' => ClassificacaoDoProcesso::grupoDeCadaFase(),
             'hoje' => $hoje,
             'email_padrao' => $this->emailPadrao(),
         ]);

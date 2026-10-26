@@ -27,6 +27,19 @@ final class ClassificacaoDoProcesso
         return array_merge(...array_values(self::FASES));
     }
 
+    /** @return array<string, string> fase => grupo (Judicial, Recursal...) */
+    public static function grupoDeCadaFase(): array
+    {
+        $mapa = [];
+        foreach (self::FASES as $grupo => $fases) {
+            foreach ($fases as $fase) {
+                $mapa[$fase] = $grupo;
+            }
+        }
+
+        return $mapa;
+    }
+
     public static function areaValida(?string $area): bool
     {
         return $area === null || $area === '' || \in_array($area, self::AREAS, true);
