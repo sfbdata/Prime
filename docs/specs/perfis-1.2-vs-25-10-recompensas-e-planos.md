@@ -120,3 +120,14 @@ dinheiro novo: só decide quais contas contam.
 | F3 | Resumo de 4 KPIs e receita por plano | depende do dono (existe assinatura paga?) |
 | F4 | Edição inline com "Restaurar padrão" no lugar do modal | depende do dono |
 | F5 | Aviso por e-mail antes do reajuste | depende do Gateway |
+
+## Estado da frente (fim do dia, 26/10/2026)
+
+- Entregue e mergeado: Planos visual (#419), Recompensas F0 (#421), F1 (#420), F2 (#422); P4a mapa de indicações (#415), P4b convênio por UF (#417), P4c e-mail do convênio (#424; só estado ou valor reenviam, motivo e data não).
+- Em PR: F3 antifraude, bloqueio e apagar da lista (#423), teto TenantAware 86. Depois do merge, conferir o teto contra o master.
+- Esperam o dono (pendências 2i/2j/2k): F4 baixa manual com comprovante e PIX, F5 caixa e fechamento, F6 repasse e recorrência, F7 avisos em lote e mapa pago. F4 é risco ALTO (dinheiro): spec, revisão e re-revisão.
+- Planos, o que falta: tirar o campo "usuários" do modal Editar plano; KPIs e receita por plano (precisa de assinatura paga); edição inline com "Restaurar padrão"; aviso por e-mail no reajuste (depende do Gateway).
+- Convênio: soma do valor na receita espera resposta do dono.
+- Registrar P4a/P4b na spec `perfis-1.2-vs-25-10-metas-mapa-config.md` (ainda não feito).
+- Nunca feitos, fora desta frente: Service Desk · saldos, Custos; Desempenho é de outra sessão.
+- Rotina ao retomar: `git fetch`, trazer `origin/master` em cada PR aberto, migrar o banco da frente, conferir o teto de `TenantAwareCoberturaTest`.
