@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Expediente\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Acertos finais do Expediente contra o desenho 03 VS 18.10.26 (conferência de 19/10): as dicas do cabeçalho e da
@@ -20,7 +20,7 @@ final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
     /** O texto da chave no catálogo do português (desde a extração do idioma, o template e o JS só têm a chave). */
     private static function texto(string $chave): string
     {
-        $no = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $no = CatalogoPtBr::carregar();
         foreach (explode('.', $chave) as $parte) {
             $no = $no[$parte];
         }
@@ -41,7 +41,7 @@ final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
         self::assertStringContainsString("aria-label=\"{{ 'moldura.cabecalho.menu_lateral_alternar'|trans }}\" data-tip=\"{{ 'moldura.cabecalho.menu_lateral_dica'|trans }}\"", $base);
         self::assertStringContainsString("aria-label=\"{{ 'moldura.notificacoes.rotulo'|trans }}\" data-tip=\"{{ 'moldura.notificacoes.rotulo'|trans }}\"", $base);
         self::assertStringContainsString("aria-label=\"{{ 'moldura.cabecalho.tela_cheia'|trans }}\" data-tip=\"{{ 'moldura.cabecalho.tela_cheia'|trans }}\"", $base);
-        $catalogo = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml');
+        $catalogo = CatalogoPtBr::carregar();
         self::assertSame(['Abrir/fechar menu', 'Menu', 'Notificações', 'Tela cheia'], [
             $catalogo['moldura']['cabecalho']['menu_lateral_alternar'], $catalogo['moldura']['cabecalho']['menu_lateral_dica'],
             $catalogo['moldura']['notificacoes']['rotulo'], $catalogo['moldura']['cabecalho']['tela_cheia'],

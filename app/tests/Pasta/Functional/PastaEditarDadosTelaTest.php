@@ -7,10 +7,10 @@ namespace App\Tests\Pasta\Functional;
 use App\Controller\PastaController;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * "Editar dados" da pasta no desenho 1.2.3 (dc L.560-592, `peVals` L.4278-4307): linha do
@@ -142,6 +142,6 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
     /** @return array<string, string> o texto do script do modal, no catálogo do idioma (`pasta_show.js.editar`) */
     private static function catalogoDoEditar(): array
     {
-        return Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['editar'];
+        return CatalogoPtBr::carregar()['pasta_show']['js']['editar'];
     }
 }
