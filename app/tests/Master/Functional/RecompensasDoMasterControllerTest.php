@@ -216,6 +216,8 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
             self::assertResponseStatusCodeSame(422, 'caso ' . $i);
             self::assertArrayHasKey('erro', $this->json());
         }
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $ana->getId() . '/condicao');
+        self::assertResponseStatusCodeSame(422, 'corpo que não é JSON');
         $this->enviar('POST', '/master/recompensas/usuarios/' . $semIndicacao->getId() . '/condicao', ['valor' => '30,00']);
         self::assertResponseStatusCodeSame(404);
         $this->enviar('POST', '/master/recompensas/usuarios/999999999/condicao', ['valor' => '30,00']);

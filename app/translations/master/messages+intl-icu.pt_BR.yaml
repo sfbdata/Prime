@@ -274,6 +274,7 @@ master:
             fechar: Fechar
         token_invalido: Token CSRF inválido. Recarregue a página.
         indicador_nao_encontrado: Indicador não encontrado.
+        corpo_invalido: Corpo da requisição inválido.
     # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
     ia:
         instalacao:

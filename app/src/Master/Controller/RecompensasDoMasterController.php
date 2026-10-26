@@ -54,7 +54,7 @@ final class RecompensasDoMasterController extends AbstractController
     public function regras(Request $request, AlterarRegrasDoProgramaUseCase $alterar): JsonResponse
     {
         return $this->mutar($request, function () use ($request, $alterar): void {
-            $input = AlterarRegrasDoProgramaInput::doJson($this->ator(), self::corpo($request));
+            $input = AlterarRegrasDoProgramaInput::doJson($this->ator(), self::corpo($request) ?? []);
             $this->exigirValido($input);
             $alterar->executar($input);
         });
@@ -65,7 +65,7 @@ final class RecompensasDoMasterController extends AbstractController
     public function definirCondicao(int $id, Request $request, DefinirCondicaoIndividualUseCase $definir): JsonResponse
     {
         return $this->mutar($request, function () use ($id, $request, $definir): void {
-            $input = DefinirCondicaoIndividualInput::doJson($this->ator(), $id, self::corpo($request));
+            $input = DefinirCondicaoIndividualInput::doJson($this->ator(), $id, self::corpo($request) ?? throw new RecompensaRecusada($this->tradutor->trans('master.recompensas.corpo_invalido')));
             $this->exigirValido($input);
             $definir->executar($input);
         });
@@ -112,15 +112,15 @@ final class RecompensasDoMasterController extends AbstractController
         return $ator instanceof User ? $ator : null;
     }
 
-    /** @return array<mixed> */
-    private static function corpo(Request $request): array
+    /** @return array<mixed>|null nulo quando o corpo não é um JSON de objeto */
+    private static function corpo(Request $request): ?array
     {
         try {
             $dados = json_decode($request->getContent(), true, 8, \JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            return [];
+            return null;
         }
 
-        return is_array($dados) ? $dados : [];
+        return is_array($dados) ? $dados : null;
     }
 }
