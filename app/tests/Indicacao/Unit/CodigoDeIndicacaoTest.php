@@ -9,6 +9,7 @@ use App\Indicacao\Service\CodigoDeIndicacao;
 use App\Tests\Indicacao\Support\Pessoas;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -41,5 +42,25 @@ final class CodigoDeIndicacaoTest extends TestCase
         $codigos->expects(self::never())->method('gravarSeNaoTiver');
 
         self::assertSame('ABCD2345', (new CodigoDeIndicacao($codigos, $this->createStub(UrlGeneratorInterface::class)))->codigoDe(Pessoas::usuario(7)));
+    }
+
+    #[TestDox('cupom digitado ou da URL: sem o BJ-, em caixa alta; nulo fora do formato')]
+    #[TestWith(['BJ-ABCD2345', 'ABCD2345'])]
+    #[TestWith(['bj-abcd2345', 'ABCD2345'])]
+    #[TestWith(['BJABCD2345', 'ABCD2345'])]
+    #[TestWith([' abcd2345 ', 'ABCD2345'])]
+    #[TestWith(['BJXY2345', 'BJXY2345'])]
+    #[TestWith(['bjxy2345', 'BJXY2345'])]
+    #[TestWith(['BJ-BJXY2345', 'BJXY2345'])]
+    #[TestWith(['BJBJXY2345', 'BJXY2345'])]
+    #[TestWith(['BJ-ABC', null])]
+    #[TestWith(['ABCDEFGHIJKLM', null])]
+    #[TestWith(['ABCD-2345', null])]
+    #[TestWith(['', null])]
+    #[TestWith([null, null])]
+    #[TestWith([['ABCD2345'], null])]
+    public function testDoCupom(mixed $valor, ?string $esperado): void
+    {
+        self::assertSame($esperado, CodigoDeIndicacao::doCupom($valor));
     }
 }

@@ -241,7 +241,7 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
 
         $this->client->request('GET', '/i/zxcv2345');
 
-        self::assertResponseRedirects('/cadastro');
+        self::assertResponseRedirects('/cadastro?ind=ZXCV2345');
         self::assertSame('ZXCV2345', $this->client->getRequest()->getSession()->get(IndicacaoController::CHAVE_DA_SESSAO));
     }
 
@@ -250,7 +250,7 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
     {
         $this->client->request('GET', '/i/NAOEXISTE');
 
-        self::assertResponseRedirects('/cadastro');
+        self::assertResponseRedirects('/cadastro?ind=NAOEXISTE');
         self::assertNull($this->client->getRequest()->getSession()->get(IndicacaoController::CHAVE_DA_SESSAO));
     }
 
@@ -263,6 +263,10 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
         $invalido = $this->cabecalhosDoLinkCurto('/i/NAOEXISTE');
 
         self::assertNotSame([], $valido['cookies'], 'a sessão nasce');
+        // O destino repete o que veio na URL (o cupom preenchido do desenho 10 VS 25.10.26), não a conferência.
+        self::assertSame('/cadastro?ind=ZXCV2345', $valido['location']);
+        self::assertSame('/cadastro?ind=NAOEXISTE', $invalido['location']);
+        unset($valido['location'], $invalido['location']);
         self::assertSame($valido, $invalido);
     }
 

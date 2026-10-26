@@ -16,6 +16,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -116,6 +117,60 @@ final class CadastroPeloGoogleTest extends JusPrimeWebTestCase
         self::assertNotNull($token);
         self::assertSame($email, $token->getUserIdentifier());
         self::assertNull($client->getRequest()->getSession()->get(CadastroPeloGoogle::CHAVE_SESSAO), 'a identidade sai da sessão');
+    }
+
+    #[TestDox('Cupom de indicação pelo Google (desenho 10 VS 25.10.26): o código do campo liga a conta nova a quem indicou')]
+    public function testCupomPeloGoogle(): void
+    {
+        $client = $this->cliente();
+        $indicador = new User();
+        $indicador->setEmail('indicador_' . uniqid() . '@adv.com');
+        $indicador->setFullName('Ana Indica');
+        $indicador->setRoles(['ROLE_USER']);
+        $indicador->setPassword('x');
+        $this->em()->persist($indicador);
+        $this->em()->flush();
+        $conexao = $this->em()->getConnection();
+        $conexao->executeStatement('INSERT INTO indicacao_codigo (user_id, codigo) VALUES (?, ?)', [$indicador->getId(), 'GOOG2345']);
+        $email = 'cupom_' . uniqid() . '@gmail.com';
+        $this->google->email = $email;
+        $this->google->sub = 'sub-' . uniqid();
+        $this->conectar($client);
+
+        $client->jsonRequest('POST', '/cadastro/google/criar', $this->campos($client) + ['indicacao' => 'BJ-GOOG2345']);
+
+        self::assertResponseIsSuccessful();
+        $nova = (int) $conexao->fetchOne('SELECT id FROM "user" WHERE email = ?', [$email]);
+        self::assertSame($indicador->getId(), (int) $conexao->fetchOne('SELECT indicado_por_id FROM indicacao WHERE indicado_user_id = ?', [$nova]));
+    }
+
+    #[TestDox('Cupom pelo Google: inexistente não derruba o cadastro; vazio desfaz o código do link curto')]
+    #[TestWith(['BJ-NAOEXIST'])]
+    #[TestWith([''])]
+    public function testCupomInvalidoOuVazioPeloGoogle(string $cupom): void
+    {
+        $client = $this->cliente();
+        $indicador = new User();
+        $indicador->setEmail('indicador_' . uniqid() . '@adv.com');
+        $indicador->setFullName('Ana Indica');
+        $indicador->setRoles(['ROLE_USER']);
+        $indicador->setPassword('x');
+        $this->em()->persist($indicador);
+        $this->em()->flush();
+        $conexao = $this->em()->getConnection();
+        $conexao->executeStatement('INSERT INTO indicacao_codigo (user_id, codigo) VALUES (?, ?)', [$indicador->getId(), 'GOOG2345']);
+        $client->request('GET', '/i/GOOG2345');
+        $email = 'cupom_' . uniqid() . '@gmail.com';
+        $this->google->email = $email;
+        $this->google->sub = 'sub-' . uniqid();
+        $this->conectar($client);
+
+        $client->jsonRequest('POST', '/cadastro/google/criar', $this->campos($client) + ['indicacao' => $cupom]);
+
+        self::assertResponseIsSuccessful();
+        $nova = (int) $conexao->fetchOne('SELECT id FROM "user" WHERE email = ?', [$email]);
+        self::assertGreaterThan(0, $nova);
+        self::assertSame(0, (int) $conexao->fetchOne('SELECT COUNT(*) FROM indicacao WHERE indicado_user_id = ?', [$nova]));
     }
 
     #[TestDox('Sem a identidade na sessão (expirou ou "Usar outro e-mail"): 422 com o aviso e a marca para a tela voltar aos botões')]

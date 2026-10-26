@@ -10,6 +10,7 @@ use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\PaginaDeEntrada;
 use App\Entity\Auth\User;
+use App\Indicacao\Service\CodigoDeIndicacao;
 use App\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -53,6 +54,8 @@ final class SecurityController extends AbstractController
             'a_confirmar' => $this->avisoDeContaAConfirmar($request, $erro, $userRepository, $contaAConfirmar),
             'pagina' => $paginaDeEntrada->montar($usuario),
             'abrir' => $this->passoParaAbrir($request),
+            // Cupom de indicação na URL (desenho 10 VS 25.10.26): o JS abre o "Criar conta" com ele preenchido.
+            'cupom' => self::cupomDaUrl($request),
             'frase' => self::FRASES[intdiv(time(), 86400) % count(self::FRASES)],
             // Entrar com o Google (spec entrar-com-google, decisão do dono de 24/10): sem o cliente OAuth no servidor, a
             // tela não mostra nenhum botão do Google (nem o do cartão nem o do "Criar conta"). A URL aberta direto ainda
@@ -90,6 +93,20 @@ final class SecurityController extends AbstractController
         }
 
         return ContaAConfirmar::mensagemDeLogin((string) $conta->getEmail());
+    }
+
+    /** `?ind=`, `?codigo=` ou `?ref=` no formato do cupom, como `BJ-` + código; vazio fora do formato. */
+    private static function cupomDaUrl(Request $request): string
+    {
+        $query = $request->query->all();
+        foreach (['ind', 'codigo', 'ref'] as $chave) {
+            $codigo = CodigoDeIndicacao::doCupom($query[$chave] ?? null);
+            if ($codigo !== null) {
+                return 'BJ-' . $codigo;
+            }
+        }
+
+        return '';
     }
 
     private function passoParaAbrir(Request $request): ?string

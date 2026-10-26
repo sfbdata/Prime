@@ -19,6 +19,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -61,8 +62,12 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $sessao->save();
     }
 
-    /** O POST do cadastro do desenho 10; devolve o id da conta nova. */
-    private function cadastrar(): int
+    /**
+     * O POST do cadastro do desenho 10; devolve o id da conta nova.
+     *
+     * @param array<string, mixed> $extra campos a mais do JSON (o `indicacao` do cupom, desenho 10 VS 25.10.26)
+     */
+    private function cadastrar(array $extra = []): int
     {
         $email = 'nova_' . uniqid() . '@adv.com';
         $this->client->jsonRequest('POST', '/cadastro/criar', [
@@ -72,7 +77,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
             'genero' => 'feminino',
             'aceite' => true,
             '_token' => self::CSRF,
-        ]);
+        ] + $extra);
         self::assertResponseIsSuccessful();
 
         return (int) $this->conexao->fetchOne('SELECT id FROM "user" WHERE email = ?', [$email]);
@@ -93,7 +98,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
     public function testLinkCurtoLigaAContaNova(): void
     {
         $this->client->request('GET', '/i/' . strtolower(self::CODIGO));
-        self::assertResponseRedirects('/cadastro');
+        self::assertResponseRedirects('/cadastro?ind=' . self::CODIGO);
 
         $nova = $this->cadastrar();
 
@@ -228,5 +233,97 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $janela = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(1, $janela['total']);
         self::assertSame(['nome' => null, 'email' => null, 'canal' => 'link', 'contaCriada' => true], array_intersect_key($janela['ultimas'][0], array_flip(['nome', 'email', 'canal', 'contaCriada'])));
+    }
+
+    #[TestDox('cupom do cadastro (desenho 10 VS 25.10.26): o código digitado liga a conta nova a quem indicou, com e sem o BJ-')]
+    #[TestWith(['BJ-' . self::CODIGO])]
+    #[TestWith(['bj-qwer2345'])]
+    #[TestWith([self::CODIGO])]
+    public function testCupomLigaAContaNova(string $cupom): void
+    {
+        $nova = $this->cadastrar(['indicacao' => $cupom]);
+
+        $atribuicoes = $this->atribuicoesDe($nova);
+        self::assertCount(1, $atribuicoes);
+        self::assertSame($this->ana->getId(), (int) $atribuicoes[0]['indicado_por_id']);
+        self::assertSame('link', $atribuicoes[0]['canal']);
+        self::assertFalse($this->codigoNaSessao());
+    }
+
+    #[TestDox('cupom inexistente ou malformado: o cadastro passa sem erro e nada é ligado')]
+    #[TestWith(['BJ-NAOEXIST'])]
+    #[TestWith(['BJ-12'])]
+    #[TestWith(['<script>'])]
+    public function testCupomInvalidoNaoDerrubaOCadastro(string $cupom): void
+    {
+        $nova = $this->cadastrar(['indicacao' => $cupom]);
+
+        self::assertGreaterThan(0, $nova);
+        self::assertSame([], $this->atribuicoesDe($nova));
+        self::assertFalse($this->codigoNaSessao());
+    }
+
+    #[TestDox('o campo é a palavra final: cupom vazio desfaz o código do link curto')]
+    public function testCupomVazioDesfazOLinkCurto(): void
+    {
+        $this->client->request('GET', '/i/' . self::CODIGO);
+
+        $nova = $this->cadastrar(['indicacao' => '']);
+
+        self::assertSame([], $this->atribuicoesDe($nova));
+    }
+
+    #[TestDox('o campo é a palavra final: o cupom digitado vale no lugar do código do link curto')]
+    public function testCupomVenceOLinkCurto(): void
+    {
+        $bia = new User();
+        $bia->setEmail(uniqid('ind_') . '@exemplo.com');
+        $bia->setFullName('Bia Costa');
+        $bia->setRoles(['ROLE_USER']);
+        $bia->setPassword('x');
+        $this->em->persist($bia);
+        $this->em->flush();
+        $this->conexao->executeStatement('INSERT INTO indicacao_codigo (user_id, codigo) VALUES (?, ?)', [$bia->getId(), 'ASDF2345']);
+        $this->client->request('GET', '/i/' . self::CODIGO);
+
+        $nova = $this->cadastrar(['indicacao' => 'BJ-ASDF2345']);
+
+        $atribuicoes = $this->atribuicoesDe($nova);
+        self::assertCount(1, $atribuicoes);
+        self::assertSame($bia->getId(), (int) $atribuicoes[0]['indicado_por_id']);
+    }
+
+    #[TestDox('/i/{codigo} leva ao cadastro com o código na URL, igual para código válido e inválido (não revela)')]
+    public function testLinkCurtoLevaOCodigoNaUrl(): void
+    {
+        $this->client->request('GET', '/i/naoexiste');
+        self::assertResponseRedirects('/cadastro?ind=NAOEXISTE');
+
+        $this->client->request('GET', '/cadastro?ind=NAOEXISTE');
+        self::assertResponseRedirects('/login?abrir=cadastro&ind=NAOEXISTE');
+    }
+
+    #[TestDox('código real que começa com BJ: o link curto e o campo (com e sem BJ-) ligam a conta, o BJ do código não vira prefixo')]
+    public function testCodigoQueComecaComBj(): void
+    {
+        $this->conexao->executeStatement('UPDATE indicacao_codigo SET codigo = ? WHERE user_id = ?', ['BJXY2345', $this->ana->getId()]);
+
+        $this->client->request('GET', '/i/bjxy2345');
+        self::assertResponseRedirects('/cadastro?ind=BJXY2345');
+        $this->client->request('GET', '/cadastro?ind=BJXY2345');
+        self::assertResponseRedirects('/login?abrir=cadastro&ind=BJXY2345');
+        $pelaTela = $this->cadastrar(['indicacao' => 'BJ-BJXY2345']);
+        $semPrefixo = $this->cadastrar(['indicacao' => 'BJXY2345']);
+
+        self::assertCount(1, $this->atribuicoesDe($pelaTela));
+        self::assertCount(1, $this->atribuicoesDe($semPrefixo));
+    }
+
+    #[TestDox('/cadastro?ind[]= não derruba: leva ao Criar conta sem o cupom')]
+    public function testCadastroComIndEmLista(): void
+    {
+        $this->client->request('GET', '/cadastro?ind[]=QWER2345');
+
+        self::assertResponseRedirects('/login?abrir=cadastro');
     }
 }

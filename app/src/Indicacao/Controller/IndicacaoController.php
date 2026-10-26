@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Indicacao\DTO\IndicarPorEmailInput;
 use App\Indicacao\Enum\CanalDeIndicacao;
 use App\Indicacao\Exception\IndicacaoRecusada;
+use App\Indicacao\Service\CodigoDeIndicacao;
 use App\Indicacao\UseCase\ConferirCodigoDeIndicacaoUseCase;
 use App\Indicacao\UseCase\IndicarPorEmailUseCase;
 use App\Indicacao\UseCase\ObterMinhasIndicacoesUseCase;
@@ -75,7 +76,11 @@ final class IndicacaoController extends AbstractController
         // Set-Cookie, é a mesma; só remover deixaria a sessão vazia e sem cookie, o que revelaria o código válido.
         $request->getSession()->set(self::CHAVE_DA_SESSAO, $conferir->executar($codigo));
 
-        return $this->redirectToRoute('auth_cadastro');
+        // O cupom preenchido no "Criar conta" (desenho 10 VS 25.10.26) repete o que veio na URL, conferido só no
+        // formato: o destino é o mesmo para código válido e inválido.
+        $cupom = CodigoDeIndicacao::doCupom($codigo);
+
+        return $this->redirectToRoute('auth_cadastro', $cupom !== null ? ['ind' => $cupom] : []);
     }
 
     /** @param \Closure(): string $acao */

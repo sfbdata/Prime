@@ -167,6 +167,8 @@
         const [titulo, icone, botao, iconeBotao] = PASSOS[novo];
         $('lgMdTitTxt').textContent = titulo;
         $('lgMdIc').className = 'bi ' + icone;
+        /* Desenho 10 VS 25.10.26: o título do "Criar conta e escritório" vai sem ícone (mdTemIc). */
+        mostrar($('lgMdIc'), novo !== 'cad');
         $('lgMdBtnTxt').textContent = botao;
         $('lgMdBtnIc').className = 'bi ' + iconeBotao;
         md.querySelectorAll('[data-passo]').forEach((el) => mostrar(el, el.dataset.passo === novo));
@@ -204,6 +206,49 @@
         desconectar();
         $('lgCdEmail').focus();
     });
+
+    /* Cupom de indicação (desenho 10 VS 25.10.26). Desligar a chave apaga o campo. Validado só no servidor, ao enviar
+       (spec login-cupom-e-facebook, D5). O sessionStorage só leva o cupom na ida e volta do "Continuar com Google". */
+    const CUPOM_GUARDADO = 'bj-cupom';
+    const DESLIGADO = '-';
+    const indTg = $('lgCdIndTg');
+    const indCampo = $('lgCdIndCampo');
+    const ind = $('lgCdInd');
+    const cupomLigado = () => indTg.getAttribute('aria-checked') === 'true';
+    const ligarCupom = (sim, valor) => {
+        indTg.setAttribute('aria-checked', sim ? 'true' : 'false');
+        mostrar(indCampo, sim);
+        ind.value = sim ? (valor || '') : '';
+    };
+    indTg.addEventListener('click', () => {
+        const ligar = !cupomLigado();
+        ligarCupom(ligar, '');
+        if (ligar) { ind.focus(); }
+        mdErroTexto('');
+    });
+    ind.addEventListener('input', () => {
+        ind.value = ind.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 11);
+    });
+    const cdGoogle = $('lgCdGoogle');
+    if (cdGoogle) {
+        cdGoogle.addEventListener('click', () => {
+            // DESLIGADO marca o cupom da URL que a pessoa desligou: sem ele, a volta perde o "desliguei" e o link curto vale de novo.
+            try {
+                if (cupomLigado() && ind.value) { sessionStorage.setItem(CUPOM_GUARDADO, ind.value); } else if (cupomDaUrl) { sessionStorage.setItem(CUPOM_GUARDADO, DESLIGADO); }
+            } catch (e) { /* sem storage, segue */ }
+        });
+    }
+    /* O "indicacao" só vai quando há cupom ligado, ou quando a pessoa desligou o cupom que veio na URL: assim quem chegou
+       pelo link curto e cria a conta em outra aba não perde a indicação da sessão. */
+    const cupomDaUrl = raiz.dataset.ind || '';
+    let cupomVoltaDoGoogle = '';
+    try {
+        cupomVoltaDoGoogle = !$('lgCdSocOk').hidden ? (sessionStorage.getItem(CUPOM_GUARDADO) || '') : '';
+        sessionStorage.removeItem(CUPOM_GUARDADO);
+    } catch (e) { cupomVoltaDoGoogle = ''; }
+    const desligouAntesDoGoogle = cupomVoltaDoGoogle === DESLIGADO;
+    if (desligouAntesDoGoogle) { cupomVoltaDoGoogle = ''; }
+    if (cupomDaUrl || cupomVoltaDoGoogle) { ligarCupom(true, cupomDaUrl || cupomVoltaDoGoogle); }
 
     const abrirSenha = () => {
         $('lgRsEmail').value = email.value;
@@ -325,6 +370,7 @@
             aceite: $('lgCdAceite').checked,
             _token: tokens.cadastro,
         };
+        if (cupomLigado()) { campos.indicacao = ind.value.trim(); } else if (cupomDaUrl || desligouAntesDoGoogle) { campos.indicacao = ''; }
         /* Pelo Google o e-mail não vai: o servidor usa o que o Google provou, guardado na sessão. */
         const r = peloGoogle ? await postar('/cadastro/google/criar', campos) : await postar('/cadastro/criar', { ...campos, email: em });
         if (r.status !== 200) {
@@ -595,5 +641,10 @@
         abrirCadastro();
         /* "Continuar com Google" sem o cliente OAuth no servidor: o aviso volta da ida, no erro do modal. */
         if (raiz.dataset.avisoCadastro) { mdErroTexto(raiz.dataset.avisoCadastro); }
+    } else if (raiz.dataset.ind || /cadastro/.test(window.location.hash)) {
+        /* Desenho 10 VS 25.10.26: cupom na URL (?ind=, ?codigo=, ?ref=) ou #cadastro abrem o "Criar conta". */
+        abrirCadastro();
     }
+    /* No desenho o campo do cupom tem autoFocus: aberto pela URL, o foco vai para ele. */
+    if (cupomDaUrl && passo === 'cad') { ind.focus(); }
 })();

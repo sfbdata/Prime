@@ -141,7 +141,7 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-md__barra{display:flex; align-items:center; gap:10px}
 .lg-md__barra img{height:32px; display:block}
 .lg-md__x{width:30px; height:30px; border:none; border-radius:4px; background:rgba(255,255,255,.15); color:#fff; cursor:pointer; font-size:14px}
-.lg-md__titulo{display:flex; align-items:center; gap:9px; margin-top:12px; font-size:17px; font-weight:bold}
+.lg-md__titulo{display:flex; align-items:center; justify-content:center; gap:9px; margin-top:12px; font-size:17px; font-weight:bold; text-align:center}
 .lg-md__corpo{padding:18px 20px 20px; display:flex; flex-direction:column; gap:12px; margin:0}
 .lg-md__passo{display:flex; flex-direction:column; gap:12px}
 /* Criar conta pelo Google/Facebook (desenho 10 VS 24.10.26): botões acima dos campos e o cartão da conta conectada. */
@@ -160,6 +160,13 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-md__rotulo{display:flex; flex-direction:column; gap:6px; font-size:13.5px; color:#12242f}
 .lg-md__entrada{height:42px; border:1px solid #d6dde3; border-radius:6px; padding:0 12px; font:inherit; font-size:14.5px; outline:none; width:100%; box-sizing:border-box; color:#12242f; background:#fff}
 .lg-md__entrada:focus{border-color:#0a63c9; box-shadow:0 0 0 3px rgba(10,99,201,.15)}
+/* Cupom de indicação (desenho 10 VS 25.10.26): a chave "Tenho um cupom de indicação" e o campo BJ-XXXXXX. */
+.lg-cupom{display:flex; align-items:center; gap:10px; border:none; background:none; padding:0; font:inherit; font-size:13.5px; color:#12242f; cursor:pointer; text-align:left}
+.lg-chave{width:36px; height:20px; flex:none; border-radius:10px; background:#c9d3da; position:relative; transition:background .2s}
+.lg-chave__bola{position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:#fff; transition:left .2s}
+.lg-cupom[aria-checked="true"] .lg-chave{background:#f26b55}
+.lg-cupom[aria-checked="true"] .lg-chave__bola{left:19px; background:#12242f}
+.lg-md__entrada.lg-cupom__entrada{font:bold 14.5px monospace; letter-spacing:1px; text-transform:uppercase}
 .lg-forca{display:flex; gap:6px; align-items:center; font-size:12px; color:#c9d3da}
 .lg-forca__trilho{flex:1; height:4px; border-radius:2px; background:#e6edf2; overflow:hidden}
 .lg-forca__barra{display:block; height:100%; width:0%; background:#c9d3da; transition:width .2s}
