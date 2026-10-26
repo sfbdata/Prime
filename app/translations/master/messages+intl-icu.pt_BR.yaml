@@ -726,15 +726,20 @@ master:
             nota: 'Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.'
         planos:
             plano_free: 'Plano {nome}'
-            padrao: 'Padrão: toda conta nova começa aqui'
+            tag_free: 'Convênio OAB · toda conta nova começa aqui'
+            tag_escolhido: Mais escolhido
             inativo: inativo
             por_mes: / mês
-            usuarios_sem_limite: usuários sem limite
-            usuarios: '{n} usuários'
-            cap: '{gb} GB · {usuarios}'
+            cap: '<b>{gb} GB</b> de armazenamento · usuários ilimitados'
+            recursos: Todos os recursos liberados
             contas: '{n} conta(s) · {acima} perto ou acima da franquia'
+            ajustar: Ajustar
+            ajustar_dica: Ajustar preço e espaço
             editar: Editar plano
-            nota: Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail recomendando ampliar o espaço; em 100% novos envios ficam bloqueados, mas consultar e baixar arquivos continua liberado. Mudanças de plano com impacto comercial exigem confirmação e ficam registradas na auditoria.
+            rotulo: PLANOS DE ESPAÇO
+            faixa_titulo: Convênio OAB · BlueJus gratuito para advogados
+            faixa_texto: Todos os recursos do sistema ficam liberados em todas as contas, sem limite de usuários. A cobrança existe só para quem quiser mais espaço de armazenamento, em assinatura mensal no cartão de crédito, que pode ser cancelada a qualquer momento.
+            nota: Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.
         # Janela de limite (armazenamento e usuários); o título é o do item do menu (menu.lim_arm e menu.lim_usu).
         limite:
             em_uso: EM USO
@@ -814,6 +819,30 @@ master:
             respondeu: '{nome} respondeu'
             enviada_email: Resposta registrada e enviada para a fila de e-mail.
             enviada_central: Resposta registrada e enviada como aviso na Central.
+        # P4b: convenio-oab.js (painel Convênio OAB por estado, na seção Contas).
+        convenio:
+            titulo: Convênio OAB por estado
+            resumo_todos: Convênio ativo nos 27 estados · todos os advogados usam grátis
+            resumo_gratis: '{n} grátis'
+            resumo_dif: '{n} com valor diferenciado ({ufs})'
+            resumo_sem: '{n} sem convênio ({ufs})'
+            ajuda: 'Clique no estado para escolher: convênio grátis, convênio com valor diferenciado ou sem convênio (mensalidade cheia).'
+            desde: ' desde {data}'
+            st_livre: Convênio ativo · grátis
+            st_dif: 'Convênio · valor diferenciado {valor}/mês'
+            st_sem: 'Sem convênio · {valor}/mês'
+            p_menu: "OAB/{uf} · {estado} ({contas} conta(s))\n\n1 · Convênio ativo, grátis\n2 · Convênio com valor diferenciado\n3 · Sem convênio (mensalidade cheia)\n\nEscolha 1, 2 ou 3:"
+            p_valor_dif: 'Valor diferenciado pelo convênio OAB/{uf} (R$ por mês):'
+            p_valor_sem: "Convênio OAB/{uf} encerrado ou não renovado.\nMensalidade cobrada das contas de {estado} (R$):"
+            p_desde: 'A partir de (AAAA-MM-DD):'
+            p_motivo: 'Motivo (opcional):'
+            motivo_padrao: Convênio não renovado
+            valor_invalido: Valor inválido.
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_carregar: Não foi possível carregar os convênios.
+            rotulo_conta: 'Convênio OAB/{uf}'
+            rotulo_conta_dif: 'Convênio OAB/{uf} · valor diferenciado {valor}/mês'
+            rotulo_conta_sem: 'Sem convênio ({uf}) · {valor}/mês'
         # P3: metas-divulgacao.js (Metas de divulgação, na Visão geral).
         metas:
             titulo: Metas de divulgação

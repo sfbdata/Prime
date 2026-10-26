@@ -8,7 +8,10 @@ use App\Contribua\DTO\RetratoDoEspaco;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Master\DTO\ContaAlteradaOutput;
 use App\Master\DTO\EspacoDaContaOutput;
+use App\Master\Entity\ConvenioDaUf;
+use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\PainelMasterRepository;
+use App\Master\Service\LocalizacaoDaPessoa;
 use App\Tenant\Service\NumeroDaConta;
 use Psr\Clock\ClockInterface;
 
@@ -31,11 +34,12 @@ final class ConsultarContasUseCase
         private readonly ClockInterface $relogio,
         private readonly int $carenciaPurgaDias,
         private readonly SituacaoDoEspaco $situacaoDoEspaco,
+        private readonly ConvenioDaUfRepository $convenios,
     ) {
     }
 
     /**
-     * @return list<array{id: int, numero: string, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string, espaco: array<string, mixed>}>
+     * @return list<array{id: int, numero: string, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string, espaco: array<string, mixed>, uf: ?string, convenio: array{modo: string, valor: float}}>
      */
     public function executar(): array
     {
@@ -47,6 +51,7 @@ final class ConsultarContasUseCase
 
         $escritorios = [...$this->repositorio->escritorios(), ...$this->repositorio->escritoriosEmQuarentena()];
         $retratos = $this->retratos($escritorios, $consumo);
+        $convenios = $this->convenios->todosPorUf();
 
         $contas = [];
         // As contas em quarentena (C4b) vêm depois, para a opção "Em quarentena" do filtro. Pastas e
@@ -68,14 +73,35 @@ final class ConsultarContasUseCase
                 'situacao'      => ContaAlteradaOutput::situacao($e['ativo'], $e['excluido_em'] !== null),
                 // Conta criada por um Master (C5): o painel esconde "Excluir conta" e o servidor recusa.
                 'ehDoMaster'    => $e['do_master'],
-                // Data prevista da purga: excluidoEm + `tenant_carencia_purga_dias` (a mesma conta do comando de purga).
-                'purgaEm'       => $e['excluido_em'] !== null ? (new \DateTimeImmutable($e['excluido_em']))->modify(sprintf('+%d days', $this->carenciaPurgaDias))->format('Y-m-d') : null,
-                // Na quarentena o uso não é medido (sai zerado): vale o plano e o limite, não a faixa.
+                'purgaEm'       => $this->purgaEm($e['excluido_em']),
                 'espaco'        => EspacoDaContaOutput::doRetrato($retratos[$id])->paraArray(),
+                ...self::convenioDaConta(LocalizacaoDaPessoa::uf($e['estado']), $convenios),
             ];
         }
 
         return $contas;
+    }
+
+    /**
+     * Data prevista da purga: excluidoEm + `tenant_carencia_purga_dias` (a mesma conta do comando de purga).
+     * Na quarentena o uso não é medido (sai zerado): vale o plano e o limite, não a faixa. O convênio é o da OAB do
+     * estado da conta (desenho 05 VS 25.10.26); sem estado válido a conta não tem rótulo.
+     */
+    private function purgaEm(?string $excluidoEm): ?string
+    {
+        return $excluidoEm !== null ? (new \DateTimeImmutable($excluidoEm))->modify(sprintf('+%d days', $this->carenciaPurgaDias))->format('Y-m-d') : null;
+    }
+
+    /**
+     * @param array<string, ConvenioDaUf> $convenios
+     *
+     * @return array{uf: ?string, convenio: array{modo: string, valor: float}}
+     */
+    private static function convenioDaConta(?string $uf, array $convenios): array
+    {
+        $c = $uf !== null ? ($convenios[$uf] ?? null) : null;
+
+        return ['uf' => $uf, 'convenio' => ['modo' => $c?->getModo() ?? 'livre', 'valor' => $c?->getValor() ?? 0.0]];
     }
 
     /**
