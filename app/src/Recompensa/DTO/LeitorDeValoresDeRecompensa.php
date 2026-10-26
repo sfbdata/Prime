@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Recompensa\DTO;
 
+use App\Recompensa\Entity\LancamentoDeRecompensa;
 use App\Recompensa\Exception\RecompensaRecusada;
 
 /**
@@ -31,6 +32,26 @@ final class LeitorDeValoresDeRecompensa
         }
 
         return (int) $m[1] * 100 + (int) str_pad($m[2] ?? '', 2, '0');
+    }
+
+    /**
+     * Como {@see centavos()}, mas com sinal: "-10,00" é estorno. Obrigatório, diferente de zero e até R$ 100.000,00.
+     *
+     * @throws RecompensaRecusada
+     */
+    public static function centavosComSinal(mixed $valor): int
+    {
+        $texto = self::texto($valor);
+        if ($texto === null || $texto === '-') {
+            throw new RecompensaRecusada('Informe o valor do crédito (use negativo para estornar).');
+        }
+        $negativo = str_starts_with($texto, '-');
+        $centavos = self::centavos($negativo ? substr($texto, 1) : $texto) ?? 0;
+        if ($centavos === 0 || $centavos > LancamentoDeRecompensa::VALOR_MAXIMO) {
+            throw new RecompensaRecusada('Informe o valor do crédito (use negativo para estornar).');
+        }
+
+        return $negativo ? -$centavos : $centavos;
     }
 
     /** Inteiro não negativo, em número ou texto só com dígitos. */

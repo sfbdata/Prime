@@ -1,12 +1,14 @@
-/* BlueJus · Painel do Master, seção "Recompensas" (#sec=recomp), F1
+/* BlueJus · Painel do Master, seção "Recompensas" (#sec=recomp), F1 e F2
    (desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html, marcação L306-338 e lógica L854-964;
    spec docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md).
    - Carrega na primeira vez que a seção abre (evento `mp:secao` do painel) ou já aberta pelo hash.
    - Regras do programa: cada mudança grava as seis regras de uma vez (o servidor recusa o que estiver fora do intervalo
      e a tela volta ao último valor gravado). A recompensa vai como o Master digitou ("10,00"); o servidor lê.
    - Lista de Indicadores: busca e filtros só no navegador, sobre o que o servidor calculou (nada é recalculado aqui).
-   - Menu ⋮ (ou botão direito): só "Condição individual" e "Voltar à regra geral". Dar baixa, caixa, extrato e
-     Fechamento do mês entram nas fatias seguintes.
+   - Menu ⋮ (ou botão direito): "Condição individual", "Lançar crédito ou estorno", "Ver extrato deste indicador",
+     "Baixar extrato (CSV)" e "Voltar à regra geral". Dar baixa, caixa e Fechamento do mês entram nas fatias seguintes.
+   - Extrato (F2): os 60 mais recentes vêm do servidor (filtrados por indicador quando há chip); o lançamento leva um
+     UUID gerado ao abrir o diálogo, então duplo clique ou reenvio não lança duas vezes (o servidor garante).
    - Textos no catálogo (master.js.recompensas.*, entregue pelo painel com catalogo_js), lidos na hora de usar; números
      por window.BJFormato. Nenhuma regra mora só aqui. */
 (() => {
@@ -25,12 +27,19 @@
   const elFiltros = $('[data-mrc-filtros]');
   const elLista = $('[data-mrc-lista]');
   const elVazio = $('[data-mrc-vazio]');
+  const elExtLista = $('[data-mrc-ext-lista]');
+  const elExtVazio = $('[data-mrc-ext-vazio]');
+  const elExtChip = $('[data-mrc-ext-chip]');
   const campos = Array.from(raiz.querySelectorAll('[data-mrc-regra]'));
   const menu = { fundo: $('[data-mrc-menu-fundo]'), caixa: $('[data-mrc-menu]'), titulo: $('[data-mrc-menu-titulo]') };
   const dlg = {
     fundo: $('[data-mrc-dlg-fundo]'), posicao: $('[data-mrc-dlg]'), nome: $('[data-mrc-dlg-nome]'), sub: $('[data-mrc-dlg-sub]'),
     erro: $('[data-mrc-dlg-erro]'), rec: $('[data-mrc-dlg-rec]'), mensal: $('[data-mrc-dlg-mensal]'), salvar: $('[data-mrc-dlg-salvar]'),
     dicaValor: $('[data-mrc-dlg-dica-valor]'), campos: Array.from(raiz.querySelectorAll('[data-mrc-dlg-campo]')),
+  };
+  const lan = {
+    fundo: $('[data-mrc-lan-fundo]'), posicao: $('[data-mrc-lan]'), nome: $('[data-mrc-lan-nome]'), sub: $('[data-mrc-lan-sub]'),
+    valor: $('[data-mrc-lan-valor]'), obs: $('[data-mrc-lan-obs]'), erro: $('[data-mrc-lan-erro]'), enviar: $('[data-mrc-lan-enviar]'),
   };
   // Aspas pelo código (\x22 e \x27): um literal de aspas aqui desalinha o detector de texto fixo (SemTextoFixoNosExtraidos).
   const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\x22': '&quot;', '\x27': '&#39;' };
@@ -55,6 +64,8 @@
   let ocupado = false;
   let filtro = 'todos';
   let alvo = null;
+  let extratoDe = null;
+  let chave = '';
 
   function avisar(texto, ok) {
     elAviso.textContent = texto || '';
@@ -201,7 +212,7 @@
     menu.fundo.hidden = false;
     menu.caixa.hidden = false;
     menu.caixa.style.left = Math.max(8, Math.min(x, window.innerWidth - 270)) + 'px';
-    menu.caixa.style.top = Math.max(8, Math.min(y, window.innerHeight - 140)) + 'px';
+    menu.caixa.style.top = Math.max(8, Math.min(y, window.innerHeight - 250)) + 'px';
   }
 
   /* Janela "Condição individual do indicador" */
@@ -276,6 +287,104 @@
       .finally(() => { ocupado = false; });
   }
 
+  /* Extrato (F2) */
+  const DATA_HORA = d => window.BJFormato.dataHora(d);
+
+  function linhaDoExtrato(e, ix) {
+    const estorno = e.valorCentavos < 0;
+    const valor = (estorno ? '-' : '') + moeda(Math.abs(e.valorCentavos));
+    return '<div class="mrc-extrato-linha' + (ix % 2 ? ' mrc-extrato-linha-zebra' : '') + '"' + (e.observacao ? ' title="' + esc(e.observacao) + '"' : '') + '>'
+      + '<span class="mrc-extrato-data">' + esc(DATA_HORA(e.em)) + '</span>'
+      + '<b title="' + esc(e.email || '') + '">' + esc(e.nome || T('master.js.recompensas.extrato_removido')) + '</b>'
+      + '<span class="mrc-extrato-tipo' + (estorno ? ' mrc-extrato-tipo-estorno' : '') + '">' + esc(T(estorno ? 'master.js.recompensas.tipo.estorno' : 'master.js.recompensas.tipo.credito')) + '</span>'
+      + '<b>' + esc(valor) + '</b></div>';
+  }
+
+  function desenharExtrato(lista) {
+    elExtVazio.hidden = lista.length > 0;
+    elExtLista.innerHTML = lista.map(linhaDoExtrato).join('');
+    const u = extratoDe === null ? null : indicador(extratoDe);
+    elExtChip.hidden = extratoDe === null;
+    if (extratoDe !== null) elExtChip.querySelector('[data-mrc-ext-nome]').textContent = u ? u.nome : String(extratoDe);
+  }
+
+  function carregarExtrato() {
+    const url = raiz.dataset.urlExtrato + (extratoDe === null ? '' : '?usuario=' + extratoDe);
+    return fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(d => desenharExtrato(d.extrato))
+      .catch(() => avisar(T('master.js.recompensas.extrato_erro')));
+  }
+
+  function filtrarExtrato(id) {
+    extratoDe = id;
+    fecharMenu();
+    carregarExtrato();
+  }
+
+  function baixarCsv(id) {
+    fecharMenu();
+    window.location.assign(raiz.dataset.urlCsv + '?usuario=' + id);
+  }
+
+  /* Janela "Lançar crédito ou estorno" */
+  function novaChave() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return Array.from(window.crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Só para a mensagem de sucesso: o servidor já leu e validou o valor digitado ("1.000,50", "10", "-5,5").
+  function centavosDoTexto(texto) {
+    const t = texto.replace(/^-/, '');
+    const n = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t.replace(/^(\d{1,3})((\.\d{3})+)$/, (_, a, b) => a + b.replace(/\./g, ''));
+    return Math.round(parseFloat(n) * 100);
+  }
+
+  function avisarNoLancamento(texto) {
+    lan.erro.textContent = texto || '';
+    lan.erro.hidden = !texto;
+  }
+
+  function abrirLancamento(id) {
+    const u = indicador(id);
+    if (!u) return;
+    alvo = id;
+    chave = novaChave();
+    lan.nome.textContent = u.nome;
+    lan.sub.textContent = [u.escritorio, u.email].filter(Boolean).join(' · ');
+    lan.valor.value = '';
+    lan.obs.value = '';
+    avisarNoLancamento('');
+    fecharMenu();
+    lan.fundo.hidden = false;
+    lan.posicao.hidden = false;
+    lan.valor.focus();
+  }
+
+  function fecharLancamento() {
+    lan.fundo.hidden = true;
+    lan.posicao.hidden = true;
+  }
+
+  function lancar() {
+    const u = indicador(alvo);
+    if (!u || ocupado) return;
+    const valor = lan.valor.value.trim();
+    if (!/\d/.test(valor)) { avisarNoLancamento(T('master.js.recompensas.erro_valor')); return; }
+    ocupado = true;
+    lan.enviar.disabled = true;
+    avisarNoLancamento('');
+    pedir(raiz.dataset.urlLancamento.replace('/usuarios/0/', '/usuarios/' + u.userId + '/'), 'POST', { valor, observacao: lan.obs.value.trim(), chave })
+      .then(d => {
+        fecharLancamento();
+        desenhar(d);
+        carregarExtrato();
+        avisar(T(valor.startsWith('-') ? 'master.js.recompensas.lancado_estorno' : 'master.js.recompensas.lancado_credito', { valor: moeda(centavosDoTexto(valor)), nome: u.nome }), true);
+      })
+      .catch(e => avisarNoLancamento(e.message || T('master.js.recompensas.erro_salvar')))
+      .finally(() => { ocupado = false; lan.enviar.disabled = false; });
+  }
+
   const idDaLinha = el => { const l = el.closest('[data-uid]'); return l ? Number(l.dataset.uid) : null; };
 
   elAtivo.addEventListener('click', () => { if (estado) gravarRegras({ ativo: !estado.regras.ativo }); });
@@ -307,26 +416,39 @@
   menu.fundo.addEventListener('click', fecharMenu);
   menu.fundo.addEventListener('contextmenu', e => { e.preventDefault(); fecharMenu(); });
   menu.caixa.querySelector('[data-mrc-menu-acao="condicao"]').addEventListener('click', () => abrirJanela(alvo));
+  menu.caixa.querySelector('[data-mrc-menu-acao="lancamento"]').addEventListener('click', () => abrirLancamento(alvo));
+  menu.caixa.querySelector('[data-mrc-menu-acao="extrato"]').addEventListener('click', () => filtrarExtrato(alvo));
+  menu.caixa.querySelector('[data-mrc-menu-acao="csv"]').addEventListener('click', () => baixarCsv(alvo));
   menu.caixa.querySelector('[data-mrc-menu-acao="geral"]').addEventListener('click', voltarParaAGeral);
   dlg.fundo.addEventListener('click', fecharJanela);
   raiz.querySelectorAll('[data-mrc-dlg-fechar]').forEach(b => b.addEventListener('click', fecharJanela));
+  lan.fundo.addEventListener('click', fecharLancamento);
+  raiz.querySelectorAll('[data-mrc-lan-fechar]').forEach(b => b.addEventListener('click', fecharLancamento));
+  lan.enviar.addEventListener('click', lancar);
+  raiz.querySelector('[data-mrc-ext-limpar]').addEventListener('click', () => filtrarExtrato(null));
   dlg.rec.addEventListener('click', () => alternarRecorrente(dlg.rec.getAttribute('aria-checked') !== 'true'));
   dlg.salvar.addEventListener('click', salvarCondicao);
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     fecharMenu();
     fecharJanela();
+    fecharLancamento();
   });
 
   // Textos fixos do menu vêm do catálogo na hora de abrir a seção (o BJ_T só existe no fim da página).
   function textosDoMenu() {
     menu.caixa.querySelector('[data-mrc-menu-txt="condicao"]').textContent = T('master.js.recompensas.menu_condicao');
     menu.caixa.querySelector('[data-mrc-menu-txt="geral"]').textContent = T('master.js.recompensas.menu_geral');
+    menu.caixa.querySelector('[data-mrc-menu-txt="lancamento"]').textContent = T('master.js.recompensas.menu_lancamento');
+    menu.caixa.querySelector('[data-mrc-menu-txt="extrato"]').textContent = T('master.js.recompensas.menu_extrato');
+    menu.caixa.querySelector('[data-mrc-menu-txt="csv"]').textContent = T('master.js.recompensas.menu_csv');
+    elExtChip.querySelector('[data-mrc-ext-limpar]').title = T('master.js.recompensas.extrato_todos');
   }
 
   function abrir() {
     textosDoMenu();
     carregar();
+    carregarExtrato();
   }
 
   const painel = document.getElementById('master-painel');

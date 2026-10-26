@@ -9,6 +9,7 @@ use App\Recompensa\DTO\IndicadorDeRecompensaOutput;
 use App\Recompensa\Entity\CondicaoDeRecompensa;
 use App\Recompensa\Entity\ProgramaDeRecompensa;
 use App\Recompensa\Repository\CondicaoDeRecompensaRepository;
+use App\Recompensa\Repository\LancamentoDeRecompensaRepository;
 use App\Recompensa\Repository\ProgramaDeRecompensaRepository;
 use App\Recompensa\UseCase\ConsultarPainelDeRecompensasUseCase;
 use App\Tests\Indicacao\Support\Pessoas;
@@ -29,6 +30,8 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
     private array $indicadores = [];
     /** @var list<array{indicador_id: int, conta_criada_em: string, tem_pasta: bool}> */
     private array $contas = [];
+    /** @var array<int, int> */
+    private array $bonus = [];
 
     private function executar(): \App\Recompensa\DTO\PainelDeRecompensasOutput
     {
@@ -40,7 +43,10 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
         $condicoes = $this->createStub(CondicaoDeRecompensaRepository::class);
         $condicoes->method('todasPorIndicador')->willReturnCallback(fn (): array => $this->condicoes);
 
-        return (new ConsultarPainelDeRecompensasUseCase($indicacoes, $programas, $condicoes, new MockClock(new \DateTimeImmutable(self::AGORA))))->executar();
+        $lancamentos = $this->createStub(LancamentoDeRecompensaRepository::class);
+        $lancamentos->method('somaDoBonusPorIndicador')->willReturnCallback(fn (): array => $this->bonus);
+
+        return (new ConsultarPainelDeRecompensasUseCase($indicacoes, $programas, $condicoes, $lancamentos, new MockClock(new \DateTimeImmutable(self::AGORA))))->executar();
     }
 
     private function indicador(int $id, int $envios = 20, string $nome = 'Ana Indicadora'): void
@@ -220,5 +226,36 @@ final class ConsultarPainelDeRecompensasUseCaseTest extends TestCase
         $chaves = array_keys($this->executar()->paraArray()['indicadores'][0]);
 
         self::assertSame(['userId', 'nome', 'email', 'escritorio', 'envios', 'contas', 'ativos', 'emCarencia', 'minEscritorios', 'valorCentavos', 'saldoCentavos', 'pagoCentavos', 'liberado', 'situacao', 'condicao'], $chaves);
+    }
+
+    #[TestDox('F2: o saldo soma os lançamentos manuais (crédito e estorno) ao crédito das contas; os KPIs refletem')]
+    public function testSomaOsLancamentos(): void
+    {
+        $this->indicador(1);
+        $this->indicador(2);
+        $this->contasHaDias(1, 10, 40);
+        $this->bonus = [1 => 2500, 2 => 700];
+
+        $p = $this->executar();
+
+        self::assertSame(12500, $this->linha(1)->saldoCentavos, '10 x R$ 10,00 + R$ 25,00');
+        self::assertSame(700, $this->linha(2)->saldoCentavos, 'bônus sem nenhuma conta ainda vale');
+        self::assertSame(13200, $p->paraArray()['kpis']['aPagarCentavos']);
+    }
+
+    #[TestDox('F2: estorno maior que o crédito zera o saldo, nunca fica negativo, e não puxa o A PAGAR dos outros para baixo')]
+    public function testSaldoNuncaNegativo(): void
+    {
+        $this->indicador(1);
+        $this->indicador(2);
+        $this->contasHaDias(1, 2, 40);
+        $this->contasHaDias(2, 3, 40);
+        $this->bonus = [1 => -999999];
+
+        $p = $this->executar();
+
+        self::assertSame(0, $this->linha(1)->saldoCentavos);
+        self::assertSame(3000, $this->linha(2)->saldoCentavos);
+        self::assertSame(3000, $p->paraArray()['kpis']['aPagarCentavos']);
     }
 }

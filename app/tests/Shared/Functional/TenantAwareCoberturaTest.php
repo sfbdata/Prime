@@ -245,6 +245,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // é o usuário que indica, sem escritório. Sem dado de cliente.
         \App\Recompensa\Entity\ProgramaDeRecompensa::class,
         \App\Recompensa\Entity\CondicaoDeRecompensa::class,
+        // Extrato de recompensas (F2, 26/10/2026): livro só de INSERT com os créditos e estornos manuais por indicador.
+        // Dado da PLATAFORMA, lido e escrito só pelo Master; o indicador é um usuário, sem escritório. Sem dado de cliente.
+        \App\Recompensa\Entity\LancamentoDeRecompensa::class,
         // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
         // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
         // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
@@ -330,7 +333,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
     // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
     // 80 → 82 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 82;
+    // 82 → 83 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 83;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
