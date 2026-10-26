@@ -237,6 +237,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Metas de divulgação do Painel do Master (desenho 05 VS 25.10.26, P3): linha única de configuração da PLATAFORMA
         // (id 1), escrita só pelo Master. Sem dado de escritório nem de cliente.
         \App\Master\Entity\MetaDeDivulgacao::class,
+        // Recompensas do Painel do Master (F1, 26/10/2026): a regra geral do programa Indique e ganhe (linha única, id 1) e
+        // a condição individual de cada indicador. Configuração da PLATAFORMA, escrita só pelo Master; a chave da condição
+        // é o usuário que indica, sem escritório. Sem dado de cliente.
+        \App\Recompensa\Entity\ProgramaDeRecompensa::class,
+        \App\Recompensa\Entity\CondicaoDeRecompensa::class,
         // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
         // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
         // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
@@ -320,7 +325,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 75 → 78 com o Desempenho do Master (26/10/2026): EventoDeDesempenho, IncidenteDeDesempenho e RegistroDeBackup
     // (plataforma), justificadas acima.
     // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
-    private const MAX_FORA_DO_ESCOPO = 79;
+    // 79 → 81 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 81;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

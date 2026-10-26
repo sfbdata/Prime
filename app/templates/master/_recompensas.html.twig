@@ -1,0 +1,91 @@
+{# Seção "Recompensas" do /master (#sec=recomp), F1. Desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html:
+   marcação L306-338 (sem a caixa, o extrato, o Fechamento do mês, "Dar baixa" e "Simular indicação", que entram nas fatias
+   seguintes) e lógica L854-964. Spec docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md.
+   Incluída pelo painel.html.twig num <div data-sec-externa="recomp"> (o mesmo mecanismo da seção Indicações): o painel.js
+   só mostra a sub-aba com este parcial presente e avisa a troca de seção pelo evento `mp:secao`. Traz o próprio <link> e
+   <script> (a CSP do /master aceita 'self', sem inline). Os números vêm por JSON quando a seção abre
+   (public/js/master/recompensas.js); o cálculo mora no ConsultarPainelDeRecompensasUseCase.
+   Textos no catálogo (master.recompensas.*; os do JS em master.js.recompensas.*). #}
+<link rel="stylesheet" href="{{ asset('css/master-recompensas.css') }}">
+<div class="mrc" data-mrc
+     data-url-dados="{{ path('master_recompensas_dados') }}"
+     data-url-regras="{{ path('master_recompensas_regras') }}"
+     data-url-condicao="{{ path('master_recompensas_condicao', {id: 0}) }}"
+     data-token="{{ csrf_token('master_recompensas') }}">
+    <div class="mrc-aviso" data-mrc-aviso role="status" hidden></div>
+    <div class="mrc-kpis" data-mrc-kpis aria-busy="true"></div>
+
+    <section class="mrc-caixa" aria-labelledby="mrc-titulo">
+        <div class="mrc-cabeca">
+            <i class="bi bi-gift mrc-cabeca-ic" aria-hidden="true"></i>
+            <b class="mrc-cabeca-titulo" id="mrc-titulo">{{ 'master.recompensas.titulo'|trans }}</b>
+            <button type="button" class="mrc-chave" role="switch" aria-checked="true" data-mrc-ativo disabled>
+                <span class="mrc-chave-trilho" aria-hidden="true"><span class="mrc-chave-bola"></span></span><span data-mrc-ativo-txt></span>
+            </button>
+        </div>
+        <div class="mrc-regras">
+            <label class="mrc-campo">{{ 'master.recompensas.campo_valor'|trans }}<input type="text" inputmode="decimal" class="mrc-entrada mrc-entrada-valor" data-mrc-regra="valor" disabled></label>
+            <label class="mrc-campo">{{ 'master.recompensas.campo_libera'|trans }}<input type="number" min="1" step="1" inputmode="numeric" class="mrc-entrada mrc-entrada-larga" data-mrc-regra="minEscritorios" disabled></label>
+            <label class="mrc-campo">{{ 'master.recompensas.campo_carencia'|trans }}<input type="number" min="0" step="1" inputmode="numeric" class="mrc-entrada mrc-entrada-larga" data-mrc-regra="carenciaDias" disabled></label>
+            <label class="mrc-campo">{{ 'master.recompensas.campo_alerta'|trans }}<input type="number" min="1" step="1" inputmode="numeric" class="mrc-entrada mrc-entrada-larga" data-mrc-regra="alertaQtd" disabled></label>
+            <button type="button" class="mrc-priv" data-mrc-priv hidden></button>
+            <button type="button" class="mrc-pasta" role="checkbox" aria-checked="true" data-mrc-pasta disabled><i class="bi bi-check-square-fill" aria-hidden="true"></i>{{ 'master.recompensas.so_com_pasta'|trans }}</button>
+            <span class="mrc-unico" title="{{ 'master.recompensas.unico_dica'|trans }}"><i class="bi bi-1-circle" aria-hidden="true"></i>{{ 'master.recompensas.unico'|trans }}</span>
+        </div>
+        <div class="mrc-nota">{{ 'master.recompensas.nota'|trans }}</div>
+    </section>
+
+    <section class="mrc-caixa" aria-labelledby="mrc-indicadores">
+        <div class="mrc-barra">
+            <b class="mrc-barra-titulo" id="mrc-indicadores">{{ 'master.recompensas.indicadores'|trans }}</b>
+            <label class="mrc-busca"><i class="bi bi-search" aria-hidden="true"></i><input type="search" placeholder="{{ 'master.recompensas.busca'|trans }}" aria-label="{{ 'master.recompensas.busca'|trans }}" data-mrc-busca></label>
+            <span class="mrc-filtros" data-mrc-filtros></span>
+        </div>
+        <div class="mrc-rolagem"><div class="mrc-tabela">
+            <div class="mrc-linha mrc-linha-cabeca" role="row">
+                <span>{{ 'master.recompensas.col_usuario'|trans }}</span><span>{{ 'master.recompensas.col_envios'|trans }}</span><span>{{ 'master.recompensas.col_contas'|trans }}</span><span>{{ 'master.recompensas.col_ativos'|trans }}</span><span>{{ 'master.recompensas.col_por_conta'|trans }}</span><span>{{ 'master.recompensas.col_saldo'|trans }}</span><span>{{ 'master.recompensas.col_pago'|trans }}</span><span>{{ 'master.recompensas.col_situacao'|trans }}</span><span class="mrc-direita">{{ 'master.recompensas.col_acoes'|trans }}</span>
+            </div>
+            <div class="mrc-vazio" data-mrc-vazio hidden>{{ 'master.recompensas.vazio'|trans }}</div>
+            <div data-mrc-lista></div>
+        </div></div>
+    </section>
+
+    {# Menu ⋮ (desenho L611): só "Condição individual" e "Voltar à regra geral" nesta fatia. #}
+    <div class="mrc-menu-fundo" data-mrc-menu-fundo hidden></div>
+    <div class="mrc-menu" data-mrc-menu role="menu" hidden>
+        <div class="mrc-menu-titulo" data-mrc-menu-titulo></div>
+        <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="condicao"><i class="bi bi-star" aria-hidden="true"></i><span data-mrc-menu-txt="condicao"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="geral"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span data-mrc-menu-txt="geral"></span></button>
+    </div>
+
+    {# Janela "Condição individual do indicador" (desenho L612, ramo `ajustar`). #}
+    <div class="mrc-dlg-fundo" data-mrc-dlg-fundo hidden></div>
+    <div class="mrc-dlg-posicao" data-mrc-dlg hidden>
+        <div class="mrc-dlg" role="dialog" aria-modal="true" aria-labelledby="mrc-dlg-titulo">
+            <div class="mrc-dlg-cabeca">
+                <i class="bi bi-star" aria-hidden="true"></i><b id="mrc-dlg-titulo">{{ 'master.recompensas.dialogo.titulo'|trans }}</b>
+                <button type="button" class="mrc-dlg-x" data-mrc-dlg-fechar aria-label="{{ 'master.recompensas.dialogo.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="mrc-dlg-corpo">
+                <div><b class="mrc-dlg-nome" data-mrc-dlg-nome></b><div class="mrc-dlg-sub" data-mrc-dlg-sub></div></div>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.dialogo.valor'|trans }}<input type="text" inputmode="decimal" data-mrc-dlg-campo="valor"><span class="mrc-dlg-dica" data-mrc-dlg-dica-valor></span></label>
+                <div class="mrc-dlg-duas">
+                    <label class="mrc-dlg-campo">{{ 'master.recompensas.dialogo.libera'|trans }}<input type="text" inputmode="numeric" data-mrc-dlg-campo="minEscritorios"><span class="mrc-dlg-dica">{{ 'master.recompensas.dialogo.vazio_geral'|trans }}</span></label>
+                    <label class="mrc-dlg-campo">{{ 'master.recompensas.dialogo.carencia'|trans }}<input type="text" inputmode="numeric" data-mrc-dlg-campo="carenciaDias"><span class="mrc-dlg-dica">{{ 'master.recompensas.dialogo.vazio_geral'|trans }}</span></label>
+                </div>
+                <div class="mrc-dlg-rec">
+                    <button type="button" class="mrc-dlg-rec-tg" role="checkbox" aria-checked="false" data-mrc-dlg-rec><i class="bi bi-square" aria-hidden="true"></i>{{ 'master.recompensas.dialogo.recorrente'|trans }}</button>
+                    <label class="mrc-dlg-campo" data-mrc-dlg-mensal hidden>{{ 'master.recompensas.dialogo.mensal'|trans }}<input type="text" inputmode="decimal" data-mrc-dlg-campo="mensal"><span class="mrc-dlg-dica">{{ 'master.recompensas.dialogo.mensal_dica'|trans }}</span></label>
+                </div>
+                <div class="mrc-dlg-aviso"><i class="bi bi-star-fill" aria-hidden="true"></i> {{ 'master.recompensas.dialogo.aviso'|trans }}</div>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.dialogo.motivo'|trans }}<textarea rows="3" maxlength="255" data-mrc-dlg-campo="motivo"></textarea></label>
+                <div class="mrc-dlg-erro" data-mrc-dlg-erro role="alert" hidden></div>
+            </div>
+            <div class="mrc-dlg-rodape">
+                <button type="button" class="mrc-dlg-cancelar" data-mrc-dlg-fechar>{{ 'master.recompensas.dialogo.cancelar'|trans }}</button>
+                <button type="button" class="mrc-dlg-salvar" data-mrc-dlg-salvar>{{ 'master.recompensas.dialogo.salvar'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{{ asset('js/master/recompensas.js') }}"></script>

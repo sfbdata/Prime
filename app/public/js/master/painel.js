@@ -52,6 +52,7 @@
   raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
   if (EXTERNAS.com) SECS.push(['com', T('master.js.secao.com'), 'bi-megaphone']);
   if (EXTERNAS.ind) SECS.push(['ind', T('master.js.secao.ind'), 'bi-share']);
+  if (EXTERNAS.recomp) SECS.push(['recomp', T('master.js.secao.recomp'), 'bi-gift']);
   if (EXTERNAS.notif) SECS.push(['notif', T('master.js.secao.notif'), 'bi-bell']);
   const VAZIAS = {
     custos: ['bi-cash-coin', T('master.js.secao.custos'), T('master.js.vazia.custos.texto'), [T('master.js.vazia.custos.armazenamento'), T('master.js.vazia.custos.banco'), T('master.js.vazia.custos.hospedagem'), T('master.js.vazia.custos.trafego'), T('master.js.vazia.custos.backups'), T('master.js.vazia.custos.apis_ia'), T('master.js.vazia.custos.notificacoes'), T('master.js.vazia.custos.receita'), T('master.js.vazia.custos.custo_conta'), T('master.js.vazia.custos.custo_gb'), T('master.js.vazia.custos.margem'), T('master.js.vazia.custos.projecao')]],
