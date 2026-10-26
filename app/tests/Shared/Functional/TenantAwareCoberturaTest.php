@@ -87,6 +87,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // ver o Y como Free. Só o repositório do Contribua a consulta
         // (EspacoDoEscritorioSoNoContribuaArquiteturaTest).
         \App\Contribua\Entity\EspacoDoEscritorio::class,
+        // Bônus de espaço por indicação: mesmo motivo do espaço do escritório (lido por tenantId explícito
+        // no SituacaoDoEspaco, inclusive em lote para o painel do Master). Só o Contribua o cita
+        // (BonusDeEspacoSoNoContribuaArquiteturaTest).
+        \App\Contribua\Entity\BonusDeEspaco::class,
 
         // Identidade: existe antes e acima do vínculo com escritório.
         User::class,
@@ -230,6 +234,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
         // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
         \App\Master\Entity\TemaConfig::class,
+        // Configurações globais do Master (Perfis 1.2 VS 25.10.26, P2): linha única (id 1) da PLATAFORMA, escrita só pelo
+        // Master, como o TemaConfig. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\ConfiguracaoGlobal::class,
         // BlueJus IA no Painel do Master (frente ia-anthropic-ligar, PR B, 24/10/2026): linha única de configuração da
         // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
         // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
@@ -336,9 +343,12 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
     // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
     // 80 → 82 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
-    // 82 → 83 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
-    // 83 → 84 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 84;
+    // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
+    // 83 → 84 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
+    // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
+    // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
+    // 85 → 86 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 86;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

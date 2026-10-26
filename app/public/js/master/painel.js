@@ -863,12 +863,18 @@
   // Armazenamento da linha (desenho 1.2, linhas 166 e 733): "<uso> de <limite>", %, barra e "<faixa> · livre <livre>".
   // Em quarentena o uso não é medido: só o plano e os limites fazem sentido. Sem limite: o uso e "sem limite".
   const livreDe = c => Math.max(0, c.espaco.limiteGb * GB - c.bytes);
+  // Bônus de espaço vigente (origem e validade): o limite mostrado já o inclui.
+  function bonusDaConta(c) {
+    if (!c.espaco.bonusAte) return '';
+    const origem = c.espaco.bonusOrigem === 'indicacao' ? T('master.js.contas.arm_bonus_indicacao') : c.espaco.bonusOrigem;
+    return '<span data-mp-bonus>' + esc(T('master.js.contas.arm_bonus', { gb: num(c.espaco.bonusGb), origem, data: c.espaco.bonusAte })) + '</span>';
+  }
   function celulaArm(c) {
     if (c.purgaEm) return '<div class="mp-conta-arm mp-hv" style="--cor:#5b7383"><span><span>' + T('master.js.contas.arm_nao_medido') + '</span><b></b></span><span>' + T('master.js.contas.arm_quarentena') + '</span></div>';
     if (c.espaco.semLimite) return '<div class="mp-conta-arm mp-hv" style="--cor:#4a6373"><span><span>' + esc(T('master.js.contas.arm_em_uso', { gb: gb(c.bytes) })) + '</span><b></b></span><span>' + T('master.js.sem_limite') + '</span></div>';
     const [rotulo, cor] = faixaDe(c), p = c.espaco.percentual;
     return '<div class="mp-conta-arm mp-hv" style="--cor:' + cor + '"><span><span>' + esc(T('master.js.contas.arm_de', { gb: gb(c.bytes), limite: num(c.espaco.limiteGb) })) + '</span><b>' + p + '%</b></span>'
-      + '<div class="mp-barra-6"><div style="--w:' + Math.min(100, p) + '%"></div></div><span>' + esc(T('master.js.contas.arm_livre', { faixa: rotulo, livre: gb(livreDe(c)) })) + '</span></div>';
+      + '<div class="mp-barra-6"><div style="--w:' + Math.min(100, p) + '%"></div></div><span>' + esc(T('master.js.contas.arm_livre', { faixa: rotulo, livre: gb(livreDe(c)) })) + '</span>' + bonusDaConta(c) + '</div>';
   }
   // Previsão (desenho, linha 733): meses até o limite no ritmo dos últimos 30 dias. Plural: convenção ("≈ 1 mês").
   function previsao(c) {
@@ -1039,7 +1045,7 @@
   // "Sem limite" (spec P4, contrato semLimite) só no armazenamento: libera o espaço e os usuários da conta.
   function abrirLimite(tipo, id) {
     const c = D.contas && D.contas.contas.find(x => x.id === id); if (!c || !elModal) return;
-    const arm = tipo === 'arm', atual = arm ? c.espaco.limiteGb : c.espaco.limiteUsuarios;
+    const arm = tipo === 'arm', atual = arm ? (c.espaco.limiteGb === null ? null : c.espaco.limiteGb - (c.espaco.bonusGb || 0)) : c.espaco.limiteUsuarios;
     modal = { tipo: 'lim', lim: tipo, c, atual, erro: null, enviando: false };
     const sem = T('master.js.sem_limite');
     const info = arm

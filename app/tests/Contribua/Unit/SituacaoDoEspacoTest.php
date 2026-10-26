@@ -5,21 +5,25 @@ declare(strict_types=1);
 namespace App\Tests\Contribua\Unit;
 
 use App\Contribua\DTO\RetratoDoEspaco;
+use App\Contribua\Entity\BonusDeEspaco;
 use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Enum\FaixaDoEspaco;
 use App\Contribua\Enum\OrigemDoLimite;
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Entity\Tenant\Tenant;
+use App\Indicacao\Entity\Indicacao;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 #[CoversClass(SituacaoDoEspaco::class)]
 #[CoversClass(RetratoDoEspaco::class)]
@@ -192,8 +196,95 @@ final class SituacaoDoEspacoTest extends TestCase
         return new Plano('free', 'Free', 10, 0, 'Todos os recursos do BlueJus, sem custo', 1);
     }
 
+    private function bonusRepo(array $porTenant): BonusDeEspacoRepository
+    {
+        $repo = $this->createMock(BonusDeEspacoRepository::class);
+        $repo->expects($this->once())->method('vigentesDosTenants')->willReturn($porTenant);
+
+        return $repo;
+    }
+
+    private static function bonus(string $expira): BonusDeEspaco
+    {
+        $indicacao = (new \ReflectionClass(Indicacao::class))->newInstanceWithoutConstructor();
+
+        return new BonusDeEspaco(new Tenant(), $indicacao, 5, new \DateTimeImmutable('2026-10-20'), new \DateTimeImmutable($expira));
+    }
+
+    #[TestDox('Bônus vigente soma ao limite do plano e expõe bytesBonus, validade e origem')]
+    public function testBonusSomaAoPlano(): void
+    {
+        $retrato = $this->situacao(null, bonus: $this->bonusRepo([7 => [self::bonus('2026-11-19 10:00:00')]]))->retratar(7, 12 * self::GB);
+
+        self::assertSame(15 * self::GB, $retrato->bytesLimite);
+        self::assertSame(5 * self::GB, $retrato->bytesBonus);
+        self::assertSame('2026-11-19', $retrato->bonusAte?->format('Y-m-d'));
+        self::assertSame('indicacao', $retrato->bonusOrigem);
+        self::assertSame(80, $retrato->percentual);
+        self::assertSame(OrigemDoLimite::Plano, $retrato->origemDoLimite);
+    }
+
+    #[TestDox('Bônus vigente soma também ao limite próprio do Master')]
+    public function testBonusSomaAoLimiteDoMaster(): void
+    {
+        $espaco = new EspacoDoEscritorio(new Tenant(), self::free());
+        $espaco->definirLimite(30, false, 'contratou ampliação', null);
+
+        $retrato = $this->situacao($espaco, bonus: $this->bonusRepo([7 => [self::bonus('2026-11-19')]]))->retratar(7, 0);
+
+        self::assertSame(35 * self::GB, $retrato->bytesLimite);
+        self::assertSame(OrigemDoLimite::Master, $retrato->origemDoLimite);
+    }
+
+    #[TestDox('Sem bônus vigente (a consulta só traz os não vencidos): o limite é o do plano e não há validade')]
+    public function testSemBonusVigente(): void
+    {
+        $retrato = $this->situacao(null, bonus: $this->bonusRepo([]))->retratar(7, 0);
+
+        self::assertSame(10 * self::GB, $retrato->bytesLimite);
+        self::assertSame(0, $retrato->bytesBonus);
+        self::assertNull($retrato->bonusAte);
+    }
+
+    #[TestDox('Sem limite ignora o bônus: sem efeito, sem validade')]
+    public function testSemLimiteIgnoraOBonus(): void
+    {
+        $espaco = new EspacoDoEscritorio(new Tenant(), self::free());
+        $espaco->definirLimite(null, true, 'escritório do dono', null);
+
+        $retrato = $this->situacao($espaco, bonus: $this->bonusRepo([7 => [self::bonus('2026-11-19')]]))->retratar(7, 0);
+
+        self::assertNull($retrato->bytesLimite);
+        self::assertSame(0, $retrato->bytesBonus);
+        self::assertNull($retrato->bonusAte);
+    }
+
+    #[TestDox('A leitura pergunta pelo bônus com a hora do relógio (vencido = expira_em não maior que agora, no repositório)')]
+    public function testConsultaComAHoraDoRelogio(): void
+    {
+        $repo = $this->createMock(BonusDeEspacoRepository::class);
+        $repo->expects($this->once())->method('vigentesDosTenants')
+            ->with([7], $this->callback(static fn (\DateTimeImmutable $agora): bool => $agora->format('Y-m-d H:i:s') === '2026-10-26 10:00:00'))
+            ->willReturn([]);
+
+        $this->situacao(null, bonus: $repo)->retratar(7, 0);
+    }
+
+    #[TestDox('Em lote: os bônus vêm numa consulta só, e cada escritório recebe o seu')]
+    public function testLoteSemNMaisUm(): void
+    {
+        $repo = $this->createMock(BonusDeEspacoRepository::class);
+        $repo->expects($this->once())->method('vigentesDosTenants')->with([9, 7, 8])->willReturn([7 => [self::bonus('2026-11-19')]]);
+
+        $retratos = $this->situacao(null, bonus: $repo)->retratarVarios([9 => 0, 7 => 0, 8 => 0]);
+
+        self::assertSame(10 * self::GB, $retratos[9]->bytesLimite);
+        self::assertSame(15 * self::GB, $retratos[7]->bytesLimite);
+        self::assertSame(10 * self::GB, $retratos[8]->bytesLimite);
+    }
+
     /** @param array{int, int, int, int} $faixas */
-    private function situacao(?EspacoDoEscritorio $espaco, bool $bloqueioAtivo = false, array $faixas = [70, 90, 95, 100]): SituacaoDoEspaco
+    private function situacao(?EspacoDoEscritorio $espaco, bool $bloqueioAtivo = false, array $faixas = [70, 90, 95, 100], ?BonusDeEspacoRepository $bonus = null): SituacaoDoEspaco
     {
         $espacos = $this->createStub(EspacoDoEscritorioRepository::class);
         $espacos->method('doTenant')->willReturn($espaco);
@@ -206,6 +297,6 @@ final class SituacaoDoEspacoTest extends TestCase
         $configuracoes = $this->createStub(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn($configuracao);
 
-        return new SituacaoDoEspaco($this->createStub(ConsumoDeArmazenamentoRepository::class), $espacos, $planos, $configuracoes);
+        return new SituacaoDoEspaco($this->createStub(ConsumoDeArmazenamentoRepository::class), $espacos, $planos, $configuracoes, $bonus ?? $this->createStub(BonusDeEspacoRepository::class), new MockClock('2026-10-26 10:00:00'));
     }
 }

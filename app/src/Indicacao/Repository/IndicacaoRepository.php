@@ -144,6 +144,25 @@ class IndicacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * A atribuição do cadastro pelo link da conta nova e o escritório dela (o vínculo ativo mais antigo), para o
+     * bônus de espaço. Nulo: a conta não chegou por indicação, ou ainda não tem escritório.
+     *
+     * @return array{indicacaoId: int, tenantId: int}|null
+     */
+    public function atribuicaoDoCadastro(int $indicadoUserId): ?array
+    {
+        $linha = $this->conexao()->fetchAssociative(
+            'SELECT i.id AS indicacao_id, ut.tenant_id
+             FROM indicacao i JOIN user_tenant ut ON ut.user_id = i.indicado_user_id AND ut.is_active = true
+             WHERE i.indicado_user_id = ? AND i.por_cadastro
+             ORDER BY ut.id LIMIT 1',
+            [$indicadoUserId],
+        );
+
+        return $linha === false ? null : ['indicacaoId' => (int) $linha['indicacao_id'], 'tenantId' => (int) $linha['tenant_id']];
+    }
+
+    /**
      * O e-mail é de alguém com vínculo ativo NESTE escritório? Só o escritório de quem indica: consultar contas de fora
      * deixaria descobrir quem tem conta no BlueJus (spec, comportamento 4).
      */

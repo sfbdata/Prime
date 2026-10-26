@@ -93,7 +93,7 @@ entrada:
         cupom_exemplo: BJ-XXXXXX
         continuar_facebook: Continuar com Facebook
         conectado_pelo_sem_email: 'Conectado pelo {provedor}'
-        cupom_valido: Cupom válido
+        cupom_valido: Cupom válido · você ganha {gb} GB extras no 1º mês
         cupom_nao_encontrado: Cupom não encontrado. Confira com quem te indicou.
     abrindo: Abrindo o seu escritório digital…
     suporte:
