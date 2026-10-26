@@ -12,7 +12,13 @@ use Doctrine\DBAL\Types\Types;
  */
 trait SemFiltroDeTenant
 {
-    /** @template T @param \Closure():T $consulta @return T */
+    /**
+     * @template T
+     *
+     * @param \Closure(): T $consulta
+     *
+     * @return T
+     */
     private function semFiltroDeTenant(\Closure $consulta): mixed
     {
         $filtros = $this->getEntityManager()->getFilters();

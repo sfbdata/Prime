@@ -33,7 +33,7 @@ final class ConsultarSaldoDoEscritorioUseCase
             $saldo->getSaldoCentavos(),
             $this->movimentos->somaPendentesDoEscritorio($tenant),
             $saldo->permiteAbrirChamado(),
-            array_values($extrato),
+            $extrato,
         );
     }
 }
