@@ -38,6 +38,7 @@ use App\TrabalhoExterno\Service\PoliticaDaVaga;
 use App\TrabalhoExterno\Service\QrCodeEmSvg;
 use App\TrabalhoExterno\Service\ResolvedorDePerfil;
 use App\TrabalhoExterno\Service\TransacaoDoComprovante;
+use App\TrabalhoExterno\UseCase\AjustarValorDoPagamentoUseCase;
 use App\TrabalhoExterno\UseCase\AvisarPagamentoNoChatUseCase;
 use App\TrabalhoExterno\UseCase\ConfirmarRecebimentoDoPixUseCase;
 use App\TrabalhoExterno\UseCase\EnviarComprovanteDePagamentoUseCase;
@@ -56,6 +57,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 #[CoversClass(ConfirmarRecebimentoDoPixUseCase::class)]
 #[CoversClass(EnviarComprovanteDePagamentoUseCase::class)]
 #[CoversClass(AvisarPagamentoNoChatUseCase::class)]
+#[CoversClass(AjustarValorDoPagamentoUseCase::class)]
 final class PagamentoDaDemandaTest extends TestCase
 {
     private DemandaExterna $demanda;
@@ -398,6 +400,174 @@ final class PagamentoDaDemandaTest extends TestCase
         self::assertTrue($politica->mensagemVisivel(Apoio::contexto(Perfil::Solicitante), $d, $registro));
         self::assertTrue($politica->mensagemVisivel(Apoio::contexto(Perfil::Master), $d, $registro));
         self::assertFalse($politica->mensagemVisivel(Apoio::contexto(Perfil::Convidado), $d, $registro));
+    }
+
+    #[TestDox('Ajustar valor: o Master troca o valor; efetivo, QR e chat usam o novo; marco com antigo, novo e motivo; mensagem de sistema sem o motivo')]
+    public function testAjustarValorMaster(): void
+    {
+        $this->ajustar()->executar(Apoio::contexto(Perfil::Master), 'TE-0007', '1.234,56', 'Desconto combinado por telefone');
+
+        $d = $this->demanda;
+        self::assertSame('1234.56', $d->valorEfetivoDoPagamento());
+        self::assertSame('1234.56', $d->getValorPagamentoAjustado());
+        self::assertSame('100.00', $d->propostaAceita()?->getValor(), 'a proposta aceita não muda');
+        self::assertSame(1, $this->salvos);
+        $marcos = array_values(array_filter($d->getHistorico(), static fn ($h): bool => $h->getPara() === Situacao::MARCO_VALOR));
+        self::assertCount(1, $marcos);
+        self::assertSame('De R$ 100,00 para R$ 1.234,56. Motivo: Desconto combinado por telefone', $marcos[0]->getMotivo());
+        self::assertSame('Usuário 99', $marcos[0]->getNomeAutor());
+        $ultima = $this->ultima($d);
+        self::assertSame('Valor do pagamento alterado de R$ 100,00 para R$ 1.234,56.', $ultima->getTexto());
+        self::assertSame(TipoMensagem::Pagamento, $ultima->getTipo());
+        self::assertStringNotContainsString('Desconto', $ultima->getTexto());
+
+        $bloco = $this->apresentador()->bloco(Apoio::contexto(Perfil::Master), $d);
+        self::assertSame('R$ 1.234,56', $bloco['valor']);
+        self::assertSame((new PixDaDemanda())->gerar('TE-0007', '1234.56'), $bloco['cod']);
+        self::assertSame('Confirmar o recebimento de R$ 1.234,56 via PIX?', $bloco['confirmacao']);
+        self::assertTrue($bloco['podeEditarValor']);
+        self::assertFalse($this->apresentador()->bloco(Apoio::contexto(Perfil::Solicitante), $d)['podeEditarValor']);
+        self::assertFalse($this->apresentador()->bloco(Apoio::contexto(Perfil::Equipe), $d)['podeEditarValor']);
+
+        // A confirmação registra o valor efetivo.
+        $this->confirmar()->executar(Apoio::contexto(Perfil::Master), 'TE-0007');
+        $pago = array_values(array_filter($d->getHistorico(), static fn ($h): bool => $h->getPara() === Situacao::MARCO_PAGO));
+        self::assertSame('PIX R$ 1.234,56', $pago[0]->getMotivo());
+    }
+
+    #[TestDox('Ajustar valor: Equipe e Solicitante levam 403 (mesmo com "Alterar a situação"); prévia também; nada grava')]
+    public function testAjustarValorSoMaster(): void
+    {
+        $cfg = new ConfiguracaoCentral();
+        $cfg->definirEquipe('situacao', true);
+        foreach ([Apoio::contexto(Perfil::Equipe, null, $cfg), Apoio::contexto(Perfil::Solicitante), new Contexto(Apoio::usuario(99), Apoio::tenant(1), Perfil::Master, new ConfiguracaoCentral(), null, true)] as $ctx) {
+            try {
+                $this->ajustar()->executar($ctx, 'TE-0007', '200,00', 'Motivo suficiente');
+                self::fail('só o Master ajusta');
+            } catch (AcaoNaoPermitida) {
+            }
+        }
+        self::assertSame(0, $this->salvos);
+        self::assertNull($this->demanda->getValorPagamentoAjustado());
+    }
+
+    #[TestDox('Ajustar valor: outro escritório não acha a demanda (404)')]
+    public function testAjustarValorOutroEscritorio(): void
+    {
+        $this->expectException(DemandaNaoEncontrada::class);
+        $this->ajustar()->executar(Apoio::contexto(Perfil::Solicitante, Apoio::tenant(2)), 'TE-0007', '200,00', 'Motivo suficiente');
+    }
+
+    #[TestDox('Ajustar valor: pago, com comprovante, valor igual ao efetivo e sem proposta aceita são 409 e não gravam')]
+    public function testAjustarValorBloqueios409(): void
+    {
+        $master = Apoio::contexto(Perfil::Master);
+        $d = $this->demanda;
+
+        try {
+            $this->ajustar()->executar($master, 'TE-0007', '100,00', 'Motivo suficiente');
+            self::fail('igual ao efetivo');
+        } catch (TransicaoInvalida) {
+        }
+        try {
+            $this->ajustar()->executar($master, 'TE-0007', '100', 'Motivo suficiente');
+            self::fail('igual ao efetivo (sem casas)');
+        } catch (TransicaoInvalida) {
+        }
+
+        $d->enviarComprovante($this->comprovante($d, 'pix.pdf'), Apoio::autor(Perfil::Solicitante));
+        try {
+            $this->ajustar()->executar($master, 'TE-0007', '300,00', 'Motivo suficiente');
+            self::fail('com comprovante');
+        } catch (TransicaoInvalida) {
+        }
+        self::assertFalse($this->apresentador()->bloco($master, $d)['podeEditarValor']);
+
+        $pago = Apoio::demanda(Situacao::Execucao);
+        $pago->confirmarRecebimentoDoPix(Apoio::autor(), 'R$ 100,00');
+        $this->demanda = $pago;
+        try {
+            $this->ajustar()->executar($master, 'TE-0007', '300,00', 'Motivo suficiente');
+            self::fail('pago');
+        } catch (TransicaoInvalida) {
+        }
+
+        $this->demanda = Apoio::demanda(Situacao::Analise);
+        try {
+            $this->ajustar()->executar($master, 'TE-0007', '300,00', 'Motivo suficiente');
+            self::fail('sem proposta aceita');
+        } catch (TransicaoInvalida) {
+        }
+        self::assertSame(0, $this->salvos);
+        self::assertNull($pago->getValorPagamentoAjustado());
+    }
+
+    #[TestDox('Ajustar valor: valor inválido e motivo fora de 10 a 300 são 422 (DadosInvalidos) e não gravam')]
+    public function testAjustarValorEntradaInvalida(): void
+    {
+        $master = Apoio::contexto(Perfil::Master);
+        foreach (['', 'abc', '0', '0,00', '-5,00', '10,999', '10000000,00', '1,2,3', '12,5x', 'R$'] as $valor) {
+            try {
+                $this->ajustar()->executar($master, 'TE-0007', $valor, 'Motivo suficiente');
+                self::fail("valor inválido: $valor");
+            } catch (DadosInvalidos) {
+            }
+        }
+        foreach (['', 'curto', str_repeat('x', 301), '         x         '] as $motivo) {
+            try {
+                $this->ajustar()->executar($master, 'TE-0007', '200,00', $motivo);
+                self::fail('motivo fora de 10 a 300');
+            } catch (DadosInvalidos) {
+            }
+        }
+        self::assertSame(0, $this->salvos);
+        $this->ajustar()->executar($master, 'TE-0007', '200,00', str_repeat('x', 300));
+        self::assertSame('200.00', $this->demanda->valorEfetivoDoPagamento());
+    }
+
+    #[TestDox('lerValor: aceita "1.234,56", "1234,56", "1234.56", "R$ 1.500" e o teto; recusa o resto')]
+    public function testLerValor(): void
+    {
+        foreach ([['1.234,56', '1234.56'], ['1234,56', '1234.56'], ['1234.56', '1234.56'], ['R$ 1.500', '1500.00'], ['1.500', '1500.00'], ['0,5', '0.50'], ['9.999.999,99', '9999999.99'], ['  250  ', '250.00']] as [$entrada, $saida]) {
+            self::assertSame($saida, AjustarValorDoPagamentoUseCase::lerValor($entrada), $entrada);
+        }
+        $this->expectException(DadosInvalidos::class);
+        AjustarValorDoPagamentoUseCase::lerValor('10.000.000,00');
+    }
+
+    #[TestDox('trocar a proposta aceita zera o ajuste: o valor volta a ser o da nova proposta')]
+    public function testTrocaDePropostaZeraOAjuste(): void
+    {
+        $m = Apoio::autor(Perfil::Master);
+        $d = Apoio::demanda(Situacao::Aceita);
+        $d->ajustarValorDoPagamento($m, '80.00', 'Motivo suficiente');
+        self::assertSame('80.00', $d->valorEfetivoDoPagamento());
+
+        // Reabre e aceita uma proposta nova: a base mudou, o ajuste sobre a antiga não vale.
+        $d->aplicar(AcaoDemanda::IniciarExecucao, $m, null);
+        $d->aplicar(AcaoDemanda::EnviarParaValidacao, $m, null);
+        $d->aplicar(AcaoDemanda::Concluir, $m, null);
+        $d->aplicar(AcaoDemanda::Reabrir, $m, 'Mais um serviço');
+        $d->enviarProposta(new PropostaDemanda($d, 2, '250.50', null, null, new \DateTimeImmutable(), null, null, null, $m), $m);
+        self::assertSame('80.00', $d->valorEfetivoDoPagamento(), 'enquanto a nova não é aceita, o ajuste vale');
+        $d->aplicar(AcaoDemanda::AceitarProposta, Apoio::autor(Perfil::Solicitante), null);
+        self::assertNull($d->getValorPagamentoAjustado());
+        self::assertSame('250.50', $d->valorEfetivoDoPagamento());
+    }
+
+    #[TestDox('Enviar no chat usa o valor ajustado')]
+    public function testEnviarNoChatUsaOAjustado(): void
+    {
+        $this->ajustar()->executar(Apoio::contexto(Perfil::Master), 'TE-0007', '150,00', 'Motivo suficiente');
+        $avisar = new AvisarPagamentoNoChatUseCase($this->localizador(), new PoliticaDaDemanda(), $this->repositorio(), $this->avisos());
+        $avisar->executar(Apoio::contexto(Perfil::Master), 'TE-0007');
+
+        self::assertStringContainsString('Pagamento disponível: R$ 150,00 via PIX', $this->ultima($this->demanda)->getTexto());
+    }
+
+    private function ajustar(): AjustarValorDoPagamentoUseCase
+    {
+        return new AjustarValorDoPagamentoUseCase($this->localizador(), $this->repositorio(), $this->avisos());
     }
 
     private function ultima(DemandaExterna $d): \App\TrabalhoExterno\Entity\MensagemDemanda
