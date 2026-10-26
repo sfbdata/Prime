@@ -109,8 +109,7 @@ final class ObterDadosDashboardUseCase
 
         $colaboradores = $this->filtrarPorCargo($colaboradores, $mCargo, trim((string) ($filtros['cargo'] ?? '')));
 
-        // Período anterior de mesma duração (só com período completo). Roda os MESMOS count*
-        // das três métricas reconstruíveis por data de criação, trocando apenas as datas.
+        // Período anterior de mesma duração (só com período completo): os MESMOS count* de Total e Criadas, com as datas trocadas.
         $periodoAnterior = $this->periodoAnterior($filtros, $referencia);
         $comAnterior     = $periodoAnterior !== null;
         $mAntTarefa      = [];
@@ -123,12 +122,9 @@ final class ObterDadosDashboardUseCase
             $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores, $pastasOcultas);
         }
 
-        // Estoque anterior (vencidas, prazos próximos): não se reconstrói do passado, então vem
-        // da foto diária do dia `data_de − 1` — exatamente o fim do período anterior. Quem não
-        // foi fotografado naquele dia fica sem tendência (null). Metas/Demandas ativas não
-        // entram: o painel as filtra por criação no período, a foto é o estoque inteiro.
-        // Cadeado: a foto é do escritório inteiro. Para quem tem pasta oculta, comparar com ela revelaria a
-        // diferença (oráculo); sem foto, as setas de Vencidas e Prazos não aparecem nesta requisição.
+        // Estoque anterior (vencidas, prazos, ativas, revisão, urgentes): não se reconstrói do passado, então vem
+        // da foto diária de `data_de − 1`. Sem foto da pessoa (ou coluna NULL), sem tendência. Cadeado: a foto é
+        // do escritório inteiro; com pasta oculta compará-la revelaria a diferença (oráculo), então sem seta.
         $mEstoqueAnterior = [];
         if ($comAnterior && $colaboradores !== [] && $pastasOcultas === []) {
             $mEstoqueAnterior = $this->dashboardFotoRepository->buscarPorReferencia(
@@ -138,9 +134,10 @@ final class ObterDadosDashboardUseCase
             );
         }
 
+        $estoqueHoje = $mEstoqueAnterior === [] ? [] : $this->estoqueDeHoje($tenant, $colunasExtras, $pastasOcultas); // PR-F
+
         $mFoto = $colaboradores === [] ? [] : $this->userRepository->findFotoPorColaboradores($tenant);
 
-        // Colunas extras: os mapas userId => valor, só das ligadas (e só com gente na tabela).
         $mExtras = $conclusao + ($colaboradores === [] ? [] : $this->mapasExtras(
             $tenant,
             $filtros,
@@ -150,20 +147,21 @@ final class ObterDadosDashboardUseCase
             $cortes,
         ));
 
-        // Tendência das extras (ColunasExtrasDoDashboard::TENDENCIA): a MESMA consulta no período
-        // anterior, trocando só as datas (mapasExtrasAnteriores). Em revisão e Pastas urgentes ficam
-        // de fora: estoque sem foto diária, sem número inventado.
+        // Tendência das extras com lastro por data (hoje só Eventos na agenda): a MESMA consulta
+        // no período anterior de mesma duração — a regra das setas que já existem. Concluídas,
+        // taxa e tempo médio ficam sem seta (DASH-010b, ver ColunasExtrasDoDashboard::TENDENCIA)
+        // e, por isso, sem consulta do período anterior.
         $extrasComTendencia = $comAnterior ? Extras::comTendencia($colunasExtras) : [];
-        $mExtrasAnt         = $extrasComTendencia !== [] && $colaboradores !== []
-            ? $this->mapasExtrasAnteriores(
+        $mExtrasAnt         = [];
+        if ($extrasComTendencia !== [] && $colaboradores !== []) {
+            $mExtrasAnt = $this->mapasExtras(
                 $tenant,
                 array_merge($filtros, $periodoAnterior),
                 $extrasComTendencia,
                 array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
                 $pastasOcultas,
-                $mAntTarefa,
-            )
-            : [];
+            );
+        }
 
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
@@ -194,8 +192,9 @@ final class ObterDadosDashboardUseCase
                     $mTotalTarefa[$id] ?? 0,
                     $mAtivasTarefa[$id] ?? 0,
                 ),
-                // Só as extras de TENDENCIA: as bases (total/ativas) das concluídas vêm em $mExtrasAnt.
+                // Só extras com consulta própria (Eventos) têm tendência: total/ativas não entram.
                 extrasAnteriores:      $this->valoresExtras($extrasComTendencia, $mExtrasAnt, $id, 0, 0),
+                estoque:               $this->estoqueDaLinha($estoqueHoje, $id, $estoque),
                 colunasZeradas:        $cortes->colunasDe($id),
             );
         }
@@ -235,46 +234,82 @@ final class ObterDadosDashboardUseCase
             colunasExtras:              $colunasExtras,
             totaisExtras:               $this->totaisExtras($colunasExtras, $linhas, false, $mExtras[Extras::TAXA_CONCLUSAO] ?? []),
             totaisExtrasAnteriores:     $comAnterior
-                ? $this->totaisExtras($extrasComTendencia, $linhas, true, $mExtrasAnt[Extras::TAXA_CONCLUSAO] ?? [])
+                ? $this->totaisExtras($extrasComTendencia, $linhas, true)
                 : null,
             campeaoId:                  RankingDeMetasConcluidas::campeao($todosIds, self::concluidasDaBase($conclusao[Extras::METAS_CONCLUIDAS]), $mVencidas),
             zeramentos:                 $cortes->paraTela(),
             // O realizado da meta é o número do card (antes da busca), sem regra de contagem própria.
+            totaisEstoque:              $estoqueHoje === [] ? null : $this->totaisDoEstoque($linhas, array_keys($estoqueHoje)),
             metaDePastas:               $this->metaDePastas->montar($tenant, $referencia, $filtros, $totalPastasCriadas),
         );
     }
 
+    /** Colunas do estoque com seta pela foto => coluna da `dashboard_foto` (as duas fixas mais ESTOQUE_COM_FOTO). */
+    private const ESTOQUE_NA_FOTO = ['metas_ativas' => 'metas_ativas', 'demandas_ativas' => 'demandas_ativas'];
+
     /**
-     * Os mapas do período anterior das extras de TENDENCIA: a MESMA consulta, só com as datas
-     * trocadas. Concluídas e Taxa não têm consulta própria: pedem as Ativas do período anterior e
-     * juntam com o Total já pedido ($totalAnterior), na forma `['total', 'ativas']` por pessoa.
+     * O estoque de HOJE por coluna, sem período e com a mesma consulta da foto: coluna => userId => n.
+     * Metas ativas e Demandas ativas sempre; Em revisão e Pastas urgentes só se estiverem ligadas.
      *
-     * @param array<string, mixed> $filtrosAnteriores
-     * @param list<string>         $extrasComTendencia
-     * @param list<int>            $pessoas
-     * @param list<int>            $pastasOcultas
-     * @param array<int, int>      $totalAnterior Total metas por pessoa no período anterior
+     * @param list<string> $colunasExtras
+     * @param list<int>    $pastasOcultas
      *
-     * @return array<string, array<int, mixed>>
+     * @return array<string, array<int, int>>
      */
-    private function mapasExtrasAnteriores(Tenant $tenant, array $filtrosAnteriores, array $extrasComTendencia, array $pessoas, array $pastasOcultas, array $totalAnterior): array
+    private function estoqueDeHoje(Tenant $tenant, array $colunasExtras, array $pastasOcultas): array
     {
-        $deConclusao = array_values(array_intersect([Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO], $extrasComTendencia));
-        $mapas       = $this->mapasExtras($tenant, $filtrosAnteriores, array_values(array_diff($extrasComTendencia, $deConclusao)), $pessoas, $pastasOcultas);
-        if ($deConclusao === []) {
-            return $mapas;
+        $hoje = [
+            'metas_ativas'    => $this->tarefaRepository->countAtivasPorResponsavel($tenant, [], $pastasOcultas),
+            'demandas_ativas' => $this->pastaRepository->countAtivasPorResponsavel($tenant, [], $pastasOcultas),
+        ];
+        foreach (array_keys(Extras::ESTOQUE_COM_FOTO) as $coluna) {
+            if (in_array($coluna, $colunasExtras, true)) {
+                $hoje[$coluna] = $this->consultarExtra($coluna, $tenant, [], [], $pastasOcultas);
+            }
         }
 
-        $ativas = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
-        $base   = [];
-        foreach ($pessoas as $id) {
-            $base[$id] = ['total' => $totalAnterior[$id] ?? 0, 'ativas' => $ativas[$id] ?? 0];
-        }
-        foreach ($deConclusao as $coluna) {
-            $mapas[$coluna] = $base;
+        return $hoje;
+    }
+
+    /**
+     * O estoque da linha: o de hoje por coluna e a foto de `data_de − 1` desta pessoa; null onde não há
+     * lastro (sem foto dela, ou foto de antes do PR-F com a coluna NULL).
+     *
+     * @param array<string, array<int, int>> $estoqueHoje
+     * @param array<string, int|null>|null   $foto
+     *
+     * @return array{atual: array<string, int>, anterior: array<string, int|null>}
+     */
+    private function estoqueDaLinha(array $estoqueHoje, int $id, ?array $foto): array
+    {
+        $linha = ['atual' => [], 'anterior' => []];
+        foreach ($estoqueHoje as $coluna => $mapa) {
+            $campo                     = self::ESTOQUE_NA_FOTO[$coluna] ?? Extras::ESTOQUE_COM_FOTO[$coluna]['foto'];
+            $linha['atual'][$coluna]    = (int) ($mapa[$id] ?? 0);
+            $linha['anterior'][$coluna] = $foto[$campo] ?? null;
         }
 
-        return $mapas;
+        return $linha;
+    }
+
+    /**
+     * Total do estoque sobre as linhas VISÍVEIS: o de hoje soma tudo; a foto, só com lastro em toda linha.
+     *
+     * @param LinhaAdvogadoDashboardOutput[] $linhas
+     * @param list<string>                   $colunas
+     *
+     * @return array{atual: array<string, int>, anterior: array<string, int|null>}
+     */
+    private function totaisDoEstoque(array $linhas, array $colunas): array
+    {
+        $totais = ['atual' => [], 'anterior' => []];
+        foreach ($colunas as $coluna) {
+            $totais['atual'][$coluna] = array_sum(array_map(static fn (LinhaAdvogadoDashboardOutput $l): int => $l->estoque['atual'][$coluna] ?? 0, $linhas));
+            $anteriores = array_map(static fn (LinhaAdvogadoDashboardOutput $l): ?int => $l->estoque['anterior'][$coluna] ?? null, $linhas);
+            $totais['anterior'][$coluna] = $linhas === [] || in_array(null, $anteriores, true) ? null : array_sum($anteriores);
+        }
+
+        return $totais;
     }
 
     /**
@@ -459,10 +494,10 @@ final class ObterDadosDashboardUseCase
      * (a regra do desenho, dc 1.2.2 L.1980). Sem base, null ("—").
      *
      * Com $anterior, a MESMA regra sobre o período anterior, com os valores de
-     * `extrasAnteriores` de cada linha — só para as extras de ColunasExtrasDoDashboard::TENDENCIA.
+     * `extrasAnteriores` de cada linha — só para as extras de ColunasExtrasDoDashboard::TENDENCIA
+     * (hoje, Eventos na agenda: uma soma).
      *
-     * $baseDaTaxa: as bases da Taxa de conclusão (no atual, com o corte da própria coluna,
-     * basesDaConclusao; no anterior, as do período anterior).
+     * $baseDaTaxa: as bases da Taxa de conclusão com o corte da própria coluna (basesDaConclusao).
      *
      * @param list<string>                                 $colunasExtras
      * @param LinhaAdvogadoDashboardOutput[]               $linhas

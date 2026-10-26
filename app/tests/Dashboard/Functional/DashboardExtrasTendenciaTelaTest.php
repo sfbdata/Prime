@@ -23,11 +23,14 @@ use Symfony\Component\DomCrawler\Crawler;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * DASH-010 e PR-E (setas em todas as colunas) — seta de tendência nas extras e pílula no Total
- * delas, no MESMO formato e regra das colunas fixas (`_tendencia.html.twig`: período anterior de
- * mesma duração), com o sentido do desenho (`neutra`, `sobeRuim`). Têm seta: Eventos na agenda
- * (neutra), Metas concluídas e Taxa de conclusão (subir é bom) e Tempo médio (subir é ruim).
- * Em revisão e Pastas urgentes são estoque sem foto diária: sem seta (ColunasExtrasDoDashboard::TENDENCIA).
+ * DASH-010 — seta de tendência na extra com lastro por data (Eventos na agenda) e pílula no
+ * Total dela, no MESMO formato e regra das colunas fixas (`_tendencia.html.twig`: período
+ * anterior de mesma duração). Em revisão e Pastas urgentes são estoque: sem seta.
+ *
+ * DASH-010b — Metas concluídas, Taxa de conclusão e Tempo médio também ficam SEM seta: recortam
+ * por data de criação e leem o status de hoje, o que enviesava a comparação (motivo em
+ * ColunasExtrasDoDashboard::TENDENCIA). A massa abaixo daria seta nas três se ainda tivessem —
+ * é a irmã que prova que a ausência é da regra, não de falta de dado.
  *
  * Massa: período 01–29/02/2024 (29 dias) → anterior 03–31/01/2024.
  *   fevereiro: 2 concluídas (2d e 4d), 1 pendente, 1 em revisão; 3 eventos da gestora;
@@ -75,7 +78,7 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
         $this->em()->flush();
     }
 
-    private function semear(bool $semSetas = false): void
+    private function semear(): void
     {
         $client = static::getClient();
         [$gestora, $tenant] = $this->criarGestorLogado($client);
@@ -104,9 +107,6 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
             $this->evento($outro, $gestora, '2024-01-22 14:00');
         }
 
-        if ($semSetas) {
-            static::getContainer()->get(PreferenciaDoUsuarioRepository::class)->gravar($tenant, $gestora, CatalogoDePreferenciasDoDashboard::SETAS, CatalogoDePreferenciasDoDashboard::SETAS_DESLIGADAS);
-        }
         static::getContainer()->get(PreferenciaDoUsuarioRepository::class)->gravar(
             $tenant,
             $gestora,
@@ -125,18 +125,10 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
         return $linha;
     }
 
-    /** Extras SEM tendência: estoque sem foto diária comparável. */
-    private const SEM_TENDENCIA = ['metas_revisao', 'pastas_urgentes'];
+    /** Extras SEM tendência: estoque (DASH-010) e as três por criação + status de hoje (DASH-010b). */
+    private const SEM_TENDENCIA = ['metas_concluidas', 'taxa_conclusao', 'tempo_medio', 'metas_revisao', 'pastas_urgentes'];
 
-    /** coluna => [classe de cor, direção, antes, agora, texto da pílula do Total]; cores pelo sentido do desenho */
-    private const COM_TENDENCIA = [
-        'metas_concluidas' => ['bom', 'sobe', '1', '2', '+100%'],
-        'taxa_conclusao'   => ['bom', 'sobe', '33', '50', '+52%'],
-        'tempo_medio'      => ['ruim', 'sobe', '1', '3', '+200%'],
-        'eventos_agenda'   => ['igual', 'sobe', '1', '3', '+200%'],
-    ];
-
-    #[TestDox('Na linha: seta nas quatro extras com a cor do sentido do desenho (sem o ruído do outro escritório); Em revisão e Pastas urgentes sem seta')]
+    #[TestDox('Na linha: eventos com seta (neutra, 1 → 3, sem o ruído do outro escritório); as outras cinco extras sem seta, como as de estoque')]
     public function testSetasNaLinha(): void
     {
         static::createClient();
@@ -144,11 +136,9 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
 
         $linha = $this->linhaDaGestora(static::getClient()->request('GET', self::PERIODO));
 
-        foreach (self::COM_TENDENCIA as $coluna => [$qual, $dir, $antes, $agora]) {
-            $seta = $linha->filter('td[data-coluna="' . $coluna . '"] > .db-cel.db-cel--seta > .db-seta.db-seta--' . $qual . '[data-tendencia="' . $dir . '"]');
-            self::assertCount(1, $seta, $coluna . ': seta ' . $qual);
-            self::assertSame('antes: ' . $antes . ' → agora: ' . $agora, trim($seta->filter('.db-dica-de')->text()), $coluna);
-        }
+        $eventos = $linha->filter('td[data-coluna="eventos_agenda"] > .db-cel.db-cel--seta > .db-seta.db-seta--igual[data-tendencia="sobe"]');
+        self::assertCount(1, $eventos, 'eventos: neutro (fila), sempre cinza');
+        self::assertSame('antes: 1 → agora: 3', trim($eventos->filter('.db-dica-de')->text()), 'o ruído do outro escritório não entrou no anterior');
 
         foreach (self::SEM_TENDENCIA as $coluna) {
             $cel = $linha->filter('td[data-coluna="' . $coluna . '"]');
@@ -157,13 +147,13 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
             self::assertCount(0, $cel->filter('.db-cel--seta'), $coluna . ': mesma célula das de estoque');
         }
 
-        // os valores seguem os mesmos (2, 50%, 3d)
-        self::assertSame('2', trim($linha->filter('td[data-coluna="metas_concluidas"] .db-num')->text()));
-        self::assertStringContainsString('50', $linha->filter('td[data-coluna="taxa_conclusao"] .db-num')->text());
-        self::assertStringContainsString('3', $linha->filter('td[data-coluna="tempo_medio"] .db-num')->text());
+        // irmã que prova o alvo: as três têm valor (2, 50%, 3d) — a seta sumiu pela regra
+        self::assertSame('2', trim($linha->filter('td[data-coluna="metas_concluidas"]')->text()));
+        self::assertStringContainsString('50', $linha->filter('td[data-coluna="taxa_conclusao"]')->text());
+        self::assertStringContainsString('3', $linha->filter('td[data-coluna="tempo_medio"]')->text());
     }
 
-    #[TestDox('No Total: pílula nas quatro extras (cor pelo sentido); Em revisão e Pastas urgentes com o espaçador, como as de estoque')]
+    #[TestDox('No Total: pílula só em eventos (+200%, neutra); as outras cinco extras com o espaçador, como as de estoque')]
     public function testPilulasNoTotal(): void
     {
         static::createClient();
@@ -171,12 +161,10 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
 
         $total = static::getClient()->request('GET', self::PERIODO)->filter('.db-table > tfoot > tr.db-total-row');
 
-        foreach (self::COM_TENDENCIA as $coluna => [$qual, $dir, , , $texto]) {
-            $pilula = $total->filter('td[data-coluna="' . $coluna . '"] > .db-total-cel > .db-total-num + .db-tend.db-tend--' . $qual . '[data-tendencia="' . $dir . '"]');
-            self::assertCount(1, $pilula, $coluna);
-            self::assertSame($texto, trim($pilula->text()), $coluna);
-        }
-        self::assertSame('Subiu 200% em relação ao período anterior (1 → 3)', $total->filter('td[data-coluna="eventos_agenda"] .db-tend')->attr('title'));
+        $eventos = $total->filter('td[data-coluna="eventos_agenda"] > .db-total-cel > .db-total-num + .db-tend.db-tend--igual[data-tendencia="sobe"]');
+        self::assertCount(1, $eventos);
+        self::assertSame('+200%', trim($eventos->text()));
+        self::assertSame('Subiu 200% em relação ao período anterior (1 → 3)', $eventos->attr('title'));
 
         foreach (self::SEM_TENDENCIA as $coluna) {
             self::assertCount(0, $total->filter('td[data-coluna="' . $coluna . '"] .db-tend'), $coluna);
@@ -184,7 +172,7 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
         }
     }
 
-    #[TestDox('No celular: seta e pílula nos blocos das quatro extras; nenhuma em Em revisão e Pastas urgentes')]
+    #[TestDox('No celular: seta e pílula só no bloco de eventos; concluídas, taxa e tempo médio sem nenhuma')]
     public function testCelular(): void
     {
         static::createClient();
@@ -192,26 +180,12 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
 
         $crawler = static::getClient()->request('GET', self::PERIODO);
 
-        foreach (array_keys(self::COM_TENDENCIA) as $coluna) {
-            self::assertGreaterThanOrEqual(1, $crawler->filter('.db-cel-bloco--extra[data-coluna="' . $coluna . '"] > .db-cel-valor > .db-seta')->count(), $coluna);
-            self::assertCount(1, $crawler->filter('.db-cel-card--total .db-cel-bloco--extra[data-coluna="' . $coluna . '"] > .db-cel-valor--total > .db-tend'), $coluna);
-        }
+        self::assertGreaterThanOrEqual(1, $crawler->filter('.db-cel-bloco--extra[data-coluna="eventos_agenda"] > .db-cel-valor > .db-seta.db-seta--igual')->count());
+        self::assertCount(1, $crawler->filter('.db-cel-card--total .db-cel-bloco--extra[data-coluna="eventos_agenda"] > .db-cel-valor--total > .db-tend.db-tend--igual'));
         foreach (self::SEM_TENDENCIA as $coluna) {
             self::assertGreaterThanOrEqual(1, $crawler->filter('.db-cel-bloco--extra[data-coluna="' . $coluna . '"]')->count(), $coluna . ': o bloco existe');
             self::assertCount(0, $crawler->filter('.db-cel-bloco--extra[data-coluna="' . $coluna . '"] .db-seta, .db-cel-bloco--extra[data-coluna="' . $coluna . '"] .db-tend'), $coluna);
         }
-    }
-
-    #[TestDox('Interruptor "setas" desligado: a página leva db-page--sem-setas (o CSS esconde .db-seta, .db-tend e o espaçador) e o número das extras segue lá')]
-    public function testInterruptorSetas(): void
-    {
-        static::createClient();
-        $this->semear(true);
-
-        $crawler = static::getClient()->request('GET', self::PERIODO);
-
-        self::assertCount(1, $crawler->filter('section.db-page.db-page--sem-setas'));
-        self::assertSame('2', trim($this->linhaDaGestora($crawler)->filter('td[data-coluna="metas_concluidas"] .db-num')->text()));
     }
 
     #[TestDox('Sem período completo não há anterior: nenhuma seta nem pílula nas extras, e o número sai sozinho')]
@@ -225,6 +199,6 @@ final class DashboardExtrasTendenciaTelaTest extends DashboardWebTestCase
         self::assertCount(0, $crawler->filter('td.db-td-extra .db-seta, td.db-td-extra .db-tend, td.db-td-extra .db-cel--seta'));
         self::assertCount(0, $crawler->filter('.db-cel-bloco--extra .db-seta, .db-cel-bloco--extra .db-tend'));
         // irmã que prova o alvo: as extras estão lá
-        self::assertSame('2', trim($this->linhaDaGestora($crawler)->filter('td[data-coluna="metas_concluidas"] .db-num')->text()));
+        self::assertSame('2', trim($this->linhaDaGestora($crawler)->filter('td[data-coluna="metas_concluidas"]')->text()));
     }
 }

@@ -23,6 +23,7 @@
    dashboard). Macros não atravessam o include: o import é refeito aqui.
 ─────────────────────────────────────────────────────────────────────────── #}
 {% import 'dashboard/_tendencia.html.twig' as tend %}
+{% set extrasEstoque = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::ESTOQUE_COM_FOTO') %}
 {% import 'dashboard/_extras.html.twig' as extra %}
 {# Colunas na ordem da tabela; `d` é a direção inicial ao escolher (texto sobe,
    número desce — como o desenho). #}
@@ -126,6 +127,7 @@
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
+                    {{- tend.tendencia(linha.estoque.atual.metas_ativas ?? 0, 'metas_ativas' in zr ? null : (linha.estoque.anterior.metas_ativas ?? null), 'seta', 'fila') -}}
                 </span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_vencidas">
@@ -177,6 +179,7 @@
                     {%- else -%}
                         <span class="db-num db-num--zero">0</span>
                     {%- endif -%}
+                    {{- tend.tendencia(linha.estoque.atual.demandas_ativas ?? 0, 'demandas_ativas' in zr ? null : (linha.estoque.anterior.demandas_ativas ?? null), 'seta', 'fila') -}}
                 </span>
             </div>
             {# Por quem ABRIU a pasta: o link filtra por criado_por, sem responsável. #}
@@ -205,6 +208,10 @@
                     {%- if sentidoX is not null and atualX is not null and antX is not null -%}
                         {{- tend.tendencia(atualX, antX, 'seta', sentidoX) -}}
                     {%- endif -%}
+                    {%- set estX = extrasEstoque[k] ?? null -%}
+                    {%- if estX is not null and k not in zr and (linha.estoque.anterior[k] ?? null) is not null -%}
+                        {{- tend.tendencia(linha.estoque.atual[k] ?? 0, linha.estoque.anterior[k], 'seta', estX.sentido) -}}
+                    {%- endif -%}
                 </span>
             </div>
             {% endfor %}
@@ -222,6 +229,7 @@
     {% set tDemA    = linhas|reduce((c, l) => c + l.demandasAtivas, 0) %}
     {% set tCriadas = linhas|reduce((c, l) => c + l.pastasCriadas, 0) %}
     {% set tAnt = dashboard.totaisAnteriores %}
+    {% set tEst = dashboard.totaisEstoque %}
     {% set zc = dashboard.zeramentos|keys %}
     <div class="db-cel-card db-cel-card--total">
         <div class="db-cel-total-cab">
@@ -234,7 +242,7 @@
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_ativas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.metas_ativas'|trans }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tAtivas }}</span></span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tAtivas }}</span>{{ tend.tendencia(tEst.atual.metas_ativas ?? 0, tEst is null or 'metas_ativas' in zc ? null : (tEst.anterior.metas_ativas ?? null), 'pilula', 'fila') }}</span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--meta" data-coluna="metas_vencidas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.vencidas'|trans }}</span>
@@ -250,7 +258,7 @@
             </div>
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="demandas_ativas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.demandas_ativas'|trans }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tDemA }}</span></span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tDemA }}</span>{{ tend.tendencia(tEst.atual.demandas_ativas ?? 0, tEst is null or 'demandas_ativas' in zc ? null : (tEst.anterior.demandas_ativas ?? null), 'pilula', 'fila') }}</span>
             </div>
             <div class="db-cel-bloco db-cel-bloco--pasta" data-coluna="pastas_criadas">
                 <span class="db-cel-rotulo">{{ 'dashboard.tabela.pastas_criadas'|trans }}</span>
@@ -264,7 +272,7 @@
             {% set antTx = tAntX is null or k in zc ? null : (tAntX[k] ?? null) %}
             <div class="db-cel-bloco db-cel-bloco--extra" data-coluna="{{ k }}">
                 <span class="db-cel-rotulo">{{ extrasCatalogo[k].rotulo }}</span>
-                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tx is null ? 'dashboard.extras.sem_dado'|trans : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? 'dashboard.extras.valor_dias'|trans({n: tx ~ ''}) : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% endif %}</span>
+                <span class="db-cel-valor db-cel-valor--total"><span class="db-total-num">{{ tx is null ? 'dashboard.extras.sem_dado'|trans : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? 'dashboard.extras.valor_dias'|trans({n: tx ~ ''}) : tx)) }}</span>{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif extrasEstoque[k] is defined and tEst is not null and k not in zc and (tEst.anterior[k] ?? null) is not null %}{{ tend.tendencia(tEst.atual[k], tEst.anterior[k], 'pilula', extrasEstoque[k].sentido) }}{% endif %}</span>
             </div>
             {% endfor %}
         </div>

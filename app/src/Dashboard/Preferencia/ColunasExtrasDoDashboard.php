@@ -115,22 +115,16 @@ final class ColunasExtrasDoDashboard
      *   - pastas concluídas: a data do arquivamento cai no período em que aconteceu; subir é bom
      *     ('alta', o desenho não a marca `neutra` nem `sobeRuim`). Desarquivar tira a pasta do
      *     período em que ela tinha sido arquivada, nos dois lados da comparação.
-     *   - metas concluídas e taxa de conclusão (PR-E): 'alta'; tempo médio: 'baixa' (subir é ruim,
-     *     `sobeRuim` do desenho). O anterior é a MESMA consulta nas datas do período anterior.
-     *     Delta sempre em % relativo, como o `tendencia()` do desenho (também para a taxa e o tempo).
      *
-     * Ficam SEM tendência, com o espaço da seta reservado como nas de estoque:
-     *   - Em revisão (`neutra` no desenho) e Pastas urgentes (`sobeRuim`): são estoque (o que está
-     *     em revisão/urgente agora). A foto diária (`dashboard_foto`) guarda só metas ativas,
-     *     demandas ativas, vencidas e prazos, então não há lastro para o passado: sem seta.
-     *   - Metas ativas e Demandas ativas (colunas fixas, `neutra` no desenho): a foto é o estoque
-     *     INTEIRO e a coluna é o estoque das criadas no período, bases diferentes: sem seta.
-     *
-     * RESSALVA CONHECIDA (DASH-010b, decisão do Samuel pendente): concluídas, taxa e tempo médio
-     * recortam as metas pela data de CRIAÇÃO mas leem o status/conclusão de HOJE. As metas do
-     * período anterior tiveram mais tempo para concluir, então a comparação nasce enviesada
-     * (concluídas e taxa do anterior saem maiores, então o atual tende a mostrar "queda"; o tempo
-     * médio anterior também sai maior). Entraram no PR-E por pedido explícito; para tirar, apague as três linhas abaixo.
+     * Ficam SEM seta, com o espaço reservado:
+     *   - Metas concluídas, Taxa de conclusão e Tempo médio (DASH-010b, SEGURADAS no PR-E): recortam
+     *     as metas pela data de CRIAÇÃO mas leem o status/conclusão de HOJE. As metas do período
+     *     anterior tiveram mais tempo para concluir, então o anterior sai maior e a seta mente
+     *     (concluídas e taxa "caem", o tempo médio anterior sai maior, sem nada ter mudado no
+     *     trabalho). Seta que mente é pior que ausente. Só destrava com critério por data de
+     *     CONCLUSÃO (`Tarefa.dataConclusao` dentro da janela, o mesmo recorte no anterior):
+     *     decisão do dono, pendente (spec dashboard-parte-1).
+     *   - Em revisão e Pastas urgentes: estoque, com seta própria pela foto diária. Ver ESTOQUE_COM_FOTO.
      *
      * @var array<string, string>
      */
@@ -138,9 +132,20 @@ final class ColunasExtrasDoDashboard
         self::PASTAS_CONCLUIDAS => 'alta',
         self::EVENTOS_AGENDA    => 'fila',
         self::RELATORIO         => 'alta',
-        self::METAS_CONCLUIDAS  => 'alta',
-        self::TAXA_CONCLUSAO    => 'alta',
-        self::TEMPO_MEDIO       => 'baixa',
+    ];
+
+    /**
+     * Extras de ESTOQUE com seta pela foto diária (`dashboard_foto`, PR-F) e o sentido do desenho:
+     * Em revisão é `neutra` ('fila') e Pastas urgentes é `sobeRuim` ('baixa'). Chave => coluna da foto.
+     * O anterior é a foto de `data_de − 1`; o atual é o mesmo estoque lido agora (sem período), a mesma
+     * régua da foto. Sem foto (ou com a coluna NULL, de antes do PR-F), sem seta: nada é inventado.
+     * Metas ativas e Demandas ativas (colunas fixas, `neutra`) seguem a mesma regra.
+     *
+     * @var array<string, array{sentido: string, foto: string}>
+     */
+    public const ESTOQUE_COM_FOTO = [
+        self::METAS_REVISAO   => ['sentido' => 'fila', 'foto' => 'metas_em_revisao'],
+        self::PASTAS_URGENTES => ['sentido' => 'baixa', 'foto' => 'pastas_urgentes'],
     ];
 
     /**

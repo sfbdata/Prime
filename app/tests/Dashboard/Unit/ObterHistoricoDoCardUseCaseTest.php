@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Dashboard\Unit;
 
+use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\Repository\HistoricoDoDashboardRepository;
 use App\Dashboard\UseCase\ObterHistoricoDoCardUseCase;
 use App\Entity\Auth\User;
@@ -92,6 +93,7 @@ final class ObterHistoricoDoCardUseCaseTest extends TestCase
         $useCase = new ObterHistoricoDoCardUseCase(
             $this->repo(['2026-01' => 3, '2026-03' => 6, '2026-08' => 2, '2025-01' => 1, '2025-02' => 1, '2025-03' => 2, '2025-08' => 4, '2025-11' => 9], $capturado),
             $this->userRepo([$this->usuario(1, 'Ana'), $this->usuario(2, 'Bruno')]),
+            $this->createStub(DashboardFotoRepository::class),
         );
 
         $out = $useCase->executar($this->tenant, 'pastas', $this->referencia);
@@ -130,6 +132,7 @@ final class ObterHistoricoDoCardUseCaseTest extends TestCase
         $useCase = new ObterHistoricoDoCardUseCase(
             $this->repo(['2025-05' => 2, '2024-05' => 4]),
             $this->userRepo([$this->usuario(1, 'Ana')]),
+            $this->createStub(DashboardFotoRepository::class),
         );
 
         $o = $this->opcao($useCase->executar($this->tenant, 'pastas', $this->referencia)->opcoes, '2025');
@@ -143,7 +146,7 @@ final class ObterHistoricoDoCardUseCaseTest extends TestCase
     #[TestDox('ano sem nenhuma pasta: Melhor sem destaque e comparação N/D — nada inventado')]
     public function testAnoVazio(): void
     {
-        $useCase = new ObterHistoricoDoCardUseCase($this->repo([]), $this->userRepo([$this->usuario(1, 'Ana')]));
+        $useCase = new ObterHistoricoDoCardUseCase($this->repo([]), $this->userRepo([$this->usuario(1, 'Ana')]), $this->createStub(DashboardFotoRepository::class));
 
         $o = $this->opcao($useCase->executar($this->tenant, 'pastas', $this->referencia)->opcoes, '2024');
 
@@ -159,6 +162,7 @@ final class ObterHistoricoDoCardUseCaseTest extends TestCase
         $useCase = new ObterHistoricoDoCardUseCase(
             $this->repo(['2023-06' => 50, '2024-02' => 4, '2024-09' => 6, '2025-01' => 15, '2026-03' => 5]),
             $this->userRepo([$this->usuario(1, 'Ana')]),
+            $this->createStub(DashboardFotoRepository::class),
         );
 
         $o = $this->opcao($useCase->executar($this->tenant, 'pastas', $this->referencia)->opcoes, 'todos');
@@ -193,7 +197,7 @@ final class ObterHistoricoDoCardUseCaseTest extends TestCase
         ];
         foreach ($casos as [$filtros, $ids, $subtitulo]) {
             $capturado = ['ids' => 'não chamado'];
-            $useCase = new ObterHistoricoDoCardUseCase($this->repo([], $capturado), $this->userRepo($ativos, $cargos));
+            $useCase = new ObterHistoricoDoCardUseCase($this->repo([], $capturado), $this->userRepo($ativos, $cargos), $this->createStub(DashboardFotoRepository::class));
             $out = $useCase->executar($this->tenant, 'pastas', $this->referencia, $filtros);
 
             self::assertSame($ids, $capturado['ids'], json_encode($filtros));
@@ -201,21 +205,102 @@ final class ObterHistoricoDoCardUseCaseTest extends TestCase
         }
     }
 
-    #[TestDox('Metas ativas, Urgentes e Meta global: sem série, sem consulta, com o texto da foto diária')]
-    public function testCardsSemSerie(): void
+    /** @param array<string, array{valor: int, ativas: int}> $retratos */
+    private function fotoRepo(array $retratos, array &$chamadas = []): DashboardFotoRepository
+    {
+        $repo = $this->createStub(DashboardFotoRepository::class);
+        $repo->method('retratoPorMes')->willReturnCallback(
+            static function (Tenant $t, array $ids, string $coluna) use ($retratos, &$chamadas): array {
+                $chamadas[] = [$ids, $coluna];
+
+                return $retratos;
+            },
+        );
+
+        return $repo;
+    }
+
+    private function useCaseComFoto(array $retratos, array &$chamadas = []): ObterHistoricoDoCardUseCase
+    {
+        return new ObterHistoricoDoCardUseCase(
+            $this->createStub(HistoricoDoDashboardRepository::class),
+            $this->userRepo([$this->usuario(1, 'Ana'), $this->usuario(2, 'Bruno')]),
+            $this->fotoRepo($retratos, $chamadas),
+        );
+    }
+
+    #[TestDox('Metas ativas: série só dos meses com foto; mês sem foto é null ("sem histórico"); sem melhor, o stat do meio é "Pico" neutro')]
+    public function testMetasAtivasSoDosMesesComFoto(): void
+    {
+        $chamadas = [];
+        $out = $this->useCaseComFoto(['2026-07' => ['valor' => 12, 'ativas' => 12], '2026-08' => ['valor' => 20, 'ativas' => 20]], $chamadas)
+            ->executar($this->tenant, 'metas', $this->referencia);
+
+        self::assertTrue($out->disponivel);
+        self::assertSame([[[1, 2], 'metas_ativas']], $chamadas, 'universo do card, coluna metas_ativas');
+        $o = $this->opcao($out->opcoes, '2026');
+        self::assertSame([null, null, null, null, null, null, 12, 20, null, null, null, null], array_column($o['barras'], 'valor'));
+        self::assertSame('jan/2026: sem histórico', $o['barras'][0]['titulo'], 'passado sem foto');
+        self::assertSame('set/2026: ainda não fechou', $o['barras'][8]['titulo']);
+        self::assertSame(['Média', '16', '2 meses', 'neutro'], array_values($o['stats'][0]));
+        self::assertSame(['Pico', '20', 'ago/2026', 'neutro'], array_values($o['stats'][1]));
+        self::assertFalse(in_array(true, array_column($o['barras'], 'melhor'), true), 'fila: nenhum destaque dourado');
+        self::assertSame('N/D', $o['stats'][2]['valor'], 'sem foto no ano anterior não há comparação');
+        self::assertSame(array_fill(0, 12, null), array_column($this->opcao($out->opcoes, '2025')['barras'], 'valor'), '2025 sem foto: tudo vazio');
+        self::assertSame([null, null, 16], array_column($this->opcao($out->opcoes, 'todos')['barras'], 'valor'), 'Todos: média do ano; ano sem foto vazio');
+    }
+
+    #[TestDox('Demandas urgentes: menos é melhor, o menor mês é o dourado e o stat é "Melhor (menor)"')]
+    public function testUrgentesMenorEhMelhor(): void
+    {
+        $out = $this->useCaseComFoto(['2026-06' => ['valor' => 9, 'ativas' => 0], '2026-07' => ['valor' => 4, 'ativas' => 0], '2026-08' => ['valor' => 6, 'ativas' => 0]])
+            ->executar($this->tenant, 'urgentes', $this->referencia);
+
+        $o = $this->opcao($out->opcoes, '2026');
+        self::assertTrue($o['barras'][6]['melhor']);
+        self::assertSame(['Melhor (menor)', '4', 'jul/2026', 'ouro'], array_values($o['stats'][1]));
+    }
+
+    #[TestDox('Meta global: % de concluídas (total − ativas) sobre o total; "p.p." na comparação; mês sem meta no total não tem percentual')]
+    public function testMetaGlobalPercentual(): void
+    {
+        $out = $this->useCaseComFoto([
+            '2025-08' => ['valor' => 10, 'ativas' => 5],   // 50%
+            '2026-07' => ['valor' => 0, 'ativas' => 0],    // divisão por zero: sem percentual
+            '2026-08' => ['valor' => 10, 'ativas' => 4],   // 60%
+        ])->executar($this->tenant, 'global', $this->referencia);
+
+        $o = $this->opcao($out->opcoes, '2026');
+        self::assertSame([null, null, null, null, null, null, null, 60, null, null, null, null], array_column($o['barras'], 'valor'));
+        self::assertSame('60%', $o['barras'][7]['texto']);
+        self::assertSame('ago/2026: 60%', $o['barras'][7]['titulo']);
+        self::assertSame(['rotulo' => 'vs 2025', 'valor' => '+10 p.p.', 'sub' => '50% → 60%', 'tom' => 'bom'], $o['stats'][2]);
+    }
+
+    #[TestDox('Sem nenhuma foto no período: janela indisponível, nota "sem histórico", nenhum número')]
+    public function testSemFotoNenhumaIndisponivel(): void
     {
         foreach (['metas', 'urgentes', 'global'] as $card) {
-            $repo = $this->createMock(HistoricoDoDashboardRepository::class);
-            $repo->expects(self::never())->method('contarPastasCriadasPorMes');
-            $useCase = new ObterHistoricoDoCardUseCase($repo, $this->userRepo([$this->usuario(1, 'Ana')]));
+            $out = $this->useCaseComFoto([])->executar($this->tenant, $card, $this->referencia);
 
-            $out = $useCase->executar($this->tenant, $card, $this->referencia);
-
-            self::assertFalse($out->disponivel);
+            self::assertFalse($out->disponivel, $card);
             self::assertSame([], $out->opcoes);
             self::assertNull($out->inicial);
-            self::assertStringContainsString('foto diária', $out->nota);
+            self::assertStringContainsString('sem histórico', $out->nota);
             self::assertStringContainsString('nenhum número é mostrado', $out->nota);
         }
+    }
+
+    #[TestDox('Com pasta oculta pelo cadeado a foto (do escritório inteiro) não serve: indisponível, sem consultar a foto')]
+    public function testCadeadoNaoUsaAFoto(): void
+    {
+        $foto = $this->createMock(DashboardFotoRepository::class);
+        $foto->expects(self::never())->method('retratoPorMes');
+        $useCase = new ObterHistoricoDoCardUseCase($this->createStub(HistoricoDoDashboardRepository::class), $this->userRepo([$this->usuario(1, 'Ana')]), $foto);
+
+        $out = $useCase->executar($this->tenant, 'metas', $this->referencia, [], [77]);
+
+        self::assertFalse($out->disponivel);
+        self::assertStringContainsString('pastas que o seu acesso não mostra', $out->nota);
     }
 }
