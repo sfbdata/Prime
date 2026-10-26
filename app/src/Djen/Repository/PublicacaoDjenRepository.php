@@ -506,19 +506,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                ->setParameter('meio', $filtros['meio']);
         }
 
-        $vinculo = (string) ($filtros['vinculo'] ?? '');
-        if ($vinculo === 'vinculada') {
-            $qb->andWhere('p.processo IS NOT NULL');
-        } elseif ($vinculo === 'avulsa') {
-            $qb->andWhere('p.processo IS NULL');
-        }
-
-        $leitura = (string) ($filtros['leitura'] ?? '');
-        if ($leitura === 'nao_lidas') {
-            $qb->andWhere('p.lida = false');
-        } elseif ($leitura === 'lidas') {
-            $qb->andWhere('p.lida = true');
-        }
+        $this->filtrarPorVinculoELeitura($qb, (string) ($filtros['vinculo'] ?? ''), (string) ($filtros['leitura'] ?? ''));
 
         $dataDe = $this->parseDataFiltro($filtros['data_de'] ?? '');
         if ($dataDe !== null) {
@@ -533,6 +521,21 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
         }
 
         return $qb;
+    }
+
+    private function filtrarPorVinculoELeitura(QueryBuilder $qb, string $vinculo, string $leitura): void
+    {
+        if ($vinculo === 'vinculada') {
+            $qb->andWhere('p.processo IS NOT NULL');
+        } elseif ($vinculo === 'avulsa') {
+            $qb->andWhere('p.processo IS NULL');
+        }
+
+        if ($leitura === 'nao_lidas') {
+            $qb->andWhere('p.lida = false');
+        } elseif ($leitura === 'lidas') {
+            $qb->andWhere('p.lida = true');
+        }
     }
 
     private function parseDataFiltro(string $valor): ?\DateTimeImmutable
