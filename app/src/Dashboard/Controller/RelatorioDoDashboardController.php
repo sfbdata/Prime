@@ -44,7 +44,7 @@ final class RelatorioDoDashboardController extends AbstractController
         $pastasOcultas = $this->acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId());
 
         try {
-            $saida = $this->obterRelatorio->executar($tenant, $userId, $request->query->all(), $pastasOcultas);
+            $saida = $this->obterRelatorio->executar($tenant, $userId, $request->query->all(), $pastasOcultas, $usuario);
         } catch (ColaboradorForaDoEscritorioException) {
             throw $this->createNotFoundException('Colaborador não encontrado.');
         }

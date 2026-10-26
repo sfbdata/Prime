@@ -13,6 +13,11 @@ use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Dashboard\Zeramento\CortesDoDashboard;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Repository\UserRepository;
 
 /**
@@ -35,15 +40,25 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
         private readonly UserRepository $userRepository,
         private readonly MetricasExtrasDoDashboardRepository $metricasExtras,
         private readonly DashboardZeramentoRepository $zeramentos,
+        private readonly PastaRepository $pastaRepository,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
+        private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
     ) {
     }
 
+    /** @var array<string, bool> pasta + aba => a pessoa logada vê a aba (uma decisão por pasta e aba) */
+    private array $abaVisivel = [];
+
     /**
+     * A CONTAGEM e a lista incluem as três abas (paridade com a célula); o TEXTO do registro só aparece onde
+     * `$quemOlha` vê a aba daquela pasta. Onde não vê, a linha e o total ficam e o trecho vira `oculto`.
+     *
      * @param array<string, mixed> $filtrosDoPainel data_de e data_ate do painel
      * @param list<int>            $pastasOcultas   pastas ocultas pelo cadeado para quem olha
      */
-    public function executar(Tenant $tenant, int $userId, array $filtrosDoPainel, array $pastasOcultas = []): RelatorioDoColaboradorOutput
+    public function executar(Tenant $tenant, int $userId, array $filtrosDoPainel, array $pastasOcultas, User $quemOlha): RelatorioDoColaboradorOutput
     {
+        $this->abaVisivel = []; // a decisão vale só nesta execução (o serviço é compartilhado entre requisições)
         $pessoa = $this->colaborador($tenant, $userId);
         $cortes = CortesDoDashboard::deZeramentos($this->zeramentos->listarAtivos($tenant));
         $corte  = $cortes->corte(Extras::RELATORIO, $userId);
@@ -64,7 +79,7 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
             nome:      $pessoa->getFullName(),
             total:     $lista['total'],
             restantes: max(0, $lista['total'] - count($registros)),
-            grupos:    self::agruparPorPasta($registros),
+            grupos:    $this->agruparPorPasta($registros, $quemOlha),
             corte:     $corte?->format(\DateTimeInterface::ATOM),
         );
     }
@@ -72,28 +87,56 @@ final class ObterRelatorioDeRegistrosDoColaboradorUseCase
     /**
      * @param list<array{id: int, aba: string, pastaId: int, pastaNup: ?string, cliente: ?string, criadaEm: \DateTimeImmutable, conteudo: string}> $registros do mais novo ao mais antigo
      *
-     * @return list<array{pastaId: int, titulo: string, cliente: ?string, itens: list<array{id: int, aba: string, data: string, hora: string, trecho: string}>}>
+     * @return list<array{pastaId: int, titulo: string, cliente: ?string, ancora: string, itens: list<array{id: int, aba: string, data: string, hora: string, trecho: string, oculto: bool}>}>
      */
-    private static function agruparPorPasta(array $registros): array
+    private function agruparPorPasta(array $registros, User $quemOlha): array
     {
         $grupos = [];
         foreach ($registros as $r) {
-            $grupos[$r['pastaId']] ??= [
-                'pastaId' => $r['pastaId'],
-                'titulo'  => $r['pastaNup'] ?? '',
-                'cliente' => $r['cliente'],
-                'itens'   => [],
-            ];
+            $visivel = $this->vePasta($quemOlha, $r['pastaId'], $r['aba']);
+            $grupos[$r['pastaId']] ??= ['pastaId' => $r['pastaId'], 'titulo' => $r['pastaNup'] ?? '', 'cliente' => $r['cliente'], 'abas' => [], 'itens' => []];
+            $grupos[$r['pastaId']]['abas'][$visivel ? $r['aba'] : '#'] = true;
             $grupos[$r['pastaId']]['itens'][] = [
                 'id'     => $r['id'],
                 'aba'    => $r['aba'],
                 'data'   => $r['criadaEm']->format('d/m/Y'),
                 'hora'   => $r['criadaEm']->format('H:i'),
-                'trecho' => self::trecho($r['conteudo']),
+                'trecho' => $visivel ? self::trecho($r['conteudo']) : '',
+                'oculto' => !$visivel,
             ];
         }
 
-        return array_values($grupos);
+        return array_values(array_map(static function (array $g): array {
+            // Âncora da aba quando todos os itens são da mesma aba e ela é visível; senão Dados.
+            $abas = array_keys($g['abas']);
+            $g['ancora'] = count($abas) === 1 && $abas[0] !== '#' ? $abas[0] : 'dados';
+            unset($g['abas']);
+
+            return $g;
+        }, $grupos));
+    }
+
+    /** A pessoa que olha vê esta aba nesta pasta? Decide uma vez por pasta e aba. Na dúvida (pasta não achada), não vê. */
+    private function vePasta(User $quemOlha, int $pastaId, string $aba): bool
+    {
+        $chave = $pastaId . ':' . $aba;
+        if (isset($this->abaVisivel[$chave])) {
+            return $this->abaVisivel[$chave];
+        }
+        $pasta = $this->pastaRepository->find($pastaId);
+
+        return $this->abaVisivel[$chave] = $pasta instanceof Pasta && $this->decidirAba($quemOlha, $pasta, $aba);
+    }
+
+    private function decidirAba(User $quemOlha, Pasta $pasta, string $aba): bool
+    {
+        $tenant = $pasta->getTenant();
+        if ($aba === AbaDaPasta::Financeiro->value) {
+            // A mesma pergunta da aba Financeiro da tela (permissão de ler a pasta + aba não oculta para a pessoa).
+            return $tenant !== null && $this->visibilidadeDoFinanceiro->podeVer($quemOlha, $tenant, $pasta);
+        }
+
+        return !$this->visibilidadeDasAbas->ocultaPara($pasta, AbaDaPasta::from($aba), $quemOlha);
     }
 
     /** Texto puro e curto: sem HTML do usuário (tags e entidades saem), espaços colapsados, truncado. */

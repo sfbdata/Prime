@@ -405,6 +405,7 @@ dashboard:
             pasta_sem_numero: 'Pasta sem número'
             abrir_pasta: 'Abrir a pasta'
             sem_texto: 'Registro sem texto'
+            aba_oculta: 'Conteúdo de uma aba que você não pode ver'
             aba_dados: 'Dados da pasta'
             aba_financeiro: 'Financeiro'
             aba_detalhes: 'Detalhes'

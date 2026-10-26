@@ -100,7 +100,7 @@
             quandoCol.append(el('span', 'db-rel-item-data', x.data), el('span', 'db-rel-item-hora', x.hora));
             var corpo = el('span', 'db-rel-item-corpo');
             var aba = x.aba === 'financeiro' || x.aba === 'detalhes' ? x.aba : 'dados';
-            corpo.append(el('span', 'db-rel-aba db-rel-aba--' + aba, rotuloDaAba(aba)), el('span', 'db-rel-item-trecho', x.trecho || t('dashboard.relatorio.js.sem_texto')));
+            corpo.append(el('span', 'db-rel-aba db-rel-aba--' + aba, rotuloDaAba(aba)), el('span', 'db-rel-item-trecho', x.oculto ? t('dashboard.relatorio.js.aba_oculta') : (x.trecho || t('dashboard.relatorio.js.sem_texto'))));
             linha.append(quandoCol, corpo);
             cartao.appendChild(linha);
         });

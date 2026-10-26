@@ -229,8 +229,11 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     `contarRegistrosPorAutor` (GROUP BY) e por `listarRegistrosDoAutor` (lista). Limite de 200 linhas
     (`LIMITE_DE_LINHAS`, as mais novas): o resto vira "Mostrando os N mais recentes. Os outros M também entram no
     total", e o total continua exato. Com Zerar ativo na célula o modal aplica o mesmo corte (o do Relatório da
-    equipe ou da pessoa, o mais recente). **Decisão do coordenador**: aba oculta por pessoa não entra (nem na
-    contagem nem na lista). O clique no número (botão `[data-db-relatorio-url]`) e o "Ver relatório" do menu da
+    equipe ou da pessoa, o mais recente). **Decisão do coordenador**: a CONTAGEM inclui as três abas; o TEXTO só
+    aparece onde a pessoa logada vê a aba da pasta (Financeiro: `VisibilidadeDoFinanceiroDaPasta::podeVer`; Dados e
+    Detalhes: `VisibilidadeDasAbasDaPasta::ocultaPara`; decisão uma vez por pasta e aba). Onde não vê, a linha e o total
+    ficam (paridade com a célula) e o trecho vira "Conteúdo de uma aba que você não pode ver". O link do grupo usa a
+    âncora da aba (`#financeiro`, `#detalhes`, `#dados`) quando todos os itens são da mesma aba visível; senão `#dados`. O clique no número (botão `[data-db-relatorio-url]`) e o "Ver relatório" do menu da
     célula (dashboard-zerar.js) abrem o modal; o menu também o oferece com 0 registros (modal vazio), como o dc.
     Arquivos: `dashboard-relatorio.js/.css`, chaves em `dashboard.relatorio` (catálogo `dashboard`).
   - **Desvios do desenho**: rodapé com o total e o "e mais N" (o dc tem rodapé só para o texto de referência

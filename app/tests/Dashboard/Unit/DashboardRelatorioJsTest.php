@@ -32,7 +32,7 @@ final class DashboardRelatorioJsTest extends TestCase
             self::assertStringNotContainsString($proibido, $js, $proibido);
         }
         self::assertStringContainsString('n.textContent = String(texto);', $js);
-        self::assertStringContainsString("el('span', 'db-rel-item-trecho', x.trecho ||", $js);
+        self::assertStringContainsString("el('span', 'db-rel-item-trecho', x.oculto ?", $js);
     }
 
     #[TestDox('o link da pasta só é aceito como caminho do próprio site')]

@@ -13,6 +13,8 @@ use App\Dashboard\UseCase\ObterRelatorioDeRegistrosDoColaboradorUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
@@ -200,6 +202,69 @@ final class RelatorioDoDashboardControllerTest extends JusPrimeWebTestCase
 
         $this->client->request('GET', '/dashboard/relatorio/999999999');
         self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('VAZAMENTO: quem tem bi mas não vê Financeiro (ou Detalhes) vê a linha, o total da célula e o texto genérico, sem o original')]
+    public function testAbaOcultaNaoVazaOTexto(): void
+    {
+        $c = $this->cenario();
+        $this->registro(PastaObservacaoFinanceira::class, $c['a'], $c['bruno'], '2026-09-21 10:00', 'SEGREDO-FINANCEIRO');
+        $this->registro(PastaObservacaoDetalhes::class, $c['a'], $c['bruno'], '2026-09-22 10:00', 'SEGREDO-DETALHES');
+        $this->ocultarAba($c, 'financeiro');
+
+        $dados = $this->modal($c['gestora'], $c['tenant'], $c['bruno']->getId());
+        self::assertSame(3, $dados['total'], 'a contagem inclui as três abas');
+        self::assertSame($this->celulaDoPainel($c['gestora'], $c['tenant'], $c['bruno']), $dados['total']);
+        $json = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('SEGREDO-FINANCEIRO', $json);
+        self::assertStringContainsString('SEGREDO-DETALHES', $json, 'Detalhes segue visível');
+        $porAba = [];
+        foreach ($dados['grupos'][0]['itens'] as $i) {
+            $porAba[$i['aba']] = $i;
+        }
+        self::assertTrue($porAba['financeiro']['oculto']);
+        self::assertSame('', $porAba['financeiro']['trecho']);
+        self::assertFalse($porAba['detalhes']['oculto']);
+        self::assertStringEndsWith('#dados', $dados['grupos'][0]['url']);
+
+        $this->ocultarAba($c, 'detalhes');
+        $dados = $this->modal($c['gestora'], $c['tenant'], $c['bruno']->getId());
+        self::assertSame(3, $dados['total']);
+        self::assertStringNotContainsString('SEGREDO-DETALHES', (string) $this->client->getResponse()->getContent());
+
+        // Quem vê tudo (o primário) recebe o trecho.
+        $this->modal($c['primario'], $c['tenant'], $c['bruno']->getId());
+        $json = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('SEGREDO-FINANCEIRO', $json);
+        self::assertStringContainsString('SEGREDO-DETALHES', $json);
+    }
+
+    #[TestDox('data_de e data_ate malformados: contagem do Painel = total do modal (a data inválida é ignorada dos dois lados)')]
+    public function testDatasMalformadas(): void
+    {
+        $c = $this->cenario();
+        $query = ['data_de' => '2026-13-45', 'data_ate' => 'lixo'];
+        $dados = $this->modal($c['primario'], $c['tenant'], $c['ana']->getId(), $query);
+
+        $ocultas = static::getContainer()->get(AcessoAPasta::class)->idsOcultosPara($c['primario'], (int) $c['tenant']->getId());
+        $saida = static::getContainer()->get(ObterDadosDashboardUseCase::class)->executar($c['tenant'], new \DateTimeImmutable('2026-10-26'), $query, ['relatorio'], $ocultas);
+        $celula = 0;
+        foreach ($saida->porAdvogado as $linha) {
+            if ($linha->userId === $c['ana']->getId()) {
+                $celula = (int) ($linha->extras['relatorio'] ?? 0);
+            }
+        }
+        self::assertSame(7, $dados['total']);
+        self::assertSame($celula, $dados['total']);
+        self::assertSame($dados['total'], $this->itens($dados));
+    }
+
+    /** Oculta a aba para a gestora, como o primário configura (regra da pasta `a`, só para ela). */
+    /** @param array<string, mixed> $c */
+    private function ocultarAba(array $c, string $aba): void
+    {
+        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($c['tenant'], $c['a'], AbaDaPasta::from($aba), $c['primario'], new \DateTimeImmutable()));
+        $this->em()->flush();
     }
 
     #[TestDox('lápide, cartão do sistema, fora do período e outro escritório não entram')]
