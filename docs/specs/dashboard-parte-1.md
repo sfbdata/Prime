@@ -238,8 +238,52 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     Arquivos: `dashboard-relatorio.js/.css`, chaves em `dashboard.relatorio` (catálogo `dashboard`).
   - **Desvios do desenho**: rodapé com o total e o "e mais N" (o dc tem rodapé só para o texto de referência
     local); sem a "base de referência" do protótipo.
-- **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
-  padrão hoje, nenhuma opção é obrigatória, roda 1x por dia.
+- **PR-E (feito: setas de tendência nas colunas)**. Regra única do desenho (`tendencia()`, dc
+  L1819+; `tendCor`/`setaWrap`): delta relativo em %, limiar de 2% para "estável", "novo" quando o
+  anterior é 0, cor pelo sentido (subir é bom; `sobeRuim`: subir é ruim; `neutra`: sempre cinza). O
+  desenho usa % relativo em todas as colunas (nem pontos percentuais nem dias): seguido como está.
+  Macro única: `_tendencia.html.twig`. Zerar (coluna com corte) e o interruptor `db-page--sem-setas`
+  seguem como antes.
+  - **Seta pelo período anterior** (a MESMA consulta nas datas do período anterior; só dias já
+    corridos quando o período termina no futuro, `fimJaCorrido`): Total metas, Total demandas,
+    Pastas criadas, Pastas concluídas, Relatório (subir é bom); Eventos na agenda (neutra).
+    Vencidas e Prazos (cair é bom): foto de `data_de − 1`.
+  - **SEGURADAS (DASH-010b, decisão do dono pendente)**: Metas concluídas, Taxa de conclusão e Tempo
+    médio ficam SEM seta. Elas recortam as metas pela data de CRIAÇÃO e leem o status de HOJE: as
+    metas do período anterior tiveram mais tempo para concluir, então o anterior sai maior e a seta
+    mente (concluídas e taxa "caem", o tempo médio anterior sai maior, sem nada ter mudado). Seta que
+    mente é pior que ausente. Só destrava com critério por data de CONCLUSÃO (`Tarefa.dataConclusao`
+    dentro da janela, o mesmo recorte no anterior).
+- **PR-F (feito: lastro da foto diária, migration `Version20261026152200`)**. A `dashboard_foto`
+  (por colaborador e por dia) ganhou 3 colunas INTEIRAS ANULÁVEIS: `metas_em_revisao`,
+  `pastas_urgentes` e `metas_total` (Meta global = (total − ativas) ÷ total). Só `ADD COLUMN`, tudo
+  NULL, sem backfill: foto antiga fica NULL = sem lastro. O histórico de Metas ativas aproveita as fotos
+  antigas reais (`metas_ativas` é NOT NULL); Demandas urgentes e Meta global só valem a partir da
+  primeira foto com a coluna preenchida (Meta global: a primeira com os 7 números). Meta global com
+  `metas_total = 0` fica SEM barra, de propósito (não há o que dividir). Modelo
+  por PESSOA, o mesmo das setas de Vencidas/Prazos (o histórico filtrado por responsável ou cargo soma
+  o universo do card; meta com mais de um responsável conta para cada um, como o Total da tabela).
+  - **Setas de estoque**: Metas ativas e Demandas ativas (`neutra`, cinza), Em revisão (`neutra`) e
+    Pastas urgentes (`sobeRuim`), na linha, no Total (pílula) e no celular. O anterior é a foto de
+    `data_de − 1`; o ATUAL é o estoque de HOJE sem período (a mesma consulta da foto), e NÃO o número da
+    célula, que o painel recorta por criação no período (por isso o balão pode mostrar "antes 10, agora
+    4" com 2 na célula). Sem foto da pessoa, coluna NULL (foto de antes do PR-F), sem período ou com pasta
+    oculta pelo cadeado (a foto é do escritório inteiro, comparar revelaria a diferença), a seta fica
+    oculta e o espaço reservado. Em revisão e Pastas urgentes só consultam o estoque se a coluna está ligada.
+  - **Histórico dos cards (dc L1354-1391)**: Metas ativas (`estoque`, sem melhor: stat "Pico"),
+    Demandas urgentes (`estoque`, menos é melhor, "Melhor (menor)") e Meta global (`pct`, "p.p.").
+    O retrato de um mês é a soma da última foto DE CADA PESSOA no mês que tem a coluna preenchida; mês sem foto é barra
+    vazia com o título "sem histórico" (nunca zero); o ano é a média dos meses com foto; a comparação com
+    o ano anterior usa só os meses com foto nos dois anos (a série nasce no meio do ano). Sem nenhuma foto
+    no período, ou com pasta oculta pelo cadeado, a janela fica indisponível com a nota.
+  - A purga do escritório já apaga `dashboard_foto` (`PurgarEscritorioUseCase::ORDEM_DELECAO`,
+    guardada por `PurgaCoberturaSchemaTest`).
+- **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente (`ON CONFLICT DO
+  UPDATE` por tenant, pessoa e dia), `--data` tem padrão hoje, nenhuma opção é obrigatória, roda 1x
+  por dia. Desde o PR-F cada foto traz 7 números por pessoa (metas ativas, demandas ativas, vencidas,
+  prazos próximos, metas em revisão, pastas urgentes, total de metas); rodar de novo o mesmo dia regrava
+  todos. A `--data` no passado só repara uma noite perdida (o status é o de agora). Nada é preenchido
+  para trás: o histórico dos cards começa na primeira foto com os 7 números.
 
 ## Estado da frente (24/10)
 

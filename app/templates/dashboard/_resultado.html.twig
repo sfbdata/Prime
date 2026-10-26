@@ -31,10 +31,11 @@
    de Pastas criadas, no cabeçalho, em cada linha, no Total e no card do celular. #}
 {% set extras = dashboard.colunasExtras %}
 {% set extrasCatalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') %}
-{# Extras com tendência (DASH-010) => sentido do macro tend.tendencia: hoje só eventos ('fila').
-   Em revisão e Pastas urgentes são estoque; concluídas, taxa e tempo médio recortam por criação
-   e leem o status de hoje (DASH-010b): sem seta. Motivo em ColunasExtrasDoDashboard::TENDENCIA. #}
+{# Extras com tendência => sentido do macro tend.tendencia ('alta', 'baixa' ou 'fila'). Em revisão e
+   Pastas urgentes comparam o estoque de hoje com a foto diária (ESTOQUE_COM_FOTO); concluídas, taxa
+   e tempo médio ficam sem seta (DASH-010b). Motivo em ColunasExtrasDoDashboard::TENDENCIA. #}
 {% set extrasTendencia = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::TENDENCIA') %}
+{% set extrasEstoque = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::ESTOQUE_COM_FOTO') %}
 {# Período do painel para os links "ir para o serviço": some quando o painel está sem
    período (o destino então lista sem recorte de data, como as contagens). #}
 {% set periodoLink = { data_de: filtros.data_de|default(''), data_ate: filtros.data_ate|default('') }|filter(v => v != '') %}
@@ -289,6 +290,8 @@
                         {{- tend.tendencia(linha.totalMetas, 'metas' in zr ? null : linha.totalMetasAnterior, 'seta') -}}
                     </span></td>
                     <td class="text-center db-td-num" data-coluna="metas_ativas">
+                        {% set antE = 'metas_ativas' in zr ? null : (linha.estoque.anterior.metas_ativas ?? null) %}
+                        <span class="db-cel{{ antE is not null ? ' db-cel--seta' : '' }}">
                         {%- if linha.metasAtivas > 0 and 'metas_ativas' not in zr -%}
                             <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'ativas' }|merge(qPessoa)|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_metas_ativas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_metas_ativas'|trans({nome: quem}) }}">{{ linha.metasAtivas }}</a>
                         {%- elseif linha.metasAtivas > 0 -%}
@@ -296,7 +299,8 @@
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
-                    </td>
+                        {{- tend.tendencia(linha.estoque.atual.metas_ativas ?? 0, antE, 'seta', 'fila') -}}
+                    </span></td>
                     {# Vencidas e Prazos: seta comparando com a foto de data_de − 1 desta pessoa
                        (cair é bom: sentido 'baixa'). Sem foto dela naquele dia, sem seta. #}
                     {% set comSetaVenc = linha.metasVencidasAnterior is not null %}
@@ -332,6 +336,8 @@
                         {{- tend.tendencia(linha.totalDemandas, 'demandas' in zr ? null : linha.totalDemandasAnterior, 'seta') -}}
                     </span></td>
                     <td class="text-center db-td-num" data-coluna="demandas_ativas">
+                        {% set antE = 'demandas_ativas' in zr ? null : (linha.estoque.anterior.demandas_ativas ?? null) %}
+                        <span class="db-cel{{ antE is not null ? ' db-cel--seta' : '' }}">
                         {%- if linha.demandasAtivas > 0 and 'demandas_ativas' not in zr -%}
                             <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral' }|merge(qPessoa)|merge({ status: 'ativo' })|merge(periodoLink)) }}" title="{{ 'dashboard.tabela.abrir_pastas_ativas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.tabela.abrir_pastas_ativas'|trans({nome: quem}) }}">{{ linha.demandasAtivas }}</a>
                         {%- elseif linha.demandasAtivas > 0 -%}
@@ -339,7 +345,8 @@
                         {%- else -%}
                             <span class="db-num db-num--zero">0</span>
                         {%- endif -%}
-                    </td>
+                        {{- tend.tendencia(linha.estoque.atual.demandas_ativas ?? 0, antE, 'seta', 'fila') -}}
+                    </span></td>
                     {# Por quem ABRIU a pasta: o link filtra por criado_por, sem responsável. #}
                     <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-cel{{ comSeta ? ' db-cel--seta' : '' }}">
                         {%- if linha.pastasCriadas > 0 and 'pastas_criadas' not in zr -%}
@@ -359,6 +366,9 @@
                     {% set comSetaX = sentidoX is not null and k in linha.extrasAnteriores|keys %}
                     {% set atualX = linha.extras[k] ?? null %}
                     {% set antX = k in zr ? null : (linha.extrasAnteriores[k] ?? null) %}
+                    {# Estoque com seta pela foto (Em revisão, Pastas urgentes): o atual é o estoque de hoje, não o da célula. #}
+                    {% set estX = extrasEstoque[k] ?? null %}
+                    {% set antE = estX is not null and k not in zr ? (linha.estoque.anterior[k] ?? null) : null %}
                     <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}">
                         {%- if comSetaX -%}
                             <span class="db-cel db-cel--seta">
@@ -368,6 +378,11 @@
                                 {%- else -%}
                                     <span class="db-seta db-seta--vazia" aria-hidden="true"></span>
                                 {%- endif -%}
+                            </span>
+                        {%- elseif antE is not null -%}
+                            <span class="db-cel db-cel--seta">
+                                {{- extra.valor(k, atualX, k in zr ? null : linha.userId, quem, periodoLink) -}}
+                                {{- tend.tendencia(linha.estoque.atual[k] ?? 0, antE, 'seta', estX.sentido) -}}
                             </span>
                         {%- else -%}
                             {{- extra.valor(k, atualX, k in zr ? null : linha.userId, quem, periodoLink, linha.userId) -}}
@@ -390,6 +405,7 @@
                números do Total não são link: a soma conta duas vezes a meta com dois
                responsáveis, e a lista de destino não. #}
             {% set tAnt = dashboard.totaisAnteriores %}
+            {% set tEst = dashboard.totaisEstoque %}
             {# Coluna com algum "Zerar" ativo: o Total não compara com o período anterior (espaçador no lugar da pílula). #}
             {% set zc = dashboard.zeramentos|keys %}
             {# Toda célula do Total empilha número + pílula (desenho). Vencidas e Prazos só
@@ -408,11 +424,11 @@
                     </th>
                     <td class="db-td-cargo" data-coluna="cargo"></td>
                     <td class="text-center db-td-num" data-coluna="metas"><span class="db-total-cel"><span class="db-total-num">{{ tMetas }}</span>{% if tAnt is not null and 'metas' in zc %}<span class="db-total-espaco" aria-hidden="true"></span>{% else %}{{ tend.tendencia(tMetas, tAnt is null ? null : tAnt.metas, 'pilula') }}{% endif %}</span></td>
-                    <td class="text-center db-td-num" data-coluna="metas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tAtivas }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num" data-coluna="metas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tAtivas }}</span>{% set antE = tEst is null or 'metas_ativas' in zc ? null : tEst.anterior.metas_ativas %}{% if antE is not null %}{{ tend.tendencia(tEst.atual.metas_ativas, antE, 'pilula', 'fila') }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="metas_vencidas"><span class="db-total-cel"><span class="db-total-num db-total-num--venc">{{ tVenc }}</span>{% if antVenc is not null %}{{ tend.tendencia(tVenc, antVenc, 'pilula', 'baixa') }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="prazos"><span class="db-total-cel"><span class="db-total-num db-total-num--praz">{{ tPraz }}</span>{% if antPraz is not null %}{{ tend.tendencia(tPraz, antPraz, 'pilula', 'baixa') }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="demandas"><span class="db-total-cel"><span class="db-total-num">{{ tDem }}</span>{% if tAnt is not null and 'demandas' in zc %}<span class="db-total-espaco" aria-hidden="true"></span>{% else %}{{ tend.tendencia(tDem, tAnt is null ? null : tAnt.demandas, 'pilula') }}{% endif %}</span></td>
-                    <td class="text-center db-td-num" data-coluna="demandas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% if tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num" data-coluna="demandas_ativas"><span class="db-total-cel"><span class="db-total-num">{{ tDemA }}</span>{% set antE = tEst is null or 'demandas_ativas' in zc ? null : tEst.anterior.demandas_ativas %}{% if antE is not null %}{{ tend.tendencia(tEst.atual.demandas_ativas, antE, 'pilula', 'fila') }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     <td class="text-center db-td-num" data-coluna="pastas_criadas"><span class="db-total-cel"><span class="db-total-num">{{ tCriadas }}</span>{% if tAnt is not null and 'pastas_criadas' in zc %}<span class="db-total-espaco" aria-hidden="true"></span>{% else %}{{ tend.tendencia(tCriadas, tAnt is null ? null : tAnt.pastas_criadas, 'pilula') }}{% endif %}</span></td>
                     {# Extras: o Total vem pronto do servidor (soma; % e dias pela base inteira).
                        Só "Pastas concluídas" é link (macro extra.total); os demais não são. As com tendência ganham a
@@ -424,7 +440,7 @@
                     {% set tipoX = extrasCatalogo[k].tipo %}
                     {% set sentidoX = extrasTendencia[k] ?? null %}
                     {% set antTx = tAntX is null or k in zc ? null : (tAntX[k] ?? null) %}
-                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel">{{ extra.total(k, tx is null ? 'dashboard.extras.sem_dado'|trans : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? 'dashboard.extras.valor_dias'|trans({n: tx ~ ''}) : tx)), tx, linhas, filtros.cargo|default(''), filtros.busca|default('') != '' or k in zc, periodoLink) }}{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
+                    <td class="text-center db-td-num db-td-extra" data-coluna="{{ k }}"><span class="db-total-cel">{% set estX = extrasEstoque[k] ?? null %}{% set antE = estX is not null and tEst is not null and k not in zc ? (tEst.anterior[k] ?? null) : null %}{{ extra.total(k, tx is null ? 'dashboard.extras.sem_dado'|trans : (tipoX == 'pct' ? tx ~ '%' : (tipoX == 'dias' ? 'dashboard.extras.valor_dias'|trans({n: tx ~ ''}) : tx)), tx, linhas, filtros.cargo|default(''), filtros.busca|default('') != '' or k in zc, periodoLink) }}{% if sentidoX is not null and tx is not null and antTx is not null %}{{ tend.tendencia(tx, antTx, 'pilula', sentidoX) }}{% elseif antE is not null %}{{ tend.tendencia(tEst.atual[k], antE, 'pilula', estX.sentido) }}{% elseif tAnt is not null %}<span class="db-total-espaco" aria-hidden="true"></span>{% endif %}</span></td>
                     {% endfor %}
                 </tr>
             </tfoot>

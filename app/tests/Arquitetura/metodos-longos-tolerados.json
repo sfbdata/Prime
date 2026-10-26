@@ -243,7 +243,6 @@
     "Dashboard/Inteligencia/MotorDeRitmo.php::riscos": 41,
     "Dashboard/UseCase/ObterDadosDashboardUseCase.php::executar": 160,
     "Dashboard/UseCase/ObterDadosDashboardUseCase.php::ordenar": 42,
-    "Dashboard/UseCase/ObterHistoricoDoCardUseCase.php::executar": 52,
     "Dashboard/UseCase/ObterHistoricoDoCardUseCase.php::opcaoDoAno": 47,
     "Dashboard/UseCase/ObterHistoricoDoCardUseCase.php::opcaoTodos": 45,
     "Djen/Command/ReconciliarPublicacoesDjenCommand.php::execute": 48,

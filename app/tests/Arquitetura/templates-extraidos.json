@@ -486,6 +486,7 @@
             "Acompanhamento",
             "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::CATALOGO",
             "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::TENDENCIA",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::ESTOQUE_COM_FOTO",
             "Accept",
             "Content-Type",
             "Escape",

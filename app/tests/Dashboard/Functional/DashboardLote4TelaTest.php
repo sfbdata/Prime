@@ -357,7 +357,7 @@ final class DashboardLote4TelaTest extends DashboardWebTestCase
         self::assertSame('Abrir: Metas de Ana Lima', $total->attr('title'));
         self::assertEquals(['/tarefas/equipe', ['status' => 'todas', 'responsavel' => $id, 'data_de' => '2024-02-01', 'data_ate' => '2024-02-29']], $this->destino($total));
 
-        $ativas = $tds->eq(3)->filter('td > a.db-num.db-num-link');
+        $ativas = $tds->eq(3)->filter('td > .db-cel > a.db-num.db-num-link');
         self::assertSame('3', trim($ativas->text()));
         self::assertEquals(['/tarefas/equipe', ['status' => 'ativas', 'responsavel' => $id, 'data_de' => '2024-02-01', 'data_ate' => '2024-02-29']], $this->destino($ativas));
 
@@ -386,7 +386,7 @@ final class DashboardLote4TelaTest extends DashboardWebTestCase
         self::assertSame('2', trim($dem->text()));
         self::assertEquals(['/expediente', ['painel' => 'acervo-geral', 'responsavel' => $id, 'data_de' => '2024-02-01', 'data_ate' => '2024-02-29']], $this->destino($dem));
 
-        $ativas = $tds->eq(7)->filter('td > a.db-num.db-num-link');
+        $ativas = $tds->eq(7)->filter('td > .db-cel > a.db-num.db-num-link');
         self::assertSame('2', trim($ativas->text()));
         self::assertEquals(['/expediente', ['painel' => 'acervo-geral', 'responsavel' => $id, 'status' => 'ativo', 'data_de' => '2024-02-01', 'data_ate' => '2024-02-29']], $this->destino($ativas));
 

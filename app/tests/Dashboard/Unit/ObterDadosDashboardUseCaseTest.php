@@ -29,6 +29,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
     private TarefaRepository $tarefaRepo;
     private UserRepository   $userRepo;
     private DashboardFotoRepository $fotoRepo;
+    private MetricasExtrasDoDashboardRepository $metricas;
     private Tenant           $tenant;
     private \DateTimeImmutable $referencia;
     private ObterDadosDashboardUseCase $sut;
@@ -39,6 +40,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->tarefaRepo = $this->createMock(TarefaRepository::class);
         $this->userRepo   = $this->createMock(UserRepository::class);
         $this->fotoRepo   = $this->createMock(DashboardFotoRepository::class);
+        $this->metricas   = $this->createMock(MetricasExtrasDoDashboardRepository::class);
         $this->tenant     = $this->createMock(Tenant::class);
         $this->referencia = new \DateTimeImmutable('2024-01-10 00:00:00');
 
@@ -47,7 +49,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
             $this->tarefaRepo,
             $this->userRepo,
             $this->fotoRepo,
-            $this->createMock(MetricasExtrasDoDashboardRepository::class),
+            $this->metricas,
             $this->createStub(DashboardZeramentoRepository::class),
             $this->createConfiguredStub(MontarMetaDePastasDoMes::class, ['montar' => new MetaDePastasDoMesOutput(null, null, '2026-10', 0, 22, 1, false)]),
         );
@@ -1020,6 +1022,51 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(0, $output->totaisAnteriores['metas']);
         self::assertSame(0, $output->totaisAnteriores['demandas']);
         self::assertSame(0, $output->totaisAnteriores['pastas_criadas']);
+    }
+
+    #[TestDox('PR-F: ativas, Em revisão e Urgentes comparam o estoque de HOJE (sem período) com a foto; coluna NULL na foto = sem lastro (null)')]
+    public function testEstoqueComLastroDaFoto(): void
+    {
+        $consultas = [];
+        $this->cenarioEstoque([
+            1 => self::foto(4, 6, 3, 2) + ['metas_em_revisao' => 8, 'pastas_urgentes' => null, 'metas_total' => 10],
+            2 => self::foto(3, 1, 1, 0) + ['metas_em_revisao' => null, 'pastas_urgentes' => 2, 'metas_total' => null],
+        ], $consultas);
+        // O estoque de hoje: SEM período (filtros vazios), como a foto.
+        // (a célula, com o período, é outra chamada; o estoque do tooltip é a de filtros vazios)
+        $this->metricas->method('contarEmRevisaoPorResponsavel')->willReturnCallback(static fn (Tenant $t, array $f): array => $f === [] ? [1 => 5] : [1 => 99]);
+        $this->metricas->method('contarUrgentesPorResponsavel')->willReturnCallback(static fn (Tenant $t, array $f): array => $f === [] ? [1 => 1, 2 => 4] : [1 => 99]);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20'], ['metas_revisao', 'pastas_urgentes']);
+
+        $porId = $this->porId($output);
+        self::assertSame(['metas_ativas' => 5, 'demandas_ativas' => 7, 'metas_revisao' => 5, 'pastas_urgentes' => 1], $porId[1]->estoque['atual']);
+        self::assertSame(['metas_ativas' => 4, 'demandas_ativas' => 6, 'metas_revisao' => 8, 'pastas_urgentes' => null], $porId[1]->estoque['anterior'], 'urgentes: foto antiga, sem lastro');
+        self::assertSame(['metas_ativas' => 3, 'demandas_ativas' => 1, 'metas_revisao' => null, 'pastas_urgentes' => 2], $porId[2]->estoque['anterior']);
+        // Total: soma de hoje; a foto só com lastro em TODA linha visível.
+        self::assertSame(['metas_ativas' => 8, 'demandas_ativas' => 9, 'metas_revisao' => 5, 'pastas_urgentes' => 5], $output->totaisEstoque['atual']);
+        self::assertSame(['metas_ativas' => 7, 'demandas_ativas' => 7, 'metas_revisao' => null, 'pastas_urgentes' => null], $output->totaisEstoque['anterior']);
+    }
+
+    #[TestDox('PR-F: sem foto, sem período ou com pasta oculta pelo cadeado, nenhum estoque de seta é calculado (nada de oráculo)')]
+    public function testEstoqueSemFotoSemPeriodoOuComCadeado(): void
+    {
+        $consultas = [];
+        $this->cenarioEstoque([1 => self::foto(4, 6, 3, 2)], $consultas);
+        $estoqueConsultado = false;
+        $this->metricas->method('contarEmRevisaoPorResponsavel')->willReturnCallback(static function (Tenant $t, array $f) use (&$estoqueConsultado): array {
+            $estoqueConsultado = $estoqueConsultado || $f === [];
+
+            return [];
+        });
+
+        $semFoto = $this->sut->executar($this->tenant, $this->referencia, ['data_de' => '2024-01-11', 'data_ate' => '2024-01-20'], ['metas_revisao'], [99]);
+        self::assertNull($semFoto->totaisEstoque, 'cadeado: a foto é do escritório inteiro');
+        self::assertSame(['atual' => [], 'anterior' => []], $this->porId($semFoto)[1]->estoque);
+        self::assertFalse($estoqueConsultado, 'cadeado: o estoque de hoje (sem período) nem é consultado');
+
+        $semPeriodo = $this->sut->executar($this->tenant, $this->referencia, [], ['metas_revisao']);
+        self::assertNull($semPeriodo->totaisEstoque);
     }
 
     #[TestDox('estoque: sem foto naquele dia, as quatro métricas ficam null (nunca zero inventado)')]
