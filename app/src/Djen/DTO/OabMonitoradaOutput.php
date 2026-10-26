@@ -19,10 +19,11 @@ final class OabMonitoradaOutput
         public readonly string $rotulo,
         public readonly bool $ativo,
         public readonly ?string $criadoEm,
+        public readonly int $publicacoes = 0,
     ) {
     }
 
-    public static function fromEntity(OabMonitorada $oab): self
+    public static function fromEntity(OabMonitorada $oab, int $publicacoes = 0): self
     {
         return new self(
             (int) $oab->getId(),
@@ -32,6 +33,7 @@ final class OabMonitoradaOutput
             $oab->getRotulo(),
             $oab->isAtivo(),
             $oab->getCriadoEm()->format('d/m/Y'),
+            $publicacoes,
         );
     }
 }
