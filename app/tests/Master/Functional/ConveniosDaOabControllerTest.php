@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Functional;
 
+use App\Comercial\Envio\CarteiroInterface;
+use App\Comercial\Envio\MensagemDeEmail;
+use App\Comercial\Envio\ResultadoDoEnvio;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -156,6 +159,95 @@ final class ConveniosDaOabControllerTest extends JusPrimeWebTestCase
         $contas = array_column($this->json()['contas'], null, 'id');
         self::assertSame('SP', $contas[$tenant->getId()]['uf']);
         self::assertSame(['modo' => 'dif', 'valor' => 9.9], $contas[$tenant->getId()]['convenio']);
+    }
+
+    #[TestDox('mudar o convênio enfileira um e-mail por primário ativo da UF, sem enviar de verdade, e repetir não duplica')]
+    public function testEnfileiraAvisos(): void
+    {
+        $this->entrarComoMaster();
+        $deSp = $this->escritorioComPrimario('SP', true);
+        $inativo = $this->escritorioComPrimario('SP', false);
+        $deRj = $this->escritorioComPrimario('RJ', true);
+
+        $this->postar(['uf' => 'SP', 'modo' => 'dif', 'valor' => '9,90', 'desde' => '2026-11-01']);
+        self::assertResponseIsSuccessful();
+        self::assertGreaterThanOrEqual(1, $this->json()['avisados']);
+        self::assertSame([1, 0, 0], [$this->enviosPara($deSp), $this->enviosPara($inativo), $this->enviosPara($deRj)]);
+
+        $this->postar(['uf' => 'SP', 'modo' => 'dif', 'valor' => '9,90', 'desde' => '2026-11-01']);
+        self::assertSame(0, $this->json()['avisados']);
+        self::assertSame(1, $this->enviosPara($deSp));
+
+        $assunto = (string) $this->em->getConnection()->fetchOne('SELECT assunto FROM comercial_envio WHERE destinatario = ?', [$deSp]);
+        self::assertSame('Convênio OAB/SP: valor diferenciado de R$ 9,90/mês a partir de 01/11/2026', $assunto);
+
+        $this->postar(['uf' => 'SP', 'modo' => 'livre']);
+        self::assertSame(2, $this->enviosPara($deSp));
+        self::assertNotEmpty(static::getContainer()->get('messenger.transport.comercial')->getSent(), 'a fila é em memória: nada saiu de verdade');
+    }
+
+    #[TestDox('falha no meio do enfileiramento desfaz a gravação: 500 com a mensagem, nada alterado, nenhum aviso')]
+    public function testFalhaNoMeioDesfaz(): void
+    {
+        $this->entrarComoMaster();
+        $a = $this->escritorioComPrimario('SP', true);
+        $this->escritorioComPrimario('SP', true);
+        static::getContainer()->set(CarteiroInterface::class, new class (static::getContainer()) implements CarteiroInterface {
+            private int $n = 0;
+
+            public function __construct(private readonly \Psr\Container\ContainerInterface $container)
+            {
+            }
+
+            public function enviar(MensagemDeEmail $mensagem): ResultadoDoEnvio
+            {
+                if (++$this->n === 2) {
+                    throw new \RuntimeException('fila fora');
+                }
+
+                return $this->container->get(\App\Comercial\Service\Carteiro::class)->enviar($mensagem);
+            }
+        });
+
+        $this->postar(['uf' => 'SP', 'modo' => 'dif', 'valor' => '9,90', 'desde' => '2026-11-01']);
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame('Não foi possível enfileirar os avisos. Nada foi alterado.', $this->json()['erro']);
+        $this->em->clear();
+        self::assertNull($this->gravada());
+        self::assertSame(0, $this->enviosPara($a));
+    }
+
+    #[TestDox('pedido recusado não avisa ninguém')]
+    public function testRecusaNaoAvisa(): void
+    {
+        $this->entrarComoMaster();
+        $email = $this->escritorioComPrimario('SP', true);
+
+        $this->postar(['uf' => 'SP', 'modo' => 'dif', 'valor' => 'abc', 'desde' => '2026-11-01']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->enviosPara($email));
+    }
+
+    private function enviosPara(string $email): int
+    {
+        return (int) $this->em->getConnection()->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE origem = 'convenio_oab' AND destinatario = ?", [$email]);
+    }
+
+    /** @return string o e-mail do primário */
+    private function escritorioComPrimario(string $uf, bool $ativo): string
+    {
+        $tenant = (new Tenant())->setName('Conta do aviso ' . uniqid())->setEstado($uf);
+        $this->em->persist($tenant);
+        $papel = (new TenantRole())->setTenant($tenant)->setName('Administrador do Escritório')->setIsSystem(true);
+        $this->em->persist($papel);
+        $user = $this->usuario(['ROLE_USER']);
+        $user->setIsActive($ativo);
+        $this->em->persist((new UserTenant($user, $tenant))->setTenantRole($papel));
+        $this->em->flush();
+
+        return (string) $user->getEmail();
     }
 
     /** @return array<string, mixed> */
