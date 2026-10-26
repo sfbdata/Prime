@@ -23,24 +23,34 @@ final class ColunasExtrasDoDashboardTest extends TestCase
         self::assertStringContainsString('recorrente conta uma vez, pela ocorrência-base', $nota);
     }
 
-    #[TestDox('Tendência só em Pastas concluídas e Relatório (subir é bom) e Eventos na agenda (neutra), as de data real; estoque e as três por criação + status de hoje ficam fora')]
+    #[TestDox('Tendência: concluídas, taxa, pastas concluídas e relatório (subir é bom), tempo médio (cair é bom) e eventos (neutra); Em revisão e Pastas urgentes ficam fora (estoque sem foto)')]
     public function testTendencia(): void
     {
-        self::assertSame([Extras::PASTAS_CONCLUIDAS => 'alta', Extras::EVENTOS_AGENDA => 'fila', Extras::RELATORIO => 'alta'], Extras::TENDENCIA);
         self::assertSame(
-            [Extras::EVENTOS_AGENDA],
+            [
+                Extras::PASTAS_CONCLUIDAS => 'alta',
+                Extras::EVENTOS_AGENDA    => 'fila',
+                Extras::RELATORIO         => 'alta',
+                Extras::METAS_CONCLUIDAS  => 'alta',
+                Extras::TAXA_CONCLUSAO    => 'alta',
+                Extras::TEMPO_MEDIO       => 'baixa',
+            ],
+            Extras::TENDENCIA,
+        );
+        self::assertSame(
+            [Extras::METAS_CONCLUIDAS, Extras::EVENTOS_AGENDA, Extras::TEMPO_MEDIO, Extras::TAXA_CONCLUSAO],
             Extras::comTendencia([Extras::METAS_CONCLUIDAS, Extras::EVENTOS_AGENDA, Extras::METAS_REVISAO, Extras::TEMPO_MEDIO, Extras::PASTAS_URGENTES, Extras::TAXA_CONCLUSAO]),
-            'na ordem recebida, só eventos',
+            'na ordem recebida, sem as de estoque',
         );
         self::assertSame([], Extras::comTendencia([Extras::METAS_REVISAO, Extras::PASTAS_URGENTES]));
     }
 
-    #[TestDox('DASH-010b: concluídas, taxa e tempo médio sem tendência — recortam por criação e leem o status de hoje')]
-    public function testSemTendenciaAsTresPorCriacao(): void
+    #[TestDox('Sentido do desenho: Tempo médio é sobeRuim (baixa); Em revisão (neutra) e Pastas urgentes (sobeRuim) não têm tendência por falta de foto')]
+    public function testSentidoDoDesenhoEEstoqueSemSeta(): void
     {
-        foreach ([Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO, Extras::TEMPO_MEDIO] as $coluna) {
+        self::assertSame('baixa', Extras::TENDENCIA[Extras::TEMPO_MEDIO]);
+        foreach ([Extras::METAS_REVISAO, Extras::PASTAS_URGENTES] as $coluna) {
             self::assertArrayNotHasKey($coluna, Extras::TENDENCIA, $coluna);
-            self::assertSame([], Extras::comTendencia([$coluna]), $coluna);
         }
     }
 

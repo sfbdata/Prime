@@ -150,21 +150,20 @@ final class ObterDadosDashboardUseCase
             $cortes,
         ));
 
-        // Tendência das extras com lastro por data (hoje só Eventos na agenda): a MESMA consulta
-        // no período anterior de mesma duração — a regra das setas que já existem. Concluídas,
-        // taxa e tempo médio ficam sem seta (DASH-010b, ver ColunasExtrasDoDashboard::TENDENCIA)
-        // e, por isso, sem consulta do período anterior.
+        // Tendência das extras (ColunasExtrasDoDashboard::TENDENCIA): a MESMA consulta no período
+        // anterior, trocando só as datas (mapasExtrasAnteriores). Em revisão e Pastas urgentes ficam
+        // de fora: estoque sem foto diária, sem número inventado.
         $extrasComTendencia = $comAnterior ? Extras::comTendencia($colunasExtras) : [];
-        $mExtrasAnt         = [];
-        if ($extrasComTendencia !== [] && $colaboradores !== []) {
-            $mExtrasAnt = $this->mapasExtras(
+        $mExtrasAnt         = $extrasComTendencia !== [] && $colaboradores !== []
+            ? $this->mapasExtrasAnteriores(
                 $tenant,
                 array_merge($filtros, $periodoAnterior),
                 $extrasComTendencia,
                 array_map(static fn ($u): int => (int) $u->getId(), $colaboradores),
                 $pastasOcultas,
-            );
-        }
+                $mAntTarefa,
+            )
+            : [];
 
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
@@ -195,7 +194,7 @@ final class ObterDadosDashboardUseCase
                     $mTotalTarefa[$id] ?? 0,
                     $mAtivasTarefa[$id] ?? 0,
                 ),
-                // Só extras com consulta própria (Eventos) têm tendência: total/ativas não entram.
+                // Só as extras de TENDENCIA: as bases (total/ativas) das concluídas vêm em $mExtrasAnt.
                 extrasAnteriores:      $this->valoresExtras($extrasComTendencia, $mExtrasAnt, $id, 0, 0),
                 colunasZeradas:        $cortes->colunasDe($id),
             );
@@ -236,13 +235,46 @@ final class ObterDadosDashboardUseCase
             colunasExtras:              $colunasExtras,
             totaisExtras:               $this->totaisExtras($colunasExtras, $linhas, false, $mExtras[Extras::TAXA_CONCLUSAO] ?? []),
             totaisExtrasAnteriores:     $comAnterior
-                ? $this->totaisExtras($extrasComTendencia, $linhas, true)
+                ? $this->totaisExtras($extrasComTendencia, $linhas, true, $mExtrasAnt[Extras::TAXA_CONCLUSAO] ?? [])
                 : null,
             campeaoId:                  RankingDeMetasConcluidas::campeao($todosIds, self::concluidasDaBase($conclusao[Extras::METAS_CONCLUIDAS]), $mVencidas),
             zeramentos:                 $cortes->paraTela(),
             // O realizado da meta é o número do card (antes da busca), sem regra de contagem própria.
             metaDePastas:               $this->metaDePastas->montar($tenant, $referencia, $filtros, $totalPastasCriadas),
         );
+    }
+
+    /**
+     * Os mapas do período anterior das extras de TENDENCIA: a MESMA consulta, só com as datas
+     * trocadas. Concluídas e Taxa não têm consulta própria: pedem as Ativas do período anterior e
+     * juntam com o Total já pedido ($totalAnterior), na forma `['total', 'ativas']` por pessoa.
+     *
+     * @param array<string, mixed> $filtrosAnteriores
+     * @param list<string>         $extrasComTendencia
+     * @param list<int>            $pessoas
+     * @param list<int>            $pastasOcultas
+     * @param array<int, int>      $totalAnterior Total metas por pessoa no período anterior
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function mapasExtrasAnteriores(Tenant $tenant, array $filtrosAnteriores, array $extrasComTendencia, array $pessoas, array $pastasOcultas, array $totalAnterior): array
+    {
+        $deConclusao = array_values(array_intersect([Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO], $extrasComTendencia));
+        $mapas       = $this->mapasExtras($tenant, $filtrosAnteriores, array_values(array_diff($extrasComTendencia, $deConclusao)), $pessoas, $pastasOcultas);
+        if ($deConclusao === []) {
+            return $mapas;
+        }
+
+        $ativas = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
+        $base   = [];
+        foreach ($pessoas as $id) {
+            $base[$id] = ['total' => $totalAnterior[$id] ?? 0, 'ativas' => $ativas[$id] ?? 0];
+        }
+        foreach ($deConclusao as $coluna) {
+            $mapas[$coluna] = $base;
+        }
+
+        return $mapas;
     }
 
     /**
@@ -427,10 +459,10 @@ final class ObterDadosDashboardUseCase
      * (a regra do desenho, dc 1.2.2 L.1980). Sem base, null ("—").
      *
      * Com $anterior, a MESMA regra sobre o período anterior, com os valores de
-     * `extrasAnteriores` de cada linha — só para as extras de ColunasExtrasDoDashboard::TENDENCIA
-     * (hoje, Eventos na agenda: uma soma).
+     * `extrasAnteriores` de cada linha — só para as extras de ColunasExtrasDoDashboard::TENDENCIA.
      *
-     * $baseDaTaxa: as bases da Taxa de conclusão com o corte da própria coluna (basesDaConclusao).
+     * $baseDaTaxa: as bases da Taxa de conclusão (no atual, com o corte da própria coluna,
+     * basesDaConclusao; no anterior, as do período anterior).
      *
      * @param list<string>                                 $colunasExtras
      * @param LinhaAdvogadoDashboardOutput[]               $linhas

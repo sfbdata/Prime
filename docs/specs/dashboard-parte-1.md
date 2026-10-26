@@ -210,6 +210,30 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     segue sem link, como todos os do Total (ele soma só as linhas exibidas, filtradas por cargo ou
     pessoa, e não inclui pasta de quem saiu do escritório, então a lista não contaria o mesmo).
   - **Relatório**: sem link, pela razão acima. Só destrava com uma lista por registro (DASH-012).
+- **PR-E (feito: setas de tendência nas colunas, sem migration)**. Regra única do desenho
+  (`tendencia()`, dc L1819+; `tendCor`/`setaWrap`): delta relativo em %, limiar de 2% para
+  "estável", "novo" quando o anterior é 0, cor pelo sentido (subir é bom; `sobeRuim`: subir é
+  ruim; `neutra`: sempre cinza). O desenho usa % relativo também para Taxa e Tempo médio (não
+  pontos percentuais nem dias): seguido como está. Macro única: `_tendencia.html.twig`. Zerar
+  (coluna com corte) e o interruptor `db-page--sem-setas` seguem como antes.
+  - **Com seta** (anterior = a MESMA consulta nas datas do período anterior; só dias já corridos
+    quando o período termina no futuro, `fimJaCorrido`): Total metas, Total demandas, Pastas
+    criadas, Pastas concluídas, Relatório (subir é bom); Eventos na agenda (neutra); **Metas
+    concluídas e Taxa de conclusão** (subir é bom; anterior = Total e Ativas do período anterior;
+    taxa anterior sem meta = sem seta) e **Tempo médio** (`baixa`: subir é ruim) entraram no PR-E.
+    Metas vencidas e Prazos próximos (cair é bom): foto diária de `data_de − 1`.
+  - **Sem seta, espaço reservado** (dependem de ESTOQUE e não há lastro): **Metas ativas e
+    Demandas ativas** (dc: `neutra`): a foto guarda o estoque inteiro e a coluna é o estoque das
+    criadas no período, bases diferentes; **Em revisão** (dc: `neutra`) e **Pastas urgentes**
+    (dc: `sobeRuim`): `dashboard_foto` não guarda essas duas. Destravam se a foto passar a guardar
+    `metas_em_revisao`, `pastas_urgentes` (e as ativas por recorte de criação), com o
+    comando `app:dashboard:fotografar`; hoje não há número do passado, e o painel não o inventa.
+  - **RESSALVA aberta (DASH-010b, decisão do Samuel)**: Metas concluídas, Taxa e Tempo médio
+    recortam por data de CRIAÇÃO e leem o status de HOJE. As metas do período anterior tiveram
+    mais tempo para concluir, então o anterior sai maior e o atual tende a mostrar queda (e o
+    tempo médio anterior sai maior). Entraram por pedido do orquestrador; para tirar, apague as
+    três linhas em `ColunasExtrasDoDashboard::TENDENCIA`. Critério alternativo: concluídas
+    DENTRO da janela por `Tarefa.dataConclusao`, com o mesmo recorte no anterior.
 - **Contrato com o bluejus-bd**: o comando `app:dashboard:fotografar` é idempotente, `--data` tem
   padrão hoje, nenhuma opção é obrigatória, roda 1x por dia.
 

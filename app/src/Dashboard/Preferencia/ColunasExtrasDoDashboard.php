@@ -115,20 +115,22 @@ final class ColunasExtrasDoDashboard
      *   - pastas concluídas: a data do arquivamento cai no período em que aconteceu; subir é bom
      *     ('alta', o desenho não a marca `neutra` nem `sobeRuim`). Desarquivar tira a pasta do
      *     período em que ela tinha sido arquivada, nos dois lados da comparação.
+     *   - metas concluídas e taxa de conclusão (PR-E): 'alta'; tempo médio: 'baixa' (subir é ruim,
+     *     `sobeRuim` do desenho). O anterior é a MESMA consulta nas datas do período anterior.
+     *     Delta sempre em % relativo, como o `tendencia()` do desenho (também para a taxa e o tempo).
      *
-     * Ficam SEM tendência (DASH-010b), com o espaço da seta reservado como nas de estoque:
-     *   - Em revisão e Pastas urgentes: são estoque (o que está em revisão/urgente agora), não
-     *     se reconstroem do passado sem a foto diária;
-     *   - Metas concluídas, Taxa de conclusão e Tempo médio: recortam as metas pela data de
-     *     CRIAÇÃO, mas leem o status/conclusão de HOJE. As metas do período anterior tiveram
-     *     mais tempo para concluir, então a comparação nasce enviesada: concluídas e taxa
-     *     tenderiam a "cair" e o tempo médio anterior sairia maior, sem nada ter mudado no
-     *     trabalho. É o mesmo motivo pelo qual "ativas" nunca teve seta — o estado de hoje não
-     *     reconstrói o de ontem.
+     * Ficam SEM tendência, com o espaço da seta reservado como nas de estoque:
+     *   - Em revisão (`neutra` no desenho) e Pastas urgentes (`sobeRuim`): são estoque (o que está
+     *     em revisão/urgente agora). A foto diária (`dashboard_foto`) guarda só metas ativas,
+     *     demandas ativas, vencidas e prazos, então não há lastro para o passado: sem seta.
+     *   - Metas ativas e Demandas ativas (colunas fixas, `neutra` no desenho): a foto é o estoque
+     *     INTEIRO e a coluna é o estoque das criadas no período, bases diferentes: sem seta.
      *
-     * PENDENTE (decisão do Samuel): o critério certo para comparar essas três — por exemplo,
-     * metas concluídas DENTRO da janela por `Tarefa.dataConclusao`, com o mesmo recorte no
-     * período anterior. Até lá, sem seta: o painel não mostra comparação que ele sabe torta.
+     * RESSALVA CONHECIDA (DASH-010b, decisão do Samuel pendente): concluídas, taxa e tempo médio
+     * recortam as metas pela data de CRIAÇÃO mas leem o status/conclusão de HOJE. As metas do
+     * período anterior tiveram mais tempo para concluir, então a comparação nasce enviesada
+     * (concluídas e taxa do anterior saem maiores, então o atual tende a mostrar "queda"; o tempo
+     * médio anterior também sai maior). Entraram no PR-E por pedido explícito; para tirar, apague as três linhas abaixo.
      *
      * @var array<string, string>
      */
@@ -136,6 +138,9 @@ final class ColunasExtrasDoDashboard
         self::PASTAS_CONCLUIDAS => 'alta',
         self::EVENTOS_AGENDA    => 'fila',
         self::RELATORIO         => 'alta',
+        self::METAS_CONCLUIDAS  => 'alta',
+        self::TAXA_CONCLUSAO    => 'alta',
+        self::TEMPO_MEDIO       => 'baixa',
     ];
 
     /**
