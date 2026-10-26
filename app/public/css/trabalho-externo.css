@@ -528,6 +528,8 @@ select.te-ctl { padding: 0 7px; }
 .te-conf-tit { font-size: 16px; font-weight: bold; margin-bottom: 6px; }
 .te-conf-txt { font-size: 13.5px; color: var(--te-text-2); line-height: 1.5; margin-bottom: 12px; }
 .te-conf-motivo { width: 100%; box-sizing: border-box; border: 1px solid var(--te-border-ctl); border-radius: 3px; padding: 8px 9px; font-size: 14px; resize: vertical; margin-bottom: 12px; color: var(--te-text); background: var(--te-card); }
+.te-conf-rot { display: block; font-size: 12px; font-weight: bold; color: var(--te-text-2); margin-bottom: 4px; }
+.te-conf-valor { width: 100%; box-sizing: border-box; border: 1px solid var(--te-border-ctl); border-radius: 3px; padding: 8px 9px; font-size: 14px; margin-bottom: 12px; color: var(--te-text); background: var(--te-card); }
 .te-conf-botoes { display: flex; justify-content: flex-end; gap: 8px; }
 .te-conf-botoes > .te-btn-pri { font-size: 13px; }
 .te-btn-pri.is-perigo { background: #a3232b; }
@@ -1500,6 +1502,9 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-pg-dados { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: #243845; }
 .te-pg-rot { font-size: 11px; font-weight: bold; letter-spacing: .6px; color: #4a6373; }
 .te-pg-valor { font-size: 24px; color: #12242f; }
+.te-pg-valor-linha { display: flex; align-items: center; gap: 8px; }
+.te-pg-lapis { width: 28px; height: 28px; padding: 0; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font: inherit; font-size: 13px; cursor: pointer; }
+.te-pg-lapis:hover { background: #f5f8fa; }
 .te-pg-forma { font-size: 12.5px; color: #5b7383; }
 .te-pg-cod { font: 11px/1.45 monospace; color: #34505f; background: #f5f8fa; border: 1px solid #e1e8ed; border-radius: 2px; padding: 6px 8px; word-break: break-all; max-height: 54px; overflow: auto; user-select: all; }
 .te-pg-botoes { display: flex; gap: 6px; flex-wrap: wrap; }

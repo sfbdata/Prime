@@ -382,7 +382,9 @@ final class ApresentadorDeDemanda
     {
         $visiveis = array_filter(
             array_reverse($d->getHistorico()),
-            fn (HistoricoDemanda $h): bool => !$this->politica->marcoReservado($ctx, $h->getPara(), $h->getEm()),
+            // O ajuste do valor do pagamento é dinheiro: o Convidado não vê o marco (nem o valor).
+            fn (HistoricoDemanda $h): bool => !$this->politica->marcoReservado($ctx, $h->getPara(), $h->getEm())
+                && !($ctx->perfil === Perfil::Convidado && $h->getPara() === Situacao::MARCO_VALOR),
         );
 
         return array_values(array_map(function (HistoricoDemanda $h) use ($ctx): array {
@@ -459,6 +461,9 @@ final class ApresentadorDeDemanda
     {
         if ($valor === Situacao::MARCO_PAGO) {
             return ['Pagamento registrado', '#1e7b45', 'bi-cash-coin'];
+        }
+        if ($valor === Situacao::MARCO_VALOR) {
+            return ['Valor do pagamento alterado', '#9a5b00', 'bi-pencil-square'];
         }
         $s = Situacao::tryFrom($valor);
 
