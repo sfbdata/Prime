@@ -147,8 +147,8 @@ class DashboardFotoRepository extends ServiceEntityRepository
 
     /**
      * Retrato de cada mês para o histórico dos cards: por mês, a SOMA da coluna (e das metas ativas)
-     * sobre as fotos do ÚLTIMO DIA do mês que tem foto com a coluna preenchida, só dos colaboradores
-     * pedidos. Mês sem foto (ou só com foto antiga, coluna NULL) não aparece no mapa: sem lastro, e o
+     * sobre a ÚLTIMA foto de CADA colaborador no mês (com a coluna preenchida), só dos colaboradores
+     * pedidos; foto parcial de um dia não subestima a soma. Mês sem foto (ou só com foto antiga, coluna NULL) não aparece no mapa: sem lastro, e o
      * chamador mostra "sem histórico", nunca zero. Escopo explícito do tenant.
      *
      * Metas com mais de um responsável contam para cada um (a soma das linhas, como o Total da tabela).
@@ -166,7 +166,7 @@ class DashboardFotoRepository extends ServiceEntityRepository
 
         $sql = 'SELECT ano_mes, SUM(valor_foto) AS valor, SUM(ativas_foto) AS ativas FROM (
                     SELECT TO_CHAR(referencia, \'YYYY-MM\') AS ano_mes, ' . $coluna . ' AS valor_foto, metas_ativas AS ativas_foto,
-                           RANK() OVER (PARTITION BY TO_CHAR(referencia, \'YYYY-MM\') ORDER BY referencia DESC) AS posicao
+                           RANK() OVER (PARTITION BY user_id, TO_CHAR(referencia, \'YYYY-MM\') ORDER BY referencia DESC) AS posicao
                       FROM dashboard_foto
                      WHERE tenant_id = :tenant AND user_id IN (:usuarios) AND ' . $coluna . ' IS NOT NULL
                        AND referencia BETWEEN :de AND :ate

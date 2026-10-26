@@ -229,7 +229,10 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
 - **PR-F (feito: lastro da foto diária, migration `Version20261026152200`)**. A `dashboard_foto`
   (por colaborador e por dia) ganhou 3 colunas INTEIRAS ANULÁVEIS: `metas_em_revisao`,
   `pastas_urgentes` e `metas_total` (Meta global = (total − ativas) ÷ total). Só `ADD COLUMN`, tudo
-  NULL, sem backfill: foto antiga fica NULL = sem lastro, e a série só vale daqui para a frente. Modelo
+  NULL, sem backfill: foto antiga fica NULL = sem lastro. O histórico de Metas ativas aproveita as fotos
+  antigas reais (`metas_ativas` é NOT NULL); Demandas urgentes e Meta global só valem a partir da
+  primeira foto com a coluna preenchida (Meta global: a primeira com os 7 números). Meta global com
+  `metas_total = 0` fica SEM barra, de propósito (não há o que dividir). Modelo
   por PESSOA, o mesmo das setas de Vencidas/Prazos (o histórico filtrado por responsável ou cargo soma
   o universo do card; meta com mais de um responsável conta para cada um, como o Total da tabela).
   - **Setas de estoque**: Metas ativas e Demandas ativas (`neutra`, cinza), Em revisão (`neutra`) e
@@ -241,7 +244,7 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     oculta e o espaço reservado. Em revisão e Pastas urgentes só consultam o estoque se a coluna está ligada.
   - **Histórico dos cards (dc L1354-1391)**: Metas ativas (`estoque`, sem melhor: stat "Pico"),
     Demandas urgentes (`estoque`, menos é melhor, "Melhor (menor)") e Meta global (`pct`, "p.p.").
-    O retrato de um mês é a soma da última foto do mês que tem a coluna preenchida; mês sem foto é barra
+    O retrato de um mês é a soma da última foto DE CADA PESSOA no mês que tem a coluna preenchida; mês sem foto é barra
     vazia com o título "sem histórico" (nunca zero); o ano é a média dos meses com foto; a comparação com
     o ano anterior usa só os meses com foto nos dois anos (a série nasce no meio do ano). Sem nenhuma foto
     no período, ou com pasta oculta pelo cadeado, a janela fica indisponível com a nota.

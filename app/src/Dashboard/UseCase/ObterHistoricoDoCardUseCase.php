@@ -100,7 +100,6 @@ final class ObterHistoricoDoCardUseCase
         [$universo, $recorte] = $this->universo($tenant, $filtros);
 
         $anoAtual = (int) $referencia->format('Y');
-        $mesAtual = (int) $referencia->format('n');
         $primeiro = $anoAtual - self::ANOS_NO_SELETOR; // um a mais: a comparação do ano mais antigo
         $ids      = array_map(static fn (User $u): int => (int) $u->getId(), $universo);
         $de       = new \DateTimeImmutable(sprintf('%d-01-01 00:00:00', $primeiro));
@@ -110,20 +109,10 @@ final class ObterHistoricoDoCardUseCase
             ? $this->historicoRepository->contarPastasCriadasPorMes($tenant, $ids, $de, $ate, $pastasOcultas)
             : $this->retratosDoCard($tenant, $card, $ids, $de, $ate);
 
-        $series = [];
-        for ($ano = $primeiro; $ano <= $anoAtual; ++$ano) {
-            $series[$ano] = $this->serieDoAno($porMes, $ano, $anoAtual, $mesAtual, $card === 'pastas');
-        }
-
-        if ($card !== 'pastas' && array_filter($series, static fn (array $s): bool => array_filter($s, static fn (?int $v): bool => $v !== null) !== []) === []) {
+        $opcoes = $this->opcoesDoCard($porMes, $card, $config, $anoAtual, (int) $referencia->format('n'));
+        if ($opcoes === null) {
             return $this->indisponivel($card, $config, sprintf(self::NOTA_SEM_HISTORICO, $config['titulo']));
         }
-
-        $opcoes = [];
-        for ($ano = $anoAtual; $ano > $anoAtual - self::ANOS_NO_SELETOR; --$ano) {
-            $opcoes[] = $this->opcaoDoAno($ano, $series[$ano], $series[$ano - 1], $config, $anoAtual, $mesAtual);
-        }
-        $opcoes[] = $this->opcaoTodos(array_slice($series, 1, null, true), $config);
 
         return new HistoricoDoCardOutput(
             card:       $card,
@@ -135,6 +124,35 @@ final class ObterHistoricoDoCardUseCase
             inicial:    (string) $anoAtual,
             opcoes:     $opcoes,
         );
+    }
+
+    /**
+     * As opções do seletor (anos e "Todos"); null quando um card de foto não tem nenhum mês com valor.
+     *
+     * @param array<string, int>                                                   $porMes
+     * @param array{titulo: string, icone: string, tipo: string, melhor: ?string} $config
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function opcoesDoCard(array $porMes, string $card, array $config, int $anoAtual, int $mesAtual): ?array
+    {
+        $primeiro = $anoAtual - self::ANOS_NO_SELETOR;
+        $series   = [];
+        for ($ano = $primeiro; $ano <= $anoAtual; ++$ano) {
+            $series[$ano] = $this->serieDoAno($porMes, $ano, $anoAtual, $mesAtual, $card === 'pastas');
+        }
+
+        if ($card !== 'pastas' && array_filter($series, static fn (array $s): bool => array_filter($s, static fn (?int $v): bool => $v !== null) !== []) === []) {
+            return null;
+        }
+
+        $opcoes = [];
+        for ($ano = $anoAtual; $ano > $anoAtual - self::ANOS_NO_SELETOR; --$ano) {
+            $opcoes[] = $this->opcaoDoAno($ano, $series[$ano], $series[$ano - 1], $config, $anoAtual, $mesAtual);
+        }
+        $opcoes[] = $this->opcaoTodos(array_slice($series, 1, null, true), $config);
+
+        return $opcoes;
     }
 
     /** @param array{titulo: string, icone: string, tipo: string, melhor: ?string} $config */
