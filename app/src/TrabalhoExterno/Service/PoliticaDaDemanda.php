@@ -346,6 +346,18 @@ final class PoliticaDaDemanda
         return $ctx->ehInterno() && $this->podeExecutar($ctx, $d, AcaoDemanda::RegistrarPagamento);
     }
 
+    /**
+     * O lápis do valor da aba Pagamento: só o Master (nunca na prévia), com a demanda no estado editável (proposta
+     * aceita, não paga, sem comprovante, nas situações do pagamento).
+     */
+    public function podeAjustarValorDoPagamento(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Master
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d)
+            && $d->valorDoPagamentoEditavel();
+    }
+
     /** A lista de documentos: o Convidado só a vê com "Ver instruções" (`cp.ver` do desenho). */
     public function podeVerDocumentos(Contexto $ctx, DemandaExterna $d): bool
     {

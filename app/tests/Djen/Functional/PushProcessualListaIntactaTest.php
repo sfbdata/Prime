@@ -41,6 +41,6 @@ final class PushProcessualListaIntactaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertStringNotContainsString('TEOR QUE NAO PODE IR PARA A LISTA DO MODULO', $html);
-        self::assertStringContainsString('2ª Vara Federal de Teste', $crawler->filter('table tbody')->text());
+        self::assertStringContainsString('2ª Vara Federal de Teste', $crawler->filter('[data-pp-tabela]')->text());
     }
 }
