@@ -41,6 +41,7 @@
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
     faltamOn: false, faltamCid: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
+  let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
 
@@ -52,6 +53,7 @@
   raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
   if (EXTERNAS.com) SECS.push(['com', T('master.js.secao.com'), 'bi-megaphone']);
   if (EXTERNAS.ind) SECS.push(['ind', T('master.js.secao.ind'), 'bi-share']);
+  if (EXTERNAS.recomp) SECS.push(['recomp', T('master.js.secao.recomp'), 'bi-gift']);
   if (EXTERNAS.notif) SECS.push(['notif', T('master.js.secao.notif'), 'bi-bell']);
   const VAZIAS = {
     custos: ['bi-cash-coin', T('master.js.secao.custos'), T('master.js.vazia.custos.texto'), [T('master.js.vazia.custos.armazenamento'), T('master.js.vazia.custos.banco'), T('master.js.vazia.custos.hospedagem'), T('master.js.vazia.custos.trafego'), T('master.js.vazia.custos.backups'), T('master.js.vazia.custos.apis_ia'), T('master.js.vazia.custos.notificacoes'), T('master.js.vazia.custos.receita'), T('master.js.vazia.custos.custo_conta'), T('master.js.vazia.custos.custo_gb'), T('master.js.vazia.custos.margem'), T('master.js.vazia.custos.projecao')]],
@@ -701,7 +703,7 @@
   function montarContas() {
     // O bloco "Pedidos de exclusão de conta" (desenho 1.2, linha 148) vem antes da tabela. Escondido (hidden,
     // sem pedidos), ele não ocupa lugar nem abre o espaçamento da seção.
-    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>' + T('master.js.secao.contas') + ' <span id="mp-contas-n"></span></b>'
+    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div id="mp-convenio"></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>' + T('master.js.secao.contas') + ' <span id="mp-contas-n"></span></b>'
       + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>' + T('master.js.contas.convites') + '</a>'
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">' + T('master.js.contas.todas_situacoes') + '</option>'
       + [ATIVA, SUSPENSA].map(v => '<option value="' + v + '"' + (S.fSit === v ? ' selected' : '') + '>' + rotuloDaSituacao(v) + '</option>').join('')
@@ -715,6 +717,29 @@
       + '<div id="mp-menu-conta"></div>';
     renderPedidosDeExclusao();
     renderContasLista();
+    renderConvenio();
+  }
+
+  // Convênio OAB por estado (desenho 05 VS 25.10.26, L175-178): o módulo convenio-oab.js cuida do painel; cada gravação
+  // devolve os 27 estados e o rótulo "Convênio OAB/UF" da linha de cada conta se atualiza.
+  function renderConvenio() {
+    const el = document.getElementById('mp-convenio');
+    if (!el || !window.BJConvenioOab) return;
+    window.BJConvenioOab.montar(el, {
+      url: URLS.convenios, token: URLS.conveniosToken,
+      aoMudar: estados => { CONVENIO = Object.fromEntries(estados.map(x => [x.uf, x])); renderContasLista(); },
+    });
+  }
+
+  // Rótulo do convênio sob o plano da conta (desenho L194): verde (grátis), azul (valor diferenciado) ou vermelho
+  // (sem convênio). Conta sem estado válido não tem rótulo.
+  function rotuloDoConvenio(c) {
+    const v = c.uf && (CONVENIO[c.uf] || c.convenio);
+    if (!v) return '';
+    const p = { uf: c.uf, valor: 'R$ ' + window.BJFormato.numero(v.valor, 2) };
+    const [cor, texto] = v.modo === 'dif' ? ['#0a6fa0', T('master.js.convenio.rotulo_conta_dif', p)]
+      : v.modo === 'sem' ? ['#a3232b', T('master.js.convenio.rotulo_conta_sem', p)] : ['#1e7b45', T('master.js.convenio.rotulo_conta', p)];
+    return '<span class="mp-conta-conv" style="color:' + cor + '">' + esc(texto) + '</span>';
   }
 
   // Pedidos de exclusão de conta (desenho 1.2, linhas 148 e 679), de /master/dados/contas (`pedidosExclusao`).
@@ -878,7 +903,7 @@
       const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="' + esc(T('master.js.contas.numero_dica')) + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
-        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
+        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span>' + rotuloDoConvenio(c) + '</div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? T('master.js.sem_limite') : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
         + celulaArm(c)
@@ -982,23 +1007,25 @@
 
   /* ================= PLANOS E LIMITES ================= */
   // Cartões (desenho 1.2, linhas 205-210 e 697). Cores do desenho; o 4º plano (Avançado) é convenção, o desenho tem 3.
-  const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#7a3e8f' };
+  const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#5b3f9e' };
   const reais = cent => 'R$ ' + (cent % 100 === 0 ? num(cent / 100) : window.BJFormato.numero(cent / 100, 2));
   const nomeDoPlano = p => (p.codigo === 'free' ? T('master.js.planos.plano_free', { nome: p.nome }) : p.nome);
-  // "usuários sem limite", e não "sem limite usuários" (o desenho sempre acrescenta " usuários"): convenção.
-  const usuariosDoPlano = p => (p.limiteUsuarios === null ? T('master.js.planos.usuarios_sem_limite') : T('master.js.planos.usuarios', { n: num(p.limiteUsuarios) }));
+  const TAG_PLANO = { free: 'master.js.planos.tag_free', profissional: 'master.js.planos.tag_escolhido' };
 
   function montarPlanos() {
     const ativas = D.contas.contas.filter(c => c.situacao !== QUARENTENA);
-    elSecao.innerHTML = '<div id="mp-planos-aviso"></div><div class="mp-planos">' + D.planos.planos.map(p => {
+    elSecao.innerHTML = '<div id="mp-planos-aviso"></div>'
+      + '<div class="mp-convenio-faixa"><img src="' + esc(URLS.logoOab) + '" alt="OAB"><div><b>' + T('master.js.planos.faixa_titulo') + '</b><span>' + T('master.js.planos.faixa_texto') + '</span></div></div>'
+      + '<div class="mp-planos-rotulo">' + T('master.js.planos.rotulo') + '</div><div class="mp-planos">' + D.planos.planos.map(p => {
       const acima = ativas.filter(c => c.espaco.planoCodigo === p.codigo && pertoDaFranquia(c)).length;
       return '<div class="mp-card mp-plano" style="--cor:' + (COR_PLANO[p.codigo] || '#4a6373') + '"><div class="mp-plano-topo"><b>' + esc(nomeDoPlano(p)) + '</b>'
-        + (p.codigo === 'free' ? '<span class="mp-plano-tag">' + T('master.js.planos.padrao') + '</span>' : '')
-        + (p.ativo ? '' : '<span class="mp-plano-inativo">' + T('master.js.planos.inativo') + '</span>') + '</div>'
+        + (TAG_PLANO[p.codigo] ? '<span class="mp-plano-tag">' + T(TAG_PLANO[p.codigo]) + '</span>' : '')
+        + (p.ativo ? '' : '<span class="mp-plano-inativo">' + T('master.js.planos.inativo') + '</span>')
+        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '" title="' + esc(T('master.js.planos.ajustar_dica')) + '"><i class="bi bi-pencil"></i> ' + T('master.js.planos.ajustar') + '</button></div>'
         + '<span class="mp-plano-preco">' + esc(reais(p.precoCentavos)) + '<span> ' + T('master.js.planos.por_mes') + '</span></span>'
-        + '<span class="mp-plano-cap">' + esc(T('master.js.planos.cap', { gb: num(p.cotaGb), usuarios: usuariosDoPlano(p) })) + '</span>'
-        + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span>'
-        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '"><i class="bi bi-pencil"></i>' + T('master.js.planos.editar') + '</button></div>';
+        + '<span class="mp-plano-cap">' + T('master.js.planos.cap', { gb: num(p.cotaGb) }) + '</span>'
+        + '<span class="mp-plano-recursos"><i class="bi bi-check2"></i> ' + T('master.js.planos.recursos') + '</span>'
+        + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>';
     }).join('') + '</div>'
       + '<span class="mp-nota">' + T('master.js.planos.nota') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();

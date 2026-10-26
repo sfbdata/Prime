@@ -151,14 +151,14 @@ final class SituacaoDoEspacoTest extends TestCase
         self::assertSame(OrigemDoLimite::SemLimite, $retrato->origemDoLimiteDeUsuarios);
     }
 
-    #[TestDox('Sem linha: vale o limite de usuários do plano')]
+    #[TestDox('O plano não limita usuários (D5 revogada em 26/10/2026), mesmo com a coluna preenchida')]
     public function testLimiteDeUsuariosDoPlano(): void
     {
         $espaco = new EspacoDoEscritorio(new Tenant(), new Plano('essencial', 'Essencial', 20, 1990, 'Essencial', 2, 8));
 
         $retrato = $this->situacao($espaco)->retratar(7, 0);
 
-        self::assertSame(8, $retrato->limiteUsuarios);
+        self::assertNull($retrato->limiteUsuarios);
         self::assertSame(OrigemDoLimite::Plano, $retrato->origemDoLimiteDeUsuarios);
     }
 

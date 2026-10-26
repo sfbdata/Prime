@@ -238,9 +238,17 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
         // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
         \App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa::class,
+        // Convênio OAB por estado do Master (P4b, 26/10/2026): uma linha por UF não gratuita, configuração da PLATAFORMA
+        // escrita só pelo Master. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\ConvenioDaUf::class,
         // Metas de divulgação do Painel do Master (desenho 05 VS 25.10.26, P3): linha única de configuração da PLATAFORMA
         // (id 1), escrita só pelo Master. Sem dado de escritório nem de cliente.
         \App\Master\Entity\MetaDeDivulgacao::class,
+        // Recompensas do Painel do Master (F1, 26/10/2026): a regra geral do programa Indique e ganhe (linha única, id 1) e
+        // a condição individual de cada indicador. Configuração da PLATAFORMA, escrita só pelo Master; a chave da condição
+        // é o usuário que indica, sem escritório. Sem dado de cliente.
+        \App\Recompensa\Entity\ProgramaDeRecompensa::class,
+        \App\Recompensa\Entity\CondicaoDeRecompensa::class,
         // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
         // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
         // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
@@ -324,9 +332,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 75 → 78 com o Desempenho do Master (26/10/2026): EventoDeDesempenho, IncidenteDeDesempenho e RegistroDeBackup
     // (plataforma), justificadas acima.
     // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
-    // 79 → 80 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
+    // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
+    // 80 → 82 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
+    // 82 → 83 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
     // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
-    private const MAX_FORA_DO_ESCOPO = 80;
+    private const MAX_FORA_DO_ESCOPO = 83;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
