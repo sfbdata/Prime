@@ -1,4 +1,8 @@
-# Push Processual: aba Processos da OAB (desenho 11)
+---
+tipo: alteracao
+---
+## Changelog
+- Push Processual: aba Processos da OAB refeita conforme o desenho 11, com inclusão de processo por número, sub-aba Relatório, anotações por processo e exportação em CSV. Nova tabela `djen_processo_acompanhado`.
 
 ## Para o cliente
 
