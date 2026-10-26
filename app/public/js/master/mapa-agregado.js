@@ -1,5 +1,5 @@
 /* BlueJus · carga do agregado do mapa (Painel do Master). O iframe NÃO confia na query string: ela só escolhe a
-   visão (quem=pes|esc, usu=geral|prim). As contagens vêm de /master/dados/mapa e são validadas aqui (UF conhecida,
+   visão (quem=pes|esc|ind, usu=geral|prim, sub=env|ok|pago no quem=ind). As contagens vêm de /master/dados/mapa e são validadas aqui (UF conhecida,
    números inteiros, nomes de cidade como texto curto sem < > " ' `). Também expõe escH, o escape único dos mapas. */
 (() => {
   const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
@@ -16,10 +16,10 @@
     return { A, C };
   }
   function carregar(url) {
-    const qs = new URLSearchParams(location.search), quem = qs.get('quem') === 'esc' ? 'esc' : 'pes', usu = qs.get('usu') === 'prim' ? 'prim' : 'geral';
+    const qs = new URLSearchParams(location.search), quem = ['esc', 'ind'].includes(qs.get('quem')) ? qs.get('quem') : 'pes', usu = qs.get('usu') === 'prim' ? 'prim' : 'geral', sub = ['env', 'ok', 'pago'].includes(qs.get('sub')) ? qs.get('sub') : 'env';
     return fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then(m => validar(quem === 'esc' ? (m.escritorios || {}) : ((m.pessoas || {})[usu] || {})))
+      .then(m => validar(quem === 'esc' ? (m.escritorios || {}) : quem === 'ind' ? ((m.indicacoes || {})[sub] || {}) : ((m.pessoas || {})[usu] || {})))
       .catch(() => ({ A: {}, C: {} }));
   }
   window.BJAgregado = { carregar, escH, validar };

@@ -39,7 +39,7 @@
   const QUEM = raiz.dataset.quem || T('termos.master');
   const agora = () => dataHora(new Date().toISOString());
 
-  const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral',
+  const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
     faltamOn: false, faltamCid: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
@@ -251,12 +251,15 @@
   const temCidade = (C, uf, cidade) => Object.keys(C[uf] || {}).some(k => semAcento(k) === semAcento(cidade));
   const seg = (lista, atual, attr, comIcone) => '<div class="mp-seg mp-seg-28">' + lista.map(([k, rot, ic]) => '<button type="button" class="' + (atual === k ? 'on' : '') + '" ' + attr + '="' + k + '">' + (comIcone ? '<i class="bi ' + ic + '"></i>' : '') + esc(rot) + '</button>').join('') + '</div>';
   const ehModoOab = () => S.mapaModo !== 'mundo' && S.mapaQuem === 'oab';
+  // Modo Indicações (desenho 05 VS 25.10.26, L116 e L1160): só no Brasil; sub-modo env (enviadas), ok (contas) ou pago (R$).
+  const ehModoInd = () => S.mapaModo !== 'mundo' && S.mapaQuem === 'ind';
 
   // Modo OAB (desenho L898): o número da UF é o de inscrições na seccional (GET das seccionais); as cidades com usuário
   // são as das pessoas, a base do mapa (modo Capitais dos que faltam).
   function geo() {
     const M = D.visao.mapa;
     if (S.mapaQuem === 'esc') return { A: M.escritorios.A || {}, C: M.escritorios.C || {}, tend: {}, semEnd: M.escritorios.semEnd || 0, semLoc: 0 };
+    if (ehModoInd()) { const i = (M.indicacoes || {})[S.mapaInd] || {}; return { A: i.A || {}, C: i.C || {}, tend: {}, semEnd: 0, semLoc: 0 }; }
     if (ehModoOab()) return { A: secInscricoes(), C: (M.pessoas.geral || {}).C || {}, tend: {}, semEnd: 0, semLoc: 0 };
     const g = M.pessoas[S.mapaUsu] || {};
     return { A: g.A || {}, C: g.C || {}, tend: g.tend || {}, semEnd: 0, semLoc: g.semLoc || 0 };
@@ -267,7 +270,7 @@
     const exterior = M.exterior || 0, paisesExt = M.paises || [];
     const totBr = Object.values(ATUA).reduce((a, b) => a + b, 0), ufTotal = totBr + exterior;
     document.getElementById('mp-mapa-topo').innerHTML = mapaTopo(br, ehPes, ufTotal);
-    const usuTit = ehOab ? T('master.js.mapa.inscricoes') : S.mapaQuem === 'esc' ? T('master.js.mapa.escritorios') : S.mapaUsu === 'prim' ? T('master.js.mapa.primarios') : T('master.js.mapa.pessoas');
+    const usuTit = ehModoInd() ? T('master.js.mapa.col_ind_' + S.mapaInd) : ehOab ? T('master.js.mapa.inscricoes') : S.mapaQuem === 'esc' ? T('master.js.mapa.escritorios') : S.mapaUsu === 'prim' ? T('master.js.mapa.primarios') : T('master.js.mapa.pessoas');
 
     document.getElementById('mp-uf-tab').innerHTML = '<div class="mp-uf-cab"><span>' + (br ? T('master.js.mapa.estado') : T('master.js.mapa.pais')) + '</span><span>' + usuTit + '</span><span></span></div>'
       + (br ? linhasDoBrasil(G) : linhasDoMundo(totBr, paisesExt))
@@ -280,8 +283,8 @@
 
     // iframe: só troca o endereço quando a visão muda (evita recarregar o mapa a cada clique). O iframe busca as
     // contagens no servidor e as valida; a query string só escolhe a visão (quem=oab no modo OAB do Brasil).
-    const quem = ehOab ? 'oab' : S.mapaQuem === 'esc' ? 'esc' : 'pes';
-    const src = (br ? URLS.mapaBrasil : URLS.mapaMundo) + '?quem=' + quem + '&usu=' + (S.mapaUsu === 'prim' ? 'prim' : 'geral'), fr = document.getElementById('mp-mapa-iframe');
+    const quem = ehOab ? 'oab' : ehModoInd() ? 'ind' : S.mapaQuem === 'esc' ? 'esc' : 'pes';
+    const src = (br ? URLS.mapaBrasil : URLS.mapaMundo) + '?quem=' + quem + '&usu=' + (S.mapaUsu === 'prim' ? 'prim' : 'geral') + (quem === 'ind' ? '&sub=' + S.mapaInd : ''), fr = document.getElementById('mp-mapa-iframe');
     fr.style.setProperty('--ratio', br ? '1.75' : '2.05');
     fr.title = br ? T('master.js.mapa.iframe_brasil') : T('master.js.mapa.iframe_mundo');
     if (fr.dataset.src !== src) { fr.dataset.src = src; fr.src = src; }
@@ -289,9 +292,10 @@
 
   // Título, subtítulo e seletores (desenho L114 e L875): "quem" com Pessoas, Escritórios e OAB, só no Brasil.
   function mapaTopo(br, ehPes, ufTotal) {
-    const sub = !br ? T('master.js.mapa.por_pais') : ehModoOab() ? T('master.js.mapa.por_seccional') : T('master.js.mapa.por_estado');
+    const sub = !br ? T('master.js.mapa.por_pais') : ehModoOab() ? T('master.js.mapa.por_seccional') : ehModoInd() ? T('master.js.mapa.por_estado_ind') : T('master.js.mapa.por_estado');
     return '<b>' + T('master.js.mapa.titulo') + '</b><span class="mp-mapa-sub">' + sub + ' · ' + T('master.js.mapa.total', { n: num(ufTotal) }) + '</span>'
-      + (br ? seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings'], ['oab', T('master.js.mapa.oab'), 'bi-bank']], S.mapaQuem, 'data-mapa-quem', true) : '')
+      + (br ? seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings'], ['oab', T('master.js.mapa.oab'), 'bi-bank'], ['ind', T('master.js.mapa.indicacoes'), 'bi-share']], S.mapaQuem, 'data-mapa-quem', true) : '')
+      + (ehModoInd() ? seg([['env', T('master.js.mapa.ind_env')], ['ok', T('master.js.mapa.ind_ok')], ['pago', T('master.js.mapa.ind_pago')]], S.mapaInd, 'data-mapa-ind', false) : '')
       + (ehPes && br ? seg([['geral', T('master.js.mapa.geral')], ['prim', T('master.js.mapa.so_primarios')]], S.mapaUsu, 'data-mapa-usu', false) : '')
       + seg([['br', T('master.js.mapa.brasil'), 'bi-geo-alt-fill'], ['mundo', T('master.js.mapa.mundo'), 'bi-globe-americas']], S.mapaModo, 'data-mapa-modo', true);
   }
@@ -1210,6 +1214,7 @@
     const ano = t.closest('[data-gr-ano]');
     if (ano) { const a = +ano.dataset.grAno, on = S.grSel.includes(a), sel = on ? S.grSel.filter(x => x !== a) : S.grSel.concat(a); if (sel.length) S.grSel = sel; return renderGrafico(); }
     const quem = t.closest('[data-mapa-quem]'); if (quem) { S.mapaQuem = quem.dataset.mapaQuem; return renderMapa(); }
+    const ind = t.closest('[data-mapa-ind]'); if (ind) { S.mapaInd = ind.dataset.mapaInd; return renderMapa(); }
     const usu = t.closest('[data-mapa-usu]'); if (usu) { S.mapaUsu = usu.dataset.mapaUsu; return renderMapa(); }
     const modo = t.closest('[data-mapa-modo]'); if (modo) { S.mapaModo = modo.dataset.mapaModo; return renderMapa(); }
     const fm = t.closest('[data-faltam-modo]'); if (fm) { S.faltamCid = fm.dataset.faltamModo === '1'; return renderMapa(); }

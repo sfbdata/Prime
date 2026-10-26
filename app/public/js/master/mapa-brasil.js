@@ -8,7 +8,8 @@
 const CFG=JSON.parse(document.body.dataset.cfg||'{}');
 const T=(chave,params)=>window.BJ_T.t(chave,params);
 const MODO_OAB=new URLSearchParams(location.search).get('quem')==='oab';
-const unidade=n=>MODO_OAB?T('master.mapa_brasil.inscricoes',{n}):T('master.mapa_brasil.pessoas',{n});
+const QS=new URLSearchParams(location.search),MODO_IND=QS.get('quem')==='ind'?(['ok','pago'].includes(QS.get('sub'))?QS.get('sub'):'env'):null;
+const unidade=n=>MODO_OAB?T('master.mapa_brasil.inscricoes',{n}):MODO_IND?T('master.mapa_brasil.ind_'+MODO_IND,{n}):T('master.mapa_brasil.pessoas',{n});
 const COD={11:'RO',12:'AC',13:'AM',14:'RR',15:'PA',16:'AP',17:'TO',21:'MA',22:'PI',23:'CE',24:'RN',25:'PB',26:'PE',27:'AL',28:'SE',29:'BA',31:'MG',32:'ES',33:'RJ',35:'SP',41:'PR',42:'SC',43:'RS',50:'MS',51:'MT',52:'GO',53:'DF'};
 const UFCOD=Object.fromEntries(Object.entries(COD).map(([k,v])=>[v,k]));
 const NOME={RO:'Rondônia',AC:'Acre',AM:'Amazonas',RR:'Roraima',PA:'Pará',AP:'Amapá',TO:'Tocantins',MA:'Maranhão',PI:'Piauí',CE:'Ceará',RN:'Rio Grande do Norte',PB:'Paraíba',PE:'Pernambuco',AL:'Alagoas',SE:'Sergipe',BA:'Bahia',MG:'Minas Gerais',ES:'Espírito Santo',RJ:'Rio de Janeiro',SP:'São Paulo',PR:'Paraná',SC:'Santa Catarina',RS:'Rio Grande do Sul',MS:'Mato Grosso do Sul',MT:'Mato Grosso',GO:'Goiás',DF:'Distrito Federal'};
