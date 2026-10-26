@@ -325,6 +325,27 @@ final class PoliticaDaDemanda
             && $d->aceitaRespostaAoDespacho();
     }
 
+    /**
+     * "Já paguei · enviar comprovante" (desenho 25/10, `pg.podeComp`): só o Solicitante da própria demanda (o Master
+     * que age pelo escritório, o interno e o Convidado não), fora da prévia, e só onde a confirmação ainda vale.
+     */
+    public function podeEnviarComprovante(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Solicitante
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d)
+            && in_array($d->getSituacao(), AcaoDemanda::RegistrarPagamento->origens(), true);
+    }
+
+    /**
+     * "Confirmar recebimento" e "Enviar no chat" (`pg.podeConf`): quem pode registrar o pagamento (interno, e a
+     * Equipe só com "Alterar a situação"), nunca na prévia. É a mesma guarda do botão "Registrar pagamento".
+     */
+    public function podeConfirmarRecebimento(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->ehInterno() && $this->podeExecutar($ctx, $d, AcaoDemanda::RegistrarPagamento);
+    }
+
     /** A lista de documentos: o Convidado só a vê com "Ver instruções" (`cp.ver` do desenho). */
     public function podeVerDocumentos(Contexto $ctx, DemandaExterna $d): bool
     {
@@ -360,7 +381,7 @@ final class PoliticaDaDemanda
      * O leitor lê esta mensagem no chat? É a regra ÚNICA: o chat, o contador de não lidas e o aviso
      * "Abrir conversa" passam todos por aqui. Nota interna nunca sai da Central. O Convidado lê só
      * da aceitação do convite em diante (o que veio antes, inclusive o registro da proposta com o
-     * valor, é da Central com o cliente) e, sem "Ver instruções", não lê os registros de arquivo
+     * valor, é da Central com o cliente), não lê os registros de pagamento (têm o valor) e, sem "Ver instruções", não lê os registros de arquivo
      * (eles nomeiam os documentos).
      */
     public function mensagemVisivel(Contexto $ctx, DemandaExterna $d, MensagemDemanda $m): bool
@@ -373,6 +394,10 @@ final class PoliticaDaDemanda
         }
         if ($ctx->perfil !== Perfil::Convidado) {
             return true;
+        }
+        // Dinheiro (valor do PIX, comprovante): o Convidado não lê, como não lê a proposta.
+        if ($m->getTipo() === TipoMensagem::Pagamento) {
+            return false;
         }
 
         return $ctx->convite !== null

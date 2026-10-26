@@ -8,6 +8,7 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Http\EntregaDeArquivo;
 use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
+use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
@@ -125,6 +126,10 @@ final class TrabalhoExternoController extends AbstractController
 
         foreach ($demanda->getDocumentos() as $doc) {
             if ($doc->getId() === $id) {
+                // O comprovante do PIX é de quem paga e de quem recebe: o Convidado nunca o baixa (spec 25/10).
+                if ($doc->isComprovante() && $ctx->perfil === Perfil::Convidado) {
+                    throw $this->createNotFoundException();
+                }
                 $chave = ChavesDeTrabalhoExterno::documento($doc);
                 if (!$this->armazenamento->existe($chave)) {
                     throw $this->createNotFoundException('Arquivo não encontrado.');

@@ -58,7 +58,7 @@
         { bg: '#0a6fa0', cor: '#fff', ic: 'bi-chevron-double-right', rot: 'Muito importante' }
     ];
     var DESFAZER_MS = 8000;
-    var ABAS = { resumo: 'Resumo', proposta: 'Proposta', exec: 'Execução', chat: 'Chat', hist: 'Histórico', whats: 'WhatsApp' };
+    var ABAS = { resumo: 'Resumo', proposta: 'Proposta', exec: 'Execução', chat: 'Chat', pag: 'Pagamento', hist: 'Histórico', whats: 'WhatsApp' };
     var OBRIGATORIOS = ['escritorio', 'email', 'advogado', 'oab', 'cidadeExecucao', 'descricao', 'prazoFinal'];
 
     var painelInicial;
@@ -236,6 +236,9 @@
         anexar: function (c) { return comCodigo(D.urlAnexar, c); },
         documento: function (c, id) { return comCodigo(D.urlDocumento, c).replace(/\/0$/, '/' + id); },
         despachar: function (c) { return comCodigo(D.urlDespachar, c); },
+        pagamentoComprovante: function (c) { return comCodigo(D.urlPagamentoComprovante, c); },
+        pagamentoConfirmar: function (c) { return comCodigo(D.urlPagamentoConfirmar, c); },
+        pagamentoAvisar: function (c) { return comCodigo(D.urlPagamentoAvisar, c); },
         despachoResponder: function (c) { return comCodigo(D.urlDespachoResponder, c); },
         despachoRespostas: function (c) { return comCodigo(D.urlDespachoRespostas, c); },
         despachoExtrato: function (c) { return comCodigo(D.urlDespachoExtrato, c); },
@@ -1282,7 +1285,7 @@
                 }, [ic(b.ic), b.rot]);
             })));
         }
-        var abas = { resumo: abaResumo, proposta: abaProposta, exec: abaExecucao, chat: abaChat, hist: abaHistorico, whats: abaWhatsapp };
+        var abas = { resumo: abaResumo, proposta: abaProposta, exec: abaExecucao, chat: abaChat, pag: abaPagamento, hist: abaHistorico, whats: abaWhatsapp };
         (abas[S.aba] || abaResumo)(alvo, dz);
     }
 
@@ -2167,6 +2170,135 @@
                     !vazio(h.motivo) ? el('div', { class: 'te-hist-motivo', text: h.motivo }) : null
                 ])
             ]));
+        });
+    }
+
+    /* ---------------------------------------------------------------- aba Pagamento (desenho 06 de 25/10, l.620 a 637 e 1417 a 1427) */
+
+    /**
+     * O servidor monta tudo em `dz.pagamento` (valor, forma, código, QR, estado e quem pode o quê); aqui só se pinta.
+     * O Convidado não recebe o campo nem a aba. O SVG do QR vem do serviço do servidor (nunca de entrada do usuário)
+     * e entra como nó, lido como XML: só um <svg> raiz é aceito.
+     */
+    function abaPagamento(alvo, dz) {
+        var pg = dz.pagamento;
+        if (!pg) { return; }
+        var cod = dz.codigo;
+        var caixa = el('div', { class: 'te-pg' });
+        caixa.appendChild(el('div', { class: 'te-pg-st', style: { background: pg.stBg, color: pg.stCor } }, [ic(pg.stIc), pg.stTxt]));
+        if (pg.semValor) {
+            caixa.appendChild(el('div', { class: 'te-pg-sem', text: 'O pagamento fica disponível quando uma proposta for aceita. O valor e o QR Code PIX são gerados automaticamente.' }));
+        }
+        if (pg.temValor) {
+            var linha = el('div', { class: 'te-pg-linha' });
+            if (pg.mostraQr) {
+                var qr = el('div', { class: 'te-pg-qr' });
+                var svg = svgDoQr(pg.qr);
+                if (svg) { qr.appendChild(svg); }
+                linha.appendChild(qr);
+            }
+            var dados = el('div', { class: 'te-pg-dados' }, [
+                el('div', { class: 'te-pg-rot', text: 'VALOR DA PROPOSTA ACEITA' }),
+                el('b', { class: 'te-pg-valor', text: pg.valor }),
+                el('span', { class: 'te-pg-forma', text: pg.forma }),
+                el('span', null, ['Favorecido: ', el('b', { text: 'BlueJus Gestão e Tecnologia LTDA' })]),
+                el('span', null, ['CNPJ 66.803.163/0001-10 · identificação ', el('b', { text: pg.txid })])
+            ]);
+            if (pg.mostraQr) {
+                dados.appendChild(el('div', { class: 'te-pg-cod', text: pg.cod }));
+                var rotCopiar = el('span', { text: 'Copiar código PIX' });
+                var espera = null;
+                var botoes = el('div', { class: 'te-pg-botoes' }, [
+                    el('button', {
+                        type: 'button', class: 'te-pg-copiar',
+                        onclick: function () {
+                            copiar(pg.cod);
+                            rotCopiar.textContent = 'Copiado';
+                            clearTimeout(espera);
+                            espera = setTimeout(function () { rotCopiar.textContent = 'Copiar código PIX'; }, 2000);
+                        }
+                    }, [ic('bi-qr-code'), ' ', rotCopiar])
+                ]);
+                if (pg.podeConfirmar) {
+                    botoes.appendChild(el('button', { type: 'button', class: 'te-pg-chat', onclick: function () { avisarPagamentoNoChat(cod); } }, [ic('bi-chat-dots'), ' Enviar no chat']));
+                }
+                dados.appendChild(botoes);
+            }
+            linha.appendChild(dados);
+            caixa.appendChild(linha);
+            if (pg.podeComprovante) {
+                caixa.appendChild(el('label', { class: 'te-pg-comp' }, [
+                    ic('bi-paperclip'), 'Já paguei · enviar comprovante',
+                    el('input', { type: 'file', accept: '.pdf,image/*', onchange: function (e) { enviarComprovante(cod, e.target); } })
+                ]));
+            }
+            if (pg.comprovante) {
+                caixa.appendChild(el('button', {
+                    type: 'button', class: 'te-pg-baixar',
+                    onclick: function () { window.open(ROTA.documento(cod, pg.comprovante.id), '_blank', 'noopener'); }
+                }, [ic('bi-paperclip'), ' ' + pg.comprovante.nome]));
+            }
+            if (pg.podeConfirmar) {
+                caixa.appendChild(el('button', { type: 'button', class: 'te-pg-conf', onclick: function () { confirmarRecebimento(cod, pg); } }, [ic('bi-check2-circle'), ' Confirmar recebimento']));
+            }
+        }
+        alvo.appendChild(caixa);
+    }
+
+    /** O SVG do QR como nó (XML), ou null se não vier um <svg> inteiro. */
+    function svgDoQr(texto) {
+        if (vazio(texto)) { return null; }
+        var doc = new DOMParser().parseFromString(texto, 'image/svg+xml');
+        var raiz = doc.documentElement;
+        if (!raiz || raiz.nodeName !== 'svg' || doc.getElementsByTagName('parsererror').length) { return null; }
+        return document.importNode(raiz, true);
+    }
+
+    function enviarComprovante(codigo, input) {
+        var arquivo = input.files && input.files[0];
+        input.value = '';
+        if (!arquivo || previa()) { return; }
+        var fd = new FormData();
+        fd.append('comprovante', arquivo, arquivo.name);
+        pedir('POST', ROTA.pagamentoComprovante(codigo), fd).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            aplicarDemanda(r);
+        });
+    }
+
+    /** `pg.avisarChat`: o servidor grava o aviso do PIX no chat e a tela abre a aba Chat. */
+    function avisarPagamentoNoChat(codigo) {
+        if (previa()) { return; }
+        pedir('POST', ROTA.pagamentoAvisar(codigo)).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            aplicarDemanda(r);
+            trocarAba('chat');
+        });
+    }
+
+    /** `pg.confirmar`: o diálogo da tela (o desenho usa o confirm nativo do protótipo) com o texto do desenho. */
+    function confirmarRecebimento(codigo, pg) {
+        if (previa()) { return; }
+        abrirConf(codigo, {
+            k: '__pagamento_pix__',
+            confirmacao: { titulo: 'Confirmar recebimento', texto: pg.confirmacao, botao: 'Confirmar', motivo: false },
+            executar: function () {
+                return pedir('POST', ROTA.pagamentoConfirmar(codigo)).then(function (r) {
+                    if (!r.ok) {
+                        toastErro(r.mensagem);
+                        return r;
+                    }
+                    toastDoServidor(r.toast, 'Pagamento confirmado', 'O solicitante foi avisado no chat e por e-mail.');
+                    aplicarDemanda(r);
+                    return r;
+                });
+            }
         });
     }
 
