@@ -27,6 +27,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[CoversClass(AprovarSuspeitasDoIndicadorUseCase::class)]
 #[CoversClass(BloquearOuDesbloquearRecompensaUseCase::class)]
@@ -51,6 +52,7 @@ final class UseCasesDeAntifraudeDeRecompensaTest extends TestCase
     private array $aprovacoes = [];
     /** @var list<array<string, mixed>> */
     private array $contas = [];
+    private int $travas = 0;
 
     protected function setUp(): void
     {
@@ -82,7 +84,11 @@ final class UseCasesDeAntifraudeDeRecompensaTest extends TestCase
         $repo = $this->createStub(IndicacaoRepository::class);
         $repo->method('contarDoUsuario')->willReturn($quantas);
         $repo->method('contasParaRecompensas')->willReturnCallback(fn (): array => $this->contas);
-        $repo->method('emTransacaoTravada')->willReturnCallback(static fn (int $id, \Closure $trabalho): mixed => $trabalho());
+        $repo->method('emTransacaoTravada')->willReturnCallback(function (int $id, \Closure $trabalho): mixed {
+            ++$this->travas;
+
+            return $trabalho();
+        });
 
         return $repo;
     }
@@ -248,6 +254,14 @@ final class UseCasesDeAntifraudeDeRecompensaTest extends TestCase
         ];
     }
 
+    private function tradutor(): TranslatorInterface
+    {
+        $t = $this->createStub(TranslatorInterface::class);
+        $t->method('trans')->willReturnArgument(0);
+
+        return $t;
+    }
+
     private function aprovar(): AprovarSuspeitasDoIndicadorUseCase
     {
         $repo = $this->createStub(AprovacaoDeContaDeRecompensaRepository::class);
@@ -256,7 +270,7 @@ final class UseCasesDeAntifraudeDeRecompensaTest extends TestCase
             $this->aprovacoes[] = $a;
         });
 
-        return new AprovarSuspeitasDoIndicadorUseCase($this->indicacoes(), $repo, $this->em(), $this->relogio, $this->escopo);
+        return new AprovarSuspeitasDoIndicadorUseCase($this->indicacoes(), $repo, $this->em(), $this->relogio, $this->escopo, $this->tradutor());
     }
 
     #[TestDox('aprovar: aprova só as contas suspeitas pendentes do indicador (não as limpas, não as já aprovadas, não as de outro)')]
@@ -268,7 +282,7 @@ final class UseCasesDeAntifraudeDeRecompensaTest extends TestCase
         $this->conta(7, 104, true, ['dominio_conta' => 'banca.adv.br', 'dominio_indicador' => 'banca.adv.br']);
         $this->conta(8, 105, false, ['dominio_conta' => 'banca.adv.br', 'dominio_indicador' => 'banca.adv.br']);
 
-        $n = $this->aprovar()->executar(new AprovarSuspeitasDoIndicadorInput($this->master, 7));
+        $n = $this->aprovar()->executar(new AprovarSuspeitasDoIndicadorInput($this->master, 7, 2));
 
         self::assertSame(2, $n);
         self::assertSame([101, 102], array_map(static fn (AprovacaoDeContaDeRecompensa $a): int => (int) $a->getConta()->getId(), $this->aprovacoes));
@@ -283,11 +297,37 @@ final class UseCasesDeAntifraudeDeRecompensaTest extends TestCase
     {
         $this->conta(7, 104, true, ['dominio_conta' => 'banca.adv.br', 'dominio_indicador' => 'banca.adv.br']);
 
-        self::assertSame(0, $this->aprovar()->executar(new AprovarSuspeitasDoIndicadorInput($this->master, 7)));
+        self::assertSame(0, $this->aprovar()->executar(new AprovarSuspeitasDoIndicadorInput($this->master, 7, 0)));
         self::assertSame([], $this->aprovacoes);
 
         $this->expectException(IndicadorNaoEncontrado::class);
-        (new AprovarSuspeitasDoIndicadorUseCase($this->indicacoes(0), $this->createStub(AprovacaoDeContaDeRecompensaRepository::class), $this->em(), $this->relogio, $this->escopo))
-            ->executar(new AprovarSuspeitasDoIndicadorInput($this->master, 7));
+        (new AprovarSuspeitasDoIndicadorUseCase($this->indicacoes(0), $this->createStub(AprovacaoDeContaDeRecompensaRepository::class), $this->em(), $this->relogio, $this->escopo, $this->tradutor()))
+            ->executar(new AprovarSuspeitasDoIndicadorInput($this->master, 7, 1));
+    }
+
+    #[TestDox('aprovar: quantidade pendente diferente da vista (mais ou menos) recusa com a mensagem do catálogo e não aprova nada')]
+    public function testListaMudou(): void
+    {
+        $this->conta(7, 101, false, ['dominio_conta' => 'banca.adv.br', 'dominio_indicador' => 'banca.adv.br']);
+        $this->conta(7, 102, false, ['dominio_conta' => 'banca.adv.br', 'dominio_indicador' => 'banca.adv.br']);
+
+        foreach ([1, 3] as $vistas) {
+            try {
+                $this->aprovar()->executar(new AprovarSuspeitasDoIndicadorInput($this->master, 7, $vistas));
+                self::fail('devia recusar vistas=' . $vistas);
+            } catch (RecompensaRecusada $e) {
+                self::assertSame('master.recompensas.suspeitas_mudou', $e->getMessage());
+            }
+        }
+        self::assertSame([], $this->aprovacoes);
+    }
+
+    #[TestDox('bloquear, desbloquear e apagar rodam sob a trava das indicações do usuário (sem duas linhas em corrida)')]
+    public function testSobTrava(): void
+    {
+        $this->bloquear()->executar(new BloquearOuDesbloquearRecompensaInput($this->master, 7, true));
+        $this->apagar()->executar(new ApagarIndicadorDaListaInput($this->master, 7, 'APAGAR'));
+
+        self::assertSame(2, $this->travas);
     }
 }

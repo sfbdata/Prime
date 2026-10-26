@@ -476,14 +476,23 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
         $antes = $this->linhaDe($this->json(), (int) $ana->getId());
         self::assertSame(['analise', 0, 1, ['dominio' => 1]], [$antes['situacao'], $antes['ativos'], $antes['suspeitas'], $antes['motivosDeSuspeita']]);
 
-        $this->enviar('POST', $url);
+        $this->enviar('POST', $url, ['vistas' => 2]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('A lista de suspeitas mudou. Recarregue o painel e revise de novo.', $this->json()['erro']);
+        foreach ([null, [], ['vistas' => 0], ['vistas' => '1']] as $corpo) {
+            $this->enviar('POST', $url, $corpo);
+            self::assertResponseStatusCodeSame(422);
+        }
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM aprovacao_de_conta_de_recompensa'));
+
+        $this->enviar('POST', $url, ['vistas' => 1]);
         self::assertResponseIsSuccessful();
         $depois = $this->linhaDe($this->json(), (int) $ana->getId());
         self::assertSame(['andamento', 1, 0, 1000], [$depois['situacao'], $depois['ativos'], $depois['suspeitas'], $depois['saldoCentavos']]);
-        $this->enviar('POST', $url);
-        self::assertResponseIsSuccessful();
+        $this->enviar('POST', $url, ['vistas' => 1]);
+        self::assertResponseStatusCodeSame(422, 'nada mais pendente: a quantidade vista não bate');
 
-        self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM aprovacao_de_conta_de_recompensa'), 'repetir não grava de novo');
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM aprovacao_de_conta_de_recompensa'), 'repetir é recusado e não grava de novo');
         $auditoria = $this->em->getConnection()->fetchFirstColumn('SELECT tenant_id FROM audit_log WHERE entity_class = ? AND actor_user_id = ?', [AprovacaoDeContaDeRecompensa::class, $master->getId()]);
         self::assertCount(1, $auditoria);
         self::assertNull($auditoria[0], 'plataforma, sem escritório');
@@ -594,7 +603,7 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
     {
         $ana = $this->indicadoraComContaSuspeita('banca-' . uniqid() . '.adv.br');
         $rotas = [
-            ['/master/recompensas/usuarios/' . $ana->getId() . '/suspeitas/aprovar', null],
+            ['/master/recompensas/usuarios/' . $ana->getId() . '/suspeitas/aprovar', ['vistas' => 1]],
             ['/master/recompensas/usuarios/' . $ana->getId() . '/bloqueio', ['bloqueado' => true]],
             ['/master/recompensas/usuarios/' . $ana->getId() . '/apagar', ['confirmacao' => 'APAGAR']],
         ];
@@ -622,9 +631,9 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
         $this->entrarComoMaster();
         $semIndicacao = $this->usuario(['ROLE_USER']);
 
-        $this->enviar('POST', '/master/recompensas/usuarios/' . $semIndicacao->getId() . '/suspeitas/aprovar');
+        $this->enviar('POST', '/master/recompensas/usuarios/' . $semIndicacao->getId() . '/suspeitas/aprovar', ['vistas' => 1]);
         self::assertResponseStatusCodeSame(404);
-        $this->enviar('POST', '/master/recompensas/usuarios/999999999/suspeitas/aprovar');
+        $this->enviar('POST', '/master/recompensas/usuarios/999999999/suspeitas/aprovar', ['vistas' => 1]);
         self::assertResponseStatusCodeSame(404);
     }
 

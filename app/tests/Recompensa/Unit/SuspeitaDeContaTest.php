@@ -62,7 +62,7 @@ final class SuspeitaDeContaTest extends TestCase
     /** @return iterable<string, array{string}> */
     public static function provedoresPublicos(): iterable
     {
-        foreach (['gmail.com', 'hotmail.com', 'hotmail.com.br', 'outlook.com', 'yahoo.com.br', 'icloud.com', 'bol.com.br', 'uol.com.br'] as $d) {
+        foreach (['gmail.com', 'hotmail.com', 'hotmail.com.br', 'outlook.com', 'yahoo.com.br', 'icloud.com', 'bol.com.br', 'uol.com.br', 'live.com', 'msn.com', 'terra.com.br', 'ig.com.br', 'globo.com', 'globomail.com', 'proton.me', 'protonmail.com', 'zoho.com'] as $d) {
             yield $d => [$d];
         }
     }

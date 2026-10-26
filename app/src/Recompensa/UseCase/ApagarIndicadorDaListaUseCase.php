@@ -24,7 +24,7 @@ use Psr\Clock\ClockInterface;
  * Fluxo principal: exige a palavra APAGAR (sem diferenciar maiúscula nem espaço nas pontas, como o desenho), também no
  * servidor, e marca a linha da condição como apagada. Não há tela para desfazer nesta fatia: nova indicação não o traz de
  * volta (pendência anotada na spec).
- * Idempotência: apagar quem já está apagado não muda nada nem regrava.
+ * Idempotência: a trava das indicações do usuário serializa pedidos simultâneos (sem duas linhas); apagar quem já está apagado não muda nada nem regrava.
  * Fluxos alternativos: palavra errada ou ausente (422, sem gravar); indicador inexistente (404).
  * Auditoria: CondicaoDeRecompensa é Auditavel; cada mudança entra na trilha do Master.
  */
@@ -54,15 +54,17 @@ final class ApagarIndicadorDaListaUseCase
             throw new IndicadorNaoEncontrado('Indicador não encontrado.');
         }
         $usuario = $this->em->find(User::class, $input->userId) ?? throw new IndicadorNaoEncontrado('Indicador não encontrado.');
-        $condicao = $this->condicoes->buscarDoIndicador($input->userId);
-        if ($condicao?->isApagada()) {
-            return;
-        }
 
-        $condicao ??= new CondicaoDeRecompensa($usuario);
-        $agora = $this->relogio->now();
-        $condicao->apagar($agora);
-        $condicao->registrarAlteracao($input->ator, $agora);
-        $this->escopoDePlataforma->executar(fn () => $this->condicoes->salvar($condicao, flush: true));
+        $this->escopoDePlataforma->executar(fn () => $this->indicacoes->emTransacaoTravada($input->userId, function () use ($input, $usuario): void {
+            $condicao = $this->condicoes->buscarDoIndicador($input->userId);
+            if ($condicao?->isApagada()) {
+                return;
+            }
+            $condicao ??= new CondicaoDeRecompensa($usuario);
+            $agora = $this->relogio->now();
+            $condicao->apagar($agora);
+            $condicao->registrarAlteracao($input->ator, $agora);
+            $this->condicoes->salvar($condicao, flush: true);
+        }));
     }
 }

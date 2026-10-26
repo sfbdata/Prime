@@ -17,8 +17,14 @@ final class SuspeitaDeConta
     public const CNPJ = 'cnpj';
     public const DOMINIO = 'dominio';
 
-    /** Como no desenho: quem usa um desses não prova ligação nenhuma só por dividir o provedor. */
-    private const PROVEDORES_PUBLICOS = ['gmail', 'hotmail', 'outlook', 'yahoo', 'icloud', 'bol', 'uol'];
+    /**
+     * Quem usa um desses não prova ligação nenhuma só por dividir o provedor. Os sete primeiros são os do desenho; o resto
+     * (live, msn, terra, ig, globo, globomail, proton, protonmail, zoho) é ampliação nossa, a confirmar com o dono.
+     */
+    private const PROVEDORES_PUBLICOS = [
+        'gmail', 'hotmail', 'outlook', 'yahoo', 'icloud', 'bol', 'uol',
+        'live', 'msn', 'terra', 'ig', 'globo', 'globomail', 'proton', 'protonmail', 'zoho',
+    ];
 
     /**
      * @param list<int>         $escritoriosDaConta

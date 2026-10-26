@@ -101,11 +101,15 @@ final class RecompensasDoMasterController extends AbstractController
         });
     }
 
-    /** Aprova as contas suspeitas pendentes do indicador (passam a contar). Sem corpo. */
+    /** Aprova as contas suspeitas pendentes do indicador (passam a contar). Corpo `{vistas}`: a quantidade que o Master viu. */
     #[Route('/master/recompensas/usuarios/{id}/suspeitas/aprovar', name: 'master_recompensas_suspeitas_aprovar', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function aprovarSuspeitas(int $id, Request $request, AprovarSuspeitasDoIndicadorUseCase $aprovar): JsonResponse
     {
-        return $this->mutar($request, fn () => $aprovar->executar(new AprovarSuspeitasDoIndicadorInput($this->ator(), $id)));
+        return $this->mutar($request, function () use ($id, $request, $aprovar): void {
+            $input = AprovarSuspeitasDoIndicadorInput::doJson($this->ator(), $id, self::corpo($request) ?? []);
+            $this->exigirValido($input);
+            $aprovar->executar($input);
+        });
     }
 
     /** Bloqueia ou desbloqueia a recompensa do indicador. Corpo `{bloqueado: true|false}`. */

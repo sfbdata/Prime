@@ -142,6 +142,7 @@ final class PainelRecompensasJsTest extends TestCase
             'master.js.recompensas.motivo.escritorio' => 'mesmo escritório de quem indicou',
             'master.js.recompensas.motivo.cnpj' => 'mesmo CNPJ',
             'master.js.recompensas.motivo.dominio' => 'mesmo domínio de e-mail',
+            'master.recompensas.suspeitas_mudou' => 'A lista de suspeitas mudou. Recarregue o painel e revise de novo.',
             'master.recompensas.apagar.titulo' => 'Apagar indicador da lista',
             'master.recompensas.apagar.rotulo' => 'Digite APAGAR para confirmar',
             'master.recompensas.apagar.dica' => 'Ele sai da lista de recompensas; o extrato continua guardado.',
@@ -165,7 +166,7 @@ final class PainelRecompensasJsTest extends TestCase
     {
         $js = self::js();
 
-        self::assertStringContainsString("pedir(urlDoUsuario(raiz.dataset.urlAprovar, id), 'POST')", $js);
+        self::assertStringContainsString("pedir(urlDoUsuario(raiz.dataset.urlAprovar, id), 'POST', { vistas: u.suspeitas })", $js);
         self::assertStringContainsString("pedir(urlDoUsuario(raiz.dataset.urlBloqueio, id), 'POST', { bloqueado: !u.bloqueado })", $js);
         self::assertStringContainsString("pedir(urlDoUsuario(raiz.dataset.urlApagar, u.userId), 'POST', { confirmacao: palavra })", $js);
         self::assertStringContainsString('if (!window.confirm(texto)) return;', $js);

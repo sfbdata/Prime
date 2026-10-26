@@ -22,7 +22,7 @@ use Psr\Clock\ClockInterface;
  * que já indicou; o id vem da URL e é conferido contra as indicações.
  * Fluxo principal: grava o bloqueio na linha da condição (criando-a se preciso); ao desbloquear, a linha some quando não
  * sobra nada nela (sem condição individual nem apagado).
- * Idempotência: repetir o mesmo pedido não muda nada nem regrava (a data do primeiro bloqueio fica).
+ * Idempotência: a trava das indicações do usuário serializa pedidos simultâneos (sem duas linhas); repetir o mesmo pedido não muda nada nem regrava (a data do primeiro bloqueio fica).
  * Fluxos alternativos: indicador inexistente (404).
  * Auditoria: CondicaoDeRecompensa é Auditavel; cada mudança entra na trilha do Master.
  */
@@ -44,18 +44,17 @@ final class BloquearOuDesbloquearRecompensaUseCase
             throw new IndicadorNaoEncontrado('Indicador não encontrado.');
         }
         $usuario = $this->em->find(User::class, $input->userId) ?? throw new IndicadorNaoEncontrado('Indicador não encontrado.');
-        $condicao = $this->condicoes->buscarDoIndicador($input->userId);
-        if (($condicao?->isBloqueada() ?? false) === $input->bloqueado) {
-            return;
-        }
 
-        $condicao ??= new CondicaoDeRecompensa($usuario);
-        $agora = $this->relogio->now();
-        $input->bloqueado ? $condicao->bloquear($agora) : $condicao->desbloquear();
-        $condicao->registrarAlteracao($input->ator, $agora);
-
-        $this->escopoDePlataforma->executar(function () use ($condicao): void {
+        $this->escopoDePlataforma->executar(fn () => $this->indicacoes->emTransacaoTravada($input->userId, function () use ($input, $usuario): void {
+            $condicao = $this->condicoes->buscarDoIndicador($input->userId);
+            if (($condicao?->isBloqueada() ?? false) === $input->bloqueado) {
+                return;
+            }
+            $condicao ??= new CondicaoDeRecompensa($usuario);
+            $agora = $this->relogio->now();
+            $input->bloqueado ? $condicao->bloquear($agora) : $condicao->desbloquear();
+            $condicao->registrarAlteracao($input->ator, $agora);
             $condicao->semEfeito() ? $this->condicoes->remover($condicao, flush: true) : $this->condicoes->salvar($condicao, flush: true);
-        });
+        }));
     }
 }

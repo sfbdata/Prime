@@ -100,6 +100,15 @@ dinheiro novo: só decide quais contas contam.
   lista e dos KPIs; reaparece se fizer nova indicação? NÃO: fica fora até o Master reverter (sem tela de reversão
   nesta fatia; pendência anotada).
 - Auto-indicação: a conta indicada que é o próprio indicador já é ignorada na atribuição; a F3 não muda isso.
+- Só vínculo ativo (`user_tenant.is_active`) com escritório não excluído gera sinal de escritório e de CNPJ.
+- Provedores públicos: a lista é AMPLIADA em relação ao desenho (que tem gmail, hotmail, outlook, yahoo, icloud, bol, uol):
+  entram também live, msn, terra, ig, globo, globomail, proton, protonmail e zoho, comparados pelo primeiro rótulo do
+  domínio. Decisão a confirmar com o dono.
+- Aprovar suspeitas carrega a quantidade vista (`vistas`, inteiro >= 1); se a quantidade pendente no servidor for outra,
+  recusa com 422 ("A lista de suspeitas mudou...") e nada é aprovado. Bloquear, apagar e aprovar rodam sob a trava das
+  indicações do usuário.
+- Pendências: "Pronto para liberar" depende do lançamento tipo `liberado` (fatia futura; hoje Liberado cobre os dois);
+  "apagar" com saldo > 0 não avisa e não tem reversão (pergunta ao dono).
 - Fora: alerta na Central (a Notificacao é por escritório; vira fatia própria depois de decidir o destinatário).
 
 ## Planos: fatias

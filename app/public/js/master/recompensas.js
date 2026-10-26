@@ -415,7 +415,7 @@
     if (!window.confirm(texto)) return;
     ocupado = true;
     avisar('');
-    pedir(urlDoUsuario(raiz.dataset.urlAprovar, id), 'POST')
+    pedir(urlDoUsuario(raiz.dataset.urlAprovar, id), 'POST', { vistas: u.suspeitas })
       .then(d => { desenhar(d); avisar(T('master.js.recompensas.aprovadas', { nome: u.nome }), true); })
       .catch(e => avisar(e.message || T('master.js.recompensas.erro_salvar')))
       .finally(() => { ocupado = false; });

@@ -258,4 +258,27 @@ final class ConsultasDeRecompensaNoBancoTest extends KernelTestCase
         self::assertStringNotContainsString('Secreta', (string) json_encode($linha));
         self::assertStringNotContainsString($conta->getEmail(), (string) json_encode($linha));
     }
+
+    #[TestDox('antifraude: vínculo inativo e escritório excluído não geram sinal de escritório nem de CNPJ')]
+    public function testVinculoMortoEEscritorioExcluidoNaoGeramSinal(): void
+    {
+        $ana = $this->usuario('Ana', dominio: 'ana.example');
+        $inativa = $this->usuario('Vinculo Inativo', '-50 days', 'inativa.example');
+        $excluida = $this->usuario('Escritorio Excluido', '-50 days', 'excluida.example');
+        $casaA = $this->escritorio('12345678000199');
+        $casaB = $this->escritorio('99999999000191');
+        $this->vincular($ana, $casaA);
+        $this->vincular($ana, $casaB);
+        $this->vincular($inativa, $casaA);
+        $this->vincular($excluida, $casaB);
+        $this->indicar($ana, $inativa);
+        $this->indicar($ana, $excluida);
+        $this->em->flush();
+        $con = $this->em->getConnection();
+        $con->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$inativa->getId(), $casaA->getId()]);
+        $con->executeStatement('UPDATE tenant SET excluido_em = now() WHERE id = ?', [$casaB->getId()]);
+
+        self::assertSame([], SuspeitaDeConta::daLinha($this->sinaisDaConta($ana, $inativa)), 'o vínculo inativo da conta não conta');
+        self::assertSame([], SuspeitaDeConta::daLinha($this->sinaisDaConta($ana, $excluida)), 'o escritório excluído não conta');
+    }
 }

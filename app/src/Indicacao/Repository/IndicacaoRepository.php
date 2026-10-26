@@ -271,8 +271,9 @@ class IndicacaoRepository extends ServiceEntityRepository
      */
     public function contasParaRecompensas(): array
     {
-        $escritorios = 'SELECT string_agg(ut.tenant_id::text, \',\') FROM user_tenant ut WHERE ut.user_id = %s';
-        $cnpjs = 'SELECT string_agg(DISTINCT t.cnpj, \',\') FROM user_tenant ut JOIN tenant t ON t.id = ut.tenant_id WHERE ut.user_id = %s AND t.cnpj IS NOT NULL';
+        // Só vínculo ativo com escritório não excluído gera sinal: vínculo morto e escritório apagado não provam ligação.
+        $escritorios = 'SELECT string_agg(ut.tenant_id::text, \',\') FROM user_tenant ut JOIN tenant t ON t.id = ut.tenant_id WHERE ut.user_id = %s AND ut.is_active = true AND t.excluido_em IS NULL';
+        $cnpjs = 'SELECT string_agg(DISTINCT t.cnpj, \',\') FROM user_tenant ut JOIN tenant t ON t.id = ut.tenant_id WHERE ut.user_id = %s AND ut.is_active = true AND t.excluido_em IS NULL AND t.cnpj IS NOT NULL';
         $linhas = $this->conexao()->fetchAllAssociative(
             'SELECT DISTINCT ON (conta.id) i.indicado_por_id AS indicador_id, conta.id AS conta_id, conta.created_at AS conta_criada_em,
                     EXISTS (SELECT 1 FROM user_tenant ut JOIN pasta p ON p.tenant_id = ut.tenant_id
