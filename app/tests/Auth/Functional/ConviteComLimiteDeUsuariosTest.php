@@ -9,7 +9,9 @@ use App\Auth\Controller\GerenciarConvitesController;
 use App\Auth\Service\VagaNoEscritorio;
 use App\Auth\UseCase\AceitarConviteEscritorioComContaUseCase;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
+use App\Contribua\Entity\EspacoDoEscritorio;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
+use App\Contribua\Repository\PlanoRepository;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -52,8 +54,6 @@ final class ConviteComLimiteDeUsuariosTest extends JusPrimeWebTestCase
         $this->client = static::createClient();
         $this->client->disableReboot();
         $this->em = static::getContainer()->get(EntityManagerInterface::class);
-        // D5 revogada: os planos nascem sem limite de usuários; estes testes precisam de planos com limite.
-        $this->em->getConnection()->executeStatement("UPDATE contribua_plano SET limite_usuarios = CASE codigo WHEN 'free' THEN 3 WHEN 'essencial' THEN 8 WHEN 'profissional' THEN 15 ELSE NULL END");
         static::getContainer()->set('security.csrf.token_storage', new class () implements ClearableTokenStorageInterface {
             public function getToken(string $tokenId): string
             {
@@ -77,13 +77,17 @@ final class ConviteComLimiteDeUsuariosTest extends JusPrimeWebTestCase
 
         $this->tenant = (new Tenant())->setName('Escritório Cheio ' . uniqid());
         $this->em->persist($this->tenant);
+        // O plano não limita usuários (D5 revogada); o limite de 3 é o próprio da conta, definido pelo Master.
+        $espaco = new EspacoDoEscritorio($this->tenant, static::getContainer()->get(PlanoRepository::class)->free());
+        $espaco->definirLimiteDeUsuarios(3, 'limite de teste', null);
+        $this->em->persist($espaco);
         $this->perfil = $this->perfilQueConvida();
         $this->admin = $this->membro('Admin Convites');
         $this->membro('Segunda Pessoa');
         $this->membro('Terceira Pessoa');
     }
 
-    #[TestDox('bloqueio ligado e Free cheio (3 de 3): o convite é recusado com a mensagem e não é criado')]
+    #[TestDox('bloqueio ligado e limite da conta cheio (3 de 3): o convite é recusado com a mensagem e não é criado')]
     public function testRecusaComBloqueioLigado(): void
     {
         $this->ligarBloqueio(true);

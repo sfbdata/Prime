@@ -174,6 +174,8 @@ Implementação (21/10, branch `master-saidas-tendencia`; decisões aprovadas pe
 ## Revogação da D5 (dono, 26/10/2026)
 
 O dono decidiu que "usuários ilimitados" do desenho 05 de 25/10 vale: a regra D5 (3 / 8 / 15 / sem limite
-de usuários por plano) está revogada. A migration 20261026152000 zera `contribua_plano.limite_usuarios` (os quatro planos ficam sem limite) e a tela de
-Planos mostra "usuários ilimitados". Limite próprio de uma conta (definido pelo Master em
-`contribua_espaco_do_escritorio`) não é tocado e continua valendo. Em produção (26/10) só uma conta existe, no Free.
+de usuários por plano) está revogada. O código passa a ignorar `Plano.limiteUsuarios` (`SituacaoDoEspaco::limiteDeUsuarios` devolve sem limite para o plano),
+sem migration de dado: a coluna fica como está (a guarda do deploy automático não aceita UPDATE em migration). A tela de
+Planos mostra "usuários ilimitados". O limite próprio de uma conta (definido pelo Master em
+`contribua_espaco_do_escritorio`) segue valendo. Em produção (26/10) só uma conta existe, no Free. Pendência: o campo
+de usuários no modal "Editar plano" ficou sem efeito e deve sair numa fatia seguinte.

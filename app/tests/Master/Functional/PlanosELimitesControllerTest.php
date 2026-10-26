@@ -66,8 +66,6 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         $this->client->disableReboot();
         $this->em = static::getContainer()->get(EntityManagerInterface::class);
         $this->instalarCsrfFixo();
-        // D5 revogada: os planos nascem sem limite de usuários; estes testes precisam de planos com limite.
-        $this->em->getConnection()->executeStatement("UPDATE contribua_plano SET limite_usuarios = CASE codigo WHEN 'free' THEN 3 WHEN 'essencial' THEN 8 WHEN 'profissional' THEN 15 ELSE NULL END");
 
         $this->master = $this->usuario('Farlei Master', ['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
         $this->contaDoMaster = $this->conta('Escritório do Master', $this->master);
@@ -306,7 +304,7 @@ final class PlanosELimitesControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/master/dados/contas');
         $contas = array_column(json_decode((string) $this->client->getResponse()->getContent(), true)['contas'], null, 'id');
         $espaco = $contas[$this->alvo->getId()]['espaco'];
-        self::assertSame(['free', 'Free', 10, 0, 'livre', false, 3], [$espaco['planoCodigo'], $espaco['planoNome'], $espaco['limiteGb'], $espaco['percentual'], $espaco['faixa'], $espaco['semLimite'], $espaco['limiteUsuarios']]);
+        self::assertSame(['free', 'Free', 10, 0, 'livre', false, null], [$espaco['planoCodigo'], $espaco['planoNome'], $espaco['limiteGb'], $espaco['percentual'], $espaco['faixa'], $espaco['semLimite'], $espaco['limiteUsuarios']]);
 
         $this->client->request('GET', '/master/dados/visao-geral');
         $visao = json_decode((string) $this->client->getResponse()->getContent(), true);
