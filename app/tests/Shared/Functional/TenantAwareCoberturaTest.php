@@ -234,6 +234,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
         // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
         \App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa::class,
+        // Metas de divulgação do Painel do Master (desenho 05 VS 25.10.26, P3): linha única de configuração da PLATAFORMA
+        // (id 1), escrita só pelo Master. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\MetaDeDivulgacao::class,
         // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
         // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
         // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
@@ -316,7 +319,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 74 → 75 com a recusa de oferta do Trabalho Externo (24/10/2026): RecusaDeOferta, justificada acima.
     // 75 → 78 com o Desempenho do Master (26/10/2026): EventoDeDesempenho, IncidenteDeDesempenho e RegistroDeBackup
     // (plataforma), justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 78;
+    // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
+    private const MAX_FORA_DO_ESCOPO = 79;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

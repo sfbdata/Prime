@@ -148,6 +148,18 @@
     + '<span class="mp-vazia-texto">' + esc(texto) + '</span><div class="mp-vazia-itens">' + itens.map(i => '<span>' + esc(i) + '</span>').join('') + '</div>'
     + '<span class="mp-vazia-aviso">' + T('master.js.vazia.aviso') + '</span></div>';
 
+  /* Metas de divulgação: o módulo metas-divulgacao.js cuida do bloco; aqui só entram a base do mapa (usuários por
+     estado e por cidade, geral) e as URLs. */
+  function renderMetas() {
+    const el = document.getElementById('mp-metas');
+    if (!el || !window.BJMetasDivulgacao) return;
+    const g = D.visao.mapa.pessoas.geral || {};
+    window.BJMetasDivulgacao.montar(el, {
+      url: URLS.metasDivulgacao, token: URLS.metasToken, urlPopulacao: URLS.populacaoIbge,
+      urlMapa: URLS.mapaBrasil + '?quem=pes&usu=geral', usuarios: { A: g.A || {}, C: g.C || {} },
+    });
+  }
+
   /* ================= VISÃO GERAL ================= */
   function montarVisao() {
     elSecao.innerHTML = '<div class="mp-kpis" id="mp-kpis"></div>'
@@ -156,8 +168,9 @@
       + '<div class="mp-mapa-corpo"><div class="mp-uf-tab" id="mp-uf-tab"></div><iframe class="mp-mapa-iframe" id="mp-mapa-iframe" title=""></iframe></div>'
       + '<div class="mp-escala"><span>' + T('master.js.mapa.escala_menos') + '</span>' + ['#eef2f5', '#cfe3f1', '#4f8fbd', '#0a4f7a'].map(c => '<i style="--cor:' + c + '"></i>').join('')
       + '<span>' + T('master.js.mapa.escala_mais') + '</span><span class="mp-espaco"></span><span>' + T('master.js.mapa.malha') + '</span></div></div>'
+      + '<div id="mp-metas"></div>'
       + '<div class="mp-card mp-idades" id="mp-idades"></div>';
-    renderKpis(); renderGrafico(); renderMapa(); renderIdades();
+    renderKpis(); renderGrafico(); renderMapa(); renderIdades(); renderMetas();
   }
 
   function renderKpis() {
