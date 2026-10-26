@@ -148,6 +148,9 @@ master:
             sul: Sul
         pessoas: '{n} usuário(s)'
         inscricoes: '{n} inscrição(ões)'
+        ind_env: '{n} indicação(ões) enviada(s)'
+        ind_ok: '{n} conta(s) aberta(s)'
+        ind_pago: 'R$ {n} pagos'
         municipios: '{n} municípios'
         municipio: Município
         cidade_nao_informada: Cidade não informada
@@ -452,6 +455,14 @@ master:
             primarios: Primários
             geral: Geral
             so_primarios: Só primários
+            indicacoes: Indicações
+            ind_env: Indicações enviadas
+            ind_ok: Contas abertas
+            ind_pago: Recompensas pagas (R$)
+            col_ind_env: Indicações
+            col_ind_ok: Contas
+            col_ind_pago: R$ pagos
+            por_estado_ind: indicações por estado de quem indicou
             brasil: Brasil
             mundo: Mundo
             estado: Estado

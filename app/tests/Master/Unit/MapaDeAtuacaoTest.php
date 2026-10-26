@@ -23,6 +23,31 @@ final class MapaDeAtuacaoTest extends TestCase
         self::assertSame(['scriptalert(1)/script'], $cidades);
     }
 
+    #[TestDox('Indicações contam no local de quem indicou: enviadas e contas abertas; "pago" fica zerado; indicador sem local não entra')]
+    public function testIndicacoesNoLocalDeQuemIndicou(): void
+    {
+        $v = static fn (int $t, string $lot): array => ['tenantId' => $t, 'lotacao' => $lot, 'primario' => true, 'ultimoAcesso' => ''];
+        $pessoas = [
+            ['id' => 1, 'criadoEm' => '2026-01-01 10:00:00', 'primario' => true, 'oabUf' => null, 'vinculos' => [$v(1, 'Maceió/AL')]],
+            ['id' => 2, 'criadoEm' => '2026-01-01 10:00:00', 'primario' => true, 'oabUf' => 'SP', 'vinculos' => [$v(2, '')]],
+            ['id' => 3, 'criadoEm' => '2026-01-01 10:00:00', 'primario' => true, 'oabUf' => null, 'vinculos' => [$v(3, '')]],
+        ];
+
+        $mapa = MapaDeAtuacao::montar($pessoas, [], new \DateTimeImmutable(self::HOJE), [], [
+            ['indicadorId' => 1, 'enviada' => true, 'virouConta' => true],
+            ['indicadorId' => 1, 'enviada' => true, 'virouConta' => false],
+            ['indicadorId' => 1, 'enviada' => false, 'virouConta' => true],
+            ['indicadorId' => 2, 'enviada' => true, 'virouConta' => false],
+            ['indicadorId' => 3, 'enviada' => true, 'virouConta' => true],
+            ['indicadorId' => 99, 'enviada' => true, 'virouConta' => true],
+        ]);
+
+        self::assertSame(['AL' => 2, 'SP' => 1], $mapa['indicacoes']['env']['A']);
+        self::assertSame(['AL' => ['Maceió' => 2]], $mapa['indicacoes']['env']['C']);
+        self::assertSame(['AL' => 2], $mapa['indicacoes']['ok']['A']);
+        self::assertSame(['A' => [], 'C' => []], $mapa['indicacoes']['pago']);
+    }
+
     #[TestDox('Pessoas contam uma vez; "Só primários" filtra; tendência compara entradas de 30 e 60 dias; escritórios sem estado vão à parte')]
     public function testAgrega(): void
     {
