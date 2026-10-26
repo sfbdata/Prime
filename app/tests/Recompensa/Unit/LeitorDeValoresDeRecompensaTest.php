@@ -112,4 +112,48 @@ final class LeitorDeValoresDeRecompensaTest extends TestCase
         self::assertSame(200, $i->mensalCentavos);
         self::assertSame('parceria', $i->motivo);
     }
+
+    /** @return iterable<string, array{mixed, int}> */
+    public static function comSinal(): iterable
+    {
+        yield 'crédito' => ['10,00', 1000];
+        yield 'estorno' => ['-10,00', -1000];
+        yield 'estorno sem vírgula' => ['-5', -500];
+        yield 'milhar' => ['-1.000,50', -100050];
+        yield 'número JSON negativo' => [-25, -2500];
+        yield 'no teto' => ['100.000,00', 10000000];
+        yield 'no teto negativo' => ['-100000', -10000000];
+    }
+
+    #[DataProvider('comSinal')]
+    #[TestDox('centavosComSinal aceita sinal negativo (estorno)')]
+    public function testCentavosComSinal(mixed $entrada, int $esperado): void
+    {
+        self::assertSame($esperado, LeitorDeValoresDeRecompensa::centavosComSinal($entrada));
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function comSinalInvalido(): iterable
+    {
+        yield 'zero' => ['0'];
+        yield 'menos zero' => ['-0,00'];
+        yield 'vazio' => [''];
+        yield 'nulo' => [null];
+        yield 'só o sinal' => ['-'];
+        yield 'sinal duplo' => ['--5'];
+        yield 'mais explícito' => ['+5'];
+        yield 'texto' => ['dez'];
+        yield 'três casas' => ['-1,999'];
+        yield 'acima do teto' => ['100.000,01'];
+        yield 'acima do teto negativo' => ['-100000,01'];
+        yield 'booleano' => [true];
+    }
+
+    #[DataProvider('comSinalInvalido')]
+    #[TestDox('centavosComSinal recusa zero, vazio, texto, três casas e acima de R$ 100.000,00')]
+    public function testCentavosComSinalInvalido(mixed $entrada): void
+    {
+        $this->expectException(RecompensaRecusada::class);
+        LeitorDeValoresDeRecompensa::centavosComSinal($entrada);
+    }
 }

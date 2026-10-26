@@ -7,24 +7,30 @@ namespace App\Master\Controller;
 use App\Entity\Auth\User;
 use App\Recompensa\DTO\AlterarRegrasDoProgramaInput;
 use App\Recompensa\DTO\DefinirCondicaoIndividualInput;
+use App\Recompensa\DTO\ExtratoEmCsv;
+use App\Recompensa\DTO\LancamentoDoExtratoOutput;
+use App\Recompensa\DTO\LancarCreditoOuEstornoInput;
 use App\Recompensa\DTO\RemoverCondicaoIndividualInput;
 use App\Recompensa\Exception\IndicadorNaoEncontrado;
 use App\Recompensa\Exception\RecompensaRecusada;
 use App\Recompensa\UseCase\AlterarRegrasDoProgramaUseCase;
+use App\Recompensa\UseCase\ConsultarExtratoDeRecompensasUseCase;
 use App\Recompensa\UseCase\ConsultarPainelDeRecompensasUseCase;
 use App\Recompensa\UseCase\DefinirCondicaoIndividualUseCase;
+use App\Recompensa\UseCase\LancarCreditoOuEstornoUseCase;
 use App\Recompensa\UseCase\RemoverCondicaoIndividualUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Seção "Recompensas" do Painel do Master, F1 (desenho 05 Perfis 1.2 VS 25.10.26, L306-338; spec
+ * Seção "Recompensas" do Painel do Master, F1 e F2 (desenho 05 Perfis 1.2 VS 25.10.26, L306-338; spec
  * docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md). Só o Master: ROLE_SUPER_ADMIN na classe.
  *
  * JSON. Os POST/DELETE levam o token CSRF `master_recompensas` no header `X-CSRF-Token` (o padrão das outras seções do
@@ -76,6 +82,41 @@ final class RecompensasDoMasterController extends AbstractController
     public function removerCondicao(int $id, Request $request, RemoverCondicaoIndividualUseCase $remover): JsonResponse
     {
         return $this->mutar($request, fn () => $remover->executar(new RemoverCondicaoIndividualInput($this->ator(), $id)));
+    }
+
+    /** Crédito ou estorno manual. Corpo `{valor ("-10,00" estorna), observacao, chave (UUID do diálogo)}`; repetir a chave não lança de novo. */
+    #[Route('/master/recompensas/usuarios/{id}/lancamento', name: 'master_recompensas_lancamento', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function lancar(int $id, Request $request, LancarCreditoOuEstornoUseCase $lancar): JsonResponse
+    {
+        return $this->mutar($request, function () use ($id, $request, $lancar): void {
+            $input = LancarCreditoOuEstornoInput::doJson($this->ator(), $id, self::corpo($request) ?? throw new RecompensaRecusada($this->tradutor->trans('master.recompensas.corpo_invalido')));
+            $this->exigirValido($input);
+            $lancar->executar($input);
+        });
+    }
+
+    /** Os 60 lançamentos mais recentes (da tela); `?usuario=ID` filtra por indicador. */
+    #[Route('/master/recompensas/extrato', name: 'master_recompensas_extrato', methods: ['GET'])]
+    public function extrato(ConsultarExtratoDeRecompensasUseCase $extrato, #[MapQueryParameter] ?int $usuario = null): JsonResponse
+    {
+        return $this->json(['extrato' => array_map(static fn (LancamentoDoExtratoOutput $l): array => $l->paraArray(), $extrato->recentes($usuario))]);
+    }
+
+    /** O extrato completo em CSV (`?usuario=ID` filtra por indicador). */
+    #[Route('/master/recompensas/extrato.csv', name: 'master_recompensas_extrato_csv', methods: ['GET'])]
+    public function extratoCsv(ConsultarExtratoDeRecompensasUseCase $extrato, #[MapQueryParameter] ?int $usuario = null): Response
+    {
+        $t = fn (string $chave): string => $this->tradutor->trans('master.recompensas.csv.' . $chave);
+        $csv = ExtratoEmCsv::gerar(
+            $extrato->todos($usuario),
+            [$t('data'), $t('usuario'), $t('email'), $t('tipo'), $t('valor'), $t('observacao')],
+            ['credito' => $t('credito'), 'estorno' => $t('estorno')],
+        );
+
+        return new Response($csv, Response::HTTP_OK, [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . ($usuario === null ? ExtratoEmCsv::ARQUIVO : 'extrato-recompensas-bluejus-' . $usuario . '.csv') . '"',
+        ]);
     }
 
     /** CSRF, a mudança e a resposta com o estado novo; as recusas viram 404 e 422. */

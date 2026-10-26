@@ -103,6 +103,21 @@ final class PainelRecompensasJsTest extends TestCase
             'master.recompensas.dialogo.recorrente' => 'Parceiro recorrente (crédito mensal)',
             'master.recompensas.dialogo.mensal' => 'POR MÊS, POR ESCRITÓRIO ATIVO (R$)',
             'master.recompensas.dialogo.salvar' => 'Salvar condição',
+            'master.js.recompensas.menu_lancamento' => 'Lançar crédito ou estorno',
+            'master.js.recompensas.menu_extrato' => 'Ver extrato deste indicador',
+            'master.js.recompensas.menu_csv' => 'Baixar extrato (CSV)',
+            'master.js.recompensas.tipo.credito' => 'Crédito manual',
+            'master.js.recompensas.tipo.estorno' => 'Estorno',
+            'master.js.recompensas.extrato_todos' => 'Mostrar todos',
+            'master.js.recompensas.erro_valor' => 'Informe o valor do crédito (use negativo para estornar).',
+            'master.recompensas.extrato.titulo' => 'Extrato de pagamentos e liberações',
+            'master.recompensas.extrato.exportar' => 'Exportar CSV',
+            'master.recompensas.extrato.vazio' => 'Nenhum pagamento ou liberação ainda.',
+            'master.recompensas.lancamento.titulo' => 'Lançar crédito ou estorno',
+            'master.recompensas.lancamento.valor' => 'Valor (R$)',
+            'master.recompensas.lancamento.dica' => 'Use valor negativo para estornar',
+            'master.recompensas.lancamento.observacao' => 'Observação (opcional)',
+            'master.recompensas.lancamento.lancar' => 'Lançar',
         ];
         foreach ($esperado as $chave => $texto) {
             self::assertSame($texto, self::catalogo($chave), $chave);
@@ -126,7 +141,7 @@ final class PainelRecompensasJsTest extends TestCase
         );
     }
 
-    #[TestDox('o JS fala com o servidor com o token no header, abre pelo evento mp:secao e pelo hash, e só tem as ações da F1')]
+    #[TestDox('o JS fala com o servidor com o token no header, abre pelo evento mp:secao e pelo hash, e só tem as ações das fatias entregues')]
     public function testContratoDoJs(): void
     {
         $js = self::js();
@@ -137,12 +152,45 @@ final class PainelRecompensasJsTest extends TestCase
         self::assertStringContainsString("pedir(urlDaCondicao(u.userId), 'DELETE')", $js);
         self::assertStringContainsString("pedir(raiz.dataset.urlRegras, 'POST', corpo)", $js);
         $codigo = substr($js, (int) strpos($js, '(() => {'));
-        foreach (['Dar baixa', 'Simular indicação', 'Fechamento do mês', 'extrato'] as $fora) {
+        foreach (['Dar baixa', 'Simular indicação', 'Fechamento do mês', 'Avisar saldo', 'comprovante'] as $fora) {
             self::assertStringNotContainsStringIgnoringCase($fora, $codigo, 'fica para as fatias seguintes: ' . $fora);
         }
         $twig = self::arquivo('templates/master/_recompensas.html.twig');
-        self::assertSame(2, substr_count($twig, 'data-mrc-menu-acao='), 'o menu ⋮ só tem Condição individual e Voltar à regra geral');
+        self::assertSame(5, substr_count($twig, 'data-mrc-menu-acao='), 'o menu ⋮ tem condição, lançamento, extrato, CSV e regra geral');
         self::assertStringContainsString('data-sec-externa', self::arquivo('templates/master/painel.html.twig'));
+    }
+
+    #[TestDox('F2: o diálogo gera um UUID ao abrir, manda no lançamento, bloqueia o duplo clique e não calcula saldo nem regra no navegador')]
+    public function testLancamentoNoJs(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString('chave = novaChave();', $js);
+        self::assertStringContainsString('window.crypto.randomUUID()', $js);
+        self::assertStringContainsString("'POST', { valor, observacao: lan.obs.value.trim(), chave })", $js);
+        self::assertMatchesRegularExpression('/function lancar\(\) \{\s+const u = indicador\(alvo\);\s+if \(!u \|\| ocupado\) return;/', $js);
+        self::assertStringContainsString("lan.enviar.disabled = true;", $js);
+        self::assertStringContainsString("raiz.dataset.urlLancamento.replace('/usuarios/0/', '/usuarios/' + u.userId + '/')", $js);
+        self::assertStringContainsString("raiz.dataset.urlExtrato + (extratoDe === null ? '' : '?usuario=' + extratoDe)", $js);
+        self::assertStringContainsString("window.location.assign(raiz.dataset.urlCsv + '?usuario=' + id)", $js);
+        self::assertStringNotContainsString('localStorage', $js);
+        self::assertStringNotContainsString('innerHTML = ' . "u.", $js);
+    }
+
+    #[TestDox('F2: extrato e diálogo seguem o desenho: grade de 4 colunas, chip, botão Exportar CSV, ícones e sem modal do Bootstrap')]
+    public function testExtratoNoDesenho(): void
+    {
+        $css = self::arquivo('public/css/master-recompensas.css');
+        $twig = self::arquivo('templates/master/_recompensas.html.twig');
+
+        self::assertStringContainsString('.mrc-extrato-linha { display: grid; grid-template-columns: 150px minmax(200px, 1fr) 150px 110px; gap: 8px; align-items: center; padding: 9px 18px;', $css);
+        self::assertStringContainsString('.mrc-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 2px;', $css);
+        self::assertStringContainsString('class="bi bi-receipt"', $twig);
+        self::assertStringContainsString('bi-filetype-csv', $twig);
+        self::assertStringContainsString('bi bi-plus-slash-minus', $twig);
+        self::assertStringContainsString('<textarea rows="3" maxlength="255" data-mrc-lan-obs>', $twig);
+        self::assertStringNotContainsString('modal-dialog', $twig);
+        self::assertStringNotContainsString('Avisar', $twig, 'os botões Avisar entram na F7');
     }
 
     #[TestDox('CSS com os valores do desenho: grade da lista, KPIs, janela e cores da chave e do menu')]
@@ -169,6 +217,9 @@ final class PainelRecompensasJsTest extends TestCase
             'src/Master/Controller/RecompensasDoMasterController.php', 'src/Recompensa/Entity/ProgramaDeRecompensa.php',
             'src/Recompensa/Entity/CondicaoDeRecompensa.php', 'src/Recompensa/DTO/AlterarRegrasDoProgramaInput.php',
             'src/Recompensa/DTO/DefinirCondicaoIndividualInput.php', 'src/Recompensa/UseCase/ConsultarPainelDeRecompensasUseCase.php',
+            'src/Recompensa/Entity/LancamentoDeRecompensa.php', 'src/Recompensa/UseCase/LancarCreditoOuEstornoUseCase.php',
+            'src/Recompensa/UseCase/ConsultarExtratoDeRecompensasUseCase.php', 'src/Recompensa/DTO/ExtratoEmCsv.php',
+            'src/Recompensa/DTO/LancarCreditoOuEstornoInput.php', 'migrations/Version20261026152000.php',
         ] as $caminho) {
             self::assertDoesNotMatchRegularExpression('/[—–]/u', self::arquivo($caminho), $caminho);
         }

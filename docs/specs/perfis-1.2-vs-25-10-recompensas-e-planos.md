@@ -53,6 +53,30 @@ Dado de plataforma, sem tenant. Migration 151900.
 - Segurança: só `ROLE_SUPER_ADMIN`, CSRF `master_recompensas`, 403 sem token, 422 com `{erro}`; valor negativo e
   inteiros inválidos recusados no servidor.
 
+### F2 (extrato imutável, crédito e estorno manuais)
+
+Empilhada na F1 (#420). Migration 20261026152000. Risco ALTO (dinheiro): só livro e ajuste manual; ninguém é pago.
+
+- Tabela `lancamento_de_recompensa`, só INSERT: `id`, `user_id` (indicador; FK `ON DELETE SET NULL`, a exclusão LGPD
+  da pessoa apaga o vínculo e o extrato fica sem nome), `tipo` (`bonus` nesta fatia; `pago`, `liberado` e `mensal`
+  entram nas fatias seguintes), `valor_centavos` (inteiro com sinal: positivo é crédito, negativo é estorno; nunca
+  zero; |valor| até R$ 100.000,00), `observacao` (até 255), `chave_de_idempotencia` (único; o navegador manda um
+  UUID por abertura do diálogo, então duplo clique não lança duas vezes), `criado_em`, `criado_por_id`
+  (`SET NULL`). Auditável (plataforma). Sem setter e sem remoção no repositório: lançamento errado se corrige com
+  outro lançamento de sinal oposto.
+- O cálculo da F1 passa a somar os lançamentos: `credito = ativos x valor + soma(bonus)`; o resto não muda
+  (`saldo = max(0, credito - pago)`).
+- Tela (desenho L601-L610 e JS L875/L898): menu ⋮ ganha "Lançar crédito ou estorno" (diálogo com Valor em R$, "Use
+  valor negativo para estornar", observação; erro "Informe o valor do crédito (use negativo para estornar)."), "Ver
+  extrato deste indicador" (filtra o extrato, chip com o nome e botão para mostrar todos) e "Baixar extrato (CSV)".
+  Bloco "Extrato de pagamentos e liberações" (últimos 60; colunas data, nome, tipo, valor, forma, e-mail; vazio
+  "Nenhum pagamento ou liberação ainda."), com o botão "Exportar CSV" (todos). Os botões "Avisar..." e a coluna de
+  e-mail enviado entram na F7; "forma" e comprovante na F4. Tipo exibido: "Crédito manual" ou "Estorno" conforme o sinal.
+- CSV: GET `/master/recompensas/extrato.csv[?usuario=ID]`, BOM UTF-8, separador `;`, aspas duplas escapadas, e
+  prefixo `'` em célula que comece com `=`, `+`, `-`, `@` (injeção de fórmula). Só Master. Sem e-mail do indicado.
+- POST `/master/recompensas/usuarios/{id}/lancamento` (CSRF `master_recompensas`), 422 com `{erro}`, 404 se o
+  usuário nunca indicou, resposta com o painel novo.
+
 ## Planos: fatias
 
 | Fatia | Conteúdo | Estado |
