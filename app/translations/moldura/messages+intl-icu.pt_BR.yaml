@@ -114,6 +114,9 @@ moldura:
         titulo_pausadas: Limite de e-mail de campanha atingido
         texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
         dispensar: Dispensar
+    # Aviso de manutenção programada (layout/_globais/aviso_manutencao; texto escrito pelo Master em Configurações globais)
+    aviso_manutencao:
+        titulo: Manutenção programada
     # Aviso das questões jurídicas da BlueJus IA (layout/_globais/aviso_questoes_juridicas), só para o Master
     aviso_questoes_juridicas:
         titulo: Questões jurídicas a serem verificadas
