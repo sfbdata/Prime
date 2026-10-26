@@ -13,7 +13,8 @@ use PHPUnit\Framework\TestCase;
  * Intelligence as pílulas (999px) viraram cantos de 4px, o padrão PJe. A troca é seletiva — o
  * mesmo arquivo mantém 999px nos preenchimentos das barras (qualBarra, barA/barV), no trilho do
  * interruptor (sw()) e na barra de 10px do ritmo. O teste trava as duas metades: o que mudou e o
- * que o desenho manteve, para ninguém "padronizar" tudo de uma vez.
+ * que o desenho manteve, para ninguém "padronizar" tudo de uma vez. O desenho VS 25.10.26 tirou as
+ * pílulas que sobravam: preenchimento da qualidade, trilho do interruptor e barra do ritmo viraram 3px.
  *
  * Que o canto aparece quadrado na tela é smoke; aqui só se prova que a regra está no seletor certo.
  */
@@ -54,15 +55,15 @@ final class DashboardCantosPjeIntelligenceCssTest extends TestCase
     /** @return iterable<string, array{string}> */
     public static function continuaPilula(): iterable
     {
-        yield 'preenchimento da qualidade (qualBarra, dc L2617)' => ['.db-page .db-ia-qual-barra'];
-        yield 'trilho do interruptor (sw(), dc L2577)' => ['.db-page .db-ia-switch'];
-        yield 'barra do ritmo, 10px (dc L1323)' => ['.db-page .db-ia-barra'];
+        yield 'preenchimento da qualidade (qualBarra, dc VS 25.10.26 L2536)' => ['.db-page .db-ia-qual-barra'];
+        yield 'trilho do interruptor (sw(), dc VS 25.10.26 L2496)' => ['.db-page .db-ia-switch'];
+        yield 'barra do ritmo, 10px (dc VS 25.10.26 L1241)' => ['.db-page .db-ia-barra'];
     }
 
     #[DataProvider('continuaPilula')]
-    #[TestDox('o desenho manteve a pílula: $seletor')]
-    public function testDesenhoManteveAPilula(string $seletor): void
+    #[TestDox('a pílula que sobrava virou 3px no dc VS 25.10.26: $seletor')]
+    public function testPilulaQueSobravaVirouTresPixels(string $seletor): void
     {
-        self::assertSame('999px', $this->raio($seletor));
+        self::assertSame('3px', $this->raio($seletor));
     }
 }

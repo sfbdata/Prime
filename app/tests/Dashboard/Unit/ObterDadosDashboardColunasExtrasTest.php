@@ -328,7 +328,7 @@ final class ObterDadosDashboardColunasExtrasTest extends TestCase
     public function testAnteriorSoDosEventos(): void
     {
         $filtros = ['data_de' => '2024-02-01', 'data_ate' => '2024-02-29'];
-        $antes   = '2024-01-03'; // 29 dias antes de 01/02: 03/01 a 31/01
+        $antes   = '2024-01-22'; // visto em 10/02, só os 10 dias já corridos: 22/01 a 31/01
         $this->metas([7 => 4, 8 => 3], [7 => 1, 8 => 3]);
         $this->equipe([$this->usuario(7, 'Ana'), $this->usuario(8, 'Bruno')]);
         $this->metricas->expects(self::once())->method('tempoDeConclusaoPorResponsavel')

@@ -16,14 +16,37 @@ use PHPUnit\Framework\TestCase;
 #[Group('dashboard')]
 final class PeriodoDoDashboardTest extends TestCase
 {
-    #[TestDox('Sem data na URL: Este mês, de 1º do mês até hoje, sem mexer nos outros filtros')]
+    #[TestDox('Sem data na URL: Este mês, do dia 1º ao último dia do mês (desenho VS 25.10.26), sem mexer nos outros filtros')]
     public function testSemDataAbreEmEsteMes(): void
     {
         $filtros = PeriodoDoDashboard::comPadrao(['data_de' => '', 'data_ate' => '', 'cargo' => 'Advogado'], false, new \DateTimeImmutable('2026-10-23 15:00'));
 
         self::assertSame('2026-10-01', $filtros['data_de']);
-        self::assertSame('2026-10-23', $filtros['data_ate']);
+        self::assertSame('2026-10-31', $filtros['data_ate']);
         self::assertSame('Advogado', $filtros['cargo']);
+    }
+
+    /** @return iterable<string, array{string, string, string}> */
+    public static function meses(): iterable
+    {
+        yield 'mês de 31 dias'            => ['2026-10-23', '2026-10-01', '2026-10-31'];
+        yield 'mês de 30 dias'            => ['2026-11-30', '2026-11-01', '2026-11-30'];
+        yield 'fevereiro comum'           => ['2027-02-01', '2027-02-01', '2027-02-28'];
+        yield 'fevereiro bissexto'        => ['2028-02-15', '2028-02-01', '2028-02-29'];
+        yield 'dezembro (virada de ano)'  => ['2026-12-31', '2026-12-01', '2026-12-31'];
+    }
+
+    #[DataProvider('meses')]
+    #[TestDox('Este mês em $hoje vai de $inicio a $fim (último dia, não hoje)')]
+    public function testEsteMesVaiAteOUltimoDia(string $hoje, string $inicio, string $fim): void
+    {
+        self::assertSame(['data_de' => $inicio, 'data_ate' => $fim], PeriodoDoDashboard::esteMes(new \DateTimeImmutable($hoje)));
+    }
+
+    #[TestDox('A janela Mês do cartão do colaborador continua terminando hoje (só o Este mês do painel vai ao fim do mês)')]
+    public function testJanelaMesDoCartaoTerminaHoje(): void
+    {
+        self::assertSame(['data_de' => '2026-10-01', 'data_ate' => '2026-10-23'], PeriodoDoDashboard::daJanela('mes', new \DateTimeImmutable('2026-10-23')));
     }
 
     #[TestDox('Data enviada (mesmo vazia) é escolha do usuário: o padrão não entra')]

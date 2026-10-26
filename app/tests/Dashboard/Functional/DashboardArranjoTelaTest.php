@@ -283,7 +283,7 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         self::assertResponseIsSuccessful();
         $titulo = $crawler->filter('.db-page [data-filtro-root] > h1.db-titulo');
         self::assertSame(1, $titulo->count());
-        self::assertSame('Dashboard', trim($titulo->text()));
+        self::assertSame('Painel do Escritório', trim($titulo->text()));
         self::assertSame(0, $titulo->filter('i')->count(), 'O desenho mostra o título sem ícone');
 
         // O estilo subiu para public/css/dashboard.css: nada inline na casca.

@@ -14,19 +14,20 @@ use PHPUnit\Framework\Attributes\TestDox;
  *
  * O botão ativo é calculado no servidor comparando as datas dos filtros com as
  * quatro faixas (o JS refaz a mesma conta lendo os atributos data-de/data-ate).
- * O período padrão NÃO muda: sem datas na URL, nenhum botão fica ativo.
+ * Faixas do desenho VS 25.10.26: Este mês do dia 1º ao último dia do mês; 60 e 90
+ * dias com hoje incluído (hoje − 59 e hoje − 89); Este ano de 1º/jan até hoje.
  */
 #[CoversClass(DashboardController::class)]
 final class DashboardPeriodoSegmentadoTest extends DashboardWebTestCase
 {
-    #[TestDox('Com data_de/data_ate do mês atual, só o botão "Este mês" fica ativo')]
+    #[TestDox('Com data_de/data_ate do mês inteiro (1º ao último dia), só o botão "Este mês" fica ativo')]
     public function testEsteMesAtivoQuandoAsDatasBatem(): void
     {
         $client = static::createClient();
         $this->criarGestorLogado($client);
 
         $hoje = new \DateTimeImmutable('now');
-        $crawler = $client->request('GET', '/dashboard?data_de=' . $hoje->format('Y-m-01') . '&data_ate=' . $hoje->format('Y-m-d'));
+        $crawler = $client->request('GET', '/dashboard?data_de=' . $hoje->format('Y-m-01') . '&data_ate=' . $hoje->format('Y-m-t'));
 
         self::assertResponseIsSuccessful();
         $ativos = $crawler->filter('.db-seg > .db-seg-btn.is-ativo');
@@ -50,7 +51,7 @@ final class DashboardPeriodoSegmentadoTest extends DashboardWebTestCase
         self::assertCount(4, $crawler->filter('.db-seg > .db-seg-btn[aria-pressed="false"]'));
     }
 
-    #[TestDox('Os botões carregam datas reais (data-de/data-ate), com data_ate sempre hoje')]
+    #[TestDox('Os botões carregam as datas do desenho: Este mês até o último dia; 60 e 90 dias com hoje incluído; Este ano até hoje')]
     public function testBotoesCarregamDatasReais(): void
     {
         $client = static::createClient();
@@ -61,19 +62,22 @@ final class DashboardPeriodoSegmentadoTest extends DashboardWebTestCase
         self::assertResponseIsSuccessful();
         $hoje = new \DateTimeImmutable('now');
         $esperado = [
-            'mes' => $hoje->format('Y-m-01'),
-            'd60' => $hoje->modify('-60 days')->format('Y-m-d'),
-            'd90' => $hoje->modify('-90 days')->format('Y-m-d'),
-            'ano' => $hoje->format('Y-01-01'),
+            'mes' => [$hoje->format('Y-m-01'), $hoje->format('Y-m-t')],
+            'd60' => [$hoje->modify('-59 days')->format('Y-m-d'), $hoje->format('Y-m-d')],
+            'd90' => [$hoje->modify('-89 days')->format('Y-m-d'), $hoje->format('Y-m-d')],
+            'ano' => [$hoje->format('Y-01-01'), $hoje->format('Y-m-d')],
         ];
 
-        foreach ($esperado as $chave => $de) {
+        foreach ($esperado as $chave => [$de, $ate]) {
             $btn = $crawler->filter('.db-seg > .db-seg-btn[data-periodo="' . $chave . '"]');
             self::assertCount(1, $btn, $chave);
             self::assertSame($de, $btn->attr('data-de'), 'data-de de ' . $chave);
-            self::assertSame($hoje->format('Y-m-d'), $btn->attr('data-ate'), 'data-ate de ' . $chave);
+            self::assertSame($ate, $btn->attr('data-ate'), 'data-ate de ' . $chave);
             self::assertSame('button', $btn->attr('type'), 'botão não submete o form');
         }
+
+        // Sem data na URL o painel abre em Este mês, e o botão dele vem ativo (servidor e tela concordam).
+        self::assertSame('mes', $crawler->filter('.db-seg > .db-seg-btn.is-ativo')->attr('data-periodo'));
 
         // Dentro da caixa de filtros, antes do form do parcial (que não é tocado).
         self::assertCount(1, $crawler->filter('[data-filtro-root] > .db-filtro-wrap > .db-seg + form[data-filtro-form]'));
