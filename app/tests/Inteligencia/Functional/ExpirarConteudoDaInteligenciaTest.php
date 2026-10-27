@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Inteligencia\Functional;
 
+use App\Central\Entity\Conversa;
+use App\Central\Entity\Mensagem;
+use App\Central\Entity\Participante;
+use App\Central\Service\ConversaDaIaDaCentral;
 use App\Inteligencia\Command\ExpirarConteudoDaInteligenciaCommand;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
@@ -22,6 +26,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(ExpirarConteudoDaInteligenciaUseCase::class)]
 #[CoversClass(AnaliseDeInteligenciaRepository::class)]
 #[CoversClass(ExpirarConteudoDaInteligenciaCommand::class)]
+#[CoversClass(ConversaDaIaDaCentral::class)]
 final class ExpirarConteudoDaInteligenciaTest extends KernelTestCase
 {
     use CriaFixturesInteligenciaTrait;
@@ -140,5 +145,98 @@ final class ExpirarConteudoDaInteligenciaTest extends KernelTestCase
         $comForce = new CommandTester($comando);
         self::assertSame(0, $comForce->execute(['--force' => true]));
         self::assertStringContainsString('Conteúdo apagado', $comForce->getDisplay());
+    }
+
+    /**
+     * @return array{ia: list<Mensagem>, individual: Mensagem, grupo: Mensagem}
+     *             IA: [pergunta antiga, resposta antiga, mensagem nova]; as antigas têm 13 meses
+     */
+    private function montarMensagens(): array
+    {
+        [$admin, $tenant] = $this->criarAdmin();
+        $outro = $this->criarUsuarioComPermissoes($tenant, [], 'outro');
+        $agora = new \DateTimeImmutable();
+        $conversaIa = Conversa::comAIa($tenant, $admin, $agora);
+        $individual = Conversa::individual($tenant, $admin, $outro, $agora);
+        $grupo = Conversa::grupo($tenant, $admin, 'Equipe', $agora);
+        foreach ([$conversaIa, $individual, $grupo] as $conversa) {
+            $this->em()->persist($conversa);
+            $this->em()->persist(new Participante($tenant, $conversa, $admin, $agora));
+        }
+        $mensagens = [
+            'pergunta' => new Mensagem($tenant, $conversaIa, $admin, 'SEGREDO-PERGUNTA', $agora),
+            'resposta' => Mensagem::daIA($tenant, $conversaIa, $admin, 'SEGREDO-RESPOSTA', $agora),
+            'nova' => new Mensagem($tenant, $conversaIa, $admin, 'SEGREDO-NOVA', $agora),
+            'individual' => new Mensagem($tenant, $individual, $admin, 'Oi, colega', $agora),
+            'grupo' => new Mensagem($tenant, $grupo, $admin, 'Bom dia, grupo', $agora),
+        ];
+        foreach ($mensagens as $mensagem) {
+            $this->em()->persist($mensagem);
+        }
+        $this->em()->flush();
+        foreach (['pergunta', 'resposta', 'individual', 'grupo'] as $antiga) {
+            $this->em()->getConnection()->executeStatement(
+                'UPDATE central_mensagem SET criada_em = ? WHERE id = ?',
+                [(new \DateTimeImmutable('-13 months'))->format('Y-m-d H:i:s'), (int) $mensagens[$antiga]->getId()],
+            );
+        }
+
+        return ['ia' => [$mensagens['pergunta'], $mensagens['resposta'], $mensagens['nova']], 'individual' => $mensagens['individual'], 'grupo' => $mensagens['grupo']];
+    }
+
+    private function existeMensagem(Mensagem $mensagem): bool
+    {
+        return $this->contarNoBanco('SELECT COUNT(*) FROM central_mensagem WHERE id = ?', [(int) $mensagem->getId()]) === 1;
+    }
+
+    #[TestDox('a retenção apaga as DUAS pontas do chat com a IA (pergunta e resposta) e preserva a mais nova, a individual e o grupo')]
+    public function testExpiraMensagensDaIa(): void
+    {
+        self::bootKernel();
+        $m = $this->montarMensagens();
+        $usecase = static::getContainer()->get(ExpirarConteudoDaInteligenciaUseCase::class);
+
+        $primeira = $usecase->executar(new \DateTimeImmutable());
+        $segunda = $usecase->executar(new \DateTimeImmutable());
+
+        self::assertSame(2, $primeira['mensagens']);
+        self::assertSame(0, $segunda['mensagens'], 'idempotente');
+        self::assertFalse($this->existeMensagem($m['ia'][0]), 'pergunta');
+        self::assertFalse($this->existeMensagem($m['ia'][1]), 'resposta');
+        self::assertTrue($this->existeMensagem($m['ia'][2]), 'a mais nova fica');
+        self::assertTrue($this->existeMensagem($m['individual']));
+        self::assertTrue($this->existeMensagem($m['grupo']));
+    }
+
+    #[TestDox('o prazo do Master vale para as mensagens: com 3 meses, a de 4 meses atrás sai')]
+    public function testPrazoDoMasterNasMensagens(): void
+    {
+        self::bootKernel();
+        $m = $this->montarMensagens();
+        $this->em()->getConnection()->executeStatement('UPDATE central_mensagem SET criada_em = ? WHERE id = ?', [(new \DateTimeImmutable('-4 months'))->format('Y-m-d H:i:s'), (int) $m['ia'][2]->getId()]);
+        $plataforma = static::getContainer()->get(ConfiguracaoDaPlataformaDeIaRepository::class);
+        $configuracao = $plataforma->obterParaAlterar();
+        $configuracao->definirRetencao(3, $this->em()->find(\App\Entity\Auth\User::class, (int) $m['ia'][0]->getAutor()->getId()), new \DateTimeImmutable());
+        $plataforma->salvar($configuracao, flush: true);
+
+        $resultado = static::getContainer()->get(ExpirarConteudoDaInteligenciaUseCase::class)->executar(new \DateTimeImmutable());
+
+        self::assertSame(3, $resultado['mensagens']);
+        self::assertFalse($this->existeMensagem($m['ia'][2]));
+        self::assertTrue($this->existeMensagem($m['grupo']));
+    }
+
+    #[TestDox('o comando imprime e registra só números, nunca o texto das mensagens apagadas')]
+    public function testComandoSoNumeros(): void
+    {
+        $kernel = self::bootKernel();
+        $this->montarMensagens();
+        $comando = new CommandTester((new Application($kernel))->find('app:inteligencia:expirar-conteudo'));
+
+        self::assertSame(0, $comando->execute(['--force' => true]));
+
+        $saida = (string) preg_replace('/\s+/', ' ', $comando->getDisplay());
+        self::assertMatchesRegularExpression('/2 mensagem\(ns\) do chat/', $saida);
+        self::assertStringNotContainsString('SEGREDO', $saida);
     }
 }
