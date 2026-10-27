@@ -1,4 +1,4 @@
-/* BlueJus · Painel do Master, seção "Recompensas" (#sec=recomp), F1 e F2
+/* BlueJus · Painel do Master, seção "Recompensas" (#sec=recomp), F1 a F3
    (desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html, marcação L306-338 e lógica L854-964;
    spec docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md).
    - Carrega na primeira vez que a seção abre (evento `mp:secao` do painel) ou já aberta pelo hash.
@@ -7,6 +7,10 @@
    - Lista de Indicadores: busca e filtros só no navegador, sobre o que o servidor calculou (nada é recalculado aqui).
    - Menu ⋮ (ou botão direito): "Condição individual", "Lançar crédito ou estorno", "Ver extrato deste indicador",
      "Baixar extrato (CSV)" e "Voltar à regra geral". Dar baixa, caixa e Fechamento do mês entram nas fatias seguintes.
+   - Antifraude (F3): a situação vem do servidor (Bloqueado, Em análise, Alerta, Liberado...); o title mostra os motivos
+     agregados (sem nome nem e-mail do indicado). O menu ganha "Revisar suspeitas e aprovar" (só com suspeita, confirma
+     com a quantidade e os motivos), "Bloquear/Desbloquear recompensa" e "Apagar da lista" (digitar APAGAR; o servidor
+     confere a palavra de novo). Nada de regra mora aqui.
    - Extrato (F2): os 60 mais recentes vêm do servidor (filtrados por indicador quando há chip); o lançamento leva um
      UUID gerado ao abrir o diálogo, então duplo clique ou reenvio não lança duas vezes (o servidor garante).
    - Textos no catálogo (master.js.recompensas.*, entregue pelo painel com catalogo_js), lidos na hora de usar; números
@@ -37,6 +41,10 @@
     erro: $('[data-mrc-dlg-erro]'), rec: $('[data-mrc-dlg-rec]'), mensal: $('[data-mrc-dlg-mensal]'), salvar: $('[data-mrc-dlg-salvar]'),
     dicaValor: $('[data-mrc-dlg-dica-valor]'), campos: Array.from(raiz.querySelectorAll('[data-mrc-dlg-campo]')),
   };
+  const apg = {
+    fundo: $('[data-mrc-apg-fundo]'), posicao: $('[data-mrc-apg]'), nome: $('[data-mrc-apg-nome]'), sub: $('[data-mrc-apg-sub]'),
+    palavra: $('[data-mrc-apg-palavra]'), erro: $('[data-mrc-apg-erro]'), enviar: $('[data-mrc-apg-enviar]'),
+  };
   const lan = {
     fundo: $('[data-mrc-lan-fundo]'), posicao: $('[data-mrc-lan]'), nome: $('[data-mrc-lan-nome]'), sub: $('[data-mrc-lan-sub]'),
     valor: $('[data-mrc-lan-valor]'), obs: $('[data-mrc-lan-obs]'), erro: $('[data-mrc-lan-erro]'), enviar: $('[data-mrc-lan-enviar]'),
@@ -54,7 +62,7 @@
   const FILTROS = ['todos', 'pagar', 'lib', 'nao', 'priv'];
   const REGRAS_DE_FILTRO = {
     todos: () => true,
-    pagar: u => u.liberado && u.saldoCentavos > 0,
+    pagar: u => u.liberado && u.saldoCentavos > 0 && !u.bloqueado,
     lib: u => u.liberado,
     nao: u => !u.liberado,
     priv: u => u.condicao !== null,
@@ -107,7 +115,18 @@
     elFiltros.innerHTML = FILTROS.map(f => '<button type="button" class="mrc-filtro" data-filtro="' + f + '" aria-pressed="' + (f === filtro) + '">' + esc(T('master.js.recompensas.filtro.' + f)) + '</button>').join('');
   }
 
+  // "mesmo domínio de e-mail: 2 · mesmo CNPJ: 1": só motivos agregados, nunca quem é a conta.
+  function dicaDasSuspeitas(u) {
+    return Object.entries(u.motivosDeSuspeita).map(([m, n]) => T('master.js.recompensas.motivo.' + m) + ': ' + num(n)).join(' · ');
+  }
+
   function situacao(u) {
+    if (u.situacao === 'bloqueado') return { txt: T('master.js.recompensas.sit.bloqueado'), ok: false, alerta: true, dica: '' };
+    if (u.situacao === 'analise') {
+      const txt = T(u.suspeitas > 1 ? 'master.js.recompensas.sit.analise_varias' : 'master.js.recompensas.sit.analise_uma', { n: num(u.suspeitas) });
+      return { txt, ok: false, alerta: true, dica: dicaDasSuspeitas(u) };
+    }
+    if (u.situacao === 'alerta') return { txt: T('master.js.recompensas.sit.alerta', { n: num(u.emSeteDias) }), ok: false, alerta: true, dica: T('master.js.recompensas.sit_dica_alerta') };
     if (u.situacao === 'liberado') return { txt: T('master.js.recompensas.sit.liberado'), ok: true, dica: '' };
     if (u.situacao === 'carencia') {
       const dias = u.condicao && u.condicao.carenciaDias !== null ? u.condicao.carenciaDias : estado.regras.carenciaDias;
@@ -138,7 +157,7 @@
       + '<span><span class="mrc-ativos">' + num(u.ativos) + '/' + num(u.minEscritorios) + '</span><span class="mrc-prog' + (u.liberado ? ' mrc-prog-ok' : '') + '"><span data-w="' + pct + '"></span></span></span>'
       + celulaPorConta(u)
       + '<b class="mrc-saldo">' + esc(moeda(u.saldoCentavos)) + '</b><span>' + esc(moeda(u.pagoCentavos)) + '</span>'
-      + '<span class="mrc-sit' + (s.ok ? ' mrc-sit-ok' : '') + '" title="' + esc(s.dica) + '">' + esc(s.txt) + '</span>'
+      + '<span class="mrc-sit' + (s.ok ? ' mrc-sit-ok' : '') + (s.alerta ? ' mrc-sit-alerta' : '') + '" title="' + esc(s.dica) + '">' + esc(s.txt) + '</span>'
       + '<span class="mrc-acoes"><button type="button" class="mrc-ajustar" data-acao="condicao" title="' + esc(T('master.js.recompensas.ajustar_dica')) + '"><i class="bi bi-star" aria-hidden="true"></i> ' + esc(T('master.js.recompensas.ajustar')) + '</button>'
       + '<button type="button" class="mrc-mais" data-acao="menu" title="' + esc(T('master.js.recompensas.mais_opcoes')) + '" aria-label="' + esc(T('master.js.recompensas.mais_opcoes')) + '" aria-haspopup="menu"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button></span>'
       + '</div>';
@@ -190,9 +209,8 @@
       .finally(() => travar(false));
   }
 
-  function urlDaCondicao(id) {
-    return raiz.dataset.urlCondicao.replace('/usuarios/0/', '/usuarios/' + id + '/');
-  }
+  const urlDoUsuario = (base, id) => base.replace('/usuarios/0/', '/usuarios/' + id + '/');
+  const urlDaCondicao = id => urlDoUsuario(raiz.dataset.urlCondicao, id);
 
   function indicador(id) {
     return estado && estado.indicadores.find(u => u.userId === id);
@@ -209,10 +227,13 @@
     if (!u) return;
     alvo = id;
     menu.titulo.textContent = u.nome;
+    menu.caixa.querySelector('[data-mrc-menu-acao="aprovar"]').hidden = u.suspeitas === 0;
+    menu.caixa.querySelector('[data-mrc-menu-txt="bloquear"]').textContent = T(u.bloqueado ? 'master.js.recompensas.menu_desbloquear' : 'master.js.recompensas.menu_bloquear');
+    menu.caixa.querySelector('[data-mrc-menu-bloqueio-ic]').className = 'bi ' + (u.bloqueado ? 'bi-unlock' : 'bi-slash-circle');
     menu.fundo.hidden = false;
     menu.caixa.hidden = false;
     menu.caixa.style.left = Math.max(8, Math.min(x, window.innerWidth - 270)) + 'px';
-    menu.caixa.style.top = Math.max(8, Math.min(y, window.innerHeight - 250)) + 'px';
+    menu.caixa.style.top = Math.max(8, Math.min(y, window.innerHeight - 420)) + 'px';
   }
 
   /* Janela "Condição individual do indicador" */
@@ -374,7 +395,7 @@
     ocupado = true;
     lan.enviar.disabled = true;
     avisarNoLancamento('');
-    pedir(raiz.dataset.urlLancamento.replace('/usuarios/0/', '/usuarios/' + u.userId + '/'), 'POST', { valor, observacao: lan.obs.value.trim(), chave })
+    pedir(urlDoUsuario(raiz.dataset.urlLancamento, u.userId), 'POST', { valor, observacao: lan.obs.value.trim(), chave })
       .then(d => {
         fecharLancamento();
         desenhar(d);
@@ -383,6 +404,71 @@
       })
       .catch(e => avisarNoLancamento(e.message || T('master.js.recompensas.erro_salvar')))
       .finally(() => { ocupado = false; lan.enviar.disabled = false; });
+  }
+
+  /* Antifraude (F3): revisar suspeitas, bloquear e apagar da lista */
+  function aprovarSuspeitas(id) {
+    const u = indicador(id);
+    fecharMenu();
+    if (!u || ocupado) return;
+    const texto = [T('master.js.recompensas.aprovar_titulo', { nome: u.nome, n: num(u.suspeitas) }), dicaDasSuspeitas(u), T('master.js.recompensas.aprovar_pergunta')].join('\n\n');
+    if (!window.confirm(texto)) return;
+    ocupado = true;
+    avisar('');
+    pedir(urlDoUsuario(raiz.dataset.urlAprovar, id), 'POST', { vistas: u.suspeitas })
+      .then(d => { desenhar(d); avisar(T('master.js.recompensas.aprovadas', { nome: u.nome }), true); })
+      .catch(e => avisar(e.message || T('master.js.recompensas.erro_salvar')))
+      .finally(() => { ocupado = false; });
+  }
+
+  function alternarBloqueio(id) {
+    const u = indicador(id);
+    fecharMenu();
+    if (!u || ocupado) return;
+    ocupado = true;
+    avisar('');
+    pedir(urlDoUsuario(raiz.dataset.urlBloqueio, id), 'POST', { bloqueado: !u.bloqueado })
+      .then(d => { desenhar(d); avisar(T(u.bloqueado ? 'master.js.recompensas.desbloqueada' : 'master.js.recompensas.bloqueada', { nome: u.nome }), true); })
+      .catch(e => avisar(e.message || T('master.js.recompensas.erro_salvar')))
+      .finally(() => { ocupado = false; });
+  }
+
+  function avisarNoApagar(texto) {
+    apg.erro.textContent = texto || '';
+    apg.erro.hidden = !texto;
+  }
+
+  function abrirApagar(id) {
+    const u = indicador(id);
+    if (!u) return;
+    alvo = id;
+    apg.nome.textContent = u.nome;
+    apg.sub.textContent = [u.escritorio, u.email].filter(Boolean).join(' · ');
+    apg.palavra.value = '';
+    avisarNoApagar('');
+    fecharMenu();
+    apg.fundo.hidden = false;
+    apg.posicao.hidden = false;
+    apg.palavra.focus();
+  }
+
+  function fecharApagar() {
+    apg.fundo.hidden = true;
+    apg.posicao.hidden = true;
+  }
+
+  function apagar() {
+    const u = indicador(alvo);
+    if (!u || ocupado) return;
+    const palavra = apg.palavra.value.trim();
+    if (palavra.toUpperCase() !== 'APAGAR') { avisarNoApagar(T('master.js.recompensas.erro_apagar')); return; }
+    ocupado = true;
+    apg.enviar.disabled = true;
+    avisarNoApagar('');
+    pedir(urlDoUsuario(raiz.dataset.urlApagar, u.userId), 'POST', { confirmacao: palavra })
+      .then(d => { fecharApagar(); desenhar(d); avisar(T('master.js.recompensas.apagado', { nome: u.nome }), true); })
+      .catch(e => avisarNoApagar(e.message || T('master.js.recompensas.erro_salvar')))
+      .finally(() => { ocupado = false; apg.enviar.disabled = false; });
   }
 
   const idDaLinha = el => { const l = el.closest('[data-uid]'); return l ? Number(l.dataset.uid) : null; };
@@ -420,6 +506,13 @@
   menu.caixa.querySelector('[data-mrc-menu-acao="extrato"]').addEventListener('click', () => filtrarExtrato(alvo));
   menu.caixa.querySelector('[data-mrc-menu-acao="csv"]').addEventListener('click', () => baixarCsv(alvo));
   menu.caixa.querySelector('[data-mrc-menu-acao="geral"]').addEventListener('click', voltarParaAGeral);
+  menu.caixa.querySelector('[data-mrc-menu-acao="aprovar"]').addEventListener('click', () => aprovarSuspeitas(alvo));
+  menu.caixa.querySelector('[data-mrc-menu-acao="bloquear"]').addEventListener('click', () => alternarBloqueio(alvo));
+  menu.caixa.querySelector('[data-mrc-menu-acao="apagar"]').addEventListener('click', () => abrirApagar(alvo));
+  apg.fundo.addEventListener('click', fecharApagar);
+  raiz.querySelectorAll('[data-mrc-apg-fechar]').forEach(b => b.addEventListener('click', fecharApagar));
+  apg.enviar.addEventListener('click', apagar);
+  apg.palavra.addEventListener('keydown', e => { if (e.key === 'Enter') apagar(); });
   dlg.fundo.addEventListener('click', fecharJanela);
   raiz.querySelectorAll('[data-mrc-dlg-fechar]').forEach(b => b.addEventListener('click', fecharJanela));
   lan.fundo.addEventListener('click', fecharLancamento);
@@ -433,6 +526,7 @@
     fecharMenu();
     fecharJanela();
     fecharLancamento();
+    fecharApagar();
   });
 
   // Textos fixos do menu vêm do catálogo na hora de abrir a seção (o BJ_T só existe no fim da página).
@@ -442,6 +536,8 @@
     menu.caixa.querySelector('[data-mrc-menu-txt="lancamento"]').textContent = T('master.js.recompensas.menu_lancamento');
     menu.caixa.querySelector('[data-mrc-menu-txt="extrato"]').textContent = T('master.js.recompensas.menu_extrato');
     menu.caixa.querySelector('[data-mrc-menu-txt="csv"]').textContent = T('master.js.recompensas.menu_csv');
+    menu.caixa.querySelector('[data-mrc-menu-txt="aprovar"]').textContent = T('master.js.recompensas.menu_aprovar');
+    menu.caixa.querySelector('[data-mrc-menu-txt="apagar"]').textContent = T('master.js.recompensas.menu_apagar');
     elExtChip.querySelector('[data-mrc-ext-limpar]').title = T('master.js.recompensas.extrato_todos');
   }
 

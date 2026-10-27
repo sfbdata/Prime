@@ -1,4 +1,4 @@
-/* Seção "Recompensas" do /master, F1 (desenho 05 VS 25.10.26, L306-338 e janela L612). Valores do dc em tokens, com par escuro. */
+/* Seção "Recompensas" do /master, F1 a F3 (desenho 05 VS 25.10.26, L306-338 e janela L612). Valores do dc em tokens, com par escuro. */
 .mrc {
     --mrc-fundo: #fff; --mrc-borda: #d3dde4; --mrc-cabeca: #f5f8fa; --mrc-div: #e6edf2; --mrc-div-linha: #eef2f5; --mrc-zebra: #f3f6f9;
     --mrc-azul: #0a6fa0; --mrc-verde: #1e7b45; --mrc-vermelho: #a3232b; --mrc-ambar: #9a5b00;
@@ -77,6 +77,7 @@
 .mrc-saldo { color: var(--mrc-verde); }
 .mrc-sit { font-size: 12px; font-weight: bold; color: var(--mrc-ambar); }
 .mrc-sit.mrc-sit-ok { color: var(--mrc-verde); }
+.mrc-sit.mrc-sit-alerta { color: var(--mrc-vermelho); }
 .mrc-acoes { display: flex; gap: 5px; justify-content: flex-end; align-items: center; }
 .mrc-ajustar { height: 28px; padding: 0 8px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 12px; cursor: pointer; }
 .mrc-mais { width: 30px; height: 28px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); cursor: pointer; font-size: 15px; line-height: 1; }
@@ -88,6 +89,8 @@
 .mrc-menu-titulo { padding: 7px 14px 8px; font-size: 12px; color: var(--mrc-sub); border-bottom: 1px solid var(--mrc-div-linha); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mrc-menu-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; background: var(--mrc-fundo); padding: 8px 14px; font-size: 13.5px; color: var(--mrc-tx); cursor: pointer; text-align: left; }
 .mrc-menu-item:hover { background: var(--mrc-hover); }
+.mrc-menu-item.mrc-menu-item-aviso { color: var(--mrc-ambar); }
+.mrc-menu-item.mrc-menu-item-perigo { color: var(--mrc-vermelho); }
 .mrc-menu-item > .bi { width: 16px; }
 
 .mrc-dlg-fundo { position: fixed; inset: 0; z-index: 9650; background: rgba(18, 36, 47, .35); }
@@ -113,6 +116,7 @@
 .mrc-dlg-rodape { flex: none; padding: 10px 16px; border-top: 1px solid var(--mrc-div-linha); display: flex; justify-content: flex-end; gap: 8px; }
 .mrc-dlg-cancelar { height: 34px; padding: 0 13px; border: 1px solid var(--mrc-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 13.5px; cursor: pointer; }
 .mrc-dlg-salvar { height: 34px; padding: 0 15px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.mrc-dlg-salvar.mrc-dlg-perigo { background: #a3232b; }
 .mrc-dlg-salvar:disabled { cursor: progress; opacity: .75; }
 
 /* F2: extrato (desenho L329-337) e diálogo de crédito ou estorno (diálogo `bonus`, L875-886). */

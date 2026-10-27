@@ -1,0 +1,105 @@
+{# Modal "Vincular processo" do Push (desenho 11): buscar processo existente ou cadastrar novo (CNJ).
+   Abre pelo botão [data-push-cadastrar-processo]; "Localizar pasta" entrega o número ao modal "Vincular a uma pasta". #}
+{% set opcoes_sn %}<option value="">{{ 'djen.vp.nao_informado'|trans }}</option><option value="1">{{ 'djen.vp.sim'|trans }}</option><option value="0">{{ 'djen.vp.nao'|trans }}</option>{% endset %}
+<div class="pp-vp" data-pp-vp hidden
+     data-url-cnj="{{ path('api_datajud_search') }}"
+     data-url-busca="{{ path('push_processual_processos_cadastrados') }}"
+     data-t-polo-ativo="Polo ativo"
+     data-t-polo-passivo="Polo passivo"
+     data-t-terceiro="Terceiro"
+     data-t-nome-ph="Nome ou razão social"
+     data-t-doc-ph="CPF/CNPJ"
+     data-t-localizar-fora-da-lista="{{ 'djen.vp.localizar_fora_da_lista'|trans|e('html_attr') }}"
+     data-t-vazio="{{ 'djen.vp.busca_vazia'|trans|e('html_attr') }}"
+     data-t-sem-selecao="{{ 'djen.vp.sem_selecao'|trans|e('html_attr') }}"
+     data-t-sem-numero-pasta="{{ 'djen.vp.sem_numero_pasta'|trans|e('html_attr') }}"
+     data-t-formato-antes-de-buscar="{{ 'djen.vp.formato_antes_de_buscar'|trans|e('html_attr') }}"
+     data-t-formato="{{ 'djen.vp.formato'|trans|e('html_attr') }}"
+     data-t-formato-erro="{{ 'djen.vp.formato_erro'|trans|e('html_attr') }}"
+     data-t-numero-invalido="{{ 'djen.vp.numero_invalido'|trans|e('html_attr') }}"
+     data-t-preencha="{{ 'djen.vp.preencha'|trans({campos: '%campos%'})|e('html_attr') }}"
+     data-t-buscando="{{ 'djen.vp.buscando'|trans|e('html_attr') }}"
+     data-t-buscar-cnj="{{ 'djen.vp.buscar_cnj'|trans|e('html_attr') }}"
+     data-t-falha-cnj="{{ 'djen.vp.falha_cnj'|trans|e('html_attr') }}"
+     data-t-pasta-n="{{ 'djen.vp.pasta_n'|trans({n: '%n%'})|e('html_attr') }}">
+    <div class="pp-vp__fundo" data-pp-vp-fechar></div>
+    <div class="pp-vp__centro">
+        <div class="pp-vp__caixa" role="dialog" aria-modal="true" aria-label="{{ 'djen.vp.titulo'|trans }}">
+            <div class="pp-vp__topo">
+                <i class="bi bi-briefcase"></i><b>{{ 'djen.vp.titulo'|trans }}</b>
+                <button type="button" class="pp-vp__loc" data-pp-vp-localizar title="{{ 'djen.vp.localizar_dica'|trans }}"><i class="bi bi-folder2-open"></i>{{ 'djen.vp.localizar'|trans }}</button>
+                <button type="button" class="pp-vp__x" data-pp-vp-fechar aria-label="{{ 'djen.index.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="pp-vp__modos">
+                <button type="button" data-pp-vp-modo="busca" class="is-on"><i class="bi bi-search"></i>{{ 'djen.vp.modo_busca'|trans }}</button>
+                <button type="button" data-pp-vp-modo="novo"><i class="bi bi-plus-lg"></i>{{ 'djen.vp.modo_novo'|trans }}</button>
+            </div>
+            <div class="pp-vp__corpo">
+                <div data-pp-vp-painel="busca">
+                    <label class="pp-vp__busca"><i class="bi bi-search"></i><input type="text" data-pp-vp-q placeholder="{{ 'djen.vp.busca_ph'|trans }}" autocomplete="off"></label>
+                    <div class="pp-vp__lista" data-pp-vp-lista></div>
+                    <form method="POST" action="{{ path('push_processual_processos_incluir_cadastrado') }}" data-pp-vp-form-busca hidden>
+                        <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+                        <input type="hidden" name="numero" value="">
+                    </form>
+                </div>
+                <form method="POST" action="{{ path('push_processual_processos_cadastrar') }}" data-pp-vp-painel="novo" data-pp-vp-form-novo hidden>
+                    <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+                    <div class="pp-vp__abas">
+                        <button type="button" data-pp-vp-aba="info" class="is-on"><i class="bi bi-info-circle"></i>{{ 'djen.vp.aba_info'|trans }}</button>
+                        <button type="button" data-pp-vp-aba="partes"><i class="bi bi-people"></i>{{ 'djen.vp.aba_partes'|trans }}</button>
+                        <button type="button" data-pp-vp-aba="mov"><i class="bi bi-clock-history"></i>{{ 'djen.vp.aba_mov'|trans }}</button>
+                    </div>
+                    <div class="pp-vp__grade" data-pp-vp-aba-painel="info">
+                        <label class="pp-vp__campo" style="grid-column: span 4">{{ 'djen.vp.numero'|trans }} *
+                            <input type="text" name="numeroProcesso" data-pp-vp-numero inputmode="numeric" maxlength="25" placeholder="0000000-00.0000.0.00.0000" autocomplete="off">
+                            <span class="pp-vp__dica" data-pp-vp-numero-dica>{{ 'djen.vp.formato'|trans }}</span>
+                        </label>
+                        <button type="button" class="pp-vp__cnj" data-pp-vp-cnj style="grid-column: span 2"><i class="bi bi-search"></i><span>{{ 'djen.vp.buscar_cnj'|trans }}</span></button>
+                        <label class="pp-vp__campo" style="grid-column: span 3">{{ 'djen.vp.tribunal'|trans }}<input type="text" data-pp-vp-tribunal readonly placeholder="{{ 'djen.vp.tribunal_ph'|trans }}" class="pp-vp__ro"></label>
+                        <label class="pp-vp__campo" style="grid-column: span 3">{{ 'djen.vp.orgao'|trans }} *<input type="text" name="orgaoJulgador"></label>
+                        <label class="pp-vp__campo" style="grid-column: span 3">{{ 'djen.vp.classe'|trans }} *<input type="text" name="classeProcessual"></label>
+                        <label class="pp-vp__campo" style="grid-column: span 3">{{ 'djen.vp.assunto'|trans }} *<input type="text" name="assuntoProcessual"></label>
+                        <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.vp.situacao'|trans }} *
+                            <select name="situacaoProcesso">
+                                <option value="EM_ANDAMENTO">{{ 'djen.vp.sit_em_andamento'|trans }}</option>
+                                <option value="SUSPENSO">{{ 'djen.vp.sit_suspenso'|trans }}</option>
+                                <option value="ARQUIVADO">{{ 'djen.vp.sit_arquivado'|trans }}</option>
+                                <option value="BAIXADO">{{ 'djen.vp.sit_baixado'|trans }}</option>
+                            </select>
+                        </label>
+                        <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.vp.instancia'|trans }} *
+                            <select name="instancia">
+                                <option value="G1">{{ 'djen.vp.inst_g1'|trans }}</option>
+                                <option value="G2">{{ 'djen.vp.inst_g2'|trans }}</option>
+                                <option value="TR">{{ 'djen.vp.inst_tr'|trans }}</option>
+                                <option value="ST">{{ 'djen.vp.inst_st'|trans }}</option>
+                            </select>
+                        </label>
+                        <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.vp.distribuicao'|trans }}<input type="date" name="dataDistribuicao"></label>
+                        <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.vp.valor'|trans }}<input type="text" name="valorCausa" placeholder="R$ 0,00" inputmode="numeric" maxlength="22"></label>
+                        <label class="pp-vp__campo" style="grid-column: span 4">{{ 'djen.vp.jurisdicao'|trans }}<input type="text" name="jurisdicao" maxlength="255" placeholder="{{ 'djen.vp.jurisdicao_ph'|trans }}"></label>
+                        <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.vp.segredo'|trans }}<select name="segredo">{{ opcoes_sn|raw }}</select></label>
+                        <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.vp.digital'|trans }}<select name="digital">{{ opcoes_sn|raw }}</select></label>
+                        <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.vp.gratuita'|trans }}<select name="gratuita">{{ opcoes_sn|raw }}</select></label>
+                        <label class="pp-vp__campo" style="grid-column: span 3">{{ 'djen.vp.tutela'|trans }}<select name="tutela">{{ opcoes_sn|raw }}</select></label>
+                        <label class="pp-vp__campo" style="grid-column: span 3">{{ 'djen.vp.prioridade'|trans }}<select name="prioridade">{{ opcoes_sn|raw }}</select></label>
+                    </div>
+                    <div class="pp-vp__partes" data-pp-vp-aba-painel="partes" hidden>
+                        <div data-pp-vp-partes></div>
+                        <button type="button" class="pp-vp__add" data-pp-vp-add-parte><i class="bi bi-plus-lg"></i> {{ 'djen.vp.adicionar_parte'|trans }}</button>
+                    </div>
+                    <div data-pp-vp-aba-painel="mov" hidden>
+                        <div class="pp-vp__vazio" data-pp-vp-mov-vazio>{{ 'djen.vp.sem_movs'|trans }}</div>
+                        <div data-pp-vp-movs></div>
+                    </div>
+                </form>
+                <div class="pp-vp__erro" data-pp-vp-erro hidden></div>
+            </div>
+            <div class="pp-vp__rodape">
+                <button type="button" class="pp-vp__cancelar" data-pp-vp-fechar>{{ 'djen.processos.cancelar'|trans }}</button>
+                <button type="button" class="pp-vp__ok" data-pp-vp-vincular><i class="bi bi-check2"></i>{{ 'djen.vp.titulo'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
