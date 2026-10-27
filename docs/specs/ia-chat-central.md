@@ -10,8 +10,8 @@ membros = [eu, ia]).
 |---|---|
 | 1 | Modelo: `TipoDeConversa::Ia`, `Mensagem.de_ia`, `AbrirConversaComAIaUseCase`. Invisível: sem tela, sem rota, sem resposta da IA. |
 | 2a | **Feito.** Fluxo da IA sem pasta no worker: `chat_central`, `FluxoDeAnaliseSemPasta`/`FluxoDoChatDaCentral`, `PromptDoChatDaCentral` (`chat-central-v1`), `InterpretadorDeRespostaDoChat`, porta `ConversaDaIaNaCentral`. Sem controller, rota nem UseCase de pergunta. |
-| 2b | UseCase/endpoint da pergunta (grava a mensagem, cria a análise `pendente` com `contexto_resumo.mensagemId`, enfileira) e a expiração das falas da IA. |
-| 3 | Interface: a conversa aparece na janela da Central; permissão de módulo da IA entra aqui. |
+| 2b | **Feito.** `PerguntarABlueJusIaUseCase` (sem controller nem rota): vínculo, texto 1..2000, conversa da pessoa, disponibilidade da IA, trava `FOR UPDATE` da conversa, devolve a pergunta em andamento ou grava a mensagem + análise `pendente` com `contexto_resumo.mensagemId` e enfileira depois do commit. Retenção: `ConversaDaIaNaCentral::apagarMensagensDaIaAntesDe` apaga as DUAS pontas (pergunta e resposta) das conversas `ia`, com o mesmo limite da expiração. |
+| 3 | Tela e rotas: a conversa aparece na janela da Central, as rotas da pergunta nascem junto (um POST sem tela gastaria dinheiro sem mostrar a falha); permissão de módulo da IA entra aqui. |
 | 4 | Contexto da tela e D12 ("todas as pastas do cliente"). |
 | 5 | Comandos "/" classe (a) (ver `designer-central-ia-comandos.md`). |
 
@@ -37,8 +37,12 @@ Se a pessoa sair do escritório ou da conversa durante a chamada ao provedor, a 
 
 ## TODO
 
-- PR 2: mensagens da IA entram na expiração de 12 meses do `ExpirarConteudoDaInteligenciaUseCase` (hoje não há
-  mensagem de IA para expirar).
+- ~~PR 2: mensagens da IA entram na expiração~~ Feito no 2b: o retorno do `ExpirarConteudoDaInteligenciaUseCase` ganhou
+  `mensagens`; o comando mostra e registra só números.
+
+- Pergunta presa em `pendente`/`processando` (worker morto, fila fora com EM fechado) bloqueia o chat, pois o
+  UseCase devolve sempre "em andamento". Resolver no PR 3 (tela) com saída por idade máxima do pendente.
+- Testes de corrida real (duas conexões) e de falha entre os dois flushes: a cobrir no PR 3.
 
 ## Pendências do dono (cada uma em PR próprio, só depois do ok)
 

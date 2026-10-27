@@ -226,6 +226,7 @@ section.content-header > .container-fluid {
 
 {% block javascripts %}
 {{ parent() }}
+<script src="{{ asset('js/expediente-nova-pasta-push.js') }}"></script>
 <script>
 /* ── Linhas clicáveis da tabela de pastas (delegado no document) ── */
 document.addEventListener('click', function (e) {
