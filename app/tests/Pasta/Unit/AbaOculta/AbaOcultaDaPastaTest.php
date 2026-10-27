@@ -47,7 +47,7 @@ final class AbaOcultaDaPastaTest extends TestCase
     public function testRotulos(): void
     {
         self::assertSame(
-            ['Dados da pasta', 'Metas', 'Processo', 'Financeiro', 'Detalhes', 'Documentos', 'Push Processual'],
+            ['Dados da pasta', 'Metas', 'Processo', 'Financeiro', 'Modelos', 'Documentos', 'Push Processual'],
             array_map(static fn (AbaDaPasta $a): string => $a->rotulo(), AbaDaPasta::cases()),
         );
     }

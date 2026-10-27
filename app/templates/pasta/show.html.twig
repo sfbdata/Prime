@@ -12,6 +12,8 @@
 <link rel="stylesheet" href="/css/pasta-show.css">
 <link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-prazos.css') }}">
+{# Aba Modelos: banco de modelos de petições (desenho 02 de 27/10). #}
+<link rel="stylesheet" href="{{ asset('css/pasta-modelos.css') }}">
 <link rel="stylesheet" href="{{ asset('css/cliente-cadastro.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-apensados.css') }}">
@@ -314,6 +316,12 @@
                                (desenho VS 18.10.26, dc L.2520). O desenho nao tem "Como usar esta aba". #}
                             {% if 'detalhes' not in abasOcultas %}
                             <div class="tab-pane fade{{ primeiraAba == 'detalhes' ? ' show active' }}" id="detalhes" role="tabpanel" aria-labelledby="detalhes-tab">
+                                {# Aba Modelos (desenho 02 de 27/10): o banco de modelos em cima e, embaixo, o Relatório
+                                   inicial recolhido num <details>. O id e a permissão continuam `detalhes`. #}
+                                {% include 'pasta/modelos/_banco.html.twig' with {pasta: pasta, podeEditarPasta: podeEditarPasta} only %}
+                                <details class="mdl-relatorio">
+                                <summary>{{ 'pasta_modelos.relatorio_resumo'|trans }}</summary>
+                                <div class="mdl-relatorio-corpo">
                                 <div class="ps-grade">
                                 {% include 'pasta/_detalhes_obs.html.twig' with {
                                     pasta: pasta,
@@ -363,6 +371,8 @@
                                     } only %}
                                 </div>
                                 </div>
+                                </div>
+                                </details>
                             </div>
                             {% endif %}
 
@@ -4896,6 +4906,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-cadeado-pedidos.js') }}"></script>
 {# Ocultar aba: depois do pasta-push-link.js, porque injeta os itens no menu da aba Push (#pushLinkMenu). #}
 <script src="{{ asset('js/pasta-abas-ocultas.js') }}"></script>
+{# Aba Modelos: lista, visualização e editor do banco de modelos (o TinyMCE só carrega ao abrir o editor). #}
+<script src="{{ asset('js/pasta-modelos.js') }}"></script>
 {# "Próximos prazos" (E12b): novo, editar, cumprir e excluir prazo ou audiência. #}
 <script src="{{ asset('js/pasta-prazos.js') }}"></script>
 {# Andamento da pasta em fases (E12b). #}

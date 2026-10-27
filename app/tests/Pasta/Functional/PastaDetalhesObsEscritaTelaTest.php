@@ -77,7 +77,7 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        $painel = $crawler->filter('#detalhes > .ps-grade > .ps-detalhes-obs');
+        $painel = $crawler->filter('#detalhes > details.mdl-relatorio > .mdl-relatorio-corpo > .ps-grade > .ps-detalhes-obs');
         self::assertCount(1, $painel);
         self::assertCount(0, $crawler->filter('#formDetalhesObservacao, #detalhesObsConteudo, #btnEnviarObsDetalhes'));
         self::assertCount(0, $crawler->filter('#detalhesObsSomenteLeitura'), 'pasta viva: sem nota inventada (a da lápide é outro caso)');

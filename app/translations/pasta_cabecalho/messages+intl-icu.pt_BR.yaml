@@ -94,7 +94,7 @@ pasta_cabecalho:
             tarefas: Metas
             processo: Processo
             financeiro: Financeiro
-            detalhes: Detalhes
+            detalhes: Modelos
             documentos: Documentos
             push: Push Processual
         cadastro:

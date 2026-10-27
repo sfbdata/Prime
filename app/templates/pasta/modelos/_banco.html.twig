@@ -1,0 +1,103 @@
+{# Banco de modelos de petições da aba Modelos (desenho 02 de 27/10, `bj-modelos.js`; spec
+   docs/specs/modelos-pasta-desenho-02.md, fatia M1).
+   O cartão, os campos e os botões são os do DESENHO (prefixo .mdl-, pasta-modelos.css), não os do
+   AdminLTE. A coluna esquerda e as linhas chegam do servidor (GET pasta_modelos_listar) e o
+   pasta-modelos.js as troca; o painel direito alterna LISTA, VISUALIZAÇÃO e EDITOR.
+   Contexto: `pasta`, `podeEditarPasta`. O `<details>` do Relatório inicial mora no show. #}
+<div class="mdl" id="mdlRaiz"
+     data-url-base="{{ path('pasta_modelos_listar', {id: pasta.id}) }}"
+     data-token="{{ podeEditarPasta ? csrf_token('modelos_pasta_' ~ pasta.id) : '' }}"
+     data-pode-editar="{{ podeEditarPasta ? '1' : '0' }}"
+     data-confirmar-excluir="{{ 'pasta_modelos.confirmar_excluir'|trans }}"
+     data-titulo-novo="{{ 'pasta_modelos.editor.novo'|trans }}"
+     data-titulo-editar="{{ 'pasta_modelos.editor.editar'|trans }}"
+     data-usado="{{ 'pasta_modelos.linha.usado'|trans({n: '{n}'}) }}"
+     data-sufixo-copia="{{ 'pasta_modelos.sufixo_copia'|trans }}"
+     data-erro-generico="{{ 'pasta_modelos.erro_generico'|trans }}"
+     data-msg-titulo="{{ 'pasta_modelos.editor.informe_titulo'|trans }}">
+    <div class="mdl-cartao">
+        <div class="mdl-cab">
+            <i class="bi bi-journal-text mdl-cab-icone"></i>
+            <b class="mdl-cab-titulo">{{ 'pasta_modelos.titulo'|trans }}</b>
+            <span class="mdl-cab-contador" id="mdlContador"></span>
+        </div>
+        <div class="mdl-corpo">
+            <div class="mdl-esq" id="mdlColuna"></div>
+            <div class="mdl-dir">
+                <section class="mdl-painel" id="mdlPainelLista">
+                    <div class="mdl-barra">
+                        <label class="mdl-busca">
+                            <i class="bi bi-search"></i>
+                            <input type="text" id="mdlBusca" placeholder="{{ 'pasta_modelos.busca_placeholder'|trans }}" autocomplete="off">
+                        </label>
+                        <select id="mdlTipo" class="mdl-select" aria-label="{{ 'pasta_modelos.todos_tipos'|trans }}">
+                            <option value="">{{ 'pasta_modelos.todos_tipos'|trans }}</option>
+                            {% for tipo in enum_cases('App\\Pasta\\Enum\\TipoDePeca') %}<option value="{{ tipo.value }}">{{ tipo.rotulo }}</option>{% endfor %}
+                        </select>
+                        <select id="mdlOrdem" class="mdl-select" aria-label="{{ 'pasta_modelos.ordenar'|trans }}">
+                            {% for ordem in enum_cases('App\\Pasta\\Enum\\OrdemDosModelos') %}<option value="{{ ordem.value }}">{{ ordem.rotulo }}</option>{% endfor %}
+                        </select>
+                        {% if podeEditarPasta %}
+                            <button type="button" class="mdl-btn-primario" id="mdlNovo"><i class="bi bi-plus-lg"></i> {{ 'pasta_modelos.novo'|trans }}</button>
+                        {% endif %}
+                    </div>
+                    <div id="mdlLista"></div>
+                </section>
+
+                <section class="mdl-painel mdl-visualizacao" id="mdlPainelVer" hidden>
+                    <div class="mdl-ver-cab">
+                        <button type="button" class="mdl-btn-quadrado" id="mdlVoltar" title="{{ 'pasta_modelos.voltar'|trans }}"><i class="bi bi-arrow-left"></i></button>
+                        <div class="mdl-ver-titulos">
+                            <b id="mdlVerTitulo"></b>
+                            <span id="mdlVerSub"></span>
+                        </div>
+                    </div>
+                    <div class="mdl-palco"><div class="mdl-folha" id="mdlVerCorpo"></div></div>
+                    {% if podeEditarPasta %}
+                        <div class="mdl-acoes">
+                            <span class="mdl-menu-ancora">
+                                <button type="button" class="mdl-btn-quadrado" id="mdlMais" title="{{ 'pasta_modelos.mais_opcoes'|trans }}" aria-haspopup="true" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
+                                <div class="mdl-menu" id="mdlMenu" role="menu" hidden>
+                                    <button type="button" class="mdl-menu-item" role="menuitem" data-acao="duplicar"><i class="bi bi-files"></i>{{ 'pasta_modelos.menu.duplicar'|trans }}</button>
+                                    <button type="button" class="mdl-menu-item" role="menuitem" data-acao="editar"><i class="bi bi-pencil"></i>{{ 'pasta_modelos.menu.editar'|trans }}</button>
+                                    <div class="mdl-menu-sep"></div>
+                                    <button type="button" class="mdl-menu-item mdl-menu-item--perigo" role="menuitem" data-acao="excluir"><i class="bi bi-trash3"></i>{{ 'pasta_modelos.menu.excluir'|trans }}</button>
+                                </div>
+                            </span>
+                        </div>
+                    {% endif %}
+                </section>
+
+                {% if podeEditarPasta %}
+                    <section class="mdl-painel mdl-editor" id="mdlPainelEditor" hidden>
+                        <b class="mdl-editor-titulo" id="mdlEditorTitulo"></b>
+                        <label class="mdl-rotulo">{{ 'pasta_modelos.editor.titulo'|trans }}
+                            <input type="text" class="mdl-campo" id="mdlCampoTitulo" maxlength="255" autocomplete="off">
+                        </label>
+                        <div class="mdl-editor-grade">
+                            <label class="mdl-rotulo">{{ 'pasta_modelos.editor.materia'|trans }}
+                                <select class="mdl-campo" id="mdlCampoMateria">
+                                    {% for materia in enum_cases('App\\Pasta\\Enum\\MateriaDeModelo') %}<option value="{{ materia.value }}">{{ materia.rotulo }}</option>{% endfor %}
+                                </select>
+                            </label>
+                            <label class="mdl-rotulo">{{ 'pasta_modelos.editor.tipo'|trans }}
+                                <select class="mdl-campo" id="mdlCampoTipo">
+                                    {% for tipo in enum_cases('App\\Pasta\\Enum\\TipoDePeca') %}<option value="{{ tipo.value }}">{{ tipo.rotulo }}</option>{% endfor %}
+                                </select>
+                            </label>
+                        </div>
+                        <div class="mdl-rotulo">
+                            <span>{{ 'pasta_modelos.editor.texto'|trans }}</span>
+                            <div class="mdl-moldura"><textarea id="mdlCampoCorpo"></textarea></div>
+                        </div>
+                        <div class="mdl-erro" id="mdlErro" role="alert" hidden></div>
+                        <div class="mdl-editor-rodape">
+                            <button type="button" class="mdl-btn-secundario" id="mdlCancelar">{{ 'pasta_modelos.editor.cancelar'|trans }}</button>
+                            <button type="button" class="mdl-btn-primario" id="mdlSalvar">{{ 'pasta_modelos.editor.salvar'|trans }}</button>
+                        </div>
+                    </section>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

@@ -103,6 +103,11 @@ final class PurgarEscritorioUseCase
         // `pasta_documento`/`pasta_secao`, mas a FK de tenant é NO ACTION — deleção explícita
         // ANTES do documento, para a cobertura ficar visível aqui.
         ['pasta_documento_favorito', 'tenant_id = :tenant'],
+        // Banco de modelos de petições (aba Modelos): estrelas antes do modelo, que as levaria por CASCADE
+        // (a FK de tenant é NO ACTION).
+        ['modelo_de_peca_favorito', 'tenant_id = :tenant'],
+        ['materia_favorita_de_modelo', 'tenant_id = :tenant'],
+        ['modelo_de_peca', 'tenant_id = :tenant'],
         ['pasta_documento', 'tenant_id = :tenant'],
         ['movimentacao_processo', 'tenant_id = :tenant'],
         ['parte_processo', 'tenant_id = :tenant'],
