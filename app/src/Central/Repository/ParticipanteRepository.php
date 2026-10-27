@@ -158,6 +158,25 @@ class ParticipanteRepository extends ServiceEntityRepository
     }
 
     /**
+     * O usuário participa ATIVAMENTE da conversa agora? Contagem no banco (não devolve entidade): vale mesmo que a
+     * participação já esteja carregada com o estado de antes. Tenant explícito.
+     */
+    public function participaAtivamente(Conversa $conversa, User $usuario, Tenant $tenant): bool
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->andWhere('p.conversa = :conversa')
+            ->andWhere('p.usuario = :usuario')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.saiuEm IS NULL')
+            ->setParameter('conversa', $conversa)
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
+
+    /**
      * Os ids das conversas de que o usuário participa ATIVAMENTE no escritório (consulta leve, sem carregar entidades).
      *
      * @return array<int, true>

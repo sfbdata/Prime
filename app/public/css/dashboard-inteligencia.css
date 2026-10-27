@@ -550,10 +550,11 @@
 
 /* perguntas guiadas */
 .db-page .db-ia-perguntas { background: linear-gradient(180deg, var(--db-ia-suave-bg), var(--db-ia-bloco-bg)); }
-.db-page .db-ia-pergunta + .db-ia-pergunta { margin-top: 6px; }
-.db-page .db-ia-pergunta > summary { display: inline-flex; align-items: center; min-height: 30px; padding: 4px 11px; border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--db-ia-pergunta-texto); background: var(--db-ia-pergunta-bg); box-shadow: inset 0 0 0 1px var(--db-ia-pergunta-anel); transition: background .2s, color .2s; }
-.db-page .db-ia-pergunta[open] > summary { background: var(--db-accent); color: #fff; box-shadow: none; }
-.db-page .db-ia-resposta { display: flex; gap: 9px; margin-top: 8px; padding: 10px 11px; border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 0 0 0 1px var(--db-ia-resposta-anel); font-size: 12.5px; line-height: 1.5; color: var(--db-text); animation: dbIaBloco .2s ease both; }
+.db-page .db-ia-pilulas { display: flex; flex-wrap: wrap; gap: 6px; }
+.db-page .db-ia-pilula { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border: none; border-radius: 4px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--db-ia-pergunta-texto); background: var(--db-ia-pergunta-bg); box-shadow: inset 0 0 0 1px var(--db-ia-pergunta-anel); transition: background .2s, color .2s; }
+.db-page .db-ia-pilula[aria-pressed="true"] { background: var(--db-accent); color: #fff; box-shadow: none; }
+.db-page .db-ia-resposta { display: flex; gap: 9px; margin-top: 10px; padding: 10px 11px; border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 0 0 0 1px var(--db-ia-resposta-anel); font-size: 12.5px; line-height: 1.5; color: var(--db-text); animation: dbIaBloco .2s ease both; }
+.db-page .db-ia-resposta[hidden] { display: none; }
 .db-page .db-ia-resposta i { font-size: 14px; color: var(--db-accent); margin-top: 1px; }
 
 /* ── Confirmação "Ativar Modo Avançado?" (dc L939-959) ──────────────────────
@@ -636,7 +637,15 @@
 .db-page .db-ia-teaser-seta { font-size: 14px; }
 
 /* rodapé */
-.db-page .db-ia-rodape { display: flex; align-items: center; gap: 7px; padding: 10px 16px 12px; border-top: 1px solid var(--db-ia-divisor); background: var(--db-ia-rodape-bg); font-size: 12px; color: var(--db-text-2); }
+.db-page .db-ia-rodape { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--db-ia-divisor); background: var(--db-ia-rodape-bg); font-size: 12px; color: var(--db-text-2); }
+.db-page .db-ia-rodape-linha { display: flex; align-items: center; gap: 7px; }
+/* Teste · simular dia (dc L1341-1347) */
+.db-page .db-ia-sim { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--db-faint); }
+.db-page .db-ia-sim-teste { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.db-page .db-ia-sim-range { flex: 1; accent-color: var(--db-accent); }
+.db-page .db-ia-sim-dia { font-family: Arial, Helvetica, sans-serif; font-weight: 700; color: var(--db-ia-chip-texto); min-width: 28px; text-align: right; }
+.db-page .db-ia-sim-aviso { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; padding: 9px 12px; border-radius: 4px; background: var(--db-ia-atencao-bg); color: var(--db-ia-atencao); font-size: 12px; line-height: 1.4; }
+.db-page .db-ia-sim-aviso i { margin-top: 1px; }
 .db-page .db-ia-rodape i { font-size: 12px; color: var(--db-accent); }
 
 /* ── Responsividade ──────────────────────────────────────────────────────── */

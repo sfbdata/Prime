@@ -33,6 +33,7 @@ A coluna "crontab antigo" foi **conferida com o crontab real da VPS em 23/10/202
 | Comando (como o agendador roda) | Crontab antigo (UTC) | Agendador (America/Sao_Paulo) |
 |---|---|---|
 | `app:purgar-dados-expirados --force --no-interaction` | `0 3 * * *` | `0 0 * * *` (0h) |
+| `app:desempenho:purgar --no-interaction` | não estava no crontab (nova, docs/specs/master-desempenho.md) | `40 0 * * *` (0h40) |
 | `app:djen:sincronizar --dias=2 --no-interaction` | `0 6 * * *` (com `--dias=2`) | `0 3 * * *` (3h) |
 | `app:push:resumo-semanal-cliente --no-interaction` | `0 11 * * 1` | `0 8 * * 1` (segunda, 8h) |
 | `app:pastas:relatorio-sem-processo --no-interaction` | `5 13 * * *` | `5 10 * * *` (10h05) |
