@@ -12,8 +12,8 @@ membros = [eu, ia]).
 | 2a | **Feito.** Fluxo da IA sem pasta no worker: `chat_central`, `FluxoDeAnaliseSemPasta`/`FluxoDoChatDaCentral`, `PromptDoChatDaCentral` (`chat-central-v1`), `InterpretadorDeRespostaDoChat`, porta `ConversaDaIaNaCentral`. Sem controller, rota nem UseCase de pergunta. |
 | 2b | **Feito.** `PerguntarABlueJusIaUseCase` (sem controller nem rota): vínculo, texto 1..2000, conversa da pessoa, disponibilidade da IA, trava `FOR UPDATE` da conversa, devolve a pergunta em andamento ou grava a mensagem + análise `pendente` com `contexto_resumo.mensagemId` e enfileira depois do commit. Retenção: `ConversaDaIaNaCentral::apagarMensagensDaIaAntesDe` apaga as DUAS pontas (pergunta e resposta) das conversas `ia`, com o mesmo limite da expiração. |
 | 3a | **Feito (backend).** A conversa IA fica visível ao dono (lista, histórico, não lidas, novidades), a lista a traz sempre, o envio comum nela é recusado, rotas `POST /central/ia/perguntas` e `GET /central/ia/perguntas/{analiseId}`, saída do pendente preso (10 min). Sem permissão de módulo da IA por ora (só vínculo ativo). |
-| 3b | **Feito (tela).** Item "BlueJus IA" fixo no topo da lista, cabeçalho setor · função, bolha `deIa` com selo IA, "digitando..." enquanto a pergunta está pendente (um GET de status por ciclo do polling), estado vazio com 3 sugestões (sem "Faça um resumo desta pasta": depende do contexto da tela, PR 4), aviso fixo de resposta por IA, textos em `central.ia.*` por `data-ia-*`. Pendente: corrida real e o "digitando" após recarregar a página (a lista não expõe a pergunta em andamento). |
-| 4 | Contexto da tela e D12 ("todas as pastas do cliente"). **4a feito (backend):** `pastaId` na pergunta, validação na solicitação e releitura no worker, prompt `chat-central-v2`. 4b (tela) e 4c (D12) pendentes. |
+| 3b | **Feito (tela).** Item "BlueJus IA" fixo no topo da lista, cabeçalho setor · função, bolha `deIa` com selo IA, "digitando..." enquanto a pergunta está pendente (um GET de status por ciclo do polling), estado vazio com 3 sugestões (a do resumo da pasta veio no 4b), aviso fixo de resposta por IA, textos em `central.ia.*` por `data-ia-*`. Pendente: corrida real e o "digitando" após recarregar a página (a lista não expõe a pergunta em andamento). |
+| 4 | Contexto da tela e D12 ("todas as pastas do cliente"). **4a feito (backend):** `pastaId` na pergunta, validação na solicitação e releitura no worker, prompt `chat-central-v2`. **4b feito (tela):** barra "Pasta N" e sugestão do resumo, `GET /central/ia/pasta/{pastaId}`. 4c (D12) pendente. |
 | 5 | Comandos "/" classe (a) (ver `designer-central-ia-comandos.md`). |
 
 ## Decisões do PR 1
@@ -68,6 +68,17 @@ Regras do 4a:
 5. Módulo `inteligencia` segue exigido (`DisponibilidadeDeInteligencia::para`).
 6. 4c (D12): cruza pastas de TODOS os clientes da pasta aberta, no mesmo escritório, só as que a pessoa vê, teto de pastas e orçamento menor por pasta;
    pasta com segredo some em silêncio ("N pastas não puderam ser consultadas").
+
+Regras do 4b (tela):
+1. A janela leva `data-ia-pasta="{id}"` só em `/pasta/{id}` (`_janela.html.twig`; o `base.html.twig` não mudou). É dica de UI: o servidor revalida.
+2. Ao abrir a conversa IA com a dica, o JS busca o rótulo UMA vez em `GET /central/ia/pasta/{pastaId}` (`central_ia_pasta`,
+   `DescreverPastaDoContextoDaIaUseCase`): vínculo ativo (403 sem), pasta por id + escritório, não excluída, `podeVer`; qualquer falha de pasta
+   = 404 `pasta_nao_encontrada` com a mensagem fixa, sem confirmar existência. Devolve só `{pastaId, nup, cliente, url}`, `Cache-Control: private, no-store`.
+   Segredo de justiça NÃO é recusado aqui (a barra mostra qual pasta está em jogo); quem recusa é a pergunta (409).
+3. 404 no rótulo: sem barra, sem `pastaId`, sem aviso. Com a barra (desenho L6001-6006, "Abrir pasta" é link para `/pasta/{id}`) o POST de pergunta leva `pastaId`;
+   a sugestão "Faça um resumo desta pasta" (L397) entra no estado vazio só com a barra. 409 `contexto_bloqueado` e 404 `pasta_nao_encontrada` na pergunta:
+   `avisar()` com a mensagem do servidor e, no 404, a barra sai.
+4. Desvio consciente do desenho: o botão "Abrir pasta" é `<a>` (teclado e Ctrl+clique); na janela destacada abre em aba nova, como o chip do despacho.
 
 ## Pendências do dono (cada uma em PR próprio, só depois do ok)
 
