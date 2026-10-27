@@ -10,7 +10,20 @@
 {% block body %}
 {% include 'djen/_abas.html.twig' with {ativa: 'diario'} %}
 
-<div class="pp-pagina" data-pp-diario>
+<div class="pp-pagina" data-pp-diario data-total-lidas="{{ totalLidas }}"
+     data-url-leitura="{{ path('push_processual_diario_leitura') }}"
+     data-t-n-selecionadas="{{ 'djen.index.n_selecionadas'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-confirma-excluir-lote="{{ 'djen.diario.confirma_excluir'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-prompt-excluir-lote="{{ 'djen.diario.prompt_excluir'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-confirma-limpar="{{ 'djen.index.confirma_limpar'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-prompt-limpar="{{ 'djen.index.prompt_limpar'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-cancelada="{{ 'djen.index.exclusao_cancelada'|trans|e('html_attr') }}"
+     data-t-sem-lidas="{{ 'djen.index.sem_lidas'|trans|e('html_attr') }}">
+    <form method="POST" class="pp-lote" data-pp-diario-lote hidden>
+        <input type="hidden" name="_token" value="{{ csrf_token('push_diario') }}">
+        <input type="hidden" name="voltar" value="{{ app.request.requestUri }}">
+        <input type="hidden" name="lida" value="1">
+    </form>
     <div class="pp-topo">
         <i class="bi bi-shield-check"></i>
         <h1>{{ 'djen.diario.titulo'|trans }}</h1>
@@ -42,15 +55,20 @@
                 <span>{{ 'djen.comum.orgao_maiusculo'|trans }}</span>
                 <span>{{ 'djen.diario.prazo'|trans }}</span>
             </div>
-            <div class="pp-selecao">
-                <span class="pp-selecao__btn"><i class="bi bi-square"></i>{{ 'djen.diario.selecionar'|trans }}</span>
-                <span class="pp-selecao__esp"></span>
-                <span class="pp-selecao__limpar"><i class="bi bi-trash3"></i> {{ 'djen.diario.limpar_lidas'|trans }}</span>
+            <div class="pp-barra">
+                <button type="button" class="pp-barra__btn" data-pp-selecionar-todas title="{{ 'djen.index.selecionar_todas'|trans }}"><i class="bi bi-square"></i>{{ 'djen.diario.selecionar'|trans }}</button>
+                <span class="pp-barra__sel" data-pp-sel-grupo hidden>
+                    <span class="pp-barra__n" data-pp-sel-n></span>
+                    <button type="button" class="pp-barra__btn" data-pp-acao="leitura"><i class="bi bi-envelope-open"></i> {{ 'djen.index.marcar_lidas'|trans }}</button>
+                    <button type="button" class="pp-barra__btn pp-barra__btn--perigo" data-pp-acao="excluir"><i class="bi bi-trash3"></i> {{ 'djen.index.excluir'|trans }}</button>
+                </span>
+                <span class="pp-barra__espaco"></span>
+                <button type="button" class="pp-barra__limpar" data-pp-acao="limpar"><i class="bi bi-trash3"></i> {{ 'djen.diario.limpar_lidas'|trans }}</button>
             </div>
             {% for p in publicacoes %}
-                <div class="pp-diario-item" data-pp-diario-item>
+                <div class="pp-diario-item" data-pp-diario-item data-id="{{ p.id }}" data-ato="{{ p.ato }}">
                     <div class="pp-linha pp-linha--diario pp-linha--dado{{ p.lida ? '' : ' is-nova' }}" data-pp-diario-linha title="{{ 'djen.diario.expandir'|trans }}">
-                        <span><input type="checkbox" class="pp-marca" disabled aria-label="{{ 'djen.diario.selecionar_item'|trans }}"></span>
+                        <span><button type="button" class="pp-marca" data-pp-marca aria-pressed="false" aria-label="{{ 'djen.diario.selecionar_item'|trans }}"><i class="bi bi-square"></i></button></span>
                         <span>{{ p.dataPublicacao|date('d/m/Y') }}</span>
                         <span>{{ p.seccional }}</span>
                         <span class="pp-c-ato">
