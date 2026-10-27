@@ -65,9 +65,9 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         $pastas->method('findByFilters')->willReturn([$judicializada, $comum]);
         $pastas->method('countByFilters')->willReturn(2);
         $casos = $this->createMock(CasoCobrancaRepository::class);
-        $casos->expects(self::once())->method('credorEDevedorPorPasta')
+        $casos->expects(self::once())->method('clienteDaCarteiraPorPasta')
             ->with([1, 2], $tenant)
-            ->willReturn([1 => ['fantasia' => 'APLC TOP LIFE 1', 'pessoa' => 'JOSÉ DEVEDOR']]);
+            ->willReturn([1 => ['fantasia' => 'APLC TOP LIFE 1', 'razaoSocial' => 'APLC EMPREENDIMENTOS LTDA']]);
 
         $useCase = new BuscarPastasDoAgenteUseCase(
             new ConsultaDePastasDoAgente($pastas, $this->createStub(MarcadorRepository::class), $this->createStub(UserTenantRepository::class)),
@@ -78,12 +78,12 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         $saida = $useCase->executar(FiltroDoAgenteInput::daQuery([]), $tenant);
 
         self::assertSame(2, $saida->total);
-        self::assertSame('APLC TOP LIFE 1 - JOSÉ DEVEDOR', $saida->pastas[0]->identificador);
+        self::assertSame('APLC TOP LIFE 1', $saida->pastas[0]->identificador);
         self::assertSame('MARIA', $saida->pastas[1]->identificador);
         self::assertNull($saida->pastas[1]->acao);
     }
 
-    #[TestDox('Clientes vinculados só saem quando a pasta não tem identificador, como na coluna da Lista')]
+    #[TestDox('Pasta com cliente vinculado tem o cliente principal como identificador e não repete o nome em clientes')]
     public function testClientesSoSemIdentificador(): void
     {
         $tenant = new Tenant();
@@ -100,7 +100,7 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         $pastas = $this->createStub(PastaRepository::class);
         $pastas->method('findByFilters')->willReturn([$comIdentificador, $semIdentificador]);
         $casos = $this->createStub(CasoCobrancaRepository::class);
-        $casos->method('credorEDevedorPorPasta')->willReturn([]);
+        $casos->method('clienteDaCarteiraPorPasta')->willReturn([]);
 
         $useCase = new BuscarPastasDoAgenteUseCase(
             new ConsultaDePastasDoAgente($pastas, $this->createStub(MarcadorRepository::class), $this->createStub(UserTenantRepository::class)),
@@ -111,8 +111,10 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         $saida = $useCase->executar(FiltroDoAgenteInput::daQuery([]), $tenant);
 
         self::assertSame([], $saida->pastas[0]->clientes);
-        self::assertNull($saida->pastas[1]->identificador);
-        self::assertSame(['EMPRESA VINCULADA'], $saida->pastas[1]->clientes);
+        // Com cliente vinculado o identificador é o cliente principal (decisão de 2026-10-27), então
+        // o nome gravado (aqui ausente) deixa de ser necessário e a lista de clientes não repete o nome.
+        self::assertSame('EMPRESA VINCULADA', $saida->pastas[1]->identificador);
+        self::assertSame([], $saida->pastas[1]->clientes);
     }
 
     #[TestDox('Contar devolve só o total, sem buscar as linhas')]
@@ -147,7 +149,7 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         $pastas = $this->createStub(PastaRepository::class);
         $pastas->method('findByFilters')->willReturn([$oculta, $livre]);
         $casos = $this->createStub(CasoCobrancaRepository::class);
-        $casos->method('credorEDevedorPorPasta')->willReturn([]);
+        $casos->method('clienteDaCarteiraPorPasta')->willReturn([]);
         $useCase = new BuscarPastasDoAgenteUseCase(
             new ConsultaDePastasDoAgente($pastas, $this->createStub(MarcadorRepository::class), $this->createStub(UserTenantRepository::class)),
             new ResolvedorIdentificadorDaPasta($casos, new ComporNomeDaPastaJudicial()),
