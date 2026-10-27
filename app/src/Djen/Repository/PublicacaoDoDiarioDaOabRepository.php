@@ -52,6 +52,53 @@ class PublicacaoDoDiarioDaOabRepository extends ServiceEntityRepository
         return (int) $this->doUsuario($tenant, $usuario)->select('COUNT(d.id)')->andWhere('d.lidaEm IS NULL')->getQuery()->getSingleScalarResult();
     }
 
+    public function contarLidasDoUsuario(Tenant $tenant, User $usuario): int
+    {
+        return (int) $this->doUsuario($tenant, $usuario)->select('COUNT(d.id)')->andWhere('d.lidaEm IS NOT NULL')->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Marca como lidas (ou volta para não lidas) as publicações DO USUÁRIO entre os ids; id alheio é ignorado.
+     *
+     * @param list<int> $ids
+     */
+    public function atualizarLeitura(Tenant $tenant, User $usuario, array $ids, ?\DateTimeImmutable $lidaEm): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->atualizarDoUsuario($tenant, $usuario, 'd.lidaEm', $lidaEm)->andWhere('d.id IN (:ids)')->setParameter('ids', $ids)->getQuery()->execute();
+    }
+
+    /** @param list<int> $ids */
+    public function marcarExcluidas(Tenant $tenant, User $usuario, array $ids, \DateTimeImmutable $em): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->atualizarDoUsuario($tenant, $usuario, 'd.excluidaEm', $em)->andWhere('d.id IN (:ids)')->setParameter('ids', $ids)->getQuery()->execute();
+    }
+
+    public function marcarLidasComoExcluidas(Tenant $tenant, User $usuario, \DateTimeImmutable $em): int
+    {
+        return (int) $this->atualizarDoUsuario($tenant, $usuario, 'd.excluidaEm', $em)->andWhere('d.lidaEm IS NOT NULL')->getQuery()->execute();
+    }
+
+    private function atualizarDoUsuario(Tenant $tenant, User $usuario, string $campo, ?\DateTimeImmutable $valor): \Doctrine\ORM\QueryBuilder
+    {
+        return $this->createQueryBuilder('d')
+            ->update()
+            ->set($campo, ':valor')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.usuario = :usuario')
+            ->andWhere('d.excluidaEm IS NULL')
+            ->setParameter('valor', $valor)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('usuario', $usuario);
+    }
+
     private function doUsuario(Tenant $tenant, User $usuario): \Doctrine\ORM\QueryBuilder
     {
         return $this->createQueryBuilder('d')

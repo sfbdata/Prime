@@ -10,3 +10,4 @@
 .pp-diario-texto { padding: 4px 16px 14px 42px; font-size: 14px; color: #243845; white-space: pre-wrap; }
 .pp-diario-texto[hidden] { display: none; }
 .pp-vp__campo textarea { border: 1px solid #c5d2db; border-radius: 2px; padding: 8px 10px; font: inherit; font-size: 14px; font-weight: normal; resize: vertical; min-width: 0; }
+.pp-diario-item.is-sel > .pp-linha { background: #dcecf6; }

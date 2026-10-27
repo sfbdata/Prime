@@ -149,4 +149,86 @@ final class DiarioDaOabControllerTest extends JusPrimeWebTestCase
 
         self::assertStringContainsString('2', $crawler->filter('nav.pp-abas a[data-pp-aba="diario"]')->text());
     }
+
+    /** @return list<int> */
+    private function idsNaTela(\Symfony\Component\DomCrawler\Crawler $crawler): array
+    {
+        return array_map('intval', $crawler->filter('[data-pp-diario-item]')->extract(['data-id']));
+    }
+
+    private function tokenDaTela(\Symfony\Component\DomCrawler\Crawler $crawler): string
+    {
+        return (string) $crawler->filter('[data-pp-diario-lote] input[name="_token"]')->attr('value');
+    }
+
+    #[Test]
+    public function marcaComoLidaPorAjaxEAtualizaAContagem(): void
+    {
+        [$client, $tenant, $usuario] = $this->entrar();
+        $this->guardar($tenant, $usuario, 'Ato A');
+        $this->guardar($tenant, $usuario, 'Ato B');
+        $this->limparIdentityMap();
+        $crawler = $client->request('GET', '/push-processual/diario');
+        $ids = $this->idsNaTela($crawler);
+
+        $client->xmlHttpRequest('POST', '/push-processual/diario/leitura', ['_token' => $this->tokenDaTela($crawler), 'lida' => '1', 'ids' => [$ids[0]]]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['atualizadas' => 1, 'naoLidas' => 1], json_decode((string) $client->getResponse()->getContent(), true));
+        $crawler = $client->request('GET', '/push-processual/diario');
+        self::assertCount(1, $crawler->filter('[data-pp-diario-linha].is-nova'));
+    }
+
+    #[Test]
+    public function excluiSelecionadasELimpaLidasSoDoProprioUsuario(): void
+    {
+        [$client, $tenant, $usuario] = $this->entrar();
+        $colega = $this->criarGestor($this->em()->getReference(Tenant::class, $tenant->getId()), 'c_' . uniqid() . '@test.com');
+        $this->guardar($tenant, $usuario, 'Ato A');
+        $this->guardar($tenant, $usuario, 'Ato B');
+        $this->guardar($tenant, $usuario, 'Ato C');
+        $this->guardar($tenant, $colega, 'Do colega');
+        $this->limparIdentityMap();
+        $crawler = $client->request('GET', '/push-processual/diario');
+        $ids = $this->idsNaTela($crawler);
+        $token = $this->tokenDaTela($crawler);
+
+        $client->request('POST', '/push-processual/diario/leitura', ['_token' => $token, 'lida' => '1', 'ids' => [$ids[0], $ids[1]]]);
+        $client->request('POST', '/push-processual/diario/excluir', ['_token' => $token, 'ids' => [$ids[2]]]);
+        $client->request('POST', '/push-processual/diario/limpar-lidas', ['_token' => $token]);
+
+        $crawler = $client->request('GET', '/push-processual/diario');
+        self::assertCount(0, $crawler->filter('[data-pp-diario-item]'));
+        $colegaLista = $this->em()->getRepository(PublicacaoDoDiarioDaOab::class)->findBy(['ato' => 'Do colega', 'excluidaEm' => null]);
+        self::assertCount(1, $colegaLista, 'a publicação do colega não é tocada');
+    }
+
+    #[Test]
+    public function naoMexeEmPublicacaoDeOutroUsuarioPorId(): void
+    {
+        [$client, $tenant, $usuario] = $this->entrar();
+        $colega = $this->criarGestor($this->em()->getReference(Tenant::class, $tenant->getId()), 'c_' . uniqid() . '@test.com');
+        $this->guardar($tenant, $colega, 'Do colega');
+        $alheia = $this->em()->getRepository(PublicacaoDoDiarioDaOab::class)->findOneBy(['ato' => 'Do colega'])->getId();
+        $this->limparIdentityMap();
+        $crawler = $client->request('GET', '/push-processual/diario');
+
+        $client->request('POST', '/push-processual/diario/excluir', ['_token' => $this->tokenDaTela($crawler), 'ids' => [$alheia]]);
+
+        self::assertCount(1, $this->em()->getRepository(PublicacaoDoDiarioDaOab::class)->findBy(['ato' => 'Do colega', 'excluidaEm' => null]));
+    }
+
+    #[Test]
+    public function acoesComTokenInvalidoNaoMudamNada(): void
+    {
+        [$client, $tenant, $usuario] = $this->entrar();
+        $this->guardar($tenant, $usuario, 'Ato A');
+        $this->limparIdentityMap();
+        $crawler = $client->request('GET', '/push-processual/diario');
+        $ids = $this->idsNaTela($crawler);
+
+        $client->request('POST', '/push-processual/diario/excluir', ['_token' => 'errado', 'ids' => $ids]);
+
+        self::assertCount(1, $client->request('GET', '/push-processual/diario')->filter('[data-pp-diario-item]'));
+    }
 }
