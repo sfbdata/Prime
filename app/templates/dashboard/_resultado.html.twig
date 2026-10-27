@@ -27,6 +27,7 @@
    lista bater com o número (DashboardCardsVerParidadeTest). #}
 {% import 'dashboard/_tendencia.html.twig' as tend %}
 {% import 'dashboard/_extras.html.twig' as extra %}
+{% import 'dashboard/_inteligencia.html.twig' as iaui %}
 {# Colunas extras ligadas pelo usuário ("Adicionar coluna"), na ordem da tabela: entram depois
    de Pastas criadas, no cabeçalho, em cada linha, no Total e no card do celular. #}
 {% set extras = dashboard.colunasExtras %}
@@ -264,6 +265,12 @@
                             {% endif %}
                             <span class="db-colab-nome" title="{{ linha.nomeAdvogado }}"><span class="db-nome-completo">{{ linha.nomeAdvogado }}</span><span class="db-nome-curto">{{ nomeCurto }}</span></span>
                             {% if campeao %}<i class="bi bi-trophy-fill db-trofeu" title="{{ 'dashboard.tabela.trofeu_titulo'|trans }}" aria-label="{{ 'dashboard.tabela.trofeu_rotulo'|trans }}"></i>{% endif %}
+                            {# Análise individual (dc L720): abre o painel BlueJus Intelligence na pessoa (dashboard-perfil-pessoa.js). Quem não é Master nem primário vê o botão bloqueado, com o texto do desenho. #}
+                            {% if podeAnalisarPessoa|default(false) %}
+                                <button type="button" class="db-pf-abrir" data-pf-abrir data-url="{{ path('dashboard_inteligencia_pessoa', {id: linha.userId}) }}" title="{{ 'dashboard.pessoa.abrir_analise'|trans({nome: linha.nomeAdvogado}) }}" aria-label="{{ 'dashboard.pessoa.abrir_analise'|trans({nome: linha.nomeAdvogado}) }}">{{ iaui.estrela(15) }}</button>
+                            {% else %}
+                                <button type="button" class="db-pf-abrir" disabled aria-disabled="true" title="{{ 'dashboard.pessoa.bloqueado'|trans }}" aria-label="{{ 'dashboard.pessoa.bloqueado'|trans }}">{{ iaui.estrela(15) }}</button>
+                            {% endif %}
                         </div>
                     </td>
                     <td class="db-td-cargo" data-coluna="cargo">

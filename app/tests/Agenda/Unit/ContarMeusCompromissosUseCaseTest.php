@@ -31,7 +31,7 @@ final class ContarMeusCompromissosUseCaseTest extends TestCase
             ['tipo' => null, 'cor' => Evento::COR_ROXO, 'n' => 4],
         ], []);
 
-        self::assertSame(['meus' => 6, 'aud' => 4, 'reun' => 0, 'prazo' => 0], $sut->executar(new Tenant(), new User()));
+        self::assertSame(['meus' => 6, 'aud' => 4, 'reun' => 0, 'prazo' => 0, 'urg' => 0, 'pess' => 0, 'lemb' => 0], $sut->executar(new Tenant(), new User()));
     }
 
     #[TestDox('Com legendas do escritório, a cor vale pelo nome da legenda')]
@@ -39,7 +39,7 @@ final class ContarMeusCompromissosUseCaseTest extends TestCase
     {
         $sut = $this->sut([['tipo' => null, 'cor' => '#123456', 'n' => 5]], [(new LegendaCor())->setNome('Reuniões internas')->setCor('#123456')]);
 
-        self::assertSame(['meus' => 0, 'aud' => 0, 'reun' => 5, 'prazo' => 0], $sut->executar(new Tenant(), new User()));
+        self::assertSame(['meus' => 0, 'aud' => 0, 'reun' => 5, 'prazo' => 0, 'urg' => 0, 'pess' => 0, 'lemb' => 0], $sut->executar(new Tenant(), new User()));
     }
 
     /**

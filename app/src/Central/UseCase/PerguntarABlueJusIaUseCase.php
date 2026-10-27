@@ -12,10 +12,12 @@ use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Repository\ConversaRepository;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\PastaDoContextoDaIa;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PerguntaInvalidaException;
@@ -27,14 +29,23 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
 /**
- * Pergunta ao BlueJus IA na conversa da Central (F3, `docs/specs/ia-chat-central.md`, PR 2b). Sem controller nem rota
- * ainda (vêm com a tela): um POST sem tela gastaria dinheiro sem mostrar a falha.
+ * Pergunta ao BlueJus IA na conversa da Central (F3, `docs/specs/ia-chat-central.md`, PR 2b); a rota é
+ * `IaDaCentralController` (PR 3a).
+ *
+ * Pergunta em andamento há mais de {@see self::MINUTOS_ATE_CONSIDERAR_PRESA} minutos não conta (worker morto): a nova
+ * pergunta a encerra como `falhou` e segue.
  *
  * Ordem: vínculo ativo, texto válido, conversa DELA (abre se não existir; a posse é "é a conversa IA dele", por isso
  * não passa por `participacao()` nem pelo `EnviarMensagemUseCase`, que excluem o tipo `ia`), disponibilidade da IA
  * (plataforma, escritório, módulo, cota, orçamento) e então, numa transação com `FOR UPDATE` na conversa: se já há
  * pergunta em andamento devolve a mesma (sem mensagem nova, sem cota, sem limitador); senão roda `$antesDeCriar` (o
  * limitador) e grava a mensagem da pessoa e a análise `pendente` juntas. A mensagem sai para a fila SÓ depois do commit.
+ *
+ * Contexto da tela (PR 4a): com `$pastaId`, DEPOIS da disponibilidade e ANTES da transação travada, a pasta é validada por
+ * {@see PastaDoContextoDaIa} (404 igual para inexistente, de outro escritório ou oculta pelo cadeado; 409 para segredo de
+ * justiça). A recusa sai antes de `beginTransaction`: nada gravado, nada travado, EntityManager aberto. O resumo guarda SÓ
+ * `pastaId`, `financeiro` e `abasOcultas` (ids e flags, nunca texto nem NUP) e o hash passa a incluir a pasta. Se já há
+ * pergunta em andamento, ela é devolvida como está e o `pastaId` novo é ignorado. Sem `$pastaId`, tudo como antes.
  *
  * A transação é pela conexão (e não `wrapInTransaction`): a recusa do limitador não pode fechar o EntityManager.
  * A mensagem fica gravada mesmo que a IA falhe depois (nenhuma resposta é fabricada). O texto nunca vai para a análise
@@ -44,10 +55,17 @@ use Psr\Clock\ClockInterface;
  * @throws PerguntaInvalidaException
  * @throws InteligenciaIndisponivelException
  * @throws FilaIndisponivelException
+ * @throws \App\Central\Exception\PastaDaIaNaoEncontradaException
+ * @throws ContextoBloqueadoException
  * @throws \App\Central\Exception\ConversaCriadaAoMesmoTempoException na primeira pergunta com duas abas (a tela repete)
  */
 final class PerguntarABlueJusIaUseCase
 {
+    /** Depois disso sem resposta, a pergunta é dada como presa e não bloqueia a próxima (PR 3 da F3). */
+    public const MINUTOS_ATE_CONSIDERAR_PRESA = 10;
+
+    public const MOTIVO_PRESA = 'pergunta sem resposta por mais de 10 minutos';
+
     public function __construct(
         private readonly AcessoACentral $acesso,
         private readonly ConversaRepository $conversas,
@@ -58,13 +76,14 @@ final class PerguntarABlueJusIaUseCase
         private readonly EnfileiradorDeAnalise $enfileirador,
         private readonly EntityManagerInterface $entityManager,
         private readonly ClockInterface $clock,
+        private readonly PastaDoContextoDaIa $pastaDoContexto,
     ) {
     }
 
-    public function executar(User $eu, ?Tenant $tenant, string $texto, ?callable $antesDeCriar = null): PerguntaDaIaOutput
+    public function executar(User $eu, ?Tenant $tenant, string $texto, ?callable $antesDeCriar = null, ?int $pastaId = null): PerguntaDaIaOutput
     {
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
-        $input = new PerguntarABlueJusIaInput($texto);
+        $input = new PerguntarABlueJusIaInput($texto, $pastaId);
         $conversa = $this->conversaDe($eu, $tenant);
 
         $disponibilidade = $this->disponibilidade->para($eu, $tenant);
@@ -72,7 +91,10 @@ final class PerguntarABlueJusIaUseCase
             throw new InteligenciaIndisponivelException($disponibilidade);
         }
 
-        [$analise, $mensagemId, $nova] = $this->gravarTravado($input->texto, $conversa, $eu, $tenant, $antesDeCriar);
+        // Fora da trava: a recusa da pasta (404/409) não pode deixar transação aberta nem fechar o EntityManager.
+        $pasta = $input->pastaId !== null ? $this->pastaDoContexto->liberar($eu, $tenant, $input->pastaId) : null;
+
+        [$analise, $mensagemId, $nova] = $this->gravarTravado($input->texto, $conversa, $eu, $tenant, $antesDeCriar, $pasta);
 
         if ($nova) {
             // Depois do commit: o worker não pode receber o id de uma linha que ainda não existe para ele.
@@ -100,23 +122,29 @@ final class PerguntarABlueJusIaUseCase
     }
 
     /**
+     * @param array{pastaId: int, financeiro: bool, abasOcultas: list<string>}|null $pasta a decisão da pasta da tela
+     *
      * @return array{AnaliseDeInteligencia, int, bool} a análise, o id da mensagem da pergunta e se foi criada agora
      */
-    private function gravarTravado(string $texto, Conversa $conversa, User $eu, Tenant $tenant, ?callable $antesDeCriar): array
+    private function gravarTravado(string $texto, Conversa $conversa, User $eu, Tenant $tenant, ?callable $antesDeCriar, ?array $pasta): array
     {
         $conn = $this->entityManager->getConnection();
         $conn->beginTransaction();
         try {
             $this->conversas->travar($conversa, $tenant);
 
-            $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_CONVERSA_IA, (int) $conversa->getId(), TipoDeAnalise::ChatDaCentral);
+            $alvoId = (int) $conversa->getId();
+            // Pendente/processando mais velha que o limite é pergunta presa (worker morto, fila fora): não conta.
+            $corte = $this->clock->now()->modify(sprintf('-%d minutes', self::MINUTOS_ATE_CONSIDERAR_PRESA));
+            $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_CONVERSA_IA, $alvoId, TipoDeAnalise::ChatDaCentral, criadaApos: $corte);
             if ($emAndamento !== null) {
                 $resultado = [$emAndamento, (int) ($emAndamento->getContextoResumo()['mensagemId'] ?? 0), false];
             } else {
                 if ($antesDeCriar !== null) {
                     $antesDeCriar();
                 }
-                $resultado = $this->registrar($texto, $conversa, $eu, $tenant);
+                $this->encerrarAPresa($tenant, $alvoId);
+                $resultado = $this->registrar($texto, $conversa, $eu, $tenant, $pasta);
             }
             $conn->commit();
         } catch (\Throwable $e) {
@@ -129,11 +157,25 @@ final class PerguntarABlueJusIaUseCase
     }
 
     /**
+     * A pergunta presa (mais velha que o limite, ainda `pendente`/`processando`) termina `falhou` com motivo fixo: some
+     * do "em andamento" para sempre e a auditoria a mostra como falha. Vai no flush do `registrar`, na mesma transação.
+     */
+    private function encerrarAPresa(Tenant $tenant, int $conversaId): void
+    {
+        $presa = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_CONVERSA_IA, $conversaId, TipoDeAnalise::ChatDaCentral);
+        if ($presa !== null) {
+            $presa->falhar(self::MOTIVO_PRESA);
+        }
+    }
+
+    /**
      * Mensagem da pessoa e análise `pendente`, na mesma transação. Sem menção, aviso nem resposta_a: é conversa privada.
+     *
+     * @param array{pastaId: int, financeiro: bool, abasOcultas: list<string>}|null $pasta
      *
      * @return array{AnaliseDeInteligencia, int, bool}
      */
-    private function registrar(string $texto, Conversa $conversa, User $eu, Tenant $tenant): array
+    private function registrar(string $texto, Conversa $conversa, User $eu, Tenant $tenant, ?array $pasta): array
     {
         $agora = $this->clock->now();
         $mensagem = new Mensagem($tenant, $conversa, $eu, $texto, $agora);
@@ -149,15 +191,21 @@ final class PerguntarABlueJusIaUseCase
         }
         $conversaId = (int) $conversa->getId();
 
+        $resumo = ['conversaId' => $conversaId, 'mensagemId' => $mensagemId, 'historico' => 0, 'total' => 1];
+        if ($pasta !== null) {
+            // Só ids e flags: o texto e os NUPs da pasta o worker relê; aqui nunca se gravam.
+            $resumo += ['pastaId' => $pasta['pastaId'], 'financeiro' => $pasta['financeiro'], 'abasOcultas' => $pasta['abasOcultas']];
+        }
+
         $analise = new AnaliseDeInteligencia(
             tenant: $tenant,
             solicitante: $eu,
             tipo: TipoDeAnalise::ChatDaCentral,
             alvoTipo: AnaliseDeInteligencia::ALVO_CONVERSA_IA,
             alvoId: $conversaId,
-            versaoDoPrompt: PromptDoChatDaCentral::VERSAO,
-            contextoHash: hash('sha256', $conversaId . '|' . $mensagemId),
-            contextoResumo: ['conversaId' => $conversaId, 'mensagemId' => $mensagemId, 'historico' => 0, 'total' => 1],
+            versaoDoPrompt: $pasta !== null ? PromptDoChatDaCentral::VERSAO_COM_PASTA : PromptDoChatDaCentral::VERSAO,
+            contextoHash: hash('sha256', $conversaId . '|' . $mensagemId . ($pasta !== null ? '|pasta:' . $pasta['pastaId'] : '')),
+            contextoResumo: $resumo,
         );
         $this->analises->salvar($analise);
         $this->entityManager->flush();

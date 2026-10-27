@@ -196,6 +196,20 @@ O container `jusprime_php_prod` começa em `/var/www` (estágio de produção do
 `bin/console` mora em `/var/www/app`. Por isso toda chamada manual do console (simulações, comandos de
 uma vez) leva `-w /var/www/app`; sem ele, o `docker exec` responde "Could not open input file: bin/console".
 
+### Contribua: cartão pelo Asaas (variáveis e webhook)
+
+> **Variáveis (`.env.prod`, nunca no repositório):** `CONTRIBUA_ASAAS_URL_API`, `CONTRIBUA_ASAAS_API_KEY`,
+> `CONTRIBUA_ASAAS_TOKEN_WEBHOOK` e as da nota fiscal (`CONTRIBUA_ASAAS_NFSE_*`); a lista completa e vazia
+> está no `app/.env`. Sem elas o gateway não chama a API e o checkout responde "o gateway de pagamento não
+> respondeu". **Webhook** no painel do Asaas: `https://bluejus.com.br/api/webhooks/asaas`, com o mesmo token
+> (passo a passo em `docs/runbooks/contribua-asaas-passo-a-passo.md`). O Master escolhe o gateway na página
+> Contribua, botão "Pagamento por cartão".
+
+A conciliação das assinaturas (`app:contribua:conciliar-assinaturas`, de hora em hora aos 15 minutos) é tarefa do
+Scheduler (`app/src/Shared/Scheduler/AgendaDeTarefas.php`), não do crontab do host. Reprocessa avisos pendentes,
+reconsulta no gateway as assinaturas que ainda podem mudar e devolve ao Free quem passou do fim do mês pago (ou da
+carência). Sai com erro só quando nenhuma reconsulta deu certo.
+
 ### Tarefas agendadas (Symfony Scheduler, contêiner `jusprime_scheduler_prod`)
 
 As tarefas do sistema não moram mais no crontab do host: quem as roda é o serviço `scheduler` do

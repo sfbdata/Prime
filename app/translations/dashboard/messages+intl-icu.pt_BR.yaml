@@ -228,6 +228,35 @@ dashboard:
             atencao: Ritmo de atenção
             abaixo: Ritmo abaixo do necessário
             critico: Ritmo crítico
+        plano:
+            titulo: Aumentar o nível
+            texto: 'Escolha quanto o escritório quer crescer. Por regras fixas, o painel monta a meta, o ritmo e quanto cada pessoa precisa criar, sobre a meta de pastas do mês.'
+            nivel_aria: Nível
+            manter: Manter
+            nova_meta: Nova meta
+            ritmo_dia: Ritmo/dia
+            viabilidade: Viabilidade
+            viab:
+                viavel: Viável
+                desafiador: Desafiador
+                arriscado: Arriscado
+                fora: Fora da capacidade
+                sem_base: Sem base
+            resumo_atingido: A equipe já alcançou esse nível. Escolha um nível acima para um novo desafio.
+            resumo_manter: 'Para chegar a {meta} pastas (a meta atual), faltam {faltam} em {dias} dias úteis: {ritmo} por dia útil, contra {atual} hoje.'
+            resumo_mais: 'Para chegar a {meta} pastas (+{ganho}% sobre a meta atual), faltam {faltam} em {dias} dias úteis: {ritmo} por dia útil, contra {atual} hoje.'
+            resumo_sem_base: 'Para chegar a {meta} pastas, faltam {faltam} em {dias} dias úteis: {ritmo} por dia útil. Ainda não há pasta criada neste mês para comparar o ritmo.'
+            por_colaborador: Meta por colaborador
+            marcos: Marcos
+            alavancas: Alavancas
+            semana: 'Sem. {n}'
+            fim: Fim
+            aplicar: 'Definir {meta} como meta do mês'
+            alavanca:
+                vencidas: '{n, plural, one {Resolver a meta vencida antes de abrir novas.} other {Resolver as # metas vencidas antes de abrir novas.}}'
+                prazos: '{n, plural, one {Fechar a meta com prazo próximo antes de abrir novas.} other {Fechar as # metas com prazo próximo antes de abrir novas.}}'
+                concentrar: 'Concentrar o aumento em {nomes}, que mais criaram pastas neste mês.'
+                nivel_abaixo: O nível escolhido passa do que o ritmo atual sustenta; considere um nível abaixo ou reforço temporário.
     js:
         impressao:
             intervalo: '{de} a {ate}'
@@ -386,6 +415,11 @@ dashboard:
             salvar: 'Salvar'
             erro: 'Não foi possível salvar a meta agora. Tente de novo.'
             sem_permissao: 'Só o usuário primário pode alterar a meta de pastas.'
+        plano:
+            aplicando: 'Definindo a meta...'
+            aplicada: 'Meta do mês definida: {meta} pastas'
+            erro: 'Não foi possível definir a meta agora. Tente de novo.'
+            sem_permissao: 'Só o usuário primário pode definir a meta de pastas.'
     # Dica de cada card (data-tip, dc VS 25.10.26 L2816-2819); some depois de 3 passagens (dashboard.js).
     dicas_cards:
         pastas_criadas: 'Soma das pastas abertas no período escolhido. Clique para ver a lista. Botão direito: histórico.'
@@ -434,3 +468,47 @@ dashboard:
             aba_detalhes: 'Detalhes'
             rodape_total: 'Total: {registros}'
             rodape_restantes: 'Mostrando os {n} mais recentes. Os outros {restantes} também entram no total.'
+    pessoa:
+        abrir_analise: 'Análise de desempenho de {nome}'
+        bloqueado: Seu perfil não pode abrir análises individuais
+        titulo: 'Análise de desempenho · {nome}'
+        voltar_equipe: Equipe
+        carregando: Carregando a análise...
+        erro: Não foi possível carregar a análise. Tente de novo.
+        rotulo: PERFIL DE DESEMPENHO
+        periodo_selecionado: período selecionado
+        sem_dado: Sem dado
+        abrir_lista: 'Abrir: {rotulo} de {nome}'
+        metrica:
+            recebidas: Recebidas
+            concluidas: Concluídas
+            pendentes: Pendentes
+            atrasadas: Atrasadas
+            prazos: Prazos próximos
+            taxa: Taxa de conclusão
+        comparacao:
+            titulo: Comparação com o período anterior
+            comparar: Comparar períodos
+            recebidas: Carga recebida
+            demandas: Demandas
+            atrasadas: Atrasadas
+            de_para: '{anterior} para {atual}'
+            novo: novo
+            legenda: 'Barra escura: período atual · clara: período anterior de mesma duração'
+            sem_base: Sem período anterior comparável. Informe De e Até para comparar.
+        diagnostico: Diagnóstico
+        observado: Observado
+        por_que: Por que chegou a essa conclusão
+        por_que_texto: Leitura por regras fixas sobre os números do Painel para esta pessoa. Nenhum modelo de linguagem foi usado e nenhum número foi estimado.
+        dados_considerados: Quais dados foram considerados?
+        limites: O que esta leitura não sabe
+        ver_tarefas: Ver tarefas
+        marcar_analisado: Marcar como analisado
+        status:
+            analisado: Analisado
+            pendente: Pendente
+        feedback:
+            pergunta: Essa análise ajudou?
+            sim: ✓ Sim
+            nao: ✕ Não
+            parcial: ↗ Parcialmente

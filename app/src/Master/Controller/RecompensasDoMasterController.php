@@ -6,19 +6,34 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Recompensa\DTO\AlterarRegrasDoProgramaInput;
+use App\Recompensa\DTO\ApagarIndicadorDaListaInput;
+use App\Recompensa\DTO\AprovarSuspeitasDoIndicadorInput;
+use App\Recompensa\DTO\BloquearOuDesbloquearRecompensaInput;
+use App\Recompensa\DTO\DarBaixaDeRecompensaInput;
 use App\Recompensa\DTO\DefinirCondicaoIndividualInput;
 use App\Recompensa\DTO\ExtratoEmCsv;
 use App\Recompensa\DTO\LancamentoDoExtratoOutput;
 use App\Recompensa\DTO\LancarCreditoOuEstornoInput;
 use App\Recompensa\DTO\RemoverCondicaoIndividualInput;
+use App\Recompensa\DTO\SalvarDadosDeRecebimentoInput;
+use App\Recompensa\Enum\FormaDePagamento;
 use App\Recompensa\Exception\IndicadorNaoEncontrado;
 use App\Recompensa\Exception\RecompensaRecusada;
 use App\Recompensa\UseCase\AlterarRegrasDoProgramaUseCase;
+use App\Recompensa\UseCase\ApagarIndicadorDaListaUseCase;
+use App\Recompensa\UseCase\AprovarSuspeitasDoIndicadorUseCase;
+use App\Recompensa\UseCase\BloquearOuDesbloquearRecompensaUseCase;
 use App\Recompensa\UseCase\ConsultarExtratoDeRecompensasUseCase;
 use App\Recompensa\UseCase\ConsultarPainelDeRecompensasUseCase;
+use App\Recompensa\UseCase\ConsultarDadosDeRecebimentoUseCase;
+use App\Recompensa\UseCase\DarBaixaDeRecompensaUseCase;
 use App\Recompensa\UseCase\DefinirCondicaoIndividualUseCase;
 use App\Recompensa\UseCase\LancarCreditoOuEstornoUseCase;
+use App\Recompensa\UseCase\ObterComprovanteDeRecompensaUseCase;
 use App\Recompensa\UseCase\RemoverCondicaoIndividualUseCase;
+use App\Recompensa\UseCase\SalvarDadosDeRecebimentoUseCase;
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Http\EntregaDeArquivo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,7 +45,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Seção "Recompensas" do Painel do Master, F1 e F2 (desenho 05 Perfis 1.2 VS 25.10.26, L306-338; spec
+ * Seção "Recompensas" do Painel do Master, F1 a F4 (desenho 05 Perfis 1.2 VS 25.10.26, L306-338; spec
  * docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md). Só o Master: ROLE_SUPER_ADMIN na classe.
  *
  * JSON. Os POST/DELETE levam o token CSRF `master_recompensas` no header `X-CSRF-Token` (o padrão das outras seções do
@@ -95,6 +110,84 @@ final class RecompensasDoMasterController extends AbstractController
         });
     }
 
+    /** Os dados de recebimento COMPLETOS do indicador, para o diálogo de edição; `{}` se ainda não há cadastro. */
+    #[Route('/master/recompensas/usuarios/{id}/recebimento', name: 'master_recompensas_recebimento', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function recebimento(int $id, ConsultarDadosDeRecebimentoUseCase $consultar): JsonResponse
+    {
+        $dados = $consultar->executar($id);
+
+        return $this->json($dados === null ? new \stdClass() : ['nome' => $dados->getNome(), 'documento' => $dados->getDocumento(), 'chavePix' => $dados->getChavePix()]);
+    }
+
+    /** Cria ou atualiza "Dados para pagamento". Corpo `{nome, documento (CPF ou CNPJ), chavePix}`. */
+    #[Route('/master/recompensas/usuarios/{id}/recebimento', name: 'master_recompensas_recebimento_salvar', requirements: ['id' => '\d+'], methods: ['PUT'])]
+    public function salvarRecebimento(int $id, Request $request, SalvarDadosDeRecebimentoUseCase $salvar): JsonResponse
+    {
+        return $this->mutar($request, function () use ($id, $request, $salvar): void {
+            $input = SalvarDadosDeRecebimentoInput::doJson($this->ator(), $id, self::corpo($request) ?? throw new RecompensaRecusada($this->tradutor->trans('master.recompensas.corpo_invalido')));
+            $this->exigirValido($input);
+            $salvar->executar($input);
+        });
+    }
+
+    /**
+     * "Dar baixa": registra um pagamento feito fora do sistema. `multipart/form-data` com `valor` ("150,00"), `forma`
+     * (pix, transferencia, desconto_na_mensalidade, credito_de_espaco), `observacao`, `chave` (UUID do diálogo) e
+     * `comprovante` (arquivo opcional). Repetir a chave não lança de novo.
+     */
+    #[Route('/master/recompensas/usuarios/{id}/baixa', name: 'master_recompensas_baixa', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function darBaixa(int $id, Request $request, DarBaixaDeRecompensaUseCase $baixa): JsonResponse
+    {
+        return $this->mutar($request, function () use ($id, $request, $baixa): void {
+            $input = DarBaixaDeRecompensaInput::doFormulario($this->ator(), $id, $request->request->all(), $request->files->get('comprovante'));
+            $this->exigirValido($input);
+            $baixa->executar($input);
+        });
+    }
+
+    /** O comprovante de um pagamento, só para o Master (lançamento sem comprovante ou arquivo ausente: 404). */
+    #[Route('/master/recompensas/lancamentos/{id}/comprovante', name: 'master_recompensas_comprovante', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function comprovante(int $id, ObterComprovanteDeRecompensaUseCase $obter, ArmazenamentoDeArquivos $armazenamento, EntregaDeArquivo $entrega): Response
+    {
+        try {
+            $comprovante = $obter->executar($id);
+        } catch (IndicadorNaoEncontrado) {
+            throw $this->createNotFoundException();
+        }
+        if (!$armazenamento->existe($comprovante['chave'])) {
+            throw $this->createNotFoundException();
+        }
+
+        return $entrega->resposta($comprovante['chave'], $comprovante['nome'], inline: false);
+    }
+
+    /** Aprova as contas suspeitas pendentes do indicador (passam a contar). Corpo `{vistas}`: a quantidade que o Master viu. */
+    #[Route('/master/recompensas/usuarios/{id}/suspeitas/aprovar', name: 'master_recompensas_suspeitas_aprovar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function aprovarSuspeitas(int $id, Request $request, AprovarSuspeitasDoIndicadorUseCase $aprovar): JsonResponse
+    {
+        return $this->mutar($request, function () use ($id, $request, $aprovar): void {
+            $input = AprovarSuspeitasDoIndicadorInput::doJson($this->ator(), $id, self::corpo($request) ?? []);
+            $this->exigirValido($input);
+            $aprovar->executar($input);
+        });
+    }
+
+    /** Bloqueia ou desbloqueia a recompensa do indicador. Corpo `{bloqueado: true|false}`. */
+    #[Route('/master/recompensas/usuarios/{id}/bloqueio', name: 'master_recompensas_bloqueio', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function bloquear(int $id, Request $request, BloquearOuDesbloquearRecompensaUseCase $bloquear): JsonResponse
+    {
+        return $this->mutar($request, function () use ($id, $request, $bloquear): void {
+            $bloquear->executar(BloquearOuDesbloquearRecompensaInput::doJson($this->ator(), $id, self::corpo($request) ?? throw new RecompensaRecusada($this->tradutor->trans('master.recompensas.corpo_invalido'))));
+        });
+    }
+
+    /** "Apagar da lista": exige a palavra APAGAR. Corpo `{confirmacao}`. */
+    #[Route('/master/recompensas/usuarios/{id}/apagar', name: 'master_recompensas_apagar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function apagar(int $id, Request $request, ApagarIndicadorDaListaUseCase $apagar): JsonResponse
+    {
+        return $this->mutar($request, fn () => $apagar->executar(ApagarIndicadorDaListaInput::doJson($this->ator(), $id, self::corpo($request) ?? [])));
+    }
+
     /** Os 60 lançamentos mais recentes (da tela); `?usuario=ID` filtra por indicador. */
     #[Route('/master/recompensas/extrato', name: 'master_recompensas_extrato', methods: ['GET'])]
     public function extrato(ConsultarExtratoDeRecompensasUseCase $extrato, #[MapQueryParameter] ?int $usuario = null): JsonResponse
@@ -109,8 +202,9 @@ final class RecompensasDoMasterController extends AbstractController
         $t = fn (string $chave): string => $this->tradutor->trans('master.recompensas.csv.' . $chave);
         $csv = ExtratoEmCsv::gerar(
             $extrato->todos($usuario),
-            [$t('data'), $t('usuario'), $t('email'), $t('tipo'), $t('valor'), $t('observacao')],
-            ['credito' => $t('credito'), 'estorno' => $t('estorno')],
+            [$t('data'), $t('usuario'), $t('email'), $t('tipo'), $t('valor'), $t('observacao'), $t('forma')],
+            ['credito' => $t('credito'), 'estorno' => $t('estorno'), 'pago' => $t('pago')],
+            array_combine(array_map(static fn (FormaDePagamento $f): string => $f->value, FormaDePagamento::cases()), array_map(static fn (FormaDePagamento $f): string => $t('forma_' . $f->value), FormaDePagamento::cases())),
         );
 
         return new Response($csv, Response::HTTP_OK, [

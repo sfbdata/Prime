@@ -279,24 +279,50 @@ class IndicacaoRepository extends ServiceEntityRepository
 
     /**
      * As contas criadas por indicação, para as recompensas: UMA linha por conta (a mesma conta indicada por e-mail e pelo
-     * link, ou por duas pessoas, vale uma vez só, para quem indicou primeiro). Traz quando a conta foi criada e se o
-     * escritório dela tem ao menos uma pasta não excluída. Sem nome nem e-mail do indicado.
+     * link, ou por duas pessoas, vale uma vez só, para quem indicou primeiro). Traz quando a conta foi criada, se o
+     * escritório dela tem ao menos uma pasta não excluída e os SINAIS do antifraude: escritórios e CNPJs da conta e do
+     * indicador (todos os vínculos de cada um), o domínio do e-mail de cada um e se o Master já aprovou a conta. Nome e
+     * e-mail de ninguém saem daqui; o domínio é só insumo da regra de suspeita.
      *
-     * @return list<array{indicador_id: int, conta_criada_em: string, tem_pasta: bool}>
+     * @return list<array{indicador_id: int, conta_id: int, conta_criada_em: string, tem_pasta: bool, aprovada: bool,
+     *     escritorios_conta: list<int>, escritorios_indicador: list<int>, cnpjs_conta: list<string>, cnpjs_indicador: list<string>,
+     *     dominio_conta: string, dominio_indicador: string}>
      */
     public function contasParaRecompensas(): array
     {
+        // Só vínculo ativo com escritório não excluído gera sinal: vínculo morto e escritório apagado não provam ligação.
+        $escritorios = 'SELECT string_agg(ut.tenant_id::text, \',\') FROM user_tenant ut JOIN tenant t ON t.id = ut.tenant_id WHERE ut.user_id = %s AND ut.is_active = true AND t.excluido_em IS NULL';
+        $cnpjs = 'SELECT string_agg(DISTINCT t.cnpj, \',\') FROM user_tenant ut JOIN tenant t ON t.id = ut.tenant_id WHERE ut.user_id = %s AND ut.is_active = true AND t.excluido_em IS NULL AND t.cnpj IS NOT NULL';
         $linhas = $this->conexao()->fetchAllAssociative(
-            'SELECT DISTINCT ON (conta.id) i.indicado_por_id AS indicador_id, conta.created_at AS conta_criada_em,
+            'SELECT DISTINCT ON (conta.id) i.indicado_por_id AS indicador_id, conta.id AS conta_id, conta.created_at AS conta_criada_em,
                     EXISTS (SELECT 1 FROM user_tenant ut JOIN pasta p ON p.tenant_id = ut.tenant_id
-                             WHERE ut.user_id = conta.id AND p.excluida_em IS NULL) AS tem_pasta
+                             WHERE ut.user_id = conta.id AND p.excluida_em IS NULL) AS tem_pasta,
+                    EXISTS (SELECT 1 FROM aprovacao_de_conta_de_recompensa a
+                             WHERE a.indicador_id = i.indicado_por_id AND a.conta_id = conta.id) AS aprovada,
+                    (' . sprintf($escritorios, 'conta.id') . ') AS escritorios_conta,
+                    (' . sprintf($escritorios, 'i.indicado_por_id') . ') AS escritorios_indicador,
+                    (' . sprintf($cnpjs, 'conta.id') . ') AS cnpjs_conta,
+                    (' . sprintf($cnpjs, 'i.indicado_por_id') . ') AS cnpjs_indicador,
+                    split_part(lower(conta.email), \'@\', 2) AS dominio_conta,
+                    (SELECT split_part(lower(ind.email), \'@\', 2) FROM "user" ind WHERE ind.id = i.indicado_por_id) AS dominio_indicador
              FROM indicacao i JOIN "user" conta ON conta.id = ' . self::CONTA_CRIADA . '
              ORDER BY conta.id, i.criada_em, i.id',
         );
 
         return array_map(static fn (array $l): array => [
-            'indicador_id' => (int) $l['indicador_id'], 'conta_criada_em' => (string) $l['conta_criada_em'], 'tem_pasta' => (bool) $l['tem_pasta'],
+            'indicador_id' => (int) $l['indicador_id'], 'conta_id' => (int) $l['conta_id'], 'conta_criada_em' => (string) $l['conta_criada_em'],
+            'tem_pasta' => (bool) $l['tem_pasta'], 'aprovada' => (bool) $l['aprovada'],
+            'escritorios_conta' => array_map('intval', self::lista($l['escritorios_conta'])),
+            'escritorios_indicador' => array_map('intval', self::lista($l['escritorios_indicador'])),
+            'cnpjs_conta' => self::lista($l['cnpjs_conta']), 'cnpjs_indicador' => self::lista($l['cnpjs_indicador']),
+            'dominio_conta' => (string) $l['dominio_conta'], 'dominio_indicador' => (string) $l['dominio_indicador'],
         ], $linhas);
+    }
+
+    /** @return list<string> */
+    private static function lista(mixed $agregado): array
+    {
+        return $agregado === null || $agregado === '' ? [] : explode(',', (string) $agregado);
     }
 
     /**

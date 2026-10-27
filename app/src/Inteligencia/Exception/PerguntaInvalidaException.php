@@ -23,6 +23,11 @@ final class PerguntaInvalidaException extends \DomainException
         return new self(sprintf('A pergunta passa de %d caracteres. Encurte e envie de novo.', $maximo));
     }
 
+    public static function pastaInvalida(): self
+    {
+        return new self('Pasta inválida.');
+    }
+
     public function motivo(): string
     {
         return self::MOTIVO;

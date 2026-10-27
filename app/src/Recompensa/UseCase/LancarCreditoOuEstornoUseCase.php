@@ -51,7 +51,7 @@ final class LancarCreditoOuEstornoUseCase
         $usuario = $this->em->find(User::class, $input->userId) ?? throw new IndicadorNaoEncontrado('Indicador não encontrado.');
         $novo = new LancamentoDeRecompensa($usuario, LancamentoDeRecompensa::TIPO_BONUS, $input->valorCentavos, $input->observacao, $input->chaveDeIdempotencia, $input->ator, $this->relogio->now());
 
-        $existente = $this->escopoDePlataforma->executar(fn (): ?LancamentoDeRecompensa => $this->em->wrapInTransaction(function () use ($novo): ?LancamentoDeRecompensa {
+        $existente = $this->escopoDePlataforma->executar(fn (): ?LancamentoDeRecompensa => $this->indicacoes->emTransacaoTravada($input->userId, function () use ($novo): ?LancamentoDeRecompensa {
             $this->lancamentos->travarChave($novo->getChaveDeIdempotencia());
             $existente = $this->lancamentos->buscarPorChave($novo->getChaveDeIdempotencia());
             if ($existente === null) {
@@ -62,7 +62,7 @@ final class LancarCreditoOuEstornoUseCase
         }));
 
         // Fora da transação: uma exceção dentro dela fecharia o EntityManager.
-        if ($existente !== null && ($existente->getUser()?->getId() !== $usuario->getId() || $existente->getValorCentavos() !== $novo->getValorCentavos())) {
+        if ($existente !== null && ($existente->getUser()?->getId() !== $usuario->getId() || $existente->getValorCentavos() !== $novo->getValorCentavos() || $existente->getTipo() !== LancamentoDeRecompensa::TIPO_BONUS)) {
             throw new RecompensaRecusada('Este pedido já foi usado para outro lançamento. Feche a janela e abra de novo.');
         }
     }

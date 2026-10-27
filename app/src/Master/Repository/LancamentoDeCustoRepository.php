@@ -28,6 +28,23 @@ class LancamentoDeCustoRepository extends ServiceEntityRepository
         }
     }
 
+    /** @param list<LancamentoDeCusto> $lancamentos persiste todos e grava numa só transação */
+    public function salvarVarios(array $lancamentos): void
+    {
+        foreach ($lancamentos as $lancamento) {
+            $this->getEntityManager()->persist($lancamento);
+        }
+        $this->getEntityManager()->flush();
+    }
+
+    public function remover(LancamentoDeCusto $lancamento, bool $flush = false): void
+    {
+        $this->getEntityManager()->remove($lancamento);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
     /** @return list<LancamentoDeCusto> os mais recentes primeiro */
     public function doMes(string $mes): array
     {
@@ -35,6 +52,16 @@ class LancamentoDeCustoRepository extends ServiceEntityRepository
             ->where('l.mes = :mes')
             ->setParameter('mes', $mes)
             ->orderBy('l.lancadoEm', 'DESC')
+            ->addOrderBy('l.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return list<LancamentoDeCusto> todos os meses, do mais recente ao mais antigo (exportação) */
+    public function todos(): array
+    {
+        return $this->createQueryBuilder('l')
+            ->orderBy('l.mes', 'DESC')
             ->addOrderBy('l.id', 'DESC')
             ->getQuery()
             ->getResult();

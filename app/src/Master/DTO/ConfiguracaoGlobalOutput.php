@@ -12,10 +12,14 @@ use App\Master\Service\CatalogoDeConfiguracoes;
  */
 final readonly class ConfiguracaoGlobalOutput
 {
-    /** @param array<string, string> $valores */
+    /**
+     * @param array<string, string> $valores
+     * @param array<string, string> $padroesDoAmbiente padrões que o ambiente muda (ver `CatalogoDeConfiguracoes::sobreposicoes()`)
+     */
     public function __construct(
         public array $valores,
         public ?\DateTimeImmutable $alteradoEm,
+        public array $padroesDoAmbiente = [],
     ) {
     }
 
@@ -23,7 +27,7 @@ final readonly class ConfiguracaoGlobalOutput
     public function paraArray(): array
     {
         $grupos = [];
-        foreach (CatalogoDeConfiguracoes::grupos() as $grupo => $campos) {
+        foreach (CatalogoDeConfiguracoes::grupos($this->padroesDoAmbiente) as $grupo => $campos) {
             $lista = [];
             foreach ($campos as $chave => $campo) {
                 $lista[] = ['chave' => $chave] + $campo;
@@ -34,7 +38,7 @@ final readonly class ConfiguracaoGlobalOutput
         return [
             'grupos' => $grupos,
             'valores' => $this->valores,
-            'padroes' => CatalogoDeConfiguracoes::padroes(),
+            'padroes' => CatalogoDeConfiguracoes::padroes($this->padroesDoAmbiente),
             'alteradoEm' => $this->alteradoEm?->format(\DATE_ATOM),
         ];
     }

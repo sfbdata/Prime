@@ -10,6 +10,7 @@ use App\Central\Repository\ConversaRepository;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\PastaDoContextoDaIa;
 use App\Central\UseCase\AbrirConversaComAIaUseCase;
 use App\Central\UseCase\PerguntarABlueJusIaUseCase;
 use App\Entity\Auth\User;
@@ -40,7 +41,7 @@ final class PerguntarABlueJusIaTest extends KernelTestCase
 
     private function usecase(): PerguntarABlueJusIaUseCase
     {
-        // Montado à mão: sem controller o serviço não tem consumidor e o container o remove (a tela vem no PR 3).
+        // Montado à mão, com a conexão e o relógio do teste.
         $c = static::getContainer();
         $acesso = $c->get(AcessoACentral::class);
         $conversas = $c->get(ConversaRepository::class);
@@ -56,6 +57,7 @@ final class PerguntarABlueJusIaTest extends KernelTestCase
             $c->get(EnfileiradorDeAnalise::class),
             $this->em(),
             $relogio,
+            $c->get(PastaDoContextoDaIa::class),
         );
     }
 
@@ -142,6 +144,34 @@ final class PerguntarABlueJusIaTest extends KernelTestCase
         self::assertSame($saida->conversaId, (int) $linha['alvo_id']);
         self::assertSame($saida->mensagemId, json_decode($linha['contexto_resumo'], true)['mensagemId']);
         self::assertStringNotContainsString('réplica', $linha['contexto_resumo'], 'o texto nunca vai para a análise');
+    }
+
+    #[TestDox('pergunta presa: com 9 minutos ainda é a mesma em andamento; com 11 a próxima pergunta a encerra como falhou e cria uma nova (no banco)')]
+    public function testPerguntaPresaPorIdade(): void
+    {
+        [$ana, $tenant] = $this->cenario();
+        $primeira = $this->usecase()->executar($ana, $tenant, 'PRESA');
+        $velha = $this->em()->getRepository(AnaliseDeInteligencia::class)->find($primeira->analiseId);
+        self::assertNotNull($velha);
+        $envelhecer = function (string $idade) use ($velha): void {
+            (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($velha, new \DateTimeImmutable($idade));
+            $this->em()->flush();
+        };
+
+        $envelhecer('-9 minutes');
+        $mesma = $this->usecase()->executar($ana, $tenant, 'NAO-ENTRA');
+        self::assertTrue($mesma->emAndamento);
+        self::assertSame($primeira->analiseId, $mesma->analiseId);
+
+        $envelhecer('-11 minutes');
+        $nova = $this->usecase()->executar($ana, $tenant, 'ENTRA');
+
+        self::assertFalse($nova->emAndamento);
+        self::assertNotSame($primeira->analiseId, $nova->analiseId);
+        self::assertSame('falhou', $this->statusDa($primeira->analiseId));
+        self::assertSame(PerguntarABlueJusIaUseCase::MOTIVO_PRESA, $this->em()->getConnection()->fetchOne('SELECT erro_motivo FROM inteligencia_analise WHERE id = ?', [$primeira->analiseId]));
+        self::assertSame('pendente', $this->statusDa($nova->analiseId));
+        self::assertSame(['PRESA', 'ENTRA'], array_column($this->mensagensDa($nova->conversaId), 'conteudo'));
     }
 
     #[TestDox('duas perguntas seguidas: a segunda, ainda com a primeira em andamento, devolve a mesma; depois de concluir, a segunda entra com o histórico da primeira troca e sem a própria pergunta')]
@@ -251,7 +281,7 @@ final class PerguntarABlueJusIaTest extends KernelTestCase
         self::assertSame(1, $this->contarNoBanco('SELECT COUNT(*) FROM central_mensagem'));
     }
 
-    #[TestDox('a conversa da IA segue invisível: a pergunta não cria conversa individual nem aparece em outras consultas')]
+    #[TestDox('uma conversa IA por pessoa: perguntas seguidas reusam a mesma e não criam conversa individual')]
     public function testUmaConversaIaPorPessoa(): void
     {
         [$ana, $tenant] = $this->cenario();
