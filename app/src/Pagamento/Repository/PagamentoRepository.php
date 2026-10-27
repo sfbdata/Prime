@@ -7,6 +7,7 @@ namespace App\Pagamento\Repository;
 use App\Pagamento\Entity\Pagamento;
 use App\Pagamento\Enum\OrigemDoPagamento;
 use App\Pagamento\Enum\StatusDoPagamento;
+use App\ServiceDesk\Repository\SemFiltroDeTenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
@@ -17,6 +18,9 @@ use Doctrine\Persistence\ManagerRegistry;
 // Não-final: os testes de UseCase mockam o repositório.
 class PagamentoRepository extends ServiceEntityRepository
 {
+    // O Master/Equipe da Central age na demanda de OUTRO escritório: as consultas do consumidor passam por cima do filtro.
+    use SemFiltroDeTenant;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Pagamento::class);
@@ -33,7 +37,7 @@ class PagamentoRepository extends ServiceEntityRepository
      */
     public function porReferenciaDoAviso(string $referencia): ?Pagamento
     {
-        return $this->findOneBy(['referencia' => $referencia]);
+        return $this->semFiltroDeTenant(fn (): ?Pagamento => $this->findOneBy(['referencia' => $referencia]));
     }
 
     /** O mesmo end_to_end_id já está em OUTRA cobrança? (o pagamento do banco só vale uma vez) */
@@ -55,21 +59,21 @@ class PagamentoRepository extends ServiceEntityRepository
     /** O pagamento mais recente de um consumidor, do escritório dele. */
     public function ultimoDaOrigem(int $tenantId, OrigemDoPagamento $origem, int $origemId): ?Pagamento
     {
-        return $this->createQueryBuilder('p')
+        return $this->semFiltroDeTenant(fn (): ?Pagamento => $this->createQueryBuilder('p')
             ->andWhere('IDENTITY(p.tenant) = :t')->setParameter('t', $tenantId)
             ->andWhere('p.origem = :o')->setParameter('o', $origem)
             ->andWhere('p.origemId = :i')->setParameter('i', $origemId)
             ->orderBy('p.id', 'DESC')->setMaxResults(1)
-            ->getQuery()->getOneOrNullResult();
+            ->getQuery()->getOneOrNullResult());
     }
 
     public function contarDaOrigem(int $tenantId, OrigemDoPagamento $origem, int $origemId): int
     {
-        return (int) $this->createQueryBuilder('p')->select('COUNT(p.id)')
+        return (int) $this->semFiltroDeTenant(fn (): mixed => $this->createQueryBuilder('p')->select('COUNT(p.id)')
             ->andWhere('IDENTITY(p.tenant) = :t')->setParameter('t', $tenantId)
             ->andWhere('p.origem = :o')->setParameter('o', $origem)
             ->andWhere('p.origemId = :i')->setParameter('i', $origemId)
-            ->getQuery()->getSingleScalarResult();
+            ->getQuery()->getSingleScalarResult());
     }
 
     /**
