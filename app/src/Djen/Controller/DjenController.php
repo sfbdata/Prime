@@ -11,6 +11,7 @@ use App\Djen\DTO\PublicacaoDjenOutput;
 use App\Djen\Exception\OabMonitoradaJaExisteException;
 use App\Djen\Form\OabMonitoradaType;
 use App\Djen\Repository\OabMonitoradaRepository;
+use App\Djen\Repository\PublicacaoDoDiarioDaOabRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\PrazosDasPublicacoes;
 use App\Djen\Service\FormatadorTeorDjen;
@@ -53,6 +54,7 @@ final class DjenController extends AbstractController
     private const POR_PAGINA = 25;
 
     public function __construct(
+        private readonly PublicacaoDoDiarioDaOabRepository $diarioRepository,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly PublicacaoDjenRepository $publicacaoRepository,
@@ -106,19 +108,6 @@ final class DjenController extends AbstractController
             'indicadores' => $indicadores,
             'lidas_na_caixa' => $this->publicacaoRepository->contarLidasDoTenant($tenant, $ocultos),
             'abas' => $this->contagensDasAbas($tenant, $indicadores['naoLidas']),
-        ]);
-    }
-
-    #[Route('/diario', name: 'push_processual_diario', methods: ['GET'])]
-    public function diario(): Response
-    {
-        $tenant = $this->tenantComAcesso();
-        if ($tenant === null) {
-            return $this->negarAcesso();
-        }
-
-        return $this->render('djen/diario.html.twig', [
-            'abas' => $this->contagensDasAbas($tenant),
         ]);
     }
 
@@ -370,7 +359,7 @@ final class DjenController extends AbstractController
         return [
             'publicacoesNovas' => $publicacoesNovas,
             'processos' => $this->processoRepository->contarAcompanhadosDoTenant($tenant),
-            'diarioNovas' => 0,
+            'diarioNovas' => $this->getUser() instanceof User ? $this->diarioRepository->contarNaoLidasDoUsuario($tenant, $this->getUser()) : 0,
             'oabs' => \count($this->oabRepository->listarDoTenant($tenant)),
         ];
     }

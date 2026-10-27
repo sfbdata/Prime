@@ -1,0 +1,34 @@
+{# Modal "Registrar publicação" do Diário da OAB. Acréscimo ao desenho 11 (que só lê): mesmo cabeçalho e campos dos modais dele. #}
+<div class="pp-vp" data-pp-dr hidden>
+    <div class="pp-vp__fundo" data-pp-dr-fechar></div>
+    <div class="pp-vp__centro">
+        <form method="POST" action="{{ path('push_processual_diario_registrar') }}" class="pp-vp__caixa" role="dialog" aria-modal="true" aria-label="{{ 'djen.diario.registrar_titulo'|trans }}" data-pp-dr-form>
+            <input type="hidden" name="_token" value="{{ csrf_token('push_diario') }}">
+            <div class="pp-vp__topo">
+                <i class="bi bi-shield-check"></i><b>{{ 'djen.diario.registrar_titulo'|trans }}</b>
+                <button type="button" class="pp-vp__x" data-pp-dr-fechar aria-label="{{ 'djen.index.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="pp-vp__corpo">
+                <div class="pp-vp__grade">
+                    <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.diario.campo_data'|trans }} *<input type="date" name="data" max="{{ hoje|date('Y-m-d') }}" required></label>
+                    <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.diario.seccional'|trans }} *<input type="text" name="seccional" maxlength="20" placeholder="OAB/DF" required></label>
+                    <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.diario.campo_tipo'|trans }} *
+                        <select name="tipo">
+                            <option value="etico">{{ 'djen.diario.tipo_etico'|trans }}</option>
+                            <option value="comunicado">{{ 'djen.diario.tipo_comunicado'|trans }}</option>
+                        </select>
+                    </label>
+                    <label class="pp-vp__campo" style="grid-column: span 6">{{ 'djen.diario.ato'|trans }} *<input type="text" name="ato" maxlength="255" required></label>
+                    <label class="pp-vp__campo" style="grid-column: span 3">{{ 'djen.diario.campo_processo'|trans }}<input type="text" name="numero_processo" maxlength="50" placeholder="PED 2026.0001234"></label>
+                    <label class="pp-vp__campo" style="grid-column: span 3">{{ 'djen.comum.orgao_maiusculo'|trans }} *<input type="text" name="orgao" maxlength="255" required></label>
+                    <label class="pp-vp__campo" style="grid-column: span 2">{{ 'djen.diario.campo_prazo'|trans }}<input type="number" name="prazo_dias" min="1" max="365" placeholder="15"><span class="pp-vp__dica">{{ 'djen.diario.campo_prazo_dica'|trans }}</span></label>
+                    <label class="pp-vp__campo" style="grid-column: span 6">{{ 'djen.diario.campo_texto'|trans }} *<textarea name="texto" rows="5" required></textarea></label>
+                </div>
+            </div>
+            <div class="pp-vp__rodape">
+                <button type="button" class="pp-vp__cancelar" data-pp-dr-fechar>{{ 'djen.processos.cancelar'|trans }}</button>
+                <button type="submit" class="pp-vp__ok"><i class="bi bi-check2"></i>{{ 'djen.diario.registrar'|trans }}</button>
+            </div>
+        </form>
+    </div>
+</div>

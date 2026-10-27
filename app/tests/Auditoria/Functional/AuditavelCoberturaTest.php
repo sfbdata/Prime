@@ -18,6 +18,7 @@ use App\Cobranca\Entity\RelatorioTotalizador;
 use App\Djen\Entity\OabMonitorada;
 use App\Djen\Entity\ProcessoAcompanhado;
 use App\Djen\Entity\PublicacaoDjen;
+use App\Djen\Entity\PublicacaoDoDiarioDaOab;
 use App\Entity\Audit\AuditLog;
 use App\Expediente\Entity\Marcador;
 use App\Kanban\Entity\KanbanAnexo;
@@ -287,6 +288,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         PublicacaoDjen::class,
         // ProcessoAcompanhado é anotação do Push (observação, área, fase) e número incluído à mão.
         ProcessoAcompanhado::class,
+        // PublicacaoDoDiarioDaOab é registro pessoal do usuário (texto de ato sigiloso); o rastro é dele, não do escritório.
+        PublicacaoDoDiarioDaOab::class,
 
         // Cobranças — EventoHistorico é o LOG DE DOMÍNIO (linha do tempo operacional, SPEC §13):
         // histórico de negócio visível ao usuário, distinto da auditoria técnica (invariável 26).

@@ -41,6 +41,20 @@ djen:
         selecionar: Selecionar
         limpar_lidas: Limpar lidas
         vazio: Nenhuma publicação.
+        registrar: Registrar publicação
+        registrar_titulo: Registrar publicação do Diário da OAB
+        campo_data: DATA DA PUBLICAÇÃO
+        campo_tipo: TIPO
+        campo_processo: PROCESSO
+        campo_prazo: PRAZO (DIAS ÚTEIS)
+        campo_prazo_dica: 'Em branco: sem prazo'
+        campo_texto: TEXTO DA PUBLICAÇÃO
+        tipo_etico: Processo ético-disciplinar
+        tipo_comunicado: Comunicado institucional
+        sigiloso: Sigiloso
+        expandir: Clique para ler o texto
+        selecionar_item: Selecionar
+        prazo_dias: '{n} dias úteis'
     index:
         vincular_pasta: Vincular a uma pasta
         desvincular_pasta: Desvincular da pasta
