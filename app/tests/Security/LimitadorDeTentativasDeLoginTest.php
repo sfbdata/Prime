@@ -55,6 +55,13 @@ final class LimitadorDeTentativasDeLoginTest extends TestCase
         self::assertSame(5, $this->aceitas($this->limitador(new ConfiguracaoDaPlataformaFalsa()), $this->pedido('a@adv.com')));
     }
 
+    public function testSegredoVazioNaoDerrubaOLogin(): void
+    {
+        $limitador = new LimitadorDeTentativasDeLogin(new ConfiguracaoDaPlataformaFalsa(), $this->armazenamento, '');
+
+        self::assertSame(5, $this->aceitas($limitador, $this->pedido('a@adv.com')));
+    }
+
     #[TestDox('Com tentativas = 3, a 4ª é barrada')]
     public function testTresBloqueiaNaQuarta(): void
     {

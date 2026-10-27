@@ -27,6 +27,9 @@ use Symfony\Component\Security\Http\RateLimiter\DefaultLoginRateLimiter;
 final class LimitadorDeTentativasDeLogin implements PeekableRequestRateLimiterInterface
 {
     public const PADRAO = 5;
+    /** APP_SECRET vazio não pode derrubar o login (o DefaultLoginRateLimiter exige segredo não vazio). */
+    private const SEGREDO_RESERVA = 'limitador-de-login';
+
     public const MINIMO = 1;
     public const MAXIMO = 50;
     public const CHAVE = 'tentativas';
@@ -80,7 +83,7 @@ final class LimitadorDeTentativasDeLogin implements PeekableRequestRateLimiterIn
         return new DefaultLoginRateLimiter(
             $this->fabrica('_login_global_main', 5 * $limite),
             $this->fabrica('_login_local_main', $limite),
-            $this->segredo,
+            '' !== $this->segredo ? $this->segredo : self::SEGREDO_RESERVA,
         );
     }
 
