@@ -111,95 +111,35 @@
         line-height: 1.2;
     }
 
-    /* ── Botão de processo na navbar ── */
-    .petic-processo-btn {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.25);
-        border-radius: 4px;
-        color: #fff;
-        font-size: 0.78rem;
-        font-weight: 600;
-        padding: 4px 10px;
-        cursor: pointer;
-        transition: background 0.15s;
-        white-space: nowrap;
+    /* ── Seletor do processo (desenho 07, L35-39) ── */
+    .petic-proc { position: relative; flex-shrink: 0; }
+    .petic-proc-btn {
+        display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px;
+        border: 1px solid rgba(255,255,255,.35); border-radius: 4px; background: rgba(255,255,255,.12);
+        color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+        font-variant-numeric: tabular-nums; white-space: nowrap;
     }
-    .petic-processo-btn:hover,
-    .petic-processo-btn[aria-expanded="true"] {
-        background: rgba(255,255,255,0.22);
+    .petic-proc-btn:hover { background: rgba(255,255,255,.22); }
+    .petic-proc-btn .bi-chevron-down { font-size: 11px; }
+    .petic-proc-fundo { position: fixed; inset: 0; z-index: 9; }
+    .petic-proc-menu {
+        position: absolute; left: 0; top: 40px; z-index: 10; min-width: 320px; background: #fff;
+        border: 1px solid #d3dde4; border-radius: 4px; box-shadow: 0 10px 26px rgba(16,42,58,.18);
+        padding: 4px; color: #12242f;
     }
-    .petic-processo-btn::after { display: none !important; }
-    .petic-processo-btn .bi-chevron-down {
-        font-size: 10px;
-        opacity: 0.7;
-        transition: transform 0.2s;
+    .petic-proc-item {
+        width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: none;
+        border-radius: 4px; background: #fff; font: inherit; text-align: left; cursor: pointer;
     }
-    .petic-processo-btn[aria-expanded="true"] .bi-chevron-down {
-        transform: rotate(180deg);
-    }
-
-    /* ── Card do dropdown do processo ── */
-    .petic-processo-card {
-        min-width: 420px;
-        max-width: 520px;
-        padding: 0 !important;
-        border: none !important;
-        border-radius: 3px !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.22) !important;
-        overflow: hidden;
-        margin-top: 6px !important;
-    }
-
-    .petic-proc-header {
-        background: #0078AA;
-        padding: 10px 14px 12px;
-    }
-    .petic-proc-numero {
-        display: block;
-        font-size: 0.88rem;
-        font-weight: 700;
-        color: #fff;
-        letter-spacing: 0.2px;
-        margin-bottom: 4px;
-    }
-    .petic-proc-partes {
-        display: block;
-        font-size: 0.72rem;
-        color: rgba(255,255,255,0.82);
-        line-height: 1.35;
-        word-break: break-word;
-        white-space: normal;
-    }
-
-    .petic-proc-body {
-        background: var(--bs-body-bg);
-        padding: 6px 0 4px;
-    }
-    .petic-proc-row {
-        display: flex;
-        align-items: baseline;
-        padding: 5px 14px;
-        gap: 10px;
-        border-bottom: 1px solid var(--bs-border-color);
-    }
-    .petic-proc-row:last-child { border-bottom: none; }
-    .petic-proc-label {
-        flex-shrink: 0;
-        width: 130px;
-        text-align: right;
-        font-size: 0.77rem;
-        font-weight: 600;
-        color: var(--bs-secondary-color);
-    }
-    .petic-proc-value {
-        font-size: 0.77rem;
-        color: var(--bs-body-color);
-        word-break: break-word;
-        white-space: normal;
-    }
+    .petic-proc-item:hover { background: #e5f1f7; }
+    .petic-proc-item--atual { background: #e5f1f7; }
+    .petic-proc-item-corpo { flex: 1; min-width: 0; }
+    .petic-proc-item-corpo b { font-size: 13.5px; color: #0a6fa0; font-variant-numeric: tabular-nums; }
+    .petic-proc-item-corpo span { display: block; font-size: 11.5px; color: #5b7383; }
+    .petic-proc-item .bi-check2 { color: #0a6fa0; visibility: hidden; }
+    .petic-proc-item--atual .bi-check2 { visibility: visible; }
+    .petic-proc-vazio { padding: 10px; font-size: 12.5px; color: #7b93a2; }
+    .petic-proc [hidden] { display: none; }
 
     /* ═══════════════════════════════════════════════════════════════════════
        LAYOUT PRINCIPAL
@@ -642,78 +582,38 @@
                     {% endif %}
                 </div>
 
-                {% if pasta.processoPrincipal %}
-                    {% set proc = pasta.processoPrincipal %}
-                    <span class="navtop-page-sep">|</span>
-                    <div class="dropdown">
-                        <button class="petic-processo-btn dropdown-toggle"
-                                type="button"
-                                data-bs-toggle="dropdown"
-                                aria-expanded="false">
-                            <i class="bi bi-journal-text"></i>
-                            {{ proc.siglaTribunal ? proc.siglaTribunal ~ ' ' : '' }}{{ proc.numeroProcesso }}
-                            <i class="bi bi-chevron-down"></i>
-                        </button>
-                        <div class="dropdown-menu petic-processo-card">
-
-                            <div class="petic-proc-header">
-                                <span class="petic-proc-numero">
-                                    <i class="bi bi-journal-text me-1"></i>
-                                    {{ proc.siglaTribunal ? proc.siglaTribunal ~ ' ' : '' }}{{ proc.numeroProcesso }}
+                <span class="navtop-page-sep">|</span>
+                {% set vinculoPrincipal = pasta.vinculoPrincipal %}
+                {% set vinculos = [] %}
+                {% if vinculoPrincipal %}{% set vinculos = [vinculoPrincipal] %}{% endif %}
+                {% for v in pasta.pastaProcessos %}{% if v is not same as(vinculoPrincipal) %}{% set vinculos = vinculos|merge([v]) %}{% endif %}{% endfor %}
+                <div class="petic-proc" id="peticProc">
+                    <button type="button" class="petic-proc-btn" id="peticProcBtn"
+                            aria-expanded="false" aria-controls="peticProcMenu"
+                            title="{{ 'peticionar.processo.dica'|trans }}">
+                        <i class="bi bi-journal-text"></i>
+                        <span id="peticProcTxt">{% if vinculoPrincipal %}{% set proc = vinculoPrincipal.processo %}{{ proc.siglaTribunal ? proc.siglaTribunal ~ ' ' : '' }}{{ proc.numeroProcesso|replace({'.': '', '-': ''}) }}{% else %}{{ 'peticionar.processo.sem_processo'|trans }}{% endif %}</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <div class="petic-proc-fundo" id="peticProcFundo" hidden></div>
+                    <div class="petic-proc-menu" id="peticProcMenu" hidden>
+                        {% for v in vinculos %}
+                            {% set pr = v.processo %}
+                            {% set marcado = loop.first %}
+                            <button type="button" class="petic-proc-item{% if marcado %} petic-proc-item--atual{% endif %}"
+                                    data-numero="{{ pr.numeroProcesso }}"
+                                    data-texto="{{ pr.siglaTribunal ? pr.siglaTribunal ~ ' ' : '' }}{{ pr.numeroProcesso|replace({'.': '', '-': ''}) }}">
+                                <span class="petic-proc-item-corpo">
+                                    <b>{{ pr.numeroProcesso }}</b>
+                                    <span>{{ [v is same as(vinculoPrincipal) ? 'peticionar.processo.principal'|trans : v.tipoApensoRotulo, pr.classeProcessual, pr.siglaTribunal]|filter(x => x)|join(' · ') }}</span>
                                 </span>
-                                {% set poloAtivo   = proc.partes|filter(p => 'ATIVO'   in p.tipo) %}
-                                {% set poloPassivo = proc.partes|filter(p => 'PASSIVO' in p.tipo) %}
-                                {% if poloAtivo|length or poloPassivo|length %}
-                                    <span class="petic-proc-partes">
-                                        {% if poloAtivo|length %}{{ poloAtivo|first.nome }}{% endif %}
-                                        {% if poloAtivo|length and poloPassivo|length %} {{ 'peticionar.processo.contra'|trans }} {% endif %}
-                                        {% if poloPassivo|length %}{{ poloPassivo|first.nome }}{% endif %}
-                                    </span>
-                                {% endif %}
-                            </div>
-
-                            <div class="petic-proc-body">
-                                {% if proc.classeProcessual %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.classe'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.classeProcessual }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.assuntoProcessual %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.assunto'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.assuntoProcessual }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.orgaoJulgador %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.jurisdicao'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.orgaoJulgador }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.dataDistribuicao %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.distribuicao'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.dataDistribuicao|data }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.instancia %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.instancia'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.instancia }}</span>
-                                    </div>
-                                {% endif %}
-                                {% if proc.situacaoProcesso %}
-                                    <div class="petic-proc-row">
-                                        <span class="petic-proc-label">{{ 'peticionar.processo.situacao'|trans }}</span>
-                                        <span class="petic-proc-value">{{ proc.situacaoProcesso }}</span>
-                                    </div>
-                                {% endif %}
-                            </div>
-
-                        </div>
+                                <i class="bi bi-check2"></i>
+                            </button>
+                        {% else %}
+                            <div class="petic-proc-vazio">{{ 'peticionar.processo.nenhum'|trans }}</div>
+                        {% endfor %}
                     </div>
-                {% endif %}
+                </div>
             </div>
 
             <div class="navtop-right">
@@ -738,6 +638,7 @@
 
     <script src="{{ asset('js/tinymce/tinymce.min.js') }}"></script>
     <script src="{{ asset('js/bj-traducao.js') }}"></script>
+    <script src="{{ asset('js/peticionar-processo.js') }}"></script>
     {% block javascripts %}{% endblock %}
 </body>
 </html>

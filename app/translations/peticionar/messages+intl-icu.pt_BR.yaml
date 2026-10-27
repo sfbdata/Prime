@@ -4,10 +4,7 @@ peticionar:
         numero_pasta: 'Número da Pasta: {nup}'
         cliente: 'Cliente: {cliente}'
     processo:
-        contra: X
-        classe: Classe judicial
-        assunto: Assunto
-        jurisdicao: Jurisdição
-        distribuicao: Distribuição
-        instancia: Instância
-        situacao: Situação
+        dica: Processo de destino da petição
+        sem_processo: Sem processo
+        principal: Principal
+        nenhum: Nenhum processo vinculado. Vincule no menu Processo da pasta.
