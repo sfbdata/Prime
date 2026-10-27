@@ -226,7 +226,7 @@ final class FluxoDoChatDaCentralTest extends TestCase
     /** @param array<string, mixed> $extra */
     private function analiseComPasta(array $extra = [], ?Tenant $tenant = null): AnaliseDeInteligencia
     {
-        return $this->analise($tenant ?? $this->tenant(), $this->usuario(), ['mensagemId' => 55, 'pastaId' => self::PASTA_ID, 'financeiro' => true, 'abasOcultas' => []] + $extra);
+        return $this->analise($tenant ?? $this->tenant(), $this->usuario(), array_merge(['mensagemId' => 55, 'pastaId' => self::PASTA_ID, 'financeiro' => true, 'abasOcultas' => []], $extra));
     }
 
     #[TestDox('sem pastaId: prompt v1 (sem bloco da pasta), histórico com a fala da IA e resumo sem os campos novos')]

@@ -52,7 +52,7 @@ final class PastaDoContextoDaIa
     public function liberar(User $eu, Tenant $tenant, int $pastaId): array
     {
         $pasta = $this->pastas->findOneBy(['id' => $pastaId, 'tenant' => $tenant]);
-        if ($pasta === null || !$this->acessoAPasta->podeVer($eu, $pasta)) {
+        if ($pasta === null || $pasta->estaExcluida() || !$this->acessoAPasta->podeVer($eu, $pasta)) {
             throw new PastaDaIaNaoEncontradaException();
         }
 

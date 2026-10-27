@@ -408,6 +408,33 @@ final class IaDaCentralControllerTest extends JusPrimeWebTestCase
         $this->afirmarRecusaLimpa($client, $espiao, $pastaDeB->getNup());
     }
 
+    #[TestDox('pasta excluída (lápide): 404 igual ao de inexistente, nada gravado')]
+    public function testPastaExcluida(): void
+    {
+        [$client, , $ana, $pasta] = $this->cenarioComPasta();
+        $pasta->marcarExcluida($ana, new \DateTimeImmutable());
+        $this->em()->flush();
+        $espiao = new RateLimiterFactoryEspiao();
+        static::getContainer()->set('limiter.inteligencia_solicitar', $espiao);
+
+        $this->perguntar($client, ['conteudo' => self::SEGREDO, 'pastaId' => (int) $pasta->getId()]);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('pasta_nao_encontrada', $this->json($client)['motivo']);
+        $this->afirmarRecusaLimpa($client, $espiao, (string) $pasta->getNup());
+    }
+
+    #[TestDox('pastaId maior que o inteiro do banco: 422, sem erro 500')]
+    public function testPastaIdEnorme(): void
+    {
+        [$client] = $this->cenarioComPasta();
+
+        $this->perguntar($client, ['conteudo' => 'Oi', 'pastaId' => 9_999_999_999]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('pergunta_invalida', $this->json($client)['motivo']);
+    }
+
     #[TestDox('pasta do escritório que a pessoa NÃO vê (sem permissão/cadeado): 404 igual; dado o acesso, a mesma requisição passa (prova do guarda)')]
     public function testPastaQueAPessoaNaoVe(): void
     {

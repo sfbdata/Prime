@@ -26,7 +26,7 @@ final readonly class PerguntarABlueJusIaInput
      */
     public function __construct(string $texto, ?int $pastaId = null)
     {
-        if ($pastaId !== null && $pastaId <= 0) {
+        if ($pastaId !== null && ($pastaId <= 0 || $pastaId > 2147483647)) {   // pasta.id é integer (int4)
             throw PerguntaInvalidaException::pastaInvalida();
         }
 

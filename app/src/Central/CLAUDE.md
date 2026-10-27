@@ -102,8 +102,8 @@ A pergunta (PR 2b) é `UseCase\PerguntarABlueJusIaUseCase`, sem rota até a tela
 **Contexto da tela (PR 4a, sem tela ainda).** `POST /central/ia/perguntas` aceita `pastaId` (inteiro positivo ou ausente/null; outro tipo ou valor <= 0 = 422
 `pergunta_invalida`); nunca texto de contexto vindo do cliente. O UseCase valida a pasta ANTES de abrir a transação travada (`PastaDoContextoDaIa`: pasta por
 id + escritório e `AcessoAPasta::podeVer`, os dois casos = 404 `pasta_nao_encontrada` com mensagem fixa; segredo de justiça = 409 `contexto_bloqueado`;
-a recusa não grava nada, não consome o limitador, não deixa trava e não fecha o EntityManager) e grava em `contexto_resumo` só `pastaId`, `financeiro` e
-`abasOcultas` (o hash passa a incluir a pasta; prompt `chat-central-v2`). Pergunta em andamento devolve a mesma (202) e ignora o `pastaId` novo. O worker
+a recusa não grava mensagem nem análise (a conversa IA pode ter sido criada), não consome o limitador, não deixa trava e não fecha o EntityManager) e grava em `contexto_resumo` só `pastaId`, `financeiro` e
+`abasOcultas` (o hash passa a incluir a pasta; prompt `chat-central-v2`). A pasta é validada antes de olhar a pergunta em andamento (pasta inválida = 404/409 mesmo com pergunta pendente); com pergunta em andamento, devolve a mesma (202) e não grava o `pastaId` novo. O worker
 revalida tudo (`Inteligencia/CLAUDE.md`). Resposta HTTP continua só ids e estado: nunca texto, nem NUP da pasta.
 
 ## Tela

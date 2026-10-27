@@ -173,7 +173,7 @@ final class FluxoDoChatDaCentral implements FluxoDeAnaliseSemPasta
         if ($pasta === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
             throw new \LogicException('Chat com pasta que não existe neste escritório.');
         }
-        if (!$this->acessoAPasta->podeVer($solicitante, $pasta)) {
+        if ($pasta->estaExcluida() || !$this->acessoAPasta->podeVer($solicitante, $pasta)) {
             throw new \LogicException('Chat com pasta que a pessoa não pode mais ver.');
         }
 
