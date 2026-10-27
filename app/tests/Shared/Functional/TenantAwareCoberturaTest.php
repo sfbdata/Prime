@@ -26,6 +26,7 @@ use App\Pasta\Entity\PastaProcesso;
 use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Profile\Entity\UserProfile;
+use App\Shared\Attribute\SemIsolamentoDeTenant;
 use App\Shared\Contract\TenantAware;
 use App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo;
 use App\Termo\Entity\AceiteTermo;
@@ -311,13 +312,18 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     ];
 
     /**
-     * Teto de cada lista, cobrado por testeTetosNaoSobem. Baixe o número ao fechar cada fatia.
+     * Teto de cada lista, cobrado por testeTetosNaoSobem. As duas listas estão CONGELADAS: entidade nova
+     * que não é filtrada por tenant usa `#[SemIsolamentoDeTenant]` na própria classe (sem tocar este
+     * arquivo, sem conflito de merge). Só se EDITA este número para BAIXAR, ao tirar uma entrada.
      *
      * Sem isso, "só encolhe" seria promessa de comentário: o conserto mais barato para uma
      * entidade nova sem etiqueta é apendá-la em PENDENTE — uma linha, suíte verde, furo novo
      * entrando com a rede ligada. Com o teto, essa saída exige mexer no teto no mesmo diff, e
      * aí é decisão visível em vez de descuido.
      */
+    /** Tamanho mínimo do motivo de #[SemIsolamentoDeTenant]: "é global" não explica nada. */
+    private const MOTIVO_MINIMO = 30;
+
     private const MAX_PENDENTE = 13;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
@@ -444,7 +450,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
             }
 
             if (in_array($class, self::FORA_DO_ESCOPO, true)
-                || in_array($class, self::PENDENTE_DE_CORRECAO, true)) {
+                || in_array($class, self::PENDENTE_DE_CORRECAO, true)
+                || self::motivoDeclarado($class) !== null) {
                 continue;
             }
 
@@ -454,7 +461,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         self::assertSame([], $naoClassificadas, sprintf(
             "Entidade sem isolamento de tenant e sem classificação: %s.\n"
             . 'Ou implemente TenantAware (com ManyToOne(Tenant) JoinColumn nullable: false), '
-            . 'ou declare em FORA_DO_ESCOPO com o motivo, ou em PENDENTE_DE_CORRECAO apontando a fatia.',
+            . "ou marque a entidade com #[SemIsolamentoDeTenant('motivo')], ou declare em PENDENTE_DE_CORRECAO apontando a fatia.",
             implode(', ', $naoClassificadas)
         ));
     }
@@ -497,9 +504,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         self::assertLessThanOrEqual(
             self::MAX_FORA_DO_ESCOPO,
             count(self::FORA_DO_ESCOPO),
-            'FORA_DO_ESCOPO cresceu. Exceção permanente ao isolamento de tenant exige '
-            . 'justificativa escrita ao lado da entrada e revisão — nunca é conserto de suíte '
-            . 'vermelha.'
+            'FORA_DO_ESCOPO cresceu, e a lista está congelada. Exceção permanente ao isolamento de '
+            . "tenant em entidade nova se declara na própria entidade com #[SemIsolamentoDeTenant('motivo')]; "
+            . 'nunca é conserto de suíte vermelha.'
         );
     }
 
@@ -539,5 +546,63 @@ final class TenantAwareCoberturaTest extends KernelTestCase
             'Classificação ambígua — está em FORA_DO_ESCOPO e em PENDENTE_DE_CORRECAO: %s.',
             implode(', ', $intersecao)
         ));
+    }
+
+    #[TestDox('#[SemIsolamentoDeTenant] só em entidade mapeada, não filtrada, com motivo escrito')]
+    public function testDeclaracaoPorAtributoTemMotivoEMerece(): void
+    {
+        $problemas = [];
+
+        foreach ($this->em->getMetadataFactory()->getAllMetadata() as $meta) {
+            $class = $meta->getName();
+            $atributos = (new \ReflectionClass($class))->getAttributes(SemIsolamentoDeTenant::class);
+
+            if ($atributos === []) {
+                continue;
+            }
+
+            $motivo = trim($atributos[0]->newInstance()->motivo);
+
+            if (mb_strlen($motivo) < self::MOTIVO_MINIMO) {
+                $problemas[] = $class . ': motivo curto demais (mínimo ' . self::MOTIVO_MINIMO . ' caracteres)';
+            }
+            if (is_a($class, TenantAware::class, true)) {
+                $problemas[] = $class . ': já implementa TenantAware, tire o atributo';
+            }
+            if (in_array($class, self::FORA_DO_ESCOPO, true) || in_array($class, self::PENDENTE_DE_CORRECAO, true)) {
+                $problemas[] = $class . ': está também numa lista congelada, declare num lugar só';
+            }
+        }
+
+        self::assertSame([], $problemas, implode("\n", $problemas));
+    }
+
+    #[TestDox('O atributo classifica: com motivo vale, sem atributo ou com motivo vazio não vale')]
+    public function testAtributoClassificaAEntidade(): void
+    {
+        $comMotivo = new #[SemIsolamentoDeTenant('Catálogo global da plataforma, igual para todos os escritórios')] class {};
+        $semMotivo = new #[SemIsolamentoDeTenant('   ')] class {};
+        $semAtributo = new class {};
+
+        self::assertSame(
+            'Catálogo global da plataforma, igual para todos os escritórios',
+            self::motivoDeclarado($comMotivo::class),
+        );
+        self::assertNull(self::motivoDeclarado($semMotivo::class), 'motivo vazio não classifica');
+        self::assertNull(self::motivoDeclarado($semAtributo::class), 'sem atributo não classifica');
+    }
+
+    /** O motivo declarado pelo atributo, ou null quando a classe não o tem (ou o motivo é vazio). */
+    private static function motivoDeclarado(string $class): ?string
+    {
+        $atributos = (new \ReflectionClass($class))->getAttributes(SemIsolamentoDeTenant::class);
+
+        if ($atributos === []) {
+            return null;
+        }
+
+        $motivo = trim($atributos[0]->newInstance()->motivo);
+
+        return $motivo === '' ? null : $motivo;
     }
 }
