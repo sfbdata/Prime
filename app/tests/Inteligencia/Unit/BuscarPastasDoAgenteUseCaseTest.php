@@ -83,7 +83,7 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         self::assertNull($saida->pastas[1]->acao);
     }
 
-    #[TestDox('Clientes vinculados só saem quando a pasta não tem identificador, como na coluna da Lista')]
+    #[TestDox('Pasta com cliente vinculado tem o cliente principal como identificador e não repete o nome em clientes')]
     public function testClientesSoSemIdentificador(): void
     {
         $tenant = new Tenant();
@@ -111,8 +111,10 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         $saida = $useCase->executar(FiltroDoAgenteInput::daQuery([]), $tenant);
 
         self::assertSame([], $saida->pastas[0]->clientes);
-        self::assertNull($saida->pastas[1]->identificador);
-        self::assertSame(['EMPRESA VINCULADA'], $saida->pastas[1]->clientes);
+        // Com cliente vinculado o identificador é o cliente principal (decisão de 2026-10-27), então
+        // o nome gravado (aqui ausente) deixa de ser necessário e a lista de clientes não repete o nome.
+        self::assertSame('EMPRESA VINCULADA', $saida->pastas[1]->identificador);
+        self::assertSame([], $saida->pastas[1]->clientes);
     }
 
     #[TestDox('Contar devolve só o total, sem buscar as linhas')]
