@@ -6,6 +6,7 @@ namespace App\Central\Service;
 
 use App\Central\Entity\Conversa;
 use App\Central\Entity\Mensagem;
+use App\Central\Entity\TipoDeConversa;
 use App\Central\Repository\ConversaRepository;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
@@ -97,6 +98,19 @@ final class ConversaDaIaDaCentral implements ConversaDaIaNaCentral
 
         $this->mensagens->salvar(Mensagem::daIA($tenant, $conversa, $dono, $texto, $agora));
         $conversa->registrarMensagem($agora);
+    }
+
+    public function apagarMensagensDaIaAntesDe(\DateTimeImmutable $limite): int
+    {
+        // Varre todos os escritórios de propósito (rotina do agendador, sem sessão). `resposta_a_id` é SET NULL.
+        return (int) $this->mensagens->createQueryBuilder('m')
+            ->delete()
+            ->andWhere('m.criadaEm < :limite')
+            ->andWhere('m.conversa IN (SELECT c.id FROM ' . Conversa::class . ' c WHERE c.tipo = :ia)')
+            ->setParameter('limite', $limite)
+            ->setParameter('ia', TipoDeConversa::Ia)
+            ->getQuery()
+            ->execute();
     }
 
     /** A conversa IA de `$dono` neste escritório, SE for a de id `$conversaId`. */

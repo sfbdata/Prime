@@ -215,6 +215,50 @@
         document.body.appendChild(cobertura);
     }
 
+    var detalhe = document.querySelector('[data-pp-detalhe]');
+    var conteudo = detalhe.querySelector('[data-pp-det-conteudo]');
+    var linhaAberta = null;
+
+    function fecharDetalhe() {
+        detalhe.hidden = true;
+        conteudo.innerHTML = '';
+        if (linhaAberta) { linhaAberta.classList.remove('pp-linha--nova'); linhaAberta.dataset.lida = '1'; }
+    }
+
+    function abrirDetalhe(linha) {
+        linhaAberta = linha;
+        var voltar = window.location.pathname + window.location.search.replace(/[?&]abrir=\d+/, '');
+        var url = detalhe.dataset.url.replace('%id%', linha.dataset.id) + '?voltar=' + encodeURIComponent(voltar);
+        window.fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+            .then(function (html) { conteudo.innerHTML = html; detalhe.hidden = false; })
+            .catch(function () { window.location.href = linha.dataset.url; });
+    }
+
+    detalhe.addEventListener('click', function (e) {
+        if (e.target.closest('[data-pp-det-fechar]')) { fecharDetalhe(); return; }
+        var dia = e.target.closest('[data-pp-dias]');
+        var outro = e.target.closest('[data-pp-dias-outro]');
+        var dias = dia ? dia.dataset.ppDias : null;
+        if (outro) {
+            var resposta = window.prompt(outro.dataset.pergunta, '');
+            dias = resposta ? String(parseInt(resposta, 10) || '') : null;
+        }
+        if (dias) {
+            var f = conteudo.querySelector('[data-pp-prazo-form]');
+            f.querySelector('[name="dias"]').value = dias;
+            f.submit();
+        }
+        if (e.target.closest('[data-pp-det-vincular]')) { var l = linhaAberta; fecharDetalhe(); abrirModal(l); }
+    });
+    detalhe.addEventListener('change', function (e) {
+        if (e.target.closest('[data-pp-enviar-ao-mudar]')) { e.target.closest('form').submit(); }
+    });
+    if (parseInt(detalhe.dataset.abrir, 10) > 0) {
+        var alvo = raiz.querySelector('[data-pp-linha][data-id="' + detalhe.dataset.abrir + '"]');
+        if (alvo) { abrirDetalhe(alvo); }
+    }
+
     linhas.forEach(function (linha) {
         linha.querySelector('[data-pp-marca]').addEventListener('click', function (e) {
             e.stopPropagation();
@@ -223,7 +267,7 @@
         });
         linha.addEventListener('click', function (e) {
             if (e.target.closest('a, button')) { return; }
-            window.location.href = linha.dataset.url;
+            abrirDetalhe(linha);
         });
         linha.addEventListener('contextmenu', function (e) { abrirMenu(e, linha); });
         var vincular = linha.querySelector('[data-pp-vincular]');
@@ -247,6 +291,6 @@
     raiz.querySelector('[data-pp-acao-lote="leitura"]').addEventListener('click', function () { enviar('leitura', ids(), '1'); });
     raiz.querySelector('[data-pp-acao-lote="excluir"]').addEventListener('click', function () { excluirLote(ids()); });
     raiz.querySelector('[data-pp-acao-lote="limpar"]').addEventListener('click', limpar);
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { fecharMenu(); fecharModal(); } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { fecharMenu(); fecharModal(); fecharDetalhe(); } });
     pintar();
 })();

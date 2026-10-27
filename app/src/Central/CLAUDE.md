@@ -89,6 +89,7 @@ lista, não lidas, novidades, contatos e `daConversa` excluem `tipo = ia` (abrir
 A resposta da IA entra pela porta `Inteligencia\Contract\ConversaDaIaNaCentral` (`Service\ConversaDaIaDaCentral`, PR 2a): relê a pergunta
 (autora = dono, `de_ia = false`, mesma conversa e escritório, vínculo ativo) e as 12 mensagens anteriores (corte `limpa_ate_id`),
 e grava a fala `de_ia` (≤ 4000 caracteres, `@[` desarmado). Tenant explícito; provado em `IsolamentoDosRepositoriosDaCentralTest`.
+A pergunta (PR 2b) é `UseCase\PerguntarABlueJusIaUseCase`, sem rota até a tela: conversa DELE por `daIaDe` (não usa `participacao()` nem `EnviarMensagemUseCase`, que excluem `ia`), trava `ConversaRepository::travar`, uma pergunta em andamento por vez, limitador fora do `wrapInTransaction`. A retenção apaga as duas pontas (`apagarMensagensDaIaAntesDe`).
 
 ## Tela
 
