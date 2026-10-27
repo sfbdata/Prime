@@ -70,7 +70,12 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         self::assertCount(5, $crawler->filter('.pp-pagina > .pp-kpis > a.pp-kpi'));
         self::assertCount(1, $crawler->filter('.pp-pagina > section[data-pp-inclusao] > form'));
         self::assertCount(2, $crawler->filter('.pp-pagina > .pp-subabas > a.pp-subaba'));
+        self::assertCount(1, $crawler->filter('[data-pp-inclusao] input[data-pp-mascara-cnj]'), 'máscara CNJ do desenho');
+        self::assertSame('0 | 150', trim($crawler->filter('[data-pp-inclusao] [data-pp-obs-n]')->text()), 'contador da observação do desenho');
         self::assertCount(1, $crawler->filter('.pp-tabela__corpo > .pp-linha--dado'));
+        self::assertCount(1, $crawler->filter('.pp-tabela__corpo > .pp-linha--dado[data-pp-linha-proc][data-numero]'), 'a linha carrega o contexto do menu de botão direito');
+        self::assertCount(1, $crawler->filter('.pp-linha--dado .pp-c-acoes > button[data-pp-vincular-proc]'), 'sem pasta, o botão Pasta abre o modal');
+        self::assertCount(1, $crawler->filter('[data-pp-modal-pasta]'));
         self::assertStringContainsString('0702222-22.2026.8.07.0001', $crawler->filter('.pp-linha--dado')->text());
         self::assertSame('1', trim($crawler->filter('[data-pp-kpi="processos"] .pp-kpi__valor')->text()));
         self::assertSame('1', trim($crawler->filter('[data-pp-kpi="nunca"] .pp-kpi__valor')->text()));

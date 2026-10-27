@@ -1,0 +1,26 @@
+{% set c = detalhe.resumo %}
+<div class="sd-ver-linha">
+    <span class="sd-selo {{ c.status.value }}">{{ c.status.rotulo }}</span>
+    <span>{{ c.tipo.rotulo }} · prioridade {{ c.prioridade.rotulo|lower }} · aberto em {{ c.criadoEm|data_hora }}</span>
+</div>
+<b class="sd-ver-assunto">{{ c.assunto }}</b>
+<div class="sd-ver-desc">{{ detalhe.descricao|default('Sem descrição.') }}</div>
+{% if c.tipo.exigeAgendamento and c.dataAgendada %}
+    <div class="sd-ver-agenda"><i class="bi bi-calendar-event"></i> Agendado para {{ c.dataAgendada|data }} às {{ c.horaAgendada }}</div>
+{% endif %}
+<div class="sd-ver-andamento">
+    <div class="sd-ver-andamento-rotulo">ANDAMENTO</div>
+    {% for h in detalhe.andamento %}
+        <div class="sd-ver-historico"><span>{{ h.em|data_hora }}</span><span>{{ h.texto }}</span></div>
+    {% endfor %}
+</div>
+<div class="sd-ver-valor">
+    <span>Valor do atendimento</span>
+    {% if c.valorDebitadoCentavos is not null %}
+        <b class="sd-cor-debito">{{ c.valorDebitadoCentavos|reais }} debitado</b>
+    {% elseif c.valorEstimadoCentavos is not null %}
+        <b class="sd-det-estimado">estimado {{ c.valorEstimadoCentavos|reais }}</b>
+    {% else %}
+        <b class="sd-det-estimado">a combinar</b>
+    {% endif %}
+</div>

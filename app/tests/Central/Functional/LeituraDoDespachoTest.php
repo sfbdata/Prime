@@ -133,14 +133,14 @@ final class LeituraDoDespachoTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $bruno, $tenant);
         $client->request('GET', '/central/conversas');
-        $ultima = $this->json($client)['conversas'][0]['ultima'];
+        $ultima = $this->conversasSemIa($client)[0]['ultima'];
         self::assertStringContainsString(self::SEGREDO, $ultima['conteudo'], 'controle: com acesso, a prévia é o despacho');
         self::assertSame($pasta->getId(), $ultima['despacho']['pastaId']);
 
         $this->tirarPermissoes($bruno, $tenant);
         $client->request('GET', '/central/conversas');
         $this->semOTeor($client, (string) $pasta->getNup());
-        $ultima = $this->json($client)['conversas'][0]['ultima'];
+        $ultima = $this->conversasSemIa($client)[0]['ultima'];
         self::assertSame('Item de pasta sem acesso', $ultima['conteudo']);
         self::assertNull($ultima['despacho']);
         self::assertTrue($ultima['ocultoPorPermissao']);
@@ -149,7 +149,7 @@ final class LeituraDoDespachoTest extends JusPrimeWebTestCase
         $this->em()->getConnection()->executeStatement('UPDATE central_mensagem SET despacho_pasta_id = NULL WHERE tenant_id = ?', [$tenant->getId()]);
         $this->logarComTenant($client, $ana, $tenant);
         $client->request('GET', '/central/conversas');
-        self::assertTrue($this->json($client)['conversas'][0]['ultima']['ocultoPorPermissao']);
+        self::assertTrue($this->conversasSemIa($client)[0]['ultima']['ocultoPorPermissao']);
     }
 
     #[TestDox('Mensagem comum: despacho nulo e ocultoPorPermissao falso; as colunas do despacho ficam nulas no banco')]

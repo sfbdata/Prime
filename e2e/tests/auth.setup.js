@@ -33,8 +33,26 @@ function preencherGeneroDoUsuarioE2E() {
     );
 }
 
+// Aceite dos Termos de Uso da versão vigente, para o gate de Termos (TermoAceiteListener) não levar o usuário de
+// testes à tela de aceite. A versão sai de TermoVigente::VERSAO no container, então a troca da constante não
+// derruba o smoke. Idempotente (índice único user+versao+origem). Não mexe na tela nem no texto dos Termos.
+function aceitarTermosDoUsuarioE2E() {
+    const fonte = execSync('docker exec jusprime_php_dev cat /var/www/app/src/Termo/TermoVigente.php').toString();
+    const versao = (fonte.match(/VERSAO = '([^']+)'/) ?? [])[1];
+    if (!versao || !/^[\w.-]+$/.test(versao)) throw new Error('Não achei TermoVigente::VERSAO em app/src/Termo/TermoVigente.php');
+    const sql = `
+        INSERT INTO aceite_termo (user_id, versao, aceito_em, ip, user_agent, origem)
+        SELECT u.id, '${versao}', NOW(), '127.0.0.1', 'e2e', 'cadastro' FROM "user" u WHERE u.email = 'e2e@jusprime.local'
+        ON CONFLICT (user_id, versao, origem) DO NOTHING`;
+    execSync(
+        `docker exec -i jusprime_db_dev psql -v ON_ERROR_STOP=1 -U symfony -d ${JSON.stringify(bancoDoServidor())} -q`,
+        { input: sql, stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+}
+
 setup('autenticar usuário de teste', async ({ page }) => {
     preencherGeneroDoUsuarioE2E();
+    aceitarTermosDoUsuarioE2E();
 
     await page.goto('/login');
 

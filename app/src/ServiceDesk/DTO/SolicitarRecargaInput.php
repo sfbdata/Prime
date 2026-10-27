@@ -15,6 +15,8 @@ final class SolicitarRecargaInput
         public readonly ?User $solicitante,
         public readonly int $valorCentavos,
         public readonly FormaDeRecarga $forma,
+        /** Referência já emitida e assinada na tela (PIX mostrado antes de gravar); nula = o caso gera uma. */
+        public readonly ?string $referencia = null,
     ) {
     }
 }

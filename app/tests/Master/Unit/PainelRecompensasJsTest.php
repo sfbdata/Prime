@@ -124,6 +124,78 @@ final class PainelRecompensasJsTest extends TestCase
         }
     }
 
+    #[TestDox('F3: textos do antifraude no catálogo, como no desenho (situações, menu, confirmação, diálogo APAGAR)')]
+    public function testTextosDoAntifraude(): void
+    {
+        $esperado = [
+            'master.js.recompensas.sit.bloqueado' => 'Bloqueado',
+            'master.js.recompensas.sit.analise_uma' => 'Em análise ({n} suspeita)',
+            'master.js.recompensas.sit.analise_varias' => 'Em análise ({n} suspeitas)',
+            'master.js.recompensas.sit.alerta' => 'Alerta: {n} contas em 7 dias',
+            'master.js.recompensas.menu_aprovar' => 'Revisar suspeitas e aprovar',
+            'master.js.recompensas.menu_bloquear' => 'Bloquear recompensa',
+            'master.js.recompensas.menu_desbloquear' => 'Desbloquear recompensa',
+            'master.js.recompensas.menu_apagar' => 'Apagar da lista',
+            'master.js.recompensas.aprovar_pergunta' => 'Aprovar e contar estas contas?',
+            'master.js.recompensas.erro_apagar' => 'Digite APAGAR para confirmar.',
+            'master.js.recompensas.apagado' => '{nome} foi removido da lista. O extrato continua guardado.',
+            'master.js.recompensas.motivo.escritorio' => 'mesmo escritório de quem indicou',
+            'master.js.recompensas.motivo.cnpj' => 'mesmo CNPJ',
+            'master.js.recompensas.motivo.dominio' => 'mesmo domínio de e-mail',
+            'master.recompensas.suspeitas_mudou' => 'A lista de suspeitas mudou. Recarregue o painel e revise de novo.',
+            'master.recompensas.apagar.titulo' => 'Apagar indicador da lista',
+            'master.recompensas.apagar.rotulo' => 'Digite APAGAR para confirmar',
+            'master.recompensas.apagar.dica' => 'Ele sai da lista de recompensas; o extrato continua guardado.',
+            'master.recompensas.apagar.apagar' => 'Apagar',
+        ];
+        foreach ($esperado as $chave => $texto) {
+            self::assertSame($texto, self::catalogo($chave), $chave);
+        }
+        preg_match_all("/\\bT\\('([a-z][a-z0-9_.]+)'/", self::js(), $js);
+        preg_match_all("/'(master\\.recompensas\\.apagar\\.[a-z0-9_]+)'\\s*\\|\\s*trans/", self::arquivo('templates/master/_recompensas.html.twig'), $twig);
+        foreach (array_unique([...$js[1], ...$twig[1]]) as $chave) {
+            if (!str_ends_with($chave, '.')) {
+                self::catalogo($chave);
+            }
+        }
+        self::assertStringContainsString("T('master.js.recompensas.motivo.' + m)", self::js());
+    }
+
+    #[TestDox('F3: o JS manda o corpo certo às três rotas, confirma antes de aprovar, trava duplo clique e não decide regra no navegador')]
+    public function testAntifraudeNoJs(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString("pedir(urlDoUsuario(raiz.dataset.urlAprovar, id), 'POST', { vistas: u.suspeitas })", $js);
+        self::assertStringContainsString("pedir(urlDoUsuario(raiz.dataset.urlBloqueio, id), 'POST', { bloqueado: !u.bloqueado })", $js);
+        self::assertStringContainsString("pedir(urlDoUsuario(raiz.dataset.urlApagar, u.userId), 'POST', { confirmacao: palavra })", $js);
+        self::assertStringContainsString('if (!window.confirm(texto)) return;', $js);
+        self::assertStringContainsString("palavra.toUpperCase() !== 'APAGAR'", $js);
+        self::assertStringContainsString('apg.enviar.disabled = true;', $js);
+        self::assertStringContainsString('pagar: u => u.liberado && u.saldoCentavos > 0 && !u.bloqueado,', $js);
+        self::assertStringContainsString("menu.caixa.querySelector('[data-mrc-menu-acao=\"aprovar\"]').hidden = u.suspeitas === 0;", $js);
+        self::assertStringContainsString("u.situacao === 'analise'", $js);
+        self::assertStringNotContainsString('u.email', substr($js, (int) strpos($js, 'function dicaDasSuspeitas'), 300), 'o title das suspeitas não traz e-mail');
+        $twig = self::arquivo('templates/master/_recompensas.html.twig');
+        foreach (['master_recompensas_suspeitas_aprovar', 'master_recompensas_bloqueio', 'master_recompensas_apagar'] as $rota) {
+            self::assertStringContainsString("path('" . $rota . "', {id: 0})", $twig);
+        }
+        self::assertCount(0, array_filter(['modal-dialog', 'select2', 'class="box"'], static fn (string $p): bool => str_contains($twig, $p)));
+    }
+
+    #[TestDox('F3: cores do desenho: alerta em vermelho, menu âmbar (suspeitas e bloqueio) e vermelho (apagar), botão Apagar #a3232b')]
+    public function testCoresDoAntifraude(): void
+    {
+        $css = self::arquivo('public/css/master-recompensas.css');
+
+        self::assertStringContainsString('.mrc-sit.mrc-sit-alerta { color: var(--mrc-vermelho); }', $css);
+        self::assertStringContainsString('.mrc-menu-item.mrc-menu-item-aviso { color: var(--mrc-ambar); }', $css);
+        self::assertStringContainsString('.mrc-menu-item.mrc-menu-item-perigo { color: var(--mrc-vermelho); }', $css);
+        self::assertStringContainsString('.mrc-dlg-salvar.mrc-dlg-perigo { background: #a3232b; }', $css);
+        self::assertStringContainsString('--mrc-ambar: #9a5b00;', $css);
+        self::assertStringContainsString('--mrc-vermelho: #a3232b;', $css);
+    }
+
     #[TestDox('o painel registra a seção externa "recomp" logo depois de "ind", com o ícone bi-gift')]
     public function testSecaoNoPainel(): void
     {
@@ -156,7 +228,7 @@ final class PainelRecompensasJsTest extends TestCase
             self::assertStringNotContainsStringIgnoringCase($fora, $codigo, 'fica para as fatias seguintes: ' . $fora);
         }
         $twig = self::arquivo('templates/master/_recompensas.html.twig');
-        self::assertSame(5, substr_count($twig, 'data-mrc-menu-acao='), 'o menu ⋮ tem condição, lançamento, extrato, CSV e regra geral');
+        self::assertSame(8, substr_count($twig, 'data-mrc-menu-acao='), 'o menu ⋮ tem condição, lançamento, revisar suspeitas, extrato, CSV, regra geral, bloqueio e apagar');
         self::assertStringContainsString('data-sec-externa', self::arquivo('templates/master/painel.html.twig'));
     }
 
@@ -170,7 +242,7 @@ final class PainelRecompensasJsTest extends TestCase
         self::assertStringContainsString("'POST', { valor, observacao: lan.obs.value.trim(), chave })", $js);
         self::assertMatchesRegularExpression('/function lancar\(\) \{\s+const u = indicador\(alvo\);\s+if \(!u \|\| ocupado\) return;/', $js);
         self::assertStringContainsString("lan.enviar.disabled = true;", $js);
-        self::assertStringContainsString("raiz.dataset.urlLancamento.replace('/usuarios/0/', '/usuarios/' + u.userId + '/')", $js);
+        self::assertStringContainsString("pedir(urlDoUsuario(raiz.dataset.urlLancamento, u.userId), 'POST'", $js);
         self::assertStringContainsString("raiz.dataset.urlExtrato + (extratoDe === null ? '' : '?usuario=' + extratoDe)", $js);
         self::assertStringContainsString("window.location.assign(raiz.dataset.urlCsv + '?usuario=' + id)", $js);
         self::assertStringNotContainsString('localStorage', $js);
@@ -219,7 +291,11 @@ final class PainelRecompensasJsTest extends TestCase
             'src/Recompensa/DTO/DefinirCondicaoIndividualInput.php', 'src/Recompensa/UseCase/ConsultarPainelDeRecompensasUseCase.php',
             'src/Recompensa/Entity/LancamentoDeRecompensa.php', 'src/Recompensa/UseCase/LancarCreditoOuEstornoUseCase.php',
             'src/Recompensa/UseCase/ConsultarExtratoDeRecompensasUseCase.php', 'src/Recompensa/DTO/ExtratoEmCsv.php',
-            'src/Recompensa/DTO/LancarCreditoOuEstornoInput.php', 'migrations/Version20261026152000.php',
+            'src/Recompensa/DTO/LancarCreditoOuEstornoInput.php', 'migrations/Version20261026152000.php', 'migrations/Version20261026152100.php',
+            'src/Recompensa/Service/SuspeitaDeConta.php', 'src/Recompensa/Entity/AprovacaoDeContaDeRecompensa.php',
+            'src/Recompensa/UseCase/AprovarSuspeitasDoIndicadorUseCase.php', 'src/Recompensa/UseCase/BloquearOuDesbloquearRecompensaUseCase.php',
+            'src/Recompensa/UseCase/ApagarIndicadorDaListaUseCase.php', 'src/Recompensa/DTO/ApagarIndicadorDaListaInput.php',
+            'src/Recompensa/DTO/BloquearOuDesbloquearRecompensaInput.php', 'src/Recompensa/DTO/IndicadorDeRecompensaOutput.php',
         ] as $caminho) {
             self::assertDoesNotMatchRegularExpression('/[—–]/u', self::arquivo($caminho), $caminho);
         }
