@@ -121,6 +121,13 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:contribua:conciliar-assinaturas --no-interaction',
             'cron'    => '15 * * * *',
         ],
+        // A cada 15 minutos: conciliação do registro único de pagamentos (gateway, M0b). Reconsulta no banco as
+        // cobranças que o aviso não trouxe, expira as vencidas e resume as divergentes. Sem integração
+        // conectada, termina com sucesso sem fazer nada.
+        'app:pagamento:conciliar' => [
+            'comando' => 'app:pagamento:conciliar --no-interaction',
+            'cron'    => '*/15 * * * *',
+        ],
         // A cada minuto: o worker do espelho leva ao R2 até 50 envios pendentes e sai. O consumidor é um só
         // e roda uma tarefa por vez, então duas rodadas nunca correm juntas; uma rodada que passa do
         // minuto não acumula atrasadas (processOnlyLastMissedRun). Antes do Drive, que é o mais demorado.
