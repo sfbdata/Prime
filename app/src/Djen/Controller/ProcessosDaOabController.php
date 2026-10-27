@@ -11,6 +11,7 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\ClassificacaoDoProcesso;
 use App\Djen\Service\FiltroDeProcessosDaOab;
 use App\Djen\UseCase\AtualizarAnotacoesDoProcessoUseCase;
+use App\Djen\UseCase\ExcluirProcessoDoPushUseCase;
 use App\Djen\UseCase\IncluirProcessoNoAcompanhamentoUseCase;
 use App\Djen\UseCase\PararDeAcompanharProcessoUseCase;
 use App\Entity\Auth\User;
@@ -49,6 +50,7 @@ final class ProcessosDaOabController extends AbstractController
         private readonly IncluirProcessoNoAcompanhamentoUseCase $incluir,
         private readonly PararDeAcompanharProcessoUseCase $parar,
         private readonly AtualizarAnotacoesDoProcessoUseCase $anotar,
+        private readonly ExcluirProcessoDoPushUseCase $excluir,
     ) {
     }
 
@@ -191,6 +193,28 @@ final class ProcessosDaOabController extends AbstractController
         $parados = $this->parar->executar($tenant, $usuario, $this->numeros($request));
 
         return $this->voltar('success', sprintf('%d processo(s) deixaram de ser acompanhados. As publicações já recebidas continuam.', $parados));
+    }
+
+    #[Route('/excluir', name: 'push_processual_processos_excluir', methods: ['POST'])]
+    public function excluir(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->csrfValido($request)) {
+            return $this->voltar('danger', 'Token de segurança inválido.');
+        }
+
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        try {
+            $this->excluir->executar($tenant, $usuario, (string) $request->request->get('numero', ''));
+        } catch (AcompanhamentoInvalidoException $e) {
+            return $this->voltar('danger', $e->getMessage());
+        }
+
+        return $this->voltar('success', 'Processo excluído.');
     }
 
     #[Route('/anotacoes', name: 'push_processual_processos_anotacoes', methods: ['POST'])]

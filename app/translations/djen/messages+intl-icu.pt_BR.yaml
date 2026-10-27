@@ -217,6 +217,8 @@ djen:
         pasta_curto: Pasta
         editar_obs: Editar anotações
         incluir_acompanhamento: Incluir no acompanhamento
+        menu_excluir: Excluir processo
+        confirma_excluir: "Excluir o processo {processo}?\n\nEle sai do Push, do acompanhamento e da pasta vinculada. As publicações já recebidas continuam no histórico."
         ver_publicacoes: Ver publicações
         vazio: Nenhum processo com esses filtros.
         paginacao: '{total} processo(s) · página {pagina} de {paginas}'

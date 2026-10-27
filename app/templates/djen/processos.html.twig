@@ -20,6 +20,8 @@
      data-t-editar-obs="{{ 'djen.processos.editar_obs'|trans|e('html_attr') }}"
      data-t-copiar="{{ 'djen.index.menu_copiar'|trans|e('html_attr') }}"
      data-t-copiado="{{ 'djen.index.numero_copiado'|trans|e('html_attr') }}"
+     data-t-menu-excluir="{{ 'djen.processos.menu_excluir'|trans|e('html_attr') }}"
+     data-t-confirma-excluir="{{ 'djen.processos.confirma_excluir'|trans({processo: '%processo%'})|e('html_attr') }}"
      data-t-confirma-desvincular="{{ 'djen.index.confirma_desvincular'|trans({processo: '%processo%', n: '%n%'})|e('html_attr') }}">
     <div class="pp-topo">
         <i class="bi bi-folder2-open"></i>
@@ -214,6 +216,10 @@
     </div>
 </div>
 
+<form method="POST" action="{{ path('push_processual_processos_excluir') }}" class="pp-vinculo-form" data-pp-excluir-form hidden>
+    <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+    <input type="hidden" name="numero" value="">
+</form>
 <form method="POST" class="pp-vinculo-form" data-pp-vinculo-form hidden>
     <input type="hidden" name="_token" value="{{ csrf_token('push_publicacoes') }}">
     <input type="hidden" name="voltar" value="{{ app.request.requestUri }}">

@@ -59,6 +59,7 @@ final class IncluirProcessoNoAcompanhamentoUseCase
         }
 
         $linha ??= new ProcessoAcompanhado($tenant, $digitos, $processo === null, $usuario);
+        $linha->limparExclusao();
         if ($processo !== null) {
             $processo->retomarMonitoramento($usuario, new \DateTimeImmutable());
         } else {

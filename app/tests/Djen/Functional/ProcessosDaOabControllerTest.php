@@ -227,4 +227,74 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects();
     }
+
+    #[Test]
+    public function excluirProcessoTiraDaListaDaPastaEDoRelatorioMasMantemAsPublicacoes(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $processo = $this->criarProcesso($tenant, self::NUMERO_A);
+        $pasta = new \App\Pasta\Entity\Pasta();
+        $pasta->setNup('NUP-EX1');
+        $pasta->setNomeCliente('MARIA');
+        $pasta->setTenant($tenant);
+        $this->em()->persist($pasta);
+        $this->em()->flush();
+        $pasta->vincularProcesso($processo);
+        $oab = $this->criarOab($tenant, '49613', 'DF');
+        $publicacao = $this->criarPublicacao($tenant, '950010', self::NUMERO_A);
+        $publicacao->setOabMonitorada($oab);
+        $this->em()->flush();
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/processos');
+        self::assertCount(1, $crawler->filter('.pp-linha--dado'));
+        $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/excluir', ['_token' => $token, 'numero' => self::NUMERO_A]);
+        $crawler = $client->followRedirect();
+
+        self::assertStringContainsString('Processo excluído.', $crawler->text());
+        self::assertCount(0, $crawler->filter('.pp-linha--dado'), 'saiu dos acompanhados');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=relatorio');
+        self::assertCount(0, $crawler->filter('.pp-linha--dado'), 'não volta ao Relatório');
+        $crawler = $client->request('GET', '/push-processual');
+        self::assertCount(1, $crawler->filter('[data-pp-linha]'), 'a publicação continua no Push');
+        $this->limparIdentityMap();
+        self::assertFalse($this->em()->find(\App\Pasta\Entity\Pasta::class, $pasta->getId())->temProcesso($this->em()->find(Processo::class, $processo->getId())), 'saiu da pasta');
+    }
+
+    #[Test]
+    public function incluirDeNovoDesfazOExcluir(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/excluir', ['_token' => $token, 'numero' => self::NUMERO_B]);
+        $client->followRedirect();
+        $this->limparIdentityMap();
+        $linha = $this->em()->getRepository(ProcessoAcompanhado::class)->findOneBy(['numeroProcesso' => self::NUMERO_B]);
+        self::assertNotNull($linha?->getExcluidoEm());
+
+        $client->request('POST', '/push-processual/processos/incluir', ['_token' => $token, 'numero' => self::NUMERO_B]);
+        $client->followRedirect();
+        $this->limparIdentityMap();
+        $linha = $this->em()->getRepository(ProcessoAcompanhado::class)->findOneBy(['numeroProcesso' => self::NUMERO_B]);
+        self::assertNull($linha->getExcluidoEm());
+        self::assertTrue($linha->isAcompanhando());
+    }
+
+    #[Test]
+    public function excluirRecusaNumeroIncompleto(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/excluir', ['_token' => $token, 'numero' => '123']);
+
+        self::assertStringContainsString('20 dígitos', $client->followRedirect()->text());
+    }
 }

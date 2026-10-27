@@ -67,6 +67,8 @@ class ProcessosDaOabRepository
                 WHERE p.tenant_id = :t AND p.data_baixa IS NULL AND p.monitoramento_pausado_em IS NULL
                 UNION
                 SELECT a.numero_processo FROM djen_processo_acompanhado a WHERE a.tenant_id = :t AND a.acompanhando
+                UNION
+                SELECT a.numero_processo FROM djen_processo_acompanhado a WHERE a.tenant_id = :t AND a.excluido_em IS NOT NULL
             ),
             base AS (
                 SELECT DISTINCT regexp_replace(d.numero_processo, '\D', '', 'g') AS num,

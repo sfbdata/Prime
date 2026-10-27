@@ -48,6 +48,9 @@ class ProcessoAcompanhado implements TenantAware
     #[ORM\Column(length: 80, nullable: true)]
     private ?string $fase = null;
 
+    #[ORM\Column(name: 'excluido_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $excluidoEm = null;
+
     #[ORM\Column(name: 'criado_em', type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 
@@ -119,6 +122,24 @@ class ProcessoAcompanhado implements TenantAware
     public function acompanhar(): void
     {
         $this->acompanhando = true;
+    }
+
+    /** Incluir de novo (campo INCLUIR ou Relatório) desfaz o "Excluir processo". */
+    public function limparExclusao(): void
+    {
+        $this->excluidoEm = null;
+    }
+
+    public function getExcluidoEm(): ?\DateTimeImmutable
+    {
+        return $this->excluidoEm;
+    }
+
+    /** "Excluir processo" (desenho 11): para de acompanhar e não volta ao Relatório até ser incluído de novo. */
+    public function excluir(\DateTimeImmutable $quando): void
+    {
+        $this->acompanhando = false;
+        $this->excluidoEm = $quando;
     }
 
     public function pararDeAcompanhar(): void
