@@ -27,11 +27,11 @@ Seção "Custos" do painel `/master`:
 - D1. O protótipo guarda em `localStorage` (`bj-custos`). No real vai ao banco, global (sem tenant, como `RecursoEstado`).
 - D2. Valor em centavos (`int`), nunca float. Mês como `AAAA-MM` (char 7). Um lançamento por linha; sem unicidade (o mesmo
   fornecedor pode ter dois lançamentos no mês).
-- D3. Receita recorrente é calculada, não digitada: soma, por conta ativa, do preço do plano no catálogo
-  (`CatalogoDePlanos`, preço em centavos) mais o valor diferenciado do convênio da UF quando o modo é diferenciado
-  (`ConvenioDaUf`). Conta gratuita por convênio entra com 0. É mensal e atual: não há histórico de receita por mês; ao
-  escolher um mês passado a receita mostrada é a de hoje, com a nota "Receita atual, não histórica". Recomendação: aceitar
-  (histórico de receita é frente de faturamento, depende do gateway; `docs/specs/gateway-pagamentos.md`).
+- D3. Receita recorrente é calculada, não digitada: soma, por conta ATIVA (suspensa e em quarentena ficam fora), do preço do
+  plano no catálogo (`CatalogoDePlanos`, centavos) mais o valor do convênio da UF quando o modo é `dif` ou `sem`
+  (`ConvenioDaUf`), como no desenho (`rec`). É a receita de hoje, não histórica: ao escolher um mês passado a receita
+  mostrada é a atual, com a nota "Receita atual, não histórica". Recomendação: aceitar (histórico de receita é frente de
+  faturamento, depende do gateway; `docs/specs/gateway-pagamentos.md`).
 - D4. GB armazenados: soma do consumo atual das contas (mesma fonte do KPI Armazenamento da visão geral). Custo por GB =
   (Armazenamento + Backups do mês) / GB armazenados, como no desenho. Sem GB ou sem lançamento: "não lançado" / "-".
 - D5. Margem por plano: custo do plano = custo por GB x cota do plano (GB do catálogo). Plano sem cota: "-".
