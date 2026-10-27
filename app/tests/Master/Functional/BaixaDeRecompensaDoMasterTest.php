@@ -230,6 +230,14 @@ final class BaixaDeRecompensaDoMasterTest extends JusPrimeWebTestCase
 
         $this->client->request('GET', $url);
         self::assertSame(['nome' => 'Ana Souza', 'documento' => '52998224725', 'chavePix' => null], $this->json());
+
+        $trilha = (string) $this->em->getConnection()->fetchOne(
+            'SELECT string_agg(changes::text, \' \') FROM audit_log WHERE entity_class LIKE ?',
+            ['%DadosDeRecebimentoDeRecompensa'],
+        );
+        self::assertStringContainsString('Ana', $trilha, 'a trilha registra que os dados mudaram');
+        self::assertStringNotContainsString('52998224725', $trilha, 'o CPF nunca vai para a trilha de auditoria');
+        self::assertStringNotContainsString('ana@pix.com', $trilha, 'a chave PIX nunca vai para a trilha de auditoria');
     }
 
     #[TestDox('CSV do extrato: ganha a coluna Forma e o rótulo Pagamento')]

@@ -143,6 +143,7 @@ contábil (decisão de 27/10). Sem e-mail ao indicador nesta fatia (o aviso é d
   COMMIT não aconteceu). Download só do Master: GET `/master/recompensas/lancamentos/{id}/comprovante`
   (ROLE_SUPER_ADMIN, entrega por `EntregaDeArquivo`, 404 sem arquivo). O envio é `multipart/form-data` (campos `valor`,
   `forma`, `observacao`, `chave`, `comprovante`).
+- Auditoria: `documento` e `chave_pix` ficam fora da trilha (`AuditLogSubscriber`); ela registra só que os dados mudaram e quem mudou. O estorno e o crédito manual (F2) passam a pegar a mesma trava por usuário da baixa, para um estorno não furar o saldo conferido por ela.
 - Extrato: tipo exibido "Pagamento", coluna "forma" preenchida, ícone de comprovante com link; CSV ganha a forma.
 - Fora: caixa e checagem de saldo do caixa (F5), e-mail ao indicador (F7), pagamento por API (Gateway), reversão de
   pagamento (estorno é um lançamento `bonus` negativo, que só reduz crédito, não "devolve" pagamento feito).

@@ -35,7 +35,8 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * Regras (422, nada gravado): indicador liberado, não bloqueado, sem suspeita pendente, com nome e documento de quem
  * recebe, valor maior que zero e até o saldo.
  * Idempotência: a chave é única. Repetir a mesma chave com o mesmo indicador e valor responde como sucesso, sem gravar
- * de novo nem guardar outro arquivo; mesma chave com outro indicador ou valor recusa.
+ * de novo nem guardar outro arquivo; mesma chave com outro indicador, valor ou tipo de lançamento recusa. Forma e arquivo
+ * diferentes na mesma chave contam como repetição (vale o primeiro pedido): é duplo clique, não edição.
  * Comprovante: PDF, PNG, JPG ou WEBP até 5 MB, com o tipo lido do CONTEÚDO. O arquivo só é gravado depois de as regras
  * passarem e sai se o COMMIT comprovadamente não acontecer ({@see TransacaoComArquivoNovo}).
  * Auditoria: LancamentoDeRecompensa é Auditavel; cada baixa entra na trilha do Master.
