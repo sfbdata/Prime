@@ -10,6 +10,7 @@ use App\Auth\Infra\GoogleLoginApi;
 use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ContaDoGoogle;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Auth\UseCase\LigarContaAoGoogleUseCase;
 use App\Entity\Auth\User;
 use Psr\Log\LoggerInterface;
@@ -28,6 +29,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 use Symfony\Component\Security\Http\SecurityRequestAttributes;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * A volta do "Entrar com o Google" (spec entrar-com-google, entrega 1). Estende `AbstractAuthenticator` puro: com dois
@@ -60,6 +62,8 @@ final class GoogleAuthenticator extends AbstractAuthenticator
         private readonly RouterInterface $router,
         private readonly TokenStorageInterface $tokens,
         private readonly LoggerInterface $logger,
+        private readonly PoliticaDeCadastro $politicaDeCadastro,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -137,6 +141,11 @@ final class GoogleAuthenticator extends AbstractAuthenticator
      */
     private function irAoCadastro(Request $request, IdentidadeDoGoogle $identidade): never
     {
+        // Cadastro fechado ao público (spec login-config-cadastro, item 6): a identidade nem é guardada e a pessoa volta
+        // ao login com o aviso da política. Login de conta existente não passa por aqui.
+        if (!$this->politicaDeCadastro->publicoAberto()) {
+            throw new CustomUserMessageAuthenticationException($this->tradutor->trans(PoliticaDeCadastro::chaveDoAviso($this->politicaDeCadastro->atual())));
+        }
         if (!$identidade->emailComGarantia()) {
             throw new CustomUserMessageAuthenticationException(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_CADASTRO);
         }

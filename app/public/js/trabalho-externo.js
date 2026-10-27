@@ -239,6 +239,7 @@
         pagamentoComprovante: function (c) { return comCodigo(D.urlPagamentoComprovante, c); },
         pagamentoConfirmar: function (c) { return comCodigo(D.urlPagamentoConfirmar, c); },
         pagamentoValor: function (c) { return comCodigo(D.urlPagamentoValor, c); },
+        pagamentoRecusar: function (c) { return comCodigo(D.urlPagamentoRecusar, c); },
         pagamentoAvisar: function (c) { return comCodigo(D.urlPagamentoAvisar, c); },
         despachoResponder: function (c) { return comCodigo(D.urlDespachoResponder, c); },
         despachoRespostas: function (c) { return comCodigo(D.urlDespachoRespostas, c); },
@@ -981,7 +982,10 @@
             return;
         }
         var fechar = function (e) { e.preventDefault(); fecharMenu(); };
-        var caixa = el('div', { class: 'te-menu', style: { left: m.x + 'px', top: m.y + 'px' } });
+        var caixa = el('div', { class: 'te-menu' + (m.tipo ? '' : ' te-menu--demanda'), style: { left: m.x + 'px', top: m.y + 'px' } });
+        if (m.tipo) {
+            caixa.setAttribute('role', 'menu');
+        }
         alvo.appendChild(el('div', { class: 'te-menu-fundo', onclick: fechar, oncontextmenu: fechar }));
         if (m.tipo === 'selpor') {
             caixa.style.width = m.largura + 'px';
@@ -1574,10 +1578,10 @@
             el('div', { class: 'te-grade-form' }, [
                 rot('Valor do serviço (R$) *', ctl('input', 'valor', { inputMode: 'decimal' })),
                 rot('Despesas previstas (R$)', ctl('input', 'despesas', { inputMode: 'decimal' })),
-                rot('Prazo estimado', ctl('input', 'prazoEst', { placeholder: 'Ex.: 2 dias úteis' })),
+                rot('Prazo estimado', ctl('input', 'prazoEst', { placeholder: 'Prazo para executar' })),
                 rot('Validade da proposta', ctl('input', 'validade', { type: 'date' }))
             ]),
-            rot('Condições de pagamento', ctl('input', 'pagamento', { placeholder: 'Ex.: 50% no aceite, 50% na entrega' })),
+            rot('Condições de pagamento', ctl('input', 'pagamento', { placeholder: 'Forma de pagamento' })),
             rot('Escopo e atividades incluídas', ctl('textarea', 'escopo', { rows: 3 })),
             rot('Não incluído / responsabilidades', ctl('textarea', 'naoInclui', { rows: 2 })),
             el('div', { class: 'te-form-rodape' }, [
@@ -2245,6 +2249,9 @@
                     onclick: function () { window.open(ROTA.documento(cod, pg.comprovante.id), '_blank', 'noopener'); }
                 }, [ic('bi-paperclip'), ' ' + pg.comprovante.nome]));
             }
+            if (pg.podeRecusar) {
+                caixa.appendChild(el('button', { type: 'button', class: 'te-pg-recusar', onclick: function () { recusarComprovante(cod, pg); } }, [ic('bi-x-circle'), ' Recusar comprovante']));
+            }
             if (pg.podeConfirmar) {
                 caixa.appendChild(el('button', { type: 'button', class: 'te-pg-conf', onclick: function () { confirmarRecebimento(cod, pg); } }, [ic('bi-check2-circle'), ' Confirmar recebimento']));
             }
@@ -2310,6 +2317,30 @@
                         return r;
                     }
                     toastDoServidor(r.toast, 'Valor alterado', 'O solicitante foi avisado no chat e por e-mail.');
+                    aplicarDemanda(r);
+                    return r;
+                });
+            }
+        });
+    }
+
+    /** "Recusar comprovante" (só Master): o diálogo da tela com o motivo; o servidor tira o comprovante e avisa o solicitante. */
+    function recusarComprovante(codigo, pg) {
+        if (previa()) { return; }
+        abrirConf(codigo, {
+            k: '__pagamento_recusar__',
+            confirmacao: {
+                titulo: 'Recusar comprovante',
+                texto: 'O comprovante ' + (pg.comprovante ? pg.comprovante.nome : '') + ' será removido e o solicitante poderá enviar outro. Informe o motivo. O solicitante será avisado.',
+                botao: 'Recusar', motivo: true, motivoMax: 300
+            },
+            executar: function (motivo) {
+                return pedir('POST', ROTA.pagamentoRecusar(codigo), { motivo: motivo }).then(function (r) {
+                    if (!r.ok) {
+                        toastErro(r.mensagem);
+                        return r;
+                    }
+                    toastDoServidor(r.toast, 'Comprovante recusado', 'O solicitante foi avisado no chat e por e-mail.');
                     aplicarDemanda(r);
                     return r;
                 });
@@ -3485,7 +3516,7 @@
             },
             oncontextmenu: function (e) {
                 e.preventDefault();
-                abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 250);
+                abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 230);
             }
         }, [
             // D4 (l.164): véu e carimbo "EXPIRADA", sem clique.
@@ -4046,12 +4077,12 @@
     /** Cabeçalho azul, corpo com rolagem e rodapé com os botões (`tlmBtns`). Redesenhar guarda a rolagem. */
     function modalVaga(o) {
         var alvo = $('teVagaModal');
-        var antes = $('teTlmCorpo'), entra = !antes, topo = antes ? antes.scrollTop : 0;
+        var antes = $('teTlmCorpo'), topo = antes ? antes.scrollTop : 0;
         limpar(alvo);
         var corpo = el('div', { class: 'te-tlm-corpo', id: 'teTlmCorpo' }, o.corpo);
         alvo.appendChild(el('div', { class: 'te-tlm-fundo', onclick: fecharTlm }));
         alvo.appendChild(el('div', {
-            class: 'te-tlm' + (entra ? ' is-entra' : ''),
+            class: 'te-tlm',
             style: { width: 'min(' + o.largura + ', calc(100vw - 24px))' },
             attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': o.titulo }
         }, [
@@ -6143,7 +6174,7 @@
             el('span', { class: 'te-cv-cel' }, seloSituacao(x.statusRotulo || stCv(x.status)[1], x.statusCor || stCv(x.status)[2])),
             el('button', {
                 type: 'button', class: 'te-cv-mais', title: 'Mais opções',
-                onclick: function (e) { e.stopPropagation(); var r = e.currentTarget.getBoundingClientRect(); menu(r.left - 200, r.bottom + 4); }
+                onclick: function (e) { e.stopPropagation(); if (e.clientX || e.clientY) { menu(e.clientX, e.clientY); return; } var r = e.currentTarget.getBoundingClientRect(); menu(r.left - 200, r.bottom + 4); }
             }, ic('bi-three-dots-vertical'))
         ]);
     }

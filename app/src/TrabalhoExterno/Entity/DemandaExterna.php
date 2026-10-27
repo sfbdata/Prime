@@ -466,6 +466,38 @@ class DemandaExterna
         $this->registrar($autor, sprintf('💳 Comprovante de pagamento PIX enviado (%s). Aguardando confirmação.', $comprovante->getNomeOriginal()), TipoMensagem::Pagamento);
     }
 
+    /** O Master pode recusar o comprovante: enviado, sem pagar, nas situações do pagamento. */
+    public function comprovanteRecusavel(): bool
+    {
+        return $this->comprovante() !== null
+            && $this->pagoEm === null
+            && in_array($this->situacao, AcaoDemanda::RegistrarPagamento->origens(), true);
+    }
+
+    /**
+     * Recusa o comprovante: tira o documento da demanda (o registro sai no flush por orphanRemoval; o arquivo, o caso de
+     * uso remove só depois do COMMIT), grava o marco `comprovante_recusado` (arquivo e motivo) e a mensagem de sistema
+     * do tipo Pagamento, sem o motivo. O aviso de andamento leva o motivo. `$motivo` já vem aparado (10 a 300).
+     * Recusas (409): fora das situações do pagamento, já pago ou sem comprovante.
+     */
+    public function recusarComprovante(Autor $autor, string $motivo): void
+    {
+        if (!in_array($this->situacao, AcaoDemanda::RegistrarPagamento->origens(), true)) {
+            throw new TransicaoInvalida(sprintf('A demanda está %s: o comprovante não pode mais ser recusado. Recarregue a tela.', mb_strtolower($this->situacao->rotulo())));
+        }
+        if ($this->pagoEm !== null) {
+            throw new TransicaoInvalida('O pagamento desta demanda já foi registrado.');
+        }
+        $comprovante = $this->comprovante()
+            ?? throw new TransicaoInvalida('Esta demanda não tem comprovante para recusar.');
+
+        $this->documentos->removeElement($comprovante);
+        $this->historico->add(new HistoricoDemanda($this, null, Situacao::MARCO_COMPROVANTE_RECUSADO, $autor, sprintf('Arquivo: %s. Motivo: %s', $comprovante->getNomeOriginal(), $motivo)));
+        $this->registrar($autor, 'Comprovante de pagamento recusado. Envie um novo comprovante na aba Pagamento.', TipoMensagem::Pagamento);
+        $ultimo = array_key_last($this->andamentosParaAvisar);
+        $this->andamentosParaAvisar[$ultimo]['texto'] = sprintf('Comprovante de pagamento recusado. Motivo: %s. Envie um novo comprovante na aba Pagamento.', $motivo);
+    }
+
     /** Nova versão da proposta: as anteriores ainda em aberto viram "substituída". */
     public function enviarProposta(PropostaDemanda $proposta, Autor $autor): void
     {

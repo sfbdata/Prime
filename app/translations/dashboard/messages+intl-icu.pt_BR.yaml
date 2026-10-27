@@ -180,6 +180,14 @@ dashboard:
             principais_riscos: Principais riscos
             sem_risco: Nenhum risco relevante identificado.
             perguntas: Perguntas guiadas
+            resolvido: Resolvido
+            ignorar: Ignorar
+            recomendacao_se_aplica: A recomendação se aplica?
+            aplicar: Aplicar
+            nao_se_aplica: Não se aplica
+            status:
+                resolvido: Resolvido
+                ignorado: Ignorado
         dia_de: 'dia {dia} de {total}'
         entram_por_dia: Entram por dia
         concluidas_por_dia: Concluídas por dia
@@ -205,6 +213,21 @@ dashboard:
             titulo: Conhecer o Modo avançado
             sub: Visão estratégica, riscos e Central de Inteligência.
         rodape: Acompanhar novamente em 24 horas
+        sim:
+            teste: Teste
+            simular_dia: simular dia
+            aria: Simular dia do período
+            aviso: 'Simulação: o painel como estaria em {data}. Nada é gravado, e os números realizados são os de hoje.'
+        dia_util_de: 'dia útil {dia} de {total}'
+        ritmo_atual: Ritmo atual
+        ritmo_necessario: Ritmo necessário
+        nd: N/D
+        meta_de_pastas_legenda: 'Meta de pastas do mês: {feitas} de {meta} criadas'
+        estado:
+            adequado: Ritmo adequado
+            atencao: Ritmo de atenção
+            abaixo: Ritmo abaixo do necessário
+            critico: Ritmo crítico
     js:
         impressao:
             intervalo: '{de} a {ate}'

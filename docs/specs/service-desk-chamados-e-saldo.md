@@ -30,7 +30,8 @@ interno do escritório. **Não se mexe nele neste trabalho**; o novo módulo usa
   autor. **Rastro do pagamento** (decisão do dono, 26/10): quem pediu (`autor`, escritório), quando
   (`criado_em`, `confirmado_em`), quanto (`valor_centavos`), forma (`pix`|`cartao`), origem da confirmação
   (`manual` ou o provedor) e `confirmado_por` (usuário do Master na confirmação manual). Valor pago
-  diferente do pedido grava `valor_recebido_centavos` e `divergente_em` e mantém a recarga pendente.
+  MENOR que o pedido grava `valor_recebido_centavos` e `divergente_em` e mantém a recarga pendente; MAIOR
+  credita o que foi pago e grava a diferença nos mesmos campos (decisão do dono, 27/10: libera e avisa o Master).
   Saldo = soma dos confirmados; a coluna de saldo é cache conferido por teste.
 - `ChamadoDeSuporte`: tenant, solicitante, número sequencial por tenant (#0001), tipo, prioridade,
   assunto, descrição, data/hora (agenda), status, `valor_estimado_centavos`, `valor_debitado_centavos`,
@@ -67,6 +68,13 @@ Ponto aberto ao dono: o desenho tem CNPJ e chave PIX fixos; confirmar que são o
 3. Tela do escritório conforme o desenho.
 4. Ponta Master "Chamados recebidos" (+ confirmar recarga, debitar, estornar).
 5. Recarga (PIX copia e cola / pedido de cartão) via `ProvedorDeRecarga`.
+
+## Chamado de suporte (fatia 2)
+`AbrirChamadoInput` traz `tenant` e `solicitante` separados: o **controller** garante que o solicitante é o
+usuário logado do escritório (o UseCase não reconfere). Abrir valida o pedido antes da transação, trava o saldo,
+confere R$ 20,00, reserva o número (`proximoNumero` com o saldo travado + único `tenant, numero`) e grava a
+linha "Chamado aberto por ...". Preço por tipo: `PrecoDoAtendimento` (global, Master; sem linha = sem estimativa).
+Chamado de outro escritório responde `ChamadoNaoEncontrado` (404).
 
 ## Exclusão do escritório (purga)
 `service_desk_movimento` e `service_desk_saldo` entram na `ORDEM_DELECAO` (apagados), como o apoio do

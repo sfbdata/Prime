@@ -61,6 +61,11 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:inteligencia:expirar-conteudo --force --no-interaction',
             'cron'    => '20 0 * * *',
         ],
+        // 0h40: purga dos eventos de desempenho com mais de 90 dias (LGPD, docs/specs/master-desempenho.md §2.1).
+        'app:desempenho:purgar' => [
+            'comando' => 'app:desempenho:purgar --no-interaction',
+            'cron'    => '40 0 * * *',
+        ],
         // Dia 11, 1h: importação dos índices do BCB (INPC, IPCA e taxa legal), como no DEPLOY.md
         // (04h UTC). Ligada por decisão do dono em 23/10/2026.
         'app:importar-indices-monetarios' => [

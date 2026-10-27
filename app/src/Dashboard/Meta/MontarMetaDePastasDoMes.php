@@ -52,6 +52,21 @@ class MontarMetaDePastasDoMes
         );
     }
 
+    /**
+     * A mesma meta vista de outro "hoje" (simulação de dia do painel de Inteligência): só os dias úteis
+     * decorridos mudam; o realizado e a meta seguem os de verdade. Dia fora do mês da meta não simula.
+     */
+    public function comDiaSimulado(MetaDePastasDoMesOutput $meta, \DateTimeImmutable $dia): MetaDePastasDoMesOutput
+    {
+        if ($dia->format('Y-m') !== $meta->mes) {
+            return $meta;
+        }
+
+        [$total, $decorridos] = $this->contarDias($dia);
+
+        return new MetaDePastasDoMesOutput($meta->meta, $meta->desde, $meta->mes, $meta->realizado, $total, $decorridos, $meta->visivel);
+    }
+
     /** @param array<string, mixed> $filtros */
     private function ehMesLimpo(\DateTimeImmutable $referencia, array $filtros): bool
     {

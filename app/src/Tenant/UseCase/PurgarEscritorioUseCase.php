@@ -144,6 +144,8 @@ final class PurgarEscritorioUseCase
         ['contribua_apoio', 'tenant_id = :tenant'],
         // Service Desk (desenho 12): razão do saldo. Apagado como o apoio do Contribua (decisão do dono: exclusão apaga
         // na hora). Sem FK entre as duas; a FK de tenant é CASCADE, mas a deleção explícita deixa a cobertura visível.
+        ['service_desk_chamado_historico', 'tenant_id = :tenant'],
+        ['service_desk_chamado', 'tenant_id = :tenant'],
         ['service_desk_movimento', 'tenant_id = :tenant'],
         ['service_desk_saldo', 'tenant_id = :tenant'],
         ['contribua_motivo_de_nao_apoiar', 'tenant_id = :tenant'],

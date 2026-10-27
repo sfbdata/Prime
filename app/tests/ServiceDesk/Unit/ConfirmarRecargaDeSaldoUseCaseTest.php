@@ -88,7 +88,7 @@ final class ConfirmarRecargaDeSaldoUseCaseTest extends TestCase
         self::assertSame(5_000, $this->saldo->getSaldoCentavos());
     }
 
-    public function testValorPagoDiferenteNaoCreditaEGravaADivergencia(): void
+    public function testValorPagoMenorNaoCreditaEGravaADivergencia(): void
     {
         $recarga = $this->recargaPendente();
 
@@ -98,6 +98,28 @@ final class ConfirmarRecargaDeSaldoUseCaseTest extends TestCase
         self::assertSame(0, $this->saldo->getSaldoCentavos());
         self::assertTrue($recarga->estaPendente());
         self::assertSame(4_999, $recarga->getValorRecebidoCentavos());
+    }
+
+    public function testValorPagoMaiorCreditaOPagoEDevolveADiferenca(): void
+    {
+        $recarga = $this->recargaPendente();
+
+        $out = $this->useCase()->executar(new ConfirmarRecargaInput('BJSDABC', 5_300, 'E2E1'));
+
+        self::assertSame(ResultadoDaConfirmacao::Confirmada, $out->resultado);
+        self::assertSame(300, $out->diferencaCentavos);
+        self::assertSame(5_300, $this->saldo->getSaldoCentavos());
+        self::assertFalse($recarga->estaPendente());
+        self::assertSame(5_300, $recarga->getValorRecebidoCentavos());
+    }
+
+    public function testValorExatoNaoTemDiferenca(): void
+    {
+        $this->recargaPendente();
+
+        $out = $this->useCase()->executar(new ConfirmarRecargaInput('BJSDABC', 5_000, 'E2E1'));
+
+        self::assertSame(0, $out->diferencaCentavos);
     }
 
     public function testMesmoPagamentoNaoConfirmaOutraRecarga(): void

@@ -7,6 +7,8 @@ namespace App\Djen\Repository;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaPrazo;
+use App\Pasta\Entity\PastaProcesso;
 use App\Processo\DTO\HistoricoParaPrevisao;
 use App\Processo\DTO\MovimentacaoParaPrevisao;
 use Doctrine\DBAL\ArrayParameterType;
@@ -24,6 +26,9 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     /** Caracteres do teor (HTML cru) que a lista da PASTA projeta para montar o `textoResumo`. */
     private const TEXTO_INICIO_LISTA = 2000;
     private const TEXTO_PREVISAO = 15000;
+
+    /** Vinculada (desenho 11) = o processo da publicação está numa pasta que não foi excluída. */
+    private const COM_PASTA = 'EXISTS (SELECT 1 FROM App\\Pasta\\Entity\\PastaProcesso pc JOIN pc.pasta pac WHERE pc.processo = p.processo AND pac.excluidaEm IS NULL)';
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -111,6 +116,11 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                 'p.nomeOrgao AS nomeOrgao',
                 'p.lida AS lida',
                 'IDENTITY(p.processo) AS processoId',
+                'p.prazoDias AS prazoDias',
+                'p.prazoCumpridoEm AS prazoCumpridoEm',
+                'IDENTITY(p.tarefa) AS tarefaId',
+                '(SELECT MIN(pa.id) FROM ' . PastaProcesso::class . ' pp JOIN pp.pasta pa WHERE pp.processo = p.processo AND pa.excluidaEm IS NULL) AS pastaId',
+                '(SELECT MIN(pa2.nup) FROM ' . PastaProcesso::class . ' pp2 JOIN pp2.pasta pa2 WHERE pp2.processo = p.processo AND pa2.excluidaEm IS NULL) AS pastaNup',
             )
             ->orderBy('p.dataDisponibilizacao', 'DESC')
             ->addOrderBy('p.id', 'DESC')
@@ -150,8 +160,8 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             ->select(
                 'SUM(CASE WHEN p.lida = false THEN 1 ELSE 0 END) AS naoLidas',
                 'SUM(CASE WHEN p.dataDisponibilizacao = :hoje THEN 1 ELSE 0 END) AS hoje',
-                'SUM(CASE WHEN p.processo IS NOT NULL THEN 1 ELSE 0 END) AS vinculadas',
-                'SUM(CASE WHEN p.processo IS NULL THEN 1 ELSE 0 END) AS avulsas',
+                'SUM(CASE WHEN ' . self::COM_PASTA . ' THEN 1 ELSE 0 END) AS vinculadas',
+                'COUNT(p.id) AS total',
             )
             ->setParameter('hoje', $hoje->setTime(0, 0))
             ->getQuery()
@@ -161,8 +171,170 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             'naoLidas' => (int) $linha['naoLidas'],
             'hoje' => (int) $linha['hoje'],
             'vinculadas' => (int) $linha['vinculadas'],
-            'avulsas' => (int) $linha['avulsas'],
+            'avulsas' => (int) $linha['total'] - (int) $linha['vinculadas'],
         ];
+    }
+
+    /**
+     * O prazo que o teor gerou na pasta (origem push, `registro_ref = push:<id>`), por publicação: a menor data
+     * entre os prazos (não audiências) e se todos já foram cumpridos. Publicação sem processo em pasta não aparece.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, array{data: \DateTimeImmutable, cumprido: bool, algumCumprido: bool}>
+     */
+    public function prazosDoPushPorPublicacao(Tenant $tenant, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $linhas = $this->getEntityManager()->createQueryBuilder()
+            ->select('pr.registroRef AS ref', 'pr.data AS data', 'pr.cumpridoEm AS cumpridoEm')
+            ->from(PastaPrazo::class, 'pr')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('pr.origem = :origem')
+            ->andWhere('pr.tipo = :tipo')
+            ->andWhere('pr.registroRef IN (:refs)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('origem', PastaPrazo::ORIGEM_PUSH)
+            ->setParameter('tipo', PastaPrazo::TIPO_PRAZO)
+            ->setParameter('refs', array_map(static fn (int $id): string => 'push:' . $id, $ids))
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPublicacao = [];
+        foreach ($linhas as $linha) {
+            $id = (int) substr((string) $linha['ref'], 5);
+            $cumprido = $linha['cumpridoEm'] !== null;
+            $atual = $porPublicacao[$id] ?? null;
+            $porPublicacao[$id] = [
+                'data' => $atual === null || $linha['data'] < $atual['data'] ? $linha['data'] : $atual['data'],
+                'cumprido' => ($atual['cumprido'] ?? true) && $cumprido,
+                'algumCumprido' => ($atual['algumCumprido'] ?? false) || $cumprido,
+            ];
+        }
+
+        return $porPublicacao;
+    }
+
+    /**
+     * A pasta onde o processo da publicação está (a de menor id entre as não excluídas), ou null.
+     *
+     * @return array{id: int, nup: string}|null
+     */
+    public function pastaDaPublicacao(PublicacaoDjen $publicacao): ?array
+    {
+        if ($publicacao->getProcesso() === null) {
+            return null;
+        }
+
+        $linha = $this->getEntityManager()->createQueryBuilder()
+            ->select('pa.id AS id', 'pa.nup AS nup')
+            ->from(PastaProcesso::class, 'pp')
+            ->join('pp.pasta', 'pa')
+            ->andWhere('pp.processo = :processo')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->orderBy('pa.id', 'ASC')
+            ->setMaxResults(1)
+            ->setParameter('processo', $publicacao->getProcesso())
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $linha === null ? null : ['id' => (int) $linha['id'], 'nup' => (string) $linha['nup']];
+    }
+
+    /**
+     * Marca como lidas (ou não lidas) as publicações do escritório com os ids dados.
+     *
+     * @param list<int> $ids
+     * @param list<string> $numerosOcultos
+     *
+     * @return int quantas linhas mudaram
+     */
+    public function atualizarLeituraDoTenant(Tenant $tenant, array $ids, bool $lida, array $numerosOcultos = []): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.lida', ':lida')
+            ->andWhere('p.id IN (:ids)')
+            ->andWhere('p.lida <> :lida')
+            ->setParameter('lida', $lida)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Tira da caixa do Push as publicações com os ids dados (exclusão lógica).
+     *
+     * @param list<int> $ids
+     * @param list<string> $numerosOcultos
+     *
+     * @return int quantas linhas saíram
+     */
+    public function excluirDoTenant(Tenant $tenant, array $ids, \DateTimeImmutable $quando, array $numerosOcultos = []): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.excluidaEm', ':quando')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('quando', $quando)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * "Limpar lidas": tira da caixa todas as publicações já lidas do escritório.
+     *
+     * @param list<string> $numerosOcultos
+     */
+    public function excluirLidasDoTenant(Tenant $tenant, \DateTimeImmutable $quando, array $numerosOcultos = []): int
+    {
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.excluidaEm', ':quando')
+            ->andWhere('p.lida = true')
+            ->setParameter('quando', $quando)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Quantas lidas ainda estão na caixa (o "Limpar lidas" avisa quando não há nenhuma).
+     *
+     * @param list<string> $numerosOcultos
+     */
+    public function contarLidasDoTenant(Tenant $tenant, array $numerosOcultos = []): int
+    {
+        return $this->countByFiltros($tenant, ['leitura' => 'lidas'], $numerosOcultos);
+    }
+
+    /**
+     * UPDATE em massa sempre preso ao escritório, às não excluídas e fora das pastas que o usuário não enxerga.
+     *
+     * @param list<string> $numerosOcultos
+     */
+    private function updateDoTenant(Tenant $tenant, array $numerosOcultos): QueryBuilder
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder()
+            ->update(PublicacaoDjen::class, 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant);
+
+        if ($numerosOcultos !== []) {
+            $qb->andWhere('p.numeroProcesso NOT IN (:numerosOcultos)')
+               ->setParameter('numerosOcultos', $numerosOcultos);
+        }
+
+        return $qb;
     }
 
     /**
@@ -176,6 +348,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             ->select('IDENTITY(p.oabMonitorada) AS oabId', 'COUNT(p.id) AS total')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.oabMonitorada IS NOT NULL')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->groupBy('p.oabMonitorada')
             ->getQuery()
@@ -197,6 +370,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     public function listarTribunaisDoTenant(Tenant $tenant): array
     {
         $rows = $this->createQueryBuilder('p')
+            ->andWhere('p.excluidaEm IS NULL')
             ->select('DISTINCT p.siglaTribunal')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.siglaTribunal != :vazio')
@@ -479,6 +653,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant);
 
         if ($numerosOcultos !== []) {
@@ -526,9 +701,9 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     private function filtrarPorVinculoELeitura(QueryBuilder $qb, string $vinculo, string $leitura): void
     {
         if ($vinculo === 'vinculada') {
-            $qb->andWhere('p.processo IS NOT NULL');
+            $qb->andWhere(self::COM_PASTA);
         } elseif ($vinculo === 'avulsa') {
-            $qb->andWhere('p.processo IS NULL');
+            $qb->andWhere('NOT (' . self::COM_PASTA . ')');
         }
 
         if ($leitura === 'nao_lidas') {

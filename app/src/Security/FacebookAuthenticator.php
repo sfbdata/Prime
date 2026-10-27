@@ -9,6 +9,7 @@ use App\Auth\Infra\FacebookLoginApi;
 use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ContaDoFacebook;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Entity\Auth\User;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +25,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 use Symfony\Component\Security\Http\SecurityRequestAttributes;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * A volta do "Continuar com Facebook" (spec login-cupom-e-facebook, PR B). Como o do Google, estende
@@ -48,6 +50,8 @@ final class FacebookAuthenticator extends AbstractAuthenticator
         private readonly CadastroPeloFacebook $cadastroPeloFacebook,
         private readonly EntradaDoUsuario $entrada,
         private readonly RouterInterface $router,
+        private readonly PoliticaDeCadastro $politicaDeCadastro,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -69,6 +73,11 @@ final class FacebookAuthenticator extends AbstractAuthenticator
             $usuario = $this->contas->localizar($identidade);
         } catch (EntradaPeloFacebookRecusadaException $e) {
             if (EntradaPeloFacebookRecusadaException::SEM_CONTA === $e->getMessage() && null !== $identidade) {
+                // Cadastro fechado ao público (spec login-config-cadastro, item 6): a identidade nem é guardada e a
+                // pessoa volta ao login com o aviso da política.
+                if (!$this->politicaDeCadastro->publicoAberto()) {
+                    throw new CustomUserMessageAuthenticationException($this->tradutor->trans(PoliticaDeCadastro::chaveDoAviso($this->politicaDeCadastro->atual())), [], 0, $e);
+                }
                 // Só um provedor espera o cadastro por vez; a identidade vem da sessão no POST, nunca do navegador.
                 CadastroPeloGoogle::esquecer($request->getSession());
                 $this->cadastroPeloFacebook->guardar($request->getSession(), $identidade);

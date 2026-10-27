@@ -13,6 +13,7 @@ use App\Central\Repository\MensagemRepository;
 use App\Central\Entity\Presenca;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Repository\PresencaRepository;
+use App\Central\Service\ConversaDaIaDaCentral;
 use App\Entity\Notificacao;
 use App\Repository\NotificacaoRepository;
 use App\Entity\Auth\UserTenant;
@@ -28,6 +29,7 @@ use PHPUnit\Framework\Attributes\TestDox;
  */
 #[CoversClass(ParticipanteRepository::class)]
 #[CoversClass(MensagemRepository::class)]
+#[CoversClass(ConversaDaIaDaCentral::class)]
 #[CoversClass(PresencaRepository::class)]
 #[CoversClass(NotificacaoRepository::class)]
 #[CoversClass(ConfiguracaoDePresencaRepository::class)]
@@ -92,5 +94,49 @@ final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
         self::assertNull($configuracoes->doEscritorio($escritorioA));
         self::assertSame(Presenca::INATIVO_APOS_MINUTOS, $configuracoes->minutosAusente($escritorioA));
         self::assertSame(15, $configuracoes->minutosAusente($escritorioB), 'controle: no B vale a escolha');
+    }
+
+    #[TestDox('Sem o TenantFilter, a porta do chat com a IA (contexto da pergunta e gravar resposta) não alcança a conversa do outro escritório')]
+    public function testPortaDoChatComAIaSemFiltro(): void
+    {
+        static::createClient();
+        [, $escritorioA] = $this->criarAdmin();
+        [, $escritorioB] = $this->criarAdmin();
+        $ana = $this->criarUsuarioComPermissoes($escritorioA, [], 'ana');
+        $this->em()->persist(new UserTenant($ana, $escritorioB));
+
+        $agora = new \DateTimeImmutable();
+        $iaDoB = Conversa::comAIa($escritorioB, $ana, $agora);
+        $this->em()->persist($iaDoB);
+        $this->em()->persist(new Participante($escritorioB, $iaDoB, $ana, $agora));
+        $perguntaDoB = new Mensagem($escritorioB, $iaDoB, $ana, 'SEGREDO-DO-B', $agora);
+        $this->em()->persist($perguntaDoB);
+        $this->em()->flush();
+
+        if ($this->em()->getFilters()->isEnabled('tenant')) {
+            $this->em()->getFilters()->disable('tenant');
+        }
+        /** @var ConversaDaIaDaCentral $porta */
+        $porta = static::getContainer()->get(ConversaDaIaDaCentral::class);
+
+        $contexto = $porta->contextoDaPergunta($escritorioB, (int) $iaDoB->getId(), (int) $perguntaDoB->getId(), $ana);
+        self::assertNotNull($contexto, 'controle: no B ela pergunta na própria conversa');
+        self::assertSame('SEGREDO-DO-B', $contexto['texto']);
+        // Os mesmos ids pedidos pelo escritório A: nada vaza.
+        self::assertNull($porta->contextoDaPergunta($escritorioA, (int) $iaDoB->getId(), (int) $perguntaDoB->getId(), $ana));
+
+        try {
+            $porta->gravarResposta($escritorioA, (int) $iaDoB->getId(), $ana, 'não devia gravar', $agora);
+            self::fail('devia recusar: a conversa é do outro escritório');
+        } catch (\LogicException) {
+            self::addToAssertionCount(1);
+        }
+        /** @var ParticipanteRepository $participantes */
+        $participantes = $this->em()->getRepository(Participante::class);
+        self::assertTrue($participantes->participaAtivamente($iaDoB, $ana, $escritorioB), 'controle: no B ela participa');
+        self::assertFalse($participantes->participaAtivamente($iaDoB, $ana, $escritorioA), 'com o escritório errado, não');
+        $porta->gravarResposta($escritorioB, (int) $iaDoB->getId(), $ana, 'ok', $agora);
+        $this->em()->flush();
+        self::assertCount(1, $this->em()->getRepository(Mensagem::class)->findBy(['conversa' => $iaDoB->getId(), 'deIa' => true]), 'controle: no B grava');
     }
 }
