@@ -94,6 +94,63 @@ final class VincularPublicacaoAPastaTest extends JusPrimeWebTestCase
     }
 
     #[Test]
+    public function vincularPeloNumeroDigitadoUsaONupDaPasta(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->criarPublicacao($tenant, '970010', self::NUMERO);
+        $this->criarPastaDoEscritorio($tenant, '4321');
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+        $token = $this->tokenDaLista($client);
+        $id = (int) $client->getCrawler()->filter('[data-pp-linha]')->attr('data-id');
+
+        $client->request('POST', "/push-processual/publicacoes/$id/vincular", ['_token' => $token, 'nup' => '4321', 'numero' => self::NUMERO]);
+
+        self::assertStringContainsString('vinculado à Pasta 4321', $client->followRedirect()->text());
+    }
+
+    #[Test]
+    public function numeroDePastaInexistenteNaoCriaPastaEMandaAbrirNova(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->criarPublicacao($tenant, '970011', self::NUMERO);
+        $this->criarPastaDoEscritorio($this->criarTenant(), '777');
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+        $token = $this->tokenDaLista($client);
+        $id = (int) $client->getCrawler()->filter('[data-pp-linha]')->attr('data-id');
+
+        $client->request('POST', "/push-processual/publicacoes/$id/vincular", ['_token' => $token, 'nup' => '777']);
+        $crawler = $client->followRedirect();
+
+        self::assertStringContainsString('A Pasta 777 não existe neste escritório', $crawler->text());
+        self::assertCount(1, $crawler->filter('button[data-pp-vincular]'));
+    }
+
+    #[Test]
+    public function modalTrazPartesAtalhoDoNumeroEAbrirNovaPasta(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $pub = $this->criarPublicacao($tenant, '970012', self::NUMERO);
+        $pub->setPayloadDjen(['destinatarios' => [['nome' => 'MARIA DA SILVA', 'polo' => 'A'], ['nome' => 'BANCO X', 'polo' => 'P']]]);
+        $this->em()->flush();
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual');
+        self::assertCount(1, $crawler->filter('[data-pp-modal-pasta] [data-pp-modal-partes]'));
+        self::assertCount(1, $crawler->filter('[data-pp-modal-pasta] button[data-pp-modal-usar]'));
+        self::assertCount(1, $crawler->filter('[data-pp-modal-pasta] button[data-pp-modal-nova]'));
+        $id = (int) $crawler->filter('[data-pp-linha]')->attr('data-id');
+
+        $client->request('GET', "/push-processual/publicacoes/$id/partes");
+        self::assertSame('MARIA DA SILVA × BANCO X', json_decode((string) $client->getResponse()->getContent(), true)['partes']);
+    }
+
+    #[Test]
     public function desvincularTiraOProcessoDaPastaEAPublicacaoVoltaAvulsa(): void
     {
         $client = static::createClient();

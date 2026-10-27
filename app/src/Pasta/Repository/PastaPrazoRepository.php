@@ -22,6 +22,20 @@ class PastaPrazoRepository extends ServiceEntityRepository
         parent::__construct($registry, PastaPrazo::class);
     }
 
+    /**
+     * Os prazos que o teor de uma publicação gerou no Push (todas as pastas do escritório com o processo).
+     *
+     * @return list<PastaPrazo>
+     */
+    public function doPushDaPublicacao(int $publicacaoId, Tenant $tenant): array
+    {
+        return $this->findBy([
+            'tenant' => $tenant,
+            'origem' => PastaPrazo::ORIGEM_PUSH,
+            'registroRef' => 'push:' . $publicacaoId,
+        ]);
+    }
+
     public function findDaPasta(int $id, Pasta $pasta, Tenant $tenant): ?PastaPrazo
     {
         return $this->createQueryBuilder('z')
