@@ -69,6 +69,27 @@ Regras do 4a:
 6. 4c (D12): cruza pastas de TODOS os clientes da pasta aberta, no mesmo escritório, só as que a pessoa vê, teto de pastas e orçamento menor por pasta;
    pasta com segredo some em silêncio ("N pastas não puderam ser consultadas").
 
+Regras do 4c (clientes, D12; risco MEDIO, sem migration):
+1. Entrada nova e opcional: `escopo` (`pasta` padrao | `clientes`) no POST de pergunta. `clientes` exige `pastaId` (422 sem ele). O cliente manda so o
+   nome do escopo; o servidor decide as pastas. Escopo entra no hash de idempotencia e em `contexto_resumo` (so a flag e os ids das pastas incluidas).
+2. Pastas incluidas = pasta aberta (primeiro) + outras pastas dos clientes da pasta aberta, mesmo escritorio, nao excluidas, so as que a pessoa
+   ve (`AcessoAPasta::restringirAoVisivel`, nunca `PastaRepository::findByCliente` cru), ordem `dataAbertura DESC`, teto `LIMITE_PASTAS` (5, aberta inclusa).
+   Servico novo `PastasDosClientesDaIa` (Central/Service); `PastaRepository` nao muda se der para evitar (query no repositorio do dominio so se preciso).
+3. Orcamento: cada pasta usa orcamento menor que o total do montador (`MontadorDeContextoDaPasta` ganha parametro opcional de orcamento; padrao inalterado).
+   Financeiro e abas ocultas decididos POR pasta (`PastaDoContextoDaIa::liberar`), nunca herdados da aberta.
+4. Segredo de justica: a pasta aberta com segredo segue 409 (regra 4a). Pasta ADICIONAL com segredo e omitida em silencio e contada; a resposta ganha no
+   prompt a frase fixa "N pastas nao puderam ser consultadas" (sem NUP, sem nome, sem motivo). O worker repete a decisao por pasta e, se a pasta aberta
+   deixou de valer, `falhou` sem chamar o provedor (como 4a).
+5. `mascarar_dados_pessoais` do escritorio vale para todas as pastas (o montador ja o aplica por chamada); nome/historico/pergunta seguem protegidos como na 4a.
+6. Prompt `chat-central-v3` (texto muda, versao muda): um bloco `<pasta>` por pasta, rotulado "pasta 1 (aberta)", "pasta 2"...; mesma regra de dados nao confiaveis,
+   delimitadores neutralizados. Historico com escopo `clientes` segue a regra 4 do 4a (sem respostas anteriores da IA).
+7. Disponibilidade: `DisponibilidadeDeInteligencia::para` como hoje. A IA so esta liberada no escritorio piloto (Farlei); `clientes` herda isso, sem flag nova. Antes de abrir a
+   outros escritorios, rever (pendencia do dono).
+8. Tela: na barra da pasta (4b) entra um interruptor "Incluir outras pastas do cliente" (desligado por padrao, por conversa, nao persiste) e, ligado, o aviso
+   LGPD fixo na barra: "A IA vai ler as outras pastas deste cliente que voce pode ver. Dados pessoais seguem a configuracao do escritorio." Sem desenho para o interruptor:
+   desvio declarado, o dono confere na tela. `base.html.twig` NAO e tocado.
+9. Resposta de rotulo (`GET /central/ia/pasta/{id}`) nao muda.
+
 Regras do 4b (tela):
 1. A janela leva `data-ia-pasta="{id}"` só em `/pasta/{id}` (`_janela.html.twig`; o `base.html.twig` não mudou). É dica de UI: o servidor revalida.
 2. Ao abrir a conversa IA com a dica, o JS busca o rótulo UMA vez em `GET /central/ia/pasta/{pastaId}` (`central_ia_pasta`,
