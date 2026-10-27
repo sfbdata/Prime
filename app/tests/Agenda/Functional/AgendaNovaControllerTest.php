@@ -50,6 +50,41 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Agenda', trim($crawler->filter('.navtop-subnav-link.active')->text()));
     }
 
+    #[TestDox('/agenda/classica serve a tela de 18/10 enquanto a 1A não é aprovada (docs/specs/agenda-1a.md, D5)')]
+    public function testClassicaContinuaDePe(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->logarComTenant($client, $this->criarUsuario($tenant, true), $tenant);
+
+        $crawler = $client->request('GET', '/agenda/classica');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('agenda_classica', $client->getRequest()->attributes->get('_route'));
+        self::assertCount(1, $crawler->filter('.ag-page > .ag-corpo > .ag-lado'));
+    }
+
+    #[TestDox('o JSON leva local e descrição separados, e a observação continua juntando os dois')]
+    public function testLocalEDescricaoSeparados(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $eu = $this->criarUsuario($tenant, true);
+        $evento = $this->criarEvento($tenant, $eu, 'Audiência', '2030-03-10 09:00', Evento::VISIBILIDADE_TODOS);
+        $evento->setLocal('Fórum Central, Sala 3')->setDescricao('Levar os quesitos');
+        $this->criarEvento($tenant, $eu, 'Sem detalhe', '2030-03-11 09:00', Evento::VISIBILIDADE_TODOS);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $this->logarComTenant($client, $eu, $tenant);
+        $porTitulo = array_column($this->itens($client, self::PERIODO), null, 'titulo');
+
+        self::assertSame('Fórum Central, Sala 3', $porTitulo['Audiência']['local']);
+        self::assertSame('Levar os quesitos', $porTitulo['Audiência']['descricao']);
+        self::assertSame("Fórum Central, Sala 3\nLevar os quesitos", $porTitulo['Audiência']['observacao']);
+        self::assertNull($porTitulo['Sem detalhe']['local']);
+        self::assertNull($porTitulo['Sem detalhe']['descricao']);
+    }
+
     #[TestDox('Equipe: vê os próprios, os da equipe e não vê o "Só eu" do colega nem nada de outro escritório')]
     public function testEquipeRespeitaVisibilidadeETenant(): void
     {
@@ -175,7 +210,7 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         $client->request('GET', self::PERIODO);
         $r = json_decode((string) $client->getResponse()->getContent(), true);
 
-        self::assertSame(['meus' => 1, 'aud' => 2, 'reun' => 1, 'prazo' => 0], $r['contagens']);
+        self::assertSame(['meus' => 1, 'aud' => 2, 'reun' => 1, 'prazo' => 0, 'urg' => 0, 'pess' => 0, 'lemb' => 0], $r['contagens']);
         $calendarioDoAntigo = array_column($r['itens'], 'calendario', 'titulo')['Antigo azul'];
         self::assertSame('aud', $calendarioDoAntigo, 'na grade, o antigo azul também aparece em Audiências');
     }
