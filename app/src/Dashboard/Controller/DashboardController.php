@@ -65,7 +65,7 @@ final class DashboardController extends AbstractController
 
         // BlueJus Intelligence: leitura por regras sobre o DashboardOutput já calculado (os
         // mesmos filtros). O UseCase não sabe que o painel existe.
-        $leitura = $this->montarLeitura->montar($output, $filtros, $agora, $pastasOcultas !== []);
+        $leitura = $this->montarLeitura->montar($output, $filtros, $agora, $pastasOcultas !== [], (string) $request->query->get('dia_simulado', ''));
 
         if ($request->isXmlHttpRequest()) {
             // `filtros` vai junto para o fragmento marcar a coluna ordenada — sem ele a seta
