@@ -58,6 +58,9 @@ final class CatalogoDeConfiguracoesTest extends TestCase
         yield 'data sem hora' => [['manutAte' => '2026-11-01']];
         yield 'manutenção comprida' => [['manut' => str_repeat('a', 301)]];
         yield 'valor array' => [['nome' => ['x']]];
+        yield 'nome com colchetes' => [['nome' => 'Acme [Jur]']];
+        yield 'nome com aspas' => [['nome' => 'A"B']];
+        yield 'nome com quebra de linha' => [['nome' => "Acme\nBcc: x@y.com"]];
     }
 
     /** @param array<string, mixed> $entrada */

@@ -27,3 +27,9 @@ Os templates de e-mail com "BlueJus" fixo no corpo (tema do e-mail, rodapé, tex
 ## Provas
 
 Unit de `IdentidadeDeEmail` (padrão idêntico ao de hoje, configurado, inválido, leitor que lança, leitura por chamada), do catálogo e do leitor; funcional de um mailer real com a configuração gravada; controller do Master (salvar sem mudar não grava; mudar grava; voltar apaga).
+
+## Registro das decisões da revisão
+- O `nome` passa pela mesma regra no Master (recusa aspas, colchetes, `<`, `>`, barra invertida e quebra de linha) e no envio, para não haver falso sucesso na tela.
+- O padrão do catálogo (`BlueJus`) vence o nome que vier no `MAILER_FROM`; com o `MAILER_FROM` de hoje a saída é idêntica à anterior.
+- `remetente` só é gravado quando difere do ambiente; `nome` grava mesmo igual ao padrão (sem efeito, o padrão é fixo).
+- Em worker ou comando de longa duração, a configuração é lida a cada e-mail pelo EntityManager vivo: a mudança do Master só aparece quando o EntityManager é recarregado (reinício do worker), e não há consulta extra a cada e-mail.

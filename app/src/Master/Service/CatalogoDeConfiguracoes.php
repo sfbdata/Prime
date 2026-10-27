@@ -237,6 +237,10 @@ final class CatalogoDeConfiguracoes
             throw new ConfiguracaoRecusada(sprintf('Use até %d caracteres em "%s".', $max, $chave));
         }
 
+        if ($chave === 'nome' && preg_match('/[\x00-\x1F\x7F<>"\\\\\[\]]/u', $valor) === 1) {
+            throw new ConfiguracaoRecusada('O nome não pode ter aspas, colchetes, sinais de menor e maior, barra invertida nem quebra de linha.');
+        }
+
         return $valor;
     }
 }
