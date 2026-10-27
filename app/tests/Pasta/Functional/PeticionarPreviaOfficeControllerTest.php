@@ -29,6 +29,13 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 #[CoversClass(PreviaDeDocumentoOffice::class)]
 final class PeticionarPreviaOfficeControllerTest extends JusPrimeWebTestCase
 {
+    use CriaUsuarioComPermissoesTrait;
+
+    private function em(): EntityManagerInterface
+    {
+        return static::getContainer()->get(EntityManagerInterface::class);
+    }
+
     private function docx(): string
     {
         $word = new PhpWord();
@@ -53,7 +60,7 @@ final class PeticionarPreviaOfficeControllerTest extends JusPrimeWebTestCase
         return $conteudo;
     }
 
-    /** @return array{\Symfony\Bundle\FrameworkBundle\KernelBrowser, callable(string, string): PastaDocumento} */
+    /** @return array{\Symfony\Bundle\FrameworkBundle\KernelBrowser, callable(string, string): PastaDocumento, Tenant} */
     private function cenario(): array
     {
         $client = static::createClient();
@@ -101,13 +108,13 @@ final class PeticionarPreviaOfficeControllerTest extends JusPrimeWebTestCase
             return $doc;
         };
 
-        return [$client, $criar];
+        return [$client, $criar, $tenant];
     }
 
     #[TestDox('DOCX vira HTML com o texto, sob CSP sandbox sem script')]
     public function testDocx(): void
     {
-        [$client, $criar] = $this->cenario();
+        [$client, $criar] = array_slice($this->cenario(), 0, 2);
         $doc = $criar(PreviaDeDocumentoOffice::MIME_DOCX, $this->docx());
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/previa");
@@ -121,7 +128,7 @@ final class PeticionarPreviaOfficeControllerTest extends JusPrimeWebTestCase
     #[TestDox('XLSX vira tabela e corta as linhas além do limite')]
     public function testXlsx(): void
     {
-        [$client, $criar] = $this->cenario();
+        [$client, $criar] = array_slice($this->cenario(), 0, 2);
         $doc = $criar(PreviaDeDocumentoOffice::MIME_XLSX, $this->xlsx());
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/previa");
@@ -135,7 +142,7 @@ final class PeticionarPreviaOfficeControllerTest extends JusPrimeWebTestCase
     #[TestDox('arquivo que não é Office válido e tipo sem prévia mostram o aviso, nunca erro')]
     public function testSemPrevia(): void
     {
-        [$client, $criar] = $this->cenario();
+        [$client, $criar] = array_slice($this->cenario(), 0, 2);
         $ruim = $criar(PreviaDeDocumentoOffice::MIME_DOCX, 'isto não é um docx');
         $pdf  = $criar('application/pdf', '%PDF-1.4');
 
@@ -144,5 +151,47 @@ final class PeticionarPreviaOfficeControllerTest extends JusPrimeWebTestCase
             self::assertResponseIsSuccessful();
             self::assertStringContainsString('Use Baixar', (string) $client->getResponse()->getContent());
         }
+    }
+
+    #[TestDox('zip com entrada inflada (zip bomb) é recusado antes de carregar: mostra o aviso')]
+    public function testZipInflado(): void
+    {
+        [$client, $criar] = array_slice($this->cenario(), 0, 2);
+        $caminho = (string) tempnam(sys_get_temp_dir(), 'bomb');
+        $zip = new \ZipArchive();
+        $zip->open($caminho, \ZipArchive::OVERWRITE);
+        $zip->addFromString('word/document.xml', str_repeat("\0", 60 * 1024 * 1024));
+        $zip->close();
+        $conteudo = (string) file_get_contents($caminho);
+        @unlink($caminho);
+        self::assertLessThan(1024 * 1024, strlen($conteudo), 'a bomba comprime muito: pequena no disco');
+
+        $doc = $criar(PreviaDeDocumentoOffice::MIME_DOCX, $conteudo);
+        $client->request('GET', "/pasta/documento/{$doc->getId()}/previa");
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Use Baixar', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('documento de outro escritório: 404; usuário sem permissão de ver a pasta: 403')]
+    public function testIsolamentoEPermissao(): void
+    {
+        [$client, $criar, $tenant] = $this->cenario();
+        $doc = $criar(PreviaDeDocumentoOffice::MIME_DOCX, $this->docx());
+
+        $semPermissao = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view']);
+        $this->logarComTenant($client, $semPermissao, $tenant);
+        $client->request('GET', "/pasta/documento/{$doc->getId()}/previa");
+        self::assertResponseStatusCodeSame(403);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $outro = new Tenant();
+        $outro->setName('Tenant OUTRO ' . uniqid());
+        $em->persist($outro);
+        $em->flush();
+        $estranho = $this->criarUsuarioComPermissoes($outro, ['resources.pasta.view', 'modules.pastas.view']);
+        $this->logarComTenant($client, $estranho, $outro);
+        $client->request('GET', "/pasta/documento/{$doc->getId()}/previa");
+        self::assertResponseStatusCodeSame(404);
     }
 }

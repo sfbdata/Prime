@@ -25,6 +25,42 @@ final class PreviaDeDocumentoOffice
     public const LINHAS  = 500;
     public const COLUNAS = 40;
 
+    /** Soma máxima dos tamanhos DESCOMPACTADOS das entradas do pacote, e teto por entrada. */
+    public const DESCOMPACTADO_TOTAL = 50 * 1024 * 1024;
+    public const DESCOMPACTADO_ENTRADA = 20 * 1024 * 1024;
+    public const ENTRADAS = 2000;
+
+    /**
+     * Defesa contra zip bomb: confere o tamanho descompactado pelo índice do pacote, ANTES de qualquer
+     * leitor carregá-lo na memória. Pacote ilegível também é recusado.
+     */
+    public function pacoteSeguro(string $caminho): bool
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($caminho, \ZipArchive::RDONLY) !== true) {
+            return false;
+        }
+
+        try {
+            if ($zip->numFiles > self::ENTRADAS) {
+                return false;
+            }
+
+            $total = 0;
+            for ($i = 0; $i < $zip->numFiles; ++$i) {
+                $tamanho = (int) ($zip->statIndex($i)['size'] ?? 0);
+                $total += $tamanho;
+                if ($tamanho > self::DESCOMPACTADO_ENTRADA || $total > self::DESCOMPACTADO_TOTAL) {
+                    return false;
+                }
+            }
+        } finally {
+            $zip->close();
+        }
+
+        return true;
+    }
+
     public static function aceita(string $mime): bool
     {
         return $mime === self::MIME_DOCX || $mime === self::MIME_XLSX;
@@ -37,7 +73,10 @@ final class PreviaDeDocumentoOffice
      */
     public function converter(string $caminho, string $mime): string
     {
-        return $mime === self::MIME_XLSX ? $this->planilha($caminho) : $this->texto($caminho);
+        $html = $mime === self::MIME_XLSX ? $this->planilha($caminho) : $this->texto($caminho);
+
+        // Links da prévia: nunca levam o referrer nem dão acesso à janela de origem.
+        return (string) preg_replace('/<a\\s/i', '<a rel="noopener noreferrer" target="_blank" ', $html);
     }
 
     private function texto(string $caminho): string

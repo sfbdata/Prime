@@ -48,6 +48,12 @@ final class GerarPreviaDeDocumentoOfficeUseCase
         try {
             $caminho = $area->gravar($conteudo, $mime === PreviaDeDocumentoOffice::MIME_XLSX ? 'xlsx' : 'docx');
 
+            if (!$this->previa->pacoteSeguro($caminho)) {
+                $this->logger->warning('Prévia recusada: pacote Office com tamanho descompactado acima do teto.', ['documento' => $documento->getId()]);
+
+                return null;
+            }
+
             return $this->previa->converter($caminho, $mime);
         } catch (\Throwable $e) {
             $this->logger->warning('Prévia de documento Office falhou.', ['documento' => $documento->getId(), 'erro' => $e->getMessage()]);
