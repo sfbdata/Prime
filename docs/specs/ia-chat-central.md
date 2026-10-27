@@ -40,6 +40,10 @@ Se a pessoa sair do escritório ou da conversa durante a chamada ao provedor, a 
 - ~~PR 2: mensagens da IA entram na expiração~~ Feito no 2b: o retorno do `ExpirarConteudoDaInteligenciaUseCase` ganhou
   `mensagens`; o comando mostra e registra só números.
 
+- Pergunta presa em `pendente`/`processando` (worker morto, fila fora com EM fechado) bloqueia o chat, pois o
+  UseCase devolve sempre "em andamento". Resolver no PR 3 (tela) com saída por idade máxima do pendente.
+- Testes de corrida real (duas conexões) e de falha entre os dois flushes: a cobrir no PR 3.
+
 ## Pendências do dono (cada uma em PR próprio, só depois do ok)
 
 - `@IA` em grupo: risco de vazamento lateral (a resposta da IA ficaria visível a quem não pediu).

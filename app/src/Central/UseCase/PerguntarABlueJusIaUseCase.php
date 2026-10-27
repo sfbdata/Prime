@@ -44,6 +44,7 @@ use Psr\Clock\ClockInterface;
  * @throws PerguntaInvalidaException
  * @throws InteligenciaIndisponivelException
  * @throws FilaIndisponivelException
+ * @throws \App\Central\Exception\ConversaCriadaAoMesmoTempoException na primeira pergunta com duas abas (a tela repete)
  */
 final class PerguntarABlueJusIaUseCase
 {
