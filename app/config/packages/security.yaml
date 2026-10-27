@@ -54,6 +54,10 @@ security:
         - { path: ^/senha,            roles: PUBLIC_ACCESS }  # recuperação de senha (quem esqueceu não consegue logar)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
         - { path: ^/politica-de-privacidade, roles: PUBLIC_ACCESS }  # leitura pública: quem ainda não tem conta precisa ler
+        # Avisos de pagamento dos gateways e bancos (Contribua). Público porque quem chama é o gateway, não um
+        # usuário; cada controller autentica o aviso (token, assinatura) e o trata só como aviso: a situação
+        # é sempre reconsultada no gateway antes de mudar qualquer coisa.
+        - { path: ^/api/webhooks/, roles: PUBLIC_ACCESS }
         - { path: ^/vagas-juridicas, roles: PUBLIC_ACCESS }  # página pública de vagas do Trabalho Externo (só cargo, local e tipo)
         - { path: ^/email/descadastro, roles: PUBLIC_ACCESS }  # "Não quero mais receber estes avisos": link assinado, sem login
         - { path: ^/e/a/,             roles: PUBLIC_ACCESS }  # Comercial: pixel de abertura dos e-mails (sem login, sem sessão)

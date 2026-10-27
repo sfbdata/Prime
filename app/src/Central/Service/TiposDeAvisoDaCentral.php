@@ -6,6 +6,7 @@ namespace App\Central\Service;
 
 use App\Auth\UseCase\EnviarMensagemSuporteUseCase;
 use App\Contribua\Service\AvisoAoMaster;
+use App\Contribua\Service\AvisoAoPrimario;
 use App\Dashboard\UseCase\PedirZeramentoDoDashboardUseCase;
 use App\Entity\Notificacao;
 use App\Indicacao\Service\AvisoDeDisparoAlto;
@@ -136,8 +137,8 @@ final class TiposDeAvisoDaCentral
             AvisoDoChecklist::TIPO_PROVIDENCIA => ['grupo' => 'atencao', 'rotulo' => 'Providência', 'icone' => 'bi-clipboard2-check', 'cor' => self::AMBAR, 'nivel' => 2],
             // Relatório de pastas sem processo (spec relatorio-processos-controladoria §4): o "Enviar à Controladoria" do desenho.
             EnviarRelatorioSemProcessoUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Relatório', 'icone' => 'bi-file-earmark-bar-graph', 'cor' => self::AMBAR, 'nivel' => 2],
-            // Contribua (desenho 08 / bluejus-central.js: tipo "contribua"): sugestão, apoio, motivo e pedido de espaço.
-            AvisoAoMaster::TIPO_SUGESTAO, AvisoAoMaster::TIPO_APOIO, AvisoAoMaster::TIPO_MOTIVO, AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO => ['grupo' => 'atencao', 'rotulo' => 'Contribua', 'icone' => 'bi-heart', 'cor' => '#c0392b', 'nivel' => 2],
+            // Contribua (desenho 08 / bluejus-central.js: tipo "contribua"): sugestão, apoio (informado e confirmado pelo banco), motivo, pedido de espaço e assinatura (ao primário).
+            AvisoAoMaster::TIPO_SUGESTAO, AvisoAoMaster::TIPO_APOIO, AvisoAoMaster::TIPO_MOTIVO, AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO, AvisoAoMaster::TIPO_APOIO_CONFIRMADO, AvisoAoPrimario::TIPO_ASSINATURA => ['grupo' => 'atencao', 'rotulo' => 'Contribua', 'icone' => 'bi-heart', 'cor' => '#c0392b', 'nivel' => 2],
             // Relatório mensal de pastas paradas (spec pastas-paradas, "Avisos"): o `paradasNotificar` do desenho.
             EnviarRelatorioPastasParadasUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Relatório', 'icone' => 'bi-pause-circle', 'cor' => self::AMBAR, 'nivel' => 2],
             ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Documento analisado', 'icone' => 'bi-file-earmark-check', 'cor' => self::AZUL, 'nivel' => 1],

@@ -15,7 +15,7 @@ use App\Contribua\Repository\ApoioRepository;
 use App\Contribua\Repository\MotivoDeNaoApoiarRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Repository\SugestaoRepository;
-use App\Contribua\Service\CodigoPixEstatico;
+use App\Contribua\Service\CodigoPixDaConta;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Contribua\Service\VisaoDoMaster;
 
@@ -38,6 +38,7 @@ final class MontarPaginaDoContribuaUseCase
         private readonly ApoioRepository $apoios,
         private readonly MotivoDeNaoApoiarRepository $motivos,
         private readonly VisaoDoMaster $visaoDoMaster,
+        private readonly CodigoPixDaConta $codigoPix,
     ) {
     }
 
@@ -48,7 +49,6 @@ final class MontarPaginaDoContribuaUseCase
         $faz30Dias = new \DateTimeImmutable('-30 days');
         $apoiou = $this->apoios->apoiouDesde($quem->tenantId(), $faz30Dias);
         $respondeu = $this->motivos->respondeuDesde($quem->tenantId(), $faz30Dias);
-        $txid = CodigoPixEstatico::txidDaConta($quem->numeroDaConta());
 
         return [
             'escritorio' => $quem->escritorio->getName(),
@@ -56,7 +56,7 @@ final class MontarPaginaDoContribuaUseCase
             'podePedirEspaco' => $quem->ehPrimario || $quem->ehMaster,
             'espaco' => self::cabecalhoDoEspaco($retrato),
             'pacotes' => self::pacotes($this->planos->ativosEmOrdem(), $retrato),
-            'pix' => ['conta' => $quem->numeroDaConta(), 'txid' => $txid, 'codigo' => CodigoPixEstatico::gerar($txid, self::VALOR_PADRAO_CENTAVOS)],
+            'pix' => ['conta' => $quem->numeroDaConta(), ...$this->codigoPix->para($quem, self::VALOR_PADRAO_CENTAVOS)],
             'apoiouNoMes' => $apoiou,
             'perguntarMotivo' => !$apoiou && !$respondeu,
             'motivoRespondido' => !$apoiou && $respondeu,
@@ -137,6 +137,10 @@ final class MontarPaginaDoContribuaUseCase
 
         return [
             'codigo' => $p->getCodigo(),
+            'nome' => $p->getNome(),
+            'gbNumero' => $gb,
+            'centavos' => $p->getPrecoCentavos(),
+            'hojeGb' => min($limiteGb, $gb),
             'rotulo' => mb_strtoupper($p->getNome()),
             'gb' => $gb . ' GB',
             'preco' => $p->ehGratuito() ? 'Grátis' : RegistrarApoioUseCase::reais($p->getPrecoCentavos()),

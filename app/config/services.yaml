@@ -355,6 +355,12 @@ when@test:
             public: true
         App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Tests\Inteligencia\Support\ProvedorFalso'
 
+        # Contribua C3: gateway de cartão falso (código 'falso'), para o checkout, o webhook e a conciliação
+        # serem provados de ponta a ponta sem rede. `public` para o teste programar a situação no gateway.
+        App\Tests\Contribua\Doubles\GatewayFalso:
+            public: true
+            tags: ['contribua.gateway']
+
         # E2.5 — faz o próximo COMMIT da aplicação falhar, sob demanda. Sob o DAMA nenhum COMMIT
         # falha de verdade; sem isto o ramo "o COMMIT lançou" só seria testável com mock.
         # Prioridade abaixo da do DAMA (100): fica por fora dele e recebe o commit() primeiro.
