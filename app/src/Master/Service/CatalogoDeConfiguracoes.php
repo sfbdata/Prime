@@ -51,6 +51,7 @@ final class CatalogoDeConfiguracoes
             'tentativas' => ['tipo' => self::NUMERO, 'padrao' => '5', 'min' => 1, 'max' => 50],
             'dois' => ['tipo' => self::OPCOES, 'padrao' => 'master', 'opcoes' => ['master', 'prim', 'todos', 'opc']],
             'retencao' => ['tipo' => self::NUMERO, 'padrao' => '365', 'min' => 30, 'max' => 3650],
+            'avisoLoginNovo' => ['tipo' => self::OPCOES, 'padrao' => 'on', 'opcoes' => ['on', 'off']],
         ],
         'regiao' => [
             'idioma' => ['tipo' => self::OPCOES, 'padrao' => 'pt-BR', 'opcoes' => ['pt-BR', 'en', 'es']],

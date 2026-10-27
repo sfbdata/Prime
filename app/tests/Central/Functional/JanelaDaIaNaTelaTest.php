@@ -44,17 +44,38 @@ final class JanelaDaIaNaTelaTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('Pergunte em linguagem natural.', (string) $janela->attr('data-ia-vazio-texto'));
         self::assertSame('digitando...', $janela->attr('data-ia-digitando'));
         self::assertStringContainsString('IA', (string) $janela->attr('data-ia-aviso'));
-        foreach (['placeholder', 'placeholder-aguardando', 'previa-vazia', 'aria'] as $chave) {
+        foreach (['placeholder', 'placeholder-aguardando', 'previa-vazia', 'aria', 'sugestao-pasta', 'pasta-rotulo', 'abrir-pasta', 'pasta-aria'] as $chave) {
             self::assertNotSame('', trim((string) $janela->attr('data-ia-' . $chave)), $chave);
         }
 
         $sugestoes = json_decode((string) $janela->attr('data-ia-sugestoes'), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(['Tem alguma pendência?', 'Quais metas estão atrasadas?', 'Existe algum prazo?'], $sugestoes, 'sem "resumo desta pasta": o contexto da tela é o PR 4');
+        self::assertSame(['Tem alguma pendência?', 'Quais metas estão atrasadas?', 'Existe algum prazo?'], $sugestoes, 'o "resumo desta pasta" não entra aqui: o JS só o soma quando a barra da pasta existe');
 
         // texto visível sem travessão (regra do dono, 15/10/2026)
-        foreach (['aviso', 'vazio-texto', 'funcao', 'placeholder'] as $chave) {
+        self::assertSame('Faça um resumo desta pasta', $janela->attr('data-ia-sugestao-pasta'));
+        self::assertSame('Abrir pasta', $janela->attr('data-ia-abrir-pasta'));
+        self::assertSame('/central/ia/pasta/', $janela->attr('data-url-ia-pasta-base'), 'o JS acrescenta o id');
+        self::assertNull($janela->attr('data-ia-pasta'), 'fora da tela de uma pasta não há dica de pasta');
+        foreach (['aviso', 'vazio-texto', 'funcao', 'placeholder', 'sugestao-pasta', 'pasta-rotulo', 'abrir-pasta', 'pasta-aria'] as $chave) {
             self::assertDoesNotMatchRegularExpression('/[—–]/u', (string) $janela->attr('data-ia-' . $chave));
         }
+    }
+
+    #[TestDox('Na tela da pasta (/pasta/{id}) a janela flutuante leva data-ia-pasta com o id: só dica, o servidor revalida')]
+    public function testJanelaNaPastaTrazADica(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view'], 'ana');
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($client, $ana, $tenant);
+
+        $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $janela = $client->getCrawler()->filter('section[data-central]');
+        self::assertCount(1, $janela);
+        self::assertSame((string) $pasta->getId(), $janela->attr('data-ia-pasta'));
     }
 
     #[TestDox('As rotas da IA existem no roteador com o prefixo esperado pelo JS')]
@@ -64,5 +85,6 @@ final class JanelaDaIaNaTelaTest extends JusPrimeWebTestCase
         $rotas = $client->getContainer()->get('router');
         self::assertSame('/central/ia/perguntas', $rotas->generate('central_ia_pergunta'));
         self::assertSame('/central/ia/perguntas/0', $rotas->generate('central_ia_pergunta_status', ['analiseId' => 0]));
+        self::assertSame('/central/ia/pasta/0', $rotas->generate('central_ia_pasta', ['pastaId' => 0]));
     }
 }

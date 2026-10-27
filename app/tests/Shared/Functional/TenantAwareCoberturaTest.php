@@ -117,6 +117,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Pré-autenticação e efêmero (1h). Sem tenant por natureza.
         RedefinicaoSenha::class,
 
+        // Impressões de acesso do aviso de login novo (spec login-aviso-novo): do usuário, não do escritório. Identidade
+        // global do User, mesma natureza da RedefinicaoSenha; some com o usuário (ON DELETE CASCADE).
+        \App\Auth\Entity\AcessoConhecido::class,
+
         // Tela de entrada do desenho 10 (spec login-desenho-10), sem tenant por natureza:
         // identidade global do User (link de confirmação, ciência da Política), a tela de entrada única,
         // anterior a qualquer escritório (ajustes SÓ MASTER), e o suporte de quem ainda não entrou.
@@ -373,7 +377,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 89 → 91 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
     // 91 → 92 com os dados de recebimento das recompensas (27/10/2026): DadosDeRecebimentoDeRecompensa, justificada acima.
     // 92 → 93 com a integração bancária da C4 (linha global da BlueJus, justificada acima).
-    private const MAX_FORA_DO_ESCOPO = 93;
+    // 93 → 94 com o aviso de login novo (27/10/2026): AcessoConhecido é do usuário, justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 94;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

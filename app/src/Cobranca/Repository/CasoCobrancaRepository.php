@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\Carteira;
+use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Entity\Pasta;
 use App\Cobranca\Entity\CasoCobranca;
@@ -219,7 +220,7 @@ class CasoCobrancaRepository extends ServiceEntityRepository
      * @return CasoCobranca[]
      */
     /**
-     * Credor e devedor das pastas dadas, para a listagem montar o IDENTIFICADOR derivado das pastas
+     * Cliente da carteira das pastas dadas, para a listagem montar o IDENTIFICADOR derivado das pastas
      * judicializadas (spec `pasta-prefixo-do-credor-derivado.md` §5.1).
      *
      * Devolve COLUNAS, não entidades, e resolve a página inteira numa consulta: a alternativa seria
@@ -231,9 +232,9 @@ class CasoCobrancaRepository extends ServiceEntityRepository
      *
      * @param list<int> $pastaIds
      *
-     * @return array<int, array{fantasia: ?string, pessoa: ?string}> indexado pelo id da pasta
+     * @return array<int, array{fantasia: ?string, razaoSocial: ?string}> `razaoSocial` é o nome de registro: razão social (PJ) ou nome completo (PF); indexado pelo id da pasta
      */
-    public function credorEDevedorPorPasta(array $pastaIds, Tenant $tenant): array
+    public function clienteDaCarteiraPorPasta(array $pastaIds, Tenant $tenant): array
     {
         if ($pastaIds === []) {
             return [];
@@ -243,7 +244,8 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             ->select(
                 'IDENTITY(c.pastaJudicial) AS pastaId',
                 'pj.nomeFantasia AS fantasia',
-                'pes.nome AS pessoa',
+                'pj.razaoSocial AS razaoSocial',
+                'pf.nomeCompleto AS nomeCompleto',
             )
             ->leftJoin('c.objeto', 'o')
             ->leftJoin('o.carteira', 'ct')
@@ -251,7 +253,7 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             // Só ClientePJ tem nome fantasia; o JOIN por id é o mesmo padrão que o PastaRepository
             // já usa para alcançar a subclasse a partir da referência ao Cliente.
             ->leftJoin(ClientePJ::class, 'pj', 'WITH', 'pj.id = cl.id')
-            ->leftJoin('c.pessoaCobradaAtual', 'pes')
+            ->leftJoin(ClientePF::class, 'pf', 'WITH', 'pf.id = cl.id')
             ->andWhere('c.pastaJudicial IN (:pastas)')
             ->andWhere('c.tenant = :tenant')
             ->setParameter('pastas', $pastaIds)
@@ -263,7 +265,9 @@ class CasoCobrancaRepository extends ServiceEntityRepository
         foreach ($linhas as $linha) {
             $mapa[(int) $linha['pastaId']] = [
                 'fantasia' => $linha['fantasia'] !== null ? (string) $linha['fantasia'] : null,
-                'pessoa' => $linha['pessoa'] !== null ? (string) $linha['pessoa'] : null,
+                'razaoSocial' => ($linha['razaoSocial'] ?? $linha['nomeCompleto']) !== null
+                    ? (string) ($linha['razaoSocial'] ?? $linha['nomeCompleto'])
+                    : null,
             ];
         }
 
@@ -350,6 +354,24 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             ->getSingleColumnResult();
 
         return array_map('intval', $linhas);
+    }
+
+    /**
+     * Casos do escritório que têm pasta judicial, do mais antigo ao mais novo, com a pasta já
+     * carregada. Serve ao comando que regrava o `nome_cliente` das pastas judiciais.
+     *
+     * @return list<CasoCobranca>
+     */
+    public function comPastaJudicial(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('c')
+            ->addSelect('p')
+            ->innerJoin('c.pastaJudicial', 'p')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 
     /**

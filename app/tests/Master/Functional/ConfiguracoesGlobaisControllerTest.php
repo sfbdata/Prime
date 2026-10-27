@@ -23,7 +23,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Seção "Configurações globais" do Painel do Master (desenho 05 VS 25.10.26, L282-285 e L955-959): o JSON do
- * formulário, o salvar com os 14 campos (12 na linha única, 2 nas fontes de Planos e Faixas), a recusa e o aviso de
+ * formulário, o salvar com os 15 campos (13 na linha única, 2 nas fontes de Planos e Faixas), a recusa e o aviso de
  * manutenção que sai dela. Só o Master. O armazém de CSRF é fixo (padrão dos testes do painel).
  */
 #[CoversClass(ConfiguracoesGlobaisController::class)]
@@ -43,7 +43,7 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfFixo();
     }
 
-    #[TestDox('Master lê o formulário: 5 grupos, 14 campos, padrões do desenho e as duas fontes de fora')]
+    #[TestDox('Master lê o formulário: 5 grupos, 15 campos, padrões do desenho e as duas fontes de fora')]
     public function testLeFormulario(): void
     {
         $this->entrarComoMaster();
@@ -53,7 +53,7 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $d = $this->json();
         self::assertSame(['identidade', 'contas', 'seguranca', 'regiao', 'manutencao'], array_column($d['grupos'], 'grupo'));
-        self::assertCount(14, array_merge(...array_column($d['grupos'], 'campos')));
+        self::assertCount(15, array_merge(...array_column($d['grupos'], 'campos')));
         self::assertSame((string) static::getContainer()->get(PlanoRepository::class)->free()->getCotaGb(), $d['valores']['freeGb']);
         self::assertSame((string) static::getContainer()->get(ConfiguracaoDoEspacoRepository::class)->atual()->getFaixaAlerta(), $d['valores']['aviso']);
         self::assertSame('BlueJus', $d['padroes']['nome']);
@@ -93,7 +93,7 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
 
         $this->postar([
             'nome' => 'Outro Nome', 'remetente' => 'envio@exemplo.com', 'suporte' => 'ajuda@exemplo.com', 'cadastro' => 'convite',
-            'freeGb' => '12', 'aviso' => '85', 'sessao' => '60', 'tentativas' => '3', 'dois' => 'todos', 'retencao' => '730',
+            'freeGb' => '12', 'aviso' => '85', 'sessao' => '60', 'tentativas' => '3', 'dois' => 'todos', 'retencao' => '730', 'avisoLoginNovo' => 'off',
             'idioma' => 'en', 'fuso' => 'America/Manaus', 'manut' => 'Parada às 22h', 'manutAte' => '2099-01-01T23:00',
         ]);
 

@@ -3933,7 +3933,7 @@ document.addEventListener('DOMContentLoaded', function () {
                            ninguém tocar no campo. São coisas diferentes e ambas precisam existir aqui:
                            o TÍTULO da pasta (texto livre, hoje no padrão `CREDOR - DEVEDOR`) e os
                            CLIENTES cadastrados, que viram contexto logo abaixo. #}
-                        {% set identificadorDerivado = identificador_pasta(pasta) %}
+                        {% set identificadorDerivado = identificador_pasta_da_cobranca(pasta) %}
                         {% set derivadoDaCobranca = identificadorDerivado is not null and identificadorDerivado != pasta.nomeCliente %}
                         <div class="ps-modal-pasta-campo ps-modal-pasta-campo--2">
                             <label {% if not derivadoDaCobranca %}for="edit_nome_cliente" {% endif %}class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.nome_cliente'|trans }}</label>

@@ -54,6 +54,7 @@
             encaminhar: raiz.dataset.urlEncaminhar,
             pastaBase: raiz.dataset.urlPastaBase,   /* "/pasta/": o chip "Pasta N" abre a pasta (BC:6041) */
             iaPergunta: raiz.dataset.urlIaPergunta,   /* F3: POST /central/ia/perguntas */
+            iaPastaBase: raiz.dataset.urlIaPastaBase,   /* PR 4b: GET /central/ia/pasta/{id} (a base termina em "/") */
             iaStatus: raiz.dataset.urlIaStatus        /* F3: GET /central/ia/perguntas/{analiseId} (a base termina em "/") */
         };
         // F3, conversa com o BlueJus IA: o texto vem do Twig (translations central.ia.*), nunca fixo aqui.
@@ -71,6 +72,12 @@
             placeholderAguardando: raiz.dataset.iaPlaceholderAguardando || '',
             previaVazia: raiz.dataset.iaPreviaVazia || '',
             aria: raiz.dataset.iaAria || '',
+            /* PR 4b: a pasta aberta na tela é só uma DICA (o servidor revalida o rótulo e a pergunta) */
+            pastaId: /^[1-9][0-9]{0,8}$/.test(raiz.dataset.iaPasta || '') ? Number(raiz.dataset.iaPasta) : 0,
+            sugestaoPasta: raiz.dataset.iaSugestaoPasta || '',
+            pastaRotulo: raiz.dataset.iaPastaRotulo || '',
+            abrirPasta: raiz.dataset.iaAbrirPasta || '',
+            pastaAria: raiz.dataset.iaPastaAria || '',
             sugestoes: []
         };
         try {
@@ -155,6 +162,8 @@
             equipe: null,          // F2: {equipe, online, total} de /central/equipe (Painel e "N on-line")
             verOnline: false,      // F2: lista "on-line agora / off-line" (L6380)
             externa: null,         // B2: a janela destacada (Picture-in-Picture ou pop-up) em que a Central está agora
+            iaPasta: null,         // PR 4b: {pastaId, nup, cliente} da barra "Pasta N" (null = sem barra e sem pastaId na pergunta)
+            iaPastaTentada: false, // o rótulo é buscado uma vez (sucesso ou 404)
             iaAguardando: null,    // F3: {analiseId, conversaId, semFala} da pergunta à IA ainda sem resposta (mostra digitando...)
             iaConsultando: false,  // F3: uma consulta de status por vez
             relogio: window,       // B2: de qual janela é o setInterval do polling (a destacada, quando houver)
@@ -1211,12 +1220,15 @@
             el.corpo.scrollTop = el.corpo.scrollHeight;
         }
 
-        function desenharVazioDaIa() {   // L6021: estado vazio e as sugestões (sem comandos "/" nem contexto de tela: PR 4)
+        function desenharVazioDaIa() {   // L6021 e L397: estado vazio e as sugestões (sem comandos "/": PR 5)
             var caixa = criar('div', 'bj-central-ia-vazio');
             caixa.appendChild(vazio('bi-stars', ia.vazioTitulo, ia.vazioTexto));
-            if (ia.sugestoes.length > 0) {
+            // L397: "Faça um resumo desta pasta" só com a barra da pasta na conversa
+            var textos = ia.sugestoes.slice();
+            if (estado.iaPasta && ia.sugestaoPasta) { textos.push(ia.sugestaoPasta); }
+            if (textos.length > 0) {
                 var sugestoes = criar('div', 'bj-central-ia-sugestoes');
-                ia.sugestoes.forEach(function (texto) {
+                textos.forEach(function (texto) {
                     var b = criar('button', 'bj-central-ia-sugestao', texto);
                     b.type = 'button';
                     b.addEventListener('click', function () {
@@ -1229,6 +1241,57 @@
                 caixa.appendChild(sugestoes);
             }
             return caixa;
+        }
+
+        // PR 4b: barra de contexto "Pasta N" do desenho (BC L6001-6006), só na conversa com a IA.
+        function barraDaPasta() {
+            var p = estado.iaPasta;
+            var barra = criar('div', 'bj-central-ia-pasta');
+            barra.setAttribute('role', 'group');
+            if (ia.pastaAria) { barra.setAttribute('aria-label', ia.pastaAria); }
+            barra.appendChild(icone('bi-folder2-open'));
+            var texto = criar('span', 'bj-central-ia-pasta-texto');
+            texto.appendChild(criar('span', 'bj-central-ia-pasta-rotulo', ia.pastaRotulo + ' ' + p.nup));
+            if (p.cliente) { texto.appendChild(criar('span', 'bj-central-ia-pasta-cliente', p.cliente)); }
+            barra.appendChild(texto);
+            var abrir = criar('a', 'bj-central-ia-pasta-abrir', ia.abrirPasta);
+            abrir.href = urls.pastaBase + String(p.pastaId);
+            abrir.addEventListener('click', function (ev) {
+                if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) { return; }
+                /* Destacada: aba nova, e a Central segue aberta (navegar a página de origem fecharia o pop-up). */
+                if (vista() !== window) { ev.preventDefault(); window.open(abrir.href, '_blank', 'noopener'); }
+            });
+            barra.appendChild(abrir);
+            return barra;
+        }
+
+        function inserirBarraDaPasta() {
+            if (!estado.iaPasta || !estado.aberta || !estado.aberta.ia || el.corpo.querySelector('.bj-central-ia-pasta')) { return; }
+            el.corpo.insertBefore(barraDaPasta(), el.corpo.firstChild);
+        }
+
+        // Busca o rótulo uma vez (sucesso ou 404). Nunca rejeita: sem rótulo = sem barra e sem pastaId na pergunta.
+        function carregarPastaDaIa() {
+            if (!ia.pastaId || estado.iaPastaTentada) { return Promise.resolve(estado.iaPasta); }
+            return pedir(urls.iaPastaBase + String(ia.pastaId)).then(function (d) {
+                estado.iaPastaTentada = true;
+                estado.iaPasta = d && Number(d.pastaId) === ia.pastaId && typeof d.nup === 'string'
+                    ? { pastaId: ia.pastaId, nup: d.nup, cliente: typeof d.cliente === 'string' ? d.cliente : null }
+                    : null;
+                return estado.iaPasta;
+            }).catch(function (e) {
+                if (e && e.status === 404) { estado.iaPastaTentada = true; }   // não existe ou sem acesso: não avisa
+                estado.iaPasta = null;
+                return null;
+            });
+        }
+
+        function removerBarraDaPasta() {   // o servidor disse que a pasta não vale mais (404 da pergunta)
+            estado.iaPasta = null;
+            var barra = el.corpo.querySelector('.bj-central-ia-pasta');
+            if (barra) { barra.remove(); }
+            var vazioIa = el.corpo.querySelector('.bj-central-ia-vazio');
+            if (vazioIa) { vazioIa.replaceWith(desenharVazioDaIa()); }
         }
 
         function iaBloqueada() {   // pergunta em andamento: sem segundo envio (evita custo duplo)
@@ -1266,10 +1329,12 @@
             if (antigas) {
                 var botao = el.corpo.querySelector('.bj-central-mais');
                 if (botao) { botao.remove(); }
-                el.corpo.insertBefore(fragmento, el.corpo.firstChild);
+                var barraFixa = el.corpo.querySelector('.bj-central-ia-pasta');
+                el.corpo.insertBefore(fragmento, barraFixa ? barraFixa.nextSibling : el.corpo.firstChild);
                 el.corpo.scrollTop = el.corpo.scrollHeight - altura;
             } else {
                 el.corpo.replaceChildren(fragmento);
+                inserirBarraDaPasta();
                 if (dados.mensagens.length === 0) {
                     el.corpo.appendChild(estado.aberta.ia ? desenharVazioDaIa() : vazio('bi-chat', 'Comece a conversa'));
                 }
@@ -1358,7 +1423,9 @@
             el.corpo.replaceChildren();
             atualizarCabecalho();
             ajustarCompositor();
-            pedir(urls.base + '/' + id + '/mensagens').then(function (dados) {
+            var rotuloDaPasta = ehIa(c) ? carregarPastaDaIa() : Promise.resolve(null);
+            Promise.all([pedir(urls.base + '/' + id + '/mensagens'), rotuloDaPasta]).then(function (resultado) {
+                var dados = resultado[0];
                 if (!estado.aberta || estado.aberta.id !== id) { return; }
                 estado.aberta.mencionaveis = !estado.aberta.ia && Array.isArray(dados.mencionaveis) ? dados.mencionaveis : [];
                 desenharPagina(dados, false);
@@ -1453,7 +1520,10 @@
             var id = estado.aberta.id;
             estado.enviando = true;
             atualizarCampoDaIa();
-            pedir(urls.iaPergunta, { metodo: 'POST', corpo: { conteudo: texto } }).then(function (dados) {
+            // pastaId só enquanto a barra existir: é dica, o servidor revalida (404/409 abaixo)
+            var corpoDaPergunta = { conteudo: texto };
+            if (estado.iaPasta) { corpoDaPergunta.pastaId = estado.iaPasta.pastaId; }
+            pedir(urls.iaPergunta, { metodo: 'POST', corpo: corpoDaPergunta }).then(function (dados) {
                 estado.iaAguardando = { analiseId: dados.analiseId, conversaId: dados.conversaId, semFala: 0, desde: Date.now() };
                 if (dados.emAndamento !== true) {   // 201: a pergunta foi gravada; 202: o texto novo NÃO foi, o rascunho fica
                     el.campo.value = '';
@@ -1471,7 +1541,8 @@
                 }
             }).catch(function (e) {
                 if (e.sessao) { tratarFalha(e); return; }
-                avisar(e.message);
+                avisar(e.message);   // 409 contexto_bloqueado e 404 pasta_nao_encontrada: a mensagem fixa do servidor
+                if (e.codigo === 'pasta_nao_encontrada' || e.codigo === 'contexto_bloqueado') { removerBarraDaPasta(); }   // pasta que a IA não lê: as próximas perguntas vão sem pastaId
             }).finally(function () {
                 estado.enviando = false;
                 atualizarCampoDaIa();

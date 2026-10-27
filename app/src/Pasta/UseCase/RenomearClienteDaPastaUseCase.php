@@ -65,12 +65,12 @@ final class RenomearClienteDaPastaUseCase
     }
 
     /**
-     * Pasta judicializada pela cobrança: o identificador montado do credor e do devedor vence o texto gravado, e o nome
+     * Pasta judicializada pela cobrança: o identificador montado do cliente da carteira vence o texto gravado, e o nome
      * não se edita. O desfazer da auditoria (`EstadoDaTelaNoDesfazer`) chama esta mesma regra para `nomeCliente`.
      */
     public function nomeEMontadoPelaCarteira(Pasta $pasta): bool
     {
-        $derivado = $this->identificador->para($pasta);
+        $derivado = $this->identificador->daCobranca($pasta);
 
         return $derivado !== null && $derivado !== $pasta->getNomeCliente();
     }
