@@ -17,6 +17,8 @@ final readonly class LeituraDoDashboard
         public LeituraAvancada $avancado,
         public \DateTimeImmutable $geradaEm,
         public ?TempoDoPeriodo $tempo,
+        // Ritmo da meta de pastas do mês (selo, gauge); nulo sem meta ou fora do mês inteiro.
+        public ?RitmoDaMeta $ritmoDaMeta = null,
     ) {}
 
     /** Riscos da leitura básica = "pontos de atenção" do botão (dc L2705-2710). */

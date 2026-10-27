@@ -358,6 +358,18 @@ final class PoliticaDaDemanda
             && $d->valorDoPagamentoEditavel();
     }
 
+    /**
+     * "Recusar comprovante" da aba Pagamento: só o Master (nunca na prévia), com comprovante enviado, sem pagar, nas
+     * situações do pagamento.
+     */
+    public function podeRecusarComprovante(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Master
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d)
+            && $d->comprovanteRecusavel();
+    }
+
     /** A lista de documentos: o Convidado só a vê com "Ver instruções" (`cp.ver` do desenho). */
     public function podeVerDocumentos(Contexto $ctx, DemandaExterna $d): bool
     {

@@ -1,0 +1,59 @@
+{# Seção "Desempenho" do /master (#sec=desemp). Desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html:
+   marcação L271-280 e lógica `opsVals`/`desemp` L939-961; spec docs/specs/master-desempenho.md (PR 3: leitura).
+   Sem os botões "Abrir incidente", "Resolver", "Backup", "Teste" e "Limpar registros", que entram no PR 4 (gravação).
+   Incluída pelo painel.html.twig num <div data-sec-externa="desemp"> (o mesmo mecanismo de Recompensas): o painel.js
+   mostra esta seção no lugar da vazia e avisa a troca pelo evento `mp:secao`. Os números vêm por JSON quando a
+   seção abre (public/js/master/desempenho.js); a regra de cor mora em ApuracaoDeDesempenho.
+   Textos no catálogo (master.desempenho.*; os do JS em master.desempenho.js.*). #}
+<link rel="stylesheet" href="{{ asset('css/master-desempenho.css') }}">
+<div class="dpm" data-dpm data-url-dados="{{ path('master_dados_desempenho') }}">
+    <div class="dpm-barra">
+        <div class="dpm-periodos" role="group" aria-label="{{ 'master.desempenho.periodo'|trans }}">
+            <button type="button" class="dpm-periodo" data-dpm-periodo="1">{{ 'master.desempenho.periodo_24h'|trans }}</button>
+            <button type="button" class="dpm-periodo" data-dpm-periodo="7">{{ 'master.desempenho.periodo_7d'|trans }}</button>
+            <button type="button" class="dpm-periodo" data-dpm-periodo="30">{{ 'master.desempenho.periodo_30d'|trans }}</button>
+        </div>
+        <span class="dpm-nota">{{ 'master.desempenho.nota'|trans }}</span>
+    </div>
+    <div class="dpm-aviso" data-dpm-aviso role="status" hidden></div>
+    <div class="dpm-kpis" data-dpm-kpis aria-busy="true"></div>
+    <div class="dpm-grade">
+        <section class="dpm-caixa">
+            <header class="dpm-cabeca">
+                <i class="bi bi-exclamation-octagon dpm-cabeca-ic" aria-hidden="true"></i>
+                <b class="dpm-cabeca-titulo">{{ 'master.desempenho.incidentes'|trans }}</b>
+                <span class="dpm-cabeca-sub" data-dpm-inc-abertos></span>
+            </header>
+            <div class="dpm-vazio" data-dpm-inc-vazio hidden>{{ 'master.desempenho.sem_incidentes'|trans }}</div>
+            <div data-dpm-inc></div>
+        </section>
+        <section class="dpm-caixa">
+            <header class="dpm-cabeca">
+                <i class="bi bi-hdd-network dpm-cabeca-ic" aria-hidden="true"></i>
+                <b class="dpm-cabeca-titulo">{{ 'master.desempenho.backups'|trans }}</b>
+                <span class="dpm-cabeca-sub">{{ 'master.desempenho.backups_sub'|trans }}</span>
+            </header>
+            <div class="dpm-vazio" data-dpm-bk-vazio hidden>{{ 'master.desempenho.sem_backups'|trans }}</div>
+            <div data-dpm-bk></div>
+        </section>
+        <section class="dpm-caixa">
+            <header class="dpm-cabeca">
+                <i class="bi bi-plug dpm-cabeca-ic" aria-hidden="true"></i>
+                <b class="dpm-cabeca-titulo">{{ 'master.desempenho.integracoes'|trans }}</b>
+                <span class="dpm-cabeca-sub">{{ 'master.desempenho.integracoes_sub'|trans }}</span>
+            </header>
+            <div data-dpm-int></div>
+        </section>
+        <section class="dpm-caixa">
+            <header class="dpm-cabeca">
+                <i class="bi bi-bug dpm-cabeca-ic" aria-hidden="true"></i>
+                <b class="dpm-cabeca-titulo">{{ 'master.desempenho.erros'|trans }}</b>
+                <span class="dpm-cabeca-sub">{{ 'master.desempenho.erros_sub'|trans }}</span>
+            </header>
+            <div class="dpm-vazio dpm-vazio-ok" data-dpm-erros-vazio hidden><i class="bi bi-check-circle" aria-hidden="true"></i> {{ 'master.desempenho.sem_erros'|trans }}</div>
+            <div data-dpm-erros></div>
+        </section>
+    </div>
+</div>
+{{ catalogo_js('master.desempenho.js') }}
+<script src="{{ asset('js/master/desempenho.js') }}"></script>

@@ -16,6 +16,7 @@ use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\UseCase\AlternarItemDoChecklistUseCase;
 use App\TrabalhoExterno\UseCase\AjustarValorDoPagamentoUseCase;
+use App\TrabalhoExterno\UseCase\RecusarComprovanteDePagamentoUseCase;
 use App\TrabalhoExterno\UseCase\AnexarDocumentosUseCase;
 use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaDemandaUseCase;
@@ -278,6 +279,21 @@ final class DemandaExternaController extends AbstractController
             return [
                 'demanda' => $this->detalhar->executar($ctx, $codigo),
                 'toast' => ['titulo' => 'Valor alterado', 'texto' => 'O solicitante foi avisado no chat e por e-mail.'],
+            ];
+        });
+    }
+
+    /** "Recusar comprovante" (só Master): `{"motivo": "..."}`. O comprovante sai e o solicitante pode enviar outro. */
+    #[Route('/demandas/{codigo}/pagamento/recusa', name: 'trabalho_externo_pagamento_recusar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function recusarComprovante(Request $request, string $codigo, RecusarComprovanteDePagamentoUseCase $recusar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $recusar): array {
+            $motivo = $this->corpo($request)['motivo'] ?? '';
+            $recusar->executar($ctx, $codigo, is_scalar($motivo) ? (string) $motivo : '');
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                'toast' => ['titulo' => 'Comprovante recusado', 'texto' => 'O solicitante foi avisado no chat e por e-mail.'],
             ];
         });
     }

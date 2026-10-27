@@ -30,7 +30,8 @@ interno do escritório. **Não se mexe nele neste trabalho**; o novo módulo usa
   autor. **Rastro do pagamento** (decisão do dono, 26/10): quem pediu (`autor`, escritório), quando
   (`criado_em`, `confirmado_em`), quanto (`valor_centavos`), forma (`pix`|`cartao`), origem da confirmação
   (`manual` ou o provedor) e `confirmado_por` (usuário do Master na confirmação manual). Valor pago
-  diferente do pedido grava `valor_recebido_centavos` e `divergente_em` e mantém a recarga pendente.
+  MENOR que o pedido grava `valor_recebido_centavos` e `divergente_em` e mantém a recarga pendente; MAIOR
+  credita o que foi pago e grava a diferença nos mesmos campos (decisão do dono, 27/10: libera e avisa o Master).
   Saldo = soma dos confirmados; a coluna de saldo é cache conferido por teste.
 - `ChamadoDeSuporte`: tenant, solicitante, número sequencial por tenant (#0001), tipo, prioridade,
   assunto, descrição, data/hora (agenda), status, `valor_estimado_centavos`, `valor_debitado_centavos`,

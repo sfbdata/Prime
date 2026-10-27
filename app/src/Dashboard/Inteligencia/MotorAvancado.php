@@ -50,6 +50,16 @@ final class MotorAvancado
     public const ID_CAPACIDADE   = 'capacidade';
     public const ID_SEM_VENCIDAS = 'sem-vencidas';
 
+    /** Todos os ids que a Central pode emitir: é a lista fechada de quem aceita marca de alerta. */
+    public const IDS = [
+        self::ID_VENCIDAS,
+        self::ID_CONCENTRACAO,
+        self::ID_PRAZOS,
+        self::ID_URGENTES,
+        self::ID_CAPACIDADE,
+        self::ID_SEM_VENCIDAS,
+    ];
+
     // Alerta 1 — vencidas: só a contagem (L38, `venc >= 10`); o percentual sobre a fila
     // ativa misturava universos (vencidas de hoje × metas criadas no período) e saiu
     public const VENCIDAS_CRITICO_QTD = 10;
