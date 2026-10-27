@@ -62,6 +62,6 @@ final class PastaDoContextoDaIa
         // Só para o sigilo: o resumo do montador traz NUPs, e este método não devolve nada dele.
         $this->montador->para($tenant, $pasta, self::AGENTE, $financeiro, $abasOcultas);
 
-        return ['pastaId' => (int) $pasta->getId(), 'financeiro' => $financeiro, 'abasOcultas' => array_values($abasOcultas)];
+        return ['pastaId' => (int) $pasta->getId(), 'financeiro' => $financeiro, 'abasOcultas' => $abasOcultas];
     }
 }

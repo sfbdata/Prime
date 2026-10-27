@@ -249,6 +249,26 @@ pasta_show:
         concluir: Concluir
         criar_dica: Criar meta e notificar os responsáveis
         criar: Criar meta
+        analise_titulo: ANÁLISE DO PRAZO
+        analise_botao: Análise
+        analise_ver: Ver análise completa
+        analise_atualizada: Análise atualizada
+        analise_conferir_dica: Conferir as informações usadas na análise
+        analise_conferir: Conferir
+        analise_prazo_juridico: Prazo jurídico
+        analise_dias_uteis: Dias úteis até lá
+        analise_folga: Folga
+        analise_editar_jur_dica: Clique para informar ou corrigir o prazo jurídico
+        analise_jur_aria: Informe a data que você considera como prazo jurídico para esta demanda
+        analise_confira: 'Confira as informações utilizadas:'
+        analise_corretas: Essas informações estão corretas?
+        analise_confirmar: Confirmar análise
+        analise_corrigir: Corrigir informações
+        analise_incerto: Não consegui confirmar o prazo jurídico apenas com as informações disponíveis. Informe a data de publicação ou ciência da intimação para melhorar a análise.
+        analise_origem_informar: '+ Informar origem do prazo'
+        analise_data_publicacao: Data da publicação
+        analise_data_ciencia: Data da ciência/intimação
+        analise_antes_de_salvar: Antes de salvar, confira
     js:
         cancelar: Cancelar
         salvar: Salvar

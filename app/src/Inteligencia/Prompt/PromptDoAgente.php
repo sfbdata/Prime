@@ -34,7 +34,7 @@ final class PromptDoAgente
     public const VERSAO_DA_LEITURA = 'agente-leitura-v1';
     public const ROTULO_DE_USO = 'analise_pasta';
 
-    private const MAX_TOKENS = 2500;
+    private const MAX_TOKENS = 4500;   /* comandos longos (Analisar a pasta, Briefing, Raio-X): 2500 cortava em pasta grande */
     /** Ler até três arquivos (100 páginas) pede mais resposta que um comando sobre metadados. */
     public const MAX_TOKENS_DA_LEITURA = 8000;
     private const TEMPERATURA = 0.2;

@@ -4,6 +4,7 @@ namespace App\Service\Audit;
 
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
+use App\Recompensa\Entity\DadosDeRecebimentoDeRecompensa;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\ConteudoParticular;
@@ -42,6 +43,8 @@ class AuditLogSubscriber
      */
     private const IGNORED_FIELDS_POR_CLASSE = [
         Invitation::class => ['token', 'tokenHash'],
+        // CPF ou CNPJ e chave PIX de quem recebe a recompensa (F4): a trilha registra que mudou e quem mudou, nunca o valor.
+        DadosDeRecebimentoDeRecompensa::class => ['documento', 'chavePix'],
     ];
 
     public function __construct(

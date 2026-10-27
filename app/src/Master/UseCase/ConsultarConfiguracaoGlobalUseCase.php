@@ -9,6 +9,7 @@ use App\Contribua\Repository\PlanoRepository;
 use App\Master\DTO\ConfiguracaoGlobalOutput;
 use App\Master\Repository\ConfiguracaoGlobalRepository;
 use App\Master\Service\CatalogoDeConfiguracoes;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Lê as configurações globais para a seção do /master.
@@ -24,16 +25,19 @@ final class ConsultarConfiguracaoGlobalUseCase
         private readonly ConfiguracaoGlobalRepository $configuracoes,
         private readonly PlanoRepository $planos,
         private readonly ConfiguracaoDoEspacoRepository $espaco,
+        #[Autowire('%app.sessao_padrao_minutos%')]
+        private readonly ?int $sessaoPadraoMinutos = null,
     ) {
     }
 
     public function executar(): ConfiguracaoGlobalOutput
     {
         $gravada = $this->configuracoes->buscarUnica();
-        $valores = array_merge(CatalogoDeConfiguracoes::padroes(), $gravada?->getValores() ?? []);
+        $sobrepor = $this->sessaoPadraoMinutos === null ? [] : CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos);
+        $valores = array_merge(CatalogoDeConfiguracoes::padroes($sobrepor), $gravada?->getValores() ?? []);
         $valores[CatalogoDeConfiguracoes::CAMPO_FREE_GB] = (string) $this->planos->free()->getCotaGb();
         $valores[CatalogoDeConfiguracoes::CAMPO_AVISO] = (string) $this->espaco->atual()->getFaixaAlerta();
 
-        return new ConfiguracaoGlobalOutput($valores, $gravada?->getAlteradoEm());
+        return new ConfiguracaoGlobalOutput($valores, $gravada?->getAlteradoEm(), $sobrepor);
     }
 }

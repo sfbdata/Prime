@@ -17,6 +17,7 @@ use App\Contribua\Repository\EspacoDoEscritorioRepository;
 use App\Contribua\Repository\MotivoDeNaoApoiarRepository;
 use App\Contribua\Repository\PlanoRepository;
 use App\Contribua\Repository\SugestaoRepository;
+use App\Contribua\Service\CodigoPixDaContaEstatico;
 use App\Contribua\Entity\BonusDeEspaco;
 use App\Indicacao\Entity\Indicacao;
 use App\Contribua\Service\SituacaoDoEspaco;
@@ -155,6 +156,7 @@ final class PacotesDaPaginaTest extends TestCase
             $this->createStub(MotivoDeNaoApoiarRepository::class),
             // Quem pede não é o Master: a visão de todos os escritórios nunca é usada aqui.
             (new \ReflectionClass(VisaoDoMaster::class))->newInstanceWithoutConstructor(),
+            new CodigoPixDaContaEstatico(),
         );
 
         return $useCase->executar(new Solicitante(new User(), $escritorio->setName('Escritório'), false, true));

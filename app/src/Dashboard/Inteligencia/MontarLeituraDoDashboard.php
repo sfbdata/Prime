@@ -18,6 +18,7 @@ final class MontarLeituraDoDashboard
         private readonly MotorDeRitmo $motorDeRitmo,
         private readonly MotorAvancado $motorAvancado,
         private readonly MontarMetaDePastasDoMes $montarMeta,
+        private readonly MontarPlanosDeCrescimento $montarPlanos,
     ) {}
 
     /**
@@ -35,7 +36,10 @@ final class MontarLeituraDoDashboard
         $ritmo    = $this->motorDeRitmo->analisar($dashboard, $tempo);
         $avancado = $this->motorAvancado->analisar($dashboard, $ritmo);
 
-        return new LeituraDoDashboard($ritmo, $avancado, $agora, $tempo, $this->ritmoDaMeta($dashboard, $comPastasOcultas, $simulacao), $simulacao);
+        $ritmoDaMeta = $this->ritmoDaMeta($dashboard, $comPastasOcultas, $simulacao);
+        $planos      = $ritmoDaMeta === null ? [] : $this->montarPlanos->montar($ritmoDaMeta, $ritmo, array_values($dashboard->porAdvogado));
+
+        return new LeituraDoDashboard($ritmo, $avancado, $agora, $tempo, $ritmoDaMeta, $simulacao, $planos);
     }
 
     private function ritmoDaMeta(DashboardOutput $dashboard, bool $comPastasOcultas, ?SimulacaoDeDia $simulacao): ?RitmoDaMeta

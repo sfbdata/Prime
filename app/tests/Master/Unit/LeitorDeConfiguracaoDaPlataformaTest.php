@@ -73,4 +73,13 @@ final class LeitorDeConfiguracaoDaPlataformaTest extends TestCase
 
         self::assertSame('on', (new LeitorDeConfiguracaoDaPlataforma($this->repositorio))->valor('cadastro'));
     }
+
+    #[TestDox('O padrão de `sessao` vem do ambiente; o gravado vence')]
+    public function testPadraoDaSessaoVemDoAmbiente(): void
+    {
+        $this->repositorio->method('atual')->willReturnOnConsecutiveCalls(null, $this->gravada(['sessao' => '90']));
+
+        self::assertSame('24', (new LeitorDeConfiguracaoDaPlataforma($this->repositorio, null, 24))->valor('sessao'));
+        self::assertSame('90', (new LeitorDeConfiguracaoDaPlataforma($this->repositorio, null, 24))->valor('sessao'));
+    }
 }

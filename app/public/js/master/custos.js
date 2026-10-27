@@ -1,6 +1,6 @@
 /* BlueJus · Painel do Master, seção "Custos" (#sec=custos)
    (desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html, marcação L260-270 e lógica L917-937;
-   spec docs/specs/master-custos.md, PR 2: leitura; PR 3: lançar, excluir e copiar do mês anterior).
+   spec docs/specs/master-custos.md, PR 2: leitura; PR 3: lançar, excluir e copiar do mês anterior; PR 4: importar CSV, o exportar é um link de download).
    - Carrega na primeira vez que a seção abre (evento `mp:secao` do painel) ou já aberta pelo hash; trocar o mês pede
      os dados de novo ao servidor. Os valores chegam em centavos e as contas (receita, margem, projeção) vêm prontas.
    - Gravar (PR 3): uma janela só, no estilo da "Lançar custo" do desenho (L268), serve ao lançamento e às confirmações
@@ -18,6 +18,7 @@
   const URL_LANCAR = raiz.dataset.urlLancar;
   const URL_EXCLUIR = raiz.dataset.urlExcluir;
   const URL_COPIAR = raiz.dataset.urlCopiar;
+  const URL_IMPORTAR = raiz.dataset.urlImportar;
   const TOKEN = raiz.dataset.token || '';
   const $ = sel => raiz.querySelector(sel);
   const elAviso = $('[data-cst-aviso]');
@@ -96,7 +97,7 @@
   // Medido verde, importado azul, estimado âmbar (desenho: `ORI`).
   const ORIGEM_TOM = { medido: 'cst-tom-ok', importado: 'cst-tom-azul', estimado: 'cst-tom-ambar' };
 
-  async function carregar() {
+  async function carregar(manterAviso) {
     const meu = ++pedido;
     elKpis.setAttribute('aria-busy', 'true');
     try {
@@ -104,7 +105,7 @@
       if (!r.ok) throw new Error(String(r.status));
       const d = await r.json();
       if (meu !== pedido) return;
-      avisar('');
+      if (!manterAviso) avisar('');
       elMes.value = d.mes;
       desenharKpis(d.kpis);
       desenharCategorias(d.categorias);
@@ -221,6 +222,37 @@
   $('[data-cst-lancamentos]').addEventListener('click', e => {
     const b = e.target.closest('[data-cst-excluir]');
     if (b) abrirJanela('excluir', T('master.custos.js.dlg.excluir_titulo'), T('master.custos.js.dlg.excluir_texto'), { id: b.dataset.cstExcluir });
+  });
+
+  /* ---------- Importar CSV (PR 4) ---------- */
+  // O arquivo é lido aqui, no navegador (como o protótipo), e o servidor recebe só o texto em JSON: não grava nem abre
+  // arquivo em disco. UTF-8; se vier com caracteres inválidos (Excel em Windows-1252), relê nessa codificação.
+  async function lerTexto(arquivo) {
+    const bytes = await arquivo.arrayBuffer();
+    const utf8 = new TextDecoder('utf-8').decode(bytes);
+    return utf8.includes('\uFFFD') ? new TextDecoder('windows-1252').decode(bytes) : utf8;
+  }
+
+  $('[data-cst-importar]').addEventListener('change', async e => {
+    const arquivo = e.target.files && e.target.files[0];
+    if (!arquivo) return;
+    try {
+      const r = await fetch(URL_IMPORTAR, {
+        method: 'POST', credentials: 'same-origin', body: JSON.stringify({ conteudo: await lerTexto(arquivo), mes: elMes.value }),
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        avisar(d.erro || T('master.custos.js.erro_importar'));
+        return;
+      }
+      avisar(T(d.ignoradas > 0 ? 'master.custos.js.importados_ignoradas' : 'master.custos.js.importados', { n: F().numero(d.importados), ignoradas: F().numero(d.ignoradas) }));
+      carregar(true);
+    } catch (err) {
+      avisar(T('master.custos.js.erro_importar'));
+    } finally {
+      e.target.value = '';
+    }
   });
 
   const painel = document.getElementById('master-painel');

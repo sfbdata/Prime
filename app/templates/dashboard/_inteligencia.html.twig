@@ -15,8 +15,11 @@
    Resolvido, Ignorar e Aplicar/Não se aplicam gravam a marca PESSOAL do alerta
    (MarcarAlertaDaInteligenciaUseCase, public/js/dashboard-inteligencia.js). Selo,
    gauge e "Ritmo necessário" saem da meta de pastas do mês, em dias úteis (RitmoDaMeta).
+   "Aumentar o nível" (dc L1284-1325): plano por regras fixas sobre a meta de pastas do mês
+   (MontarPlanosDeCrescimento); só para quem gere o escritório e só com ritmo da meta. Os 4 níveis
+   vêm prontos e o dashboard-inteligencia.js só alterna o visível; "Definir" usa o POST da meta.
    O que no desenho depende de função ou dado inexistente não é renderizado:
-   plano "Aumentar o nível", Criar tarefa (não há tela de tarefa avulsa para receber
+   Criar tarefa (não há tela de tarefa avulsa para receber
    o título), Inteligência de Desempenho (condição por pessoa).
    "Teste · simular dia" (dc L1341-1347) fica no rodapé: troca só o "hoje" desta leitura
    (querystring `dia_simulado`, SimulacaoDeDia), nunca grava, e o corpo do painel avisa quando
@@ -357,6 +360,65 @@
                 </ul>
                 <div class="db-ia-nota">{{ 'dashboard.ia.nota_numeros'|trans }}</div>
             </section>
+
+            {# Aumentar o nível (dc L1284-1325): plano de crescimento sobre a meta de pastas do mês, por
+               regras fixas. Só para quem gere o escritório (o mesmo que define a meta) e só com ritmo da
+               meta (some com cadeado, filtro de responsável/cargo, mês incompleto ou sem meta). Os 4
+               níveis chegam prontos; o JS alterna o painel visível e o botão grava pelo POST da meta. #}
+            {% if podeMeta is defined and podeMeta and inteligencia.planos %}
+                <section class="db-ia-bloco db-ia-plano" data-ia-plano data-url="{{ path('dashboard_meta_pastas_definir') }}">
+                    <div class="db-ia-plano-cab"><i class="bi bi-rocket-takeoff" aria-hidden="true"></i><span>{{ 'dashboard.ia.plano.titulo'|trans }}</span></div>
+                    <div class="db-ia-plano-texto">{{ 'dashboard.ia.plano.texto'|trans }}</div>
+                    <div class="db-ia-niveis" role="group" aria-label="{{ 'dashboard.ia.plano.nivel_aria'|trans }}">
+                        {% for id, pl in inteligencia.planos %}
+                            <button type="button" class="db-ia-nivel-btn" data-ia-nivel="{{ id }}" aria-pressed="{{ pl.padrao ? 'true' : 'false' }}">{{ pl.nivel.percentual == 0 ? 'dashboard.ia.plano.manter'|trans : '+' ~ pl.nivel.percentual ~ '%' }}</button>
+                        {% endfor %}
+                    </div>
+                    {% for id, pl in inteligencia.planos %}
+                        {% set ve = pl.viabilidade.estado %}
+                        <div class="db-ia-plano-nivel" data-ia-plano-nivel="{{ id }}"{% if not pl.padrao %} hidden{% endif %}>
+                            <div class="db-ia-plano-grade">
+                                <div class="db-ia-plano-cartao"><div class="db-ia-plano-rotulo">{{ 'dashboard.ia.plano.nova_meta'|trans }}</div><div class="db-ia-plano-valor">{{ pl.meta }}</div></div>
+                                <div class="db-ia-plano-cartao"><div class="db-ia-plano-rotulo">{{ 'dashboard.ia.plano.ritmo_dia'|trans }}</div><div class="db-ia-plano-valor">{{ ui.fmt(pl.ritmo) }}</div></div>
+                                <div class="db-ia-plano-cartao"><div class="db-ia-plano-rotulo">{{ 'dashboard.ia.plano.viabilidade'|trans }}</div><div><span class="db-ia-plano-viab{{ ve ? ' db-ia-estado--' ~ ve.value : ' is-sem-base' }}">{{ pl.viabilidade.chaveDoRotulo|trans }}</span></div></div>
+                            </div>
+                            {% set vars = {meta: pl.meta ~ '', faltam: pl.faltam ~ '', dias: pl.dias ~ '', ritmo: ui.fmt(pl.ritmo) ~ '', atual: ui.fmt(pl.ritmoAtual) ~ '', ganho: pl.ganhoReal ~ ''} %}
+                            <div class="db-ia-plano-resumo">
+                                {%- if pl.jaAlcancado -%}{{ 'dashboard.ia.plano.resumo_atingido'|trans }}
+                                {%- elseif pl.ritmoAtual <= 0 -%}{{ 'dashboard.ia.plano.resumo_sem_base'|trans(vars) }}
+                                {%- elseif pl.ganhoReal == 0 -%}{{ 'dashboard.ia.plano.resumo_manter'|trans(vars) }}
+                                {%- else -%}{{ 'dashboard.ia.plano.resumo_mais'|trans(vars) }}{%- endif -%}
+                            </div>
+                            {% if pl.pessoas %}
+                                <div class="db-ia-plano-sub">{{ 'dashboard.ia.plano.por_colaborador'|trans }}</div>
+                                {% for p in pl.pessoas %}
+                                    <div class="db-ia-plano-pessoa">
+                                        <span class="db-ia-plano-nome">{{ p.nome }}</span>
+                                        <span class="db-ia-plano-trilho" aria-hidden="true"><span class="db-ia-plano-barra" style="width:{{ p.pctBarra }}%"></span></span>
+                                        <span class="db-ia-plano-extra">+{{ p.extra }}</span>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                            <div class="db-ia-plano-sub db-ia-plano-sub--marcos">{{ 'dashboard.ia.plano.marcos'|trans }}</div>
+                            <div class="db-ia-plano-marcos">
+                                {% for m in pl.marcos %}
+                                    <div class="db-ia-plano-marco"><div class="db-ia-plano-marco-rotulo">{{ m.fim ? 'dashboard.ia.plano.fim'|trans : 'dashboard.ia.plano.semana'|trans({n: m.semana ~ ''}) }}</div><div class="db-ia-plano-marco-alvo">{{ m.alvo }}</div></div>
+                                {% endfor %}
+                            </div>
+                            {% if pl.alavancas %}
+                                <div class="db-ia-plano-sub db-ia-plano-sub--alavancas">{{ 'dashboard.ia.plano.alavancas'|trans }}</div>
+                                {% for a in pl.alavancas %}
+                                    <div class="db-ia-plano-alavanca"><i class="bi bi-arrow-up-right-circle" aria-hidden="true"></i><span>{{ ('dashboard.ia.plano.alavanca.' ~ a.chave)|trans(a.parametros) }}</span></div>
+                                {% endfor %}
+                            {% endif %}
+                            {% if pl.aplicavel %}
+                                <button type="button" class="db-ia-plano-aplicar" data-ia-plano-aplicar data-valor="{{ pl.meta }}"><i class="bi bi-flag" aria-hidden="true"></i><span>{{ 'dashboard.ia.plano.aplicar'|trans({meta: pl.meta ~ ''}) }}</span></button>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    <div class="db-ia-plano-aviso" role="status" aria-live="polite" data-ia-plano-aviso hidden></div>
+                </section>
+            {% endif %}
         </div>
 
         {# Cartão "Conhecer o Modo avançado" (dc L1412-1418; README "Modo básico x Modo avançado"):

@@ -4,6 +4,9 @@
 # segurança são os do desenho 10, confirmados pelo dono. Os assuntos do suporte são dado (o servidor compara o
 # português, EnviarMensagemSuporteInput::ASSUNTOS): só o rótulo sai daqui. A régua de força usa auth.js.forca.*.
 entrada:
+    # Aviso da expiração por inatividade (spec login-sessao-expiracao): flash no /login.
+    sessao:
+        expirada: Sua sessão expirou por inatividade. Entre novamente.
     # Aviso da política de cadastro do Master (spec login-config-cadastro): no lugar do "Criar conta" e na recusa das portas.
     cadastro:
         aviso:
