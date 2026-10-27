@@ -131,6 +131,59 @@ final class AbaPagamentoDinamicoTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contar('pagamento'));
     }
 
+    #[TestDox('O banco confirma entre a leitura e o cancelamento do Preparar: nenhum QR novo sai e a cobrança segue paga')]
+    public function testPrepararNaoEmiteSeVirouPagaNoMeio(): void
+    {
+        $espiao = $this->espiarLeituras();
+
+        [$codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita('20,00');
+        $this->conectar($master, $central, true);
+        $this->logarComTenant($this->client, $solicitante, $escritorio);
+        $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
+        $conexao = $this->em()->getConnection();
+        $conexao->executeStatement('UPDATE pagamento SET valor_centavos = 1500');
+
+        $espiao->depoisDaPrimeiraLeitura = static fn () => $conexao->executeStatement("UPDATE pagamento SET status = 'paga'");
+        $r = $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, $this->contar('pagamento'), 'nenhuma cobrança nova');
+        self::assertSame('paga', $conexao->fetchOne('SELECT status FROM pagamento'));
+        self::assertNull($r['avisoPagamento']);
+    }
+
+    #[TestDox('Outra aba cria uma cobrança mais nova entre a leitura e o cancelamento do Preparar: a nova fica e nada mais é emitido')]
+    public function testPrepararNaoCancelaNemEmiteSeOutraAbaCriouUmaNova(): void
+    {
+        $espiao = $this->espiarLeituras();
+        [$codigo, $master, $central, $solicitante, $escritorio] = $this->demandaAceita('20,00');
+        $this->conectar($master, $central, true);
+        $this->logarComTenant($this->client, $solicitante, $escritorio);
+        $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
+        $conexao = $this->em()->getConnection();
+        $conexao->executeStatement('UPDATE pagamento SET valor_centavos = 1500');
+
+        $espiao->depoisDaPrimeiraLeitura = function () use ($codigo, $conexao): void {
+            $conexao->executeStatement('UPDATE pagamento SET status = \'cancelada\'');
+            static::getContainer()->get(\App\Pagamento\UseCase\EmitirCobrancaPixUseCase::class)->executar(new \App\Pagamento\DTO\EmitirCobrancaPixInput(
+                (int) $conexao->fetchOne('SELECT tenant_id FROM pagamento'),
+                \App\Pagamento\Enum\OrigemDoPagamento::TrabalhoExterno,
+                (int) $conexao->fetchOne('SELECT origem_id FROM pagamento'),
+                $codigo . '-2',
+                1500,
+                new \DateTimeImmutable('+24 hours'),
+                'te',
+                'Solicitante',
+                '12345678000199',
+            ));
+        };
+        $this->postarJson($this->client, "/trabalho-externo/api/demandas/$codigo/pagamento/cobranca");
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $this->contar('pagamento'), 'só a criada pela outra aba');
+        self::assertSame('aguardando', $conexao->fetchOne("SELECT status FROM pagamento WHERE referencia = '$codigo-2'"));
+    }
+
     #[TestDox('Cobrança aguardando sem QR (banco fora do ar): o botão manual a cancela sem exigir motivo')]
     public function testManualCancelaCobrancaSemQr(): void
     {
@@ -233,6 +286,30 @@ final class AbaPagamentoDinamicoTest extends JusPrimeWebTestCase
     }
 
     /** @return array{0: string, 1: User, 2: Tenant, 3: User, 4: Tenant} */
+    /** Um repositório que roda um gancho logo depois da primeira leitura do último pagamento: a corrida entre abas, em ordem. */
+    private function espiarLeituras(): object
+    {
+        $registros = static::getContainer()->get('doctrine');
+        $espiao = new class($registros) extends \App\Pagamento\Repository\PagamentoRepository {
+            public ?\Closure $depoisDaPrimeiraLeitura = null;
+
+            public function ultimoDaOrigem(int $tenantId, \App\Pagamento\Enum\OrigemDoPagamento $origem, int $origemId): ?\App\Pagamento\Entity\Pagamento
+            {
+                $lido = parent::ultimoDaOrigem($tenantId, $origem, $origemId);
+                if ($this->depoisDaPrimeiraLeitura !== null) {
+                    $gancho = $this->depoisDaPrimeiraLeitura;
+                    $this->depoisDaPrimeiraLeitura = null;
+                    $gancho();
+                }
+
+                return $lido;
+            }
+        };
+        static::getContainer()->set(\App\Pagamento\Repository\PagamentoRepository::class, $espiao);
+
+        return $espiao;
+    }
+
     private function demandaAceita(string $valor): array
     {
         $escritorio = $this->criarTenant('Solicitante');

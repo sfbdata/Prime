@@ -36,7 +36,10 @@ use Psr\Log\LoggerInterface;
 #[Autoconfigure(public: true)]
 final class EmitirCobrancaPixUseCase
 {
-    /** Espera máxima pela trava da referência: 50 x 100 ms = 5 s (o pedido ao banco tem prazo menor que isso). */
+    /**
+     * Espera máxima pela trava da referência: 50 x 100 ms = 5 s. Quem tem a trava pode levar mais que isso (o cliente do banco
+     * dá 15 s por chamada, token e criação): quem espera desiste e cai no PIX estático, e a próxima abertura da aba repete.
+     */
     private const TRAVA_TENTATIVAS = 50;
     private const TRAVA_ESPERA_US = 100_000;
 

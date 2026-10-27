@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
+use App\Pagamento\DTO\CobrancaPixOutput;
 use App\Pagamento\DTO\EmitirCobrancaPixInput;
 use App\Pagamento\Enum\OrigemDoPagamento;
 use App\Pagamento\Enum\StatusDoPagamento;
@@ -65,11 +66,26 @@ final class PrepararPagamentoDaDemandaUseCase
             return null;
         }
         $reaproveita = $mesmoValor && $atual->brCode === null && $atual->status === StatusDoPagamento::Aguardando && ($atual->expiraEm === null || $atual->expiraEm > $agora);
-        if ($atual !== null && !$reaproveita) {
-            $this->cancelar->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, $origemId, 'Nova cobrança gerada para o valor atual.', false, $atual->pagamentoId);
+        if ($atual !== null && !$reaproveita
+            && !$this->cancelar->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, $origemId, 'Nova cobrança gerada para o valor atual.', false, $atual->pagamentoId)
+            && $this->mudouDesdeALeitura($tenantId, $origemId, $atual)) {
+            return null;
         }
 
         return $this->emitirTentativa($demanda, $centavos, ($reaproveita ? $atual->tentativas : ($atual->tentativas ?? 0) + 1), $agora);
+    }
+
+    /**
+     * O cancelamento não cancelou nada: ou a cobrança lida já não estava aguardando (vencida, cancelada, expirada: segue
+     * e emite a próxima) ou o mundo mudou depois da leitura (outra aba criou uma mais nova, o banco confirmou ou divergiu):
+     * aí não se emite QR novo e a tela relê o estado.
+     */
+    private function mudouDesdeALeitura(int $tenantId, int $origemId, CobrancaPixOutput $lida): bool
+    {
+        $agora = $this->consultar->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, $origemId);
+
+        return $agora === null || $agora->pagamentoId !== $lida->pagamentoId
+            || in_array($agora->status, [StatusDoPagamento::Paga, StatusDoPagamento::Divergente], true);
     }
 
     /** Convidado, prévia, já pago, fora das situações do pagamento ou integração desligada: nada a preparar. */
