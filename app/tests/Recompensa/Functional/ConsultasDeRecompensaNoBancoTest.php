@@ -10,6 +10,8 @@ use App\Entity\Tenant\Tenant;
 use App\Indicacao\Entity\Indicacao;
 use App\Indicacao\Enum\CanalDeIndicacao;
 use App\Indicacao\Repository\IndicacaoRepository;
+use App\Recompensa\Entity\AprovacaoDeContaDeRecompensa;
+use App\Recompensa\Service\SuspeitaDeConta;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -34,10 +36,10 @@ final class ConsultasDeRecompensaNoBancoTest extends KernelTestCase
         $this->agora = new \DateTimeImmutable('2026-10-26 12:00:00');
     }
 
-    private function usuario(string $nome, string $quando = '-1 year'): User
+    private function usuario(string $nome, string $quando = '-1 year', string $dominio = 'exemplo.com'): User
     {
         $user = new User();
-        $user->setEmail(strtolower(uniqid('rc_')) . '@exemplo.com');
+        $user->setEmail(strtolower(uniqid('rc_')) . '@' . $dominio);
         $user->setFullName($nome);
         $user->setPassword('x');
         $user->setCreatedAt($this->agora->modify($quando));
@@ -131,5 +133,152 @@ final class ConsultasDeRecompensaNoBancoTest extends KernelTestCase
         self::assertSame(0, $linhas[$bia->getId()]['envios'], 'a atribuição pelo link não é envio');
         self::assertArrayNotHasKey($sem->getId(), $linhas);
         self::assertSame(['user_id', 'nome', 'email', 'escritorio', 'envios'], array_keys($linhas[$ana->getId()]), 'nada do indicado');
+    }
+
+    /** A linha de UMA conta nova do indicador, com os sinais do antifraude. */
+    private function sinaisDaConta(User $indicador, User $conta): array
+    {
+        $this->em->flush();
+        foreach ($this->repo->contasParaRecompensas() as $c) {
+            if ($c['conta_id'] === $conta->getId() && $c['indicador_id'] === $indicador->getId()) {
+                return $c;
+            }
+        }
+        self::fail('conta fora do resultado');
+    }
+
+    private function indicar(User $indicador, User $conta): void
+    {
+        $this->em->persist(Indicacao::porEmail($indicador, null, $conta->getEmail(), null, $this->agora->modify('-60 days')));
+    }
+
+    private function vincular(User $user, Tenant $tenant): void
+    {
+        $this->em->persist(new UserTenant($user, $tenant));
+    }
+
+    private function escritorio(?string $cnpj): Tenant
+    {
+        $tenant = (new Tenant())->setName('Escritório ' . uniqid())->setCnpj($cnpj);
+        $this->em->persist($tenant);
+
+        return $tenant;
+    }
+
+    #[TestDox('antifraude: conta no MESMO escritório de quem indicou traz o escritório em comum; em escritório próprio não')]
+    public function testMesmoEscritorio(): void
+    {
+        $ana = $this->usuario('Ana', dominio: 'ana.example');
+        $mesma = $this->usuario('Mesma Casa', '-50 days', 'mesma.example');
+        $outra = $this->usuario('Outra Casa', '-50 days', 'outra.example');
+        $casa = $this->escritorio(null);
+        $this->vincular($ana, $casa);
+        $this->vincular($mesma, $casa);
+        $this->vincular($outra, $this->escritorio(null));
+        $this->indicar($ana, $mesma);
+        $this->indicar($ana, $outra);
+
+        $daMesma = $this->sinaisDaConta($ana, $mesma);
+        $daOutra = $this->sinaisDaConta($ana, $outra);
+
+        self::assertSame([$casa->getId()], array_intersect($daMesma['escritorios_conta'], $daMesma['escritorios_indicador']));
+        self::assertSame([SuspeitaDeConta::ESCRITORIO], SuspeitaDeConta::daLinha($daMesma));
+        self::assertSame([], SuspeitaDeConta::daLinha($daOutra));
+    }
+
+    #[TestDox('antifraude: mesmo CNPJ em escritórios diferentes é suspeita; CNPJ nulo nos dois lados não casa')]
+    public function testMesmoCnpj(): void
+    {
+        $ana = $this->usuario('Ana', dominio: 'ana.example');
+        $igual = $this->usuario('Cnpj Igual', '-50 days', 'igual.example');
+        $nulo = $this->usuario('Cnpj Nulo', '-50 days', 'nulo.example');
+        $this->vincular($ana, $this->escritorio('12345678000199'));
+        $this->vincular($ana, $this->escritorio(null));
+        $this->vincular($igual, $this->escritorio('12345678000199'));
+        $this->vincular($nulo, $this->escritorio(null));
+        $this->indicar($ana, $igual);
+        $this->indicar($ana, $nulo);
+
+        $daIgual = $this->sinaisDaConta($ana, $igual);
+        $daNula = $this->sinaisDaConta($ana, $nulo);
+
+        self::assertSame(['12345678000199'], $daIgual['cnpjs_conta']);
+        self::assertSame([SuspeitaDeConta::CNPJ], SuspeitaDeConta::daLinha($daIgual), 'escritórios diferentes, mesmo CNPJ');
+        self::assertSame([], $daNula['cnpjs_conta']);
+        self::assertSame([], SuspeitaDeConta::daLinha($daNula), 'nulo não casa com nulo');
+    }
+
+    #[TestDox('antifraude: mesmo domínio corporativo é suspeita; domínio de provedor público e domínios diferentes não')]
+    public function testMesmoDominio(): void
+    {
+        $ana = $this->usuario('Ana', dominio: 'banca.adv.br');
+        $colega = $this->usuario('Colega', '-50 days', 'Banca.ADV.br');
+        $publica = $this->usuario('Publica', '-50 days', 'gmail.com');
+        $outra = $this->usuario('Outra', '-50 days', 'outra.adv.br');
+        $anaGmail = $this->usuario('Ana Gmail', dominio: 'gmail.com');
+        $amiga = $this->usuario('Amiga Gmail', '-50 days', 'gmail.com');
+        foreach ([$colega, $publica, $outra] as $conta) {
+            $this->indicar($ana, $conta);
+        }
+        $this->indicar($anaGmail, $amiga);
+
+        self::assertSame([SuspeitaDeConta::DOMINIO], SuspeitaDeConta::daLinha($this->sinaisDaConta($ana, $colega)), 'o domínio vem em minúsculas do banco');
+        self::assertSame([], SuspeitaDeConta::daLinha($this->sinaisDaConta($ana, $publica)));
+        self::assertSame([], SuspeitaDeConta::daLinha($this->sinaisDaConta($ana, $outra)));
+        self::assertSame([], SuspeitaDeConta::daLinha($this->sinaisDaConta($anaGmail, $amiga)), 'gmail com gmail não é suspeita');
+    }
+
+    #[TestDox('antifraude: aprovar a conta (linha em aprovacao_de_conta_de_recompensa) marca aprovada para aquele indicador e só para ele')]
+    public function testAprovada(): void
+    {
+        $ana = $this->usuario('Ana', dominio: 'banca.adv.br');
+        $bia = $this->usuario('Bia', dominio: 'outra.adv.br');
+        $conta = $this->usuario('Conta', '-50 days', 'banca.adv.br');
+        $this->indicar($ana, $conta);
+        $this->em->flush();
+        self::assertFalse($this->sinaisDaConta($ana, $conta)['aprovada']);
+
+        $this->em->persist(new AprovacaoDeContaDeRecompensa($ana, $conta, null, $this->agora));
+        $this->em->flush();
+
+        self::assertTrue($this->sinaisDaConta($ana, $conta)['aprovada']);
+        self::assertNotSame($bia->getId(), $ana->getId());
+    }
+
+    #[TestDox('antifraude: a linha da conta só traz sinais agregados (ids e domínios), nunca nome nem e-mail')]
+    public function testSemNomeNemEmail(): void
+    {
+        $ana = $this->usuario('Ana', dominio: 'banca.adv.br');
+        $conta = $this->usuario('Conta Secreta', '-50 days', 'banca.adv.br');
+        $this->indicar($ana, $conta);
+
+        $linha = $this->sinaisDaConta($ana, $conta);
+
+        self::assertSame(['indicador_id', 'conta_id', 'conta_criada_em', 'tem_pasta', 'aprovada', 'escritorios_conta', 'escritorios_indicador', 'cnpjs_conta', 'cnpjs_indicador', 'dominio_conta', 'dominio_indicador'], array_keys($linha));
+        self::assertStringNotContainsString('Secreta', (string) json_encode($linha));
+        self::assertStringNotContainsString($conta->getEmail(), (string) json_encode($linha));
+    }
+
+    #[TestDox('antifraude: vínculo inativo e escritório excluído não geram sinal de escritório nem de CNPJ')]
+    public function testVinculoMortoEEscritorioExcluidoNaoGeramSinal(): void
+    {
+        $ana = $this->usuario('Ana', dominio: 'ana.example');
+        $inativa = $this->usuario('Vinculo Inativo', '-50 days', 'inativa.example');
+        $excluida = $this->usuario('Escritorio Excluido', '-50 days', 'excluida.example');
+        $casaA = $this->escritorio('12345678000199');
+        $casaB = $this->escritorio('99999999000191');
+        $this->vincular($ana, $casaA);
+        $this->vincular($ana, $casaB);
+        $this->vincular($inativa, $casaA);
+        $this->vincular($excluida, $casaB);
+        $this->indicar($ana, $inativa);
+        $this->indicar($ana, $excluida);
+        $this->em->flush();
+        $con = $this->em->getConnection();
+        $con->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$inativa->getId(), $casaA->getId()]);
+        $con->executeStatement('UPDATE tenant SET excluido_em = now() WHERE id = ?', [$casaB->getId()]);
+
+        self::assertSame([], SuspeitaDeConta::daLinha($this->sinaisDaConta($ana, $inativa)), 'o vínculo inativo da conta não conta');
+        self::assertSame([], SuspeitaDeConta::daLinha($this->sinaisDaConta($ana, $excluida)), 'o escritório excluído não conta');
     }
 }
