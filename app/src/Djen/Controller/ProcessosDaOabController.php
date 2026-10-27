@@ -11,11 +11,18 @@ use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\ClassificacaoDoProcesso;
 use App\Djen\Service\FiltroDeProcessosDaOab;
 use App\Djen\UseCase\AtualizarAnotacoesDoProcessoUseCase;
+use App\Djen\UseCase\BuscarProcessosDaOabUseCase;
+use App\Djen\UseCase\CadastrarProcessoNoPushUseCase;
+use App\Djen\UseCase\ExcluirProcessoDoPushUseCase;
+use App\Djen\UseCase\IncluirProcessoCadastradoNoPushUseCase;
 use App\Djen\UseCase\IncluirProcessoNoAcompanhamentoUseCase;
 use App\Djen\UseCase\PararDeAcompanharProcessoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\AcessoAPasta;
+use App\Processo\DTO\CadastroDoProcessoInput;
+use App\Processo\Exception\DadosDoProcessoInvalidosException;
+use App\Processo\Service\ConsultasDoCnjGuardadas;
 use App\Processo\Repository\ProcessoRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -49,6 +56,11 @@ final class ProcessosDaOabController extends AbstractController
         private readonly IncluirProcessoNoAcompanhamentoUseCase $incluir,
         private readonly PararDeAcompanharProcessoUseCase $parar,
         private readonly AtualizarAnotacoesDoProcessoUseCase $anotar,
+        private readonly ExcluirProcessoDoPushUseCase $excluir,
+        private readonly CadastrarProcessoNoPushUseCase $cadastrar,
+        private readonly IncluirProcessoCadastradoNoPushUseCase $incluirCadastrado,
+        private readonly ConsultasDoCnjGuardadas $consultasDoCnj,
+        private readonly BuscarProcessosDaOabUseCase $buscar,
     ) {
     }
 
@@ -191,6 +203,134 @@ final class ProcessosDaOabController extends AbstractController
         $parados = $this->parar->executar($tenant, $usuario, $this->numeros($request));
 
         return $this->voltar('success', sprintf('%d processo(s) deixaram de ser acompanhados. As publicações já recebidas continuam.', $parados));
+    }
+
+    /** Modal "Vincular processo", modo "Buscar processo existente" (desenho 11). */
+    #[Route('/cadastrados', name: 'push_processual_processos_cadastrados', methods: ['GET'])]
+    public function cadastrados(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->json([], Response::HTTP_FORBIDDEN);
+        }
+
+        $user = $this->getUser();
+        $ocultos = $user instanceof User ? $this->acessoAPasta->idsDosProcessosOcultos($user, $tenant) : [];
+        $achados = $this->processosDaOab->buscarCadastrados($tenant, (string) $request->query->get('q', ''), $ocultos);
+
+        return $this->json($achados);
+    }
+
+    #[Route('/incluir-cadastrado', name: 'push_processual_processos_incluir_cadastrado', methods: ['POST'])]
+    public function incluirCadastrado(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->csrfValido($request)) {
+            return $this->voltar('danger', 'Token de segurança inválido.');
+        }
+
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $numero = (string) $request->request->get('numero', '');
+        try {
+            $this->incluirCadastrado->executarPorNumero($tenant, $usuario, $numero);
+        } catch (AcompanhamentoInvalidoException $e) {
+            return $this->voltar('danger', $e->getMessage());
+        }
+
+        return $this->voltar('success', sprintf('Processo %s vinculado. As publicações passam a aparecer como Vinculadas.', trim($numero)));
+    }
+
+    /** Modal "Vincular processo", modo "Cadastrar novo (CNJ)" (desenho 11). */
+    #[Route('/buscar', name: 'push_processual_processos_buscar', methods: ['POST'])]
+    public function buscarDaOab(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->csrfValido($request)) {
+            return $this->voltar('danger', 'Token de segurança inválido.');
+        }
+
+        try {
+            $busca = $this->buscar->executar($tenant, new \DateTimeImmutable('today'));
+        } catch (AcompanhamentoInvalidoException $e) {
+            $this->addFlash('warning', $e->getMessage());
+
+            return $this->redirectToRoute('push_processual_oabs');
+        } catch (\Throwable) {
+            return $this->voltar('danger', 'Não foi possível buscar os processos agora. Tente novamente em instantes.');
+        }
+
+        $mensagem = sprintf('Busca concluída: %d processos encontrados para %s.', $busca->processos, implode(', ', $busca->oabs));
+        if ($busca->resultado->temFalhas()) {
+            return $this->voltar('warning', 'Busca parcial (alguns tribunais não responderam). ' . $mensagem);
+        }
+
+        return $this->voltar('success', $mensagem);
+    }
+
+    #[Route('/cadastrar', name: 'push_processual_processos_cadastrar', methods: ['POST'])]
+    public function cadastrar(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->csrfValido($request)) {
+            return $this->voltar('danger', 'Token de segurança inválido.');
+        }
+
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $entrada = CadastroDoProcessoInput::fromRequest($request);
+        $consulta = $this->consultasDoCnj->buscar($tenant, $usuario, $request->getSession()->getId(), $entrada->numeroSoDigitos());
+        $sn = static fn (string $campo): ?bool => match ((string) $request->request->get($campo, '')) {
+            '1' => true,
+            '0' => false,
+            default => null,
+        };
+        try {
+            $this->cadastrar->executar($tenant, $usuario, $entrada, $consulta, [
+                'valorCausa' => (string) $request->request->get('valorCausa', ''),
+                'jurisdicao' => (string) $request->request->get('jurisdicao', ''),
+                'segredo' => $sn('segredo'),
+                'digital' => $sn('digital'),
+                'gratuita' => $sn('gratuita'),
+                'tutela' => $sn('tutela'),
+                'prioridade' => $sn('prioridade'),
+            ]);
+        } catch (DadosDoProcessoInvalidosException $e) {
+            return $this->voltar('danger', $e->getMessage());
+        }
+
+        return $this->voltar('success', sprintf('Processo %s cadastrado e incluído no monitoramento.', $entrada->numeroProcesso));
+    }
+
+    #[Route('/excluir', name: 'push_processual_processos_excluir', methods: ['POST'])]
+    public function excluir(Request $request): Response
+    {
+        $tenant = $this->tenantComAcesso();
+        if ($tenant === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->csrfValido($request)) {
+            return $this->voltar('danger', 'Token de segurança inválido.');
+        }
+
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        try {
+            $this->excluir->executar($tenant, $usuario, (string) $request->request->get('numero', ''));
+        } catch (AcompanhamentoInvalidoException $e) {
+            return $this->voltar('danger', $e->getMessage());
+        }
+
+        return $this->voltar('success', 'Processo excluído.');
     }
 
     #[Route('/anotacoes', name: 'push_processual_processos_anotacoes', methods: ['POST'])]
