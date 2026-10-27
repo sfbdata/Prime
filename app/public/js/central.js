@@ -1542,7 +1542,7 @@
             }).catch(function (e) {
                 if (e.sessao) { tratarFalha(e); return; }
                 avisar(e.message);   // 409 contexto_bloqueado e 404 pasta_nao_encontrada: a mensagem fixa do servidor
-                if (e.status === 404 && e.codigo === 'pasta_nao_encontrada') { removerBarraDaPasta(); }
+                if (e.codigo === 'pasta_nao_encontrada' || e.codigo === 'contexto_bloqueado') { removerBarraDaPasta(); }   // pasta que a IA não lê: as próximas perguntas vão sem pastaId
             }).finally(function () {
                 estado.enviando = false;
                 atualizarCampoDaIa();

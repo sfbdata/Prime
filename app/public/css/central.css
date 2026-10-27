@@ -2397,3 +2397,8 @@ html[data-bs-theme="dark"] .bj-central-ia-pasta {
     background: var(--bjc-fundo);
     border-bottom-color: var(--bjc-borda);
 }
+
+html[data-bs-theme="dark"] .bj-central-ia-pasta > i,
+html[data-bs-theme="dark"] .bj-central-ia-pasta-rotulo {
+    color: #7cc4e6;
+}
