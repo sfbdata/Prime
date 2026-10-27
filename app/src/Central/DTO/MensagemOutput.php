@@ -15,9 +15,14 @@ use App\Entity\Auth\User;
  * leitura. `despacho` = `{pastaId, nup}` só quando quem lê vê a pasta (o chip "Pasta N" sai daqui, não do texto);
  * `ocultoPorPermissao = true` quando não vê, e então `conteudo` é "Item de pasta sem acesso" e `despacho` é nulo.
  * Mensagem comum: `despacho = null`, `ocultoPorPermissao = false`.
+ *
+ * `deIa` = fala do BlueJus IA (F3): o autor gravado é o dono da conversa, mas a tela a mostra como da IA: `autorNome`
+ * vira "BlueJus IA" e `minha` é falso.
  */
 final class MensagemOutput
 {
+    public const NOME_DA_IA = 'BlueJus IA';
+
     private function __construct(
         public readonly int $id,
         public readonly int $conversaId,
@@ -30,6 +35,7 @@ final class MensagemOutput
         public readonly bool $sistema,
         public readonly ?DespachoOutput $despacho,
         public readonly bool $ocultoPorPermissao,
+        public readonly bool $deIa,
     ) {
     }
 
@@ -42,14 +48,15 @@ final class MensagemOutput
             id: (int) $mensagem->getId(),
             conversaId: (int) $mensagem->getConversa()->getId(),
             autorId: (int) $autor->getId(),
-            autorNome: (string) $autor->getFullName(),
+            autorNome: $mensagem->isDeIa() ? self::NOME_DA_IA : (string) $autor->getFullName(),
             conteudo: $lido->conteudo,
             criadaEm: $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
-            minha: $autor->getId() === $eu->getId(),
+            minha: !$mensagem->isDeIa() && $autor->getId() === $eu->getId(),
             respostaA: $respostaA,
             sistema: $mensagem->isSistema(),
             despacho: $lido->despacho,
             ocultoPorPermissao: $lido->oculto,
+            deIa: $mensagem->isDeIa(),
         );
     }
 }

@@ -56,7 +56,7 @@ class MensagemRepository extends ServiceEntityRepository
 
     /**
      * A última mensagem de cada conversa informada (para a prévia da lista), indexada pelo id da conversa. Depende de
-     * ids já filtrados por `ParticipanteRepository::doUsuario` (que exclui a conversa IA); não filtra o tipo sozinha.
+     * ids já filtrados por `ParticipanteRepository::doUsuario`; não filtra o tipo sozinha.
      *
      * @param list<int> $conversaIds
      *
@@ -103,13 +103,12 @@ class MensagemRepository extends ServiceEntityRepository
              JOIN m.conversa c
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
                 AND p.saiuEm IS NULL' . ($semSilenciadas ? ' AND p.silenciada = false' : '') . '
-             WHERE m.tenant = :tenant AND c.tenant = :tenant AND c.tipo <> :ia
+             WHERE m.tenant = :tenant AND c.tenant = :tenant
                 AND (m.autor <> :usuario OR m.deIa = true) AND m.sistema = false AND m.id > p.ultimaLidaId
              GROUP BY m.conversa'
         )
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
-            ->setParameter('ia', TipoDeConversa::Ia)
             ->getArrayResult();
 
         $porConversa = [];
@@ -124,31 +123,35 @@ class MensagemRepository extends ServiceEntityRepository
      * Não lidas de VÁRIAS pessoas de uma vez (Painel, "Equipe · em aberto"): a mesma regra de
      * `naoLidasPorConversa` (de outra pessoa, não de sistema, acima do cursor de cada uma, participação ativa),
      * somada por pessoa. Silenciadas contam, como no desenho (L5641). Tenant explícito na mensagem e na participação.
+     * `$semIa`: a "Equipe · em aberto" é visível a todos, e o uso do BlueJus IA de cada um é pessoal: quem mostra esse
+     * número a outras pessoas passa `true` e as não lidas da conversa IA ficam fora.
      *
      * @param list<int> $usuarioIds
      *
      * @return array<int, int> id do usuário → quantidade (só quem tem alguma)
      */
-    public function naoLidasPorUsuario(Tenant $tenant, array $usuarioIds): array
+    public function naoLidasPorUsuario(Tenant $tenant, array $usuarioIds, bool $semIa = false): array
     {
         if ($usuarioIds === []) {
             return [];
         }
 
-        $linhas = $this->getEntityManager()->createQuery(
+        $query = $this->getEntityManager()->createQuery(
             'SELECT IDENTITY(p.usuario) AS usuario, COUNT(m.id) AS total
              FROM ' . Mensagem::class . ' m
              JOIN m.conversa c
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.tenant = :tenant
                 AND p.usuario IN (:ids) AND p.saiuEm IS NULL
-             WHERE m.tenant = :tenant AND c.tenant = :tenant AND c.tipo <> :ia
+             WHERE m.tenant = :tenant AND c.tenant = :tenant' . ($semIa ? ' AND c.tipo <> :ia' : '') . '
                 AND (m.autor <> p.usuario OR m.deIa = true) AND m.sistema = false AND m.id > p.ultimaLidaId
              GROUP BY p.usuario'
         )
             ->setParameter('tenant', $tenant)
-            ->setParameter('ia', TipoDeConversa::Ia)
-            ->setParameter('ids', $usuarioIds)
-            ->getArrayResult();
+            ->setParameter('ids', $usuarioIds);
+        if ($semIa) {
+            $query->setParameter('ia', TipoDeConversa::Ia);
+        }
+        $linhas = $query->getArrayResult();
 
         $porUsuario = [];
         foreach ($linhas as $linha) {
@@ -197,12 +200,11 @@ class MensagemRepository extends ServiceEntityRepository
              JOIN m.conversa c
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
                 AND p.saiuEm IS NULL
-             WHERE m.tenant = :tenant AND c.tenant = :tenant AND c.tipo <> :ia AND m.id > p.limpaAteId AND ' . $condicao . '
+             WHERE m.tenant = :tenant AND c.tenant = :tenant AND m.id > p.limpaAteId AND ' . $condicao . '
              ORDER BY m.id ASC'
         )
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
-            ->setParameter('ia', TipoDeConversa::Ia)
             ->setMaxResults($limite);
         foreach ($parametros as $nome => $valor) {
             $query->setParameter($nome, $valor);
@@ -222,11 +224,10 @@ class MensagemRepository extends ServiceEntityRepository
              JOIN m.conversa c
              JOIN ' . Participante::class . ' p WITH p.conversa = m.conversa AND p.usuario = :usuario AND p.tenant = :tenant
                 AND p.saiuEm IS NULL
-             WHERE m.tenant = :tenant AND c.tenant = :tenant AND c.tipo <> :ia'
+             WHERE m.tenant = :tenant AND c.tenant = :tenant'
         )
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
-            ->setParameter('ia', TipoDeConversa::Ia)
             ->getSingleScalarResult();
     }
 
