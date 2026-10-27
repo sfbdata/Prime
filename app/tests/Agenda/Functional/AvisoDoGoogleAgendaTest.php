@@ -39,7 +39,7 @@ final class AvisoDoGoogleAgendaTest extends JusPrimeWebTestCase
         $client = $this->cliente();
         $this->entrar($client);
 
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
 
         self::assertResponseIsSuccessful();
         self::assertSame('1', $this->atributo($client, 'data-google-aviso'));
@@ -53,7 +53,7 @@ final class AvisoDoGoogleAgendaTest extends JusPrimeWebTestCase
         [$eu, $tenant] = $this->entrar($client);
         $this->conectado($eu, $tenant);
 
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
 
         self::assertSame('0', $this->atributo($client, 'data-google-aviso'));
     }
@@ -64,7 +64,7 @@ final class AvisoDoGoogleAgendaTest extends JusPrimeWebTestCase
         $client = $this->cliente(new GoogleAgendaApi(new MockHttpClient()));
         $this->entrar($client);
 
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
 
         self::assertSame('indisponivel', $this->atributo($client, 'data-google'));
         self::assertSame('0', $this->atributo($client, 'data-google-aviso'));
@@ -84,7 +84,7 @@ final class AvisoDoGoogleAgendaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('true', $this->gravado($eu, $tenant));
 
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
         self::assertSame('0', $this->atributo($client, 'data-google-aviso'));
     }
 
@@ -101,12 +101,12 @@ final class AvisoDoGoogleAgendaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         $this->logarComTenant($client, $colega, $tenant);
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
         self::assertSame('1', $this->atributo($client, 'data-google-aviso'), 'o colega não dispensou');
         self::assertFalse($this->gravado($colega, $tenant));
 
         $this->logarComTenant($client, $eu, $outro);
-        $client->request('GET', '/agenda');
+        $client->request('GET', '/agenda/classica');
         self::assertSame('1', $this->atributo($client, 'data-google-aviso'), 'no outro escritório a dispensa não vale');
     }
 

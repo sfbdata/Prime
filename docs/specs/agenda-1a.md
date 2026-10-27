@@ -92,6 +92,30 @@ Tela (arranjo por filho direto): barra, segmento, grade 7 colunas, coluna direit
 e Filtros na ordem do desenho; ausência de `.card`, `.modal` do Bootstrap, mini calendário, cartões de prazos e
 "testar lembretes".
 
-## 6. Conferência ✓/✗
+## 6. Conferência ✓/✗ (PR 2, revisor imparcial lendo desenho, inventário e código)
 
-Preenchida no PR 2, linha a linha contra o inventário do desenho, antes de pedir merge.
+Resultado: nenhum ✗ restante. Os 5 ✗ de CSS/JS apontados foram corrigidos (fundo da faixa "Dia inteiro" `#fcfdfe` e da
+coluna de hoje `#fbfdfe`; `type="search"` virou `text`; `title` do chip saiu; piscar do Detalhe ao concluir/cancelar).
+
+| # | Item | Resultado |
+|---|---|---|
+| 1 a 3 | Moldura do sistema, regras base, keyframes (renomeados `a1In`/`a1Slide`, mesmos valores) | ✓ |
+| 4 | `agIn` só ao trocar de vista | ⚠ anima também em Anterior, Próximo e Hoje (o elemento do desenho persiste) |
+| 5, 6 | Responsivo 980px e 640px | ✓ |
+| 7 a 15 | Barra, busca, resumo, mês, chip, contador, "+N mais" | ✓ (título da semana sem travessão: "7 a 13 de setembro de 2026"; ⚠ regra do dono) |
+| 16 a 20 | Semana: cabeçalho, "Dia inteiro", 07:00 a 21:00, 52px/h, linha do agora, blocos | ✓ |
+| 21 | Lista: grupos, "Hoje · dia", tags, vazio com `bi-calendar-x` | ✓ |
+| 22, 23 | Detalhe completo; horário "09:00 às 11:00 · 2 horas" | ✓ / ⚠ travessão trocado por "às" |
+| 24 | Detalhe pré-selecionado | ⚠ só abre ao clicar (desenho tem id fixo de exemplo) |
+| 25, 26 | Recorrência além da semanal; descrição com quebra de linha | ⚠ menor, dado real do sistema |
+| 27 | Evento de pasta no Detalhe | ⚠ sem Editar/Cancelar; link "Abrir a Pasta {nup}" (o desenho não tem; sem ele não se chega à pasta) |
+| 28 a 30 | Hoje, "A seguir", Legendas (6 fixas, contagem, mostrar todas) | ✓ |
+| 31 | Engrenagem "Gerenciar legendas" | ⚠ aprovado (§3): sem ação |
+| 32 | Filtros: Pessoa, Status, cancelados, Limpar | ✓ |
+| 33 | Cartão Google no fim da coluna | ⚠ aprovado (D3) |
+| 34 | Janela de criar/editar herdada do sistema, com 6 tipos e botão Excluir no rodapé | ⚠ aprovado (D2); Excluir não está no desenho |
+| 35 a 38 | Textos só do JS, `title`/`placeholder`, cores/medidas, tema escuro | ✓ |
+
+Sem sobra da tela antiga (mini calendário, cartões de prazos, "testar lembretes", visão Dia, Minha agenda/Equipe):
+coberto por `testSemOQueODesenhoNaoTem`. Sem XSS provado: todo texto de usuário passa por `esc()`; o status é validado
+contra a lista fixa.

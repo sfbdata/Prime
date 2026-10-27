@@ -500,6 +500,7 @@
     "agenda": {
         "templates": [
             "agenda/nova.html.twig",
+            "agenda/um_a.html.twig",
             "agenda/lista.html.twig",
             "agenda/novo.html.twig",
             "agenda/editar.html.twig",
@@ -507,10 +508,20 @@
         ],
         "js": [
             "lembretes.js",
-            "agenda-nova.js"
+            "agenda-nova.js",
+            "agenda-1a.js"
         ],
         "permitidos": [
-            "ag-body"
+            "ag-body",
+            "ag-body a1-body",
+            "Content-Type",
+            "XMLHttpRequest",
+            "POST",
+            "ArrowDown",
+            "ArrowUp",
+            "Enter",
+            "Tab",
+            "Escape"
         ]
     },
 
