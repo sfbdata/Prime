@@ -82,4 +82,21 @@ final class LeitorDeConfiguracaoDaPlataformaTest extends TestCase
         self::assertSame('24', (new LeitorDeConfiguracaoDaPlataforma($this->repositorio, null, 24))->valor('sessao'));
         self::assertSame('90', (new LeitorDeConfiguracaoDaPlataforma($this->repositorio, null, 24))->valor('sessao'));
     }
+
+    #[TestDox('Sem linha gravada, `remetente` vale o endereço do MAILER_FROM e `nome` o BlueJus; gravado vence')]
+    public function testRemetenteVaiDoAmbiente(): void
+    {
+        $this->repositorio->method('atual')->willReturn(null);
+        $leitor = new LeitorDeConfiguracaoDaPlataforma($this->repositorio, null, 24, 'BlueJus <nao-responda@bluejus.com.br>');
+
+        self::assertSame('nao-responda@bluejus.com.br', $leitor->valor('remetente'));
+        self::assertSame('BlueJus', $leitor->valor('nome'));
+
+        $gravado = $this->createMock(ConfiguracaoGlobalRepository::class);
+        $gravado->method('atual')->willReturn($this->gravada(['remetente' => 'outro@exemplo.test', 'nome' => 'Acme']));
+        $leitor = new LeitorDeConfiguracaoDaPlataforma($gravado, null, 24, 'BlueJus <nao-responda@bluejus.com.br>');
+
+        self::assertSame('outro@exemplo.test', $leitor->valor('remetente'));
+        self::assertSame('Acme', $leitor->valor('nome'));
+    }
 }

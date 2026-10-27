@@ -27,13 +27,15 @@ final class ConsultarConfiguracaoGlobalUseCase
         private readonly ConfiguracaoDoEspacoRepository $espaco,
         #[Autowire('%app.sessao_padrao_minutos%')]
         private readonly ?int $sessaoPadraoMinutos = null,
+        #[Autowire('%mailer_from%')]
+        private readonly ?string $mailerFrom = null,
     ) {
     }
 
     public function executar(): ConfiguracaoGlobalOutput
     {
         $gravada = $this->configuracoes->buscarUnica();
-        $sobrepor = $this->sessaoPadraoMinutos === null ? [] : CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos);
+        $sobrepor = CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos, $this->mailerFrom);
         $valores = array_merge(CatalogoDeConfiguracoes::padroes($sobrepor), $gravada?->getValores() ?? []);
         $valores[CatalogoDeConfiguracoes::CAMPO_FREE_GB] = (string) $this->planos->free()->getCotaGb();
         $valores[CatalogoDeConfiguracoes::CAMPO_AVISO] = (string) $this->espaco->atual()->getFaixaAlerta();

@@ -492,12 +492,52 @@ dashboard:
             recebidas: Carga recebida
             demandas: Demandas
             atrasadas: Atrasadas
+            concluidas: Conclusões
+            tempo: Tempo médio (dias)
             de_para: '{anterior} para {atual}'
             novo: novo
             legenda: 'Barra escura: período atual · clara: período anterior de mesma duração'
             sem_base: Sem período anterior comparável. Informe De e Até para comparar.
         diagnostico: Diagnóstico
         observado: Observado
+        por_regras_fixas: Leitura por regras fixas sobre os números do período. É apoio ao gestor, não avaliação da pessoa.
+        etiqueta:
+            observado: Observado
+            correlacao: Correlação
+            hipotese: Hipótese
+        fatores: Fatores que podem estar relacionados
+        matriz:
+            titulo: Matriz de desempenho
+            eixo:
+                volume_recebido: Volume recebido
+                volume_concluido: Volume concluído
+                backlog: Fila de vencidas
+                complexidade: Complexidade
+                retrabalho: Retrabalho
+                evolucao: Evolução
+                capacidade: Capacidade
+            estado:
+                normal: Normal
+                atencao: Atenção
+                elevada: Elevada
+                baixa: Baixa
+                melhorando: Melhorando
+                queda: Conclusões em queda
+                estavel: Estável
+                sem_base: Sem base
+                sem_registro: Sem registro
+        impacto:
+            titulo: O que isso pode causar?
+            tag: Por regras fixas
+        plano:
+            titulo: Plano de ação sugerido
+            problema: Problema
+            causa: Causa provável
+            acao: Ação
+            responsavel: Responsável
+            revisao: Revisão em
+            sucesso: Indicador
+            aviso: Sugestão para o gestor decidir. O painel não cria tarefa nem muda nada sozinho.
         por_que: Por que chegou a essa conclusão
         por_que_texto: Leitura por regras fixas sobre os números do Painel para esta pessoa. Nenhum modelo de linguagem foi usado e nenhum número foi estimado.
         dados_considerados: Quais dados foram considerados?

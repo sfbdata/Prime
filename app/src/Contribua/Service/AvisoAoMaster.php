@@ -28,6 +28,8 @@ final class AvisoAoMaster
     public const TIPO_PEDIDO_DE_ESPACO = 'contribua.pedido_espaco';
     /** C4: o banco (Cora) confirmou um apoio por PIX. */
     public const TIPO_APOIO_CONFIRMADO = 'contribua.apoio_confirmado';
+    /** Gateway de pagamentos (M0b): dinheiro que não bate com a cobrança, ou teste do sandbox. O Master decide. */
+    public const TIPO_PAGAMENTO_DIVERGENTE = 'pagamento.divergente';
 
     /** O título da notificação é `varchar(255)`: nome, escritório e texto longos não podem estourar. */
     private const TAMANHO_MAXIMO = 255;
@@ -44,7 +46,7 @@ final class AvisoAoMaster
      * Nunca lança: o aviso é consequência do que a pessoa fez (a sugestão já está gravada). Uma falha
      * aqui vira log, não erro na tela, e não leva a pessoa a reenviar e duplicar.
      */
-    public function avisar(Tenant $origem, string $tipo, string $mensagem, string $url): void
+    public function avisar(?Tenant $origem, string $tipo, string $mensagem, string $url): void
     {
         $mensagem = self::caber($mensagem);
         try {
@@ -64,11 +66,11 @@ final class AvisoAoMaster
         return mb_strlen($mensagem) <= self::TAMANHO_MAXIMO ? $mensagem : rtrim(mb_substr($mensagem, 0, self::TAMANHO_MAXIMO - 3)) . '...';
     }
 
-    private function escritorioDoAviso(User $master, Tenant $origem): ?Tenant
+    private function escritorioDoAviso(User $master, ?Tenant $origem): ?Tenant
     {
         $escritorios = array_map(static fn ($vinculo): Tenant => $vinculo->getTenant(), $this->vinculos->findActiveByUser($master));
         foreach ($escritorios as $escritorio) {
-            if ($escritorio->getId() === $origem->getId()) {
+            if ($origem !== null && $escritorio->getId() === $origem->getId()) {
                 return $escritorio;
             }
         }

@@ -104,6 +104,29 @@
 .db-page .db-pf-motivo { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; font-size: 12.5px; line-height: 1.45; color: var(--db-ia-confirma-item); }
 .db-page .db-pf-tag { flex-shrink: 0; margin-top: 1px; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .db-page .db-pf-tag--observado { background: var(--db-ia-q-oque-bg); color: var(--db-ia-q-oque); }
+.db-page .db-pf-tag--correlacao { background: #efe9f8; color: #6b4b8a; }
+.db-page .db-pf-tag--hipotese { background: #fbf5dc; color: #8a6a06; }
+
+/* Matriz (dc L1113-1121): duas colunas, rótulo à esquerda e estado em cor à direita */
+.db-page .db-pf-matriz { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 14px; }
+.db-page .db-pf-matriz-linha { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid #eef3f6; font-size: 12.5px; }
+.db-page .db-pf-matriz-k { color: #4f6878; }
+.db-page .db-pf-matriz-v { font-weight: 700; }
+.db-page .db-pf-matriz-v--bom { color: #14784a; }
+.db-page .db-pf-matriz-v--atencao { color: #b4560f; }
+.db-page .db-pf-matriz-v--ruim { color: #b0302a; }
+.db-page .db-pf-matriz-v--info { color: #0f6fc4; }
+.db-page .db-pf-matriz-v--neutro { color: #34505f; }
+.db-page .db-pf-matriz-v--sem { color: #7b93a2; }
+
+/* "O que isso pode causar?" (dc L1149-1154) e Plano de ação (dc L1155-1164) */
+.db-page .db-pf-impacto { padding: 10px 11px; border-radius: 4px; background: #fbf8ef; }
+.db-page .db-pf-impacto-t { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8a6a06; }
+.db-page .db-pf-impacto-tag { padding: 1px 5px; border-radius: 4px; background: #b08a0c; font-size: 10px; font-weight: 800; letter-spacing: .04em; color: #fff; }
+.db-page .db-pf-impacto-i { margin-top: 4px; font-size: 12.5px; color: #4f4413; }
+.db-page .db-pf-plano { padding: 11px 12px; border-radius: 4px; background: #f4f8fb; box-shadow: inset 0 0 0 1px #e1eaf0; }
+.db-page .db-pf-plano-linha { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px; padding: 2px 0; font-size: 12.5px; line-height: 1.45; color: #1d3a4a; }
+.db-page .db-pf-plano-k { padding-top: 2px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7b93a2; }
 
 .db-page .db-pf-porque > summary { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--db-accent); cursor: pointer; }
 .db-page .db-pf-porque-corpo { margin-top: 6px; padding: 9px 10px; border-radius: 4px; background: var(--db-ia-como-bg); font-size: 12px; line-height: 1.5; color: var(--db-ia-confirma-texto); }

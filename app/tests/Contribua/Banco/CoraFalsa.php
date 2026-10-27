@@ -30,6 +30,17 @@ final class CoraFalsa
     /** `occurrence_date` da cobrança paga: só a data, ou data e hora com fuso. */
     public string $dataDoPagamento = '2026-10-19';
 
+    /** Uma cobrança que já existe no banco (criada por fora do fluxo do Contribua): id, status e o código que a Cora devolve. */
+    public function cobrancaExistente(string $id, string $status, ?string $codigo): void
+    {
+        $this->status[$id] = $status;
+        if (null !== $codigo) {
+            $this->codigos[$id] = $codigo;
+        } else {
+            unset($this->codigos[$id]);
+        }
+    }
+
     public function cliente(): MockHttpClient
     {
         return new MockHttpClient($this->responder(...));
