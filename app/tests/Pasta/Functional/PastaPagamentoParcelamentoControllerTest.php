@@ -640,12 +640,12 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Entrada já recebida', $modal->text());
 
         $tipos = $crawler->filter("{$corpo} > .ps-np-bloco > .ps-np-tipos > button.ps-np-tipo");
-        self::assertSame(['Contratuais', 'Êxito', 'Sucumbência', 'Custas'], $tipos->each(static fn (Crawler $b): string => trim($b->text())));
-        self::assertSame(['contrato', 'exito', 'sucumbencia', 'custas'], $tipos->each(static fn (Crawler $b): string => (string) $b->attr('data-tipo')));
+        self::assertSame(['Contratuais', 'Proveito econômico', 'Recorrente', 'Sucumbência', 'Custas'], $tipos->each(static fn (Crawler $b): string => trim($b->text())));
+        self::assertSame(['contrato', 'exito', 'recorrente', 'sucumbencia', 'custas'], $tipos->each(static fn (Crawler $b): string => (string) $b->attr('data-tipo')));
         self::assertSame(
-            [false, false, false, false],
+            [false, false, false, false, false],
             $tipos->each(static fn (Crawler $b): bool => $b->attr('disabled') !== null),
-            'os quatro tipos gravam (êxito e sucumbência: spec pasta-exito-sucumbencia)',
+            'os cinco tipos gravam (êxito e sucumbência: spec pasta-exito-sucumbencia)',
         );
         self::assertSame('true', $tipos->first()->attr('aria-pressed'), 'abre em Contratuais');
 

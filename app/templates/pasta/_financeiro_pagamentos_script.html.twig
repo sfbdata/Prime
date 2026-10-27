@@ -437,6 +437,25 @@
             };
         }
 
+        /**
+         * Recorrente (dc 27.10): o valor é o MENSAL, repetido por N meses a partir do 1º vencimento.
+         * Sem entrada e sem juros (o servidor ignora os dois campos nesse tipo).
+         */
+        function calcularRecorrente(mensal, venc) {
+            const n     = Math.max(1, Math.min(MAX_PARCELAS, parseInt(valorDe('parcelas'), 10) || 1));
+            const livre = valorDe('descricao').replace(/\s+/g, ' ').trim();
+            const novos = [];
+            for (let k = 0; k < n; k++) {
+                novos.push({
+                    d: livre ? (n === 1 ? livre : livre + ' · ' + (k + 1) + '/' + n) : BJ_T.t('pasta_financeiro.js.mensalidade_de', { numero: k + 1, n: n }),
+                    q: dataBR(somarMeses(venc, k)),
+                    v: mensal,
+                });
+            }
+
+            return { novos, erro: '', n };
+        }
+
         /** O que a prévia mostra e o botão promete. Espelho da regra do dc L.3470-3500. */
         function calcular() {
             const tipo   = valorDe('tipo');
@@ -460,6 +479,8 @@
 
             const venc = valorDe('vencimento');
             if (!/^\d{4}-\d{2}-\d{2}$/.test(venc)) { return { novos: [], erro: BJ_T.t('pasta_financeiro.js.erro_vencimento') }; }
+
+            if (tipo === 'recorrente') { return calcularRecorrente(total, venc); }
 
             const entDigitada = centavosDe(valorDe('entrada'));
             if (Number.isNaN(entDigitada)) { return { novos: [], erro: erroFormato() }; }
@@ -507,6 +528,11 @@
             el.blocoVal.hidden  = previsto;
             el.blocoPct.hidden  = !previsto;
             el.descricao.hidden = previsto;
+            // Recorrente troca os rótulos "Valor total" e "Parcelas" por "Valor mensal" e "Meses" (dc 27.10).
+            const rec = valorDe('tipo') === 'recorrente';
+            modalEl.querySelectorAll('[data-rotulo-padrao]').forEach((r) => {
+                r.textContent = rec ? r.dataset.rotuloRecorrente : r.dataset.rotuloPadrao;
+            });
 
             const { novos, erro } = calcular();
             const soma = novos.reduce((t, x) => t + x.v, 0);

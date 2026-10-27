@@ -117,6 +117,7 @@ pasta_financeiro:
         vencidas_um: '{n} parcela vencida · {valor}'
         vencidas_varias: '{n} parcelas vencidas · {valor}'
         # selos e honorários
+        mensalidade_de: 'Mensalidade {numero}/{n} · honorários recorrentes'
         contrato_sem_arquivo: Anexe o arquivo do contrato em Contratos para marcar como assinado.
         contrato_assinado: Assinado
         contrato_pendente: Pendente
