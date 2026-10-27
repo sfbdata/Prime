@@ -296,7 +296,7 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     `POST /dashboard/inteligencia/alerta`; tocar de novo desfaz; persiste até desfazer. O UseCase lê e regrava o mapa
     inteiro (o último a gravar vence); gravar uma chave por alerta fica como melhoria se virar problema.
   - **Pendências**: "Criar tarefa" (não há tela de tarefa avulsa para receber o título); objetivo por períodos anteriores
-    (precisa guardar o histórico de concluídas por período); plano "Aumentar o nível".
+    (precisa guardar o histórico de concluídas por período); plano "Aumentar o nível" (feito no PR-K).
 
 - **PR-H (feito: "Simular dia" do rodapé da Inteligência; sem migration)**. Decisão do dono: implementar como o desenho 01 (dc L1341-1347,
   L2572, L2582-2638): faixa "Teste · simular dia" no rodapé, controle de 1 ao último dia do período, número do dia à direita,
@@ -311,6 +311,24 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
   - **Tela**: o controle fica fora do `.db-ia-corpo`; o `dashboard-inteligencia.js` (250 ms depois de parar) pede o fragmento com
     `dia_simulado` e troca só o corpo; o dia de hoje não manda o parâmetro (desfaz); fechar o painel desfaz. Trocar um filtro também desfaz.
   - **Fora**: os cartões do Modo avançado (`MotorAvancado`) seguem o `TempoDoPeriodo` simulado, mas sem escala de realizado.
+
+- **PR-K (feito: "Aumentar o nível" do painel Inteligência; sem migration)**. Decisão do dono: implementar como o desenho 01 (dc L1284-1325,
+  L2668-2692; `planoCrescimento()` em bluejus-intelligence.js L152-184). Só o primário/Master vê (`podeMeta`), sem pessoa selecionada.
+  - **Base real**: a meta de pastas do mês (`RitmoDaMeta`). O desenho parte de um "objetivo" de períodos anteriores que o sistema não
+    guarda. Some quando não há `RitmoDaMeta` (sem meta, fora do mês inteiro, com responsável/cargo, com pasta oculta pelo cadeado),
+    como o selo do PR-G; não há estado de "sem histórico" porque o bloco não aparece.
+  - **Fórmulas** (`MontarPlanosDeCrescimento`, dias úteis): nova meta = `min(9999, ceil(meta x (1 + nível)))`, nível 0/10/20/35% (`NivelDeCrescimento`);
+    faltam = `max(0, nova - criadas no mês)`; dias = `max(1, dias úteis que restam)`; ritmo = faltam / dias; teto = `max(ritmo atual x 1,25 ; 0,01)`
+    (o `melhorRitmo` do desenho é atual x 1,15, então o teto é o mesmo); esforço = ritmo / teto; viabilidade: até 0,8 Viável, até 1 Desafiador, até 1,25 Arriscado,
+    acima Fora da capacidade; sem ritmo atual (nenhuma pasta criada) e com pasta por criar, "Sem base". Meta por colaborador: faltam dividido na proporção
+    das pastas que cada pessoa já criou no mês (capacidade real, no lugar da fórmula do desenho sobre metas), pelo maior resto, soma = faltam, até 6 pessoas;
+    a chave é o id da pessoa (homônimos não se somam); a soma de "faltam" vale para todas as pessoas com pasta criada, mas a lista exibe só as 6 maiores e só quem tem cota maior que zero; sem ninguém com pasta criada, a lista não aparece. Marcos: um por semana útil (5 dias), alvo = criadas + ritmo x dias, último = "Fim" = nova meta (também quando nada falta). Com a meta no teto de 9999, o resumo usa o texto neutro (sem "+0%").
+  - **Alavancas**: metas vencidas, prazos próximos, concentrar nas 2 pessoas que mais criaram, nível abaixo se Arriscado/Fora. O desenho calcula "zerar as vencidas cobre X% do que
+    falta": metas vencidas e pastas por criar são universos diferentes, então a razão não existe aqui.
+  - **Aplicar**: o POST de sempre da meta (`dashboard_meta_pastas_definir`, `DefinirMetaDePastasDoMesUseCase`: primário, 1..9999, CSRF, módulo bi), sem endpoint novo.
+    Manter não tem botão (gravaria a mesma meta). Depois de gravar, o JS recarrega o fragmento (cards e painel) e reabre o painel.
+  - **Textos**: "A IA monta" virou "Por regras fixas, o painel monta"; "conclusões" virou "pastas". Os 4 níveis chegam prontos; o JS só alterna o painel visível.
+  - **Fora**: a escolha do nível não é guardada (abre sempre em +10%, como o dc `iaNivel: 1`).
 
 - **PR-I (feito: análise individual da pessoa no painel Intelligence, por regras fixas; sem migration)**. Dc 01 VS 25.10.26: botão da linha (L720), "← Equipe" (L787), perfil (L1098-1190, L2431-2480).
   - **Contrato**: `GET /dashboard/inteligencia/pessoa/{id}?data_de&data_ate` devolve o fragmento `_perfil_pessoa.html.twig` (XHR; o `dashboard-perfil-pessoa.js` injeta em `[data-ia-individual]`, irmão do `.db-ia-corpo`);
