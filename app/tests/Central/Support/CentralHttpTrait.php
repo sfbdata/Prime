@@ -38,6 +38,17 @@ trait CentralHttpTrait
         return $client;
     }
 
+    /**
+     * A lista de conversas da última resposta de `/central/conversas`, sem a conversa com o BlueJus IA (que a lista traz
+     * sempre, F3 PR 3a): os testes das conversas entre pessoas comparam só as delas.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function conversasSemIa(KernelBrowser $client): array
+    {
+        return array_values(array_filter($this->json($client)['conversas'], static fn (array $c): bool => $c['ia'] !== true));
+    }
+
     private function colega(Tenant $tenant, string $rotulo): User
     {
         return $this->criarUsuarioComPermissoes($tenant, [], $rotulo);

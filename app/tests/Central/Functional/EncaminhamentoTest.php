@@ -151,7 +151,7 @@ final class EncaminhamentoTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $ana, $tenant);
         $client->request('GET', '/central/conversas');
-        self::assertSame([], $this->json($client)['conversas'], 'nenhuma conversa aberta pelos pedidos recusados');
+        self::assertSame([], $this->conversasSemIa($client), 'nenhuma conversa aberta pelos pedidos recusados');
     }
 
     #[TestDox('Urgente: o colega ganha um aviso "Despacho urgente de NOME", com o link da conversa e sem o texto')]
@@ -224,7 +224,7 @@ final class EncaminhamentoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
 
         $client->request('GET', '/central/conversas');
-        self::assertSame([], $this->json($client)['conversas']);
+        self::assertSame([], $this->conversasSemIa($client));
     }
 
     /** O despacho de verdade, com as peças do container, menos a auditoria, que falha. */

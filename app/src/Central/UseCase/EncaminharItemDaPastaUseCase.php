@@ -136,6 +136,10 @@ final class EncaminharItemDaPastaUseCase
     private function conversaQueTodosVeem(User $eu, Tenant $tenant, Pasta $pasta, TipoDeItemEncaminhado $tipo, int $conversaId): array
     {
         $conversa = $this->acesso->participacao($conversaId, $eu, $tenant)->getConversa();
+        if ($conversa->isIa()) {
+            // A conversa do BlueJus IA é privada e não recebe mensagem de pessoa: nunca é destino de despacho.
+            throw new PedidoInvalidoNaCentralException('Não é possível encaminhar para o BlueJus IA.');
+        }
         $pessoas = $this->guarda->quemRecebe($conversa, $eu, $tenant, $this->acesso->idsComVinculoAtivo($tenant));
         if ($pessoas === []) {
             throw new PedidoInvalidoNaCentralException(GuardaDoEncaminhamento::MOTIVO_SEM_DESTINATARIO);

@@ -77,7 +77,7 @@ final class ListarDestinosDoEncaminhamentoUseCase
     private function minhasConversas(User $eu, Tenant $tenant, array $ativos, \Closure $ve, array &$comConversa): array
     {
         $destinos = [];
-        foreach ($this->participantes->doUsuario($eu, $tenant) as $participacao) {
+        foreach ($this->participantes->doUsuario($eu, $tenant, semIa: true) as $participacao) {
             $conversa = $participacao->getConversa();
             if ($conversa->isGrupo()) {
                 $destinos[] = $this->grupo($conversa, $eu, $tenant, $ativos, $ve);

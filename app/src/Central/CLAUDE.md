@@ -84,8 +84,17 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
 `(tenant_id, criada_em)` da janela do polling; `resposta_a_id` só da MESMA conversa; `sistema` = linha "Ana adicionou
 Bruno", montada pelo servidor; `de_ia` = fala do BlueJus IA, conta como de OUTRA pessoa). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
 do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.
-Tipo `ia` (F3, `docs/specs/ia-chat-central.md`): uma por (escritório, usuário), `menor = maior = o usuário`, só ele participa. **Invisível por ora:**
-lista, não lidas, novidades, contatos e `daConversa` excluem `tipo = ia` (abrir por id = 404) até o PR da tela.
+Tipo `ia` (F3, `docs/specs/ia-chat-central.md`): uma por (escritório, usuário), `menor = maior = o usuário`, só ele participa. **Visível só ao dono (PR 3a):**
+`daConversa`, `doUsuario`, `idsDasConversasAtivas`, não lidas, novidades e a janela do polling a incluem (só ele é participante, então
+outra pessoa continua com 404). **Onde a IA fica de fora, por parâmetro explícito:** `doUsuario(semIa: true)` nos destinos do Encaminhar
+e `naoLidasPorUsuario(semIa: true)` na Equipe (o "em aberto" é visível a todos e o uso do chat é pessoal). `individualEntre` nunca a devolve.
+A lista (`ListarConversasUseCase`) traz sempre a conversa IA (`tipo = 'ia'`, `ia = true`, `outro = null`, nome "BlueJus IA"; cria se não existir
+e "Excluir" não a esconde); `MensagemOutput.deIa` marca a fala dela (`minha` falso, `autorNome` "BlueJus IA"). **Envio comum na conversa IA é
+recusado** (`EnvioNaConversaComAIaException`, 403 `codigo: conversa_ia`; o Encaminhar também recusa): só se pergunta, por
+`POST /central/ia/perguntas` (`IaDaCentralController`; CSRF `ajax`, `inteligencia_solicitar` por usuário; 201 nova / 202 em andamento, só ids e
+estado, nunca texto) e `GET /central/ia/perguntas/{analiseId}` (`ConsultarStatusDaPerguntaDaIaUseCase`: só estado, mensagem fixa em
+`falhou`/`indisponivel`; análise de outro usuário, escritório, tipo ou alvo = 404). Pergunta `pendente`/`processando` há mais de 10 minutos não conta
+como em andamento: a próxima a encerra como `falhou`.
 A resposta da IA entra pela porta `Inteligencia\Contract\ConversaDaIaNaCentral` (`Service\ConversaDaIaDaCentral`, PR 2a): relê a pergunta
 (autora = dono, `de_ia = false`, mesma conversa e escritório, vínculo ativo) e as 12 mensagens anteriores (corte `limpa_ate_id`),
 e grava a fala `de_ia` (≤ 4000 caracteres, `@[` desarmado). Tenant explícito; provado em `IsolamentoDosRepositoriosDaCentralTest`.
