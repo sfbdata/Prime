@@ -868,6 +868,9 @@ master:
             motivo_padrao: Convênio não renovado
             valor_invalido: Valor inválido.
             erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_importar: Não foi possível importar o arquivo. Tente de novo.
+            importados: '{n} lançamento(s) importado(s).'
+            importados_ignoradas: '{n} lançamento(s) importado(s), {ignoradas} linha(s) ignorada(s).'
             erro_carregar: Não foi possível carregar os convênios.
             rotulo_conta: 'Convênio OAB/{uf}'
             rotulo_conta_dif: 'Convênio OAB/{uf} · valor diferenciado {valor}/mês'
@@ -1304,6 +1307,8 @@ master:
         mes: Mês
         nota: Receita atual, não histórica. Os custos são os lançados no mês escolhido.
         copiar: Copiar do mês anterior
+        importar: Importar CSV
+        exportar: Exportar
         lancar: Lançar custo
         cancelar: Cancelar
         campo_categoria: Categoria
