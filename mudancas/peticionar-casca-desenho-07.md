@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: alteracao
 ---
 ## Changelog
 - Peticionar: lista de documentos, rodapé e pré-visualização refeitos conforme o desenho 07. Adicionar peça mostra as opções Anexo e Texto com as dicas do desenho.
