@@ -12,6 +12,7 @@ use App\Pasta\Controller\PeticionarController;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Service\PosicaoDoDocumentoNovo;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -70,6 +71,50 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         self::assertCount(2, $crawler->filter('nav.navtop .navtop-right > *'));
         self::assertCount(0, $crawler->filter('nav.navtop #notificacaoDropdownToggle, nav.navtop [data-lte-toggle="fullscreen"], nav.navtop .menu-usuario'));
         self::assertCount(1, $crawler->filter('nav.navtop .petic-navtop-info > .petic-navtop-nup'));
+    }
+
+    #[TestDox('a lista segue a ordem manual da pasta (a da aba Documentos), com o número da posição e linhas arrastáveis')]
+    public function testListaSegueAOrdemManual(): void
+    {
+        [$client, $pasta, $tenant] = $this->cenario();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $a = $this->documento($pasta, $tenant, 'a.pdf', 'application/pdf', 100);
+        $b = $this->documento($pasta, $tenant, 'b.pdf', 'application/pdf', 100);
+        $c = $this->documento($pasta, $tenant, 'c.pdf', 'application/pdf', 100);
+        $c->setOrdem(1);
+        $a->setOrdem(2);
+        $b->setOrdem(3);
+        $em->flush();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+
+        self::assertResponseIsSuccessful();
+        $linhas = $crawler->filter('#tlInner > .petic-tl-row');
+        self::assertSame(
+            [(string) $c->getId(), (string) $a->getId(), (string) $b->getId()],
+            $linhas->each(static fn (Crawler $l): string => (string) $l->attr('data-doc-id')),
+        );
+        self::assertSame(['1', '2', '3'], $crawler->filter('#tlInner > .petic-tl-row .petic-tl-card-top > .petic-tl-ord')->each(static fn (Crawler $n): string => trim($n->text())));
+        self::assertSame('true', $linhas->first()->attr('draggable'));
+        $lista = $crawler->filter('#timelineList');
+        self::assertSame("/pasta/{$pasta->getId()}/documentos/reordenar", $lista->attr('data-url-reordenar'));
+        self::assertNotEmpty($lista->attr('data-csrf-reordenar'));
+    }
+
+    #[TestDox('o documento novo entra no fim da ordem manual da pasta')]
+    public function testDocumentoNovoEntraNoFim(): void
+    {
+        [, $pasta, $tenant] = $this->cenario();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $a  = $this->documento($pasta, $tenant, 'a.pdf', 'application/pdf', 100);
+        $a->setOrdem(7);
+        $em->flush();
+
+        $posicao = static::getContainer()->get(PosicaoDoDocumentoNovo::class);
+        $novo    = $this->documento($pasta, $tenant, 'novo.pdf', 'application/pdf', 100);
+        $posicao->aoFim($novo, $pasta, $tenant);
+
+        self::assertSame(8, $novo->getOrdem());
     }
 
     #[TestDox('cada linha tem os três pontos e os data-* das rotas de renomear, classificar, baixar e excluir')]
@@ -295,7 +340,8 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         // O cartão é filho direto da linha, e a linha, filha direta da lista (sem o trilho nem a bolinha).
         $id = (int) $doc->getId();
         self::assertCount(1, $crawler->filter(sprintf('#tlInner > .petic-tl-row[data-doc-id="%d"] > .petic-tl-card', $id)));
-        self::assertCount(1, $crawler->filter('#tlInner > .petic-tl-datesep > span'));
+        self::assertCount(0, $crawler->filter('.petic-tl-datesep'), 'o desenho não tem separador de dia');
+        self::assertSame('1', trim($crawler->filter(sprintf('#tlInner > .petic-tl-row[data-doc-id="%d"] .petic-tl-card-top > .petic-tl-ord', $id))->text()));
     }
 
     #[TestDox('rodapé (L65-74): botão e popover do desenho são filhos diretos do rodapé, com Anexo e Texto e seus subtítulos')]

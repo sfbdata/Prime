@@ -10,6 +10,7 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Service\PosicaoDoDocumentoNovo;
 use App\Pasta\Service\AvisoDePastaAcompanhada;
 use App\Pasta\Service\ContadorDePaginasDePdf;
 use App\Pasta\Service\DetectorDeAssinaturaDigital;
@@ -145,6 +146,7 @@ final class UploadPecaUseCase
         private readonly ContadorDePaginasDePdf $contadorDePaginas,
         private readonly DetectorDeAssinaturaDigital $detectorDeAssinatura,
         private readonly ?AvisoDePastaAcompanhada $avisoDeAcompanhamento = null,
+        private readonly ?PosicaoDoDocumentoNovo $posicaoDoDocumentoNovo = null,
     ) {}
 
     /** @param (\Closure(\App\Shared\Armazenamento\ChaveDeArquivo): void)|null $aoGravar recebe a chave logo depois da gravação */
@@ -251,6 +253,7 @@ final class UploadPecaUseCase
      */
     private function gravarEAvisar(bool $avisar, PastaDocumento $doc, Pasta $pasta, Tenant $tenant, ?User $autor): void
     {
+        $this->posicaoDoDocumentoNovo?->aoFim($doc, $pasta, $tenant);
         $this->em->persist($doc);
         $this->em->flush();
         if ($avisar) {

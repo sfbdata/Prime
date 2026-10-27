@@ -62,6 +62,8 @@
         <div class="petic-timeline-list"
              id="timelineList"
              data-pode-editar="{{ podeEditarPasta ? '1' : '0' }}"
+             data-url-reordenar="{{ path('pasta_documentos_reordenar', {id: pasta.id})|e('html_attr') }}"
+             data-csrf-reordenar="{{ csrf_token('reordenar_docs_pasta_' ~ pasta.id)|e('html_attr') }}"
              data-url-excluir="{{ path('pasta_documentos_excluir_lote', {id: pasta.id})|e('html_attr') }}"
              {# Os tokens de escrita só vão para quem pode editar (e nunca na pasta excluída). #}
              {% if podeEditarPasta %}
@@ -75,11 +77,9 @@
              data-cor-categoria="{{ categoriaCorMap|json_encode|e('html_attr') }}"
              data-icones="{{ iconesDoEnvio|json_encode|e('html_attr') }}">
             <div class="petic-tl-inner" id="tlInner">
-                {% set lastDate = null %}
-                {% for doc in documentos %}
+                                {% for doc in documentos %}
                     {% set catLabel  = categoriaLabels[doc.categoria] ?? doc.categoria %}
                     {% set catCor    = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary' %}
-                    {% set docDate   = doc.carregadoEm|data %}
                     {% set ehTexto   = doc.mimeType == 'text/html' %}
                     {# O nome é o mesmo da aba Documentos (nome_original), que é o que o Renomear
                        grava; na peça de texto, sem o ".html" que o editor acrescenta. #}
@@ -87,13 +87,8 @@
                     {% set icone = ehTexto ? {icone: 'bi-file-earmark-text-fill', cor: '#0a6fa0'} : arquivo_icone(doc.nomeOriginal, doc.mimeType) %}
                     {% set bytes = doc.tamanhoBytes %}
                     {% set tamanhoTexto = bytes > 1048576 ? ((bytes / 1048576)|number_format(1, ',', '.') ~ ' MB') : (max(1, (bytes / 1024)|round) ~ ' KB') %}
-                    {% if docDate != lastDate %}
-                        <div class="petic-tl-datesep" data-date="{{ docDate }}">
-                            <span>{{ docDate }}</span>
-                        </div>
-                        {% set lastDate = docDate %}
-                    {% endif %}
                     <div class="petic-tl-row"
+                         {% if podeEditarPasta %}draggable="true"{% endif %}
                          data-doc-id="{{ doc.id }}"
                          data-view-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
                          data-download-url="{{ path('pasta_documento_download', {id: doc.id}) }}"
@@ -118,6 +113,7 @@
                          {% endif %}>
                         <div class="petic-tl-card">
                             <div class="petic-tl-card-top">
+                                <span class="petic-tl-ord">{{ loop.index }}</span>
                                 <i class="bi {{ icone.icone }} petic-tl-icon petic-doc-icone" style="color: {{ icone.cor }}" aria-hidden="true"></i>
                                 <span class="petic-tl-titulo" title="{{ nomeExibido|e('html_attr') }}">{{ nomeExibido }}</span>
                             </div>
@@ -512,28 +508,11 @@
     document.getElementById('timelinePesquisa').addEventListener('input', function () {
         const termo   = this.value.trim().toLowerCase();
         const itens   = tlInner.querySelectorAll('.petic-tl-row');
-        const seps    = tlInner.querySelectorAll('.petic-tl-datesep');
-
-        // Esconde todos os seps; reexibe só os que têm ao menos um item visível abaixo
-        seps.forEach(s => s.style.display = 'none');
-
         let visiveis = 0;
         itens.forEach(item => {
             const match = !termo || (item.dataset.titulo ?? '').toLowerCase().includes(termo);
             item.style.display = match ? '' : 'none';
             if (match) visiveis++;
-        });
-
-        // Reexibe separador de data se houver pelo menos um item visível no grupo
-        seps.forEach(sep => {
-            let node = sep.nextElementSibling;
-            while (node && !node.classList.contains('petic-tl-datesep')) {
-                if (node.classList.contains('petic-tl-row') && node.style.display !== 'none') {
-                    sep.style.display = '';
-                    break;
-                }
-                node = node.nextElementSibling;
-            }
         });
 
         const badge = document.getElementById('badgeCount');

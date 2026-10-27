@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\PosicaoDoDocumentoNovo;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Pasta\Exception\TituloDePecaLongoDemaisException;
@@ -49,6 +50,7 @@ final class SalvarPecaTextoUseCase
         private readonly EntityManagerInterface $em,
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly ?AvisoDePastaAcompanhada $avisoDeAcompanhamento = null,
+        private readonly ?PosicaoDoDocumentoNovo $posicaoDoDocumentoNovo = null,
     ) {}
 
     public function executar(
@@ -95,6 +97,7 @@ final class SalvarPecaTextoUseCase
         $doc->setSha256(Sha256DeArquivo::deTexto($conteudoHtml));
         $doc->setSecao($secao);
 
+        $this->posicaoDoDocumentoNovo?->aoFim($doc, $pasta, $tenant);
         $this->em->persist($doc);
         $this->em->flush();
         $this->avisoDeAcompanhamento?->aoIncluirDocumento($doc, $pasta, $tenant, $autor);
