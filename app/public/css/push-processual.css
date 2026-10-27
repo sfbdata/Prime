@@ -129,7 +129,6 @@
 .pp-ctx__item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; background: #fff; padding: 8px 14px; font: inherit; font-size: 13.5px; color: #12242f; cursor: pointer; text-align: left; }
 .pp-ctx__item:hover { background: #eaf3f9; }
 .pp-ctx__item > i { width: 16px; }
-.pp-aviso { margin: 8px 16px; }
 
 /* Vincular e desvincular a pasta pela linha, e o modal "Vincular a uma pasta" (desenho 11). */
 .pp-icone { height: 30px; padding: 0 9px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font: inherit; font-size: 12.5px; cursor: pointer; }
@@ -194,3 +193,6 @@
 @media (max-width: 640px) { .pp-det__grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pp-modal__usar { height: 34px; padding: 0 13px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font-size: 13px; font-weight: bold; cursor: pointer; }
 .pp-modal__usar[hidden] { display: none; }
+
+/* Toast (desenho 11) */
+.pp-toast { position: fixed; z-index: 9500; left: 50%; bottom: 22px; transform: translateX(-50%); background: #12242f; color: #fff; font-size: 13.5px; padding: 10px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); max-width: calc(100vw - 24px); }

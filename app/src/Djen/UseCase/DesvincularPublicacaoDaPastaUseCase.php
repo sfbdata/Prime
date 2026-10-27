@@ -12,6 +12,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
+use App\Processo\Repository\ProcessoRepository;
 
 /**
  * "Desvincular da pasta" na linha da publicação (desenho 11). Tira o PROCESSO da pasta; ele continua
@@ -24,6 +25,7 @@ final class DesvincularPublicacaoDaPastaUseCase
         private readonly PastaRepository $pastas,
         private readonly AcessoAPasta $acesso,
         private readonly DesvincularProcessoUseCase $desvincular,
+        private readonly ProcessoRepository $processos,
     ) {
     }
 
@@ -37,6 +39,29 @@ final class DesvincularPublicacaoDaPastaUseCase
         $pasta = $this->pastas->findOneBy(['id' => $pastaId, 'tenant' => $tenant]);
         if (!$pasta instanceof Pasta || !$pasta->temProcesso($processo)) {
             throw new VinculoDaPublicacaoInvalidoException('A publicação não está vinculada a esta pasta.');
+        }
+        if (!$this->acesso->podeEditar($usuario, $pasta)) {
+            throw new VinculoDaPublicacaoInvalidoException('Você não tem permissão para alterar esta pasta.');
+        }
+
+        $this->desvincular->executar($pasta, $processo, $usuario);
+
+        return $pasta;
+    }
+
+    /**
+     * Aba Processos da OAB: "Desvincular da pasta" pelo número do processo.
+     *
+     * @throws VinculoDaPublicacaoInvalidoException
+     */
+    public function executarPorNumero(Tenant $tenant, User $usuario, string $numero, int $pastaId): Pasta
+    {
+        $numero = preg_replace('/\D+/', '', $numero) ?? '';
+        $processo = $this->processos->findByNumeroProcessoDoTenant($numero, $tenant)
+            ?? throw new VinculoDaPublicacaoInvalidoException('O processo não está vinculado a uma pasta.');
+        $pasta = $this->pastas->findOneBy(['id' => $pastaId, 'tenant' => $tenant]);
+        if (!$pasta instanceof Pasta || !$pasta->temProcesso($processo)) {
+            throw new VinculoDaPublicacaoInvalidoException('O processo não está vinculado a esta pasta.');
         }
         if (!$this->acesso->podeEditar($usuario, $pasta)) {
             throw new VinculoDaPublicacaoInvalidoException('Você não tem permissão para alterar esta pasta.');

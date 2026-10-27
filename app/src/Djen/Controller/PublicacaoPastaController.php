@@ -83,6 +83,33 @@ final class PublicacaoPastaController extends AbstractController
         });
     }
 
+    /** Aba Processos da OAB: o processo é identificado pelo número, sem publicação na mão. */
+    #[Route('/processo/vincular', name: 'push_processual_processo_vincular', methods: ['POST'])]
+    public function vincularProcessoAction(Request $request): Response
+    {
+        return $this->agir($request, function (Tenant $tenant, User $usuario) use ($request): string {
+            $trocar = (int) $request->request->get('trocar_da_pasta_id', 0);
+            $numero = (string) $request->request->get('numero', '');
+            $nup = trim((string) $request->request->get('nup', ''));
+            $pasta = $nup !== '' && (int) $request->request->get('pasta_id', 0) === 0
+                ? $this->vincular->executarPorNumeroENup($tenant, $usuario, $numero, $nup, $trocar > 0 ? $trocar : null)
+                : $this->vincular->executarPorNumero($tenant, $usuario, $numero, (int) $request->request->get('pasta_id', 0), $trocar > 0 ? $trocar : null);
+
+            return sprintf('Processo %s vinculado à Pasta %s.', $numero, $pasta->getNup() ?? '#' . $pasta->getId());
+        });
+    }
+
+    #[Route('/processo/desvincular', name: 'push_processual_processo_desvincular', methods: ['POST'])]
+    public function desvincularProcessoAction(Request $request): Response
+    {
+        return $this->agir($request, function (Tenant $tenant, User $usuario) use ($request): string {
+            $numero = (string) $request->request->get('numero', '');
+            $pasta = $this->desvincular->executarPorNumero($tenant, $usuario, $numero, (int) $request->request->get('pasta_id', 0));
+
+            return sprintf('Processo %s desvinculado da Pasta %s.', $numero, $pasta->getNup() ?? '#' . $pasta->getId());
+        });
+    }
+
     #[Route('/{id}/desvincular', name: 'push_processual_publicacao_desvincular', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function desvincularAction(int $id, Request $request): Response
     {
