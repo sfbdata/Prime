@@ -7,6 +7,7 @@ namespace App\Master\Service;
 use App\Master\Repository\ConfiguracaoGlobalRepository;
 use App\Shared\Contract\ConfiguracaoDaPlataforma;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Leitor das configurações globais (spec `login-config-cadastro.md`): o valor gravado na ConfiguracaoGlobal, senão o
@@ -19,12 +20,16 @@ final class LeitorDeConfiguracaoDaPlataforma implements ConfiguracaoDaPlataforma
     public function __construct(
         private readonly ConfiguracaoGlobalRepository $repositorio,
         private readonly ?LoggerInterface $logger = null,
+        #[Autowire('%app.sessao_padrao_minutos%')]
+        private readonly ?int $sessaoPadraoMinutos = null,
     ) {
     }
 
     public function valor(string $chave): string
     {
-        $padroes = CatalogoDeConfiguracoes::padroes();
+        $padroes = CatalogoDeConfiguracoes::padroes(
+            $this->sessaoPadraoMinutos === null ? [] : CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos),
+        );
         if (!array_key_exists($chave, $padroes)) {
             return '';
         }
