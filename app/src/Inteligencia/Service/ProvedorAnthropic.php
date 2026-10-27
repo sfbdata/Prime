@@ -59,6 +59,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     private const STATUS_TRANSITORIOS = [408, 429, 500, 502, 503, 504, 529];
     private const ESFORCOS = ['low', 'medium', 'high', 'xhigh', 'max'];
     public const MARGEM_DE_RACIOCINIO_PADRAO = 8000;
+    private const FATOR_DA_SEGUNDA_TENTATIVA = 2;
     /**
      * O "Ler N documentos" (PR F) manda até 20 MB e 100 páginas: a resposta demora mais que a de um comando sobre
      * metadados. Só o pedido com anexos usa este teto; o resto segue o configurado.
@@ -136,12 +137,22 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
 
     public function completar(PedidoDeLinguagem $pedido): RespostaDeLinguagem
     {
+        return $this->completarComTeto($pedido, 1);
+    }
+
+    /**
+     * `$fator` multiplica o teto de `max_tokens`. Resposta cortada no limite (`stop_reason = max_tokens`) é repetida UMA
+     * vez com o dobro: o corte costuma ser do raciocínio somado à resposta, e uma pasta longa não deve virar "falha
+     * definitiva" de cara. Cortada de novo, falha como antes. A primeira tentativa é paga e não entra no registro de uso.
+     */
+    private function completarComTeto(PedidoDeLinguagem $pedido, int $fator): RespostaDeLinguagem
+    {
         $modelo = $this->modeloEfetivo();
         if (!$this->configurado($modelo)) {
             throw new ProvedorIndisponivelException('Provedor de IA (Anthropic) sem chave ou modelo configurado nesta instalação.');
         }
 
-        $corpo = $this->corpo($pedido, $modelo);
+        $corpo = $this->corpo($pedido, $modelo, $fator);
         $inicio = hrtime(true);
 
         try {
@@ -177,15 +188,19 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
             throw $this->falhaPorStatus($status, $dados, $requisicao, self::segundosDeEspera($cabecalhos['retry-after'][0] ?? null));
         }
 
+        if ($fator === 1 && ($dados['stop_reason'] ?? null) === 'max_tokens') {
+            return $this->completarComTeto($pedido, self::FATOR_DA_SEGUNDA_TENTATIVA);
+        }
+
         return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000), $modelo);
     }
 
     /** @return array<string, mixed> */
-    private function corpo(PedidoDeLinguagem $pedido, string $modelo): array
+    private function corpo(PedidoDeLinguagem $pedido, string $modelo, int $fator = 1): array
     {
         $corpo = [
             'model'      => $modelo,
-            'max_tokens' => $pedido->maxTokens + $this->margemDeRaciocinio,
+            'max_tokens' => ($pedido->maxTokens + $this->margemDeRaciocinio) * $fator,
             'messages'   => self::mensagens($pedido),
         ];
         if ($this->esforco !== '') {
