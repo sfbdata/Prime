@@ -1,12 +1,18 @@
 {# Seção "Desempenho" do /master (#sec=desemp). Desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html:
    marcação L271-280 e lógica `opsVals`/`desemp` L939-961; spec docs/specs/master-desempenho.md (PR 3: leitura).
-   Sem os botões "Abrir incidente", "Resolver", "Backup", "Teste" e "Limpar registros", que entram no PR 4 (gravação).
+   PR 4 (gravação): "Abrir incidente", "Resolver", "Backup", "Teste" e "Limpar registros", numa janela no estilo da de
+   "Lançar custo" do desenho (L268), no lugar dos prompt() e confirm() do protótipo.
    Incluída pelo painel.html.twig num <div data-sec-externa="desemp"> (o mesmo mecanismo de Recompensas): o painel.js
    mostra esta seção no lugar da vazia e avisa a troca pelo evento `mp:secao`. Os números vêm por JSON quando a
    seção abre (public/js/master/desempenho.js); a regra de cor mora em ApuracaoDeDesempenho.
    Textos no catálogo (master.desempenho.*; os do JS em master.desempenho.js.*). #}
 <link rel="stylesheet" href="{{ asset('css/master-desempenho.css') }}">
-<div class="dpm" data-dpm data-url-dados="{{ path('master_dados_desempenho') }}">
+<div class="dpm" data-dpm data-url-dados="{{ path('master_dados_desempenho') }}"
+     data-url-incidente="{{ path('master_desempenho_incidente_abrir') }}"
+     data-url-resolver="{{ path('master_desempenho_incidente_resolver', {id: 0}) }}"
+     data-url-backup="{{ path('master_desempenho_backup_registrar') }}"
+     data-url-limpar="{{ path('master_desempenho_eventos_limpar') }}"
+     data-token="{{ csrf_token('master_desempenho') }}">
     <div class="dpm-barra">
         <div class="dpm-periodos" role="group" aria-label="{{ 'master.desempenho.periodo'|trans }}">
             <button type="button" class="dpm-periodo" data-dpm-periodo="1">{{ 'master.desempenho.periodo_24h'|trans }}</button>
@@ -14,6 +20,7 @@
             <button type="button" class="dpm-periodo" data-dpm-periodo="30">{{ 'master.desempenho.periodo_30d'|trans }}</button>
         </div>
         <span class="dpm-nota">{{ 'master.desempenho.nota'|trans }}</span>
+        <button type="button" class="dpm-botao" data-dpm-limpar><i class="bi bi-eraser" aria-hidden="true"></i>{{ 'master.desempenho.limpar'|trans }}</button>
     </div>
     <div class="dpm-aviso" data-dpm-aviso role="status" hidden></div>
     <div class="dpm-kpis" data-dpm-kpis aria-busy="true"></div>
@@ -23,6 +30,7 @@
                 <i class="bi bi-exclamation-octagon dpm-cabeca-ic" aria-hidden="true"></i>
                 <b class="dpm-cabeca-titulo">{{ 'master.desempenho.incidentes'|trans }}</b>
                 <span class="dpm-cabeca-sub" data-dpm-inc-abertos></span>
+                <button type="button" class="dpm-botao dpm-botao-primario" data-dpm-abrir-incidente><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'master.desempenho.abrir_incidente'|trans }}</button>
             </header>
             <div class="dpm-vazio" data-dpm-inc-vazio hidden>{{ 'master.desempenho.sem_incidentes'|trans }}</div>
             <div data-dpm-inc></div>
@@ -32,6 +40,8 @@
                 <i class="bi bi-hdd-network dpm-cabeca-ic" aria-hidden="true"></i>
                 <b class="dpm-cabeca-titulo">{{ 'master.desempenho.backups'|trans }}</b>
                 <span class="dpm-cabeca-sub">{{ 'master.desempenho.backups_sub'|trans }}</span>
+                <button type="button" class="dpm-botao" data-dpm-registrar="backup"><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'master.desempenho.btn_backup'|trans }}</button>
+                <button type="button" class="dpm-botao" data-dpm-registrar="restauracao"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>{{ 'master.desempenho.btn_teste'|trans }}</button>
             </header>
             <div class="dpm-vazio" data-dpm-bk-vazio hidden>{{ 'master.desempenho.sem_backups'|trans }}</div>
             <div data-dpm-bk></div>
@@ -53,6 +63,39 @@
             <div class="dpm-vazio dpm-vazio-ok" data-dpm-erros-vazio hidden><i class="bi bi-check-circle" aria-hidden="true"></i> {{ 'master.desempenho.sem_erros'|trans }}</div>
             <div data-dpm-erros></div>
         </section>
+    </div>
+    <div class="dpm-fundo" data-dpm-fundo hidden></div>
+    <div class="dpm-janela" data-dpm-janela hidden>
+        <form class="dpm-caixa-dlg" data-dpm-form role="dialog" aria-modal="true" aria-labelledby="dpm-dlg-titulo" novalidate>
+            <div class="dpm-dlg-cabeca"><i class="bi dpm-dlg-ic" data-dpm-dlg-ic aria-hidden="true"></i> <span id="dpm-dlg-titulo" data-dpm-dlg-titulo></span></div>
+            <div class="dpm-dlg-corpo">
+                <p class="dpm-dlg-texto" data-dpm-dlg-texto hidden></p>
+                <label class="dpm-campo dpm-campo-cheio" data-dpm-campo="titulo"><span>{{ 'master.desempenho.campo_titulo'|trans }}</span><input class="dpm-entrada" data-dpm-in="titulo" maxlength="160" autocomplete="off"></label>
+                <label class="dpm-campo" data-dpm-campo="categoria"><span>{{ 'master.desempenho.campo_categoria'|trans }}</span>
+                    <select class="dpm-entrada" data-dpm-in="categoria">
+                        {% for c in ['disponibilidade', 'login', 'upload', 'integracao', 'banco', 'outro'] %}<option value="{{ c }}">{{ ('master.desempenho.categoria.' ~ c)|trans }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="dpm-campo" data-dpm-campo="gravidade"><span>{{ 'master.desempenho.campo_gravidade'|trans }}</span>
+                    <select class="dpm-entrada" data-dpm-in="gravidade">
+                        {% for g in ['crit', 'alta', 'media', 'baixa'] %}<option value="{{ g }}"{% if g == 'media' %} selected{% endif %}>{{ ('master.desempenho.gravidade.' ~ g)|trans }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="dpm-campo dpm-campo-cheio" data-dpm-campo="solucao"><span>{{ 'master.desempenho.campo_solucao'|trans }}</span><input class="dpm-entrada" data-dpm-in="solucao" maxlength="500" autocomplete="off"></label>
+                <label class="dpm-campo" data-dpm-campo="ok"><span>{{ 'master.desempenho.campo_resultado'|trans }}</span>
+                    <select class="dpm-entrada" data-dpm-in="ok">
+                        <option value="1">{{ 'master.desempenho.resultado_ok'|trans }}</option>
+                        <option value="0">{{ 'master.desempenho.resultado_falhou'|trans }}</option>
+                    </select>
+                </label>
+                <label class="dpm-campo dpm-campo-cheio" data-dpm-campo="observacao"><span>{{ 'master.desempenho.campo_observacao'|trans }}</span><input class="dpm-entrada" data-dpm-in="observacao" maxlength="255" placeholder="{{ 'master.desempenho.observacao_dica'|trans }}" autocomplete="off"></label>
+                <span class="dpm-dlg-erro" data-dpm-dlg-erro role="alert" hidden></span>
+            </div>
+            <div class="dpm-dlg-rodape">
+                <button type="button" class="dpm-botao" data-dpm-cancelar><i class="bi bi-x" aria-hidden="true"></i>{{ 'master.desempenho.cancelar'|trans }}</button>
+                <button type="submit" class="dpm-botao dpm-botao-primario" data-dpm-confirmar><i class="bi bi-check2" aria-hidden="true"></i><span data-dpm-confirmar-txt></span></button>
+            </div>
+        </form>
     </div>
 </div>
 {{ catalogo_js('master.desempenho.js') }}

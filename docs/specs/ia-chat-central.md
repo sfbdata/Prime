@@ -9,7 +9,8 @@ membros = [eu, ia]).
 | PR | Entrega |
 |---|---|
 | 1 | Modelo: `TipoDeConversa::Ia`, `Mensagem.de_ia`, `AbrirConversaComAIaUseCase`. Invisível: sem tela, sem rota, sem resposta da IA. |
-| 2 | Fluxo da pergunta e da resposta, sem pasta no handler (a IA não lê pasta aqui). |
+| 2a | **Feito.** Fluxo da IA sem pasta no worker: `chat_central`, `FluxoDeAnaliseSemPasta`/`FluxoDoChatDaCentral`, `PromptDoChatDaCentral` (`chat-central-v1`), `InterpretadorDeRespostaDoChat`, porta `ConversaDaIaNaCentral`. Sem controller, rota nem UseCase de pergunta. |
+| 2b | UseCase/endpoint da pergunta (grava a mensagem, cria a análise `pendente` com `contexto_resumo.mensagemId`, enfileira) e a expiração das falas da IA. |
 | 3 | Interface: a conversa aparece na janela da Central; permissão de módulo da IA entra aqui. |
 | 4 | Contexto da tela e D12 ("todas as pastas do cliente"). |
 | 5 | Comandos "/" classe (a) (ver `designer-central-ia-comandos.md`). |
@@ -31,6 +32,8 @@ membros = [eu, ia]).
 5. Central é privada: as três tabelas seguem fora da auditoria e nada de texto em log. Purga de escritório já cobre
    `central_mensagem`, `central_participante` e `central_conversa`. Vínculo encerrado: `exigirVinculoAtivo` barra a
    pessoa, então a conversa IA fica inacessível (regras 1 a 9 da Central).
+
+Se a pessoa sair do escritório ou da conversa durante a chamada ao provedor, a fala não é gravada e a análise termina `falhou`; o provedor já cobrou, o que é aceito.
 
 ## TODO
 

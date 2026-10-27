@@ -15,4 +15,6 @@ enum TipoDeAnalise: string
     case AnalisePasta = 'analise_pasta';
     case PerguntaLivre = 'pergunta_livre';
     case ResumoDocumento = 'resumo_documento';
+    /** A conversa da pessoa com o BlueJus IA na Central (F3): sem pasta, o alvo é a conversa. */
+    case ChatDaCentral = 'chat_central';
 }

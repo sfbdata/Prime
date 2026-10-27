@@ -636,7 +636,15 @@
 .db-page .db-ia-teaser-seta { font-size: 14px; }
 
 /* rodapé */
-.db-page .db-ia-rodape { display: flex; align-items: center; gap: 7px; padding: 10px 16px 12px; border-top: 1px solid var(--db-ia-divisor); background: var(--db-ia-rodape-bg); font-size: 12px; color: var(--db-text-2); }
+.db-page .db-ia-rodape { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--db-ia-divisor); background: var(--db-ia-rodape-bg); font-size: 12px; color: var(--db-text-2); }
+.db-page .db-ia-rodape-linha { display: flex; align-items: center; gap: 7px; }
+/* Teste · simular dia (dc L1341-1347) */
+.db-page .db-ia-sim { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--db-faint); }
+.db-page .db-ia-sim-teste { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.db-page .db-ia-sim-range { flex: 1; accent-color: var(--db-accent); }
+.db-page .db-ia-sim-dia { font-family: Arial, Helvetica, sans-serif; font-weight: 700; color: var(--db-ia-chip-texto); min-width: 28px; text-align: right; }
+.db-page .db-ia-sim-aviso { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; padding: 9px 12px; border-radius: 4px; background: var(--db-ia-atencao-bg); color: var(--db-ia-atencao); font-size: 12px; line-height: 1.4; }
+.db-page .db-ia-sim-aviso i { margin-top: 1px; }
 .db-page .db-ia-rodape i { font-size: 12px; color: var(--db-accent); }
 
 /* ── Responsividade ──────────────────────────────────────────────────────── */
