@@ -13,6 +13,22 @@ pasta_modelos:
     relatorio_resumo: Relatório inicial da pasta (objetivos, acordos e resultado esperado)
     confirmar_excluir: 'Excluir o modelo "{titulo}"?'
     sufixo_copia: (ajustado)
+    lacuna: '___'
+    copiado: Texto copiado.
+    minuta_gerada: 'Minuta "{titulo}" gerada para a Pasta {pasta} e guardada nos documentos da pasta.'
+    corpo_novo: "EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA ___ VARA ___ DA COMARCA DE '{cidade}'\n\n'{cliente}', CPF '{cpf}', vem ___\n\nNestes termos, pede deferimento.\n\n'{cidade}', '{data}'.\n\n'{advogado}'\nOAB/'{oab}'"
+    modo:
+        modelo: Modelo
+        preenchido: Preenchido com esta pasta
+    dados:
+        titulo: DADOS DA PEÇA
+        sub: vêm da pasta; ajuste antes de gerar
+        placeholder: preencher
+        nota: Campos sem dado na pasta aparecem como ___ para você completar. Revise sempre a peça antes de protocolar.
+    acao:
+        copiar: Copiar
+        word: Word
+        usar: 'Usar na pasta {nup}'
     erro_generico: Não foi possível concluir. Tente novamente.
     coluna:
         todas: Todas as matérias
@@ -35,6 +51,7 @@ pasta_modelos:
         materia: MATÉRIA
         tipo: TIPO DE PEÇA
         texto: TEXTO DO MODELO
+        dica_variaveis: "use '{cliente}', '{cpf}', '{processo}', '{pasta}', '{cidade}', '{data}', '{advogado}', '{oab}'"
         cancelar: Cancelar
         salvar: Salvar modelo
         informe_titulo: Informe o título.

@@ -6,7 +6,7 @@
    Contexto: `pasta`, `podeEditarPasta`. O `<details>` do Relatório inicial mora no show. #}
 <div class="mdl" id="mdlRaiz"
      data-url-base="{{ path('pasta_modelos_listar', {id: pasta.id}) }}"
-     data-token="{{ podeEditarPasta ? csrf_token('modelos_pasta_' ~ pasta.id) : '' }}"
+     data-token="{{ csrf_token('modelos_pasta_' ~ pasta.id) }}"
      data-pode-editar="{{ podeEditarPasta ? '1' : '0' }}"
      data-confirmar-excluir="{{ 'pasta_modelos.confirmar_excluir'|trans }}"
      data-titulo-novo="{{ 'pasta_modelos.editor.novo'|trans }}"
@@ -14,6 +14,12 @@
      data-usado="{{ 'pasta_modelos.linha.usado'|trans({n: '{n}'}) }}"
      data-sufixo-copia="{{ 'pasta_modelos.sufixo_copia'|trans }}"
      data-erro-generico="{{ 'pasta_modelos.erro_generico'|trans }}"
+     data-placeholder-dado="{{ 'pasta_modelos.dados.placeholder'|trans }}"
+     data-lacuna="{{ 'pasta_modelos.lacuna'|trans }}"
+     data-copiado="{{ 'pasta_modelos.copiado'|trans }}"
+     data-minuta-gerada="{{ 'pasta_modelos.minuta_gerada'|trans({titulo: '{titulo}', pasta: '{pasta}'}) }}"
+     data-nup="{{ pasta.nup }}"
+     data-corpo-novo="{{ 'pasta_modelos.corpo_novo'|trans }}"
      data-msg-titulo="{{ 'pasta_modelos.editor.informe_titulo'|trans }}">
     <div class="mdl-cartao">
         <div class="mdl-cab">
@@ -52,9 +58,24 @@
                             <span id="mdlVerSub"></span>
                         </div>
                     </div>
+                    <div class="mdl-modos">
+                        <div class="mdl-seletor">
+                            <button type="button" class="mdl-seletor-btn mdl-seletor-btn--ativo" data-modo="0">{{ 'pasta_modelos.modo.modelo'|trans }}</button>
+                            <button type="button" class="mdl-seletor-btn" data-modo="1">{{ 'pasta_modelos.modo.preenchido'|trans }}</button>
+                        </div>
+                    </div>
+                    <div class="mdl-dados" id="mdlDados" hidden>
+                        <b class="mdl-dados-titulo">{{ 'pasta_modelos.dados.titulo'|trans }}</b>
+                        <span class="mdl-dados-sub">{{ 'pasta_modelos.dados.sub'|trans }}</span>
+                        <div class="mdl-dados-grade" id="mdlDadosGrade"></div>
+                        <div class="mdl-dados-nota">{{ 'pasta_modelos.dados.nota'|trans }}</div>
+                    </div>
                     <div class="mdl-palco"><div class="mdl-folha" id="mdlVerCorpo"></div></div>
-                    {% if podeEditarPasta %}
-                        <div class="mdl-acoes">
+                    <div class="mdl-acoes">
+                        <button type="button" class="mdl-btn-acao" id="mdlCopiar"><i class="bi bi-copy"></i>{{ 'pasta_modelos.acao.copiar'|trans }}</button>
+                        <button type="button" class="mdl-btn-acao" id="mdlWord"><i class="bi bi-file-earmark-word"></i>{{ 'pasta_modelos.acao.word'|trans }}</button>
+                        {% if podeEditarPasta %}
+                            <button type="button" class="mdl-btn-acao mdl-btn-acao--azul" id="mdlUsar"><i class="bi bi-journal-plus"></i>{{ 'pasta_modelos.acao.usar'|trans({nup: pasta.nup}) }}</button>
                             <span class="mdl-menu-ancora">
                                 <button type="button" class="mdl-btn-quadrado" id="mdlMais" title="{{ 'pasta_modelos.mais_opcoes'|trans }}" aria-haspopup="true" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
                                 <div class="mdl-menu" id="mdlMenu" role="menu" hidden>
@@ -64,8 +85,8 @@
                                     <button type="button" class="mdl-menu-item mdl-menu-item--perigo" role="menuitem" data-acao="excluir"><i class="bi bi-trash3"></i>{{ 'pasta_modelos.menu.excluir'|trans }}</button>
                                 </div>
                             </span>
-                        </div>
-                    {% endif %}
+                        {% endif %}
+                    </div>
                 </section>
 
                 {% if podeEditarPasta %}
@@ -87,7 +108,7 @@
                             </label>
                         </div>
                         <div class="mdl-rotulo">
-                            <span>{{ 'pasta_modelos.editor.texto'|trans }}</span>
+                            <span>{{ 'pasta_modelos.editor.texto'|trans }} <span class="mdl-dica">{{ 'pasta_modelos.editor.dica_variaveis'|trans }}</span></span>
                             <div class="mdl-moldura"><textarea id="mdlCampoCorpo"></textarea></div>
                         </div>
                         <div class="mdl-erro" id="mdlErro" role="alert" hidden></div>
@@ -100,4 +121,5 @@
             </div>
         </div>
     </div>
+    <div class="mdl-toast" id="mdlToast" role="status" hidden></div>
 </div>
