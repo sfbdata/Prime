@@ -10,6 +10,7 @@ use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as ExcecaoDeHttp;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * Adaptador da API de Mensagens da Anthropic (Claude) para a porta {@see ProvedorDeLinguagem} — decisão D1 do
@@ -155,23 +156,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
         $corpo = $this->corpo($pedido, $modelo, $fator);
         $inicio = hrtime(true);
 
-        try {
-            $resposta = $this->httpClient->request('POST', rtrim($this->urlBase, '/') . '/v1/messages', [
-                'headers' => [
-                    'x-api-key'         => $this->chave,
-                    'anthropic-version' => self::VERSAO_DA_API,
-                    'content-type'      => 'application/json',
-                ],
-                'json'          => $corpo,
-                'timeout'       => $pedido->temAnexos() ? self::TIMEOUT_DA_LEITURA_EM_SEGUNDOS : $this->timeoutEmSegundos,
-                'max_redirects' => 0,
-            ]);
-            $status = $resposta->getStatusCode();
-            $cabecalhos = $resposta->getHeaders(false);
-        } catch (ExcecaoDeHttp $e) {
-            // Rede, DNS, TLS ou timeout: nada disso depende do pedido — tenta de novo. Sem encadear `$e` (ver docblock).
-            throw new FalhaDoProvedorException(sprintf('Anthropic: falha de comunicação (%s).', (new \ReflectionClass($e))->getShortName()), true);
-        }
+        [$resposta, $status, $cabecalhos] = $this->postar($pedido, $corpo);
 
         $requisicao = $cabecalhos['request-id'][0] ?? null;
         try {
@@ -193,6 +178,34 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
         }
 
         return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000), $modelo);
+    }
+
+    /**
+     * @param array<string, mixed> $corpo
+     *
+     * @return array{ResponseInterface, int, array<string, list<string>>}
+     */
+    private function postar(PedidoDeLinguagem $pedido, array $corpo): array
+    {
+        try {
+            $resposta = $this->httpClient->request('POST', rtrim($this->urlBase, '/') . '/v1/messages', [
+                'headers' => [
+                    'x-api-key'         => $this->chave,
+                    'anthropic-version' => self::VERSAO_DA_API,
+                    'content-type'      => 'application/json',
+                ],
+                'json'          => $corpo,
+                'timeout'       => $pedido->temAnexos() ? self::TIMEOUT_DA_LEITURA_EM_SEGUNDOS : $this->timeoutEmSegundos,
+                'max_redirects' => 0,
+            ]);
+            $status = $resposta->getStatusCode();
+            $cabecalhos = $resposta->getHeaders(false);
+        } catch (ExcecaoDeHttp $e) {
+            // Rede, DNS, TLS ou timeout: nada disso depende do pedido — tenta de novo. Sem encadear `$e` (ver docblock).
+            throw new FalhaDoProvedorException(sprintf('Anthropic: falha de comunicação (%s).', (new \ReflectionClass($e))->getShortName()), true);
+        }
+
+        return [$resposta, $status, $cabecalhos];
     }
 
     /** @return array<string, mixed> */
