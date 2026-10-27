@@ -79,6 +79,7 @@ final class DashboardController extends AbstractController
                 'preferencias' => $preferencias,
                 'marcasAlertas' => $marcasAlertas,
                 'podeMeta'     => $podeGerir,
+                'podeAnalisarPessoa' => $podeGerir, // análise individual: Master ou primário ativo
             ];
 
             // O XHR devolve o conteúdo de [data-filtro-resultado]: cards + tabela e, na mesma
@@ -140,6 +141,7 @@ final class DashboardController extends AbstractController
             'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
             'podeZerar'      => $podeGerir, // "Zerar" (DASH-014): Master ou primário ativo
             'podeMeta'       => $podeGerir, // meta de pastas do mês (DASH-016)
+            'podeAnalisarPessoa' => $podeGerir, // análise individual da pessoa (botão da linha): Master ou primário ativo
         ]);
     }
 

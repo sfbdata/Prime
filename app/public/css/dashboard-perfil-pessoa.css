@@ -1,0 +1,139 @@
+/* =============================================================================
+   dashboard-perfil-pessoa.css: análise individual da pessoa no painel BlueJus Intelligence.
+   Desenho: 01 - Dashboard - VS 25.10.26 (botão da linha L720, "← Equipe" L787-789, perfil L1098-1190).
+   Markup: templates/dashboard/_perfil_pessoa.html.twig (+ botão em _resultado e contêiner em
+   _inteligencia). Tudo sob `.db-page`; as cores vêm dos tokens `--db-*` e `--db-ia-*` (já com tema escuro).
+   ============================================================================= */
+
+/* ── botão da linha (dc L720: 22x22, estrela da marca, hover azul claro e escala) ─────────────── */
+.db-page .db-pf-abrir {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: .8;
+    transition: background .2s, opacity .2s, transform .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+.db-page .db-pf-abrir:hover,
+.db-page .db-pf-abrir:focus-visible { background: var(--db-ia-dica-bg); opacity: 1; transform: scale(1.15); outline: none; }
+.db-page .db-pf-abrir:disabled { cursor: not-allowed; opacity: .35; transform: none; background: transparent; }
+
+/* ── modo individual do painel: o corpo da equipe, o teaser e o rodapé saem; o perfil entra ───── */
+.db-page .db-ia-voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--db-ia-chip-bg);
+    color: var(--db-ia-chip-texto);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.db-page .db-ia-voltar[hidden] { display: none; }
+.db-page .db-ia-voltar i { font-size: 11px; }
+.db-page .db-ia-voltar:hover,
+.db-page .db-ia-voltar:focus-visible { background: var(--db-ia-divisor); outline: none; }
+
+.db-page .db-ia-individual {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px 16px 18px;
+}
+.db-page .db-ia-individual[hidden] { display: none; }
+.db-page .db-ia-painel--pessoa > .db-ia-corpo,
+.db-page .db-ia-painel--pessoa > .db-ia-teaser,
+.db-page .db-ia-painel--pessoa > .db-ia-rodape { display: none; }
+.db-page .db-pf-aviso { padding: 14px; font-size: 13px; color: var(--db-muted); }
+
+/* ── perfil ───────────────────────────────────────────────────────────────────────────────────── */
+.db-page .db-pf {
+    padding: 14px;
+    border-radius: 4px;
+    background: var(--db-ia-bloco-bg);
+    box-shadow: inset 0 0 0 1px var(--db-ia-divisor), 0 12px 28px -20px rgba(12, 60, 90, .4);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.db-page .db-pf-cab { display: flex; align-items: center; gap: 10px; }
+.db-page .db-pf-avatar { width: 40px; height: 40px; }
+.db-page .db-pf-quem { min-width: 0; flex: 1; }
+.db-page .db-pf-rotulo { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; color: var(--db-accent); }
+.db-page .db-pf-nome { font-size: 15px; font-weight: 700; color: var(--db-text-strong); }
+.db-page .db-pf-cargo { font-size: 12px; color: var(--db-muted); }
+
+.db-page .db-pf-metricas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.db-page .db-pf-metrica { padding: 8px 9px; border-radius: 4px; background: var(--db-ia-suave-bg); }
+.db-page .db-pf-metrica-k { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-pf-metrica-v { margin-top: 2px; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-pf-metrica-v a { color: var(--db-accent); text-decoration: none; }
+.db-page .db-pf-metrica-v a:hover,
+.db-page .db-pf-metrica-v a:focus-visible { text-decoration: underline; }
+.db-page .db-pf-sem-dado { font-size: 12px; font-weight: 600; color: var(--db-faint); }
+
+.db-page .db-pf-secao-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.db-page .db-pf-secao-t { flex: 1; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--db-ia-chip-texto); }
+.db-page .db-pf-link { padding: 0; border: none; background: none; font: inherit; font-size: 12px; font-weight: 700; color: var(--db-accent); cursor: pointer; }
+.db-page .db-pf-vazio,
+.db-page .db-pf-legenda { font-size: 11.5px; color: var(--db-faint); }
+
+.db-page .db-pf-comp-linha { display: grid; grid-template-columns: 110px minmax(0, 1fr) 54px; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12.5px; }
+.db-page .db-pf-comp-k { color: var(--db-ia-confirma-texto); }
+.db-page .db-pf-comp-barras { display: flex; flex-direction: column; gap: 3px; }
+.db-page .db-pf-barra { display: block; height: 7px; border-radius: 3px; }
+.db-page .db-pf-barra--atual { background: var(--db-ia-azul-grad); }
+.db-page .db-pf-barra--anterior { display: none; background: var(--db-ia-trilho); }
+.db-page .db-pf-comp.is-aberto .db-pf-barra--anterior { display: block; }
+.db-page .db-pf-comp-d { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-ia-chip-texto); }
+.db-page .db-pf-comp-d--bom { color: var(--db-ia-confirma-check); }
+.db-page .db-pf-comp-d--ruim { color: var(--db-ia-critico); }
+
+.db-page .db-pf-motivo { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; font-size: 12.5px; line-height: 1.45; color: var(--db-ia-confirma-item); }
+.db-page .db-pf-tag { flex-shrink: 0; margin-top: 1px; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.db-page .db-pf-tag--observado { background: var(--db-ia-q-oque-bg); color: var(--db-ia-q-oque); }
+
+.db-page .db-pf-porque > summary { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--db-accent); cursor: pointer; }
+.db-page .db-pf-porque-corpo { margin-top: 6px; padding: 9px 10px; border-radius: 4px; background: var(--db-ia-como-bg); font-size: 12px; line-height: 1.5; color: var(--db-ia-confirma-texto); }
+.db-page .db-pf-porque-h { margin: 6px 0 3px; font-weight: 700; color: var(--db-ia-chip-texto); }
+
+.db-page .db-pf-acoes,
+.db-page .db-pf-retorno { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.db-page .db-pf-retorno { padding-top: 10px; border-top: 1px dashed var(--db-ia-divisor); }
+.db-page .db-pf-retorno-pergunta { font-size: 12px; font-weight: 600; color: var(--db-ia-confirma-texto); }
+.db-page .db-pf-btn {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 11px;
+    border: none;
+    border-radius: 4px;
+    background: var(--db-ia-chip-bg);
+    color: var(--db-ia-chip-texto);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+.db-page .db-pf-btn--mini { height: 26px; padding: 0 9px; font-size: 11.5px; }
+.db-page .db-pf-btn:hover,
+.db-page .db-pf-btn:focus-visible { background: var(--db-ia-divisor); outline: none; }
+.db-page .db-pf-btn[aria-pressed="true"] { background: var(--db-ia-azul-grad); color: #fff; }
+.db-page .db-pf-btn:disabled { opacity: .6; cursor: progress; }
+
+.db-page .db-pf-status { margin-left: auto; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 800; }
+.db-page .db-pf-status--analisado { background: var(--db-ia-q-oque-bg); color: var(--db-ia-confirma-check); }
+.db-page .db-pf-status--pendente { background: var(--db-ia-chip-bg); color: var(--db-muted); }

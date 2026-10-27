@@ -332,6 +332,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\TrabalhoExterno\Entity\HistoricoVaga::class,
         // Preferências do usuário (última visita às vagas, ofertante padrão): dado de conveniência, não de negócio.
         \App\TrabalhoExterno\Entity\PreferenciaDoUsuario::class,
+        // Escritórios que o usuário guarda na Nova solicitação (nome e contato de preencher formulário): dado de conveniência
+        // pessoal, sem efeito sobre o escritório nem sobre o Tenant; auditar seria ruído e copiaria contato para o audit_log.
+        \App\TrabalhoExterno\Entity\EscritorioSolicitante::class,
         // Página pública de vagas: o link guarda só o hash e as vagas; o interessado guarda o próprio
         // consentimento (data e versão do texto), que é o registro que a LGPD pede.
         \App\TrabalhoExterno\Entity\LinkDeVagas::class,

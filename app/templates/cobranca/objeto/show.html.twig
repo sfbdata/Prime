@@ -14,7 +14,7 @@
 {% set podeGerenciar = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
 {# A resolução do vínculo da cobrada atual mudou de lugar junto com a função: agora vive dentro do
    partial `_responsaveis.html.twig`, que é quem precisa dela. #}
-<div class="cobrancas-page">
+<div class="cobrancas-page cob-objeto">
 <section class="content-header">
     <div class="container-fluid">
         {# ── Cabeçalho redesenhado — desenho aprovado "Objeto 1A", direção 1a, coluna única ──────────

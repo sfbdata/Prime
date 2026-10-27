@@ -6,6 +6,7 @@ namespace App\Central\Controller;
 
 use App\Central\Exception\ConversaCriadaAoMesmoTempoException;
 use App\Central\Exception\ConversaNaoEncontradaException;
+use App\Central\Exception\EnvioNaConversaComAIaException;
 use App\Central\Exception\ParticipacaoAlteradaAoMesmoTempoException;
 use App\Central\Exception\PedidoInvalidoNaCentralException;
 use App\Central\Exception\AusenciaRecusadaException;
@@ -492,6 +493,8 @@ final class CentralController extends AbstractController
         } catch (SemPermissaoNoGrupoException $e) {
             // 403 de regra do grupo, não de sessão: o `codigo` diz à tela para não tratar como "sessão encerrada".
             return $this->json(['erro' => $e->getMessage(), 'codigo' => 'sem_permissao_no_grupo'], Response::HTTP_FORBIDDEN);
+        } catch (EnvioNaConversaComAIaException $e) {
+            return $this->json(['erro' => $e->getMessage(), 'codigo' => 'conversa_ia'], Response::HTTP_FORBIDDEN);
         } catch (ConversaCriadaAoMesmoTempoException|ParticipacaoAlteradaAoMesmoTempoException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_CONFLICT);
         }

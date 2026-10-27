@@ -27,8 +27,11 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
 /**
- * Pergunta ao BlueJus IA na conversa da Central (F3, `docs/specs/ia-chat-central.md`, PR 2b). Sem controller nem rota
- * ainda (vêm com a tela): um POST sem tela gastaria dinheiro sem mostrar a falha.
+ * Pergunta ao BlueJus IA na conversa da Central (F3, `docs/specs/ia-chat-central.md`, PR 2b); a rota é
+ * `IaDaCentralController` (PR 3a).
+ *
+ * Pergunta em andamento há mais de {@see self::MINUTOS_ATE_CONSIDERAR_PRESA} minutos não conta (worker morto): a nova
+ * pergunta a encerra como `falhou` e segue.
  *
  * Ordem: vínculo ativo, texto válido, conversa DELA (abre se não existir; a posse é "é a conversa IA dele", por isso
  * não passa por `participacao()` nem pelo `EnviarMensagemUseCase`, que excluem o tipo `ia`), disponibilidade da IA
@@ -48,6 +51,11 @@ use Psr\Clock\ClockInterface;
  */
 final class PerguntarABlueJusIaUseCase
 {
+    /** Depois disso sem resposta, a pergunta é dada como presa e não bloqueia a próxima (PR 3 da F3). */
+    public const MINUTOS_ATE_CONSIDERAR_PRESA = 10;
+
+    public const MOTIVO_PRESA = 'pergunta sem resposta por mais de 10 minutos';
+
     public function __construct(
         private readonly AcessoACentral $acesso,
         private readonly ConversaRepository $conversas,
@@ -109,13 +117,17 @@ final class PerguntarABlueJusIaUseCase
         try {
             $this->conversas->travar($conversa, $tenant);
 
-            $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_CONVERSA_IA, (int) $conversa->getId(), TipoDeAnalise::ChatDaCentral);
+            $alvoId = (int) $conversa->getId();
+            // Pendente/processando mais velha que o limite é pergunta presa (worker morto, fila fora): não conta.
+            $corte = $this->clock->now()->modify(sprintf('-%d minutes', self::MINUTOS_ATE_CONSIDERAR_PRESA));
+            $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_CONVERSA_IA, $alvoId, TipoDeAnalise::ChatDaCentral, criadaApos: $corte);
             if ($emAndamento !== null) {
                 $resultado = [$emAndamento, (int) ($emAndamento->getContextoResumo()['mensagemId'] ?? 0), false];
             } else {
                 if ($antesDeCriar !== null) {
                     $antesDeCriar();
                 }
+                $this->encerrarAPresa($tenant, $alvoId);
                 $resultado = $this->registrar($texto, $conversa, $eu, $tenant);
             }
             $conn->commit();
@@ -126,6 +138,18 @@ final class PerguntarABlueJusIaUseCase
         }
 
         return $resultado;
+    }
+
+    /**
+     * A pergunta presa (mais velha que o limite, ainda `pendente`/`processando`) termina `falhou` com motivo fixo: some
+     * do "em andamento" para sempre e a auditoria a mostra como falha. Vai no flush do `registrar`, na mesma transação.
+     */
+    private function encerrarAPresa(Tenant $tenant, int $conversaId): void
+    {
+        $presa = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_CONVERSA_IA, $conversaId, TipoDeAnalise::ChatDaCentral);
+        if ($presa !== null) {
+            $presa->falhar(self::MOTIVO_PRESA);
+        }
     }
 
     /**

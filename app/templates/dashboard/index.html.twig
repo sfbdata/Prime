@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
 {# Painel BlueJus Intelligence (botão no cabeçalho + painel lateral), escopado em .db-page. #}
 <link rel="stylesheet" href="{{ asset('css/dashboard-inteligencia.css') }}">
+<link rel="stylesheet" href="{{ asset('css/dashboard-perfil-pessoa.css') }}">
 {# Janelas flutuantes (DASH-020): moram no <body>, fora da região que o XHR troca. #}
 <link rel="stylesheet" href="{{ asset('css/dashboard-janelas.css') }}">
 {# "Zerar" das colunas (DASH-014): menu do botão direito, confirmação, aviso e toast do desenho. #}
@@ -499,6 +500,7 @@
 <script src="{{ asset('js/dashboard-preferencias.js') }}"></script>
 {# Marcas dos alertas da Central de Inteligência (Resolvido, Ignorar, Aplicar). #}
 <script src="{{ asset('js/dashboard-inteligencia.js') }}"></script>
+<script src="{{ asset('js/dashboard-perfil-pessoa.js') }}"></script>
 {# Modal "Ver relatório" da coluna Relatório (PR-D): antes do Zerar, que chama window.DbRelatorio. #}
 {{ catalogo_js('dashboard.relatorio.js') }}
 <script src="{{ asset('js/dashboard-relatorio.js') }}"></script>

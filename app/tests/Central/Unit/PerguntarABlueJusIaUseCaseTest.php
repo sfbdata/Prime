@@ -103,7 +103,14 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
         $this->analises = $this->createMock(AnaliseDeInteligenciaRepository::class);
         $this->analises->method('contarDesde')->willReturn(0);
         $this->analises->method('emAberto')->willReturn(true);
-        $this->analises->method('findPendenteDoAlvo')->willReturnCallback(fn (): ?AnaliseDeInteligencia => $this->emAndamento);
+        // Como o repositório de verdade: com `$criadaApos`, só vale a pendente criada a partir dele.
+        $this->analises->method('findPendenteDoAlvo')->willReturnCallback(function (Tenant $t, string $alvoTipo, int $alvoId, TipoDeAnalise $tipo, mixed $agente = null, mixed $comando = null, ?\DateTimeImmutable $criadaApos = null): ?AnaliseDeInteligencia {
+            if ($this->emAndamento === null || ($criadaApos !== null && $this->emAndamento->getCriadaEm() < $criadaApos)) {
+                return null;
+            }
+
+            return $this->emAndamento;
+        });
         $this->analises->method('salvar')->willReturnCallback(function (AnaliseDeInteligencia $a): void {
             if ($a->getId() === null) {
                 DefineId::em($a, 500 + count($this->analisesSalvas));
@@ -262,6 +269,7 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
     {
         $existente = new AnaliseDeInteligencia($this->tenant, $this->eu, TipoDeAnalise::ChatDaCentral, AnaliseDeInteligencia::ALVO_CONVERSA_IA, 300, 'chat-central-v1', 'h', ['conversaId' => 300, 'mensagemId' => 650, 'historico' => 0, 'total' => 1]);
         DefineId::em($existente, 480);
+        (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($existente, new \DateTimeImmutable('2026-10-27 09:55:00 UTC'));   // o relógio marca 10:00
         $this->emAndamento = $existente;
         $limitadorRodou = false;
 
@@ -277,6 +285,44 @@ final class PerguntarABlueJusIaUseCaseTest extends TestCase
         self::assertFalse($limitadorRodou);
         self::assertSame([], $this->mensagensSalvas);
         self::assertSame(['begin', 'travar', 'commit'], $this->eventos);
+    }
+
+    #[TestDox('pendente presa há mais de 10 minutos não conta: encerra como falhou, grava a pergunta nova e enfileira (com o limitador)')]
+    public function testPendentePresaNaoBloqueia(): void
+    {
+        $presa = new AnaliseDeInteligencia($this->tenant, $this->eu, TipoDeAnalise::ChatDaCentral, AnaliseDeInteligencia::ALVO_CONVERSA_IA, 300, 'chat-central-v1', 'h', ['conversaId' => 300, 'mensagemId' => 650, 'historico' => 0, 'total' => 1]);
+        DefineId::em($presa, 480);
+        // O relógio do teste marca 10:00; a análise nasceu às 09:45 (15 minutos atrás).
+        (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($presa, new \DateTimeImmutable('2026-10-27 09:45:00 UTC'));
+        $this->emAndamento = $presa;
+        $limitadorRodou = false;
+
+        $saida = $this->executar('Nova pergunta', function () use (&$limitadorRodou): void {
+            $limitadorRodou = true;
+        });
+
+        self::assertFalse($saida->emAndamento, 'a pergunta presa não conta como em andamento');
+        self::assertNotSame(480, $saida->analiseId);
+        self::assertTrue($limitadorRodou, 'é pergunta nova: gasta o ritmo da pessoa');
+        self::assertSame(StatusDaAnalise::Falhou, $presa->getStatus());
+        self::assertSame(PerguntarABlueJusIaUseCase::MOTIVO_PRESA, $presa->getErroMotivo());
+        self::assertCount(1, $this->mensagensSalvas);
+        self::assertContains('despachar', $this->eventos);
+    }
+
+    #[TestDox('pendente de 9 minutos ainda é em andamento: devolve a mesma e não encerra nada')]
+    public function testPendenteRecenteContaComoEmAndamento(): void
+    {
+        $recente = new AnaliseDeInteligencia($this->tenant, $this->eu, TipoDeAnalise::ChatDaCentral, AnaliseDeInteligencia::ALVO_CONVERSA_IA, 300, 'chat-central-v1', 'h', ['conversaId' => 300, 'mensagemId' => 650, 'historico' => 0, 'total' => 1]);
+        DefineId::em($recente, 481);
+        (new \ReflectionProperty(AnaliseDeInteligencia::class, 'criadaEm'))->setValue($recente, new \DateTimeImmutable('2026-10-27 09:51:00'));
+        $this->emAndamento = $recente;
+
+        $saida = $this->executar();
+
+        self::assertTrue($saida->emAndamento);
+        self::assertSame(481, $saida->analiseId);
+        self::assertSame(StatusDaAnalise::Pendente, $recente->getStatus());
     }
 
     #[TestDox('limitador recusando: desfaz a transação, não grava nada e não enfileira')]
