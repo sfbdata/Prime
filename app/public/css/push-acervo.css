@@ -1,0 +1,25 @@
+/* Sub-aba "Acervo por jurisdição" do Push (desenho 11). Valores do CSS do desenho. */
+.pp-acv-layout { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.pp-acv-layout__lista { flex: 1 1 640px; min-width: 0; }
+.pp-acv { flex: 0 0 380px; min-width: 280px; max-height: 680px; overflow: auto; background: #eef2f5; border: 1px solid #d3dde4; border-radius: 2px; }
+.pp-acv__topo { position: sticky; top: 0; z-index: 1; display: flex; gap: 8px; padding: 10px; background: #fff; border-bottom: 1px solid #d3dde4; margin: 0; }
+.pp-acv__busca { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; height: 36px; margin: 0; padding: 0 10px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; }
+.pp-acv__busca i { color: #5b7383; }
+.pp-acv__busca input { flex: 1; min-width: 0; border: none; outline: none; font-size: 14px; background: transparent; }
+.pp-acv__atualizar { width: 36px; height: 36px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; cursor: pointer; }
+.pp-acv__atualizar:hover { background: #e5f1f7; }
+.pp-acv__grupo { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #eef2f5; color: #243845; font-size: 14px; text-decoration: none; border-bottom: 1px solid #d3dde4; }
+.pp-acv__grupo.is-aberto { background: #fff; }
+.pp-acv__grupo:hover { background: #e5f1f7; color: #243845; text-decoration: none; }
+.pp-acv__grupo i { font-size: 12px; }
+.pp-acv__grupo span { flex: 1; min-width: 0; font-weight: bold; }
+.pp-acv__grupo b { font-weight: bold; }
+.pp-acv__grupo--topo span { font-style: italic; color: #0a6fa0; }
+.pp-acv__orgao { display: flex; align-items: center; gap: 7px; padding: 8px 12px 8px 22px; background: #fff; color: #243845; font-size: 13.5px; text-decoration: none; border-bottom: 1px solid #eef2f5; }
+.pp-acv__orgao:hover { background: #e5f1f7; color: #243845; text-decoration: none; }
+.pp-acv__orgao.is-sel { background: #e5f1f7; color: #0a6fa0; }
+.pp-acv__orgao > i:first-child { font-size: 10px; }
+.pp-acv__orgao .bi-bank { color: #34505f; }
+.pp-acv__orgao span { flex: 1; min-width: 0; }
+.pp-acv-vazio { padding: 28px 18px; background: #fff; border: 1px solid #e6edf2; border-radius: 2px; text-align: center; font-size: 17px; color: #4a6373; }
+@media (max-width: 760px) { .pp-acv { flex-basis: 100%; max-height: 420px; } }

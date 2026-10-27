@@ -42,7 +42,7 @@ final class RenomearClienteDaPastaUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('montado a partir do credor da carteira');
         try {
-            $this->useCase(true, ['fantasia' => 'CONDOMINIO X', 'pessoa' => 'JOAO'], 0)->executar($pasta, 'OUTRO', new User(), $tenant);
+            $this->useCase(true, ['fantasia' => 'CONDOMINIO X', 'razaoSocial' => 'CONDOMINIO X LTDA'], 0)->executar($pasta, 'OUTRO', new User(), $tenant);
         } finally {
             self::assertSame('TEXTO ANTIGO', $pasta->getNomeCliente());
         }
@@ -90,13 +90,13 @@ final class RenomearClienteDaPastaUseCaseTest extends TestCase
         return [$pasta, $tenant];
     }
 
-    /** @param array{fantasia: string, pessoa: string}|null $cobranca */
+    /** @param array{fantasia: string, razaoSocial: string}|null $cobranca */
     private function useCase(bool $podeEditar, ?array $cobranca, int $flushes): RenomearClienteDaPastaUseCase
     {
         $checker = $this->createStub(PermissionChecker::class);
         $checker->method('canAccessResource')->willReturn($podeEditar);
         $casos = $this->createStub(CasoCobrancaRepository::class);
-        $casos->method('credorEDevedorPorPasta')->willReturn($cobranca === null ? [] : [77 => $cobranca]);
+        $casos->method('clienteDaCarteiraPorPasta')->willReturn($cobranca === null ? [] : [77 => $cobranca]);
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects($this->exactly($flushes))->method('flush');
 

@@ -1904,6 +1904,7 @@
                                 <select id="mp-instancia" name="instancia" class="mp-ctrl">
                                     <option value="G1" selected>{{ 'pasta_show.processo.instancia_g1'|trans }}</option>
                                     <option value="G2">{{ 'pasta_show.processo.instancia_g2'|trans }}</option>
+                                    <option value="JE">{{ 'pasta_show.processo.instancia_je'|trans }}</option>
                                     <option value="TR">{{ 'pasta_show.processo.instancia_tr'|trans }}</option>
                                     <option value="ST">{{ 'pasta_show.processo.instancia_st'|trans }}</option>
                                 </select>
@@ -3933,7 +3934,7 @@ document.addEventListener('DOMContentLoaded', function () {
                            ninguém tocar no campo. São coisas diferentes e ambas precisam existir aqui:
                            o TÍTULO da pasta (texto livre, hoje no padrão `CREDOR - DEVEDOR`) e os
                            CLIENTES cadastrados, que viram contexto logo abaixo. #}
-                        {% set identificadorDerivado = identificador_pasta(pasta) %}
+                        {% set identificadorDerivado = identificador_pasta_da_cobranca(pasta) %}
                         {% set derivadoDaCobranca = identificadorDerivado is not null and identificadorDerivado != pasta.nomeCliente %}
                         <div class="ps-modal-pasta-campo ps-modal-pasta-campo--2">
                             <label {% if not derivadoDaCobranca %}for="edit_nome_cliente" {% endif %}class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.nome_cliente'|trans }}</label>

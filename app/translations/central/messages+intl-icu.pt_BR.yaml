@@ -54,6 +54,10 @@ central:
         sugestao_pendencia: Tem alguma pendência?
         sugestao_metas: Quais metas estão atrasadas?
         sugestao_prazo: Existe algum prazo?
+        sugestao_resumo_pasta: Faça um resumo desta pasta
+        pasta_rotulo: Pasta
+        abrir_pasta: Abrir pasta
+        pasta_aria: Pasta aberta na tela usada como contexto da pergunta
         placeholder: Pergunte ao BlueJus IA…
         placeholder_aguardando: Aguardando a resposta…
         previa_vazia: Pergunte em linguagem natural

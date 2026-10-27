@@ -186,8 +186,8 @@ final class PastaRepositoryOrdenacaoTest extends KernelTestCase
         self::assertTrue($this->vemAntes($pa->getNup(), $pz->getNup(), $asc));
     }
 
-    #[TestDox('ordena por cliente seguindo o NOME DA PASTA, não o do cliente cadastrado')]
-    public function testOrdenaPorClientePrefereONomeDaPasta(): void
+    #[TestDox('ordena por cliente seguindo o CLIENTE PRINCIPAL, não o nome gravado na pasta (reserva)')]
+    public function testOrdenaPorClientePrefereOClientePrincipal(): void
     {
         $t = $this->criarTenant();
 
@@ -207,8 +207,8 @@ final class PastaRepositoryOrdenacaoTest extends KernelTestCase
         $asc = $this->nupsOrdenados($t, 'cliente', 'asc');
 
         self::assertTrue(
-            $this->vemAntes($primeira->getNup(), $segunda->getNup(), $asc),
-            'a ordem tem de seguir a coluna que o usuário vê, que é o nome da pasta',
+            $this->vemAntes($segunda->getNup(), $primeira->getNup(), $asc),
+            'a ordem tem de seguir a coluna que o usuário vê: o cliente principal, não o nome gravado (reserva)',
         );
     }
 

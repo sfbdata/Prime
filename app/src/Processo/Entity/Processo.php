@@ -416,10 +416,11 @@ class Processo implements TenantAware
         return $this->instancia;
     }
 
-    /** A instância como a lista do desenho 02 a mostra: G1, G2, "Turma Recursal", "Tribunal Superior". */
+    /** A instância como a lista do desenho 02 a mostra: G1, G2, "Juizado Especial", "Turma Recursal", "Tribunal Superior". */
     public function getInstanciaRotulo(): string
     {
         return match ($this->instancia) {
+            'JE'    => 'Juizado Especial',
             'TR'    => 'Turma Recursal',
             'ST'    => 'Tribunal Superior',
             default => $this->instancia,

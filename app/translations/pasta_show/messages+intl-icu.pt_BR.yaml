@@ -138,6 +138,7 @@ pasta_show:
         instancia: Instância
         instancia_g1: G1 - Primeira Instância
         instancia_g2: G2 - Segunda Instância
+        instancia_je: Juizado Especial
         instancia_tr: Turma Recursal
         instancia_st: Tribunal Superior
         data_distribuicao: Data de distribuição

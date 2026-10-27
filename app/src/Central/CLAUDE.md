@@ -117,7 +117,11 @@ item fixo no topo da lista (avatar e estrela do desenho, SVG por `createElementN
 silenciar. Bolha `deIa` testada ANTES de `minha`. Enviar = `POST central_ia_pergunta` (nunca `/mensagens`); `estado.iaAguardando` mostra
 o "digitando..." e trava o campo; o polling consulta `central_ia_pergunta_status` UMA vez por ciclo sem fala nova, e o `mensagem` do
 servidor (falhou/indisponível) vai para `avisar()`, nunca texto da IA. Textos em `central.ia.*` (translations), entregues por `data-ia-*`
-em `_janela.html.twig`; é a exceção à regra "texto do JS é fixo". Sem comandos "/" nem contexto de tela (PR 4/5).
+em `_janela.html.twig`; é a exceção à regra "texto do JS é fixo". Sem comandos "/" (PR 5).
+**Barra da pasta (PR 4b).** Em `/pasta/{id}` a janela leva `data-ia-pasta` (dica de UI, em `_janela.html.twig`; o servidor revalida). Na conversa IA o
+`central.js` busca o rótulo UMA vez (`GET /central/ia/pasta/{pastaId}`, `DescreverPastaDoContextoDaIaUseCase`: só `{pastaId, nup, cliente, url}`, `private, no-store`;
+qualquer falha de pasta = 404 de mensagem fixa; segredo de justiça não é recusado aqui, a pergunta recusa com 409). Com a barra (desenho L6001-6006) o POST leva
+`pastaId` e entra a sugestão "Faça um resumo desta pasta" (L397); sem barra, nada disso. 404 na pergunta tira a barra; 409 só avisa. Textos em `central.ia.*`.
 
 **Lançador flutuante** (`_flutuante.html.twig` + `central-flutuante.js`/`.css`): a MESMA janela em modo `flutuante`,
 incluída no `base.html.twig` por uma linha (`central_disponivel()`, nunca lança; fora da `/central`). Regras: com a
