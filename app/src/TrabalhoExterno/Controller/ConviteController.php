@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Controller;
 
+use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Entity\Auth\User;
 use App\Security\UserAuthenticator;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
@@ -19,6 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * O link do convite do Trabalho Externo (spec §8). Público (`access_control`), fora das guardas de
@@ -32,6 +34,7 @@ final class ConviteController extends AbstractController
 {
     public function __construct(
         private readonly AbrirConviteUseCase $abrir,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -70,8 +73,8 @@ final class ConviteController extends AbstractController
                 $request->headers->get('User-Agent'),
                 (string) $request->request->get('genero', ''),
             );
-        } catch (DadosInvalidos|DemandaNaoEncontrada $e) {
-            return $this->pagina($token, $e->getMessage(), (string) $request->request->get('full_name', ''), (string) $request->request->get('genero', ''));
+        } catch (CadastroNaoDisponivel|DadosInvalidos|DemandaNaoEncontrada $e) {
+            return $this->pagina($token, $this->mensagemDaRecusa($e), (string) $request->request->get('full_name', ''), (string) $request->request->get('genero', ''));
         }
 
         // Entra direto: a resposta do autenticador (que mandaria escolher escritório) é ignorada,
@@ -93,6 +96,12 @@ final class ConviteController extends AbstractController
         }
 
         return $this->paraADemanda($aceitar, $token, $usuario);
+    }
+
+    /** Cadastro fechado pelo Master (spec login-config-cadastro): o texto da política; as demais recusas trazem o próprio. */
+    private function mensagemDaRecusa(\Throwable $e): string
+    {
+        return $e instanceof CadastroNaoDisponivel ? $this->tradutor->trans($e->chaveDeTraducao()) : $e->getMessage();
     }
 
     private function paraADemanda(AceitarConviteUseCase $aceitar, string $token, User $usuario): Response

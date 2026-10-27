@@ -12,6 +12,7 @@ use App\Djen\Exception\OabMonitoradaJaExisteException;
 use App\Djen\Form\OabMonitoradaType;
 use App\Djen\Repository\OabMonitoradaRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Djen\Service\PrazosDasPublicacoes;
 use App\Djen\Service\FormatadorTeorDjen;
 use App\Djen\UseCase\AdicionarOabMonitoradaUseCase;
 use App\Djen\UseCase\ExcluirPublicacoesUseCase;
@@ -64,6 +65,7 @@ final class DjenController extends AbstractController
         private readonly AcessoAPasta $acessoAPasta,
         private readonly MarcarPublicacoesComoLidasUseCase $marcarLidas,
         private readonly ExcluirPublicacoesUseCase $excluirPublicacoes,
+        private readonly PrazosDasPublicacoes $prazosDasPublicacoes,
     ) {
     }
 
@@ -90,8 +92,12 @@ final class DjenController extends AbstractController
         $total = $this->publicacaoRepository->countByFiltros($tenant, $filtros, $ocultos);
         $indicadores = $this->publicacaoRepository->contarIndicadoresDoTenant($tenant, new \DateTimeImmutable('today'), $ocultos);
 
+        $publicacoes = $this->publicacaoRepository->listarItensDoTenant($tenant, $filtros, $pagina, self::POR_PAGINA, $ocultos);
+
         return $this->render('djen/index.html.twig', [
-            'publicacoes' => $this->publicacaoRepository->listarItensDoTenant($tenant, $filtros, $pagina, self::POR_PAGINA, $ocultos),
+            'publicacoes' => $publicacoes,
+            'prazos' => $this->prazosDasPublicacoes->dosItens($tenant, $publicacoes, new \DateTimeImmutable('today')),
+            'abrir' => (int) $request->query->get('abrir', 0),
             'filtros' => $filtros,
             'tribunais' => $this->publicacaoRepository->listarTribunaisDoTenant($tenant),
             'pagina' => $pagina,
@@ -454,7 +460,7 @@ final class DjenController extends AbstractController
      * Caminho do próprio sistema, ou null. `//outro-site` e `/\outro-site` são lidos pelo
      * navegador como OUTRO host mesmo começando com barra — é o disfarce clássico desta validação.
      */
-    private static function caminhoInterno(string $caminho): ?string
+    public static function caminhoInterno(string $caminho): ?string
     {
         if ($caminho === '' || !str_starts_with($caminho, '/')) {
             return null;

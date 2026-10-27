@@ -51,6 +51,7 @@ final readonly class RegistroDeAuditoriaOutput
             TipoDeAnalise::ResumoPush => 'Análise IA do Push',
             TipoDeAnalise::AnalisePasta => 'Análise de agente',
             TipoDeAnalise::ResumoDocumento => 'Resumo de documento',
+            TipoDeAnalise::ChatDaCentral => 'Chat com a IA',
         };
     }
 

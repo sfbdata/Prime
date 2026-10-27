@@ -58,10 +58,16 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Contribua: sugestão. O Master a atende a partir de outro escritório e o audit_log gravaria no
         // escritório da sessão dele (vazamento entre trilhas). Volta quando houver o escopo de plataforma.
         \App\Contribua\Entity\Sugestao::class,
+        // Contribua: aviso bruto recebido de gateway/banco. É ele mesmo a trilha (o que chegou e quando);
+        // quem muda dado de escritório é a reconsulta, que audita a assinatura/apoio.
+        \App\Contribua\Entity\NotificacaoRecebida::class,
 
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,
+        // Service Desk: linha do andamento do chamado. Ela JÁ é o registro de quem fez o quê e quando; auditar cada
+        // linha duplicaria a trilha. O chamado (ChamadoDeSuporte) e o dinheiro são Auditavel.
+        \App\ServiceDesk\Entity\HistoricoDoChamado::class,
         // "Acompanhar alterações" desligado: preferência pessoal de aviso, mesma natureza do favorito.
         \App\Pasta\Entity\PastaAcompanhamentoDesligado::class,
         // Destaque de linha da Lista (E12): cor pessoal de quem olha, mesma natureza do favorito.
@@ -329,6 +335,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\TrabalhoExterno\Entity\HistoricoVaga::class,
         // Preferências do usuário (última visita às vagas, ofertante padrão): dado de conveniência, não de negócio.
         \App\TrabalhoExterno\Entity\PreferenciaDoUsuario::class,
+        // Escritórios que o usuário guarda na Nova solicitação (nome e contato de preencher formulário): dado de conveniência
+        // pessoal, sem efeito sobre o escritório nem sobre o Tenant; auditar seria ruído e copiaria contato para o audit_log.
+        \App\TrabalhoExterno\Entity\EscritorioSolicitante::class,
         // Página pública de vagas: o link guarda só o hash e as vagas; o interessado guarda o próprio
         // consentimento (data e versão do texto), que é o registro que a LGPD pede.
         \App\TrabalhoExterno\Entity\LinkDeVagas::class,

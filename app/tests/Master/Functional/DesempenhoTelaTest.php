@@ -52,7 +52,7 @@ final class DesempenhoTelaTest extends JusPrimeWebTestCase
         self::assertSame(0, $crawler->filter('[data-sec-externa="desemp"] .card, [data-sec-externa="desemp"] .modal')->count(), 'sem componente do sistema');
     }
 
-    #[TestDox('os textos do desenho estão na tela e o botão da gravação ainda não existe (PR 4)')]
+    #[TestDox('os textos do desenho estão na tela e os botões de gravação (PR 4)')]
     public function testTextos(): void
     {
         $this->client->request('GET', '/master');
@@ -61,6 +61,9 @@ final class DesempenhoTelaTest extends JusPrimeWebTestCase
         foreach (['Incidentes', 'Backups e restauração', 'Integrações', 'Erros recentes', '24 horas', '7 dias', '30 dias', 'Nenhum incidente registrado.', 'Nenhum backup registrado.', 'Nenhum erro no período.'] as $texto) {
             self::assertStringContainsString($texto, $html, $texto);
         }
-        self::assertStringNotContainsString('Limpar registros', $html);
+        foreach (['Limpar registros', 'Abrir incidente', 'Registrar backup', 'Registrar teste'] as $botao) {
+            self::assertStringContainsString($botao, $html, $botao);
+        }
+        self::assertStringContainsString('data-token="', $html);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Tela de entrada (desenho "10 - Login - VS 19.10.26"): todo o comportamento da página.
+ * Tela de entrada (desenho "10 - Login - VS 25.10.26"): todo o comportamento da página.
  *
  * Reproduz o componente do desenho (DCLogic) sobre o HTML que o Twig serve. Os dados chegam por
  * data-attributes no #lgRaiz; as escritas são POST JSON para os endpoints da spec
@@ -73,6 +73,7 @@
         });
     }
 
+    let saindo = false;
     form.addEventListener('submit', (e) => {
         if (!REGEX_EMAIL.test(email.value.trim())) {
             e.preventDefault();
@@ -85,7 +86,19 @@
             e.preventDefault();
             mostrarErro(window.BJ_T.t('entrada.js.informe_a_senha'));
             senha.focus();
+
+            return;
         }
+        // Desenho: o cartão sai (lgSai, .35s) antes de a página do véu entrar. O envio segue o mesmo formulário.
+        if (saindo) { e.preventDefault(); return; }
+        saindo = true;
+        e.preventDefault();
+        $('lgCartao').classList.add('lg-sai');
+        setTimeout(() => { form.submit(); }, 350);
+    });
+    // Voltar do navegador devolve a página do cache com o cartão já "saído": reabre.
+    window.addEventListener('pageshow', (ev) => {
+        if (ev.persisted) { saindo = false; $('lgCartao').classList.remove('lg-sai'); }
     });
 
     olho.addEventListener('click', () => {
@@ -305,7 +318,10 @@
         repintarForca();
     };
     $('lgEsqueci').addEventListener('click', (e) => { e.preventDefault(); abrirSenha(); });
-    $('lgCriar').addEventListener('click', (e) => { e.preventDefault(); abrirCadastro(); });
+    /* Cadastro fechado ao público (política do Master): o link "Criar conta" nem vem na página e nada abre o cadastro. */
+    const cadastroBloqueado = raiz.dataset.cadastroBloqueado === '1';
+    const linkCriar = $('lgCriar');
+    if (linkCriar) { linkCriar.addEventListener('click', (e) => { e.preventDefault(); abrirCadastro(); }); }
 
     /* Código: só dígitos, no máximo 6. */
     $('lgRsCod').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
@@ -686,6 +702,8 @@
     /* ---------------------------------------- ?abrir=senha|cadastro -------- */
     if (raiz.dataset.abrir === 'senha') {
         abrirSenha();
+    } else if (cadastroBloqueado) {
+        /* O aviso da política já veio no cartão de login (servidor); ?abrir=cadastro, cupom e #cadastro não abrem o modal. */
     } else if (raiz.dataset.abrir === 'cadastro') {
         abrirCadastro();
         /* "Continuar com Google" sem o cliente OAuth no servidor: o aviso volta da ida, no erro do modal. */

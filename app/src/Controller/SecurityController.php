@@ -11,6 +11,7 @@ use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\PaginaDeEntrada;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Entity\Auth\User;
 use App\Indicacao\Service\CodigoDeIndicacao;
 use App\Repository\UserRepository;
@@ -40,7 +41,7 @@ final class SecurityController extends AbstractController
      * com as ferramentas SÓ MASTER; qualquer outro logado segue para o sistema.
      */
     #[Route(path: '/login', name: 'app_login')]
-    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, UserRepository $userRepository, ContaAConfirmar $contaAConfirmar, CadastroPeloGoogle $cadastroPeloGoogle, GoogleLoginApi $googleLogin, FacebookLoginApi $facebookLogin, CadastroPeloFacebook $cadastroPeloFacebook): Response
+    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, UserRepository $userRepository, ContaAConfirmar $contaAConfirmar, CadastroPeloGoogle $cadastroPeloGoogle, GoogleLoginApi $googleLogin, FacebookLoginApi $facebookLogin, CadastroPeloFacebook $cadastroPeloFacebook, PoliticaDeCadastro $politicaDeCadastro): Response
     {
         $logado = $this->getUser();
         $usuario = $logado instanceof User ? $logado : null;
@@ -49,12 +50,15 @@ final class SecurityController extends AbstractController
         }
 
         $erro = $authenticationUtils->getLastAuthenticationError();
+        // Política de cadastro do Master (spec login-config-cadastro): fora de `on`, a tela não oferece "Criar conta".
+        $cadastro = $politicaDeCadastro->atual();
 
         return $this->render('security/login.html.twig', [
             'last_username' => $authenticationUtils->getLastUsername(),
             'error' => $erro,
             'a_confirmar' => $this->avisoDeContaAConfirmar($request, $erro, $userRepository, $contaAConfirmar),
             'pagina' => $paginaDeEntrada->montar($usuario),
+            'cadastro' => $cadastro,
             'abrir' => $this->passoParaAbrir($request),
             // Cupom de indicação na URL (desenho 10 VS 25.10.26): o JS abre o "Criar conta" com ele preenchido.
             'cupom' => self::cupomDaUrl($request),

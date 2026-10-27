@@ -1,0 +1,15 @@
+{# Modal "Vincular a uma pasta" do Push (desenho 11). Recebe url_vincular e url_desvincular; url_partes é opcional (%id% = id da publicação). #}
+<div class="pp-modal" data-pp-modal-pasta hidden data-t-vazio="{{ 'djen.index.nenhuma_pasta'|trans|e('html_attr') }}" data-t-vincular="{{ 'djen.index.vincular'|trans|e('html_attr') }}" data-url-busca="{{ path('push_processual_pastas_busca') }}" {% if url_partes is defined and url_partes %}data-url-partes="{{ url_partes }}" {% endif %}data-url-nova-pasta="{{ path('expediente_index') }}" data-token="{{ csrf_token('push_publicacoes') }}" data-t-sem-partes="{{ 'djen.index.partes_nao_informadas'|trans|e('html_attr') }}" data-t-vincular-n="{{ 'djen.index.vincular_a_pasta_n'|trans({n: '%n%'})|e('html_attr') }}" data-url-vincular="{{ url_vincular }}" data-url-desvincular="{{ url_desvincular }}">
+    <div class="pp-modal__fundo" data-pp-modal-fechar></div>
+    <div class="pp-modal__centro">
+        <div class="pp-modal__caixa" role="dialog" aria-modal="true" aria-label="{{ 'djen.index.vincular_pasta'|trans }}">
+            <div class="pp-modal__topo"><i class="bi bi-link-45deg"></i><b>{{ 'djen.index.vincular_pasta'|trans }}</b><button type="button" class="pp-modal__x" data-pp-modal-fechar aria-label="{{ 'djen.index.fechar'|trans }}"><i class="bi bi-x-lg"></i></button></div>
+            <div class="pp-modal__corpo">
+                <div class="pp-modal__proc"><b data-pp-modal-numero></b><span data-pp-modal-partes></span></div>
+                <label class="pp-modal__busca"><i class="bi bi-search"></i><input type="text" data-pp-modal-q placeholder="{{ 'djen.index.busca_pasta_ph'|trans }}" autocomplete="off"></label>
+                <div class="pp-modal__lista" data-pp-modal-lista></div>
+                <div class="pp-modal__rodape"><button type="button" class="pp-modal__usar" data-pp-modal-usar hidden></button><span class="pp-modal__espaco"></span><button type="button" class="pp-modal__nova" data-pp-modal-nova><i class="bi bi-plus-lg"></i> {{ 'djen.index.abrir_nova_pasta'|trans }}</button></div>
+            </div>
+        </div>
+    </div>
+</div>

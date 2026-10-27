@@ -39,6 +39,8 @@ final class AgendaDeTarefasTest extends TestCase
             'app:purgar-dados-expirados' => ['app:purgar-dados-expirados --force --no-interaction', '0 0 * * *', '0 3 * * *'],
             // Nova, não estava no crontab: retenção de 12 meses da BlueJus IA (decisão de 24/10/2026).
             'app:inteligencia:expirar-conteudo' => ['app:inteligencia:expirar-conteudo --force --no-interaction', '20 0 * * *', '20 3 * * *'],
+            // Nova: retenção de 90 dias dos eventos de desempenho do Master (LGPD).
+            'app:desempenho:purgar' => ['app:desempenho:purgar --no-interaction', '40 0 * * *', '40 3 * * *'],
             // Não estava no crontab real: o UTC é o da linha do DEPLOY.md, ligada por decisão do dono (23/10).
             'app:importar-indices-monetarios' => ['app:importar-indices-monetarios --no-interaction', '0 1 11 * *', '0 4 11 * *'],
             'app:djen:sincronizar' => ['app:djen:sincronizar --dias=2 --no-interaction', '0 3 * * *', '0 6 * * *'],
@@ -50,6 +52,8 @@ final class AgendaDeTarefasTest extends TestCase
             'app:pastas:relatorio-pastas-paradas' => ['app:pastas:relatorio-pastas-paradas --no-interaction', '15 10 * * *', '15 13 * * *'],
             // A recomendação antiga era 02h55 UTC (23h55 de Brasília do dia anterior): mesma hora.
             'app:dashboard:fotografar' => ['app:dashboard:fotografar --no-interaction', '55 23 * * *', '55 2 * * *'],
+            // Nova (Contribua C3): era a linha de crontab da conciliação das assinaturas, agora no Scheduler.
+            'app:contribua:conciliar-assinaturas' => ['app:contribua:conciliar-assinaturas --no-interaction', '15 * * * *', '15 * * * *'],
             'armazenamento:replicar-espelho' => ['armazenamento:replicar-espelho --se-ligado --limite=50 --no-interaction', '* * * * *', '* * * * *'],
             // Sem --tenant-id: todos os escritórios com Drive conectado (decisão do dono, 24/10/2026).
             'app:sync:reconciliar' => ['app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction', '0 * * * *', '0 * * * *'],

@@ -12,9 +12,12 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Master\Entity\DivulgacaoNaSeccional;
+use App\Master\Entity\IncidenteDeDesempenho;
 use App\Master\Entity\NotaDaCidadeOab;
 use App\Master\Entity\NotaDaSeccional;
 use App\Master\Entity\RecursoEstado;
+use App\Master\Entity\LancamentoDeCusto;
+use App\Master\Entity\RegistroDeBackup;
 use App\Master\Entity\SeccionalOab;
 use App\Master\Entity\SubsecaoOab;
 use App\Master\Repository\PainelMasterRepository;
@@ -68,6 +71,9 @@ final class RotuloDeAuditoria
         'marcaCor'       => 'cor da marca',
         'marcaStatus'    => 'status da divulgação',
         'marcaEm'        => 'data da divulgação',
+        // Desempenho do Master: incidente resolvido.
+        'resolvidoEm'    => 'resolvido em',
+        'solucao'        => 'solução',
     ];
 
     private const ENTIDADE = [
@@ -83,6 +89,9 @@ final class RotuloDeAuditoria
         SubsecaoOab::class          => ['Subseção da OAB adicionada', 'Subseção da OAB alterada', 'Subseção da OAB removida'],
         NotaDaSeccional::class      => ['Nota da seccional gravada', 'Nota da seccional alterada', 'Nota da seccional apagada'],
         NotaDaCidadeOab::class      => ['Nota da cidade gravada', 'Nota da cidade alterada', 'Nota da cidade apagada'],
+        IncidenteDeDesempenho::class => ['Incidente aberto', 'Incidente alterado', 'Incidente removido'],
+        LancamentoDeCusto::class    => ['Custo lançado', 'Custo alterado', 'Custo removido'],
+        RegistroDeBackup::class     => ['Backup ou teste registrado', 'Registro de backup alterado', 'Registro de backup removido'],
     ];
 
     /**
@@ -166,6 +175,10 @@ final class RotuloDeAuditoria
 
         if ($entidade === Tenant::class && isset($diff['isActive']) && is_array($diff['isActive'])) {
             return ($diff['isActive']['to'] ?? null) === false ? 'Conta suspensa' : 'Conta reativada';
+        }
+
+        if ($entidade === IncidenteDeDesempenho::class && isset($diff['resolvidoEm'])) {
+            return 'Incidente resolvido';
         }
 
         if ($entidade === User::class && isset($diff['roles'])) {

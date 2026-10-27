@@ -9,6 +9,7 @@ use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
 use App\Auth\DTO\AceitarConvitePlataformaInput;
 use App\Auth\DTO\ConviteOutput;
 use App\Auth\DTO\RecusarConviteEscritorioInput;
+use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\UseCase\AceitarConviteEscritorioComContaUseCase;
 use App\Auth\UseCase\AceitarConviteEscritorioSemContaUseCase;
 use App\Auth\UseCase\AceitarConvitePlataformaUseCase;
@@ -24,6 +25,7 @@ use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ConviteController extends AbstractController
 {
@@ -35,6 +37,7 @@ final class ConviteController extends AbstractController
         private readonly AceitarConviteEscritorioComContaUseCase $aceitarComContaUseCase,
         private readonly RecusarConviteEscritorioUseCase $recusarUseCase,
         private readonly RateLimiterFactory $conviteAceiteLimiter,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route('/convite/{token}', name: 'auth_aceite_convite', methods: ['GET'])]
@@ -139,6 +142,11 @@ final class ConviteController extends AbstractController
             $this->addFlash('sucesso', 'Conta criada com sucesso! Faça login para continuar.');
 
             return $this->redirectToRoute('app_login');
+        } catch (CadastroNaoDisponivel $e) {
+            // Cadastro fechado pelo Master: o convite de escritório não cria conta nova (spec login-config-cadastro).
+            $this->addFlash('erro', $this->tradutor->trans($e->chaveDeTraducao()));
+
+            return $this->redirectToRoute('auth_aceite_convite', ['token' => $token]);
         } catch (\DomainException|\InvalidArgumentException $e) {
             $this->addFlash('erro', $e->getMessage());
 

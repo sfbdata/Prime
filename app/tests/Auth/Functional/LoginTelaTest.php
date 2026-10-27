@@ -87,6 +87,15 @@ final class LoginTelaTest extends JusPrimeWebTestCase
         $client->submit($form);
     }
 
+    #[TestDox('O CSS da tela de entrada estiliza as chaves de flash que o sistema grava (sucesso e erro)')]
+    public function testCssDoFlashCobreAsChavesDoSistema(): void
+    {
+        $css = (string) file_get_contents(__DIR__.'/../../../public/css/auth/entrada.css');
+
+        self::assertStringContainsString('.lg-flash--sucesso', $css);
+        self::assertStringContainsString('.lg-flash--erro', $css);
+    }
+
     #[TestDox('O login continua funcionando pelo formulário que a tela renderiza')]
     public function testLoginRealPeloFormulario(): void
     {

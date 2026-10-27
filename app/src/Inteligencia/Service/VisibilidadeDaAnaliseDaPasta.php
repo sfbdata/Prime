@@ -47,6 +47,7 @@ final class VisibilidadeDaAnaliseDaPasta
             TipoDeAnalise::ResumoDocumento => [AbaDaPasta::Documentos],
             TipoDeAnalise::AnalisePasta    => self::abasDoAgente($analise),
             TipoDeAnalise::PerguntaLivre   => self::abasDoAgente($analise),
+            TipoDeAnalise::ChatDaCentral   => [],
         };
     }
 

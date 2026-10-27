@@ -26,7 +26,7 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
    anterior do modelo) entra no prompt dentro de um bloco delimitado — `<processo>`, `<equipe>`,
    `<movimentacoes>`, `<analise_anterior>` (Push) e `<pasta>`, `<processos_vinculados>`, `<clientes>`,
    `<metas>`, `<anotacoes>`, `<observacoes>`, `<documentos>`, `<checklist>`, `<financeiro>` (agentes),
-   `<conversa_anterior>`, `<pergunta>` (aba Perguntar) — e
+   `<conversa_anterior>`, `<pergunta>` (aba Perguntar) e `<pessoa>`, `<historico>`, `<pergunta>` (chat da Central) — e
    passa pelo `NeutralizadorDeConteudo` (tag delimitadora vira texto inerte; controle/zero-width/bidi
    saem). Campo novo no prompt = campo neutralizado, dentro de um bloco, com o nome do bloco em
    `NeutralizadorDeConteudo::DELIMITADORES`. A resposta é renderizada **escapada** (sem `|raw`).
@@ -63,6 +63,14 @@ pasta) → análise `pergunta_livre` do Gestor + `inteligencia_pergunta` → mes
 `FluxoDaPerguntaLivre` (contexto do Gestor + últimas 4 concluídas da MESMA pessoa na pasta, neutralizadas
 e mascaradas → `PromptDaPergunta`). A conversa é da pessoa: lista por autor e, nas rotas por id, a
 análise `pergunta_livre` só abre para quem perguntou (`VisibilidadeDaAnaliseDaPasta::podeLer`).
+
+Chat da Central (F3, `docs/specs/ia-chat-central.md`): tipo `chat_central`, SEM pasta (`FluxoDeAnaliseSemPasta`; o handler
+vai por um ramo que não procura pasta nem notifica e grava resposta e conclusão numa transação). Alvo = `conversa_ia`
+(`alvo_id` = conversa; `contexto_resumo` = ids e contagens, nunca texto). O fluxo fala com a Central pela porta
+`Contract/ConversaDaIaNaCentral` (implementada em `Central\Service\ConversaDaIaDaCentral`): relê pergunta e até 12
+mensagens anteriores (400 caracteres cada, respeitando "excluir"); se não confere, `\LogicException` e `falhou` sem provedor.
+A IA não lê pasta, equipe nem produtividade aí; `metricas`, `acoes` e `trace` são ignorados. É conteúdo particular
+(`ehParticular`): nada do texto vai para o `audit_log`.
 
 As consultas por alvo do repositório filtram por `tipo` (e `agente`): uma pendente de agente não trava o
 Push nem vira "análise anterior" dele.

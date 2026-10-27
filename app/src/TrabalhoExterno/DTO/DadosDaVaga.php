@@ -21,8 +21,8 @@ final class DadosDaVaga
      * vaga ser preenchida", só para o Master; os demais ficam no teto `maxDias` da configuração.
      */
     public const PERIODOS = [0, 1, 3, 7, 15, 30, 60];
-    /** Minutos da oferta com tempo ("DISPONÍVEL POR", `DUR` l.838; a configuração vai até 24 h, l.1159). */
-    public const DURACOES_DA_OFERTA = [5, 10, 15, 30, 60, 120, 1440];
+    /** Minutos da oferta com tempo ("DISPONÍVEL POR", `DUR` l.933). Valor antigo fora da lista (120, 1440) cai no padrão de 15. */
+    public const DURACOES_DA_OFERTA = [5, 10, 15, 30, 60];
     /** Dados de quem oferece com o olho (`ofCampos`, l.1182); `local` é cidade e UF juntas. */
     public const CAMPOS_DO_OFERTANTE = ['resp', 'local', 'email', 'tel', 'site'];
     /** O que nasce oculto: e-mail e telefone; os candidatos falam com quem oferece pelo BlueJus (l.1182). */

@@ -2218,3 +2218,111 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
 .bj-central-oculto-trecho {
     font-style: italic;
 }
+
+/* ── F3: conversa com o BlueJus IA (docs/specs/ia-chat-central.md). Valores do desenho (bluejus-central.js do
+   pacote 23/10), linha ao lado; nada aqui usa componente do sistema. ───────────────────────────────────────── */
+/* Avatar da IA — L5406: círculo com degradê 135deg #0c7a9c → #0a5f86; a estrela é o SVG de L5405 (60% do círculo) */
+.bj-central-avatar--ia {
+    background: linear-gradient(135deg, #0c7a9c, #0a5f86);
+}
+
+.bj-central-avatar--ia-pequeno {
+    width: 22px;   /* avatar(IA, 22), L6057 */
+    height: 22px;
+}
+
+/* Autor na bolha — L6035: 11.5px/700 (já em .bj-central-msg-autor), #1e7b45, ícone bi-stars e selo "IA" */
+.bj-central-msg-autor--ia {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #1e7b45;
+}
+
+.bj-central-selo-ia {
+    padding: 0 5px;
+    border-radius: 3px;
+    background: #e6f4ef;
+    font-size: 9.5px;
+    letter-spacing: .05em;
+}
+
+/* Bolha da IA — L6042: fundo #f3faf6, texto #1d3441, borda 1px #cfe9dc, canto inferior esquerdo 2px (cores fixas
+   do desenho também no tema escuro: fundo claro com texto escuro) */
+.bj-central-bolha--ia {
+    border: 1px solid #cfe9dc;
+    border-bottom-left-radius: 2px;
+    background: #f3faf6;
+    color: #1d3441;
+}
+
+/* "digitando..." — L6057: flex, gap 8, padding 8px 12px, 12px, #1e7b45; três pontos de 6px com bjcPonto 1.2s */
+.bj-central-ia-digitando {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #1e7b45;
+}
+
+.bj-central-ia-pontos {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.bj-central-ia-ponto {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #1e7b45;
+    animation: bjcPonto 1.2s ease-in-out infinite;
+}
+
+.bj-central-ia-ponto:nth-child(2) {
+    animation-delay: .2s;
+}
+
+.bj-central-ia-ponto:nth-child(3) {
+    animation-delay: .4s;
+}
+
+/* bjcPonto, L5416 */
+@keyframes bjcPonto {
+    0%, 55%, 100% { transform: scale(1); opacity: .8; }
+    25% { transform: scale(1.6); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bj-central-ia-ponto {
+        animation: none;
+    }
+}
+
+/* Sugestões do estado vazio — L6021: botões de 28px, fundo #fff, anel 1px #cfe0ea, AZUL, 12px/600 */
+.bj-central-ia-sugestoes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14px 14px;
+}
+
+.bj-central-ia-sugestao {
+    height: 28px;
+    padding: 0 11px;
+    border: 0;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px #cfe0ea;
+    color: var(--bjc-azul);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+html[data-bs-theme="dark"] .bj-central-ia-sugestao {
+    background: var(--bjc-fundo);
+    box-shadow: inset 0 0 0 1px var(--bjc-borda);
+}

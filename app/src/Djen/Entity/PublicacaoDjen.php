@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Djen\Entity;
 
 use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
 use App\Shared\Contract\TenantAware;
@@ -108,6 +109,18 @@ class PublicacaoDjen implements TenantAware
     /** Exclusão lógica da caixa do Push: a linha fica para a sincronização não reimportar o djen_id. */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $excluidaEm = null;
+
+    /** Prazo em dias úteis escolhido pelo usuário no modal (null = nenhum escolhido). */
+    #[ORM\Column(type: 'smallint', nullable: true)]
+    private ?int $prazoDias = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $prazoCumpridoEm = null;
+
+    /** Meta criada a partir do prazo desta publicação (uma por publicação). */
+    #[ORM\ManyToOne(targetEntity: Tarefa::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Tarefa $tarefa = null;
 
     /**
      * Snapshot bruto do item retornado pela API do DJEN. jsonb para permitir consulta/índice futuro.
@@ -379,6 +392,42 @@ class PublicacaoDjen implements TenantAware
     public function setLida(bool $lida): self
     {
         $this->lida = $lida;
+
+        return $this;
+    }
+
+    public function getPrazoDias(): ?int
+    {
+        return $this->prazoDias;
+    }
+
+    public function definirPrazoDias(?int $dias): self
+    {
+        $this->prazoDias = $dias;
+
+        return $this;
+    }
+
+    public function getPrazoCumpridoEm(): ?\DateTimeImmutable
+    {
+        return $this->prazoCumpridoEm;
+    }
+
+    public function marcarPrazoCumprido(?\DateTimeImmutable $quando): self
+    {
+        $this->prazoCumpridoEm = $quando;
+
+        return $this;
+    }
+
+    public function getTarefa(): ?Tarefa
+    {
+        return $this->tarefa;
+    }
+
+    public function vincularTarefa(Tarefa $tarefa): self
+    {
+        $this->tarefa = $tarefa;
 
         return $this;
     }

@@ -25,7 +25,7 @@ final class ContarMeusCompromissosUseCase
     ) {
     }
 
-    /** @return array<string, int> por tipo (meus, aud, reun, prazo), zero quando não há */
+    /** @return array<string, int> por tipo (meus, aud, reun, prazo, urg, pess, lemb), zero quando não há */
     public function executar(Tenant $tenant, User $eu): array
     {
         $regra = new CalendarioPelaCor();

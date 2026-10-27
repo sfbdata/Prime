@@ -47,6 +47,7 @@ final class AgendaNovaController extends AbstractController
 
     #[Route('/agenda', name: 'agenda_index', methods: ['GET'])]
     #[Route('/agenda/nova', name: 'agenda_nova', methods: ['GET'])]
+    #[Route('/agenda/classica', name: 'agenda_classica', methods: ['GET'])]
     public function tela(): Response
     {
         /** @var User $user */

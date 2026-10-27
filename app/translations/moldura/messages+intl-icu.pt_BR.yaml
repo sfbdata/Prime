@@ -95,6 +95,7 @@ moldura:
         tarefa:
             purgar_dados_expirados: Limpeza dos dados expirados
             inteligencia_expirar_conteudo: Retenção das respostas da BlueJus IA
+            desempenho_purgar: Limpeza dos registros de desempenho
             importar_indices_monetarios: Importação dos índices monetários
             djen_sincronizar: Captação das publicações do DJEN
             push_resumo_semanal_cliente: Resumo semanal ao cliente
@@ -102,6 +103,7 @@ moldura:
             pastas_relatorio_pastas_paradas: Relatório de pastas paradas
             dashboard_fotografar: Foto diária do Dashboard
             sync_reconciliar: Envio para o Google Drive
+            contribua_conciliar_assinaturas: Conciliação das assinaturas de espaço
             armazenamento_replicar_espelho: Cópia dos arquivos para o R2
             armazenamento_reconciliar_espelho: Conferência da cópia no R2
             armazenamento_limpar_replicacao: Limpeza da fila de envio ao R2

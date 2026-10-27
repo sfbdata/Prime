@@ -144,9 +144,14 @@ final class PurgarEscritorioUseCase
         ['contribua_apoio', 'tenant_id = :tenant'],
         // Service Desk (desenho 12): razão do saldo. Apagado como o apoio do Contribua (decisão do dono: exclusão apaga
         // na hora). Sem FK entre as duas; a FK de tenant é CASCADE, mas a deleção explícita deixa a cobertura visível.
+        ['service_desk_chamado_historico', 'tenant_id = :tenant'],
+        ['service_desk_chamado', 'tenant_id = :tenant'],
         ['service_desk_movimento', 'tenant_id = :tenant'],
         ['service_desk_saldo', 'tenant_id = :tenant'],
         ['contribua_motivo_de_nao_apoiar', 'tenant_id = :tenant'],
+        // Contribua C3: pedidos e assinaturas de espaço (tenant_id direto; FKs a "user" SET NULL; nada as
+        // referencia). A quarentena de 365 dias passa muito do fim de qualquer mês pago.
+        ['contribua_assinatura', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem
         // ANTES do bloco Etapa 2 (que apaga obrigação e caso).

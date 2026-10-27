@@ -51,6 +51,9 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel, ConteudoParticula
 {
     public const ALVO_PASTA = 'pasta';
 
+    /** Chat da Central (F3): `alvo_id` é o id da conversa IA, não de uma pasta. */
+    public const ALVO_CONVERSA_IA = 'conversa_ia';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -383,10 +386,10 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel, ConteudoParticula
     // Auditoria
     // ---------------------------------------------------------------------------------------
 
-    /** Só a pergunta livre: a conversa é da pessoa (o tipo nunca muda depois de criada). */
+    /** Pergunta livre e chat da Central: a conversa é da pessoa (o tipo nunca muda depois de criada). */
     public function ehParticular(array $mudancas = []): bool
     {
-        return $this->tipo === TipoDeAnalise::PerguntaLivre;
+        return $this->tipo === TipoDeAnalise::PerguntaLivre || $this->tipo === TipoDeAnalise::ChatDaCentral;
     }
 
     /** O texto do modelo, em todas as formas em que a linha o guarda. */

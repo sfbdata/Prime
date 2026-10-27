@@ -36,6 +36,7 @@ use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
+use App\TrabalhoExterno\Entity\EscritorioSolicitante;
 use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Entity\HistoricoVaga;
@@ -82,11 +83,18 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escritórios (só o Master edita). O espaço de cada escritório é TenantAware.
         \App\Contribua\Entity\Plano::class,
         \App\Contribua\Entity\ConfiguracaoDoEspaco::class,
+        // Service Desk: preço de cada tipo de atendimento vale para todos os escritórios (só o Master define).
+        \App\ServiceDesk\Entity\PrecoDoAtendimento::class,
         // Espaço do escritório: lido e escrito sempre por tenantId explícito (decorador pelo escopo da
         // chave, Master sobre outro escritório). Filtrar pela sessão faria o Master no escritório X
         // ver o Y como Free. Só o repositório do Contribua a consulta
         // (EspacoDoEscritorioSoNoContribuaArquiteturaTest).
         \App\Contribua\Entity\EspacoDoEscritorio::class,
+        // Aviso recebido de gateway/banco: quem manda é o gateway, e o escritório só aparece depois da
+        // reconsulta. Guardado antes de processar, para idempotência.
+        \App\Contribua\Entity\NotificacaoRecebida::class,
+        // Configuração do pagamento por cartão (gateway, chave pública, carência): uma linha só, da plataforma.
+        \App\Contribua\Entity\ConfiguracaoDePagamento::class,
         // Bônus de espaço por indicação: mesmo motivo do espaço do escritório (lido por tenantId explícito
         // no SituacaoDoEspaco, inclusive em lote para o painel do Master). Só o Contribua o cita
         // (BonusDeEspacoSoNoContribuaArquiteturaTest).
@@ -168,6 +176,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         DespachoDemanda::class, // só é lido pela demanda já localizada no escopo (DemandaExterna::getDespachos); toda rota passa pelo LocalizadorDeDemanda (DespachoDaDemandaTest, outro escritório é 404)
         HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só pelo interno (ApresentadorDeVaga::detalhe, desenho l.1190)
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
+        EscritorioSolicitante::class, // do usuário (escritórios guardados na Nova solicitação, nunca Tenant); toda leitura recebe o usuário logado e id de outro é 404 (EscritorioSolicitanteTest::testAtualizaEDono)
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
         MetricaPublica::class, // contador anônimo da página pública (dia, link, visitas, cliques), sem escritório nem pessoa; só o painel do Master lê, e só a soma (PainelDoTrabalhoExternoTest::testSoOMasterVeOPainel)
@@ -224,6 +233,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Master\Entity\EventoDeDesempenho::class,
         \App\Master\Entity\IncidenteDeDesempenho::class,
         \App\Master\Entity\RegistroDeBackup::class,
+        // Custos do Master (docs/specs/master-custos.md): lançamento de custo da PLATAFORMA, sem `tenant_id`; só o Master
+        // (ROLE_SUPER_ADMIN) lê e grava.
+        \App\Master\Entity\LancamentoDeCusto::class,
         // Janela da OAB dos estados que faltam (docs/specs/master-oab-estados-que-faltam.md): as subseções e a nota
         // explicativa de cada seccional são anotação de trabalho da PLATAFORMA, compartilhada entre os Masters, sem
         // escritório nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
@@ -302,6 +314,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
+    // (A C3 do Contribua soma 2 no fim: o aviso de gateway, que chega sem escritório, e a configuração do pagamento.)
     // 21 → 22 com RecursoEstado (19/10/2026, Perfis 1.2 · Telas e recursos): configuração global da plataforma.
     // 22 → 26 com a tela de entrada do desenho 10 (19/10/2026): ConfirmacaoEmail, CienciaPolitica, AjusteEntrada e
     // MensagemSuporte são anteriores a qualquer escritório (identidade do User e a tela de entrada única); justificado acima.
@@ -350,9 +363,14 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 83 → 84 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
     // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
     // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
-    // 85 → 86 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
-    // 86 → 87 com os dados de recebimento das recompensas (27/10/2026): DadosDeRecebimentoDeRecompensa, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 87;
+    // 85 → 86 com o preço do atendimento do Service Desk (27/10/2026): PrecoDoAtendimento, justificado acima (catálogo
+    // global que só o Master define, igual ao Plano do Contribua).
+    // 86 → 87 com os custos do Master (27/10/2026): LancamentoDeCusto (plataforma), justificado acima.
+    // 87 → 88 com os escritórios guardados da Nova solicitação (27/10/2026): EscritorioSolicitante é do usuário, justificado acima.
+    // 88 → 89 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
+    // 89 → 91 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
+    // 91 → 92 com os dados de recebimento das recompensas (27/10/2026): DadosDeRecebimentoDeRecompensa, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 92;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

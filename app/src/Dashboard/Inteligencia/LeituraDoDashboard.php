@@ -19,6 +19,11 @@ final readonly class LeituraDoDashboard
         public ?TempoDoPeriodo $tempo,
         // Ritmo da meta de pastas do mês (selo, gauge); nulo sem meta ou fora do mês inteiro.
         public ?RitmoDaMeta $ritmoDaMeta = null,
+        // "Simular dia" (controle de teste do rodapé); nulo sem período completo.
+        public ?SimulacaoDeDia $simulacao = null,
+        // Plano "Aumentar o nível": um por nível (id 0 a 3); vazio quando não há ritmo da meta.
+        /** @var array<int, PlanoDeCrescimento> */
+        public array $planos = [],
     ) {}
 
     /** Riscos da leitura básica = "pontos de atenção" do botão (dc L2705-2710). */

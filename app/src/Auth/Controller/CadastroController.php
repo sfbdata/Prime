@@ -7,6 +7,7 @@ namespace App\Auth\Controller;
 use App\Auth\DTO\CriarContaEEscritorioInput;
 use App\Auth\DTO\CriarSenhaPeloLinkInput;
 use App\Auth\Enum\SituacaoDoLinkDeConfirmacao;
+use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\Service\CadastroPeloFacebook;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\LinkDeConfirmacaoDeEmail;
@@ -21,6 +22,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Cadastro público do desenho 10: o formulário mora na tela de entrada (passo "Criar conta e escritório"); aqui
@@ -45,6 +47,7 @@ final class CadastroController extends AbstractController
         private readonly RateLimiterFactoryInterface $cadastroAutoLimiter,
         private readonly ContaAConfirmar $contaAConfirmar,
         private readonly PaginaDeEntrada $paginaDeEntrada,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route('/cadastro', name: 'auth_cadastro', methods: ['GET'])]
@@ -80,6 +83,9 @@ final class CadastroController extends AbstractController
         $input = self::input($dados);
         try {
             $conta = $this->criarConta->executar($input, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
+        } catch (CadastroNaoDisponivel $e) {
+            // Política do Master: 403 com o texto da política, sem dizer nada sobre o e-mail (spec login-config-cadastro).
+            return $this->json(['erro' => $this->tradutor->trans($e->chaveDeTraducao())], Response::HTTP_FORBIDDEN);
         } catch (\InvalidArgumentException | \DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

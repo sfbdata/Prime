@@ -1,5 +1,5 @@
 /* ==========================================================================
-   BlueJus · tela de entrada (desenho "10 - Login - VS 19.10.26").
+   BlueJus · tela de entrada (desenho "10 - Login - VS 25.10.26").
 
    Cada valor abaixo vem do desenho (cores, tamanhos, espaçamentos, animações).
    A tela é SEMPRE clara: as cores são cravadas e o `color-scheme` é forçado.
@@ -55,8 +55,8 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 
 /* Mensagens que chegam de outra tela (flash), acima do céu. */
 .lg-flash{position:relative; z-index:4; margin:12px auto 0; width:min(392px, calc(100% - 32px)); padding:10px 14px; border-radius:6px; font-size:14px; background:#fff; border:1px solid #d6dde3; box-sizing:border-box}
-.lg-flash--success{border-color:#cfe7d8; background:#f3faf5; color:#1e5b39}
-.lg-flash--error, .lg-flash--danger{border-color:#f0c8cb; background:#fdf1f2; color:#a3232b}
+.lg-flash--success, .lg-flash--sucesso{border-color:#cfe7d8; background:#f3faf5; color:#1e5b39}
+.lg-flash--error, .lg-flash--erro, .lg-flash--danger{border-color:#f0c8cb; background:#fdf1f2; color:#a3232b}
 
 /* -------------------------------------------------------------- cartão --- */
 .lg-main{position:relative; flex:1; display:flex; align-items:center; justify-content:center; padding:24px 16px 32px}

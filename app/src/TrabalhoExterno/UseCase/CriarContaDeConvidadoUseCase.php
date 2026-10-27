@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
+use App\Auth\Exception\CadastroNaoDisponivel;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Entity\Auth\User;
 use App\Profile\Entity\UserProfile;
 use App\Profile\Enum\Genero;
@@ -27,6 +29,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * Fluxo: cria o usuário (só `ROLE_USER`, SEM escritório), aceita o convite e registra o aceite do
  * termo sem escritório (o `AceiteTermo` aceita tenant nulo).
  * Pós-condição: a conta só enxerga a demanda do convite, como Convidado. Quem chama faz o login.
+ * Cadastro fechado (`off`, spec `login-config-cadastro.md`): não nasce conta nova por aqui; lança CadastroNaoDisponivel.
  */
 final class CriarContaDeConvidadoUseCase
 {
@@ -39,11 +42,13 @@ final class CriarContaDeConvidadoUseCase
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly EntityManagerInterface $em,
         private readonly ConviteDisponivel $disponivel,
+        private readonly PoliticaDeCadastro $politicaDeCadastro,
     ) {
     }
 
     public function executar(string $token, string $nome, string $senha, bool $aceiteTermos, ?string $ip, ?string $userAgent, string $genero = ''): User
     {
+        $this->politicaDeCadastro->exigirConviteDeContaNova();
         $convite = $this->convites->peloToken($token) ?? throw new DemandaNaoEncontrada();
         $hoje = new \DateTimeImmutable('today');
         if (!$this->disponivel->para($convite, $hoje)) {

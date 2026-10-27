@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Controller;
 
 use App\Auth\DTO\CriarContaEEscritorioInput;
+use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\Service\CadastroPeloGoogle;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
 use App\Security\GoogleAuthenticator;
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * "Criar conta" conectado pelo Google (spec entrar-com-google, entrega 2; desenho 10 VS 24.10.26). A identidade vem
@@ -31,6 +33,7 @@ final class CadastroPeloGoogleController extends AbstractController
         private readonly CadastroPeloGoogle $cadastroPeloGoogle,
         private readonly RateLimiterFactoryInterface $cadastroAutoLimiter,
         private readonly Security $security,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -62,6 +65,8 @@ final class CadastroPeloGoogleController extends AbstractController
         );
         try {
             $conta = $this->criarConta->executarPeloGoogle($input, $identidade, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
+        } catch (CadastroNaoDisponivel $e) {
+            return $this->recusadoPelaPolitica($e, $request);
         } catch (\InvalidArgumentException|\DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -72,6 +77,14 @@ final class CadastroPeloGoogleController extends AbstractController
         $destino = $resposta?->headers->get('Location') ?? $this->generateUrl('app_login_entrando');
 
         return $this->json(['ok' => true, 'destino' => $destino]);
+    }
+
+    /** Política do Master (spec login-config-cadastro): a identidade do Google sai da sessão e nada é criado. */
+    private function recusadoPelaPolitica(CadastroNaoDisponivel $e, Request $request): JsonResponse
+    {
+        CadastroPeloGoogle::esquecer($request->getSession());
+
+        return $this->json(['erro' => $this->tradutor->trans($e->chaveDeTraducao())], Response::HTTP_FORBIDDEN);
     }
 
     /** "Usar outro e-mail": a identidade do Google sai da sessão e o formulário volta a pedir o e-mail. */

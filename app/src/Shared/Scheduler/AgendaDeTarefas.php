@@ -61,6 +61,11 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:inteligencia:expirar-conteudo --force --no-interaction',
             'cron'    => '20 0 * * *',
         ],
+        // 0h40: purga dos eventos de desempenho com mais de 90 dias (LGPD, docs/specs/master-desempenho.md §2.1).
+        'app:desempenho:purgar' => [
+            'comando' => 'app:desempenho:purgar --no-interaction',
+            'cron'    => '40 0 * * *',
+        ],
         // Dia 11, 1h: importação dos índices do BCB (INPC, IPCA e taxa legal), como no DEPLOY.md
         // (04h UTC). Ligada por decisão do dono em 23/10/2026.
         'app:importar-indices-monetarios' => [
@@ -107,6 +112,14 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
         'app:dashboard:fotografar' => [
             'comando' => 'app:dashboard:fotografar --no-interaction',
             'cron'    => '55 23 * * *',
+        ],
+        // Aos 15 minutos de cada hora: conciliação das assinaturas de espaço do Contribua (cartão). Reprocessa
+        // avisos de gateway pendentes, reconsulta as assinaturas que ainda podem mudar e devolve ao Free quem
+        // passou do fim do mês pago. Rede de segurança do webhook; idempotente. Sai com erro só quando nenhuma
+        // reconsulta deu certo (credencial errada ou gateway fora do ar).
+        'app:contribua:conciliar-assinaturas' => [
+            'comando' => 'app:contribua:conciliar-assinaturas --no-interaction',
+            'cron'    => '15 * * * *',
         ],
         // A cada minuto: o worker do espelho leva ao R2 até 50 envios pendentes e sai. O consumidor é um só
         // e roda uma tarefa por vez, então duas rodadas nunca correm juntas; uma rodada que passa do

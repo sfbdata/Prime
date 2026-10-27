@@ -11,15 +11,26 @@
 {% include 'djen/_abas.html.twig' with {ativa: 'processos'} %}
 
 {% set no_relatorio = sub == 'relatorio' %}
-<div class="pp-pagina" data-pp-processos>
+<div class="pp-pagina" data-pp-processos
+     data-t-ver-publicacoes="{{ 'djen.processos.ver_publicacoes'|trans|e('html_attr') }}"
+     data-t-abrir-pasta="{{ 'djen.index.menu_abrir_pasta'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-trocar="{{ 'djen.index.menu_trocar_pasta'|trans|e('html_attr') }}"
+     data-t-desvincular="{{ 'djen.index.desvincular_pasta'|trans|e('html_attr') }}"
+     data-t-vincular="{{ 'djen.index.vincular_pasta'|trans|e('html_attr') }}"
+     data-t-editar-obs="{{ 'djen.processos.editar_obs'|trans|e('html_attr') }}"
+     data-t-copiar="{{ 'djen.index.menu_copiar'|trans|e('html_attr') }}"
+     data-t-copiado="{{ 'djen.index.numero_copiado'|trans|e('html_attr') }}"
+     data-t-menu-excluir="{{ 'djen.processos.menu_excluir'|trans|e('html_attr') }}"
+     data-t-confirma-excluir="{{ 'djen.processos.confirma_excluir'|trans({processo: '%processo%'})|e('html_attr') }}"
+     data-t-confirma-desvincular="{{ 'djen.index.confirma_desvincular'|trans({processo: '%processo%', n: '%n%'})|e('html_attr') }}">
     <div class="pp-topo">
         <i class="bi bi-folder2-open"></i>
         <h1>{{ 'djen.processos.titulo'|trans }}</h1>
         <span class="pp-topo__texto">{% if oabs_opcoes|length > 0 %}{{ 'djen.processos.capturados_das'|trans({oabs: oabs_opcoes|join(', ')}) }}{% else %}{{ 'djen.processos.sem_oab'|trans }}{% endif %}</span>
-        <a href="{{ path('processo_new') }}" class="pp-btn pp-btn--verde" data-push-cadastrar-processo><i class="bi bi-plus-lg"></i>{{ 'djen.index.cadastrar_processo'|trans }}</a>
-        <form method="POST" action="{{ path('push_processual_sincronizar') }}">
-            <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
-            <button type="submit" class="pp-btn pp-btn--azul"><i class="bi bi-cloud-download"></i>{{ 'djen.processos.buscar'|trans }}</button>
+        <button type="button" class="pp-btn pp-btn--verde" data-push-cadastrar-processo><i class="bi bi-plus-lg"></i>{{ 'djen.index.cadastrar_processo'|trans }}</button>
+        <form method="POST" action="{{ path('push_processual_processos_buscar') }}" data-pp-buscar data-t-buscando="{{ 'djen.processos.buscando'|trans|e('html_attr') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+            <button type="submit" class="pp-btn pp-btn--azul"><i class="bi bi-cloud-download"></i><span>{{ 'djen.processos.buscar'|trans }}</span></button>
         </form>
     </div>
 
@@ -45,9 +56,9 @@
         <div class="pp-inclusao__titulo">{{ 'djen.processos.inclusao_titulo'|trans }}</div>
         <form method="POST" action="{{ path('push_processual_processos_incluir') }}" class="pp-inclusao__form">
             <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
-            <label class="pp-rotulo2">{{ 'djen.processos.numero_do_processo'|trans }} *<input type="text" name="numero" inputmode="numeric" placeholder="_______-__.____._.__.____" class="pp-entrada pp-entrada--numero" required></label>
+            <label class="pp-rotulo2">{{ 'djen.processos.numero_do_processo'|trans }} *<input type="text" name="numero" inputmode="numeric" maxlength="25" placeholder="_______-__.____._.__.____" class="pp-entrada pp-entrada--numero" data-pp-mascara-cnj required></label>
             <label class="pp-rotulo2">{{ 'djen.processos.email_alternativo'|trans }}<input type="email" name="email" placeholder="{{ 'djen.processos.opcional'|trans }}" class="pp-entrada"></label>
-            <label class="pp-rotulo2">{{ 'djen.processos.observacao'|trans }}<input type="text" name="observacao" maxlength="150" placeholder="{{ 'djen.processos.observacao_dica'|trans }}" class="pp-entrada"></label>
+            <label class="pp-rotulo2">{{ 'djen.processos.observacao'|trans }}<input type="text" name="observacao" maxlength="150" placeholder="{{ 'djen.processos.observacao_dica'|trans }}" class="pp-entrada" data-pp-obs><span class="pp-inclusao__contador" data-pp-obs-n>0 | 150</span></label>
             <div class="pp-inclusao__acao">
                 <button type="submit" class="pp-btn pp-btn--azul pp-btn--incluir">{{ 'djen.processos.incluir'|trans }}</button>
                 <span class="pp-inclusao__dica"><i class="bi bi-info-circle"></i> {{ 'djen.processos.email_padrao'|trans({email: email_padrao}) }}</span>
@@ -79,7 +90,7 @@
             <span data-pp-selecao-barra hidden>
                 <form method="POST" action="{{ path('push_processual_processos_incluir_relatorio') }}" class="pp-selecao__form" data-pp-numeros>
                     <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
-                    <button type="submit" class="pp-btn pp-btn--verde pp-btn--pequeno"><i class="bi bi-plus-lg"></i> {{ 'djen.processos.incluir_n'|trans({n: '0'}) }}</button>
+                    <button type="submit" class="pp-btn pp-btn--verde pp-btn--pequeno" data-pp-incluir-modelo="{{ 'djen.processos.incluir_n'|trans({n: '{n}'})|e('html_attr') }}"><i class="bi bi-plus-lg"></i> <span data-pp-incluir-txt>{{ 'djen.processos.incluir_n'|trans({n: '0'}) }}</span></button>
                 </form>
             </span>
             <span hidden data-pp-selecao-n>0</span>
@@ -132,7 +143,7 @@
             </div>
             {% for l in linhas %}
                 {% set dias = l.diasParado(hoje) %}
-                <div class="pp-linha pp-linha--proc pp-linha--dado">
+                <div class="pp-linha pp-linha--proc pp-linha--dado" data-pp-linha-proc data-numero="{{ l.numero }}" data-numero-exibicao="{{ l.numeroComMascara }}" data-partes="{{ l.partes }}" data-pasta-id="{{ l.pastaId ?? '' }}" data-pasta-nup="{{ l.pastaNup ?? '' }}"{% if l.pastaId %} data-pasta-url="{{ path('pasta_show', {id: l.pastaId}) }}"{% endif %} data-publicacoes-url="{{ path('push_processual_index', {busca: l.numero}) }}" title="{{ 'djen.index.dica_botao_direito'|trans }}">
                     <span class="pp-c-numero">
                         <input type="checkbox" class="pp-marca" value="{{ l.numero }}" data-pp-marca aria-label="{{ 'djen.processos.selecionar_processo'|trans }}">
                         <span>
@@ -169,8 +180,8 @@
                                 <button type="submit" class="pp-acao pp-acao--perigo" title="{{ 'djen.processos.parar'|trans }}"><i class="bi bi-trash3"></i></button>
                             </form>
                         {% endif %}
-                        {% if l.pastaId is null and l.processoId %}<a href="{{ path('processo_show', {id: l.processoId}) }}" class="pp-acao pp-acao--link"><i class="bi bi-link-45deg"></i>{{ 'djen.processos.pasta_curto'|trans }}</a>{% endif %}
-                        {% if l.ultimoMovimento %}<a href="{{ path('push_processual_index', {busca: l.numero}) }}" class="pp-acao pp-acao--link" title="{{ 'djen.processos.ver_publicacoes'|trans }}"><i class="bi bi-broadcast"></i></a>{% endif %}
+                        {% if l.pastaId is null %}<button type="button" class="pp-acao pp-acao--link" data-pp-vincular-proc title="{{ 'djen.index.vincular_pasta'|trans }}"><i class="bi bi-link-45deg"></i>{{ 'djen.processos.pasta_curto'|trans }}</button>{% endif %}
+                        <a href="{{ path('push_processual_index', {busca: l.numero}) }}" class="pp-acao pp-acao--link" title="{{ 'djen.processos.ver_publicacoes'|trans }}"><i class="bi bi-broadcast"></i>{{ l.publicacoes }}</a>
                     </span>
                 </div>
             {% else %}
@@ -204,9 +215,28 @@
         </form>
     </div>
 </div>
+
+<form method="POST" action="{{ path('push_processual_processos_excluir') }}" class="pp-vinculo-form" data-pp-excluir-form hidden>
+    <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
+    <input type="hidden" name="numero" value="">
+</form>
+<form method="POST" class="pp-vinculo-form" data-pp-vinculo-form hidden>
+    <input type="hidden" name="_token" value="{{ csrf_token('push_publicacoes') }}">
+    <input type="hidden" name="voltar" value="{{ app.request.requestUri }}">
+    <input type="hidden" name="numero" value="">
+    <input type="hidden" name="pasta_id" value="">
+    <input type="hidden" name="nup" value="">
+    <input type="hidden" name="trocar_da_pasta_id" value="">
+</form>
+{% include 'djen/_modal_pasta.html.twig' with {url_vincular: path('push_processual_processo_vincular'), url_desvincular: path('push_processual_processo_desvincular')} only %}
+{% if can_access_module('processos') %}
+{% include 'djen/_modal_vincular_processo.html.twig' only %}
+{% endif %}
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/push-processos.js') }}"></script>
+<script src="{{ asset('js/push-processos-pasta.js') }}"></script>
+<script src="{{ asset('js/push-vincular-processo.js') }}"></script>
 {% endblock %}

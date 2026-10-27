@@ -140,4 +140,21 @@ final class MontarMetaDePastasDoMesTest extends TestCase
 
         $this->sut->montar($this->tenant, new \DateTimeImmutable('2026-10-20'), self::FILTROS_DO_MES, 0);
     }
+
+    #[TestDox('Simular dia: só os dias úteis decorridos mudam (realizado e meta são os de verdade); dia de outro mês não simula')]
+    public function testComDiaSimulado(): void
+    {
+        $this->vigente(42, '2026-10-01');
+        $real = $this->sut->montar($this->tenant, new \DateTimeImmutable('2026-10-20'), self::FILTROS_DO_MES, 20);
+
+        $sim = $this->sut->comDiaSimulado($real, new \DateTimeImmutable('2026-10-06'));
+
+        self::assertSame(4, $sim->diasUteisDecorridos, '1, 2, 5 e 6 de outubro');
+        self::assertSame(21, $sim->diasUteisTotal);
+        self::assertSame(20, $sim->realizado);
+        self::assertSame(42, $sim->meta);
+        self::assertTrue($sim->visivel);
+        self::assertSame($real, $this->sut->comDiaSimulado($real, new \DateTimeImmutable('2026-11-03')));
+        self::assertSame(13, $real->diasUteisDecorridos, 'o original não muda');
+    }
 }

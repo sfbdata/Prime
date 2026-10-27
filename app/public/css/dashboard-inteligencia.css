@@ -550,10 +550,11 @@
 
 /* perguntas guiadas */
 .db-page .db-ia-perguntas { background: linear-gradient(180deg, var(--db-ia-suave-bg), var(--db-ia-bloco-bg)); }
-.db-page .db-ia-pergunta + .db-ia-pergunta { margin-top: 6px; }
-.db-page .db-ia-pergunta > summary { display: inline-flex; align-items: center; min-height: 30px; padding: 4px 11px; border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--db-ia-pergunta-texto); background: var(--db-ia-pergunta-bg); box-shadow: inset 0 0 0 1px var(--db-ia-pergunta-anel); transition: background .2s, color .2s; }
-.db-page .db-ia-pergunta[open] > summary { background: var(--db-accent); color: #fff; box-shadow: none; }
-.db-page .db-ia-resposta { display: flex; gap: 9px; margin-top: 8px; padding: 10px 11px; border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 0 0 0 1px var(--db-ia-resposta-anel); font-size: 12.5px; line-height: 1.5; color: var(--db-text); animation: dbIaBloco .2s ease both; }
+.db-page .db-ia-pilulas { display: flex; flex-wrap: wrap; gap: 6px; }
+.db-page .db-ia-pilula { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border: none; border-radius: 4px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--db-ia-pergunta-texto); background: var(--db-ia-pergunta-bg); box-shadow: inset 0 0 0 1px var(--db-ia-pergunta-anel); transition: background .2s, color .2s; }
+.db-page .db-ia-pilula[aria-pressed="true"] { background: var(--db-accent); color: #fff; box-shadow: none; }
+.db-page .db-ia-resposta { display: flex; gap: 9px; margin-top: 10px; padding: 10px 11px; border-radius: 4px; background: var(--db-ia-bloco-bg); box-shadow: inset 0 0 0 1px var(--db-ia-resposta-anel); font-size: 12.5px; line-height: 1.5; color: var(--db-text); animation: dbIaBloco .2s ease both; }
+.db-page .db-ia-resposta[hidden] { display: none; }
 .db-page .db-ia-resposta i { font-size: 14px; color: var(--db-accent); margin-top: 1px; }
 
 /* ── Confirmação "Ativar Modo Avançado?" (dc L939-959) ──────────────────────
@@ -636,7 +637,15 @@
 .db-page .db-ia-teaser-seta { font-size: 14px; }
 
 /* rodapé */
-.db-page .db-ia-rodape { display: flex; align-items: center; gap: 7px; padding: 10px 16px 12px; border-top: 1px solid var(--db-ia-divisor); background: var(--db-ia-rodape-bg); font-size: 12px; color: var(--db-text-2); }
+.db-page .db-ia-rodape { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--db-ia-divisor); background: var(--db-ia-rodape-bg); font-size: 12px; color: var(--db-text-2); }
+.db-page .db-ia-rodape-linha { display: flex; align-items: center; gap: 7px; }
+/* Teste · simular dia (dc L1341-1347) */
+.db-page .db-ia-sim { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--db-faint); }
+.db-page .db-ia-sim-teste { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.db-page .db-ia-sim-range { flex: 1; accent-color: var(--db-accent); }
+.db-page .db-ia-sim-dia { font-family: Arial, Helvetica, sans-serif; font-weight: 700; color: var(--db-ia-chip-texto); min-width: 28px; text-align: right; }
+.db-page .db-ia-sim-aviso { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; padding: 9px 12px; border-radius: 4px; background: var(--db-ia-atencao-bg); color: var(--db-ia-atencao); font-size: 12px; line-height: 1.4; }
+.db-page .db-ia-sim-aviso i { margin-top: 1px; }
 .db-page .db-ia-rodape i { font-size: 12px; color: var(--db-accent); }
 
 /* ── Responsividade ──────────────────────────────────────────────────────── */
@@ -709,3 +718,40 @@
 .db-page .db-ia-retorno-btn { height: 26px; padding: 0 9px; border: none; border-radius: 4px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; transition: background .2s; color: var(--db-ia-chip-texto); background: var(--db-ia-chip-bg); }
 .db-page .db-ia-retorno-btn[aria-pressed="true"] { background: var(--db-accent); color: #fff; }
 .db-page .db-ia-alerta [data-ia-marcar]:disabled { opacity: .6; cursor: progress; }
+
+/* ── Aumentar o nível (dc L1284-1325) ──────────────────────────────────────────── */
+.db-page .db-ia-plano-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--db-label); }
+.db-page .db-ia-plano-cab i { font-size: 14px; color: var(--db-accent); }
+.db-page .db-ia-plano-texto { margin-bottom: 10px; font-size: 12.5px; line-height: 1.4; color: var(--db-muted); }
+.db-page .db-ia-niveis { display: flex; gap: 2px; margin-bottom: 12px; padding: 2px; border-radius: 4px; background: var(--db-ia-chip-bg); box-shadow: inset 0 0 0 1px var(--db-ia-bloco-borda); }
+.db-page .db-ia-nivel-btn { flex: 1; height: 28px; border: none; border-radius: 4px; background: transparent; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--db-muted); cursor: pointer; }
+.db-page .db-ia-nivel-btn:hover { color: var(--db-accent-text); }
+.db-page .db-ia-nivel-btn[aria-pressed="true"] { font-weight: 700; color: var(--db-accent-text); background: var(--db-ia-bloco-bg); box-shadow: 0 1px 2px rgba(16,42,58,.1), 0 0 0 1px rgba(12,122,156,.14); }
+.db-page .db-ia-plano-nivel[hidden] { display: none; }
+.db-page .db-ia-plano-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.db-page .db-ia-plano-cartao { padding: 8px 9px; border-radius: 4px; background: var(--db-ia-mini-bg); }
+.db-page .db-ia-plano-rotulo { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-ia-plano-valor { font-family: Arial, Helvetica, sans-serif; margin-top: 2px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-ia-plano-viab { display: inline-block; margin-top: 3px; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: 700; background: var(--db-ia-est-fundo); color: var(--db-ia-est-texto); }
+.db-page .db-ia-plano-viab.is-sem-base { background: var(--db-ia-chip-bg); color: var(--db-ia-chip-texto); }
+.db-page .db-ia-plano-resumo { margin-bottom: 10px; font-size: 12.5px; line-height: 1.45; color: var(--db-label); text-wrap: pretty; }
+.db-page .db-ia-plano-sub { margin-bottom: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-ia-plano-sub--marcos { margin-top: 12px; }
+.db-page .db-ia-plano-sub--alavancas { margin: 12px 0 4px; }
+.db-page .db-ia-plano-pessoa { display: grid; grid-template-columns: minmax(0, 1fr) 70px 54px; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--db-ia-divisor); }
+.db-page .db-ia-plano-nome { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; color: var(--db-text-strong); }
+.db-page .db-ia-plano-trilho { display: block; height: 6px; border-radius: 4px; background: var(--db-ia-chip-bg); overflow: hidden; }
+.db-page .db-ia-plano-barra { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #1597bd, #0a6fa0); transition: width .5s cubic-bezier(.22, .8, .3, 1); }
+.db-page .db-ia-plano-extra { font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; color: var(--db-accent); }
+.db-page .db-ia-plano-marcos { display: flex; gap: 4px; }
+.db-page .db-ia-plano-marco { flex: 1; min-width: 0; padding: 6px 4px; border-radius: 4px; background: var(--db-ia-mini-bg); text-align: center; }
+.db-page .db-ia-plano-marco-rotulo { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-ia-plano-marco-alvo { font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-ia-plano-alavanca { display: flex; gap: 8px; padding: 4px 0; font-size: 13px; line-height: 1.4; color: var(--db-text-strong); }
+.db-page .db-ia-plano-alavanca i { margin-top: 2px; font-size: 13px; color: var(--db-accent); }
+.db-page .db-ia-plano-aplicar { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 38px; margin-top: 12px; border: none; border-radius: 4px; background: #0a6fa0; color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 18px -10px rgba(12,122,156,.8); }
+.db-page .db-ia-plano-aplicar:hover { filter: brightness(1.06); }
+.db-page .db-ia-plano-aplicar:disabled { opacity: .6; cursor: progress; }
+.db-page .db-ia-plano-aviso { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--db-ia-normal); }
+.db-page .db-ia-plano-aviso.is-erro { color: var(--db-ia-critico); }
+.db-page .db-ia-plano-aviso[hidden] { display: none; }

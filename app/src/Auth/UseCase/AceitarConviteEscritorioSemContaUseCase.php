@@ -9,6 +9,8 @@ use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
 use App\Auth\Event\ConviteDeEscritorioAceito;
 use App\Entity\Auth\Invitation;
 use App\Auth\Service\DadosDaContaDoConvite;
+use App\Auth\Exception\CadastroNaoDisponivel;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -36,10 +38,14 @@ final class AceitarConviteEscritorioSemContaUseCase
         private readonly EventDispatcherInterface $eventos,
         private readonly VagaNoEscritorio $vagaNoEscritorio,
         private readonly RegistroDePontoInicial $registroDePontoInicial,
+        private readonly PoliticaDeCadastro $politicaDeCadastro,
     ) {}
 
+    /** @throws CadastroNaoDisponivel cadastro fechado (`off`): nem o convite de escritório cria conta nova */
     public function executar(AceitarConviteEscritorioSemContaInput $input): User
     {
+        $this->politicaDeCadastro->exigirConviteDeContaNova();
+
         $invitation = $this->invitationRepository->encontrarPorToken($input->token);
 
         if ($invitation === null) {
@@ -80,15 +86,7 @@ final class AceitarConviteEscritorioSemContaUseCase
             throw new \DomainException('É necessário aceitar os Termos de Uso para criar a conta.');
         }
 
-        $user = new User();
-        // Normaliza a caixa: o e-mail é a identidade da conta, e `Ana@` gravado aqui viraria
-        // uma conta que some de qualquer busca normalizada — inclusive da recuperação de senha.
-        $user->setEmail(mb_strtolower(trim((string) $invitation->getEmail())));
-        $user->setFullName($fullName);
-        $user->setIsActive(true);
-        $user->setRoles(['ROLE_USER']);
-        $user->setPassword($this->passwordHasher->hashPassword($user, $input->senha));
-        UserProfile::daContaNova($user, $genero);   // persistido em cascata com o User
+        $user = $this->novoUsuario($invitation, $fullName, $input->senha, $genero);
 
         $userTenant = $this->novoVinculo($user, $tenant);
         if ($invitation->getTenantRole() !== null) {
@@ -108,6 +106,21 @@ final class AceitarConviteEscritorioSemContaUseCase
             tenant: $tenant,
         ));
         $this->avisarAceite($invitation, $user, $tenant);
+
+        return $user;
+    }
+
+    private function novoUsuario(Invitation $invitation, string $fullName, string $senha, Genero $genero): User
+    {
+        $user = new User();
+        // Normaliza a caixa: o e-mail é a identidade da conta, e `Ana@` gravado aqui viraria
+        // uma conta que some de qualquer busca normalizada — inclusive da recuperação de senha.
+        $user->setEmail(mb_strtolower(trim((string) $invitation->getEmail())));
+        $user->setFullName($fullName);
+        $user->setIsActive(true);
+        $user->setRoles(['ROLE_USER']);
+        $user->setPassword($this->passwordHasher->hashPassword($user, $senha));
+        UserProfile::daContaNova($user, $genero);   // persistido em cascata com o User
 
         return $user;
     }

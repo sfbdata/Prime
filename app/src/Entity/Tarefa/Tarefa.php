@@ -11,6 +11,7 @@ use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use App\Shared\Prazo\RegraDoPrazo;
+use App\Tarefa\Enum\EstadoDoPrazoJuridico;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Enum\TipoDeDemanda;
@@ -52,6 +53,26 @@ class Tarefa implements Auditavel, TenantAware
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $prazo = null;
+
+    /** Prazo jurídico (fatal) da providência, informado, confirmado ou estimado na Nova meta (desenho 02). Nulo: sem prazo legal ou meta antiga. */
+    #[ORM\Column(name: 'prazo_juridico', type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $prazoJuridico = null;
+
+    /** De onde veio o `prazoJuridico` (`AnaliseDoPrazoDaMeta`). Nulo nas metas antigas. */
+    #[ORM\Column(name: 'estado_prazo_juridico', length: 30, nullable: true, enumType: EstadoDoPrazoJuridico::class)]
+    private ?EstadoDoPrazoJuridico $estadoDoPrazoJuridico = null;
+
+    /** Data da publicação informada na origem do prazo. */
+    #[ORM\Column(name: 'data_publicacao', type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $dataDaPublicacao = null;
+
+    /** Data da ciência/intimação informada na origem do prazo. */
+    #[ORM\Column(name: 'data_ciencia', type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $dataDaCiencia = null;
+
+    /** O prazo da meta foi o prazo interno sugerido pela análise (e não outra data escolhida). */
+    #[ORM\Column(name: 'usou_prazo_sugerido', options: ['default' => false])]
+    private bool $usouPrazoSugerido = false;
 
     #[ORM\Column(length: 20)]
     private string $status = self::STATUS_PENDENTE;
@@ -218,6 +239,43 @@ class Tarefa implements Auditavel, TenantAware
     public function setPrioridade(PrioridadeDaMeta $prioridade): self
     {
         $this->prioridade = $prioridade;
+
+        return $this;
+    }
+
+    public function getPrazoJuridico(): ?\DateTimeImmutable
+    {
+        return $this->prazoJuridico;
+    }
+
+    public function getEstadoDoPrazoJuridico(): ?EstadoDoPrazoJuridico
+    {
+        return $this->estadoDoPrazoJuridico;
+    }
+
+    public function getDataDaPublicacao(): ?\DateTimeImmutable
+    {
+        return $this->dataDaPublicacao;
+    }
+
+    public function getDataDaCiencia(): ?\DateTimeImmutable
+    {
+        return $this->dataDaCiencia;
+    }
+
+    public function usouPrazoSugerido(): bool
+    {
+        return $this->usouPrazoSugerido;
+    }
+
+    /** Guarda o que a análise do prazo da Nova meta concluiu, junto das datas de origem que a pessoa informou. */
+    public function registrarAnaliseDoPrazo(?\DateTimeImmutable $prazoJuridico, EstadoDoPrazoJuridico $estado, ?\DateTimeImmutable $publicacao, ?\DateTimeImmutable $ciencia, bool $usouPrazoSugerido): self
+    {
+        $this->prazoJuridico = $prazoJuridico;
+        $this->estadoDoPrazoJuridico = $estado;
+        $this->dataDaPublicacao = $publicacao;
+        $this->dataDaCiencia = $ciencia;
+        $this->usouPrazoSugerido = $usouPrazoSugerido;
 
         return $this;
     }

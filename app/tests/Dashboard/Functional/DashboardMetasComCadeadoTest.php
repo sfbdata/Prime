@@ -164,6 +164,26 @@ final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('simular dia não abre brecha: com pasta oculta o ritmo da meta continua fora, simulado ou não')]
+    public function testSimularDiaNaoRevelaRitmoComPastaOculta(): void
+    {
+        $c = $this->cenario();
+        $this->em()->persist(new DashboardMetaPastas($c['tenant'], new \DateTimeImmutable('first day of this month'), 4321, $c['primario']));
+        $this->em()->flush();
+        $hoje = new \DateTimeImmutable('today');
+        $dia  = $hoje->setDate((int) $hoje->format('Y'), (int) $hoje->format('n'), (int) $hoje->format('j') === 1 ? 2 : 1);
+        $url  = '/dashboard?data_de=' . $hoje->format('Y-m-01') . '&data_ate=' . $hoje->format('Y-m-t') . '&dia_simulado=' . $dia->format('Y-m-d');
+
+        $this->entrar($c['primario'], $c['tenant']);
+        self::assertCount(1, $this->client->request('GET', $url)->filter('.db-ia-meta-ritmo'), 'quem vê tudo simula o ritmo');
+
+        $this->entrar($c['gestora'], $c['tenant']);
+        $crawler = $this->client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.db-ia-meta-ritmo'));
+        self::assertStringNotContainsString('de 4321 criadas', (string) $this->client->getResponse()->getContent());
+    }
+
     #[TestDox('colunas extras de metas (em revisão e tempo médio) também deixam de contar a meta da pasta oculta')]
     public function testColunasExtrasDeMetas(): void
     {
