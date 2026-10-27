@@ -42,6 +42,16 @@ djen:
         limpar_lidas: Limpar lidas
         vazio: Nenhuma publicação.
         registrar: Registrar publicação
+        pasta_n: 'Pasta {n}'
+        confirma_desvincular: Desvincular esta publicação da pasta?
+        avulsa: Avulsa
+        vincular_pasta: Vincular a uma pasta
+        trocar_pasta: Trocar a pasta vinculada
+        desvincular_pasta: Desvincular da pasta
+        criar_meta: Criar meta com este prazo
+        meta_criada: Meta criada para esta publicação
+        meta_sem_pasta: Vincule a uma pasta para criar a meta
+        meta_sem_prazo: Registre o prazo em dias úteis para criar a meta
         confirma_excluir: "Excluir {n} publicação(ões) selecionada(s) do Diário?\n\nElas saem da sua lista."
         prompt_excluir: 'Confirmação de segurança: digite EXCLUIR para apagar {n} publicação(ões).'
         registrar_titulo: Registrar publicação do Diário da OAB

@@ -128,4 +128,85 @@
         });
     });
     pintar();
+
+    /* Pasta e meta: formulário escondido com token, enviado para a rota da publicação. */
+    var modalPasta = document.querySelector('[data-pp-modal-pasta]');
+    var alvo = null;
+    var temporizador = null;
+
+    function enviarAcao(id, rota, pastaId) {
+        form.action = raiz.getAttribute('data-url-base') + '/' + id + '/' + rota;
+        if (pastaId !== undefined) {
+            var campo = document.createElement('input');
+            campo.type = 'hidden'; campo.name = 'pasta_id'; campo.value = pastaId;
+            form.appendChild(campo);
+        }
+        form.submit();
+    }
+
+    function mostrarPastas(pastas) {
+        var lista = modalPasta.querySelector('[data-pp-modal-lista]');
+        lista.textContent = '';
+        if (!pastas.length) {
+            var vazio = document.createElement('div');
+            vazio.className = 'pp-modal__vazio';
+            vazio.textContent = modalPasta.dataset.tVazio;
+            lista.appendChild(vazio);
+            return;
+        }
+        pastas.forEach(function (p) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pp-modal__pasta';
+            b.innerHTML = '<i class="bi bi-folder2"></i><span></span><em></em>';
+            b.querySelector('span').textContent = p.texto;
+            b.querySelector('em').textContent = modalPasta.dataset.tVincular;
+            b.addEventListener('click', function () { enviarAcao(alvo, 'pasta', p.id); });
+            lista.appendChild(b);
+        });
+    }
+
+    function buscarPastas() {
+        var q = modalPasta.querySelector('[data-pp-modal-q]').value;
+        window.fetch(modalPasta.dataset.urlBusca + '?q=' + encodeURIComponent(q), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(mostrarPastas)
+            .catch(function () { mostrarPastas([]); });
+    }
+
+    if (modalPasta) {
+        var rodape = modalPasta.querySelector('.pp-modal__rodape');
+        if (rodape) { rodape.hidden = true; }
+        var fecharPasta = function () { modalPasta.hidden = true; alvo = null; };
+        modalPasta.querySelectorAll('[data-pp-modal-fechar]').forEach(function (b) { b.addEventListener('click', fecharPasta); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modalPasta.hidden) { fecharPasta(); } });
+        modalPasta.querySelector('[data-pp-modal-q]').addEventListener('input', function () {
+            window.clearTimeout(temporizador);
+            temporizador = window.setTimeout(buscarPastas, 250);
+        });
+    }
+
+    itens.forEach(function (item) {
+        var vincular = item.querySelector('[data-pp-diario-vincular]');
+        var desvincular = item.querySelector('[data-pp-diario-desvincular]');
+        var meta = item.querySelector('[data-pp-diario-meta]');
+        if (vincular && modalPasta) {
+            vincular.addEventListener('click', function () {
+                alvo = item.dataset.id;
+                modalPasta.querySelector('[data-pp-modal-numero]').textContent = item.dataset.ato;
+                modalPasta.querySelector('[data-pp-modal-partes]').textContent = '';
+                var q = modalPasta.querySelector('[data-pp-modal-q]');
+                q.value = '';
+                modalPasta.hidden = false;
+                q.focus();
+                buscarPastas();
+            });
+        }
+        if (desvincular) {
+            desvincular.addEventListener('click', function () {
+                if (window.confirm(texto('confirma-desvincular'))) { enviarAcao(item.dataset.id, 'pasta', ''); }
+            });
+        }
+        if (meta) { meta.addEventListener('click', function () { enviarAcao(item.dataset.id, 'meta'); }); }
+    });
 }());

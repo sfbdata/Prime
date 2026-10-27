@@ -8,7 +8,9 @@ use App\Djen\Controller\DiarioDaOabController;
 use App\Djen\Entity\PublicacaoDoDiarioDaOab;
 use App\Djen\Enum\TipoDeAtoDoDiario;
 use App\Entity\Auth\User;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\CriaUsuarioComPermissoesTrait;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,9 +30,9 @@ final class DiarioDaOabControllerTest extends JusPrimeWebTestCase
         return static::getContainer()->get(EntityManagerInterface::class);
     }
 
-    private function guardar(Tenant $tenant, User $usuario, string $ato, TipoDeAtoDoDiario $tipo = TipoDeAtoDoDiario::EticoDisciplinar, string $texto = 'Texto'): void
+    private function guardar(Tenant $tenant, User $usuario, string $ato, TipoDeAtoDoDiario $tipo = TipoDeAtoDoDiario::EticoDisciplinar, string $texto = 'Texto', ?int $prazoDias = null): int
     {
-        $this->em()->persist(new PublicacaoDoDiarioDaOab(
+        $this->em()->persist($publicacao = new PublicacaoDoDiarioDaOab(
             $this->em()->getReference(Tenant::class, $tenant->getId()),
             $this->em()->getReference(User::class, $usuario->getId()),
             new \DateTimeImmutable('2026-10-20'),
@@ -40,8 +42,23 @@ final class DiarioDaOabControllerTest extends JusPrimeWebTestCase
             'TED',
             $texto,
             'PED 1',
+            $prazoDias,
         ));
         $this->em()->flush();
+
+        return (int) $publicacao->getId();
+    }
+
+    private function criarPasta(Tenant $tenant, string $nup): Pasta
+    {
+        $pasta = new Pasta();
+        $pasta->setNup($nup);
+        $pasta->setNomeCliente('MARIA DA SILVA');
+        $pasta->setTenant($this->em()->getReference(Tenant::class, $tenant->getId()));
+        $this->em()->persist($pasta);
+        $this->em()->flush();
+
+        return $pasta;
     }
 
     /** @return array{0: \Symfony\Bundle\FrameworkBundle\KernelBrowser, 1: Tenant, 2: User} */
@@ -230,5 +247,64 @@ final class DiarioDaOabControllerTest extends JusPrimeWebTestCase
         $client->request('POST', '/push-processual/diario/excluir', ['_token' => 'errado', 'ids' => $ids]);
 
         self::assertCount(1, $client->request('GET', '/push-processual/diario')->filter('[data-pp-diario-item]'));
+    }
+
+    #[Test]
+    public function vinculaTrocaEDesvinculaDaPasta(): void
+    {
+        [$client, $tenant, $usuario] = $this->entrar();
+        $id = $this->guardar($tenant, $usuario, 'Ato A');
+        $pasta = $this->criarPasta($tenant, 'NUP-D1');
+        $alheia = $this->criarPasta($this->criarTenant(), 'NUP-ALHEIA');
+        $this->limparIdentityMap();
+        $token = $this->tokenDaTela($client->request('GET', '/push-processual/diario'));
+
+        $client->request('POST', sprintf('/push-processual/diario/%d/pasta', $id), ['_token' => $token, 'pasta_id' => $pasta->getId()]);
+        $crawler = $client->request('GET', '/push-processual/diario');
+        self::assertStringContainsString('Pasta NUP-D1', $crawler->filter('.pp-pill--pasta')->text());
+
+        $client->request('POST', sprintf('/push-processual/diario/%d/pasta', $id), ['_token' => $token, 'pasta_id' => $alheia->getId()]);
+        self::assertStringContainsString('Pasta NUP-D1', $client->request('GET', '/push-processual/diario')->filter('.pp-pill--pasta')->text(), 'pasta de outro escritório é recusada');
+
+        $client->request('POST', sprintf('/push-processual/diario/%d/pasta', $id), ['_token' => $token, 'pasta_id' => '']);
+        $crawler = $client->request('GET', '/push-processual/diario');
+        self::assertCount(0, $crawler->filter('.pp-pill--pasta'));
+        self::assertCount(1, $crawler->filter('.pp-pill--avulsa'));
+    }
+
+    #[Test]
+    public function criaMetaNaPastaComOPrazoEMostraOSeloDeDias(): void
+    {
+        [$client, $tenant, $usuario] = $this->entrar();
+        $id = $this->guardar($tenant, $usuario, 'Ato com prazo', TipoDeAtoDoDiario::EticoDisciplinar, 'Texto sigiloso', 15);
+        $pasta = $this->criarPasta($tenant, 'NUP-D2');
+        $this->limparIdentityMap();
+        $crawler = $client->request('GET', '/push-processual/diario');
+        $token = $this->tokenDaTela($crawler);
+        self::assertCount(1, $crawler->filter('.pp-selo--prazo'));
+        self::assertCount(0, $crawler->filter('[data-pp-diario-meta]'), 'sem pasta não há botão de meta');
+
+        $client->request('POST', sprintf('/push-processual/diario/%d/pasta', $id), ['_token' => $token, 'pasta_id' => $pasta->getId()]);
+        self::assertCount(1, $client->request('GET', '/push-processual/diario')->filter('[data-pp-diario-meta]'));
+        $client->request('POST', sprintf('/push-processual/diario/%d/meta', $id), ['_token' => $token]);
+
+        $tarefas = $this->em()->getRepository(Tarefa::class)->findBy(['pasta' => $pasta->getId()]);
+        self::assertCount(1, $tarefas);
+        self::assertStringNotContainsString('sigiloso', (string) $tarefas[0]->getDescricao());
+        self::assertCount(0, $client->request('GET', '/push-processual/diario')->filter('[data-pp-diario-meta]'), 'uma meta por publicação');
+    }
+
+    #[Test]
+    public function metaSemPastaOuSemPrazoNaoCria(): void
+    {
+        [$client, $tenant, $usuario] = $this->entrar();
+        $semPasta = $this->guardar($tenant, $usuario, 'Sem pasta', TipoDeAtoDoDiario::Comunicado, 'x', 10);
+        $this->limparIdentityMap();
+        $token = $this->tokenDaTela($client->request('GET', '/push-processual/diario'));
+
+        $client->request('POST', sprintf('/push-processual/diario/%d/meta', $semPasta), ['_token' => $token]);
+
+        self::assertStringContainsString('Vincule a uma pasta', $client->followRedirect()->text());
+        self::assertCount(0, $this->em()->getRepository(Tarefa::class)->findAll());
     }
 }

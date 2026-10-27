@@ -11,3 +11,8 @@
 .pp-diario-texto[hidden] { display: none; }
 .pp-vp__campo textarea { border: 1px solid #c5d2db; border-radius: 2px; padding: 8px 10px; font: inherit; font-size: 14px; font-weight: normal; resize: vertical; min-width: 0; }
 .pp-diario-item.is-sel > .pp-linha { background: #dcecf6; }
+.pp-pill { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 9px; font-size: 11px; font-weight: bold; line-height: 17px; color: #fff; text-decoration: none; }
+.pp-pill--pasta { background: #1e7b45; }
+.pp-pill--avulsa { background: #6b7c88; }
+.pp-diario-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.pp-diario-dica { font-size: 12.5px; color: #5b7383; }

@@ -7,12 +7,16 @@ namespace App\Djen\Controller;
 use App\Djen\DTO\RegistrarPublicacaoDoDiarioInput;
 use App\Djen\Enum\TipoDeAtoDoDiario;
 use App\Djen\Exception\PublicacaoDoDiarioInvalidaException;
+use App\Djen\Exception\VinculoDaPublicacaoInvalidoException;
+use App\Djen\Service\PrazoDaPublicacaoCalculador;
 use App\Djen\Repository\OabMonitoradaRepository;
 use App\Djen\Repository\PublicacaoDoDiarioDaOabRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\UseCase\ApagarPublicacoesDoDiarioUseCase;
 use App\Djen\UseCase\AtualizarLeituraDoDiarioUseCase;
+use App\Djen\UseCase\CriarMetaDaPublicacaoDoDiarioUseCase;
 use App\Djen\UseCase\RegistrarPublicacaoDoDiarioUseCase;
+use App\Djen\UseCase\VincularPublicacaoDoDiarioAPastaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\AcessoAPasta;
@@ -46,6 +50,9 @@ final class DiarioDaOabController extends AbstractController
         private readonly AcessoAPasta $acessoAPasta,
         private readonly AtualizarLeituraDoDiarioUseCase $atualizarLeitura,
         private readonly ApagarPublicacoesDoDiarioUseCase $apagarPublicacoes,
+        private readonly VincularPublicacaoDoDiarioAPastaUseCase $vincularPasta,
+        private readonly CriarMetaDaPublicacaoDoDiarioUseCase $criarMeta,
+        private readonly PrazoDaPublicacaoCalculador $prazoCalculador,
     ) {
     }
 
@@ -61,9 +68,12 @@ final class DiarioDaOabController extends AbstractController
         $filtro = \array_key_exists($filtro, self::FILTROS) ? $filtro : 'todas';
         $busca = trim((string) $request->query->get('busca', ''));
 
+        $publicacoes = $this->diario->listarDoUsuario($tenant, $usuario, self::FILTROS[$filtro], $busca);
+
         return $this->render('djen/diario.html.twig', [
             'abas' => $this->contagensDasAbas($tenant, $usuario),
-            'publicacoes' => $this->diario->listarDoUsuario($tenant, $usuario, self::FILTROS[$filtro], $busca),
+            'publicacoes' => $publicacoes,
+            'prazos' => $this->prazosDasPublicacoes($tenant, $publicacoes),
             'filtro' => $filtro,
             'busca' => $busca,
             'hoje' => new \DateTimeImmutable('today'),
@@ -147,6 +157,66 @@ final class DiarioDaOabController extends AbstractController
         $this->addFlash('success', $n > 0 ? sprintf('%d publicação(ões) lida(s) excluída(s).', $n) : 'Não há publicações lidas para limpar.');
 
         return $this->voltar($request);
+    }
+
+    #[Route('/{id}/pasta', name: 'push_processual_diario_pasta', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function pasta(int $id, Request $request): Response
+    {
+        return $this->agir($request, function (Tenant $tenant, User $usuario) use ($id, $request): string {
+            $pastaId = (int) $request->request->get('pasta_id', 0);
+            $this->vincularPasta->executar($tenant, $usuario, $id, $pastaId > 0 ? $pastaId : null);
+
+            return $pastaId > 0 ? 'Publicação vinculada à pasta.' : 'Publicação desvinculada da pasta.';
+        });
+    }
+
+    #[Route('/{id}/meta', name: 'push_processual_diario_meta', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function meta(int $id, Request $request): Response
+    {
+        return $this->agir($request, function (Tenant $tenant, User $usuario) use ($id): string {
+            $tarefa = $this->criarMeta->executar($tenant, $usuario, $id, new \DateTimeImmutable('today'));
+
+            return sprintf('Meta criada com prazo até %s. Veja em Minhas Metas.', $tarefa->getPrazo()?->format('d/m/Y') ?? '');
+        });
+    }
+
+    /** @param callable(Tenant, User): string $acao devolve a mensagem de sucesso */
+    private function agir(Request $request, callable $acao): Response
+    {
+        [$tenant, $usuario] = $this->contexto();
+        if ($tenant === null || $usuario === null) {
+            return $this->negarAcesso();
+        }
+        if (!$this->isCsrfTokenValid('push_diario', (string) $request->request->get('_token'))) {
+            return $this->recusarToken($request);
+        }
+
+        try {
+            $this->addFlash('success', $acao($tenant, $usuario));
+        } catch (VinculoDaPublicacaoInvalidoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->voltar($request);
+    }
+
+    /**
+     * @param list<\App\Djen\Entity\PublicacaoDoDiarioDaOab> $publicacoes
+     *
+     * @return array<int, \App\Djen\DTO\PrazoDaPublicacao>
+     */
+    private function prazosDasPublicacoes(Tenant $tenant, array $publicacoes): array
+    {
+        $hoje = new \DateTimeImmutable('today');
+        $prazos = [];
+        foreach ($publicacoes as $p) {
+            $prazo = $this->prazoCalculador->calcular(\DateTimeImmutable::createFromInterface($p->getDataPublicacao()), $p->getPrazoDias(), null, false, $tenant->getEstado(), $hoje);
+            if ($prazo !== null) {
+                $prazos[(int) $p->getId()] = $prazo;
+            }
+        }
+
+        return $prazos;
     }
 
     private function recusarToken(Request $request): Response
