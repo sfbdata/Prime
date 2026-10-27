@@ -13,6 +13,7 @@ final readonly class ComparacaoDaPessoaOutput
 {
     public const NEUTRO    = 'neutro';
     public const SOBE_RUIM = 'sobe_ruim';
+    public const SOBE_BOM  = 'sobe_bom';
 
     public function __construct(
         public string $chave,

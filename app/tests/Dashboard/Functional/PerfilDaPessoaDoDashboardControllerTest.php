@@ -6,6 +6,7 @@ namespace App\Tests\Dashboard\Functional;
 
 use App\Dashboard\Controller\PerfilDaPessoaDoDashboardController;
 use App\Dashboard\DTO\ObterPerfilDaPessoaInput;
+use App\Dashboard\Entity\DashboardZeramento;
 use App\Dashboard\UseCase\ObterPerfilDaPessoaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
@@ -70,9 +71,32 @@ final class PerfilDaPessoaDoDashboardControllerTest extends JusPrimeWebTestCase
         $this->em()->flush();
     }
 
-    private function perfil(User $pessoa): Crawler
+    /** @param array<string, string> $query */
+    private function perfil(User $pessoa, array $query = []): Crawler
     {
-        return $this->client->request('GET', '/dashboard/inteligencia/pessoa/' . $pessoa->getId());
+        return $this->client->request('GET', '/dashboard/inteligencia/pessoa/' . $pessoa->getId(), $query);
+    }
+
+    /** Meta concluída em $quando (data de conclusão), criada $diasAntes dias antes dela. */
+    private function metaConcluidaEm(Tenant $tenant, User $criador, User $responsavel, Pasta $pasta, string $quando, int $diasAntes = 2): void
+    {
+        $this->novaMeta($tenant, $criador, $responsavel, $pasta, Tarefa::STATUS_CONCLUIDA, '+5 days');
+        $id = (int) $this->em()->getConnection()->fetchOne('SELECT MAX(id) FROM tarefa WHERE tenant_id = :t', ['t' => $tenant->getId()]);
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE tarefa SET data_conclusao = :c, data_criacao = :k WHERE id = :id',
+            ['c' => $quando . ' 12:00:00', 'k' => (new \DateTimeImmutable($quando))->modify("-{$diasAntes} days")->format('Y-m-d') . ' 12:00:00', 'id' => $id],
+        );
+    }
+
+    /** @return array<string, string> chave da comparação => variação mostrada */
+    private function comparacoes(Crawler $c): array
+    {
+        $mapa = [];
+        $c->filter('[data-comparacao]')->each(static function (Crawler $l) use (&$mapa): void {
+            $mapa[(string) $l->attr('data-comparacao')] = trim($l->filter('.db-pf-comp-d')->text());
+        });
+
+        return $mapa;
     }
 
     private function auditorias(Tenant $tenant, string $acao): int
@@ -119,7 +143,9 @@ final class PerfilDaPessoaDoDashboardControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('responsavel=' . $c['ana']->getId(), $href);
         self::assertSame(['Observado'], array_values(array_unique($perfil->filter('.db-pf-tag')->each(static fn (Crawler $t): string => trim($t->text())))));
         $html = (string) $this->client->getResponse()->getContent();
-        foreach (['Correlação', 'Hipótese', 'Criar acompanhamento', 'Redistribuir', 'Plano de ação'] as $naoDeve) {
+        self::assertCount(0, $perfil->filter('[data-pf-plano]'), '1 vencida está abaixo do limiar de 4: sem plano');
+        self::assertCount(1, $perfil->filter('[data-matriz="backlog"] .db-pf-matriz-v--bom'));
+        foreach (['Correlação', 'Hipótese', 'Criar acompanhamento', 'Redistribuir'] as $naoDeve) {
             self::assertStringNotContainsString($naoDeve, $html, $naoDeve);
         }
         self::assertSame(1, $this->auditorias($c['tenant'], 'ia_pessoa'));
@@ -237,5 +263,79 @@ final class PerfilDaPessoaDoDashboardControllerTest extends JusPrimeWebTestCase
         $bloqueado = $linha->filter('button.db-pf-abrir[disabled]');
         self::assertCount(1, $bloqueado);
         self::assertSame('Seu perfil não pode abrir análises individuais', $bloqueado->attr('title'));
+    }
+
+    private const MES = ['data_de' => '2026-09-01', 'data_ate' => '2026-09-30'];
+
+    #[TestDox('Comparação de conclusões pela data de conclusão: o anterior conta o que foi concluído no mês anterior, e o tempo médio acompanha')]
+    public function testComparacaoPelaDataDeConclusao(): void
+    {
+        $c = $this->cenario();
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $c['pasta'], '2026-06-10');
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $c['pasta'], '2026-08-10', 4);
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $c['pasta'], '2026-08-20', 6);
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $c['pasta'], '2026-09-15', 2);
+        $this->entrar($c['primario'], $c['tenant']);
+
+        $perfil = $this->perfil($c['ana'], self::MES);
+
+        $comp = $this->comparacoes($perfil);
+        self::assertSame('−50%', $comp['concluidas'], '1 concluída em setembro contra 2 em agosto');
+        self::assertSame('−60%', $comp['tempo'], '2 dias em setembro contra 5 em agosto (média de 4 e 6)');
+        self::assertStringContainsString('2 para 1', (string) $perfil->filter('[data-comparacao="concluidas"] .db-pf-comp-d')->attr('title'));
+        self::assertStringStartsWith('Conclusões −50% frente ao próprio período anterior', $this->textoDaLeitura($perfil, 'observado', 'Conclusões'));
+    }
+
+    private function textoDaLeitura(Crawler $perfil, string $tipo, string $comeca): string
+    {
+        foreach ($perfil->filter('[data-leitura="' . $tipo . '"]') as $no) {
+            $texto = trim((new Crawler($no))->filter('span:last-child')->text());
+            if (str_starts_with($texto, $comeca)) {
+                return $texto;
+            }
+        }
+
+        return '';
+    }
+
+    #[TestDox('Sem conclusão registrada antes do período anterior, a comparação de conclusões não é feita e o limite é declarado')]
+    public function testSemRegistroAnteriorAoPeriodo(): void
+    {
+        $c = $this->cenario();
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $c['pasta'], '2026-09-15');
+        [$primarioDeFora, $outro] = $this->criarEscritorio();
+        $deFora = $this->criarColaborador($outro, 'Pessoa de Fora');
+        $this->metaConcluidaEm($outro, $primarioDeFora, $deFora, $this->criarPasta($outro), '2026-01-10');
+        $this->entrar($c['primario'], $c['tenant']);
+
+        $perfil = $this->perfil($c['ana'], self::MES);
+
+        self::assertArrayNotHasKey('concluidas', $this->comparacoes($perfil), 'a conclusão de outro escritório não vira lastro');
+        self::assertStringContainsString('começa antes de o sistema registrar a data de conclusão', $perfil->filter('.db-pf-porque-corpo')->text());
+    }
+
+    #[TestDox('Zerar em Metas concluídas e Tempo médio tira as duas comparações; o cadeado não deixa a meta oculta entrar no anterior')]
+    public function testZerarECadeadoNaComparacao(): void
+    {
+        $c = $this->cenario();
+        $oculta = $this->criarPasta($c['tenant']);
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $c['pasta'], '2026-06-10');
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $c['pasta'], '2026-08-10');
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $oculta, '2026-08-12');
+        $this->metaConcluidaEm($c['tenant'], $c['primario'], $c['ana'], $c['pasta'], '2026-09-15');
+        $useCase = static::getContainer()->get(ObterPerfilDaPessoaUseCase::class);
+        $pedido  = static fn (array $ocultas): ObterPerfilDaPessoaInput => new ObterPerfilDaPessoaInput($c['tenant'], $c['primario'], (int) $c['ana']->getId(), self::MES, new \DateTimeImmutable('2026-10-05'), $ocultas);
+        $anterior = static fn ($p): ?int => array_values(array_filter($p->comparacoes, static fn ($x): bool => $x->chave === 'concluidas'))[0]->anterior ?? null;
+
+        self::assertSame(2, $anterior($useCase->executar($pedido([]))));
+        self::assertSame(1, $anterior($useCase->executar($pedido([(int) $oculta->getId()]))), 'a meta da pasta oculta não entra no anterior');
+
+        foreach (['metas_concluidas', 'tempo_medio'] as $coluna) {
+            $this->em()->persist(new DashboardZeramento($c['tenant'], $coluna, $c['ana'], new \DateTimeImmutable('2026-09-10 12:00'), $c['primario']));
+        }
+        $this->em()->flush();
+        $chaves = array_map(static fn ($x): string => $x->chave, $useCase->executar($pedido([]))->comparacoes);
+        self::assertNotContains('concluidas', $chaves);
+        self::assertNotContains('tempo', $chaves);
     }
 }

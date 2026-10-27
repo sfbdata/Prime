@@ -99,7 +99,7 @@ final class DiagnosticoDaPessoa
     }
 
     /** @return list<string> */
-    public static function limites(bool $periodoCompleto): array
+    public static function limites(bool $periodoCompleto, bool $conclusoesPorData = false, bool $anteriorSemRegistro = false): array
     {
         $l = [
             'Prazos cumpridos, complexidade e retrabalho não são registrados no sistema: a análise não os estima.',
@@ -108,6 +108,12 @@ final class DiagnosticoDaPessoa
         ];
         if (!$periodoCompleto) {
             $l[] = 'Sem período (De e Até) não há período anterior para comparar.';
+        }
+        if ($conclusoesPorData) {
+            $l[] = 'Conclusões e tempo médio da comparação são contados pela data de conclusão, nos dois períodos; a meta reaberta perde a data e não entra em nenhum.';
+        }
+        if ($anteriorSemRegistro) {
+            $l[] = 'O período anterior começa antes de o sistema registrar a data de conclusão das metas: a comparação de conclusões não é feita.';
         }
 
         return $l;
