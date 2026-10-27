@@ -15,6 +15,9 @@ final readonly class CompromissoOutput
     public const CAL_PRAZO  = 'prazo';
     public const CAL_REUNIAO = 'reun';
     public const CAL_ANIV   = 'aniv';
+    public const CAL_URGENTE = 'urg';
+    public const CAL_PESSOAL = 'pess';
+    public const CAL_LEMBRETE = 'lemb';
 
     public const ORIGEM_AGENDA = 'agenda';
     public const ORIGEM_PASTA  = 'pasta';
@@ -57,6 +60,9 @@ final readonly class CompromissoOutput
         public bool $editado = false,
         /** Nasceu no Google Agenda da pessoa e veio pela sincronia (entrega 6): "Importado do Google Agenda." */
         public bool $doGoogle = false,
+        /** Local e descrição separados (a observação os junta); a tela 1A mostra cada um no seu lugar. */
+        public ?string $local = null,
+        public ?string $descricao = null,
     ) {
     }
 

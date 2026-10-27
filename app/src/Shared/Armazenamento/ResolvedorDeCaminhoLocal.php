@@ -58,6 +58,9 @@ final readonly class ResolvedorDeCaminhoLocal
         // As versões ajustadas dos documentos jurídicos do Master, com o mesmo padrão vazio e a mesma
         // recusa de virar caminho (ver `documentosJuridicosRaiz()`).
         private string $documentosJuridicosDir = '',
+        // Os comprovantes de pagamento de recompensa (baixa manual do Master), com o mesmo padrão vazio e a mesma recusa
+        // de virar caminho (ver `recompensaComprovantesRaiz()`).
+        private string $recompensaComprovantesDir = '',
     ) {
     }
 
@@ -111,6 +114,7 @@ final readonly class ResolvedorDeCaminhoLocal
             ...($this->trabalhoExternoUploadsDir !== '' ? [$this->trabalhoExternoUploadsDir] : []),
             ...($this->comercialImagensDir !== '' ? [$this->comercialImagensDir] : []),
             ...($this->documentosJuridicosDir !== '' ? [$this->documentosJuridicosDir] : []),
+            ...($this->recompensaComprovantesDir !== '' ? [$this->recompensaComprovantesDir] : []),
         ]);
     }
 
@@ -150,6 +154,7 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO => $this->trabalhoExternoRaiz() . '/curriculos',
             CategoriaDeArquivo::COMERCIAL_IMAGEM => $this->comercialImagensRaiz(),
             CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => $this->documentosJuridicosRaiz(),
+            CategoriaDeArquivo::RECOMPENSA_COMPROVANTE => $this->recompensaComprovantesRaiz(),
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),
@@ -181,6 +186,15 @@ final readonly class ResolvedorDeCaminhoLocal
         }
 
         return $this->raiz($this->documentosJuridicosDir);
+    }
+
+    private function recompensaComprovantesRaiz(): string
+    {
+        if ($this->recompensaComprovantesDir === '') {
+            throw new \LogicException('Diretório dos comprovantes de recompensa não configurado (recompensa_comprovantes_dir).');
+        }
+
+        return $this->raiz($this->recompensaComprovantesDir);
     }
 
     private function raiz(string $diretorio): string

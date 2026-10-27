@@ -1,4 +1,4 @@
-# Peticionar (desenho 07): P1 e P2
+# Peticionar (desenho 07): P1, P2 e fatias F1..F9
 
 **Risco:** BAIXO (tela; rotas que já existem) · **Frente:** `peticionar-desenho-07` (sessão 9b) · **Data:** 20/10/2026
 
@@ -23,6 +23,28 @@ Desenho: `docs/design/redesign-19-10-26/07 - Peticionar 1.0.dc.html`. Tela: `/pa
   - Dica na lista vazia (L57-58).
 
 Fora agora: ordem manual (número e arrastar), seletor do processo de destino (depois do #91), visualizador de DOCX.
+
+## Fatias do redesign 25/10 (desenho `docs/design/redesign-25-10-26/07 - Peticionar 1.0.dc.html`)
+
+Decisões do coordenador (27/10): (a) navbar enxuta como no desenho; (b) ordem manual compartilhada com a aba Documentos da
+pasta (`PastaDocumento::$ordem`, rota `pasta_documentos_reordenar`), sem separador por dia quando a ordem é manual;
+(d) manter o TinyMCE salvo o desenho dizer outro; (e) biblioteca do visualizador DOCX/XLSX decidida na spec da F9, de
+preferência via composer; (f) aceitar qualquer formato, com entrega segura (frente própria, cuidado de segurança).
+
+| Fatia | Conteúdo | Estado |
+|---|---|---|
+| F1 | Lista de documentos (linhas, ícone por tipo, tamanho) | PR desta entrega |
+| F2 | Rodapé e painel de pré-visualização (`.petic-preview-corpo`), sem trilho/bolinhas nem player de áudio/vídeo | PR desta entrega |
+| F3 | Modal Adicionar peça: opções Anexo e Texto com dicas do desenho | PR desta entrega |
+| F4 | Cabeçalho/navbar enxuta (arquivo quente `layout_peticionar.html.twig`; avisar antes) | pendente |
+| F5 | Seletor do processo, somente leitura | pendente |
+| F6 | Ordem manual compartilhada com a aba Documentos | pendente |
+| F7 | Destino por peça (spec antes; migration 153800) | pendente |
+| F8 | Editor (TinyMCE mantido) | pendente |
+| F9 | Visualizador DOCX/XLSX | pendente |
+| F10 | Aceitar qualquer formato | pendente |
+
+Até a F10, a dica do anexo lista só o que o servidor aceita hoje: PDF, Word, Excel, imagens, XML e KML.
 
 ## Para o dono
 

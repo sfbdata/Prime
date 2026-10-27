@@ -417,7 +417,7 @@ final class RecompensasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('text/csv; charset=utf-8', $r->headers->get('Content-Type'));
         self::assertSame('attachment; filename="extrato-recompensas-bluejus.csv"', $r->headers->get('Content-Disposition'));
         $csv = (string) $r->getContent();
-        self::assertStringStartsWith("\u{FEFF}\"Data\";\"Usuário\";\"E-mail\";\"Tipo\";\"Valor\";\"Observação\"\n", $csv);
+        self::assertStringStartsWith("\u{FEFF}\"Data\";\"Usuário\";\"E-mail\";\"Tipo\";\"Valor\";\"Observação\";\"Forma\"\n", $csv);
         self::assertCount(1 + 62, explode("\n", rtrim($csv, "\n")), 'cabeçalho mais os 62, sem o limite de 60 da tela');
         self::assertStringContainsString('"Estorno";"-7,00";"Estorno da Bia"', $csv);
         self::assertStringNotContainsString('conta_nova', $csv, 'nada do e-mail do indicado');
