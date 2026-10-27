@@ -15,8 +15,9 @@ use App\ServiceDesk\Service\TransacaoDoRazao;
 /**
  * A recarga foi paga: o Master confirma à mão ou o gateway avisa pelo webhook. Idempotente por
  * `referencia` (recarga já confirmada não credita de novo) e por `idExterno` (o mesmo pagamento
- * não credita duas recargas). Valor pago diferente do pedido não credita e fica gravado como
- * divergência. Os desfechos são valores (`ResultadoDaConfirmacao`), não exceções: exceção dentro
+ * não credita duas recargas). Valor pago MENOR que o pedido não credita e fica gravado como
+ * divergência (a recarga segue pendente); MAIOR credita o que foi pago e devolve a sobra em
+ * `diferencaCentavos`, para o chamador avisar o Master (decisão do dono, 27/10). Os desfechos são valores (`ResultadoDaConfirmacao`), não exceções: exceção dentro
  * da transação fecha o EntityManager e derrubaria o que o chamador faz depois.
  */
 final class ConfirmarRecargaDeSaldoUseCase
@@ -45,12 +46,12 @@ final class ConfirmarRecargaDeSaldoUseCase
             return new RecargaConfirmadaOutput($impedimento, $saldo->getSaldoCentavos());
         }
 
-        $recarga->confirmar($input->idExterno, $input->origem, $input->confirmadoPor);
-        $saldo->creditar($recarga->getValorCentavos());
+        $recarga->confirmar($input->idExterno, $input->origem, $input->confirmadoPor, $input->valorCentavos);
+        $saldo->creditar($recarga->valorCreditadoCentavos());
         $this->movimentos->salvar($recarga);
         $this->saldos->salvar($saldo, flush: true);
 
-        return new RecargaConfirmadaOutput(ResultadoDaConfirmacao::Confirmada, $saldo->getSaldoCentavos());
+        return new RecargaConfirmadaOutput(ResultadoDaConfirmacao::Confirmada, $saldo->getSaldoCentavos(), $recarga->sobraCentavos());
     }
 
     private function impedimento(MovimentoDeSaldo $recarga, ConfirmarRecargaInput $input): ?ResultadoDaConfirmacao
@@ -58,7 +59,7 @@ final class ConfirmarRecargaDeSaldoUseCase
         if (!$recarga->estaPendente()) {
             return ResultadoDaConfirmacao::JaConfirmada;
         }
-        if ($input->valorCentavos !== $recarga->getValorCentavos()) {
+        if ($input->valorCentavos < $recarga->getValorCentavos()) {
             $recarga->registrarDivergencia($input->valorCentavos);
             $this->movimentos->salvar($recarga, flush: true);
 

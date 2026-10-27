@@ -105,6 +105,10 @@ class PublicacaoDjen implements TenantAware
     #[ORM\Column(type: 'boolean')]
     private bool $lida = false;
 
+    /** Exclusão lógica da caixa do Push: a linha fica para a sincronização não reimportar o djen_id. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $excluidaEm = null;
+
     /**
      * Snapshot bruto do item retornado pela API do DJEN. jsonb para permitir consulta/índice futuro.
      * Preenchido só pelo mapper; nunca por formulário.
@@ -375,6 +379,23 @@ class PublicacaoDjen implements TenantAware
     public function setLida(bool $lida): self
     {
         $this->lida = $lida;
+
+        return $this;
+    }
+
+    public function isExcluida(): bool
+    {
+        return $this->excluidaEm !== null;
+    }
+
+    public function getExcluidaEm(): ?\DateTimeImmutable
+    {
+        return $this->excluidaEm;
+    }
+
+    public function excluir(\DateTimeImmutable $quando): self
+    {
+        $this->excluidaEm = $quando;
 
         return $this;
     }

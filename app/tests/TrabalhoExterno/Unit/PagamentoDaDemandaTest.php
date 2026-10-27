@@ -42,6 +42,10 @@ use App\TrabalhoExterno\UseCase\AjustarValorDoPagamentoUseCase;
 use App\TrabalhoExterno\UseCase\AvisarPagamentoNoChatUseCase;
 use App\TrabalhoExterno\UseCase\ConfirmarRecebimentoDoPixUseCase;
 use App\TrabalhoExterno\UseCase\EnviarComprovanteDePagamentoUseCase;
+use App\TrabalhoExterno\UseCase\RecusarComprovanteDePagamentoUseCase;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\RemocaoAposTransacao;
+use Psr\Log\NullLogger;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -58,6 +62,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 #[CoversClass(EnviarComprovanteDePagamentoUseCase::class)]
 #[CoversClass(AvisarPagamentoNoChatUseCase::class)]
 #[CoversClass(AjustarValorDoPagamentoUseCase::class)]
+#[CoversClass(RecusarComprovanteDePagamentoUseCase::class)]
 final class PagamentoDaDemandaTest extends TestCase
 {
     private DemandaExterna $demanda;
@@ -563,6 +568,109 @@ final class PagamentoDaDemandaTest extends TestCase
         $avisar->executar(Apoio::contexto(Perfil::Master), 'TE-0007');
 
         self::assertStringContainsString('Pagamento disponível: R$ 150,00 via PIX', $this->ultima($this->demanda)->getTexto());
+    }
+
+    #[TestDox('Recusar comprovante: o Master tira o comprovante, grava marco com arquivo e motivo, mensagem de sistema sem motivo, aviso com motivo e remove o arquivo')]
+    public function testRecusarComprovanteMaster(): void
+    {
+        $this->demanda->enviarComprovante($this->comprovante($this->demanda, 'pix.pdf'), Apoio::autor(Perfil::Solicitante));
+        $armazenamento = $this->createMock(ArmazenamentoDeArquivos::class);
+        $armazenamento->method('existe')->willReturn(true);
+        $armazenamento->expects(self::once())->method('excluir')->with(self::isInstanceOf(ChaveDeArquivo::class));
+
+        $this->recusar($armazenamento)->executar(Apoio::contexto(Perfil::Master), 'TE-0007', '  Valor diferente do combinado  ');
+
+        $d = $this->demanda;
+        self::assertNull($d->comprovante());
+        self::assertSame(1, $this->salvos);
+        $marcos = array_values(array_filter($d->getHistorico(), static fn ($h): bool => $h->getPara() === Situacao::MARCO_COMPROVANTE_RECUSADO));
+        self::assertCount(1, $marcos);
+        self::assertSame('Arquivo: pix.pdf. Motivo: Valor diferente do combinado', $marcos[0]->getMotivo());
+        $ultima = $this->ultima($d);
+        self::assertSame('Comprovante de pagamento recusado. Envie um novo comprovante na aba Pagamento.', $ultima->getTexto());
+        self::assertSame(TipoMensagem::Pagamento, $ultima->getTipo());
+        self::assertStringNotContainsString('Valor diferente', $ultima->getTexto());
+
+        // Volta a "aguardando", o Solicitante reenvia e o Master edita o valor.
+        $bloco = $this->apresentador()->bloco(Apoio::contexto(Perfil::Master), $d);
+        self::assertSame(['aguarda', false, true], [$bloco['estado'], $bloco['podeRecusar'], $bloco['podeEditarValor']]);
+        self::assertTrue($this->apresentador()->bloco(Apoio::contexto(Perfil::Solicitante), $d)['podeComprovante']);
+        $d->enviarComprovante($this->comprovante($d, 'novo.pdf'), Apoio::autor(Perfil::Solicitante));
+        self::assertTrue($this->apresentador()->bloco(Apoio::contexto(Perfil::Master), $d)['podeRecusar']);
+        self::assertFalse($this->apresentador()->bloco(Apoio::contexto(Perfil::Solicitante), $d)['podeRecusar']);
+    }
+
+    #[TestDox('Recusar comprovante: o aviso de andamento leva o motivo e a orientação; o chat não')]
+    public function testRecusarComprovanteAvisoComMotivo(): void
+    {
+        $this->demanda->enviarComprovante($this->comprovante($this->demanda, 'pix.pdf'), Apoio::autor(Perfil::Solicitante));
+        $this->demanda->retirarAndamentosParaAvisar();
+        $this->demanda->recusarComprovante(Apoio::autor(Perfil::Master), 'Valor diferente do combinado');
+
+        $andamentos = $this->demanda->retirarAndamentosParaAvisar();
+        self::assertCount(1, $andamentos);
+        self::assertSame('Comprovante de pagamento recusado. Motivo: Valor diferente do combinado. Envie um novo comprovante na aba Pagamento.', $andamentos[0]['texto']);
+        self::assertStringNotContainsString('Valor diferente', $andamentos[0]['mensagem']->getTexto());
+    }
+
+    #[TestDox('Recusar comprovante: Equipe, Solicitante e prévia levam 403; outro escritório, 404; nada grava nem apaga')]
+    public function testRecusarComprovanteSoMaster(): void
+    {
+        $this->demanda->enviarComprovante($this->comprovante($this->demanda, 'pix.pdf'), Apoio::autor(Perfil::Solicitante));
+        $cfg = new ConfiguracaoCentral();
+        $cfg->definirEquipe('situacao', true);
+        $armazenamento = $this->createMock(ArmazenamentoDeArquivos::class);
+        $armazenamento->expects(self::never())->method('excluir');
+        foreach ([Apoio::contexto(Perfil::Equipe, null, $cfg), Apoio::contexto(Perfil::Solicitante), new Contexto(Apoio::usuario(99), Apoio::tenant(1), Perfil::Master, new ConfiguracaoCentral(), null, true)] as $ctx) {
+            try {
+                $this->recusar($armazenamento)->executar($ctx, 'TE-0007', 'Motivo suficiente');
+                self::fail('só o Master recusa');
+            } catch (AcaoNaoPermitida) {
+            }
+        }
+        self::assertSame(0, $this->salvos);
+        self::assertNotNull($this->demanda->comprovante());
+
+        $this->expectException(DemandaNaoEncontrada::class);
+        $this->recusar($armazenamento)->executar(Apoio::contexto(Perfil::Solicitante, Apoio::tenant(2)), 'TE-0007', 'Motivo suficiente');
+    }
+
+    #[TestDox('Recusar comprovante: sem comprovante e pago são 409; motivo curto ou longo, 422; nada grava nem apaga')]
+    public function testRecusarComprovanteBloqueios(): void
+    {
+        $master = Apoio::contexto(Perfil::Master);
+        $armazenamento = $this->createMock(ArmazenamentoDeArquivos::class);
+        $armazenamento->expects(self::never())->method('excluir');
+        $recusar = $this->recusar($armazenamento);
+
+        try {
+            $recusar->executar($master, 'TE-0007', 'Motivo suficiente');
+            self::fail('sem comprovante');
+        } catch (TransicaoInvalida) {
+        }
+
+        $this->demanda->enviarComprovante($this->comprovante($this->demanda, 'pix.pdf'), Apoio::autor(Perfil::Solicitante));
+        foreach (['curto', str_repeat('a', 301), '         '] as $motivo) {
+            try {
+                $recusar->executar($master, 'TE-0007', $motivo);
+                self::fail('motivo inválido');
+            } catch (DadosInvalidos) {
+            }
+        }
+
+        $this->confirmar()->executar($master, 'TE-0007');
+        try {
+            $recusar->executar($master, 'TE-0007', 'Motivo suficiente');
+            self::fail('pago');
+        } catch (TransicaoInvalida) {
+        }
+        self::assertNotNull($this->demanda->comprovante());
+        self::assertSame(1, $this->salvos, 'só a confirmação gravou');
+    }
+
+    private function recusar(ArmazenamentoDeArquivos $armazenamento): RecusarComprovanteDePagamentoUseCase
+    {
+        return new RecusarComprovanteDePagamentoUseCase($this->localizador(), $this->repositorio(), $this->avisos(), new RemocaoAposTransacao($armazenamento, new NullLogger()));
     }
 
     private function ajustar(): AjustarValorDoPagamentoUseCase

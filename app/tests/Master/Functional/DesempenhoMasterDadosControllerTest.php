@@ -66,6 +66,7 @@ final class DesempenhoMasterDadosControllerTest extends JusPrimeWebTestCase
         self::assertSame('semdados', $dados['indicadores']['ultimoBackup']['tom']);
         self::assertSame([], $dados['erros']);
         self::assertSame(0, $dados['incidentesAbertos']);
+        self::assertSame(['email', 'banco_pix', 'google', 'facebook', 'tribunais', 'ia'], array_column($dados['integracoes'], 'chave'));
     }
 
     #[TestDox('conta eventos da janela, ignora os de fora, calcula P95 e traz erros, incidentes e backups')]
