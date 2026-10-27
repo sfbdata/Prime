@@ -652,7 +652,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             self::assertSame(['Não informado', 'Sim', 'Não'], $this->textos($janela->filter('select[name="' . $flag . '"] > option')), $flag);
         }
         self::assertSame(['Em andamento', 'Suspenso', 'Arquivado', 'Baixado', 'Transitado em julgado'], $this->textos($janela->filter('select[name="situacaoProcesso"] > option')));
-        self::assertSame(['G1 - Primeira Instância', 'G2 - Segunda Instância', 'Turma Recursal', 'Tribunal Superior'], $this->textos($janela->filter('select[name="instancia"] > option')));
+        self::assertSame(['G1 - Primeira Instância', 'G2 - Segunda Instância', 'Juizado Especial', 'Turma Recursal', 'Tribunal Superior'], $this->textos($janela->filter('select[name="instancia"] > option')));
         self::assertSame(['Parte', 'Advogado', 'Terceiro interessado', 'Ministério Público', 'Perito'], $this->textos($janela->filter('select[name="partes[0][tipo]"] > option')));
         self::assertStringContainsString('"Buscar no CNJ" (aba Informações) importa as movimentações do PJe e dos diários oficiais. Depois de vinculado, o Push processual passa a monitorar o processo.', $janela->text());
         self::assertSame('Abrir a tela de peticionamento desta pasta (anexos e textos)', $pagina->filter('.ps-processos a[aria-label="Peticionar na pasta"]')->attr('title'));
