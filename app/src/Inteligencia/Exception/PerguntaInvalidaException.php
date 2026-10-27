@@ -28,6 +28,11 @@ final class PerguntaInvalidaException extends \DomainException
         return new self('Pasta inválida.');
     }
 
+    public static function escopoInvalido(): self
+    {
+        return new self('Escopo inválido.');
+    }
+
     public function motivo(): string
     {
         return self::MOTIVO;

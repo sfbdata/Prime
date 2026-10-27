@@ -11,6 +11,7 @@ use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\Service\PastaDoContextoDaIa;
+use App\Central\Service\PastasDosClientesDaIa;
 use App\Central\UseCase\AbrirConversaComAIaUseCase;
 use App\Central\UseCase\PerguntarABlueJusIaUseCase;
 use App\Entity\Auth\User;
@@ -21,6 +22,7 @@ use App\Inteligencia\Exception\MuitasSolicitacoesException;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
 use App\Inteligencia\MessageHandler\ProcessarAnaliseDeInteligenciaHandler;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\EnfileiradorDeAnalise;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
@@ -58,6 +60,8 @@ final class PerguntarABlueJusIaTest extends KernelTestCase
             $this->em(),
             $relogio,
             $c->get(PastaDoContextoDaIa::class),
+            $c->get(PastasDosClientesDaIa::class),
+            $c->get(ConfiguracaoDeInteligenciaRepository::class),
         );
     }
 

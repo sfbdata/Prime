@@ -80,6 +80,10 @@ acesso ou financeiro, ou uma aba lida passou a oculta: `\LogicException` com mot
 (vale o gravado, no máximo mais apertado). Contexto = Gestor + `PromptDoChatDaCentral::montarComPasta` (`chat-central-v2`, blocos de
 `PromptDoAgente::blocosDoContexto`, todos já em `NeutralizadorDeConteudo::DELIMITADORES`; bloco novo exige nome novo lá). Histórico com pasta: só as
 perguntas da própria pessoa, nunca a fala anterior da IA. Pasta em andamento ignora `pastaId` novo (devolve a pergunta pendente).
+**Chat cruzando as pastas dos clientes (PR 4c).** `contexto_resumo.escopo = 'clientes'` + `pastasIds` + `pastas` (decisão POR pasta: financeiro e abas, nunca herdadas) +
+`naoConsultadas`. Exige o aceite do escritório (`ConfiguracaoDeInteligencia::aceiteDeEnvioDado`, `CruzamentoDePastasSemAceiteException`, 409
+`cruzamento_sem_consentimento`), conferido na solicitação E no worker. O worker relê cada pasta por id + escritório; aberta inválida/segredo = `falhou` sem provedor;
+adicional inválida/segredo = omitida e contada. Orçamento por pasta: `MontadorDeContextoDaPasta::ORCAMENTO_PASTA_*_NO_CRUZAMENTO`; prompt `chat-central-v3` (`montarComClientes`).
 
 As consultas por alvo do repositório filtram por `tipo` (e `agente`): uma pendente de agente não trava o
 Push nem vira "análise anterior" dele.

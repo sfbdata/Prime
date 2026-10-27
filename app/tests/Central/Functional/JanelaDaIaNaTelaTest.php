@@ -44,7 +44,7 @@ final class JanelaDaIaNaTelaTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('Pergunte em linguagem natural.', (string) $janela->attr('data-ia-vazio-texto'));
         self::assertSame('digitando...', $janela->attr('data-ia-digitando'));
         self::assertStringContainsString('IA', (string) $janela->attr('data-ia-aviso'));
-        foreach (['placeholder', 'placeholder-aguardando', 'previa-vazia', 'aria', 'sugestao-pasta', 'pasta-rotulo', 'abrir-pasta', 'pasta-aria'] as $chave) {
+        foreach (['placeholder', 'placeholder-aguardando', 'previa-vazia', 'aria', 'sugestao-pasta', 'pasta-rotulo', 'abrir-pasta', 'pasta-aria', 'clientes-rotulo', 'clientes-aviso'] as $chave) {
             self::assertNotSame('', trim((string) $janela->attr('data-ia-' . $chave)), $chave);
         }
 
@@ -56,7 +56,9 @@ final class JanelaDaIaNaTelaTest extends JusPrimeWebTestCase
         self::assertSame('Abrir pasta', $janela->attr('data-ia-abrir-pasta'));
         self::assertSame('/central/ia/pasta/', $janela->attr('data-url-ia-pasta-base'), 'o JS acrescenta o id');
         self::assertNull($janela->attr('data-ia-pasta'), 'fora da tela de uma pasta não há dica de pasta');
-        foreach (['aviso', 'vazio-texto', 'funcao', 'placeholder', 'sugestao-pasta', 'pasta-rotulo', 'abrir-pasta', 'pasta-aria'] as $chave) {
+        self::assertSame('Incluir outras pastas do cliente', $janela->attr('data-ia-clientes-rotulo'));
+        self::assertSame('A IA vai ler as outras pastas deste cliente que você pode ver. Dados pessoais seguem a configuração do escritório.', $janela->attr('data-ia-clientes-aviso'));
+        foreach (['aviso', 'vazio-texto', 'funcao', 'placeholder', 'sugestao-pasta', 'pasta-rotulo', 'abrir-pasta', 'pasta-aria', 'clientes-rotulo', 'clientes-aviso'] as $chave) {
             self::assertDoesNotMatchRegularExpression('/[—–]/u', (string) $janela->attr('data-ia-' . $chave));
         }
     }
