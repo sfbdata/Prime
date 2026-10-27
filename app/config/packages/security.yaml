@@ -25,9 +25,9 @@ security:
                 - App\Security\GoogleAuthenticator
                 - App\Security\FacebookAuthenticator
             entry_point: App\Security\UserAuthenticator
+            # Limite de tentativas lido do Master a cada requisição (spec login-config-tentativas); janela fixa de 15 min.
             login_throttling:
-                max_attempts: 5
-                interval: '15 minutes'
+                limiter: App\Security\LimitadorDeTentativasDeLogin
             remember_me:
                 secret: '%kernel.secret%'
                 lifetime: 2592000
