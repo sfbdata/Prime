@@ -34,13 +34,33 @@ final class SolicitarRecargaDeSaldoUseCase
 
     public function executar(SolicitarRecargaInput $input): RecargaSolicitadaOutput
     {
+        $referencia = $input->referencia ?? $this->novaReferencia();
+        $existente = null === $input->referencia ? null : $this->movimentos->findOneBy(['referencia' => $referencia]);
+        if (null !== $existente) {
+            // "Já paguei" clicado duas vezes: a recarga é a mesma, não grava outra.
+            return $this->recargaJaGravada($input, $referencia, $existente);
+        }
         $this->exigirPoucasPendentes($input);
-        $referencia = $this->novaReferencia();
         $movimento = $this->montarRecargaPendente($input, $referencia);
         $this->movimentos->salvar($movimento, flush: true);
         $instrucao = $this->iniciarNoProvedor($input, $referencia, $movimento);
 
         return new RecargaSolicitadaOutput($referencia, $input->valorCentavos, $instrucao);
+    }
+
+    private function recargaJaGravada(SolicitarRecargaInput $input, string $referencia, MovimentoDeSaldo $existente): RecargaSolicitadaOutput
+    {
+        if ($existente->getTenant()->getId() !== $input->tenant->getId()) {
+            throw new \DomainException('Referência de recarga inválida.');
+        }
+
+        return new RecargaSolicitadaOutput($referencia, $existente->getValorCentavos(), $this->provedor->iniciar(new PedidoDeRecarga(
+            (int) $input->tenant->getId(),
+            $referencia,
+            $existente->getValorCentavos(),
+            $input->forma,
+            'Recarga de saldo do Service Desk',
+        )));
     }
 
     private function exigirPoucasPendentes(SolicitarRecargaInput $input): void
