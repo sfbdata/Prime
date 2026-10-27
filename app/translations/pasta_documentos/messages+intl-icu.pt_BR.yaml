@@ -285,6 +285,21 @@ pasta_documentos:
         historico: Histórico
         outras: Outras metas desta pasta
     anotacoes:
+        linha_do_tempo: Linha do tempo da pasta
+        marcadores: Marcadores do sistema
+        marcadores_ligar: Mostrar os marcadores automáticos do sistema
+        marcadores_desligar: Ocultar os marcadores automáticos (contrato, pró-bono, andamento…). Fica só a bolinha na linha.
+        marcador_ponto_dica: '{titulo} · clique para ver'
+        marcador_grupo_dica: '{total} ações do sistema ({titulos}) · clique para ver'
+        marcador_titulo:
+            fase: Andamento da pasta
+            proc: Processo
+            resp: Responsável
+            situacao: Situação da pasta
+            contrato: Contrato
+            probono: Pró-bono
+            pasta: Dados da pasta
+            cadastro: Cadastro do cliente
         mes:
             jan: jan
             fev: fev

@@ -150,7 +150,7 @@ final class PastaReuControllerTest extends JusPrimeWebTestCase
         $this->em()->clear();
 
         $c = $this->client->request('GET', '/clientes/' . $cliente->getId() . '/cadastro?pasta=' . $pasta->getId());
-        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'endereco', 'contato', 'docs', 'reu', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame('BANCO X', json_decode((string) $c->filter('[data-cad-painel="reu"]')->attr('data-reus'), true)[0]['nome']);
         self::assertCount(1, $c->filter('.js-cad-reu-add'));
         self::assertNull($c->filter('.js-cad-reu-nome')->attr('name'), 'sem name: não entra no Salvar do cliente');

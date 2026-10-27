@@ -33,7 +33,21 @@ final class DocumentoBrExtension extends AbstractExtension
         return [
             new TwigFilter('documento_br', $this->documentoBr(...)),
             new TwigFilter('documento_br_rotulo', $this->documentoBrRotulo(...)),
+            new TwigFilter('telefone_br', $this->telefoneBr(...)),
         ];
+    }
+
+    /** Telefone com DDD em "(61) 99999-9999" (ou "(61) 3333-4444"); o que não tem 10 ou 11 dígitos sai como veio. */
+    public function telefoneBr(?string $telefone): string
+    {
+        $original = (string) $telefone;
+        $digitos  = preg_replace('/\D/', '', $original) ?? '';
+
+        if (\strlen($digitos) < 10 || \strlen($digitos) > 11) {
+            return $original;
+        }
+
+        return '(' . substr($digitos, 0, 2) . ') ' . substr($digitos, 2, \strlen($digitos) - 6) . '-' . substr($digitos, -4);
     }
 
     public function documentoBr(?string $documento): string

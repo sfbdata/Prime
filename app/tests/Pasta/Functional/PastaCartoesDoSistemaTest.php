@@ -274,6 +274,42 @@ final class PastaCartoesDoSistemaTest extends JusPrimeWebTestCase
 
     // ── helpers ─────────────────────────────────────────────────────────
 
+    #[TestDox('marcador do sistema: cabeçalho branco com o título e "de → para"; a chave Marcadores do sistema e o rótulo da linha do tempo vêm do desenho 27.10')]
+    public function testMarcadorTemCabecalhoEChave(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant, $user);
+        $m = new PastaMensagem();
+        $m->setPasta($pasta);
+        $m->setTenant($tenant);
+        $m->setAutor($user);
+        $m->setSistema('fase');
+        $m->setConteudo('<p>Fase da pasta alterada de "Petição" para "Citação".</p>');
+        $this->em()->persist($m);
+        $livre = new PastaMensagem();
+        $livre->setPasta($pasta);
+        $livre->setTenant($tenant);
+        $livre->setAutor($user);
+        $livre->setConteudo('<p>Comentário de gente.</p>');
+        $this->em()->persist($livre);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+
+        self::assertResponseIsSuccessful();
+        $cartao = '#pasta-msg-' . $m->getId();
+        self::assertCount(1, $c->filter($cartao . '.ps-anotacao--marcador[data-marcador-mes]'));
+        $faixa = $c->filter($cartao . ' > .ps-anotacao-fase');
+        self::assertCount(1, $faixa);
+        self::assertSame('Andamento da pasta', trim($faixa->filter('span')->first()->text()));
+        self::assertSame('Petição → Citação', trim($faixa->filter('.ps-anotacao-fase-rot')->text()));
+        self::assertCount(0, $c->filter('#pasta-msg-' . $livre->getId() . '.ps-anotacao--marcador'), 'registro de gente não é marcador');
+        self::assertCount(1, $c->filter('.ps-card-cab--painel > button#psMarcadoresTg[role="switch"]'));
+        self::assertCount(1, $c->filter('script[src*="/js/pasta-registro-marcadores.js"]'));
+        self::assertSame('Linha do tempo da pasta', trim($c->filter('.ps-and > .ps-and-rotulo')->text()));
+    }
+
     private function em(): EntityManagerInterface
     {
         return static::getContainer()->get(EntityManagerInterface::class);

@@ -68,10 +68,16 @@
             {%- if cpfDuplicado %}<span class="ps-selo-duplicado" title="{{ 'pasta_lista.cliente_linha.duplicado_dica'|trans({doc: rotuloDoc}) }}">{{ 'pasta_lista.cliente_linha.duplicado'|trans({doc: rotuloDoc}) }}</span>{% endif -%}
             {%- if ehPrincipal %}<span class="ps-selo-principal">{{ 'pasta_lista.cliente_linha.principal'|trans }}</span>{% endif -%}
         </div>
-        {% if doc %}
+        {% set telefone = cliente.telefoneCelular ?: cliente.telefoneFixo %}
+        {% if doc or telefone %}
             <div class="cliente-doc">
-                <span class="cliente-doc-rotulo">{{ doc|documento_br_rotulo }}</span>
-                <span class="cliente-doc-valor">{{ doc|documento_br }}</span>
+                {% if doc %}
+                    <span><span class="cliente-doc-rotulo">{{ doc|documento_br_rotulo }}</span>
+                    <span class="cliente-doc-valor">{{ doc|documento_br }}</span></span>
+                {% endif %}
+                {% if telefone %}
+                    <span class="cliente-tel"><i class="bi bi-telephone" aria-hidden="true"></i> {{ telefone|telefone_br }}</span>
+                {% endif %}
             </div>
         {% endif %}
     </div>
