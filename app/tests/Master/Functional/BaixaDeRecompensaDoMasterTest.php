@@ -133,6 +133,25 @@ final class BaixaDeRecompensaDoMasterTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->totalDePagamentos());
     }
 
+    #[TestDox('repetir a mesma chave guarda um só arquivo de comprovante, mesmo com outro arquivo no replay')]
+    public function testReplayNaoGuardaOutroArquivo(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraLiberada();
+        $this->cadastrarRecebimento($ana);
+        $antes = $this->arquivosDeComprovante();
+
+        $this->baixar($ana, '3,00', 'pix', self::CHAVE_A, $this->png());
+        self::assertResponseIsSuccessful();
+        self::assertSame($antes + 1, $this->arquivosDeComprovante(), 'a primeira baixa guarda o arquivo');
+
+        $this->baixar($ana, '3,00', 'pix', self::CHAVE_A, $this->png());
+        self::assertResponseIsSuccessful();
+        self::assertSame($antes + 1, $this->arquivosDeComprovante(), 'o replay não guarda o arquivo de novo');
+        self::assertSame(1, $this->totalDePagamentos());
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM lancamento_de_recompensa WHERE comprovante_chave IS NOT NULL'));
+    }
+
     #[TestDox('recusas: sem dados de recebimento, não liberado, bloqueado e forma ou valor inválidos; nada é gravado')]
     public function testRecusas(): void
     {
@@ -307,6 +326,23 @@ final class BaixaDeRecompensaDoMasterTest extends JusPrimeWebTestCase
         file_put_contents($caminho, (string) base64_decode(self::PNG, true));
 
         return new UploadedFile($caminho, 'comprovante.png', 'image/png', null, true);
+    }
+
+    /** Quantos arquivos há na pasta dos comprovantes do ambiente de teste (a sentinela do bootstrap não conta). */
+    private function arquivosDeComprovante(): int
+    {
+        $pasta = (string) static::getContainer()->getParameter('recompensa_comprovantes_dir');
+        if (!is_dir($pasta)) {
+            return 0;
+        }
+        $total = 0;
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($pasta, \FilesystemIterator::SKIP_DOTS)) as $arquivo) {
+            if ($arquivo->isFile() && !str_starts_with($arquivo->getFilename(), '.')) {
+                ++$total;
+            }
+        }
+
+        return $total;
     }
 
     private function totalDePagamentos(): int
