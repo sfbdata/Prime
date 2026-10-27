@@ -1,0 +1,12 @@
+/* Aba "Diário da OAB" do Push (desenho 11): linhas, texto expandido e campos do registro manual. */
+.pp-diario-item { border-bottom: 1px solid #eef2f5; }
+.pp-diario-item:nth-child(even) > .pp-linha { background: #f3f6f9; }
+.pp-diario-item .pp-linha--dado { cursor: pointer; font-weight: normal; }
+.pp-diario-item .pp-linha--dado.is-nova { font-weight: bold; }
+.pp-diario-item .pp-linha--dado:hover { background: #eaf3f9; }
+.pp-diario-item .pp-c-ato { display: flex; flex-direction: column; min-width: 0; }
+.pp-diario-item .pp-c-ato .pp-fino { font-size: 11.5px; font-weight: normal; color: #5b7383; }
+.pp-sigilo-ico { color: #c08a12; margin-right: 5px; }
+.pp-diario-texto { padding: 4px 16px 14px 42px; font-size: 14px; color: #243845; white-space: pre-wrap; }
+.pp-diario-texto[hidden] { display: none; }
+.pp-vp__campo textarea { border: 1px solid #c5d2db; border-radius: 2px; padding: 8px 10px; font: inherit; font-size: 14px; font-weight: normal; resize: vertical; min-width: 0; }

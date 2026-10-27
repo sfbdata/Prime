@@ -15,8 +15,10 @@ use App\Inteligencia\DTO\ResultadoDaAnalise;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Prompt\PromptDoChatDaCentral;
+use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoChat;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\AbaDaPasta;
@@ -42,6 +44,13 @@ use Psr\Clock\ClockInterface;
  * Gestor (segredo de justiça lança antes de ler) e o prompt é o `chat-central-v2`. O histórico leva SÓ as perguntas da
  * própria pessoa (nunca a fala anterior da IA, que pode ter lido outra pasta ou o financeiro).
  *
+ * Com `contexto_resumo.escopo = 'clientes'` (PR 4c, prompt `chat-central-v3`): o worker repete o aceite do escritório e relê CADA
+ * pasta de `pastasIds` por id + escritório, reconferindo `podeVer`, financeiro e abas POR pasta (nada herdado da aberta). Pasta
+ * aberta inválida ou com segredo = `falhou` sem chamar o provedor; pasta adicional inválida ou com segredo é omitida e
+ * contada (`naoConsultadas`, só o número vai ao prompt). Orçamento: aberta
+ * {@see MontadorDeContextoDaPasta::ORCAMENTO_PASTA_ABERTA_NO_CRUZAMENTO}, cada adicional
+ * {@see MontadorDeContextoDaPasta::ORCAMENTO_PASTA_ADICIONAL_NO_CRUZAMENTO}.
+ *
  * `contexto_resumo` guarda só ids, flags e contagens, nunca texto nem NUP.
  * Pergunta que a Central não confirma (conversa/mensagem de outro, vínculo encerrado) é `\LogicException`: o handler
  * marca `falhou` SEM chamar o provedor. A resposta e a conclusão da análise são gravadas na mesma transação
@@ -49,6 +58,11 @@ use Psr\Clock\ClockInterface;
  */
 final class FluxoDoChatDaCentral implements FluxoDeAnaliseSemPasta
 {
+    private const ESCOPO_CLIENTES = 'clientes';
+
+    /** Adicionais além da aberta (o teto da solicitação, `PastasDosClientesDaIa::LIMITE_PASTAS`, menos a aberta). */
+    private const MAXIMO_DE_ADICIONAIS = 4;
+
     public function __construct(
         private readonly ConversaDaIaNaCentral $central,
         private readonly PromptDoChatDaCentral $prompt,
@@ -61,6 +75,7 @@ final class FluxoDoChatDaCentral implements FluxoDeAnaliseSemPasta
         private readonly VisibilidadeDasAbasDaPasta $abas,
         private readonly MontadorDeContextoDaPasta $montadorDaPasta,
         private readonly PromptDoAgente $agente,
+        private readonly ConfiguracaoDeInteligenciaRepository $configuracoes,
     ) {
     }
 
@@ -86,11 +101,12 @@ final class FluxoDoChatDaCentral implements FluxoDeAnaliseSemPasta
 
         $resumo = ['conversaId' => $conversaId, 'mensagemId' => $mensagemId, 'historico' => count($historico), 'total' => 1];
         $hash = $conversaId . '|' . $mensagemId;
-        $contextoDaPasta = null;
+        $contextos = [];
+        $naoConsultadas = 0;
         if ($comPasta) {
-            [$contextoDaPasta, $decisao] = $this->contextoDaPasta($analise, $tenant, $solicitante, $pastaId);
+            [$contextos, $decisao, $naoConsultadas] = $this->contextosDasPastas($analise, $tenant, $solicitante, $pastaId);
             $resumo += ['pastaId' => $pastaId] + $decisao;
-            $hash .= '|pasta:' . $pastaId . '|' . $contextoDaPasta->hash;
+            $hash .= '|pasta:' . $pastaId . '|' . implode('|', array_map(static fn (ContextoDaPasta $c): string => $c->hash, $contextos));
         }
 
         // Só ids, flags e contagens: o texto da conversa é da pessoa e não se grava (regra 6 da Inteligência).
@@ -100,11 +116,25 @@ final class FluxoDoChatDaCentral implements FluxoDeAnaliseSemPasta
             return null;
         }
 
-        $nome = $this->protegido($tenant, $contexto['nomeDaPessoa']);
+        return $this->pedido($this->protegido($tenant, $contexto['nomeDaPessoa']), $historico, $pergunta, $contextos, $resumo['escopo'] ?? null, $naoConsultadas);
+    }
 
-        return $contextoDaPasta !== null
-            ? $this->prompt->montarComPasta($nome, $historico, $pergunta, $this->agente->blocosDoContexto($contextoDaPasta))
-            : $this->prompt->montar($nome, $historico, $pergunta);
+    /**
+     * @param list<array{de: string, texto: string}> $historico
+     * @param list<ContextoDaPasta>                  $contextos vazio = sem pasta
+     */
+    private function pedido(string $nome, array $historico, string $pergunta, array $contextos, mixed $escopo, int $naoConsultadas): PedidoDeLinguagem
+    {
+        if ($contextos === []) {
+            return $this->prompt->montar($nome, $historico, $pergunta);
+        }
+        if ($escopo === self::ESCOPO_CLIENTES) {
+            $blocos = array_map(fn (ContextoDaPasta $c): array => $this->agente->blocosDoContexto($c), $contextos);
+
+            return $this->prompt->montarComClientes($nome, $historico, $pergunta, $blocos, $naoConsultadas);
+        }
+
+        return $this->prompt->montarComPasta($nome, $historico, $pergunta, $this->agente->blocosDoContexto($contextos[0]));
     }
 
     /** O id da mensagem da pergunta, no resumo; análise sem conversa como alvo ou sem a mensagem é inconsistente. */
@@ -146,18 +176,82 @@ final class FluxoDoChatDaCentral implements FluxoDeAnaliseSemPasta
     }
 
     /**
+     * Os contextos das pastas e o que vai para o resumo: a pasta aberta (decisão do topo do resumo) e, no escopo `clientes`,
+     * as adicionais. A aberta é sempre o primeiro contexto.
+     *
+     * @return array{list<ContextoDaPasta>, array<string, mixed>, int} os contextos, o acréscimo ao resumo e as pastas não consultadas
+     */
+    private function contextosDasPastas(AnaliseDeInteligencia $analise, Tenant $tenant, User $solicitante, int $pastaId): array
+    {
+        $gravado = $analise->getContextoResumo();
+        $clientes = ($gravado['escopo'] ?? null) === self::ESCOPO_CLIENTES;
+        if ($clientes && !($this->configuracoes->findDoTenant($tenant)?->aceiteDeEnvioDado() ?? false)) {
+            throw new \LogicException('Chat sem o aceite do escritório para cruzar pastas.');
+        }
+
+        [$aberta, $decisao] = $this->contextoDaPasta($tenant, $solicitante, $pastaId, $gravado, $clientes ? MontadorDeContextoDaPasta::ORCAMENTO_PASTA_ABERTA_NO_CRUZAMENTO : null);
+        if (!$clientes) {
+            return [[$aberta], $decisao, 0];
+        }
+
+        $contextos = [$aberta];
+        $incluidas = [['pastaId' => $pastaId] + $decisao];
+        $naoConsultadas = max(0, (int) ($gravado['naoConsultadas'] ?? 0));
+        foreach ($this->adicionaisGravadas($gravado, $pastaId) as $adicional) {
+            try {
+                [$contextos[], ] = $this->contextoDaPasta($tenant, $solicitante, $adicional['pastaId'], $adicional, MontadorDeContextoDaPasta::ORCAMENTO_PASTA_ADICIONAL_NO_CRUZAMENTO);
+                $incluidas[] = $adicional;
+            } catch (\LogicException|ContextoBloqueadoException) {
+                ++$naoConsultadas;   // segredo, acesso perdido ou aba nova: some em silêncio e só entra na contagem
+            }
+        }
+
+        return [$contextos, $decisao + ['escopo' => self::ESCOPO_CLIENTES, 'pastasIds' => array_column($incluidas, 'pastaId'), 'pastas' => $incluidas, 'naoConsultadas' => $naoConsultadas], $naoConsultadas];
+    }
+
+    /**
+     * As adicionais gravadas na solicitação (a aberta fica de fora), no máximo as do teto e sem repetir ids.
+     *
+     * @param array<string, mixed> $gravado
+     *
+     * @return list<array{pastaId: int, financeiro: bool, abasOcultas: list<string>}>
+     */
+    private function adicionaisGravadas(array $gravado, int $pastaAbertaId): array
+    {
+        $adicionais = [];
+        $vistos = [$pastaAbertaId => true];
+        foreach (\is_array($gravado['pastas'] ?? null) ? $gravado['pastas'] : [] as $entrada) {
+            $id = \is_array($entrada) ? (int) ($entrada['pastaId'] ?? 0) : 0;
+            if ($id <= 0 || isset($vistos[$id]) || \count($adicionais) >= self::MAXIMO_DE_ADICIONAIS) {
+                continue;
+            }
+            $vistos[$id] = true;
+            $adicionais[] = [
+                'pastaId' => $id,
+                'financeiro' => ($entrada['financeiro'] ?? false) === true,
+                'abasOcultas' => array_values(array_filter(\is_array($entrada['abasOcultas'] ?? null) ? $entrada['abasOcultas'] : [], 'is_string')),
+            ];
+        }
+
+        return $adicionais;
+    }
+
+    /**
      * Relê a pasta, reconfere o acesso e monta o contexto do Gestor (segredo de justiça lança
-     * {@see \App\Inteligencia\Exception\ContextoBloqueadoException} antes de ler; o handler marca `falhou`).
+     * {@see ContextoBloqueadoException} antes de ler; o handler marca `falhou`). `$gravado` traz `financeiro` e `abasOcultas`
+     * decididos na solicitação PARA ESTA pasta.
+     *
+     * @param array<string, mixed> $gravado
      *
      * @return array{ContextoDaPasta, array{financeiro: bool, abasOcultas: list<string>}}
      */
-    private function contextoDaPasta(AnaliseDeInteligencia $analise, Tenant $tenant, User $solicitante, int $pastaId): array
+    private function contextoDaPasta(Tenant $tenant, User $solicitante, int $pastaId, array $gravado, ?int $orcamento): array
     {
         $pasta = $this->pastaLiberada($tenant, $solicitante, $pastaId);
-        [$financeiro, $abasOcultas] = $this->decisaoDaPasta($analise, $tenant, $solicitante, $pasta);
+        [$financeiro, $abasOcultas] = $this->decisaoDaPasta($gravado, $tenant, $solicitante, $pasta);
 
         return [
-            $this->montadorDaPasta->para($tenant, $pasta, Agente::Gestor, $financeiro, $abasOcultas),
+            $this->montadorDaPasta->para($tenant, $pasta, Agente::Gestor, $financeiro, $abasOcultas, orcamento: $orcamento),
             ['financeiro' => $financeiro, 'abasOcultas' => $abasOcultas],
         ];
     }
@@ -185,12 +279,12 @@ final class FluxoDoChatDaCentral implements FluxoDeAnaliseSemPasta
      * Perdeu o financeiro, ou uma aba que a solicitação deixou ler passou a ser oculta para ela: falha (nada de
      * "tirar só aquela parte"). O que a solicitação já restringiu continua restrito.
      *
+     * @param array<string, mixed> $resumo o `contexto_resumo` (pasta aberta) ou a entrada da pasta adicional
+     *
      * @return array{bool, list<string>}
      */
-    private function decisaoDaPasta(AnaliseDeInteligencia $analise, Tenant $tenant, User $solicitante, Pasta $pasta): array
+    private function decisaoDaPasta(array $resumo, Tenant $tenant, User $solicitante, Pasta $pasta): array
     {
-        $resumo = $analise->getContextoResumo();
-
         $financeiroGravado = ($resumo['financeiro'] ?? false) === true;
         $financeiroAgora = $this->financeiro->podeVer($solicitante, $tenant, $pasta);
         if ($financeiroGravado && !$financeiroAgora) {

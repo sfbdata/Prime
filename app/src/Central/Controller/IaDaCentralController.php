@@ -14,6 +14,7 @@ use App\Central\UseCase\PerguntarABlueJusIaUseCase;
 use App\Entity\Auth\User;
 use App\Inteligencia\Exception\AnaliseNaoEncontradaException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
+use App\Inteligencia\Exception\CruzamentoDePastasSemAceiteException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\MuitasSolicitacoesException;
@@ -64,7 +65,7 @@ final class IaDaCentralController extends AbstractController
         }
         $pastaId = $corpo['pastaId'] ?? null;
         try {
-            $saida = $this->perguntar->executar($usuario, $this->tenantContext->getCurrentTenant(), (string) $corpo['conteudo'], $this->limitadorDe($usuario), is_int($pastaId) ? $pastaId : null);
+            $saida = $this->perguntar->executar($usuario, $this->tenantContext->getCurrentTenant(), (string) $corpo['conteudo'], $this->limitadorDe($usuario), is_int($pastaId) ? $pastaId : null, is_string($corpo['escopo'] ?? null) ? $corpo['escopo'] : null);
         } catch (SemAcessoACentralException $e) {
             return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (PerguntaInvalidaException $e) {
@@ -74,6 +75,8 @@ final class IaDaCentralController extends AbstractController
         } catch (PastaDaIaNaoEncontradaException $e) {
             return $this->recusa('pasta_nao_encontrada', $e->getMessage(), Response::HTTP_NOT_FOUND);
         } catch (ContextoBloqueadoException $e) {
+            return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT);
+        } catch (CruzamentoDePastasSemAceiteException $e) {
             return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT);
         } catch (ConversaCriadaAoMesmoTempoException $e) {
             return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_CONFLICT);
@@ -143,8 +146,8 @@ final class IaDaCentralController extends AbstractController
     }
 
     /**
-     * O corpo antes de qualquer trabalho: `conteudo` texto de tamanho razoável e, se vier, `pastaId` inteiro (contexto da
-     * tela, PR 4a). Qualquer outro tipo é 422; o valor do id (positivo, da pessoa) é conferido no UseCase.
+     * O corpo antes de qualquer trabalho: `conteudo` texto de tamanho razoável e, se vierem, `pastaId` inteiro (contexto da
+     * tela, PR 4a) e `escopo` texto (PR 4c). Qualquer outro tipo é 422; o valor do id (positivo, da pessoa) é conferido no UseCase.
      *
      * @param array<string, mixed> $corpo
      */
@@ -160,6 +163,10 @@ final class IaDaCentralController extends AbstractController
         $pastaId = $corpo['pastaId'] ?? null;
         if ($pastaId !== null && !is_int($pastaId)) {
             return $this->recusa('pergunta_invalida', PerguntaInvalidaException::pastaInvalida()->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $escopo = $corpo['escopo'] ?? null;
+        if ($escopo !== null && !is_string($escopo)) {
+            return $this->recusa('pergunta_invalida', PerguntaInvalidaException::escopoInvalido()->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return null;

@@ -13,7 +13,7 @@ membros = [eu, ia]).
 | 2b | **Feito.** `PerguntarABlueJusIaUseCase` (sem controller nem rota): vínculo, texto 1..2000, conversa da pessoa, disponibilidade da IA, trava `FOR UPDATE` da conversa, devolve a pergunta em andamento ou grava a mensagem + análise `pendente` com `contexto_resumo.mensagemId` e enfileira depois do commit. Retenção: `ConversaDaIaNaCentral::apagarMensagensDaIaAntesDe` apaga as DUAS pontas (pergunta e resposta) das conversas `ia`, com o mesmo limite da expiração. |
 | 3a | **Feito (backend).** A conversa IA fica visível ao dono (lista, histórico, não lidas, novidades), a lista a traz sempre, o envio comum nela é recusado, rotas `POST /central/ia/perguntas` e `GET /central/ia/perguntas/{analiseId}`, saída do pendente preso (10 min). Sem permissão de módulo da IA por ora (só vínculo ativo). |
 | 3b | **Feito (tela).** Item "BlueJus IA" fixo no topo da lista, cabeçalho setor · função, bolha `deIa` com selo IA, "digitando..." enquanto a pergunta está pendente (um GET de status por ciclo do polling), estado vazio com 3 sugestões (a do resumo da pasta veio no 4b), aviso fixo de resposta por IA, textos em `central.ia.*` por `data-ia-*`. Pendente: corrida real e o "digitando" após recarregar a página (a lista não expõe a pergunta em andamento). |
-| 4 | Contexto da tela e D12 ("todas as pastas do cliente"). **4a feito (backend):** `pastaId` na pergunta, validação na solicitação e releitura no worker, prompt `chat-central-v2`. **4b feito (tela):** barra "Pasta N" e sugestão do resumo, `GET /central/ia/pasta/{pastaId}`. 4c (D12) pendente. |
+| 4 | Contexto da tela e D12 ("todas as pastas do cliente"). **4a feito (backend):** `pastaId` na pergunta, validação na solicitação e releitura no worker, prompt `chat-central-v2`. **4b feito (tela):** barra "Pasta N" e sugestão do resumo, `GET /central/ia/pasta/{pastaId}`. **4c (D12) feito:** escopo `clientes`, `PastasDosClientesDaIa`, prompt v3, interruptor na barra. |
 | 5 | Comandos "/" classe (a) (ver `designer-central-ia-comandos.md`). |
 
 ## Decisões do PR 1
@@ -68,6 +68,32 @@ Regras do 4a:
 5. Módulo `inteligencia` segue exigido (`DisponibilidadeDeInteligencia::para`).
 6. 4c (D12): cruza pastas de TODOS os clientes da pasta aberta, no mesmo escritório, só as que a pessoa vê, teto de pastas e orçamento menor por pasta;
    pasta com segredo some em silêncio ("N pastas não puderam ser consultadas").
+
+Regras do 4c (clientes, D12; risco MEDIO, sem migration):
+1. Entrada nova e opcional: `escopo` (`pasta` padrao | `clientes`) no POST de pergunta. `clientes` exige `pastaId` (422 sem ele). O cliente manda so o
+   nome do escopo; o servidor decide as pastas. Escopo entra no hash de idempotencia e em `contexto_resumo` (so a flag e os ids das pastas incluidas).
+2. Pastas incluidas = pasta aberta (primeiro) + outras pastas dos clientes da pasta aberta, mesmo escritorio, nao excluidas, so as que a pessoa
+   ve (`AcessoAPasta::restringirAoVisivel`, nunca `PastaRepository::findByCliente` cru), ordem `dataAbertura DESC`, teto `LIMITE_PASTAS` (5, aberta inclusa).
+   Servico novo `PastasDosClientesDaIa` (Central/Service); `PastaRepository` nao muda se der para evitar (query no repositorio do dominio so se preciso).
+3. Orcamento: cada pasta usa orcamento menor que o total do montador (`MontadorDeContextoDaPasta` ganha parametro opcional de orcamento; padrao inalterado).
+   Financeiro e abas ocultas decididos POR pasta (`PastaDoContextoDaIa::liberar`), nunca herdados da aberta.
+4. Segredo de justica: a pasta aberta com segredo segue 409 (regra 4a). Pasta ADICIONAL com segredo e omitida em silencio e contada; a resposta ganha no
+   prompt a frase fixa "N pastas nao puderam ser consultadas" (sem NUP, sem nome, sem motivo). O worker repete a decisao por pasta e, se a pasta aberta
+   deixou de valer, `falhou` sem chamar o provedor (como 4a).
+5. `mascarar_dados_pessoais` do escritorio vale para todas as pastas (o montador ja o aplica por chamada); nome/historico/pergunta seguem protegidos como na 4a.
+6. Prompt `chat-central-v3` (texto muda, versao muda): um bloco `<pasta>` por pasta, rotulado "pasta 1 (aberta)", "pasta 2"...; mesma regra de dados nao confiaveis,
+   delimitadores neutralizados. Historico com escopo `clientes` segue a regra 4 do 4a (sem respostas anteriores da IA).
+7. Disponibilidade e consentimento: `DisponibilidadeDeInteligencia::para` como hoje (a IA so esta liberada no escritorio piloto) E o aceite do escritorio
+   (`ConfiguracaoDeInteligencia::aceiteDeEnvioDado`, o mesmo que a habilitacao grava; sem coluna nova). Sem aceite: 409 `cruzamento_sem_consentimento` com mensagem fixa
+   (`CruzamentoDePastasSemAceiteException`), conferido na solicitacao (antes de ler pasta) e repetido no worker (`falhou` sem provedor). Nota: o texto do aceite (`VersaoDoAceiteDaIa`)
+   ainda nao cita o cruzamento de pastas; se o dono quiser um aceite proprio, e versao nova do enum + texto do admin (sem migration), em PR proprio. Antes de abrir a outros escritorios, rever.
+7b. Contagem: so a pasta com segredo de justica entra em "N pastas nao puderam ser consultadas"; a pasta que a pessoa nao ve some SEM contar (contar revelaria que ela existe).
+   No worker, a adicional que deixou de valer (acesso, financeiro, aba, segredo) e omitida e contada, pois a pessoa a viu na solicitacao. Orcamentos: aberta 30000, cada adicional 15000 caracteres.
+   O resumo guarda `escopo`, `pastasIds`, `pastas` (decisao por pasta) e `naoConsultadas`.
+8. Tela: na barra da pasta (4b) entra um interruptor "Incluir outras pastas do cliente" (desligado por padrao, por conversa, nao persiste) e, ligado, o aviso
+   LGPD fixo na barra: "A IA vai ler as outras pastas deste cliente que voce pode ver. Dados pessoais seguem a configuracao do escritorio." Sem desenho para o interruptor:
+   desvio declarado, o dono confere na tela. `base.html.twig` NAO e tocado.
+9. Resposta de rotulo (`GET /central/ia/pasta/{id}`) nao muda.
 
 Regras do 4b (tela):
 1. A janela leva `data-ia-pasta="{id}"` só em `/pasta/{id}` (`_janela.html.twig`; o `base.html.twig` não mudou). É dica de UI: o servidor revalida.

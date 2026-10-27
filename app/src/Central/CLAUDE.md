@@ -122,6 +122,9 @@ em `_janela.html.twig`; é a exceção à regra "texto do JS é fixo". Sem coman
 `central.js` busca o rótulo UMA vez (`GET /central/ia/pasta/{pastaId}`, `DescreverPastaDoContextoDaIaUseCase`: só `{pastaId, nup, cliente, url}`, `private, no-store`;
 qualquer falha de pasta = 404 de mensagem fixa; segredo de justiça não é recusado aqui, a pergunta recusa com 409). Com a barra (desenho L6001-6006) o POST leva
 `pastaId` e entra a sugestão "Faça um resumo desta pasta" (L397); sem barra, nada disso. 404 na pergunta tira a barra; 409 só avisa. Textos em `central.ia.*`.
+**Clientes (PR 4c, D12).** `escopo: 'clientes'` no POST (exige `pastaId`, 422 sem; só o nome do escopo vem do cliente) e, antes de tudo, o aceite do escritório (409 `cruzamento_sem_consentimento`).
+`PastasDosClientesDaIa` escolhe as outras pastas dos clientes da aberta: mesmo escritório, não excluídas, `AcessoAPasta::restringirAoVisivel` + `liberar` por pasta, `dataAbertura DESC`, teto 5 com a aberta;
+segredo some e é contado, pasta que a pessoa não vê some SEM contar. Tela: interruptor "Incluir outras pastas do cliente" na barra (desligado, só em memória) com o aviso LGPD fixo.
 
 **Lançador flutuante** (`_flutuante.html.twig` + `central-flutuante.js`/`.css`): a MESMA janela em modo `flutuante`,
 incluída no `base.html.twig` por uma linha (`central_disponivel()`, nunca lança; fora da `/central`). Regras: com a
