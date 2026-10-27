@@ -69,8 +69,17 @@ vai por um ramo que não procura pasta nem notifica e grava resposta e conclusã
 (`alvo_id` = conversa; `contexto_resumo` = ids e contagens, nunca texto). O fluxo fala com a Central pela porta
 `Contract/ConversaDaIaNaCentral` (implementada em `Central\Service\ConversaDaIaDaCentral`): relê pergunta e até 12
 mensagens anteriores (400 caracteres cada, respeitando "excluir"); se não confere, `\LogicException` e `falhou` sem provedor.
-A IA não lê pasta, equipe nem produtividade aí; `metricas`, `acoes` e `trace` são ignorados. É conteúdo particular
+Sem `pastaId` a IA não lê pasta, equipe nem produtividade (prompt `chat-central-v1`); `metricas`, `acoes` e `trace` são ignorados. É conteúdo particular
 (`ehParticular`): nada do texto vai para o `audit_log`.
+**Chat com pasta aberta na tela (PR 4a, `docs/specs/ia-chat-central.md`).** `contexto_resumo.pastaId` (só ids e flags: `pastaId`, `financeiro`,
+`abasOcultas`; nunca texto nem NUP). Cadeia: o UseCase da Central (`Central\Service\PastaDoContextoDaIa`, FORA da transação travada) valida pasta por
+id + escritório e `AcessoAPasta::podeVer` (404 igual para inexistente/outro escritório/oculta), segredo de justiça via `MontadorDeContextoDaPasta::para`
+(409 `contexto_bloqueado`) e decide financeiro (`VisibilidadeDoFinanceiroDaPasta`) e abas (`VisibilidadeDasAbasDaPasta`). O worker
+(`FluxoDoChatDaCentral`) NÃO confia nisso: relê a pasta por id + escritório, reconfere vínculo (pela porta), `podeVer`, financeiro e abas; perdeu
+acesso ou financeiro, ou uma aba lida passou a oculta: `\LogicException` com motivo fixo (`falhou` sem provedor). Financeiro e abas nunca AUMENTAM
+(vale o gravado, no máximo mais apertado). Contexto = Gestor + `PromptDoChatDaCentral::montarComPasta` (`chat-central-v2`, blocos de
+`PromptDoAgente::blocosDoContexto`, todos já em `NeutralizadorDeConteudo::DELIMITADORES`; bloco novo exige nome novo lá). Histórico com pasta: só as
+perguntas da própria pessoa, nunca a fala anterior da IA. Pasta em andamento ignora `pastaId` novo (devolve a pergunta pendente).
 
 As consultas por alvo do repositório filtram por `tipo` (e `agente`): uma pendente de agente não trava o
 Push nem vira "análise anterior" dele.

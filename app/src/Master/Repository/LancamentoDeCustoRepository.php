@@ -56,4 +56,14 @@ class LancamentoDeCustoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /** @return list<LancamentoDeCusto> todos os meses, do mais recente ao mais antigo (exportação) */
+    public function todos(): array
+    {
+        return $this->createQueryBuilder('l')
+            ->orderBy('l.mes', 'DESC')
+            ->addOrderBy('l.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }

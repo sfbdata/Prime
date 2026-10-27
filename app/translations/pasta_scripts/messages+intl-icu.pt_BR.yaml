@@ -302,6 +302,60 @@ pasta_scripts:
             recado_fim: '{recado}.'
             excluir_modelo_pergunta: 'Excluir o modelo "{nome}"? Os checklists já aplicados nas pastas não mudam.'
             erro_alterar_checklist: Não foi possível alterar o checklist.
+        analise_prazo:
+            estado_informado: Informado pelo usuário
+            estado_confirmado: Confirmado
+            estado_estimado: Estimado
+            estado_conferencia: Necessita conferência
+            estado_sem_prazo: Sem prazo legal identificado
+            nao_identificado: Não identificado
+            sem_prazo_legal: Sem prazo legal
+            dia_util: '{n} dia útil'
+            dias_uteis: '{n} dias úteis'
+            chip: 'Sugerido {data}'
+            chip_dica: 'Prazo sugerido: {data}. {porque}'
+            tog_ver: Ver análise completa
+            tog_ocultar: Ocultar análise
+            confirmado_botao: '✓ Confirmado'
+            conferir: Conferir
+            origem_informar: '+ Informar origem do prazo'
+            origem_informada: Origem do prazo informada
+            origem_ocultar: Ocultar origem do prazo
+            nota_prazo_atualizado: 'Prazo da meta atualizado para {data}.'
+            nota_nova_sugestao: 'A análise agora sugere {data} como prazo interno. O prazo escolhido foi mantido.'
+            nota_confirmada: 'Análise confirmada. O prazo jurídico {data} não será trocado por novas estimativas.'
+            alt_confirmado: 'Pela origem informada, a análise calcularia {data}. O prazo confirmado por você foi mantido. Clique na data se quiser trocar.'
+            alt_informado: 'Pela origem informada, a análise calcularia {data}. O prazo informado por você foi mantido. Clique na data se quiser trocar.'
+            ref_ciencia: '{data} (ciência)'
+            ref_publicacao: '{data} (após a publicação)'
+            ref_hoje: '{data} (hoje)'
+            conf_referencia: Data de referência
+            conf_prazo: Prazo considerado
+            conf_dias: Dias úteis
+            conf_feriados: Feriados considerados
+            conf_folga: Folga operacional sugerida
+            conf_interno: Data interna sugerida
+            nd: n/d
+            ck_ciencia: Data de ciência da intimação, para fixar o termo inicial.
+            ck_feriados: 'Feriados locais e do tribunal até {data}.'
+            ck_existe_prazo: Se existe prazo legal ou judicial para esta providência.
+            ck_apertado: 'Prazo apertado: avise o responsável hoje.'
+            ck_responsavel: Defina o responsável para a notificação sair.
+            tip_jur_titulo: Prazo jurídico
+            tip_jur_1: Esta data é utilizada na análise para calcular o prazo disponível e sugerir uma data interna para conclusão da tarefa.
+            tip_jur_2: A data pode depender da data de publicação, ciência/intimação, feriados, suspensão de prazos e regras específicas do processo.
+            tip_jur_3: Confira a data antes de salvar. Clique na data para corrigir ou confirmar o prazo considerado.
+            tip_dias_titulo: Dias úteis até lá
+            tip_dias_informado: '{n} dias úteis considerados entre hoje e o prazo jurídico informado.'
+            tip_dias_estimado: '{n} dias úteis considerados entre hoje e o prazo jurídico estimado.'
+            tip_dias_calendario: O cálculo considera o calendário configurado no sistema, fins de semana, feriados nacionais e o recesso de 20/12 a 20/01.
+            tip_dias_calendario_um: O cálculo considera o calendário configurado no sistema, fins de semana, feriados nacionais e o recesso de 20/12 a 20/01 (1 feriado no período).
+            tip_dias_calendario_varios: 'O cálculo considera o calendário configurado no sistema, fins de semana, feriados nacionais e o recesso de 20/12 a 20/01 ({n} feriados no período).'
+            tip_folga_titulo: Folga
+            tip_folga_com: 'A análise sugere concluir a tarefa {folga} antes do prazo jurídico para permitir revisão, correções e eventual necessidade de protocolo.'
+            tip_folga_sem: 'Sem folga: o prazo interno coincide com o prazo jurídico ou não há prazo legal para esta tarefa.'
+            tip_prio_1: A classificação considera o prazo disponível, a natureza da tarefa e os riscos identificados.
+            tip_prio_2: Essa classificação pode mudar automaticamente conforme o prazo se aproxima ou novas informações forem adicionadas.
         metas:
             prazo_escolha: Escolha a data limite.
             prazo_hoje: '{data}, hoje'

@@ -21,6 +21,8 @@ final readonly class LancamentoDoExtratoOutput
         public string $tipo,
         public int $valorCentavos,
         public ?string $observacao,
+        public ?string $forma = null,
+        public bool $temComprovante = false,
     ) {
     }
 
@@ -37,6 +39,8 @@ final readonly class LancamentoDoExtratoOutput
             $l->getTipo(),
             $l->getValorCentavos(),
             $l->getObservacao(),
+            $l->getForma()?->value,
+            $l->temComprovante(),
         );
     }
 
@@ -46,6 +50,7 @@ final readonly class LancamentoDoExtratoOutput
         return [
             'id' => $this->id, 'em' => $this->em->format(\DATE_ATOM), 'userId' => $this->userId, 'nome' => $this->nome,
             'email' => $this->email, 'tipo' => $this->tipo, 'valorCentavos' => $this->valorCentavos, 'observacao' => $this->observacao,
+            'forma' => $this->forma, 'temComprovante' => $this->temComprovante,
         ];
     }
 }

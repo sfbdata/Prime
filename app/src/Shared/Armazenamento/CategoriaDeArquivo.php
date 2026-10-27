@@ -49,6 +49,9 @@ enum CategoriaDeArquivo: string
     // Master envia no bloco "Questões jurídicas" da aba "Configurações da I.A.". Escopo GLOBAL: são documentos da
     // plataforma, não de um escritório, e a purga de escritório não os leva (`ChavesDeInteligencia`).
     case INTELIGENCIA_DOCUMENTO_JURIDICO = 'inteligencia_documento_juridico';
+    // O comprovante de um pagamento de recompensa registrado na baixa manual do Master (spec perfis-1.2-vs-25-10, F4).
+    // Escopo GLOBAL: é da plataforma, não de um escritório, e a purga de escritório não o leva (`ChavesDeRecompensa`).
+    case RECOMPENSA_COMPROVANTE = 'recompensa_comprovante';
 
     /**
      * Existe para leitura e diagnóstico — NÃO é o guarda de D7.

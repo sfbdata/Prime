@@ -56,6 +56,24 @@ final class SituacaoDoEspacoTest extends TestCase
         self::assertSame(OrigemDoLimite::Master, $retrato->origemDoLimite);
     }
 
+    #[TestDox('Plano pago: o limite menor do Master não tira o que o escritório paga; o maior vale')]
+    public function testPlanoPagoNaoEncolhe(): void
+    {
+        $essencial = new Plano('essencial', 'Essencial', 20, 1990, 'Para crescer', 2, 8);
+        $espaco = new EspacoDoEscritorio(new Tenant(), $essencial);
+        $espaco->definirLimite(12, false, 'limite antigo', null);
+        $espaco->definirLimiteDeUsuarios(5, 'limite antigo', null);
+
+        $retrato = $this->situacao($espaco)->retratar(7, 0);
+        self::assertSame(20 * self::GB, $retrato->bytesLimite);
+        self::assertSame(OrigemDoLimite::Plano, $retrato->origemDoLimite);
+        // D5 revogada (dono, 26/10/2026): o plano não limita usuários, e o limite menor do Master não vale em plano pago.
+        self::assertNull($retrato->limiteUsuarios);
+
+        $espaco->definirLimite(30, false, 'cortesia', null);
+        self::assertSame(30 * self::GB, $this->situacao($espaco)->retratar(7, 0)->bytesLimite);
+    }
+
     #[TestDox('Em lote: o mesmo retrato de cada escritório, quem não tem linha no Free, na ordem pedida')]
     public function testRetratarVarios(): void
     {

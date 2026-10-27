@@ -39,6 +39,8 @@ parameters:
     # Versões ajustadas dos documentos jurídicos (bloco "Questões jurídicas" do Master). Mesmo volume, sem acesso
     # direto pelo nginx: saem só pela rota do Master (ROLE_SUPER_ADMIN).
     documentos_juridicos_dir: '%kernel.project_dir%/public/uploads/documentos-juridicos'
+    # Comprovantes de pagamento de recompensa (baixa manual do Master). Mesmo volume, só pela rota do Master.
+    recompensa_comprovantes_dir: '%kernel.project_dir%/public/uploads/recompensa-comprovantes'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
     # API pública do SGS do Banco Central (índices INPC/IPCA/taxa legal da calculadora de atualização
@@ -50,6 +52,15 @@ parameters:
     # em produção, sem deploy de código. Escritórios excluídos (soft delete) não contam.
     tenant_max_por_usuario: '%env(default:default_tenant_max_por_usuario:int:TENANT_MAX_POR_USUARIO)%'
     default_tenant_max_por_usuario: 3
+    # Inatividade (minutos) que derruba a sessão quando o Master não gravou `sessao` (spec login-sessao-expiracao).
+    # PONTO ÚNICO do padrão: catálogo, leitor e listener leem daqui. 24 min = gc_maxlifetime 1440 s do PHP em produção
+    # (confirmado pelo Coordenador, 27/10; cookie_lifetime 0). Trocar aqui ou pela env SESSAO_PADRAO_MINUTOS.
+    app.sessao_padrao_minutos: '%env(default:default_sessao_padrao_minutos:int:SESSAO_PADRAO_MINUTOS)%'
+    default_sessao_padrao_minutos: 24
+    # gc_maxlifetime do PHP (framework.session) e teto do prazo do ExpiracaoDaSessaoListener: o arquivo da sessão não
+    # some antes dele. 86400 = 1 dia. Para `sessao` acima de 1440 min, subir SESSAO_GC_SEGUNDOS (env) junto.
+    app.sessao_gc_segundos: '%env(default:default_sessao_gc_segundos:int:SESSAO_GC_SEGUNDOS)%'
+    default_sessao_gc_segundos: 86400
     # Carência (em dias) que um escritório soft-deletado fica em quarentena antes do hard
     # delete definitivo pelo job de purga (RN09). Sobrescrevível por env em produção, sem
     # deploy de código. Enquanto dentro da carência, o suporte ainda pode reativar.
@@ -147,6 +158,7 @@ services:
             string $trabalhoExternoUploadsDir: '%trabalho_externo_uploads_dir%'
             string $comercialImagensDir: '%comercial_imagens_dir%'
             string $documentosJuridicosDir: '%documentos_juridicos_dir%'
+            string $recompensaComprovantesDir: '%recompensa_comprovantes_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
             string $bcbSgsBaseUrl: '%bcb_sgs_base_url%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
@@ -180,6 +192,19 @@ services:
     # decorador de cota do Contribua, que envolve o alias por #[AsDecorator]). O alias que diz qual é a de
     # baixo está mais abaixo, no bloco do espelho (P2.3): a cadeia fica cota → espelho → disco. O alias
     # fica no YAML, e não num atributo no backend, porque o núcleo não pode depender do Symfony (INV-8).
+
+    # Limite de tentativas de login (spec login-config-tentativas): mesmo storage do login_throttling padrão
+    # (CacheStorage sobre cache.rate_limiter), segredo do hash da chave: kernel.secret (estável entre deploys; o Symfony usa o build_hash, que zera os contadores a cada build). Sem lock.
+    App\Security\LimitadorDeTentativasDeLogin:
+        arguments:
+            $armazenamento: '@limiter.storage.login_tentativas'
+            $segredo: '%kernel.secret%'
+    # Público só para o teste funcional trocar por um storage que não é zerado a cada requisição (o ArrayAdapter do
+    # pool de teste é zerado pelo services_resetter, e sem isso o bloqueio não é observável por HTTP).
+    limiter.storage.login_tentativas:
+        class: Symfony\Component\RateLimiter\Storage\CacheStorage
+        public: true
+        arguments: ['@cache.rate_limiter']
 
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
@@ -327,6 +352,7 @@ when@test:
         trabalho_externo_uploads_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/trabalho-externo'
         comercial_imagens_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/comercial-imagens'
         documentos_juridicos_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/documentos-juridicos'
+        recompensa_comprovantes_dir: '%kernel.project_dir%/var/uploads-test%env(default::TESTE_PROCESSO)%/recompensa-comprovantes'
         # A suíte prova a cadeia inteira da BlueJus IA com o ProvedorFalso: a flag da plataforma fica
         # ligada aqui; o teste que precisa do estado "não configurada" desliga o próprio falso.
         ia_habilitada: true
@@ -341,6 +367,12 @@ when@test:
         App\Tests\Inteligencia\Support\ProvedorFalso:
             public: true
         App\Inteligencia\Service\ProvedorDeLinguagem: '@App\Tests\Inteligencia\Support\ProvedorFalso'
+
+        # Contribua C3: gateway de cartão falso (código 'falso'), para o checkout, o webhook e a conciliação
+        # serem provados de ponta a ponta sem rede. `public` para o teste programar a situação no gateway.
+        App\Tests\Contribua\Doubles\GatewayFalso:
+            public: true
+            tags: ['contribua.gateway']
 
         # E2.5 — faz o próximo COMMIT da aplicação falhar, sob demanda. Sob o DAMA nenhum COMMIT
         # falha de verdade; sem isto o ramo "o COMMIT lançou" só seria testável com mock.

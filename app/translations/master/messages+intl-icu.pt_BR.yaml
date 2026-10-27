@@ -283,6 +283,25 @@ master:
             observacao: Observação (opcional)
             cancelar: Cancelar
             lancar: Lançar
+        baixa:
+            titulo: Dar baixa · registrar pagamento
+            valor: Valor pago (R$)
+            forma: Forma de pagamento
+            confirmar: Confirmar pagamento
+        recebimento:
+            titulo: Dados para pagamento
+            nome: Nome de quem recebe
+            documento: CPF ou CNPJ
+            documento_dica: 'O sistema guarda o valor bruto e não calcula imposto; este cadastro é o que o contador usa.'
+            pix: Chave PIX (opcional)
+            pix_dica: 'Aparece no diálogo de baixa para você conferir antes de pagar.'
+            salvar: Salvar dados
+        apagar:
+            titulo: Apagar indicador da lista
+            rotulo: Digite APAGAR para confirmar
+            dica: 'Ele sai da lista de recompensas; o extrato continua guardado.'
+            cancelar: Cancelar
+            apagar: Apagar
         csv:
             data: Data
             usuario: Usuário
@@ -292,9 +311,16 @@ master:
             observacao: Observação
             credito: Crédito manual
             estorno: Estorno
+            pago: Pagamento
+            forma: Forma
+            forma_pix: PIX
+            forma_transferencia: Transferência
+            forma_desconto_na_mensalidade: Desconto na mensalidade
+            forma_credito_de_espaco: Crédito de espaço
         token_invalido: Token CSRF inválido. Recarregue a página.
         indicador_nao_encontrado: Indicador não encontrado.
         corpo_invalido: Corpo da requisição inválido.
+        suspeitas_mudou: A lista de suspeitas mudou. Recarregue o painel e revise de novo.
     # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
     ia:
         instalacao:
@@ -861,6 +887,9 @@ master:
             motivo_padrao: Convênio não renovado
             valor_invalido: Valor inválido.
             erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_importar: Não foi possível importar o arquivo. Tente de novo.
+            importados: '{n} lançamento(s) importado(s).'
+            importados_ignoradas: '{n} lançamento(s) importado(s), {ignoradas} linha(s) ignorada(s).'
             erro_carregar: Não foi possível carregar os convênios.
             rotulo_conta: 'Convênio OAB/{uf}'
             rotulo_conta_dif: 'Convênio OAB/{uf} · valor diferenciado {valor}/mês'
@@ -967,6 +996,15 @@ master:
                 liberado: Liberado
                 carencia: '{n} em carência'
                 andamento: Em andamento
+                bloqueado: Bloqueado
+                analise_uma: 'Em análise ({n} suspeita)'
+                analise_varias: 'Em análise ({n} suspeitas)'
+                alerta: 'Alerta: {n} contas em 7 dias'
+            sit_dica_alerta: 'Muitas contas criadas em poucos dias. O alerta só sinaliza: nada é bloqueado.'
+            motivo:
+                escritorio: mesmo escritório de quem indicou
+                cnpj: mesmo CNPJ
+                dominio: mesmo domínio de e-mail
             sit_dica_carencia: '{n} conta(s) aguardando {dias} dias de uso ativo para gerar crédito'
             por_mes: '+ {valor}/mês ↻'
             dica_geral: Segue a regra geral
@@ -982,9 +1020,36 @@ master:
             menu_lancamento: Lançar crédito ou estorno
             menu_extrato: Ver extrato deste indicador
             menu_csv: Baixar extrato (CSV)
+            menu_aprovar: Revisar suspeitas e aprovar
+            menu_bloquear: Bloquear recompensa
+            menu_desbloquear: Desbloquear recompensa
+            menu_apagar: Apagar da lista
+            menu_baixa: Dar baixa (registrar pagamento)
+            menu_recebimento: Dados para pagamento
+            comprovante: Ver comprovante
+            forma:
+                pix: PIX
+                transferencia: Transferência
+                desconto_na_mensalidade: Desconto na mensalidade
+                credito_de_espaco: Crédito de espaço
+            baixa_dica: 'Saldo disponível: {saldo} · Chave PIX: {pix}'
+            baixa_sem_pix: não cadastrada
+            baixa_anexar: Anexar comprovante (PDF ou imagem)
+            baixa_erro_valor: Informe um valor maior que zero e até o saldo.
+            baixa_ok: 'Pagamento de {valor} registrado para {nome}.'
+            recebimento_ok: 'Dados para pagamento de {nome} salvos.'
+            recebimento_erro_carregar: Não foi possível carregar os dados já cadastrados.
+            aprovar_titulo: 'Suspeitas de {nome} ({n}):'
+            aprovar_pergunta: Aprovar e contar estas contas?
+            aprovadas: 'Contas aprovadas para {nome}.'
+            bloqueada: 'Recompensa de {nome} bloqueada.'
+            desbloqueada: 'Recompensa de {nome} desbloqueada.'
+            erro_apagar: Digite APAGAR para confirmar.
+            apagado: '{nome} foi removido da lista. O extrato continua guardado.'
             tipo:
                 credito: Crédito manual
                 estorno: Estorno
+                pago: Pagamento
             extrato_todos: Mostrar todos
             extrato_removido: Indicador removido
             extrato_erro: Não foi possível carregar o extrato.
@@ -1281,6 +1346,8 @@ master:
         mes: Mês
         nota: Receita atual, não histórica. Os custos são os lançados no mês escolhido.
         copiar: Copiar do mês anterior
+        importar: Importar CSV
+        exportar: Exportar
         lancar: Lançar custo
         cancelar: Cancelar
         campo_categoria: Categoria

@@ -63,10 +63,22 @@ class LancamentoDeRecompensaRepository extends ServiceEntityRepository
     /** @return array<int, int> soma dos lançamentos `bonus` por indicador (com sinal); quem foi apagado fica de fora */
     public function somaDoBonusPorIndicador(): array
     {
+        return $this->somaPorIndicador(LancamentoDeRecompensa::TIPO_BONUS);
+    }
+
+    /** @return array<int, int> soma dos pagamentos (`pago`, sempre positivos) por indicador */
+    public function somaDoPagoPorIndicador(): array
+    {
+        return $this->somaPorIndicador(LancamentoDeRecompensa::TIPO_PAGO);
+    }
+
+    /** @return array<int, int> */
+    private function somaPorIndicador(string $tipo): array
+    {
         $linhas = $this->createQueryBuilder('l')
             ->select('IDENTITY(l.user) AS usuario', 'SUM(l.valorCentavos) AS soma')
             ->where('l.tipo = :tipo')->andWhere('l.user IS NOT NULL')
-            ->setParameter('tipo', LancamentoDeRecompensa::TIPO_BONUS)
+            ->setParameter('tipo', $tipo)
             ->groupBy('l.user')
             ->getQuery()->getArrayResult();
 

@@ -1,0 +1,25 @@
+{# Bloco "Assinatura" do Meu Perfil (ponto de inclusão do desenho 07 / PR #60). O checkout do desenho 08 manda
+   "cancele quando quiser em Meu Perfil": aqui ficam o plano pago, até quando vale e o cancelar. Sem assinatura,
+   não aparece nada. Marcação mp-card do Meu Perfil; o desenho 07 é omisso sobre o miolo (convenção). #}
+{% set a = assinatura_no_perfil() %}
+{% if a %}
+    <section class="mp-card" data-screen-label="Assinatura" data-assinatura-perfil
+             data-url-cancelar="{{ path('contribua_assinatura_cancelar') }}" data-csrf="{{ csrf_token('contribua') }}">
+        <div class="mp-card-topo">
+            <span class="mp-card-selo"><i class="bi bi-hdd-stack"></i></span>
+            <div><b>Assinatura de espaço</b><div class="mp-card-sub">Plano {{ a.plano }} · {{ a.gb }} GB · {{ a.valor }}/mês no cartão ({{ a.gateway }})</div></div>
+        </div>
+        <div class="mp-seguranca">
+            <div>
+                <b style="color: {{ a.cor }}">{{ a.situacao|capitalize }}</b>
+                {% if a.pagaAte %}<br>{{ a.cancelavel ? 'Próxima cobrança em' : 'O espaço do plano vale até' }} {{ a.pagaAte }}. Nenhum arquivo é apagado se cancelar.{% endif %}
+                <div class="mp-assinatura-retorno" data-assinatura-retorno hidden></div>
+            </div>
+            <a class="mp-btn-azul" href="{{ path('contribua_index') }}#espaco"><i class="bi bi-hdd-stack"></i>Ver espaço</a>
+            {% if a.podeCancelar %}
+                <button class="mp-btn-azul mp-btn-cancelar-assinatura" type="button" data-cancelar-assinatura><i class="bi bi-x-circle"></i>Cancelar assinatura</button>
+            {% endif %}
+        </div>
+    </section>
+    <script src="{{ asset('js/contribua-perfil.js') }}" defer></script>
+{% endif %}

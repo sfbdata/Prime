@@ -28,7 +28,7 @@
        ═══════════════════════════════════════════════════════════════════════ */
     :root {
         --h:    var(--header-height);
-        --tl-w: 340px;
+        --tl-w: 390px;
 
         /* Esta tela é a única que carrega Open Sans de verdade (Google Fonts, acima) — aqui a
            fonte nunca esteve quebrada, nem quando o resto do sistema caía no Arial. Redefinir o
@@ -38,20 +38,6 @@
         /* Azul judicial — tom primário */
         --blue:      #0084AC;
         --blue-hover:#029BCA;
-
-        /* Painel timeline (esquerda) */
-        --tl-bg:        #fff;
-        --tl-surface:   #f9f9f9;
-        --tl-hover:     #f3f3f3;
-        --tl-active-bg: rgba(0, 132, 172, 0.07);
-        --tl-active-bd: #0084AC;
-        --tl-text:      #454545;
-        --tl-muted:     #888;
-        --tl-border:    var(--bs-border-color);
-        --tl-sep:       #eee;
-
-        /* Painel preview (direita) */
-        --pv-bg: #f5f5f5;
 
         /* Marca BlueJus */
         --coral: #E86C50;
@@ -215,84 +201,89 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
-       PAINEL ESQUERDO — TIMELINE
+       PAINEL ESQUERDO: LISTA DE DOCUMENTOS (desenho 07, L46-75)
        ═══════════════════════════════════════════════════════════════════════ */
     .petic-timeline {
         height: 100%;
+        min-height: 0;
         overflow: hidden;
-        background: var(--tl-bg);
+        background: #fff;
         display: flex;
         flex-direction: column;
-        border-right: 1px solid var(--tl-border);
+        border-right: 1px solid #dde5eb;
     }
 
+    /* Cabeçalho da lista (L47) */
     .petic-timeline-header {
-        padding: 8px 14px;
-        border-bottom: 1px solid var(--tl-border);
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid #eef2f5;
         display: flex;
         flex-direction: column;
-        gap: 7px;
+        gap: 10px;
         flex-shrink: 0;
-        background: var(--tl-surface);
+        background: #fff;
     }
-
-    .petic-search {
-        position: relative;
-        display: flex;
-        align-items: center;
-    }
-    .petic-search-icon {
-        position: absolute;
-        left: 8px;
-        font-size: 12px;
-        color: var(--bs-secondary-color);
-        pointer-events: none;
-    }
-    .petic-search-input {
-        width: 100%;
-        height: 28px;
-        padding: 0 8px 0 26px;
-        border: 1px solid var(--bs-border-color);
-        border-radius: 3px;
-        font-size: 12px;
-        color: var(--bs-body-color);
-        background: var(--bs-body-bg);
-        outline: none;
-        transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .petic-search-input::placeholder { color: var(--bs-secondary-color); }
-    .petic-search-input:focus {
-        border-color: var(--blue);
-        box-shadow: 0 0 0 2px rgba(0,132,172,0.12);
-    }
-
     .petic-timeline-header-title {
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--bs-secondary-color);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
         display: flex;
         align-items: center;
         gap: 8px;
     }
-    .petic-timeline-header-title i {
-        font-size: 13px;
-        color: var(--blue);
+    .petic-timeline-header-title > i {
+        font-size: 16px;
+        color: #0a6fa0;
     }
-    .petic-timeline-header-title .badge {
-        font-size: 11px !important;
-        font-weight: 500 !important;
-        background: var(--bs-border-color) !important;
-        color: var(--bs-secondary-color) !important;
-        border-radius: 3px !important;
-        padding: 2px 7px !important;
+    .petic-timeline-header-title > .petic-timeline-titulo {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: #12242f;
+    }
+    .petic-timeline-header-title > .petic-contador {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #5b7383;
+        background: #eef2f5;
+        border-radius: 4px;
+        padding: 1px 7px;
     }
 
+    /* Busca (L49) */
+    .petic-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 34px;
+        padding: 0 10px;
+        border: 1px solid #d3dde4;
+        border-radius: 4px;
+    }
+    .petic-search > .petic-search-icon {
+        color: #5b7383;
+    }
+    .petic-search > .petic-search-input {
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+        padding: 0;
+        border: none;
+        outline: none;
+        box-shadow: none;
+        background: transparent;
+        font: inherit;
+        font-size: 13.5px;
+        color: var(--bs-body-color);
+    }
+
+    /* Área da lista (L51): padding 10/12, gap 6, sem trilho nem bolinhas */
     .petic-timeline-list {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
-        padding: 4px 0;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
         scrollbar-width: thin;
         scrollbar-color: var(--bs-border-color) transparent;
     }
@@ -300,113 +291,68 @@
     .petic-timeline-list::-webkit-scrollbar-track  { background: transparent; }
     .petic-timeline-list::-webkit-scrollbar-thumb  { background: var(--bs-border-color); border-radius: 2px; }
 
-    /* ── Timeline vertical ── */
     .petic-tl-inner {
-        padding: 4px 10px 16px 8px;
-        position: relative;
-    }
-    .petic-tl-inner::before {
-        content: '';
-        position: absolute;
-        left: 18px;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background: var(--bs-border-color);
-        z-index: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
     }
 
+    /* Separador de dia (L53) */
     .petic-tl-datesep {
         display: flex;
-        align-items: center;
         justify-content: center;
-        padding: 10px 0 6px;
-        position: relative;
-        z-index: 1;
+        margin: 8px 0 2px;
     }
     .petic-tl-datesep span {
-        background: var(--bs-tertiary-bg);
-        border-radius: 20px;
-        padding: 3px 12px;
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--bs-secondary-color);
+        font-size: 12px;
+        font-weight: 700;
+        color: #3c4a54;
+        background: #e6ebef;
+        padding: 3px 14px;
+        border-radius: 4px;
         white-space: nowrap;
     }
 
+    /* Cartão da linha (L54) */
     .petic-tl-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        margin-bottom: 6px;
         cursor: pointer;
-        position: relative;
-        z-index: 1;
     }
-
-    .petic-tl-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        flex-shrink: 0;
-        margin-top: 13px;
-        background: var(--bs-secondary-color);
-        border: 2px solid var(--bs-border-color);
-        box-shadow: 0 0 0 1.5px #aaa;
-        position: relative;
-        z-index: 2;
-    }
-    .petic-tl-dot--primary   { background: #0084AC; box-shadow: 0 0 0 1.5px #0084AC; }
-    .petic-tl-dot--success   { background: #198754; box-shadow: 0 0 0 1.5px #198754; }
-    .petic-tl-dot--info      { background: #0dcaf0; box-shadow: 0 0 0 1.5px #0dcaf0; }
-    .petic-tl-dot--warning   { background: #d08000; box-shadow: 0 0 0 1.5px #d08000; }
-    .petic-tl-dot--dark      { background: var(--bs-body-color);    box-shadow: 0 0 0 1.5px #333; }
-    .petic-tl-dot--secondary { background: var(--bs-secondary-color); box-shadow: 0 0 0 1.5px #6c757d; }
-
     .petic-tl-card {
-        flex: 1;
-        min-width: 0;
-        background: var(--bs-body-bg);
-        border: 1px solid var(--bs-border-color);
-        border-left-width: 1px;
+        background: #fff;
+        border: 1px solid #e6edf2;
         border-radius: 4px;
-        padding: 8px 10px 7px;
-        transition: border-color 0.15s, box-shadow 0.15s;
+        padding: 9px 10px;
+        transition: background .15s;
     }
     .petic-tl-row:hover .petic-tl-card {
-        border-color: var(--bs-border-color);
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        background: #f2f8fc;
     }
     .petic-tl-row.ativo .petic-tl-card {
-        border-left: 3px solid #0084AC;
-        background: rgba(0,132,172,0.03);
+        background: #e5f1f7;
+        border-color: #9fc3d8;
     }
 
     .petic-tl-card-top {
         display: flex;
         align-items: flex-start;
-        gap: 6px;
+        gap: 10px;
     }
     .petic-tl-icon {
-        color: #0084AC;
-        font-size: 14px;
         flex-shrink: 0;
-        margin-top: 1px;
     }
     .petic-tl-titulo {
-        font-size: 12.5px;
-        font-weight: 500;
-        color: var(--bs-body-color);
+        color: #12242f;
         line-height: 1.4;
         word-break: break-word;
     }
-    .petic-tl-row.ativo .petic-tl-titulo { color: #0084AC; }
+    .petic-tl-row.ativo .petic-tl-titulo { color: #0a6fa0; }
 
     .petic-tl-card-bottom {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-top: 6px;
+        margin-top: 5px;
     }
     .petic-item-cat {
         font-size: 10px !important;
@@ -418,138 +364,117 @@
     }
     .petic-tl-time {
         font-size: 11px;
-        color: var(--bs-secondary-color);
+        color: #7b93a2;
         flex-shrink: 0;
     }
 
-    .petic-tl-vazio {
-        padding: 40px 20px;
-        text-align: center;
-        color: var(--bs-secondary-color);
-        font-size: 13px;
-        line-height: 1.8;
-    }
-    .petic-tl-vazio i { font-size: 2rem; opacity: 0.4; display: block; margin-bottom: 0.5rem; }
-
-    /* Rodapé da timeline */
+    /* Rodapé: "Adicionar peça" (L65-74) */
     .petic-timeline-footer {
         flex-shrink: 0;
-        padding: 10px 12px;
-        border-top: 1px solid var(--tl-border);
-        background: var(--tl-surface);
-    }
-    .petic-timeline-footer .btn.btn-primary {
-        background: var(--blue) !important;
-        border-color: var(--blue) !important;
-        border-radius: 3px;
-        font-size: 13px;
-        font-weight: 600;
-        padding: 8px 16px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        transition: background 0.2s, box-shadow 0.2s;
-        box-shadow: rgba(0,0,0,0.117647) 0px 1px 6px, rgba(0,0,0,0.239216) 0px 1px 4px;
-    }
-    .petic-timeline-footer .btn.btn-primary:hover {
-        background: var(--blue-hover) !important;
-        border-color: var(--blue-hover) !important;
+        position: relative;
+        padding: 10px 12px 12px;
+        border-top: 1px solid #eef2f5;
+        background: #fff;
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
-       PAINEL DIREITO — PREVIEW
+       PAINEL DIREITO: VISUALIZAÇÃO (desenho 07, L76-100)
        ═══════════════════════════════════════════════════════════════════════ */
     .petic-preview {
         height: 100%;
+        min-height: 0;
         overflow: hidden;
-        background: var(--pv-bg);
+        background: #eef2f5;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: center;
         position: relative;
     }
 
+    /* Corpo (L90): rola, centraliza e tem padding 20 */
+    .petic-preview-corpo {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    /* Nada selecionado (L78) */
     .petic-preview-placeholder {
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        color: #34505f;
+        font-size: 15px;
         text-align: center;
-        padding: 3rem;
         user-select: none;
     }
-    .petic-preview-placeholder i {
-        font-size: 2.5rem;
-        display: block;
-        margin-bottom: 1rem;
-        color: var(--bs-secondary-color);
-        opacity: 0.6;
-    }
-    .petic-preview-placeholder p {
-        font-size: 13px;
-        color: var(--bs-secondary-color);
-        margin: 0;
+    .petic-preview-placeholder > i {
+        font-size: 52px;
+        color: #9aabb7;
     }
 
+    /* PDF em moldura (L91) */
     #previewIframe {
+        display: none;
         width: 100%;
+        max-width: 980px;
         height: 100%;
-        border: none;
-        display: none;
+        min-height: 600px;
+        border: 1px solid #dde5eb;
+        border-radius: 4px;
+        background: #fff;
     }
 
+    /* Imagem (L92 e JS L127) */
     #previewImagem {
-        max-width: 90%;
-        max-height: 90%;
-        object-fit: contain;
-        border-radius: 2px;
-        box-shadow: 0 2px 5px 0 rgba(0,0,0,0.16), 0 2px 10px 0 rgba(0,0,0,0.12);
         display: none;
+        max-width: 100%;
+        height: auto;
+        align-self: flex-start;
+        border: 1px solid #dde5eb;
+        border-radius: 4px;
+        background: #fff;
     }
 
-    #previewAudio {
-        width: 75%;
-        max-width: 460px;
-        display: none;
-        accent-color: var(--blue);
-    }
-
-    #previewVideo {
-        max-width: 92%;
-        max-height: 88%;
-        box-shadow: 0 2px 5px 0 rgba(0,0,0,0.16);
-        display: none;
-    }
-
+    /* Formato sem visualização (L94) */
     .petic-download-panel {
         display: none;
         flex-direction: column;
         align-items: center;
+        align-self: center;
         text-align: center;
-        padding: 0 2rem;
+        color: #34505f;
+        font-size: 14px;
     }
-    .petic-download-panel i {
-        font-size: 2.5rem;
-        display: block;
-        margin-bottom: 1rem;
-        color: var(--bs-secondary-color);
-        opacity: 0.6;
+    .petic-download-panel > i {
+        font-size: 44px;
+        color: #9aabb7;
     }
-    .petic-download-panel p.text-muted {
-        font-size: 13px;
-        color: var(--bs-secondary-color) !important;
-        margin-bottom: 1.25rem;
+    .petic-download-panel > .petic-download-texto {
+        margin-top: 10px;
     }
-    .petic-download-panel .btn-outline-primary {
-        font-size: 13px;
-        font-weight: 600;
-        border-radius: 3px;
-        padding: 8px 22px;
-        border-color: var(--blue) !important;
-        color: var(--blue) !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        transition: background 0.2s, color 0.2s;
+    .petic-download-panel > .petic-download-btn {
+        margin-top: 10px;
+        height: 34px;
+        padding: 0 14px;
+        display: inline-flex;
+        align-items: center;
+        border: none;
+        border-radius: 4px;
+        background: #0a6fa0;
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+        cursor: pointer;
     }
-    .petic-download-panel .btn-outline-primary:hover {
-        background: var(--blue) !important;
-        color: #fff !important;
+    .petic-download-panel > .petic-download-btn:hover,
+    .petic-download-panel > .petic-download-btn:focus {
+        color: #fff;
+        text-decoration: none;
     }
 
     /* ═══════════════════════════════════════════════════════════════════════

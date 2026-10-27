@@ -69,4 +69,15 @@ final class CatalogoDeConfiguracoesTest extends TestCase
 
         CatalogoDeConfiguracoes::normalizar($entrada);
     }
+
+    #[TestDox('O padrão do ambiente troca `sessao` em padroes(), grupos() e normalizar()')]
+    public function testSobreposicaoDoPadraoDaSessao(): void
+    {
+        $sobrepor = CatalogoDeConfiguracoes::sobreposicoes(24);
+
+        self::assertSame('24', CatalogoDeConfiguracoes::padroes($sobrepor)['sessao']);
+        self::assertSame('24', CatalogoDeConfiguracoes::grupos($sobrepor)['seguranca']['sessao']['padrao']);
+        self::assertSame('24', CatalogoDeConfiguracoes::normalizar([], $sobrepor)['sessao']);
+        self::assertSame('480', CatalogoDeConfiguracoes::normalizar([])['sessao'], 'sem sobreposição, o estático');
+    }
 }

@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Djen\Functional;
 
 use App\Djen\Controller\ProcessosDaOabController;
+use App\Djen\DTO\ConsultaComunicacoesQuery;
+use App\Djen\DTO\RespostaComunicacoes;
 use App\Djen\Entity\ProcessoAcompanhado;
+use App\Djen\Service\DjenClient;
+use App\Djen\Service\DjenClientInterface;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -226,5 +230,230 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/push-processual/processos');
 
         self::assertResponseRedirects();
+    }
+
+    #[Test]
+    public function excluirProcessoTiraDaListaDaPastaEDoRelatorioMasMantemAsPublicacoes(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $processo = $this->criarProcesso($tenant, self::NUMERO_A);
+        $pasta = new \App\Pasta\Entity\Pasta();
+        $pasta->setNup('NUP-EX1');
+        $pasta->setNomeCliente('MARIA');
+        $pasta->setTenant($tenant);
+        $this->em()->persist($pasta);
+        $this->em()->flush();
+        $pasta->vincularProcesso($processo);
+        $oab = $this->criarOab($tenant, '49613', 'DF');
+        $publicacao = $this->criarPublicacao($tenant, '950010', self::NUMERO_A);
+        $publicacao->setOabMonitorada($oab);
+        $this->em()->flush();
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/processos');
+        self::assertCount(1, $crawler->filter('.pp-linha--dado'));
+        $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/excluir', ['_token' => $token, 'numero' => self::NUMERO_A]);
+        $crawler = $client->followRedirect();
+
+        self::assertStringContainsString('Processo excluído.', $crawler->text());
+        self::assertCount(0, $crawler->filter('.pp-linha--dado'), 'saiu dos acompanhados');
+        $crawler = $client->request('GET', '/push-processual/processos?sub=relatorio');
+        self::assertCount(0, $crawler->filter('.pp-linha--dado'), 'não volta ao Relatório');
+        $crawler = $client->request('GET', '/push-processual');
+        self::assertCount(1, $crawler->filter('[data-pp-linha]'), 'a publicação continua no Push');
+        $this->limparIdentityMap();
+        self::assertFalse($this->em()->find(\App\Pasta\Entity\Pasta::class, $pasta->getId())->temProcesso($this->em()->find(Processo::class, $processo->getId())), 'saiu da pasta');
+    }
+
+    #[Test]
+    public function incluirDeNovoDesfazOExcluir(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/excluir', ['_token' => $token, 'numero' => self::NUMERO_B]);
+        $client->followRedirect();
+        $this->limparIdentityMap();
+        $linha = $this->em()->getRepository(ProcessoAcompanhado::class)->findOneBy(['numeroProcesso' => self::NUMERO_B]);
+        self::assertNotNull($linha?->getExcluidoEm());
+
+        $client->request('POST', '/push-processual/processos/incluir', ['_token' => $token, 'numero' => self::NUMERO_B]);
+        $client->followRedirect();
+        $this->limparIdentityMap();
+        $linha = $this->em()->getRepository(ProcessoAcompanhado::class)->findOneBy(['numeroProcesso' => self::NUMERO_B]);
+        self::assertNull($linha->getExcluidoEm());
+        self::assertTrue($linha->isAcompanhando());
+    }
+
+    #[Test]
+    public function excluirRecusaNumeroIncompleto(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-excluir-form] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/excluir', ['_token' => $token, 'numero' => '123']);
+
+        self::assertStringContainsString('20 dígitos', $client->followRedirect()->text());
+    }
+
+    #[Test]
+    public function modalVincularProcessoEstaNasDuasAbas(): void
+    {
+        [$client] = $this->entrar();
+
+        foreach (['/push-processual', '/push-processual/processos'] as $url) {
+            $crawler = $client->request('GET', $url);
+            self::assertCount(1, $crawler->filter('[data-pp-vp][hidden]'), $url);
+            self::assertCount(1, $crawler->filter('button[data-push-cadastrar-processo]'), $url);
+            self::assertCount(0, $crawler->filter('[data-pp-vp] .modal, [data-pp-vp] .select2'), 'componentes do desenho, não do sistema');
+        }
+    }
+
+    #[Test]
+    public function buscaOsProcessosJaCadastradosPorNumero(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $this->criarProcesso($tenant, self::NUMERO_A);
+
+        $client->request('GET', '/push-processual/processos/cadastrados?q=0702222');
+
+        self::assertResponseIsSuccessful();
+        $itens = json_decode($client->getResponse()->getContent(), true);
+        self::assertCount(1, $itens);
+        self::assertSame(self::NUMERO_A, $itens[0]['numero']);
+    }
+
+    #[Test]
+    public function incluiProcessoJaCadastradoNoMonitoramento(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $this->criarProcesso($tenant, self::NUMERO_A);
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-vp-form-busca] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/incluir-cadastrado', ['_token' => $token, 'numero' => self::NUMERO_A]);
+
+        self::assertStringContainsString('vinculado', $client->followRedirect()->text());
+    }
+
+    #[Test]
+    public function incluirCadastradoSemSelecaoAvisa(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-vp-form-busca] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/incluir-cadastrado', ['_token' => $token, 'numero' => '']);
+
+        self::assertStringContainsString('Selecione um processo da lista.', $client->followRedirect()->text());
+    }
+
+    #[Test]
+    public function cadastraProcessoNovoEIncluiNoAcompanhamento(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-vp-form-novo] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/cadastrar', [
+            '_token' => $token,
+            'numeroProcesso' => '0704444-44.2026.8.07.0001',
+            'orgaoJulgador' => '2ª Vara Cível',
+            'classeProcessual' => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'partes' => [['tipo' => 'PARTE', 'nome' => 'Maria', 'documento' => '', 'papel' => 'Polo ativo']],
+        ]);
+
+        self::assertStringContainsString('cadastrado e incluído', $client->followRedirect()->text());
+        $lista = $client->request('GET', '/push-processual/processos');
+        self::assertCount(1, $lista->filter('[data-pp-linha-proc][data-numero="07044444420268070001"]'));
+    }
+
+    #[Test]
+    public function cadastrarSemCamposObrigatoriosMostraErro(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-vp-form-novo] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/cadastrar', ['_token' => $token, 'numeroProcesso' => '0704444-44.2026.8.07.0001']);
+
+        $client->followRedirect();
+        $this->limparIdentityMap();
+        self::assertNull($this->em()->getRepository(ProcessoAcompanhado::class)->findOneBy(['numeroProcesso' => '07044444420268070001']));
+    }
+
+    #[Test]
+    public function botaoBuscarApontaParaARotaDaAbaEComToken(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+
+        self::assertCount(1, $crawler->filter('.pp-topo form[data-pp-buscar][action="/push-processual/processos/buscar"] input[name="_token"]'));
+    }
+
+    #[Test]
+    public function buscarSemOabAtivaAvisaEVaiParaAsOabs(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-buscar] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/buscar', ['_token' => $token]);
+
+        self::assertResponseRedirects('/push-processual/oabs');
+        self::assertStringContainsString('Cadastre ao menos uma OAB para buscar os processos.', $client->followRedirect()->text());
+    }
+
+    #[Test]
+    public function buscarComOabConsultaHistoricoEInformaOsProcessosEncontrados(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $this->criarOab($tenant, '67228', 'PR');
+        $consultas = [];
+        $mock = $this->createMock(DjenClientInterface::class);
+        $mock->method('consultarComunicacoes')->willReturnCallback(
+            static function (ConsultaComunicacoesQuery $q) use (&$consultas): RespostaComunicacoes {
+                $consultas[] = $q;
+
+                return new RespostaComunicacoes(1, [[
+                    'id' => 990001,
+                    'numero_processo' => self::NUMERO_A,
+                    'siglaTribunal' => 'TJDFT',
+                    'tipoComunicacao' => 'Intimação',
+                    'data_disponibilizacao' => (new \DateTimeImmutable('today'))->format('Y-m-d'),
+                ]]);
+            }
+        );
+        static::getContainer()->set(DjenClient::class, $mock);
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-buscar] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/buscar', ['_token' => $token]);
+
+        self::assertResponseRedirects('/push-processual/processos');
+        self::assertMatchesRegularExpression('#Busca concluída: [1-9]\d* processos encontrados para 67228/PR\.#', $client->followRedirect()->text());
+        self::assertNotEmpty($consultas);
+        self::assertSame((new \DateTimeImmutable('today -89 days'))->format('Y-m-d'), $consultas[0]->dataDisponibilizacaoInicio->format('Y-m-d'));
+    }
+
+    #[Test]
+    public function buscarComTokenInvalidoNaoConsulta(): void
+    {
+        [$client] = $this->entrar();
+
+        $client->request('POST', '/push-processual/processos/buscar', ['_token' => 'x']);
+
+        self::assertStringContainsString('Token de segurança inválido.', $client->followRedirect()->text());
     }
 }

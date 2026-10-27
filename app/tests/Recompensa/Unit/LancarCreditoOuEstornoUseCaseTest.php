@@ -57,9 +57,14 @@ final class LancarCreditoOuEstornoUseCaseTest extends TestCase
         });
         $indicador = $this->createStub(IndicacaoRepository::class);
         $indicador->method('contarDoUsuario')->willReturn($indicacoes);
+        // A mesma trava por usuário da baixa: um estorno não passa entre a leitura do saldo e o pagamento.
+        $indicador->method('emTransacaoTravada')->willReturnCallback(function (int $userId, \Closure $trabalho): mixed {
+            $this->eventos[] = 'trava-do-usuario';
+
+            return $trabalho();
+        });
         $em = $this->createStub(EntityManagerInterface::class);
         $em->method('find')->willReturnCallback(static fn (string $classe, int $id): ?User => $classe === User::class ? Pessoas::usuario($id) : null);
-        $em->method('wrapInTransaction')->willReturnCallback(fn (callable $f): mixed => $f($em));
 
         return new LancarCreditoOuEstornoUseCase($repo, $indicador, $em, new MockClock(new \DateTimeImmutable('2026-10-26 12:00:00')), $this->escopo);
     }
@@ -81,7 +86,7 @@ final class LancarCreditoOuEstornoUseCaseTest extends TestCase
         self::assertSame(7, $l->getUser()?->getId());
         self::assertSame($this->master, $l->getCriadoPor());
         self::assertSame('2026-10-26 12:00:00', $l->getCriadoEm()->format('Y-m-d H:i:s'));
-        self::assertSame(['trava', 'salva'], $this->eventos);
+        self::assertSame(['trava-do-usuario', 'trava', 'salva'], $this->eventos);
         self::assertTrue($this->escopoNaGravacao);
     }
 
@@ -102,7 +107,7 @@ final class LancarCreditoOuEstornoUseCaseTest extends TestCase
         $caso->executar($this->pedido(1500, obs: 'outra observação'));
 
         self::assertCount(1, $this->gravados);
-        self::assertSame(['trava', 'salva', 'trava', 'trava'], $this->eventos);
+        self::assertSame(['trava-do-usuario', 'trava', 'salva', 'trava-do-usuario', 'trava', 'trava-do-usuario', 'trava'], $this->eventos);
     }
 
     #[TestDox('a mesma chave com outro valor ou outro indicador é recusada e nada novo é gravado')]

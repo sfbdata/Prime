@@ -121,7 +121,8 @@ final class SalvarCompromissoUseCase
     /** Cor que não é de nenhum tipo veio de uma legenda da agenda antiga: fica (convenção D1). */
     private function ehLegendaDaAgendaAntiga(string $cor): bool
     {
-        $doTipo = array_map(static fn (TipoDeCompromisso $t): string => $t->cor(), TipoDeCompromisso::cases());
+        // Só os quatro tipos do formulário antigo: as cores dos três da tela 1A coincidem com legendas antigas.
+        $doTipo = array_map(static fn (TipoDeCompromisso $t): string => $t->cor(), array_filter(TipoDeCompromisso::cases(), static fn (TipoDeCompromisso $t): bool => $t->ehDoFormularioAntigo()));
 
         return !in_array(strtolower($cor), $doTipo, true);
     }
