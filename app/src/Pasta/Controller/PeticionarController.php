@@ -69,7 +69,7 @@ final class PeticionarController extends AbstractController
         $documentos = VisibilidadeDasAbasDaPasta::documentosVisiveis($pasta->getDocumentos()->toArray(), array_map(static fn (AbaDaPasta $a): string => $a->value, $this->visibilidadeDasAbas->abasOcultasPara($pasta, $currentUser)));
         usort(
             $documentos,
-            static fn (PastaDocumento $a, PastaDocumento $b) => $a->getCarregadoEm() <=> $b->getCarregadoEm(),
+            static fn (PastaDocumento $a, PastaDocumento $b) => [$a->getOrdem(), $a->getId()] <=> [$b->getOrdem(), $b->getId()],
         );
 
         // Mesma fonte de verdade da aba Financeiro. Antes aqui era `getClientes()->first()`, a

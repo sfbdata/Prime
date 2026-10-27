@@ -83,12 +83,15 @@ pasta_peticionar:
         baixar: Baixar
         classificar: 'Classificar: {categoria}'
         excluir: Excluir
+        mover_cima: Mover para cima
+        mover_baixo: Mover para baixo
         erro_salvar_nome: Não foi possível salvar.
         novo_nome: Novo nome
         erro_comunicacao_curto: Erro de comunicação.
         classificado: 'Classificado como {categoria}'
         excluir_pergunta: 'Excluir a peça "{nome}"? Ela vai para a lixeira e pode ser restaurada na aba Documentos da pasta.'
         erro_excluir: Não foi possível excluir.
+        erro_ordenar: Não foi possível salvar a nova ordem.
         peca_excluida: Peça excluída
         texto: Texto
         nenhum_encontrado: Nenhum documento encontrado.

@@ -33,6 +33,8 @@
     const cfg = {
         podeEditar:     lista.dataset.podeEditar === '1',
         urlExcluir:     lista.dataset.urlExcluir || '',
+        urlReordenar:   lista.dataset.urlReordenar || '',
+        csrfReordenar:  lista.dataset.csrfReordenar || '',
         csrfLote:       lista.dataset.csrfLote || '',
         urlUpload:      lista.dataset.urlUpload || '',
         csrfUpload:     lista.dataset.csrfUpload || '',
@@ -172,7 +174,6 @@
         if (vazio) vazio.remove();
 
         const partes = String(doc.uploadedAt || '').split(' ');
-        const dia  = partes[0] || '';
         const hora = partes[1] || '';
         const nome = String(doc.nome || doc.titulo || '');
         const mime = String(doc.mime || doc.mimeType || '');
@@ -180,16 +181,10 @@
         const rotulo = cfg.categorias[categoria] || categoria;
         const tamanhoTexto = formatarTamanho(doc.tamanho);
 
-        const existe = Array.prototype.some.call(tl.querySelectorAll('.petic-tl-datesep'), function (s) { return s.dataset.date === dia; });
-        if (!existe) {
-            const sep = el('div', 'petic-tl-datesep');
-            sep.dataset.date = dia;
-            sep.appendChild(el('span', null, dia));
-            tl.appendChild(sep);
-        }
-
         const row = el('div', 'petic-tl-row');
+        if (cfg.podeEditar) row.draggable = true;
         row.dataset.docId               = String(doc.id);
+        row.dataset.ordem               = '0';
         row.dataset.viewUrl             = doc.viewUrl || '';
         row.dataset.downloadUrl         = doc.downloadUrl || '';
         row.dataset.mimeType            = mime;
@@ -208,6 +203,7 @@
 
         const card = el('div', 'petic-tl-card');
         const topo = el('div', 'petic-tl-card-top');
+        topo.appendChild(el('span', 'petic-tl-ord', ''));
         const i = icone(ic.icone + ' petic-tl-icon petic-doc-icone');
         i.style.color = ic.cor;
         topo.appendChild(i);
@@ -228,11 +224,68 @@
         card.appendChild(base);
         card.appendChild(mais);
         row.appendChild(card);
-        tl.appendChild(row);
+        // Documento novo tem ordem 0, como na aba Documentos: fica depois dos outros de ordem 0 e antes dos já ordenados.
+        const ordenada = linhas().find(function (r) { return Number(r.dataset.ordem) > 0; });
+        if (ordenada) tl.insertBefore(row, ordenada); else tl.appendChild(row);
 
+        numerar();
         atualizarContagem();
         return row;
     }
+
+    // ------------------------------------------------ ordem manual (L47, L54) ---
+
+    // O número de cada linha é a posição na lista; é a mesma ordem da aba Documentos da pasta.
+    function numerar() {
+        linhas().forEach(function (r, i) {
+            const n = r.querySelector('.petic-tl-ord');
+            if (n) n.textContent = String(i + 1);
+        });
+    }
+
+    // Move `de` para a posição de `para` (o desenho tira o item e o põe no lugar do alvo) e grava.
+    function mover(de, para) {
+        if (!de || !para || de === para) return;
+        const todas = linhas(), i = todas.indexOf(de), j = todas.indexOf(para);
+        if (i < 0 || j < 0) return;
+        const antes = todas.slice();
+        if (i < j) para.after(de); else para.before(de);
+        numerar();
+        const ids = linhas().map(function (r) { return Number(r.dataset.docId); });
+        postJson(cfg.urlReordenar, { _token: cfg.csrfReordenar, ids: ids }).then(function (res) {
+            if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_peticionar.js.erro_ordenar'));
+            linhas().forEach(function (r, k) { r.dataset.ordem = String(k + 1); });
+        }).catch(function (err) {
+            antes.forEach(function (r) { tl.appendChild(r); });
+            numerar();
+            avisar(err.message || BJ_T.t('pasta_peticionar.js.erro_comunicacao_curto'), true);
+        });
+    }
+
+    let arrastada = null;
+    tl.addEventListener('dragstart', function (e) {
+        const row = e.target.closest ? e.target.closest('.petic-tl-row') : null;
+        if (!row || !cfg.podeEditar) return;
+        arrastada = row;
+        row.classList.add('petic-tl-row--arrastando');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', row.dataset.docId); } catch (x) { /* navegador sem dataTransfer */ }
+    });
+    tl.addEventListener('dragover', function (e) {
+        if (arrastada) e.preventDefault();
+    });
+    tl.addEventListener('drop', function (e) {
+        if (!arrastada) return;
+        const alvo = e.target.closest ? e.target.closest('.petic-tl-row') : null;
+        if (!alvo) return;
+        e.preventDefault();
+        e.stopPropagation();   // não é o "soltar arquivo" da lista
+        mover(arrastada, alvo);
+    });
+    tl.addEventListener('dragend', function () {
+        if (arrastada) arrastada.classList.remove('petic-tl-row--arrastando');
+        arrastada = null;
+    });
 
     // ------------------------------------------------------- menu da linha ---
 
@@ -265,6 +318,9 @@
         if (cfg.podeEditar) itens.push([BJ_T.t('pasta_peticionar.js.renomear'), 'bi-input-cursor-text', function () { renomear(row); }]);
         itens.push([BJ_T.t('pasta_peticionar.js.baixar'), 'bi-download', function () { baixar(row); }]);
         if (cfg.podeEditar) {
+            const todas = linhas(), pos = todas.indexOf(row);
+            if (pos > 0) itens.splice(1, 0, [BJ_T.t('pasta_peticionar.js.mover_cima'), 'bi-arrow-up', function () { mover(row, todas[pos - 1]); }]);
+            if (pos < todas.length - 1) itens.splice(pos > 0 ? 2 : 1, 0, [BJ_T.t('pasta_peticionar.js.mover_baixo'), 'bi-arrow-down', function () { mover(row, todas[pos + 1]); }]);
             itens.push([BJ_T.t('pasta_peticionar.js.classificar', { categoria: rotuloDaCategoria(row) }), 'bi-tag', function () { classificar(row); }]);
             itens.push([BJ_T.t('pasta_peticionar.js.excluir'), 'bi-trash3', function () { excluir(row); }, true]);
         }
@@ -480,14 +536,8 @@
             if (ehTexto(row) && typeof window.fecharEditorPeticionar === 'function') window.fecharEditorPeticionar();
             if (window.PeticionarTela) window.PeticionarTela.limparSelecao();
         }
-        // O separador do dia sai junto quando era o último documento daquele dia.
-        let sep = row.previousElementSibling;
-        while (sep && !sep.classList.contains('petic-tl-datesep')) sep = sep.previousElementSibling;
         row.remove();
-        if (sep) {
-            const prox = sep.nextElementSibling;
-            if (!prox || !prox.classList.contains('petic-tl-row')) sep.remove();
-        }
+        numerar();
         if (!linhas().length) {
             tl.querySelectorAll('.petic-tl-vazio').forEach(function (v) { v.remove(); });
             tl.appendChild(vazioDaLista());
