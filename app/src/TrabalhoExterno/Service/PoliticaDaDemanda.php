@@ -325,6 +325,12 @@ final class PoliticaDaDemanda
             && $d->aceitaRespostaAoDespacho();
     }
 
+    /** A aba Pagamento (e o pedido do PIX dinâmico dela): todo perfil que vê a demanda, menos o Convidado, fora da prévia para escrever. */
+    public function podeVerAbaPagamento(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil !== Perfil::Convidado && $this->podeVer($ctx, $d);
+    }
+
     /**
      * "Já paguei · enviar comprovante" (desenho 25/10, `pg.podeComp`): só o Solicitante da própria demanda (o Master
      * que age pelo escritório, o interno e o Convidado não), fora da prévia, e só onde a confirmação ainda vale.

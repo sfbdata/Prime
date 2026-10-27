@@ -29,7 +29,7 @@ final class CriarPagamentoUseCase
 
     public function executar(CriarPagamentoInput $input): PagamentoCriadoOutput
     {
-        $existente = $this->pagamentos->porReferenciaDoAviso($input->referencia);
+        $existente = $this->pagamentos->porReferencia($input->referencia);
         if ($existente !== null) {
             $this->exigirMesmoEscritorio($existente, $input);
 

@@ -240,6 +240,7 @@
         pagamentoComprovante: function (c) { return comCodigo(D.urlPagamentoComprovante, c); },
         pagamentoConfirmar: function (c) { return comCodigo(D.urlPagamentoConfirmar, c); },
         pagamentoValor: function (c) { return comCodigo(D.urlPagamentoValor, c); },
+        pagamentoCobranca: function (c) { return comCodigo(D.urlPagamentoCobranca, c); },
         pagamentoRecusar: function (c) { return comCodigo(D.urlPagamentoRecusar, c); },
         pagamentoAvisar: function (c) { return comCodigo(D.urlPagamentoAvisar, c); },
         despachoResponder: function (c) { return comCodigo(D.urlDespachoResponder, c); },
@@ -2189,9 +2190,20 @@
         if (!pg) { return; }
         var cod = dz.codigo;
         var caixa = el('div', { class: 'te-pg' });
+        prepararCobranca(cod, pg);
         caixa.appendChild(el('div', { class: 'te-pg-st', style: { background: pg.stBg, color: pg.stCor } }, [ic(pg.stIc), pg.stTxt]));
         if (pg.semValor) {
             caixa.appendChild(el('div', { class: 'te-pg-sem', text: 'O pagamento fica disponível quando uma proposta for aceita. O valor e o QR Code PIX são gerados automaticamente.' }));
+        }
+        if (S.avisoPg && S.avisoPg[cod]) {
+            caixa.appendChild(el('div', { class: 'te-pg-sem', text: S.avisoPg[cod] }));
+        }
+        if (pg.avisoDoBanco) {
+            caixa.appendChild(el('div', { class: 'te-pg-sem', text: pg.avisoDoBanco }));
+        }
+        if (pg.vencida) {
+            caixa.appendChild(el('div', { class: 'te-pg-sem', text: 'Cobrança vencida.' }));
+            caixa.appendChild(el('button', { type: 'button', class: 'te-pg-copiar', onclick: function () { prepararCobranca(cod, pg, true); } }, [ic('bi-qr-code'), ' Gerar novo QR']));
         }
         if (pg.temValor) {
             var linha = el('div', { class: 'te-pg-linha' });
@@ -2211,6 +2223,7 @@
                     }, [ic('bi-pencil')]) : null
                 ]),
                 el('span', { class: 'te-pg-forma', text: pg.forma }),
+                pg.dinamico && pg.venceEm ? el('span', { class: 'te-pg-forma', text: 'Confirmação automática pelo banco · válido até ' + pg.venceEm }) : null,
                 el('span', null, ['Favorecido: ', el('b', { text: 'BlueJus Gestão e Tecnologia LTDA' })]),
                 el('span', null, ['CNPJ 66.803.163/0001-10 · identificação ', el('b', { text: pg.txid })])
             ]);
@@ -2256,6 +2269,25 @@
             }
         }
         alvo.appendChild(caixa);
+    }
+
+    /**
+     * Ao abrir a aba o servidor prepara a cobrança PIX dinâmica (só quando a integração está ligada: `pg.preparar`). Uma
+     * tentativa por demanda e por abertura da tela; o botão "Gerar novo QR" (`novo`) pede outra. O aviso vai para a aba.
+     */
+    function prepararCobranca(codigo, pg, novo) {
+        S.preparado = S.preparado || {};
+        S.avisoPg = S.avisoPg || {};
+        if (previa() || !(pg.preparar || novo) || (S.preparado[codigo] && !novo)) { return; }
+        S.preparado[codigo] = true;
+        pedir('POST', ROTA.pagamentoCobranca(codigo), { novo: !!novo }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            S.avisoPg[codigo] = r.avisoPagamento || '';
+            aplicarDemanda(r);
+        });
     }
 
     /** O SVG do QR como nó (XML), ou null se não vier um <svg> inteiro. */
@@ -2352,9 +2384,11 @@
         if (previa()) { return; }
         abrirConf(codigo, {
             k: '__pagamento_pix__',
-            confirmacao: { titulo: 'Confirmar recebimento', texto: pg.confirmacao, botao: 'Confirmar', motivo: false },
-            executar: function () {
-                return pedir('POST', ROTA.pagamentoConfirmar(codigo)).then(function (r) {
+            confirmacao: pg.confirmaComMotivo
+                ? { titulo: 'Confirmar recebimento', texto: pg.confirmacao + ' Há um PIX dinâmico aguardando o banco: ao confirmar à mão, essa cobrança é cancelada. Informe o motivo.', botao: 'Confirmar', motivo: true, motivoMax: 300 }
+                : { titulo: 'Confirmar recebimento', texto: pg.confirmacao, botao: 'Confirmar', motivo: false },
+            executar: function (motivo) {
+                return pedir('POST', ROTA.pagamentoConfirmar(codigo), motivo ? { motivo: motivo } : undefined).then(function (r) {
                     if (!r.ok) {
                         toastErro(r.mensagem);
                         return r;

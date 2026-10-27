@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
+use App\Pagamento\Enum\OrigemDoPagamento;
+use App\Pagamento\UseCase\CancelarCobrancaDaOrigemUseCase;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
+use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
+use App\TrabalhoExterno\Service\ApresentadorDoPagamento;
 use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
@@ -32,6 +36,7 @@ final class AjustarValorDoPagamentoUseCase
         private readonly LocalizadorDeDemanda $localizador,
         private readonly DemandaExternaRepository $repositorio,
         private readonly AvisosDoTrabalhoExterno $avisos,
+        private readonly CancelarCobrancaDaOrigemUseCase $cancelarCobranca,
     ) {
     }
 
@@ -50,7 +55,21 @@ final class AjustarValorDoPagamentoUseCase
         }
 
         return $this->repositorio->comADemandaTravada($demanda, function () use ($ctx, $demanda, $novo, $motivo): DemandaExterna {
+            $tenantId = (int) $demanda->getTenant()->getId();
+            $antigo = ApresentadorDoPagamento::valorDaDemanda($demanda);
             $demanda->ajustarValorDoPagamento($ctx->autor(), $novo, $motivo);
+            // A cobrança PIX aguardando é do valor antigo: sai de cena e a próxima abertura da aba gera a do valor novo.
+            // Paga pelo banco (conferido com o pagamento travado): o valor não muda mais e tudo isto é desfeito.
+            try {
+                $this->cancelarCobranca->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, (int) $demanda->getId(), sprintf(
+                    'Valor alterado de %s para %s por %s.',
+                    $antigo !== null ? ApresentadorDoPagamento::valorFormatado($antigo) : 'sem valor',
+                    ApresentadorDoPagamento::valorFormatado($novo),
+                    $ctx->autor()->nome,
+                ), true);
+            } catch (\DomainException) {
+                throw new TransicaoInvalida('O banco já confirmou o pagamento desta demanda: o valor não pode mais ser alterado.');
+            }
             $this->avisos->andamentoDaDemanda($ctx, $demanda);
             $this->repositorio->salvar($demanda);
 

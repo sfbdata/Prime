@@ -22,7 +22,7 @@ class IntegracaoBancaria
     public const ESTADO_CONECTADA = 'ok';
     public const AMBIENTES = ['sandbox', 'producao'];
     /** Chaves do desenho (L249): cobrança por conta, conciliação, boleto, relatório. */
-    public const RECURSOS_PADRAO = ['cob' => true, 'conc' => true, 'bol' => false, 'rel' => true];
+    public const RECURSOS_PADRAO = ['cob' => true, 'conc' => true, 'bol' => false, 'rel' => true, 'te' => false];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -105,6 +105,12 @@ class IntegracaoBancaria
     public function cobraPorConta(): bool
     {
         return self::ESTADO_CONECTADA === $this->estado && ($this->recursos['cob'] ?? false) && $this->temCertificado();
+    }
+
+    /** Gateway M1: o QR do Trabalho Externo vira cobrança dinâmica. Vale só com a integração conectada e a chave `te` ligada. */
+    public function cobraTrabalhoExterno(): bool
+    {
+        return $this->cobraPorConta() && ($this->recursos['te'] ?? false);
     }
 
     public function temCertificado(): bool
