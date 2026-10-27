@@ -50,6 +50,25 @@ Se a pessoa sair do escritório ou da conversa durante a chamada ao provedor, a 
 - Testes de corrida real (duas conexões) e de falha entre os dois flushes: ainda a cobrir (adiados no 3b).
 - Recarregar a página com a pergunta em andamento: o "digitando..." só volta quando a próxima tentativa recebe 202 (a lista não traz o `analiseId` pendente). Expor na lista no PR 4, se o dono quiser.
 
+## PR 4: contexto da tela (decisões de 27/10)
+
+Divisão: **4a** backend (pergunta com `pastaId`, contexto da pasta no worker, sem tela), **4b** tela (barra "PASTA N · cliente"
+do desenho L6001 e a sugestão "Faça um resumo desta pasta", só com pasta aberta), **4c** cliente (D12), só depois do ok do dono.
+
+Regras do 4a:
+1. O cliente manda só `pastaId` (inteiro positivo, opcional); nunca texto de contexto. O servidor revalida: pasta por id + escritório
+   (404 igual a "não existe" para pasta de fora ou que a pessoa não vê, `AcessoAPasta::podeVer`), segredo de justiça (409
+   `contexto_bloqueado`, mensagem fixa existente), financeiro (`VisibilidadeDoFinanceiroDaPasta`) e abas ocultas decididos na
+   solicitação e gravados em `contexto_resumo` (ids e flags, nunca texto nem NUP).
+2. O worker relê a pasta por id + escritório e reconfere vínculo, `podeVer`, financeiro e abas; se algo mudou, `falhou` sem chamar o provedor.
+3. Contexto: `MontadorDeContextoDaPasta::para` com `Agente::Gestor`; prompt novo `chat-central-v2` com bloco `<pasta>` em
+   `NeutralizadorDeConteudo::DELIMITADORES` e a mesma regra de "dados não confiáveis". Sem `pastaId`, o fluxo e o prompt v1 seguem iguais.
+4. Histórico: pergunta COM pasta vai sem respostas anteriores da IA (só as perguntas da própria pessoa); a resposta antiga pode ter lido outra
+   pasta ou financeiro. Aceito: a conversa é particular e a pessoa já viu a resposta.
+5. Módulo `inteligencia` segue exigido (`DisponibilidadeDeInteligencia::para`).
+6. 4c (D12): cruza pastas de TODOS os clientes da pasta aberta, no mesmo escritório, só as que a pessoa vê, teto de pastas e orçamento menor por pasta;
+   pasta com segredo some em silêncio ("N pastas não puderam ser consultadas").
+
 ## Pendências do dono (cada uma em PR próprio, só depois do ok)
 
 - `@IA` em grupo: risco de vazamento lateral (a resposta da IA ficaria visível a quem não pediu).
