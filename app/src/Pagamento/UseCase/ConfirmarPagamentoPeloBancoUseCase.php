@@ -53,7 +53,11 @@ final class ConfirmarPagamentoPeloBancoUseCase
 
     public function executar(string $provedor, string $idNoBanco): ResultadoDaReconsulta
     {
-        $pagamento = $this->pagamentos->porIdExterno($provedor, $idNoBanco);
+        $iguais = $this->pagamentos->todosPorIdExterno($provedor, $idNoBanco);
+        if (count($iguais) > 1) {
+            return $this->duplicado($iguais);
+        }
+        $pagamento = $iguais[0] ?? null;
         $banco = $this->bancos->doCodigo($provedor);
         if ($pagamento === null || $banco === null || !$this->podeMudar($pagamento) || !$this->integracoes->atual()->temCertificado()) {
             return ResultadoDaReconsulta::Ignorado;
@@ -66,7 +70,13 @@ final class ConfirmarPagamentoPeloBancoUseCase
         if (!$situacao->paga) {
             return ResultadoDaReconsulta::Aguardando;
         }
-        if ($situacao->codigo !== null && $situacao->codigo !== $pagamento->getReferencia()) {
+        if ($situacao->codigo === null || $situacao->valorPagoCentavos <= 0) {
+            // Sem o código ou sem o valor não há o que conferir: nada se confirma, a próxima reconsulta decide.
+            $this->logger->warning('Pagamento: o banco deu a cobrança por paga sem código ou valor; não confirmado', ['pagamento' => $pagamento->getId()]);
+
+            return ResultadoDaReconsulta::Aguardando;
+        }
+        if ($situacao->codigo !== $pagamento->getReferencia()) {
             return $this->inconsistente($pagamento);
         }
         if ($this->integracoes->atual()->getAmbiente() !== 'producao') {
@@ -76,6 +86,21 @@ final class ConfirmarPagamentoPeloBancoUseCase
         return $this->confirmarPago($pagamento, $situacao);
     }
 
+    /** @param list<Pagamento> $iguais */
+    private function duplicado(array $iguais): ResultadoDaReconsulta
+    {
+        $this->logger->error('Pagamento: mais de um registro com o mesmo id no banco; nada confirmado', ['pagamentos' => array_map(static fn (Pagamento $p): ?int => $p->getId(), $iguais)]);
+        foreach ($iguais as $pagamento) {
+            if ($pagamento->marcarDivergente()) {
+                $this->eventos->salvar(new PagamentoEvento($pagamento->getTenant(), $pagamento, 'duplicado', 'sistema', 'Há mais de um pagamento com o mesmo id no banco; o Master decide.'));
+                $this->em->flush();
+                $this->avisar($pagamento, 'Cobranças repetidas no banco (mesmo id em mais de um pagamento)');
+            }
+        }
+
+        return ResultadoDaReconsulta::Divergente;
+    }
+
     private function podeMudar(Pagamento $pagamento): bool
     {
         return in_array($pagamento->getStatus(), [StatusDoPagamento::Aguardando, StatusDoPagamento::Expirada, StatusDoPagamento::Cancelada], true);
@@ -83,8 +108,7 @@ final class ConfirmarPagamentoPeloBancoUseCase
 
     private function confirmarPago(Pagamento $pagamento, SituacaoDaCobranca $situacao): ResultadoDaReconsulta
     {
-        // O banco disse "paga" sem o valor: vale o cobrado (o código bate e o banco só dá a cobrança por paga quando entra o valor).
-        $valor = max($situacao->valorPagoCentavos, 0) ?: $pagamento->getValorCentavos();
+        $valor = $situacao->valorPagoCentavos;
         $saida = $this->confirmar->executar(new ConfirmarPagamentoInput(
             $pagamento->getReferencia(),
             $valor,
