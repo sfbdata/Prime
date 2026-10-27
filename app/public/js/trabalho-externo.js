@@ -1575,10 +1575,10 @@
             el('div', { class: 'te-grade-form' }, [
                 rot('Valor do serviço (R$) *', ctl('input', 'valor', { inputMode: 'decimal' })),
                 rot('Despesas previstas (R$)', ctl('input', 'despesas', { inputMode: 'decimal' })),
-                rot('Prazo estimado', ctl('input', 'prazoEst', { placeholder: 'Ex.: 2 dias úteis' })),
+                rot('Prazo estimado', ctl('input', 'prazoEst', { placeholder: 'Prazo para executar' })),
                 rot('Validade da proposta', ctl('input', 'validade', { type: 'date' }))
             ]),
-            rot('Condições de pagamento', ctl('input', 'pagamento', { placeholder: 'Ex.: 50% no aceite, 50% na entrega' })),
+            rot('Condições de pagamento', ctl('input', 'pagamento', { placeholder: 'Forma de pagamento' })),
             rot('Escopo e atividades incluídas', ctl('textarea', 'escopo', { rows: 3 })),
             rot('Não incluído / responsabilidades', ctl('textarea', 'naoInclui', { rows: 2 })),
             el('div', { class: 'te-form-rodape' }, [
@@ -4074,12 +4074,12 @@
     /** Cabeçalho azul, corpo com rolagem e rodapé com os botões (`tlmBtns`). Redesenhar guarda a rolagem. */
     function modalVaga(o) {
         var alvo = $('teVagaModal');
-        var antes = $('teTlmCorpo'), entra = !antes, topo = antes ? antes.scrollTop : 0;
+        var antes = $('teTlmCorpo'), topo = antes ? antes.scrollTop : 0;
         limpar(alvo);
         var corpo = el('div', { class: 'te-tlm-corpo', id: 'teTlmCorpo' }, o.corpo);
         alvo.appendChild(el('div', { class: 'te-tlm-fundo', onclick: fecharTlm }));
         alvo.appendChild(el('div', {
-            class: 'te-tlm' + (entra ? ' is-entra' : ''),
+            class: 'te-tlm',
             style: { width: 'min(' + o.largura + ', calc(100vw - 24px))' },
             attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': o.titulo }
         }, [
