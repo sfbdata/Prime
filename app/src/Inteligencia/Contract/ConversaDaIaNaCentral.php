@@ -29,4 +29,10 @@ interface ConversaDaIaNaCentral
      * desarmado). Não faz flush: quem chama controla a transação.
      */
     public function gravarResposta(Tenant $tenant, int $conversaId, User $dono, string $texto, \DateTimeImmutable $agora): void;
+
+    /**
+     * Retenção: apaga TODA mensagem das conversas com a IA criada antes de `$limite`, as duas pontas (a pergunta da
+     * pessoa e a fala da IA são conteúdo). Conversa individual e grupo não são tocadas. Devolve quantas apagou.
+     */
+    public function apagarMensagensDaIaAntesDe(\DateTimeImmutable $limite): int;
 }

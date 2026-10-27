@@ -7,6 +7,7 @@ namespace App\Djen\Repository;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Entity\PastaProcesso;
 use App\Processo\DTO\HistoricoParaPrevisao;
 use App\Processo\DTO\MovimentacaoParaPrevisao;
@@ -115,6 +116,9 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                 'p.nomeOrgao AS nomeOrgao',
                 'p.lida AS lida',
                 'IDENTITY(p.processo) AS processoId',
+                'p.prazoDias AS prazoDias',
+                'p.prazoCumpridoEm AS prazoCumpridoEm',
+                'IDENTITY(p.tarefa) AS tarefaId',
                 '(SELECT MIN(pa.id) FROM ' . PastaProcesso::class . ' pp JOIN pp.pasta pa WHERE pp.processo = p.processo AND pa.excluidaEm IS NULL) AS pastaId',
                 '(SELECT MIN(pa2.nup) FROM ' . PastaProcesso::class . ' pp2 JOIN pp2.pasta pa2 WHERE pp2.processo = p.processo AND pa2.excluidaEm IS NULL) AS pastaNup',
             )
@@ -169,6 +173,75 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             'vinculadas' => (int) $linha['vinculadas'],
             'avulsas' => (int) $linha['total'] - (int) $linha['vinculadas'],
         ];
+    }
+
+    /**
+     * O prazo que o teor gerou na pasta (origem push, `registro_ref = push:<id>`), por publicação: a menor data
+     * entre os prazos (não audiências) e se todos já foram cumpridos. Publicação sem processo em pasta não aparece.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, array{data: \DateTimeImmutable, cumprido: bool, algumCumprido: bool}>
+     */
+    public function prazosDoPushPorPublicacao(Tenant $tenant, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $linhas = $this->getEntityManager()->createQueryBuilder()
+            ->select('pr.registroRef AS ref', 'pr.data AS data', 'pr.cumpridoEm AS cumpridoEm')
+            ->from(PastaPrazo::class, 'pr')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('pr.origem = :origem')
+            ->andWhere('pr.tipo = :tipo')
+            ->andWhere('pr.registroRef IN (:refs)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('origem', PastaPrazo::ORIGEM_PUSH)
+            ->setParameter('tipo', PastaPrazo::TIPO_PRAZO)
+            ->setParameter('refs', array_map(static fn (int $id): string => 'push:' . $id, $ids))
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPublicacao = [];
+        foreach ($linhas as $linha) {
+            $id = (int) substr((string) $linha['ref'], 5);
+            $cumprido = $linha['cumpridoEm'] !== null;
+            $atual = $porPublicacao[$id] ?? null;
+            $porPublicacao[$id] = [
+                'data' => $atual === null || $linha['data'] < $atual['data'] ? $linha['data'] : $atual['data'],
+                'cumprido' => ($atual['cumprido'] ?? true) && $cumprido,
+                'algumCumprido' => ($atual['algumCumprido'] ?? false) || $cumprido,
+            ];
+        }
+
+        return $porPublicacao;
+    }
+
+    /**
+     * A pasta onde o processo da publicação está (a de menor id entre as não excluídas), ou null.
+     *
+     * @return array{id: int, nup: string}|null
+     */
+    public function pastaDaPublicacao(PublicacaoDjen $publicacao): ?array
+    {
+        if ($publicacao->getProcesso() === null) {
+            return null;
+        }
+
+        $linha = $this->getEntityManager()->createQueryBuilder()
+            ->select('pa.id AS id', 'pa.nup AS nup')
+            ->from(PastaProcesso::class, 'pp')
+            ->join('pp.pasta', 'pa')
+            ->andWhere('pp.processo = :processo')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->orderBy('pa.id', 'ASC')
+            ->setMaxResults(1)
+            ->setParameter('processo', $publicacao->getProcesso())
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $linha === null ? null : ['id' => (int) $linha['id'], 'nup' => (string) $linha['nup']];
     }
 
     /**

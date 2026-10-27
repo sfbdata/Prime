@@ -1,6 +1,7 @@
 {# Faixa de abas do Push Processual (desenho 11): Publicações, Processos, Diário da OAB, OABs monitoradas.
    Recebe `ativa` (publicacoes|processos|diario|oabs) e `abas` (contagens). #}
 <link rel="stylesheet" href="{{ asset('css/push-processual.css') }}">
+<script src="{{ asset('js/push-toast.js') }}"></script>
 <nav class="pp-abas" aria-label="{{ 'djen.abas.rotulo'|trans }}" data-pp-abas>
     <div class="pp-abas__trilho">
         <a href="{{ path('push_processual_index') }}" class="pp-aba{{ ativa == 'publicacoes' ? ' is-ativa' : '' }}" data-pp-aba="publicacoes">

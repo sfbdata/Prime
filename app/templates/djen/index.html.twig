@@ -137,6 +137,11 @@
                             {% else %}
                                 <span class="pp-selo pp-selo--vinc" title="{{ pub.pastaNup ? 'djen.index.pasta_n'|trans({n: pub.pastaNup}) : 'djen.index.vinculada_dica'|trans }}">{{ 'djen.index.vinculada'|trans }}</span>
                             {% endif %}
+                            {% set prazo = prazos[pub.id] ?? null %}
+                            {% if prazo %}
+                                <span class="pp-selo pp-selo--prazo{{ prazo.cumprido ? ' pp-selo--cumprido' : '' }}" style="{{ prazo.cumprido ? '' : 'background:' ~ prazo.corDoSelo ~ ';' }}{{ not prazo.cumprido and prazo.textoDoSeloClaro ? 'color:#34505f;' : '' }}" title="{{ prazo.inicio ? 'djen.detalhe.selo_dica'|trans({dias: prazo.dias ~ '', inicio: prazo.inicio|date('d/m/Y'), fim: prazo.vencimento|date('d/m/Y')}) : 'djen.detalhe.selo_dica_teor'|trans({fim: prazo.vencimento|date('d/m/Y')}) }}">{% if prazo.cumprido %}<i class="bi bi-check-lg"></i>{% endif %}{{ prazo.vencido ? 'djen.detalhe.selo_vencido'|trans : (prazo.restante == 0 ? 'djen.detalhe.selo_hoje'|trans : 'djen.detalhe.selo_dias'|trans({n: prazo.restante ~ ''})) }}</span>
+                            {% endif %}
+                            {% if pub.tarefaId %}<span class="pp-meta-criada"><i class="bi bi-bullseye"></i> {{ 'djen.detalhe.meta_criada_selo'|trans }}</span>{% endif %}
                         </span>
                     </span>
                     <span class="pp-c-orgao" title="{{ pub.nomeOrgao ?? '' }}">{% if (pub.nomeOrgao ?? null) is not null %}{{ pub.nomeOrgao }}{% else %}{{ 'djen.comum.nao_informado'|trans }}{% endif %}</span>
@@ -170,22 +175,14 @@
     <input type="hidden" name="voltar" value="{{ app.request.requestUri }}">
     <input type="hidden" name="numero" value="">
     <input type="hidden" name="pasta_id" value="">
+    <input type="hidden" name="nup" value="">
     <input type="hidden" name="trocar_da_pasta_id" value="">
 </form>
-<div class="pp-modal" data-pp-modal-pasta hidden data-t-vazio="{{ 'djen.index.nenhuma_pasta'|trans|e('html_attr') }}" data-t-vincular="{{ 'djen.index.vincular'|trans|e('html_attr') }}" data-url-busca="{{ path('push_processual_pastas_busca') }}" data-url-vincular="/push-processual/publicacoes/%id%/vincular" data-url-desvincular="/push-processual/publicacoes/%id%/desvincular">
-    <div class="pp-modal__fundo" data-pp-modal-fechar></div>
-    <div class="pp-modal__centro">
-        <div class="pp-modal__caixa" role="dialog" aria-modal="true" aria-label="{{ 'djen.index.vincular_pasta'|trans }}">
-            <div class="pp-modal__topo"><i class="bi bi-link-45deg"></i><b>{{ 'djen.index.vincular_pasta'|trans }}</b><button type="button" class="pp-modal__x" data-pp-modal-fechar aria-label="{{ 'djen.index.fechar'|trans }}"><i class="bi bi-x-lg"></i></button></div>
-            <div class="pp-modal__corpo">
-                <div class="pp-modal__proc"><b data-pp-modal-numero></b></div>
-                <label class="pp-modal__busca"><i class="bi bi-search"></i><input type="text" data-pp-modal-q placeholder="{{ 'djen.index.busca_pasta_ph'|trans }}" autocomplete="off"></label>
-                <div class="pp-modal__lista" data-pp-modal-lista></div>
-                <div class="pp-modal__rodape"><span class="pp-modal__espaco"></span><a href="{{ path('pasta_index') }}" class="pp-modal__nova"><i class="bi bi-plus-lg"></i> {{ 'djen.index.abrir_nova_pasta'|trans }}</a></div>
-            </div>
-        </div>
-    </div>
+<div class="pp-detalhe" data-pp-detalhe data-url="/push-processual/publicacoes/%id%/detalhe" data-abrir="{{ abrir ?? 0 }}" data-t-pergunta-outro="{{ 'djen.detalhe.outro_pergunta'|trans|e('html_attr') }}" hidden>
+    <div class="pp-modal__fundo" data-pp-det-fechar></div>
+    <div class="pp-modal__centro"><div class="pp-det__caixa" role="dialog" aria-modal="true" data-pp-det-conteudo></div></div>
 </div>
+{% include 'djen/_modal_pasta.html.twig' with {url_vincular: '/push-processual/publicacoes/%id%/vincular', url_desvincular: '/push-processual/publicacoes/%id%/desvincular', url_partes: '/push-processual/publicacoes/%id%/partes'} only %}
 {% endblock %}
 
 {% block javascripts %}

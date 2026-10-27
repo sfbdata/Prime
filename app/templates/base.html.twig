@@ -143,7 +143,7 @@
                                 {% set pageTitle = 'moldura.cabecalho.titulo_pagina.metas'|trans %}
                             {% elseif currentRoute starts with 'agenda_' %}
                                 {% set pageTitle = 'moldura.cabecalho.titulo_pagina.agenda'|trans %}
-                            {% elseif currentRoute starts with 'servicedesk_' %}
+                            {% elseif currentRoute starts with 'servicedesk_' or currentRoute starts with 'service_desk_' %}
                                 {% set pageTitle = 'moldura.cabecalho.titulo_pagina.service_desk'|trans %}
                             {% elseif currentRoute starts with 'app_tenant_role_' or currentRoute starts with 'master_' %}
                                 {# Desenho 05 Perfis 1.2, L39: a barra mostra "Perfis" na lista, na edição e no perfil Master. #}
