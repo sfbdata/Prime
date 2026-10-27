@@ -135,7 +135,7 @@ final class PushProcessualUnificadoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         // Mesmo grupo do topo do desenho (irmãos diretos), não só "em algum lugar".
         $grupo = '.pp-pagina > .pp-topo';
-        self::assertCount(1, $crawler->filter($grupo . ' > a[data-push-cadastrar-processo][href="/processos/novo"] ~ form[action="/push-processual/sincronizar"]'));
+        self::assertCount(1, $crawler->filter($grupo . ' > button[data-push-cadastrar-processo] ~ form[action="/push-processual/sincronizar"]'));
         $aba = $crawler->filter('nav[data-pp-abas] a[data-pp-aba="processos"][href="/push-processual/processos"]');
         self::assertCount(1, $aba, 'a lista de processos é a aba Processos da OAB');
         self::assertSame('1', trim($aba->filter('.pp-aba__n')->text()), 'conta só o processo sem baixa (o que a sincronização consulta)');

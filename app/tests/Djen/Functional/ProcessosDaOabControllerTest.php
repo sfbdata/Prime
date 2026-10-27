@@ -297,4 +297,91 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
 
         self::assertStringContainsString('20 dígitos', $client->followRedirect()->text());
     }
+
+    #[Test]
+    public function modalVincularProcessoEstaNasDuasAbas(): void
+    {
+        [$client] = $this->entrar();
+
+        foreach (['/push-processual', '/push-processual/processos'] as $url) {
+            $crawler = $client->request('GET', $url);
+            self::assertCount(1, $crawler->filter('[data-pp-vp][hidden]'), $url);
+            self::assertCount(1, $crawler->filter('button[data-push-cadastrar-processo]'), $url);
+            self::assertCount(0, $crawler->filter('[data-pp-vp] .modal, [data-pp-vp] .select2'), 'componentes do desenho, não do sistema');
+        }
+    }
+
+    #[Test]
+    public function buscaOsProcessosJaCadastradosPorNumero(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $this->criarProcesso($tenant, self::NUMERO_A);
+
+        $client->request('GET', '/push-processual/processos/cadastrados?q=0702222');
+
+        self::assertResponseIsSuccessful();
+        $itens = json_decode($client->getResponse()->getContent(), true);
+        self::assertCount(1, $itens);
+        self::assertSame(self::NUMERO_A, $itens[0]['numero']);
+    }
+
+    #[Test]
+    public function incluiProcessoJaCadastradoNoMonitoramento(): void
+    {
+        [$client, $tenant] = $this->entrar();
+        $this->criarProcesso($tenant, self::NUMERO_A);
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-vp-form-busca] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/incluir-cadastrado', ['_token' => $token, 'numero' => self::NUMERO_A]);
+
+        self::assertStringContainsString('vinculado', $client->followRedirect()->text());
+    }
+
+    #[Test]
+    public function incluirCadastradoSemSelecaoAvisa(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-vp-form-busca] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/incluir-cadastrado', ['_token' => $token, 'numero' => '']);
+
+        self::assertStringContainsString('Selecione um processo da lista.', $client->followRedirect()->text());
+    }
+
+    #[Test]
+    public function cadastraProcessoNovoEIncluiNoAcompanhamento(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-vp-form-novo] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/cadastrar', [
+            '_token' => $token,
+            'numeroProcesso' => '0704444-44.2026.8.07.0001',
+            'orgaoJulgador' => '2ª Vara Cível',
+            'classeProcessual' => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'partes' => [['tipo' => 'PARTE', 'nome' => 'Maria', 'documento' => '', 'papel' => 'Polo ativo']],
+        ]);
+
+        self::assertStringContainsString('cadastrado e incluído', $client->followRedirect()->text());
+        $lista = $client->request('GET', '/push-processual/processos');
+        self::assertCount(1, $lista->filter('[data-pp-linha-proc][data-numero="07044444420268070001"]'));
+    }
+
+    #[Test]
+    public function cadastrarSemCamposObrigatoriosMostraErro(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos');
+        $token = $crawler->filter('[data-pp-vp-form-novo] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/push-processual/processos/cadastrar', ['_token' => $token, 'numeroProcesso' => '0704444-44.2026.8.07.0001']);
+
+        $client->followRedirect();
+        $this->limparIdentityMap();
+        self::assertNull($this->em()->getRepository(ProcessoAcompanhado::class)->findOneBy(['numeroProcesso' => '07044444420268070001']));
+    }
 }

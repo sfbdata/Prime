@@ -40,9 +40,9 @@
         {# Processos e Push Processual unificados: o cadastro mora aqui. Todo processo cadastrado
            sem baixa também é acompanhado pelo número na sincronização. #}
         {% if can_access_module('processos') %}
-            <a href="{{ path('processo_new') }}" class="pp-btn pp-btn--verde" data-push-cadastrar-processo>
+            <button type="button" class="pp-btn pp-btn--verde" data-push-cadastrar-processo>
                 <i class="bi bi-plus-lg"></i>{{ 'djen.index.cadastrar_processo'|trans }}
-            </a>
+            </button>
         {% endif %}
         <form method="POST" action="{{ path('push_processual_sincronizar') }}">
             <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
@@ -183,9 +183,13 @@
     <div class="pp-modal__centro"><div class="pp-det__caixa" role="dialog" aria-modal="true" data-pp-det-conteudo></div></div>
 </div>
 {% include 'djen/_modal_pasta.html.twig' with {url_vincular: '/push-processual/publicacoes/%id%/vincular', url_desvincular: '/push-processual/publicacoes/%id%/desvincular', url_partes: '/push-processual/publicacoes/%id%/partes'} only %}
+{% if can_access_module('processos') %}
+{% include 'djen/_modal_vincular_processo.html.twig' only %}
+{% endif %}
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/push-publicacoes.js') }}"></script>
+<script src="{{ asset('js/push-vincular-processo.js') }}"></script>
 {% endblock %}

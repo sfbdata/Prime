@@ -27,7 +27,7 @@
         <i class="bi bi-folder2-open"></i>
         <h1>{{ 'djen.processos.titulo'|trans }}</h1>
         <span class="pp-topo__texto">{% if oabs_opcoes|length > 0 %}{{ 'djen.processos.capturados_das'|trans({oabs: oabs_opcoes|join(', ')}) }}{% else %}{{ 'djen.processos.sem_oab'|trans }}{% endif %}</span>
-        <a href="{{ path('processo_new') }}" class="pp-btn pp-btn--verde" data-push-cadastrar-processo><i class="bi bi-plus-lg"></i>{{ 'djen.index.cadastrar_processo'|trans }}</a>
+        <button type="button" class="pp-btn pp-btn--verde" data-push-cadastrar-processo><i class="bi bi-plus-lg"></i>{{ 'djen.index.cadastrar_processo'|trans }}</button>
         <form method="POST" action="{{ path('push_processual_sincronizar') }}">
             <input type="hidden" name="_token" value="{{ csrf_token('push_processual_sincronizar') }}">
             <button type="submit" class="pp-btn pp-btn--azul"><i class="bi bi-cloud-download"></i>{{ 'djen.processos.buscar'|trans }}</button>
@@ -229,10 +229,14 @@
     <input type="hidden" name="trocar_da_pasta_id" value="">
 </form>
 {% include 'djen/_modal_pasta.html.twig' with {url_vincular: path('push_processual_processo_vincular'), url_desvincular: path('push_processual_processo_desvincular')} only %}
+{% if can_access_module('processos') %}
+{% include 'djen/_modal_vincular_processo.html.twig' only %}
+{% endif %}
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/push-processos.js') }}"></script>
 <script src="{{ asset('js/push-processos-pasta.js') }}"></script>
+<script src="{{ asset('js/push-vincular-processo.js') }}"></script>
 {% endblock %}

@@ -178,4 +178,11 @@
         var vincular = linha.querySelector('[data-pp-vincular-proc]');
         if (vincular) { vincular.addEventListener('click', function (e) { e.stopPropagation(); abrirModal(linha); }); }
     });
+
+    document.addEventListener('pp:localizar-pasta', function (e) {
+        var alvo = raiz.querySelector('[data-pp-linha-proc][data-numero="' + e.detail.numero + '"]');
+        if (!alvo) { return; }
+        e.preventDefault();
+        abrirModal(alvo);
+    });
 }());
