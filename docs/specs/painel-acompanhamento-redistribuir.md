@@ -68,7 +68,7 @@ Por quê: separa a decisão do gestor das metas de trabalho, não polui listas e
 - **Cadeado**: não expõe pasta. Nenhum número do perfil muda.
 - **Zerar**: não interfere; o acompanhamento não depende de contagem.
 - **Tenant**: todo acesso por `tenant_id` do escritório da sessão; repositório com filtro explícito além do `TenantFilter`.
-- **Auditoria** (`audit_log` à mão, padrão do PR-I, `entity_class` User, `entity_id` = id da pessoa, `changes` só `{evento, pessoa_id, revisar_em}`, sem nome nem texto): `acomp_cria`, `acomp_renov`, `acomp_fim` (todas com até 10 caracteres).
+- **Auditoria** (`audit_log` à mão, padrão do PR-I, `entity_class` User, `entity_id` = id da pessoa, `changes` só `{evento, pessoa_id, revisar_em}`, sem nome nem texto): `acomp_cria`, `acomp_rnv`, `acomp_fim` (todas com até 10 caracteres).
 - **Notificações**: nenhuma.
 
 ### O que muda no perfil

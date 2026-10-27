@@ -112,6 +112,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Foto diária do estoque do Dashboard: dado DERIVADO de tarefa/pasta (contagens), regravado
         // pelo cron. Não é ato de ninguém e não prova nada — auditar só duplicaria números.
         \App\Dashboard\Entity\DashboardFoto::class,
+        // Acompanhamento da pessoa no Painel: a trilha é a das ações acomp_cria, acomp_rnv e acomp_fim
+        // (RegistrarAuditoriaDoAcompanhamentoUseCase), gravadas na mesma transação. Auditavel gravaria uma
+        // segunda linha por ação, com o estado normalizado da entidade.
+        \App\Dashboard\Entity\AcompanhamentoDaPessoa::class,
         // Previsão da Situação atual do Push (taxa de acertos, push-painel-monitoramento §3): dado DERIVADO
         // das publicações, gravado pelo sistema ao montar a aba, sem ato de ninguém. Auditar só duplicaria
         // a previsão; o processo dela já está fora da auditoria por decisão de produto.

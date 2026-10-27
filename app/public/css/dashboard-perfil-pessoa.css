@@ -157,6 +157,31 @@
 .db-page .db-pf-btn[aria-pressed="true"] { background: var(--db-ia-azul-grad); color: #fff; }
 .db-page .db-pf-btn:disabled { opacity: .6; cursor: progress; }
 
-.db-page .db-pf-status { margin-left: auto; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 800; }
+.db-page .db-pf [hidden] { display: none !important; }
+/* "Criar acompanhamento" é o botão primário do desenho (dc L2441: #0a6fa0, texto branco). */
+.db-page .db-pf-btn--primario { background: #0a6fa0; color: #fff; }
+.db-page .db-pf-btn--primario:hover,
+.db-page .db-pf-btn--primario:focus-visible { background: #0a6fa0; filter: brightness(1.08); }
+.db-page .db-pf-estado { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.db-page .db-pf-revisao { font-size: 11.5px; font-weight: 600; color: var(--db-muted); }
+.db-page .db-pf-aviso-acomp { margin-top: 6px; padding: 7px 10px; border-radius: 4px; background: var(--db-ia-como-bg); font-size: 12px; font-weight: 600; color: var(--db-ia-confirma-texto); }
+.db-page .db-pf-status { padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 800; }
 .db-page .db-pf-status--analisado { background: var(--db-ia-q-oque-bg); color: var(--db-ia-confirma-check); }
 .db-page .db-pf-status--pendente { background: var(--db-ia-chip-bg); color: var(--db-muted); }
+/* Em acompanhamento (dc L2457: fundo #fbf5dc, texto #8a6a06). */
+.db-page .db-pf-status--acomp { background: #fbf5dc; color: #8a6a06; }
+
+/* Confirmação do acompanhamento: mesmo desenho do seletor de pasta do painel (<dialog> modal, topo azul). */
+.db-page .db-pf-dlg { width: min(440px, calc(100vw - 24px)); padding: 0; border: none; border-radius: 3px; background: #fff; color: #12242f; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); }
+.db-page .db-pf-dlg::backdrop { background: rgba(18, 36, 47, .35); }
+.db-page .db-pf-dlg-topo { background: #0a6fa0; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 8px; }
+.db-page .db-pf-dlg-topo > b { flex: 1; font-size: 15px; }
+.db-page .db-pf-dlg-x { width: 28px; height: 28px; border: none; border-radius: 2px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; }
+.db-page .db-pf-dlg-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.db-page .db-pf-dlg-pessoa { font-size: 14px; font-weight: 700; }
+.db-page .db-pf-dlg-texto { font-size: 13px; line-height: 1.45; color: #34505f; }
+.db-page .db-pf-dlg-prazo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; padding: 0; border: none; }
+.db-page .db-pf-dlg-prazo > legend { float: none; width: 100%; margin: 0 0 4px; padding: 0; font-size: 12px; font-weight: 700; color: #34505f; }
+.db-page .db-pf-dlg-prazo label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-size: 13px; font-weight: 600; cursor: pointer; }
+.db-page .db-pf-dlg-erro { padding: 7px 10px; border-radius: 4px; background: #fbeaea; color: #a32a2a; font-size: 12.5px; font-weight: 600; }
+.db-page .db-pf-dlg-rodape { display: flex; justify-content: flex-end; gap: 6px; padding: 0 16px 14px; }

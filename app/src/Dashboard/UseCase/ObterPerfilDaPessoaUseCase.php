@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dashboard\UseCase;
 
+use App\Dashboard\DTO\AcompanhamentoDaPessoaOutput;
 use App\Dashboard\DTO\ComparacaoDaPessoaOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
 use App\Dashboard\DTO\MetricaDaPessoaOutput;
@@ -14,6 +15,7 @@ use App\Dashboard\Inteligencia\AnaliseDaPessoa;
 use App\Dashboard\Inteligencia\DiagnosticoDaPessoa;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Preferencia\MarcasDasPessoas;
+use App\Dashboard\Repository\AcompanhamentoDaPessoaRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
 use App\Repository\UserRepository;
@@ -34,6 +36,7 @@ final class ObterPerfilDaPessoaUseCase
         private readonly UserRepository $userRepository,
         private readonly ObterDadosDashboardUseCase $obterDados,
         private readonly PreferenciaDoUsuarioRepository $preferencias,
+        private readonly AcompanhamentoDaPessoaRepository $acompanhamentos,
         private readonly MetricasExtrasDoDashboardRepository $metricasExtras,
     ) {
     }
@@ -73,7 +76,15 @@ final class ObterPerfilDaPessoaUseCase
             $marca['status'],
             $marca['feedback'],
             $analise,
+            $this->acompanhamentoDaPessoa($input),
         );
+    }
+
+    private function acompanhamentoDaPessoa(ObterPerfilDaPessoaInput $input): AcompanhamentoDaPessoaOutput
+    {
+        $aberto = $this->acompanhamentos->buscarAbertoDaPessoa($input->tenant, $input->pessoaId);
+
+        return $aberto === null ? AcompanhamentoDaPessoaOutput::semAcompanhamento($input->pessoaId) : AcompanhamentoDaPessoaOutput::deEntidade($aberto, $input->agora);
     }
 
     /**
