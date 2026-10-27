@@ -125,7 +125,7 @@ contábil (decisão de 27/10). Sem e-mail ao indicador nesta fatia (o aviso é d
   a exclusão LGPD apaga junto), `nome` (até 120), `documento` (CPF ou CNPJ só com dígitos, validado pelos dígitos
   verificadores), `chave_pix` (até 140, opcional), `atualizado_em`, `atualizado_por_id`. Auditável de plataforma. O
   Master cadastra pelo menu ⋮ "Dados para pagamento". O sistema grava o valor bruto e não calcula imposto (decisão de
-  27/10). A tela nunca devolve o documento inteiro na lista: só os 3 últimos dígitos mascarados; o diálogo de edição
+  27/10). A tela nunca devolve o documento inteiro na lista: só os 2 últimos dígitos mascarados; o diálogo de edição
   busca o completo por GET próprio.
 - "Dar baixa" (menu ⋮, verde, desenho L879/L884/L874): diálogo "Dar baixa · registrar pagamento" com Valor pago (R$,
   padrão = saldo), Forma (PIX, Transferência, Desconto na mensalidade, Crédito de espaço), Observação (opcional),

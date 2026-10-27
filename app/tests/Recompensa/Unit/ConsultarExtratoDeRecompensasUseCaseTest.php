@@ -37,6 +37,6 @@ final class ConsultarExtratoDeRecompensasUseCaseTest extends TestCase
         $linha = $recentes[0]->paraArray();
         self::assertSame([5, 'Bia Indicadora', 'pessoa5@exemplo.com', 'bonus', -250, 'erro'], [$linha['userId'], $linha['nome'], $linha['email'], $linha['tipo'], $linha['valorCentavos'], $linha['observacao']]);
         self::assertSame('2026-10-26 10:00:00', $recentes[0]->em->format('Y-m-d H:i:s'));
-        self::assertSame(['id', 'em', 'userId', 'nome', 'email', 'tipo', 'valorCentavos', 'observacao'], array_keys($linha), 'nenhum campo do indicado');
+        self::assertSame(['id', 'em', 'userId', 'nome', 'email', 'tipo', 'valorCentavos', 'observacao', 'forma', 'temComprovante'], array_keys($linha), 'nenhum campo do indicado');
     }
 }

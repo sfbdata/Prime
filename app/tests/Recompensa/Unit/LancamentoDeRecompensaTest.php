@@ -63,11 +63,11 @@ final class LancamentoDeRecompensaTest extends TestCase
         self::assertSame(-10000000, $this->novo(-10000000)->getValorCentavos());
     }
 
-    #[TestDox('recusa observação com mais de 255 caracteres e tipo que não existe nesta fatia')]
+    #[TestDox('recusa observação com mais de 255 caracteres e tipo que não existe')]
     public function testRecusaObservacaoETipo(): void
     {
         self::assertSame(255, mb_strlen((string) $this->novo(100, str_repeat('á', 255))->getObservacao()));
-        foreach ([fn () => $this->novo(100, str_repeat('a', 256)), fn () => $this->novo(100, null, 'pago')] as $i => $criar) {
+        foreach ([fn () => $this->novo(100, str_repeat('a', 256)), fn () => $this->novo(100, null, 'estornado')] as $i => $criar) {
             try {
                 $criar();
                 self::fail('devia recusar o caso ' . $i);

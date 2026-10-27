@@ -12,6 +12,9 @@
      data-url-regras="{{ path('master_recompensas_regras') }}"
      data-url-condicao="{{ path('master_recompensas_condicao', {id: 0}) }}"
      data-url-lancamento="{{ path('master_recompensas_lancamento', {id: 0}) }}"
+     data-url-baixa="{{ path('master_recompensas_baixa', {id: 0}) }}"
+     data-url-recebimento="{{ path('master_recompensas_recebimento', {id: 0}) }}"
+     data-url-comprovante="{{ path('master_recompensas_comprovante', {id: 0}) }}"
      data-url-aprovar="{{ path('master_recompensas_suspeitas_aprovar', {id: 0}) }}"
      data-url-bloqueio="{{ path('master_recompensas_bloqueio', {id: 0}) }}"
      data-url-apagar="{{ path('master_recompensas_apagar', {id: 0}) }}"
@@ -56,7 +59,7 @@
         </div></div>
     </section>
 
-    {# Extrato (desenho L329-337): sem os botões de aviso, a forma, o comprovante e o e-mail enviado, que entram nas fatias F4 e F7. #}
+    {# Extrato (desenho L329-337): com a forma e o comprovante (F4); sem os botões de aviso e o e-mail enviado, que entram na F7. #}
     <section class="mrc-caixa" aria-labelledby="mrc-extrato">
         <div class="mrc-extrato-cabeca">
             <i class="bi bi-receipt" aria-hidden="true"></i>
@@ -73,7 +76,9 @@
     <div class="mrc-menu" data-mrc-menu role="menu" hidden>
         <div class="mrc-menu-titulo" data-mrc-menu-titulo></div>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="condicao"><i class="bi bi-star" aria-hidden="true"></i><span data-mrc-menu-txt="condicao"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item mrc-menu-item-baixa" data-mrc-menu-acao="baixa"><i class="bi bi-cash-coin" aria-hidden="true"></i><span data-mrc-menu-txt="baixa"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="lancamento"><i class="bi bi-plus-slash-minus" aria-hidden="true"></i><span data-mrc-menu-txt="lancamento"></span></button>
+        <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="recebimento"><i class="bi bi-person-vcard" aria-hidden="true"></i><span data-mrc-menu-txt="recebimento"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item mrc-menu-item-aviso" data-mrc-menu-acao="aprovar" hidden><i class="bi bi-shield-check" aria-hidden="true"></i><span data-mrc-menu-txt="aprovar"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="extrato"><i class="bi bi-receipt" aria-hidden="true"></i><span data-mrc-menu-txt="extrato"></span></button>
         <button type="button" role="menuitem" class="mrc-menu-item" data-mrc-menu-acao="csv"><i class="bi bi-download" aria-hidden="true"></i><span data-mrc-menu-txt="csv"></span></button>
@@ -129,6 +134,51 @@
             <div class="mrc-dlg-rodape">
                 <button type="button" class="mrc-dlg-cancelar" data-mrc-lan-fechar>{{ 'master.recompensas.lancamento.cancelar'|trans }}</button>
                 <button type="button" class="mrc-dlg-salvar" data-mrc-lan-enviar>{{ 'master.recompensas.lancamento.lancar'|trans }}</button>
+            </div>
+        </div>
+    </div>
+
+    {# Janela "Dar baixa · registrar pagamento" (desenho L884 e L887, ramo `pagar`): valor, forma, comprovante e observação. #}
+    <div class="mrc-dlg-fundo" data-mrc-bai-fundo hidden></div>
+    <div class="mrc-dlg-posicao" data-mrc-bai hidden>
+        <div class="mrc-dlg" role="dialog" aria-modal="true" aria-labelledby="mrc-bai-titulo">
+            <div class="mrc-dlg-cabeca">
+                <i class="bi bi-cash-coin" aria-hidden="true"></i><b id="mrc-bai-titulo">{{ 'master.recompensas.baixa.titulo'|trans }}</b>
+                <button type="button" class="mrc-dlg-x" data-mrc-bai-fechar aria-label="{{ 'master.recompensas.dialogo.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="mrc-dlg-corpo">
+                <div><b class="mrc-dlg-nome" data-mrc-bai-nome></b><div class="mrc-dlg-sub" data-mrc-bai-sub></div></div>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.baixa.valor'|trans }}<input type="text" inputmode="decimal" autocomplete="off" data-mrc-bai-valor><span class="mrc-dlg-dica" data-mrc-bai-dica></span></label>
+                <div class="mrc-bai-formas" role="radiogroup" aria-label="{{ 'master.recompensas.baixa.forma'|trans }}" data-mrc-bai-formas></div>
+                <label class="mrc-bai-anexo"><i class="bi bi-paperclip" aria-hidden="true"></i><span data-mrc-bai-anexo-txt></span><i class="bi bi-check-circle-fill mrc-bai-anexo-ok" aria-hidden="true" data-mrc-bai-anexo-ok hidden></i><input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp" data-mrc-bai-arquivo></label>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.lancamento.observacao'|trans }}<textarea rows="3" maxlength="255" data-mrc-bai-obs></textarea></label>
+                <div class="mrc-dlg-erro" data-mrc-bai-erro role="alert" hidden></div>
+            </div>
+            <div class="mrc-dlg-rodape">
+                <button type="button" class="mrc-dlg-cancelar" data-mrc-bai-fechar>{{ 'master.recompensas.lancamento.cancelar'|trans }}</button>
+                <button type="button" class="mrc-dlg-salvar mrc-dlg-pagar" data-mrc-bai-enviar>{{ 'master.recompensas.baixa.confirmar'|trans }}</button>
+            </div>
+        </div>
+    </div>
+
+    {# Janela "Dados para pagamento" (sem desenho próprio: o desenho só mostra a chave PIX vinda do Meu Perfil; a decisão de 27/10 manda o Master cadastrar nome e CPF ou CNPJ). #}
+    <div class="mrc-dlg-fundo" data-mrc-rcb-fundo hidden></div>
+    <div class="mrc-dlg-posicao" data-mrc-rcb hidden>
+        <div class="mrc-dlg" role="dialog" aria-modal="true" aria-labelledby="mrc-rcb-titulo">
+            <div class="mrc-dlg-cabeca">
+                <i class="bi bi-person-vcard" aria-hidden="true"></i><b id="mrc-rcb-titulo">{{ 'master.recompensas.recebimento.titulo'|trans }}</b>
+                <button type="button" class="mrc-dlg-x" data-mrc-rcb-fechar aria-label="{{ 'master.recompensas.dialogo.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="mrc-dlg-corpo">
+                <div><b class="mrc-dlg-nome" data-mrc-rcb-indicador></b><div class="mrc-dlg-sub" data-mrc-rcb-sub></div></div>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.recebimento.nome'|trans }}<input type="text" maxlength="120" autocomplete="off" data-mrc-rcb-nome></label>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.recebimento.documento'|trans }}<input type="text" inputmode="numeric" maxlength="18" autocomplete="off" data-mrc-rcb-documento><span class="mrc-dlg-dica">{{ 'master.recompensas.recebimento.documento_dica'|trans }}</span></label>
+                <label class="mrc-dlg-campo">{{ 'master.recompensas.recebimento.pix'|trans }}<input type="text" maxlength="140" autocomplete="off" data-mrc-rcb-pix><span class="mrc-dlg-dica">{{ 'master.recompensas.recebimento.pix_dica'|trans }}</span></label>
+                <div class="mrc-dlg-erro" data-mrc-rcb-erro role="alert" hidden></div>
+            </div>
+            <div class="mrc-dlg-rodape">
+                <button type="button" class="mrc-dlg-cancelar" data-mrc-rcb-fechar>{{ 'master.recompensas.lancamento.cancelar'|trans }}</button>
+                <button type="button" class="mrc-dlg-salvar" data-mrc-rcb-enviar>{{ 'master.recompensas.recebimento.salvar'|trans }}</button>
             </div>
         </div>
     </div>
