@@ -11,12 +11,13 @@ use App\Master\Repository\EventoDeDesempenhoRepository;
 use App\Master\Repository\IncidenteDeDesempenhoRepository;
 use App\Master\Repository\RegistroDeBackupRepository;
 use App\Master\Service\ApuracaoDeDesempenho;
+use App\Master\Service\SituacaoDasIntegracoes;
 use Psr\Clock\ClockInterface;
 
 /**
  * Dados da seção "Desempenho" do Painel do Master (desenho 05 Perfis 1.2 VS 25.10; spec
  * docs/specs/master-desempenho.md). Só leitura: indicadores do período, erros recentes, incidentes e
- * backups. As integrações e o formato do texto ficam com a tela (PR 3).
+ * backups. O formato do texto fica com a tela.
  */
 final class ConsultarDesempenhoUseCase
 {
@@ -31,12 +32,13 @@ final class ConsultarDesempenhoUseCase
         private readonly IncidenteDeDesempenhoRepository $incidentes,
         private readonly RegistroDeBackupRepository $backups,
         private readonly ApuracaoDeDesempenho $apuracao,
+        private readonly SituacaoDasIntegracoes $integracoes,
         private readonly ClockInterface $clock,
     ) {
     }
 
     /**
-     * @return array{periodo: int, indicadores: array<string, array<string, mixed>>, erros: list<array<string, mixed>>, incidentes: list<array<string, mixed>>, incidentesAbertos: int, backups: list<array<string, mixed>>}
+     * @return array{periodo: int, indicadores: array<string, array<string, mixed>>, erros: list<array<string, mixed>>, incidentes: list<array<string, mixed>>, incidentesAbertos: int, backups: list<array<string, mixed>>, integracoes: list<array{chave: string, conectada: bool}>}
      */
     public function executar(int $periodoEmDias): array
     {
@@ -56,6 +58,7 @@ final class ConsultarDesempenhoUseCase
             'incidentes'        => array_map($this->incidente(...), $this->incidentes->recentes(self::INCIDENTES_LISTADOS)),
             'incidentesAbertos' => $this->incidentes->contarAbertos(),
             'backups'           => array_map($this->backup(...), $this->backups->recentes(self::BACKUPS_LISTADOS)),
+            'integracoes'       => $this->integracoes->situacao(),
         ];
     }
 
