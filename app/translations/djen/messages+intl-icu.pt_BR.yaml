@@ -227,6 +227,18 @@ djen:
         fechar: Fechar
         cancelar: Cancelar
         salvar: Salvar
+    acervo:
+        subaba: 'Acervo por jurisdição'
+        busca: 'Pesquise por número de processo'
+        atualizar: Atualizar
+        atualizado: 'Acervo atualizado.'
+        selecione: 'Selecione uma jurisdição'
+        grupo_pr: 'Pendentes de ciência ou de resposta'
+        grupo_pend: 'Apenas pendentes de ciência'
+        grupo_cien: 'Ciência dada · pendente de resposta'
+        grupo_fin: 'Cujo prazo findou · sem resposta'
+        grupo_sem: 'Sem prazo'
+        grupo_resp: 'Respondidos nos últimos 10 dias'
     detalhe:
         titulo: '{tipo} · {processo}'
         data: Data

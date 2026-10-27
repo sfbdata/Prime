@@ -1,0 +1,40 @@
+{# Coluna esquerda do "Acervo por jurisdição" (desenho 11): busca, atualizar e acordeão de grupos e órgãos.
+   Parâmetros: acervo (AcervoPorJurisdicaoOutput), grupo, orgao, q (strings da querystring). #}
+{% set rotulos = {
+    pr: 'djen.acervo.grupo_pr', pend: 'djen.acervo.grupo_pend', cien: 'djen.acervo.grupo_cien',
+    fin: 'djen.acervo.grupo_fin', sem: 'djen.acervo.grupo_sem', resp: 'djen.acervo.grupo_resp'
+} %}
+<aside class="pp-acv" data-pp-acervo data-t-atualizado="{{ 'djen.acervo.atualizado'|trans|e('html_attr') }}">
+    <form class="pp-acv__topo" method="GET" action="{{ path('push_processual_processos') }}" data-pp-acervo-form>
+        <input type="hidden" name="sub" value="acervo">
+        <input type="hidden" name="grupo" value="{{ grupo }}">
+        <input type="hidden" name="orgao" value="{{ orgao }}">
+        <label class="pp-acv__busca">
+            <i class="bi bi-search"></i>
+            <input type="text" name="q" value="{{ q }}" inputmode="numeric" autocomplete="off" placeholder="{{ 'djen.acervo.busca'|trans }}" data-pp-acervo-q>
+        </label>
+        <button type="button" class="pp-acv__atualizar" title="{{ 'djen.acervo.atualizar'|trans }}" data-pp-acervo-atualizar><i class="bi bi-arrow-repeat"></i></button>
+    </form>
+    <div class="pp-acv__grupos">
+        {% for chave, rotulo in rotulos %}
+            {% set g = acervo.grupos[chave] %}
+            {% set aberto = grupo == chave %}
+            <a class="pp-acv__grupo{{ aberto ? ' is-aberto' : '' }}{{ chave == 'pr' ? ' pp-acv__grupo--topo' : '' }}"
+               href="{{ path('push_processual_processos', {sub: 'acervo', grupo: aberto ? '' : chave, q: q}) }}">
+                <i class="bi {{ aberto ? 'bi-chevron-down' : 'bi-chevron-right' }}"></i>
+                <span>{{ rotulo|trans }}</span>
+                <b>{{ g.total }}</b>
+            </a>
+            {% if aberto and g.total > 0 %}
+                {% for nome, n in g.orgaos %}
+                    <a class="pp-acv__orgao{{ orgao == nome ? ' is-sel' : '' }}"
+                       href="{{ path('push_processual_processos', {sub: 'acervo', grupo: chave, orgao: orgao == nome ? '' : nome, q: q}) }}">
+                        <i class="bi bi-chevron-right"></i><i class="bi bi-bank"></i>
+                        <span>{{ nome }}</span>
+                        <b>{{ n }}</b>
+                    </a>
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+    </div>
+</aside>
