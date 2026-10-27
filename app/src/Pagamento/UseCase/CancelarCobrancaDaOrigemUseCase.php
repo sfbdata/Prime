@@ -28,11 +28,17 @@ final class CancelarCobrancaDaOrigemUseCase
     ) {
     }
 
-    /** @throws \DomainException com `$recusarSePaga`, quando a cobrança mais recente já foi paga (conferido com o pagamento travado) */
-    public function executar(int $tenantId, OrigemDoPagamento $origem, int $origemId, string $motivo, bool $recusarSePaga = false): bool
+    /**
+     * `$soSeForOId`: quem decidiu olhando uma cobrança só cancela essa mesma. Se outra aba já criou uma mais nova,
+     * a mais recente deixou de ser a que foi lida e nada é cancelado.
+     *
+     * @throws \DomainException com `$recusarSePaga`, quando a cobrança mais recente já foi paga (conferido com o pagamento travado)
+     */
+    public function executar(int $tenantId, OrigemDoPagamento $origem, int $origemId, string $motivo, bool $recusarSePaga = false, ?int $soSeForOId = null): bool
     {
         $ultimo = $this->pagamentos->ultimoDaOrigem($tenantId, $origem, $origemId);
-        if ($ultimo === null || ($ultimo->getStatus() !== StatusDoPagamento::Aguardando && !$recusarSePaga)) {
+        if ($ultimo === null || ($soSeForOId !== null && $ultimo->getId() !== $soSeForOId)
+            || ($ultimo->getStatus() !== StatusDoPagamento::Aguardando && !$recusarSePaga)) {
             return false;
         }
 

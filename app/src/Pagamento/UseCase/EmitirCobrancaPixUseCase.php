@@ -25,16 +25,21 @@ use Psr\Log\LoggerInterface;
 /**
  * História: o consumidor (Trabalho Externo) pede o QR dinâmico. Gravamos o `pagamento` ANTES de falar com o banco
  * (idempotente pela referência) e só então criamos a cobrança, com a mesma chave de idempotência: se o banco criou e a
- * resposta se perdeu, a próxima chamada recebe a mesma cobrança. Nenhuma chamada ao banco dentro de transação.
+ * resposta se perdeu, a próxima chamada recebe a mesma cobrança. Nenhuma chamada ao banco dentro de transação; só a trava
+ * de sessão da referência (com prazo de 5 s) fica retida durante o pedido, e é liberada no `finally`.
  *
  * Sem CNPJ válido do cliente lança \DomainException antes de criar qualquer coisa. Devolve `null` quando não há QR dinâmico a mostrar (integração desligada ou sem a chave do consumidor, banco fora
- * do ar agora, recusa do banco): o consumidor cai no PIX estático. Recusa certa do banco cancela o pagamento;
+ * do ar agora, recusa do banco, trava da referência ocupada além do prazo): o consumidor cai no PIX estático. Recusa certa do banco cancela o pagamento;
  * falha passageira o deixa `aguardando` sem `brCode`, e a próxima abertura repete o pedido.
  */
 // Público para o teste funcional alcançá-lo pelo container.
 #[Autoconfigure(public: true)]
 final class EmitirCobrancaPixUseCase
 {
+    /** Espera máxima pela trava da referência: 50 x 100 ms = 5 s (o pedido ao banco tem prazo menor que isso). */
+    private const TRAVA_TENTATIVAS = 50;
+    private const TRAVA_ESPERA_US = 100_000;
+
     public function __construct(
         private readonly IntegracaoBancariaRepository $integracoes,
         private readonly BancosPix $bancos,
@@ -67,13 +72,30 @@ final class EmitirCobrancaPixUseCase
 
         // Duas abas pedindo a mesma referência ao mesmo tempo: a segunda espera a primeira (sem transação aberta) e
         // então encontra a cobrança já criada, em vez de bater na unicidade da referência.
+        // Tentativa com prazo (não há PgBouncer entre o app e o Postgres em produção, então a trava de sessão vale):
+        // quem não a obtém a tempo desiste sem cobrança, e a tela cai no PIX estático.
         $conexao = $this->em->getConnection();
-        $conexao->executeQuery('SELECT pg_advisory_lock(hashtext(?))', [$input->referencia]);
+        if (!$this->obterTrava($input->referencia)) {
+            return null;
+        }
         try {
             return $this->emitirSerial($banco, $input);
         } finally {
             $conexao->executeQuery('SELECT pg_advisory_unlock(hashtext(?))', [$input->referencia]);
         }
+    }
+
+    private function obterTrava(string $referencia): bool
+    {
+        $conexao = $this->em->getConnection();
+        for ($tentativa = 0; $tentativa < self::TRAVA_TENTATIVAS; ++$tentativa) {
+            if ($conexao->fetchOne('SELECT pg_try_advisory_lock(hashtext(?))', [$referencia])) {
+                return true;
+            }
+            usleep(self::TRAVA_ESPERA_US);
+        }
+
+        return false;
     }
 
     private function emitirSerial(BancoPix $banco, EmitirCobrancaPixInput $input): ?CobrancaPixOutput

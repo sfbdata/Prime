@@ -66,7 +66,7 @@ final class PrepararPagamentoDaDemandaUseCase
         }
         $reaproveita = $mesmoValor && $atual->brCode === null && $atual->status === StatusDoPagamento::Aguardando && ($atual->expiraEm === null || $atual->expiraEm > $agora);
         if ($atual !== null && !$reaproveita) {
-            $this->cancelar->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, $origemId, 'Nova cobrança gerada para o valor atual.');
+            $this->cancelar->executar($tenantId, OrigemDoPagamento::TrabalhoExterno, $origemId, 'Nova cobrança gerada para o valor atual.', false, $atual->pagamentoId);
         }
 
         return $this->emitirTentativa($demanda, $centavos, ($reaproveita ? $atual->tentativas : ($atual->tentativas ?? 0) + 1), $agora);
