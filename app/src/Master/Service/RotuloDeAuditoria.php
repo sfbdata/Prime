@@ -16,6 +16,7 @@ use App\Master\Entity\IncidenteDeDesempenho;
 use App\Master\Entity\NotaDaCidadeOab;
 use App\Master\Entity\NotaDaSeccional;
 use App\Master\Entity\RecursoEstado;
+use App\Master\Entity\LancamentoDeCusto;
 use App\Master\Entity\RegistroDeBackup;
 use App\Master\Entity\SeccionalOab;
 use App\Master\Entity\SubsecaoOab;
@@ -89,6 +90,7 @@ final class RotuloDeAuditoria
         NotaDaSeccional::class      => ['Nota da seccional gravada', 'Nota da seccional alterada', 'Nota da seccional apagada'],
         NotaDaCidadeOab::class      => ['Nota da cidade gravada', 'Nota da cidade alterada', 'Nota da cidade apagada'],
         IncidenteDeDesempenho::class => ['Incidente aberto', 'Incidente alterado', 'Incidente removido'],
+        LancamentoDeCusto::class    => ['Custo lançado', 'Custo alterado', 'Custo removido'],
         RegistroDeBackup::class     => ['Backup ou teste registrado', 'Registro de backup alterado', 'Registro de backup removido'],
     ];
 

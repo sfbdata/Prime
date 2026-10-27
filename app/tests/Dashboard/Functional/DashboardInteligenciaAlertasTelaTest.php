@@ -258,8 +258,8 @@ final class DashboardInteligenciaAlertasTelaTest extends DashboardWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('Perguntas guiadas: uma resposta aberta por vez (details exclusivos)')]
-    public function testPerguntasExclusivas(): void
+    #[TestDox('Perguntas guiadas: pílulas filhas diretas do contêiner e uma só caixa de resposta')]
+    public function testPerguntasPilulasECaixaUnica(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarGestorLogado($client);
@@ -267,7 +267,9 @@ final class DashboardInteligenciaAlertasTelaTest extends DashboardWebTestCase
 
         $crawler = $client->request('GET', '/dashboard');
 
-        $perguntas = $crawler->filter('.db-ia-perguntas > details.db-ia-pergunta[name="dbIaPergunta"]');
-        self::assertGreaterThan(1, $perguntas->count());
+        $pilulas = $crawler->filter('.db-ia-perguntas > .db-ia-pilulas > button.db-ia-pilula[aria-pressed="false"][data-ia-pergunta]');
+        self::assertGreaterThan(1, $pilulas->count());
+        self::assertCount(1, $crawler->filter('.db-ia-perguntas > [data-ia-resposta-caixa][hidden]'));
+        self::assertCount(0, $crawler->filter('.db-ia-perguntas details'));
     }
 }

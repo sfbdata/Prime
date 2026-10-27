@@ -1,0 +1,182 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Meus chamados | BlueJus{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('css/service-desk.css') }}">
+{% endblock %}
+
+{% block body %}
+{% set minimo = minimoCentavos|reais %}
+{% set pendente = saldo.pendenteCentavos %}
+<div class="sd-pagina"
+     data-service-desk
+     data-csrf="{{ csrf_token('service_desk') }}"
+     data-url-abrir="{{ path('service_desk_abrir') }}"
+     data-url-pix="{{ path('service_desk_pix') }}"
+     data-url-recarga="{{ path('service_desk_recarga') }}"
+     data-url-chamado="{{ path('service_desk_chamado', {id: 0}) }}"
+     data-saldo-ok="{{ saldo.podeAbrirChamado ? '1' : '0' }}">
+
+    <div class="sd-cabeca">
+        <i class="bi bi-headset"></i>
+        <div class="sd-cabeca-texto">
+            <h1>Meus chamados</h1>
+            <div class="sd-cabeca-sub">Suporte técnico e agendamentos com a equipe técnica do BlueJus</div>
+        </div>
+        <button type="button" class="sd-btn-azul" data-sd-abrir-novo><i class="bi bi-plus-lg"></i>Abrir chamado</button>
+    </div>
+
+    <div class="sd-kpis">
+        {% set filtros = [
+            {chave: '', rotulo: 'TODOS', icone: 'bi-list-ul', cor: '#12242f', valor: lista.totalDoEscritorio},
+            {chave: 'aberto', singular: 'Aberto', rotulo: 'ABERTOS', icone: 'bi-inbox', cor: '#9a5b00', valor: lista.contagem.aberto|default(0)},
+            {chave: 'andamento', singular: 'Em andamento', rotulo: 'EM ANDAMENTO', icone: 'bi-gear', cor: '#0a6fa0', valor: lista.contagem.andamento|default(0)},
+            {chave: 'resolvido', singular: 'Resolvido', rotulo: 'RESOLVIDOS', icone: 'bi-check-circle', cor: '#1e7b45', valor: lista.contagem.resolvido|default(0)},
+            {chave: 'fechado', singular: 'Fechado', rotulo: 'FECHADOS', icone: 'bi-archive', cor: '#5b7383', valor: lista.contagem.fechado|default(0)},
+        ] %}
+        {% for k in filtros %}
+            <button type="button" class="sd-kpi{{ loop.first ? ' ativo' : '' }}" data-sd-filtro="{{ k.chave }}" data-rotulo="{{ k.chave == '' ? 'Todos os chamados' : k.singular }}">
+                <span class="sd-kpi-texto">
+                    <span class="sd-kpi-rotulo">{{ k.rotulo }}</span>
+                    <b class="sd-kpi-valor" style="color: {{ k.cor }}">{{ k.valor }}</b>
+                </span>
+                <i class="bi {{ k.icone }}"></i>
+            </button>
+        {% endfor %}
+    </div>
+
+    <section class="sd-saldo" data-screen-label="Saldo">
+        <div class="sd-saldo-bloco">
+            <div class="sd-saldo-rotulo">SALDO PARA ATENDIMENTO TÉCNICO</div>
+            <b class="sd-saldo-valor {{ saldo.podeAbrirChamado ? 'ok' : 'baixo' }}">{{ saldo.saldoCentavos|reais }}</b>
+            <div class="sd-saldo-sub">
+                {% if pendente > 0 %}{{ pendente|reais }} aguardando confirmação do pagamento
+                {% elseif saldo.podeAbrirChamado %}Saldo disponível para abrir chamados
+                {% else %}Adicione saldo para abrir um chamado{% endif %}
+            </div>
+        </div>
+        <div class="sd-saldo-texto">Para abrir um chamado é preciso ter <b>pelo menos {{ minimo }}</b> de saldo. O valor de cada atendimento é debitado pela equipe técnica ao concluir o serviço; se o atendimento não for realizado, o valor volta para o saldo.</div>
+        <div class="sd-saldo-acoes">
+            <button type="button" class="sd-btn-claro" data-sd-extrato><i class="bi bi-receipt"></i> <span data-sd-extrato-rotulo>Ver extrato</span></button>
+            <button type="button" class="sd-btn-verde" data-sd-abrir-recarga><i class="bi bi-plus-circle"></i> Adicionar saldo</button>
+        </div>
+        <div class="sd-extrato" data-sd-extrato-lista hidden>
+            {% for m in saldo.extrato %}
+                {% set classe = m.pendente ? 'pendente' : (m.tipo.value == 'debito' ? 'debito' : 'credito') %}
+                <div class="sd-extrato-linha">
+                    <span>{{ m.em|data_hora }}</span>
+                    <span class="sd-cor-{{ classe }}">{{ m.pendente ? 'Aguardando' : {credito: 'Crédito', debito: 'Débito', reembolso: 'Reembolso'}[m.tipo.value] }}</span>
+                    <span>{{ m.motivo }}</span>
+                    <span class="sd-cor-{{ classe }}">{{ m.tipo.value == 'debito' ? '−' : '+' }} {{ m.valorCentavos|reais }}</span>
+                </div>
+            {% else %}
+                <div class="sd-extrato-vazio">Nenhuma movimentação ainda.</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="sd-lista" data-screen-label="Chamados">
+        <div class="sd-lista-topo">
+            <b class="sd-lista-titulo" data-sd-titulo>Todos os chamados ({{ lista.chamados|length }})</b>
+            <label class="sd-busca"><i class="bi bi-search"></i><input type="text" placeholder="Buscar chamado" data-sd-busca></label>
+        </div>
+        {% if lista.totalDoEscritorio == 0 %}
+            <div class="sd-vazio">
+                <i class="bi bi-ticket-perforated"></i>
+                <div class="sd-vazio-titulo">Você ainda não abriu nenhum chamado</div>
+                <div class="sd-vazio-sub">Precisa de ajuda com algo? Abra um chamado e a equipe técnica do BlueJus vai atender você.</div>
+                <button type="button" class="sd-btn-azul" data-sd-abrir-novo><i class="bi bi-plus-lg"></i> Abrir meu primeiro chamado</button>
+            </div>
+        {% endif %}
+        {% for c in lista.chamados %}
+            <div class="sd-linha" data-sd-linha data-id="{{ c.id }}" data-status="{{ c.status.value }}"
+                 data-busca="{{ (c.numeroFormatado ~ ' ' ~ c.assunto ~ ' ' ~ c.descricao)|lower }}">
+                <b class="sd-linha-numero">{{ c.numeroFormatado }}</b>
+                <span class="sd-linha-assunto">
+                    <b>{{ c.assunto }}</b>
+                    <span>{{ c.prioridade.rotulo }} prioridade{% if c.tipo.exigeAgendamento and c.dataAgendada %} · {{ c.dataAgendada|data }} {{ c.horaAgendada }}{% endif %}</span>
+                </span>
+                <span class="sd-linha-tipo"><i class="bi {{ c.tipo.icone }}"></i> {{ c.tipo.rotulo }}</span>
+                <span class="sd-linha-data">{{ c.criadoEm|data_hora }}</span>
+                <span class="sd-selo {{ c.status.value }}">{{ c.status.rotulo }}</span>
+                {% if c.valorDebitadoCentavos is not null %}
+                    <b class="sd-linha-valor debitado">− {{ c.valorDebitadoCentavos|reais }}</b>
+                {% elseif c.valorEstimadoCentavos is not null %}
+                    <b class="sd-linha-valor estimado">{{ c.valorEstimadoCentavos|reais }}</b>
+                {% else %}
+                    <b class="sd-linha-valor estimado"></b>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </section>
+
+    <div class="sd-fundo" data-sd-fundo hidden></div>
+    <div class="sd-modal-area" data-sd-area hidden>
+        <div class="sd-modal" role="dialog" aria-modal="true">
+            <div class="sd-modal-topo">
+                <i class="bi bi-headset" data-sd-modal-icone></i>
+                <b data-sd-modal-titulo>Abrir chamado</b>
+                <button type="button" class="sd-modal-fechar" data-sd-fechar aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+            </div>
+
+            <div class="sd-modal-corpo" data-sd-painel="novo" hidden>
+                <div class="sd-aviso" data-sd-sem-saldo {{ saldo.podeAbrirChamado ? 'hidden' }}>
+                    <i class="bi bi-wallet2"></i>
+                    <div class="sd-aviso-texto"><b>Saldo insuficiente</b><br>Seu saldo é {{ saldo.saldoCentavos|reais }}. Para abrir um chamado é preciso ter pelo menos {{ minimo }}.</div>
+                    <button type="button" class="sd-btn-verde" data-sd-abrir-recarga>Adicionar saldo</button>
+                </div>
+                <div class="sd-tipos">
+                    {% for t in tipos %}
+                        <button type="button" class="sd-tipo{{ loop.first ? ' ativo' : '' }}" data-sd-tipo="{{ t.value }}" data-agenda="{{ t.exigeAgendamento ? '1' : '0' }}">
+                            <b><i class="bi {{ t.icone }}"></i>{{ t.rotulo }}</b>
+                            <span class="sd-tipo-desc">{{ t.descricao }}</span>
+                            {% if precos[t.value] is defined %}<span class="sd-tipo-preco">a partir de {{ precos[t.value]|reais }}</span>{% endif %}
+                        </button>
+                    {% endfor %}
+                </div>
+                <label class="sd-campo">ASSUNTO<input type="text" data-sd-assunto placeholder="Resumo do que você precisa" maxlength="160"></label>
+                <label class="sd-campo">DESCRIÇÃO<textarea data-sd-descricao rows="4" placeholder="Explique o problema ou o que deseja tratar com a equipe técnica"></textarea></label>
+                <div class="sd-trio">
+                    <label class="sd-campo">PRIORIDADE
+                        <select data-sd-prioridade>
+                            {% for p in prioridades %}<option value="{{ p.value }}"{{ p.value == 'media' ? ' selected' }}>{{ p.rotulo }}</option>{% endfor %}
+                        </select>
+                    </label>
+                    <label class="sd-campo" data-sd-agenda hidden>DATA<input type="date" data-sd-data></label>
+                    <label class="sd-campo" data-sd-agenda hidden>HORÁRIO<input type="time" data-sd-hora></label>
+                </div>
+                <div class="sd-erro" data-sd-erro hidden></div>
+            </div>
+
+            <div class="sd-modal-corpo sd-recarga" data-sd-painel="recarga" hidden>
+                <div class="sd-valores">
+                    {% for v in valoresDaRecarga %}
+                        <button type="button" class="sd-valor{{ v == 20 ? ' ativo' : '' }}" data-sd-valor="{{ v }}">{{ (v * 100)|reais }}</button>
+                    {% endfor %}
+                </div>
+                <div class="sd-qr" data-sd-qr></div>
+                <div class="sd-pix-texto" data-sd-pix-texto hidden>Pague <b data-sd-pix-valor></b> por PIX para <b>BlueJus Gestão e Tecnologia LTDA</b> (CNPJ 66.803.163/0001-10).<br>Identificação: <b data-sd-pix-id></b></div>
+                <button type="button" class="sd-pix-copiar" data-sd-copiar hidden><i class="bi bi-copy"></i> <span data-sd-copiar-rotulo>Copiar PIX copia e cola</span></button>
+                <div class="sd-pix-nota">O saldo é liberado quando o pagamento é confirmado.</div>
+                <div class="sd-erro" data-sd-erro-recarga hidden></div>
+            </div>
+
+            <div class="sd-modal-corpo sd-ver" data-sd-painel="ver" hidden></div>
+
+            <div class="sd-modal-rodape">
+                <button type="button" class="sd-rod-sec" data-sd-fechar>Cancelar</button>
+                <button type="button" class="sd-rod-azul" data-sd-enviar>Abrir chamado</button>
+                <button type="button" class="sd-rod-verde" data-sd-paguei hidden disabled>Já paguei</button>
+            </div>
+        </div>
+    </div>
+    <div class="sd-toast" data-sd-toast role="status" hidden></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('js/service-desk.js') }}" defer></script>
+{% endblock %}
