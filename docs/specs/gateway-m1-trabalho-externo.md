@@ -113,3 +113,20 @@ Respondidas pelo Coordenador em 27/10:
 2. Produção com **um** escritório e o manual ainda sem trava.
 3. Trava do manual (§4.4) ligada por chave separada, só depois de 2 semanas sem divergência não explicada.
 4. Passos de revisão obrigatórios antes de cada degrau: `/review` contra esta spec; em ALTO, segunda revisão independente.
+
+## 11. Como ficou a implementação (27/10)
+
+Decisões tomadas na entrega, além das da spec:
+
+- **Cliente da cobrança** = o escritório (tenant) dono da demanda, com nome e CNPJ do cadastro dele (decisão do Coordenador). Sem CNPJ válido o `Preparar` não cria nada e a aba mostra "Cadastre o CNPJ do escritório para gerar o PIX com confirmação automática."
+- **Quem fala com o banco** é o domínio `Pagamento` (`EmitirCobrancaPixUseCase`, `ConsultarCobrancaDaOrigemUseCase`, `CancelarCobrancaDaOrigemUseCase`); o `TrabalhoExterno` só decide valor, referência (`<código da demanda>-<n>`) e cliente, sem importar `Pagamento\Entity`.
+- **Chaves** no JSON `recursos`: `te` (liga o PIX dinâmico) e `te_trava` (o manual exige motivo com a cobrança viva). As duas desligadas por padrão; cada uma tem uma linha na tela de integração bancária.
+- **Botão manual**: com a cobrança viva ele sempre a cancela; sem `te_trava` o motivo é opcional, com `te_trava` sem motivo é 409.
+- **Aba**: `POST /trabalho-externo/api/demandas/{codigo}/pagamento/cobranca` é chamado pela tela ao abrir a aba (uma vez por demanda e por abertura) e pelo botão "Gerar novo QR" (`{"novo": true}`) quando a cobrança venceu.
+- **Escritório diferente do da sessão**: o Master da Central age na demanda de outro escritório; as consultas do consumidor ao `pagamento` passam por cima do filtro de escritório, sempre com o escritório da demanda explícito.
+
+Lacunas conhecidas, sem desenho ou sem API:
+
+- `BancoPix` não tem cancelamento de cobrança: "cancelar no banco" é só nosso. Um PIX pago em cobrança cancelada cai em `divergente` (aviso ao Master), como a spec prevê.
+- Adições sem desenho (convenção do sistema): linhas `te` e `te_trava` na tela de integração; o texto "válido até", "Cobrança vencida" e o botão "Gerar novo QR" na aba; o campo de motivo (diálogo de confirmação já existente) no "Confirmar recebimento".
+- Condição de corrida rara: duas abas abrindo ao mesmo tempo podem disputar a mesma referência (a segunda recebe erro de unicidade e a tela mostra o PIX estático até recarregar).
