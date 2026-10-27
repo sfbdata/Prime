@@ -17,8 +17,10 @@
    gauge e "Ritmo necessário" saem da meta de pastas do mês, em dias úteis (RitmoDaMeta).
    O que no desenho depende de função ou dado inexistente não é renderizado:
    plano "Aumentar o nível", Criar tarefa (não há tela de tarefa avulsa para receber
-   o título), simular dia (controle de teste do protótipo), Inteligência de Desempenho
-   (condição por pessoa).
+   o título), Inteligência de Desempenho (condição por pessoa).
+   "Teste · simular dia" (dc L1341-1347) fica no rodapé: troca só o "hoje" desta leitura
+   (querystring `dia_simulado`, SimulacaoDeDia), nunca grava, e o corpo do painel avisa quando
+   está simulando. O dashboard-inteligencia.js recarrega só o `.db-ia-corpo`.
    Estilo em public/css/dashboard-inteligencia.css (escopo .db-page).
 ─────────────────────────────────────────────────────────────────────────── #}
 {% import _self as ui %}
@@ -138,6 +140,14 @@
         </div>
 
         <div class="db-ia-corpo">
+
+            {# Aviso de simulação: o dia simulado nunca passa por real (nada é gravado). #}
+            {% if inteligencia.simulacao and inteligencia.simulacao.ativa %}
+                <div class="db-ia-sim-aviso" role="status" data-ia-sim-aviso>
+                    <i class="bi bi-flask" aria-hidden="true"></i>
+                    <span>{{ 'dashboard.ia.sim.aviso'|trans({data: inteligencia.simulacao.dia|date('d/m/Y', false)}) }}</span>
+                </div>
+            {% endif %}
 
             {# ── Modo avançado (dc L962-1279, conteúdo da aba Escritório), ANTES da leitura
                básica como no desenho. Sempre no HTML; aparece só com `db-page--ia-avancado`
@@ -355,6 +365,20 @@
             <i class="bi bi-arrow-right db-ia-teaser-seta" aria-hidden="true"></i>
         </button>
 
-        <div class="db-ia-rodape"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'dashboard.ia.rodape'|trans }}</div>
+        <div class="db-ia-rodape">
+            <div class="db-ia-rodape-linha"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'dashboard.ia.rodape'|trans }}</div>
+            {# Teste · simular dia (dc L1341-1347): 1 até o último dia alcançável do período; solta no dia
+               de hoje desfaz. Só existe com período completo. #}
+            {% if inteligencia.simulacao %}
+                {% set sim = inteligencia.simulacao %}
+                <div class="db-ia-sim">
+                    <span class="db-ia-sim-teste">{{ 'dashboard.ia.sim.teste'|trans }}</span>
+                    <label for="dbIaSimular">{{ 'dashboard.ia.sim.simular_dia'|trans }}</label>
+                    <input type="range" id="dbIaSimular" class="db-ia-sim-range" min="1" max="{{ sim.maximo }}" value="{{ sim.numero }}"
+                           data-ia-simular data-dia-real="{{ sim.diaReal }}" data-inicio="{{ sim.inicio }}" aria-label="{{ 'dashboard.ia.sim.aria'|trans }}">
+                    <output class="db-ia-sim-dia" for="dbIaSimular" data-ia-sim-dia>{{ sim.numero }}</output>
+                </div>
+            {% endif %}
+        </div>
     </aside>
 </div>
