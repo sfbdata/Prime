@@ -22,7 +22,8 @@ use Doctrine\ORM\Mapping as ORM;
  * O autor também é SET NULL: desvincular o colaborador do escritório não apaga o que ele
  * escreveu sobre o caso.
  *
- * Edição/exclusão: só o autor, na janela da `JanelaDeEdicaoDeComentario` (15 min) — a mesma
+ * Edição/exclusão: o autor, na janela da `JanelaDeEdicaoDeComentario` (15 min), ou o poder sem prazo (Master;
+ * primário com a opção), pelo `PrazoDoComentario` — a mesma
  * regra das observações da pasta. O conteúdo é HTML do editor rico, limpo pelo
  * `SanitizadorTextoRico` ANTES de chegar aqui (o UseCase é a porta).
  */

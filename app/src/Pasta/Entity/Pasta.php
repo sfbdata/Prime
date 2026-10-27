@@ -65,8 +65,22 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(length: 20, options: ['default' => self::SITUACAO_ATIVA])]
     private string $situacao = self::SITUACAO_ATIVA;
 
+    /**
+     * Quando a pasta chegou à etapa Finalizada do andamento ("Pastas concluídas" do Dashboard, spec
+     * dashboard-parte-1). Nula fora de Finalizada: voltar de fase ou reativar apaga, finalizar de novo
+     * grava a nova data. Quem mantém é o {@see PastaAndamento::gravar()} da via atual (e a troca de via);
+     * a pasta arquivada sem andamento gravado guarda a data do arquivamento. A situação e a lápide não
+     * mexem nela: a pasta excluída fica fora da contagem pelo excluida_em.
+     */
+    #[ORM\Column(name: 'finalizada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $finalizadaEm = null;
+
     #[ORM\Column(enumType: PrioridadePasta::class, options: ['default' => 'normal'])]
     private PrioridadePasta $prioridade = PrioridadePasta::Normal;
+
+    /** Área do direito em que a pasta é tocada ("Mover para outra carteira" do ⋮). NULL = "Sem carteira". */
+    #[ORM\Column(name: 'carteira', length: 30, nullable: true, enumType: CarteiraDaPasta::class)]
+    private ?CarteiraDaPasta $carteira = null;
 
     #[Assert\NotNull]
     #[ORM\Column(type: 'datetime_immutable')]
@@ -144,6 +158,18 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\ManyToOne(targetEntity: Cliente::class)]
     #[ORM\JoinColumn(name: 'cliente_principal_id', nullable: true, onDelete: 'SET NULL')]
     private ?Cliente $clientePrincipal = null;
+
+    /**
+     * Foto do cabeçalho da pasta SEM cliente cadastrado (desenho 02 L1255): só o NOME da chave no armazenamento,
+     * como `Cliente::$foto`; a chave inteira sai de `ChavesDePasta::foto()`, com o escopo do escritório. Com cliente
+     * cadastrado a foto que vale é a dele; esta continua aparecendo enquanto o cliente não tiver foto própria.
+     */
+    #[ORM\Column(name: 'foto', length: 255, nullable: true)]
+    private ?string $foto = null;
+
+    /** Quando a foto mudou: vai como `?v=` na URL, para o navegador não mostrar a anterior do cache. */
+    #[ORM\Column(name: 'foto_atualizada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $fotoAtualizadaEm = null;
 
 #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaDocumento::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['ordem' => 'ASC'])]
@@ -283,6 +309,22 @@ $this->documentos = new ArrayCollection();
         return $this;
     }
 
+    public function getFinalizadaEm(): ?\DateTimeImmutable
+    {
+        return $this->finalizadaEm;
+    }
+
+    /** A mesma data (até o segundo, como a coluna guarda) não troca o objeto: nada de UPDATE nem auditoria à toa. */
+    public function setFinalizadaEm(?\DateTimeImmutable $finalizadaEm): self
+    {
+        if ($finalizadaEm?->format('Y-m-d H:i:s') === $this->finalizadaEm?->format('Y-m-d H:i:s')) {
+            return $this;
+        }
+        $this->finalizadaEm = $finalizadaEm;
+
+        return $this;
+    }
+
     public function getPrioridade(): PrioridadePasta
     {
         return $this->prioridade;
@@ -293,6 +335,22 @@ $this->documentos = new ArrayCollection();
         $this->prioridade = $prioridade;
 
         return $this;
+    }
+
+    public function getCarteira(): ?CarteiraDaPasta
+    {
+        return $this->carteira;
+    }
+
+    /** Põe a pasta na carteira escolhida. Devolve se mudou (mover para a mesma carteira não muda nada). */
+    public function moverParaCarteira(CarteiraDaPasta $carteira): bool
+    {
+        if ($this->carteira === $carteira) {
+            return false;
+        }
+        $this->carteira = $carteira;
+
+        return true;
     }
 
     public function getPrioridadeBadgeClass(): string
@@ -1014,5 +1072,35 @@ $this->documentos = new ArrayCollection();
         $this->tenant = $tenant;
 
         return $this;
+    }
+
+    public function getFoto(): ?string
+    {
+        return $this->foto;
+    }
+
+    public function getFotoAtualizadaEm(): ?\DateTimeImmutable
+    {
+        return $this->fotoAtualizadaEm;
+    }
+
+    /** Troca a foto pelo nome recém-gravado e devolve o nome da anterior (null se não havia). */
+    public function trocarFoto(string $nome, \DateTimeImmutable $em): ?string
+    {
+        $anterior = $this->foto;
+        $this->foto = $nome;
+        $this->fotoAtualizadaEm = $em;
+
+        return $anterior;
+    }
+
+    /** Tira a foto e devolve o nome da que saiu (null se não havia). */
+    public function removerFoto(\DateTimeImmutable $em): ?string
+    {
+        $anterior = $this->foto;
+        $this->foto = null;
+        $this->fotoAtualizadaEm = $anterior !== null ? $em : $this->fotoAtualizadaEm;
+
+        return $anterior;
     }
 }

@@ -13,84 +13,96 @@ use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\EtapaDaPasta;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\DesfazerReaberturaRecusadoException;
+use App\Tarefa\Exception\MetaComDespachoSemConfirmacaoException;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
 use App\Tarefa\UseCase\DesfazerReaberturaDaMetaUseCase;
+use App\Tarefa\DTO\DespacharNaMetaInput;
+use App\Tarefa\Exception\DespachoRecusadoException;
+use App\Tarefa\Service\TextoDoDespacho;
+use App\Tarefa\UseCase\DarCienciaDosDespachosUseCase;
+use App\Tarefa\UseCase\DespacharNaMetaUseCase;
+use App\Tarefa\UseCase\MontarDespachosDaMetaUseCase;
+use App\Tarefa\UseCase\MontarSugestoesDaMetaUseCase;
+use App\Tarefa\UseCase\AprenderComAMetaUseCase;
+use App\Tarefa\UseCase\MontarEtapaDaMetaUseCase;
+use App\Tarefa\UseCase\MontarLinhaDoTempoDaMetaUseCase;
+use App\Tarefa\UseCase\MontarSituacaoDaMetaUseCase;
 use App\Shared\Http\EntregaDeArquivo;
-use App\Shared\Service\SanitizadorTextoRico;
-use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
+use App\Tarefa\UseCase\GravarMetaNovaUseCase;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
-use App\Repository\UserTenantRepository;
+use App\Tarefa\UseCase\MontarEsteiraDaPastaUseCase;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
+use App\Tarefa\Service\AcessoAMeta;
+use App\Tarefa\Service\AcessoAoModuloTarefas;
+use App\Tarefa\Armazenamento\ChavesDeTarefa;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
+use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\Service\TarefaTimelineAssembler;
+use App\Tarefa\Controller\RecusaDeQuemNaoCuidaDaMeta;
+use App\Tarefa\UseCase\ConcluirMetaUseCase;
 use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/tarefas')]
 final class TarefaController extends AbstractController
 {
     public function __construct(
-        private readonly ParameterBagInterface $parameterBag,
-        private readonly CaminhoDeAnexoDeTarefa $caminhoDeAnexo,
+        private readonly EntregaDeArquivo $entrega,
         private readonly TarefaTimelineAssembler $timelineAssembler,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
-        private readonly UserTenantRepository $userTenantRepo,
         private readonly NotificacaoService $notificacaoService,
+        private readonly AcessoAMeta $acessoAMeta,
+        private readonly AcessoAoModuloTarefas $moduloTarefas,
     ) {
     }
 
     /**
      * Tela "Minhas Metas": as metas do usuário logado, separadas pelo PAPEL dele (a aba).
      *
-     * A aba e o modo vêm da query string porque precisam ser linkáveis — os KPIs do topo são
+     * A aba e os filtros vêm da query string porque precisam ser linkáveis — os KPIs do topo são
      * atalhos que apontam para uma aba já filtrada, e o usuário precisa poder guardar o link.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
-    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, AcessoAPasta $acessoAPasta): Response
+    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, MontarEsteiraDaPastaUseCase $esteira, AcessoAPasta $acessoAPasta): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
 
-        $filtros = [
-            'busca'      => trim((string) $request->query->get('busca', '')),
-            'status'     => (string) $request->query->get('status', ''),
-            'prioridade' => (string) $request->query->get('prioridade', ''),
-            'prazo'      => (string) $request->query->get('prazo', ''),
-        ];
-
-        $aba        = AbaMetas::deQueryString($request->query->get('aba'));
+        $filtros     = $this->filtrosDeMinhasMetas($request);
+        $aba         = AbaMetas::deQueryString($request->query->get('aba'));
         $soAListagem = $request->isXmlHttpRequest();
+        $ocultas     = $acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId());
 
         $dados = [
             'painel'  => $useCase->executar(
                 $usuario,
                 $aba,
                 $filtros,
-                $request->query->get('modo') === 'lista',
                 // Na recarga parcial só o fragmento da lista é redesenhado; calcular as
                 // contagens do topo ali seria pagar 8 consultas por tecla digitada na busca.
                 $soAListagem,
-                $acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId()),
+                $ocultas,
+                $tenant,
             ),
             'filtros' => $filtros,
         ];
@@ -99,7 +111,27 @@ final class TarefaController extends AbstractController
             return $this->render('tarefa/_resultado.html.twig', $dados);
         }
 
+        // A esteira é GERAL DO ESCRITÓRIO (desenho 04 de 22/10) e fica fora do fragmento que o filtro recarrega.
+        $dados['esteira'] = $esteira->executar($usuario, $tenant, new \DateTimeImmutable('today'), $ocultas);
+
         return $this->render('tarefa/minhas.html.twig', $dados);
+    }
+
+    /** @return array{busca: string, prioridade: string, prazo: string, etapa: string} */
+    private function filtrosDeMinhasMetas(Request $request): array
+    {
+        // Prioridade da meta (desenho 04); valor fora do enum (o antigo `prioridade` da pasta) vira vazio.
+        $prioridade = PrioridadeDaMeta::tryFrom((string) $request->query->get('prioridade', ''));
+        // Caixa da esteira clicada ("Só a etapa X", desenho 04 de 22/10); valor fora do enum vira vazio.
+        $etapa = EtapaDaPasta::tryFrom((string) $request->query->get('etapa', ''));
+
+        return [
+            // Sem `status`: o desenho 04 (P:69-80) não tem o filtro Status (dono, 21/10).
+            'busca'      => trim((string) $request->query->get('busca', '')),
+            'prioridade' => $prioridade === null ? '' : $prioridade->value,
+            'prazo'      => (string) $request->query->get('prazo', ''),
+            'etapa'      => $etapa === null ? '' : $etapa->value,
+        ];
     }
 
     /**
@@ -150,7 +182,7 @@ final class TarefaController extends AbstractController
         Request $request,
         PastaRepository $pastaRepository,
         ColaboradoresAtribuiveis $atribuiveis,
-        EntityManagerInterface $entityManager
+        GravarMetaNovaUseCase $gravarMeta
     ): JsonResponse {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -184,6 +216,20 @@ final class TarefaController extends AbstractController
             return $this->json(['erro' => 'Título e descrição são obrigatórios.'], 422);
         }
 
+        // D-META (desenho 02, PZ-MOD-04): prazo e ao menos um responsável também são obrigatórios.
+        $prazo = $this->prazoDaMetaNova($request);
+        $responsaveis = $atribuiveis->resolverVarios(array_map('intval', $request->request->all('responsaveis')), $tenant);
+        if ($prazo === null || $responsaveis === []) {
+            return $this->json(['erro' => $prazo === null ? 'Informe um prazo válido para a meta.' : 'Escolha ao menos um responsável do escritório para a meta.'], 422);
+        }
+
+        // Desenho 02 (L179 e L4048 `inval`): a caixa / etapa é escolhida no modal, obrigatória. Só um valor do enum
+        // vale; a dedução pelo título (PrePersist) continua como rede para as outras rotas, não para esta.
+        $etapa = EtapaDaPasta::tryFrom(trim((string) $request->request->get('etapa', '')));
+        if ($etapa === null) {
+            return $this->json(['erro' => 'Escolha a caixa / etapa da meta.'], 422);
+        }
+
         $tarefa = new Tarefa();
         $tarefa->setTitulo($titulo);
         $tarefa->setDescricao($descricao);
@@ -191,23 +237,14 @@ final class TarefaController extends AbstractController
         $tarefa->setPasta($pasta);
         $tarefa->setTenant($tenant);
         $tarefa->setCriadoPor($usuario);
-
-        $prazo = trim((string) $request->request->get('prazo', ''));
-        if ($prazo !== '') {
-            try {
-                $tarefa->setPrazo(new \DateTimeImmutable($prazo));
-            } catch (\Throwable) {
-                // prazo inválido é ignorado
-            }
-        }
-
-        $responsavelIds = array_map('intval', $request->request->all('responsaveis'));
-        foreach ($atribuiveis->resolverVarios($responsavelIds, $tenant) as $responsavel) {
+        $tarefa->setPrazo($prazo);
+        $tarefa->setEtapa($etapa);
+        foreach ($responsaveis as $responsavel) {
             $tarefa->addResponsavel($responsavel);
         }
 
-        $entityManager->persist($tarefa);
-        $entityManager->flush();
+        // Grava já com o número da meta no escritório ("Nº 0001"), sob a trava da sequência.
+        $gravarMeta->executar($tarefa);
 
         $this->notificacaoService->notificarTarefaCriada($tarefa);
 
@@ -222,28 +259,48 @@ final class TarefaController extends AbstractController
     }
 
     /**
+     * O prazo da meta nova, no formato do campo do modal (`<input type="date">`, ISO `aaaa-mm-dd`). Vazio ou fora
+     * do formato (texto solto, data impossível como 31/02) vira null, e o `criarParaPasta` responde 422.
+     */
+    private function prazoDaMetaNova(Request $request): ?\DateTimeImmutable
+    {
+        $valor = trim((string) $request->request->get('prazo', ''));
+        $prazo = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+
+        return $prazo !== false && $prazo->format('Y-m-d') === $valor ? $prazo : null;
+    }
+
+    /**
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, AtualizarPrazoTarefaUseCase $prazoUseCase, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao, MontarLinhaDoTempoDaMetaUseCase $linhaDoTempo, MontarEtapaDaMetaUseCase $etapa, MontarSugestoesDaMetaUseCase $sugestoes): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
 
+        // Ciência automática (C14) ANTES de montar a tela, para o "Ciente" já aparecer nesta abertura.
+        $agora = new \DateTimeImmutable();
+        $ciencia->executar($tarefa, $usuario, $tenant, $agora);
+
         $tenantId = (int) $tenant->getId();
         $timelineItems = $this->timelineAssembler->montar($tarefa, $tenantId);
 
         $users = $atribuiveis->doEscritorio($tenant, $tarefa->getResponsaveis());
 
+        $despachosDaMeta = $despachos->executar($tarefa, $usuario, $tenant, $agora);
+
         return $this->render('tarefa/show.html.twig', [
             'tarefa'         => $tarefa,
-            'statusLabels'   => Tarefa::STATUS_LABELS,
-            'timelineItems'  => $timelineItems,
+            'linhaDoTempo'   => $linhaDoTempo->executar($timelineItems, $despachosDaMeta),
+            'despachos'      => $despachosDaMeta,
+            'sugestoes'      => $sugestoes->doDespacho($tarefa, $usuario, $tenant, $agora->setTime(0, 0)),
+            'situacao'       => $situacao->executar($tarefa, $tenant, $agora),
+            'etapa'          => $etapa->executar($tarefa, $usuario, $tenant),
             'usuarioAtual'   => $usuario,
             'users'          => $users,
-            'podeExcluirMeta' => $excluirUseCase->podeExcluir($tarefa, $usuario, $tenant),
             'podeEditarPrazo' => $prazoUseCase->podeEditarPrazo($tarefa, $usuario, $tenant),
         ]);
     }
@@ -332,11 +389,12 @@ final class TarefaController extends AbstractController
     }
 
     /**
-     * Envia mensagem e avança status conforme o ciclo de vida.
+     * Despachar na meta (desenho 04B de 22/10; spec `minhas-metas-esteira-2210.md`, Fase 2a). O controller só monta
+     * o Input; a regra (texto ou anexo, código do registro, ciclo de vida e avisos) é do `DespacharNaMetaUseCase`.
      * Responsável envia → Para Revisão. Gestor devolve → Pendente.
      */
     #[Route('/{id}/mensagem', name: 'tarefa_mensagem', methods: ['POST'])]
-    public function mensagem(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, SanitizadorTextoRico $sanitizador): Response
+    public function mensagem(Tarefa $tarefa, Request $request, DespacharNaMetaUseCase $useCase, ValidatorInterface $validator, AprenderComAMetaUseCase $aprender, LoggerInterface $logger): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -347,99 +405,71 @@ final class TarefaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        // Vem do editor rico (HTML): limpo ANTES de persistir. Texto puro atravessa intacto.
-        $texto = $sanitizador->limpar(trim((string) $request->request->get('mensagem', ''))) ?? '';
-        $acao  = (string) $request->request->get('acao', '');
+        $input = $this->entradaDoDespacho($request);
+        $erros = $validator->validate($input);
+        if (count($erros) > 0) {
+            $this->addFlash('danger', (string) $erros->get(0)->getMessage());
 
-        $arquivoMensagem = $request->files->get('arquivo_mensagem');
-        $arquivoAnexoPath = null;
-
-        if ($arquivoMensagem instanceof UploadedFile && $arquivoMensagem->isValid()) {
-            $uploaded = $this->uploadFiles([$arquivoMensagem], 'public/uploads/tarefas/chat');
-            $arquivoAnexoPath = $uploaded[0] ?? null;
+            return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
         }
 
-        // `estaVazio` e não `!== ''`: o editor entrega `<p><br></p>` quando nada foi digitado.
-        $temTexto = !$sanitizador->estaVazio($texto);
-
-        if ($temTexto || $arquivoAnexoPath !== null) {
-            $mensagem = new TarefaMensagem();
-            $mensagem->setUsuario($usuario);
-            $mensagem->setMensagem($temTexto ? $texto : '[Arquivo anexado]');
-            $mensagem->setArquivoAnexo($arquivoAnexoPath);
-            $mensagem->setTenant($tarefa->getTenant());
-            $tarefa->addMensagem($mensagem);
-            $entityManager->persist($mensagem);
-        }
-
-        // Transições de status pelo ciclo de vida
-        $enviada   = false;
-        $devolvida = false;
-        if ($acao === 'enviar' && $tarefa->getStatus() === Tarefa::STATUS_PENDENTE) {
-            $tarefa->setStatus(Tarefa::STATUS_EM_REVISAO);
-            $enviada = true;
-        } elseif ($acao === 'devolver' && $tarefa->getStatus() === Tarefa::STATUS_EM_REVISAO) {
-            $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
-            $devolvida = true;
-        }
-
-        $entityManager->flush();
-
-        if ($enviada) {
-            $this->notificacaoService->notificarTarefaEmRevisao($tarefa);
-        }
-
-        if ($devolvida) {
-            $this->notificacaoService->notificarTarefaPendente($tarefa);
-        }
-
-        return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
-    }
-
-    /**
-     * Edita o texto de uma mensagem do histórico. Apenas o autor pode editar.
-     */
-    #[Route('/mensagem/{id}/editar', name: 'tarefa_mensagem_editar', methods: ['POST'])]
-    public function editarMensagem(TarefaMensagem $mensagem, Request $request, EditarTarefaMensagemUseCase $useCase, SanitizadorTextoRico $sanitizador): JsonResponse
-    {
-        /** @var User $usuario */
-        $usuario = $this->getUser();
-        $tenant = $this->assertAccess($usuario);
-        $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa(), $tenant);
-
-        if ($mensagem->getUsuario()?->getId() !== $usuario->getId()) {
-            return $this->json(['erro' => 'Apenas o autor pode editar esta mensagem.'], Response::HTTP_FORBIDDEN);
-        }
-
-        if (!$this->isCsrfTokenValid('editar_mensagem_tarefa_'.$mensagem->getId(), (string) $request->request->get('_token'))) {
-            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
-        }
-
+        $anexo = $request->files->get('arquivo_mensagem');
         try {
-            $useCase->executar($mensagem, (string) $request->request->get('conteudo', ''));
-        } catch (\InvalidArgumentException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
+            // O anexo vai aos documentos da pasta pela regra de chaves (C4); recusado, nada fica.
+            $useCase->executar($tarefa, $usuario, $tenant, $input, $anexo instanceof UploadedFile && $anexo->isValid() ? $anexo : null);
+        } catch (DespachoRecusadoException $e) {
+            $this->addFlash('danger', $e->getMessage());
 
-        return $this->json([
-            // cru volta ao editor; conteudoHtml é o que a tela exibe (sanitizado).
-            'conteudo'     => $mensagem->getMensagem(),
-            'conteudoHtml' => $sanitizador->paraExibicao($mensagem->getMensagem()),
-            'editadoEm'    => $mensagem->getEditadoEm()?->format('d/m/Y H:i'),
-        ]);
+            return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+        }
+        $url = $this->generateUrl('tarefa_show', ['id' => $tarefa->getId()]);
+        $this->aprenderDoDespacho($aprender, $logger, $tarefa, $usuario, $tenant, $input);
+
+        return $this->redirect($url);
     }
 
     /**
-     * Conclui a tarefa (qualquer usuário com acesso pode concluir).
+     * Aprendizado (Fase 4) é melhor esforço: roda só depois do despacho gravado (e só se a pessoa não desligou no Meu
+     * Perfil, D4). Uma falha aqui não desfaz nem esconde o despacho: vai para o log (meta e pessoa, sem o texto) e a
+     * resposta segue de sucesso, montada antes, sem depender do EntityManager.
+     */
+    private function aprenderDoDespacho(AprenderComAMetaUseCase $aprender, LoggerInterface $logger, Tarefa $tarefa, User $usuario, Tenant $tenant, DespacharNaMetaInput $input): void
+    {
+        try {
+            $aprender->doDespacho($tarefa, $usuario, $tenant, $input, new \DateTimeImmutable('today'));
+        } catch (\Throwable $e) {
+            $logger->error('Aprendizado do despacho falhou; o despacho ficou gravado.', ['meta' => $tarefa->getId(), 'usuario' => $usuario->getId(), 'erro' => $e::class]);
+        }
+    }
+
+    /** Campo simples (C10): quebras normalizadas antes da validação, para o limite contar o que a pessoa escreveu. */
+    private function entradaDoDespacho(Request $request): DespacharNaMetaInput
+    {
+        $natureza = trim((string) $request->request->get('natureza', ''));
+        $prazo    = trim((string) $request->request->get('prazo', ''));
+
+        return new DespacharNaMetaInput(
+            texto: TextoDoDespacho::normalizar((string) $request->request->get('mensagem', '')),
+            acao: (string) $request->request->get('acao', ''),
+            natureza: $natureza === '' ? null : $natureza,
+            prazo: $prazo === '' ? null : $prazo,
+        );
+    }
+
+    /**
+     * Conclui a meta (aba Metas da pasta). D3 (spec `minhas-metas-esteira-2210.md`, decisão do dono 22/10): só o
+     * responsável ou quem criou a meta conclui, pela mesma regra e com a mesma recusa (403) da passagem de etapa.
+     * Vale também para o "Desfazer" da reabertura, que conclui de novo.
      */
     #[Route('/{id}/concluir', name: 'tarefa_concluir', methods: ['POST'])]
     public function concluir(
         Tarefa $tarefa,
         Request $request,
-        EntityManagerInterface $entityManager,
         ListaDeMetasDaPastaEmJson $listaEmJson,
         ReaberturaDesfazivelDaMeta $reaberturaDesfazivel,
         DesfazerReaberturaDaMetaUseCase $desfazerReabertura,
+        QuemCuidaDaMeta $quemCuida,
+        ConcluirMetaUseCase $concluirMeta,
     ): Response {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -448,6 +478,9 @@ final class TarefaController extends AbstractController
 
         if (!$this->isCsrfTokenValid('concluir_tarefa_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+        if (!$quemCuida->ehResponsavelOuCriador($tarefa, $usuario)) {
+            return RecusaDeQuemNaoCuidaDaMeta::responder($request);
         }
 
         $agora = new \DateTimeImmutable();
@@ -483,13 +516,9 @@ final class TarefaController extends AbstractController
         // Concluir de verdade encerra qualquer "Desfazer" pendente desta meta.
         $reaberturaDesfazivel->esquecer($request->getSession(), $tarefa, $tenant, $agora);
 
-        $concluiu = false;
-        if ($tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
-            $tarefa->setStatus(Tarefa::STATUS_CONCLUIDA);
-            $tarefa->setDataConclusao($agora);
-            $entityManager->flush();
-            $concluiu = true;
-
+        // Trava e relê a meta: a passagem de etapa pode tê-la concluído depois que esta tela a leu.
+        $concluiu = $concluirMeta->executar($tarefa, $agora);
+        if ($concluiu) {
             $this->notificacaoService->notificarTarefaConcluida($tarefa);
         }
 
@@ -513,7 +542,7 @@ final class TarefaController extends AbstractController
      * Exclui uma meta — restrita ao criador e à janela de tempo após a criação.
      */
     #[Route('/{id}/excluir', name: 'tarefa_excluir', methods: ['POST'])]
-    public function excluir(Tarefa $tarefa, Request $request, ExcluirTarefaUseCase $useCase): Response
+    public function excluir(Tarefa $tarefa, Request $request, ExcluirTarefaUseCase $useCase, ListaDeMetasDaPastaEmJson $listaEmJson): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -527,11 +556,22 @@ final class TarefaController extends AbstractController
         $pastaId = $tarefa->getPasta()->getId();
 
         try {
-            $useCase->executar($tarefa, $usuario, $tenant);
-        } catch (MetaNaoExcluivelException) {
-            $this->addFlash('danger', 'Esta meta não pode ser excluída.');
+            // A janela do despacho registrado manda `confirmar_despacho=1` (só quem tem o poder sem prazo a vê).
+            $useCase->executar($tarefa, $usuario, $tenant, $request->request->getBoolean('confirmar_despacho'));
+        } catch (MetaComDespachoSemConfirmacaoException $e) {
+            return new Response($e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (MetaNaoExcluivelException $e) {
+            if ($request->isXmlHttpRequest()) {
+                return new JsonResponse(['sucesso' => false, 'mensagem' => $e->getMessage()], Response::HTTP_CONFLICT);
+            }
+            $this->addFlash('danger', $e->getMessage());
 
             return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+        }
+
+        // "Desfazer" do aviso "Meta duplicada" (pasta-metas.js): a aba volta renderizada, sem a cópia.
+        if ($request->isXmlHttpRequest()) {
+            return $listaEmJson->responder($tarefa, true, 'Meta excluída');
         }
 
         $this->addFlash('success', 'Meta excluída.');
@@ -547,11 +587,8 @@ final class TarefaController extends AbstractController
      * de quem clicasse. A resposta segue a MESMA política da `EntregaDeArquivo` (SEC-003): nosniff
      * sempre e `CSP: sandbox` para todo tipo que não seja PDF, imagem raster, áudio ou vídeo.
      *
-     * Por que não chama `EntregaDeArquivo::resposta()`: o anexo de tarefa guarda caminho público
-     * com `/`, que `ChaveDeArquivo` recusa, e a conversão para chave é a E2.7 (D5 da spec de
-     * storage). Até lá a decisão de sandbox vem de `EntregaDeArquivo::exigeSandbox()` — uma regra
-     * só, sem cópia — e o `Content-Type` é o palpite da própria `BinaryFileResponse` no
-     * `prepare()`, o mesmo tipo que a decisão de sandbox consultou.
+     * Desde a E2.7 a resposta é a própria `EntregaDeArquivo`: a chave sai de `ChavesDeTarefa`, que
+     * traduz o caminho público da coluna sem relaxar `ChaveDeArquivo` (D5).
      */
     #[Route('/mensagem/{id}/arquivo/visualizar', name: 'tarefa_mensagem_arquivo_view', methods: ['GET'])]
     public function viewArquivoMensagem(TarefaMensagem $mensagem): Response
@@ -561,21 +598,7 @@ final class TarefaController extends AbstractController
         $tenant = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa(), $tenant);
 
-        $caminho = $this->resolverCaminhoArquivo((string) $mensagem->getArquivoAnexo());
-
-        if ($caminho === null || !file_exists($caminho)) {
-            throw $this->createNotFoundException('Arquivo não encontrado.');
-        }
-
-        $response = new BinaryFileResponse($caminho);
-        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, basename($caminho));
-        $response->headers->set('X-Content-Type-Options', 'nosniff');
-
-        if (EntregaDeArquivo::exigeSandbox($response->getFile()->getMimeType() ?: 'application/octet-stream')) {
-            $response->headers->set('Content-Security-Policy', EntregaDeArquivo::CSP_SANDBOX);
-        }
-
-        return $response;
+        return $this->entregarAnexo($mensagem, inline: true);
     }
 
     /**
@@ -589,13 +612,7 @@ final class TarefaController extends AbstractController
         $tenant = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa(), $tenant);
 
-        $caminho = $this->resolverCaminhoArquivo((string) $mensagem->getArquivoAnexo());
-
-        if ($caminho === null || !file_exists($caminho)) {
-            throw $this->createNotFoundException('Arquivo não encontrado.');
-        }
-
-        return $this->file($caminho, basename($caminho), ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+        return $this->entregarAnexo($mensagem, inline: false);
     }
 
     private function assertAccess(User $user): Tenant
@@ -604,77 +621,36 @@ final class TarefaController extends AbstractController
         if ($tenant === null) {
             throw $this->createAccessDeniedException('Sem tenant selecionado.');
         }
-        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'tarefas')) {
+        if (!$this->moduloTarefas->pode($user, $tenant)) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Tarefas.');
         }
 
         return $tenant;
     }
 
+    /** A guarda da tela da meta mora no `AcessoAMeta` (SEC-013 e o cadeado da pasta), a mesma do Extrato e do Lembrar. */
     private function verificarAcessoTarefa(User $usuario, Tarefa $tarefa, Tenant $tenant): void
     {
-        // SEC-013: a posse vem ANTES do vínculo. Conferir só se o criador ou o responsável da
-        // pasta tem vínculo com o escritório da sessão deixa passar a meta de OUTRO escritório
-        // quando essa pessoa está nos dois (e o TenantFilter falhou). Fora do escritório: 404,
-        // como todo recurso cross-tenant — 403 confirmaria que o id existe em algum lugar.
-        if ($tarefa->getTenant()?->getId() !== $tenant->getId()) {
-            throw $this->createNotFoundException('Meta não encontrada.');
-        }
-
-        $pasta = $tarefa->getPasta();
-        $criador = $pasta->getCriadoPor();
-        $responsavel = $pasta->getResponsavel();
-        $criadorPertence = $criador !== null
-            && $this->userTenantRepo->existeVinculoAtivo($criador, $tenant);
-        $responsavelPertence = $responsavel !== null
-            && $this->userTenantRepo->existeVinculoAtivo($responsavel, $tenant);
-
-        if (!$criadorPertence && !$responsavelPertence) {
-            throw $this->createAccessDeniedException('Acesso negado.');
-        }
+        $this->acessoAMeta->exigir($tarefa, $tenant, $usuario);
     }
 
     /**
-     * Delegado a `CaminhoDeAnexoDeTarefa`, que aplica allowlist + normalização + confinamento.
-     * A lógica vive num serviço porque a guarda contra travessia não é testável pela rota: o
-     * roteador do Symfony normaliza `../..` antes do controller (ver o comentário em
-     * `ServirFotoControllerTest::testServirFotoComPathTraversalRetorna404`).
+     * Visualizar e baixar entregam pela chave, depois da autorização (INV-5). D10 em Tarefa (spec P2
+     * §10.1): valor fora do formato (`admin/` legado, prefixo desconhecido, travessia) é, para quem
+     * pede, o mesmo que não existir — 404, como a rota sempre respondeu; valor no formato sem
+     * escritório é dado corrompido e a `ChaveDeArquivoInvalida` propaga. Ausência também é 404
+     * (`EntregaDeArquivo`); pane do storage sobe.
+     *
+     * O nome para download é o de sempre: o último segmento do valor guardado na coluna.
      */
-    private function resolverCaminhoArquivo(string $caminhoPublico): ?string
+    private function entregarAnexo(TarefaMensagem $mensagem, bool $inline): Response
     {
-        return $this->caminhoDeAnexo->resolver($caminhoPublico);
-    }
-
-    /**
-     * @param mixed[] $files
-     * @return string[]
-     */
-    private function uploadFiles(array $files, string $relativeTargetDir): array
-    {
-        $projectDir = rtrim((string) $this->parameterBag->get('kernel.project_dir'), '/');
-        $relativeTargetDir = ltrim($relativeTargetDir, '/');
-        $targetDir = $projectDir . '/' . $relativeTargetDir;
-
-        if (!is_dir($targetDir)) {
-            if (!mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-                throw new \RuntimeException('Não foi possível criar o diretório de upload: ' . $targetDir);
-            }
+        if (!ChavesDeTarefa::temAnexoEnderecavel($mensagem)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        $paths = [];
+        $chave = ChavesDeTarefa::anexoDeMensagem($mensagem);
 
-        foreach ($files as $file) {
-            if (!$file instanceof UploadedFile || !$file->isValid()) {
-                continue;
-            }
-
-            $extension = $file->guessExtension() ?: 'bin';
-            $filename  = uniqid('arquivo_', true) . '.' . $extension;
-            $file->move($targetDir, $filename);
-            $publicBase = $projectDir . '/public';
-            $paths[] = str_replace($publicBase, '', $targetDir) . '/' . $filename;
-        }
-
-        return $paths;
+        return $this->entrega->resposta($chave, $chave->nome, $inline);
     }
 }

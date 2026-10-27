@@ -74,7 +74,7 @@
         if (texto === '') { return; }
 
         copiar(texto).then(function (ok) {
-            if (!ok) { avisar('Não foi possível copiar'); return; }
+            if (!ok) { avisar(BJ_T.t('pasta_cabecalho.js.clientes.copiar_erro')); return; }
 
             var aviso = botao.getAttribute('data-ps-copiado');
             if (aviso) { avisar(aviso); }
@@ -116,7 +116,7 @@
         var resp   = botao.getAttribute('data-ics-responsavel') || '';
         var pasta  = botao.getAttribute('data-ics-pasta') || '';
         var uid    = botao.getAttribute('data-ics-uid') || String(Date.now());
-        if (!/^\d{8}$/.test(dia)) { avisar('Prazo sem data'); return; }
+        if (!/^\d{8}$/.test(dia)) { avisar(BJ_T.t('pasta_cabecalho.js.clientes.sem_data')); return; }
 
         var linhas = [
             'BEGIN:VCALENDAR',
@@ -126,9 +126,9 @@
             'UID:' + uid + '@bluejus',
             'DTSTAMP:' + carimbo(),
             'DTSTART;VALUE=DATE:' + dia,
-            'SUMMARY:' + icsTexto(titulo + ' (Pasta ' + pasta + ')'),
+            'SUMMARY:' + icsTexto(BJ_T.t('pasta_cabecalho.js.clientes.ics_resumo', { titulo: titulo, pasta: pasta })),
         ];
-        if (resp !== '') { linhas.push('DESCRIPTION:' + icsTexto('Responsável: ' + resp)); }
+        if (resp !== '') { linhas.push('DESCRIPTION:' + icsTexto(BJ_T.t('pasta_cabecalho.js.clientes.ics_responsavel', { nome: resp }))); }
         linhas.push('END:VEVENT', 'END:VCALENDAR', '');
 
         var blob = new Blob([linhas.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
@@ -196,7 +196,7 @@
                 var fechar = janela.querySelector('.js-ps-cli-fechar');
                 if (fechar) { fechar.focus({ preventScroll: true }); }
             })
-            .catch(function () { avisar('Não foi possível abrir os detalhes do cliente'); });
+            .catch(function () { avisar(BJ_T.t('pasta_cabecalho.js.clientes.detalhes_erro')); });
     }
 
     // Arrastar pelo cabecalho (desenho: "Arraste para mover"). O arraste e o
@@ -253,7 +253,7 @@
         var input = document.createElement('input');
         input.type = tipo;
         input.className = 'ps-cli-contato-input js-ps-ct-campo js-ps-ct-input';
-        input.placeholder = tipo === 'tel' ? 'Telefone com DDD' : 'E-mail';
+        input.placeholder = tipo === 'tel' ? BJ_T.t('pasta_cabecalho.js.clientes.telefone') : BJ_T.t('pasta_cabecalho.js.clientes.email');
         input.setAttribute('aria-label', input.placeholder);
         input.value = novo ? '' : (linha.getAttribute('data-valor') || '');
 
@@ -261,10 +261,10 @@
         Array.prototype.forEach.call(linha.children, function (el) {
             if (el.tagName !== 'I') { el.hidden = true; }
         });
-        var botoes = [ctBotao('js-ps-ct-campo js-ps-ct-salvar', 'bi-check2', 'Salvar')];
+        var botoes = [ctBotao('js-ps-ct-campo js-ps-ct-salvar', 'bi-check2', BJ_T.t('pasta_cabecalho.js.clientes.salvar'))];
         // E-mail e obrigatorio no cadastro: troca-se, nao se remove.
-        if (tipo === 'tel' && !novo) { botoes.push(ctBotao('js-ps-ct-campo js-ps-ct-remover', 'bi-trash3', 'Remover')); }
-        botoes.push(ctBotao('js-ps-ct-campo js-ps-ct-cancelar', 'bi-x-lg', 'Cancelar'));
+        if (tipo === 'tel' && !novo) { botoes.push(ctBotao('js-ps-ct-campo js-ps-ct-remover', 'bi-trash3', BJ_T.t('pasta_cabecalho.js.clientes.remover'))); }
+        botoes.push(ctBotao('js-ps-ct-campo js-ps-ct-cancelar', 'bi-x-lg', BJ_T.t('pasta_cabecalho.js.clientes.cancelar')));
         linha.appendChild(input);
         botoes.forEach(function (b) { linha.appendChild(b); });
 
@@ -292,7 +292,8 @@
         ctAbrir(linha, true);
     }
 
-    var CT_SESSAO_EXPIRADA = 'Sua sessão expirou; recarregue a página';
+    // Texto pedido na hora do uso, e não numa constante da carga.
+    function ctSessaoExpirada() { return BJ_T.t('pasta_cabecalho.js.clientes.sessao_expirada'); }
 
     function ctGravar(valor) {
         if (!ctEditando || !janelaAberta) { return; }
@@ -305,7 +306,7 @@
         if (valor === '' && ed.novo) { ctSair(); return; }
         if (valor === '' && ed.linha.getAttribute('data-tipo') === 'email') {
             ed.input.classList.add('is-invalido');
-            avisar('O e-mail é obrigatório no cadastro');
+            avisar(BJ_T.t('pasta_cabecalho.js.clientes.email_obrigatorio'));
 
             return;
         }
@@ -323,12 +324,12 @@
             .then(function (r) {
                 // Sessão expirada: o fetch segue o redirect ao login e chega 200 com a página de
                 // login. Isso não é "salvo" — nada é trocado e o usuário é avisado.
-                if (r.redirected) { return { erro: CT_SESSAO_EXPIRADA }; }
+                if (r.redirected) { return { erro: ctSessaoExpirada() }; }
                 if (r.ok) { return r.text().then(function (html) { return { html: html }; }); }
 
                 return r.json().then(
-                    function (j) { return { erro: (j && j.erro) || 'Não foi possível salvar o contato' }; },
-                    function () { return { erro: 'Não foi possível salvar o contato' }; }
+                    function (j) { return { erro: (j && j.erro) || BJ_T.t('pasta_cabecalho.js.clientes.contato_erro') }; },
+                    function () { return { erro: BJ_T.t('pasta_cabecalho.js.clientes.contato_erro') }; }
                 );
             })
             .then(function (res) {
@@ -347,7 +348,7 @@
                 // Só troca se o que voltou é MESMO a janela (a marca `.ps-cli-janela` do
                 // `cliente/_resumo.html.twig`); qualquer outra página (login) não é resposta.
                 if (!nova || !nova.classList.contains('ps-cli-janela')) {
-                    avisar(CT_SESSAO_EXPIRADA);
+                    avisar(ctSessaoExpirada());
 
                     return;
                 }
@@ -356,11 +357,11 @@
                 nova.style.top = janela.style.top;
                 janela.replaceWith(nova);
                 janelaAberta = nova;
-                avisar(valor === '' ? 'Contato removido' : 'Contato salvo');
+                avisar(valor === '' ? BJ_T.t('pasta_cabecalho.js.clientes.contato_removido') : BJ_T.t('pasta_cabecalho.js.clientes.contato_salvo'));
             })
             .catch(function () {
                 ed.linha.classList.remove('is-salvando');
-                avisar('Não foi possível salvar o contato');
+                avisar(BJ_T.t('pasta_cabecalho.js.clientes.contato_erro'));
             });
     }
 

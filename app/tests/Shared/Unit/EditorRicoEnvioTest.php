@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Shared\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -106,8 +107,12 @@ final class EditorRicoEnvioTest extends TestCase
         $show = $this->ler(self::APP . '/templates/pasta/show.html.twig');
 
         self::assertStringNotContainsString("'<i class=\"bi bi-send me-1\"></i> Enviar'", $show);
-        self::assertStringContainsString("btnEnviar.textContent = 'Enviar';", $show);
-        self::assertStringContainsString('title="Enviar (Ctrl+Enter)">Enviar</button>', $this->ler(self::APP . '/templates/pasta/_dados_anotacoes.html.twig'));
+        self::assertStringContainsString("btnEnviar.textContent = BJ_T.t('pasta_show.js.registro.enviar');", $show);
+        self::assertSame('Enviar', CatalogoPtBr::carregar()['pasta_show']['js']['registro']['enviar']);
+        self::assertStringContainsString("title=\"{{ 'pasta_documentos.anotacoes.enviar_dica'|trans }}\">{{ 'pasta_documentos.anotacoes.enviar'|trans }}</button>", $this->ler(self::APP . '/templates/pasta/_dados_anotacoes.html.twig'));
+        $anotacoes = CatalogoPtBr::carregar()['pasta_documentos']['anotacoes'];
+        self::assertSame('Enviar (Ctrl+Enter)', $anotacoes['enviar_dica']);
+        self::assertSame('Enviar', $anotacoes['enviar']);
     }
 
     #[TestDox('o Enviar apagado tem a cor do desenho (#a9c7e2) e cursor padrão')]

@@ -263,6 +263,7 @@ final class DeterminacoesDoJuizo
                 $prazo[1] ?? null,
                 $prazo[2] ?? null,
                 self::documentosExigidos($atoFinal . ' ' . $trecho),
+                $dest,
             );
         }
 

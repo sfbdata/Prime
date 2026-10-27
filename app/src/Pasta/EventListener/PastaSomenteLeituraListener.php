@@ -63,7 +63,8 @@ final class PastaSomenteLeituraListener
      * `pasta_documentos_favorito`. Estrela é preferência pessoal, mas o precedente da casa é o
      * `PastaFavorita`, que recebe a recusa deste listener na pasta riscada (está escrito no
      * `PastaFavoritoController`); a estrela de documento segue o mesmo critério para a tela não
-     * ter duas regras para o mesmo gesto.
+     * ter duas regras para o mesmo gesto. Também fica de fora `pasta_acompanhamento_alternar`
+     * ("Acompanhar alterações"), preferência pessoal com o mesmo precedente do favorito.
      *
      * @var list<string>
      */
@@ -82,7 +83,8 @@ final class PastaSomenteLeituraListener
 
     private const METODOS_DE_LEITURA = ['GET', 'HEAD', 'OPTIONS'];
 
-    private const MENSAGEM = 'Esta pasta foi excluída e está somente para leitura. Restaure a pasta para voltar a editá-la.';
+    /** Também a recusa do desfazer da auditoria na pasta excluída e nas filhas dela (`EstadoDaTelaNoDesfazer`). */
+    public const MENSAGEM = 'Esta pasta foi excluída e está somente para leitura. Restaure a pasta para voltar a editá-la.';
 
     public function __construct(
         private readonly RequestStack $requestStack,

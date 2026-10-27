@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Auditoria\UseCase;
 
+use App\Auditoria\Service\EstadoDaTelaNoDesfazer;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Sede;
@@ -15,6 +17,8 @@ use App\Repository\UserTenantRepository;
 use App\Shared\Contract\Descartavel;
 use App\Shared\Contract\TenantAware;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
+use App\Tarefa\Enum\EtapaDaPasta;
+use App\Tarefa\Service\TravaDaMeta;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
@@ -30,10 +34,17 @@ use Doctrine\ORM\Mapping\FieldMapping;
  * valor irrecuperável (enum no formato antigo), associação que sumiu ou é de outro escritório —
  * a operação inteira é recusada e nada muda. Antes, o campo era pulado em silêncio e o resultado
  * dizia "sucesso"; enum e data iam crus ao setter tipado e davam TypeError (500).
+ *
+ * Antes da fase 1, o estado: a `EstadoDaTelaNoDesfazer` recusa o que a tela não deixaria fazer no estado atual (o
+ * registro que mudou depois do log, a meta que seguiu adiante, a pasta excluída...). Na meta, a conferência e a
+ * gravação rodam numa transação, com a meta travada e relida, como na tela (spec `seguranca-d-desfazer-estado`).
  */
 final class DesfazerAlteracaoAuditLogUseCase
 {
-    /** Entidades de risco BAIXO — únicas reversíveis. */
+    /**
+     * Entidades de risco BAIXO, únicas reversíveis. A resposta da meta (`TarefaMensagem`) e a `Notificacao` saíram
+     * (spec `desfazer-guarda-da-tela`): nenhuma tela edita a resposta, e a notificação só o dono mexe.
+     */
     private const ENTIDADES_REVERSIVEIS = [
         \App\Pasta\Entity\Pasta::class,
         \App\Pasta\Entity\PastaDocumento::class,
@@ -42,16 +53,32 @@ final class DesfazerAlteracaoAuditLogUseCase
         \App\Pasta\Entity\PastaMensagem::class,
         \App\Pasta\Entity\PastaObservacaoDetalhes::class,
         \App\Entity\Tarefa\Tarefa::class,
-        \App\Entity\Tarefa\TarefaMensagem::class,
         \App\Entity\ServiceDesk\Chamado::class,
         \App\Entity\ServiceDesk\ChamadoAnexo::class,
         \App\Entity\ServiceDesk\ChamadoInteracao::class,
         \App\Agenda\Entity\Evento::class,
-        \App\Entity\Agenda\LegendaCor::class,
-        \App\Entity\Notificacao::class,
         \App\Entity\Tenant\Cargo::class,
         \App\Entity\Tenant\Lotacao::class,
         \App\Entity\Tenant\Sede::class,
+    ];
+
+    /**
+     * Desfazer é editar (achado de auditoria interna F19): além de `admin.audit.view`, quem desfaz precisa da mesma
+     * permissão que a tela de edição da entidade exige. Sede: telas de sede em `TenantController` (`admin.ponto.manage`).
+     * Cargo e Lotação: aba do `app_tenant_edit` (`admin.tenant.settings.manage`). Chamado e o que pende dele: atribuir e
+     * mudar o estado no `ServiceDeskController` (`admin.servicedesk.manage`). Evento: `agenda_editar` aceita
+     * `admin.users.manage` ou o criador, e a exceção do criador mora em `permissaoDeEdicao()`. Entidade fora do mapa
+     * não exige permissão a mais. Quem confere é a `GuardaDaTelaNoDesfazer`, junto com as guardas por item da tela,
+     * antes de o controller chamar `executar()`.
+     */
+    private const PERMISSAO_DE_EDICAO = [
+        Sede::class                                    => 'admin.ponto.manage',
+        Cargo::class                                   => 'admin.tenant.settings.manage',
+        Lotacao::class                                 => 'admin.tenant.settings.manage',
+        \App\Entity\ServiceDesk\Chamado::class          => 'admin.servicedesk.manage',
+        \App\Entity\ServiceDesk\ChamadoAnexo::class     => 'admin.servicedesk.manage',
+        \App\Entity\ServiceDesk\ChamadoInteracao::class => 'admin.servicedesk.manage',
+        \App\Agenda\Entity\Evento::class                => 'admin.users.manage',
     ];
 
     /**
@@ -67,6 +94,14 @@ final class DesfazerAlteracaoAuditLogUseCase
      */
     private const CAMPOS_DE_HIERARQUIA = [
         \App\Pasta\Entity\PastaSecao::class => ['pai'],
+    ];
+
+    /**
+     * Listas de enum gravadas como `list<string>` (json): o log traz os valores, o setter espera os casos do enum.
+     * Valor que não é caso do enum recusa como irrecuperável.
+     */
+    private const CAMPOS_DE_LISTA_DE_ENUM = [
+        Tarefa::class => ['etapasSaltadas' => EtapaDaPasta::class],
     ];
 
     /**
@@ -104,6 +139,8 @@ final class DesfazerAlteracaoAuditLogUseCase
         private readonly AuditLogRepository $auditLogRepository,
         private readonly AcessoALixeira $lixeira,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly EstadoDaTelaNoDesfazer $estadoDaTela,
+        private readonly TravaDaMeta $travaDaMeta,
     ) {}
 
     public function podeReverter(AuditLog $log): bool
@@ -111,6 +148,32 @@ final class DesfazerAlteracaoAuditLogUseCase
         return $log->getAction() === 'update'
             && in_array($log->getEntityClass(), self::ENTIDADES_REVERSIVEIS, true)
             && $log->getEntityId() !== null;
+    }
+
+    /**
+     * A permissão de edição que desfazer esta linha exige do ator, além de `admin.audit.view`; null quando não exige.
+     * Evento segue a regra do `agenda_editar`: `admin.users.manage` OU ser o criador. Para o criador, nada a mais.
+     */
+    public function permissaoDeEdicao(AuditLog $log, User $ator): ?string
+    {
+        $permissao = self::PERMISSAO_DE_EDICAO[$log->getEntityClass()] ?? null;
+
+        if ($permissao !== null && $this->eCriadorDoEvento($log, $ator)) {
+            return null;
+        }
+
+        return $permissao;
+    }
+
+    private function eCriadorDoEvento(AuditLog $log, User $ator): bool
+    {
+        if ($log->getEntityClass() !== \App\Agenda\Entity\Evento::class || $log->getEntityId() === null) {
+            return false;
+        }
+        $evento = $this->em->find(\App\Agenda\Entity\Evento::class, $log->getEntityId());
+        $criador = $evento instanceof \App\Agenda\Entity\Evento ? $evento->getCriador() : null;
+
+        return $criador !== null && ($criador === $ator || ($criador->getId() !== null && $criador->getId() === $ator->getId()));
     }
 
     public function executar(int $auditLogId, int $tenantId): DesfazerResultado
@@ -132,6 +195,25 @@ final class DesfazerAlteracaoAuditLogUseCase
             return new DesfazerResultado(false, self::MENSAGEM_ALTERACAO_DA_LIXEIRA);
         }
 
+        $entity = $this->carregarEntidade($log, $tenantId);
+
+        if ($entity instanceof DesfazerResultado) {
+            return $entity;
+        }
+
+        if (!is_array($diff) || $diff === []) {
+            return new DesfazerResultado(false, 'Nada a reverter.');
+        }
+
+        return $this->reverterComATravaDaMeta($entity, $log, $diff, $tenantId);
+    }
+
+    /**
+     * A entidade do log, do mesmo escritório; ou a recusa, um `DesfazerResultado` (na lixeira, não existe mais, de
+     * outro escritório).
+     */
+    private function carregarEntidade(AuditLog $log, int $tenantId): object
+    {
         $entity = $this->em->find($log->getEntityClass(), $log->getEntityId());
 
         if ($entity === null) {
@@ -150,13 +232,70 @@ final class DesfazerAlteracaoAuditLogUseCase
             return new DesfazerResultado(false, 'Registro não encontrado.');
         }
 
-        if (!is_array($diff) || $diff === []) {
-            return new DesfazerResultado(false, 'Nada a reverter.');
+        return $entity;
+    }
+
+    /**
+     * Na meta, como a tela (concluir, reabrir, passar): travada e relida do banco até o COMMIT; a decisão vale pelo que
+     * está gravado, não pelo que estava em memória. As demais entidades revertem direto.
+     *
+     * @param array<array-key, mixed> $diff
+     */
+    private function reverterComATravaDaMeta(object $entity, AuditLog $log, array $diff, int $tenantId): DesfazerResultado
+    {
+        if (!$entity instanceof Tarefa) {
+            return $this->reverter($entity, $log, $diff, $tenantId);
         }
 
-        $metadata = $this->em->getClassMetadata($log->getEntityClass());
+        return $this->em->wrapInTransaction(function () use ($entity, $log, $diff, $tenantId): DesfazerResultado {
+            $this->travaDaMeta->travarERecarregar($entity);
+
+            return $this->reverter($entity, $log, $diff, $tenantId);
+        });
+    }
+
+    /** @param array<array-key, mixed> $diff */
+    private function reverter(object $entity, AuditLog $log, array $diff, int $tenantId): DesfazerResultado
+    {
+        $recusa = $this->estadoDaTela->recusa($entity, $diff, new \DateTimeImmutable());
+
+        if ($recusa !== null) {
+            return new DesfazerResultado(false, $recusa);
+        }
 
         // Fase 1: preparar TODOS os campos sem tocar na entidade. Qualquer recusa sai daqui.
+        $aplicacoes = $this->prepararTodos($entity, $log, $diff, $tenantId);
+
+        if ($aplicacoes instanceof DesfazerResultado) {
+            return $aplicacoes;
+        }
+
+        // Fase 2: aplicar. Os tipos já foram conferidos; resta a regra do próprio setter
+        // (ex.: guarda de ciclo). Se ela recusar no meio, a entidade volta ao estado do banco.
+        try {
+            foreach ($aplicacoes as [$setter, $valor]) {
+                $entity->$setter($valor);
+            }
+        } catch (\TypeError|\ValueError|\LogicException) {
+            $this->em->refresh($entity);
+
+            return new DesfazerResultado(false, self::MENSAGEM_VALOR_RECUSADO);
+        }
+
+        $this->em->flush();
+
+        return new DesfazerResultado(sucesso: true);
+    }
+
+    /**
+     * @param array<array-key, mixed> $diff
+     *
+     * @return list<array{0: string, 1: mixed}>|DesfazerResultado os pares [setter, valor] ou a recusa
+     */
+    private function prepararTodos(object $entity, AuditLog $log, array $diff, int $tenantId): array|DesfazerResultado
+    {
+        $metadata = $this->em->getClassMetadata($log->getEntityClass());
+
         /** @var list<array{0: string, 1: mixed}> $aplicacoes */
         $aplicacoes = [];
 
@@ -180,21 +319,7 @@ final class DesfazerAlteracaoAuditLogUseCase
             $aplicacoes[] = $preparado;
         }
 
-        // Fase 2: aplicar. Os tipos já foram conferidos; resta a regra do próprio setter
-        // (ex.: guarda de ciclo). Se ela recusar no meio, a entidade volta ao estado do banco.
-        try {
-            foreach ($aplicacoes as [$setter, $valor]) {
-                $entity->$setter($valor);
-            }
-        } catch (\TypeError|\ValueError|\LogicException) {
-            $this->em->refresh($entity);
-
-            return new DesfazerResultado(false, self::MENSAGEM_VALOR_RECUSADO);
-        }
-
-        $this->em->flush();
-
-        return new DesfazerResultado(sucesso: true);
+        return $aplicacoes;
     }
 
     /**
@@ -223,7 +348,11 @@ final class DesfazerAlteracaoAuditLogUseCase
             return $naoReversivel;
         }
 
-        if ($metadata->hasField($campo)) {
+        $enumDaLista = $this->enumDaLista($entity, $campo);
+
+        if ($enumDaLista !== null) {
+            [$ok, $valor] = self::converterListaDeEnum($enumDaLista, $from);
+        } elseif ($metadata->hasField($campo)) {
             [$ok, $valor] = $this->converterCampo($metadata->getFieldMapping($campo), $from);
         } elseif ($metadata->hasAssociation($campo)) {
             if (!$metadata->isSingleValuedAssociation($campo)) {
@@ -246,6 +375,47 @@ final class DesfazerAlteracaoAuditLogUseCase
         }
 
         return [$setter->getName(), $valor];
+    }
+
+    /** @return class-string<\BackedEnum>|null */
+    private function enumDaLista(object $entity, string $campo): ?string
+    {
+        foreach (self::CAMPOS_DE_LISTA_DE_ENUM as $classe => $campos) {
+            if ($entity instanceof $classe && isset($campos[$campo])) {
+                return $campos[$campo];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param class-string<\BackedEnum> $enumClasse
+     *
+     * @return array{0: bool, 1: mixed} [conseguiu, lista de casos]
+     */
+    private static function converterListaDeEnum(string $enumClasse, mixed $from): array
+    {
+        if (!is_array($from)) {
+            return [false, null];
+        }
+
+        $casos = [];
+        foreach ($from as $valor) {
+            try {
+                $caso = is_int($valor) || is_string($valor) ? $enumClasse::tryFrom($valor) : null;
+            } catch (\TypeError) {
+                $caso = null;
+            }
+
+            if ($caso === null) {
+                return [false, null];
+            }
+
+            $casos[] = $caso;
+        }
+
+        return [true, $casos];
     }
 
     private function resolverSetter(object $entity, string $campo): ?\ReflectionMethod

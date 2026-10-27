@@ -23,46 +23,67 @@
 
         {# ---- Estado da plataforma: o que este escritório NÃO controla ---- #}
         <div class="card mb-3" id="ia-estado">
-            <div class="card-header"><strong>Estado da plataforma</strong></div>
+            <div class="card-header"><strong>{{ 'inteligencia.admin.estado'|trans }}</strong></div>
             <div class="card-body">
                 <dl class="row mb-0">
-                    <dt class="col-sm-4">Provedor de IA</dt>
+                    <dt class="col-sm-4">{{ 'inteligencia.admin.provedor'|trans }}</dt>
                     <dd class="col-sm-8">
                         <code>{{ configuracao.provedorNome }}</code>
                         {% if configuracao.provedorConfigurado %}
-                            <span class="badge text-bg-success ms-1">configurado</span>
+                            <span class="badge text-bg-success ms-1">{{ 'inteligencia.admin.configurado'|trans }}</span>
                         {% else %}
-                            <span class="badge text-bg-secondary ms-1">não configurado</span>
+                            <span class="badge text-bg-secondary ms-1">{{ 'inteligencia.admin.nao_configurado'|trans }}</span>
                         {% endif %}
                     </dd>
-                    <dt class="col-sm-4">Flag da plataforma (IA_HABILITADA)</dt>
+                    <dt class="col-sm-4">{{ 'inteligencia.admin.flag'|trans }}</dt>
                     <dd class="col-sm-8">
                         {% if configuracao.plataformaHabilitada %}
-                            <span class="badge text-bg-success">ligada</span>
+                            <span class="badge text-bg-success">{{ 'inteligencia.admin.ligada'|trans }}</span>
                         {% else %}
-                            <span class="badge text-bg-secondary">desligada</span>
+                            <span class="badge text-bg-secondary">{{ 'inteligencia.admin.desligada'|trans }}</span>
                         {% endif %}
                     </dd>
-                    <dt class="col-sm-4">Uso deste escritório</dt>
+                    <dt class="col-sm-4">{{ 'inteligencia.admin.uso'|trans }}</dt>
                     <dd class="col-sm-8">
-                        <span class="ps-num">{{ configuracao.usoHoje }}</span> hoje ·
-                        <span class="ps-num">{{ configuracao.usoMes }}</span> no mês
+                        <span class="ps-num">{{ configuracao.usoHoje }}</span> {{ 'inteligencia.admin.uso_hoje'|trans }} ·
+                        <span class="ps-num">{{ configuracao.usoMes }}</span> {{ 'inteligencia.admin.uso_mes'|trans }}
                     </dd>
                 </dl>
                 {% if not configuracao.plataformaHabilitada or not configuracao.provedorConfigurado %}
                     <p class="text-muted small mb-0 mt-2" id="ia-aviso-plataforma">
-                        IA não configurada nesta instalação. Ligar aqui não ativa nada até a plataforma ter um provedor configurado.
+                        {{ 'inteligencia.admin.aviso_plataforma'|trans }}
                     </p>
                 {% elseif configuracao.operacional %}
-                    <p class="text-success small mb-0 mt-2" id="ia-aviso-operacional">BlueJus IA operacional neste escritório.</p>
+                    <p class="text-success small mb-0 mt-2" id="ia-aviso-operacional">{{ 'inteligencia.admin.operacional'|trans }}</p>
                 {% endif %}
+            </div>
+        </div>
+
+        {# ---- Consumo do mês: só deste escritório (ia-anthropic-ligar, PR C). O orçamento e o modo são do Master;
+           o gasto é estimado pelo preço de tabela (CustoDaIa). Mesmos componentes do bloco de estado. ---- #}
+        <div class="card mb-3" id="ia-consumo">
+            <div class="card-header"><strong>{{ 'inteligencia.admin.consumo.titulo'|trans }}</strong></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">{{ 'inteligencia.admin.consumo.analises'|trans }}</dt>
+                    <dd class="col-sm-8" data-ia-consumo="analises">{{ 'inteligencia.admin.consumo.analises_valor'|trans({n: configuracao.usoMes, limite: configuracao.limiteMensal}) }}</dd>
+                    <dt class="col-sm-4">{{ 'inteligencia.admin.consumo.gasto'|trans }}</dt>
+                    <dd class="col-sm-8" data-ia-consumo="gasto">{{ 'inteligencia.admin.consumo.dolares'|trans({valor: configuracao.gastoMesEmDolares}) }}</dd>
+                    {% if configuracao.orcamentoEmDolares is not null %}
+                        <dt class="col-sm-4">{{ 'inteligencia.admin.consumo.orcamento'|trans }}</dt>
+                        <dd class="col-sm-8" data-ia-consumo="orcamento">{{ 'inteligencia.admin.consumo.dolares'|trans({valor: configuracao.orcamentoEmDolares}) }}</dd>
+                    {% endif %}
+                    <dt class="col-sm-4">{{ 'inteligencia.admin.consumo.modo'|trans }}</dt>
+                    <dd class="col-sm-8" data-ia-consumo="modo">{{ configuracao.modoDeCobranca.rotulo }}</dd>
+                </dl>
+                <p class="text-muted small mb-0 mt-2" id="ia-consumo-nota">{{ 'inteligencia.admin.consumo.nota'|trans }}</p>
             </div>
         </div>
 
         {# ---- Configuração do escritório ---- #}
         <div class="card" id="ia-configuracao">
             {{ form_start(form, {attr: {novalidate: 'novalidate', id: 'form-ia-configuracao'}}) }}
-            <div class="card-header"><strong>Configuração do escritório</strong></div>
+            <div class="card-header"><strong>{{ 'inteligencia.admin.configuracao'|trans }}</strong></div>
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
@@ -78,53 +99,55 @@
                                `data-ia-bloco` = cada bloco delimitado (<tag>) que os prompts enviam; as seções vêm
                                do enum que o montador usa. Campo ou bloco novo no prompt = item novo aqui. #}
                             <div class="form-text text-muted" id="ia-aviso-envio">
-                                Ao ligar, o escritório aceita enviar a um provedor externo de IA, nos termos do Anexo I da
-                                Política de Privacidade:
+                                {{ 'inteligencia.admin.envio.intro'|trans }}
                                 <ul class="mb-1 ps-3">
                                     <li id="ia-aviso-envio-pasta" data-ia-bloco="pasta equipe">
-                                        dados da pasta:
-                                        <span data-ia-envio="pasta.pasta">número</span>,
-                                        <span data-ia-envio="pasta.situacao">situação</span>,
-                                        <span data-ia-envio="pasta.prioridade">prioridade</span>,
-                                        <span data-ia-envio="pasta.abertura">data de abertura</span>,
-                                        <span data-ia-envio="pasta.acao">ação</span>,
-                                        <span data-ia-envio="pasta.responsavel">responsável</span> e
-                                        <span data-ia-envio="pasta.equipe">nomes da equipe</span>;
+                                        {{ 'inteligencia.admin.envio.pasta'|trans }}
+                                        <span data-ia-envio="pasta.pasta">{{ 'inteligencia.admin.envio.pasta_numero'|trans }}</span>,
+                                        <span data-ia-envio="pasta.situacao">{{ 'inteligencia.admin.envio.pasta_situacao'|trans }}</span>,
+                                        <span data-ia-envio="pasta.prioridade">{{ 'inteligencia.admin.envio.pasta_prioridade'|trans }}</span>,
+                                        <span data-ia-envio="pasta.abertura">{{ 'inteligencia.admin.envio.pasta_abertura'|trans }}</span>,
+                                        <span data-ia-envio="pasta.acao">{{ 'inteligencia.admin.envio.pasta_acao'|trans }}</span>,
+                                        <span data-ia-envio="pasta.responsavel">{{ 'inteligencia.admin.envio.pasta_responsavel'|trans }}</span> {{ 'inteligencia.admin.envio.e'|trans }}
+                                        <span data-ia-envio="pasta.equipe">{{ 'inteligencia.admin.envio.pasta_equipe'|trans }}</span>;
                                     </li>
                                     <li id="ia-aviso-envio-processos" data-ia-bloco="processos_vinculados processo">
-                                        processos vinculados:
-                                        <span data-ia-envio="processo.numero">número</span>,
-                                        <span data-ia-envio="processo.classe">classe</span>,
-                                        <span data-ia-envio="processo.assunto">assunto</span>,
-                                        <span data-ia-envio="processo.tribunal">tribunal</span>,
-                                        <span data-ia-envio="processo.orgao">órgão</span> e
-                                        <span data-ia-envio="processo.situacao">situação do processo</span>;
+                                        {{ 'inteligencia.admin.envio.processos'|trans }}
+                                        <span data-ia-envio="processo.numero">{{ 'inteligencia.admin.envio.processo_numero'|trans }}</span>,
+                                        <span data-ia-envio="processo.classe">{{ 'inteligencia.admin.envio.processo_classe'|trans }}</span>,
+                                        <span data-ia-envio="processo.assunto">{{ 'inteligencia.admin.envio.processo_assunto'|trans }}</span>,
+                                        <span data-ia-envio="processo.tribunal">{{ 'inteligencia.admin.envio.processo_tribunal'|trans }}</span>,
+                                        <span data-ia-envio="processo.orgao">{{ 'inteligencia.admin.envio.processo_orgao'|trans }}</span> {{ 'inteligencia.admin.envio.e'|trans }}
+                                        <span data-ia-envio="processo.situacao">{{ 'inteligencia.admin.envio.processo_situacao'|trans }}</span>;
                                     </li>
                                     <li id="ia-aviso-envio-agentes">
-                                        o que os agentes leem da pasta:
+                                        {{ 'inteligencia.admin.envio.agentes'|trans }}
                                         <span id="ia-aviso-envio-secoes">
                                             {%- for secao in enum_cases('App\\Inteligencia\\Enum\\SecaoDoContexto') -%}
                                                 <span data-ia-secao="{{ secao.value }}">{{ secao.rotuloCurto }}</span>
-                                                {{- loop.last ? '' : (loop.revindex == 2 ? ' e ' : ', ') -}}
+                                                {{- loop.last ? '' : (loop.revindex == 2 ? ' ' ~ 'inteligencia.admin.envio.e'|trans ~ ' ' : ', ') -}}
                                             {%- endfor -%}
                                         </span>;
                                     </li>
                                     <li id="ia-aviso-envio-push" data-ia-bloco="movimentacoes">
-                                        no Resumir com IA do Push: as publicações do DJEN e as movimentações do Datajud dos
-                                        processos vinculados (data, tipo, tribunal, órgão e texto);
+                                        {{ 'inteligencia.admin.envio.push'|trans }}
                                     </li>
                                     <li id="ia-aviso-envio-analise-anterior" data-ia-bloco="analise_anterior">
-                                        o resumo da análise anterior feita pela própria IA na mesma pasta, reenviado para que
-                                        ela não se repita.
+                                        {{ 'inteligencia.admin.envio.analise_anterior'|trans }}
+                                    </li>
+                                    {# PR F: o texto do aceite cita os documentos desde VersaoDoAceiteDaIa::ComDocumentos (2). #}
+                                    <li id="ia-aviso-envio-documentos" data-ia-bloco="documentos_anexados">
+                                        {{ 'inteligencia.admin.envio.documentos'|trans }}
                                     </li>
                                 </ul>
-                                O financeiro só é enviado quando quem pede a análise pode vê-lo. Dados pessoais (CPF, CNPJ,
-                                telefone e e-mail) são mascarados por padrão. Processos em segredo de justiça nunca são enviados.
+                                {{ 'inteligencia.admin.envio.fim'|trans }}
                             </div>
+                            {% if configuracao.habilitada and not configuracao.aceiteCobreDocumentos %}
+                                <div class="form-text text-warning" id="ia-aceite-documentos">{{ 'inteligencia.admin.aceite_documentos'|trans }}</div>
+                            {% endif %}
                             {% if configuracao.consentimentoEnvioExternoEm %}
                                 <div class="form-text" id="ia-consentimento">
-                                    Aceite registrado em {{ configuracao.consentimentoEnvioExternoEm|date('d/m/Y H:i') }}
-                                    {%- if configuracao.consentimentoPorNome %} por {{ configuracao.consentimentoPorNome }}{% endif %}.
+                                    {% if configuracao.consentimentoPorNome %}{{ 'inteligencia.admin.consentimento_por'|trans({quando: configuracao.consentimentoEnvioExternoEm|data_hora, nome: configuracao.consentimentoPorNome}) }}{% else %}{{ 'inteligencia.admin.consentimento'|trans({quando: configuracao.consentimentoEnvioExternoEm|data_hora}) }}{% endif %}
                                 </div>
                             {% endif %}
                         </div>
@@ -148,7 +171,7 @@
                                 </div>
                             {% endif %}
                             <div class="form-text text-muted">
-                                As cotas contam todo pedido feito no escritório, inclusive os que falharam.
+                                {{ 'inteligencia.admin.cotas'|trans }}
                             </div>
                         </div>
 
@@ -158,7 +181,7 @@
                                 {{ form_label(form.mascararDadosPessoais, null, {label_attr: {class: 'form-check-label'}}) }}
                             </div>
                             <div class="form-text text-muted">
-                                Recomendado. O número do processo nunca é mascarado.
+                                {{ 'inteligencia.admin.mascarar'|trans }}
                             </div>
                         </div>
                     </div>
@@ -166,7 +189,7 @@
             </div>
             <div class="card-footer d-flex justify-content-end gap-2">
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg me-1"></i> Salvar
+                    <i class="bi bi-check-lg me-1"></i> {{ 'inteligencia.admin.salvar'|trans }}
                 </button>
             </div>
             {{ form_end(form) }}

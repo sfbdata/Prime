@@ -3,7 +3,7 @@
 {# Página global de Novidades. O texto vem do app/config/novidades.yaml, escrito pelo robô do PR
    de release. Cores pelas variáveis do Bootstrap (`--bs-*`): o sistema alterna tema claro/escuro. #}
 
-{% block title %}Novidades | BlueJus{% endblock %}
+{% block title %}{{ 'novidades.titulo'|trans }} | BlueJus{% endblock %}
 
 {% block stylesheets %}
 <style>
@@ -18,13 +18,13 @@
 
 {% block body %}
 <div class="novidades-pagina" data-novidades-vista="{{ versoes is not empty ? versoes|first.versao : '' }}">
-    <h1 class="h3 mb-1">Novidades</h1>
-    <p class="text-body-secondary mb-4">O que mudou no BlueJus a cada versão. Você está na versão {{ versaoAtual }}.</p>
+    <h1 class="h3 mb-1">{{ 'novidades.titulo'|trans }}</h1>
+    <p class="text-body-secondary mb-4">{{ 'novidades.intro'|trans({versao: versaoAtual ~ ''}) }}</p>
 
     {% for v in versoes %}
         <section class="novidades-versao">
-            <h2>Versão {{ v.versao }}</h2>
-            <div class="novidades-data">{{ v.data|date('d/m/Y') }}</div>
+            <h2>{{ 'novidades.versao'|trans({versao: v.versao}) }}</h2>
+            <div class="novidades-data">{{ v.data|data }}</div>
             <ul>
                 {% for item in v.itens %}
                     <li>{{ item }}</li>
@@ -32,7 +32,7 @@
             </ul>
         </section>
     {% else %}
-        <p class="text-body-secondary">Ainda não há novidades registradas.</p>
+        <p class="text-body-secondary">{{ 'novidades.vazio'|trans }}</p>
     {% endfor %}
 </div>
 {% endblock %}

@@ -34,7 +34,7 @@
     --db-ia-trilho:         #e9eff3;
     --db-ia-chip-bg:        #eef3f6;
     --db-ia-chip-texto:     #34505f;
-    --db-ia-icone-bg:       linear-gradient(160deg, #e3f3f8, #cfe8f1);
+    --db-ia-icone-bg:       #e5f1f7;
     --db-ia-icone-anel:     rgba(12,122,156,.18);
     --db-ia-icone-brilho:   rgba(21,151,189,.25);
     --db-ia-halo:           radial-gradient(circle, rgba(21,151,189,.16), transparent 65%);
@@ -57,7 +57,7 @@
     --db-ia-dica-alerta-sombra: 0 8px 18px -10px rgba(160,110,20,.45);
     /* interruptor do Modo avançado (dc L2575) */
     --db-ia-switch-off:     #cfd9e0;
-    --db-ia-switch-on:      linear-gradient(90deg, #1597bd, #0c7a9c);
+    --db-ia-switch-on:      linear-gradient(90deg, #1597bd, #0a6fa0);
     --db-ia-switch-pill-bg: rgba(12,122,156,.08);
     --db-ia-switch-pill-bg-hover: rgba(12,122,156,.15);
     --db-ia-switch-pill-texto: #0b5a78;
@@ -73,12 +73,12 @@
     --db-ia-confirma-nao-bg:  #eef3f6;
     --db-ia-confirma-nao-bg-hover: #e3ebf0;
     --db-ia-confirma-nao-texto: #34505f;
-    --db-ia-azul-grad:        linear-gradient(120deg, #0f6fc4 0%, #0c7a9c 100%);
+    --db-ia-azul-grad:        #0a6fa0;
     --db-ia-confirma-sim-sombra: 0 8px 18px -10px rgba(15,111,196,.7);
     --db-ia-teaser-sombra:    0 12px 26px -16px rgba(15,111,196,.8);
     --db-ia-teaser-sombra-hover: 0 16px 30px -16px rgba(15,111,196,.9);
     /* ícones das três perguntas (dc L2725-2727) */
-    --db-ia-q-oque-bg:      #e9f5f9;  --db-ia-q-oque:   #0c7a9c;
+    --db-ia-q-oque-bg:      #e9f5f9;  --db-ia-q-oque:   #0a6fa0;
     --db-ia-q-porque-bg:    #eef1fb;  --db-ia-q-porque: #3d5bb5;
     --db-ia-q-fazer-bg:     #fdf3e1;  --db-ia-q-fazer:  #a8670c;
     /* níveis dos alertas (NIVEIS, bluejus-avancado.js L6-12) */
@@ -86,17 +86,17 @@
     --db-ia-atencao:        #b4560f;  --db-ia-atencao-bg:      #fdf0e4;
     --db-ia-monitorar:      #8a6a06;  --db-ia-monitorar-bg:    #fbf5dc;
     --db-ia-normal:         #14784a;  --db-ia-normal-bg:       #e6f6ee;
-    --db-ia-oportunidade:   #0f6fc4;  --db-ia-oportunidade-bg: #e8f1fb;
+    --db-ia-oportunidade:   #0a6fa0;  --db-ia-oportunidade-bg: #e8f1fb;
     /* riscos por nível (dc L2742) e grupos de ação (dc L2745-2746) */
     --db-ia-risco-3:        #b0302a;
     --db-ia-risco-2:        #c98414;
     --db-ia-risco-1:        #7b93a2;
     --db-ia-acao-imediata:  #b0302a;
     --db-ia-acao-acomp:     #7b93a2;
-    --db-ia-acao-recom:     #0c7a9c;
+    --db-ia-acao-recom:     #0a6fa0;
     /* barras */
-    --db-ia-barra-fill:     linear-gradient(90deg, #1597bd, #0c7a9c);
-    --db-ia-dist-ativas:    linear-gradient(90deg, rgba(12,122,156,.55), #0c7a9c);
+    --db-ia-barra-fill:     linear-gradient(90deg, #1597bd, #0a6fa0);
+    --db-ia-dist-ativas:    linear-gradient(90deg, rgba(12,122,156,.55), #0a6fa0);
     --db-ia-dist-vencidas:  #c0392f;
     --db-ia-dist-media:     #34505f;
     --db-ia-qual-alta:      linear-gradient(90deg, #1f9d61, #14784a);
@@ -174,7 +174,7 @@
     --db-ia-risco-1:        var(--bs-secondary-color);
     --db-ia-acao-imediata:  #c0392f;
     --db-ia-acao-acomp:     #5f7684;
-    --db-ia-acao-recom:     #0c7a9c;
+    --db-ia-acao-recom:     #0a6fa0;
     --db-ia-dist-media:     var(--bs-body-color);
     --db-ia-pergunta-bg:    var(--bs-tertiary-bg);
     --db-ia-pergunta-anel:  var(--bs-border-color);
@@ -405,8 +405,8 @@
 .db-page .db-ia-kpi-min-rotulo { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--db-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-page .db-ia-kpi-min-valor { margin-top: 2px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
 .db-page .db-ia-kpi-min-valor.is-ruim { color: var(--db-ia-critico); }
-.db-page .db-ia-barra { position: relative; height: 10px; border-radius: 999px; background: var(--db-ia-trilho); margin: 12px 0 6px; overflow: hidden; }
-.db-page .db-ia-barra-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--db-ia-barra-fill); animation: dbIaCresce .8s var(--db-ia-ease); }
+.db-page .db-ia-barra { position: relative; height: 10px; border-radius: 3px; background: var(--db-ia-trilho); margin: 12px 0 6px; overflow: hidden; }
+.db-page .db-ia-barra-fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--db-ia-barra-fill); animation: dbIaCresce .8s var(--db-ia-ease); }
 @keyframes dbIaCresce { from { width: 0; } }
 .db-page .db-ia-barra-legenda { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--db-faint); }
 
@@ -460,7 +460,7 @@
 }
 .db-page .db-ia-av-switch:hover { background: var(--db-ia-switch-pill-bg-hover); }
 .db-page .db-ia-av-switch:focus-visible { outline: 2px solid var(--db-accent); outline-offset: 2px; }
-.db-page .db-ia-switch { position: relative; width: 32px; height: 18px; border-radius: 999px; flex-shrink: 0; background: var(--db-ia-switch-off); transition: background .2s; }
+.db-page .db-ia-switch { position: relative; width: 32px; height: 18px; border-radius: 3px; flex-shrink: 0; background: var(--db-ia-switch-off); transition: background .2s; }
 .db-page .db-ia-switch-bola { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(16,42,58,.3); transition: transform .22s var(--db-ia-ease); }
 .db-page .db-ia-av-switch[aria-checked="true"] .db-ia-switch { background: var(--db-ia-switch-on); }
 .db-page .db-ia-av-switch[aria-checked="true"] .db-ia-switch-bola { transform: translateX(14px); }
@@ -494,7 +494,7 @@
 .db-page .db-ia-qual-toggle > i:first-child { font-size: 14px; color: var(--db-accent); }
 .db-page .db-ia-qual-rotulo { font-size: 12.5px; font-weight: 700; color: var(--db-text); white-space: nowrap; }
 .db-page .db-ia-qual-trilho { flex: 1; height: 6px; border-radius: 4px; background: var(--db-ia-divisor); overflow: hidden; }
-.db-page .db-ia-qual-barra { display: block; height: 100%; border-radius: 999px; }
+.db-page .db-ia-qual-barra { display: block; height: 100%; border-radius: 3px; }
 .db-page .db-ia-qual-barra--alta  { background: var(--db-ia-qual-alta); }
 .db-page .db-ia-qual-barra--media { background: var(--db-ia-qual-media); }
 .db-page .db-ia-qual-barra--baixa { background: var(--db-ia-qual-baixa); }
@@ -536,7 +536,7 @@
 .db-page .db-ia-dist-linha { display: grid; grid-template-columns: 70px minmax(0, 1fr) 26px; align-items: center; gap: 8px; padding: 3px 0; }
 .db-page .db-ia-dist-nome { font-size: 12px; color: var(--db-label-card); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-page .db-ia-dist-trilho { position: relative; height: 9px; border-radius: 4px; background: var(--db-ia-divisor-fraco); display: block; }
-.db-page .db-ia-dist-ativas, .db-page .db-ia-dist-vencidas { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+.db-page .db-ia-dist-ativas, .db-page .db-ia-dist-vencidas { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
 .db-page .db-ia-dist-ativas { background: var(--db-ia-dist-ativas); animation: dbIaCresce .7s var(--db-ia-ease); }
 .db-page .db-ia-dist-vencidas { background: var(--db-ia-dist-vencidas); opacity: .85; }
 .db-page .db-ia-dist-media { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--db-ia-dist-media); opacity: .45; }

@@ -15,19 +15,28 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * Adaptador da API de Mensagens da Anthropic (Claude) para a porta {@see ProvedorDeLinguagem} — decisão D1 do
  * dono (14/10/2026): o provedor é exclusivamente a Anthropic. Contrato: `docs/specs/inteligencia-provedor-anthropic.md`.
  *
- * **Dormente sem configuração.** Sem `ANTHROPIC_API_KEY` e `IA_MODELO` no ambiente, `estaConfigurado()` é falso e
+ * **Modelo do banco.** Com a {@see FonteDoModeloDeIa} (o serviço do container), o modelo é resolvido a cada chamada
+ * a partir do que o Master escolheu no painel (spec ia-anthropic-ligar §10.1); o `IA_MODELO` do ambiente vira só a
+ * reserva (sem a linha no banco, ou se a fonte lançar). Modelo fora do formato, ou gravado fora da lista do painel,
+ * deixa o provedor dormente. Sem fonte (testes do adaptador), vale o modelo do construtor.
+ *
+ * **Dormente sem configuração.** Sem `ANTHROPIC_API_KEY` e um modelo válido, `estaConfigurado()` é falso e
  * `completar()` lança {@see ProvedorIndisponivelException} — o mesmo comportamento do `ProvedorNaoConfigurado`. Ligar
  * a IA continua exigindo, além disso, `IA_HABILITADA=1`, o escritório habilitado e o consentimento dele
  * (`DisponibilidadeDeInteligencia`). A chave nunca está no código.
  *
  * O que vai e o que não vai na requisição:
  * - vai `model`, `max_tokens`, `system` e `messages` (papel `usuario` → `user`, `assistente` → `assistant`);
+ * - os `anexos` do pedido (PR F, PDF e imagem) vão inline, em base64, na ÚLTIMA mensagem do usuário
+ *   ({@see MontadorDeBlocosDaAnthropic}); nunca em turno do assistente, nunca pela Files API;
  * - **não vai `temperature`**: os modelos atuais (Opus 4.7 em diante) recusam com 400 os parâmetros de amostragem.
  *   A `temperatura` do pedido fica como intenção do prompt, não como parâmetro de rede;
  * - **não vai formato estruturado**: `exigeJson` é cumprido pela instrução do prompt e verificado pelos
  *   interpretadores, que já recusam resposta fora do formato;
  * - nenhum identificador de escritório, usuário ou pasta vai em metadado;
  * - `output_config.effort` só vai quando `IA_ESFORCO` está definido (o padrão muda por modelo — é a alavanca de custo);
+ * - `inference_geo` vai quando `IA_INFERENCE_GEO` está definido (`us` por padrão, decisão de 24/10/2026: o
+ *   processamento fica nos EUA, que é o país que a Política de Privacidade declara);
  * - pedido cujo último turno é do assistente (prefill) é recusado aqui: os modelos atuais respondem 400;
  * - `max_tokens` = o teto do prompt + a margem de raciocínio (`IA_MARGEM_RACIOCINIO`): nos modelos atuais o raciocínio
  *   adaptativo conta no `max_tokens`, e sem margem um resumo de 1.200 tokens seria cortado — falha com custo pago.
@@ -50,11 +59,22 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     private const STATUS_TRANSITORIOS = [408, 429, 500, 502, 503, 504, 529];
     private const ESFORCOS = ['low', 'medium', 'high', 'xhigh', 'max'];
     public const MARGEM_DE_RACIOCINIO_PADRAO = 8000;
+    /**
+     * O "Ler N documentos" (PR F) manda até 20 MB e 100 páginas: a resposta demora mais que a de um comando sobre
+     * metadados. Só o pedido com anexos usa este teto; o resto segue o configurado.
+     */
+    public const TIMEOUT_DA_LEITURA_EM_SEGUNDOS = 300.0;
+    /** Vazio = não envia (vale o padrão do workspace na Console). */
+    private const REGIOES_DE_INFERENCIA = ['', 'us', 'global'];
+    /** Teto da espera pedida pelo `retry-after`: cinco minutos. */
+    public const ESPERA_MAXIMA_EM_SEGUNDOS = 300;
 
     private readonly string $chave;
     private readonly string $modelo;
     private readonly string $esforco;
-    private readonly bool $configuracaoValida;
+    /** Chave, esforço, margem e região: o que não muda por chamada. O modelo é conferido a cada uso. */
+    private readonly bool $baseValida;
+    private readonly string $regiaoDeInferencia;
 
     /**
      * Nunca lança: configuração torta (esforço desconhecido, chave com controle) deixa o provedor "não configurado".
@@ -68,36 +88,60 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
         private readonly float $timeoutEmSegundos = 120.0,
         string $esforco = '',
         private readonly int $margemDeRaciocinio = self::MARGEM_DE_RACIOCINIO_PADRAO,
+        string $regiaoDeInferencia = '',
+        private readonly ?FonteDoModeloDeIa $fonteDoModelo = null,
     ) {
+        $this->regiaoDeInferencia = strtolower(trim($regiaoDeInferencia));
         $this->chave = trim($chave);
         $this->modelo = trim($modelo);
         $this->esforco = strtolower(trim($esforco));
-        $this->configuracaoValida = $this->chave !== ''
-            && $this->modelo !== ''
+        $this->baseValida = $this->chave !== ''
             && preg_match('/^[\x21-\x7E]+$/', $this->chave) === 1
-            && preg_match('/^[a-z0-9.\-]+$/', $this->modelo) === 1
             && ($this->esforco === '' || in_array($this->esforco, self::ESFORCOS, true))
-            && $this->margemDeRaciocinio >= 0;
+            && $this->margemDeRaciocinio >= 0
+            && in_array($this->regiaoDeInferencia, self::REGIOES_DE_INFERENCIA, true);
     }
 
     /** `nao_configurado` enquanto dormente: a coluna `provedor` da análise não pode dizer que algo saiu para a Anthropic. */
     public function nome(): string
     {
-        return $this->configuracaoValida ? self::NOME : ProvedorNaoConfigurado::NOME;
+        return $this->estaConfigurado() ? self::NOME : ProvedorNaoConfigurado::NOME;
     }
 
     public function estaConfigurado(): bool
     {
-        return $this->configuracaoValida;
+        // Sem chave, nem pergunta ao banco: a instalação dormente não paga consulta nenhuma.
+        return $this->baseValida && $this->configurado($this->modeloEfetivo());
+    }
+
+    /** O modelo que vai na próxima chamada: o da fonte (o banco) ou, sem ela ou se ela lançar, o do ambiente. */
+    public function modeloEfetivo(): string
+    {
+        if ($this->fonteDoModelo === null) {
+            return $this->modelo;
+        }
+
+        try {
+            return trim($this->fonteDoModelo->modelo());
+        } catch (\Throwable) {
+            // Banco fora do ar ou tabela ausente (deploy parcial): nunca derrubar a página que pergunta.
+            return $this->modelo;
+        }
+    }
+
+    private function configurado(string $modelo): bool
+    {
+        return $this->baseValida && $modelo !== '' && preg_match('/^[a-z0-9.\-]+$/', $modelo) === 1;
     }
 
     public function completar(PedidoDeLinguagem $pedido): RespostaDeLinguagem
     {
-        if (!$this->estaConfigurado()) {
+        $modelo = $this->modeloEfetivo();
+        if (!$this->configurado($modelo)) {
             throw new ProvedorIndisponivelException('Provedor de IA (Anthropic) sem chave ou modelo configurado nesta instalação.');
         }
 
-        $corpo = $this->corpo($pedido);
+        $corpo = $this->corpo($pedido, $modelo);
         $inicio = hrtime(true);
 
         try {
@@ -108,7 +152,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
                     'content-type'      => 'application/json',
                 ],
                 'json'          => $corpo,
-                'timeout'       => $this->timeoutEmSegundos,
+                'timeout'       => $pedido->temAnexos() ? self::TIMEOUT_DA_LEITURA_EM_SEGUNDOS : $this->timeoutEmSegundos,
                 'max_redirects' => 0,
             ]);
             $status = $resposta->getStatusCode();
@@ -130,14 +174,40 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
             }
         }
         if ($status !== 200) {
-            throw $this->falhaPorStatus($status, $dados, $requisicao);
+            throw $this->falhaPorStatus($status, $dados, $requisicao, self::segundosDeEspera($cabecalhos['retry-after'][0] ?? null));
         }
 
-        return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000));
+        return $this->resposta($dados, $requisicao, (int) ((hrtime(true) - $inicio) / 1_000_000), $modelo);
     }
 
     /** @return array<string, mixed> */
-    private function corpo(PedidoDeLinguagem $pedido): array
+    private function corpo(PedidoDeLinguagem $pedido, string $modelo): array
+    {
+        $corpo = [
+            'model'      => $modelo,
+            'max_tokens' => $pedido->maxTokens + $this->margemDeRaciocinio,
+            'messages'   => self::mensagens($pedido),
+        ];
+        if ($this->esforco !== '') {
+            $corpo['output_config'] = ['effort' => $this->esforco];
+        }
+        if ($this->regiaoDeInferencia !== '') {
+            $corpo['inference_geo'] = $this->regiaoDeInferencia;
+        }
+        if (trim($pedido->sistema) !== '') {
+            $corpo['system'] = $pedido->sistema;
+        }
+
+        return $corpo;
+    }
+
+    /**
+     * As mensagens no formato da API. Com anexos (PR F), a última mensagem do usuário leva os blocos dos arquivos
+     * ({@see MontadorDeBlocosDaAnthropic}); as outras continuam string.
+     *
+     * @return list<array{role: string, content: string|list<array<string, mixed>>}>
+     */
+    private static function mensagens(PedidoDeLinguagem $pedido): array
     {
         $mensagens = [];
         foreach ($pedido->mensagens as $mensagem) {
@@ -156,24 +226,16 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
         if ($mensagens === [] || $mensagens[array_key_last($mensagens)]['role'] !== 'user') {
             throw new FalhaDoProvedorException('Anthropic: o pedido precisa terminar com uma mensagem do usuário.', false);
         }
-
-        $corpo = [
-            'model'      => $this->modelo,
-            'max_tokens' => $pedido->maxTokens + $this->margemDeRaciocinio,
-            'messages'   => $mensagens,
-        ];
-        if ($this->esforco !== '') {
-            $corpo['output_config'] = ['effort' => $this->esforco];
-        }
-        if (trim($pedido->sistema) !== '') {
-            $corpo['system'] = $pedido->sistema;
+        if ($pedido->temAnexos()) {
+            $ultima = array_key_last($mensagens);
+            $mensagens[$ultima]['content'] = MontadorDeBlocosDaAnthropic::conteudo((string) $mensagens[$ultima]['content'], $pedido->anexos);
         }
 
-        return $corpo;
+        return $mensagens;
     }
 
     /** @param array<string, mixed> $dados */
-    private function resposta(array $dados, ?string $requisicao, int $duracaoMs): RespostaDeLinguagem
+    private function resposta(array $dados, ?string $requisicao, int $duracaoMs, string $modelo): RespostaDeLinguagem
     {
         $parada = is_string($dados['stop_reason'] ?? null) ? $dados['stop_reason'] : '';
         if ($parada === 'refusal') {
@@ -198,7 +260,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
 
         return new RespostaDeLinguagem(
             texto: $texto,
-            modelo: is_string($dados['model'] ?? null) ? $dados['model'] : $this->modelo,
+            modelo: is_string($dados['model'] ?? null) ? $dados['model'] : $modelo,
             tokensEntrada: self::inteiroOuNulo($uso['input_tokens'] ?? null),
             tokensSaida: self::inteiroOuNulo($uso['output_tokens'] ?? null),
             duracaoMs: $duracaoMs,
@@ -206,7 +268,7 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
     }
 
     /** @param array<string, mixed> $dados */
-    private function falhaPorStatus(int $status, array $dados, ?string $requisicao): FalhaDoProvedorException
+    private function falhaPorStatus(int $status, array $dados, ?string $requisicao, ?int $esperarSegundos): FalhaDoProvedorException
     {
         $tipo = is_array($dados['error'] ?? null) && is_string($dados['error']['type'] ?? null)
             ? preg_replace('/[^a-z_]/', '', $dados['error']['type'])
@@ -222,10 +284,26 @@ final class ProvedorAnthropic implements ProvedorDeLinguagem
             );
         }
 
+        $transitoria = in_array($status, self::STATUS_TRANSITORIOS, true);
+
         return new FalhaDoProvedorException(
             $this->comRequisicao(sprintf('Anthropic: HTTP %d (%s).', $status, $tipo), $requisicao),
-            in_array($status, self::STATUS_TRANSITORIOS, true),
+            $transitoria,
+            esperarSegundos: $transitoria ? $esperarSegundos : null,
         );
+    }
+
+    /**
+     * `retry-after` em segundos inteiros (a Anthropic não usa a forma de data). Valor torto ou ausente = sem prazo
+     * (vale o atraso do transport); acima do teto, o teto: uma linha não fica horas "em andamento".
+     */
+    private static function segundosDeEspera(?string $valor): ?int
+    {
+        if ($valor === null || preg_match('/^\d{1,6}$/', trim($valor)) !== 1) {
+            return null;
+        }
+
+        return min((int) trim($valor), self::ESPERA_MAXIMA_EM_SEGUNDOS);
     }
 
     private function comRequisicao(string $mensagem, ?string $requisicao): string

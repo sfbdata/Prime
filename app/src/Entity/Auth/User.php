@@ -3,7 +3,6 @@
 namespace App\Entity\Auth;
 
 use App\Auth\Enum\StatusOab;
-use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Repository\UserRepository;
 use App\Shared\Contract\Auditavel;
@@ -42,9 +41,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     private ?string $invitationToken = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
-    private ?JornadaColaborador $jornadaColaborador = null;
-
-    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?UserProfile $profile = null;
 
     #[ORM\Column(length: 20, nullable: true)]
@@ -68,6 +64,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
      */
     #[ORM\Column(name: 'email_a_confirmar_desde', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $emailAConfirmarDesde = null;
+
+    /**
+     * Identificador estável da conta Google ligada (`sub` do OpenID Connect), gravado no primeiro "Entrar com o
+     * Google" (spec entrar-com-google). Único: um `sub` pertence a uma conta só.
+     */
+    #[ORM\Column(name: 'google_sub', length: 255, unique: true, nullable: true)]
+    private ?string $googleSub = null;
+
+    /**
+     * `id` do Facebook ligado à conta, gravado só no cadastro pelo "Continuar com Facebook" (spec login-cupom-e-facebook,
+     * PR B). Prova quem é a pessoa para o app, nunca o e-mail dela. Único: um `id` pertence a uma conta só. Não aparece
+     * em tela.
+     */
+    #[ORM\Column(name: 'facebook_id', length: 255, unique: true, nullable: true)]
+    private ?string $facebookId = null;
 
     // -------------------------
     // Construtor
@@ -170,9 +181,45 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
         $this->emailAConfirmarDesde = $agora;
     }
 
-    public function confirmarEmail(): void
+    /**
+     * Confirma o e-mail. O `facebook_id` NÃO sobrevive à confirmação, salvo `$manterFacebook` (só o link aberto na mesma
+     * sessão que criou a conta pelo Facebook): o e-mail digitado no cadastro pelo Facebook não é do Facebook, e quem
+     * o confirma pode ser outra pessoa (spec login-cupom-e-facebook, pré-sequestro).
+     */
+    public function confirmarEmail(bool $manterFacebook = false): void
     {
         $this->emailAConfirmarDesde = null;
+        if (!$manterFacebook) {
+            $this->facebookId = null;
+        }
+    }
+
+    public function getGoogleSub(): ?string
+    {
+        return $this->googleSub;
+    }
+
+    /** Liga a conta Google; uma vez ligada, não troca por outra (o "Entrar com o Google" recusa antes). */
+    public function ligarAoGoogle(string $sub): void
+    {
+        if (null !== $this->googleSub && $this->googleSub !== $sub) {
+            throw new \DomainException('Esta conta já está ligada a outra conta Google.');
+        }
+        $this->googleSub = $sub;
+    }
+
+    public function getFacebookId(): ?string
+    {
+        return $this->facebookId;
+    }
+
+    /** Liga a conta ao Facebook; uma vez ligada, não troca por outro `id`. */
+    public function ligarAoFacebook(string $id): void
+    {
+        if (null !== $this->facebookId && $this->facebookId !== $id) {
+            throw new \DomainException('Esta conta já está ligada a outra conta do Facebook.');
+        }
+        $this->facebookId = $id;
     }
 
     public function isActive(): bool
@@ -194,20 +241,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     public function setInvitationToken(?string $token): static
     {
         $this->invitationToken = $token;
-        return $this;
-    }
-
-    public function getJornadaColaborador(): ?JornadaColaborador
-    {
-        return $this->jornadaColaborador;
-    }
-
-    public function setJornadaColaborador(?JornadaColaborador $jornadaColaborador): static
-    {
-        if ($jornadaColaborador !== null && $jornadaColaborador->getUser() !== $this) {
-            $jornadaColaborador->setUser($this);
-        }
-        $this->jornadaColaborador = $jornadaColaborador;
         return $this;
     }
 

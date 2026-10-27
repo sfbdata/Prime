@@ -8,6 +8,7 @@ use App\Cliente\Entity\ClientePJ;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Pasta\Criterio\PastaFinalizadaNoPeriodo;
 use App\Pasta\DTO\OcorrenciaDaBuscaRapida;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
@@ -60,7 +61,7 @@ class PastaRepository extends ServiceEntityRepository
      * "é do Fulano"). Número (`nup`), cliente (`cliente`) e a busca livre não estão aqui: a oculta continua
      * casando por eles. O marcador também é atributo (ver `buildQbPorMarcador`).
      */
-    private const FILTROS_DE_ATRIBUTO = ['responsavel', 'status', 'prioridade', 'criado_por', 'data_de', 'data_ate', 'expediente', 'acao'];
+    private const FILTROS_DE_ATRIBUTO = ['responsavel', 'status', 'prioridade', 'criado_por', 'concluida', 'data_de', 'data_ate', 'expediente', 'acao'];
 
     public function __construct(
         ManagerRegistry $registry,
@@ -300,6 +301,36 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $opcoes;
+    }
+
+    /**
+     * Vínculos pasta-processo dos processos dados, só em pastas do escritório que não foram excluídas: dão a
+     * ORIGEM de cada processo na busca da janela "Vincular processo" (desenho 02, `procCatalogo`). O principal
+     * vem primeiro; depois, a ordem em que foram vinculados.
+     *
+     * @param list<int> $idsProcesso
+     *
+     * @return list<PastaProcesso>
+     */
+    public function vinculosDosProcessos(array $idsProcesso, Tenant $tenant): array
+    {
+        if ($idsProcesso === []) {
+            return [];
+        }
+
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('v', 'pa')
+            ->from(PastaProcesso::class, 'v')
+            ->join('v.pasta', 'pa')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->andWhere('IDENTITY(v.processo) IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $idsProcesso)
+            ->orderBy('v.principal', 'DESC')
+            ->addOrderBy('v.id', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 
     /**
@@ -749,6 +780,12 @@ class PastaRepository extends ServiceEntityRepository
             $qb->andWhere('p.dataAbertura <= :fDataAte')->setParameter('fDataAte', $dataAte);
         }
 
+        // "Zerar" do Dashboard (DASH-014): só as pastas abertas a partir do ponto de corte.
+        $contarDesde = $filtros['contar_desde'] ?? null;
+        if ($contarDesde instanceof \DateTimeImmutable) {
+            $qb->andWhere('p.dataAbertura >= :fContarDesde')->setParameter('fContarDesde', $contarDesde);
+        }
+
         if ($filtrarResponsavel) {
             $resp = (int) ($filtros['responsavel'] ?? 0);
             if ($resp > 0) {
@@ -848,8 +885,12 @@ class PastaRepository extends ServiceEntityRepository
         // "Sem responsável" (E8 da fidelidade, decisão do dono 14/10; o desenho de 13/10 tem a opção no
         // filtro de responsável): a pasta sem ninguém atribuído. Antes, `responsavel=sem` virava
         // `(int) 0` e devolvia lista vazia — nenhum chamador dependia disso.
-        if (($filters['responsavel'] ?? '') === 'sem') {
+        // `responsavel=equipe[:cargo]`: destino do Total de Pastas concluídas do Dashboard (ver filtrarPorEquipe).
+        $respFiltro = trim((string) ($filters['responsavel'] ?? ''));
+        if ($respFiltro === 'sem') {
             $qb->andWhere('p.responsavel IS NULL');
+        } elseif ($respFiltro === 'equipe' || str_starts_with($respFiltro, 'equipe:')) {
+            $this->filtrarPorEquipe($qb, $respFiltro);
         } elseif (!empty($filters['responsavel'])) {
             $qb->join('p.responsavel', 'r')
                ->andWhere('r.id = :responsavel')
@@ -936,17 +977,47 @@ class PastaRepository extends ServiceEntityRepository
             }
         }
 
-        $dataDe = $this->parseDataFiltro($filters['data_de'] ?? '', false);
-        if ($dataDe !== null) {
-            $qb->andWhere('p.dataAbertura >= :dataDe')
-               ->setParameter('dataDe', $dataDe);
+        $dataDe  = $this->parseDataFiltro($filters['data_de'] ?? '', false);
+        $dataAte = $this->parseDataFiltro($filters['data_ate'] ?? '', true);
+
+        // "Concluídas no período" (destino do número da coluna Pastas concluídas do Dashboard, regra B12):
+        // as datas passam a valer sobre a CHEGADA À FINALIZADA, e não sobre a abertura, com o critério
+        // compartilhado com a coluna (PastaFinalizadaNoPeriodo). Sem o filtro, nada muda.
+        if (($filters['concluida'] ?? '') === '1') {
+            PastaFinalizadaNoPeriodo::aplicar($qb, 'p', $dataDe, $dataAte);
+        } else {
+            if ($dataDe !== null) {
+                $qb->andWhere('p.dataAbertura >= :dataDe')
+                   ->setParameter('dataDe', $dataDe);
+            }
+
+            if ($dataAte !== null) {
+                $qb->andWhere('p.dataAbertura <= :dataAte')
+                   ->setParameter('dataAte', $dataAte);
+            }
+        }
+    }
+
+    /**
+     * `responsavel=equipe` (ou `equipe:<cargo>`): pastas cujo responsável é colaborador ATIVO do escritório da
+     * consulta (`:tenant`), opcionalmente de um cargo (`__sem__` = sem cargo). O Total do Dashboard soma só as linhas exibidas (colaboradores ativos), então a lista conta o mesmo:
+     * pasta sem responsável ou de quem saiu do escritório fica fora dos dois lados. Mesma lógica do `criado_por=equipe`.
+     */
+    private function filtrarPorEquipe(QueryBuilder $qb, string $respFiltro): void
+    {
+        $cargoResp = $respFiltro === 'equipe' ? '' : trim(substr($respFiltro, strlen('equipe:')));
+
+        $sub = 'SELECT 1 FROM ' . UserTenant::class . ' ut_rse LEFT JOIN ut_rse.cargo cg_rse'
+            . ' WHERE ut_rse.user = resp_eq AND ut_rse.tenant = :tenant AND ut_rse.isActive = true';
+        if ($cargoResp === '__sem__') {
+            $sub .= " AND (cg_rse.id IS NULL OR TRIM(cg_rse.nome) = '')";
+        } elseif ($cargoResp !== '') {
+            $sub .= ' AND cg_rse.nome = :cargoResp';
+            $qb->setParameter('cargoResp', $cargoResp);
         }
 
-        $dataAte = $this->parseDataFiltro($filters['data_ate'] ?? '', true);
-        if ($dataAte !== null) {
-            $qb->andWhere('p.dataAbertura <= :dataAte')
-               ->setParameter('dataAte', $dataAte);
-        }
+        $qb->join('p.responsavel', 'resp_eq')
+           ->andWhere('EXISTS (' . $sub . ')');
     }
 
     /**
@@ -988,7 +1059,9 @@ class PastaRepository extends ServiceEntityRepository
      *
      * - aud: audiência registrada na pasta, não cumprida, de hoje em diante.
      * - protocolar: pasta ativa, não administrativa, que ainda não passou pela fase Protocolo do andamento.
-     * Prazo = meta com prazo ou prazo/audiência registrado à mão. O prazo calculado do Push ainda não existe.
+     * Prazo = meta com prazo ou linha do `pasta_prazo` de qualquer origem: registrado à mão, lido dos registros ou
+     * calculado do Push processual (origem `push`, docs/specs/prazo-do-push.md), todos pelo mesmo caminho. Como
+     * ATIVIDADE (resp10 e o "depois da data" do findou), a linha do Push não conta: é publicação do juízo, não resposta.
      */
     private function aplicarFiltroDoExpediente(QueryBuilder $qb, string $filtro): void
     {
@@ -1002,7 +1075,7 @@ class PastaRepository extends ServiceEntityRepository
             . ' OR EXISTS (SELECT 1 FROM %3$s of_%6$s WHERE of_%6$s.pasta = p AND of_%6$s.criadaEm > %7$s)'
             . ' OR EXISTS (SELECT 1 FROM %4$s t_%6$s WHERE t_%6$s.pasta = p AND (t_%6$s.dataCriacao > %7$s OR t_%6$s.dataConclusao > %7$s))'
             . ' OR EXISTS (SELECT 1 FROM %5$s tm_%6$s JOIN tm_%6$s.tarefa tt_%6$s WHERE tt_%6$s.pasta = p AND tm_%6$s.criadoEm > %7$s)'
-            . ' OR EXISTS (SELECT 1 FROM %8$s zp_%6$s WHERE zp_%6$s.pasta = p AND (zp_%6$s.criadoEm > %7$s OR zp_%6$s.cumpridoEm > %7$s)))',
+            . ' OR EXISTS (SELECT 1 FROM %8$s zp_%6$s WHERE zp_%6$s.pasta = p AND zp_%6$s.origem <> \'%9$s\' AND (zp_%6$s.criadoEm > %7$s OR zp_%6$s.cumpridoEm > %7$s)))',
             PastaMensagem::class,
             PastaObservacaoDetalhes::class,
             PastaObservacaoFinanceira::class,
@@ -1011,6 +1084,7 @@ class PastaRepository extends ServiceEntityRepository
             $sufixo,
             $limite,
             PastaPrazo::class,
+            PastaPrazo::ORIGEM_PUSH, // a publicação do juízo não é resposta do escritório
         );
 
         switch ($filtro) {
@@ -1208,6 +1282,48 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $nomes;
+    }
+
+    /**
+     * O cadastro de cliente de cada nome, quando as pastas com aquele nome apontam para UM cadastro só: é o
+     * "A nova pasta será vinculada ao mesmo cadastro" da Nova Pasta (desenho 03, L276). Nome sem cadastro, ou
+     * com dois cadastros diferentes (homônimos), fica de fora: a pasta nova não tem a quem se ligar sem
+     * adivinhar. Casa pelo identificador da pasta em maiúsculas; o cadastro considerado é o principal.
+     *
+     * @param list<string> $nomes
+     *
+     * @return array<string, int> nome em maiúsculas => id do cliente
+     */
+    public function cadastroUnicoPorNomeDeCliente(array $nomes, Tenant $tenant): array
+    {
+        $nomes = array_values(array_unique(array_filter(array_map(
+            static fn (string $n): string => mb_strtoupper(trim($n)),
+            $nomes,
+        ), static fn (string $n): bool => $n !== '')));
+        if ($nomes === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('UPPER(p.nomeCliente) AS nome', 'MIN(c.id) AS cliente')
+            ->join('p.clientePrincipal', 'c')
+            ->where('p.tenant = :tenant')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('UPPER(p.nomeCliente) IN (:nomes)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nomes', $nomes)
+            ->groupBy('nome')
+            ->having('COUNT(DISTINCT c.id) = 1')
+            ->getQuery()
+            ->getArrayResult();
+
+        $cadastros = [];
+        foreach ($linhas as $l) {
+            $cadastros[(string) $l['nome']] = (int) $l['cliente'];
+        }
+
+        return $cadastros;
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +24,14 @@ final class PastaPushLinkJsTest extends TestCase
     private const CSS = __DIR__ . '/../../../public/css/pasta-push-link.css';
     private const TWIG = __DIR__ . '/../../../templates/pasta/_push_link_externo.html.twig';
     private const CABECALHO = __DIR__ . '/../../../templates/pasta/_cabecalho.html.twig';
+
+    /** Os textos do JS no catálogo (`pasta_push.js.link`, spec idioma-do-sistema, "A Pasta, aba Push"). */
+    private static function texto(string $chave): string
+    {
+        $catalogo = CatalogoPtBr::carregar();
+
+        return $catalogo['pasta_push']['js']['link'][$chave];
+    }
 
     /** O código sem os comentários: o que conta é o que roda. */
     private function codigo(): string
@@ -164,8 +173,10 @@ final class PastaPushLinkJsTest extends TestCase
 
         self::assertStringContainsString("postar(URL_LINKS + '/' + encodeURIComponent(String(link.id)) + '/' + acao, {})", $this->funcao('acaoNoLink'));
         $codigo = $this->codigo();
-        self::assertStringContainsString("acaoNoLink(link, 'renovar', 'Link renovado por 30 dias')", $codigo);
-        self::assertStringContainsString("acaoNoLink(link, 'recusar', 'Renovação recusada')", $codigo);
+        self::assertStringContainsString("acaoNoLink(link, 'renovar', BJ_T.t('pasta_push.js.link.renovado'))", $codigo);
+        self::assertStringContainsString("acaoNoLink(link, 'recusar', BJ_T.t('pasta_push.js.link.recusado'))", $codigo);
+        self::assertSame('Link renovado por 30 dias', self::texto('renovado'));
+        self::assertSame('Renovação recusada', self::texto('recusado'));
 
         // As rotas existem com esse formato (o controller é a fonte).
         $controller = (string) file_get_contents(__DIR__ . '/../../../src/Pasta/Controller/PastaLinkExternoController.php');
@@ -179,11 +190,13 @@ final class PastaPushLinkJsTest extends TestCase
     {
         $revogar = $this->funcao('revogar');
 
-        self::assertStringContainsString("texto: 'Revogar este link? Quem tiver o endereço perde o acesso na hora.'", $revogar);
+        self::assertStringContainsString("texto: BJ_T.t('pasta_push.js.link.revogar_pergunta')", $revogar);
+        self::assertSame('Revogar este link? Quem tiver o endereço perde o acesso na hora.', self::texto('revogar_pergunta'));
         self::assertStringContainsString('window.confirmarPs({', $revogar);
         // A única chamada de escrita está dentro do `if (sim)`.
         self::assertSame(1, substr_count($revogar, 'acaoNoLink('));
-        self::assertStringContainsString("acaoNoLink(link, 'revogar', 'Link revogado')", $this->blocoDoIf($revogar, 'sim'));
+        self::assertStringContainsString("acaoNoLink(link, 'revogar', BJ_T.t('pasta_push.js.link.revogado'))", $this->blocoDoIf($revogar, 'sim'));
+        self::assertSame('Link revogado', self::texto('revogado'));
     }
 
     #[TestDox('A1: o selo do ⋮ carrega pela fase de captura, porque o pasta-show.js para a propagação do clique no gatilho')]
@@ -285,16 +298,20 @@ final class PastaPushLinkJsTest extends TestCase
         $codigo = $this->codigo();
 
         self::assertStringContainsString(
-            "'Link copiado · válido até ' + dataSo(ativo.expiraEm) + (ativo.comCodigo ? ' · com código de acesso' : '') + '. Análises com cadeado fechado não aparecem.'",
+            "copiarLink(ativo, ativo.comCodigo\n                    ? BJ_T.t('pasta_push.js.link.copiado_menu_com_codigo', { data: dataSo(ativo.expiraEm) })\n                    : BJ_T.t('pasta_push.js.link.copiado_menu', { data: dataSo(ativo.expiraEm) }));",
             $codigo,
         );
+        self::assertSame('Link copiado · válido até {data} · com código de acesso. Análises com cadeado fechado não aparecem.', self::texto('copiado_menu_com_codigo'));
+        self::assertSame('Link copiado · válido até {data}. Análises com cadeado fechado não aparecem.', self::texto('copiado_menu'));
         self::assertStringNotContainsString('sem código de acesso', $codigo);
+        self::assertStringNotContainsString('sem código de acesso', (string) json_encode(CatalogoPtBr::carregar()['pasta_push'], JSON_UNESCAPED_UNICODE));
 
         $sub = $this->funcao('subDaLinha');
-        self::assertStringContainsString("'até ' + link.expiraEm", $sub);
-        self::assertStringContainsString("'expirou em ' + link.expiraEm", $sub);
+        self::assertStringContainsString("BJ_T.t('pasta_push.js.link.ate', { data: link.expiraEm })", $sub);
+        self::assertStringContainsString("BJ_T.t('pasta_push.js.link.expirou_em', { data: link.expiraEm })", $sub);
         self::assertStringNotContainsString('revogado em', $sub);
-        self::assertStringContainsString("(link.comCodigo ? 'com código' : 'sem código')", $sub);
+        self::assertStringContainsString("(link.comCodigo ? BJ_T.t('pasta_push.js.link.com_codigo') : BJ_T.t('pasta_push.js.link.sem_codigo'))", $sub);
+        self::assertSame(['até {data}', 'expirou em {data}', 'com código', 'sem código'], [self::texto('ate'), self::texto('expirou_em'), self::texto('com_codigo'), self::texto('sem_codigo')]);
 
         self::assertMatchesRegularExpression("/raiz\\.addEventListener\\('mousedown', function \\(e\\) \\{\\s+if \\(e\\.target === e\\.currentTarget\\) \\{ fecharModal\\(\\); \\}/", $codigo);
         self::assertStringNotContainsString('alvo === raiz', $codigo, 'o clique não fecha mais pelo fundo');
@@ -350,8 +367,12 @@ final class PastaPushLinkJsTest extends TestCase
         self::assertStringContainsString("if (e.key === 'Escape') { e.preventDefault(); fecharMenu(true); return; }", $codigo);
         self::assertStringContainsString('if (devolverFoco && aba) { aba.focus(); }', $this->funcao('fecharMenu'));
         $menu = $this->funcao('desenharMenu');
-        self::assertStringContainsString("ativo ? 'Gerar novo link externo' : 'Gerar link externo do Push'", $menu);
-        self::assertStringContainsString("'Ver acessos ao link · ' + n + plural(n, ' acesso', ' acessos')", $menu);
+        self::assertStringContainsString("ativo ? BJ_T.t('pasta_push.js.link.gerar_novo') : BJ_T.t('pasta_push.js.link.gerar')", $menu);
+        self::assertStringContainsString("BJ_T.t('pasta_push.js.link.ver_acessos') + ' · ' + plural(n, BJ_T.t('pasta_push.js.link.um_acesso'), BJ_T.t('pasta_push.js.link.acessos', { n: String(n) }))", $menu);
+        self::assertSame(
+            ['Gerar novo link externo', 'Gerar link externo do Push', 'Ver acessos ao link', '1 acesso', '{n} acessos'],
+            [self::texto('gerar_novo'), self::texto('gerar'), self::texto('ver_acessos'), self::texto('um_acesso'), self::texto('acessos')],
+        );
     }
 
     #[TestDox('Copiar usa a área de transferência do navegador e cai no textarea quando ela falha ou não existe')]

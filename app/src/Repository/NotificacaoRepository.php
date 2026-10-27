@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -20,10 +21,25 @@ class NotificacaoRepository extends ServiceEntityRepository
         parent::__construct($registry, Notificacao::class);
     }
 
+    /** O aviso mais recente deste tipo para a pessoa sobre a meta (o intervalo do Lembrar, L10). */
+    public function ultimaDoTipoNaTarefa(Tarefa $tarefa, User $usuario, string $tipo): ?Notificacao
+    {
+        return $this->findOneBy(['tarefa' => $tarefa, 'usuario' => $usuario, 'tipo' => $tipo], ['criadaEm' => 'DESC']);
+    }
+
     /**
-     * Aplica o filtro de categoria (derivada do tipo) ao QueryBuilder.
-     * null = todas as categorias.
+     * Sininho em silêncio (preferência "Notificações no sistema" do Meu Perfil): só os tipos da lista contam e aparecem
+     * no sino. Nulo = todos.
+     *
+     * @param list<string>|null $soTipos
      */
+    private function soDosTipos(QueryBuilder $qb, ?array $soTipos): void
+    {
+        if ($soTipos !== null) {
+            $qb->andWhere('n.tipo IN (:soTipos)')->setParameter('soTipos', $soTipos);
+        }
+    }
+
     /**
      * Cadeado (spec pasta-cadeado): aviso ligado a pasta oculta para a pessoa (pela meta ou pela URL
      * `/pasta/{id}`) não sai nem conta, mesmo gravado antes do cadeado. A resposta ao pedido de acesso
@@ -53,6 +69,10 @@ class NotificacaoRepository extends ServiceEntityRepository
         }
     }
 
+    /**
+     * Aplica o filtro de categoria (derivada do tipo) ao QueryBuilder.
+     * null = todas as categorias.
+     */
     private function aplicarCategoria(QueryBuilder $qb, ?string $categoria): void
     {
         if ($categoria === Notificacao::CATEGORIA_GESTAO) {
@@ -71,7 +91,7 @@ class NotificacaoRepository extends ServiceEntityRepository
      *
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10, array $pastasOcultas = []): array
+    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10, array $pastasOcultas = [], ?array $soTipos = null): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -81,6 +101,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->setMaxResults($limit);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->soDosTipos($qb, $soTipos);
 
         return $qb->getQuery()->getResult();
     }
@@ -90,7 +111,7 @@ class NotificacaoRepository extends ServiceEntityRepository
      *
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = []): int
+    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = [], ?array $soTipos = null): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
@@ -99,6 +120,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->setParameter('usuario', $usuario);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->soDosTipos($qb, $soTipos);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
@@ -261,6 +283,31 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Quem, neste escritório, tem aviso NÃO LIDO do tipo informado com o link começando por
+     * `$inicioDoLink` (ex.: `/pasta/41#`, que não casa `/pasta/412#`). É a deduplicação do
+     * "Acompanhar alterações" da pasta: um aviso não lido por pasta e por pessoa. Escritório
+     * explícito: não depende do TenantFilter.
+     *
+     * @return array<int, true> id do usuário → true
+     */
+    public function idsDosUsuariosComNaoLidaNoLink(Tenant $tenant, string $tipo, string $inicioDoLink): array
+    {
+        $ids = $this->createQueryBuilder('n')
+            ->select('DISTINCT IDENTITY(n.usuario) AS usuario_id')
+            ->where('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.lida = false')
+            ->andWhere('n.url LIKE :inicio')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('inicio', addcslashes($inicioDoLink, '%_\\') . '%')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_fill_keys(array_map('intval', $ids), true);
+    }
+
+    /**
      * Apaga os avisos cujo link termina EXATAMENTE na âncora informada (`#pasta-msg-12`,
      * `#nota-tecnica-7`), dos tipos informados, no escritório informado (NOT-01): quando a
      * mensagem do Registro ou a nota técnica é excluída, a menção/resposta que apontava para ela
@@ -391,6 +438,27 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->andWhere('n.criadaEm >= :desde')
             ->setParameter('tenant', $tenant)
             ->setParameter('tipo', $tipo)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
+
+    /**
+     * Existe aviso deste tipo, com este link, no escritório, criado a partir de `$desde`? É o teto do "Pedir acesso"
+     * aos Perfis (um por pessoa por dia): o link do aviso identifica a pessoa que pediu. Tenant explícito, além do
+     * TenantFilter.
+     */
+    public function existeDoTipoComUrlNoEscritorioDesde(Tenant $tenant, string $tipo, string $url, \DateTimeImmutable $desde): bool
+    {
+        return (int) $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->andWhere('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.url = :url')
+            ->andWhere('n.criadaEm >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('url', $url)
             ->setParameter('desde', $desde)
             ->getQuery()
             ->getSingleScalarResult() > 0;

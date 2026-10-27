@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -58,7 +59,8 @@ final class PastaDetalhesEdicaoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('moldura.appendChild(textarea);', $js);
         self::assertStringContainsString('moldura.appendChild(rodape);', $js);
         self::assertStringContainsString('caixa.appendChild(moldura);', $js);
-        self::assertStringContainsString("nota.textContent = 'Visível para a equipe'", $js);
+        self::assertStringContainsString("nota.textContent = BJ_T.t('pasta_detalhes.js.visivel_equipe')", $js);
+        self::assertSame('Visível para a equipe', CatalogoPtBr::carregar()['pasta_detalhes']['js']['visivel_equipe']);
         self::assertStringNotContainsString('acoesBtns', $js, 'a fileira antiga de botões fora do editor saiu');
     }
 

@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -75,7 +76,11 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
         self::assertSame('editado', trim($marca->text()));
         self::assertSame('Publicado às 09:12 · última edição 02/10/2026 às 14:05', $marca->attr('title'));
         self::assertStringNotContainsString('Editado em', $this->html($client));
-        self::assertStringContainsString("marca.title = (publicado ? 'Publicado às ' + publicado + ' · ' : '') + 'última edição '", $this->html($client));
+        self::assertStringContainsString("marca.title = (publicado ? BJ_T.t('pasta_show.js.registro.publicado_as', {hora: publicado}) + ' · ' : '')", $this->html($client));
+        self::assertStringContainsString("BJ_T.t('pasta_show.js.registro.ultima_edicao', {data: BJFormato.data(agora), hora: BJFormato.hora(agora)})", $this->html($client));
+        $registro = self::catalogoDoRegistro();
+        self::assertSame('Publicado às {hora}', $registro['publicado_as']);
+        self::assertSame('última edição {data} às {hora}', $registro['ultima_edicao']);
     }
 
     #[TestDox('PAS-037: na linha do Registro só o lápis, com "Editável por mais N minutos"; a lixeira fica escondida para o menu')]
@@ -112,7 +117,8 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
         $edicao = substr($html, $ini, 6000);
         self::assertStringContainsString("area.className = 'pasta-msg-edit-area ps-anotacao-texto ps-anotacao-edicao';", $edicao);
         self::assertStringContainsString("rodape.className = 'ps-anotacao-edicao-rodape';", $edicao);
-        self::assertStringContainsString("nota.textContent = 'Visível para a equipe';", $edicao);
+        self::assertStringContainsString("nota.textContent = BJ_T.t('pasta_show.js.registro.visivel_equipe');", $edicao);
+        self::assertSame('Visível para a equipe', self::catalogoDoRegistro()['visivel_equipe']);
         self::assertStringContainsString("btnCancelar.className = 'ps-anotacao-edicao-cancelar';", $edicao);
         self::assertStringContainsString("btnSalvar.className = 'ps-btn ps-btn--primario';", $edicao);
         self::assertStringContainsString("moldura.className = 'ps-compositor-caixa';", $edicao);
@@ -146,10 +152,15 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
         $caixa = substr($html, $ini, 6500);
         self::assertStringContainsString("const raiz   = document.getElementById('pasta-msg-' + raizId);", $caixa);
         self::assertStringContainsString('raiz.after(el);', $caixa, 'logo abaixo do cartão da raiz');
-        self::assertStringContainsString("para.textContent = 'Respondendo a ' + (botao.dataset.respostaNome || 'Autor desconhecido');", $caixa);
-        self::assertStringContainsString("campo.placeholder = 'Escreva a resposta…';", $caixa);
-        self::assertStringContainsString("cancelar.textContent = 'Cancelar';", $caixa);
-        self::assertStringContainsString("enviar.appendChild(document.createTextNode('Responder'));", $caixa);
+        self::assertStringContainsString("para.textContent = BJ_T.t('pasta_show.js.registro.respondendo_a', {nome: botao.dataset.respostaNome || BJ_T.t('pasta_show.js.registro.autor_desconhecido')});", $caixa);
+        self::assertStringContainsString("campo.placeholder = BJ_T.t('pasta_show.js.registro.escreva_resposta');", $caixa);
+        self::assertStringContainsString("cancelar.textContent = BJ_T.t('pasta_show.js.cancelar');", $caixa);
+        self::assertStringContainsString("enviar.appendChild(document.createTextNode(BJ_T.t('pasta_show.js.registro.responder')));", $caixa);
+        $registro = self::catalogoDoRegistro();
+        self::assertSame('Respondendo a {nome}', $registro['respondendo_a']);
+        self::assertSame('Autor desconhecido', $registro['autor_desconhecido']);
+        self::assertSame('Escreva a resposta…', $registro['escreva_resposta']);
+        self::assertSame('Responder', $registro['responder']);
         self::assertStringContainsString("enviar.disabled = campo.value.trim() === '';", $caixa, 'Responder apagado sem texto');
         self::assertStringContainsString("e.key === 'Enter' && (e.ctrlKey || e.metaKey)", $caixa);
         self::assertStringContainsString("e.key === 'Escape'", $caixa);
@@ -237,5 +248,11 @@ final class PastaRegistroL6TelaTest extends JusPrimeWebTestCase
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertStringContainsString('user:' . $user->getId(), $data['conteudo'], 'gravado como token');
         self::assertStringContainsString($user->getFullName(), $data['conteudoHtml'], 'o rótulo é o nome do banco');
+    }
+
+    /** @return array<string, string> o texto do script do Registro, no catálogo do idioma (`pasta_show.js.registro`) */
+    private static function catalogoDoRegistro(): array
+    {
+        return CatalogoPtBr::carregar()['pasta_show']['js']['registro'];
     }
 }

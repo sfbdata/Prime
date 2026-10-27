@@ -184,7 +184,8 @@ final class DesfazerAlteracaoAuditLogControllerTest extends JusPrimeWebTestCase
     {
         $pasta = $this->criarPasta();
         $id = (int) $pasta->getId();
-        $logId = $this->criarLog(Pasta::class, $id, ['dataAbertura' => ['from' => '2025-03-04T10:20:30+00:00', 'to' => '2026-10-06T08:00:00+00:00']]);
+        // O `to` é a data de abertura de agora (a pasta nasce com ela): o registro está como o log o deixou.
+        $logId = $this->criarLog(Pasta::class, $id, ['dataAbertura' => ['from' => '2025-03-04T10:20:30+00:00', 'to' => $pasta->getDataAbertura()->format(DATE_ATOM)]]);
 
         $this->desfazer($logId);
 
@@ -246,6 +247,8 @@ final class DesfazerAlteracaoAuditLogControllerTest extends JusPrimeWebTestCase
         $tarefa->setDescricao('...');
         $tarefa->setTenant($this->tenant);
         $tarefa->setPasta($this->criarPasta());
+        // A guarda da tela da meta (`AcessoAMeta`) pede alguém da pasta com vínculo no escritório.
+        $tarefa->getPasta()->setCriadoPor($this->admin);
         $this->em->persist($tarefa);
         $this->em->flush();
         $pastaOriginal = $tarefa->getPasta()->getId();

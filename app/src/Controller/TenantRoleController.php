@@ -13,13 +13,16 @@ use App\Repository\PermissionRepository;
 use App\Repository\TenantRoleRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
-use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\DTO\PedirAcessoAosPerfisInput;
 use App\Tenant\DTO\PromoverPrimarioSocioInput;
 use App\Tenant\DTO\RemoverPrimarioSocioInput;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
 use App\Tenant\Service\GruposDePermissaoDoPerfil;
+use App\Tenant\Service\HierarquiaDePerfis;
+use App\Tenant\Repository\ConfiguracaoDeEdicaoRepository;
 use App\Tenant\Service\RegraDosPrimarios;
+use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
 use App\Tenant\UseCase\PromoverPrimarioSocioUseCase;
 use App\Tenant\UseCase\RemoverPrimarioSocioUseCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,6 +32,7 @@ use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Perfis do escritório (desenho "05 - Perfis 1.0", spec docs/specs/perfis-master-1.0.md §4.1/§4.2).
@@ -36,40 +40,84 @@ use Symfony\Component\Routing\Annotation\Route;
  * Três classificações: MASTER (linha virtual, só para ROLE_SUPER_ADMIN, abre o Painel do
  * Master), PRIMÁRIO (o perfil isSystem do escritório: acesso total, caixas travadas, D5) e
  * SECUNDÁRIO (os demais perfis, editáveis).
+ *
+ * O texto que vai à tela (flash, erro do formulário, recusa da hierarquia, descrições da lista) sai do catálogo
+ * (perfis.*, spec idioma-do-sistema) no idioma da requisição. A mensagem das exceções 403/404 não chega à tela
+ * (a página de erro é a padrão) e fica em português.
  */
 #[Route('/tenant/{tenantId}/roles')]
 final class TenantRoleController extends AbstractController
 {
-    private const DESCRICAO_MASTER   = 'O criador do BlueJus (Master primário) e quem ele promover (Master secundário).';
-    private const DESCRICAO_PRIMARIO = 'Quem abriu a conta. Gestor do escritório; cadastra e administra os secundários. Não pode ser excluído.';
-    private const DESCRICAO_SECUNDARIO_VAZIA = 'Usuário secundário';
+    private const DESCRICAO_MASTER   = 'perfis.lista.descricao_master';
+    private const DESCRICAO_PRIMARIO = 'perfis.lista.descricao_primario';
+    private const DESCRICAO_SECUNDARIO_VAZIA = 'perfis.lista.descricao_secundario_vazia';
 
 
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly GruposDePermissaoDoPerfil $gruposDePermissao,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly HierarquiaDePerfis $hierarquia,
+        private readonly TranslatorInterface $tradutor,
+        private readonly ConfiguracaoDeEdicaoRepository $configuracaoDeEdicao,
     ) {}
 
-    private function assertAccess(int $tenantId, PermissionChecker $checker): Tenant
+    /** @param array<string, mixed> $parametros */
+    private function traduzir(string $chave, array $parametros = []): string
     {
-        $user = $this->getUser();
+        return $this->tradutor->trans($chave, $parametros);
+    }
 
-        if (!$user instanceof User) {
-            throw $this->createAccessDeniedException();
+    /** C6: a recusa do desenho, no idioma de quem lê. */
+    private function recusaDeNivel(): string
+    {
+        return $this->traduzir(HierarquiaDePerfis::CHAVE_DA_RECUSA[HierarquiaDePerfis::RECUSA_MESMO_NIVEL_OU_ACIMA]);
+    }
+
+    private function assertAccess(int $tenantId): Tenant
+    {
+        $tenant = $this->tenantDaRota($tenantId);
+
+        // C2 (spec perfis-1.2-permissoes-e-hierarquia): primário, Master ou `admin.roles.manage`.
+        if (!$this->hierarquia->podeVerALista($this->ator(), $tenant)) {
+            throw $this->createAccessDeniedException('Você não tem permissão para gerenciar perfis.');
         }
 
+        return $tenant;
+    }
+
+    private function tenantDaRota(int $tenantId): Tenant
+    {
+        $this->ator();
         $tenant = $this->tenantContext->getCurrentTenant();
 
         if ($tenant === null || $tenant->getId() !== $tenantId) {
             throw $this->createAccessDeniedException('Você não tem acesso aos perfis deste escritório.');
         }
 
-        if (!$checker->canAdminister($user, $tenant, 'admin.roles.manage')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para gerenciar perfis.');
+        return $tenant;
+    }
+
+    private function ator(): User
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException();
         }
 
-        return $tenant;
+        return $user;
+    }
+
+    /**
+     * Tela "Acesso restrito" (desenho L496), no lugar do 403 seco, para quem não pode ver os Perfis (C2). Continua
+     * respondendo 403.
+     */
+    private function acessoRestrito(Tenant $tenant, PedirAcessoAosPerfisUseCase $pedirAcesso): Response
+    {
+        return $this->render('tenant_role/acesso_restrito.html.twig', [
+            'tenantId'    => $tenant->getId(),
+            'jaPediuHoje' => $pedirAcesso->jaPediuHoje($tenant, $this->ator()),
+        ], new Response('', Response::HTTP_FORBIDDEN));
     }
 
     /**
@@ -98,9 +146,12 @@ final class TenantRoleController extends AbstractController
         PermissionRepository $permissionRepository,
         UserRepository $userRepository,
         UserTenantRepository $userTenantRepository,
-        PermissionChecker $checker
+        PedirAcessoAosPerfisUseCase $pedirAcesso
     ): Response {
-        $tenant = $this->assertAccess($tenantId, $checker);
+        $tenant = $this->tenantDaRota($tenantId);
+        if (!$this->hierarquia->podeVerALista($this->ator(), $tenant)) {
+            return $this->acessoRestrito($tenant, $pedirAcesso);
+        }
 
         $totalDoCatalogo = $this->gruposDePermissao->total(
             $this->gruposDePermissao->agrupar($permissionRepository->findAllGrouped())
@@ -113,7 +164,7 @@ final class TenantRoleController extends AbstractController
         $vinculosPorPerfil = $userTenantRepository->contarVinculosPorPerfil($tenant);
 
         $perfis = [];
-        foreach ($roleRepository->findByTenantId((int) $tenant->getId()) as $role) {
+        foreach ($this->perfisVisiveis($tenant, $roleRepository) as $role) {
             $usuarios = $usuariosPorPerfil[(int) $role->getId()] ?? 0;
 
             $descricao = trim((string) $role->getDescription());
@@ -122,32 +173,79 @@ final class TenantRoleController extends AbstractController
                 'nome'          => $role->getNomeExibido(),
                 'classificacao' => $role->isSystem() ? 'primario' : 'secundario',
                 'descricao'     => $role->isSystem()
-                    ? self::DESCRICAO_PRIMARIO
-                    : ($descricao !== '' ? $descricao : self::DESCRICAO_SECUNDARIO_VAZIA),
+                    ? $this->traduzir(self::DESCRICAO_PRIMARIO)
+                    : ($descricao !== '' ? $descricao : $this->traduzir(self::DESCRICAO_SECUNDARIO_VAZIA)),
                 'permissoes'    => $role->isSystem() ? $totalDoCatalogo : $role->getTenantRolePermissions()->count(),
                 'usuarios'      => $usuarios,
                 'vinculos'      => $vinculosPorPerfil[(int) $role->getId()] ?? 0,
-                'podeExcluir'   => !$role->isSystem(),
-            ];
+            ] + $this->acoesDoPerfil($tenant, $role);
         }
 
         // A linha Master só existe para o Master (D2): nada dela chega ao HTML de quem não é.
         $master = null;
         if ($this->isGranted('ROLE_SUPER_ADMIN')) {
             $master = [
-                'nome'      => 'Master do Sistema',
-                'descricao' => self::DESCRICAO_MASTER,
+                'nome'      => $this->traduzir('perfis.lista.master_nome', ['papel' => $this->traduzir('termos.master')]),
+                'descricao' => $this->traduzir(self::DESCRICAO_MASTER),
                 'usuarios'  => count($userRepository->findComPapelGlobal('ROLE_SUPER_ADMIN')),
             ];
         }
 
-        return $this->render('tenant_role/index.html.twig', [
+        return $this->renderLista($tenant, [
             'tenantId'        => $tenantId,
             'perfis'          => $perfis,
             'master'          => $master,
             'totalDoCatalogo' => $totalDoCatalogo,
             'resumo'          => $this->resumoDaLista($perfis, $master),
         ]);
+    }
+
+    /**
+     * C2: só os perfis de nível até o do ator (o secundário não vê a linha do primário).
+     *
+     * @return list<TenantRole>
+     */
+    private function perfisVisiveis(Tenant $tenant, TenantRoleRepository $roleRepository): array
+    {
+        return array_values(array_filter(
+            $roleRepository->findByTenantId((int) $tenant->getId()),
+            fn (TenantRole $role): bool => $this->hierarquia->podeVerOPerfil($this->ator(), $tenant, $role)
+        ));
+    }
+
+    /**
+     * C3/C6: editar e excluir só perfil de nível abaixo do ator; a tela desabilita, o servidor recusa.
+     *
+     * @return array{fixo: bool, podeEditar: bool, podeExcluir: bool}
+     */
+    private function acoesDoPerfil(Tenant $tenant, TenantRole $role): array
+    {
+        return [
+            'fixo'        => $role->isSystem(),
+            'podeEditar'  => $this->hierarquia->podeEditarPerfil($this->ator(), $tenant, $role),
+            'podeExcluir' => $this->hierarquia->podeExcluirPerfil($this->ator(), $tenant, $role),
+        ];
+    }
+
+    /**
+     * A lista com o "Novo Perfil" (C3: só quem está acima do secundário cria) e a mensagem do desenho (C6).
+     *
+     * @param array<string, mixed> $dados
+     */
+    private function renderLista(Tenant $tenant, array $dados): Response
+    {
+        return $this->render('tenant_role/index.html.twig', $dados + [
+            'podeCriar'     => $this->hierarquia->podeCriarPerfil($this->ator(), $tenant),
+            'recusaDeNivel' => $this->recusaDeNivel(),
+        ]);
+    }
+
+    /** C3: recusa no servidor o que a hierarquia não deixa (criar, editar, excluir), com a mensagem do desenho. */
+    private function garantirNivel(bool $pode): void
+    {
+        if (!$pode) {
+            throw $this->createAccessDeniedException($this->recusaDeNivel());
+        }
     }
 
     /**
@@ -188,9 +286,13 @@ final class TenantRoleController extends AbstractController
         EntityManagerInterface $em,
         PermissionRepository $permissionRepository,
         TenantRoleRepository $roleRepository,
-        PermissionChecker $checker
+        PedirAcessoAosPerfisUseCase $pedirAcesso
     ): Response {
-        $tenant = $this->assertAccess($tenantId, $checker);
+        $tenant = $this->tenantDaRota($tenantId);
+        if (!$this->hierarquia->podeVerALista($this->ator(), $tenant)) {
+            return $this->acessoRestrito($tenant, $pedirAcesso);
+        }
+        $this->garantirNivel($this->hierarquia->podeCriarPerfil($this->ator(), $tenant)); // C3: o novo é secundário
 
         $role = new TenantRole();
         $role->setTenant($tenant);
@@ -213,7 +315,7 @@ final class TenantRoleController extends AbstractController
             $em->persist($role);
             $em->flush();
 
-            $this->addFlash('success', 'Perfil criado com sucesso!');
+            $this->addFlash('success', $this->traduzir('perfis.flash.criado'));
 
             return $this->redirectToRoute('app_tenant_role_index', ['tenantId' => $tenantId]);
         }
@@ -237,13 +339,17 @@ final class TenantRoleController extends AbstractController
         PermissionRepository $permissionRepository,
         TenantRoleRepository $roleRepository,
         UserTenantRepository $userTenantRepository,
-        PermissionChecker $checker
+        PedirAcessoAosPerfisUseCase $pedirAcesso
     ): Response {
-        $tenant = $this->assertAccess($tenantId, $checker);
+        $tenant = $this->tenantDaRota($tenantId);
+        if (!$this->hierarquia->podeVerALista($this->ator(), $tenant)) {
+            return $this->acessoRestrito($tenant, $pedirAcesso);
+        }
 
         if ($role->getTenant()?->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException('Perfil não encontrado neste escritório.');
         }
+        $this->garantirNivel($this->hierarquia->podeEditarPerfil($this->ator(), $tenant, $role)); // C3, também o próprio
 
         $allPermissions = $permissionRepository->findAllGrouped();
         $cartoes        = $this->gruposDePermissao->agrupar($allPermissions);
@@ -278,7 +384,7 @@ final class TenantRoleController extends AbstractController
 
             $em->flush();
 
-            $this->addFlash('success', 'Perfil atualizado com sucesso!');
+            $this->addFlash('success', $this->traduzir('perfis.flash.atualizado'));
 
             return $this->redirectToRoute('app_tenant_role_index', ['tenantId' => $tenantId]);
         }
@@ -298,10 +404,9 @@ final class TenantRoleController extends AbstractController
         Request $request,
         UserRepository $userRepository,
         TenantRoleRepository $roleRepository,
-        PromoverPrimarioSocioUseCase $promover,
-        PermissionChecker $checker
+        PromoverPrimarioSocioUseCase $promover
     ): Response {
-        $tenant = $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId);
         $ator   = $this->assertPrimarioOuMaster($tenant);
 
         if (!$this->isCsrfTokenValid('promover_primario_' . $tenant->getId(), $request->request->getString('_token'))) {
@@ -312,14 +417,14 @@ final class TenantRoleController extends AbstractController
         $alvo   = $alvoId > 0 ? $userRepository->findPorIdETenant($alvoId, $tenant) : null;
 
         if ($alvo === null) {
-            $this->addFlash('error', 'Escolha um usuário secundário da conta.');
+            $this->addFlash('error', $this->traduzir('perfis.flash.escolha_secundario'));
 
             return $this->voltarAoPerfilPrimario($tenant, $roleRepository);
         }
 
         try {
             $promover->executar(new PromoverPrimarioSocioInput($tenant, $alvo, $ator));
-            $this->addFlash('success', sprintf('"%s" agora é primário sócio do escritório.', $alvo->getFullName()));
+            $this->addFlash('success', $this->traduzir('perfis.flash.promovido', ['nome' => (string) $alvo->getFullName()]));
         } catch (OperacaoDePrimarioRecusada $e) {
             $this->addFlash('error', $e->getMessage());
         }
@@ -334,10 +439,9 @@ final class TenantRoleController extends AbstractController
         Request $request,
         UserRepository $userRepository,
         TenantRoleRepository $roleRepository,
-        RemoverPrimarioSocioUseCase $remover,
-        PermissionChecker $checker
+        RemoverPrimarioSocioUseCase $remover
     ): Response {
-        $tenant = $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId);
         $ator   = $this->assertPrimarioOuMaster($tenant);
 
         if (!$this->isCsrfTokenValid('remover_primario_' . $userId, $request->request->getString('_token'))) {
@@ -357,12 +461,36 @@ final class TenantRoleController extends AbstractController
 
         try {
             $remover->executar(new RemoverPrimarioSocioInput($tenant, $alvo, $destino, $ator));
-            $this->addFlash('success', sprintf('"%s" deixou de ser primário e voltou a ser secundário.', $alvo->getFullName()));
+            $this->addFlash('success', $this->traduzir('perfis.flash.removido', ['nome' => (string) $alvo->getFullName()]));
         } catch (OperacaoDePrimarioRecusada $e) {
             $this->addFlash('error', $e->getMessage());
         }
 
         return $this->voltarAoPerfilPrimario($tenant, $roleRepository);
+    }
+
+    /**
+     * "Pedir acesso" da tela "Acesso restrito" (C2): avisa os primários ativos, um pedido por pessoa por dia.
+     * Declarada antes do delete (`/{id}`), que também casaria o caminho.
+     */
+    #[Route('/pedir-acesso', name: 'app_tenant_role_pedir_acesso', methods: ['POST'])]
+    public function pedirAcesso(int $tenantId, Request $request, PedirAcessoAosPerfisUseCase $pedirAcesso): Response
+    {
+        $tenant = $this->tenantDaRota($tenantId);
+        $ator   = $this->ator();
+
+        if (!$this->isCsrfTokenValid('pedir_acesso_perfis_' . $tenant->getId(), $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        // Quem já vê os Perfis não tem o que pedir; quem já pediu hoje volta para a tela com o pedido enviado.
+        if (!$this->hierarquia->podeVerALista($ator, $tenant) && !$pedirAcesso->jaPediuHoje($tenant, $ator)) {
+            if ($pedirAcesso->executar(new PedirAcessoAosPerfisInput($tenant, $ator)) === 0) {
+                $this->addFlash('error', $this->traduzir('perfis.flash.sem_primario'));
+            }
+        }
+
+        return $this->redirectToRoute('app_tenant_role_index', ['tenantId' => $tenantId]);
     }
 
     #[Route('/{id}', name: 'app_tenant_role_delete', methods: ['POST'])]
@@ -371,19 +499,19 @@ final class TenantRoleController extends AbstractController
         TenantRole $role,
         Request $request,
         EntityManagerInterface $em,
-        UserTenantRepository $userTenantRepository,
-        PermissionChecker $checker
+        UserTenantRepository $userTenantRepository
     ): Response {
-        $tenant = $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId);
 
         if ($role->getTenant()?->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException('Perfil não encontrado neste escritório.');
         }
 
         if ($role->isSystem()) {
-            $this->addFlash('error', 'Perfis de sistema não podem ser excluídos.');
+            $this->addFlash('error', $this->traduzir('perfis.flash.sistema_nao_exclui'));
             return $this->redirectToRoute('app_tenant_role_index', ['tenantId' => $tenantId]);
         }
+        $this->garantirNivel($this->hierarquia->podeExcluirPerfil($this->ator(), $tenant, $role)); // C3, também o próprio
 
         if ($this->isCsrfTokenValid('delete_role_' . $role->getId(), $request->request->get('_token'))) {
             // O desenho promete: "os usuários com este perfil ficam sem perfil até você atribuir
@@ -397,7 +525,7 @@ final class TenantRoleController extends AbstractController
 
             $em->remove($role);
             $em->flush();
-            $this->addFlash('success', 'Perfil excluído.');
+            $this->addFlash('success', $this->traduzir('perfis.flash.excluido'));
         }
 
         return $this->redirectToRoute('app_tenant_role_index', ['tenantId' => $tenantId]);
@@ -435,7 +563,7 @@ final class TenantRoleController extends AbstractController
 
             if ($vinculo->getUser()->isActive() && !$protegido) {
                 $secundarios[] = $this->pessoa($vinculo) + [
-                    'perfil' => $vinculo->getTenantRole()?->getName() ?? 'sem perfil',
+                    'perfil' => $vinculo->getTenantRole()?->getName() ?? $this->traduzir('perfis.editar.sem_perfil'),
                 ];
             }
         }
@@ -458,7 +586,17 @@ final class TenantRoleController extends AbstractController
             'primarios'         => $primarios,
             'secundarios'       => $secundarios,
             'perfisSecundarios' => $perfisSecundarios,
+            // Edição sem prazo (spec edicao-sem-prazo §3): a opção do escritório; só um primário ativo muda.
+            'edicaoSemPrazo'    => $this->configuracaoDeEdicao->primarioSemPrazo($tenant),
+            'podeMudarSemPrazo' => $ator instanceof User && $this->ehPrimarioAtivo($ator, $tenant, $userTenantRepository),
         ]);
+    }
+
+    private function ehPrimarioAtivo(User $ator, Tenant $tenant, UserTenantRepository $vinculos): bool
+    {
+        $vinculo = $vinculos->findAtivoPorUserETenant($ator, $tenant);
+
+        return $vinculo !== null && $this->regraDosPrimarios->ehPrimario($vinculo);
     }
 
     /**
@@ -516,7 +654,7 @@ final class TenantRoleController extends AbstractController
 
         foreach ($roleRepository->findByTenantId((int) $tenant->getId()) as $outro) {
             if ($outro !== $role && mb_strtolower(trim((string) $outro->getName())) === $nome) {
-                $form->get('name')->addError(new FormError('Já existe um perfil com esse nome.'));
+                $form->get('name')->addError(new FormError($this->traduzir('perfis.form.nome_repetido')));
 
                 return;
             }

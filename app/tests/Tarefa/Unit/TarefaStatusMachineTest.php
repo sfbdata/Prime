@@ -34,9 +34,10 @@ class TarefaStatusMachineTest extends TestCase
     }
 
     /**
-     * Simula a lógica exata do controller no endpoint /mensagem com acao=devolver.
+     * Simula a devolução da Fase 3: o despacho de quem criou a meta, com ela em revisão, a devolve para pendente
+     * (DespacharNaMetaUseCase). O antigo botão Devolver do /mensagem saiu.
      */
-    private function simularDevolver(Tarefa $tarefa): void
+    private function simularDespachoDoCriadorEmRevisao(Tarefa $tarefa): void
     {
         if ($tarefa->getStatus() === Tarefa::STATUS_EM_REVISAO) {
             $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
@@ -87,14 +88,14 @@ class TarefaStatusMachineTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────
-    // Ação: devolver (Para Revisão → Pendente)
+    // Devolução pelo despacho do criador (Para Revisão → Pendente)
     // ──────────────────────────────────────────────────────────────────
 
     public function testDevolverDeEmRevisaoVaiParaPendente(): void
     {
         $tarefa = $this->novaTarefa(Tarefa::STATUS_EM_REVISAO);
 
-        $this->simularDevolver($tarefa);
+        $this->simularDespachoDoCriadorEmRevisao($tarefa);
 
         $this->assertSame(Tarefa::STATUS_PENDENTE, $tarefa->getStatus());
     }
@@ -103,7 +104,7 @@ class TarefaStatusMachineTest extends TestCase
     {
         $tarefa = $this->novaTarefa(Tarefa::STATUS_PENDENTE);
 
-        $this->simularDevolver($tarefa);
+        $this->simularDespachoDoCriadorEmRevisao($tarefa);
 
         // A condição do controller só age sobre 'em_revisao'
         $this->assertSame(Tarefa::STATUS_PENDENTE, $tarefa->getStatus());
@@ -113,7 +114,7 @@ class TarefaStatusMachineTest extends TestCase
     {
         $tarefa = $this->novaTarefa(Tarefa::STATUS_CONCLUIDA);
 
-        $this->simularDevolver($tarefa);
+        $this->simularDespachoDoCriadorEmRevisao($tarefa);
 
         $this->assertSame(Tarefa::STATUS_CONCLUIDA, $tarefa->getStatus());
     }
@@ -181,7 +182,7 @@ class TarefaStatusMachineTest extends TestCase
         $this->simularEnviar($tarefa);
         $this->assertSame(Tarefa::STATUS_EM_REVISAO, $tarefa->getStatus());
 
-        $this->simularDevolver($tarefa);
+        $this->simularDespachoDoCriadorEmRevisao($tarefa);
         $this->assertSame(Tarefa::STATUS_PENDENTE, $tarefa->getStatus());
 
         $this->simularEnviar($tarefa);
@@ -208,9 +209,9 @@ class TarefaStatusMachineTest extends TestCase
 
         // Enviar → devolver × 2 → enviar → concluir
         $this->simularEnviar($tarefa);
-        $this->simularDevolver($tarefa);
+        $this->simularDespachoDoCriadorEmRevisao($tarefa);
         $this->simularEnviar($tarefa);
-        $this->simularDevolver($tarefa);
+        $this->simularDespachoDoCriadorEmRevisao($tarefa);
         $this->simularEnviar($tarefa);
         $this->simularConcluir($tarefa);
 
@@ -229,8 +230,6 @@ class TarefaStatusMachineTest extends TestCase
         $acao = '';
         if ($acao === 'enviar' && $tarefa->getStatus() === Tarefa::STATUS_PENDENTE) {
             $tarefa->setStatus(Tarefa::STATUS_EM_REVISAO);
-        } elseif ($acao === 'devolver' && $tarefa->getStatus() === Tarefa::STATUS_EM_REVISAO) {
-            $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
         }
 
         $this->assertSame(Tarefa::STATUS_PENDENTE, $tarefa->getStatus());

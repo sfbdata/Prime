@@ -11,6 +11,7 @@ use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Message\SincronizarGoogleDaPessoa;
 use App\Agenda\Message\VarrerGoogleAgenda;
 use App\Agenda\MessageHandler\VarrerGoogleAgendaHandler;
+use App\Agenda\Repository\VarreduraDoGoogleRepository;
 use App\Agenda\Service\CompromissoNoGoogle;
 use App\Agenda\Service\LevarAoGoogle;
 use App\Agenda\UseCase\EstadoDoGoogleAgendaUseCase;
@@ -20,12 +21,13 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Sync\Service\CifradorDeSegredo;
+use App\Agenda\Contract\DatasParaOGoogle;
+use App\Tests\Agenda\DatasParaOGoogleFalsas;
 use App\Tests\Agenda\GoogleFalso;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 /**
@@ -44,6 +46,8 @@ final class SincronizacaoComGoogleTest extends KernelTestCase
     {
         $this->google = new GoogleFalso();
         static::getContainer()->set(GoogleAgendaApi::class, $this->google->api());
+        // As datas do sistema têm teste próprio (SincronizacaoDeDatasComGoogleTest).
+        static::getContainer()->set(DatasParaOGoogle::class, new DatasParaOGoogleFalsas());
     }
 
     #[TestDox('A primeira sincronia cria na conta a agenda com o nome do escritório e trabalha só nela (nunca na principal)')]
@@ -318,24 +322,30 @@ final class SincronizacaoComGoogleTest extends KernelTestCase
         self::assertSame([], $this->google->pedidos);
     }
 
-    #[TestDox('A cadeia de 5 min: só uma mensagem reivindica a vez, pede uma sincronia por conexão e se reagenda')]
-    public function testCadeia(): void
+    #[TestDox('A volta de 5 min (disparada pelo Scheduler): pede uma sincronia por conexão, não se reagenda, e a repetida dentro da janela de 150 s não pede de novo')]
+    public function testUmaVoltaPorJanela(): void
     {
         [, , $conexao] = $this->cenario();
-        $this->em()->getConnection()->executeStatement('UPDATE agenda_google_varredura SET ultima_em = NULL WHERE id = 1');
+        $banco = $this->em()->getConnection();
+        $banco->executeStatement('UPDATE agenda_google_varredura SET ultima_em = NULL WHERE id = 1');
         /** @var InMemoryTransport $fila */
         $fila = static::getContainer()->get('messenger.transport.async');
         $fila->reset();
         $handler = static::getContainer()->get(VarrerGoogleAgendaHandler::class);
+        $sincronias = static fn (): int => \count(array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof SincronizarGoogleDaPessoa && $e->getMessage()->conexaoId === $conexao->getId()));
 
         $handler(new VarrerGoogleAgenda());
         $handler(new VarrerGoogleAgenda());
+        self::assertSame(1, $sincronias(), 'duas voltas seguidas: só a primeira pede a sincronia');
 
-        $proximas = array_values(array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof VarrerGoogleAgenda));
-        $sincronias = array_values(array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof SincronizarGoogleDaPessoa && $e->getMessage()->conexaoId === $conexao->getId()));
-        self::assertCount(1, $proximas);
-        self::assertSame(300000, $proximas[0]->last(DelayStamp::class)?->getDelay());
-        self::assertCount(1, $sincronias);
+        $banco->executeStatement('UPDATE agenda_google_varredura SET ultima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-' . (VarreduraDoGoogleRepository::VEZ_SEGUNDOS - 10) . ' seconds'))->format('Y-m-d H:i:s')]);
+        $handler(new VarrerGoogleAgenda());
+        self::assertSame(1, $sincronias(), 'ainda dentro da janela');
+
+        $banco->executeStatement('UPDATE agenda_google_varredura SET ultima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-' . (VarreduraDoGoogleRepository::VEZ_SEGUNDOS + 10) . ' seconds'))->format('Y-m-d H:i:s')]);
+        $handler(new VarrerGoogleAgenda());
+        self::assertSame(2, $sincronias(), 'passada a janela, a volta seguinte pede de novo');
+        self::assertSame([], array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof VarrerGoogleAgenda), 'o handler não se reagenda');
     }
 
     #[TestDox('Editar logo depois de enviar: o eco do envio que volta do Google não desfaz a edição, e ela vai ao Google')]

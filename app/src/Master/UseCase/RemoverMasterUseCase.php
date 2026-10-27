@@ -39,7 +39,7 @@ final class RemoverMasterUseCase
     public function executar(RemoverMasterInput $input): MasterAlteradoOutput
     {
         if (!$this->regraDosMasters->ehMasterPrimario($input->ator)) {
-            throw new OperacaoDeMasterRecusada('Só o Master primário pode promover ou remover Masters.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_SO_PRIMARIO);
         }
 
         $alvo = $this->carregarMasterSecundario($input->alvoId);
@@ -55,11 +55,11 @@ final class RemoverMasterUseCase
     {
         $alvo = $alvoId > 0 ? $this->userRepository->find($alvoId) : null;
         if ($alvo === null || !$this->regraDosMasters->ehMaster($alvo)) {
-            throw new OperacaoDeMasterRecusada('Este usuário não é Master.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_NAO_E_MASTER);
         }
 
         if ($this->regraDosMasters->ehMasterPrimario($alvo)) {
-            throw new OperacaoDeMasterRecusada('O Master primário não pode ser excluído.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_EXCLUIR_PRIMARIO);
         }
 
         return $alvo;

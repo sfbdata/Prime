@@ -105,6 +105,10 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
             'data-url-andamento' => '/trabalho-externo/api/demandas/TE-0/andamentos',
             'data-url-anexar' => '/trabalho-externo/api/demandas/TE-0/documentos',
             'data-url-documento' => '/trabalho-externo/demandas/TE-0/documentos/0',
+            'data-url-despachar' => '/trabalho-externo/api/demandas/TE-0/despachos',
+            'data-url-despacho-responder' => '/trabalho-externo/api/demandas/TE-0/despachos/respostas',
+            'data-url-despacho-respostas' => '/trabalho-externo/api/demandas/TE-0/despachos/aceitar-resposta',
+            'data-url-despacho-extrato' => '/trabalho-externo/demandas/TE-0/despachos/extrato',
             'data-url-configuracao' => '/trabalho-externo/api/configuracao',
             'data-url-marcacoes' => '/trabalho-externo/api/demandas/marcacoes',
             'data-url-mensagens-marcacoes' => '/trabalho-externo/api/demandas/TE-0/mensagens/marcacoes',
@@ -118,11 +122,20 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
             'data-url-vagas-divulgacao' => '/trabalho-externo/api/vagas/divulgacao',
             'data-url-vaga-editar' => '/trabalho-externo/api/vagas/VG-0/editar',
             'data-url-vaga-excluir' => '/trabalho-externo/api/vagas/VG-0/excluir',
+            'data-url-vaga-recusa' => '/trabalho-externo/api/vagas/VG-0/recusa',
+            'data-url-vaga-recusa-desfazer' => '/trabalho-externo/api/vagas/VG-0/recusa/desfazer',
             'data-url-vagas-visita' => '/trabalho-externo/api/vagas/visita',
+            'data-url-campanha' => '/trabalho-externo/api/campanha',
+            'data-url-campanha-csv' => '/trabalho-externo/campanha/destinatarios.csv',
+            'data-url-campanha-html' => '/trabalho-externo/campanha/email.html',
+            'data-url-campanha-registro' => '/trabalho-externo/api/campanha/registro',
+            'data-url-curriculo-word' => '/trabalho-externo/curriculos/meu/word',
+            'data-url-andamentos' => '/trabalho-externo/api/andamentos',
         ];
         foreach ($esperadas as $atributo => $url) {
             self::assertSame($url, $raiz->attr($atributo), $atributo);
         }
+        self::assertContains($raiz->attr('data-perfil-sons'), ['0', '1'], '"Sons de alerta" do Meu Perfil, para o toque do andamento (D10)');
     }
 
     #[TestDox('esqueleto fixo em filhos diretos: título, bloqueio, área liberada com período, KPIs, filtros, barra de lote e tabela de 9 colunas (a primeira é a de marcação), e as camadas do JS')]
@@ -166,7 +179,7 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
         );
         self::assertCount(1, $crawler->filter('#tePagina > #teVagas > .te-vg-barra + #teVgLote + #teVgVazio + #teVgGrade.te-vg-grade'));
 
-        foreach (['teMenu', 'teDrawer', 'teNova', 'teCfg', 'teConf', 'teToast', 'teDesfazer', 'teVagaModal'] as $camada) {
+        foreach (['teMenu', 'teDrawer', 'teNova', 'teCfg', 'teConf', 'teToast', 'teDesfazer', 'teVagaModal', 'teEnvio'] as $camada) {
             self::assertCount(1, $crawler->filter("#tePagina > #{$camada}"), "camada {$camada} dentro do .te-page, para herdar os tokens do tema");
         }
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -99,7 +100,8 @@ final class PastaClientesVincularJsTest extends TestCase
         self::assertLessThan($entrega, $guarda, 'a guarda de erro vem antes da entrega');
 
         $ramoErro = substr($resposta, $guarda, $entrega - $guarda);
-        self::assertStringContainsString("mostrarErro(r.dados.erro || 'Não foi possível vincular o cliente.');", $ramoErro);
+        self::assertStringContainsString("mostrarErro(r.dados.erro || BJ_T.t('pasta_cabecalho.js.busca.erro_vincular'));", $ramoErro);
+        self::assertSame('Não foi possível vincular o cliente.', CatalogoPtBr::carregar()['pasta_cabecalho']['js']['busca']['erro_vincular']);
         self::assertStringContainsString('return;', $ramoErro);
         self::assertStringContainsString('vinculando = false;', $ramoErro, 'libera nova tentativa');
     }

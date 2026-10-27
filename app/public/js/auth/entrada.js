@@ -4,6 +4,9 @@
  * Reproduz o componente do desenho (DCLogic) sobre o HTML que o Twig serve. Os dados chegam por
  * data-attributes no #lgRaiz; as escritas são POST JSON para os endpoints da spec
  * docs/specs/login-desenho-10.md. Nada aqui decide segurança: o servidor revalida tudo.
+ *
+ * Os textos vêm do catálogo do idioma (entrada.js.*; a régua de força, auth.js.forca.*), entregues pelo
+ * login.html.twig com o bj-traducao.js antes deste arquivo.
  */
 (() => {
     'use strict';
@@ -15,11 +18,12 @@
 
     const $ = (id) => document.getElementById(id);
     const REGEX_EMAIL = /^\S+@\S+\.\S+$/;
-    const ERRO_GENERICO = 'Não foi possível concluir. Tente novamente.';
+    const ERRO_GENERICO = window.BJ_T.t('entrada.js.erro_generico');
     const ehMaster = raiz.dataset.master === '1';
     const tokens = {
         senha: raiz.dataset.tokenSenha || '',
         cadastro: raiz.dataset.tokenCadastro || '',
+        reenvio: raiz.dataset.tokenReenvio || '',
         suporte: raiz.dataset.tokenSuporte || '',
         ajuste: raiz.dataset.tokenAjuste || '',
     };
@@ -57,17 +61,29 @@
     email.addEventListener('input', () => mostrarErro(''));
     senha.addEventListener('input', () => mostrarErro(''));
 
+    // Entrar com o Google: leva o "Manter conectado" marcado (o servidor só aceita com o token do próprio botão).
+    const google = $('lgGoogle');
+    if (google) {
+        google.addEventListener('click', () => {
+            const manter = $('lgManter');
+            const url = new URL(google.href, location.href);
+            url.searchParams.delete('manter');
+            if (manter && manter.checked) { url.searchParams.set('manter', '1'); }
+            google.href = url.pathname + url.search;
+        });
+    }
+
     form.addEventListener('submit', (e) => {
         if (!REGEX_EMAIL.test(email.value.trim())) {
             e.preventDefault();
-            mostrarErro('Informe um e-mail válido.');
+            mostrarErro(window.BJ_T.t('entrada.js.email_invalido'));
             email.focus();
 
             return;
         }
         if (senha.value === '') {
             e.preventDefault();
-            mostrarErro('Informe a senha.');
+            mostrarErro(window.BJ_T.t('entrada.js.informe_a_senha'));
             senha.focus();
         }
     });
@@ -75,7 +91,7 @@
     olho.addEventListener('click', () => {
         const ver = senha.type === 'password';
         senha.type = ver ? 'text' : 'password';
-        const titulo = ver ? 'Ocultar senha' : 'Mostrar senha';
+        const titulo = ver ? window.BJ_T.t('entrada.js.ocultar_senha') : window.BJ_T.t('entrada.js.mostrar_senha');
         olho.title = titulo;
         olho.setAttribute('aria-label', titulo);
         olho.setAttribute('aria-pressed', String(ver));
@@ -100,7 +116,13 @@
 
     /* ------------------------------------------------------- força ---------- */
     /* Régua da spec (igual ao ForcaDaSenha do servidor). */
-    const FORCA = [['', '#c9d3da', '0%'], ['Fraca', '#c0392b', '25%'], ['Média', '#c76a12', '50%'], ['Boa', '#0a63c9', '75%'], ['Forte', '#1e7b45', '100%']];
+    const FORCA = [
+        ['', '#c9d3da', '0%'],
+        [window.BJ_T.t('auth.js.forca.fraca'), '#c0392b', '25%'],
+        [window.BJ_T.t('auth.js.forca.media'), '#c76a12', '50%'],
+        [window.BJ_T.t('auth.js.forca.boa'), '#0a63c9', '75%'],
+        [window.BJ_T.t('auth.js.forca.forte'), '#1e7b45', '100%'],
+    ];
     const tamanho = (p) => [...p].length; // em caracteres, como o mb_strlen do servidor (emoji conta 1)
     const pontos = (p) => (!p ? 0 : (tamanho(p) >= 8) + (/[A-Z]/.test(p) && /[a-z]/.test(p)) + /\d/.test(p) + /[^A-Za-z0-9_]/.test(p));
     const senhaAceita = (p) => tamanho(p) >= 8 && pontos(p) >= 2;
@@ -126,11 +148,16 @@
     const mdErro = $('lgMdErro');
     const mdAcao = $('lgMdAcao');
     const PASSOS = {
-        rs1: ['Recuperar senha', 'bi-key', 'Enviar código', 'bi-send'],
-        rs2: ['Criar nova senha', 'bi-shield-lock', 'Salvar nova senha', 'bi-check2'],
-        rs3: ['Pronto', 'bi-check2-circle', 'Voltar para o login', 'bi-box-arrow-in-right'],
-        cad: ['Criar conta e escritório', 'bi-building-add', 'Criar minha conta grátis', 'bi-rocket-takeoff'],
+        rs1: [window.BJ_T.t('entrada.js.passo.recuperar'), 'bi-key', window.BJ_T.t('entrada.js.passo.enviar_codigo'), 'bi-send'],
+        rs2: [window.BJ_T.t('entrada.js.passo.criar_nova'), 'bi-shield-lock', window.BJ_T.t('entrada.js.passo.salvar_nova'), 'bi-check2'],
+        rs3: [window.BJ_T.t('entrada.js.passo.pronto'), 'bi-check2-circle', window.BJ_T.t('entrada.js.passo.voltar'), 'bi-box-arrow-in-right'],
+        cad: [window.BJ_T.t('entrada.js.passo.cadastro'), 'bi-building-add', window.BJ_T.t('entrada.js.passo.criar_gratis'), 'bi-rocket-takeoff'],
     };
+    /* "Confirme seu e-mail" depois do cadastro: os textos vêm do servidor (ContaAConfirmar), num lugar só. */
+    const passoConf = md.querySelector('.lg-md__passo[data-passo="conf"]');
+    if (passoConf) {
+        PASSOS.conf = [passoConf.dataset.titulo || '', 'bi-envelope-check', passoConf.dataset.botao || '', 'bi-send'];
+    }
     let passo = null;
     let ocupado = false;
 
@@ -140,6 +167,8 @@
         const [titulo, icone, botao, iconeBotao] = PASSOS[novo];
         $('lgMdTitTxt').textContent = titulo;
         $('lgMdIc').className = 'bi ' + icone;
+        /* Desenho 10 VS 25.10.26: o título do "Criar conta e escritório" vai sem ícone (mdTemIc). */
+        mostrar($('lgMdIc'), novo !== 'cad');
         $('lgMdBtnTxt').textContent = botao;
         $('lgMdBtnIc').className = 'bi ' + iconeBotao;
         md.querySelectorAll('[data-passo]').forEach((el) => mostrar(el, el.dataset.passo === novo));
@@ -157,6 +186,114 @@
     md.querySelectorAll('[data-md-fechar]').forEach((el) => el.addEventListener('click', mdFechar));
     md.querySelectorAll('input').forEach((el) => el.addEventListener('input', () => mdErroTexto('')));
     $('lgCdAceite').addEventListener('change', () => mdErroTexto(''));
+    $('lgCdGenero').addEventListener('change', () => mdErroTexto(''));
+
+    /* Criar conta conectado pelo Google (desenho 10 VS 24.10.26, spec entrar-com-google, entrega 2) ou pelo Facebook
+       (spec login-cupom-e-facebook, PR B). A identidade mora na sessão do servidor; aqui só se troca a tela: o cartão da
+       conta no lugar dos botões. Pelo Google o E-mail some (o Google o provou); pelo Facebook o campo continua visível,
+       porque o Facebook não prova e-mail e o que vale é o digitado. */
+    const socOk = $('lgCdSocOk');
+    const conectado = () => !socOk.hidden;
+    const provedor = () => (socOk.dataset.provedor === 'facebook' ? 'facebook' : 'google');
+    const peloGoogleConectado = () => conectado() && provedor() === 'google';
+    const iniciais = (n) => String(n || '?').trim().split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+    $('lgCdSocIni').textContent = iniciais($('lgCdSocNome').textContent);
+    const desconectar = () => {
+        mostrar(socOk, false);
+        mostrar($('lgCdSoc'), true);
+        mostrar($('lgCdEmailCampo'), true);
+        $('lgCdEmail').value = '';
+        mdErroTexto('');
+    };
+    $('lgCdSocTrocar').addEventListener('click', () => {
+        postar('/cadastro/' + provedor() + '/esquecer', { _token: tokens.cadastro });
+        desconectar();
+        $('lgCdEmail').focus();
+    });
+
+    /* Cupom de indicação (desenho 10 VS 25.10.26). Desligar a chave apaga o campo. Validado só no servidor, ao enviar
+       (spec login-cupom-e-facebook, D5). O sessionStorage só leva o cupom na ida e volta do "Continuar com Google" ou
+       "Continuar com Facebook". */
+    const CUPOM_GUARDADO = 'bj-cupom';
+    const DESLIGADO = '-';
+    const indTg = $('lgCdIndTg');
+    const indCampo = $('lgCdIndCampo');
+    const ind = $('lgCdInd');
+    const cupomLigado = () => indTg.getAttribute('aria-checked') === 'true';
+    const ligarCupom = (sim, valor) => {
+        indTg.setAttribute('aria-checked', sim ? 'true' : 'false');
+        mostrar(indCampo, sim);
+        ind.value = sim ? (valor || '') : '';
+        conferirCupomAoVivo();
+    };
+    indTg.addEventListener('click', () => {
+        const ligar = !cupomLigado();
+        ligarCupom(ligar, '');
+        if (ligar) { ind.focus(); }
+        mdErroTexto('');
+    });
+    ind.addEventListener('input', () => {
+        ind.value = ind.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 11);
+        conferirCupomAoVivo();
+    });
+    /* Conferência ao vivo (spec login-cupom-ao-vivo): com o formato de cupom e 400 ms parado, uma consulta por valor;
+       resposta de valor já trocado (ou chave desligada) é ignorada. Limite (429), falha de rede ou resposta estranha:
+       silêncio, o cupom é conferido de novo ao enviar. */
+    const indStatus = $('lgCdIndStatus');
+    let indTemporizador = null;
+    let indValorConferido = '';
+    const mostrarStatusDoCupom = (valido) => {
+        indStatus.textContent = '';
+        const icone = document.createElement('i');
+        icone.className = valido ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle';
+        icone.setAttribute('aria-hidden', 'true');
+        indStatus.appendChild(icone);
+        indStatus.appendChild(document.createTextNode(' ' + (valido ? indStatus.dataset.valido : indStatus.dataset.naoEncontrado)));
+        indStatus.dataset.estado = valido ? 'valido' : 'ruim';
+        mostrar(indStatus, true);
+    };
+    const limparStatusDoCupom = () => { indStatus.textContent = ''; delete indStatus.dataset.estado; mostrar(indStatus, false); };
+    function conferirCupomAoVivo() {
+        clearTimeout(indTemporizador);
+        const valor = ind.value.trim();
+        if (valor !== indValorConferido) { indValorConferido = ''; limparStatusDoCupom(); }
+        /* Como no desenho 10: o prefixo "BJ-" é opcional e a conferência começa em 6 caracteres do código. O servidor
+           normaliza o prefixo (CodigoDeIndicacao::doCupom), então o valor vai como foi digitado. */
+        if (!cupomLigado() || valor === indValorConferido || !/^[A-Z0-9]{6,12}$/.test(valor.replace(/^BJ-/, ''))) { return; }
+        indTemporizador = setTimeout(() => {
+            fetch(indStatus.dataset.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigo: valor }),
+                credentials: 'same-origin',
+            }).then((r) => (r.ok ? r.json() : null)).then((dados) => {
+                if (!dados || typeof dados.valido !== 'boolean') { return; }
+                if (!cupomLigado() || ind.value.trim() !== valor) { return; }
+                indValorConferido = valor;
+                mostrarStatusDoCupom(dados.valido);
+            }).catch(() => { /* sem rede ou limite: silêncio */ });
+        }, 400);
+    }
+    [$('lgCdGoogle'), $('lgCdFacebook')].forEach((botao) => {
+        if (!botao) { return; }
+        botao.addEventListener('click', () => {
+            // DESLIGADO marca o cupom da URL que a pessoa desligou: sem ele, a volta perde o "desliguei" e o link curto vale de novo.
+            try {
+                if (cupomLigado() && ind.value) { sessionStorage.setItem(CUPOM_GUARDADO, ind.value); } else if (cupomDaUrl) { sessionStorage.setItem(CUPOM_GUARDADO, DESLIGADO); }
+            } catch (e) { /* sem storage, segue */ }
+        });
+    });
+    /* O "indicacao" só vai quando há cupom ligado, ou quando a pessoa desligou o cupom que veio na URL: assim quem chegou
+       pelo link curto e cria a conta em outra aba não perde a indicação da sessão. */
+    const cupomDaUrl = raiz.dataset.ind || '';
+    let cupomVoltaDoGoogle = ''; /* vale também para a volta do Facebook */
+    try {
+        cupomVoltaDoGoogle = !$('lgCdSocOk').hidden ? (sessionStorage.getItem(CUPOM_GUARDADO) || '') : '';
+        sessionStorage.removeItem(CUPOM_GUARDADO);
+    } catch (e) { cupomVoltaDoGoogle = ''; }
+    const desligouAntesDoGoogle = cupomVoltaDoGoogle === DESLIGADO;
+    if (desligouAntesDoGoogle) { cupomVoltaDoGoogle = ''; }
+    if (cupomDaUrl || cupomVoltaDoGoogle) { ligarCupom(true, cupomDaUrl || cupomVoltaDoGoogle); }
 
     const abrirSenha = () => {
         $('lgRsEmail').value = email.value;
@@ -191,7 +328,7 @@
         const em = $('lgRsEmail').value.trim().toLowerCase();
         if (!REGEX_EMAIL.test(em)) {
             irPara('rs1');
-            mdErroTexto('Informe um e-mail válido.');
+            mdErroTexto(window.BJ_T.t('entrada.js.email_invalido'));
 
             return;
         }
@@ -211,9 +348,9 @@
         const cod = $('lgRsCod').value.trim();
         const nova = $('lgRsNova').value;
         const conf = $('lgRsConf').value;
-        if (!/^\d{6}$/.test(cod)) { mdErroTexto('Código incorreto. Confira o e-mail ou reenvie.'); return; }
-        if (!senhaAceita(nova)) { mdErroTexto('Use pelo menos 8 caracteres, com letras e números.'); return; }
-        if (nova !== conf) { mdErroTexto('As senhas não conferem.'); return; }
+        if (!/^\d{6}$/.test(cod)) { mdErroTexto(window.BJ_T.t('entrada.js.codigo_incorreto')); return; }
+        if (!senhaAceita(nova)) { mdErroTexto(window.BJ_T.t('entrada.js.senha_curta')); return; }
+        if (nova !== conf) { mdErroTexto(window.BJ_T.t('entrada.js.senhas_diferentes')); return; }
         const r = await postar('/senha/codigo/confirmar', { email: $('lgRsEmail').value.trim(), codigo: cod, senha: nova, confirmacao: conf, _token: tokens.senha });
         if (r.status !== 200) {
             mdErroTexto(mensagemDeErro(r));
@@ -235,11 +372,11 @@
     };
 
     const validarCadastro = () => {
-        if ($('lgCdNome').value.trim().split(/\s+/).length < 2) { return 'Informe seu nome completo.'; }
-        if (!$('lgCdEsc').value.trim()) { return 'Informe o nome do escritório.'; }
-        if (!REGEX_EMAIL.test($('lgCdEmail').value.trim())) { return 'Informe um e-mail válido.'; }
-        if (!senhaAceita($('lgCdSenha').value)) { return 'Use pelo menos 8 caracteres, com letras e números.'; }
-        if (!$('lgCdAceite').checked) { return 'É preciso aceitar os Termos e a Política de privacidade.'; }
+        if ($('lgCdNome').value.trim().split(/\s+/).length < 2) { return window.BJ_T.t('entrada.js.informe_nome'); }
+        if (!$('lgCdEsc').value.trim()) { return window.BJ_T.t('entrada.js.informe_escritorio'); }
+        if (!peloGoogleConectado() && !REGEX_EMAIL.test($('lgCdEmail').value.trim())) { return window.BJ_T.t('entrada.js.email_invalido'); }
+        if (!['feminino', 'masculino'].includes($('lgCdGenero').value)) { return window.BJ_T.t('entrada.js.informe_genero'); }
+        if (!$('lgCdAceite').checked) { return window.BJ_T.t('entrada.js.aceite'); }
 
         return '';
     };
@@ -255,7 +392,11 @@
         while (partes.length > 1 && /^(dr|dra|sr|sra)\.?$/i.test(partes[0])) { partes.shift(); }
         const nm = partes[0] || ((em.split('@')[0] || '').split(/[._-]/)[0]) || '';
 
-        return (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + (nm ? ', ' + nm.charAt(0).toUpperCase() + nm.slice(1).toLowerCase() : '') + '!';
+        const sd = h < 12 ? window.BJ_T.t('entrada.js.saudacao.bom_dia') : h < 18 ? window.BJ_T.t('entrada.js.saudacao.boa_tarde') : window.BJ_T.t('entrada.js.saudacao.boa_noite');
+
+        return nm
+            ? window.BJ_T.t('entrada.js.saudacao.com_nome', { saudacao: sd, nome: nm.charAt(0).toUpperCase() + nm.slice(1).toLowerCase() })
+            : window.BJ_T.t('entrada.js.saudacao.sem_nome', { saudacao: sd });
     };
 
     const criarConta = async () => {
@@ -265,22 +406,35 @@
 
             return;
         }
-        const em = $('lgCdEmail').value.trim();
-        const r = await postar('/cadastro/criar', {
+        const peloGoogle = peloGoogleConectado();
+        const peloFacebook = conectado() && provedor() === 'facebook';
+        const em = peloGoogle ? (socOk.dataset.email || '') : $('lgCdEmail').value.trim();
+        const campos = {
             nome: $('lgCdNome').value.trim(),
             escritorio: $('lgCdEsc').value.trim(),
-            email: em,
-            senha: $('lgCdSenha').value,
+            genero: $('lgCdGenero').value,
             aceite: $('lgCdAceite').checked,
             _token: tokens.cadastro,
-        });
+        };
+        if (cupomLigado()) { campos.indicacao = ind.value.trim(); } else if (cupomDaUrl || desligouAntesDoGoogle) { campos.indicacao = ''; }
+        /* Pelo Google o e-mail não vai: o servidor usa o que o Google provou, guardado na sessão. Pelo Facebook vai o do
+           campo (o Facebook só sugere); o `id` do Facebook o servidor lê da sessão. */
+        const destinoDoPost = peloGoogle ? '/cadastro/google/criar' : (peloFacebook ? '/cadastro/facebook/criar' : '/cadastro/criar');
+        const r = peloGoogle ? await postar(destinoDoPost, campos) : await postar(destinoDoPost, { ...campos, email: em });
         if (r.status !== 200) {
+            if (r.dados && (r.dados.googleExpirou === true || r.dados.facebookExpirou === true)) { desconectar(); }
             mdErroTexto(mensagemDeErro(r));
 
             return;
         }
-        mdFechar();
         email.value = em;
+        if (r.dados.confirmar === true) {
+            if (peloFacebook) { desconectar(); }
+            mostrarConfirmacao(typeof r.dados.email === 'string' && r.dados.email !== '' ? r.dados.email : em);
+
+            return;
+        }
+        mdFechar();
         $('lgVeuTit').textContent = saudacao(em, $('lgCdNome').value);
         mostrar($('lgVeu'), true);
         $('lgCartao').classList.add('lg-sai');
@@ -288,10 +442,34 @@
         setTimeout(() => { window.location.href = destino; }, 2100);
     };
 
+    /* A conta nasceu sem login: o modal pede a confirmação do e-mail e oferece o reenvio do link. */
+    const cfAviso = $('lgCfAviso');
+    const mostrarConfirmacao = (em) => {
+        $('lgCfEmail').textContent = em;
+        cfAviso.textContent = '';
+        mostrar(cfAviso, false);
+        irPara('conf');
+    };
+
+    /* O reenvio público lê a conta da sessão (gravada pelo cadastro); aqui só vai o CSRF. */
+    const reenviarConfirmacao = async () => {
+        cfAviso.textContent = '';
+        mostrar(cfAviso, false);
+        const r = await postar('/login/reenviar-confirmacao', { _token: tokens.reenvio });
+        const texto = r.dados && typeof r.dados.mensagem === 'string' && r.dados.mensagem !== '' ? r.dados.mensagem : ERRO_GENERICO;
+        if (r.status !== 200 || r.dados.ok !== true) {
+            mdErroTexto(texto);
+
+            return;
+        }
+        cfAviso.textContent = texto;
+        mostrar(cfAviso, true);
+    };
+
     mdForm.addEventListener('submit', (e) => {
         e.preventDefault();
         if (passo === 'rs3') { voltarAoLogin(); return; }
-        const acoes = { rs1: enviarCodigo, rs2: salvarNovaSenha, cad: criarConta };
+        const acoes = { rs1: enviarCodigo, rs2: salvarNovaSenha, cad: criarConta, conf: reenviarConfirmacao };
         if (acoes[passo]) {
             comBotaoOcupado(mdAcao, acoes[passo]);
         }
@@ -316,7 +494,7 @@
             a.rel = 'noopener';
             a.dataset.chave = l.chave;
             a.className = l.icone ? 'lg-link--icone' : 'lg-link--texto';
-            a.title = l.rotulo + (ehMaster ? ' · botão direito para editar' : '');
+            a.title = ehMaster ? window.BJ_T.t('entrada.js.link_do_master', { rotulo: l.rotulo }) : l.rotulo;
             if (l.icone) {
                 const ic = document.createElement('i');
                 ic.className = 'bi ' + l.icone;
@@ -345,11 +523,11 @@
         const lkFechar = (e) => { if (e && e.preventDefault) { e.preventDefault(); } atual = null; mostrar(lk, false); };
         const lkAbrir = (link, x, y) => {
             atual = link;
-            $('lgLkTit').textContent = 'Editar link · ' + link.rotulo;
+            $('lgLkTit').textContent = window.BJ_T.t('entrada.js.editar_link', { rotulo: link.rotulo });
             $('lgLkIc').className = 'bi ' + (link.icone || 'bi-link-45deg');
             lkVal.value = link.url || '';
             lkErroTexto('');
-            lkOcultar.textContent = link.oculto ? 'Mostrar no rodapé' : 'Ocultar do rodapé';
+            lkOcultar.textContent = link.oculto ? window.BJ_T.t('entrada.js.mostrar_no_rodape') : window.BJ_T.t('entrada.js.ocultar_do_rodape');
             lkOcultar.classList.toggle('lg-mostrar', link.oculto);
             lkCaixa.style.left = Math.max(8, Math.min(x, window.innerWidth - 330)) + 'px';
             lkCaixa.style.top = Math.max(8, y - 150) + 'px';
@@ -386,7 +564,7 @@
             e.preventDefault();
             const v = lkVal.value.trim();
             if (!/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(v)) {
-                lkErroTexto('Informe um endereço começando com https://');
+                lkErroTexto(window.BJ_T.t('entrada.js.endereco_invalido'));
 
                 return;
             }
@@ -433,9 +611,9 @@
         c.setAttribute('aria-pressed', String(on));
     });
     sup.querySelectorAll('[data-assunto]').forEach((chip) => chip.addEventListener('click', () => {
-        assunto = chip.dataset.assunto;
+        assunto = chip.dataset.assunto; /* o valor (dado) que o servidor compara; o texto escrito é o rótulo do chip */
         if (!supMsg.value) {
-            supMsg.value = assunto === 'Outro assunto' ? '' : assunto + '. ';
+            supMsg.value = assunto === 'Outro assunto' ? '' : chip.textContent + '. ';
         }
         pintarChips();
         supMsg.focus();
@@ -444,8 +622,8 @@
     supForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const em = supEmail.value.trim();
-        if (!REGEX_EMAIL.test(em)) { supErroTexto('Informe um e-mail válido para a resposta.'); return; }
-        if (supMsg.value.trim().length < 5) { supErroTexto('Escreva a sua mensagem.'); return; }
+        if (!REGEX_EMAIL.test(em)) { supErroTexto(window.BJ_T.t('entrada.js.suporte.email_invalido')); return; }
+        if (supMsg.value.trim().length < 5) { supErroTexto(window.BJ_T.t('entrada.js.suporte.escreva')); return; }
         comBotaoOcupado($('lgSupEnviar'), async () => {
             const r = await postar('/login/suporte', {
                 nome: $('lgSupNome').value.trim(),
@@ -510,5 +688,12 @@
         abrirSenha();
     } else if (raiz.dataset.abrir === 'cadastro') {
         abrirCadastro();
+        /* "Continuar com Google" sem o cliente OAuth no servidor: o aviso volta da ida, no erro do modal. */
+        if (raiz.dataset.avisoCadastro) { mdErroTexto(raiz.dataset.avisoCadastro); }
+    } else if (raiz.dataset.ind || /cadastro/.test(window.location.hash)) {
+        /* Desenho 10 VS 25.10.26: cupom na URL (?ind=, ?codigo=, ?ref=) ou #cadastro abrem o "Criar conta". */
+        abrirCadastro();
     }
+    /* No desenho o campo do cupom tem autoFocus: aberto pela URL, o foco vai para ele. */
+    if (cupomDaUrl && passo === 'cad') { ind.focus(); }
 })();

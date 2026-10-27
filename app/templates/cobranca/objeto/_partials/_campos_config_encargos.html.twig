@@ -67,7 +67,7 @@
         </div>
         {{ form_errors(form.taxaHonorariosBp) }}
         {% if carteiraSemHonorarios %}
-        <div class="form-text">A carteira não cobra honorários. Este campo não se aplica.</div>
+        <div class="form-text">{{ 'cobranca_objeto.config_encargos.sem_honorarios'|trans }}</div>
         {% endif %}
     </div>
 
@@ -81,7 +81,7 @@
         <label class="form-label" for="{{ form.carenciaHonorariosDias.vars.id }}">{{ form.carenciaHonorariosDias.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.carenciaHonorariosDias) }}
-            <span class="input-group-text">dias</span>
+            <span class="input-group-text">{{ 'cobranca_objeto.config_encargos.dias'|trans }}</span>
         </div>
         {{ form_errors(form.carenciaHonorariosDias) }}
     </div>
@@ -90,7 +90,7 @@
         <label class="form-label" for="{{ form.toleranciaJurosMultaDias.vars.id }}">{{ form.toleranciaJurosMultaDias.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.toleranciaJurosMultaDias) }}
-            <span class="input-group-text">dias</span>
+            <span class="input-group-text">{{ 'cobranca_objeto.config_encargos.dias'|trans }}</span>
         </div>
         {{ form_errors(form.toleranciaJurosMultaDias) }}
     </div>

@@ -38,13 +38,24 @@ final readonly class Contexto
          * @var list<int>
          */
         public array $escritoriosDoPrimario = [],
+        /**
+         * Só no perfil Convidado: o escritório dono da demanda está fora do ar (suspenso ou excluído). Ele só lê,
+         * como na pré-visualização (docs/specs/te-convidado-escritorio-fora-do-ar.md).
+         */
+        public bool $donoForaDoAr = false,
     ) {
     }
 
     /** O mesmo usuário, como Convidado da demanda do convite. */
-    public function comoConvidado(ConviteDemanda $convite): self
+    public function comoConvidado(ConviteDemanda $convite, bool $donoForaDoAr = false): self
     {
-        return new self($this->usuario, $this->tenant, Perfil::Convidado, $this->configuracao, $convite, $this->previa);
+        return new self($this->usuario, $this->tenant, Perfil::Convidado, $this->configuracao, $convite, $this->previa, [], $donoForaDoAr);
+    }
+
+    /** Nenhuma escrita: a pré-visualização do Master ou o Convidado de escritório fora do ar. */
+    public function somenteLeitura(): bool
+    {
+        return $this->previa || $this->donoForaDoAr;
     }
 
     public function autor(): Autor

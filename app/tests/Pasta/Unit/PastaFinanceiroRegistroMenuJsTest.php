@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -19,6 +20,12 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
 {
     private const TWIG       = __DIR__ . '/../../../templates/pasta/_financeiro.html.twig';
     private const OBS_SCRIPT = __DIR__ . '/../../../templates/pasta/_financeiro_obs_script.html.twig';
+
+    /** @return array<string, string> o texto do JS desta aba (desde a extração do Financeiro, idioma-do-sistema). */
+    private static function textosDoJs(): array
+    {
+        return CatalogoPtBr::carregar()['pasta_financeiro']['js'];
+    }
 
     private function fonte(): string
     {
@@ -55,12 +62,19 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringContainsString("registro.querySelector('.btn-editar-obs')", $prep);
         self::assertStringContainsString("registro.querySelector('.btn-excluir-obs')", $prep);
         self::assertStringNotContainsString('.hidden', $prep, 'bloqueado não é escondido');
-        self::assertStringContainsString("pintarItemObs(editar, false, 'Editar · bloqueado', 'bi-lock', motivo);", $prep);
-        self::assertStringContainsString("pintarItemObs(excluir, false, 'Excluir · bloqueado', 'bi-lock', motivo);", $prep);
-        self::assertStringContainsString("pintarItemObs(editar, true, 'Editar · ' + resto + ' min', 'bi-pencil', '');", $prep);
-        self::assertStringContainsString("pintarItemObs(excluir, true, 'Excluir comentário · ' + resto + ' min', 'bi-trash3', '');", $prep);
+        // O script tem a chave; o catálogo, o texto do desenho.
+        self::assertStringContainsString("pintarItemObs(editar, false, BJ_T.t('pasta_financeiro.js.editar_bloqueado'), 'bi-lock', motivo);", $prep);
+        self::assertStringContainsString("pintarItemObs(excluir, false, BJ_T.t('pasta_financeiro.js.excluir_bloqueado'), 'bi-lock', motivo);", $prep);
+        self::assertStringContainsString("pintarItemObs(editar, true, BJ_T.t('pasta_financeiro.js.editar_min', { minutos: resto }), 'bi-pencil', '');", $prep);
+        self::assertStringContainsString("pintarItemObs(excluir, true, BJ_T.t('pasta_financeiro.js.excluir_min', { minutos: resto }), 'bi-trash3', '');", $prep);
         self::assertStringContainsString("excluir.classList.toggle('ps-fin-menu-item--perigo', podeGerenciar);", $prep, 'bloqueado sem a cor de perigo (x[3] do desenho)');
-        self::assertStringContainsString("registro.getAttribute('data-obs-do-autor') === '1' ? OBS_MOTIVO_PRAZO : OBS_MOTIVO_AUTOR", $prep);
+        self::assertStringContainsString("registro.getAttribute('data-obs-do-autor') === '1' ? BJ_T.t('pasta_financeiro.js.motivo_prazo') : BJ_T.t('pasta_financeiro.js.motivo_autor')", $prep);
+        $js = self::textosDoJs();
+        self::assertSame(['Editar · bloqueado', 'Excluir · bloqueado', 'Editar · {minutos} min', 'Excluir comentário · {minutos} min'], [
+            $js['editar_bloqueado'], $js['excluir_bloqueado'], $js['editar_min'], $js['excluir_min'],
+        ]);
+        self::assertSame('O prazo de 15 minutos para editar ou excluir terminou.', $js['motivo_prazo']);
+        self::assertSame('Só o autor pode editar ou excluir, nos 15 minutos após publicar.', $js['motivo_autor']);
         self::assertStringNotContainsString('innerHTML', $prep);
         // C7-FPN-01: quem não escreve não recebe os itens; o preparo não tropeça na falta deles.
         self::assertStringContainsString('if (!editar || !excluir) { return; }', $prep);
@@ -76,7 +90,7 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringNotContainsString('.ps-anotacao-janela', $prep, 'o texto do cartão para no tempo');
         // Item que nasceu bloqueado não reabre; o que nasceu liberado bloqueia quando a janela fecha.
         self::assertStringContainsString('const resto = nasceuLiberado ? minutosRestantesObs(registro) : 0;', $prep);
-        self::assertStringContainsString('const podeGerenciar = resto > 0;', $prep);
+        self::assertStringContainsString('const podeGerenciar = pelaRegra || selo !== \'\';', $prep);
 
         $minutos = $this->trecho('function minutosRestantesObs(', 'let obsAlvo');
         self::assertStringContainsString('Number(artigo ? artigo.dataset.janelaAte : 0) * 1000', $minutos);
@@ -127,9 +141,14 @@ final class PastaFinanceiroRegistroMenuJsTest extends TestCase
         self::assertStringContainsString('if (!excluirObs) return;', $obs);
         self::assertStringNotContainsString('Excluir este registro? Esta ação não pode ser desfeita.', $obs);
         $f = substr($obs, (int) strpos($obs, 'function textoDeConfirmacaoExcluir('), 1200);
-        self::assertStringContainsString("'Excluir o comentário de ' + (autor || 'colaborador') + '?", $f);
-        self::assertStringContainsString("(quando ? quando + ' · ' : '') + '\"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')", $f);
-        self::assertStringContainsString("'\". Ele some para toda a equipe e a exclusão fica registrada no histórico.'", $f);
+        // O script tem a chave; o catálogo, o texto do desenho.
+        self::assertStringContainsString("BJ_T.t('pasta_financeiro.js.excluir_comentario_titulo', { autor: autor || BJ_T.t('pasta_financeiro.js.colaborador') }) + '\\n\\n'", $f);
+        self::assertStringContainsString("+ (quando ? quando + ' · ' : '')", $f);
+        self::assertStringContainsString("BJ_T.t('pasta_financeiro.js.excluir_comentario_texto', { trecho: txt.slice(0, 140) + (txt.length > 140 ? '…' : '') })", $f);
+        $js = self::textosDoJs();
+        self::assertSame('Excluir o comentário de {autor}?', $js['excluir_comentario_titulo']);
+        self::assertSame('colaborador', $js['colaborador']);
+        self::assertSame('"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.', $js['excluir_comentario_texto']);
     }
 
     #[TestDox('os itens clicam os botões do próprio cartão e copiam o texto do .ql-editor; nada de fetch novo')]

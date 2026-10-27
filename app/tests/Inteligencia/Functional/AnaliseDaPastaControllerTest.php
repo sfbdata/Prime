@@ -202,6 +202,7 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         $client = $this->cliente();
         [$user, $tenant] = $this->criarAdmin();
         [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->liberarIaSemLigarNoTenant($tenant, $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $this->solicitar($client, (int) $pasta->getId());
@@ -573,7 +574,7 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pastaA->getId()}/ia/agentes");
 
         self::assertResponseIsSuccessful();
-        self::assertSame(16, $crawler->filter('.ia-comando')->count(), '10 comandos, 5 relatórios e o Índice da aba Documentos');
+        self::assertSame(17, $crawler->filter('.ia-comando')->count(), '10 comandos, 5 relatórios, o Ler e o Índice da aba Documentos');
         self::assertSame(0, $crawler->filter('.ia-cartao')->count());
         self::assertStringNotContainsString('Resumo do outro escritório.', (string) $client->getResponse()->getContent());
         self::assertStringContainsString('Gerar análise', $crawler->filter('.ia-comando[data-ia-comando="analisar_pasta"] .ia-cta')->text(), 'nem conta como análise desta pasta');

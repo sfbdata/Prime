@@ -11,6 +11,8 @@ use App\Service\NotificacaoService;
 use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\ConfiguracaoCentral;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\DespachoDemanda;
+use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\Perfil;
@@ -49,6 +51,7 @@ final class AvisosDoTrabalhoExterno
         private readonly ResolvedorDePerfil $perfis,
         private readonly PoliticaDaVaga $politicaDaVaga,
         private readonly ConviteDemandaRepository $convites,
+        private readonly PoliticaDaDemanda $politicaDaDemanda,
     ) {
     }
 
@@ -104,6 +107,22 @@ final class AvisosDoTrabalhoExterno
         $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA, 'Sua vaga não foi aprovada: ' . $vaga->getTitulo(), $motivo !== null ? 'Motivo: ' . $motivo : null);
     }
 
+    /**
+     * "Recusar" a oferta (D11b, l.1169; P7): o dono da vaga (os solicitantes do escritório que pediu, ou quem
+     * divulgou sem escritório) e os Master da Central, no escritório da Central. Quem recusou fica de fora; o dono não vê o nome dela, os Master veem.
+     */
+    public function ofertaRecusada(Contexto $ctx, Vaga $vaga, string $quem): void
+    {
+        $titulo = 'Oferta recusada na vaga ' . $vaga->getTitulo();
+        $mensagem = 'Oferta recusada por ' . $quem;
+        // O escritório dono não sabe quem recusou (como na "Oferta aceita"); o nome fica no histórico e no aviso aos Master.
+        $this->paraODono($ctx, $vaga, Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA, $titulo, 'Uma oferta sua foi recusada.');
+        $sede = $ctx->configuracao->getSede();
+        if ($sede !== null) {
+            $this->avisar($ctx, $this->destinatarios->masters(), $sede, Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA, $titulo, self::urlDaVaga($vaga), $mensagem);
+        }
+    }
+
     /** Mudança de status do candidato (l.985, 1040), no escritório dele ({@see escritorioDoCandidato()}). */
     public function andamentoDaCandidatura(Contexto $ctx, Candidatura $candidatura): void
     {
@@ -138,11 +157,63 @@ final class AvisosDoTrabalhoExterno
     public function pedidoDeInformacoes(Contexto $ctx, DemandaExterna $demanda): void
     {
         $escritorio = $demanda->getTenant();
-        $autor = $demanda->getCriadoPor();
-        $pessoas = $autor !== null && $this->destinatarios->escritorioDaPessoa($autor, (int) $escritorio->getId()) !== null
-            ? [$autor]
-            : $this->solicitantes($escritorio, $ctx->configuracao);
-        $this->avisar($ctx, $pessoas, $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES, 'Pedido de informações na demanda ' . $demanda->getCodigo(), self::TELA . '?te=' . $demanda->getCodigo());
+        $this->avisar($ctx, $this->solicitantesDaDemanda($demanda, $ctx->configuracao), $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES, 'Pedido de informações na demanda ' . $demanda->getCodigo(), self::TELA . '?te=' . $demanda->getCodigo());
+    }
+
+    /**
+     * Andamento da demanda às partes (desenho 06 de 24/10, `avisarPartes`, l.806): cada mudança de situação e
+     * cada mensagem de sistema, arquivo ou andamento que a demanda juntou nesta requisição vira UM aviso, com o
+     * título "{ID} · {serviço}" e o link `?te=`. Recebem o solicitante (quem pediu, se ainda está no escritório
+     * da demanda; senão os Solicitantes dele) e o convidado de cada convite aceito e vigente, no primeiro
+     * escritório dele (sem escritório, no da demanda: o aviso é só dele). Quem agiu e Master/Equipe ficam de
+     * fora. Um andamento novo não é "o mesmo aviso" do anterior: aqui o pendente igual não segura o próximo.
+     * Cada pessoa recebe UM aviso por andamento (quem pediu e também é o convidado, ou dois convites dela), e o
+     * convidado só recebe o que leria no chat ({@see PoliticaDaDemanda::mensagemVisivel()}: sem a permissão
+     * "ver", nem o nome dos documentos).
+     */
+    public function andamentoDaDemanda(Contexto $ctx, DemandaExterna $demanda): void
+    {
+        $andamentos = $demanda->retirarAndamentosParaAvisar();
+        if ($andamentos === []) {
+            return;
+        }
+        $servico = trim($demanda->getTipoServico());
+        $titulo = mb_substr($demanda->getCodigo() . ' · ' . ($servico !== '' ? $servico : 'Trabalho externo'), 0, 255);
+        $url = self::TELA . '?te=' . $demanda->getCodigo();
+        $partes = $this->partesDaDemanda($ctx, $demanda);
+        foreach ($andamentos as $andamento) {
+            foreach ($partes as [$pessoa, $escritorio, $comoConvidado]) {
+                if ($comoConvidado !== null && !$this->convidadoLeria($comoConvidado, $demanda, $andamento['mensagem'])) {
+                    continue;
+                }
+                $this->notificacoes->criar($pessoa, $escritorio, Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO, $titulo, $andamento['texto'])->setUrl($url);
+            }
+        }
+    }
+
+    /**
+     * Resposta ao despacho (D8, decisão do dono de 24/10): cada Master da Central recebe um aviso no sino, menos
+     * quem respondeu (o Master que age também como solicitante do próprio escritório), no escritório da Central.
+     * Sem sede definida não há onde avisar. Cada resposta é um aviso (não segura no pendente igual).
+     */
+    public function respostaAoDespacho(Contexto $ctx, DemandaExterna $demanda, DespachoDemanda $resposta): void
+    {
+        $sede = $ctx->configuracao->getSede();
+        if ($sede === null) {
+            return;
+        }
+        $servico = trim($demanda->getTipoServico());
+        $titulo = mb_substr($demanda->getCodigo() . ' · ' . ($servico !== '' ? $servico : 'Trabalho externo'), 0, 255);
+        $mensagem = 'Resposta ao despacho de ' . $resposta->getNomeAutor() . '.';
+        $url = self::TELA . '?te=' . $demanda->getCodigo();
+        $vistos = [(int) $ctx->usuario->getId() => true];
+        foreach ($this->destinatarios->masters() as $master) {
+            if (isset($vistos[(int) $master->getId()])) {
+                continue;
+            }
+            $vistos[(int) $master->getId()] = true;
+            $this->notificacoes->criar($master, $sede, Notificacao::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA, $titulo, $mensagem)->setUrl($url);
+        }
     }
 
     public static function urlDaVaga(Vaga $vaga): string
@@ -178,6 +249,75 @@ final class AvisosDoTrabalhoExterno
         if ($quemPediu !== null && $seu !== null) {
             $this->avisar($ctx, [$quemPediu], $seu, $tipo, $titulo, self::urlDaVaga($vaga), $mensagem);
         }
+    }
+
+    /**
+     * Quem recebe o andamento, uma vez cada: os solicitantes no escritório da demanda e o convidado de cada
+     * convite aceito e vigente no primeiro escritório dele (ou no da demanda), sem quem agiu nem Master/Equipe.
+     * O terceiro item é o contexto de Convidado (null para quem pediu, que lê o chat inteiro).
+     *
+     * @return list<array{0: User, 1: Tenant, 2: ?Contexto}>
+     */
+    private function partesDaDemanda(Contexto $ctx, DemandaExterna $demanda): array
+    {
+        $cfg = $ctx->configuracao;
+        $escritorio = $demanda->getTenant();
+        $vistos = [(int) $ctx->usuario->getId() => true];
+        $partes = [];
+        foreach ($this->semAInterna($this->solicitantesDaDemanda($demanda, $cfg), $escritorio, $cfg) as $pessoa) {
+            if (!isset($vistos[(int) $pessoa->getId()])) {
+                $vistos[(int) $pessoa->getId()] = true;
+                $partes[] = [$pessoa, $escritorio, null];
+            }
+        }
+        $hoje = new \DateTimeImmutable('today');
+        foreach ($demanda->getConvites() as $convite) {
+            $convidado = $convite->getConvidado();
+            if ($convidado === null || isset($vistos[(int) $convidado->getId()]) || !$convite->vigente($hoje)) {
+                continue;
+            }
+            $seu = $this->destinatarios->primeiroEscritorio($convidado) ?? $escritorio;
+            if ($this->semAInterna([$convidado], $seu, $cfg) === []) {
+                continue;
+            }
+            $vistos[(int) $convidado->getId()] = true;
+            $partes[] = [$convidado, $seu, new Contexto($convidado, $seu, Perfil::Convidado, $cfg, $convite)];
+        }
+
+        return $partes;
+    }
+
+    /** O convidado leria este andamento no chat? A mudança de situação, se vê a demanda; a mensagem, pela regra do chat. */
+    private function convidadoLeria(Contexto $comoConvidado, DemandaExterna $demanda, ?MensagemDemanda $mensagem): bool
+    {
+        return $this->politicaDaDemanda->podeVer($comoConvidado, $demanda)
+            && ($mensagem === null || $this->politicaDaDemanda->mensagemVisivel($comoConvidado, $demanda, $mensagem));
+    }
+
+    /** Quem pediu, se ainda tem vínculo ativo no escritório da demanda; senão os Solicitantes dele (como em {@see pedidoDeInformacoes()}). @return list<User> */
+    private function solicitantesDaDemanda(DemandaExterna $demanda, ConfiguracaoCentral $cfg): array
+    {
+        $escritorio = $demanda->getTenant();
+        $autor = $demanda->getCriadoPor();
+
+        return $autor !== null && $this->destinatarios->escritorioDaPessoa($autor, (int) $escritorio->getId()) !== null
+            ? [$autor]
+            : $this->solicitantes($escritorio, $cfg);
+    }
+
+    /**
+     * Sem Master nem Equipe (o andamento é para as partes de fora da Central).
+     *
+     * @param list<User> $pessoas
+     *
+     * @return list<User>
+     */
+    private function semAInterna(array $pessoas, Tenant $escritorio, ConfiguracaoCentral $cfg): array
+    {
+        return array_values(array_filter(
+            $pessoas,
+            fn (User $u): bool => !in_array($this->perfis->resolver($u, $escritorio, $cfg), [Perfil::Master, Perfil::Equipe], true),
+        ));
     }
 
     /** @return list<User> quem tem o perfil Solicitante no escritório (permissão do módulo, sem ser Master) */

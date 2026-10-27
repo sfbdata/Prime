@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Comercial\MessageHandler;
 
 use App\Comercial\Campanha\ChaveDasCampanhas;
+use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
+use App\Comercial\EventListener\RegistroDeEmailSincronoListener;
 use App\Comercial\Message\EnviarEmail;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
@@ -28,7 +30,8 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
  *   2. de campanha (origem `campanha:<id>`) com a chave da instalação desligada ou a campanha encerrada (spec §8.1.2 e
  *      §8.1.5): vira `cancelado`, não sai, e o conteúdo some (sem esperar a volta do expansor);
  *      em `lista`, relê o descadastro: descadastrado vira `bloqueado_descadastro` e o conteúdo some;
- *   3. vazão por contagem em `comercial_envio`: sem vaga, volta a `enfileirado` e reenfileira com DelayStamp;
+ *   3. vazão por contagem em `comercial_envio` ({@see CotaDeEnvio}, 24 h corridas): sem vaga, volta a `enfileirado` e
+ *      reenfileira com DelayStamp;
  *   4. monta e manda. Sucesso: `enviado` e o conteúdo some. Exceção: volta a `enfileirado` e relança (retry do
  *      Messenger; a falha definitiva é do {@see \App\Comercial\EventListener\FalhaDeEnvioListener}). Na campanha
  *      (`campanha:*`, "no máximo uma vez", spec §8.5) a exceção vira `incerto`, o conteúdo some e NÃO relança: um
@@ -41,16 +44,8 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 #[AsMessageHandler]
 final class EnviarEmailHandler
 {
-    /**
-     * Respeitam só o limite por minuto, nunca o teto diário: os transacionais do ciclo da conta (N6, as boas-vindas
-     * nunca esperam o dia seguinte por causa de campanha) e o "Enviar teste" da campanha, que vai só ao Master logado
-     * (§8.4, com teto próprio de 10 por hora).
-     */
-    public const ORIGENS_ISENTAS_DO_TETO_DIARIO = [
-        'automacao:cad', 'automacao:lemb', 'automacao:val', 'automacao:conv',
-        'automacao:e90', 'automacao:e100', 'automacao:ped',
-        'teste_campanha',
-    ];
+    /** As origens que só respeitam o limite por minuto (a lista mora na {@see CotaDeEnvio}). */
+    public const ORIGENS_ISENTAS_DO_TETO_DIARIO = CotaDeEnvio::ORIGENS_ISENTAS;
 
     public function __construct(
         private readonly EnvioDeEmailRepository $envios,
@@ -61,8 +56,7 @@ final class EnviarEmailHandler
         private readonly MessageBusInterface $bus,
         private readonly ClockInterface $relogio,
         private readonly LoggerInterface $logger,
-        private readonly int $enviosPorMinuto,
-        private readonly int $tetoDiario,
+        private readonly CotaDeEnvio $cota,
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly ChaveDasCampanhas $chaveDasCampanhas,
     ) {
@@ -134,29 +128,21 @@ final class EnviarEmailHandler
     }
 
     /**
-     * Quando há vaga de novo, ou null se há vaga agora. Por minuto: os enviados nos últimos 60 s. Por dia: os enviados
-     * desde 00:00 de hoje (fuso do servidor); sem vaga, 00:05 do dia seguinte.
+     * Quando há vaga de novo, ou null se há vaga agora: a {@see CotaDeEnvio} (24 h corridas, teto das campanhas com a
+     * reserva dos demais, e o limite por minuto).
      */
     public function disponivelEm(string $origem, \DateTimeImmutable $agora): ?\DateTimeImmutable
     {
-        if ($this->envios->contarEnviadosDesde($agora->modify('-60 seconds')) >= $this->enviosPorMinuto) {
-            return $agora->modify('+60 seconds');
-        }
-        if (\in_array($origem, self::ORIGENS_ISENTAS_DO_TETO_DIARIO, true)) {
-            return null;
-        }
-        $hoje = $agora->setTime(0, 0);
-        if ($this->envios->contarEnviadosDesde($hoje) >= $this->tetoDiario) {
-            return $hoje->modify('+1 day')->setTime(0, 5);
-        }
-
-        return null;
+        return $this->cota->disponivelEm($origem, $agora);
     }
 
     private function mandar(int $id, MensagemDeEmail $email, string $token): void
     {
         try {
-            $this->mailer->send($this->montador->montar($email, $token));
+            $mensagem = $this->montador->montar($email, $token);
+            // Já registrado aqui: o ouvinte dos e-mails síncronos não grava outra linha (e tira o cabeçalho).
+            $mensagem->getHeaders()->addTextHeader(RegistroDeEmailSincronoListener::CABECALHO, '1');
+            $this->mailer->send($mensagem);
         } catch (\Throwable $erro) {
             if (str_starts_with($email->origem, 'campanha:')) {
                 $this->envios->marcarIncerto($id);

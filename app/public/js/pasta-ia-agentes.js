@@ -13,10 +13,12 @@
         (`inteligencia_comando_solicitar`) e o retorno honesto (202 em andamento,
         200 "nada novo", 409/429 motivo); motivo de disponibilidade trava TODOS
         os botões até a página recarregar;
-     2b. aba Documentos (F4): marcar e desmarcar (`data-ia-doc`), "Selecionar
-        todos" (`data-ia-docs-todos`), a contagem "N de M" e o "Índice
-        inteligente" (`data-ia-exige-selecao`) liberado só com seleção; o POST
-        leva os ids marcados como `documentos[]`;
+     2b. aba Documentos (F4 e PR F): marcar e desmarcar (`data-ia-doc`), "Selecionar
+        todos" (`data-ia-docs-todos`), a contagem "N de M", o "Ler N documentos"
+        (`data-ia-ler`, rótulo pela contagem) e o "Índice inteligente", os dois
+        `data-ia-exige-selecao`, liberados só com seleção; o POST leva os ids
+        marcados como `documentos[]`. Os dois botões moram fora das seções e
+        apontam para a sua por `data-ia-secao`;
      3. polling do status (GET `inteligencia_analise_status`) enquanto houver
         análise pendente/processando no drawer — 2 s, 5 s depois de 30 s, 10 s
         depois de 2 min; PAUSA com a página oculta ou o drawer fechado —, e
@@ -85,7 +87,7 @@
         function buscarFragmento(url) {
             return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
                 .then(function (r) {
-                    if (!r.ok) { throw new Error('Não foi possível atualizar as análises.'); }
+                    if (!r.ok) { throw new Error(BJ_T.t('inteligencia.js.agentes.falha_atualizar')); }
                     return r.text();
                 })
                 .then(function (html) {
@@ -186,7 +188,7 @@
                     acompanhar();
                 })
                 .catch(function (falha) {
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível carregar as análises.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_carregar'), true);
                 })
                 .then(function () { carregandoPainel = false; });
         }
@@ -262,9 +264,19 @@
         });
 
         /* ── Botões e listas por comando (ou agente) ──────────────────────── */
-        function secaoDe(el) { return el ? (el.closest('[data-ia-comando]') || el.closest('[data-ia-agente]')) : null; }
+        // O botão da aba Documentos fica fora da seção e aponta para ela (`data-ia-secao`).
+        function secaoDe(el) {
+            if (!el) { return null; }
+            var alvo = el.closest('[data-ia-secao]');
+            if (alvo) { return drawer.querySelector('[data-ia-comando="' + alvo.getAttribute('data-ia-secao') + '"]'); }
+            return el.closest('[data-ia-comando]') || el.closest('[data-ia-agente]');
+        }
         function listaDe(secao) { return secao ? secao.querySelector('[data-ia-lista]') : null; }
-        function botaoDe(secao) { return secao ? secao.querySelector('[data-ia-gerar]') : null; }
+        function botaoDe(secao) {
+            if (!secao) { return null; }
+            var valor = secao.getAttribute('data-ia-comando');
+            return secao.querySelector('[data-ia-gerar]') || (valor ? drawer.querySelector('[data-ia-gerar][data-ia-secao="' + valor + '"]') : null);
+        }
 
         function rotuloDoBotao(botao, texto) {
             var r = botao ? botao.querySelector('.ia-cta-rotulo') : null;
@@ -275,7 +287,7 @@
             if (!botao || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
             botao.disabled = !!sim || semSelecao(botao);
             botao.classList.toggle('is-carregando', !!sim);
-            if (sim) { rotuloDoBotao(botao, 'Analisando…'); }
+            if (sim) { rotuloDoBotao(botao, BJ_T.t('inteligencia.js.agentes.analisando')); }
         }
 
         // O botão do comando na grade pulsa enquanto houver análise em andamento nele.
@@ -293,18 +305,19 @@
             if (!botao || !l || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
             if (l.getAttribute('data-ia-em-andamento') === '1') {
                 botaoCarregando(botao, true);
-                botao.title = 'Análise em andamento';
+                botao.title = BJ_T.t('inteligencia.js.agentes.em_andamento');
                 marcarNaGrade(secao, true);
                 return;
             }
             botaoCarregando(botao, false);
             marcarNaGrade(secao, false);
             var temConcluida = l.getAttribute('data-ia-tem-concluida') === '1';
-            var rotulo = botao.getAttribute('data-ia-rotulo') || 'Gerar análise';
-            var deNovo = botao.getAttribute('data-ia-rotulo-de-novo') || 'Gerar nova análise';
+            var rotulo = botao.getAttribute('data-ia-rotulo') || BJ_T.t('inteligencia.js.agentes.gerar_analise');
+            var deNovo = botao.getAttribute('data-ia-rotulo-de-novo') || BJ_T.t('inteligencia.js.agentes.gerar_nova');
             rotuloDoBotao(botao, temConcluida ? deNovo : rotulo);
-            botao.title = temConcluida ? 'Nova análise considerando o histórico' : 'Lê os dados desta pasta e responde';
+            botao.title = temConcluida ? BJ_T.t('inteligencia.js.agentes.dica_nova') : BJ_T.t('inteligencia.js.agentes.dica_primeira');
             if (botao.hasAttribute('data-ia-exige-selecao')) { botao.title = tituloDoIndice(botao); }
+            if (botao.hasAttribute('data-ia-ler')) { rotuloDoBotao(botao, rotuloDaLeitura(idsMarcados().length)); }
         }
 
         // Um 409/429 de disponibilidade vale para todos os botões até a página recarregar.
@@ -340,7 +353,7 @@
                     recarregarAuditoria();
                 })
                 .catch(function (falha) {
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar as análises.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_atualizar'), true);
                 });
         }
 
@@ -374,7 +387,7 @@
             if (Date.now() - inicio > LIMITE_MS) {
                 if (!limiteAvisado) {
                     limiteAvisado = true;
-                    avisar('A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.', true);
+                    avisar(BJ_T.t('inteligencia.js.agentes.demorando'), true);
                 }
                 return;
             }
@@ -437,9 +450,18 @@
             return botao.hasAttribute('data-ia-exige-selecao') && idsMarcados().length === 0;
         }
 
-        // O title do Índice segue a seleção, não o histórico (o índice nunca recebe o anterior).
+        // O title do Índice (e do Ler) segue a seleção, não o histórico (nenhum dos dois recebe o anterior).
         function tituloDoIndice(botao) {
-            return semSelecao(botao) ? 'Marque os documentos do índice' : 'Monta o índice dos documentos marcados';
+            if (botao.hasAttribute('data-ia-ler')) {
+                return semSelecao(botao) ? BJ_T.t('inteligencia.js.agentes.dica_ler_marque') : BJ_T.t('inteligencia.js.agentes.dica_ler');
+            }
+            return semSelecao(botao) ? BJ_T.t('inteligencia.js.agentes.dica_indice_marque') : BJ_T.t('inteligencia.js.agentes.dica_indice_monta');
+        }
+
+        // "Selecione" / "Ler 1 documento" / "Ler N documentos", como o `lerTxt` do desenho.
+        function rotuloDaLeitura(n) {
+            if (n === 0) { return BJ_T.t('inteligencia.js.agentes.ler_selecione'); }
+            return n === 1 ? BJ_T.t('inteligencia.js.agentes.ler_um') : BJ_T.t('inteligencia.js.agentes.ler_varios', { n: String(n) });
         }
 
         function atualizarSelecao() {
@@ -447,12 +469,13 @@
             var marcados = idsMarcados().length;
             var contagem = drawer.querySelector('[data-ia-docs-contagem]');
             var todos = drawer.querySelector('[data-ia-docs-todos]');
-            if (contagem) { contagem.textContent = marcados + ' de ' + total; }
+            if (contagem) { contagem.textContent = BJ_T.t('inteligencia.js.agentes.contagem', { marcados: String(marcados), total: String(total) }); }
             if (todos) { todos.setAttribute('aria-pressed', total > 0 && marcados === total ? 'true' : 'false'); }
             drawer.querySelectorAll('[data-ia-gerar][data-ia-exige-selecao]').forEach(function (botao) {
                 if (botao.getAttribute('data-ia-disponivel') !== '1' || botao.classList.contains('is-carregando')) { return; }
                 botao.disabled = marcados === 0;
                 botao.title = tituloDoIndice(botao);
+                if (botao.hasAttribute('data-ia-ler')) { rotuloDoBotao(botao, rotuloDaLeitura(marcados)); }
             });
         }
 
@@ -475,6 +498,7 @@
             if (!botao || !drawer.contains(botao)) { return; }
             if (botao.disabled || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
             if (semSelecao(botao)) { return; }
+            if (botao.hasAttribute('data-ia-secao')) { escolher(botao.getAttribute('data-ia-secao')); }
             var secao = secaoDe(botao);
 
             var dados = new FormData();
@@ -499,7 +523,7 @@
                 .then(function (res) {
                     var d = res.dados;
                     if (!res.ok) {
-                        var texto = d.mensagem || 'Não foi possível pedir a análise agora. Tente novamente.';
+                        var texto = d.mensagem || BJ_T.t('inteligencia.js.agentes.falha_pedir');
                         avisar(texto, true);
                         if (MOTIVOS_QUE_TRAVAM.indexOf(d.motivo) !== -1) {
                             travarTodos(texto, d.motivo);
@@ -514,7 +538,7 @@
                     recarregarAgente(secao, d.id);
                 })
                 .catch(function () {
-                    avisar('Não foi possível pedir a análise agora. Tente novamente.', true);
+                    avisar(BJ_T.t('inteligencia.js.agentes.falha_pedir'), true);
                     botaoCarregando(botao, false);
                     sincronizarBotao(secao);
                 });
@@ -587,12 +611,12 @@
                 .then(lerJson)
                 .then(function (res) {
                     if (!res.ok) {
-                        throw new Error(res.dados.mensagem || res.dados.message || 'Não foi possível atualizar a análise.');
+                        throw new Error(res.dados.mensagem || res.dados.message || BJ_T.t('inteligencia.js.agentes.falha_atualizar_analise'));
                     }
                     return recarregarAgente(secao);
                 })
                 .catch(function (falha) {
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível atualizar a análise.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_atualizar_analise'), true);
                     if (enviar) { enviar.disabled = false; }
                 });
         });
@@ -610,13 +634,13 @@
         function buscarTexto(url) {
             return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
                 .then(function (r) {
-                    if (!r.ok) { throw new Error('Não foi possível ler a análise.'); }
+                    if (!r.ok) { throw new Error(BJ_T.t('inteligencia.js.agentes.falha_ler')); }
                     return r.text();
                 });
         }
 
         function copiar(url) {
-            if (!navigator.clipboard) { return Promise.reject(new Error('Este navegador não deixa copiar daqui.')); }
+            if (!navigator.clipboard) { return Promise.reject(new Error(BJ_T.t('inteligencia.js.agentes.sem_copiar'))); }
             // ClipboardItem com promessa preserva o gesto do clique enquanto o texto chega.
             if (window.ClipboardItem && navigator.clipboard.write) {
                 var blob = buscarTexto(url).then(function (t) { return new Blob([t], { type: 'text/plain' }); });
@@ -644,7 +668,7 @@
                     }, 1400);
                 })
                 .catch(function (falha) {
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível copiar a análise.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_copiar'), true);
                 });
         });
 
@@ -691,7 +715,7 @@
 
             var janela = window.open('', '_blank');
             if (!janela) {
-                avisar('O navegador bloqueou a janela de impressão. Libere as janelas pop-up deste site.', true);
+                avisar(BJ_T.t('inteligencia.js.agentes.popup_bloqueado'), true);
                 return;
             }
             buscarTexto(url)
@@ -711,7 +735,7 @@
                 })
                 .catch(function (falha) {
                     janela.close();
-                    avisar(falha && falha.message ? falha.message : 'Não foi possível imprimir a análise.', true);
+                    avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.agentes.falha_imprimir'), true);
                 });
         });
 
@@ -724,16 +748,16 @@
             if (!modal || !window.bootstrap) { return; }
 
             var d = item.dataset;
-            var linhas = ['Providência indicada pelo ' + (d.metaAgente || 'agente') + ' da BlueJus IA em ' + (d.metaQuando || '') + '.'];
-            linhas.push('Gerado por IA · não é ato oficial do processo. Confira os documentos originais antes de agir.');
+            var linhas = [BJ_T.t('inteligencia.js.agentes.meta_linha', { agente: d.metaAgente || BJ_T.t('inteligencia.js.agentes.meta_agente'), quando: d.metaQuando || '' })];
+            linhas.push(BJ_T.t('inteligencia.js.agentes.meta_aviso'));
             if (d.metaPonto) { linhas.push(''); linhas.push((d.metaRotulo ? d.metaRotulo + ': ' : '') + d.metaPonto); }
-            if (d.metaQuem) { linhas.push('Quem deve agir: ' + d.metaQuem); }
-            if (d.metaResumo) { linhas.push(''); linhas.push('Resumo: ' + d.metaResumo); }
+            if (d.metaQuem) { linhas.push(BJ_T.t('inteligencia.js.agentes.meta_quem', { quem: d.metaQuem })); }
+            if (d.metaResumo) { linhas.push(''); linhas.push(BJ_T.t('inteligencia.js.agentes.meta_resumo', { resumo: d.metaResumo })); }
 
             var titulo = document.getElementById('tarefaTitulo');
             var descricao = document.getElementById('tarefaDescricao');
             var prazo = document.getElementById('tarefaPrazo');
-            if (titulo) { titulo.value = (d.metaTitulo || 'Providência indicada pela análise IA').slice(0, 255); }
+            if (titulo) { titulo.value = (d.metaTitulo || BJ_T.t('inteligencia.js.agentes.meta_titulo')).slice(0, 255); }
             if (descricao) { descricao.value = linhas.join('\n').slice(0, 5000); }
             if (prazo) {
                 var p = new Date(); p.setDate(p.getDate() + 7);

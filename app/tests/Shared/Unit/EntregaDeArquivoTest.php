@@ -13,7 +13,6 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
 use App\Shared\Armazenamento\FonteDeConteudo;
 use App\Shared\Armazenamento\ResolvedorDeCaminhoLocal;
 use App\Shared\Http\EntregaDeArquivo;
-use App\Shared\Service\ArquivoStorageService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -21,6 +20,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -29,8 +29,11 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * O teste mais importante daqui é o de EQUIVALÊNCIA: para o mesmo arquivo, o mesmo nome e a mesma
  * disposição, os cabeçalhos que a entrega nova produz são os mesmos que `ArquivoStorageService::
- * servir()` produzia. É a prova de que as 15 rotas não mudaram para quem baixa — enquanto o
- * serviço antigo ainda existe para comparar (ele sai na E2.8).
+ * servir()` produzia. É a prova de que as 15 rotas não mudaram para quem baixa.
+ *
+ * O serviço antigo saiu na E2.8 (spec P2 §10.2). O que ele fazia está congelado, linha a linha, em
+ * {@see self::gabaritoDoServirAntigo()} — D33 da E2: o teste que dependia do storage antigo migra
+ * na fatia que remove o último consumidor dele, sem perder a comparação.
  */
 #[CoversClass(EntregaDeArquivo::class)]
 final class EntregaDeArquivoTest extends TestCase
@@ -66,6 +69,7 @@ final class EntregaDeArquivoTest extends TestCase
             fotosPerfilDir: $this->raiz . '/perfil',
             cobrancasUploadsDir: $this->raiz . '/cobrancas',
             kanbanUploadsDir: $this->raiz . '/kanban',
+            tarefasUploadsDir: $this->raiz . '/tarefas',
         );
         $this->local   = new ArmazenamentoLocal($this->resolvedor);
         $this->entrega = new EntregaDeArquivo($this->local);
@@ -139,7 +143,7 @@ final class EntregaDeArquivoTest extends TestCase
         $chave   = $this->gravar($nomeNoDisco, $conteudo);
         $caminho = $this->resolvedor->caminhoDe($chave);
 
-        $antiga = $this->preparar((new ArquivoStorageService())->servir($caminho, $nomeParaDownload, $inline));
+        $antiga = $this->preparar(self::gabaritoDoServirAntigo($caminho, $nomeParaDownload, $inline));
         $nova   = $this->preparar($this->entrega->resposta($chave, $nomeParaDownload, $inline));
 
         self::assertSame($antiga->getStatusCode(), $nova->getStatusCode());
@@ -178,7 +182,7 @@ final class EntregaDeArquivoTest extends TestCase
     public function testSandboxNaoMudaOTipo(): void
     {
         $chave   = $this->gravar('y.xml', self::XML_XHTML);
-        $antiga  = $this->preparar((new ArquivoStorageService())->servir($this->resolvedor->caminhoDe($chave), 'y.xml', true));
+        $antiga  = $this->preparar(self::gabaritoDoServirAntigo($this->resolvedor->caminhoDe($chave), 'y.xml', true));
         $nova    = $this->preparar($this->entrega->resposta($chave, 'y.xml', inline: true));
 
         self::assertSame($antiga->headers->get('Content-Type'), $nova->headers->get('Content-Type'));
@@ -377,5 +381,22 @@ final class EntregaDeArquivoTest extends TestCase
         }
 
         return $corpo;
+    }
+
+    /**
+     * O `ArquivoStorageService::servir()` removido na E2.8, copiado sem mudança: a resposta com a
+     * qual a `EntregaDeArquivo` foi comparada desde a E2.3. Não é para ser "melhorado" — o valor
+     * dele é ser o comportamento antigo.
+     */
+    private static function gabaritoDoServirAntigo(string $caminhoCompleto, string $nomeOriginal, bool $inline = true): BinaryFileResponse
+    {
+        $disposicao = $inline
+            ? ResponseHeaderBag::DISPOSITION_INLINE
+            : ResponseHeaderBag::DISPOSITION_ATTACHMENT;
+
+        $response = new BinaryFileResponse($caminhoCompleto);
+        $response->setContentDisposition($disposicao, $nomeOriginal);
+
+        return $response;
     }
 }

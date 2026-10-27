@@ -5,160 +5,86 @@
    O agrupamento NÃO é feito aqui: vem pronto do AgrupadorDeMetas, porque decidir o
    que é urgente é regra de negócio e precisa de teste. Este arquivo só desenha.
 ─────────────────────────────────────────────────────────────────────────── #}
-{% set aba = painel.aba %}
-{# O trilho aparece também com a lista vazia (dc L111: o aside não depende de haver grupos);
-   só o modo lista, que é tabela larga, o dispensa. #}
-{% set semTrilho = painel.modoLista %}
-{# "Encaminhar via Chat I.A" no ⋮ de cada cartão (R223): a Central conferida UMA vez aqui (cada chamada consulta o
-   vínculo), não por cartão. #}
-{% set encaminharMetas = not painel.modoLista and not painel.estaVazia and central_disponivel() %}
-
 {# Hora desta leitura: o cabeçalho mostra "Atualizado às" e a atualiza a cada recarga parcial. #}
-<span hidden data-mm-lido-as="{{ 'now'|date('H:i') }}"></span>
-<div class="mm-arranjo {{ semTrilho ? 'mm-sem-trilho' : '' }}">
+<span hidden data-mm-lido-as="{{ 'now'|hora }}"></span>
+{# Lista e trilho de 340px (dc L81). O trilho aparece também com a lista vazia (o aside não depende de haver grupos). #}
+<div class="mm-arranjo">
 
-    <div class="mm-coluna-lista min-w-0">
+    <div class="mm-coluna-lista">
         {% if painel.estaVazia %}
-            {# Vazio do desenho (dc L107): uma caixa só, sem ícone. Com filtro ativo, o texto é o do
-               desenho; nas abas vazias sem filtro fica o texto que já orientava o usuário. #}
-            <div class="mm-vazio-caixa">
-                {% if painel.temFiltroAtivo %}
-                    Nenhuma meta com esses filtros.
-                {% elseif aba.value == 'responsavel' %}
-                    Nenhuma meta atribuída a você. Quando alguém delegar uma meta para você, ela aparece aqui.
-                {% elseif aba.value == 'criei' %}
-                    Você ainda não criou nenhuma meta. Metas são criadas de dentro da pasta, na aba Metas.
-                {% elseif aba.value == 'acompanhando' %}
-                    Nenhuma meta em acompanhamento. Use o marcador <i class="bi bi-bookmark" aria-hidden="true"></i> em qualquer meta para acompanhá-la aqui.
-                {% else %}
-                    Nenhuma meta por aqui. Nada atribuído, criado ou marcado por você.
-                {% endif %}
-            </div>
-        {% elseif painel.modoLista %}
-            {{ include('tarefa/_metas_lista.html.twig') }}
+            {# Vazio do desenho (dc L107): uma caixa só, sem ícone, sempre com o texto do desenho. #}
+            <div class="mm-vazio-caixa">{{ 'metas.vazio.com_filtro'|trans }}</div>
         {% else %}
-            {# Cada grupo é um cartão próprio (dc L83-85), empilhados com 12px entre eles. A classe
-               `mm-grupo-<chave>` dá ao grupo a cor dele (ponto e faixa das linhas). #}
+            {# Cada grupo é um cartão próprio (dc L84-86), empilhados com 12px entre eles; as metas ficam numa faixa
+               cinza com 6px entre elas. A classe `mm-grupo-<chave>` dá ao grupo a cor dele (ponto e faixa das linhas).
+               Todos abertos, Concluídas inclusive. O número antes do título recomeça em 1 a cada grupo (dc `m.num`). #}
             {% for grupo in painel.grupos %}
-                <section class="mm-grupo mm-grupo-{{ grupo.chave }}" aria-label="{{ grupo.rotulo }}">
-                    {% if grupo.recolhido %}
-                        <button class="mm-grupo-cabeca" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#grupo-{{ grupo.chave }}"
-                                aria-expanded="false" aria-controls="grupo-{{ grupo.chave }}">
-                            <span class="mm-dot" style="background: var(--mm-grupo-cor, var(--mm-{{ grupo.tom }}-dot, var(--mm-cinza-dot)))"></span>
-                            <span class="mm-grupo-nome">{{ grupo.rotulo }}</span>
-                            <span class="mm-grupo-contagem">{{ grupo.total }}</span>
-                            {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
-                            <i class="bi bi-chevron-right mm-grupo-seta"></i>
-                        </button>
-                        <div class="collapse" id="grupo-{{ grupo.chave }}">
-                            {% for meta in grupo.metas %}
-                                {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="mm-grupo-cabeca">
-                            <span class="mm-dot" style="background: var(--mm-grupo-cor, var(--mm-{{ grupo.tom }}-dot, var(--mm-cinza-dot)))"></span>
-                            <span class="mm-grupo-nome">{{ grupo.rotulo }}</span>
-                            <span class="mm-grupo-contagem">{{ grupo.total }}</span>
-                            {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
-                        </div>
+                <section class="mm-grupo mm-grupo-{{ grupo.chave }}" aria-label="{{ grupo.rotulo|trans }}">
+                    <div class="mm-grupo-cabeca">
+                        <span class="mm-dot" style="background: var(--mm-grupo-cor, var(--mm-cinza-dot))"></span>
+                        <span class="mm-grupo-nome">{{ grupo.rotulo|trans }}</span>
+                        <span class="mm-grupo-contagem">{{ grupo.total }}</span>
+                    </div>
+                    <div class="mm-grupo-itens">
                         {% for meta in grupo.metas %}
-                            {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom}) }}
+                            {{ include('tarefa/_meta_cartao.html.twig', {meta: meta, tom: grupo.tom, numero: loop.index}) }}
                         {% endfor %}
-                    {% endif %}
+                    </div>
                 </section>
             {% endfor %}
         {% endif %}
     </div>
 
-    {% if not semTrilho %}
-        <div class="mm-trilho">
+    <aside class="mm-trilho">
 
-            {# ── Andamento ── #}
-            <div class="mm-cartao mm-trilho-bloco mm-trilho-andamento">
-                <div class="d-flex align-items-baseline gap-2 mb-3">
-                    <h2 class="mm-cartao-titulo">{{ aba.value == 'criei' ? 'O que você delegou' : 'Seu andamento' }}</h2>
-                    <span class="mm-grupo-nota">últimos 30 dias</span>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="mm-progresso-numero">{{ painel.totalConcluidas }} de {{ painel.totalExibido }}</span>
-                    <span class="mm-kpi-sub">concluídas</span>
-                </div>
-                <div class="mm-progresso-barra" role="progressbar"
-                     aria-valuenow="{{ painel.percentualConcluido }}" aria-valuemin="0" aria-valuemax="100"
-                     aria-label="Percentual de metas concluídas">
-                    <span style="width: {{ painel.percentualConcluido }}%"></span>
-                </div>
-                <div class="mm-fatias">
-                    {% for fatia in painel.fatiasDoAndamento %}
-                        <span class="mm-fatia tom-{{ fatia.tom }}">
-                            <span class="mm-dot"></span>
-                            {{ fatia.total }} {{ fatia.rotulo }}
-                        </span>
-                    {% endfor %}
-                </div>
+        {# ── Seu andamento (dc L112-118): sobre TODAS as metas da pessoa; não muda com a aba nem com os filtros ── #}
+        <div class="mm-cartao mm-trilho-bloco mm-trilho-andamento">
+            <div class="mm-andamento-cabeca">
+                <h2 class="mm-cartao-titulo">{{ 'metas.trilho.seu_andamento'|trans }}</h2>
+                <span class="mm-andamento-periodo">{{ 'metas.trilho.ultimos_30_dias'|trans }}</span>
             </div>
-
-            {# ── Precisa de atenção ── #}
-            {% set atencao = painel.metasQuePrecisamDeAtencao %}
-            {# Sempre visível (dc L119): sem atrasadas na lista, o cartão diz que nada pede atenção. #}
-            <div class="mm-cartao mm-trilho-atencao">
-                <div class="mm-cartao-cabeca">
-                    <h2 class="mm-cartao-titulo">Precisa de atenção</h2>
-                </div>
-                {% for meta in atencao %}
-                    {% set info = meta.prazoInfo %}
-                    {# Item de largura inteira (dc L122). Abre a página da META, não a pasta do desenho
-                       (decisão do dono de 14/10, checklist §16). #}
-                    <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-atencao-item">
-                        <i class="bi bi-exclamation-triangle-fill mm-atencao-icone" aria-hidden="true"></i>
-                        <span class="mm-atencao-texto">
-                            {# "Título · Pasta NNN" (dc `atencao`): a pasta da meta atrasada sem abrir nada. #}
-                            <span class="mm-atencao-titulo">{{ meta.titulo }} · Pasta {{ meta.pasta.nup }}</span>
-                            <span class="mm-atencao-meta">
-                                prazo {{ meta.prazo ? meta.prazo|date('d/m/Y') : 'não informado' }} · {{ info.texto }}
-                                {%- if aba.value == 'criei' and meta.responsaveis|length > 0 %} · {{ (meta.responsaveis|first).fullName }}
-                                {%- elseif meta.criadoPor %} · de {{ meta.criadoPor.fullName }}{% endif %}
-                            </span>
-                        </span>
-                    </a>
-                {% else %}
-                    <div class="mm-atencao-vazio">Nada pedindo atenção nesta lista.</div>
+            <div class="mm-andamento-numero">
+                <span class="mm-progresso-numero">{{ 'metas.trilho.x_de_y'|trans({concluidas: painel.totalConcluidas ~ '', total: painel.totalDoAndamento ~ ''}) }}</span>
+                <span class="mm-andamento-periodo">{{ 'metas.trilho.concluidas'|trans }}</span>
+            </div>
+            <div class="mm-progresso-barra" role="progressbar"
+                 aria-valuenow="{{ painel.percentualConcluido }}" aria-valuemin="0" aria-valuemax="100"
+                 aria-label="{{ 'metas.trilho.percentual_concluidas'|trans }}">
+                <span style="width: {{ painel.percentualConcluido }}%"></span>
+            </div>
+            <div class="mm-fatias">
+                {% for fatia in painel.fatiasDoAndamento %}
+                    <span class="mm-fatia tom-{{ fatia.tom }}">
+                        <span class="mm-dot"></span>
+                        {{ fatia.chave|trans({total: fatia.total ~ ''}) }}
+                    </span>
                 {% endfor %}
-                {% if atencao|length > 0 %}
-                    <div class="mm-trilho-rodape">
-                        {% if painel.atrasadasOcultas > 0 %}
-                            <a href="{{ path('tarefa_minhas', {aba: aba.value, prazo: 'vencidas'}) }}" class="fw-semibold">
-                                Ver todas as {{ painel.atrasadasOcultas + 5 }} atrasadas
-                            </a> ·
-                        {% endif %}
-                        Metas atrasadas continuam contando dias até serem concluídas.
-                    </div>
-                {% endif %}
             </div>
-
-            {# ── Pessoas ── #}
-            {% if painel.pessoas|length > 0 %}
-                <div class="mm-cartao mm-trilho-bloco">
-                    <h2 class="mm-cartao-titulo mb-3">{{ aba.value == 'responsavel' ? 'Quem delegou para você' : 'Com quem estão' }}</h2>
-                    <div class="d-flex flex-column gap-2">
-                        {% for pessoa in painel.pessoasVisiveis %}
-                            <div class="mm-pessoa">
-                                <span class="mm-avatar">{{ pessoa.iniciais }}</span>
-                                <span class="mm-pessoa-nome">{{ pessoa.nome }}</span>
-                                <span class="mm-pessoa-conta">
-                                    {{ pessoa.abertas }} abertas{% if pessoa.atrasadas > 0 %}<span class="mm-atrasadas"> · {{ pessoa.atrasadas }} atrasada{{ pessoa.atrasadas > 1 ? 's' : '' }}</span>{% endif %}
-                                </span>
-                            </div>
-                        {% endfor %}
-                        {% if painel.pessoasOcultas > 0 %}
-                            <div class="mm-grupo-nota">e mais {{ painel.pessoasOcultas }} pessoa{{ painel.pessoasOcultas > 1 ? 's' : '' }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endif %}
-
         </div>
-    {% endif %}
+
+        {# ── Precisa de atenção (dc L119-127): as atrasadas de todas as metas da pessoa, no máximo 4, sem "Ver
+           todas". Sem atrasadas, só o cabeçalho (o desenho não tem frase de vazio). ── #}
+        <div class="mm-cartao mm-trilho-atencao">
+            <div class="mm-cartao-cabeca">
+                <h2 class="mm-cartao-titulo">{{ 'metas.atencao.titulo'|trans }}</h2>
+            </div>
+            {% for meta in painel.metasQuePrecisamDeAtencao %}
+                {% set info = meta.prazoInfo %}
+                {# Item de largura inteira (dc L122). Abre a pasta no Expediente (04 L236; spec minhas-metas-esteira-2210, L1). #}
+                <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-atencao-item">
+                    <i class="bi bi-exclamation-triangle-fill mm-atencao-icone" aria-hidden="true"></i>
+                    <span class="mm-atencao-texto">
+                        {# "Título · Pasta NNN" (dc `atencao`): a pasta da meta atrasada sem abrir nada. #}
+                        <span class="mm-atencao-titulo">{{ 'metas.atencao.titulo_e_pasta'|trans({titulo: meta.titulo, nup: meta.pasta.nup ~ ''}) }}</span>
+                        <span class="mm-atencao-meta">
+                            {{ 'metas.atencao.prazo'|trans({data: meta.prazo ? meta.prazo|data : 'metas.atencao.prazo_nao_informado'|trans}) }} · {{ info.texto }}
+                            {#- dc `atencao` (P:178): sempre "de <criador>", em qualquer aba. #}
+                            {%- if meta.criadoPor %} · {{ 'metas.comum.de_criador'|trans({nome: meta.criadoPor.fullName}) }}{% endif %}
+                        </span>
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+
+    </aside>
 </div>

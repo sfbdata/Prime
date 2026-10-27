@@ -36,10 +36,13 @@ final class ProcessoDeTesteParalelo
         'chamados',
         'clientes',
         'cobrancas',
+        'comercial-imagens',
+        'documentos-juridicos',
         'justificativas',
         'kanban',
         'pastas',
         'perfil',
+        'tarefas',
         'trabalho-externo',
     ];
 

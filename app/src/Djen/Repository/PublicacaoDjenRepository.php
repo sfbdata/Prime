@@ -138,6 +138,58 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Contadores dos cartões do topo da tela (não lidas, do dia, vinculadas, avulsas), sobre todas as
+     * publicações visíveis do escritório, sem os filtros da lista.
+     *
+     * @param list<string> $numerosOcultos
+     * @return array{naoLidas: int, hoje: int, vinculadas: int, avulsas: int}
+     */
+    public function contarIndicadoresDoTenant(Tenant $tenant, \DateTimeImmutable $hoje, array $numerosOcultos = []): array
+    {
+        $linha = $this->buildQbFiltros($tenant, [], $numerosOcultos)
+            ->select(
+                'SUM(CASE WHEN p.lida = false THEN 1 ELSE 0 END) AS naoLidas',
+                'SUM(CASE WHEN p.dataDisponibilizacao = :hoje THEN 1 ELSE 0 END) AS hoje',
+                'SUM(CASE WHEN p.processo IS NOT NULL THEN 1 ELSE 0 END) AS vinculadas',
+                'SUM(CASE WHEN p.processo IS NULL THEN 1 ELSE 0 END) AS avulsas',
+            )
+            ->setParameter('hoje', $hoje->setTime(0, 0))
+            ->getQuery()
+            ->getSingleResult();
+
+        return [
+            'naoLidas' => (int) $linha['naoLidas'],
+            'hoje' => (int) $linha['hoje'],
+            'vinculadas' => (int) $linha['vinculadas'],
+            'avulsas' => (int) $linha['avulsas'],
+        ];
+    }
+
+    /**
+     * Quantas publicações cada OAB monitorada captou (coluna Publicações da aba OABs monitoradas).
+     *
+     * @return array<int, int> id da OAB monitorada => total
+     */
+    public function contarPorOabMonitoradaDoTenant(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('p')
+            ->select('IDENTITY(p.oabMonitorada) AS oabId', 'COUNT(p.id) AS total')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.oabMonitorada IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('p.oabMonitorada')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porOab = [];
+        foreach ($linhas as $linha) {
+            $porOab[(int) $linha['oabId']] = (int) $linha['total'];
+        }
+
+        return $porOab;
+    }
+
+    /**
      * Siglas de tribunal presentes nas publicações do escritório (opções da faceta).
      *
      * @return string[]
@@ -454,12 +506,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                ->setParameter('meio', $filtros['meio']);
         }
 
-        $vinculo = (string) ($filtros['vinculo'] ?? '');
-        if ($vinculo === 'vinculada') {
-            $qb->andWhere('p.processo IS NOT NULL');
-        } elseif ($vinculo === 'avulsa') {
-            $qb->andWhere('p.processo IS NULL');
-        }
+        $this->filtrarPorVinculoELeitura($qb, (string) ($filtros['vinculo'] ?? ''), (string) ($filtros['leitura'] ?? ''));
 
         $dataDe = $this->parseDataFiltro($filtros['data_de'] ?? '');
         if ($dataDe !== null) {
@@ -474,6 +521,21 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
         }
 
         return $qb;
+    }
+
+    private function filtrarPorVinculoELeitura(QueryBuilder $qb, string $vinculo, string $leitura): void
+    {
+        if ($vinculo === 'vinculada') {
+            $qb->andWhere('p.processo IS NOT NULL');
+        } elseif ($vinculo === 'avulsa') {
+            $qb->andWhere('p.processo IS NULL');
+        }
+
+        if ($leitura === 'nao_lidas') {
+            $qb->andWhere('p.lida = false');
+        } elseif ($leitura === 'lidas') {
+            $qb->andWhere('p.lida = true');
+        }
     }
 
     private function parseDataFiltro(string $valor): ?\DateTimeImmutable

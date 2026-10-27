@@ -182,10 +182,14 @@
 .mp-conta { align-items: center; border-bottom: 1px solid #eef2f5; position: relative; }
 .mp-conta-nome { padding: 12px 20px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .mp-conta-nome > b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mp-conta-nome > span { font-size: 11.5px; color: #5b7383; }
+.mp-conta-nome > span:last-child { font-size: 11.5px; color: #5b7383; }
+/* Selo do número da conta (desenho L173) ao lado do nome. */
+.mp-conta-titulo { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.mp-conta-titulo > b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.mp-conta-nro { flex: none; font: bold 11.5px/1 monospace; color: #0a6fa0; background: #e5f1f7; border: 1px solid #cfe3f0; border-radius: 3px; padding: 3px 5px; }
 .mp-conta-prim { padding: 12px 8px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .mp-conta-prim > span:first-child { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mp-conta-prim > span:last-child { font-size: 11.5px; color: #0a6fa0; font-weight: bold; }
+.mp-conta-prim > span:nth-child(2) { font-size: 11.5px; color: #0a6fa0; font-weight: bold; }
 .mp-conta-usu { text-align: center; font-size: 13px; }
 .mp-conta-usu > span { color: #7d909d; }
 .mp-conta-num { text-align: center; font-size: 13px; font-weight: bold; }
@@ -303,7 +307,15 @@
 .mp-plano-preco > span { font-size: 12px; color: #5b7383; font-weight: normal; }
 .mp-plano-cap { font-size: 13px; color: #34505f; }
 .mp-plano-contas { font-size: 12.5px; color: #5b7383; }
-.mp .mp-plano-editar { align-self: flex-start; margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; }
+.mp .mp-plano-editar { margin-left: auto; order: 9; display: inline-flex; align-items: center; gap: 6px; }
+.mp-plano-recursos { font-size: 12.5px; color: #1e7b45; }
+.mp-plano-recursos + .mp-plano-contas { border-top: 1px solid #eef2f5; padding-top: 7px; margin-top: 2px; }
+.mp-convenio-faixa { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #fff; border: 1px solid #d3dde4; border-left: 4px solid #0a6fa0; border-radius: 3px; padding: 12px 16px; margin-bottom: 14px; }
+.mp-convenio-faixa img { height: 34px; }
+.mp-convenio-faixa > div { flex: 1; min-width: 240px; }
+.mp-convenio-faixa b { display: block; font-size: 14.5px; color: #0b3550; }
+.mp-convenio-faixa span { display: block; font-size: 12.5px; color: #4a6373; line-height: 1.5; }
+.mp-planos-rotulo { font-size: 11.5px; font-weight: bold; letter-spacing: .8px; color: #4a6373; margin-bottom: 8px; }
 
 /* ---------- Modal de limite (desenho 1.2, linhas 397-410) e "Editar plano" no mesmo molde ---------- */
 .mp-lim-fundo { position: fixed; inset: 0; z-index: 1060; background: rgba(13,27,42,.35); display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -458,3 +470,98 @@
 .mp-rec-item.is-off .mp-rec-chave { background: #c9d3da; }
 .mp-rec-item.is-off .mp-rec-chave > span { left: 3px; }
 .mp-rec-vazio { padding: 24px; text-align: center; color: #5b7383; font-size: 13px; }
+
+/* ---------- Central de Notificações (desenho 05 Perfis 1.2 VS 21.10.26, template L309-322; spec
+   docs/specs/master-central-de-notificacoes.md). Valores do desenho; parcial master/_notificacoes.html.twig. ---------- */
+.nf-caixa { background: #fff; border: 1px solid #dde5eb; border-radius: 4px; overflow: hidden; }
+.nf-barra { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-bottom: 1px solid #eef2f5; flex-wrap: wrap; }
+.nf-acoes { display: inline-flex; align-items: center; gap: 4px; }
+.nf .nf-acoes[hidden], .nf .nf-paginas[hidden], .nf [hidden] { display: none !important; }
+.nf-espaco { flex: 1; }
+.mp .nf-ico { width: 32px; height: 32px; border: none; background: transparent; border-radius: 3px; color: #5b7383; cursor: pointer; padding: 0; }
+.mp .nf-ico-redondo { border-radius: 50%; }
+.mp .nf-ico:hover { background: #eef2f5; }
+.mp .nf-ico:disabled { opacity: .4; cursor: default; background: transparent; }
+.mp .nf-acao { height: 30px; padding: 0 10px; border: none; background: transparent; border-radius: 15px; color: #34505f; font: inherit; font-size: 12.5px; cursor: pointer; }
+.mp .nf-acao:hover { background: #eef2f5; }
+.nf-sel-n { font-size: 12px; color: #5b7383; }
+.nf-busca { display: flex; align-items: center; gap: 7px; height: 34px; width: min(280px, 100%); border-radius: 17px; background: #eef2f5; padding: 0 12px; margin: 0; font-weight: normal; }
+.nf-busca .bi { color: #5f6368; }
+.nf-busca input { border: none; outline: none; flex: 1; min-width: 0; background: transparent; font: inherit; font-size: 13px; }
+.nf-pag { font-size: 12px; color: #5b7383; margin-left: 8px; }
+.nf-paginas { display: inline-flex; align-items: center; }
+
+.nf-abas { display: flex; border-bottom: 1px solid #e6edf2; overflow-x: auto; }
+.mp .nf-aba { flex: 1 1 0; min-width: 140px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: none; border-bottom: 3px solid transparent; background: #fff; font: inherit; text-align: left; cursor: pointer; color: #5f6368; }
+.mp .nf-aba:hover { background: #f5f8fa; }
+.mp .nf-aba.on { color: #0a6fa0; border-bottom-color: #0a6fa0; }
+.nf-aba > .bi { font-size: 18px; }
+.nf-aba-txt { min-width: 0; }
+.nf-aba-rot { display: flex; align-items: center; gap: 7px; font-size: 13.5px; }
+.nf-aba-n { height: 17px; padding: 0 6px; border-radius: 3px; background: #0a6fa0; color: #fff; font-size: 10.5px; display: inline-flex; align-items: center; }
+.nf-aba-sub { display: block; font-size: 11.5px; color: #7a8e9b; white-space: nowrap; }
+
+.nf-vazio { padding: 34px; text-align: center; font-size: 13.5px; color: #6c757d; }
+.nf-vazio .bi { display: block; font-size: 30px; color: #b7c6d1; margin-bottom: 6px; }
+.nf-msg { padding: 10px 14px; font-size: 13px; color: #a3232b; background: #fdecee; }
+
+.nf-linha { display: flex; align-items: center; gap: 6px; padding: 0 14px 0 6px; height: 42px; border-bottom: 1px solid #f0f4f7; font-size: 13.5px; background: #fff; cursor: pointer; }
+.nf-linha.nf-lida { background: #f7f9fb; }
+.nf-linha.nf-sel { background: #e8f0fe; }
+.nf-linha:hover, .nf-linha:focus-visible { box-shadow: inset 1px 0 0 #dadce0, inset -1px 0 0 #dadce0, 0 1px 2px rgba(60,64,67,.3); position: relative; z-index: 1; outline: none; }
+.mp .nf-l-btn { width: 30px; height: 30px; flex: none; border: none; background: transparent; color: #7a8e9b; cursor: pointer; font-size: 15px; padding: 0; }
+.mp .nf-l-estrela { color: #9aa0a6; }
+.mp .nf-l-estrela.on { color: #f4b400; }
+.nf-l-de { width: 170px; flex: none; font-weight: bold; color: #202124; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nf-l-meio { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+.nf-l-resumo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nf-l-ass { font-weight: bold; color: #202124; }
+.nf-l-txt { color: #5f6368; }
+.nf-l-resp { color: #1e8e3e; flex: none; }
+.nf-l-data { flex: none; width: 70px; text-align: right; font-size: 12px; font-weight: bold; color: #202124; }
+.nf-lida .nf-l-de, .nf-lida .nf-l-ass, .nf-lida .nf-l-data { font-weight: normal; }
+
+/* Selo do tipo (TP do desenho, L727): [cor, fundo]. */
+.nf-tag { flex: none; height: 20px; padding: 0 7px; border-radius: 3px; font-size: 11.5px; display: inline-flex; align-items: center; }
+.nf-tag-sug { color: #0a6fa0; background: #e5f1f7; }
+.nf-tag-prob { color: #9a5b00; background: #fff4d6; }
+.nf-tag-falta { color: #5b3f9e; background: #efeaf8; }
+.nf-tag-alerta { color: #c0392b; background: #fdecee; }
+.nf-tag-sup { color: #0a63c9; background: #e8f0fc; }
+.nf-tag-fale { color: #0b5f86; background: #e5f1f7; }
+
+/* A mensagem aberta (L314-320). */
+.nf-ver-fundo { position: fixed; inset: 0; z-index: 9500; background: rgba(18,36,47,.35); }
+.nf-ver-centro { position: fixed; inset: 0; z-index: 9501; display: flex; align-items: center; justify-content: center; padding: 12px; pointer-events: none; }
+.nf-ver-janela { pointer-events: auto; width: min(640px, 100%); max-height: 92vh; overflow: auto; background: #fff; border-radius: 6px; box-shadow: 0 20px 50px rgba(18,36,47,.28); }
+.nf-ver-topo { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid #eef2f5; }
+.mp .nf-ver-btn { color: #5f6368; }
+.mp .nf-ver-estrela { color: #f4b400; }
+.nf-ver-em { font-size: 12px; color: #5f6368; }
+.nf-ver-corpo { padding: 16px 20px 6px; }
+.nf-ver-cab { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.nf-ver-ass { font-size: 19px; color: #202124; flex: 1; }
+.nf-ver-tag { height: 22px; padding: 0 8px; border-radius: 3px; background: #eef2f5; color: #34505f; font-size: 11.5px; display: inline-flex; align-items: center; }
+.nf-ver-de { display: flex; gap: 12px; align-items: flex-start; }
+.nf-ver-ini { width: 40px; height: 40px; flex: none; border-radius: 50%; background: #0a6fa0; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
+.nf-ver-quem { min-width: 0; flex: 1; }
+.nf-ver-nome { display: block; font-size: 14px; color: #202124; overflow-wrap: anywhere; }
+.nf-ver-para { display: block; font-size: 12px; color: #5f6368; }
+.nf-ver-txt { font-size: 14px; color: #202124; line-height: 1.6; margin-top: 12px; white-space: pre-line; overflow-wrap: anywhere; }
+.nf-hist { margin: 10px 20px 0; border-top: 1px solid #eef2f5; padding-top: 10px; }
+.nf-hist-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; }
+.nf-hist-ic { color: #1e8e3e; margin-top: 2px; }
+.nf-hist-corpo { flex: 1; min-width: 0; }
+.nf-hist-quem { font-size: 12.5px; }
+.nf-hist-em { font-size: 11.5px; color: #5f6368; }
+.nf-hist-txt { font-size: 13.5px; color: #34505f; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+.nf-resp { margin: 14px 20px 18px; border: 1px solid #dadce0; border-radius: 8px; box-shadow: 0 1px 3px rgba(60,64,67,.15); }
+.nf-resp-cab { display: flex; align-items: center; gap: 6px; padding: 8px 12px 0; font-size: 12.5px; color: #5f6368; }
+.nf-resp-txt { width: 100%; box-sizing: border-box; border: none; outline: none; padding: 8px 12px; font: inherit; font-size: 14px; line-height: 1.5; resize: vertical; }
+.nf-resp-rodape { padding: 0 12px 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mp .nf-enviar { height: 36px; padding: 0 18px; border: none; border-radius: 18px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+.mp .nf-enviar:hover { background: #0b5f86; }
+.mp .nf-enviar:disabled { background: #9fb3c0; cursor: default; }
+.nf-resp-msg { font-size: 12.5px; color: #34505f; }
+.mp .nf-ver-ir { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; height: 30px; padding: 0 12px; border: 1px solid #d3dde4; border-radius: 3px; color: #0a6fa0; font-size: 12.5px; text-decoration: none; }
+.mp .nf-ver-ir:hover { background: #e5f1f7; }

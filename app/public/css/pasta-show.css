@@ -617,7 +617,7 @@
 .ps-pop-tarja,
 #modalEditarPasta .ps-modal-pasta-cab { cursor: grab; touch-action: none; user-select: none; }
 .ps-pop.is-arrastando > .ps-pop-tarja,
-#modalEditarPasta .modal-dialog.is-arrastando .ps-modal-pasta-cab { cursor: grabbing; }
+#modalEditarPasta .ps-modal-pasta.is-arrastando .ps-modal-pasta-cab { cursor: grabbing; }
 .ps-pop-tarja:has(> .ps-pop-x) { position: relative; padding-right: 50px; }
 /* Sem tarja, o X ficaria por cima do ✓ do primeiro item (prioridade, metas): o
    painel abre uma faixa de 38px para ele em vez de sobrepor. */
@@ -730,6 +730,13 @@
 .ps-pop-item--perigo:hover { background: var(--ps-danger-hover); color: var(--ps-danger-text); }
 .ps-pop-sep { height: 1px; background: var(--ps-div-strong); margin: 4px 8px; }
 .ps-pop-check { margin-left: auto; color: var(--ps-accent); font-size: 12px; }
+/* Submenu "Mover pasta N para" (menu genérico `gMenu` do desenho, `gmVals` dc L4610): 230px, 5px, sem borda,
+   sombra do gm, logo abaixo do ⋮ e alinhado à direita dele (`r.right`, `r.bottom + 4`). Título 10.5px/700 caixa
+   alta .06em (dc L366); itens 7px 10px, 13px, ícone 14px na cor do texto. */
+.ps-pop--carteira { top: calc(100% + 4px); right: 0; width: 230px; padding: 5px; border: none; box-shadow: var(--ps-shadow-gm); }
+.ps-pop--carteira .ps-pop-secao { padding: 6px 10px 5px; letter-spacing: .06em; color: var(--ps-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-pop--carteira .ps-pop-item { padding: 7px 10px; font-size: 13px; }
+.ps-pop--carteira .ps-pop-item i { color: inherit; }
 
 /* ── Faixa da pasta excluída (lápide) ──
    Usa os tokens de perigo da própria folha, não vermelho solto: a faixa precisa dizer
@@ -839,9 +846,10 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
 .ps-etiqueta-add i { font-size: 15px; line-height: 1; }
 
 /* ── Linha 2: o CLIENTE e o titulo (desenho 1.2.3) ──
-   Icone de pessoa em circulo de 38px (nao clicavel: a foto do cliente e funcao
-   nova), nome em maiusculas, "Movimentado…" ao lado e o documento embaixo. O
-   dono quer uma linha so, quebrando apenas se passar de metade da tela. */
+   Icone de pessoa em circulo de 38px (a foto do cliente por cima, quando ha; botao
+   com menu para quem edita o cliente: desenho 02 VS 18.10.26, L1255), nome em
+   maiusculas, "Movimentado…" ao lado e o documento embaixo. O dono quer uma linha
+   so, quebrando apenas se passar de metade da tela. */
 .ps-cab-cliente { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 2px 0 24px; position: relative; }
 .ps-cab-cliente-icone {
     width: 38px;
@@ -856,6 +864,155 @@ button.ps-etiqueta:focus-visible { background: var(--ps-accent-bg); color: var(-
     box-shadow: inset 0 0 0 1px rgba(12,122,156,.12);
 }
 .ps-cab-cliente-icone i { font-size: 21px; line-height: 1; }
+
+/* Foto do cliente (dc L1255 e L3853): o botao de 38px cresce 6% e ganha o anel ao passar o mouse; a foto cobre o
+   circulo por cima do icone. Menu (dc L472-482) e editor de recorte (dc L483-505) com os valores do desenho. */
+.ps-cab-foto { position: relative; overflow: hidden; padding: 0; }
+button.ps-cab-foto {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    transition: transform .18s, box-shadow .18s;
+}
+button.ps-cab-foto:hover,
+button.ps-cab-foto:focus-visible,
+button.ps-cab-foto[aria-expanded="true"] { transform: scale(1.06); box-shadow: 0 0 0 3px rgba(15,111,196,.18); outline: none; }
+.ps-cab-foto-img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: center; background: #dfe8ee; }
+
+.ps-foto-fundo { position: fixed; inset: 0; z-index: 150; }
+.ps-foto-menu {
+    position: fixed;
+    z-index: 151;
+    width: 210px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.16);
+    padding: 5px;
+    animation: psFotoMenuIn .14s cubic-bezier(.22,.8,.3,1) both;
+}
+.ps-foto-fundo[hidden], .ps-foto-menu[hidden], .ps-foto-editor[hidden], .ps-foto-menu-item[hidden] { display: none; }
+.ps-foto-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #243845;
+    text-align: left;
+    cursor: pointer;
+}
+.ps-foto-menu-item:hover, .ps-foto-menu-item:focus-visible { background: #eef5fa; outline: none; }
+.ps-foto-menu-item i { font-size: 14px; color: #5f7684; width: 16px; }
+.ps-foto-menu-item--perigo, .ps-foto-menu-item--perigo i { color: #a3232b; }
+.ps-foto-menu-item--perigo:hover, .ps-foto-menu-item--perigo:focus-visible { background: #fdf0ef; }
+
+.ps-foto-editor {
+    position: fixed;
+    inset: 0;
+    z-index: 160;
+    background: rgba(10,30,45,.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: psFotoPcIn .2s both;
+}
+.ps-foto-editor-janela {
+    width: min(380px, 100%);
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.5);
+    overflow: hidden;
+    animation: psFotoMenuIn .22s cubic-bezier(.22,.8,.3,1) both;
+}
+.ps-foto-editor-topo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg,#0d80a3,#0b5f86);
+    color: #fff;
+}
+.ps-foto-editor-topo > i { font-size: 15px; }
+.ps-foto-editor-titulo { flex: 1; font-size: 13.5px; font-weight: 700; }
+.ps-foto-editor-fechar {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-foto-editor-fechar i { font-size: 12px; }
+.ps-foto-editor-corpo { padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.ps-foto-editor-circulo {
+    position: relative;
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #e6edf2;
+    cursor: grab;
+    touch-action: none;
+    box-shadow: 0 0 0 4px #fff, 0 0 0 5px #d3dde5;
+}
+.ps-foto-editor-imagem {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    max-width: none;
+    user-select: none;
+    pointer-events: none;
+}
+.ps-foto-editor-dica { font-size: 12px; color: #6b8494; }
+.ps-foto-editor-zoom { display: flex; align-items: center; gap: 10px; width: 100%; }
+.ps-foto-editor-zoom > i { color: #6b8494; }
+.ps-foto-editor-zoom input[type="range"] { flex: 1; accent-color: #0a7aad; }
+.ps-foto-editor-girar {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    background: #eef4f8;
+    color: #0b5f86;
+    cursor: pointer;
+}
+.ps-foto-editor-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid #eef2f5; }
+.ps-foto-editor-btn {
+    height: 32px;
+    padding: 0 13px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .18s, color .18s;
+}
+.ps-foto-editor-btn--trocar { background: #eef4f8; color: #0b5f86; margin-right: auto; }
+.ps-foto-editor-btn--cancelar { background: transparent; color: #455c6b; }
+.ps-foto-editor-btn--salvar {
+    padding: 0 16px;
+    background: #0a7aad;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.ps-foto-editor-btn--salvar:disabled { opacity: .6; cursor: progress; }
+@keyframes psFotoMenuIn { from { opacity: 0; transform: translate3d(0,-6px,0) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes psFotoPcIn { from { opacity: 0; transform: translate3d(0,10px,0); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .ps-foto-menu, .ps-foto-editor, .ps-foto-editor-janela { animation: none; }
+    button.ps-cab-foto { transition: none; }
+}
 .ps-cab-cliente-corpo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ps-cab-cliente-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
 .ps-cab-titulo {
@@ -1790,6 +1947,8 @@ span.ps-situacao-pill { cursor: default; }
 .ps-page .ps-linha-titulo a:not(.btn):not(.ps-btn) { color: inherit; }
 .ps-page .ps-linha-titulo a:not(.btn):not(.ps-btn):hover { color: var(--ps-accent); text-decoration: none; }
 .ps-linha-meta { font-size: 12px; color: var(--ps-label); margin-top: 2px; }
+/* Selo "prazo calculado, confira" do prazo do Push (docs/specs/prazo-do-push.md). */
+.ps-prazo-calculado { display: inline-block; font-size: 10.5px; color: var(--ps-warn-text); background: var(--ps-warn-bg); border: 1px solid var(--ps-warn-border); border-radius: 3px; padding: 0 5px; white-space: nowrap; }
 
 .ps-pip { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
 /* O tom do pip e o mesmo TEXTO do selo ao lado, como no desenho: vermelho ate 2
@@ -2531,6 +2690,25 @@ span.ps-situacao-pill { cursor: default; }
 /* As ações do arquivo moram no menu ⋮ (desenho 1.2.3). O botão fica SEMPRE à
    vista, discreto, como no desenho — o hover só o destaca. */
 .ps-fin-doc-acoes { display: flex; flex-shrink: 0; }
+/* Selo "Assinado" da linha do arquivo, entre o nome e o ⋮ (dc 1974-1976). Valores do documento; a
+   paleta é a do `ps-fin-selo--ok` (#186c47 / #e2f4ea / #bde3cd no claro), que tem a variante escura. */
+.ps-fin-doc-selo {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ps-ok-text);
+    background: var(--ps-ok-bg);
+    border: 1px solid var(--ps-ok-border);
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.ps-fin-doc-selo i { font-size: 9px; }
 .ps-fin-doc-excedente { padding: 0 17px 4px; }
 .ps-fin-link {
     font-family: inherit;
@@ -2623,6 +2801,11 @@ span.ps-situacao-pill { cursor: default; }
 .ps-pag-total-linha { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .ps-pag-recebido { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
 .ps-pag-previsto { font-size: 12.5px; color: var(--ps-muted); }
+/* "+ R$ X previsto em ..." (desenho 02 L.2011-2013). */
+.ps-pag-previsto-em { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #4f6878; }
+.ps-pag-previsto-em i { font-size: 11px; color: #0a7aad; }
+[data-bs-theme="dark"] .ps-pag-previsto-em { color: var(--ps-muted); }
+[data-bs-theme="dark"] .ps-pag-previsto-em i { color: var(--ps-accent); }
 .ps-pag-barra {
     height: 6px;
     border-radius: 4px;
@@ -2679,6 +2862,11 @@ span.ps-situacao-pill { cursor: default; }
 .ps-pag-selo.ps-selo--proximo { border-color: var(--ps-warn-border); }
 /* "Vencida" (F6): o tom e do desenho, mais quente que o do prazo urgente. */
 .ps-pag-selo.ps-selo--urgente { color: var(--ps-pag-venc-tx); background: var(--ps-pag-venc-bg); border-color: var(--ps-pag-venc-bd); }
+/* "Previsto" (exito e sucumbencia, desenho 02 L.3615): o azul do desenho. */
+.ps-selo--previsto { color: #0b5f86; background: #e5f1f7; }
+.ps-pag-selo.ps-selo--previsto { border-color: #c6e0ee; }
+[data-bs-theme="dark"] .ps-selo--previsto { color: var(--ps-accent); background: rgba(69,176,214,.16); }
+[data-bs-theme="dark"] .ps-pag-selo.ps-selo--previsto { border-color: rgba(69,176,214,.45); }
 .ps-pag-excluir { flex-shrink: 0; opacity: 0; transition: opacity .15s; }
 .ps-pag-linha:hover .ps-pag-excluir,
 .ps-pag-linha:focus-within .ps-pag-excluir { opacity: 1; }
@@ -3533,8 +3721,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-meta-titulo { display: flex; align-items: flex-start; gap: 8px; font-size: 14.5px; font-weight: 600; line-height: 1.35; text-wrap: pretty; color: var(--ps-text); }
 .ps-meta-titulo i { font-size: 15px; line-height: 1.35; color: var(--ps-ok-dot); flex-shrink: 0; }
 /* Numero local da meta (desenho: "1." 14.5/700 azul, algarismos tabulares). O
-   numero global do desenho (tarefa.id) nao entra: e a sequencia de TODOS os
-   escritorios. */
+   selo "Nº 0001" depois do titulo e o numero da meta no escritorio (nunca o id):
+   estilo em meta-numero-global.css. */
 .ps-meta-num { flex-shrink: 0; min-width: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.35; color: var(--ps-meta-num); font-variant-numeric: tabular-nums; }
 .ps-meta-titulo-tx { flex: 1; min-width: 0; }
 /* So o TEXTO e riscado (desenho): o numero continua legivel. */
@@ -4687,23 +4875,47 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     .ps-clientes .js-cliente-acoes > .cliente-abrir:focus-visible i { animation: none; transform: none; }
 }
 
-/* ── Moldura do modal "Editar dados" (#modalEditarPasta; auditoria 2 C2) ──
-   dc 560-592. So a MOLDURA: os campos (Acao so leitura, Tipo de documento) sao
-   D-META. Uso esperado: `.ps-modal-pasta` no `.modal-dialog`; dentro do
-   `.modal-content`, `.ps-modal-pasta-cab` (com `-cab-icone`, `-cab-corpo`,
-   `-titulo`, `-sub`, `-fechar`), `.ps-modal-pasta-corpo`, `.ps-modal-pasta-rotulo`
-   em cada rotulo e `.ps-modal-pasta-rodape` com `.ps-modal-pasta-btn` +
-   `--fechar` / `--salvar`. O modal vive no <body> (fora de `.ps-page`); os
-   tokens vem de `.ps-body`. */
-.ps-modal-pasta.modal-dialog { max-width: 720px; }
-.ps-modal-pasta .modal-content {
-    border: none;
+/* ── Janela "Editar dados" (#modalEditarPasta) ──
+   Desenho 02 (VS 18.10.26, L.634-668), sem o modal do Bootstrap: `.ps-pe-sobre`
+   é a sobreposição (L.635: fixa, z-index 2100, rgba(14,37,51,.38), caixa no
+   alto com 4vh 12px, rolagem própria, finFade .2s) e `.ps-modal-pasta` é a
+   caixa role=dialog (L.636: 100% até 720px, quina 4px, sombra do desenho,
+   coluna, finIn .26s). Dentro, `.ps-modal-pasta-cab` (com `-cab-icone`,
+   `-cab-corpo`, `-titulo`, `-sub`, `-fechar`), `.ps-modal-pasta-corpo`,
+   `.ps-modal-pasta-rotulo` em cada rótulo e `.ps-modal-pasta-rodape` com
+   `.ps-modal-pasta-btn` + `--fechar` / `--salvar`. A janela vive no <body>
+   (fora de `.ps-page`); os tokens vêm de `.ps-body`. */
+.ps-pe-sobre {
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4vh 12px;
+    overflow-y: auto;
+    background: rgba(14,37,51,.38);
+    animation: psPeFundo .2s ease both;
+}
+.ps-pe-sobre[hidden] { display: none; }
+.ps-modal-pasta {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
     border-radius: 4px;
     background: var(--ps-card);
     color: var(--ps-text);
     box-shadow: var(--ps-shadow-modal);
     overflow: hidden;
     font-family: var(--jp-font-sans);
+    animation: psPeEntra .26s cubic-bezier(.22,.8,.3,1) both;
+}
+@keyframes psPeFundo { from { opacity: 0; } to { opacity: 1; } }
+@keyframes psPeEntra { from { opacity: 0; transform: translate3d(0,14px,0) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .ps-pe-sobre,
+    .ps-modal-pasta { animation: none; }
 }
 .ps-modal-pasta-cab {
     display: flex;
@@ -4964,8 +5176,10 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     --ps-np-cancelar-hv: #e2e9ee;
     --ps-np-gerar:       #0a7aad;
     --ps-np-gerar-off:   #c9d6de;
+    --ps-np-base-bg:     #f3f6f8;
 }
 [data-bs-theme="dark"] .ps-body {
+    --ps-np-base-bg:     rgba(255,255,255,.05);
     --ps-np-bg:          var(--bs-body-bg);
     --ps-np-sombra:      0 24px 60px -20px rgba(0,0,0,.7);
     --ps-np-cab-bg:      rgba(255,255,255,.05);
@@ -5074,6 +5288,18 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-np-tipo:disabled { opacity: .5; cursor: not-allowed; }
 
 .ps-np-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ps-np-grade[hidden] { display: none; }
+/* "Base" so leitura do exito e da sucumbencia (desenho 02 L.2121-2122). */
+.ps-np-base {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 4px;
+    background: var(--ps-np-base-bg);
+    font-size: 13.5px;
+    color: var(--ps-np-texto);
+}
 .ps-np-campo { display: flex; flex-direction: column; gap: 5px; margin: 0; }
 .ps-np-campo[hidden] { display: none; }
 .ps-np-input {
@@ -5660,4 +5886,62 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     border: 1px solid #c3d2dd;
     border-radius: 3px;
     background: linear-gradient(135deg, #fff 45%, #cf3f36 47%, #cf3f36 53%, #fff 55%);
+}
+
+/* =============================================================================
+   Tag fixa "Observação" dos registros de Detalhes (desenho 02, dc L2458 `o.tagSt`
+   e dc L6275 `COR['Observação']`): 10,5px, 700, caixa alta com .06em, 2px 8px,
+   cantos de 4px, roxo #6b5bb0 sobre #efecfa. Fica depois do autor (e da
+   presença) e antes de "editado". A etiqueta variável (Combinado, Ligação,
+   Atendimento) segue pendente (PAS-029).
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-obs-tag-tx: #6b5bb0;
+    --ps-obs-tag-bg: #efecfa;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-obs-tag-tx: #c9bff2;
+    --ps-obs-tag-bg: rgba(107, 91, 176, .28);
+}
+.detalhes-obs-tag {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--ps-obs-tag-bg);
+    color: var(--ps-obs-tag-tx);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* =============================================================================
+   Caixa / etapa da Nova meta (desenho 02 de 22/10, dc L179 e L4068 `fases`): a
+   borda do botão normal (#d6dde3), o sugerido pelo título (#9fc3d8 sobre
+   #f2f8fc), o escolhido (#0a6fa0, texto branco e setor a .8) e a cor da dica
+   "Sugestão pelo título". Fundo, texto e setor do normal são --ps-card,
+   --ps-body e --ps-muted. O estilo do campo fica no modal (pasta/show).
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-nm-etapa-borda:     #d6dde3;
+    --ps-nm-etapa-sug-borda: #9fc3d8;
+    --ps-nm-etapa-sug-bg:    #f2f8fc;
+    --ps-nm-etapa-on:        #0a6fa0;
+    --ps-nm-etapa-on-tx:     #fff;
+    --ps-nm-etapa-on-setor:  rgba(255,255,255,.8);
+    --ps-nm-etapa-dica:      #0a6fa0;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-nm-etapa-borda:     var(--bs-border-color);
+    --ps-nm-etapa-sug-borda: rgba(69,176,214,.55);
+    --ps-nm-etapa-sug-bg:    rgba(69,176,214,.12);
+    --ps-nm-etapa-on:        #0a6fa0;
+    --ps-nm-etapa-on-tx:     #fff;
+    --ps-nm-etapa-on-setor:  rgba(255,255,255,.8);
+    --ps-nm-etapa-dica:      #45b0d6;
 }

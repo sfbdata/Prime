@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Tenants{% endblock %}
+{% block title %}{{ 'escritorio.lista.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0">Meu Escritório</h1>
+        <h1 class="m-0">{{ 'escritorio.lista.titulo'|trans }}</h1>
     </div>
 </section>
 
@@ -16,11 +16,11 @@
                 <table class="table table-striped table-hover mb-0">
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Nome</th>
-                            <th>Criado em</th>
-                            <th>Status</th>
-                            <th>Ações</th>
+                            <th>{{ 'escritorio.lista.id'|trans }}</th>
+                            <th>{{ 'escritorio.lista.nome'|trans }}</th>
+                            <th>{{ 'escritorio.lista.criado_em'|trans }}</th>
+                            <th>{{ 'escritorio.lista.status'|trans }}</th>
+                            <th>{{ 'escritorio.lista.acoes'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -28,18 +28,18 @@
                         <tr>
                             <td>{{ tenant.id }}</td>
                             <td>{{ tenant.name }}</td>
-                            <td>{{ tenant.createdAt|date('d/m/Y H:i') }}</td>
-                            <td>{{ tenant.isActive ? 'Ativo' : 'Inativo' }}</td>
+                            <td>{{ tenant.createdAt|data_hora }}</td>
+                            <td>{{ (tenant.isActive ? 'escritorio.lista.ativo' : 'escritorio.lista.inativo')|trans }}</td>
                             <td>
                                 {% if can_administer('admin.tenant.settings.manage') and current_tenant() and current_tenant().id == tenant.id %}
                                     <a href="{{ path('app_tenant_edit', {'tenantId': tenant.id}) }}"
                                        class="btn-action btn-action-edit"
-                                       title="Editar escritório"
-                                       aria-label="Editar escritório">
+                                       title="{{ 'escritorio.lista.editar'|trans({termo: 'termos.escritorio'|trans}) }}"
+                                       aria-label="{{ 'escritorio.lista.editar'|trans({termo: 'termos.escritorio'|trans}) }}">
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                 {% else %}
-                                    <span class="text-muted">Sem permissões</span>
+                                    <span class="text-muted">{{ 'escritorio.lista.sem_permissoes'|trans }}</span>
                                 {% endif %}
                             </td>
                         </tr>

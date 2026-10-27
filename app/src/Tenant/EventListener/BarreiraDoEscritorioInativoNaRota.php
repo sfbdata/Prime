@@ -10,6 +10,7 @@ use App\Master\Service\RegraDosMasters;
 use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Service\AvisoDeContaSuspensa;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,6 +18,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 
 /**
@@ -29,6 +31,10 @@ use Twig\Environment;
  * passa (R3). Quem não tem vínculo com A segue para o controller, que já o recusa como sempre: a mensagem com o
  * nome e a situação da conta não vaza para fora do escritório (R1).
  *
+ * A conta "suspensa a pedido" (pedido de exclusão pendente) continua `isActive`, então também é recusada aqui
+ * (R7): na sessão a equipe já não entra e o primário fica só no Meu Perfil, onde desiste; pela URL, com outro
+ * escritório na sessão, ninguém vinculado age sobre ela, primário inclusive. O Master passa, como em R3.
+ *
  * Prioridade 3: depois do roteamento (32), do firewall (8), da barreira da sessão (6), do TenantFilter (5) e
  * do TenantUrlScopeListener (4), que só ESCOPA os dados no `{tenantId}` e não autoriza nada.
  */
@@ -36,6 +42,9 @@ use Twig\Environment;
 final class BarreiraDoEscritorioInativoNaRota
 {
     public const ROTULO = 'Escritório indisponível';
+
+    /** A chave do ROTULO no catálogo (o português do catálogo é o mesmo texto, spec idioma-do-sistema §27). */
+    public const CHAVE_DO_ROTULO = 'escritorio.indisponivel.titulo';
 
     /** Rotas em que o `{id}` do caminho é o próprio escritório (R2). */
     public const ROTAS_COM_ID_DO_ESCRITORIO = [
@@ -59,7 +68,9 @@ final class BarreiraDoEscritorioInativoNaRota
         private readonly TenantRepository $tenants,
         private readonly UserTenantRepository $vinculos,
         private readonly RegraDosMasters $regraDosMasters,
+        private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
         private readonly Environment $twig,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -81,11 +92,20 @@ final class BarreiraDoEscritorioInativoNaRota
         }
 
         $escritorio = $this->tenants->find($escritorioId);
-        if ($escritorio === null || $escritorio->isActive() === true || !$this->vinculos->existeVinculoAtivo($usuario, $escritorio)) {
+        if ($escritorio === null) {
             return;
         }
 
-        $event->setResponse($this->recusa($request, $escritorio));
+        $mensagem = match (true) {
+            $escritorio->isActive() !== true                         => $this->avisoDeInativo($escritorio),
+            $this->bloqueioPorPedido->suspensaAPedido($escritorioId) => BloqueioPorPedidoDeExclusao::MENSAGEM,
+            default                                                  => null,
+        };
+        if ($mensagem === null || !$this->vinculos->existeVinculoAtivo($usuario, $escritorio)) {
+            return;
+        }
+
+        $event->setResponse($this->recusa($request, $mensagem));
     }
 
     /** Id do escritório sobre o qual a rota age (R2), ou null para rota que não recebe escritório. */
@@ -98,19 +118,23 @@ final class BarreiraDoEscritorioInativoNaRota
         return is_scalar($valor) && ctype_digit((string) $valor) ? (int) $valor : null;
     }
 
-    private function recusa(Request $request, Tenant $escritorio): Response
+    private function avisoDeInativo(Tenant $escritorio): string
     {
         $nome = (string) $escritorio->getName();
-        $mensagem = $escritorio->getExcluidoEm() === null
+
+        return $escritorio->getExcluidoEm() === null
             ? AvisoDeContaSuspensa::para($nome)
             : AvisoDeContaSuspensa::paraExcluida($nome);
+    }
 
+    private function recusa(Request $request, string $mensagem): Response
+    {
         if ($this->ehChamadaDeApi($request)) {
             return new JsonResponse(['erro' => $mensagem], Response::HTTP_FORBIDDEN);
         }
 
         return new Response($this->twig->render('tenant/escritorio_indisponivel.html.twig', [
-            'titulo'   => self::ROTULO,
+            'titulo'   => $this->tradutor->trans(self::CHAVE_DO_ROTULO),
             'mensagem' => $mensagem,
         ]), Response::HTTP_FORBIDDEN);
     }

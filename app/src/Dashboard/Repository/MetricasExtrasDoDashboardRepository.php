@@ -8,6 +8,8 @@ use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Criterio\PastaFinalizadaNoPeriodo;
+use App\Pasta\Criterio\RegistroDePastaNoPeriodo;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,7 +23,7 @@ use Doctrine\ORM\QueryBuilder;
  * ele EXPLICITAMENTE (além do TenantFilter): nenhum número de outro escritório entra.
  *
  * Período: a MESMA régua das colunas que já existem — metas por `t.dataCriacao`, pastas por
- * `p.dataAbertura` — com o mesmo formato estrito ('!Y-m-d', fim do dia na borda final). Agenda
+ * `p.dataAbertura` (as concluídas por `p.finalizadaEm`) — com o mesmo formato estrito ('!Y-m-d', fim do dia na borda final). Agenda
  * usa `e.dataInicio` (o compromisso cai no período em que acontece). Sem período, conta tudo,
  * como as outras colunas.
  *
@@ -136,6 +138,43 @@ class MetricasExtrasDoDashboardRepository
     }
 
     /**
+     * "Pastas concluídas" ("Demandas encerradas no período" do desenho): pastas que chegaram à etapa
+     * Finalizada do andamento no período, por responsável, pela data da chegada (`finalizadaEm`), e
+     * não pela abertura nem pela situação. Voltar de fase ou reativar apaga a data, então a pasta sai
+     * da conta; pasta excluída (lápide) e pasta oculta pelo cadeado para quem olha ficam fora.
+     *
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array<int, int> userId => quantidade
+     */
+    public function contarFinalizadasPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
+    {
+        $qb = $this->em->createQueryBuilder()
+            ->select('r.id AS pessoa_id, COUNT(p.id) AS total')
+            ->from(Pasta::class, 'p')
+            ->join('p.responsavel', 'r')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('r.id');
+
+        // O critério é o mesmo do filtro `concluida` do Expediente (regra B12: o número = a lista).
+        $desde = $filtros['contar_desde'] ?? null;
+        PastaFinalizadaNoPeriodo::aplicar(
+            $qb,
+            'p',
+            $this->lerData((string) ($filtros['data_de'] ?? ''), false),
+            $this->lerData((string) ($filtros['data_ate'] ?? ''), true),
+            $desde instanceof \DateTimeImmutable ? $desde : null,
+        );
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
+        }
+
+        return $this->mapaDeContagem($qb);
+    }
+
+    /**
      * Compromissos da agenda por pessoa, no período (pela data de início).
      *
      * Conta para a pessoa o evento que ela CRIOU ou do qual PARTICIPA — cada evento uma vez por
@@ -175,6 +214,109 @@ class MetricasExtrasDoDashboardRepository
         $this->aplicarPeriodo($qb, 'e.dataInicio', $filtros);
 
         return $this->mapaDeContagem($qb);
+    }
+
+    /**
+     * "Relatório" (spec dashboard-parte-1, item 2): registros por AUTOR, criados no período, nas três
+     * abas que o desenho soma: Dados da pasta (`PastaMensagem`, sem os cartões do sistema),
+     * Financeiro e Detalhes. Resposta é um registro e conta; edição não conta de novo (a linha é a
+     * mesma). Uma consulta agregada por tabela; pasta excluída (lápide) e pasta oculta pelo
+     * cadeado para quem olha ficam fora.
+     *
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array<int, int> userId => quantidade
+     */
+    public function contarRegistrosPorAutor(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
+    {
+        $mapa = [];
+        foreach (array_keys(RegistroDePastaNoPeriodo::ABAS) as $classe) {
+            $qb = $this->em->createQueryBuilder()
+                ->select('IDENTITY(r.autor) AS pessoa_id, COUNT(r.id) AS total')
+                ->from($classe, 'r')
+                ->join('r.pasta', 'p')
+                ->groupBy('r.autor');
+            $this->criterioDeRegistros($qb, $classe, $tenant, $filtros, $pastasOcultas);
+
+            foreach ($this->mapaDeContagem($qb) as $id => $n) {
+                $mapa[$id] = ($mapa[$id] ?? 0) + $n;
+            }
+        }
+
+        return $mapa;
+    }
+
+    /**
+     * A lista por trás do número da coluna Relatório (modal "Ver relatório"): os registros de UMA
+     * pessoa, com o MESMO critério de contagem (RegistroDePastaNoPeriodo), dos mais novos aos mais
+     * antigos. Cada aba traz no máximo `$limite` (as mais novas); `total` é a contagem exata, sem
+     * limite, e é igual ao número da célula.
+     *
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d) e contar_desde (corte do Zerar)
+     * @param list<int>            $pastasOcultas
+     *
+     * @return array{total: int, registros: list<array{id: int, aba: string, pastaId: int, pastaNup: ?string, cliente: ?string, criadaEm: \DateTimeImmutable, conteudo: string}>}
+     */
+    public function listarRegistrosDoAutor(Tenant $tenant, int $autorId, array $filtros, array $pastasOcultas, int $limite): array
+    {
+        $total     = 0;
+        $registros = [];
+        foreach (RegistroDePastaNoPeriodo::ABAS as $classe => $aba) {
+            $base = $this->em->createQueryBuilder()
+                ->from($classe, 'r')
+                ->join('r.pasta', 'p')
+                ->andWhere('IDENTITY(r.autor) = :rpAutor')
+                ->setParameter('rpAutor', $autorId);
+            $this->criterioDeRegistros($base, $classe, $tenant, $filtros, $pastasOcultas);
+
+            $total += (int) (clone $base)->select('COUNT(r.id)')->getQuery()->getSingleScalarResult();
+
+            $linhas = (clone $base)
+                ->select('r.id AS id, r.criadaEm AS criadaEm, r.conteudo AS conteudo, p.id AS pastaId, p.nup AS pastaNup, p.nomeCliente AS cliente')
+                ->orderBy('r.criadaEm', 'DESC')
+                ->addOrderBy('r.id', 'DESC')
+                ->setMaxResults($limite)
+                ->getQuery()
+                ->getArrayResult();
+            foreach ($linhas as $l) {
+                $registros[] = [
+                    'id'       => (int) $l['id'],
+                    'aba'      => $aba,
+                    'pastaId'  => (int) $l['pastaId'],
+                    'pastaNup' => $l['pastaNup'] !== null ? (string) $l['pastaNup'] : null,
+                    'cliente'  => $l['cliente'] !== null ? (string) $l['cliente'] : null,
+                    'criadaEm' => $l['criadaEm'],
+                    'conteudo' => (string) $l['conteudo'],
+                ];
+            }
+        }
+
+        return ['total' => $total, 'registros' => $registros];
+    }
+
+    /**
+     * O WHERE compartilhado pela contagem e pela lista: o critério do registro (RegistroDePastaNoPeriodo)
+     * com o período do painel e o corte do Zerar lidos dos filtros.
+     *
+     * @param class-string         $classe
+     * @param array<string, mixed> $filtros
+     * @param list<int>            $pastasOcultas
+     */
+    private function criterioDeRegistros(QueryBuilder $qb, string $classe, Tenant $tenant, array $filtros, array $pastasOcultas): void
+    {
+        $desde = $filtros['contar_desde'] ?? null;
+        RegistroDePastaNoPeriodo::aplicar(
+            $qb,
+            $classe,
+            'r',
+            'p',
+            $tenant,
+            $this->lerData((string) ($filtros['data_de'] ?? ''), false),
+            $this->lerData((string) ($filtros['data_ate'] ?? ''), true),
+            $desde instanceof \DateTimeImmutable ? $desde : null,
+            $pastasOcultas,
+        );
     }
 
     /**
@@ -218,6 +360,12 @@ class MetricasExtrasDoDashboardRepository
         $ate = $this->lerData((string) ($filtros['data_ate'] ?? ''), true);
         if ($ate !== null) {
             $qb->andWhere($campo . ' <= :fExtraAte')->setParameter('fExtraAte', $ate);
+        }
+
+        // "Zerar" (DASH-014): só o que veio a partir do ponto de corte, no mesmo campo de data.
+        $desde = $filtros['contar_desde'] ?? null;
+        if ($desde instanceof \DateTimeImmutable) {
+            $qb->andWhere($campo . ' >= :fExtraDesde')->setParameter('fExtraDesde', $desde);
         }
     }
 

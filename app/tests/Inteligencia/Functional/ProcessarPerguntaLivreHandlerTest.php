@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Inteligencia\Functional;
 
 use App\Entity\Notificacao;
+use App\Inteligencia\Contexto\LeitorDeDocumentosDaPasta;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
@@ -19,6 +20,7 @@ use App\Inteligencia\Prompt\PromptDaPergunta;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Prompt\PromptResumoDoPush;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\ConfiguracaoDaPlataformaDeIaRepository;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
 use App\Inteligencia\Repository\PerguntaDaConversaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
@@ -54,12 +56,12 @@ final class ProcessarPerguntaLivreHandlerTest extends KernelTestCase
             $this->em(),
             $repositorio,
             new FluxoDoResumoDoPush($c->get(MontadorDeContextoDoPush::class), new PromptResumoDoPush(), new InterpretadorDeRespostaDePush(), $repositorio),
-            new FluxoDaAnaliseDaPasta($montador, new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio),
+            new FluxoDaAnaliseDaPasta($montador, new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio, $c->get(LeitorDeDocumentosDaPasta::class)),
             new FluxoDaPerguntaLivre($montador, new PromptDaPergunta(new PromptDoAgente()), new InterpretadorDeRespostaDoAgente(), $c->get(PerguntaDaConversaRepository::class)),
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
-            new DisponibilidadeDeInteligencia($provedor, $c->get(ConfiguracaoDeInteligenciaRepository::class), $repositorio, $c->get(PermissionChecker::class), true),
+            new DisponibilidadeDeInteligencia($provedor, $c->get(ConfiguracaoDeInteligenciaRepository::class), $repositorio, $c->get(PermissionChecker::class), true, $c->get(ConfiguracaoDaPlataformaDeIaRepository::class), new \App\Inteligencia\Service\CustoDaIa('us')),
             $logger ?? new LoggerEmMemoria(),
         );
     }

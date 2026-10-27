@@ -39,6 +39,24 @@ class UserTenantRepository extends ServiceEntityRepository
     }
 
     /**
+     * O usuário tem vínculo com algum escritório além deste (qualquer perfil e situação, com o escritório no ar ou
+     * não)? Conta também o suspenso e o em análise: o vínculo removido some da tabela, e o que sobra pode voltar a valer.
+     * A senha é da conta, não do vínculo: quem a troca pelo edit-role deste escritório abriria os outros
+     * (spec perfis-1.2-permissoes-e-hierarquia C8).
+     */
+    public function existeVinculoEmOutroEscritorio(User $user, Tenant $tenant): bool
+    {
+        return (int) $this->createQueryBuilder('ut')
+            ->select('COUNT(ut.id)')
+            ->andWhere('ut.user = :user')
+            ->andWhere('ut.tenant <> :tenant')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
+
+    /**
      * Contas FORA DO AR (isActive=false: suspensas ou em quarentena de exclusão) com que o usuário tem
      * vínculo ativo. Base dos avisos da tela de seleção (spec perfis-1.2-contas C9 e C9b).
      *
@@ -143,6 +161,35 @@ class UserTenantRepository extends ServiceEntityRepository
             ->leftJoin('ut.tenantRole', 'r')
             ->andWhere('ut.tenant = :tenant')
             ->andWhere('ut.isActive = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function salvar(UserTenant $vinculo, bool $flush = false): void
+    {
+        $this->getEntityManager()->persist($vinculo);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
+     * Vínculos ativos do escritório com a chave "Registra ponto eletrônico" ligada, em ordem de nome. São as pessoas a
+     * quem a jornada padrão do escritório se aplica no choque (spec seguranca-b-jornada §3.3).
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosQueRegistramPonto(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u')
+            ->join('ut.user', 'u')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('ut.registraPonto = true')
             ->setParameter('tenant', $tenant)
             ->orderBy('u.fullName', 'ASC')
             ->addOrderBy('u.id', 'ASC')

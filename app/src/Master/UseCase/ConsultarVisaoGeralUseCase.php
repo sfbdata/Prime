@@ -6,6 +6,7 @@ namespace App\Master\UseCase;
 
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
+use App\Indicacao\Repository\IndicacaoRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\Service\FaixaEtaria;
 use App\Master\Service\InscricaoOab;
@@ -33,6 +34,7 @@ final class ConsultarVisaoGeralUseCase
         private readonly ClockInterface $relogio,
         private readonly SituacaoDoEspaco $situacaoDoEspaco,
         private readonly ConfiguracaoDoEspacoRepository $configuracoes,
+        private readonly IndicacaoRepository $indicacoes,
     ) {
     }
 
@@ -50,7 +52,7 @@ final class ConsultarVisaoGeralUseCase
         return [
             'kpis'        => $this->kpis($escritorios, $pessoas, $consumo, $pastas),
             'crescimento' => self::crescimento($this->repositorio->entradasPorMes(), $hoje),
-            'mapa'        => MapaDeAtuacao::montar($pessoas, $escritorios, $hoje, $this->saidasDaTendencia($hoje)),
+            'mapa'        => MapaDeAtuacao::montar($pessoas, $escritorios, $hoje, $this->saidasDaTendencia($hoje), $this->indicacoes->paraOMapa()),
             'idades'      => FaixaEtaria::distribuir(array_column($pessoas, 'nascimento'), $hoje),
             'armazenamento' => $this->armazenamentoContratado($escritorios, $consumo),
             'registrosDeAuditoria' => $this->repositorio->contarTrilhaAdministrativa(
@@ -122,7 +124,7 @@ final class ConsultarVisaoGeralUseCase
     {
         $hoje = $this->relogio->now();
 
-        return MapaDeAtuacao::montar($this->repositorio->pessoas(), $this->repositorio->escritorios(), $hoje, $this->saidasDaTendencia($hoje));
+        return MapaDeAtuacao::montar($this->repositorio->pessoas(), $this->repositorio->escritorios(), $hoje, $this->saidasDaTendencia($hoje), $this->indicacoes->paraOMapa());
     }
 
     /**

@@ -25,31 +25,41 @@ Cada item abaixo é do dono. Enquanto qualquer um estiver aberto, `IA_HABILITADA
 | **D-IA / D4** (o que sai) | Confirmar o que os agentes enviam (nomes de clientes, metas, anotações, observações, metadados de documentos, checklist e, quando permitido, financeiro). `nivelSigilo > 0` nunca sai. | `SecaoDoContexto`, `MontadorDeContextoDaPasta` |
 | **D-IA2** (quem usa) | A quais papéis conceder `modules.inteligencia.view` e `admin.inteligencia.manage`. Hoje **nenhum papel recebe por padrão**: só o Administrador do Escritório (bypass) e o super admin usam. | Papéis de cada escritório |
 
-## 1. Pré-requisito de CÓDIGO: o adaptador do provedor
+## 0.1 Console da Anthropic (tarefa técnica, nunca na tela do Master)
 
-Hoje o alias em `app/config/services.yaml` aponta para `ProvedorNaoConfigurado` (honesto: lança
-`ProvedorIndisponivelException`). Ligar a flag sem o adaptador **não liga a IA**: a tela continua dizendo
-"IA não configurada nesta instalação" (é o comportamento correto).
+Na organização da Console onde está a chave de produção:
 
-O adaptador é o item IA-018 do inventário e é trabalho de desenvolvimento, com teste, revisão e commit:
+1. Workspace de produção com `allowed_inference_geos: ["us"]` e `default_inference_geo: "us"` (o adaptador já envia
+   `inference_geo: "us"` por `IA_INFERENCE_GEO`, padrão `us`).
+2. Teto de gasto mensal da organização (o 429 `enforced_spend_limit_reached` já é tratado como definitivo).
+3. A ZDR é pedida pelo BlueJus ao comercial (`https://claude.com/contact-sales`) e vale por organização: a chave tem
+   de ser de uma organização com a ZDR aceita.
 
-1. Implementar `App\Inteligencia\Service\ProvedorDeLinguagem` com `HttpClientInterface`, classificando
-   4xx como definitivo e 5xx/rede como transitório em `FalhaDoProvedorException`.
-2. Ler a configuração do provedor por variável de ambiente (nomes propostos no Passo 2), com default
-   no `services.yaml` (o build de produção faz `rm .env`; default só no `.env` não existe em prod).
-3. Trocar o alias `App\Inteligencia\Service\ProvedorDeLinguagem` em `services.yaml`.
-4. Atualizar o Anexo I da Política de Privacidade (D3) no mesmo pacote de deploy.
+Região de processamento: EUA (`us`). A tela do Master não mostra a ZDR nem a região (decisão do dono de 24/10/2026):
+o pedido da ZDR, a região e estas instruções ficam só aqui.
+
+## 1. O adaptador já existe (corrigido em 24/10/2026)
+
+O adaptador da Anthropic está pronto: `App\Inteligencia\Service\ProvedorAnthropic` é o alias da porta
+`ProvedorDeLinguagem` em `app/config/services.yaml`. Ele fica **dormente** enquanto faltar `ANTHROPIC_API_KEY`
+ou `IA_MODELO` válidos: a tela continua dizendo "IA não configurada nesta instalação" (é o comportamento
+correto). Proposta de modelo, custo e privacidade: `docs/specs/inteligencia-provedor-anthropic.md` e
+`docs/specs/ia-anthropic-ligar.md` (decisões do dono de 24/10 no §10).
+
+Falta só, fora do código: o Anexo I da Política de Privacidade (D3) e a retenção zero pedida à Anthropic
+(`docs/specs/ia-anthropic-ligar.md` §10.2).
 
 ## 2. Variáveis de ambiente (`.env.prod` da VPS)
 
 | Variável | Situação hoje | Para que serve |
 |---|---|---|
 | `IA_HABILITADA` | **Existe** (`services.yaml`, parâmetro `ia_habilitada`, default `false`) | Flag da plataforma, nível 1 da disponibilidade. `1` liga; vazio ou ausente desliga. |
-| `IA_API_KEY` | **Proposta**: só passa a valer quando o adaptador do Passo 1 a ler | Chave do provedor. Segredo: só no `.env.prod`, nunca no repositório, nunca em log. |
-| `IA_MODELO` | **Proposta**, idem | Identificador do modelo escolhido em D1. |
-| `IA_BASE_URL` | **Proposta**, idem | URL base da API do provedor (útil para Azure OpenAI ou proxy corporativo). |
+| `ANTHROPIC_API_KEY` | **Existe** (`services.yaml`, parâmetro `ia_anthropic_chave`) | Chave da API da Anthropic. Segredo: só no `.env.prod`, gravada pelo dono, nunca no repositório, nunca em log. |
+| `IA_MODELO` | **Existe** (`ia_anthropic_modelo`) | ID exato do modelo (padrão decidido em 24/10: `claude-haiku-5-5`). |
+| `IA_ESFORCO` | **Existe** (`ia_anthropic_esforco`), opcional | `low`, `medium` ou `high`. Sem ele, vale o padrão do modelo. |
 
-Se o adaptador usar nomes diferentes, **corrija esta tabela no mesmo commit do adaptador**.
+Não existe `IA_BASE_URL`: a URL da API é fixa no adaptador. O nome antigo `IA_API_KEY` **não é lido**; quem
+gravar só ele deixa a IA dormente.
 
 Na VPS (`/opt/jusprime`), sem editor e com guarda: cada comando troca a linha se ela existir e
 acrescenta se não existir. A chave é lida sem eco e não fica no histórico do shell.
@@ -58,19 +68,17 @@ acrescenta se não existir. A chave é lida sem eco e não fica no histórico do
 # Execute manualmente no terminal externo (na VPS)
 cd /opt/jusprime && cp -p .env.prod ".env.prod.antes-da-ia.$(date +%Y%m%d%H%M%S)"
 
-read -rs -p 'Chave do provedor (não aparece na tela): ' CHAVE_IA; echo
-test -n "$CHAVE_IA" && sed -i '/^IA_API_KEY=/d' .env.prod && printf 'IA_API_KEY=%s\n' "$CHAVE_IA" >> .env.prod; unset CHAVE_IA
+read -rs -p 'Chave da Anthropic (não aparece na tela): ' CHAVE_IA; echo
+test -n "$CHAVE_IA" && sed -i '/^ANTHROPIC_API_KEY=/d;/^IA_API_KEY=/d' .env.prod && printf 'ANTHROPIC_API_KEY=%s\n' "$CHAVE_IA" >> .env.prod; unset CHAVE_IA
 
-read -r -p 'Modelo (exatamente como o provedor escreve): ' MODELO_IA
+read -r -p 'Modelo (ex.: claude-haiku-5-5): ' MODELO_IA
 test -n "$MODELO_IA" && sed -i '/^IA_MODELO=/d' .env.prod && printf 'IA_MODELO=%s\n' "$MODELO_IA" >> .env.prod; unset MODELO_IA
 
-read -r -p 'URL base da API (Enter para não definir): ' URL_IA
-test -n "$URL_IA" && sed -i '/^IA_BASE_URL=/d' .env.prod && printf 'IA_BASE_URL=%s\n' "$URL_IA" >> .env.prod; unset URL_IA
 
 sed -i '/^IA_HABILITADA=/d' .env.prod && echo 'IA_HABILITADA=1' >> .env.prod
 
 # Conferência SEM imprimir valor: só os nomes das variáveis de IA presentes.
-grep -o '^IA_[A-Z_]*=' .env.prod
+grep -o -E '^(IA_[A-Z_]*|ANTHROPIC_API_KEY)=' .env.prod
 ```
 
 Não use `debug:container --env-vars` para conferir: ele imprime o segredo em claro.
@@ -149,7 +157,7 @@ vazada, contrato encerrado), apague a chave e revogue-a no painel do provedor:
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-cd /opt/jusprime && sed -i '/^IA_API_KEY=/d' .env.prod && ./scripts/deploy-prod-tls.sh
+cd /opt/jusprime && sed -i '/^ANTHROPIC_API_KEY=/d' .env.prod && ./scripts/deploy-prod-tls.sh
 ```
 
 Para desligar só **um** escritório, sem deploy: `/admin/inteligencia` daquele escritório → desligar.

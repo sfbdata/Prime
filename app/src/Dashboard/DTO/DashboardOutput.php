@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Dashboard\DTO;
 
+/**
+ * `totaisEstoque` (PR-F): total do ESTOQUE com seta pela foto, sobre as linhas VISÍVEIS. `atual` soma o
+ * estoque de hoje por coluna; `anterior` soma a foto de `data_de − 1` (int só com foto de TODA linha
+ * visível, senão null). Null sem período, com pasta oculta pelo cadeado ou sem nenhuma foto.
+ */
 final class DashboardOutput
 {
     /**
@@ -22,9 +27,7 @@ final class DashboardOutput
         /** Numerador e denominador do `metaGlobalPercent`, para a legenda "X de Y metas concluídas". */
         public readonly int   $metasConcluidas = 0,
         public readonly int   $metasTotal = 0,
-        // TENDÊNCIA — período anterior de mesma duração. Tudo null quando não há período
-        // completo (data_de E data_ate válidas): sem período não existe "anterior" e o painel
-        // não inventa um.
+        // TENDÊNCIA — período anterior de mesma duração; tudo null sem período completo (o painel não inventa um).
         /**
          * Totais do período anterior para a linha de Total da tabela. Soma das linhas VISÍVEIS
          * (respeita responsável, cargo e busca), como a própria linha de Total. Chaves = as de
@@ -72,5 +75,11 @@ final class DashboardOutput
          * @var array<string, int|null>|null
          */
         public readonly ?array $totaisExtrasAnteriores = null,
+        /** Quem leva o troféu (mais metas concluídas no período, total menos ativas; spec dashboard-parte-1). Null = ninguém. */
+        public readonly ?int   $campeaoId = null,
+        /** @var array<string, array{todos: ?string, pessoas: array<int, string>}> cortes ativos do "Zerar" (CortesDoDashboard::paraTela) */
+        public readonly array  $zeramentos = [],
+        /** @var array{atual: array<string, int>, anterior: array<string, int|null>}|null estoque com seta pela foto (ver a classe) */ public readonly ?array $totaisEstoque = null,
+        public readonly ?MetaDePastasDoMesOutput $metaDePastas = null, // meta de pastas do mês (DASH-016)
     ) {}
 }

@@ -1,0 +1,5 @@
+/* Aviso de falha das tarefas agendadas: o .ae-aviso do desenho 08 (aviso-espaco.css) no visual cheio. O botão
+   repete o azul do a.ae-aumentar, que só vale para link; aqui é um botão de formulário (POST). */
+.af-form { margin: 0; }
+.af-dispensar { height: 34px; padding: 0 14px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: bold 13px Arial, Helvetica, sans-serif; display: inline-flex; align-items: center; cursor: pointer; }
+.af-dispensar:hover { background: #0b5f86; }

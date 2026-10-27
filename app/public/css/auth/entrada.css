@@ -82,8 +82,17 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-manter{display:flex; align-items:center; gap:8px; cursor:pointer}
 .lg-manter input{width:15px; height:15px; accent-color:#0a63c9; margin:3px 3px 3px 4px}
 .lg-erro{font-size:13px; color:#a3232b}
+/* Conta a confirmar: o botão de reenviar o link, junto da recusa (spec cadastro-exige-confirmacao). */
+.lg-reenviar{align-self:flex-start; padding:0; border:none; background:none; color:#0a63c9; font:inherit; font-size:13px; font-weight:bold; cursor:pointer; display:inline-flex; align-items:center; gap:6px}
+.lg-reenviar:hover{text-decoration:underline}
 .lg-entrar{height:46px; border:none; border-radius:6px; background:#0d6efd; color:#fff; font:inherit; font-size:16px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:background .15s, transform .15s}
 .lg-entrar:hover{background:#0b5ed7; transform:translateY(-1px)}
+/* Entrar com o Google (spec entrar-com-google): secundário, de contorno, abaixo do Entrar, com a linha "ou". */
+.lg-ou{display:flex; align-items:center; gap:10px; color:#6c757d; font-size:13px}
+.lg-ou::before,.lg-ou::after{content:""; flex:1; height:1px; background:#dee2e6}
+.lg-google{height:46px; border:1px solid #dadce0; border-radius:6px; background:#fff; color:#3c4043; font-size:15px; font-weight:600; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:10px; transition:background .15s, border-color .15s}
+.lg-google:hover{background:#f8f9fa; border-color:#c6c9cc; color:#3c4043}
+.lg-google:focus-visible{outline:2px solid #0d6efd; outline-offset:2px}
 
 .lg-selo{display:flex; align-items:center; gap:11px; border:1px solid #cfe7d8; border-radius:6px; background:#f3faf5; padding:10px 12px; font:inherit; color:#12242f; cursor:pointer; text-align:left; transition:background .15s}
 .lg-selo:hover{background:#e9f6ee}
@@ -132,13 +141,36 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-md__barra{display:flex; align-items:center; gap:10px}
 .lg-md__barra img{height:32px; display:block}
 .lg-md__x{width:30px; height:30px; border:none; border-radius:4px; background:rgba(255,255,255,.15); color:#fff; cursor:pointer; font-size:14px}
-.lg-md__titulo{display:flex; align-items:center; gap:9px; margin-top:12px; font-size:17px; font-weight:bold}
+.lg-md__titulo{display:flex; align-items:center; justify-content:center; gap:9px; margin-top:12px; font-size:17px; font-weight:bold; text-align:center}
 .lg-md__corpo{padding:18px 20px 20px; display:flex; flex-direction:column; gap:12px; margin:0}
 .lg-md__passo{display:flex; flex-direction:column; gap:12px}
+/* Criar conta pelo Google/Facebook (desenho 10 VS 24.10.26): botões acima dos campos e o cartão da conta conectada. */
+.lg-soc{display:flex; flex-direction:column; gap:10px}
+.lg-soc__btn{width:100%; height:44px; display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid #d6dde3; border-radius:6px; background:#fff; color:#1f2d36; font:inherit; font-size:14.5px; font-weight:bold; cursor:pointer; transition:background .15s, border-color .15s; text-decoration:none; box-sizing:border-box}
+.lg-soc__btn:hover{background:#f5f8fa; border-color:#b7c3cc; color:#1f2d36}
+.lg-soc__ou{display:flex; align-items:center; gap:10px; font-size:12.5px; color:#7a8e9b; margin:4px 0}
+.lg-soc__ou span{flex:1; height:1px; background:#e3e8ec}
+.lg-socok{display:flex; align-items:center; gap:10px; border:1px solid #cfe3f0; background:#f2f8fc; border-radius:6px; padding:9px 11px}
+.lg-socok__ini{width:34px; height:34px; flex:none; border-radius:50%; background:#0a63c9; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px}
+.lg-socok__txt{flex:1; min-width:0; font-size:13px; line-height:1.35}
+.lg-socok__txt b{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.lg-socok__txt span{color:#4a6373}
+.lg-socok__trocar{border:none; background:none; color:#0a63c9; font:inherit; font-size:12.5px; cursor:pointer; white-space:nowrap}
 .lg-md__texto{font-size:13.5px; color:#34505f; line-height:1.5}
 .lg-md__rotulo{display:flex; flex-direction:column; gap:6px; font-size:13.5px; color:#12242f}
 .lg-md__entrada{height:42px; border:1px solid #d6dde3; border-radius:6px; padding:0 12px; font:inherit; font-size:14.5px; outline:none; width:100%; box-sizing:border-box; color:#12242f; background:#fff}
 .lg-md__entrada:focus{border-color:#0a63c9; box-shadow:0 0 0 3px rgba(10,99,201,.15)}
+/* Cupom de indicação (desenho 10 VS 25.10.26): a chave "Tenho um cupom de indicação" e o campo BJ-XXXXXX. */
+.lg-cupom{display:flex; align-items:center; gap:10px; border:none; background:none; padding:0; font:inherit; font-size:13.5px; color:#12242f; cursor:pointer; text-align:left}
+.lg-chave{width:36px; height:20px; flex:none; border-radius:10px; background:#c9d3da; position:relative; transition:background .2s}
+.lg-chave__bola{position:absolute; top:3px; left:3px; width:14px; height:14px; border-radius:50%; background:#fff; transition:left .2s}
+.lg-cupom[aria-checked="true"] .lg-chave{background:#f26b55}
+.lg-cupom[aria-checked="true"] .lg-chave__bola{left:19px; background:#12242f}
+.lg-md__entrada.lg-cupom__entrada{font:bold 14.5px monospace; letter-spacing:1px; text-transform:uppercase}
+/* Conferência ao vivo do cupom (desenho 10 VS 25.10.26): 12.5px sob o campo; válido #1e7b45 em negrito com bi-check-circle-fill,
+   não encontrado #9a5b00 com bi-exclamation-circle. O texto do JS leva o ícone antes. */
+.lg-cupom__status{font-size:12.5px; color:#9a5b00}
+.lg-cupom__status[data-estado="valido"]{color:#1e7b45; font-weight:bold}
 .lg-forca{display:flex; gap:6px; align-items:center; font-size:12px; color:#c9d3da}
 .lg-forca__trilho{flex:1; height:4px; border-radius:2px; background:#e6edf2; overflow:hidden}
 .lg-forca__barra{display:block; height:100%; width:0%; background:#c9d3da; transition:width .2s}
@@ -150,6 +182,7 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-aceite{display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#34505f; line-height:1.45; cursor:pointer}
 .lg-aceite input{width:15px; height:15px; margin:2px 3px 3px 4px; accent-color:#0a63c9; flex:none}
 .lg-md__erro{font-size:13px; color:#a3232b}
+.lg-md__aviso{font-size:13px; color:#1e5b39}
 .lg-md__acao{height:44px; border:none; border-radius:6px; background:#0d6efd; color:#fff; font:inherit; font-size:15px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px}
 .lg-md__acao:hover{background:#0b5ed7}
 .lg-md__acao[aria-busy="true"], .lg-sup__enviar[aria-busy="true"]{opacity:.72; pointer-events:none}
@@ -227,6 +260,19 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-sup-btn__icone{width:58px; height:58px; flex:none; border-radius:50%; background:#1565c0; color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px}
 .lg-sup-btn:hover, .lg-sup-btn:focus{max-width:260px}
 .lg-sup-btn:hover .lg-sup-btn__texto, .lg-sup-btn:focus .lg-sup-btn__texto{opacity:1}
+
+/* ---------------------------------------------------- tema comemorativo -- */
+/* Desenho 10 VS 24.10.26 (bj-tema.js, css()): com tema ativo (o parcial põe #bjtCss com --bjt-p e --bjt-d), os
+   azuis #0a76a8 e #0a6fa0 viram a cor do tema e os degradês viram 135deg do primário ao escuro. A fita e o CSS dos
+   ícones vêm de /css/tema-comemorativo.css; os ícones, aqui, ocupam a tarja inteira (inset:0 no desenho). */
+html:has(#bjtCss) .lg-tarja,
+html:has(#bjtCss) .lg-md__topo,
+html:has(#bjtCss) .lg-lk__topo,
+html:has(#bjtCss) .lg-sup__topo{background-color:var(--bjt-p); background-image:none}
+html:has(#bjtCss) .lg-seg__topo,
+html:has(#bjtCss) .lg-veu{background-image:linear-gradient(135deg, var(--bjt-p), var(--bjt-d))}
+html:has(#bjtCss) .lg-seg__item-icone{color:var(--bjt-p)}
+.lg-tarja .bjtDeco{height:auto; bottom:0}
 
 /* ------------------------------------------------------- acessibilidade -- */
 .lg-raiz :focus-visible, .lg-camada :focus-visible{outline:2px solid #0a63c9; outline-offset:2px}

@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -121,9 +122,11 @@ final class PastaTimelineArranjoTelaTest extends JusPrimeWebTestCase
         self::assertIsString($js);
 
         self::assertStringContainsString("if (e.antes) {", $js);
-        self::assertStringContainsString("alteracao ? 'Ocultar alteração' : 'Ver alteração'", $js);
-        self::assertStringContainsString("[['Antes:', String(e.antes)], ['Depois:', depois]]", $js);
-        self::assertStringContainsString("'Alterado em ' + new Date(e.alteradoEm).toLocaleString('pt-BR')", $js);
+        self::assertStringContainsString("alteracao ? BJ_T.t('pasta_resp.js.timeline.ocultar_alteracao') : BJ_T.t('pasta_resp.js.timeline.ver_alteracao')", $js);
+        self::assertStringContainsString("[[BJ_T.t('pasta_resp.js.timeline.antes'), String(e.antes)], [BJ_T.t('pasta_resp.js.timeline.depois'), depois]]", $js);
+        self::assertStringContainsString("BJ_T.t('pasta_resp.js.timeline.alterado_em', { quando: new Date(e.alteradoEm).toLocaleString(BJFormato.idioma()) })", $js);
+        $cat = CatalogoPtBr::carregar()['pasta_resp']['js']['timeline'];
+        self::assertSame(['Ocultar alteração', 'Ver alteração', 'Antes:', 'Depois:', 'Alterado em {quando}'], [$cat['ocultar_alteracao'], $cat['ver_alteracao'], $cat['antes'], $cat['depois'], $cat['alterado_em']]);
         // Texto de usuário nunca vira HTML.
         self::assertStringNotContainsString('.innerHTML', $js);
     }

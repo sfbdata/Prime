@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\DTO\DocumentoDoIndiceOutput;
 use App\Inteligencia\DTO\DocumentosDoIndiceOutput;
+use App\Inteligencia\Service\RegraDaLeituraDeDocumentos;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
@@ -21,12 +22,16 @@ use Psr\Clock\ClockInterface;
  *
  * Recebe a Pasta já resolvida e conferida pelo chamador (tenant + `canAccessResource`). Com a aba
  * Documentos oculta para quem vê, devolve nulo: a aba do drawer não aparece.
+ *
+ * `leituraPermitida` (PR F): o aceite do escritório já cobre a leitura de documentos; falso = o "Ler N
+ * documentos" aparece bloqueado, com o aviso da renovação do aceite.
  */
 final class ListarDocumentosDoIndiceUseCase
 {
     public function __construct(
         private readonly MontadorDeContextoDaPasta $montador,
         private readonly ClockInterface $relogio,
+        private readonly RegraDaLeituraDeDocumentos $leitura,
     ) {
     }
 
@@ -42,7 +47,7 @@ final class ListarDocumentosDoIndiceUseCase
         return new DocumentosDoIndiceOutput(array_map(
             static fn (PastaDocumento $d): DocumentoDoIndiceOutput => DocumentoDoIndiceOutput::fromEntity($d, $hoje),
             $this->montador->documentosMostrados($tenant, $pasta, $abasOcultas),
-        ));
+        ), $this->leitura->aceiteCobre($tenant));
     }
 
     /** @param list<string> $abasOcultas */

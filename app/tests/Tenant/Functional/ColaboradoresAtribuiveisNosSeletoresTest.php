@@ -74,7 +74,7 @@ final class ColaboradoresAtribuiveisNosSeletoresTest extends JusPrimeWebTestCase
         $tarefa = $this->meta([$this->carla]);
 
         $tela  = $this->client->request('GET', '/tarefas/' . $tarefa->getId());
-        $nomes = $tela->filter('#listaResponsaveis .resp-item')->each(static fn ($l): string => trim($l->text()));
+        $nomes = $tela->filter('#listaResponsaveis > .md-pessoa')->each(static fn ($l): string => trim($l->text()));
         self::assertSame([true, true, false], [
             $this->contem($nomes, 'Ana Aprovada'), $this->contem($nomes, 'Carla Suspensa'), $this->contem($nomes, 'Bruna Suspensa'),
         ]);
@@ -101,6 +101,8 @@ final class ColaboradoresAtribuiveisNosSeletoresTest extends JusPrimeWebTestCase
             '_token'       => $token,
             'titulo'       => 'Meta nova',
             'descricao'    => 'Descrição da meta',
+            'prazo'        => '2026-12-31',
+            'etapa'        => 'juridico',
             'responsaveis' => [$this->ana->getId(), $this->bruna->getId()],
         ]);
         self::assertResponseIsSuccessful();

@@ -1,0 +1,145 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Shared\EspelhoRemoto\Reconciliacao;
+
+use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
+use App\Shared\Armazenamento\ChaveDeArquivo;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
+use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
+use App\Shared\Armazenamento\Sha256DeArquivo;
+use App\Shared\EspelhoRemoto\EspelhoRemoto;
+use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
+use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
+use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
+
+/**
+ * Reconciliação banco × disco × espelho — **só leitura** (spec P2 §3.4). Não enfileira, não envia,
+ * não apaga: classifica e devolve o relatório. Corrigir é de outra etapa.
+ *
+ * Para cada referência do banco: o arquivo local existe? o espelho tem o objeto? com o mesmo tamanho?
+ * com o mesmo SHA-256 (o do disco, medido agora, contra o metadado do espelho)? Ausente no espelho com
+ * envio ainda na fila é separado de ausente sem nada na fila — o primeiro se resolve sozinho.
+ *
+ * O conteúdo de erro 401 do Drive (os 90 da P1) tem SHA conhecido: sai como `suspeito`, nunca como
+ * `igual` (DP-7).
+ */
+final class ReconciliadorDoEspelho
+{
+    /** SHA-256 da resposta de erro 401 do Google gravada como documento (P1, 15/10/2026). */
+    public const SHA_DO_ERRO_401_DO_DRIVE = '0a93453f82f4d413ae29ad3ecb8d334e2d5d7484f0253674203c0413a268a459';
+
+    /**
+     * Em quantas fatias estáveis o SHA se divide: a rodada diária confere o SHA de uma (a do dia da
+     * semana), e a semana cobre tudo sem nenhuma noite ler o acervo inteiro.
+     */
+    public const FATIAS_DO_SHA = 7;
+
+    public function __construct(
+        private readonly FonteDeReferencias $fontes,
+        private readonly ArmazenamentoDeArquivos $local,
+        private readonly OutboxDeReplicacao $outbox,
+        private readonly string $shaSuspeito = self::SHA_DO_ERRO_401_DO_DRIVE,
+    ) {
+    }
+
+    /**
+     * `$soAsLigadas`: confere só as referências das categorias que a política espelha (o modo agendado,
+     * P2.5). Sem ela, todas as fontes, como no dry-run da P2.3. O limite conta só o que foi conferido.
+     *
+     * `$fatiaDoSha` (0 a 6): com SHA ligado, confere o SHA só das referências daquela fatia
+     * ({@see fatiaDe()}); as outras saem como na rodada sem SHA. Null: SHA de todas.
+     */
+    public function reconciliar(
+        EspelhoRemoto $espelho,
+        bool $conferirSha = true,
+        ?int $limite = null,
+        ?PoliticaDeEspelhamento $soAsLigadas = null,
+        ?int $fatiaDoSha = null,
+    ): RelatorioDeReconciliacao {
+        if ($fatiaDoSha !== null && ($fatiaDoSha < 0 || $fatiaDoSha >= self::FATIAS_DO_SHA)) {
+            throw new \InvalidArgumentException(sprintf('A fatia do SHA vai de 0 a %d.', self::FATIAS_DO_SHA - 1));
+        }
+
+        $relatorio = new RelatorioDeReconciliacao();
+        $vistos    = 0;
+
+        foreach ($this->fontes->referencias() as $referencia) {
+            if ($soAsLigadas !== null) {
+                $categoria = $referencia->categoria();
+                if ($categoria === null || !$soAsLigadas->espelha($categoria)) {
+                    continue;
+                }
+            }
+            if ($limite !== null && $vistos >= $limite) {
+                break;
+            }
+            $vistos++;
+
+            $relatorio->registrar($referencia, $this->classificar($espelho, $referencia, $conferirSha, $fatiaDoSha));
+        }
+
+        return $relatorio;
+    }
+
+    /** A fatia estável de uma chave: crc32 da chave remota, módulo {@see FATIAS_DO_SHA}. */
+    public static function fatiaDe(ChaveDeArquivo $chave): int
+    {
+        return crc32(LayoutDeChaveRemota::chaveDe($chave)) % self::FATIAS_DO_SHA;
+    }
+
+    private function classificar(EspelhoRemoto $espelho, ReferenciaDeArquivo $referencia, bool $conferirSha, ?int $fatiaDoSha): ClasseDeReconciliacao
+    {
+        $chave = $referencia->chave;
+        if ($chave === null) {
+            return ClasseDeReconciliacao::CHAVE_INVALIDA;
+        }
+
+        try {
+            return $this->comparar($espelho, $chave, $conferirSha && ($fatiaDoSha === null || self::fatiaDe($chave) === $fatiaDoSha));
+        } catch (ArquivoNaoEncontrado) {
+            return ClasseDeReconciliacao::LOCAL_AUSENTE;
+        } catch (ChaveDeArquivoInvalida) {
+            return ClasseDeReconciliacao::CHAVE_INVALIDA;
+        } catch (\Throwable) {
+            // Pane de qualquer lado (espelho, disco, banco da outbox): registra e segue — o relatório
+            // parcial vale mais que a rodada abortada. Pane ≠ ausência (D10).
+            return ClasseDeReconciliacao::ERRO_DE_CONSULTA;
+        }
+    }
+
+    private function comparar(EspelhoRemoto $espelho, ChaveDeArquivo $chave, bool $conferirSha): ClasseDeReconciliacao
+    {
+        $noDisco = $this->local->metadados($chave);
+        if ($noDisco === null) {
+            return ClasseDeReconciliacao::LOCAL_AUSENTE;
+        }
+
+        $shaNoDisco = $conferirSha ? Sha256DeArquivo::deChave($this->local, $chave) : null;
+        if ($shaNoDisco !== null && hash_equals($this->shaSuspeito, $shaNoDisco)) {
+            return ClasseDeReconciliacao::SUSPEITO_ERRO_DO_DRIVE;
+        }
+
+        $remoto = $espelho->consultar($chave);
+        if ($remoto === null) {
+            $estado = $this->outbox->ultimoEstadoDe(LayoutDeChaveRemota::chaveDe($chave));
+
+            return \in_array($estado, [OutboxDeReplicacao::ESTADO_PENDENTE, OutboxDeReplicacao::ESTADO_PROCESSANDO], true)
+                ? ClasseDeReconciliacao::AUSENTE_PENDENTE_OUTBOX
+                : ClasseDeReconciliacao::AUSENTE_NO_ESPELHO;
+        }
+
+        if ($remoto->tamanhoBytes !== $noDisco->tamanhoBytes) {
+            return ClasseDeReconciliacao::TAMANHO_DIVERGENTE;
+        }
+        if ($shaNoDisco === null) {
+            return ClasseDeReconciliacao::PRESENTE_SEM_SHA_CONFERIDO;
+        }
+        if ($remoto->sha256 === null) {
+            return ClasseDeReconciliacao::SEM_SHA_NO_ESPELHO;
+        }
+
+        return hash_equals($remoto->sha256, $shaNoDisco) ? ClasseDeReconciliacao::IGUAL : ClasseDeReconciliacao::SHA_DIVERGENTE;
+    }
+}

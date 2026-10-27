@@ -65,4 +65,15 @@ final class PresencaNoCabecalhoJsTest extends TestCase
         self::assertStringNotContainsString('innerHTML', $js);
         self::assertDoesNotMatchRegularExpression('/[–—]/u', $js);
     }
+
+    #[TestDox('presenca-cabecalho.js: a lista do painel mostra a foto do perfil (a URL que vem da equipe) e as iniciais só sem foto; o ponto de status fica sobre o avatar')]
+    public function testFotoNoPainel(): void
+    {
+        $js = self::js('presenca-cabecalho.js');
+        self::assertStringContainsString("foto: m.foto || null", $js, 'a equipe guardada leva a foto');
+        self::assertStringContainsString("var CHAVE_EQUIPE = 'presenca-equipe:v2:' + chave;", $js, 'a cópia antiga da sessão, sem foto, não é reaproveitada');
+        self::assertMatchesRegularExpression("/function avatar\\(m\\) \\{\\s+var av = el\\('span', 'presenca-av', m\\.foto \\? null : iniciais\\(m\\.nome\\)\\);\\s+if \\(m\\.foto\\) \\{\\s+var img = el\\('img'\\);\\s+img\\.src = m\\.foto;/", $js);
+        self::assertMatchesRegularExpression("/var av = avatar\\(x\\.m\\);\\s+var pt = el\\('span', 'presenca-av-ponto'\\);[\\s\\S]*?av\\.appendChild\\(pt\\);/", $js, 'o ponto entra depois da foto, por cima');
+        self::assertStringContainsString('.presenca-av img {', (string) file_get_contents(__DIR__ . '/../../../public/css/presenca-cabecalho.css'));
+    }
 }

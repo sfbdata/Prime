@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}{{ 'dashboard.titulo'|trans }}{% endblock %}
 
 {# `db-body` no <body>: pinta o fundo da página do desenho (degradê do topo)
    sem sangria de margem negativa — mesmo gancho que a tela da pasta usa. #}
@@ -16,6 +16,11 @@
 <link rel="stylesheet" href="{{ asset('css/dashboard-inteligencia.css') }}">
 {# Janelas flutuantes (DASH-020): moram no <body>, fora da região que o XHR troca. #}
 <link rel="stylesheet" href="{{ asset('css/dashboard-janelas.css') }}">
+{# "Zerar" das colunas (DASH-014): menu do botão direito, confirmação, aviso e toast do desenho. #}
+<link rel="stylesheet" href="{{ asset('css/dashboard-zerar.css') }}">
+<link rel="stylesheet" href="{{ asset('css/dashboard-relatorio.css') }}">
+{# Meta de pastas do mês (DASH-016): barra no card Pastas criadas, editor e menu do botão direito. #}
+<link rel="stylesheet" href="{{ asset('css/dashboard-meta.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -27,11 +32,27 @@
    confirmação "Ativar Modo Avançado?" (só na primeira vez).
    `data-perfil-sons`: "Sons de alerta" do Meu Perfil (perfil_sons()); com "0" o calendário do
    dashboard-filtros.js fica mudo, mesmo com `dashboard.sons` ligado. #}
+{# Rótulo de cada coluna que aceita "Zerar" (DASH-014), para o menu do botão direito: as fixas e as
+   métricas extras do catálogo. Montado fora da tag porque a seta de função do Twig quebraria o atributo. #}
+{% set zerarRotulos = {
+    metas: 'dashboard.tabela.total_metas'|trans, metas_ativas: 'dashboard.tabela.metas_ativas'|trans,
+    metas_vencidas: 'dashboard.tabela.metas_vencidas'|trans, prazos: 'dashboard.tabela.prazos_proximos'|trans,
+    demandas: 'dashboard.tabela.total_demandas'|trans, demandas_ativas: 'dashboard.tabela.demandas_ativas'|trans,
+    pastas_criadas: 'dashboard.tabela.pastas_criadas'|trans,
+}|merge(constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO')|map(c => c.rotulo)) %}
 <section class="db-page{{ preferencias.classesCss() != '' ? ' ' ~ preferencias.classesCss() : '' }}"
          data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}"
          data-preferencias="{{ preferencias.paraArray()|json_encode|e('html_attr') }}"
          data-preferencias-endpoint="{{ path('dashboard_preferencias_salvar') }}"
-         data-ia-avancado-escolhido="{{ preferencias.iaAvancadoEscolhido ? 'sim' : 'nao' }}">
+         data-ia-avancado-escolhido="{{ preferencias.iaAvancadoEscolhido ? 'sim' : 'nao' }}"
+         data-db-zerar-pode="{{ podeZerar ? '1' : '0' }}"
+         data-db-zerar-rotulos="{{ zerarRotulos|json_encode|e('html_attr') }}"
+         data-db-zerar-url="{{ path('dashboard_zerar') }}"
+         data-db-zerar-desfazer-url="{{ path('dashboard_zerar_desfazer') }}"
+         data-db-zerar-pedir-url="{{ path('dashboard_zerar_pedir') }}"
+         data-db-meta-pode="{{ podeMeta ? '1' : '0' }}"
+         data-db-meta-url="{{ path('dashboard_meta_pastas_definir') }}"
+         data-db-meta-remover-url="{{ path('dashboard_meta_pastas_remover') }}">
     {% set respOpcoes = [] %}
     {% for u in responsaveis %}
         {% set respOpcoes = respOpcoes|merge([{ valor: u.id, label: u.nome }]) %}
@@ -43,7 +64,7 @@
     {# "Sem cargo" por último, como no desenho, e só quando há colaborador ativo sem cargo
        (o controller decide em `existeSemCargo`). O valor é a constante do UseCase. #}
     {% if existeSemCargo|default(false) %}
-        {% set cargoOpcoes = cargoOpcoes|merge([{ valor: cargoSemValor, label: 'Sem cargo' }]) %}
+        {% set cargoOpcoes = cargoOpcoes|merge([{ valor: cargoSemValor, label: 'dashboard.sem_cargo'|trans }]) %}
     {% endif %}
 
     {# Cabeçalho do PDF (só na impressão): período e filtros do momento. O servidor
@@ -51,30 +72,30 @@
        filtros mudam por XHR sem recarregar a casca. #}
     {% set fmtDe  = filtros.data_de|default('') %}
     {% set fmtAte = filtros.data_ate|default('') %}
-    {% set respNome = 'Todos os responsáveis' %}
+    {% set respNome = 'dashboard.filtros.todos_responsaveis'|trans %}
     {% for o in respOpcoes %}
         {% if (o.valor ~ '') == filtros.responsavel|default('') %}{% set respNome = o.label %}{% endif %}
     {% endfor %}
-    {% set cargoNome = filtros.cargo|default('') == '' ? 'Todos os cargos'
-        : (filtros.cargo == cargoSemValor|default('') ? 'Sem cargo' : filtros.cargo) %}
+    {% set cargoNome = filtros.cargo|default('') == '' ? 'dashboard.filtros.todos_cargos'|trans
+        : (filtros.cargo == cargoSemValor|default('') ? 'dashboard.sem_cargo'|trans : filtros.cargo) %}
 
     {# Ordem do desenho: título → filtros → cards → tabela. O título fica DENTRO do
        root para dividir a primeira linha do flex com o "Atualizado às", que mora no
        fragmento (renova a cada XHR); a posição de cada bloco é dada por `order` no CSS.
        `data-ft-rotulo-limpar`: opção do filtro-tabela.js para o texto do botão (desenho). #}
-    <div data-filtro-root data-filtro-endpoint="{{ path('dashboard_index') }}" data-ft-rotulo-limpar="Limpar filtros">
+    <div data-filtro-root data-filtro-endpoint="{{ path('dashboard_index') }}" data-ft-rotulo-limpar="{{ 'dashboard.filtros.limpar'|trans }}">
         <div class="db-print-cabecalho">
             <div class="db-print-cabecalho-esq">
-                <div class="db-print-marca">BlueJus · Dashboard</div>
-                <div class="db-print-titulo">Relatório de desempenho</div>
-                <div class="db-print-filtros">Período <span class="db-print-periodo">{{ fmtDe != '' ? fmtDe|split('-')|reverse|join('/') : 'início' }} a {{ fmtAte != '' ? fmtAte|split('-')|reverse|join('/') : 'hoje' }}</span> · <span class="db-print-facetas">{{ respNome }} · {{ cargoNome }}{{ filtros.busca|default('')|trim != '' ? ' · Busca: ' ~ filtros.busca|trim : '' }}</span></div>
+                <div class="db-print-marca">{{ 'dashboard.impressao.marca'|trans }}</div>
+                <div class="db-print-titulo">{{ 'dashboard.impressao.titulo'|trans }}</div>
+                <div class="db-print-filtros">{{ 'dashboard.impressao.periodo'|trans }} <span class="db-print-periodo">{{ 'dashboard.impressao.intervalo'|trans({de: fmtDe != '' ? fmtDe|split('-')|reverse|join('/') : 'dashboard.impressao.inicio'|trans, ate: fmtAte != '' ? fmtAte|split('-')|reverse|join('/') : 'dashboard.impressao.hoje'|trans}) }}</span> · <span class="db-print-facetas">{{ respNome }} · {{ cargoNome }}{{ filtros.busca|default('')|trim != '' ? ' · ' ~ 'dashboard.impressao.busca'|trans({termo: filtros.busca|trim}) : '' }}</span></div>
             </div>
-            <div class="db-print-gerado">Gerado em <span class="db-print-quando">{{ 'now'|date('d/m/Y') }} às {{ 'now'|date('H:i') }}</span><br>por {{ app.user.fullName }}</div>
+            <div class="db-print-gerado">{{ 'dashboard.impressao.gerado_em'|trans }} <span class="db-print-quando">{{ 'dashboard.impressao.data_as_hora'|trans({data: 'now'|data, hora: 'now'|hora}) }}</span><br>{{ 'dashboard.impressao.por'|trans({nome: app.user.fullName}) }}</div>
         </div>
 
         {# O texto vive num <span>: a revelação (clip-path) e o brilho ficam nele, e o
            símbolo que rola por cima pode sair da caixa do texto sem ser cortado. #}
-        <h1 class="db-titulo"><span class="db-titulo-texto">Dashboard</span><img class="db-titulo-simbolo" src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt="" aria-hidden="true"></h1>
+        <h1 class="db-titulo"><span class="db-titulo-texto">{{ 'dashboard.titulo'|trans }}</span><img class="db-titulo-simbolo" src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt="" aria-hidden="true"></h1>
 
         <div class="db-filtro-wrap">
         {# Segmentado de período (Este mês · 60 dias · 90 dias · Este ano). Preenche os
@@ -82,21 +103,24 @@
            `change`; o filtro-tabela.js recarrega como se o usuário tivesse digitado.
            As quatro faixas são calculadas AQUI (servidor) e vão em data-de/data-ate: o
            dashboard.js só lê os atributos. Ativo = as duas datas batem com os campos.
-           O período padrão NÃO muda (decisão do dono pendente): sem datas, nenhum botão
-           fica ativo. `data_ate` é sempre hoje; só o começo varia. #}
+           Período padrão (decisão do dono, spec dashboard-parte-1): sem datas na URL, o
+           controller abre em Este mês; "Limpar filtros" volta para ele (dashboard.js).
+           Faixas do desenho VS 25.10.26 (L1707, L3118-3121): Este mês vai do dia 1º ao
+           ÚLTIMO dia do mês (o mesmo PeriodoDoDashboard::esteMes do controller); 60 e 90
+           dias contam hoje incluído (hoje − 59 e hoje − 89 até hoje); Este ano, 1º/jan até hoje. #}
         {% set hoje = 'now'|date('Y-m-d') %}
         {% set periodos = [
-            { chave: 'mes', rotulo: 'Este mês', de: 'now'|date('Y-m-01') },
-            { chave: 'd60', rotulo: '60 dias',  de: '-60 days'|date('Y-m-d') },
-            { chave: 'd90', rotulo: '90 dias',  de: '-90 days'|date('Y-m-d') },
-            { chave: 'ano', rotulo: 'Este ano', de: 'now'|date('Y-01-01') },
+            { chave: 'mes', rotulo: 'dashboard.periodo.este_mes'|trans, de: 'now'|date('Y-m-01'), ate: 'last day of this month'|date('Y-m-d') },
+            { chave: 'd60', rotulo: 'dashboard.periodo.d60'|trans,  de: '-59 days'|date('Y-m-d'), ate: hoje },
+            { chave: 'd90', rotulo: 'dashboard.periodo.d90'|trans,  de: '-89 days'|date('Y-m-d'), ate: hoje },
+            { chave: 'ano', rotulo: 'dashboard.periodo.este_ano'|trans, de: 'now'|date('Y-01-01'), ate: hoje },
         ] %}
-        <div class="db-seg db-seg--sem-js" role="group" aria-label="Período">
+        <div class="db-seg db-seg--sem-js" role="group" aria-label="{{ 'dashboard.periodo.rotulo'|trans }}">
             <span class="db-seg-ind" aria-hidden="true"></span>
             {% for p in periodos %}
-                {% set ativo = filtros.data_de|default('') == p.de and filtros.data_ate|default('') == hoje %}
+                {% set ativo = filtros.data_de|default('') == p.de and filtros.data_ate|default('') == p.ate %}
                 <button type="button" class="db-seg-btn{{ ativo ? ' is-ativo' : '' }}"
-                        data-periodo="{{ p.chave }}" data-de="{{ p.de }}" data-ate="{{ hoje }}"
+                        data-periodo="{{ p.chave }}" data-de="{{ p.de }}" data-ate="{{ p.ate }}"
                         aria-pressed="{{ ativo ? 'true' : 'false' }}">{{ p.rotulo }}</button>
             {% endfor %}
         </div>
@@ -106,13 +130,13 @@
            (.db-busca, no fragmento) só espelha o valor para ele — ver dashboard.js. #}
         {{ include('_partials/_filtro_barra.html.twig', {
             mostrar_busca: true,
-            busca_placeholder: 'Buscar colaborador',
+            busca_placeholder: 'dashboard.filtros.buscar_colaborador'|trans,
             filtros: filtros,
             facetas: [
-                { name: 'data_de', rotulo: 'De', tipo: 'date' },
-                { name: 'data_ate', rotulo: 'Até', tipo: 'date' },
-                { name: 'responsavel', rotulo: 'Responsável', tipo: 'select', opcoes: respOpcoes },
-                { name: 'cargo', rotulo: 'Cargo', tipo: 'select', opcoes: cargoOpcoes }
+                { name: 'data_de', rotulo: 'dashboard.filtros.de'|trans, tipo: 'date' },
+                { name: 'data_ate', rotulo: 'dashboard.filtros.ate'|trans, tipo: 'date' },
+                { name: 'responsavel', rotulo: 'dashboard.filtros.responsavel'|trans, tipo: 'select', opcoes: respOpcoes },
+                { name: 'cargo', rotulo: 'dashboard.filtros.cargo'|trans, tipo: 'select', opcoes: cargoOpcoes }
             ]
         }) }}
 
@@ -128,21 +152,21 @@
         <div class="db-fp db-fp--sem-js" data-db-filtros>
             <div class="db-fp-datas">
                 {% for cal in [
-                    { name: 'data_de', rotulo: 'De', aria: 'Data inicial' },
-                    { name: 'data_ate', rotulo: 'Até', aria: 'Data final' },
+                    { name: 'data_de', rotulo: 'dashboard.filtros.de'|trans, aria: 'dashboard.filtros.data_inicial'|trans },
+                    { name: 'data_ate', rotulo: 'dashboard.filtros.ate'|trans, aria: 'dashboard.filtros.data_final'|trans },
                 ] %}
                     {% set valor = filtros[cal.name]|default('') %}
-                    {% if not loop.first %}<span class="db-fp-ate" aria-hidden="true">até</span>{% endif %}
+                    {% if not loop.first %}<span class="db-fp-ate" aria-hidden="true">{{ 'dashboard.filtros.ate_separador'|trans }}</span>{% endif %}
                     <div class="db-cal" data-db-cal="{{ cal.name }}">
                         <button type="button" class="db-cal-btn{{ valor == '' ? ' is-vazio' : '' }}"
                                 aria-haspopup="dialog" aria-expanded="false"
                                 aria-controls="db-cal-{{ cal.name }}-painel"
-                                aria-label="{{ cal.aria }}: {{ valor != '' ? valor|split('-')|reverse|join('/') : 'sem data' }}">
+                                aria-label="{{ cal.aria }}: {{ valor != '' ? valor|split('-')|reverse|join('/') : 'dashboard.filtros.sem_data'|trans }}">
                             <i class="bi bi-calendar3" aria-hidden="true"></i>
-                            <span class="db-cal-rotulo">{{ valor != '' ? valor|split('-')|reverse|join('/') : 'dd/mm/aaaa' }}</span>
+                            <span class="db-cal-rotulo">{{ valor != '' ? valor|split('-')|reverse|join('/') : 'dashboard.filtros.dd_mm_aaaa'|trans }}</span>
                         </button>
                         <div class="db-cal-painel" id="db-cal-{{ cal.name }}-painel" role="dialog"
-                             aria-modal="false" aria-label="Escolher {{ cal.aria|lower }}" hidden></div>
+                             aria-modal="false" aria-label="{{ 'dashboard.filtros.escolher'|trans({campo: cal.aria|lower}) }}" hidden></div>
                     </div>
                 {% endfor %}
             </div>
@@ -152,14 +176,14 @@
             {# Responsável — "Todos" + cada colaborador ativo do escritório (as mesmas opções
                do <select> nativo). Avatar: foto quando existe, senão o boneco (bi-person-fill) num
                dos 6 tons pastel do dc 1.2.2 (AV_TONS, índice (id - 1) % 6), não o degradê da tabela. #}
-            {% set respAtual = { nome: 'Todos os responsáveis', foto: null, iniciais: '', av: null } %}
+            {% set respAtual = { nome: 'dashboard.filtros.todos_responsaveis'|trans, foto: null, iniciais: '', av: null } %}
             {% set respItens = [] %}
             {% for u in responsaveis %}
                 {% set partes = u.nome|split(' ')|filter(p => p != '') %}
                 {% set item = {
                     valor: u.id ~ '',
                     nome: u.nome,
-                    sub: u.cargo is not empty ? u.cargo : 'Sem cargo',
+                    sub: u.cargo is not empty ? u.cargo : 'dashboard.sem_cargo'|trans,
                     foto: u.foto,
                     iniciais: partes|slice(0, 2)|map(p => p|slice(0, 1))|join|upper,
                     av: (u.id - 1) % 6,
@@ -169,7 +193,7 @@
             {% endfor %}
             <div class="db-dd db-dd--resp" data-db-dd="responsavel" data-db-dd-busca>
                 <button type="button" class="db-dd-btn" aria-haspopup="listbox" aria-expanded="false"
-                        aria-controls="db-dd-responsavel-lista" aria-label="Responsável: {{ respAtual.nome }}">
+                        aria-controls="db-dd-responsavel-lista" aria-label="{{ 'dashboard.filtros.responsavel'|trans }}: {{ respAtual.nome }}">
                     <span class="db-dd-av db-dd-av--btn">
                         {% if respAtual.av is null %}
                             <span class="db-dd-av-ico db-dd-tom--todos"><i class="bi bi-people-fill" aria-hidden="true"></i></span>
@@ -187,17 +211,17 @@
                 <div class="db-dd-painel" hidden>
                     <div class="db-dd-busca">
                         <i class="bi bi-search" aria-hidden="true"></i>
-                        <input type="text" class="db-dd-busca-input" placeholder="Buscar pessoa" aria-label="Buscar pessoa"
+                        <input type="text" class="db-dd-busca-input" placeholder="{{ 'dashboard.filtros.buscar_pessoa'|trans }}" aria-label="{{ 'dashboard.filtros.buscar_pessoa'|trans }}"
                                autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="true"
                                aria-controls="db-dd-responsavel-lista">
                     </div>
-                    <div class="db-dd-lista" id="db-dd-responsavel-lista" role="listbox" aria-label="Responsável" tabindex="-1">
+                    <div class="db-dd-lista" id="db-dd-responsavel-lista" role="listbox" aria-label="{{ 'dashboard.filtros.responsavel'|trans }}" tabindex="-1">
                         <div class="db-dd-op" role="option" id="db-dd-responsavel-op-todos" data-valor=""
-                             data-nome="Todos os responsáveis" aria-selected="{{ respSel == '' ? 'true' : 'false' }}">
+                             data-nome="{{ 'dashboard.filtros.todos_responsaveis'|trans }}" aria-selected="{{ respSel == '' ? 'true' : 'false' }}">
                             <span class="db-dd-av"><span class="db-dd-av-ico db-dd-tom--todos"><i class="bi bi-people-fill" aria-hidden="true"></i></span></span>
                             <span class="db-dd-op-txt">
-                                <span class="db-dd-op-nome">Todos os responsáveis</span>
-                                <span class="db-dd-op-sub">{{ nPessoas }} {{ nPessoas == 1 ? 'pessoa' : 'pessoas' }}</span>
+                                <span class="db-dd-op-nome">{{ 'dashboard.filtros.todos_responsaveis'|trans }}</span>
+                                <span class="db-dd-op-sub">{{ nPessoas }} {{ nPessoas == 1 ? 'dashboard.filtros.pessoa'|trans : 'dashboard.filtros.pessoas'|trans }}</span>
                             </span>
                             <i class="bi bi-check2 db-dd-check" aria-hidden="true"></i>
                         </div>
@@ -215,13 +239,13 @@
                                 </span>
                                 <span class="db-dd-op-txt">
                                     <span class="db-dd-op-nome">{{ it.nome }}</span>
-                                    <span class="db-dd-op-sub{{ it.sub == 'Sem cargo' ? ' is-sem-cargo' : '' }}">{{ it.sub }}</span>
+                                    <span class="db-dd-op-sub{{ it.sub == 'dashboard.sem_cargo'|trans ? ' is-sem-cargo' : '' }}">{{ it.sub }}</span>
                                 </span>
                                 <i class="bi bi-check2 db-dd-check" aria-hidden="true"></i>
                             </div>
                         {% endfor %}
                     </div>
-                    <div class="db-dd-vazio" hidden>Nenhum resultado.</div>
+                    <div class="db-dd-vazio" hidden>{{ 'dashboard.filtros.nenhum_resultado'|trans }}</div>
                 </div>
             </div>
 
@@ -235,7 +259,7 @@
                 {% set cargoItens = cargoItens|merge([{
                     valor: c,
                     nome: c,
-                    sub: n ~ ' ' ~ (n == 1 ? 'pessoa' : 'pessoas'),
+                    sub: n ~ ' ' ~ (n == 1 ? 'dashboard.filtros.pessoa'|trans : 'dashboard.filtros.pessoas'|trans),
                     icone: ('sóci' in cl or 'soci' in cl) ? 'bi-award'
                         : ('advog' in cl) ? 'bi-briefcase'
                         : ('estagi' in cl) ? 'bi-mortarboard'
@@ -248,18 +272,18 @@
             {% if existeSemCargo|default(false) %}
                 {% set n = contagemSemCargo|default(0) %}
                 {% set cargoItens = cargoItens|merge([{
-                    valor: cargoSemValor, nome: 'Sem cargo',
-                    sub: n ~ ' ' ~ (n == 1 ? 'pessoa' : 'pessoas'),
+                    valor: cargoSemValor, nome: 'dashboard.sem_cargo'|trans,
+                    sub: n ~ ' ' ~ (n == 1 ? 'dashboard.filtros.pessoa'|trans : 'dashboard.filtros.pessoas'|trans),
                     icone: 'bi-dash-circle', tom: 'sem',
                 }]) %}
             {% endif %}
-            {% set cargoAtual = { nome: 'Todos os cargos', icone: 'bi-grid-fill', tom: 'todos' } %}
+            {% set cargoAtual = { nome: 'dashboard.filtros.todos_cargos'|trans, icone: 'bi-grid-fill', tom: 'todos' } %}
             {% for it in cargoItens %}
                 {% if it.valor == cargoSel %}{% set cargoAtual = it %}{% endif %}
             {% endfor %}
             <div class="db-dd db-dd--cargo" data-db-dd="cargo">
                 <button type="button" class="db-dd-btn" aria-haspopup="listbox" aria-expanded="false"
-                        aria-controls="db-dd-cargo-lista" aria-label="Cargo: {{ cargoAtual.nome }}">
+                        aria-controls="db-dd-cargo-lista" aria-label="{{ 'dashboard.filtros.cargo'|trans }}: {{ cargoAtual.nome }}">
                     <span class="db-dd-av db-dd-av--btn">
                         <span class="db-dd-av-ico db-dd-tom--{{ cargoAtual.tom }}"><i class="bi {{ cargoAtual.icone }}" aria-hidden="true"></i></span>
                     </span>
@@ -267,11 +291,11 @@
                     <i class="bi bi-chevron-down db-dd-chev" aria-hidden="true"></i>
                 </button>
                 <div class="db-dd-painel" hidden>
-                    <div class="db-dd-lista" id="db-dd-cargo-lista" role="listbox" aria-label="Cargo" tabindex="-1">
+                    <div class="db-dd-lista" id="db-dd-cargo-lista" role="listbox" aria-label="{{ 'dashboard.filtros.cargo'|trans }}" tabindex="-1">
                         <div class="db-dd-op" role="option" id="db-dd-cargo-op-todos" data-valor=""
-                             data-nome="Todos os cargos" aria-selected="{{ cargoSel == '' ? 'true' : 'false' }}">
+                             data-nome="{{ 'dashboard.filtros.todos_cargos'|trans }}" aria-selected="{{ cargoSel == '' ? 'true' : 'false' }}">
                             <span class="db-dd-av"><span class="db-dd-av-ico db-dd-tom--todos"><i class="bi bi-grid-fill" aria-hidden="true"></i></span></span>
-                            <span class="db-dd-op-txt"><span class="db-dd-op-nome">Todos os cargos</span></span>
+                            <span class="db-dd-op-txt"><span class="db-dd-op-nome">{{ 'dashboard.filtros.todos_cargos'|trans }}</span></span>
                             <i class="bi bi-check2 db-dd-check" aria-hidden="true"></i>
                         </div>
                         {% for it in cargoItens %}
@@ -301,10 +325,10 @@
         {# Exportar PDF: impressão do navegador (A4 paisagem, @media print no CSS),
            com o nome do arquivo sugerido pelo document.title (dashboard.js). #}
         <div class="db-acoes">
-            <button type="button" class="db-btn-pdf js-db-exportar-pdf" title="Exportar relatório em PDF"><i class="bi bi-file-earmark-arrow-down"></i>Exportar PDF</button>
+            <button type="button" class="db-btn-pdf js-db-exportar-pdf" title="{{ 'dashboard.exportar_pdf_titulo'|trans }}"><i class="bi bi-file-earmark-arrow-down"></i>{{ 'dashboard.exportar_pdf'|trans }}</button>
         </div>
 
-        <div class="db-print-rodape">Documento gerado pelo BlueJus para uso interno do escritório.</div>
+        <div class="db-print-rodape">{{ 'dashboard.impressao.rodape'|trans }}</div>
     </div>
 
     {# ── Menu ⋮ "Opções da tabela" (desenho 1.2.2, "Opções da tabela" e "Personalização por
@@ -314,20 +338,19 @@
        dashboard-preferencias.js o move para dentro do `.db-table-header` e o recoloca a cada
        recarga (o mesmo nó: o estado aberto/fechado e os ouvintes sobrevivem). Sem JS ele fica
        escondido: o estilo gravado continua valendo pelas classes do `.db-page`.
-       Só o que o sistema suporta de verdade: densidade, sons (do calendário), animações, setas,
-       colunas visíveis e "Adicionar coluna" (as 6 métricas com lastro do
-       ColunasExtrasDoDashboard). Fora (decisão do dono ou sem lastro): som do campeão (depende
-       do troféu, D-DASH), "Pastas concluídas" (a pasta não tem situação "concluída"), zerar
-       relatório. #}
+       Só o que o sistema suporta de verdade: densidade, sons (do calendário e do campeão, como no
+       README do desenho), animações, setas, colunas visíveis e "Adicionar coluna" (as métricas com
+       lastro do ColunasExtrasDoDashboard). Fora (decisão do dono ou sem lastro): "Pastas
+       concluídas" (a pasta não tem situação "concluída"), zerar relatório. #}
     {% set prefColunas = [
-        { chave: 'cargo',           rotulo: 'Cargo' },
-        { chave: 'metas',           rotulo: 'Total metas' },
-        { chave: 'metas_ativas',    rotulo: 'Metas ativas' },
-        { chave: 'metas_vencidas',  rotulo: 'Metas vencidas' },
-        { chave: 'prazos',          rotulo: 'Prazos próximos' },
-        { chave: 'demandas',        rotulo: 'Total demandas' },
-        { chave: 'demandas_ativas', rotulo: 'Demandas ativas' },
-        { chave: 'pastas_criadas',  rotulo: 'Pastas criadas' },
+        { chave: 'cargo',           rotulo: 'dashboard.tabela.cargo'|trans },
+        { chave: 'metas',           rotulo: 'dashboard.tabela.total_metas'|trans },
+        { chave: 'metas_ativas',    rotulo: 'dashboard.tabela.metas_ativas'|trans },
+        { chave: 'metas_vencidas',  rotulo: 'dashboard.tabela.metas_vencidas'|trans },
+        { chave: 'prazos',          rotulo: 'dashboard.tabela.prazos_proximos'|trans },
+        { chave: 'demandas',        rotulo: 'dashboard.tabela.total_demandas'|trans },
+        { chave: 'demandas_ativas', rotulo: 'dashboard.tabela.demandas_ativas'|trans },
+        { chave: 'pastas_criadas',  rotulo: 'dashboard.tabela.pastas_criadas'|trans },
     ] %}
     {% set prefOcultas = preferencias.colunasOcultas %}
     {% set prefNumVisiveis = prefColunas|filter(c => c.chave != 'cargo' and c.chave not in prefOcultas)|length %}
@@ -342,19 +365,19 @@
     {% set prefExtrasOrdem = prefExtras|merge(extrasCatalogo|keys|filter(k => k not in prefExtras)) %}
     <div class="db-pref" data-db-pref hidden>
         <button type="button" class="db-pref-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="db-pref-menu"
-                title="Opções da tabela" aria-label="Opções da tabela"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
-        <div class="db-pref-menu" id="db-pref-menu" role="menu" aria-label="Opções da tabela" hidden>
+                title="{{ 'dashboard.pref.opcoes_da_tabela'|trans }}" aria-label="{{ 'dashboard.pref.opcoes_da_tabela'|trans }}"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+        <div class="db-pref-menu" id="db-pref-menu" role="menu" aria-label="{{ 'dashboard.pref.opcoes_da_tabela'|trans }}" hidden>
             <div class="db-pref-faixa">
                 <i class="bi bi-person-check" aria-hidden="true"></i>
-                <span class="db-pref-faixa-txt">Ajustes salvos só para <b>{{ app.user.fullName }}</b></span>
+                <span class="db-pref-faixa-txt">{{ 'dashboard.pref.ajustes_salvos_para'|trans }} <b>{{ app.user.fullName }}</b></span>
             </div>
 
-            <div class="db-pref-secao">Meu estilo</div>
+            <div class="db-pref-secao">{{ 'dashboard.pref.meu_estilo'|trans }}</div>
             <div class="db-pref-linha">
                 <i class="bi bi-distribute-vertical db-pref-ico" aria-hidden="true"></i>
-                <span class="db-pref-rotulo">Densidade</span>
-                <div class="db-pref-seg" role="group" aria-label="Densidade">
-                    {% for op in [{ valor: 'confortavel', rotulo: 'Normal' }, { valor: 'compacta', rotulo: 'Compacta' }] %}
+                <span class="db-pref-rotulo">{{ 'dashboard.pref.densidade'|trans }}</span>
+                <div class="db-pref-seg" role="group" aria-label="{{ 'dashboard.pref.densidade'|trans }}">
+                    {% for op in [{ valor: 'confortavel', rotulo: 'dashboard.pref.normal'|trans }, { valor: 'compacta', rotulo: 'dashboard.pref.compacta'|trans }] %}
                         <button type="button" class="db-pref-seg-btn" role="menuitemradio"
                                 aria-checked="{{ preferencias.densidade == op.valor ? 'true' : 'false' }}"
                                 data-pref-chave="dashboard.densidade" data-pref-valor="{{ op.valor }}">{{ op.rotulo }}</button>
@@ -365,34 +388,34 @@
             <button type="button" class="db-pref-item" role="menuitemcheckbox" aria-checked="{{ sonsLigados ? 'true' : 'false' }}"
                     data-pref-chave="dashboard.sons" data-pref-liga="ligados" data-pref-desliga="desligados">
                 <i class="bi bi-volume-up db-pref-ico" aria-hidden="true"></i>
-                <span class="db-pref-rotulo">Sons</span>
+                <span class="db-pref-rotulo">{{ 'dashboard.pref.sons'|trans }}</span>
                 <span class="db-pref-sw" aria-hidden="true"><span class="db-pref-sw-bola"></span></span>
             </button>
             <button type="button" class="db-pref-item" role="menuitemcheckbox" aria-checked="{{ animLigadas ? 'true' : 'false' }}"
                     data-pref-chave="dashboard.animacoes" data-pref-liga="ligadas" data-pref-desliga="reduzidas">
                 <i class="bi bi-stars db-pref-ico" aria-hidden="true"></i>
-                <span class="db-pref-rotulo">Animações</span>
+                <span class="db-pref-rotulo">{{ 'dashboard.pref.animacoes'|trans }}</span>
                 <span class="db-pref-sw" aria-hidden="true"><span class="db-pref-sw-bola"></span></span>
             </button>
 
             <div class="db-pref-div" aria-hidden="true"></div>
-            <div class="db-pref-secao">Exibição</div>
+            <div class="db-pref-secao">{{ 'dashboard.pref.exibicao'|trans }}</div>
             <button type="button" class="db-pref-item" role="menuitemcheckbox" aria-checked="{{ setasLigadas ? 'true' : 'false' }}"
                     data-pref-chave="dashboard.setas" data-pref-liga="ligadas" data-pref-desliga="desligadas">
                 <i class="bi bi-arrow-up-right db-pref-ico db-pref-ico--sm" aria-hidden="true"></i>
-                <span class="db-pref-rotulo">Setas de tendência</span>
+                <span class="db-pref-rotulo">{{ 'dashboard.pref.setas'|trans }}</span>
                 <span class="db-pref-sw" aria-hidden="true"><span class="db-pref-sw-bola"></span></span>
             </button>
 
             <div class="db-pref-div" aria-hidden="true"></div>
             <div class="db-pref-secao db-pref-secao--cols">
-                <span>Colunas</span>
-                <button type="button" class="db-pref-mostrar" data-pref-mostrar-todas{% if prefOcultas is empty %} hidden{% endif %}>Mostrar todas</button>
+                <span>{{ 'dashboard.pref.colunas'|trans }}</span>
+                <button type="button" class="db-pref-mostrar" data-pref-mostrar-todas{% if prefOcultas is empty %} hidden{% endif %}>{{ 'dashboard.pref.mostrar_todas'|trans }}</button>
             </div>
             <div class="db-pref-fixa">
                 <i class="bi bi-lock" aria-hidden="true"></i>
-                <span class="db-pref-fixa-nome">Colaborador</span>
-                <span class="db-pref-fixa-tag">fixa</span>
+                <span class="db-pref-fixa-nome">{{ 'dashboard.tabela.colaborador'|trans }}</span>
+                <span class="db-pref-fixa-tag">{{ 'dashboard.pref.fixa'|trans }}</span>
             </div>
             {% for c in prefColunas %}
                 {% set visivel = c.chave not in prefOcultas %}
@@ -412,7 +435,7 @@
                 <button type="button" class="db-pref-item db-pref-col" role="menuitemcheckbox" aria-checked="true"
                         data-pref-extra-remover="{{ k }}"{% if k not in prefExtras %} hidden{% endif %}>
                     <span class="db-pref-caixa" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                    <span class="db-pref-rotulo">{{ extrasCatalogo[k].rotulo }} (extra)</span>
+                    <span class="db-pref-rotulo">{{ 'dashboard.pref.coluna_extra'|trans({rotulo: extrasCatalogo[k].rotulo}) }}</span>
                 </button>
             {% endfor %}
             </div>
@@ -420,7 +443,7 @@
             <div class="db-pref-div" aria-hidden="true"></div>
             <div class="db-pref-secao db-pref-secao--add">
                 <i class="bi bi-plus-circle" aria-hidden="true"></i>
-                <span>Adicionar coluna</span>
+                <span>{{ 'dashboard.pref.adicionar_coluna'|trans }}</span>
             </div>
             {% for k, c in extrasCatalogo %}
                 <button type="button" class="db-pref-item db-pref-add" role="menuitem" title="{{ c.ajuda }}"
@@ -432,12 +455,26 @@
                     </span>
                 </button>
             {% endfor %}
-            <div class="db-pref-add-vazio" data-pref-extras-todas{% if prefExtras|length < extrasCatalogo|length %} hidden{% endif %}>Todas as colunas disponíveis já estão na tabela.</div>
+            <div class="db-pref-add-vazio" data-pref-extras-todas{% if prefExtras|length < extrasCatalogo|length %} hidden{% endif %}>{{ 'dashboard.pref.todas_na_tabela'|trans }}</div>
+            {# "Zerar relatório de todos" (desenho: `comZerarTodosOn`): só para quem pode zerar e com a
+               coluna Relatório na tabela (o dashboard-zerar.js acompanha a coluna entrar e sair). #}
+            {% if podeZerar %}
+            <div class="db-pref-zerar-grupo" data-db-zerar-todos-grupo{% if 'relatorio' not in prefExtras %} hidden{% endif %}>
+                <div class="db-pref-div" aria-hidden="true"></div>
+                <button type="button" class="db-pref-item db-pref-zerar" role="menuitem" data-db-zerar-todos="relatorio">
+                    <i class="bi bi-chat-left-text db-pref-zerar-ico" aria-hidden="true"></i>
+                    <span class="db-pref-add-txt">
+                        <span class="db-pref-zerar-rotulo">{{ 'dashboard.pref.zerar_relatorio_todos'|trans }}</span>
+                        <span class="db-pref-add-ajuda">{{ 'dashboard.pref.zerar_relatorio_todos_sub'|trans }}</span>
+                    </span>
+                </button>
+            </div>
+            {% endif %}
 
             <div class="db-pref-div" aria-hidden="true"></div>
             <button type="button" class="db-pref-item db-pref-restaurar" role="menuitem" data-pref-restaurar>
                 <i class="bi bi-arrow-counterclockwise db-pref-ico db-pref-ico--sm" aria-hidden="true"></i>
-                <span>Restaurar padrão</span>
+                <span>{{ 'dashboard.pref.restaurar'|trans }}</span>
             </button>
         </div>
     </div>
@@ -448,13 +485,23 @@
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 {# Janelas flutuantes (DASH-020): componente usado pelo histórico dos cards. #}
+{{ catalogo_js('dashboard.js') }}
 <script src="{{ asset('js/dashboard-janelas.js') }}"></script>
 {# Botão direito num card: janela "Histórico" (DASH-017), sobre o componente acima. #}
 <script src="{{ asset('js/dashboard-historico.js') }}"></script>
+{# Troféu (fanfarra no hover) e cartão do colaborador (botão direito no nome), sobre as janelas. #}
+<script src="{{ asset('js/dashboard-campeao.js') }}"></script>
 {# Depois do motor de filtro: a contagem dos cards observa a região que ele recarrega. #}
 <script src="{{ asset('js/dashboard.js') }}"></script>
 {# Selects e calendário próprios da barra de filtros: escrevem nos nativos do parcial. #}
 <script src="{{ asset('js/dashboard-filtros.js') }}"></script>
 {# Menu ⋮ da tabela Desempenho: move o .db-pref para o cabeçalho da tabela e grava o estilo. #}
 <script src="{{ asset('js/dashboard-preferencias.js') }}"></script>
+{# Modal "Ver relatório" da coluna Relatório (PR-D): antes do Zerar, que chama window.DbRelatorio. #}
+{{ catalogo_js('dashboard.relatorio.js') }}
+<script src="{{ asset('js/dashboard-relatorio.js') }}"></script>
+{# "Zerar" das colunas (DASH-014): botão direito no cabeçalho ou no número da coluna. #}
+<script src="{{ asset('js/dashboard-zerar.js') }}"></script>
+{# Meta de pastas do mês (DASH-016): editor do lápis e menu do botão direito no card Pastas criadas. #}
+<script src="{{ asset('js/dashboard-meta.js') }}"></script>
 {% endblock %}

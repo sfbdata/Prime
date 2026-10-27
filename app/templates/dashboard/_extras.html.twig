@@ -22,6 +22,20 @@
        participantes. O número continua sendo a contagem agregada (sob o guarda `bi`, sem
        título), então para quem não participa de todos os eventos da pessoa o número pode ser
        MAIOR que a lista. Sigilo > paridade; decisão pendente do Samuel.
+     - Pastas concluídas > 0 abre o Acervo geral com `concluida=1`, a pessoa e o período: as datas
+       passam a valer sobre a chegada à Finalizada (`finalizada_em`), com o MESMO critério da
+       coluna (App\Pasta\Criterio\PastaFinalizadaNoPeriodo). Célula com "Zerar" ativo não é link
+       (o destino não conta a partir do corte), como as demais.
+     - Relatório abre o modal "Ver relatório de X" (PR-D, dashboard-relatorio.js), não um link: o
+       número conta REGISTROS (um por mensagem/observação, respostas incluídas) e o modal lista esses
+       mesmos registros, por pasta, data e hora (MetricasExtrasDoDashboardRepository::listarRegistrosDoAutor,
+       mesmo critério da contagem: App\Pasta\Criterio\RegistroDePastaNoPeriodo). Vale também com
+       "Zerar" ativo (o modal aplica o mesmo corte) e com 0 (o menu da célula abre o modal vazio).
+       O botão leva a URL em `data-db-relatorio-url`; o menu do botão direito lê o mesmo atributo.
+     - Total de Pastas concluídas (macro `total`): vira link para o Expediente com o MESMO destino
+       das células, `responsavel=equipe` (ou `equipe:<cargo>`, `equipe:__sem__`), porque o Total soma
+       só as linhas exibidas (colaboradores ativos) e a lista conta o mesmo número. Sem link com busca
+       ativa, "Zerar" na coluna ou Total 0. Com uma pessoa só na tabela, usa o destino da pessoa.
      - Taxa de conclusão e Tempo médio (DASH-008r, desenho: dc script l.1847) não são
        contagem de itens; o link abre a lista do DENOMINADOR, com a pessoa e o período:
        taxa → `todas` (o total da lista = Total metas da linha, a base do %);
@@ -32,25 +46,32 @@
        lista não fosse vazia; o rótulo é o da coluna ("Taxa de conclusão de X"). "—" (null)
        nunca é link.
 ─────────────────────────────────────────────────────────────────────────── #}
-{% macro valor(chave, valor, userId = null, quem = '', periodoLink = {}) %}
+{% macro valor(chave, valor, userId = null, quem = '', periodoLink = {}, pessoaId = null) %}
 {%- set catalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') -%}
 {%- set tipo = catalogo[chave].tipo -%}
 {%- if valor is null -%}
-    <span class="db-num db-num--vazio text-muted small" title="Sem dado no período">Sem dado</span>
+    <span class="db-num db-num--vazio text-muted small" title="{{ 'dashboard.extras.sem_dado_no_periodo'|trans }}">{{ 'dashboard.extras.sem_dado'|trans }}</span>
 {%- else -%}
-    {%- set texto = tipo == 'pct' ? valor ~ '%' : (tipo == 'dias' ? valor ~ 'd' : valor) -%}
+    {%- set texto = tipo == 'pct' ? valor ~ '%' : (tipo == 'dias' ? 'dashboard.extras.valor_dias'|trans({n: valor ~ ''}) : valor) -%}
     {%- if userId is not null and chave == 'pastas_urgentes' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', prioridade: 'urgente', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Expediente · pastas urgentes de {{ quem }}" aria-label="Abrir: Expediente · pastas urgentes de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', prioridade: 'urgente', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_pastas_urgentes'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_pastas_urgentes'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'metas_concluidas' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas concluídas de {{ quem }}" aria-label="Abrir: Metas concluídas de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_metas_concluidas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_metas_concluidas'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'taxa_conclusao' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Taxa de conclusão de {{ quem }}" aria-label="Abrir: Taxa de conclusão de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'todas', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_taxa_conclusao'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_taxa_conclusao'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'tempo_medio' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Tempo médio de {{ quem }}" aria-label="Abrir: Tempo médio de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'concluidas', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_tempo_medio'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_tempo_medio'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'metas_revisao' and valor > 0 -%}
-        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'em_revisao', responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Metas em revisão de {{ quem }}" aria-label="Abrir: Metas em revisão de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('tarefa_equipe', { status: 'em_revisao', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_metas_revisao'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_metas_revisao'|trans({nome: quem}) }}">{{ texto }}</a>
     {%- elseif userId is not null and chave == 'eventos_agenda' and valor > 0 and can_access_module('agenda') -%}
-        <a class="db-num db-num-link" href="{{ path('agenda_lista', { responsavel: userId }|merge(periodoLink)) }}" title="Abrir: Eventos na agenda de {{ quem }}" aria-label="Abrir: Eventos na agenda de {{ quem }}">{{ texto }}</a>
+        <a class="db-num db-num-link" href="{{ path('agenda_lista', { responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_eventos_agenda'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_eventos_agenda'|trans({nome: quem}) }}">{{ texto }}</a>
+    {%- elseif userId is not null and chave == 'pastas_concluidas' and valor > 0 -%}
+        <a class="db-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', concluida: '1', responsavel: userId }|merge(periodoLink)) }}" title="{{ 'dashboard.extras.abrir_pastas_concluidas'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.extras.abrir_pastas_concluidas'|trans({nome: quem}) }}">{{ texto }}</a>
+    {%- elseif pessoaId is not null and chave == 'relatorio' and valor > 0 -%}
+        <button type="button" class="db-num db-num-link" data-db-relatorio-url="{{ path('dashboard_relatorio', { userId: pessoaId }|merge(periodoLink)) }}" data-db-relatorio-nome="{{ quem }}" title="{{ 'dashboard.relatorio.abrir_relatorio'|trans({nome: quem}) }}" aria-label="{{ 'dashboard.relatorio.abrir_relatorio'|trans({nome: quem}) }}">{{ texto }}</button>
+    {%- elseif pessoaId is not null and chave == 'relatorio' -%}
+        {# 0: sem número clicável, mas o menu do botão direito ainda abre o modal (vazio), como no desenho. #}
+        <span class="db-num db-num--zero" data-db-relatorio-url="{{ path('dashboard_relatorio', { userId: pessoaId }|merge(periodoLink)) }}" data-db-relatorio-nome="{{ quem }}">{{ texto }}</span>
     {%- elseif valor == 0 -%}
         <span class="db-num db-num--zero">{{ texto }}</span>
     {%- else -%}
@@ -64,4 +85,30 @@
 {%- set catalogo = constant('App\\Dashboard\\Preferencia\\ColunasExtrasDoDashboard::CATALOGO') -%}
 {%- set c = catalogo[chave] -%}
 {{- c.ajuda ~ (c.nota != '' ? ' · ' ~ c.nota : '') -}}
+{% endmacro %}
+
+{# Número do Total de uma coluna extra. Só "Pastas concluídas" vira link (ver o cabeçalho): o destino é o
+   Expediente com a equipe filtrada, que conta o mesmo que o Total (colaboradores ativos, cargo do filtro).
+   `linhas` são as linhas exibidas; `semLink` é a decisão de quem chama (busca ativa ou "Zerar" na coluna). #}
+{% macro total(chave, texto, valor, linhas, cargo, semLink, periodoLink = {}) %}
+{%- if chave == 'pastas_concluidas' and not semLink and valor is not null and valor > 0 and linhas|length > 0 -%}
+    {%- set cargo = cargo|trim -%}
+    {%- if linhas|length == 1 -%}
+        {%- set quem = (linhas|first).nomeAdvogado -%}
+        {%- set responsavel = (linhas|first).userId -%}
+        {%- set dica = 'dashboard.extras.abrir_pastas_concluidas'|trans({nome: quem}) -%}
+    {%- elseif cargo == '__sem__' -%}
+        {%- set responsavel = 'equipe:__sem__' -%}
+        {%- set dica = 'dashboard.relatorio.total_sem_cargo'|trans -%}
+    {%- elseif cargo != '' -%}
+        {%- set responsavel = 'equipe:' ~ cargo -%}
+        {%- set dica = 'dashboard.relatorio.total_cargo'|trans({cargo: cargo}) -%}
+    {%- else -%}
+        {%- set responsavel = 'equipe' -%}
+        {%- set dica = 'dashboard.relatorio.total_equipe'|trans -%}
+    {%- endif -%}
+    <a class="db-total-num db-num-link" href="{{ path('expediente_index', { painel: 'acervo-geral', concluida: '1', responsavel: responsavel }|merge(periodoLink)) }}" title="{{ dica }}" aria-label="{{ dica }}">{{ texto }}</a>
+{%- else -%}
+    <span class="db-total-num">{{ texto }}</span>
+{%- endif -%}
 {% endmacro %}

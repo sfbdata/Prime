@@ -145,12 +145,12 @@
         var d = dados(menu);
         var texto = (d.descricao || '') + ' · vencimento ' + (d.vencimento || '') + ' · total ' + (d.total || '');
         if (!navigator.clipboard || !navigator.clipboard.writeText) {
-            aviso('Não foi possível copiar');
+            aviso(BJ_T.t('cobranca_objeto.js.copiar_falhou'));
             return;
         }
         navigator.clipboard.writeText(texto).then(
-            function () { aviso('Copiado'); },
-            function () { aviso('Não foi possível copiar'); }
+            function () { aviso(BJ_T.t('cobranca_objeto.js.copiado')); },
+            function () { aviso(BJ_T.t('cobranca_objeto.js.copiar_falhou')); }
         );
     }
 

@@ -9,17 +9,17 @@
      dc L5894-5905). O botão do comando escolhe qual comando aparece embaixo,
      com o ciclo de sempre: "Gerar análise" / "Analisando…" / a lista das
      análises (`_comando_secao.html.twig`).
-   · Documentos (F4, dc L1041-1058): a lista dos documentos por metadados e o
-     "Índice inteligente" dos marcados (`_documentos_indice.html.twig`). Só
-     para quem não tem a aba Documentos da pasta oculta.
+   · Documentos (F4 e PR F, dc L1044-1058): a lista dos documentos, o "Ler N
+     documentos" (a IA lê o conteúdo dos marcados, PDF e imagem) e o "Índice
+     inteligente" (por metadados) (`_documentos_indice.html.twig`). Só para
+     quem não tem a aba Documentos da pasta oculta.
    · Relatórios (dc L1072-1083): o texto do desenho, os 5 relatórios em grade
      (ícone, nome e descrição, `MOD`, dc L5906-5913) e o "Gerar <nome>" do
      relatório escolhido, com a lista dele.
 
    A aba Perguntar (F3) mora no `_agentes_drawer.html.twig`, fora deste painel
    (que o JS troca inteiro), com a conversa em `_conversa.html.twig`. O
-   "Relatório do cliente" (todas as pastas do cliente) espera a D12; o "Ler N
-   documentos" da aba Documentos, a D13.
+   "Relatório do cliente" (todas as pastas do cliente) espera a D12.
 
    Renderizado em dois lugares: dentro do drawer, no HTML da pasta, com
    `painel = null` (comandos sem análises, listas "carregando", e a aba
@@ -37,6 +37,7 @@
 {% set comandos = ia_comandos() %}
 {% set relatorios = ia_relatorios() %}
 {% set indice = ia_comando_indice() %}
+{% set leitura = ia_comando_leitura() %}
 {% set mostrarDocumentos = painel is null ? documentosVisivel|default(false) : documentos|default(null) is not null %}
 {# Escolha inicial: o primeiro com análise em andamento (o polling mostra o resultado chegando),
    senão o primeiro da grade. O JS guarda a escolha quando o painel é trocado. #}
@@ -53,7 +54,7 @@
            Cada número é o que o contexto LEVA (teto da seção no montador), não o total da pasta.
            Quatro dos cinco do desenho: "fontes" é heurística do protótipo e fica de fora. #}
         {% if sabe|default(null) is not null %}
-            <div class="ia-sabe" title="O que a IA sabe desta pasta" data-ia-sabe>
+            <div class="ia-sabe" title="{{ 'inteligencia.painel.sabe'|trans }}" data-ia-sabe>
                 {% for k in sabe.itens %}
                     <div class="ia-sabe-item" data-ia-sabe-item="{{ k.chave }}">
                         <span class="ia-sabe-v">{{ k.valor }}</span>
@@ -66,8 +67,8 @@
                 {% endfor %}
             </div>
         {% endif %}
-        <p class="ia-secao-titulo">Comandos para esta pasta</p>
-        <div class="ia-comandos" role="group" aria-label="Comandos para esta pasta" data-ia-grade>
+        <p class="ia-secao-titulo">{{ 'inteligencia.painel.comandos'|trans }}</p>
+        <div class="ia-comandos" role="group" aria-label="{{ 'inteligencia.painel.comandos'|trans }}" data-ia-grade>
             {% for c in comandos %}
                 {% set saidaDoBotao = painel is not null ? painel.de(c) : null %}
                 <button type="button"
@@ -85,12 +86,12 @@
     </div>
     {% if mostrarDocumentos %}
         <div class="ia-aba-painel" id="ia-aba-documentos" role="tabpanel" aria-labelledby="ia-aba-btn-documentos" data-ia-aba-painel="documentos" hidden>
-            {{ include('inteligencia/_documentos_indice.html.twig', {documentos: painel is null ? null : documentos, comando: indice, saida: painel is not null ? painel.de(indice) : null, pastaId: pastaId, ia: ia}, with_context = false) }}
+            {{ include('inteligencia/_documentos_indice.html.twig', {documentos: painel is null ? null : documentos, comando: indice, saida: painel is not null ? painel.de(indice) : null, leitura: leitura, saidaLeitura: painel is not null ? painel.de(leitura) : null, pastaId: pastaId, ia: ia}, with_context = false) }}
         </div>
     {% endif %}
     <div class="ia-aba-painel" id="ia-aba-relatorios" role="tabpanel" aria-labelledby="ia-aba-btn-relatorios" data-ia-aba-painel="relatorios" hidden>
-        <p class="ia-aba-intro">Relatórios executivos montados com os dados autorizados desta pasta e do cliente.</p>
-        <div class="ia-relatorios" role="group" aria-label="Relatórios" data-ia-grade>
+        <p class="ia-aba-intro">{{ 'inteligencia.painel.relatorios_intro'|trans }}</p>
+        <div class="ia-relatorios" role="group" aria-label="{{ 'inteligencia.painel.relatorios'|trans }}" data-ia-grade>
             {% for r in relatorios %}
                 {% set saidaDoBotao = painel is not null ? painel.de(r) : null %}
                 <button type="button"

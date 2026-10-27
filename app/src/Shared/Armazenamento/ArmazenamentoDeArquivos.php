@@ -18,7 +18,7 @@ use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
  * listar/apagar por prefixo mora em {@see ArmazenamentoComPrefixo}, separada: ela só é segura em
  * duas das nove categorias (D7).
  *
- * Os seis cobrem os 40 usos de `ArquivoStorageInterface::caminho()` que existem hoje: `gravar`
+ * Os seis cobriram os 40 usos de `ArquivoStorageInterface::caminho()` do início da E2: `gravar`
  * substitui `salvar`/`salvarConteudo`/`moverParaArmazenamento` e o `file_put_contents` cru de
  * `EditarPecaTextoUseCase:22`; `abrir`/`ler` substituem os `file_get_contents` pendurados em
  * `caminho()`; `metadados` substitui os `filesize()` soltos.

@@ -6,8 +6,10 @@ namespace App\TrabalhoExterno\Repository;
 
 use App\Entity\Tenant\Tenant;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Enum\Situacao;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -32,6 +34,32 @@ class DemandaExternaRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    /**
+     * Roda `$trabalho` numa transação com a demanda travada (`SELECT … FOR UPDATE`) e relida do banco: duas
+     * escritas de dinheiro na mesma demanda (confirmar recebimento, enviar comprovante) se enfileiram em vez de
+     * decidir cada uma sobre um estado velho.
+     *
+     * @template T
+     *
+     * @param callable(): T $trabalho
+     *
+     * @return T
+     */
+    public function comADemandaTravada(DemandaExterna $demanda, callable $trabalho): mixed
+    {
+        return $this->getEntityManager()->wrapInTransaction(function () use ($demanda, $trabalho): mixed {
+            $this->travar($demanda);
+
+            return $trabalho();
+        });
+    }
+
+    /** O `SELECT … FOR UPDATE` de {@see comADemandaTravada()}, para quem já abriu a transação (a do arquivo novo). */
+    public function travar(DemandaExterna $demanda): void
+    {
+        $this->getEntityManager()->refresh($demanda, LockMode::PESSIMISTIC_WRITE);
     }
 
     public function remover(DemandaExterna $demanda, bool $flush = false): void
@@ -90,5 +118,24 @@ class DemandaExternaRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * O código da assinatura do despacho que ainda não está em uso (D8): a partir do candidato (o instante em ms),
+     * o primeiro cujos 8 últimos dígitos, os que a assinatura mostra, nenhum despacho tem. Vale para todos os
+     * escritórios: o código identifica a assinatura, não a demanda.
+     */
+    public function codigoDeDespachoLivre(int $candidato): int
+    {
+        $emUso = $this->getEntityManager()->createQuery(
+            'SELECT COUNT(x.id) FROM ' . DespachoDemanda::class . ' x WHERE MOD(x.codigo, :ciclo) = :curto',
+        )->setParameter('ciclo', DespachoDemanda::CICLO_DO_CODIGO);
+        $codigo = $candidato;
+        // Colidir é raro (dois despachos no mesmo milissegundo do ciclo): quase sempre uma consulta só.
+        while ((int) $emUso->setParameter('curto', $codigo % DespachoDemanda::CICLO_DO_CODIGO)->getSingleScalarResult() > 0) {
+            ++$codigo;
+        }
+
+        return $codigo;
     }
 }

@@ -13,8 +13,8 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 /**
  * Registra o aceite da versão vigente dos Termos de Uso.
  *
- * Idempotente: se o usuário já aceitou a versão vigente, não cria registro duplicado
- * (também protegido pelo índice único user+versao). Agnóstico de framework — recebe
+ * Idempotente: se o usuário já aceitou a versão vigente, de qualquer origem, não cria registro
+ * duplicado (o índice único é user+versao+origem). Agnóstico de framework — recebe
  * apenas primitivos/entidades, nunca a Request.
  */
 final class RegistrarAceiteTermoUseCase
@@ -38,6 +38,7 @@ final class RegistrarAceiteTermoUseCase
             ip: $input->ip,
             userAgent: $input->userAgent,
             tenant: $input->tenant,
+            origem: $input->origem,
         );
 
         try {

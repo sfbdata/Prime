@@ -225,7 +225,7 @@ final class PastaEncaminharRegistrosTelaTest extends JusPrimeWebTestCase
         $menu = $crawler->filter("#financeiro-doc-{$id} > .ps-fin-doc-acoes > #financeiro-doc-menu-{$id}");
         self::assertCount(1, $menu);
         self::assertSame(
-            ['Abrir', 'Baixar', 'Copiar nome do arquivo', self::ROTULO, 'Renomear', 'Enviar por e-mail ao cliente', 'Ver em Documentos', 'Excluir'],
+            ['Abrir', 'Baixar', 'Copiar nome do arquivo', self::ROTULO, 'Renomear', 'Marcar como assinado', 'Enviar por e-mail ao cliente', 'Ver em Documentos', 'Excluir'],
             $this->rotulos($menu->filter("#financeiro-doc-menu-{$id} > .ps-fin-menu-item")),
         );
         $item = $menu->filter("#financeiro-doc-menu-{$id} > .js-fin-doc-copiar-nome + button.ps-fin-menu-item.js-encaminhar[role=\"menuitem\"]");

@@ -15,12 +15,16 @@ namespace App\Dashboard\Preferencia;
  *   - tempo_medio      → dias entre `Tarefa.dataCriacao` e `Tarefa.dataConclusao`, só nas
  *                        concluídas que TÊM data de conclusão (as do legado não têm);
  *   - pastas_urgentes  → `Pasta.prioridade = urgente`, por responsável, no período;
+ *   - pastas_concluidas → `Pasta.finalizadaEm` no período, por responsável ("Demandas encerradas
+ *                        no período" do desenho, lida como pastas que chegaram à etapa Finalizada
+ *                        do andamento no período; spec dashboard-parte-1): voltar de fase ou
+ *                        reativar tira da conta, pasta excluída não conta;
  *   - eventos_agenda   → `Evento` visível à equipe em que a pessoa é criadora ou participante,
- *                        no período.
+ *                        no período;
+ *   - relatorio        → registros por autor em Dados da pasta, Financeiro e Detalhes, no
+ *                        período (chave `comentarios` no desenho; spec dashboard-parte-1).
  *
- * "Pastas concluídas" (do desenho) NÃO está aqui: a pasta só tem ativo/arquivado, não existe
- * "concluída" — sem lastro (pendencias-pos-documentos, item 17). "Relatório" (comentários) também
- * não: depende de decisão do dono (zerar relatório).
+ * O "zerar" das colunas não está aqui (DASH-014, fatia seguinte).
  *
  * A ordem do catálogo é a ordem da lista "Adicionar coluna" no menu (a do desenho). A ordem das
  * colunas NA TABELA é a da preferência do usuário: cada "+" acrescenta no fim.
@@ -35,7 +39,9 @@ final class ColunasExtrasDoDashboard
     public const METAS_REVISAO    = 'metas_revisao';
     public const TEMPO_MEDIO      = 'tempo_medio';
     public const PASTAS_URGENTES  = 'pastas_urgentes';
+    public const PASTAS_CONCLUIDAS = 'pastas_concluidas';
     public const EVENTOS_AGENDA   = 'eventos_agenda';
+    public const RELATORIO        = 'relatorio';
 
     public const TIPO_SOMA = 'soma';
     public const TIPO_PCT  = 'pct';
@@ -78,11 +84,23 @@ final class ColunasExtrasDoDashboard
             'tipo'   => self::TIPO_SOMA,
             'nota'   => '',
         ],
+        self::PASTAS_CONCLUIDAS => [
+            'rotulo' => 'Pastas concluídas',
+            'ajuda'  => 'Demandas encerradas no período',
+            'tipo'   => self::TIPO_SOMA,
+            'nota'   => 'Pastas arquivadas no período em que a pessoa é a responsável; desarquivar tira da conta e pasta excluída não conta. As arquivadas antes de o sistema registrar a data do arquivamento, sem registro de quando foi, ficam fora.',
+        ],
         self::EVENTOS_AGENDA => [
             'rotulo' => 'Eventos na agenda',
             'ajuda'  => 'Compromissos no período',
             'tipo'   => self::TIPO_SOMA,
             'nota'   => 'Eventos visíveis à equipe (não os "somente eu") em que a pessoa é criadora ou participante, pela data de início; cancelados ficam fora. Evento recorrente conta uma vez, pela ocorrência-base (a data de início dele), não por repetição.',
+        ],
+        self::RELATORIO => [
+            'rotulo' => 'Relatório',
+            'ajuda'  => 'Registros em Dados da pasta, Financeiro e Detalhes',
+            'tipo'   => self::TIPO_SOMA,
+            'nota'   => 'Registros escritos pela pessoa no período, respostas incluídas; editar não conta de novo e os avisos automáticos do sistema ficam fora.',
         ],
     ];
 
@@ -92,25 +110,42 @@ final class ColunasExtrasDoDashboard
      * de mesma duração, com a mesma consulta trocando só as datas (DASH-010):
      *   - eventos: a data de início do evento é um fato do passado; neutro, sempre cinza
      *     ('fila'; desenho `neutra`).
+     *   - relatório: a data de criação do registro é um fato do passado; subir é bom ('alta',
+     *     o padrão do desenho para quem não é `neutra` nem SOBE_RUIM; spec dashboard-parte-1).
+     *   - pastas concluídas: a data do arquivamento cai no período em que aconteceu; subir é bom
+     *     ('alta', o desenho não a marca `neutra` nem `sobeRuim`). Desarquivar tira a pasta do
+     *     período em que ela tinha sido arquivada, nos dois lados da comparação.
      *
-     * Ficam SEM tendência (DASH-010b), com o espaço da seta reservado como nas de estoque:
-     *   - Em revisão e Pastas urgentes: são estoque (o que está em revisão/urgente agora), não
-     *     se reconstroem do passado sem a foto diária;
-     *   - Metas concluídas, Taxa de conclusão e Tempo médio: recortam as metas pela data de
-     *     CRIAÇÃO, mas leem o status/conclusão de HOJE. As metas do período anterior tiveram
-     *     mais tempo para concluir, então a comparação nasce enviesada: concluídas e taxa
-     *     tenderiam a "cair" e o tempo médio anterior sairia maior, sem nada ter mudado no
-     *     trabalho. É o mesmo motivo pelo qual "ativas" nunca teve seta — o estado de hoje não
-     *     reconstrói o de ontem.
-     *
-     * PENDENTE (decisão do Samuel): o critério certo para comparar essas três — por exemplo,
-     * metas concluídas DENTRO da janela por `Tarefa.dataConclusao`, com o mesmo recorte no
-     * período anterior. Até lá, sem seta: o painel não mostra comparação que ele sabe torta.
+     * Ficam SEM seta, com o espaço reservado:
+     *   - Metas concluídas, Taxa de conclusão e Tempo médio (DASH-010b, SEGURADAS no PR-E): recortam
+     *     as metas pela data de CRIAÇÃO mas leem o status/conclusão de HOJE. As metas do período
+     *     anterior tiveram mais tempo para concluir, então o anterior sai maior e a seta mente
+     *     (concluídas e taxa "caem", o tempo médio anterior sai maior, sem nada ter mudado no
+     *     trabalho). Seta que mente é pior que ausente. Só destrava com critério por data de
+     *     CONCLUSÃO (`Tarefa.dataConclusao` dentro da janela, o mesmo recorte no anterior):
+     *     decisão do dono, pendente (spec dashboard-parte-1).
+     *   - Em revisão e Pastas urgentes: estoque, com seta própria pela foto diária. Ver ESTOQUE_COM_FOTO.
      *
      * @var array<string, string>
      */
     public const TENDENCIA = [
-        self::EVENTOS_AGENDA => 'fila',
+        self::PASTAS_CONCLUIDAS => 'alta',
+        self::EVENTOS_AGENDA    => 'fila',
+        self::RELATORIO         => 'alta',
+    ];
+
+    /**
+     * Extras de ESTOQUE com seta pela foto diária (`dashboard_foto`, PR-F) e o sentido do desenho:
+     * Em revisão é `neutra` ('fila') e Pastas urgentes é `sobeRuim` ('baixa'). Chave => coluna da foto.
+     * O anterior é a foto de `data_de − 1`; o atual é o mesmo estoque lido agora (sem período), a mesma
+     * régua da foto. Sem foto (ou com a coluna NULL, de antes do PR-F), sem seta: nada é inventado.
+     * Metas ativas e Demandas ativas (colunas fixas, `neutra`) seguem a mesma regra.
+     *
+     * @var array<string, array{sentido: string, foto: string}>
+     */
+    public const ESTOQUE_COM_FOTO = [
+        self::METAS_REVISAO   => ['sentido' => 'fila', 'foto' => 'metas_em_revisao'],
+        self::PASTAS_URGENTES => ['sentido' => 'baixa', 'foto' => 'pastas_urgentes'],
     ];
 
     /**

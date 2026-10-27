@@ -37,9 +37,11 @@ final class MapaDeAtuacao
      * @param list<array{id: int, cidade: ?string, estado: ?string}>                                                                                                              $escritorios
      * @param list<array{saiuEm: string, eraPrimario: bool, tenantId: int, userId: ?int, oabUf: ?string, estado: ?string}>                                                      $saidas      as dos últimos 60 dias
      *
-     * @return array{pessoas: array{geral: array<string, mixed>, prim: array<string, mixed>}, escritorios: array<string, mixed>, exterior: int, paises: list<mixed>}
+     * @param list<array{indicadorId: int, enviada: bool, virouConta: bool}>                                                                                                    $indicacoes  modo Indicações: no local de quem indicou
+     *
+     * @return array{pessoas: array{geral: array<string, mixed>, prim: array<string, mixed>}, escritorios: array<string, mixed>, indicacoes: array<string, mixed>, exterior: int, paises: list<mixed>}
      */
-    public static function montar(array $pessoas, array $escritorios, \DateTimeImmutable $hoje, array $saidas = []): array
+    public static function montar(array $pessoas, array $escritorios, \DateTimeImmutable $hoje, array $saidas = [], array $indicacoes = []): array
     {
         $estadoPorEscritorio = [];
         foreach ($escritorios as $e) {
@@ -64,10 +66,61 @@ final class MapaDeAtuacao
                 'prim'  => self::contarPessoas($pessoas, $locais, self::saidasValidas($saidas, $ativos, true), true, $hoje),
             ],
             'escritorios' => self::contarEscritorios($escritorios),
+            'indicacoes'  => self::contarIndicacoes($pessoas, $locais, $indicacoes),
             // Escritório não tem país no cadastro: todo mundo está no Brasil até existir o dado.
             'exterior' => 0,
             'paises'   => [],
         ];
+    }
+
+    /**
+     * Modo Indicações (desenho 05 VS 25.10.26, L654-657): cada indicação conta no local de QUEM INDICOU, com a mesma
+     * {@see LocalizacaoDaPessoa} das pessoas. `env` são os envios, `ok` as que viraram conta e `pago` os R$ pagos em
+     * recompensas, que ficam em zero até existir o extrato de recompensas. Indicador sem local ou fora do mapa
+     * (sem vínculo ativo) não entra.
+     *
+     * @param list<array<string, mixed>>                                       $pessoas
+     * @param array<int, array{uf: string, cidade: string, fonte: string}|null> $locais
+     * @param list<array{indicadorId: int, enviada: bool, virouConta: bool}>   $indicacoes
+     *
+     * @return array{env: array{A: array<string, int>, C: array<string, array<string, int>>}, ok: array{A: array<string, int>, C: array<string, array<string, int>>}, pago: array{A: array<string, int>, C: array<string, array<string, int>>}}
+     */
+    private static function contarIndicacoes(array $pessoas, array $locais, array $indicacoes): array
+    {
+        $localPorPessoa = [];
+        foreach ($pessoas as $i => $p) {
+            if (isset($p['id']) && $locais[$i] !== null) {
+                $localPorPessoa[$p['id']] = $locais[$i];
+            }
+        }
+
+        $contagem = ['env' => ['A' => [], 'C' => []], 'ok' => ['A' => [], 'C' => []], 'pago' => ['A' => [], 'C' => []]];
+        foreach ($indicacoes as $ind) {
+            $local = $localPorPessoa[$ind['indicadorId']] ?? null;
+            if ($local === null) {
+                continue;
+            }
+            foreach (['env' => $ind['enviada'], 'ok' => $ind['virouConta']] as $tipo => $conta) {
+                if ($conta) {
+                    self::somar($contagem[$tipo], $local);
+                }
+            }
+        }
+
+        return $contagem;
+    }
+
+    /**
+     * @param array{A: array<string, int>, C: array<string, array<string, int>>} $bloco
+     * @param array{uf: string, cidade: string, fonte: string}                    $local
+     */
+    private static function somar(array &$bloco, array $local): void
+    {
+        $uf = $local['uf'];
+        $bloco['A'][$uf] = ($bloco['A'][$uf] ?? 0) + 1;
+        if ($local['cidade'] !== '') {
+            $bloco['C'][$uf][$local['cidade']] = ($bloco['C'][$uf][$local['cidade']] ?? 0) + 1;
+        }
     }
 
     /**

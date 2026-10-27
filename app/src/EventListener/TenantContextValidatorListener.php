@@ -30,6 +30,14 @@ final class TenantContextValidatorListener
 {
     private const ROTAS_IGNORADAS = [
         'app_login',
+        // Entrar com o Google: a ida e a volta acontecem antes de haver escritório ou aceite.
+        'app_login_google',
+        'app_login_google_volta',
+        // Continuar com Facebook (PR B): a ida e a volta também acontecem antes de haver escritório ou aceite.
+        'app_login_facebook',
+        'app_login_facebook_volta',
+        // Conferência ao vivo do cupom do Criar conta (spec login-cupom-ao-vivo): pública, vale a anônimo e a logado sem escritório.
+        'auth_cadastro_cupom_conferir',
         'app_logout',
         'tenant_selecionar',
         // Criar escritório não exige tenant ativo — quem tem 0 escritórios precisa
@@ -66,6 +74,7 @@ final class TenantContextValidatorListener
         'trabalho_externo_vagas_publicas',
         'trabalho_externo_vagas_link',
         'trabalho_externo_vagas_alertas',
+        'vagas_publicas_cta',
         // Indicar o BlueJus (spec indicar-bluejus.md): o menu oferece a janela a todo logado, com ou sem
         // escritório (o Convidado do Trabalho Externo também). O dado é da pessoa, sem tenant; o controller só
         // usa o escritório da sessão com vínculo ativo, conferido por ele mesmo.
@@ -73,6 +82,14 @@ final class TenantContextValidatorListener
         'indicacao_email',
         'indicacao_canal',
     ];
+
+    /**
+     * Rotas que passam SEM escritório na sessão, mas que, com escritório, enfrentam as barreiras de sempre (conta
+     * suspensa, vínculo removido, em análise). A janela "Como devemos tratar você?" (spec genero-no-cadastro, D2)
+     * aparece também na seleção de escritório e para o Convidado do Trabalho Externo; os POSTs dela só gravam o gênero
+     * do próprio usuário (getUser()), dado da pessoa, sem tenant.
+     */
+    private const ROTAS_SEM_ESCRITORIO = ['app_profile_genero', 'app_profile_genero_fechar'];
 
     /**
      * Prefixo de rotas que funcionam SEM escritório: o Trabalho Externo atende o Convidado, que só
@@ -120,7 +137,7 @@ final class TenantContextValidatorListener
             }
             // Só no ramo SEM escritório: com escritório na sessão, o vínculo continua conferido
             // abaixo, para o Trabalho Externo também.
-            if (str_starts_with($route, self::PREFIXO_SEM_ESCRITORIO)) {
+            if (str_starts_with($route, self::PREFIXO_SEM_ESCRITORIO) || in_array($route, self::ROTAS_SEM_ESCRITORIO, true)) {
                 return;
             }
 

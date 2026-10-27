@@ -18,7 +18,13 @@ security:
             lazy: true
             provider: app_user_provider
             user_checker: App\Security\UserChecker
-            custom_authenticator: App\Security\UserAuthenticator
+            # Senha (formulário), "Entrar com o Google" (spec entrar-com-google) e "Continuar com Facebook". Os dois estendem
+            # AbstractAuthenticator puro: só o formulário é ponto de entrada.
+            custom_authenticators:
+                - App\Security\UserAuthenticator
+                - App\Security\GoogleAuthenticator
+                - App\Security\FacebookAuthenticator
+            entry_point: App\Security\UserAuthenticator
             login_throttling:
                 max_attempts: 5
                 interval: '15 minutes'
@@ -31,6 +37,9 @@ security:
                 samesite: lax
             logout:
                 path: app_logout
+                # Sem o token, qualquer site derrubava a sessão (e o lembrar-me) com um GET para /logout.
+                # O id `logout` é stateless (csrf.yaml): vale pela origem da requisição. Link de sair: logout_path('main').
+                enable_csrf: true
 
     access_control:
         # Criação de escritório: exclusivo para SuperAdmin (liberação manual por enquanto)
@@ -53,6 +62,7 @@ security:
         - { path: ^/email/descadastro, roles: PUBLIC_ACCESS }  # "Não quero mais receber estes avisos": link assinado, sem login
         - { path: ^/e/a/,             roles: PUBLIC_ACCESS }  # Comercial: pixel de abertura dos e-mails (sem login, sem sessão)
         - { path: ^/e/c/,             roles: PUBLIC_ACCESS }  # Comercial: link rastreado dos e-mails (assinado; sem login)
+        - { path: ^/e/i/,             roles: PUBLIC_ACCESS }  # Comercial: imagem da campanha do modo simples (token; sem login, sem sessão)
         - { path: ^/e/confirmar/,     roles: PUBLIC_ACCESS }  # Comercial: confirmação de endereço (double opt-in; GET mostra, POST grava)
 
         # A partir daqui: apenas usuário autenticado.

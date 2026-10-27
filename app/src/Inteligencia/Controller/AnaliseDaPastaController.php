@@ -10,6 +10,7 @@ use App\Inteligencia\DTO\SolicitarAnaliseDaPastaInput;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\Disponibilidade;
+use App\Inteligencia\Exception\AceiteDesatualizadoException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
@@ -46,8 +47,10 @@ use Symfony\Component\Routing\Attribute\Route;
  *                                                      lista de documentos do "Índice inteligente", F4)
  *   POST /pasta/{id}/ia/comandos/{comando}/analises  → 202 {id, status, …} | 200 se devolveu a última ("nada novo")
  *                                                      409 {motivo, mensagem} indisponível/bloqueado/sem dados · 429 cota/ritmo · 503 fila
- *                                                      `documentos[]` (ids): só no `indice_documentos`; vazio ou fora
- *                                                      da lista → 422 `selecao_invalida`, sem gastar o limitador
+ *                                                      `documentos[]` (ids): só no `indice_documentos` e no `ler_documentos`;
+ *                                                      vazio ou fora da lista → 422 `selecao_invalida`; no `ler_documentos`,
+ *                                                      fora dos limites → 422 `limite_da_leitura` e aceite anterior ao texto
+ *                                                      que cita os documentos → 409 `aceite_desatualizado`; nada disso gasta o limitador
  *   GET  /pasta/{id}/ia/comandos/{comando}/analises  → fragmento `inteligencia/_analises_comando.html.twig`
  *   POST /pasta/{id}/ia/agentes/{agente}/analises    → idem, por agente (rotas anteriores aos comandos, mantidas)
  *   GET  /pasta/{id}/ia/agentes/{agente}/analises    → fragmento `inteligencia/_analises_agente.html.twig`
@@ -143,9 +146,7 @@ final class AnaliseDaPastaController extends AbstractController
             $status = $e->motivo->ehLimiteDeCota() ? Response::HTTP_TOO_MANY_REQUESTS : Response::HTTP_CONFLICT;
 
             return $this->recusa($e->motivo->codigoDaRecusa(), $e->motivo->mensagem(), $status);
-        } catch (ContextoBloqueadoException $e) {
-            return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT);
-        } catch (ContextoVazioException $e) {
+        } catch (ContextoBloqueadoException|ContextoVazioException|AceiteDesatualizadoException $e) {
             return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT);
         } catch (FilaIndisponivelException $e) {
             return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_SERVICE_UNAVAILABLE);
@@ -204,7 +205,7 @@ final class AnaliseDaPastaController extends AbstractController
     }
 
     /**
-     * Os `documentos[]` do POST, só para o comando da aba Documentos (F4); nos outros, ignorados.
+     * Os `documentos[]` do POST, só para os comandos da aba Documentos (Índice, F4, e Ler, PR F); nos outros, ignorados.
      * Um valor solto (não lista) vira lista de um: a validação do UseCase recusa o que não for id.
      *
      * @return list<mixed>

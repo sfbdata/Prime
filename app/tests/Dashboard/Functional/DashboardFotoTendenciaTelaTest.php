@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Dashboard\Functional;
 
 use App\Dashboard\Controller\DashboardController;
+use App\Dashboard\Preferencia\CatalogoDePreferenciasDoDashboard;
 use App\Dashboard\Repository\DashboardFotoRepository;
+use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -16,7 +18,8 @@ use Symfony\Component\DomCrawler\Crawler;
 /**
  * Tendência de Vencidas e Prazos próximos na linha de Total: a pílula só aparece quando existe
  * a foto diária de `data_de − 1` para as pessoas da tela, e a cor segue o significado do
- * README — cair é verde. Metas/Demandas ativas NÃO têm pílula nem com foto: o painel as filtra
+ * README — cair é verde. Metas/Demandas ativas (neutras, cinza) também comparam com a foto (PR-F): o atual é o
+ * estoque de hoje, sem período, porque o painel recorta a célula
  * por criação no período e a foto guarda o estoque inteiro (bases diferentes).
  *
  * Período fixo de setembro/2026 → a foto procurada é a de 31/08/2026. Nada nestes cenários
@@ -70,17 +73,19 @@ final class DashboardFotoTendenciaTelaTest extends DashboardWebTestCase
             self::assertCount(1, $tds->eq($i)->filter('td > .db-total-cel > .db-total-num + .db-tend'), 'pílula na coluna ' . $i);
             self::assertCount(0, $tds->eq($i)->filter('.db-total-espaco'), 'sem espaçador quando há pílula (coluna ' . $i . ')');
         }
-        foreach ([self::ATIVAS, self::DEMANDAS_ATIVAS] as $i) {
-            self::assertCount(0, $tds->eq($i)->filter('.db-tend'), 'ativas sem tendência, mesmo com foto (coluna ' . $i . ')');
-            self::assertCount(1, $tds->eq($i)->filter('.db-total-espaco'));
+        // Ativas (PR-F): neutras, cinza, estoque de hoje (0) contra a foto (10 e 4 por pessoa, 2 pessoas).
+        foreach ([self::ATIVAS => '20 → 0', self::DEMANDAS_ATIVAS => '8 → 0'] as $i => $de) {
+            $pilula = $tds->eq($i)->filter('td > .db-total-cel > .db-total-num + .db-tend.db-tend--igual[data-tendencia="desce"]');
+            self::assertCount(1, $pilula, 'ativas neutras com foto (coluna ' . $i . ')');
+            self::assertStringContainsString('(' . $de . ')', (string) $pilula->attr('title'));
         }
 
         // Vencidas: 10 → 0 caiu, e cair é bom.
         self::assertStringContainsString('db-tend--bom', (string) $tds->eq(self::VENCIDAS)->filter('.db-tend')->attr('class'));
         self::assertStringContainsString('(10 → 0)', (string) $tds->eq(self::VENCIDAS)->filter('.db-tend')->attr('title'));
 
-        // Celular: o card de Total leva 5 pílulas (3 reconstruíveis + Vencidas + Prazos).
-        self::assertCount(5, $crawler->filter('.db-cel-card--total .db-tend'));
+        // Celular: o card de Total leva 7 pílulas (3 reconstruíveis + Vencidas + Prazos + as duas ativas).
+        self::assertCount(7, $crawler->filter('.db-cel-card--total .db-tend'));
     }
 
     #[TestDox('sem foto naquele dia, Vencidas e Prazos ficam sem pílula (só o espaçador)')]
@@ -179,8 +184,11 @@ final class DashboardFotoTendenciaTelaTest extends DashboardWebTestCase
         $praz = $this->celula($crawler, 'Ana Estoque', 'prazos');
         self::assertCount(1, $praz->filter('td > .db-cel.db-cel--seta > .db-num + .db-seta.db-seta--vazia'));
 
-        // Ativas seguem sem seta, mesmo com foto (bases diferentes).
-        self::assertCount(0, $this->celula($crawler, 'Ana Estoque', 'metas_ativas')->filter('.db-seta'));
+        // Ativas (neutras): estoque de hoje (0) contra a foto (10): seta cinza para baixo.
+        $ativas = $this->celula($crawler, 'Ana Estoque', 'metas_ativas')->filter('td > .db-cel.db-cel--seta > .db-num + .db-seta.db-seta--igual');
+        self::assertCount(1, $ativas);
+        self::assertSame('desce', $ativas->attr('data-tendencia'));
+        self::assertStringContainsString('(10 → 0)', (string) $ativas->attr('aria-label'));
 
         // Celular: o mesmo bloco ganha a seta ao lado do número.
         $bloco = $this->blocoDoCard($crawler, 'Ana Estoque', 'metas_vencidas');
@@ -253,11 +261,74 @@ final class DashboardFotoTendenciaTelaTest extends DashboardWebTestCase
         [$gestora, $tenant] = $this->criarGestorLogado($client);
         $this->fotografar($tenant, self::VESPERA, [(int) $gestora->getId()]);
 
-        $crawler = $client->xmlHttpRequest('GET', '/dashboard');
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?data_de=&data_ate=');
         self::assertResponseIsSuccessful();
 
         self::assertCount(0, $crawler->filter('table > tfoot .db-tend'));
         self::assertCount(0, $crawler->filter('.db-cel-card--total .db-tend'));
         self::assertCount(0, $crawler->filter('table.db-table > tbody .db-seta'), 'nem seta nas linhas');
+    }
+
+    /** @param int[] $userIds */
+    private function fotografarComLastro(Tenant $tenant, string $dia, array $userIds, ?int $revisao, ?int $urgentes): void
+    {
+        $contagens = [];
+        foreach ($userIds as $id) {
+            $contagens[$id] = ['metas_ativas' => 0, 'demandas_ativas' => 0, 'metas_vencidas' => 0, 'prazos_proximos' => 0, 'metas_em_revisao' => $revisao, 'pastas_urgentes' => $urgentes, 'metas_total' => 0];
+        }
+        static::getContainer()->get(DashboardFotoRepository::class)->gravar($tenant, new \DateTimeImmutable($dia), $contagens);
+    }
+
+    private function ligarExtras(Tenant $tenant, \App\Entity\Auth\User $usuario): void
+    {
+        static::getContainer()->get(PreferenciaDoUsuarioRepository::class)->gravar($tenant, $usuario, CatalogoDePreferenciasDoDashboard::COLUNAS_EXTRAS, ['metas_revisao', 'pastas_urgentes']);
+    }
+
+    #[TestDox('PR-F: Em revisão (neutra) e Pastas urgentes (cair é bom) ganham seta na linha, pílula no Total e bloco no celular quando a foto tem o lastro')]
+    public function testSetasDeRevisaoEUrgentesComLastro(): void
+    {
+        $client             = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        $ana                = $this->criarColaborador($tenant, 'Ana Estoque');
+        $this->ligarExtras($tenant, $gestora);
+        $this->fotografarComLastro($tenant, self::VESPERA, [(int) $gestora->getId(), (int) $ana->getId()], 6, 3);
+
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?' . self::PERIODO);
+        self::assertResponseIsSuccessful();
+
+        $rev = $this->celula($crawler, 'Ana Estoque', 'metas_revisao')->filter('td > .db-cel.db-cel--seta > .db-num + .db-seta.db-seta--igual[data-tendencia="desce"]');
+        self::assertCount(1, $rev, 'Em revisão: neutra, cinza');
+        self::assertStringContainsString('(6 → 0)', (string) $rev->attr('aria-label'));
+        $urg = $this->celula($crawler, 'Ana Estoque', 'pastas_urgentes')->filter('td > .db-cel.db-cel--seta > .db-num + .db-seta.db-seta--bom[data-tendencia="desce"]');
+        self::assertCount(1, $urg, 'Pastas urgentes: cair é bom, verde');
+        self::assertStringContainsString('(3 → 0)', (string) $urg->attr('aria-label'));
+
+        $tds = $crawler->filter('table > tfoot > tr.db-total-row > td');
+        self::assertCount(1, $tds->filter('td[data-coluna="metas_revisao"] .db-tend.db-tend--igual'));
+        self::assertStringContainsString('(12 → 0)', (string) $tds->filter('td[data-coluna="metas_revisao"] .db-tend')->attr('title'));
+        self::assertCount(1, $tds->filter('td[data-coluna="pastas_urgentes"] .db-tend.db-tend--bom'));
+        self::assertGreaterThanOrEqual(1, $crawler->filter('.db-cel-lista .db-cel-bloco--extra[data-coluna="pastas_urgentes"] .db-seta--bom')->count());
+        self::assertCount(1, $crawler->filter('.db-cel-card--total .db-cel-bloco--extra[data-coluna="metas_revisao"] .db-tend'));
+    }
+
+    #[TestDox('PR-F: foto de antes do lastro (colunas NULL) ou sem foto: Em revisão e Pastas urgentes sem seta e sem pílula, só o espaçador no Total; nunca zero inventado')]
+    public function testRevisaoEUrgentesSemLastroSemSeta(): void
+    {
+        $client             = static::createClient();
+        [$gestora, $tenant] = $this->criarGestorLogado($client);
+        $ana                = $this->criarColaborador($tenant, 'Ana Estoque');
+        $this->ligarExtras($tenant, $gestora);
+        $this->fotografarComLastro($tenant, self::VESPERA, [(int) $gestora->getId(), (int) $ana->getId()], null, null);
+
+        $crawler = $client->xmlHttpRequest('GET', '/dashboard?' . self::PERIODO);
+        self::assertResponseIsSuccessful();
+
+        foreach (['metas_revisao', 'pastas_urgentes'] as $coluna) {
+            self::assertCount(0, $this->celula($crawler, 'Ana Estoque', $coluna)->filter('.db-seta'), $coluna);
+            self::assertCount(0, $crawler->filter('table > tfoot td[data-coluna="' . $coluna . '"] .db-tend'), $coluna);
+            self::assertCount(1, $crawler->filter('table > tfoot td[data-coluna="' . $coluna . '"] .db-total-espaco'), $coluna);
+        }
+        // irmã: as ativas, que a foto antiga já guardava, seguem com seta
+        self::assertCount(1, $this->celula($crawler, 'Ana Estoque', 'metas_ativas')->filter('.db-seta'));
     }
 }

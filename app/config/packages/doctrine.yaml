@@ -69,6 +69,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Contribua/Entity'
                 prefix: 'App\Contribua\Entity'
                 alias: AppContribua
+            AppServiceDesk:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/ServiceDesk/Entity'
+                prefix: 'App\ServiceDesk\Entity'
+                alias: AppServiceDesk
             AppExpediente:
                 type: attribute
                 is_bundle: false
@@ -148,12 +154,26 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Indicacao/Entity'
                 prefix: 'App\Indicacao\Entity'
                 alias: AppIndicacao
+            # Recompensas do Master (docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md): dado de plataforma, sem tenant.
+            AppRecompensa:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Recompensa/Entity'
+                prefix: 'App\Recompensa\Entity'
+                alias: AppRecompensa
             AppDashboard:
                 type: attribute
                 is_bundle: false
                 dir: '%kernel.project_dir%/src/Dashboard/Entity'
                 prefix: 'App\Dashboard\Entity'
                 alias: AppDashboard
+            # P2.3: só a tabela da outbox da réplica do espelho (armazenamento_replicacao).
+            AppEspelhoRemoto:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Shared/EspelhoRemoto/Entity'
+                prefix: 'App\Shared\EspelhoRemoto\Entity'
+                alias: AppEspelhoRemoto
             AppTrabalhoExterno:
                 type: attribute
                 is_bundle: false
@@ -172,6 +192,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Comercial/Entity'
                 prefix: 'App\Comercial\Entity'
                 alias: AppComercial
+            # Metas: o contador da sequência por escritório (a Tarefa em si ainda mora no legado src/Entity).
+            AppTarefa:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Tarefa/Entity'
+                prefix: 'App\Tarefa\Entity'
+                alias: AppTarefa
             # Descadastro de e-mail reaproveitável (spec push-avisar-quando-chegar D3): mora em Shared.
             AppSharedEmailDescadastro:
                 type: attribute
@@ -179,6 +206,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Shared/Email/Descadastro/Entity'
                 prefix: 'App\Shared\Email\Descadastro\Entity'
                 alias: AppSharedEmailDescadastro
+            # Falhas das tarefas agendadas (spec scheduler-tarefas-agendadas, "Aviso de falha"): dado do sistema.
+            AppSharedScheduler:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Shared/Scheduler/Entity'
+                prefix: 'App\Shared\Scheduler\Entity'
+                alias: AppSharedScheduler
         controller_resolver:
             auto_mapping: false
         dql:

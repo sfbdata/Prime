@@ -67,7 +67,9 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     (`action = 'despacho'`, entidade Pasta) só com tipo, item_id, conversa_id e prioridade, nunca texto. Abrir a 1:1,
     mensagem, avisos e auditoria numa transação só (`wrapInTransaction` do UseCase, flush dele). Pasta excluída = 404.
     Conversa sem ninguém que receba é recusada (`todosVeem([])` é falso). Registro do Financeiro: quem envia e quem
-    recebe também passam por `VisibilidadeDoFinanceiroDaPasta::podeVer`.
+    recebe também passam por `VisibilidadeDoFinanceiroDaPasta::podeVer`, e a prévia (`/central/encaminhar/item`) também.
+    O cartão do sistema de pró-bono ou contrato no Registro de Dados vale como registro do Financeiro
+    (`ItensEncaminhaveisDaPasta::tipoDoAcesso`): o envio confere por esse tipo e o grava em `despacho_tipo`.
     **Na leitura:** a mensagem guarda a referência (`despacho_pasta_id`, `despacho_tipo`) e TODA saída do texto de
     mensagem (`MensagemOutput`, `RespostaOutput`) nasce em `LeituraDasMensagens`, que confere a pasta para quem lê
     naquela hora (memória só durante a leitura; pasta buscada com o escritório explícito). Não vê, pasta apagada ou
@@ -80,8 +82,10 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
 `nome` 1–60 e `administrador_id`) → `central_participante` (cursor `ultima_lida_id`, nunca recua; `marcada_nao_lida`
 à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (despacho do Encaminhar: `despacho_pasta_id` e `despacho_tipo`, conferidos na leitura, regra 13; índices `(conversa_id, id)` e
 `(tenant_id, criada_em)` da janela do polling; `resposta_a_id` só da MESMA conversa; `sistema` = linha "Ana adicionou
-Bruno", montada pelo servidor). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
+Bruno", montada pelo servidor; `de_ia` = fala do BlueJus IA, conta como de OUTRA pessoa). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
 do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.
+Tipo `ia` (F3, `docs/specs/ia-chat-central.md`): uma por (escritório, usuário), `menor = maior = o usuário`, só ele participa. **Invisível por ora:**
+lista, não lidas, novidades, contatos e `daConversa` excluem `tipo = ia` (abrir por id = 404) até o PR da tela.
 
 ## Tela
 

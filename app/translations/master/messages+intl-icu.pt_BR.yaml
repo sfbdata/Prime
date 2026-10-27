@@ -1,0 +1,1164 @@
+# ---- master: Painel do Master (master/painel.html.twig e painel.js), da série da b5. P2a: a moldura do painel (abas,
+# Permissões, Telas e recursos) e a Visão geral do painel.js (KPIs, gráfico, mapa, estados que faltam, seccionais e
+# janela da OAB), com as respostas das seccionais. P2b: as outras seções do painel.js, as recusas das seccionais, as
+# respostas das contas e dos planos e os rótulos da faixa etária e do tipo de divulgação; o Comercial da 5d tem
+# bloco de topo próprio (comercial:). P3: Central de Notificações, Indicações, masters.js, recursos.js e o mapa
+# mundial, com as respostas e recusas dos controllers deles. O termo solto ou numa frase curta vem de termos.* por
+# parâmetro.
+master:
+    painel:
+        titulo_pagina: 'Editar Perfil | {papel} do Sistema'
+        titulo: 'Editar Perfil: {papel} do Sistema'
+        voltar: Voltar
+        cancelar: Cancelar
+        aba:
+            painel: Painel do sistema
+            permissoes: Permissões
+            recursos: Telas e recursos
+            ia: Configurações da I.A.
+        faixa: Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.
+        carregando: Carregando o painel…
+        masters:
+            titulo: Masters do sistema
+            contagem: '{n} Master(s)'
+            tag: '{papel} {nivel}'
+            primario_dica: O Master primário não pode ser excluído
+            remover: Remover este Master
+            vazio: Nenhum usuário com o papel de Master.
+            oab: 'OAB {numero}'
+            sem_oab: sem OAB
+            sem_perfil: sem perfil
+            promover_titulo: 'Promover a {papel}'
+            promover_campo: Usuário secundário a promover a Master
+            promover_escolha: Escolha um usuário secundário da conta *
+            promover_info: Precisa estar cadastrado antes como usuário secundário.
+            promover_msg: Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e remoção vai para a auditoria.
+            promover: Promover
+        poderes:
+            titulo: Poderes exclusivos do Master
+            fixos_dica: Fixos, não podem ser removidos nem transferidos
+            ver_contas: Ver e administrar todas as contas do BlueJus
+            suspender: Suspender, reativar e excluir contas
+            limites: Definir limites de armazenamento e usuários
+            planos: Criar e alterar planos e franquias
+            configuracoes: Configurações globais do sistema
+            auditoria: Acessar toda a trilha de auditoria do sistema
+            masters: Promover e remover Masters secundários
+            sem_tempo: Sem restrição de tempo para editar ou excluir
+            rodape: Esses poderes só existem no perfil Master. Primários e secundários dos escritórios nunca os recebem.
+        papeis:
+            titulo: Atribuições por papel
+            faz: 'Faz:'
+            nao_faz: 'Não faz:'
+            master_quem: O criador do BlueJus (Master primário) e quem ele promover (Master secundário).
+            master_faz: 'administra a plataforma: contas, limites, planos, custos, infraestrutura, configurações globais e auditoria do sistema.'
+            master_nao_faz: não atua dentro dos escritórios nem lê o conteúdo jurídico das contas; não tem perfil de primário nem de secundário.
+            primario_quem: Quem abriu a conta (titular) e os sócios que ele promover.
+            primario_faz: 'gere o próprio escritório: convida e administra secundários, cria perfis, define permissões, configura módulos e audita a conta.'
+            primario_nao_faz: não vê nem altera outras contas, limites contratados ou configurações do sistema.
+            secundario_quem: Colaborador convidado pelo primário.
+            secundario_faz: trabalha nas pastas, processos e módulos liberados pelo seu perfil.
+            secundario_nao_faz: não administra usuários, perfis ou configurações, nem acessa o painel do sistema.
+            rodape: Cada papel tem competências separadas. O Master não recebe permissões de escritório e o primário não recebe poderes do sistema.
+        recursos:
+            titulo: Telas e recursos do sistema
+            texto: Desative uma tela ou função enquanto não estiver pronta, por regularidade ética ou por falha. Quem não é Master deixa de ver; o Master continua vendo, marcado em vermelho.
+            desativados: '{n} desativado(s) para os usuários'
+            tudo_ativo: Tudo ativo
+            busca: Buscar tela ou função
+    seccionais:
+        nao_encontrada: Seccional não encontrada.
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        subsecao_adicionada: 'Subseção adicionada na {seccional}.'
+        subsecao_removida: 'Subseção removida da {seccional}.'
+        nota_salva: 'Nota da {seccional} salva.'
+        nota_apagada: 'Nota da {seccional} apagada.'
+        nota_cidade_salva: 'Nota de {cidade} salva.'
+        nota_cidade_apagada: 'Nota de {cidade} apagada.'
+        sede_atualizada: 'Sede da {seccional} atualizada.'
+        divulgacao_registrada: 'Divulgação registrada na {seccional}: {status}.'
+        visivel: '{seccional} aparece no mapa.'
+        oculta: '{seccional} oculta no mapa.'
+        todas_visiveis: Todas as seccionais aparecem no mapa.
+        # P2b: as recusas dos UseCases das seccionais (a exceção leva a chave e os parâmetros; o português da
+        # constante RECUSA_* é o mesmo daqui, ver o CatalogoDasRecusasDoMasterTest). O limite vai como texto, sem
+        # separador de milhar ("1000"), como no sprintf de antes.
+        recusa:
+            status_de_divulgacao: Escolha o status da divulgação.
+            cor_da_marca: Escolha a cor da marca.
+            data_formato: Informe a data no formato dia, mês e ano.
+            data_no_futuro: A data da divulgação não pode ser no futuro.
+            nota_longa: 'A nota passa de {limite} caracteres.'
+            cidade_obrigatoria: Informe a cidade da subseção.
+            cidade_da_nota_obrigatoria: Informe a cidade da nota.
+            cidade_da_nota_fora_das_capitais: A nota por cidade vale só para a capital do estado.
+            visibilidade: Informe se a seccional aparece no mapa.
+            cidade_longa: 'A cidade passa de {limite} caracteres.'
+            endereco_obrigatorio: Informe o endereço da subseção.
+            nome_longo: 'O nome passa de {limite} caracteres.'
+            endereco_longo: 'O endereço passa de {limite} caracteres.'
+            telefone_longo: 'O telefone passa de {limite} caracteres.'
+            site_longo: 'O site passa de {limite} caracteres.'
+            site_sem_https: 'Informe o site completo, começando com http:// ou https://.'
+            subsecao_nao_encontrada: Subseção não encontrada.
+        # Rótulo do tipo de divulgação (TipoDeDivulgacao::rotulo() é o português).
+        tipo:
+            material: Material enviado
+            reuniao: Reunião
+            parceria: Parceria
+        # Rótulo do status da divulgação (StatusDaDivulgacao::rotulo() é o português; desenho 05 L902).
+        status:
+            env: Material enviado
+            vis: Reunião ou evento
+            neg: Em negociação
+            cli: Parceria firmada
+            ret: Retornar depois
+            sem: Convênio feito
+    # P2b: respostas do ContasDoSistemaController (suspender, reativar e excluir).
+    contas:
+        sessao_expirada: Sessão expirada. Recarregue a página.
+        suspensa: 'Conta "{nome}" suspensa.'
+        reativada: 'Conta "{nome}" reativada.'
+        excluida: 'Conta "{nome}" excluída. Fica em quarentena até a purga e pode ser recuperada pelo {papel}.'
+    # P2b: respostas do PlanosELimitesController (a sessão expirada é contas.sessao_expirada).
+    planos:
+        informe_espaco_e_preco: Informe o espaço em GB e o preço em reais.
+        plano_atualizado: 'Plano "{nome}" atualizado.'
+        faixas_atualizadas: Faixas de alerta atualizadas.
+        limite_arm_atualizado: Limite de armazenamento atualizado.
+        limite_usu_atualizado: Limite de usuários atualizado.
+    # P2b: rótulo das faixas etárias da Visão geral (FaixaEtaria::FAIXAS é o português), traduzido no
+    # PainelMasterDadosController.
+    faixa_etaria:
+        intervalo: '{min} a {max}'
+        ou_mais: '{min} ou +'
+    # Mapa do Brasil do iframe (master/mapa_brasil.html.twig e mapa-brasil.js): vão cruas ao navegador (só {nome}).
+    # Nomes de estado ficam em português (dado, decisão do dono).
+    mapa_brasil:
+        titulo: Mapa do Brasil por estado
+        carregando_mapa: Carregando mapa…
+        carregando_municipios: Carregando municípios…
+        voltar: Voltar ao mapa do Brasil
+        regiao_sub: 'Região {regiao}'
+        regiao:
+            norte: Norte
+            nordeste: Nordeste
+            centro_oeste: Centro-Oeste
+            sudeste: Sudeste
+            sul: Sul
+        pessoas: '{n} usuário(s)'
+        inscricoes: '{n} inscrição(ões)'
+        ind_env: '{n} indicação(ões) enviada(s)'
+        ind_ok: '{n} conta(s) aberta(s)'
+        ind_pago: 'R$ {n} pagos'
+        municipios: '{n} municípios'
+        municipio: Município
+        cidade_nao_informada: Cidade não informada
+        cidades_vazias: Cidades ainda não informadas no cadastro.
+        sem_usuarios_estado: Nenhum usuário neste estado. Oportunidade de expansão.
+        sem_usuarios: sem usuários
+        sem_atuacao: sem atuação
+        dica_estado: ' · clique para detalhar · botão direito para marcar'
+        dica_estado_oab: ' · clique para detalhar · botão direito para registrar a divulgação'
+        erro_municipios: Não foi possível carregar os municípios do IBGE agora.
+        erro_mapa: Não foi possível carregar o mapa do IBGE agora.
+        arraste: Arraste para mover
+        aproximar: Aproximar
+        afastar: Afastar
+        ajustar: Ajustar ao mapa
+        marcar_municipio: MARCAR MUNICÍPIO
+        marcar_estado: MARCAR ESTADO
+        remover_marcacao: Remover marcação
+        sec_nome: 'OAB/{uf} · {estado}'
+        sec_titulo: 'OAB/{uf} · {estado} · sem divulgação registrada'
+        sec_titulo_marca: 'OAB/{uf} · {estado} · {status} em {data}'
+        registrar: Registrar divulgação
+        registrar_botao: Registrar
+        data: Data da divulgação
+        registrando: Registrando…
+        erro_registrar: Não foi possível registrar agora. Recarregue a página.
+    # P3: Central de Notificações (master/_notificacoes) e as recusas do CentralDeNotificacoesController, a do UseCase
+    # pela chave da RespostaRecusada. O conteúdo da caixa (tipo, remetente, assunto e texto) vem dos leitores, em
+    # português (spec §8).
+    notificacoes:
+        selecionar: Selecionar
+        atualizar: Atualizar
+        marcar_lida: Marcar como lida
+        nao_lida: Não lida
+        arquivar: Arquivar
+        selecionadas: selecionada(s)
+        buscar: Buscar mensagem
+        pagina_vazia: 0 de 0
+        mais_novas: Mais novas
+        mais_antigas: Mais antigas
+        aba:
+            rec: Recebidas
+            rec_sub: Tudo que chegou
+            nl: Não lidas
+            nl_sub: Ainda sem abrir
+            est: Com estrela
+            est_sub: Marcadas
+            resp: Respondidas
+            resp_sub: Já respondidas
+            arq: Arquivadas
+            arq_sub: Fora da caixa
+        vazio: Nenhuma mensagem aqui.
+        voltar: Voltar
+        estrela: Estrela
+        para: 'para {papel} do Sistema'
+        abrir_indicacoes: Abrir Indicações
+        resposta: Resposta
+        enviar: Enviar resposta
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        escolha_mensagens: Escolha as mensagens e a ação.
+        recusa:
+            nao_encontrada: Mensagem não encontrada.
+            sem_texto: Escreva a resposta.
+            texto_longo: A resposta passou de 5.000 caracteres.
+            nao_aceita: Esta mensagem não aceita resposta.
+            sem_destino: Não há mais a quem responder esta mensagem.
+    # P3: seção Indicações (master/_indicacoes, sem o include da Central de envios, que é do Comercial) e as recusas
+    # próprias do IndicacoesDoMasterController. A do validador e a do UseCase (domínio Indicacao) ficam fora.
+    indicacoes:
+        titulo: Indicações do BlueJus
+        pausar_todos: Pausar os convites para todos
+        liberados: Convites liberados
+        limite_dia: LIMITE POR DIA (POR PESSOA)
+        limite_dia_dica: Cada usuário pode enviar no máximo esse número de convites em 24 horas. Passando disso, o sistema bloqueia e pede para tentar no dia seguinte.
+        limite_mes: LIMITE POR MÊS
+        limite_mes_dica: Cada usuário pode enviar no máximo esse número de convites em 30 dias.
+        alerta: AVISAR NO CHAT A PARTIR DE (24H)
+        alerta_dica: 'Se alguém enviar esse número de convites em 24 horas, o {papel} recebe um alerta no Chat I.A (disparo alto de convites), para identificar uso indevido.'
+        regras: Regras de segurança dos convites
+        regras_dica: Só envia convite quem tem nome, telefone e CPF cadastrados. O convite sempre leva o nome de quem enviou e um link curto rastreável (bluejus.com.br/i/…), que mostra de quem veio a indicação.
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        informe_pausa: Informe se os convites ficam pausados ou liberados.
+        informe_inteiros: Informe os limites em números inteiros.
+    # Seção Recompensas (master/_recompensas, F1; desenho 05 Perfis 1.2 VS 25.10.26) e as recusas do
+    # RecompensasDoMasterController. Os textos do JS ficam em master.js.recompensas.*.
+    recompensas:
+        titulo: Regras do programa Indique e ganhe
+        campo_valor: RECOMPENSA POR ESCRITÓRIO (R$)
+        campo_libera: LIBERA COM (ESCRITÓRIOS ATIVOS)
+        campo_carencia: CARÊNCIA (DIAS DE USO ATIVO)
+        campo_alerta: ALERTA ANTIFRAUDE (CONTAS EM 7 DIAS)
+        so_com_pasta: Só conta escritório com pastas abertas
+        unico: Pagamento único por escritório liberado · recorrente só para parceiros ★
+        unico_dica: 'Recorrência mensal só por condição individual de parceiro (menu ⋮ › Condição individual)'
+        nota: A recompensa só fica disponível quando o usuário atinge o número de escritórios ativos. Use ★ Ajustar para definir um valor individual.
+        indicadores: Indicadores
+        busca: Nome, e-mail ou escritório
+        vazio: Nenhum indicador neste filtro.
+        col_usuario: USUÁRIO
+        col_envios: ENVIOS
+        col_contas: CONTAS
+        col_ativos: ATIVOS P/ LIBERAR
+        col_por_conta: POR CONTA
+        col_saldo: SALDO
+        col_pago: PAGO
+        col_situacao: SITUAÇÃO
+        col_acoes: AÇÕES
+        dialogo:
+            titulo: Condição individual do indicador
+            valor: Recompensa por escritório (R$)
+            libera: LIBERA COM (ESCRITÓRIOS)
+            carencia: CARÊNCIA (DIAS)
+            vazio_geral: Vazio = regra geral
+            recorrente: Parceiro recorrente (crédito mensal)
+            mensal: POR MÊS, POR ESCRITÓRIO ATIVO (R$)
+            mensal_dica: Só conta escritório ativo, que abriu pasta nos últimos 30 dias e sem suspeita.
+            aviso: Condição individual é mantida mesmo quando a regra geral muda.
+            motivo: Motivo (contrato, parceria, convênio…)
+            cancelar: Cancelar
+            salvar: Salvar condição
+            fechar: Fechar
+        extrato:
+            titulo: Extrato de pagamentos e liberações
+            exportar: Exportar CSV
+            vazio: Nenhum pagamento ou liberação ainda.
+        lancamento:
+            titulo: Lançar crédito ou estorno
+            valor: Valor (R$)
+            dica: Use valor negativo para estornar
+            observacao: Observação (opcional)
+            cancelar: Cancelar
+            lancar: Lançar
+        csv:
+            data: Data
+            usuario: Usuário
+            email: E-mail
+            tipo: Tipo
+            valor: Valor
+            observacao: Observação
+            credito: Crédito manual
+            estorno: Estorno
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        indicador_nao_encontrado: Indicador não encontrado.
+        corpo_invalido: Corpo da requisição inválido.
+    # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
+    ia:
+        instalacao:
+            titulo: Instalação
+            intro: 'Estes dois itens ficam no servidor e são configuração técnica da equipe BlueJus; aqui aparece o estado de cada um.'
+            chave_api: Chave da API
+            trava: Chave de segurança do servidor
+            trava_desc: 'A BlueJus IA só funciona com ela e com a chave geral ligadas; a parte técnica fica com a equipe BlueJus.'
+            nota: 'Esta tela não mostra nem recebe a chave da API.'
+        chave_geral:
+            titulo: Chave geral
+            rotulo: Ligar a BlueJus IA para todos os escritórios liberados
+            desc: 'Esta chave é sua. Desligada, nenhum escritório usa a IA, mesmo liberado, e o que estiver na fila é cancelado.'
+        modelo:
+            titulo: Modelo
+            campo: MODELO DA ANTHROPIC
+        retencao:
+            titulo: Retenção das respostas
+            campo: GUARDAR AS RESPOSTAS DA IA POR N MESES
+            aviso: 'As respostas e perguntas da BlueJus IA mais antigas que isso são apagadas todo dia às 00:20; ficam só os números de custo.'
+        escritorios:
+            titulo: Escritórios
+            nota: 'Para usar a IA, o escritório precisa estar liberado aqui e o administrador dele precisa ligar a IA e dar o aceite. Em "Incluso no plano" e "Adicional pago", a IA para quando o gasto do mês chega ao orçamento e volta no dia 1º; em "Limite grátis, depois cobra", o orçamento é a parte grátis e a IA continua. Sem orçamento, não há trava em dólares. Valores estimados pelo preço de tabela da Anthropic.'
+            col_nome: Escritório
+            col_liberado: Liberado
+            col_aceite: Aceite do escritório
+            col_cobranca: Cobrança
+            col_orcamento: Orçamento mensal (US$)
+            col_analises_mes: Análises no mês
+            col_gasto_mes: Gasto no mês (US$)
+        recusa:
+            token_invalido: Token CSRF inválido. Recarregue a página.
+            informe_ligada: Informe se a chave geral fica ligada ou desligada.
+            modelo_invalido: Escolha um modelo da lista.
+            informe_liberada: Informe se o escritório fica liberado ou bloqueado.
+            modo_invalido: Escolha um modo de cobrança da lista.
+            orcamento_invalido: Informe o orçamento em dólares, com até duas casas decimais.
+            escritorio_nao_encontrado: Escritório não encontrado.
+            retencao_invalida: Informe os meses em número inteiro.
+        # Bloco "Questões jurídicas" (master/_ia_juridico.html.twig; o JS em master.js.ia_juridico.*).
+        juridico:
+            titulo: Questões jurídicas
+            em_aberto: 'Em aberto: {n}'
+            nota: 'Para o Dr. Farlei: cada questão traz o problema, o risco, as opções, a sugestão e as fontes. Marque o status de cada questão. Os documentos para baixar e enviar a versão ajustada estão no fim da página. Enquanto houver questão não resolvida, um aviso aparece no topo das telas do Master. Ele some depois que você clica em "ver as questões" e só volta se surgir questão em aberto nova.'
+            vazio: Nenhuma questão jurídica no catálogo.
+            problema: Problema
+            risco: Risco
+            opcoes: Opções
+            sugestao: Sugestão
+            fontes: Fontes
+            documentos: Documentos a atualizar
+            documentos_titulo: Documentos jurídicos
+            documentos_aviso: Cada envio substitui o documento em todas as questões.
+            status: Status
+            risco_alto: Risco alto
+            risco_medio: Risco médio
+            risco_baixo: Risco baixo
+            baixar_atual: Baixar o atual
+            enviar: Enviar versão ajustada
+            versoes: Versões enviadas
+            versao_item: '{nome}, enviado por {por} em {quando}'
+            versao_questao: '(questão: {questao})'
+            baixar: Baixar
+            sem_versao: Nenhuma versão enviada.
+            campo_status: SITUAÇÃO DA QUESTÃO
+            historico_item: '{de} para {para}, por {por} em {quando}'
+            sem_historico: Sem mudanças de status.
+            recusa:
+                documento_nao_encontrado: Documento não encontrado.
+                questao_nao_encontrada: Questão jurídica não encontrada.
+                sem_arquivo: Escolha o arquivo a enviar.
+                status_invalido: Escolha um status da lista.
+    # P3: flashes do MastersDoSistemaController (Masters do sistema, aba Permissões) e as recusas da
+    # OperacaoDeMasterRecusada. As RECUSA_* da RegraDosMasters ficam fora: o Tenant (EscritorioController) também usa.
+    masters:
+        promovido: '"{nome}" agora é {papel} secundário.'
+        removido: '"{nome}" deixou de ser {papel}.'
+        recusa:
+            so_primario: Só o Master primário pode promover ou remover Masters.
+            outro_escritorio: Entre no escritório do usuário secundário para promovê-lo a Master.
+            sem_escolha: Escolha um usuário secundário cadastrado.
+            conta_desativada: A conta deste usuário está desativada.
+            ja_master: Este usuário já é Master.
+            so_secundario_ativo: Só usuários secundários ativos desta conta podem ser promovidos a Master.
+            primario_do_escritorio: O primário do escritório não pode ser promovido a Master. Só usuários secundários da conta.
+            nao_e_master: Este usuário não é Master.
+            excluir_primario: O Master primário não pode ser excluído.
+    # P3: o mapa mundial (master/mapa_mundo, a página do iframe). O mapa do Brasil fica com a 4b (spec §8).
+    mapa:
+        titulo_mundo: Mapa mundial por país
+        carregando_mapa: Carregando mapa…
+        carregando: Carregando…
+        voltar: Voltar
+    # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
+    js:
+        carregando: Carregando…
+        erro_secao: Não foi possível carregar esta seção agora. Recarregue a página.
+        sem_informacao: sem informação
+        gb_menos: 'menos de {n} GB'
+        cancelar: Cancelar
+        fechar: Fechar
+        campo:
+            nome: NOME
+        secao:
+            visao: Visão geral
+            contas: Contas e escritórios
+            oab: Usuários e OABs
+            arm: Armazenamento
+            planos: Planos e limites
+            custos: Custos e infraestrutura
+            desemp: Desempenho
+            audit: Segurança e auditoria
+            config: Configurações globais
+            com: Comercial e e-mails
+            ind: Indicações do BlueJus
+            recomp: Recompensas
+            notif: Central de Notificações
+        vazia:
+            aviso: DADO AINDA NÃO COLETADO · INTEGRAÇÃO AINDA NÃO DISPONÍVEL
+            custos:
+                texto: Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.
+                armazenamento: Armazenamento
+                banco: Banco de dados
+                hospedagem: Hospedagem
+                trafego: Tráfego
+                backups: Backups
+                apis_ia: APIs de IA
+                notificacoes: Notificações
+                receita: Receita recorrente
+                custo_conta: Custo por conta
+                custo_gb: Custo por GB
+                margem: Margem por plano
+                projecao: Projeção 3, 6 e 12 meses
+            desemp:
+                titulo: Desempenho e disponibilidade
+                texto: Saúde técnica da plataforma, com histórico filtrável por gravidade, período e categoria. Métricas não coletadas aparecem como indisponíveis, nunca estimadas.
+                disponibilidade: Disponibilidade
+                tempo_resposta: Tempo de resposta
+                erros: Erros
+                falhas_upload: Falhas de upload
+                falhas_login: Falhas de login
+                ultimo_backup: Último backup
+                teste_restauracao: Teste de restauração
+                cpu_memoria: CPU e memória
+                integracoes: Integrações
+                incidentes: Incidentes
+            config:
+                texto: Parâmetros que valem para todas as contas. Cada alteração exige confirmação e fica na auditoria.
+                faixas: Faixas de alerta padrão
+                periodo_teste: Período de teste
+                excedente: Política de excedente
+                excecoes: Exceções temporárias
+                autenticacao: Autenticação reforçada
+                retencao: Retenção de auditoria
+        visao:
+            kpi:
+                escritorios: ESCRITÓRIOS
+                escritorios_desc: '{ativas} ativa · {suspensas} suspensa'
+                primarios: USUÁRIOS PRIMÁRIOS
+                primarios_desc: quem abriu o escritório e os sócios
+                secundarios: USUÁRIOS SECUNDÁRIOS
+                secundarios_desc: convidados em todas as contas
+                oab: OABs ÚNICAS
+                oab_desc: '{registros} registros · {duplicados} duplicado(s)'
+                pastas: PASTAS
+                pastas_desc: soma de todas as contas
+                documentos: DOCUMENTOS
+                documentos_desc: arquivos armazenados
+                armazenamento: ARMAZENAMENTO
+                arm_sem_dado: 'contratado: sem informação · ponto e tarefas não medidos'
+                arm_desc: 'de {cota} GB contratados · livre {livre}'
+                arm_sem_limite: '+ {gb} em {n} conta(s) sem limite'
+                receita: RECEITA MENSAL
+                receita_desc: sem integração financeira ainda
+            grafico:
+                titulo: Crescimento
+                tit_contas: contas cadastradas
+                tit_usuarios: usuários (primários + secundários)
+                tit_pastas: pastas no sistema
+                tit_gb: armazenamento em GB
+                met_contas: Contas
+                met_usuarios: Usuários
+                met_pastas: Pastas
+                met_gb: Armazenamento (GB)
+                por_mes: Por mês
+                por_ano: Por ano
+                continua: Linha contínua
+                acumulado: Acumulado
+                novos: Novos no mês
+                todos_anos: Todos os anos
+                mes:
+                    jan: jan
+                    fev: fev
+                    mar: mar
+                    abr: abr
+                    mai: mai
+                    jun: jun
+                    jul: jul
+                    ago: ago
+                    set: set
+                    out: out
+                    nov: nov
+                    dez: dez
+            idades:
+                titulo: Faixa etária dos usuários
+                media: 'idade média {valor}'
+                anos: '{n} anos'
+                nota: Calculada pela data de nascimento do Meu Perfil. {n} usuário(s) sem data não entram na conta.
+                menores: '{n} com menos de 18 anos não entram nas faixas.'
+        mapa:
+            titulo: Onde estamos atuando
+            por_estado: usuários por estado
+            por_seccional: inscrições por seccional da OAB
+            por_pais: usuários por país
+            oab: OAB
+            inscricoes: Inscrições
+            total: '{n} no total'
+            pessoas: Pessoas
+            escritorios: Escritórios
+            primarios: Primários
+            geral: Geral
+            so_primarios: Só primários
+            indicacoes: Indicações
+            ind_env: Indicações enviadas
+            ind_ok: Contas abertas
+            ind_pago: Recompensas pagas (R$)
+            col_ind_env: Indicações
+            col_ind_ok: Contas
+            col_ind_pago: R$ pagos
+            por_estado_ind: indicações por estado de quem indicou
+            brasil: Brasil
+            mundo: Mundo
+            estado: Estado
+            pais: País
+            outros_paises: Outros países
+            sem_endereco: Sem endereço no cadastro
+            sem_localizacao: Sem localização no cadastro
+            sem_localizacao_dica: Sem lotação Cidade/UF, sem UF da OAB e sem estado do escritório
+            total_geral: Total geral
+            tendencia: '{ag} nos últimos 30 dias · {an} nos 30 anteriores'
+            tendencia_so_pessoas: Tendência medida só para pessoas
+            escala_menos: menos
+            escala_mais: mais
+            malha: 'Malha dos estados: IBGE'
+            iframe_brasil: Mapa do Brasil por estado
+            iframe_mundo: Mapa mundial por país
+            regiao:
+                norte: Norte
+                nordeste: Nordeste
+                centro_oeste: Centro-Oeste
+                sudeste: Sudeste
+                sul: Sul
+                america_sul: América do Sul
+                america_norte: América do Norte e Central
+                europa: Europa
+                lusofonia: Lusofonia
+        faltam:
+            dica: Mostrar onde ainda não temos usuários
+            ocultar: Ocultar o que falta
+            estados: Estados que faltam
+            paises: Países que faltam
+            cobertura: 'Cobertura:'
+            cobertura_valor: '{feitos} de {total} ({pct}%)'
+            faltam: 'faltam {n} para alcançar {meta}'
+            meta_estados: 'os {n} estados'
+            meta_capitais: 'as {n} capitais'
+            modo_estados: Estados
+            modo_capitais: Capitais
+            meta_paises: 'os {n} países-alvo'
+            rodape: Oportunidades de expansão
+        seccionais:
+            carregando: Carregando as seccionais…
+            erro_carga: Não foi possível carregar as seccionais agora. Recarregue a página.
+            erro_salvar: Não foi possível salvar agora. Recarregue a página.
+            titulo: SECCIONAIS VISÍVEIS
+            mostrar_todas: Mostrar todas
+            todas_visiveis: Todas visíveis
+            nota: 'Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito no mapa registra a divulgação (material enviado, reunião, parceria). O ponto colorido indica seccional já trabalhada. Fonte: Conselho Federal da OAB.'
+            linha: 'OAB/{uf} · {estado}'
+            chip_titulo: 'OAB/{uf} · {estado} · clique para ver a sede, botão direito para mostrar ou ocultar no mapa'
+            chip_titulo_marca: 'OAB/{uf} · {estado} · {status} em {data} · clique para ver a sede, botão direito para mostrar ou ocultar no mapa'
+            cartao_titulo: 'OAB/{uf} · Seccional {estado}'
+            inscricao_um: 1 inscrição de usuários do BlueJus
+            inscricoes: '{n} inscrições de usuários do BlueJus'
+            sem_endereco: 'Endereço da sede: consulte a página oficial'
+            site: Site da seccional
+            cfoab: Endereço oficial (CFOAB)
+            editar_sede: Editar sede
+            salvar_sede: Salvar sede
+            campo_endereco: 'Endereço da sede da OAB/{uf} (copie da página oficial do CFOAB)'
+            campo_telefone: Telefone da seccional (opcional)
+            campo_site: 'Site oficial da seccional (https://...), opcional'
+            sede_ajuda: Confira os dados no site do CFOAB. Campo vazio fica sem informação. A alteração fica registrada na auditoria.
+            site_invalido: 'Informe o site completo, começando com http:// ou https://.'
+        janela_oab:
+            dica: Ver endereços da OAB e escrever nota
+            exemplo: 'Ex.: contato com a presidente da subseção, enviar material em novembro'
+            titulo_cidade: '{cidade} · {uf}'
+            sub_estado: 'Seccional OAB/{uf} e subseções cadastradas'
+            sub_cidade: 'Subseção da OAB e seccional OAB/{uf}'
+            tem_nota: Tem nota
+            sede: SECCIONAL · SEDE
+            editar: Editar
+            sem_endereco_sede: Endereço ainda não cadastrado
+            campo_endereco_sede: 'Endereço da sede da OAB/{uf}'
+            campo_telefone: Telefone (opcional)
+            campo_site: 'Site oficial (https://...), opcional'
+            ver_mapa: Ver no mapa
+            site_oficial: Site oficial
+            subsecoes_titulo: SUBSEÇÕES
+            adicionar_endereco: Adicionar endereço
+            subs_vazio: 'Nenhuma subseção cadastrada. {link} e adicionar.'
+            pesquisar: Pesquisar o endereço oficial
+            busca_estado: 'OAB seccional {estado} endereço'
+            busca_cidade: 'OAB subseção {cidade} {estado} endereço'
+            campo_cidade: Cidade da subseção
+            campo_nome: 'Nome (ex.: Subseção de {cidade})'
+            nome_padrao: 'Subseção de {cidade}'
+            campo_endereco_completo: Endereço completo
+            remover: Remover
+            adicionar: Adicionar
+            nota: NOTA EXPLICATIVA
+            salvar_nota: Salvar nota
+            nota_salva: 'Nota salva em {data}'
+            remover_titulo: Remover este endereço?
+            remover_texto: 'O endereço "{nome}" sai da lista da seccional. A remoção fica registrada na auditoria.'
+        # P2b: as outras seções do painel.js.
+        sem_limite: sem limite
+        erro_acao: Não foi possível concluir a ação. Recarregue a página.
+        # Rótulo da situação gravada da conta (o valor que o servidor manda é dado, em português).
+        situacao:
+            ativa: Ativa
+            suspensa: Suspensa
+            a_pedido: Suspensa a pedido
+            quarentena: Em quarentena
+        # Faixa do RetratoDoEspaco (Contribua); o chip da faixa de bloqueio tem rótulo próprio.
+        faixa:
+            livre: Normal
+            atencao: Atenção
+            alerta: Alerta
+            critico: Crítico
+            bloqueio: Limite atingido
+            chip_bloqueio: Bloqueio
+        contas:
+            convites: Convites
+            todas_situacoes: Todas as situações
+            busca: Buscar nº, conta ou primário
+            cab:
+                conta: CONTA
+                primario_plano: PRIMÁRIO · PLANO
+                usuarios: USUÁRIOS
+                pastas: PASTAS
+                docs: DOCS
+                armazenamento: ARMAZENAMENTO
+                dias30: 30 DIAS
+                previsao: PREVISÃO
+                situacao: SITUAÇÃO
+            contagem: '{n} · botão direito na linha para ações'
+            numero_dica: Número da conta (ordem de abertura)
+            numero: 'Nº {numero}'
+            desde: 'desde {desde} · último acesso {acesso}'
+            sem_registro: sem registro
+            hoje: hoje
+            ontem: ontem
+            ha_dias: 'há {n} dias'
+            titular_ausente: titular não registrado
+            estavel: estável
+            sem_previsao: sem previsão
+            prev_menos: menos de 1 mês
+            prev_mes: '≈ {n} mês'
+            prev_meses: '≈ {n} meses'
+            purga_dica: A purga automática roda às 03h, a partir desta data
+            purga: apagada a partir de
+            acoes: Ações da conta
+            nenhuma: Nenhuma conta encontrada.
+            arm_nao_medido: uso não medido
+            arm_quarentena: conta em quarentena
+            arm_em_uso: '{gb} em uso'
+            arm_de: '{gb} de {limite} GB'
+            arm_livre: '{faixa} · livre {livre}'
+            arm_bonus: 'Inclui {gb} GB de bônus ({origem}) até {data}'
+            arm_bonus_indicacao: indicação
+            aviso_ok: Situação da conta atualizada.
+        pedidos:
+            titulo: 'Pedidos de exclusão de conta · {n}'
+            sub: contas suspensas aguardando sua decisão
+            autor_ausente: autor não registrado
+            reativar: Reativar
+            excluir: Excluir conta
+        menu:
+            lim_arm: Editar limite de armazenamento
+            lim_usu: Definir limite de usuários
+            estat: Estatísticas de uso
+            hist: Histórico de alterações
+            suspender: Suspender conta
+            reativar: Reativar conta
+            excluir: Excluir conta
+        # Confirmações do menu da conta e dos pedidos. A palavra EXCLUIR fica no painel.js: o servidor confere ela.
+        conf:
+            suspender:
+                titulo: Suspender conta
+                botao: Suspender
+                texto: 'Os usuários de "{nome}" ficam sem acesso até a reativação. Nenhum dado é apagado.'
+            reativar:
+                titulo: Reativar conta
+                botao: Reativar
+                texto: 'A conta "{nome}" volta a ter acesso normal.'
+            excluir:
+                titulo: Excluir conta
+                botao: Excluir conta
+                texto: 'A conta "{nome}" sai do ar agora e é apagada de vez em {dias} dias. Até lá, pode ser recuperada pelo {papel}.'
+        usuarios_oab:
+            kpi:
+                registros: COM OAB INFORMADA
+                registros_desc: registros nos cadastros
+                unicas: INSCRIÇÕES ÚNICAS
+                unicas_desc: após normalizar número e UF
+                duplicadas: DUPLICADAS
+                duplicadas_desc: mesma inscrição repetida
+                nao_validadas: NÃO VALIDADAS
+                nao_validadas_desc: não contam como advogado confirmado
+                ufs: UFs
+                ufs_desc: estados com inscrição
+            pend:
+                sem_uf: '{conta}: {inscricao} sem UF da OAB'
+                sem_numero: '{conta}: usuário sem número de OAB'
+                aguardando: '{conta}: {normalizada} aguardando validação'
+                divergente: '{conta}: {normalizada} divergente do cadastro da OAB'
+                formatacao: '{conta}: "{inscricao}" normalizado para {normalizada}'
+                tag_incompleto: INCOMPLETO
+                tag_nao_validada: NÃO VALIDADA
+                tag_formatacao: FORMATAÇÃO
+            distribuicao: Distribuição por UF
+            sem_inscricao: Nenhuma inscrição informada.
+            pendencias: Inscrições com pendência
+            sem_pendencia: Nenhuma pendência.
+            nota: 'Contagem normalizada: número sem pontos e zeros à esquerda + UF em maiúsculas. Inscrição só conta como confirmada após validação.'
+            revisao: Abrir a Revisão de OAB
+        arm:
+            faixas_titulo: Faixas de alerta de consumo
+            configuraveis: (configuráveis)
+            a_partir: '{faixa} a partir de'
+            faixas_nota: No limite (100%), novos uploads acima da capacidade ficam bloqueados. Consulta, download e exportação continuam liberados. Nenhum documento é apagado automaticamente.
+            bloquear: 'Bloquear novos envios na faixa {faixa}'
+            aviso_bloqueio: Antes de ligar, confira os escritórios acima do plano e defina sem limite ou uma cota própria.
+            erro_faixas: As faixas precisam crescer em ordem, de 1% a 100%.
+            salvar_faixas: Salvar faixas
+            ranking: Contas por consumo
+            nenhuma: Nenhuma conta.
+            editar_limite: Editar limite
+            nota: 'Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.'
+        planos:
+            plano_free: 'Plano {nome}'
+            tag_free: 'Convênio OAB · toda conta nova começa aqui'
+            tag_escolhido: Mais escolhido
+            inativo: inativo
+            por_mes: / mês
+            cap: '<b>{gb} GB</b> de armazenamento · usuários ilimitados'
+            recursos: Todos os recursos liberados
+            contas: '{n} conta(s) · {acima} perto ou acima da franquia'
+            ajustar: Ajustar
+            ajustar_dica: Ajustar preço e espaço
+            editar: Editar plano
+            rotulo: PLANOS DE ESPAÇO
+            faixa_titulo: Convênio OAB · BlueJus gratuito para advogados
+            faixa_texto: Todos os recursos do sistema ficam liberados em todas as contas, sem limite de usuários. A cobrança existe só para quem quiser mais espaço de armazenamento, em assinatura mensal no cartão de crédito, que pode ser cancelada a qualquer momento.
+            nota: Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.
+        # Janela de limite (armazenamento e usuários); o título é o do item do menu (menu.lim_arm e menu.lim_usu).
+        limite:
+            em_uso: EM USO
+            limite_atual: LIMITE ATUAL
+            livre: LIVRE
+            usuarios: USUÁRIOS
+            vagas: VAGAS
+            novo_arm: NOVO LIMITE (GB)
+            novo_usu: NOVO LIMITE DE USUÁRIOS
+            sem_limite: Sem limite (espaço e usuários)
+            nota_sem_limite: 'Esta conta está sem limite: o limite de usuários só passa a valer quando ela voltar a ter limite de espaço.'
+            justificativa: JUSTIFICATIVA
+            justificativa_dica: Obrigatória, fica na auditoria
+            confirmar: Confirmar alteração
+            msg_sem: 'Sem limite: a conta deixa de ter limite de espaço e de usuários. A alteração fica registrada na auditoria.'
+            msg_abaixo_arm: 'O novo limite é menor que o volume em uso ({gb}). Reduzir não apaga arquivos, por isso não é permitido abaixo do uso.'
+            msg_abaixo_usu: Menor que os usuários já cadastrados.
+            msg_inteiro: Informe um número inteiro.
+            msg_de_sem_arm: 'Passa de sem limite para {n} GB. A alteração fica registrada na auditoria.'
+            msg_de_sem_usu: 'Passa de sem limite para {n} usuários. A alteração fica registrada na auditoria.'
+            msg_diferenca_arm: 'Diferença: {d} GB. A alteração fica registrada na auditoria.'
+            msg_diferenca_usu: 'Diferença: {d} usuário(s). A alteração fica registrada na auditoria.'
+        # Janela "Editar plano"; o título é planos.editar e o campo NOME é campo.nome.
+        plano_modal:
+            espaco: ESPAÇO (GB)
+            preco: PREÇO (R$)
+            limite_usuarios: LIMITE DE USUÁRIOS
+            vazio_sem_limite: vazio para sem limite
+            descricao: DESCRIÇÃO
+            ativo: Plano ativo
+            salvar: Salvar plano
+            msg_ok: 'O código do plano ({codigo}) não muda. A alteração fica registrada na auditoria.'
+            msg_preencha: 'Preencha o nome, o espaço em GB e o preço em reais (por exemplo 19,90). Usuários: vazio para sem limite.'
+        audit:
+            titulo: Trilha de auditoria
+            contagem: '{n} registro(s) · últimos {meses} meses'
+            truncado: 'mostrando os {n} mais recentes'
+            todas_acoes: Todas as ações
+            pdf: Gerar PDF
+            todas_contas: Mostrar todas as contas
+            resumo:
+                limites: Limites
+                contas: Contas
+                masters: Masters e primários
+                alertas: Alertas
+            cab:
+                data: DATA E HORA
+                responsavel: RESPONSÁVEL
+                acao: AÇÃO E CONTA
+                detalhe: DETALHE
+            vazio: Nenhum registro ainda. Alterações de limite, suspensões e exclusões aparecem aqui. Entradas no sistema (login) não são auditadas.
+        # PDF da trilha (janela de impressão); o cabeçalho da tabela é audit.cab.
+        pdf:
+            titulo_janela: Auditoria BlueJus
+            titulo: Trilha de auditoria do sistema
+            gerado: 'Gerado em {quando} por {quem} ({papel}) · {n} registro(s)'
+            filtro: 'filtro: {filtro}'
+            conta: 'conta: {conta}'
+            rodape: 'BlueJus · documento gerado pelo painel do {papel}. Contém apenas metadados administrativos.'
+        # P3: notificacoes.js (Central de Notificações). O rótulo do tipo, o remetente e o assunto vêm do servidor.
+        notificacoes:
+            erro_salvar: Não foi possível salvar.
+            erro_carregar: Não foi possível carregar as mensagens. Recarregue a página.
+            arquivar: Arquivar
+            desarquivar: Desarquivar
+            pagina: '{ini}-{fim} de {total}'
+            pagina_vazia: 0 de 0
+            selecionar: Selecionar
+            tirar_estrela: Tirar a estrela
+            marcar_estrela: Marcar com estrela
+            respondida: Respondida
+            responder_a: 'Responder a {quem}'
+            dica_email: 'Escreva sua resposta. Ela é enviada por e-mail para {email}.'
+            dica_central: Escreva sua resposta. Ela chega como aviso na Central de quem enviou.
+            respondeu_contribua: '{nome} respondeu pela página do Contribua'
+            voce_respondeu: Você respondeu
+            respondeu: '{nome} respondeu'
+            enviada_email: Resposta registrada e enviada para a fila de e-mail.
+            enviada_central: Resposta registrada e enviada como aviso na Central.
+        # P4b: convenio-oab.js (painel Convênio OAB por estado, na seção Contas).
+        convenio:
+            titulo: Convênio OAB por estado
+            resumo_todos: Convênio ativo nos 27 estados · todos os advogados usam grátis
+            resumo_gratis: '{n} grátis'
+            resumo_dif: '{n} com valor diferenciado ({ufs})'
+            resumo_sem: '{n} sem convênio ({ufs})'
+            ajuda: 'Clique no estado para escolher: convênio grátis, convênio com valor diferenciado ou sem convênio (mensalidade cheia).'
+            desde: ' desde {data}'
+            st_livre: Convênio ativo · grátis
+            st_dif: 'Convênio · valor diferenciado {valor}/mês'
+            st_sem: 'Sem convênio · {valor}/mês'
+            p_menu: "OAB/{uf} · {estado} ({contas} conta(s))\n\n1 · Convênio ativo, grátis\n2 · Convênio com valor diferenciado\n3 · Sem convênio (mensalidade cheia)\n\nEscolha 1, 2 ou 3:"
+            p_valor_dif: 'Valor diferenciado pelo convênio OAB/{uf} (R$ por mês):'
+            p_valor_sem: "Convênio OAB/{uf} encerrado ou não renovado.\nMensalidade cobrada das contas de {estado} (R$):"
+            p_desde: 'A partir de (AAAA-MM-DD):'
+            p_motivo: 'Motivo (opcional):'
+            motivo_padrao: Convênio não renovado
+            valor_invalido: Valor inválido.
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_carregar: Não foi possível carregar os convênios.
+            rotulo_conta: 'Convênio OAB/{uf}'
+            rotulo_conta_dif: 'Convênio OAB/{uf} · valor diferenciado {valor}/mês'
+            rotulo_conta_sem: 'Sem convênio ({uf}) · {valor}/mês'
+        # P3: metas-divulgacao.js (Metas de divulgação, na Visão geral).
+        metas:
+            titulo: Metas de divulgação
+            mercado_pre: 'Mercado:'
+            mercado_pos: advogados regulares
+            quadro: Quadro da Advocacia
+            ajustar: Ajustar
+            auto: Atualização automática
+            freq:
+                semanal: semanal
+                mensal: mensal
+                trimestral: trimestral
+            ultima: 'última: {ultima} · próxima: {proxima}'
+            nunca: ainda não executada
+            agora: Atualizar agora
+            fase: Avançar de fase ao bater a meta
+            manual: mercado fixado manualmente · voltar a automático
+            fase1: Fase 1
+            fase2: Fase 2
+            chip: '{rotulo} · {valor}'
+            chip_dica: '{valor} advogados'
+            usuarios_de: 'de {alvo} advogados · {pct} da meta · faltam {faltam}'
+            estados: '{n} de 27 estados alcançados'
+            cab:
+                uf: UF
+                estado: Estado
+                meta_estado: Meta do estado
+                bluejus: BlueJus
+                oab: OAB
+                alcance: Alcance
+            linha_dica: Clique para ver as cidades
+            meta_uf_dica: Ajustar meta do estado
+            meta_n: '{n} advogados'
+            alcancado: 'alcançado {pct}'
+            mais_10: Ver só os 10 maiores
+            mais_27: Ver os 27 estados
+            nota: 'Advogados por estado vêm da tabela da OAB do mapa (⋮ › Atualizar dados). BlueJus e OAB se atualizam sozinhos pelo banco de dados.'
+            cid_cab:
+                cidade: Cidade
+                bluejus: BlueJus
+                pct_meta: '% do estado'
+                meta: Meta
+                progresso: Progresso
+            buscar: Buscar cidade
+            cid_total: '{n} cidades'
+            carregando: Carregando cidades do IBGE…
+            sem_conta: Nenhuma cidade com conta ou meta ainda. Busque uma cidade ou veja todas para definir metas.
+            todas_cidades: 'Ver todas as {n} cidades'
+            outra: Meta para outra cidade
+            meta_fixa_dica: Meta fixada. Clique para alterar
+            meta_sugerida_dica: Meta sugerida pelo que falta no estado. Clique para fixar
+            destacar: Destacar
+            cor:
+                amarelo: Amarelo
+                azul: Azul
+                verde: Verde
+                laranja: Laranja
+                vermelho: Vermelho
+                roxo: Roxo
+            ver_cidades: Ver cidades no mapa
+            remover: Remover destaque
+            mapa_titulo: Mapa do Brasil
+            p_mercado: 'Quantos advogados existem no mercado? (total da OAB)'
+            p_alvo: 'Meta de usuários do BlueJus:'
+            p_invalido: Informe números maiores que zero.
+            p_meta_uf: 'Meta de usuários em {estado} (vazio volta ao cálculo automático):'
+            p_meta_cid: 'Meta de usuários em {cidade} ({uf}) (vazio volta à sugestão):'
+            p_cidade: 'Nome da cidade em {estado}:'
+            p_meta_nova: 'Meta de usuários em {cidade}:'
+            confirma_fase: 'A meta de {alvo} usuários foi batida. Avançar para a próxima fase ({proxima})?'
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            erro_carregar: Não foi possível carregar as metas de divulgação.
+        # P3: indicacoes.js (seção Indicações).
+        indicacoes:
+            resumo: '{enviadas} enviadas · {hoje} hoje · {conta} viraram conta'
+            liberar_todos: Liberar os convites para todos
+            pausar_todos: Pausar os convites para todos
+            pausados: Convites pausados para todos
+            liberados: Convites liberados
+            erro_carregar: Não foi possível carregar as indicações. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+        # Seção Recompensas (public/js/master/recompensas.js).
+        recompensas:
+            ativo: Programa ativo
+            pausado: Programa pausado
+            kpi:
+                indicadores: INDICADORES
+                contas: CONTAS ABERTAS
+                liberados: LIBERADOS
+                a_pagar: A PAGAR
+                ja_pago: JÁ PAGO
+            filtro:
+                todos: Todos
+                pagar: A pagar
+                lib: Liberados
+                nao: Ainda não liberados
+                priv: ★ Condição individual
+            priv_n: '{n} com condição individual · não mudam com a regra geral'
+            sit:
+                liberado: Liberado
+                carencia: '{n} em carência'
+                andamento: Em andamento
+            sit_dica_carencia: '{n} conta(s) aguardando {dias} dias de uso ativo para gerar crédito'
+            por_mes: '+ {valor}/mês ↻'
+            dica_geral: Segue a regra geral
+            dica_priv: 'Condição individual. Não muda quando a regra geral é alterada.'
+            dica_priv_motivo: 'Condição individual: {motivo}. Não muda quando a regra geral é alterada.'
+            dica_recorrente: 'Parceiro recorrente: {valor} por mês para cada escritório ativo que abriu pasta nos últimos 30 dias. {motivo}'
+            linha_dica: Botão direito para mais opções
+            ajustar: Ajustar
+            ajustar_dica: Ajustar valor da recompensa
+            mais_opcoes: Mais opções
+            menu_condicao: Condição individual (★)
+            menu_geral: Voltar à regra geral
+            menu_lancamento: Lançar crédito ou estorno
+            menu_extrato: Ver extrato deste indicador
+            menu_csv: Baixar extrato (CSV)
+            tipo:
+                credito: Crédito manual
+                estorno: Estorno
+            extrato_todos: Mostrar todos
+            extrato_removido: Indicador removido
+            extrato_erro: Não foi possível carregar o extrato.
+            erro_valor: Informe o valor do crédito (use negativo para estornar).
+            lancado_credito: 'Crédito de {valor} lançado para {nome}.'
+            lancado_estorno: 'Estorno de {valor} lançado para {nome}.'
+            vazio_geral: 'Vazio = regra geral ({valor})'
+            salvo: 'Condição individual de {nome} salva.'
+            voltou: '{nome} voltou para a regra geral.'
+            regras_salvas: Regras do programa salvas.
+            erro_carregar: Não foi possível carregar as recompensas. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+        # Aba "Configurações da I.A." (public/js/master/ia.js).
+        ia:
+            gravada: instalada
+            nao_gravada: ainda não instalada (configuração técnica da equipe BlueJus)
+            ligada: ligada
+            desligada: desligada
+            ligada_todos: Ligada para todos os liberados
+            preco: 'US$ {entrada} por milhão de tokens de entrada, US$ {saida} por milhão de tokens de saída'
+            contagem: '{n} ativo(s)'
+            cobranca: Cobrança
+            orcamento: Orçamento mensal em dólares
+            sem_orcamento: sem orçamento
+            orcamento_atingido: orçamento atingido
+            acima_do_gratis: acima do grátis
+            sem_aceite: sem aceite
+            liberado: Liberado
+            bloqueado: Bloqueado
+            salvar: Salvar
+            salvo: '"{nome}" salvo.'
+            modelo_salvo: Modelo salvo.
+            retencao_salva: Retenção salva.
+            ligou: A BlueJus IA foi ligada para os escritórios liberados.
+            desligou: A BlueJus IA foi desligada para todos.
+            ligar_titulo: Ligar a BlueJus IA para todos
+            ligar_texto: 'A IA passa a funcionar em todos os escritórios liberados que deram o aceite. Ligue só depois que a Anthropic confirmar por escrito a retenção zero (ZDR).'
+            ligar_botao: Ligar para todos
+            vazio: Nenhum escritório ativo.
+            erro_carregar: Não foi possível carregar as configurações da I.A. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+        # Bloco "Questões jurídicas" da aba "Configurações da I.A." (public/js/master/ia-juridico.js).
+        ia_juridico:
+            em_aberto: 'Em aberto: {n}'
+            status_salvo: 'Status de "{titulo}": {status}.'
+            enviando: Enviando…
+            enviado: '"{nome}" enviado.'
+            erro_salvar: Não foi possível salvar.
+            erro_enviar: Não foi possível enviar o arquivo.
+            versao_item: '{nome}, enviado por {por} em {quando}'
+            versao_questao: '(questão: {questao})'
+            baixar: Baixar
+            sem_versao: Nenhuma versão enviada.
+            historico_item: '{de} para {para}, por {por} em {quando}'
+            sem_historico: Sem mudanças de status.
+        # P3: masters.js (Masters do sistema e a confirmação que o painel.js também usa). A palavra digitada vem de
+        # quem abre a confirmação (EXCLUIR, que não se traduz).
+        masters:
+            digite: 'Digite {palavra} para confirmar'
+            escolha: Escolha um usuário secundário cadastrado.
+            promover_titulo: 'Promover a {papel}'
+            promover_botao: Confirmar promoção
+            promover_texto: '"{nome}" passará a ter todos os poderes do sistema (contas, limites, planos, configurações e auditoria), como {papel} secundário. Ele não poderá excluir o {papel} primário.'
+            remover: 'Remover {papel}'
+            remover_texto: '"{nome}" deixa de ser {papel} e perde os poderes do sistema. A remoção fica registrada na auditoria.'
+        # P3: recursos.js (Telas e recursos). O nome, o grupo e a descrição de cada linha vêm do servidor.
+        recursos:
+            sem_motivo: Sem motivo informado
+            volta_em: 'volta em {data}'
+            tela_inteira: Tela inteira
+            item_menu: Item do menu da foto
+            essencial: Essencial
+            ativo: Ativo
+            desativado: Desativado
+            vazio: Nenhuma tela ou função encontrada.
+            desativados: '{n} desativado(s) para os usuários'
+            tudo_ativo: Tudo ativo
+            erro: Não foi possível alterar agora. Recarregue a página.
+            essencial_recusa: 'Tela essencial: não pode ser desativada.'
+            pergunta_motivo: 'Motivo exibido aos usuários (opcional). Ex.: "Tela em preparação", "Revisão ética", "Correção de falha":'
+            motivo_padrao: Tela em preparação
+            pergunta_data: 'Reativar automaticamente em (AAAA-MM-DD), ou deixe em branco:'
+        # P3: mapa-mundo.js (o iframe do mapa mundial). Os nomes de país, estado e região ficam em português (DONO,
+        # 21/10: a tradução deles é entrega própria).
+        mapa_mundo:
+            usuarios: '{n} usuário(s)'
+            por_estado: '{n} usuário(s) · por estado'
+            por_regiao: '{n} usuário(s) · por região'
+            sem_usuarios: sem usuários
+            sem_atuacao: sem atuação
+            dica: '{nome}: {qtd}'
+            dica_detalhar: '{nome}: {qtd} · clique para detalhar'
+            estados_nao_informados: Estados ainda não informados.
+            regioes_nao_informadas: Regiões ainda não informadas no cadastro.
+            nenhum_no_pais: Nenhum usuário neste país. Oportunidade de expansão.
+            cidades_nao_informadas: Cidades ainda não informadas no cadastro.
+            nenhum_no_estado: Nenhum usuário neste estado. Oportunidade de expansão.
+            local_nao_informado: Local não informado
+            mundo: Mundo
+            regiao: 'Região {regiao} · {n} usuário(s)'
+            regiao_municipios: 'Região {regiao} · {n} usuário(s) · {m} municípios'
+            municipio: Município
+            erro_estados: Não foi possível carregar os estados do IBGE agora.
+            erro_municipios: Não foi possível carregar os municípios do IBGE agora.
+            erro_mapa: Não foi possível carregar o mapa mundial agora.
+            arraste: Arraste para mover
+            aproximar: Aproximar
+            afastar: Afastar
+            ajustar: Ajustar ao mapa
+        # Seção "Configurações globais" (public/js/master/configuracoes.js; desenho 05 VS 25.10.26, cgGrupos).
+        config:
+            restaurar: Restaurar padrão
+            descartar: Descartar
+            salvar: Salvar
+            confirmar_padrao: Voltar todas as configurações ao padrão?
+            nao_salvas: Alterações não salvas
+            salvas: Configurações salvas ✓
+            ultima: 'Última alteração em {data}'
+            erro_carregar: Não foi possível carregar as configurações. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+            grupo:
+                identidade: Identidade
+                contas: Contas novas
+                seguranca: Segurança
+                regiao: Região
+                manutencao: Manutenção programada
+            campo:
+                nome: Nome do sistema
+                remetente: E-mail remetente
+                suporte: E-mail do suporte
+                cadastro: Cadastro de novas contas
+                freeGb: Espaço do Plano Free (GB)
+                aviso: Aviso de espaço a partir de (%)
+                sessao: Sessão expira após (min sem uso)
+                tentativas: Bloquear login após (tentativas)
+                dois: Verificação em duas etapas
+                retencao: Guardar auditoria por (dias)
+                idioma: Idioma padrão
+                fuso: Fuso horário
+                manut: Aviso para todos os usuários
+                manutAte: Mostrar o aviso até
+            ajuda:
+                remetente: Usado em campanhas e avisos
+                manut: 'Ex.: o sistema ficará indisponível das 22h às 23h. Em branco, nenhum aviso.'
+            opcao:
+                cadastro:
+                    'on': Aberto
+                    convite: Só por convite
+                    'off': Fechado
+                dois:
+                    master: Obrigatória para o Master
+                    prim: Master e primários
+                    todos: Todos os usuários
+                    opc: Opcional
+                idioma:
+                    pt-BR: Português (Brasil)
+                    en: English
+                    es: Español
+                fuso:
+                    America/Sao_Paulo: Brasília (GMT-3)
+                    America/Manaus: Manaus (GMT-4)
+                    America/Rio_Branco: Rio Branco (GMT-5)
+                    America/Noronha: Noronha (GMT-2)
+    # P4c: e-mail aos primários do estado quando o Master muda o convênio OAB (AvisoDeConvenioDaUf).
+    convenio_email:
+        titulo: 'Convênio OAB/{uf}'
+        ola: 'Olá, {nome}.'
+        assunto_dif: 'Convênio OAB/{uf}: valor diferenciado de R$ {valor}/mês a partir de {data}'
+        assunto_sem: 'Aviso: o convênio OAB/{uf} foi encerrado · nova mensalidade a partir de {data}'
+        assunto_livre: 'Convênio OAB/{uf}: sua conta volta a usar grátis'
+        corpo_dif: 'O convênio da OAB/{uf} passou a ter valor diferenciado: R$ {valor} por mês, a partir de {data}.'
+        corpo_sem: 'O convênio da OAB/{uf} foi encerrado. A partir de {data}, a mensalidade da sua conta passa a ser de R$ {valor} por mês.'
+        corpo_livre: 'O convênio da OAB/{uf} está ativo de novo. Sua conta volta a usar o BlueJus grátis.'
+        motivo: 'Motivo: {motivo}'
+        fecho: Em caso de dúvida, use o menu Ajuda dentro do BlueJus.
+        motivo_do_envio: 'Você recebe este aviso porque é usuário primário de um escritório de {uf} no BlueJus.'
+        falha_ao_enfileirar: Não foi possível enfileirar os avisos. Nada foi alterado.

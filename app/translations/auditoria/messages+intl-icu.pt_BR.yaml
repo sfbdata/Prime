@@ -1,0 +1,43 @@
+auditoria:
+    titulo: Trilha de Auditoria
+    filtros: Filtros
+    entidade: Entidade
+    todas: Todas
+    usuario: Usuário
+    todos: Todos
+    data_inicial: Data inicial
+    data_final: Data final
+    filtrar: Filtrar
+    limpar: Limpar
+    resultados_pagina: '{n} resultado(s) nesta página'
+    resultados_total: '({total} total)'
+    col_data_hora: Data/Hora
+    col_acao: Ação
+    col_resumo: Resumo
+    col_alteracoes: Alterações
+    id_usuario: 'ID {id}'
+    campos_alterados: '{n} campo(s) alterado(s)'
+    campos_inicializados: '{n} campo(s) inicializado(s)'
+    campos_removidos: '{n} campo(s) removido(s)'
+    pasta_trancada: Pasta trancada pelo usuário primário
+    sem_diff: Sem diff detalhado
+    ver_detalhes: Ver detalhes
+    ver_detalhes_log: Ver detalhes do log
+    confirmar_desfazer: Desfazer esta alteração? A entidade voltará ao estado anterior.
+    desfazer: Desfazer esta alteração
+    rota: 'Rota:'
+    ip: 'IP:'
+    # As referências às entidades (rótulo ou Classe #id) ficam no template, em volta destes pedaços.
+    evento:
+        removido_de: 'foi removido de {campo} de'
+        associado_em: 'foi associado em {campo} com'
+        alterada_entre: Associação alterada entre
+        e: e
+        associacao: associação
+    sem_alteracoes: Sem alterações detalhadas.
+    nenhum_registro: Nenhum registro encontrado para os filtros informados.
+    paginacao: Paginação da trilha de auditoria
+    anterior: Anterior
+    proxima: Próxima
+    js:
+        selecione: Selecione...

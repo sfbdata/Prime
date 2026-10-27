@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Functional;
 use App\Controller\PastaController;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -48,7 +49,7 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha);
         $campos = $linha->filter('.ps-modal-pasta-linha--larga > .ps-modal-pasta-campo');
         self::assertSame('Responsável', trim($campos->eq(0)->filter('.ps-modal-pasta-campo > .ps-modal-pasta-rotulo')->text()), 'o Responsável vem antes da Ação, como no desenho');
-        self::assertCount(1, $campos->eq(1)->filter('#edit_nome_acao'));
+        self::assertCount(1, $campos->eq(1)->filter('.ps-modal-pasta-campo[data-pe-acao]'), 'a Ação (só leitura) vem logo depois');
 
         $resp = $campos->eq(0)->filter('.ps-modal-pasta-campo > .ps-pe-resp[aria-labelledby="editRespRotulo"]');
         self::assertSame($user->getFullName(), trim($resp->filter('.ps-pe-resp > [data-pe-resp-nome]')->text()));
@@ -72,7 +73,7 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $leitor, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        $resp = $crawler->filter('#modalEditarPasta .ps-pe-resp');
+        $resp = $crawler->filter('#modalEditarPasta .ps-pe-resp[aria-labelledby="editRespRotulo"]');
         self::assertSame('Sem responsável', trim($resp->filter('[data-pe-resp-nome]')->text()));
         self::assertCount(0, $resp->filter('.ps-pe-resp-trocar'), 'quem só lê não troca o responsável');
     }
@@ -101,8 +102,12 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
 
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString("var foto = serializar();", $html, 'o retrato é o do servidor, tirado ao carregar');
-        self::assertStringContainsString("estadoTxt.textContent = mudou ? 'Alterações não salvas' : 'Dados da pasta';", $html);
-        self::assertStringContainsString("var erro = nup && nup.value.trim() === '' ? 'Informe o número da pasta.' : '';", $html);
+        self::assertStringContainsString("estadoTxt.textContent = mudou ? BJ_T.t('pasta_show.js.editar.nao_salvas') : BJ_T.t('pasta_show.js.editar.dados_da_pasta');", $html);
+        self::assertStringContainsString("var erro = nup && nup.value.trim() === '' ? BJ_T.t('pasta_show.js.editar.informe_numero') : '';", $html);
+        $editar = self::catalogoDoEditar();
+        self::assertSame('Alterações não salvas', $editar['nao_salvas']);
+        self::assertSame('Dados da pasta', $editar['dados_da_pasta']);
+        self::assertSame('Informe o número da pasta.', $editar['informe_numero']);
         self::assertStringContainsString('salvar.disabled = !(mudou && !erro);', $html);
         self::assertStringContainsString('pendencias.hidden = !(mudou && erro);', $html);
     }
@@ -125,9 +130,18 @@ final class PastaEditarDadosTelaTest extends JusPrimeWebTestCase
         self::assertNotFalse($ini, 'a confirmação fica no envio do formulário');
         $trecho = substr($html, $ini, 1200);
         self::assertStringContainsString("if (depois === '' || depois === antes) { return null; }", $trecho, 'só quando o número muda');
-        self::assertStringContainsString("mensagem: 'Alterar número da pasta\\nAlterar o número da pasta de ' + antes + ' para ' + depois + '? Links e referências antigas passam a apontar para o novo número.',", $trecho);
+        self::assertStringContainsString("mensagem: BJ_T.t('pasta_show.js.editar.numero_titulo') + '\\n' + BJ_T.t('pasta_show.js.editar.numero_pergunta', {antes: antes, depois: depois}),", $trecho);
+        $editar = self::catalogoDoEditar();
+        self::assertSame('Alterar número da pasta', $editar['numero_titulo']);
+        self::assertSame('Alterar o número da pasta de {antes} para {depois}? Links e referências antigas passam a apontar para o novo número.', $editar['numero_pergunta']);
         self::assertStringContainsString('perigo: false', $trecho);
         self::assertStringContainsString('window.psConfirmarEnvio(form, perguntaDoNumero)', $trecho);
         self::assertStringContainsString('e.preventDefault();', $trecho, 'sem a janela, Cancelar no confirm não envia');
+    }
+
+    /** @return array<string, string> o texto do script do modal, no catálogo do idioma (`pasta_show.js.editar`) */
+    private static function catalogoDoEditar(): array
+    {
+        return CatalogoPtBr::carregar()['pasta_show']['js']['editar'];
     }
 }

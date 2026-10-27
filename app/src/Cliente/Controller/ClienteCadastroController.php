@@ -17,6 +17,7 @@ use App\Cliente\Service\DocumentosVisiveisDoCadastro;
 use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Cliente\Service\QualificacaoDoCliente;
+use App\Cliente\UseCase\CriarClienteAvulsoUseCase;
 use App\Cliente\UseCase\CriarClienteDaPastaUseCase;
 use App\Cliente\UseCase\SalvarCadastroDoClienteUseCase;
 use App\Cliente\Entity\ClientePJ;
@@ -67,7 +68,76 @@ final class ClienteCadastroController extends AbstractController
         private readonly CriarClienteDaPastaUseCase $criarCliente,
         private readonly HistoricoDoCliente $historico,
         private readonly DocumentosVisiveisDoCadastro $documentosVisiveis,
+        private readonly CriarClienteAvulsoUseCase $criarAvulso,
     ) {}
+
+    /**
+     * "Cadastrar cliente" do modal Nova carteira (decisão do dono, 21/10/2026): a mesma janela do "Novo cliente", sem
+     * pasta. `?tipo=pj` troca para empresa. Só para quem gerencia carteiras ({@see CriarClienteAvulsoUseCase}).
+     */
+    #[Route('/clientes/cadastro/novo', name: 'cliente_cadastro_novo', methods: ['GET'])]
+    public function novoAvulso(Request $request): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->tenantAvulso($usuario);
+        $cliente = $request->query->get('tipo') === 'pj' ? CriarClienteDaPastaUseCase::pjEmBranco() : CriarClienteDaPastaUseCase::pfEmBranco();
+
+        return $this->renderJanela($cliente, null, $usuario, $tenant, $request, true, true);
+    }
+
+    #[Route('/clientes/cadastro/novo', name: 'cliente_cadastro_novo_salvar', methods: ['POST'])]
+    public function criarAvulso(Request $request): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->tenantAvulso($usuario);
+        if (!$this->isCsrfTokenValid('cliente_cadastro_novo', (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Sessão expirada. Recarregue a página e tente de novo.'], Response::HTTP_FORBIDDEN);
+        }
+        $campos = $request->request->all();
+        unset($campos['_token'], $campos['pasta'], $campos['tipo']);
+        try {
+            $cliente = $this->criarAvulso->executar($request->request->get('tipo') === 'pj' ? 'pj' : 'pf',
+                array_map('strval', array_filter($campos, 'is_scalar')), $usuario, $tenant);
+        } catch (SemPermissaoParaEditarClienteException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (DocumentoJaCadastradoException $e) {
+            $visivel = $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, (int) $e->existente->getId(), AccessRequest::ACTION_VIEW);
+
+            return $this->json(['erro' => $e->getMessage(), 'existente' => $visivel ? $this->resumoDe($e->existente) : null], Response::HTTP_CONFLICT);
+        } catch (CadastroInvalidoException $e) {
+            return $this->json(['erro' => $e->getMessage(), 'aba' => $e->aba], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'ok'        => true,
+            'criado'    => true,
+            'mensagem'  => 'Cadastro salvo.',
+            'urlJanela' => $this->generateUrl('cliente_cadastro', ['id' => $cliente->getId()]),
+        ], Response::HTTP_CREATED);
+    }
+
+    /** Aviso ao sair do campo CPF/CNPJ no cadastro sem pasta: o documento já é de outro cadastro do escritório? */
+    #[Route('/clientes/cadastro/novo/documento', name: 'cliente_cadastro_novo_documento', methods: ['GET'])]
+    public function documentoAvulso(Request $request): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->tenantAvulso($usuario);
+
+        return $this->json(['existente' => $this->existenteVisivel((string) $request->query->get('doc', ''), null, $usuario, $tenant)]);
+    }
+
+    private function tenantAvulso(User $usuario): Tenant
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || !$this->permissionChecker->hasPermission($usuario, $tenant, CriarClienteAvulsoUseCase::CAPACIDADE)) {
+            throw $this->createAccessDeniedException('Sem permissão para cadastrar cliente.');
+        }
+
+        return $tenant;
+    }
 
     #[Route('/clientes/{id}/cadastro', name: 'cliente_cadastro', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function janela(int $id, Request $request): Response

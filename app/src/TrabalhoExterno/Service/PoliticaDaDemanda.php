@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Service;
 
+use App\Entity\Tenant\Tenant;
+use App\Tenant\Enum\PoderSemPrazo;
+use App\Tenant\Service\PoderDeEdicaoSemPrazo;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
@@ -19,9 +22,21 @@ use App\TrabalhoExterno\Enum\Visibilidade;
  *
  * O navegador recebe o resultado (botões, abas, permissões) só para desenhar; **toda ação é
  * conferida de novo aqui** antes de executar.
+ *
+ * A única pergunta que sai do `Contexto` é a da edição sem prazo (spec `edicao-sem-prazo-master-primario.md`,
+ * item 8): o primário do escritório dono da demanda, com a opção ligada, apaga qualquer mensagem. Sem o serviço
+ * (testes que montam a política à mão), ninguém tem esse poder e vale a regra de sempre.
  */
 final class PoliticaDaDemanda
 {
+    /** O nome que o leitor externo vê no lugar de quem é da Central, sem `priv.nomeResp` ({@see self::nomeVisivel()}). */
+    public const NOME_DA_CENTRAL = 'Central BlueJus';
+
+    public function __construct(
+        private readonly ?PoderDeEdicaoSemPrazo $poderSemPrazo = null,
+    ) {
+    }
+
     /** Marcos de antes do aceite que o Convidado pode ver (só o marco e a data). */
     private const MARCOS_ADMINISTRATIVOS = ['nova', 'aceita', 'execucao'];
 
@@ -84,7 +99,7 @@ final class PoliticaDaDemanda
      */
     public function botoes(Contexto $ctx, DemandaExterna $d): array
     {
-        if ($ctx->previa) {
+        if ($ctx->somenteLeitura()) {
             return [];
         }
         $s = $d->getSituacao();
@@ -253,7 +268,7 @@ final class PoliticaDaDemanda
 
     public function podeConversar(Contexto $ctx, DemandaExterna $d): bool
     {
-        if ($ctx->previa || !$this->podeVer($ctx, $d) || $d->getSituacao() === Situacao::Rascunho) {
+        if ($ctx->somenteLeitura() || !$this->podeVer($ctx, $d) || $d->getSituacao() === Situacao::Rascunho) {
             return false;
         }
 
@@ -272,7 +287,7 @@ final class PoliticaDaDemanda
     /** Checklist e "Registrar andamento": só em execução, pela Central ou pelo Convidado com "andamento". */
     public function podeRegistrarAndamento(Contexto $ctx, DemandaExterna $d): bool
     {
-        return !$ctx->previa
+        return !$ctx->somenteLeitura()
             && $this->podeVer($ctx, $d)
             && $d->getSituacao() === Situacao::Execucao
             && ($ctx->ehInterno() || $this->convidadoPode($ctx, 'andamento'));
@@ -280,10 +295,67 @@ final class PoliticaDaDemanda
 
     public function podeAnexar(Contexto $ctx, DemandaExterna $d): bool
     {
-        return !$ctx->previa
+        return !$ctx->somenteLeitura()
             && $this->podeVer($ctx, $d)
             && $d->getSituacao() !== Situacao::Rascunho
             && ($ctx->perfil !== Perfil::Convidado || $this->convidadoPode($ctx, 'enviar'));
+    }
+
+    /**
+     * DESPACHO (desenho 06 de 24/10, `dpPode`, l.1392): publicar e ligar "Aceitar resposta" é só do Master. A
+     * Equipe não despacha (decisão do coordenador, 24/10).
+     */
+    public function podeDespachar(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Master
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d);
+    }
+
+    /**
+     * Responder ao despacho (`dpPodeResp: p !== 'master'`): todo perfil menos o Master (quem pediu, a Equipe e o
+     * profissional do convite vigente, que vê a demanda), com "Aceitar resposta" ligado e ao menos um despacho
+     * publicado. Decisão do dono de 24/10: a Equipe responde, como no desenho.
+     */
+    public function podeResponderAoDespacho(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil !== Perfil::Master
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d)
+            && $d->aceitaRespostaAoDespacho();
+    }
+
+    /**
+     * "Já paguei · enviar comprovante" (desenho 25/10, `pg.podeComp`): só o Solicitante da própria demanda (o Master
+     * que age pelo escritório, o interno e o Convidado não), fora da prévia, e só onde a confirmação ainda vale.
+     */
+    public function podeEnviarComprovante(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Solicitante
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d)
+            && in_array($d->getSituacao(), AcaoDemanda::RegistrarPagamento->origens(), true);
+    }
+
+    /**
+     * "Confirmar recebimento" e "Enviar no chat" (`pg.podeConf`): quem pode registrar o pagamento (interno, e a
+     * Equipe só com "Alterar a situação"), nunca na prévia. É a mesma guarda do botão "Registrar pagamento".
+     */
+    public function podeConfirmarRecebimento(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->ehInterno() && $this->podeExecutar($ctx, $d, AcaoDemanda::RegistrarPagamento);
+    }
+
+    /**
+     * O lápis do valor da aba Pagamento: só o Master (nunca na prévia), com a demanda no estado editável (proposta
+     * aceita, não paga, sem comprovante, nas situações do pagamento).
+     */
+    public function podeAjustarValorDoPagamento(Contexto $ctx, DemandaExterna $d): bool
+    {
+        return $ctx->perfil === Perfil::Master
+            && !$ctx->somenteLeitura()
+            && $this->podeVer($ctx, $d)
+            && $d->valorDoPagamentoEditavel();
     }
 
     /** A lista de documentos: o Convidado só a vê com "Ver instruções" (`cp.ver` do desenho). */
@@ -321,7 +393,7 @@ final class PoliticaDaDemanda
      * O leitor lê esta mensagem no chat? É a regra ÚNICA: o chat, o contador de não lidas e o aviso
      * "Abrir conversa" passam todos por aqui. Nota interna nunca sai da Central. O Convidado lê só
      * da aceitação do convite em diante (o que veio antes, inclusive o registro da proposta com o
-     * valor, é da Central com o cliente) e, sem "Ver instruções", não lê os registros de arquivo
+     * valor, é da Central com o cliente), não lê os registros de pagamento (têm o valor) e, sem "Ver instruções", não lê os registros de arquivo
      * (eles nomeiam os documentos).
      */
     public function mensagemVisivel(Contexto $ctx, DemandaExterna $d, MensagemDemanda $m): bool
@@ -335,6 +407,10 @@ final class PoliticaDaDemanda
         if ($ctx->perfil !== Perfil::Convidado) {
             return true;
         }
+        // Dinheiro (valor do PIX, comprovante): o Convidado não lê, como não lê a proposta.
+        if ($m->getTipo() === TipoMensagem::Pagamento) {
+            return false;
+        }
 
         return $ctx->convite !== null
             && $ctx->convite->mensagemVisivel($m)
@@ -346,11 +422,18 @@ final class PoliticaDaDemanda
 
     /**
      * "Apagar para todos" (spec VS 18.10.26 §3.4, desenho l.1233): o Master em qualquer mensagem; o
-     * autor nas próprias, até 60 min após o envio. Registro do sistema não se apaga.
+     * autor nas próprias, até 60 min após o envio; e, pela edição sem prazo, o primário do escritório dono
+     * da demanda (com a opção ligada). Registro do sistema não se apaga.
      */
     public function podeApagarMensagem(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): bool
     {
-        if ($ctx->previa || !$m->podeSerApagada()) {
+        return $this->apagaPelaRegraDeSempre($ctx, $m, $agora) || $this->seloDoApagar($ctx, $m, $agora) !== null;
+    }
+
+    /** A regra de antes da edição sem prazo: o Master do TE sempre; o autor até 60 min. */
+    public function apagaPelaRegraDeSempre(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): bool
+    {
+        if ($ctx->somenteLeitura() || !$m->podeSerApagada()) {
             return false;
         }
         if ($ctx->perfil === Perfil::Master) {
@@ -360,6 +443,35 @@ final class PoliticaDaDemanda
 
         return $m->getAutor()?->getId() === $ctx->usuario->getId()
             && $m->getEm() >= $agora->modify('-' . self::MINUTOS_PARA_O_AUTOR_APAGAR . ' minutes');
+    }
+
+    /**
+     * O selo "EXCLUSIVO DO PRIMÁRIO" quando só o poder sem prazo libera o apagar: o primário do escritório DONO
+     * da demanda (não o de quem lê), em mensagem de alguém da equipe do dono. O Master do TE já apaga pela regra de
+     * sempre, então não leva selo.
+     */
+    public function seloDoApagar(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): ?PoderSemPrazo
+    {
+        if ($this->poderSemPrazo === null || $ctx->somenteLeitura() || !$m->podeSerApagada() || $this->apagaPelaRegraDeSempre($ctx, $m, $agora)) {
+            return null;
+        }
+        $dono = $m->getDemanda()->getTenant();
+        $poder = $this->poderSemPrazo->de($ctx->usuario, $dono);
+
+        return $poder === PoderSemPrazo::Primario && $this->autorDaEquipeDoDono($m, $dono) ? $poder : null;
+    }
+
+    /**
+     * Decisão do dono (23/10): o primário só apaga mensagem de quem tem vínculo ativo no escritório dono. Ficam de
+     * fora a Central (Master e Equipe) e os convidados de outros escritórios.
+     */
+    private function autorDaEquipeDoDono(MensagemDemanda $m, Tenant $dono): bool
+    {
+        $autor = $m->getAutor();
+
+        return $autor !== null
+            && !in_array($m->getPerfilAutor(), [Perfil::Master, Perfil::Equipe], true)
+            && $this->poderSemPrazo?->temVinculoAtivo($autor, $dono) === true;
     }
 
     /**
@@ -400,7 +512,7 @@ final class PoliticaDaDemanda
     public function nomeVisivel(Contexto $ctx, string $nome, Perfil $perfilDoAutor): string
     {
         if (!$ctx->ehInterno() && $perfilDoAutor->ehInterno() && !$ctx->configuracao->privacidade('nomeResp')) {
-            return 'Central BlueJus';
+            return self::NOME_DA_CENTRAL;
         }
 
         return $nome;

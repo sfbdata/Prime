@@ -10,8 +10,11 @@ use App\TrabalhoExterno\DTO\Autor;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Enum\FaseWhatsapp;
+use App\TrabalhoExterno\Enum\NaturezaDoDespacho;
 use App\TrabalhoExterno\Enum\Situacao;
 use App\TrabalhoExterno\Enum\SituacaoConvite;
+use App\TrabalhoExterno\Enum\SituacaoProposta;
+use App\TrabalhoExterno\Enum\TipoDeDespacho;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
@@ -129,6 +132,18 @@ class DemandaExterna
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $pagoEm = null;
 
+    /**
+     * Valor do pagamento ajustado pelo Master (aba Pagamento) enquanto não pago e sem comprovante. A proposta aceita
+     * não muda; o valor efetivo é este, se houver, senão o da proposta ({@see valorEfetivoDoPagamento()}). Trocar a
+     * proposta aceita zera o ajuste.
+     */
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $valorPagamentoAjustado = null;
+
+    /** "Aceitar resposta" do DESPACHO (desenho 06 de 24/10, `dpResp`, l.1392): só o Master liga e desliga. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $respostasAoDespachoLiberadas = false;
+
     /** Momento do ENVIO (o rascunho ainda não foi enviado). É o que o filtro de período usa. */
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $enviadaEm = null;
@@ -164,6 +179,11 @@ class DemandaExterna
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $convites;
 
+    /** @var Collection<int, DespachoDemanda> */
+    #[ORM\OneToMany(targetEntity: DespachoDemanda::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $despachos;
+
     /** @var Collection<int, ContatoWhatsapp> */
     #[ORM\OneToMany(targetEntity: ContatoWhatsapp::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
     #[ORM\OrderBy(['id' => 'ASC'])]
@@ -173,6 +193,16 @@ class DemandaExterna
     #[ORM\OneToMany(targetEntity: AvisoWhatsapp::class, mappedBy: 'demanda', cascade: ['persist'], orphanRemoval: true)]
     #[ORM\OrderBy(['id' => 'ASC'])]
     private Collection $avisosWhatsapp;
+
+    /**
+     * O que aconteceu NESTA requisição e avisa as partes (desenho 06 de 24/10, `mudar` e `msgSis`): cada
+     * mudança de situação ("Andamento: {situação}{ · motivo}") e cada mensagem de sistema, arquivo ou
+     * andamento, na ordem, com a mensagem quando há (o convidado só é avisado do que leria no chat). Não é
+     * coluna: o caso de uso entrega ao `AvisosDoTrabalhoExterno`, que retira.
+     *
+     * @var list<array{texto: string, mensagem: ?MensagemDemanda}>
+     */
+    private array $andamentosParaAvisar = [];
 
     public function __construct(
         /** Escritório solicitante, dono da demanda. */
@@ -190,6 +220,7 @@ class DemandaExterna
         $this->propostas = new ArrayCollection();
         $this->documentos = new ArrayCollection();
         $this->convites = new ArrayCollection();
+        $this->despachos = new ArrayCollection();
         $this->contatosWhatsapp = new ArrayCollection();
         $this->avisosWhatsapp = new ArrayCollection();
     }
@@ -280,7 +311,7 @@ class DemandaExterna
 
         $proposta = $this->propostaVigente();
         match ($acao) {
-            AcaoDemanda::AceitarProposta => $proposta?->aceitar($autor),
+            AcaoDemanda::AceitarProposta => $this->aceitarProposta($proposta, $autor),
             AcaoDemanda::SolicitarAjustes => $proposta?->pedirAjustes(),
             AcaoDemanda::RecusarProposta => $proposta?->recusar(),
             default => null,
@@ -290,9 +321,7 @@ class DemandaExterna
             if ($this->pagoEm !== null) {
                 throw new TransicaoInvalida('O pagamento desta demanda já foi registrado.');
             }
-            $this->pagoEm = new \DateTimeImmutable();
-            $this->historico->add(new HistoricoDemanda($this, null, Situacao::MARCO_PAGO, $autor, null));
-            $this->enfileirarAvisos(FaseWhatsapp::Pago);
+            $this->marcarComoPago($autor, null);
         }
 
         $destino = $acao->destino();
@@ -303,6 +332,138 @@ class DemandaExterna
         if ($acao->confirma()) {
             $this->registrar($autor, $acao->registro() . ($motivo !== null ? ': ' . $motivo : '.'), TipoMensagem::Sistema);
         }
+    }
+
+    /** Aceitar uma proposta troca a base do pagamento: o ajuste do Master sobre a anterior deixa de valer. */
+    private function aceitarProposta(?PropostaDemanda $proposta, Autor $autor): void
+    {
+        $proposta?->aceitar($autor);
+        $this->valorPagamentoAjustado = null;
+    }
+
+    /** O recebimento: `pagoEm`, o marco `pago` no histórico (com o motivo, se houver) e o aviso de WhatsApp da fase Pago. */
+    private function marcarComoPago(Autor $autor, ?string $motivo): void
+    {
+        $this->pagoEm = new \DateTimeImmutable();
+        $this->historico->add(new HistoricoDemanda($this, null, Situacao::MARCO_PAGO, $autor, $motivo));
+        $this->enfileirarAvisos(FaseWhatsapp::Pago);
+    }
+
+    /**
+     * "Confirmar recebimento" da aba Pagamento (desenho 25/10, `pg.confirmar`): a mesma ação `RegistrarPagamento`
+     * (mesmas origens, mesma recusa se já pago), com o histórico "PIX R$ x" e o registro do desenho no lugar do
+     * "Pagamento registrado." genérico. `$valor` já vem formatado (R$ 1.500,00), da proposta aceita.
+     */
+    public function confirmarRecebimentoDoPix(Autor $autor, string $valor): void
+    {
+        $acao = AcaoDemanda::RegistrarPagamento;
+        if (!in_array($this->situacao, $acao->origens(), true)) {
+            throw new TransicaoInvalida(sprintf('"%s" não se aplica a uma demanda %s.', $acao->rotulo($autor->perfil), mb_strtolower($this->situacao->rotulo())));
+        }
+        if ($this->pagoEm !== null) {
+            throw new TransicaoInvalida('O pagamento desta demanda já foi registrado.');
+        }
+
+        $this->marcarComoPago($autor, 'PIX ' . $valor);
+        $this->registrar($autor, sprintf('✅ Pagamento de %s confirmado via PIX. A execução pode começar.', $valor), TipoMensagem::Pagamento);
+    }
+
+    /** A proposta aceita mais recente (`PA` do desenho): é dela que saem o valor e a forma do pagamento. Sem aceite, sem valor. */
+    public function propostaAceita(): ?PropostaDemanda
+    {
+        $aceita = null;
+        foreach ($this->propostas as $proposta) {
+            if ($proposta->getSituacao() === SituacaoProposta::Aceita) {
+                $aceita = $proposta;
+            }
+        }
+
+        return $aceita;
+    }
+
+    /**
+     * O valor a cobrar ("1500.00"): o ajustado pelo Master, se houver, senão o da proposta aceita. Nulo sem aceite ou
+     * com valor zerado. É o ÚNICO ponto de leitura do valor do pagamento (tela, QR, txid, chat, histórico, confirmação).
+     */
+    public function valorEfetivoDoPagamento(): ?string
+    {
+        $valor = $this->valorPagamentoAjustado ?? $this->propostaAceita()?->getValor();
+
+        return $valor !== null && (float) $valor > 0 ? $valor : null;
+    }
+
+    public function getValorPagamentoAjustado(): ?string
+    {
+        return $this->valorPagamentoAjustado;
+    }
+
+    /** O Master pode ajustar o valor: proposta aceita, nas situações do pagamento, sem pagar e sem comprovante enviado. */
+    public function valorDoPagamentoEditavel(): bool
+    {
+        return $this->valorEfetivoDoPagamento() !== null
+            && $this->pagoEm === null
+            && $this->comprovante() === null
+            && in_array($this->situacao, AcaoDemanda::RegistrarPagamento->origens(), true);
+    }
+
+    /**
+     * Ajusta o valor do pagamento. `$novo` já vem validado e normalizado ("1800.00"); `$motivo` já aparado (10 a 300).
+     * Recusas (409): fora das situações do pagamento, já pago, sem proposta aceita, comprovante enviado (o cliente pode
+     * ter pago o valor velho) e valor igual ao efetivo. Grava o marco `valor` no histórico (antigo, novo e motivo) e a
+     * mensagem de sistema do tipo Pagamento, sem o motivo.
+     */
+    public function ajustarValorDoPagamento(Autor $autor, string $novo, string $motivo): void
+    {
+        $acao = AcaoDemanda::RegistrarPagamento;
+        if (!in_array($this->situacao, $acao->origens(), true)) {
+            throw new TransicaoInvalida(sprintf('A demanda está %s: o valor do pagamento não pode mais ser alterado. Recarregue a tela.', mb_strtolower($this->situacao->rotulo())));
+        }
+        if ($this->pagoEm !== null) {
+            throw new TransicaoInvalida('O pagamento desta demanda já foi registrado.');
+        }
+        $antigo = $this->valorEfetivoDoPagamento()
+            ?? throw new TransicaoInvalida('O pagamento fica disponível quando uma proposta for aceita.');
+        if ($this->comprovante() !== null) {
+            throw new TransicaoInvalida('Já há comprovante enviado: o valor não pode mais ser alterado.');
+        }
+        if (round((float) $antigo * 100) === round((float) $novo * 100)) {
+            throw new TransicaoInvalida('O novo valor é igual ao valor atual do pagamento.');
+        }
+
+        $de = PropostaDemanda::brl($antigo);
+        $para = PropostaDemanda::brl($novo);
+        $this->valorPagamentoAjustado = $novo;
+        $this->historico->add(new HistoricoDemanda($this, null, Situacao::MARCO_VALOR, $autor, sprintf('De %s para %s. Motivo: %s', $de, $para, $motivo)));
+        $this->registrar($autor, sprintf('Valor do pagamento alterado de %s para %s.', $de, $para), TipoMensagem::Pagamento);
+    }
+
+    /** O comprovante de pagamento enviado, se houver (no máximo um). */
+    public function comprovante(): ?DocumentoDemanda
+    {
+        foreach ($this->documentos as $documento) {
+            if ($documento->isComprovante()) {
+                return $documento;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Guarda o comprovante do PIX (já gravado no storage) e deixa o aviso no chat (`pg.onComp`). Um só por demanda,
+     * e só enquanto não pago ("aguardando"). Quem pode enviar é decidido antes, na política.
+     */
+    public function enviarComprovante(DocumentoDemanda $comprovante, Autor $autor): void
+    {
+        if ($this->pagoEm !== null) {
+            throw new TransicaoInvalida('O pagamento desta demanda já foi confirmado.');
+        }
+        if ($this->comprovante() !== null) {
+            throw new TransicaoInvalida('O comprovante desta demanda já foi enviado.');
+        }
+
+        $this->documentos->add($comprovante);
+        $this->registrar($autor, sprintf('💳 Comprovante de pagamento PIX enviado (%s). Aguardando confirmação.', $comprovante->getNomeOriginal()), TipoMensagem::Pagamento);
     }
 
     /** Nova versão da proposta: as anteriores ainda em aberto viram "substituída". */
@@ -340,6 +501,9 @@ class DemandaExterna
     {
         $mensagem = new MensagemDemanda($this, $autor, $tipo, $texto);
         $this->mensagens->add($mensagem);
+        if (in_array($tipo, [TipoMensagem::Sistema, TipoMensagem::Pagamento, TipoMensagem::Arquivo, TipoMensagem::Andamento], true)) {
+            $this->andamentosParaAvisar[] = ['texto' => $texto, 'mensagem' => $mensagem];
+        }
 
         return $mensagem;
     }
@@ -360,15 +524,98 @@ class DemandaExterna
         $this->registrar($autor, ($item['ok'] ? 'Etapa concluída: ' : 'Etapa reaberta: ') . $item['t'], TipoMensagem::Andamento);
     }
 
+    /**
+     * Os andamentos ainda não avisados, e a lista volta a ficar vazia (um aviso por andamento, uma vez só).
+     *
+     * @return list<array{texto: string, mensagem: ?MensagemDemanda}>
+     */
+    public function retirarAndamentosParaAvisar(): array
+    {
+        $andamentos = $this->andamentosParaAvisar;
+        $this->andamentosParaAvisar = [];
+
+        return $andamentos;
+    }
+
     public function anexar(DocumentoDemanda $documento): void
     {
         $this->documentos->add($documento);
+    }
+
+    /**
+     * Publica um despacho da Central (`dpEnviar`, l.1394): o texto até 5.000, a natureza opcional, o prazo e o
+     * lugar da assinatura (a cidade de execução, ou Brasília). O chat recebe "Novo despacho da Central
+     * BlueJus{ · natureza}." como registro, que avisa as partes. Quem pode é decidido antes, na política.
+     */
+    public function despachar(Autor $autor, string $texto, ?NaturezaDoDespacho $natureza, \DateTimeImmutable $prazo): DespachoDemanda
+    {
+        $despacho = new DespachoDemanda($this, TipoDeDespacho::Despacho, $natureza, mb_substr(trim($texto), 0, DespachoDemanda::MAX_TEXTO), $prazo, $this->cidadeDaAssinatura(), $autor);
+        $this->despachos->add($despacho);
+        $this->registrar($autor, 'Novo despacho da Central BlueJus' . ($natureza !== null ? ' · ' . $natureza->rotulo() : '') . '.', TipoMensagem::Sistema);
+
+        return $despacho;
+    }
+
+    /**
+     * Resposta de uma parte (`dpResponder`, l.1392): só com "Aceitar resposta" ligado e pelo menos um despacho
+     * publicado; o texto até 3.000. O chat recebe "Resposta ao despacho de {quem}.".
+     */
+    public function responderAoDespacho(Autor $autor, string $texto): DespachoDemanda
+    {
+        if (!$this->aceitaRespostaAoDespacho()) {
+            throw new TransicaoInvalida('As respostas ao despacho não estão liberadas nesta demanda.');
+        }
+        $resposta = new DespachoDemanda($this, TipoDeDespacho::Resposta, null, mb_substr(trim($texto), 0, DespachoDemanda::MAX_RESPOSTA), null, $this->cidadeDaAssinatura(), $autor);
+        $this->despachos->add($resposta);
+        $this->registrar($autor, 'Resposta ao despacho de ' . $autor->nome . '.', TipoMensagem::Sistema);
+
+        return $resposta;
+    }
+
+    public function liberarRespostasAoDespacho(bool $liberar): void
+    {
+        $this->respostasAoDespachoLiberadas = $liberar;
+    }
+
+    public function respostasAoDespachoLiberadas(): bool
+    {
+        return $this->respostasAoDespachoLiberadas;
+    }
+
+    /** `rOn && nD > 0` do desenho: a chave ligada e ao menos um despacho (resposta não conta). */
+    public function aceitaRespostaAoDespacho(): bool
+    {
+        if (!$this->respostasAoDespachoLiberadas) {
+            return false;
+        }
+        foreach ($this->despachos as $d) {
+            if (!$d->ehResposta()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return list<DespachoDemanda> na ordem de publicação */
+    public function getDespachos(): array
+    {
+        return array_values($this->despachos->toArray());
+    }
+
+    /** `((cur.form || {}).cidD) || 'Brasília'`: o lugar que assina o despacho. */
+    private function cidadeDaAssinatura(): string
+    {
+        $cidade = trim($this->cidadeExecucao);
+
+        return $cidade !== '' ? $cidade : 'Brasília';
     }
 
     private function mudarPara(Situacao $para, Autor $autor, ?string $motivo): void
     {
         $this->historico->add(new HistoricoDemanda($this, $this->situacao->value, $para->value, $autor, $motivo));
         $this->situacao = $para;
+        $this->andamentosParaAvisar[] = ['texto' => 'Andamento: ' . $para->rotulo() . ($motivo !== null ? ' · ' . $motivo : ''), 'mensagem' => null];
 
         $fase = FaseWhatsapp::tryFrom($para->value);
         if ($fase !== null) {

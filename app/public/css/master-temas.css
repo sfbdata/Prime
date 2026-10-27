@@ -1,0 +1,40 @@
+/* BlueJus · Painel do Master, card "Temas comemorativos" (desenho docs/design/perfis-1.2/vs-21-10-26/
+   05 - Perfis 1.2 - VS 21.10.26.dc.html, L352-360). Valores do desenho. */
+.mp-tm { background: #fff; border: 1px solid #dde5eb; border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+
+.mp-tm-cab { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; background: #f7f9fb; border-bottom: 1px solid #e6edf2; }
+.mp-tm-cab > .bi { color: #c2457a; font-size: 18px; }
+.mp-tm-cab-texto { flex: 1; min-width: 240px; }
+.mp-tm-cab-texto > b { font-size: 15px; }
+.mp-tm-cab-texto > div { font-size: 12.5px; color: #5b7383; }
+.mp-tm-status { font-size: 12.5px; font-weight: bold; color: #34505f; }
+
+.mp-tm-barra { padding: 12px 18px 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mp-tm-modos { display: flex; background: #e6edf2; border-radius: 4px; padding: 3px; gap: 2px; }
+.mp-tm-modo { height: 28px; padding: 0 12px; border: none; border-radius: 3px; background: transparent; color: #5b7383; box-shadow: none; font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; }
+.mp-tm-modo.is-on { background: #fff; color: #0a6fa0; box-shadow: 0 1px 3px rgba(18, 36, 47, .12); }
+.mp-tm-dica { font-size: 12px; color: #5b7383; }
+.mp-tm-espaco { flex: 1; }
+.mp-tm-parar { height: 28px; padding: 0 12px; border: none; border-radius: 3px; background: #a3232b; color: #fff; font: inherit; font-size: 12px; font-weight: bold; cursor: pointer; }
+.mp-tm-dica[hidden], .mp-tm-parar[hidden], .mp-tm-ativo[hidden], .mp-tm-aviso[hidden] { display: none !important; }
+
+.mp-tm-aviso { margin: 10px 18px 0; padding: 9px 14px; border-radius: 4px; background: #fdecea; color: #a3232b; font-size: 13px; font-weight: bold; }
+
+.mp-tm-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; padding: 8px 18px 16px; }
+.mp-tm-tema { display: flex; align-items: center; gap: 10px; border: 1px solid #e6edf2; border-radius: 4px; padding: 9px 11px; cursor: pointer; position: relative; overflow: hidden; }
+.mp-tm-tema:hover { background: #f7fafc; }
+.mp-tm-tema.is-sel { border-color: var(--tm-p); }
+.mp-tm-fita { position: absolute; left: 0; top: 0; right: 0; height: 3px; }
+.mp-tm-ic { width: 34px; height: 34px; flex: none; border-radius: 6px; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: bold; font-family: Arial, Helvetica, sans-serif; }
+.mp-tm-ic.is-texto { font-size: 9.5px; }
+.mp-tm-corpo { flex: 1; min-width: 0; }
+.mp-tm-corpo > b { display: block; font-size: 13.5px; line-height: 1.25; }
+.mp-tm-quando { font-size: 11.5px; color: #5b7383; }
+.mp-tm-acoes { display: flex; align-items: center; gap: 8px; flex: none; }
+.mp-tm-ativo { height: 26px; box-sizing: border-box; display: inline-flex; align-items: center; font-size: 10.5px; font-weight: bold; color: #1e7b45; background: #e9f6ee; border: 1px solid #bfe3cc; border-radius: 3px; padding: 0 7px; }
+.mp-tm-previa { height: 26px; padding: 0 8px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 11.5px; cursor: pointer; }
+.mp-tm-chave { width: 36px; height: 20px; flex: none; border: none; border-radius: 10px; background: #c9d3da; position: relative; cursor: pointer; padding: 0; }
+.mp-tm-chave.is-on { background: #0a6fa0; }
+.mp-tm-chave > span { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s; }
+.mp-tm-chave.is-on > span { left: 19px; }
+.mp-tm[aria-busy="true"] button { pointer-events: none; opacity: .7; }

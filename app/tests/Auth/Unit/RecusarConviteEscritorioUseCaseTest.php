@@ -11,6 +11,8 @@ use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use App\Auth\UseCase\AceitarConviteEscritorioComContaUseCase;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -41,7 +43,7 @@ final class RecusarConviteEscritorioUseCaseTest extends TestCase
 
         return new Invitation(
             email: $email,
-            token: 'tok123',
+            tokenHash: Invitation::hashDoToken('tok123'),
             type: 'office',
             expiresAt: $expiresAt,
         );
@@ -133,6 +135,48 @@ final class RecusarConviteEscritorioUseCaseTest extends TestCase
             $this->useCase->executar(new RecusarConviteEscritorioInput('tok', $this->makeUser('u@x.com')));
         } catch (\DomainException) {
             // esperado
+        }
+    }
+
+    #[TestDox('Pelo id (lista do convidado logado): busca só convite de escritório pelo id e recusa')]
+    public function testPeloIdRecusa(): void
+    {
+        $invitation = $this->makePendingInvitation('user@example.com');
+        $this->repo->expects($this->never())->method('encontrarPorToken');
+        $this->repo->expects($this->once())->method('findOneBy')
+            ->with(['id' => 7, 'type' => Invitation::TIPO_ESCRITORIO])->willReturn($invitation);
+
+        $this->useCase->executar(RecusarConviteEscritorioInput::porId(7, $this->makeUser('user@example.com')));
+
+        self::assertSame('rejected', $invitation->getStatus());
+    }
+
+    #[TestDox('Pelo id com o e-mail da conta a confirmar: recusa sem nem buscar o convite')]
+    public function testPeloIdComEmailAConfirmar(): void
+    {
+        $user = $this->makeUser('user@example.com');
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $this->repo->expects($this->never())->method('findOneBy');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage(AceitarConviteEscritorioComContaUseCase::RECUSA_EMAIL_A_CONFIRMAR);
+
+        $this->useCase->executar(RecusarConviteEscritorioInput::porId(7, $user));
+    }
+
+    #[TestDox('Pelo id, convite de outro e-mail: não recusa')]
+    public function testPeloIdDeOutroEmail(): void
+    {
+        $invitation = $this->makePendingInvitation('outra@example.com');
+        $this->repo->method('findOneBy')->willReturn($invitation);
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\DomainException::class);
+
+        try {
+            $this->useCase->executar(RecusarConviteEscritorioInput::porId(7, $this->makeUser('user@example.com')));
+        } finally {
+            self::assertSame('pending', $invitation->getStatus());
         }
     }
 }

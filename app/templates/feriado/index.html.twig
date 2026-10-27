@@ -1,17 +1,17 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Feriados e Folgas{% endblock %}
+{% block title %}{{ 'feriado.index.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0"><i class="bi bi-calendar-check me-2"></i>Feriados e Folgas</h1>
+        <h1 class="m-0"><i class="bi bi-calendar-check me-2"></i>{{ 'feriado.index.titulo'|trans }}</h1>
         <div class="d-flex gap-2">
             <a href="{{ path('app_tenant_show', {tenantId: tenantId}) }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Voltar
+                <i class="bi bi-arrow-left me-1"></i> {{ 'feriado.comum.voltar'|trans }}
             </a>
             <a href="{{ path('app_feriado_new', {tenantId: tenantId}) }}" class="btn btn-primary">
-                <i class="bi bi-plus-lg me-1"></i> Novo Feriado
+                <i class="bi bi-plus-lg me-1"></i> {{ 'feriado.novo.titulo'|trans }}
             </a>
         </div>
     </div>
@@ -34,10 +34,10 @@
                 <table class="table table-striped table-hover mb-0">
                     <thead>
                         <tr>
-                            <th><i class="bi bi-calendar-event me-1"></i> Data</th>
-                            <th><i class="bi bi-tag me-1"></i> Nome</th>
-                            <th class="text-center"><i class="bi bi-arrow-repeat me-1"></i> Recorrência</th>
-                            <th><i class="bi bi-gear me-1"></i> Ações</th>
+                            <th><i class="bi bi-calendar-event me-1"></i> {{ 'feriado.index.data'|trans }}</th>
+                            <th><i class="bi bi-tag me-1"></i> {{ 'feriado.index.nome'|trans }}</th>
+                            <th class="text-center"><i class="bi bi-arrow-repeat me-1"></i> {{ 'feriado.index.recorrencia'|trans }}</th>
+                            <th><i class="bi bi-gear me-1"></i> {{ 'feriado.index.acoes'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -46,20 +46,20 @@
                                 <td>
                                     {% if feriado.recorrente %}
                                         <span class="text-muted">{{ feriado.data|date('d/m') }}</span>
-                                        <span class="text-muted small ms-1">(todo ano)</span>
+                                        <span class="text-muted small ms-1">{{ 'feriado.index.todo_ano'|trans }}</span>
                                     {% else %}
-                                        <strong>{{ feriado.data|date('d/m/Y') }}</strong>
+                                        <strong>{{ feriado.data|data }}</strong>
                                     {% endif %}
                                 </td>
                                 <td><strong>{{ feriado.nome }}</strong></td>
                                 <td class="text-center">
                                     {% if feriado.recorrente %}
                                         <span class="badge text-bg-success">
-                                            <i class="bi bi-arrow-repeat me-1"></i>Recorrente
+                                            <i class="bi bi-arrow-repeat me-1"></i>{{ 'feriado.index.recorrente'|trans }}
                                         </span>
                                     {% else %}
                                         <span class="badge text-bg-secondary">
-                                            <i class="bi bi-calendar-x me-1"></i>Pontual
+                                            <i class="bi bi-calendar-x me-1"></i>{{ 'feriado.index.pontual'|trans }}
                                         </span>
                                     {% endif %}
                                 </td>
@@ -67,19 +67,19 @@
                                     <div class="acoes-grupo">
                                         <a href="{{ path('app_feriado_edit', {tenantId: tenantId, id: feriado.id}) }}"
                                            class="btn-action btn-action-edit"
-                                           title="Editar"
-                                           aria-label="Editar feriado">
+                                           title="{{ 'feriado.index.editar'|trans }}"
+                                           aria-label="{{ 'feriado.index.editar_feriado'|trans }}">
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <form method="post"
                                               action="{{ path('app_feriado_delete', {tenantId: tenantId, id: feriado.id}) }}"
                                               class="d-inline"
-                                              onsubmit="return confirm('Excluir o feriado \'{{ feriado.nome|e('js') }}\'?');">
+                                              onsubmit="return confirm('{{ 'feriado.index.excluir_confirmar'|trans({nome: feriado.nome})|e('js') }}');">
                                             <input type="hidden" name="_token" value="{{ csrf_token('excluir_feriado_' ~ feriado.id) }}">
                                             <button class="btn-action btn-action-delete"
                                                     type="submit"
-                                                    title="Excluir"
-                                                    aria-label="Excluir feriado">
+                                                    title="{{ 'feriado.index.excluir'|trans }}"
+                                                    aria-label="{{ 'feriado.index.excluir_feriado'|trans }}">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </form>
@@ -88,7 +88,7 @@
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">Nenhum feriado cadastrado.</td>
+                                <td colspan="4" class="text-center text-muted py-4">{{ 'feriado.index.vazio'|trans }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

@@ -22,6 +22,12 @@ use Doctrine\ORM\Mapping as ORM;
  * O ESTADO NÃO É GRAVADO, é derivado de `pagoEm` + `vencimento`. Uma coluna de
  * status abriria a porta para ela divergir da data — que é exatamente o defeito
  * que este repositório já pagou caro em outros módulos.
+ *
+ * ÊXITO E SUCUMBÊNCIA (spec pasta-exito-sucumbencia): o lançamento condicionado ao
+ * resultado nasce com `percentual` e SEM vencimento. Enquanto não é pago ele é PREVISTO
+ * (`estaPrevisto`), também derivado: tipo + `pagoEm`. O valor em reais de quem tem
+ * percentual é calculado na leitura (`BaseDoPercentual`); `valor` guarda só o retrato do
+ * lançamento. Ele congela (`congelarValor`) ao ser recebido ou corrigido.
  */
 #[ORM\Entity(repositoryClass: PastaPagamentoRepository::class)]
 #[ORM\Table(name: 'pasta_pagamento')]
@@ -55,8 +61,20 @@ class PastaPagamento implements Auditavel, TenantAware
     #[ORM\Column(type: 'decimal', precision: 15, scale: 2)]
     private string $valor = '0.00';
 
-    #[ORM\Column(type: 'date_immutable')]
-    private \DateTimeImmutable $vencimento;
+    /** Nulo só no êxito e na sucumbência (CHECK `ck_pasta_pagamento_vencimento`). */
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $vencimento;
+
+    #[ORM\Column(length: 20, enumType: TipoDePagamento::class, options: ['default' => 'contrato'])]
+    private TipoDePagamento $tipo = TipoDePagamento::Contrato;
+
+    /**
+     * Percentual do êxito ou da sucumbência ("20.00"), sobre o Total contratado. Preenchido
+     * = o valor é calculado na leitura; nulo = vale o `valor` gravado. Só existe em êxito ou
+     * sucumbência ainda não pagos (CHECK `ck_pasta_pagamento_percentual`).
+     */
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
+    private ?string $percentual = null;
 
     /** Preenchido = pago. É esta coluna, e só ela, que define o estado. */
     #[ORM\Column(name: 'pago_em', type: 'date_immutable', nullable: true)]
@@ -148,14 +166,70 @@ class PastaPagamento implements Auditavel, TenantAware
         return $this;
     }
 
-    public function getVencimento(): \DateTimeImmutable
+    /** Nulo no êxito e na sucumbência: o previsto não vence. */
+    public function getVencimento(): ?\DateTimeImmutable
     {
         return $this->vencimento;
     }
 
-    public function setVencimento(\DateTimeImmutable $vencimento): self
+    public function setVencimento(?\DateTimeImmutable $vencimento): self
     {
         $this->vencimento = $vencimento;
+
+        return $this;
+    }
+
+    public function getTipo(): TipoDePagamento
+    {
+        return $this->tipo;
+    }
+
+    public function setTipo(TipoDePagamento $tipo): self
+    {
+        $this->tipo = $tipo;
+
+        return $this;
+    }
+
+    public function getPercentual(): ?string
+    {
+        return $this->percentual;
+    }
+
+    /**
+     * Lança o êxito ou a sucumbência: percentual, sem vencimento, e o retrato do valor
+     * calculado neste momento (o que o histórico mostra como "era" se ele for corrigido).
+     *
+     * @param string $percentual decimal com ponto ("20", "12.5")
+     */
+    public function preverPorPercentual(TipoDePagamento $tipo, string $percentual, string $retratoDoValor): self
+    {
+        if (!$tipo->ehCondicionado()) {
+            throw new \LogicException('Só êxito e sucumbência são lançados por percentual.');
+        }
+
+        $this->tipo       = $tipo;
+        $this->percentual = bcadd($percentual, '0', 2);
+        $this->vencimento = null;
+        $this->valor      = $retratoDoValor;
+
+        return $this;
+    }
+
+    /** Êxito ou sucumbência ainda não recebidos: fora do contratado, do recebido e dos vencidos. */
+    public function estaPrevisto(): bool
+    {
+        return $this->tipo->ehCondicionado() && $this->pagoEm === null;
+    }
+
+    /**
+     * Grava o valor em reais e larga o percentual: a partir daqui vale o número, não a conta.
+     * Só "Marcar como recebido" e "Corrigir valor" chegam aqui (decisão 3 do dono).
+     */
+    public function congelarValor(string $valor): self
+    {
+        $this->valor      = $valor;
+        $this->percentual = null;
 
         return $this;
     }
@@ -172,11 +246,12 @@ class PastaPagamento implements Auditavel, TenantAware
 
     /**
      * Vencido é pendente com data no passado — nunca um pagamento já quitado,
-     * por mais atrasada que a quitação tenha sido.
+     * por mais atrasada que a quitação tenha sido, nem um previsto.
      */
     public function estaVencido(?\DateTimeImmutable $hoje = null): bool
     {
-        if ($this->pagoEm !== null) {
+        // O previsto nunca vence (desenho 02, `tabPendencias`): nem tem vencimento.
+        if ($this->pagoEm !== null || $this->estaPrevisto() || $this->vencimento === null) {
             return false;
         }
 
@@ -189,6 +264,11 @@ class PastaPagamento implements Auditavel, TenantAware
      */
     public function alternarQuitacao(?\DateTimeImmutable $quando = null): self
     {
+        // Recebido não tem percentual: quem quita congela antes (AlternarQuitacaoDoPagamentoUseCase).
+        if ($this->pagoEm === null && $this->percentual !== null) {
+            throw new \LogicException('Congele o valor do previsto antes de marcá-lo como recebido.');
+        }
+
         $this->pagoEm = $this->pagoEm === null
             ? ($quando ?? new \DateTimeImmutable('today'))
             : null;

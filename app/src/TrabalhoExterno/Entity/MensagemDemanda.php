@@ -63,6 +63,12 @@ class MensagemDemanda
         $this->em = new \DateTimeImmutable();
     }
 
+    /** A demanda da mensagem: o escritório dono dela decide o primário da edição sem prazo. */
+    public function getDemanda(): DemandaExterna
+    {
+        return $this->demanda;
+    }
+
     public function getId(): ?int
     {
         return $this->id;
@@ -101,7 +107,7 @@ class MensagemDemanda
     /** Qualquer mensagem, menos o registro do sistema, e uma vez só (desenho l.1233). */
     public function podeSerApagada(): bool
     {
-        return $this->apagadaEm === null && $this->tipo !== TipoMensagem::Sistema;
+        return $this->apagadaEm === null && !$this->tipo->ehRegistroDoSistema();
     }
 
     public function apagar(Autor $por, \DateTimeImmutable $agora): void

@@ -2,6 +2,7 @@
 
 namespace App\Processo\Repository;
 
+use App\Djen\Entity\ProcessoAcompanhado;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaProcesso;
@@ -78,7 +79,18 @@ class ProcessoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleColumnResult();
 
-        return array_values(array_map('strval', $linhas));
+        // Números incluídos na mão na aba "Processos da OAB" (sem processo cadastrado) entram depois dos cadastrados.
+        $incluidos = $this->getEntityManager()->createQueryBuilder()
+            ->select('a.numeroProcesso')
+            ->from(ProcessoAcompanhado::class, 'a')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.acompanhando = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('a.id', 'DESC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_unique(array_map('strval', array_merge($linhas, $incluidos))));
     }
 
     /**
@@ -87,14 +99,9 @@ class ProcessoRepository extends ServiceEntityRepository
      */
     public function contarAcompanhadosDoTenant(Tenant $tenant): int
     {
-        return (int) $this->createQueryBuilder('p')
-            ->select('COUNT(p.id)')
-            ->andWhere('p.tenant = :tenant')
-            ->andWhere('p.dataBaixa IS NULL')
-            ->andWhere('p.monitoramentoPausadoEm IS NULL')
-            ->setParameter('tenant', $tenant)
-            ->getQuery()
-            ->getSingleScalarResult();
+        $numeros = array_map(static fn (string $numero): string => (string) preg_replace('/\D/', '', $numero), $this->listarNumerosAcompanhadosDoTenant($tenant));
+
+        return \count(array_unique($numeros));
     }
 
     /**
@@ -214,12 +221,17 @@ class ProcessoRepository extends ServiceEntityRepository
 
         $termo = trim($termo);
         if ($termo !== '') {
+            // O número fica gravado só com dígitos; digitado com a máscara do CNJ ("1234567-89.2024..."),
+            // casa pelos dígitos.
+            $digitos = (string) preg_replace('/\D/', '', $termo);
+            $numero = $digitos !== '' && preg_match('/^[\d.\-\s]+$/', $termo) === 1 ? $digitos : $termo;
             $qb->andWhere(
-                'UNACCENT(LOWER(p.numeroProcesso)) LIKE UNACCENT(LOWER(:termo))'
+                'UNACCENT(LOWER(p.numeroProcesso)) LIKE UNACCENT(LOWER(:numero))'
                 . ' OR UNACCENT(LOWER(p.classeProcessual)) LIKE UNACCENT(LOWER(:termo))'
                 . ' OR UNACCENT(LOWER(p.assuntoProcessual)) LIKE UNACCENT(LOWER(:termo))'
                 . ' OR UNACCENT(LOWER(p.siglaTribunal)) LIKE UNACCENT(LOWER(:termo))'
-            )->setParameter('termo', '%' . $termo . '%');
+            )->setParameter('termo', '%' . $termo . '%')
+             ->setParameter('numero', '%' . $numero . '%');
         }
 
         if ($idsExcluir !== []) {
@@ -495,5 +507,34 @@ class ProcessoRepository extends ServiceEntityRepository
             $numeros[$row['numeroProcesso']] = $row['numeroProcesso'];
         }
         return $numeros;
+    }
+
+    /**
+     * Os valores de `orgao_julgador` com a acentuação estragada pelo mapper antigo ("Ã"/"Â" + U+0080..U+00BF, ou o "Μ"
+     * grego do "õ"), com a quantidade de cada um. Todos os escritórios: é o reparo do comando
+     * `app:processo:corrigir-acentuacao-do-orgao`, e o nome do órgão é público.
+     *
+     * @return array<string, int> valor → quantidade
+     */
+    public function orgaosJulgadoresComAcentuacaoEstragada(): array
+    {
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            "SELECT orgao_julgador AS valor, count(*) AS n FROM processo WHERE orgao_julgador ~ ('[ÃÂ][' || chr(128) || '-' || chr(191) || chr(924) || ']') GROUP BY orgao_julgador ORDER BY count(*) DESC, orgao_julgador",
+        );
+
+        $valores = [];
+        foreach ($linhas as $linha) {
+            $valores[(string) $linha['valor']] = (int) $linha['n'];
+        }
+
+        return $valores;
+    }
+
+    /** Troca um valor de `orgao_julgador` por outro em todos os escritórios (reparo da acentuação); devolve quantos mudaram. */
+    public function trocarOrgaoJulgador(string $antes, string $depois): int
+    {
+        return (int) $this->getEntityManager()->createQuery(
+            'UPDATE App\Processo\Entity\Processo e SET e.orgaoJulgador = :depois WHERE e.orgaoJulgador = :antes',
+        )->setParameter('antes', $antes)->setParameter('depois', $depois)->execute();
     }
 }

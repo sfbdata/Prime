@@ -6,10 +6,9 @@ namespace App\Agenda\Controller;
 
 use App\Agenda\DTO\CompromissoOutput;
 use App\Agenda\DTO\LembreteOutput;
-use App\Agenda\Service\GarantirVarreduraDePush;
-use App\Agenda\Service\GarantirVarreduraDoGoogle;
 use App\Agenda\UseCase\EstadoDoGoogleAgendaUseCase;
 use App\Agenda\UseCase\ContarMeusCompromissosUseCase;
+use App\Agenda\UseCase\DispensarAvisoDoGoogleUseCase;
 use App\Agenda\Service\PermissoesDaAgenda;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
 use App\Agenda\UseCase\ListarLembretesUseCase;
@@ -40,10 +39,9 @@ final class AgendaNovaController extends AbstractController
         private readonly UserRepository $usuarios,
         private readonly ListarLembretesUseCase $listarLembretes,
         private readonly PermissoesDaAgenda $daAgenda,
-        private readonly GarantirVarreduraDePush $garantirPush,
-        private readonly GarantirVarreduraDoGoogle $garantirGoogle,
         private readonly EstadoDoGoogleAgendaUseCase $estadoDoGoogle,
         private readonly ContarMeusCompromissosUseCase $contarMeus,
+        private readonly DispensarAvisoDoGoogleUseCase $avisoDoGoogle,
     ) {
     }
 
@@ -59,13 +57,15 @@ final class AgendaNovaController extends AbstractController
 
             return $this->redirectToRoute('homepage');
         }
+        $google = $this->estadoDoGoogle->executar($tenant, $user);
 
         return $this->render('agenda/nova.html.twig', [
             'eu'     => ['id' => $user->getId(), 'nome' => $user->getFullName()],
             'podeVerPastas' => $this->daAgenda->verPastas($user, $tenant),
             'tenantId'      => $tenant->getId(),
             'escritorio'    => (string) $tenant->getName(),
-            'google'        => $this->estadoDoGoogle->executar($tenant, $user),
+            'google'        => $google,
+            'googleAviso'   => $this->avisoDoGoogle->mostrar($tenant, $user, $google),
             'equipe' => array_map(
                 static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
                 $this->usuarios->findColaboradoresAtivosPorTenant($tenant),
@@ -108,9 +108,6 @@ final class AgendaNovaController extends AbstractController
             return $this->json(['erro' => 'Sem permissão'], 403);
         }
         $itens = $this->listarLembretes->executar($tenant, $user, new \DateTimeImmutable(), $this->daAgenda->verPastas($user, $tenant), $this->daAgenda->verPrazos($user, $tenant));
-        // Religa o push dos lembretes e a sincronia do Google se o worker ficou parado (consultas baratas).
-        $this->garantirPush->garantir();
-        $this->garantirGoogle->garantir();
 
         return $this->json(['itens' => array_map(static fn (LembreteOutput $l): array => $l->toArray(), $itens)]);
     }

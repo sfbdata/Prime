@@ -1,0 +1,8 @@
+# Continuar com Facebook (spec login-cupom-e-facebook, PR B): limita a ida ao Facebook por IP. Bloco próprio, fora do
+# framework.yaml (arquivo quente entre sessões); o Symfony junta os limitadores dos arquivos.
+framework:
+    rate_limiter:
+        login_facebook:
+            policy: sliding_window
+            limit: 20
+            interval: '15 minutes'

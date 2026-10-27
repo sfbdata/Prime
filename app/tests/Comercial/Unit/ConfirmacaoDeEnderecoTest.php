@@ -14,17 +14,21 @@ use App\Comercial\Repository\ConfirmacaoDeEnderecoRepository;
 use App\Comercial\Repository\FatoDeConsentimentoRepository;
 use App\Comercial\Service\ConfirmacaoDeEndereco;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Symfony\Bridge\Twig\Extension\TranslationExtension;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\Translation\Loader\YamlFileLoader;
+use Symfony\Component\Translation\Translator;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 
@@ -77,6 +81,11 @@ final class ConfirmacaoDeEnderecoTest extends TestCase
         $rotas->add(ConfirmacaoDeEndereco::ROTA, new Route('/e/confirmar/{token}'));
         $urls = new UrlGenerator($rotas, new RequestContext('', 'GET', 'app.bluejus.com.br', 'https'));
         $twig = new Environment(new FilesystemLoader(\dirname(__DIR__, 3) . '/templates'), ['strict_variables' => true]);
+        // O texto do e-mail mora no catálogo (bloco `emails.comercial`): o tradutor de verdade do português.
+        $tradutor = new Translator('pt_BR');
+        $tradutor->addLoader('yaml', new YamlFileLoader());
+        CatalogoPtBr::registrarEm($tradutor);
+        $twig->addExtension(new TranslationExtension($tradutor));
 
         return new ConfirmacaoDeEndereco($this->estados, $this->fatos, $this->descadastro, $this->carteiro, $twig, $urls, $this->logger, $this->relogio);
     }

@@ -25,15 +25,16 @@ use App\Master\Entity\RecursoEstado;
 use App\Pasta\Entity\PastaProcesso;
 use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\BlocoJornadaColaborador;
-use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\TenantAware;
+use App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo;
 use App\Termo\Entity\AceiteTermo;
 use App\TrabalhoExterno\Entity\AvisoWhatsapp;
 use App\TrabalhoExterno\Entity\ConfiguracaoCentral;
 use App\TrabalhoExterno\Entity\ContatoWhatsapp;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\Curriculo;
@@ -45,7 +46,9 @@ use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
 use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
+use App\TrabalhoExterno\Entity\MetricaPublica;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
+use App\TrabalhoExterno\Entity\RecusaDeOferta;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Entity\Vaga;
 use Doctrine\ORM\EntityManagerInterface;
@@ -89,6 +92,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Contribua\Entity\NotificacaoRecebida::class,
         // Configuração do pagamento por cartão (gateway, chave pública, carência): uma linha só, da plataforma.
         \App\Contribua\Entity\ConfiguracaoDePagamento::class,
+        // Bônus de espaço por indicação: mesmo motivo do espaço do escritório (lido por tenantId explícito
+        // no SituacaoDoEspaco, inclusive em lote para o painel do Master). Só o Contribua o cita
+        // (BonusDeEspacoSoNoContribuaArquiteturaTest).
+        \App\Contribua\Entity\BonusDeEspaco::class,
 
         // Identidade: existe antes e acima do vínculo com escritório.
         User::class,
@@ -123,6 +130,13 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // não do escritório. Quem atua em dois escritórios tem um perfil só.
         UserProfile::class,
 
+        // Outbox da réplica do espelho (P2.3, docs/specs/p2-gravacao-dupla.md §14). Infraestrutura:
+        // ESCRITA pelo decorador do armazenamento (na requisição do usuário, com o escopo da chave) e
+        // LIDA só pelo worker e pelos comandos de operador — sempre por DBAL (que o TenantFilter nem
+        // alcança), sem rota HTTP. O tenant de cada linha está em `escopo_tenant_id`; filtrar aqui
+        // faria o worker, que roda sem escritório na sessão, não ver a fila.
+        ReplicacaoDeArquivo::class,
+
         // Inscrições na OAB (spec docs/specs/meu-perfil-oab-inscricoes.md §2): credencial da PESSOA, como os
         // campos oab* do User de que a principal é o espelho; vale em todo escritório em que ela atua. Leitura
         // sempre por usuário (doUsuario/daPessoa); a fila global é só do Master.
@@ -155,10 +169,13 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escopadas) e da PoliticaDaVaga, provado em VagasDoTrabalhoExternoTest (pendente de outro
         // escritório é 404). O histórico só é lido pela vaga.
         Vaga::class,          // vaga publicada pela Central para todos os escritórios; VagaRepository só consulta escopado e LocalizadorDeVaga confere a PoliticaDaVaga (VagasDoTrabalhoExternoTest::testFluxoDeDivulgacao)
+        RecusaDeOferta::class, // só é lida pela vaga já localizada no escopo e pelo próprio usuário que recusou (RecusaEExpiracaoDaVagaTest: outro escritório é 404, interno é 403)
+        DespachoDemanda::class, // só é lido pela demanda já localizada no escopo (DemandaExterna::getDespachos); toda rota passa pelo LocalizadorDeDemanda (DespachoDaDemandaTest, outro escritório é 404)
         HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só pelo interno (ApresentadorDeVaga::detalhe, desenho l.1190)
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
+        MetricaPublica::class, // contador anônimo da página pública (dia, link, visitas, cliques), sem escritório nem pessoa; só o painel do Master lê, e só a soma (PainelDoTrabalhoExternoTest::testSoOMasterVeOPainel)
         Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
         Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
 
@@ -183,6 +200,15 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\CampanhaDeEmail::class,
         \App\Comercial\Entity\DestinoDaCampanha::class,
         \App\Comercial\Entity\ControleDoExpansor::class,
+        // F3e (comercial-marcas.md): as marcas do Relatório são de cada Master sobre as campanhas da plataforma, sem
+        // escritório (a tabela não tem `tenant_id`).
+        \App\Comercial\Entity\CampanhaMarca::class,
+        // F3i (§12): as imagens das campanhas do Master são da plataforma, sem escritório; a rota pública /e/i/ as
+        // entrega sem sessão, pelo token.
+        \App\Comercial\Entity\ImagemDaCampanha::class,
+        // F4 (comercial-e-emails.md §13): o estado das 17 datas comemorativas é configuração da PLATAFORMA, do Master,
+        // sem escritório (a tabela não tem `tenant_id`), lido pelo passo `datas` da varredura, que roda sem sessão.
+        \App\Comercial\Entity\DataComemorativa::class,
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
@@ -197,6 +223,49 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
         \App\Master\Entity\SeccionalOab::class,
         \App\Master\Entity\DivulgacaoNaSeccional::class,
+        // Desempenho do Master (docs/specs/master-desempenho.md): telemetria, incidentes e registros de backup da
+        // PLATAFORMA, sem `tenant_id`. O evento guarda no máximo o usuário (SET NULL), nunca dado de escritório;
+        // lidos e gravados só pelo Master (ROLE_SUPER_ADMIN) e pelo endpoint do monitor, que é do usuário logado.
+        \App\Master\Entity\EventoDeDesempenho::class,
+        \App\Master\Entity\IncidenteDeDesempenho::class,
+        \App\Master\Entity\RegistroDeBackup::class,
+        // Janela da OAB dos estados que faltam (docs/specs/master-oab-estados-que-faltam.md): as subseções e a nota
+        // explicativa de cada seccional são anotação de trabalho da PLATAFORMA, compartilhada entre os Masters, sem
+        // escritório nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
+        \App\Master\Entity\SubsecaoOab::class,
+        \App\Master\Entity\NotaDaSeccional::class,
+        // Nota por cidade da janela da OAB (desenho 05 inteiro, 21/10/2026): mesmo modelo da nota da seccional.
+        \App\Master\Entity\NotaDaCidadeOab::class,
+        // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
+        // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\TemaConfig::class,
+        // Configurações globais do Master (Perfis 1.2 VS 25.10.26, P2): linha única (id 1) da PLATAFORMA, escrita só pelo
+        // Master, como o TemaConfig. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\ConfiguracaoGlobal::class,
+        // BlueJus IA no Painel do Master (frente ia-anthropic-ligar, PR B, 24/10/2026): linha única de configuração da
+        // PLATAFORMA (id 1) com a chave geral, o modelo e os meses de retenção, escrita só pelo Master. Sem dado de
+        // escritório nem de cliente; o que é de cada escritório fica em ConfiguracaoDeInteligencia (TenantAware).
+        \App\Inteligencia\Entity\ConfiguracaoDaPlataformaDeIa::class,
+        // Convênio OAB por estado do Master (P4b, 26/10/2026): uma linha por UF não gratuita, configuração da PLATAFORMA
+        // escrita só pelo Master. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\ConvenioDaUf::class,
+        // Metas de divulgação do Painel do Master (desenho 05 VS 25.10.26, P3): linha única de configuração da PLATAFORMA
+        // (id 1), escrita só pelo Master. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\MetaDeDivulgacao::class,
+        // Recompensas do Painel do Master (F1, 26/10/2026): a regra geral do programa Indique e ganhe (linha única, id 1) e
+        // a condição individual de cada indicador. Configuração da PLATAFORMA, escrita só pelo Master; a chave da condição
+        // é o usuário que indica, sem escritório. Sem dado de cliente.
+        \App\Recompensa\Entity\ProgramaDeRecompensa::class,
+        \App\Recompensa\Entity\CondicaoDeRecompensa::class,
+        // Extrato de recompensas (F2, 26/10/2026): livro só de INSERT com os créditos e estornos manuais por indicador.
+        // Dado da PLATAFORMA, lido e escrito só pelo Master; o indicador é um usuário, sem escritório. Sem dado de cliente.
+        \App\Recompensa\Entity\LancamentoDeRecompensa::class,
+        // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
+        // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
+        // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
+        \App\Inteligencia\Entity\EstadoDaQuestaoJuridica::class,
+        \App\Inteligencia\Entity\MudancaDeStatusDaQuestaoJuridica::class,
+        \App\Inteligencia\Entity\VersaoDeDocumentoJuridico::class,
 
         // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
         // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
@@ -206,6 +275,18 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Indicacao\Entity\IndicacaoConfig::class,
         \App\Indicacao\Entity\IndicacaoPausa::class,
         \App\Indicacao\Entity\IndicacaoAlerta::class,
+
+        // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md, D1 a D3): o Master lê as
+        // mensagens de TODOS os escritórios. O estado (lida, estrela, arquivada) é do Master, e toda consulta filtra por
+        // `master_id = eu`; as respostas são o histórico compartilhado entre os Masters, lido só pela mensagem. O
+        // `tenant_id` (nulo para suporte e alerta) é só para a purga do escritório (ORDEM_DELECAO).
+        \App\Master\Entity\CentralMasterEstado::class,
+        \App\Master\Entity\CentralMasterResposta::class,
+
+        // Falha de tarefa agendada (spec scheduler-tarefas-agendadas, "Aviso de falha"): dado do SISTEMA, sem
+        // escritório. A tarefa roda para todos (purga, DJEN, envio ao Drive) e quem vê o aviso é o Master ou o
+        // e-mail de AGENDADOR_ALERTA_EMAIL. A linha só guarda comando, hora, classe do erro e código de saída.
+        \App\Shared\Scheduler\Entity\FalhaAgendada::class,
     ];
 
     /**
@@ -216,7 +297,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      * entrando com a rede ligada. Com o teto, essa saída exige mexer no teto no mesmo diff, e
      * aí é decisão visível em vez de descuido.
      */
-    private const MAX_PENDENTE = 14;
+    private const MAX_PENDENTE = 13;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
@@ -240,8 +321,38 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 53 → 54 com a candidatura às vagas do Trabalho Externo (19/10/2026): Candidatura, justificada acima.
     // 54 → 55 com a fatia 1b do Comercial (21/10/2026): a vez dos avisos de espaço, justificada acima.
     // 55 → 57 com as Seccionais da OAB do Painel do Master (21/10/2026): SeccionalOab e DivulgacaoNaSeccional (plataforma).
-    // 57 → 59 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
-    private const MAX_FORA_DO_ESCOPO = 59;
+    // 57 → 58 com os temas comemorativos (21/10/2026): TemaConfig, configuração global da plataforma, justificada acima.
+    // 58 → 60 com a Central de Notificações do Master (21/10/2026): CentralMasterEstado e CentralMasterResposta são do
+    // Master, que lê todos os escritórios, justificadas acima.
+    // 60 → 62 com a janela da OAB dos estados que faltam (21/10/2026): SubsecaoOab e NotaDaSeccional (plataforma),
+    // justificadas acima.
+    // 62 → 63 com as marcas do Relatório da Central de envios (21/10/2026): CampanhaMarca, do Master, justificada acima.
+    // 63 → 64 com a métrica anônima da página pública do Trabalho Externo (19/10/2026): MetricaPublica, justificada acima.
+    // 64 → 65 com a nota por cidade da janela da OAB (21/10/2026): NotaDaCidadeOab (plataforma), justificada acima.
+    // 65 → 66 com as imagens das campanhas do Master (21/10/2026, F3i): ImagemDaCampanha (plataforma), justificada acima.
+    // 66 → 67 com as datas comemorativas do Comercial (21/10/2026, F4): DataComemorativa (plataforma), justificada acima.
+    // 67 → 68 com as falhas das tarefas agendadas (23/10/2026, spec scheduler-tarefas-agendadas): FalhaAgendada é dado
+    // do sistema, sem escritório, justificada acima.
+    // 68 → 69 com a BlueJus IA no Painel do Master (24/10/2026): ConfiguracaoDaPlataformaDeIa, configuração global da
+    // plataforma, justificada acima.
+    // 69 → 70 com a outbox da réplica do espelho no R2 (P2.3, spec p2-gravacao-dupla): ReplicacaoDeArquivo é
+    // infraestrutura lida só pelo worker, por DBAL, com o escritório na própria linha; justificada acima.
+    // 70 → 73 com as questões jurídicas do Master (24/10/2026): EstadoDaQuestaoJuridica, MudancaDeStatusDaQuestaoJuridica
+    // e VersaoDeDocumentoJuridico (plataforma), justificadas acima.
+    // 73 → 74 com o despacho da Central no Trabalho Externo (24/10/2026): DespachoDemanda, justificado acima.
+    // 74 → 75 com a recusa de oferta do Trabalho Externo (24/10/2026): RecusaDeOferta, justificada acima.
+    // 75 → 78 com o Desempenho do Master (26/10/2026): EventoDeDesempenho, IncidenteDeDesempenho e RegistroDeBackup
+    // (plataforma), justificadas acima.
+    // 78 → 79 com as metas de divulgação do Master (26/10/2026): MetaDeDivulgacao, configuração global da plataforma.
+    // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
+    // 80 → 82 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
+    // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
+    // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
+    // 83 → 84 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
+    // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
+    // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
+    // 85 → 87 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
+    private const MAX_FORA_DO_ESCOPO = 87;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
@@ -268,7 +379,6 @@ final class TenantAwareCoberturaTest extends KernelTestCase
 
         // Fatia 6 — Ponto eletrônico (risco ALTO, re-revisão obrigatória).
         BlocoJornada::class,
-        JornadaColaborador::class,
         BlocoJornadaColaborador::class,
 
         // Fatia 7 — depende de decisão do dono sobre os nulos (§5.1 da spec):

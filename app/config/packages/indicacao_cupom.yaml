@@ -1,0 +1,9 @@
+# Conferência ao vivo do cupom no "Criar conta" (spec login-cupom-ao-vivo): limita as consultas por IP, já que o
+# endpoint revela se um código existe. Bloco próprio, fora do framework.yaml (arquivo quente entre sessões); o Symfony
+# junta os limitadores dos arquivos.
+framework:
+    rate_limiter:
+        indicacao_cupom:
+            policy: sliding_window
+            limit: 20
+            interval: '15 minutes'

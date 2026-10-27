@@ -11,25 +11,25 @@
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 <section class="ps-card ps-trilho-dados" data-trilho="processo">
     <div class="ps-cab-dado" data-campo="acao">
-        <p class="ps-rotulo"><i class="bi bi-bank2"></i>Ação</p>
+        <p class="ps-rotulo"><i class="bi bi-bank2"></i>{{ 'pasta_cabecalho.topo.acao'|trans }}</p>
         {%- if pasta.nomeAcao -%}
             <p class="ps-dado ps-dado--forte">{{ pasta.nomeAcao }}</p>
         {%- elseif proc and (proc.classeProcessual or proc.assuntoProcessual) -%}
-            <p class="ps-dado ps-dado--forte" title="Extraído do processo vinculado">{{ proc.classeProcessual ?: proc.assuntoProcessual }}</p>
+            <p class="ps-dado ps-dado--forte" title="{{ 'pasta_cabecalho.topo.extraido_dica'|trans }}">{{ proc.classeProcessual ?: proc.assuntoProcessual }}</p>
         {%- elseif proc -%}
-            <p class="ps-dado ps-dado--vazio">Não informada</p>
+            <p class="ps-dado ps-dado--vazio">{{ 'pasta_cabecalho.topo.nao_informada'|trans }}</p>
         {%- else -%}
             {# Sem processo a ação não tem de onde vir — o desenho convida a vincular. #}
-            <p class="ps-dado ps-dado--vazio ps-cab-acao-vazia">Vincule um processo para definir</p>
+            <p class="ps-dado ps-dado--vazio ps-cab-acao-vazia">{{ 'pasta_cabecalho.topo.vincule'|trans }}</p>
         {%- endif -%}
     </div>
 
     <div class="ps-cab-dado" data-campo="processo">
-        <p class="ps-rotulo"><i class="bi bi-diagram-3"></i>Processo vinculado</p>
+        <p class="ps-rotulo"><i class="bi bi-diagram-3"></i>{{ 'pasta_cabecalho.topo.processo_vinculado'|trans }}</p>
         {% if proc %}
             <p class="ps-dado ps-dado--forte ps-num">
-                <a href="{{ path('processo_show', {id: proc.id}) }}" title="Abrir processo">{{ proc.numeroProcesso|numero_cnj }}</a>
-                <i class="bi bi-copy copy-btn ps-copiar" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar"></i>
+                <a href="{{ path('processo_show', {id: proc.id}) }}" title="{{ 'pasta_cabecalho.topo.abrir_processo'|trans }}">{{ proc.numeroProcesso|numero_cnj }}</a>
+                <i class="bi bi-copy copy-btn ps-copiar" role="button" data-copy="{{ proc.numeroProcesso }}" title="{{ 'pasta_cabecalho.topo.copiar'|trans }}"></i>
             </p>
             {% if proc.classeProcessual or proc.siglaTribunal %}
                 <div class="ps-dado-sub">
@@ -45,16 +45,16 @@
             <div class="ps-cab-proc-acoes">
                 {# Sem o atalho com a aba Processo oculta para quem vê (ocultar aba). #}
                 {% if 'processo' not in abasOcultas|default([]) %}
-                <button type="button" class="ps-link-btn" data-ps-ir-aba="processo-tab" title="Ir à aba Processo">
-                    <i class="bi bi-arrow-left-right"></i>trocar
+                <button type="button" class="ps-link-btn" data-ps-ir-aba="processo-tab" title="{{ 'pasta_cabecalho.topo.ir_aba_processo'|trans }}">
+                    <i class="bi bi-arrow-left-right"></i>{{ 'pasta_cabecalho.topo.trocar'|trans }}
                 </button>
                 {% endif %}
                 {% if apensados|length > 0 %}
                     <button type="button" class="ps-chip-vinc ps-chip-vinc--apensados" data-ps-toggle="psProcessosVinculados"
                             aria-expanded="false" aria-controls="psProcessosVinculados"
-                            title="Ver processos apensados"
-                            data-dica-aberto="Recolher processos apensados" data-dica-fechado="Ver processos apensados">
-                        <i class="bi bi-paperclip"></i>{{ apensados|length }} apensado{{ apensados|length > 1 ? 's' : '' }}<i class="bi bi-chevron-down"></i>
+                            title="{{ 'pasta_cabecalho.topo.apensados_ver'|trans }}"
+                            data-dica-aberto="{{ 'pasta_cabecalho.topo.apensados_recolher'|trans }}" data-dica-fechado="{{ 'pasta_cabecalho.topo.apensados_ver'|trans }}">
+                        <i class="bi bi-paperclip"></i>{{ (1 < apensados|length ? 'pasta_cabecalho.topo.apensado_varios' : 'pasta_cabecalho.topo.apensado_um')|trans({n: apensados|length ~ ''}) }}<i class="bi bi-chevron-down"></i>
                     </button>
                 {% endif %}
             </div>
@@ -64,8 +64,8 @@
                         {% set outro = pp.processo %}
                         {% set subApenso = [outro.classeProcessual, outro.siglaTribunal]|filter(v => v) %}
                         <div class="ps-cab-vinculado ps-cab-apensado">
-                            <div class="ps-rotulo ps-rotulo--mini"><i class="bi bi-link-45deg"></i>Apensado · {{ pp.tipoApensoRotulo }}</div>
-                            <a class="ps-num ps-dado--forte" href="#processo" data-ps-ir-aba="processo-tab" title="Abrir processo apensado">{{ outro.numeroProcesso|numero_cnj }}</a>
+                            <div class="ps-rotulo ps-rotulo--mini"><i class="bi bi-link-45deg"></i>{{ 'pasta_cabecalho.topo.apensado_tipo'|trans({tipo: pp.tipoApensoRotulo}) }}</div>
+                            <a class="ps-num ps-dado--forte" href="#processo" data-ps-ir-aba="processo-tab" title="{{ 'pasta_cabecalho.topo.abrir_apensado'|trans }}">{{ outro.numeroProcesso|numero_cnj }}</a>
                             {% if outro.assuntoProcessual %}
                                 <div class="ps-cab-apensado-acao">{{ outro.assuntoProcessual }}</div>
                             {% endif %}
@@ -80,9 +80,9 @@
                 </div>
             {% endif %}
         {% else %}
-            <p class="ps-dado ps-dado--vazio">Nenhum processo.
+            <p class="ps-dado ps-dado--vazio">{{ 'pasta_cabecalho.topo.nenhum_processo'|trans }}
                 {% if podeEditarPasta %}
-                <button type="button" class="ps-link-btn ps-link-btn--vincular" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">vincular</button>
+                <button type="button" class="ps-link-btn ps-link-btn--vincular" data-vp-abrir aria-haspopup="dialog" aria-controls="modalVincularProcesso">{{ 'pasta_cabecalho.topo.vincular'|trans }}</button>
                 {% endif %}
             </p>
         {% endif %}
@@ -95,10 +95,10 @@
        oferecer o link a quem seria recusado é pior que não oferecer. #}
     {% if unidadeCobrada|default(null) and can_access_module('cobrancas') %}
         <div class="ps-cab-dado" data-campo="cobranca">
-            <p class="ps-rotulo"><i class="bi bi-cash-coin"></i>Cobrança</p>
+            <p class="ps-rotulo"><i class="bi bi-cash-coin"></i>{{ 'pasta_cabecalho.topo.cobranca'|trans }}</p>
             <p class="ps-dado ps-dado--forte ps-num">
                 <a href="{{ path('cobranca_objeto_show', {id: unidadeCobrada.objetoId}) }}"
-                   title="Abrir a unidade cobrada">{{ unidadeCobrada.identificacao }}</a>
+                   title="{{ 'pasta_cabecalho.topo.abrir_cobrada'|trans }}">{{ unidadeCobrada.identificacao }}</a>
             </p>
             {% if unidadeCobrada.credor %}
                 <div class="ps-dado-sub">{{ unidadeCobrada.credor }}</div>

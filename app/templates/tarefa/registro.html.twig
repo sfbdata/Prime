@@ -1,0 +1,52 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Validação do registro de um despacho (D1; spec minhas-metas-esteira-2210, C13): só para quem é do escritório.
+    Confirma meta, autor, cargo, data e natureza, sem o texto. Código de outro escritório ou inexistente cai no mesmo
+    "não encontrado" (resposta 404), para não confirmar que o código existe em algum lugar.
+#}
+
+{% block title %}{{ (registro ? 'metas.despacho.registro.titulo' : 'metas.despacho.registro.nao_encontrado_titulo')|trans }}{% endblock %}
+
+{% block body %}
+<div class="content-header">
+    <div class="container-fluid">
+        <h1 class="m-0"><i class="bi bi-patch-check me-2"></i>{{ 'metas.despacho.registro.titulo'|trans }}</h1>
+    </div>
+</div>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card card-outline {{ registro ? 'card-primary' : 'card-secondary' }}" style="max-width:640px;">
+            {% if registro %}
+                <div class="card-body" data-registro-encontrado>
+                    <p class="mb-3">{{ 'metas.despacho.registro.confere'|trans({codigo: registro.codigo}) }}</p>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">{{ 'metas.despacho.registro.meta'|trans }}</dt>
+                        <dd class="col-sm-8">{{ 'metas.despacho.registro.meta_numero'|trans({numero: registro.metaNumero ~ ''}) }} · {{ registro.metaTitulo }}</dd>
+                        <dt class="col-sm-4">{{ 'metas.despacho.registro.autor'|trans }}</dt>
+                        <dd class="col-sm-8">{{ registro.autor }}</dd>
+                        {% if registro.cargo %}
+                            <dt class="col-sm-4">{{ 'metas.despacho.registro.cargo'|trans }}</dt>
+                            <dd class="col-sm-8">{{ registro.cargo }}</dd>
+                        {% endif %}
+                        <dt class="col-sm-4">{{ 'metas.despacho.registro.data'|trans }}</dt>
+                        <dd class="col-sm-8">{{ 'metas.despacho.registro.data_hora'|trans({data: registro.registradoEm|data, hora: registro.registradoEm|hora}) }}</dd>
+                        <dt class="col-sm-4">{{ 'metas.despacho.registro.natureza'|trans }}</dt>
+                        <dd class="col-sm-8">{{ (registro.natureza ?? 'metas.despacho.registro.sem_natureza')|trans }}</dd>
+                    </dl>
+                    <p class="text-muted small mt-3 mb-2">{{ 'metas.despacho.registro.sem_texto'|trans }}</p>
+                    <a href="{{ path('tarefa_show', {id: registro.metaId}) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>{{ 'metas.despacho.registro.abrir_meta'|trans }}
+                    </a>
+                </div>
+            {% else %}
+                <div class="card-body" data-registro-nao-encontrado>
+                    <h2 class="h5">{{ 'metas.despacho.registro.nao_encontrado_titulo'|trans }}</h2>
+                    <p class="mb-0">{{ 'metas.despacho.registro.nao_encontrado'|trans({codigo: codigo}) }}</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

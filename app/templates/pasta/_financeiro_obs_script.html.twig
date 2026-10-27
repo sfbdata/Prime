@@ -68,7 +68,8 @@
         }
     }
 
-    const ROTULO_ORFA = 'Resposta a uma mensagem excluída';
+    /* Do catálogo na hora do uso: este script roda antes do bj-traducao.js, que o base carrega no fim. */
+    function rotuloOrfa() { return BJ_T.t('pasta_financeiro.js.resposta_orfa'); }
 
     function mostrarObsErro(msg) {
         obsErro.textContent = msg;
@@ -87,10 +88,10 @@
         formObs.addEventListener('submit', async function (e) {
             e.preventDefault();
             const conteudo = obsConteudo.value.trim();
-            if (conteudo === '') { mostrarObsErro('O registro não pode ser vazio.'); return; }
+            if (conteudo === '') { mostrarObsErro(BJ_T.t('pasta_financeiro.js.registro_vazio')); return; }
 
             btnEnviarObs.disabled = true;
-            btnEnviarObs.textContent = 'Enviando…';
+            btnEnviarObs.textContent = BJ_T.t('pasta_financeiro.js.enviando');
             if (window.EditorRico) { EditorRico.marcarEnvio(obsConteudo, true); }
             obsErro.classList.add('d-none');
 
@@ -103,7 +104,7 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
                 const data = await resp.json();
-                if (!resp.ok) { mostrarObsErro(data.erro ?? 'Erro ao enviar.'); return; }
+                if (!resp.ok) { mostrarObsErro(data.erro ?? BJ_T.t('pasta_financeiro.js.erro_enviar')); return; }
 
                 const vazioMsg = document.getElementById('financeiroObsVazio');
                 if (vazioMsg) { vazioMsg.remove(); }
@@ -113,9 +114,9 @@
                 if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
                 if (window.PastaMencoes) { PastaMencoes.esquecer(obsConteudo); }
             } catch (_) {
-                mostrarObsErro('Erro de rede. Tente novamente.');
+                mostrarObsErro(BJ_T.t('pasta_financeiro.js.erro_rede_tente'));
             } finally {
-                btnEnviarObs.textContent = 'Enviar';
+                btnEnviarObs.textContent = BJ_T.t('pasta_financeiro.js.enviar');
                 // O editor decide: depois de enviar ele está vazio, e vazio o Enviar fica apagado.
                 if (window.EditorRico) { EditorRico.marcarEnvio(obsConteudo, false); } else { btnEnviarObs.disabled = false; }
             }
@@ -137,9 +138,9 @@
         const quando = dataEl ? (dataEl.getAttribute('title') || limpo(dataEl)) : '';
         const txt    = cartao ? limpo(cartao.querySelector('.obs-conteudo .ql-editor')) : '';
 
-        return 'Excluir o comentário de ' + (autor || 'colaborador') + '?\n\n'
-            + (quando ? quando + ' · ' : '') + '"' + txt.slice(0, 140) + (txt.length > 140 ? '…' : '')
-            + '". Ele some para toda a equipe e a exclusão fica registrada no histórico.';
+        return BJ_T.t('pasta_financeiro.js.excluir_comentario_titulo', { autor: autor || BJ_T.t('pasta_financeiro.js.colaborador') }) + '\n\n'
+            + (quando ? quando + ' · ' : '')
+            + BJ_T.t('pasta_financeiro.js.excluir_comentario_texto', { trecho: txt.slice(0, 140) + (txt.length > 140 ? '…' : '') });
     }
 
     /** "06/10 · 09:12" quando a resposta é de outro dia que não o da raiz (como no Twig). */
@@ -159,12 +160,12 @@
         const criadaEm   = String(data.criadaEm ?? '');
         const ehResposta = !!data.respostaA;
         const alvoId     = ehResposta ? data.respostaA : data.id;
-        const alvoNome   = ehResposta ? (data.respostaANome || 'Autor desconhecido') : (data.autorNome || 'Autor desconhecido');
+        const alvoNome   = ehResposta ? (data.respostaANome || BJ_T.t('pasta_financeiro.js.autor_desconhecido')) : (data.autorNome || BJ_T.t('pasta_financeiro.js.autor_desconhecido'));
         const autorResp  = ehResposta && data.autorId
             ? ` data-resposta-autor-id="${esc(data.autorId)}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"`
             : '';
         const faixa = ehResposta
-            ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? 'Resposta a ' + data.respostaANome : ROTULO_ORFA)}</span></div>`
+            ? `<div class="ps-anotacao-resposta-rot"><i class="bi bi-reply-fill" aria-hidden="true"></i><span>${esc(data.respostaANome ? BJ_T.t('pasta_financeiro.js.resposta_a', { nome: data.respostaANome }) : rotuloOrfa())}</span></div>`
             : '';
         /* C6-FPN-05: o fim da janela de 15 min em epoch NUMÉRICO (segundos), a partir do instante
            que o SERVIDOR gravou (`criadaEmEpoch`), como o `|date('U')` do macro do Twig: o ⋮
@@ -176,7 +177,7 @@
         const btnEncaminhar   = encaminharPasta
             ? `<button type="button"
                             class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
-                            title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                            title="${esc(BJ_T.t('pasta_financeiro.js.encaminhar'))}" aria-label="${esc(BJ_T.t('pasta_financeiro.js.encaminhar'))}"
                             data-encaminhar-pasta="${encaminharPasta}"
                             data-encaminhar-tipo="registro_financeiro"
                             data-encaminhar-id="${Number(data.id)}">
@@ -186,7 +187,7 @@
 
         return `
             <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="financeiro-obs-${data.id}" data-obs-do-autor="1"
-                     data-janela-ate="${janelaAte}" data-autor-id="${esc(data.autorId ?? '')}">
+                     data-janela-ate="${janelaAte}" data-autor-id="${esc(data.autorId ?? '')}"{% if sem_prazo_selo(false) %} data-sem-prazo-rotulo="{{ ('edicao_sem_prazo.selo.' ~ sem_prazo_selo(false))|trans|e('html_attr') }}"{% endif %}>
                 ${faixa}
                 <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                 <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -197,7 +198,7 @@
                     <span class="ps-anotacao-acoes">
                         <button type="button"
                                 class="ps-anotacao-acao btn-editar-obs"
-                                title="Editar registro" aria-label="Editar registro"
+                                title="${esc(BJ_T.t('pasta_financeiro.js.editar_registro'))}" aria-label="${esc(BJ_T.t('pasta_financeiro.js.editar_registro'))}"
                                 data-obs-id="${data.id}"
                                 data-conteudo="${esc(data.conteudo)}"
                                 data-conteudo-html="${esc(data.conteudoHtml ?? '')}"
@@ -207,17 +208,17 @@
                         </button>
                         <button type="button"
                                 class="ps-anotacao-acao ps-anotacao-acao--perigo btn-excluir-obs"
-                                title="Excluir registro" aria-label="Excluir registro"
+                                title="${esc(BJ_T.t('pasta_financeiro.js.excluir_registro'))}" aria-label="${esc(BJ_T.t('pasta_financeiro.js.excluir_registro'))}"
                                 data-obs-id="${data.id}"
                                 data-csrf="${esc(data.csrfExcluir)}"
                                 data-url="${esc(urlExcluir)}">
                             <i class="bi bi-trash3"></i>
                         </button>
-                        <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="Edição e exclusão liberadas por mais {{ comentario_janela_minutos() }} min">· {{ comentario_janela_minutos() }} min</span>
+                        <span class="ps-anotacao-janela small" style="color: var(--ps-label);" title="${esc(BJ_T.t('pasta_financeiro.js.janela_dica', { minutos: {{ comentario_janela_minutos() }} }))}">${esc(BJ_T.t('pasta_financeiro.js.janela', { minutos: {{ comentario_janela_minutos() }} }))}</span>
                     </span>
                     <button type="button"
                             class="ps-anotacao-acao ps-anotacao-acao--responder btn-responder-obs"
-                            title="Responder" aria-label="Responder"
+                            title="${esc(BJ_T.t('pasta_financeiro.js.responder'))}" aria-label="${esc(BJ_T.t('pasta_financeiro.js.responder'))}"
                             data-resposta-a="${esc(alvoId)}"
                             data-resposta-nome="${esc(alvoNome)}"${autorResp}>
                         <i class="bi bi-reply-fill"></i>
@@ -306,7 +307,7 @@
         icone.className = 'bi bi-reply-fill';
         icone.setAttribute('aria-hidden', 'true');
         const para = document.createElement('span');
-        para.textContent = 'Respondendo a ' + (botao.dataset.respostaNome || 'Autor desconhecido');
+        para.textContent = BJ_T.t('pasta_financeiro.js.respondendo_a', { nome: botao.dataset.respostaNome || BJ_T.t('pasta_financeiro.js.autor_desconhecido') });
         faixa.appendChild(icone);
         faixa.appendChild(para);
 
@@ -314,7 +315,7 @@
         campo.className = 'ps-resp-caixa-campo';
         campo.rows = 2;
         campo.maxLength = 5000;
-        campo.placeholder = 'Escreva a resposta…';
+        campo.placeholder = BJ_T.t('pasta_financeiro.js.resposta_placeholder');
         campo.setAttribute('aria-label', para.textContent);
 
         const erro = document.createElement('div');
@@ -324,7 +325,7 @@
         const cancelar = document.createElement('button');
         cancelar.type = 'button';
         cancelar.className = 'ps-resp-caixa-cancelar';
-        cancelar.textContent = 'Cancelar';
+        cancelar.textContent = BJ_T.t('pasta_financeiro.js.cancelar');
 
         const enviar = document.createElement('button');
         enviar.type = 'button';
@@ -334,7 +335,7 @@
         iEnviar.className = 'bi bi-send';
         iEnviar.setAttribute('aria-hidden', 'true');
         enviar.appendChild(iEnviar);
-        enviar.appendChild(document.createTextNode('Responder'));
+        enviar.appendChild(document.createTextNode(BJ_T.t('pasta_financeiro.js.responder')));
 
         const acoes = document.createElement('div');
         acoes.className = 'ps-resp-caixa-acoes';
@@ -367,7 +368,7 @@
                 const resp = await fetch(urlEnviarObs, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const data = await resp.json();
                 if (!resp.ok) {
-                    erro.textContent = data.erro ?? 'Erro ao enviar a resposta.';
+                    erro.textContent = data.erro ?? BJ_T.t('pasta_financeiro.js.erro_enviar_resposta');
                     erro.hidden = false;
                     enviar.disabled = false;
                     return;
@@ -376,7 +377,7 @@
                 inserirItemObs(data);
                 atualizarContagem();
             } catch (_) {
-                erro.textContent = 'Erro de rede. Tente novamente.';
+                erro.textContent = BJ_T.t('pasta_financeiro.js.erro_rede_tente');
                 erro.hidden = false;
                 enviar.disabled = false;
             }
@@ -461,12 +462,12 @@
                 const btnConfirmar = document.createElement('button');
                 btnConfirmar.type = 'button';
                 btnConfirmar.className = 'ps-btn ps-btn--primario me-1';
-                btnConfirmar.textContent = 'Salvar';
+                btnConfirmar.textContent = BJ_T.t('pasta_financeiro.js.salvar');
 
                 const btnCancelar = document.createElement('button');
                 btnCancelar.type = 'button';
                 btnCancelar.className = 'ps-btn';
-                btnCancelar.textContent = 'Cancelar';
+                btnCancelar.textContent = BJ_T.t('pasta_financeiro.js.cancelar');
 
                 const acoesBtns = document.createElement('div');
                 acoesBtns.className = 'mb-1';
@@ -499,7 +500,7 @@
                     const vazio = window.EditorRico
                         ? EditorRico.estaVazio(textarea)
                         : textarea.value.trim() === '';
-                    if (vazio) { (window.avisarErroPs || window.alert)('O registro não pode ser vazio.'); return; }
+                    if (vazio) { (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.registro_vazio')); return; }
 
                     const fd = new FormData();
                     fd.append('_token', btnEditar.dataset.csrf);
@@ -519,10 +520,10 @@
                             btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
                         } else {
                             restaurarExibicao(htmlAtual);
-                            (window.avisarErroPs || window.alert)(data.erro ?? 'Erro ao editar.');
+                            (window.avisarErroPs || window.alert)(data.erro ?? BJ_T.t('pasta_financeiro.js.erro_editar'));
                         }
                     } catch (_) {
-                        (window.avisarErroPs || window.alert)('Erro de rede.');
+                        (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede'));
                     }
                 });
 
@@ -564,7 +565,7 @@
                                 minhas.classList.add('ps-respostas--orfa');
                                 minhas.removeAttribute('data-resposta-de');
                                 minhas.querySelectorAll(':scope > .ps-anotacao--resposta > .ps-anotacao-resposta-rot > span').forEach(function (rot) {
-                                    rot.textContent = ROTULO_ORFA;
+                                    rot.textContent = rotuloOrfa();
                                 });
                                 minhas.querySelectorAll(':scope > .ps-anotacao').forEach(function (orfa) {
                                     const btn = orfa.querySelector('.btn-responder-obs');
@@ -595,16 +596,16 @@
                             div.className = 'ps-vazio';
                             div.id = 'financeiroObsVazio';
                             div.innerHTML = '<i class="bi bi-cash-coin"></i>'
-                                + '<div class="ps-vazio-titulo">Nada registrado ainda</div>'
-                                + '<div class="ps-vazio-nota">Anote acima o que foi combinado de honorário, custas ou reembolso.</div>';
+                                + '<div class="ps-vazio-titulo">' + esc(BJ_T.t('pasta_financeiro.js.vazio_titulo')) + '</div>'
+                                + '<div class="ps-vazio-nota">' + esc(BJ_T.t('pasta_financeiro.js.vazio_nota')) + '</div>';
                             obsLista.appendChild(div);
                         }
                     } else {
                         const data = await resp.json();
-                        (window.avisarErroPs || window.alert)(data.erro ?? 'Erro ao excluir.');
+                        (window.avisarErroPs || window.alert)(data.erro ?? BJ_T.t('pasta_financeiro.js.erro_excluir'));
                     }
                 } catch (_) {
-                    (window.avisarErroPs || window.alert)('Erro de rede.');
+                    (window.avisarErroPs || window.alert)(BJ_T.t('pasta_financeiro.js.erro_rede'));
                 }
             }
         });

@@ -9,13 +9,12 @@ use App\Agenda\Message\VarrerLembretesDePush;
 use App\Agenda\Repository\VarreduraDePushRepository;
 use App\Agenda\UseCase\VarrerLembretesDePushUseCase;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 /**
- * A cadeia da varredura: reivindica a vez na marca do banco (UPDATE atômico), varre e agenda a próxima
- * volta. Mensagem que não consegue a vez é de uma cadeia duplicada (deploy repetido, dois workers, partida
- * semeada duas vezes) e morre sem se reagendar. Com o push desligado (sem chaves VAPID), a cadeia para.
+ * Uma volta da varredura do push. Quem a dispara, a cada minuto, é o schedule `cadeias`
+ * ({@see \App\Shared\Scheduler\AgendaDasCadeias}); o handler não se reagenda. Reivindica a vez na marca do banco
+ * (UPDATE atômico): uma volta a mais dentro da janela (mensagem antiga da cadeia de antes, dois workers) não varre de
+ * novo. Com o push desligado (sem chaves VAPID), não faz nada.
  */
 #[AsMessageHandler]
 final class VarrerLembretesDePushHandler
@@ -24,7 +23,6 @@ final class VarrerLembretesDePushHandler
         private readonly VarreduraDePushRepository $marca,
         private readonly VarrerLembretesDePushUseCase $varrer,
         private readonly EnviadorDePush $enviador,
-        private readonly MessageBusInterface $bus,
     ) {
     }
 
@@ -34,10 +32,6 @@ final class VarrerLembretesDePushHandler
         if (!$this->enviador->ligado() || !$this->marca->reivindicar($agora)) {
             return;
         }
-        try {
-            $this->varrer->executar($agora);
-        } finally {
-            $this->bus->dispatch(new VarrerLembretesDePush(), [new DelayStamp(VarreduraDePushRepository::INTERVALO_SEGUNDOS * 1000)]);
-        }
+        $this->varrer->executar($agora);
     }
 }

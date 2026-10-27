@@ -110,7 +110,7 @@ final class DocumentosCobrancaIsolamentoTenantTest extends KernelTestCase
             $casoRepo,
             $pastaRepo,
             $registrarEvento,
-            new \App\Pasta\UseCase\CriarPastaUseCase($this->em, $c->get(\App\Pasta\UseCase\GerarNumeroDePasta::class)),
+            new \App\Pasta\UseCase\CriarPastaUseCase($this->em, $c->get(\App\Pasta\UseCase\GerarNumeroDePasta::class), $c->get(\App\Pasta\Repository\PastaRepository::class)),
             $comporNome,
             new \App\Cobranca\Service\NormalizadorDePastaJudicial($comporNome, new \App\Cobranca\Service\ResolvedorClienteDoResponsavel($clientePFRepo, $c->get(\App\Cliente\Service\HistoricoDoCliente::class))),
         );

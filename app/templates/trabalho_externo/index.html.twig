@@ -12,7 +12,7 @@
     Rotas com {codigo} vão com o marcador TE-0, trocado no JS pelo código real.
 #}
 
-{% block title %}Trabalho Externo · BlueJus{% endblock %}
+{% block title %}{{ 'trabalho_externo.painel.titulo_pagina'|trans }}{% endblock %}
 
 {% block body_class %}te-body{% endblock %}
 
@@ -39,6 +39,14 @@
      data-url-andamento="{{ path('trabalho_externo_andamento', {codigo: marcador}) }}"
      data-url-anexar="{{ path('trabalho_externo_anexar', {codigo: marcador}) }}"
      data-url-documento="{{ path('trabalho_externo_documento', {codigo: marcador, id: 0}) }}"
+     data-url-despachar="{{ path('trabalho_externo_despachar', {codigo: marcador}) }}"
+     data-url-pagamento-comprovante="{{ path('trabalho_externo_pagamento_comprovante', {codigo: marcador}) }}"
+     data-url-pagamento-confirmar="{{ path('trabalho_externo_pagamento_confirmar', {codigo: marcador}) }}"
+     data-url-pagamento-valor="{{ path('trabalho_externo_pagamento_valor', {codigo: marcador}) }}"
+     data-url-pagamento-avisar="{{ path('trabalho_externo_pagamento_avisar', {codigo: marcador}) }}"
+     data-url-despacho-responder="{{ path('trabalho_externo_despacho_responder', {codigo: marcador}) }}"
+     data-url-despacho-respostas="{{ path('trabalho_externo_despacho_respostas', {codigo: marcador}) }}"
+     data-url-despacho-extrato="{{ path('trabalho_externo_despacho_extrato', {codigo: marcador}) }}"
      data-url-convites="{{ path('trabalho_externo_convidar', {codigo: marcador}) }}"
      data-url-whatsapp="{{ path('trabalho_externo_whatsapp_avisar', {codigo: marcador}) }}"
      data-url-marcacoes="{{ path('trabalho_externo_marcacoes') }}"
@@ -56,9 +64,10 @@
      data-url-vagas-compartilhar="{{ path('trabalho_externo_vagas_compartilhar') }}"
      data-url-vagas-divulgacao="{{ path('trabalho_externo_vagas_divulgacao') }}"
      data-url-vaga-candidatura="{{ path('trabalho_externo_vaga_candidatura', {codigo: 'VG-0'}) }}"
+     data-url-vaga-recusa="{{ path('trabalho_externo_vaga_recusar', {codigo: 'VG-0'}) }}"
+     data-url-vaga-recusa-desfazer="{{ path('trabalho_externo_vaga_recusa_desfazer', {codigo: 'VG-0'}) }}"
      data-url-vaga-enviar="{{ path('trabalho_externo_vaga_enviar', {codigo: 'VG-0'}) }}"
      data-url-candidatura-status="{{ path('trabalho_externo_candidatura_status', {id: 0}) }}"
-     data-url-candidaturas-marcacoes="{{ path('trabalho_externo_candidaturas_marcacoes') }}"
      data-url-engajamento="{{ path('trabalho_externo_engajamento') }}"
      data-url-vagas-alerta="{{ path('trabalho_externo_vagas_alerta') }}"
      data-url-curriculos="{{ path('trabalho_externo_curriculos') }}"
@@ -71,7 +80,17 @@
      data-url-curriculo-nota="{{ path('trabalho_externo_curriculo_nota', {codigo: 'CV-0'}) }}"
      data-url-curriculos-marcacoes="{{ path('trabalho_externo_curriculos_marcacoes') }}"
      data-url-curriculo-previa="{{ path('trabalho_externo_curriculo_previa') }}"
+     data-url-curriculo-word="{{ path('trabalho_externo_curriculo_word') }}"
+     data-url-andamentos="{{ path('trabalho_externo_andamentos') }}"
+     {#- "Sons de alerta" do Meu Perfil (perfil_sons()): com "0" o toque do andamento (D10 do desenho 24.10.26) não soa. #}
+     data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}"
      data-url-curriculos-csv="{{ path('trabalho_externo_curriculos_csv') }}"
+     data-url-curriculos-painel="{{ path('trabalho_externo_curriculos_painel') }}"
+     data-url-alertas-csv="{{ path('trabalho_externo_alertas_csv') }}"
+     data-url-campanha="{{ path('trabalho_externo_campanha') }}"
+     data-url-campanha-csv="{{ path('trabalho_externo_campanha_csv') }}"
+     data-url-campanha-html="{{ path('trabalho_externo_campanha_html') }}"
+     data-url-campanha-registro="{{ path('trabalho_externo_campanha_registro') }}"
      data-url-simbolo="{{ asset('images/logo/bluejus_simbolo.svg') }}"
      {#- Conta com o e-mail a confirmar não convida (spec login-desenho-10): o JS mostra o aviso e o botão de reenviar o link. #}
      {%- if app.user is not null and not app.user.emailConfirmado %}
@@ -84,8 +103,8 @@
         <h1 class="te-titulo">
             <i class="bi bi-geo-alt"></i>
             <span class="te-titulo-textos">
-                <span class="te-titulo-nome">Trabalho Externo</span>
-                <span class="te-titulo-sub">Central de demandas, vagas e talentos jurídicos</span>
+                <span class="te-titulo-nome">{{ 'trabalho_externo.painel.nome'|trans }}</span>
+                <span class="te-titulo-sub">{{ 'trabalho_externo.painel.subtitulo'|trans }}</span>
             </span>
         </h1>
         <div class="te-titulo-acoes" id="teTituloAcoes"></div>
@@ -109,7 +128,7 @@
             <div class="te-chips" id="teChips"></div>
             <label class="te-busca">
                 <i class="bi bi-search"></i>
-                <input type="text" id="teBusca" placeholder="Buscar demanda, cidade, processo" autocomplete="off">
+                <input type="text" id="teBusca" placeholder="{{ 'trabalho_externo.painel.busca_placeholder'|trans }}" autocomplete="off">
             </label>
         </div>
 
@@ -119,7 +138,7 @@
         <div class="te-tabela-caixa">
             <div class="te-tabela">
                 <div class="te-grade te-grade--cab">
-                    <div class="te-cab-sel" id="teCabSel"></div><div>ID</div><div>SERVIÇO</div><div>ORIGEM → EXECUÇÃO</div><div>PRAZO</div><div>RESPONSÁVEL</div><div>SITUAÇÃO</div><div class="te-centro">CHAT</div><div></div>
+                    <div class="te-cab-sel" id="teCabSel"></div><div>{{ 'trabalho_externo.painel.coluna.id'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.servico'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.origem_execucao'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.prazo'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.responsavel'|trans }}</div><div>{{ 'trabalho_externo.painel.coluna.situacao'|trans }}</div><div class="te-centro">{{ 'trabalho_externo.painel.coluna.chat'|trans }}</div><div></div>
                 </div>
                 <div id="teLinhas"></div>
             </div>
@@ -132,7 +151,7 @@
             <div class="te-vg-sel" id="teVgSel"></div>
             <label class="te-vg-busca">
                 <i class="bi bi-search"></i>
-                <input type="text" id="teVgBusca" placeholder="Buscar vaga, cargo, área ou cidade" autocomplete="off">
+                <input type="text" id="teVgBusca" placeholder="{{ 'trabalho_externo.painel.vagas_busca_placeholder'|trans }}" autocomplete="off">
             </label>
             <div class="te-vg-filtros" id="teVgFiltros"></div>
             <span class="te-espaco"></span>
@@ -155,6 +174,8 @@
     <div id="teToast"></div>
     <div id="teDesfazer"></div>
     <div id="teVagaModal"></div>
+    {# Animação depois de enviar a solicitação (desenho 06 de 24/10, l.737 a 767). #}
+    <div id="teEnvio"></div>
 </div>
 {% endblock %}
 

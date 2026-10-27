@@ -1,0 +1,12 @@
+{#
+    "Extrato" do DESPACHO (desenho 06 de 24/10, `dpExtrato`, l.1393): a página que o protótipo escrevia com
+    `document.write`, aqui servida pela rota (o Twig escapa tudo, inclusive o nome). Literal do desenho: a ordem de
+    publicação, "DESPACHO {n}" contando também as respostas, o nome como gravado e a impressão 300 ms depois.
+#}
+<html><head><meta charset="utf-8"><title>Extrato de despachos {{ codigo }}</title></head><body style="font-family:Arial;padding:30px;color:#12242f"><h2>Extrato de despachos · {{ codigo }}</h2>
+{%- for x in itens -%}
+<div style="border-left:3px solid #0a6fa0;padding:8px 12px;margin:12px 0"><b>{{ x.titulo }}</b><p style="white-space:pre-line">{{ x.txt }}</p><small>{{ x.ass }}</small></div>
+{%- else -%}
+<p>Nenhum despacho.</p>
+{%- endfor -%}
+<script>setTimeout(function () { window.print(); }, 300);</script></body></html>

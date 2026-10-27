@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
+use App\Tenant\Service\SituacaoDaConta;
 use App\TrabalhoExterno\DTO\ResultadoDaCandidatura;
 use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\Curriculo;
@@ -39,6 +40,7 @@ final class CandidatarOuAceitarUseCase
         private readonly CandidaturaRepository $candidaturas,
         private readonly VagaRepository $vagas,
         private readonly AvisosDoTrabalhoExterno $avisos,
+        private readonly SituacaoDaConta $situacao,
     ) {
     }
 
@@ -47,6 +49,7 @@ final class CandidatarOuAceitarUseCase
         $agora = new \DateTimeImmutable();
         $vaga = $this->localizador->localizarParaCandidatura($ctx, $codigo, $agora);
         $this->exigirExternoDeFora($ctx, $vaga);
+        $this->exigirEscritorioDaVagaNoAr($vaga);
         $cv = $this->curriculos->doUsuario($ctx->usuario) ?? throw new SemCurriculo('Cadastre seu currículo para se candidatar.');
 
         $resultado = $this->vagas->comAVagaTravada($vaga, function () use ($ctx, $vaga, $cv, $agora): ResultadoDaCandidatura|CandidaturaRecusada {
@@ -66,6 +69,15 @@ final class CandidatarOuAceitarUseCase
         }
         if ($this->politica->ehDono($ctx, $vaga)) {
             throw new CandidaturaRecusada('Candidatura não permitida', 'Você não pode se candidatar à sua própria vaga.');
+        }
+    }
+
+    /** Vaga de escritório fora do ar não recebe candidatura; quem já se candidatou só a acompanha. */
+    private function exigirEscritorioDaVagaNoAr(Vaga $vaga): void
+    {
+        $dono = $vaga->getEscritorio();
+        if ($dono !== null && $this->situacao->foraDoAr($dono)) {
+            throw new CandidaturaRecusada('Vaga indisponível', 'Esta vaga não está recebendo candidaturas.');
         }
     }
 
@@ -92,7 +104,7 @@ final class CandidatarOuAceitarUseCase
         $this->avisos->candidatura($ctx, $candidatura);
         $vaga->registrarCandidatura($cv->texto('nome'), $agora);
 
-        return new ResultadoDaCandidatura(true, false, 'Candidatura enviada', 'Acompanhe em Meu currículo · Minhas candidaturas.', $vaga->getTitulo());
+        return new ResultadoDaCandidatura(true, false, 'Candidatura enviada', '', $vaga->getTitulo());
     }
 
     /** O aceite conta só a rodada atual ("Ofertar novamente" e "Reabrir" recomeçam do zero). */

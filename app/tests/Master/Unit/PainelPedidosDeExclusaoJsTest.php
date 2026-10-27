@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -11,6 +12,8 @@ use PHPUnit\Framework\TestCase;
  * Bloco "Pedidos de exclusão de conta" do public/js/master/painel.js (desenho 05 - Perfis 1.2, linhas 148 e
  * 679), lido como FOLHA: não há navegador no PHPUnit, então o que se prova é o contrato do JS e do CSS com o
  * desenho e com a regra do dono (quarentena de 365 dias: nada de "irreversível" nem do confirm/prompt do desenho).
+ * Desde a P2b do idioma (spec idioma-do-sistema), o texto mora no catálogo (master.js.pedidos.*, situacao.*): o teste
+ * confere a chave no JS e o português no catálogo.
  */
 final class PainelPedidosDeExclusaoJsTest extends TestCase
 {
@@ -19,6 +22,20 @@ final class PainelPedidosDeExclusaoJsTest extends TestCase
     private static function js(): string
     {
         return (string) file_get_contents(self::RAIZ . 'public/js/master/painel.js');
+    }
+
+    /** Texto em português de uma chave do catálogo. */
+    private static function catalogo(string $chave): string
+    {
+        $no = CatalogoPtBr::carregar();
+        foreach (explode('.', $chave) as $parte) {
+            self::assertIsArray($no, $chave);
+            self::assertArrayHasKey($parte, $no, $chave);
+            $no = $no[$parte];
+        }
+        self::assertIsString($no, $chave);
+
+        return $no;
     }
 
     private static function bloco(): string
@@ -37,13 +54,17 @@ final class PainelPedidosDeExclusaoJsTest extends TestCase
     {
         $bloco = self::bloco();
 
-        self::assertStringContainsString("Pedidos de exclusão de conta · ' + num(peds.length) + '</b>", $bloco);
-        self::assertStringContainsString('contas suspensas aguardando sua decisão', $bloco);
+        self::assertStringContainsString("<b>' + T('master.js.pedidos.titulo', { n: num(peds.length) }) + '</b>", $bloco);
+        self::assertSame('Pedidos de exclusão de conta · {n}', self::catalogo('master.js.pedidos.titulo'));
+        self::assertStringContainsString("T('master.js.pedidos.sub')", $bloco);
+        self::assertSame('contas suspensas aguardando sua decisão', self::catalogo('master.js.pedidos.sub'));
         self::assertStringContainsString("esc(quemPediu(p)) + ' · ' + esc(dataHora(p.criadoEm)) + ' · ' + esc(p.motivo)", $bloco);
         self::assertStringContainsString('<i class="bi bi-trash3"></i>', $bloco);
-        self::assertStringContainsString('>Reativar</button>', $bloco);
+        self::assertStringContainsString(">' + T('master.js.pedidos.reativar') + '</button>", $bloco);
+        self::assertSame('Reativar', self::catalogo('master.js.pedidos.reativar'));
         // Rótulo decidido pelo dono (spec perfis-1.2-contas C4 e §3): o texto diz o que acontece, a quarentena.
-        self::assertStringContainsString('>Excluir conta</button>', $bloco);
+        self::assertStringContainsString(">' + T('master.js.pedidos.excluir') + '</button>", $bloco);
+        self::assertSame('Excluir conta', self::catalogo('master.js.pedidos.excluir'));
         self::assertStringNotContainsString('Excluir definitivamente', self::js());
         self::assertStringContainsString('id="pedidos-exclusao"', $bloco);
         self::assertStringContainsString("p.pedidoPorNome + (p.pedidoPorEmail ? ' (' + p.pedidoPorEmail + ')' : '')", self::js(), 'por = nome (e-mail), como no desenho');
@@ -91,11 +112,14 @@ final class PainelPedidosDeExclusaoJsTest extends TestCase
     {
         $js = self::js();
 
-        self::assertStringContainsString("const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Suspensa a pedido': '#a3232b', 'Em quarentena': '#5b7383' };", $js);
-        self::assertStringContainsString("const situacaoVisivel = c => (c.pedidoPendente && c.situacao === 'Ativa' ? A_PEDIDO : c.situacao);", $js);
-        self::assertStringContainsString("const A_PEDIDO = 'Suspensa a pedido';", $js);
+        self::assertStringContainsString("const ST = { [ATIVA]: '#1e7b45', [SUSPENSA]: '#a3232b', [A_PEDIDO]: '#a3232b', [QUARENTENA]: '#5b7383' };", $js);
+        self::assertStringContainsString("const situacaoVisivel = c => (c.pedidoPendente && c.situacao === ATIVA ? A_PEDIDO : c.situacao);", $js);
+        self::assertStringContainsString("const A_PEDIDO = 'a_pedido';", $js, 'código só do painel: não é situação gravada');
+        self::assertStringContainsString("[A_PEDIDO]: T('master.js.situacao.a_pedido')", $js);
+        self::assertSame('Suspensa a pedido', self::catalogo('master.js.situacao.a_pedido'));
+        self::assertSame('Ativa', self::catalogo('master.js.situacao.ativa'));
         self::assertStringContainsString("const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';", $js);
-        self::assertStringContainsString("'<span style=\"--cor:' + cor + '\"><i></i>' + esc(sit) + '</span>'", $js, 'mesma etiqueta (ponto + texto na cor) das outras situações');
+        self::assertStringContainsString("'<span style=\"--cor:' + cor + '\"><i></i>' + esc(rotuloDaSituacao(sit)) + '</span>'", $js, 'mesma etiqueta (ponto + texto na cor) das outras situações');
     }
 
     #[TestDox('cores e medidas exatas do desenho no master.css')]

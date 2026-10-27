@@ -8,6 +8,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Service\SilencioDoSininho;
 use App\Repository\NotificacaoRepository;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\UserRepository;
@@ -31,6 +32,7 @@ class NotificacaoService
         private readonly UserRepository $userRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly ?NivelNoCadeado $nivelNoCadeado = null,
+        private readonly ?SilencioDoSininho $silencio = null,
     ) {
     }
 
@@ -85,6 +87,21 @@ class NotificacaoService
      */
     public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null, ?string $texto = null): Notificacao
     {
+        $notificacao = $this->prepararNotificacao($usuario, $tenant, $tipo, $mensagem, $url, $texto);
+        $this->entityManager->flush();
+
+        return $notificacao;
+    }
+
+    /**
+     * O {@see criarNotificacao()} SEM o flush: monta e persiste, e quem chama grava várias de uma vez
+     * com um flush só (o aviso de quem acompanha a pasta). Os efeitos são os mesmos: a notificação
+     * não dispara nada além da própria linha (o sino, o "Ver todas" e a Caixa da Central a leem do
+     * banco; não há push nem listener de notificação), e o `criadaEm` nasce no construtor da
+     * entidade, antes do persist.
+     */
+    public function prepararNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null, ?string $texto = null): Notificacao
+    {
         $notificacao = new Notificacao();
         $notificacao->setUsuario($usuario);
         $notificacao->setTenant($tenant);
@@ -95,7 +112,6 @@ class NotificacaoService
         $notificacao->setUrl($url);
 
         $this->entityManager->persist($notificacao);
-        $this->entityManager->flush();
 
         return $notificacao;
     }
@@ -221,7 +237,7 @@ class NotificacaoService
      */
     public function getNotificacoesNaoLidas(User $usuario, ?string $categoria = null, int $limit = 10): array
     {
-        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit, $this->pastasOcultasDe($usuario));
+        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
     }
 
     /**
@@ -229,7 +245,8 @@ class NotificacaoService
      */
     public function contarNaoLidas(User $usuario, ?string $categoria = null): int
     {
-        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria, $this->pastasOcultasDe($usuario));
+        // Sininho em silêncio (preferência do Meu Perfil): só os tipos que pedem ação contam; "Ver todas" mostra tudo.
+        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
     }
 
     /**

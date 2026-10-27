@@ -43,6 +43,27 @@ final class CodigoDeIndicacao
         return $codigo ?? throw new \RuntimeException('Não foi possível gerar o código de indicação.');
     }
 
+    /**
+     * O código de um cupom digitado ou vindo da URL (desenho 10 VS 25.10.26: `BJ-XXXXXX`, `?ind=`): sem o prefixo `BJ-`,
+     * em caixa alta, ou nulo fora do formato. Só o formato: se o código existe é com o `ConferirCodigoDeIndicacaoUseCase`.
+     * O `BJ` sem hífen só é prefixo quando sobra um código inteiro (TAMANHO): o alfabeto tem B e J, e `BJXY2345` é um
+     * código real.
+     */
+    public static function doCupom(mixed $valor): ?string
+    {
+        if (!is_string($valor)) {
+            return null;
+        }
+        $codigo = strtoupper(trim($valor));
+        if (str_starts_with($codigo, 'BJ-')) {
+            $codigo = substr($codigo, 3);
+        } elseif (str_starts_with($codigo, 'BJ') && strlen($codigo) === self::TAMANHO + 2) {
+            $codigo = substr($codigo, 2);
+        }
+
+        return preg_match('/^[A-Z0-9]{4,12}$/', $codigo) === 1 ? $codigo : null;
+    }
+
     public static function sortear(): string
     {
         $codigo = '';

@@ -12,46 +12,46 @@
 <div class="ps-push-envio-fundo" data-push-envio hidden
      data-envio-url="{{ path('pasta_push_cliente_enviar_analise', {id: pasta.id, analiseId: 0})|replace({'/0/enviar': '/__ID__/enviar'}) }}"
      data-token="{{ csrf_token('pasta_push_cliente_' ~ pasta.id) }}">
-    <div class="ps-push-envio" role="dialog" aria-modal="true" aria-label="Enviar análise ao cliente">
+    <div class="ps-push-envio" role="dialog" aria-modal="true" aria-label="{{ 'pasta_push.envio.rotulo'|trans }}">
         <div class="ps-push-envio-cab">
             <i class="bi bi-envelope-paper" aria-hidden="true"></i>
             <div class="ps-push-envio-cab-texto">
-                <div class="ps-push-envio-titulo">Enviar ao cliente</div>
+                <div class="ps-push-envio-titulo">{{ 'pasta_push.envio.titulo'|trans }}</div>
                 <div class="ps-push-envio-sub" data-push-envio-sub>{{ cliente.subDoModal }}</div>
             </div>
-            <button type="button" class="ps-push-envio-x" aria-label="Fechar" data-push-envio-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <button type="button" class="ps-push-envio-x" aria-label="{{ 'pasta_push.envio.fechar'|trans }}" data-push-envio-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="ps-push-envio-corpo">
             <div>
-                <div class="ps-push-envio-rotulo">Para</div>
+                <div class="ps-push-envio-rotulo">{{ 'pasta_push.envio.para'|trans }}</div>
                 <div class="ps-push-envio-chips" data-push-envio-para></div>
             </div>
             <div>
-                <div class="ps-push-envio-rotulo ps-push-envio-rotulo--cc">Cópia (CC) · Controladoria<i class="bi bi-lock-fill" title="Cópia obrigatória: garante a conferência e o controle dos atos enviados ao cliente" aria-hidden="true"></i></div>
+                <div class="ps-push-envio-rotulo ps-push-envio-rotulo--cc">{{ 'pasta_push.envio.cc'|trans }}<i class="bi bi-lock-fill" title="{{ 'pasta_push.envio.cc_dica'|trans }}" aria-hidden="true"></i></div>
                 <div class="ps-push-envio-chips">
                     {% for k in cliente.controladoria %}
-                        <span class="ps-push-envio-cc" title="Cópia obrigatória, não pode ser removida"><i class="bi bi-shield-check" aria-hidden="true"></i>{{ k.nome }} · {{ k.email }}</span>
+                        <span class="ps-push-envio-cc" title="{{ 'pasta_push.envio.cc_obrigatoria'|trans }}"><i class="bi bi-shield-check" aria-hidden="true"></i>{{ k.nome }} · {{ k.email }}</span>
                     {% else %}
-                        <span class="ps-push-envio-sem-cc">Nenhum usuário com perfil de Controladoria cadastrado.</span>
+                        <span class="ps-push-envio-sem-cc">{{ 'pasta_push.envio.sem_cc'|trans }}</span>
                     {% endfor %}
                 </div>
             </div>
             <div>
-                <div class="ps-push-envio-rotulo">Assunto</div>
-                <input type="text" class="ps-push-envio-assunto" aria-label="Assunto" maxlength="200" data-push-envio-assunto>
+                <div class="ps-push-envio-rotulo">{{ 'pasta_push.envio.assunto'|trans }}</div>
+                <input type="text" class="ps-push-envio-assunto" aria-label="{{ 'pasta_push.envio.assunto'|trans }}" maxlength="200" data-push-envio-assunto>
             </div>
             <div>
-                <div class="ps-push-envio-msg-cab"><span class="ps-push-envio-rotulo">Mensagem</span><span class="ps-push-envio-selo-ia">texto da análise, revise antes de enviar</span></div>
-                <textarea class="ps-push-envio-texto" rows="11" maxlength="20000" aria-label="Mensagem" data-push-envio-corpo></textarea>
+                <div class="ps-push-envio-msg-cab"><span class="ps-push-envio-rotulo">{{ 'pasta_push.envio.mensagem'|trans }}</span><span class="ps-push-envio-selo-ia">{{ 'pasta_push.envio.selo_ia'|trans }}</span></div>
+                <textarea class="ps-push-envio-texto" rows="11" maxlength="20000" aria-label="{{ 'pasta_push.envio.mensagem'|trans }}" data-push-envio-corpo></textarea>
             </div>
             <button type="button" class="ps-push-envio-revisei" role="checkbox" aria-checked="false" data-push-envio-revisei>
-                <i class="bi bi-square" aria-hidden="true"></i><span>Revisei e corrigi o conteúdo. Autorizo o envio ao cliente em nome do escritório.</span>
+                <i class="bi bi-square" aria-hidden="true"></i><span>{{ 'pasta_push.envio.revisei'|trans }}</span>
             </button>
             <div class="ps-push-envio-erro" data-push-envio-erro role="alert" hidden><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span></span></div>
         </div>
         <div class="ps-push-envio-rodape">
-            <button type="button" class="ps-push-envio-cancelar" data-push-envio-fechar>Cancelar</button>
-            <button type="button" class="ps-push-envio-enviar" data-push-envio-confirmar><i class="bi bi-send" aria-hidden="true"></i><span data-push-envio-confirmar-txt>Enviar e-mail</span></button>
+            <button type="button" class="ps-push-envio-cancelar" data-push-envio-fechar>{{ 'pasta_push.envio.cancelar'|trans }}</button>
+            <button type="button" class="ps-push-envio-enviar" data-push-envio-confirmar><i class="bi bi-send" aria-hidden="true"></i><span data-push-envio-confirmar-txt>{{ 'pasta_push.envio.enviar'|trans }}</span></button>
         </div>
     </div>
 </div>

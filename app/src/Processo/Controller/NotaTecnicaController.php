@@ -104,8 +104,9 @@ final class NotaTecnicaController extends AbstractController
             }
         }
 
+        $pasta = $this->pastaDoPedido($request);
         try {
-            $nota = $this->criarUseCase->executar($processo, $currentUser, $tenant, $conteudo, $publicacao, $this->pastaDoPedido($request));
+            $nota = $this->criarUseCase->executar($processo, $currentUser, $tenant, $conteudo, $publicacao, $pasta);
         } catch (NotaTecnicaForaDoEscopoException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (\InvalidArgumentException $e) {
@@ -130,6 +131,9 @@ final class NotaTecnicaController extends AbstractController
             'html'               => $this->renderView('processo/_nota_tecnica_item.html.twig', [
                 'nota'               => $nota,
                 'mostrarMovimentacao' => $publicacao === null,
+                // PMC-018: o "Encaminhar via Chat I.A" do ⋮ precisa da pasta; o UseCase já a
+                // conferiu (deste escritório e vinculando o processo). Sem pasta, o item não entra.
+                'pastaId'            => $pasta?->getId(),
             ]),
         ], Response::HTTP_CREATED);
     }

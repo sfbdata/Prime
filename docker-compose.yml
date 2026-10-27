@@ -47,7 +47,8 @@ services:
     volumes:
       - .:/var/www
     entrypoint: []
-    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    # scheduler_cadeias: as varreduras periódicas (push, Google Agenda, Comercial), como no worker de produção.
+    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "scheduler_cadeias", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
     depends_on:
       - php
       - db
@@ -70,6 +71,9 @@ services:
   db:
     image: postgres:15
     container_name: jusprime_db_dev
+    # 512m de memória compartilhada: com 64m (padrão do Docker) as consultas paralelas da suíte esgotavam o /dev/shm
+    # e derrubavam o banco (segfault e recovery em 23/10/2026).
+    shm_size: 512m
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-symfony}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-symfony}

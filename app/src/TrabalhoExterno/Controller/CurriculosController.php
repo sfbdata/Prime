@@ -25,10 +25,13 @@ use App\TrabalhoExterno\UseCase\AnexarArquivoAoCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\AnotarCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\ExcluirCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\ExcluirMeuCurriculoUseCase;
+use App\TrabalhoExterno\UseCase\ExportarAlertasCsvUseCase;
 use App\TrabalhoExterno\UseCase\ExportarCurriculosCsvUseCase;
 use App\TrabalhoExterno\UseCase\GerarDocumentoDoCurriculoUseCase;
+use App\TrabalhoExterno\UseCase\GerarWordDoMeuCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\ListarCurriculosUseCase;
 use App\TrabalhoExterno\UseCase\MarcarCurriculosEmLoteUseCase;
+use App\TrabalhoExterno\UseCase\MontarPainelDeCurriculosUseCase;
 use App\TrabalhoExterno\UseCase\MudarStatusDoCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\PreVisualizarCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\RemoverArquivoDoCurriculoUseCase;
@@ -68,6 +71,13 @@ final class CurriculosController extends AbstractController
     public function listar(Request $request, ListarCurriculosUseCase $listar): JsonResponse
     {
         return $this->ler($request, static fn (Contexto $ctx): array => $listar->executar($ctx));
+    }
+
+    /** O Painel do banco de talentos (spec §4.9): só o Master; a Equipe, o externo e a prévia levam 403. */
+    #[Route('/api/curriculos/painel', name: 'trabalho_externo_curriculos_painel', methods: ['GET'])]
+    public function painel(Request $request, MontarPainelDeCurriculosUseCase $montar): JsonResponse
+    {
+        return $this->ler($request, static fn (Contexto $ctx): array => $montar->executar($ctx));
     }
 
     #[Route('/api/curriculos/{codigo}', name: 'trabalho_externo_curriculo', methods: ['GET'], requirements: ['codigo' => self::CODIGO])]
@@ -201,6 +211,20 @@ final class CurriculosController extends AbstractController
         return $this->anexo($doc['conteudo'], $doc['nome'], 'application/pdf');
     }
 
+    /** "Word" do "Meu currículo" (desenho 06 de 24/10, l.223): só o próprio, sem a prévia `?como=`. */
+    #[Route('/curriculos/meu/word', name: 'trabalho_externo_curriculo_word', methods: ['GET'])]
+    public function word(GerarWordDoMeuCurriculoUseCase $gerar): Response
+    {
+        $ctx = $this->contextoOuNulo() ?? throw $this->createAccessDeniedException();
+        try {
+            $doc = $gerar->executar($ctx);
+        } catch (DemandaNaoEncontrada) {
+            throw $this->createNotFoundException();
+        }
+
+        return $this->anexo($doc['conteudo'], $doc['nome'], 'application/msword', $doc['nomeAscii']);
+    }
+
     #[Route('/curriculos/exportar.csv', name: 'trabalho_externo_curriculos_csv', methods: ['GET'])]
     public function csv(Request $request, ExportarCurriculosCsvUseCase $exportar): Response
     {
@@ -211,6 +235,28 @@ final class CurriculosController extends AbstractController
         $csv = $this->paraDownload($request, static fn (Contexto $ctx): string => $exportar->executar($ctx, $filtros));
 
         return $this->anexo($csv, ExportarCurriculosCsvUseCase::NOME_DO_ARQUIVO, 'text/csv; charset=utf-8');
+    }
+
+    /**
+     * A lista dos alertas por e-mail (KPI do painel, l.1146), só para o Master. A tela baixa por `fetch`:
+     * a recusa e o "Ainda sem inscritos" (404) saem em JSON, com o título e o texto do toast do desenho.
+     */
+    #[Route('/curriculos/alertas.csv', name: 'trabalho_externo_alertas_csv', methods: ['GET'])]
+    public function alertasCsv(Request $request, ExportarAlertasCsvUseCase $exportar): Response
+    {
+        $ctx = $this->contextoDeLeitura($request);
+        if ($ctx === null) {
+            return $this->semAcesso();
+        }
+        try {
+            $csv = $exportar->executar($ctx);
+        } catch (DemandaNaoEncontrada $e) {
+            return $this->json(['ok' => false, 'titulo' => ExportarAlertasCsvUseCase::TITULO_SEM_INSCRITOS, 'mensagem' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (AcaoNaoPermitida $e) {
+            return $this->json(['ok' => false, 'mensagem' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->anexo($csv, ExportarAlertasCsvUseCase::NOME_DO_ARQUIVO, 'text/csv; charset=utf-8');
     }
 
     /** @return array<string, mixed> */
@@ -251,10 +297,11 @@ final class CurriculosController extends AbstractController
         ]);
     }
 
-    private function anexo(string $conteudo, string $nome, string $tipo): Response
+    /** `$nomeAscii`: o nome para navegador antigo, obrigatório quando `$nome` tem acento. */
+    private function anexo(string $conteudo, string $nome, string $tipo, string $nomeAscii = ''): Response
     {
         $resposta = new Response($conteudo, Response::HTTP_OK, ['Content-Type' => $tipo, 'X-Content-Type-Options' => 'nosniff']);
-        $resposta->headers->set('Content-Disposition', $resposta->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $nome));
+        $resposta->headers->set('Content-Disposition', $resposta->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $nome, $nomeAscii));
 
         return $resposta;
     }

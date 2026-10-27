@@ -2,10 +2,13 @@
     Véu "Abrindo o seu escritório digital…" entre o login e o destino (desenho 10, `ok`).
     Página inteira, sem base.html.twig: só o véu em tela cheia, e em seguida o destino.
 
-    - o título usa a hora do APARELHO (Bom dia antes das 12, Boa tarde antes das 18, senão Boa noite);
+    - o título usa a hora do APARELHO (Bom dia antes das 12, Boa tarde antes das 18, senão Boa noite), com os textos
+      de entrada.js.saudacao.* (catálogo do idioma);
     - o destino já chega validado pelo controller (DestinoPosLogin) e só é lido do data-attribute;
     - sem JS, o <meta refresh> leva em 3 s e o <noscript> oferece o link;
-    - quem pediu menos movimento não recebe animação e segue na hora.
+    - quem pediu menos movimento não recebe animação e segue na hora;
+    - com tema comemorativo (desenho 10 VS 24.10.26, bj-tema.js), o véu vira 135deg do primário ao escuro do tema,
+      com a fita no topo e sem selo.
 #}
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -14,7 +17,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <meta http-equiv="refresh" content="3;url={{ destino|e('html_attr') }}">
-    <title>Entrando | BlueJus</title>
+    <title>{{ 'entrada.entrando.titulo_pagina'|trans }}</title>
     <link rel="icon" href="/favicon.ico">
     <style>
         html, body { margin:0; height:100%; }
@@ -34,6 +37,8 @@
         .veu__trilho { width:min(240px, 60vw); height:3px; border-radius:2px; background:rgba(255,255,255,.2); overflow:hidden; }
         .veu__barra { height:100%; background:#fff; animation:lgBarra 1.6s cubic-bezier(.4,0,.2,1) .4s both; }
         .veu__link { color:#fff; text-decoration:underline; font-size:14px; }
+        html:has(#bjtCss) body { background:var(--bjt-d); }
+        html:has(#bjtCss) .veu { background-image:linear-gradient(135deg, var(--bjt-p), var(--bjt-d)); }
         @media (prefers-reduced-motion: reduce) {
             .veu, .veu__anel, .veu__simbolo, .veu__titulo, .veu__sub, .veu__barra { animation:none; }
             .veu__barra { width:100%; }
@@ -49,24 +54,29 @@
             <img class="veu__simbolo" src="/images/logo/bluejus-simbolo-branco.png" alt="">
         </span>
         <div class="veu__textos">
-            <h1 class="veu__titulo" id="veuTitulo">Olá{{ nome != '' ? ', ' ~ nome : '' }}!</h1>
-            <div class="veu__sub">Abrindo o seu escritório digital…</div>
+            <h1 class="veu__titulo" id="veuTitulo">{{ nome != '' ? 'entrada.entrando.ola'|trans({nome: nome}) : 'entrada.entrando.ola_sem_nome'|trans }}</h1>
+            <div class="veu__sub">{{ 'entrada.abrindo'|trans }}</div>
         </div>
         <div class="veu__trilho"><div class="veu__barra"></div></div>
-        <noscript><a class="veu__link" href="{{ destino|e('html_attr') }}">Continuar</a></noscript>
+        <noscript><a class="veu__link" href="{{ destino|e('html_attr') }}">{{ 'entrada.entrando.continuar'|trans }}</a></noscript>
     </div>
+    {# A saudação do script vem do catálogo (a página não usa o base, por isso traz o bj-traducao.js). #}
+    {{ catalogo_js('entrada.js.saudacao') }}
+    <script src="{{ asset('js/bj-traducao.js') }}"></script>
     <script>
         (function () {
             var raiz = document.getElementById('veuEntrada');
             var destino = JSON.parse(raiz.getAttribute('data-destino'));
             var nome = JSON.parse(raiz.getAttribute('data-nome'));
             var hora = new Date().getHours();
-            var saudacao = hora < 12 ? 'Bom dia' : (hora < 18 ? 'Boa tarde' : 'Boa noite');
-            document.getElementById('veuTitulo').textContent = saudacao + (nome ? ', ' + nome : '') + '!';
+            var t = window.BJ_T.t;
+            var saudacao = hora < 12 ? t('entrada.js.saudacao.bom_dia') : (hora < 18 ? t('entrada.js.saudacao.boa_tarde') : t('entrada.js.saudacao.boa_noite'));
+            document.getElementById('veuTitulo').textContent = nome ? t('entrada.js.saudacao.com_nome', {saudacao: saudacao, nome: nome}) : t('entrada.js.saudacao.sem_nome', {saudacao: saudacao});
 
             var semMovimento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             window.setTimeout(function () { window.location.replace(destino); }, semMovimento ? 0 : 2100);
         })();
     </script>
+    {% include 'layout/_globais/tema_comemorativo.html.twig' with {bjtSemSelo: true} only %}
 </body>
 </html>

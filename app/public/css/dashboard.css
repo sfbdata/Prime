@@ -31,10 +31,6 @@
     --db-zero:          #aebdc7;
     --db-sem-cargo:     #a3b3be;
     --db-vazio-icone:   #c3d2dd;
-    /* brilho que atravessa o título ao entrar (tituloBrilho/tituloReflexo do dc) */
-    --db-titulo-brilho-1: #14809f;
-    --db-titulo-brilho-2: #a8e4f4;
-    --db-titulo-brilho-3: #e9f8fc;
 
     /* superfícies e bordas */
     --db-page-bg:       linear-gradient(180deg, #eaf1f6 0, #f3f6f9 360px);
@@ -51,7 +47,7 @@
     --db-head-bg:       #f6f9fb;
     --db-head-card-bg:  linear-gradient(180deg, #f7fafc 0%, #fff 100%);
     --db-row-hover:     #f4f9fc;
-    --db-total-bg:      linear-gradient(180deg, #f6f9fb, #f1f6f9);
+    --db-total-bg:      #f5f8fa;
     --db-nota-bg:       linear-gradient(180deg, #fafcfd, #f6f9fb);
     --db-seg-bg:        #edf2f6;
     --db-seg-border:    #dfe7ed;
@@ -61,11 +57,11 @@
     --db-btn-hover-bg:  #f4fafc;
 
     /* acentos */
-    --db-accent:        #0c7a9c;
+    --db-accent:        #0a6fa0;
     --db-accent-text:   #0b6a88;
     --db-accent-bg:     #e6f2f7;
     --db-accent-soft:   #eef6fa;
-    --db-azul:          #0f6fc4;
+    --db-azul:          #0a6fa0;
     --db-azul-hover:    #0b5596;
     --db-urgente:       #a3232b;
     --db-urgente-icon:  #c0392f;
@@ -74,11 +70,11 @@
 
     /* pílulas da tabela */
     --db-venc-text:     #a3232b;
-    --db-venc-bg:       linear-gradient(180deg, #fff4f3, #fdeae8);
-    --db-venc-sombra:   0 2px 6px -2px rgba(192,57,47,.28), 0 1px 1px rgba(192,57,47,.06);
-    --db-praz-text:     #84540c;
-    --db-praz-bg:       linear-gradient(180deg, #fff8eb, #fdefd6);
-    --db-praz-sombra:   0 2px 6px -2px rgba(214,146,30,.32), 0 1px 1px rgba(214,146,30,.08);
+    --db-venc-bg:       transparent;
+    --db-venc-sombra:   none;
+    --db-praz-text:     #9a5b00;
+    --db-praz-bg:       transparent;
+    --db-praz-sombra:   none;
 
     /* sombras, foco, curvas */
     --db-shadow-card:   0 1px 2px rgba(16,42,58,.04), 0 4px 10px -6px rgba(12,60,90,.08), 0 14px 32px -18px rgba(12,60,90,.22);
@@ -143,9 +139,6 @@
     --db-zero:          rgba(255,255,255,.28);
     --db-sem-cargo:     var(--bs-secondary-color);
     --db-vazio-icone:   rgba(255,255,255,.22);
-    --db-titulo-brilho-1: #4fb3d4;
-    --db-titulo-brilho-2: #bfeaf6;
-    --db-titulo-brilho-3: #ffffff;
 
     --db-page-bg:       var(--bs-body-bg);
     --db-card:          var(--bs-tertiary-bg);
@@ -183,10 +176,10 @@
     --db-ok-text:       #6ddaa2;
 
     --db-venc-text:     #f08a84;
-    --db-venc-bg:       rgba(192,57,47,.18);
+    --db-venc-bg:       transparent;
     --db-venc-sombra:   none;
     --db-praz-text:     #e9be6c;
-    --db-praz-bg:       rgba(200,149,42,.18);
+    --db-praz-bg:       transparent;
     --db-praz-sombra:   none;
 
     --db-shadow-card:   0 1px 2px rgba(0,0,0,.35);
@@ -287,11 +280,11 @@
 }
 
 /* ── Título ─────────────────────────────────────────────────────────────────
-   30/700, -0.02em, com o traço de 28×3px em degradê petróleo→azul que cresce
-   sob o texto (tituloTraco do desenho, depois da revelação: 1.4s).
-   Entrada do dc: o texto se revela da esquerda (tituloRevela 1.5s @.2s) com o
-   símbolo rolando na frente (simboloPassa), um brilho atravessa (tituloBrilho
-   1.3s @1.45s) e um reflexo volta a cada 7s (tituloReflexo @4s). */
+   30/700, -0.02em, com o traço sólido de 28×3px #0a6fa0 que cresce sob o texto
+   (tituloTraco do desenho, depois da revelação: 1.4s).
+   Entrada do dc (VS 25.10.26, L194): o texto se revela da esquerda (tituloRevela
+   1.5s @.2s) com o símbolo rolando na frente (simboloPassa). Sem brilho nem
+   reflexo: o desenho novo tirou os dois. */
 .db-page .db-titulo {
     position: relative;
     margin: 0 0 18px;
@@ -310,28 +303,13 @@
     width: 28px;
     height: 3px;
     border-radius: 2px;
-    background: linear-gradient(90deg, var(--db-accent), var(--db-azul));
+    background: var(--db-accent);
     transform-origin: left center;
     animation: dbTituloTraco .6s var(--db-ease) 1.4s both;
 }
-.db-page .db-titulo-texto { display: inline-block; }
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-    .db-page .db-titulo-texto {
-        background-image: linear-gradient(100deg,
-            var(--db-text-strong) 0%, var(--db-text-strong) 45%,
-            var(--db-titulo-brilho-1) 47.8%, var(--db-titulo-brilho-2) 49.6%,
-            var(--db-titulo-brilho-3) 50%, var(--db-titulo-brilho-2) 50.4%,
-            var(--db-titulo-brilho-1) 52.2%, var(--db-text-strong) 55%,
-            var(--db-text-strong) 100%);
-        background-size: 260% 100%;
-        background-position: 0% 0;
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        animation: dbTituloRevela 1.5s cubic-bezier(.45,.05,.25,1) .2s both,
-                   dbTituloBrilho 1.3s cubic-bezier(.4,0,.2,1) 1.45s both,
-                   dbTituloReflexo 7s cubic-bezier(.45,.05,.3,1) 4s infinite;
-    }
+.db-page .db-titulo-texto {
+    display: inline-block;
+    animation: dbTituloRevela 1.5s cubic-bezier(.45,.05,.25,1) .2s both;
 }
 .db-page .db-titulo-simbolo {
     position: absolute;
@@ -354,8 +332,6 @@
     78%  { left: 100%; opacity: 1; transform: translate(-50%,-50%) rotate(250deg) scale(1); }
     100% { left: calc(100% + 22px); opacity: 0; transform: translate(-50%,-50%) rotate(330deg) scale(.35); }
 }
-@keyframes dbTituloBrilho  { from { background-position: 100% 0; } to { background-position: 0% 0; } }
-@keyframes dbTituloReflexo { 0% { background-position: 100% 0; } 18% { background-position: 0% 0; } 100% { background-position: 0% 0; } }
 @keyframes dbTituloTraco {
     from { transform: scaleX(0); opacity: 0; }
     to   { transform: scaleX(1); opacity: 1; }
@@ -570,6 +546,29 @@
     background: var(--db-btn-hover-bg);
 }
 .db-page .filtro-limpar:focus-visible { outline: none; box-shadow: var(--db-focus); }
+/* Período padrão (spec dashboard-parte-1): no Este mês sem outro filtro, o botão sai (dashboard.js). */
+.db-page .filtro-limpar[hidden] { display: none; }
+
+/* Troféu do campeão (dc 1.2.2 l.801 e script l.2986): 11.5px dourado logo depois do nome; no hover
+   da linha cresce 1.35x e inclina -10 graus com mola, e ganha brilho. A fanfarra é do JS. */
+.db-page .db-trofeu {
+    font-size: 11.5px;
+    color: #c49a3a;
+    flex-shrink: 0;
+    display: inline-block;
+    transform-origin: 50% 90%;
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1), filter .35s ease;
+    filter: drop-shadow(0 1px 1px rgba(150,110,30,.25));
+}
+.db-page .db-colab > .db-trofeu { margin-left: -6px; } /* 6px do nome, como no desenho (gap 12px da célula) */
+.db-page .db-tr-campeao:hover .db-trofeu {
+    transform: scale(1.35) rotate(-10deg);
+    filter: drop-shadow(0 0 6px rgba(214,160,40,.75));
+}
+/* Botão direito no nome abre o cartão do colaborador (cursor do desenho). */
+.db-page .db-colab[data-db-colab-url] { cursor: context-menu; }
+/* toque longo abre o cartão (dashboard-campeao.js): sem o menu nativo de seleção do iOS por cima */
+@media (hover: none) { .db-page [data-db-colab-url] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }
 
 /* ── Selects e calendário próprios (Lote 7 · F13/F14) ─────────────────────────
    Desenho: "Filtros em cascata com avatar" e "Calendário das datas" (README) e
@@ -593,7 +592,7 @@
     --db-fp-op-sel:        #e8f3f8;
     --db-fp-busca-borda:   #d3dde4;
     --db-fp-tom-todos:     linear-gradient(160deg, #e3f1f7, #bcdce7);
-    --db-fp-tom-todos-fg:  #0c7a9c;
+    --db-fp-tom-todos-fg:  #0a6fa0;
     --db-fp-tom-cargo:     linear-gradient(160deg, #eef3f6, #ccd6db);
     --db-fp-tom-cargo-fg:  #34505f;
     --db-fp-tom-sem:       linear-gradient(160deg, #f3f5f7, #dbe1e5);
@@ -604,8 +603,8 @@
     --db-fp-tom-sem-anel:   rgba(107,132,148,.18);
     /* pessoa sem foto: os 6 AV_TONS pastel do dc 1.2.2. Fundo = degradê 160deg do
        tom até a mistura 82% tom / 18% cor; boneco e anel na cor do tom. */
-    --db-fp-p0: linear-gradient(160deg, #e3f1f7, #bcdce7); --db-fp-p0-fg: #0c7a9c; --db-fp-p0-anel: rgba(12,122,156,.18);
-    --db-fp-p1: linear-gradient(160deg, #e6effa, #bfd8f0); --db-fp-p1-fg: #0f6fc4; --db-fp-p1-anel: rgba(15,111,196,.18);
+    --db-fp-p0: linear-gradient(160deg, #e3f1f7, #bcdae7); --db-fp-p0-fg: #0a6fa0; --db-fp-p0-anel: rgba(12,122,156,.18);
+    --db-fp-p1: linear-gradient(160deg, #e6effa, #bed8ea); --db-fp-p1-fg: #0a6fa0; --db-fp-p1-anel: rgba(15,111,196,.18);
     --db-fp-p2: linear-gradient(160deg, #e7f4ee, #c3ded1); --db-fp-p2-fg: #1f7a4d; --db-fp-p2-anel: rgba(31,122,77,.18);
     --db-fp-p3: linear-gradient(160deg, #efeaf6, #d7cde3); --db-fp-p3-fg: #6b4b8a; --db-fp-p3-anel: rgba(107,75,138,.18);
     --db-fp-p4: linear-gradient(160deg, #fbece9, #ebc8c7); --db-fp-p4-fg: #a3232b; --db-fp-p4-anel: rgba(163,35,43,.18);
@@ -614,7 +613,7 @@
     --db-cal-hover-bg:     #cfe5ee;
     --db-cal-hover-num:    #084f66;
     --db-cal-hover-sombra: 0 6px 14px -7px rgba(12,60,90,.45), 0 1px 4px -1px rgba(12,60,90,.14);
-    --db-cal-sel-bg:       linear-gradient(160deg, #1597bd, #0c7a9c);
+    --db-cal-sel-bg:       linear-gradient(160deg, #1597bd, #0a6fa0);
     --db-cal-sel-sombra:   0 4px 10px -5px rgba(12,122,156,.6);
     --db-cal-entre-bg:     #fff;
     --db-cal-nav-hover:    #fff;
@@ -651,7 +650,7 @@
     --db-cal-hover-bg:     rgba(79,179,212,.24);
     --db-cal-hover-num:    #bfeaf6;
     --db-cal-hover-sombra: none;
-    --db-cal-sel-bg:       linear-gradient(160deg, #1597bd, #0c7a9c);
+    --db-cal-sel-bg:       linear-gradient(160deg, #1597bd, #0a6fa0);
     --db-cal-sel-sombra:   none;
     --db-cal-entre-bg:     rgba(255,255,255,.04);
     --db-cal-nav-hover:    rgba(255,255,255,.08);
@@ -766,9 +765,11 @@
     justify-content: center;
     overflow: hidden;
 }
+/* "Todos" e cargos (dc VS 25.10.26, avatar() do dropdown): só o ícone, a 78% do avatar,
+   na cor do tom, sem fundo nem anel; o fundo e o anel ficam só na pessoa. */
 .db-page .db-dd-av-ico {
     border-radius: calc(var(--av) * .3);
-    font-size: calc(var(--av) * .5);
+    font-size: calc(var(--av) * .78);
     line-height: 1;
 }
 .db-page .db-dd-av-ini,
@@ -788,6 +789,7 @@
 .db-page .db-dd-tom--todos { background: var(--db-fp-tom-todos); color: var(--db-fp-tom-todos-fg); box-shadow: inset 0 0 0 1px var(--db-fp-tom-todos-anel); }
 .db-page .db-dd-tom--cargo { background: var(--db-fp-tom-cargo); color: var(--db-fp-tom-cargo-fg); box-shadow: inset 0 0 0 1px var(--db-fp-tom-cargo-anel); }
 .db-page .db-dd-tom--sem   { background: var(--db-fp-tom-sem);   color: var(--db-fp-tom-sem-fg);   box-shadow: inset 0 0 0 1px var(--db-fp-tom-sem-anel); }
+.db-page .db-dd-av-ico[class*="db-dd-tom--"] { background: transparent; box-shadow: none; }
 .db-page .db-dd-tom--p0 { background: var(--db-fp-p0); color: var(--db-fp-p0-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p0-anel); }
 .db-page .db-dd-tom--p1 { background: var(--db-fp-p1); color: var(--db-fp-p1-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p1-anel); }
 .db-page .db-dd-tom--p2 { background: var(--db-fp-p2); color: var(--db-fp-p2-fg); box-shadow: inset 0 0 0 1px var(--db-fp-p2-anel); }
@@ -1122,7 +1124,7 @@
     box-shadow: 0 -2px 8px rgba(var(--db-c-rgb), .12);
     transition: height .3s ease, opacity .3s ease, box-shadow .3s ease;
 }
-/* halo radial atrás do glifo (vaza para fora do card) com anel fino interno */
+/* halo radial no canto superior direito (vaza para fora do card) com anel fino interno (dc back/ring) */
 .db-page .db-card-halo {
     position: absolute; top: -58px; right: -58px; width: 200px; height: 200px; z-index: 0; pointer-events: none;
     border-radius: 50%;
@@ -1136,85 +1138,6 @@
     transition: border-color .45s ease;
 }
 
-/* glifo: 80×80 no canto superior direito; flutua de leve em repouso, cada um defasado */
-.db-page .db-glifo {
-    position: absolute; top: 14px; right: 14px; width: 80px; height: 80px; z-index: 1; pointer-events: none;
-    transition: transform .45s var(--db-ease);
-}
-.db-page .db-glifo svg { display: block; overflow: visible; }
-.db-page .db-glifo-flutua { width: 80px; height: 80px; animation: dbGlifoFlutua 6.5s ease-in-out infinite; }
-.db-page .db-glifo-flutua--4 { animation-delay: -3.3s; }
-.db-page .db-glifo-flutua--2 { animation-delay: -2.2s; }
-.db-page .db-glifo-flutua--3 { animation-delay: -4.4s; }
-@keyframes dbGlifoFlutua {
-    0%, 100% { transform: translate3d(0,0,0) rotate(0deg); }
-    25%      { transform: translate3d(0,-2.5px,0) rotate(-1.2deg); }
-    50%      { transform: translate3d(0,-1px,0) rotate(0deg); }
-    75%      { transform: translate3d(0,-3px,0) rotate(1.2deg); }
-}
-
-/* partes dos glifos (cores do desenho; os gradientes ficam nos <defs> do SVG) */
-.db-page .db-g-orbita, .db-page .db-g-outer, .db-page .db-g-ticks {
-    transform-box: view-box;
-    transition: transform .45s var(--db-ease);
-}
-.db-page .db-g-orbita--pastas { transform-origin: 44px 34px; }
-.db-page .db-g-orbita--metas  { transform-origin: 48px 30px; }
-.db-page .db-g-outer, .db-page .db-g-ticks { transform-origin: 46px 32px; }
-.db-page .db-g-orbita-traco { stroke: rgba(12,122,156,.16); stroke-width: 1; stroke-dasharray: 1.5 4; }
-.db-page .db-g-outer-traco  { stroke: rgba(12,122,156,.22); stroke-width: 1; stroke-dasharray: 1.5 3.5; }
-.db-page .db-g-ponto--acento { fill: #0c7a9c; opacity: .5; }
-.db-page .db-g-ponto--azul   { fill: #0f6fc4; opacity: .4; }
-.db-page .db-g-back2, .db-page .db-g-papel, .db-page .db-g-badge,
-.db-page .db-g-p3, .db-page .db-g-p2, .db-page .db-g-chk, .db-page .db-g-l2, .db-page .db-g-l3,
-.db-page .db-g-w1, .db-page .db-g-w2, .db-page .db-g-w3, .db-page .db-g-dia,
-.db-page .db-g-b1, .db-page .db-g-b2, .db-page .db-g-b3,
-.db-page .db-g-core, .db-page .db-g-halo {
-    transform-box: fill-box;
-    transform-origin: center;
-    transition: transform .45s var(--db-ease), opacity .45s ease, filter .45s ease;
-}
-.db-page .db-g-front { filter: drop-shadow(0 6px 10px rgba(12,90,130,.15)); transition: filter .45s ease; }
-.db-page .db-g-contorno { stroke: rgba(12,122,156,.32); stroke-width: 1; }
-/* pastas */
-.db-page .db-g-back2 { opacity: .28; }
-.db-page .db-g-papel { stroke: rgba(12,122,156,.25); stroke-width: 1; }
-.db-page .db-g-linha-forte { stroke: rgba(12,122,156,.22); stroke-width: 2.4; stroke-linecap: round; }
-.db-page .db-g-linha-fraca { stroke: rgba(12,122,156,.14); stroke-width: 2.4; stroke-linecap: round; }
-.db-page .db-g-badge { filter: drop-shadow(0 3px 6px rgba(15,111,196,.22)); }
-.db-page .db-g-mais { stroke: #fff; stroke-width: 2; stroke-linecap: round; }
-/* metas */
-.db-page .db-g-p3 { opacity: .2; }
-.db-page .db-g-p2 { opacity: .36; }
-.db-page .db-g-check { stroke: #fff; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.db-page .db-g-trilho { stroke: rgba(12,122,156,.14); stroke-width: 3; stroke-linecap: round; }
-.db-page .db-g-l1 { stroke: #0c7a9c; stroke-width: 3; stroke-linecap: round; }
-.db-page .db-g-l2 { stroke: #0c7a9c; stroke-width: 3; stroke-linecap: round; transform-origin: 0% 50%; transform: scaleX(.62); }
-.db-page .db-g-l3 { stroke: #0f6fc4; stroke-width: 3; stroke-linecap: round; opacity: .75; transform-origin: 0% 50%; transform: scaleX(.34); }
-.db-page .db-g-anel-meio  { stroke: rgba(12,122,156,.5); stroke-width: 1.4; }
-.db-page .db-g-anel-fraco { stroke: rgba(12,122,156,.3); stroke-width: 1.4; }
-/* urgentes */
-.db-page .db-g-w1 { stroke: rgba(192,57,47,.32); stroke-width: 1.3; }
-.db-page .db-g-w2 { stroke: rgba(192,57,47,.18); stroke-width: 1.2; }
-.db-page .db-g-w3 { stroke: rgba(12,122,156,.18); stroke-width: 1; stroke-dasharray: 1.5 4; }
-.db-page .db-g-dia { filter: drop-shadow(0 5px 9px rgba(181,47,39,.2)); }
-.db-page .db-g-exclama { stroke: #fff; stroke-width: 2.8; stroke-linecap: round; }
-.db-page .db-g-chao { stroke: rgba(16,42,58,.14); stroke-width: 1; stroke-linecap: round; }
-.db-page .db-g-b1, .db-page .db-g-b2, .db-page .db-g-b3 { transform-origin: 50% 100%; }
-/* meta global */
-.db-page .db-g-tick { stroke: rgba(12,122,156,.4); stroke-width: 1.3; stroke-linecap: round; }
-.db-page .db-g-trilho-arco { stroke: rgba(12,122,156,.12); stroke-width: 5; }
-.db-page .db-g-arc {
-    stroke-width: 5;
-    stroke-linecap: round;
-    filter: drop-shadow(0 0 2px rgba(31,157,97,.25));
-    transition: stroke-dasharray .7s var(--db-ease), filter .45s ease;
-}
-.db-page .db-g-miolo { stroke: rgba(12,122,156,.2); stroke-width: 1; }
-.db-page .db-g-anel-interno { stroke: rgba(12,122,156,.18); stroke-width: 1; }
-.db-page .db-g-marcador { transform-box: view-box; transform-origin: 46px 32px; transform: rotate(var(--db-ang, 0deg)); }
-.db-page .db-g-halo  { fill: #1f9d61; opacity: .1; }
-.db-page .db-g-marca { fill: #fff; stroke: #16945a; stroke-width: 1.8; }
 
 /* conteúdo do card */
 .db-page .db-card-corpo { position: relative; z-index: 1; }
@@ -1269,7 +1192,7 @@
     position: relative;
     height: 8px;
     margin: 2px 0 10px;
-    border-radius: 999px;
+    border-radius: 3px;
     background: var(--db-barra-trilho);
     box-shadow: inset 0 1px 1px rgba(16,42,58,.06);
     overflow: hidden;
@@ -1279,7 +1202,7 @@
     position: relative;
     height: 100%;
     width: var(--db-pct, 0%);
-    border-radius: 999px;
+    border-radius: 3px;
     overflow: hidden;
     background: linear-gradient(90deg, #16945a, #2bb673);
     transition: width .7s var(--db-ease), box-shadow .4s ease;
@@ -1316,40 +1239,34 @@
     .db-page .db-stat-card:hover .db-card-base { height: 3px; opacity: 1; box-shadow: 0 -2px 8px rgba(var(--db-c-rgb), .3); }
     .db-page .db-stat-card:hover .db-card-halo { transform: scale(1.05); background: radial-gradient(circle at 50% 50%, rgba(12,122,156,.13) 0%, rgba(15,111,196,.035) 42%, transparent 68%); }
     .db-page .db-stat-card:hover .db-card-anel { border-color: rgba(12,122,156,.14); }
-    .db-page .db-stat-card:hover .db-glifo { transform: scale(1.06); }
     .db-page .db-stat-card:hover .db-stat-num { transform: scale(1.07); text-shadow: 0 6px 18px rgba(var(--db-c-rgb), .18); }
     .db-page .db-stat-card:hover .db-card-legenda--hover { opacity: 1; transform: none; }
-    /* pastas */
-    .db-page .db-stat-card--pastas:hover .db-g-orbita { transform: rotate(-40deg); }
-    .db-page .db-stat-card--pastas:hover .db-g-back2 { transform: translate(4px,-4px); }
-    .db-page .db-stat-card--pastas:hover .db-g-papel { transform: translateY(-5px); }
-    .db-page .db-stat-card--pastas:hover .db-g-front { filter: drop-shadow(0 6px 10px rgba(12,90,130,.26)); }
-    .db-page .db-stat-card--pastas:hover .db-g-badge { transform: scale(1.16) rotate(90deg); filter: drop-shadow(0 3px 6px rgba(15,111,196,.4)); }
-    /* metas */
-    .db-page .db-stat-card--metas:hover .db-g-orbita { transform: rotate(40deg); }
-    .db-page .db-stat-card--metas:hover .db-g-p3 { transform: translate(5px,-4px); }
-    .db-page .db-stat-card--metas:hover .db-g-p2 { transform: translate(2.5px,-2px); }
-    .db-page .db-stat-card--metas:hover .db-g-front { filter: drop-shadow(0 6px 10px rgba(12,90,130,.26)); }
-    .db-page .db-stat-card--metas:hover .db-g-chk { transform: scale(1.14); }
-    .db-page .db-stat-card--metas:hover .db-g-l2 { transform: scaleX(.92); }
-    .db-page .db-stat-card--metas:hover .db-g-l3 { transform: scaleX(.68); }
-    /* urgentes */
-    .db-page .db-stat-card--urgentes:hover .db-g-w1 { transform: scale(1.08); }
-    .db-page .db-stat-card--urgentes:hover .db-g-w2 { transform: scale(1.14); }
-    .db-page .db-stat-card--urgentes:hover .db-g-w3 { transform: scale(1.08) rotate(30deg); opacity: .7; }
-    .db-page .db-stat-card--urgentes:hover .db-g-dia { transform: scale(1.08); filter: drop-shadow(0 5px 9px rgba(181,47,39,.34)); }
-    .db-page .db-stat-card--urgentes:hover .db-g-b1 { transform: scaleY(1.18); }
-    .db-page .db-stat-card--urgentes:hover .db-g-b2 { transform: scaleY(1.2); transition-delay: .05s; }
-    .db-page .db-stat-card--urgentes:hover .db-g-b3 { transform: scaleY(1.12); transition-delay: .1s; }
-    /* meta global */
-    .db-page .db-stat-card--global:hover .db-g-outer { transform: rotate(45deg); }
-    .db-page .db-stat-card--global:hover .db-g-ticks { transform: scale(1.07); }
-    .db-page .db-stat-card--global:hover .db-g-core { transform: scale(1.3); }
-    .db-page .db-stat-card--global:hover .db-g-halo { transform: scale(1.6); opacity: .2; }
-    .db-page .db-stat-card--global:hover .db-g-arc { filter: drop-shadow(0 0 5px rgba(31,157,97,.45)); }
     .db-page .db-stat-card--global:hover .db-barra-fill { box-shadow: 0 0 10px rgba(31,157,97,.35); }
     /* a faixa de brilho atravessa a barra em 1,2s; ao sair, volta sem transição (não "rebobina") */
     .db-page .db-stat-card--global:hover .db-barra-brilho { transform: translateX(260%); transition: transform 1.2s cubic-bezier(.4,0,.2,1); }
+}
+
+/* Dica dos cards (data-tip): o balão do bj-dica.js do desenho, criado pelo dashboard.js no
+   <body> (fora do fragmento que o XHR troca). Valores do bj-dica.js, linha a linha. */
+.db-body .db-card-tip {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 2147483647;
+    pointer-events: none;
+    max-width: min(300px, calc(100vw - 16px));
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: #e5f1f7;
+    color: #0b4f73;
+    border: 1px solid #b9d6e8;
+    font: 600 12px/1.4 Arial, Helvetica, sans-serif;
+    box-shadow: 0 4px 14px rgba(10,60,90,.14);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity .12s, transform .12s;
 }
 
 @media (max-width: 1099.98px) {
@@ -1392,13 +1309,13 @@
 .db-page .db-contador {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
     font-size: 13.5px;
     font-weight: 700;
     color: var(--db-text-2);
     white-space: nowrap;
 }
-.db-page .db-contador i { font-size: 14px; color: var(--db-icon-muted); }
+.db-page .db-contador i { font-size: 17px; line-height: 1; color: var(--db-icon-muted); }
 .db-page .db-contador-num { font-variant-numeric: tabular-nums; }
 
 .db-page .db-table-scroll { overflow-x: auto; }
@@ -1493,13 +1410,13 @@
     box-shadow: 0 0 0 2px var(--db-card), 0 0 0 3px rgba(16,42,58,.08);
 }
 .db-page .db-avatar-img { display: inline-block; }
-.db-page .db-avatar--0 { background: linear-gradient(145deg, #0f6fc4, #0c5799); }
+.db-page .db-avatar--0 { background: linear-gradient(145deg, #0a6fa0, #08577d); }
 .db-page .db-avatar--1 { background: linear-gradient(145deg, #1f7a4d, #185f3c); }
 .db-page .db-avatar--2 { background: linear-gradient(145deg, #6b4b8a, #533b6c); }
 .db-page .db-avatar--3 { background: linear-gradient(145deg, #a3232b, #7f1b22); }
 .db-page .db-avatar--4 { background: linear-gradient(145deg, #2a5f8f, #214a70); }
 .db-page .db-avatar--5 { background: linear-gradient(145deg, #8a5a12, #6c460e); }
-.db-page .db-avatar--6 { background: linear-gradient(145deg, #0c7a9c, #095f7a); }
+.db-page .db-avatar--6 { background: linear-gradient(145deg, #0a6fa0, #08577d); }
 .db-page .db-avatar--7 { background: linear-gradient(145deg, #4a6274, #3a4c5a); }
 .db-page .db-avatar--8 { background: linear-gradient(145deg, #1f9d61, #187a4c); }
 .db-page .db-colab-nome {
@@ -1548,7 +1465,7 @@
     gap: 6px;
     min-width: 42px;
     padding: 3px 10px 3px 9px;
-    border-radius: 999px;
+    border-radius: 3px;
     font-size: 13px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
@@ -1561,26 +1478,16 @@
 @keyframes dbPulsoVenc { 0% { box-shadow: 0 0 0 0 rgba(208,68,55,.45); } 70%, 100% { box-shadow: 0 0 0 5px rgba(208,68,55,0); } }
 @keyframes dbPulsoPraz { 0% { box-shadow: 0 0 0 0 rgba(214,146,30,.5); } 70%, 100% { box-shadow: 0 0 0 5px rgba(214,146,30,0); } }
 
-/* linha de Total (tfoot): fundo degradê, borda superior forte, números 700 */
+/* linha de Total (tfoot): fundo sólido #f5f8fa (dc totalStyle), borda superior forte, números 700 */
 .db-page .db-table tfoot th,
 .db-page .db-table tfoot td {
     padding: 7px 12px;
     border-top: 1px solid var(--db-div-strong);
     border-bottom: none;
     background: var(--db-total-bg);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
     vertical-align: middle;
     color: var(--db-text-strong);
 }
-.db-page .db-total-icone {
-    width: 34px; height: 34px; flex-shrink: 0;
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 4px;
-    background: linear-gradient(160deg, #e3f1f7, #d3e8f0);
-    color: var(--db-accent);
-    box-shadow: inset 0 0 0 1px rgba(12,122,156,.16);
-}
-.db-page .db-total-icone i { font-size: 15px; }
 .db-page .db-total-rotulo {
     font-size: 12px;
     font-weight: 700;
@@ -1668,13 +1575,12 @@
 [data-bs-theme="dark"] .db-page .db-table-titulo { text-shadow: none; }
 [data-bs-theme="dark"] .db-page .db-table tfoot th,
 [data-bs-theme="dark"] .db-page .db-table tfoot td { box-shadow: none; }
-[data-bs-theme="dark"] .db-page .db-total-icone { background: var(--db-accent-bg); box-shadow: inset 0 0 0 1px rgba(79,179,212,.3); }
 
 /* ── Busca de colaborador (cabeçalho da tabela) ───────────────────────────────
    O campo que vai na query é o .js-filtro-busca do form da casca, escondido
    aqui; o visível é o .db-busca do cabeçalho, espelhado pelo dashboard.js.
    Recolhida: só a lupa (36px). Aberta: 260px em 0.35s (100% no celular).
-   Cantos de 4px (campo/botão, regra da trilha), não o 999px do dc. */
+   Cantos de 3px, como o dc VS 25.10.26 (lupaStyle/buscaInputStyle). */
 .db-page .db-filtro-wrap .filtro-busca { display: none; }
 .db-page .db-busca {
     position: relative;
@@ -1699,7 +1605,7 @@
     justify-content: center;
     padding: 0;
     border: 1px solid var(--db-border-ctl);
-    border-radius: 999px; /* pílula: lupaStyle/buscaInputStyle do dc 1.2.2 */
+    border-radius: 3px; /* lupaStyle/buscaInputStyle do dc VS 25.10.26 */
     background: var(--db-ctl-bg);
     color: var(--db-label-card);
     font-size: 14px;
@@ -1713,7 +1619,7 @@
     width: 100%;
     height: 36px;
     border: 1px solid var(--db-border-ctl);
-    border-radius: 999px; /* pílula: lupaStyle/buscaInputStyle do dc 1.2.2 */
+    border-radius: 3px; /* lupaStyle/buscaInputStyle do dc VS 25.10.26 */
     padding: 0 14px 0 34px;
     font-size: 13.5px;
     color: var(--db-text);
@@ -1740,7 +1646,7 @@
     justify-content: center;
     min-width: 30px;
     padding: 3px 7px;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 .db-page .db-num.db-num-link:hover,
 .db-page .db-num.db-num-link:focus-visible {
@@ -1794,7 +1700,7 @@
     gap: 3px;
     height: 18px;
     padding: 0 6px 0 5px;
-    border-radius: 999px;
+    border-radius: 3px;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 10.5px;
     font-weight: 700;
@@ -2039,8 +1945,6 @@
     gap: 9px;
     margin-bottom: 10px;
 }
-.db-page .db-cel-total-icone { width: 30px; height: 30px; }
-.db-page .db-cel-total-icone i { font-size: 14px; }
 .db-page .db-cel-card--total .db-cel-bloco { background: var(--db-card); }
 
 /* abaixo de 380px os 4 de metas ficam 2×2 */
@@ -2095,7 +1999,6 @@
     .db-page .db-table-card,
     .db-page .db-btn-pdf,
     .db-page .db-card-wrap,
-    .db-page .db-glifo-flutua,
     .db-page .db-card-rotulo,
     .db-page .db-card-rotulo::after,
     .db-page .db-barra-fill,
@@ -2114,7 +2017,6 @@
     .db-page .db-stat-card *,
     .db-page .db-stat-card *::after { transition-duration: .01ms; }
     .db-page .db-stat-card:hover { transform: none; }
-    .db-page .db-stat-card:hover .db-glifo,
     .db-page .db-stat-card:hover .db-stat-num { transform: none; }
 }
 
@@ -2287,7 +2189,7 @@
     margin: -8px -8px 8px;
     padding: 11px 14px;
     border-radius: 4px 4px 0 0;
-    background: linear-gradient(120deg, #0f6fc4 0%, #0c7a9c 100%);
+    background: #0a6fa0;
 }
 .db-page .db-pref-faixa::before {
     content: "";
@@ -2389,7 +2291,7 @@
     flex-shrink: 0;
     width: 34px;
     height: 20px;
-    border-radius: 999px;
+    border-radius: 3px;
     background: var(--db-pref-sw-off);
     transition: background .2s;
 }
@@ -2404,7 +2306,7 @@
     box-shadow: 0 1px 3px rgba(16,42,58,.3);
     transition: transform .22s var(--db-ease);
 }
-.db-page .db-pref-item[aria-checked="true"] .db-pref-sw { background: linear-gradient(90deg, #1597bd, #0c7a9c); }
+.db-page .db-pref-item[aria-checked="true"] .db-pref-sw { background: linear-gradient(90deg, #1597bd, #0a6fa0); }
 .db-page .db-pref-item[aria-checked="true"] .db-pref-sw-bola { transform: translateX(14px); }
 
 /* colunas: "Colaborador" fixa + caixas de seleção */
@@ -2427,7 +2329,7 @@
 }
 .db-page .db-pref-caixa i { font-size: 13px; color: #fff; opacity: 0; transition: opacity .15s; }
 .db-page .db-pref-col .db-pref-rotulo { font-weight: 500; color: var(--db-faint); }
-.db-page .db-pref-col[aria-checked="true"] .db-pref-caixa { background: linear-gradient(160deg, #1597bd, #0c7a9c); box-shadow: none; }
+.db-page .db-pref-col[aria-checked="true"] .db-pref-caixa { background: linear-gradient(160deg, #1597bd, #0a6fa0); box-shadow: none; }
 .db-page .db-pref-col[aria-checked="true"] .db-pref-caixa i { opacity: 1; }
 .db-page .db-pref-col[aria-checked="true"] .db-pref-rotulo { font-weight: 600; color: var(--db-text-strong); }
 /* a última numérica visível não sai (desenho: caixa a 50%) */

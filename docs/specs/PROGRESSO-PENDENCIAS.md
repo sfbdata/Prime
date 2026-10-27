@@ -1,5 +1,11 @@
 # Progresso — Pendências do JusPrime
 
+> 🤖 **PENDÊNCIA DE PRODUTO: ligar a IA nas telas que hoje são regra (24/10/2026).** Por decisão do dono, o
+> rótulo de IA saiu (ou sai, no PR D da frente `ia-anthropic-ligar`) da previsão do próximo ato, do prazo interno
+> da meta, da sugestão de documentos, do insight e da projeção do Dashboard e dos lembretes; os percentuais sem
+> base saíram. Elas voltam a ser IA quando houver dado real para medir acerto. Lista e dado que falta:
+> `docs/specs/ia-anthropic-ligar.md` §10.3.
+
 > 🔐 **DUAS PENDÊNCIAS DE PRODUTO nasceram da Política de Privacidade (21/08/2026), em produção.**
 > A Política prometia duas coisas que o sistema **não faz** — medidas no código, e as frases foram
 > retiradas do texto publicado com autorização do dono. Elas **voltam** quando as features existirem:

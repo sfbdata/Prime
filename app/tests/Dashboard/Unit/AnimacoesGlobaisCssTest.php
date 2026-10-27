@@ -38,8 +38,9 @@ final class AnimacoesGlobaisCssTest extends TestCase
     #[TestDox('O base.html.twig põe jp-sem-anim no <html> pela preferência')]
     public function testBasePoeAClasse(): void
     {
-        self::assertStringContainsString(
-            '<html lang="pt-BR" data-bs-theme="light"{% if animacoes_reduzidas() %} class="jp-sem-anim"{% endif %}>',
+        // O lang e o dir vêm do idioma da pessoa (spec idioma-do-sistema); aqui só importa a classe no <html>.
+        self::assertMatchesRegularExpression(
+            '/<html [^>]*data-bs-theme="light"\{% if animacoes_reduzidas\(\) %\} class="jp-sem-anim"\{% endif %\}>/',
             self::ler('templates/base.html.twig'),
         );
     }

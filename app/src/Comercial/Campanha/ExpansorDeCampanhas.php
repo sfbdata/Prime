@@ -6,9 +6,11 @@ namespace App\Comercial\Campanha;
 
 use App\Comercial\Entity\CampanhaDeEmail;
 use App\Comercial\Envio\CarteiroInterface;
+use App\Comercial\Envio\CotaDeEnvio;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\DTO\DestinatarioDaCampanha;
+use App\Comercial\DTO\FiltroDoPublico;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DestinoDaCampanhaRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
@@ -18,15 +20,16 @@ use Psr\Log\LoggerInterface;
  * O trabalho de cada volta do expansor (spec `comercial-e-emails.md` §8.1 e §8.5), chamado pelo
  * {@see \App\Comercial\MessageHandler\ExpandirCampanhasHandler}:
  *   1. a chave da instalação: desligada, toda campanha ativa vira `cancelada` (parada de emergência);
- *   2. materializa a execução devida em `comercial_campanha_destino`, com o público resolvido de novo (B1 e descadastro
- *      reaplicados). Nada é recuperado: a única que acordou mais de 24 h atrasada é cancelada sem enviar; a recorrente
+ *   2. materializa a execução devida em `comercial_campanha_destino`, com o público resolvido de novo pelo modelo
+ *      gravado (`modelo_chave`; B1 e descadastro reaplicados) e a lista de cada destinatário (§11). Nada é recuperado: a única que acordou mais de 24 h atrasada é cancelada sem enviar; a recorrente
  *      que perdeu a vez pula para a próxima data futura;
  *   3. libera um lote numa transação da conexão (trava as linhas com `SKIP LOCKED`, entrega ao Carteiro, que vira
  *      savepoint, e grava o `envio_id`): queda no meio = nada gravado, nada duplicado;
  *   4. a única com o último destinatário entregue vira `enviada`.
  *
- * Vazão própria (R4): lote de até 10 por volta (uma por minuto), teto diário das campanhas (1.000 por padrão, abaixo dos
- * 1.500 globais) e contrapressão (o lote só sai com menos de um lote de envios de campanha ainda na fila do Carteiro).
+ * Vazão própria (R4): lote de até 10 por volta (uma por minuto), a cota das campanhas em 24 h corridas (1.600 por
+ * padrão, sem tomar a reserva de 800 dos demais e-mails dentro dos 2.400 totais; {@see CotaDeEnvio}) e contrapressão
+ * (o lote só sai com menos de um lote de envios de campanha ainda na fila do Carteiro).
  * Logs só com ids, nunca o endereço.
  *
  * @phpstan-import-type Campanha from CampanhaDeEmailRepository
@@ -36,6 +39,16 @@ final class ExpansorDeCampanhas
     public const LOTE = 10;
     public const TOLERANCIA_DO_ATRASO = '-24 hours';
     public const MOTIVO_DO_ATRASO = 'Acordou com mais de 24 h de atraso; nada foi enviado';
+    /** O filtro congelado (§9) não passa mais na validação: tirar o filtro alargaria o público, então a campanha para. */
+    public const MOTIVO_DO_FILTRO = 'O filtro guardado na campanha não vale mais; nada foi enviado';
+
+    /**
+     * A confirmação de leitura escolhida em cada campanha (F3g), lida com a mensagem: o envio só rastreia com ela e com
+     * as duas chaves globais (o MontadorDeEmail confere as chaves).
+     *
+     * @var array<int, bool>
+     */
+    private array $rastrearLeitura = [];
 
     public function __construct(
         private readonly CampanhaDeEmailRepository $campanhas,
@@ -47,7 +60,8 @@ final class ExpansorDeCampanhas
         private readonly PoliticaDeDestinatarios $politica,
         private readonly ChaveDasCampanhas $chave,
         private readonly LoggerInterface $logger,
-        private readonly int $tetoDiarioDeCampanhas,
+        private readonly CotaDeEnvio $cota,
+        private readonly ImagensDaCampanha $imagens,
     ) {
     }
 
@@ -157,18 +171,62 @@ final class ExpansorDeCampanhas
      */
     private function executar(array $campanha, \DateTimeImmutable $agora, ?\DateTimeImmutable $seguinte): void
     {
-        $this->campanhas->emTransacao(function () use ($campanha, $agora, $seguinte): void {
+        try {
+            $filtro = FiltroDoPublico::deArray($campanha['publico_filtro']);
+        } catch (CampanhaRecusada) {
+            $this->campanhas->cancelar($campanha['id'], $campanha['estado'], self::MOTIVO_DO_FILTRO);
+            $this->logger->warning('Comercial: campanha cancelada, filtro guardado inválido.', ['campanhaId' => $campanha['id']]);
+
+            return;
+        }
+        $this->campanhas->emTransacao(function () use ($campanha, $agora, $seguinte, $filtro): void {
             if ($this->campanhas->travarDevida($campanha['id'], $campanha['estado'], $campanha['execucoes']) === null) {
                 return;
             }
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);
-            $publico = $this->publicos->resolver($campanha['publico'], $informados);
+            // O filtro congelado (§9) volta a valer, com a data desta execução (idade e aniversário).
+            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora, $this->modeloDoPublico($campanha));
             $execucao = $campanha['execucoes'] + 1;
             $this->destinos->materializar($campanha['id'], $execucao, $publico->destinatarios, $agora);
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;
             $estado = $recorrente ? CampanhaDeEmail::RECORRENTE : ($publico->total() > 0 ? CampanhaDeEmail::ENVIANDO : CampanhaDeEmail::ENVIADA);
             $this->campanhas->registrarExecucao($campanha['id'], $execucao, $publico->total(), $estado, $recorrente ? $seguinte : null);
+            $this->renovarImagem($campanha, $agora);
         });
+    }
+
+    /**
+     * F3i (§12): cada execução (a única e cada vez da recorrente) leva a validade da imagem do simples a 1 ano depois
+     * deste envio e marca o uso. A cópia que não descongela não tem imagem a renovar (e não vira e-mail).
+     *
+     * @param Campanha $campanha
+     */
+    private function renovarImagem(array $campanha, \DateTimeImmutable $agora): void
+    {
+        try {
+            $this->imagens->renovarPeloEnvio($this->composicao->descongelar($campanha), $agora);
+        } catch (CampanhaRecusada) {
+        }
+    }
+
+    /**
+     * O modelo que decide as listas do público (§11). Uma campanha `vagas` gravada sem a âncora (antes dela existir) não
+     * alcança quem só autorizou `vagas_alerta`: resolve como qualquer outro modelo.
+     *
+     * @param Campanha $campanha
+     */
+    private function modeloDoPublico(array $campanha): string
+    {
+        if ($campanha['modelo_chave'] !== PublicosDaCampanha::MODELO_DE_VAGAS) {
+            return $campanha['modelo_chave'];
+        }
+        try {
+            ComposicaoDaCampanha::exigirAncoraDeVagas($this->composicao->descongelar($campanha));
+        } catch (CampanhaRecusada) {
+            return '';
+        }
+
+        return $campanha['modelo_chave'];
     }
 
     /** @param Campanha $campanha */
@@ -188,22 +246,21 @@ final class ExpansorDeCampanhas
         $this->campanhas->auditar($id, CampanhaDeEmailRepository::CANCELADA, ['motivo' => $motivo, 'total' => $total], null, null, $agora);
     }
 
-    /** Contrapressão e teto diário das campanhas (§8.5): 0 = este lote espera. */
+    /** Contrapressão e cota das campanhas em 24 h corridas (§8.5, {@see CotaDeEnvio}): 0 = este lote espera. */
     private function tamanhoDoLote(\DateTimeImmutable $agora): int
     {
         if ($this->envios->contarDeCampanhaNaFila() >= self::LOTE) {
             return 0;
         }
-        $restante = $this->tetoDiarioDeCampanhas - $this->envios->contarDeCampanhaDesde($agora->setTime(0, 0));
 
-        return max(0, min(self::LOTE, $restante));
+        return min(self::LOTE, $this->cota->vagasDeCampanha($agora));
     }
 
     /**
      * O e-mail do destinatário, com a campanha descongelada uma vez por lote. Null se não vira e-mail (o conteúdo ou o
-     * endereço deixou de valer): o destinatário sai da execução em vez de travar o lote.
+     * endereço deixou de valer): o destinatário sai da execução em vez de travar o lote. A lista é a do destino (§11).
      *
-     * @param array{id: int, campanha_id: int, email: string, nome: ?string} $destino
+     * @param array{id: int, campanha_id: int, email: string, nome: ?string, lista: string} $destino
      * @param array<int, \App\Comercial\DTO\MensagemDaCampanha|null>          $mensagens
      */
     private function mensagem(array $destino, array &$mensagens): ?MensagemDeEmail
@@ -211,6 +268,7 @@ final class ExpansorDeCampanhas
         $id = $destino['campanha_id'];
         if (!\array_key_exists($id, $mensagens)) {
             $campanha = $this->campanhas->porId($id);
+            $this->rastrearLeitura[$id] = $campanha['rastrear_leitura'] ?? false;
             try {
                 $mensagens[$id] = $campanha === null ? null : $this->composicao->descongelar($campanha);
             } catch (CampanhaRecusada) {
@@ -218,7 +276,7 @@ final class ExpansorDeCampanhas
             }
         }
         try {
-            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, true, $this->politica->replyToDaCampanha());
+            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, $this->rastrearLeitura[$id] ?? false, $this->politica->replyToDaCampanha(), $destino['lista']);
         } catch (CampanhaRecusada | \InvalidArgumentException) {
             $this->logger->error('Comercial: destinatário de campanha descartado (não vira e-mail).', ['campanhaId' => $id, 'destinoId' => $destino['id']]);
 

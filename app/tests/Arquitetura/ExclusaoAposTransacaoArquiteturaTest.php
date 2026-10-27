@@ -33,6 +33,8 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
      * Quem pode escrever `->excluir(`:
      *
      *  - `RemocaoAposTransacao` — é o caminho da remoção física;
+     *  - `ArmazenamentoEspelhado` (P2.3) — o decorador do armazenamento: o `excluir()` dele é o que a
+     *    `RemocaoAposTransacao` chama, e ele repassa ao disco local (e registra o evento);
      *  - `ExcluirAvisoUseCase` (Central) — `NotificacaoService::excluir()` apaga UMA notificação da pessoa, não arquivo;
      *  - `LimparAvisosLidosUseCase` (Central, F3) — `NotificacaoService::excluir()` apaga notificações já lidas, não arquivos;
      *  - `NotificacaoController` — `NotificacaoService::excluir()` apaga notificações, não arquivos;
@@ -48,6 +50,7 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
         'src/Controller/NotificacaoController.php',
         'src/Inteligencia/UseCase/ExcluirAnaliseUseCase.php',
         'src/Shared/Armazenamento/RemocaoAposTransacao.php',
+        'src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php',
     ];
 
     #[TestDox('só a remoção pós-transação chama excluir() — o resto pede a ela')]
@@ -73,8 +76,9 @@ final class ExclusaoAposTransacaoArquiteturaTest extends TestCase
             static fn (string $a): bool => !str_starts_with($a, 'src/Shared/Armazenamento/'),
         ));
 
+        // O decorador da P2.3 implementa a interface e repassa ao disco — não é consumidor novo.
         self::assertSame(
-            ['src/Tenant/UseCase/PurgarEscritorioUseCase.php'],
+            ['src/Shared/EspelhoRemoto/ArmazenamentoEspelhado.php', 'src/Tenant/UseCase/PurgarEscritorioUseCase.php'],
             $foraDoNucleo($this->arquivosQueCasam('/->\s*excluirPrefixo\s*\(|\bArmazenamentoComPrefixo\b/')),
             'Apagar um escritório inteiro por prefixo só faz sentido na purga (D7, §3.3).',
         );

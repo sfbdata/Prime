@@ -6,6 +6,8 @@ namespace App\Auth\Repository;
 
 use App\Auth\Entity\ConfirmacaoEmail;
 use App\Entity\Auth\User;
+use App\Termo\Entity\AceiteTermo;
+use App\Termo\Entity\CienciaPolitica;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Connection;
 use Doctrine\Persistence\ManagerRegistry;
@@ -32,25 +34,39 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
     }
 
     /**
-     * Confirma pelo link numa transação só: zera a pendência da conta num UPDATE condicional e marca o link usado.
-     * Com dois cliques simultâneos (o pré-carregamento do cliente de e-mail faz isso), só um ganha, e só ele
-     * despacha o EmailDaContaConfirmado; e nunca fica conta confirmada com o link sem a marca de uso.
+     * Cria a senha e confirma pelo link numa transação só (spec `cadastro-senha-no-link.md`): grava o hash da senha e
+     * zera a pendência da conta num UPDATE condicional, marca o link usado e grava o aceite dos Termos e a ciência da
+     * Política dados na página (D2). O UPDATE é o lock da corrida: com dois POSTs simultâneos, o segundo espera o
+     * primeiro e não acha mais a pendência. Só quem ganhou grava a senha e o aceite e despacha o
+     * EmailDaContaConfirmado; e nunca fica conta confirmada com o link sem a marca de uso nem sem o aceite.
      *
-     * @return bool true se FOI ESTA chamada que confirmou
+     * @return bool true se FOI ESTA chamada que criou a senha e confirmou
      */
-    public function confirmarComLink(ConfirmacaoEmail $confirmacao, \DateTimeImmutable $agora): bool
-    {
-        return $this->getEntityManager()->getConnection()->transactional(
-            static function (Connection $conexao) use ($confirmacao, $agora): bool {
+    public function criarSenhaEConfirmarComLink(
+        ConfirmacaoEmail $confirmacao,
+        string $hashDaSenha,
+        \DateTimeImmutable $agora,
+        AceiteTermo $aceite,
+        CienciaPolitica $ciencia,
+        bool $manterFacebook = false,
+    ): bool {
+        $em = $this->getEntityManager();
+
+        return $em->getConnection()->transactional(
+            static function (Connection $conexao) use ($em, $confirmacao, $hashDaSenha, $agora, $aceite, $ciencia, $manterFacebook): bool {
                 $ganhou = $conexao->executeStatement(
-                    'UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
-                    ['id' => $confirmacao->getUser()->getId()],
+                    'UPDATE "user" SET password = :senha, email_a_confirmar_desde = NULL' . ($manterFacebook ? '' : ', facebook_id = NULL') . ' WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
+                    ['id' => $confirmacao->getUser()->getId(), 'senha' => $hashDaSenha],
                 ) === 1;
                 if ($ganhou) {
                     $conexao->executeStatement(
                         'UPDATE confirmacao_email SET usado_em = :agora WHERE id = :id AND usado_em IS NULL',
                         ['id' => $confirmacao->getId(), 'agora' => $agora->format('Y-m-d H:i:s')],
                     );
+                    // O flush roda dentro desta transação (savepoint): se falhar, a senha e a confirmação voltam junto.
+                    $em->persist($aceite);
+                    $em->persist($ciencia);
+                    $em->flush();
                 }
 
                 return $ganhou;
@@ -100,7 +116,7 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
     public function confirmarEmailDaConta(User $user): bool
     {
         return $this->getEntityManager()->getConnection()->executeStatement(
-            'UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
+            'UPDATE "user" SET email_a_confirmar_desde = NULL, facebook_id = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
             ['id' => $user->getId()],
         ) === 1;
     }

@@ -1,0 +1,285 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Dashboard: meta de pastas do mês (DASH-016). Valores tirados do desenho
+   "01 - Dashboard - VS 25.10.26.dc.html": barra e status no card (`nv.*`, L446-463),
+   editor (`metaEd`, L1553-1573 e L3247-3264) e menu do botão direito (`ctxC`, L1546-1550 e L3206-3216).
+   A parte do card mora no fragmento (escopo .db-page); o editor e o menu moram no <body>,
+   então as classes são próprias, sem escopo de .db-page.
+─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes db-meta-entra {
+    from { opacity: 0; transform: translate3d(0, 8px, 0); filter: blur(3px); }
+    to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* ── No card: barra, traço do ritmo, "X de Y no mês" e status ── */
+.db-page .db-meta { margin-top: 2px; }
+
+.db-page .db-meta-trilho {
+    position: relative;
+    height: 8px;
+    border-radius: 3px;
+    background: var(--db-barra-trilho);
+    box-shadow: inset 0 1px 1px rgba(16, 42, 58, .06);
+}
+
+.db-page .db-meta-fill {
+    --db-meta-rgb: 15, 111, 196;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--db-meta-pct, 0%);
+    border-radius: 3px;
+    background: linear-gradient(90deg, rgba(var(--db-meta-rgb), .75), rgb(var(--db-meta-rgb)));
+    box-shadow: 0 0 8px rgba(var(--db-meta-rgb), .3);
+    transition: width .8s cubic-bezier(.22, .8, .3, 1), background .3s;
+}
+
+.db-page .db-meta-fill--abaixo { --db-meta-rgb: 192, 57, 47; }
+
+.db-page .db-meta-quarto {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--db-barra-marca);
+    z-index: 2;
+}
+
+/* o traço marca onde a equipe deveria estar hoje */
+.db-page .db-meta-marco {
+    position: absolute;
+    z-index: 3;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 2px;
+    background: var(--db-label-card);
+    opacity: .55;
+}
+
+.db-page .db-meta-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: var(--db-text-2);
+    white-space: nowrap;
+}
+
+.db-page .db-meta-feitas {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+}
+
+.db-page .db-meta-feitas--botao { cursor: pointer; }
+.db-page .db-meta-feitas--botao:hover,
+.db-page .db-meta-feitas--botao:focus-visible { color: var(--db-azul); }
+
+.db-page .db-meta-feitas b {
+    font-family: Arial, Helvetica, sans-serif;
+    font-variant-numeric: tabular-nums;
+    color: var(--db-text-strong);
+}
+
+.db-page .db-meta-feitas i { font-size: 10.5px; opacity: .55; }
+
+.db-page .db-meta-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    color: var(--db-azul);
+}
+
+.db-page .db-meta-status--abaixo { color: #b4352b; }
+.db-page .db-meta-status i { font-size: 11px; }
+
+/* sem meta: "Definir meta do mês" (só para o primário) */
+.db-page .db-meta-definir {
+    margin-top: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px 0 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    max-width: 100%;
+    border: 0;
+    border-radius: 4px;
+    background: rgba(12, 122, 156, .07);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--db-azul);
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.db-page .db-meta-definir:hover,
+.db-page .db-meta-definir:focus-visible { background: rgba(12, 122, 156, .14); }
+.db-page .db-meta-definir i { font-size: 12px; }
+
+/* ── Editor (metaEd): 280px, no <body> ── */
+.db-meta-ed {
+    position: fixed;
+    z-index: 81;
+    width: 280px;
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #e3eaef;
+    border-radius: 4px;
+    box-shadow: 0 22px 48px -18px rgba(12, 48, 72, .34), 0 2px 8px rgba(12, 48, 72, .06);
+    font-family: Arial, Helvetica, sans-serif;
+    animation: db-meta-entra .22s cubic-bezier(.22, .8, .3, 1) both;
+}
+
+.db-meta-ed-cab { display: flex; align-items: center; gap: 10px; }
+
+.db-meta-ed-emblema {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(21, 151, 189, .14), rgba(15, 111, 196, .1));
+    color: #0a6fa0;
+}
+
+.db-meta-ed-emblema i { font-size: 14px; }
+.db-meta-ed-titulos { min-width: 0; }
+.db-meta-ed-titulo { font-size: 14.5px; font-weight: 700; color: #0e2533; }
+.db-meta-ed-mes { font-size: 12px; color: #6b8494; }
+.db-meta-ed-pergunta { margin-top: 12px; font-size: 12.5px; color: #4f6878; line-height: 1.45; }
+
+.db-meta-ed-entrada {
+    margin-top: 8px;
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #d3dde4;
+    border-radius: 4px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0e2533;
+    outline: none;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.db-meta-ed-entrada:focus { border-color: #0a6fa0; box-shadow: 0 0 0 3px rgba(12, 122, 156, .16); }
+.db-meta-ed-previa { margin-top: 7px; min-height: 17px; font-size: 12px; color: #6b8494; }
+
+.db-meta-ed-vigencia {
+    display: flex;
+    gap: 7px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: #f1f6f9;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: #4f6878;
+}
+
+.db-meta-ed-vigencia i { font-size: 12px; color: #0a6fa0; margin-top: 1px; }
+.db-meta-ed-rodape { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.db-meta-ed-folga { flex: 1; }
+
+.db-meta-ed-remover {
+    height: 32px;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #b4453c;
+    cursor: pointer;
+}
+
+.db-meta-ed-remover:hover { color: #8f2f27; }
+
+.db-meta-ed-cancelar {
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 4px;
+    background: #eef3f6;
+    font-size: 13px;
+    font-weight: 600;
+    color: #34505f;
+    cursor: pointer;
+}
+
+.db-meta-ed-cancelar:hover { background: #e3ebf0; }
+
+.db-meta-ed-salvar {
+    height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    transition: opacity .2s;
+    background: linear-gradient(135deg, #1597bd, #0a6fa0);
+    cursor: pointer;
+}
+
+.db-meta-ed-salvar:disabled { cursor: not-allowed; opacity: .45; }
+
+/* ── Menu do botão direito no card (ctxC): 216px, no <body> ── */
+.db-meta-menu {
+    position: fixed;
+    z-index: 80;
+    width: 216px;
+    padding: 5px;
+    background: #fff;
+    border: 1px solid #e3eaef;
+    border-radius: 4px;
+    box-shadow: 0 16px 36px -14px rgba(12, 48, 72, .3), 0 2px 6px rgba(12, 48, 72, .06);
+    font-family: Arial, Helvetica, sans-serif;
+    animation: db-meta-entra .18s cubic-bezier(.22, .8, .3, 1) both;
+}
+
+.db-meta-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 11px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1d3a4a;
+    cursor: pointer;
+    text-align: left;
+}
+
+.db-meta-menu-item:hover,
+.db-meta-menu-item:focus-visible { outline: none; background: #eef5f9; color: #0a6fa0; }
+.db-meta-menu-item i { font-size: 14px; color: #0a6fa0; }
+
+/* no papel: sem botões (dc data-print="hide"); fica a barra e o status */
+@media print {
+    .db-page .db-meta-feitas--botao,
+    .db-page .db-meta-definir,
+    .db-meta-ed,
+    .db-meta-menu { display: none !important; }
+}

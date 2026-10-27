@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Central\Repository;
 
 use App\Central\Entity\Conversa;
+use App\Central\Entity\TipoDeConversa;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -19,7 +20,7 @@ class ConversaRepository extends ServiceEntityRepository
         parent::__construct($registry, Conversa::class);
     }
 
-    /** A conversa individual do par, em qualquer ordem — o par é guardado ordenado. */
+    /** A conversa individual do par, em qualquer ordem — o par é guardado ordenado. Nunca devolve a do tipo IA. */
     public function individualEntre(Tenant $tenant, User $a, User $b): ?Conversa
     {
         [$menor, $maior] = (int) $a->getId() < (int) $b->getId() ? [$a, $b] : [$b, $a];
@@ -28,9 +29,26 @@ class ConversaRepository extends ServiceEntityRepository
             ->andWhere('c.tenant = :tenant')
             ->andWhere('c.usuarioMenor = :menor')
             ->andWhere('c.usuarioMaior = :maior')
+            ->andWhere('c.tipo = :individual')
+            ->setParameter('individual', TipoDeConversa::Individual)
             ->setParameter('tenant', $tenant)
             ->setParameter('menor', $menor)
             ->setParameter('maior', $maior)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** A conversa do usuário com o BlueJus IA neste escritório (no máximo uma: menor = maior = ele, único). */
+    public function daIaDe(Tenant $tenant, User $usuario): ?Conversa
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.tipo = :ia')
+            ->andWhere('c.usuarioMenor = :usuario')
+            ->andWhere('c.usuarioMaior = :usuario')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ia', TipoDeConversa::Ia)
+            ->setParameter('usuario', $usuario)
             ->getQuery()
             ->getOneOrNullResult();
     }

@@ -14,6 +14,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: NotificacaoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+// O "um não lido por pasta" do Acompanhar alterações (`NotificacaoRepository::idsDosUsuariosComNaoLidaNoLink`).
+#[ORM\Index(name: 'idx_notificacao_tenant_tipo_lida', columns: ['tenant_id', 'tipo', 'lida'])]
 class Notificacao implements Auditavel, TenantAware
 {
     public const TIPO_TAREFA_CRIADA = 'tarefa_criada';
@@ -35,6 +37,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_PASTA_RESPOSTA_REGISTRO = 'pasta_resposta_registro';
     /** Alguém @mencionou o destinatário num registro (ou resposta) do Registro da pasta. */
     public const TIPO_PASTA_MENCAO_REGISTRO = 'pasta_mencao_registro';
+    /** Alteração numa pasta que o destinatário acompanha ("Acompanhar alterações" do menu ⋮; hoje, mensagem nova no Registro). */
+    public const TIPO_PASTA_ACOMPANHADA = 'pasta_acompanhada';
     /** Alguém @mencionou o destinatário numa nota técnica de processo (escrita numa pasta). */
     public const TIPO_NOTA_TECNICA_MENCAO = 'nota_tecnica_mencao';
     // Pedido de acesso a pasta com cadeado (spec pasta-cadeado K5): vai para cada primário ativo e o Master.
@@ -62,6 +66,9 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS = 'trabalho_externo_candidatura_status';
     public const TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA = 'trabalho_externo_vaga_na_area';
     public const TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES = 'trabalho_externo_demanda_informacoes';
+    public const TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO = 'trabalho_externo_demanda_andamento';
+    public const TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA = 'trabalho_externo_despacho_resposta';
+    public const TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA = 'trabalho_externo_oferta_recusada';
     /** Os ícones desses tipos no sino (fora do `match` de getIcone, que já está no limite de tamanho). */
     public const ICONES_DO_TRABALHO_EXTERNO = [
         self::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => 'bi-inbox text-warning',
@@ -73,6 +80,9 @@ class Notificacao implements Auditavel, TenantAware
         self::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS => 'bi-arrow-repeat text-info',
         self::TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA => 'bi-megaphone text-primary',
         self::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => 'bi-question-circle text-warning',
+        self::TIPO_TRABALHO_EXTERNO_DEMANDA_ANDAMENTO => 'bi-briefcase text-primary',
+        self::TIPO_TRABALHO_EXTERNO_DESPACHO_RESPOSTA => 'bi-reply text-success',
+        self::TIPO_TRABALHO_EXTERNO_OFERTA_RECUSADA => 'bi-x-circle text-danger',
     ];
 
     /** Categorias de notificação (derivadas do tipo). */
@@ -265,6 +275,7 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_CENTRAL_DESPACHO => 'bi-person-check text-warning',
             // Desenho (bluejus-central.js, tipo "mencao"): `bi-at` em azul.
             self::TIPO_PASTA_MENCAO_REGISTRO => 'bi-at text-primary',
+            self::TIPO_PASTA_ACOMPANHADA => 'bi-bell text-primary',
             // Menção numa nota técnica: o mesmo tipo "mencao" do desenho — `bi-at` em azul.
             self::TIPO_NOTA_TECNICA_MENCAO => 'bi-at text-primary',
             self::TIPO_CENTRAL_MENCAO => 'bi-at text-primary',

@@ -21,6 +21,7 @@ use App\TrabalhoExterno\Enum\SituacaoConvite;
 use App\TrabalhoExterno\Enum\SituacaoProposta;
 use App\TrabalhoExterno\Enum\TipoMensagem;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Converte a demanda no que a tela desenha, já com o recorte do perfil: notas internas fora para
@@ -47,6 +48,9 @@ final class ApresentadorDeDemanda
         private readonly PoliticaDaDemanda $politica,
         private readonly UrlGeneratorInterface $urls,
         private readonly CalculadoraDeImportancia $importancia,
+        private readonly TranslatorInterface $tradutor,
+        private readonly ApresentadorDeDespachos $despachos,
+        private readonly ApresentadorDoPagamento $pagamento,
     ) {
     }
 
@@ -125,6 +129,7 @@ final class ApresentadorDeDemanda
             'tipo' => $d->getTipoServico(),
             'destino' => $this->local($d->getCidadeExecucao(), $d->getUfExecucao()) . ($d->getOrgao() !== null ? ' · ' . $d->getOrgao() : ''),
             'botoes' => $this->politica->botoes($ctx, $d),
+            'pausada' => $ctx->donoForaDoAr ? 'Esta demanda está pausada. Fale com a Central.' : null,
             'abas' => $this->abas($ctx),
             'campos' => $this->campos($ctx, $d),
             // "Ver instruções" do convite: sem ele, o Convidado não lê descrição, objetivo nem instruções.
@@ -134,10 +139,11 @@ final class ApresentadorDeDemanda
                 ['INSTRUÇÕES ESPECÍFICAS', (string) $d->getInstrucoes()],
             ]),
             'documentos' => $this->politica->podeVerDocumentos($ctx, $d)
-                ? array_map(fn (DocumentoDemanda $doc): array => $this->documento($ctx, $doc), $d->getDocumentos())
+                ? array_map(fn (DocumentoDemanda $doc): array => $this->documento($ctx, $doc), $this->documentosDaDemanda($d))
                 : [],
             // Sem "ver": nem lista nem "Nenhum documento anexado." (seria falso e diria se há algum).
-            'semDocumentos' => $this->politica->podeVerDocumentos($ctx, $d) && $d->getDocumentos() === [],
+            'semDocumentos' => $this->politica->podeVerDocumentos($ctx, $d) && $this->documentosDaDemanda($d) === [],
+            'despacho' => $this->despachos->bloco($ctx, $d),
             'podeAnexar' => $this->politica->podeAnexar($ctx, $d),
             // O Convidado não tem a aba Proposta: valores e condições NÃO saem para ele, nem no JSON.
             'propostas' => $ctx->perfil === Perfil::Convidado ? [] : $this->propostas($ctx, $d),
@@ -162,15 +168,23 @@ final class ApresentadorDeDemanda
             'encerradaTexto' => $fim ? $s->rotulo() . ' · ' . $this->dataHora($ultimoDaSituacao) : '',
             'whatsapp' => $this->politica->podeUsarWhatsapp($ctx, $d) ? $this->whatsapp($d) : null,
             'rascunho' => $ctx->perfil === Perfil::Solicitante && $s === Situacao::Rascunho ? $this->formulario($d) : null,
-        ];
+        ] + $this->campoDoPagamento($ctx, $d);
     }
 
     /** @return list<string> */
     private function abas(Contexto $ctx): array
     {
-        $abas = ['resumo', 'proposta', 'exec', 'chat', 'hist', 'whats'];
+        $abas = ['resumo', 'proposta', 'exec', 'chat', 'pag', 'hist', 'whats'];
 
-        return $ctx->perfil === Perfil::Convidado ? array_values(array_diff($abas, ['proposta', 'whats'])) : $abas;
+        return $ctx->perfil === Perfil::Convidado ? array_values(array_diff($abas, ['proposta', 'pag', 'whats'])) : $abas;
+    }
+
+    /** O Convidado não recebe nem a chave `pagamento` (valor, QR e comprovante são de quem paga e de quem recebe). @return array<string, mixed> */
+    private function campoDoPagamento(Contexto $ctx, DemandaExterna $d): array
+    {
+        $bloco = $this->pagamento->bloco($ctx, $d);
+
+        return $bloco === null ? [] : ['pagamento' => $bloco];
     }
 
     /** @return list<array{r: string, v: string}> */
@@ -194,6 +208,12 @@ final class ApresentadorDeDemanda
             ['PRIORIDADE', $prioridade],
             ['RESPONSÁVEL PELA EXECUÇÃO', $this->responsavelNoResumo($ctx, $d)],
         ]);
+    }
+
+    /** DOCUMENTOS sem os anexos dos despachos (eles aparecem no próprio despacho) nem o comprovante (aba Pagamento). @return list<DocumentoDemanda> */
+    private function documentosDaDemanda(DemandaExterna $d): array
+    {
+        return array_values(array_filter($d->getDocumentos(), static fn (DocumentoDemanda $doc): bool => $doc->getDespacho() === null && !$doc->isComprovante()));
     }
 
     /** @return array<string, mixed> */
@@ -292,6 +312,24 @@ final class ApresentadorDeDemanda
         ));
     }
 
+    /** A dica do apagar: sem o "até 60 min" quando quem libera é o Master ou o poder sem prazo do primário. */
+    private function dicaDoApagar(Contexto $ctx, MensagemDemanda $m, bool $meu, \DateTimeImmutable $agora): string
+    {
+        if ($ctx->perfil === Perfil::Master && !$meu) {
+            return 'Apagar para todos (Master)';
+        }
+
+        return $this->politica->seloDoApagar($ctx, $m, $agora) !== null ? 'Apagar para todos' : 'Apagar para todos · até 60 min após o envio';
+    }
+
+    /** O texto do selo "EXCLUSIVO DO PRIMÁRIO" do apagar, ou vazio quando a regra de sempre já libera (ou nada libera). */
+    private function rotuloDoSelo(Contexto $ctx, MensagemDemanda $m, \DateTimeImmutable $agora): string
+    {
+        $selo = $this->politica->seloDoApagar($ctx, $m, $agora);
+
+        return $selo === null ? '' : $this->tradutor->trans($selo->chaveDoSelo());
+    }
+
     /** @return array<string, mixed> */
     private function mensagem(Contexto $ctx, MensagemDemanda $m, ?MarcacaoDeMensagem $marca, \DateTimeImmutable $agora): array
     {
@@ -306,7 +344,7 @@ final class ApresentadorDeDemanda
             'tipo' => $tipo->sufixo(),
             'estilo' => match (true) {
                 $tipo === TipoMensagem::Interna => 'interna',
-                $tipo === TipoMensagem::Sistema => 'sistema',
+                $tipo->ehRegistroDoSistema() => 'sistema',
                 $meu => 'meu',
                 default => 'outro',
             },
@@ -322,9 +360,11 @@ final class ApresentadorDeDemanda
                 ? 'Mensagem apagada por ' . $this->politica->nomeVisivel($ctx, (string) $m->getApagadaPor(), $m->getApagadaPorPerfil() ?? Perfil::Master) . ' em ' . $this->dataHora($m->getApagadaEm())
                 : '',
             'podeApagar' => $this->politica->podeApagarMensagem($ctx, $m, $agora),
+            // Edição sem prazo (item 8): o rótulo do selo quando só o poder do primário do escritório dono libera.
+            'seloSemPrazo' => $this->rotuloDoSelo($ctx, $m, $agora),
             // Dica e item travado do menu da mensagem (desenho l.1239).
-            'apagarDica' => $ctx->perfil === Perfil::Master && !$meu ? 'Apagar para todos (Master)' : 'Apagar para todos · até 60 min após o envio',
-            'apagarBloqueado' => $m->foiApagada() || $tipo === TipoMensagem::Sistema || $this->politica->podeApagarMensagem($ctx, $m, $agora)
+            'apagarDica' => $this->dicaDoApagar($ctx, $m, $meu, $agora),
+            'apagarBloqueado' => $m->foiApagada() || $tipo->ehRegistroDoSistema() || $this->politica->podeApagarMensagem($ctx, $m, $agora)
                 ? ''
                 : ($meu ? 'Apagar (prazo de 60 min encerrado)' : 'Só o autor ou o Master apagam'),
             'favorita' => $marca?->isFavorita() ?? false,
@@ -342,7 +382,9 @@ final class ApresentadorDeDemanda
     {
         $visiveis = array_filter(
             array_reverse($d->getHistorico()),
-            fn (HistoricoDemanda $h): bool => !$this->politica->marcoReservado($ctx, $h->getPara(), $h->getEm()),
+            // O ajuste do valor do pagamento é dinheiro: o Convidado não vê o marco (nem o valor).
+            fn (HistoricoDemanda $h): bool => !$this->politica->marcoReservado($ctx, $h->getPara(), $h->getEm())
+                && !($ctx->perfil === Perfil::Convidado && $h->getPara() === Situacao::MARCO_VALOR),
         );
 
         return array_values(array_map(function (HistoricoDemanda $h) use ($ctx): array {
@@ -356,7 +398,8 @@ final class ApresentadorDeDemanda
                 'de' => $h->getDe() !== null ? 'de ' . $this->marco($h->getDe())[0] : '',
                 'quem' => $this->politica->nomeVisivel($ctx, $h->getNomeAutor(), $h->getPerfilAutor()),
                 'em' => $this->dataHora($h->getEm()),
-                'motivo' => (string) $h->getMotivo(),
+                // O motivo do marco "pago" traz o valor do PIX ("PIX R$ x"): o Convidado não o lê.
+                'motivo' => $ctx->perfil === Perfil::Convidado && $h->getPara() === Situacao::MARCO_PAGO ? '' : (string) $h->getMotivo(),
                 'cor' => $cor,
                 'ic' => $icone,
             ];
@@ -418,6 +461,9 @@ final class ApresentadorDeDemanda
     {
         if ($valor === Situacao::MARCO_PAGO) {
             return ['Pagamento registrado', '#1e7b45', 'bi-cash-coin'];
+        }
+        if ($valor === Situacao::MARCO_VALOR) {
+            return ['Valor do pagamento alterado', '#9a5b00', 'bi-pencil-square'];
         }
         $s = Situacao::tryFrom($valor);
 
@@ -490,7 +536,7 @@ final class ApresentadorDeDemanda
             'prioridade' => $d->getPrioridade(), 'prazoFinal' => $d->getPrazoFinal()?->format('Y-m-d') ?? '',
             'dataPretendida' => $d->getDataPretendida()?->format('Y-m-d\TH:i') ?? '', 'descricao' => $d->getDescricao(),
             'objetivo' => (string) $d->getObjetivo(), 'instrucoes' => (string) $d->getInstrucoes(), 'urgente' => $d->isUrgente(),
-            'documentos' => array_map(static fn (DocumentoDemanda $doc): string => $doc->getNomeOriginal(), $d->getDocumentos()),
+            'documentos' => array_map(static fn (DocumentoDemanda $doc): string => $doc->getNomeOriginal(), $this->documentosDaDemanda($d)),
         ];
     }
 

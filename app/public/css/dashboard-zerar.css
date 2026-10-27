@@ -1,0 +1,255 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Dashboard: "Zerar" das colunas (DASH-014). Valores tirados do desenho
+   "01 - Dashboard 1.2.2.dc.html": menu `comMenu`, confirmação `dzConf`, aviso
+   `dzNegado`, `toastStyle` e o botão "Zerar" dos Comentários do cartão.
+   Menu, diálogos e toast moram no <body> (fora do fragmento que o XHR troca),
+   então as classes são próprias, sem escopo de .db-page.
+─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes db-zerar-entra {
+    from { opacity: 0; transform: translate3d(0, 8px, 0); filter: blur(3px); }
+    to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+@keyframes db-zerar-toast-entra {
+    from { opacity: 0; transform: translate3d(-50%, 14px, 0) scale(.98); }
+    to { opacity: 1; transform: translate3d(-50%, 0, 0); }
+}
+
+/* ── Menu do botão direito (comMenu) ── */
+.db-zerar-menu {
+    position: fixed;
+    z-index: 2147482500;
+    width: 258px;
+    padding: 5px;
+    background: #fff;
+    border: 1px solid #e3eaef;
+    border-radius: 4px;
+    box-shadow: 0 16px 36px -14px rgba(12, 48, 72, .3), 0 2px 6px rgba(12, 48, 72, .06);
+    font-family: Arial, Helvetica, sans-serif;
+    animation: db-zerar-entra .18s cubic-bezier(.22, .8, .3, 1) both;
+}
+
+.db-zerar-menu-cab {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: -5px -5px 5px;
+    padding: 10px 12px;
+    border-radius: 4px 4px 0 0;
+    background: #0a6fa0;
+    color: #fff;
+}
+
+.db-zerar-menu-cab-ico { font-size: 14px; }
+.db-zerar-menu-cab-txt { display: flex; flex-direction: column; min-width: 0; }
+
+.db-zerar-menu-titulo {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.db-zerar-menu-sub { font-size: 11px; opacity: .85; }
+
+.db-zerar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+    color: #1d3441;
+}
+
+.db-zerar-item:hover,
+.db-zerar-item:focus-visible { outline: none; background: #eef5fa; }
+.db-zerar-item--perigo { color: #a3232b; }
+.db-zerar-item--perigo:hover,
+.db-zerar-item--perigo:focus-visible { background: #fdeceb; }
+.db-zerar-item-ico { font-size: 14px; width: 16px; text-align: center; }
+.db-zerar-item-txt { display: flex; flex-direction: column; }
+.db-zerar-item-rotulo { font-size: 13px; font-weight: 600; }
+.db-zerar-item-sub { font-size: 11.5px; color: #7b93a2; }
+
+.db-zerar-menu-nota {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #6b8494;
+}
+
+/* ── Diálogos: confirmar (dzConf) e sem permissão (dzNegado) ── */
+.db-zerar-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 2147482600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(14, 37, 51, .32);
+}
+
+.db-zerar-fundo--negado { background: rgba(14, 37, 51, .28); }
+
+.db-zerar-dialogo {
+    width: min(420px, 100%);
+    overflow: hidden;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 26px 60px -20px rgba(12, 48, 72, .42);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.db-zerar-dialogo-cab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 16px;
+    background: #a3232b;
+    color: #fff;
+}
+
+.db-zerar-fundo--negado .db-zerar-dialogo-cab { background: #0b6a96; }
+.db-zerar-dialogo-cab .bi { font-size: 17px; }
+.db-zerar-dialogo-titulo { font-size: 15px; font-weight: 700; }
+
+.db-zerar-dialogo-corpo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #243845;
+}
+
+.db-zerar-dialogo-nota { color: #5f7684; }
+
+.db-zerar-dialogo-enviado {
+    display: flex;
+    gap: 8px;
+    padding: 9px 11px;
+    border-radius: 4px;
+    background: #eef6fb;
+    color: #0b5f86;
+}
+
+.db-zerar-dialogo-enviado .bi { flex-shrink: 0; margin-top: 2px; }
+
+.db-zerar-dialogo-rodape {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #eef2f5;
+    background: #fafcfd;
+}
+
+.db-zerar-btn {
+    height: 36px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.db-zerar-btn--neutro { background: #eef2f5; color: #34505f; }
+.db-zerar-btn--perigo { background: #a3232b; color: #fff; }
+.db-zerar-btn--azul { padding: 0 18px; background: #0a7aad; color: #fff; }
+
+/* ── Toast (toastStyle) ── */
+.db-zerar-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 2147482700;
+    transform: translateX(-50%);
+    width: min(520px, calc(100vw - 28px));
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 12px 11px 11px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #123544, #0e2a37);
+    box-shadow: 0 18px 40px -16px rgba(8, 30, 42, .6), 0 0 0 1px rgba(255, 255, 255, .06) inset;
+    animation: db-zerar-toast-entra .32s cubic-bezier(.22, .8, .3, 1);
+}
+
+.db-zerar-toast-ico {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .12);
+    color: #9ed8ea;
+    font-size: 14px;
+}
+
+.db-zerar-toast-titulo {
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.db-zerar-toast-fechar {
+    display: flex;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: #a9c3cf;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.db-zerar-toast-fechar:hover { color: #fff; }
+
+/* ── "Zerar" dos Comentários no cartão do colaborador (ctx.comZerar) ── */
+.db-colab-zerar {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    margin-left: 8px;
+    padding: 0 9px;
+    border: none;
+    border-radius: 4px;
+    background: #eef3f6;
+    color: #4f6878;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.db-colab-zerar:hover { background: #fdeceb; color: #a3232b; }
+
+/* ── "Zerar relatório de todos" do menu ⋮ (comZerarTodosOn) ── */
+.db-page .db-pref-zerar { color: #4f6878; }
+.db-page .db-pref-zerar:hover,
+.db-page .db-pref-zerar:focus-visible { background: #fdeceb; color: #a3232b; }
+.db-page .db-pref-zerar-ico { width: 16px; font-size: 13px; text-align: center; }
+.db-page .db-pref-zerar-rotulo { font-size: 13px; font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+    .db-zerar-menu,
+    .db-zerar-toast { animation: none; }
+}

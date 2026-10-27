@@ -222,10 +222,25 @@ final class LoginTelaTest extends JusPrimeWebTestCase
         self::assertSame('000000', $crawler->filter('#lgRsCod')->attr('placeholder'));
         self::assertSame('one-time-code', $crawler->filter('#lgRsCod')->attr('autocomplete'));
         self::assertSame('Mínimo de 8 caracteres', $crawler->filter('#lgRsNova')->attr('placeholder'));
-        self::assertSame('Ex.: Silva Advogados Associados', $crawler->filter('#lgCdEsc')->attr('placeholder'));
+        self::assertSame('Ex.: BlueJus Advogados Associados', $crawler->filter('#lgCdEsc')->attr('placeholder'));
         self::assertSame('Seu nome', $crawler->filter('#lgSupNome')->attr('placeholder'));
         self::assertSame('E-mail para resposta', $crawler->filter('#lgSupEmail')->attr('placeholder'));
         self::assertSame('Como podemos ajudar?', $crawler->filter('#lgSupMsg')->attr('placeholder'));
+    }
+
+    #[TestDox('O passo "Criar conta" não pede senha nem mostra a régua (D1 da spec cadastro-senha-no-link)')]
+    public function testCadastroSemCampoDeSenha(): void
+    {
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/login');
+
+        $cad = $crawler->filter('#lgMdForm > .lg-md__passo[data-passo="cad"]');
+        self::assertCount(1, $cad);
+        self::assertCount(1, $cad->filter('#lgCdEmail'));
+        self::assertCount(1, $cad->filter('#lgCdAceite'));
+        self::assertCount(0, $cad->filter('input[type="password"]'));
+        self::assertCount(0, $cad->filter('.lg-forca'));
+        self::assertCount(0, $crawler->filter('#lgCdSenha'));
     }
 
     #[TestDox('Arranjo do desenho: tarja, cartão, painel e rodapé nos lugares certos')]
@@ -245,7 +260,8 @@ final class LoginTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('form#lgForm .lg-senha > input[name="password"] + button#lgOlho[type="button"][title="Mostrar senha"]'));
         self::assertCount(4, $crawler->filter('#lgSeg .lg-seg__corpo > .lg-seg__item'));
         self::assertCount(6, $crawler->filter('#lgSeg .lg-seg__corpo > .lg-lgpd > .lg-lgpd__grade > span'));
-        self::assertCount(4, $crawler->filter('#lgMd #lgMdForm > .lg-md__passo[data-passo]'));
+        // rs1, rs2, rs3, cad e o "Confirme seu e-mail" depois do cadastro (spec cadastro-exige-confirmacao).
+        self::assertCount(5, $crawler->filter('#lgMd #lgMdForm > .lg-md__passo[data-passo]'));
         self::assertCount(1, $crawler->filter('#lgRaiz > footer.lg-rodape > #lgSupBtn'));
         self::assertCount(4, $crawler->filter('#lgRaiz > footer.lg-rodape > #lgSup > #lgSupForm > .lg-sup__chips > button[data-assunto]'));
         self::assertCount(1, $crawler->filter('#lgSupForm > .lg-pote > input[name="site"]'));
@@ -424,7 +440,9 @@ final class LoginTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $crawler->filter('script[src*="/js/auth/entrada.js"]'));
         self::assertCount(1, $crawler->filter('link[href*="/css/auth/entrada.css"]'));
-        self::assertCount(0, $crawler->filter('script:not([src])'));
+        // O catálogo do idioma é dado (application/json), o navegador não executa (spec idioma-do-sistema §21.1).
+        self::assertCount(0, $crawler->filter('script:not([src]):not([type="application/json"])'));
+        self::assertCount(1, $crawler->filter('script[type="application/json"][data-bj-t]'));
     }
 
     #[TestDox('A mensagem que chega de outra tela (flash) continua visível no login')]

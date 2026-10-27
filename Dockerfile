@@ -1,4 +1,6 @@
-FROM php:8.2-fpm AS base
+# Versão do PHP fixada (aviso de segurança do PHP de 23/10/2026): o deploy não faz --pull, então a
+# tag flutuante php:8.2-fpm pode reusar do cache uma 8.2 antiga e vulnerável. Subir à mão.
+FROM php:8.2.35-fpm AS base
 
 # bcmath: aritmética decimal exata, sem float. É o que a calculadora de atualização monetária
 # (App\AtualizacaoMonetaria) usa para o cálculo intermediário com escala 10 — dinheiro em float
@@ -42,6 +44,10 @@ RUN { \
     echo "upload_max_filesize = 65M"; \
     echo "post_max_size = 70M"; \
 } > /usr/local/etc/php/conf.d/limits.ini
+
+# Progresso de upload na sessão DESLIGADO: medida do aviso de segurança do PHP de 23/10/2026 para a
+# CVE-2026-115560, ainda sem correção. O app não lê o progresso de upload da sessão.
+RUN echo "session.upload_progress.enabled = Off" > /usr/local/etc/php/conf.d/seguranca.ini
 
 # register_argc_argv DESLIGADO no PHP-FPM. A imagem oficial não traz php.ini e o padrão do PHP é
 # On: aí uma requisição como `/?=+--env=xyz` chega com $_GET vazio e argv = ['=', '--env=xyz'],
@@ -106,8 +112,9 @@ RUN --mount=type=secret,id=composer_auth \
 
 COPY app/ ./
 
-# ENV fake só para build
-RUN printf "APP_ENV=prod\nAPP_SECRET=build_placeholder\nDATABASE_URL=pgsql://u:p@db:5432/db\nMAILER_DSN=null://null\nDATAJUD_API_KEY=x\nDATAJUD_BASE_URL=x\nDEFAULT_URI=http://localhost\n" > .env
+# ENV fake só para build. Toda %env(NOME)% sem default:: da config entra aqui ou no .env.prod.example
+# (EnvDoBuildArquiteturaTest): o cache:warmup instancia serviços (extensões do Twig) e morre sem ela.
+RUN printf "APP_ENV=prod\nAPP_SECRET=build_placeholder\nDATABASE_URL=pgsql://u:p@db:5432/db\nMAILER_DSN=null://null\nDATAJUD_API_KEY=x\nDATAJUD_BASE_URL=x\nDEFAULT_URI=http://localhost\nMAILER_FROM=nao-responda@bluejus.com.br\nDJEN_BASE_URL=x\n" > .env
 
 RUN composer dump-autoload --classmap-authoritative --no-dev --no-interaction \
     && APP_ENV=prod APP_DEBUG=0 php -d memory_limit=512M bin/console cache:warmup

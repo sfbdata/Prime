@@ -288,6 +288,67 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Tokens gastos pelo escritório desde um instante, somados por modelo (o orçamento mensal em US$, PR C de
+     * ia-anthropic-ligar). Entram TODAS as análises com tokens, inclusive as excluídas e as que falharam: a Anthropic
+     * cobrou. Tenant explícito (o worker e o console rodam sem TenantFilter); o índice `(tenant_id, criada_em)` cobre.
+     *
+     * @return list<array{modelo: ?string, tokensEntrada: int, tokensSaida: int}>
+     */
+    public function somarTokensPorModeloDesde(Tenant $tenant, \DateTimeImmutable $desde): array
+    {
+        $linhas = $this->createQueryBuilder('a')
+            ->select('a.modelo AS modelo', 'COALESCE(SUM(a.tokensEntrada), 0) AS tokensEntrada', 'COALESCE(SUM(a.tokensSaida), 0) AS tokensSaida')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.criadaEm >= :desde')
+            ->andWhere('(a.tokensEntrada IS NOT NULL OR a.tokensSaida IS NOT NULL)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('desde', $desde)
+            ->groupBy('a.modelo')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'modelo' => $l['modelo'] === null ? null : (string) $l['modelo'],
+            'tokensEntrada' => (int) $l['tokensEntrada'],
+            'tokensSaida' => (int) $l['tokensSaida'],
+        ], $linhas);
+    }
+
+    /**
+     * O consumo de TODOS os escritórios desde um instante, numa consulta só (a tabela da aba do Master, sem N+1):
+     * por escritório e modelo, as análises que contam na cota (a mesma regra do {@see contarDesde}) e os tokens de
+     * todas, inclusive excluídas e falhas. Varre todos os tenants de propósito: quem chama é o Master.
+     *
+     * @return list<array{tenantId: int, modelo: ?string, analises: int, tokensEntrada: int, tokensSaida: int}>
+     */
+    public function consumoDosEscritoriosDesde(\DateTimeImmutable $desde): array
+    {
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT tenant_id, modelo,
+                    COUNT(*) FILTER (WHERE status NOT IN (:indisponivel, :falhou) OR erro_motivo IS NULL OR erro_motivo NOT LIKE :cancelada) AS analises,
+                    COALESCE(SUM(tokens_entrada), 0) AS tokens_entrada,
+                    COALESCE(SUM(tokens_saida), 0) AS tokens_saida
+               FROM inteligencia_analise
+              WHERE criada_em >= :desde
+           GROUP BY tenant_id, modelo',
+            [
+                'indisponivel' => StatusDaAnalise::Indisponivel->value,
+                'falhou' => StatusDaAnalise::Falhou->value,
+                'cancelada' => self::MOTIVO_CANCELADA_ANTES_DO_PROVEDOR . '%',
+                'desde' => $desde->format('Y-m-d H:i:s'),
+            ],
+        );
+
+        return array_map(static fn (array $l): array => [
+            'tenantId' => (int) $l['tenant_id'],
+            'modelo' => $l['modelo'] === null ? null : (string) $l['modelo'],
+            'analises' => (int) $l['analises'],
+            'tokensEntrada' => (int) $l['tokens_entrada'],
+            'tokensSaida' => (int) $l['tokens_saida'],
+        ], $linhas);
+    }
+
+    /**
      * Contagem por escritório e status, para o comando de status (CLI, sem TenantFilter — lista
      * todos os tenants de propósito).
      *
@@ -313,6 +374,46 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
                 'total' => (int) $linha['total'],
             ];
         }, $linhas);
+    }
+
+    /**
+     * Retenção (decisão de 24/10/2026, `docs/specs/ia-anthropic-ligar.md` §10, Q5): análise terminada antes de
+     * `$limite` perde o conteúdo (resposta, pontos, edição e o texto das perguntas da conversa) e sai das telas
+     * (`excluida_em`). A linha fica com status, modelo, tokens e datas: é o que o custo e a auditoria usam.
+     * Varre todos os escritórios de propósito: o filtro é a data, nada de um escritório vai para outro.
+     *
+     * @return array{analises: int, perguntas: int}
+     */
+    public function expirarConteudoAntesDe(\DateTimeImmutable $limite, \DateTimeImmutable $agora): array
+    {
+        $em = $this->getEntityManager();
+        $terminadas = array_map(
+            static fn (StatusDaAnalise $s): string => $s->value,
+            [StatusDaAnalise::Concluida, StatusDaAnalise::Falhou, StatusDaAnalise::Indisponivel],
+        );
+
+        return $em->wrapInTransaction(static function () use ($em, $limite, $agora, $terminadas): array {
+            $perguntas = $em->createQuery(
+                "UPDATE App\\Inteligencia\\Entity\\PerguntaDaConversa p SET p.texto = ''
+                 WHERE p.texto <> '' AND p.analise IN (
+                     SELECT a.id FROM App\\Inteligencia\\Entity\\AnaliseDeInteligencia a
+                     WHERE a.criadaEm < :limite AND a.status IN (:terminadas)
+                 )",
+            )->setParameter('limite', $limite)->setParameter('terminadas', $terminadas)->execute();
+
+            $analises = $em->createQuery(
+                'UPDATE App\\Inteligencia\\Entity\\AnaliseDeInteligencia a
+                 SET a.resumo = NULL, a.pontos = NULL, a.quemAge = NULL, a.textoDaAnalise = NULL, a.textoBruto = NULL,
+                     a.resumoEditado = NULL, a.pontosEditados = NULL,
+                     a.excluidaEm = COALESCE(a.excluidaEm, :agora)
+                 WHERE a.criadaEm < :limite AND a.status IN (:terminadas)
+                   AND (a.resumo IS NOT NULL OR a.pontos IS NOT NULL OR a.quemAge IS NOT NULL OR a.textoDaAnalise IS NOT NULL
+                        OR a.textoBruto IS NOT NULL OR a.resumoEditado IS NOT NULL OR a.pontosEditados IS NOT NULL
+                        OR a.excluidaEm IS NULL)',
+            )->setParameter('limite', $limite)->setParameter('agora', $agora)->setParameter('terminadas', $terminadas)->execute();
+
+            return ['analises' => (int) $analises, 'perguntas' => (int) $perguntas];
+        });
     }
 
     /**

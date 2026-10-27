@@ -48,6 +48,56 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $crawler->filter('#ia-estado')->count());
     }
 
+    #[TestDox('bloco "Consumo do mês": análises e limite, gasto em US$ só deste escritório, orçamento, modo e a nota; entre o estado e a configuração')]
+    public function testBlocoDeConsumoDoMes(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $configuracao = $this->ligarIaNoTenant($tenant, $admin, limiteMensal: 300);
+        $configuracao->definirCobranca(\App\Inteligencia\Enum\ModoDeCobrancaDaIa::Adicional, 1250);
+        // 100 + 30 tokens do modelo falso (fora do enum: preço do Opus) = 1 centavo, arredondado para cima.
+        $this->concluirAnalise($this->criarAnalisePendente($tenant, $admin, $this->criarPasta($tenant)));
+        [$outroAdmin, $outro] = $this->criarAdmin();
+        $analiseDeOutro = $this->criarAnalisePendente($outro, $outroAdmin, $this->criarPasta($outro));
+        $this->concluirAnalise($analiseDeOutro);
+        $this->em()->getConnection()->executeStatement('UPDATE inteligencia_analise SET tokens_entrada = 90000000 WHERE id = ?', [(int) $analiseDeOutro->getId()]);
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $crawler = $client->request('GET', '/admin/inteligencia');
+
+        self::assertResponseIsSuccessful();
+        $blocos = $crawler->filter('section.content > div.container-fluid > div.card');
+        self::assertSame(['ia-estado', 'ia-consumo', 'ia-configuracao'], $blocos->each(static fn ($b): ?string => $b->attr('id')));
+        $consumo = $crawler->filter('section.content > div.container-fluid > div.card#ia-consumo');
+        self::assertSame('Consumo do mês', trim($consumo->filter('div.card#ia-consumo > div.card-header > strong')->text()));
+        $dl = $consumo->filter('div.card#ia-consumo > div.card-body > dl.row');
+        self::assertSame(['Análises no mês', 'Gasto estimado', 'Orçamento mensal', 'Cobrança'], $dl->filter('dl.row > dt')->each(static fn ($c): string => trim($c->text())));
+        self::assertSame('1 de 300', trim($dl->filter('dl.row > dd[data-ia-consumo="analises"]')->text()));
+        self::assertSame('US$ 0,01', trim($dl->filter('dl.row > dd[data-ia-consumo="gasto"]')->text()), 'o gasto do outro escritório não entra');
+        self::assertSame('US$ 12,50', trim($dl->filter('dl.row > dd[data-ia-consumo="orcamento"]')->text()));
+        self::assertSame('Adicional pago', trim($dl->filter('dl.row > dd[data-ia-consumo="modo"]')->text()));
+        self::assertSame('Valores estimados pelo preço de tabela da Anthropic.', trim($consumo->filter('div.card#ia-consumo > div.card-body > p#ia-consumo-nota')->text()));
+        self::assertStringNotContainsString('—', $consumo->text());
+        self::assertStringNotContainsString('–', $consumo->text());
+    }
+
+    #[TestDox('bloco "Consumo do mês" sem orçamento: a linha do orçamento sai, o modo padrão aparece')]
+    public function testBlocoDeConsumoSemOrcamento(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $this->ligarIaNoTenant($tenant, $admin);
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $crawler = $client->request('GET', '/admin/inteligencia');
+
+        self::assertResponseIsSuccessful();
+        $dl = $crawler->filter('section.content > div.container-fluid > div.card#ia-consumo > div.card-body > dl.row');
+        self::assertSame(0, $dl->filter('dl.row > dd[data-ia-consumo="orcamento"]')->count());
+        self::assertSame('US$ 0,00', trim($dl->filter('dl.row > dd[data-ia-consumo="gasto"]')->text()));
+        self::assertSame('Incluso no plano', trim($dl->filter('dl.row > dd[data-ia-consumo="modo"]')->text()));
+    }
+
     #[TestDox('o aviso de envio lista CADA seção que os agentes leem (SecaoDoContexto), na ordem do enum, sem travessão')]
     public function testAvisoDeEnvioListaTodasAsSecoes(): void
     {
@@ -159,6 +209,37 @@ final class ConfiguracaoControllerTest extends JusPrimeWebTestCase
                 && str_contains((string) json_encode($log->getChanges()), 'habilitada'),
         );
         self::assertCount(1, $atualizacoes);
+    }
+
+    #[TestDox('PR F: o aviso cita os documentos escolhidos; aceite antigo mostra o alerta e salvar ligada renova o aceite')]
+    public function testAceiteAntigoRenovadoAoSalvar(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $configuracao = $this->ligarIaNoTenant($tenant, $admin);
+        $this->envelhecerAceite($configuracao);
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $crawler = $client->request('GET', '/admin/inteligencia');
+        self::assertResponseIsSuccessful();
+        $item = $crawler->filter('#ia-aviso-envio #ia-aviso-envio-documentos[data-ia-bloco="documentos_anexados"]');
+        self::assertSame(1, $item->count());
+        self::assertStringContainsString('documentos', $item->text());
+        $alerta = $crawler->filter('#ia-aceite-documentos');
+        self::assertSame(1, $alerta->count());
+        self::assertStringNotContainsString('—', $alerta->text());
+
+        $form = $crawler->selectButton('Salvar')->form();
+        $client->submit($form);
+        self::assertResponseRedirects('/admin/inteligencia');
+        $crawler = $client->followRedirect();
+        self::assertSame(0, $crawler->filter('#ia-aceite-documentos')->count(), 'renovado, o alerta some');
+
+        $this->em()->clear();
+        $relida = $this->em()->find(ConfiguracaoDeInteligencia::class, $configuracao->getId());
+        self::assertNotNull($relida);
+        self::assertTrue($relida->aceiteCobreDocumentos());
+        self::assertSame($admin->getId(), $relida->getConsentimentoPor()?->getId());
     }
 
     #[TestDox('limite negativo é recusado pelo formulário, nada gravado')]

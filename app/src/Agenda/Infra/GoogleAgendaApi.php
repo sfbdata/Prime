@@ -8,6 +8,8 @@ use App\Agenda\Exception\AgendaDoEscritorioSumiuException;
 use App\Agenda\Exception\AutorizacaoDoGoogleRecusadaException;
 use App\Agenda\Exception\EventoRecusadoPeloGoogleException;
 use App\Agenda\Exception\GoogleAgendaException;
+use App\Shared\Google\IdTokenDoGoogle;
+use App\Shared\Google\IdTokenDoGoogleInvalidoException;
 use App\Agenda\Exception\PermissoesDoGoogleRecusadasException;
 use App\Agenda\Exception\SyncTokenVencidoException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -31,7 +33,6 @@ final class GoogleAgendaApi
     private const ESCOPOS = 'openid email ' . self::ESCOPO;
     /** O que a conexão aceita receber: o e-mail chega também com o nome longo. Mais que isso, recusa e revoga. */
     private const ESCOPOS_ACEITOS = ['openid', 'email', 'https://www.googleapis.com/auth/userinfo.email', self::ESCOPO];
-    private const EMISSORES = ['https://accounts.google.com', 'accounts.google.com'];
     private const AUTORIZAR = 'https://accounts.google.com/o/oauth2/v2/auth';
     private const TOKEN = 'https://oauth2.googleapis.com/token';
     private const REVOGAR = 'https://oauth2.googleapis.com/revoke';
@@ -93,7 +94,7 @@ final class GoogleAgendaApi
         $conta = $this->emailDoIdToken((string) ($token['id_token'] ?? ''));
         $escopos = preg_split('/\s+/', trim((string) ($token['scope'] ?? self::ESCOPO))) ?: [];
         if (!in_array(self::ESCOPO, $escopos, true) || [] !== array_diff($escopos, self::ESCOPOS_ACEITOS)) {
-            throw new PermissoesDoGoogleRecusadasException($token['refresh_token'], $conta);
+            throw new PermissoesDoGoogleRecusadasException($token['refresh_token'], $conta, !in_array(self::ESCOPO, $escopos, true));
         }
 
         return ['refresh' => $token['refresh_token'], 'conta' => $conta];
@@ -221,31 +222,12 @@ final class GoogleAgendaApi
      */
     private function emailDoIdToken(string $idToken): string
     {
-        $carga = $this->cargaDoIdToken($idToken);
-        $email = is_string($carga['email'] ?? null) ? trim($carga['email']) : '';
         // Só e-mail confirmado pelo Google: ele casa convidados com a equipe (ParticipantesDoGoogle).
-        if ('' === $email || true !== ($carga['email_verified'] ?? null)) {
-            throw new GoogleAgendaException('O Google não informou um e-mail confirmado da conta.');
+        try {
+            return (new IdTokenDoGoogle())->conferir($idToken, $this->clienteId)['email'];
+        } catch (IdTokenDoGoogleInvalidoException $e) {
+            throw new GoogleAgendaException($e->getMessage(), 0, $e);
         }
-
-        return $email;
-    }
-
-    /** @return array<string, mixed> a carga do `id_token`, se for para este cliente, do Google e ainda válida */
-    private function cargaDoIdToken(string $idToken): array
-    {
-        $partes = explode('.', $idToken);
-        $carga = 3 === count($partes) ? json_decode((string) base64_decode(strtr($partes[1], '-_', '+/'), false), true) : null;
-        if (!is_array($carga)) {
-            throw new GoogleAgendaException('O Google não devolveu a identificação da conta.');
-        }
-        $audiencia = $carga['aud'] ?? null;
-        $paraNos = is_array($audiencia) ? in_array($this->clienteId, $audiencia, true) : $audiencia === $this->clienteId;
-        if (!$paraNos || !in_array($carga['iss'] ?? null, self::EMISSORES, true) || !is_int($carga['exp'] ?? null) || $carga['exp'] <= time()) {
-            throw new GoogleAgendaException('A identificação da conta não confere (cliente, emissor ou validade).');
-        }
-
-        return $carga;
     }
 
     /**
@@ -266,7 +248,9 @@ final class GoogleAgendaApi
             throw new AutorizacaoDoGoogleRecusadaException('O Google recusou a autorização.');
         }
         if (200 !== $status) {
-            throw new GoogleAgendaException('O Google recusou o pedido de token (' . $status . ').');
+            // Só o código de erro do OAuth (ex.: invalid_client, redirect_uri_mismatch), sem a descrição livre.
+            $codigo = is_string($j['error'] ?? null) ? preg_replace('/[^a-z_]/', '', $j['error']) : '';
+            throw new GoogleAgendaException('O Google recusou o pedido de token (' . $status . ('' !== $codigo ? ', ' . $codigo : '') . ').');
         }
 
         return $j;

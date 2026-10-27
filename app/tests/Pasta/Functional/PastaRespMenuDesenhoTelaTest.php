@@ -12,6 +12,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Expediente\Controller\ExpedienteController;
 use App\Pasta\Entity\Pasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Support\CatalogoPtBr;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -135,7 +136,8 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
 
         self::assertStringContainsString("var naPasta = chip.dataset.contexto === 'pasta';", $render);
         self::assertStringContainsString("<i class=\"bi ' + (naPasta ? 'bi-person-dash' : 'bi-person') + '\"></i></span>'", $render);
-        self::assertStringContainsString("'<span class=\"pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '\">Sem responsável</span>'", $render);
+        self::assertStringContainsString("'<span class=\"pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '\">' + escResp(BJ_T.t('pasta_resp.js.resp.sem_responsavel')) + '</span>'", $render);
+        self::assertSame('Sem responsável', CatalogoPtBr::carregar()['pasta_resp']['js']['resp']['sem_responsavel']);
         // O desenho antigo, fixo, não pode voltar: era ele que desfazia o chip da pasta.
         self::assertStringNotContainsString('<i class="bi bi-person"></i>', $render);
         self::assertStringNotContainsString('<span class="pasta-resp-nome text-muted">Sem responsável</span>', $render);

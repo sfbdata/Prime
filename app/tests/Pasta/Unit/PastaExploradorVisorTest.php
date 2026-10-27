@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +24,12 @@ final class PastaExploradorVisorTest extends TestCase
     private const EXPLORADOR = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS        = __DIR__ . '/../../../public/css/pasta-explorador.css';
     private const TWIG       = __DIR__ . '/../../../templates/pasta/_documentos_explorador.html.twig';
+
+    /** @return array<string, string> o bloco `pasta_documentos.js` do catálogo */
+    private function catalogoJs(): array
+    {
+        return CatalogoPtBr::carregar()['pasta_documentos']['js'];
+    }
 
     private function ler(string $arquivo): string
     {
@@ -108,7 +115,8 @@ final class PastaExploradorVisorTest extends TestCase
 
         self::assertStringContainsString('const novo = Math.max(0, Math.min(lista.length - 1, indice + delta));', $this->funcao($js, 'ir'));
         $render = $this->funcao($js, 'renderizar');
-        self::assertStringContainsString("el.posicao.textContent = (indice + 1) + ' de ' + lista.length;", $render);
+        self::assertStringContainsString("el.posicao.textContent = BJ_T.t('pasta_documentos.js.visor_posicao', { n: indice + 1, total: lista.length });", $render);
+        self::assertSame('{n} de {total}', $this->catalogoJs()['visor_posicao']);
         self::assertStringContainsString('el.anterior.disabled = indice === 0;', $render);
         self::assertStringContainsString('el.proximo.disabled = indice === lista.length - 1;', $render);
     }
@@ -150,12 +158,14 @@ final class PastaExploradorVisorTest extends TestCase
         $render = $this->funcao($js, 'renderizar');
         self::assertStringContainsString('const imprimivel = ehImprimivel(tipo);', $render);
         self::assertStringContainsString("el.imprimir.setAttribute('aria-disabled', imprimivel ? 'false' : 'true');", $render);
-        self::assertStringContainsString("el.imprimir.title = imprimivel ? 'Imprimir' : MOTIVO_SEM_IMPRESSAO;", $render);
+        self::assertStringContainsString("el.imprimir.title = imprimivel ? BJ_T.t('pasta_documentos.js.visor_imprimir') : MOTIVO_SEM_IMPRESSAO;", $render);
+        self::assertSame('Imprimir', $this->catalogoJs()['visor_imprimir']);
 
         $imprimir = $this->funcao($js, 'imprimir');
         self::assertStringContainsString('if (!ehImprimivel(tipo)) { mostrarAviso(MOTIVO_SEM_IMPRESSAO); return; }', $imprimir);
         self::assertStringContainsString('if (!renderizado) { mostrarAviso(MSG_ABRA_O_CONTEUDO); return; }', $imprimir, 'conteúdo ainda carregando ou que falhou: só avisa');
-        self::assertStringContainsString("const MSG_ABRA_O_CONTEUDO = 'Abra o conteúdo do arquivo para imprimir';", $js, 'texto do dc L4659');
+        self::assertStringContainsString("const MSG_ABRA_O_CONTEUDO = BJ_T.t('pasta_documentos.js.visor_abra_conteudo');", $js);
+        self::assertSame('Abra o conteúdo do arquivo para imprimir', $this->catalogoJs()['visor_abra_conteudo'], 'texto do dc L4659');
         self::assertStringContainsString("fr.className = 'pex-visor-impressao';", $imprimir);
         self::assertStringContainsString('fr.src = a.viewUrl;', $imprimir, 'PDF: o próprio arquivo, impresso pelo leitor do navegador');
         self::assertStringContainsString('w.print();', $imprimir);
@@ -164,7 +174,8 @@ final class PastaExploradorVisorTest extends TestCase
         self::assertMatchesRegularExpression('/\.pex-visor-impressao \{[^}]*left: -10000px;[^}]*width: 800px; height: 600px;/', $this->ler(self::CSS));
         self::assertDoesNotMatchRegularExpression('/\.pex-visor-impressao \{[^}]*(visibility: hidden|width: 0)/', $this->ler(self::CSS));
         // Um de cada vez, mas a trava não prende: solta em até 3 s sem afterprint, e o clique no meio avisa.
-        self::assertStringContainsString("const MSG_PREPARANDO = 'Preparando impressão…';", $js);
+        self::assertStringContainsString("const MSG_PREPARANDO = BJ_T.t('pasta_documentos.js.visor_preparando');", $js);
+        self::assertSame('Preparando impressão…', $this->catalogoJs()['visor_preparando']);
         self::assertStringContainsString('if (imprimindo) { mostrarAviso(MSG_PREPARANDO); return; }', $imprimir);
         self::assertStringContainsString('trava = setTimeout(function () { imprimindo = false; }, 3000);', $imprimir);
         self::assertMatchesRegularExpression('/liberarEm3s\(\);\s*w\.print\(\);/', $imprimir, 'o prazo recomeça quando o print() é chamado');

@@ -46,8 +46,12 @@ UseCase + functional do controller); (3) só então o resto. Skills por camada: 
 > Onde o desenho é **omisso**, a convenção do sistema manda.
 > **Desviar do desenho aprovado exige perguntar antes**, nunca decidir e entregar.
 
-Antes: `mcp__open-pencil__get_codegen_prompt`, depois `design_to_tokens` (valor do documento não é
-opinião); valide o desenho contra o dado que existe; nunca escreva "isto é só um wireframe" no
+Método passo a passo, inventário com script e conferência ✓/✗ → skill `desenho-fiel` (carregue antes de qualquer tela com desenho).
+
+Antes: tire tamanhos, cores e espaçamentos do CSS do próprio desenho do Claude Design (`.dc.html`
+em `docs/design/`; valor do documento não é opinião) e use os **componentes do desenho**, nunca os do
+sistema (modal Bootstrap, Select2, cartão/KPI/moldura do AdminLTE); o que o sistema tem e o desenho
+não tem sai da tela. Valide o desenho contra o dado que existe; nunca escreva "isto é só um wireframe" no
 artefato. Depois: percorra o desenho item a item e reporte ✓/✗ (suíte verde não diz nada sobre
 aparência). Arranjo se testa com combinador de **filho direto** (`.row > .col-lg-4 .trilho`), não
 com "existe em algum lugar da página". Origem, exemplos e a armadilha do clearfix do AdminLTE →

@@ -81,6 +81,29 @@ final class CercaNaTelaDoPontoTest extends JusPrimeWebTestCase
     }
 
     /**
+     * Achado de auditoria interna F2 (spec `seguranca-b-ponto.md` §1.1): o nome com caracteres especiais chega
+     * íntegro ao JSON e não aparece cru no HTML da página. A tela o põe no DOM só por `textContent`
+     * (`App\Tests\Ponto\Unit\NomeDaSedeForaDoInnerHtmlJsTest`).
+     */
+    #[TestDox('nome de sede com caracteres especiais chega íntegro ao JSON e não sai cru no HTML')]
+    public function testNomeComCaracteresEspeciaisChegaIntegro(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario($tenant);
+        $nome   = '<b>Sede "A" & \'B\'</b> </script>';
+        $this->criarSede($tenant, $nome, '-15.81100086', '-48.06479935', 100);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/ponto/');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$nome], array_column($this->sedesEntreguesATela($client), 'nome'));
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('<b>Sede', $html, 'o nome não pode sair cru na página');
+    }
+
+    /**
      * 🪤 A outra exclusão do servidor, sede **sem coordenada**, não é testável e nem precisa ser:
      * `sede.latitude` é `NOT NULL` no banco (medido — o insert estoura com `23502`). O guard de null
      * em `batida()` e no `index()` é defesa em profundidade sobre estado que o banco não deixa
@@ -127,13 +150,13 @@ final class CercaNaTelaDoPontoTest extends JusPrimeWebTestCase
             'não achei a lista de sedes na tela do ponto'
         );
 
-        $json = preg_replace_callback(
-            '/\\\\u([0-9a-fA-F]{4})/',
-            static fn(array $hex): string => mb_chr((int) hexdec($hex[1]), 'UTF-8'),
-            $captura[1]
-        );
+        // O literal da `|e('js')` só tem `\uXXXX`, `\\` e `\/` como escapes, e os três valem também numa
+        // string JSON. Ler o literal como string JSON devolve exatamente o texto que o navegador recebe,
+        // inclusive num nome com aspas ou barra invertida (achado de auditoria interna F2).
+        $json = json_decode('"' . $captura[1] . '"');
+        self::assertIsString($json, 'o literal da lista de sedes deveria ser uma string JS válida');
 
-        $sedes = json_decode((string) $json, true);
+        $sedes = json_decode($json, true);
         self::assertIsArray($sedes, 'a lista de sedes da tela deveria ser JSON válido');
 
         return $sedes;

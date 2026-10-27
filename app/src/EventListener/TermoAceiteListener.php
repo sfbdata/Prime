@@ -33,6 +33,14 @@ final class TermoAceiteListener
 
     private const ROTAS_IGNORADAS = [
         'app_login',
+        // Entrar com o Google: a ida e a volta acontecem antes de haver escritório ou aceite.
+        'app_login_google',
+        'app_login_google_volta',
+        // Continuar com Facebook (PR B): a ida e a volta também acontecem antes de haver escritório ou aceite.
+        'app_login_facebook',
+        'app_login_facebook_volta',
+        // Conferência ao vivo do cupom do Criar conta (spec login-cupom-ao-vivo): pública, vale a anônimo e a logado sem escritório.
+        'auth_cadastro_cupom_conferir',
         'app_logout',
         'tenant_selecionar',
         'termo_aceite',
@@ -42,6 +50,9 @@ final class TermoAceiteListener
         'auth_aceite_convite_criar_conta',
         'auth_aceite_convite_aceitar',
         'auth_aceite_convite_recusar',
+        'auth_meu_convite',
+        'auth_meu_convite_aceitar',
+        'auth_meu_convite_recusar',
         // Quem está sendo parado para aceitar os Termos precisa poder ler a Política de
         // Privacidade antes de decidir. São rotas públicas e somente de leitura: liberá-las
         // aqui não afrouxa o portão do aceite, só deixa de transformar o link em beco sem saída.
@@ -66,6 +77,7 @@ final class TermoAceiteListener
         'trabalho_externo_vagas_publicas',
         'trabalho_externo_vagas_link',
         'trabalho_externo_vagas_alertas',
+        'vagas_publicas_cta',
     ];
 
     public function __construct(

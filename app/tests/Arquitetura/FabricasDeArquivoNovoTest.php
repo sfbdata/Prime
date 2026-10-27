@@ -7,14 +7,17 @@ namespace App\Tests\Arquitetura;
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cobranca\Armazenamento\ChavesDeCobranca;
+use App\Comercial\Armazenamento\ChavesDeComercial;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Armazenamento\ChavesDeInteligencia;
 use App\Kanban\Armazenamento\ChavesDeKanban;
 use App\Kanban\Entity\KanbanCard;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Ponto\Armazenamento\ChavesDePonto;
 use App\Ponto\Entity\JustificativaPonto;
@@ -61,6 +64,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             static fn (?Tenant $t): object => self::comTenant(new PastaDocumento(), $t),
             CategoriaDeArquivo::PASTA_DOCUMENTO,
         ];
+        yield ChavesDePasta::class . '::novaFoto' => [
+            ChavesDePasta::class . '::novaFoto',
+            static fn (?Tenant $t): object => self::comTenant(new Pasta(), $t),
+            CategoriaDeArquivo::PASTA_FOTO,
+        ];
         yield ChavesDePasta::class . '::novaImagemDoEditor' => [
             ChavesDePasta::class . '::novaImagemDoEditor',
             static fn (?Tenant $t): ?Tenant => $t,
@@ -70,6 +78,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             ChavesDeCliente::class . '::novoDocumento',
             static fn (?Tenant $t): object => self::comTenant(new ClientePF(), $t),
             CategoriaDeArquivo::CLIENTE_DOCUMENTO,
+        ];
+        yield ChavesDeCliente::class . '::novaFoto' => [
+            ChavesDeCliente::class . '::novaFoto',
+            static fn (?Tenant $t): object => self::comTenant(new ClientePF(), $t),
+            CategoriaDeArquivo::CLIENTE_FOTO,
         ];
         yield ChavesDeCobranca::class . '::novoDocumentoDeCaso' => [
             ChavesDeCobranca::class . '::novoDocumentoDeCaso',
@@ -181,12 +194,34 @@ final class FabricasDeArquivoNovoTest extends TestCase
         self::assertSame('pdf', $novo->extensao);
     }
 
+    #[TestDox('imagem nova da campanha do Comercial: escopo global (D1), categoria própria')]
+    public function testImagemNovaDaCampanhaEhGlobal(): void
+    {
+        $novo = ChavesDeComercial::novaImagem('jpg');
+
+        self::assertSame(CategoriaDeArquivo::COMERCIAL_IMAGEM, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('jpg', $novo->extensao);
+    }
+
+    #[TestDox('versão nova de documento jurídico do Master: escopo global (D1), categoria própria')]
+    public function testVersaoNovaDeDocumentoJuridicoEhGlobal(): void
+    {
+        $novo = ChavesDeInteligencia::novaVersaoDeDocumentoJuridico('docx');
+
+        self::assertSame(CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('docx', $novo->extensao);
+    }
+
     #[TestDox('toda fábrica de arquivo novo tem caso neste teste, e só as documentadas recebem Tenant')]
     public function testInventarioDasFabricas(): void
     {
         $cobertas = array_keys(iterator_to_array(self::fabricas()));
         $cobertas[] = ChavesDePerfil::class . '::novaFoto';
         $cobertas[] = ChavesDeTrabalhoExterno::class . '::novoArquivoDoCurriculo';
+        $cobertas[] = ChavesDeComercial::class . '::novaImagem';
+        $cobertas[] = ChavesDeInteligencia::class . '::novaVersaoDeDocumentoJuridico';
 
         $encontradas = [];
 

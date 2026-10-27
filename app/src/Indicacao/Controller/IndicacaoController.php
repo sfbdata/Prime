@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Indicacao\DTO\IndicarPorEmailInput;
 use App\Indicacao\Enum\CanalDeIndicacao;
 use App\Indicacao\Exception\IndicacaoRecusada;
+use App\Indicacao\Service\CodigoDeIndicacao;
 use App\Indicacao\UseCase\ConferirCodigoDeIndicacaoUseCase;
 use App\Indicacao\UseCase\IndicarPorEmailUseCase;
 use App\Indicacao\UseCase\ObterMinhasIndicacoesUseCase;
@@ -73,9 +74,26 @@ final class IndicacaoController extends AbstractController
     {
         // Sempre grava a chave (nulo quando o código não existe): a sessão nasce nos dois casos e a resposta, com o
         // Set-Cookie, é a mesma; só remover deixaria a sessão vazia e sem cookie, o que revelaria o código válido.
-        $request->getSession()->set(self::CHAVE_DA_SESSAO, $conferir->executar($codigo));
+        $request->getSession()->set(self::CHAVE_DA_SESSAO, self::ehNavegacaoDePagina($request) ? $conferir->executar($codigo) : null);
 
-        return $this->redirectToRoute('auth_cadastro');
+        // O cupom preenchido no "Criar conta" (desenho 10 VS 25.10.26) repete o que veio na URL, conferido só no
+        // formato: o destino é o mesmo para código válido e inválido.
+        $cupom = CodigoDeIndicacao::doCupom($codigo);
+
+        return $this->redirectToRoute('auth_cadastro', $cupom !== null ? ['ind' => $cupom] : []);
+    }
+
+    /**
+     * Com recompensa em dinheiro, quem planta o link em `<img>`, `<iframe>` ou `fetch` de outro site não pode gravar o
+     * código na sessão de quem só visitou a página. O navegador diz como a requisição nasceu (Sec-Fetch-*): só vale a
+     * navegação de página. Sem os cabeçalhos (navegador antigo, curl) segue valendo, porque não há como distinguir.
+     */
+    private static function ehNavegacaoDePagina(Request $request): bool
+    {
+        $modo = $request->headers->get('Sec-Fetch-Mode');
+        $destino = $request->headers->get('Sec-Fetch-Dest');
+
+        return ($modo === null || $modo === 'navigate') && ($destino === null || $destino === 'document');
     }
 
     /** @param \Closure(): string $acao */

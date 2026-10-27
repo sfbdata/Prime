@@ -24,6 +24,9 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class DesfazerReaberturaDaMetaUseCase
 {
+    public const MENSAGEM_SEM_DATA = 'Não foi possível desfazer: a meta continua reaberta. Conclua-a pelo menu, se for o caso.';
+    public const MENSAGEM_DATA_INVALIDA = 'Não foi possível desfazer: a data de conclusão anterior não é válida.';
+
     public function __construct(
         private readonly EntityManagerInterface $em,
     ) {
@@ -45,12 +48,9 @@ final class DesfazerReaberturaDaMetaUseCase
             return false;
         }
 
-        if ($dataConclusaoAnterior === null) {
-            throw new DesfazerReaberturaRecusadoException('Não foi possível desfazer: a meta continua reaberta. Conclua-a pelo menu, se for o caso.');
-        }
-
-        if ($dataConclusaoAnterior > $agora || $dataConclusaoAnterior < $tarefa->getDataCriacao()) {
-            throw new DesfazerReaberturaRecusadoException('Não foi possível desfazer: a data de conclusão anterior não é válida.');
+        $recusa = self::motivoParaRecusarAData($dataConclusaoAnterior, $tarefa, $agora);
+        if ($recusa !== null || $dataConclusaoAnterior === null) {
+            throw new DesfazerReaberturaRecusadoException((string) $recusa);
         }
 
         $tarefa->setStatus(Tarefa::STATUS_CONCLUIDA);
@@ -58,6 +58,25 @@ final class DesfazerReaberturaDaMetaUseCase
         $this->em->flush();
 
         return true;
+    }
+
+    /**
+     * A data com que a meta volta a concluída: sem data, no futuro ou antes da criação da meta, recusa. É a mesma regra
+     * do desfazer da auditoria (`EstadoDaTelaNoDesfazer`), que a chama em vez de copiá-la.
+     *
+     * @return string|null a mensagem da recusa; null quando a data vale
+     */
+    public static function motivoParaRecusarAData(?\DateTimeInterface $data, Tarefa $tarefa, \DateTimeImmutable $agora): ?string
+    {
+        if ($data === null) {
+            return self::MENSAGEM_SEM_DATA;
+        }
+
+        if ($data > $agora || $data < $tarefa->getDataCriacao()) {
+            return self::MENSAGEM_DATA_INVALIDA;
+        }
+
+        return null;
     }
 
     private static function mesmoEscritorio(?Tenant $daMeta, Tenant $atual): bool

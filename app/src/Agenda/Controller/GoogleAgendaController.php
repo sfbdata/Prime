@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Agenda\Controller;
 
 use App\Agenda\Exception\GoogleAgendaException;
+use App\Agenda\Exception\PermissoesDoGoogleRecusadasException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\UseCase\ConectarGoogleAgendaUseCase;
 use App\Agenda\UseCase\DesconectarGoogleAgendaUseCase;
+use App\Agenda\UseCase\DispensarAvisoDoGoogleUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
@@ -45,6 +47,7 @@ final class GoogleAgendaController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly LoggerInterface $logger,
         private readonly RateLimiterFactoryInterface $agendaGoogleLimiter,
+        private readonly DispensarAvisoDoGoogleUseCase $dispensarAviso,
     ) {
     }
 
@@ -78,6 +81,8 @@ final class GoogleAgendaController extends AbstractController
         $volta = (string) $guardado['volta'];
         if (($guardado['tenant'] ?? null) !== $tenant->getId()) {
             // Trocou de escritório no meio da ida ao Google: a conexão não vai para o escritório errado.
+            $this->logger->error('Google Agenda: escritório trocado entre a ida e a volta do Google', ['tenant_ida' => $guardado['tenant'] ?? null, 'tenant_volta' => $tenant->getId()]);
+
             return $this->redirect($volta . '#google=falhou');
         }
         if ('' !== $request->query->getString('error') || '' === $request->query->getString('code')) {
@@ -85,8 +90,13 @@ final class GoogleAgendaController extends AbstractController
         }
         try {
             $this->conectar->executar($tenant, $eu, $request->query->getString('code'), (string) $guardado['verificador'], $this->urlDeRetorno());
+        } catch (PermissoesDoGoogleRecusadasException $e) {
+            $this->logger->error('Google Agenda: conexão falhou', ['motivo' => $e->getMessage(), 'sem_a_agenda' => $e->semAAgenda]);
+
+            return $this->redirect($volta . ($e->semAAgenda ? '#google=sem-permissao' : '#google=falhou'));
         } catch (GoogleAgendaException $e) {
-            $this->logger->warning('Google Agenda: conexão falhou', ['motivo' => $e->getMessage()]);
+            // Error, não warning: em produção o log só despeja com um error na requisição (fingers_crossed).
+            $this->logger->error('Google Agenda: conexão falhou', ['motivo' => $e->getMessage(), 'tipo' => (new \ReflectionClass($e))->getShortName()]);
 
             return $this->redirect($volta . '#google=falhou');
         }
@@ -109,6 +119,20 @@ final class GoogleAgendaController extends AbstractController
         } catch (GoogleAgendaException $e) {
             return $this->json(['erro' => $e->getMessage()], 409);
         }
+
+        return $this->json(['ok' => true]);
+    }
+
+    /**
+     * "Não mostrar esta mensagem novamente" da janela que orienta a conectar (spec docs/specs/agenda-aviso-google.md).
+     * Sem id e sem corpo: grava só para quem está logado, no escritório da sessão.
+     */
+    #[Route('/agenda/google/aviso/dispensar', name: 'app_agenda_google_aviso_dispensar', methods: ['POST'])]
+    public function dispensarAviso(Request $request): JsonResponse
+    {
+        [$eu, $tenant] = $this->exigirAgenda();
+        $this->validarCsrfAjax($request);
+        $this->dispensarAviso->executar($tenant, $eu);
 
         return $this->json(['ok' => true]);
     }

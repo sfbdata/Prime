@@ -1,0 +1,93 @@
+{#
+   Esteira da pasta (desenho 04 de 22/10, dc L61-63 e L133) · Spec: docs/specs/minhas-metas-esteira-2210.md
+
+   Única do escritório: as 8 caixas contam as metas abertas de toda a equipe, e clicar numa caixa lista as
+   metas daquela etapa de toda a equipe (aba "Todas" + `etapa`); clicar de novo na caixa ativa desliga o
+   filtro. O ⋮ (e o clique direito ou o duplo clique no "CAIXA N") abre o modal "Configurar caixa", só para
+   quem configura (D2: o primário e quem administra perfis). Recebe `esteira` (EsteiraDaPastaOutput),
+   `filtros` e `comModo` (os parâmetros da URL atual, como as abas).
+#}
+{% set etapaAtiva = filtros.etapa|default('') %}
+{% set semEtapa = comModo|filter((v, k) => k != 'etapa') %}
+<div class="mm-esteira" data-mm-esteira>
+    <div class="mm-esteira-cabecalho">
+        <i class="bi bi-diagram-3 mm-esteira-icone" aria-hidden="true"></i>
+        <b class="mm-esteira-titulo">{{ 'metas.esteira.titulo'|trans }}</b>
+        <span class="mm-esteira-selo" title="{{ 'metas.esteira.geral_dica'|trans }}"><i class="bi bi-buildings" aria-hidden="true"></i>{{ 'metas.esteira.geral'|trans }}</span>
+        <span class="mm-esteira-resumo">{{ 'metas.esteira.resumo'|trans({abertas: esteira.totalDeAbertas, atrasadas: esteira.totalDeAtrasadas}) }}</span>
+        {% if etapaAtiva %}
+            {% set caixaAtiva = esteira.caixas|filter(c => c.etapa.value == etapaAtiva)|first %}
+            <a class="mm-esteira-chip" href="{{ path('tarefa_minhas', semEtapa) }}" title="{{ 'metas.esteira.limpar_etapa'|trans }}">
+                {{ 'metas.esteira.so_a_etapa'|trans({etapa: caixaAtiva.nomeDaEtapa ?? caixaAtiva.etapa.rotulo|trans}) }} <i class="bi bi-x" aria-hidden="true"></i>
+            </a>
+        {% endif %}
+    </div>
+    <div class="mm-esteira-caixas">
+        {% for caixa in esteira.caixas %}
+            {% set ativa = caixa.etapa.value == etapaAtiva %}
+            {% set nome = caixa.nomeDaEtapa ?? caixa.etapa.rotulo|trans %}
+            {% set rotuloDaCaixa = caixa.nomeDaCaixa ?? 'metas.esteira.caixa_padrao'|trans({numero: caixa.posicao}) %}
+            <div class="mm-caixa-celula">
+                <div class="mm-caixa{{ ativa ? ' is-ativa' : '' }}{{ caixa.gargalo ? ' is-gargalo' : '' }}{{ caixa.total > 0 ? ' tem-metas' : '' }}"
+                     {% if esteira.podeConfigurar %}
+                     data-mm-caixa
+                     data-etapa="{{ caixa.etapa.value }}"
+                     data-caixa="{{ rotuloDaCaixa }}"
+                     data-caixa-padrao="{{ 'metas.esteira.caixa_padrao'|trans({numero: caixa.posicao}) }}"
+                     data-nome="{{ nome }}"
+                     data-nome-padrao="{{ caixa.etapa.rotulo|trans }}"
+                     data-avisados="{{ caixa.idsDosAvisados|json_encode|e('html_attr') }}"
+                     data-salvar="{{ path('tarefa_minhas_caixa_salvar', {etapa: caixa.etapa.value}) }}"
+                     data-restaurar="{{ path('tarefa_minhas_caixa_restaurar', {etapa: caixa.etapa.value}) }}"
+                     data-token="{{ csrf_token('caixa_esteira_' ~ caixa.etapa.value) }}"
+                     {% endif %}>
+                    <a class="mm-caixa-link"
+                       href="{{ path('tarefa_minhas', ativa ? semEtapa : comModo|merge({aba: 'todas', etapa: caixa.etapa.value})) }}"
+                       title="{{ 'metas.esteira.caixa_dica'|trans({descricao: caixa.etapa.descricao|trans, setor: caixa.etapa.setor|trans}) }}"
+                       {% if ativa %}aria-current="true"{% endif %}>
+                        <span class="mm-caixa-topo">
+                            <i class="bi {{ caixa.etapa.icone }} mm-caixa-icone" aria-hidden="true"></i>
+                            <b class="mm-caixa-total">{{ caixa.total }}</b>
+                            {% if caixa.gargalo and not ativa %}
+                                <span class="mm-caixa-gargalo" title="{{ 'metas.esteira.gargalo_dica'|trans }}">{{ 'metas.esteira.gargalo'|trans }}</span>
+                            {% endif %}
+                        </span>
+                        <b class="mm-caixa-nome">{{ nome }}</b>
+                        <span class="mm-caixa-setor">{{ caixa.etapa.setor|trans }}</span>
+                        {% if caixa.atrasadas > 0 %}
+                            <span class="mm-caixa-atrasadas">{{ 'metas.esteira.atrasadas'|trans({n: caixa.atrasadas}) }}</span>
+                        {% endif %}
+                        {% if caixa.avisados is not empty %}
+                            {# "Dra. Nome" / "Dr. Nome" para quem tem OAB e gênero declarado (spec genero-no-cadastro, regra 4). #}
+                            {% set nomesDosAvisados = caixa.avisados|map(a => a.tratamento == 'dra' ? 'metas.esteira.tratamento_dra'|trans({nome: a.nome}) : (a.tratamento == 'dr' ? 'metas.esteira.tratamento_dr'|trans({nome: a.nome}) : a.nome))|join(', ') %}
+                            <span class="mm-caixa-avisados" title="{{ 'metas.esteira.avisados_dica'|trans({nomes: nomesDosAvisados}) }}">
+                                <i class="bi bi-bell" aria-hidden="true"></i><span>{{ nomesDosAvisados }}</span>
+                            </span>
+                        {% endif %}
+                    </a>
+                    <span class="mm-caixa-rodape">
+                        <b class="mm-caixa-rotulo"{% if esteira.podeConfigurar %} data-mm-caixa-rotulo{% endif %}>{{ rotuloDaCaixa }}</b>
+                        {% if esteira.podeConfigurar %}
+                            <button type="button" class="mm-caixa-menu" data-mm-caixa-abrir title="{{ 'metas.esteira.renomear'|trans }}" aria-label="{{ 'metas.esteira.renomear'|trans }}">
+                                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                            </button>
+                        {% endif %}
+                    </span>
+                </div>
+                {% if not caixa.ultima %}
+                    <i class="bi bi-chevron-right mm-caixa-seta" aria-hidden="true"></i>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="mm-divisor-suas">
+    <b class="mm-esteira-titulo">{{ 'metas.esteira.suas_metas'|trans }}</b>
+    <span class="mm-esteira-selo is-individual" title="{{ 'metas.esteira.individual_dica'|trans }}"><i class="bi bi-person" aria-hidden="true"></i>{{ 'metas.esteira.individual'|trans }}</span>
+    <span class="mm-divisor-linha" aria-hidden="true"></span>
+</div>
+
+{% if esteira.podeConfigurar %}
+    {{ include('tarefa/_esteira_modal.html.twig') }}
+{% endif %}

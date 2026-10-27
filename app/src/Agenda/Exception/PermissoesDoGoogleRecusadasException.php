@@ -13,6 +13,8 @@ final class PermissoesDoGoogleRecusadasException extends GoogleAgendaException
     public function __construct(
         public readonly string $refresh,
         public readonly string $conta,
+        // A pessoa desmarcou a permissão da agenda no consentimento do Google (o caso comum): a tela explica e oferece tentar de novo.
+        public readonly bool $semAAgenda = false,
     ) {
         parent::__construct('O Google concedeu permissões diferentes das pedidas para a agenda.');
     }

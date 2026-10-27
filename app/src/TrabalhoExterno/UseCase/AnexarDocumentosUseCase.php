@@ -11,6 +11,7 @@ use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Service\ArmazenadorDeDocumentos;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
@@ -27,6 +28,7 @@ final class AnexarDocumentosUseCase
         private readonly PoliticaDaDemanda $politica,
         private readonly ArmazenadorDeDocumentos $documentos,
         private readonly DemandaExternaRepository $repositorio,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -45,6 +47,7 @@ final class AnexarDocumentosUseCase
         $novos = $this->documentos->anexar($demanda, $arquivos, $ctx->autor());
         $nomes = implode(', ', array_map(static fn (DocumentoDemanda $d): string => $d->getNomeOriginal(), $novos));
         $demanda->registrar($ctx->autor(), sprintf('%d documento(s) anexado(s): %s', count($novos), $nomes), TipoMensagem::Arquivo);
+        $this->avisos->andamentoDaDemanda($ctx, $demanda);
         $this->repositorio->salvar($demanda, flush: true);
 
         return $demanda;

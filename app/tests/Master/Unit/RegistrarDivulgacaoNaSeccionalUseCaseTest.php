@@ -6,12 +6,10 @@ namespace App\Tests\Master\Unit;
 
 use App\Entity\Auth\User;
 use App\Master\DTO\RegistrarDivulgacaoNaSeccionalInput;
-use App\Master\Entity\DivulgacaoNaSeccional;
 use App\Master\Entity\SeccionalOab;
-use App\Master\Enum\TipoDeDivulgacao;
+use App\Master\Enum\StatusDaDivulgacao;
 use App\Master\Exception\SeccionalNaoEncontrada;
 use App\Master\Exception\SeccionalRecusada;
-use App\Master\Repository\DivulgacaoNaSeccionalRepository;
 use App\Master\Repository\SeccionalOabRepository;
 use App\Master\UseCase\RegistrarDivulgacaoNaSeccionalUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
@@ -23,17 +21,16 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 
 /**
- * Registrar divulgação numa seccional (spec master-seccionais-oab, "Registro de divulgação"): tipo entre os três do
- * desenho, data não futura (vazia = hoje), nota até 500; grava dentro do escopo de plataforma.
+ * Registrar a divulgação numa seccional (spec master-seccionais-oab, "Registro de divulgação"; desenho 05 L902): um
+ * dos seis status, a cor da paleta (#rrggbb) e a data não futura (vazia = hoje), gravados como a marca da UF na própria
+ * seccional, dentro do escopo de plataforma.
  */
 #[CoversClass(RegistrarDivulgacaoNaSeccionalUseCase::class)]
 #[CoversClass(RegistrarDivulgacaoNaSeccionalInput::class)]
-#[CoversClass(DivulgacaoNaSeccional::class)]
-#[CoversClass(TipoDeDivulgacao::class)]
+#[CoversClass(StatusDaDivulgacao::class)]
 final class RegistrarDivulgacaoNaSeccionalUseCaseTest extends TestCase
 {
     private SeccionalOabRepository&MockObject $seccionais;
-    private DivulgacaoNaSeccionalRepository&MockObject $divulgacoes;
     private EscopoDeAuditoriaDePlataforma $escopo;
     private User $master;
 
@@ -41,47 +38,56 @@ final class RegistrarDivulgacaoNaSeccionalUseCaseTest extends TestCase
     {
         $this->seccionais = $this->createMock(SeccionalOabRepository::class);
         $this->seccionais->method('buscarPorUf')->willReturnCallback(static fn (string $uf): ?SeccionalOab => $uf === 'BA' ? new SeccionalOab('BA', 'OAB Seccional Bahia') : null);
-        $this->divulgacoes = $this->createMock(DivulgacaoNaSeccionalRepository::class);
         $this->escopo = new EscopoDeAuditoriaDePlataforma();
         $this->master = (new User())->setRoles(['ROLE_SUPER_ADMIN']);
     }
 
-    #[TestDox('sem data vale hoje; grava tipo, nota, autor e o momento, dentro do escopo de plataforma')]
+    #[TestDox('sem data vale hoje; grava status, cor (em minúsculas) e data na seccional, dentro do escopo de plataforma')]
     public function testRegistraHoje(): void
     {
-        $this->divulgacoes->expects($this->once())->method('salvar')->with($this->isInstanceOf(DivulgacaoNaSeccional::class), true)
+        $this->seccionais->expects($this->once())->method('salvar')->with($this->isInstanceOf(SeccionalOab::class), true)
             ->willReturnCallback(fn () => self::assertTrue($this->escopo->estaLigado()));
 
-        $d = $this->useCase()->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->master, 'BA', ['tipo' => 'reuniao', 'nota' => ' Reunião com a diretoria ']));
+        $s = $this->useCase()->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->master, 'BA', ['status' => 'vis', 'cor' => ' #FCA5A5 ']));
 
-        self::assertSame(TipoDeDivulgacao::Reuniao, $d->getTipo());
-        self::assertSame('2026-10-21', $d->getData()->format('Y-m-d'));
-        self::assertSame('Reunião com a diretoria', $d->getNota());
-        self::assertSame($this->master, $d->getAutor());
-        self::assertSame('BA', $d->getSeccional()->getUf());
-        self::assertSame('2026-10-21 15:30', $d->getCriadoEm()->format('Y-m-d H:i'));
+        self::assertSame(StatusDaDivulgacao::Reuniao, $s->getMarcaStatus());
+        self::assertSame('Reunião ou evento', $s->getMarcaStatus()?->rotulo());
+        self::assertSame('#fca5a5', $s->getMarcaCor());
+        self::assertSame('2026-10-21', $s->getMarcaEm()?->format('Y-m-d'));
+        self::assertFalse($this->escopo->estaLigado());
     }
 
-    #[TestDox('data no passado é aceita; nota vazia vira nula')]
-    public function testDataNoPassado(): void
+    #[TestDox('a marca nova troca a anterior inteira (só o estado atual); data no passado é aceita')]
+    public function testTrocaAMarca(): void
     {
-        $this->divulgacoes->expects($this->once())->method('salvar');
+        $s = $this->useCase()->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->master, 'BA', ['status' => 'env', 'cor' => '#fde68a', 'data' => '2026-09-30']));
+        $s->marcar(StatusDaDivulgacao::Convenio, '#86efac', new \DateTimeImmutable('2026-10-01'));
 
-        $d = $this->useCase()->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->master, 'BA', ['tipo' => 'material', 'data' => '2026-09-30', 'nota' => '  ']));
+        self::assertSame(StatusDaDivulgacao::Convenio, $s->getMarcaStatus());
+        self::assertSame('#86efac', $s->getMarcaCor());
+        self::assertSame('2026-10-01', $s->getMarcaEm()?->format('Y-m-d'));
+    }
 
-        self::assertSame('2026-09-30', $d->getData()->format('Y-m-d'));
-        self::assertNull($d->getNota());
+    #[TestDox('os seis status do desenho, com os rótulos do tooltip do chip')]
+    public function testSeisStatus(): void
+    {
+        self::assertSame(
+            ['env' => 'Material enviado', 'vis' => 'Reunião ou evento', 'neg' => 'Em negociação', 'cli' => 'Parceria firmada', 'ret' => 'Retornar depois', 'sem' => 'Convênio feito'],
+            array_combine(array_map(static fn (StatusDaDivulgacao $s): string => $s->value, StatusDaDivulgacao::cases()), array_map(static fn (StatusDaDivulgacao $s): string => $s->rotulo(), StatusDaDivulgacao::cases())),
+        );
     }
 
     /** @return iterable<string, array{array<string, string>, string}> */
     public static function recusas(): iterable
     {
-        yield 'tipo desconhecido' => [['tipo' => 'evento'], 'Escolha o tipo: material enviado, reunião ou parceria.'];
-        yield 'sem tipo' => [[], 'Escolha o tipo: material enviado, reunião ou parceria.'];
-        yield 'data no futuro' => [['tipo' => 'parceria', 'data' => '2026-10-22'], 'A data da divulgação não pode ser no futuro.'];
-        yield 'data inexistente' => [['tipo' => 'parceria', 'data' => '2026-02-30'], 'Informe a data no formato dia, mês e ano.'];
-        yield 'data em outro formato' => [['tipo' => 'parceria', 'data' => '21/10/2026'], 'Informe a data no formato dia, mês e ano.'];
-        yield 'nota longa' => [['tipo' => 'parceria', 'nota' => str_repeat('n', 501)], 'A nota passa de 500 caracteres.'];
+        yield 'status desconhecido' => [['status' => 'material', 'cor' => '#fde68a'], SeccionalRecusada::RECUSA_STATUS_DE_DIVULGACAO];
+        yield 'sem status' => [['cor' => '#fde68a'], SeccionalRecusada::RECUSA_STATUS_DE_DIVULGACAO];
+        yield 'sem cor' => [['status' => 'neg'], SeccionalRecusada::RECUSA_COR_DA_MARCA];
+        yield 'cor fora do #rrggbb' => [['status' => 'neg', 'cor' => 'red'], SeccionalRecusada::RECUSA_COR_DA_MARCA];
+        yield 'cor com estilo' => [['status' => 'neg', 'cor' => '#fff;background:url(x)'], SeccionalRecusada::RECUSA_COR_DA_MARCA];
+        yield 'data no futuro' => [['status' => 'cli', 'cor' => '#fde68a', 'data' => '2026-10-22'], SeccionalRecusada::RECUSA_DATA_NO_FUTURO];
+        yield 'data inexistente' => [['status' => 'cli', 'cor' => '#fde68a', 'data' => '2026-02-30'], SeccionalRecusada::RECUSA_DATA_FORMATO];
+        yield 'data em outro formato' => [['status' => 'cli', 'cor' => '#fde68a', 'data' => '21/10/2026'], SeccionalRecusada::RECUSA_DATA_FORMATO];
     }
 
     /** @param array<string, string> $corpo */
@@ -89,34 +95,24 @@ final class RegistrarDivulgacaoNaSeccionalUseCaseTest extends TestCase
     #[TestDox('recusa $_dataName com a mensagem clara e não grava')]
     public function testRecusa(array $corpo, string $mensagem): void
     {
-        $this->divulgacoes->expects($this->never())->method('salvar');
+        $this->seccionais->expects($this->never())->method('salvar');
 
         $this->expectException(SeccionalRecusada::class);
         $this->expectExceptionMessage($mensagem);
         $this->useCase()->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->master, 'BA', $corpo));
     }
 
-    #[TestDox('nota de exatamente 500 caracteres é aceita')]
-    public function testNotaNoLimite(): void
-    {
-        $this->divulgacoes->expects($this->once())->method('salvar');
-
-        $d = $this->useCase()->executar(new RegistrarDivulgacaoNaSeccionalInput($this->master, 'BA', 'parceria', null, str_repeat('ç', 500)));
-
-        self::assertSame(500, mb_strlen((string) $d->getNota()));
-    }
-
     #[TestDox('linha ausente: SeccionalNaoEncontrada e nada é gravado')]
     public function testSemLinha(): void
     {
-        $this->divulgacoes->expects($this->never())->method('salvar');
+        $this->seccionais->expects($this->never())->method('salvar');
 
         $this->expectException(SeccionalNaoEncontrada::class);
-        $this->useCase()->executar(new RegistrarDivulgacaoNaSeccionalInput($this->master, 'SP', 'material'));
+        $this->useCase()->executar(new RegistrarDivulgacaoNaSeccionalInput($this->master, 'SP', 'env', '#fde68a'));
     }
 
     private function useCase(): RegistrarDivulgacaoNaSeccionalUseCase
     {
-        return new RegistrarDivulgacaoNaSeccionalUseCase($this->seccionais, $this->divulgacoes, new MockClock('2026-10-21 15:30:00'), $this->escopo);
+        return new RegistrarDivulgacaoNaSeccionalUseCase($this->seccionais, new MockClock('2026-10-21 15:30:00'), $this->escopo);
     }
 }

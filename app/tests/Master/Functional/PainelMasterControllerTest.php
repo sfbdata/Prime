@@ -139,6 +139,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/master/dados/mapa');
         self::assertResponseIsSuccessful();
         $mapa = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(['env', 'ok', 'pago'], array_keys($mapa['indicacoes']));
         $nomes = array_merge(
             ...array_map('array_keys', array_values($mapa['pessoas']['geral']['C'])),
             ...array_map('array_keys', array_values($mapa['escritorios']['C'])),
@@ -163,7 +164,9 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
             $csp = (string) $client->getResponse()->headers->get('Content-Security-Policy');
             self::assertStringContainsString("script-src 'self';", $csp, $url);
             self::assertStringNotContainsString('unsafe-inline\' https', $csp);
-            self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\ssrc=)[^>]*>/i', (string) $client->getResponse()->getContent(), $url . ' tem script inline');
+            // O catálogo do idioma (catalogo_js) é bloco de dados, sempre na forma exata `<script type="application/json"
+            // data-bj-t>` (CatalogoJsExtension): o navegador não o executa. Qualquer outra tag sem src é script inline.
+            self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\ssrc=)(?!\stype="application\/json" data-bj-t>)[^>]*>/i', (string) $client->getResponse()->getContent(), $url . ' tem script inline');
         }
 
         $client->request('GET', '/master/dados/visao-geral');

@@ -47,6 +47,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Pasta\Service\ConflitoDeNumeroCnj;
+use App\Pasta\Service\DetectorDeAssinaturaDigital;
 use App\Pasta\Service\OrganizacaoSugeridaPorFase;
 use App\Pasta\Service\PastaTimelineAssembler;
 use App\Pasta\Entity\PastaMensagem;
@@ -94,10 +95,15 @@ use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
 use App\Pasta\UseCase\VincularApensadoUseCase;
+use App\Pasta\UseCase\BuscarProcessosParaVincularUseCase;
+use App\Processo\Service\TribunalCnjResolver;
+use App\Pasta\DTO\ProcessoParaVincularOutput;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Pasta\Exception\ApensadoInvalidoException;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
+use App\Pasta\UseCase\AlterarProBonoDaPastaUseCase;
+use App\Pasta\UseCase\AlterarResponsavelDaPastaUseCase;
 use App\Pasta\UseCase\AtualizarValorCausaUseCase;
 use App\Pasta\UseCase\EditarChecklistItemUseCase;
 use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
@@ -112,7 +118,6 @@ use App\Pasta\UseCase\ExcluirObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
 use App\Pasta\UseCase\ExcluirItensDaPastaUseCase;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
-use App\Pasta\UseCase\ResultadoExclusaoPasta;
 use App\Pasta\UseCase\RestaurarPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
 use App\Pasta\Service\CobrancasDoChecklistDaPasta;
@@ -287,6 +292,7 @@ class PastaController extends AbstractController
         $dto = new CriarPastaDTO(
             nomeCliente: $nomeCliente,
             nomeAcao: $nomeAcao,
+            vincularAoCadastroDoMesmoNome: true,
         );
 
         try {
@@ -337,6 +343,7 @@ class PastaController extends AbstractController
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         MontarPainelDoPushUseCase $montarPainelDoPush,
         ColaboradoresAtribuiveis $atribuiveis,
+        TribunalCnjResolver $tribunalCnjResolver,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -487,6 +494,8 @@ class PastaController extends AbstractController
 
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
+            // Janela "Vincular processo": a sigla do tribunal enquanto se digita sai da tabela do servidor.
+            'tribunaisCnj'                => $tribunalCnjResolver->tabelaDeSiglas(),
             'vizinhas'                    => $vizinhas,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
             'documentosPorTipo'           => $this->groupDocumentsByType($pasta),
@@ -1390,8 +1399,12 @@ class PastaController extends AbstractController
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
     }
 
+    /**
+     * Lista "Processo já cadastrado" da janela "Vincular processo" (desenho 02, N:299-302): sem termo, os 8
+     * primeiros do escritório (a lista abre ao focar); com termo, filtra. Cada item traz a origem.
+     */
     #[Route('/{id}/processo/buscar', name: 'pasta_buscar_processos', methods: ['GET'])]
-    public function buscarProcessos(Pasta $pasta, Request $request): Response
+    public function buscarProcessos(Pasta $pasta, Request $request, BuscarProcessosParaVincularUseCase $buscarProcessos): Response
     {
         $pastaId = (int) $pasta->getId();
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
@@ -1399,21 +1412,19 @@ class PastaController extends AbstractController
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
-        $termo  = trim((string) $request->query->get('q', ''));
+        if ($tenant === null) {
+            throw $this->createNotFoundException();
+        }
 
-        $idsVinculados = array_values(array_filter(array_map(
-            static fn (Processo $p): ?int => $p->getId(),
-            $pasta->getProcessos(),
-        )));
+        try {
+            /** @var \App\Entity\Auth\User $usuario */
+            $usuario = $this->getUser();
+            $itens = $buscarProcessos->executar($pasta, (string) $request->query->get('q', ''), $tenant, $usuario);
+        } catch (PastaDeOutroEscritorioException) {
+            throw $this->createNotFoundException();
+        }
 
-        $processos = $this->processoRepository->buscarPorTermoDoTenant($termo, $tenant, $idsVinculados);
-
-        $results = array_map(fn (Processo $p): array => [
-            'id'   => $p->getId(),
-            'text' => $this->rotuloProcesso($p),
-        ], $processos);
-
-        return $this->json(['results' => $results]);
+        return $this->json(['results' => array_map(static fn (ProcessoParaVincularOutput $item): array => $item->paraJson(), $itens)]);
     }
 
     /**
@@ -1506,17 +1517,6 @@ class PastaController extends AbstractController
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
     }
 
-    private function rotuloProcesso(Processo $processo): string
-    {
-        $partes = array_filter([
-            $processo->getNumeroProcesso(),
-            $processo->getClasseProcessual() ?: $processo->getAssuntoProcessual(),
-            $processo->getSiglaTribunal(),
-        ]);
-
-        return implode(' · ', $partes);
-    }
-
     /**
      * Lê um campo de texto opcional do POST distinguindo AUSENTE de VAZIO: ausente devolve o valor
      * atual (a tela não ofereceu o campo, então não houve decisão do usuário sobre ele); presente e
@@ -1562,13 +1562,15 @@ class PastaController extends AbstractController
         $dto = new EditarPastaDTO(
             nup: (string) $request->request->get('nup', ''),
             nomeCliente: $this->textoOuMantemAtual($request, 'nome_cliente', $pasta->getNomeCliente()),
-            nomeAcao: $this->textoOuMantemAtual($request, 'nome_acao', $pasta->getNomeAcao()),
+            // A Ação NÃO muda por aqui (decisão do dono, 23/10/2026; PZ-MOD-N05): no "Editar dados" ela é só
+            // leitura e "vem do menu Processo" (`pasta_acao_salvar`). Um `nome_acao` no POST é ignorado.
+            nomeAcao: $pasta->getNomeAcao(),
             // A situação NÃO muda por aqui: vai ao mesmo caso de uso da pílula logo abaixo, para sair o
             // cartão "Situação da pasta" e, ao arquivar, o andamento ir a Finalizada.
             situacao: $pasta->getSituacao(),
         );
         try {
-            $this->editarPastaUseCase->executar($dto, $pasta);
+            $this->editarPastaUseCase->executar($dto, $pasta, $currentUser);
         } catch (\InvalidArgumentException $e) {
             $this->addFlash('error', $e->getMessage());
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
@@ -1596,7 +1598,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/responsavel', name: 'pasta_atualizar_responsavel', methods: ['PATCH'])]
-    public function atualizarResponsavel(Pasta $pasta, Request $request, ColaboradoresAtribuiveis $atribuiveis): JsonResponse
+    public function atualizarResponsavel(Pasta $pasta, Request $request, ColaboradoresAtribuiveis $atribuiveis, AlterarResponsavelDaPastaUseCase $alterarResponsavel): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1611,19 +1613,20 @@ class PastaController extends AbstractController
         }
 
         $responsavelId = $request->request->get('responsavel_id');
-
-        if ($responsavelId === '' || $responsavelId === null) {
-            $pasta->setResponsavel(null);
-        } else {
-            $tenant = $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.');
+        $tenant = $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.');
+        $responsavel = null;
+        if ($responsavelId !== '' && $responsavelId !== null) {
             $responsavel = $atribuiveis->resolver((int) $responsavelId, $tenant, [$pasta->getResponsavel()]);
             if ($responsavel === null) {
                 return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
             }
-            $pasta->setResponsavel($responsavel);
         }
-
-        $this->em->flush();
+        // Grava e, só quando mudou, escreve o cartão "Responsável" no Registro (desenho 02, dc L3118).
+        try {
+            $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant);
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         $responsavel = $pasta->getResponsavel();
 
@@ -1734,27 +1737,13 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }
 
-        $resultado = $this->excluirPastaUseCase->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant());
+        $this->excluirPastaUseCase->executar($pasta, $currentUser, $this->tenantContext->getCurrentTenant());
 
-        // Os dois desfechos precisam de mensagens diferentes: a lápide continua existindo e pode
-        // ser aberta (e restaurada), a removida não. Dizer "removida" nos dois casos faria a
-        // pessoa procurar na lixeira uma pasta que está bem ali na lista, riscada.
-        if ($resultado === ResultadoExclusaoPasta::Lapide) {
-            $this->addFlash(
-                'success',
-                sprintf(
-                    'Pasta %s excluída. Ela continua na lista, riscada, porque o número dela não pode '
-                    . 'ser reaproveitado: já existem pastas posteriores.',
-                    $pasta->getNup(),
-                ),
-            );
+        // Toda exclusão vai para a lixeira (lápide restaurável): a pasta continua existindo, então
+        // a volta é para ela, onde estão a faixa de excluída e o botão Restaurar.
+        $this->addFlash('success', sprintf('Pasta %s enviada para a lixeira (restaurável a qualquer momento)', $pasta->getNup()));
 
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-        }
-
-        $this->addFlash('success', 'Pasta removida com sucesso.');
-
-        return $this->redirectToRoute('expediente_index');
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }
 
     #[Route('/{id}/restaurar', name: 'pasta_restaurar', methods: ['POST'])]
@@ -1928,7 +1917,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Pró-Bono ─────────────────────────────────────────────────
 
     #[Route('/{id}/pro-bono', name: 'pasta_atualizar_pro_bono', methods: ['POST'])]
-    public function atualizarProBono(Pasta $pasta, Request $request): JsonResponse
+    public function atualizarProBono(Pasta $pasta, Request $request, AlterarProBonoDaPastaUseCase $alterarProBono): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1947,8 +1936,12 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Valor inválido para pró-bono.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $pasta->setProBono($proBono);
-        $this->em->flush();
+        // Só quando mudou: o cartão "Pró-bono" no Registro (desenho 02, dc L6986).
+        try {
+            $alterarProBono->executar($pasta, $proBono, $currentUser, $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.'));
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         return $this->json(['proBono' => $pasta->isProBono()]);
     }
@@ -2000,7 +1993,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Upload de documento de contrato ──────────────────────────
 
     #[Route('/{id}/financeiro/upload', name: 'pasta_financeiro_upload', methods: ['POST'])]
-    public function financeiroUpload(Pasta $pasta, Request $request): JsonResponse
+    public function financeiroUpload(Pasta $pasta, Request $request, DetectorDeAssinaturaDigital $detectorDeAssinatura): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -2044,6 +2037,7 @@ class PastaController extends AbstractController
 
         // Hash do upload ANTES de mover; recalculado pela chave só se a compressão trocar o binário.
         $sha256 = Sha256DeArquivo::deArquivoLocal($file->getPathname());
+        $assinado = $detectorDeAssinatura->arquivoAssinado($file->getPathname(), $file->getClientOriginalName(), $mimeType);
 
         $armazenado = $upload->gravarEm($this->armazenamento, ChavesDePasta::novoDocumento($doc, $upload->extensao));
         $nomeUnico  = $armazenado->chave->nome;
@@ -2067,6 +2061,7 @@ class PastaController extends AbstractController
         $doc->setMimeType($mimeType);
         $doc->setTamanhoBytes($tamanhoFinal);
         $doc->setSha256($sha256);
+        $doc->marcarAssinaturaDoUpload($assinado, $compressao !== null && $compressao->comprimido, $currentUser);
 
         $this->em->persist($doc);
         $this->em->flush();
@@ -2087,6 +2082,8 @@ class PastaController extends AbstractController
             'urlDownload'   => $this->generateUrl('pasta_financeiro_documento_download', ['id' => $pastaId, 'docId' => $doc->getId()]),
             'csrfRenomear' => $this->csrfTokenManager->getToken('pasta_financeiro_renomear_' . $doc->getId())->getValue(),
             'csrfExcluir'  => $this->csrfTokenManager->getToken('pasta_financeiro_excluir_' . $doc->getId())->getValue(),
+            'csrfAssinatura' => $this->csrfTokenManager->getToken('pasta_financeiro_assinatura_' . $doc->getId())->getValue(),
+            'assinatura'     => $doc->getAssinaturaOrigem()?->value, // null = sem o selo "Assinado"
             'compressao'   => $compressao !== null ? [
                 'comprimido'      => $compressao->comprimido,
                 'tamanhoOriginal' => $compressao->tamanhoOriginal,

@@ -16,6 +16,7 @@ use App\Cobranca\Entity\RelatorioImportado;
 use App\Cobranca\Entity\RelatorioLinha;
 use App\Cobranca\Entity\RelatorioTotalizador;
 use App\Djen\Entity\OabMonitorada;
+use App\Djen\Entity\ProcessoAcompanhado;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Audit\AuditLog;
 use App\Expediente\Entity\Marcador;
@@ -35,6 +36,7 @@ use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\Auditavel;
+use App\Shared\EspelhoRemoto\Entity\ReplicacaoDeArquivo;
 use App\Termo\Entity\AceiteTermo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -63,6 +65,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,
+        // "Acompanhar alterações" desligado: preferência pessoal de aviso, mesma natureza do favorito.
+        \App\Pasta\Entity\PastaAcompanhamentoDesligado::class,
         // Destaque de linha da Lista (E12): cor pessoal de quem olha, mesma natureza do favorito.
         \App\Pasta\Entity\PastaDestaque::class,
         // Estrela de arquivo/subpasta na aba Documentos (D2): mesma natureza do favorito de pasta.
@@ -70,11 +74,26 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Cobrança automática do checklist (desenho 02): estado operacional da rotina (datas dos envios,
         // previsão); cada aviso que sai já fica na caixa da pessoa. Auditar daria uma linha por dia por item.
         \App\Pasta\Entity\PastaChecklistCobranca::class,
+        // Contador da sequência de metas do escritório: estado operacional (o último número entregue), gravado
+        // só por SQL. O número que vale fica na própria meta, que é Auditavel e já entra na trilha ao nascer.
+        \App\Tarefa\Entity\NumeracaoDeMetas::class,
+        // Evento do monitor de saúde (Desempenho do Master): telemetria com retenção de 90 dias, uma linha por erro,
+        // carga, ping ou login. Auditar encheria o audit_log de ruído sem valor de prova; incidentes e registros
+        // de backup, que são decisão do Master, são Auditavel.
+        \App\Master\Entity\EventoDeDesempenho::class,
+        // Aprendizado de Minhas Metas (Fase 4, D4): texto de despacho e linhas de pendência guardados só para as
+        // sugestões da própria pessoa. Auditar daria uma linha por despacho e deixaria metadados no audit_log depois do
+        // "Apagar o que foi aprendido"; o ato que importa (o despacho, a passagem) já é auditado na meta.
+        \App\Tarefa\Entity\AprendizadoDoDespacho::class,
+        \App\Tarefa\Entity\AprendizadoDaPendencia::class,
 
         // Preferência pessoal de tela (densidade, animações, setas, colunas ocultas do Dashboard):
         // estilo de quem olha, sem efeito sobre dado nenhum do escritório. Auditar cada clique no
         // menu ⋮ encheria o audit_log de ruído sem valor de prova.
         \App\Dashboard\Entity\PreferenciaDoUsuario::class,
+
+        // Resumo diário por e-mail: a trava do envio (uma linha por pessoa e dia); o próprio envio fica em comercial_envio.
+        \App\Profile\Entity\ResumoDiarioEnvio::class,
 
         // Saída da equipe: o próprio registro já é a trilha (só inclusão, nunca alterado), e a remoção que o
         // cria já entra no audit_log (RemoverColaboradorDoEscritorioUseCase::registrarAuditoria).
@@ -112,6 +131,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\CampanhaDeEmail::class,
         \App\Comercial\Entity\DestinoDaCampanha::class,
         \App\Comercial\Entity\ControleDoExpansor::class,
+        // Marcas do Relatório (comercial-marcas.md): estrela, arquivo e "remover" de cada Master, só organizam a lista
+        // dele e não mudam campanha nem envio. O que importa já tem trilha manual (camp_csv na exportação).
+        \App\Comercial\Entity\CampanhaMarca::class,
+        // Imagem da campanha do modo simples (comercial-e-emails.md §12, F3i): a própria linha diz quem enviou e quando, e
+        // a validade é renovada pelo worker, sem sessão (não há autor).
+        \App\Comercial\Entity\ImagemDaCampanha::class,
         // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
         // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
         // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.
@@ -127,6 +152,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Indicacao\Entity\IndicacaoConfig::class,
         \App\Indicacao\Entity\IndicacaoPausa::class,
         \App\Indicacao\Entity\IndicacaoAlerta::class,
+        // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md D1, D3): dado de plataforma,
+        // lido e gravado só pelo Master, fora do audit_log por escritório. O estado é marcador pessoal de leitura
+        // (lida, estrela, arquivada), como a PastaTimelineVisita; a resposta é ela própria o registro (quem, quando,
+        // canal e destino), nunca editada.
+        \App\Master\Entity\CentralMasterEstado::class,
+        \App\Master\Entity\CentralMasterResposta::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,
@@ -172,12 +203,17 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\ConexaoGoogleAgenda::class,
         \App\Agenda\Entity\LigacaoComGoogle::class,
         \App\Agenda\Entity\PrazoNoGoogle::class,
+        \App\Agenda\Entity\DataNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber
         // gravaria o texto da pergunta no audit_log, que quem administra o escritório lê (mesmo motivo da Central).
         // A análise da pergunta continua auditada, sem o texto do modelo (ConteudoParticular).
         \App\Inteligencia\Entity\PerguntaDaConversa::class,
+        // Histórico do status das questões jurídicas da IA (Master): é o LOG DE DOMÍNIO da questão (de, para, quem,
+        // quando), nunca editado, como o HistoricoDemanda. O estado da questão (EstadoDaQuestaoJuridica) É auditado.
+        // Auditar o histórico seria log de log.
+        \App\Inteligencia\Entity\MudancaDeStatusDaQuestaoJuridica::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
@@ -235,6 +271,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // PublicacaoDjen é captada em lote pelo sync (alto volume); OabMonitorada é config do escritório.
         OabMonitorada::class,
         PublicacaoDjen::class,
+        // ProcessoAcompanhado é anotação do Push (observação, área, fase) e número incluído à mão.
+        ProcessoAcompanhado::class,
 
         // Cobranças — EventoHistorico é o LOG DE DOMÍNIO (linha do tempo operacional, SPEC §13):
         // histórico de negócio visível ao usuário, distinto da auditoria técnica (invariável 26).
@@ -257,6 +295,14 @@ final class AuditavelCoberturaTest extends KernelTestCase
         RelatorioLinha::class,
         RelatorioTotalizador::class,
 
+        // Outbox da réplica do espelho no R2 (P2.3, spec `p2-gravacao-dupla.md` §3.2/§14): o mapeamento
+        // existe só para o Doctrine conhecer a tabela. Toda escrita é por DBAL (`OutboxDeReplicacao`),
+        // então o listener do ORM nunca a veria: `Auditavel` seria promessa vazia. Auditar ainda
+        // copiaria `nome`/`chave_remota` (nome de pessoa nos legados) para o audit_log, o oposto da
+        // retenção pedida na decisão I4. O próprio estado da linha (tentativas, erro com nome e chave
+        // mascarados quando aparecem literais) é o registro da réplica.
+        ReplicacaoDeArquivo::class,
+
         // Trabalho Externo (spec docs/specs/trabalho-externo.md): domínio novo, mesma decisão de
         // Processo/Cliente/DJEN. A demanda já tem o LOG DE DOMÍNIO próprio (HistoricoDemanda: de, para,
         // quem, quando, motivo; e os registros de sistema no chat), visível a quem atende, como o
@@ -267,6 +313,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\TrabalhoExterno\Entity\LeituraDemanda::class,
         \App\TrabalhoExterno\Entity\PropostaDemanda::class,
         \App\TrabalhoExterno\Entity\DocumentoDemanda::class,
+        // Despachos e respostas da Central: já ficam registrados no chat da demanda (mensagem de sistema) e
+        // têm assinatura eletrônica com código; auditar seria log de log.
+        \App\TrabalhoExterno\Entity\DespachoDemanda::class,
+        // Recusa de oferta: já deixa rastro no histórico da vaga ("Oferta recusada por"); auditar seria log de log.
+        \App\TrabalhoExterno\Entity\RecusaDeOferta::class,
         \App\TrabalhoExterno\Entity\ConviteDemanda::class,
         \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
         \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,
@@ -285,6 +336,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // consentimento (data e versão do texto), que é o registro que a LGPD pede.
         \App\TrabalhoExterno\Entity\LinkDeVagas::class,
         \App\TrabalhoExterno\Entity\InteressadoEmVagas::class,
+        // Contadores anônimos da página pública (spec VS 18.10.26 §4.9): somados por UPSERT a cada visita
+        // e clique, sem ator nem dado pessoal. Auditar seria uma linha de log por visita anônima.
+        \App\TrabalhoExterno\Entity\MetricaPublica::class,
         // Currículo do banco de talentos (spec VS 18.10.26 §4.5): é dado pessoal do candidato, que pode
         // excluí-lo a qualquer momento (LGPD). Auditar copiaria nome, contato e resumo para o audit_log
         // do escritório de quem age, e a cópia sobreviveria à exclusão pedida pelo titular. O registro de
@@ -294,6 +348,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // para o LOG DE DOMÍNIO da vaga (HistoricoVaga) e cada etapa guarda a própria data; é dado do
         // candidato, que some com o currículo excluído (LGPD), pelo mesmo motivo do Curriculo acima.
         \App\TrabalhoExterno\Entity\Candidatura::class,
+        // Falha de tarefa agendada (spec scheduler-tarefas-agendadas): gravada pelo agendador, sem sessão nem
+        // escritório, e o audit_log é por escritório. A própria linha guarda quem dispensou e quando.
+        \App\Shared\Scheduler\Entity\FalhaAgendada::class,
     ];
 
     private EntityManagerInterface $em;

@@ -86,6 +86,9 @@ final class MontarPaginaDoContribuaUseCase
             'uso' => RetratoDoEspaco::formatarGb($r->bytesUsados),
             'limite' => $r->bytesLimite === null ? 'sem limite' : RetratoDoEspaco::formatarGb($r->bytesLimite),
             'plano' => $r->planoNome,
+            // "Inclui 5 GB de bônus até dd/mm/aaaa": só com bônus vigente (o texto vem por tradução).
+            'bonusGb' => $r->bytesBonus > 0 ? intdiv($r->bytesBonus, RetratoDoEspaco::BYTES_POR_GB) : null,
+            'bonusAte' => $r->bytesBonus > 0 ? $r->bonusAte?->format('d/m/Y') : null,
             'percentual' => $pct,
             'largura' => min(100, $pct) . '%',
         ];
@@ -98,7 +101,8 @@ final class MontarPaginaDoContribuaUseCase
      */
     private static function pacotes(array $planos, RetratoDoEspaco $r): array
     {
-        $limiteGb = $r->bytesLimite === null ? PHP_INT_MAX : intdiv($r->bytesLimite, RetratoDoEspaco::BYTES_POR_GB);
+        // Os pacotes se comparam com o limite BASE (sem o bônus de 30 dias): o bônus não esconde nem desabilita plano pago.
+        $limiteGb = $r->bytesLimite === null ? PHP_INT_MAX : intdiv($r->bytesLimite - $r->bytesBonus, RetratoDoEspaco::BYTES_POR_GB);
         $usoGb = $r->bytesUsados / RetratoDoEspaco::BYTES_POR_GB;
         // Sem limite não há o que ampliar: nenhum cartão aparece como recomendado.
         $recomendado = $r->bytesLimite === null ? null : self::recomendado($planos, $limiteGb, $usoGb);
@@ -148,6 +152,11 @@ final class MontarPaginaDoContribuaUseCase
             'recomendado' => $topo,
             'atual' => $atual,
             'desabilitado' => $desabilitado,
+            // Selo do convênio OAB: só no plano gratuito, o que o convênio dá sem custo.
+            'oab' => $p->ehGratuito(),
+            // Nuvem "+ Espaço": só nos pagos que ampliam o espaço de hoje; verde no recomendado.
+            'temNuvem' => !$p->ehGratuito() && !$atual && !$menor,
+            'nuvemRecomendada' => $topo,
             'botao' => $atual ? 'Seu plano atual' : ($p->ehGratuito() ? 'Incluído' : ($menor ? 'Menor que o atual' : 'Quero +' . $ganho . ' GB')),
         ];
     }

@@ -7,11 +7,14 @@ namespace App\Tests\Contribua\Unit;
 use App\Contribua\DTO\RetratoDoEspaco;
 use App\Contribua\DTO\Solicitante;
 use App\Contribua\Entity\Apoio;
+use App\Contribua\Entity\BonusDeEspaco;
+use App\Indicacao\Entity\Indicacao;
 use App\Contribua\Entity\ConfiguracaoDoEspaco;
 use App\Contribua\Entity\Plano;
 use App\Contribua\Event\EspacoFoiPedido;
 use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Repository\ApoioRepository;
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
@@ -37,6 +40,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Clock\MockClock;
 
 #[CoversClass(RegistrarApoioUseCase::class)]
 #[CoversClass(RegistrarMotivoDeNaoApoiarUseCase::class)]
@@ -66,6 +70,15 @@ final class AcoesDoContribuaUseCaseTest extends TestCase
         $motivos->expects(self::never())->method('salvar');
 
         (new RegistrarMotivoDeNaoApoiarUseCase($motivos, $this->aviso(), $this->urls()))->executar($this->quem(primario: false), 'Sem orçamento agora');
+    }
+
+    #[TestDox('Pedir espaço com bônus vigente: compara com o limite base (Free 10 + 15 de bônus = 25, e o Essencial de 20 GB ainda é pedível)')]
+    public function testPedirEspacoComBonusComparaComABase(): void
+    {
+        $eventos = new EventosDoEspacoAposConfirmar($this->createStub(EventDispatcherInterface::class));
+        $useCase = new PedirEspacoUseCase($this->planos(), $this->situacao(comBonus: true), $this->aviso(), $this->urls(), $eventos);
+
+        self::assertSame(PedirEspacoUseCase::PEDIDO_REGISTRADO, $useCase->executar($this->quem(primario: true), 'essencial'));
     }
 
     #[TestDox('Pedir espaço: secundário é recusado; Free é recusado; plano maior vai para a lista de espera')]
@@ -115,14 +128,19 @@ final class AcoesDoContribuaUseCaseTest extends TestCase
         return $planos;
     }
 
-    private function situacao(): SituacaoDoEspaco
+    private function situacao(bool $comBonus = false): SituacaoDoEspaco
     {
         $consumo = $this->createStub(ConsumoDeArmazenamentoRepository::class);
         $consumo->method('bytesDoEscritorio')->willReturn(RetratoDoEspaco::BYTES_POR_GB);
         $configuracoes = $this->createStub(ConfiguracaoDoEspacoRepository::class);
         $configuracoes->method('atual')->willReturn(new ConfiguracaoDoEspaco());
 
-        return new SituacaoDoEspaco($consumo, $this->createStub(EspacoDoEscritorioRepository::class), $this->planos(), $configuracoes);
+        $bonus = $this->createStub(BonusDeEspacoRepository::class);
+        if ($comBonus) {
+            $bonus->method('vigentesDosTenants')->willReturn([7 => [new BonusDeEspaco(new Tenant(), (new \ReflectionClass(Indicacao::class))->newInstanceWithoutConstructor(), 15, new \DateTimeImmutable('-1 day'), new \DateTimeImmutable('+29 days'))]]);
+        }
+
+        return new SituacaoDoEspaco($consumo, $this->createStub(EspacoDoEscritorioRepository::class), $this->planos(), $configuracoes, $bonus, new MockClock());
     }
 
     private function aviso(): AvisoAoMaster

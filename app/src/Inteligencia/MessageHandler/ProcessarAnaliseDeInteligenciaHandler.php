@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Inteligencia\MessageHandler;
 
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
+use App\Inteligencia\Exception\ArmazenamentoIndisponivelException;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
+use App\Inteligencia\Exception\DocumentoIlegivelException;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 use App\Inteligencia\Exception\RespostaInvalidaException;
@@ -22,10 +25,12 @@ use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Pasta\Entity\Pasta;
 use App\Service\NotificacaoService;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -105,16 +110,9 @@ final class ProcessarAnaliseDeInteligenciaHandler
             return;
         }
 
-        if (!in_array($analise->getStatus(), [StatusDaAnalise::Pendente, StatusDaAnalise::Falhou], true)) {
-            return; // já processada ou em curso por outro worker — idempotente
+        if (!$this->reservar($analise)) {
+            return;
         }
-
-        if ($analise->estaExcluida()) {
-            return; // excluída antes de processar: não gastar cota com o que ninguém vai ler
-        }
-
-        $analise->iniciarProcessamento();
-        $this->em->flush();
 
         if (!$this->aindaDisponivel($analise, $tenant)) {
             return;
@@ -134,21 +132,8 @@ final class ProcessarAnaliseDeInteligenciaHandler
             return;
         }
 
-        try {
-            $pedido = $fluxo->preparar($analise, $tenant, $pasta);
-        } catch (ContextoBloqueadoException $e) {
-            $this->falhar($analise, 'contexto bloqueado: ' . $e->getMessage());
-
-            return;
-        } catch (\LogicException $e) {
-            $this->falhar($analise, 'análise inconsistente: ' . $e->getMessage());
-
-            return;
-        }
-
+        $pedido = $this->preparar($fluxo, $analise, $tenant, $pasta);
         if ($pedido === null) {
-            $this->falhar($analise, $fluxo->motivoDeContextoVazio());
-
             return;
         }
 
@@ -163,28 +148,15 @@ final class ProcessarAnaliseDeInteligenciaHandler
 
             throw new UnrecoverableMessageHandlingException($e->getMessage(), 0, $e);
         } catch (FalhaDoProvedorException $e) {
-            $motivo = sprintf('%s: %s', $e->transitoria ? 'falha transitória' : 'falha definitiva', $e->getMessage());
-
-            if ($e->transitoria && $analise->getTentativas() < self::TENTATIVAS_MAXIMAS) {
-                // Ainda há retentativa à frente: a linha volta à fila e continua "em andamento".
-                $analise->devolverParaFila($motivo);
-                $this->em->flush();
-                $this->logger->warning('Análise {analise}: falha transitória no provedor, de volta à fila (tentativa {tentativas} de {max}).', $this->contexto($analise) + [
-                    'max' => self::TENTATIVAS_MAXIMAS,
-                ]);
-
-                throw $e; // Messenger faz o retry
+            if ($e->transitoria) {
+                $this->falhaTransitoria($analise, $e, 'provedor', $e->esperarSegundos);
             }
 
-            $this->falhar($analise, $motivo);
+            $this->falhar($analise, 'falha definitiva: ' . $e->getMessage());
             $this->logger->warning('Análise {analise} falhou no provedor ({classe}, transitória: {transitoria}).', $this->contexto($analise) + [
                 'classe' => $e::class,
-                'transitoria' => $e->transitoria ? 'sim' : 'não',
+                'transitoria' => 'não',
             ]);
-
-            if ($e->transitoria) {
-                throw $e; // última tentativa: o Messenger leva para `failed`
-            }
 
             throw new UnrecoverableMessageHandlingException($e->getMessage(), 0, $e);
         }
@@ -224,6 +196,31 @@ final class ProcessarAnaliseDeInteligenciaHandler
     }
 
     /**
+     * Reserva a linha para este worker: trava a linha (SELECT ... FOR UPDATE), relê o status e só então passa a
+     * `processando`. Sem a trava, uma mensagem reentregue ou dois workers liam `pendente` ao mesmo tempo e os dois
+     * chamavam o provedor, que cobra as duas vezes. O segundo espera o primeiro gravar e encontra `processando`.
+     */
+    private function reservar(AnaliseDeInteligencia $analise): bool
+    {
+        return $this->em->wrapInTransaction(function () use ($analise): bool {
+            $this->em->refresh($analise, LockMode::PESSIMISTIC_WRITE);
+
+            if (!in_array($analise->getStatus(), [StatusDaAnalise::Pendente, StatusDaAnalise::Falhou], true)) {
+                return false; // já processada ou em curso por outro worker — idempotente
+            }
+
+            if ($analise->estaExcluida()) {
+                return false; // excluída antes de processar: não gastar cota com o que ninguém vai ler
+            }
+
+            $analise->iniciarProcessamento();
+            $this->em->flush();
+
+            return true;
+        });
+    }
+
+    /**
      * IA-034L: desligar a IA (plataforma, escritório ou permissão de quem pediu) corta também o que
      * já está na fila. A pergunta é a mesma da solicitação, sem a cota — esta análise já foi
      * contada quando entrou na fila. Indisponível → a linha termina com o motivo e o provedor NÃO
@@ -256,6 +253,71 @@ final class ProcessarAnaliseDeInteligenciaHandler
         $this->falhar($analise, $motivo);
 
         return false;
+    }
+
+    /**
+     * O pedido ao provedor, ou null quando a análise já terminou aqui (`falhou` com o motivo): contexto vazio,
+     * sigilo, documento que não pode ser lido (PR F) ou análise inconsistente. Armazenamento fora do ar ao ler um
+     * documento (PR F) é transitório: volta à fila como a falha de rede do provedor.
+     */
+    private function preparar(FluxoDeAnalise $fluxo, AnaliseDeInteligencia $analise, Tenant $tenant, Pasta $pasta): ?PedidoDeLinguagem
+    {
+        try {
+            $pedido = $fluxo->preparar($analise, $tenant, $pasta);
+        } catch (ContextoBloqueadoException $e) {
+            $this->falhar($analise, 'contexto bloqueado: ' . $e->getMessage());
+
+            return null;
+        } catch (DocumentoIlegivelException $e) {
+            $this->falhar($analise, $e->getMessage());
+
+            return null;
+        } catch (ArmazenamentoIndisponivelException $e) {
+            $this->falhaTransitoria($analise, $e, 'armazenamento', null);
+        } catch (\LogicException $e) {
+            $this->falhar($analise, 'análise inconsistente: ' . $e->getMessage());
+
+            return null;
+        }
+
+        if ($pedido === null) {
+            $this->falhar($analise, $fluxo->motivoDeContextoVazio());
+        }
+
+        return $pedido;
+    }
+
+    /**
+     * Falha que repetir pode resolver (rede/5xx/429 do provedor, I/O do armazenamento). Com retentativa à frente,
+     * a linha volta à fila e continua "em andamento"; na última, falha e o Messenger leva a mensagem a `failed`.
+     */
+    private function falhaTransitoria(AnaliseDeInteligencia $analise, \RuntimeException $e, string $onde, ?int $esperarSegundos): never
+    {
+        $motivo = 'falha transitória: ' . $e->getMessage();
+
+        if ($analise->getTentativas() < self::TENTATIVAS_MAXIMAS) {
+            $analise->devolverParaFila($motivo);
+            $this->em->flush();
+            $this->logger->warning('Análise {analise}: falha transitória no ' . $onde . ', de volta à fila (tentativa {tentativas} de {max}).', $this->contexto($analise) + [
+                'max' => self::TENTATIVAS_MAXIMAS,
+            ]);
+
+            if ($esperarSegundos !== null) {
+                // O provedor disse quando voltar: re-tenta depois disso, não no atraso padrão do transport. O
+                // limite de tentativas continua sendo o contador da linha (a recuperável não respeita max_retries).
+                throw new RecoverableMessageHandlingException($e->getMessage(), 0, null, $esperarSegundos * 1000);
+            }
+
+            throw $e; // Messenger faz o retry
+        }
+
+        $this->falhar($analise, $motivo);
+        $this->logger->warning('Análise {analise} falhou no ' . $onde . ' ({classe}, transitória: {transitoria}).', $this->contexto($analise) + [
+            'classe' => $e::class,
+            'transitoria' => 'sim',
+        ]);
+
+        throw $e; // última tentativa: o Messenger leva para `failed`
     }
 
     private function falhar(AnaliseDeInteligencia $analise, string $motivo, ?string $textoBruto = null): void

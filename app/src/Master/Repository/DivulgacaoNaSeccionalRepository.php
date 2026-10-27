@@ -14,6 +14,10 @@ use Doctrine\Persistence\ManagerRegistry;
  * PLATAFORMA (ver {@see DivulgacaoNaSeccional}), lida e gravada só pelos UseCases do Master.
  *
  * @extends ServiceEntityRepository<DivulgacaoNaSeccional>
+ *
+ * OBSOLETO desde a Version20261020149500 (desenho 05 inteiro): a divulgação virou a marca da UF na própria
+ * SeccionalOab (status, cor e data). Nada mais lê nem grava aqui; a tabela `master_divulgacao_seccional` fica no
+ * banco até a limpeza combinada com o dono (o DROP vai nessa limpeza, não agora).
  */
 class DivulgacaoNaSeccionalRepository extends ServiceEntityRepository
 {

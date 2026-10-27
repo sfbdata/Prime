@@ -136,7 +136,7 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         PastaFactory::createMany(2, ['tenant' => $tenant, 'criadoPor' => $gestora]);
         PastaFactory::createMany(3, ['tenant' => $tenant, 'criadoPor' => $outro]);
 
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
 
         self::assertResponseIsSuccessful();
 
@@ -240,7 +240,7 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         self::assertCount(1, $crawler->filter('.db-page [data-filtro-root] > .db-print-rodape'));
 
         // sem datas: período aberto
-        $crawler = $client->request('GET', '/dashboard');
+        $crawler = $client->request('GET', '/dashboard?data_de=&data_ate=');
         self::assertSame('início a hoje', trim($crawler->filter('.db-print-cabecalho .db-print-periodo')->text()));
     }
 
@@ -283,7 +283,7 @@ final class DashboardArranjoTelaTest extends DashboardWebTestCase
         self::assertResponseIsSuccessful();
         $titulo = $crawler->filter('.db-page [data-filtro-root] > h1.db-titulo');
         self::assertSame(1, $titulo->count());
-        self::assertSame('Dashboard', trim($titulo->text()));
+        self::assertSame('Painel do Escritório', trim($titulo->text()));
         self::assertSame(0, $titulo->filter('i')->count(), 'O desenho mostra o título sem ícone');
 
         // O estilo subiu para public/css/dashboard.css: nada inline na casca.

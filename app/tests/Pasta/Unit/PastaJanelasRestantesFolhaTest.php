@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -92,7 +93,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         self::assertMatchesRegularExpression('/<div class="ps-obs-menu" id="psObsMenu\$\{data\.id\}" role="menu" hidden>\s*<div class="ps-processo-menu-titulo">/', $obs, 'o molde do JS');
         self::assertMatchesRegularExpression('/<div class="ps-obs-menu" id="psObsMenu\{\{ obs\.id \}\}" role="menu" hidden>\s*<div class="ps-processo-menu-titulo">/', $obs, 'o do servidor');
         self::assertMatchesRegularExpression(
-            '/<div class="pasta-resp-menu" id="pastaRespMenu" hidden(\{% if not naPasta %\} role="dialog" aria-label="Escolher responsável"\{% endif %\})?>\s*(\{#.*?#\}\s*)?<div class="pasta-resp-busca-wrap">/s',
+            '/<div class="pasta-resp-menu" id="pastaRespMenu" hidden(\{% if not naPasta %\} role="dialog" aria-label="\{\{ \'pasta_resp\.resp\.escolher\'\|trans \}\}"\{% endif %\})?>\s*(\{#.*?#\}\s*)?<div class="pasta-resp-busca-wrap">/s',
             self::ler(self::RESP_MENU),
         );
 
@@ -142,6 +143,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
     public function testCabecalhoSemConfirmNemAlert(): void
     {
         $cab = self::ler(self::CABECALHO);
+        $catalogo = CatalogoPtBr::carregar()['pasta_cabecalho'];
 
         // Restaurar: o form não pergunta no onsubmit; o script segura e pergunta na janela.
         $form = self::trecho($cab, "<form method=\"post\" action=\"{{ path('pasta_restaurar'", '</form>');
@@ -150,27 +152,32 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         $restaurar = self::trecho($cab, "var form = document.querySelector('form.js-restaurar-pasta');", '})();');
         self::assertStringContainsString('e.preventDefault();', $restaurar);
         self::assertStringContainsString('window.confirmarPs({', $restaurar);
-        self::assertStringContainsString("titulo: 'Restaurar a pasta ' + form.dataset.nup + '?',", $restaurar);
+        self::assertStringContainsString("titulo: BJ_T.t('pasta_cabecalho.js.cabecalho.restaurar_pergunta', { nup: form.dataset.nup }),", $restaurar);
+        self::assertSame('Restaurar a pasta {nup}?', $catalogo['js']['cabecalho']['restaurar_pergunta']);
         self::assertStringContainsString('if (sim) { form.submit(); }', $restaurar);
         self::assertStringNotContainsString('confirm(', str_replace('confirmarPs(', '', $restaurar));
 
         // Excluir: o prompt fica (é o do desenho); o número errado vira o aviso da tela.
         $excluir = self::trecho($cab, 'class="js-excluir-pasta"', '</form>');
-        self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.');", $excluir);
+        self::assertStringContainsString("window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans|e('js') }}');", $excluir);
+        self::assertSame('Número não confere. A pasta não foi excluída.', $catalogo['cabecalho']['menu']['excluir_nao_confere']);
         self::assertStringNotContainsString('alert(', $excluir);
         self::assertStringContainsString('window.prompt(', $excluir, 'o prompt é o do desenho (dc L.4335) e fica');
 
         // Favoritos: as duas falhas pelo aviso.
         $fav = self::trecho($cab, "var item = document.querySelector('.js-pasta-favorito');", '})();');
         self::assertStringContainsString("if (window.avisarPs) { window.avisarPs(mensagem, 'erro'); }", $fav);
-        self::assertStringContainsString("avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || 'Não foi possível alterar os favoritos.');", $fav);
-        self::assertStringContainsString(".catch(function () { avisarErro('Erro de comunicação. Tente novamente.'); })", $fav);
+        self::assertStringContainsString("avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || BJ_T.t('pasta_cabecalho.js.cabecalho.favoritos_erro'));", $fav);
+        self::assertStringContainsString(".catch(function () { avisarErro(BJ_T.t('pasta_cabecalho.js.cabecalho.erro_comunicacao')); })", $fav);
+        self::assertSame('Não foi possível alterar os favoritos.', $catalogo['js']['cabecalho']['favoritos_erro']);
+        self::assertSame('Erro de comunicação. Tente novamente.', $catalogo['js']['cabecalho']['erro_comunicacao']);
         self::assertStringNotContainsString('alert(', $fav);
 
         // O Duplicar era o confirm do desenho de 05/10 (L.4324); o de 13/10 o passou para a janela
         // azul (`confirmarUI`, L.4511) — E7: `data-ps-cf`, com o confirm só de reserva.
         self::assertStringContainsString('class="js-duplicar-pasta" data-nup="{{ pasta.nup }}"', $cab);
-        self::assertStringContainsString("data-ps-cf=\"{{ 'Duplicar a pasta ' ~ pasta.nup ~ '? A cópia leva", $cab);
+        self::assertStringContainsString("data-ps-cf=\"{{ 'pasta_cabecalho.cabecalho.menu.duplicar_confirmar'|trans({nup: pasta.nup}) }}\"", $cab);
+        self::assertStringStartsWith('Duplicar a pasta {nup}? A cópia leva', $catalogo['cabecalho']['menu']['duplicar_confirmar']);
         self::assertStringContainsString('onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);"', $cab);
     }
 
@@ -180,8 +187,11 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         $show = self::ler(self::SHOW);
         $bloco = self::trecho($show, "var gatilho = e.target.closest('.js-pe-ir');", '}());');
         self::assertStringNotContainsString('window.confirm(', $bloco);
-        self::assertStringContainsString("titulo: 'Descartar as alterações?',", $bloco);
-        self::assertStringContainsString("rotulo: 'Descartar',", $bloco);
+        self::assertStringContainsString("titulo: BJ_T.t('pasta_show.js.editar.descartar_titulo'),", $bloco);
+        self::assertStringContainsString("rotulo: BJ_T.t('pasta_show.js.editar.descartar'),", $bloco);
+        $editar = CatalogoPtBr::carregar()['pasta_show']['js']['editar'];
+        self::assertSame('Descartar as alterações?', $editar['descartar_titulo']);
+        self::assertSame('Descartar', $editar['descartar']);
         // Com o "sim": desfaz, reconfere e só então segue para o destino.
         $sim = self::trecho($bloco, '}).then(function (sim) {', '});');
         self::assertLessThan(strpos($sim, 'seguir();'), strpos($sim, 'form.reset();'));

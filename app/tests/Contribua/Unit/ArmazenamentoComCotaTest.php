@@ -15,6 +15,7 @@ use App\Contribua\Event\EspacoAtingiuFaixa;
 use App\Contribua\Event\UsoDoEspacoSubiu;
 use App\Contribua\Event\EventosDoEspacoAposConfirmar;
 use App\Contribua\Exception\EspacoEsgotado;
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Repository\ConsumoDeArmazenamentoRepository;
 use App\Contribua\Repository\EspacoDoEscritorioRepository;
@@ -35,6 +36,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Event\ConsoleTerminateEvent;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\Clock\MockClock;
 
 #[CoversClass(ArmazenamentoComCota::class)]
 #[CoversClass(EspacoAtingiuFaixa::class)]
@@ -213,7 +215,7 @@ final class ArmazenamentoComCotaTest extends TestCase
             $espaco->definirLimite($cotaGb, false, 'teste', null);
             $espacos->method('doTenant')->willReturn($espaco);
         }
-        $situacao = new SituacaoDoEspaco($consumo, $espacos, $planos, $configuracoes);
+        $situacao = new SituacaoDoEspaco($consumo, $espacos, $planos, $configuracoes, $this->createStub(BonusDeEspacoRepository::class), new MockClock());
 
         $despachante = $this->createStub(EventDispatcherInterface::class);
         $despachante->method('dispatch')->willReturnCallback(function (object $evento): object {

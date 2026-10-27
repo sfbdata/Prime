@@ -1,0 +1,37 @@
+{# Temas comemorativos (spec docs/specs/temas-comemorativos.md; desenho docs/design/perfis-1.2/vs-21-10-26/bj-tema.js).
+   Incluído por layout/_globais.html.twig, que o base só inclui com usuário logado, e pelas telas de entrada
+   (security/login.html.twig, anônimo também, e security/entrando.html.twig).
+   Com tema ativo: as cores pelas variáveis CSS (cabeçalho, primária do Bootstrap e links), a fita do topo, o selo
+   com a mensagem e o botão redondo que o substitui depois de fechado. Os ícones flutuando no cabeçalho
+   (#mainHeader) e o "visto" do dia (localStorage bj-tema-visto-{id}-{AAAA-MM-DD}) são do public/js/tema-comemorativo.js.
+   Sem tema ativo, nada é injetado, nem CSS. Exceção: para o Master vai só o script com o catálogo
+   (data-catalogo), porque a prévia do card de controle mora no navegador dele e pode estar valendo.
+   O CSS vem aqui, no body (rel=stylesheet é permitido no body), para não mexer no base.
+   As telas de entrada incluem este parcial com bjtSemSelo: cores, fita e ícones na tarja,
+   sem o selo nem o botão redondo, como o aplicar() do desenho 10 VS 24.10.26 (sai antes do selo no Login). #}
+{% set bjtSemSelo = bjtSemSelo ?? false %}
+{% set bjtTema = tema_comemorativo() %}
+{% set bjtCatalogo = tema_comemorativo_previa() %}
+{% if bjtTema or bjtCatalogo %}
+{% set bjtSemAnim = animacoes_reduzidas() %}
+<div id="bjtTema" hidden
+     data-tema="{{ bjtTema|json_encode|e('html_attr') }}"
+     {% if bjtCatalogo %}data-catalogo="{{ bjtCatalogo|json_encode|e('html_attr') }}"{% endif %}
+     data-css="{{ asset('css/tema-comemorativo.css') }}"
+     data-reduzidas="{{ bjtSemAnim ? '1' : '0' }}"{% if bjtSemSelo %} data-sem-selo="1"{% endif %}></div>
+{% if bjtTema %}
+<link rel="stylesheet" href="{{ asset('css/tema-comemorativo.css') }}" id="bjtCssArquivo">
+<style id="bjtCss">html:root{--bjt-p:{{ bjtTema.p }};--bjt-d:{{ bjtTema.d }};--bjt-l:{{ bjtTema.l }};--bjt-fita:{{ bjtTema.fita }};--header-bg:{{ bjtTema.p }};--header-avatar-fg:{{ bjtTema.p }};--bs-primary:{{ bjtTema.p }};--bs-primary-rgb:{{ bjtTema.pRgb }}}html:root:not([data-bs-theme=dark]){--bs-link-color:{{ bjtTema.p }};--bs-link-color-rgb:{{ bjtTema.pRgb }};--bs-link-hover-color:{{ bjtTema.d }};--bs-link-hover-color-rgb:{{ bjtTema.dRgb }}}</style>
+{# Links na cor do tema só no tema claro: no escuro, o p/d do tema (escuros) somem sobre o fundo #212529. #}
+<div id="bjtFita" class="{{ bjtTema.anim and not bjtSemAnim ? 'bjt-anim' }}" aria-hidden="true"></div>
+{% if not bjtSemSelo %}
+<div id="bjtSelo" role="status">
+    <span class="e{{ bjtTema.icTexto ? ' is-texto' }}">{{ bjtTema.ic }}</span>
+    <span class="bjt-selo-texto"><b>{{ bjtTema.r }}</b>{{ bjtTema.msg }}</span>
+    <button type="button" title="{{ 'moldura.comum.fechar'|trans }}" aria-label="{{ 'moldura.comum.fechar'|trans }}">×</button>
+</div>
+<button type="button" id="bjtMini" class="{{ bjtTema.icTexto ? 'is-texto' }}{{ bjtTema.anim and not bjtSemAnim ? ' bjt-anim' }}" title="{{ bjtTema.r }}" hidden>{{ bjtTema.ic }}</button>
+{% endif %}
+{% endif %}
+<script src="{{ asset('js/tema-comemorativo.js') }}"></script>
+{% endif %}

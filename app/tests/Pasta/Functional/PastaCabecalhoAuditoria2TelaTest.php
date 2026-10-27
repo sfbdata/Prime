@@ -85,11 +85,12 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
-        $conteudo = $crawler->filter('#modalEditarPasta > .modal-dialog.ps-modal-pasta > .modal-content');
+        // Janela do desenho 02 (L.635-636), sem o modal do Bootstrap: sobreposição > caixa role=dialog.
+        $conteudo = $crawler->filter('#modalEditarPasta.ps-pe-sobre[hidden] > .ps-modal-pasta[role="dialog"][aria-modal="true"]');
         self::assertCount(1, $conteudo);
-        self::assertSame('modalEditarPastaLabel', $crawler->filter('#modalEditarPasta')->attr('aria-labelledby'));
+        self::assertSame('modalEditarPastaLabel', $conteudo->attr('aria-labelledby'));
 
-        $cab = $conteudo->filter('.modal-content > .ps-modal-pasta-cab');
+        $cab = $conteudo->filter('.ps-modal-pasta > .ps-modal-pasta-cab');
         self::assertCount(1, $cab);
         self::assertCount(1, $cab->filter('.ps-modal-pasta-cab > .ps-modal-pasta-cab-icone > i.bi-folder2-open'));
         $titulo = $cab->filter('.ps-modal-pasta-cab > .ps-modal-pasta-cab-corpo > #modalEditarPastaLabel.ps-modal-pasta-titulo');
@@ -98,10 +99,10 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
         $sub = $cab->filter('.ps-modal-pasta-cab-corpo > .ps-modal-pasta-sub')->text();
         self::assertStringContainsString($cliente->getNomeExibicao(), $sub, 'o subtítulo é o cliente do cadastro');
         self::assertMatchesRegularExpression('/CPF.*123\.?456\.?789-?01/', $sub);
-        self::assertCount(1, $cab->filter('.ps-modal-pasta-cab > button.ps-modal-pasta-fechar[data-bs-dismiss="modal"]'));
+        self::assertCount(1, $cab->filter('.ps-modal-pasta-cab > button.ps-modal-pasta-fechar[data-pe-fechar]'));
 
         // O contrato do PastaController::edit não muda: mesma action, mesmo CSRF, mesmos names.
-        $form = $conteudo->filter('.modal-content > form');
+        $form = $conteudo->filter('.ps-modal-pasta > form');
         self::assertCount(1, $form);
         self::assertSame('/pasta/' . $pasta->getId() . '/editar', parse_url((string) $form->attr('action'), PHP_URL_PATH));
         self::assertSame('post', strtolower((string) $form->attr('method')));
@@ -109,12 +110,11 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $form->filter('.ps-modal-pasta-corpo #edit_nup[name="nup"][required]'));
         self::assertCount(1, $form->filter('.ps-modal-pasta-corpo #edit_nome_cliente[name="nome_cliente"]'));
         self::assertCount(1, $form->filter('.ps-modal-pasta-corpo select#edit_situacao[name="situacao"]'));
-        $acao = $form->filter('.ps-modal-pasta-corpo #edit_nome_acao[name="nome_acao"]');
-        self::assertCount(1, $acao, 'a Ação continua no form (decisão D-META)');
-        self::assertNull($acao->attr('readonly'), 'a Ação continua editável');
-        self::assertNull($acao->attr('disabled'));
+        // PZ-MOD-N05 (decisão do dono, 23/10/2026): a Ação saiu do form; é só leitura e vem do menu Processo.
+        self::assertCount(0, $form->filter('[name="nome_acao"], #edit_nome_acao'), 'a Ação não se edita mais aqui');
+        self::assertCount(1, $form->filter('.ps-modal-pasta-corpo > .ps-modal-pasta-linha--larga > .ps-modal-pasta-campo[data-pe-acao] > .ps-pe-resp > button.js-pe-ir[data-pe-ir="acao"]'));
         self::assertCount(1, $form->filter('.ps-modal-pasta-corpo .ps-modal-pasta-campo--2 #edit_nome_cliente'), 'o nome do cliente ocupa duas colunas');
-        self::assertCount(4, $form->filter('.ps-modal-pasta-corpo > .ps-modal-pasta-linha > .ps-modal-pasta-campo > label.ps-modal-pasta-rotulo'));
+        self::assertCount(3, $form->filter('.ps-modal-pasta-corpo > .ps-modal-pasta-linha > .ps-modal-pasta-campo > label.ps-modal-pasta-rotulo'), 'número, nome e situação; Ação, documento e responsável são só leitura (span)');
 
         $rodape = $form->filter('form > .ps-modal-pasta-rodape');
         self::assertCount(1, $rodape);
@@ -122,7 +122,7 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
         $botoes = $rodape->filter('.ps-modal-pasta-rodape > button');
         self::assertCount(3, $botoes);
         self::assertSame('Fechar', trim($botoes->eq(0)->text()));
-        self::assertSame('modal', $botoes->eq(0)->attr('data-bs-dismiss'));
+        self::assertNotNull($botoes->eq(0)->attr('data-pe-fechar'));
         self::assertSame('button', $botoes->eq(0)->attr('type'));
         self::assertSame('Cadastro do cliente', trim($botoes->eq(1)->text()));
         self::assertSame('button', $botoes->eq(1)->attr('type'));
@@ -130,7 +130,7 @@ final class PastaCabecalhoAuditoria2TelaTest extends JusPrimeWebTestCase
         self::assertSame('submit', $botoes->eq(2)->attr('type'));
 
         // O ⋮ continua abrindo o mesmo modal.
-        self::assertCount(1, $crawler->filter('#psMenuAcoes > .ps-pop-item[data-bs-target="#modalEditarPasta"]'));
+        self::assertCount(1, $crawler->filter('#psMenuAcoes > .ps-pop-item[data-pe-abrir][aria-controls="modalEditarPasta"]'));
     }
 
     #[TestDox('C2: sem cliente cadastrado o subtítulo é o identificador da pasta (o setter grava em maiúsculas)')]

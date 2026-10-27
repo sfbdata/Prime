@@ -90,6 +90,7 @@
     color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center;
 }
 .presenca-linha.is-off .presenca-av { background: var(--pc-avatar-off); }
+.presenca-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .presenca-av-ponto { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 0 2px var(--pc-fundo); }
 .presenca-textos { min-width: 0; flex: 1; }
 .presenca-nome { display: block; font-size: 13.5px; font-weight: bold; color: var(--pc-texto); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -100,6 +101,10 @@
 .presenca-sub--ponto.is-acao { font-weight: bold; cursor: pointer; }   /* dc `subPeso`, `subCur` */
 .presenca-sub--ponto.is-ocupado { opacity: .6; cursor: progress; }   /* enquanto a batida corre: posição, releitura e envio */
 .presenca-sub--ponto.is-acao:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; border-radius: 2px; }
+.presenca-sub--aviso { font-weight: bold; cursor: pointer; }   /* "Regularizar ponto de ontem" como aviso (R3) */
+.presenca-sub--aviso-batida { color: #c76a12; flex-wrap: wrap; }   /* avisos da batida aceita (R6), com o link */
+.presenca-sub--aviso-batida a { font-weight: bold; }
+.presenca-sub--aviso:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; border-radius: 2px; }
 .presenca-dir { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .presenca-status { font-size: 11px; font-weight: bold; white-space: nowrap; }
 .presenca-horas { font-size: 11px; color: var(--pc-sub); white-space: nowrap; }

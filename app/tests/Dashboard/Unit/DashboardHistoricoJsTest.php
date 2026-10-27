@@ -82,7 +82,8 @@ final class DashboardHistoricoJsTest extends TestCase
         $twig = (string) file_get_contents(self::RESULTADO);
         foreach (['pastas', 'metas', 'urgentes', 'global'] as $card) {
             self::assertStringContainsString(
-                sprintf('<div class="db-stat-card db-stat-card--%1$s" data-historico="%1$s" data-historico-url="{{ path(\'dashboard_historico\', { card: \'%1$s\' }) }}">', $card),
+                // sem o `>` final: depois da URL vêm a dica do card (data-dica/data-tip, desenho VS 25.10.26)
+                sprintf('<div class="db-stat-card db-stat-card--%1$s" data-historico="%1$s" data-historico-url="{{ path(\'dashboard_historico\', { card: \'%1$s\' }) }}"', $card),
                 $twig,
             );
         }

@@ -29,6 +29,26 @@ final class PedidoDeCampanhaTest extends TestCase
         self::assertSame('ana@exemplo.com', $pedido->publico->informados[0]->email);
     }
 
+    #[TestDox('§11: o público do envio leva a chave do modelo; a contagem lê o campo modelo (texto) ou fica sem modelo')]
+    public function testModeloNoPublico(): void
+    {
+        $vagas = $this->dados(['modelo' => ['chave' => 'vagas', 'modo' => 'simples', 'assunto' => 'Oi', 'selo' => 'S', 'titulo' => 'T', 'corpo' => 'Olá']]);
+
+        self::assertSame('vagas', PedidoDeCampanha::deArray($vagas)->publico->modelo);
+        self::assertSame('convite', PedidoDeCampanha::deArray($this->dados())->publico->modelo);
+        self::assertSame('vagas', PedidoDePublico::deArray(['publico' => 'leads', 'modelo' => 'vagas'])->modelo);
+        self::assertSame('', PedidoDePublico::deArray(['publico' => 'leads'])->modelo);
+        self::assertSame('', PedidoDePublico::deArray(['publico' => 'leads', 'modelo' => ['chave' => 'vagas']])->modelo);
+    }
+
+    #[TestDox('F3g: rastrearLeitura só vale true quando vem true; ausente ou de outro tipo é false')]
+    public function testRastrearLeitura(): void
+    {
+        self::assertFalse(PedidoDeCampanha::deArray($this->dados([]))->rastrearLeitura);
+        self::assertTrue(PedidoDeCampanha::deArray($this->dados(['rastrearLeitura' => true]))->rastrearLeitura);
+        self::assertFalse(PedidoDeCampanha::deArray($this->dados(['rastrearLeitura' => '1']))->rastrearLeitura);
+    }
+
     /** @return iterable<string, array{array<string, mixed>, string}> */
     public static function recusas(): iterable
     {

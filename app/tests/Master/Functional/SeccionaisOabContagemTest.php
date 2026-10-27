@@ -24,9 +24,9 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * As consultas do bloco "Seccionais visíveis" contra o banco (spec master-seccionais-oab): "N usuários" conta
- * inscrição principal e suplementar uma vez por pessoa, só de quem tem vínculo ativo em escritório fora da
- * quarentena; e as divulgações saem cortadas nas 5 mais recentes de cada seccional.
+ * As consultas do bloco "Seccionais visíveis" contra o banco (spec master-seccionais-oab): "N inscrições" conta
+ * cada inscrição principal e suplementar (desenho 05: inscricao_oab), só de quem tem vínculo ativo em escritório fora da
+ * quarentena. As divulgações (tabela obsoleta desde o desenho 05, fora da tela) seguem cortadas nas 5 mais recentes.
  *
  * O banco de teste é clone de outro com dados: as contagens são conferidas pela DIFERENÇA para antes do arranjo.
  */
@@ -47,9 +47,9 @@ final class SeccionaisOabContagemTest extends KernelTestCase
     }
 
     #[TestDox('principal e suplementar contam; a mesma pessoa em dois escritórios conta uma vez; vínculo inativo, pessoa inativa e escritório em quarentena não contam')]
-    public function testUsuariosPorSeccional(): void
+    public function testInscricoesPorSeccional(): void
     {
-        $antes = $this->seccionais->usuariosPorUf();
+        $antes = $this->seccionais->inscricoesPorUf();
         $a = TenantFactory::createOne(['name' => 'Escritório A ' . uniqid()])->_real();
         $b = TenantFactory::createOne(['name' => 'Escritório B ' . uniqid()])->_real();
         $quarentena = TenantFactory::createOne(['name' => 'Escritório em quarentena ' . uniqid()])->_real();
@@ -62,7 +62,7 @@ final class SeccionaisOabContagemTest extends KernelTestCase
         $this->pessoa([$quarentena], ['RJ' => TipoInscricaoOab::Principal]);
         $this->em->flush();
 
-        $depois = $this->seccionais->usuariosPorUf();
+        $depois = $this->seccionais->inscricoesPorUf();
         self::assertSame(2, ($depois['SP'] ?? 0) - ($antes['SP'] ?? 0), 'duas pessoas em SP (uma delas em dois escritórios)');
         self::assertSame(1, ($depois['RJ'] ?? 0) - ($antes['RJ'] ?? 0), 'só a suplementar de quem tem vínculo ativo');
     }

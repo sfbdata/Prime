@@ -46,7 +46,7 @@ final class CompletudeDoCadastroTest extends TestCase
     {
         $efetivas = CatalogoDePreferenciasDoPerfil::efetivas(['perfil.sons' => false, 'perfil.notificacoes' => 'x']);
 
-        self::assertSame(['perfil.notificacoes' => true, 'perfil.sons' => false, 'perfil.resumo_email' => true], $efetivas);
+        self::assertSame(['perfil.notificacoes' => true, 'perfil.sons' => false, 'perfil.resumo_email' => true, 'perfil.sugestoes_despachos' => true], $efetivas);
         self::assertFalse(CatalogoDePreferenciasDoPerfil::existe('dashboard.sons'));
     }
 

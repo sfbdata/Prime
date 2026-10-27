@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Dashboard\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -88,7 +89,9 @@ final class DashboardJanelasJsTest extends TestCase
     {
         $abrir = $this->funcao('abrir');
         self::assertStringContainsString("x.type = 'button';", $abrir);
-        self::assertStringContainsString("x.setAttribute('aria-label', 'Fechar');", $abrir);
+        // O texto mora no catálogo do idioma (spec idioma-do-sistema): a chave no código, "Fechar" no catálogo.
+        self::assertStringContainsString("x.setAttribute('aria-label', window.BJ_T.t('dashboard.js.janelas.fechar'));", $abrir);
+        self::assertSame('Fechar', CatalogoPtBr::carregar()['dashboard']['js']['janelas']['fechar']);
         self::assertStringContainsString("x.addEventListener('click', function () { fechar(j); });", $abrir);
     }
 

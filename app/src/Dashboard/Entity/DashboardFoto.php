@@ -32,6 +32,10 @@ use Doctrine\ORM\Mapping as ORM;
  *   - `tenant_id` NOT NULL sem ação: a purga do escritório apaga explicitamente
  *     (`PurgarEscritorioUseCase::ORDEM_DELECAO`).
  *
+ * PR-F: além das quatro de estoque, guarda metas em revisão, pastas urgentes e total de metas
+ * (colunas anuláveis; foto antiga fica NULL e nunca é preenchida depois). Elas alimentam as setas de
+ * Metas ativas, Demandas ativas, Em revisão e Pastas urgentes e o histórico mensal dos cards.
+ *
  * Nomes de índice explícitos para o `doctrine:schema:validate` bater com a migration escrita à
  * mão (`Version20261006171500`).
  */
@@ -67,6 +71,13 @@ class DashboardFoto implements TenantAware
         private int $metasVencidas,
         #[ORM\Column(name: 'prazos_proximos', type: 'integer')]
         private int $prazosProximos,
+        // Lastro novo (PR-F): anuláveis. Foto tirada antes dele fica NULL = "sem lastro" (nunca zero).
+        #[ORM\Column(name: 'metas_em_revisao', type: 'integer', nullable: true)]
+        private ?int $metasEmRevisao = null,
+        #[ORM\Column(name: 'pastas_urgentes', type: 'integer', nullable: true)]
+        private ?int $pastasUrgentes = null,
+        #[ORM\Column(name: 'metas_total', type: 'integer', nullable: true)]
+        private ?int $metasTotal = null,
     ) {
         $this->criadoEm = new \DateTimeImmutable();
     }
@@ -109,6 +120,22 @@ class DashboardFoto implements TenantAware
     public function getPrazosProximos(): int
     {
         return $this->prazosProximos;
+    }
+
+    public function getMetasEmRevisao(): ?int
+    {
+        return $this->metasEmRevisao;
+    }
+
+    public function getPastasUrgentes(): ?int
+    {
+        return $this->pastasUrgentes;
+    }
+
+    /** Total de metas da pessoa (base da Meta global: concluídas = total − ativas). */
+    public function getMetasTotal(): ?int
+    {
+        return $this->metasTotal;
     }
 
     public function getCriadoEm(): \DateTimeImmutable

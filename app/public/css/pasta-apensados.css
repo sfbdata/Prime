@@ -35,7 +35,7 @@
 .ps-processo-apenso-x:focus-visible { background: #fdecea; color: #a3232b; }
 
 /* "Tipo de apenso *" no modal de vínculo (N:294). */
-.mp-apenso-tipo { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 320px; margin: 0 0 12px; font-size: 12.5px; font-weight: 700; color: #34505f; }
+.mp-apenso-tipo { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 320px; margin: 0; font-size: 12.5px; font-weight: 700; color: #34505f; }
 .mp-apenso-tipo[hidden] { display: none; }
 .mp-apenso-tipo-rotulo { white-space: nowrap; }
 .mp-apenso-obrig { color: #c0392b; }
@@ -78,34 +78,214 @@
 }
 .ps-push-proc.is-ativo { background: #0a6fa0; color: #fff; }
 
-/* Modal "Vincular processo / Vincular apensado" (#modalVincularProcesso), desenho N:289-354 e `pvVals`
-   N:3135-3151. Escopo no id do modal: nada aqui vale fora dele. */
-#modalVincularProcesso .modal-content { border: none; border-radius: 4px; overflow: hidden; box-shadow: 0 18px 50px rgba(16,42,58,.22); }
+/* Janela "Vincular processo / Vincular apensado" (#modalVincularProcesso): a do desenho, não o modal do Bootstrap.
+   N:289-354 e `pvVals` N:3135-3151. Escopo no id da janela: nada aqui vale fora dela. */
+/* Sobreposição (N:290): fixa, fundo rgba(16,36,48,.32), caixa centrada com 16px de folga. */
+.vp-sobre { position: fixed; inset: 0; z-index: 2147483400; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(16, 36, 48, .32); }
+.vp-sobre[hidden] { display: none; }
+/* Caixa (N:291): min(860px, 100%), até a altura da tela, cantos 4 e sombra do desenho. */
+#modalVincularProcesso .vp-caixa { width: min(860px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border-radius: 4px; box-shadow: 0 18px 50px rgba(16, 42, 58, .22); overflow: hidden; color: #12242f; }
 /* Cabeçalho azul, ícone e título brancos (N:292). */
-#modalVincularProcesso .modal-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #0a6fa0; color: #fff; border-bottom: none; }
-#modalVincularProcesso .modal-title { flex: 1; margin: 0; font-size: 15px; font-weight: 700; color: #fff; }
-#modalVincularProcesso .modal-title .bi { color: #fff; }
+#modalVincularProcesso .vp-cab { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #0a6fa0; color: #fff; }
+#modalVincularProcesso .vp-titulo { flex: 1; font-size: 15px; font-weight: 700; color: #fff; }
 .mp-fechar { width: 30px; height: 30px; flex-shrink: 0; border: none; border-radius: 4px; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .mp-fechar:hover, .mp-fechar:focus-visible { background: rgba(255,255,255,.28); }
+/* O form leva corpo e rodapé: só o corpo rola (N:293, overflow auto). */
+#modalVincularProcesso .vp-form { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; margin: 0; }
+#modalVincularProcesso .vp-corpo { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; overflow: auto; min-height: 0; }
 /* Abas "Buscar processo existente" / "Cadastrar novo (CNJ)" (N:295, `tabSt` N:3136). */
 #modalVincularProcesso .mp-abas { display: flex; border: 1px solid #0a6fa0; border-radius: 4px; overflow: hidden; }
-#modalVincularProcesso .mp-abas > .btn { flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0; border: none; border-radius: 0; font-family: inherit; font-size: 13.5px; font-weight: 700; background: #fff; color: #0a6fa0; box-shadow: none; transition: background .15s, color .15s; }
-#modalVincularProcesso .mp-abas > .btn .bi { margin: 0 !important; }
-#modalVincularProcesso .mp-abas > .btn-check:checked + .btn { background: #0a6fa0; color: #fff; }
-#modalVincularProcesso .mp-abas > .btn-check:focus-visible + .btn { outline: 2px solid #0a6fa0; outline-offset: -4px; }
+#modalVincularProcesso .mp-aba { flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: background .15s, color .15s; background: #fff; color: #0a6fa0; }
+#modalVincularProcesso .mp-aba.is-ativa { background: #0a6fa0; color: #fff; }
+#modalVincularProcesso .mp-aba:focus-visible { outline: 2px solid #0a6fa0; outline-offset: -4px; }
 /* Aviso amarelo e erro vermelho (`avisoSt`, N:3148). */
-#modalVincularProcesso #mp-feedbackAlerta.alert { padding: 10px 12px; border-radius: 4px; font-size: 13px; }
-#modalVincularProcesso #mp-feedbackAlerta.alert-warning { background: #fff7e6; color: #7a5200; border: 1px solid #f1e2bf; }
-#modalVincularProcesso #mp-feedbackAlerta.alert-danger { background: #fdeceb; color: #a3232b; border: 1px solid #f2c9c6; }
+#modalVincularProcesso .mp-aviso { padding: 10px 12px; border-radius: 4px; font-size: 13px; background: #fff7e6; color: #7a5200; border: 1px solid #f1e2bf; }
+#modalVincularProcesso .mp-aviso--erro { background: #fdeceb; color: #a3232b; border: 1px solid #f2c9c6; }
 /* Rodapé: Cancelar cinza-claro e o botão principal azul (N:351). */
-#modalVincularProcesso .modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid #eef2f5; background: #fafcfd; }
-#modalVincularProcesso .modal-footer > * { margin: 0; }
-#modalVincularProcesso .modal-footer .btn { height: 36px; display: inline-flex; align-items: center; gap: 7px; border: none; border-radius: 4px; font-family: inherit; font-size: 13.5px; font-weight: 700; }
-#modalVincularProcesso .modal-footer .btn .bi { margin: 0 !important; }
-#modalVincularProcesso .modal-footer .btn-secondary { padding: 0 16px; background: #eef2f5; color: #34505f; }
-#modalVincularProcesso .modal-footer .btn-secondary:hover { background: #e3e9ee; color: #34505f; }
-#modalVincularProcesso .modal-footer .btn-primary { padding: 0 18px; background: #0a6fa0; color: #fff; }
-#modalVincularProcesso .modal-footer .btn-primary:hover { background: #085a83; color: #fff; }
+#modalVincularProcesso .vp-rodape { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid #eef2f5; background: #fafcfd; }
+#modalVincularProcesso .vp-btn { height: 36px; border: none; border-radius: 4px; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+#modalVincularProcesso .vp-btn--cancelar { padding: 0 16px; background: #eef2f5; color: #34505f; }
+#modalVincularProcesso .vp-btn--cancelar:hover, #modalVincularProcesso .vp-btn--cancelar:focus-visible { background: #e3e9ee; }
+#modalVincularProcesso .vp-btn--ok { padding: 0 18px; display: inline-flex; align-items: center; gap: 7px; background: #0a6fa0; color: #fff; }
+#modalVincularProcesso .vp-btn--ok:hover, #modalVincularProcesso .vp-btn--ok:focus-visible { background: #085a83; }
+#modalVincularProcesso .vp-btn--ok:disabled { cursor: progress; }
+#modalVincularProcesso .mp-novo,
+#modalVincularProcesso .processo-modal-tab-content.active { display: flex; flex-direction: column; gap: 12px; }
+
+/* Campo: rótulo 12.5px/700 #34505f sobre o controle, gap 5 (N:294-327). */
+#modalVincularProcesso .mp-campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin: 0; font-size: 12.5px; font-weight: 700; color: #34505f; }
+#modalVincularProcesso .mp-rotulo { margin: 0; white-space: nowrap; font-size: 12.5px; font-weight: 700; color: #34505f; }
+#modalVincularProcesso .mp-obrig { color: #c0392b; }
+#modalVincularProcesso .mp-ctrl {
+    height: 34px;
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px solid #d3dde4;
+    border-radius: 4px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: #12242f;
+    background: #fff;
+}
+#modalVincularProcesso .mp-ctrl:focus { outline: 0; border-color: #0a6fa0; box-shadow: 0 0 0 3px rgba(10, 111, 160, .15); }
+#modalVincularProcesso .mp-ctrl::placeholder { color: #95a6b2; }
+#modalVincularProcesso .mp-ctrl--num { font-variant-numeric: tabular-nums; }
+/* Tribunal só leitura (N:312). */
+#modalVincularProcesso .mp-ctrl--leitura { background: #f6f8fa; color: #34505f; }
+#modalVincularProcesso .mp-dica { font-size: 11.5px; font-weight: 400; color: #7b93a2; }
+#modalVincularProcesso .mp-dica-busca { font-size: 12px; font-weight: 400; color: #5b7383; }
+
+/* Busca de processo existente (N:299-302): input com seta, lista de até 8 e o escolhido. */
+#modalVincularProcesso .mp-busca { position: relative; }
+/* Partes da janela que o JS liga e desliga pelo atributo `hidden` (no lugar do d-none do Bootstrap): o
+   display:flex/grid das classes acima não pode reacender o que está escondido. */
+#modalVincularProcesso [hidden] { display: none !important; }
+#modalVincularProcesso .mp-busca-caixa { position: relative; }
+#modalVincularProcesso .mp-busca-input { padding-right: 32px; }
+#modalVincularProcesso .mp-busca-seta { position: absolute; right: 11px; top: 11px; font-size: 11px; line-height: 1; color: #5b7383; pointer-events: none; }
+#modalVincularProcesso .mp-busca-lista {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 5;
+    max-height: 260px;
+    overflow: auto;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid #d3dde4;
+    border-radius: 4px;
+    box-shadow: 0 10px 26px rgba(16, 42, 58, .16);
+}
+#modalVincularProcesso .mp-busca-lista[hidden] { display: none; }
+#modalVincularProcesso .mp-busca-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 4px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+}
+#modalVincularProcesso .mp-busca-item:hover,
+#modalVincularProcesso .mp-busca-item.is-ativo { background: #e5f1f7; }
+#modalVincularProcesso .mp-busca-num { font-size: 13.5px; font-weight: 700; color: #0a6fa0; font-variant-numeric: tabular-nums; }
+#modalVincularProcesso .mp-busca-sub { font-size: 12px; font-weight: 400; color: #5b7383; }
+#modalVincularProcesso .mp-busca-vazio { padding: 10px; font-size: 12.5px; font-weight: 400; color: #7b93a2; }
+#modalVincularProcesso .mp-busca-sel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid #0a6fa0;
+    border-radius: 4px;
+    background: #f2f8fc;
+    font-size: 14px;
+    font-weight: 600;
+    color: #12242f;
+}
+#modalVincularProcesso .mp-busca-sel > .bi-check2-circle { color: #0a6fa0; }
+#modalVincularProcesso .mp-busca-sel-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#modalVincularProcesso .mp-busca-trocar { border: none; background: transparent; color: #5b7383; cursor: pointer; }
+
+/* Sub-abas Informações / Partes / Movimentações (N:306, `subSt` N:3137). */
+#modalVincularProcesso .processo-modal-tabs { display: flex; gap: 4px; border-bottom: 1px solid #e3e9ee; }
+#modalVincularProcesso .processo-modal-tab {
+    height: 34px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: #5b7383;
+    cursor: pointer;
+}
+#modalVincularProcesso .processo-modal-tab.active { color: #0a6fa0; border-bottom-color: #0a6fa0; }
+#modalVincularProcesso .processo-modal-tab:focus-visible { outline: 2px solid #0a6fa0; outline-offset: -2px; }
+#modalVincularProcesso .processo-modal-tab-content { display: none; }
+
+/* Grade de 6 colunas da aba Informações (N:308), gap 10px 12px. */
+#modalVincularProcesso .mp-grade { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; align-items: start; }
+#modalVincularProcesso .mp-col-2 { grid-column: span 2; }
+#modalVincularProcesso .mp-col-3 { grid-column: span 3; }
+#modalVincularProcesso .mp-col-4 { grid-column: span 4; }
+#modalVincularProcesso .mp-flags { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+
+/* "Buscar no CNJ" alinhado ao input (padding-top 20px) e "Dados localizados" embaixo (N:310). */
+#modalVincularProcesso .mp-cnj { display: flex; flex-direction: column; gap: 4px; padding-top: 20px; }
+#modalVincularProcesso .mp-cnj-btn {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    border-radius: 4px;
+    background: #0a6fa0;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+#modalVincularProcesso .mp-cnj-btn:hover,
+#modalVincularProcesso .mp-cnj-btn:focus-visible { background: #085a83; }
+#modalVincularProcesso .mp-cnj-btn[aria-busy="true"] { cursor: progress; }
+#modalVincularProcesso .mp-cnj-ok { font-size: 11.5px; color: #1e7b45; }
+
+/* "Adicionar parte" / "Adicionar movimentação" (N:330, N:339): suave, hover cheio. */
+#modalVincularProcesso .mp-add-linha { display: flex; justify-content: flex-end; }
+#modalVincularProcesso .mp-btn-add {
+    height: 34px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    border-radius: 4px;
+    background: #e5f1f7;
+    color: #0a6fa0;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+#modalVincularProcesso .mp-btn-add:hover,
+#modalVincularProcesso .mp-btn-add:focus-visible { background: #0a6fa0; color: #fff; }
+
+/* Linhas de parte e de movimentação (N:331-342), com a lixeira na própria linha. */
+#modalVincularProcesso .mp-linhas { display: flex; flex-direction: column; gap: 12px; }
+#modalVincularProcesso .mp-linha { display: grid; gap: 10px; padding: 12px; border: 1px solid #e3e9ee; border-radius: 4px; background: #fafcfd; }
+#modalVincularProcesso .mp-linha--parte { grid-template-columns: minmax(140px, 1.2fr) minmax(0, 2.4fr) minmax(130px, 1fr) minmax(130px, 1fr) 36px; }
+#modalVincularProcesso .mp-linha--mov { grid-template-columns: minmax(140px, 1fr) minmax(0, 2.4fr) minmax(130px, 1.4fr) minmax(130px, 1fr) 36px; }
+#modalVincularProcesso .mp-lixeira {
+    align-self: flex-end;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #7b93a2;
+    cursor: pointer;
+}
+#modalVincularProcesso .mp-lixeira:not(:disabled):hover,
+#modalVincularProcesso .mp-lixeira:not(:disabled):focus-visible { background: #fdecea; color: #a3232b; }
+#modalVincularProcesso .mp-lixeira:disabled { cursor: default; }
+#modalVincularProcesso .mp-nota { margin: 0; font-size: 12px; color: #7b93a2; }
 
 [data-bs-theme="dark"] .ps-processo-apenso,
 [data-bs-theme="dark"] .ps-push-proc:not(.is-ativo) { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
@@ -114,6 +294,34 @@
 [data-bs-theme="dark"] .ps-cab-apensado .ps-dado-sub { color: var(--bs-secondary-color); }
 [data-bs-theme="dark"] .mp-apenso-tipo { color: var(--bs-body-color); }
 [data-bs-theme="dark"] .mp-apenso-select { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
-[data-bs-theme="dark"] #modalVincularProcesso .mp-abas > .btn-check:not(:checked) + .btn { background: var(--bs-body-bg); color: #6fb6dc; }
-[data-bs-theme="dark"] #modalVincularProcesso .modal-footer { background: var(--bs-tertiary-bg); border-top-color: var(--bs-border-color); }
-[data-bs-theme="dark"] #modalVincularProcesso .modal-footer .btn-secondary { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .vp-caixa { background: var(--bs-body-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-aba:not(.is-ativa) { background: var(--bs-body-bg); color: #6fb6dc; }
+[data-bs-theme="dark"] #modalVincularProcesso .vp-rodape { background: var(--bs-tertiary-bg); border-top-color: var(--bs-border-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .vp-btn--cancelar { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-aviso { background: rgba(241, 226, 191, .12); color: #f1d69a; border-color: rgba(241, 226, 191, .3); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-aviso--erro { background: rgba(242, 201, 198, .12); color: #ff8a80; border-color: rgba(242, 201, 198, .3); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-campo,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-rotulo { color: var(--bs-body-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-ctrl { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-ctrl--leitura { background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-dica,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-dica-busca,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-nota,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-sub,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-vazio,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-seta,
+[data-bs-theme="dark"] #modalVincularProcesso .processo-modal-tab:not(.active) { color: var(--bs-secondary-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .processo-modal-tabs { border-bottom-color: var(--bs-border-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .processo-modal-tab.active,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-num,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-sel > .bi-check2-circle { color: #6fb6dc; }
+[data-bs-theme="dark"] #modalVincularProcesso .processo-modal-tab.active { border-bottom-color: #6fb6dc; }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-lista { background: var(--bs-body-bg); border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item { background: transparent; }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item:hover,
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-item.is-ativo { background: var(--bs-tertiary-bg); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-busca-sel { background: var(--bs-tertiary-bg); color: var(--bs-body-color); border-color: #6fb6dc; }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-btn-add:not(:hover):not(:focus-visible) { background: var(--bs-tertiary-bg); color: #6fb6dc; }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-linha { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-lixeira { color: var(--bs-secondary-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-cnj-ok { color: #6fcf97; }

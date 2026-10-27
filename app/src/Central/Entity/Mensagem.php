@@ -55,6 +55,13 @@ class Mensagem implements TenantAware
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $sistema = false;
 
+    /**
+     * Fala do BlueJus IA (F3). O autor segue sendo o usuário dono da conversa (a coluna é NOT NULL); esta marca diz que
+     * quem falou foi a IA. Para "não lida" conta como mensagem de OUTRA pessoa.
+     */
+    #[ORM\Column(name: 'de_ia', type: 'boolean', options: ['default' => false])]
+    private bool $deIa = false;
+
     #[ORM\ManyToOne(targetEntity: Pasta::class)]
     #[ORM\JoinColumn(name: 'despacho_pasta_id', nullable: true, onDelete: 'SET NULL')]
     private ?Pasta $despachoPasta = null;
@@ -99,6 +106,23 @@ class Mensagem implements TenantAware
         $mensagem->sistema = true;
 
         return $mensagem;
+    }
+
+    /** Fala da IA na conversa IA de `$dono` (o autor gravado). Em outro tipo de conversa não existe. */
+    public static function daIA(Tenant $tenant, Conversa $conversa, User $dono, string $texto, \DateTimeImmutable $em): self
+    {
+        if (!$conversa->isIa()) {
+            throw new \DomainException('Só a conversa com a IA recebe fala da IA.');
+        }
+        $mensagem = new self($tenant, $conversa, $dono, $texto, $em);
+        $mensagem->deIa = true;
+
+        return $mensagem;
+    }
+
+    public function isDeIa(): bool
+    {
+        return $this->deIa;
     }
 
     public function isSistema(): bool

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Tests\Support\CatalogoPtBr;
+use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Tenant\Support\DesligaEdicaoSemPrazo;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -108,6 +111,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $obs             = $this->criarObs($pasta, $tenant, $user, '-20 minutes');
 
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
@@ -134,6 +138,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $obs             = $this->criarObs($pasta, $tenant, $outro, '-2 minutes');
 
+        DesligaEdicaoSemPrazo::no(static::getContainer()->get(EntityManagerInterface::class), $tenant, static::getContainer(), $user);
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
@@ -211,9 +216,13 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $ordenado = $pos;
         sort($ordenado);
         self::assertSame($ordenado, $pos, 'a ordem é a do Twig');
-        self::assertStringContainsString('<i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>', $montador);
-        self::assertMatchesRegularExpression('/<span>Editar · \d+ min<\/span>/', $montador);
-        self::assertMatchesRegularExpression('/<span>Excluir comentário · \d+ min<\/span>/', $montador);
+        self::assertStringContainsString('<i class="bi bi-check2-square"></i><span>${esc(BJ_T.t(\'pasta_detalhes.js.criar_meta\'))}</span>', $montador);
+        self::assertMatchesRegularExpression('/<span>\$\{esc\(BJ_T\.t\(\'pasta_detalhes\.js\.editar_min\', \{ minutos: \d+ \}\)\)\}<\/span>/', $montador);
+        self::assertMatchesRegularExpression('/<span>\$\{esc\(BJ_T\.t\(\'pasta_detalhes\.js\.excluir_min\', \{ minutos: \d+ \}\)\)\}<\/span>/', $montador);
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
+        self::assertSame('Criar meta a partir deste registro', $catalogo['criar_meta']);
+        self::assertSame('Editar · {minutos} min', $catalogo['editar_min']);
+        self::assertSame('Excluir comentário · {minutos} min', $catalogo['excluir_min']);
 
         $fn = substr($html, (int) strpos($html, 'function criarMetaObs(item)'), 1400);
         self::assertStringContainsString("getElementById('modalCriarTarefa')", $fn);
@@ -261,8 +270,11 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("new CustomEvent('bj-central:abrir')", $fn);
         self::assertStringContainsString(".slice(0, 900)", $fn);
         self::assertStringContainsString("getElementById('detalhesObsLista')", $fn);
-        self::assertStringContainsString("'Pasta ' + nup + ' · ' + cab", $fn);
-        self::assertStringContainsString('Chat I.A aberto. Texto copiado para colar na conversa', $fn);
+        self::assertStringContainsString("BJ_T.t('pasta_detalhes.js.chat_texto', { pasta: nup, cabecalho: cab })", $fn);
+        self::assertStringContainsString("aviso(BJ_T.t('pasta_detalhes.js.chat_copiado'))", $fn);
+        $catalogo = CatalogoPtBr::carregar()['pasta_detalhes']['js'];
+        self::assertSame('Pasta {pasta} · {cabecalho}', $catalogo['chat_texto']);
+        self::assertSame('Chat I.A aberto. Texto copiado para colar na conversa', $catalogo['chat_copiado']);
 
         $flutuante = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/central-flutuante.js');
         self::assertStringContainsString("document.addEventListener('bj-central:abrir', function () { if (!ui.aberto) { abrir(); } });", $flutuante);

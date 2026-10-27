@@ -609,7 +609,7 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
     // Revisão cruzada da b5 (itens 2, 4 e 5)
     // ------------------------------------------------------------------------------------------------
 
-    #[TestDox('rota antiga escritorio_excluir com pedido pendente: o secundário com admin.tenant.settings.manage (B na sessão) é recusado, a conta segue ativa e o pedido pendente')]
+    #[TestDox('rota antiga escritorio_excluir com pedido pendente: o secundário com admin.tenant.settings.manage (B na sessão) é recusado pela barreira da rota (403), a conta segue ativa e o pedido pendente')]
     public function testRotaAntigaRecusaQuemNaoEMaster(): void
     {
         $conta = $this->conta();
@@ -620,15 +620,13 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         $this->em->flush();
         $this->suspenderAPedido($conta, $primario);
 
-        // Com o escritório B na sessão, a barreira do pedido (que olha a sessão) não segura a rota de A.
+        // Mesmo com o escritório B na sessão, a barreira da rota olha o escritório da URL e segura a rota de A
+        // antes do controller (achado de auditoria interna F9).
         $this->logarComTenant($this->client, $secundario, $outra);
         $this->client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
 
-        self::assertResponseRedirects('/tenant/' . $conta->getId());
-        self::assertContains(
-            'Esta conta tem um pedido de exclusão aguardando a decisão do Master. Só o Master pode excluí-la agora.',
-            $this->client->getRequest()->getSession()->getFlashBag()->peek('danger'),
-        );
+        self::assertResponseStatusCodeSame(403);
+        self::assertStringContainsString(BloqueioPorPedidoDeExclusao::MENSAGEM, (string) $this->client->getResponse()->getContent());
         $pedido = $this->pedidoDe($conta);
         self::assertSame(EstadoDoPedidoDeExclusao::Pendente, $pedido?->getEstado());
         self::assertTrue($pedido?->getTenant()->isActive());

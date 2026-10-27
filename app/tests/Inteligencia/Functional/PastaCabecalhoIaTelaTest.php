@@ -82,8 +82,8 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         self::assertSame(0, $drawer->filter('.ia-agente')->count(), 'os cartões de agente deram lugar aos comandos');
         self::assertSame(10, $crawler->filter(self::ANALISE . ' > .ia-comando[data-ia-comando]')->count());
         self::assertSame(5, $crawler->filter(self::RELATORIOS . ' > .ia-comando[data-ia-comando]')->count());
-        $ctas = $drawer->filter('.ia-comando > button.ia-cta[data-ia-gerar]');
-        self::assertSame(16, $ctas->count(), '10 comandos, 5 relatórios e o "Índice inteligente" da aba Documentos');
+        $ctas = $drawer->filter('.ia-comando > button.ia-cta[data-ia-gerar], .ia-docs-acoes > button.ia-cta[data-ia-gerar]');
+        self::assertSame(17, $ctas->count(), '10 comandos, 5 relatórios e os dois botões da aba Documentos ("Ler" e "Índice inteligente", PR F)');
         $ctas->each(static function (Crawler $cta): void {
             self::assertNotNull($cta->attr('disabled'), 'sem provedor nenhum comando é clicável');
             self::assertSame('0', $cta->attr('data-ia-disponivel'));
@@ -176,6 +176,7 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         $client = $this->cliente();
         [$user, $tenant] = $this->criarAdmin();
         [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->liberarIaSemLigarNoTenant($tenant, $user);
         $this->logarComTenant($client, $user, $tenant);
 
         $crawler = $this->abrirPasta($client, (int) $pasta->getId());

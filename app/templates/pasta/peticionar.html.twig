@@ -8,7 +8,7 @@
    dos blocos porque o content e o javascripts usam. #}
 {% set podeEditarPasta = not pasta.estaExcluida() and can_access_resource('pasta', pasta.id, 'edit') %}
 
-{% block title %}Peticionar | {{ pasta.nup }}{% endblock %}
+{% block title %}{{ 'pasta_peticionar.titulo'|trans({nup: pasta.nup}) }}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/peticionar-documentos.css') }}">
@@ -21,8 +21,8 @@
 <a href="{{ path('pasta_show', {id: pasta.id}) }}"
    class="petic-voltar-pasta"
    id="peticVoltarPasta"
-   title="Voltar para a pasta"
-   hidden><i class="bi bi-arrow-left"></i>Voltar à pasta</a>
+   title="{{ 'pasta_peticionar.lista.voltar_dica'|trans }}"
+   hidden><i class="bi bi-arrow-left"></i>{{ 'pasta_peticionar.lista.voltar'|trans }}</a>
 
 {# Formatos do "Adicionar peça": o mesmo accept vale para o modal e para soltar arquivos na lista,
    e o ícone de cada um vem do arquivo_icone() (a linha nova, montada no navegador, usa o mesmo). #}
@@ -62,7 +62,7 @@
         <div class="petic-timeline-header">
             <span class="petic-timeline-header-title">
                 <i class="bi bi-clock-history text-primary"></i>
-                Documentos
+                {{ 'pasta_peticionar.lista.documentos'|trans }}
                 <span class="badge text-bg-secondary rounded-pill" id="badgeCount">{{ documentos|length }}</span>
             </span>
             <div class="petic-search">
@@ -70,7 +70,7 @@
                 <input type="text"
                        id="timelinePesquisa"
                        class="petic-search-input"
-                       placeholder="Pesquisar documentos…"
+                       placeholder="{{ 'pasta_peticionar.lista.pesquisar'|trans }}"
                        autocomplete="off">
             </div>
         </div>
@@ -99,7 +99,7 @@
                     {% set catLabel  = categoriaLabels[doc.categoria] ?? doc.categoria %}
                     {% set catCor    = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary' %}
                     {% set dotClass  = categoriaPointMap[doc.categoria] ?? 'petic-tl-dot--secondary' %}
-                    {% set docDate   = doc.carregadoEm|date('d/m/Y') %}
+                    {% set docDate   = doc.carregadoEm|data %}
                     {% set ehTexto   = doc.mimeType == 'text/html' %}
                     {# O nome é o mesmo da aba Documentos (nome_original), que é o que o Renomear
                        grava; na peça de texto, sem o ".html" que o editor acrescenta. #}
@@ -123,7 +123,7 @@
                          data-categoria-label="{{ (categoriaLabels[doc.categoria] ?? doc.categoria)|e('html_attr') }}"
                          data-tamanho="{{ bytes }}"
                          data-tamanho-texto="{{ tamanhoTexto|e('html_attr') }}"
-                         data-carregado-em="{{ doc.carregadoEm|date('d/m/Y H:i')|e('html_attr') }}"
+                         data-carregado-em="{{ doc.carregadoEm|data_hora|e('html_attr') }}"
                          data-descricao="{{ (doc.descricao ?? '')|e('html_attr') }}"
                          data-numero="{{ (doc.numero ?? '')|e('html_attr') }}"
                          data-editar-documento-url="{{ path('pasta_documento_edit', {id: doc.id})|e('html_attr') }}"
@@ -144,10 +144,10 @@
                             </div>
                             <div class="petic-tl-card-bottom">
                                 <span class="badge {{ catCor }} petic-item-cat">{{ catLabel }}</span>
-                                <span class="petic-doc-tamanho">{{ ehTexto ? 'Texto' : tamanhoTexto }}</span>
-                                <span class="petic-tl-time">{{ doc.carregadoEm|date('H:i') }}</span>
+                                <span class="petic-doc-tamanho">{{ ehTexto ? 'pasta_peticionar.texto'|trans : tamanhoTexto }}</span>
+                                <span class="petic-tl-time">{{ doc.carregadoEm|hora }}</span>
                             </div>
-                            <button type="button" class="petic-doc-mais" title="Mais opções" aria-label="Mais opções" aria-haspopup="menu">
+                            <button type="button" class="petic-doc-mais" title="{{ 'pasta_peticionar.lista.mais_opcoes'|trans }}" aria-label="{{ 'pasta_peticionar.lista.mais_opcoes'|trans }}" aria-haspopup="menu">
                                 <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                             </button>
                         </div>
@@ -155,9 +155,9 @@
                 {% else %}
                     <div class="petic-tl-vazio">
                         <i class="bi bi-folder2-open"></i>
-                        Nenhum documento na pasta.
+                        {{ 'pasta_peticionar.lista.vazio'|trans }}
                         {% if podeEditarPasta %}
-                        <span class="petic-tl-vazio-dica">Use "Adicionar peça" ou arraste arquivos para cá.</span>
+                        <span class="petic-tl-vazio-dica">{{ 'pasta_peticionar.lista.vazio_dica'|trans }}</span>
                         {% endif %}
                     </div>
                 {% endfor %}
@@ -174,17 +174,17 @@
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
                         id="btnAbrirUpload">
-                    <i class="bi bi-file-earmark-plus me-1"></i> Adicionar Peça
+                    <i class="bi bi-file-earmark-plus me-1"></i> {{ 'pasta_peticionar.adicionar_peca'|trans }}
                 </button>
                 <ul class="dropdown-menu w-100">
                     <li>
                         <button type="button" class="dropdown-item" id="btnOpcaoAnexo">
-                            <i class="bi bi-paperclip me-2"></i> Anexo
+                            <i class="bi bi-paperclip me-2"></i> {{ 'pasta_peticionar.lista.anexo'|trans }}
                         </button>
                     </li>
                     <li>
                         <button type="button" class="dropdown-item" id="btnOpcaoTexto">
-                            <i class="bi bi-file-text me-2"></i> Texto
+                            <i class="bi bi-file-text me-2"></i> {{ 'pasta_peticionar.texto'|trans }}
                         </button>
                     </li>
                 </ul>
@@ -205,25 +205,25 @@
            selecionada é de texto. #}
         <div class="petic-selbar" id="peticSelbar" hidden>
             <i class="bi petic-selbar-icone" aria-hidden="true"></i>
-            <b class="petic-selbar-nome" title="Clique duas vezes para renomear"></b>
+            <b class="petic-selbar-nome" title="{{ 'pasta_peticionar.barra.renomear_dica'|trans }}"></b>
             <span class="petic-selbar-sub"></span>
             {% if podeEditarPasta %}
-            <button type="button" class="petic-selbar-editar" data-acao="editar" title="Editar texto" hidden><i class="bi bi-pencil" aria-hidden="true"></i>Editar</button>
+            <button type="button" class="petic-selbar-editar" data-acao="editar" title="{{ 'pasta_peticionar.barra.editar_dica'|trans }}" hidden><i class="bi bi-pencil" aria-hidden="true"></i>{{ 'pasta_peticionar.barra.editar'|trans }}</button>
             {% endif %}
-            <button type="button" class="petic-selbar-btn" data-acao="baixar" title="Baixar" aria-label="Baixar"><i class="bi bi-download" aria-hidden="true"></i></button>
+            <button type="button" class="petic-selbar-btn" data-acao="baixar" title="{{ 'pasta_peticionar.barra.baixar'|trans }}" aria-label="{{ 'pasta_peticionar.barra.baixar'|trans }}"><i class="bi bi-download" aria-hidden="true"></i></button>
             {% if podeEditarPasta %}
-            <button type="button" class="petic-selbar-btn petic-selbar-btn--excluir" data-acao="excluir" title="Excluir peça" aria-label="Excluir peça"><i class="bi bi-trash3" aria-hidden="true"></i></button>
+            <button type="button" class="petic-selbar-btn petic-selbar-btn--excluir" data-acao="excluir" title="{{ 'pasta_peticionar.barra.excluir'|trans }}" aria-label="{{ 'pasta_peticionar.barra.excluir'|trans }}"><i class="bi bi-trash3" aria-hidden="true"></i></button>
             {% endif %}
         </div>
 
         <div class="petic-preview-placeholder" id="previewPlaceholder">
             <i class="bi bi-file-earmark-text"></i>
-            <p>Selecione um documento na lista para visualizar</p>
+            <p>{{ 'pasta_peticionar.preview.selecione'|trans }}</p>
         </div>
 
         <iframe id="previewIframe"
                 src=""
-                title="Visualizador de documento"
+                title="{{ 'pasta_peticionar.preview.visualizador'|trans }}"
                 allowfullscreen></iframe>
 
         <img id="previewImagem" src="" alt="" style="display:none; max-width:100%; max-height:100%; object-fit:contain;">
@@ -240,7 +240,7 @@
             <i class="bi bi-file-earmark-arrow-down"></i>
             <p class="text-muted mb-3 fs-6" id="downloadFileName"></p>
             <a id="downloadLink" href="#" class="btn btn-outline-primary" download>
-                <i class="bi bi-download me-1"></i> Baixar arquivo
+                <i class="bi bi-download me-1"></i> {{ 'pasta_peticionar.preview.baixar_arquivo'|trans }}
             </a>
         </div>
 
@@ -256,14 +256,14 @@
             <button type="button" id="btnSalvarNaPasta" class="btn btn-primary btn-sm d-flex align-items-center gap-2" style="flex-shrink:0;">
                 <span class="petic-spinner" id="editorSpinner"></span>
                 <i class="bi bi-floppy2-fill" id="editorSaveIcon"></i>
-                <span id="btnSalvarLabel">Salvar na pasta</span>
+                <span id="btnSalvarLabel">{{ 'pasta_peticionar.salvar_na_pasta'|trans }}</span>
             </button>
 
             <div id="editorInfo" style="position:absolute; left:50%; transform:translateX(-50%); text-align:center; max-width:55%; pointer-events:none;">
                 <div style="pointer-events:auto; display:inline-flex; align-items:center; gap:4px;">
                     <span id="editorTituloDisplay"
                           style="font-size:0.875rem; font-weight:600; color:var(--bs-body-color); padding:2px 6px; border-radius:3px; border:1px solid transparent; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:380px; display:inline-block; cursor:default;"
-                          title="">Novo documento</span>
+                          title="">{{ 'pasta_peticionar.novo_documento'|trans }}</span>
                 </div>
                 <div style="margin-top:1px;">
                     <span id="editorCategoriaBadge" style="font-size:0.7rem; color:#888; letter-spacing:.02em;"></span>
@@ -285,27 +285,27 @@
     <div class="petic-modal">
 
         <div class="petic-modal-title">
-            <span id="modalSalvarTextoTitulo"><i class="bi bi-floppy2 me-2"></i> Salvar peça na pasta</span>
-            <button type="button" class="btn-close" id="btnFecharModalSalvarTexto" aria-label="Fechar"></button>
+            <span id="modalSalvarTextoTitulo"><i class="bi bi-floppy2 me-2"></i> {{ 'pasta_peticionar.salvar_texto.titulo'|trans }}</span>
+            <button type="button" class="btn-close" id="btnFecharModalSalvarTexto" aria-label="{{ 'pasta_peticionar.fechar'|trans }}"></button>
         </div>
 
         <form id="formSalvarTexto" novalidate>
 
             <div class="mb-3">
                 <label for="textoTitulo" class="form-label fw-semibold">
-                    Título <span class="text-danger">*</span>
+                    {{ 'pasta_peticionar.salvar_texto.campo_titulo'|trans }} <span class="text-danger">*</span>
                 </label>
                 <input type="text"
                        class="form-control"
                        id="textoTitulo"
                        name="titulo"
                        maxlength="250"
-                       placeholder="Ex.: Petição Inicial, Recurso de Apelação…"
+                       placeholder="{{ 'pasta_peticionar.salvar_texto.exemplo'|trans }}"
                        required>
             </div>
 
             <div class="mb-3">
-                <label for="textoCategoria" class="form-label fw-semibold">Categoria</label>
+                <label for="textoCategoria" class="form-label fw-semibold">{{ 'pasta_peticionar.categoria'|trans }}</label>
                 <select class="form-select" id="textoCategoria" name="categoria">
                     {% for valor, rotulo in categoriaLabels %}
                         <option value="{{ valor }}" {{ valor == 'PECA' ? 'selected' : '' }}>{{ rotulo }}</option>
@@ -314,9 +314,9 @@
             </div>
 
             <div class="mb-4">
-                <label for="textoSecao" class="form-label fw-semibold">Seção</label>
+                <label for="textoSecao" class="form-label fw-semibold">{{ 'pasta_peticionar.secao'|trans }}</label>
                 <select class="form-select" id="textoSecao" name="secao_id">
-                    <option value="">(área geral)</option>
+                    <option value="">{{ 'pasta_peticionar.area_geral'|trans }}</option>
                     {% for secao in secoes %}
                         <option value="{{ secao.id }}">{{ caminhosSecoes[secao.id]|default(secao.nome) }}</option>
                     {% endfor %}
@@ -326,11 +326,11 @@
             <div id="textoErro" class="alert alert-danger py-2 d-none" role="alert"></div>
 
             <div class="d-flex gap-2 justify-content-end">
-                <button type="button" class="btn btn-secondary" id="btnCancelarSalvarTexto">Cancelar</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelarSalvarTexto">{{ 'pasta_peticionar.cancelar'|trans }}</button>
                 <button type="submit" class="btn btn-primary d-flex align-items-center gap-2" id="btnConfirmarSalvarTexto">
                     <span class="petic-spinner" id="textoSpinner"></span>
                     <i class="bi bi-floppy2-fill" id="textoSaveIcon"></i>
-                    Salvar
+                    {{ 'pasta_peticionar.salvar'|trans }}
                 </button>
             </div>
 
@@ -345,15 +345,15 @@
     <div class="petic-modal">
 
         <div class="petic-modal-title">
-            <span id="modalUploadTitulo"><i class="bi bi-file-earmark-plus me-2"></i> Adicionar Peça</span>
-            <button type="button" class="btn-close" id="btnFecharModal" aria-label="Fechar"></button>
+            <span id="modalUploadTitulo"><i class="bi bi-file-earmark-plus me-2"></i> {{ 'pasta_peticionar.adicionar_peca'|trans }}</span>
+            <button type="button" class="btn-close" id="btnFecharModal" aria-label="{{ 'pasta_peticionar.fechar'|trans }}"></button>
         </div>
 
         <form id="formUpload" novalidate>
 
             <div class="mb-3">
                 <label for="uploadArquivo" class="form-label fw-semibold">
-                    Arquivo <span class="text-danger">*</span>
+                    {{ 'pasta_peticionar.envio.arquivo'|trans }} <span class="text-danger">*</span>
                 </label>
                 <input type="file"
                        class="form-control"
@@ -361,11 +361,11 @@
                        name="arquivo"
                        accept="{{ formatosDoEnvio|map(ext => '.' ~ ext)|join(',') }}"
                        required>
-                <div class="form-text text-muted">PDF até 10 MB · Imagens até 3 MB · DOC/XLS até 10 MB</div>
+                <div class="form-text text-muted">{{ 'pasta_peticionar.envio.limites'|trans }}</div>
             </div>
 
             <div class="mb-3">
-                <label for="uploadCategoria" class="form-label fw-semibold">Categoria</label>
+                <label for="uploadCategoria" class="form-label fw-semibold">{{ 'pasta_peticionar.categoria'|trans }}</label>
                 <select class="form-select" id="uploadCategoria" name="categoria">
                     {% for valor, rotulo in categoriaLabels %}
                         <option value="{{ valor }}" {{ valor == 'PECA' ? 'selected' : '' }}>{{ rotulo }}</option>
@@ -374,21 +374,21 @@
             </div>
 
             <div class="mb-3">
-                <label for="uploadDescricao" class="form-label fw-semibold">Descrição <span class="text-muted fw-normal">(opcional)</span></label>
+                <label for="uploadDescricao" class="form-label fw-semibold">{{ 'pasta_peticionar.envio.descricao'|trans }} <span class="text-muted fw-normal">{{ 'pasta_peticionar.opcional'|trans }}</span></label>
                 <textarea class="form-control" id="uploadDescricao" name="descricao" rows="2"
-                          maxlength="500" placeholder="Descreva brevemente o documento…"></textarea>
+                          maxlength="500" placeholder="{{ 'pasta_peticionar.envio.descricao_exemplo'|trans }}"></textarea>
             </div>
 
             <div class="mb-3">
-                <label for="uploadNumero" class="form-label fw-semibold">Número <span class="text-muted fw-normal">(opcional)</span></label>
+                <label for="uploadNumero" class="form-label fw-semibold">{{ 'pasta_peticionar.envio.numero'|trans }} <span class="text-muted fw-normal">{{ 'pasta_peticionar.opcional'|trans }}</span></label>
                 <input type="text" class="form-control" id="uploadNumero" name="numero"
-                       maxlength="100" placeholder="Ex.: 001/2026">
+                       maxlength="100" placeholder="{{ 'pasta_peticionar.envio.numero_exemplo'|trans }}">
             </div>
 
             <div class="mb-4">
-                <label for="uploadSecao" class="form-label fw-semibold">Seção</label>
+                <label for="uploadSecao" class="form-label fw-semibold">{{ 'pasta_peticionar.secao'|trans }}</label>
                 <select class="form-select" id="uploadSecao" name="secao_id">
-                    <option value="">(área geral)</option>
+                    <option value="">{{ 'pasta_peticionar.area_geral'|trans }}</option>
                     {% for secao in secoes %}
                         <option value="{{ secao.id }}">{{ caminhosSecoes[secao.id]|default(secao.nome) }}</option>
                     {% endfor %}
@@ -399,14 +399,14 @@
                 <div class="form-check form-switch">
                     <input type="checkbox" class="form-check-input" id="uploadReduzirTamanho" name="reduzir_tamanho" value="1">
                     <label class="form-check-label fw-semibold" for="uploadReduzirTamanho">
-                        Reduzir tamanho do arquivo
+                        {{ 'pasta_peticionar.envio.reduzir'|trans }}
                     </label>
                 </div>
                 <div class="form-text text-muted">
-                    Economiza espaço comprimindo imagens e PDFs. Mantenha desligado para preservar a qualidade original.
+                    {{ 'pasta_peticionar.envio.reduzir_dica'|trans }}
                     <span class="d-block text-warning-emphasis mt-1">
                         <i class="bi bi-exclamation-triangle me-1"></i>
-                        PDFs assinados digitalmente podem ter a assinatura invalidada ao reduzir o tamanho.
+                        {{ 'pasta_peticionar.envio.reduzir_assinatura'|trans }}
                     </span>
                 </div>
             </div>
@@ -414,11 +414,11 @@
             <div id="uploadErro" class="alert alert-danger py-2 d-none" role="alert"></div>
 
             <div class="d-flex gap-2 justify-content-end">
-                <button type="button" class="btn btn-secondary" id="btnCancelarUpload">Cancelar</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelarUpload">{{ 'pasta_peticionar.cancelar'|trans }}</button>
                 <button type="submit" class="btn btn-primary d-flex align-items-center gap-2" id="btnEnviar">
                     <span class="petic-spinner" id="uploadSpinner"></span>
                     <i class="bi bi-upload" id="uploadIcon"></i>
-                    Enviar
+                    {{ 'pasta_peticionar.envio.enviar'|trans }}
                 </button>
             </div>
 
@@ -433,19 +433,19 @@
     <div class="petic-modal" style="max-width:440px">
 
         <div class="petic-modal-title">
-            <span id="modalConfirmarDescarteTitulo"><i class="bi bi-exclamation-triangle me-2 text-warning"></i> Salvar alterações?</span>
+            <span id="modalConfirmarDescarteTitulo"><i class="bi bi-exclamation-triangle me-2 text-warning"></i> {{ 'pasta_peticionar.descarte.titulo'|trans }}</span>
         </div>
 
         <p class="mb-4 text-body-secondary">
-            O documento contém alterações não salvas.<br>
-            Deseja salvar as alterações antes de continuar?
+            {{ 'pasta_peticionar.descarte.texto'|trans }}<br>
+            {{ 'pasta_peticionar.descarte.pergunta'|trans }}
         </p>
 
         <div class="d-flex gap-2 justify-content-end">
-            <button type="button" class="btn btn-secondary" id="btnDescarteCancelar">Cancelar</button>
-            <button type="button" class="btn btn-outline-danger" id="btnDescarteNaoSalvar">Não salvar</button>
+            <button type="button" class="btn btn-secondary" id="btnDescarteCancelar">{{ 'pasta_peticionar.cancelar'|trans }}</button>
+            <button type="button" class="btn btn-outline-danger" id="btnDescarteNaoSalvar">{{ 'pasta_peticionar.descarte.nao_salvar'|trans }}</button>
             <button type="button" class="btn btn-primary" id="btnDescarteSalvar">
-                <i class="bi bi-floppy2-fill me-1"></i> Salvar
+                <i class="bi bi-floppy2-fill me-1"></i> {{ 'pasta_peticionar.salvar'|trans }}
             </button>
         </div>
 
@@ -455,6 +455,8 @@
 {% endblock %}
 
 {% block javascripts %}
+{# Textos do script inline abaixo e do peticionar-documentos.js (o bj-traducao.js vem do layout_peticionar). #}
+{{ catalogo_js('pasta_peticionar.js') }}
 <script>
 (function () {
     'use strict';
@@ -674,13 +676,13 @@
         let linhas;
         let cor;
         if (c.comprimido) {
-            linhas = [`Arquivo reduzido de ${formatarBytes(c.tamanhoOriginal)} para ${formatarBytes(c.tamanhoFinal)}.`];
+            linhas = [BJ_T.t('pasta_peticionar.js.compressao_reduzido', { de: formatarBytes(c.tamanhoOriginal), para: formatarBytes(c.tamanhoFinal) })];
             if (c.eraAssinado) {
-                linhas.push('Atenção: este PDF estava assinado digitalmente. A assinatura pode ter sido invalidada.');
+                linhas.push(BJ_T.t('pasta_peticionar.js.compressao_assinado'));
             }
             cor = c.eraAssinado ? 'alert-warning' : 'alert-success';
         } else {
-            linhas = ['Não foi possível reduzir o arquivo; mantida a qualidade original.'];
+            linhas = [BJ_T.t('pasta_peticionar.js.compressao_nao_reduziu')];
             cor = 'alert-info';
         }
 
@@ -699,7 +701,7 @@
 
         const fileInput = document.getElementById('uploadArquivo');
         if (!fileInput.files.length) {
-            uploadErro.textContent = 'Selecione um arquivo antes de enviar.';
+            uploadErro.textContent = BJ_T.t('pasta_peticionar.js.selecione_arquivo');
             uploadErro.classList.remove('d-none');
             return;
         }
@@ -716,7 +718,7 @@
             const data = await resp.json();
 
             if (!data.success) {
-                uploadErro.textContent = data.mensagem || data.error || data.erro || 'Erro ao enviar o arquivo.';
+                uploadErro.textContent = data.mensagem || data.error || data.erro || BJ_T.t('pasta_peticionar.js.erro_enviar');
                 uploadErro.classList.remove('d-none');
                 return;
             }
@@ -726,7 +728,7 @@
             mostrarAvisoCompressao(data.compressao);
 
         } catch (err) {
-            uploadErro.textContent = 'Erro de comunicação. Tente novamente.';
+            uploadErro.textContent = BJ_T.t('pasta_peticionar.js.erro_comunicacao');
             uploadErro.classList.remove('d-none');
         } finally {
             setCarregando(false);
@@ -796,9 +798,9 @@
                 toolbar_mode: 'wrap',
                 menubar: 'file edit insert format',
                 menu: {
-                    file:   { title: 'Arquivo', items: 'novoDocumento | salvarNaPasta | exportarDocx exportarPdf exportarOdt exportarTxt' },
-                    edit:   { title: 'Editar',  items: 'undo redo | cut copy paste pastetext | selectall | searchreplace' },
-                    insert: { title: 'Inserir', items: 'image link | table | hr pagebreak | charmap insertdatetime | anchor' },
+                    file:   { title: BJ_T.t('pasta_peticionar.js.menu_arquivo'), items: 'novoDocumento | salvarNaPasta | exportarDocx exportarPdf exportarOdt exportarTxt' },
+                    edit:   { title: BJ_T.t('pasta_peticionar.js.menu_editar'), items: 'undo redo | cut copy paste pastetext | selectall | searchreplace' },
+                    insert: { title: BJ_T.t('pasta_peticionar.js.menu_inserir'), items: 'image link | table | hr pagebreak | charmap insertdatetime | anchor' },
                 },
                 language: 'pt_BR',
                 browser_spellcheck: true,
@@ -822,7 +824,7 @@
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     });
                     const data = await resp.json();
-                    if (!resp.ok) throw new Error(data.mensagem || data.error || data.erro || 'Erro ao fazer upload da imagem.');
+                    if (!resp.ok) throw new Error(data.mensagem || data.error || data.erro || BJ_T.t('pasta_peticionar.js.erro_imagem'));
                     return data.url;
                 },
                 content_style: [
@@ -852,13 +854,13 @@
                     });
 
                     editor.ui.registry.addMenuItem('novoDocumento', {
-                        text: 'Novo documento',
+                        text: BJ_T.t('pasta_peticionar.js.novo_documento'),
                         icon: 'new-document',
                         onAction: function () { abrirEditor(); },
                     });
 
                     editor.ui.registry.addMenuItem('salvarNaPasta', {
-                        text: 'Salvar na pasta',
+                        text: BJ_T.t('pasta_peticionar.js.salvar_na_pasta'),
                         icon: 'save',
                         onAction: function () {
                             if (modoEdicao) { salvarAlteracoes(); } else { abrirModalSalvar(); }
@@ -867,11 +869,11 @@
 
                     ['Docx', 'Pdf', 'Odt', 'Txt'].forEach(function (fmt) {
                         editor.ui.registry.addMenuItem('exportar' + fmt, {
-                            text: 'Exportar como ' + fmt.toUpperCase(),
+                            text: BJ_T.t('pasta_peticionar.js.exportar_como', { formato: fmt.toUpperCase() }),
                             icon: 'export',
                             onAction: function () {
                                 if (!currentDocId) {
-                                    alert('Salve o documento primeiro para exportar.');
+                                    alert(BJ_T.t('pasta_peticionar.js.salve_antes_exportar'));
                                     return;
                                 }
                                 window.location.href = exportarUrlTemplate
@@ -935,9 +937,9 @@
         currentDocId      = null;
         currentCsrfEditar = null;
         editarTextoUrl    = null;
-        btnSalvarLabel.textContent = 'Salvar na pasta';
+        btnSalvarLabel.textContent = BJ_T.t('pasta_peticionar.js.salvar_na_pasta');
 
-        editorTituloDisplay.textContent      = 'Novo documento';
+        editorTituloDisplay.textContent      = BJ_T.t('pasta_peticionar.js.novo_documento');
         editorTituloDisplay.contentEditable  = 'false';
         editorTituloDisplay.style.cursor     = 'default';
         editorTituloDisplay.style.borderColor     = 'transparent';
@@ -989,12 +991,12 @@
             currentDocId      = parseInt(docId, 10);
             currentCsrfEditar = csrfEditar;
             editarTextoUrl    = editarUrl;
-            btnSalvarLabel.textContent = 'Salvar alterações';
+            btnSalvarLabel.textContent = BJ_T.t('pasta_peticionar.js.salvar_alteracoes');
 
             // Preencher título e categoria na toolbar
             editorTituloDisplay.textContent = titulo;
             editorTituloDisplay.style.cursor = 'pointer';
-            editorTituloDisplay.title = 'Clique para editar o título';
+            editorTituloDisplay.title = BJ_T.t('pasta_peticionar.js.editar_titulo_dica');
             editorCategoriaBadge.textContent = categoriaLabel;
 
             const editor = tinymce.get('editorConteudo');
@@ -1002,7 +1004,7 @@
 
         } catch (e) {
             console.error(e);
-            alert('Erro ao abrir o documento para edição.');
+            alert(BJ_T.t('pasta_peticionar.js.erro_abrir'));
             fecharEditor();
         } finally {
             setSalvando(false);
@@ -1019,10 +1021,10 @@
         currentDocId      = null;
         currentCsrfEditar = null;
         editarTextoUrl    = null;
-        btnSalvarLabel.textContent = 'Salvar na pasta';
+        btnSalvarLabel.textContent = BJ_T.t('pasta_peticionar.js.salvar_na_pasta');
 
         // Resetar toolbar de título
-        editorTituloDisplay.textContent   = 'Novo documento';
+        editorTituloDisplay.textContent   = BJ_T.t('pasta_peticionar.js.novo_documento');
         editorTituloDisplay.contentEditable = 'false';
         editorTituloDisplay.style.cursor  = 'default';
         editorTituloDisplay.style.borderColor = 'transparent';
@@ -1076,7 +1078,7 @@
             const data = await resp.json();
 
             if (!data.success) {
-                alert(data.mensagem || data.error || data.erro || 'Erro ao salvar.');
+                alert(data.mensagem || data.error || data.erro || BJ_T.t('pasta_peticionar.js.erro_salvar'));
                 return;
             }
 
@@ -1090,7 +1092,7 @@
             }
 
         } catch (e) {
-            alert('Erro de comunicação. Tente novamente.');
+            alert(BJ_T.t('pasta_peticionar.js.erro_comunicacao'));
         } finally {
             setSalvando(false);
         }
@@ -1121,7 +1123,7 @@
         this.contentEditable = 'false';
         this.style.borderColor = 'transparent';
         this.style.backgroundColor = '';
-        if (this.textContent.trim() === '') this.textContent = 'Sem título';
+        if (this.textContent.trim() === '') this.textContent = BJ_T.t('pasta_peticionar.js.sem_titulo');
     });
 
     editorTituloDisplay.addEventListener('keydown', function (e) {
@@ -1173,7 +1175,7 @@
 
         const titulo = document.getElementById('textoTitulo').value.trim();
         if (!titulo) {
-            textoErro.textContent = 'Informe um título para a peça.';
+            textoErro.textContent = BJ_T.t('pasta_peticionar.js.informe_titulo');
             textoErro.classList.remove('d-none');
             return;
         }
@@ -1198,7 +1200,7 @@
             const data = await resp.json();
 
             if (!data.success) {
-                textoErro.textContent = data.mensagem || data.error || data.erro || 'Erro ao salvar.';
+                textoErro.textContent = data.mensagem || data.error || data.erro || BJ_T.t('pasta_peticionar.js.erro_salvar');
                 textoErro.classList.remove('d-none');
                 return;
             }
@@ -1208,7 +1210,7 @@
             window.location.reload();
 
         } catch (err) {
-            textoErro.textContent = 'Erro de comunicação. Tente novamente.';
+            textoErro.textContent = BJ_T.t('pasta_peticionar.js.erro_comunicacao');
             textoErro.classList.remove('d-none');
         } finally {
             setSalvando(false);

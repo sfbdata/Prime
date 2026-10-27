@@ -9,6 +9,7 @@ use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Enum\Genero;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,11 +29,11 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $convite = $this->convite(Invitation::TIPO_PLATAFORMA, 'plataforma_' . uniqid() . '@adv.com');
 
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            '/convite/' . $convite->getToken() . '/plataforma',
+            '/convite/' . $this->tokenDe($convite) . '/plataforma',
             $crawler->filter('form[method="post"]')->attr('action'),
         );
     }
@@ -56,7 +57,9 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client->request('GET', '/convites');
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('/convite/' . $convite->getToken(), (string) $client->getResponse()->getContent());
+        // Pelo id, sem o token do link do e-mail (achado de auditoria interna F6).
+        self::assertSelectorExists(sprintf('a[href="/convites/%d"]', $convite->getId()));
+        self::assertStringNotContainsString($this->tokenDe($convite), (string) $client->getResponse()->getContent());
     }
 
     #[TestDox('"Meus convites" não mostra convite pendente de outro e-mail')]
@@ -76,7 +79,8 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $client->request('GET', '/convites');
 
         self::assertResponseIsSuccessful();
-        self::assertStringNotContainsString($alheio->getToken(), (string) $client->getResponse()->getContent());
+        self::assertSelectorNotExists(sprintf('a[href="/convites/%d"]', $alheio->getId()));
+        self::assertStringNotContainsString($this->tokenDe($alheio), (string) $client->getResponse()->getContent());
     }
 
     #[TestDox('Aceite de plataforma de ponta a ponta: cria a conta sem escritório e marca o convite como aceito')]
@@ -94,6 +98,82 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         self::assertNotNull($user, 'A conta tinha que nascer.');
         self::assertSame([], $em->getRepository(UserTenant::class)->findBy(['user' => $user]), 'Conta de plataforma nasce sem escritório.');
         self::assertSame('accepted', $em->getRepository(Invitation::class)->find($convite->getId())?->getStatus());
+        self::assertSame(Genero::Masculino, $user->getProfile()?->getGenero(), 'o gênero do formulário vai para o perfil');
+    }
+
+    #[TestDox('Gênero nos dois formulários de convite sem conta: filho direto do formulário, só Feminino e Masculino, sem valor escolhido')]
+    public function testCampoGeneroNosDoisFormularios(): void
+    {
+        $client = static::createClient();
+        foreach ([Invitation::TIPO_PLATAFORMA, Invitation::TIPO_ESCRITORIO] as $tipo) {
+            $convite = $this->convite($tipo, 'campo_' . uniqid() . '@adv.com');
+            $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
+
+            $campo = $crawler->filter('.login-container > form[method="post"] > div.mb-3 > select#genero[name="genero"][required]');
+            self::assertCount(1, $campo, $tipo);
+            self::assertSame(['', 'feminino', 'masculino'], $campo->filter('option')->each(static fn ($o): string => (string) $o->attr('value')), $tipo);
+            self::assertCount(0, $campo->filter('option[selected]'), $tipo . ': nenhum valor pré-escolhido');
+            self::assertStringNotContainsString('Prefiro não informar', (string) $client->getResponse()->getContent());
+        }
+    }
+
+    #[TestDox('Aceite sem gênero (vazio ou o legado) não cria a conta e avisa "Informe o gênero."')]
+    public function testAceiteSemGeneroERecusado(): void
+    {
+        $client = static::createClient();
+        foreach (['', 'nao_informado'] as $genero) {
+            $email = 'sem_genero_' . uniqid() . '@adv.com';
+            $convite = $this->convite(Invitation::TIPO_PLATAFORMA, $email);
+
+            $this->aceitarPlataforma($client, $convite, senha: 'SenhaBoa123', genero: $genero);
+
+            self::assertResponseRedirects('/convite/' . $this->tokenDe($convite));
+            $client->followRedirect();
+            // O aviso vem pelo flash, que a moldura mostra no topo da página.
+            self::assertSelectorTextContains('.alert', 'Informe o gênero.');
+            $em = static::getContainer()->get(EntityManagerInterface::class);
+            $em->clear();
+            self::assertNull($em->getRepository(User::class)->findOneBy(['email' => $email]));
+        }
+    }
+
+    #[TestDox('Convite de escritório sem conta: o gênero escolhido vai para o perfil da conta nova')]
+    public function testAceiteDeEscritorioGravaOGenero(): void
+    {
+        $client = static::createClient();
+        $email = 'escritorio_genero_' . uniqid() . '@adv.com';
+        $convite = $this->convite(Invitation::TIPO_ESCRITORIO, $email);
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
+        $form = $crawler->filter('form[method="post"]')->form(['full_name' => 'Pessoa Teste', 'senha' => 'SenhaBoa123', 'genero' => 'feminino']);
+        $form['aceite_termos']->tick();
+
+        $client->submit($form);
+
+        self::assertResponseRedirects('/login');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame(Genero::Feminino, $em->getRepository(User::class)->findOneBy(['email' => $email])?->getProfile()?->getGenero());
+    }
+
+    #[TestDox('Quem já tem conta aceita o convite logado e não vê o campo Gênero')]
+    public function testQuemTemContaNaoVeOCampo(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $email = 'com_conta_' . uniqid() . '@adv.com';
+        $user = (new User())->setEmail($email)->setFullName('Pessoa Com Conta')->setPassword('x')->setRoles(['ROLE_USER']);
+        $em->persist($user);
+        $meu = (new Tenant())->setName('Meu escritório');
+        $em->persist($meu);
+        $em->persist(new UserTenant($user, $meu));
+        $em->flush();
+        $convite = $this->convite(Invitation::TIPO_ESCRITORIO, $email);
+        $this->logarComTenant($client, $user, $meu);
+
+        $client->request('GET', '/convite/' . $this->tokenDe($convite));
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('select[name="genero"]');
     }
 
     #[TestDox('Aceite de plataforma recusa senha curta enviada por POST direto (sem o required do navegador)')]
@@ -118,11 +198,11 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $email = 'escritorio_' . uniqid() . '@adv.com';
         $convite = $this->convite(Invitation::TIPO_ESCRITORIO, $email);
         // O CSRF é o mesmo nos dois formulários (convite_<token>): tira-se da página do próprio convite.
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
         $token = (string) $crawler->filter('form[method="post"] input[name="_token"]')->attr('value');
 
-        $client->request('POST', '/convite/' . $convite->getToken() . '/plataforma', [
-            '_token' => $token, 'full_name' => 'Pessoa Teste', 'senha' => 'SenhaBoa123',
+        $client->request('POST', '/convite/' . $this->tokenDe($convite) . '/plataforma', [
+            '_token' => $token, 'full_name' => 'Pessoa Teste', 'senha' => 'SenhaBoa123', 'genero' => 'feminino',
             'oab_numero' => '123456', 'oab_uf' => 'DF', 'aceite_termos' => '1',
         ]);
 
@@ -132,28 +212,40 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         self::assertSame('pending', $em->getRepository(Invitation::class)->find($convite->getId())?->getStatus());
     }
 
-    private function aceitarPlataforma(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, Invitation $convite, string $senha): void
+    private function aceitarPlataforma(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, Invitation $convite, string $senha, string $genero = 'masculino'): void
     {
-        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $crawler = $client->request('GET', '/convite/' . $this->tokenDe($convite));
         $form = $crawler->filter('form[method="post"]')->form([
             'full_name' => 'Pessoa Teste',
             'senha' => $senha,
             'oab_numero' => '123456',
             'oab_uf' => 'DF',
         ]);
+        // Sem a trava do navegador: o teste também manda um valor que o select não oferece (o legado).
+        $form['genero']->disableValidation()->setValue($genero);
         $form['aceite_termos']->tick();
         $client->submit($form);
+    }
+
+    /** @var array<int, string> o token puro de cada convite criado aqui: o banco só tem o hash */
+    private array $tokens = [];
+
+    private function tokenDe(Invitation $convite): string
+    {
+        return $this->tokens[spl_object_id($convite)];
     }
 
     private function convite(string $tipo, string $email): Invitation
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        $convite = new Invitation(email: $email, token: bin2hex(random_bytes(16)), type: $tipo, expiresAt: new \DateTimeImmutable('+7 days'));
+        $token   = bin2hex(random_bytes(16));
+        $convite = new Invitation(email: $email, tokenHash: Invitation::hashDoToken($token), type: $tipo, expiresAt: new \DateTimeImmutable('+7 days'));
         if ($tipo === Invitation::TIPO_ESCRITORIO) {
             $escritorio = (new Tenant())->setName('Escritório que convidou');
             $em->persist($escritorio);
             $convite->setTenant($escritorio);
         }
+        $this->tokens[spl_object_id($convite)] = $token;
         $em->persist($convite);
         $em->flush();
 

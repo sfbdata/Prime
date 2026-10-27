@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Indicacao\Functional;
 
+use App\Contribua\Repository\BonusDeEspacoRepository;
 use App\Entity\Auth\User;
 use App\Auth\Event\ContaCriadaPeloCadastro;
+use App\Auth\Event\EmailDaContaConfirmado;
 use App\Indicacao\Controller\IndicacaoController;
 use App\Indicacao\Entity\IndicacaoConfig;
 use App\Indicacao\Entity\IndicacaoPausa;
+use App\Indicacao\EventListener\BonusDeEspacoPorIndicacaoListener;
 use App\Indicacao\EventListener\CadastroPeloLinkListener;
 use App\Indicacao\Repository\IndicacaoCodigoRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
@@ -19,6 +22,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,6 +35,7 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
  * (spec indicar-bluejus.md, comportamento 7). DAMA desfaz no fim de cada teste.
  */
 #[CoversClass(CadastroPeloLinkListener::class)]
+#[CoversClass(BonusDeEspacoPorIndicacaoListener::class)]
 #[CoversClass(AtribuirCadastroPeloLinkUseCase::class)]
 #[CoversClass(IndicacaoRepository::class)]
 final class CadastroPeloLinkTest extends JusPrimeWebTestCase
@@ -61,18 +66,22 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $sessao->save();
     }
 
-    /** O POST do cadastro do desenho 10; devolve o id da conta nova. */
-    private function cadastrar(): int
+    /**
+     * O POST do cadastro do desenho 10; devolve o id da conta nova.
+     *
+     * @param array<string, mixed> $extra campos a mais do JSON (o `indicacao` do cupom, desenho 10 VS 25.10.26)
+     */
+    private function cadastrar(array $extra = []): int
     {
         $email = 'nova_' . uniqid() . '@adv.com';
         $this->client->jsonRequest('POST', '/cadastro/criar', [
             'nome' => 'Nova Pessoa',
             'escritorio' => 'Pessoa Advogados ' . uniqid(),
             'email' => $email,
-            'senha' => 'segredo123',
+            'genero' => 'feminino',
             'aceite' => true,
             '_token' => self::CSRF,
-        ]);
+        ] + $extra);
         self::assertResponseIsSuccessful();
 
         return (int) $this->conexao->fetchOne('SELECT id FROM "user" WHERE email = ?', [$email]);
@@ -93,7 +102,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
     public function testLinkCurtoLigaAContaNova(): void
     {
         $this->client->request('GET', '/i/' . strtolower(self::CODIGO));
-        self::assertResponseRedirects('/cadastro');
+        self::assertResponseRedirects('/cadastro?ind=' . self::CODIGO);
 
         $nova = $this->cadastrar();
 
@@ -228,5 +237,185 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         $janela = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(1, $janela['total']);
         self::assertSame(['nome' => null, 'email' => null, 'canal' => 'link', 'contaCriada' => true], array_intersect_key($janela['ultimas'][0], array_flip(['nome', 'email', 'canal', 'contaCriada'])));
+    }
+
+    #[TestDox('cupom do cadastro (desenho 10 VS 25.10.26): o código digitado liga a conta nova a quem indicou, com e sem o BJ-')]
+    #[TestWith(['BJ-' . self::CODIGO])]
+    #[TestWith(['bj-qwer2345'])]
+    #[TestWith([self::CODIGO])]
+    public function testCupomLigaAContaNova(string $cupom): void
+    {
+        $nova = $this->cadastrar(['indicacao' => $cupom]);
+
+        $atribuicoes = $this->atribuicoesDe($nova);
+        self::assertCount(1, $atribuicoes);
+        self::assertSame($this->ana->getId(), (int) $atribuicoes[0]['indicado_por_id']);
+        self::assertSame('link', $atribuicoes[0]['canal']);
+        self::assertFalse($this->codigoNaSessao());
+    }
+
+    #[TestDox('cupom inexistente ou malformado: o cadastro passa sem erro e nada é ligado')]
+    #[TestWith(['BJ-NAOEXIST'])]
+    #[TestWith(['BJ-12'])]
+    #[TestWith(['<script>'])]
+    public function testCupomInvalidoNaoDerrubaOCadastro(string $cupom): void
+    {
+        $nova = $this->cadastrar(['indicacao' => $cupom]);
+
+        self::assertGreaterThan(0, $nova);
+        self::assertSame([], $this->atribuicoesDe($nova));
+        self::assertFalse($this->codigoNaSessao());
+    }
+
+    #[TestDox('o campo é a palavra final: cupom vazio desfaz o código do link curto')]
+    public function testCupomVazioDesfazOLinkCurto(): void
+    {
+        $this->client->request('GET', '/i/' . self::CODIGO);
+
+        $nova = $this->cadastrar(['indicacao' => '']);
+
+        self::assertSame([], $this->atribuicoesDe($nova));
+    }
+
+    #[TestDox('o campo é a palavra final: o cupom digitado vale no lugar do código do link curto')]
+    public function testCupomVenceOLinkCurto(): void
+    {
+        $bia = new User();
+        $bia->setEmail(uniqid('ind_') . '@exemplo.com');
+        $bia->setFullName('Bia Costa');
+        $bia->setRoles(['ROLE_USER']);
+        $bia->setPassword('x');
+        $this->em->persist($bia);
+        $this->em->flush();
+        $this->conexao->executeStatement('INSERT INTO indicacao_codigo (user_id, codigo) VALUES (?, ?)', [$bia->getId(), 'ASDF2345']);
+        $this->client->request('GET', '/i/' . self::CODIGO);
+
+        $nova = $this->cadastrar(['indicacao' => 'BJ-ASDF2345']);
+
+        $atribuicoes = $this->atribuicoesDe($nova);
+        self::assertCount(1, $atribuicoes);
+        self::assertSame($bia->getId(), (int) $atribuicoes[0]['indicado_por_id']);
+    }
+
+    #[TestDox('/i/{codigo} leva ao cadastro com o código na URL, igual para código válido e inválido (não revela)')]
+    public function testLinkCurtoLevaOCodigoNaUrl(): void
+    {
+        $this->client->request('GET', '/i/naoexiste');
+        self::assertResponseRedirects('/cadastro?ind=NAOEXISTE');
+
+        $this->client->request('GET', '/cadastro?ind=NAOEXISTE');
+        self::assertResponseRedirects('/login?abrir=cadastro&ind=NAOEXISTE');
+    }
+
+    #[TestDox('código real que começa com BJ: o link curto e o campo (com e sem BJ-) ligam a conta, o BJ do código não vira prefixo')]
+    public function testCodigoQueComecaComBj(): void
+    {
+        $this->conexao->executeStatement('UPDATE indicacao_codigo SET codigo = ? WHERE user_id = ?', ['BJXY2345', $this->ana->getId()]);
+
+        $this->client->request('GET', '/i/bjxy2345');
+        self::assertResponseRedirects('/cadastro?ind=BJXY2345');
+        $this->client->request('GET', '/cadastro?ind=BJXY2345');
+        self::assertResponseRedirects('/login?abrir=cadastro&ind=BJXY2345');
+        $pelaTela = $this->cadastrar(['indicacao' => 'BJ-BJXY2345']);
+        $semPrefixo = $this->cadastrar(['indicacao' => 'BJXY2345']);
+
+        self::assertCount(1, $this->atribuicoesDe($pelaTela));
+        self::assertCount(1, $this->atribuicoesDe($semPrefixo));
+    }
+
+    #[TestDox('/cadastro?ind[]= não derruba: leva ao Criar conta sem o cupom')]
+    public function testCadastroComIndEmLista(): void
+    {
+        $this->client->request('GET', '/cadastro?ind[]=QWER2345');
+
+        self::assertResponseRedirects('/login?abrir=cadastro');
+    }
+
+    /** @return list<array<string, mixed>> os bônus de espaço do escritório da conta */
+    private function bonusDe(int $contaId): array
+    {
+        return $this->conexao->fetchAllAssociative(
+            'SELECT b.* FROM contribua_bonus_de_espaco b JOIN user_tenant ut ON ut.tenant_id = b.tenant_id WHERE ut.user_id = ?',
+            [$contaId],
+        );
+    }
+
+    private function confirmarEmail(int $contaId): void
+    {
+        $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$contaId]);
+        // O SQL direto passa por fora do EntityManager: sem limpar, ele devolveria a conta ainda não confirmada.
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new EmailDaContaConfirmado($contaId));
+    }
+
+    #[TestDox('Bônus: cupom + cadastro por e-mail não concede; ao confirmar o e-mail concede 5 GB por 30 dias ao escritório da conta nova, uma vez só')]
+    public function testBonusSoDepoisDeConfirmarOEmail(): void
+    {
+        $nova = $this->cadastrar(['indicacao' => 'BJ-' . self::CODIGO]);
+        self::assertSame([], $this->bonusDe($nova), 'sem confirmar o e-mail não há bônus');
+
+        $this->confirmarEmail($nova);
+        $this->confirmarEmail($nova);
+
+        $bonus = $this->bonusDe($nova);
+        self::assertCount(1, $bonus, 'repetir o evento não duplica');
+        self::assertSame(5, (int) $bonus[0]['gigabytes']);
+        self::assertSame('indicacao', $bonus[0]['origem']);
+        $dias = (new \DateTimeImmutable($bonus[0]['concedido_em']))->diff(new \DateTimeImmutable($bonus[0]['expira_em']))->days;
+        self::assertSame(30, $dias);
+        self::assertSame((int) $this->atribuicoesDe($nova)[0]['id'], (int) $bonus[0]['indicacao_id']);
+        self::assertSame([], $this->bonusDe((int) $this->ana->getId()), 'quem indicou não ganha');
+    }
+
+    #[TestDox('Bônus: conta que já nasce confirmada (Google) ganha logo no evento do cadastro, e o evento de confirmação depois não duplica')]
+    public function testBonusNaContaQueNasceConfirmada(): void
+    {
+        $nova = $this->cadastrar();
+        $this->conexao->executeStatement('UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = ?', [$nova]);
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        $tenantId = (int) $this->conexao->fetchOne('SELECT tenant_id FROM user_tenant WHERE user_id = ?', [$nova]);
+        $sessao = new Session(new MockArraySessionStorage());
+        $sessao->set(IndicacaoController::CHAVE_DA_SESSAO, self::CODIGO);
+        $request = new Request();
+        $request->setSession($sessao);
+        $pilha = static::getContainer()->get(RequestStack::class);
+        $pilha->push($request);
+
+        try {
+            static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new ContaCriadaPeloCadastro($nova, $tenantId));
+        } finally {
+            $pilha->pop();
+        }
+        static::getContainer()->get(EventDispatcherInterface::class)->dispatch(new EmailDaContaConfirmado($nova));
+
+        $bonus = $this->bonusDe($nova);
+        self::assertCount(1, $bonus);
+        self::assertSame($tenantId, (int) $bonus[0]['tenant_id']);
+    }
+
+    #[TestDox('Bônus: sem cupom, ou com cupom inválido, a confirmação do e-mail não concede nada')]
+    public function testSemCupomOuCupomInvalidoNaoConcede(): void
+    {
+        $semCupom = $this->cadastrar();
+        $invalido = $this->cadastrar(['indicacao' => 'BJ-NAOEXIST']);
+
+        $this->confirmarEmail($semCupom);
+        $this->confirmarEmail($invalido);
+
+        self::assertSame([], $this->bonusDe($semCupom));
+        self::assertSame([], $this->bonusDe($invalido));
+    }
+
+    #[TestDox('Bônus: falha ao conceder vira log e não derruba a confirmação do e-mail')]
+    public function testFalhaNoBonusNaoDerrubaAConfirmacao(): void
+    {
+        $quebrado = $this->createStub(BonusDeEspacoRepository::class);
+        $quebrado->method('emTransacaoTravada')->willThrowException(new \RuntimeException('banco fora do ar'));
+        static::getContainer()->set(BonusDeEspacoRepository::class, $quebrado);
+        $nova = $this->cadastrar(['indicacao' => self::CODIGO]);
+
+        $this->confirmarEmail($nova);
+
+        self::assertSame([], $this->bonusDe($nova));
     }
 }

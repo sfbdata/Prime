@@ -7,6 +7,8 @@ namespace App\Pasta\Service;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Permission\AccessRequest;
+use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\Pasta;
@@ -47,6 +49,10 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * `notificarNaObservacao()` — @menções nas observações de Detalhes e no Relatório financeiro
  * (EDT-010r): o mesmo `TIPO_PASTA_MENCAO_REGISTRO` e as mesmas regras do Registro, com o link
  * da âncora do cartão e o rótulo da aba ("· Detalhes", "· Financeiro").
+ *
+ * `notificarNoDespacho()` — @menções no despacho da meta (spec `minhas-metas-esteira-2210.md`, C3): o mesmo
+ * `TIPO_PASTA_MENCAO_REGISTRO` e as mesmas regras do Registro, decididas pela pasta da meta, com o link
+ * `tarefa_show#despacho-<id>` e o rótulo "Meta #N".
  *
  * `notificarRespostaNaObservacao()` — o "respondeu seu comentário" do Relatório financeiro
  * (FPN-005) e das observações de Detalhes (PAS-039), com as MESMAS regras do Registro (`EnviarMensagemPastaUseCase`): nunca quem
@@ -134,15 +140,18 @@ final class ResolucaoDeMencoesDoRegistro
      * @param list<User> $mencionados saída de {@see resolver()}
      * @param User|null  $pular       quem já recebe aviso mais específico por esta mensagem (o autor
      *                                do comentário respondido)
+     *
+     * @return list<User> os mencionados que de fato receberam o aviso (o Acompanhar alterações
+     *                    avisa os outros)
      */
-    public function notificar(array $mencionados, PastaMensagem $mensagem, Pasta $pasta, User $autor, Tenant $tenant, ?User $pular = null): void
+    public function notificar(array $mencionados, PastaMensagem $mensagem, Pasta $pasta, User $autor, Tenant $tenant, ?User $pular = null): array
     {
         $pastaId = $pasta->getId();
         if ($mencionados === [] || $pastaId === null || $mensagem->getId() === null) {
-            return;
+            return [];
         }
 
-        $this->avisar(
+        return $this->avisar(
             $mencionados,
             $pasta,
             $autor,
@@ -196,6 +205,41 @@ final class ResolucaoDeMencoesDoRegistro
             $nota->getPublicacaoDjen() !== null ? self::ABA_DO_PUSH : self::ABA_DO_PROCESSO,
             $nota->getConteudo(),
             $nota,
+            null,
+        );
+    }
+
+    /**
+     * @menções de um despacho da meta (C3). Quem recebe é decidido pela PASTA da meta (acesso de leitura a ela), como
+     * no Registro; o link leva ao despacho na tela da meta. Anti-duplicata pelo link do despacho e cota do autor.
+     *
+     * Chamar DEPOIS do flush (o link leva o id do despacho) e dentro da transação dele. Meta, pasta e despacho têm de
+     * ser deste escritório: quem chama já conferiu; aqui a prova é repetida (um aviso com link alheio vazaria o nome).
+     *
+     * @param list<User> $mencionados saída de {@see resolver()}
+     */
+    public function notificarNoDespacho(array $mencionados, TarefaMensagem $despacho, Tarefa $meta, User $autor, Tenant $tenant): void
+    {
+        $pasta = $meta->getPasta();
+        if ($mencionados === [] || $meta->getId() === null || $despacho->getId() === null || $pasta->getId() === null) {
+            return;
+        }
+        foreach ([$pasta->getTenant(), $meta->getTenant(), $despacho->getTenant()] as $dono) {
+            if ($dono === null || !self::mesmoTenant($dono, $tenant)) {
+                return;
+            }
+        }
+
+        $this->avisar(
+            $mencionados,
+            $pasta,
+            $autor,
+            $tenant,
+            Notificacao::TIPO_PASTA_MENCAO_REGISTRO,
+            $this->urlGenerator->generate('tarefa_show', ['id' => $meta->getId()]) . '#despacho-' . $despacho->getId(),
+            sprintf('Meta #%d', $meta->getNumero() ?? (int) $meta->getId()),
+            $despacho->getMensagem(),
+            $despacho,
             null,
         );
     }
@@ -369,6 +413,8 @@ final class ResolucaoDeMencoesDoRegistro
      * cota (só aviso que de fato sairia gasta a cota do autor).
      *
      * @param list<User> $mencionados
+     *
+     * @return list<User> quem recebeu o aviso
      */
     private function avisar(
         array $mencionados,
@@ -379,9 +425,9 @@ final class ResolucaoDeMencoesDoRegistro
         string $url,
         string $aba,
         ?string $conteudo,
-        PastaMensagem|NotaTecnica|PastaObservacaoFinanceira|PastaObservacaoDetalhes $origem,
+        PastaMensagem|NotaTecnica|PastaObservacaoFinanceira|PastaObservacaoDetalhes|TarefaMensagem $origem,
         ?User $pular,
-    ): void {
+    ): array {
         $pastaId = (int) $pasta->getId();
         $titulo  = sprintf(
             '%s mencionou você na Pasta %s · %s',
@@ -393,6 +439,8 @@ final class ResolucaoDeMencoesDoRegistro
         if (mb_strlen($previa) > self::LIMITE_PREVIA) {
             $previa = mb_substr($previa, 0, self::LIMITE_PREVIA) . '…';
         }
+
+        $avisados = [];
 
         foreach ($mencionados as $pessoa) {
             if (self::mesmoUsuario($pessoa, $autor) || ($pular !== null && self::mesmoUsuario($pessoa, $pular))) {
@@ -427,7 +475,10 @@ final class ResolucaoDeMencoesDoRegistro
             $this->notificacaoService
                 ->criar($pessoa, $tenant, $tipo, $titulo, $previa)
                 ->setUrl($url);
+            $avisados[] = $pessoa;
         }
+
+        return $avisados;
     }
 
     private static function primeiroNome(User $usuario): string

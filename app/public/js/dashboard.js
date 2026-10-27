@@ -11,6 +11,8 @@
  *    O valor final já vem no HTML, então sem JS (ou com movimento reduzido)
  *    a tela mostra o resultado direto;
  *  - brilho que segue o cursor nos cards (`--mx`/`--my`, só com mouse);
+ *  - dica dos cards (`data-tip`, balão do bj-dica.js do desenho), que some depois de 3
+ *    passagens por card (localStorage 'bj-dica-paineis');
  *  - segmentado de período (`.db-seg-btn[data-de][data-ate]`): preenche os
  *    campos data_de/data_ate do parcial de filtro e dispara UM `change`, que o
  *    filtro-tabela.js trata como qualquer faceta (chips + XHR). As datas vêm
@@ -29,6 +31,9 @@
  *    `ordenar`/`direcao` e recarrega). O botão de inverter
  *    (`.js-db-ordem-inverter`) só troca o valor da opção escolhida pela direção
  *    oposta (vem pronta em `data-ordem`) e dispara o MESMO `change` no select;
+ *  - período padrão (spec dashboard-parte-1): "Limpar filtros" volta para Este mês (as datas do
+ *    botão `data-periodo="mes"` do segmentado), não para "sem período", e só aparece quando o
+ *    filtro difere disso (outro período, responsável, cargo ou busca);
  *  - Exportar PDF (`.js-db-exportar-pdf`): window.print() com o document.title
  *    trocado pelo nome do arquivo do desenho. No `beforeprint` (botão ou Ctrl+P)
  *    o cabeçalho só-impressão é reescrito com o período/filtros do momento e o
@@ -175,6 +180,68 @@
         }
 
         marcarPeriodoAtivo(root);
+    }
+
+    // ── período padrão: Este mês ──────────────────────────────────────────
+
+    function esteMes(root) {
+        var btn = root.querySelector('.db-seg-btn[data-periodo="mes"]');
+
+        return btn ? { de: btn.getAttribute('data-de') || '', ate: btn.getAttribute('data-ate') || '' } : null;
+    }
+
+    function ehPadrao(root, form) {
+        var mes = esteMes(root);
+        var campos = camposDeData(root);
+        var vazio = function (nome) {
+            var c = form.querySelector('[name="' + nome + '"]');
+
+            return !c || String(c.value || '').trim() === '';
+        };
+
+        return !!(mes && campos) && campos.de.value === mes.de && campos.ate.value === mes.ate
+            && vazio('responsavel') && vazio('cargo') && vazio('busca');
+    }
+
+    /** O motor recria os chips a cada mudança: o "Limpar filtros" some quando nada difere de Este mês. */
+    function esconderLimparNoPadrao(root, form) {
+        var box = form.querySelector('[data-filtro-chips]');
+        if (!box) {
+            return;
+        }
+        var aplicar = function () {
+            var limpar = box.querySelector('.js-filtro-limpar');
+            if (limpar) {
+                limpar.hidden = ehPadrao(root, form);
+            }
+        };
+        if (window.MutationObserver) {
+            new MutationObserver(aplicar).observe(box, { childList: true });
+        }
+        aplicar();
+    }
+
+    function ligarPeriodoPadrao(root) {
+        var form = root.querySelector('[data-filtro-form]');
+        var mes = esteMes(root);
+        if (!form || !mes) {
+            return;
+        }
+        // Captura: roda ANTES do filtro-tabela.js (que zeraria as datas) e para o clique ali. O
+        // `change` no Até faz o motor aplicar o form inteiro, e os ouvintes de `change` do
+        // segmentado e dos selects próprios se sincronizam como em qualquer escolha.
+        root.addEventListener('click', function (e) {
+            if (!e.target.closest('.js-filtro-limpar')) {
+                return;
+            }
+            e.stopPropagation();
+            form.querySelectorAll('.js-filtro-busca, .js-filtro-campo').forEach(function (el) { el.value = ''; });
+            var campos = camposDeData(root);
+            campos.de.value = mes.de;
+            campos.ate.value = mes.ate;
+            campos.ate.dispatchEvent(new Event('change', { bubbles: true }));
+        }, true);
+        esconderLimparNoPadrao(root, form);
     }
 
     // ── legendas em toque ─────────────────────────────────────────────────
@@ -360,22 +427,27 @@
         var quando  = root.querySelector('.db-print-quando');
 
         if (periodo && campos) {
-            periodo.textContent = (dataBr(campos.de.value) || 'início') + ' a ' + (dataBr(campos.ate.value) || 'hoje');
+            periodo.textContent = window.BJ_T.t('dashboard.js.impressao.intervalo', {
+                de: dataBr(campos.de.value) || window.BJ_T.t('dashboard.js.impressao.inicio'),
+                ate: dataBr(campos.ate.value) || window.BJ_T.t('dashboard.js.impressao.hoje')
+            });
         }
         if (facetas) {
-            facetas.textContent = textoDoSelect(form, 'responsavel', 'Todos os responsáveis')
-                + ' · ' + textoDoSelect(form, 'cargo', 'Todos os cargos');
+            facetas.textContent = textoDoSelect(form, 'responsavel', window.BJ_T.t('dashboard.js.impressao.todos_responsaveis'))
+                + ' · ' + textoDoSelect(form, 'cargo', window.BJ_T.t('dashboard.js.impressao.todos_cargos'));
             // desenho (printFiltros): "· Busca: <texto>" só quando há busca
             var busca = form ? form.querySelector('.js-filtro-busca') : null;
             var termo = busca ? busca.value.trim() : '';
             if (termo !== '') {
-                facetas.textContent += ' · Busca: ' + termo;
+                facetas.textContent += ' · ' + window.BJ_T.t('dashboard.js.impressao.busca', { termo: termo });
             }
         }
         if (quando) {
             var d = new Date();
-            quando.textContent = p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear()
-                + ' às ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+            quando.textContent = window.BJ_T.t('dashboard.js.impressao.data_as_hora', {
+                data: p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear(),
+                hora: p2(d.getHours()) + ':' + p2(d.getMinutes())
+            });
         }
     }
 
@@ -422,7 +494,7 @@
             }
             var tituloAntes = document.title;
             var d = new Date();
-            document.title = 'BlueJus Relatorio de desempenho ' + p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear();
+            document.title = window.BJ_T.t('dashboard.js.impressao.nome_do_arquivo', { data: p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() });
             window.setTimeout(function () {
                 window.print();
                 window.setTimeout(function () { document.title = tituloAntes; }, 400);
@@ -430,8 +502,127 @@
         });
     }
 
+    // ── dica dos cards (dc VS 25.10.26, L2816-2819 e L3081-3082) ─────────────
+    // Cada card traz a dica em `data-tip` e o número dele em `data-dica` (0 Metas ativas,
+    // 1 Demandas urgentes, 2 Meta global, 3 Pastas criadas, a numeração do desenho). Cada
+    // entrada do ponteiro num card conta uma vez em localStorage 'bj-dica-paineis'
+    // ({"0": n, ...}); na 3ª, a dica ainda aparece e sai 2,5s depois, e daí em diante o card
+    // vem sem `data-tip`. O balão é o do bj-dica.js do desenho (azul-claro, abaixo do card,
+    // 280ms depois de o mouse chegar). localStorage indisponível: a dica fica sempre.
+
+    var DICA_CHAVE = 'bj-dica-paineis';
+    var DICA_LIMITE = 3;
+
+    function lerDicas() {
+        try {
+            var v = JSON.parse(window.localStorage.getItem(DICA_CHAVE) || '{}');
+
+            return v && typeof v === 'object' ? v : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function gravarDicas(v) {
+        try {
+            window.localStorage.setItem(DICA_CHAVE, JSON.stringify(v));
+        } catch (e) {
+            // sem armazenamento (modo privado, cota): a contagem não persiste
+        }
+    }
+
+    /** Tira `data-tip` dos cards que já mostraram a dica 3 vezes (a cada fragmento novo). */
+    function aplicarDicasVistas(area) {
+        var vistas = lerDicas();
+        area.querySelectorAll('.db-stat-card[data-dica][data-tip]').forEach(function (card) {
+            if ((parseInt(vistas[card.getAttribute('data-dica')], 10) || 0) >= DICA_LIMITE) {
+                card.removeAttribute('data-tip');
+            }
+        });
+    }
+
+    function ligarDicasDosCards(root) {
+        var tip = null, alvo = null, timer = null, ultimo = null;
+
+        function esconder() {
+            window.clearTimeout(timer);
+            timer = null;
+            alvo = null;
+            if (tip) {
+                tip.style.opacity = '0';
+                tip.style.transform = 'translateY(2px)';
+            }
+        }
+
+        function posicionar() {
+            if (!alvo || !tip) {
+                return;
+            }
+            var r = alvo.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, m = 8;
+            var x = r.left + r.width / 2 - w / 2, y = r.bottom + 8;
+            if (y + h > window.innerHeight - m) { y = r.top - h - 8; }
+            if (y < m) { y = Math.min(window.innerHeight - h - m, r.bottom + 8); }
+            x = Math.max(m, Math.min(window.innerWidth - w - m, x));
+            tip.style.left = x + 'px';
+            tip.style.top = y + 'px';
+        }
+
+        function mostrar(card) {
+            var t = card.getAttribute('data-tip') || '';
+            if (!t || !card.isConnected) {
+                return;
+            }
+            if (!tip) {
+                tip = document.createElement('div');
+                tip.className = 'db-card-tip';
+                tip.setAttribute('role', 'tooltip');
+                document.body.appendChild(tip);
+            }
+            alvo = card;
+            tip.textContent = t;
+            tip.style.opacity = '0';
+            window.requestAnimationFrame(function () {
+                posicionar();
+                tip.style.opacity = '1';
+                tip.style.transform = 'translateY(0)';
+            });
+        }
+
+        root.addEventListener('pointerover', function (e) {
+            var card = e.target.closest && e.target.closest('.db-stat-card[data-dica][data-tip]');
+            if (!card || card === ultimo) {
+                return;
+            }
+            ultimo = card;
+            var n = card.getAttribute('data-dica');
+            var vistas = lerDicas();
+            vistas[n] = (parseInt(vistas[n], 10) || 0) + 1;
+            gravarDicas(vistas);
+            if (vistas[n] >= DICA_LIMITE) {
+                window.setTimeout(function () {
+                    card.removeAttribute('data-tip');
+                    if (alvo === card) { esconder(); }
+                }, 2500);
+            }
+            if (e.pointerType === 'mouse') {
+                window.clearTimeout(timer);
+                timer = window.setTimeout(function () { mostrar(card); }, 280);
+            }
+        });
+        root.addEventListener('pointerout', function (e) {
+            if (ultimo && !ultimo.contains(e.relatedTarget)) {
+                ultimo = null;
+                esconder();
+            }
+        });
+        ['mousedown', 'keydown', 'wheel', 'scroll', 'contextmenu'].forEach(function (ev) {
+            window.addEventListener(ev, esconder, { capture: true, passive: true });
+        });
+    }
+
     function iniciar(root) {
         ligarSegmentado(root);
+        ligarPeriodoPadrao(root);
         ligarLegendasEmToque(root);
         ligarExportarPdf(root);
         ligarBusca(root);
@@ -441,6 +632,9 @@
         if (!resultado) {
             return;
         }
+
+        aplicarDicasVistas(resultado);
+        ligarDicasDosCards(root);
 
         // Brilho e grade do hover seguem o cursor (só mouse; em toque nada acontece).
         root.addEventListener('pointermove', function (e) {
@@ -464,6 +658,7 @@
                 // vez; a partir daqui so os numeros contam (ver CSS .db-pronto).
                 root.classList.add('db-pronto');
                 reporBusca(resultado);
+                aplicarDicasVistas(resultado);
                 contarCards(resultado, false);
             }).observe(resultado, { childList: true });
         }

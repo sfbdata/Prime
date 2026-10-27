@@ -27,6 +27,10 @@ final readonly class EspacoDaContaOutput
         public ?int $limiteUsuarios,
         public string $origemDoLimite,
         public string $origemDoLimiteDeUsuarios,
+        /** Bônus vigente (já somado ao `limiteGb`): GB, origem e validade (dd/mm/aaaa); nulos sem bônus. */
+        public ?int $bonusGb = null,
+        public ?string $bonusOrigem = null,
+        public ?string $bonusAte = null,
     ) {
     }
 
@@ -42,11 +46,14 @@ final readonly class EspacoDaContaOutput
             $retrato->limiteUsuarios,
             $retrato->origemDoLimite->value,
             $retrato->origemDoLimiteDeUsuarios->value,
+            $retrato->bytesBonus > 0 ? intdiv($retrato->bytesBonus, RetratoDoEspaco::BYTES_POR_GB) : null,
+            $retrato->bytesBonus > 0 ? $retrato->bonusOrigem : null,
+            $retrato->bytesBonus > 0 ? $retrato->bonusAte?->format('d/m/Y') : null,
         );
     }
 
     /**
-     * @return array{planoCodigo: string, planoNome: string, limiteGb: ?int, percentual: ?int, faixa: string, semLimite: bool, limiteUsuarios: ?int, origemDoLimite: string, origemDoLimiteDeUsuarios: string}
+     * @return array{planoCodigo: string, planoNome: string, limiteGb: ?int, percentual: ?int, faixa: string, semLimite: bool, limiteUsuarios: ?int, origemDoLimite: string, origemDoLimiteDeUsuarios: string, bonusGb: ?int, bonusOrigem: ?string, bonusAte: ?string}
      */
     public function paraArray(): array
     {

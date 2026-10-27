@@ -320,18 +320,13 @@ final class PastaSomenteLeituraRotasArquiteturaTest extends KernelTestCase
         }
     }
 
-    #[TestDox('a edição da mensagem da meta chega à pasta por dois níveis (getTarefa → getPasta) e é reconhecida')]
+    #[TestDox('o degrau de dois níveis (getTarefa → getPasta) continua reconhecendo a TarefaMensagem, para a rota de escrita que vier a recebê-la')]
     public function testMensagemDaMetaEReconhecidaPelosDoisNiveis(): void
     {
-        $rotas = self::rotasDeEscritaComPasta();
-
-        // O path `/tarefas/mensagem/{id}/editar` não dá nenhum dos outros sinais: só a assinatura
-        // (TarefaMensagem → Tarefa → Pasta) a põe no recorte. Se o degrau de dois níveis quebrar,
-        // ela some daqui — e o listener deixaria de vê-la sem o teste principal acusar.
-        self::assertArrayHasKey('tarefa_mensagem_editar', $rotas, 'tarefa_mensagem_editar não é reconhecida como rota de escrita de pasta.');
+        // A edição da mensagem antiga (`tarefa_mensagem_editar`) saiu em 22/10; o degrau do listener fica.
+        self::assertArrayNotHasKey('tarefa_mensagem_editar', self::rotasDeEscritaComPasta());
         self::assertTrue(self::chegaAPastaPelaMeta(TarefaMensagem::class));
         self::assertFalse(method_exists(TarefaMensagem::class, 'getPasta'), 'TarefaMensagem ganhou getPasta(): o degrau de dois níveis deixou de ser o que a cobre.');
-        self::assertTrue(self::recebeAPasta(self::actionObrigatoria('tarefa_mensagem_editar', $rotas['tarefa_mensagem_editar'])));
     }
 
     #[TestDox('as listas de exceção do listener só têm rotas de escrita de pasta que existem')]
@@ -346,5 +341,6 @@ final class PastaSomenteLeituraRotasArquiteturaTest extends KernelTestCase
         // Exceção é decisão, não esquecimento: as estrelas seguem recusadas (precedente PastaFavorita).
         self::assertNotContains('pasta_favorito_alternar', self::excecoes());
         self::assertNotContains('pasta_documentos_favorito', self::excecoes());
+        self::assertNotContains('pasta_acompanhamento_alternar', self::excecoes());
     }
 }

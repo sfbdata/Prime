@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Expediente\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +17,17 @@ use PHPUnit\Framework\TestCase;
 final class ExpedienteListaDesenho11FolhaTest extends TestCase
 {
     private const DIR = __DIR__ . '/../../../';
+
+    /** O texto da chave no catálogo do português (desde a extração do idioma, o template e o JS só têm a chave). */
+    private static function texto(string $chave): string
+    {
+        $no = CatalogoPtBr::carregar();
+        foreach (explode('.', $chave) as $parte) {
+            $no = $no[$parte];
+        }
+
+        return $no;
+    }
 
     private static function ler(string $arquivo): string
     {
@@ -60,7 +72,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString('box-shadow: none !important;', $tag);
         self::assertStringContainsString('--ex-borda-tag: #d8e1e7;', $css);
 
-        $tabela = self::ler('templates/pasta/_tabela.html.twig');
+        $tabela = self::ler('templates/expediente/_lista.html.twig');
         foreach (['bi-upc', 'bi-person', 'bi-bank', 'bi-flag me-1', 'bi-person-badge', 'bi-check2-square', 'bi-tags', 'bi-circle-half'] as $icone) {
             self::assertStringContainsString('<i class="bi ' . $icone, $tabela, 'ícone do cabeçalho do dc: ' . $icone);
         }
@@ -77,9 +89,10 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     #[TestDox('AUD-14: resumo com o intervalo de pastas da página ("1 de 50", "51 de 100") e espaços largos em volta do ponto')]
     public function testResumoComIntervalo(): void
     {
-        $tabela = self::ler('templates/pasta/_tabela.html.twig');
+        $tabela = self::ler('templates/expediente/_lista.html.twig');
         self::assertStringContainsString('{%- set primeiraDaPagina = (pagination.current_page - 1) * pagination.per_page + 1 %}', $tabela);
-        self::assertStringContainsString("(primeiraDaPagina + pastas|length - 1)|number_format(0, ',', '.') }}&#8195;·&#8195;Total:", $tabela);
+        self::assertStringContainsString("fim: (primeiraDaPagina + pastas|length - 1)|numero(0)}) }}&#8195;·&#8195;{{ pagination.total_items != 1 ? 'expediente.lista.resumo.total_varias'", $tabela);
+        self::assertSame(['{inicio} de {fim}', 'Total: {total} pastas', 'Total: {total} pasta'], [self::texto('expediente.lista.resumo.intervalo'), self::texto('expediente.lista.resumo.total_varias'), self::texto('expediente.lista.resumo.total_uma')]);
         self::assertStringNotContainsString('{{ pagination.current_page }} de {{ max(pagination.total_pages, 1) }}', $tabela);
     }
 
@@ -96,9 +109,12 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString('padding: 8px 14px; border: 0; border-radius: 0;', self::bloco($css, '.exp-ctx-item'));
 
         $js = self::js();
-        self::assertStringContainsString("abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, espelho || linha, editando ? 'editando' : null);", $js);
-        self::assertStringContainsString("window.ExpMenu.abrir(el.dataset.nome + ' · ' + (el.dataset.n || '0') + ' pasta(s)', lista, x, y, el, 'marcador');", self::ler('public/js/expediente-trilho.js'));
-        foreach (["icone: 'bi-person-badge'", "icone: 'bi-funnel'", "icone: 'bi-plus-lg'", "rotulo: 'Copiar número da pasta'", "rotulo: 'Copiar nome do cliente'"] as $trecho) {
+        self::assertStringContainsString("abrir(editando ? '' : (temNome ? BJ_T.t('expediente.js.lista.menu.titulo_com_nome', {nup: nup, nome: nome}) : BJ_T.t('expediente.js.lista.menu.titulo', {nup: nup})), lista, x, y, espelho || linha, editando ? 'editando' : null);", $js);
+        self::assertSame(['Pasta {nup}', 'Pasta {nup} · {nome}'], [self::texto('expediente.js.lista.menu.titulo'), self::texto('expediente.js.lista.menu.titulo_com_nome')]);
+        self::assertStringContainsString("window.ExpMenu.abrir(BJ_T.t('expediente.js.trilho.menu_titulo_marcador', { nome: el.dataset.nome, n: el.dataset.n || '0' }), lista, x, y, el, 'marcador');", self::ler('public/js/expediente-trilho.js'));
+        self::assertSame('{nome} · {n} pasta(s)', self::texto('expediente.js.trilho.menu_titulo_marcador'));
+        self::assertSame(['Copiar número da pasta', 'Copiar nome do cliente'], [self::texto('expediente.js.lista.menu.copiar_numero'), self::texto('expediente.js.lista.menu.copiar_nome')]);
+        foreach (["icone: 'bi-person-badge'", "icone: 'bi-funnel'", "icone: 'bi-plus-lg'", "rotulo: BJ_T.t('expediente.js.lista.menu.copiar_numero')", "rotulo: BJ_T.t('expediente.js.lista.menu.copiar_nome')"] as $trecho) {
             self::assertStringContainsString($trecho, $js . self::ler('public/js/expediente-trilho.js'));
         }
         self::assertStringNotContainsString('bi-person-gear', $js);
@@ -248,10 +264,13 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     {
         $js = self::js();
         self::assertStringContainsString("t.getAttribute('data-chave-colunas')", $js);
-        self::assertStringContainsString("{ icone: 'bi-person-lock', texto: 'Ajuste só seu: não muda para o resto da equipe' }", $js);
-        self::assertStringContainsString("'BlueJus I.A · '", $js);
+        self::assertStringContainsString("{ icone: 'bi-person-lock', texto: BJ_T.t('expediente.js.lista.colunas.ajuste_seu') }", $js);
+        self::assertSame('Ajuste só seu: não muda para o resto da equipe', self::texto('expediente.js.lista.colunas.ajuste_seu'));
+        self::assertStringContainsString("BJ_T.t('expediente.js.lista.ia.rotulo', {nome: d.nome || BJ_T.t('expediente.js.lista.ia.assistente')})", $js);
+        self::assertSame(['BlueJus I.A · {nome}', 'Assistente de pastas'], [self::texto('expediente.js.lista.ia.rotulo'), self::texto('expediente.js.lista.ia.assistente')]);
         $css = self::css();
         self::assertStringContainsString('> td .pasta-resp-chip:hover:not(.resp-avatar):not(.pasta-favorita-estrela) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.65) !important; }', $css);
-        self::assertStringContainsString('placeholder="Buscar pasta, cliente, ação ou processo"', self::ler('templates/pasta/_filtros.html.twig'));
+        self::assertStringContainsString('placeholder="{{ \'pasta_lista.filtros.busca_placeholder\'|trans }}"', self::ler('templates/pasta/_filtros.html.twig'));
+        self::assertSame('Buscar pasta, cliente, ação ou processo', self::texto('pasta_lista.filtros.busca_placeholder'));
     }
 }

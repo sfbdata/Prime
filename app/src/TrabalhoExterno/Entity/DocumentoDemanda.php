@@ -11,10 +11,13 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Documento anexado à demanda. `nomeArmazenado` é só o NOME cunhado pelo storage (D8); o escopo
- * do arquivo é o escritório solicitante, dono da demanda (ver `ChavesDeTrabalhoExterno`).
+ * do arquivo é o escritório solicitante, dono da demanda (ver `ChavesDeTrabalhoExterno`). Com `despacho`,
+ * é anexo de um despacho da Central: a mesma guarda de download e a mesma purga, fora da lista DOCUMENTOS. Com `comprovante`,
+ * é o comprovante de pagamento PIX (um por demanda): também fora de DOCUMENTOS, e o Convidado nunca o baixa.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'trabalho_externo_documento')]
+#[ORM\UniqueConstraint(name: 'uniq_te_documento_comprovante', columns: ['demanda_id'], options: ['where' => '(comprovante = true)'])]
 class DocumentoDemanda
 {
     #[ORM\Id]
@@ -48,6 +51,13 @@ class DocumentoDemanda
         #[ORM\Column(length: 120)]
         private string $mimeType,
         Autor $autor,
+        /** Anexo de um despacho da Central (desenho 06 de 24/10, l.516): aparece no despacho, não em DOCUMENTOS. */
+        #[ORM\ManyToOne(targetEntity: DespachoDemanda::class, inversedBy: 'documentos')]
+        #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+        private ?DespachoDemanda $despacho = null,
+        /** Comprovante de pagamento PIX do solicitante (spec 25/10): fica na aba Pagamento, fora de DOCUMENTOS. */
+        #[ORM\Column(options: ['default' => false])]
+        private bool $comprovante = false,
     ) {
         $this->enviadoPor = $autor->usuario;
         $this->nomeAutor = $autor->nome;
@@ -98,5 +108,15 @@ class DocumentoDemanda
     public function getEm(): \DateTimeImmutable
     {
         return $this->em;
+    }
+
+    public function getDespacho(): ?DespachoDemanda
+    {
+        return $this->despacho;
+    }
+
+    public function isComprovante(): bool
+    {
+        return $this->comprovante;
     }
 }

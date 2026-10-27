@@ -87,7 +87,7 @@ final class CasosDeUsoDaCandidaturaTest extends TestCase
         $r = $this->candidatar()->executar($this->ctx(), $vaga->getCodigo());
 
         self::assertTrue($r->criou && !$r->aceite);
-        self::assertSame(['titulo' => 'Candidatura enviada', 'texto' => 'Acompanhe em Meu currículo · Minhas candidaturas.'], $r->toast());
+        self::assertSame(['titulo' => 'Candidatura enviada', 'texto' => ''], $r->toast(), 'P1: sem a frase "Acompanhe em ... Minhas candidaturas"');
         self::assertSame('Candidatura de Ana Souza', end($vaga->getHistorico())->getTexto());
     }
 
@@ -204,7 +204,7 @@ final class CasosDeUsoDaCandidaturaTest extends TestCase
 
     private function candidatar(): CandidatarOuAceitarUseCase
     {
-        return new CandidatarOuAceitarUseCase($this->localizador(), $this->politicaDaVaga(), $this->curriculos, $this->candidaturas, $this->vagas, $this->avisos());
+        return new CandidatarOuAceitarUseCase($this->localizador(), $this->politicaDaVaga(), $this->curriculos, $this->candidaturas, $this->vagas, $this->avisos(), new \App\Tenant\Service\SituacaoDaConta());
     }
 
     private function enviar(): EnviarCandidatosAoEscritorioUseCase
@@ -223,6 +223,7 @@ final class CasosDeUsoDaCandidaturaTest extends TestCase
             new ResolvedorDePerfil($this->createStub(PermissionChecker::class)),
             $this->politicaDaVaga(),
             $this->createStub(ConviteDemandaRepository::class),
+            new PoliticaDaDemanda(),
         );
     }
 

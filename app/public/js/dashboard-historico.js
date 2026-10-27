@@ -19,12 +19,12 @@
 (function () {
     'use strict';
 
-    // Título e ícone enquanto a resposta não chega (a resposta traz os definitivos).
+    // Título (chave do catálogo) e ícone enquanto a resposta não chega (a resposta traz os definitivos).
     var VISUAL = {
-        pastas:   { titulo: 'Pastas criadas', icone: 'bi-folder-plus' },
-        metas:    { titulo: 'Metas ativas', icone: 'bi-check2-square' },
-        urgentes: { titulo: 'Demandas urgentes', icone: 'bi-flag-fill' },
-        global:   { titulo: 'Meta global batida', icone: 'bi-bullseye' }
+        pastas:   { titulo: 'dashboard.js.historico.pastas_criadas', icone: 'bi-folder-plus' },
+        metas:    { titulo: 'dashboard.js.historico.metas_ativas', icone: 'bi-check2-square' },
+        urgentes: { titulo: 'dashboard.js.historico.demandas_urgentes', icone: 'bi-flag-fill' },
+        global:   { titulo: 'dashboard.js.historico.meta_global_batida', icone: 'bi-bullseye' }
     };
 
     function el(tag, classe, texto) {
@@ -63,7 +63,7 @@
             if (b.valor === null) { col.classList.add('is-vazio'); }
             if (b.melhor) { col.classList.add('is-melhor'); }
             if (b.atual) { col.classList.add('is-atual'); }
-            col.appendChild(el('span', 'db-hist-valor', b.mostrarValor ? b.valor : ''));
+            col.appendChild(el('span', 'db-hist-valor', b.mostrarValor ? (b.texto !== undefined ? b.texto : b.valor) : ''));
             var barra = el('span', 'db-hist-barra');
             barra.style.height = Number(b.altura) + 'px';
             barra.style.animationDelay = (i * 0.03).toFixed(2) + 's';
@@ -93,7 +93,7 @@
     function desenhar(corpo, d) {
         if (!d.disponivel) {
             corpo.replaceChildren(
-                el('p', 'db-hist-aviso', 'Ainda não há histórico deste número.'),
+                el('p', 'db-hist-aviso', window.BJ_T.t('dashboard.js.historico.sem_historico')),
                 el('div', 'db-hist-nota', d.nota)
             );
 
@@ -103,7 +103,7 @@
         var graf = el('div', 'db-hist-graf');
         var anos = el('div', 'db-hist-anos');
         anos.setAttribute('role', 'group');
-        anos.setAttribute('aria-label', 'Ano');
+        anos.setAttribute('aria-label', window.BJ_T.t('dashboard.js.historico.ano'));
         var grafico = el('div', 'db-hist-grafico');
         graf.appendChild(anos);
         graf.appendChild(grafico);
@@ -132,7 +132,7 @@
     }
 
     function carregar(url, janela) {
-        aviso(janela.corpo, 'Carregando…');
+        aviso(janela.corpo, window.BJ_T.t('dashboard.js.historico.carregando'));
         window.fetch(url, {
             credentials: 'same-origin',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
@@ -148,8 +148,31 @@
             desenhar(janela.corpo, d);
         }).catch(function () {
             if (janela.elemento.isConnected) {
-                aviso(janela.corpo, 'Não foi possível carregar o histórico. Feche a janela e tente de novo.');
+                aviso(janela.corpo, window.BJ_T.t('dashboard.js.historico.erro'));
             }
+        });
+    }
+
+    function abrirHistorico(root, card, x, y) {
+        var tipo = card.getAttribute('data-historico') || 'pastas';
+        var visual = VISUAL[tipo] || VISUAL.pastas;
+        var f = filtrosDoPainel(root);
+        var url = new URL(card.getAttribute('data-historico-url'), window.location.origin);
+        if (f.responsavel !== '') { url.searchParams.set('responsavel', f.responsavel); }
+        if (f.cargo !== '') { url.searchParams.set('cargo', f.cargo); }
+
+        window.DbJanelas.abrir({
+            chave: 'hist:' + tipo + '|' + f.responsavel + '|' + f.cargo,
+            titulo: window.BJ_T.t(visual.titulo),
+            subtitulo: window.BJ_T.t('dashboard.js.historico.subtitulo'),
+            icone: visual.icone,
+            classe: 'db-hist db-hist--' + tipo,
+            largura: 330,
+            altura: 420, // altura da janela pronta (desenho: H0): a posição já reserva o espaço
+            x: x,
+            y: y,
+            origem: card,
+            montar: function (corpo, janela) { carregar(url.toString(), janela); }
         });
     }
 
@@ -161,26 +184,11 @@
             if (e.target.closest('a, button, input, select, textarea')) { return; }
             e.preventDefault();
 
-            var tipo = card.getAttribute('data-historico') || 'pastas';
-            var visual = VISUAL[tipo] || VISUAL.pastas;
-            var f = filtrosDoPainel(root);
-            var url = new URL(card.getAttribute('data-historico-url'), window.location.origin);
-            if (f.responsavel !== '') { url.searchParams.set('responsavel', f.responsavel); }
-            if (f.cargo !== '') { url.searchParams.set('cargo', f.cargo); }
-
-            window.DbJanelas.abrir({
-                chave: 'hist:' + tipo + '|' + f.responsavel + '|' + f.cargo,
-                titulo: visual.titulo,
-                subtitulo: 'Histórico mensal',
-                icone: visual.icone,
-                classe: 'db-hist db-hist--' + tipo,
-                largura: 330,
-                altura: 420, // altura da janela pronta (desenho: H0): a posição já reserva o espaço
-                x: e.clientX,
-                y: e.clientY,
-                origem: card,
-                montar: function (corpo, janela) { carregar(url.toString(), janela); }
-            });
+            var x = e.clientX, y = e.clientY;
+            var abrir = function () { abrirHistorico(root, card, x, y); };
+            // Card Pastas criadas, para o primário: menu "Alterar meta do mês / Ver histórico" (DASH-016, dashboard-meta.js).
+            if (window.DbMeta && window.DbMeta.menuDoCard(card, x, y, abrir)) { return; }
+            abrir();
         });
     }
 

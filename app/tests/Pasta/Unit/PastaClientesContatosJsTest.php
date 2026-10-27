@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -33,15 +34,16 @@ final class PastaClientesContatosJsTest extends TestCase
     {
         $bloco = $this->ctGravar();
 
-        $redirect = strpos($bloco, 'if (r.redirected) { return { erro: CT_SESSAO_EXPIRADA }; }');
+        $redirect = strpos($bloco, 'if (r.redirected) { return { erro: ctSessaoExpirada() }; }');
         self::assertNotFalse($redirect);
         $ok = strpos($bloco, 'if (r.ok)');
         self::assertNotFalse($ok);
         self::assertLessThan($ok, $redirect);
         self::assertStringContainsString(
-            "var CT_SESSAO_EXPIRADA = 'Sua sessão expirou; recarregue a página';",
+            "function ctSessaoExpirada() { return BJ_T.t('pasta_cabecalho.js.clientes.sessao_expirada'); }",
             (string) file_get_contents(self::JS),
         );
+        self::assertSame('Sua sessão expirou; recarregue a página', self::catalogoJs()['sessao_expirada']);
     }
 
     #[TestDox('só troca a janela se o HTML recebido tem a marca .ps-cli-janela; senão avisa e não troca')]
@@ -57,12 +59,14 @@ final class PastaClientesContatosJsTest extends TestCase
 
         // No ramo da marca ausente: avisa a sessão expirada e sai antes de trocar.
         $ramo = substr($bloco, $marca, $troca - $marca);
-        self::assertStringContainsString('avisar(CT_SESSAO_EXPIRADA)', $ramo);
+        self::assertStringContainsString('avisar(ctSessaoExpirada())', $ramo);
         self::assertStringContainsString('return;', $ramo);
 
-        $salvo = strpos($bloco, "avisar(valor === '' ? 'Contato removido' : 'Contato salvo')");
+        $salvo = strpos($bloco, "avisar(valor === '' ? BJ_T.t('pasta_cabecalho.js.clientes.contato_removido') : BJ_T.t('pasta_cabecalho.js.clientes.contato_salvo'))");
         self::assertNotFalse($salvo);
         self::assertLessThan($salvo, $troca, '"Contato salvo" só depois da troca');
+        self::assertSame('Contato salvo', self::catalogoJs()['contato_salvo']);
+        self::assertSame('Contato removido', self::catalogoJs()['contato_removido']);
     }
 
     #[TestDox('a marca que o JS exige é a raiz do fragmento servido (cliente/_resumo.html.twig)')]
@@ -73,5 +77,11 @@ final class PastaClientesContatosJsTest extends TestCase
         $semSet         = trim((string) preg_replace('/^\{%\s*set\b.*?%\}/s', '', $semComentarios));
 
         self::assertStringStartsWith('<div class="ps-cli-janela"', $semSet);
+    }
+
+    /** @return array<string, string> */
+    private static function catalogoJs(): array
+    {
+        return CatalogoPtBr::carregar()['pasta_cabecalho']['js']['clientes'];
     }
 }

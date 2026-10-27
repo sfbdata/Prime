@@ -15,17 +15,24 @@ use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\UseCase\AlternarItemDoChecklistUseCase;
+use App\TrabalhoExterno\UseCase\AjustarValorDoPagamentoUseCase;
 use App\TrabalhoExterno\UseCase\AnexarDocumentosUseCase;
 use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\AtualizarConfiguracaoCentralUseCase;
+use App\TrabalhoExterno\UseCase\AvisarPagamentoNoChatUseCase;
+use App\TrabalhoExterno\UseCase\ConfirmarRecebimentoDoPixUseCase;
+use App\TrabalhoExterno\UseCase\DespacharNaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\DetalharDemandaUseCase;
+use App\TrabalhoExterno\UseCase\EnviarComprovanteDePagamentoUseCase;
 use App\TrabalhoExterno\UseCase\EnviarMensagemUseCase;
 use App\TrabalhoExterno\UseCase\EnviarPropostaUseCase;
+use App\TrabalhoExterno\UseCase\LiberarRespostasAoDespachoUseCase;
 use App\TrabalhoExterno\UseCase\MarcarConversaLidaUseCase;
 use App\TrabalhoExterno\UseCase\MarcarDemandasEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\MarcarMensagensEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\RegistrarAndamentoUseCase;
+use App\TrabalhoExterno\UseCase\ResponderAoDespachoUseCase;
 use App\TrabalhoExterno\UseCase\SalvarSolicitacaoUseCase;
 use App\TrabalhoExterno\UseCase\SolicitarPeloMasterUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -181,6 +188,106 @@ final class DemandaExternaController extends AbstractController
     {
         return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $anexar): array {
             $anexar->executar($ctx, $codigo, $this->arquivos($request));
+
+            return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
+        });
+    }
+
+    /** "Despachar" (desenho 06 de 24/10, l.516 e 1394): multipart com `texto`, `natureza`, `prazo` e `documentos[]`. */
+    #[Route('/demandas/{codigo}/despachos', name: 'trabalho_externo_despachar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function despachar(Request $request, string $codigo, DespacharNaDemandaUseCase $despachar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $despachar): array {
+            $despachar->executar(
+                $ctx,
+                $codigo,
+                (string) $request->request->get('texto', ''),
+                (string) $request->request->get('natureza', ''),
+                (string) $request->request->get('prazo', ''),
+                $this->arquivos($request),
+            );
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                // P4 do dono (24/10): o despacho aparece no Resumo.
+                'toast' => ['titulo' => 'Despacho publicado', 'texto' => 'O solicitante vê o despacho no Resumo e recebe um aviso.'],
+            ];
+        });
+    }
+
+    #[Route('/demandas/{codigo}/despachos/respostas', name: 'trabalho_externo_despacho_responder', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function responderAoDespacho(Request $request, string $codigo, ResponderAoDespachoUseCase $responder): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $responder): array {
+            $responder->executar($ctx, $codigo, (string) ($this->corpo($request)['texto'] ?? ''));
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                'toast' => ['titulo' => 'Resposta enviada', 'texto' => 'A Central BlueJus foi avisada.'],
+            ];
+        });
+    }
+
+    /** "Aceitar resposta" (l.529): `{"liberar": true|false}`. */
+    #[Route('/demandas/{codigo}/despachos/aceitar-resposta', name: 'trabalho_externo_despacho_respostas', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function liberarRespostas(Request $request, string $codigo, LiberarRespostasAoDespachoUseCase $liberar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $liberar): array {
+            $liberar->executar($ctx, $codigo, (bool) ($this->corpo($request)['liberar'] ?? false));
+
+            return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
+        });
+    }
+
+    /** Aba Pagamento (desenho 25/10), "Já paguei · enviar comprovante": multipart com UM arquivo em `comprovante`. */
+    #[Route('/demandas/{codigo}/pagamento/comprovante', name: 'trabalho_externo_pagamento_comprovante', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function comprovante(Request $request, string $codigo, EnviarComprovanteDePagamentoUseCase $enviar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $enviar): array {
+            $arquivo = $request->files->get('comprovante');
+            $enviar->executar($ctx, $codigo, $arquivo instanceof UploadedFile ? $arquivo : null);
+
+            return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
+        });
+    }
+
+    /** "Confirmar recebimento": sem corpo. O valor sai da proposta aceita, nunca do cliente. */
+    #[Route('/demandas/{codigo}/pagamento/confirmacao', name: 'trabalho_externo_pagamento_confirmar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function confirmarRecebimento(Request $request, string $codigo, ConfirmarRecebimentoDoPixUseCase $confirmar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($codigo, $confirmar): array {
+            $confirmar->executar($ctx, $codigo);
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                'toast' => ['titulo' => 'Pagamento confirmado', 'texto' => 'O solicitante foi avisado no chat e por e-mail.'],
+            ];
+        });
+    }
+
+    /** Lápis do valor (só Master): `{"valor": "1.234,56", "motivo": "..."}`. O valor é lido e validado no servidor. */
+    #[Route('/demandas/{codigo}/pagamento/valor', name: 'trabalho_externo_pagamento_valor', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function ajustarValor(Request $request, string $codigo, AjustarValorDoPagamentoUseCase $ajustar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $ajustar): array {
+            $corpo = $this->corpo($request);
+            $valor = $corpo['valor'] ?? '';
+            $motivo = $corpo['motivo'] ?? '';
+            $ajustar->executar($ctx, $codigo, is_scalar($valor) ? (string) $valor : '', is_scalar($motivo) ? (string) $motivo : '');
+
+            return [
+                'demanda' => $this->detalhar->executar($ctx, $codigo),
+                'toast' => ['titulo' => 'Valor alterado', 'texto' => 'O solicitante foi avisado no chat e por e-mail.'],
+            ];
+        });
+    }
+
+    /** "Enviar no chat": grava o aviso do PIX no chat (sem corpo). */
+    #[Route('/demandas/{codigo}/pagamento/aviso', name: 'trabalho_externo_pagamento_avisar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function avisarPagamento(Request $request, string $codigo, AvisarPagamentoNoChatUseCase $avisar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($codigo, $avisar): array {
+            $avisar->executar($ctx, $codigo);
 
             return ['demanda' => $this->detalhar->executar($ctx, $codigo)];
         });

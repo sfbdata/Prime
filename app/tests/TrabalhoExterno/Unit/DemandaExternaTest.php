@@ -76,6 +76,30 @@ final class DemandaExternaTest extends TestCase
         self::assertSame(['analise', 'info', 'Falta a procuração'], [$h->getDe(), $h->getPara(), $h->getMotivo()]);
     }
 
+    #[TestDox('andamentos para avisar (D10): mudança de situação com motivo e mensagens de sistema, arquivo e andamento, na ordem; a comum e a nota interna não; retirar esvazia')]
+    public function testAndamentosParaAvisar(): void
+    {
+        $d = Apoio::demanda(Situacao::Analise);
+        $d->retirarAndamentosParaAvisar();
+
+        $d->aplicar(AcaoDemanda::SolicitarInformacoes, Apoio::autor(), 'Falta a procuração');
+        $d->registrar(Apoio::autor(), 'Oi', TipoMensagem::Normal);
+        $d->registrar(Apoio::autor(), 'Só da Central', TipoMensagem::Interna);
+        $arquivo = $d->registrar(Apoio::autor(), '1 documento(s) anexado(s): a.pdf', TipoMensagem::Arquivo);
+        $d->registrar(Apoio::autor(), 'Cheguei', TipoMensagem::Andamento);
+
+        $andamentos = $d->retirarAndamentosParaAvisar();
+        self::assertSame([
+            'Andamento: Aguardando informações · Falta a procuração',
+            'Informações solicitadas: Falta a procuração',
+            '1 documento(s) anexado(s): a.pdf',
+            'Cheguei',
+        ], array_column($andamentos, 'texto'));
+        self::assertNull($andamentos[0]['mensagem'], 'a mudança de situação não é mensagem do chat');
+        self::assertSame($arquivo, $andamentos[2]['mensagem'], 'a mensagem vai junto: o convidado só é avisado do que leria');
+        self::assertSame([], $d->retirarAndamentosParaAvisar(), 'cada andamento avisa uma vez só');
+    }
+
     #[TestDox('nova versão da proposta substitui a anterior em aberto; aceitar marca a vigente')]
     public function testVersoesDeProposta(): void
     {

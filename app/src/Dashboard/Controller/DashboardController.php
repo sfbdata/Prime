@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Dashboard\Controller;
 
 use App\Dashboard\Inteligencia\MontarLeituraDoDashboard;
+use App\Dashboard\Periodo\PeriodoDoDashboard;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Dashboard\UseCase\ObterPreferenciasDoDashboardUseCase;
 use App\Entity\Auth\User;
@@ -13,6 +14,7 @@ use App\Pasta\Service\AcessoAPasta;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,6 +31,7 @@ final class DashboardController extends AbstractController
         private readonly MontarLeituraDoDashboard $montarLeitura,
         private readonly ObterPreferenciasDoDashboardUseCase $obterPreferencias,
         private readonly AcessoAPasta $acessoAPasta,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
     ) {}
 
     #[Route('', name: 'dashboard_index', methods: ['GET'])]
@@ -38,19 +41,11 @@ final class DashboardController extends AbstractController
         $currentUser = $this->getUser();
         $tenant      = $this->assertAccess($currentUser);
 
-        $filtros = [
-            'data_de'     => (string) $request->query->get('data_de', ''),
-            'data_ate'    => (string) $request->query->get('data_ate', ''),
-            'responsavel' => (string) $request->query->get('responsavel', ''),
-            // Nome do cargo, ou ObterDadosDashboardUseCase::CARGO_SEM ('__sem__') para quem não tem cargo.
-            'cargo'       => (string) $request->query->get('cargo', ''),
-            // Trecho do nome do colaborador: esconde linhas da tabela, não mexe nos cards.
-            'busca'       => trim((string) $request->query->get('busca', '')),
-            // Coluna clicada no cabeçalho da tabela. A validação é do UseCase: chave que não
-            // existe cai no padrão do painel em vez de quebrar a tela.
-            'ordenar'     => (string) $request->query->get('ordenar', ''),
-            'direcao'     => (string) $request->query->get('direcao', ''),
-        ];
+        $filtros = $this->lerFiltros($request);
+
+        // Quem gere o escritório (Master ou primário ativo): zera colunas (DASH-014) e define a meta de pastas
+        // do mês (DASH-016). Os demais veem a meta, sem o botão de editar.
+        $podeGerir = $this->regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant);
 
         // Estilo pessoal do menu ⋮ do usuário LOGADO neste escritório. Lido também no XHR: as
         // colunas extras ("Adicionar coluna") mudam o HTML da tabela, então o fragmento tem de
@@ -78,6 +73,7 @@ final class DashboardController extends AbstractController
                 'filtros'      => $filtros,
                 'inteligencia' => $leitura,
                 'preferencias' => $preferencias,
+                'podeMeta'     => $podeGerir,
             ];
 
             // O XHR devolve o conteúdo de [data-filtro-resultado]: cards + tabela e, na mesma
@@ -136,7 +132,36 @@ final class DashboardController extends AbstractController
             'contagemCargo'    => $contagemCargo,
             'contagemSemCargo' => $contagemSemCargo,
             'cargoSemValor'  => ObterDadosDashboardUseCase::CARGO_SEM,
+            'podeZerar'      => $podeGerir, // "Zerar" (DASH-014): Master ou primário ativo
+            'podeMeta'       => $podeGerir, // meta de pastas do mês (DASH-016)
         ]);
+    }
+
+    /**
+     * Filtros da URL. Sem `data_de` e sem `data_ate`, o painel abre em "Este mês" (do dia 1º ao
+     * último dia do mês; spec dashboard-parte-1, item 1). Data vazia enviada (o usuário apagou) deixa o período aberto.
+     *
+     * @return array<string, mixed>
+     */
+    private function lerFiltros(Request $request): array
+    {
+        $filtros = [
+            'data_de'     => (string) $request->query->get('data_de', ''),
+            'data_ate'    => (string) $request->query->get('data_ate', ''),
+            'responsavel' => (string) $request->query->get('responsavel', ''),
+            // Nome do cargo, ou ObterDadosDashboardUseCase::CARGO_SEM ('__sem__') para quem não tem cargo.
+            'cargo'       => (string) $request->query->get('cargo', ''),
+            // Trecho do nome do colaborador: esconde linhas da tabela, não mexe nos cards.
+            'busca'       => trim((string) $request->query->get('busca', '')),
+            // Coluna clicada no cabeçalho da tabela. A validação é do UseCase: chave que não
+            // existe cai no padrão do painel em vez de quebrar a tela.
+            'ordenar'     => (string) $request->query->get('ordenar', ''),
+            'direcao'     => (string) $request->query->get('direcao', ''),
+        ];
+
+        $veioData = $request->query->has('data_de') || $request->query->has('data_ate');
+
+        return PeriodoDoDashboard::comPadrao($filtros, $veioData, new \DateTimeImmutable());
     }
 
     private function assertAccess(User $user): Tenant

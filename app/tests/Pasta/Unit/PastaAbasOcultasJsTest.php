@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -97,7 +98,9 @@ final class PastaAbasOcultasJsTest extends TestCase
     #[TestDox('Sem configurar: o aviso do desenho; com configurar e na aba Push, nada (o menu é do link externo)')]
     public function testQuemNaoConfigura(): void
     {
-        self::assertStringContainsString("'Só o usuário primário pode ocultar abas'", $this->js());
+        self::assertStringContainsString("var AVISO_SO_PRIMARIO = BJ_T.t('pasta_avisos.js.abas_so_primario');", $this->js());
+        self::assertSame('Só o usuário primário pode ocultar abas', CatalogoPtBr::carregar()['pasta_avisos']['js']['abas_so_primario']);
+        self::assertStringContainsString("{{ catalogo_js('pasta_avisos.js') }}", (string) file_get_contents(self::TWIG), 'o parcial entrega o catálogo do JS');
         self::assertStringContainsString('avisar(AVISO_SO_PRIMARIO);', $this->js(), 'estilo neutro do gmAviso (L.4411), não o de erro');
         self::assertStringContainsString("!aba.hasAttribute('data-ppl-menu')", $this->js());
     }

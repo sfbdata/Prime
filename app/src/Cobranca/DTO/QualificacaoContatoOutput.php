@@ -7,6 +7,7 @@ namespace App\Cobranca\DTO;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Enum\QualificacaoContato;
 use App\Entity\Auth\User;
+use App\Tenant\Enum\PoderSemPrazo;
 
 /**
  * Uma linha da listinha de qualificações do painel da aba Responsáveis (2026-07-27): rótulo, quando e
@@ -15,6 +16,10 @@ use App\Entity\Auth\User;
  * `podeDesfazer` vem decidido do SERVIDOR, como o `editavel` da anotação: o template não recalcula
  * prazo nem compara autoria, senão tela e servidor poderiam discordar e o botão apareceria para quem
  * a rota vai recusar.
+ *
+ * Edição sem prazo (spec `edicao-sem-prazo-master-primario.md`, item 7): Master e primário (com a opção) desfazem
+ * fora dos 5 minutos e a de outra pessoa; "só a mais recente" continua para todos. `seloSemPrazo` diz quando o botão
+ * só existe por causa do poder ('master' | 'primario').
  */
 final class QualificacaoContatoOutput
 {
@@ -25,6 +30,7 @@ final class QualificacaoContatoOutput
         public readonly \DateTimeImmutable $ocorridoEm,
         public readonly ?string $autorNome,
         public readonly bool $podeDesfazer,
+        public readonly ?string $seloSemPrazo = null,
     ) {
     }
 
@@ -40,6 +46,7 @@ final class QualificacaoContatoOutput
         ?User $usuarioAtual,
         ?\DateTimeImmutable $agora,
         bool $ehMaisRecente,
+        ?PoderSemPrazo $poder = null,
     ): ?self {
         $qualificacao = QualificacaoContato::tentarDe($evento->getDados()['qualificacao'] ?? null);
 
@@ -48,6 +55,9 @@ final class QualificacaoContatoOutput
         }
 
         $autor = $evento->getUsuario();
+        $pelaRegra = $ehMaisRecente && $agora !== null && $evento->podeSerDesfeitaPor($usuarioAtual, $agora);
+        $peloPoder = !$pelaRegra && $ehMaisRecente && $agora !== null && $poder !== null
+            && $evento->podeSerDesfeitaPor($usuarioAtual, $agora, true);
 
         return new self(
             eventoId: $evento->getId() ?? 0,
@@ -55,9 +65,8 @@ final class QualificacaoContatoOutput
             icone: $qualificacao->icone(),
             ocorridoEm: $evento->getOcorridoEm(),
             autorNome: $autor?->getFullName() ?? $autor?->getEmail(),
-            podeDesfazer: $ehMaisRecente
-                && $agora !== null
-                && $evento->podeSerDesfeitaPor($usuarioAtual, $agora),
+            podeDesfazer: $pelaRegra || $peloPoder,
+            seloSemPrazo: $peloPoder ? $poder->value : null,
         );
     }
 }

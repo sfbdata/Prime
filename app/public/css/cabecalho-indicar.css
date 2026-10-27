@@ -1,0 +1,3 @@
+/* Botão "Indicar o BlueJus" do cabeçalho. Valores de bj-compartilhar.js (.bjsh) do desenho 05 VS 25.10.26. */
+.bj-share { width: 34px; height: 34px; flex: none; border: none; border-radius: 3px; background: transparent; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; opacity: .9; transition: background .15s, opacity .15s; }
+.bj-share:hover { background: rgba(255, 255, 255, .16); opacity: 1; }

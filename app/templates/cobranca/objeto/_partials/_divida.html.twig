@@ -51,22 +51,22 @@
     {%- if o.encargosNaoCalculados %}
     <div class="jp-obr-valor jp-money col-total jp-total-nao-calculado">
         {{ o.valorOriginal|centavos }}
-        <span class="jp-enc-motivo">⚠ acordo sem data</span>
+        <span class="jp-enc-motivo">{{ 'cobranca_objeto.divida.motivo_sem_data'|trans }}</span>
     </div>
     {%- else %}
     <div class="jp-obr-valor jp-money col-total"
          {%- if o.encargosCongeladosEm is null and o.encargosAtualizadosEm is not null %} data-bs-toggle="tooltip"
-         title="Encargos atualizados em {{ o.encargosAtualizadosEm|date('d/m/Y') }}."{% endif %}>
+         title="{{ 'cobranca_objeto.divida.atualizados_em'|trans({data: o.encargosAtualizadosEm|data}) }}"{% endif %}>
         {{ o.valorAtual|centavos }}
         {%- if o.encargosCongeladosEm is not null %}
             {# Congelada (INV-E4): estes encargos não crescem mais — o cron não a toca. Sinal discreto,
                que não pode competir com o número nem ocupar coluna própria. #}
             <i class="bi bi-snow jp-obr-congelado" data-bs-toggle="tooltip"
-               title="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }}. Não são recalculados automaticamente."
-               aria-label="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }}"></i>
+               title="{{ 'cobranca_objeto.divida.congelados_dica'|trans({data: o.encargosCongeladosEm|data}) }}"
+               aria-label="{{ 'cobranca_objeto.divida.congelados'|trans({data: o.encargosCongeladosEm|data}) }}"></i>
         {%- endif %}
         {% if o.alocado > 0 and not o.quitada %}
-            <span class="jp-obr-restante">falta {{ o.restante|centavos }}</span>
+            <span class="jp-obr-restante">{{ 'cobranca_objeto.divida.falta'|trans({valor: o.restante|centavos}) }}</span>
         {% endif %}
     </div>
     {%- endif %}
@@ -91,7 +91,7 @@
     <button type="button" class="cob-obr-chevron" data-bs-toggle="collapse"
             data-bs-target="#detalheObr{{ o.id }}" aria-expanded="false"
             aria-controls="detalheObr{{ o.id }}"
-            title="Detalhar encargos" aria-label="Detalhar os encargos de {{ o.descricao|e('html_attr') }}">
+            title="{{ 'cobranca_objeto.divida.detalhar'|trans }}" aria-label="{{ 'cobranca_objeto.divida.detalhar_de'|trans({descricao: o.descricao}) }}">
         <i class="bi bi-chevron-down"></i>
     </button>
 {% endmacro %}
@@ -125,26 +125,26 @@
            quebrava essa leitura, porque aqui ela não fica sob nenhuma coluna de total. #}
         <div class="cob-obr-detalhe-caixa">
             <div class="cob-obr-detalhe-item">
-                <div class="cob-obr-detalhe-rot">Original</div>
+                <div class="cob-obr-detalhe-rot">{{ 'cobranca_objeto.divida.detalhe.original'|trans }}</div>
                 <div class="cob-obr-detalhe-val col-original">{{ o.valorOriginal|centavos }}</div>
-                <div class="cob-obr-detalhe-nota">valor de face do boleto</div>
+                <div class="cob-obr-detalhe-nota">{{ 'cobranca_objeto.divida.detalhe.original_nota'|trans }}</div>
             </div>
             {# A obrigação SUBSTITUÍDA não passa por aqui: ela é renderizada sem painel e sem chevron, só
                com a célula do Total (ver macro `valores`, onde mora o traço do encargo não calculado). #}
             <div class="cob-obr-detalhe-item">
-                <div class="cob-obr-detalhe-rot">Juros{% if o.taxaJurosEfetivaBp %} <span class="cob-obr-detalhe-pct">{{ (o.taxaJurosEfetivaBp / 100)|round(2)|replace({'.': ','}) }}% a.m. pró-rata</span>{% endif %}</div>
+                <div class="cob-obr-detalhe-rot">{{ 'cobranca_objeto.divida.detalhe.juros'|trans }}{% if o.taxaJurosEfetivaBp %} <span class="cob-obr-detalhe-pct">{{ 'cobranca_objeto.divida.detalhe.juros_taxa'|trans({pct: (o.taxaJurosEfetivaBp / 100)|round(2)|replace({'.': ','})}) }}</span>{% endif %}</div>
                 <div class="cob-obr-detalhe-val col-juros {{ o.juros == 0 ? 'is-zero' }}">{{ o.juros|centavos }}</div>
             </div>
             <div class="cob-obr-detalhe-item">
-                <div class="cob-obr-detalhe-rot">Multa{% if baseMultaVal > 0 and o.multa > 0 %} <span class="cob-obr-detalhe-pct">{{ (o.multa * 100 / baseMultaVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</div>
+                <div class="cob-obr-detalhe-rot">{{ 'cobranca_objeto.divida.detalhe.multa'|trans }}{% if baseMultaVal > 0 and o.multa > 0 %} <span class="cob-obr-detalhe-pct">{{ (o.multa * 100 / baseMultaVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</div>
                 <div class="cob-obr-detalhe-val col-multa {{ o.multa == 0 ? 'is-zero' }}">{{ o.multa|centavos }}</div>
             </div>
             <div class="cob-obr-detalhe-item">
-                <div class="cob-obr-detalhe-rot">Correção</div>
+                <div class="cob-obr-detalhe-rot">{{ 'cobranca_objeto.divida.detalhe.correcao'|trans }}</div>
                 <div class="cob-obr-detalhe-val col-correcao {{ o.correcao == 0 ? 'is-zero' }}">{{ o.correcao|centavos }}</div>
             </div>
             <div class="cob-obr-detalhe-item">
-                <div class="cob-obr-detalhe-rot">Honorários{% if baseHonVal > 0 and o.honorarios > 0 %} <span class="cob-obr-detalhe-pct">{{ (o.honorarios * 100 / baseHonVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</div>
+                <div class="cob-obr-detalhe-rot">{{ 'cobranca_objeto.divida.detalhe.honorarios'|trans }}{% if baseHonVal > 0 and o.honorarios > 0 %} <span class="cob-obr-detalhe-pct">{{ (o.honorarios * 100 / baseHonVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</div>
                 <div class="cob-obr-detalhe-val col-honorarios {{ o.honorarios == 0 ? 'is-zero' }}">{{ o.honorarios|centavos }}</div>
             </div>
         </div>
@@ -167,26 +167,32 @@
    `restante` é 0 e o modal sugeriria R$ 0,00. #}
 {% set acordaveis = caso.obrigacoesAvulsasEmAberto|filter(o => o.acordoOrigemId is null and not o.substituidaPorAcordo) %}
 
+{# Contador e rodapé do desenho Objeto 1A (L152, L227): a fila desta seção (avulsas em aberto). A lista fica
+   COMPLETA, sem o "Mostrando N de M" nem o "Carregar mais 20" do desenho: desvio pela decisão do dono de 28/08
+   para o Histórico (objeto/show.html.twig, "paginar tiraria do Ctrl+F o que ficasse de fora"), aplicada aqui
+   pela coordenação em 21/10. O dono revê. #}
+{% set nEmAberto = caso.obrigacoesAvulsasEmAberto|length %}
 <div class="jp-secao" id="secao-divida">
     <div class="jp-secao-head">
-        <h2 class="jp-secao-titulo"><i class="bi bi-receipt"></i>Dívida em aberto</h2>
+        <h2 class="jp-secao-titulo"><i class="bi bi-receipt"></i>{{ 'cobranca_objeto.divida.titulo'|trans }}</h2>
+        {% if nEmAberto > 0 %}<span class="jp-secao-contador">{{ (nEmAberto == 1 ? 'cobranca_objeto.divida.obrigacao' : 'cobranca_objeto.divida.obrigacoes')|trans({n: nEmAberto ~ ''}) }}</span>{% endif %}
         <span class="jp-ordem" data-bs-toggle="tooltip"
-              title="É nesta ordem que o pagamento abate a dívida: sempre a mais antiga primeiro.">
-            <i class="bi bi-sort-down-alt"></i>Da mais antiga para a mais nova
+              title="{{ 'cobranca_objeto.divida.ordem_dica'|trans }}">
+            <i class="bi bi-sort-down-alt"></i>{{ 'cobranca_objeto.divida.ordem'|trans }}
         </span>
         {% if podeGerenciar %}
         <div class="jp-secao-acoes">
             <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
-                <i class="bi bi-plus-lg me-1"></i>Nova obrigação
+                <i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.divida.nova_obrigacao'|trans }}
             </button>
             {# O tooltip vai no wrapper: um <button disabled> não dispara eventos, logo não mostraria a
                explicação — mesmo padrão do "Encerrar cobrança" no show. #}
             <span {% if acordaveis|length == 0 %}data-bs-toggle="tooltip"
-                  title="Não há dívida original em aberto para acordar. Se já existe acordo vigente, rompa-o primeiro: as originais voltam ao total."{% endif %}>
+                  title="{{ 'cobranca_objeto.divida.nao_acordavel'|trans }}"{% endif %}>
                 <button type="button" class="btn btn-sm jp-btn-outline" data-acao="novo-acordo"
                         data-bs-toggle="modal" data-bs-target="#modalCriarAcordo"
                         {{ acordaveis|length == 0 ? 'disabled' : '' }}>
-                    <i class="bi bi-file-earmark-text me-1"></i>Novo acordo
+                    <i class="bi bi-file-earmark-text me-1"></i>{{ 'cobranca_objeto.divida.novo_acordo'|trans }}
                 </button>
             </span>
         </div>
@@ -200,8 +206,8 @@
         <div class="jp-lista">
             <div class="jp-vazio">
                 <i class="bi bi-receipt"></i>
-                <div class="jp-vazio-titulo">Nenhuma obrigação registrada.</div>
-                <p class="jp-vazio-dica">Registre o que está sendo cobrado: cada obrigação entra na fila acima pelo vencimento.</p>
+                <div class="jp-vazio-titulo">{{ 'cobranca_objeto.divida.vazio_titulo'|trans }}</div>
+                <p class="jp-vazio-dica">{{ 'cobranca_objeto.divida.vazio_dica'|trans }}</p>
             </div>
         </div>
     {% elseif caso.obrigacoesAvulsasEmAberto|length == 0 and caso.gruposAcordo|length == 0 %}
@@ -211,8 +217,8 @@
         <div class="jp-lista">
             <div class="jp-vazio">
                 <i class="bi bi-check2-circle"></i>
-                <div class="jp-vazio-titulo">Nada em aberto.</div>
-                <p class="jp-vazio-dica">Tudo o que está registrado para esta unidade já foi pago. Veja em “Já pago”, abaixo.</p>
+                <div class="jp-vazio-titulo">{{ 'cobranca_objeto.divida.nada_aberto_titulo'|trans }}</div>
+                <p class="jp-vazio-dica">{{ 'cobranca_objeto.divida.nada_aberto_dica'|trans }}</p>
             </div>
         </div>
     {% else %}
@@ -222,15 +228,15 @@
                sempre visível de cada linha, não em colunas próprias. Mesma quantidade de células/tracks. #}
             <div class="jp-lista-head">
                 <span></span>
-                <span>Venceu em</span>
-                <span>O que é</span>
+                <span>{{ 'cobranca_objeto.divida.coluna.venceu_em'|trans }}</span>
+                <span>{{ 'cobranca_objeto.divida.coluna.o_que_e'|trans }}</span>
                 {# As duas colunas novas do redesenho 1a. `Original` é o valor de face; `Acréscimos` é a
                    soma de juros + multa + correção + honorários, feita no DTO. Juntas explicam o Total
                    ao lado sem obrigar a abrir o detalhe. #}
                 <span class="col-original" data-bs-toggle="tooltip"
-                      title="Valor de face da dívida, como veio da contabilidade, antes de qualquer encargo.">Original</span>
+                      title="{{ 'cobranca_objeto.divida.coluna.original_dica'|trans }}">{{ 'cobranca_objeto.divida.coluna.original'|trans }}</span>
                 <span class="col-acrescimos" data-bs-toggle="tooltip"
-                      title="Tudo que foi somado ao valor de face: juros, multa, correção monetária e honorários. Abra o ⌄ da linha para ver cada um com o seu percentual.">Acréscimos</span>
+                      title="{{ 'cobranca_objeto.divida.coluna.acrescimos_dica'|trans }}">{{ 'cobranca_objeto.divida.coluna.acrescimos'|trans }}</span>
                 {# "Total" aparece DUAS vezes nesta tela, e a coluna existe para explicar por que os dois
                    números não fecham — sem isso quem confere conclui que há erro.
 
@@ -255,7 +261,7 @@
                    ⚠️ A correção 1 sozinha não bastava — foi ela que deixou a 2 passar, porque olhou só
                    a parte do honorário. Este texto é lido pelo USUÁRIO, sobre dinheiro. #}
                 <span class="col-total col-valor" data-bs-toggle="tooltip"
-                      title="Total de cada dívida: original + juros + multa + correção + honorários, antes de abater pagamentos. Somar esta coluna não bate com o card “Total vencido” do topo, e isso é esperado: lá entram só as dívidas já vencidas e ainda não quitadas. Os dois são brutos: pagamento parcial não reduz nenhum dos dois.">Total</span>
+                      title="{{ 'cobranca_objeto.divida.coluna.total_dica'|trans }}">{{ 'cobranca_objeto.divida.coluna.total'|trans }}</span>
                 <span></span>{# ações #}
                 <span></span>{# chevron #}
             </div>
@@ -284,7 +290,7 @@
                     {% if podeAcordar %}
                         <input class="form-check-input mt-0 jp-check" type="checkbox"
                                value="{{ o.id }}" data-valor-centavos="{{ o.restante }}"
-                               aria-label="Selecionar {{ o.descricao|e('html_attr') }}">
+                               aria-label="{{ 'cobranca_objeto.divida.selecionar'|trans({descricao: o.descricao}) }}">
                     {% else %}<span></span>{% endif %}
 
                     <div class="jp-obr-data">
@@ -302,7 +308,7 @@
                         <div class="jp-obr-sub">
                             {%- if o.referenciaExterna %}#{{ o.referenciaExterna }}{% endif -%}
                             {%- if o.referenciaExterna and o.alocado > 0 and not o.quitada %} · {% endif -%}
-                            {%- if o.alocado > 0 and not o.quitada %}{{ o.alocado|centavos }} já recebidos{% endif -%}
+                            {%- if o.alocado > 0 and not o.quitada %}{{ 'cobranca_objeto.divida.ja_recebidos'|trans({valor: o.alocado|centavos}) }}{% endif -%}
                         </div>
                         {% endif %}
                     </div>
@@ -313,19 +319,19 @@
                     {# A obrigação e o pagamento dela são a mesma conversa: as ações vêm para a linha (T5).
                        Antes, pagar UMA obrigação custava 6-7 cliques por outra aba. #}
                     <div class="jp-obr-acoes">
-                        {% if o.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span>{% endif %}
+                        {% if o.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.divida.paga'|trans }}</span>{% endif %}
                         {% if podeMovimentar and exigivel and not o.quitada %}
                         <button type="button" class="btn btn-sm jp-btn-accent" data-acao="receber"
                                 data-obrigacao-id="{{ o.id }}"
                                 data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento"
-                                title="Registrar um pagamento nesta obrigação">
-                            <i class="bi bi-cash me-1"></i>Receber
+                                title="{{ 'cobranca_objeto.divida.receber_obrigacao_dica'|trans }}">
+                            <i class="bi bi-cash me-1"></i>{{ 'cobranca_objeto.divida.receber'|trans }}
                         </button>
                         {% endif %}
                         {% if podeAcordar %}
                         <button type="button" class="btn btn-sm jp-btn-outline" data-acao="acordar"
-                                data-obrigacao-id="{{ o.id }}" title="Criar acordo substituindo esta dívida">
-                            <i class="bi bi-file-earmark-text me-1"></i>Acordar
+                                data-obrigacao-id="{{ o.id }}" title="{{ 'cobranca_objeto.divida.acordar_dica'|trans }}">
+                            <i class="bi bi-file-earmark-text me-1"></i>{{ 'cobranca_objeto.divida.acordar'|trans }}
                         </button>
                         {% endif %}
                         {# ── Menu da LINHA (desenho 1A de 19/10, `omVals`) ──────────────────────────────
@@ -347,7 +353,7 @@
                         <div class="cob-row-menu">
                             <button type="button" class="btn btn-sm jp-btn-outline py-0 cob-obr-menu-btn"
                                     data-obr-menu-abrir="{{ idMenu }}" aria-haspopup="menu" aria-expanded="false"
-                                    aria-controls="{{ idMenu }}" aria-label="Mais ações desta obrigação" title="Mais ações">
+                                    aria-controls="{{ idMenu }}" aria-label="{{ 'cobranca_objeto.divida.menu.mais_acoes_obrigacao'|trans }}" title="{{ 'cobranca_objeto.divida.menu.mais_acoes'|trans }}">
                                 <i class="bi bi-three-dots"></i>
                             </button>
                             {# O texto copiado é montado no JS a partir destes três campos, já formatados como a
@@ -361,19 +367,19 @@
                                 <div class="cob-obr-menu-titulo" id="{{ idMenu }}Titulo" title="{{ o.descricao|e('html_attr') }}">{{ o.descricao }}</div>
                                 {% if podeMovimentar and exigivel and not o.quitada %}
                                 <button type="button" role="menuitem" class="cob-obr-menu-item" data-obr-menu-acao="receber">
-                                    <i class="bi bi-cash-coin"></i><span>Receber</span>
+                                    <i class="bi bi-cash-coin"></i><span>{{ 'cobranca_objeto.divida.receber'|trans }}</span>
                                 </button>
                                 {% endif %}
                                 {% if podeAcordar %}
                                 <button type="button" role="menuitemcheckbox" aria-checked="false" class="cob-obr-menu-item" data-obr-menu-acao="marcar">
-                                    <i class="bi bi-check2-square"></i><span>Marcar para cobrança em lote</span>
+                                    <i class="bi bi-check2-square"></i><span>{{ 'cobranca_objeto.divida.menu.marcar'|trans }}</span>
                                 </button>
                                 {% endif %}
                                 <button type="button" role="menuitem" class="cob-obr-menu-item" data-obr-menu-acao="copiar">
-                                    <i class="bi bi-clipboard"></i><span>Copiar valor e descrição</span>
+                                    <i class="bi bi-clipboard"></i><span>{{ 'cobranca_objeto.divida.menu.copiar'|trans }}</span>
                                 </button>
                                 <button type="button" role="menuitem" class="cob-obr-menu-item" data-obr-menu-acao="memoria">
-                                    <i class="bi bi-calculator"></i><span>Ver memória de cálculo</span>
+                                    <i class="bi bi-calculator"></i><span>{{ 'cobranca_objeto.divida.menu.memoria'|trans }}</span>
                                 </button>
                                 {% if podeEditarLinha %}
                                 <button type="button" role="menuitem" class="cob-obr-menu-item"
@@ -393,7 +399,7 @@
                                            deixar o recebido sobrando/faltando — o modal de edição usa este gatilho para
                                            revelar o aviso de "reconciliar em Corrigir pagamento". `o.alocado` já vem
                                            materializado no ObrigacaoOutput (não recalcula nada aqui). #}
-                                        data-tem-pagamento="{{ o.alocado > 0 ? '1' : '0' }}"
+                                        data-tem-pagamento="{{ 0 < o.alocado ? '1' : '0' }}"
                                         data-dias="{{ diasAteHoje }}"
                                         {# FIX crítico (Task 9): a taxa CRUA de override (bp; vazio = herda do caso),
                                            não o valor calculado acima — é o que o JS usa para reidratar o override
@@ -405,7 +411,7 @@
                                         data-taxa-multa-bp="{{ o.taxaMultaBp is not null ? o.taxaMultaBp : '' }}"
                                         data-taxa-correcao-bp="{{ o.taxaCorrecaoBp is not null ? o.taxaCorrecaoBp : '' }}"
                                         data-taxa-honorarios-bp="{{ o.taxaHonorariosBp is not null ? o.taxaHonorariosBp : '' }}">
-                                    <i class="bi bi-pencil"></i><span>Editar (corrigir)</span>
+                                    <i class="bi bi-pencil"></i><span>{{ 'cobranca_objeto.divida.menu.editar'|trans }}</span>
                                 </button>
                                 <div class="cob-obr-menu-sep" role="separator"></div>
                                 <button type="button" role="menuitem" class="cob-obr-menu-item is-perigo"
@@ -413,7 +419,7 @@
                                         data-acao-url="{{ path('cobranca_obrigacao_excluir', {id: o.id}) }}"
                                         data-token="{{ csrf_token('excluir_obrigacao_' ~ o.id) }}"
                                         data-descricao="{{ o.descricao|e('html_attr') }}">
-                                    <i class="bi bi-trash3"></i><span>Excluir lançamento</span>
+                                    <i class="bi bi-trash3"></i><span>{{ 'cobranca_objeto.divida.menu.excluir'|trans }}</span>
                                 </button>
                                 {% endif %}
                             </div>
@@ -425,10 +431,13 @@
             {% else %}
                 <div class="jp-vazio">
                     <i class="bi bi-file-earmark-text"></i>
-                    <div class="jp-vazio-titulo">Todas as obrigações desta cobrança estão nos acordos abaixo.</div>
-                    <p class="jp-vazio-dica">As parcelas do acordo são a dívida agora. As obrigações que ele trocou saíram do total em aberto.</p>
+                    <div class="jp-vazio-titulo">{{ 'cobranca_objeto.divida.tudo_em_acordo_titulo'|trans }}</div>
+                    <p class="jp-vazio-dica">{{ 'cobranca_objeto.divida.tudo_em_acordo_dica'|trans }}</p>
                 </div>
             {% endfor %}
+            {% if nEmAberto > 0 %}
+                <div class="jp-lista-rodape">{{ (nEmAberto == 1 ? 'cobranca_objeto.divida.rodape_obrigacao' : 'cobranca_objeto.divida.rodape_obrigacoes')|trans({n: nEmAberto ~ ''}) }}</div>
+            {% endif %}
         </div>
     {% endif %}
 
@@ -437,7 +446,7 @@
         {% set pagas = g.parcelas|filter(p => p.quitada)|length %}
         <div class="jp-acordo" id="grupoAcordo{{ g.acordoId }}">
             <div class="jp-acordo-head">
-                <span class="jp-acordo-titulo"><i class="bi bi-file-earmark-text"></i>Acordo #{{ g.acordoId }}</span>
+                <span class="jp-acordo-titulo"><i class="bi bi-file-earmark-text"></i>{{ 'cobranca_objeto.divida.acordo'|trans({id: g.acordoId ~ ''}) }}</span>
                 <span class="badge {{ g.statusBadgeClass }}">{{ g.statusLabel }}</span>
                 {%- if g.qtdSucessores > 0 %}
                     {# Acordo já assumido por um mais novo: ele só continua aqui porque sobraram parcelas
@@ -446,21 +455,21 @@
                        fica: é o que a contábil diz, e some-lo apagaria informação. #}
                     <span class="badge text-bg-secondary">
                         {{- g.substituidoPeloAcordoId
-                            ? 'Substituído pelo acordo #' ~ g.substituidoPeloAcordoId
-                            : 'Substituído por ' ~ g.qtdSucessores ~ ' acordos' -}}
+                            ? 'cobranca_objeto.divida.substituido_pelo'|trans({id: g.substituidoPeloAcordoId ~ ''})
+                            : 'cobranca_objeto.divida.substituido_por'|trans({n: g.qtdSucessores ~ ''}) -}}
                     </span>
                 {%- endif %}
                 <span class="text-secondary small">
                     {# Guarda obrigatória: `null|date` imprimiria HOJE. #}
-                    {% if g.dataAcordo %}firmado em {{ g.dataAcordo|date('d/m/Y') }}{% else %}<span class="jp-sem-data">firmado em data não informada ⚠</span>{% endif %} · {{ g.qtdParcelas }} parcela(s) · substituiu {{ g.qtdSubstituidas }} obrigação(ões) · {{ g.valorTotal|centavos }}
+                    {% if g.dataAcordo %}{{ 'cobranca_objeto.divida.firmado_em'|trans({data: g.dataAcordo|data}) }}{% else %}<span class="jp-sem-data">{{ 'cobranca_objeto.divida.firmado_sem_data'|trans }}</span>{% endif %} · {{ 'cobranca_objeto.divida.resumo_acordo'|trans({parcelas: g.qtdParcelas ~ '', obrigacoes: g.qtdSubstituidas ~ ''}) }} · {{ g.valorTotal|centavos }}
                 </span>
                 <div class="jp-acordo-prog ms-auto">
-                    <span>{{ pagas }} de {{ g.qtdParcelas }} parcelas pagas</span>
+                    <span>{{ 'cobranca_objeto.divida.parcelas_pagas'|trans({pagas: pagas ~ '', total: g.qtdParcelas ~ ''}) }}</span>
                     <div class="jp-acordo-bar" role="presentation">
-                        <div class="jp-acordo-fill" style="width:{{ g.qtdParcelas > 0 ? (pagas / g.qtdParcelas * 100)|round : 0 }}%"></div>
+                        <div class="jp-acordo-fill" style="width:{{ 0 < g.qtdParcelas ? (pagas / g.qtdParcelas * 100)|round : 0 }}%"></div>
                     </div>
                     <a href="{{ path('cobranca_acordo_show', {id: g.acordoId}) }}" class="btn btn-sm jp-btn-outline">
-                        <i class="bi bi-box-arrow-up-right me-1"></i>Abrir acordo
+                        <i class="bi bi-box-arrow-up-right me-1"></i>{{ 'cobranca_objeto.divida.abrir_acordo'|trans }}
                     </a>
                 </div>
             </div>
@@ -477,7 +486,7 @@
                 </div>
                 <div class="jp-obr-desc">
                     <div class="jp-obr-desc-titulo" title="{{ p.descricao|e('html_attr') }}">{{ p.descricao }}</div>
-                    {% if p.alocado > 0 and not p.quitada %}<div class="jp-obr-sub">{{ p.alocado|centavos }} já recebidos</div>{% endif %}
+                    {% if p.alocado > 0 and not p.quitada %}<div class="jp-obr-sub">{{ 'cobranca_objeto.divida.ja_recebidos'|trans({valor: p.alocado|centavos}) }}</div>{% endif %}
                 </div>
                 {{ colunas.colunasDinheiro(p) }}
                 {{ colunas.valores(p) }}
@@ -487,13 +496,13 @@
                    saldo quando o acordo de baixo é rompido depois — `CriarAcordoUseCase` barra no servidor
                    e a UI não pode oferecer o que o servidor recusa. #}
                 <div class="jp-obr-acoes">
-                    {% if p.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span>{% endif %}
+                    {% if p.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>{{ 'cobranca_objeto.divida.paga'|trans }}</span>{% endif %}
                     {% if podeMovimentar and not p.quitada %}
                     <button type="button" class="btn btn-sm jp-btn-accent" data-acao="receber"
                             data-obrigacao-id="{{ p.id }}"
                             data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento"
-                            title="Registrar um pagamento nesta parcela">
-                        <i class="bi bi-cash me-1"></i>Receber
+                            title="{{ 'cobranca_objeto.divida.receber_parcela_dica'|trans }}">
+                        <i class="bi bi-cash me-1"></i>{{ 'cobranca_objeto.divida.receber'|trans }}
                     </button>
                     {% endif %}
                 </div>
@@ -507,8 +516,8 @@
             <button class="jp-substituidas-toggle" type="button" data-bs-toggle="collapse"
                     data-bs-target="#substituidasAcordo{{ g.acordoId }}" aria-expanded="false"
                     aria-controls="substituidasAcordo{{ g.acordoId }}">
-                <i class="bi bi-chevron-right me-1"></i>Mostrar {{ g.substituidas|length }} obrigação(ões) trocada(s) pelo acordo #{{ g.acordoId }}
-                <span class="text-secondary">(fora do total em aberto)</span>
+                <i class="bi bi-chevron-right me-1"></i>{{ 'cobranca_objeto.divida.mostrar_trocadas'|trans({n: g.substituidas|length ~ '', id: g.acordoId ~ ''}) }}
+                <span class="text-secondary">{{ 'cobranca_objeto.divida.fora_do_total'|trans }}</span>
             </button>
             <div class="collapse" id="substituidasAcordo{{ g.acordoId }}">
                 {% for s in g.substituidas %}
@@ -520,7 +529,7 @@
                     <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ s.vencimentoOriginal|date('d/m/Y') }}</div></div>
                     <div class="jp-obr-desc">
                         <div class="jp-obr-desc-titulo" title="{{ s.descricao|e('html_attr') }}">{{ s.descricao }}</div>
-                        <div class="jp-obr-sub">trocada pelo acordo #{{ g.acordoId }} · volta ao total se o acordo for rompido</div>
+                        <div class="jp-obr-sub">{{ 'cobranca_objeto.divida.trocada_pelo'|trans({id: g.acordoId ~ ''}) }}</div>
                     </div>
                     {{ colunas.valores(s) }}
                     <span></span>
@@ -544,20 +553,20 @@
     <div class="cob-vazio-linha mt-3">
         <div class="cob-vazio-ico"><i class="bi bi-file-earmark-text"></i></div>
         <div class="cob-vazio-corpo">
-            <div class="cob-vazio-titulo">Nenhum acordo nesta cobrança</div>
-            <div class="cob-vazio-dica">Marque as obrigações que entram no acordo e use “Fazer acordo com estas”, ou comece do zero.</div>
+            <div class="cob-vazio-titulo">{{ 'cobranca_objeto.divida.sem_acordo_titulo'|trans }}</div>
+            <div class="cob-vazio-dica">{{ 'cobranca_objeto.divida.sem_acordo_dica'|trans }}</div>
         </div>
         {% if podeGerenciar %}
         {# Mesmo gate e mesmo tooltip do botão do cabeçalho da seção: sem dívida original acordável ele
            nasce desabilitado, em vez de revelar o vazio depois de dois cliques (§5.2). #}
         <span {% if acordaveis|length == 0 %}data-bs-toggle="tooltip"
-              title="Não há dívida original em aberto para acordar. Se já existe acordo vigente, rompa-o primeiro: as originais voltam ao total."{% endif %}>
+              title="{{ 'cobranca_objeto.divida.nao_acordavel'|trans }}"{% endif %}>
             {# Sem `data-acao="novo-acordo"`: esse gancho é do botão do cabeçalho da seção, e é por ele
                que os testes contam "o gatilho canônico". Este aqui é uma segunda porta para o MESMO
                modal (`#modalCriarAcordo`), não um segundo gatilho a rastrear. #}
             <button type="button" class="btn btn-sm jp-btn-outline"
                     data-bs-toggle="modal" data-bs-target="#modalCriarAcordo"
-                    {{ acordaveis|length == 0 ? 'disabled' : '' }}>Novo acordo</button>
+                    {{ acordaveis|length == 0 ? 'disabled' : '' }}>{{ 'cobranca_objeto.divida.novo_acordo'|trans }}</button>
         </span>
         {% endif %}
     </div>
@@ -583,9 +592,9 @@
         <button class="jp-pagas-toggle" type="button" data-bs-toggle="collapse"
                 data-bs-target="#listaJaPago" aria-expanded="false" aria-controls="listaJaPago">
             <i class="bi bi-chevron-right jp-pagas-chevron"></i>
-            <span class="jp-pagas-titulo"><i class="bi bi-check2-circle me-1"></i>Já pago</span>
+            <span class="jp-pagas-titulo"><i class="bi bi-check2-circle me-1"></i>{{ 'cobranca_objeto.divida.ja_pago'|trans }}</span>
             <span class="jp-pagas-resumo">
-                {{ qtdPagas }} {{ qtdPagas == 1 ? 'obrigação' : 'obrigações' }} ·
+                {{ (qtdPagas == 1 ? 'cobranca_objeto.divida.obrigacao' : 'cobranca_objeto.divida.obrigacoes')|trans({n: qtdPagas ~ ''}) }} ·
                 {# O RECEBIDO (Σ alocado), não o total das linhas: a seção responde "quanto ele já
                    pagou", que é o número que bate com a coluna `Valor recebido` da contabilidade. #}
                 <strong class="jp-money" data-meta="total-ja-pago">{{ caso.totalPagoDasAvulsas|centavos }}</strong>
@@ -594,20 +603,20 @@
         <div class="collapse" id="listaJaPago">
             <div class="jp-pagas-lista">
                 <div class="jp-pagas-head">
-                    <span>Pago em</span>
-                    <span>O que é</span>
-                    <span class="col-valor">Recebido</span>
+                    <span>{{ 'cobranca_objeto.divida.coluna.pago_em'|trans }}</span>
+                    <span>{{ 'cobranca_objeto.divida.coluna.o_que_e'|trans }}</span>
+                    <span class="col-valor">{{ 'cobranca_objeto.divida.coluna.recebido'|trans }}</span>
                 </div>
                 {% for o in caso.obrigacoesAvulsasPagas %}
                 <div class="jp-pagas-linha" data-obrigacao-id="{{ o.id }}">
                     <div class="jp-pagas-data">
                         {# Sem data quando a obrigação satisfaz `quitada()` sem nunca ter recebido
                            alocação (exigível zero). Raro, mas a coluna não pode imprimir "01/01/1970". #}
-                        {% if o.pagoEm %}{{ o.pagoEm|date('d/m/Y') }}{% else %}<span class="text-muted small">Sem registro</span>{% endif %}
+                        {% if o.pagoEm %}{{ o.pagoEm|data }}{% else %}<span class="text-muted small">{{ 'cobranca_objeto.divida.sem_registro'|trans }}</span>{% endif %}
                     </div>
                     <div class="jp-pagas-desc">
                         {{ o.descricao }}{% if o.referenciaExterna %} <span class="jp-obr-sub">#{{ o.referenciaExterna }}</span>{% endif %}
-                        <span class="jp-obr-sub">venceu em {{ o.vencimentoOriginal|date('d/m/Y') }}</span>
+                        <span class="jp-obr-sub">{{ 'cobranca_objeto.divida.venceu_em'|trans({data: o.vencimentoOriginal|date('d/m/Y')}) }}</span>
                     </div>
                     <div class="jp-pagas-valor jp-money col-valor">{{ o.alocado|centavos }}</div>
                 </div>
@@ -622,10 +631,10 @@
     <div class="cob-vazio-linha mt-3">
         <div class="cob-vazio-ico"><i class="bi bi-check2-circle"></i></div>
         <div class="cob-vazio-corpo">
-            <div class="cob-vazio-titulo">Nada quitado ainda nesta unidade</div>
-            <div class="cob-vazio-dica">Quando houver recebimento, ele aparece aqui como “Já pago”, com o valor que entrou.</div>
+            <div class="cob-vazio-titulo">{{ 'cobranca_objeto.divida.nada_quitado_titulo'|trans }}</div>
+            <div class="cob-vazio-dica">{{ 'cobranca_objeto.divida.nada_quitado_dica'|trans }}</div>
         </div>
-        <span class="cob-vazio-num">R$ 0,00 recebido</span>
+        <span class="cob-vazio-num">{{ 'cobranca_objeto.divida.recebido'|trans({valor: 0|centavos}) }}</span>
     </div>
     {% endif %}
 
@@ -637,11 +646,11 @@
        só a classe do container (`.jp-selecao` → `.jp-selbar`, que já existia na folha sem dono). #}
     <div class="jp-selbar" id="barraSelecaoDivida" hidden>
         <span class="jp-selbar-info">
-            <strong data-selecao-qtd>0</strong> selecionada(s) · total <strong class="jp-selbar-total" data-selecao-total>R$ 0,00</strong>
+            <strong data-selecao-qtd>0</strong> {{ 'cobranca_objeto.divida.selecionadas_total'|trans }} <strong class="jp-selbar-total" data-selecao-total>{{ 0|centavos }}</strong>
         </span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="limpar-selecao">Limpar seleção</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="limpar-selecao">{{ 'cobranca_objeto.divida.limpar_selecao'|trans }}</button>
         <button type="button" class="btn btn-sm jp-btn-accent" data-acao="acordar-selecionadas">
-            <i class="bi bi-file-earmark-text me-1"></i>Fazer acordo com estas
+            <i class="bi bi-file-earmark-text me-1"></i>{{ 'cobranca_objeto.divida.acordar_selecionadas'|trans }}
         </button>
     </div>
     {% endif %}

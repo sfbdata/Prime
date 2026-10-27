@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Master\UseCase;
 
+use App\Ponto\Service\RegistroDePontoInicial;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Master\DTO\ContaAlteradaOutput;
@@ -40,6 +41,7 @@ final class ReativarContaUseCase
         private readonly EscopoDeAuditoriaDePlataforma $escopoDeAuditoria,
         private readonly PedidoDeExclusaoDeContaRepository $pedidos,
         private readonly int $carenciaPurgaDias,
+        private readonly RegistroDePontoInicial $registroDePonto,
     ) {
     }
 
@@ -57,6 +59,8 @@ final class ReativarContaUseCase
         $conta->setIsActive(true);
         // Recuperar da quarentena (C4b): a exclusão é desfeita. Conta só suspensa já tem excluidoEm nulo.
         $conta->setExcluidoEm(null);
+        // Fora do ar, o choque não via este escritório: quem bater com outro escritório fica com a chave desligada.
+        $this->registroDePonto->conferirAoReligarOEscritorio($conta);
         // Pedido e conta mudam na mesma transação (o flush abaixo).
         $gravar = fn () => $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
         if ($pedido === null) {

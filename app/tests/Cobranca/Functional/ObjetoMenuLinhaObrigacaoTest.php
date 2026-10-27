@@ -8,6 +8,7 @@ use App\Cobranca\Controller\ObjetoController;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Enum\StatusCaso;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -230,7 +231,8 @@ final class ObjetoMenuLinhaObrigacaoTest extends CobrancaWebTestCase
         self::assertStringContainsString("addEventListener('contextmenu'", $js);
         self::assertStringContainsString('[data-obr-menu-abrir]', $js);
         self::assertStringContainsString('navigator.clipboard', $js);
-        self::assertStringContainsString("aviso('Copiado')", $js);
+        self::assertStringContainsString("aviso(BJ_T.t('cobranca_objeto.js.copiado'))", $js);
+        self::assertSame('Copiado', CatalogoPtBr::carregar()['cobranca_objeto']['js']['copiado']);
         // Receber e Marcar reusam o botão e a checkbox da linha, não reimplementam.
         self::assertStringContainsString('[data-acao="receber"]', $js);
         self::assertStringContainsString('.jp-check', $js);

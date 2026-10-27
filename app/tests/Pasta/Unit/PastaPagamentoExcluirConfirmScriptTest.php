@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
@@ -24,12 +25,18 @@ final class PastaPagamentoExcluirConfirmScriptTest extends TestCase
     {
         $js = (string) file_get_contents(self::SCRIPT);
 
-        self::assertStringContainsString("'Excluir \"' + (linhaEx.dataset.descricao || '') + '\" (' + brl(valorEx) + ')?'", $js);
+        // Desde a extração do Financeiro (idioma-do-sistema) o texto mora no catálogo: o script tem a chave, o catálogo o texto do desenho.
+        self::assertStringContainsString("BJ_T.t('pasta_financeiro.js.excluir_lancamento_pergunta', { descricao: linhaEx.dataset.descricao || '', valor: brl(valorEx) })", $js);
         self::assertStringContainsString("lerValor(linhaEx.dataset.valor || '').numero", $js);
         // E7: janela vermelha da tela, com o título do desenho ("Excluir lançamento", dc L.3573).
-        self::assertStringContainsString("await window.confirmarUIPs('Excluir lançamento\\n' + perguntaEx, true)", $js);
+        self::assertStringContainsString("await window.confirmarUIPs(BJ_T.t('pasta_financeiro.js.excluir_lancamento_titulo') + '\\n' + perguntaEx, true)", $js);
         self::assertStringContainsString('if (!excluirLanc) { return; }', $js);
         self::assertStringNotContainsString('Excluir este lançamento? Esta ação não pode ser desfeita.', $js);
+
+        $catalogo = CatalogoPtBr::carregar()['pasta_financeiro']['js'];
+        self::assertSame('Excluir "{descricao}" ({valor})?', $catalogo['excluir_lancamento_pergunta']);
+        self::assertSame('Excluir lançamento', $catalogo['excluir_lancamento_titulo']);
+        self::assertNotContains('Excluir este lançamento? Esta ação não pode ser desfeita.', $catalogo);
     }
 
     #[TestDox('a linha do card carrega o nome e o valor que a pergunta lê')]

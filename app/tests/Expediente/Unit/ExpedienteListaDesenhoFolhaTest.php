@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Expediente\Unit;
 
+use App\Tests\Support\CatalogoPtBr;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -122,7 +123,8 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
     public function testSeparadorDoPeriodo(): void
     {
         $f = self::ler('templates/pasta/_filtros.html.twig');
-        self::assertStringContainsString('<span class="pasta-filtros-periodo-sep" aria-hidden="true">a</span>', $f);
+        self::assertStringContainsString('<span class="pasta-filtros-periodo-sep" aria-hidden="true">{{ \'pasta_lista.filtros.periodo_sep\'|trans }}</span>', $f);
+        self::assertSame('a', CatalogoPtBr::carregar()['pasta_lista']['filtros']['periodo_sep']);
         self::assertStringNotContainsString('pasta-filtros-periodo-sep">–', $f);
     }
 

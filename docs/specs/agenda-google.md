@@ -216,8 +216,8 @@ do sistema não são enviados.
    console ao adicionar o escopo.
 2. No `.env.prod` do servidor: `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` e `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`.
    `SYNC_CRYPTO_KEY` já existe (é a do Drive) e cifra o token.
-3. Worker da fila `async` rodando (o mesmo da 5b). Depois do deploy, `php bin/console
-   app:agenda:google-varredura` para não esperar a primeira consulta de lembretes.
+3. Worker de produção rodando (o mesmo da 5b): ele consome o schedule `cadeias`, que dispara a sincronia a cada
+   5 min (desde 23/10/2026; o `app:agenda:google-varredura` saiu, ver `docs/specs/scheduler-tarefas-agendadas.md`, "Cadeias no Scheduler").
 
 ## 7. Prazos e audiências no Google (78b-2, decisão M7 do dono)
 
@@ -282,3 +282,46 @@ Google; agenda nova manda de novo; o id de prazo nunca vira compromisso importad
   a trava e uma conexão que falha não segura as outras.
 - **Ambiente:** `.env.prod.example` documenta `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`, `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`
   e `SYNC_CRYPTO_KEY`.
+
+## 9. Feriados e recessos do sistema no Google (decidido 21/10/2026)
+
+Pedido do dono: os feriados e recessos que a Agenda mostra sem ninguém cadastrar vão também à agenda do
+escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados do sistema não são enviados"
+(seção 1) e a seção 2 dizia "Não vão: datas do sistema". Risco BAIXO. Precisa de migration (tabela nova).
+
+**Proposta (recomendações; os pontos [dono] decidem):**
+
+- **O que vai (decidido pelo dono, 21/10/2026): TUDO o que a Agenda mostra sem ninguém cadastrar**, sem restrição:
+  feriados nacionais e pontos facultativos, estaduais, recesso forense, datas dos tribunais e eleições, datas
+  comemorativas, feriados do escritório do Ponto, datas acrescentadas pelo escritório e os aniversários da equipe.
+  Valem os ajustes do escritório (oculta não vai; renomeada vai com o nome novo), inclusive nos aniversários. Mesmas
+  regras da grade (`ListarDatasDoSistemaUseCase` e os aniversários do `ListarCompromissosUseCase`), sem cópia.
+  **Aniversários e LGPD (decisão do dono, 21/10/2026):** o nome e a data de aniversário dos colegas vão para a conta
+  Google de cada pessoa conectada, que pode ser pessoal; o dono está ciente. O escritório que não quiser usa o
+  "ocultar" da Agenda (vale para cada aniversário).
+- **Para quem:** toda pessoa conectada ao Google naquele escritório, sem permissão própria (são datas públicas).
+  As UFs são as da grade dela: a da lotação mais a do estado do escritório (spec agenda-vs-18-10-26, V6).
+- **Como vai:** dia inteiro, `transparency: transparent` (não ocupa o horário de ninguém), título igual ao da grade.
+  Descrição: "Data do sistema na Agenda do BlueJus. Para mudar, ajuste na Agenda do BlueJus: o que for mudado aqui
+  volta como está lá." mais a observação da data (ex.: "Prazos processuais suspensos de 20/12 a 20/01 (CPC,
+  art. 220)"). O recesso vai um evento por dia, como na grade (cada dia pode ser ocultado ou renomeado).
+- **Só leitura**, como os prazos (§7): mexido lá volta; apagado lá fica apagado até a data mudar aqui. Nunca vira
+  compromisso.
+- **Sai do Google** quando deixa de valer: oculta pelo escritório, fora da janela, data apagada.
+- **Janela:** de 30 dias atrás a um ano à frente (a mesma dos prazos). Cerca de 67 datas por pessoa nessa janela (32 delas do recesso, um evento por dia) mais um aniversário por pessoa da equipe; a primeira sincronia leva todas, com gravação por item (uma falha no meio continua na volta seguinte).
+- **Quando:** na sincronia normal (5 min). Ajuste do escritório (ocultar, renomear, acrescentar) chega na varredura
+  seguinte.
+- **Dados:** tabela própria `agenda_google_data` (tenant, conexão, `chave` da data, `google_id`, `hash`), no molde
+  da `agenda_google_prazo`; única (conexão, chave) e (conexão, google_id); apaga com a conexão; esquecida em agenda
+  nova ou troca de conta. Id no Google `bjt<escritório>d<sha1 da chave>` (base32hex). Migration:
+  `Version20261020149200` (dada pelo coordenador). Código só depois das respostas do dono.
+- **Texto do painel (decidido pelo dono):** termina com "Compromissos "Só eu" continuam particulares. Feriados,
+  recessos e datas do sistema também vão, como dia inteiro, sem ocupar a sua agenda."
+- **Implementação:** `App\Agenda\Contract\DatasParaOGoogle` (fonte das datas; `DatasDaAgendaParaOGoogle` usa
+  `ListarDatasDoSistemaUseCase` e `AniversariosDaEquipe`, este extraído do `ListarCompromissosUseCase`),
+  `DataParaOGoogle` (tradução), `LevarDatasAoGoogle` (envio, só leitura), `ResumoDoEventoSoLeitura` (resumo
+  normalizado, compartilhado com os prazos). Ao conectar, as datas já existentes vão na primeira sincronia.
+
+**Testes:** vão o feriado nacional, o recesso, a comemorativa, a data de tribunal e o aniversário; oculta pelo escritório sai do Google; a
+renomeada vai com o nome novo; UF da lotação da pessoa; mexido lá volta; apagado lá fica até mudar; agenda nova manda
+de novo; o id de data nunca vira compromisso; `transparency` transparente.
