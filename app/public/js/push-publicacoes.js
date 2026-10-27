@@ -24,13 +24,7 @@
     }
 
     function aviso(mensagem) {
-        var alvo = document.querySelector('.content-wrapper') || document.body;
-        var div = document.createElement('div');
-        div.className = 'alert alert-info pp-aviso';
-        div.setAttribute('role', 'status');
-        div.textContent = mensagem;
-        alvo.insertBefore(div, alvo.firstChild);
-        window.setTimeout(function () { div.remove(); }, 3500);
+        window.ppToast(mensagem);
     }
 
     function ids() {
