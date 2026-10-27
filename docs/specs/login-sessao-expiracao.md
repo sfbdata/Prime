@@ -17,13 +17,13 @@ Risco ALTO (acesso). Parte 1 da spec `login-config-sessao-e-login-novo.md`. Depe
   passa de `sessao` minutos, invalida a sessão e manda para `/login` com aviso por tradução
   ("Sua sessão expirou por inatividade. Entre novamente."). Requisições em `/api` e XHR devolvem 401
   (o `base.html.twig` já trata 401 no sino).
-- `gc_maxlifetime` passa a ser 43200 min (teto) para o arquivo nunca sumir antes do listener;
-  quem manda é a configuração.
+- `gc_maxlifetime` vem de `app.sessao_gc_segundos` (env `SESSAO_GC_SEGUNDOS`, padrão 86400 = 1 dia), para o
+  arquivo não sumir antes do listener; o prazo efetivo é min(`sessao`, gc/60). Acima de 1440 min é preciso
+  subir a env.
 - Valor inválido ou falha do leitor: padrão. Nunca derruba página; `/login`, `/master` login e assets não são afetados.
 - DECISÃO FINAL (Coordenador, 27/10; produção confirmada: gc_maxlifetime 1440 s, cookie_lifetime 0): o padrão de `sessao` é o valor ATUAL real da produção, para não mudar
-  comportamento. Parâmetro `app.sessao_padrao_minutos` (env `SESSAO_PADRAO_MINUTOS`, provisório 24 =
-  gc_maxlifetime 1440 s do PHP) usado pelo catálogo; o Coordenador manda o número real (ini_get na imagem
-  de prod) e só então se confirma.
+  comportamento. Parâmetro `app.sessao_padrao_minutos` (env `SESSAO_PADRAO_MINUTOS`, 24 =
+  gc_maxlifetime 1440 s de prod) usado pelo catálogo.
 - Mudança no Master vale na requisição seguinte (o listener lê a cada requisição).
 
 ### Testes
