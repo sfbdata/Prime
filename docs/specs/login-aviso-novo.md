@@ -17,6 +17,20 @@ acesso do usuário e, quando ela é nova para quem já tinha acessos, manda o e-
 | Leitor da configuração falha | trata como `on` | conforme a linha acima |
 | Falha de gravação ou de envio | nada propaga: o login segue, a falha vai para o log | |
 
+## Envio depois da resposta
+
+O UseCase grava a impressão na hora e decide se avisa; o e-mail só é agendado em `AvisosPendentesDoLogin` e sai no
+`kernel.terminate` (`EnviarAvisosPendentesDoLoginSubscriber`), para um SMTP lento não segurar o POST do login. Falha
+de envio só vai para o log.
+
+## Limites conhecidos
+
+- Corrida do primeiro login: duas máquinas entrando AO MESMO TEMPO num usuário sem nenhuma linha veem ambas "sem
+  acesso conhecido": as duas só gravam e o aviso da segunda se perde. Aceito (janela de milissegundos, só no primeiro
+  login da conta).
+- A retenção compartilha a chave `retencao` do Master, rotulada "Guardar auditoria por (dias)": mexer nela muda também
+  quanto tempo os acessos conhecidos são guardados. Acesso apagado vira "impressão nova" no próximo login (novo aviso).
+
 ## Impressão
 
 `HMAC-SHA256(kernel.secret, navegador|sistema|faixa)`, em hexadecimal (64 caracteres).

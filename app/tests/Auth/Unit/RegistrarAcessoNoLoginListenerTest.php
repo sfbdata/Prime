@@ -7,6 +7,7 @@ namespace App\Tests\Auth\Unit;
 use App\Auth\EventListener\RegistrarAcessoNoLoginListener;
 use App\Auth\Repository\AcessoConhecidoRepository;
 use App\Auth\Service\AvisoDeAcessoNovoMailerInterface;
+use App\Auth\Service\AvisosPendentesDoLogin;
 use App\Auth\Service\ImpressaoDoAcesso;
 use App\Auth\UseCase\RegistrarAcessoEAvisarUseCase;
 use App\Entity\Auth\User;
@@ -50,7 +51,7 @@ final class RegistrarAcessoNoLoginListenerTest extends TestCase
         $useCase = new RegistrarAcessoEAvisarUseCase(
             $repository,
             new ImpressaoDoAcesso('s'),
-            $this->createStub(AvisoDeAcessoNovoMailerInterface::class),
+            new AvisosPendentesDoLogin($this->createStub(AvisoDeAcessoNovoMailerInterface::class), new NullLogger()),
             new ConfiguracaoDaPlataformaFalsa(),
             new MockClock(),
             new NullLogger(),

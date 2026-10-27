@@ -7,6 +7,7 @@ namespace App\Tests\Auth\Unit;
 use App\Auth\DTO\RegistrarAcessoInput;
 use App\Auth\Repository\AcessoConhecidoRepository;
 use App\Auth\Service\AvisoDeAcessoNovoMailerInterface;
+use App\Auth\Service\AvisosPendentesDoLogin;
 use App\Auth\Service\ImpressaoDoAcesso;
 use App\Auth\UseCase\RegistrarAcessoEAvisarUseCase;
 use App\Entity\Auth\User;
@@ -26,6 +27,7 @@ final class RegistrarAcessoEAvisarUseCaseTest extends TestCase
     private AcessoConhecidoRepository&MockObject $repository;
     private AvisoDeAcessoNovoMailerInterface&MockObject $mailer;
     private LoggerInterface&MockObject $logger;
+    private AvisosPendentesDoLogin $avisos;
     private ConfiguracaoDaPlataformaFalsa $configuracao;
     private User $user;
 
@@ -34,6 +36,7 @@ final class RegistrarAcessoEAvisarUseCaseTest extends TestCase
         $this->repository = $this->createMock(AcessoConhecidoRepository::class);
         $this->mailer = $this->createMock(AvisoDeAcessoNovoMailerInterface::class);
         $this->logger = $this->createMock(LoggerInterface::class);
+        $this->avisos = new AvisosPendentesDoLogin($this->mailer, $this->logger);
         $this->configuracao = new ConfiguracaoDaPlataformaFalsa(['fuso' => 'America/Manaus']);
         $this->user = (new User())->setEmail('ana@adv.com')->setFullName('Ana');
     }
@@ -43,7 +46,7 @@ final class RegistrarAcessoEAvisarUseCaseTest extends TestCase
         return new RegistrarAcessoEAvisarUseCase(
             $this->repository,
             new ImpressaoDoAcesso('segredo'),
-            $this->mailer,
+            $this->avisos,
             $this->configuracao,
             new MockClock('2026-10-27 15:00:00 UTC'),
             $this->logger,
@@ -53,6 +56,8 @@ final class RegistrarAcessoEAvisarUseCaseTest extends TestCase
     private function entrar(): void
     {
         $this->useCase()->executar(new RegistrarAcessoInput($this->user, self::UA, '200.10.20.5'));
+        // Simula o kernel.terminate: o e-mail só sai quando a fila é descarregada.
+        $this->avisos->enviar();
     }
 
     #[TestDox('primeiro login: grava a impressão e não envia e-mail')]
@@ -87,6 +92,18 @@ final class RegistrarAcessoEAvisarUseCaseTest extends TestCase
         );
 
         $this->entrar();
+    }
+
+    #[TestDox('o e-mail não sai dentro do UseCase: só quando a fila do kernel.terminate é descarregada')]
+    public function testEnvioAdiadoParaOTerminate(): void
+    {
+        $this->repository->method('usuarioTemAcessos')->willReturn(true);
+        $this->repository->method('registrar')->willReturn(true);
+        $this->mailer->expects(self::once())->method('avisar');
+
+        $this->useCase()->executar(new RegistrarAcessoInput($this->user, self::UA, '200.10.20.5'));
+        $this->avisos->enviar();
+        $this->avisos->enviar();
     }
 
     #[TestDox('o que é gravado nunca é o IP cru')]

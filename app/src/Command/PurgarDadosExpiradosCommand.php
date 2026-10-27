@@ -212,10 +212,6 @@ final class PurgarDadosExpiradosCommand extends Command
         }
     }
 
-    /**
-     * Lock exclusivo por lockfile (flock) para impedir execuções sobrepostas. Evita a
-     * dependência symfony/lock — coerente com a stack minimalista do projeto.
-     */
     /** (A4) acesso_conhecido: impressões do aviso de login novo não vistas há `retencao` dias (chave do Master). */
     private function purgarAcessosConhecidos(SymfonyStyle $io, \DateTimeImmutable $agora, bool $dryRun): void
     {
@@ -223,6 +219,10 @@ final class PurgarDadosExpiradosCommand extends Command
         $io->text(sprintf('%d registro(s) %s.', $this->purgarAcessos->executar($agora, $dryRun), $dryRun ? 'seriam purgados' : 'purgados'));
     }
 
+    /**
+     * Lock exclusivo por lockfile (flock) para impedir execuções sobrepostas. Evita a
+     * dependência symfony/lock — coerente com a stack minimalista do projeto.
+     */
     private function adquirirLock(): bool
     {
         $handle = fopen(sys_get_temp_dir() . '/jusprime-purga.lock', 'c');

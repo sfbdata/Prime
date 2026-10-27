@@ -6,7 +6,7 @@ namespace App\Auth\UseCase;
 
 use App\Auth\DTO\RegistrarAcessoInput;
 use App\Auth\Repository\AcessoConhecidoRepository;
-use App\Auth\Service\AvisoDeAcessoNovoMailerInterface;
+use App\Auth\Service\AvisosPendentesDoLogin;
 use App\Auth\Service\ImpressaoDoAcesso;
 use App\Auth\Service\NavegadorDoAcesso;
 use App\Shared\Contract\ConfiguracaoDaPlataforma;
@@ -20,8 +20,8 @@ use Psr\Log\LoggerInterface;
  * login e só grava; impressão conhecida só renova `ultimo_em`; impressão nova de quem já tinha acessos grava e avisa,
  * salvo se o Master desligou o aviso (`avisoLoginNovo` = off; falha do leitor vale como on).
  *
- * NUNCA derruba o login: qualquer Throwable (banco, e-mail, configuração) é logado e engolido. O e-mail vem DEPOIS da
- * gravação, então uma falha do envio não repete o aviso no login seguinte.
+ * NUNCA derruba o login: qualquer Throwable (banco, e-mail, configuração) é logado e engolido. A impressão é gravada na hora; o
+ * e-mail é só agendado e sai no kernel.terminate, então uma falha do envio não repete o aviso no login seguinte.
  */
 final class RegistrarAcessoEAvisarUseCase
 {
@@ -30,7 +30,7 @@ final class RegistrarAcessoEAvisarUseCase
     public function __construct(
         private readonly AcessoConhecidoRepository $repository,
         private readonly ImpressaoDoAcesso $impressao,
-        private readonly AvisoDeAcessoNovoMailerInterface $mailer,
+        private readonly AvisosPendentesDoLogin $avisos,
         private readonly ConfiguracaoDaPlataforma $configuracao,
         private readonly ClockInterface $relogio,
         private readonly LoggerInterface $logger,
@@ -50,7 +50,8 @@ final class RegistrarAcessoEAvisarUseCase
                 return;
             }
 
-            $this->mailer->avisar($input->user, $this->noFusoDoSistema($agora), $navegador);
+            // O envio sai depois da resposta (kernel.terminate): SMTP lento não segura o POST do login.
+            $this->avisos->agendar($input->user, $this->noFusoDoSistema($agora), $navegador);
         } catch (\Throwable $e) {
             $this->logger->error('Aviso de acesso novo: falhou, o login segue.', ['exception' => $e]);
         }
