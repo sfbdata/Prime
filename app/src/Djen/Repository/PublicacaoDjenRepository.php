@@ -166,6 +166,99 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Marca como lidas (ou não lidas) as publicações do escritório com os ids dados.
+     *
+     * @param list<int> $ids
+     * @param list<string> $numerosOcultos
+     *
+     * @return int quantas linhas mudaram
+     */
+    public function atualizarLeituraDoTenant(Tenant $tenant, array $ids, bool $lida, array $numerosOcultos = []): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.lida', ':lida')
+            ->andWhere('p.id IN (:ids)')
+            ->andWhere('p.lida <> :lida')
+            ->setParameter('lida', $lida)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Tira da caixa do Push as publicações com os ids dados (exclusão lógica).
+     *
+     * @param list<int> $ids
+     * @param list<string> $numerosOcultos
+     *
+     * @return int quantas linhas saíram
+     */
+    public function excluirDoTenant(Tenant $tenant, array $ids, \DateTimeImmutable $quando, array $numerosOcultos = []): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.excluidaEm', ':quando')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('quando', $quando)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * "Limpar lidas": tira da caixa todas as publicações já lidas do escritório.
+     *
+     * @param list<string> $numerosOcultos
+     */
+    public function excluirLidasDoTenant(Tenant $tenant, \DateTimeImmutable $quando, array $numerosOcultos = []): int
+    {
+        return (int) $this->updateDoTenant($tenant, $numerosOcultos)
+            ->set('p.excluidaEm', ':quando')
+            ->andWhere('p.lida = true')
+            ->setParameter('quando', $quando)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Quantas lidas ainda estão na caixa (o "Limpar lidas" avisa quando não há nenhuma).
+     *
+     * @param list<string> $numerosOcultos
+     */
+    public function contarLidasDoTenant(Tenant $tenant, array $numerosOcultos = []): int
+    {
+        return $this->countByFiltros($tenant, ['leitura' => 'lidas'], $numerosOcultos);
+    }
+
+    /**
+     * UPDATE em massa sempre preso ao escritório, às não excluídas e fora das pastas que o usuário não enxerga.
+     *
+     * @param list<string> $numerosOcultos
+     */
+    private function updateDoTenant(Tenant $tenant, array $numerosOcultos): QueryBuilder
+    {
+        $qb = $this->getEntityManager()->createQueryBuilder()
+            ->update(PublicacaoDjen::class, 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant);
+
+        if ($numerosOcultos !== []) {
+            $qb->andWhere('p.numeroProcesso NOT IN (:numerosOcultos)')
+               ->setParameter('numerosOcultos', $numerosOcultos);
+        }
+
+        return $qb;
+    }
+
+    /**
      * Quantas publicações cada OAB monitorada captou (coluna Publicações da aba OABs monitoradas).
      *
      * @return array<int, int> id da OAB monitorada => total
@@ -176,6 +269,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             ->select('IDENTITY(p.oabMonitorada) AS oabId', 'COUNT(p.id) AS total')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.oabMonitorada IS NOT NULL')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->groupBy('p.oabMonitorada')
             ->getQuery()
@@ -197,6 +291,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     public function listarTribunaisDoTenant(Tenant $tenant): array
     {
         $rows = $this->createQueryBuilder('p')
+            ->andWhere('p.excluidaEm IS NULL')
             ->select('DISTINCT p.siglaTribunal')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.siglaTribunal != :vazio')
@@ -479,6 +574,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant);
 
         if ($numerosOcultos !== []) {
