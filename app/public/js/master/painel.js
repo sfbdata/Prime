@@ -178,16 +178,16 @@
   function renderKpis() {
     const k = D.visao.kpis;
     const kpis = [
-      { rot: T('master.js.visao.kpi.escritorios'), n: num(k.escritorios), desc: T('master.js.visao.kpi.escritorios_desc', { ativas: num(k.ativas), suspensas: num(k.suspensas) }), icone: 'bi-buildings', cor: '#0a6fa0', bg: '#e5f1f7', ir: 'contas' },
-      { rot: T('master.js.visao.kpi.primarios'), n: num(k.primarios), desc: T('master.js.visao.kpi.primarios_desc'), icone: 'bi-person-badge', cor: '#0a6fa0', bg: '#e5f1f7', ir: 'contas' },
-      { rot: T('master.js.visao.kpi.secundarios'), n: num(k.secundarios), desc: T('master.js.visao.kpi.secundarios_desc'), icone: 'bi-people', cor: '#3b5bb8', bg: '#e9edf8', ir: 'contas' },
-      { rot: T('master.js.visao.kpi.oab'), n: num(k.oabUnicas), desc: T('master.js.visao.kpi.oab_desc', { registros: num(k.oabRegistros), duplicados: num(k.oabRegistros - k.oabUnicas) }), icone: 'bi-person-vcard', cor: '#7a3e8f', bg: '#f3e9f7', ir: 'oab' },
-      { rot: T('master.js.visao.kpi.pastas'), n: num(k.pastas), desc: T('master.js.visao.kpi.pastas_desc'), icone: 'bi-folder2-open', cor: '#1e7b45', bg: '#e6f4ec', ir: 'contas' },
-      { rot: T('master.js.visao.kpi.documentos'), n: num(k.documentos), desc: T('master.js.visao.kpi.documentos_desc'), icone: 'bi-file-earmark-text', cor: '#1e7b45', bg: '#e6f4ec', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.escritorios'), n: num(k.escritorios), desc: T('master.js.visao.kpi.escritorios_desc', { ativas: num(k.ativas), suspensas: num(k.suspensas) }), cor: '#0a6fa0', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.primarios'), n: num(k.primarios), desc: T('master.js.visao.kpi.primarios_desc'), cor: '#0a6fa0', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.secundarios'), n: num(k.secundarios), desc: T('master.js.visao.kpi.secundarios_desc'), cor: '#3b5bb8', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.oab'), n: num(k.oabUnicas), desc: T('master.js.visao.kpi.oab_desc', { registros: num(k.oabRegistros), duplicados: num(k.oabRegistros - k.oabUnicas) }), cor: '#7a3e8f', ir: 'oab' },
+      { rot: T('master.js.visao.kpi.pastas'), n: num(k.pastas), desc: T('master.js.visao.kpi.pastas_desc'), cor: '#1e7b45', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.documentos'), n: num(k.documentos), desc: T('master.js.visao.kpi.documentos_desc'), cor: '#1e7b45', ir: 'contas' },
       kpiArmazenamento(k, D.visao.armazenamento),
-      { rot: T('master.js.visao.kpi.receita'), n: T('master.js.sem_informacao'), texto: true, desc: T('master.js.visao.kpi.receita_desc'), icone: 'bi-cash-coin', cor: '#7d909d', bg: '#eef2f5', ir: 'custos' }
+      { rot: T('master.js.visao.kpi.receita'), n: T('master.js.sem_informacao'), texto: true, desc: T('master.js.visao.kpi.receita_desc'), cor: '#7d909d', ir: 'custos' }
     ];
-    document.getElementById('mp-kpis').innerHTML = kpis.map(x => '<button type="button" class="mp-kpi" data-ir="' + x.ir + '" style="--cor:' + x.cor + ';--bg:' + x.bg + '">'
+    document.getElementById('mp-kpis').innerHTML = kpis.map(x => '<button type="button" class="mp-kpi" data-ir="' + x.ir + '" style="--cor:' + x.cor + '">'
       + '<span class="mp-kpi-rot">' + esc(x.rot) + '</span>'
       + '<span class="mp-kpi-n' + (x.texto ? ' mp-kpi-n-texto' : '') + '" title="' + esc(x.n) + '" style="--nlen:' + Math.max(3, String(x.n).length) + '">' + esc(x.n) + '</span><span class="mp-kpi-desc">' + esc(x.desc) + '</span>'
       + (x.pct ? '<div class="mp-barra-6 mp-kpi-barra"><div style="--w:' + x.pct + '"></div></div>' : '')
@@ -196,7 +196,7 @@
 
   // KPI ARMAZENAMENTO (desenho 1.2, linha 688; spec P9): cota = soma dos limites das contas com limite, cor e barra pela faixa.
   function kpiArmazenamento(k, a) {
-    const base = { rot: T('master.js.visao.kpi.armazenamento'), n: gb(k.bytes), icone: 'bi-hdd-stack', bg: '#fbf1dc', ir: 'arm' };
+    const base = { rot: T('master.js.visao.kpi.armazenamento'), n: gb(k.bytes), ir: 'arm' };
     if (!a) return Object.assign(base, { desc: T('master.js.visao.kpi.arm_sem_dado'), cor: '#c08a12' });
     // Número, descrição e barra somam só as contas com limite, como no desenho (a cota é delas); o uso das contas
     // sem limite vem no sufixo. Sem nenhuma conta com limite, fica o texto antigo, com o uso total.
