@@ -6,6 +6,8 @@ namespace App\Tests\Auth\Unit;
 
 use App\Tests\Ponto\Support\RegistroDePontoInicialDeTesteTrait;
 use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
+use App\Auth\Exception\CadastroNaoDisponivel;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Auth\UseCase\AceitarConviteEscritorioSemContaUseCase;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
@@ -14,6 +16,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Profile\Enum\Genero;
 use App\Repository\InvitationRepository;
 use App\Tests\Auth\Doubles\VagaNoEscritorioDublada;
+use App\Tests\Support\ConfiguracaoDaPlataformaFalsa;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
@@ -70,6 +73,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
             $this->eventos = new EventDispatcher(),
             $this->vagaNoEscritorio(),
             $this->registroDePontoInicialSemChoque(),
+            new PoliticaDeCadastro($this->configuracao = new ConfiguracaoDaPlataformaFalsa(['cadastro' => 'on'])),
         );
         $this->tenant = new Tenant();
     }
@@ -180,6 +184,38 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 
         self::assertNotNull($userTenantCapturado);
         self::assertSame($role, $userTenantCapturado->getTenantRole());
+    }
+
+    private ConfiguracaoDaPlataformaFalsa $configuracao;
+
+    #[TestDox('Cadastro só por convite: o convite de escritório ainda cria a conta')]
+    public function testPoliticaConviteDeixaOConviteCriarConta(): void
+    {
+        $this->configuracao->definir('cadastro', 'convite');
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($this->makeInvitation());
+        $this->userRepo->method('findOneBy')->willReturn(null);
+        $this->hasher->method('hashPassword')->willReturn('hashed');
+
+        $resultado = $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123', aceiteTermos: true, genero: 'feminino'));
+
+        self::assertInstanceOf(User::class, $resultado);
+    }
+
+    #[TestDox('Cadastro fechado: o convite de escritório não cria conta nova e nada é gravado nem consumido')]
+    public function testPoliticaOffBloqueiaOConviteDeEscritorio(): void
+    {
+        $this->configuracao->definir('cadastro', 'off');
+        $invitation = $this->makeInvitation();
+        $this->invitationRepo->expects($this->never())->method('encontrarPorToken');
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+
+        try {
+            $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123', aceiteTermos: true, genero: 'feminino'));
+            self::fail('Deveria lançar CadastroNaoDisponivel.');
+        } catch (CadastroNaoDisponivel $e) {
+            self::assertSame('off', $e->politica);
+        }
     }
 
     public function testTokenNaoEncontradoLancaExcecao(): void
