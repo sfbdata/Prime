@@ -30,6 +30,9 @@ final class PublicacaoDjenListaItem
         public readonly ?string $textoResumo = null,
         /** "Sentença", "Decisão", "Despacho"… (quando a query o projeta): é o que diz o ato, mais que a comunicação. */
         public readonly ?string $tipoDocumento = null,
+        /** Pasta que o processo da publicação ocupa (a lista do módulo a projeta; as outras consultas, não). */
+        public readonly ?int $pastaId = null,
+        public readonly ?string $pastaNup = null,
     ) {
     }
 
@@ -50,9 +53,11 @@ final class PublicacaoDjenListaItem
             self::formatarData($data),
             self::nullableString($row['nomeOrgao'] ?? null),
             (bool) ($row['lida'] ?? false),
-            ($row['processoId'] ?? null) === null,
+            array_key_exists('pastaId', $row) ? ($row['pastaId'] ?? null) === null : ($row['processoId'] ?? null) === null,
             self::resumirTexto(is_string($row['textoInicio'] ?? null) ? $row['textoInicio'] : null),
             self::nullableString($row['tipoDocumento'] ?? null),
+            isset($row['pastaId']) ? (int) $row['pastaId'] : null,
+            self::nullableString($row['pastaNup'] ?? null),
         );
     }
 
