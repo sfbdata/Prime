@@ -14,19 +14,19 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CatalogoDeConfiguracoes::class)]
 final class CatalogoDeConfiguracoesTest extends TestCase
 {
-    #[TestDox('os padrões são os do desenho (DEF, 05 VS 25.10.26 L955) e o catálogo tem os 14 campos')]
+    #[TestDox('os padrões são os do desenho (DEF, 05 VS 25.10.26 L955) e o catálogo tem os 15 campos')]
     public function testPadroesDoDesenho(): void
     {
         self::assertSame([
             'nome' => 'BlueJus', 'remetente' => 'contato@bluejus.com.br', 'suporte' => 'bluejus.86@gmail.com',
             'cadastro' => 'on', 'freeGb' => '10', 'aviso' => '90',
-            'sessao' => '480', 'tentativas' => '5', 'dois' => 'master', 'retencao' => '365',
+            'sessao' => '480', 'tentativas' => '5', 'dois' => 'master', 'retencao' => '365', 'avisoLoginNovo' => 'on',
             'idioma' => 'pt-BR', 'fuso' => 'America/Sao_Paulo', 'manut' => '', 'manutAte' => '',
         ], CatalogoDeConfiguracoes::padroes());
         self::assertSame(['identidade', 'contas', 'seguranca', 'regiao', 'manutencao'], array_keys(CatalogoDeConfiguracoes::grupos()));
         self::assertNotContains('freeGb', CatalogoDeConfiguracoes::chavesGravadas());
         self::assertNotContains('aviso', CatalogoDeConfiguracoes::chavesGravadas());
-        self::assertCount(12, CatalogoDeConfiguracoes::chavesGravadas());
+        self::assertCount(13, CatalogoDeConfiguracoes::chavesGravadas());
     }
 
     #[TestDox('pedido vazio vale os padrões; texto é aparado e número vira inteiro')]
@@ -68,5 +68,16 @@ final class CatalogoDeConfiguracoesTest extends TestCase
         $this->expectException(ConfiguracaoRecusada::class);
 
         CatalogoDeConfiguracoes::normalizar($entrada);
+    }
+
+    #[TestDox('O padrão do ambiente troca `sessao` em padroes(), grupos() e normalizar()')]
+    public function testSobreposicaoDoPadraoDaSessao(): void
+    {
+        $sobrepor = CatalogoDeConfiguracoes::sobreposicoes(24);
+
+        self::assertSame('24', CatalogoDeConfiguracoes::padroes($sobrepor)['sessao']);
+        self::assertSame('24', CatalogoDeConfiguracoes::grupos($sobrepor)['seguranca']['sessao']['padrao']);
+        self::assertSame('24', CatalogoDeConfiguracoes::normalizar([], $sobrepor)['sessao']);
+        self::assertSame('480', CatalogoDeConfiguracoes::normalizar([])['sessao'], 'sem sobreposição, o estático');
     }
 }

@@ -113,6 +113,14 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'app:dashboard:fotografar --no-interaction',
             'cron'    => '55 23 * * *',
         ],
+        // Aos 15 minutos de cada hora: conciliação das assinaturas de espaço do Contribua (cartão). Reprocessa
+        // avisos de gateway pendentes, reconsulta as assinaturas que ainda podem mudar e devolve ao Free quem
+        // passou do fim do mês pago. Rede de segurança do webhook; idempotente. Sai com erro só quando nenhuma
+        // reconsulta deu certo (credencial errada ou gateway fora do ar).
+        'app:contribua:conciliar-assinaturas' => [
+            'comando' => 'app:contribua:conciliar-assinaturas --no-interaction',
+            'cron'    => '15 * * * *',
+        ],
         // A cada minuto: o worker do espelho leva ao R2 até 50 envios pendentes e sai. O consumidor é um só
         // e roda uma tarefa por vez, então duas rodadas nunca correm juntas; uma rodada que passa do
         // minuto não acumula atrasadas (processOnlyLastMissedRun). Antes do Drive, que é o mais demorado.

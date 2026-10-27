@@ -93,6 +93,7 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO => 'trabalho-externo/curriculos',
             CategoriaDeArquivo::COMERCIAL_IMAGEM           => 'comercial-imagens',
             CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => 'documentos-juridicos',
+            CategoriaDeArquivo::RECOMPENSA_COMPROVANTE => 'recompensa-comprovantes',
             default                                        => null,
         };
     }
@@ -115,7 +116,8 @@ final class LayoutDeChaveRemota
             CategoriaDeArquivo::FOTO_PERFIL,
             CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO,
             CategoriaDeArquivo::COMERCIAL_IMAGEM,
-            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO => throw new \LogicException('global, tratada antes'),
+            CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO,
+            CategoriaDeArquivo::RECOMPENSA_COMPROVANTE => throw new \LogicException('global, tratada antes'),
         };
     }
 

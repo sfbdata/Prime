@@ -99,6 +99,12 @@ A resposta da IA entra pela porta `Inteligencia\Contract\ConversaDaIaNaCentral` 
 (autora = dono, `de_ia = false`, mesma conversa e escritório, vínculo ativo) e as 12 mensagens anteriores (corte `limpa_ate_id`),
 e grava a fala `de_ia` (≤ 4000 caracteres, `@[` desarmado). Tenant explícito; provado em `IsolamentoDosRepositoriosDaCentralTest`.
 A pergunta (PR 2b) é `UseCase\PerguntarABlueJusIaUseCase`, sem rota até a tela: conversa DELE por `daIaDe` (não usa `participacao()` nem `EnviarMensagemUseCase`, que excluem `ia`), trava `ConversaRepository::travar`, uma pergunta em andamento por vez, limitador fora do `wrapInTransaction`. A retenção apaga as duas pontas (`apagarMensagensDaIaAntesDe`).
+**Contexto da tela (PR 4a, sem tela ainda).** `POST /central/ia/perguntas` aceita `pastaId` (inteiro positivo ou ausente/null; outro tipo ou valor <= 0 = 422
+`pergunta_invalida`); nunca texto de contexto vindo do cliente. O UseCase valida a pasta ANTES de abrir a transação travada (`PastaDoContextoDaIa`: pasta por
+id + escritório e `AcessoAPasta::podeVer`, os dois casos = 404 `pasta_nao_encontrada` com mensagem fixa; segredo de justiça = 409 `contexto_bloqueado`;
+a recusa não grava mensagem nem análise (a conversa IA pode ter sido criada), não consome o limitador, não deixa trava e não fecha o EntityManager) e grava em `contexto_resumo` só `pastaId`, `financeiro` e
+`abasOcultas` (o hash passa a incluir a pasta; prompt `chat-central-v2`). A pasta é validada antes de olhar a pergunta em andamento (pasta inválida = 404/409 mesmo com pergunta pendente); com pergunta em andamento, devolve a mesma (202) e não grava o `pastaId` novo. O worker
+revalida tudo (`Inteligencia/CLAUDE.md`). Resposta HTTP continua só ids e estado: nunca texto, nem NUP da pasta.
 
 ## Tela
 
@@ -111,7 +117,11 @@ item fixo no topo da lista (avatar e estrela do desenho, SVG por `createElementN
 silenciar. Bolha `deIa` testada ANTES de `minha`. Enviar = `POST central_ia_pergunta` (nunca `/mensagens`); `estado.iaAguardando` mostra
 o "digitando..." e trava o campo; o polling consulta `central_ia_pergunta_status` UMA vez por ciclo sem fala nova, e o `mensagem` do
 servidor (falhou/indisponível) vai para `avisar()`, nunca texto da IA. Textos em `central.ia.*` (translations), entregues por `data-ia-*`
-em `_janela.html.twig`; é a exceção à regra "texto do JS é fixo". Sem comandos "/" nem contexto de tela (PR 4/5).
+em `_janela.html.twig`; é a exceção à regra "texto do JS é fixo". Sem comandos "/" (PR 5).
+**Barra da pasta (PR 4b).** Em `/pasta/{id}` a janela leva `data-ia-pasta` (dica de UI, em `_janela.html.twig`; o servidor revalida). Na conversa IA o
+`central.js` busca o rótulo UMA vez (`GET /central/ia/pasta/{pastaId}`, `DescreverPastaDoContextoDaIaUseCase`: só `{pastaId, nup, cliente, url}`, `private, no-store`;
+qualquer falha de pasta = 404 de mensagem fixa; segredo de justiça não é recusado aqui, a pergunta recusa com 409). Com a barra (desenho L6001-6006) o POST leva
+`pastaId` e entra a sugestão "Faça um resumo desta pasta" (L397); sem barra, nada disso. 404 na pergunta tira a barra; 409 só avisa. Textos em `central.ia.*`.
 
 **Lançador flutuante** (`_flutuante.html.twig` + `central-flutuante.js`/`.css`): a MESMA janela em modo `flutuante`,
 incluída no `base.html.twig` por uma linha (`central_disponivel()`, nunca lança; fora da `/central`). Regras: com a

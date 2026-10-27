@@ -5,6 +5,7 @@
 {% block stylesheets %}
     {{ parent() }}
     <link rel="stylesheet" href="{{ asset('css/contribua.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/contribua-checkout.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -18,6 +19,8 @@
      data-url-sugestao="{{ path('contribua_sugestao') }}"
      data-url-atender="{{ path('contribua_sugestao_atender', {id: 0}) }}"
      data-url-pedido="{{ path('contribua_espaco_pedido') }}"
+     data-cartao-liberado="{{ pagamento.liberado ? '1' : '0' }}"
+     data-retorno="{{ retorno ? '1' : '0' }}"
      data-apoiou="{{ p.apoiouNoMes ? '1' : '0' }}">
 
     {# Apresentação #}
@@ -41,6 +44,9 @@
         <div class="ct-espaco-topo" style="background: {{ e.fundo }}">
             <span class="ct-espaco-icone"><i class="bi {{ e.icone }}"></i></span>
             <div class="ct-espaco-titulos"><b>{{ e.titulo }}</b><span>{{ e.subtitulo }}</span></div>
+            {% if pagamento.master %}
+                <button type="button" class="co-abrir-master" data-abrir-master><i class="bi bi-star-fill"></i>Configurar pagamento<span>· {{ pagamento.master.estado }}</span></button>
+            {% endif %}
         </div>
         <div class="ct-espaco-uso">
             <div class="ct-barra"><div style="width: {{ e.largura }}"></div></div>
@@ -70,6 +76,7 @@
                         </div>
                     {% endif %}
                     <button type="button" class="ct-pacote-botao" data-pedir-plano="{{ pac.codigo }}"
+                            data-plano-nome="{{ pac.nome }}" data-plano-gb="{{ pac.gbNumero }}" data-plano-hoje="{{ pac.hojeGb }}" data-plano-preco="{{ pac.preco }}" data-plano-centavos="{{ pac.centavos }}"
                             {{ pac.desabilitado or not p.podePedirEspaco ? 'disabled' }}>{{ pac.botao }}</button>
                 </div>
             {% endfor %}
@@ -92,7 +99,7 @@
         <div class="ct-apoie">
             <div class="ct-apoie-qr">
                 <div class="ct-qr" data-qr data-codigo="{{ p.pix.codigo }}"></div>
-                <div class="ct-pix-valido" data-pix-valido><i class="bi bi-patch-check-fill"></i>PIX válido · conta Nº {{ p.pix.conta }}</div>
+                <div class="ct-pix-valido" data-pix-valido {{ p.pix.valido ? "" : "hidden" }}><i class="bi bi-patch-check-fill"></i>PIX válido · conta Nº {{ p.pix.conta }}</div>
                 <div class="ct-valores">
                     {% for v in [[20, 'R$ 20'], [50, 'R$ 50'], [100, 'R$ 100'], [-1, 'Outro valor']] %}
                         <button type="button" class="ct-valor{{ loop.first ? ' ct-valor--ativo' }}" data-valor="{{ v[0] }}">{{ v[1] }}</button>
@@ -132,6 +139,9 @@
             </div>
         </div>
     </section>
+
+    {# Integração bancária (API), só Master: C4 (sessão 4b). Parcial próprio, com JS e CSS próprios. #}
+    {% if p.ehMaster %}{% include 'contribua/_integracao_bancaria.html.twig' ignore missing %}{% endif %}
 
     {# Quem somos #}
     <section id="quem" class="ct-cartao">
@@ -210,6 +220,12 @@
     </div>
 </div>
 
+{% include 'contribua/_checkout.html.twig' %}
+{% if pagamento.master %}{% include 'contribua/_pagamento_master.html.twig' %}{% endif %}
+
+{# Prêmio do apoiador (modal com confete quando o banco confirma um apoio): C4 (sessão 4b). #}
+{% include 'contribua/_premio.html.twig' ignore missing %}
+
 {% include 'contribua/_convenio_oab.html.twig' %}
 
 <div class="ct-toast" data-toast hidden><i class="bi bi-check-circle"></i><span></span></div>
@@ -219,4 +235,6 @@
     {{ parent() }}
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
     <script src="{{ asset('js/contribua.js') }}" defer></script>
+    {% if pagamento.modo == 'formulario' and pagamento.script %}<script src="{{ asset(pagamento.script) }}" defer></script>{% endif %}
+    <script src="{{ asset('js/contribua-checkout.js') }}" defer></script>
 {% endblock %}

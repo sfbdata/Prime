@@ -10,6 +10,7 @@ use App\Central\Repository\ConversaRepository;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\PastaDoContextoDaIa;
 use App\Central\UseCase\AbrirConversaComAIaUseCase;
 use App\Central\UseCase\PerguntarABlueJusIaUseCase;
 use App\Entity\Auth\User;
@@ -56,6 +57,7 @@ final class PerguntarABlueJusIaTest extends KernelTestCase
             $c->get(EnfileiradorDeAnalise::class),
             $this->em(),
             $relogio,
+            $c->get(PastaDoContextoDaIa::class),
         );
     }
 

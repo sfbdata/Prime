@@ -15,6 +15,19 @@ emails:
         botao: Confirmar meu cadastro
         nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
         ignore: Se você não fez este cadastro, ignore este e-mail.
+    # Aviso de login novo (spec login-aviso-novo): o assunto "Novo acesso à sua conta" fica no AvisoDeAcessoNovoMailer.
+    acesso_novo:
+        titulo: Novo acesso à sua conta
+        ola: 'Olá, {nome}!'
+        aviso: 'Detectamos um acesso à sua conta do BlueJus a partir de um navegador ou rede que ainda não conhecíamos:'
+        quando: Data e hora
+        navegador: Navegador
+        sistema: Sistema
+        desconhecido: Não identificado
+        se_foi_voce: Se foi você, não precisa fazer nada.
+        se_nao_foi: Se não foi você, troque a sua senha agora.
+        botao: Trocar a senha
+        nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
     codigo_exclusao_conta:
         titulo: Código para excluir a conta
         ola: 'Olá, {nome}!'

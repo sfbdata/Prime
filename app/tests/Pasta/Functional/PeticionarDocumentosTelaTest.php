@@ -255,6 +255,110 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('casca da lista (L46-75): cabeçalho, busca e rodapé são filhos diretos da coluna, na ordem do desenho')]
+    public function testArranjoDaCascaDaLista(): void
+    {
+        [$client, $pasta, $tenant] = $this->cenario();
+        $doc = $this->documento($pasta, $tenant, 'contrato.pdf', 'application/pdf', 1024);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+
+        $coluna = '.petic-layout > .petic-timeline';
+        self::assertCount(1, $crawler->filter($coluna . ' > .petic-timeline-header'));
+        self::assertCount(1, $crawler->filter($coluna . ' > .petic-timeline-header > .petic-timeline-header-title > b.petic-timeline-titulo'));
+        self::assertCount(1, $crawler->filter($coluna . ' > .petic-timeline-header > .petic-timeline-header-title > span.petic-contador#badgeCount'));
+        self::assertSame('1', trim($crawler->filter('#badgeCount')->text()));
+        self::assertSame(
+            'Pesquisar documentos...',
+            $crawler->filter($coluna . ' > .petic-timeline-header > .petic-search > input#timelinePesquisa')->attr('placeholder'),
+        );
+        self::assertCount(1, $crawler->filter($coluna . ' > #timelineList > #tlInner'));
+        self::assertCount(1, $crawler->filter($coluna . ' > .petic-timeline-footer'));
+
+        // O cartão é filho direto da linha, e a linha, filha direta da lista (sem o trilho nem a bolinha).
+        $id = (int) $doc->getId();
+        self::assertCount(1, $crawler->filter(sprintf('#tlInner > .petic-tl-row[data-doc-id="%d"] > .petic-tl-card', $id)));
+        self::assertCount(1, $crawler->filter('#tlInner > .petic-tl-datesep > span'));
+    }
+
+    #[TestDox('rodapé (L65-74): botão e popover do desenho são filhos diretos do rodapé, com Anexo e Texto e seus subtítulos')]
+    public function testRodapeAdicionarPecaPopover(): void
+    {
+        [$client, $pasta] = $this->cenario();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+
+        $rodape = '.petic-layout > .petic-timeline > .petic-timeline-footer';
+        $botao  = $crawler->filter($rodape . ' > button#btnAbrirUpload.petic-add-btn');
+        self::assertCount(1, $botao);
+        self::assertSame('Adicionar Peça', trim($botao->text()));
+        self::assertCount(1, $botao->filter('button > i.bi-file-earmark-plus'));
+        self::assertCount(1, $botao->filter('button > i.bi-caret-up-fill'), 'a seta começa para cima (menu fechado)');
+
+        $menu = $crawler->filter($rodape . ' > #peticAddMenu.petic-add-menu');
+        self::assertCount(1, $menu);
+        self::assertNotNull($menu->attr('hidden'), 'o menu nasce fechado');
+        self::assertCount(1, $crawler->filter($rodape . ' > #peticAddFundo[hidden]'));
+
+        $anexo = $menu->filter('#peticAddMenu > button#btnOpcaoAnexo.petic-add-item');
+        self::assertCount(1, $anexo);
+        self::assertCount(1, $anexo->filter('button > i.bi-paperclip'));
+        self::assertStringContainsString('Anexo', $anexo->text());
+        self::assertStringContainsString('PDF, Word, Excel, imagens, XML e KML', $anexo->text());
+
+        $texto = $menu->filter('#peticAddMenu > button#btnOpcaoTexto.petic-add-item');
+        self::assertCount(1, $texto);
+        self::assertCount(1, $texto->filter('button > i.bi-file-earmark-text'));
+        self::assertStringContainsString('Escrever a peça no editor', $texto->text());
+    }
+
+    #[TestDox('o que o desenho não tem continua fora: trilho, bolinha, badge e dropdown do Bootstrap, player de áudio e vídeo')]
+    public function testOQueSaiuContinuaFora(): void
+    {
+        [$client, $pasta, $tenant] = $this->cenario();
+        $this->documento($pasta, $tenant, 'contrato.pdf', 'application/pdf', 1024);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(0, $crawler->filter('.petic-tl-dot'), 'sem bolinha por categoria');
+        self::assertNull($crawler->filter('#timelineList')->attr('data-ponto-categoria'));
+        self::assertCount(0, $crawler->filter('.petic-timeline .dropdown-menu, .petic-timeline .dropup, .petic-timeline [data-bs-toggle]'), 'o menu do rodapé é o do desenho');
+        self::assertCount(0, $crawler->filter('.petic-timeline-header .badge, .petic-timeline-header .rounded-pill'), 'o contador não é badge do Bootstrap');
+        self::assertCount(0, $crawler->filter('.petic-timeline-footer .btn'), 'o botão não é o btn do Bootstrap');
+        self::assertCount(0, $crawler->filter('audio, video, #previewAudio, #previewVideo'));
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('petic-tl-dot', $html);
+        self::assertStringNotContainsString('.petic-tl-inner::before', $html, 'sem o trilho vertical');
+    }
+
+    #[TestDox('painel direito (L76-100): corpo com a moldura do PDF, imagem e o aviso de formato sem visualização')]
+    public function testPainelDireito(): void
+    {
+        [$client, $pasta] = $this->cenario();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+
+        $corpo = '#previewPanel > .petic-preview-corpo';
+        self::assertCount(1, $crawler->filter($corpo . ' > #previewPlaceholder > i.bi-file-earmark-text'));
+        self::assertStringContainsString('Selecione um documento na lista para visualizar', $crawler->filter('#previewPlaceholder')->text());
+        self::assertCount(1, $crawler->filter($corpo . ' > iframe#previewIframe'));
+        self::assertCount(1, $crawler->filter($corpo . ' > img#previewImagem'));
+
+        $painel = $crawler->filter($corpo . ' > #downloadPanel');
+        self::assertCount(1, $painel);
+        self::assertCount(1, $painel->filter('#downloadPanel > i.bi-file-earmark'));
+        self::assertSame('Pré-visualização indisponível para este formato.', trim($painel->filter('#downloadPanel > .petic-download-texto')->text()));
+        $baixar = $painel->filter('#downloadPanel > a#downloadLink.petic-download-btn');
+        self::assertCount(1, $baixar);
+        self::assertSame('Baixar arquivo', trim($baixar->text()));
+        self::assertCount(0, $painel->filter('.btn'), 'o botão é o do desenho, não o outline do Bootstrap');
+    }
+
     #[TestDox('o modal "Adicionar peça" continua com os mesmos formatos aceitos')]
     public function testFormatosDoModalNaoMudaram(): void
     {

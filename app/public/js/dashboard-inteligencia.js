@@ -139,10 +139,143 @@
         caixa.hidden = !abrir;
     }
 
+    /* Aumentar o nível (dc L1284-1325): os 4 níveis chegam prontos do servidor; escolher só alterna o painel visível. */
+    function escolherNivel(botao) {
+        var plano = botao.closest('[data-ia-plano]');
+        if (!plano) { return; }
+        var id = botao.getAttribute('data-ia-nivel');
+        plano.querySelectorAll('[data-ia-nivel]').forEach(function (b) {
+            b.setAttribute('aria-pressed', b === botao ? 'true' : 'false');
+        });
+        plano.querySelectorAll('[data-ia-plano-nivel]').forEach(function (n) {
+            n.hidden = n.getAttribute('data-ia-plano-nivel') !== id;
+        });
+    }
+
+    function avisarPlano(plano, texto, erro) {
+        var aviso = plano.querySelector('[data-ia-plano-aviso]');
+        if (!aviso) { return; }
+        aviso.textContent = texto;
+        aviso.classList.toggle('is-erro', !!erro);
+        aviso.hidden = false;
+    }
+
+    /* A tela do filtro é trocada por inteiro (cards e painel): reabre o painel quando o novo chega. */
+    function reabrirPainelQuandoTrocar() {
+        var antigo = document.getElementById('dbIaPainel');
+        var obs = new MutationObserver(function () {
+            var novo = document.getElementById('dbIaPainel');
+            if (novo && novo !== antigo) {
+                obs.disconnect();
+                if (novo.showPopover) { novo.showPopover(); }
+            }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        window.setTimeout(function () { obs.disconnect(); }, 8000);
+    }
+
+    function recarregarPainel() {
+        var form = document.querySelector('[data-filtro-root] [data-filtro-form]');
+        if (!form) { window.location.reload(); return; }
+        reabrirPainelQuandoTrocar();
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+
+    /* "Definir ... como meta do mês": o mesmo POST do editor de meta (só o primário; o servidor confere). */
+    function aplicarPlano(botao) {
+        var plano = botao.closest('[data-ia-plano]');
+        var valor = parseInt(botao.getAttribute('data-valor'), 10);
+        if (!plano || !valor || botao.disabled) { return; }
+        botao.disabled = true;
+        avisarPlano(plano, window.BJ_T.t('dashboard.js.plano.aplicando'), false);
+        fetch(plano.getAttribute('data-url'), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token() },
+            body: JSON.stringify({ valor: valor })
+        }).then(function (r) {
+            if (!r.ok) {
+                var erro = new Error('HTTP ' + r.status);
+                erro.status = r.status;
+                throw erro;
+            }
+            avisarPlano(plano, window.BJ_T.t('dashboard.js.plano.aplicada', { meta: valor }), false);
+            recarregarPainel();
+        }).catch(function (erro) {
+            botao.disabled = false;
+            avisarPlano(plano, window.BJ_T.t(erro && erro.status === 403 ? 'dashboard.js.plano.sem_permissao' : 'dashboard.js.plano.erro'), true);
+        });
+    }
+
+    /* Criar tarefa (dc L967): tarefa exige pasta, então o botão abre o seletor (<dialog data-ia-pasta-dlg>)
+       e, ao escolher, vai ao modal "Nova meta" da pasta com o texto do alerta (pasta-metas.js). */
+    var tarefaDoAlerta = null;
+    var tarefaTimer = null;
+
+    function mensagemNaLista(lista, texto) {
+        lista.textContent = '';
+        var aviso = document.createElement('div');
+        aviso.className = 'db-ia-pasta-vazio';
+        aviso.textContent = texto;
+        lista.appendChild(aviso);
+    }
+
+    function irParaAPasta(dlg, id) {
+        var q = new URLSearchParams({ nova_meta: '1', titulo: tarefaDoAlerta.titulo, descricao: tarefaDoAlerta.descricao });
+        if (tarefaDoAlerta.responsavel) { q.set('responsavel', tarefaDoAlerta.responsavel); }
+        window.location.href = dlg.getAttribute('data-url-pasta').replace(/\/0$/, '/' + id) + '?' + q.toString() + '#tarefas';
+    }
+
+    function listarPastas(dlg) {
+        var lista = dlg.querySelector('[data-ia-pasta-lista]');
+        var termo = dlg.querySelector('[data-ia-pasta-q]').value;
+        fetch(dlg.getAttribute('data-url') + '?q=' + encodeURIComponent(termo), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { if (!r.ok) { throw new Error('HTTP ' + r.status); } return r.json(); })
+            .then(function (itens) {
+                if (!itens.length) { mensagemNaLista(lista, dlg.getAttribute('data-t-vazio')); return; }
+                lista.textContent = '';
+                itens.forEach(function (i) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'db-ia-pasta-item';
+                    b.innerHTML = '<i class="bi bi-folder2" aria-hidden="true"></i><span></span>';
+                    b.querySelector('span').textContent = i.texto;
+                    b.addEventListener('click', function () { irParaAPasta(dlg, i.id); });
+                    lista.appendChild(b);
+                });
+            })
+            .catch(function () { mensagemNaLista(lista, dlg.getAttribute('data-t-erro')); });
+    }
+
+    function abrirSeletorDePasta(botao) {
+        var dlg = document.querySelector('[data-ia-pasta-dlg]');
+        if (!dlg || typeof dlg.showModal !== 'function') { return; }
+        tarefaDoAlerta = { titulo: botao.getAttribute('data-titulo') || '', descricao: botao.getAttribute('data-descricao') || '', responsavel: botao.getAttribute('data-responsavel') || '' };
+        dlg.querySelector('[data-ia-pasta-q]').value = '';
+        dlg.showModal();
+        listarPastas(dlg);
+        dlg.querySelector('[data-ia-pasta-q]').focus();
+    }
+
+    document.addEventListener('input', function (e) {
+        var campo = e.target.closest ? e.target.closest('[data-ia-pasta-q]') : null;
+        if (!campo) { return; }
+        window.clearTimeout(tarefaTimer);
+        tarefaTimer = window.setTimeout(function () { listarPastas(campo.closest('dialog')); }, 250);
+    });
+
     document.addEventListener('click', function (e) {
+        var tarefa = e.target.closest ? e.target.closest('[data-ia-tarefa]') : null;
+        if (tarefa) { abrirSeletorDePasta(tarefa); }
+        var fecharPasta = e.target.closest ? e.target.closest('[data-ia-pasta-fechar]') : null;
+        if (fecharPasta) { fecharPasta.closest('dialog').close(); }
         var botao = e.target.closest ? e.target.closest('[data-ia-marcar]') : null;
         if (botao) { marcar(botao); }
         var pilula = e.target.closest ? e.target.closest('[data-ia-pergunta]') : null;
         if (pilula) { escolherPergunta(pilula); }
+        var nivel = e.target.closest ? e.target.closest('[data-ia-nivel]') : null;
+        if (nivel) { escolherNivel(nivel); }
+        var aplicar = e.target.closest ? e.target.closest('[data-ia-plano-aplicar]') : null;
+        if (aplicar) { aplicarPlano(aplicar); }
     });
 }());

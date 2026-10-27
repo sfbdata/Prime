@@ -1,4 +1,4 @@
-/* Seção "Recompensas" do /master, F1 (desenho 05 VS 25.10.26, L306-338 e janela L612). Valores do dc em tokens, com par escuro. */
+/* Seção "Recompensas" do /master, F1 a F3 (desenho 05 VS 25.10.26, L306-338 e janela L612). Valores do dc em tokens, com par escuro. */
 .mrc {
     --mrc-fundo: #fff; --mrc-borda: #d3dde4; --mrc-cabeca: #f5f8fa; --mrc-div: #e6edf2; --mrc-div-linha: #eef2f5; --mrc-zebra: #f3f6f9;
     --mrc-azul: #0a6fa0; --mrc-verde: #1e7b45; --mrc-vermelho: #a3232b; --mrc-ambar: #9a5b00;
@@ -77,6 +77,7 @@
 .mrc-saldo { color: var(--mrc-verde); }
 .mrc-sit { font-size: 12px; font-weight: bold; color: var(--mrc-ambar); }
 .mrc-sit.mrc-sit-ok { color: var(--mrc-verde); }
+.mrc-sit.mrc-sit-alerta { color: var(--mrc-vermelho); }
 .mrc-acoes { display: flex; gap: 5px; justify-content: flex-end; align-items: center; }
 .mrc-ajustar { height: 28px; padding: 0 8px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 12px; cursor: pointer; }
 .mrc-mais { width: 30px; height: 28px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); cursor: pointer; font-size: 15px; line-height: 1; }
@@ -88,6 +89,8 @@
 .mrc-menu-titulo { padding: 7px 14px 8px; font-size: 12px; color: var(--mrc-sub); border-bottom: 1px solid var(--mrc-div-linha); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mrc-menu-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; background: var(--mrc-fundo); padding: 8px 14px; font-size: 13.5px; color: var(--mrc-tx); cursor: pointer; text-align: left; }
 .mrc-menu-item:hover { background: var(--mrc-hover); }
+.mrc-menu-item.mrc-menu-item-aviso { color: var(--mrc-ambar); }
+.mrc-menu-item.mrc-menu-item-perigo { color: var(--mrc-vermelho); }
 .mrc-menu-item > .bi { width: 16px; }
 
 .mrc-dlg-fundo { position: fixed; inset: 0; z-index: 9650; background: rgba(18, 36, 47, .35); }
@@ -103,6 +106,8 @@
 .mrc-dlg-campo input { height: 36px; border: 1px solid var(--mrc-borda); border-radius: 2px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: normal; background: var(--mrc-fundo); color: inherit; }
 .mrc-dlg-campo textarea { border: 1px solid var(--mrc-borda); border-radius: 2px; padding: 8px 10px; font: inherit; font-size: 13.5px; font-weight: normal; resize: vertical; background: var(--mrc-fundo); color: inherit; }
 .mrc-dlg-dica { font-weight: normal; font-size: 11.5px; color: var(--mrc-ic); }
+.mrc-rcb-sugestao b { color: var(--mrc-tx); word-break: break-all; }
+.mrc-rcb-usar { border: none; background: none; padding: 0; color: var(--mrc-azul); font: inherit; text-decoration: underline; cursor: pointer; }
 .mrc-dlg-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .mrc-dlg-rec { border: 1px solid var(--mrc-div); border-radius: 2px; padding: 9px 11px; display: flex; flex-direction: column; gap: 8px; }
 .mrc-dlg-rec-tg { display: flex; align-items: center; gap: 8px; border: none; background: none; padding: 0; font-size: 13.5px; font-weight: bold; color: var(--mrc-tx); cursor: pointer; text-align: left; }
@@ -113,6 +118,7 @@
 .mrc-dlg-rodape { flex: none; padding: 10px 16px; border-top: 1px solid var(--mrc-div-linha); display: flex; justify-content: flex-end; gap: 8px; }
 .mrc-dlg-cancelar { height: 34px; padding: 0 13px; border: 1px solid var(--mrc-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 13.5px; cursor: pointer; }
 .mrc-dlg-salvar { height: 34px; padding: 0 15px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.mrc-dlg-salvar.mrc-dlg-perigo { background: #a3232b; }
 .mrc-dlg-salvar:disabled { cursor: progress; opacity: .75; }
 
 /* F2: extrato (desenho L329-337) e diálogo de crédito ou estorno (diálogo `bonus`, L875-886). */
@@ -124,10 +130,23 @@
 .mrc-exportar { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 12.5px; cursor: pointer; text-decoration: none; }
 .mrc-exportar:hover { color: var(--mrc-botao-tx); text-decoration: none; }
 .mrc-extrato-vazio { padding: 24px; text-align: center; color: var(--mrc-ic); }
-.mrc-extrato-linha { display: grid; grid-template-columns: 150px minmax(200px, 1fr) 150px 110px; gap: 8px; align-items: center; padding: 9px 18px; border-bottom: 1px solid var(--mrc-div-linha); font-size: 13px; }
+.mrc-extrato-linha { display: grid; grid-template-columns: 150px minmax(200px, 1fr) 150px 110px 150px; gap: 8px; align-items: center; padding: 9px 18px; border-bottom: 1px solid var(--mrc-div-linha); font-size: 13px; }
 .mrc-extrato-linha-zebra { background: var(--mrc-zebra); }
 .mrc-extrato-data { color: var(--mrc-rotulo); }
 .mrc-extrato-tipo { font-weight: bold; color: var(--mrc-azul); }
 .mrc-extrato-tipo-estorno { color: var(--mrc-vermelho); }
 .mrc-extrato-rolagem { overflow-x: auto; }
 .mrc-extrato-tabela { min-width: 640px; }
+
+/* F4: baixa manual (diálogo `pagar`, desenho L884 e L887): chips da forma, anexo tracejado e botão verde. */
+.mrc-dlg-salvar.mrc-dlg-pagar { background: #1e7b45; }
+.mrc-menu-item-baixa { color: #1e7b45; }
+.mrc-bai-formas { display: flex; flex-wrap: wrap; gap: 6px; }
+.mrc-bai-forma { height: 30px; padding: 0 10px; border: 1px solid #c5d2db; border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font: inherit; font-size: 12.5px; cursor: pointer; }
+.mrc-bai-forma[aria-checked="true"] { background: #0a6fa0; border-color: #0a6fa0; color: #fff; }
+.mrc-bai-anexo { display: flex; align-items: center; gap: 9px; height: 36px; margin: 0; border: 1px dashed #b9c7d2; border-radius: 2px; padding: 0 11px; font-size: 13px; font-weight: normal; color: var(--mrc-botao-tx); cursor: pointer; background: #f9fbfc; }
+.mrc-bai-anexo > .bi { color: var(--mrc-azul); }
+.mrc-bai-anexo > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mrc-bai-anexo > .mrc-bai-anexo-ok { color: #1e7b45; }
+.mrc-bai-anexo > input { display: none; }
+.mrc-extrato-comprovante { margin-left: 6px; color: var(--mrc-azul); }

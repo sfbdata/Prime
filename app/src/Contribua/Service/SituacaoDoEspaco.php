@@ -111,7 +111,8 @@ final class SituacaoDoEspaco
 
     /**
      * "Sem limite" dispensa as duas checagens, espaço e usuários (decisão do dono, 19/10/2026: o
-     * escritório do dono do sistema tem mais usuários que qualquer plano).
+     * escritório do dono do sistema tem mais usuários que qualquer plano). O limite do Master segue a regra
+     * do espaço: sempre no Free; num plano pago, só quando é maior (plano sem limite continua sem limite).
      *
      * @return array{0: ?int, 1: OrigemDoLimite}
      */
@@ -120,8 +121,10 @@ final class SituacaoDoEspaco
         if ($espaco?->isSemLimite() === true) {
             return [null, OrigemDoLimite::SemLimite];
         }
-        if ($espaco?->getLimiteUsuarios() !== null) {
-            return [$espaco->getLimiteUsuarios(), OrigemDoLimite::Master];
+        $doPlano = $plano->getLimiteUsuarios();
+        $doMaster = $espaco?->getLimiteUsuarios();
+        if ($doMaster !== null && ($plano->ehGratuito() || ($doPlano !== null && $doMaster > $doPlano))) {
+            return [$doMaster, OrigemDoLimite::Master];
         }
 
         // D5 revogada (dono, 26/10/2026): o plano não limita usuários. A coluna do plano fica como está; só o limite
@@ -129,17 +132,25 @@ final class SituacaoDoEspaco
         return [null, OrigemDoLimite::Plano];
     }
 
-    /** @return array{0: ?int, 1: OrigemDoLimite} */
+    /**
+     * O limite do Master vale sempre no Free. Num plano PAGO (só a assinatura põe o escritório nele) vale
+     * só quando é maior que o do plano: quem paga nunca fica com menos do que pagou (C3, 19/10: um limite
+     * próprio de 24 GB não pode engolir os 50 GB de uma assinatura).
+     *
+     * @return array{0: ?int, 1: OrigemDoLimite}
+     */
     private static function limiteEmBytes(?EspacoDoEscritorio $espaco, Plano $plano): array
     {
         if ($espaco?->isSemLimite() === true) {
             return [null, OrigemDoLimite::SemLimite];
         }
-        if ($espaco?->getCotaGb() !== null) {
-            return [$espaco->getCotaGb() * RetratoDoEspaco::BYTES_POR_GB, OrigemDoLimite::Master];
+        $doPlano = $plano->getCotaGb();
+        $doMaster = $espaco?->getCotaGb();
+        if ($doMaster !== null && ($plano->ehGratuito() || $doMaster > $doPlano)) {
+            return [$doMaster * RetratoDoEspaco::BYTES_POR_GB, OrigemDoLimite::Master];
         }
 
-        return [$plano->getCotaGb() * RetratoDoEspaco::BYTES_POR_GB, OrigemDoLimite::Plano];
+        return [$doPlano * RetratoDoEspaco::BYTES_POR_GB, OrigemDoLimite::Plano];
     }
 
     /**

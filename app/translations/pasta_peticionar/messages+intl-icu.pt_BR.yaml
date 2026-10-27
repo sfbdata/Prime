@@ -16,11 +16,13 @@ pasta_peticionar:
         voltar_dica: Voltar para a pasta
         voltar: Voltar à pasta
         documentos: Documentos
-        pesquisar: Pesquisar documentos…
+        pesquisar: Pesquisar documentos...
         mais_opcoes: Mais opções
         vazio: Nenhum documento na pasta.
         vazio_dica: 'Use "Adicionar peça" ou arraste arquivos para cá.'
         anexo: Anexo
+        anexo_dica: 'PDF, Word, Excel, imagens, XML e KML'
+        texto_dica: Escrever a peça no editor
     barra:
         renomear_dica: Clique duas vezes para renomear
         editar_dica: Editar texto
@@ -31,6 +33,7 @@ pasta_peticionar:
         selecione: Selecione um documento na lista para visualizar
         visualizador: Visualizador de documento
         baixar_arquivo: Baixar arquivo
+        indisponivel: Pré-visualização indisponível para este formato.
     salvar_texto:
         titulo: Salvar peça na pasta
         campo_titulo: Título

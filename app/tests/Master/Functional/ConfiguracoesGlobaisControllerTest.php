@@ -23,7 +23,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Seção "Configurações globais" do Painel do Master (desenho 05 VS 25.10.26, L282-285 e L955-959): o JSON do
- * formulário, o salvar com os 14 campos (12 na linha única, 2 nas fontes de Planos e Faixas), a recusa e o aviso de
+ * formulário, o salvar com os 15 campos (13 na linha única, 2 nas fontes de Planos e Faixas), a recusa e o aviso de
  * manutenção que sai dela. Só o Master. O armazém de CSRF é fixo (padrão dos testes do painel).
  */
 #[CoversClass(ConfiguracoesGlobaisController::class)]
@@ -43,7 +43,7 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfFixo();
     }
 
-    #[TestDox('Master lê o formulário: 5 grupos, 14 campos, padrões do desenho e as duas fontes de fora')]
+    #[TestDox('Master lê o formulário: 5 grupos, 15 campos, padrões do desenho e as duas fontes de fora')]
     public function testLeFormulario(): void
     {
         $this->entrarComoMaster();
@@ -53,11 +53,11 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $d = $this->json();
         self::assertSame(['identidade', 'contas', 'seguranca', 'regiao', 'manutencao'], array_column($d['grupos'], 'grupo'));
-        self::assertCount(14, array_merge(...array_column($d['grupos'], 'campos')));
+        self::assertCount(15, array_merge(...array_column($d['grupos'], 'campos')));
         self::assertSame((string) static::getContainer()->get(PlanoRepository::class)->free()->getCotaGb(), $d['valores']['freeGb']);
         self::assertSame((string) static::getContainer()->get(ConfiguracaoDoEspacoRepository::class)->atual()->getFaixaAlerta(), $d['valores']['aviso']);
         self::assertSame('BlueJus', $d['padroes']['nome']);
-        self::assertSame('480', $d['padroes']['sessao']);
+        self::assertSame('24', $d['padroes']['sessao'], 'padrão do ambiente (app.sessao_padrao_minutos), não o 480 estático');
     }
 
     #[TestDox('quem não é Master recebe 403 nas duas rotas, e nada muda')]
@@ -91,7 +91,7 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
 
         $this->postar([
             'nome' => 'Outro Nome', 'remetente' => 'envio@exemplo.com', 'suporte' => 'ajuda@exemplo.com', 'cadastro' => 'convite',
-            'freeGb' => '12', 'aviso' => '85', 'sessao' => '60', 'tentativas' => '3', 'dois' => 'todos', 'retencao' => '730',
+            'freeGb' => '12', 'aviso' => '85', 'sessao' => '60', 'tentativas' => '3', 'dois' => 'todos', 'retencao' => '730', 'avisoLoginNovo' => 'off',
             'idioma' => 'en', 'fuso' => 'America/Manaus', 'manut' => 'Parada às 22h', 'manutAte' => '2099-01-01T23:00',
         ]);
 
@@ -152,6 +152,26 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertNull($this->gravada());
+    }
+
+    #[TestDox('`sessao` só é gravada quando difere do padrão do ambiente (24): igual não grava, 480 grava, voltar a 24 apaga')]
+    public function testSessaoSoGravaQuandoDifereDoPadraoDoAmbiente(): void
+    {
+        $this->entrarComoMaster();
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '24']);
+        self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('sessao', $this->gravada()?->getValores() ?? []);
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '480']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertSame('480', $this->gravada()?->getValores()['sessao'] ?? null);
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '24']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertArrayNotHasKey('sessao', $this->gravada()?->getValores() ?? []);
     }
 
     #[TestDox('aviso de manutenção: aparece para o usuário logado enquanto vale, some depois do prazo e sem texto')]

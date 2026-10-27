@@ -50,6 +50,7 @@ final class CatalogoDeConfiguracoes
             'tentativas' => ['tipo' => self::NUMERO, 'padrao' => '5', 'min' => 1, 'max' => 50],
             'dois' => ['tipo' => self::OPCOES, 'padrao' => 'master', 'opcoes' => ['master', 'prim', 'todos', 'opc']],
             'retencao' => ['tipo' => self::NUMERO, 'padrao' => '365', 'min' => 30, 'max' => 3650],
+            'avisoLoginNovo' => ['tipo' => self::OPCOES, 'padrao' => 'on', 'opcoes' => ['on', 'off']],
         ],
         'regiao' => [
             'idioma' => ['tipo' => self::OPCOES, 'padrao' => 'pt-BR', 'opcoes' => ['pt-BR', 'en', 'es']],
@@ -61,19 +62,47 @@ final class CatalogoDeConfiguracoes
         ],
     ];
 
-    /** @return array<string, array<string, array{tipo: string, padrao: string, min?: int, max?: int, opcoes?: list<string>, ajuda?: bool}>> */
-    public static function grupos(): array
+    /**
+     * Padrões que dependem de configuração do ambiente (hoje só `sessao`, parâmetro `app.sessao_padrao_minutos`).
+     * O catálogo segue estático; quem tem o container (leitor, consulta do Master) passa isto a `padroes()`/`grupos()`.
+     *
+     * @return array<string, string>
+     */
+    public static function sobreposicoes(int $sessaoPadraoMinutos): array
     {
-        return self::GRUPOS;
+        return ['sessao' => (string) $sessaoPadraoMinutos];
     }
 
-    /** @return array<string, string> chave => padrão, todos os campos */
-    public static function padroes(): array
+    /**
+     * @param array<string, string> $sobrepor chave => padrão que vale no lugar do estático
+     *
+     * @return array<string, array<string, array{tipo: string, padrao: string, min?: int, max?: int, opcoes?: list<string>, ajuda?: bool}>>
+     */
+    public static function grupos(array $sobrepor = []): array
+    {
+        $grupos = self::GRUPOS;
+        foreach ($grupos as $grupo => $campos) {
+            foreach ($campos as $chave => $campo) {
+                if (array_key_exists($chave, $sobrepor)) {
+                    $grupos[$grupo][$chave]['padrao'] = $sobrepor[$chave];
+                }
+            }
+        }
+
+        return $grupos;
+    }
+
+    /**
+     * @param array<string, string> $sobrepor chave => padrão que vale no lugar do estático
+     *
+     * @return array<string, string> chave => padrão, todos os campos
+     */
+    public static function padroes(array $sobrepor = []): array
     {
         $padroes = [];
         foreach (self::GRUPOS as $campos) {
             foreach ($campos as $chave => $campo) {
-                $padroes[$chave] = $campo['padrao'];
+                $padroes[$chave] = $sobrepor[$chave] ?? $campo['padrao'];
             }
         }
 
@@ -90,13 +119,14 @@ final class CatalogoDeConfiguracoes
      * Valida o pedido inteiro e devolve os valores normalizados (texto aparado, número como inteiro em texto). Chave
      * que falta cai no padrão; chave desconhecida é recusada.
      *
-     * @param array<mixed> $entrada
+     * @param array<mixed>          $entrada
+     * @param array<string, string> $sobrepor padrões do ambiente que valem no lugar dos estáticos
      *
      * @return array<string, string>
      */
-    public static function normalizar(array $entrada): array
+    public static function normalizar(array $entrada, array $sobrepor = []): array
     {
-        $padroes = self::padroes();
+        $padroes = self::padroes($sobrepor);
         foreach (array_keys($entrada) as $chave) {
             if (!array_key_exists((string) $chave, $padroes)) {
                 throw new ConfiguracaoRecusada('Configuração desconhecida.');
@@ -106,7 +136,7 @@ final class CatalogoDeConfiguracoes
         $valores = [];
         foreach (self::GRUPOS as $campos) {
             foreach ($campos as $chave => $campo) {
-                $bruto = $entrada[$chave] ?? $campo['padrao'];
+                $bruto = $entrada[$chave] ?? $padroes[$chave];
                 if (!is_string($bruto) && !is_int($bruto)) {
                     throw new ConfiguracaoRecusada('Valor inválido.');
                 }

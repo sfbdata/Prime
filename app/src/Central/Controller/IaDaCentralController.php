@@ -6,11 +6,14 @@ namespace App\Central\Controller;
 
 use App\Central\Exception\ConversaCriadaAoMesmoTempoException;
 use App\Central\Exception\ConversaNaoEncontradaException;
+use App\Central\Exception\PastaDaIaNaoEncontradaException;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\UseCase\ConsultarStatusDaPerguntaDaIaUseCase;
+use App\Central\UseCase\DescreverPastaDoContextoDaIaUseCase;
 use App\Central\UseCase\PerguntarABlueJusIaUseCase;
 use App\Entity\Auth\User;
 use App\Inteligencia\Exception\AnaliseNaoEncontradaException;
+use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\MuitasSolicitacoesException;
@@ -44,6 +47,7 @@ final class IaDaCentralController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PerguntarABlueJusIaUseCase $perguntar,
         private readonly ConsultarStatusDaPerguntaDaIaUseCase $consultarStatus,
+        private readonly DescreverPastaDoContextoDaIaUseCase $descreverPasta,
         // Interface (não a classe), como na pasta: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -54,23 +58,23 @@ final class IaDaCentralController extends AbstractController
     {
         $this->validarCsrfAjax($request);
         $usuario = $this->usuario();
-
-        $conteudo = $this->corpo($request)['conteudo'] ?? null;
-        if (!is_string($conteudo)) {
-            return $this->recusa('pergunta_invalida', 'Escreva a pergunta.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        $corpo = $this->corpo($request);
+        if (($invalida = $this->recusaDoCorpo($corpo)) !== null) {
+            return $invalida;
         }
-        if (strlen($conteudo) > self::TAMANHO_BRUTO_MAXIMO) {
-            return $this->recusa('pergunta_invalida', PerguntaInvalidaException::longaDemais(2000)->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
+        $pastaId = $corpo['pastaId'] ?? null;
         try {
-            $saida = $this->perguntar->executar($usuario, $this->tenantContext->getCurrentTenant(), $conteudo, $this->limitadorDe($usuario));
+            $saida = $this->perguntar->executar($usuario, $this->tenantContext->getCurrentTenant(), (string) $corpo['conteudo'], $this->limitadorDe($usuario), is_int($pastaId) ? $pastaId : null);
         } catch (SemAcessoACentralException $e) {
             return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (PerguntaInvalidaException $e) {
             return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (ConversaNaoEncontradaException) {
             return new JsonResponse(['erro' => 'Conversa não encontrada.'], Response::HTTP_NOT_FOUND);
+        } catch (PastaDaIaNaoEncontradaException $e) {
+            return $this->recusa('pasta_nao_encontrada', $e->getMessage(), Response::HTTP_NOT_FOUND);
+        } catch (ContextoBloqueadoException $e) {
+            return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_CONFLICT);
         } catch (ConversaCriadaAoMesmoTempoException $e) {
             return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_CONFLICT);
         } catch (MuitasSolicitacoesException|InteligenciaIndisponivelException|FilaIndisponivelException $e) {
@@ -111,6 +115,54 @@ final class IaDaCentralController extends AbstractController
         $resposta->headers->set('Cache-Control', 'private, no-store');
 
         return $resposta;
+    }
+
+    /**
+     * O rótulo da barra "Pasta N" (PR 4b): só NUP, cliente principal e o link. Pasta que não existe, de outro escritório,
+     * excluída ou que a pessoa não vê: o mesmo 404 de mensagem fixa. Nunca guardado em cache.
+     */
+    #[Route('/pasta/{pastaId}', name: 'central_ia_pasta', requirements: ['pastaId' => '\d{1,9}'], methods: ['GET'])]
+    public function pasta(int $pastaId): JsonResponse
+    {
+        try {
+            $saida = $this->descreverPasta->executar($this->usuario(), $this->tenantContext->getCurrentTenant(), $pastaId);
+            $resposta = new JsonResponse([
+                'pastaId' => $saida->pastaId,
+                'nup' => $saida->nup,
+                'cliente' => $saida->cliente,
+                'url' => $this->generateUrl('pasta_show', ['id' => $saida->pastaId]),
+            ]);
+        } catch (SemAcessoACentralException $e) {
+            $resposta = new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (PastaDaIaNaoEncontradaException $e) {
+            $resposta = new JsonResponse(['motivo' => 'pasta_nao_encontrada', 'mensagem' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        }
+        $resposta->headers->set('Cache-Control', 'private, no-store');
+
+        return $resposta;
+    }
+
+    /**
+     * O corpo antes de qualquer trabalho: `conteudo` texto de tamanho razoável e, se vier, `pastaId` inteiro (contexto da
+     * tela, PR 4a). Qualquer outro tipo é 422; o valor do id (positivo, da pessoa) é conferido no UseCase.
+     *
+     * @param array<string, mixed> $corpo
+     */
+    private function recusaDoCorpo(array $corpo): ?JsonResponse
+    {
+        $conteudo = $corpo['conteudo'] ?? null;
+        if (!is_string($conteudo)) {
+            return $this->recusa('pergunta_invalida', 'Escreva a pergunta.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if (strlen($conteudo) > self::TAMANHO_BRUTO_MAXIMO) {
+            return $this->recusa('pergunta_invalida', PerguntaInvalidaException::longaDemais(2000)->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $pastaId = $corpo['pastaId'] ?? null;
+        if ($pastaId !== null && !is_int($pastaId)) {
+            return $this->recusa('pergunta_invalida', PerguntaInvalidaException::pastaInvalida()->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return null;
     }
 
     /**

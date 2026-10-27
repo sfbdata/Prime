@@ -93,8 +93,10 @@ final class ComandosComPiiPassamPelaGuardaTest extends TestCase
         self::assertSame($noDisco, $encontrados);
         // 12 desde 08/09: entrou `CorrigirPastaJudicialDuplicadaCommand`, declarado
         // `LidaComDadoPessoal` — o relatório imprime unidade e nome da pessoa dos casos corrigidos.
+        // 13 desde 27/10: entrou `RegravarNomeDasPastasJudiciaisCommand`, declarado `LidaComDadoPessoal`
+        // — a tabela imprime o nome das pastas antes e depois.
         self::assertSame(
-            12,
+            13,
             $encontrados,
             'o número de comandos de cobrança mudou — atualize este teste CONSCIENTEMENTE, '
             . 'depois de decidir a qual das duas interfaces o comando novo pertence',

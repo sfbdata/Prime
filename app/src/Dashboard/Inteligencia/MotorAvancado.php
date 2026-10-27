@@ -157,6 +157,7 @@ final class MotorAvancado
                 prazo:          'Hoje',
                 acompanhamento: 'Conferir diariamente até zerar as vencidas.',
                 fatores:   ['Prazo: já vencido', 'Volume: ' . $venc],
+                pessoaId:  $top[0]->userId,
                 dados:     [...$base, 'metas vencidas por colaborador (contadas em relação a hoje, não ao período)'],
             );
         }
@@ -200,6 +201,7 @@ final class MotorAvancado
                     sprintf('Carga: %d%% da média', (int) round($maior->metasAtivas / $media * 100)),
                     sprintf('Menor fila: %s, %d %s', $nomeMenor, $menor->metasAtivas, $this->plural($menor->metasAtivas, 'ativa', 'ativas')),
                 ],
+                pessoaId:  $maior->userId,
                 dados:     [...$base, 'metas ativas por colaborador', 'média da equipe'],
             );
         }
@@ -228,6 +230,7 @@ final class MotorAvancado
                 prazo:          'Próximas 48 horas',
                 acompanhamento: 'Reavaliar em 24 horas.',
                 fatores:   ['Prazo: até ' . self::PRAZO_PROXIMO_DIAS . ' dias', 'Concentração: ' . $pt . '% em uma pessoa'],
+                pessoaId:  $t->userId,
                 dados:     [...$base, 'prazos próximos por colaborador'],
             );
         }
@@ -272,6 +275,7 @@ final class MotorAvancado
                 prazo:          'Próximas distribuições',
                 acompanhamento: 'Verificar equilíbrio em 7 dias.',
                 fatores:   [sprintf('Carga: %d%% da média', (int) round($menor->metasAtivas / $media * 100))],
+                pessoaId:  $menor->userId,
                 dados:     [...$base, 'metas ativas por colaborador'],
             );
         }

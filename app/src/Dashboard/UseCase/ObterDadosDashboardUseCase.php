@@ -6,6 +6,7 @@ namespace App\Dashboard\UseCase;
 
 use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
+use App\Dashboard\DTO\MetaDePastasDoMesOutput;
 use App\Dashboard\Meta\MontarMetaDePastasDoMes;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Ranking\RankingDeMetasConcluidas;
@@ -240,8 +241,20 @@ final class ObterDadosDashboardUseCase
             zeramentos:                 $cortes->paraTela(),
             // O realizado da meta é o número do card (antes da busca), sem regra de contagem própria.
             totaisEstoque:              $estoqueHoje === [] ? null : $this->totaisDoEstoque($linhas, array_keys($estoqueHoje)),
-            metaDePastas:               $this->metaDePastas->montar($tenant, $referencia, $filtros, $totalPastasCriadas),
+            metaDePastas:               $this->metaDoMes($tenant, $referencia, $filtros, $totalPastasCriadas, $pastasOcultas),
         );
+    }
+
+    /**
+     * Cadeado: a meta é do escritório inteiro e o realizado sairia sem as pastas ocultas; qualquer número derivado
+     * (faltam, %, ritmo, "de N") revelaria o total. Com pasta oculta, a meta nem é montada.
+     *
+     * @param array<string, mixed> $filtros
+     * @param list<int>            $pastasOcultas
+     */
+    private function metaDoMes(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros, int $realizado, array $pastasOcultas): ?MetaDePastasDoMesOutput
+    {
+        return $pastasOcultas !== [] ? null : $this->metaDePastas->montar($tenant, $referencia, $filtros, $realizado);
     }
 
     /** Colunas do estoque com seta pela foto => coluna da `dashboard_foto` (as duas fixas mais ESTOQUE_COM_FOTO). */

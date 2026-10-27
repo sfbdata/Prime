@@ -29,7 +29,7 @@ final readonly class PainelDeRecompensasOutput
 
     public function totalLiberados(): int
     {
-        return count(array_filter($this->indicadores, static fn (IndicadorDeRecompensaOutput $i): bool => $i->liberado()));
+        return count(array_filter($this->indicadores, static fn (IndicadorDeRecompensaOutput $i): bool => $i->liberado));
     }
 
     public function totalAPagarCentavos(): int

@@ -3933,7 +3933,7 @@ document.addEventListener('DOMContentLoaded', function () {
                            ninguém tocar no campo. São coisas diferentes e ambas precisam existir aqui:
                            o TÍTULO da pasta (texto livre, hoje no padrão `CREDOR - DEVEDOR`) e os
                            CLIENTES cadastrados, que viram contexto logo abaixo. #}
-                        {% set identificadorDerivado = identificador_pasta(pasta) %}
+                        {% set identificadorDerivado = identificador_pasta_da_cobranca(pasta) %}
                         {% set derivadoDaCobranca = identificadorDerivado is not null and identificadorDerivado != pasta.nomeCliente %}
                         <div class="ps-modal-pasta-campo ps-modal-pasta-campo--2">
                             <label {% if not derivadoDaCobranca %}for="edit_nome_cliente" {% endif %}class="ps-modal-pasta-rotulo">{{ 'pasta_show.editar.nome_cliente'|trans }}</label>
@@ -4587,6 +4587,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="amanha">{{ 'pasta_show.meta.amanha'|trans }}</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis5">{{ 'pasta_show.meta.uteis5'|trans }}</button>
                             <button type="button" class="ps-nm-atalho" data-ps-prazo-atalho="uteis15">{{ 'pasta_show.meta.uteis15'|trans }}</button>
+                            {# Análise do prazo (dc L.98-103, `nm.ia.tem`): chip "Sugerido dd/mm" com a dica ao passar o mouse.
+                               Só aparece com análise. Comportamento em /js/pasta-meta-analise-prazo.js. #}
+                            <span class="ps-ap-chip-wrap" data-ap-chip-wrap hidden>
+                                <button type="button" class="ps-ap-chip" data-ap-chip><i class="bi bi-stars" aria-hidden="true"></i><span data-ap-chip-txt></span></button>
+                                <span class="ps-ap-dica" role="tooltip" data-ap-chip-dica hidden></span>
+                            </span>
                         </div>
                         <div class="ps-nm-cal" id="tarefaPrazoCalendario" role="dialog" aria-label="{{ 'pasta_show.meta.escolher_prazo'|trans }}" data-ps-nm-cal hidden>
                             <div class="ps-nm-cal-cab">
@@ -4605,7 +4611,67 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <span class="ps-nm-cal-legenda">{{ 'pasta_show.meta.legenda_fds'|trans }}</span>
                             </div>
                         </div>
-                        <div id="tarefaPrazoInfo" class="ps-nm-prazo-info" aria-live="polite">{{ 'pasta_show.meta.escolha_data'|trans }}</div>
+                        <div class="ps-ap-linha">
+                            <div id="tarefaPrazoInfo" class="ps-nm-prazo-info" aria-live="polite">{{ 'pasta_show.meta.escolha_data'|trans }}</div>
+                            <button type="button" class="ps-ap-alternar" data-ap-alternar aria-expanded="false" hidden>
+                                <i class="bi bi-stars" aria-hidden="true"></i><span>{{ 'pasta_show.meta.analise_botao'|trans }}</span><i class="bi bi-chevron-down" data-ap-alternar-ico aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        {# Análise do prazo (dc L.132-174): caixa roxa. O servidor calcula (POST tarefa_analise_do_prazo,
+                           mesmo CSRF do formulário); a caixa só mostra. Sem leitura de documentos. #}
+                        <div class="ps-ap" data-analise-prazo data-url="{{ path('tarefa_analise_do_prazo', {pastaId: pasta.id}) }}" hidden>
+                            <div class="ps-ap-cab">
+                                <i class="bi bi-stars" aria-hidden="true"></i>
+                                <span class="ps-ap-titulo">{{ 'pasta_show.meta.analise_titulo'|trans }}</span>
+                                <span class="ps-ap-tipo" data-ap-tipo></span>
+                                <span class="ps-ap-atualizada" data-ap-atualizada hidden><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'pasta_show.meta.analise_atualizada'|trans }}</span>
+                                <span class="ps-nm-rotulo-espaco"></span>
+                                <span class="ps-ap-prio" data-ap-prio></span>
+                                <button type="button" class="ps-ap-conferir" data-ap-conferir aria-expanded="false" title="{{ 'pasta_show.meta.analise_conferir_dica'|trans }}">{{ 'pasta_show.meta.analise_conferir'|trans }}</button>
+                            </div>
+                            <div class="ps-ap-cards">
+                                <div class="ps-ap-card" data-ap-tip="jur">
+                                    <span class="ps-ap-card-rotulo">{{ 'pasta_show.meta.analise_prazo_juridico'|trans }}<i class="bi bi-info-circle" aria-hidden="true"></i></span>
+                                    <input type="date" class="ps-ap-jur-input" data-ap-jur-input hidden aria-label="{{ 'pasta_show.meta.analise_jur_aria'|trans }}">
+                                    <button type="button" class="ps-ap-jur-btn" data-ap-jur-btn title="{{ 'pasta_show.meta.analise_editar_jur_dica'|trans }}"><span data-ap-jur-txt></span><i class="bi bi-pencil" aria-hidden="true"></i></button>
+                                    <span class="ps-ap-estado" data-ap-estado><i data-ap-estado-ico aria-hidden="true"></i><span data-ap-estado-txt></span></span>
+                                </div>
+                                <div class="ps-ap-card ps-ap-card--ajuda" data-ap-tip="dias">
+                                    <span class="ps-ap-card-rotulo">{{ 'pasta_show.meta.analise_dias_uteis'|trans }}</span>
+                                    <span class="ps-ap-card-valor" data-ap-dias></span>
+                                </div>
+                                <div class="ps-ap-card ps-ap-card--ajuda" data-ap-tip="folga">
+                                    <span class="ps-ap-card-rotulo">{{ 'pasta_show.meta.analise_folga'|trans }}</span>
+                                    <span class="ps-ap-card-valor" data-ap-folga></span>
+                                </div>
+                            </div>
+                            <div class="ps-ap-tip" role="tooltip" data-ap-tip-caixa hidden>
+                                <div class="ps-ap-tip-tit" data-ap-tip-tit></div>
+                                <div data-ap-tip-linhas></div>
+                            </div>
+                            <div class="ps-ap-conf" data-ap-conf-painel hidden>
+                                <span class="ps-ap-conf-tit">{{ 'pasta_show.meta.analise_confira'|trans }}</span>
+                                <div data-ap-conf-linhas></div>
+                                <span class="ps-ap-conf-perg">{{ 'pasta_show.meta.analise_corretas'|trans }}</span>
+                                <div class="ps-ap-conf-botoes">
+                                    <button type="button" class="ps-ap-btn ps-ap-btn--confirmar" data-ap-confirmar>{{ 'pasta_show.meta.analise_confirmar'|trans }}</button>
+                                    <button type="button" class="ps-ap-btn ps-ap-btn--corrigir" data-ap-corrigir>{{ 'pasta_show.meta.analise_corrigir'|trans }}</button>
+                                </div>
+                            </div>
+                            <div class="ps-ap-incerto" data-ap-incerto hidden><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span>{{ 'pasta_show.meta.analise_incerto'|trans }}</span></div>
+                            <div class="ps-ap-alt" data-ap-alt hidden></div>
+                            <div class="ps-ap-nota" data-ap-nota hidden></div>
+                            <button type="button" class="ps-ap-origem-btn" data-ap-origem-btn aria-expanded="false">{{ 'pasta_show.meta.analise_origem_informar'|trans }}</button>
+                            <div class="ps-ap-origem" data-ap-origem hidden>
+                                <label>{{ 'pasta_show.meta.analise_data_publicacao'|trans }}<input type="date" data-ap-pub autocomplete="off"></label>
+                                <label>{{ 'pasta_show.meta.analise_data_ciencia'|trans }}<input type="date" data-ap-ciencia autocomplete="off"></label>
+                            </div>
+                            <div class="ps-ap-apr" data-ap-apr hidden><i class="bi bi-lightbulb" aria-hidden="true"></i><span data-ap-apr-txt></span></div>
+                            <div class="ps-ap-ck" data-ap-ck-bloco hidden>
+                                <span class="ps-ap-card-rotulo">{{ 'pasta_show.meta.analise_antes_de_salvar'|trans }}</span>
+                                <div data-ap-ck-linhas></div>
+                            </div>
+                        </div>
                         <div id="tarefaTituloRepetido" class="ps-nm-dup" role="status" hidden>
                             <i class="bi bi-files" aria-hidden="true"></i>
                             <span class="ps-nm-dup-tx"></span>
@@ -4715,13 +4781,15 @@ document.addEventListener('DOMContentLoaded', function () {
         erroBox.classList.add('d-none');
 
         var data = new FormData(form);
+        // Análise do prazo: envia a origem, o jurídico e a confirmação (/js/pasta-meta-analise-prazo.js).
+        if (window.PastaMetaAnalisePrazo) { window.PastaMetaAnalisePrazo.acrescentar(data); }
 
         fetch(form.action, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: data,
         })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
         .then(function (res) {
             if (res.data.sucesso) {
                 // PMC-044: fica na pasta, aba Metas, com a meta nova realçada (destino do servidor).
@@ -4731,6 +4799,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 erroBox.classList.remove('d-none');
                 btn.disabled = false;
                 rotular(btn, ICONE_CRIAR, BJ_T.t('pasta_show.js.meta.criar'));
+                if (res.status === 422 && res.data.codigo === 'analise_do_prazo' && window.PastaMetaAnalisePrazo) { window.PastaMetaAnalisePrazo.abrirParaConferir(); }
             }
         })
         .catch(function () {
@@ -4746,6 +4815,8 @@ document.addEventListener('DOMContentLoaded', function () {
    do modal acima. Depois do modal e da aba: o script lê os dois no carregamento. #}
 {{ catalogo_js('pasta_scripts.js') }}
 <script src="/js/pasta-metas.js"></script>
+{# Análise do prazo da Nova meta (chip, caixa roxa, Conferir, origem): depois do pasta-metas.js. #}
+<script src="/js/pasta-meta-analise-prazo.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
 {# Checklist de documentação (marcar, editar, excluir, reordenar, modelos, selo, barra): lê os
    ids e data-* de #pexChecklist. Depois do SortableJS, que ele usa no modo de edição. #}

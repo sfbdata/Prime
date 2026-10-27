@@ -29,6 +29,18 @@
         if (window.confirm(c)) { enviar('Desvincular', linha, linha.dataset.pastaId, ''); }
     }
 
+    function excluirProcesso(linha) {
+        if (!window.confirm(texto('confirma-excluir', { processo: linha.dataset.numeroExibicao }))) { return; }
+        var digitado = window.prompt('Confirmação de segurança: digite EXCLUIR.', '');
+        if (String(digitado || '').trim().toUpperCase() !== 'EXCLUIR') {
+            window.ppToast('Exclusão cancelada: a confirmação não conferiu.');
+            return;
+        }
+        var f = document.querySelector('[data-pp-excluir-form]');
+        f.querySelector('[name="numero"]').value = linha.dataset.numero;
+        f.submit();
+    }
+
     function fecharModal() {
         modal.hidden = true;
         alvo = null;
@@ -128,6 +140,8 @@
             r: texto('copiar'), ic: 'bi-copy',
             ir: function () { if (navigator.clipboard) { navigator.clipboard.writeText(linha.dataset.numeroExibicao); } window.ppToast(texto('copiado')); }
         });
+        itens.push({ sep: true });
+        itens.push({ r: texto('menu-excluir'), ic: 'bi-trash3', cor: '#a3232b', ir: function () { excluirProcesso(linha); } });
 
         var cobertura = document.createElement('div');
         cobertura.className = 'pp-ctx__fundo';
@@ -163,5 +177,12 @@
         linha.addEventListener('contextmenu', function (e) { abrirMenu(e, linha); });
         var vincular = linha.querySelector('[data-pp-vincular-proc]');
         if (vincular) { vincular.addEventListener('click', function (e) { e.stopPropagation(); abrirModal(linha); }); }
+    });
+
+    document.addEventListener('pp:localizar-pasta', function (e) {
+        var alvo = raiz.querySelector('[data-pp-linha-proc][data-numero="' + e.detail.numero + '"]');
+        if (!alvo) { return; }
+        e.preventDefault();
+        abrirModal(alvo);
     });
 }());

@@ -713,8 +713,65 @@
 .db-page .db-ia-btn-ignorar:hover { filter: brightness(.96); }
 .db-page .db-ia-btn-resolver[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px currentColor; }
 .db-page .db-ia-btn-ignorar[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--db-label); }
+/* Criar tarefa (dc L967: 30px, #0a6fa0, 12px/700) e seletor de pasta (visual do modal do Push, desenho 11). */
+.db-page .db-ia-btn-tarefa { height: 30px; padding: 0 11px; border: none; border-radius: 4px; background: #0a6fa0; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.db-page .db-ia-btn-tarefa > i { font-size: 11px; }
+.db-page .db-ia-btn-tarefa:hover { filter: brightness(1.08); }
+.db-page .db-ia-pasta-dlg { width: min(480px, calc(100vw - 24px)); padding: 0; border: none; border-radius: 3px; background: #fff; color: #12242f; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); }
+.db-page .db-ia-pasta-dlg::backdrop { background: rgba(18, 36, 47, .35); }
+.db-page .db-ia-pasta-topo { background: #0a6fa0; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 8px; }
+.db-page .db-ia-pasta-topo > b { flex: 1; font-size: 15px; }
+.db-page .db-ia-pasta-x { width: 28px; height: 28px; border: none; border-radius: 2px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; }
+.db-page .db-ia-pasta-corpo { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.db-page .db-ia-pasta-texto { font-size: 13px; color: #34505f; }
+.db-page .db-ia-pasta-busca { display: flex; align-items: center; gap: 7px; height: 38px; border: 1px solid #c5d2db; border-radius: 2px; padding: 0 10px; margin: 0; }
+.db-page .db-ia-pasta-busca > i { color: #5b7383; }
+.db-page .db-ia-pasta-busca > input { border: none; outline: none; flex: 1; min-width: 0; font-size: 14px; background: transparent; color: inherit; }
+.db-page .db-ia-pasta-lista { border: 1px solid #e1e8ed; border-radius: 2px; max-height: 280px; overflow: auto; }
+.db-page .db-ia-pasta-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; border-bottom: 1px solid #f0f4f7; background: #fff; padding: 9px 12px; font: inherit; text-align: left; cursor: pointer; }
+.db-page .db-ia-pasta-item:hover { background: #eaf3f9; }
+.db-page .db-ia-pasta-item > i { color: #0a6fa0; }
+.db-page .db-ia-pasta-item > span { flex: 1; min-width: 0; font-size: 13.5px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-page .db-ia-pasta-vazio { padding: 14px; font-size: 13px; color: #7a8e9b; text-align: center; }
 .db-page .db-ia-retorno { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 8px; margin-top: 2px; border-top: 1px dashed var(--db-ia-divisor); }
 .db-page .db-ia-retorno-pergunta { font-size: 11.5px; color: var(--db-faint); }
 .db-page .db-ia-retorno-btn { height: 26px; padding: 0 9px; border: none; border-radius: 4px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; transition: background .2s; color: var(--db-ia-chip-texto); background: var(--db-ia-chip-bg); }
 .db-page .db-ia-retorno-btn[aria-pressed="true"] { background: var(--db-accent); color: #fff; }
 .db-page .db-ia-alerta [data-ia-marcar]:disabled { opacity: .6; cursor: progress; }
+
+/* ── Aumentar o nível (dc L1284-1325) ──────────────────────────────────────────── */
+.db-page .db-ia-plano-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--db-label); }
+.db-page .db-ia-plano-cab i { font-size: 14px; color: var(--db-accent); }
+.db-page .db-ia-plano-texto { margin-bottom: 10px; font-size: 12.5px; line-height: 1.4; color: var(--db-muted); }
+.db-page .db-ia-niveis { display: flex; gap: 2px; margin-bottom: 12px; padding: 2px; border-radius: 4px; background: var(--db-ia-chip-bg); box-shadow: inset 0 0 0 1px var(--db-ia-bloco-borda); }
+.db-page .db-ia-nivel-btn { flex: 1; height: 28px; border: none; border-radius: 4px; background: transparent; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--db-muted); cursor: pointer; }
+.db-page .db-ia-nivel-btn:hover { color: var(--db-accent-text); }
+.db-page .db-ia-nivel-btn[aria-pressed="true"] { font-weight: 700; color: var(--db-accent-text); background: var(--db-ia-bloco-bg); box-shadow: 0 1px 2px rgba(16,42,58,.1), 0 0 0 1px rgba(12,122,156,.14); }
+.db-page .db-ia-plano-nivel[hidden] { display: none; }
+.db-page .db-ia-plano-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.db-page .db-ia-plano-cartao { padding: 8px 9px; border-radius: 4px; background: var(--db-ia-mini-bg); }
+.db-page .db-ia-plano-rotulo { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-ia-plano-valor { font-family: Arial, Helvetica, sans-serif; margin-top: 2px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-ia-plano-viab { display: inline-block; margin-top: 3px; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: 700; background: var(--db-ia-est-fundo); color: var(--db-ia-est-texto); }
+.db-page .db-ia-plano-viab.is-sem-base { background: var(--db-ia-chip-bg); color: var(--db-ia-chip-texto); }
+.db-page .db-ia-plano-resumo { margin-bottom: 10px; font-size: 12.5px; line-height: 1.45; color: var(--db-label); text-wrap: pretty; }
+.db-page .db-ia-plano-sub { margin-bottom: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-ia-plano-sub--marcos { margin-top: 12px; }
+.db-page .db-ia-plano-sub--alavancas { margin: 12px 0 4px; }
+.db-page .db-ia-plano-pessoa { display: grid; grid-template-columns: minmax(0, 1fr) 70px 54px; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--db-ia-divisor); }
+.db-page .db-ia-plano-nome { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; color: var(--db-text-strong); }
+.db-page .db-ia-plano-trilho { display: block; height: 6px; border-radius: 4px; background: var(--db-ia-chip-bg); overflow: hidden; }
+.db-page .db-ia-plano-barra { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #1597bd, #0a6fa0); transition: width .5s cubic-bezier(.22, .8, .3, 1); }
+.db-page .db-ia-plano-extra { font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; color: var(--db-accent); }
+.db-page .db-ia-plano-marcos { display: flex; gap: 4px; }
+.db-page .db-ia-plano-marco { flex: 1; min-width: 0; padding: 6px 4px; border-radius: 4px; background: var(--db-ia-mini-bg); text-align: center; }
+.db-page .db-ia-plano-marco-rotulo { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--db-muted); }
+.db-page .db-ia-plano-marco-alvo { font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--db-text-strong); }
+.db-page .db-ia-plano-alavanca { display: flex; gap: 8px; padding: 4px 0; font-size: 13px; line-height: 1.4; color: var(--db-text-strong); }
+.db-page .db-ia-plano-alavanca i { margin-top: 2px; font-size: 13px; color: var(--db-accent); }
+.db-page .db-ia-plano-aplicar { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 38px; margin-top: 12px; border: none; border-radius: 4px; background: #0a6fa0; color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 18px -10px rgba(12,122,156,.8); }
+.db-page .db-ia-plano-aplicar:hover { filter: brightness(1.06); }
+.db-page .db-ia-plano-aplicar:disabled { opacity: .6; cursor: progress; }
+.db-page .db-ia-plano-aviso { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--db-ia-normal); }
+.db-page .db-ia-plano-aviso.is-erro { color: var(--db-ia-critico); }
+.db-page .db-ia-plano-aviso[hidden] { display: none; }

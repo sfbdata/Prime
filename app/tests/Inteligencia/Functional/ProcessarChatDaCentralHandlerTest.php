@@ -11,11 +11,11 @@ use App\Central\Repository\ParticipanteRepository;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Contexto\LeitorDeDocumentosDaPasta;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
-use App\Inteligencia\Contract\ConversaDaIaNaCentral;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
@@ -38,7 +38,6 @@ use App\Inteligencia\Service\CustoDaIa;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\InterpretadorDeRespostaDePush;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoAgente;
-use App\Inteligencia\Service\InterpretadorDeRespostaDoChat;
 use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\RespostaDeLinguagem;
@@ -58,7 +57,6 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\Decorator\EntityManagerDecorator;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -77,7 +75,6 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
         $c = static::getContainer();
         $repositorio = $c->get(AnaliseDeInteligenciaRepository::class);
         $montador = $c->get(MontadorDeContextoDaPasta::class);
-        $relogio = $c->get(ClockInterface::class);
 
         return new ProcessarAnaliseDeInteligenciaHandler(
             $emDoHandler ?? $this->em(),
@@ -85,7 +82,7 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
             new FluxoDoResumoDoPush($c->get(MontadorDeContextoDoPush::class), new PromptResumoDoPush(), new InterpretadorDeRespostaDePush(), $repositorio),
             new FluxoDaAnaliseDaPasta($montador, new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio, $c->get(LeitorDeDocumentosDaPasta::class)),
             new FluxoDaPerguntaLivre($montador, new PromptDaPergunta(new PromptDoAgente()), new InterpretadorDeRespostaDoAgente(), $c->get(PerguntaDaConversaRepository::class)),
-            [$fluxoDoChat ?? new FluxoDoChatDaCentral($c->get(ConversaDaIaNaCentral::class), new PromptDoChatDaCentral($relogio), new InterpretadorDeRespostaDoChat(), $c->get(MontadorDeContextoDoPush::class), $relogio)],
+            [$fluxoDoChat ?? $c->get(FluxoDoChatDaCentral::class)],
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
@@ -476,12 +473,133 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
         self::assertSame(1, $repositorio->contarDesde($tenantRelido, new \DateTimeImmutable('-1 hour')), 'a cota conta o chat');
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Contexto da tela (PR 4a): chat com pasta
+    // ---------------------------------------------------------------------------------------
+
+    /** @return array{0: User, 1: Tenant} usuário com o módulo da IA e o de Pastas, IA ligada (sem acesso a nenhuma pasta ainda) */
+    private function cenarioComPasta(): array
+    {
+        [$admin, $tenant] = $this->criarAdmin();
+        $this->ligarIaNoTenant($tenant, $admin);
+        $user = $this->criarUsuarioComPermissoes($tenant, ['modules.inteligencia.view', 'modules.pastas.view'], 'ana');
+
+        return [$user, $tenant];
+    }
+
+    private function darAcessoDeLeituraAPasta(User $user, Tenant $tenant, \App\Pasta\Entity\Pasta $pasta): void
+    {
+        $acesso = new ResourceAccess();
+        $acesso->setUser($user);
+        $acesso->setTenant($tenant);
+        $acesso->setResourceType(ResourceAccess::RESOURCE_PASTA);
+        $acesso->setResourceId((int) $pasta->getId());
+        $acesso->setCanView(true);
+        $this->em()->persist($acesso);
+        $this->em()->flush();
+    }
+
+    private function analiseDoChatComPasta(Tenant $tenant, User $user, Conversa $conversa, Mensagem $pergunta, \App\Pasta\Entity\Pasta $pasta, bool $financeiro = false): AnaliseDeInteligencia
+    {
+        $analise = new AnaliseDeInteligencia(
+            tenant: $tenant,
+            solicitante: $user,
+            tipo: TipoDeAnalise::ChatDaCentral,
+            alvoTipo: AnaliseDeInteligencia::ALVO_CONVERSA_IA,
+            alvoId: (int) $conversa->getId(),
+            versaoDoPrompt: PromptDoChatDaCentral::VERSAO_COM_PASTA,
+            contextoHash: hash('sha256', 'pendente' . uniqid()),
+            contextoResumo: ['conversaId' => (int) $conversa->getId(), 'mensagemId' => (int) $pergunta->getId(), 'historico' => 0, 'total' => 1, 'pastaId' => (int) $pasta->getId(), 'financeiro' => $financeiro, 'abasOcultas' => []],
+        );
+        $this->em()->persist($analise);
+        $this->em()->flush();
+
+        return $analise;
+    }
+
+    #[TestDox('com pasta: prompt v2 com <pasta> e o NUP, resumo só com ids e flags, fala da IA gravada; audit_log sem pergunta, resposta, NUP nem texto da pasta')]
+    public function testComPastaConcluiESemTextoNaAuditoria(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->cenarioComPasta();
+        [$pasta, $processo] = $this->criarPastaComPublicacao($tenant, '07011345720258070007', 'TEXTO-DA-PUBLICACAO-SIGILOSO');
+        $this->darAcessoDeLeituraAPasta($user, $tenant, $pasta);
+        [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user, 'Resuma esta pasta. PERGUNTA-SIGILOSA');
+        $analise = $this->analiseDoChatComPasta($tenant, $user, $conversa, $pergunta, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderCom(self::resposta('RESPOSTA-SIGILOSA do modelo', ['pontos' => [['tipo' => 'info', 'texto' => 'PONTO-SIGILOSO']]]));
+        $logger = new LoggerEmMemoria();
+
+        $relida = $this->processar($falso, $analise, logger: $logger);
+
+        self::assertSame(StatusDaAnalise::Concluida, $relida->getStatus());
+        self::assertCount(1, $falso->pedidos);
+        $pedido = $falso->ultimoPedido();
+        self::assertSame('chat_central/chat-central-v2', $pedido?->rotuloDeUso);
+        self::assertStringContainsString('<pasta>', (string) $pedido?->textoDoUsuario());
+        self::assertStringContainsString($pasta->getNup(), (string) $pedido?->textoDoUsuario());
+        self::assertCount(1, $this->falasDaIa($conversa));
+
+        $resumo = $relida->getContextoResumo();
+        self::assertSame((int) $pasta->getId(), $resumo['pastaId']);
+        self::assertFalse($resumo['financeiro']);
+        self::assertSame([], $resumo['abasOcultas']);
+        self::assertStringNotContainsString('07011345720258070007', (string) json_encode($resumo));
+
+        $trilha = implode("\n", $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT changes::text FROM audit_log WHERE entity_class = :c AND entity_id = :id',
+            ['c' => AnaliseDeInteligencia::class, 'id' => (string) $relida->getId()],
+        ));
+        self::assertNotSame('', $trilha, 'a análise continua na trilha');
+        foreach (['SIGILOS', '07011345720258070007', $pasta->getNup()] as $proibido) {
+            self::assertStringNotContainsString($proibido, $trilha);
+            self::assertStringNotContainsString($proibido, (string) json_encode($logger->registros, JSON_UNESCAPED_UNICODE));
+        }
+    }
+
+    #[TestDox('com pasta: a pessoa SEM acesso à pasta (cadeado/permissão): falhou sem chamar o provedor, sem fala da IA')]
+    public function testComPastaSemAcessoFalhaSemProvedor(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->cenarioComPasta();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);   // a pessoa NÃO recebeu acesso
+        [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user);
+        $analise = $this->analiseDoChatComPasta($tenant, $user, $conversa, $pergunta, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderCom(self::resposta('nunca'));
+
+        $relida = $this->processar($falso, $analise);
+
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertSame([], $falso->pedidos);
+        self::assertCount(0, $this->falasDaIa($conversa));
+    }
+
+    #[TestDox('com pasta em segredo de justiça: falhou sem chamar o provedor')]
+    public function testComPastaEmSegredoFalhaSemProvedor(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->cenarioComPasta();
+        [$pasta, $processo] = $this->criarPastaComPublicacao($tenant);
+        $processo->setNivelSigilo(1);
+        $this->em()->flush();
+        $this->darAcessoDeLeituraAPasta($user, $tenant, $pasta);
+        [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user);
+        $analise = $this->analiseDoChatComPasta($tenant, $user, $conversa, $pergunta, $pasta);
+        $falso = new ProvedorFalso();
+        $falso->responderCom(self::resposta('nunca'));
+
+        $relida = $this->processar($falso, $analise);
+
+        self::assertSame(StatusDaAnalise::Falhou, $relida->getStatus());
+        self::assertSame([], $falso->pedidos);
+    }
+
     /** O fluxo do chat, mas com o `aoConcluir` quebrado: para provar a rede de segurança do handler. */
     private function fluxoQueQuebraAoConcluir(\Throwable $erro): FluxoDeAnaliseSemPasta
     {
         $c = static::getContainer();
-        $relogio = $c->get(ClockInterface::class);
-        $real = new FluxoDoChatDaCentral($c->get(ConversaDaIaNaCentral::class), new PromptDoChatDaCentral($relogio), new InterpretadorDeRespostaDoChat(), $c->get(MontadorDeContextoDoPush::class), $relogio);
+        $real = $c->get(FluxoDoChatDaCentral::class);
 
         return new class ($real, $erro) implements FluxoDeAnaliseSemPasta {
             public function __construct(private readonly FluxoDoChatDaCentral $real, private readonly \Throwable $erro)
