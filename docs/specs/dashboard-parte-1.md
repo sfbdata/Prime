@@ -312,6 +312,17 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     `dia_simulado` e troca só o corpo; o dia de hoje não manda o parâmetro (desfaz); fechar o painel desfaz. Trocar um filtro também desfaz.
   - **Fora**: os cartões do Modo avançado (`MotorAvancado`) seguem o `TempoDoPeriodo` simulado, mas sem escala de realizado.
 
+- **PR-L (feito: "Criar tarefa" por alerta do Modo avançado; sem migration)**. Desenho 01 VS 25.10.26, dc L967 (botão azul #0a6fa0, 30px, após o `podeTarefa`);
+  no desenho o clique marca o alerta como "Tarefa criada" e abre `/tarefas/nova?titulo=`.
+  - **Decisão do dono**: tarefa exige pasta, não há tarefa avulsa. O botão PEDE A PASTA PRIMEIRO, como o Push ao vincular: `<dialog>` com busca
+    (`GET /dashboard/inteligencia/pastas-para-tarefa`, `BuscarPastasParaTarefaDoAlertaUseCase` sobre `PastaRepository::buscarParaVinculo` com a pessoa:
+    escritório da sessão, sem lápide, só pasta que ela EDITA no cadeado). Escolhida, vai a `/pasta/{id}?nova_meta=1&titulo=&descricao=&responsavel=#tarefas`
+    e o `pasta-metas.js` só PREENCHE e abre o modal "Nova meta" existente (nenhum UseCase de tarefa duplicado; a criação segue `tarefa_criar_para_pasta`).
+  - **Quando aparece**: `Alerta::podeVirarTarefa()` (tem ação e nível diferente de Normal, onde a ação é "Manter") e `can_access_module('tarefas')`; a busca exige `bi` e `tarefas` (403).
+  - **Texto**: título = ação do alerta (255); descrição = título, problema, evidência e ação do alerta (1500). Só texto do alerta, sem dado de pasta.
+  - **Responsável**: `Alerta::pessoaId` (dado real da linha do colaborador) em Vencidas (quem mais tem), Concentração (quem concentra), Prazos próximos e Capacidade; a UI só marca se a pessoa estiver na lista do modal.
+  - **Desvio do desenho**: não marca o alerta como "Tarefa criada" (a criação acontece em outra página, depois do clique; marcar antes seria falso).
+
 - **PR-K (feito: "Aumentar o nível" do painel Inteligência; sem migration)**. Decisão do dono: implementar como o desenho 01 (dc L1284-1325,
   L2668-2692; `planoCrescimento()` em bluejus-intelligence.js L152-184). Só o primário/Master vê (`podeMeta`), sem pessoa selecionada.
   - **Base real**: a meta de pastas do mês (`RitmoDaMeta`). O desenho parte de um "objetivo" de períodos anteriores que o sistema não

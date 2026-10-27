@@ -20,7 +20,10 @@
    vêm prontos e o dashboard-inteligencia.js só alterna o visível; "Definir" usa o POST da meta.
    O que no desenho depende de função ou dado inexistente não é renderizado:
    Criar tarefa (não há tela de tarefa avulsa para receber
-   o título), Inteligência de Desempenho (condição por pessoa).
+   o título; ver abaixo), Inteligência de Desempenho (condição por pessoa).
+   "Criar tarefa" (dc L967): tarefa exige pasta, então o botão abre o seletor de pasta (<dialog>
+   no fim do painel, mesma busca com cadeado do Push) e leva ao modal "Nova meta" da pasta com
+   título e descrição do alerta e o responsável que o alerta nomeia (PR-L; pasta-metas.js).
    "Teste · simular dia" (dc L1341-1347) fica no rodapé: troca só o "hoje" desta leitura
    (querystring `dia_simulado`, SimulacaoDeDia), nunca grava, e o corpo do painel avisa quando
    está simulando. O dashboard-inteligencia.js recarrega só o `.db-ia-corpo`.
@@ -63,6 +66,9 @@
                     </div>
                 </details>
                 <div class="db-ia-alerta-acoes">
+                    {% if a.podeVirarTarefa and can_access_module('tarefas') %}
+                        <button type="button" class="db-ia-btn-tarefa" data-ia-tarefa data-titulo="{{ a.tituloDaTarefa }}" data-descricao="{{ a.descricaoDaTarefa }}"{% if a.pessoaId %} data-responsavel="{{ a.pessoaId }}"{% endif %}><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'dashboard.tarefa_alerta.botao'|trans }}</button>
+                    {% endif %}
                     <button type="button" class="db-ia-btn-resolver" data-ia-marcar="resolvido" aria-pressed="{{ marca and marca.status == 'resolvido' ? 'true' : 'false' }}">{{ 'dashboard.ia.av.resolvido'|trans }}</button>
                     <button type="button" class="db-ia-btn-ignorar" data-ia-marcar="ignorado" aria-pressed="{{ marca and marca.status == 'ignorado' ? 'true' : 'false' }}">{{ 'dashboard.ia.av.ignorar'|trans }}</button>
                 </div>
@@ -447,5 +453,17 @@
                 </div>
             {% endif %}
         </div>
+
+        {# "Criar tarefa" (PR-L): seletor da pasta. <dialog> modal sobe à camada de topo, acima do popover do painel. #}
+        {% if can_access_module('tarefas') %}
+            <dialog class="db-ia-pasta-dlg" data-ia-pasta-dlg aria-labelledby="dbIaPastaTitulo" data-url="{{ path('dashboard_inteligencia_pastas_tarefa') }}" data-url-pasta="{{ path('pasta_show', {id: 0}) }}" data-t-vazio="{{ 'dashboard.tarefa_alerta.vazio'|trans|e('html_attr') }}" data-t-erro="{{ 'dashboard.tarefa_alerta.erro'|trans|e('html_attr') }}">
+                <div class="db-ia-pasta-topo"><i class="bi bi-folder2" aria-hidden="true"></i><b id="dbIaPastaTitulo">{{ 'dashboard.tarefa_alerta.titulo'|trans }}</b><button type="button" class="db-ia-pasta-x" data-ia-pasta-fechar aria-label="{{ 'dashboard.tarefa_alerta.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+                <div class="db-ia-pasta-corpo">
+                    <div class="db-ia-pasta-texto">{{ 'dashboard.tarefa_alerta.explicacao'|trans }}</div>
+                    <label class="db-ia-pasta-busca"><i class="bi bi-search" aria-hidden="true"></i><input type="text" data-ia-pasta-q placeholder="{{ 'dashboard.tarefa_alerta.busca_ph'|trans }}" autocomplete="off"></label>
+                    <div class="db-ia-pasta-lista" data-ia-pasta-lista></div>
+                </div>
+            </dialog>
+        {% endif %}
     </aside>
 </div>

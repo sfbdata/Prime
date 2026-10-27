@@ -154,6 +154,17 @@ final class MotorAvancadoTest extends TestCase
         self::assertArrayNotHasKey('Causa provável', $a->linhas());
     }
 
+    #[TestDox('Vencidas: o alerta guarda o id de quem mais tem vencidas, para sugerir o responsável da tarefa')]
+    public function testAlertaDeVencidasGuardaAPessoa(): void
+    {
+        $l = $this->analisar([
+            $this->linha(1, 'Ana Lima', 10, 6, 1),
+            $this->linha(2, 'Bruno Melo', 10, 8, 3),
+        ]);
+
+        self::assertSame(2, $this->alerta($l, MotorAvancado::ID_VENCIDAS)?->pessoaId);
+    }
+
     #[TestDox('Sem vencidas não há alerta de vencidas')]
     public function testSemVencidasSemAlerta(): void
     {
