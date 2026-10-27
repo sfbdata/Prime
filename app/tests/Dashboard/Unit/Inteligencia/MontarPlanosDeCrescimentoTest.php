@@ -42,7 +42,7 @@ final class MontarPlanosDeCrescimentoTest extends TestCase
 
     private function linha(string $nome, int $pastas): LinhaAdvogadoDashboardOutput
     {
-        return new LinhaAdvogadoDashboardOutput(1, $nome, null, null, 0, 0, 0, 0, 0, 0, $pastas);
+        return new LinhaAdvogadoDashboardOutput(crc32($nome), $nome, null, null, 0, 0, 0, 0, 0, 0, $pastas);
     }
 
     /** @return iterable<string, array{NivelDeCrescimento, int, int}> */
@@ -107,6 +107,7 @@ final class MontarPlanosDeCrescimentoTest extends TestCase
         self::assertSame(0, $p->faltam);
         self::assertSame(ViabilidadeDoPlano::Viavel, $p->viabilidade);
         self::assertSame([], $p->pessoas);
+        self::assertSame(100, $p->marcos[array_key_last($p->marcos)]->alvo, 'Fim = nova meta mesmo sem faltar nada');
     }
 
     #[TestDox('Meta por colaborador: proporcional às pastas já criadas, soma fecha em "faltam", quem não criou fica fora')]
@@ -176,5 +177,19 @@ final class MontarPlanosDeCrescimentoTest extends TestCase
 
         $sem = (new MontarPlanosDeCrescimento())->montar($this->ritmoDaMeta(200, 100, 10), $this->leitura(), [$this->linha('Ana', 5)])[0];
         self::assertSame([], $sem->alavancas);
+    }
+
+    #[TestDox('Homônimos são pessoas distintas (peso por id) e quem fica com cota zero não aparece')]
+    public function testHomonimosECotaZero(): void
+    {
+        $a = new LinhaAdvogadoDashboardOutput(1, 'Ana Souza', null, null, 0, 0, 0, 0, 0, 0, 100);
+        $b = new LinhaAdvogadoDashboardOutput(2, 'Ana Souza', null, null, 0, 0, 0, 0, 0, 0, 100);
+        $c = new LinhaAdvogadoDashboardOutput(3, 'Zé Pouco', null, null, 0, 0, 0, 0, 0, 0, 1);
+
+        $p = (new MontarPlanosDeCrescimento())->montar($this->ritmoDaMeta(100, 90, 10), $this->leitura(), [$a, $b, $c])[NivelDeCrescimento::Mais10->value];
+
+        self::assertSame(20, $p->faltam);
+        self::assertSame(['Ana Souza', 'Ana Souza'], array_map(static fn ($x) => $x->nome, $p->pessoas));
+        self::assertSame([10, 10], array_map(static fn ($x) => $x->extra, $p->pessoas));
     }
 }

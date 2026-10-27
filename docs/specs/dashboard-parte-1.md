@@ -322,7 +322,7 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
     (o `melhorRitmo` do desenho é atual x 1,15, então o teto é o mesmo); esforço = ritmo / teto; viabilidade: até 0,8 Viável, até 1 Desafiador, até 1,25 Arriscado,
     acima Fora da capacidade; sem ritmo atual (nenhuma pasta criada) e com pasta por criar, "Sem base". Meta por colaborador: faltam dividido na proporção
     das pastas que cada pessoa já criou no mês (capacidade real, no lugar da fórmula do desenho sobre metas), pelo maior resto, soma = faltam, até 6 pessoas;
-    sem ninguém com pasta criada, a lista não aparece. Marcos: um por semana útil (5 dias), alvo = criadas + ritmo x dias, último = "Fim" = nova meta.
+    a chave é o id da pessoa (homônimos não se somam); a soma de "faltam" vale para todas as pessoas com pasta criada, mas a lista exibe só as 6 maiores e só quem tem cota maior que zero; sem ninguém com pasta criada, a lista não aparece. Marcos: um por semana útil (5 dias), alvo = criadas + ritmo x dias, último = "Fim" = nova meta (também quando nada falta). Com a meta no teto de 9999, o resumo usa o texto neutro (sem "+0%").
   - **Alavancas**: metas vencidas, prazos próximos, concentrar nas 2 pessoas que mais criaram, nível abaixo se Arriscado/Fora. O desenho calcula "zerar as vencidas cobre X% do que
     falta": metas vencidas e pastas por criar são universos diferentes, então a razão não existe aqui.
   - **Aplicar**: o POST de sempre da meta (`dashboard_meta_pastas_definir`, `DefinirMetaDePastasDoMesUseCase`: primário, 1..9999, CSRF, módulo bi), sem endpoint novo.

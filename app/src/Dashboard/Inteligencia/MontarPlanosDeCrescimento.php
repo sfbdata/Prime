@@ -70,7 +70,7 @@ final readonly class MontarPlanosDeCrescimento
             $meta->ritmoAtual,
             $viab,
             $pessoas,
-            $this->marcos($meta->realizado, $porDia, $dias),
+            $this->marcos($meta->realizado, $porDia, $dias, $nova),
             $this->alavancas($viab, $ritmo, $pessoas),
         );
     }
@@ -92,21 +92,24 @@ final readonly class MontarPlanosDeCrescimento
     private function pessoas(int $faltam, array $linhas): array
     {
         $pesos = [];
+        $nomes = [];
         foreach ($linhas as $l) {
             if ($l->pastasCriadas > 0) {
-                $pesos[$l->nomeAdvogado] = ($pesos[$l->nomeAdvogado] ?? 0) + $l->pastasCriadas;
+                $pesos[$l->userId] = ($pesos[$l->userId] ?? 0) + $l->pastasCriadas;
+                $nomes[$l->userId] = $l->nomeAdvogado;
             }
         }
         if ($faltam === 0 || $pesos === []) {
             return [];
         }
 
-        $extras = $this->repartir($faltam, $pesos);
+        // A soma vale para todas as pessoas com pasta criada; a lista mostra até 6, só quem tem cota maior que zero.
+        $extras = array_filter($this->repartir($faltam, $pesos), static fn (int $e): bool => $e > 0);
         arsort($extras);
         $maior = max(1, max($extras));
         $saida = [];
-        foreach (array_slice($extras, 0, self::MAX_PESSOAS, true) as $nome => $extra) {
-            $saida[] = new PessoaDoPlano((string) $nome, $extra, (int) round($extra / $maior * 100));
+        foreach (array_slice($extras, 0, self::MAX_PESSOAS, true) as $id => $extra) {
+            $saida[] = new PessoaDoPlano($nomes[$id], $extra, (int) round($extra / $maior * 100));
         }
 
         return $saida;
@@ -115,9 +118,9 @@ final readonly class MontarPlanosDeCrescimento
     /**
      * Divide `$total` na proporção dos pesos, pelo maior resto: a soma fecha em `$total`.
      *
-     * @param array<string, int> $pesos
+     * @param array<int, int> $pesos
      *
-     * @return array<string, int>
+     * @return array<int, int>
      */
     private function repartir(int $total, array $pesos): array
     {
@@ -141,13 +144,14 @@ final readonly class MontarPlanosDeCrescimento
     }
 
     /** @return list<MarcoDoPlano> */
-    private function marcos(int $realizado, float $porDia, int $dias): array
+    private function marcos(int $realizado, float $porDia, int $dias, int $nova): array
     {
         $semanas = max(1, (int) ceil($dias / self::DIAS_POR_SEMANA));
         $marcos  = [];
         for ($i = 0; $i < min($semanas, self::MAX_MARCOS); ++$i) {
             $d        = min($dias, ($i + 1) * self::DIAS_POR_SEMANA);
-            $marcos[] = new MarcoDoPlano($i + 1, $i === $semanas - 1 || $d === $dias, (int) round($realizado + $porDia * $d));
+            $fim = $i === $semanas - 1 || $d === $dias;
+            $marcos[] = new MarcoDoPlano($i + 1, $fim, $fim ? $nova : (int) round($realizado + $porDia * $d));
         }
 
         return $marcos;

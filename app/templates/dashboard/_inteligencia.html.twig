@@ -381,7 +381,7 @@
                             <div class="db-ia-plano-resumo">
                                 {%- if pl.jaAlcancado -%}{{ 'dashboard.ia.plano.resumo_atingido'|trans }}
                                 {%- elseif pl.ritmoAtual <= 0 -%}{{ 'dashboard.ia.plano.resumo_sem_base'|trans(vars) }}
-                                {%- elseif pl.nivel.percentual == 0 -%}{{ 'dashboard.ia.plano.resumo_manter'|trans(vars) }}
+                                {%- elseif pl.ganhoReal == 0 -%}{{ 'dashboard.ia.plano.resumo_manter'|trans(vars) }}
                                 {%- else -%}{{ 'dashboard.ia.plano.resumo_mais'|trans(vars) }}{%- endif -%}
                             </div>
                             {% if pl.pessoas %}
