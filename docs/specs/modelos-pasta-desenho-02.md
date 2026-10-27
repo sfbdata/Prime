@@ -43,7 +43,7 @@ sementes; reorganização da aba.
 | Fatia | Conteúdo | Tamanho |
 |---|---|---|
 | M1 | Entidade, migration, CRUD, busca, filtros, favoritos, aba reorganizada (Modelos + Relatório inicial em `<details>`) | grande |
-| M2 | Variáveis, "Usar nesta pasta" (gera `PastaDocumento`), baixar Word, copiar | médio |
+| M2 | Variáveis, "Usar nesta pasta" (gera `PastaDocumento`), baixar Word, copiar | médio (**feita**: tabela `modelo_de_peca_uso`, migration 154800) |
 | M3 | Criar meta com minuta; salvar minuta como modelo | médio |
 | M4 (opcional) | Importar arquivo + classificação automática | médio |
 | M5 (opcional) | Timbrado, teses, checklist, Drive, central de documentos | grande, separar |

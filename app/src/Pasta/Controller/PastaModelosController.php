@@ -16,11 +16,15 @@ use App\Pasta\Repository\ModeloDePecaRepository;
 use App\Pasta\UseCase\AlternarFavoritoDeModeloUseCase;
 use App\Pasta\UseCase\AlternarMateriaFavoritaUseCase;
 use App\Pasta\UseCase\ExcluirModeloDePecaUseCase;
+use App\Pasta\UseCase\GerarWordDoModeloUseCase;
 use App\Pasta\UseCase\ListarModelosDePecaUseCase;
+use App\Pasta\UseCase\PrepararDadosDaPecaUseCase;
 use App\Pasta\UseCase\SalvarModeloDePecaUseCase;
+use App\Pasta\UseCase\UsarModeloNaPastaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -47,6 +51,9 @@ final class PastaModelosController extends AbstractController
         private readonly ExcluirModeloDePecaUseCase $excluirUseCase,
         private readonly AlternarFavoritoDeModeloUseCase $favoritoUseCase,
         private readonly AlternarMateriaFavoritaUseCase $materiaFavoritaUseCase,
+        private readonly PrepararDadosDaPecaUseCase $prepararDadosUseCase,
+        private readonly UsarModeloNaPastaUseCase $usarUseCase,
+        private readonly GerarWordDoModeloUseCase $wordUseCase,
     ) {
     }
 
@@ -86,7 +93,9 @@ final class PastaModelosController extends AbstractController
             return $this->json(['erro' => 'Modelo não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
-        return $this->json(['modelo' => ModeloDePecaOutput::fromEntity($modelo)->toArray()]);
+        $dados = $this->prepararDadosUseCase->executar($modelo, $pasta, $this->usuario(), $this->tenantContext->getCurrentTenant(), new \DateTimeImmutable());
+
+        return $this->json(['modelo' => ModeloDePecaOutput::fromEntity($modelo)->toArray(), 'dados' => $dados]);
     }
 
     #[Route('/{id}/modelos', name: 'pasta_modelos_criar', methods: ['POST'])]
@@ -148,6 +157,57 @@ final class PastaModelosController extends AbstractController
         }
 
         return $this->json(['favorita' => $this->materiaFavoritaUseCase->executar($enum, $this->usuario(), $this->tenantContext->getCurrentTenant())]);
+    }
+
+    /** "Usar na pasta N": a minuta preenchida vira documento da pasta (categoria PECA). */
+    #[Route('/{id}/modelos/{modeloId}/usar', name: 'pasta_modelos_usar', requirements: ['modeloId' => '\d+'], methods: ['POST'])]
+    public function usar(Pasta $pasta, int $modeloId, Request $request): JsonResponse
+    {
+        if (($negado = $this->negar($pasta, 'edit', $request)) !== null) {
+            return $negado;
+        }
+
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $modelo = $this->modeloRepository->buscarDoTenant($modeloId, $tenant);
+        if ($modelo === null) {
+            return $this->json(['erro' => 'Modelo não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $documento = $this->usarUseCase->executar($modelo, $pasta, $tenant, $this->usuario(), $this->valoresDaRequisicao($request));
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['documento' => ['id' => $documento->getId(), 'titulo' => $documento->getTitulo()], 'usos' => $modelo->getUsos()], Response::HTTP_CREATED);
+    }
+
+    /** "Word": baixa o modelo ou a minuta preenchida em .docx, sem guardar na pasta. */
+    #[Route('/{id}/modelos/{modeloId}/word', name: 'pasta_modelos_word', requirements: ['modeloId' => '\d+'], methods: ['POST'])]
+    public function word(Pasta $pasta, int $modeloId, Request $request): Response
+    {
+        if (($negado = $this->negar($pasta, 'view', $request)) !== null) {
+            return $negado;
+        }
+
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $modelo = $this->modeloRepository->buscarDoTenant($modeloId, $tenant);
+        if ($modelo === null) {
+            return $this->json(['erro' => 'Modelo não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $saida = $this->wordUseCase->executar($modelo, $tenant, $request->request->getBoolean('preenchido'), $this->valoresDaRequisicao($request));
+
+        return new Response($saida->conteudo, Response::HTTP_OK, [
+            'Content-Type'        => $saida->mimeType,
+            'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $saida->nomeArquivo, 'modelo.docx'),
+        ]);
+    }
+
+    /** @return array<string, string> só texto: o que não for string cai fora */
+    private function valoresDaRequisicao(Request $request): array
+    {
+        return array_filter($request->request->all('valores'), static fn ($v, $k): bool => \is_string($v) && \is_string($k), ARRAY_FILTER_USE_BOTH);
     }
 
     private function gravar(Pasta $pasta, Request $request, ?int $modeloId): JsonResponse

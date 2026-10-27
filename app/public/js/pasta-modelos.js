@@ -21,7 +21,9 @@
     var painelEditor = el('mdlPainelEditor');
     var menu = el('mdlMenu');
 
-    var estado = { materia: '', tipo: '', q: '', ord: 'uso', aberto: null, editandoId: null };
+    var estado = { materia: '', tipo: '', q: '', ord: 'uso', aberto: null, editandoId: null, usar: false, dados: null, vals: {} };
+    var LIMITE_DO_VALOR = 500;
+    var avisoTemporizador = null;
     var temporizador = null;
     var carregando = 0;
 
@@ -98,10 +100,148 @@
                 estado.aberto = m;
                 el('mdlVerTitulo').textContent = m.titulo;
                 el('mdlVerSub').textContent = m.materiaRotulo + ' · ' + m.tipoRotulo + (m.usos > 0 ? ' · ' + raiz.dataset.usado.replace('{n}', m.usos) : '');
-                el('mdlVerCorpo').innerHTML = m.corpo;
+                estado.dados = dados.dados || { chaves: [], valores: {} };
+                estado.vals = Object.assign({}, estado.dados.valores);
+                montarDados();
+                definirModo(false);
                 mostrar('ver');
             })
             .catch(function () { aviso(raiz.dataset.erroGenerico); });
+    }
+
+    /* ── Variáveis da peça: a prévia repete a regra do servidor (PreenchedorDeModelo) ── */
+    function esc(texto) {
+        return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function valorLimpo(v) {
+        return String(v == null ? '' : v).trim().slice(0, LIMITE_DO_VALOR);
+    }
+
+    function preencher(corpo, valores) {
+        var lacuna = raiz.dataset.lacuna;
+        var html = corpo.replace(/\{(\w+)\}/g, function (_, chave) {
+            var v = Object.prototype.hasOwnProperty.call(valores, chave) ? valorLimpo(valores[chave]) : '';
+            return v === '' ? lacuna : esc(v);
+        });
+        var cliente = valorLimpo(valores.cliente);
+        if (cliente === '' || cliente === lacuna) { return html; }
+
+        return html.split(esc(cliente)).join('<b>' + esc(cliente.toUpperCase()) + '</b>');
+    }
+
+    function montarDados() {
+        var grade = el('mdlDadosGrade');
+        grade.innerHTML = '';
+        estado.dados.chaves.forEach(function (chave) {
+            var rotulo = document.createElement('label');
+            rotulo.className = 'mdl-dado';
+            rotulo.appendChild(document.createTextNode(chave.toUpperCase()));
+            var campo = document.createElement('input');
+            campo.type = 'text';
+            campo.dataset.v = chave;
+            campo.value = estado.vals[chave] || '';
+            campo.placeholder = raiz.dataset.placeholderDado;
+            campo.maxLength = LIMITE_DO_VALOR;
+            rotulo.appendChild(campo);
+            grade.appendChild(rotulo);
+        });
+    }
+
+    function atualizarPrevia() {
+        var m = estado.aberto;
+        if (!m) { return; }
+        el('mdlVerCorpo').innerHTML = estado.usar ? preencher(m.corpo, estado.vals) : m.corpo;
+    }
+
+    function definirModo(usar) {
+        estado.usar = usar;
+        painelVer.querySelectorAll('[data-modo]').forEach(function (b) {
+            b.classList.toggle('mdl-seletor-btn--ativo', (b.dataset.modo === '1') === usar);
+        });
+        el('mdlDados').hidden = !usar;
+        atualizarPrevia();
+    }
+
+    function toast(texto) {
+        var caixa = el('mdlToast');
+        caixa.textContent = texto;
+        caixa.hidden = false;
+        clearTimeout(avisoTemporizador);
+        avisoTemporizador = setTimeout(function () { caixa.hidden = true; }, 4000);
+    }
+
+    function camposDosValores() {
+        var campos = {};
+        Object.keys(estado.vals).forEach(function (k) { campos['valores[' + k + ']'] = estado.vals[k]; });
+
+        return campos;
+    }
+
+    function copiar() {
+        var texto = el('mdlVerCorpo').innerText;
+        var pronto = function () { toast(raiz.dataset.copiado); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(pronto).catch(function () { aviso(raiz.dataset.erroGenerico); });
+            return;
+        }
+        var area = document.createElement('textarea');
+        area.value = texto;
+        document.body.appendChild(area);
+        area.select();
+        try { document.execCommand('copy'); pronto(); } catch (e) { aviso(raiz.dataset.erroGenerico); }
+        document.body.removeChild(area);
+    }
+
+    function baixarWord() {
+        var m = estado.aberto;
+        if (!m) { return; }
+        var campos = camposDosValores();
+        campos.preenchido = estado.usar ? '1' : '0';
+
+        var dados = new URLSearchParams();
+        dados.set('_token', token);
+        Object.keys(campos).forEach(function (k) { dados.set(k, campos[k]); });
+
+        fetch(urlBase + '/' + m.id + '/word', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: dados.toString()
+        }).then(function (r) {
+            if (!r.ok) { return Promise.reject(); }
+            var disposicao = r.headers.get('Content-Disposition') || '';
+            var achado = /filename\*=UTF-8''([^;]+)/i.exec(disposicao) || /filename="?([^";]+)"?/i.exec(disposicao);
+            var nome = achado ? decodeURIComponent(achado[1]) : 'modelo.docx';
+
+            return r.blob().then(function (blob) { return { blob: blob, nome: nome }; });
+        }).then(function (arquivo) {
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(arquivo.blob);
+            a.download = arquivo.nome;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        }).catch(function () { aviso(raiz.dataset.erroGenerico); });
+    }
+
+    function usarNaPasta() {
+        var m = estado.aberto;
+        if (!m) { return; }
+        enviar(urlBase + '/' + m.id + '/usar', camposDosValores()).then(function (r) {
+            if (!r.ok) { aviso(r.corpo.erro || raiz.dataset.erroGenerico); return; }
+            toast(raiz.dataset.minutaGerada.replace('{titulo}', m.titulo).replace('{pasta}', raiz.dataset.nup));
+            m.usos = r.corpo.usos;
+            el('mdlVerSub').textContent = m.materiaRotulo + ' · ' + m.tipoRotulo + ' · ' + raiz.dataset.usado.replace('{n}', m.usos);
+            carregar();
+        });
+    }
+
+    /* Corpo padrão do "Novo modelo" (CAB + {cliente}... + ASS do desenho), em parágrafos para o editor */
+    function corpoNovo() {
+        return raiz.dataset.corpoNovo.split('\n\n').map(function (bloco) {
+            return '<p>' + esc(bloco).replace(/\n/g, '<br>') + '</p>';
+        }).join('');
     }
 
     function alternarFavoritoDoModelo(id) {
@@ -177,7 +317,7 @@
         mostrar('editor');
 
         return carregarTinymce().then(iniciarEditor).then(function (editor) {
-            editor.setContent(modelo ? modelo.corpo : '');
+            editor.setContent(modelo ? modelo.corpo : corpoNovo());
             editor.undoManager.clear();
         }).catch(function () { aviso(raiz.dataset.erroGenerico); });
     }
@@ -270,6 +410,17 @@
     el('mdlTipo').addEventListener('change', function (e) { estado.tipo = e.target.value; carregar(); });
     el('mdlOrdem').addEventListener('change', function (e) { estado.ord = e.target.value; carregar(); });
     el('mdlVoltar').addEventListener('click', voltarParaLista);
+    painelVer.querySelectorAll('[data-modo]').forEach(function (b) {
+        b.addEventListener('click', function () { definirModo(b.dataset.modo === '1'); });
+    });
+    el('mdlDadosGrade').addEventListener('input', function (e) {
+        var campo = e.target.closest('[data-v]');
+        if (!campo) { return; }
+        estado.vals[campo.dataset.v] = campo.value;
+        atualizarPrevia();
+    });
+    el('mdlCopiar').addEventListener('click', copiar);
+    el('mdlWord').addEventListener('click', baixarWord);
 
     if (podeEditar) {
         el('mdlNovo').addEventListener('click', function () { abrirEditor(null, false); });
@@ -288,6 +439,7 @@
             if (estado.aberto) { mostrar('ver'); } else { mostrar('lista'); }
         });
         el('mdlSalvar').addEventListener('click', salvar);
+        el('mdlUsar').addEventListener('click', usarNaPasta);
         document.addEventListener('click', function (e) {
             if (!menu.hidden && !menu.contains(e.target)) { fecharMenu(); }
         });

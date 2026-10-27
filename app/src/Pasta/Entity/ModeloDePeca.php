@@ -126,6 +126,14 @@ class ModeloDePeca implements TenantAware
         return $this->atualizadoEm;
     }
 
+    /** Conta mais um uso ("Usar na pasta"): alimenta o "Mais usados". */
+    public function registrarUso(): self
+    {
+        ++$this->usos;
+
+        return $this;
+    }
+
     /** Grava o conteúdo editável e marca a edição (o corpo já chega sanitizado). */
     public function atualizar(string $titulo, MateriaDeModelo $materia, TipoDePeca $tipo, string $corpo): self
     {

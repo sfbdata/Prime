@@ -98,6 +98,24 @@ final class ExportarPecaTextoUseCase
     }
 
     /**
+     * Word (.docx) de um HTML que ainda não está salvo na pasta (a minuta de um modelo, "Word" do banco
+     * de modelos). Sem imagens: o corpo do modelo é sanitizado e não as traz.
+     */
+    public function docxDeHtml(string $html, string $titulo): ExportarPecaTextoOutput
+    {
+        $area = AreaTemporariaPrivada::criar(self::FINALIDADE_DA_AREA);
+        $tempDirAnterior = Settings::getTempDir();
+        Settings::setTempDir($area->caminho());
+
+        try {
+            return $this->montarComPhpWord($titulo, $html, 'Word2007', 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        } finally {
+            Settings::setTempDir($tempDirAnterior);
+            $area->liberar();
+        }
+    }
+
+    /**
      * Troca cada `<img>` por uma imagem MATERIALIZADA na área — ou remove a tag.
      *
      * Trabalha sobre o DOM, não sobre a string: o que decide é o valor do atributo `src` inteiro,
@@ -280,7 +298,7 @@ final class ExportarPecaTextoUseCase
         Settings::setTempDir($area->caminho());
 
         try {
-            return $this->montarComPhpWord($doc, $html, 'Word2007', 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            return $this->montarComPhpWord($this->nomeSemExtensao($doc), $html, 'Word2007', 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } finally {
             // `Settings` é estado global do PhpWord: sem devolver, ele fica apontando para uma área
             // já apagada — e o próximo uso, em outro lugar do processo, herda isso.
@@ -294,14 +312,14 @@ final class ExportarPecaTextoUseCase
         Settings::setTempDir($area->caminho());
 
         try {
-            return $this->montarComPhpWord($doc, $html, 'ODText', 'odt', 'application/vnd.oasis.opendocument.text');
+            return $this->montarComPhpWord($this->nomeSemExtensao($doc), $html, 'ODText', 'odt', 'application/vnd.oasis.opendocument.text');
         } finally {
             Settings::setTempDir($tempDirAnterior);
         }
     }
 
     /** DOCX e ODT são o mesmo caminho do PhpWord; muda só o escritor, a extensão e o MIME. */
-    private function montarComPhpWord(PastaDocumento $doc, string $html, string $escritor, string $extensao, string $mimeType): ExportarPecaTextoOutput
+    private function montarComPhpWord(string $nomeBase, string $html, string $escritor, string $extensao, string $mimeType): ExportarPecaTextoOutput
     {
         $phpWord = new PhpWord();
         $section = $phpWord->addSection();
@@ -315,7 +333,7 @@ final class ExportarPecaTextoUseCase
         return new ExportarPecaTextoOutput(
             conteudo: $conteudo,
             mimeType: $mimeType,
-            nomeArquivo: $this->nomeSemExtensao($doc) . '.' . $extensao,
+            nomeArquivo: $nomeBase . '.' . $extensao,
         );
     }
 
