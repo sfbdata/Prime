@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\ServiceDesk\Controller;
 
+use App\Contribua\Service\CodigoPixEstatico;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
@@ -15,6 +16,7 @@ use App\ServiceDesk\Enum\FormaDeRecarga;
 use App\ServiceDesk\Enum\PrioridadeDoChamado;
 use App\ServiceDesk\Enum\TipoDeChamado;
 use App\ServiceDesk\Repository\PrecoDoAtendimentoRepository;
+use App\ServiceDesk\Service\ReferenciaAssinadaDeRecarga;
 use App\ServiceDesk\UseCase\AbrirChamadoDeSuporteUseCase;
 use App\ServiceDesk\UseCase\ConsultarSaldoDoEscritorioUseCase;
 use App\ServiceDesk\UseCase\ListarChamadosDoEscritorioUseCase;
@@ -116,30 +118,46 @@ final class ServiceDeskController extends AbstractController
         });
     }
 
-    /** Pede a recarga e devolve o PIX copia e cola com o QR (pendente até o pagamento ser confirmado). */
-    #[Route('/recarga', name: 'service_desk_recarga', methods: ['POST'])]
-    public function recarga(Request $request, SolicitarRecargaDeSaldoUseCase $solicitar, QrCodeEmSvg $qr): JsonResponse
+    /** Mostra o PIX da recarga (copia e cola + QR) sem gravar nada: o pendente só nasce em "Já paguei". */
+    #[Route('/pix', name: 'service_desk_pix', methods: ['POST'])]
+    public function pix(Request $request, ReferenciaAssinadaDeRecarga $referencias, QrCodeEmSvg $qr): JsonResponse
     {
-        return $this->acao($request, function () use ($request, $solicitar, $qr): array {
-            $reais = (int) $request->request->get('valor');
-            if (!\in_array($reais, self::VALORES_DA_RECARGA, true)) {
-                throw new \DomainException('Escolha um dos valores de recarga.');
+        return $this->acao($request, function () use ($request, $referencias, $qr): array {
+            $tenant = $this->escritorio();
+            $centavos = $this->valorDaRecarga($request) * 100;
+            $emitida = $referencias->emitir((int) $tenant->getId(), $centavos);
+            $copiaECola = CodigoPixEstatico::gerar($emitida['referencia'], $centavos);
+
+            return $emitida + ['copiaECola' => $copiaECola, 'qrSvg' => $qr->gerar($copiaECola)];
+        });
+    }
+
+    /** "Já paguei": grava a recarga pendente com a referência que o PIX mostrado já levava. */
+    #[Route('/recarga', name: 'service_desk_recarga', methods: ['POST'])]
+    public function recarga(Request $request, SolicitarRecargaDeSaldoUseCase $solicitar, ReferenciaAssinadaDeRecarga $referencias): JsonResponse
+    {
+        return $this->acao($request, function () use ($request, $solicitar, $referencias): array {
+            $tenant = $this->escritorio();
+            $centavos = $this->valorDaRecarga($request) * 100;
+            $referencia = (string) $request->request->get('referencia');
+            if (!$referencias->confere((int) $tenant->getId(), $centavos, $referencia, (string) $request->request->get('assinatura'))) {
+                throw new \DomainException('O PIX expirou. Abra "Adicionar saldo" de novo.');
             }
 
-            $pedido = $solicitar->executar(new SolicitarRecargaInput(
-                $this->escritorio(),
-                $this->usuario(),
-                $reais * 100,
-                FormaDeRecarga::Pix,
-            ));
-            $copiaECola = $pedido->instrucao->copiaECola ?? throw new \DomainException('Não foi possível gerar o PIX agora. Tente novamente.');
+            $solicitar->executar(new SolicitarRecargaInput($tenant, $this->usuario(), $centavos, FormaDeRecarga::Pix, $referencia));
 
-            return [
-                'referencia' => $pedido->referencia,
-                'copiaECola' => $copiaECola,
-                'qrSvg' => $qr->gerar($copiaECola),
-            ];
+            return [];
         });
+    }
+
+    private function valorDaRecarga(Request $request): int
+    {
+        $reais = (int) $request->request->get('valor');
+        if (!\in_array($reais, self::VALORES_DA_RECARGA, true)) {
+            throw new \DomainException('Escolha um dos valores de recarga.');
+        }
+
+        return $reais;
     }
 
     /** @param callable(): array<string, mixed> $acao */

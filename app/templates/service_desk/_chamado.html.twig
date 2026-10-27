@@ -19,8 +19,8 @@
     {% if c.valorDebitadoCentavos is not null %}
         <b class="sd-cor-debito">{{ c.valorDebitadoCentavos|reais }} debitado</b>
     {% elseif c.valorEstimadoCentavos is not null %}
-        <b class="sd-linha-valor estimado">estimado {{ c.valorEstimadoCentavos|reais }}</b>
+        <b class="sd-det-estimado">estimado {{ c.valorEstimadoCentavos|reais }}</b>
     {% else %}
-        <b class="sd-linha-valor estimado">a combinar</b>
+        <b class="sd-det-estimado">a combinar</b>
     {% endif %}
 </div>

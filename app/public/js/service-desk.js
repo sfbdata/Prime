@@ -17,9 +17,8 @@
     var temporizadorDoToast = null;
     var tipo = 'suporte';
     var painelAtual = null;
-    var recargaPorValor = {};
-    var CHAVE_RECARGAS = 'sd-recargas';
-    var VALIDADE_MS = 50 * 60 * 1000;
+    var pixAtual = null;
+    var pedidoDoPix = 0;
     var valorEscolhido = 20;
     var filtro = '';
 
@@ -161,55 +160,28 @@
         $('[data-sd-copiar-rotulo]').textContent = 'Copiar PIX copia e cola';
     }
 
-    // Recargas pendentes já pedidas nesta sessão (por valor), para não gravar uma nova a cada abertura do modal.
-    function lerRecargas() {
-        try {
-            var guardado = JSON.parse(sessionStorage.getItem(CHAVE_RECARGAS) || '{}');
-            Object.keys(guardado).forEach(function (valor) {
-                if (Date.now() - guardado[valor].em < VALIDADE_MS && !recargaPorValor[valor]) { recargaPorValor[valor] = guardado[valor].r; }
-            });
-        } catch (e) { /* sem sessionStorage */ }
-    }
-
-    function guardarRecarga(valor, r) {
-        try {
-            var guardado = JSON.parse(sessionStorage.getItem(CHAVE_RECARGAS) || '{}');
-            guardado[valor] = { em: Date.now(), r: r };
-            sessionStorage.setItem(CHAVE_RECARGAS, JSON.stringify(guardado));
-        } catch (e) { /* sem sessionStorage */ }
-    }
-
-    var emVoo = {};
-
-    function pedirRecarga(valor) {
-        if (recargaPorValor[valor]) { return Promise.resolve(recargaPorValor[valor]); }
-        if (!emVoo[valor]) {
-            emVoo[valor] = enviar(raiz.dataset.urlRecarga, { valor: valor }).then(function (r) {
-                delete emVoo[valor];
-                if (r.ok) { recargaPorValor[valor] = r; guardarRecarga(valor, r); }
-                return r;
-            });
-        }
-        return emVoo[valor];
-    }
-
+    // O PIX é só mostrado (nada é gravado); o pendente nasce em "Já paguei", com a referência e a assinatura deste PIX.
     function escolherValor(valor) {
         valorEscolhido = valor;
+        pixAtual = null;
+        botaoPaguei.disabled = true;
         $$('[data-sd-valor]').forEach(function (b) { b.classList.toggle('ativo', Number(b.dataset.sdValor) === valor); });
         limparPix();
-        pedirRecarga(valor).then(function (r) {
-            if (valorEscolhido !== valor) { return; }
+        var pedido = ++pedidoDoPix;
+        enviar(raiz.dataset.urlPix, { valor: valor }).then(function (r) {
+            if (pedido !== pedidoDoPix) { return; }
             if (!r.ok) {
                 var caixa = $('[data-sd-erro-recarga]');
                 caixa.textContent = r.erro;
                 caixa.hidden = false;
                 return;
             }
+            pixAtual = r;
+            botaoPaguei.disabled = false;
             mostrarPix(r, valor);
         });
     }
 
-    lerRecargas();
     $$('[data-sd-abrir-recarga]').forEach(function (b) {
         b.addEventListener('click', function () {
             abrirModal('recarga', 'Adicionar saldo', 'bi-wallet2');
@@ -221,7 +193,7 @@
     });
 
     $('[data-sd-copiar]').addEventListener('click', function () {
-        var r = recargaPorValor[valorEscolhido];
+        var r = pixAtual;
         if (!r) { return; }
         var concluir = function () { $('[data-sd-copiar-rotulo]').textContent = 'Código copiado'; };
         var copiarSelecionando = function () {
@@ -241,11 +213,22 @@
     });
 
     botaoPaguei.addEventListener('click', function () {
-        try {
-            sessionStorage.setItem('sd-toast', 'Pagamento informado. O saldo é liberado assim que a equipe confirmar.');
-            sessionStorage.setItem('sd-extrato', '1');
-        } catch (e) { /* sem sessionStorage */ }
-        window.location.reload();
+        if (!pixAtual) { return; }
+        botaoPaguei.disabled = true;
+        enviar(raiz.dataset.urlRecarga, { valor: valorEscolhido, referencia: pixAtual.referencia, assinatura: pixAtual.assinatura }).then(function (r) {
+            if (!r.ok) {
+                botaoPaguei.disabled = false;
+                var caixa = $('[data-sd-erro-recarga]');
+                caixa.textContent = r.erro;
+                caixa.hidden = false;
+                return;
+            }
+            try {
+                sessionStorage.setItem('sd-toast', 'Pagamento informado. O saldo é liberado assim que a equipe confirmar.');
+                sessionStorage.setItem('sd-extrato', '1');
+            } catch (e) { /* sem sessionStorage */ }
+            window.location.reload();
+        });
     });
 
     // Ver chamado

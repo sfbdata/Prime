@@ -14,6 +14,7 @@
      data-service-desk
      data-csrf="{{ csrf_token('service_desk') }}"
      data-url-abrir="{{ path('service_desk_abrir') }}"
+     data-url-pix="{{ path('service_desk_pix') }}"
      data-url-recarga="{{ path('service_desk_recarga') }}"
      data-url-chamado="{{ path('service_desk_chamado', {id: 0}) }}"
      data-saldo-ok="{{ saldo.podeAbrirChamado ? '1' : '0' }}">
@@ -30,13 +31,13 @@
     <div class="sd-kpis">
         {% set filtros = [
             {chave: '', rotulo: 'TODOS', icone: 'bi-list-ul', cor: '#12242f', valor: lista.totalDoEscritorio},
-            {chave: 'aberto', rotulo: 'ABERTOS', icone: 'bi-inbox', cor: '#9a5b00', valor: lista.contagem.aberto|default(0)},
-            {chave: 'andamento', rotulo: 'EM ANDAMENTO', icone: 'bi-gear', cor: '#0a6fa0', valor: lista.contagem.andamento|default(0)},
-            {chave: 'resolvido', rotulo: 'RESOLVIDOS', icone: 'bi-check-circle', cor: '#1e7b45', valor: lista.contagem.resolvido|default(0)},
-            {chave: 'fechado', rotulo: 'FECHADOS', icone: 'bi-archive', cor: '#5b7383', valor: lista.contagem.fechado|default(0)},
+            {chave: 'aberto', singular: 'Aberto', rotulo: 'ABERTOS', icone: 'bi-inbox', cor: '#9a5b00', valor: lista.contagem.aberto|default(0)},
+            {chave: 'andamento', singular: 'Em andamento', rotulo: 'EM ANDAMENTO', icone: 'bi-gear', cor: '#0a6fa0', valor: lista.contagem.andamento|default(0)},
+            {chave: 'resolvido', singular: 'Resolvido', rotulo: 'RESOLVIDOS', icone: 'bi-check-circle', cor: '#1e7b45', valor: lista.contagem.resolvido|default(0)},
+            {chave: 'fechado', singular: 'Fechado', rotulo: 'FECHADOS', icone: 'bi-archive', cor: '#5b7383', valor: lista.contagem.fechado|default(0)},
         ] %}
         {% for k in filtros %}
-            <button type="button" class="sd-kpi{{ loop.first ? ' ativo' : '' }}" data-sd-filtro="{{ k.chave }}" data-rotulo="{{ k.chave == '' ? 'Todos os chamados' : k.rotulo|lower|capitalize }}">
+            <button type="button" class="sd-kpi{{ loop.first ? ' ativo' : '' }}" data-sd-filtro="{{ k.chave }}" data-rotulo="{{ k.chave == '' ? 'Todos os chamados' : k.singular }}">
                 <span class="sd-kpi-texto">
                     <span class="sd-kpi-rotulo">{{ k.rotulo }}</span>
                     <b class="sd-kpi-valor" style="color: {{ k.cor }}">{{ k.valor }}</b>
@@ -167,7 +168,7 @@
             <div class="sd-modal-rodape">
                 <button type="button" class="sd-rod-sec" data-sd-fechar>Cancelar</button>
                 <button type="button" class="sd-rod-azul" data-sd-enviar>Abrir chamado</button>
-                <button type="button" class="sd-rod-verde" data-sd-paguei hidden>Já paguei</button>
+                <button type="button" class="sd-rod-verde" data-sd-paguei hidden disabled>Já paguei</button>
             </div>
         </div>
     </div>

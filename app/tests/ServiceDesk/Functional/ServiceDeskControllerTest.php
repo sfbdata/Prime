@@ -136,10 +136,10 @@ final class ServiceDeskControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    #[TestDox('Recarga: devolve o PIX copia e cola válido com a referência BJSD e o QR, e deixa o pendente no extrato')]
-    public function testRecargaPix(): void
+    #[TestDox('PIX: mostra o copia e cola válido com a referência BJSD e o QR, sem gravar nada')]
+    public function testPixSemGravar(): void
     {
-        $r = $this->post('/service-desk/recarga', ['valor' => '50']);
+        $r = $this->post('/service-desk/pix', ['valor' => '50']);
 
         self::assertTrue($r['ok']);
         self::assertMatchesRegularExpression('/^BJSD[0-9A-F]{12}$/i', $r['referencia']);
@@ -149,15 +149,43 @@ final class ServiceDeskControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString($r['referencia'], $r['copiaECola']);
 
         $this->client->request('GET', '/service-desk');
+        self::assertStringNotContainsString('aguardando confirmação do pagamento', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('Já paguei: grava o pendente com a referência do PIX mostrado, uma vez só, e o saldo não sobe')]
+    public function testJaPagueiGravaOPendente(): void
+    {
+        $pix = $this->post('/service-desk/pix', ['valor' => '50']);
+        $dados = ['valor' => '50', 'referencia' => $pix['referencia'], 'assinatura' => $pix['assinatura']];
+
+        self::assertTrue($this->post('/service-desk/recarga', $dados)['ok']);
+        self::assertTrue($this->post('/service-desk/recarga', $dados)['ok'], 'segundo clique não grava outra');
+
+        $this->client->request('GET', '/service-desk');
         self::assertStringContainsString('R$ 50,00 aguardando confirmação do pagamento', (string) $this->client->getResponse()->getContent());
+        self::assertCount(1, $this->client->getCrawler()->filter('.sd-extrato-linha'));
         self::assertSelectorTextContains('.sd-extrato-linha', 'Aguardando');
-        self::assertSame(0, $this->saldoDe($this->escritorio), 'o saldo só sobe quando o pagamento é confirmado');
+        self::assertSame(0, $this->saldoDe($this->escritorio));
+    }
+
+    #[TestDox('Já paguei recusa referência adulterada, valor trocado ou assinatura de outro escritório')]
+    public function testJaPagueiRecusaAssinaturaInvalida(): void
+    {
+        $pix = $this->post('/service-desk/pix', ['valor' => '50']);
+
+        $trocado = $this->post('/service-desk/recarga', ['valor' => '200', 'referencia' => $pix['referencia'], 'assinatura' => $pix['assinatura']]);
+        $adulterada = $this->post('/service-desk/recarga', ['valor' => '50', 'referencia' => 'BJSDAAAAAAAAAAAA', 'assinatura' => $pix['assinatura']]);
+
+        self::assertFalse($trocado['ok']);
+        self::assertFalse($adulterada['ok']);
+        $this->client->request('GET', '/service-desk');
+        self::assertStringNotContainsString('aguardando confirmação do pagamento', (string) $this->client->getResponse()->getContent());
     }
 
     #[TestDox('Recarga só aceita os valores do desenho (20, 50, 100, 200)')]
     public function testRecargaRecusaValorForaDoDesenho(): void
     {
-        $r = $this->post('/service-desk/recarga', ['valor' => '33']);
+        $r = $this->post('/service-desk/pix', ['valor' => '33']);
 
         self::assertFalse($r['ok']);
         self::assertSame('Escolha um dos valores de recarga.', $r['erro']);

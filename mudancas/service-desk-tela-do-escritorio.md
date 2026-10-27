@@ -3,7 +3,7 @@ tipo: novidade
 ---
 ## Changelog
 - Service Desk (desenho 12), fatia 3: tela "Meus chamados" em `/service-desk` (saldo, extrato, filtro por status, busca, abrir chamado, ver chamado e adicionar saldo por PIX). O item de menu Service Desk passa a abrir a tela nova; as rotas do help desk antigo (`/servicedesk`) seguem no ar.
-- `RecargaManual` passa a devolver o PIX copia e cola estático da BlueJus, com a referência da recarga (BJSD...) como txid. Cartão fica fora da tela até existir o adaptador do provedor.
+- `RecargaManual` passa a devolver o PIX copia e cola estático da BlueJus, com a referência da recarga (BJSD...) como txid. O PIX é só mostrado ao abrir "Adicionar saldo" (referência assinada, nada gravado); o pendente nasce em "Já paguei". Cartão fica fora da tela até existir o adaptador do provedor.
 - Arquivos quentes tocados: `_sidebar.html.twig` e `base.html.twig` (uma linha cada).
 
 ## Para o cliente
