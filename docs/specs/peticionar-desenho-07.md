@@ -39,7 +39,7 @@ preferência via composer; (f) aceitar qualquer formato, com entrega segura (fre
 | F4 | Cabeçalho/navbar enxuta (arquivo quente `layout_peticionar.html.twig`; avisar antes) | PR desta entrega |
 | F5 | Seletor do processo, somente leitura | PR desta entrega |
 | F6 | Ordem manual compartilhada com a aba Documentos | PR desta entrega |
-| F7 | Destino por peça (spec antes; migration 153800) | pendente |
+| F7 | Destino por peça: `pasta_documento.processo_destino_id` (nulo = principal), rota `pasta_documento_destino`, o seletor do cabeçalho mostra o destino da peça selecionada e grava ao escolher (migration 154400) | PR desta entrega |
 | F8 | Editor (TinyMCE mantido) | pendente |
 | F9 | Visualizador DOCX/XLSX | pendente |
 | F10 | Aceitar qualquer formato | pendente |

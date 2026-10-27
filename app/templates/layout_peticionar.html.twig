@@ -572,8 +572,10 @@
                 {% set vinculos = [] %}
                 {% if vinculoPrincipal %}{% set vinculos = [vinculoPrincipal] %}{% endif %}
                 {% for v in pasta.pastaProcessos %}{% if v is not same as(vinculoPrincipal) %}{% set vinculos = vinculos|merge([v]) %}{% endif %}{% endfor %}
-                <div class="petic-proc" id="peticProc">
-                    <button type="button" class="petic-proc-btn" id="peticProcBtn"
+                <div class="petic-proc" id="peticProc"
+                     data-url-destino="{{ path('pasta_documento_destino', {id: 0})|replace({'/0/': '/__ID__/'}) }}"
+                     data-csrf="{{ csrf_token('peticionar_destino_' ~ pasta.id)|e('html_attr') }}">
+                    <button type="button" class="petic-proc-btn" id="peticProcBtn" data-erro="{{ 'peticionar.processo.erro_destino'|trans|e('html_attr') }}"
                             aria-expanded="false" aria-controls="peticProcMenu"
                             title="{{ 'peticionar.processo.dica'|trans }}">
                         <i class="bi bi-journal-text"></i>
@@ -586,6 +588,7 @@
                             {% set pr = v.processo %}
                             {% set marcado = loop.first %}
                             <button type="button" class="petic-proc-item{% if marcado %} petic-proc-item--atual{% endif %}"
+                                    data-vinculo="{{ v.id }}"
                                     data-numero="{{ pr.numeroProcesso }}"
                                     data-texto="{{ pr.siglaTribunal ? pr.siglaTribunal ~ ' ' : '' }}{{ pr.numeroProcesso|replace({'.': '', '-': ''}) }}">
                                 <span class="petic-proc-item-corpo">
