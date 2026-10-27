@@ -110,13 +110,18 @@ final class RecompensasDoMasterController extends AbstractController
         });
     }
 
-    /** Os dados de recebimento COMPLETOS do indicador, para o diálogo de edição; `{}` se ainda não há cadastro. */
+    /**
+     * Os dados de recebimento COMPLETOS do indicador, para o diálogo de edição, mais a chave PIX que a própria pessoa
+     * informou no Meu Perfil (`chavePixDoPerfil`, só uma sugestão). Sem cadastro, só a sugestão.
+     */
     #[Route('/master/recompensas/usuarios/{id}/recebimento', name: 'master_recompensas_recebimento', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function recebimento(int $id, ConsultarDadosDeRecebimentoUseCase $consultar): JsonResponse
     {
         $dados = $consultar->executar($id);
 
-        return $this->json($dados === null ? new \stdClass() : ['nome' => $dados->getNome(), 'documento' => $dados->getDocumento(), 'chavePix' => $dados->getChavePix()]);
+        $sugestao = ['chavePixDoPerfil' => $consultar->chavePixDoPerfil($id)];
+
+        return $this->json($dados === null ? $sugestao : ['nome' => $dados->getNome(), 'documento' => $dados->getDocumento(), 'chavePix' => $dados->getChavePix()] + $sugestao);
     }
 
     /** Cria ou atualiza "Dados para pagamento". Corpo `{nome, documento (CPF ou CNPJ), chavePix}`. */

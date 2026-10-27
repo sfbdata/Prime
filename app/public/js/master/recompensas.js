@@ -59,6 +59,7 @@
     fundo: $('[data-mrc-rcb-fundo]'), posicao: $('[data-mrc-rcb]'), indicador: $('[data-mrc-rcb-indicador]'), sub: $('[data-mrc-rcb-sub]'),
     nome: $('[data-mrc-rcb-nome]'), documento: $('[data-mrc-rcb-documento]'), pix: $('[data-mrc-rcb-pix]'),
     erro: $('[data-mrc-rcb-erro]'), enviar: $('[data-mrc-rcb-enviar]'),
+    sugestao: $('[data-mrc-rcb-sugestao]'), sugestaoValor: $('[data-mrc-rcb-sugestao-valor]'), sugestaoUsar: $('[data-mrc-rcb-sugestao-usar]'),
   };
   const FORMAS = ['pix', 'transferencia', 'desconto_na_mensalidade', 'credito_de_espaco'];
   // Aspas pelo código (\x22 e \x27): um literal de aspas aqui desalinha o detector de texto fixo (SemTextoFixoNosExtraidos).
@@ -510,6 +511,7 @@
     rcb.nome.value = u.nome;
     rcb.documento.value = '';
     rcb.pix.value = '';
+    rcb.sugestao.hidden = true;
     avisarNoRecebimento('');
     fecharMenu();
     rcb.fundo.hidden = false;
@@ -519,10 +521,17 @@
     fetch(urlDoUsuario(raiz.dataset.urlRecebimento, id), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(d => {
-        if (alvo !== id || !d.nome) return;
-        rcb.nome.value = d.nome;
-        rcb.documento.value = d.documento || '';
-        rcb.pix.value = d.chavePix || '';
+        if (alvo !== id) return;
+        if (d.nome) {
+          rcb.nome.value = d.nome;
+          rcb.documento.value = d.documento || '';
+          rcb.pix.value = d.chavePix || '';
+        }
+        // A chave que a própria pessoa informou no perfil só é sugerida (com "Usar") se a do Master está vazia.
+        if (d.chavePixDoPerfil && !rcb.pix.value.trim()) {
+          rcb.sugestaoValor.textContent = d.chavePixDoPerfil;
+          rcb.sugestao.hidden = false;
+        }
       })
       .catch(() => avisarNoRecebimento(T('master.js.recompensas.recebimento_erro_carregar')));
   }
@@ -675,6 +684,11 @@
   rcb.fundo.addEventListener('click', fecharRecebimento);
   raiz.querySelectorAll('[data-mrc-rcb-fechar]').forEach(b => b.addEventListener('click', fecharRecebimento));
   rcb.enviar.addEventListener('click', salvarRecebimento);
+  rcb.sugestaoUsar.addEventListener('click', () => {
+    rcb.pix.value = rcb.sugestaoValor.textContent;
+    rcb.sugestao.hidden = true;
+    rcb.pix.focus();
+  });
   raiz.querySelector('[data-mrc-ext-limpar]').addEventListener('click', () => filtrarExtrato(null));
   dlg.rec.addEventListener('click', () => alternarRecorrente(dlg.rec.getAttribute('aria-checked') !== 'true'));
   dlg.salvar.addEventListener('click', salvarCondicao);

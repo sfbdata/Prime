@@ -295,6 +295,8 @@ master:
             documento_dica: 'O sistema guarda o valor bruto e não calcula imposto; este cadastro é o que o contador usa.'
             pix: Chave PIX (opcional)
             pix_dica: 'Aparece no diálogo de baixa para você conferir antes de pagar.'
+            pix_sugestao: 'Chave informada pelo indicador:'
+            pix_usar: Usar
             salvar: Salvar dados
         apagar:
             titulo: Apagar indicador da lista

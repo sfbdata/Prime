@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Indicacao\Entity\Indicacao;
 use App\Master\Controller\RecompensasDoMasterController;
+use App\Profile\Entity\UserProfile;
 use App\Recompensa\Entity\LancamentoDeRecompensa;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -208,6 +209,29 @@ final class BaixaDeRecompensaDoMasterTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->totalDePagamentos());
     }
 
+    #[TestDox('P2: o GET dos dados de recebimento traz a chave PIX que a própria pessoa informou no perfil, com ou sem cadastro do Master; a lista do painel não a traz')]
+    public function testSugestaoDaChaveDoPerfil(): void
+    {
+        $this->entrarComoMaster();
+        $ana = $this->indicadoraLiberada();
+        $perfil = new UserProfile($ana);
+        $perfil->setChavePixRecompensa('ana.perfil@pix.com.br');
+        $this->em->persist($perfil);
+        $this->em->flush();
+        $url = '/master/recompensas/usuarios/' . $ana->getId() . '/recebimento';
+
+        $this->client->request('GET', $url);
+        self::assertSame(['chavePixDoPerfil' => 'ana.perfil@pix.com.br'], $this->json(), 'sem cadastro do Master, só a sugestão');
+
+        $this->enviarJson('PUT', $url, ['nome' => 'Ana Souza', 'documento' => self::CPF, 'chavePix' => 'ana.master@pix.com']);
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('ana.perfil@pix.com.br', (string) $this->client->getResponse()->getContent(), 'a lista do painel não traz a chave do perfil');
+        $this->client->request('GET', $url);
+        $dados = $this->json();
+        self::assertSame('ana.master@pix.com', $dados['chavePix'], 'a sugestão nunca sobrescreve a chave do Master');
+        self::assertSame('ana.perfil@pix.com.br', $dados['chavePixDoPerfil']);
+    }
+
     #[TestDox('dados de recebimento: documento inválido recusa; a lista mostra só o documento mascarado e o GET devolve o completo')]
     public function testDadosDeRecebimento(): void
     {
@@ -229,7 +253,7 @@ final class BaixaDeRecompensaDoMasterTest extends JusPrimeWebTestCase
         self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM dados_de_recebimento_de_recompensa WHERE indicador_id = ?', [$ana->getId()]));
 
         $this->client->request('GET', $url);
-        self::assertSame(['nome' => 'Ana Souza', 'documento' => '52998224725', 'chavePix' => null], $this->json());
+        self::assertSame(['nome' => 'Ana Souza', 'documento' => '52998224725', 'chavePix' => null, 'chavePixDoPerfil' => null], $this->json());
 
         $trilha = (string) $this->em->getConnection()->fetchOne(
             'SELECT string_agg(changes::text, \' \') FROM audit_log WHERE entity_class LIKE ?',
