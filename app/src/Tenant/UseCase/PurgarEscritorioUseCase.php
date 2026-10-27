@@ -124,6 +124,8 @@ final class PurgarEscritorioUseCase
         ['publicacao_djen', 'tenant_id = :tenant'],
         ['oab_monitorada', 'tenant_id = :tenant'],
         ['djen_processo_acompanhado', 'tenant_id = :tenant'],
+        // Diário da OAB registrado à mão (tenant_id direto; FK tenant e usuário NO ACTION): deleção explícita.
+        ['djen_diario_oab', 'tenant_id = :tenant'],
         // Sync — conexão de Drive do escritório (guarda o refresh_token CIFRADO). FK tenant NO ACTION
         // (bloqueia apagar o tenant) + tenant_id direto → deleção explícita. Apaga o segredo junto.
         ['sync_drive_conexao', 'tenant_id = :tenant'],
@@ -275,6 +277,8 @@ final class PurgarEscritorioUseCase
         // ACTION, nada as referencia.
         ['dashboard_zeramento', 'tenant_id = :tenant'],
         ['dashboard_meta_pastas', 'tenant_id = :tenant'],
+        // Acompanhamento de pessoa do painel (spec painel-acompanhamento-redistribuir, fatia A): FK de tenant NO ACTION.
+        ['dashboard_acompanhamento_pessoa', 'tenant_id = :tenant'],
         // Central de Comunicação (A1): mensagem e participante caem pela CASCADE da conversa, mas as FKs de
         // tenant são NO ACTION — deleção explícita de baixo para cima, antes de apagar o tenant.
         ['central_mensagem', 'tenant_id = :tenant'],

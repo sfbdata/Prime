@@ -39,6 +39,9 @@ final readonly class PastaPagamentosOutput
         public string $previstoFormatado = 'R$ 0,00',
         /** `''` (sem previsto), `exito`, `sucumbencia` ou `exito_sucumbencia`: o "previsto em …". */
         public string $previstoEm = '',
+        /** Parcelas não pagas e não previstas com vencimento passado (faixa vermelha do cartão, dc 27.10). */
+        public int $vencidasQuantidade = 0,
+        public string $vencidasFormatado = 'R$ 0,00',
     ) {}
 
     /**
@@ -54,6 +57,8 @@ final readonly class PastaPagamentosOutput
 
         $recebido = 0;
         $previsto = 0;
+        $vencidasN = 0;
+        $vencidasC = 0;
         $tipos    = [];
         $linhas   = ['todos' => [], 'pendentes' => [], 'previstos' => []];
 
@@ -70,6 +75,10 @@ final readonly class PastaPagamentosOutput
                 $linhas['previstos'][] = $linha;
             } else {
                 $linhas['pendentes'][] = $linha;
+                if ($pagamento->estaVencido($hoje)) {
+                    ++$vencidasN;
+                    $vencidasC += $centavos;
+                }
             }
         }
 
@@ -85,6 +94,8 @@ final readonly class PastaPagamentosOutput
             todos: $linhas['todos'],
             previstoFormatado: PastaFinanceiroOutput::formatarReais(ValorEmReais::deCentavos($previsto)),
             previstoEm: self::previstoEm($tipos),
+            vencidasQuantidade: $vencidasN,
+            vencidasFormatado: PastaFinanceiroOutput::formatarReais(ValorEmReais::deCentavos($vencidasC)),
         );
     }
 

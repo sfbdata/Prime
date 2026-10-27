@@ -24,7 +24,10 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *  - `pathStyleEndpoint`: `https://<conta>.r2.cloudflarestorage.com/<bucket>/<chave>` — sem
  *    subdomínio por bucket;
  *  - `sendChunkedBody = false`: corpo inteiro com `x-amz-content-sha256` calculado, sem
- *    `aws-chunked` (não depender de suporte do destino a esse modo).
+ *    `aws-chunked` (não depender de suporte do destino a esse modo);
+ *  - `Accept-Encoding: identity` em toda requisição: sem ele, o curl anuncia gzip, a borda da
+ *    Cloudflare comprime a resposta do HEAD de texto (`text/plain` a partir de ~50 B) e tira o
+ *    `Content-Length`, e o tamanho remoto chegava como 0 (rodada 4 da P2.5, 26/10/2026).
  *
  * Nada aqui é ligado no container ainda (P2.2): quem montar o espelho é a P2.3, com as credenciais
  * vindas de variável de ambiente de produção — nunca de arquivo do repositório.
@@ -40,6 +43,9 @@ final class ClienteR2
 
     /** Sem bytes por este tempo, a requisição é abandonada. */
     public const OCIOSIDADE_MAXIMA = 60;
+
+    /** Resposta sem compressão: o HEAD precisa trazer o `Content-Length` do objeto. */
+    public const CABECALHOS = ['Accept-Encoding' => 'identity'];
 
     private function __construct()
     {
@@ -64,9 +70,10 @@ final class ClienteR2
             'region'            => 'auto',
             'pathStyleEndpoint' => 'true',
             'sendChunkedBody'   => 'false',
-        ], new Credentials($chaveDeAcesso, $segredo), $http ?? HttpClient::create([
+        ], new Credentials($chaveDeAcesso, $segredo), $http?->withOptions(['headers' => self::CABECALHOS]) ?? HttpClient::create([
             'timeout'      => self::OCIOSIDADE_MAXIMA,
             'max_duration' => self::DURACAO_MAXIMA_DA_REQUISICAO,
+            'headers'      => self::CABECALHOS,
         ]), $logger);
     }
 }

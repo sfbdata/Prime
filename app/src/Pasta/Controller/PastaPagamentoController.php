@@ -324,6 +324,8 @@ final class PastaPagamentoController extends AbstractController
             'contratado'         => $saida->contratadoFormatado,
             'contratadoCentavos' => $saida->contratadoCentavos,
             'percentual'         => $saida->percentual,
+            'vencidasQuantidade' => $saida->vencidasQuantidade,
+            'vencidasFormatado'  => $saida->vencidasFormatado,
             'html'               => $this->renderView('pasta/_financeiro_pagamentos.html.twig', [
                 'pagamentos' => $saida,
             ]),

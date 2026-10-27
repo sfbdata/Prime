@@ -75,6 +75,27 @@ final class ConsultasDoPainelTest extends KernelTestCase
         self::assertEqualsWithDelta(1.5, $delta('gb'), 0.001);
     }
 
+    #[TestDox('Duplicidade: o mesmo sha256 em escritórios diferentes é cobrado duas vezes e ocupa uma; sem sha256 conta como único')]
+    public function testDuplicidadeDeArquivos(): void
+    {
+        $antes = $this->visao()['duplicidade'];
+        $this->montarCenario();
+        $conexao = self::getContainer()->get(Connection::class);
+        $hash    = str_repeat('ab', 32);
+        foreach ([$this->cenario['a'], $this->cenario['b']] as $tenant) {
+            $pasta = PastaFactory::createOne(['tenant' => $tenant]);
+            $conexao->insert('pasta_documento', $this->linhaDeDocumentoDePasta($conexao, $pasta->_real()->getId(), $tenant->getId(), 5000) + ['sha256' => $hash]);
+        }
+        $depois = $this->visao()['duplicidade'];
+
+        $delta = static fn (string $k): int => $depois[$k] - $antes[$k];
+        $base  = self::GB + self::GB / 2 + 1024;
+        self::assertSame($base + 10000, $delta('cobrado'), 'o cenário soma 1,5 GB + 1 KB (a quarentena fica fora) + 2 x 5000 bytes');
+        self::assertSame($base + 5000, $delta('fisico'), 'o par idêntico ocupa 5000 uma vez só');
+        self::assertSame(3 + 2, $delta('vinculos'));
+        self::assertSame(3 + 1, $delta('arquivos'));
+    }
+
     #[TestDox('Mapa e faixa etária: lotação Cidade/UF, OAB, sem localização; escritório sem estado à parte')]
     public function testMapaEIdades(): void
     {
@@ -111,7 +132,7 @@ final class ConsultasDoPainelTest extends KernelTestCase
         foreach (['titular painel', 'secundario painel', '123.456.789-00', '12345678900'] as $proibido) {
             self::assertStringNotContainsString($proibido, $json);
         }
-        self::assertSame(['kpis', 'crescimento', 'mapa', 'idades', 'armazenamento', 'registrosDeAuditoria', 'geradoEm'], array_keys($this->visao()));
+        self::assertSame(['kpis', 'crescimento', 'mapa', 'idades', 'armazenamento', 'duplicidade', 'registrosDeAuditoria', 'geradoEm'], array_keys($this->visao()));
         self::assertSame(['A', 'C', 'tend', 'semLoc', 'total'], array_keys($this->visao()['mapa']['pessoas']['geral']));
     }
 

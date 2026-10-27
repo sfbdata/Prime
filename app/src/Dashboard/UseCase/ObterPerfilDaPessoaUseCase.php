@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dashboard\UseCase;
 
+use App\Dashboard\DTO\AcompanhamentoDaPessoaOutput;
 use App\Dashboard\DTO\ComparacaoDaPessoaOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
 use App\Dashboard\DTO\MetricaDaPessoaOutput;
@@ -14,6 +15,7 @@ use App\Dashboard\Inteligencia\AnaliseDaPessoa;
 use App\Dashboard\Inteligencia\DiagnosticoDaPessoa;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Preferencia\MarcasDasPessoas;
+use App\Dashboard\Repository\AcompanhamentoDaPessoaRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
 use App\Repository\UserRepository;
@@ -34,6 +36,7 @@ final class ObterPerfilDaPessoaUseCase
         private readonly UserRepository $userRepository,
         private readonly ObterDadosDashboardUseCase $obterDados,
         private readonly PreferenciaDoUsuarioRepository $preferencias,
+        private readonly AcompanhamentoDaPessoaRepository $acompanhamentos,
         private readonly MetricasExtrasDoDashboardRepository $metricasExtras,
     ) {
     }
@@ -41,11 +44,7 @@ final class ObterPerfilDaPessoaUseCase
     /** @throws ColaboradorForaDoEscritorioException */
     public function executar(ObterPerfilDaPessoaInput $input): PerfilDaPessoaOutput
     {
-        $pessoa = $this->userRepository->findColaboradorAtivoPorIdETenant($input->pessoaId, $input->tenant);
-        if ($pessoa === null) {
-            throw new ColaboradorForaDoEscritorioException();
-        }
-
+        $pessoa  = $this->userRepository->findColaboradorAtivoPorIdETenant($input->pessoaId, $input->tenant) ?? throw new ColaboradorForaDoEscritorioException();
         $filtros = ['data_de' => $input->filtros['data_de'] ?? '', 'data_ate' => $input->filtros['data_ate'] ?? '', 'responsavel' => (string) $input->pessoaId];
         $painel  = $this->obterDados->executar($input->tenant, $input->agora, $filtros, [Extras::METAS_CONCLUIDAS, Extras::TAXA_CONCLUSAO, Extras::METAS_REVISAO], $input->pastasOcultas);
         $linha   = $painel->porAdvogado[0] ?? null;
@@ -53,11 +52,10 @@ final class ObterPerfilDaPessoaUseCase
             throw new ColaboradorForaDoEscritorioException();
         }
 
-        $gravado  = $this->preferencias->valoresDoUsuario($input->tenant, $input->usuario, [MarcasDasPessoas::CHAVE]);
-        $marca    = MarcasDasPessoas::lerOuVazio($gravado[MarcasDasPessoas::CHAVE] ?? null)[$input->pessoaId] ?? ['status' => null, 'feedback' => null];
         $metricas = $this->metricas($linha);
         $porData  = $this->comparacoesPorConclusao($input, $painel->periodoAnterior, $linha);
-        $analise  = AnaliseDaPessoa::montar($linha, $porData['concluidas'] ?? null, $this->mediaDeAtivasDaEquipe($input));
+        $media    = $this->mediaDeAtivasDaEquipe($input);
+        $marca    = $this->marcaDaPessoa($input);
 
         return new PerfilDaPessoaOutput(
             $input->pessoaId,
@@ -72,8 +70,25 @@ final class ObterPerfilDaPessoaUseCase
             $linha->totalMetas === 0,
             $marca['status'],
             $marca['feedback'],
-            $analise,
+            AnaliseDaPessoa::montar($linha, $porData['concluidas'] ?? null, $media),
+            $this->acompanhamentoDaPessoa($input),
+            $linha->metasAtivas > 0 && $media !== null && $linha->metasAtivas > $media,
         );
+    }
+
+    /** @return array{status: ?string, feedback: ?string} */
+    private function marcaDaPessoa(ObterPerfilDaPessoaInput $input): array
+    {
+        $gravado = $this->preferencias->valoresDoUsuario($input->tenant, $input->usuario, [MarcasDasPessoas::CHAVE]);
+
+        return MarcasDasPessoas::lerOuVazio($gravado[MarcasDasPessoas::CHAVE] ?? null)[$input->pessoaId] ?? ['status' => null, 'feedback' => null];
+    }
+
+    private function acompanhamentoDaPessoa(ObterPerfilDaPessoaInput $input): AcompanhamentoDaPessoaOutput
+    {
+        $aberto = $this->acompanhamentos->buscarAbertoDaPessoa($input->tenant, $input->pessoaId);
+
+        return $aberto === null ? AcompanhamentoDaPessoaOutput::semAcompanhamento($input->pessoaId) : AcompanhamentoDaPessoaOutput::deEntidade($aberto, $input->agora);
     }
 
     /**

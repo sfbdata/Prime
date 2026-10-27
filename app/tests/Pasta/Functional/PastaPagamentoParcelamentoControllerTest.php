@@ -324,7 +324,7 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         unset($resumo['html']);
         self::assertSame(11, $dados['quantidade']);
         self::assertSame(
-            ['total' => 11, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'contratado' => 'R$ 12.843,42', 'contratadoCentavos' => 1284342, 'percentual' => 0],
+            ['total' => 11, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'contratado' => 'R$ 12.843,42', 'contratadoCentavos' => 1284342, 'percentual' => 0, 'vencidasQuantidade' => 0, 'vencidasFormatado' => 'R$ 0,00'],
             $resumo,
             'o resumo do card é o mesmo de antes da coluna',
         );
@@ -640,12 +640,12 @@ final class PastaPagamentoParcelamentoControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Entrada já recebida', $modal->text());
 
         $tipos = $crawler->filter("{$corpo} > .ps-np-bloco > .ps-np-tipos > button.ps-np-tipo");
-        self::assertSame(['Contratuais', 'Êxito', 'Sucumbência', 'Custas'], $tipos->each(static fn (Crawler $b): string => trim($b->text())));
-        self::assertSame(['contrato', 'exito', 'sucumbencia', 'custas'], $tipos->each(static fn (Crawler $b): string => (string) $b->attr('data-tipo')));
+        self::assertSame(['Contratuais', 'Proveito econômico', 'Recorrente', 'Sucumbência', 'Custas'], $tipos->each(static fn (Crawler $b): string => trim($b->text())));
+        self::assertSame(['contrato', 'exito', 'recorrente', 'sucumbencia', 'custas'], $tipos->each(static fn (Crawler $b): string => (string) $b->attr('data-tipo')));
         self::assertSame(
-            [false, false, false, false],
+            [false, false, false, false, false],
             $tipos->each(static fn (Crawler $b): bool => $b->attr('disabled') !== null),
-            'os quatro tipos gravam (êxito e sucumbência: spec pasta-exito-sucumbencia)',
+            'os cinco tipos gravam (êxito e sucumbência: spec pasta-exito-sucumbencia)',
         );
         self::assertSame('true', $tipos->first()->attr('aria-pressed'), 'abre em Contratuais');
 

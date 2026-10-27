@@ -20,16 +20,17 @@ final class ParcelamentoDaPastaInput
 {
     public const TIPO_CONTRATO = 'contrato';
     public const TIPO_CUSTAS   = 'custas';
+    public const TIPO_RECORRENTE = 'recorrente';
 
     public const BASE_VALOR      = 'valor';
     public const BASE_PERCENTUAL = 'pct';
 
     public function __construct(
-        /** `contrato`, `custas`, `exito` ou `sucumbencia` (os dois últimos: só o percentual). */
+        /** `contrato`, `custas`, `recorrente`, `exito` ou `sucumbencia` (os dois últimos: só o percentual). */
         public readonly string $tipo,
         /** `valor` (valor fixo) ou `pct` (% do valor da causa). */
         public readonly string $base,
-        /** Valor total em reais, como digitado ("12.860,00"). Usado quando a base é `valor`. */
+        /** Valor total em reais, como digitado ("12.860,00"); no recorrente é o valor MENSAL. Usado quando a base é `valor`. */
         public readonly string $valorTotal,
         /**
          * Percentual ("20"). Em contrato/custas com base `pct`, sobre o valor da causa; em êxito e

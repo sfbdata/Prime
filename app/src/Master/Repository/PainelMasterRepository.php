@@ -66,6 +66,35 @@ class PainelMasterRepository
     ];
 
     /**
+     * Espaço cobrado x espaço que ocuparia se o conteúdo repetido fosse guardado uma vez só (desenho 05 de 27/10,
+     * faixa de Armazenamento). Cobrado: soma de cada arquivo em cada pasta, o mesmo número do KPI de GB. Único:
+     * arquivos com o mesmo `sha256` (hoje só em `pasta_documento`, entre todos os escritórios) contam uma vez; arquivo
+     * sem impressão digital conta como único. Escritório excluído fica fora, como no consumo.
+     *
+     * @return array{cobrado: int, fisico: int, vinculos: int, arquivos: int}
+     */
+    public function duplicidadeDeArquivos(): array
+    {
+        $linha = $this->conexao->fetchAssociative(
+            'WITH a AS (SELECT u.bytes, u.sha256
+                          FROM (' . self::arquivosComTamanho() . ') u
+                          JOIN tenant t ON t.id = u.tenant_id AND t.excluido_em IS NULL)
+             SELECT COALESCE(SUM(bytes), 0) AS cobrado, COUNT(*) AS vinculos,
+                    COUNT(DISTINCT sha256) + COUNT(*) FILTER (WHERE sha256 IS NULL) AS arquivos,
+                    COALESCE(SUM(bytes) FILTER (WHERE sha256 IS NULL), 0)
+                      + COALESCE((SELECT SUM(m) FROM (SELECT MAX(bytes) AS m FROM a WHERE sha256 IS NOT NULL GROUP BY sha256) z), 0) AS fisico
+               FROM a',
+        );
+
+        return [
+            'cobrado'  => (int) ($linha['cobrado'] ?? 0),
+            'fisico'   => (int) ($linha['fisico'] ?? 0),
+            'vinculos' => (int) ($linha['vinculos'] ?? 0),
+            'arquivos' => (int) ($linha['arquivos'] ?? 0),
+        ];
+    }
+
+    /**
      * Entidades administrativas que entram na trilha "Segurança e auditoria". As três da Contribua são os
      * limites da conta, o catálogo de planos e as faixas de alerta (spec perfis-1.2-planos-e-limites P7).
      * As duas das seccionais da OAB são a sede editada e a divulgação registrada pelo Master (spec
@@ -564,12 +593,14 @@ class PainelMasterRepository
     {
         $partes = [];
         foreach (self::TABELAS_DE_ARQUIVO as [$tabela, $tamanho, $data, $tenant, $filtro]) {
+            $comHash  = str_starts_with($tabela, 'pasta_documento');
             $partes[] = sprintf(
-                'SELECT %s AS tenant_id, COALESCE(x.%s, 0)::bigint AS bytes, x.%s AS criado, %s AS conta FROM %s x%s',
+                'SELECT %s AS tenant_id, COALESCE(x.%s, 0)::bigint AS bytes, x.%s AS criado, %s AS conta, %s AS sha256 FROM %s x%s',
                 $tenant,
                 $tamanho,
                 $data,
                 $tabela === 'pasta_documento' ? 'CASE WHEN EXISTS (SELECT 1 FROM pasta p WHERE p.id = x.pasta_id AND p.excluida_em IS NOT NULL) THEN 0 ELSE 1 END' : '1',
+                $comHash ? 'x.sha256' : 'NULL::char(64)',
                 $tabela,
                 $filtro !== null ? ' WHERE ' . $filtro : '',
             );

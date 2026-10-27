@@ -7,6 +7,7 @@ namespace App\Djen\Controller;
 use App\Djen\Exception\AcompanhamentoInvalidoException;
 use App\Djen\Enum\SituacaoDoPrazoDoProcesso;
 use App\Djen\Repository\OabMonitoradaRepository;
+use App\Djen\Repository\PublicacaoDoDiarioDaOabRepository;
 use App\Djen\Repository\ProcessosDaOabRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\Service\ClassificacaoDoProcesso;
@@ -47,6 +48,7 @@ final class ProcessosDaOabController extends AbstractController
     private const SUBABAS = ['acompanhados', 'relatorio', 'acervo'];
 
     public function __construct(
+        private readonly PublicacaoDoDiarioDaOabRepository $diarioRepository,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly ProcessosDaOabRepository $processosDaOab,
@@ -473,7 +475,7 @@ final class ProcessosDaOabController extends AbstractController
         return [
             'publicacoesNovas' => $this->publicacaoRepository->contarIndicadoresDoTenant($tenant, new \DateTimeImmutable('today'), $ocultos)['naoLidas'],
             'processos' => $processos,
-            'diarioNovas' => 0,
+            'diarioNovas' => $this->getUser() instanceof User ? $this->diarioRepository->contarNaoLidasDoUsuario($tenant, $this->getUser()) : 0,
             'oabs' => \count($this->oabRepository->listarDoTenant($tenant)),
         ];
     }

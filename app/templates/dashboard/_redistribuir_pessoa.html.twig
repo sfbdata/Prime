@@ -1,0 +1,29 @@
+{# Corpo do <dialog> "Redistribuir" do perfil da pessoa (fatia B da spec painel-acompanhamento-redistribuir).
+   Fragmento por XHR. Tudo chega DESMARCADO (LGPD art. 20: nada acontece sem o gestor marcar e confirmar); o destino é
+   uma SUGESTÃO por regras fixas (menos metas ativas), editável. Quem monta é o PerfilDaPessoaDoDashboardController. #}
+{% if lista.metas is empty %}
+    <div class="db-pf-vazio" data-pf-red-vazio>{{ 'dashboard.pessoa.redistribuir.vazio'|trans }}</div>
+{% else %}
+    <div class="db-pf-dlg-texto">{{ 'dashboard.pessoa.redistribuir.sugestao'|trans }}</div>
+    <div class="db-pf-dlg-texto">{{ 'dashboard.pessoa.redistribuir.nada_marcado'|trans }}</div>
+    <div class="db-pf-legenda">{{ 'dashboard.pessoa.redistribuir.zerar'|trans }} {{ 'dashboard.pessoa.redistribuir.limite'|trans({limite: limite}) }}</div>
+    <div class="db-pf-red-lista" data-pf-red-lista data-limite="{{ limite }}">
+        {% for m in lista.metas %}
+            <div class="db-pf-red-linha" data-pf-red-linha data-meta="{{ m.id }}">
+                <label class="db-pf-red-meta">
+                    <input type="checkbox" data-pf-red-marca{{ m.destinosPossiveis ? '' : ' disabled' }}>
+                    <span><b>{{ m.titulo }}</b><small>{{ 'dashboard.pessoa.redistribuir.pasta'|trans({pasta: m.pasta}) }}{% if m.prazo %} · {{ 'dashboard.pessoa.redistribuir.prazo'|trans({data: m.prazo|date('d/m/Y')}) }}{% endif %}</small></span>
+                </label>
+                {% if m.destinosPossiveis %}
+                    <select class="db-pf-red-destino" data-pf-red-destino aria-label="{{ 'dashboard.pessoa.redistribuir.destino'|trans({titulo: m.titulo}) }}">
+                        {% for d in lista.destinos|filter(d => d.id in m.destinosPossiveis) %}
+                            <option value="{{ d.id }}"{{ d.id == m.destinoSugeridoId ? ' selected' : '' }}>{{ d.nome }} ({{ d.ativas }})</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    <span class="db-pf-red-sem">{{ 'dashboard.pessoa.redistribuir.sem_destino'|trans }}</span>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}

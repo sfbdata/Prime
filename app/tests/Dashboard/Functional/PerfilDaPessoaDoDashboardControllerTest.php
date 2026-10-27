@@ -145,7 +145,7 @@ final class PerfilDaPessoaDoDashboardControllerTest extends JusPrimeWebTestCase
         $html = (string) $this->client->getResponse()->getContent();
         self::assertCount(0, $perfil->filter('[data-pf-plano]'), '1 vencida está abaixo do limiar de 4: sem plano');
         self::assertCount(1, $perfil->filter('[data-matriz="backlog"] .db-pf-matriz-v--bom'));
-        foreach (['Correlação', 'Hipótese', 'Criar acompanhamento', 'Redistribuir'] as $naoDeve) {
+        foreach (['Correlação', 'Hipótese'] as $naoDeve) {
             self::assertStringNotContainsString($naoDeve, $html, $naoDeve);
         }
         self::assertSame(1, $this->auditorias($c['tenant'], 'ia_pessoa'));

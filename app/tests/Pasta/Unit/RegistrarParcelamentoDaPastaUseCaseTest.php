@@ -293,6 +293,24 @@ final class RegistrarParcelamentoDaPastaUseCaseTest extends TestCase
     }
 
 
+    #[TestDox('recorrente: valor mensal repetido por N meses, sem entrada nem juros, tipo gravado')]
+    public function testRecorrente(): void
+    {
+        $this->em->expects($this->once())->method('flush');
+
+        $this->useCase->executar($this->pasta, $this->autor, $this->tenant, $this->input([
+            'tipo' => 'recorrente', 'total' => '1.500,00', 'parcelas' => '3', 'entrada' => '500,00', 'juros' => true, 'taxa' => '2',
+        ]));
+
+        self::assertSame([
+            ['Mensalidade 1/3 · honorários recorrentes', '1500.00', '2026-11-06', null],
+            ['Mensalidade 2/3 · honorários recorrentes', '1500.00', '2026-12-06', null],
+            ['Mensalidade 3/3 · honorários recorrentes', '1500.00', '2027-01-06', null],
+        ], $this->linhas(), 'entrada e juros não valem no recorrente');
+        self::assertSame(TipoDePagamento::Recorrente, $this->persistidos[0]->getTipo());
+        self::assertNull($this->persistidos[0]->getJurosMensal());
+    }
+
     // =========================================================================
     // Êxito e sucumbência: o previsto (spec pasta-exito-sucumbencia)
     // =========================================================================

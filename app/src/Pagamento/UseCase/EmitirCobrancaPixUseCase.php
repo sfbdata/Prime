@@ -1,0 +1,180 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Pagamento\UseCase;
+
+use App\Contribua\Banco\BancoPix;
+use App\Contribua\Banco\BancosPix;
+use App\Contribua\Banco\FalhaNoBanco;
+use App\Contribua\Banco\PedidoDeCobrancaPix;
+use App\Contribua\Repository\IntegracaoBancariaRepository;
+use App\Pagamento\DTO\CobrancaPixOutput;
+use App\Pagamento\DTO\CriarPagamentoInput;
+use App\Pagamento\DTO\EmitirCobrancaPixInput;
+use App\Pagamento\Entity\Pagamento;
+use App\Pagamento\Entity\PagamentoEvento;
+use App\Pagamento\Enum\MetodoDePagamento;
+use App\Pagamento\Enum\StatusDoPagamento;
+use App\Pagamento\Repository\PagamentoEventoRepository;
+use App\Pagamento\Repository\PagamentoRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
+use Psr\Log\LoggerInterface;
+
+/**
+ * História: o consumidor (Trabalho Externo) pede o QR dinâmico. Gravamos o `pagamento` ANTES de falar com o banco
+ * (idempotente pela referência) e só então criamos a cobrança, com a mesma chave de idempotência: se o banco criou e a
+ * resposta se perdeu, a próxima chamada recebe a mesma cobrança. Nenhuma chamada ao banco dentro de transação; só a trava
+ * de sessão da referência (com prazo de 5 s) fica retida durante o pedido, e é liberada no `finally`.
+ *
+ * Sem CNPJ válido do cliente lança \DomainException antes de criar qualquer coisa. Devolve `null` quando não há QR dinâmico a mostrar (integração desligada ou sem a chave do consumidor, banco fora
+ * do ar agora, recusa do banco, trava da referência ocupada além do prazo): o consumidor cai no PIX estático. Recusa certa do banco cancela o pagamento;
+ * falha passageira o deixa `aguardando` sem `brCode`, e a próxima abertura repete o pedido.
+ */
+// Público para o teste funcional alcançá-lo pelo container.
+#[Autoconfigure(public: true)]
+final class EmitirCobrancaPixUseCase
+{
+    /**
+     * Espera máxima pela trava da referência: 50 x 100 ms = 5 s. Quem tem a trava pode levar mais que isso (o cliente do banco
+     * dá 15 s por chamada, token e criação): quem espera desiste e cai no PIX estático, e a próxima abertura da aba repete.
+     */
+    private const TRAVA_TENTATIVAS = 50;
+    private const TRAVA_ESPERA_US = 100_000;
+
+    public function __construct(
+        private readonly IntegracaoBancariaRepository $integracoes,
+        private readonly BancosPix $bancos,
+        private readonly CriarPagamentoUseCase $criar,
+        private readonly PagamentoRepository $pagamentos,
+        private readonly PagamentoEventoRepository $eventos,
+        private readonly EntityManagerInterface $em,
+        private readonly LoggerInterface $logger,
+    ) {
+    }
+
+    /** A integração está conectada e a chave do consumidor (`te`) ligada? Sem isto vale o PIX estático. */
+    public function disponivel(string $recurso): bool
+    {
+        $integracao = $this->integracoes->atual();
+
+        return $this->bancos->doCodigo($integracao->getBanco()) !== null && $integracao->cobraPorConta() && ($integracao->getRecursos()[$recurso] ?? false);
+    }
+
+    /** @throws \DomainException cliente sem CNPJ válido (o banco exige) ou valor fora do limite */
+    public function executar(EmitirCobrancaPixInput $input): ?CobrancaPixOutput
+    {
+        $banco = $this->bancos->doCodigo($this->integracoes->atual()->getBanco());
+        if ($banco === null || !$this->disponivel($input->recurso)) {
+            return null;
+        }
+        if (strlen($input->cnpj) !== 14) {
+            throw new \DomainException('Cadastre o CNPJ do escritório para gerar o PIX com confirmação automática.');
+        }
+
+        // Duas abas pedindo a mesma referência ao mesmo tempo: a segunda espera a primeira (sem transação aberta) e
+        // então encontra a cobrança já criada, em vez de bater na unicidade da referência.
+        // Tentativa com prazo (não há PgBouncer entre o app e o Postgres em produção, então a trava de sessão vale):
+        // quem não a obtém a tempo desiste sem cobrança, e a tela cai no PIX estático.
+        $conexao = $this->em->getConnection();
+        if (!$this->obterTrava($input->referencia)) {
+            return null;
+        }
+        try {
+            return $this->emitirSerial($banco, $input);
+        } finally {
+            $conexao->executeQuery('SELECT pg_advisory_unlock(hashtext(?))', [$input->referencia]);
+        }
+    }
+
+    private function obterTrava(string $referencia): bool
+    {
+        $conexao = $this->em->getConnection();
+        for ($tentativa = 0; $tentativa < self::TRAVA_TENTATIVAS; ++$tentativa) {
+            if ($conexao->fetchOne('SELECT pg_try_advisory_lock(hashtext(?))', [$referencia])) {
+                return true;
+            }
+            usleep(self::TRAVA_ESPERA_US);
+        }
+
+        return false;
+    }
+
+    private function emitirSerial(BancoPix $banco, EmitirCobrancaPixInput $input): ?CobrancaPixOutput
+    {
+        // Já com a trava: se o banco confirmou (ou divergiu) entre a leitura de quem pediu e agora, não sai QR novo.
+        $ultimo = $this->pagamentos->ultimoDaOrigem($input->tenantId, $input->origem, $input->origemId);
+        if ($ultimo !== null) {
+            $this->em->refresh($ultimo);
+            if (in_array($ultimo->getStatus(), [StatusDoPagamento::Paga, StatusDoPagamento::Divergente], true)) {
+                return null;
+            }
+        }
+
+        $criada = $this->criar->executar(new CriarPagamentoInput(
+            $input->tenantId,
+            $input->origem,
+            $input->origemId,
+            $input->referencia,
+            $input->valorCentavos,
+            MetodoDePagamento::Pix,
+            $banco->codigo(),
+            $input->expiraEm,
+        ));
+        $pagamento = $this->pagamentos->find($criada->id);
+        if ($pagamento === null || $pagamento->getStatus() !== StatusDoPagamento::Aguardando) {
+            return null;
+        }
+        if ($pagamento->getBrCode() !== null) {
+            return CobrancaPixOutput::fromEntity($pagamento);
+        }
+
+        return $this->criarNoBanco($banco, $pagamento, $input);
+    }
+
+    /** Fala com o banco (fora de transação) e guarda o que ele devolveu. `null`: sem QR dinâmico, vale o estático. */
+    private function criarNoBanco(BancoPix $banco, Pagamento $pagamento, EmitirCobrancaPixInput $input): ?CobrancaPixOutput
+    {
+        try {
+            $cobranca = $banco->criarCobranca(new PedidoDeCobrancaPix(
+                $pagamento->getReferencia(),
+                $pagamento->getIdempotencyKey(),
+                $input->nomeDoCliente,
+                $input->cnpj,
+                $pagamento->getValorCentavos(),
+                $input->expiraEm,
+            ));
+        } catch (FalhaNoBanco $falha) {
+            $this->logger->warning('Pagamento: cobrança PIX não criada no banco', ['pagamento' => $pagamento->getId(), 'passageira' => $falha->passageira, 'codigo' => $falha->getCode()]);
+            if (!$falha->passageira) {
+                $this->cancelarPorRecusa($pagamento->getId());
+            }
+
+            return null;
+        }
+
+        $this->em->wrapInTransaction(function () use ($pagamento, $cobranca): void {
+            $this->pagamentos->travar($pagamento);
+            $pagamento->registrarCobrancaNoBanco($cobranca->idNoBanco, $cobranca->copiaECola);
+            $this->eventos->salvar(new PagamentoEvento($pagamento->getTenant(), $pagamento, 'cobranca_emitida', 'sistema', 'Cobrança PIX criada no banco.'));
+        });
+
+        return CobrancaPixOutput::fromEntity($pagamento);
+    }
+
+    private function cancelarPorRecusa(?int $id): void
+    {
+        $pagamento = $this->pagamentos->find((int) $id);
+        if ($pagamento === null) {
+            return;
+        }
+        $this->em->wrapInTransaction(function () use ($pagamento): void {
+            $this->pagamentos->travar($pagamento);
+            if ($pagamento->getStatus() === StatusDoPagamento::Aguardando) {
+                $pagamento->cancelar();
+                $this->eventos->salvar(new PagamentoEvento($pagamento->getTenant(), $pagamento, 'cancelado', 'sistema', 'O banco recusou criar a cobrança.'));
+            }
+        });
+    }
+}

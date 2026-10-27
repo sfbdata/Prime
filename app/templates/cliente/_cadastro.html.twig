@@ -102,10 +102,10 @@
         <nav class="cad-abas" role="tablist">
             {% for aba in [
                 {k: 'pessoais', rotulo: pf ? 'cliente.cadastro.aba.cliente'|trans : 'cliente.cadastro.aba.empresa'|trans, icone: 'bi-person'},
-                {k: 'reu',      rotulo: 'cliente.cadastro.aba.reu'|trans,      icone: 'bi-person-x', so: reus is not null},
                 {k: 'endereco', rotulo: 'cliente.cadastro.aba.endereco'|trans, icone: 'bi-geo-alt'},
                 {k: 'contato',  rotulo: 'cliente.cadastro.aba.contato'|trans,  icone: 'bi-telephone'},
                 {k: 'docs',     rotulo: 'cliente.cadastro.aba.documentos'|trans, icone: 'bi-paperclip', so: not novo},
+                {k: 'reu',      rotulo: 'cliente.cadastro.aba.reu'|trans,      icone: 'bi-person-x', so: reus is not null},
                 {k: 'qual',     rotulo: 'cliente.cadastro.aba.qualificacao'|trans, icone: 'bi-file-text'},
                 {k: 'hist',     rotulo: 'cliente.cadastro.aba.historico'|trans, icone: 'bi-clock-history'},
             ]|filter(a => a.so ?? true) %}

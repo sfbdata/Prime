@@ -18,6 +18,7 @@ use App\Cobranca\Entity\RelatorioTotalizador;
 use App\Djen\Entity\OabMonitorada;
 use App\Djen\Entity\ProcessoAcompanhado;
 use App\Djen\Entity\PublicacaoDjen;
+use App\Djen\Entity\PublicacaoDoDiarioDaOab;
 use App\Entity\Audit\AuditLog;
 use App\Expediente\Entity\Marcador;
 use App\Kanban\Entity\KanbanAnexo;
@@ -111,6 +112,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Foto diária do estoque do Dashboard: dado DERIVADO de tarefa/pasta (contagens), regravado
         // pelo cron. Não é ato de ninguém e não prova nada — auditar só duplicaria números.
         \App\Dashboard\Entity\DashboardFoto::class,
+        // Acompanhamento da pessoa no Painel: a trilha é a das ações acomp_cria, acomp_rnv e acomp_fim
+        // (RegistrarAuditoriaDoAcompanhamentoUseCase), gravadas na mesma transação. Auditavel gravaria uma
+        // segunda linha por ação, com o estado normalizado da entidade.
+        \App\Dashboard\Entity\AcompanhamentoDaPessoa::class,
         // Previsão da Situação atual do Push (taxa de acertos, push-painel-monitoramento §3): dado DERIVADO
         // das publicações, gravado pelo sistema ao montar a aba, sem ato de ninguém. Auditar só duplicaria
         // a previsão; o processo dela já está fora da auditoria por decisão de produto.
@@ -287,6 +292,8 @@ final class AuditavelCoberturaTest extends KernelTestCase
         PublicacaoDjen::class,
         // ProcessoAcompanhado é anotação do Push (observação, área, fase) e número incluído à mão.
         ProcessoAcompanhado::class,
+        // PublicacaoDoDiarioDaOab é registro pessoal do usuário (texto de ato sigiloso); o rastro é dele, não do escritório.
+        PublicacaoDoDiarioDaOab::class,
 
         // Cobranças — EventoHistorico é o LOG DE DOMÍNIO (linha do tempo operacional, SPEC §13):
         // histórico de negócio visível ao usuário, distinto da auditoria técnica (invariável 26).

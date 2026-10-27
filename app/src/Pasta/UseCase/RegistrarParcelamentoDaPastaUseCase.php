@@ -82,11 +82,13 @@ final class RegistrarParcelamentoDaPastaUseCase
     private const ROTULOS = [
         ParcelamentoDaPastaInput::TIPO_CONTRATO => 'honorários',
         ParcelamentoDaPastaInput::TIPO_CUSTAS   => 'custas',
+        ParcelamentoDaPastaInput::TIPO_RECORRENTE => 'mensalidade',
     ];
 
     private const DESCRICAO_UNICA = [
         ParcelamentoDaPastaInput::TIPO_CONTRATO => 'Honorários contratuais',
         ParcelamentoDaPastaInput::TIPO_CUSTAS   => 'Custas e despesas',
+        ParcelamentoDaPastaInput::TIPO_RECORRENTE => 'Mensalidade 1/1 · honorários recorrentes',
     ];
 
     public function __construct(
@@ -117,16 +119,19 @@ final class RegistrarParcelamentoDaPastaUseCase
             throw new \InvalidArgumentException('Escolha o tipo do pagamento.');
         }
 
-        $totalCentavos = $this->lerTotal($pasta, $input);
+        // Recorrente (dc 27.10): o valor digitado é o MENSAL; o total é mensal × meses, sem entrada nem juros.
+        $recorrente    = $tipo === ParcelamentoDaPastaInput::TIPO_RECORRENTE;
+        $quantidade    = $this->lerQuantidade($input->parcelas);
+        $totalCentavos = $this->lerTotal($pasta, $input) * ($recorrente ? $quantidade : 1);
 
         // Entrada maior que o total vira o total, como no desenho (`Math.min`):
         // a prévia já mostra a entrada cheia e nenhuma parcela.
-        $entradaCentavos = min($this->lerEntrada($input->entrada), $totalCentavos);
-        $quantidade      = $this->lerQuantidade($input->parcelas);
+        $entradaCentavos = $recorrente ? 0 : min($this->lerEntrada($input->entrada), $totalCentavos);
         $primeiro        = $this->lerData($input->primeiroVencimento);
-        $taxa            = $input->comJuros ? $this->lerTaxa($input->taxaMensal) : '0';
+        $comJuros        = $input->comJuros && !$recorrente;
+        $taxa            = $comJuros ? $this->lerTaxa($input->taxaMensal) : '0';
         // Só para REGISTRAR na parcela (FPN-009); a conta acima segue com `$taxa`.
-        $jurosDaParcela  = $input->comJuros ? $taxa : null;
+        $jurosDaParcela  = $comJuros ? $taxa : null;
 
         $principal = $totalCentavos - $entradaCentavos;
         $valores   = $principal > 0 ? $this->calculadora->parcelas($principal, $quantidade, $taxa) : [];
@@ -151,14 +156,7 @@ final class RegistrarParcelamentoDaPastaUseCase
         }
 
         foreach ($valores as $k => $centavos) {
-            $descricao = match (true) {
-                // A descrição digitada vai em TODAS as parcelas; com mais de uma,
-                // cada linha leva " · k/N" para continuar distinguível na lista.
-                $descricaoLivre !== null && $quantidade === 1 => $descricaoLivre,
-                $descricaoLivre !== null                      => sprintf('%s · %d/%d', $descricaoLivre, $k + 1, $quantidade),
-                $quantidade === 1                             => self::DESCRICAO_UNICA[$tipo],
-                default                                       => sprintf('%dª parcela · %s', $k + 1, $rotulo),
-            };
+            $descricao = $this->descricaoDaParcela($tipo, $descricaoLivre, $k, $quantidade, $rotulo);
             $lancados[] = $this->novo($pasta, $autor, $tenant, $descricao, $centavos, $datas[$k], $jurosDaParcela);
         }
 
@@ -167,6 +165,19 @@ final class RegistrarParcelamentoDaPastaUseCase
         }
 
         return $this->gravar($lancados);
+    }
+
+    private function descricaoDaParcela(string $tipo, ?string $descricaoLivre, int $k, int $quantidade, string $rotulo): string
+    {
+        return match (true) {
+            // A descrição digitada vai em TODAS as parcelas; com mais de uma,
+            // cada linha leva " · k/N" para continuar distinguível na lista.
+            $descricaoLivre !== null && $quantidade === 1 => $descricaoLivre,
+            $descricaoLivre !== null                      => sprintf('%s · %d/%d', $descricaoLivre, $k + 1, $quantidade),
+            $tipo === ParcelamentoDaPastaInput::TIPO_RECORRENTE => sprintf('Mensalidade %d/%d · honorários recorrentes', $k + 1, $quantidade),
+            $quantidade === 1                             => self::DESCRICAO_UNICA[$tipo],
+            default                                       => sprintf('%dª parcela · %s', $k + 1, $rotulo),
+        };
     }
 
     /**

@@ -24,6 +24,7 @@ pasta_financeiro:
         sem_cliente: Vincule o cliente para calcular
     relatorio:
         titulo: Relatório financeiro
+        subtitulo: Cobrança e histórico de negociações
         contagem_dica: Registros principais (respostas não contam)
         somente_leitura: 'Pasta excluída: o relatório financeiro fica só para leitura.'
         placeholder: Registrar combinado, honorário ou movimento financeiro do caso…
@@ -49,8 +50,12 @@ pasta_financeiro:
         janela_dica: 'Edição e exclusão liberadas por mais {minutos} min'
         janela: '· {minutos} min'
         responder: Responder
+    vencidas:
+        uma: '{n} parcela vencida · {valor}'
+        varias: '{n} parcelas vencidas · {valor}'
     arquivos:
-        titulo: Arquivos
+        titulo: Contratos
+        subtitulo: Recibos, guias e outros
         adicionar: Adicionar
         adicionar_dica: Adicionar arquivo (PDF, DOCX, JPEG, PNG, máx. 10 MB)
         vazio: Nenhum arquivo financeiro anexado.
@@ -109,7 +114,11 @@ pasta_financeiro:
         previsto_sucumbencia: '+ {valor} previsto em sucumbência'
         previsto_exito_sucumbencia: '+ {valor} previsto em êxito e sucumbência'
     js:
+        vencidas_um: '{n} parcela vencida · {valor}'
+        vencidas_varias: '{n} parcelas vencidas · {valor}'
         # selos e honorários
+        mensalidade_de: 'Mensalidade {numero}/{n} · honorários recorrentes'
+        contrato_sem_arquivo: Anexe o arquivo do contrato em Contratos para marcar como assinado.
         contrato_assinado: Assinado
         contrato_pendente: Pendente
         contrato_assinado_dica: Contrato assinado. Clique para reabrir como pendente

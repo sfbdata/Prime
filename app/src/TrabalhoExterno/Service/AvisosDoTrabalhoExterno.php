@@ -174,6 +174,17 @@ final class AvisosDoTrabalhoExterno
      */
     public function andamentoDaDemanda(Contexto $ctx, DemandaExterna $demanda): void
     {
+        $this->andamentosDaDemanda($ctx->configuracao, $ctx->usuario, $demanda);
+    }
+
+    /** O mesmo aviso quando ninguém agiu na tela (o banco confirmou o PIX): todos os envolvidos recebem. */
+    public function andamentoAutomaticoDaDemanda(ConfiguracaoCentral $cfg, DemandaExterna $demanda): void
+    {
+        $this->andamentosDaDemanda($cfg, null, $demanda);
+    }
+
+    private function andamentosDaDemanda(ConfiguracaoCentral $cfg, ?User $quemAgiu, DemandaExterna $demanda): void
+    {
         $andamentos = $demanda->retirarAndamentosParaAvisar();
         if ($andamentos === []) {
             return;
@@ -181,7 +192,7 @@ final class AvisosDoTrabalhoExterno
         $servico = trim($demanda->getTipoServico());
         $titulo = mb_substr($demanda->getCodigo() . ' · ' . ($servico !== '' ? $servico : 'Trabalho externo'), 0, 255);
         $url = self::TELA . '?te=' . $demanda->getCodigo();
-        $partes = $this->partesDaDemanda($ctx, $demanda);
+        $partes = $this->partesDaDemanda($cfg, $quemAgiu, $demanda);
         foreach ($andamentos as $andamento) {
             foreach ($partes as [$pessoa, $escritorio, $comoConvidado]) {
                 if ($comoConvidado !== null && !$this->convidadoLeria($comoConvidado, $demanda, $andamento['mensagem'])) {
@@ -287,11 +298,10 @@ final class AvisosDoTrabalhoExterno
      *
      * @return list<array{0: User, 1: Tenant, 2: ?Contexto}>
      */
-    private function partesDaDemanda(Contexto $ctx, DemandaExterna $demanda): array
+    private function partesDaDemanda(ConfiguracaoCentral $cfg, ?User $quemAgiu, DemandaExterna $demanda): array
     {
-        $cfg = $ctx->configuracao;
         $escritorio = $demanda->getTenant();
-        $vistos = [(int) $ctx->usuario->getId() => true];
+        $vistos = $quemAgiu !== null ? [(int) $quemAgiu->getId() => true] : [];
         $partes = [];
         foreach ($this->semAInterna($this->solicitantesDaDemanda($demanda, $cfg), $escritorio, $cfg) as $pessoa) {
             if (!isset($vistos[(int) $pessoa->getId()])) {

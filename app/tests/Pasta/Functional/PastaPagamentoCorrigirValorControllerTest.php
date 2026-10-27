@@ -237,7 +237,7 @@ final class PastaPagamentoCorrigirValorControllerTest extends JusPrimeWebTestCas
         $resumo = $dados['resumo'];
         unset($resumo['html']);
         self::assertSame(
-            ['total' => 2, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'contratado' => 'R$ 2.150,50', 'contratadoCentavos' => 215050, 'percentual' => 0],
+            ['total' => 2, 'quantidadePagos' => 0, 'recebido' => 'R$ 0,00', 'contratado' => 'R$ 2.150,50', 'contratadoCentavos' => 215050, 'percentual' => 0, 'vencidasQuantidade' => 0, 'vencidasFormatado' => 'R$ 0,00'],
             $resumo,
         );
 

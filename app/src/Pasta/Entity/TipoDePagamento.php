@@ -17,6 +17,8 @@ enum TipoDePagamento: string
     case Exito       = 'exito';
     case Sucumbencia = 'sucumbencia';
     case Custas      = 'custas';
+    /** Honorários mensais fixos: o mesmo valor todo mês, pelo número de meses (dc 27.10). */
+    case Recorrente  = 'recorrente';
 
     /** Êxito e sucumbência: só existem se houver resultado. */
     public function ehCondicionado(): bool

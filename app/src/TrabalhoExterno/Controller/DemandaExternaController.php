@@ -17,6 +17,7 @@ use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\UseCase\AlternarItemDoChecklistUseCase;
 use App\TrabalhoExterno\UseCase\AjustarValorDoPagamentoUseCase;
+use App\TrabalhoExterno\UseCase\PrepararPagamentoDaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\RecusarComprovanteDePagamentoUseCase;
 use App\TrabalhoExterno\UseCase\AnexarDocumentosUseCase;
 use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
@@ -256,12 +257,27 @@ final class DemandaExternaController extends AbstractController
         });
     }
 
-    /** "Confirmar recebimento": sem corpo. O valor sai da proposta aceita, nunca do cliente. */
+    /**
+     * A aba Pagamento pede a cobrança PIX dinâmica (gateway M1): `{"novo": true}` só no botão "gerar novo QR". Sem
+     * integração ligada não faz nada. Devolve a demanda e, se couber, o aviso para a tela.
+     */
+    #[Route('/demandas/{codigo}/pagamento/cobranca', name: 'trabalho_externo_pagamento_cobranca', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
+    public function prepararCobranca(Request $request, string $codigo, PrepararPagamentoDaDemandaUseCase $preparar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $preparar): array {
+            $aviso = $preparar->executar($ctx, $codigo, ($this->corpo($request)['novo'] ?? false) === true);
+
+            return ['demanda' => $this->detalhar->executar($ctx, $codigo), 'avisoPagamento' => $aviso];
+        });
+    }
+
+    /** "Confirmar recebimento": sem valor no corpo (sai da proposta aceita); `{"motivo": "..."}` só com o PIX dinâmico aguardando. */
     #[Route('/demandas/{codigo}/pagamento/confirmacao', name: 'trabalho_externo_pagamento_confirmar', methods: ['POST'], requirements: ['codigo' => self::CODIGO])]
     public function confirmarRecebimento(Request $request, string $codigo, ConfirmarRecebimentoDoPixUseCase $confirmar): JsonResponse
     {
-        return $this->escrever($request, function (Contexto $ctx) use ($codigo, $confirmar): array {
-            $confirmar->executar($ctx, $codigo);
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $codigo, $confirmar): array {
+            $motivo = $this->corpo($request)['motivo'] ?? null;
+            $confirmar->executar($ctx, $codigo, is_scalar($motivo) ? (string) $motivo : null);
 
             return [
                 'demanda' => $this->detalhar->executar($ctx, $codigo),

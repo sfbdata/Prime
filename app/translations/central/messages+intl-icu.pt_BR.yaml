@@ -58,6 +58,8 @@ central:
         pasta_rotulo: Pasta
         abrir_pasta: Abrir pasta
         pasta_aria: Pasta aberta na tela usada como contexto da pergunta
+        clientes_rotulo: Incluir outras pastas do cliente
+        clientes_aviso: A IA vai ler as outras pastas deste cliente que você pode ver. Dados pessoais seguem a configuração do escritório.
         placeholder: Pergunte ao BlueJus IA…
         placeholder_aguardando: Aguardando a resposta…
         previa_vazia: Pergunte em linguagem natural

@@ -40,6 +40,24 @@ use App\TrabalhoExterno\Service\ResolvedorDePerfil;
 use App\TrabalhoExterno\Service\TransacaoDoComprovante;
 use App\TrabalhoExterno\UseCase\AjustarValorDoPagamentoUseCase;
 use App\TrabalhoExterno\UseCase\AvisarPagamentoNoChatUseCase;
+use App\Contribua\Banco\BancosPix;
+use App\Contribua\Banco\CofreDeCertificado;
+use App\Contribua\Banco\Cora\BancoCora;
+use App\Contribua\Banco\Cora\ClienteCora;
+use App\Contribua\Entity\IntegracaoBancaria;
+use App\Contribua\Repository\IntegracaoBancariaRepository;
+use App\Pagamento\Repository\PagamentoEventoRepository;
+use App\Pagamento\Repository\PagamentoRepository;
+use App\Pagamento\UseCase\CancelarCobrancaDaOrigemUseCase;
+use App\Pagamento\UseCase\ConsultarCobrancaDaOrigemUseCase;
+use App\Pagamento\UseCase\CriarPagamentoUseCase;
+use App\Tests\Contribua\Banco\CoraFalsa;
+use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use App\Pagamento\UseCase\EmitirCobrancaPixUseCase;
+use App\TrabalhoExterno\Repository\ConfiguracaoCentralRepository;
+use App\TrabalhoExterno\Service\RegistrarPagamentoDaDemandaService;
 use App\TrabalhoExterno\UseCase\ConfirmarRecebimentoDoPixUseCase;
 use App\TrabalhoExterno\UseCase\EnviarComprovanteDePagamentoUseCase;
 use App\TrabalhoExterno\UseCase\RecusarComprovanteDePagamentoUseCase;
@@ -297,6 +315,27 @@ final class PagamentoDaDemandaTest extends TestCase
         self::assertSame(1, $this->salvos, 'não gravou de novo');
         self::assertCount(1, array_filter($this->demanda->getMensagens(), static fn ($m): bool => str_contains($m->getTexto(), 'confirmado via PIX')));
         self::assertCount(1, array_filter($this->demanda->getHistorico(), static fn ($h): bool => $h->getPara() === Situacao::MARCO_PAGO));
+    }
+
+    #[TestDox('Banco confirma: leva a demanda a Pago com o autor "Sistema (banco)", uma vez só; pago antes pelo botão ou cancelada não muda nada')]
+    public function testRegistrarPeloBanco(): void
+    {
+        $registro = $this->registro();
+
+        self::assertTrue($registro->registrarPeloBanco($this->demanda, 'R$ 1.500,00'));
+        self::assertNotNull($this->demanda->getPagoEm());
+        $ultima = $this->demanda->getMensagens()[array_key_last($this->demanda->getMensagens())];
+        self::assertSame('Sistema (banco)', $ultima->getNomeAutor());
+        self::assertNull($ultima->getAutor());
+        self::assertStringContainsString('Pagamento de R$ 1.500,00 confirmado via PIX', $ultima->getTexto());
+
+        self::assertFalse($registro->registrarPeloBanco($this->demanda, 'R$ 1.500,00'), 'já pago: no-op');
+        self::assertSame(1, $this->salvos);
+        self::assertCount(1, array_filter($this->demanda->getHistorico(), static fn ($h): bool => $h->getPara() === Situacao::MARCO_PAGO));
+
+        $cancelada = Apoio::demanda(Situacao::Cancelada);
+        self::assertFalse($registro->registrarPeloBanco($cancelada, 'R$ 1,00'), 'cancelada não muda');
+        self::assertNull($cancelada->getPagoEm());
     }
 
     #[TestDox('Confirmar: demanda de outro escritório não existe (o Solicitante de fora leva 404), e sem proposta aceita não há o que confirmar (409)')]
@@ -675,7 +714,7 @@ final class PagamentoDaDemandaTest extends TestCase
 
     private function ajustar(): AjustarValorDoPagamentoUseCase
     {
-        return new AjustarValorDoPagamentoUseCase($this->localizador(), $this->repositorio(), $this->avisos());
+        return new AjustarValorDoPagamentoUseCase($this->localizador(), $this->repositorio(), $this->avisos(), $this->cobrancaDoPixSemBanco()[1]);
     }
 
     private function ultima(DemandaExterna $d): \App\TrabalhoExterno\Entity\MensagemDemanda
@@ -692,12 +731,54 @@ final class PagamentoDaDemandaTest extends TestCase
 
     private function apresentador(): ApresentadorDoPagamento
     {
-        return new ApresentadorDoPagamento(new PoliticaDaDemanda(), new PixDaDemanda(), new QrCodeEmSvg());
+        return new ApresentadorDoPagamento(new PoliticaDaDemanda(), new PixDaDemanda(), new QrCodeEmSvg(), ...$this->cobrancaDinamicaDesligada());
+    }
+
+    /**
+     * Consultar, cancelar e a integração, para o caso de uso do botão manual (sem cobrança dinâmica nenhuma).
+     *
+     * @return array{0: ConsultarCobrancaDaOrigemUseCase, 1: CancelarCobrancaDaOrigemUseCase, 2: EmitirCobrancaPixUseCase}
+     */
+    private function cobrancaDoPixSemBanco(): array
+    {
+        [$consultar, $emitir] = $this->cobrancaDinamicaDesligada();
+        $cancelar = new CancelarCobrancaDaOrigemUseCase($this->createStub(PagamentoRepository::class), $this->createStub(PagamentoEventoRepository::class), $this->createStub(EntityManagerInterface::class));
+
+        return [$consultar, $cancelar, $emitir];
+    }
+
+    /**
+     * O lado do banco desligado (integração sem certificado): a aba cai no PIX estático, como em produção sem credencial.
+     *
+     * @return array{0: ConsultarCobrancaDaOrigemUseCase, 1: EmitirCobrancaPixUseCase}
+     */
+    private function cobrancaDinamicaDesligada(): array
+    {
+        $integracoes = $this->createStub(IntegracaoBancariaRepository::class);
+        $integracoes->method('atual')->willReturn(new IntegracaoBancaria());
+        $cofre = new CofreDeCertificado(base64_encode(random_bytes(32)));
+        $bancos = new BancosPix(new BancoCora(new ClienteCora((new CoraFalsa())->cliente(), new ArrayAdapter(), $cofre), $integracoes, $cofre));
+        $pagamentos = $this->createStub(PagamentoRepository::class);
+        $eventos = $this->createStub(PagamentoEventoRepository::class);
+        $criar = new CriarPagamentoUseCase($pagamentos, $eventos, $this->createStub(EntityManagerInterface::class));
+
+        return [
+            new ConsultarCobrancaDaOrigemUseCase($pagamentos),
+            new EmitirCobrancaPixUseCase($integracoes, $bancos, $criar, $pagamentos, $eventos, $this->createStub(EntityManagerInterface::class), $this->createStub(LoggerInterface::class)),
+        ];
     }
 
     private function confirmar(): ConfirmarRecebimentoDoPixUseCase
     {
-        return new ConfirmarRecebimentoDoPixUseCase($this->localizador(), new PoliticaDaDemanda(), $this->repositorio(), $this->avisos());
+        return new ConfirmarRecebimentoDoPixUseCase($this->localizador(), new PoliticaDaDemanda(), $this->repositorio(), $this->registro(), $this->cobrancaDoPixSemBanco()[0], $this->cobrancaDoPixSemBanco()[1]);
+    }
+
+    private function registro(): RegistrarPagamentoDaDemandaService
+    {
+        $configuracoes = $this->createStub(ConfiguracaoCentralRepository::class);
+        $configuracoes->method('atual')->willReturn(new ConfiguracaoCentral());
+
+        return new RegistrarPagamentoDaDemandaService($this->repositorio(), $this->avisos(), $configuracoes);
     }
 
     private function enviarComprovante(): EnviarComprovanteDePagamentoUseCase

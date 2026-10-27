@@ -441,6 +441,9 @@
                                     data-nota="{{ 'pasta_show.pagamento.nota_exito'|trans }}"
                                     data-rotulo-pct="{{ 'pasta_show.pagamento.pct_proveito'|trans }}"
                                     title="{{ 'pasta_show.pagamento.nota_exito'|trans }}"><i class="bi bi-trophy"></i>{{ 'pasta_show.pagamento.exito'|trans }}</button>
+                            <button type="button" class="ps-np-tipo" data-tipo="recorrente" aria-pressed="false"
+                                    data-nota="{{ 'pasta_show.pagamento.nota_recorrente'|trans }}"
+                                    title="{{ 'pasta_show.pagamento.nota_recorrente'|trans }}"><i class="bi bi-arrow-repeat"></i>{{ 'pasta_show.pagamento.recorrente'|trans }}</button>
                             <button type="button" class="ps-np-tipo" data-tipo="sucumbencia" aria-pressed="false"
                                     data-nota="{{ 'pasta_show.pagamento.nota_sucumbencia'|trans }}"
                                     data-rotulo-pct="{{ 'pasta_show.pagamento.pct_sucumbencia'|trans }}"
@@ -461,7 +464,7 @@
                             </div>
                         </div>
                         <label class="ps-np-campo js-np-campo-total">
-                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.valor_total'|trans }}</span>
+                            <span class="ps-np-rotulo" data-rotulo-padrao="{{ 'pasta_show.pagamento.valor_total'|trans }}" data-rotulo-recorrente="{{ 'pasta_show.pagamento.valor_mensal'|trans }}">{{ 'pasta_show.pagamento.valor_total'|trans }}</span>
                             <input type="text" class="ps-np-input" name="total" inputmode="decimal" maxlength="20" placeholder="0,00" autocomplete="off">
                         </label>
                         <label class="ps-np-campo js-np-campo-pct" hidden>
@@ -473,7 +476,7 @@
                             <input type="text" class="ps-np-input" name="entrada" inputmode="decimal" maxlength="20" placeholder="{{ 'pasta_show.pagamento.opcional'|trans }}" autocomplete="off">
                         </label>
                         <label class="ps-np-campo">
-                            <span class="ps-np-rotulo">{{ 'pasta_show.pagamento.parcelas'|trans }}</span>
+                            <span class="ps-np-rotulo" data-rotulo-padrao="{{ 'pasta_show.pagamento.parcelas'|trans }}" data-rotulo-recorrente="{{ 'pasta_show.pagamento.meses'|trans }}">{{ 'pasta_show.pagamento.parcelas'|trans }}</span>
                             <input type="number" class="ps-np-input" name="parcelas" min="1" max="60" step="1" value="1">
                         </label>
                         <label class="ps-np-campo">
@@ -4900,6 +4903,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-prazos.js') }}"></script>
 {# Andamento da pasta em fases (E12b). #}
 <script src="{{ asset('js/pasta-andamento.js') }}"></script>
+<script src="{{ asset('js/pasta-registro-marcadores.js') }}"></script>
 {{ catalogo_js('cliente.js') }}
 <script src="{{ asset('js/cliente-cadastro.js') }}"></script>
 {# Presença do autor nos cartões (desenho 02, dc L1398): escuta o batimento da Central; `defer` porque a Central entra depois do bloco. #}
