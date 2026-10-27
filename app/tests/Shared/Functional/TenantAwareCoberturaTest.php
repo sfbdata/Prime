@@ -82,6 +82,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escritórios (só o Master edita). O espaço de cada escritório é TenantAware.
         \App\Contribua\Entity\Plano::class,
         \App\Contribua\Entity\ConfiguracaoDoEspaco::class,
+        // Service Desk: preço de cada tipo de atendimento vale para todos os escritórios (só o Master define).
+        \App\ServiceDesk\Entity\PrecoDoAtendimento::class,
         // Espaço do escritório: lido e escrito sempre por tenantId explícito (decorador pelo escopo da
         // chave, Master sobre outro escritório). Filtrar pela sessão faria o Master no escritório X
         // ver o Y como Free. Só o repositório do Contribua a consulta
@@ -224,6 +226,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Master\Entity\EventoDeDesempenho::class,
         \App\Master\Entity\IncidenteDeDesempenho::class,
         \App\Master\Entity\RegistroDeBackup::class,
+        // Custos do Master (docs/specs/master-custos.md): lançamento de custo da PLATAFORMA, sem `tenant_id`; só o Master
+        // (ROLE_SUPER_ADMIN) lê e grava.
+        \App\Master\Entity\LancamentoDeCusto::class,
         // Janela da OAB dos estados que faltam (docs/specs/master-oab-estados-que-faltam.md): as subseções e a nota
         // explicativa de cada seccional são anotação de trabalho da PLATAFORMA, compartilhada entre os Masters, sem
         // escritório nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
@@ -345,7 +350,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 83 → 84 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
     // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
     // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 85;
+    // 85 → 86 com o preço do atendimento do Service Desk (27/10/2026): PrecoDoAtendimento, justificado acima (catálogo
+    // global que só o Master define, igual ao Plano do Contribua).
+    // 86 → 87 com os custos do Master (27/10/2026): LancamentoDeCusto (plataforma), justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 87;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

@@ -50,17 +50,19 @@ final class ExpirarConteudoDaInteligenciaCommand extends Command
 
         $resultado = $this->expirar->executar(new \DateTimeImmutable());
 
-        $this->logger->info('Retenção da IA ({meses} meses): conteúdo de {analises} análise(s) e {perguntas} pergunta(s) anteriores a {limite} apagado.', [
+        $this->logger->info('Retenção da IA ({meses} meses): conteúdo de {analises} análise(s), {perguntas} pergunta(s) e {mensagens} mensagem(ns) do chat anteriores a {limite} apagado.', [
             'meses'     => $resultado['meses'],
             'analises'  => $resultado['analises'],
             'perguntas' => $resultado['perguntas'],
+            'mensagens' => $resultado['mensagens'],
             'limite'    => $resultado['limite']->format('Y-m-d'),
         ]);
         $io->success(sprintf(
-            'Conteúdo apagado (prazo de %d meses): %d análise(s) e %d pergunta(s) anteriores a %s.',
+            'Conteúdo apagado (prazo de %d meses): %d análise(s), %d pergunta(s) e %d mensagem(ns) do chat anteriores a %s.',
             $resultado['meses'],
             $resultado['analises'],
             $resultado['perguntas'],
+            $resultado['mensagens'],
             $resultado['limite']->format('d/m/Y'),
         ));
 

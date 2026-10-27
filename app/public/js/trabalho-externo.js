@@ -982,7 +982,10 @@
             return;
         }
         var fechar = function (e) { e.preventDefault(); fecharMenu(); };
-        var caixa = el('div', { class: 'te-menu', style: { left: m.x + 'px', top: m.y + 'px' } });
+        var caixa = el('div', { class: 'te-menu' + (m.tipo ? '' : ' te-menu--demanda'), style: { left: m.x + 'px', top: m.y + 'px' } });
+        if (m.tipo) {
+            caixa.setAttribute('role', 'menu');
+        }
         alvo.appendChild(el('div', { class: 'te-menu-fundo', onclick: fechar, oncontextmenu: fechar }));
         if (m.tipo === 'selpor') {
             caixa.style.width = m.largura + 'px';
@@ -1575,10 +1578,10 @@
             el('div', { class: 'te-grade-form' }, [
                 rot('Valor do serviço (R$) *', ctl('input', 'valor', { inputMode: 'decimal' })),
                 rot('Despesas previstas (R$)', ctl('input', 'despesas', { inputMode: 'decimal' })),
-                rot('Prazo estimado', ctl('input', 'prazoEst', { placeholder: 'Ex.: 2 dias úteis' })),
+                rot('Prazo estimado', ctl('input', 'prazoEst', { placeholder: 'Prazo para executar' })),
                 rot('Validade da proposta', ctl('input', 'validade', { type: 'date' }))
             ]),
-            rot('Condições de pagamento', ctl('input', 'pagamento', { placeholder: 'Ex.: 50% no aceite, 50% na entrega' })),
+            rot('Condições de pagamento', ctl('input', 'pagamento', { placeholder: 'Forma de pagamento' })),
             rot('Escopo e atividades incluídas', ctl('textarea', 'escopo', { rows: 3 })),
             rot('Não incluído / responsabilidades', ctl('textarea', 'naoInclui', { rows: 2 })),
             el('div', { class: 'te-form-rodape' }, [
@@ -1920,23 +1923,16 @@
         }
         fecharMenu();
         var codigo = S.dz.codigo;
-        abrirConf(codigo, {
-            k: '__apagar_msg__',
-            confirmacao: {
-                titulo: 'Apagar para todos',
-                texto: 'Apagar esta mensagem? Ela some para todos e fica registrado que foi apagada.',
-                botao: 'Apagar para todos', motivo: false, perigo: true
-            },
-            executar: function () {
-                return pedir('POST', ROTA.apagarMsg(codigo, m.id)).then(function (r) {
-                    if (!r.ok) {
-                        toastErro(r.mensagem);
-                        return r;
-                    }
-                    aplicarDemandaNoChat(r);
-                    return r;
-                });
+        // Como o desenho (l.1334): confirm() nativo; cancelar não faz nada.
+        if (!window.confirm('Apagar esta mensagem? Ela some para todos e fica registrado que foi apagada.')) {
+            return;
+        }
+        pedir('POST', ROTA.apagarMsg(codigo, m.id)).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
             }
+            aplicarDemandaNoChat(r);
         });
     }
 
@@ -1967,7 +1963,7 @@
         }
         item('Mover para a lixeira', 'bi-trash', function () { chatLote([m.id], 'lixeira'); });
         if (m.podeApagar) {
-            item('Apagar para todos', 'bi-trash-fill', function () { apagarParaTodos(m); }, 'is-perigo' + (m.seloSemPrazo ? ' com-selo-sem-prazo' : ''), seloSemPrazo(m));
+            item('Apagar para todos', 'bi-trash-fill', function () { apagarParaTodos(m); }, 'is-perigo');
         } else if (!vazio(m.apagarBloqueado)) {
             item(m.apagarBloqueado, 'bi-lock', function () {}, 'is-travado');
         }
@@ -3513,7 +3509,7 @@
             },
             oncontextmenu: function (e) {
                 e.preventDefault();
-                abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 250);
+                abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 230);
             }
         }, [
             // D4 (l.164): véu e carimbo "EXPIRADA", sem clique.
@@ -3720,15 +3716,12 @@
             return;
         }
         if (b.motivo) {
-            abrirConf(codigo, {
-                k: '__vaga_' + b.k + '__',
-                confirmacao: {
-                    titulo: b.rot,
-                    texto: 'Motivo para não publicar (o solicitante verá):',
-                    botao: b.rot, motivo: true, motivoOpcional: true, perigo: b.tipo === 'perigo'
-                },
-                executar: function (motivo) { return enviarAcaoVaga(codigo, b.k, motivo); }
-            });
+            // Como o desenho (l.1076): prompt() nativo; vazio vale, cancelar (null) aborta.
+            var motivo = window.prompt('Motivo para não publicar (o solicitante verá):', '');
+            if (motivo === null) {
+                return;
+            }
+            enviarAcaoVaga(codigo, b.k, motivo.trim());
             return;
         }
         enviarAcaoVaga(codigo, b.k, null);
@@ -4074,12 +4067,12 @@
     /** Cabeçalho azul, corpo com rolagem e rodapé com os botões (`tlmBtns`). Redesenhar guarda a rolagem. */
     function modalVaga(o) {
         var alvo = $('teVagaModal');
-        var antes = $('teTlmCorpo'), entra = !antes, topo = antes ? antes.scrollTop : 0;
+        var antes = $('teTlmCorpo'), topo = antes ? antes.scrollTop : 0;
         limpar(alvo);
         var corpo = el('div', { class: 'te-tlm-corpo', id: 'teTlmCorpo' }, o.corpo);
         alvo.appendChild(el('div', { class: 'te-tlm-fundo', onclick: fecharTlm }));
         alvo.appendChild(el('div', {
-            class: 'te-tlm' + (entra ? ' is-entra' : ''),
+            class: 'te-tlm',
             style: { width: 'min(' + o.largura + ', calc(100vw - 24px))' },
             attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': o.titulo }
         }, [
@@ -4265,6 +4258,12 @@
     /** Os dados de quem oferece com o olho (`ofCampos`, l.1182): `local` junta cidade e UF. */
     var OF_CAMPOS = [['resp', 'bi-person'], ['local', 'bi-geo-alt'], ['email', 'bi-envelope'], ['tel', 'bi-whatsapp'], ['site', 'bi-globe2']];
 
+    /** Opções de "Disponível por" do desenho (`DUR`, l.933). Valor antigo fora delas (120, 1440) cai no padrão. */
+    var DURACOES_OFERTA = [5, 10, 15, 30, 60];
+    function duracaoValida(n) {
+        return DURACOES_OFERTA.indexOf(n) >= 0 ? n : 0;
+    }
+
     /** "N min", 120 vira "2 horas" e 1440 "24 horas" (`cfgDurs`, l.1159). */
     function rotuloDeMinutos(n) {
         return n >= 120 && n % 60 === 0 ? (n / 60) + ' horas' : n + ' min';
@@ -4320,12 +4319,12 @@
                 cidade: X.cidade || '', uf: X.uf || '', remuneracao: X.remuneracao || '', areas: (X.areas || []).slice(),
                 requisitos: X.requisitos || '', inscricoesAte: X.inscricoesAte || '', exigeOab: !!X.exigeOab,
                 periodoDias: X.periodoDias === undefined || X.periodoDias === null ? 15 : +X.periodoDias,
-                oferta: !!X.oferta, duracaoDaOferta: +X.duracaoDaOferta || +c.dur || 15, qtd: +X.qtd || 1
+                oferta: !!X.oferta, duracaoDaOferta: duracaoValida(+X.duracaoDaOferta) || duracaoValida(+c.dur) || 15, qtd: +X.qtd || 1
             } : {
                 titulo: '', cargo: '', contratacao: '', modalidade: '', cidade: '', uf: '', remuneracao: '',
                 areas: [], requisitos: '', inscricoesAte: '', exigeOab: false, periodoDias: 15,
                 // Em "Nova vaga" do Master, a oferta já vem ligada se houver tempo padrão (`novaVaga`, l.1115).
-                oferta: vgMaster() && +c.dur > 0, duracaoDaOferta: +c.dur || 15, qtd: 1
+                oferta: vgMaster() && +c.dur > 0, duracaoDaOferta: duracaoValida(+c.dur) || 15, qtd: 1
             },
             of: { nome: of.nome || '', resp: of.resp || '', cidade: of.cidade || '', uf: of.uf || '', email: of.email || '', tel: of.tel || '', site: of.site || '' },
             ocultos: (of.ocultos || []).slice(),
@@ -4525,7 +4524,7 @@
                     attrs: { 'aria-pressed': on ? 'true' : 'false' },
                     onclick: function () {
                         f.oferta = t[0];
-                        f.duracaoDaOferta = +f.duracaoDaOferta || +((cfgVagas() || {}).dur) || 15;
+                        f.duracaoDaOferta = duracaoValida(+f.duracaoDaOferta) || duracaoValida(+((cfgVagas() || {}).dur)) || 15;
                         f.qtd = f.qtd || 1;
                         renderFormVaga();
                     }
@@ -6171,7 +6170,7 @@
             el('span', { class: 'te-cv-cel' }, seloSituacao(x.statusRotulo || stCv(x.status)[1], x.statusCor || stCv(x.status)[2])),
             el('button', {
                 type: 'button', class: 'te-cv-mais', title: 'Mais opções',
-                onclick: function (e) { e.stopPropagation(); var r = e.currentTarget.getBoundingClientRect(); menu(r.left - 200, r.bottom + 4); }
+                onclick: function (e) { e.stopPropagation(); if (e.clientX || e.clientY) { menu(e.clientX, e.clientY); return; } var r = e.currentTarget.getBoundingClientRect(); menu(r.left - 200, r.bottom + 4); }
             }, ic('bi-three-dots-vertical'))
         ]);
     }
@@ -6505,6 +6504,21 @@
     }
 
     /** `voltaVaga`: código da vaga quando veio do botão "Currículo" de um candidato ("Voltar a editar" reabre a vaga, como o desenho, l.1100). */
+    function baixarPdfDoCv(X) {
+        if (!vazio(X.pdfUrl)) {
+            baixar(X.pdfUrl);
+            return;
+        }
+        var w = window.open('', '_blank');
+        if (!w) {
+            toastErro('O navegador bloqueou a janela de impressão. Permita pop-ups.');
+            return;
+        }
+        w.document.write(X.html);
+        w.document.close();
+        setTimeout(function () { w.focus(); w.print(); }, 400);
+    }
+
     function abrirDocCv(html, pdfUrl, volta, voltaVaga) {
         gravarNotaJa();
         if (!volta) {
@@ -6536,9 +6550,8 @@
             : X.voltaVaga
                 ? botaoTlm('Voltar a editar', 'bi-arrow-left', '', function () { abrirVaga(X.voltaVaga); })
                 : botaoTlm('Fechar', 'bi-x', '', fecharTlm)];
-        if (!vazio(X.pdfUrl)) {
-            botoes.push(botaoTlm('Baixar PDF', 'bi-file-earmark-pdf', 'pri', function () { baixar(X.pdfUrl); }));
-        }
+        // Sempre o botão, como o desenho (l.1197). Sem `pdfUrl`, abre o documento numa janela e imprime (`imprimirCv`, l.1164).
+        botoes.push(botaoTlm('Baixar PDF', 'bi-file-earmark-pdf', 'pri', function () { baixarPdfDoCv(X); }));
         modalVaga({ icone: 'bi-file-earmark-person', titulo: 'Currículo · pré-visualização', largura: '960px', corpo: [quadro], botoes: botoes });
     }
 

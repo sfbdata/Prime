@@ -258,12 +258,12 @@
                     {# perguntas guiadas (L218-226): respostas montadas só a partir dos achados #}
                     <section class="db-ia-bloco db-ia-perguntas">
                         <div class="db-ia-secao-cab"><i class="bi bi-chat-square-text" aria-hidden="true"></i><span>{{ 'dashboard.ia.av.perguntas'|trans }}</span></div>
-                        {% for p in av.perguntas %}
-                            <details class="db-ia-pergunta" name="dbIaPergunta">
-                                <summary>{{ p.pergunta }}</summary>
-                                <div class="db-ia-resposta"><i class="bi bi-stars" aria-hidden="true"></i><span>{{ p.resposta }}</span></div>
-                            </details>
-                        {% endfor %}
+                        <div class="db-ia-pilulas" data-ia-perguntas>
+                            {% for p in av.perguntas %}
+                                <button type="button" class="db-ia-pilula" data-ia-pergunta="{{ p.resposta }}" aria-pressed="false">{{ p.pergunta }}</button>
+                            {% endfor %}
+                        </div>
+                        <div class="db-ia-resposta" data-ia-resposta-caixa hidden aria-live="polite"><i class="bi bi-stars" aria-hidden="true"></i><span></span></div>
                     </section>
                 </div>
             </div>
