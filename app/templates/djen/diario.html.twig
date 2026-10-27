@@ -12,12 +12,14 @@
 
 <div class="pp-pagina" data-pp-diario data-total-lidas="{{ totalLidas }}"
      data-url-leitura="{{ path('push_processual_diario_leitura') }}"
+     data-url-base="{{ path('push_processual_diario') }}"
      data-t-n-selecionadas="{{ 'djen.index.n_selecionadas'|trans({n: '%n%'})|e('html_attr') }}"
      data-t-confirma-excluir-lote="{{ 'djen.diario.confirma_excluir'|trans({n: '%n%'})|e('html_attr') }}"
      data-t-prompt-excluir-lote="{{ 'djen.diario.prompt_excluir'|trans({n: '%n%'})|e('html_attr') }}"
      data-t-confirma-limpar="{{ 'djen.index.confirma_limpar'|trans({n: '%n%'})|e('html_attr') }}"
      data-t-prompt-limpar="{{ 'djen.index.prompt_limpar'|trans({n: '%n%'})|e('html_attr') }}"
      data-t-cancelada="{{ 'djen.index.exclusao_cancelada'|trans|e('html_attr') }}"
+     data-t-confirma-desvincular="{{ 'djen.diario.confirma_desvincular'|trans|e('html_attr') }}"
      data-t-sem-lidas="{{ 'djen.index.sem_lidas'|trans|e('html_attr') }}">
     <form method="POST" class="pp-lote" data-pp-diario-lote hidden>
         <input type="hidden" name="_token" value="{{ csrf_token('push_diario') }}">
@@ -73,12 +75,26 @@
                         <span>{{ p.seccional }}</span>
                         <span class="pp-c-ato">
                             <b>{% if p.tipo.sigiloso %}<i class="bi bi-lock-fill pp-sigilo-ico" title="{{ 'djen.diario.sigiloso'|trans }}"></i>{% endif %}{{ p.ato }}</b>
-                            <span class="pp-fino">{{ p.tipo.rotulo }} · {{ p.numeroProcesso ?: '-' }}</span>
+                            <span class="pp-fino">{{ p.tipo.rotulo }} · {{ p.numeroProcesso ?: '-' }}
+                                {% if p.pasta %}<a class="pp-pill pp-pill--pasta" href="{{ path('pasta_show', {id: p.pasta.id}) }}" data-pp-pasta-link>{{ 'djen.diario.pasta_n'|trans({n: p.pasta.nup}) }}</a>{% else %}<span class="pp-pill pp-pill--avulsa">{{ 'djen.diario.avulsa'|trans }}</span>{% endif %}</span>
                         </span>
                         <span class="pp-corta" title="{{ p.orgao }}">{{ p.orgao }}</span>
-                        <span>{% if p.prazoDias %}<span class="pp-par pp-par--verde">{{ 'djen.diario.prazo_dias'|trans({n: p.prazoDias ~ ''}) }}</span>{% endif %}</span>
+                        <span>{% set prazo = prazos[p.id] ?? null %}{% if prazo %}<span class="pp-selo pp-selo--prazo" style="background:{{ prazo.corDoSelo }};{{ prazo.textoDoSeloClaro ? 'color:#34505f;' : '' }}" title="{{ 'djen.detalhe.selo_dica'|trans({dias: prazo.dias ~ '', inicio: prazo.inicio|date('d/m/Y'), fim: prazo.vencimento|date('d/m/Y')}) }}">{{ prazo.vencido ? 'djen.detalhe.selo_vencido'|trans : (prazo.restante == 0 ? 'djen.detalhe.selo_hoje'|trans : 'djen.detalhe.selo_dias'|trans({n: prazo.restante ~ ''})) }}</span>{% endif %}</span>
                     </div>
-                    <div class="pp-diario-texto" data-pp-diario-texto hidden>{{ p.texto }}</div>
+                    <div class="pp-diario-texto" data-pp-diario-texto hidden>
+                        <div>{{ p.texto }}</div>
+                        <div class="pp-diario-acoes">
+                            <button type="button" class="pp-barra__btn" data-pp-diario-vincular data-numero="{{ p.ato }}"><i class="bi bi-link-45deg"></i> {{ (p.pasta ? 'djen.diario.trocar_pasta' : 'djen.diario.vincular_pasta')|trans }}</button>
+                            {% if p.pasta %}<button type="button" class="pp-barra__btn" data-pp-diario-desvincular><i class="bi bi-scissors"></i> {{ 'djen.diario.desvincular_pasta'|trans }}</button>{% endif %}
+                            {% if p.tarefa %}
+                                <span class="pp-diario-dica"><i class="bi bi-bullseye"></i> {{ 'djen.diario.meta_criada'|trans }}</span>
+                            {% elseif p.pasta and p.prazoDias %}
+                                <button type="button" class="pp-barra__btn" data-pp-diario-meta><i class="bi bi-bullseye"></i> {{ 'djen.diario.criar_meta'|trans }}</button>
+                            {% else %}
+                                <span class="pp-diario-dica"><i class="bi bi-bullseye"></i> {{ (p.pasta ? 'djen.diario.meta_sem_prazo' : 'djen.diario.meta_sem_pasta')|trans }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             {% else %}
                 <div class="pp-vazio" data-pp-diario-vazio>{{ 'djen.diario.vazio'|trans }}</div>
@@ -88,6 +104,7 @@
 </div>
 
 {% include 'djen/_modal_diario_registrar.html.twig' with {hoje: hoje} only %}
+{% include 'djen/_modal_pasta.html.twig' with {url_vincular: '', url_desvincular: ''} only %}
 {% endblock %}
 
 {% block javascripts %}

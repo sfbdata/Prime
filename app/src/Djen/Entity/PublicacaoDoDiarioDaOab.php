@@ -7,7 +7,9 @@ namespace App\Djen\Entity;
 use App\Djen\Enum\TipoDeAtoDoDiario;
 use App\Djen\Repository\PublicacaoDoDiarioDaOabRepository;
 use App\Entity\Auth\User;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\Processo;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
@@ -21,6 +23,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_djen_diario_oab_usuario', columns: ['tenant_id', 'usuario_id', 'excluida_em', 'data_publicacao'])]
 #[ORM\Index(name: 'idx_djen_diario_oab_usuario_id', columns: ['usuario_id'])]
 #[ORM\Index(name: 'idx_djen_diario_oab_processo', columns: ['processo_id'])]
+#[ORM\Index(name: 'idx_djen_diario_oab_pasta', columns: ['pasta_id'])]
 class PublicacaoDoDiarioDaOab implements TenantAware
 {
     #[ORM\Id]
@@ -31,6 +34,16 @@ class PublicacaoDoDiarioDaOab implements TenantAware
     #[ORM\ManyToOne(targetEntity: Processo::class)]
     #[ORM\JoinColumn(name: 'processo_id', nullable: true, onDelete: 'SET NULL')]
     private ?Processo $processo = null;
+
+    /** Pasta a que o usuário ligou a publicação. Null = avulsa. */
+    #[ORM\ManyToOne(targetEntity: Pasta::class)]
+    #[ORM\JoinColumn(name: 'pasta_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Pasta $pasta = null;
+
+    /** Meta criada a partir do prazo (uma por publicação). */
+    #[ORM\ManyToOne(targetEntity: Tarefa::class)]
+    #[ORM\JoinColumn(name: 'tarefa_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Tarefa $tarefa = null;
 
     #[ORM\Column(name: 'lida_em', type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lidaEm = null;
@@ -126,6 +139,26 @@ class PublicacaoDoDiarioDaOab implements TenantAware
     public function getProcesso(): ?Processo
     {
         return $this->processo;
+    }
+
+    public function getPasta(): ?Pasta
+    {
+        return $this->pasta;
+    }
+
+    public function vincularPasta(?Pasta $pasta): void
+    {
+        $this->pasta = $pasta;
+    }
+
+    public function getTarefa(): ?Tarefa
+    {
+        return $this->tarefa;
+    }
+
+    public function vincularTarefa(Tarefa $tarefa): void
+    {
+        $this->tarefa = $tarefa;
     }
 
     public function isLida(): bool

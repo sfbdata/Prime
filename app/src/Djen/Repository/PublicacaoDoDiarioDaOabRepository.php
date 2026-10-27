@@ -47,6 +47,16 @@ class PublicacaoDoDiarioDaOabRepository extends ServiceEntityRepository
         return $consulta->getQuery()->getResult();
     }
 
+    public function acharDoUsuario(int $id, Tenant $tenant, User $usuario): ?PublicacaoDoDiarioDaOab
+    {
+        return $this->doUsuario($tenant, $usuario)->andWhere('d.id = :id')->setParameter('id', $id)->getQuery()->getOneOrNullResult();
+    }
+
+    public function sincronizar(): void
+    {
+        $this->getEntityManager()->flush();
+    }
+
     public function contarNaoLidasDoUsuario(Tenant $tenant, User $usuario): int
     {
         return (int) $this->doUsuario($tenant, $usuario)->select('COUNT(d.id)')->andWhere('d.lidaEm IS NULL')->getQuery()->getSingleScalarResult();
