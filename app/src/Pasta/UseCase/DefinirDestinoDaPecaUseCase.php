@@ -13,7 +13,9 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final class DefinirDestinoDaPecaUseCase
 {
-    public function __construct(private readonly EntityManagerInterface $em) {}
+    public function __construct(private readonly EntityManagerInterface $em)
+    {
+    }
 
     /** @throws \InvalidArgumentException quando o vínculo não é da pasta da peça */
     public function executar(PastaDocumento $documento, ?int $vinculoId): void
