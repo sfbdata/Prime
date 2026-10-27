@@ -285,7 +285,6 @@ final class FluxoDoChatDaCentral implements FluxoDeAnaliseSemPasta
      */
     private function decisaoDaPasta(array $resumo, Tenant $tenant, User $solicitante, Pasta $pasta): array
     {
-
         $financeiroGravado = ($resumo['financeiro'] ?? false) === true;
         $financeiroAgora = $this->financeiro->podeVer($solicitante, $tenant, $pasta);
         if ($financeiroGravado && !$financeiroAgora) {

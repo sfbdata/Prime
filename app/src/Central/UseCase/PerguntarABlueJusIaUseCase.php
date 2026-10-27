@@ -139,7 +139,7 @@ final class PerguntarABlueJusIaUseCase
 
     /**
      * @param array{pastaId: int, financeiro: bool, abasOcultas: list<string>}|null $pasta a decisão da pasta da tela
- * @param array{pastas: list<array{pastaId: int, financeiro: bool, abasOcultas: list<string>}>, naoConsultadas: int}|null $adicionais as outras pastas (escopo `clientes`)
+     * @param array{pastas: list<array{pastaId: int, financeiro: bool, abasOcultas: list<string>}>, naoConsultadas: int}|null $adicionais as outras pastas (escopo `clientes`)
      *
      * @return array{AnaliseDeInteligencia, int, bool} a análise, o id da mensagem da pergunta e se foi criada agora
      */
@@ -189,7 +189,7 @@ final class PerguntarABlueJusIaUseCase
      * Mensagem da pessoa e análise `pendente`, na mesma transação. Sem menção, aviso nem resposta_a: é conversa privada.
      *
      * @param array{pastaId: int, financeiro: bool, abasOcultas: list<string>}|null $pasta
- * @param array{pastas: list<array{pastaId: int, financeiro: bool, abasOcultas: list<string>}>, naoConsultadas: int}|null $adicionais
+     * @param array{pastas: list<array{pastaId: int, financeiro: bool, abasOcultas: list<string>}>, naoConsultadas: int}|null $adicionais
      *
      * @return array{AnaliseDeInteligencia, int, bool}
      */
