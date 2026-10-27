@@ -305,7 +305,10 @@
         repintarForca();
     };
     $('lgEsqueci').addEventListener('click', (e) => { e.preventDefault(); abrirSenha(); });
-    $('lgCriar').addEventListener('click', (e) => { e.preventDefault(); abrirCadastro(); });
+    /* Cadastro fechado ao público (política do Master): o link "Criar conta" nem vem na página e nada abre o cadastro. */
+    const cadastroBloqueado = raiz.dataset.cadastroBloqueado === '1';
+    const linkCriar = $('lgCriar');
+    if (linkCriar) { linkCriar.addEventListener('click', (e) => { e.preventDefault(); abrirCadastro(); }); }
 
     /* Código: só dígitos, no máximo 6. */
     $('lgRsCod').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
@@ -686,6 +689,8 @@
     /* ---------------------------------------- ?abrir=senha|cadastro -------- */
     if (raiz.dataset.abrir === 'senha') {
         abrirSenha();
+    } else if (cadastroBloqueado) {
+        /* O aviso da política já veio no cartão de login (servidor); ?abrir=cadastro, cupom e #cadastro não abrem o modal. */
     } else if (raiz.dataset.abrir === 'cadastro') {
         abrirCadastro();
         /* "Continuar com Google" sem o cliente OAuth no servidor: o aviso volta da ida, no erro do modal. */

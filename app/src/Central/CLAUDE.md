@@ -86,6 +86,9 @@ Bruno", montada pelo servidor; `de_ia` = fala do BlueJus IA, conta como de OUTRA
 do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.
 Tipo `ia` (F3, `docs/specs/ia-chat-central.md`): uma por (escritório, usuário), `menor = maior = o usuário`, só ele participa. **Invisível por ora:**
 lista, não lidas, novidades, contatos e `daConversa` excluem `tipo = ia` (abrir por id = 404) até o PR da tela.
+A resposta da IA entra pela porta `Inteligencia\Contract\ConversaDaIaNaCentral` (`Service\ConversaDaIaDaCentral`, PR 2a): relê a pergunta
+(autora = dono, `de_ia = false`, mesma conversa e escritório, vínculo ativo) e as 12 mensagens anteriores (corte `limpa_ate_id`),
+e grava a fala `de_ia` (≤ 4000 caracteres, `@[` desarmado). Tenant explícito; provado em `IsolamentoDosRepositoriosDaCentralTest`.
 
 ## Tela
 
