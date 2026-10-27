@@ -28,6 +28,8 @@ final class AvisoAoMaster
     public const TIPO_PEDIDO_DE_ESPACO = 'contribua.pedido_espaco';
     /** C4: o banco (Cora) confirmou um apoio por PIX. */
     public const TIPO_APOIO_CONFIRMADO = 'contribua.apoio_confirmado';
+    /** Gateway de pagamentos (M0b): dinheiro que não bate com a cobrança, ou teste do sandbox. O Master decide. */
+    public const TIPO_PAGAMENTO_DIVERGENTE = 'pagamento.divergente';
 
     /** O título da notificação é `varchar(255)`: nome, escritório e texto longos não podem estourar. */
     private const TAMANHO_MAXIMO = 255;

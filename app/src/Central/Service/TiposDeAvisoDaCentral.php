@@ -141,6 +141,8 @@ final class TiposDeAvisoDaCentral
             AvisoAoMaster::TIPO_SUGESTAO, AvisoAoMaster::TIPO_APOIO, AvisoAoMaster::TIPO_MOTIVO, AvisoAoMaster::TIPO_PEDIDO_DE_ESPACO, AvisoAoMaster::TIPO_APOIO_CONFIRMADO, AvisoAoPrimario::TIPO_ASSINATURA => ['grupo' => 'atencao', 'rotulo' => 'Contribua', 'icone' => 'bi-heart', 'cor' => '#c0392b', 'nivel' => 2],
             // Relatório mensal de pastas paradas (spec pastas-paradas, "Avisos"): o `paradasNotificar` do desenho.
             EnviarRelatorioPastasParadasUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Relatório', 'icone' => 'bi-pause-circle', 'cor' => self::AMBAR, 'nivel' => 2],
+            // Gateway de pagamentos (M0b): pagamento divergente ou teste do banco, para o Master decidir.
+            AvisoAoMaster::TIPO_PAGAMENTO_DIVERGENTE => ['grupo' => 'atencao', 'rotulo' => 'Pagamento', 'icone' => 'bi-cash-coin', 'cor' => self::AMBAR, 'nivel' => 2],
             ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Documento analisado', 'icone' => 'bi-file-earmark-check', 'cor' => self::AZUL, 'nivel' => 1],
             // Suporte da tela de entrada (desenho 10 / bluejus-central.js bjSuporteFila: tipo "mensagem").
             EnviarMensagemSuporteUseCase::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Mensagem', 'icone' => 'bi-chat-left-text', 'cor' => self::PETROLEO, 'nivel' => 1],

@@ -54,6 +54,8 @@ final class AgendaDeTarefasTest extends TestCase
             'app:dashboard:fotografar' => ['app:dashboard:fotografar --no-interaction', '55 23 * * *', '55 2 * * *'],
             // Nova (Contribua C3): era a linha de crontab da conciliação das assinaturas, agora no Scheduler.
             'app:contribua:conciliar-assinaturas' => ['app:contribua:conciliar-assinaturas --no-interaction', '15 * * * *', '15 * * * *'],
+            // Nova (Gateway M0b): conciliação do registro único de pagamentos, a cada 15 minutos.
+            'app:pagamento:conciliar' => ['app:pagamento:conciliar --no-interaction', '*/15 * * * *', '*/15 * * * *'],
             'armazenamento:replicar-espelho' => ['armazenamento:replicar-espelho --se-ligado --limite=50 --no-interaction', '* * * * *', '* * * * *'],
             // Sem --tenant-id: todos os escritórios com Drive conectado (decisão do dono, 24/10/2026).
             'app:sync:reconciliar' => ['app:sync:reconciliar --usuario-id=1 --modo=enviar --no-interaction', '0 * * * *', '0 * * * *'],

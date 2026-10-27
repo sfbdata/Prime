@@ -28,6 +28,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'uniq_pagamento_idempotency_key', columns: ['idempotency_key'])]
 #[ORM\Index(name: 'idx_pagamento_origem', columns: ['tenant_id', 'origem', 'origem_id'])]
 #[ORM\Index(name: 'idx_pagamento_status_expira', columns: ['status', 'expira_em'])]
+#[ORM\Index(name: 'idx_pagamento_provedor_id_externo', columns: ['provedor', 'id_externo'])]
 class Pagamento implements TenantAware, Auditavel
 {
     /** R$ 1.000.000,00: acima disso é engano (e passaria do inteiro da coluna). */

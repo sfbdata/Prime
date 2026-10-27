@@ -72,4 +72,39 @@ class PagamentoRepository extends ServiceEntityRepository
             ->orderBy('p.id')->setMaxResults($limite)
             ->getQuery()->getResult();
     }
+
+    /**
+     * O pagamento que o banco chama por aquele id (o aviso e a reconsulta chegam com o id da cobrança no banco).
+     * Sem escritório no contexto, como {@see porReferenciaDoAviso}.
+     */
+    public function porIdExterno(string $provedor, string $idExterno): ?Pagamento
+    {
+        return $this->findOneBy(['provedor' => $provedor, 'idExterno' => $idExterno]);
+    }
+
+    /**
+     * Cobranças `aguardando` com id no banco que a conciliação reconsulta: criadas há mais de `$minimoDeIdade` (o aviso
+     * ainda pode chegar sozinho) e vencidas há menos de `$ateVencidaHa` (depois disso só expiram).
+     *
+     * @return list<Pagamento>
+     */
+    public function aguardandoParaConciliar(\DateTimeImmutable $agora, \DateInterval $minimoDeIdade, \DateInterval $ateVencidaHa, int $limite = 200): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.status = :s')->setParameter('s', StatusDoPagamento::Aguardando)
+            ->andWhere('p.idExterno IS NOT NULL')
+            ->andWhere('p.criadoEm <= :criadaAte')->setParameter('criadaAte', $agora->sub($minimoDeIdade))
+            ->andWhere('p.expiraEm IS NULL OR p.expiraEm >= :vencidaDesde')->setParameter('vencidaDesde', $agora->sub($ateVencidaHa))
+            ->orderBy('p.id')->setMaxResults($limite)
+            ->getQuery()->getResult();
+    }
+
+    /** Divergentes ainda sem decisão do Master (o resumo diário). @return list<Pagamento> */
+    public function divergentesAbertos(int $limite = 200): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.status = :s')->setParameter('s', StatusDoPagamento::Divergente)
+            ->orderBy('p.id')->setMaxResults($limite)
+            ->getQuery()->getResult();
+    }
 }
