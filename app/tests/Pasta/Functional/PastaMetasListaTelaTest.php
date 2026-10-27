@@ -420,7 +420,7 @@ final class PastaMetasListaTelaTest extends JusPrimeWebTestCase
                 $prazo->filter('.ps-nm-prazo-linha > button[type="button"][data-ps-prazo-atalho]')->each(static fn ($b) => trim($b->text())),
             ),
         );
-        self::assertSame('Escolha a data limite.', trim($prazo->filter('.ps-nm-prazo > #tarefaPrazoInfo')->text()));
+        self::assertSame('Escolha a data limite.', trim($prazo->filter('.ps-nm-prazo > .ps-ap-linha > #tarefaPrazoInfo')->text()));
 
         $dup = $prazo->filter('.ps-nm-prazo > #tarefaTituloRepetido');
         self::assertCount(1, $dup);
