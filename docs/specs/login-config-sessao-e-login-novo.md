@@ -21,8 +21,10 @@ Risco ALTO (acesso). Rascunho para aprovação do Coordenador/dono antes de coda
 - `gc_maxlifetime` passa a ser 43200 min (teto) para o arquivo nunca sumir antes do listener;
   quem manda é a configuração.
 - Valor inválido ou falha do leitor: padrão. Nunca derruba página; `/login`, `/master` login e assets não são afetados.
-- DECISÃO DO DONO: o padrão 480 min muda o comportamento atual se a produção hoje expira em 24 min.
-  Só entra com o dono ciente. Alternativa: padrão do catálogo = o que a produção faz hoje.
+- DECISÃO (Coordenador, 27/10): o padrão de `sessao` é o valor ATUAL real da produção, para não mudar
+  comportamento. Parâmetro `app.sessao_padrao_minutos` (env `SESSAO_PADRAO_MINUTOS`, provisório 24 =
+  gc_maxlifetime 1440 s do PHP) usado pelo catálogo; o Coordenador manda o número real (ini_get na imagem
+  de prod) e só então se confirma.
 - Mudança no Master vale na requisição seguinte (o listener lê a cada requisição).
 
 ### Testes
@@ -38,8 +40,8 @@ não expira; anônimo ignorado; valor inválido usa o padrão. Funcional: sessã
   fora do escopo) pelo `IdentidadeDeEmail`; no primeiro login de todos apenas grava. Falha de e-mail
   ou de gravação nunca derruba o login (try/catch, log).
 - Retenção: apaga acessos não vistos há `retencao` dias (chave `retencao` do catálogo; 365 padrão).
-- Só liga se o Master ativar? NÃO há chave no catálogo hoje: proposta de nova chave
-  `seguranca.aviso_login_novo` (on|off, padrão off até o dono aprovar o texto do e-mail).
+- DECISÃO (Coordenador, 27/10): entra agora, sem depender de 2FA. Nova chave no catálogo
+  `seguranca.aviso_login_novo` (on|off, padrão on; o Master desliga).
 
 ## 3. Fora
 
