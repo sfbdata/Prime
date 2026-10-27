@@ -14,8 +14,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * O identificador da pasta judicializada pela cobrança é DERIVADO — `<fantasia do credor> - <pessoa
- * cobrada>`, lido na hora, nunca gravado (spec `pasta-prefixo-do-credor-derivado.md`).
+ * O identificador da pasta judicializada pela cobrança é DERIVADO — `<fantasia do credor>` (senão a
+ * razão social), lido na hora, nunca gravado; a pessoa cobrada não entra (decisão de 2026-10-27) (spec `pasta-prefixo-do-credor-derivado.md`).
  *
  * As pastas que não vieram da cobrança seguem com o identificador de texto livre; é o escopo estreito
  * que a spec §1 exige, e cada teste aqui existe para provar um dos dois lados.
@@ -28,7 +28,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         return static::getContainer()->get(ResolvedorIdentificadorDaPasta::class);
     }
 
-    #[TestDox('Pasta de caso judicializado: o identificador é montado do credor + devedor')]
+    #[TestDox('Pasta de caso judicializado: o identificador é o cliente da carteira')]
     public function testPastaDeCobrancaTemIdentificadorDerivado(): void
     {
         $client = static::createClient();
@@ -46,7 +46,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         );
 
         self::assertSame(
-            'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
+            'APLC TOP LIFE 1',
             $this->resolvedor()->para($pasta),
         );
     }
@@ -62,8 +62,8 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         self::assertSame('CONDOMINIO QUALQUER', $this->resolvedor()->para($pasta));
     }
 
-    #[TestDox('Trocar a pessoa cobrada muda o identificador junto')]
-    public function testTrocarAPessoaCobradaMudaOIdentificador(): void
+    #[TestDox('Trocar a pessoa cobrada NÃO muda o identificador: ele é só o cliente da carteira')]
+    public function testTrocarAPessoaCobradaNaoMudaOIdentificador(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -85,7 +85,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         // Memória por requisição: sem esquecer, um resolvedor já consultado devolveria o valor velho.
         $this->resolvedor()->esquecer();
 
-        self::assertSame('APLC TOP LIFE 1 - MARIA DE SOUSA', $this->resolvedor()->para($pasta));
+        self::assertSame('APLC TOP LIFE 1', $this->resolvedor()->para($pasta));
     }
 
     #[TestDox('Pasta SEM cobrança ao lado de uma COM: cada uma recebe o seu, sem contaminar')]
@@ -111,7 +111,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         $resolvedor = $this->resolvedor();
         $resolvedor->primeParaPastas([$comCobranca, $semCobranca]);
 
-        self::assertSame('APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ', $resolvedor->para($comCobranca));
+        self::assertSame('APLC TOP LIFE 1', $resolvedor->para($comCobranca));
         self::assertSame('TEXTO LIVRE', $resolvedor->para($semCobranca), 'a vizinha sem cobrança fica com o texto dela');
     }
 
@@ -138,12 +138,12 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         // ⚠️ Ancorar em CADA modo: o fragmento traz tabela e cartões juntos, e uma asserção no corpo
         // inteiro fica verde com um dos dois errado — já aconteceu nesta frente.
         self::assertSame(
-            'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
+            'APLC TOP LIFE 1',
             trim($crawler->filter('#tabelaPastas tbody tr td')->eq(1)->text()),
             'a tabela mostra o identificador derivado',
         );
         self::assertSame(
-            'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
+            'APLC TOP LIFE 1',
             trim($crawler->filter('.exp-cartao-cli')->first()->text()),
             'o cartão mostra o mesmo',
         );
@@ -175,7 +175,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
             'numa pasta de cobrança o identificador não se edita aqui — muda-se o cadastro',
         );
         self::assertStringContainsString(
-            'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
+            'APLC TOP LIFE 1',
             $formulario->text(),
             'mas ele aparece, senão o gestor não sabe como a pasta se chama',
         );
@@ -290,7 +290,7 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         self::assertResponseIsSuccessful();
 
         self::assertSame(
-            'APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ',
+            'APLC TOP LIFE 1',
             trim($crawler->filter('#tabelaDemandas tbody tr td')->eq(1)->text()),
         );
     }
@@ -317,7 +317,53 @@ final class IdentificadorDaPastaJudicialTest extends CobrancaWebTestCase
         $resolvedor = $this->resolvedor();
         $resolvedor->primeParaPastas($pastas);
 
-        self::assertSame('APLC TOP LIFE 1 - CLAUDIO SILVA DA CRUZ', $resolvedor->para($pastas[0]));
-        self::assertSame('APLC TOP LIFE 1 - MARIA DE SOUSA', $resolvedor->para($pastas[1]));
+        self::assertSame('APLC TOP LIFE 1', $resolvedor->para($pastas[0]));
+        self::assertSame('APLC TOP LIFE 1', $resolvedor->para($pastas[1]));
+    }
+
+    #[TestDox('Cliente da carteira sem nome fantasia: o identificador cai para a razão social')]
+    public function testSemFantasiaUsaARazaoSocial(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+
+        $credor = ClientePJFactory::createOne(['tenant' => $tenant, 'nomeFantasia' => null, 'razaoSocial' => 'APLC EMPREENDIMENTOS LTDA']);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'CLAUDIO SILVA DA CRUZ'])->_real();
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nomeCliente' => 'TEXTO ANTIGO'])->_real();
+        $this->semearGrafo(
+            $tenant,
+            ['pessoaCobradaAtual' => $pessoa, 'status' => StatusCaso::Judicializado, 'pastaJudicial' => $pasta],
+            ['cliente' => $credor],
+        );
+
+        self::assertSame('APLC EMPREENDIMENTOS LTDA', $this->resolvedor()->para($pasta));
+    }
+
+    #[TestDox('Pasta comum com cliente vinculado: mostra o cliente principal e o nome gravado vira reserva')]
+    public function testPastaComumMostraOClientePrincipal(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+
+        $cliente = ClientePJFactory::createOne(['tenant' => $tenant, 'razaoSocial' => 'CONDOMINIO DO EDIFICIO SOL LTDA'])->_real();
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nomeCliente' => 'TEXTO LIVRE ANTIGO'])->_real();
+        $pasta->addCliente($cliente);
+        static::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class)->flush();
+
+        $resolvedor = $this->resolvedor();
+
+        self::assertSame('CONDOMINIO DO EDIFICIO SOL LTDA', $resolvedor->para($pasta));
+        self::assertNull($resolvedor->daCobranca($pasta), 'não é pasta de cobrança: o nome gravado segue editável');
+    }
+
+    #[TestDox('Pasta comum sem cliente vinculado: o nome gravado é a reserva')]
+    public function testPastaComumSemClienteUsaOGravado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nomeCliente' => 'MARIA SEM CADASTRO'])->_real();
+
+        self::assertSame('MARIA SEM CADASTRO', $this->resolvedor()->para($pasta));
     }
 }

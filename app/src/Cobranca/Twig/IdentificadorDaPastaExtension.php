@@ -30,11 +30,18 @@ final class IdentificadorDaPastaExtension extends AbstractExtension
     {
         return [
             new TwigFunction('identificador_pasta', $this->identificador(...)),
+            new TwigFunction('identificador_pasta_da_cobranca', $this->daCobranca(...)),
         ];
     }
 
     public function identificador(Pasta $pasta): ?string
     {
         return $this->resolvedor->para($pasta);
+    }
+
+    /** Só o nome montado pela carteira (pasta judicializada); `null` nas demais, cujo nome gravado é editável. */
+    public function daCobranca(Pasta $pasta): ?string
+    {
+        return $this->resolvedor->daCobranca($pasta);
     }
 }

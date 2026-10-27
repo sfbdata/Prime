@@ -299,8 +299,8 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    #[TestDox('acervo geral: a coluna Cliente mostra o nome da PASTA, não o do cliente cadastrado')]
-    public function testColunaClienteMostraONomeDaPastaMesmoComClienteCadastrado(): void
+    #[TestDox('acervo geral: a coluna Cliente mostra o cliente PRINCIPAL vinculado; o nome da pasta é só reserva')]
+    public function testColunaClienteMostraOClientePrincipalMesmoComNomeGravadoDiferente(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
@@ -321,13 +321,13 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         // satisfeita pelo cartão. Isso foi medido — a primeira versão deste teste passava com o
         // defeito reintroduzido na tabela.
         self::assertSame(
-            'APLC TOP LIFE 1 - JOAO BATISTA FERREIRA GOMES',
+            'JOAO BATISTA FERREIRA GOMES',
             trim($crawler->filter('#tabelaPastas tbody tr td')->eq(1)->text()),
-            'a coluna Cliente da TABELA mostra o nome da pasta, onde vive o padrão do escritório',
+            'a coluna Cliente da TABELA mostra o cliente principal (decisão do dono, 2026-10-27); o nome gravado é reserva',
         );
 
         self::assertSame(
-            'APLC TOP LIFE 1 - JOAO BATISTA FERREIRA GOMES',
+            'JOAO BATISTA FERREIRA GOMES',
             trim($crawler->filter('.exp-cartao-cli')->first()->text()),
             'o CARTÃO (modo lista) mostra o mesmo — os dois modos da tela não podem divergir',
         );
