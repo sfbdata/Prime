@@ -116,14 +116,15 @@ Cada etapa é reversível por chave liga/desliga (`ConfiguracaoDePagamento`); o 
 
 **Uma** por etapa de código, nunca duas abertas. Reservada: `Version20261026151000` = M0, só `pagamento`, `pagamento_devolucao`, `pagamento_evento`. Nada de carteira/razão (sessão ServiceDesk). Colunas de ligação nos consumidores (se necessárias) vão na migration da própria etapa. As do #88 (`Version20261019230000`) e #95 (`...235700`) são renomeadas na vez delas.
 
-## 9. Perguntas de negócio ao dono
+## 9. Decisões do dono (27/10, `bluejus-coordenacao/decisoes-27-10.md`)
 
-Respondida: CNPJ/chave do Service Desk são os da BlueJus (26/10). As abaixo seguem abertas.
-
-1. Confirma **Cora para PIX** (e Asaas só cartão)? Já existe certificado mTLS e Client ID de produção?
-2. Pagamento **a menor** libera, fica pendente ou devolve? E a **maior**?
-3. Estorno de PIX no TE: devolve o dinheiro e reabre a demanda, ou só o Master decide caso a caso?
-4. (Service Desk: saldo, mínimo e custo do chamado são da spec da sessão ServiceDesk; a pergunta fica com ela.) O recebedor das recargas do Service Desk é a mesma conta Cora?
-5. Depois da confirmação automática, o botão manual do Master permanece (só com motivo) ou sai?
-6. Prazo de validade da cobrança (TE 24 h? SD 1 h?) e quem absorve tarifa do banco, se houver.
-7. Importar o histórico de pagamentos antigos (TE, apoios, pedidos de espaço) para o registro único, ou o registro começa do zero na data da virada?
+Todas as perguntas foram respondidas pela recomendação:
+1. **Cora para PIX, Asaas para cartão.** Certificado mTLS e Client ID de produção da Cora são do dono; esta frente pede quando precisar. **Sem credencial, o botão de PIX dinâmico some** (dev igual a produção: cai no PIX estático onde ele já existe).
+2. Pagamento **a menor**: fica pendente (`divergente`), não libera. **A maior**: libera e avisa o Master da diferença. (Ajusta o §3.4 e o §5.2: no Service Desk o resultado `ValorDivergente` continua sem creditar; a maior no TE libera.)
+3. **Estorno:** o Master decide caso a caso.
+4. Service Desk: saldo pré-pago, recarga mínima R$ 20,00; preço do chamado configurável pelo Master, só cobra com preço definido (da spec da sessão ServiceDesk).
+5. **Botão manual** fica como plano B, só com motivo registrado.
+6. **Validade:** TE 24 h, Service Desk 1 h; a BlueJus absorve a tarifa.
+7. **Histórico:** começa do zero, importando só as **assinaturas ativas** (`app:pagamento:importar-historico` reduzido a isso).
+8. **Ordem:** #95 (cartão Asaas) primeiro; depois esta frente atualiza o #88 (Cora) e o reaproveita. M0 só começa após o merge do #95.
+9. CNPJ e chave PIX do Service Desk são os da BlueJus.
