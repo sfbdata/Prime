@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Djen\Controller;
 
 use App\Djen\Exception\VinculoDaPublicacaoInvalidoException;
+use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Djen\UseCase\DesvincularPublicacaoDaPastaUseCase;
 use App\Djen\UseCase\VincularPublicacaoAPastaUseCase;
 use App\Entity\Auth\User;
@@ -28,6 +29,7 @@ final class PublicacaoPastaController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly PastaRepository $pastas,
+        private readonly PublicacaoDjenRepository $publicacoes,
         private readonly VincularPublicacaoAPastaUseCase $vincular,
         private readonly DesvincularPublicacaoDaPastaUseCase $desvincular,
     ) {
@@ -44,12 +46,38 @@ final class PublicacaoPastaController extends AbstractController
         return new JsonResponse($this->pastas->buscarParaVinculo((string) $request->query->get('q', ''), $tenant, self::LIMITE_DA_BUSCA, [], $usuario));
     }
 
+    /** Partes da publicação (destinatários do DJEN) para o modal "Vincular a uma pasta". */
+    #[Route('/{id}/partes', name: 'push_processual_publicacao_partes', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function partes(int $id): Response
+    {
+        [$tenant, $usuario] = $this->contexto();
+        if ($tenant === null || $usuario === null) {
+            return new JsonResponse([], Response::HTTP_FORBIDDEN);
+        }
+        $publicacao = $this->publicacoes->findOneByIdDoTenant($id, $tenant);
+        if ($publicacao === null) {
+            return new JsonResponse([], Response::HTTP_NOT_FOUND);
+        }
+        $nomes = [];
+        foreach ($publicacao->getDestinatarios() as $d) {
+            $nome = trim((string) ($d['nome'] ?? ''));
+            if ($nome !== '') {
+                $nomes[] = $nome;
+            }
+        }
+
+        return new JsonResponse(['partes' => implode(' × ', array_unique($nomes))]);
+    }
+
     #[Route('/{id}/vincular', name: 'push_processual_publicacao_vincular', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function vincularAction(int $id, Request $request): Response
     {
         return $this->agir($request, function (Tenant $tenant, User $usuario) use ($id, $request): string {
             $trocar = (int) $request->request->get('trocar_da_pasta_id', 0);
-            $pasta = $this->vincular->executar($tenant, $usuario, $id, (int) $request->request->get('pasta_id', 0), $trocar > 0 ? $trocar : null);
+            $nup = trim((string) $request->request->get('nup', ''));
+            $pasta = $nup !== '' && (int) $request->request->get('pasta_id', 0) === 0
+                ? $this->vincular->executarPorNup($tenant, $usuario, $id, $nup, $trocar > 0 ? $trocar : null)
+                : $this->vincular->executar($tenant, $usuario, $id, (int) $request->request->get('pasta_id', 0), $trocar > 0 ? $trocar : null);
 
             return sprintf('Processo %s vinculado à Pasta %s.', (string) $request->request->get('numero', ''), $pasta->getNup() ?? '#' . $pasta->getId());
         });

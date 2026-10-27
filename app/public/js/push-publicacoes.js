@@ -97,7 +97,8 @@
     var alvo = null;
     var temporizador = null;
 
-    function enviarVinculo(rota, linha, pastaId, trocarDe) {
+    function enviarVinculo(rota, linha, pastaId, trocarDe, nup) {
+        formVinculo.querySelector('[name="nup"]').value = nup || '';
         formVinculo.action = modal.dataset['url' + rota].replace('%id%', linha.dataset.id);
         formVinculo.querySelector('[name="numero"]').value = linha.dataset.numero;
         formVinculo.querySelector('[name="pasta_id"]').value = pastaId;
@@ -115,7 +116,18 @@
         alvo = null;
     }
 
+    // "Vincular à Pasta N": aparece quando o digitado é um número que nenhuma pasta da lista tem como NUP.
+    function mostrarAtalhoDoNumero(pastas) {
+        var botao = modal.querySelector('[data-pp-modal-usar]');
+        var n = modal.querySelector('[data-pp-modal-q]').value.replace(/\D/g, '');
+        var existe = pastas.some(function (p) { return String(p.nup) === String(parseInt(n, 10)) || String(p.nup) === n; });
+        botao.hidden = !(parseInt(n, 10) > 0 && !existe);
+        botao.dataset.nup = n;
+        botao.textContent = modal.dataset.tVincularN.split('%n%').join(n);
+    }
+
     function mostrarPastas(pastas) {
+        mostrarAtalhoDoNumero(pastas);
         var lista = modal.querySelector('[data-pp-modal-lista]');
         lista.textContent = '';
         if (!pastas.length) {
@@ -148,6 +160,12 @@
     function abrirModal(linha, trocarDe) {
         alvo = { linha: linha, trocarDe: trocarDe || '' };
         modal.querySelector('[data-pp-modal-numero]').textContent = linha.dataset.numero;
+        var partes = modal.querySelector('[data-pp-modal-partes]');
+        partes.textContent = modal.dataset.tSemPartes;
+        window.fetch(modal.dataset.urlPartes.replace('%id%', linha.dataset.id), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : {}; })
+            .then(function (j) { if (j.partes) { partes.textContent = j.partes; } })
+            .catch(function () {});
         var q = modal.querySelector('[data-pp-modal-q]');
         q.value = '';
         modal.hidden = false;
@@ -276,7 +294,15 @@
         if (separar) { separar.addEventListener('click', function (e) { e.stopPropagation(); desvincular(linha); }); }
     });
 
-    modal.addEventListener('click', function (e) { if (e.target.closest('[data-pp-modal-fechar]')) { fecharModal(); } });
+    modal.addEventListener('click', function (e) {
+        if (e.target.closest('[data-pp-modal-fechar]')) { fecharModal(); return; }
+        var usar = e.target.closest('[data-pp-modal-usar]');
+        if (usar && alvo) { enviarVinculo('Vincular', alvo.linha, '', alvo.trocarDe, usar.dataset.nup); return; }
+        if (e.target.closest('[data-pp-modal-nova]') && alvo) {
+            window.location.href = modal.dataset.urlNovaPasta + '#nova-pasta=' + encodeURIComponent(alvo.linha.dataset.numero) +
+                '&publicacao=' + alvo.linha.dataset.id + '&token=' + encodeURIComponent(modal.dataset.token);
+        }
+    });
     modal.querySelector('[data-pp-modal-q]').addEventListener('input', function () {
         window.clearTimeout(temporizador);
         temporizador = window.setTimeout(buscarPastas, 250);

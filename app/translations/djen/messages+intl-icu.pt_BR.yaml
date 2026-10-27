@@ -51,6 +51,8 @@ djen:
         confirma_desvincular: 'Desvincular o processo {processo} da Pasta {n}?'
         busca_pasta_ph: Número da pasta ou nome do cliente
         nenhuma_pasta: Nenhuma pasta encontrada.
+        partes_nao_informadas: Partes não informadas
+        vincular_a_pasta_n: 'Vincular à Pasta {n}'
         abrir_nova_pasta: Abrir nova pasta
         fechar: Fechar
         selecionar: Selecionar

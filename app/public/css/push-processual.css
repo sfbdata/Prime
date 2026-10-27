@@ -192,3 +192,5 @@
 .pp-linha .pp-selo--cumprido { background: #1e7b45; }
 .pp-meta-criada { font-size: 11px; color: #1e7b45; white-space: nowrap; }
 @media (max-width: 640px) { .pp-det__grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pp-modal__usar { height: 34px; padding: 0 13px; border: none; border-radius: 2px; background: #0a6fa0; color: #fff; font-size: 13px; font-weight: bold; cursor: pointer; }
+.pp-modal__usar[hidden] { display: none; }
