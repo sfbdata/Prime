@@ -43,7 +43,7 @@ use App\Processo\Service\TribunalCnjResolver;
 final class CadastrarProcessoPelaPastaUseCase
 {
     public const SITUACOES = ['EM_ANDAMENTO', 'SUSPENSO', 'ARQUIVADO', 'BAIXADO', 'TRANSITADO_EM_JULGADO'];
-    public const INSTANCIAS = ['G1', 'G2', 'TR', 'ST'];
+    public const INSTANCIAS = ['G1', 'G2', 'JE', 'TR', 'ST'];
     public const TIPOS_DE_PARTE = ['PARTE', 'ADVOGADO', 'TERCEIRO', 'MINISTERIO_PUBLICO', 'PERITO'];
 
     public function __construct(
