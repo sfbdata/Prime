@@ -23,6 +23,7 @@ final class ChamadoDaListaOutput
         public readonly ?string $horaAgendada,
         public readonly ?int $valorEstimadoCentavos,
         public readonly ?int $valorDebitadoCentavos,
+        public readonly string $descricao = '',
     ) {
     }
 
@@ -40,6 +41,7 @@ final class ChamadoDaListaOutput
             $c->getHoraAgendada(),
             $c->getValorEstimadoCentavos(),
             $c->getValorDebitadoCentavos(),
+            $c->getDescricao(),
         );
     }
 

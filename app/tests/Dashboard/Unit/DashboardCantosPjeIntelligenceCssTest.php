@@ -42,7 +42,7 @@ final class DashboardCantosPjeIntelligenceCssTest extends TestCase
         yield 'trilho da distribuição (dc L1077)' => ['.db-page .db-ia-dist-trilho'];
         yield 'contagem por nível (dc L2618)' => ['.db-page .db-ia-chip'];
         yield 'nível do alerta (dc L2626)' => ['.db-page .db-ia-nivel-chip'];
-        yield 'perguntas sugeridas (dc L2642)' => ['.db-page .db-ia-pergunta > summary'];
+        yield 'perguntas sugeridas (dc L2642)' => ['.db-page .db-ia-pilula'];
     }
 
     #[DataProvider('quatroPixels')]

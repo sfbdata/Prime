@@ -6,6 +6,9 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Recompensa\DTO\AlterarRegrasDoProgramaInput;
+use App\Recompensa\DTO\ApagarIndicadorDaListaInput;
+use App\Recompensa\DTO\AprovarSuspeitasDoIndicadorInput;
+use App\Recompensa\DTO\BloquearOuDesbloquearRecompensaInput;
 use App\Recompensa\DTO\DefinirCondicaoIndividualInput;
 use App\Recompensa\DTO\ExtratoEmCsv;
 use App\Recompensa\DTO\LancamentoDoExtratoOutput;
@@ -14,6 +17,9 @@ use App\Recompensa\DTO\RemoverCondicaoIndividualInput;
 use App\Recompensa\Exception\IndicadorNaoEncontrado;
 use App\Recompensa\Exception\RecompensaRecusada;
 use App\Recompensa\UseCase\AlterarRegrasDoProgramaUseCase;
+use App\Recompensa\UseCase\ApagarIndicadorDaListaUseCase;
+use App\Recompensa\UseCase\AprovarSuspeitasDoIndicadorUseCase;
+use App\Recompensa\UseCase\BloquearOuDesbloquearRecompensaUseCase;
 use App\Recompensa\UseCase\ConsultarExtratoDeRecompensasUseCase;
 use App\Recompensa\UseCase\ConsultarPainelDeRecompensasUseCase;
 use App\Recompensa\UseCase\DefinirCondicaoIndividualUseCase;
@@ -30,7 +36,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Seção "Recompensas" do Painel do Master, F1 e F2 (desenho 05 Perfis 1.2 VS 25.10.26, L306-338; spec
+ * Seção "Recompensas" do Painel do Master, F1, F2 e F3 (desenho 05 Perfis 1.2 VS 25.10.26, L306-338; spec
  * docs/specs/perfis-1.2-vs-25-10-recompensas-e-planos.md). Só o Master: ROLE_SUPER_ADMIN na classe.
  *
  * JSON. Os POST/DELETE levam o token CSRF `master_recompensas` no header `X-CSRF-Token` (o padrão das outras seções do
@@ -93,6 +99,33 @@ final class RecompensasDoMasterController extends AbstractController
             $this->exigirValido($input);
             $lancar->executar($input);
         });
+    }
+
+    /** Aprova as contas suspeitas pendentes do indicador (passam a contar). Corpo `{vistas}`: a quantidade que o Master viu. */
+    #[Route('/master/recompensas/usuarios/{id}/suspeitas/aprovar', name: 'master_recompensas_suspeitas_aprovar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function aprovarSuspeitas(int $id, Request $request, AprovarSuspeitasDoIndicadorUseCase $aprovar): JsonResponse
+    {
+        return $this->mutar($request, function () use ($id, $request, $aprovar): void {
+            $input = AprovarSuspeitasDoIndicadorInput::doJson($this->ator(), $id, self::corpo($request) ?? []);
+            $this->exigirValido($input);
+            $aprovar->executar($input);
+        });
+    }
+
+    /** Bloqueia ou desbloqueia a recompensa do indicador. Corpo `{bloqueado: true|false}`. */
+    #[Route('/master/recompensas/usuarios/{id}/bloqueio', name: 'master_recompensas_bloqueio', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function bloquear(int $id, Request $request, BloquearOuDesbloquearRecompensaUseCase $bloquear): JsonResponse
+    {
+        return $this->mutar($request, function () use ($id, $request, $bloquear): void {
+            $bloquear->executar(BloquearOuDesbloquearRecompensaInput::doJson($this->ator(), $id, self::corpo($request) ?? throw new RecompensaRecusada($this->tradutor->trans('master.recompensas.corpo_invalido'))));
+        });
+    }
+
+    /** "Apagar da lista": exige a palavra APAGAR. Corpo `{confirmacao}`. */
+    #[Route('/master/recompensas/usuarios/{id}/apagar', name: 'master_recompensas_apagar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function apagar(int $id, Request $request, ApagarIndicadorDaListaUseCase $apagar): JsonResponse
+    {
+        return $this->mutar($request, fn () => $apagar->executar(ApagarIndicadorDaListaInput::doJson($this->ator(), $id, self::corpo($request) ?? [])));
     }
 
     /** Os 60 lançamentos mais recentes (da tela); `?usuario=ID` filtra por indicador. */

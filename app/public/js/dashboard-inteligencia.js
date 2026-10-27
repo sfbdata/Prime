@@ -126,8 +126,23 @@
         carregarSimulacao(controle);
     }, true);
 
+    /* Perguntas guiadas (dc L1009-1018): uma pílula ativa e uma caixa de resposta só; tocar de novo fecha. */
+    function escolherPergunta(pilula) {
+        var bloco = pilula.closest('.db-ia-perguntas');
+        var caixa = bloco ? bloco.querySelector('[data-ia-resposta-caixa]') : null;
+        if (!caixa) { return; }
+        var abrir = pilula.getAttribute('aria-pressed') !== 'true';
+        bloco.querySelectorAll('[data-ia-pergunta]').forEach(function (p) {
+            p.setAttribute('aria-pressed', p === pilula && abrir ? 'true' : 'false');
+        });
+        caixa.querySelector('span').textContent = abrir ? pilula.getAttribute('data-ia-pergunta') : '';
+        caixa.hidden = !abrir;
+    }
+
     document.addEventListener('click', function (e) {
         var botao = e.target.closest ? e.target.closest('[data-ia-marcar]') : null;
         if (botao) { marcar(botao); }
+        var pilula = e.target.closest ? e.target.closest('[data-ia-pergunta]') : null;
+        if (pilula) { escolherPergunta(pilula); }
     });
 }());

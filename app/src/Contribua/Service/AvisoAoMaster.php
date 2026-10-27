@@ -26,6 +26,8 @@ final class AvisoAoMaster
     public const TIPO_APOIO = 'contribua.apoio';
     public const TIPO_MOTIVO = 'contribua.motivo';
     public const TIPO_PEDIDO_DE_ESPACO = 'contribua.pedido_espaco';
+    /** C4: o banco (Cora) confirmou um apoio por PIX. */
+    public const TIPO_APOIO_CONFIRMADO = 'contribua.apoio_confirmado';
 
     /** O título da notificação é `varchar(255)`: nome, escritório e texto longos não podem estourar. */
     private const TAMANHO_MAXIMO = 255;

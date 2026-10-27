@@ -22,7 +22,7 @@ class ParticipanteRepository extends ServiceEntityRepository
 
     /**
      * A participação ATIVA do usuário na conversa — é ELA que dá acesso. Conversa inexistente, de outro escritório,
-     * de que o usuário não participa, de que saiu (B) ou do tipo IA (invisível até a tela da F3) dão o mesmo `null`: quem chama responde 404 sem distinguir.
+     * de que o usuário não participa, ou de que saiu (B) dão o mesmo `null`: quem chama responde 404 sem distinguir.
      */
     public function daConversa(int $conversaId, User $usuario, Tenant $tenant): ?Participante
     {
@@ -34,11 +34,9 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
-            ->andWhere('c.tipo <> :ia')
             ->setParameter('conversa', $conversaId)
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
-            ->setParameter('ia', TipoDeConversa::Ia)
             ->getQuery()
             ->getOneOrNullResult();
     }
@@ -71,13 +69,14 @@ class ParticipanteRepository extends ServiceEntityRepository
     /**
      * As participações do usuário no escritório, com a conversa e as duas pessoas carregadas, da conversa
      * mais recente para a mais antiga (a sem mensagem conta pela criação, e não vai para o topo por ser nula).
+     * Inclui a conversa IA do próprio usuário; `$semIa` a tira de quem a lista para outro fim que não a caixa dele
+     * (destinos do Encaminhar: não se encaminha à IA).
      *
      * @return list<Participante>
      */
-    public function doUsuario(User $usuario, Tenant $tenant): array
+    public function doUsuario(User $usuario, Tenant $tenant, bool $semIa = false): array
     {
-        /** @var list<Participante> $participacoes */
-        $participacoes = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->addSelect('c', 'menor', 'maior')
             ->addSelect('COALESCE(c.ultimaMensagemEm, c.criadaEm) AS HIDDEN ordem')
             ->join('p.conversa', 'c')
@@ -87,15 +86,17 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
-            ->andWhere('c.tipo <> :ia')
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
-            ->setParameter('ia', TipoDeConversa::Ia)
             ->orderBy('p.fixada', 'DESC')
             ->addOrderBy('ordem', 'DESC')
-            ->addOrderBy('c.id', 'DESC')
-            ->getQuery()
-            ->getResult();
+            ->addOrderBy('c.id', 'DESC');
+        if ($semIa) {
+            $qb->andWhere('c.tipo <> :ia')->setParameter('ia', TipoDeConversa::Ia);
+        }
+
+        /** @var list<Participante> $participacoes */
+        $participacoes = $qb->getQuery()->getResult();
 
         return $participacoes;
     }
@@ -190,10 +191,8 @@ class ParticipanteRepository extends ServiceEntityRepository
             ->andWhere('p.saiuEm IS NULL')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('c.tenant = :tenant')
-            ->andWhere('c.tipo <> :ia')
             ->setParameter('usuario', $usuario)
             ->setParameter('tenant', $tenant)
-            ->setParameter('ia', TipoDeConversa::Ia)
             ->getQuery()
             ->getSingleColumnResult();
 
@@ -202,7 +201,7 @@ class ParticipanteRepository extends ServiceEntityRepository
 
     /**
      * Quantos participantes ATIVOS cada conversa tem (para a lista: "N participantes"). Depende de ids já filtrados
-     * por `doUsuario` (que exclui a conversa IA); não filtra o tipo sozinha.
+     * por `doUsuario`; não filtra o tipo sozinha.
      *
      * @param list<int> $conversaIds
      *

@@ -308,13 +308,13 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         $client->request('GET', '/central/conversas');
-        $linha = array_values(array_filter($this->json($client)['conversas'], static fn (array $c): bool => $c['id'] === $conversa))[0];
+        $linha = array_values(array_filter($this->conversasSemIa($client), static fn (array $c): bool => $c['id'] === $conversa))[0];
         self::assertTrue($linha['marcadaNaoLida']);
         self::assertSame(0, $linha['naoLidas'], 'a marca não inventa mensagem');
 
         $this->logarComTenant($client, $bruno, $tenant);
         $client->request('GET', '/central/conversas');
-        self::assertFalse($this->json($client)['conversas'][0]['marcadaNaoLida'], 'a marca é só de quem marcou');
+        self::assertFalse($this->conversasSemIa($client)[0]['marcadaNaoLida'], 'a marca é só de quem marcou');
 
         foreach ([$carla, $admin] as $intruso) {
             $this->logarComTenant($client, $intruso, $tenant);
@@ -328,7 +328,7 @@ final class CentralA2ControllerTest extends JusPrimeWebTestCase
 
         $this->post($client, "/central/conversas/$conversa/lida", ['ateId' => $ultima]);
         $client->request('GET', '/central/conversas');
-        $linha = array_values(array_filter($this->json($client)['conversas'], static fn (array $c): bool => $c['id'] === $conversa))[0];
+        $linha = array_values(array_filter($this->conversasSemIa($client), static fn (array $c): bool => $c['id'] === $conversa))[0];
         self::assertFalse($linha['marcadaNaoLida'], 'ler desliga a marca, mesmo sem o cursor andar');
     }
 

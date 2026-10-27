@@ -152,4 +152,22 @@ final class TelaDoTrabalhoExternoJsTest extends TestCase
             self::assertStringContainsString($regra, $css, $regra);
         }
     }
+
+    #[TestDox('Nova solicitação: "Novo escritório" e "Salvar edição" (desenho 25/10); o escritório guardado nunca vira escritorioId')]
+    public function testEscritorioSolicitanteSalvo(): void
+    {
+        $js = $this->js();
+        self::assertStringContainsString("'Gravar as alterações neste escritório'", $js);
+        self::assertStringContainsString("'Guardar os dados digitados como um novo escritório'", $js);
+        self::assertStringContainsString('Informe o nome do escritório para salvar.', $js);
+        self::assertStringContainsString("'Salvar edição'", $js);
+        self::assertStringContainsString("'Novo escritório'", $js);
+
+        $criar = $this->funcao('criar');
+        self::assertStringContainsString("dadosNova().peloMaster && !escritorioSalvoEscolhido(N.nf)", $criar, 'id guardado nunca é enviado como escritorioId');
+        self::assertStringContainsString('delete dados.escId;', $criar);
+
+        $mudou = $this->funcao('escritorioSalvoMudou');
+        self::assertStringContainsString('if (!x) {', $mudou, 'escritório da plataforma não é editável por aqui');
+    }
 }

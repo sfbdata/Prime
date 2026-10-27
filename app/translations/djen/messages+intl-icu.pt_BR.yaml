@@ -165,6 +165,7 @@ djen:
         capturados_das: 'Capturados das OABs {oabs}'
         sem_oab: 'Nenhuma OAB ativa: cadastre em OABs monitoradas'
         buscar: Buscar processos da OAB
+        buscando: Buscando...
         kpi_processos: PROCESSOS
         kpi_movidos: MOVIDOS EM 7 DIAS
         kpi_parados: PARADOS +30 DIAS
@@ -217,6 +218,8 @@ djen:
         pasta_curto: Pasta
         editar_obs: Editar anotações
         incluir_acompanhamento: Incluir no acompanhamento
+        menu_excluir: Excluir processo
+        confirma_excluir: "Excluir o processo {processo}?\n\nEle sai do Push, do acompanhamento e da pasta vinculada. As publicações já recebidas continuam no histórico."
         ver_publicacoes: Ver publicações
         vazio: Nenhum processo com esses filtros.
         paginacao: '{total} processo(s) · página {pagina} de {paginas}'
@@ -238,11 +241,12 @@ djen:
         dias_uteis: 'Prazo em dias úteis'
         outro: Outro
         outro_pergunta: 'Prazo em dias úteis (1 a 399):'
+        dias_n: '{n} dias'
         faltam: '{n, plural, one {Falta # dia útil} other {Faltam # dias úteis}}'
         vence_hoje: Vence hoje
         vencido: Prazo vencido
         cumprido: Prazo cumprido
-        intervalo: 'De {inicio} a {fim} · dias úteis, sem fins de semana, feriados e recesso forense. Confira o termo inicial na intimação.'
+        intervalo: 'De {inicio} a {fim} · dias úteis, sem fins de semana, feriados e recesso forense (20/12 a 20/01). Confira o termo inicial na intimação.'
         do_teor: 'Prazo lido do teor, até {fim}. Confira o termo inicial na intimação.'
         sem_prazo: 'Sem prazo definido. Escolha os dias úteis conforme a intimação.'
         criar_meta: Criar meta com este prazo
@@ -259,3 +263,62 @@ djen:
         selo_dica: 'Prazo de {dias} dias úteis: de {inicio} a {fim} (sem fins de semana, feriados e recesso forense)'
         selo_dica_teor: 'Prazo lido do teor: até {fim}'
         meta_criada_selo: meta criada
+    vp:
+        titulo: Vincular processo
+        localizar: Localizar pasta
+        localizar_dica: Localizar a pasta e vincular este processo
+        modo_busca: Buscar processo existente
+        modo_novo: Cadastrar novo (CNJ)
+        busca_ph: Número do processo, cliente ou pasta
+        busca_vazia: 'Nenhum processo encontrado. Use "Cadastrar novo (CNJ)".'
+        pasta_n: 'Pasta {n}'
+        sem_selecao: Selecione um processo da lista.
+        localizar_fora_da_lista: 'Vincule o processo primeiro e use Vincular pasta na aba Processos da OAB.'
+        sem_numero_pasta: Informe ou escolha o número do processo antes de localizar a pasta.
+        aba_info: Informações
+        aba_partes: Partes
+        aba_mov: Movimentações
+        numero: NÚMERO DO PROCESSO
+        formato: 'Formato: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        formato_erro: 'Formato CNJ: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        formato_antes_de_buscar: Informe o número no formato CNJ antes de buscar.
+        numero_invalido: Informe o número do processo no formato CNJ.
+        preencha: 'Preencha: {campos}.'
+        buscar_cnj: Buscar no CNJ
+        buscando: Buscando…
+        falha_cnj: Não foi possível consultar o CNJ agora. Preencha os campos ou tente novamente mais tarde.
+        tribunal: TRIBUNAL
+        tribunal_ph: Detectado pelo número do processo
+        orgao: ÓRGÃO JULGADOR
+        classe: CLASSE PROCESSUAL
+        assunto: ASSUNTO PROCESSUAL
+        situacao: SITUAÇÃO
+        sit_em_andamento: Em andamento
+        sit_suspenso: Suspenso
+        sit_arquivado: Arquivado
+        sit_baixado: Baixado
+        instancia: INSTÂNCIA
+        inst_g1: G1 · Primeira Instância
+        inst_g2: G2 · Segunda Instância
+        inst_tr: Turma Recursal
+        inst_st: Tribunal Superior
+        distribuicao: DATA DE DISTRIBUIÇÃO
+        valor: VALOR DA CAUSA
+        jurisdicao: JURISDIÇÃO
+        jurisdicao_ph: 'Ex.: Brasília · Fórum Des. Joaquim Sousa Neto'
+        segredo: SEGREDO DE JUSTIÇA?
+        digital: JUÍZO 100% DIGITAL?
+        gratuita: JUSTIÇA GRATUITA?
+        tutela: TUTELA/LIMINAR?
+        prioridade: PRIORIDADE?
+        nao_informado: Não informado
+        sim: Sim
+        nao: Não
+        adicionar_parte: Adicionar parte
+        polo_ativo: Polo ativo
+        polo_passivo: Polo passivo
+        terceiro: Terceiro
+        nome_ph: Nome ou razão social
+        doc_ph: CPF/CNPJ
+        remover: Remover
+        sem_movs: As movimentações aparecem depois de buscar no CNJ ou da primeira sincronização.
