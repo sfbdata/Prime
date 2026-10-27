@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\TrabalhoExterno\Unit;
 
+use App\Auth\Exception\CadastroNaoDisponivel;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Profile\Enum\Genero;
+use App\Tests\Support\ConfiguracaoDaPlataformaFalsa;
 use App\Repository\UserRepository;
 use App\Tenant\Service\SituacaoDaConta;
 use App\Termo\Repository\AceiteTermoRepository;
@@ -34,8 +37,11 @@ final class CriarContaDeConvidadoUseCaseTest extends TestCase
     private EntityManagerInterface&MockObject $em;
     private UserRepository&MockObject $usuarios;
 
+    private ConfiguracaoDaPlataformaFalsa $configuracao;
+
     protected function setUp(): void
     {
+        $this->configuracao = new ConfiguracaoDaPlataformaFalsa(['cadastro' => 'on']);
         $this->em       = $this->createMock(EntityManagerInterface::class);
         $this->usuarios = $this->createMock(UserRepository::class);
         $this->usuarios->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
@@ -54,6 +60,28 @@ final class CriarContaDeConvidadoUseCaseTest extends TestCase
         self::assertSame(Genero::Feminino, $usuario->getProfile()?->getGenero());
         self::assertSame($usuario, $usuario->getProfile()?->getUser());
         self::assertSame([$usuario], $persistidos, 'o perfil vai em cascata, sem persist próprio');
+    }
+
+    #[TestDox('Cadastro só por convite: o convite do Trabalho Externo ainda cria a conta')]
+    public function testPoliticaConviteDeixaCriarConta(): void
+    {
+        $this->configuracao->definir('cadastro', 'convite');
+
+        $usuario = $this->useCase()->executar(self::TOKEN, 'Nova Correspondente', 'senha-forte-1', true, '10.0.0.1', null, 'feminino');
+
+        self::assertSame('nova@test.com', $usuario->getEmail());
+    }
+
+    #[TestDox('Cadastro fechado: o convite do Trabalho Externo não cria conta nova e nada é gravado')]
+    public function testPoliticaOffBloqueia(): void
+    {
+        $this->configuracao->definir('cadastro', 'off');
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(CadastroNaoDisponivel::class);
+
+        $this->useCase()->executar(self::TOKEN, 'Nova Correspondente', 'senha-forte-1', true, '10.0.0.1', null, 'feminino');
     }
 
     /** @return iterable<string, array{string}> */
@@ -93,6 +121,7 @@ final class CriarContaDeConvidadoUseCaseTest extends TestCase
             new RegistrarAceiteTermoUseCase($aceites, new TermoVigente()),
             $this->em,
             new ConviteDisponivel(new SituacaoDaConta()),
+            new PoliticaDeCadastro($this->configuracao),
         );
     }
 

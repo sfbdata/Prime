@@ -10,9 +10,11 @@ use App\Auth\DTO\IdentidadeDoGoogle;
 use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Auth\Event\EmailDaContaConfirmado;
+use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\Exception\EntradaPeloGoogleRecusadaException;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\CadastroMailer;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Auth\Service\TetoDoReenvioDeConfirmacao;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -62,6 +64,9 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * então é o mesmo cadastro por e-mail (conta NÃO confirmada, link de confirmação, resposta neutra para e-mail com
  * conta), só gravando o `facebook_id` na conta nova. `facebook_id` já ligado a outra conta: a mesma resposta neutra,
  * sem criar nada.
+ *
+ * Política de cadastro (configuração `cadastro` do Master, spec `login-config-cadastro.md`): as duas portas públicas
+ * lançam CadastroNaoDisponivel, antes de qualquer leitura ou gravação, quando o cadastro não está aberto.
  */
 final class CriarContaEEscritorioUseCase
 {
@@ -86,6 +91,7 @@ final class CriarContaEEscritorioUseCase
         private readonly ClockInterface $relogio,
         private readonly ReenviarConfirmacaoDeEmailUseCase $reenviarConfirmacao,
         private readonly TetoDoReenvioDeConfirmacao $teto,
+        private readonly PoliticaDeCadastro $politicaDeCadastro,
     ) {
     }
 
@@ -95,9 +101,16 @@ final class CriarContaEEscritorioUseCase
         return mb_strtolower(trim($email));
     }
 
-    /** @return ContaCriadaOutput|null null quando o e-mail já tinha conta (nada gravado; a dona recebe o aviso) */
+    /**
+     * @return ContaCriadaOutput|null null quando o e-mail já tinha conta (nada gravado; a dona recebe o aviso)
+     *
+     * @throws CadastroNaoDisponivel política de cadastro diferente de aberto (nada é lido nem gravado)
+     */
     public function executar(CriarContaEEscritorioInput $input, string $ip, ?string $userAgent, ?string $facebookId = null): ?ContaCriadaOutput
     {
+        // Primeiro de tudo: com o cadastro fechado ao público, nem a validação nem a busca do e-mail rodam, e a
+        // resposta não diz se o e-mail tem conta (spec login-config-cadastro, item 4).
+        $this->politicaDeCadastro->exigirPublicoAberto();
         self::validar($input);
         $email = self::normalizarEmail($input->email);
 
@@ -112,10 +125,7 @@ final class CriarContaEEscritorioUseCase
 
             return null;
         }
-        if ($facebookId !== null && $this->userRepository->findOneBy(['facebookId' => $facebookId]) !== null) {
-            // Este `id` do Facebook já é de outra conta: nada é criado nem ligado, e a resposta é a neutra.
-            $this->senhaInutilizavel(new User());
-
+        if ($facebookId !== null && $this->facebookIdJaLigado($facebookId)) {
             return null;
         }
 
@@ -137,9 +147,21 @@ final class CriarContaEEscritorioUseCase
         return $conta;
     }
 
+    /** Este `id` do Facebook já é de outra conta: nada é criado nem ligado, e a resposta é a neutra (mesmo custo do hash). */
+    private function facebookIdJaLigado(string $facebookId): bool
+    {
+        if ($this->userRepository->findOneBy(['facebookId' => $facebookId]) === null) {
+            return false;
+        }
+        $this->senhaInutilizavel(new User());
+
+        return true;
+    }
+
     /** @throws \InvalidArgumentException|\DomainException */
     public function executarPeloGoogle(CriarContaEEscritorioInput $input, IdentidadeDoGoogle $identidade, string $ip, ?string $userAgent): ContaCriadaOutput
     {
+        $this->politicaDeCadastro->exigirPublicoAberto();
         // Decisão 10: a garantia é conferida de novo aqui, além do autenticador que gravou a identidade na sessão.
         if (!$identidade->emailComGarantia()) {
             throw new \DomainException(EntradaPeloGoogleRecusadaException::SEM_GARANTIA_CADASTRO);
