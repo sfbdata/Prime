@@ -34,47 +34,19 @@ final class ApuracaoDeCustos
     public static function apurar(string $mes, array $lancamentos, array $contas, array $planos): array
     {
         $ativas = array_values(array_filter($contas, static fn (array $c): bool => $c['situacao'] === self::SITUACAO_ATIVA));
-        $precos = array_column($planos, 'precoCentavos', 'codigo');
-
         $custo = array_sum(array_map(static fn (LancamentoDeCusto $l): int => $l->getValorCentavos(), $lancamentos));
-        $receita = 0;
-        $usuarios = 0;
-        $bytes = 0;
-        $contasPorPlano = [];
-        foreach ($ativas as $c) {
-            $plano = $c['espaco']['planoCodigo'];
-            $contasPorPlano[$plano] = ($contasPorPlano[$plano] ?? 0) + 1;
-            $receita += ($precos[$plano] ?? 0) + self::convenioEmCentavos($c['convenio']);
-            $usuarios += $c['usuarios'];
-            $bytes += $c['bytes'];
-        }
-
-        $gb = $bytes / self::BYTES_POR_GB;
-        $baseDoGb = array_sum(array_map(
-            static fn (LancamentoDeCusto $l): int => $l->getCategoria()->contaNoCustoPorGb() ? $l->getValorCentavos() : 0,
-            $lancamentos,
-        ));
-        $custoPorGb = $gb > 0 && $baseDoGb > 0 ? $baseDoGb / $gb : null;
+        $resumo = self::resumoDasContas($ativas, array_column($planos, 'precoCentavos', 'codigo'));
+        $kpis = self::kpis($lancamentos, $custo, $resumo, count($ativas));
+        $custoPorGb = $kpis['custoPorGbExato'];
+        unset($kpis['custoPorGbExato']);
+        $receita = $resumo['receita'];
         $margem = $receita - $custo;
-        $nContas = count($ativas);
 
         return [
             'mes' => $mes,
-            'kpis' => [
-                'custoCentavos' => $custo,
-                'lancamentos' => count($lancamentos),
-                'receitaCentavos' => $receita,
-                'margemCentavos' => $margem,
-                'margemPercentual' => $receita > 0 ? (int) round($margem / $receita * 100) : null,
-                'contas' => $nContas,
-                'usuarios' => $usuarios,
-                'custoPorContaCentavos' => $nContas > 0 ? (int) round($custo / $nContas) : 0,
-                'custoPorUsuarioCentavos' => $usuarios > 0 ? (int) round($custo / $usuarios) : 0,
-                'gbArmazenados' => round($gb, 1),
-                'custoPorGbCentavos' => $custoPorGb === null ? null : (int) round($custoPorGb),
-            ],
+            'kpis' => $kpis,
             'categorias' => self::categorias($lancamentos, $custo),
-            'planos' => self::planos($planos, $contasPorPlano, $custoPorGb),
+            'planos' => self::planos($planos, $resumo['contasPorPlano'], $custoPorGb),
             'projecao' => array_map(static fn (int $m): array => [
                 'meses' => $m,
                 'custoCentavos' => $custo * $m,
@@ -89,6 +61,61 @@ final class ApuracaoDeCustos
                 'origem' => $l->getOrigem()->value,
                 'observacao' => $l->getObservacao(),
             ], $lancamentos),
+        ];
+    }
+
+    /**
+     * @param list<array{situacao: string, usuarios: int, bytes: int, espaco: array{planoCodigo: string}, convenio: array{modo: string, valor: float}}> $ativas
+     * @param array<string, int>                                                                                                                       $precos
+     *
+     * @return array{receita: int, usuarios: int, bytes: int, contasPorPlano: array<string, int>}
+     */
+    private static function resumoDasContas(array $ativas, array $precos): array
+    {
+        $resumo = ['receita' => 0, 'usuarios' => 0, 'bytes' => 0, 'contasPorPlano' => []];
+        foreach ($ativas as $c) {
+            $plano = $c['espaco']['planoCodigo'];
+            $resumo['contasPorPlano'][$plano] = ($resumo['contasPorPlano'][$plano] ?? 0) + 1;
+            $resumo['receita'] += ($precos[$plano] ?? 0) + self::convenioEmCentavos($c['convenio']);
+            $resumo['usuarios'] += $c['usuarios'];
+            $resumo['bytes'] += $c['bytes'];
+        }
+
+        return $resumo;
+    }
+
+    /**
+     * `custoPorGbExato` (float, sem arredondar) é só para a margem dos planos; a tela usa `custoPorGbCentavos`.
+     *
+     * @param list<LancamentoDeCusto>                                                       $lancamentos
+     * @param array{receita: int, usuarios: int, bytes: int, contasPorPlano: array<string, int>} $resumo
+     *
+     * @return array<string, mixed>
+     */
+    private static function kpis(array $lancamentos, int $custo, array $resumo, int $contas): array
+    {
+        $gb = $resumo['bytes'] / self::BYTES_POR_GB;
+        $baseDoGb = array_sum(array_map(
+            static fn (LancamentoDeCusto $l): int => $l->getCategoria()->contaNoCustoPorGb() ? $l->getValorCentavos() : 0,
+            $lancamentos,
+        ));
+        $custoPorGb = $gb > 0 && $baseDoGb > 0 ? $baseDoGb / $gb : null;
+        $receita = $resumo['receita'];
+        $margem = $receita - $custo;
+
+        return [
+            'custoCentavos' => $custo,
+            'lancamentos' => count($lancamentos),
+            'receitaCentavos' => $receita,
+            'margemCentavos' => $margem,
+            'margemPercentual' => $receita > 0 ? (int) round($margem / $receita * 100) : null,
+            'contas' => $contas,
+            'usuarios' => $resumo['usuarios'],
+            'custoPorContaCentavos' => $contas > 0 ? (int) round($custo / $contas) : 0,
+            'custoPorUsuarioCentavos' => $resumo['usuarios'] > 0 ? (int) round($custo / $resumo['usuarios']) : 0,
+            'gbArmazenados' => round($gb, 1),
+            'custoPorGbCentavos' => $custoPorGb === null ? null : (int) round($custoPorGb),
+            'custoPorGbExato' => $custoPorGb,
         ];
     }
 
