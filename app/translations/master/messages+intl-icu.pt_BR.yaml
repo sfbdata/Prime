@@ -770,6 +770,20 @@ master:
             aviso_bloqueio: Antes de ligar, confira os escritórios acima do plano e defina sem limite ou uma cota própria.
             erro_faixas: As faixas precisam crescer em ordem, de 1% a 100%.
             salvar_faixas: Salvar faixas
+            dup:
+                cobrado: ESPAÇO REAL · COBRADO
+                cobrado_desc: o que cada conta paga (todos os arquivos)
+                cobrado_dica: Soma de cada arquivo em cada pasta. É o que conta no limite e na cobrança, mesmo quando o arquivo é virtual
+                fisico: ESPAÇO FÍSICO · SERVIDOR
+                fisico_desc: o que o BlueJus compra de armazenamento
+                fisico_dica: Arquivos únicos realmente gravados no servidor
+                virtual: ESPAÇO VIRTUAL · ECONOMIZADO
+                virtual_desc: '{pct}% do cobrado não ocupa servidor'
+                virtual_vazio: sem dados ainda
+                virtual_dica: 'Arquivos repetidos reconhecidos pela impressão digital (o CPF do arquivo): cobrados da conta, mas gravados uma vez só. Vira margem de receita'
+                arquivos: ARQUIVOS
+                arquivos_desc: '{reais} real(is) · {virtuais} virtual(is)'
+                arquivos_dica: 'Real: gravado no servidor. Virtual: aponta para um arquivo real idêntico'
             ranking: Contas por consumo
             nenhuma: Nenhuma conta.
             editar_limite: Editar limite

@@ -188,8 +188,8 @@
       { rot: T('master.js.visao.kpi.receita'), n: T('master.js.sem_informacao'), texto: true, desc: T('master.js.visao.kpi.receita_desc'), icone: 'bi-cash-coin', cor: '#7d909d', bg: '#eef2f5', ir: 'custos' }
     ];
     document.getElementById('mp-kpis').innerHTML = kpis.map(x => '<button type="button" class="mp-kpi" data-ir="' + x.ir + '" style="--cor:' + x.cor + ';--bg:' + x.bg + '">'
-      + '<span class="mp-kpi-ico"><i class="bi ' + x.icone + '"></i></span><span class="mp-kpi-rot">' + esc(x.rot) + '</span>'
-      + '<span class="mp-kpi-n' + (x.texto ? ' mp-kpi-n-texto' : '') + '">' + esc(x.n) + '</span><span class="mp-kpi-desc">' + esc(x.desc) + '</span>'
+      + '<span class="mp-kpi-rot">' + esc(x.rot) + '</span>'
+      + '<span class="mp-kpi-n' + (x.texto ? ' mp-kpi-n-texto' : '') + '" title="' + esc(x.n) + '" style="--nlen:' + Math.max(3, String(x.n).length) + '">' + esc(x.n) + '</span><span class="mp-kpi-desc">' + esc(x.desc) + '</span>'
       + (x.pct ? '<div class="mp-barra-6 mp-kpi-barra"><div style="--w:' + x.pct + '"></div></div>' : '')
       + '<span class="mp-kpi-base"></span><span class="mp-kpi-brilho"></span></button>').join('');
   }
@@ -955,9 +955,24 @@
   const fxValidas = f => { const v = CHIPS.map(([k]) => f[k]); return v.every(Number.isInteger) && v[0] > 0 && v[0] < v[1] && v[1] < v[2] && v[2] < v[3] && v[3] <= 100; };
   const fxMudou = () => { const o = fxDoServidor(); return CHIPS.some(([k]) => S.fx[k] !== o[k]) || S.fx.bloqueioAtivo !== o.bloqueioAtivo; };
 
+  // Faixa de duplicidade (desenho 05 de 27/10, dupKpis): cobrado x físico x economizado x arquivos. Os números vêm do
+  // servidor (D.visao.duplicidade); aqui só formata, como o desenho (KB sem casas, MB com 1, GB com 2).
+  function faixaDeDuplicidade() {
+    const d = D.visao.duplicidade || {}, cob = d.cobrado || 0, fis = d.fisico || 0, vin = d.vinculos || 0, arq = d.arquivos || 0;
+    const fB = b => b < 1048576 ? decimal(b / 1024, 0, 0) + ' KB' : b < 1073741824 ? decimal(b / 1048576, 1, 1) + ' MB' : decimal(b / 1073741824, 2, 2) + ' GB';
+    const kpis = [
+      ['cobrado', fB(cob), T('master.js.arm.dup.cobrado_desc'), '#12242f'],
+      ['fisico', fB(fis), T('master.js.arm.dup.fisico_desc'), '#12242f'],
+      ['virtual', fB(Math.max(0, cob - fis)), cob ? T('master.js.arm.dup.virtual_desc', { pct: Math.round((1 - fis / cob) * 100) }) : T('master.js.arm.dup.virtual_vazio'), '#1e7b45'],
+      ['arquivos', String(vin), T('master.js.arm.dup.arquivos_desc', { reais: arq, virtuais: Math.max(0, vin - arq) }), '#12242f']
+    ];
+    return '<div class="mp-dup">' + kpis.map(([k, v, desc, cor]) => '<div class="mp-dup-kpi" title="' + esc(T('master.js.arm.dup.' + k + '_dica')) + '"><span class="mp-dup-rot">'
+      + esc(T('master.js.arm.dup.' + k)) + '</span><b style="color:' + cor + '">' + esc(v) + '</b><span class="mp-dup-desc">' + esc(desc) + '</span></div>').join('') + '</div>';
+  }
+
   function montarArm() {
     if (!S.fx) S.fx = fxDoServidor();
-    elSecao.innerHTML = '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">' + T('master.js.arm.faixas_titulo') + ' <span>' + T('master.js.arm.configuraveis') + '</span></b>'
+    elSecao.innerHTML = faixaDeDuplicidade() + '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">' + T('master.js.arm.faixas_titulo') + ' <span>' + T('master.js.arm.configuraveis') + '</span></b>'
       + '<div class="mp-faixas-chips">' + CHIPS.map(([k, rot, cor, bg]) => '<label class="mp-faixa-chip" style="--cor:' + cor + ';--bg:' + bg + '"><span>' + T('master.js.arm.a_partir', { faixa: rot }) + '</span>'
         + '<input type="number" min="1" max="100" step="1" data-faixa="' + k + '" value="' + esc(S.fx[k]) + '" aria-label="' + esc(T('master.js.arm.a_partir', { faixa: rot })) + '">%</label>').join('') + '</div>'
       + '<span class="mp-faixas-nota">' + T('master.js.arm.faixas_nota') + '</span>'
