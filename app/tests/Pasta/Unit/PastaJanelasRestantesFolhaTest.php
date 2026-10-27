@@ -159,8 +159,9 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
 
         // Excluir: o prompt fica (é o do desenho); o número errado vira o aviso da tela.
         $excluir = self::trecho($cab, 'class="js-excluir-pasta"', '</form>');
-        self::assertStringContainsString("window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans|e('js') }}');", $excluir);
-        self::assertSame('Número não confere. A pasta não foi excluída.', $catalogo['cabecalho']['menu']['excluir_nao_confere']);
+        self::assertStringContainsString("window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans({nup: pasta.nup})|e('js') }}');", $excluir);
+        self::assertSame('Número não confere. Digite {nup} (o NUP da pasta, não o número da URL). A pasta não foi excluída.', $catalogo['cabecalho']['menu']['excluir_nao_confere']);
+        self::assertStringContainsString("'{{ 'pasta_cabecalho.cabecalho.menu.excluir_sem_dialogo'|trans|e('js') }}'", $excluir, 'prompt silenciado pelo navegador avisa em vez de calar');
         self::assertStringNotContainsString('alert(', $excluir);
         self::assertStringContainsString('window.prompt(', $excluir, 'o prompt é o do desenho (dc L.4335) e fica');
 

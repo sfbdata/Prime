@@ -211,6 +211,30 @@ final class EspelhoRemotoR2Test extends TestCase
         $this->enviar($chave, 'conteúdo');
     }
 
+    #[TestDox('PUT e HEAD pedem Accept-Encoding: identity (a borda da Cloudflare não comprime o HEAD de texto)')]
+    public function testPedeRespostaSemCompressao(): void
+    {
+        $this->enviar(new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 't.txt'), 'texto com mais de cinquenta bytes para a borda comprimir', 'text/plain');
+
+        $metodos = [];
+        foreach ($this->s3->requisicoes() as $requisicao) {
+            self::assertSame('identity', $requisicao['cabecalhos']['accept-encoding'] ?? null, $requisicao['metodo']);
+            $metodos[] = $requisicao['metodo'];
+        }
+        self::assertSame(['PUT', 'HEAD'], $metodos);
+    }
+
+    #[TestDox('HEAD sem Content-Length é falha de consulta, nunca "0 bytes": o objeto íntegro não vira divergente')]
+    public function testHeadSemContentLengthEhFalhaDeConsulta(): void
+    {
+        $chave = new ChaveDeArquivo(EscopoDeArquivo::deTenant(1), CategoriaDeArquivo::PASTA_DOCUMENTO, 'gz.txt');
+        $this->s3->falharAProxima(new MockResponse('', ['http_code' => 200, 'response_headers' => ['x-amz-meta-sha256' => hash('sha256', 'x')]]));
+
+        $this->expectException(FalhaNoEspelhoRemoto::class);
+        $this->expectExceptionMessage('HEAD sem Content-Length');
+        $this->espelho->consultar($chave);
+    }
+
     #[TestDox('recusa do destino no PUT (403) vira FalhaNoEspelhoRemoto com status e código S3 — sem segredo nem assinatura')]
     public function testRecusaSemVazarSegredo(): void
     {

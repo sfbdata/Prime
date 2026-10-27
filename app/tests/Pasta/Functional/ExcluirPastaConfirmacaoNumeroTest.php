@@ -139,7 +139,7 @@ final class ExcluirPastaConfirmacaoNumeroTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects("/pasta/{$id}");
         $crawler = $client->followRedirect();
-        self::assertStringContainsString('Número não confere. A pasta não foi excluída.', $crawler->text());
+        self::assertStringContainsString('Número não confere. Digite 500 (o NUP da pasta, não o número da URL). A pasta não foi excluída.', $crawler->text());
         $pasta = $this->recarregar($id);
         self::assertNotNull($pasta, 'Número errado não pode apagar a última pasta.');
         self::assertFalse($pasta->estaExcluida(), 'Número errado não pode mandar a última pasta para a lixeira.');
