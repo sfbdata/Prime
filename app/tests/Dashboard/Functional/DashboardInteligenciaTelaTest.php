@@ -188,7 +188,7 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         $porAlerta = 4 * $painel->filter('.db-ia-alertas > details.db-ia-alerta')->count();
         self::assertGreaterThan(0, $porAlerta);
         $pilulas = $painel->filter('.db-ia-perguntas > .db-ia-pilulas > button.db-ia-pilula')->count();
-        self::assertCount(5 + $porAlerta + $pilulas, $painel->filter('button'), 'dentro do painel: o X, o interruptor do Modo avançado, os 2 da confirmação, o cartão do rodapé, os 4 de cada alerta (Resolvido, Ignorar, Aplicar, Não se aplica) e as pílulas das perguntas guiadas; o botão de abrir é irmão, fora do aside');
+        self::assertCount(6 + $porAlerta + $pilulas, $painel->filter('button'), 'dentro do painel: o X, o "← Equipe" da análise individual (escondido até abrir uma pessoa), o interruptor do Modo avançado, os 2 da confirmação, o cartão do rodapé, os 4 de cada alerta (Resolvido, Ignorar, Aplicar, Não se aplica) e as pílulas das perguntas guiadas; o botão de abrir é irmão, fora do aside');
         self::assertCount($porAlerta, $painel->filter('.db-ia-alerta-corpo button[data-ia-marcar]'));
         self::assertCount(1, $painel->filter('.db-ia-cab > button.db-ia-fechar'));
         self::assertCount(1, $painel->filter('.db-ia-sub > button.db-ia-av-switch'));

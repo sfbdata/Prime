@@ -1273,3 +1273,74 @@ master:
                 facebook: Facebook (login)
                 tribunais: Tribunais · Push processual
                 ia: IA (Chat I.A e leitura de documentos)
+    custos:
+        mes: Mês
+        nota: Receita atual, não histórica. Os custos são os lançados no mês escolhido.
+        copiar: Copiar do mês anterior
+        lancar: Lançar custo
+        cancelar: Cancelar
+        campo_categoria: Categoria
+        campo_valor: Valor mensal (R$)
+        campo_fornecedor: Fornecedor
+        fornecedor_dica: 'Ex.: AWS, Google'
+        campo_origem: Origem do valor
+        campo_observacao: Observação
+        por_categoria: Custos por categoria
+        do_mes: do mês selecionado
+        margem_e_projecao: Margem por plano e projeção
+        margem_sub: custo de espaço estimado pelo custo por GB
+        col_plano: PLANO
+        col_contas: CONTAS
+        col_preco: PREÇO
+        col_custo: CUSTO
+        col_margem: MARGEM
+        col_projecao: PROJEÇÃO
+        col_receita: RECEITA
+        projecao_nota: Projeção mantém os valores do mês selecionado.
+        lancamentos: Lançamentos do mês
+        lancamentos_sub: 'origem identificada: medido, importado do fornecedor ou estimado'
+        sem_lancamentos: Nenhum custo lançado neste mês.
+        js:
+            moeda: 'R$ {valor}'
+            kpi:
+                custo: CUSTO DO MÊS
+                receita: RECEITA RECORRENTE
+                margem: MARGEM
+                por_conta: CUSTO POR CONTA
+                por_gb: CUSTO POR GB
+            lancamentos_n: '{n} lançamento(s)'
+            receita_desc: assinaturas de espaço e convênios regionais
+            sem_receita: sem receita no mês
+            da_receita: '{n}% da receita'
+            contas_usuarios: '{contas} conta(s) · {usuario} por usuário'
+            gb_armazenados: '{n} GB armazenados'
+            nao_lancado: não lançado
+            sem_valor: '-'
+            meses: '{n} meses'
+            excluir: Excluir
+            erro_valor: Informe o valor mensal.
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            dlg:
+                salvar: Salvar
+                excluir: Excluir
+                copiar: Copiar
+                lancar: 'Lançar custo · {mes}'
+                copiar_titulo: Copiar do mês anterior
+                copiar_texto: 'Copiar os lançamentos do mês anterior para {mes}? O que era medido passa a estimado.'
+                excluir_titulo: Excluir lançamento
+                excluir_texto: Excluir este lançamento?
+            erro_carregar: Não foi possível carregar os custos. Recarregue a página.
+            categoria:
+                armazenamento: Armazenamento
+                banco_de_dados: Banco de dados
+                hospedagem: Hospedagem e processamento
+                trafego: Tráfego
+                backups: Backups
+                apis_de_ia: APIs de IA
+                notificacoes: Notificações e e-mail
+                integracoes: Integrações
+                outros: Outros
+            origem:
+                medido: Medido
+                importado: Importado do fornecedor
+                estimado: Estimado

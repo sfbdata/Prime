@@ -47,7 +47,7 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
     private function naLista(KernelBrowser $client, int $conversa): ?array
     {
         $client->request('GET', '/central/conversas');
-        foreach ($this->json($client)['conversas'] as $linha) {
+        foreach ($this->conversasSemIa($client) as $linha) {
             if ($linha['id'] === $conversa) {
                 return $linha;
             }
@@ -142,7 +142,7 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
 
         $client->request('GET', '/central/conversas');
-        self::assertSame([], $this->json($client)['conversas']);
+        self::assertSame([], $this->conversasSemIa($client));
     }
 
     #[TestDox('Em grupo: a mensagem chega a todos como não lida; a menção só avisa participante ativo, com o nome do grupo e sem o texto')]
@@ -318,7 +318,7 @@ final class CentralBControllerTest extends JusPrimeWebTestCase
         $this->post($client, "/central/conversas/$grupo/preferencias", ['fixada' => true]);
         self::assertResponseIsSuccessful();
         $client->request('GET', '/central/conversas');
-        self::assertSame($grupo, $this->json($client)['conversas'][0]['id'], 'a fixada vem antes da mais recente');
+        self::assertSame($grupo, $this->conversasSemIa($client)[0]['id'], 'a fixada vem antes da mais recente');
 
         $this->logarComTenant($client, $bruno, $tenant);
         self::assertFalse($this->naLista($client, $grupo)['fixada'], 'a preferência da Ana não é a do Bruno');

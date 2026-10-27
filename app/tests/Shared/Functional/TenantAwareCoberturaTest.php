@@ -36,6 +36,7 @@ use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DespachoDemanda;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
+use App\TrabalhoExterno\Entity\EscritorioSolicitante;
 use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Entity\HistoricoVaga;
@@ -175,6 +176,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         DespachoDemanda::class, // só é lido pela demanda já localizada no escopo (DemandaExterna::getDespachos); toda rota passa pelo LocalizadorDeDemanda (DespachoDaDemandaTest, outro escritório é 404)
         HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só pelo interno (ApresentadorDeVaga::detalhe, desenho l.1190)
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
+        EscritorioSolicitante::class, // do usuário (escritórios guardados na Nova solicitação, nunca Tenant); toda leitura recebe o usuário logado e id de outro é 404 (EscritorioSolicitanteTest::testAtualizaEDono)
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
         MetricaPublica::class, // contador anônimo da página pública (dia, link, visitas, cliques), sem escritório nem pessoa; só o painel do Master lê, e só a soma (PainelDoTrabalhoExternoTest::testSoOMasterVeOPainel)
@@ -359,8 +361,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 85 → 86 com o preço do atendimento do Service Desk (27/10/2026): PrecoDoAtendimento, justificado acima (catálogo
     // global que só o Master define, igual ao Plano do Contribua).
     // 86 → 87 com os custos do Master (27/10/2026): LancamentoDeCusto (plataforma), justificado acima.
-    // 87 → 89 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
-    private const MAX_FORA_DO_ESCOPO = 89;
+    // 87 → 88 com os escritórios guardados da Nova solicitação (27/10/2026): EscritorioSolicitante é do usuário, justificado acima.
+    // 88 → 90 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
+    private const MAX_FORA_DO_ESCOPO = 90;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
