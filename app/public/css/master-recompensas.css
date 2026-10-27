@@ -79,6 +79,7 @@
 .mrc-sit.mrc-sit-ok { color: var(--mrc-verde); }
 .mrc-sit.mrc-sit-alerta { color: var(--mrc-vermelho); }
 .mrc-acoes { display: flex; gap: 5px; justify-content: flex-end; align-items: center; }
+.mrc-pagar { height: 28px; padding: 0 9px; border: none; border-radius: 2px; background: #1e7b45; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer; }
 .mrc-ajustar { height: 28px; padding: 0 8px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); font-size: 12px; cursor: pointer; }
 .mrc-mais { width: 30px; height: 28px; border: 1px solid var(--mrc-campo-borda); border-radius: 2px; background: var(--mrc-fundo); color: var(--mrc-botao-tx); cursor: pointer; font-size: 15px; line-height: 1; }
 .mrc-mais:hover { border-color: var(--mrc-azul); color: var(--mrc-azul); }

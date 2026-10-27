@@ -1018,7 +1018,11 @@ master:
             ajustar_dica: Ajustar valor da recompensa
             mais_opcoes: Mais opções
             menu_condicao: Condição individual (★)
-            menu_geral: Voltar à regra geral
+            menu_geral: Usar a regra geral
+            menu_copiar: Copiar e-mail
+            email_copiado: E-mail copiado.
+            sem_email: Sem e-mail.
+            pagar: Dar baixa
             menu_lancamento: Lançar crédito ou estorno
             menu_extrato: Ver extrato deste indicador
             menu_csv: Baixar extrato (CSV)
