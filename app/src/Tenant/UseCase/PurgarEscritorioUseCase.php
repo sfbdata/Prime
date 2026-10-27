@@ -142,6 +142,8 @@ final class PurgarEscritorioUseCase
         // SET NULL; nada as referencia).
         ['contribua_sugestao', 'tenant_id = :tenant'],
         ['contribua_apoio', 'tenant_id = :tenant'],
+        // Contribua C4: cobranças PIX abertas da conta. FK de tenant CASCADE; explícito por convenção.
+        ['contribua_cobranca_pix', 'tenant_id = :tenant'],
         // Service Desk (desenho 12): razão do saldo. Apagado como o apoio do Contribua (decisão do dono: exclusão apaga
         // na hora). Sem FK entre as duas; a FK de tenant é CASCADE, mas a deleção explícita deixa a cobertura visível.
         ['service_desk_chamado_historico', 'tenant_id = :tenant'],

@@ -30,6 +30,8 @@ final readonly class Alerta
         public ?string $acompanhamento = null,
         public array $fatores = [],
         public array $dados = [],
+        /** Colaborador que o alerta nomeia (sugestão de responsável ao criar a tarefa); null = nenhum. */
+        public ?int $pessoaId = null,
     ) {}
 
     /**
@@ -51,5 +53,26 @@ final readonly class Alerta
         ];
 
         return array_filter($linhas, static fn (?string $v): bool => $v !== null && $v !== '' && $v !== '-');
+    }
+
+    /**
+     * Alerta que pode virar tarefa: tem ação sugerida e não é "Normal" (ali a ação é só "Manter").
+     * Título e descrição saem só do texto do alerta, sem dado de pasta.
+     */
+    public function podeVirarTarefa(): bool
+    {
+        return $this->nivel !== NivelDeAlerta::Normal && $this->acao !== null && trim($this->acao) !== '';
+    }
+
+    public function tituloDaTarefa(): string
+    {
+        return mb_substr((string) $this->acao, 0, 255);
+    }
+
+    public function descricaoDaTarefa(): string
+    {
+        $partes = array_filter([$this->titulo . ': ' . $this->problema, $this->evidencia, $this->acao], static fn (?string $v): bool => $v !== null && $v !== '');
+
+        return mb_substr(implode("\n", $partes), 0, 1500);
     }
 }

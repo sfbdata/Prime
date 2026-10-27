@@ -57,7 +57,7 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         self::assertSame((string) static::getContainer()->get(PlanoRepository::class)->free()->getCotaGb(), $d['valores']['freeGb']);
         self::assertSame((string) static::getContainer()->get(ConfiguracaoDoEspacoRepository::class)->atual()->getFaixaAlerta(), $d['valores']['aviso']);
         self::assertSame('BlueJus', $d['padroes']['nome']);
-        self::assertSame('480', $d['padroes']['sessao']);
+        self::assertSame('24', $d['padroes']['sessao'], 'padrão do ambiente (app.sessao_padrao_minutos), não o 480 estático');
     }
 
     #[TestDox('quem não é Master recebe 403 nas duas rotas, e nada muda')]
@@ -152,6 +152,26 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertNull($this->gravada());
+    }
+
+    #[TestDox('`sessao` só é gravada quando difere do padrão do ambiente (24): igual não grava, 480 grava, voltar a 24 apaga')]
+    public function testSessaoSoGravaQuandoDifereDoPadraoDoAmbiente(): void
+    {
+        $this->entrarComoMaster();
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '24']);
+        self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('sessao', $this->gravada()?->getValores() ?? []);
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '480']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertSame('480', $this->gravada()?->getValores()['sessao'] ?? null);
+
+        $this->postar(['nome' => 'Outro nome', 'sessao' => '24']);
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        self::assertArrayNotHasKey('sessao', $this->gravada()?->getValores() ?? []);
     }
 
     #[TestDox('aviso de manutenção: aparece para o usuário logado enquanto vale, some depois do prazo e sem texto')]
