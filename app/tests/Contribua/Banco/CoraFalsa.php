@@ -29,6 +29,8 @@ final class CoraFalsa
     public int $tokensEmitidos = 0;
     /** `occurrence_date` da cobrança paga: só a data, ou data e hora com fuso. */
     public string $dataDoPagamento = '2026-10-19';
+    /** Quanto o banco diz ter recebido nas cobranças pagas (padrão R$ 20,00). */
+    public int $valorPago = 2000;
 
     /** Uma cobrança que já existe no banco (criada por fora do fluxo do Contribua): id, status e o código que a Cora devolve. */
     public function cobrancaExistente(string $id, string $status, ?string $codigo): void
@@ -119,9 +121,9 @@ final class CoraFalsa
         $pago = 'PAID' === $this->status[$id];
 
         return $this->json([
-            'id' => $id, 'status' => $this->status[$id], 'total_amount' => 2000, 'total_paid' => $pago ? 2000 : 0,
+            'id' => $id, 'status' => $this->status[$id], 'total_amount' => 2000, 'total_paid' => $pago ? $this->valorPago : 0,
             'occurrence_date' => $pago ? $this->dataDoPagamento : null, 'code' => $this->codigos[$id] ?? null,
-            'payments' => $pago ? [['id' => 'fd13', 'status' => 'SUCCESS', 'total_paid' => 2000, 'method' => 'PIX']] : [],
+            'payments' => $pago ? [['id' => 'fd13', 'status' => 'SUCCESS', 'total_paid' => $this->valorPago, 'method' => 'PIX']] : [],
         ]);
     }
 
