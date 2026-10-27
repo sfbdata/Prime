@@ -55,6 +55,7 @@ final class ConsultarVisaoGeralUseCase
             'mapa'        => MapaDeAtuacao::montar($pessoas, $escritorios, $hoje, $this->saidasDaTendencia($hoje), $this->indicacoes->paraOMapa()),
             'idades'      => FaixaEtaria::distribuir(array_column($pessoas, 'nascimento'), $hoje),
             'armazenamento' => $this->armazenamentoContratado($escritorios, $consumo),
+            'duplicidade' => $this->repositorio->duplicidadeDeArquivos(),
             'registrosDeAuditoria' => $this->repositorio->contarTrilhaAdministrativa(
                 ConsultarAuditoriaUseCase::LIMITE,
                 $hoje->modify(sprintf('-%d months', ConsultarAuditoriaUseCase::MESES)),
