@@ -90,8 +90,8 @@ final class InterpretadorDeRespostaDoChatTest extends TestCase
     public function testTravessao(): void
     {
         $resultado = $this->interpretador->interpretar((string) json_encode([
-            'resposta' => "Primeiro — segundo – terceiro\nlinha - dois",
-            'pontos' => [['tipo' => 'info', 'texto' => 'A — B']],
+            'resposta' => "Primeiro \u{2014} segundo \u{2013} terceiro\nlinha - dois",
+            'pontos' => [['tipo' => 'info', 'texto' => "A \u{2014} B"]],
         ], JSON_UNESCAPED_UNICODE));
 
         self::assertSame("Primeiro, segundo, terceiro\nlinha, dois", $resultado->resumo);
@@ -99,7 +99,7 @@ final class InterpretadorDeRespostaDoChatTest extends TestCase
         self::assertDoesNotMatchRegularExpression('/[\x{2013}\x{2014}]/u', $resultado->resumo);
     }
 
-    #[TestDox('\t vira espaço (não cola palavras), ZWJ/ZWNJ ficam, controle sai, "10–20" vira "10 a 20"')]
+    #[TestDox('\t vira espaço (não cola palavras), ZWJ/ZWNJ ficam, controle sai, meia-risca entre dígitos vira " a "')]
     public function testLimpezaDeCaracteres(): void
     {
         $resultado = $this->interpretador->interpretar((string) json_encode([
@@ -109,5 +109,20 @@ final class InterpretadorDeRespostaDoChatTest extends TestCase
 
         self::assertSame("col1 col2 prazo de 10 a 20 dias fim \u{200D}\u{200C}ok", $resultado->resumo);
         self::assertSame('a b 5 a 7', $resultado->pontos[0]['texto']);
+    }
+
+    #[TestDox('bidi, zero-width, marcas de direção e BOM não voltam: nenhum deles sobrevive na resposta nem nos pontos')]
+    public function testInvisiveisSaem(): void
+    {
+        $invisiveis = ["\u{202A}", "\u{202B}", "\u{202C}", "\u{202D}", "\u{202E}", "\u{2066}", "\u{2067}", "\u{2068}", "\u{2069}", "\u{200B}", "\u{200E}", "\u{200F}", "\u{FEFF}"];
+        foreach ($invisiveis as $invisivel) {
+            $resultado = $this->interpretador->interpretar((string) json_encode([
+                'resposta' => 'ab' . $invisivel . 'cd',
+                'pontos' => [['tipo' => 'info', 'texto' => 'ef' . $invisivel . 'gh']],
+            ]));
+
+            self::assertSame('abcd', $resultado->resumo, sprintf('U+%04X', mb_ord($invisivel)));
+            self::assertSame('efgh', $resultado->pontos[0]['texto'], sprintf('U+%04X', mb_ord($invisivel)));
+        }
     }
 }

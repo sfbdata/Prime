@@ -131,6 +131,10 @@ final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
         } catch (\LogicException) {
             self::addToAssertionCount(1);
         }
+        /** @var ParticipanteRepository $participantes */
+        $participantes = $this->em()->getRepository(Participante::class);
+        self::assertTrue($participantes->participaAtivamente($iaDoB, $ana, $escritorioB), 'controle: no B ela participa');
+        self::assertFalse($participantes->participaAtivamente($iaDoB, $ana, $escritorioA), 'com o escritório errado, não');
         $porta->gravarResposta($escritorioB, (int) $iaDoB->getId(), $ana, 'ok', $agora);
         $this->em()->flush();
         self::assertCount(1, $this->em()->getRepository(Mensagem::class)->findBy(['conversa' => $iaDoB->getId(), 'deIa' => true]), 'controle: no B grava');

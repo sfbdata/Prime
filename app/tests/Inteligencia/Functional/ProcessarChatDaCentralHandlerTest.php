@@ -55,6 +55,9 @@ use App\Tests\Shared\Doubles\LoggerEmMemoria;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\Decorator\EntityManagerDecorator;
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -69,7 +72,7 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
 {
     use CriaFixturesInteligenciaTrait;
 
-    private function handler(ProvedorDeLinguagem $provedor, bool $iaHabilitada = true, ?LoggerEmMemoria $logger = null, ?FluxoDeAnaliseSemPasta $fluxoDoChat = null): ProcessarAnaliseDeInteligenciaHandler
+    private function handler(ProvedorDeLinguagem $provedor, bool $iaHabilitada = true, ?LoggerEmMemoria $logger = null, ?FluxoDeAnaliseSemPasta $fluxoDoChat = null, ?EntityManagerInterface $emDoHandler = null): ProcessarAnaliseDeInteligenciaHandler
     {
         $c = static::getContainer();
         $repositorio = $c->get(AnaliseDeInteligenciaRepository::class);
@@ -77,7 +80,7 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
         $relogio = $c->get(ClockInterface::class);
 
         return new ProcessarAnaliseDeInteligenciaHandler(
-            $this->em(),
+            $emDoHandler ?? $this->em(),
             $repositorio,
             new FluxoDoResumoDoPush($c->get(MontadorDeContextoDoPush::class), new PromptResumoDoPush(), new InterpretadorDeRespostaDePush(), $repositorio),
             new FluxoDaAnaliseDaPasta($montador, new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio, $c->get(LeitorDeDocumentosDaPasta::class)),
@@ -542,6 +545,7 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
         self::assertSame('falhou', $linha['status']);
         self::assertSame(ProcessarAnaliseDeInteligenciaHandler::MOTIVO_SEM_GRAVAR_A_RESPOSTA, $linha['erro_motivo']);
         self::assertNotNull($linha['concluida_em']);
+        self::assertSame(self::resposta('Resposta do modelo.'), $this->em()->getConnection()->fetchOne('SELECT texto_bruto FROM inteligencia_analise WHERE id = :id', ['id' => $analiseId]), 'o texto do modelo (já cobrado) é preservado');
         self::assertSame(0, $this->contarNoBanco('SELECT COUNT(*) FROM central_mensagem WHERE conversa_id = :c AND de_ia = true', ['c' => $conversaId]));
         $registros = (string) json_encode($logger->registros, JSON_UNESCAPED_UNICODE);
         self::assertStringNotContainsString('SEGREDO-NA-EXCECAO', $registros);
@@ -693,5 +697,75 @@ final class ProcessarChatDaCentralHandlerTest extends KernelTestCase
         self::assertSame(StatusDaAnalise::Indisponivel, $this->em()->find(AnaliseDeInteligencia::class, $semProvedor->getId())->getStatus());
 
         self::assertSame(0, $this->contarNoBanco('SELECT COUNT(*) FROM central_mensagem WHERE conversa_id = :c AND de_ia = true', ['c' => $conversaId]));
+    }
+
+    /** Roda o handler com o `aoConcluir` quebrado e um efeito no meio da chamada ao provedor; devolve o que o handler fez. */
+    private function quebrarComEfeito(\Closure $efeito, ?EntityManagerInterface $emDoHandler = null): int
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->cenario();
+        [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user);
+        $analiseId = (int) $this->analiseDoChat($tenant, $user, $conversa, $pergunta)->getId();
+        $tenantId = (int) $tenant->getId();
+        $falso = new ProvedorFalso();
+        $falso->responderCom(self::resposta('Resposta do modelo.'));
+        $provedor = $this->provedorQueAgeNoMeio($falso, fn () => $efeito($this->em()->getConnection(), $analiseId));
+
+        $this->handler($provedor, true, new LoggerEmMemoria(), $this->fluxoQueQuebraAoConcluir(new \RuntimeException('quebrou')), $emDoHandler)(new ProcessarAnaliseDeInteligencia($analiseId, $tenantId));
+
+        return $analiseId;
+    }
+
+    #[TestDox('falharPelaConexao: se o próprio UPDATE falha, não relança e só a classe vai para o log')]
+    public function testUpdateDaFalhaTambemFalha(): void
+    {
+        $logger = new LoggerEmMemoria();
+        self::bootKernel();
+        [$user, $tenant] = $this->cenario();
+        [$conversa, $pergunta] = $this->conversaComPergunta($tenant, $user);
+        $analise = $this->analiseDoChat($tenant, $user, $conversa, $pergunta);
+        $quebrada = $this->createMock(Connection::class);
+        $quebrada->method('executeStatement')->willThrowException(new \RuntimeException('UPDATE com SEGREDO-NA-EXCECAO'));
+        $emQuebrado = new class ($this->em(), $quebrada) extends EntityManagerDecorator {
+            public function __construct(EntityManagerInterface $em, private readonly Connection $conexao)
+            {
+                parent::__construct($em);
+            }
+
+            public function getConnection(): Connection
+            {
+                return $this->conexao;
+            }
+        };
+        $falso = new ProvedorFalso();
+        $falso->responderCom(self::resposta('Resposta do modelo.'));
+
+        $this->handler($falso, true, $logger, $this->fluxoQueQuebraAoConcluir(new \RuntimeException('quebrou')), $emQuebrado)(new ProcessarAnaliseDeInteligencia((int) $analise->getId(), (int) $tenant->getId()));
+
+        $registros = (string) json_encode($logger->registros, JSON_UNESCAPED_UNICODE);
+        self::assertStringNotContainsString('SEGREDO-NA-EXCECAO', $registros);
+        self::assertStringContainsString('não foi possível marcar a falha', $registros);
+        self::assertStringContainsString(\RuntimeException::class, $registros);
+    }
+
+    #[TestDox('falharPelaConexao: linha que já está concluida não é sobrescrita')]
+    public function testNaoSobrescreveConcluida(): void
+    {
+        $id = $this->quebrarComEfeito(static function (Connection $c, int $id): void {
+            $c->executeStatement("UPDATE inteligencia_analise SET status = 'concluida' WHERE id = :id", ['id' => $id]);
+        });
+
+        self::assertSame('concluida', $this->em()->getConnection()->fetchOne('SELECT status FROM inteligencia_analise WHERE id = :id', ['id' => $id]));
+    }
+
+    #[TestDox('falharPelaConexao: o UPDATE leva o tenant; linha de outro escritório com aquele id não muda')]
+    public function testUpdateFiltraPorTenant(): void
+    {
+        $id = $this->quebrarComEfeito(function (Connection $c, int $id): void {
+            [, $outro] = $this->criarAdmin();
+            $c->executeStatement('UPDATE inteligencia_analise SET tenant_id = :t WHERE id = :id', ['t' => $outro->getId(), 'id' => $id]);
+        });
+
+        self::assertSame('processando', $this->em()->getConnection()->fetchOne('SELECT status FROM inteligencia_analise WHERE id = :id', ['id' => $id]));
     }
 }

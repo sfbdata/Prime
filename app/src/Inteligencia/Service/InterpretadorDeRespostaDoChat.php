@@ -62,7 +62,7 @@ final class InterpretadorDeRespostaDoChat
         return new ResultadoDaAnalise($resposta, $pontos, null);
     }
 
-    /** Uma linha só: travessão/meia-risca e hífen solto viram vírgula; "10–20" vira "10 a 20". */
+    /** Uma linha só: travessão, meia-risca e hífen solto viram vírgula; meia-risca entre dígitos vira " a ". */
     private function limparLinha(string $texto): string
     {
         $texto = $this->semControle($texto, true);
@@ -92,17 +92,20 @@ final class InterpretadorDeRespostaDoChat
     }
 
     /**
-     * Tira só controle (Cc), menos \n; o \t vira espaço (não cola as palavras). Formato (Cf) como ZWJ/ZWNJ fica:
-     * o árabe, o persa e os emojis compostos dependem deles. `$tambemNovaLinha` = a linha única também perde o \n.
+     * Tira controle (Cc, menos \n) e formato invisível (Cf: bidi, zero-width, BOM); o \t vira espaço (não cola as
+     * palavras). Só ZWNJ (U+200C) e ZWJ (U+200D) ficam: o persa, o árabe e os emojis compostos dependem deles.
+     * `$tambemNovaLinha` = a linha única também perde o \n.
      */
     private function semControle(string $texto, bool $tambemNovaLinha): string
     {
         $texto = (string) preg_replace('/\t/u', ' ', $texto);
 
+        $texto = (string) preg_replace('/(?![\x{200C}\x{200D}])\p{Cf}/u', '', $texto);
+
         return (string) preg_replace($tambemNovaLinha ? '/\p{Cc}+/u' : '/[^\P{Cc}\n]+/u', $tambemNovaLinha ? ' ' : '', $texto);
     }
 
-    /** "10–20" (meia-risca entre dígitos) vira "10 a 20"; o resto do travessão vira vírgula. */
+    /** Meia-risca entre dígitos vira " a " (10 a 20); o resto do travessão vira vírgula. */
     private function semTravessao(string $texto): string
     {
         $texto = (string) preg_replace('/(?<=\d)[ \t]*\x{2013}[ \t]*(?=\d)/u', ' a ', $texto);

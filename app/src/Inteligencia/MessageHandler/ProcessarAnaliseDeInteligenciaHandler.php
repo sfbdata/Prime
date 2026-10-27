@@ -222,22 +222,23 @@ final class ProcessarAnaliseDeInteligenciaHandler
         } catch (\Throwable $e) {
             // O wrapInTransaction fechou o EntityManager no rollback: só a conexão ainda grava. Sem isto a linha
             // ficaria em `processando` para sempre. NÃO relança: reentregar recobraria o provedor (reservar aceita Falhou).
-            $this->falharPelaConexao($analise);
+            $this->falharPelaConexao($analise, $resposta->texto);
             $this->logger->error('Análise {analise}: falha inesperada ao gravar a resposta ({classe}).', $this->contexto($analise) + ['classe' => $e::class]);
 
             return false;
         }
     }
 
-    /** Marca `falhou` direto na conexão (EntityManager fechado), com motivo fixo e sem texto da exceção. */
-    private function falharPelaConexao(AnaliseDeInteligencia $analise): void
+    /** Marca `falhou` direto na conexão (EntityManager fechado), com motivo fixo e sem texto da exceção; guarda o texto bruto do modelo (já cobrado). Só mexe na linha deste escritório que ainda está `processando`. */
+    private function falharPelaConexao(AnaliseDeInteligencia $analise, string $textoBruto): void
     {
         try {
             $this->em->getConnection()->executeStatement(
-                'UPDATE inteligencia_analise SET status = :status, erro_motivo = :motivo, concluida_em = :agora WHERE id = :id AND tenant_id = :tenant AND status = :processando',
+                'UPDATE inteligencia_analise SET status = :status, erro_motivo = :motivo, texto_bruto = :bruto, concluida_em = :agora WHERE id = :id AND tenant_id = :tenant AND status = :processando',
                 [
                     'status' => StatusDaAnalise::Falhou->value,
                     'motivo' => self::MOTIVO_SEM_GRAVAR_A_RESPOSTA,
+                    'bruto' => $textoBruto,
                     'agora' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
                     'id' => $analise->getId(),
                     'tenant' => $analise->getTenant()?->getId(),
