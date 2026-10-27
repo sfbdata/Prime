@@ -68,6 +68,17 @@ final class CadastrarProcessoPelaPastaUseCaseTest extends TestCase
         self::assertNull($processo->getMovimentacoes()->first()->getTipo());
     }
 
+    #[TestDox('instância Juizado Especial (JE) é aceita e ganha o rótulo do desenho')]
+    public function testJuizadoEspecialEhInstanciaValida(): void
+    {
+        $this->repositorio->expects(self::once())->method('save');
+
+        $processo = $this->useCase->executar($this->input(['instancia' => 'JE']), $this->tenant, $this->usuario)->processo;
+
+        self::assertSame('JE', $processo->getInstancia());
+        self::assertSame('Juizado Especial', $processo->getInstanciaRotulo());
+    }
+
     #[TestDox('com a consulta do CNJ: o mapper traz sigilo, sistema, id e assuntos; a janela vence nos campos; partes da janela; movimentação igual à do CNJ é reaproveitada')]
     public function testConsultaDoCnjEntraPrimeiroEAJanelaVence(): void
     {

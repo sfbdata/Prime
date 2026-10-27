@@ -300,6 +300,7 @@ djen:
         instancia: INSTÂNCIA
         inst_g1: G1 · Primeira Instância
         inst_g2: G2 · Segunda Instância
+        inst_je: Juizado Especial
         inst_tr: Turma Recursal
         inst_st: Tribunal Superior
         distribuicao: DATA DE DISTRIBUIÇÃO
