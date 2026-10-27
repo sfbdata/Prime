@@ -24,7 +24,7 @@ final class MovimentoDoExtratoOutput
             $movimento->getCriadoEm(),
             $movimento->getTipo(),
             $movimento->estaPendente(),
-            $movimento->getValorCentavos(),
+            $movimento->valorCreditadoCentavos(),
             $movimento->getMotivo(),
         );
     }
