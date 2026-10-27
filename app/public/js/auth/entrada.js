@@ -1,5 +1,5 @@
 /*
- * Tela de entrada (desenho "10 - Login - VS 19.10.26"): todo o comportamento da página.
+ * Tela de entrada (desenho "10 - Login - VS 25.10.26"): todo o comportamento da página.
  *
  * Reproduz o componente do desenho (DCLogic) sobre o HTML que o Twig serve. Os dados chegam por
  * data-attributes no #lgRaiz; as escritas são POST JSON para os endpoints da spec
@@ -73,6 +73,7 @@
         });
     }
 
+    let saindo = false;
     form.addEventListener('submit', (e) => {
         if (!REGEX_EMAIL.test(email.value.trim())) {
             e.preventDefault();
@@ -85,7 +86,19 @@
             e.preventDefault();
             mostrarErro(window.BJ_T.t('entrada.js.informe_a_senha'));
             senha.focus();
+
+            return;
         }
+        // Desenho: o cartão sai (lgSai, .35s) antes de a página do véu entrar. O envio segue o mesmo formulário.
+        if (saindo) { e.preventDefault(); return; }
+        saindo = true;
+        e.preventDefault();
+        $('lgCartao').classList.add('lg-sai');
+        setTimeout(() => { form.submit(); }, 350);
+    });
+    // Voltar do navegador devolve a página do cache com o cartão já "saído": reabre.
+    window.addEventListener('pageshow', (ev) => {
+        if (ev.persisted) { saindo = false; $('lgCartao').classList.remove('lg-sai'); }
     });
 
     olho.addEventListener('click', () => {

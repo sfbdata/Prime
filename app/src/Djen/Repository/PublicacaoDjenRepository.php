@@ -7,6 +7,7 @@ namespace App\Djen\Repository;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaProcesso;
 use App\Processo\DTO\HistoricoParaPrevisao;
 use App\Processo\DTO\MovimentacaoParaPrevisao;
 use Doctrine\DBAL\ArrayParameterType;
@@ -24,6 +25,9 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     /** Caracteres do teor (HTML cru) que a lista da PASTA projeta para montar o `textoResumo`. */
     private const TEXTO_INICIO_LISTA = 2000;
     private const TEXTO_PREVISAO = 15000;
+
+    /** Vinculada (desenho 11) = o processo da publicação está numa pasta que não foi excluída. */
+    private const COM_PASTA = 'EXISTS (SELECT 1 FROM App\\Pasta\\Entity\\PastaProcesso pc JOIN pc.pasta pac WHERE pc.processo = p.processo AND pac.excluidaEm IS NULL)';
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -111,6 +115,8 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
                 'p.nomeOrgao AS nomeOrgao',
                 'p.lida AS lida',
                 'IDENTITY(p.processo) AS processoId',
+                '(SELECT MIN(pa.id) FROM ' . PastaProcesso::class . ' pp JOIN pp.pasta pa WHERE pp.processo = p.processo AND pa.excluidaEm IS NULL) AS pastaId',
+                '(SELECT MIN(pa2.nup) FROM ' . PastaProcesso::class . ' pp2 JOIN pp2.pasta pa2 WHERE pp2.processo = p.processo AND pa2.excluidaEm IS NULL) AS pastaNup',
             )
             ->orderBy('p.dataDisponibilizacao', 'DESC')
             ->addOrderBy('p.id', 'DESC')
@@ -150,8 +156,8 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             ->select(
                 'SUM(CASE WHEN p.lida = false THEN 1 ELSE 0 END) AS naoLidas',
                 'SUM(CASE WHEN p.dataDisponibilizacao = :hoje THEN 1 ELSE 0 END) AS hoje',
-                'SUM(CASE WHEN p.processo IS NOT NULL THEN 1 ELSE 0 END) AS vinculadas',
-                'SUM(CASE WHEN p.processo IS NULL THEN 1 ELSE 0 END) AS avulsas',
+                'SUM(CASE WHEN ' . self::COM_PASTA . ' THEN 1 ELSE 0 END) AS vinculadas',
+                'COUNT(p.id) AS total',
             )
             ->setParameter('hoje', $hoje->setTime(0, 0))
             ->getQuery()
@@ -161,7 +167,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             'naoLidas' => (int) $linha['naoLidas'],
             'hoje' => (int) $linha['hoje'],
             'vinculadas' => (int) $linha['vinculadas'],
-            'avulsas' => (int) $linha['avulsas'],
+            'avulsas' => (int) $linha['total'] - (int) $linha['vinculadas'],
         ];
     }
 
@@ -622,9 +628,9 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     private function filtrarPorVinculoELeitura(QueryBuilder $qb, string $vinculo, string $leitura): void
     {
         if ($vinculo === 'vinculada') {
-            $qb->andWhere('p.processo IS NOT NULL');
+            $qb->andWhere(self::COM_PASTA);
         } elseif ($vinculo === 'avulsa') {
-            $qb->andWhere('p.processo IS NULL');
+            $qb->andWhere('NOT (' . self::COM_PASTA . ')');
         }
 
         if ($leitura === 'nao_lidas') {

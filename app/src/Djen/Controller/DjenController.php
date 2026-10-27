@@ -454,7 +454,7 @@ final class DjenController extends AbstractController
      * Caminho do próprio sistema, ou null. `//outro-site` e `/\outro-site` são lidos pelo
      * navegador como OUTRO host mesmo começando com barra — é o disfarce clássico desta validação.
      */
-    private static function caminhoInterno(string $caminho): ?string
+    public static function caminhoInterno(string $caminho): ?string
     {
         if ($caminho === '' || !str_starts_with($caminho, '/')) {
             return null;

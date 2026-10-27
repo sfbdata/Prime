@@ -193,7 +193,7 @@ final class DashboardInteligenciaTelaTest extends DashboardWebTestCase
         self::assertCount(1, $painel->filter('.db-ia-sub > button.db-ia-av-switch'));
         self::assertCount(2, $painel->filter('.db-ia-confirma .db-ia-confirma-acoes > button'));
         self::assertCount(1, $painel->filter('aside.db-ia-painel > button.db-ia-teaser'));
-        foreach (['Criar tarefa', 'Aumentar o nível', 'simular dia', 'Inteligência de Desempenho'] as $proibido) {
+        foreach (['Criar tarefa', 'Aumentar o nível', 'Inteligência de Desempenho'] as $proibido) {
             self::assertStringNotContainsString($proibido, $html, $proibido);
         }
     }

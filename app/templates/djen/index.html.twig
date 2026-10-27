@@ -25,6 +25,11 @@
      data-t-menu-nao-lida="{{ 'djen.index.menu_marcar_nao_lida'|trans|e('html_attr') }}"
      data-t-menu-copiar="{{ 'djen.index.menu_copiar'|trans|e('html_attr') }}"
      data-t-menu-excluir="{{ 'djen.index.menu_excluir'|trans|e('html_attr') }}"
+     data-t-menu-abrir-pasta="{{ 'djen.index.menu_abrir_pasta'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-menu-trocar="{{ 'djen.index.menu_trocar_pasta'|trans|e('html_attr') }}"
+     data-t-menu-desvincular="{{ 'djen.index.desvincular_pasta'|trans|e('html_attr') }}"
+     data-t-menu-vincular="{{ 'djen.index.vincular_pasta'|trans|e('html_attr') }}"
+     data-t-confirma-desvincular="{{ 'djen.index.confirma_desvincular'|trans({processo: '%processo%', n: '%n%'})|e('html_attr') }}"
      data-total-lidas="{{ lidas_na_caixa }}">
     <div class="pp-topo">
         <i class="bi bi-broadcast"></i>
@@ -120,7 +125,7 @@
                 <span>{{ 'djen.comum.acoes_maiusculo'|trans }}</span>
             </div>
             {% for pub in publicacoes %}
-                <div class="pp-linha pp-linha--dado{{ pub.lida ? '' : ' pp-linha--nova' }}" data-pp-linha data-id="{{ pub.id }}" data-lida="{{ pub.lida ? '1' : '0' }}" data-numero="{{ pub.numeroProcessoExibicao ?? '' }}" data-data="{{ pub.dataDisponibilizacao ?? '' }}" data-url="{{ path('push_processual_show', {id: pub.id}) }}" title="{{ 'djen.index.dica_botao_direito'|trans }}">
+                <div class="pp-linha pp-linha--dado{{ pub.lida ? '' : ' pp-linha--nova' }}" data-pp-linha data-id="{{ pub.id }}" data-lida="{{ pub.lida ? '1' : '0' }}" data-numero="{{ pub.numeroProcessoExibicao ?? '' }}" data-data="{{ pub.dataDisponibilizacao ?? '' }}" data-url="{{ path('push_processual_show', {id: pub.id}) }}" data-pasta-id="{{ pub.pastaId ?? '' }}" data-pasta-nup="{{ pub.pastaNup ?? '' }}"{% if pub.pastaId %} data-pasta-url="{{ path('pasta_show', {id: pub.pastaId}) }}"{% endif %} title="{{ 'djen.index.dica_botao_direito'|trans }}">
                     <span class="pp-c-data"><button type="button" class="pp-marca" data-pp-marca aria-pressed="false" aria-label="{{ 'djen.index.selecionar_publicacao'|trans }}"><i class="bi bi-square"></i></button>{% if (pub.dataDisponibilizacao ?? null) is not null %}{{ pub.dataDisponibilizacao }}{% else %}{{ 'djen.comum.sem_registro'|trans }}{% endif %}</span>
                     <span>{{ pub.siglaTribunal }}</span>
                     <span>{% if (pub.tipoComunicacao ?? null) is not null %}{{ pub.tipoComunicacao }}{% else %}{{ 'djen.comum.nao_informado'|trans }}{% endif %}</span>
@@ -130,12 +135,17 @@
                             {% if pub.avulsa %}
                                 <span class="pp-selo pp-selo--avulsa" title="{{ 'djen.index.avulsa_dica'|trans }}">{{ 'djen.comum.avulsa'|trans }}</span>
                             {% else %}
-                                <span class="pp-selo pp-selo--vinc" title="{{ 'djen.index.vinculada_dica'|trans }}">{{ 'djen.index.vinculada'|trans }}</span>
+                                <span class="pp-selo pp-selo--vinc" title="{{ pub.pastaNup ? 'djen.index.pasta_n'|trans({n: pub.pastaNup}) : 'djen.index.vinculada_dica'|trans }}">{{ 'djen.index.vinculada'|trans }}</span>
                             {% endif %}
                         </span>
                     </span>
                     <span class="pp-c-orgao" title="{{ pub.nomeOrgao ?? '' }}">{% if (pub.nomeOrgao ?? null) is not null %}{{ pub.nomeOrgao }}{% else %}{{ 'djen.comum.nao_informado'|trans }}{% endif %}</span>
                     <span class="pp-c-acoes">
+                        {% if pub.avulsa %}
+                            <button type="button" class="pp-icone pp-icone--vincular" data-pp-vincular title="{{ 'djen.index.vincular_pasta'|trans }}"><i class="bi bi-link-45deg"></i></button>
+                        {% else %}
+                            <button type="button" class="pp-icone pp-icone--desvincular" data-pp-desvincular title="{{ 'djen.index.desvincular_pasta'|trans }}"><i class="bi bi-scissors"></i></button>
+                        {% endif %}
                         <a href="{{ path('push_processual_show', {id: pub.id}) }}" class="pp-ver"><i class="bi bi-eye"></i>{{ 'djen.index.ver'|trans }}</a>
                     </span>
                 </div>
@@ -153,6 +163,28 @@
             </div>
         {% endif %}
     </section>
+</div>
+
+<form method="POST" class="pp-vinculo-form" data-pp-vinculo-form hidden>
+    <input type="hidden" name="_token" value="{{ csrf_token('push_publicacoes') }}">
+    <input type="hidden" name="voltar" value="{{ app.request.requestUri }}">
+    <input type="hidden" name="numero" value="">
+    <input type="hidden" name="pasta_id" value="">
+    <input type="hidden" name="trocar_da_pasta_id" value="">
+</form>
+<div class="pp-modal" data-pp-modal-pasta hidden data-t-vazio="{{ 'djen.index.nenhuma_pasta'|trans|e('html_attr') }}" data-t-vincular="{{ 'djen.index.vincular'|trans|e('html_attr') }}" data-url-busca="{{ path('push_processual_pastas_busca') }}" data-url-vincular="/push-processual/publicacoes/%id%/vincular" data-url-desvincular="/push-processual/publicacoes/%id%/desvincular">
+    <div class="pp-modal__fundo" data-pp-modal-fechar></div>
+    <div class="pp-modal__centro">
+        <div class="pp-modal__caixa" role="dialog" aria-modal="true" aria-label="{{ 'djen.index.vincular_pasta'|trans }}">
+            <div class="pp-modal__topo"><i class="bi bi-link-45deg"></i><b>{{ 'djen.index.vincular_pasta'|trans }}</b><button type="button" class="pp-modal__x" data-pp-modal-fechar aria-label="{{ 'djen.index.fechar'|trans }}"><i class="bi bi-x-lg"></i></button></div>
+            <div class="pp-modal__corpo">
+                <div class="pp-modal__proc"><b data-pp-modal-numero></b></div>
+                <label class="pp-modal__busca"><i class="bi bi-search"></i><input type="text" data-pp-modal-q placeholder="{{ 'djen.index.busca_pasta_ph'|trans }}" autocomplete="off"></label>
+                <div class="pp-modal__lista" data-pp-modal-lista></div>
+                <div class="pp-modal__rodape"><span class="pp-modal__espaco"></span><a href="{{ path('pasta_index') }}" class="pp-modal__nova"><i class="bi bi-plus-lg"></i> {{ 'djen.index.abrir_nova_pasta'|trans }}</a></div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
