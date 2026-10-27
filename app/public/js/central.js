@@ -52,9 +52,35 @@
             encaminharItem: raiz.dataset.urlEncaminharItem,          /* Encaminhar via Chat I.A (spec §4.1) */
             encaminharDestinos: raiz.dataset.urlEncaminharDestinos,
             encaminhar: raiz.dataset.urlEncaminhar,
-            pastaBase: raiz.dataset.urlPastaBase   /* "/pasta/": o chip "Pasta N" abre a pasta (BC:6041) */
+            pastaBase: raiz.dataset.urlPastaBase,   /* "/pasta/": o chip "Pasta N" abre a pasta (BC:6041) */
+            iaPergunta: raiz.dataset.urlIaPergunta,   /* F3: POST /central/ia/perguntas */
+            iaStatus: raiz.dataset.urlIaStatus        /* F3: GET /central/ia/perguntas/{analiseId} (a base termina em "/") */
         };
+        // F3, conversa com o BlueJus IA: o texto vem do Twig (translations central.ia.*), nunca fixo aqui.
+        var ia = {
+            nome: raiz.dataset.iaNome || 'BlueJus IA',
+            selo: raiz.dataset.iaSelo || 'IA',
+            setor: raiz.dataset.iaSetor || '',
+            funcao: raiz.dataset.iaFuncao || '',
+            vazioTitulo: raiz.dataset.iaVazioTitulo || '',
+            vazioTexto: raiz.dataset.iaVazioTexto || '',
+            demora: raiz.dataset.iaDemora || '',
+            digitando: raiz.dataset.iaDigitando || '',
+            aviso: raiz.dataset.iaAviso || '',
+            placeholder: raiz.dataset.iaPlaceholder || '',
+            placeholderAguardando: raiz.dataset.iaPlaceholderAguardando || '',
+            previaVazia: raiz.dataset.iaPreviaVazia || '',
+            aria: raiz.dataset.iaAria || '',
+            sugestoes: []
+        };
+        try {
+            var listaSugestoes = JSON.parse(raiz.dataset.iaSugestoes || '[]');
+            ia.sugestoes = Array.isArray(listaSugestoes) ? listaSugestoes.filter(function (t) { return typeof t === 'string' && t !== ''; }) : [];
+        } catch (e) { ia.sugestoes = []; }
+        var NS_SVG = 'http://www.w3.org/2000/svg';
         var meuNome = raiz.dataset.euNome || '';
+        var TAMANHO_MAXIMO_DA_PERGUNTA = 2000;   /* PerguntarABlueJusIaInput */
+        var ESPERA_MAXIMA_DA_IA = 11 * 60 * 1000;   /* os 10 min do servidor + folga: depois disso a pergunta presa não conta mais */
         var tamanhoMaximo = Number(raiz.dataset.tamanhoMaximo) || 4000;   // Mensagem::TAMANHO_MAXIMO
         var el = {
             voltar: raiz.querySelector('[data-central-voltar]'),
@@ -129,6 +155,8 @@
             equipe: null,          // F2: {equipe, online, total} de /central/equipe (Painel e "N on-line")
             verOnline: false,      // F2: lista "on-line agora / off-line" (L6380)
             externa: null,         // B2: a janela destacada (Picture-in-Picture ou pop-up) em que a Central está agora
+            iaAguardando: null,    // F3: {analiseId, conversaId, semFala} da pergunta à IA ainda sem resposta (mostra digitando...)
+            iaConsultando: false,  // F3: uma consulta de status por vez
             relogio: window,       // B2: de qual janela é o setInterval do polling (a destacada, quando houver)
             timerResolvidas: null, // F3: o minuto das resolvidas (no mesmo relógio do polling)
             resolvidasDesenhadas: 0, // F3: quantas resolvidas dentro da janela o último desenho da lista mostrou
@@ -245,8 +273,9 @@
                         // 401 = sessão vencida: o login responde em JSON aos pedidos de dados (não redireciona mais).
                         var erro = new Error(r.status === 401
                             ? 'Sua sessão nesta Central terminou. Recarregue a página para continuar.'
-                            : (dados.erro || 'Falha na Central.'));
+                            : (dados.erro || dados.mensagem || 'Falha na Central.'));
                         erro.status = r.status;
+                        erro.codigo = dados.codigo || dados.motivo || null;
                         // 403 sem `codigo` = sem vínculo com o escritório (sessão); com `sem_permissao_no_grupo` é regra
                         // do grupo (B): a sessão continua.
                         erro.sessao = r.status === 401 || (r.status === 403 && dados.codigo !== 'sem_permissao_no_grupo');
@@ -273,7 +302,50 @@
         }
 
         function nomeDaConversa(c) {
+            if (ehIa(c)) { return ia.nome; }
             return c.tipo === 'grupo' ? (c.nome || 'Grupo') : (c.outro ? c.outro.nome : '');
+        }
+
+        // ── BlueJus IA (F3): a conversa vem na lista com `ia: true`, `tipo: 'ia'` e `outro: null` ──────────────
+        function ehIa(c) {
+            return !!c && (c.ia === true || c.tipo === 'ia');
+        }
+
+        function avatarIa(classe) {   // avatar(), L5406-5407: círculo 135deg #0c7a9c→#0a5f86 e a estrela do IA_SVG (L5405)
+            var av = criar('span', 'bj-central-avatar bj-central-avatar--ia' + (classe ? ' ' + classe : ''));
+            av.setAttribute('aria-hidden', 'true');
+            av.appendChild(estrelaIa());
+            return av;
+        }
+
+        function estrelaIa() {
+            var svg = document.createElementNS(NS_SVG, 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('width', '60%');
+            svg.setAttribute('height', '60%');
+            var estrela = document.createElementNS(NS_SVG, 'path');
+            estrela.setAttribute('d', 'M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9z');
+            estrela.setAttribute('fill', '#fff');
+            svg.appendChild(estrela);
+            [['18.5', '17.5', '1.6'], ['6', '18.5', '1.1']].forEach(function (c) {
+                var bolinha = document.createElementNS(NS_SVG, 'circle');
+                bolinha.setAttribute('cx', c[0]);
+                bolinha.setAttribute('cy', c[1]);
+                bolinha.setAttribute('r', c[2]);
+                bolinha.setAttribute('fill', '#bfe6f7');
+                svg.appendChild(bolinha);
+            });
+            return svg;
+        }
+
+        function pintarAvatarDoCabecalho() {   // IA: a estrela no lugar das iniciais; as demais voltam às iniciais
+            var comIa = !!(estado.aberta && estado.aberta.ia);
+            el.cabAvatar.classList.toggle('bj-central-avatar--ia', comIa);
+            if (comIa) {
+                el.cabAvatar.replaceChildren(estrelaIa());
+            } else if (estado.aberta) {
+                el.cabAvatar.textContent = iniciais(estado.aberta.nome);
+            }
         }
 
         function atualizarCabecalho() {
@@ -303,13 +375,15 @@
             }
             if (estado.aberta) {
                 el.voltar.hidden = false;
-                el.cabAvatar.textContent = iniciais(estado.aberta.nome);
+                pintarAvatarDoCabecalho();
                 el.cabAvatar.hidden = false;
                 el.cabTitulo.textContent = estado.aberta.nome;
                 // O desenho mostra presença e setor · função (L6334), que a Central não tem; só o que é verdade.
                 // Conversa 1:1 (L6334): "on-line · cargo" com a presença real (F2); o setor não existe aqui.
                 var outro = !estado.aberta.grupo && estado.aberta.outro ? membroDaEquipe(estado.aberta.outro.id) : null;
-                el.cabSub.textContent = estado.aberta.grupo
+                el.cabSub.textContent = estado.aberta.ia
+                    ? [ia.setor, ia.funcao].filter(Boolean).join(' · ')   // convInfo, L304: setor · função, sem presença nem ligar
+                    : estado.aberta.grupo
                     ? plural(estado.aberta.participantes, 'participante', 'participantes')
                     : (!estado.aberta.outroAtivo ? 'Saiu do escritório'
                         : outro ? [outro.online ? 'on-line' : '', outro.cargo || ''].filter(Boolean).join(' · ') : '');
@@ -333,15 +407,21 @@
             b.type = 'button';
             b.setAttribute('role', 'listitem');
             var grupo = c.tipo === 'grupo';
-            var av = criar('span', 'bj-central-avatar' + (grupo ? ' bj-central-avatar--grupo' : ''), iniciais(nomeDaConversa(c)));
-            av.setAttribute('aria-hidden', 'true');
+            var comIa = ehIa(c);
+            var av;
+            if (comIa) {
+                av = avatarIa();
+            } else {
+                av = criar('span', 'bj-central-avatar' + (grupo ? ' bj-central-avatar--grupo' : ''), iniciais(nomeDaConversa(c)));
+                av.setAttribute('aria-hidden', 'true');
+            }
             b.appendChild(av);
 
             var textos = criar('span', 'bj-central-linha-textos');
             var topo = criar('span', 'bj-central-linha-topo');
-            topo.appendChild(criar('span', 'bj-central-rotulo', grupo ? 'Grupo' : 'Conversa'));
+            topo.appendChild(criar('span', 'bj-central-rotulo', comIa ? ia.setor : (grupo ? 'Grupo' : 'Conversa')));
             // Marcas, na ordem do desenho (L5676): fixada, silenciada, arquivada.
-            [[c.fixada, 'bi-pin-angle-fill bj-central-marca--fixada', 'Fixada'],
+            [[c.fixada || comIa, 'bi-pin-angle-fill bj-central-marca--fixada', 'Fixada'],   /* a IA é fixa por padrão (L316/L324) */
              [c.silenciada, 'bi-bell-slash', 'Silenciada'],
              [c.arquivada, 'bi-archive', 'Arquivada']].forEach(function (m) {
                 if (!m[0]) { return; }
@@ -362,7 +442,7 @@
 
             var baixo = criar('span', 'bj-central-linha-baixo');
             // L5669: "Você: " na própria; em grupo, o primeiro nome de quem escreveu; a de sistema vai sem prefixo.
-            var previa = 'Nenhuma mensagem ainda';
+            var previa = comIa ? ia.previaVazia : 'Nenhuma mensagem ainda';
             if (c.ultima) {
                 var prefixo = c.ultima.sistema ? '' : (c.ultima.minha ? 'Você: ' : (grupo ? primeiroNome(c.ultima.autorNome) + ': ' : ''));
                 previa = prefixo + comoTexto(c.ultima.conteudo);
@@ -459,8 +539,9 @@
             // Filtros (L5776, F1): Tudo = conversas + avisos; Conversas = só conversas; Menções = conversas com menção +
             // avisos de menção; Urgente/Atenção/Metas = avisos do grupo.
             var visiveis = ['', 'conversas', 'mencoes'].indexOf(f) === -1 ? [] : estado.conversas.filter(function (c) {
-                return (estado.verArquivadas || !c.arquivada) && (f !== 'mencoes' || estado.comMencao.has(c.id));
+                return (estado.verArquivadas || !c.arquivada || ehIa(c)) && (f !== 'mencoes' || estado.comMencao.has(c.id));
             });
+            visiveis.sort(function (x, y) { return (ehIa(y) ? 1 : 0) - (ehIa(x) ? 1 : 0); });   // BlueJus IA sempre no topo (L324)
             // Resolvidas antigas saem da Caixa (L5782) e voltam com ⋮ "Ver resolvidas antigas".
             var avisos = f === 'conversas' ? [] : estado.avisos.filter(function (a) {
                 return (f === '' || a.grupo === f) && (estado.verResolvidas || !resolvidaExpirada(a));
@@ -482,9 +563,9 @@
             }
             if (avisos.length > 0) {
                 // Ordem (L5781): fixadas primeiro, depois o mais recente, conversas e avisos misturados.
-                var itens = visiveis.map(function (c) { return { fixa: !!c.fixada, quando: c.ultima ? c.ultima.criadaEm : (c.criadaEm || ''), c: c }; })
+                var itens = visiveis.map(function (c) { return { fixa: !!c.fixada || ehIa(c), ia: ehIa(c), quando: c.ultima ? c.ultima.criadaEm : (c.criadaEm || ''), c: c }; })
                     .concat(avisos.map(function (a) { return { fixa: false, quando: a.criadoEm, a: a }; }));
-                itens.sort(function (x, y) { return (y.fixa - x.fixa) || (x.quando < y.quando ? 1 : x.quando > y.quando ? -1 : 0); });
+                itens.sort(function (x, y) { return ((y.ia ? 1 : 0) - (x.ia ? 1 : 0)) || (y.fixa - x.fixa) || (x.quando < y.quando ? 1 : x.quando > y.quando ? -1 : 0); });
                 itens.slice(0, 100).forEach(function (it) { el.lista.appendChild(it.c ? linhaDaConversa(it.c) : linhaDoAviso(it.a)); });
                 return;
             }
@@ -990,7 +1071,11 @@
         }
 
         function carregarConversas() {
-            return pedir(urls.conversas).then(function (dados) {
+            // 1a vez com duas abas: o servidor pode responder 409 ao criar a conversa da IA; repete a lista UMA vez.
+            return pedir(urls.conversas).catch(function (e) {
+                if (e && e.status === 409) { return pedir(urls.conversas); }
+                throw e;
+            }).then(function (dados) {
                 estado.conversas = dados.conversas || [];
                 estado.listaCarregada = true;
                 // O total do cabeçalho deixa de fora as silenciadas — a mesma regra do servidor (spec B §4).
@@ -1013,12 +1098,20 @@
                 sis.appendChild(criar('span', 'bj-central-sistema', m.conteudo + ' · ' + horaDe(m.criadaEm)));
                 return sis;
             }
-            var linha = criar('div', 'bj-central-msg' + (m.minha ? ' bj-central-msg--minha' : ''));
+            var deIa = m.deIa === true;   // a fala da IA vem com minha=false; testa deIa ANTES de minha
+            var linha = criar('div', 'bj-central-msg' + (deIa ? ' bj-central-msg--ia' : (m.minha ? ' bj-central-msg--minha' : '')));
             linha.dataset.id = String(m.id);
             linha.dataset.dia = new Date(m.criadaEm).toDateString();
-            var corpoBolha = criar('div', 'bj-central-bolha');
+            var corpoBolha = criar('div', 'bj-central-bolha' + (deIa ? ' bj-central-bolha--ia' : ''));
             corpoBolha.tabIndex = 0;
-            if (!m.minha && estado.aberta && estado.aberta.grupo) {   // em grupo, quem escreveu (cor por pessoa, L5814)
+            if (deIa) {   // autor da IA, L6035: ícone bi-stars, nome e o selo "IA"
+                var autorIa = criar('span', 'bj-central-msg-autor bj-central-msg-autor--ia');
+                var estrela = icone('bi-stars');
+                autorIa.appendChild(estrela);
+                autorIa.appendChild(criar('span', '', m.autorNome || ia.nome));
+                autorIa.appendChild(criar('span', 'bj-central-selo-ia', ia.selo));
+                corpoBolha.appendChild(autorIa);
+            } else if (!m.minha && estado.aberta && estado.aberta.grupo) {   // em grupo, quem escreveu (cor por pessoa, L5814)
                 var autor = criar('span', 'bj-central-msg-autor', m.autorNome);
                 autor.style.color = corNome(m.autorId);
                 corpoBolha.appendChild(autor);
@@ -1078,6 +1171,9 @@
             var perto = el.corpo.scrollHeight - el.corpo.scrollTop - el.corpo.clientHeight < 60;
             var vazia = el.corpo.querySelector('.bj-central-vazio');
             if (vazia) { vazia.remove(); }
+            var vazioIa = el.corpo.querySelector('.bj-central-ia-vazio');
+            if (vazioIa) { vazioIa.remove(); }
+            esconderDigitando();   // o digitando... fica sempre por último: sai antes e volta depois das novas
             mensagens.forEach(function (m) {
                 if (el.corpo.querySelector('[data-id="' + m.id + '"]')) { return; }
                 var todas = el.corpo.querySelectorAll('.bj-central-msg');
@@ -1087,9 +1183,68 @@
                 el.corpo.appendChild(bolha(m));
                 estado.aberta.ultimaId = Math.max(estado.aberta.ultimaId, m.id);
             });
+            mostrarDigitandoSeAguardando();
             if (perto || mensagens.some(function (m) { return m.minha; })) {
                 el.corpo.scrollTop = el.corpo.scrollHeight;
             }
+        }
+
+        // ── F3: digitando..., estado vazio e campo da conversa com a IA ────────────────────────────────
+        function esconderDigitando() {
+            var d = el.corpo.querySelector('.bj-central-ia-digitando');
+            if (d) { d.remove(); }
+        }
+
+        function mostrarDigitandoSeAguardando() {
+            esconderDigitando();
+            if (!estado.iaAguardando || !estado.aberta || !estado.aberta.ia) { return; }
+            // L6057: avatar 22, três pontos de 6 px (bjcPonto 1.2 s, atrasos 0/.2/.4 s) e o texto
+            var d = criar('div', 'bj-central-ia-digitando');
+            d.setAttribute('role', 'status');
+            d.appendChild(avatarIa('bj-central-avatar--ia-pequeno'));
+            var pontos = criar('span', 'bj-central-ia-pontos');
+            pontos.setAttribute('aria-hidden', 'true');
+            for (var i = 0; i < 3; i++) { pontos.appendChild(criar('span', 'bj-central-ia-ponto')); }
+            d.appendChild(pontos);
+            d.appendChild(document.createTextNode(ia.digitando));
+            el.corpo.appendChild(d);
+            el.corpo.scrollTop = el.corpo.scrollHeight;
+        }
+
+        function desenharVazioDaIa() {   // L6021: estado vazio e as sugestões (sem comandos "/" nem contexto de tela: PR 4)
+            var caixa = criar('div', 'bj-central-ia-vazio');
+            caixa.appendChild(vazio('bi-stars', ia.vazioTitulo, ia.vazioTexto));
+            if (ia.sugestoes.length > 0) {
+                var sugestoes = criar('div', 'bj-central-ia-sugestoes');
+                ia.sugestoes.forEach(function (texto) {
+                    var b = criar('button', 'bj-central-ia-sugestao', texto);
+                    b.type = 'button';
+                    b.addEventListener('click', function () {
+                        if (estado.iaAguardando || estado.enviando) { return; }
+                        el.campo.value = texto;
+                        enviar();
+                    });
+                    sugestoes.appendChild(b);
+                });
+                caixa.appendChild(sugestoes);
+            }
+            return caixa;
+        }
+
+        function iaBloqueada() {   // pergunta em andamento: sem segundo envio (evita custo duplo)
+            return !!(estado.aberta && estado.aberta.ia && (estado.iaAguardando || estado.enviando));
+        }
+
+        function atualizarCampoDaIa() {
+            var comIa = !!(estado.aberta && estado.aberta.ia);
+            if (el.campo.dataset.textoOriginal === undefined) {
+                el.campo.dataset.textoOriginal = el.campo.getAttribute('placeholder') || '';
+                el.campo.dataset.ariaOriginal = el.campo.getAttribute('aria-label') || '';
+            }
+            el.campo.setAttribute('placeholder', comIa ? (estado.iaAguardando ? ia.placeholderAguardando : ia.placeholder) : el.campo.dataset.textoOriginal);
+            el.campo.setAttribute('aria-label', comIa && ia.aria ? ia.aria : el.campo.dataset.ariaOriginal);
+            el.campo.readOnly = iaBloqueada();
+            el.enviar.disabled = estado.enviando || iaBloqueada();
         }
 
         function desenharPagina(dados, antigas) {
@@ -1116,8 +1271,9 @@
             } else {
                 el.corpo.replaceChildren(fragmento);
                 if (dados.mensagens.length === 0) {
-                    el.corpo.appendChild(vazio('bi-chat', 'Comece a conversa'));
+                    el.corpo.appendChild(estado.aberta.ia ? desenharVazioDaIa() : vazio('bi-chat', 'Comece a conversa'));
                 }
+                mostrarDigitandoSeAguardando();
                 el.corpo.scrollTop = el.corpo.scrollHeight;
             }
             if (dados.mensagens.length > 0) {
@@ -1143,8 +1299,11 @@
         function ajustarCompositor() {
             var podeEnviar = podeEscrever();
             el.compositor.hidden = !podeEnviar;
-            var aviso = el.telaConversa.querySelector('.bj-central-aviso');
-            if (aviso) { aviso.remove(); }
+            el.telaConversa.querySelectorAll('.bj-central-aviso').forEach(function (a) { a.remove(); });
+            atualizarCampoDaIa();
+            if (podeEnviar && estado.aberta && estado.aberta.ia && ia.aviso) {   // aviso fixo: a resposta é de IA e pode errar
+                el.telaConversa.appendChild(criar('div', 'bj-central-aviso bj-central-aviso--ia', ia.aviso));
+            }
             if (!podeEnviar && estado.aberta && !estado.semSessao) {
                 el.telaConversa.appendChild(criar('div', 'bj-central-aviso', estado.aberta.fora
                     ? 'Você não participa mais desta conversa.'
@@ -1188,7 +1347,7 @@
             fecharMenu();
             var id = c.id;
             estado.aberta = {
-                id: id, grupo: c.tipo === 'grupo', nome: nomeDaConversa(c), outro: c.outro || null,
+                id: id, grupo: c.tipo === 'grupo', ia: ehIa(c), nome: nomeDaConversa(c), outro: c.outro || null,
                 outroAtivo: c.outroAtivo !== false, participantes: c.participantes || 0, fora: false,
                 primeiraId: 0, ultimaId: 0, temMais: false, mencionaveis: []
             };
@@ -1201,10 +1360,10 @@
             ajustarCompositor();
             pedir(urls.base + '/' + id + '/mensagens').then(function (dados) {
                 if (!estado.aberta || estado.aberta.id !== id) { return; }
-                estado.aberta.mencionaveis = Array.isArray(dados.mencionaveis) ? dados.mencionaveis : [];
+                estado.aberta.mencionaveis = !estado.aberta.ia && Array.isArray(dados.mencionaveis) ? dados.mencionaveis : [];
                 desenharPagina(dados, false);
                 marcarLida();
-                if (estado.aberta.outroAtivo) { el.campo.focus(); }
+                if (estado.aberta.outroAtivo && !iaBloqueada()) { el.campo.focus(); }
             }).catch(function (e) {
                 el.corpo.replaceChildren(vazio('bi-exclamation-circle', 'Não foi possível abrir a conversa', e.message));
             });
@@ -1252,11 +1411,13 @@
 
         function enviar() {
             var texto = el.campo.value.trim();
-            if (!estado.aberta || texto === '' || estado.enviando) { return; }
-            if (tamanhoVisivel(texto) > tamanhoMaximo) {
-                avisar('A mensagem passa de ' + tamanhoMaximo + ' caracteres (tem ' + tamanhoVisivel(texto) + ').');
+            if (!estado.aberta || texto === '' || estado.enviando || iaBloqueada()) { return; }
+            var limite = estado.aberta.ia ? TAMANHO_MAXIMO_DA_PERGUNTA : tamanhoMaximo;
+            if (tamanhoVisivel(texto) > limite) {
+                avisar('A mensagem passa de ' + limite + ' caracteres (tem ' + tamanhoVisivel(texto) + ').');
                 return;
             }
+            if (estado.aberta.ia) { perguntarAIa(texto); return; }
             estado.enviando = true;
             el.enviar.disabled = true;
             var id = estado.aberta.id;
@@ -1273,10 +1434,82 @@
             }).catch(function (e) {
                 if (e.sessao) { tratarFalha(e); return; }
                 avisar(e.message);
+                // 503: a pergunta já estava gravada quando a fila falhou; relê o histórico para não reenviar em duplicidade
+                if (e.status === 503 && estado.aberta && estado.aberta.id === id) {
+                    el.campo.value = '';
+                    ajustarAltura();
+                    return pedir(urls.base + '/' + id + '/mensagens').then(function (pagina) { anexarAoFim(pagina.mensagens || []); }).catch(function () {});
+                }
             }).finally(function () {
                 estado.enviando = false;
                 el.enviar.disabled = false;
             });
+        }
+
+        // F3: pergunta ao BlueJus IA. Não usa /conversas/{id}/mensagens (o servidor recusa com 403 `conversa_ia`).
+        // 201 = pergunta nova, 202 = já havia uma em andamento (devolve a mesma, sem custo novo). A fala da IA chega pelo
+        // polling de /central/novidades; aqui só se mostra a pergunta e o digitando....
+        function perguntarAIa(texto) {
+            var id = estado.aberta.id;
+            estado.enviando = true;
+            atualizarCampoDaIa();
+            pedir(urls.iaPergunta, { metodo: 'POST', corpo: { conteudo: texto } }).then(function (dados) {
+                estado.iaAguardando = { analiseId: dados.analiseId, conversaId: dados.conversaId, semFala: 0, desde: Date.now() };
+                if (dados.emAndamento !== true) {   // 201: a pergunta foi gravada; 202: o texto novo NÃO foi, o rascunho fica
+                    el.campo.value = '';
+                    ajustarAltura();
+                }
+                if (estado.aberta && estado.aberta.id === id) {
+                    mostrarDigitandoSeAguardando();
+                    return pedir(urls.base + '/' + id + '/mensagens').then(function (pagina) {
+                        // anexarAoFim ignora o que já está na tela e o polling descarta o que já foi visto (estado.vistas)
+                        var mensagens = pagina.mensagens || [];
+                        // a fala pode ter chegado pelo polling antes desta resposta voltar: a pergunta já está respondida
+                        if (mensagens.some(function (m) { return m.deIa === true && m.id > dados.mensagemId; })) { estado.iaAguardando = null; }
+                        if (estado.aberta && estado.aberta.id === id) { anexarAoFim(mensagens); }
+                    });
+                }
+            }).catch(function (e) {
+                if (e.sessao) { tratarFalha(e); return; }
+                avisar(e.message);
+            }).finally(function () {
+                estado.enviando = false;
+                atualizarCampoDaIa();
+                carregarConversas().catch(tratarFalha);
+            });
+        }
+
+        function encerrarPerguntaDaIa() {   // a fala chegou, ou o servidor disse que não vai chegar
+            estado.iaAguardando = null;
+            esconderDigitando();
+            atualizarCampoDaIa();
+            if (estado.aberta && estado.aberta.ia && !iaBloqueada() && estado.tela === 'conversa') { el.campo.focus(); }
+        }
+
+        // Uma consulta de status por ciclo do polling, só enquanto há pergunta pendente e nenhuma fala nova chegou.
+        // Nunca mostra texto da IA: só o `mensagem` fixo do servidor (falhou/indisponível), no aviso da Central.
+        function conferirPerguntaDaIa() {
+            var pendente = estado.iaAguardando;
+            if (!pendente || estado.iaConsultando) { return; }
+            if (Date.now() - pendente.desde > ESPERA_MAXIMA_DA_IA) {   // worker parado: não trava o campo para sempre
+                encerrarPerguntaDaIa();
+                if (ia.demora) { avisar(ia.demora); }
+                return;
+            }
+            estado.iaConsultando = true;
+            pedir(urls.iaStatus + pendente.analiseId).then(function (d) {
+                if (estado.iaAguardando !== pendente) { return; }   // a fala chegou enquanto a consulta ia
+                var falhou = d.status === 'falhou' || d.status === 'indisponivel';
+                if (!falhou && d.terminal !== true) { pendente.semFala = 0; return; }
+                // Terminal sem falha: a fala pode estar a um ciclo de aparecer; só desiste no segundo ciclo seguido.
+                pendente.semFala += 1;
+                if (!falhou && pendente.semFala < 2) { return; }
+                encerrarPerguntaDaIa();
+                if (d.mensagem) { avisar(d.mensagem); }
+            }).catch(function (e) {
+                if (e && e.sessao) { tratarFalha(e); return; }
+                if (e && e.status === 404 && estado.iaAguardando === pendente) { encerrarPerguntaDaIa(); }
+            }).finally(function () { estado.iaConsultando = false; });
         }
 
         function ajustarAltura() {   // textarea 36–110 px, L6073
@@ -1528,6 +1761,14 @@
                     pedir(urls.base + '/' + c.id + '/nao-lida', { metodo: 'POST', corpo: {} })
                         .then(carregarConversas).catch(falhaDeAcao);
                 } });
+            }
+            if (ehIa(c)) {
+                // F3: a IA é fixa e não se arquiva nem se exclui (o servidor não a esconde): só lida/não lida e silenciar.
+                itens.push({ icone: c.silenciada ? 'bi-bell' : 'bi-bell-slash', rotulo: c.silenciada ? 'Reativar notificações' : 'Silenciar', acao: function () {
+                    preferir(c, { silenciada: !c.silenciada }, c.silenciada ? 'Notificações reativadas.' : 'Conversa silenciada.');
+                } });
+                abrirMenu(itens, x, y, origem);
+                return;
             }
             itens.push({ icone: 'bi-pin-angle', rotulo: c.fixada ? 'Desafixar' : 'Fixar conversa', acao: function () {
                 preferir(c, { fixada: !c.fixada }, c.fixada ? 'Conversa desafixada.' : 'Conversa fixada.');
@@ -2168,13 +2409,14 @@
             var itens = [];
             /* Despacho de pasta que eu não vejo: nada útil a citar ou copiar; só "Mencionar" o autor. */
             var oculta = !!m.ocultoPorPermissao;
-            if (podeEscrever() && !oculta) {
+            var comIa = !!(estado.aberta && estado.aberta.ia);   // F3: na conversa da IA só se copia (não há resposta nem menção)
+            if (podeEscrever() && !oculta && !comIa) {
                 itens.push({ icone: 'bi-reply', rotulo: 'Responder', acao: function () { responderA(m); } });
             }
             if (!oculta) {
                 itens.push({ icone: 'bi-clipboard', rotulo: 'Copiar', acao: function () { copiar(comoTexto(m.conteudo)); } });
             }
-            var autor = !m.minha && podeEscrever() ? mencionavel(m.autorId) : null;
+            var autor = !m.minha && !comIa && podeEscrever() ? mencionavel(m.autorId) : null;
             if (autor) {
                 itens.push({ icone: 'bi-at', rotulo: 'Mencionar ' + primeiroNome(autor.nome), acao: function () { mencionar(autor); } });
             }
@@ -2216,6 +2458,8 @@
                 // conversas silenciadas (spec B §4; desenho L137) e as repetições da janela não somam.
                 var chegaram = (Number.isFinite(dados.naoLidas) ? Math.max(0, dados.naoLidas - estado.naoLidas) : 0) + lerAvisos(dados);
                 novas.forEach(function (m) { estado.vistas.add(m.id); });
+                // F3: a fala da IA encerra a pergunta pendente; sem fala nova, confere o status UMA vez neste ciclo.
+                if (novas.some(function (m) { return m.deIa === true; })) { encerrarPerguntaDaIa(); } else { conferirPerguntaDaIa(); }
                 if (estado.vistas.size > 5000) { estado.vistas = new Set(novas.map(function (m) { return m.id; })); }
                 // A conversa aberta recebe as novas mesmo com a tela de informações por cima — senão elas iriam para
                 // `vistas` e nunca apareceriam ao voltar.
@@ -2249,6 +2493,7 @@
                 if (estado.aberta) {
                     // Não fecha a conversa: o rascunho fica no campo; só deixa de dar para enviar.
                     el.compositor.hidden = true;
+                    el.telaConversa.querySelectorAll('.bj-central-aviso--ia').forEach(function (a) { a.remove(); });
                     if (!el.telaConversa.querySelector('.bj-central-aviso')) {
                         el.telaConversa.appendChild(criar('div', 'bj-central-aviso', e.message));
                     }

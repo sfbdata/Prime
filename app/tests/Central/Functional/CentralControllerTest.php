@@ -43,14 +43,14 @@ final class CentralControllerTest extends JusPrimeWebTestCase
         $id = $this->enviar($client, $conversa, '  Bom dia, Bruno  ');
 
         $client->request('GET', '/central/conversas');
-        $lista = $this->json($client)['conversas'];
+        $lista = $this->conversasSemIa($client);
         self::assertCount(1, $lista);
         self::assertSame(0, $lista[0]['naoLidas'], 'a própria mensagem não conta como não lida');
         self::assertSame($bruno->getId(), $lista[0]['outro']['id']);
 
         $this->logarComTenant($client, $bruno, $tenant);
         $client->request('GET', '/central/conversas');
-        $lista = $this->json($client)['conversas'];
+        $lista = $this->conversasSemIa($client);
         self::assertSame(1, $lista[0]['naoLidas']);
         self::assertSame('Bom dia, Bruno', $lista[0]['ultima']['conteudo']);
         self::assertFalse($lista[0]['ultima']['minha']);
@@ -99,7 +99,7 @@ final class CentralControllerTest extends JusPrimeWebTestCase
         self::assertSame($segunda, $this->json($client)['ultimaLidaId'], 'o cursor não volta');
 
         $client->request('GET', '/central/conversas');
-        self::assertSame(0, $this->json($client)['conversas'][0]['naoLidas']);
+        self::assertSame(0, $this->conversasSemIa($client)[0]['naoLidas']);
     }
 
     #[TestDox('Quem não participa — colega do mesmo escritório ou super admin — recebe 404 em ler, enviar e marcar')]
@@ -128,7 +128,7 @@ final class CentralControllerTest extends JusPrimeWebTestCase
             $client->request('GET', '/central/novidades?desde=1');
             self::assertStringNotContainsString('SEGREDO', (string) $client->getResponse()->getContent());
             $client->request('GET', '/central/conversas');
-            self::assertSame([], $this->json($client)['conversas']);
+            self::assertSame([], $this->conversasSemIa($client));
         }
     }
 
@@ -201,7 +201,7 @@ final class CentralControllerTest extends JusPrimeWebTestCase
         $client->request('GET', "/central/conversas/$conversa/mensagens");
         self::assertResponseIsSuccessful();
         $client->request('GET', '/central/conversas');
-        self::assertFalse($this->json($client)['conversas'][0]['outroAtivo']);
+        self::assertFalse($this->conversasSemIa($client)[0]['outroAtivo']);
         $this->post($client, "/central/conversas/$conversa/mensagens", ['conteudo' => 'depois']);
         self::assertResponseStatusCodeSame(422);
 
@@ -325,7 +325,7 @@ final class CentralControllerTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         $client->request('GET', '/central/conversas');
-        self::assertSame([$comCarla, $comBruno, $comDavi], array_column($this->json($client)['conversas'], 'id'));
+        self::assertSame([$comCarla, $comBruno, $comDavi], array_column($this->conversasSemIa($client), 'id'));
     }
 
     #[TestDox('Quem está em dois escritórios não vê, de um, a conversa do outro')]
@@ -347,7 +347,7 @@ final class CentralControllerTest extends JusPrimeWebTestCase
         $client->request('GET', "/central/conversas/$daB/mensagens");
         self::assertResponseStatusCodeSame(404);
         $client->request('GET', '/central/conversas');
-        self::assertSame([], $this->json($client)['conversas']);
+        self::assertSame([], $this->conversasSemIa($client));
         $client->request('GET', '/central/novidades?desde=0');
         self::assertStringNotContainsString('SEGREDO', (string) $client->getResponse()->getContent());
         $this->post($client, "/central/conversas/$daB/mensagens", ['conteudo' => 'do escritório errado']);
@@ -386,7 +386,7 @@ final class CentralControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
 
         $client->request('GET', '/central/conversas');
-        self::assertSame([], $this->json($client)['conversas']);
+        self::assertSame([], $this->conversasSemIa($client));
     }
 
     #[TestDox('A página abre para quem tem vínculo; sem vínculo com o escritório, a plataforma manda escolher outro')]

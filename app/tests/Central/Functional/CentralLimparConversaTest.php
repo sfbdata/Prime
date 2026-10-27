@@ -29,7 +29,7 @@ final class CentralLimparConversaTest extends JusPrimeWebTestCase
     {
         $client->request('GET', '/central/conversas');
 
-        return array_column($this->json($client)['conversas'], 'id');
+        return array_column($this->conversasSemIa($client), 'id');
     }
 
     /** @return list<string> o conteúdo das mensagens que EU vejo */

@@ -1,5 +1,6 @@
 # ---- Central de Comunicação (a7, spec idioma-do-sistema §26): a página /central, a janela e o lançador flutuante.
-# O texto montado pelo central.js (conversas, painel, avisos, grupos, despacho) ainda é fixo no JS.
+# O texto montado pelo central.js (conversas, painel, avisos, grupos, despacho) ainda é fixo no JS, EXCETO o da
+# conversa com o BlueJus IA (central.ia.*), que o Twig entrega por data-ia-* em _janela.html.twig.
 central:
     comum:
         nome: Central de Comunicação
@@ -39,3 +40,21 @@ central:
         mensagem: Mensagem
         enviar: Enviar
         enviar_title: Enviar (Enter)
+    # Conversa com o BlueJus IA (F3, docs/specs/ia-chat-central.md). Vão ao central.js por data-ia-* da janela.
+    ia:
+        nome: BlueJus IA
+        selo: IA
+        setor: Assistente
+        funcao: inteligência do BlueJus
+        vazio_titulo: BlueJus IA
+        vazio_texto: Pergunte em linguagem natural. A IA usa o contexto da tela e só os dados que a sua conta pode acessar.
+        digitando: digitando...
+        demora: A resposta está demorando. Tente perguntar de novo em instantes.
+        aviso: A resposta é gerada por IA e pode conter erros. Confira antes de usar.
+        sugestao_pendencia: Tem alguma pendência?
+        sugestao_metas: Quais metas estão atrasadas?
+        sugestao_prazo: Existe algum prazo?
+        placeholder: Pergunte ao BlueJus IA…
+        placeholder_aguardando: Aguardando a resposta…
+        previa_vazia: Pergunte em linguagem natural
+        aria: Pergunta ao BlueJus IA
