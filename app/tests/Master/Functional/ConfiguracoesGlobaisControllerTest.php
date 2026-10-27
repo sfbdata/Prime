@@ -57,7 +57,7 @@ final class ConfiguracoesGlobaisControllerTest extends JusPrimeWebTestCase
         self::assertSame((string) static::getContainer()->get(PlanoRepository::class)->free()->getCotaGb(), $d['valores']['freeGb']);
         self::assertSame((string) static::getContainer()->get(ConfiguracaoDoEspacoRepository::class)->atual()->getFaixaAlerta(), $d['valores']['aviso']);
         self::assertSame('BlueJus', $d['padroes']['nome']);
-        self::assertSame('480', $d['padroes']['sessao']);
+        self::assertSame('24', $d['padroes']['sessao'], 'padrão do ambiente (app.sessao_padrao_minutos), não o 480 estático');
     }
 
     #[TestDox('quem não é Master recebe 403 nas duas rotas, e nada muda')]

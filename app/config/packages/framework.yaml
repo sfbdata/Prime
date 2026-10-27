@@ -146,7 +146,11 @@ framework:
             interval: '1 hour'
 
     # Note that the session will be started ONLY if you read or write from it.
-    session: true
+    # gc_maxlifetime no teto de `sessao` (43200 min): o arquivo da sessão não some antes do
+    # ExpiracaoDaSessaoListener, que decide a expiração pela configuração do Master (spec login-sessao-expiracao).
+    session:
+        enabled: true
+        gc_maxlifetime: 2592000
 
     #esi: true
     #fragments: true

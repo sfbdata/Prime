@@ -50,6 +50,11 @@ parameters:
     # em produção, sem deploy de código. Escritórios excluídos (soft delete) não contam.
     tenant_max_por_usuario: '%env(default:default_tenant_max_por_usuario:int:TENANT_MAX_POR_USUARIO)%'
     default_tenant_max_por_usuario: 3
+    # Inatividade (minutos) que derruba a sessão quando o Master não gravou `sessao` (spec login-sessao-expiracao).
+    # PONTO ÚNICO do padrão: catálogo, leitor e listener leem daqui. 24 min = gc_maxlifetime 1440 s do PHP em produção
+    # (confirmado pelo Coordenador, 27/10; cookie_lifetime 0). Trocar aqui ou pela env SESSAO_PADRAO_MINUTOS.
+    app.sessao_padrao_minutos: '%env(default:default_sessao_padrao_minutos:int:SESSAO_PADRAO_MINUTOS)%'
+    default_sessao_padrao_minutos: 24
     # Carência (em dias) que um escritório soft-deletado fica em quarentena antes do hard
     # delete definitivo pelo job de purga (RN09). Sobrescrevível por env em produção, sem
     # deploy de código. Enquanto dentro da carência, o suporte ainda pode reativar.

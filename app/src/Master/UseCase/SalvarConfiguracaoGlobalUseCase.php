@@ -17,6 +17,7 @@ use App\Master\Repository\ConfiguracaoGlobalRepository;
 use App\Master\Service\CatalogoDeConfiguracoes;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Salva as configurações globais do sistema (desenho 05 Perfis 1.2 VS 25.10.26, botão "Salvar").
@@ -43,12 +44,17 @@ final class SalvarConfiguracaoGlobalUseCase
         private readonly AlterarPlanoUseCase $alterarPlano,
         private readonly ClockInterface $relogio,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
+        #[Autowire('%app.sessao_padrao_minutos%')]
+        private readonly ?int $sessaoPadraoMinutos = null,
     ) {
     }
 
     public function executar(SalvarConfiguracaoGlobalInput $input): ConfiguracaoGlobalOutput
     {
-        $novos = CatalogoDeConfiguracoes::normalizar($input->valores);
+        $novos = CatalogoDeConfiguracoes::normalizar(
+            $input->valores,
+            $this->sessaoPadraoMinutos === null ? [] : CatalogoDeConfiguracoes::sobreposicoes($this->sessaoPadraoMinutos),
+        );
         $atuais = $this->consultar->executar()->valores;
 
         $this->escopoDePlataforma->executar(function () use ($novos, $atuais, $input): void {
