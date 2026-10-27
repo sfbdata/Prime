@@ -7,6 +7,7 @@ namespace App\TrabalhoExterno\Controller;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\DTO\DadosDaProposta;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
+use App\TrabalhoExterno\DTO\DadosDoEscritorioSolicitante;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
 use App\TrabalhoExterno\Enum\OperacaoDeMarcacao;
@@ -21,6 +22,9 @@ use App\TrabalhoExterno\UseCase\AnexarDocumentosUseCase;
 use App\TrabalhoExterno\UseCase\ApagarMensagemParaTodosUseCase;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaDemandaUseCase;
 use App\TrabalhoExterno\UseCase\AtualizarConfiguracaoCentralUseCase;
+use App\TrabalhoExterno\UseCase\AtualizarEscritorioSolicitanteUseCase;
+use App\TrabalhoExterno\UseCase\CriarEscritorioSolicitanteUseCase;
+use App\TrabalhoExterno\Entity\EscritorioSolicitante;
 use App\TrabalhoExterno\UseCase\AvisarPagamentoNoChatUseCase;
 use App\TrabalhoExterno\UseCase\ConfirmarRecebimentoDoPixUseCase;
 use App\TrabalhoExterno\UseCase\DespacharNaDemandaUseCase;
@@ -317,6 +321,37 @@ final class DemandaExternaController extends AbstractController
 
             return [];
         });
+    }
+
+    /** "Novo escritório" da Nova solicitação: guarda para o usuário (não cria nem altera escritório da plataforma). */
+    #[Route('/escritorios-solicitantes', name: 'trabalho_externo_escritorio_criar', methods: ['POST'])]
+    public function criarEscritorio(Request $request, CriarEscritorioSolicitanteUseCase $criar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $criar): array {
+            $escritorio = $criar->executar($ctx, DadosDoEscritorioSolicitante::deArray($this->corpo($request)));
+
+            return $this->respostaDoEscritorio($escritorio, 'Escritório salvo', ' fica disponível nas próximas solicitações.');
+        });
+    }
+
+    /** "Salvar edição": só o dono (id de outro usuário é 404). */
+    #[Route('/escritorios-solicitantes/{id}', name: 'trabalho_externo_escritorio_atualizar', methods: ['POST'], requirements: ['id' => '\d{1,9}'])]
+    public function atualizarEscritorio(Request $request, int $id, AtualizarEscritorioSolicitanteUseCase $atualizar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $id, $atualizar): array {
+            $escritorio = $atualizar->executar($ctx, $id, DadosDoEscritorioSolicitante::deArray($this->corpo($request)));
+
+            return $this->respostaDoEscritorio($escritorio, 'Escritório atualizado', '');
+        });
+    }
+
+    /** @return array<string, mixed> */
+    private function respostaDoEscritorio(EscritorioSolicitante $escritorio, string $titulo, string $complemento): array
+    {
+        return [
+            'escritorio' => $escritorio->paraPainel(),
+            'aviso' => ['titulo' => $titulo, 'texto' => $escritorio->getNome() . $complemento],
+        ];
     }
 
     /** @param callable(Contexto): array<string, mixed> $acao */
