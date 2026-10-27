@@ -71,8 +71,78 @@
         });
     }
 
+    /* Teste · simular dia (dc L1341-1347). O controle mora no rodapé, FORA do corpo trocado, para não
+       perder o foco ao arrastar. Cada parada pede ao servidor a leitura com `dia_simulado` (data) e
+       troca só o `.db-ia-corpo`; o dia de hoje não manda o parâmetro (desfaz). Nada é gravado. */
+    var simPedido = 0;
+    var simTimer = null;
+
+    function dataDoDia(controle) {
+        var base = controle.getAttribute('data-inicio').split('-');
+        var d = new Date(Date.UTC(+base[0], +base[1] - 1, +base[2] + parseInt(controle.value, 10) - 1));
+        return d.toISOString().slice(0, 10);
+    }
+
+    function carregarSimulacao(controle) {
+        var form = document.querySelector('[data-filtro-root] [data-filtro-form]');
+        var params = new URLSearchParams(form ? new FormData(form) : '');
+        if (controle.value !== controle.getAttribute('data-dia-real')) {
+            params.set('dia_simulado', dataDoDia(controle));
+        }
+        var pedido = ++simPedido;
+        fetch(window.location.pathname + '?' + params.toString(), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) {
+            if (!r.ok) { throw new Error('HTTP ' + r.status); }
+            return r.text();
+        }).then(function (html) {
+            if (pedido !== simPedido) { return; }
+            var novo = new DOMParser().parseFromString(html, 'text/html').querySelector('#dbIaPainel > .db-ia-corpo');
+            var atual = document.querySelector('#dbIaPainel > .db-ia-corpo');
+            if (novo && atual) { atual.replaceWith(novo); }
+        }).catch(function () {
+            /* sem resposta, o painel fica como estava */
+        });
+    }
+
+    document.addEventListener('input', function (e) {
+        var controle = e.target.closest ? e.target.closest('[data-ia-simular]') : null;
+        if (!controle) { return; }
+        var saida = document.querySelector('[data-ia-sim-dia]');
+        if (saida) { saida.textContent = controle.value; }
+        window.clearTimeout(simTimer);
+        simTimer = window.setTimeout(function () { carregarSimulacao(controle); }, 250);
+    });
+
+    /* Fechar o painel desfaz a simulação (dc: abrir zera o dia simulado). */
+    document.addEventListener('toggle', function (e) {
+        if (!e.target || e.target.id !== 'dbIaPainel' || e.newState !== 'closed') { return; }
+        var controle = e.target.querySelector('[data-ia-simular]');
+        if (!controle || controle.value === controle.getAttribute('data-dia-real')) { return; }
+        controle.value = controle.getAttribute('data-dia-real');
+        var saida = e.target.querySelector('[data-ia-sim-dia]');
+        if (saida) { saida.textContent = controle.value; }
+        carregarSimulacao(controle);
+    }, true);
+
+    /* Perguntas guiadas (dc L1009-1018): uma pílula ativa e uma caixa de resposta só; tocar de novo fecha. */
+    function escolherPergunta(pilula) {
+        var bloco = pilula.closest('.db-ia-perguntas');
+        var caixa = bloco ? bloco.querySelector('[data-ia-resposta-caixa]') : null;
+        if (!caixa) { return; }
+        var abrir = pilula.getAttribute('aria-pressed') !== 'true';
+        bloco.querySelectorAll('[data-ia-pergunta]').forEach(function (p) {
+            p.setAttribute('aria-pressed', p === pilula && abrir ? 'true' : 'false');
+        });
+        caixa.querySelector('span').textContent = abrir ? pilula.getAttribute('data-ia-pergunta') : '';
+        caixa.hidden = !abrir;
+    }
+
     document.addEventListener('click', function (e) {
         var botao = e.target.closest ? e.target.closest('[data-ia-marcar]') : null;
         if (botao) { marcar(botao); }
+        var pilula = e.target.closest ? e.target.closest('[data-ia-pergunta]') : null;
+        if (pilula) { escolherPergunta(pilula); }
     });
 }());

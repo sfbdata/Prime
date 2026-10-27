@@ -1,5 +1,5 @@
 {#
-    Tela de entrada: desenho "10 - Login - VS 24.10.26" (specs docs/specs/login-desenho-10.md e
+    Tela de entrada: desenho "10 - Login - VS 25.10.26" (specs docs/specs/login-desenho-10.md e
     docs/specs/login-desenho-10-24-10.md, o delta da VS 24.10.26).
 
     Página autônoma, sem o base.html.twig: o Master logado também vê esta tela (com as ferramentas
@@ -18,8 +18,14 @@
 {% set facebookDisponivel = facebookDisponivel ?? false %}
 {% set cadastroSocial = cadastroSocial ?? null %}
 {% set avisoGoogle = avisoGoogle ?? null %}
+{# Política de cadastro do Master (spec login-config-cadastro): `on` aberto, `convite` ou `off` escondem o "Criar conta"
+   e os botões sociais do cadastro; quem chega por ?abrir=cadastro, /cadastro ou /i/ lê o aviso no cartão de login. #}
+{% set cadastro = cadastro ?? 'on' %}
+{% set cadastroAberto = cadastro == 'on' %}
+{% set avisoCadastro = cadastroAberto ? '' : ('entrada.cadastro.aviso.' ~ (cadastro == 'off' ? 'off' : 'convite'))|trans %}
 {% set avisoGoogleTexto = 'entrada.login.google_nao_configurado'|trans %}
 {% if avisoGoogle == 'login' and erroLogin == '' %}{% set erroLogin = avisoGoogleTexto %}{% endif %}
+{% if not cadastroAberto and erroLogin == '' and ((abrir ?? '') == 'cadastro' or (cupom ?? '') != '') %}{% set erroLogin = avisoCadastro %}{% endif %}
 {% set ContaAConfirmar = 'App\\Auth\\Service\\ContaAConfirmar' %}
 {# Os assuntos são dado (o servidor compara o português, EnviarMensagemSuporteInput::ASSUNTOS); só o rótulo é do catálogo. #}
 {% set assuntosDoSuporte = {'Não consigo entrar': 'entrada.suporte.assunto.nao_consigo_entrar'|trans, 'Esqueci a senha': 'entrada.suporte.assunto.esqueci_a_senha'|trans, 'Criar conta': 'entrada.suporte.assunto.criar_conta'|trans, 'Outro assunto': 'entrada.suporte.assunto.outro'|trans} %}
@@ -50,7 +56,8 @@
      data-token-cadastro="{{ csrf_token('cadastro_criar') }}"
      data-token-reenvio="{{ csrf_token(constant(ContaAConfirmar ~ '::CSRF')) }}"
      data-token-suporte="{{ csrf_token('suporte_entrada') }}"
-     {% if avisoGoogle == 'cadastro' %}data-aviso-cadastro="{{ avisoGoogleTexto }}"{% endif %}
+     {% if not cadastroAberto %}data-cadastro-bloqueado="1"{% endif %}
+     {% if avisoGoogle == 'cadastro' and cadastroAberto %}data-aviso-cadastro="{{ avisoGoogleTexto }}"{% endif %}
      {% if ehMaster %}
      data-master="1"
      data-token-ajuste="{{ csrf_token('entrada_ajuste') }}"
@@ -111,7 +118,9 @@
 
                     <button type="button" class="lg-selo" data-seg-abrir><span class="lg-selo__icone" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span><span class="lg-selo__texto"><b>{{ 'entrada.login.criptografia'|trans }}</b><span>{{ 'entrada.login.selo_texto'|trans }}</span></span><i class="bi bi-chevron-down lg-selo__seta" aria-hidden="true"></i></button>
 
+                    {% if cadastroAberto %}
                     <div class="lg-semconta">{{ 'entrada.login.sem_conta'|trans }} <a href="{{ path('auth_cadastro') }}" id="lgCriar">{{ 'entrada.login.criar_conta'|trans }}</a></div>
+                    {% endif %}
                 </div>
             </form>
             {% if a_confirmar %}
@@ -217,7 +226,7 @@
                            configurado (decisão do dono de 24/10: nenhum botão que não funciona). O Facebook (PR B da spec
                            login-cupom-e-facebook) vem logo depois e some sem o app da Meta; conectado por ele, o campo E-mail
                            continua visível (o Facebook não prova e-mail). #}
-                        {% if googleDisponivel or facebookDisponivel %}
+                        {% if cadastroAberto and (googleDisponivel or facebookDisponivel) %}
                         <div class="lg-soc" id="lgCdSoc"{% if cadastroSocial %} hidden{% endif %}>
                             {% if googleDisponivel %}
                             <a class="lg-soc__btn" id="lgCdGoogle" href="{{ path('app_login_google', {_token: csrf_token('login_google'), origem: 'cadastro'}) }}"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>{{ 'entrada.modal.continuar_google'|trans }}</a>

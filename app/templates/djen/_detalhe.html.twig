@@ -1,0 +1,69 @@
+{# Corpo do modal de detalhe da publicação (desenho 11). Carregado por fetch em `push_processual_publicacao_detalhe`. #}
+{% set voltar = app.request.query.get('voltar') %}
+{% macro form_campos(voltar) %}<input type="hidden" name="_token" value="{{ csrf_token('push_publicacoes') }}"><input type="hidden" name="voltar" value="{{ voltar }}">{% endmacro %}
+<div class="pp-det__topo"><i class="bi bi-file-earmark-text"></i><b>{{ 'djen.detalhe.titulo'|trans({tipo: pub.tipoComunicacao ?? ('djen.comum.nao_informado'|trans), processo: pub.numeroProcessoExibicao ?? ('djen.comum.nao_informado'|trans)}) }}</b><button type="button" class="pp-modal__x" data-pp-det-fechar aria-label="{{ 'djen.detalhe.fechar'|trans }}"><i class="bi bi-x-lg"></i></button></div>
+<div class="pp-det__corpo">
+    <div class="pp-det__grade">
+        <div><span>{{ 'djen.detalhe.data'|trans }}</span><b>{{ pub.dataDisponibilizacao ?? ('djen.comum.sem_registro'|trans) }}</b></div>
+        <div><span>{{ 'djen.detalhe.tribunal'|trans }}</span><b>{{ pub.siglaTribunal }}</b></div>
+        <div><span>{{ 'djen.detalhe.vinculo'|trans }}</span><b>{{ pasta ? 'djen.detalhe.pasta_n'|trans({n: pasta.nup ?? ('#' ~ pasta.id)}) : 'djen.detalhe.avulsa'|trans }}</b></div>
+        <div><span>{{ 'djen.detalhe.orgao'|trans }}</span><b>{{ pub.nomeOrgao ?? ('djen.comum.nao_informado'|trans) }}</b></div>
+    </div>
+    <div class="pp-det__teor"><span class="pp-det__rotulo">{{ 'djen.detalhe.teor'|trans }}</span>{% if pub.textoHtml %}<div>{{ pub.textoHtml|raw }}</div>{% else %}<div>{{ 'djen.detalhe.sem_teor'|trans }}</div>{% endif %}</div>
+
+    <div class="pp-det__prazo"{% if prazo %} style="border-left-color: {{ prazo.corDoSelo }}"{% endif %} data-pp-prazo>
+        <span class="pp-det__rotulo">{{ 'djen.detalhe.prazo'|trans }}</span>
+        <form method="POST" action="{{ path('push_processual_publicacao_prazo', {id: pub.id}) }}" class="pp-det__dias" data-pp-prazo-form>
+            {{ _self.form_campos(voltar) }}
+            <input type="hidden" name="dias" value="">
+            <span class="pp-det__dias-rotulo">{{ 'djen.detalhe.dias_uteis'|trans }}</span>
+            {% for n in [5, 10, 15, 30] %}
+                <button type="button" class="pp-det__dia{{ prazoDias == n ? ' pp-det__dia--on' : '' }}" data-pp-dias="{{ n }}">{{ 'djen.detalhe.dias_n'|trans({n: n}) }}</button>
+            {% endfor %}
+            <button type="button" class="pp-det__dia pp-det__dia--outro{{ prazoDias is not null and prazoDias not in [5, 10, 15, 30] ? ' pp-det__dia--on' : '' }}" data-pp-dias-outro data-pergunta="{{ 'djen.detalhe.outro_pergunta'|trans|e('html_attr') }}">{{ prazoDias is not null and prazoDias not in [5, 10, 15, 30] ? prazoDias : 'djen.detalhe.outro'|trans }}</button>
+        </form>
+        {% if prazo %}
+            <div class="pp-det__restante" style="color: {{ prazo.corDoRestante }}">
+                {% if prazo.cumprido %}<i class="bi bi-check-circle-fill"></i> {{ 'djen.detalhe.cumprido'|trans }}
+                {% elseif prazo.vencido %}{{ 'djen.detalhe.vencido'|trans }}
+                {% elseif prazo.restante == 0 %}{{ 'djen.detalhe.vence_hoje'|trans }}
+                {% else %}{{ 'djen.detalhe.faltam'|trans({n: prazo.restante}) }}{% endif %}
+            </div>
+            <div class="pp-det__intervalo">
+                {% if prazo.inicio %}{{ 'djen.detalhe.intervalo'|trans({inicio: prazo.inicio|date('d/m/Y'), fim: prazo.vencimento|date('d/m/Y')}) }}
+                {% else %}{{ 'djen.detalhe.do_teor'|trans({fim: prazo.vencimento|date('d/m/Y')}) }}{% endif %}
+            </div>
+            <form method="POST" action="{{ path('push_processual_publicacao_cumprido', {id: pub.id}) }}" class="pp-det__cumprido">
+                {{ _self.form_campos(voltar) }}
+                <input type="hidden" name="cumprido" value="{{ prazo.cumprido ? '0' : '1' }}">
+                <label><input type="checkbox" {{ prazo.cumprido ? 'checked' }} data-pp-enviar-ao-mudar> {{ 'djen.detalhe.cumprido'|trans }}</label>
+            </form>
+        {% else %}
+            <div class="pp-det__intervalo">{{ 'djen.detalhe.sem_prazo'|trans }}</div>
+        {% endif %}
+        <div class="pp-det__meta">
+            {% if tarefaId %}
+                <a href="{{ path('tarefa_minhas') }}" class="pp-det__meta-link"><i class="bi bi-bullseye"></i> {{ 'djen.detalhe.meta_criada'|trans }}</a>
+            {% elseif prazo and pasta %}
+                <form method="POST" action="{{ path('push_processual_publicacao_meta', {id: pub.id}) }}">
+                    {{ _self.form_campos(voltar) }}
+                    <button type="submit" class="pp-det__btn-meta"><i class="bi bi-bullseye"></i> {{ 'djen.detalhe.criar_meta'|trans }}</button>
+                </form>
+            {% elseif not pasta %}
+                <button type="button" class="pp-det__btn-meta" disabled title="{{ 'djen.detalhe.criar_meta_sem_pasta'|trans }}"><i class="bi bi-bullseye"></i> {{ 'djen.detalhe.criar_meta'|trans }}</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<div class="pp-det__rodape">
+    {% if pasta %}<a href="{{ path('pasta_show', {id: pasta.id}) }}" class="pp-det__acao"><i class="bi bi-folder2-open"></i> {{ 'djen.detalhe.abrir_pasta'|trans }}</a>
+    {% else %}<button type="button" class="pp-det__acao" data-pp-det-vincular><i class="bi bi-link-45deg"></i> {{ 'djen.detalhe.vincular_pasta'|trans }}</button>{% endif %}
+    <form method="POST" action="{{ path('push_processual_lote_leitura') }}" class="pp-det__lida">
+        {{ _self.form_campos(voltar) }}
+        <input type="hidden" name="ids[]" value="{{ pub.id }}">
+        <input type="hidden" name="lida" value="{{ pub.lida ? '0' : '1' }}">
+        <button type="submit" class="pp-det__acao"><i class="bi bi-envelope{{ pub.lida ? '' : '-open' }}"></i> {{ pub.lida ? 'djen.detalhe.marcar_nao_lida'|trans : 'djen.detalhe.marcar_lida'|trans }}</button>
+    </form>
+    <span class="pp-modal__espaco"></span>
+    <button type="button" class="pp-det__acao" data-pp-det-fechar>{{ 'djen.detalhe.fechar'|trans }}</button>
+</div>

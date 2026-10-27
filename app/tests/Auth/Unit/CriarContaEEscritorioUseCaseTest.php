@@ -9,9 +9,11 @@ use App\Auth\DTO\IdentidadeDoGoogle;
 use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Auth\Event\EmailDaContaConfirmado;
+use App\Auth\Exception\CadastroNaoDisponivel;
 use App\Auth\Exception\EntradaPeloGoogleRecusadaException;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\CadastroMailer;
+use App\Auth\Service\PoliticaDeCadastro;
 use App\Auth\Service\TetoDoReenvioDeConfirmacao;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
 use App\Auth\UseCase\ReenviarConfirmacaoDeEmailUseCase;
@@ -23,6 +25,7 @@ use App\Profile\Enum\Genero;
 use App\Repository\UserRepository;
 use App\Service\TenantBootstrapService;
 use App\Shared\Email\IdentidadeDeEmail;
+use App\Tests\Support\ConfiguracaoDaPlataformaFalsa;
 use App\Termo\Entity\AceiteTermo;
 use App\Termo\Entity\CienciaPolitica;
 use App\Termo\Repository\AceiteTermoRepository;
@@ -73,6 +76,7 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
     private MailerInterface $transporte;
     private AbstractLogger $logger;
     private UserPasswordHasher $hasher;
+    private ConfiguracaoDaPlataformaFalsa $configuracao;
 
     /** @var list<object> */
     private array $despachados = [];
@@ -90,6 +94,7 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         $this->aceiteRepository = $this->createMock(AceiteTermoRepository::class);
         $this->cienciaRepository = $this->createMock(CienciaPoliticaRepository::class);
         $this->confirmacaoRepository = $this->createMock(ConfirmacaoEmailRepository::class);
+        $this->configuracao = new ConfiguracaoDaPlataformaFalsa(['cadastro' => 'on']);
         $this->eventos = new EventDispatcher();
         $this->eventos->addListener(ContaCriadaPeloCadastro::class, function (object $evento): void {
             $this->despachados[] = $evento;
@@ -120,6 +125,7 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
             new MockClock(new \DateTimeImmutable(self::AGORA)),
             new ReenviarConfirmacaoDeEmailUseCase($this->confirmacaoRepository, $this->mailer(), $this->logger, new MockClock(new \DateTimeImmutable(self::AGORA))),
             new TetoDoReenvioDeConfirmacao($this->confirmacaoRepository, new MockClock(new \DateTimeImmutable(self::AGORA))),
+            new PoliticaDeCadastro($this->configuracao),
         );
     }
 
@@ -550,5 +556,62 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         self::assertCount(1, $this->enviados);
         self::assertCount(1, $this->logger->registros);
         self::assertArrayHasKey('exception', $this->logger->registros[0]['contexto']);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function politicasQueFecham(): iterable
+    {
+        yield 'só por convite' => ['convite'];
+        yield 'fechado' => ['off'];
+    }
+
+    #[DataProvider('politicasQueFecham')]
+    #[TestDox('Política $politica: as três portas públicas (e-mail, Facebook, Google) recusam antes de ler ou gravar qualquer coisa')]
+    public function testPoliticaQueFechaBloqueiaAsPortasPublicas(string $politica): void
+    {
+        $this->configuracao->definir('cadastro', $politica);
+        $this->userRepository->expects($this->never())->method('encontrarPorEmailIgnorandoCaixa');
+        $this->userRepository->expects($this->never())->method('findOneBy');
+        $this->em->expects($this->never())->method('wrapInTransaction');
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+        $this->confirmacaoRepository->expects($this->never())->method('salvar');
+        $portas = [
+            fn () => $this->useCase()->executar(self::input(), '10.0.0.1', null),
+            fn () => $this->useCase()->executar(self::input(), '10.0.0.1', null, 'fb-1'),
+            fn () => $this->useCase()->executarPeloGoogle(self::input(), new IdentidadeDoGoogle('sub-9', 'ana@gmail.com', 'Ana'), '10.0.0.1', null),
+        ];
+
+        foreach ($portas as $porta) {
+            try {
+                $porta();
+                self::fail('Deveria lançar CadastroNaoDisponivel.');
+            } catch (CadastroNaoDisponivel $e) {
+                self::assertSame($politica, $e->politica);
+                self::assertSame('entrada.cadastro.aviso.' . $politica, $e->chaveDeTraducao());
+            }
+        }
+        self::assertSame([], $this->despachados);
+        self::assertSame([], $this->enviados);
+    }
+
+    #[TestDox('Política recusa antes até da validação: entrada inválida e e-mail existente não mudam a resposta')]
+    public function testPoliticaRecusaAntesDaValidacao(): void
+    {
+        $this->configuracao->definir('cadastro', 'off');
+
+        $this->expectException(CadastroNaoDisponivel::class);
+
+        $this->useCase()->executar(self::input(nome: ''), '10.0.0.1', null);
+    }
+
+    #[TestDox('Valor desconhecido ou vazio na política cai em aberto (padrão do catálogo): a conta nasce')]
+    public function testPoliticaDesconhecidaCaiEmAberto(): void
+    {
+        $this->configuracao->definir('cadastro', 'qualquer-coisa');
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+
+        self::assertNotNull($this->useCase()->executar(self::input(), '10.0.0.1', null));
     }
 }

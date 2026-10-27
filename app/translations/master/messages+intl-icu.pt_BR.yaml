@@ -1207,6 +1207,32 @@ master:
         erros: Erros recentes
         erros_sub: capturados nas telas
         sem_erros: Nenhum erro no período.
+        limpar: Limpar registros
+        abrir_incidente: Abrir incidente
+        btn_backup: Registrar backup
+        btn_teste: Registrar teste
+        campo_titulo: Título
+        campo_categoria: Categoria
+        campo_gravidade: Gravidade
+        campo_solucao: O que foi feito
+        campo_resultado: Resultado
+        resultado_ok: Deu certo
+        resultado_falhou: Falhou
+        campo_observacao: Observação
+        observacao_dica: Opcional. Onde ficou o arquivo, quanto demorou.
+        cancelar: Cancelar
+        categoria:
+            disponibilidade: Disponibilidade
+            login: Login
+            upload: Upload
+            integracao: Integração
+            banco: Banco de dados
+            outro: Outro
+        gravidade:
+            crit: Crítico
+            alta: Alto
+            media: Médio
+            baixa: Baixo
         js:
             sem_dados: Sem dados
             nenhum_registrado: nenhum registrado
@@ -1237,6 +1263,26 @@ master:
             em_aberto_status: Em aberto
             resolvido_em: 'Resolvido em {data}'
             sem_pagina: '-'
+            categoria:
+                disponibilidade: Disponibilidade
+                login: Login
+                upload: Upload
+                integracao: Integração
+                banco: Banco de dados
+                outro: Outro
+            resolver: Resolver
+            erro_titulo: Informe o título do incidente.
+            erro_salvar: Não foi possível salvar. Tente de novo.
+            dlg:
+                salvar: Salvar
+                resolver: Marcar como resolvido
+                limpar: Limpar registros
+                incidente: Abrir incidente
+                backup: Registrar backup
+                restauracao: Registrar teste de restauração
+                resolver_titulo: Resolver incidente
+                limpar_titulo: Limpar registros de desempenho
+                limpar_texto: Apaga os erros e medições do período. Incidentes e backups ficam.
             gravidade:
                 crit: Crítico
                 alta: Alto
