@@ -69,6 +69,13 @@ Ponto aberto ao dono: o desenho tem CNPJ e chave PIX fixos; confirmar que são o
 4. Ponta Master "Chamados recebidos" (+ confirmar recarga, debitar, estornar).
 5. Recarga (PIX copia e cola / pedido de cartão) via `ProvedorDeRecarga`.
 
+## Chamado de suporte (fatia 2)
+`AbrirChamadoInput` traz `tenant` e `solicitante` separados: o **controller** garante que o solicitante é o
+usuário logado do escritório (o UseCase não reconfere). Abrir valida o pedido antes da transação, trava o saldo,
+confere R$ 20,00, reserva o número (`proximoNumero` com o saldo travado + único `tenant, numero`) e grava a
+linha "Chamado aberto por ...". Preço por tipo: `PrecoDoAtendimento` (global, Master; sem linha = sem estimativa).
+Chamado de outro escritório responde `ChamadoNaoEncontrado` (404).
+
 ## Exclusão do escritório (purga)
 `service_desk_movimento` e `service_desk_saldo` entram na `ORDEM_DELECAO` (apagados), como o apoio do
 Contribua: vale a decisão do dono de que a exclusão da conta apaga na hora (dado só do escritório, sem
