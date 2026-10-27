@@ -106,6 +106,13 @@ A pergunta (PR 2b) é `UseCase\PerguntarABlueJusIaUseCase`, sem rota até a tela
 da janela: lista (abas Caixa de entrada/Painel, filtros), conversa, novo grupo, informações do grupo (`central.js`,
 `mostrarTela`).
 
+**Conversa com o BlueJus IA na tela (F3, PR 3b).** `central.js`: `ehIa(c)` (`ia`/`tipo 'ia'`) e `outro: null` tolerado em todo ponto;
+item fixo no topo da lista (avatar e estrela do desenho, SVG por `createElementNS`, nunca `innerHTML`); menu só com lida/não lida e
+silenciar. Bolha `deIa` testada ANTES de `minha`. Enviar = `POST central_ia_pergunta` (nunca `/mensagens`); `estado.iaAguardando` mostra
+o "digitando..." e trava o campo; o polling consulta `central_ia_pergunta_status` UMA vez por ciclo sem fala nova, e o `mensagem` do
+servidor (falhou/indisponível) vai para `avisar()`, nunca texto da IA. Textos em `central.ia.*` (translations), entregues por `data-ia-*`
+em `_janela.html.twig`; é a exceção à regra "texto do JS é fixo". Sem comandos "/" nem contexto de tela (PR 4/5).
+
 **Lançador flutuante** (`_flutuante.html.twig` + `central-flutuante.js`/`.css`): a MESMA janela em modo `flutuante`,
 incluída no `base.html.twig` por uma linha (`central_disponivel()`, nunca lança; fora da `/central`). Regras: com a
 janela fechada **nada vira lido** (`marcarLida` exige `janelaAberta`), o polling cai para 30 s e só o contador anda
