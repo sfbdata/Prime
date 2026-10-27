@@ -45,6 +45,10 @@ class Pagamento implements TenantAware, Auditavel
     #[ORM\Column(type: 'string', length: 80, nullable: true)]
     private ?string $idExterno = null;
 
+    /** PIX copia e cola da cobrança no banco: guardado para a tela não reconsultar o banco a cada abertura. */
+    #[ORM\Column(name: 'br_code', type: 'text', nullable: true)]
+    private ?string $brCode = null;
+
     #[ORM\Column(name: 'end_to_end_id', type: 'string', length: 40, nullable: true)]
     private ?string $endToEndId = null;
 
@@ -165,6 +169,13 @@ class Pagamento implements TenantAware, Auditavel
         $this->idExterno = $idExterno;
     }
 
+    /** A cobrança foi criada no banco: o id dele e o PIX copia e cola. */
+    public function registrarCobrancaNoBanco(string $idExterno, string $brCode): void
+    {
+        $this->idExterno = $idExterno;
+        $this->brCode = $brCode;
+    }
+
     public function registrarPagador(?string $nome, ?string $documento): void
     {
         $this->pagadorNome = $nome === null ? null : mb_substr(trim($nome), 0, 120);
@@ -239,6 +250,11 @@ class Pagamento implements TenantAware, Auditavel
     public function getIdExterno(): ?string
     {
         return $this->idExterno;
+    }
+
+    public function getBrCode(): ?string
+    {
+        return $this->brCode;
     }
 
     public function getEndToEndId(): ?string

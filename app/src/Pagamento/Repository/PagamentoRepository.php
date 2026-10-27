@@ -63,6 +63,15 @@ class PagamentoRepository extends ServiceEntityRepository
             ->getQuery()->getOneOrNullResult();
     }
 
+    public function contarDaOrigem(int $tenantId, OrigemDoPagamento $origem, int $origemId): int
+    {
+        return (int) $this->createQueryBuilder('p')->select('COUNT(p.id)')
+            ->andWhere('IDENTITY(p.tenant) = :t')->setParameter('t', $tenantId)
+            ->andWhere('p.origem = :o')->setParameter('o', $origem)
+            ->andWhere('p.origemId = :i')->setParameter('i', $origemId)
+            ->getQuery()->getSingleScalarResult();
+    }
+
     /** Cobranças aguardando que já passaram da validade: a conciliação as marca expiradas. @return list<Pagamento> */
     public function vencidasAguardando(\DateTimeImmutable $agora, int $limite = 200): array
     {
