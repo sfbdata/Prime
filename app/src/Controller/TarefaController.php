@@ -35,7 +35,9 @@ use App\Tarefa\UseCase\MontarLinhaDoTempoDaMetaUseCase;
 use App\Tarefa\UseCase\MontarSituacaoDaMetaUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
+use App\Tarefa\DTO\AnalisarPrazoDaMetaInput;
 use App\Tarefa\UseCase\GravarMetaNovaUseCase;
+use App\Tarefa\UseCase\RegistrarAnaliseDoPrazoNaMetaUseCase;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
 use App\Tarefa\UseCase\MontarEsteiraDaPastaUseCase;
 use App\Service\NotificacaoService;
@@ -182,7 +184,8 @@ final class TarefaController extends AbstractController
         Request $request,
         PastaRepository $pastaRepository,
         ColaboradoresAtribuiveis $atribuiveis,
-        GravarMetaNovaUseCase $gravarMeta
+        GravarMetaNovaUseCase $gravarMeta,
+        RegistrarAnaliseDoPrazoNaMetaUseCase $registrarAnalise
     ): JsonResponse {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -241,6 +244,23 @@ final class TarefaController extends AbstractController
         $tarefa->setEtapa($etapa);
         foreach ($responsaveis as $responsavel) {
             $tarefa->addResponsavel($responsavel);
+        }
+
+        // Análise do prazo (desenho 02): o modal manda `analise_prazo=1` quando a mostrou. Estimado ou a conferir não
+        // grava; sem o campo (Push, drawer da IA, chamadas antigas) a meta nasce como sempre nasceu.
+        if ('1' === (string) $request->request->get('analise_prazo')) {
+            try {
+                $registrarAnalise->executar($tarefa, new AnalisarPrazoDaMetaInput(
+                    $titulo,
+                    $descricao,
+                    AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_publicacao')),
+                    AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('data_ciencia')),
+                    AnalisarPrazoDaMetaInput::dataDoCampo($request->request->get('prazo_juridico')),
+                    '1' === (string) $request->request->get('analise_confirmada'),
+                ), new \DateTimeImmutable('today'));
+            } catch (\DomainException $recusa) {
+                return $this->json(['erro' => $recusa->getMessage()], 422);
+            }
         }
 
         // Grava já com o número da meta no escritório ("Nº 0001"), sob a trava da sequência.
