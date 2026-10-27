@@ -1195,7 +1195,7 @@ master:
                 manut: Aviso para todos os usuários
                 manutAte: Mostrar o aviso até
             ajuda:
-                remetente: Usado em campanhas e avisos
+                remetente: 'O e-mail usado como remetente (cadastro, redefinição de senha, convites e campanhas). Só troque por um endereço de uma conta SMTP da Hostinger com SPF e DKIM configurados no domínio; senão os e-mails podem ser recusados ou cair no spam.'
                 manut: 'Ex.: o sistema ficará indisponível das 22h às 23h. Em branco, nenhum aviso.'
             opcao:
                 cadastro:
