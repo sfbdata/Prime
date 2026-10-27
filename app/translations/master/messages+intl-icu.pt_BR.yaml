@@ -283,6 +283,12 @@ master:
             observacao: Observação (opcional)
             cancelar: Cancelar
             lancar: Lançar
+        apagar:
+            titulo: Apagar indicador da lista
+            rotulo: Digite APAGAR para confirmar
+            dica: 'Ele sai da lista de recompensas; o extrato continua guardado.'
+            cancelar: Cancelar
+            apagar: Apagar
         csv:
             data: Data
             usuario: Usuário
@@ -295,6 +301,7 @@ master:
         token_invalido: Token CSRF inválido. Recarregue a página.
         indicador_nao_encontrado: Indicador não encontrado.
         corpo_invalido: Corpo da requisição inválido.
+        suspeitas_mudou: A lista de suspeitas mudou. Recarregue o painel e revise de novo.
     # Aba "Configurações da I.A." (master/_ia, spec ia-anthropic-ligar §10) e as recusas do IaDoMasterController.
     ia:
         instalacao:
@@ -967,6 +974,15 @@ master:
                 liberado: Liberado
                 carencia: '{n} em carência'
                 andamento: Em andamento
+                bloqueado: Bloqueado
+                analise_uma: 'Em análise ({n} suspeita)'
+                analise_varias: 'Em análise ({n} suspeitas)'
+                alerta: 'Alerta: {n} contas em 7 dias'
+            sit_dica_alerta: 'Muitas contas criadas em poucos dias. O alerta só sinaliza: nada é bloqueado.'
+            motivo:
+                escritorio: mesmo escritório de quem indicou
+                cnpj: mesmo CNPJ
+                dominio: mesmo domínio de e-mail
             sit_dica_carencia: '{n} conta(s) aguardando {dias} dias de uso ativo para gerar crédito'
             por_mes: '+ {valor}/mês ↻'
             dica_geral: Segue a regra geral
@@ -982,6 +998,17 @@ master:
             menu_lancamento: Lançar crédito ou estorno
             menu_extrato: Ver extrato deste indicador
             menu_csv: Baixar extrato (CSV)
+            menu_aprovar: Revisar suspeitas e aprovar
+            menu_bloquear: Bloquear recompensa
+            menu_desbloquear: Desbloquear recompensa
+            menu_apagar: Apagar da lista
+            aprovar_titulo: 'Suspeitas de {nome} ({n}):'
+            aprovar_pergunta: Aprovar e contar estas contas?
+            aprovadas: 'Contas aprovadas para {nome}.'
+            bloqueada: 'Recompensa de {nome} bloqueada.'
+            desbloqueada: 'Recompensa de {nome} desbloqueada.'
+            erro_apagar: Digite APAGAR para confirmar.
+            apagado: '{nome} foi removido da lista. O extrato continua guardado.'
             tipo:
                 credito: Crédito manual
                 estorno: Estorno

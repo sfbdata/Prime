@@ -262,6 +262,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Extrato de recompensas (F2, 26/10/2026): livro só de INSERT com os créditos e estornos manuais por indicador.
         // Dado da PLATAFORMA, lido e escrito só pelo Master; o indicador é um usuário, sem escritório. Sem dado de cliente.
         \App\Recompensa\Entity\LancamentoDeRecompensa::class,
+        // Aprovação de conta suspeita (F3, 26/10/2026): o Master libera uma conta que o antifraude reteve. Dado da
+        // PLATAFORMA (dois usuários e quem aprovou), escrito só pelo Master; sem escritório nem dado de cliente.
+        \App\Recompensa\Entity\AprovacaoDeContaDeRecompensa::class,
         // Questões jurídicas da BlueJus IA no Painel do Master (24/10/2026): o status, o histórico de status e as versões
         // ajustadas dos documentos (Política de Privacidade, Termos de Uso, aceite da IA) são da PLATAFORMA, lidos e
         // gravados só pelo Master. Sem dado de escritório nem de cliente; o arquivo da versão tem escopo global.
@@ -348,7 +351,6 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 79 → 80 com o convênio OAB por estado do Master (26/10/2026): ConvenioDaUf, configuração global da plataforma.
     // 80 → 82 com as recompensas do Master (26/10/2026): ProgramaDeRecompensa e CondicaoDeRecompensa, justificadas acima.
     // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
-    // 82 → 83 com as configurações globais do Master (26/10/2026): ConfiguracaoGlobal (plataforma), justificada acima.
     // 83 → 84 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
     // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
     // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
@@ -356,7 +358,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // global que só o Master define, igual ao Plano do Contribua).
     // 86 → 87 com os custos do Master (27/10/2026): LancamentoDeCusto (plataforma), justificado acima.
     // 87 → 88 com os escritórios guardados da Nova solicitação (27/10/2026): EscritorioSolicitante é do usuário, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 88;
+    // 88 → 89 com o antifraude das recompensas do Master (26/10/2026): AprovacaoDeContaDeRecompensa, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 89;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
