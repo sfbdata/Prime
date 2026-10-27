@@ -1,15 +1,22 @@
 {# Seção "Custos" do /master (#sec=custos). Desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html:
-   marcação L260-270 e lógica `csKpis`/`csCat`/`csMarg`/`csProj`/`csLin` L917-937; spec docs/specs/master-custos.md (PR 2: leitura).
-   Os botões Copiar, Importar, Exportar e Lançar custo entram nos PRs 3 e 4.
+   marcação L260-270 e lógica `csKpis`/`csCat`/`csMarg`/`csProj`/`csLin` L917-937; spec docs/specs/master-custos.md (PR 2: leitura; PR 3: lançar, excluir e copiar).
+   Os botões Importar e Exportar entram no PR 4. Uma janela só, no estilo da "Lançar custo" do desenho (L268), serve ao
+   lançamento e às confirmações (no lugar dos confirm() do protótipo).
    Incluída pelo painel.html.twig num <div data-sec-externa="custos"> (o mesmo mecanismo do Desempenho): o painel.js
    mostra esta seção no lugar da vazia e avisa a troca pelo evento `mp:secao`. Os números vêm por JSON quando a
    seção abre (public/js/master/custos.js); as contas moram em ApuracaoDeCustos.
    Textos no catálogo (master.custos.*; os do JS em master.custos.js.*). #}
 <link rel="stylesheet" href="{{ asset('css/master-custos.css') }}">
-<div class="cst" data-cst data-url-dados="{{ path('master_dados_custos') }}">
+<div class="cst" data-cst data-url-dados="{{ path('master_dados_custos') }}"
+     data-url-lancar="{{ path('master_custos_lancar') }}"
+     data-url-excluir="{{ path('master_custos_excluir', {id: 0}) }}"
+     data-url-copiar="{{ path('master_custos_copiar') }}"
+     data-token="{{ csrf_token('master_custos') }}">
     <div class="cst-barra">
         <label class="cst-mes">{{ 'master.custos.mes'|trans }}<input type="month" class="cst-entrada" data-cst-mes></label>
         <span class="cst-nota">{{ 'master.custos.nota'|trans }}</span>
+        <button type="button" class="cst-botao" data-cst-copiar><i class="bi bi-files" aria-hidden="true"></i>{{ 'master.custos.copiar'|trans }}</button>
+        <button type="button" class="cst-botao cst-botao-primario" data-cst-novo><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'master.custos.lancar'|trans }}</button>
     </div>
     <div class="cst-aviso" data-cst-aviso role="status" hidden></div>
     <div class="cst-kpis" data-cst-kpis aria-busy="true"></div>
@@ -46,6 +53,33 @@
         <div class="cst-vazio" data-cst-vazio hidden>{{ 'master.custos.sem_lancamentos'|trans }}</div>
         <div data-cst-lancamentos></div>
     </section>
+    <div class="cst-fundo" data-cst-fundo hidden></div>
+    <div class="cst-janela" data-cst-janela hidden>
+        <form class="cst-caixa-dlg" data-cst-form role="dialog" aria-modal="true" aria-labelledby="cst-dlg-titulo" novalidate>
+            <div class="cst-dlg-cabeca"><i class="bi cst-dlg-ic" data-cst-dlg-ic aria-hidden="true"></i> <span id="cst-dlg-titulo" data-cst-dlg-titulo></span></div>
+            <div class="cst-dlg-corpo">
+                <p class="cst-dlg-texto" data-cst-dlg-texto hidden></p>
+                <label class="cst-campo" data-cst-campo="categoria"><span>{{ 'master.custos.campo_categoria'|trans }}</span>
+                    <select class="cst-entrada" data-cst-in="categoria">
+                        {% for c in ['armazenamento', 'banco_de_dados', 'hospedagem', 'trafego', 'backups', 'apis_de_ia', 'notificacoes', 'integracoes', 'outros'] %}<option value="{{ c }}">{{ ('master.custos.js.categoria.' ~ c)|trans }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="cst-campo" data-cst-campo="valor"><span>{{ 'master.custos.campo_valor'|trans }}</span><input class="cst-entrada" data-cst-in="valor" inputmode="decimal" autocomplete="off"></label>
+                <label class="cst-campo" data-cst-campo="fornecedor"><span>{{ 'master.custos.campo_fornecedor'|trans }}</span><input class="cst-entrada" data-cst-in="fornecedor" maxlength="80" placeholder="{{ 'master.custos.fornecedor_dica'|trans }}" autocomplete="off"></label>
+                <label class="cst-campo" data-cst-campo="origem"><span>{{ 'master.custos.campo_origem'|trans }}</span>
+                    <select class="cst-entrada" data-cst-in="origem">
+                        {% for o in ['importado', 'medido', 'estimado'] %}<option value="{{ o }}">{{ ('master.custos.js.origem.' ~ o)|trans }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="cst-campo cst-campo-cheio" data-cst-campo="observacao"><span>{{ 'master.custos.campo_observacao'|trans }}</span><input class="cst-entrada" data-cst-in="observacao" maxlength="200" autocomplete="off"></label>
+                <span class="cst-dlg-erro" data-cst-dlg-erro role="alert" hidden></span>
+            </div>
+            <div class="cst-dlg-rodape">
+                <button type="button" class="cst-botao" data-cst-cancelar><i class="bi bi-x" aria-hidden="true"></i>{{ 'master.custos.cancelar'|trans }}</button>
+                <button type="submit" class="cst-botao cst-botao-primario" data-cst-confirmar><i class="bi bi-check2" aria-hidden="true"></i><span data-cst-confirmar-txt></span></button>
+            </div>
+        </form>
+    </div>
 </div>
 {{ catalogo_js('master.custos.js') }}
 <script src="{{ asset('js/master/custos.js') }}"></script>

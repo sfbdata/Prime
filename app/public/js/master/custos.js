@@ -1,8 +1,11 @@
 /* BlueJus · Painel do Master, seção "Custos" (#sec=custos)
    (desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html, marcação L260-270 e lógica L917-937;
-   spec docs/specs/master-custos.md, PR 2: leitura).
+   spec docs/specs/master-custos.md, PR 2: leitura; PR 3: lançar, excluir e copiar do mês anterior).
    - Carrega na primeira vez que a seção abre (evento `mp:secao` do painel) ou já aberta pelo hash; trocar o mês pede
      os dados de novo ao servidor. Os valores chegam em centavos e as contas (receita, margem, projeção) vêm prontas.
+   - Gravar (PR 3): uma janela só, no estilo da "Lançar custo" do desenho (L268), serve ao lançamento e às confirmações
+     (excluir, copiar), no lugar dos confirm() do protótipo; POST JSON com X-CSRF-Token e, ao gravar, recarrega. O servidor
+     valida de novo e devolve `erro` em 422.
    - Texto do fornecedor e da observação é digitado pelo Master: tudo entra por escape (esc), nunca como HTML.
    - Textos no catálogo (master.custos.js.*, entregue pelo parcial com catalogo_js), lidos na hora de usar;
      números por window.BJFormato. */
@@ -12,6 +15,10 @@
   if (!raiz) return;
 
   const URL_DADOS = raiz.dataset.urlDados;
+  const URL_LANCAR = raiz.dataset.urlLancar;
+  const URL_EXCLUIR = raiz.dataset.urlExcluir;
+  const URL_COPIAR = raiz.dataset.urlCopiar;
+  const TOKEN = raiz.dataset.token || '';
   const $ = sel => raiz.querySelector(sel);
   const elAviso = $('[data-cst-aviso]');
   const elKpis = $('[data-cst-kpis]');
@@ -82,7 +89,8 @@
       + '<span class="cst-lin-forn">' + esc(l.fornecedor || T('master.custos.js.sem_valor')) + '</span>'
       + '<b>' + esc(reais(l.valorCentavos)) + '</b>'
       + '<span class="cst-lin-origem ' + esc(ORIGEM_TOM[l.origem] || '') + '">' + esc(T('master.custos.js.origem.' + l.origem)) + '</span>'
-      + '<span class="cst-lin-obs">' + esc(l.observacao || '') + '</span></div>').join('');
+      + '<span class="cst-lin-obs">' + esc(l.observacao || '') + '</span>'
+      + '<button type="button" class="cst-lin-excluir" data-cst-excluir="' + esc(l.id) + '" title="' + esc(T('master.custos.js.excluir')) + '" aria-label="' + esc(T('master.custos.js.excluir')) + '"><i class="bi bi-trash3" aria-hidden="true"></i></button></div>').join('');
   }
 
   // Medido verde, importado azul, estimado âmbar (desenho: `ORI`).
@@ -114,6 +122,106 @@
   }
 
   elMes.addEventListener('change', () => { if (elMes.value) carregar(); });
+
+  /* ---------- Gravação (PR 3) ---------- */
+  const dlg = {
+    fundo: $('[data-cst-fundo]'), janela: $('[data-cst-janela]'), form: $('[data-cst-form]'), ic: $('[data-cst-dlg-ic]'),
+    titulo: $('[data-cst-dlg-titulo]'), texto: $('[data-cst-dlg-texto]'), erro: $('[data-cst-dlg-erro]'),
+    confirmar: $('[data-cst-confirmar]'), confirmarTxt: $('[data-cst-confirmar-txt]'),
+    campos: Array.from(raiz.querySelectorAll('[data-cst-campo]')), entradas: Array.from(raiz.querySelectorAll('[data-cst-in]')),
+  };
+  const JANELAS = {
+    lancar: { ic: 'bi-cash-coin', campos: ['categoria', 'valor', 'fornecedor', 'origem', 'observacao'], salvar: 'master.custos.js.dlg.salvar' },
+    excluir: { ic: 'bi-trash3', campos: [], salvar: 'master.custos.js.dlg.excluir' },
+    copiar: { ic: 'bi-files', campos: [], salvar: 'master.custos.js.dlg.copiar' },
+  };
+  let aberta = null;
+  let ocupado = false;
+
+  const entrada = nome => dlg.entradas.find(e => e.dataset.cstIn === nome);
+
+  function mostrarErro(texto) {
+    dlg.erro.textContent = texto || '';
+    dlg.erro.hidden = !texto;
+  }
+
+  function abrirJanela(qual, titulo, texto, extra) {
+    const j = JANELAS[qual];
+    aberta = Object.assign({ qual }, extra || {});
+    dlg.ic.className = 'bi cst-dlg-ic ' + j.ic;
+    dlg.titulo.textContent = titulo;
+    dlg.texto.textContent = texto || '';
+    dlg.texto.hidden = !texto;
+    dlg.confirmarTxt.textContent = T(j.salvar);
+    dlg.campos.forEach(c => { c.hidden = !j.campos.includes(c.dataset.cstCampo); });
+    dlg.entradas.forEach(e => { if (e.tagName === 'INPUT') e.value = ''; });
+    entrada('categoria').selectedIndex = 0;
+    entrada('origem').value = 'importado';
+    mostrarErro('');
+    dlg.fundo.hidden = false;
+    dlg.janela.hidden = false;
+    const primeiro = dlg.entradas.find(e => !e.closest('[data-cst-campo]').hidden);
+    (primeiro || dlg.confirmar).focus();
+  }
+
+  function fecharJanela() {
+    aberta = null;
+    dlg.fundo.hidden = true;
+    dlg.janela.hidden = true;
+  }
+
+  function corpoDaJanela() {
+    if (aberta.qual === 'lancar') {
+      return {
+        mes: elMes.value, categoria: entrada('categoria').value, valor: entrada('valor').value.trim(), origem: entrada('origem').value,
+        fornecedor: entrada('fornecedor').value.trim(), observacao: entrada('observacao').value.trim(),
+      };
+    }
+    return aberta.qual === 'copiar' ? { mes: elMes.value } : {};
+  }
+
+  function urlDaJanela() {
+    if (aberta.qual === 'excluir') return URL_EXCLUIR.replace(/\/0\//, '/' + aberta.id + '/');
+    return aberta.qual === 'copiar' ? URL_COPIAR : URL_LANCAR;
+  }
+
+  async function gravar(e) {
+    e.preventDefault();
+    if (ocupado || !aberta) return;
+    const corpo = corpoDaJanela();
+    if (aberta.qual === 'lancar' && !corpo.valor) { mostrarErro(T('master.custos.js.erro_valor')); return; }
+    ocupado = true;
+    dlg.confirmar.disabled = true;
+    try {
+      const r = await fetch(urlDaJanela(), {
+        method: 'POST', credentials: 'same-origin', body: JSON.stringify(corpo),
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        mostrarErro(d.erro || T('master.custos.js.erro_salvar'));
+        return;
+      }
+      fecharJanela();
+      carregar();
+    } catch (err) {
+      mostrarErro(T('master.custos.js.erro_salvar'));
+    } finally {
+      ocupado = false;
+      dlg.confirmar.disabled = false;
+    }
+  }
+
+  dlg.form.addEventListener('submit', gravar);
+  $('[data-cst-cancelar]').addEventListener('click', fecharJanela);
+  dlg.fundo.addEventListener('click', fecharJanela);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && aberta) fecharJanela(); });
+  $('[data-cst-novo]').addEventListener('click', () => abrirJanela('lancar', T('master.custos.js.dlg.lancar', { mes: elMes.value })));
+  $('[data-cst-copiar]').addEventListener('click', () => abrirJanela('copiar', T('master.custos.js.dlg.copiar_titulo'), T('master.custos.js.dlg.copiar_texto', { mes: elMes.value })));
+  $('[data-cst-lancamentos]').addEventListener('click', e => {
+    const b = e.target.closest('[data-cst-excluir]');
+    if (b) abrirJanela('excluir', T('master.custos.js.dlg.excluir_titulo'), T('master.custos.js.dlg.excluir_texto'), { id: b.dataset.cstExcluir });
+  });
 
   const painel = document.getElementById('master-painel');
   if (painel) {
