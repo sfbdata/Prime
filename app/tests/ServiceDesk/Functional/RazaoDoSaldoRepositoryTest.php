@@ -137,6 +137,20 @@ final class RazaoDoSaldoRepositoryTest extends KernelTestCase
         self::assertSame(9_000, $travado->getSaldoCentavos());
     }
 
+    #[TestDox('pago a mais credita o pago e o extrato mostra o que entrou')]
+    public function testPagoAMaisCreditaOPago(): void
+    {
+        $tenant = $this->criarTenant();
+        $referencia = $this->pedirRecarga($tenant, 5_000);
+
+        $out = $this->confirmar()->executar(new ConfirmarRecargaInput($referencia, 5_250, 'E2E-M'));
+
+        self::assertSame(250, $out->diferencaCentavos);
+        $saldo = $this->consultar()->executar($tenant);
+        self::assertSame(5_250, $saldo->saldoCentavos);
+        self::assertSame(5_250, $saldo->extrato[0]->valorCentavos);
+    }
+
     private function pedirRecarga(Tenant $tenant, int $centavos): string
     {
         return (new SolicitarRecargaDeSaldoUseCase($this->movimentos(), new RecargaManual()))

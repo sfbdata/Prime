@@ -8,7 +8,24 @@
 {% set temFiltro = filtros.busca or filtros.tribunal or filtros.vinculo or filtros.leitura or filtros.data_de or filtros.data_ate %}
 {% set hoje = 'now'|date('Y-m-d') %}
 {% set classeNaoLidas = indicadores.naoLidas > 0 ? 'pp-kpi__valor pp-kpi__valor--alerta' : 'pp-kpi__valor' %}
-<div class="pp-pagina" data-pp-publicacoes>
+<div class="pp-pagina" data-pp-publicacoes
+     data-t-confirma-excluir-lote="{{ 'djen.index.confirma_excluir_lote'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-prompt-excluir-lote="{{ 'djen.index.prompt_excluir_lote'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-confirma-excluir-uma="{{ 'djen.index.confirma_excluir_uma'|trans({data: '%data%', processo: '%processo%'})|e('html_attr') }}"
+     data-t-prompt-excluir-uma="{{ 'djen.index.prompt_excluir_uma'|trans|e('html_attr') }}"
+     data-t-confirma-limpar="{{ 'djen.index.confirma_limpar'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-prompt-limpar="{{ 'djen.index.prompt_limpar'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-cancelada="{{ 'djen.index.exclusao_cancelada'|trans|e('html_attr') }}"
+     data-t-limpeza-cancelada="{{ 'djen.index.limpeza_cancelada'|trans|e('html_attr') }}"
+     data-t-sem-lidas="{{ 'djen.index.sem_lidas'|trans|e('html_attr') }}"
+     data-t-copiado="{{ 'djen.index.numero_copiado'|trans|e('html_attr') }}"
+     data-t-n-selecionadas="{{ 'djen.index.n_selecionadas'|trans({n: '%n%'})|e('html_attr') }}"
+     data-t-menu-abrir="{{ 'djen.index.menu_abrir'|trans|e('html_attr') }}"
+     data-t-menu-lida="{{ 'djen.index.menu_marcar_lida'|trans|e('html_attr') }}"
+     data-t-menu-nao-lida="{{ 'djen.index.menu_marcar_nao_lida'|trans|e('html_attr') }}"
+     data-t-menu-copiar="{{ 'djen.index.menu_copiar'|trans|e('html_attr') }}"
+     data-t-menu-excluir="{{ 'djen.index.menu_excluir'|trans|e('html_attr') }}"
+     data-total-lidas="{{ lidas_na_caixa }}">
     <div class="pp-topo">
         <i class="bi bi-broadcast"></i>
         <h1>{{ 'djen.index.titulo'|trans }}</h1>
@@ -78,6 +95,21 @@
     </section>
 
     <section class="pp-caixa pp-tabela" data-pp-tabela>
+        <form method="POST" action="{{ path('push_processual_lote_leitura') }}" class="pp-lote" data-pp-lote hidden>
+            <input type="hidden" name="_token" value="{{ csrf_token('push_publicacoes') }}">
+            <input type="hidden" name="voltar" value="{{ app.request.requestUri }}">
+            <input type="hidden" name="lida" value="1">
+        </form>
+        <div class="pp-barra">
+            <button type="button" class="pp-barra__btn" data-pp-selecionar-todas title="{{ 'djen.index.selecionar_todas'|trans }}"><i class="bi bi-square"></i>{{ 'djen.index.selecionar'|trans }}</button>
+            <span class="pp-barra__sel" data-pp-sel-grupo hidden>
+                <span class="pp-barra__n" data-pp-sel-n></span>
+                <button type="button" class="pp-barra__btn" data-pp-acao-lote="leitura"><i class="bi bi-envelope-open"></i> {{ 'djen.index.marcar_lidas'|trans }}</button>
+                <button type="button" class="pp-barra__btn pp-barra__btn--perigo" data-pp-acao-lote="excluir"><i class="bi bi-trash3"></i> {{ 'djen.index.excluir'|trans }}</button>
+            </span>
+            <span class="pp-barra__espaco"></span>
+            <button type="button" class="pp-barra__limpar" data-pp-acao-lote="limpar"><i class="bi bi-trash3"></i> {{ 'djen.index.limpar_lidas'|trans }}</button>
+        </div>
         <div class="pp-tabela__corpo">
             <div class="pp-linha pp-linha--cab">
                 <span>{{ 'djen.index.data_maiusculo'|trans }}</span>
@@ -88,8 +120,8 @@
                 <span>{{ 'djen.comum.acoes_maiusculo'|trans }}</span>
             </div>
             {% for pub in publicacoes %}
-                <div class="pp-linha pp-linha--dado{{ pub.lida ? '' : ' pp-linha--nova' }}">
-                    <span>{% if (pub.dataDisponibilizacao ?? null) is not null %}{{ pub.dataDisponibilizacao }}{% else %}{{ 'djen.comum.sem_registro'|trans }}{% endif %}</span>
+                <div class="pp-linha pp-linha--dado{{ pub.lida ? '' : ' pp-linha--nova' }}" data-pp-linha data-id="{{ pub.id }}" data-lida="{{ pub.lida ? '1' : '0' }}" data-numero="{{ pub.numeroProcessoExibicao ?? '' }}" data-data="{{ pub.dataDisponibilizacao ?? '' }}" data-url="{{ path('push_processual_show', {id: pub.id}) }}" title="{{ 'djen.index.dica_botao_direito'|trans }}">
+                    <span class="pp-c-data"><button type="button" class="pp-marca" data-pp-marca aria-pressed="false" aria-label="{{ 'djen.index.selecionar_publicacao'|trans }}"><i class="bi bi-square"></i></button>{% if (pub.dataDisponibilizacao ?? null) is not null %}{{ pub.dataDisponibilizacao }}{% else %}{{ 'djen.comum.sem_registro'|trans }}{% endif %}</span>
                     <span>{{ pub.siglaTribunal }}</span>
                     <span>{% if (pub.tipoComunicacao ?? null) is not null %}{{ pub.tipoComunicacao }}{% else %}{{ 'djen.comum.nao_informado'|trans }}{% endif %}</span>
                     <span class="pp-c-proc">
@@ -122,4 +154,9 @@
         {% endif %}
     </section>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/push-publicacoes.js') }}"></script>
 {% endblock %}

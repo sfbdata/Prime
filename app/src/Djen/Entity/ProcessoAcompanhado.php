@@ -24,6 +24,8 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: ProcessoAcompanhadoRepository::class)]
 #[ORM\Table(name: 'djen_processo_acompanhado')]
+#[ORM\Index(name: 'idx_djen_proc_acomp_tenant', columns: ['tenant_id'])]
+#[ORM\Index(name: 'idx_djen_proc_acomp_criador', columns: ['criado_por_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_djen_proc_acomp_tenant_numero', columns: ['tenant_id', 'numero_processo'])]
 class ProcessoAcompanhado implements TenantAware
 {
