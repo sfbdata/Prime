@@ -927,6 +927,8 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    largura toda, a pessoa virou a aba Responsáveis e a próxima ação virou a faixa abaixo. CSS órfão
    não fica para trás — vira armadilha na próxima leitura. */
 .cobrancas-page { --cob-radius: 1rem; }
+/* Objeto 1A (redesign 25/10): cantos de 4px em toda a tela, como o desenho. */
+.cobrancas-page.cob-objeto { --cob-radius: 4px; --bs-border-radius: 4px; --bs-border-radius-lg: 4px; }
 
 /* Próxima ação: desde o redesenho 1a ela vive na coluna de contexto do cabeçalho, logo abaixo da
    prescrição — não mais como faixa de largura total no topo da aba Cobrança. Uma linha só, que quebra

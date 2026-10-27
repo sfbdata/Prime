@@ -40,6 +40,18 @@ use Symfony\Component\DomCrawler\Crawler;
 #[CoversClass(ObjetoController::class)]
 final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
 {
+    #[TestDox('Redesenho 25/10: a tela do Objeto carrega a marca dos cantos de 4px, só nela')]
+    public function testTelaDoObjetoTemOsCantosDeQuatroPx(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $crawler = $this->abrir($client, $caso->getObjeto()->getId());
+
+        self::assertCount(1, $crawler->filter('.cobrancas-page.cob-objeto'));
+    }
+
     #[TestDox('Redesenho 1a: a trilha tem TRÊS níveis (Cobranças / Carteira / Unidade), com título e badge')]
     public function testTrilhaTituloEStatus(): void
     {
