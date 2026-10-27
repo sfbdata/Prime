@@ -59,7 +59,6 @@ final class ObterPerfilDaPessoaUseCase
         $gravado  = $this->preferencias->valoresDoUsuario($input->tenant, $input->usuario, [MarcasDasPessoas::CHAVE]);
         $marca    = MarcasDasPessoas::lerOuVazio($gravado[MarcasDasPessoas::CHAVE] ?? null)[$input->pessoaId] ?? ['status' => null, 'feedback' => null];
         $metricas = $this->metricas($linha);
-        $aberto   = $this->acompanhamentos->buscarAbertoDaPessoa($input->tenant, $input->pessoaId);
         $porData  = $this->comparacoesPorConclusao($input, $painel->periodoAnterior, $linha);
         $analise  = AnaliseDaPessoa::montar($linha, $porData['concluidas'] ?? null, $this->mediaDeAtivasDaEquipe($input));
 
@@ -77,8 +76,15 @@ final class ObterPerfilDaPessoaUseCase
             $marca['status'],
             $marca['feedback'],
             $analise,
-            $aberto === null ? AcompanhamentoDaPessoaOutput::semAcompanhamento($input->pessoaId) : AcompanhamentoDaPessoaOutput::deEntidade($aberto, $input->agora),
+            $this->acompanhamentoDaPessoa($input),
         );
+    }
+
+    private function acompanhamentoDaPessoa(ObterPerfilDaPessoaInput $input): AcompanhamentoDaPessoaOutput
+    {
+        $aberto = $this->acompanhamentos->buscarAbertoDaPessoa($input->tenant, $input->pessoaId);
+
+        return $aberto === null ? AcompanhamentoDaPessoaOutput::semAcompanhamento($input->pessoaId) : AcompanhamentoDaPessoaOutput::deEntidade($aberto, $input->agora);
     }
 
     /**

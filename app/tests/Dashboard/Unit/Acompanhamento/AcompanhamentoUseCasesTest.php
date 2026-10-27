@@ -191,7 +191,7 @@ final class AcompanhamentoUseCasesTest extends TestCase
         $this->criar()->executar($this->pedido(7));
     }
 
-    #[TestDox('Renovar muda a data na mesma linha, audita acomp_renov e não cria outra linha')]
+    #[TestDox('Renovar muda a data na mesma linha, audita acomp_rnv e não cria outra linha')]
     public function testRenova(): void
     {
         $existente = $this->aberto();
@@ -202,7 +202,7 @@ final class AcompanhamentoUseCasesTest extends TestCase
         self::assertSame('2026-10-29', $existente->getRevisarEm()->format('Y-m-d'));
         self::assertSame('2026-10-29', $out->revisarEm?->format('Y-m-d'));
         self::assertCount(1, $this->persistidos, 'só a auditoria; nenhuma linha nova de acompanhamento');
-        self::assertSame('acomp_renov', $this->logs()[0]->getAction());
+        self::assertSame('acomp_rnv', $this->logs()[0]->getAction());
     }
 
     #[TestDox('Renovar e encerrar sem acompanhamento aberto: AcompanhamentoEmConflitoException')]

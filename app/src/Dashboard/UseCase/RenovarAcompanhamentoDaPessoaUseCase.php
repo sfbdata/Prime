@@ -14,7 +14,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * "Renovar" o acompanhamento aberto: novo prazo de revisão (1, 2 ou 7 dias a partir de hoje) na MESMA
- * linha, sem criar outra. Audita `acomp_renov`. As guardas são as de {@see GuardaDoAcompanhamento}; sem
+ * linha, sem criar outra. Audita `acomp_rnv`. As guardas são as de {@see GuardaDoAcompanhamento}; sem
  * acompanhamento aberto → AcompanhamentoEmConflitoException. Nada acontece sozinho no vencimento.
  */
 final class RenovarAcompanhamentoDaPessoaUseCase

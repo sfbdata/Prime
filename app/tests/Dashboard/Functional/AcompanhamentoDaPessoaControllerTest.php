@@ -6,6 +6,7 @@ namespace App\Tests\Dashboard\Functional;
 
 use App\Dashboard\Controller\PerfilDaPessoaDoDashboardController;
 use App\Dashboard\Entity\AcompanhamentoDaPessoa;
+use App\Dashboard\UseCase\RegistrarAuditoriaDoAcompanhamentoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -135,7 +136,7 @@ final class AcompanhamentoDaPessoaControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->auditorias($c['tenant'], 'acomp_cria'));
     }
 
-    #[TestDox('Renovar muda a data na mesma linha e audita acomp_renov; sem aberto dá 409')]
+    #[TestDox('Renovar muda a data na mesma linha e audita acomp_rnv; sem aberto dá 409')]
     public function testRenova(): void
     {
         $c = $this->cenario();
@@ -150,7 +151,7 @@ final class AcompanhamentoDaPessoaControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame((new \DateTimeImmutable('today +1 day'))->format('Y-m-d'), $this->resposta()['revisar_em']);
         self::assertSame(1, $this->linhas($c['tenant']));
-        self::assertSame(1, $this->auditorias($c['tenant'], 'acomp_renov'));
+        self::assertSame(1, $this->auditorias($c['tenant'], 'acomp_rnv'));
     }
 
     #[TestDox('Encerrar fecha a linha (que fica para a auditoria), audita acomp_fim, volta o chip e permite criar de novo')]
@@ -284,7 +285,7 @@ final class AcompanhamentoDaPessoaControllerTest extends JusPrimeWebTestCase
     #[TestDox('As ações de auditoria do acompanhamento cabem nos 10 caracteres da coluna')]
     public function testAcoesCabemNaColuna(): void
     {
-        foreach (['acomp_cria', 'acomp_renov', 'acomp_fim'] as $acao) {
+        foreach ([RegistrarAuditoriaDoAcompanhamentoUseCase::ACAO_CRIAR, RegistrarAuditoriaDoAcompanhamentoUseCase::ACAO_RENOVAR, RegistrarAuditoriaDoAcompanhamentoUseCase::ACAO_ENCERRAR] as $acao) {
             self::assertLessThanOrEqual(10, strlen($acao), $acao);
         }
     }

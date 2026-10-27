@@ -21,7 +21,7 @@ use Doctrine\ORM\EntityManagerInterface;
 final class RegistrarAuditoriaDoAcompanhamentoUseCase
 {
     public const ACAO_CRIAR   = 'acomp_cria';
-    public const ACAO_RENOVAR = 'acomp_renov';
+    public const ACAO_RENOVAR = 'acomp_rnv';
     public const ACAO_ENCERRAR = 'acomp_fim';
 
     public function __construct(

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Dashboard\Entity;
 
+use App\Dashboard\Exception\AcompanhamentoEmConflitoException;
 use App\Dashboard\Repository\AcompanhamentoDaPessoaRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -28,7 +28,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'dashboard_acompanhamento_pessoa')]
 #[ORM\UniqueConstraint(name: 'uniq_dashboard_acomp_aberto', columns: ['tenant_id', 'pessoa_id'], options: ['where' => '(encerrado_em IS NULL)'])]
 #[ORM\Index(name: 'idx_dashboard_acomp_tenant_pessoa', columns: ['tenant_id', 'pessoa_id', 'encerrado_em'])]
-class AcompanhamentoDaPessoa implements Auditavel, TenantAware
+class AcompanhamentoDaPessoa implements TenantAware
 {
     /** Prazos de revisão aceitos, em dias: 24 horas, 48 horas e 7 dias. */
     public const PRAZOS_EM_DIAS = [1, 2, 7];
@@ -146,7 +146,7 @@ class AcompanhamentoDaPessoa implements Auditavel, TenantAware
     private function exigirAberto(): void
     {
         if (!$this->estaAberto()) {
-            throw new \DomainException('Este acompanhamento já foi encerrado.');
+            throw new AcompanhamentoEmConflitoException('Este acompanhamento já foi encerrado.');
         }
     }
 }
