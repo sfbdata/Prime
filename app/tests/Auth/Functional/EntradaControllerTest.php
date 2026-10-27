@@ -32,33 +32,22 @@ final class EntradaControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/login');
     }
 
-    #[TestDox('Pronome de tratamento não vira o primeiro nome: "Dra. Ana Souza" é a Ana')]
-    public function testPulaOPronomeDeTratamento(): void
+    #[TestDox('A saudação vem do e-mail, não do nome completo: "Dra. Ana Souza" com marina.x@ é a Marina')]
+    public function testSaudacaoVemDoEmailENaoDoNomeCompleto(): void
     {
         $client = static::createClient();
-        $this->logarComEscritorio($client, 'Dra. Ana Souza');
+        $this->logarComEscritorio($client, 'Dra. Ana Souza', 'marina.x_' . uniqid() . '@adv.com');
 
         $crawler = $client->request('GET', '/login/entrando');
 
-        self::assertSame('Ana', json_decode((string) $crawler->filter('#veuEntrada')->attr('data-nome'), true));
-    }
-
-    #[TestDox('Nome gravado em maiúsculas cumprimenta com só a inicial maiúscula: "SAMUEL FREITAS" é o Samuel')]
-    public function testNomeEmMaiusculas(): void
-    {
-        $client = static::createClient();
-        $this->logarComEscritorio($client, 'SAMUEL FREITAS');
-
-        $crawler = $client->request('GET', '/login/entrando');
-
-        self::assertSame('Samuel', json_decode((string) $crawler->filter('#veuEntrada')->attr('data-nome'), true));
+        self::assertSame('Marina', json_decode((string) $crawler->filter('#veuEntrada')->attr('data-nome'), true));
     }
 
     #[TestDox('Logado vê o véu com o primeiro nome, o subtítulo e o destino pedido')]
     public function testLogadoVeOVeuComODestino(): void
     {
         $client = static::createClient();
-        $this->logarComEscritorio($client, 'Marina Souza Lima');
+        $this->logarComEscritorio($client, 'Marina Souza Lima', 'marina_' . uniqid() . '@adv.com');
 
         $crawler = $client->request('GET', '/login/entrando?para=' . rawurlencode('/agenda?dia=2026-10-19'));
 
@@ -73,7 +62,7 @@ final class EntradaControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.main-sidebar, nav.main-header'), 'O véu é página inteira, sem o layout do sistema.');
     }
 
-    #[TestDox('Sem nome completo, o véu usa o começo do e-mail como o desenho')]
+    #[TestDox('Sem nome completo, o véu também usa o começo do e-mail como o desenho')]
     public function testSemNomeUsaOComecoDoEmail(): void
     {
         $client = static::createClient();
