@@ -239,6 +239,7 @@
         pagamentoComprovante: function (c) { return comCodigo(D.urlPagamentoComprovante, c); },
         pagamentoConfirmar: function (c) { return comCodigo(D.urlPagamentoConfirmar, c); },
         pagamentoValor: function (c) { return comCodigo(D.urlPagamentoValor, c); },
+        pagamentoRecusar: function (c) { return comCodigo(D.urlPagamentoRecusar, c); },
         pagamentoAvisar: function (c) { return comCodigo(D.urlPagamentoAvisar, c); },
         despachoResponder: function (c) { return comCodigo(D.urlDespachoResponder, c); },
         despachoRespostas: function (c) { return comCodigo(D.urlDespachoRespostas, c); },
@@ -2245,6 +2246,9 @@
                     onclick: function () { window.open(ROTA.documento(cod, pg.comprovante.id), '_blank', 'noopener'); }
                 }, [ic('bi-paperclip'), ' ' + pg.comprovante.nome]));
             }
+            if (pg.podeRecusar) {
+                caixa.appendChild(el('button', { type: 'button', class: 'te-pg-recusar', onclick: function () { recusarComprovante(cod, pg); } }, [ic('bi-x-circle'), ' Recusar comprovante']));
+            }
             if (pg.podeConfirmar) {
                 caixa.appendChild(el('button', { type: 'button', class: 'te-pg-conf', onclick: function () { confirmarRecebimento(cod, pg); } }, [ic('bi-check2-circle'), ' Confirmar recebimento']));
             }
@@ -2310,6 +2314,30 @@
                         return r;
                     }
                     toastDoServidor(r.toast, 'Valor alterado', 'O solicitante foi avisado no chat e por e-mail.');
+                    aplicarDemanda(r);
+                    return r;
+                });
+            }
+        });
+    }
+
+    /** "Recusar comprovante" (só Master): o diálogo da tela com o motivo; o servidor tira o comprovante e avisa o solicitante. */
+    function recusarComprovante(codigo, pg) {
+        if (previa()) { return; }
+        abrirConf(codigo, {
+            k: '__pagamento_recusar__',
+            confirmacao: {
+                titulo: 'Recusar comprovante',
+                texto: 'O comprovante ' + (pg.comprovante ? pg.comprovante.nome : '') + ' será removido e o solicitante poderá enviar outro. Informe o motivo. O solicitante será avisado.',
+                botao: 'Recusar', motivo: true, motivoMax: 300
+            },
+            executar: function (motivo) {
+                return pedir('POST', ROTA.pagamentoRecusar(codigo), { motivo: motivo }).then(function (r) {
+                    if (!r.ok) {
+                        toastErro(r.mensagem);
+                        return r;
+                    }
+                    toastDoServidor(r.toast, 'Comprovante recusado', 'O solicitante foi avisado no chat e por e-mail.');
                     aplicarDemanda(r);
                     return r;
                 });

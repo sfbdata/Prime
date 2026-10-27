@@ -1514,5 +1514,7 @@ textarea.te-vf-ctl { font-family: inherit; }
 .te-pg-comp > input { display: none; }
 .te-pg-baixar { align-self: flex-start; height: 32px; padding: 0 11px; border: 1px solid #c5d2db; border-radius: 2px; background: #fff; color: #34505f; font: inherit; font-size: 13px; cursor: pointer; }
 .te-pg-conf { align-self: flex-start; height: 36px; padding: 0 15px; border: none; border-radius: 2px; background: #1e7b45; color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.te-pg-recusar { align-self: flex-start; height: 36px; padding: 0 15px; border: 1px solid #b3261e; border-radius: 2px; background: #fff; color: #b3261e; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.te-pg-recusar:hover { background: #fdf0ef; }
 .te-pg-copiar:hover { background: #0b5f86; }
 .te-pg-chat:hover { background: #f5f8fa; }
