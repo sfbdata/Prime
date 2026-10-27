@@ -240,6 +240,40 @@ final class CasosDeUsoDoTermoTest extends TestCase
         }
     }
 
+    #[TestDox('aceitar: com termo mais novo o antigo dá 409; aceite em sequência trava a linha e o segundo não avisa nem reescreve')]
+    public function testAceitarMaisRecenteETrava(): void
+    {
+        $antigo = $this->termoEnviado();
+        $novo = TermoDeVoluntariado::enviar($this->sede, $this->cv, self::campos(), 'TV-0002', $this->master, new \DateTimeImmutable());
+        $this->termos->method('porCodigo')->willReturn($antigo);
+        $this->termos->method('maisRecenteDo')->willReturn($novo);
+        try {
+            $this->aceitar()->executar($this->ctx($this->voluntario, Perfil::Solicitante), 'TV-0001', true, '1.1.1.1', null);
+            self::fail('409');
+        } catch (TransicaoInvalida $e) {
+            self::assertSame('Existe um termo mais novo para este currículo. Aceite o mais recente.', $e->getMessage());
+        }
+        self::assertSame(StatusDoTermo::Enviado, $antigo->getStatus());
+        self::assertSame([], $this->avisosCriados);
+    }
+
+    #[TestDox('aceitar: duas chamadas em sequência, a segunda cai em 409 sem novo aviso nem sobrescrever o aceite')]
+    public function testAceitarEmSequencia(): void
+    {
+        $termo = $this->termoEnviado();
+        $this->termos->method('porCodigo')->willReturn($termo);
+        $this->termos->method('maisRecenteDo')->willReturn($termo);
+        $this->aceitar()->executar($this->ctx($this->voluntario, Perfil::Solicitante), 'TV-0001', true, '1.1.1.1', 'UA1');
+        $em = $termo->getAceitoEm();
+        try {
+            $this->aceitar()->executar($this->ctx($this->voluntario, Perfil::Solicitante), 'TV-0001', true, '2.2.2.2', 'UA2');
+            self::fail('409');
+        } catch (TransicaoInvalida) {
+        }
+        self::assertCount(1, $this->avisosCriados);
+        self::assertSame([$em, '1.1.1.1'], [$termo->getAceitoEm(), $termo->getAceiteIp()]);
+    }
+
     #[TestDox('aceitar: o aceite da prévia do Master (somente leitura) é negado')]
     public function testAceitarNaPrevia(): void
     {
@@ -293,7 +327,7 @@ final class CasosDeUsoDoTermoTest extends TestCase
     {
         $politica = new PoliticaDoTermo($this->politica());
 
-        return new AceitarTermoUseCase(new LocalizadorDeTermo($this->termos, $politica, $this->politica()), $politica, new HtmlDoTermoDeVoluntariado(), $this->avisos(), $this->em);
+        return new AceitarTermoUseCase(new LocalizadorDeTermo($this->termos, $politica, $this->politica()), $politica, new HtmlDoTermoDeVoluntariado(), $this->avisos(), $this->termos, $this->em);
     }
 
     /** Os avisos com o sino em memória: Master na sede, sem escritório para o voluntário (o texto se prova no `AvisosDoTrabalhoExternoTest`). */

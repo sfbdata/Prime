@@ -6845,7 +6845,7 @@
         corpo.push(erroTlm(T.erro));
         var botoes = [
             botaoTlm('Fechar', 'bi-x', '', fecharTlm),
-            botaoTlm(novo ? 'Word' : 'Baixar Word', 'bi-file-earmark-word', '', baixarWordDoTermo),
+            botaoTlm(cvInterno() ? 'Word' : 'Baixar Word', 'bi-file-earmark-word', '', baixarWordDoTermo),
             botaoTlm('Imprimir / PDF', 'bi-printer', '', imprimirTermo)
         ];
         if (novo) {

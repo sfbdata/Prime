@@ -45,7 +45,7 @@ class AuditLogSubscriber
         Invitation::class => ['token', 'tokenHash'],
         // O snapshot do Termo de Voluntariado guarda CPF e RG do voluntário: fica fora da auditoria, que registra só
         // "termo enviado/aceito" (código, currículo, quando, quem). O user-agent do aceite também não é diff útil.
-        TermoDeVoluntariado::class => ['campos', 'aceiteUserAgent'],
+        TermoDeVoluntariado::class => ['campos', 'aceiteIp', 'aceiteUserAgent'],
     ];
 
     public function __construct(

@@ -106,6 +106,8 @@ final class TermosDeVoluntariadoTest extends JusPrimeWebTestCase
 
         $this->postarJson($this->client, "/trabalho-externo/api/termos/{$termo['codigo']}/aceitar", ['li' => true]);
         self::assertResponseStatusCodeSame(409, 'não se aceita duas vezes');
+        self::assertSame(1, $this->avisos('trabalho_externo_termo_aceito', $master), 'o segundo aceite não avisa de novo');
+        self::assertSame($linha['aceito_em'], $this->em()->getConnection()->fetchOne('SELECT aceito_em FROM trabalho_externo_termo_voluntariado WHERE codigo = ?', [$termo['codigo']]), 'o aceite não é reescrito');
         self::assertSame($linha['hash_aceite'], $this->em()->getConnection()->fetchOne('SELECT hash_aceite FROM trabalho_externo_termo_voluntariado WHERE codigo = ?', [$termo['codigo']]));
         self::assertGreaterThanOrEqual(1, $this->avisos('trabalho_externo_termo_aceito', $master));
 
@@ -122,6 +124,21 @@ final class TermosDeVoluntariadoTest extends JusPrimeWebTestCase
         self::assertSame($segundo['codigo'], $this->json($this->client)['termo']['codigo']);
         $this->client->request('GET', $termo['documentoUrl']);
         self::assertSame($docAceito, (string) $this->client->getResponse()->getContent(), 'o termo enviado é imutável');
+    }
+
+    #[TestDox('só o termo mais recente aceita: após "Novo termo" o antigo dá 409 e o novo aceita')]
+    public function testSoOMaisRecenteAceita(): void
+    {
+        [$sede, $a, $master, $voluntaria, $codigo] = $this->cenario();
+        $this->logarComTenant($this->client, $master, $sede);
+        $antigo = $this->postarJson($this->client, self::API . "/$codigo/termo/enviar", self::campos())['termo'];
+        $novo = $this->postarJson($this->client, self::API . "/$codigo/termo/enviar", self::campos())['termo'];
+        $this->logarComTenant($this->client, $voluntaria, $a);
+        $this->postarJson($this->client, "/trabalho-externo/api/termos/{$antigo['codigo']}/aceitar", ['li' => true]);
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM trabalho_externo_termo_voluntariado WHERE status = 'aceito'"));
+        $this->postarJson($this->client, "/trabalho-externo/api/termos/{$novo['codigo']}/aceitar", ['li' => true]);
+        self::assertResponseIsSuccessful();
     }
 
     #[TestDox('permissões: Equipe sem talentos 403; currículo que não aceita voluntário 403; outro voluntário e outro escritório 404; interno não aceita; CSRF e prévia')]
@@ -235,6 +252,8 @@ final class TermosDeVoluntariadoTest extends JusPrimeWebTestCase
         self::assertStringContainsString($termo['codigo'], $auditoria, 'a auditoria registra o termo enviado e aceito, com o código');
         self::assertSame(['create', 'update'], array_column(json_decode($auditoria, true, 512, JSON_THROW_ON_ERROR), 'action'));
         self::assertStringNotContainsString('"campos"', $auditoria, 'o snapshot fica fora do diff');
+        self::assertStringNotContainsString('aceiteIp', $auditoria, 'o IP fica fora do diff');
+        self::assertStringNotContainsString('aceiteUserAgent', $auditoria, 'o user-agent fica fora do diff');
         self::assertNotNull($conn->fetchOne('SELECT campos FROM trabalho_externo_termo_voluntariado WHERE codigo = ?', [$termo['codigo']]), 'o CPF está no snapshot, e só nele');
         self::assertStringContainsString(self::CPF, (string) $conn->fetchOne('SELECT campos::text FROM trabalho_externo_termo_voluntariado WHERE codigo = ?', [$termo['codigo']]));
     }
