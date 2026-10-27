@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dashboard\UseCase;
 
+use App\Dashboard\DTO\AcompanhamentoDaPessoaOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
 use App\Dashboard\DTO\MetricaDaPessoaOutput;
 use App\Dashboard\DTO\ObterPerfilDaPessoaInput;
@@ -12,6 +13,7 @@ use App\Dashboard\Exception\ColaboradorForaDoEscritorioException;
 use App\Dashboard\Inteligencia\DiagnosticoDaPessoa;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard as Extras;
 use App\Dashboard\Preferencia\MarcasDasPessoas;
+use App\Dashboard\Repository\AcompanhamentoDaPessoaRepository;
 use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
 use App\Repository\UserRepository;
 
@@ -31,6 +33,7 @@ final class ObterPerfilDaPessoaUseCase
         private readonly UserRepository $userRepository,
         private readonly ObterDadosDashboardUseCase $obterDados,
         private readonly PreferenciaDoUsuarioRepository $preferencias,
+        private readonly AcompanhamentoDaPessoaRepository $acompanhamentos,
     ) {
     }
 
@@ -53,6 +56,7 @@ final class ObterPerfilDaPessoaUseCase
         $marca    = MarcasDasPessoas::lerOuVazio($gravado[MarcasDasPessoas::CHAVE] ?? null)[$input->pessoaId] ?? ['status' => null, 'feedback' => null];
         $metricas = $this->metricas($linha);
         $completo = $painel->periodoAnterior !== null;
+        $aberto   = $this->acompanhamentos->buscarAbertoDaPessoa($input->tenant, $input->pessoaId);
 
         return new PerfilDaPessoaOutput(
             $input->pessoaId,
@@ -67,6 +71,7 @@ final class ObterPerfilDaPessoaUseCase
             $linha->totalMetas === 0,
             $marca['status'],
             $marca['feedback'],
+            $aberto === null ? AcompanhamentoDaPessoaOutput::semAcompanhamento($input->pessoaId) : AcompanhamentoDaPessoaOutput::deEntidade($aberto, $input->agora),
         );
     }
 

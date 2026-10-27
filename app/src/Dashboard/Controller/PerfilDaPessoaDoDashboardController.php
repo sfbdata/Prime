@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace App\Dashboard\Controller;
 
+use App\Dashboard\DTO\EncerrarAcompanhamentoInput;
+use App\Dashboard\DTO\GerirAcompanhamentoInput;
 use App\Dashboard\DTO\MarcarPessoaDaInteligenciaInput;
 use App\Dashboard\DTO\ObterPerfilDaPessoaInput;
+use App\Dashboard\Exception\AcompanhamentoEmConflitoException;
+use App\Dashboard\Exception\AcompanhamentoInvalidoException;
+use App\Dashboard\Exception\AcompanhamentoNaoPermitidoException;
 use App\Dashboard\Exception\ColaboradorForaDoEscritorioException;
 use App\Dashboard\Exception\PreferenciaInvalidaException;
 use App\Dashboard\Periodo\PeriodoDoDashboard;
+use App\Dashboard\UseCase\CriarAcompanhamentoDaPessoaUseCase;
+use App\Dashboard\UseCase\EncerrarAcompanhamentoDaPessoaUseCase;
 use App\Dashboard\UseCase\MarcarPessoaDaInteligenciaUseCase;
 use App\Dashboard\UseCase\ObterPerfilDaPessoaUseCase;
+use App\Dashboard\UseCase\RenovarAcompanhamentoDaPessoaUseCase;
 use App\Dashboard\UseCase\RegistrarAuditoriaDoDesempenhoIndividualUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -33,6 +41,11 @@ use Symfony\Component\Routing\Attribute\Route;
  * - POST /dashboard/inteligencia/pessoa/{id}/marca: "Marcar como analisado" e "Essa análise ajudou?"
  *   (JSON `{"acao": "analisado|sim|nao|parcial"}`), marca pessoal em `preferencia_usuario`.
  *
+ * - POST .../acompanhamento, .../acompanhamento/renovar e .../acompanhamento/encerrar: "Criar acompanhamento"
+ *   (JSON `{"prazo_dias": 1|2|7}`, nos dois primeiros) e "Encerrar acompanhamento". Registro do escritório
+ *   (`dashboard_acompanhamento_pessoa`), nunca automático; duplicado ou sem aberto → 409, prazo inválido,
+ *   o próprio gestor ou o Master como alvo → 400.
+ *
  * Guardas: escritório na sessão + módulo `bi` → 403; só o Master ou um primário ativo abre a análise
  * individual (RegraDosPrimarios) → 403; o id tem de ser colaborador ativo do escritório → 404 (IDOR);
  * CSRF do header no POST → 403; ação desconhecida ou corpo inválido → 400.
@@ -50,6 +63,9 @@ final class PerfilDaPessoaDoDashboardController extends AbstractController
         private readonly ObterPerfilDaPessoaUseCase $obterPerfil,
         private readonly MarcarPessoaDaInteligenciaUseCase $marcarPessoa,
         private readonly RegistrarAuditoriaDoDesempenhoIndividualUseCase $auditoria,
+        private readonly CriarAcompanhamentoDaPessoaUseCase $criarAcompanhamento,
+        private readonly RenovarAcompanhamentoDaPessoaUseCase $renovarAcompanhamento,
+        private readonly EncerrarAcompanhamentoDaPessoaUseCase $encerrarAcompanhamento,
     ) {
     }
 
@@ -104,6 +120,69 @@ final class PerfilDaPessoaDoDashboardController extends AbstractController
         } catch (PreferenciaInvalidaException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
+    }
+
+    #[Route('/acompanhamento', name: 'dashboard_inteligencia_pessoa_acomp_criar', methods: ['POST'])]
+    public function criarAcompanhamento(int $id, Request $request): JsonResponse
+    {
+        return $this->gerirAcompanhamento($request, fn (GerirAcompanhamentoInput $in) => $this->criarAcompanhamento->executar($in), $id, true);
+    }
+
+    #[Route('/acompanhamento/renovar', name: 'dashboard_inteligencia_pessoa_acomp_renovar', methods: ['POST'])]
+    public function renovarAcompanhamento(int $id, Request $request): JsonResponse
+    {
+        return $this->gerirAcompanhamento($request, fn (GerirAcompanhamentoInput $in) => $this->renovarAcompanhamento->executar($in), $id, true);
+    }
+
+    #[Route('/acompanhamento/encerrar', name: 'dashboard_inteligencia_pessoa_acomp_encerrar', methods: ['POST'])]
+    public function encerrarAcompanhamento(int $id, Request $request): JsonResponse
+    {
+        $encerrar = fn (GerirAcompanhamentoInput $in) => $this->encerrarAcompanhamento->executar(new EncerrarAcompanhamentoInput($in->tenant, $in->ator, $in->pessoaId, $in->agora));
+
+        return $this->gerirAcompanhamento($request, $encerrar, $id, false);
+    }
+
+    /**
+     * Cadeia comum das três portas: escritório e perfil (403), CSRF (403), prazo do corpo quando a porta o
+     * pede (400), UseCase e a tradução das recusas do domínio (403, 404, 400, 409).
+     *
+     * @param callable(GerirAcompanhamentoInput): \App\Dashboard\DTO\AcompanhamentoDaPessoaOutput $acao
+     */
+    private function gerirAcompanhamento(Request $request, callable $acao, int $id, bool $pedePrazo): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant  = $this->autorizar($usuario);
+        $this->validarCsrfAjax($request);
+
+        $prazo = $pedePrazo ? $this->lerPrazo($request) : 0;
+        if ($prazo === null) {
+            return $this->json(['erro' => 'Escolha um prazo de revisão de 1, 2 ou 7 dias.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            return $this->json($acao(new GerirAcompanhamentoInput($tenant, $usuario, $id, $prazo, new \DateTimeImmutable()))->paraArray());
+        } catch (ColaboradorForaDoEscritorioException) {
+            throw $this->createNotFoundException('Colaborador não encontrado.');
+        } catch (AcompanhamentoNaoPermitidoException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (AcompanhamentoInvalidoException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (AcompanhamentoEmConflitoException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_CONFLICT);
+        }
+    }
+
+    private function lerPrazo(Request $request): ?int
+    {
+        try {
+            $dados = json_decode($request->getContent(), true, 8, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+        $prazo = is_array($dados) ? ($dados['prazo_dias'] ?? null) : null;
+
+        return is_int($prazo) ? $prazo : null;
     }
 
     private function autorizar(User $usuario): Tenant

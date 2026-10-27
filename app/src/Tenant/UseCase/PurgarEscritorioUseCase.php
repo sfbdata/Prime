@@ -275,6 +275,8 @@ final class PurgarEscritorioUseCase
         // ACTION, nada as referencia.
         ['dashboard_zeramento', 'tenant_id = :tenant'],
         ['dashboard_meta_pastas', 'tenant_id = :tenant'],
+        // Acompanhamento de pessoa do painel (spec painel-acompanhamento-redistribuir, fatia A): FK de tenant NO ACTION.
+        ['dashboard_acompanhamento_pessoa', 'tenant_id = :tenant'],
         // Central de Comunicação (A1): mensagem e participante caem pela CASCADE da conversa, mas as FKs de
         // tenant são NO ACTION — deleção explícita de baixo para cima, antes de apagar o tenant.
         ['central_mensagem', 'tenant_id = :tenant'],

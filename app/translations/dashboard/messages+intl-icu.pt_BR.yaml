@@ -507,6 +507,30 @@ dashboard:
         status:
             analisado: Analisado
             pendente: Pendente
+            acomp: Em acompanhamento
+            acomp_vencido: Revisar acompanhamento
+        # Acompanhamento da pessoa (fatia A da spec painel-acompanhamento-redistribuir). Textos do dialog e do aviso
+        # chegam ao navegador por data-* do fragmento, já traduzidos no servidor.
+        acomp:
+            criar: Criar acompanhamento
+            renovar: Renovar prazo
+            encerrar: Encerrar acompanhamento
+            revisar_ate: 'Revisar até {data}'
+            dialogo_criar: Criar acompanhamento
+            dialogo_renovar: Renovar acompanhamento
+            confirmar_criar: Criar acompanhamento
+            confirmar_renovar: Renovar
+            cancelar: Cancelar
+            fechar: Fechar
+            explicacao: 'Isto registra que você vai acompanhar o trabalho de {nome}. Não cria nota, não altera metas e não avisa a pessoa.'
+            prazo: Prazo de revisão
+            prazo_1: 24 horas
+            prazo_2: 48 horas
+            prazo_7: 7 dias
+            criado: 'Acompanhamento criado · {nome}'
+            renovado: 'Acompanhamento renovado · {nome}'
+            encerrado: 'Acompanhamento encerrado · {nome}'
+            erro: Não foi possível registrar agora. Tente de novo.
         feedback:
             pergunta: Essa análise ajudou?
             sim: ✓ Sim

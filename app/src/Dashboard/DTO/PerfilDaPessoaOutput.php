@@ -31,7 +31,15 @@ final readonly class PerfilDaPessoaOutput
         public bool $semMetas,
         public ?string $status,
         public ?string $feedback,
+        /** Acompanhamento ABERTO da pessoa no escritório (dado do escritório, visível a todos os gestores). */
+        public ?AcompanhamentoDaPessoaOutput $acompanhamento = null,
     ) {
+    }
+
+    /** Em acompanhamento, vencido ou não: a precedência do chip é Em acompanhamento, Analisado, Pendente. */
+    public function emAcompanhamento(): bool
+    {
+        return $this->acompanhamento !== null && $this->acompanhamento->aberto;
     }
 
     public function primeiroNome(): string

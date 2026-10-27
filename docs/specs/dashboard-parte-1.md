@@ -349,8 +349,9 @@ Zerar (DASH-014, feito no PR3b), meta de pastas (DASH-016), pastas concluídas (
   - **Auditoria**: `audit_log` à mão, `ia_pessoa` (visualizou) e `ia_marca` (marcou), `entity_class` User, `changes` só `{evento, pessoa_id}`; sem nome nem texto livre.
   - **Itens do dc**: feitos: botão, "← Equipe", título, métricas (Recebidas, Concluídas, Pendentes, Atrasadas, Prazos próximos, Taxa de conclusão no lugar de Prazos cumpridos), comparação com o período anterior (carga recebida, demandas e atrasadas, só com número real), Diagnóstico só "Observado",
     "Por que chegou a essa conclusão" (dados considerados e limites), Ver tarefas (só com link que conta o mesmo número, regra B12), Marcar como analisado, "Essa análise ajudou?" (Sim, Não, Parcialmente), status Analisado/Pendente, auditoria.
-  - **Fora (sem dado real ou sem destino)**: Prazos cumpridos (o dc mistura vencidas de hoje com metas do período), chip de situação, matriz de desempenho, tags Correlação e Hipótese, fatores, "O que isso pode causar?", plano de ação, status "Em acompanhamento",
-    "Criar acompanhamento" (sem tela de tarefa avulsa), "Redistribuir" (sem tela), "Explicar contexto" (texto livre), comparação de Concluídas (o sistema não guarda concluídas do período anterior, DASH-010b).
+  - **Entregue depois (spec `docs/specs/painel-acompanhamento-redistribuir.md`, fatia A)**: "Criar acompanhamento" e o status "Em acompanhamento" (registro próprio `dashboard_acompanhamento_pessoa`, sem tarefa avulsa e sem texto livre; dialog de confirmação, prazo de 1, 2 ou 7 dias, renovar e encerrar; só Master e primário).
+  - **Fora (sem dado real ou sem destino)**: Prazos cumpridos (o dc mistura vencidas de hoje com metas do período), chip de situação, matriz de desempenho, tags Correlação e Hipótese, fatores, "O que isso pode causar?", plano de ação,
+    "Redistribuir" (sem tela; fatia B da mesma spec), "Explicar contexto" (texto livre), comparação de Concluídas (o sistema não guarda concluídas do período anterior, DASH-010b).
   - **Limite conhecido**: a marca é por pessoa, não por pessoa e período; o último a gravar vence (mapa inteiro, como nos alertas).
 
 - **PR-J (feito: Perguntas guiadas como pílulas + caixa única; sem migration)**. dc L1004-1018, L2561-2562: pílulas lado a lado

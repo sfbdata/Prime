@@ -119,7 +119,7 @@ final class PerfilDaPessoaDoDashboardControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('responsavel=' . $c['ana']->getId(), $href);
         self::assertSame(['Observado'], array_values(array_unique($perfil->filter('.db-pf-tag')->each(static fn (Crawler $t): string => trim($t->text())))));
         $html = (string) $this->client->getResponse()->getContent();
-        foreach (['Correlação', 'Hipótese', 'Criar acompanhamento', 'Redistribuir', 'Plano de ação'] as $naoDeve) {
+        foreach (['Correlação', 'Hipótese', 'Redistribuir', 'Plano de ação'] as $naoDeve) {
             self::assertStringNotContainsString($naoDeve, $html, $naoDeve);
         }
         self::assertSame(1, $this->auditorias($c['tenant'], 'ia_pessoa'));
