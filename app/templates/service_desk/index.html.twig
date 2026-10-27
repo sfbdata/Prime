@@ -92,7 +92,7 @@
         {% endif %}
         {% for c in lista.chamados %}
             <div class="sd-linha" data-sd-linha data-id="{{ c.id }}" data-status="{{ c.status.value }}"
-                 data-busca="{{ (c.numeroFormatado ~ ' ' ~ c.assunto)|lower }}">
+                 data-busca="{{ (c.numeroFormatado ~ ' ' ~ c.assunto ~ ' ' ~ c.descricao)|lower }}">
                 <b class="sd-linha-numero">{{ c.numeroFormatado }}</b>
                 <span class="sd-linha-assunto">
                     <b>{{ c.assunto }}</b>

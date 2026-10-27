@@ -100,6 +100,7 @@ final class ServiceDeskControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('.sd-linha', 'Erro ao salvar');
         self::assertSelectorTextContains('.sd-linha', 'Alta prioridade');
         self::assertSelectorTextContains('.sd-linha .sd-selo.aberto', 'Aberto');
+        self::assertStringContainsString('detalhe', (string) $this->client->getCrawler()->filter('.sd-linha')->attr('data-busca'), 'a busca do desenho cobre a descrição');
     }
 
     #[TestDox('Abrir sem saldo recusa com a mensagem do desenho; sem assunto e treinamento sem data também')]
