@@ -135,6 +135,17 @@ final class CobrancaPixDoConsumidorTest extends JusPrimeWebTestCase
         self::assertTrue($cancelar->executar($tenant, OrigemDoPagamento::TrabalhoExterno, 501, 'nova', false, $nova->pagamentoId));
     }
 
+    #[TestDox('Emitir com a última cobrança já paga pelo banco: não sai QR novo')]
+    public function testNaoEmiteSobrePaga(): void
+    {
+        $this->conectar();
+        $this->emitir('TE-0001-1');
+        $this->banco()->executeStatement("UPDATE pagamento SET status = 'paga'");
+
+        self::assertNull($this->emitir('TE-0001-2'));
+        self::assertSame(1, (int) $this->banco()->fetchOne('SELECT COUNT(*) FROM pagamento'));
+    }
+
     private function emitir(string $referencia): ?\App\Pagamento\DTO\CobrancaPixOutput
     {
         $this->em->clear();

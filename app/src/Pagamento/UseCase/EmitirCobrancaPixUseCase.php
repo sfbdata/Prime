@@ -100,6 +100,15 @@ final class EmitirCobrancaPixUseCase
 
     private function emitirSerial(BancoPix $banco, EmitirCobrancaPixInput $input): ?CobrancaPixOutput
     {
+        // Já com a trava: se o banco confirmou (ou divergiu) entre a leitura de quem pediu e agora, não sai QR novo.
+        $ultimo = $this->pagamentos->ultimoDaOrigem($input->tenantId, $input->origem, $input->origemId);
+        if ($ultimo !== null) {
+            $this->em->refresh($ultimo);
+            if (in_array($ultimo->getStatus(), [StatusDoPagamento::Paga, StatusDoPagamento::Divergente], true)) {
+                return null;
+            }
+        }
+
         $criada = $this->criar->executar(new CriarPagamentoInput(
             $input->tenantId,
             $input->origem,
