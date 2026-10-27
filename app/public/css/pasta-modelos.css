@@ -93,7 +93,7 @@
 }
 
 /* M2: variáveis, dados da peça, ações (bj-modelos.js L.76-77) */
-.mdl-modos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0; }
+.mdl-modos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: sticky; top: 0; z-index: 3; background: #fff; padding: 4px 0; }
 .mdl-seletor { display: flex; border: 1px solid #d3dde4; border-radius: 2px; overflow: hidden; }
 .mdl-seletor-btn { height: 32px; padding: 0 12px; border: none; background: #fff; color: #34505f; font: bold 12.5px Arial, Helvetica, sans-serif; cursor: pointer; }
 .mdl-seletor-btn + .mdl-seletor-btn { border-left: 1px solid #e1e8ed; }

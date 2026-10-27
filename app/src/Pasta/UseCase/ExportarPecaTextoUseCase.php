@@ -108,7 +108,7 @@ final class ExportarPecaTextoUseCase
         Settings::setTempDir($area->caminho());
 
         try {
-            return $this->montarComPhpWord(pathinfo($titulo, PATHINFO_FILENAME) ?: $titulo, $html, 'Word2007', 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            return $this->montarComPhpWord($titulo, $html, 'Word2007', 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } finally {
             Settings::setTempDir($tempDirAnterior);
             $area->liberar();

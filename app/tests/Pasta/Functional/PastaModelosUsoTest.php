@@ -27,6 +27,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[Group('pasta')]
 final class PastaModelosUsoTest extends JusPrimeWebTestCase
 {
+    use CriaUsuarioComPermissoesTrait;
+
     /** @return array{0: User, 1: Tenant} */
     private function criarAdmin(): array
     {
@@ -122,6 +124,11 @@ final class PastaModelosUsoTest extends JusPrimeWebTestCase
     private function token(Pasta $pasta): string
     {
         return 'TOKEN_modelos_pasta_' . $pasta->getId();
+    }
+
+    private function em(): EntityManagerInterface
+    {
+        return static::getContainer()->get(EntityManagerInterface::class);
     }
 
     private function corpo(): string
@@ -237,5 +244,35 @@ final class PastaModelosUsoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Usar na pasta ' . $pasta->getNup(), $crawler->filter('#mdlUsar')->text());
         self::assertStringContainsString('{cliente}', $crawler->filter('.mdl-dica')->text());
         self::assertCount(0, $crawler->filter('.mdl button:contains("Salvar…")'), 'Salvar… é da M3');
+    }
+
+    #[TestDox('Quem só VÊ a pasta baixa o Word, mas não usa o modelo na pasta (403)')]
+    public function testLeitor(): void
+    {
+        [$client, $tenant, $pasta] = $this->entrar();
+        $modelo = $this->criarModelo($tenant, 'Do leitor', corpo: $this->corpo());
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view']);
+        $this->logarComTenant($client, $leitor, $tenant);
+        $base = '/pasta/' . $pasta->getId() . '/modelos/' . $modelo->getId();
+
+        $client->request('POST', $base . '/usar', ['_token' => $this->token($pasta)]);
+        self::assertResponseStatusCodeSame(403);
+        $client->request('POST', $base . '/word', ['_token' => $this->token($pasta)]);
+        self::assertResponseIsSuccessful();
+        self::assertSame('PK', substr((string) $client->getResponse()->getContent(), 0, 2));
+
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM modelo_de_peca_uso WHERE modelo_id = ?', [$modelo->getId()]));
+    }
+
+    #[TestDox('Usar sem valores não quebra: o documento nasce com as lacunas ___')]
+    public function testUsarSemValores(): void
+    {
+        [$client, $tenant, $pasta] = $this->entrar();
+        $modelo = $this->criarModelo($tenant, 'Lacunas', corpo: '<p>CPF {cpf}</p>');
+
+        $client->request('POST', '/pasta/' . $pasta->getId() . '/modelos/' . $modelo->getId() . '/usar', ['_token' => $this->token($pasta)]);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(1, $this->json($client)['usos']);
     }
 }

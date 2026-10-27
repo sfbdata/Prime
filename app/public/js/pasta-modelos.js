@@ -121,7 +121,7 @@
     function preencher(corpo, valores) {
         var lacuna = raiz.dataset.lacuna;
         var html = corpo.replace(/\{(\w+)\}/g, function (_, chave) {
-            var v = valorLimpo(valores[chave]);
+            var v = Object.prototype.hasOwnProperty.call(valores, chave) ? valorLimpo(valores[chave]) : '';
             return v === '' ? lacuna : esc(v);
         });
         var cliente = valorLimpo(valores.cliente);
