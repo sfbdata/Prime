@@ -82,6 +82,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escritórios (só o Master edita). O espaço de cada escritório é TenantAware.
         \App\Contribua\Entity\Plano::class,
         \App\Contribua\Entity\ConfiguracaoDoEspaco::class,
+        // Service Desk: preço de cada tipo de atendimento vale para todos os escritórios (só o Master define).
+        \App\ServiceDesk\Entity\PrecoDoAtendimento::class,
         // Espaço do escritório: lido e escrito sempre por tenantId explícito (decorador pelo escopo da
         // chave, Master sobre outro escritório). Filtrar pela sessão faria o Master no escritório X
         // ver o Y como Free. Só o repositório do Contribua a consulta
@@ -345,7 +347,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 83 → 84 com o bônus de espaço por indicação (26/10/2026): BonusDeEspaco, justificado acima (mesmo motivo do
     // EspacoDoEscritorio: o Master lê o bônus de outro escritório por tenantId explícito, em lote).
     // 84 → 85 com o extrato de recompensas do Master (26/10/2026): LancamentoDeRecompensa, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 85;
+    // 85 → 86 com o preço do atendimento do Service Desk (27/10/2026): PrecoDoAtendimento, justificado acima (catálogo
+    // global que só o Master define, igual ao Plano do Contribua).
+    private const MAX_FORA_DO_ESCOPO = 86;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
