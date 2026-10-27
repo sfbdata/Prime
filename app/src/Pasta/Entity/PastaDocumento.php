@@ -146,6 +146,11 @@ class PastaDocumento implements Auditavel, TenantAware, Descartavel
     #[ORM\Column(options: ['default' => 0])]
     private int $ordem = 0;
 
+    /** Processo (principal ou apensado da pasta) a que a peça se destina no Peticionar; nulo = o principal. */
+    #[ORM\ManyToOne(targetEntity: PastaProcesso::class)]
+    #[ORM\JoinColumn(name: 'processo_destino_id', nullable: true, onDelete: 'SET NULL')]
+    private ?PastaProcesso $processoDestino = null;
+
     #[ORM\ManyToOne(targetEntity: Tenant::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
@@ -153,6 +158,18 @@ class PastaDocumento implements Auditavel, TenantAware, Descartavel
     public function __construct()
     {
         $this->carregadoEm = new \DateTimeImmutable();
+    }
+
+    public function getProcessoDestino(): ?PastaProcesso
+    {
+        return $this->processoDestino;
+    }
+
+    public function setProcessoDestino(?PastaProcesso $processoDestino): static
+    {
+        $this->processoDestino = $processoDestino;
+
+        return $this;
     }
 
     public function getId(): ?int
