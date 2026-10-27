@@ -46,7 +46,7 @@ final class AvisoAoMaster
      * Nunca lança: o aviso é consequência do que a pessoa fez (a sugestão já está gravada). Uma falha
      * aqui vira log, não erro na tela, e não leva a pessoa a reenviar e duplicar.
      */
-    public function avisar(Tenant $origem, string $tipo, string $mensagem, string $url): void
+    public function avisar(?Tenant $origem, string $tipo, string $mensagem, string $url): void
     {
         $mensagem = self::caber($mensagem);
         try {
@@ -66,11 +66,11 @@ final class AvisoAoMaster
         return mb_strlen($mensagem) <= self::TAMANHO_MAXIMO ? $mensagem : rtrim(mb_substr($mensagem, 0, self::TAMANHO_MAXIMO - 3)) . '...';
     }
 
-    private function escritorioDoAviso(User $master, Tenant $origem): ?Tenant
+    private function escritorioDoAviso(User $master, ?Tenant $origem): ?Tenant
     {
         $escritorios = array_map(static fn ($vinculo): Tenant => $vinculo->getTenant(), $this->vinculos->findActiveByUser($master));
         foreach ($escritorios as $escritorio) {
-            if ($escritorio->getId() === $origem->getId()) {
+            if ($origem !== null && $escritorio->getId() === $origem->getId()) {
                 return $escritorio;
             }
         }

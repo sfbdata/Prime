@@ -72,12 +72,18 @@ class PagamentoRepository extends ServiceEntityRepository
             ->getQuery()->getSingleScalarResult();
     }
 
-    /** Cobranças aguardando que já passaram da validade: a conciliação as marca expiradas. @return list<Pagamento> */
-    public function vencidasAguardando(\DateTimeImmutable $agora, int $limite = 200): array
+    /**
+     * Vencidas que a conciliação pode expirar sem reconsultar: nunca chegaram ao banco (sem id externo) ou venceram há
+     * mais de `$ateVencidaHa` (depois disso só expiram).
+     *
+     * @return list<Pagamento>
+     */
+    public function vencidasSemConsulta(\DateTimeImmutable $agora, \DateInterval $ateVencidaHa, int $limite = 200): array
     {
         return $this->createQueryBuilder('p')
             ->andWhere('p.status = :s')->setParameter('s', StatusDoPagamento::Aguardando)
             ->andWhere('p.expiraEm IS NOT NULL AND p.expiraEm <= :agora')->setParameter('agora', $agora)
+            ->andWhere('p.idExterno IS NULL OR p.expiraEm < :antigo')->setParameter('antigo', $agora->sub($ateVencidaHa))
             ->orderBy('p.id')->setMaxResults($limite)
             ->getQuery()->getResult();
     }
@@ -91,9 +97,16 @@ class PagamentoRepository extends ServiceEntityRepository
         return $this->findOneBy(['provedor' => $provedor, 'idExterno' => $idExterno]);
     }
 
+    /** Todos os que carregam o mesmo id no banco: mais de um é defeito de dados, nunca se escolhe um à sorte. @return list<Pagamento> */
+    public function todosPorIdExterno(string $provedor, string $idExterno): array
+    {
+        return $this->findBy(['provedor' => $provedor, 'idExterno' => $idExterno]);
+    }
+
     /**
      * Cobranças `aguardando` com id no banco que a conciliação reconsulta: criadas há mais de `$minimoDeIdade` (o aviso
-     * ainda pode chegar sozinho) e vencidas há menos de `$ateVencidaHa` (depois disso só expiram).
+     * ainda pode chegar sozinho) e vencidas há menos de `$ateVencidaHa` (depois disso só expiram). Sem validade, só enquanto novas. As que vencem primeiro vão
+     * na frente, para o lote não ficar preso nas que ainda têm dias.
      *
      * @return list<Pagamento>
      */
@@ -103,8 +116,8 @@ class PagamentoRepository extends ServiceEntityRepository
             ->andWhere('p.status = :s')->setParameter('s', StatusDoPagamento::Aguardando)
             ->andWhere('p.idExterno IS NOT NULL')
             ->andWhere('p.criadoEm <= :criadaAte')->setParameter('criadaAte', $agora->sub($minimoDeIdade))
-            ->andWhere('p.expiraEm IS NULL OR p.expiraEm >= :vencidaDesde')->setParameter('vencidaDesde', $agora->sub($ateVencidaHa))
-            ->orderBy('p.id')->setMaxResults($limite)
+            ->andWhere('(p.expiraEm IS NOT NULL AND p.expiraEm >= :vencidaDesde) OR (p.expiraEm IS NULL AND p.criadoEm >= :vencidaDesde)')->setParameter('vencidaDesde', $agora->sub($ateVencidaHa))
+            ->orderBy('p.expiraEm', 'ASC')->addOrderBy('p.id')->setMaxResults($limite)
             ->getQuery()->getResult();
     }
 

@@ -36,6 +36,8 @@ final class CoraFalsa
         $this->status[$id] = $status;
         if (null !== $codigo) {
             $this->codigos[$id] = $codigo;
+        } else {
+            unset($this->codigos[$id]);
         }
     }
 

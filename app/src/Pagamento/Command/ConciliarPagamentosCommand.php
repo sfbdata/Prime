@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Pagamento\Command;
 
-use App\Contribua\Banco\FalhaNoBanco;
 use App\Contribua\Repository\IntegracaoBancariaRepository;
 use App\Contribua\Service\AvisoAoMaster;
 use App\Pagamento\Entity\Pagamento;
@@ -16,6 +15,7 @@ use App\Pagamento\Repository\PagamentoRepository;
 use App\Pagamento\UseCase\ConfirmarPagamentoPeloBancoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Cache\CacheItemPoolInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,8 +29,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * no Scheduler: rede de segurança do aviso perdido.
  *
  * 1. reconsulta no banco as cobranças `aguardando` com mais de 2 minutos de vida e vencidas há menos de 7 dias;
- * 2. só depois da reconsulta expira as vencidas (um pagamento no último minuto não vira `expirada`);
- * 3. as vencidas há mais de 7 dias só expiram, sem consultar o banco;
+ * 2. só expira a vencida que a reconsulta desta volta conferiu (um pagamento no último minuto não vira `expirada`);
+ * 3. as sem id no banco e as vencidas há mais de 7 dias só expiram, sem consultar o banco;
  * 4. uma vez por dia, avisa o Master dos pagamentos divergentes que ainda esperam decisão.
  * Sem integração conectada ou com a conciliação desligada, não consulta o banco (as cobranças só expiram quando
  * ninguém mais pode pagá-las pelo banco: aqui, não expira nada, para não vencer cobrança que o banco ainda aceita).
@@ -49,6 +49,7 @@ final class ConciliarPagamentosCommand extends Command
         private readonly EntityManagerInterface $em,
         private readonly AvisoAoMaster $avisoAoMaster,
         private readonly UrlGeneratorInterface $urls,
+        private readonly LoggerInterface $logger,
         #[Autowire(service: 'cache.app')]
         private readonly CacheItemPoolInterface $cache,
     ) {
@@ -68,11 +69,17 @@ final class ConciliarPagamentosCommand extends Command
         $agora = new \DateTimeImmutable();
         $contagem = [];
         $falhas = 0;
+        /** @var list<Pagamento> $conferidos o banco respondeu "ainda não paga": só estes podem expirar sem risco */
+        $conferidos = [];
         foreach ($this->pagamentos->aguardandoParaConciliar($agora, new \DateInterval('PT2M'), new \DateInterval('P7D'), self::LOTE) as $pagamento) {
             try {
                 $resultado = $this->reconsultar->executar($pagamento->getProvedor(), (string) $pagamento->getIdExterno());
                 $contagem[$resultado->value] = ($contagem[$resultado->value] ?? 0) + 1;
-            } catch (FalhaNoBanco|\DomainException $e) {
+                if ($resultado === ResultadoDaReconsulta::Aguardando) {
+                    $conferidos[] = $pagamento;
+                }
+            } catch (\Throwable $e) {
+                // Uma cobrança com defeito não trava as outras: conta, loga e segue; ela fica sem expirar até conferir.
                 ++$falhas;
                 $io->warning('Pagamento ' . $pagamento->getReferencia() . ': ' . $e->getMessage());
             }
@@ -84,7 +91,7 @@ final class ConciliarPagamentosCommand extends Command
             }
         }
 
-        $expiradas = $this->expirar($agora, $falhas > 0);
+        $expiradas = $this->expirar($agora, $conferidos);
         $this->resumirDivergentes($agora);
         $io->writeln(sprintf(
             'Conciliação: %d confirmado(s), %d divergente(s), %d cancelado(s), %d expirado(s), %d falha(s).',
@@ -99,19 +106,24 @@ final class ConciliarPagamentosCommand extends Command
     }
 
     /**
-     * Expira as vencidas. Com falha do banco nesta volta, só expira as que não têm id no banco (nunca chegaram a ele) ou
-     * que venceram há mais de 7 dias: a reconsulta não pôde conferir as outras.
+     * Expira só o que não corre risco: as que o banco acabou de dizer "não paga" nesta volta, as que nunca chegaram ao
+     * banco (sem id) e as vencidas há mais de 7 dias. Vencida que esta volta não reconsultou (lote cheio, falha) espera.
+     *
+     * @param list<Pagamento> $conferidos
      */
-    private function expirar(\DateTimeImmutable $agora, bool $bancoFalhou): int
+    private function expirar(\DateTimeImmutable $agora, array $conferidos): int
     {
-        $limiteAntigo = $agora->sub(new \DateInterval('P7D'));
         $total = 0;
-        foreach ($this->pagamentos->vencidasAguardando($agora, self::LOTE) as $pagamento) {
-            $naoConsultavel = $pagamento->getIdExterno() === null || ($pagamento->getExpiraEm() !== null && $pagamento->getExpiraEm() < $limiteAntigo);
-            if ($bancoFalhou && !$naoConsultavel) {
-                continue;
+        $candidatas = array_merge($conferidos, $this->pagamentos->vencidasSemConsulta($agora, new \DateInterval('P7D'), self::LOTE));
+        foreach ($candidatas as $pagamento) {
+            try {
+                $total += $this->expirarUm($pagamento, $agora) ? 1 : 0;
+            } catch (\Throwable $e) {
+                $this->logger->error('Pagamento: falha ao expirar na conciliação', ['pagamento' => $pagamento->getId(), 'erro' => $e->getMessage()]);
+                if (!$this->em->isOpen()) {
+                    break;
+                }
             }
-            $total += $this->expirarUm($pagamento, $agora) ? 1 : 0;
         }
 
         return $total;
@@ -145,7 +157,7 @@ final class ConciliarPagamentosCommand extends Command
             return;
         }
         $this->avisoAoMaster->avisar(
-            $abertos[0]->getTenant(),
+            null,
             AvisoAoMaster::TIPO_PAGAMENTO_DIVERGENTE,
             sprintf('%d pagamento(s) divergente(s) esperam a decisão do Master.', count($abertos)),
             $this->urls->generate('central_index'),

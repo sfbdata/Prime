@@ -231,6 +231,70 @@ final class ReconsultaDoPagamentoTest extends JusPrimeWebTestCase
     }
 
     /** @return array{id: string, pagamento: int} uma cobrança no registro, com id no banco, e o espelho dela na Cora falsa */
+    #[TestDox('Conciliação: cobrança que falha no banco não trava as outras e não expira sem ser conferida')]
+    public function testConciliacaoIsolaACobrancaComFalha(): void
+    {
+        $this->conectar();
+        $comFalha = $this->cobranca(2000);
+        $normal = $this->cobranca(2000);
+        $this->envelhecer([$comFalha['id'], $normal['id']]);
+        $this->vencer([$comFalha['id'], $normal['id']]);
+        unset($this->cora->status[$comFalha['id']]);
+
+        $saida = $this->conciliar();
+
+        self::assertSame(StatusDoPagamento::Aguardando, $this->recarregar($comFalha['id'])->getStatus(), 'não conferida: não expira');
+        self::assertSame(StatusDoPagamento::Expirada, $this->recarregar($normal['id'])->getStatus(), 'a outra segue o fluxo');
+        self::assertStringContainsString('1 falha(s)', $saida);
+        self::assertStringContainsString('1 expirado(s)', $saida);
+    }
+
+    #[TestDox('Conciliação: sem validade e com id no banco, só entra no lote enquanto nova; vencida sem id no banco expira sem consulta')]
+    public function testConciliacaoSemValidadeESemId(): void
+    {
+        $this->conectar();
+        $velha = $this->cobranca(2000);
+        $semId = $this->cobranca(2000);
+        $this->banco()->executeStatement('UPDATE pagamento SET expira_em = NULL, criado_em = :c WHERE id_externo = :i', ['c' => (new \DateTimeImmutable('-30 days'))->format('Y-m-d H:i:s'), 'i' => $velha['id']]);
+        $this->banco()->executeStatement('UPDATE pagamento SET id_externo = NULL, expira_em = :e WHERE id = :i', ['e' => (new \DateTimeImmutable('-1 hour'))->format('Y-m-d H:i:s'), 'i' => $semId['pagamento']]);
+        $this->cora->status[$velha['id']] = 'PAID';
+
+        $this->conciliar();
+
+        $this->em->clear();
+        self::assertSame(StatusDoPagamento::Aguardando, $this->em->find(Pagamento::class, $velha['pagamento'])->getStatus(), 'sem validade e antiga: fora do lote');
+        self::assertSame(StatusDoPagamento::Expirada, $this->em->find(Pagamento::class, $semId['pagamento'])->getStatus());
+    }
+
+    #[TestDox('O banco dá a cobrança por paga sem código: nada é confirmado, fica aguardando')]
+    public function testPagaSemCodigoNaoConfirma(): void
+    {
+        $this->conectar();
+        $pagamento = $this->cobranca(2000);
+        $this->cora->cobrancaExistente($pagamento['id'], 'PAID', null);
+
+        self::assertSame(ResultadoDaReconsulta::Aguardando, $this->reconsultar($pagamento['id']));
+        self::assertSame(StatusDoPagamento::Aguardando, $this->recarregar($pagamento['id'])->getStatus());
+    }
+
+    #[TestDox('Dois pagamentos com o mesmo id no banco viram divergentes com aviso, sem escolher um à sorte')]
+    public function testIdRepetidoViraDivergente(): void
+    {
+        $this->conectar();
+        $a = $this->cobranca(2000);
+        $b = $this->cobranca(2000);
+        $this->banco()->executeStatement('UPDATE pagamento SET id_externo = :i WHERE id = :b', ['i' => $a['id'], 'b' => $b['pagamento']]);
+        $this->cora->status[$a['id']] = 'PAID';
+
+        self::assertSame(ResultadoDaReconsulta::Divergente, $this->reconsultar($a['id']));
+        self::assertSame(ResultadoDaReconsulta::Divergente, $this->reconsultar($a['id']));
+
+        $this->em->clear();
+        self::assertSame(StatusDoPagamento::Divergente, $this->em->find(Pagamento::class, $a['pagamento'])->getStatus());
+        self::assertSame(StatusDoPagamento::Divergente, $this->em->find(Pagamento::class, $b['pagamento'])->getStatus());
+        self::assertSame(2, (int) $this->banco()->fetchOne("SELECT COUNT(*) FROM notificacao WHERE tipo = 'pagamento.divergente' AND usuario_id = :u", ['u' => $this->master->getId()]));
+    }
+
     private function cobranca(int $valor, ?string $codigoNoBanco = null): array
     {
         $referencia = 'TE' . strtoupper(substr(uniqid(), -8)) . '-' . ++$this->sequencia;

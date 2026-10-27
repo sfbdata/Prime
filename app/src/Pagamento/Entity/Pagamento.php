@@ -146,6 +146,17 @@ class Pagamento implements TenantAware, Auditavel
         $this->motivoManual = mb_substr(trim($motivo), 0, 500);
     }
 
+    /** Defeito de dados (dois pagamentos com o mesmo id no banco): nada se confirma sozinho, o Master decide. */
+    public function marcarDivergente(): bool
+    {
+        if (!in_array($this->status, [StatusDoPagamento::Aguardando, StatusDoPagamento::Expirada, StatusDoPagamento::Cancelada], true)) {
+            return false;
+        }
+        $this->status = StatusDoPagamento::Divergente;
+
+        return true;
+    }
+
     public function cancelar(): void
     {
         if ($this->status !== StatusDoPagamento::Aguardando) {
