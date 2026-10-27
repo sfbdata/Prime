@@ -5,6 +5,7 @@ namespace App\Tenant\Controller;
 use App\Entity\Auth\User;
 use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\Form\DadosPessoaisType;
+use App\Profile\Entity\UserProfile;
 use App\Profile\UseCase\AtualizarDadosPessoaisUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Repository\TenantRepository;
@@ -63,13 +64,7 @@ final class TenantUserProfileController extends AbstractController
         }
 
         $perfil = $this->obterOuCriarPerfil->executar($user);
-        $input  = new DadosPessoaisInput();
-        // Esta tela não edita frase, telefone, chave PIX, gênero nem atuação: o UseCase regrava os valores atuais.
-        $input->status   = $perfil->getStatus();
-        $input->telefone = $perfil->getTelefone();
-        $input->chavePixRecompensa = $perfil->getChavePixRecompensa();
-        $input->genero   = $perfil->getGenero();
-        $input->atuacao  = $perfil->getAtuacao();
+        $input  = $this->dadosAtuaisDaPessoa($perfil);
         $form   = $this->createForm(DadosPessoaisType::class, $input);
         $form->handleRequest($request);
 
@@ -93,5 +88,20 @@ final class TenantUserProfileController extends AbstractController
             'id'       => $user->getId(),
             'tab'      => 'dados-pessoais',
         ]);
+    }
+
+    /**
+     * Esta tela não edita frase, telefone, chave PIX, gênero nem atuação: o UseCase regrava os valores atuais.
+     */
+    private function dadosAtuaisDaPessoa(UserProfile $perfil): DadosPessoaisInput
+    {
+        $input                     = new DadosPessoaisInput();
+        $input->status             = $perfil->getStatus();
+        $input->telefone           = $perfil->getTelefone();
+        $input->chavePixRecompensa = $perfil->getChavePixRecompensa();
+        $input->genero             = $perfil->getGenero();
+        $input->atuacao            = $perfil->getAtuacao();
+
+        return $input;
     }
 }
