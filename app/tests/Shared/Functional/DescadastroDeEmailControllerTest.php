@@ -82,13 +82,15 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', $url);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('h1', 'Não quero mais receber estes avisos');
+        self::assertSelectorTextContains('h1', 'Não quer mais receber nossos e-mails?');
         self::assertSelectorTextContains('main', 'O endereço j***@gmail.com deixará de receber estes avisos por e-mail de Silva Advogados.');
         self::assertStringNotContainsString('joana@gmail.com', (string) $this->client->getResponse()->getContent());
         $form = $crawler->filter('main form[method="post"]');
         self::assertSame(parse_url($url, PHP_URL_PATH) . '?' . parse_url($url, PHP_URL_QUERY), $form->attr('action'));
-        self::assertSame('Confirmar', trim($form->filter('button[name="confirmar"]')->text()));
-        self::assertSame('Não quero receber nenhum e-mail de Silva Advogados', $form->filter('label')->text());
+        self::assertSame('Confirmar descadastro', trim($form->filter('button[name="confirmar"]')->text()));
+        self::assertSame(['demais', 'sem_interesse', 'nao_cadastrei', 'outro'], $form->filter('input[type="radio"][name="motivo"]')->each(static fn ($n) => (string) $n->attr('value')), 'chips de motivo, nenhum marcado');
+        self::assertCount(0, $form->filter('input[type="radio"][checked]'));
+        self::assertSame('Não quero receber nenhum e-mail de Silva Advogados', trim($form->filter('input[name="todos"]')->ancestors()->filter('label')->text()));
         self::assertNull($form->filter('input[type="checkbox"][name="todos"]')->attr('checked'), 'desmarcada por padrão');
         self::assertResponseHeaderSame('X-Robots-Tag', 'noindex');
         self::assertSame([], $this->linhas($tenant), 'o GET não grava');
@@ -100,10 +102,10 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
         $tenant = $this->tenant('Silva Advogados');
         $url = $this->link($tenant);
 
-        $this->client->submit($this->client->request('GET', $url)->selectButton('Confirmar')->form());
+        $this->client->submit($this->client->request('GET', $url)->selectButton('Confirmar descadastro')->form());
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('h1', 'Descadastro confirmado');
+        self::assertSelectorTextContains('h1', 'Pronto, você não receberá mais');
         self::assertSelectorTextContains('main', 'Você não vai mais receber estes avisos por e-mail de Silva Advogados.');
         self::assertStringNotContainsString('—', (string) $this->client->getResponse()->getContent());
         $this->client->request('POST', $url, ['confirmar' => '1']);
@@ -111,11 +113,39 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->descadastro()->estaDescadastrado($tenant, 'joana@gmail.com', 'outro_assunto'));
     }
 
+    #[TestDox('Chip de motivo: grava o texto do motivo escolhido; chave fora da lista e one-click não gravam motivo')]
+    public function testMotivo(): void
+    {
+        $tenant = $this->tenant('Silva Advogados');
+        $url = $this->link($tenant);
+
+        $this->client->request('POST', $url, ['confirmar' => '1', 'motivo' => 'sem_interesse']);
+        self::assertSame('Não me interessa mais', $this->motivos($tenant)['push_aviso_equipe']);
+
+        $outro = $this->tenant('Souza Advogados');
+        $this->client->request('POST', $this->link($outro), ['confirmar' => '1', 'motivo' => '<script>']);
+        self::assertNull($this->motivos($outro)['push_aviso_equipe']);
+
+        $um = $this->tenant('Lima Advogados');
+        $this->client->request('POST', $this->link($um), ['motivo' => 'demais']);
+        self::assertNull($this->motivos($um)['push_aviso_equipe']);
+    }
+
+    /** @return array<string, ?string> */
+    private function motivos(Tenant $tenant, string $email = 'joana@gmail.com'): array
+    {
+        /** @var array<string, ?string> */
+        return $this->em()->getConnection()->fetchAllKeyValue(
+            'SELECT assunto, motivo FROM email_descadastro WHERE tenant_id = ? AND email = ?',
+            [(int) $tenant->getId(), $email],
+        );
+    }
+
     #[TestDox('Botão com "Não quero receber nenhum e-mail deste remetente": grava também "todos" no escopo do link')]
     public function testConfirmarTodos(): void
     {
         $tenant = $this->tenant('Silva Advogados');
-        $form = $this->client->request('GET', $this->link($tenant))->selectButton('Confirmar')->form();
+        $form = $this->client->request('GET', $this->link($tenant))->selectButton('Confirmar descadastro')->form();
         $form['todos']->tick();
 
         $this->client->submit($form);
