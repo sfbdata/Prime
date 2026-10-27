@@ -1,0 +1,51 @@
+{# Seção "Custos" do /master (#sec=custos). Desenho docs/design/redesign-25-10-26/05 - Perfis 1.2 - VS 25.10.26.dc.html:
+   marcação L260-270 e lógica `csKpis`/`csCat`/`csMarg`/`csProj`/`csLin` L917-937; spec docs/specs/master-custos.md (PR 2: leitura).
+   Os botões Copiar, Importar, Exportar e Lançar custo entram nos PRs 3 e 4.
+   Incluída pelo painel.html.twig num <div data-sec-externa="custos"> (o mesmo mecanismo do Desempenho): o painel.js
+   mostra esta seção no lugar da vazia e avisa a troca pelo evento `mp:secao`. Os números vêm por JSON quando a
+   seção abre (public/js/master/custos.js); as contas moram em ApuracaoDeCustos.
+   Textos no catálogo (master.custos.*; os do JS em master.custos.js.*). #}
+<link rel="stylesheet" href="{{ asset('css/master-custos.css') }}">
+<div class="cst" data-cst data-url-dados="{{ path('master_dados_custos') }}">
+    <div class="cst-barra">
+        <label class="cst-mes">{{ 'master.custos.mes'|trans }}<input type="month" class="cst-entrada" data-cst-mes></label>
+        <span class="cst-nota">{{ 'master.custos.nota'|trans }}</span>
+    </div>
+    <div class="cst-aviso" data-cst-aviso role="status" hidden></div>
+    <div class="cst-kpis" data-cst-kpis aria-busy="true"></div>
+    <div class="cst-grade">
+        <section class="cst-caixa">
+            <header class="cst-cabeca">
+                <i class="bi bi-pie-chart cst-cabeca-ic" aria-hidden="true"></i>
+                <b class="cst-cabeca-titulo">{{ 'master.custos.por_categoria'|trans }}</b>
+                <span class="cst-cabeca-sub">{{ 'master.custos.do_mes'|trans }}</span>
+            </header>
+            <div class="cst-corpo" data-cst-categorias></div>
+        </section>
+        <section class="cst-caixa">
+            <header class="cst-cabeca">
+                <i class="bi bi-graph-up-arrow cst-cabeca-ic" aria-hidden="true"></i>
+                <b class="cst-cabeca-titulo">{{ 'master.custos.margem_e_projecao'|trans }}</b>
+                <span class="cst-cabeca-sub">{{ 'master.custos.margem_sub'|trans }}</span>
+            </header>
+            <div class="cst-corpo">
+                <div class="cst-tab cst-tab-planos cst-tab-cab"><span>{{ 'master.custos.col_plano'|trans }}</span><span>{{ 'master.custos.col_contas'|trans }}</span><span>{{ 'master.custos.col_preco'|trans }}</span><span>{{ 'master.custos.col_custo'|trans }}</span><span>{{ 'master.custos.col_margem'|trans }}</span></div>
+                <div data-cst-planos></div>
+                <div class="cst-tab cst-tab-proj cst-tab-cab cst-tab-cab-proj"><span>{{ 'master.custos.col_projecao'|trans }}</span><span>{{ 'master.custos.col_custo'|trans }}</span><span>{{ 'master.custos.col_receita'|trans }}</span><span>{{ 'master.custos.col_margem'|trans }}</span></div>
+                <div data-cst-projecao></div>
+                <div class="cst-rodape">{{ 'master.custos.projecao_nota'|trans }}</div>
+            </div>
+        </section>
+    </div>
+    <section class="cst-caixa">
+        <header class="cst-cabeca">
+            <i class="bi bi-list-ul cst-cabeca-ic" aria-hidden="true"></i>
+            <b class="cst-cabeca-titulo">{{ 'master.custos.lancamentos'|trans }}</b>
+            <span class="cst-cabeca-sub">{{ 'master.custos.lancamentos_sub'|trans }}</span>
+        </header>
+        <div class="cst-vazio" data-cst-vazio hidden>{{ 'master.custos.sem_lancamentos'|trans }}</div>
+        <div data-cst-lancamentos></div>
+    </section>
+</div>
+{{ catalogo_js('master.custos.js') }}
+<script src="{{ asset('js/master/custos.js') }}"></script>
