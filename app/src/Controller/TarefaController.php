@@ -259,7 +259,7 @@ final class TarefaController extends AbstractController
                     '1' === (string) $request->request->get('analise_confirmada'),
                 ), new \DateTimeImmutable('today'));
             } catch (\DomainException $recusa) {
-                return $this->json(['erro' => $recusa->getMessage()], 422);
+                return $this->json(['erro' => $recusa->getMessage(), 'codigo' => 'analise_do_prazo'], 422);
             }
         }
 

@@ -63,3 +63,14 @@ alteração do modal por uma rota leve, sem fila.
 ## Para o dono
 
 1. Leitura de conteúdo de documentos pela IA: privacidade, custo e extração (frente D). Segue fora.
+
+## Decisões da revisão de 27/10 (orquestrador, pela recomendação)
+
+- **A trava do "Confirmar análise" é do formulário, não segurança.** O servidor só a aplica quando o modal manda
+  `analise_prazo=1` (o Push e o drawer da IA preenchem o mesmo modal, então passam por ela). Chamadas sem o campo
+  (testes, integrações) criam a meta como sempre; se a consulta da análise falhar, a meta também é criável. Tornar
+  a trava obrigatória no servidor derrubaria esses caminhos: fica como decisão futura do dono.
+- **Confirmação velha:** mudar título, descrição, publicação ou ciência depois de "Confirmar análise" desfaz a
+  confirmação (o prazo digitado pela pessoa fica). Limpar a data jurídica volta ao prazo estimado.
+- **Linha de aprendizado do desenho:** fora desta entrega (no desenho vem de localStorage, sem lastro multi-tenant);
+  o elemento existe escondido, para quando houver backend.

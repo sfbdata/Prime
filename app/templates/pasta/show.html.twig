@@ -4799,7 +4799,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 erroBox.classList.remove('d-none');
                 btn.disabled = false;
                 rotular(btn, ICONE_CRIAR, BJ_T.t('pasta_show.js.meta.criar'));
-                if (res.status === 422 && window.PastaMetaAnalisePrazo) { window.PastaMetaAnalisePrazo.abrirParaConferir(); }
+                if (res.status === 422 && res.data.codigo === 'analise_do_prazo' && window.PastaMetaAnalisePrazo) { window.PastaMetaAnalisePrazo.abrirParaConferir(); }
             }
         })
         .catch(function () {

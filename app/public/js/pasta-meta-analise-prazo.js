@@ -94,6 +94,8 @@
 
     /* A mudança de origem/jurídico pendente sobrevive a digitações no título dentro do mesmo debounce. */
     var pendenteOrigem = false;
+    /* Mudança de origem já enviada cuja resposta foi descartada por uma consulta mais nova: a próxima resposta a leva. */
+    var origemEmVoo = false;
 
     function agendar(aoMudarOrigem) {
         if (aoMudarOrigem) { pendenteOrigem = aoMudarOrigem; }
@@ -107,11 +109,14 @@
 
     function consultar(aoMudarOrigem) {
         var minha = ++sequencia;
+        if (aoMudarOrigem) { origemEmVoo = aoMudarOrigem; }
         fetch(URL_ANALISE, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: corpo() })
             .then(function (r) { return r.ok ? r.json() : { analise: null }; })
             .then(function (res) {
                 if (minha !== sequencia) { return; }
-                receber(res && res.analise ? res.analise : null, aoMudarOrigem);
+                var origem = aoMudarOrigem || origemEmVoo;
+                origemEmVoo = false;
+                receber(res && res.analise ? res.analise : null, origem);
             })
             .catch(function () { /* sem análise: a meta continua criável pelo servidor */ });
     }
@@ -369,7 +374,7 @@
         el.jurInput.focus();
     });
     el.jurInput.addEventListener('change', function () {
-        if (!el.jurInput.value) { return; }
+        /* Limpar a data volta ao prazo estimado. */
         estado.jur = el.jurInput.value;
         estado.confirmado = false;
         estado.editJur = false;
@@ -396,14 +401,21 @@
     });
 
     el.origemBtn.addEventListener('click', function () { estado.origemAberta = !estado.origemAberta; desenhar(); });
-    el.pub.addEventListener('change', function () { estado.pub = el.pub.value; mudouOrigem(); });
-    el.ciencia.addEventListener('change', function () { estado.ciencia = el.ciencia.value; mudouOrigem(); });
+    /* Prazo jurídico confirmado ficou velho se a origem ou o texto mudaram: a pessoa confirma de novo. A data digitada por ela fica. */
+    function invalidarConfirmacao() {
+        if (estado.confirmado) {
+            estado.confirmado = false;
+            estado.jur = '';
+        }
+    }
+    el.pub.addEventListener('change', function () { invalidarConfirmacao(); estado.pub = el.pub.value; mudouOrigem(); });
+    el.ciencia.addEventListener('change', function () { invalidarConfirmacao(); estado.ciencia = el.ciencia.value; mudouOrigem(); });
 
     /* Texto da meta e prazo: nova consulta (sem trocar o prazo da meta). Responsáveis só refazem a lista final. */
     [campoTitulo, campoDescricao].forEach(function (c) {
         if (!c) { return; }
-        c.addEventListener('input', function () { agendar(false); });
-        c.addEventListener('change', function () { agendar(false); });
+        c.addEventListener('input', function () { invalidarConfirmacao(); agendar(false); });
+        c.addEventListener('change', function () { invalidarConfirmacao(); agendar(false); });
     });
     if (campoPrazo) { campoPrazo.addEventListener('change', function () { if (analise) { desenhar(); } }); }
     if (campoResp) { campoResp.addEventListener('change', function () { if (analise) { desenhar(); } }); }

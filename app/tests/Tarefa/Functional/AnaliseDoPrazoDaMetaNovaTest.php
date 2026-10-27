@@ -194,6 +194,33 @@ final class AnaliseDoPrazoDaMetaNovaTest extends JusPrimeWebTestCase
         self::assertFalse($meta->usouPrazoSugerido());
     }
 
+    #[TestDox('Criar sem analise_prazo (Push, chamadas antigas): a meta nasce como sempre, sem análise gravada')]
+    public function testSemAnalisePrazoNaoMudaNada(): void
+    {
+        [$client, $pastaId, $autor] = $this->cenario();
+        $corpo = $this->corpoDaMeta($pastaId, $autor);
+        unset($corpo['analise_prazo']);
+
+        $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", $corpo + ['data_ciencia' => '2026-10-19']);
+
+        self::assertResponseIsSuccessful();
+        $this->em->clear();
+        $meta = $this->em->find(Tarefa::class, $this->json($client)['id']);
+        self::assertNull($meta->getEstadoDoPrazoJuridico());
+        self::assertNull($meta->getPrazoJuridico());
+    }
+
+    #[TestDox('Confirmar sem prazo jurídico cai em Estimado: 422 com o código da análise')]
+    public function testConfirmadaSemPrazoJuridicoRecusa(): void
+    {
+        [$client, $pastaId, $autor] = $this->cenario();
+
+        $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", $this->corpoDaMeta($pastaId, $autor) + ['data_ciencia' => '2026-10-19', 'analise_confirmada' => '1']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('analise_do_prazo', $this->json($client)['codigo']);
+    }
+
     /** @return array<string, mixed> */
     private function analisar(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, int $pastaId): array
     {
