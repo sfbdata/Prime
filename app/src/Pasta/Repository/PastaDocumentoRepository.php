@@ -283,24 +283,6 @@ class PastaDocumentoRepository extends ServiceEntityRepository
         return $documentos;
     }
 
-    /**
-     * A posição seguinte à última da pasta (a ordem manual é uma só para a aba Documentos e o Peticionar):
-     * o documento novo entra no fim da lista, onde o Peticionar o põe na tela.
-     */
-    public function proximaOrdem(Pasta $pasta, Tenant $tenant): int
-    {
-        $maior = $this->createQueryBuilder('d')
-            ->select('MAX(d.ordem)')
-            ->andWhere('d.pasta = :pasta')
-            ->andWhere('d.tenant = :tenant')
-            ->setParameter('pasta', $pasta)
-            ->setParameter('tenant', $tenant)
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        return (int) $maior + 1;
-    }
-
     public function findByPastaECategoria(Pasta $pasta, string $categoria): array
     {
         return $this->createQueryBuilder('d')

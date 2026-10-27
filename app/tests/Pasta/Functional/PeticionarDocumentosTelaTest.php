@@ -12,7 +12,6 @@ use App\Pasta\Controller\PeticionarController;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
-use App\Pasta\Service\PosicaoDoDocumentoNovo;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -99,22 +98,6 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         $lista = $crawler->filter('#timelineList');
         self::assertSame("/pasta/{$pasta->getId()}/documentos/reordenar", $lista->attr('data-url-reordenar'));
         self::assertNotEmpty($lista->attr('data-csrf-reordenar'));
-    }
-
-    #[TestDox('o documento novo entra no fim da ordem manual da pasta')]
-    public function testDocumentoNovoEntraNoFim(): void
-    {
-        [, $pasta, $tenant] = $this->cenario();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $a  = $this->documento($pasta, $tenant, 'a.pdf', 'application/pdf', 100);
-        $a->setOrdem(7);
-        $em->flush();
-
-        $posicao = static::getContainer()->get(PosicaoDoDocumentoNovo::class);
-        $novo    = $this->documento($pasta, $tenant, 'novo.pdf', 'application/pdf', 100);
-        $posicao->aoFim($novo, $pasta, $tenant);
-
-        self::assertSame(8, $novo->getOrdem());
     }
 
     #[TestDox('cada linha tem os três pontos e os data-* das rotas de renomear, classificar, baixar e excluir')]

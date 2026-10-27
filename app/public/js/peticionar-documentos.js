@@ -184,6 +184,7 @@
         const row = el('div', 'petic-tl-row');
         if (cfg.podeEditar) row.draggable = true;
         row.dataset.docId               = String(doc.id);
+        row.dataset.ordem               = '0';
         row.dataset.viewUrl             = doc.viewUrl || '';
         row.dataset.downloadUrl         = doc.downloadUrl || '';
         row.dataset.mimeType            = mime;
@@ -223,7 +224,9 @@
         card.appendChild(base);
         card.appendChild(mais);
         row.appendChild(card);
-        tl.appendChild(row);
+        // Documento novo tem ordem 0, como na aba Documentos: fica depois dos outros de ordem 0 e antes dos já ordenados.
+        const ordenada = linhas().find(function (r) { return Number(r.dataset.ordem) > 0; });
+        if (ordenada) tl.insertBefore(row, ordenada); else tl.appendChild(row);
 
         numerar();
         atualizarContagem();
@@ -251,6 +254,7 @@
         const ids = linhas().map(function (r) { return Number(r.dataset.docId); });
         postJson(cfg.urlReordenar, { _token: cfg.csrfReordenar, ids: ids }).then(function (res) {
             if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || BJ_T.t('pasta_peticionar.js.erro_ordenar'));
+            linhas().forEach(function (r, k) { r.dataset.ordem = String(k + 1); });
         }).catch(function (err) {
             antes.forEach(function (r) { tl.appendChild(r); });
             numerar();

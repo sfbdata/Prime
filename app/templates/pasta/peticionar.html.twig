@@ -90,6 +90,7 @@
                     <div class="petic-tl-row"
                          {% if podeEditarPasta %}draggable="true"{% endif %}
                          data-doc-id="{{ doc.id }}"
+                         data-ordem="{{ doc.ordem }}"
                          data-view-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
                          data-download-url="{{ path('pasta_documento_download', {id: doc.id}) }}"
                          data-mime-type="{{ doc.mimeType }}"
